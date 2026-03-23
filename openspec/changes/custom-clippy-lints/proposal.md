@@ -33,10 +33,15 @@ error message and fix suggestion.
 - `acronym-style`: Detect multi-char uppercase runs in type/variant names
 - `numeric-units`: Detect numeric variables missing unit suffix (`_ms`, `_bytes`)
 - `verified-purity`: Detect async/IO/time in `verified/` modules
+- `contradictory-time`: Detect functions with time param that also call `Instant::now()`
 - `unbounded-loop`: Detect `loop {}`/`while` without explicit iteration bound
 - `assertion-density`: Warn on non-trivial functions with fewer than 2 assertions
 - `ignored-result`: Detect `let _ = fallible_expr()`
+- `unchecked-narrowing`: Detect bare `as u32`/`as u16`/`as u8` without bounds check
+- `raw-arithmetic-overflow`: Detect unprotected `+`/`-`/`*` on unsigned types
+- `unchecked-division`: Detect `a / b` where `b` is a parameter without zero guard
 - `ambiguous-params`: Detect 2+ same-type primitive params without wrapper struct
+- `unjustified-allow`: Detect `#[allow(clippy::...)]` without an explanatory comment
 
 ## Impact
 

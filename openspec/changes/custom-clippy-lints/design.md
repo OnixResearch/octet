@@ -99,6 +99,9 @@ syntax-only lints.
 | assertion_density | Late | Needs to count macro expansions in fn body |
 | unbounded_loop | Early | Loop structure is syntactic |
 | ignored_result | Late | Needs return type of expression |
+| unchecked_narrowing | Late | Needs source/target type widths |
+| raw_arithmetic_overflow | Late | Needs operand types to confirm unsigned |
+| unchecked_division | Late | Needs to resolve divisor origin (param vs const) |
 | bool_naming | Late | Needs type inference result |
 | acronym_style | Early | Identifier spelling is syntactic |
 | numeric_units | Early | Identifier name is syntactic |
@@ -106,6 +109,8 @@ syntax-only lints.
 | compound_condition | Early | Operator count is syntactic |
 | ambiguous_params | Late | Needs resolved parameter types |
 | verified_purity | Early | Path detection + keyword scan |
+| contradictory_time | Late | Needs param names + body call resolution |
+| unjustified_allow | Early | Attribute + comment presence is syntactic |
 
 ### 4. Test Strategy
 
@@ -143,6 +148,9 @@ Aspen adds `tigerstyle` as a flake input and runs it as a check.
 | assertion_density | allow | Advisory — not all functions need assertions |
 | unbounded_loop | warn | Real safety issue |
 | ignored_result | warn | 92% catastrophic failure stat |
+| unchecked_narrowing | warn | Silent truncation causes data corruption (verified-logic built a module for this) |
+| raw_arithmetic_overflow | allow | High false positive risk in non-critical code |
+| unchecked_division | warn | Division by zero is always a bug |
 | bool_naming | warn | Convention, easy to fix |
 | acronym_style | warn | Convention, easy to fix |
 | numeric_units | allow | Advisory — high false positive risk |
@@ -150,6 +158,8 @@ Aspen adds `tigerstyle` as a flake input and runs it as a check.
 | compound_condition | allow | Subjective decomposition |
 | ambiguous_params | allow | Noisy on generic APIs |
 | verified_purity | deny | Hard rule for verified/ modules |
+| contradictory_time | warn | Two time sources in one function is always a design error |
+| unjustified_allow | allow | Useful for audits, noisy by default |
 
 ## Risks / Trade-offs
 

@@ -20,20 +20,29 @@
 - [ ] `bool_naming` — detect bool bindings without `is_`/`has_`/`should_`/`can_` prefix
 - [ ] `ignored_result` — detect `let _ = fallible_expr()` discarding Result
 
-## Phase 4: Tier 2 Lints
+## Phase 4: Tier 2 Lints (verified-logic patterns, Late pass)
+
+- [ ] `unchecked_narrowing` — detect bare `as u32`/`u16`/`u8` without bounds check
+- [ ] `unchecked_division` — detect `a / b` where `b` is param without zero guard
+- [ ] `contradictory_time` — detect time param + `Instant::now()` in same function
+
+## Phase 5: Tier 2 Lints (structure)
 
 - [ ] `unbounded_loop` — detect `loop {}` without iteration bound
 - [ ] `compound_condition` — detect `if` with 3+ boolean operators
 - [ ] `verified_purity` — detect async/IO/time in `verified/` modules
+- [ ] `unjustified_allow` — detect `#[allow(clippy::...)]` without comment
 
-## Phase 5: Tier 3 Lints
+## Phase 6: Tier 3 Lints
 
 - [ ] `assertion_density` — warn on 20+ line functions with < 2 assertions
 - [ ] `ambiguous_params` — detect 2+ consecutive same-type primitive params
+- [ ] `raw_arithmetic_overflow` — detect unprotected `+`/`-`/`*` on unsigned types
 
-## Phase 6: Integration
+## Phase 7: Integration
 
 - [ ] Run against aspen workspace, triage results
+- [ ] Run against verified-logic, confirm zero false positives on verified code
 - [ ] Add default severity levels from design doc
 - [ ] Write README with usage instructions and lint catalog
 - [ ] Add as flake check in aspen's `flake.nix`

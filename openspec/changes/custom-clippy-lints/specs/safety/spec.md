@@ -96,3 +96,112 @@ non-Result type (e.g., guard drops).
 - GIVEN `let _ = file.sync_all();`
 - WHEN the lint runs
 - THEN it warns that a `Result` is being silently discarded
+
+### Requirement: Unchecked Narrowing Cast
+
+The lint MUST detect `as u32`, `as u16`, `as u8`, `as i32`, `as i16`,
+`as i8` casts from a wider integer type without a prior bounds check
+on the source value.
+
+A bounds check is any of: `if value <= TYPE::MAX`, a preceding
+`assert!(value <= ...)`, wrapping in `TryFrom`/`try_into()`, or calling
+a checked narrowing function.
+
+The lint MUST suggest using `u32::try_from(value)` or a checked
+narrowing function like `verified_logic::conversion::narrow_u32`.
+
+The lint MUST NOT fire on casts where the source type is the same width
+or narrower than the target (e.g., `u16 as u32`).
+
+The lint MUST NOT fire inside `#[allow(clippy::cast_possible_truncation)]`
+blocks (explicit opt-out).
+
+This lint exists because verified-logic dedicates an entire module
+(`conversion.rs`) to proving narrowing casts are safe — unchecked
+`as` casts silently truncate and are a common source of subtle bugs.
+
+#### Scenario: Bare narrowing cast
+
+- GIVEN `let id: u32 = some_u64 as u32;`
+- WHEN the lint runs
+- THEN it warns: "narrowing cast from u64 to u32 without bounds check — use u32::try_from()"
+
+#### Scenario: Cast with prior guard
+
+- GIVEN `if value <= u32::MAX as u64 { let v = value as u32; }`
+- WHEN the lint runs
+- THEN it does NOT fire (bounds checked by the `if` guard)
+
+#### Scenario: Same-width cast
+
+- GIVEN `let x: i64 = y as i64;` where `y: u32`
+- WHEN the lint runs
+- THEN it does NOT fire (widening cast, not narrowing)
+
+### Requirement: Raw Arithmetic Overflow Detection
+
+The lint SHOULD warn on raw `+`, `-`, `*` operations on unsigned integer
+types (`u8`–`u128`) in production code where the operands are not
+compile-time constants and no overflow protection is present.
+
+Overflow protection includes: `checked_add`/`checked_sub`/`checked_mul`,
+`saturating_add`/`saturating_sub`/`saturating_mul`, a preceding
+`assert!` or `if` guard that bounds the operands, or being inside a
+`verus! { }` block.
+
+The lint MUST NOT fire on `+= 1` or `i + 1` loop increments where `i`
+is bounded by a `for` range or `while i < LIMIT` guard.
+
+The lint MUST NOT fire in test code.
+
+This lint exists because verified-logic uses `checked_mul`, `saturating_add`,
+and `saturating_sub` for every arithmetic operation — `backoff.rs` proves
+overflow safety with Verus, `rate_limit.rs` splits multiplications to
+avoid u64 overflow, and `expiration.rs` uses saturating arithmetic for
+all TTL calculations.
+
+#### Scenario: Unprotected multiplication
+
+- GIVEN `let total = count * item_size;` where both are `u64`
+- WHEN the lint runs
+- THEN it suggests `count.checked_mul(item_size)` or `count.saturating_mul(item_size)`
+
+#### Scenario: Constant arithmetic
+
+- GIVEN `const MAX: u64 = 1024 * 1024;`
+- WHEN the lint runs
+- THEN it does NOT fire (compile-time constants are checked by the compiler)
+
+### Requirement: Unchecked Division by Parameter
+
+The lint MUST warn on `a / b` or `a % b` where `b` is a function
+parameter or local variable (not a constant) and there is no prior
+`assert!(b > 0)`, `assert!(b != 0)`, `if b == 0 { return }`,
+or `requires b > 0` (Verus) guard in the function.
+
+The lint MUST suggest adding an assertion or early return for the
+zero-division case.
+
+The lint MUST NOT fire when the divisor is a literal or named constant.
+
+This lint exists because every division in verified-logic has an explicit
+`requires b > 0` precondition — `div_ceil` requires it, `rate_limit`
+requires `rate_per_sec > 0`, `hash_bucket` requires `bucket_count > 0`.
+
+#### Scenario: Division by parameter
+
+- GIVEN `fn avg(total: u64, count: u64) -> u64 { total / count }`
+- WHEN the lint runs
+- THEN it warns: "division by `count` without zero check"
+
+#### Scenario: Division by constant
+
+- GIVEN `let seconds = ms / 1000;`
+- WHEN the lint runs
+- THEN it does NOT fire
+
+#### Scenario: Guarded division
+
+- GIVEN `assert!(count > 0); let avg = total / count;`
+- WHEN the lint runs
+- THEN it does NOT fire

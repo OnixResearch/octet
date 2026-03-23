@@ -83,3 +83,39 @@ The lint MUST NOT fire on functions with only 1 parameter of that type.
 - GIVEN `fn set(key: &str, value: &[u8], ttl: u64) -> Result<()>`
 - WHEN the lint runs
 - THEN it does NOT fire (no consecutive same-type params)
+
+### Requirement: Allow Attribute Without Justification
+
+The lint SHOULD warn on `#[allow(clippy::...)]` and `#![allow(clippy::...)]`
+attributes that are not preceded by a comment explaining why the lint
+is suppressed.
+
+The lint MUST accept a comment on the same line or the line immediately
+preceding the attribute.
+
+The lint MUST NOT fire on `#[allow(dead_code)]` in `#[cfg(test)]` blocks.
+
+The lint MUST NOT fire on workspace-level lint configuration in
+`Cargo.toml` (those are outside Clippy's reach anyway).
+
+This lint exists because verified-logic carefully documents every
+`#[allow(...)]` — its `conversion.rs` has a module-level `#![allow(...)]`
+block with a comment explaining that "verified casts are the module's
+entire purpose", and its `Cargo.toml` documents each allowed lint with
+a `# ---` section comment. Unjustified suppression hides real bugs.
+
+#### Scenario: Bare allow without comment
+
+- GIVEN `#[allow(clippy::cast_possible_truncation)]` with no preceding comment
+- WHEN the lint runs
+- THEN it warns: "`#[allow]` without justification — add a comment explaining why"
+
+#### Scenario: Allow with justification
+
+- GIVEN:
+  ```rust
+  // Verified casts: Verus checks every narrowing in this module.
+  #[allow(clippy::cast_possible_truncation)]
+  ```
+- WHEN the lint runs
+- THEN it does NOT fire
