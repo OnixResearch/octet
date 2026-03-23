@@ -8,6 +8,9 @@
 | 2026-03-23 | self | Ran cargo test via pueue without nix devshell — missing pkg-config, openssl, LD_LIBRARY_PATH | Always use `nix develop -c bash -c '...'` for builds, or ensure env vars are set |
 | 2026-03-23 | self | Tried setting RUSTUP_TOOLCHAIN in .cargo/config.toml [env] | Cargo explicitly forbids setting RUSTUP_TOOLCHAIN in [env] config. Set it in nix devShell or command line instead |
 | 2026-03-23 | self | dylint_testing UI tests fail in nix — it shells out to `rustup which rustc` and builds dylint_driver which needs RUSTUP_TOOLCHAIN | Made UI test conditional: skip when rustup unavailable. Need proper nix-compatible test strategy for Phase 2 |
+| 2026-03-23 | self | Used `cx.span_lint(...)` with closure — API changed to require `impl Diagnostic<'a, ()>` | Use `cx.opt_span_lint(lint, Some(span), DiagDecorator(\|diag\| { ... }))` — `DiagDecorator` wraps a closure into the `Diagnostic` trait |
+| 2026-03-23 | self | `Item::ident` no longer exists in nightly 2026-03 | Ident moved into each `ItemKind` variant: `Fn` has `.ident`, `Struct(Ident, ..)`, `Enum(Ident, ..)`, `Trait` has `.ident`, `TyAlias` has `.ident` |
+| 2026-03-23 | self | `TokenStream::trees()` doesn't exist | Use `TokenStream::iter()` which yields `&TokenTree` |
 
 ## User Preferences
 - Uses openspec for structured change management
