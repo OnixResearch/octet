@@ -46,6 +46,9 @@ pub fn register_lints(_sess: &rustc_session::Session, lint_store: &mut rustc_lin
     lint_store.register_lints(&[structure::unjustified_allow::UNJUSTIFIED_ALLOW]);
     lint_store.register_early_pass(|| Box::new(structure::unjustified_allow::UnjustifiedAllow));
 
+    lint_store.register_lints(&[structure::nested_conditionals::NESTED_CONDITIONALS]);
+    lint_store.register_early_pass(|| Box::new(structure::nested_conditionals::NestedConditionals));
+
     // -- Late passes (post-type-resolution, need type info) --
     lint_store.register_lints(&[naming::bool_naming::BOOL_NAMING]);
     lint_store.register_late_pass(|_| Box::new(naming::bool_naming::BoolNaming));

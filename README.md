@@ -4,7 +4,7 @@ Custom [dylint](https://github.com/trailofbits/dylint) lints enforcing
 [Tiger Style](https://github.com/tigerbeetle/tigerbeetle/blob/main/docs/TIGER_STYLE.md)
 coding principles for Rust.
 
-20 lints across 5 domains: safety, naming, structure, purity, concurrency.
+21 lints across 5 domains: safety, naming, structure, purity, concurrency.
 
 ## Lint Catalog
 
@@ -30,11 +30,12 @@ coding principles for Rust.
 | `numeric_units` | allow | Bare `timeout` without unit suffix (`_ms`, `_secs`) |
 | `float_for_currency` | allow | `f64` in cost/price/budget struct fields |
 
-### Structure (5 lints)
+### Structure (6 lints)
 
 | Lint | Default | Description |
 |------|---------|-------------|
 | `function_length` | **warn** | Function body exceeds 70 non-blank, non-comment lines |
+| `nested_conditionals` | **warn** | `if`/`match` nesting exceeds 3 levels |
 | `platform_dependent_cast` | **warn** | `as usize` from fixed-width integer is platform-dependent |
 | `compound_condition` | allow | `if` condition with 3+ boolean operators |
 | `unjustified_allow` | allow | `#[allow(...)]` without justification comment |
