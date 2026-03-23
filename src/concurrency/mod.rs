@@ -1,2 +1,1 @@
-// Tiger Style concurrency lints:
-//   multi_lock_ordering
+pub mod multi_lock_ordering;
