@@ -103,12 +103,20 @@ fn narrow(x: u64) -> u32 {
 #![warn(tigerstyle::assertion_density)]
 ```
 
-Or in `dylint.toml`:
+### Per-project configuration
+
+Place a `dylint.toml` in your workspace root to tune thresholds:
 
 ```toml
 [tigerstyle]
-# Project-specific configuration (future)
+function_length_max = 100          # default: 70
+nesting_max_depth = 4              # default: 3
+assertion_density_min_lines = 30   # default: 20
+assertion_density_min_assertions = 3  # default: 2
+acronym_allowlist = ["IO", "ID"]   # default: []
 ```
+
+All fields are optional — missing fields use the defaults shown above.
 
 ## Development
 

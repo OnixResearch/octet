@@ -1,21 +1,35 @@
-use rustc_ast::{Attribute, Block, Item, ItemKind};
+use rustc_ast::{Attribute, Item, ItemKind};
 use rustc_errors::DiagDecorator;
 use rustc_lint::{EarlyContext, EarlyLintPass, LintContext};
-use rustc_session::{declare_lint, declare_lint_pass};
+use rustc_session::{declare_lint, impl_lint_pass};
 use rustc_span::sym;
 
 declare_lint! {
-    /// Detects functions whose body exceeds 70 non-blank, non-comment lines.
-    /// Long functions are hard to reason about and typically indicate missing
-    /// decomposition.
+    /// Detects functions whose body exceeds a configurable number of
+    /// non-blank, non-comment lines (default: 70). Long functions are
+    /// hard to reason about and typically indicate missing decomposition.
+    ///
+    /// Configure in `dylint.toml`:
+    /// ```toml
+    /// [tigerstyle]
+    /// function_length_max = 100
+    /// ```
     pub FUNCTION_LENGTH,
     Warn,
-    "function body exceeds 70 lines"
+    "function body exceeds line limit"
 }
 
-declare_lint_pass!(FunctionLength => [FUNCTION_LENGTH]);
+pub struct FunctionLength {
+    max_lines: usize,
+}
 
-const MAX_LINES: usize = 70;
+impl FunctionLength {
+    pub fn new(max_lines: usize) -> Self {
+        Self { max_lines }
+    }
+}
+
+impl_lint_pass!(FunctionLength => [FUNCTION_LENGTH]);
 
 fn is_test_function(attrs: &[Attribute]) -> bool {
     attrs.iter().any(|attr| attr.has_name(sym::test))
@@ -60,34 +74,40 @@ fn count_code_lines(source: &str) -> usize {
     count
 }
 
-fn check_fn_body(cx: &EarlyContext<'_>, name: rustc_span::Symbol, body: &Block, attrs: &[Attribute]) {
-    if is_test_function(attrs) {
-        return;
-    }
-
-    let source_map = cx.sess().source_map();
-    let Ok(snippet) = source_map.span_to_snippet(body.span) else {
-        return;
-    };
-
-    let code_lines = count_code_lines(&snippet);
-
-    if code_lines > MAX_LINES {
-        cx.opt_span_lint(FUNCTION_LENGTH, Some(body.span), DiagDecorator(|diag| {
-            diag.primary_message(format!(
-                "function `{name}` is {code_lines} lines (limit: {MAX_LINES})",
-            ));
-            diag.help("decompose into smaller functions with clear responsibilities");
-        }));
-    }
-}
-
 impl EarlyLintPass for FunctionLength {
     fn check_item(&mut self, cx: &EarlyContext<'_>, item: &Item) {
-        if let ItemKind::Fn(func) = &item.kind {
-            if let Some(body) = &func.body {
-                check_fn_body(cx, func.ident.name, body, &item.attrs);
-            }
+        let ItemKind::Fn(func) = &item.kind else {
+            return;
+        };
+
+        if is_test_function(&item.attrs) {
+            return;
+        }
+
+        let Some(body) = &func.body else {
+            return;
+        };
+
+        let source_map = cx.sess().source_map();
+        let Ok(snippet) = source_map.span_to_snippet(body.span) else {
+            return;
+        };
+
+        let code_lines = count_code_lines(&snippet);
+        let max = self.max_lines;
+
+        if code_lines > max {
+            let name = func.ident.name;
+            cx.opt_span_lint(
+                FUNCTION_LENGTH,
+                Some(body.span),
+                DiagDecorator(|diag| {
+                    diag.primary_message(format!(
+                        "function `{name}` is {code_lines} lines (limit: {max})",
+                    ));
+                    diag.help("decompose into smaller functions with clear responsibilities");
+                }),
+            );
         }
     }
 }

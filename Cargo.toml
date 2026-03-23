@@ -12,6 +12,7 @@ crate-type = ["cdylib"]
 # Pin to fix-nightly branch until dylint publishes a release with the
 # env_depinfo/file_depinfo removal fix (PR #1942).
 dylint_linting = { git = "https://github.com/trailofbits/dylint", branch = "fix-nightly" }
+serde = { version = "1", features = ["derive"] }
 
 [dev-dependencies]
 dylint_testing = { git = "https://github.com/trailofbits/dylint", branch = "fix-nightly" }

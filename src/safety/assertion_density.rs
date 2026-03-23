@@ -1,22 +1,40 @@
 use rustc_ast::{Item, ItemKind};
 use rustc_errors::DiagDecorator;
 use rustc_lint::{EarlyContext, EarlyLintPass, LintContext};
-use rustc_session::{declare_lint, declare_lint_pass};
+use rustc_session::{declare_lint, impl_lint_pass};
 use rustc_span::sym;
 
 declare_lint! {
-    /// Warns on functions exceeding 20 lines that contain fewer than 2
-    /// assertion macros. Functions without assertions lack documentation
-    /// of their invariants.
+    /// Warns on functions exceeding a configurable line count (default: 20)
+    /// that contain fewer than a required number of assertions (default: 2).
+    /// Functions without assertions lack documentation of their invariants.
+    ///
+    /// Configure in `dylint.toml`:
+    /// ```toml
+    /// [tigerstyle]
+    /// assertion_density_min_lines = 30
+    /// assertion_density_min_assertions = 3
+    /// ```
     pub ASSERTION_DENSITY,
     Allow,
     "function has low assertion density"
 }
 
-declare_lint_pass!(AssertionDensity => [ASSERTION_DENSITY]);
+pub struct AssertionDensity {
+    min_lines: usize,
+    min_assertions: usize,
+}
 
-const MIN_LINES: usize = 20;
-const MIN_ASSERTIONS: usize = 2;
+impl AssertionDensity {
+    pub fn new(min_lines: usize, min_assertions: usize) -> Self {
+        Self {
+            min_lines,
+            min_assertions,
+        }
+    }
+}
+
+impl_lint_pass!(AssertionDensity => [ASSERTION_DENSITY]);
 
 fn count_code_lines(source: &str) -> usize {
     source
@@ -49,7 +67,6 @@ impl EarlyLintPass for AssertionDensity {
             return;
         };
 
-        // Skip test functions
         if item.attrs.iter().any(|a| a.has_name(sym::test)) {
             return;
         }
@@ -64,21 +81,22 @@ impl EarlyLintPass for AssertionDensity {
         };
 
         let lines = count_code_lines(&snippet);
-        if lines < MIN_LINES {
+        if lines < self.min_lines {
             return;
         }
 
         let assertions = count_assertions(&snippet);
-        if assertions >= MIN_ASSERTIONS {
+        if assertions >= self.min_assertions {
             return;
         }
 
+        let min_a = self.min_assertions;
         cx.opt_span_lint(
             ASSERTION_DENSITY,
             Some(body.span),
             DiagDecorator(|diag| {
                 diag.primary_message(format!(
-                    "function `{}` has {assertions} assertion(s) in {lines} lines",
+                    "function `{}` has {assertions} assertion(s) in {lines} lines (need {min_a}+)",
                     func.ident.name,
                 ));
                 diag.help(

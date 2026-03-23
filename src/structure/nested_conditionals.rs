@@ -2,26 +2,39 @@ use rustc_ast::visit::{self, Visitor};
 use rustc_ast::{Expr, ExprKind, Item, ItemKind};
 use rustc_errors::DiagDecorator;
 use rustc_lint::{EarlyContext, EarlyLintPass, LintContext};
-use rustc_session::{declare_lint, declare_lint_pass};
-
+use rustc_session::{declare_lint, impl_lint_pass};
 
 declare_lint! {
-    /// Detects `if`/`match` nesting deeper than 3 levels inside a function
-    /// body. Deep nesting buries the important logic and makes control flow
-    /// hard to follow. Flatten with early returns, guard clauses, or
-    /// extracted helper functions.
+    /// Detects `if`/`match` nesting deeper than a configurable limit
+    /// (default: 3) inside a function body. Deep nesting buries the
+    /// important logic and makes control flow hard to follow.
+    ///
+    /// Configure in `dylint.toml`:
+    /// ```toml
+    /// [tigerstyle]
+    /// nesting_max_depth = 4
+    /// ```
     pub NESTED_CONDITIONALS,
     Warn,
-    "conditional nesting exceeds 3 levels"
+    "conditional nesting exceeds depth limit"
 }
 
-declare_lint_pass!(NestedConditionals => [NESTED_CONDITIONALS]);
+pub struct NestedConditionals {
+    max_depth: usize,
+}
 
-const MAX_NESTING: usize = 3;
+impl NestedConditionals {
+    pub fn new(max_depth: usize) -> Self {
+        Self { max_depth }
+    }
+}
+
+impl_lint_pass!(NestedConditionals => [NESTED_CONDITIONALS]);
 
 struct NestingVisitor<'a, 'b> {
     cx: &'a EarlyContext<'b>,
     depth: usize,
+    max_depth: usize,
     reported: bool,
 }
 
@@ -39,14 +52,15 @@ impl<'ast> Visitor<'ast> for NestingVisitor<'_, '_> {
         if is_branching {
             self.depth += 1;
 
-            if self.depth > MAX_NESTING {
+            if self.depth > self.max_depth {
+                let depth = self.depth;
+                let max = self.max_depth;
                 self.cx.opt_span_lint(
                     NESTED_CONDITIONALS,
                     Some(expr.span),
                     DiagDecorator(|diag| {
                         diag.primary_message(format!(
-                            "conditional nesting is {} levels deep (limit: {MAX_NESTING})",
-                            self.depth,
+                            "conditional nesting is {depth} levels deep (limit: {max})",
                         ));
                         diag.help(
                             "flatten with early returns, guard clauses, \
@@ -80,6 +94,7 @@ impl EarlyLintPass for NestedConditionals {
         let mut visitor = NestingVisitor {
             cx,
             depth: 0,
+            max_depth: self.max_depth,
             reported: false,
         };
         visit::walk_block(&mut visitor, body);
