@@ -33,17 +33,25 @@
 - [ ] `verified_purity` — detect async/IO/time in `verified/` modules
 - [ ] `unjustified_allow` — detect `#[allow(clippy::...)]` without comment
 
-## Phase 6: Tier 3 Lints
+## Phase 6: Tier 2 Lints (clankers patterns)
+
+- [ ] `catch_all_on_enum` — detect `_ => false`/`_ => None` catch-all on enum match
+- [ ] `platform_dependent_cast` — detect `as usize`/`as isize` from fixed-width types
+- [ ] `float_for_currency` — detect f64/f32 in cost/price/budget struct fields
+
+## Phase 7: Tier 3 Lints
 
 - [ ] `assertion_density` — warn on 20+ line functions with < 2 assertions
 - [ ] `ambiguous_params` — detect 2+ consecutive same-type primitive params
 - [ ] `raw_arithmetic_overflow` — detect unprotected `+`/`-`/`*` on unsigned types
+- [ ] `multi_lock_ordering` — detect structs with 2+ Mutex/RwLock without ordering comment
 
-## Phase 7: Integration
+## Phase 8: Integration
 
 - [ ] Run against aspen workspace, triage results
 - [ ] Run against verified-logic, confirm zero false positives on verified code
+- [ ] Run against clankers workspace, triage results
 - [ ] Add default severity levels from design doc
 - [ ] Write README with usage instructions and lint catalog
 - [ ] Add as flake check in aspen's `flake.nix`
-- [ ] Configure allowlists for known exceptions in aspen
+- [ ] Configure allowlists for known exceptions in each project

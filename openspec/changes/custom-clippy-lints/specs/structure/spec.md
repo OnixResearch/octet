@@ -119,3 +119,40 @@ a `# ---` section comment. Unjustified suppression hides real bugs.
   ```
 - WHEN the lint runs
 - THEN it does NOT fire
+
+### Requirement: Platform-Dependent Cast
+
+The lint MUST warn on `as usize` and `as isize` casts from fixed-width
+integer types (`u32`, `u64`, `i32`, `i64`, etc.).
+
+The lint MUST suggest keeping the fixed-width type or using an explicit
+conversion that handles the platform difference.
+
+The lint MUST NOT fire on `as usize` from types that are already
+platform-sized (e.g., array `.len()` which returns `usize`).
+
+The lint MUST NOT fire inside indexing expressions (`array[x as usize]`)
+when `x` is already bounded by a prior check against `array.len()`.
+
+This lint exists because Tiger Style mandates explicitly sized types
+(`u32`, `i64`, not `usize`) for consistent cross-platform behavior.
+clankers' `frame.rs` does `u32::from_be_bytes(len_buf) as usize` — on
+a 16-bit platform this truncates. The `as usize` idiom scatters
+platform assumptions throughout the codebase.
+
+#### Scenario: Fixed-width to usize
+
+- GIVEN `let size = u32::from_be_bytes(buf) as usize;`
+- WHEN the lint runs
+- THEN it warns: "`as usize` from u32 is platform-dependent — use explicit conversion"
+
+#### Scenario: Len-bounded index
+
+- GIVEN:
+  ```rust
+  let idx: u32 = header.index;
+  assert!((idx as usize) < data.len());
+  let val = data[idx as usize];
+  ```
+- WHEN the lint runs
+- THEN it does NOT fire (bounded by len check)

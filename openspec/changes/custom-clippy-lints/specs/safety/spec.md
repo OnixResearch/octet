@@ -205,3 +205,56 @@ requires `rate_per_sec > 0`, `hash_bucket` requires `bucket_count > 0`.
 - GIVEN `assert!(count > 0); let avg = total / count;`
 - WHEN the lint runs
 - THEN it does NOT fire
+
+### Requirement: Catch-All Match Arm on Enum
+
+The lint SHOULD warn on `match` expressions over enum types where
+the last arm is a wildcard (`_`) that returns a "deny" value:
+`false`, `None`, `Err(...)`, or `0`.
+
+The lint MUST suggest replacing the wildcard with explicit variant
+listing so the compiler forces updates when new variants are added.
+
+The lint MUST NOT fire on `match` over non-enum types (`&str`,
+integers, tuples).
+
+The lint MUST NOT fire when the wildcard arm has a comment explaining
+the catch-all intent (e.g., `// All other variants are unauthorized`).
+
+This lint exists because clankers' `Capability::authorizes()` uses
+`_ => false` — if a new `Capability` variant is added, it silently
+gets denied authorization instead of forcing the developer to make
+an explicit decision. In security-relevant code, this is a class of
+bug that leads to silent privilege denial (or worse, silent grant if
+the default were `true`).
+
+#### Scenario: Security match with catch-all deny
+
+- GIVEN:
+  ```rust
+  match (self, op) {
+      (Capability::Read, Operation::Read) => true,
+      _ => false,
+  }
+  ```
+- WHEN the lint runs
+- THEN it warns: "catch-all `_ => false` on enum match — new variants will be silently denied"
+
+#### Scenario: Catch-all with justification comment
+
+- GIVEN:
+  ```rust
+  match event {
+      Event::Click(p) => Some(p),
+      // Non-positional events have no coordinates
+      _ => None,
+  }
+  ```
+- WHEN the lint runs
+- THEN it does NOT fire (comment justifies the catch-all)
+
+#### Scenario: Match on string
+
+- GIVEN `match cmd.as_str() { "start" => true, _ => false }`
+- WHEN the lint runs
+- THEN it does NOT fire (not an enum match)

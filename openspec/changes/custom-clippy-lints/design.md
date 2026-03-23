@@ -71,9 +71,13 @@ tigerstyle/
 │   │   ├── function_length.rs
 │   │   ├── compound_condition.rs
 │   │   └── ambiguous_params.rs
-│   └── purity/
+│   ├── purity/
+│   │   ├── mod.rs
+│   │   ├── verified_purity.rs
+│   │   └── contradictory_time.rs
+│   └── concurrency/
 │       ├── mod.rs
-│       └── verified_purity.rs
+│       └── multi_lock_ordering.rs
 ├── ui_tests/
 │   ├── compound_assertion.rs      # should-fail fixture
 │   ├── compound_assertion.stderr  # expected diagnostics
@@ -111,6 +115,10 @@ syntax-only lints.
 | verified_purity | Early | Path detection + keyword scan |
 | contradictory_time | Late | Needs param names + body call resolution |
 | unjustified_allow | Early | Attribute + comment presence is syntactic |
+| catch_all_on_enum | Late | Needs to know the match scrutinee is an enum |
+| float_for_currency | Late | Needs type resolution to confirm f64/f32 |
+| platform_dependent_cast | Late | Needs source type width |
+| multi_lock_ordering | Early | Struct field types are syntactic |
 
 ### 4. Test Strategy
 
@@ -160,6 +168,10 @@ Aspen adds `tigerstyle` as a flake input and runs it as a check.
 | verified_purity | deny | Hard rule for verified/ modules |
 | contradictory_time | warn | Two time sources in one function is always a design error |
 | unjustified_allow | allow | Useful for audits, noisy by default |
+| catch_all_on_enum | warn | Silent deny/grant on new variants is a security risk (clankers capability.rs) |
+| float_for_currency | allow | Advisory — many codebases use f64 for cost (clankers cost_tracker) |
+| platform_dependent_cast | warn | `as usize` from fixed-width violates explicit sizing rule (clankers frame.rs) |
+| multi_lock_ordering | allow | Advisory — useful for concurrency audits |
 
 ## Risks / Trade-offs
 

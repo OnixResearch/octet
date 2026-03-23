@@ -42,6 +42,9 @@ error message and fix suggestion.
 - `unchecked-division`: Detect `a / b` where `b` is a parameter without zero guard
 - `ambiguous-params`: Detect 2+ same-type primitive params without wrapper struct
 - `unjustified-allow`: Detect `#[allow(clippy::...)]` without an explanatory comment
+- `catch-all-on-enum`: Detect `_ => false`/`_ => None` catch-all in security-relevant match arms
+- `float-for-currency`: Detect `f64` in cost/price/budget struct fields
+- `platform-dependent-cast`: Detect `as usize`/`as isize` from fixed-width integers
 
 ## Impact
 

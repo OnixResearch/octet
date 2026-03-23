@@ -91,3 +91,35 @@ The lint MUST NOT fire on names that already end with a unit suffix.
 - GIVEN `let timeout_ms: u64 = 5000;`
 - WHEN the lint runs
 - THEN it does NOT fire
+
+### Requirement: Floating Point for Currency
+
+The lint SHOULD warn on struct fields or function return types using
+`f32` or `f64` whose name contains `cost`, `price`, `budget`,
+`balance`, `amount`, `fee`, or `total_cost`.
+
+The lint MUST suggest using integer types with explicit units
+(e.g., `cost_microdollars: u64` or a newtype wrapper).
+
+The lint MUST NOT fire on fields named `percentage`, `ratio`, or
+`factor` (those are legitimately floating point).
+
+This lint exists because clankers' `CostTracker` uses `f64` for all
+cost calculations (`cost_usd: f64`, `total_cost: f64`), while
+verified-logic's `rate_limit.rs` specifically uses integer
+"millitokens" to avoid floating point precision issues. The IEEE 754
+representation loses precision above 2^53 — $9,007,199,254,740,992
+sounds like a lot, but accumulated rounding across thousands of API
+calls adds up.
+
+#### Scenario: Float cost field
+
+- GIVEN `pub struct Usage { pub cost_usd: f64 }`
+- WHEN the lint runs
+- THEN it warns: "floating point type for currency — consider integer microdollars"
+
+#### Scenario: Float percentage field
+
+- GIVEN `pub struct Breakdown { pub percentage: f32 }`
+- WHEN the lint runs
+- THEN it does NOT fire
