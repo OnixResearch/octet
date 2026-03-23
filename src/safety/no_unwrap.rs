@@ -2,15 +2,14 @@ use rustc_errors::DiagDecorator;
 use rustc_hir as hir;
 use rustc_hir::ExprKind;
 use rustc_lint::{LateContext, LateLintPass, LintContext};
+use rustc_middle::ty;
 use rustc_session::{declare_lint, declare_lint_pass};
 use rustc_span::sym;
 
 declare_lint! {
-    /// Detects `.unwrap()` and `.expect()` calls in non-test code. These
-    /// panic on failure, crashing the process instead of propagating the
-    /// error. A study of 198 catastrophic failures in distributed systems
-    /// found 92% had an error path that was explicitly ignored or
-    /// inadequately handled.
+    /// Detects `.unwrap()` and `.expect()` calls on `Option` and `Result`
+    /// in non-test code. These panic on failure, crashing the process
+    /// instead of propagating the error.
     pub NO_UNWRAP,
     Warn,
     "`.unwrap()`/`.expect()` in production code"
@@ -18,21 +17,35 @@ declare_lint! {
 
 declare_lint_pass!(NoUnwrap => [NO_UNWRAP]);
 
+fn is_option_or_result(cx: &LateContext<'_>, ty: ty::Ty<'_>) -> bool {
+    if let ty::Adt(adt, _) = ty.kind() {
+        let did = adt.did();
+        cx.tcx.is_diagnostic_item(sym::Option, did)
+            || cx.tcx.is_diagnostic_item(sym::Result, did)
+    } else {
+        false
+    }
+}
+
 fn is_in_test_context(cx: &LateContext<'_>, expr: &hir::Expr<'_>) -> bool {
-    // Walk up the HIR to check if we're inside a #[test] function
     for (_, node) in cx.tcx.hir_parent_iter(expr.hir_id) {
         if let hir::Node::Item(item) = node {
             let attrs = cx.tcx.hir_attrs(item.hir_id());
+            // Check #[test]
             if attrs.iter().any(|a| a.has_name(sym::test)) {
                 return true;
             }
-            // Check for mod tests / #[cfg(test)]
+            // Check #[cfg(test)] on mod
             if let hir::ItemKind::Mod(..) = &item.kind {
-                if attrs.iter().any(|a| {
-                    let s = format!("{a:?}");
-                    s.contains("test")
-                }) {
-                    return true;
+                for attr in attrs {
+                    if attr.has_name(sym::cfg) {
+                        let source = cx.sess().source_map()
+                            .span_to_snippet(attr.span())
+                            .unwrap_or_default();
+                        if source.contains("test") {
+                            return true;
+                        }
+                    }
                 }
             }
         }
@@ -42,12 +55,18 @@ fn is_in_test_context(cx: &LateContext<'_>, expr: &hir::Expr<'_>) -> bool {
 
 impl<'tcx> LateLintPass<'tcx> for NoUnwrap {
     fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx hir::Expr<'tcx>) {
-        let ExprKind::MethodCall(segment, _receiver, _args, _span) = &expr.kind else {
+        let ExprKind::MethodCall(segment, receiver, _args, _span) = &expr.kind else {
             return;
         };
 
         let name = segment.ident.name.as_str();
         if name != "unwrap" && name != "expect" {
+            return;
+        }
+
+        // Only fire when the receiver is Option or Result
+        let receiver_ty = cx.typeck_results().expr_ty(receiver);
+        if !is_option_or_result(cx, receiver_ty) {
             return;
         }
 

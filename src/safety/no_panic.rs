@@ -22,6 +22,47 @@ const PANIC_MACROS: &[&str] = &[
     "unreachable",
 ];
 
+/// Heuristic test detection for EarlyLintPass (no HIR parent chain).
+/// Checks source context around the span for test indicators.
+fn is_in_test_context(cx: &EarlyContext<'_>, expr: &Expr) -> bool {
+    let source_map = cx.sess().source_map();
+
+    // Check filename
+    let filename = source_map.span_to_filename(expr.span);
+    let display = filename.prefer_local_unconditionally();
+    let path = format!("{display}");
+    if path.contains("/tests/") || path.ends_with("_test.rs") {
+        return true;
+    }
+
+    // Check if we're inside a #[cfg(test)] module by looking at
+    // surrounding source lines. Walk backwards from the span to find
+    // `#[cfg(test)]` or `#[test]`.
+    if let Ok(lines) = source_map.span_to_lines(expr.span) {
+        let line_idx = lines.lines.first().map(|l| l.line_index).unwrap_or(0);
+        // Scan up to 50 lines back for test context
+        let start = line_idx.saturating_sub(50);
+        let mut in_test_mod = false;
+        for i in start..line_idx {
+            if let Some(line) = lines.file.get_line(i) {
+                let trimmed = line.trim();
+                if trimmed.contains("#[cfg(test)]") || trimmed.contains("#[test]") {
+                    in_test_mod = true;
+                }
+                // If we hit a non-test module boundary, reset
+                if trimmed.starts_with("mod ") && !in_test_mod {
+                    in_test_mod = false;
+                }
+            }
+        }
+        if in_test_mod {
+            return true;
+        }
+    }
+
+    false
+}
+
 impl EarlyLintPass for NoPanic {
     fn check_expr(&mut self, cx: &EarlyContext<'_>, expr: &Expr) {
         let ExprKind::MacCall(mac) = &expr.kind else {
@@ -37,20 +78,8 @@ impl EarlyLintPass for NoPanic {
             return;
         }
 
-        // Skip if inside a #[cfg(test)] or #[test] context.
-        // EarlyLintPass can't walk parents easily, so check the span's
-        // source file for test module patterns. This is a heuristic —
-        // the Late pass (no_unwrap) does a more precise check.
-        let source_map = cx.sess().source_map();
-        if let Ok(lines) = source_map.span_to_lines(expr.span) {
-            let filename = format!(
-                "{}",
-                lines.file.name.prefer_local_unconditionally()
-            );
-            // Skip files that are clearly test modules
-            if filename.contains("/tests/") || filename.ends_with("_test.rs") {
-                return;
-            }
+        if is_in_test_context(cx, expr) {
+            return;
         }
 
         let suggestion = match name {

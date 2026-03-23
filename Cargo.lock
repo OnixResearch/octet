@@ -193,7 +193,7 @@ dependencies = [
 [[package]]
 name = "dylint"
 version = "5.0.0"
-source = "git+https://github.com/trailofbits/dylint?branch=fix-nightly#0e0a71eefe6f01563d11acc6e1d7af1d505934a9"
+source = "git+https://github.com/trailofbits/dylint?rev=0e0a71eefe6f01563d11acc6e1d7af1d505934a9#0e0a71eefe6f01563d11acc6e1d7af1d505934a9"
 dependencies = [
  "anstyle",
  "anyhow",
@@ -210,7 +210,7 @@ dependencies = [
 [[package]]
 name = "dylint_internal"
 version = "5.0.0"
-source = "git+https://github.com/trailofbits/dylint?branch=fix-nightly#0e0a71eefe6f01563d11acc6e1d7af1d505934a9"
+source = "git+https://github.com/trailofbits/dylint?rev=0e0a71eefe6f01563d11acc6e1d7af1d505934a9#0e0a71eefe6f01563d11acc6e1d7af1d505934a9"
 dependencies = [
  "anstyle",
  "anyhow",
@@ -229,7 +229,7 @@ dependencies = [
 [[package]]
 name = "dylint_linting"
 version = "5.0.0"
-source = "git+https://github.com/trailofbits/dylint?branch=fix-nightly#0e0a71eefe6f01563d11acc6e1d7af1d505934a9"
+source = "git+https://github.com/trailofbits/dylint?rev=0e0a71eefe6f01563d11acc6e1d7af1d505934a9#0e0a71eefe6f01563d11acc6e1d7af1d505934a9"
 dependencies = [
  "cargo_metadata",
  "dylint_internal",
@@ -243,7 +243,7 @@ dependencies = [
 [[package]]
 name = "dylint_testing"
 version = "5.0.0"
-source = "git+https://github.com/trailofbits/dylint?branch=fix-nightly#0e0a71eefe6f01563d11acc6e1d7af1d505934a9"
+source = "git+https://github.com/trailofbits/dylint?rev=0e0a71eefe6f01563d11acc6e1d7af1d505934a9#0e0a71eefe6f01563d11acc6e1d7af1d505934a9"
 dependencies = [
  "anyhow",
  "cargo_metadata",
