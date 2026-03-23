@@ -9,13 +9,13 @@ description = "Custom lints enforcing Tiger Style coding principles"
 crate-type = ["cdylib"]
 
 [dependencies]
-# Pin to fix-nightly branch until dylint publishes a release with the
+# Pin to fix-nightly commit until dylint publishes a release with the
 # env_depinfo/file_depinfo removal fix (PR #1942).
-dylint_linting = { git = "https://github.com/trailofbits/dylint", branch = "fix-nightly" }
+dylint_linting = { git = "https://github.com/trailofbits/dylint", rev = "0e0a71eefe6f01563d11acc6e1d7af1d505934a9" }
 serde = { version = "1", features = ["derive"] }
 
 [dev-dependencies]
-dylint_testing = { git = "https://github.com/trailofbits/dylint", branch = "fix-nightly" }
+dylint_testing = { git = "https://github.com/trailofbits/dylint", rev = "0e0a71eefe6f01563d11acc6e1d7af1d505934a9" }
 
 [package.metadata.rust-analyzer]
 rustc_private = true

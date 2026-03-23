@@ -31,6 +31,11 @@ impl EarlyLintPass for CompoundCondition {
             return;
         };
 
+        // Don't fire on macro-expanded if expressions (e.g., from assert!)
+        if expr.span.from_expansion() {
+            return;
+        }
+
         let ops = count_logical_ops(cond);
         if ops >= 3 {
             cx.opt_span_lint(

@@ -77,11 +77,25 @@ impl<'tcx> LateLintPass<'tcx> for CatchAllOnEnum {
             return;
         }
 
-        // Check if there's a justification comment nearby
+        // Check if there's a justification comment on the wildcard arm.
+        // Look for line comments (// ...) but not // inside URLs or strings.
         let source_map = cx.sess().source_map();
         if let Ok(snippet) = source_map.span_to_snippet(last_arm.span) {
-            if snippet.contains("//") {
-                return;
+            for line in snippet.lines() {
+                let trimmed = line.trim();
+                // A line that starts with // or has // preceded by whitespace/comma
+                if trimmed.starts_with("//") {
+                    return;
+                }
+                if let Some(pos) = trimmed.find("//") {
+                    // Make sure it's not inside a string (rough heuristic:
+                    // count quotes before the //)
+                    let before = &trimmed[..pos];
+                    let quote_count = before.chars().filter(|&c| c == '"').count();
+                    if quote_count % 2 == 0 {
+                        return; // // is outside strings
+                    }
+                }
             }
         }
 

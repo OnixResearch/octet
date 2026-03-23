@@ -16,8 +16,13 @@ declare_lint! {
 
 declare_lint_pass!(UnjustifiedAllow => [UNJUSTIFIED_ALLOW]);
 
-fn is_allow_attr(attr: &Attribute) -> bool {
-    attr.has_name(sym::allow)
+fn is_clippy_allow_attr(attr: &Attribute) -> bool {
+    if !attr.has_name(sym::allow) {
+        return false;
+    }
+    // Only fire on #[allow(clippy::...)] — check the nested tokens
+    let source = format!("{attr:?}");
+    source.contains("clippy")
 }
 
 fn has_comment_nearby(cx: &EarlyContext<'_>, attr: &Attribute) -> bool {
@@ -62,7 +67,7 @@ impl EarlyLintPass for UnjustifiedAllow {
         }
 
         for attr in &item.attrs {
-            if is_allow_attr(attr) && !has_comment_nearby(cx, attr) {
+            if is_clippy_allow_attr(attr) && !has_comment_nearby(cx, attr) {
                 cx.opt_span_lint(
                     UNJUSTIFIED_ALLOW,
                     Some(attr.span),

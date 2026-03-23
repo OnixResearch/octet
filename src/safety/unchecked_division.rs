@@ -25,14 +25,74 @@ fn is_literal_or_const(expr: &hir::Expr<'_>) -> bool {
     match &expr.kind {
         ExprKind::Lit(_) => true,
         ExprKind::Path(hir::QPath::Resolved(_, path)) => {
-            // Constants are resolved paths with Def::Const or Def::AssocConst
             matches!(
                 path.res,
-                hir::def::Res::Def(hir::def::DefKind::Const { .. } | hir::def::DefKind::AssocConst { .. }, _)
+                hir::def::Res::Def(
+                    hir::def::DefKind::Const { .. } | hir::def::DefKind::AssocConst { .. },
+                    _
+                )
             )
         }
         _ => false,
     }
+}
+
+/// Get the name of a simple path expression (variable or parameter name).
+fn expr_name(expr: &hir::Expr<'_>) -> Option<String> {
+    if let ExprKind::Path(hir::QPath::Resolved(_, path)) = &expr.kind {
+        path.segments.last().map(|s| s.ident.name.as_str().to_string())
+    } else {
+        None
+    }
+}
+
+/// Check if there's a prior zero-guard for the divisor in the parent chain.
+/// Looks for patterns like:
+///   - `assert!(b > 0)` / `assert!(b != 0)` / `assert_ne!(b, 0)`
+///   - `if b == 0 { return ... }`
+///   - `if b > 0 { ... division ... }`
+fn has_zero_guard(cx: &LateContext<'_>, expr: &hir::Expr<'_>, divisor_name: &str) -> bool {
+    // Check parent chain for an enclosing if-guard
+    for (_, node) in cx.tcx.hir_parent_iter(expr.hir_id) {
+        match node {
+            hir::Node::Expr(parent) => {
+                if let ExprKind::If(cond, _, _) = &parent.kind {
+                    let source_map = cx.sess().source_map();
+                    if let Ok(snippet) = source_map.span_to_snippet(cond.span) {
+                        // Check if condition references the divisor with a zero/nonzero check
+                        if snippet.contains(divisor_name)
+                            && (snippet.contains("> 0")
+                                || snippet.contains("!= 0")
+                                || snippet.contains("== 0")
+                                || snippet.contains(">= 1")
+                                || snippet.contains(".is_some()"))
+                        {
+                            return true;
+                        }
+                    }
+                }
+                // Check enclosing block for preceding assert statements
+                if let ExprKind::Block(block, _) = &parent.kind {
+                    let source_map = cx.sess().source_map();
+                    if let Ok(snippet) = source_map.span_to_snippet(block.span) {
+                        if snippet.contains(divisor_name)
+                            && (snippet.contains("assert!")
+                                || snippet.contains("assert_ne!")
+                                || snippet.contains("requires"))
+                            && (snippet.contains("> 0")
+                                || snippet.contains("!= 0")
+                                || snippet.contains(">= 1"))
+                        {
+                            return true;
+                        }
+                    }
+                }
+            }
+            hir::Node::Item(_) | hir::Node::ImplItem(_) | hir::Node::TraitItem(_) => break,
+            _ => {}
+        }
+    }
+    false
 }
 
 impl<'tcx> LateLintPass<'tcx> for UncheckedDivision {
@@ -41,31 +101,25 @@ impl<'tcx> LateLintPass<'tcx> for UncheckedDivision {
             return;
         };
 
-        // Only check / and %
         if !matches!(op.node, BinOpKind::Div | BinOpKind::Rem) {
             return;
         }
 
-        // Only integer division (float division doesn't panic on zero)
         let rhs_ty = cx.typeck_results().expr_ty(rhs);
         if !is_integer_ty(rhs_ty) {
             return;
         }
 
-        // Skip if divisor is a literal or named constant
         if is_literal_or_const(rhs) {
             return;
         }
 
-        // Get the divisor name for the diagnostic
-        let divisor_name = match &rhs.kind {
-            ExprKind::Path(hir::QPath::Resolved(_, path)) => {
-                path.segments.last().map(|s| s.ident.name.as_str().to_string())
-            }
-            _ => None,
-        };
+        let name = expr_name(rhs).unwrap_or_else(|| "expression".into());
 
-        let name = divisor_name.unwrap_or_else(|| "expression".into());
+        // Skip if there's a zero-guard for this divisor
+        if has_zero_guard(cx, expr, &name) {
+            return;
+        }
 
         cx.opt_span_lint(
             UNCHECKED_DIVISION,

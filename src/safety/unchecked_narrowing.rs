@@ -17,7 +17,6 @@ declare_lint! {
 
 declare_lint_pass!(UncheckedNarrowing => [UNCHECKED_NARROWING]);
 
-/// Returns the bit width of an integer type, or None for non-integer types.
 fn int_width(ty: Ty<'_>) -> Option<u64> {
     match ty.kind() {
         ty::Int(int_ty) => int_ty.bit_width().map(|w| w as u64),
@@ -26,7 +25,6 @@ fn int_width(ty: Ty<'_>) -> Option<u64> {
     }
 }
 
-/// Returns a human-readable name for the type (e.g., "u64", "i32").
 fn ty_name(ty: Ty<'_>) -> &'static str {
     match ty.kind() {
         ty::Int(i) => i.name_str(),
@@ -35,9 +33,75 @@ fn ty_name(ty: Ty<'_>) -> &'static str {
     }
 }
 
+/// Check if this cast is inside an `if` guard that looks like a bounds check
+/// (condition mentions MAX, max, or compares against the target type's range).
+fn has_bounds_guard(cx: &LateContext<'_>, expr: &hir::Expr<'_>) -> bool {
+    for (_, node) in cx.tcx.hir_parent_iter(expr.hir_id) {
+        match node {
+            hir::Node::Expr(parent) => {
+                if let ExprKind::If(cond, _, _) = &parent.kind {
+                    let source_map = cx.sess().source_map();
+                    if let Ok(snippet) = source_map.span_to_snippet(cond.span) {
+                        let s = snippet.to_ascii_lowercase();
+                        // Recognizes: if val <= u32::MAX, if val < MAX_VAL, etc.
+                        if s.contains("max") || s.contains("try_into") || s.contains("try_from")
+                        {
+                            return true;
+                        }
+                    }
+                }
+                // Check for preceding assert! in a block — look at the parent block
+                if let ExprKind::Block(block, _) = &parent.kind {
+                    let source_map = cx.sess().source_map();
+                    if let Ok(snippet) = source_map.span_to_snippet(block.span) {
+                        let s = snippet.to_ascii_lowercase();
+                        // If the block contains an assert with MAX before the cast
+                        if s.contains("assert") && s.contains("max") {
+                            return true;
+                        }
+                    }
+                }
+            }
+            // Stop at function boundaries
+            hir::Node::Item(_) | hir::Node::ImplItem(_) | hir::Node::TraitItem(_) => break,
+            _ => {}
+        }
+    }
+    false
+}
+
+/// Check if the cast is inside an `#[allow(clippy::cast_possible_truncation)]` block.
+fn has_truncation_allow(cx: &LateContext<'_>, expr: &hir::Expr<'_>) -> bool {
+    for (hir_id, node) in cx.tcx.hir_parent_iter(expr.hir_id) {
+        match node {
+            hir::Node::Item(item) => {
+                let attrs = cx.tcx.hir_attrs(item.hir_id());
+                for attr in attrs {
+                    let s = format!("{attr:?}");
+                    if s.contains("cast_possible_truncation") {
+                        return true;
+                    }
+                }
+                break;
+            }
+            hir::Node::Expr(_) | hir::Node::Stmt(_) | hir::Node::Block(_) => {
+                let attrs = cx.tcx.hir_attrs(hir_id);
+                for attr in attrs {
+                    let s = format!("{attr:?}");
+                    if s.contains("cast_possible_truncation") {
+                        return true;
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+    false
+}
+
 impl<'tcx> LateLintPass<'tcx> for UncheckedNarrowing {
     fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx hir::Expr<'tcx>) {
-        let ExprKind::Cast(inner, _cast_ty) = &expr.kind else {
+        let ExprKind::Cast(inner, _) = &expr.kind else {
             return;
         };
 
@@ -51,8 +115,17 @@ impl<'tcx> LateLintPass<'tcx> for UncheckedNarrowing {
             return;
         };
 
-        // Only fire on narrowing (source wider than target)
         if source_width <= target_width {
+            return;
+        }
+
+        // Skip if inside a bounds-checking guard
+        if has_bounds_guard(cx, expr) {
+            return;
+        }
+
+        // Skip if inside #[allow(clippy::cast_possible_truncation)]
+        if has_truncation_allow(cx, expr) {
             return;
         }
 
@@ -67,7 +140,8 @@ impl<'tcx> LateLintPass<'tcx> for UncheckedNarrowing {
                     "narrowing cast from `{source_name}` to `{target_name}` without bounds check",
                 ));
                 diag.help(format!(
-                    "use `{target_name}::try_from(value)` or a checked narrowing function",
+                    "use `{target_name}::try_from(value)` or guard with \
+                     `if value <= {target_name}::MAX as {source_name}`",
                 ));
             }),
         );
