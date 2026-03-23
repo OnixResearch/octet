@@ -22,9 +22,9 @@
 
 ## Phase 4: Tier 2 Lints (verified-logic patterns, Late pass)
 
-- [ ] `unchecked_narrowing` — detect bare `as u32`/`u16`/`u8` without bounds check
-- [ ] `unchecked_division` — detect `a / b` where `b` is param without zero guard
-- [ ] `contradictory_time` — detect time param + `Instant::now()` in same function
+- [x] `unchecked_narrowing` — detect bare `as u32`/`u16`/`u8` without bounds check ✅ 10m (started: 2026-03-23T02:12Z → completed: 2026-03-23T02:22Z)
+- [x] `unchecked_division` — detect `a / b` where `b` is param without zero guard ✅ 10m (started: 2026-03-23T02:12Z → completed: 2026-03-23T02:22Z)
+- [x] `contradictory_time` — detect time param + `Instant::now()` in same function ✅ 15m (started: 2026-03-23T02:12Z → completed: 2026-03-23T02:27Z)
 
 ## Phase 5: Tier 2 Lints (structure)
 
