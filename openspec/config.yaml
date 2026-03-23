@@ -1,0 +1,28 @@
+schema: spec-driven
+
+project:
+  name: tigerstyle
+  description: Custom Clippy lints enforcing Tiger Style coding principles
+  language: rust
+
+domains:
+  - safety
+  - naming
+  - structure
+  - purity
+
+context: |
+  Rust lint crate using dylint or cargo-marker.
+  Lints enforce Tiger Style rules derived from TigerBeetle's coding philosophy.
+  Primary consumer is the aspen distributed systems project.
+  Lints target production code — test code gets exemptions where noted.
+  We use nix flakes for builds, nextest for testing.
+
+rules:
+  proposal:
+    - Keep it under 500 words
+    - Reference concrete violations found in aspen
+  tasks:
+    - Each task is a single lint implementation
+    - Max 2 hours per lint
+    - Group by tier (easy → hard)
