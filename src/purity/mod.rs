@@ -1,2 +1,4 @@
-// Tiger Style purity lints:
-//   verified_purity, contradictory_time
+pub mod contradictory_time;
+
+// Future:
+//   verified_purity

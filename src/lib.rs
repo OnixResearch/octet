@@ -40,4 +40,13 @@ pub fn register_lints(_sess: &rustc_session::Session, lint_store: &mut rustc_lin
 
     lint_store.register_lints(&[safety::ignored_result::IGNORED_RESULT]);
     lint_store.register_late_pass(|_| Box::new(safety::ignored_result::IgnoredResult));
+
+    lint_store.register_lints(&[safety::unchecked_narrowing::UNCHECKED_NARROWING]);
+    lint_store.register_late_pass(|_| Box::new(safety::unchecked_narrowing::UncheckedNarrowing));
+
+    lint_store.register_lints(&[safety::unchecked_division::UNCHECKED_DIVISION]);
+    lint_store.register_late_pass(|_| Box::new(safety::unchecked_division::UncheckedDivision));
+
+    lint_store.register_lints(&[purity::contradictory_time::CONTRADICTORY_TIME]);
+    lint_store.register_late_pass(|_| Box::new(purity::contradictory_time::ContradictoryTime));
 }
