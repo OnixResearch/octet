@@ -10,10 +10,10 @@
 
 ## Phase 2: Tier 1 Lints (syntax-only, Early pass)
 
-- [ ] `compound_assertion` — detect `assert!(a && b)`, suggest split
-- [ ] `function_length` — detect functions over 70 non-blank/non-comment lines
-- [ ] `acronym_style` — detect `RPCHandler` style, suggest `RpcHandler`
-- [ ] `numeric_units` — detect bare `timeout`, `size` without unit suffix
+- [x] `compound_assertion` — detect `assert!(a && b)`, suggest split ✅ 20m (started: 2026-03-23T01:35Z → completed: 2026-03-23T01:55Z)
+- [x] `function_length` — detect functions over 70 non-blank/non-comment lines ✅ 15m (started: 2026-03-23T01:35Z → completed: 2026-03-23T01:50Z)
+- [x] `acronym_style` — detect `RPCHandler` style, suggest `RpcHandler` ✅ 15m (started: 2026-03-23T01:35Z → completed: 2026-03-23T01:50Z)
+- [x] `numeric_units` — detect bare `timeout`, `size` without unit suffix ✅ 10m (started: 2026-03-23T01:40Z → completed: 2026-03-23T01:50Z)
 
 ## Phase 3: Tier 1 Lints (type-aware, Late pass)
 

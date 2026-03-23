@@ -1,2 +1,5 @@
-// Tiger Style naming lints:
-//   bool_naming, acronym_style, numeric_units, float_for_currency
+pub mod acronym_style;
+pub mod numeric_units;
+
+// Future:
+//   bool_naming, float_for_currency
