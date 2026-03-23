@@ -1,5 +1,6 @@
+pub mod compound_condition;
 pub mod function_length;
+pub mod unjustified_allow;
 
 // Future:
-//   compound_condition, ambiguous_params,
-//   unjustified_allow, platform_dependent_cast
+//   ambiguous_params, platform_dependent_cast

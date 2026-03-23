@@ -1,4 +1,2 @@
 pub mod contradictory_time;
-
-// Future:
-//   verified_purity
+pub mod verified_purity;

@@ -28,10 +28,10 @@
 
 ## Phase 5: Tier 2 Lints (structure)
 
-- [ ] `unbounded_loop` — detect `loop {}` without iteration bound
-- [ ] `compound_condition` — detect `if` with 3+ boolean operators
-- [ ] `verified_purity` — detect async/IO/time in `verified/` modules
-- [ ] `unjustified_allow` — detect `#[allow(clippy::...)]` without comment
+- [x] `unbounded_loop` — detect `loop {}` without iteration bound ✅ 10m (started: 2026-03-23T02:30Z → completed: 2026-03-23T02:40Z)
+- [x] `compound_condition` — detect `if` with 3+ boolean operators ✅ 10m (started: 2026-03-23T02:30Z → completed: 2026-03-23T02:40Z)
+- [x] `verified_purity` — detect async/IO/time in `verified/` modules ✅ 15m (started: 2026-03-23T02:30Z → completed: 2026-03-23T02:45Z)
+- [x] `unjustified_allow` — detect `#[allow(clippy::...)]` without comment ✅ 15m (started: 2026-03-23T02:30Z → completed: 2026-03-23T02:45Z)
 
 ## Phase 6: Tier 2 Lints (clankers patterns)
 
