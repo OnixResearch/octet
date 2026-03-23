@@ -1109,6 +1109,7 @@ version = "0.1.0"
 dependencies = [
  "dylint_linting",
  "dylint_testing",
+ "serde",
 ]
 
 [[package]]
