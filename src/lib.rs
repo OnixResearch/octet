@@ -33,4 +33,11 @@ pub fn register_lints(_sess: &rustc_session::Session, lint_store: &mut rustc_lin
 
     lint_store.register_lints(&[naming::numeric_units::NUMERIC_UNITS]);
     lint_store.register_early_pass(|| Box::new(naming::numeric_units::NumericUnits));
+
+    // -- Late passes (post-type-resolution, need type info) --
+    lint_store.register_lints(&[naming::bool_naming::BOOL_NAMING]);
+    lint_store.register_late_pass(|_| Box::new(naming::bool_naming::BoolNaming));
+
+    lint_store.register_lints(&[safety::ignored_result::IGNORED_RESULT]);
+    lint_store.register_late_pass(|_| Box::new(safety::ignored_result::IgnoredResult));
 }

@@ -17,8 +17,8 @@
 
 ## Phase 3: Tier 1 Lints (type-aware, Late pass)
 
-- [ ] `bool_naming` — detect bool bindings without `is_`/`has_`/`should_`/`can_` prefix
-- [ ] `ignored_result` — detect `let _ = fallible_expr()` discarding Result
+- [x] `bool_naming` — detect bool bindings without `is_`/`has_`/`should_`/`can_` prefix ✅ 10m (started: 2026-03-23T02:00Z → completed: 2026-03-23T02:10Z)
+- [x] `ignored_result` — detect `let _ = fallible_expr()` discarding Result ✅ 10m (started: 2026-03-23T02:00Z → completed: 2026-03-23T02:10Z)
 
 ## Phase 4: Tier 2 Lints (verified-logic patterns, Late pass)
 

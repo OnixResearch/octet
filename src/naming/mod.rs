@@ -1,5 +1,6 @@
 pub mod acronym_style;
+pub mod bool_naming;
 pub mod numeric_units;
 
 // Future:
-//   bool_naming, float_for_currency
+//   float_for_currency
