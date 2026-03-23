@@ -34,6 +34,18 @@ pub fn register_lints(_sess: &rustc_session::Session, lint_store: &mut rustc_lin
     lint_store.register_lints(&[naming::numeric_units::NUMERIC_UNITS]);
     lint_store.register_early_pass(|| Box::new(naming::numeric_units::NumericUnits));
 
+    lint_store.register_lints(&[safety::unbounded_loop::UNBOUNDED_LOOP]);
+    lint_store.register_early_pass(|| Box::new(safety::unbounded_loop::UnboundedLoop));
+
+    lint_store.register_lints(&[structure::compound_condition::COMPOUND_CONDITION]);
+    lint_store.register_early_pass(|| Box::new(structure::compound_condition::CompoundCondition));
+
+    lint_store.register_lints(&[purity::verified_purity::VERIFIED_PURITY]);
+    lint_store.register_early_pass(|| Box::new(purity::verified_purity::VerifiedPurity));
+
+    lint_store.register_lints(&[structure::unjustified_allow::UNJUSTIFIED_ALLOW]);
+    lint_store.register_early_pass(|| Box::new(structure::unjustified_allow::UnjustifiedAllow));
+
     // -- Late passes (post-type-resolution, need type info) --
     lint_store.register_lints(&[naming::bool_naming::BOOL_NAMING]);
     lint_store.register_late_pass(|_| Box::new(naming::bool_naming::BoolNaming));
