@@ -87,4 +87,14 @@ pub fn register_lints(_sess: &rustc_session::Session, lint_store: &mut rustc_lin
 
     lint_store.register_lints(&[concurrency::multi_lock_ordering::MULTI_LOCK_ORDERING]);
     lint_store.register_early_pass(|| Box::new(concurrency::multi_lock_ordering::MultiLockOrdering));
+
+    // -- Tiger Style safety: no-panic family --
+    lint_store.register_lints(&[safety::no_unwrap::NO_UNWRAP]);
+    lint_store.register_late_pass(|_| Box::new(safety::no_unwrap::NoUnwrap));
+
+    lint_store.register_lints(&[safety::no_panic::NO_PANIC]);
+    lint_store.register_pre_expansion_pass(|| Box::new(safety::no_panic::NoPanic));
+
+    lint_store.register_lints(&[safety::no_recursion::NO_RECURSION]);
+    lint_store.register_late_pass(|_| Box::new(safety::no_recursion::NoRecursion));
 }

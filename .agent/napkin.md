@@ -11,6 +11,7 @@
 | 2026-03-23 | self | Used `cx.span_lint(...)` with closure — API changed to require `impl Diagnostic<'a, ()>` | Use `cx.opt_span_lint(lint, Some(span), DiagDecorator(\|diag\| { ... }))` — `DiagDecorator` wraps a closure into the `Diagnostic` trait |
 | 2026-03-23 | self | `Item::ident` no longer exists in nightly 2026-03 | Ident moved into each `ItemKind` variant: `Fn` has `.ident`, `Struct(Ident, ..)`, `Enum(Ident, ..)`, `Trait` has `.ident`, `TyAlias` has `.ident` |
 | 2026-03-23 | self | `TokenStream::trees()` doesn't exist | Use `TokenStream::iter()` which yields `&TokenTree` |
+| 2026-03-23 | self | `cx.tcx.hir()` removed, `item.attrs` gone from HIR Item | Use `cx.tcx.hir_parent_iter()` and `cx.tcx.hir_attrs(hir_id)` for attr access. HIR Item fields: owner_id, kind, span, vis_span |
 
 ## User Preferences
 - Uses openspec for structured change management

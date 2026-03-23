@@ -4,16 +4,19 @@ Custom [dylint](https://github.com/trailofbits/dylint) lints enforcing
 [Tiger Style](https://github.com/tigerbeetle/tigerbeetle/blob/main/docs/TIGER_STYLE.md)
 coding principles for Rust.
 
-21 lints across 5 domains: safety, naming, structure, purity, concurrency.
+24 lints across 5 domains: safety, naming, structure, purity, concurrency.
 
 ## Lint Catalog
 
-### Safety (8 lints)
+### Safety (11 lints)
 
 | Lint | Default | Description |
 |------|---------|-------------|
 | `compound_assertion` | **warn** | `assert!(a && b)` should be split into separate assertions |
 | `ignored_result` | **warn** | `let _ = expr` silently discards a `Result` |
+| `no_unwrap` | **warn** | `.unwrap()`/`.expect()` in production code |
+| `no_panic` | **warn** | `panic!()`/`todo!()`/`unimplemented!()` in production code |
+| `no_recursion` | **warn** | Function calls itself recursively |
 | `unchecked_narrowing` | **warn** | `as u32` from wider type without bounds check |
 | `unchecked_division` | **warn** | `a / b` where `b` is a variable without zero guard |
 | `unbounded_loop` | **warn** | `loop {}` without visible iteration bound |
