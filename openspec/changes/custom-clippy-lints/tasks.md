@@ -2,11 +2,11 @@
 
 ## Phase 1: Scaffolding
 
-- [ ] Initialize Rust crate with `dylint_linting` dependency and nix flake
-- [ ] Set up `ui_tests/` directory with `dylint_testing` harness
-- [ ] Create `src/lib.rs` with lint registration skeleton
-- [ ] Create module structure: `safety/`, `naming/`, `structure/`, `purity/`
-- [ ] Verify `cargo test` runs and passes with zero lints registered
+- [x] Initialize Rust crate with `dylint_linting` dependency and nix flake ✅ 45m (started: 2026-03-23T00:44Z → completed: 2026-03-23T01:29Z)
+- [x] Set up `ui_tests/` directory with `dylint_testing` harness ✅ 10m (started: 2026-03-23T00:50Z → completed: 2026-03-23T01:00Z)
+- [x] Create `src/lib.rs` with lint registration skeleton ✅ 5m (started: 2026-03-23T00:48Z → completed: 2026-03-23T00:53Z)
+- [x] Create module structure: `safety/`, `naming/`, `structure/`, `purity/`, `concurrency/` ✅ 5m (started: 2026-03-23T00:50Z → completed: 2026-03-23T00:55Z)
+- [x] Verify `cargo test` runs and passes with zero lints registered ✅ 5m (started: 2026-03-23T01:25Z → completed: 2026-03-23T01:30Z)
 
 ## Phase 2: Tier 1 Lints (syntax-only, Early pass)
 
