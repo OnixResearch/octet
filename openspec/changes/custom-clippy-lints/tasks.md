@@ -48,9 +48,9 @@
 
 ## Phase 8: Integration
 
-- [ ] Run against aspen workspace, triage results
-- [ ] Run against verified-logic, confirm zero false positives on verified code
-- [ ] Run against clankers workspace, triage results
+- [x] Run against aspen workspace, triage results ✅ 20m (started: 2026-03-23T03:45Z → completed: 2026-03-23T04:05Z)
+- [x] Run against verified-logic, confirm zero false positives on verified code ✅ 15m (started: 2026-03-23T03:45Z → completed: 2026-03-23T04:00Z)
+- [x] Run against clankers workspace, triage results ✅ 15m (started: 2026-03-23T03:45Z → completed: 2026-03-23T04:00Z)
 - [x] Add default severity levels from design doc ✅ 5m (started: 2026-03-23T03:15Z → completed: 2026-03-23T03:20Z)
 - [x] Write README with usage instructions and lint catalog ✅ 15m (started: 2026-03-23T03:15Z → completed: 2026-03-23T03:30Z)
 - [ ] Add as flake check in aspen's `flake.nix`
