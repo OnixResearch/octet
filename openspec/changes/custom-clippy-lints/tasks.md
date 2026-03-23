@@ -35,16 +35,16 @@
 
 ## Phase 6: Tier 2 Lints (clankers patterns)
 
-- [ ] `catch_all_on_enum` — detect `_ => false`/`_ => None` catch-all on enum match
-- [ ] `platform_dependent_cast` — detect `as usize`/`as isize` from fixed-width types
-- [ ] `float_for_currency` — detect f64/f32 in cost/price/budget struct fields
+- [x] `catch_all_on_enum` — detect `_ => false`/`_ => None` catch-all on enum match ✅ 15m (started: 2026-03-23T02:50Z → completed: 2026-03-23T03:05Z)
+- [x] `platform_dependent_cast` — detect `as usize`/`as isize` from fixed-width types ✅ 10m (started: 2026-03-23T02:50Z → completed: 2026-03-23T03:00Z)
+- [x] `float_for_currency` — detect f64/f32 in cost/price/budget struct fields ✅ 10m (started: 2026-03-23T02:50Z → completed: 2026-03-23T03:00Z)
 
 ## Phase 7: Tier 3 Lints
 
-- [ ] `assertion_density` — warn on 20+ line functions with < 2 assertions
-- [ ] `ambiguous_params` — detect 2+ consecutive same-type primitive params
-- [ ] `raw_arithmetic_overflow` — detect unprotected `+`/`-`/`*` on unsigned types
-- [ ] `multi_lock_ordering` — detect structs with 2+ Mutex/RwLock without ordering comment
+- [x] `assertion_density` — warn on 20+ line functions with < 2 assertions ✅ 10m (started: 2026-03-23T02:55Z → completed: 2026-03-23T03:05Z)
+- [x] `ambiguous_params` — detect 2+ consecutive same-type primitive params ✅ 15m (started: 2026-03-23T02:55Z → completed: 2026-03-23T03:10Z)
+- [x] `raw_arithmetic_overflow` — detect unprotected `+`/`-`/`*` on unsigned types ✅ 10m (started: 2026-03-23T02:55Z → completed: 2026-03-23T03:05Z)
+- [x] `multi_lock_ordering` — detect structs with 2+ Mutex/RwLock without ordering comment ✅ 10m (started: 2026-03-23T02:55Z → completed: 2026-03-23T03:05Z)
 
 ## Phase 8: Integration
 

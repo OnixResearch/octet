@@ -61,4 +61,27 @@ pub fn register_lints(_sess: &rustc_session::Session, lint_store: &mut rustc_lin
 
     lint_store.register_lints(&[purity::contradictory_time::CONTRADICTORY_TIME]);
     lint_store.register_late_pass(|_| Box::new(purity::contradictory_time::ContradictoryTime));
+
+    // -- Phase 6: clankers pattern lints --
+    lint_store.register_lints(&[safety::catch_all_on_enum::CATCH_ALL_ON_ENUM]);
+    lint_store.register_late_pass(|_| Box::new(safety::catch_all_on_enum::CatchAllOnEnum));
+
+    lint_store.register_lints(&[structure::platform_dependent_cast::PLATFORM_DEPENDENT_CAST]);
+    lint_store.register_late_pass(|_| Box::new(structure::platform_dependent_cast::PlatformDependentCast));
+
+    lint_store.register_lints(&[naming::float_for_currency::FLOAT_FOR_CURRENCY]);
+    lint_store.register_late_pass(|_| Box::new(naming::float_for_currency::FloatForCurrency));
+
+    // -- Phase 7: tier 3 lints --
+    lint_store.register_lints(&[safety::assertion_density::ASSERTION_DENSITY]);
+    lint_store.register_early_pass(|| Box::new(safety::assertion_density::AssertionDensity));
+
+    lint_store.register_lints(&[structure::ambiguous_params::AMBIGUOUS_PARAMS]);
+    lint_store.register_late_pass(|_| Box::new(structure::ambiguous_params::AmbiguousParams));
+
+    lint_store.register_lints(&[safety::raw_arithmetic_overflow::RAW_ARITHMETIC_OVERFLOW]);
+    lint_store.register_late_pass(|_| Box::new(safety::raw_arithmetic_overflow::RawArithmeticOverflow));
+
+    lint_store.register_lints(&[concurrency::multi_lock_ordering::MULTI_LOCK_ORDERING]);
+    lint_store.register_early_pass(|| Box::new(concurrency::multi_lock_ordering::MultiLockOrdering));
 }
