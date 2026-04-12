@@ -18,3 +18,8 @@
 {"text":"anywhere we should make tigerstyle clippy better before continuing?","timestamp":1774261722884}
 {"text":"fix all","timestamp":1774262359118}
 {"text":"continue","timestamp":1774262399521}
+{"text":"lest copy the skill for tigerstyle from aspen","timestamp":1774262913143}
+{"text":"lets copy tigerstyle skill from ../aspen","timestamp":1774262937862}
+{"text":"how can we enforce this?  1. Remaining ambient clock reads — 48 production files still call Utc::now() /\n SystemTime::now() / Instant::now() despite the Tiger Style boundaries already\n established. The web shell files are fine (they own timestamp capture), but core\n crates like seaglass-pipeline, seaglass-fileio, seaglass-transformations, and\n seaglass-ui still have them.\n 2. unwrap() density in production code — codegen/main.rs (220), type_checker.rs (28),\n editor_layout.rs (20), writer.rs (18), node_processor.rs (18). Tiger Style says\n assertions over unwrap in production paths.","timestamp":1775966065335}
+{"text":"yes","timestamp":1775966270160}
+{"text":"yes lets begin","timestamp":1775966492082}
