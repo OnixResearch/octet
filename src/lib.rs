@@ -88,6 +88,9 @@ pub fn register_lints(sess: &rustc_session::Session, lint_store: &mut rustc_lint
     lint_store.register_lints(&[purity::contradictory_time::CONTRADICTORY_TIME]);
     lint_store.register_late_pass(|_| Box::new(purity::contradictory_time::ContradictoryTime));
 
+    lint_store.register_lints(&[purity::ambient_clock::AMBIENT_CLOCK]);
+    lint_store.register_late_pass(|_| Box::new(purity::ambient_clock::AmbientClock));
+
     lint_store.register_lints(&[safety::catch_all_on_enum::CATCH_ALL_ON_ENUM]);
     lint_store.register_late_pass(|_| Box::new(safety::catch_all_on_enum::CatchAllOnEnum));
 
