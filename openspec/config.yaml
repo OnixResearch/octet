@@ -2,7 +2,7 @@ schema: spec-driven
 
 project:
   name: tigerstyle
-  description: Custom Clippy lints enforcing Tiger Style coding principles
+  description: Custom Clippy lints and agent-facing guidance enforcing Tiger Style coding principles
   language: rust
 
 domains:
@@ -11,6 +11,8 @@ domains:
   - structure
   - purity
   - concurrency
+  - performance
+  - documentation
 
 context: |
   Rust lint crate using dylint or cargo-marker.
@@ -18,12 +20,13 @@ context: |
   Primary consumer is the aspen distributed systems project.
   Lints target production code — test code gets exemptions where noted.
   We use nix flakes for builds, nextest for testing.
+  The repo also maintains the Tiger Style agent skill under ~/.pi/agent/skills/tigerstyle/.
 
 rules:
   proposal:
     - Keep it under 500 words
     - Reference concrete violations found in aspen
   tasks:
-    - Each task is a single lint implementation
-    - Max 2 hours per lint
-    - Group by tier (easy → hard)
+    - Changes must cover every MUST added by their delta specs
+    - Keep a reference-to-skill crosswalk for skill-coverage changes
+    - Record validation evidence before marking the change complete
