@@ -1,0 +1,2 @@
+aspen-default-run.txt: {'ambient_clock': 6, 'compound_assertion': 0, 'contradictory_time': 0, 'no_panic': 0}
+aspen-coordination-spotcheck.txt: {'ambient_clock': 21, 'compound_assertion': 2, 'contradictory_time': 0, 'no_panic': 4}

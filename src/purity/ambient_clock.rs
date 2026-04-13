@@ -92,7 +92,6 @@ fn is_clock_now_path(qpath: &hir::QPath<'_>) -> bool {
             }
             false
         }
-        _ => false,
     }
 }
 
