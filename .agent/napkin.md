@@ -12,6 +12,8 @@
 | 2026-03-23 | self | `Item::ident` no longer exists in nightly 2026-03 | Ident moved into each `ItemKind` variant: `Fn` has `.ident`, `Struct(Ident, ..)`, `Enum(Ident, ..)`, `Trait` has `.ident`, `TyAlias` has `.ident` |
 | 2026-03-23 | self | `TokenStream::trees()` doesn't exist | Use `TokenStream::iter()` which yields `&TokenTree` |
 | 2026-03-23 | self | `cx.tcx.hir()` removed, `item.attrs` gone from HIR Item | Use `cx.tcx.hir_parent_iter()` and `cx.tcx.hir_attrs(hir_id)` for attr access. HIR Item fields: owner_id, kind, span, vis_span |
+| 2026-04-13 | self | Used `rg` tool with shell-style alternation pattern containing spaces and `|`, which the wrapper passed through incorrectly | For alternation-heavy searches, use `bash` with explicit quoting or avoid spaces in the raw `rg` pattern |
+| 2026-04-13 | self | Aspen-side Dylint rollout under nix-managed nightly failed until the check wrapped `rustup`/`cargo`/`dylint-link` and patched `dylint_driver` through a temporary `CARGO_HOME/config.toml` | For downstream integration, use a wrapper script like `scripts/tigerstyle-check.sh`; do not assume plain `cargo dylint` works under nix-managed toolchains |
 
 ## User Preferences
 - Uses openspec for structured change management

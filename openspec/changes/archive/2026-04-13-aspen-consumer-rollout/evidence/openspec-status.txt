@@ -1,0 +1,11 @@
+- Loading change status...
+Change: aspen-consumer-rollout
+Schema: spec-driven
+Progress: 4/4 artifacts complete
+
+[x] proposal
+[x] design
+[x] specs
+[x] tasks
+
+All artifacts complete!

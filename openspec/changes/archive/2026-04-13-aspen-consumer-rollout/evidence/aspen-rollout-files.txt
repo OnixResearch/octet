@@ -1,0 +1,1687 @@
+===== dylint.toml =====
+# Aspen-specific Tiger Style tuning.
+#
+# `scripts/tigerstyle-check.sh` decides which tigerstyle lints are enabled in
+# the current rollout phase. This file keeps workspace thresholds and justified
+# allowlists in one place so later phases can tighten them without rediscovering
+# why Aspen differs from tigerstyle's defaults.
+
+[tigerstyle]
+# Aspen still has larger orchestration handlers. Start at 100 lines while the
+# first rollout proves the workflow, then tighten after the handler cleanup pass.
+function_length_max = 100
+
+# Several coordinator and RPC handlers still nest one level deeper than the
+# default tigerstyle threshold. Keep one extra level during phased adoption.
+nesting_max_depth = 4
+
+# Focus assertion-density checks on non-trivial functions. Thin shell wrappers
+# should not need placeholder assertions just to satisfy the lint.
+assertion_density_min_lines = 30
+assertion_density_min_assertions = 2
+
+# Transport and storage code use `IO` pervasively. Keep this single exception
+# explicit; add new acronym exceptions only with rollout-note rationale.
+acronym_allowlist = ["IO"]
+
+===== scripts/tigerstyle-check.sh =====
+#!/usr/bin/env bash
+# Run Aspen's phase-1 Tiger Style starter lints through Dylint.
+#
+# Requirements:
+#   - `cargo-dylint` and `dylint-link` installed in PATH
+#   - sibling tigerstyle repo at ../tigerstyle, or set TIGERSTYLE_PATH
+#
+# Why wrappers exist:
+#   - Aspen uses a nix-managed nightly toolchain, so `rustup show active-toolchain`
+#     reports `nix-managed` instead of a full nightly triple.
+#   - `cargo-dylint` builds a driver crate that still needs the nightly-fix patch
+#     for `dylint_driver` on current rustc.
+#   - `dylint-link` expects `RUSTUP_TOOLCHAIN` during link steps.
+#
+# This script creates temporary wrappers/config so Aspen can run tigerstyle
+# without mutating the caller's shell environment.
+#
+# Usage:
+#   scripts/tigerstyle-check.sh
+#   scripts/tigerstyle-check.sh -p aspen-core -p aspen-time
+#   TIGERSTYLE_PATH=~/src/tigerstyle scripts/tigerstyle-check.sh --workspace -- --all-targets
+
+set -euo pipefail
+
+usage() {
+  cat <<'EOF'
+Usage: scripts/tigerstyle-check.sh [cargo-dylint options] [package scope] [-- cargo-check args]
+
+Default scope (when no package/workspace is passed):
+  -p aspen-time -p aspen-hlc -p aspen-core
+
+Starter lints enabled in phase 1:
+  - tigerstyle::compound_assertion
+  - tigerstyle::ambient_clock
+  - tigerstyle::contradictory_time
+
+Examples:
+  scripts/tigerstyle-check.sh
+  scripts/tigerstyle-check.sh -p aspen-core -p aspen-time
+  scripts/tigerstyle-check.sh --workspace -- --all-targets
+  scripts/tigerstyle-check.sh --with-deps -p aspen-core -- --all-targets
+  TIGERSTYLE_PATH=~/src/tigerstyle scripts/tigerstyle-check.sh --keep-going
+EOF
+}
+
+if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+  usage
+  exit 0
+fi
+
+need_cmd() {
+  if ! command -v "$1" >/dev/null 2>&1; then
+    echo "error: missing required command: $1" >&2
+    exit 1
+  fi
+}
+
+export PATH="${CARGO_HOME:-$HOME/.cargo}/bin:$PATH"
+
+need_cmd cargo
+need_cmd rustc
+need_cmd python3
+need_cmd cargo-dylint
+need_cmd dylint-link
+
+repo_root=$(git rev-parse --show-toplevel 2>/dev/null) || {
+  echo "error: not inside the Aspen git repository" >&2
+  exit 1
+}
+cd "$repo_root"
+
+tigerstyle_path=$(realpath "${TIGERSTYLE_PATH:-$repo_root/../tigerstyle}")
+if [[ ! -d "$tigerstyle_path" ]]; then
+  echo "error: tigerstyle repo not found at $tigerstyle_path" >&2
+  echo "set TIGERSTYLE_PATH=/path/to/tigerstyle and retry" >&2
+  exit 1
+fi
+if [[ ! -f "$repo_root/dylint.toml" ]]; then
+  echo "error: expected Aspen dylint config at $repo_root/dylint.toml" >&2
+  exit 1
+fi
+
+host_triple=$(rustc -vV | awk '/^host:/ {print $2}')
+toolchain_channel=$(python3 - "$tigerstyle_path/rust-toolchain.toml" <<'PY'
+import pathlib
+import sys
+import tomllib
+path = pathlib.Path(sys.argv[1])
+data = tomllib.loads(path.read_text())
+print(data["toolchain"]["channel"])
+PY
+)
+toolchain="$toolchain_channel"
+if [[ "$toolchain" != *"$host_triple" ]]; then
+  toolchain="${toolchain}-${host_triple}"
+fi
+
+dylint_rev="${TIGERSTYLE_DYLINT_REV:-0e0a71eefe6f01563d11acc6e1d7af1d505934a9}"
+real_cargo=$(command -v cargo)
+real_rustc=$(command -v rustc)
+real_dylint_link=$(command -v dylint-link)
+
+wrap_dir=$(mktemp -d)
+cargo_home_tmp=$(mktemp -d)
+cleanup() {
+  rm -rf "${wrap_dir:-}" "${cargo_home_tmp:-}"
+}
+trap cleanup EXIT
+
+ln -s "${CARGO_HOME:-$HOME/.cargo}/registry" "$cargo_home_tmp/registry"
+ln -s "${CARGO_HOME:-$HOME/.cargo}/git" "$cargo_home_tmp/git"
+cat > "$cargo_home_tmp/config.toml" <<EOF
+[patch.crates-io]
+dylint_driver = { git = "https://github.com/trailofbits/dylint", rev = "$dylint_rev" }
+EOF
+
+cat > "$wrap_dir/rustup" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+case "${1:-}" in
+  show)
+    if [[ "${2:-}" == "active-toolchain" ]]; then
+      echo "__TOOLCHAIN__ (wrapper)"
+      exit 0
+    fi
+    ;;
+  which)
+    if [[ "${2:-}" == "rustc" ]]; then
+      echo "__RUSTC__"
+      exit 0
+    fi
+    ;;
+esac
+echo "unsupported rustup wrapper invocation: $*" >&2
+exit 1
+EOF
+
+cat > "$wrap_dir/cargo" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+export RUSTUP_TOOLCHAIN="${RUSTUP_TOOLCHAIN:-__TOOLCHAIN__}"
+exec "__REAL_CARGO__" "$@"
+EOF
+
+cat > "$wrap_dir/dylint-link" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+export RUSTUP_TOOLCHAIN="${RUSTUP_TOOLCHAIN:-__TOOLCHAIN__}"
+exec "__REAL_DYLINT_LINK__" "$@"
+EOF
+
+sed -i \
+  -e "s|__TOOLCHAIN__|$toolchain|g" \
+  -e "s|__RUSTC__|$real_rustc|g" \
+  "$wrap_dir/rustup"
+sed -i \
+  -e "s|__TOOLCHAIN__|$toolchain|g" \
+  -e "s|__REAL_CARGO__|$real_cargo|g" \
+  "$wrap_dir/cargo"
+sed -i \
+  -e "s|__TOOLCHAIN__|$toolchain|g" \
+  -e "s|__REAL_DYLINT_LINK__|$real_dylint_link|g" \
+  "$wrap_dir/dylint-link"
+chmod +x "$wrap_dir/rustup" "$wrap_dir/cargo" "$wrap_dir/dylint-link"
+
+upper_host=${host_triple^^}
+upper_host=${upper_host//-/_}
+linker_var="CARGO_TARGET_${upper_host}_LINKER"
+export "$linker_var"=dylint-link
+export PATH="$wrap_dir:${CARGO_HOME:-$HOME/.cargo}/bin:$PATH"
+export CARGO_HOME="$cargo_home_tmp"
+export DYLINT_DRIVER_PATH="$cargo_home_tmp/dylint-drivers"
+mkdir -p "$DYLINT_DRIVER_PATH"
+
+starter_lints=(
+  ambient_clock
+  compound_assertion
+  contradictory_time
+)
+
+scope_args=()
+dylint_args=(--all --path "$tigerstyle_path")
+check_args=()
+saw_scope=0
+no_deps=1
+while (($#)); do
+  case "$1" in
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    -p|--package)
+      saw_scope=1
+      scope_args+=("$1" "$2")
+      shift 2
+      ;;
+    --workspace)
+      saw_scope=1
+      no_deps=0
+      scope_args+=("$1")
+      shift
+      ;;
+    --with-deps)
+      no_deps=0
+      shift
+      ;;
+    --)
+      shift
+      check_args=("$@")
+      break
+      ;;
+    *)
+      dylint_args+=("$1")
+      shift
+      ;;
+  esac
+done
+
+if (( ! saw_scope )); then
+  scope_args=(
+    -p aspen-time
+    -p aspen-hlc
+    -p aspen-core
+  )
+fi
+
+if (( no_deps )); then
+  dylint_args+=(--no-deps)
+fi
+
+if [[ ${#check_args[@]} -eq 0 ]]; then
+  check_args=(--lib)
+fi
+
+echo "[tigerstyle] repo:      $tigerstyle_path"
+echo "[tigerstyle] toolchain: $toolchain"
+echo "[tigerstyle] scope:     ${scope_args[*]}"
+echo "[tigerstyle] lints:     ${starter_lints[*]}"
+
+exec cargo dylint "${dylint_args[@]}" "${scope_args[@]}" -- "${check_args[@]}"
+
+===== crates/aspen-time/src/lib.rs =====
+//! Time utilities for Aspen distributed systems.
+//!
+//! This module provides safe, panic-free time access functions following Tiger Style
+//! resource management principles.
+//!
+//! # TimeProvider Trait
+//!
+//! The [`TimeProvider`] trait enables injectable time for deterministic simulation testing.
+//! Use [`SystemTimeProvider`] for production and [`SimulatedTimeProvider`] (behind the
+//! `simulation` feature) for tests.
+//!
+//! # Tiger Style
+//!
+//! - No `.expect()` or `.unwrap()` - safe fallback to 0
+//! - Inline for hot path performance
+//! - Pure functions with no external dependencies
+
+// Phase 1 Tiger Style rollout: keep the starter lint set visible in pilot crates
+// while suppressing noisier families until Aspen has cleanup bandwidth.
+#![allow(unknown_lints)]
+#![allow(no_panic)]
+#![warn(
+    ambient_clock,
+    compound_assertion,
+    contradictory_time,
+)]
+#![allow(
+    acronym_style,
+    ambiguous_params,
+    assertion_density,
+    bool_naming,
+    catch_all_on_enum,
+    compound_condition,
+    float_for_currency,
+    function_length,
+    ignored_result,
+    multi_lock_ordering,
+    nested_conditionals,
+    no_panic,
+    no_recursion,
+    no_unwrap,
+    numeric_units,
+    platform_dependent_cast,
+    raw_arithmetic_overflow,
+    unbounded_loop,
+    unchecked_division,
+    unchecked_narrowing,
+    unjustified_allow,
+    verified_purity,
+)]
+
+#[cfg(feature = "simulation")]
+use std::sync::Arc;
+#[cfg(feature = "simulation")]
+use std::sync::atomic::AtomicU64;
+#[cfg(feature = "simulation")]
+use std::sync::atomic::Ordering;
+use std::time::SystemTime;
+use std::time::UNIX_EPOCH;
+
+// ============================================================================
+// Free Functions (existing API)
+// ============================================================================
+
+/// Get current Unix timestamp in milliseconds.
+///
+/// Returns 0 if system time is before UNIX epoch (should never happen
+/// on properly configured systems, but prevents panics).
+///
+/// # Tiger Style
+///
+/// - No `.expect()` or `.unwrap()` - safe fallback to 0
+/// - Inline for hot path performance
+#[inline]
+pub fn current_time_ms() -> u64 {
+    SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_millis() as u64).unwrap_or(0)
+}
+
+/// Get current Unix timestamp in seconds.
+///
+/// Returns 0 if system time is before UNIX epoch (should never happen
+/// on properly configured systems, but prevents panics).
+///
+/// # Tiger Style
+///
+/// - No `.expect()` or `.unwrap()` - safe fallback to 0
+/// - Inline for hot path performance
+#[inline]
+pub fn current_time_secs() -> u64 {
+    SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0)
+}
+
+// ============================================================================
+// TimeProvider Trait
+// ============================================================================
+
+/// Trait for injectable time sources.
+///
+/// This trait enables deterministic simulation testing by allowing time to be
+/// controlled externally. In production, use [`SystemTimeProvider`]. For tests,
+/// use [`SimulatedTimeProvider`] (requires `simulation` feature).
+///
+/// # Example
+///
+/// ```
+/// use aspen_time::{TimeProvider, SystemTimeProvider};
+///
+/// fn process_with_deadline<T: TimeProvider>(time: &T, deadline_ms: u64) -> bool {
+///     time.now_unix_ms() < deadline_ms
+/// }
+///
+/// let time = SystemTimeProvider;
+/// let deadline = aspen_time::current_time_ms() + 1000;
+/// assert!(process_with_deadline(&time, deadline));
+/// ```
+pub trait TimeProvider: Send + Sync {
+    /// Get current Unix timestamp in milliseconds.
+    fn now_unix_ms(&self) -> u64;
+
+    /// Get current Unix timestamp in seconds.
+    fn now_unix_secs(&self) -> u64;
+}
+
+// ============================================================================
+// SystemTimeProvider (Production)
+// ============================================================================
+
+/// Production time provider using system clock.
+///
+/// This is a zero-size type that delegates to [`current_time_ms`] and
+/// [`current_time_secs`].
+#[derive(Debug, Clone, Copy, Default)]
+pub struct SystemTimeProvider;
+
+impl TimeProvider for SystemTimeProvider {
+    #[inline]
+    fn now_unix_ms(&self) -> u64 {
+        current_time_ms()
+    }
+
+    #[inline]
+    fn now_unix_secs(&self) -> u64 {
+        current_time_secs()
+    }
+}
+
+// ============================================================================
+// SimulatedTimeProvider (Testing)
+// ============================================================================
+
+/// Simulated time provider for deterministic testing.
+///
+/// Allows explicit control over time progression for reproducible tests.
+/// Enable with the `simulation` feature.
+///
+/// # Example
+///
+/// ```ignore
+/// use aspen_time::{TimeProvider, SimulatedTimeProvider};
+///
+/// let time = SimulatedTimeProvider::new(1_000_000);
+/// assert_eq!(time.now_unix_ms(), 1_000_000);
+///
+/// time.advance_ms(500);
+/// assert_eq!(time.now_unix_ms(), 1_000_500);
+///
+/// time.set_ms(2_000_000);
+/// assert_eq!(time.now_unix_ms(), 2_000_000);
+/// ```
+#[cfg(feature = "simulation")]
+#[derive(Debug, Clone)]
+pub struct SimulatedTimeProvider {
+    current_time_ms: Arc<AtomicU64>,
+}
+
+#[cfg(feature = "simulation")]
+impl SimulatedTimeProvider {
+    /// Create a new simulated time provider starting at the given timestamp.
+    pub fn new(initial_time_ms: u64) -> Self {
+        Self {
+            current_time_ms: Arc::new(AtomicU64::new(initial_time_ms)),
+        }
+    }
+
+    /// Create a new simulated time provider starting at the current system time.
+    pub fn from_system_time() -> Self {
+        Self::new(current_time_ms())
+    }
+
+    /// Advance time by the given number of milliseconds.
+    pub fn advance_ms(&self, delta_ms: u64) {
+        self.current_time_ms.fetch_add(delta_ms, Ordering::SeqCst);
+    }
+
+    /// Advance time by the given number of seconds.
+    pub fn advance_secs(&self, delta_secs: u64) {
+        self.advance_ms(delta_secs.saturating_mul(1000));
+    }
+
+    /// Set the current time to a specific value.
+    pub fn set_ms(&self, time_ms: u64) {
+        self.current_time_ms.store(time_ms, Ordering::SeqCst);
+    }
+
+    /// Set the current time to a specific value in seconds.
+    pub fn set_secs(&self, time_secs: u64) {
+        self.set_ms(time_secs.saturating_mul(1000));
+    }
+
+    /// Get the raw atomic for advanced use cases (e.g., sharing across threads).
+    pub fn inner(&self) -> &Arc<AtomicU64> {
+        &self.current_time_ms
+    }
+}
+
+#[cfg(feature = "simulation")]
+impl Default for SimulatedTimeProvider {
+    fn default() -> Self {
+        Self::from_system_time()
+    }
+}
+
+#[cfg(feature = "simulation")]
+impl TimeProvider for SimulatedTimeProvider {
+    #[inline]
+    fn now_unix_ms(&self) -> u64 {
+        self.current_time_ms.load(Ordering::SeqCst)
+    }
+
+    #[inline]
+    fn now_unix_secs(&self) -> u64 {
+        self.now_unix_ms() / 1000
+    }
+}
+
+// ============================================================================
+// Tests
+// ============================================================================
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn current_time_ms_returns_nonzero() {
+        let time = current_time_ms();
+        assert!(time > 0, "current_time_ms should return non-zero on valid systems");
+    }
+
+    #[test]
+    fn current_time_ms_is_monotonic() {
+        let t1 = current_time_ms();
+        let t2 = current_time_ms();
+        assert!(t2 >= t1, "time should not go backwards");
+    }
+
+    #[test]
+    fn current_time_ms_reasonable_range() {
+        // Should be after year 2020 (1577836800000 ms) and before year 2100
+        let time = current_time_ms();
+        let year_2020_ms = 1_577_836_800_000u64;
+        let year_2100_ms = 4_102_444_800_000u64;
+        assert!(time > year_2020_ms, "current_time_ms {} should be after year 2020", time);
+        assert!(time < year_2100_ms, "current_time_ms {} should be before year 2100", time);
+    }
+
+    #[test]
+    fn current_time_secs_returns_nonzero() {
+        let time = current_time_secs();
+        assert!(time > 0, "current_time_secs should return non-zero on valid systems");
+    }
+
+    #[test]
+    fn current_time_secs_is_monotonic() {
+        let t1 = current_time_secs();
+        let t2 = current_time_secs();
+        assert!(t2 >= t1, "time should not go backwards");
+    }
+
+    #[test]
+    fn current_time_secs_reasonable_range() {
+        // Should be after year 2020 (1577836800) and before year 2100
+        let time = current_time_secs();
+        let year_2020 = 1_577_836_800u64;
+        let year_2100 = 4_102_444_800u64;
+        assert!(time > year_2020, "current_time_secs {} should be after year 2020", time);
+        assert!(time < year_2100, "current_time_secs {} should be before year 2100", time);
+    }
+
+    #[test]
+    fn current_time_ms_and_secs_consistent() {
+        let ms = current_time_ms();
+        let secs = current_time_secs();
+        // ms / 1000 should be close to secs (within 1 second)
+        let ms_as_secs = ms / 1000;
+        assert!(
+            ms_as_secs >= secs.saturating_sub(1) && ms_as_secs <= secs + 1,
+            "ms/1000 ({}) and secs ({}) should be consistent",
+            ms_as_secs,
+            secs
+        );
+    }
+
+    #[test]
+    fn system_time_provider_matches_free_functions() {
+        let provider = SystemTimeProvider;
+        let ms1 = current_time_ms();
+        let ms2 = provider.now_unix_ms();
+        // Should be within 10ms of each other
+        assert!(ms2 >= ms1 && ms2 <= ms1 + 10, "SystemTimeProvider should match current_time_ms");
+    }
+
+    #[test]
+    fn system_time_provider_is_send_sync() {
+        fn assert_send_sync<T: Send + Sync>() {}
+        assert_send_sync::<SystemTimeProvider>();
+    }
+}
+
+#[cfg(all(test, feature = "simulation"))]
+mod simulation_tests {
+    use super::*;
+
+    #[test]
+    fn simulated_time_initial_value() {
+        let time = SimulatedTimeProvider::new(1_000_000);
+        assert_eq!(time.now_unix_ms(), 1_000_000);
+        assert_eq!(time.now_unix_secs(), 1_000);
+    }
+
+    #[test]
+    fn simulated_time_advance_ms() {
+        let time = SimulatedTimeProvider::new(1_000_000);
+        time.advance_ms(500);
+        assert_eq!(time.now_unix_ms(), 1_000_500);
+    }
+
+    #[test]
+    fn simulated_time_advance_secs() {
+        let time = SimulatedTimeProvider::new(1_000_000);
+        time.advance_secs(5);
+        assert_eq!(time.now_unix_ms(), 1_005_000); // 1_000_000 + 5*1000
+    }
+
+    #[test]
+    fn simulated_time_set_ms() {
+        let time = SimulatedTimeProvider::new(1_000_000);
+        time.set_ms(2_000_000);
+        assert_eq!(time.now_unix_ms(), 2_000_000);
+    }
+
+    #[test]
+    fn simulated_time_set_secs() {
+        let time = SimulatedTimeProvider::new(1_000_000);
+        time.set_secs(100);
+        assert_eq!(time.now_unix_ms(), 100_000);
+    }
+
+    #[test]
+    fn simulated_time_clone_shares_state() {
+        let time1 = SimulatedTimeProvider::new(1_000_000);
+        let time2 = time1.clone();
+
+        time1.advance_ms(500);
+        assert_eq!(time2.now_unix_ms(), 1_000_500);
+    }
+
+    #[test]
+    fn simulated_time_is_send_sync() {
+        fn assert_send_sync<T: Send + Sync>() {}
+        assert_send_sync::<SimulatedTimeProvider>();
+    }
+
+    #[test]
+    fn simulated_time_saturating_advance() {
+        let time = SimulatedTimeProvider::new(u64::MAX - 100);
+        time.advance_ms(200);
+        // Should wrap due to fetch_add, but that's expected behavior
+        // The important thing is it doesn't panic
+        let _ = time.now_unix_ms();
+    }
+
+    #[test]
+    fn simulated_time_from_system() {
+        let time = SimulatedTimeProvider::from_system_time();
+        let system = current_time_ms();
+        // Should be within 100ms of system time
+        let simulated = time.now_unix_ms();
+        assert!(
+            simulated >= system.saturating_sub(100) && simulated <= system + 100,
+            "from_system_time should be close to current time"
+        );
+    }
+}
+
+===== crates/aspen-hlc/src/lib.rs =====
+//! Hybrid Logical Clock utilities for deterministic distributed ordering.
+//!
+//! This crate provides shared HLC (Hybrid Logical Clock) utilities used throughout
+//! the Aspen ecosystem for deterministic timestamp ordering in distributed systems.
+//!
+//! ## Key Features
+//!
+//! - **Deterministic ordering**: HLC provides total ordering even when wall clocks are equal
+//! - **Causal consistency**: Updates from received timestamps maintain happened-before
+//!   relationships
+//! - **Node ID tiebreaker**: Each node has a unique 16-byte ID derived from its identifier
+//!
+//! ## Usage
+//!
+//! ```ignore
+//! use aspen_hlc::{create_hlc, new_timestamp, HlcTimestamp};
+//!
+//! // Create an HLC instance for a node
+//! let hlc = create_hlc("node-1");
+//!
+//! // Generate timestamps
+//! let ts1 = new_timestamp(&hlc);
+//! let ts2 = new_timestamp(&hlc);
+//! assert!(ts2 > ts1); // Monotonically increasing
+//!
+//! // Convert to Unix milliseconds for display/logging
+//! let unix_ms = to_unix_ms(&ts1);
+//! ```
+//!
+//! ## Tiger Style
+//!
+//! - Deterministic ID derivation from node_id using blake3 hash
+//! - No panics in production code (infallible operations)
+//! - Pure functions for testability
+
+// Phase 1 Tiger Style rollout: keep the starter lint set visible in pilot crates
+// while suppressing noisier families until Aspen has cleanup bandwidth.
+#![allow(unknown_lints)]
+#![allow(no_panic)]
+#![warn(
+    ambient_clock,
+    compound_assertion,
+    contradictory_time,
+)]
+#![allow(
+    acronym_style,
+    ambiguous_params,
+    assertion_density,
+    bool_naming,
+    catch_all_on_enum,
+    compound_condition,
+    float_for_currency,
+    function_length,
+    ignored_result,
+    multi_lock_ordering,
+    nested_conditionals,
+    no_panic,
+    no_recursion,
+    no_unwrap,
+    numeric_units,
+    platform_dependent_cast,
+    raw_arithmetic_overflow,
+    unbounded_loop,
+    unchecked_division,
+    unchecked_narrowing,
+    unjustified_allow,
+    verified_purity,
+)]
+
+use serde::Deserialize;
+use serde::Serialize;
+// Re-export core uhlc types for convenience
+pub use uhlc::HLC;
+pub use uhlc::ID;
+pub use uhlc::NTP64;
+pub use uhlc::Timestamp as HlcTimestamp;
+
+/// Create an HLC instance from a node identifier.
+///
+/// The node ID is hashed using blake3 to produce a deterministic 16-byte HLC ID.
+/// This ensures that the same node_id always produces the same HLC instance ID,
+/// which is critical for deterministic conflict resolution.
+///
+/// # Arguments
+///
+/// * `node_id` - A string identifier for the node (e.g., "node-1", a UUID, etc.)
+///
+/// # Returns
+///
+/// An HLC instance ready for timestamp generation.
+///
+/// # Example
+///
+/// ```ignore
+/// let hlc = create_hlc("my-node-id");
+/// let timestamp = hlc.new_timestamp();
+/// ```
+pub fn create_hlc(node_id: &str) -> HLC {
+    let hash = blake3::hash(node_id.as_bytes());
+    let bytes = hash.as_bytes();
+    // Safety: blake3 hash is always 32 bytes, extracting first 16 via explicit indexing
+    // is infallible. Using explicit array construction avoids try_into().unwrap().
+    let id_bytes: [u8; 16] = [
+        bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7], bytes[8], bytes[9], bytes[10],
+        bytes[11], bytes[12], bytes[13], bytes[14], bytes[15],
+    ];
+    // uhlc::ID::try_from([u8; 16]) is infallible - the TryFrom impl for fixed-size arrays
+    // always succeeds. Use match to handle the Result without expect().
+    match uhlc::ID::try_from(id_bytes) {
+        Ok(id) => uhlc::HLCBuilder::new().with_id(id).build(),
+        Err(_) => {
+            // Unreachable: 16-byte arrays are always valid for uhlc::ID.
+            // Fallback to default ID for Tiger Style compliance (no panics).
+            uhlc::HLCBuilder::new().build()
+        }
+    }
+}
+
+/// Generate a new HLC timestamp.
+///
+/// This is a convenience wrapper around `HLC::new_timestamp()`.
+/// Each call returns a timestamp that is strictly greater than any
+/// previous timestamp from this HLC instance.
+///
+/// # Arguments
+///
+/// * `hlc` - The HLC instance to generate a timestamp from
+///
+/// # Returns
+///
+/// A new HLC timestamp that is monotonically increasing.
+pub fn new_timestamp(hlc: &HLC) -> HlcTimestamp {
+    hlc.new_timestamp()
+}
+
+/// Update HLC from a received timestamp for causal ordering.
+///
+/// When receiving a message with an HLC timestamp from another node,
+/// call this function to advance the local HLC if the received timestamp
+/// is in the future. This maintains the happened-before relationship
+/// across distributed nodes.
+///
+/// # Arguments
+///
+/// * `hlc` - The local HLC instance to update
+/// * `received` - The timestamp received from another node
+///
+/// # Returns
+///
+/// * `Ok(())` - If the update was successful
+/// * `Err(String)` - If the received timestamp is too far in the future (more than the configured
+///   max delta, typically 1 second)
+///
+/// # Example
+///
+/// ```ignore
+/// // On message receive:
+/// if let Err(e) = update_from_timestamp(&local_hlc, &received_timestamp) {
+///     warn!("Clock drift detected: {}", e);
+/// }
+/// ```
+pub fn update_from_timestamp(hlc: &HLC, received: &HlcTimestamp) -> Result<(), String> {
+    hlc.update_with_timestamp(received)
+}
+
+/// Convert HLC timestamp to milliseconds since UNIX epoch.
+///
+/// This extracts the wall-clock component of the HLC timestamp and
+/// converts it to Unix milliseconds. Useful for logging, display,
+/// and interop with systems that expect Unix timestamps.
+///
+/// # Arguments
+///
+/// * `timestamp` - The HLC timestamp to convert
+///
+/// # Returns
+///
+/// Milliseconds since Unix epoch (January 1, 1970 00:00:00 UTC).
+///
+/// # Note
+///
+/// This loses the logical clock component and node ID from the HLC.
+/// For ordering comparisons, always use the full HLC timestamp.
+pub fn to_unix_ms(timestamp: &HlcTimestamp) -> u64 {
+    // HLC uses NTP64 format: upper 32 bits are seconds, lower 32 bits are fractions
+    let ntp64 = timestamp.get_time().as_u64();
+    let seconds = ntp64 >> 32;
+    seconds * 1000
+}
+
+/// Wrapper for HLC timestamp with serde support.
+///
+/// The raw `uhlc::Timestamp` doesn't implement Serialize/Deserialize,
+/// so this wrapper provides serialization via the underlying NTP64 time and ID.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+pub struct SerializableTimestamp {
+    /// NTP64 time component
+    time: u64,
+    /// ID component (16 bytes)
+    id: [u8; 16],
+}
+
+impl SerializableTimestamp {
+    /// Create a new serializable timestamp from an HLC timestamp.
+    pub fn new(timestamp: HlcTimestamp) -> Self {
+        Self {
+            time: timestamp.get_time().as_u64(),
+            id: timestamp.get_id().to_le_bytes(),
+        }
+    }
+
+    /// Convert back to an HLC timestamp.
+    pub fn to_hlc_timestamp(&self) -> HlcTimestamp {
+        // ID::try_from([u8; 16]) is infallible - 16-byte arrays are always valid.
+        // Use ok() and unwrap_or to provide a fallback for Tiger Style compliance.
+        // The fallback is unreachable but avoids expect/unwrap panics.
+        let id = ID::try_from(self.id).ok().unwrap_or_else(|| {
+            // Unreachable: self.id is [u8; 16] which is always valid for ID.
+            // Use NonZeroU8::MIN (1) as a safe fallback ID.
+            ID::from(std::num::NonZeroU8::MIN)
+        });
+        HlcTimestamp::new(NTP64(self.time), id)
+    }
+
+    /// Get the time component as u64.
+    pub fn time(&self) -> u64 {
+        self.time
+    }
+
+    /// Get the ID component.
+    pub fn id(&self) -> &[u8; 16] {
+        &self.id
+    }
+
+    /// Convert to milliseconds since UNIX epoch.
+    ///
+    /// This extracts the wall-clock component and converts to Unix milliseconds.
+    /// Useful for logging, display, and interop with systems that expect Unix timestamps.
+    ///
+    /// Note: This loses the logical clock component and node ID. For ordering
+    /// comparisons, always use the full `SerializableTimestamp`.
+    pub fn to_unix_ms(&self) -> u64 {
+        // NTP64 format: upper 32 bits are seconds, lower 32 bits are fractions
+        let seconds = self.time >> 32;
+        seconds * 1000
+    }
+
+    /// Create a SerializableTimestamp from Unix milliseconds.
+    ///
+    /// This creates a timestamp with the given Unix time (converted to NTP64 format)
+    /// and a zeroed ID. Useful for reconstructing timestamps from stored Unix
+    /// millisecond values, though the resulting timestamp loses node ID information.
+    ///
+    /// # Arguments
+    ///
+    /// * `millis` - Milliseconds since Unix epoch (January 1, 1970 00:00:00 UTC)
+    ///
+    /// # Returns
+    ///
+    /// A SerializableTimestamp representing approximately that time.
+    ///
+    /// # Note
+    ///
+    /// The conversion is approximate since NTP64 has higher precision than
+    /// milliseconds, and the node ID is zeroed. For precise ordering, use
+    /// timestamps generated by an HLC instance.
+    pub fn from_millis(millis: u64) -> Self {
+        // Convert to NTP64: seconds in upper 32 bits
+        let seconds = millis / 1000;
+        let time = seconds << 32;
+        Self {
+            time,
+            id: [0u8; 16], // Zeroed ID since we don't know the original node
+        }
+    }
+}
+
+impl From<HlcTimestamp> for SerializableTimestamp {
+    fn from(ts: HlcTimestamp) -> Self {
+        Self::new(ts)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_create_hlc_deterministic() {
+        // Same node_id should produce consistent HLC behavior
+        let hlc1 = create_hlc("test-node");
+        let hlc2 = create_hlc("test-node");
+
+        // Both HLCs should be able to generate timestamps
+        let ts1 = new_timestamp(&hlc1);
+        let ts2 = new_timestamp(&hlc2);
+
+        // Timestamps should be valid (non-zero time)
+        assert!(ts1.get_time().as_u64() > 0);
+        assert!(ts2.get_time().as_u64() > 0);
+    }
+
+    #[test]
+    fn test_timestamps_monotonic() {
+        let hlc = create_hlc("monotonic-test");
+
+        let ts1 = new_timestamp(&hlc);
+        let ts2 = new_timestamp(&hlc);
+        let ts3 = new_timestamp(&hlc);
+
+        // Each timestamp should be strictly greater than the previous
+        assert!(ts2 > ts1, "ts2 should be > ts1");
+        assert!(ts3 > ts2, "ts3 should be > ts2");
+    }
+
+    #[test]
+    fn test_update_from_future_timestamp() {
+        let hlc_sender = create_hlc("sender");
+        let hlc_receiver = create_hlc("receiver");
+
+        // Generate a "future" timestamp from sender
+        let sender_ts = new_timestamp(&hlc_sender);
+
+        // Update receiver's HLC with sender's timestamp
+        let result = update_from_timestamp(&hlc_receiver, &sender_ts);
+        assert!(result.is_ok(), "Should accept reasonable timestamp");
+
+        // Receiver's next timestamp should be >= sender's timestamp
+        let receiver_ts = new_timestamp(&hlc_receiver);
+        assert!(receiver_ts >= sender_ts, "Receiver should advance past sender's timestamp");
+    }
+
+    #[test]
+    fn test_to_unix_ms_conversion() {
+        let hlc = create_hlc("unix-test");
+        let ts = new_timestamp(&hlc);
+        let unix_ms = to_unix_ms(&ts);
+
+        // Should be a reasonable Unix timestamp (after year 2020)
+        let year_2020_ms: u64 = 1577836800000; // Jan 1, 2020 00:00:00 UTC
+        assert!(unix_ms > year_2020_ms, "Timestamp should be after year 2020: {} vs {}", unix_ms, year_2020_ms);
+
+        // Should be less than year 2100
+        let year_2100_ms: u64 = 4102444800000;
+        assert!(unix_ms < year_2100_ms, "Timestamp should be before year 2100");
+    }
+
+    #[test]
+    fn test_different_nodes_different_ordering() {
+        let hlc_a = create_hlc("node-a");
+        let hlc_b = create_hlc("node-b");
+
+        // Generate timestamps from different nodes at "the same time"
+        let ts_a = new_timestamp(&hlc_a);
+        let ts_b = new_timestamp(&hlc_b);
+
+        // They should not be equal (different node IDs break ties)
+        assert_ne!(ts_a, ts_b, "Different nodes should produce different timestamps");
+
+        // But they should be comparable (total ordering)
+        let _ordering = ts_a.cmp(&ts_b);
+        // Just checking it doesn't panic - the actual ordering depends on node IDs
+    }
+
+    #[test]
+    fn test_serializable_timestamp() {
+        let hlc = create_hlc("serde-test");
+        let ts = new_timestamp(&hlc);
+
+        // Convert to serializable
+        let ser_ts = SerializableTimestamp::new(ts);
+
+        // Serialize and deserialize
+        let json = serde_json::to_string(&ser_ts).expect("serialize");
+        let deser: SerializableTimestamp = serde_json::from_str(&json).expect("deserialize");
+
+        // Should round-trip correctly
+        assert_eq!(ser_ts, deser);
+        assert_eq!(ser_ts.time(), deser.time());
+        assert_eq!(ser_ts.id(), deser.id());
+    }
+
+    #[test]
+    fn test_same_node_id_produces_same_hlc_id() {
+        let hlc1 = create_hlc("consistent-node");
+        let hlc2 = create_hlc("consistent-node");
+
+        let ts1 = new_timestamp(&hlc1);
+        let ts2 = new_timestamp(&hlc2);
+
+        // Same node_id means same HLC ID
+        assert_eq!(ts1.get_id(), ts2.get_id());
+    }
+
+    #[test]
+    fn test_different_node_ids_produce_different_hlc_ids() {
+        let hlc1 = create_hlc("node-alpha");
+        let hlc2 = create_hlc("node-beta");
+
+        let ts1 = new_timestamp(&hlc1);
+        let ts2 = new_timestamp(&hlc2);
+
+        // Different node_ids mean different HLC IDs
+        assert_ne!(ts1.get_id(), ts2.get_id());
+    }
+
+    #[test]
+    fn test_serializable_timestamp_to_hlc_roundtrip() {
+        let hlc = create_hlc("roundtrip-test");
+        let original = new_timestamp(&hlc);
+
+        let ser = SerializableTimestamp::new(original);
+        let reconstructed = ser.to_hlc_timestamp();
+
+        // Time and ID should match
+        assert_eq!(original.get_time(), reconstructed.get_time());
+        assert_eq!(original.get_id(), reconstructed.get_id());
+    }
+
+    #[test]
+    fn test_serializable_timestamp_from_millis() {
+        let millis: u64 = 1704067200000; // Jan 1, 2024 00:00:00 UTC
+
+        let ser_ts = SerializableTimestamp::from_millis(millis);
+
+        // ID should be zeroed
+        assert_eq!(ser_ts.id(), &[0u8; 16]);
+
+        // Time should round-trip approximately (within same second)
+        let recovered_ms = ser_ts.to_unix_ms();
+        assert_eq!(recovered_ms / 1000, millis / 1000, "Seconds should match");
+    }
+
+    #[test]
+    fn test_serializable_timestamp_postcard_serialization() {
+        let hlc = create_hlc("postcard-test");
+        let ts = new_timestamp(&hlc);
+        let ser = SerializableTimestamp::new(ts);
+
+        // Test postcard (binary) serialization
+        let bytes = postcard::to_allocvec(&ser).expect("postcard serialize");
+        let deser: SerializableTimestamp = postcard::from_bytes(&bytes).expect("postcard deserialize");
+
+        assert_eq!(ser, deser);
+    }
+
+    #[test]
+    fn test_serializable_timestamp_bincode_serialization() {
+        let hlc = create_hlc("bincode-test");
+        let ts = new_timestamp(&hlc);
+        let ser = SerializableTimestamp::new(ts);
+
+        // Test bincode serialization
+        let bytes = bincode::serialize(&ser).expect("bincode serialize");
+        let deser: SerializableTimestamp = bincode::deserialize(&bytes).expect("bincode deserialize");
+
+        assert_eq!(ser, deser);
+    }
+}
+
+===== crates/aspen-core/src/lib.rs =====
+//! Core API types and traits for Aspen distributed systems.
+//!
+//! This crate provides the foundational types, traits, and constants used throughout
+//! the Aspen ecosystem. It is designed to be a lightweight dependency that can be
+//! used by both the core Aspen crate and external consumers.
+//!
+//! # Key Components
+//!
+//! - **Traits**: `ClusterController`, `KeyValueStore`, `SqlQueryExecutor`
+//! - **Types**: `NodeId`, `NodeAddress`, `WriteCommand`, `ReadRequest`, etc.
+//! - **Storage**: `SM_KV_TABLE`, `KvEntry` (centralized storage constants)
+//! - **Constants**: Tiger Style resource limits
+//!
+//! # Feature Flags
+//!
+//! - `sql` (default): Include SQL query types and traits
+
+// Phase 1 Tiger Style rollout: keep the starter lint set visible in pilot crates
+// while suppressing noisier families until Aspen has cleanup bandwidth.
+#![allow(unknown_lints)]
+#![allow(no_panic)]
+#![warn(
+    ambient_clock,
+    compound_assertion,
+    contradictory_time,
+)]
+#![allow(
+    acronym_style,
+    ambiguous_params,
+    assertion_density,
+    bool_naming,
+    catch_all_on_enum,
+    compound_condition,
+    float_for_currency,
+    function_length,
+    ignored_result,
+    multi_lock_ordering,
+    nested_conditionals,
+    no_panic,
+    no_recursion,
+    no_unwrap,
+    numeric_units,
+    platform_dependent_cast,
+    raw_arithmetic_overflow,
+    unbounded_loop,
+    unchecked_division,
+    unchecked_narrowing,
+    unjustified_allow,
+    verified_purity,
+)]
+
+pub mod app_registry;
+pub mod circuit_breaker;
+pub mod cluster;
+pub mod constants;
+pub mod context;
+pub mod crypto;
+pub mod error;
+pub mod hlc;
+pub mod kv;
+#[cfg(feature = "layer")]
+pub mod layer;
+pub mod prelude;
+pub mod protocol;
+pub mod simulation;
+pub mod spec;
+#[cfg(feature = "sql")]
+pub mod sql;
+pub mod storage;
+pub mod traits;
+pub mod transport;
+pub mod types;
+pub mod utils;
+pub mod vault;
+/// Verified pure functions for core distributed system operations.
+pub mod verified;
+
+/// Test support utilities (test-only).
+///
+/// Provides minimal deterministic implementations of core traits for
+/// internal unit tests. For external testing, use `aspen-testing`.
+#[cfg(test)]
+pub(crate) mod test_support;
+// Re-export all public types at crate root for convenience
+
+// App registry types
+pub use app_registry::AppManifest;
+pub use app_registry::AppRegistry;
+pub use app_registry::SharedAppRegistry;
+pub use app_registry::shared_registry;
+// Re-export all constants at crate root for backward compatibility
+// This allows `use aspen_core::CONSTANT_NAME` instead of `use
+// aspen_core::constants::module::CONSTANT_NAME`
+// Cluster types
+pub use cluster::AddLearnerRequest;
+pub use cluster::ChangeMembershipRequest;
+pub use cluster::ClusterNode;
+pub use cluster::ClusterState;
+pub use cluster::InitRequest;
+pub use cluster::TrustConfig;
+pub use constants::api::*;
+pub use constants::ci::*;
+pub use constants::coordination::*;
+pub use constants::directory::*;
+pub use constants::network::*;
+pub use constants::raft::*;
+// Duration constant re-exports for backward compatibility
+pub use constants::raft_compat::MEMBERSHIP_COOLDOWN;
+// Context traits
+pub use context::AspenDocsTicket;
+#[cfg(feature = "global-discovery")]
+pub use context::ContentDiscovery;
+#[cfg(feature = "global-discovery")]
+pub use context::ContentNodeAddr;
+#[cfg(feature = "global-discovery")]
+pub use context::ContentProviderInfo;
+pub use context::DocsEntry;
+pub use context::DocsStatus;
+pub use context::DocsSyncProvider;
+pub use context::EndpointProvider;
+// Watch registry types
+pub use context::InMemoryWatchRegistry;
+pub use context::KeyOrigin;
+pub use context::NetworkFactory;
+pub use context::PeerConnectionState;
+pub use context::PeerImporter;
+pub use context::PeerInfo;
+pub use context::PeerManager;
+// Service executor for WASM plugin host dispatch
+pub use context::ServiceExecutor;
+pub use context::ShardTopology;
+pub use context::StateMachineProvider;
+pub use context::SubscriptionFilter;
+pub use context::SyncStatus;
+pub use context::WatchInfo;
+pub use context::WatchRegistry;
+// Crypto types
+pub use crypto::Signature;
+// Error types
+pub use error::ControlPlaneError;
+pub use error::KeyValueStoreError;
+// HLC types
+pub use hlc::HLC;
+pub use hlc::HlcTimestamp;
+pub use hlc::ID as HlcId;
+pub use hlc::NTP64;
+pub use hlc::SerializableTimestamp;
+pub use hlc::create_hlc;
+pub use hlc::new_timestamp;
+pub use hlc::to_unix_ms;
+pub use hlc::update_from_timestamp;
+// KV types
+pub use kv::BatchCondition;
+pub use kv::BatchOperation;
+pub use kv::CompareOp;
+pub use kv::CompareTarget;
+pub use kv::DeleteRequest;
+pub use kv::DeleteResult;
+pub use kv::KeyValueWithRevision;
+pub use kv::ReadConsistency;
+pub use kv::ReadRequest;
+pub use kv::ReadResult;
+pub use kv::ScanRequest;
+pub use kv::ScanResult;
+pub use kv::TxnCompare;
+pub use kv::TxnOp;
+pub use kv::TxnOpResult;
+pub use kv::WriteCommand;
+pub use kv::WriteOp;
+pub use kv::WriteRequest;
+pub use kv::WriteResult;
+pub use kv::validate_write_command;
+// Layer types (Tuple, Subspace, Directory) — requires aspen-layer
+#[cfg(feature = "layer")]
+pub use layer::AllocationError;
+#[cfg(feature = "layer")]
+pub use layer::DirectoryError;
+#[cfg(feature = "layer")]
+pub use layer::DirectoryLayer;
+#[cfg(feature = "layer")]
+pub use layer::DirectorySubspace;
+#[cfg(feature = "layer")]
+pub use layer::Element;
+#[cfg(feature = "layer")]
+pub use layer::HighContentionAllocator;
+#[cfg(feature = "layer")]
+pub use layer::Subspace;
+#[cfg(feature = "layer")]
+pub use layer::SubspaceError;
+#[cfg(feature = "layer")]
+pub use layer::Tuple;
+#[cfg(feature = "layer")]
+pub use layer::TupleError;
+// Protocol types (sans-IO infrastructure)
+pub use protocol::Alarm;
+pub use protocol::Envelope;
+pub use protocol::ProtocolCtx;
+pub use protocol::TestCtx;
+// Simulation types
+pub use simulation::SimulationArtifact;
+pub use simulation::SimulationArtifactBuilder;
+pub use simulation::SimulationStatus;
+#[cfg(feature = "sql")]
+pub use sql::SqlColumnInfo;
+#[cfg(feature = "sql")]
+pub use sql::SqlConsistency;
+#[cfg(feature = "sql")]
+pub use sql::SqlQueryError;
+#[cfg(feature = "sql")]
+pub use sql::SqlQueryExecutor;
+#[cfg(feature = "sql")]
+pub use sql::SqlQueryRequest;
+#[cfg(feature = "sql")]
+pub use sql::SqlQueryResult;
+#[cfg(feature = "sql")]
+pub use sql::SqlValue;
+#[cfg(feature = "sql")]
+pub use sql::effective_sql_limit;
+#[cfg(feature = "sql")]
+pub use sql::effective_sql_timeout_ms;
+#[cfg(feature = "sql")]
+pub use sql::validate_sql_query;
+#[cfg(feature = "sql")]
+pub use sql::validate_sql_request;
+// Storage types
+pub use storage::KvEntry;
+pub use storage::SM_KV_TABLE;
+// Traits
+pub use traits::ClusterController;
+pub use traits::CoordinationBackend;
+pub use traits::KeyValueStore;
+// Transport types
+pub use transport::BlobAnnouncedCallback;
+pub use transport::BlobAnnouncedInfo;
+pub use transport::DiscoveredPeer;
+pub use transport::DiscoveryHandle;
+pub use transport::IrohTransportExt;
+pub use transport::MembershipAddressUpdater;
+pub use transport::NetworkTransport;
+pub use transport::PeerDiscoveredCallback;
+pub use transport::PeerDiscovery;
+pub use transport::StaleTopologyInfo;
+pub use transport::TopologyStaleCallback;
+// Types
+pub use types::ClusterMetrics;
+pub use types::NodeAddress;
+pub use types::NodeId;
+pub use types::NodeState;
+pub use types::SnapshotLogId;
+pub use utils::ensure_disk_space_available;
+// Vault types
+pub use vault::SYSTEM_PREFIX;
+pub use vault::VaultError;
+pub use vault::is_system_key;
+pub use vault::validate_client_key;
+// Verified functions (pure, formally verified)
+pub use verified::build_scan_metadata;
+pub use verified::decode_continuation_token;
+pub use verified::encode_continuation_token;
+pub use verified::execute_scan;
+pub use verified::filter_scan_entries;
+pub use verified::normalize_scan_limit;
+pub use verified::paginate_entries;
+
+===== crates/aspen-coordination/src/lib.rs =====
+//! Distributed coordination primitives built on CAS operations.
+//!
+//! This module provides high-level coordination primitives for distributed systems:
+//!
+//! - `DistributedLock` - Mutual exclusion with fencing tokens
+//! - `DistributedLockSet` - Atomic multi-resource lock acquisition
+//! - `LeaderElection` - Leader election with automatic lease renewal
+//! - `AtomicCounter` - Race-free increment/decrement
+//! - `SequenceGenerator` - Monotonically increasing unique IDs
+//! - `DistributedRateLimiter` - Token bucket rate limiting
+//! - `QueueManager` - Distributed FIFO queue with visibility timeout
+//! - `ServiceRegistry` - Service discovery with health checks
+//!
+//! All primitives are built on top of the [`aspen_core::KeyValueStore`] trait's CAS operations,
+//! providing linearizable semantics through Raft consensus.
+//!
+//! ## Leader Election Example
+//!
+//! ```ignore
+//! use aspen_coordination::{LeaderElection, ElectionConfig};
+//!
+//! let election = LeaderElection::new(
+//!     store,
+//!     "my-service-leader",
+//!     "node-1",
+//!     ElectionConfig::default(),
+//! );
+//!
+//! let handle = election.start().await?;
+//!
+//! // Check leadership state
+//! if handle.is_leader() {
+//!     let token = handle.fencing_token().unwrap();
+//!     // Perform leader-only operations with fencing token
+//! }
+//!
+//! // Graceful stepdown
+//! handle.stepdown();
+//! ```
+//!
+//! ## Lock Example
+//!
+//! ```ignore
+//! use aspen_coordination::{DistributedLock, LockConfig};
+//!
+//! let lock = DistributedLock::new(store, "my_lock", "client_1", LockConfig::default());
+//! let guard = lock.acquire().await?;
+//!
+//! // Protected critical section
+//! // Fencing token can be passed to external services
+//! let token = guard.fencing_token();
+//!
+//! // Lock released on drop
+//! ```
+//!
+//! ## Lock-Set Example
+//!
+//! `DistributedLockSet` canonicalizes member ordering internally. A caller can
+//! request `repo:a` + `pipeline:42` in any order and still contend on the same
+//! atomic guard.
+//!
+//! ```ignore
+//! use aspen_coordination::{DistributedLockSet, LockConfig};
+//!
+//! let lockset = DistributedLockSet::new(
+//!     store,
+//!     vec!["pipeline:42".to_string(), "repo:a".to_string()],
+//!     "deploy-worker-7",
+//!     LockConfig::default(),
+//! )?;
+//! let guard = lockset.acquire().await?;
+//!
+//! let repo_token = guard.fencing_token_for("repo:a").unwrap();
+//! let pipeline_token = guard.fencing_token_for("pipeline:42").unwrap();
+//! // Use both fencing tokens while coordinating the compound operation.
+//!
+//! guard.release().await?;
+//! ```
+
+// Phase 1 Tiger Style rollout: keep the starter lint set visible in pilot crates
+// while suppressing noisier families until Aspen has cleanup bandwidth.
+#![allow(unknown_lints)]
+#![allow(no_panic)]
+#![warn(
+    ambient_clock,
+    compound_assertion,
+    contradictory_time,
+)]
+#![allow(
+    acronym_style,
+    ambiguous_params,
+    assertion_density,
+    bool_naming,
+    catch_all_on_enum,
+    compound_condition,
+    float_for_currency,
+    function_length,
+    ignored_result,
+    multi_lock_ordering,
+    nested_conditionals,
+    no_panic,
+    no_recursion,
+    no_unwrap,
+    numeric_units,
+    platform_dependent_cast,
+    raw_arithmetic_overflow,
+    unbounded_loop,
+    unchecked_division,
+    unchecked_narrowing,
+    unjustified_allow,
+    verified_purity,
+)]
+
+mod barrier;
+mod counter;
+mod election;
+mod error;
+mod lock;
+mod lockset;
+mod queue;
+mod rate_limiter;
+mod registry;
+mod rwlock;
+mod semaphore;
+mod sequence;
+pub mod spec;
+mod types;
+pub mod verified;
+mod worker_coordinator;
+mod worker_strategies;
+
+pub use barrier::BarrierManager;
+pub use barrier::BarrierPhase;
+pub use barrier::BarrierState;
+pub use counter::AtomicCounter;
+pub use counter::BufferedCounter;
+pub use counter::CounterConfig;
+pub use counter::SignedAtomicCounter;
+pub use election::ElectionConfig;
+pub use election::ElectionHandle;
+pub use election::LeaderElection;
+pub use election::LeadershipState;
+pub use error::CoordinationError;
+pub use error::FenceError;
+pub use error::RateLimitError;
+pub use lock::DistributedLock;
+pub use lock::LockConfig;
+pub use lock::LockGuard;
+pub use lockset::DistributedLockSet;
+pub use lockset::LockSetGuard;
+pub use lockset::LockSetRequest;
+pub use queue::DLQItem;
+pub use queue::DLQReason;
+pub use queue::DequeuedItem;
+pub use queue::EnqueueOptions;
+pub use queue::PendingItem;
+pub use queue::QueueConfig;
+pub use queue::QueueItem;
+pub use queue::QueueManager;
+pub use queue::QueueState;
+pub use queue::QueueStats;
+pub use queue::QueueStatus;
+pub use rate_limiter::DistributedRateLimiter;
+pub use rate_limiter::RateLimiterConfig;
+pub use registry::DiscoveryFilter;
+pub use registry::HealthStatus;
+pub use registry::RegisterOptions;
+pub use registry::ServiceInstance;
+pub use registry::ServiceInstanceMetadata;
+pub use registry::ServiceMetadata;
+pub use registry::ServiceRegistry;
+pub use rwlock::RWLockManager;
+pub use rwlock::RWLockMode;
+pub use rwlock::RWLockState;
+pub use rwlock::ReaderEntry;
+pub use rwlock::WriterEntry;
+pub use semaphore::SemaphoreHolder;
+pub use semaphore::SemaphoreManager;
+pub use semaphore::SemaphoreState;
+pub use sequence::SequenceConfig;
+pub use sequence::SequenceGenerator;
+pub use types::BucketState;
+pub use types::FencingToken;
+pub use types::LockEntry;
+pub use types::LockSetMemberToken;
+pub use types::now_unix_ms;
+pub use worker_coordinator::DistributedWorkerCoordinator;
+pub use worker_coordinator::GroupState;
+pub use worker_coordinator::LoadBalancingStrategy;
+pub use worker_coordinator::StealHint;
+pub use worker_coordinator::WorkerCoordinatorConfig;
+pub use worker_coordinator::WorkerFilter;
+pub use worker_coordinator::WorkerGroup;
+pub use worker_coordinator::WorkerInfo;
+pub use worker_coordinator::WorkerStats;
+pub use worker_strategies::AffinityStrategy;
+pub use worker_strategies::ConsistentHashStrategy;
+pub use worker_strategies::LeastLoadedStrategy;
+pub use worker_strategies::LoadBalancer;
+pub use worker_strategies::Priority;
+pub use worker_strategies::RoundRobinStrategy;
+pub use worker_strategies::RoutingContext;
+pub use worker_strategies::StrategyMetrics;
+pub use worker_strategies::WorkStealingStrategy;
+
+===== openspec/changes/tigerstyle-phase-2-coordination-cleanup/.openspec.yaml =====
+schema: spec-driven
+created: 2026-04-13T00:00:00Z
+
+===== openspec/changes/tigerstyle-phase-2-coordination-cleanup/proposal.md =====
+# Promote Aspen Coordination Into Tigerstyle Phase 2
+
+## Why
+
+`crates/aspen-coordination` is still too noisy for Aspen's phase-1 tigerstyle
+pilot. A focused lib-only run via `scripts/tigerstyle-check.sh -p
+aspen-coordination -- --lib` produced 21 `ambient_clock` warnings, 2
+`compound_assertion` warnings, and 4 `no_panic` warnings. That is real signal,
+but it is enough noise that the coordination crate was excluded from the
+default pilot package set.
+
+## What Changes
+
+- classify the current coordination findings into boundary-owned clock reads,
+  required refactors, and assertion cleanup
+- replace or isolate production `panic!` / `unreachable!` sites that block the
+  rollout
+- split the compound assertions in `src/verified/barrier.rs`
+- rerun the tigerstyle coordination check and add the crate to the default
+  pilot once the finding set is acceptable
+
+## Evidence
+
+- `barrier.rs`, `lock.rs`, `queue/dequeue.rs`, `rate_limiter.rs`,
+  `rwlock/acquisition.rs`, `semaphore.rs`, and `worker_strategies.rs` account
+  for the ambient-clock findings
+- `src/verified/barrier.rs` has the current compound assertions
+- `barrier.rs`, `lockset.rs`, and `rate_limiter.rs` contain the production
+  panic-family warnings surfaced by the phase-1 spot check
+
+===== openspec/changes/tigerstyle-phase-2-coordination-cleanup/tasks.md =====
+# Tasks: Promote Aspen Coordination Into Tigerstyle Phase 2
+
+- [ ] Inventory the current coordination tigerstyle findings by file and category
+- [ ] Refactor or explicitly isolate ambient clock reads in coordination shell code
+- [ ] Split the verified barrier compound assertions into independent checks
+- [ ] Remove or justify production panic-family sites that block the phase-2 rollout
+- [ ] Re-run `scripts/tigerstyle-check.sh -p aspen-coordination -- --lib` and record the new baseline
+- [ ] Add `aspen-coordination` back to Aspen's default tigerstyle pilot once the warning set is bounded
+
+===== openspec/changes/tigerstyle-phase-3-safety-debt-cleanup/.openspec.yaml =====
+schema: spec-driven
+created: 2026-04-13T00:00:00Z
+
+===== openspec/changes/tigerstyle-phase-3-safety-debt-cleanup/proposal.md =====
+# Reduce Aspen Tigerstyle Safety-Debt Noise
+
+## Why
+
+Aspen's workspace-wide tigerstyle triage still has several high-noise lint
+families that block later rollout phases:
+
+- `ignored_result`: 299 matches
+- `no_unwrap` / `expect`: 421 matches
+- `no_panic`: 323 matches
+- `unchecked_narrowing`: 510 matches
+- `unbounded_loop`: 173 matches
+
+Phase 1 deliberately avoids these families. Without a separate cleanup plan,
+phase 2 and phase 3 would either drown maintainers in warnings or encourage
+blanket suppression.
+
+## What Changes
+
+- pick an adoption order for the high-noise safety families
+- build per-crate inventories for the first family in scope
+- fix or explicitly justify the highest-risk findings instead of bulk-allowing
+  them
+- define the evidence required before each family graduates into Aspen's
+  default tigerstyle path
+
+## Initial Focus
+
+Start with `ignored_result` and `no_unwrap`, because they hide failures or
+panic directly in production paths. Hold `unchecked_narrowing` and
+`unbounded_loop` until their remaining false-positive patterns are understood.
+
+===== openspec/changes/tigerstyle-phase-3-safety-debt-cleanup/tasks.md =====
+# Tasks: Reduce Aspen Tigerstyle Safety-Debt Noise
+
+- [ ] Confirm the rollout order for `ignored_result`, `no_unwrap`, `no_panic`, `unchecked_narrowing`, and `unbounded_loop`
+- [ ] Build a per-crate inventory for the first promoted family
+- [ ] Fix or justify the highest-risk findings in that family without blanket allows
+- [ ] Re-run the targeted tigerstyle check and capture the reduced baseline
+- [ ] Repeat for the next family only after the current one has a bounded warning set
+
