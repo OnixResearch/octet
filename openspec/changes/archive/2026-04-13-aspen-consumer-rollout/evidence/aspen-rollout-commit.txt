@@ -1,0 +1,35 @@
+commit 909e5e9faf73ff82bcf083d4770a011111000601
+Author:     brittonr <b@robitzs.ch>
+AuthorDate: Mon Apr 13 15:22:39 2026 -0400
+Commit:     brittonr <b@robitzs.ch>
+CommitDate: Mon Apr 13 15:22:39 2026 -0400
+
+    tigerstyle: add phase-1 rollout path and follow-up changes
+
+ .agent/napkin.md                                   |   3 +
+ AGENTS.md                                          |   4 +
+ crates/aspen-coordination/src/lib.rs               |  29 +++
+ crates/aspen-core/src/lib.rs                       |  29 +++
+ crates/aspen-hlc/src/lib.rs                        |  29 +++
+ crates/aspen-time/src/lib.rs                       |  29 +++
+ dylint.toml                                        |  24 +++
+ .../.openspec.yaml                                 |   2 +
+ .../proposal.md                                    |  29 +++
+ .../specs/tigerstyle-rollout/spec.md               |  33 +++
+ .../tasks.md                                       |   8 +
+ .../.openspec.yaml                                 |   2 +
+ .../proposal.md                                    |  31 +++
+ .../specs/tigerstyle-rollout/spec.md               |  31 +++
+ .../tasks.md                                       |   7 +
+ scripts/tigerstyle-check.sh                        | 240 +++++++++++++++++++++
+ 16 files changed, 530 insertions(+)
+ create mode 100644 dylint.toml
+ create mode 100644 openspec/changes/tigerstyle-phase-2-coordination-cleanup/.openspec.yaml
+ create mode 100644 openspec/changes/tigerstyle-phase-2-coordination-cleanup/proposal.md
+ create mode 100644 openspec/changes/tigerstyle-phase-2-coordination-cleanup/specs/tigerstyle-rollout/spec.md
+ create mode 100644 openspec/changes/tigerstyle-phase-2-coordination-cleanup/tasks.md
+ create mode 100644 openspec/changes/tigerstyle-phase-3-safety-debt-cleanup/.openspec.yaml
+ create mode 100644 openspec/changes/tigerstyle-phase-3-safety-debt-cleanup/proposal.md
+ create mode 100644 openspec/changes/tigerstyle-phase-3-safety-debt-cleanup/specs/tigerstyle-rollout/spec.md
+ create mode 100644 openspec/changes/tigerstyle-phase-3-safety-debt-cleanup/tasks.md
+ create mode 100755 scripts/tigerstyle-check.sh

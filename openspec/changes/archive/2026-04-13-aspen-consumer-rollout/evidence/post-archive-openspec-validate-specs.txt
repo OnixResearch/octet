@@ -1,0 +1,8 @@
+✓ spec/concurrency
+✓ spec/documentation
+✓ spec/naming
+✓ spec/performance
+✓ spec/purity
+✓ spec/safety
+✓ spec/structure
+Totals: 7 passed, 0 failed (7 items)

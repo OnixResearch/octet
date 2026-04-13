@@ -3,8 +3,12 @@
 ## Target Workspace
 
 - Workspace: `/home/brittonr/git/aspen`
+- Landed Aspen commit: `909e5e9fa` (`tigerstyle: add phase-1 rollout path and follow-up changes`)
 - Check path: `scripts/tigerstyle-check.sh`
 - Workspace tuning: `dylint.toml`
+- Follow-up Aspen changes:
+  - `openspec/changes/tigerstyle-phase-2-coordination-cleanup/`
+  - `openspec/changes/tigerstyle-phase-3-safety-debt-cleanup/`
 
 ## Why The Check Path Is A Script, Not A Flake Check
 
@@ -105,6 +109,21 @@ Committed Aspen tuning:
   transport/storage vocabulary
 
 ## Validation Summary
+
+### Landed downstream state
+
+- Aspen rollout landed in commit `909e5e9fa`
+- Aspen working tree was clean immediately after that commit
+- targeted touched-crate validation passed:
+
+```bash
+cd /home/brittonr/git/aspen
+cargo clippy -p aspen-time -p aspen-hlc -p aspen-core -p aspen-coordination --lib -- -D warnings
+```
+
+- both follow-up Aspen OpenSpec changes validate:
+  - `tigerstyle-phase-2-coordination-cleanup`
+  - `tigerstyle-phase-3-safety-debt-cleanup`
 
 ### Default pilot run
 

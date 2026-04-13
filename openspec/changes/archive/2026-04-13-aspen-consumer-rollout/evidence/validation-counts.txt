@@ -1,2 +1,2 @@
-aspen-default-run.txt: {'ambient_clock': 6, 'compound_assertion': 0, 'contradictory_time': 0, 'no_panic': 0}
-aspen-coordination-spotcheck.txt: {'ambient_clock': 21, 'compound_assertion': 2, 'contradictory_time': 0, 'no_panic': 4}
+default_pilot: aspen-time=2 ambient_clock, aspen-core=4 ambient_clock, aspen-hlc=0 starter findings, total=6
+coordination_spotcheck: ambient_clock=21, compound_assertion=2, no_panic=4, total=27

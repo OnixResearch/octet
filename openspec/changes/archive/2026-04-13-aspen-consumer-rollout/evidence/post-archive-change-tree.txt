@@ -1,0 +1,6 @@
+openspec/changes
+openspec/changes/archive
+openspec/changes/archive/2026-04-12-skill-full-coverage
+openspec/changes/archive/2026-04-13-aspen-consumer-rollout
+openspec/changes/custom-clippy-lints
+openspec/changes/custom-clippy-lints/specs
