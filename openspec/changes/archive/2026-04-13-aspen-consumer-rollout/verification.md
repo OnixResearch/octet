@@ -18,6 +18,7 @@
 - Changed file: `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/post-archive-openspec-validate-specs.txt`
 - Changed file: `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/post-archive-openspec-list.txt`
 - Changed file: `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/post-archive-change-tree.txt`
+- Changed file: `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/documentation-spec-sync.diff`
 - Changed file: `src/purity/ambient_clock.rs`
 
 ## Task Coverage
@@ -51,6 +52,8 @@
   - Evidence: `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/post-archive-change-tree.txt`, `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/post-archive-openspec-list.txt`
 - Post-archive tigerstyle specs validate cleanly.
   - Evidence: `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/post-archive-openspec-validate-specs.txt`
+- Main documentation spec sync from archive commit is captured in a reviewable diff.
+  - Evidence: `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/documentation-spec-sync.diff`
 - Aspen rollout landed as a committed downstream change, not only a local patch.
   - Evidence: `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/aspen-rollout-commit.txt`, `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/aspen-rollout-clean-status.txt`, `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/aspen-targeted-clippy.txt`
 
@@ -65,9 +68,9 @@
 - Artifact: `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/aspen-rollout-commit.txt`
   - Command: `cd /home/brittonr/git/aspen && git show --stat --summary --format=fuller HEAD > /home/brittonr/git/tigerstyle/openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/aspen-rollout-commit.txt`
 - Artifact: `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/aspen-rollout-clean-status.txt`
-  - Command: `cd /home/brittonr/git/aspen && git status --short > /home/brittonr/git/tigerstyle/openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/aspen-rollout-clean-status.txt`
+  - Command: `cd /home/brittonr/git/aspen && { echo '$ git rev-parse --short HEAD'; git rev-parse --short HEAD; echo '$ git status --short'; status=$(git status --short); if [ -n "$status" ]; then printf '%s\n' "$status"; else echo '(no output; repo clean)'; fi; } > /home/brittonr/git/tigerstyle/openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/aspen-rollout-clean-status.txt`
 - Artifact: `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/aspen-targeted-clippy.txt`
-  - Command: `cd /home/brittonr/git/aspen && cargo clippy -p aspen-time -p aspen-hlc -p aspen-core -p aspen-coordination --lib -- -D warnings > /home/brittonr/git/tigerstyle/openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/aspen-targeted-clippy.txt 2>&1`
+  - Command: `cd /home/brittonr/git/aspen && tmpdir=$(mktemp -d) && trap 'rm -rf "$tmpdir"' EXIT && { echo '$ cargo clippy -p aspen-time -p aspen-hlc -p aspen-core -p aspen-coordination --lib -- -D warnings'; echo "# using fresh CARGO_TARGET_DIR=$tmpdir"; CARGO_TARGET_DIR="$tmpdir" cargo clippy -p aspen-time -p aspen-hlc -p aspen-core -p aspen-coordination --lib -- -D warnings; } > /home/brittonr/git/tigerstyle/openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/aspen-targeted-clippy.txt 2>&1`
 - Artifact: `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/aspen-followup-openspec-validate.txt`
   - Command: `cd /home/brittonr/git/aspen && { echo '$ openspec validate tigerstyle-phase-2-coordination-cleanup'; openspec validate tigerstyle-phase-2-coordination-cleanup; echo; echo '$ openspec validate tigerstyle-phase-3-safety-debt-cleanup'; openspec validate tigerstyle-phase-3-safety-debt-cleanup; } > /home/brittonr/git/tigerstyle/openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/aspen-followup-openspec-validate.txt`
 - Artifact: `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/post-archive-openspec-validate-specs.txt`
@@ -76,3 +79,5 @@
   - Command: `cd /home/brittonr/git/tigerstyle && openspec list > /home/brittonr/git/tigerstyle/openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/post-archive-openspec-list.txt`
 - Artifact: `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/post-archive-change-tree.txt`
   - Command: `cd /home/brittonr/git/tigerstyle && find openspec/changes -maxdepth 2 -type d | sort > /home/brittonr/git/tigerstyle/openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/post-archive-change-tree.txt`
+- Artifact: `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/documentation-spec-sync.diff`
+  - Command: `cd /home/brittonr/git/tigerstyle && { echo '$ git diff 9222f26^ 9222f26 -- openspec/specs/documentation/spec.md'; git diff 9222f26^ 9222f26 -- openspec/specs/documentation/spec.md; } > /home/brittonr/git/tigerstyle/openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/documentation-spec-sync.diff`

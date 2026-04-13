@@ -1,0 +1,4 @@
+$ git rev-parse --short HEAD
+909e5e9fa
+$ git status --short
+(no output; repo clean)
