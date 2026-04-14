@@ -34,7 +34,7 @@ The lint SHOULD NOT fire on `debug_assert!` compound expressions in test code.
 
 ### Requirement: Assertion Density
 
-The lint SHOULD warn on functions exceeding 20 lines that contain fewer
+The lint MUST be able to warn on functions exceeding 20 lines that contain fewer
 than 2 assertion macros (`assert!`, `assert_eq!`, `assert_ne!`,
 `debug_assert!`, `debug_assert_eq!`, `debug_assert_ne!`).
 
@@ -140,7 +140,7 @@ This lint exists because verified-logic dedicates an entire module
 
 ### Requirement: Raw Arithmetic Overflow Detection
 
-The lint SHOULD warn on raw `+`, `-`, `*` operations on unsigned integer
+The lint MUST be able to warn on raw `+`, `-`, `*` operations on unsigned integer
 types (`u8`–`u128`) in production code where the operands are not
 compile-time constants and no overflow protection is present.
 
@@ -208,7 +208,7 @@ requires `rate_per_sec > 0`, `hash_bucket` requires `bucket_count > 0`.
 
 ### Requirement: Catch-All Match Arm on Enum
 
-The lint SHOULD warn on `match` expressions over enum types where
+The lint MUST be able to warn on `match` expressions over enum types where
 the last arm is a wildcard (`_`) that returns a "deny" value:
 `false`, `None`, `Err(...)`, or `0`.
 

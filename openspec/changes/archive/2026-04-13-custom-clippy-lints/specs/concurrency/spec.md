@@ -4,7 +4,7 @@
 
 ### Requirement: Multiple Locks Without Documented Ordering
 
-The lint SHOULD warn on struct definitions containing 2 or more fields
+The lint MUST be able to warn on struct definitions containing 2 or more fields
 of type `Mutex<_>`, `RwLock<_>`, `tokio::sync::Mutex<_>`, or
 `tokio::sync::RwLock<_>` when there is no comment in the struct body
 documenting lock acquisition order.
