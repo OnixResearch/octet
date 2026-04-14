@@ -1,9 +1,9 @@
 ## Phase 1: Test-context suppression
 
-- [ ] Add test-context detection helper (shared across lints)
-- [ ] `no_unwrap`: skip `#[test]` fns and `#[cfg(test)]` modules
-- [ ] `no_panic`: skip `#[test]` fns and `#[cfg(test)]` modules
-- [ ] UI fixtures for both: fire in production, silent in test
+- [x] Add test-context detection helper (shared across lints)
+- [x] `no_unwrap`: skip `#[test]` fns and `#[cfg(test)]` modules
+- [x] `no_panic`: skip `#[test]` fns and `#[cfg(test)]` modules
+- [x] UI fixtures for both: fire in production, silent in test
 
 ## Phase 2: Pattern-based suppression
 

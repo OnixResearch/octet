@@ -14,7 +14,9 @@ const FIXTURES: &[&str] = &[
     "compound_assertion",
     "unbounded_loop",
     "no_panic",
+    "no_panic_cfg_not",
     "no_unwrap",
+    "no_unwrap_cfg_not",
     "no_recursion",
     "ignored_result",
     "unchecked_narrowing",
@@ -166,6 +168,13 @@ fn expects_failure(name: &str) -> bool {
     matches!(name, "verified/verified_purity" | "no_unwrap_deny_custom/no_unwrap_deny_custom")
 }
 
+fn extra_rustc_args(name: &str) -> &'static [&'static str] {
+    match name {
+        "no_panic" | "no_unwrap" => &["--cfg", "test"],
+        _ => &[],
+    }
+}
+
 fn run_fixture(driver: &Path, library: &Path, host: &str, name: &str) {
     let ui_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("ui_tests");
     let fixture_path = ui_dir.join(format!("{name}.rs"));
@@ -186,10 +195,14 @@ fn run_fixture(driver: &Path, library: &Path, host: &str, name: &str) {
         fs::create_dir_all(parent).expect("create UI output dir");
     }
 
-    let output = Command::new(driver)
+    let mut command = Command::new(driver);
+    command
         .current_dir(env!("CARGO_MANIFEST_DIR"))
         .env("CLIPPY_DISABLE_DOCS_LINKS", "true")
         .env("DYLINT_LIBS", dylint_libs)
+        .args(extra_rustc_args(name));
+
+    let output = command
         .arg(&fixture_path)
         .arg("-L")
         .arg(&work_dir)

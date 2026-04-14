@@ -1,0 +1,10 @@
+warning: `panic!` will abort the process on execution
+  --> $DIR/no_panic_cfg_not.rs:4:9
+   |
+LL |         panic!("cfg-not-test panic");
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: return `Err(...)` instead of panicking
+   = note: `#[warn(no_panic)]` on by default
+
+warning: 1 warning emitted
