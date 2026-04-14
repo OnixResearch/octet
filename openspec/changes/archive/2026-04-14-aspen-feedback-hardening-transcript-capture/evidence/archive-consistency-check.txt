@@ -1,0 +1,5 @@
+$ python3 openspec/changes/archive/2026-04-14-aspen-feedback-hardening-transcript-capture/evidence/archive-consistency-check.py
+docs now name the archive-local transcript capture helper
+capture helper emits the saved transcript preamble and calls the replay helper
+saved transcript starts with the documented capture-helper preamble
+count checker and Aspen phase-1 facts still match archived rollout evidence

@@ -1,0 +1,20 @@
+$ sed -n "1,200p" openspec/changes/archive/2026-04-14-aspen-feedback-hardening-transcript-capture/tasks.md
+# Tasks: Prove The Transcript Capture Method We Claim
+
+## Phase 1: Docs and evidence contract
+
+- [x] Update `docs/downstream-rollout.md` so the saved Aspen transcript is regenerated through a documented archive-local capture helper, not an undocumented shell wrapper
+- [x] Extend the documentation spec so transcript preambles must come from a documented saved helper or exact capture command
+- [x] Add archive-local consistency checks that verify the capture helper, replay helper, and saved transcript all agree
+
+## Phase 2: Archive-local reruns
+
+- [x] Re-run the archive-local capture helper so `reconstruct-aspen-phase1.txt` is saved by the same documented command the docs reference
+- [x] Refresh verification and task-checklist evidence so the Phase 2 completion claim is backed by the new capture helper and transcript
+
+Evidence map:
+- Phase 1 task 1 -> docs/downstream-rollout.md, evidence/record-reconstruct-aspen-phase1.sh, evidence/reconstruct-aspen-phase1.txt
+- Phase 1 task 2 -> openspec/specs/documentation/spec.md, specs/documentation/spec.md
+- Phase 1 task 3 -> evidence/archive-consistency-check.py, evidence/archive-consistency-check.txt
+- Phase 2 task 1 -> evidence/record-reconstruct-aspen-phase1.sh, evidence/reconstruct-aspen-phase1.txt
+- Phase 2 task 2 -> verification.md, evidence/task-checklist.txt, evidence/reconstruct-aspen-phase1.txt
