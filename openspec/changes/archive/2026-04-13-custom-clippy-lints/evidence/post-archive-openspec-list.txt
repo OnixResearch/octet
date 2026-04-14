@@ -1,0 +1,2 @@
+$ openspec list
+No active changes found.

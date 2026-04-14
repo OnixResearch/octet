@@ -1,0 +1,10 @@
+Validation task: pueue task 398
+Command: bash -lc 'set -euo pipefail; out=/home/brittonr/git/tigerstyle/openspec/changes/archive/2026-04-13-custom-clippy-lints/evidence; cd /home/brittonr/git/aspen; { echo "$ scripts/tigerstyle-check.sh"; scripts/tigerstyle-check.sh; } > "$out/aspen-default-pilot-rerun.txt" 2>&1; { echo "$ cargo test -p aspen-time -p aspen-core --lib"; cargo test -p aspen-time -p aspen-core --lib; } > "$out/aspen-time-core-tests.txt" 2>&1; { echo "$ cargo clippy -p aspen-time -p aspen-core --lib -- -D warnings"; cargo clippy -p aspen-time -p aspen-core --lib -- -D warnings; } > "$out/aspen-time-core-clippy.txt" 2>&1'
+Status: Success
+Queued: 2026-04-13 20:08:19 -0400
+Started: 2026-04-13 20:08:19 -0400
+Ended: 2026-04-13 20:17:55 -0400
+Artifacts:
+- evidence/aspen-default-pilot-rerun.txt
+- evidence/aspen-time-core-tests.txt
+- evidence/aspen-time-core-clippy.txt

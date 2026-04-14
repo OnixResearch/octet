@@ -73,6 +73,7 @@ tigerstyle/
 │   │   └── ambiguous_params.rs
 │   ├── purity/
 │   │   ├── mod.rs
+│   │   ├── ambient_clock.rs
 │   │   ├── verified_purity.rs
 │   │   └── contradictory_time.rs
 │   └── concurrency/
@@ -114,6 +115,7 @@ syntax-only lints.
 | ambiguous_params | Late | Needs resolved parameter types |
 | verified_purity | Early | Path detection + keyword scan |
 | contradictory_time | Late | Needs param names + body call resolution |
+| ambient_clock | Late | Needs to resolve direct clock reads and ignore test-only contexts |
 | unjustified_allow | Early | Attribute + comment presence is syntactic |
 | catch_all_on_enum | Late | Needs to know the match scrutinee is an enum |
 | float_for_currency | Late | Needs type resolution to confirm f64/f32 |
@@ -167,6 +169,7 @@ Aspen adds `tigerstyle` as a flake input and runs it as a check.
 | ambiguous_params | allow | Noisy on generic APIs |
 | verified_purity | deny | Hard rule for verified/ modules |
 | contradictory_time | warn | Two time sources in one function is always a design error |
+| ambient_clock | warn | Wall-clock reads should stay at explicit shell boundaries |
 | unjustified_allow | allow | Useful for audits, noisy by default |
 | catch_all_on_enum | warn | Silent deny/grant on new variants is a security risk (clankers capability.rs) |
 | float_for_currency | allow | Advisory — many codebases use f64 for cost (clankers cost_tracker) |

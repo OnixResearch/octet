@@ -34,6 +34,7 @@ error message and fix suggestion.
 - `numeric-units`: Detect numeric variables missing unit suffix (`_ms`, `_bytes`)
 - `verified-purity`: Detect async/IO/time in `verified/` modules
 - `contradictory-time`: Detect functions with time param that also call `Instant::now()`
+- `ambient-clock`: Detect direct wall-clock reads outside explicit shell-boundary helpers
 - `unbounded-loop`: Detect `loop {}`/`while` without explicit iteration bound
 - `assertion-density`: Warn on non-trivial functions with fewer than 2 assertions
 - `ignored-result`: Detect `let _ = fallible_expr()`

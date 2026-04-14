@@ -88,6 +88,41 @@ an explicit parameter.
 - WHEN the lint runs
 - THEN it does NOT fire on the test module
 
+### Requirement: Ambient Clock Boundary Ownership
+
+The lint MUST warn on direct wall-clock reads such as `Instant::now()`,
+`SystemTime::now()`, `Utc::now()`, or `Local::now()` in production code unless
+those reads are isolated behind an explicit shell-boundary helper or an item-
+scoped allow with a justification.
+
+The lint MUST suggest injecting time as a parameter for pure/core logic, or
+adding a narrow `#[allow(ambient_clock, reason = "...")]` on the boundary
+function that legitimately owns time capture.
+
+The lint MUST NOT fire in `#[test]` code or other test-only contexts.
+
+The lint MUST NOT fire on pure duration/value construction such as
+`Duration::from_millis(5)`.
+
+#### Scenario: Direct clock read in production logic
+
+- GIVEN `fn retry_deadline() -> Instant { Instant::now() + backoff }`
+- WHEN the lint runs
+- THEN it warns that the function should receive time as a parameter or isolate
+  the clock read at a boundary helper
+
+#### Scenario: Explicit shell boundary helper
+
+- GIVEN a boundary helper marked `#[allow(ambient_clock, reason = "entry point owns time capture")]`
+- WHEN the lint runs
+- THEN it does NOT fire on that helper
+
+#### Scenario: Test-only clock read
+
+- GIVEN a unit test that calls `Instant::now()` to compare elapsed time
+- WHEN the lint runs
+- THEN it does NOT fire
+
 ### Requirement: Contradictory Time Source
 
 The lint MUST warn on functions that both accept a time parameter (name
