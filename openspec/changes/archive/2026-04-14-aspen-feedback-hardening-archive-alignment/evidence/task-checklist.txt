@@ -1,0 +1,20 @@
+$ sed -n "1,200p" openspec/changes/archive/2026-04-14-aspen-feedback-hardening-archive-alignment/tasks.md
+# Tasks: Align Aspen Reconstruction Docs And Archived Evidence
+
+## Phase 1: Reconstruction path alignment
+
+- [x] Update `docs/downstream-rollout.md` so Aspen phase-1 reconstruction documents the sandbox parent and sibling symlink setup that the working proof requires
+- [x] Update consistency checks to assert against the final documented reconstruction path, not the older plain-worktree path
+
+## Phase 2: Archive-proof evidence
+
+- [x] Re-run archived verification transcripts so command lines reference `openspec/changes/archive/2026-04-14-aspen-feedback-hardening-archive-alignment/...`
+- [x] Capture a new reconstruction transcript from the archived helper scripts that matches the final documented steps exactly
+- [x] Add an explicit archived task checklist artifact mapping every checked task to its evidence
+
+Evidence map:
+- Phase 1 task 1 -> docs/downstream-rollout.md (Aspen phase-1 reconstruction), evidence/archive-consistency-check.txt
+- Phase 1 task 2 -> evidence/archive-consistency-check.py, evidence/archive-consistency-check.txt
+- Phase 2 task 1 -> evidence/*.py, evidence/reconstruct-aspen-phase1.sh, evidence/helper-script-syntax.txt
+- Phase 2 task 2 -> evidence/reconstruct-aspen-phase1.txt, evidence/reconstruct-default-run.txt, evidence/reconstruct-coordination-spotcheck.txt
+- Phase 2 task 3 -> verification.md plus archive-path command lines in evidence/helper-script-syntax.txt, evidence/archive-consistency-check.txt, evidence/reconstruct-aspen-phase1.txt

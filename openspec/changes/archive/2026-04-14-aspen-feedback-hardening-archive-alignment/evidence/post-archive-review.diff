@@ -1,0 +1,108 @@
+$ git diff HEAD -- AGENTS.md .agent/napkin.md docs/downstream-rollout.md openspec/specs/documentation/spec.md openspec/changes/archive/2026-04-14-aspen-feedback-hardening-archive-alignment
+diff --git a/.agent/napkin.md b/.agent/napkin.md
+index 96c8a99..19092fa 100644
+--- a/.agent/napkin.md
++++ b/.agent/napkin.md
+@@ -20,6 +20,7 @@
+ | 2026-04-14 | self | Tried reconstructing Aspen phase 1 from a naive temp worktree; sibling path deps (`aspen-dns`, `aspen-wasm-plugin`) and lockfile collisions made cargo metadata or resolution fail | For Aspen reconstruction, create a sandbox parent with sibling symlinks and checkout Aspen commit `909e5e9fa` as `aspen/` inside that sandbox |
+ | 2026-04-14 | self | Used `cd ... && pwd` inside command substitution without neutralizing `CDPATH`; bash printed the directory and polluted the captured path with a newline | Use `CDPATH=` on `cd` when deriving script directories in shell scripts |
+ | 2026-04-14 | self | Tried to scope tigerstyle lints in the template via cargo-check args and `DYLINT_RUSTFLAGS`; cargo rejected `-W/-A` as check args, and Dylint/rustc reported `unknown lint tool: tigerstyle` when forced via flags | Treat the starter profile as documented guidance and verified package scope, not as an externally forced per-lint CLI filter |
++| 2026-04-14 | self | Archived verification transcripts still pointed at the pre-archive active change path because I generated the `.txt` outputs before archiving and never refreshed them from the archive | After archiving an evidence-heavy change, rerun the saved helper scripts from the archived location so transcript command lines reference `openspec/changes/archive/...` |
+ 
+ ## User Preferences
+ - Uses openspec for structured change management
+@@ -41,6 +42,7 @@
+ - Project: `tigerstyle` — custom Clippy lints via dylint
+ - Aspen phase-1 rollout reference is the archived change `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/`; Aspen HEAD may already be on a later rollout profile
+ - Reconstruct Aspen phase 1 against Aspen commit `909e5e9fa`, not current Aspen HEAD
++- Aspen reconstruction docs must include sandbox parent plus sibling symlinks for `aspen-dns` and `aspen-wasm-plugin`; plain worktree instructions are incomplete
+ - Phase 1 scaffolding complete. All 5 tasks done.
+ - 5 spec domains: safety, naming, structure, purity, concurrency
+ - 18 lints across 8 phases, using EarlyLintPass and LateLintPass
+diff --git a/AGENTS.md b/AGENTS.md
+index 2f80aab..b4c8e58 100644
+--- a/AGENTS.md
++++ b/AGENTS.md
+@@ -4,6 +4,7 @@
+ - Use `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/` as the canonical Aspen phase-1 starter-rollout reference. Current `/home/brittonr/git/aspen` scripts may already include later scope and lint promotions.
+ - Consumer rollout guidance now lives in `docs/downstream-rollout.md`, with copyable templates in `templates/tigerstyle-check.sh` and `templates/dylint.toml`.
+ - To reproduce Aspen phase-1 evidence, use Aspen commit `909e5e9fa`. A naive temp worktree fails because Aspen has sibling path dependencies (`aspen-dns`, `aspen-wasm-plugin`); use a sandbox parent with `aspen/` worktree plus sibling symlinks.
++- If a change archives helper scripts and transcripts, regenerate the `.txt` outputs from the archived location before committing so saved commands point at `openspec/changes/archive/...`, not the deleted active change path.
+ 
+ ## Build / test
+ - Run Rust builds inside the nix devshell: `nix develop -c bash -c '...'`. Plain `cargo` outside the shell can miss OpenSSL/pkg-config and rustc-private setup needed by Dylint.
+diff --git a/docs/downstream-rollout.md b/docs/downstream-rollout.md
+index 792b470..7b072d3 100644
+--- a/docs/downstream-rollout.md
++++ b/docs/downstream-rollout.md
+@@ -8,7 +8,6 @@ turns that rollout into copyable guidance for later consumers.
+ Phase-1 reference state lives in the archived OpenSpec change:
+ 
+ - Aspen rollout commit: `909e5e9fa` (`tigerstyle: add phase-1 rollout path and follow-up changes`)
+-
+ - `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/`
+ - rollout notes: `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/rollout-notes.md`
+ - default-run transcript: `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/aspen-default-run.txt`
+@@ -284,12 +283,20 @@ Not acceptable:
+ A maintainer should be able to reconstruct Aspen's starter path from this repo
+ alone:
+ 
+-1. create a disposable Aspen checkout at the archived phase-1 rollout commit:
++1. create a disposable sandbox parent that recreates Aspen's sibling-repo
++   layout before checking out the archived phase-1 commit:
+ 
+    ```bash
+-   git -C /path/to/aspen worktree add --detach /tmp/aspen-phase1 909e5e9fa
++   sandbox=$(mktemp -d /tmp/aspen-phase1-sandbox.XXXXXX)
++   ln -s /path/to/aspen-dns "$sandbox/aspen-dns"
++   ln -s /path/to/aspen-wasm-plugin "$sandbox/aspen-wasm-plugin"
++   git -C /path/to/aspen worktree add --detach "$sandbox/aspen" 909e5e9fa
++   cd "$sandbox/aspen"
+    ```
+ 
++   Aspen needs those sibling entries because path dependencies in
++   `aspen-dns` and `aspen-wasm-plugin` resolve back through `../aspen`.
++
+ 2. copy `templates/tigerstyle-check.sh` and `templates/dylint.toml`
+ 3. keep the boundary-first lint set:
+    - `ambient_clock`
+@@ -328,6 +335,13 @@ alone:
+    - 2 `compound_assertion`
+    - 4 `no_panic`
+ 
++Optional cleanup when finished:
++
++```bash
++git -C /path/to/aspen worktree remove --force "$sandbox/aspen"
++rm -rf "$sandbox"
++```
++
+ Archive references for that reconstruction:
+ 
+ - `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/rollout-notes.md`
+diff --git a/openspec/specs/documentation/spec.md b/openspec/specs/documentation/spec.md
+index 573c27f..19a3b0f 100644
+--- a/openspec/specs/documentation/spec.md
++++ b/openspec/specs/documentation/spec.md
+@@ -166,6 +166,10 @@ The evidence MUST include:
+   instead of elided here-doc summaries
+ - enough detail to show the documented starter path was reconstructed without
+   relying on undocumented shell state or current downstream repo drift
++- any required sandbox, sibling-repo, or path-layout setup that the documented
++  reconstruction path depends on
++- archived text artifacts whose recorded commands reference the archived helper
++  and evidence locations, not a deleted pre-archive change path
+ 
+ #### Scenario: Reviewing Aspen phase-1 reconstruction
+ 
+@@ -174,3 +178,10 @@ The evidence MUST include:
+ - THEN they can see the exact helper scripts, the temp-worktree setup, and the
+   transcript proving the published Aspen phase-1 path ran from the new templates
+ 
++#### Scenario: Reviewing archived reconstruction transcripts
++
++- GIVEN the change has already been archived
++- WHEN a reviewer opens the saved `.txt` transcripts and verification notes
++- THEN the recorded commands point at the archived helper scripts and evidence
++  files, not at a no-longer-active change directory
++

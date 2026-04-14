@@ -1,0 +1,20 @@
+$ bash templates/tigerstyle-check.sh --help
+Usage: scripts/tigerstyle-check.sh [cargo-dylint options] [package scope] [-- cargo-check args]
+
+Edit `default_scope` in the script before relying on the no-argument default.
+
+Environment:
+  TIGERSTYLE_PATH        local tigerstyle checkout (default: ../tigerstyle)
+  TIGERSTYLE_DYLINT_REV  optional dylint git rev to patch dylint_driver
+
+Reference starter profile from docs/downstream-rollout.md:
+  ambient_clock compound_assertion contradictory_time
+
+Default args in this template:
+  --lib --no-deps
+
+Examples:
+  scripts/tigerstyle-check.sh -p your-core-crate
+  scripts/tigerstyle-check.sh --workspace -- --all-targets
+  TIGERSTYLE_PATH=~/src/tigerstyle scripts/tigerstyle-check.sh -p your-core-crate
+  TIGERSTYLE_DYLINT_REV=<rev> scripts/tigerstyle-check.sh -p your-core-crate

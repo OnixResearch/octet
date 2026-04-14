@@ -166,6 +166,10 @@ The evidence MUST include:
   instead of elided here-doc summaries
 - enough detail to show the documented starter path was reconstructed without
   relying on undocumented shell state or current downstream repo drift
+- any required sandbox, sibling-repo, or path-layout setup that the documented
+  reconstruction path depends on
+- archived text artifacts whose recorded commands reference the archived helper
+  and evidence locations, not a deleted pre-archive change path
 
 #### Scenario: Reviewing Aspen phase-1 reconstruction
 
@@ -173,4 +177,11 @@ The evidence MUST include:
 - WHEN they open the reconstruction evidence
 - THEN they can see the exact helper scripts, the temp-worktree setup, and the
   transcript proving the published Aspen phase-1 path ran from the new templates
+
+#### Scenario: Reviewing archived reconstruction transcripts
+
+- GIVEN the change has already been archived
+- WHEN a reviewer opens the saved `.txt` transcripts and verification notes
+- THEN the recorded commands point at the archived helper scripts and evidence
+  files, not at a no-longer-active change directory
 

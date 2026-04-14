@@ -20,6 +20,7 @@
 | 2026-04-14 | self | Tried reconstructing Aspen phase 1 from a naive temp worktree; sibling path deps (`aspen-dns`, `aspen-wasm-plugin`) and lockfile collisions made cargo metadata or resolution fail | For Aspen reconstruction, create a sandbox parent with sibling symlinks and checkout Aspen commit `909e5e9fa` as `aspen/` inside that sandbox |
 | 2026-04-14 | self | Used `cd ... && pwd` inside command substitution without neutralizing `CDPATH`; bash printed the directory and polluted the captured path with a newline | Use `CDPATH=` on `cd` when deriving script directories in shell scripts |
 | 2026-04-14 | self | Tried to scope tigerstyle lints in the template via cargo-check args and `DYLINT_RUSTFLAGS`; cargo rejected `-W/-A` as check args, and Dylint/rustc reported `unknown lint tool: tigerstyle` when forced via flags | Treat the starter profile as documented guidance and verified package scope, not as an externally forced per-lint CLI filter |
+| 2026-04-14 | self | Archived verification transcripts still pointed at the pre-archive active change path because I generated the `.txt` outputs before archiving and never refreshed them from the archive | After archiving an evidence-heavy change, rerun the saved helper scripts from the archived location so transcript command lines reference `openspec/changes/archive/...` |
 
 ## User Preferences
 - Uses openspec for structured change management
@@ -41,6 +42,7 @@
 - Project: `tigerstyle` — custom Clippy lints via dylint
 - Aspen phase-1 rollout reference is the archived change `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/`; Aspen HEAD may already be on a later rollout profile
 - Reconstruct Aspen phase 1 against Aspen commit `909e5e9fa`, not current Aspen HEAD
+- Aspen reconstruction docs must include sandbox parent plus sibling symlinks for `aspen-dns` and `aspen-wasm-plugin`; plain worktree instructions are incomplete
 - Phase 1 scaffolding complete. All 5 tasks done.
 - 5 spec domains: safety, naming, structure, purity, concurrency
 - 18 lints across 8 phases, using EarlyLintPass and LateLintPass

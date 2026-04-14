@@ -8,7 +8,6 @@ turns that rollout into copyable guidance for later consumers.
 Phase-1 reference state lives in the archived OpenSpec change:
 
 - Aspen rollout commit: `909e5e9fa` (`tigerstyle: add phase-1 rollout path and follow-up changes`)
-
 - `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/`
 - rollout notes: `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/rollout-notes.md`
 - default-run transcript: `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/aspen-default-run.txt`
@@ -284,11 +283,19 @@ Not acceptable:
 A maintainer should be able to reconstruct Aspen's starter path from this repo
 alone:
 
-1. create a disposable Aspen checkout at the archived phase-1 rollout commit:
+1. create a disposable sandbox parent that recreates Aspen's sibling-repo
+   layout before checking out the archived phase-1 commit:
 
    ```bash
-   git -C /path/to/aspen worktree add --detach /tmp/aspen-phase1 909e5e9fa
+   sandbox=$(mktemp -d /tmp/aspen-phase1-sandbox.XXXXXX)
+   ln -s /path/to/aspen-dns "$sandbox/aspen-dns"
+   ln -s /path/to/aspen-wasm-plugin "$sandbox/aspen-wasm-plugin"
+   git -C /path/to/aspen worktree add --detach "$sandbox/aspen" 909e5e9fa
+   cd "$sandbox/aspen"
    ```
+
+   Aspen needs those sibling entries because path dependencies in
+   `aspen-dns` and `aspen-wasm-plugin` resolve back through `../aspen`.
 
 2. copy `templates/tigerstyle-check.sh` and `templates/dylint.toml`
 3. keep the boundary-first lint set:
@@ -327,6 +334,13 @@ alone:
    - 21 `ambient_clock`
    - 2 `compound_assertion`
    - 4 `no_panic`
+
+Optional cleanup when finished:
+
+```bash
+git -C /path/to/aspen worktree remove --force "$sandbox/aspen"
+rm -rf "$sandbox"
+```
 
 Archive references for that reconstruction:
 
