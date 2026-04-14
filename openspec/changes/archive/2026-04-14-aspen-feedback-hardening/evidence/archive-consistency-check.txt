@@ -1,0 +1,2 @@
+$ python - <<"PY"
+docs/downstream-rollout.md matches archived Aspen phase-1 scope, counts, and wrapper facts

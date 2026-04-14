@@ -16,6 +16,7 @@
 | 2026-04-13 | self | Aspen-side Dylint rollout under nix-managed nightly failed until the check wrapped `rustup`/`cargo`/`dylint-link` and patched `dylint_driver` through a temporary `CARGO_HOME/config.toml` | For downstream integration, use a wrapper script like `scripts/tigerstyle-check.sh`; do not assume plain `cargo dylint` works under nix-managed toolchains |
 | 2026-04-13 | self | Saved `git status --short` as a cleanliness artifact, but clean repo produced a zero-byte file that was not self-describing in review | When a status command may emit nothing, save the command line and an explicit `(no output; repo clean)` note in the artifact |
 | 2026-04-13 | self | Saved targeted `cargo clippy` evidence from a warm cache, which only showed resolver warnings and `Finished` without proving which crates were checked | For reviewable clippy evidence, save the command line and use a fresh `CARGO_TARGET_DIR` so the artifact includes `Checking aspen-*` lines for the targeted crates |
+| 2026-04-14 | self | Treated Aspen HEAD `scripts/tigerstyle-check.sh` as if it were the original phase-1 starter path; Aspen has already expanded scope/lints past the archived starter rollout | For Aspen starter-path reconstruction, use `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/` evidence, not current `/home/brittonr/git/aspen` scripts |
 
 ## User Preferences
 - Uses openspec for structured change management
@@ -35,6 +36,7 @@
 
 ## Domain Notes
 - Project: `tigerstyle` — custom Clippy lints via dylint
+- Aspen phase-1 rollout reference is the archived change `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/`; Aspen HEAD may already be on a later rollout profile
 - Phase 1 scaffolding complete. All 5 tasks done.
 - 5 spec domains: safety, naming, structure, purity, concurrency
 - 18 lints across 8 phases, using EarlyLintPass and LateLintPass

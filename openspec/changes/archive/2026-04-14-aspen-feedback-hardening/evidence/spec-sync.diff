@@ -1,0 +1,121 @@
+$ git diff HEAD -- openspec/specs/documentation/spec.md openspec/specs/purity/spec.md
+diff --git a/openspec/specs/documentation/spec.md b/openspec/specs/documentation/spec.md
+index 4bd6da1..fbc38fa 100644
+--- a/openspec/specs/documentation/spec.md
++++ b/openspec/specs/documentation/spec.md
+@@ -86,3 +86,67 @@ The integration notes MUST record:
+ - THEN the reviewer can see why the config exists and how the check was
+   validated
+ 
++### Requirement: Reusable Consumer Integration Kit
++
++After the first real downstream rollout, the project MUST generalize the
++consumer-specific lessons into a reusable onboarding kit for later consumers.
++
++The integration kit MUST include:
++
++- named starter rollout profiles with rationale for why they are suitable as
++  first adopters
++- a reusable check-path recipe for consumers whose toolchain or environment
++  needs Dylint wrappers or extra setup
++- a sample `dylint.toml` layout with commented threshold, allowlist, and
++  rationale sections
++- a checklist for deciding when a new crate or package is ready to join the
++  default pilot scope
++- pointers to evidence from the first consumer rollout that justify the kit's
++  defaults and cautions
++
++#### Scenario: Preparing a second downstream rollout
++
++- GIVEN a maintainer is onboarding a second consumer after Aspen
++- WHEN they follow the integration kit
++- THEN they can choose a starter profile, wire a working check path, and add
++  consumer-local tuning without rediscovering Aspen's setup work
++
++#### Scenario: Reviewing a consumer wrapper
++
++- GIVEN a consumer uses a nix-managed or otherwise nonstandard nightly toolchain
++- WHEN a reviewer checks the documented integration kit
++- THEN they can see the expected wrapper responsibilities and minimum
++  environment assumptions
++
++### Requirement: High-Noise Lint Promotion Playbook
++
++The project MUST maintain a promotion playbook for lint families that proved
++too noisy for blind rollout in Aspen.
++
++The playbook MUST:
++
++- name `ignored_result`, `no_unwrap`, `no_panic`, `unchecked_narrowing`, and
++  `unbounded_loop` as inventory-first families
++- require a per-crate or per-package inventory before a family is promoted
++  into the default downstream path
++- record known noise or classification patterns that reviewers should sort
++  before deciding whether a finding is real debt, justified shell code, or a
++  lint-precision problem
++- define the evidence required before promoting a family into a later rollout
++  phase
++- reject blanket `allow`-based promotion as a substitute for triage
++
++#### Scenario: Promoting `no_unwrap`
++
++- GIVEN a maintainer wants to add `no_unwrap` to a downstream default profile
++- WHEN they follow the playbook
++- THEN they first build an inventory, classify the highest-risk production
++  sites, and capture evidence for the reduced baseline before promotion
++
++#### Scenario: Reviewing `unbounded_loop` findings
++
++- GIVEN a downstream crate has many loop-related findings
++- WHEN a reviewer follows the playbook
++- THEN they can separate real unbounded retries from known event-loop patterns
++  and identify any remaining lint-precision gaps explicitly
++
+diff --git a/openspec/specs/purity/spec.md b/openspec/specs/purity/spec.md
+index bf1141d..f48f85b 100644
+--- a/openspec/specs/purity/spec.md
++++ b/openspec/specs/purity/spec.md
+@@ -158,3 +158,43 @@ has two conflicting time sources.
+ - WHEN the lint runs
+ - THEN it does NOT fire (no conflicting time parameter)
+ 
++### Requirement: Ambient Clock Boundary Pattern Guidance
++
++The project MUST document concrete boundary patterns for `ambient_clock`
++findings that appear during downstream rollouts.
++
++The guidance MUST cover:
++
++- timeout-to-deadline conversion helpers
++- elapsed-time measurement in worker, retry, or polling loops
++- repeated `Instant::now()` checks inside shell-owned wait loops
++- how to decide between injecting time as a parameter, centralizing one
++  boundary helper, or using a narrow item-scoped `#[allow(ambient_clock,
++  reason = "...")]`
++- how this guidance relates to `contradictory_time`, so maintainers do not add
++  ambient clock reads to functions that already accept time parameters
++
++#### Scenario: Timeout helper in shell code
++
++- GIVEN a downstream crate computes `let deadline = Instant::now() + timeout`
++  in a coordination helper
++- WHEN a maintainer consults the `ambient_clock` guidance
++- THEN they can decide whether that logic belongs in a shared shell-boundary
++  helper or should receive `now` as an explicit parameter instead of
++  scattering repeated clock reads
++
++#### Scenario: Elapsed-time measurement loop
++
++- GIVEN a worker loop measures elapsed time with `Instant::now()` while owning
++  the scheduling boundary
++- WHEN a maintainer consults the guidance
++- THEN they can see whether a narrow boundary-scoped allow is justified and
++  what rationale text to record
++
++#### Scenario: Function already takes time as input
++
++- GIVEN a function already accepts `now`, `elapsed`, or another time parameter
++- WHEN the maintainer checks the guidance after an `ambient_clock` warning
++- THEN the guidance points them to parameter injection and `contradictory_time`
++  instead of approving another direct clock read
++

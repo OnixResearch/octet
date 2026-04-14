@@ -1,0 +1,81 @@
+$ sed -n "1,80p" /home/brittonr/git/aspen/scripts/tigerstyle-check.sh
+#!/usr/bin/env bash
+# Run Aspen's current Tiger Style starter-lint pilot through Dylint.
+#
+# Requirements:
+#   - `cargo-dylint` and `dylint-link` installed in PATH
+#   - sibling tigerstyle repo at ../tigerstyle, or set TIGERSTYLE_PATH
+#
+# Why wrappers exist:
+#   - Aspen uses a nix-managed nightly toolchain, so `rustup show active-toolchain`
+#     reports `nix-managed` instead of a full nightly triple.
+#   - `cargo-dylint` builds a driver crate that still needs the nightly-fix patch
+#     for `dylint_driver` on current rustc.
+#   - `dylint-link` expects `RUSTUP_TOOLCHAIN` during link steps.
+#
+# This script creates temporary wrappers/config so Aspen can run tigerstyle
+# without mutating the caller's shell environment.
+#
+# Usage:
+#   scripts/tigerstyle-check.sh
+#   scripts/tigerstyle-check.sh -p aspen-core -p aspen-time
+#   TIGERSTYLE_PATH=~/src/tigerstyle scripts/tigerstyle-check.sh --workspace -- --all-targets
+
+set -euo pipefail
+
+usage() {
+  cat <<'EOF'
+Usage: scripts/tigerstyle-check.sh [cargo-dylint options] [package scope] [-- cargo-check args]
+
+Default scope (when no package/workspace is passed):
+  -p aspen-time -p aspen-hlc -p aspen-core -p aspen-coordination
+
+Pilot lints enabled in the current default path:
+  - tigerstyle::ambient_clock
+  - tigerstyle::compound_assertion
+  - tigerstyle::contradictory_time
+  - tigerstyle::ignored_result
+  - tigerstyle::no_unwrap
+
+Examples:
+  scripts/tigerstyle-check.sh
+  scripts/tigerstyle-check.sh -p aspen-core -p aspen-time
+  scripts/tigerstyle-check.sh --workspace -- --all-targets
+  scripts/tigerstyle-check.sh --with-deps -p aspen-core -- --all-targets
+  TIGERSTYLE_PATH=~/src/tigerstyle scripts/tigerstyle-check.sh --keep-going
+EOF
+}
+
+if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+  usage
+  exit 0
+fi
+
+need_cmd() {
+  if ! command -v "$1" >/dev/null 2>&1; then
+    echo "error: missing required command: $1" >&2
+    exit 1
+  fi
+}
+
+export PATH="${CARGO_HOME:-$HOME/.cargo}/bin:$PATH"
+
+need_cmd cargo
+need_cmd rustc
+need_cmd python3
+need_cmd cargo-dylint
+need_cmd dylint-link
+
+repo_root=$(git rev-parse --show-toplevel 2>/dev/null) || {
+  echo "error: not inside the Aspen git repository" >&2
+  exit 1
+}
+cd "$repo_root"
+
+tigerstyle_path=$(realpath "${TIGERSTYLE_PATH:-$repo_root/../tigerstyle}")
+if [[ ! -d "$tigerstyle_path" ]]; then
+  echo "error: tigerstyle repo not found at $tigerstyle_path" >&2
+  echo "set TIGERSTYLE_PATH=/path/to/tigerstyle and retry" >&2
+  exit 1
+fi
+if [[ ! -f "$repo_root/dylint.toml" ]]; then

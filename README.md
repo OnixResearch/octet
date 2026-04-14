@@ -119,6 +119,19 @@ acronym_allowlist = ["IO", "ID"]   # default: []
 
 All fields are optional — missing fields use the defaults shown above.
 
+For a reusable consumer template, see `templates/dylint.toml`.
+
+### Downstream rollout kit
+
+Use these repo-local guides when onboarding a consumer workspace:
+
+- `docs/downstream-rollout.md` — starter profiles, `ambient_clock` boundary guidance, and the high-noise lint promotion playbook
+- `templates/tigerstyle-check.sh` — reusable check-path recipe for nix-managed or otherwise nonstandard Dylint toolchains
+- `templates/dylint.toml` — consumer-owned threshold and allowlist template
+
+The Aspen phase-1 reference state is archived under
+`openspec/changes/archive/2026-04-13-aspen-consumer-rollout/`.
+
 ## Development
 
 ```bash
