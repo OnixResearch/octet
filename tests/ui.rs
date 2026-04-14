@@ -38,6 +38,7 @@ const FIXTURES: &[&str] = &[
     "assertion_density_custom/assertion_density_custom",
     "nesting_custom/nesting_custom",
     "acronym_allowlist_custom/acronym_allowlist_custom",
+    "no_unwrap_disabled_custom/no_unwrap_disabled_custom",
 ];
 
 #[cfg(unix)]
