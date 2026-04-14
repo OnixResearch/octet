@@ -1,0 +1,5 @@
+$ python3 openspec/changes/archive/2026-04-14-aspen-feedback-hardening-exact-replay/evidence/archive-consistency-check.py
+docs assumptions match template behavior
+template no longer depends on realpath
+docs exact replay command points at the archived helper path
+docs reconstruction path still matches archived Aspen phase-1 counts and wrapper facts

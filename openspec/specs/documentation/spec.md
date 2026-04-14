@@ -170,6 +170,10 @@ The evidence MUST include:
   reconstruction path depends on
 - archived text artifacts whose recorded commands reference the archived helper
   and evidence locations, not a deleted pre-archive change path
+- if the documented reconstruction path is a saved helper command, a transcript
+  whose top-level replay command matches that helper path exactly
+- check helpers that assert every summary claim the docs or verification notes
+  make about the replay output, including zero-warning claims
 
 #### Scenario: Reviewing Aspen phase-1 reconstruction
 
@@ -184,4 +188,12 @@ The evidence MUST include:
 - WHEN a reviewer opens the saved `.txt` transcripts and verification notes
 - THEN the recorded commands point at the archived helper scripts and evidence
   files, not at a no-longer-active change directory
+
+#### Scenario: Reviewing replay summary claims
+
+- GIVEN the docs or verification notes claim `aspen-hlc: 0 starter findings`
+  or another concrete replay summary
+- WHEN a reviewer inspects the saved check helper
+- THEN they can see an explicit assertion for that claim, not only a printed
+  summary line
 

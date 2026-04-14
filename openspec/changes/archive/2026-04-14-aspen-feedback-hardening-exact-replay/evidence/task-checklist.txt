@@ -1,0 +1,20 @@
+$ sed -n "1,200p" openspec/changes/archive/2026-04-14-aspen-feedback-hardening-exact-replay/tasks.md
+# Tasks: Prove The Exact Aspen Replay Path We Document
+
+## Phase 1: Docs and checker alignment
+
+- [x] Update `docs/downstream-rollout.md` so the exact Aspen phase-1 replay path is the archived helper command, with the sandbox/symlink layout described as what the helper performs
+- [x] Tighten the saved count checker so it asserts the `aspen-hlc: 0 starter findings` claim explicitly
+- [x] Update consistency checks so they verify the final helper-driven replay path and the stricter count checker behavior
+
+## Phase 2: Exact replay evidence
+
+- [x] Re-run the archived helper-driven replay and save a transcript whose top-level command matches the final documented replay path exactly
+- [x] Refresh archived verification notes and task-checklist evidence so the checked Phase 2 task is provably backed by the new transcript
+
+Evidence map:
+- Phase 1 task 1 -> docs/downstream-rollout.md (Exact replay path from this repo), evidence/archive-consistency-check.txt, evidence/reconstruct-aspen-phase1.txt
+- Phase 1 task 2 -> evidence/check-aspen-phase1-counts.py, evidence/reconstruct-aspen-phase1.txt
+- Phase 1 task 3 -> evidence/archive-consistency-check.py, evidence/archive-consistency-check.txt
+- Phase 2 task 1 -> evidence/reconstruct-aspen-phase1.txt
+- Phase 2 task 2 -> verification.md, evidence/task-checklist.txt, evidence/reconstruct-aspen-phase1.txt
