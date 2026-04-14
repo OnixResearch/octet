@@ -1,7 +1,11 @@
-use rustc_ast::{Expr, ExprKind};
+use rustc_ast::Expr;
+use rustc_ast::ExprKind;
 use rustc_errors::DiagDecorator;
-use rustc_lint::{EarlyContext, EarlyLintPass, LintContext};
-use rustc_session::{declare_lint, declare_lint_pass};
+use rustc_lint::EarlyContext;
+use rustc_lint::EarlyLintPass;
+use rustc_lint::LintContext;
+use rustc_session::declare_lint;
+use rustc_session::declare_lint_pass;
 
 declare_lint! {
     /// Detects `panic!()`, `todo!()`, `unimplemented!()`, and
@@ -15,12 +19,7 @@ declare_lint! {
 
 declare_lint_pass!(NoPanic => [NO_PANIC]);
 
-const PANIC_MACROS: &[&str] = &[
-    "panic",
-    "todo",
-    "unimplemented",
-    "unreachable",
-];
+const PANIC_MACROS: &[&str] = &["panic", "todo", "unimplemented", "unreachable"];
 
 /// Heuristic test detection for EarlyLintPass (no HIR parent chain).
 /// Checks source context around the span for test indicators.
@@ -93,9 +92,7 @@ impl EarlyLintPass for NoPanic {
             NO_PANIC,
             Some(expr.span),
             DiagDecorator(|diag| {
-                diag.primary_message(format!(
-                    "`{name}!()` will abort the process on execution",
-                ));
+                diag.primary_message(format!("`{name}!()` will abort the process on execution",));
                 diag.help(suggestion);
             }),
         );

@@ -1,7 +1,11 @@
-use rustc_ast::{Local, PatKind};
+use rustc_ast::Local;
+use rustc_ast::PatKind;
 use rustc_errors::DiagDecorator;
-use rustc_lint::{EarlyContext, EarlyLintPass, LintContext};
-use rustc_session::{declare_lint, declare_lint_pass};
+use rustc_lint::EarlyContext;
+use rustc_lint::EarlyLintPass;
+use rustc_lint::LintContext;
+use rustc_session::declare_lint;
+use rustc_session::declare_lint_pass;
 
 declare_lint! {
     /// Detects numeric variable bindings whose names contain time or size
@@ -17,33 +21,12 @@ declare_lint_pass!(NumericUnits => [NUMERIC_UNITS]);
 
 /// Words that imply a measurable quantity.
 const QUANTITY_WORDS: &[&str] = &[
-    "timeout",
-    "delay",
-    "duration",
-    "interval",
-    "latency",
-    "size",
-    "length",
-    "capacity",
-    "limit",
-    "offset",
-    "port",
+    "timeout", "delay", "duration", "interval", "latency", "size", "length", "capacity", "limit", "offset", "port",
 ];
 
 /// Unit suffixes that resolve ambiguity.
 const UNIT_SUFFIXES: &[&str] = &[
-    "_ms",
-    "_millis",
-    "_secs",
-    "_sec",
-    "_us",
-    "_micros",
-    "_ns",
-    "_nanos",
-    "_bytes",
-    "_kb",
-    "_mb",
-    "_gb",
+    "_ms", "_millis", "_secs", "_sec", "_us", "_micros", "_ns", "_nanos", "_bytes", "_kb", "_mb", "_gb",
 ];
 
 /// Names that are common loop/index variables, not quantities.
@@ -76,15 +59,17 @@ impl EarlyLintPass for NumericUnits {
         }
 
         if has_quantity_word(name) && !has_unit_suffix(name) {
-            cx.opt_span_lint(NUMERIC_UNITS, Some(ident.span), DiagDecorator(|diag| {
-                diag.primary_message(format!(
-                    "`{name}` looks like a quantity but has no unit suffix",
-                ));
-                diag.help(
-                    "add a unit suffix like `_ms`, `_secs`, `_bytes`, etc. \
+            cx.opt_span_lint(
+                NUMERIC_UNITS,
+                Some(ident.span),
+                DiagDecorator(|diag| {
+                    diag.primary_message(format!("`{name}` looks like a quantity but has no unit suffix",));
+                    diag.help(
+                        "add a unit suffix like `_ms`, `_secs`, `_bytes`, etc. \
                      to make the unit of measure explicit",
-                );
-            }));
+                    );
+                }),
+            );
         }
     }
 }

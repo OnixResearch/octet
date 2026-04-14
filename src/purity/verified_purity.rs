@@ -1,7 +1,13 @@
-use rustc_ast::{Expr, ExprKind, Item, ItemKind};
+use rustc_ast::Expr;
+use rustc_ast::ExprKind;
+use rustc_ast::Item;
+use rustc_ast::ItemKind;
 use rustc_errors::DiagDecorator;
-use rustc_lint::{EarlyContext, EarlyLintPass, LintContext};
-use rustc_session::{declare_lint, declare_lint_pass};
+use rustc_lint::EarlyContext;
+use rustc_lint::EarlyLintPass;
+use rustc_lint::LintContext;
+use rustc_session::declare_lint;
+use rustc_session::declare_lint_pass;
 use rustc_span::Span;
 
 declare_lint! {
@@ -58,22 +64,20 @@ impl EarlyLintPass for VerifiedPurity {
         }
 
         // Check for async fn
-        if let ItemKind::Fn(func) = &item.kind {
-            if func.sig.header.coroutine_kind.is_some() {
-                cx.opt_span_lint(
-                    VERIFIED_PURITY,
-                    Some(item.span),
-                    DiagDecorator(|diag| {
-                        diag.primary_message(
-                            "async function in verified module",
-                        );
-                        diag.help(
-                            "verified functions must be synchronous and pure — \
-                             no async, no IO, no system time",
-                        );
-                    }),
-                );
-            }
+        if let ItemKind::Fn(func) = &item.kind
+            && func.sig.header.coroutine_kind.is_some()
+        {
+            cx.opt_span_lint(
+                VERIFIED_PURITY,
+                Some(item.span),
+                DiagDecorator(|diag| {
+                    diag.primary_message("async function in verified module");
+                    diag.help(
+                        "verified functions must be synchronous and pure — \
+                         no async, no IO, no system time",
+                    );
+                }),
+            );
         }
     }
 
@@ -84,12 +88,7 @@ impl EarlyLintPass for VerifiedPurity {
 
         // Check for impure path references in expressions
         if let ExprKind::Path(_, path) = &expr.kind {
-            let path_str: String = path
-                .segments
-                .iter()
-                .map(|s| s.ident.name.as_str())
-                .collect::<Vec<_>>()
-                .join("::");
+            let path_str: String = path.segments.iter().map(|s| s.ident.name.as_str()).collect::<Vec<_>>().join("::");
 
             for impure in IMPURE_PATHS {
                 if path_str.contains(impure) {

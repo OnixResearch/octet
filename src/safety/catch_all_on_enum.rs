@@ -1,9 +1,13 @@
 use rustc_errors::DiagDecorator;
 use rustc_hir as hir;
-use rustc_hir::{ExprKind, PatKind};
-use rustc_lint::{LateContext, LateLintPass, LintContext};
+use rustc_hir::ExprKind;
+use rustc_hir::PatKind;
+use rustc_lint::LateContext;
+use rustc_lint::LateLintPass;
+use rustc_lint::LintContext;
 use rustc_middle::ty;
-use rustc_session::{declare_lint, declare_lint_pass};
+use rustc_session::declare_lint;
+use rustc_session::declare_lint_pass;
 
 declare_lint! {
     /// Detects `match` over enum types where the last arm is a wildcard (`_`)
@@ -23,25 +27,15 @@ fn is_deny_value(expr: &hir::Expr<'_>) -> bool {
             matches!(lit.node, rustc_ast::LitKind::Bool(false))
                 || matches!(lit.node, rustc_ast::LitKind::Int(v, _) if v.get() == 0)
         }
-        ExprKind::Path(qpath) => {
-            if let hir::QPath::Resolved(_, path) = qpath {
-                let name = path
-                    .segments
-                    .last()
-                    .map(|s| s.ident.name.as_str())
-                    .unwrap_or("");
-                name == "None"
-            } else {
-                false
-            }
+        ExprKind::Path(hir::QPath::Resolved(_, path)) => {
+            let name = path.segments.last().map(|s| s.ident.name.as_str()).unwrap_or("");
+            name == "None"
         }
+        ExprKind::Path(_) => false,
         ExprKind::Call(func, _) => {
             // Check for Err(...)
             if let ExprKind::Path(hir::QPath::Resolved(_, path)) = &func.kind {
-                path.segments
-                    .last()
-                    .map(|s| s.ident.name.as_str() == "Err")
-                    .unwrap_or(false)
+                path.segments.last().map(|s| s.ident.name.as_str() == "Err").unwrap_or(false)
             } else {
                 false
             }

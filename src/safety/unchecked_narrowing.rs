@@ -1,9 +1,13 @@
 use rustc_errors::DiagDecorator;
 use rustc_hir as hir;
 use rustc_hir::ExprKind;
-use rustc_lint::{LateContext, LateLintPass, LintContext};
-use rustc_middle::ty::{self, Ty};
-use rustc_session::{declare_lint, declare_lint_pass};
+use rustc_lint::LateContext;
+use rustc_lint::LateLintPass;
+use rustc_lint::LintContext;
+use rustc_middle::ty::Ty;
+use rustc_middle::ty::{self};
+use rustc_session::declare_lint;
+use rustc_session::declare_lint_pass;
 
 declare_lint! {
     /// Detects `as u32`, `as u16`, `as u8`, `as i32`, `as i16`, `as i8`
@@ -19,8 +23,8 @@ declare_lint_pass!(UncheckedNarrowing => [UNCHECKED_NARROWING]);
 
 fn int_width(ty: Ty<'_>) -> Option<u64> {
     match ty.kind() {
-        ty::Int(int_ty) => int_ty.bit_width().map(|w| w as u64),
-        ty::Uint(uint_ty) => uint_ty.bit_width().map(|w| w as u64),
+        ty::Int(int_ty) => int_ty.bit_width(),
+        ty::Uint(uint_ty) => uint_ty.bit_width(),
         _ => None,
     }
 }
@@ -44,8 +48,7 @@ fn has_bounds_guard(cx: &LateContext<'_>, expr: &hir::Expr<'_>) -> bool {
                     if let Ok(snippet) = source_map.span_to_snippet(cond.span) {
                         let s = snippet.to_ascii_lowercase();
                         // Recognizes: if val <= u32::MAX, if val < MAX_VAL, etc.
-                        if s.contains("max") || s.contains("try_into") || s.contains("try_from")
-                        {
+                        if s.contains("max") || s.contains("try_into") || s.contains("try_from") {
                             return true;
                         }
                     }

@@ -1,9 +1,13 @@
+use rustc_ast::Expr;
+use rustc_ast::ExprKind;
 use rustc_ast::token::TokenKind;
 use rustc_ast::tokenstream::TokenTree;
-use rustc_ast::{Expr, ExprKind};
 use rustc_errors::DiagDecorator;
-use rustc_lint::{EarlyContext, EarlyLintPass, LintContext};
-use rustc_session::{declare_lint, declare_lint_pass};
+use rustc_lint::EarlyContext;
+use rustc_lint::EarlyLintPass;
+use rustc_lint::LintContext;
+use rustc_session::declare_lint;
+use rustc_session::declare_lint_pass;
 
 declare_lint! {
     /// Detects `assert!(a && b)` and `assert!(a || b)` where the macro
@@ -40,15 +44,17 @@ impl EarlyLintPass for CompoundAssertion {
                 TokenTree::Token(tok, _) => match tok.kind {
                     TokenKind::Comma => break, // stop before optional message arg
                     TokenKind::AndAnd | TokenKind::OrOr => {
-                        cx.opt_span_lint(COMPOUND_ASSERTION, Some(expr.span), DiagDecorator(|diag| {
-                            diag.primary_message(
-                                "compound assertion should be split into separate assertions",
-                            );
-                            diag.help(
-                                "split into separate `assert!()` calls so each condition \
+                        cx.opt_span_lint(
+                            COMPOUND_ASSERTION,
+                            Some(expr.span),
+                            DiagDecorator(|diag| {
+                                diag.primary_message("compound assertion should be split into separate assertions");
+                                diag.help(
+                                    "split into separate `assert!()` calls so each condition \
                                  reports independently on failure",
-                            );
-                        }));
+                                );
+                            }),
+                        );
                         return;
                     }
                     _ => {}

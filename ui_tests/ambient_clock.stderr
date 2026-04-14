@@ -1,0 +1,11 @@
+warning: direct system clock read in production code
+  --> $DIR/ambient_clock.rs:4:5
+   |
+LL |     Instant::now() + timeout
+   |     ^^^^^^^^^^^^^^
+   |
+   = help: inject time as a parameter (e.g. `now: Instant`) so logic stays deterministic and testable. If this crate owns the clock boundary, add `#[allow(ambient_clock, reason = "...")]`
+   = note: `#[warn(ambient_clock)]` on by default
+
+warning: 1 warning emitted
+

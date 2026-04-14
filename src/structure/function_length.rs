@@ -1,7 +1,12 @@
-use rustc_ast::{Attribute, Item, ItemKind};
+use rustc_ast::Attribute;
+use rustc_ast::Item;
+use rustc_ast::ItemKind;
 use rustc_errors::DiagDecorator;
-use rustc_lint::{EarlyContext, EarlyLintPass, LintContext};
-use rustc_session::{declare_lint, impl_lint_pass};
+use rustc_lint::EarlyContext;
+use rustc_lint::EarlyLintPass;
+use rustc_lint::LintContext;
+use rustc_session::declare_lint;
+use rustc_session::impl_lint_pass;
 use rustc_span::sym;
 
 declare_lint! {
@@ -102,9 +107,7 @@ impl EarlyLintPass for FunctionLength {
                 FUNCTION_LENGTH,
                 Some(body.span),
                 DiagDecorator(|diag| {
-                    diag.primary_message(format!(
-                        "function `{name}` is {code_lines} lines (limit: {max})",
-                    ));
+                    diag.primary_message(format!("function `{name}` is {code_lines} lines (limit: {max})",));
                     diag.help("decompose into smaller functions with clear responsibilities");
                 }),
             );

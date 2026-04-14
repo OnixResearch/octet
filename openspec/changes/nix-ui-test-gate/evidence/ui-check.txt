@@ -1,0 +1,95 @@
+$ nix build .#checks.x86_64-linux.ui -L --print-out-paths --no-link
+these 3 derivations will be built:
+  /nix/store/k36iypg94j6aw29bb8yaywbcfl6b8l6v-tigerstyle-0.1.0.drv
+  /nix/store/pacrkbvvny9p7394wvnymz8y611hrjx3-tigerstyle-ui-library.drv
+  /nix/store/z8y4q4zw8aamvpjj4jnqr61r77xdd3p8-tigerstyle-ui-0.1.0.drv
+cannot build on 'ssh-ng://root@10.10.10.1': error: failed to start SSH connection to '10.10.10.1'
+building '/nix/store/k36iypg94j6aw29bb8yaywbcfl6b8l6v-tigerstyle-0.1.0.drv'...
+tigerstyle> Running phase: unpackPhase
+tigerstyle> unpacking source archive /nix/store/rv8ahw2102whngah7d3hwag75cyb4l0n-source
+tigerstyle> source root is source
+tigerstyle> Running phase: patchPhase
+tigerstyle> Executing configureCargoCommonVars
+tigerstyle> decompressing cargo artifacts from /nix/store/79a66ssa92f29ay0q95s8h1zsqsk5mfn-tigerstyle-deps-0.1.0/target.tar.zst to target
+tigerstyle> Running phase: updateAutotoolsGnuConfigScriptsPhase
+tigerstyle> Running phase: configurePhase
+tigerstyle> will append /build/source/.cargo-home/config.toml with contents of /nix/store/5if6mjyzck5rhdwkycd33jblxcsg7hih-vendor-cargo-deps/config.toml
+tigerstyle> default configurePhase, nothing to do
+tigerstyle> Running phase: buildPhase
+tigerstyle> +++ command cargo --version
+tigerstyle> cargo 1.96.0-nightly (cbb9bb8bd 2026-03-13)
+tigerstyle> +++ command cargo build --release --message-format json-render-diagnostics --locked
+tigerstyle>    Compiling tigerstyle v0.1.0 (/build/source)
+tigerstyle>     Finished `release` profile [optimized] target(s) in 1.54s
+tigerstyle> searching for bins/libs to install from cargo build log at cargoBuildLog9Xlb.json
+tigerstyle> installing /build/source/target/release/libtigerstyle.so in postBuildInstallFromCargoBuildLogOutTempNJj/lib
+tigerstyle> searching for bins/libs complete
+tigerstyle> Running phase: checkPhase
+tigerstyle> +++ command cargo test --release --locked
+tigerstyle>    Compiling tigerstyle v0.1.0 (/build/source)
+tigerstyle>     Finished `release` profile [optimized] target(s) in 1.56s
+tigerstyle>      Running unittests src/lib.rs (target/release/deps/tigerstyle-eb059e6138a1173a)
+tigerstyle> 
+tigerstyle> running 1 test
+tigerstyle> test naming::acronym_style::tests::test_acronym_fix ... ok
+tigerstyle> 
+tigerstyle> test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+tigerstyle> 
+tigerstyle>      Running tests/ui.rs (target/release/deps/ui-d6ce675cc2c34467)
+tigerstyle> 
+tigerstyle> running 1 test
+tigerstyle> test ui ... ignored, run via nix flake check or cargo test --test ui -- --ignored --nocapture
+tigerstyle> 
+tigerstyle> test result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
+tigerstyle> 
+tigerstyle> Running phase: installPhase
+tigerstyle> actually installing contents of postBuildInstallFromCargoBuildLogOutTempNJj to /nix/store/33shafr76j9h3s1xcz7n63z5fnh8z1ig-tigerstyle-0.1.0
+tigerstyle> stripping references to Rust toolchain
+tigerstyle> Rust toolchain at: /nix/store/1yvh3d6y3fj3xk2dgwczrp1dj5svd92c-rust-default-1.96.0-nightly-2026-03-21
+tigerstyle> stripping Rust toolchain references done
+tigerstyle> stripping references to cargoVendorDir from:
+tigerstyle> /nix/store/33shafr76j9h3s1xcz7n63z5fnh8z1ig-tigerstyle-0.1.0/lib/libtigerstyle.so
+tigerstyle> stripping references done
+tigerstyle> Running phase: fixupPhase
+tigerstyle> shrinking RPATHs of ELF executables and libraries in /nix/store/33shafr76j9h3s1xcz7n63z5fnh8z1ig-tigerstyle-0.1.0
+tigerstyle> shrinking /nix/store/33shafr76j9h3s1xcz7n63z5fnh8z1ig-tigerstyle-0.1.0/lib/libtigerstyle.so
+tigerstyle> checking for references to /build/ in /nix/store/33shafr76j9h3s1xcz7n63z5fnh8z1ig-tigerstyle-0.1.0...
+tigerstyle> patching script interpreter paths in /nix/store/33shafr76j9h3s1xcz7n63z5fnh8z1ig-tigerstyle-0.1.0
+tigerstyle> stripping (with command strip and flags -S -p) in  /nix/store/33shafr76j9h3s1xcz7n63z5fnh8z1ig-tigerstyle-0.1.0/lib
+building '/nix/store/pacrkbvvny9p7394wvnymz8y611hrjx3-tigerstyle-ui-library.drv'...
+building '/nix/store/z8y4q4zw8aamvpjj4jnqr61r77xdd3p8-tigerstyle-ui-0.1.0.drv'...
+tigerstyle-ui> Running phase: unpackPhase
+tigerstyle-ui> unpacking source archive /nix/store/rv8ahw2102whngah7d3hwag75cyb4l0n-source
+tigerstyle-ui> source root is source
+tigerstyle-ui> Running phase: patchPhase
+tigerstyle-ui> Executing configureCargoCommonVars
+tigerstyle-ui> decompressing cargo artifacts from /nix/store/79a66ssa92f29ay0q95s8h1zsqsk5mfn-tigerstyle-deps-0.1.0/target.tar.zst to target
+tigerstyle-ui> Running phase: updateAutotoolsGnuConfigScriptsPhase
+tigerstyle-ui> Running phase: configurePhase
+tigerstyle-ui> will append /build/source/.cargo-home/config.toml with contents of /nix/store/5if6mjyzck5rhdwkycd33jblxcsg7hih-vendor-cargo-deps/config.toml
+tigerstyle-ui> default configurePhase, nothing to do
+tigerstyle-ui> Running phase: buildPhase
+tigerstyle-ui> +++ command cargo --version
+tigerstyle-ui> cargo 1.96.0-nightly (cbb9bb8bd 2026-03-13)
+tigerstyle-ui> Running phase: checkPhase
+tigerstyle-ui> +++ command cargo test --release --locked --test ui -- --ignored --nocapture
+tigerstyle-ui>    Compiling tigerstyle v0.1.0 (/build/source)
+tigerstyle-ui>     Finished `release` profile [optimized] target(s) in 0.70s
+tigerstyle-ui>      Running tests/ui.rs (target/release/deps/ui-d6ce675cc2c34467)
+tigerstyle-ui> 
+tigerstyle-ui> running 1 test
+tigerstyle-ui> test ui ... ok
+tigerstyle-ui> 
+tigerstyle-ui> test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+tigerstyle-ui> 
+tigerstyle-ui> Running phase: installPhase
+tigerstyle-ui> stripping references to Rust toolchain
+tigerstyle-ui> Rust toolchain at: /nix/store/1yvh3d6y3fj3xk2dgwczrp1dj5svd92c-rust-default-1.96.0-nightly-2026-03-21
+tigerstyle-ui> stripping Rust toolchain references done
+tigerstyle-ui> stripping references to cargoVendorDir from:
+tigerstyle-ui> stripping references done
+tigerstyle-ui> Running phase: fixupPhase
+tigerstyle-ui> shrinking RPATHs of ELF executables and libraries in /nix/store/hpmwzi6578pjwzcwh5h2xh1jmb5sddxd-tigerstyle-ui-0.1.0
+tigerstyle-ui> checking for references to /build/ in /nix/store/hpmwzi6578pjwzcwh5h2xh1jmb5sddxd-tigerstyle-ui-0.1.0...
+tigerstyle-ui> patching script interpreter paths in /nix/store/hpmwzi6578pjwzcwh5h2xh1jmb5sddxd-tigerstyle-ui-0.1.0
+/nix/store/hpmwzi6578pjwzcwh5h2xh1jmb5sddxd-tigerstyle-ui-0.1.0

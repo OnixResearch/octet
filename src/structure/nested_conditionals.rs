@@ -1,8 +1,15 @@
-use rustc_ast::visit::{self, Visitor};
-use rustc_ast::{Expr, ExprKind, Item, ItemKind};
+use rustc_ast::Expr;
+use rustc_ast::ExprKind;
+use rustc_ast::Item;
+use rustc_ast::ItemKind;
+use rustc_ast::visit::Visitor;
+use rustc_ast::visit::{self};
 use rustc_errors::DiagDecorator;
-use rustc_lint::{EarlyContext, EarlyLintPass, LintContext};
-use rustc_session::{declare_lint, impl_lint_pass};
+use rustc_lint::EarlyContext;
+use rustc_lint::EarlyLintPass;
+use rustc_lint::LintContext;
+use rustc_session::declare_lint;
+use rustc_session::impl_lint_pass;
 
 declare_lint! {
     /// Detects `if`/`match` nesting deeper than a configurable limit
@@ -44,10 +51,7 @@ impl<'ast> Visitor<'ast> for NestingVisitor<'_, '_> {
             return;
         }
 
-        let is_branching = matches!(
-            expr.kind,
-            ExprKind::If(..) | ExprKind::Match(..)
-        );
+        let is_branching = matches!(expr.kind, ExprKind::If(..) | ExprKind::Match(..));
 
         if is_branching {
             self.depth += 1;
@@ -59,9 +63,7 @@ impl<'ast> Visitor<'ast> for NestingVisitor<'_, '_> {
                     NESTED_CONDITIONALS,
                     Some(expr.span),
                     DiagDecorator(|diag| {
-                        diag.primary_message(format!(
-                            "conditional nesting is {depth} levels deep (limit: {max})",
-                        ));
+                        diag.primary_message(format!("conditional nesting is {depth} levels deep (limit: {max})",));
                         diag.help(
                             "flatten with early returns, guard clauses, \
                              or extract into a helper function",

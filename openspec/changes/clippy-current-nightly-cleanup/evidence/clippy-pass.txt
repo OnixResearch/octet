@@ -1,0 +1,28 @@
+$ nix build .#checks.x86_64-linux.clippy -L
+this derivation will be built:
+  /nix/store/vnaxf8qrrjqnzhf6d2bi0kc2d6brl0kj-tigerstyle-clippy-0.1.0.drv
+cannot build on 'ssh-ng://root@10.10.10.1': error: failed to start SSH connection to '10.10.10.1'
+building '/nix/store/vnaxf8qrrjqnzhf6d2bi0kc2d6brl0kj-tigerstyle-clippy-0.1.0.drv'...
+tigerstyle-clippy> Running phase: unpackPhase
+tigerstyle-clippy> unpacking source archive /nix/store/7ghsbbd91f857mvhp339h7zv4ml9012g-source
+tigerstyle-clippy> source root is source
+tigerstyle-clippy> Running phase: patchPhase
+tigerstyle-clippy> Executing configureCargoCommonVars
+tigerstyle-clippy> decompressing cargo artifacts from /nix/store/79a66ssa92f29ay0q95s8h1zsqsk5mfn-tigerstyle-deps-0.1.0/target.tar.zst to target
+tigerstyle-clippy> Running phase: updateAutotoolsGnuConfigScriptsPhase
+tigerstyle-clippy> Running phase: configurePhase
+tigerstyle-clippy> will append /build/source/.cargo-home/config.toml with contents of /nix/store/5if6mjyzck5rhdwkycd33jblxcsg7hih-vendor-cargo-deps/config.toml
+tigerstyle-clippy> default configurePhase, nothing to do
+tigerstyle-clippy> Running phase: buildPhase
+tigerstyle-clippy> +++ command cargo --version
+tigerstyle-clippy> cargo 1.96.0-nightly (cbb9bb8bd 2026-03-13)
+tigerstyle-clippy> +++ command cargo clippy --release --locked --all-targets -- -D warnings
+tigerstyle-clippy>     Checking tigerstyle v0.1.0 (/build/source)
+tigerstyle-clippy>     Finished `release` profile [optimized] target(s) in 0.26s
+tigerstyle-clippy> Running phase: installPhase
+tigerstyle-clippy> linking previous artifacts /nix/store/79a66ssa92f29ay0q95s8h1zsqsk5mfn-tigerstyle-deps-0.1.0/target.tar.zst to /nix/store/zjvbzvi9alqy9cnxd946ipv01zqbr193-tigerstyle-clippy-0.1.0/target.tar.zst
+tigerstyle-clippy> /*stdin*\            :  7.58%   (  40.0 KiB =>   3.03 KiB, /nix/store/zjvbzvi9alqy9cnxd946ipv01zqbr193-tigerstyle-clippy-0.1.0/target.tar.zst)
+tigerstyle-clippy> Running phase: fixupPhase
+tigerstyle-clippy> shrinking RPATHs of ELF executables and libraries in /nix/store/zjvbzvi9alqy9cnxd946ipv01zqbr193-tigerstyle-clippy-0.1.0
+tigerstyle-clippy> checking for references to /build/ in /nix/store/zjvbzvi9alqy9cnxd946ipv01zqbr193-tigerstyle-clippy-0.1.0...
+tigerstyle-clippy> patching script interpreter paths in /nix/store/zjvbzvi9alqy9cnxd946ipv01zqbr193-tigerstyle-clippy-0.1.0

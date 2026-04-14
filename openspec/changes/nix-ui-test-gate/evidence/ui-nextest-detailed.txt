@@ -1,0 +1,38 @@
+this derivation will be built:
+  /nix/store/wg7wp3s2d1yajq1p5dk3a2psc2v75mwm-tigerstyle-nextest-0.1.0.drv
+cannot build on 'ssh-ng://root@10.10.10.1': error: failed to start SSH connection to '10.10.10.1'
+building '/nix/store/wg7wp3s2d1yajq1p5dk3a2psc2v75mwm-tigerstyle-nextest-0.1.0.drv'...
+tigerstyle-nextest> Running phase: unpackPhase
+tigerstyle-nextest> unpacking source archive /nix/store/x0xv4bvqz906d79av3n7sjask6davhnp-source
+tigerstyle-nextest> source root is source
+tigerstyle-nextest> Running phase: patchPhase
+tigerstyle-nextest> Executing configureCargoCommonVars
+tigerstyle-nextest> decompressing cargo artifacts from /nix/store/79a66ssa92f29ay0q95s8h1zsqsk5mfn-tigerstyle-deps-0.1.0/target.tar.zst to target
+tigerstyle-nextest> Running phase: updateAutotoolsGnuConfigScriptsPhase
+tigerstyle-nextest> Running phase: configurePhase
+tigerstyle-nextest> will append /build/source/.cargo-home/config.toml with contents of /nix/store/5if6mjyzck5rhdwkycd33jblxcsg7hih-vendor-cargo-deps/config.toml
+tigerstyle-nextest> default configurePhase, nothing to do
+tigerstyle-nextest> Running phase: buildPhase
+tigerstyle-nextest> +++ command cargo --version
+tigerstyle-nextest> cargo 1.96.0-nightly (cbb9bb8bd 2026-03-13)
+tigerstyle-nextest> +++ command cargo nextest --version
+tigerstyle-nextest> cargo-nextest 0.9.130
+tigerstyle-nextest> release: 0.9.130
+tigerstyle-nextest> host: x86_64-unknown-linux-gnu
+tigerstyle-nextest> Running phase: checkPhase
+tigerstyle-nextest> +++ command cargo nextest run --cargo-profile release
+tigerstyle-nextest>    Compiling tigerstyle v0.1.0 (/build/source)
+tigerstyle-nextest>     Finished `release` profile [optimized] target(s) in 1.28s
+tigerstyle-nextest> ------------
+tigerstyle-nextest>  Nextest run ID 14645e81-886d-4303-9f88-5871cc16b045 with nextest profile: default
+tigerstyle-nextest>     Starting 1 test across 2 binaries (1 test skipped)
+tigerstyle-nextest>         PASS [   0.005s] (1/1) tigerstyle naming::acronym_style::tests::test_acronym_fix
+tigerstyle-nextest> ------------
+tigerstyle-nextest>      Summary [   0.006s] 1 test run: 1 passed, 1 skipped
+tigerstyle-nextest> Running phase: installPhase
+tigerstyle-nextest> linking previous artifacts /nix/store/79a66ssa92f29ay0q95s8h1zsqsk5mfn-tigerstyle-deps-0.1.0/target.tar.zst to /nix/store/zv67hvjjja7zq8inibwj32ymqhypcx7m-tigerstyle-nextest-0.1.0/target.tar.zst
+tigerstyle-nextest> /*stdin*\            : 28.95%   (  1.72 MiB =>    510 KiB, /nix/store/zv67hvjjja7zq8inibwj32ymqhypcx7m-tigerstyle-nextest-0.1.0/target.tar.zst)
+tigerstyle-nextest> Running phase: fixupPhase
+tigerstyle-nextest> shrinking RPATHs of ELF executables and libraries in /nix/store/zv67hvjjja7zq8inibwj32ymqhypcx7m-tigerstyle-nextest-0.1.0
+tigerstyle-nextest> checking for references to /build/ in /nix/store/zv67hvjjja7zq8inibwj32ymqhypcx7m-tigerstyle-nextest-0.1.0...
+tigerstyle-nextest> patching script interpreter paths in /nix/store/zv67hvjjja7zq8inibwj32ymqhypcx7m-tigerstyle-nextest-0.1.0

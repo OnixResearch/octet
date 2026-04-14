@@ -1,7 +1,11 @@
-use rustc_ast::{Expr, ExprKind};
+use rustc_ast::Expr;
+use rustc_ast::ExprKind;
 use rustc_errors::DiagDecorator;
-use rustc_lint::{EarlyContext, EarlyLintPass, LintContext};
-use rustc_session::{declare_lint, declare_lint_pass};
+use rustc_lint::EarlyContext;
+use rustc_lint::EarlyLintPass;
+use rustc_lint::LintContext;
+use rustc_session::declare_lint;
+use rustc_session::declare_lint_pass;
 
 declare_lint! {
     /// Detects `loop { }` blocks that appear to lack an iteration bound.

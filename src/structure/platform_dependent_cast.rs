@@ -1,9 +1,12 @@
 use rustc_errors::DiagDecorator;
 use rustc_hir as hir;
 use rustc_hir::ExprKind;
-use rustc_lint::{LateContext, LateLintPass, LintContext};
+use rustc_lint::LateContext;
+use rustc_lint::LateLintPass;
+use rustc_lint::LintContext;
 use rustc_middle::ty;
-use rustc_session::{declare_lint, declare_lint_pass};
+use rustc_session::declare_lint;
+use rustc_session::declare_lint_pass;
 
 declare_lint! {
     /// Detects `as usize` and `as isize` casts from fixed-width integer
@@ -26,10 +29,7 @@ fn is_fixed_width_int(ty: ty::Ty<'_>) -> bool {
 }
 
 fn is_platform_sized(ty: ty::Ty<'_>) -> bool {
-    matches!(
-        ty.kind(),
-        ty::Int(rustc_middle::ty::IntTy::Isize) | ty::Uint(rustc_middle::ty::UintTy::Usize)
-    )
+    matches!(ty.kind(), ty::Int(rustc_middle::ty::IntTy::Isize) | ty::Uint(rustc_middle::ty::UintTy::Usize))
 }
 
 fn ty_name(ty: ty::Ty<'_>) -> &'static str {
@@ -58,12 +58,8 @@ impl<'tcx> LateLintPass<'tcx> for PlatformDependentCast {
                 PLATFORM_DEPENDENT_CAST,
                 Some(expr.span),
                 DiagDecorator(|diag| {
-                    diag.primary_message(format!(
-                        "`as {target_name}` from `{source_name}` is platform-dependent",
-                    ));
-                    diag.help(format!(
-                        "use `{source_name}::try_into()` or keep the fixed-width type",
-                    ));
+                    diag.primary_message(format!("`as {target_name}` from `{source_name}` is platform-dependent",));
+                    diag.help(format!("use `{source_name}::try_into()` or keep the fixed-width type",));
                 }),
             );
         }

@@ -1,8 +1,17 @@
-use rustc_ast::visit::{self, Visitor};
-use rustc_ast::{Block, Expr, ExprKind, Item, ItemKind, StmtKind};
+use rustc_ast::Block;
+use rustc_ast::Expr;
+use rustc_ast::ExprKind;
+use rustc_ast::Item;
+use rustc_ast::ItemKind;
+use rustc_ast::StmtKind;
+use rustc_ast::visit::Visitor;
+use rustc_ast::visit::{self};
 use rustc_errors::DiagDecorator;
-use rustc_lint::{EarlyContext, EarlyLintPass, LintContext};
-use rustc_session::{declare_lint, impl_lint_pass};
+use rustc_lint::EarlyContext;
+use rustc_lint::EarlyLintPass;
+use rustc_lint::LintContext;
+use rustc_session::declare_lint;
+use rustc_session::impl_lint_pass;
 use rustc_span::sym;
 
 declare_lint! {
@@ -63,12 +72,11 @@ struct AssertionCounter {
 
 impl<'ast> Visitor<'ast> for AssertionCounter {
     fn visit_expr(&mut self, expr: &'ast Expr) {
-        if let ExprKind::MacCall(mac) = &expr.kind {
-            if let Some(last) = mac.path.segments.last() {
-                if ASSERT_MACROS.contains(&last.ident.name.as_str()) {
-                    self.count += 1;
-                }
-            }
+        if let ExprKind::MacCall(mac) = &expr.kind
+            && let Some(last) = mac.path.segments.last()
+            && ASSERT_MACROS.contains(&last.ident.name.as_str())
+        {
+            self.count += 1;
         }
         visit::walk_expr(self, expr);
     }
@@ -82,10 +90,10 @@ fn is_single_expression_body(body: &Block) -> bool {
         return true;
     }
     // A block with one statement that's an expression
-    if body.stmts.len() == 1 {
-        if let StmtKind::Expr(_) | StmtKind::Semi(_) = &body.stmts[0].kind {
-            return true;
-        }
+    if body.stmts.len() == 1
+        && let StmtKind::Expr(_) | StmtKind::Semi(_) = &body.stmts[0].kind
+    {
+        return true;
     }
     false
 }
@@ -150,9 +158,7 @@ impl EarlyLintPass for AssertionDensity {
                     "function `{}` has {assertions} assertion(s) in {lines} lines (need {min_a}+)",
                     func.ident.name,
                 ));
-                diag.help(
-                    "add assertions documenting the function's invariants",
-                );
+                diag.help("add assertions documenting the function's invariants");
             }),
         );
     }

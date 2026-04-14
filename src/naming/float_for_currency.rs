@@ -1,9 +1,12 @@
 use rustc_errors::DiagDecorator;
 use rustc_hir as hir;
 use rustc_hir::ItemKind;
-use rustc_lint::{LateContext, LateLintPass, LintContext};
+use rustc_lint::LateContext;
+use rustc_lint::LateLintPass;
+use rustc_lint::LintContext;
 use rustc_middle::ty;
-use rustc_session::{declare_lint, declare_lint_pass};
+use rustc_session::declare_lint;
+use rustc_session::declare_lint_pass;
 
 declare_lint! {
     /// Detects struct fields using `f32` or `f64` whose name contains
@@ -18,15 +21,7 @@ declare_lint! {
 
 declare_lint_pass!(FloatForCurrency => [FLOAT_FOR_CURRENCY]);
 
-const CURRENCY_WORDS: &[&str] = &[
-    "cost",
-    "price",
-    "budget",
-    "balance",
-    "amount",
-    "fee",
-    "total_cost",
-];
+const CURRENCY_WORDS: &[&str] = &["cost", "price", "budget", "balance", "amount", "fee", "total_cost"];
 
 const SKIP_WORDS: &[&str] = &["percentage", "ratio", "factor", "rate"];
 
@@ -61,9 +56,7 @@ impl<'tcx> LateLintPass<'tcx> for FloatForCurrency {
                     FLOAT_FOR_CURRENCY,
                     Some(field.span),
                     DiagDecorator(|diag| {
-                        diag.primary_message(format!(
-                            "floating point type for currency field `{name}`",
-                        ));
+                        diag.primary_message(format!("floating point type for currency field `{name}`",));
                         diag.help(
                             "use integer types with explicit units \
                              (e.g., `cost_microdollars: u64`) to avoid precision loss",

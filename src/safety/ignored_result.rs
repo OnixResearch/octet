@@ -1,9 +1,12 @@
 use rustc_errors::DiagDecorator;
 use rustc_hir as hir;
 use rustc_hir::PatKind;
-use rustc_lint::{LateContext, LateLintPass, LintContext};
+use rustc_lint::LateContext;
+use rustc_lint::LateLintPass;
+use rustc_lint::LintContext;
 use rustc_middle::ty;
-use rustc_session::{declare_lint, declare_lint_pass};
+use rustc_session::declare_lint;
+use rustc_session::declare_lint_pass;
 use rustc_span::sym;
 
 declare_lint! {
@@ -46,9 +49,7 @@ impl<'tcx> LateLintPass<'tcx> for IgnoredResult {
             IGNORED_RESULT,
             Some(local.span),
             DiagDecorator(|diag| {
-                diag.primary_message(
-                    "`Result` value silently discarded with `let _ = ...`",
-                );
+                diag.primary_message("`Result` value silently discarded with `let _ = ...`");
                 diag.help(
                     "use `expr?` to propagate, `let _: () = expr?;` to assert infallibility, \
                      or handle the error explicitly",
