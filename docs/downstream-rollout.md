@@ -280,15 +280,17 @@ Not acceptable:
 
 ## Aspen phase-1 reconstruction
 
-Exact replay path from this repo:
+Exact saved-transcript replay path from this repo:
 
 ```bash
-bash openspec/changes/archive/2026-04-14-aspen-feedback-hardening-exact-replay/evidence/reconstruct-aspen-phase1.sh \
-  > openspec/changes/archive/2026-04-14-aspen-feedback-hardening-exact-replay/evidence/reconstruct-aspen-phase1.txt 2>&1
+bash openspec/changes/archive/2026-04-14-aspen-feedback-hardening-transcript-capture/evidence/record-reconstruct-aspen-phase1.sh
 ```
 
-That archived helper is the exact replay path the saved transcript uses. It
-performs these steps internally:
+That archived capture helper writes
+`openspec/changes/archive/2026-04-14-aspen-feedback-hardening-transcript-capture/evidence/reconstruct-aspen-phase1.txt`.
+It prints the same top-level command preamble saved in that transcript, then
+invokes the replay helper below. The replay helper performs these steps
+internally:
 
 1. create a disposable sandbox parent with Aspen's required sibling layout:
    - `aspen/` worktree at commit `909e5e9fa`

@@ -1,0 +1,95 @@
+$ git diff HEAD -- AGENTS.md .agent/napkin.md docs/downstream-rollout.md openspec/specs/documentation/spec.md openspec/changes/archive/2026-04-14-aspen-feedback-hardening-transcript-capture
+diff --git a/.agent/napkin.md b/.agent/napkin.md
+index a083ad8..abbb6a0 100644
+--- a/.agent/napkin.md
++++ b/.agent/napkin.md
+@@ -23,6 +23,7 @@
+ | 2026-04-14 | self | Archived verification transcripts still pointed at the pre-archive active change path because I generated the `.txt` outputs before archiving and never refreshed them from the archive | After archiving an evidence-heavy change, rerun the saved helper scripts from the archived location so transcript command lines reference `openspec/changes/archive/...` |
+ | 2026-04-14 | self | Saved a helper-driven replay transcript, but docs still described a different manual path, so review treated the task as unproven | If exact proof relies on a helper script, document that helper command as the exact replay path and prepend that command line to the saved transcript |
+ | 2026-04-14 | self | Count-check helper printed `aspen-hlc: 0 starter findings` without asserting it | Any saved checker must assert every summary claim it prints, including zero-warning claims |
++| 2026-04-14 | self | Claimed a direct `bash helper > transcript` command produced a transcript preamble that only an outer wrapper had echoed | If a transcript starts with `$ bash ...`, store and document the capture helper or exact shell wrapper that emits that line; never attribute it to a helper that stays silent about its own invocation |
+ 
+ ## User Preferences
+ - Uses openspec for structured change management
+diff --git a/AGENTS.md b/AGENTS.md
+index 2d8a8dc..f305b7d 100644
+--- a/AGENTS.md
++++ b/AGENTS.md
+@@ -7,6 +7,7 @@
+ - If a change archives helper scripts and transcripts, regenerate the `.txt` outputs from the archived location before committing so saved commands point at `openspec/changes/archive/...`, not the deleted active change path.
+ - If the exact replay proof uses a helper script, document that helper command as the exact replay path and prepend the same command line to the saved transcript.
+ - Saved check helpers must assert every printed summary claim, including zero-warning claims like `aspen-hlc: 0 starter findings`.
++- If a transcript starts with `$ bash ...`, store and document the capture helper or exact shell wrapper that emits that preamble; do not claim a quieter inner helper produced it.
+ 
+ ## Build / test
+ - Run Rust builds inside the nix devshell: `nix develop -c bash -c '...'`. Plain `cargo` outside the shell can miss OpenSSL/pkg-config and rustc-private setup needed by Dylint.
+diff --git a/docs/downstream-rollout.md b/docs/downstream-rollout.md
+index d39cf44..9bb8244 100644
+--- a/docs/downstream-rollout.md
++++ b/docs/downstream-rollout.md
+@@ -280,15 +280,17 @@ Not acceptable:
+ 
+ ## Aspen phase-1 reconstruction
+ 
+-Exact replay path from this repo:
++Exact saved-transcript replay path from this repo:
+ 
+ ```bash
+-bash openspec/changes/archive/2026-04-14-aspen-feedback-hardening-exact-replay/evidence/reconstruct-aspen-phase1.sh \
+-  > openspec/changes/archive/2026-04-14-aspen-feedback-hardening-exact-replay/evidence/reconstruct-aspen-phase1.txt 2>&1
++bash openspec/changes/archive/2026-04-14-aspen-feedback-hardening-transcript-capture/evidence/record-reconstruct-aspen-phase1.sh
+ ```
+ 
+-That archived helper is the exact replay path the saved transcript uses. It
+-performs these steps internally:
++That archived capture helper writes
++`openspec/changes/archive/2026-04-14-aspen-feedback-hardening-transcript-capture/evidence/reconstruct-aspen-phase1.txt`.
++It prints the same top-level command preamble saved in that transcript, then
++invokes the replay helper below. The replay helper performs these steps
++internally:
+ 
+ 1. create a disposable sandbox parent with Aspen's required sibling layout:
+    - `aspen/` worktree at commit `909e5e9fa`
+diff --git a/openspec/specs/documentation/spec.md b/openspec/specs/documentation/spec.md
+index 40c5257..b6294e7 100644
+--- a/openspec/specs/documentation/spec.md
++++ b/openspec/specs/documentation/spec.md
+@@ -172,28 +172,18 @@ The evidence MUST include:
+   and evidence locations, not a deleted pre-archive change path
+ - if the documented reconstruction path is a saved helper command, a transcript
+   whose top-level replay command matches that helper path exactly
++- if the saved transcript starts with a command preamble, the repo MUST store a
++  documented helper or exact capture command that emits that preamble
++- consistency checks that verify the documented capture method, the saved
++  helper, and the saved transcript agree on that preamble source
+ - check helpers that assert every summary claim the docs or verification notes
+   make about the replay output, including zero-warning claims
+ 
+-#### Scenario: Reviewing Aspen phase-1 reconstruction
++#### Scenario: Reviewing transcript preamble provenance
+ 
+-- GIVEN a reviewer inspects the rollout-kit verification artifacts
+-- WHEN they open the reconstruction evidence
+-- THEN they can see the exact helper scripts, the temp-worktree setup, and the
+-  transcript proving the published Aspen phase-1 path ran from the new templates
+-
+-#### Scenario: Reviewing archived reconstruction transcripts
+-
+-- GIVEN the change has already been archived
+-- WHEN a reviewer opens the saved `.txt` transcripts and verification notes
+-- THEN the recorded commands point at the archived helper scripts and evidence
+-  files, not at a no-longer-active change directory
+-
+-#### Scenario: Reviewing replay summary claims
+-
+-- GIVEN the docs or verification notes claim `aspen-hlc: 0 starter findings`
+-  or another concrete replay summary
+-- WHEN a reviewer inspects the saved check helper
+-- THEN they can see an explicit assertion for that claim, not only a printed
+-  summary line
++- GIVEN a reviewer opens a saved reconstruction transcript whose first line is a
++  `$ bash ...` command
++- WHEN they inspect the saved helper scripts and consistency checks
++- THEN they can see which documented helper emitted that preamble and verify the
++  transcript was captured through that same helper path
+ 

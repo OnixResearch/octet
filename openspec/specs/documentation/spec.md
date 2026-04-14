@@ -172,28 +172,18 @@ The evidence MUST include:
   and evidence locations, not a deleted pre-archive change path
 - if the documented reconstruction path is a saved helper command, a transcript
   whose top-level replay command matches that helper path exactly
+- if the saved transcript starts with a command preamble, the repo MUST store a
+  documented helper or exact capture command that emits that preamble
+- consistency checks that verify the documented capture method, the saved
+  helper, and the saved transcript agree on that preamble source
 - check helpers that assert every summary claim the docs or verification notes
   make about the replay output, including zero-warning claims
 
-#### Scenario: Reviewing Aspen phase-1 reconstruction
+#### Scenario: Reviewing transcript preamble provenance
 
-- GIVEN a reviewer inspects the rollout-kit verification artifacts
-- WHEN they open the reconstruction evidence
-- THEN they can see the exact helper scripts, the temp-worktree setup, and the
-  transcript proving the published Aspen phase-1 path ran from the new templates
-
-#### Scenario: Reviewing archived reconstruction transcripts
-
-- GIVEN the change has already been archived
-- WHEN a reviewer opens the saved `.txt` transcripts and verification notes
-- THEN the recorded commands point at the archived helper scripts and evidence
-  files, not at a no-longer-active change directory
-
-#### Scenario: Reviewing replay summary claims
-
-- GIVEN the docs or verification notes claim `aspen-hlc: 0 starter findings`
-  or another concrete replay summary
-- WHEN a reviewer inspects the saved check helper
-- THEN they can see an explicit assertion for that claim, not only a printed
-  summary line
+- GIVEN a reviewer opens a saved reconstruction transcript whose first line is a
+  `$ bash ...` command
+- WHEN they inspect the saved helper scripts and consistency checks
+- THEN they can see which documented helper emitted that preamble and verify the
+  transcript was captured through that same helper path
 

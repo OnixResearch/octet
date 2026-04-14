@@ -23,6 +23,7 @@
 | 2026-04-14 | self | Archived verification transcripts still pointed at the pre-archive active change path because I generated the `.txt` outputs before archiving and never refreshed them from the archive | After archiving an evidence-heavy change, rerun the saved helper scripts from the archived location so transcript command lines reference `openspec/changes/archive/...` |
 | 2026-04-14 | self | Saved a helper-driven replay transcript, but docs still described a different manual path, so review treated the task as unproven | If exact proof relies on a helper script, document that helper command as the exact replay path and prepend that command line to the saved transcript |
 | 2026-04-14 | self | Count-check helper printed `aspen-hlc: 0 starter findings` without asserting it | Any saved checker must assert every summary claim it prints, including zero-warning claims |
+| 2026-04-14 | self | Claimed a direct `bash helper > transcript` command produced a transcript preamble that only an outer wrapper had echoed | If a transcript starts with `$ bash ...`, store and document the capture helper or exact shell wrapper that emits that line; never attribute it to a helper that stays silent about its own invocation |
 
 ## User Preferences
 - Uses openspec for structured change management
