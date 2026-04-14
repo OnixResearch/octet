@@ -8,7 +8,37 @@ use std::process::Command;
 use std::time::SystemTime;
 use std::time::UNIX_EPOCH;
 
-const FIXTURES: &[&str] = &["ambient_clock", "nested_conditionals"];
+const FIXTURES: &[&str] = &[
+    "ambient_clock",
+    "nested_conditionals",
+    "compound_assertion",
+    "unbounded_loop",
+    "no_panic",
+    "no_unwrap",
+    "no_recursion",
+    "ignored_result",
+    "unchecked_narrowing",
+    "unchecked_division",
+    "catch_all_on_enum",
+    "assertion_density",
+    "raw_arithmetic_overflow",
+    "function_length",
+    "compound_condition",
+    "acronym_style",
+    "numeric_units",
+    "bool_naming",
+    "float_for_currency",
+    "platform_dependent_cast",
+    "ambiguous_params",
+    "unjustified_allow",
+    "verified_purity",
+    "contradictory_time",
+    "multi_lock_ordering",
+    "function_length_custom/function_length_custom",
+    "assertion_density_custom/assertion_density_custom",
+    "nesting_custom/nesting_custom",
+    "acronym_allowlist_custom/acronym_allowlist_custom",
+];
 
 #[cfg(unix)]
 fn create_library_alias(plain: &Path, dylint: &Path) {
@@ -118,21 +148,37 @@ fn build_driver(toolchain: &str) -> PathBuf {
 }
 
 fn normalize_stderr(stderr: &str, fixture_path: &Path) -> String {
-    let fixture_name = fixture_path.file_name().expect("fixture file name").to_string_lossy();
+    let ui_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("ui_tests");
+    let relative = fixture_path.strip_prefix(&ui_dir).expect("fixture under ui_tests").to_string_lossy();
     stderr
         .replace("\r\n", "\n")
-        .replace(fixture_path.to_string_lossy().as_ref(), &format!("$DIR/{fixture_name}"))
+        .replace(fixture_path.to_string_lossy().as_ref(), &format!("$DIR/{relative}"))
+}
+
+fn expects_failure(name: &str) -> bool {
+    matches!(name, "verified_purity")
 }
 
 fn run_fixture(driver: &Path, library: &Path, host: &str, name: &str) {
     let ui_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("ui_tests");
     let fixture_path = ui_dir.join(format!("{name}.rs"));
-    let expected_path = ui_dir.join(format!("{name}.stderr"));
+    let expected_name = fixture_path.file_stem().expect("fixture file stem").to_string_lossy();
+    let expected_path = ui_dir.join(format!("{expected_name}.stderr"));
     let work_dir = temp_path(&format!("tigerstyle-ui-case-{name}"));
     let aux_dir = work_dir.join("aux");
     fs::create_dir_all(&aux_dir).expect("create UI aux dir");
 
+    let library = if library.is_absolute() {
+        library.to_path_buf()
+    } else {
+        Path::new(env!("CARGO_MANIFEST_DIR")).join(library)
+    };
     let dylint_libs = serde_json::to_string(&vec![library]).expect("encode DYLINT_LIBS");
+    let output_path = work_dir.join(name);
+    if let Some(parent) = output_path.parent() {
+        fs::create_dir_all(parent).expect("create UI output dir");
+    }
+
     let output = Command::new(driver)
         .current_dir(env!("CARGO_MANIFEST_DIR"))
         .env("CLIPPY_DISABLE_DOCS_LINKS", "true")
@@ -144,8 +190,9 @@ fn run_fixture(driver: &Path, library: &Path, host: &str, name: &str) {
         .args(["--error-format", "human"])
         .args(["-C", "prefer-dynamic"])
         .arg("-o")
-        .arg(work_dir.join(name))
+        .arg(&output_path)
         .args(["-A", "unused"])
+        .arg("--edition=2024")
         .args(["--emit=metadata", "-Zui-testing"])
         .arg("-L")
         .arg(&aux_dir)
@@ -153,15 +200,25 @@ fn run_fixture(driver: &Path, library: &Path, host: &str, name: &str) {
         .expect("run UI fixture");
 
     assert!(
-        output.status.success(),
-        "fixture {name} failed:\nstdout:\n{}\nstderr:\n{}",
+        output.stdout.is_empty(),
+        "fixture {name} produced unexpected stdout:\n{}\nstderr:\n{}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
 
+    let expect_success = !expects_failure(name);
+    assert_eq!(
+        output.status.success(),
+        expect_success,
+        "fixture {name} exit-status mismatch: expected success={expect_success}, got status={}\nstderr:\n{}",
+        output.status,
+        String::from_utf8_lossy(&output.stderr)
+    );
+
     let actual = normalize_stderr(&String::from_utf8(output.stderr).expect("utf8 stderr"), &fixture_path);
-    let expected = fs::read_to_string(&expected_path).expect("read expected stderr");
-    assert_eq!(expected, actual, "stderr mismatch for fixture {name}");
+    let expected = fs::read_to_string(&expected_path)
+        .unwrap_or_else(|error| panic!("read expected stderr {}: {error}", expected_path.display()));
+    assert_eq!(expected.trim_end_matches('\n'), actual.trim_end_matches('\n'), "stderr mismatch for fixture {name}");
 }
 
 #[test]

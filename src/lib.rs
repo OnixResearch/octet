@@ -22,9 +22,10 @@ pub fn register_lints(sess: &rustc_session::Session, lint_store: &mut rustc_lint
     dylint_linting::init_config(sess);
     let cfg = config::load();
 
-    // -- Pre-expansion pass (sees unexpanded macros) --
+    // -- Early passes (post-expansion, syntax-only) --
+    // compound_assertion detects the expanded `if !(a && b) { panic(..) }` pattern
     lint_store.register_lints(&[safety::compound_assertion::COMPOUND_ASSERTION]);
-    lint_store.register_pre_expansion_pass(|| Box::new(safety::compound_assertion::CompoundAssertion));
+    lint_store.register_early_pass(|| Box::new(safety::compound_assertion::CompoundAssertion));
 
     // -- Early passes (post-expansion, syntax-only) --
     lint_store.register_lints(&[structure::function_length::FUNCTION_LENGTH]);
@@ -101,7 +102,7 @@ pub fn register_lints(sess: &rustc_session::Session, lint_store: &mut rustc_lint
     lint_store.register_late_pass(|_| Box::new(safety::no_unwrap::NoUnwrap));
 
     lint_store.register_lints(&[safety::no_panic::NO_PANIC]);
-    lint_store.register_pre_expansion_pass(|| Box::new(safety::no_panic::NoPanic));
+    lint_store.register_early_pass(|| Box::new(safety::no_panic::NoPanic));
 
     lint_store.register_lints(&[safety::no_recursion::NO_RECURSION]);
     lint_store.register_late_pass(|_| Box::new(safety::no_recursion::NoRecursion));

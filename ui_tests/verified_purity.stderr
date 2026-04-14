@@ -1,0 +1,12 @@
+error: async function in verified module
+  --> $DIR/verified_purity.rs:3:1
+   |
+LL | / pub async fn impure_async() {
+LL | |     // Should error: async fn in verified module
+LL | | }
+   | |_^
+   |
+   = help: verified functions must be synchronous and pure — no async, no IO, no system time
+   = note: `#[deny(verified_purity)]` on by default
+
+error: aborting due to 1 previous error

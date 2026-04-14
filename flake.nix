@@ -144,8 +144,8 @@
         src = pkgs.lib.cleanSourceWith {
           src = ./.;
           filter = path: type:
-            (craneLib.filterCargoSources path type)
-            || (builtins.match ".*/ui_tests/.*\\.stderr$" path != null);
+            let inUiTests = pkgs.lib.hasSuffix "/ui_tests" path || pkgs.lib.hasInfix "/ui_tests/" path;
+            in (craneLib.filterCargoSources path type) || inUiTests;
         };
         fmtSrc = pkgs.lib.cleanSourceWith {
           src = ./.;

@@ -138,7 +138,7 @@ The Aspen phase-1 starter reference is archived under
 nix develop                                   # enter devshell
 cargo check                                   # verify compilation
 cargo test                                    # run unit tests
-cargo test --test ui -- --ignored --nocapture # run checked-in UI fixtures
+cargo test --test ui -- --ignored --nocapture # run 29 checked-in UI fixtures (25 lints + 4 config-override cases)
 nix flake check                               # CI checks, including dedicated nix UI fixture coverage
 ```
 
@@ -152,7 +152,8 @@ src/
 ├── structure/                 # 6 lints: length, conditions, params, casts
 ├── purity/                    # 3 lints: wall-clock boundaries, verified modules, time
 └── concurrency/               # 1 lint: lock ordering
-ui_tests/                      # checked-in dylint UI fixtures exercised by nix checks
+ui_tests/                      # 29 checked-in dylint UI fixtures exercised by nix checks
+                               # includes *_custom/ subdirs with local Cargo.toml + dylint.toml overrides
 openspec/                      # spec-driven change management
 ```
 
@@ -163,6 +164,7 @@ openspec/                      # spec-driven change management
 3. Implement `EarlyLintPass` (syntax-only) or `LateLintPass` (needs types)
 4. Register in `src/lib.rs` via `register_lints`
 5. Add a UI test fixture in `ui_tests/`
+6. If the lint is configurable, add a `ui_tests/*_custom/` fixture with a local `Cargo.toml` + `dylint.toml` override
 
 ## License
 

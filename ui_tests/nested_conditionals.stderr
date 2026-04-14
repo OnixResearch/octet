@@ -10,4 +10,3 @@ LL | |                 }
    = note: `#[warn(nested_conditionals)]` on by default
 
 warning: 1 warning emitted
-

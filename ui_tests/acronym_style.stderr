@@ -1,0 +1,18 @@
+warning: `RPCHandler` has acronym-style capitalization
+  --> $DIR/acronym_style.rs:2:8
+   |
+LL | struct RPCHandler {
+   |        ^^^^^^^^^^
+   |
+   = help: use single-word capitalization: `RpcHandler`
+   = note: `#[warn(acronym_style)]` on by default
+
+warning: `SQLQuery` has acronym-style capitalization
+  --> $DIR/acronym_style.rs:7:6
+   |
+LL | enum SQLQuery {
+   |      ^^^^^^^^
+   |
+   = help: use single-word capitalization: `SqlQuery`
+
+warning: 2 warnings emitted

@@ -1,0 +1,10 @@
+warning: narrowing cast from `u64` to `u32` without bounds check
+  --> $DIR/unchecked_narrowing.rs:3:5
+   |
+LL |     x as u32
+   |     ^^^^^^^^
+   |
+   = help: use `u32::try_from(value)` or guard with `if value <= u32::MAX as u64`
+   = note: `#[warn(unchecked_narrowing)]` on by default
+
+warning: 1 warning emitted

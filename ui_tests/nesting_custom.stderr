@@ -1,0 +1,12 @@
+warning: conditional nesting is 6 levels deep (limit: 5)
+  --> $DIR/nesting_custom/nesting_custom.rs:22:25
+   |
+LL | /                         if value > 5 {
+LL | |                             return true;
+LL | |                         }
+   | |_________________________^
+   |
+   = help: flatten with early returns, guard clauses, or extract into a helper function
+   = note: `#[warn(nested_conditionals)]` on by default
+
+warning: 1 warning emitted

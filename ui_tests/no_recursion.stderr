@@ -1,0 +1,10 @@
+warning: function calls itself recursively
+  --> $DIR/no_recursion.rs:6:13
+   |
+LL |         n * factorial(n - 1)
+   |             ^^^^^^^^^^^^^^^^
+   |
+   = help: replace with iteration using an explicit loop and a stack/queue data structure if needed
+   = note: `#[warn(no_recursion)]` on by default
+
+warning: 1 warning emitted

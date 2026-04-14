@@ -1,0 +1,10 @@
+warning: division by `count` without zero check
+  --> $DIR/unchecked_division.rs:3:5
+   |
+LL |     total / count
+   |     ^^^^^^^^^^^^^
+   |
+   = help: add `assert!(divisor > 0)` or an early return for the zero case
+   = note: `#[warn(unchecked_division)]` on by default
+
+warning: 1 warning emitted
