@@ -10,11 +10,42 @@
 //! assertion_density_min_assertions = 3
 //! acronym_allowlist = ["IO", "ID"]
 //! disabled_lints = ["no_unwrap", "no_panic"]
+//!
+//! [tigerstyle.lint_levels]
+//! no_unwrap = "deny"
 //! ```
 
 use std::collections::BTreeSet;
+use std::collections::HashMap;
 
 use serde::Deserialize;
+
+/// All supported per-lint severity overrides.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum LintLevel {
+    Allow,
+    Warn,
+    Deny,
+}
+
+impl LintLevel {
+    fn parse(raw: &str) -> Option<Self> {
+        match raw {
+            "allow" => Some(Self::Allow),
+            "warn" => Some(Self::Warn),
+            "deny" => Some(Self::Deny),
+            _ => None,
+        }
+    }
+
+    pub fn rustc_level(self) -> rustc_lint::Level {
+        match self {
+            Self::Allow => rustc_lint::Level::Allow,
+            Self::Warn => rustc_lint::Level::Warn,
+            Self::Deny => rustc_lint::Level::Deny,
+        }
+    }
+}
 
 /// All configurable thresholds and allowlists. Missing fields use defaults.
 #[derive(Debug, Deserialize)]
@@ -39,6 +70,13 @@ pub struct Config {
 
     /// Lint names that should not register for this workspace.
     pub disabled_lints: Vec<String>,
+
+    /// Raw per-lint severity overrides loaded from `dylint.toml`.
+    pub lint_levels: HashMap<String, String>,
+
+    /// Validated per-lint severity overrides used during registration.
+    #[serde(skip)]
+    validated_lint_levels: HashMap<String, LintLevel>,
 }
 
 impl Default for Config {
@@ -50,8 +88,14 @@ impl Default for Config {
             assertion_density_min_assertions: 2,
             acronym_allowlist: Vec::new(),
             disabled_lints: Vec::new(),
+            lint_levels: HashMap::new(),
+            validated_lint_levels: HashMap::new(),
         }
     }
+}
+
+pub(crate) fn canonical_lint_names() -> Vec<&'static str> {
+    crate::LINT_INVENTORY.iter().map(|lint| lint.name).collect()
 }
 
 impl Config {
@@ -59,23 +103,228 @@ impl Config {
         self.disabled_lints.iter().any(|disabled| disabled == lint_name)
     }
 
-    fn warn_unknown_disabled_lints(&self, sess: &rustc_session::Session, known_lints: &[&str]) {
-        let mut unknown = BTreeSet::new();
+    pub fn lint_level(&self, lint_name: &str) -> Option<LintLevel> {
+        self.validated_lint_levels.get(lint_name).copied()
+    }
+
+    fn validate(&mut self) -> Vec<String> {
+        let known_lints = canonical_lint_names();
+        let disabled_lints = self.disabled_lints.iter().map(String::as_str).collect::<BTreeSet<_>>();
+        let mut warnings = Vec::new();
+        let mut unknown_disabled_lints = BTreeSet::new();
+
         for lint_name in &self.disabled_lints {
-            if !known_lints.iter().any(|known| known == &lint_name.as_str()) {
-                unknown.insert(lint_name.as_str());
+            if !known_lints.iter().any(|known| known == &lint_name.as_str())
+                && unknown_disabled_lints.insert(lint_name.as_str())
+            {
+                warnings.push(format!("unknown tigerstyle lint in `dylint.toml` disabled_lints: `{lint_name}`"));
             }
         }
 
-        for lint_name in unknown {
-            sess.dcx().warn(format!("unknown tigerstyle lint in `dylint.toml` disabled_lints: `{lint_name}`",));
+        self.validated_lint_levels.clear();
+        let mut lint_levels = self.lint_levels.iter().collect::<Vec<_>>();
+        lint_levels.sort_by_key(|(lint_name, _)| *lint_name);
+
+        for (lint_name, raw_level) in lint_levels {
+            if !known_lints.iter().any(|known| known == &lint_name.as_str()) {
+                warnings.push(format!("unknown tigerstyle lint in `dylint.toml` lint_levels: `{lint_name}`"));
+                continue;
+            }
+
+            if disabled_lints.contains(lint_name.as_str()) {
+                warnings.push(format!(
+                    "conflicting tigerstyle config in `dylint.toml`: `{lint_name}` appears in both `disabled_lints` and `lint_levels`; ignoring level override"
+                ));
+                continue;
+            }
+
+            let Some(level) = LintLevel::parse(raw_level) else {
+                warnings.push(format!(
+                    "invalid tigerstyle lint level in `dylint.toml` lint_levels for `{lint_name}`: `{raw_level}` (expected `allow`, `warn`, or `deny`)"
+                ));
+                continue;
+            };
+
+            self.validated_lint_levels.insert(lint_name.clone(), level);
         }
+
+        warnings
     }
 }
 
-/// Load the project config from dylint.toml, falling back to defaults.
-pub fn load(sess: &rustc_session::Session, known_lints: &[&str]) -> Config {
-    let cfg = dylint_linting::config_or_default::<Config>(env!("CARGO_PKG_NAME"));
-    cfg.warn_unknown_disabled_lints(sess, known_lints);
+/// Load the project config from `dylint.toml`, falling back to defaults.
+pub fn load(sess: &rustc_session::Session) -> Config {
+    let mut cfg = dylint_linting::config_or_default::<Config>(env!("CARGO_PKG_NAME"));
+    for warning in cfg.validate() {
+        sess.dcx().warn(warning);
+    }
     cfg
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashMap;
+
+    use serde::Deserialize;
+
+    use super::Config;
+    use super::LintLevel;
+
+    #[derive(Deserialize)]
+    struct Wrapper {
+        tigerstyle: Config,
+    }
+
+    fn parse_config(doc: &str) -> Config {
+        toml::from_str::<Wrapper>(doc).expect("parse test dylint.toml").tigerstyle
+    }
+
+    fn parse_and_validate(doc: &str) -> (Config, Vec<String>) {
+        let mut cfg = parse_config(doc);
+        let warnings = cfg.validate();
+        (cfg, warnings)
+    }
+
+    #[test]
+    fn omitted_disabled_lints_and_lint_levels_default_to_empty() {
+        let cfg = parse_config("[tigerstyle]\n");
+        assert!(cfg.disabled_lints.is_empty());
+        assert!(cfg.lint_levels.is_empty());
+        assert_eq!(cfg.lint_level("no_unwrap"), None);
+    }
+
+    #[test]
+    fn explicit_disabled_lints_and_lint_levels_deserialize_successfully() {
+        let (cfg, warnings) = parse_and_validate(
+            r#"
+[tigerstyle]
+disabled_lints = ["no_panic"]
+
+[tigerstyle.lint_levels]
+no_unwrap = "deny"
+"#,
+        );
+
+        assert!(warnings.is_empty());
+        assert_eq!(cfg.disabled_lints, vec!["no_panic".to_owned()]);
+        assert_eq!(cfg.lint_levels.get("no_unwrap"), Some(&"deny".to_owned()));
+        assert_eq!(cfg.lint_level("no_unwrap"), Some(LintLevel::Deny));
+    }
+
+    #[test]
+    fn unknown_disabled_lints_warn_without_failing_validation() {
+        let (cfg, warnings) = parse_and_validate(
+            r#"
+[tigerstyle]
+disabled_lints = ["not_a_real_lint"]
+"#,
+        );
+
+        assert_eq!(warnings, vec!["unknown tigerstyle lint in `dylint.toml` disabled_lints: `not_a_real_lint`"]);
+        assert!(cfg.lint_levels.is_empty());
+    }
+
+    #[test]
+    fn mixed_disabled_lints_keeps_valid_entry_while_warning_on_unknown_name() {
+        let (cfg, warnings) = parse_and_validate(
+            r#"
+[tigerstyle]
+disabled_lints = ["not_a_real_lint", "no_unwrap"]
+"#,
+        );
+
+        assert_eq!(warnings, vec!["unknown tigerstyle lint in `dylint.toml` disabled_lints: `not_a_real_lint`"]);
+        assert!(cfg.lint_is_disabled("no_unwrap"));
+    }
+
+    #[test]
+    fn unknown_lint_levels_warn_without_failing_validation() {
+        let (cfg, warnings) = parse_and_validate(
+            r#"
+[tigerstyle.lint_levels]
+not_a_real_lint = "deny"
+"#,
+        );
+
+        assert_eq!(warnings, vec!["unknown tigerstyle lint in `dylint.toml` lint_levels: `not_a_real_lint`"]);
+        assert_eq!(cfg.lint_level("not_a_real_lint"), None);
+    }
+
+    #[test]
+    fn mixed_lint_levels_ignores_unknown_name_but_keeps_valid_override() {
+        let (cfg, warnings) = parse_and_validate(
+            r#"
+[tigerstyle.lint_levels]
+not_a_real_lint = "deny"
+no_unwrap = "warn"
+"#,
+        );
+
+        assert_eq!(warnings, vec!["unknown tigerstyle lint in `dylint.toml` lint_levels: `not_a_real_lint`"]);
+        assert_eq!(cfg.lint_level("no_unwrap"), Some(LintLevel::Warn));
+    }
+
+    #[test]
+    fn invalid_lint_level_warns_and_keeps_default_behavior() {
+        let (cfg, warnings) = parse_and_validate(
+            r#"
+[tigerstyle.lint_levels]
+no_unwrap = "fatal"
+"#,
+        );
+
+        assert_eq!(warnings, vec![
+            "invalid tigerstyle lint level in `dylint.toml` lint_levels for `no_unwrap`: `fatal` (expected `allow`, `warn`, or `deny`)"
+        ]);
+        assert_eq!(cfg.lint_level("no_unwrap"), None);
+    }
+
+    #[test]
+    fn mixed_lint_levels_ignore_invalid_value_but_keep_valid_override() {
+        let (cfg, warnings) = parse_and_validate(
+            r#"
+[tigerstyle.lint_levels]
+no_unwrap = "fatal"
+no_panic = "deny"
+"#,
+        );
+
+        assert_eq!(warnings, vec![
+            "invalid tigerstyle lint level in `dylint.toml` lint_levels for `no_unwrap`: `fatal` (expected `allow`, `warn`, or `deny`)"
+        ]);
+        assert_eq!(cfg.lint_level("no_panic"), Some(LintLevel::Deny));
+    }
+
+    #[test]
+    fn overlapping_disabled_lints_and_lint_levels_warn_and_keep_lint_disabled() {
+        let (cfg, warnings) = parse_and_validate(
+            r#"
+[tigerstyle]
+disabled_lints = ["no_unwrap"]
+
+[tigerstyle.lint_levels]
+no_unwrap = "deny"
+"#,
+        );
+
+        assert_eq!(warnings, vec![
+            "conflicting tigerstyle config in `dylint.toml`: `no_unwrap` appears in both `disabled_lints` and `lint_levels`; ignoring level override"
+        ]);
+        assert!(cfg.lint_is_disabled("no_unwrap"));
+        assert_eq!(cfg.lint_level("no_unwrap"), None);
+    }
+
+    #[test]
+    fn raw_lint_levels_preserve_original_strings() {
+        let cfg = parse_config(
+            r#"
+[tigerstyle.lint_levels]
+no_unwrap = "deny"
+"#,
+        );
+
+        let mut expected = HashMap::new();
+        expected.insert("no_unwrap".to_owned(), "deny".to_owned());
+        assert_eq!(cfg.lint_levels, expected);
+    }
 }

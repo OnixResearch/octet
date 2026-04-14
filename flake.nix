@@ -144,8 +144,10 @@
         src = pkgs.lib.cleanSourceWith {
           src = ./.;
           filter = path: type:
-            let inUiTests = pkgs.lib.hasSuffix "/ui_tests" path || pkgs.lib.hasInfix "/ui_tests/" path;
-            in (craneLib.filterCargoSources path type) || inUiTests;
+            let
+              inUiTests = pkgs.lib.hasSuffix "/ui_tests" path || pkgs.lib.hasInfix "/ui_tests/" path;
+              inTestFixtures = pkgs.lib.hasSuffix "/tests/fixtures" path || pkgs.lib.hasInfix "/tests/fixtures/" path;
+            in (craneLib.filterCargoSources path type) || inUiTests || inTestFixtures;
         };
         fmtSrc = pkgs.lib.cleanSourceWith {
           src = ./.;
