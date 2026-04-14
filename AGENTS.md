@@ -16,6 +16,9 @@
 - When shared `~/.cargo-target` lock contention or unrelated repo builds interfere, use a temporary `CARGO_TARGET_DIR` with trap-cleanup for reviewable `cargo test --lib` / `cargo test --test ui` runs.
 - After adding or removing Cargo dependencies, run `cargo generate-lockfile` before trusting fresh `--locked` Nix builds or `nix flake check`.
 - When review needs proof of specific UI cases here, make the saved UI transcript print each fixture name and save a separate artifact that prints snapshot contents; a bare `test ui ... ok` transcript is not enough.
+- The custom `tests/ui.rs` harness does not compile `#[cfg(test)]` fixture code unless that fixture gets an explicit `--cfg test`; add per-fixture rustc args when you need to exercise cfg-gated test modules.
+- Test-context suppression must treat only cfg predicates that require `test`; a token match on `test` is too broad and wrongly suppresses cases like `#[cfg(not(test))]`.
+- Early-pass line-scan fallback for test context must recognize both outer `#[cfg(test)]` and inner `#![cfg(test)]` attributes when recovering stripped cfgs from source text.
 
 ## Lint registration / config
 - Do not implement per-lint severity by registering cloned `Lint` descriptors with patched `default_level`; passes still emit the original static lint IDs, so `allow`/`deny` overrides silently fail.

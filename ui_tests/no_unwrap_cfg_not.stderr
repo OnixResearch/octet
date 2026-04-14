@@ -1,0 +1,10 @@
+warning: `.unwrap()` in production code will panic on failure
+  --> $DIR/no_unwrap_cfg_not.rs:5:17
+   |
+LL |         let _ = val.unwrap();
+   |                 ^^^^^^^^^^^^
+   |
+   = help: use `?` to propagate, or match/map the error explicitly
+   = note: `#[warn(no_unwrap)]` on by default
+
+warning: 1 warning emitted

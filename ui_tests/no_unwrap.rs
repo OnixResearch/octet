@@ -27,3 +27,11 @@ fn unwrap_in_test_is_allowed() {
     let val: Option<u32> = Some(1);
     let _ = val.unwrap();
 }
+
+#[cfg(test)]
+mod cfg_test_only {
+    pub(super) fn unwrap_in_cfg_test_module_is_allowed() {
+        let val: Option<u32> = Some(1);
+        let _ = val.unwrap();
+    }
+}

@@ -9,6 +9,8 @@ use rustc_session::declare_lint;
 use rustc_session::declare_lint_pass;
 use rustc_span::sym;
 
+use crate::test_context;
+
 declare_lint! {
     /// Detects `.unwrap()` and `.expect()` calls on `Option` and `Result`
     /// in non-test code. These panic on failure, crashing the process
@@ -29,30 +31,6 @@ fn is_option_or_result(cx: &LateContext<'_>, ty: ty::Ty<'_>) -> bool {
     }
 }
 
-fn is_in_test_context(cx: &LateContext<'_>, expr: &hir::Expr<'_>) -> bool {
-    for (_, node) in cx.tcx.hir_parent_iter(expr.hir_id) {
-        if let hir::Node::Item(item) = node {
-            let attrs = cx.tcx.hir_attrs(item.hir_id());
-            // Check #[test]
-            if attrs.iter().any(|a| a.has_name(sym::test)) {
-                return true;
-            }
-            // Check #[cfg(test)] on mod
-            if let hir::ItemKind::Mod(..) = &item.kind {
-                for attr in attrs {
-                    if attr.has_name(sym::cfg) {
-                        let source = cx.sess().source_map().span_to_snippet(attr.span()).unwrap_or_default();
-                        if source.contains("test") {
-                            return true;
-                        }
-                    }
-                }
-            }
-        }
-    }
-    false
-}
-
 impl<'tcx> LateLintPass<'tcx> for NoUnwrap {
     fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx hir::Expr<'tcx>) {
         let ExprKind::MethodCall(segment, receiver, _args, _span) = &expr.kind else {
@@ -70,7 +48,7 @@ impl<'tcx> LateLintPass<'tcx> for NoUnwrap {
             return;
         }
 
-        if is_in_test_context(cx, expr) {
+        if test_context::late_hir_id_is_in_test_context(cx, expr.hir_id, expr.span) {
             return;
         }
 

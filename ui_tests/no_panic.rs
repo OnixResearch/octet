@@ -21,3 +21,10 @@ fn main() {
 fn test_only_panic_is_allowed() {
     panic!("test-only panic");
 }
+
+#[cfg(test)]
+mod cfg_test_only {
+    pub(super) fn panic_in_cfg_test_module_is_allowed() {
+        panic!("cfg-test-only panic");
+    }
+}

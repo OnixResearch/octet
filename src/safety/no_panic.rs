@@ -1,11 +1,14 @@
 use rustc_ast::Expr;
 use rustc_ast::ExprKind;
+use rustc_ast::Item;
 use rustc_errors::DiagDecorator;
 use rustc_lint::EarlyContext;
 use rustc_lint::EarlyLintPass;
 use rustc_lint::LintContext;
 use rustc_session::declare_lint;
-use rustc_session::declare_lint_pass;
+use rustc_session::impl_lint_pass;
+
+use crate::test_context;
 
 declare_lint! {
     /// Detects `panic!()`, `todo!()`, `unimplemented!()`, and
@@ -17,44 +20,29 @@ declare_lint! {
     "panic macro in production code"
 }
 
-declare_lint_pass!(NoPanic => [NO_PANIC]);
+#[derive(Default)]
+pub struct NoPanic {
+    test_context_depth: usize,
+}
+
+impl NoPanic {
+    fn in_test_context(&self) -> bool {
+        self.test_context_depth > 0
+    }
+
+    fn enter_test_context(&mut self) {
+        self.test_context_depth += 1;
+    }
+
+    fn leave_test_context(&mut self) {
+        debug_assert!(self.test_context_depth > 0);
+        self.test_context_depth -= 1;
+    }
+}
+
+impl_lint_pass!(NoPanic => [NO_PANIC]);
 
 const PANIC_MACROS: &[&str] = &["panic!", "todo!", "unimplemented!", "unreachable!"];
-
-/// Heuristic test detection for EarlyLintPass (no HIR parent chain).
-/// Checks source context around the span for test indicators.
-fn is_in_test_context(cx: &EarlyContext<'_>, expr: &Expr) -> bool {
-    let source_map = cx.sess().source_map();
-
-    let filename = source_map.span_to_filename(expr.span);
-    let display = filename.prefer_local_unconditionally();
-    let path = format!("{display}");
-    if path.contains("/tests/") || path.ends_with("_test.rs") {
-        return true;
-    }
-
-    if let Ok(lines) = source_map.span_to_lines(expr.span) {
-        let line_idx = lines.lines.first().map(|l| l.line_index).unwrap_or(0);
-        let start = line_idx.saturating_sub(50);
-        let mut in_test_mod = false;
-        for i in start..line_idx {
-            if let Some(line) = lines.file.get_line(i) {
-                let trimmed = line.trim();
-                if trimmed.contains("#[cfg(test)]") || trimmed.contains("#[test]") {
-                    in_test_mod = true;
-                }
-                if trimmed.starts_with("mod ") && !in_test_mod {
-                    in_test_mod = false;
-                }
-            }
-        }
-        if in_test_mod {
-            return true;
-        }
-    }
-
-    false
-}
 
 fn panic_macro_name_from_callsite(snippet: &str) -> Option<&'static str> {
     let trimmed = snippet.trim();
@@ -71,6 +59,22 @@ fn suggestion_for(name: &str) -> &'static str {
 }
 
 impl EarlyLintPass for NoPanic {
+    fn check_item(&mut self, cx: &EarlyContext<'_>, item: &Item) {
+        if test_context::ast_attrs_indicate_test(cx.sess(), &item.attrs)
+            || test_context::item_span_indicates_test(cx.sess(), item.span)
+        {
+            self.enter_test_context();
+        }
+    }
+
+    fn check_item_post(&mut self, cx: &EarlyContext<'_>, item: &Item) {
+        if test_context::ast_attrs_indicate_test(cx.sess(), &item.attrs)
+            || test_context::item_span_indicates_test(cx.sess(), item.span)
+        {
+            self.leave_test_context();
+        }
+    }
+
     fn check_expr(&mut self, cx: &EarlyContext<'_>, expr: &Expr) {
         // Panic macros are expanded before EarlyLintPass runs. We recover the
         // original macro invocation from the expansion callsite snippet.
@@ -84,7 +88,7 @@ impl EarlyLintPass for NoPanic {
             return;
         }
 
-        if is_in_test_context(cx, expr) {
+        if self.in_test_context() {
             return;
         }
 
