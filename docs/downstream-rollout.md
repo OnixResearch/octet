@@ -7,6 +7,8 @@ turns that rollout into copyable guidance for later consumers.
 
 Phase-1 reference state lives in the archived OpenSpec change:
 
+- Aspen rollout commit: `909e5e9fa` (`tigerstyle: add phase-1 rollout path and follow-up changes`)
+
 - `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/`
 - rollout notes: `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/rollout-notes.md`
 - default-run transcript: `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/aspen-default-run.txt`
@@ -113,14 +115,15 @@ The template owns these responsibilities:
   mutating the caller's shell
 - points Dylint at a local `tigerstyle` checkout through `TIGERSTYLE_PATH` or a
   sibling checkout
-- owns the starter lint set, default scope, and default cargo-check args in one
-  reviewable script
-- forces non-profile tigerstyle warn/deny lints to `allow` so the starter path
-  stays focused on the chosen profile
+- owns the documented starter profile, default scope, and default cargo-check
+  args in one reviewable script
 
 Minimum assumptions for the template:
 
-- `cargo`, `rustc`, `python3`, `cargo-dylint`, and `dylint-link` are on `PATH`
+- `bash`, `cargo`, `rustc`, `python3`, `cargo-dylint`, `dylint-link`, and
+  `git` are on `PATH`
+- standard Unix userland is available for `awk`, `basename`, `chmod`, `ln`,
+  `mkdir`, `mktemp`, and `sed`
 - the consumer repo has its own `dylint.toml`
 - a local `tigerstyle` checkout exists next to the consumer repo, or
   `TIGERSTYLE_PATH` is set
@@ -281,40 +284,46 @@ Not acceptable:
 A maintainer should be able to reconstruct Aspen's starter path from this repo
 alone:
 
-1. copy `templates/tigerstyle-check.sh` and `templates/dylint.toml`
-2. keep the boundary-first lint set:
+1. create a disposable Aspen checkout at the archived phase-1 rollout commit:
+
+   ```bash
+   git -C /path/to/aspen worktree add --detach /tmp/aspen-phase1 909e5e9fa
+   ```
+
+2. copy `templates/tigerstyle-check.sh` and `templates/dylint.toml`
+3. keep the boundary-first lint set:
    - `ambient_clock`
    - `compound_assertion`
    - `contradictory_time`
-3. set `default_scope` to:
+4. set `default_scope` to:
    - `-p aspen-time`
    - `-p aspen-hlc`
    - `-p aspen-core`
-4. if matching Aspen's old nix-managed nightly problem, export:
+5. if matching Aspen's old nix-managed nightly problem, export:
 
    ```bash
    export TIGERSTYLE_DYLINT_REV=0e0a71eefe6f01563d11acc6e1d7af1d505934a9
    ```
 
-5. run:
+6. run:
 
    ```bash
    scripts/tigerstyle-check.sh
    ```
 
-6. confirm the archived phase-1 result:
+7. confirm the archived phase-1 result:
    - 6 warnings total
    - `aspen-time`: 2 `ambient_clock`
    - `aspen-core`: 4 `ambient_clock`
    - `aspen-hlc`: 0 starter findings
 
-7. spotcheck the deferred package:
+8. spotcheck the deferred package:
 
    ```bash
    scripts/tigerstyle-check.sh -p aspen-coordination -- --lib
    ```
 
-8. confirm the archived defer decision:
+9. confirm the archived defer decision:
    - 21 `ambient_clock`
    - 2 `compound_assertion`
    - 4 `no_panic`

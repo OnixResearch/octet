@@ -1,0 +1,4 @@
+$ python3 openspec/changes/aspen-feedback-hardening-review-fixes/evidence/archive-consistency-check.py
+docs assumptions match template behavior
+template no longer depends on realpath
+docs reconstruction path still matches archived Aspen phase-1 counts and wrapper facts
