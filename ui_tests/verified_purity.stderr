@@ -1,5 +1,5 @@
 error: async function in verified module
-  --> $DIR/verified_purity.rs:3:1
+  --> $DIR/verified/verified_purity.rs:3:1
    |
 LL | / pub async fn impure_async() {
 LL | |     // Should error: async fn in verified module

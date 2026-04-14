@@ -21,6 +21,53 @@ declare_lint! {
 
 declare_lint_pass!(CatchAllOnEnum => [CATCH_ALL_ON_ENUM]);
 
+fn arm_has_comment(snippet: &str) -> bool {
+    for line in snippet.lines() {
+        let trimmed = line.trim();
+        if trimmed.starts_with("//") {
+            return true;
+        }
+        if let Some(pos) = trimmed.find("//") {
+            let before = &trimmed[..pos];
+            let quote_count = before.chars().filter(|&c| c == '"').count();
+            if quote_count % 2 == 0 {
+                return true;
+            }
+        }
+    }
+
+    false
+}
+
+fn has_justification_comment(cx: &LateContext<'_>, last_arm: &hir::Arm<'_>) -> bool {
+    let source_map = cx.sess().source_map();
+
+    if let Ok(snippet) = source_map.span_to_snippet(last_arm.span)
+        && arm_has_comment(&snippet)
+    {
+        return true;
+    }
+
+    if let Ok(lines) = source_map.span_to_lines(last_arm.span) {
+        let Some(first_line) = lines.lines.first() else {
+            return false;
+        };
+
+        for line_idx in (0..first_line.line_index).rev() {
+            let Some(line) = lines.file.get_line(line_idx) else {
+                break;
+            };
+            let trimmed = line.trim();
+            if trimmed.is_empty() {
+                continue;
+            }
+            return trimmed.starts_with("//");
+        }
+    }
+
+    false
+}
+
 fn is_deny_value(expr: &hir::Expr<'_>) -> bool {
     match &expr.kind {
         ExprKind::Lit(lit) => {
@@ -71,26 +118,8 @@ impl<'tcx> LateLintPass<'tcx> for CatchAllOnEnum {
             return;
         }
 
-        // Check if there's a justification comment on the wildcard arm.
-        // Look for line comments (// ...) but not // inside URLs or strings.
-        let source_map = cx.sess().source_map();
-        if let Ok(snippet) = source_map.span_to_snippet(last_arm.span) {
-            for line in snippet.lines() {
-                let trimmed = line.trim();
-                // A line that starts with // or has // preceded by whitespace/comma
-                if trimmed.starts_with("//") {
-                    return;
-                }
-                if let Some(pos) = trimmed.find("//") {
-                    // Make sure it's not inside a string (rough heuristic:
-                    // count quotes before the //)
-                    let before = &trimmed[..pos];
-                    let quote_count = before.chars().filter(|&c| c == '"').count();
-                    if quote_count % 2 == 0 {
-                        return; // // is outside strings
-                    }
-                }
-            }
+        if has_justification_comment(cx, last_arm) {
+            return;
         }
 
         cx.opt_span_lint(

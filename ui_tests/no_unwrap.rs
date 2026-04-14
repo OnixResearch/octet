@@ -21,3 +21,9 @@ fn main() {
     uses_unwrap();
     uses_expect();
 }
+
+#[test]
+fn unwrap_in_test_is_allowed() {
+    let val: Option<u32> = Some(1);
+    let _ = val.unwrap();
+}
