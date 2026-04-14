@@ -4,20 +4,20 @@ index ac04a91..723d9ad 100644
 --- a/README.md
 +++ b/README.md
 @@ -125,20 +125,21 @@ For a reusable consumer template, see `templates/dylint.toml`.
- 
+
  Use these repo-local guides when onboarding a consumer workspace:
- 
+
 -- `docs/downstream-rollout.md` — starter profiles, `ambient_clock` boundary guidance, and the high-noise lint promotion playbook
 +- `docs/downstream-rollout.md` — starter profiles, Aspen's phase-2 widening path, `ambient_clock` boundary guidance, the high-noise lint promotion playbook, and a saved non-Aspen consumer proof
  - `templates/tigerstyle-check.sh` — reusable check-path recipe for nix-managed or otherwise nonstandard Dylint toolchains
  - `templates/dylint.toml` — consumer-owned threshold and allowlist template
- 
+
 -The Aspen phase-1 reference state is archived under
 +The Aspen phase-1 starter reference is archived under
  `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/`.
- 
+
  ## Development
- 
+
  ```bash
 -nix develop                    # enter devshell
 -cargo check                    # verify compilation
@@ -29,7 +29,7 @@ index ac04a91..723d9ad 100644
 +cargo test --test ui -- --ignored --nocapture # run checked-in UI fixtures
 +nix flake check                               # CI checks, including dedicated nix UI fixture coverage
  ```
- 
+
  ### Project structure
 @@ -151,7 +152,7 @@ src/
  ├── structure/                 # 6 lints: length, conditions, params, casts
@@ -39,7 +39,7 @@ index ac04a91..723d9ad 100644
 +ui_tests/                      # checked-in dylint UI fixtures exercised by nix checks
  openspec/                      # spec-driven change management
  ```
- 
+
 diff --git a/docs/downstream-rollout.md b/docs/downstream-rollout.md
 index 9bb8244..86436b6 100644
 --- a/docs/downstream-rollout.md
@@ -47,7 +47,7 @@ index 9bb8244..86436b6 100644
 @@ -19,6 +19,28 @@ Current Aspen workspace scripts may already include later packages and later lin
  families. Reconstruct the starter path from the archived change above, not from
  whatever Aspen HEAD happens to run today.
- 
+
 +## Current widened reference: Aspen phase 2
 +
 +Use phase 1 as the canonical starter path. After that, Aspen's current widened
@@ -71,12 +71,12 @@ index 9bb8244..86436b6 100644
 +for the archived phase-1 starter reconstruction.
 +
  ## Starter rollout profiles
- 
+
  ### Smoke profile
 @@ -92,6 +114,28 @@ Add a new crate or package to the default path only when all of these hold:
  6. one targeted rerun proves the candidate scope still produces actionable
     signal
- 
+
 +## Phase-2 widening playbook
 +
 +Use this after the starter rollout is green and one deferred package has a
@@ -100,24 +100,24 @@ index 9bb8244..86436b6 100644
 +  low-noise safety lints (`ignored_result`, `no_unwrap`)
 +
  ## Check-path recipe for nonstandard toolchains
- 
+
  Copy `templates/tigerstyle-check.sh` into the consumer repo when plain
 @@ -117,6 +161,11 @@ The template owns these responsibilities:
  - owns the documented starter profile, default scope, and default cargo-check
    args in one reviewable script
- 
+
 +The starter-profile lint list in the template is documentation and review
 +scoping, not a hard per-lint CLI filter. External Dylint runs still use the
 +consumer's enabled warn-by-default tigerstyle lints unless the consumer changes
 +source-level lint configuration.
 +
  Minimum assumptions for the template:
- 
+
  - `bash`, `cargo`, `rustc`, `python3`, `cargo-dylint`, `dylint-link`, and
 @@ -131,6 +180,20 @@ Minimum assumptions for the template:
  When wrappers are unnecessary, delete the wrapper section and call plain
  `cargo dylint`. The template is a recipe, not a policy requirement.
- 
+
 +## Second consumer proof
 +
 +Non-Aspen replay proof in this repo:
@@ -133,5 +133,5 @@ index 9bb8244..86436b6 100644
 +a tigerstyle-provided nightly toolchain environment.
 +
  ### Aspen wrapper facts worth preserving
- 
+
  Aspen phase 1 needed three wrapper behaviors:
