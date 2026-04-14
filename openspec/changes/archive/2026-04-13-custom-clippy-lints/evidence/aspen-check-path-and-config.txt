@@ -1,0 +1,235 @@
+$ cd /home/brittonr/git/aspen && git rev-parse --short HEAD
+8cddaec93
+
+$ sed -n '1,120p' /home/brittonr/git/aspen/scripts/tigerstyle-check.sh
+#!/usr/bin/env bash
+# Run Aspen's current Tiger Style starter-lint pilot through Dylint.
+#
+# Requirements:
+#   - `cargo-dylint` and `dylint-link` installed in PATH
+#   - sibling tigerstyle repo at ../tigerstyle, or set TIGERSTYLE_PATH
+#
+# Why wrappers exist:
+#   - Aspen uses a nix-managed nightly toolchain, so `rustup show active-toolchain`
+#     reports `nix-managed` instead of a full nightly triple.
+#   - `cargo-dylint` builds a driver crate that still needs the nightly-fix patch
+#     for `dylint_driver` on current rustc.
+#   - `dylint-link` expects `RUSTUP_TOOLCHAIN` during link steps.
+#
+# This script creates temporary wrappers/config so Aspen can run tigerstyle
+# without mutating the caller's shell environment.
+#
+# Usage:
+#   scripts/tigerstyle-check.sh
+#   scripts/tigerstyle-check.sh -p aspen-core -p aspen-time
+#   TIGERSTYLE_PATH=~/src/tigerstyle scripts/tigerstyle-check.sh --workspace -- --all-targets
+
+set -euo pipefail
+
+usage() {
+  cat <<'EOF'
+Usage: scripts/tigerstyle-check.sh [cargo-dylint options] [package scope] [-- cargo-check args]
+
+Default scope (when no package/workspace is passed):
+  -p aspen-time -p aspen-hlc -p aspen-core -p aspen-coordination
+
+Pilot lints enabled in the current default path:
+  - tigerstyle::ambient_clock
+  - tigerstyle::compound_assertion
+  - tigerstyle::contradictory_time
+  - tigerstyle::ignored_result
+  - tigerstyle::no_unwrap
+
+Examples:
+  scripts/tigerstyle-check.sh
+  scripts/tigerstyle-check.sh -p aspen-core -p aspen-time
+  scripts/tigerstyle-check.sh --workspace -- --all-targets
+  scripts/tigerstyle-check.sh --with-deps -p aspen-core -- --all-targets
+  TIGERSTYLE_PATH=~/src/tigerstyle scripts/tigerstyle-check.sh --keep-going
+EOF
+}
+
+if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+  usage
+  exit 0
+fi
+
+need_cmd() {
+  if ! command -v "$1" >/dev/null 2>&1; then
+    echo "error: missing required command: $1" >&2
+    exit 1
+  fi
+}
+
+export PATH="${CARGO_HOME:-$HOME/.cargo}/bin:$PATH"
+
+need_cmd cargo
+need_cmd rustc
+need_cmd python3
+need_cmd cargo-dylint
+need_cmd dylint-link
+
+repo_root=$(git rev-parse --show-toplevel 2>/dev/null) || {
+  echo "error: not inside the Aspen git repository" >&2
+  exit 1
+}
+cd "$repo_root"
+
+tigerstyle_path=$(realpath "${TIGERSTYLE_PATH:-$repo_root/../tigerstyle}")
+if [[ ! -d "$tigerstyle_path" ]]; then
+  echo "error: tigerstyle repo not found at $tigerstyle_path" >&2
+  echo "set TIGERSTYLE_PATH=/path/to/tigerstyle and retry" >&2
+  exit 1
+fi
+if [[ ! -f "$repo_root/dylint.toml" ]]; then
+  echo "error: expected Aspen dylint config at $repo_root/dylint.toml" >&2
+  exit 1
+fi
+
+host_triple=$(rustc -vV | awk '/^host:/ {print $2}')
+toolchain_channel=$(python3 - "$tigerstyle_path/rust-toolchain.toml" <<'PY'
+import pathlib
+import sys
+import tomllib
+path = pathlib.Path(sys.argv[1])
+data = tomllib.loads(path.read_text())
+print(data["toolchain"]["channel"])
+PY
+)
+toolchain="$toolchain_channel"
+if [[ "$toolchain" != *"$host_triple" ]]; then
+  toolchain="${toolchain}-${host_triple}"
+fi
+
+dylint_rev="${TIGERSTYLE_DYLINT_REV:-0e0a71eefe6f01563d11acc6e1d7af1d505934a9}"
+real_cargo=$(command -v cargo)
+real_rustc=$(command -v rustc)
+real_dylint_link=$(command -v dylint-link)
+
+wrap_dir=$(mktemp -d)
+cargo_home_tmp=$(mktemp -d)
+cleanup() {
+  rm -rf "${wrap_dir:-}" "${cargo_home_tmp:-}"
+}
+trap cleanup EXIT
+
+ln -s "${CARGO_HOME:-$HOME/.cargo}/registry" "$cargo_home_tmp/registry"
+ln -s "${CARGO_HOME:-$HOME/.cargo}/git" "$cargo_home_tmp/git"
+cat > "$cargo_home_tmp/config.toml" <<EOF
+[patch.crates-io]
+dylint_driver = { git = "https://github.com/trailofbits/dylint", rev = "$dylint_rev" }
+EOF
+
+cat > "$wrap_dir/rustup" <<'EOF'
+#!/usr/bin/env bash
+
+$ cat /home/brittonr/git/aspen/dylint.toml
+# Aspen-specific Tiger Style tuning.
+#
+# `scripts/tigerstyle-check.sh` decides which tigerstyle lints are enabled in
+# the current rollout phase. This file keeps workspace thresholds and justified
+# allowlists in one place so later phases can tighten them without rediscovering
+# why Aspen differs from tigerstyle's defaults.
+
+[tigerstyle]
+# Aspen still has larger orchestration handlers. Start at 100 lines while the
+# first rollout proves the workflow, then tighten after the handler cleanup pass.
+function_length_max = 100
+
+# Several coordinator and RPC handlers still nest one level deeper than the
+# default tigerstyle threshold. Keep one extra level during phased adoption.
+nesting_max_depth = 4
+
+# Focus assertion-density checks on non-trivial functions. Thin shell wrappers
+# should not need placeholder assertions just to satisfy the lint.
+assertion_density_min_lines = 30
+assertion_density_min_assertions = 2
+
+# Transport and storage code use `IO` pervasively. Keep this single exception
+# explicit; add new acronym exceptions only with rollout-note rationale.
+acronym_allowlist = ["IO"]
+
+$ sed -n '1,120p' /home/brittonr/git/tigerstyle/openspec/changes/archive/2026-04-13-aspen-consumer-rollout/verification.md
+# Verification: Integrate Tigerstyle Into Aspen
+
+## Implementation Evidence
+
+- Changed file: `openspec/specs/documentation/spec.md`
+- Changed file: `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/specs/documentation/spec.md`
+- Changed file: `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/tasks.md`
+- Changed file: `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/rollout-notes.md`
+- Changed file: `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/verification.md`
+- Changed file: `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/aspen-default-run.txt`
+- Changed file: `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/aspen-coordination-spotcheck.txt`
+- Changed file: `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/validation-counts.txt`
+- Changed file: `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/aspen-rollout-files.txt`
+- Changed file: `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/aspen-rollout-commit.txt`
+- Changed file: `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/aspen-rollout-clean-status.txt`
+- Changed file: `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/aspen-targeted-clippy.txt`
+- Changed file: `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/aspen-followup-openspec-validate.txt`
+- Changed file: `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/post-archive-openspec-validate-specs.txt`
+- Changed file: `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/post-archive-openspec-list.txt`
+- Changed file: `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/post-archive-change-tree.txt`
+- Changed file: `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/documentation-spec-sync.diff`
+- Changed file: `src/purity/ambient_clock.rs`
+
+## Task Coverage
+
+- [x] Choose the initial aspen starter lint set from existing triage evidence
+  - Evidence: `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/rollout-notes.md`, `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/aspen-default-run.txt`, `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/validation-counts.txt`
+- [x] Record which lint families and packages are deferred in phase 1 and why
+  - Evidence: `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/rollout-notes.md`, `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/aspen-coordination-spotcheck.txt`, `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/validation-counts.txt`
+- [x] Define promotion criteria for later rollout phases
+  - Evidence: `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/rollout-notes.md`
+- [x] Draft rollout notes that map aspen hotspot categories to rollout phases
+  - Evidence: `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/rollout-notes.md`
+- [x] Add tigerstyle invocation to aspen's `flake.nix` or equivalent check path
+  - Evidence: `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/aspen-rollout-files.txt`, `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/aspen-rollout-commit.txt`
+- [x] Add aspen `dylint.toml` with workspace-specific thresholds and allowlists
+  - Evidence: `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/aspen-rollout-files.txt`, `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/aspen-rollout-commit.txt`
+- [x] Record rationale for each committed threshold, allowlist, or explicit exception
+  - Evidence: `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/rollout-notes.md`, `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/aspen-rollout-files.txt`, `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/aspen-rollout-commit.txt`
+- [x] Document any toolchain or environment requirements needed for the aspen check to run
+  - Evidence: `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/rollout-notes.md`, `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/aspen-rollout-files.txt`, `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/aspen-rollout-commit.txt`
+- [x] Run the configured aspen check end to end and capture command, result summary, and representative findings
+  - Evidence: `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/aspen-default-run.txt`, `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/aspen-coordination-spotcheck.txt`, `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/validation-counts.txt`
+- [x] Confirm the starter lint set produces actionable signal without immediate blanket suppression
+  - Evidence: `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/rollout-notes.md`, `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/aspen-default-run.txt`, `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/validation-counts.txt`
+- [x] File follow-up changes for noisy lint families or tigerstyle false positives that block later promotion
+  - Evidence: `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/aspen-rollout-commit.txt`, `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/aspen-followup-openspec-validate.txt`
+
+## Archive Final State
+
+- Archived change remains only under `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/`.
+  - Evidence: `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/post-archive-change-tree.txt`, `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/post-archive-openspec-list.txt`
+- Post-archive tigerstyle specs validate cleanly.
+  - Evidence: `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/post-archive-openspec-validate-specs.txt`
+- Main documentation spec sync from archive commit is captured in a reviewable diff.
+  - Evidence: `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/documentation-spec-sync.diff`
+- Aspen rollout landed as a committed downstream change, not only a local patch.
+  - Evidence: `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/aspen-rollout-commit.txt`, `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/aspen-rollout-clean-status.txt`, `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/aspen-targeted-clippy.txt`
+
+## Verification Commands
+
+- Artifact: `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/tigerstyle-cargo-check.txt`
+  - Command: `cd /home/brittonr/git/tigerstyle && cargo check`
+- Artifact: `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/aspen-default-run.txt`
+  - Command: `cd /home/brittonr/git/aspen && scripts/tigerstyle-check.sh`
+- Artifact: `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/aspen-coordination-spotcheck.txt`
+  - Command: `cd /home/brittonr/git/aspen && scripts/tigerstyle-check.sh -p aspen-coordination -- --lib`
+- Artifact: `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/aspen-rollout-commit.txt`
+  - Command: `cd /home/brittonr/git/aspen && git show --stat --summary --format=fuller HEAD > /home/brittonr/git/tigerstyle/openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/aspen-rollout-commit.txt`
+- Artifact: `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/aspen-rollout-clean-status.txt`
+  - Command: `cd /home/brittonr/git/aspen && { echo '$ git rev-parse --short HEAD'; git rev-parse --short HEAD; echo '$ git status --short'; status=$(git status --short); if [ -n "$status" ]; then printf '%s\n' "$status"; else echo '(no output; repo clean)'; fi; } > /home/brittonr/git/tigerstyle/openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/aspen-rollout-clean-status.txt`
+- Artifact: `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/aspen-targeted-clippy.txt`
+  - Command: `cd /home/brittonr/git/aspen && tmpdir=$(mktemp -d) && trap 'rm -rf "$tmpdir"' EXIT && { echo '$ cargo clippy -p aspen-time -p aspen-hlc -p aspen-core -p aspen-coordination --lib -- -D warnings'; echo "# using fresh CARGO_TARGET_DIR=$tmpdir"; CARGO_TARGET_DIR="$tmpdir" cargo clippy -p aspen-time -p aspen-hlc -p aspen-core -p aspen-coordination --lib -- -D warnings; } > /home/brittonr/git/tigerstyle/openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/aspen-targeted-clippy.txt 2>&1`
+- Artifact: `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/aspen-followup-openspec-validate.txt`
+  - Command: `cd /home/brittonr/git/aspen && { echo '$ openspec validate tigerstyle-phase-2-coordination-cleanup'; openspec validate tigerstyle-phase-2-coordination-cleanup; echo; echo '$ openspec validate tigerstyle-phase-3-safety-debt-cleanup'; openspec validate tigerstyle-phase-3-safety-debt-cleanup; } > /home/brittonr/git/tigerstyle/openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/aspen-followup-openspec-validate.txt`
+- Artifact: `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/post-archive-openspec-validate-specs.txt`
+  - Command: `cd /home/brittonr/git/tigerstyle && openspec validate --specs > /home/brittonr/git/tigerstyle/openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/post-archive-openspec-validate-specs.txt`
+- Artifact: `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/post-archive-openspec-list.txt`
+  - Command: `cd /home/brittonr/git/tigerstyle && openspec list > /home/brittonr/git/tigerstyle/openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/post-archive-openspec-list.txt`
+- Artifact: `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/post-archive-change-tree.txt`
+  - Command: `cd /home/brittonr/git/tigerstyle && find openspec/changes -maxdepth 2 -type d | sort > /home/brittonr/git/tigerstyle/openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/post-archive-change-tree.txt`
+- Artifact: `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/documentation-spec-sync.diff`
+  - Command: `cd /home/brittonr/git/tigerstyle && { echo '$ git diff 9222f26^ 9222f26 -- openspec/specs/documentation/spec.md'; git diff 9222f26^ 9222f26 -- openspec/specs/documentation/spec.md; } > /home/brittonr/git/tigerstyle/openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/documentation-spec-sync.diff`
