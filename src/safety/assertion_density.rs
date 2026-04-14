@@ -1,11 +1,7 @@
 use rustc_ast::Block;
-use rustc_ast::Expr;
-use rustc_ast::ExprKind;
 use rustc_ast::Item;
 use rustc_ast::ItemKind;
 use rustc_ast::StmtKind;
-use rustc_ast::visit::Visitor;
-use rustc_ast::visit::{self};
 use rustc_errors::DiagDecorator;
 use rustc_lint::EarlyContext;
 use rustc_lint::EarlyLintPass;
@@ -56,30 +52,54 @@ fn count_code_lines(source: &str) -> usize {
         .count()
 }
 
-const ASSERT_MACROS: &[&str] = &[
-    "assert",
-    "assert_eq",
-    "assert_ne",
-    "debug_assert",
-    "debug_assert_eq",
-    "debug_assert_ne",
+const ASSERT_PATTERNS: &[&str] = &[
+    "assert!(",
+    "assert_eq!(",
+    "assert_ne!(",
+    "debug_assert!(",
+    "debug_assert_eq!(",
+    "debug_assert_ne!(",
 ];
 
-/// Walk the AST counting assertion macro invocations (not text matching).
-struct AssertionCounter {
-    count: usize,
+fn strip_comments(source: &str) -> String {
+    let mut out = String::with_capacity(source.len());
+    let mut chars = source.chars().peekable();
+    let mut in_block_comment = false;
+
+    while let Some(ch) = chars.next() {
+        if in_block_comment {
+            if ch == '*' && chars.peek() == Some(&'/') {
+                let _ = chars.next();
+                in_block_comment = false;
+            }
+            continue;
+        }
+
+        if ch == '/' && chars.peek() == Some(&'/') {
+            for next in chars.by_ref() {
+                if next == '\n' {
+                    out.push('\n');
+                    break;
+                }
+            }
+            continue;
+        }
+
+        if ch == '/' && chars.peek() == Some(&'*') {
+            let _ = chars.next();
+            in_block_comment = true;
+            continue;
+        }
+
+        out.push(ch);
+    }
+
+    out
 }
 
-impl<'ast> Visitor<'ast> for AssertionCounter {
-    fn visit_expr(&mut self, expr: &'ast Expr) {
-        if let ExprKind::MacCall(mac) = &expr.kind
-            && let Some(last) = mac.path.segments.last()
-            && ASSERT_MACROS.contains(&last.ident.name.as_str())
-        {
-            self.count += 1;
-        }
-        visit::walk_expr(self, expr);
-    }
+fn count_assertions(source: &str) -> usize {
+    let stripped = strip_comments(source);
+    ASSERT_PATTERNS.iter().map(|pattern| stripped.match_indices(pattern).count()).sum()
 }
 
 /// Returns true if the block is a single expression or a trivial delegation
@@ -140,16 +160,12 @@ impl EarlyLintPass for AssertionDensity {
             return;
         }
 
-        // Count assertions via AST walk, not text search
-        let mut counter = AssertionCounter { count: 0 };
-        visit::walk_block(&mut counter, body);
-
-        if counter.count >= self.min_assertions {
+        let assertions = count_assertions(&snippet);
+        if assertions >= self.min_assertions {
             return;
         }
 
         let min_a = self.min_assertions;
-        let assertions = counter.count;
         cx.opt_span_lint(
             ASSERTION_DENSITY,
             Some(body.span),

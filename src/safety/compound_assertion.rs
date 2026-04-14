@@ -1,7 +1,5 @@
 use rustc_ast::Expr;
 use rustc_ast::ExprKind;
-use rustc_ast::token::TokenKind;
-use rustc_ast::tokenstream::TokenTree;
 use rustc_errors::DiagDecorator;
 use rustc_lint::EarlyContext;
 use rustc_lint::EarlyLintPass;
@@ -21,46 +19,89 @@ declare_lint! {
 
 declare_lint_pass!(CompoundAssertion => [COMPOUND_ASSERTION]);
 
+/// Scan a macro-call snippet for top-level `&&` or `||` inside `assert!(...)`.
+///
+/// We work from the callsite source text because Dylint does not reliably run
+/// pre-expansion passes. The expanded AST still carries the original macro
+/// callsite span, which lets us re-read the user's source.
+fn has_top_level_compound_assertion(snippet: &str) -> bool {
+    let Some(rest) = snippet.strip_prefix("assert!(") else {
+        return false;
+    };
+
+    let mut depth = 1usize;
+    let mut chars = rest.chars().peekable();
+
+    while let Some(ch) = chars.next() {
+        match ch {
+            '(' | '[' | '{' => depth += 1,
+            ')' | ']' | '}' => {
+                depth = depth.saturating_sub(1);
+                if depth == 0 {
+                    break;
+                }
+            }
+            '&' if depth == 1 && chars.peek() == Some(&'&') => return true,
+            '|' if depth == 1 && chars.peek() == Some(&'|') => return true,
+            _ => {}
+        }
+    }
+
+    false
+}
+
 impl EarlyLintPass for CompoundAssertion {
     fn check_expr(&mut self, cx: &EarlyContext<'_>, expr: &Expr) {
-        let ExprKind::MacCall(mac) = &expr.kind else {
-            return;
-        };
-
-        let Some(last) = mac.path.segments.last() else {
-            return;
-        };
-
-        // Only fire on `assert!`, not `assert_eq!`, `assert_ne!`, `debug_assert!`
-        if last.ident.name.as_str() != "assert" {
+        // Only inspect expressions originating from macro expansion.
+        if !expr.span.from_expansion() {
             return;
         }
 
-        // Scan top-level tokens for && or ||.
-        // Delimited groups (parens, brackets, braces) are opaque — tokens
-        // inside closures or sub-expressions are not top-level.
-        for tt in mac.args.tokens.iter() {
-            match tt {
-                TokenTree::Token(tok, _) => match tok.kind {
-                    TokenKind::Comma => break, // stop before optional message arg
-                    TokenKind::AndAnd | TokenKind::OrOr => {
-                        cx.opt_span_lint(
-                            COMPOUND_ASSERTION,
-                            Some(expr.span),
-                            DiagDecorator(|diag| {
-                                diag.primary_message("compound assertion should be split into separate assertions");
-                                diag.help(
-                                    "split into separate `assert!()` calls so each condition \
-                                 reports independently on failure",
-                                );
-                            }),
-                        );
-                        return;
-                    }
-                    _ => {}
-                },
-                TokenTree::Delimited(..) => {}
-            }
+        // Limit to expanded `if` nodes from `assert!` to avoid duplicate
+        // diagnostics on children that share the same callsite.
+        if !matches!(expr.kind, ExprKind::If(..)) {
+            return;
         }
+
+        let callsite = expr.span.source_callsite();
+        let source_map = cx.sess().source_map();
+        let Ok(snippet) = source_map.span_to_snippet(callsite) else {
+            return;
+        };
+        let trimmed = snippet.trim();
+
+        if !trimmed.starts_with("assert!(") {
+            return;
+        }
+
+        if !has_top_level_compound_assertion(trimmed) {
+            return;
+        }
+
+        cx.opt_span_lint(
+            COMPOUND_ASSERTION,
+            Some(callsite),
+            DiagDecorator(|diag| {
+                diag.primary_message("compound assertion should be split into separate assertions");
+                diag.help(
+                    "split into separate `assert!()` calls so each condition \
+                     reports independently on failure",
+                );
+            }),
+        );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::has_top_level_compound_assertion;
+
+    #[test]
+    fn detects_top_level_compound_assertion() {
+        assert!(has_top_level_compound_assertion("assert!(a && b)"));
+        assert!(has_top_level_compound_assertion("assert!(a || b)"));
+        assert!(!has_top_level_compound_assertion("assert!(a)"));
+        assert!(!has_top_level_compound_assertion("assert!(items.iter().all(|x| x > 0 && x < 10))"));
+        assert!(!has_top_level_compound_assertion("debug_assert!(a && b)"));
     }
 }

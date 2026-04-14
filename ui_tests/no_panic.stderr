@@ -1,0 +1,26 @@
+warning: `panic!` will abort the process on execution
+  --> $DIR/no_panic.rs:3:5
+   |
+LL |     panic!("something went wrong");
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: return `Err(...)` instead of panicking
+   = note: `#[warn(no_panic)]` on by default
+
+warning: `todo!` will abort the process on execution
+  --> $DIR/no_panic.rs:8:5
+   |
+LL |     todo!("implement later");
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: return an error or use a tracking issue instead of `todo!()`
+
+warning: `unimplemented!` will abort the process on execution
+  --> $DIR/no_panic.rs:13:5
+   |
+LL |     unimplemented!("not done");
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: return `Err(...)` explaining what's missing
+
+warning: 3 warnings emitted

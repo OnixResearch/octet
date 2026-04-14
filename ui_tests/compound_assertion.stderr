@@ -1,0 +1,18 @@
+warning: compound assertion should be split into separate assertions
+  --> $DIR/compound_assertion.rs:3:5
+   |
+LL |     assert!(a > 0 && b > 0);
+   |     ^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: split into separate `assert!()` calls so each condition reports independently on failure
+   = note: `#[warn(compound_assertion)]` on by default
+
+warning: compound assertion should be split into separate assertions
+  --> $DIR/compound_assertion.rs:8:5
+   |
+LL |     assert!(a > 0 || b > 0);
+   |     ^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: split into separate `assert!()` calls so each condition reports independently on failure
+
+warning: 2 warnings emitted

@@ -1,0 +1,17 @@
+warning: function `long_function` is 74 lines (limit: 70)
+  --> $DIR/function_length.rs:1:27
+   |
+LL |   fn long_function() -> u32 {
+   |  ___________________________^
+LL | |     let a = 1;
+LL | |     let b = 2;
+LL | |     let c = 3;
+...  |
+LL | |     a + b + c + d + e + f + g + h + i + j + k + l + m + n + o + p + q + r + s + t + u + v + w + x + y + z + aa + bb + cc + dd + ee...
+LL | | }
+   | |_^
+   |
+   = help: decompose into smaller functions with clear responsibilities
+   = note: `#[warn(function_length)]` on by default
+
+warning: 1 warning emitted

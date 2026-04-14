@@ -1,0 +1,18 @@
+warning: boolean binding `active` should have a predicate prefix
+  --> $DIR/bool_naming.rs:3:9
+   |
+LL |     let active = true;
+   |         ^^^^^^
+   |
+   = help: rename to `is_active` or use another prefix: has_, should_, can_, was_, will_, needs_
+   = note: `#[warn(bool_naming)]` on by default
+
+warning: boolean binding `ready` should have a predicate prefix
+  --> $DIR/bool_naming.rs:6:9
+   |
+LL |     let ready = false;
+   |         ^^^^^
+   |
+   = help: rename to `is_ready` or use another prefix: has_, should_, can_, was_, will_, needs_
+
+warning: 2 warnings emitted

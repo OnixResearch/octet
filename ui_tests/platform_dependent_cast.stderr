@@ -1,0 +1,10 @@
+warning: `as usize` from `u32` is platform-dependent
+  --> $DIR/platform_dependent_cast.rs:3:5
+   |
+LL |     x as usize
+   |     ^^^^^^^^^^
+   |
+   = help: use `u32::try_into()` or keep the fixed-width type
+   = note: `#[warn(platform_dependent_cast)]` on by default
+
+warning: 1 warning emitted
