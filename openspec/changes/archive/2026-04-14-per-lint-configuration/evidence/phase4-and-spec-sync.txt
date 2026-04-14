@@ -1,0 +1,237 @@
+$ python3 openspec/changes/archive/2026-04-14-per-lint-configuration/evidence/check-phase4-and-spec-sync.py
+== cargo test --lib summary ==
+openspec/changes/archive/2026-04-14-per-lint-configuration/evidence/cargo-test-lib.txt
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 29.14s
+     Running unittests src/lib.rs (/tmp/tigerstyle-lib-levels.rWSbO8/debug/deps/tigerstyle-fe519a63e1b914d7)
+
+running 17 tests
+test config::tests::explicit_disabled_lints_and_lint_levels_deserialize_successfully ... ok
+test tests::lint_inventory_names_are_unique ... ok
+test tests::lint_inventory_snapshot_matches ... ok
+test config::tests::mixed_disabled_lints_keeps_valid_entry_while_warning_on_unknown_name ... ok
+test config::tests::invalid_lint_level_warns_and_keeps_default_behavior ... ok
+test config::tests::mixed_lint_levels_ignore_invalid_value_but_keep_valid_override ... ok
+test safety::compound_assertion::tests::detects_top_level_compound_assertion ... ok
+test config::tests::unknown_lint_levels_warn_without_failing_validation ... ok
+test config::tests::unknown_disabled_lints_warn_without_failing_validation ... ok
+test config::tests::overlapping_disabled_lints_and_lint_levels_warn_and_keep_lint_disabled ... ok
+test config::tests::mixed_lint_levels_ignores_unknown_name_but_keeps_valid_override ... ok
+test tests::lint_inventory_default_levels_snapshot_matches ... ok
+test config::tests::omitted_disabled_lints_and_lint_levels_default_to_empty ... ok
+test tests::config_validation_derives_names_from_lint_inventory ... ok
+test safety::no_panic::tests::finds_panic_macro_name ... ok
+test naming::acronym_style::tests::test_acronym_fix ... ok
+test config::tests::raw_lint_levels_preserve_original_strings ... ok
+
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+== cargo test --test ui fixture proof ==
+openspec/changes/archive/2026-04-14-per-lint-configuration/evidence/cargo-test-ui.txt
+[ui fixture] ambient_clock
+[ui fixture] nested_conditionals
+[ui fixture] compound_assertion
+[ui fixture] unbounded_loop
+[ui fixture] no_panic
+[ui fixture] no_unwrap
+[ui fixture] no_recursion
+[ui fixture] ignored_result
+[ui fixture] unchecked_narrowing
+[ui fixture] unchecked_division
+[ui fixture] catch_all_on_enum
+[ui fixture] assertion_density
+[ui fixture] raw_arithmetic_overflow
+[ui fixture] function_length
+[ui fixture] compound_condition
+[ui fixture] acronym_style
+[ui fixture] numeric_units
+[ui fixture] bool_naming
+[ui fixture] float_for_currency
+[ui fixture] platform_dependent_cast
+[ui fixture] ambiguous_params
+[ui fixture] unjustified_allow
+[ui fixture] verified/verified_purity
+[ui fixture] contradictory_time
+[ui fixture] multi_lock_ordering
+[ui fixture] function_length_custom/function_length_custom
+[ui fixture] assertion_density_custom/assertion_density_custom
+[ui fixture] nesting_custom/nesting_custom
+[ui fixture] acronym_allowlist_custom/acronym_allowlist_custom
+[ui fixture] no_unwrap_disabled_custom/no_unwrap_disabled_custom
+[ui fixture] no_unwrap_allow_custom/no_unwrap_allow_custom
+[ui fixture] no_unwrap_warn_custom/no_unwrap_warn_custom
+[ui fixture] no_unwrap_deny_custom/no_unwrap_deny_custom
+[ui fixture] no_unwrap_default_custom/no_unwrap_default_custom
+[ui fixture] no_unwrap_disabled_deny_custom/no_unwrap_disabled_deny_custom
+[ui fixture] no_unwrap_disabled_source_attr_custom/no_unwrap_disabled_source_attr_custom
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 33.75s
+
+== nix flake check summary ==
+openspec/changes/archive/2026-04-14-per-lint-configuration/evidence/nix-flake-check.txt
+checking derivation checks.x86_64-linux.tigerstyle...
+checking derivation checks.x86_64-linux.nextest...
+checking derivation checks.x86_64-linux.ui...
+checking derivation checks.x86_64-linux.clippy...
+checking derivation checks.x86_64-linux.fmt...
+all checks passed!
+warning: The check omitted these incompatible systems: aarch64-darwin, aarch64-linux, x86_64-darwin
+
+== Aspen checkpoint ==
+Exact replay command: bash openspec/changes/archive/2026-04-14-per-lint-configuration/evidence/replay-aspen-profiles.sh
+Pinned Aspen revision: 909e5e9fa
+Phase-1 archive: openspec/changes/archive/2026-04-13-aspen-consumer-rollout/
+Phase-1 rollout notes: openspec/changes/archive/2026-04-13-aspen-consumer-rollout/rollout-notes.md
+Phase-1 validation counts: openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/validation-counts.txt
+Wrapper evidence path: openspec/changes/archive/2026-04-13-custom-clippy-lints/evidence/aspen-check-path-and-config.txt
+Authoritative repo template path: templates/tigerstyle-check.sh
+Boundary-first transcript: openspec/changes/archive/2026-04-14-per-lint-configuration/evidence/aspen-boundary-first.txt
+Smoke transcript: openspec/changes/archive/2026-04-14-per-lint-configuration/evidence/aspen-smoke.txt
+Inventory-only transcript: openspec/changes/archive/2026-04-14-per-lint-configuration/evidence/aspen-inventory-only.txt
+Inventory-only config snapshot: openspec/changes/archive/2026-04-14-per-lint-configuration/evidence/aspen-inventory-only.dylint.toml
+
+== Aspen replay header ==
+Exact replay command: bash openspec/changes/archive/2026-04-14-per-lint-configuration/evidence/replay-aspen-profiles.sh
+Phase-1 archive reference: openspec/changes/archive/2026-04-13-aspen-consumer-rollout/
+Phase-1 rollout notes: openspec/changes/archive/2026-04-13-aspen-consumer-rollout/rollout-notes.md
+Phase-1 validation counts: openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/validation-counts.txt
+Wrapper evidence path: openspec/changes/archive/2026-04-13-custom-clippy-lints/evidence/aspen-check-path-and-config.txt
+$ ln -s /home/brittonr/git/aspen-dns /tmp/aspen-per-lint-config.YcjAx0/aspen-dns
+$ ln -s /home/brittonr/git/aspen-wasm-plugin /tmp/aspen-per-lint-config.YcjAx0/aspen-wasm-plugin
+$ git -C /home/brittonr/git/aspen worktree add --detach /tmp/aspen-per-lint-config.YcjAx0/aspen 909e5e9fa
+Preparing worktree (detached HEAD 909e5e9fa)
+HEAD is now at 909e5e9fa tigerstyle: add phase-1 rollout path and follow-up changes
+$ cp /home/brittonr/git/tigerstyle/templates/tigerstyle-check.sh /tmp/aspen-per-lint-config.YcjAx0/aspen/scripts/tigerstyle-check.sh
+$ cp /home/brittonr/git/tigerstyle/templates/dylint.toml /tmp/aspen-per-lint-config.YcjAx0/aspen/dylint.toml
+$ python3 - /tmp/aspen-per-lint-config.YcjAx0/aspen/scripts/tigerstyle-check.sh
+$ write boundary-first config to /tmp/aspen-per-lint-config.YcjAx0/aspen/dylint.toml
+$ (cd /tmp/aspen-per-lint-config.YcjAx0/aspen && TIGERSTYLE_PATH=/home/brittonr/git/tigerstyle TIGERSTYLE_DYLINT_REV=0e0a71eefe6f01563d11acc6e1d7af1d505934a9 scripts/tigerstyle-check.sh) > /home/brittonr/git/tigerstyle/openspec/changes/archive/2026-04-14-per-lint-configuration/evidence/aspen-boundary-first.txt 2>&1
+$ (cd /tmp/aspen-per-lint-config.YcjAx0/aspen && TIGERSTYLE_PATH=/home/brittonr/git/tigerstyle TIGERSTYLE_DYLINT_REV=0e0a71eefe6f01563d11acc6e1d7af1d505934a9 scripts/tigerstyle-check.sh -p aspen-time -- --lib) > /home/brittonr/git/tigerstyle/openspec/changes/archive/2026-04-14-per-lint-configuration/evidence/aspen-smoke.txt 2>&1
+$ write inventory-only config to /tmp/aspen-per-lint-config.YcjAx0/aspen/dylint.toml
+$ cp /tmp/aspen-per-lint-config.YcjAx0/aspen/dylint.toml /home/brittonr/git/tigerstyle/openspec/changes/archive/2026-04-14-per-lint-configuration/evidence/aspen-inventory-only.dylint.toml
+
+== Aspen smoke / boundary / inventory summaries ==
+openspec/changes/archive/2026-04-14-per-lint-configuration/evidence/aspen-smoke.txt
+   |         ^^^^^^^^^^^^^
+
+warning: direct system clock read in production code
+  --> crates/aspen-time/src/lib.rs:85:5
+   |
+85 |     SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0)
+   |     ^^^^^^^^^^^^^^^^^
+   |
+   = help: inject time as a parameter (e.g. `now: Instant`) so logic stays deterministic and testable. If this crate owns the clock boundary, add `#[allow(ambient_clock, reason = "...")]`
+
+warning: `aspen-time` (lib) generated 2 warnings
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.93s
+
+openspec/changes/archive/2026-04-14-per-lint-configuration/evidence/aspen-boundary-first.txt
+    = help: inject time as a parameter (e.g. `now: Instant`) so logic stays deterministic and testable. If this crate owns the clock boundary, add `#[allow(ambient_clock, reason = "...")]`
+
+warning: direct system clock read in production code
+   --> crates/aspen-core/src/simulation.rs:211:27
+    |
+211 |             let elapsed = Utc::now().signed_duration_since(start);
+    |                           ^^^^^^^^^^
+    |
+    = help: inject time as a parameter (e.g. `now: Instant`) so logic stays deterministic and testable. If this crate owns the clock boundary, add `#[allow(ambient_clock, reason = "...")]`
+
+warning: `aspen-core` (lib) generated 4 warnings
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1m 36s
+
+inventory header:
+# replay profile: inventory-only
+# enabled lint banner: no_unwrap
+# config snapshot: openspec/changes/archive/2026-04-14-per-lint-configuration/evidence/aspen-inventory-only.dylint.toml
+# archive reference: openspec/changes/archive/2026-04-13-aspen-consumer-rollout/
+[tigerstyle] workspace: aspen
+[tigerstyle] repo:      /home/brittonr/git/tigerstyle
+[tigerstyle] toolchain: nightly-2026-03-21-x86_64-unknown-linux-gnu
+[tigerstyle] scope:     -p aspen-time -p aspen-hlc -p aspen-core
+[tigerstyle] profile:   inventory-only no_unwrap
+[tigerstyle] dylint rev: 0e0a71eefe6f01563d11acc6e1d7af1d505934a9
+
+openspec/changes/archive/2026-04-14-per-lint-configuration/evidence/aspen-inventory-only.txt
+    Checking reqwest v0.12.28
+    Checking hickory-resolver v0.25.2
+    Checking swarm-discovery v0.5.0
+    Checking portmapper v0.15.0
+    Checking aspen-cluster-types v0.1.0 (/tmp/aspen-per-lint-config.YcjAx0/aspen/crates/aspen-cluster-types)
+    Checking aspen-traits v0.1.0 (/tmp/aspen-per-lint-config.YcjAx0/aspen/crates/aspen-traits)
+    Checking aspen-core v0.1.0 (/tmp/aspen-per-lint-config.YcjAx0/aspen/crates/aspen-core)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 50.59s
+
+== Spec sync excerpt from main spec ==
+### Requirement: Per-Lint Configuration Support
+The project MUST support disabling individual lints and overriding lint
+severity through the consumer-owned `dylint.toml`.
+
+The consumer-owned `[tigerstyle]` section in `dylint.toml` MUST support these
+optional controls and behaviors:
+
+- an optional `disabled_lints` list that prevents named lints from registering
+- an optional `lint_levels` table that maps lint names to `allow`, `warn`, or
+  `deny`
+- omitted `disabled_lints` and `lint_levels` keys default to empty collections
+  and preserve the existing default lint levels
+- a warning (not error) for unknown lint names in config
+- a warning (not error) for invalid `lint_levels` values, with the invalid
+  override ignored
+- a warning (not error) when a lint appears in both `disabled_lints` and
+  `lint_levels`, with the level override ignored
+
+#### Scenario: Omitted per-lint controls keep existing behavior
+
+- GIVEN a `dylint.toml` without `disabled_lints` or `lint_levels`
+- WHEN the lint suite loads config
+- THEN both controls default to empty and lints keep their default levels
+
+#### Scenario: Disabling a noisy lint
+
+- GIVEN `disabled_lints = ["no_unwrap"]` in `dylint.toml`
+- WHEN the lint suite runs
+- THEN `no_unwrap` produces no diagnostics
+
+#### Scenario: Unknown lint name warns and continues
+
+- GIVEN `disabled_lints = ["not_a_real_lint"]` in `dylint.toml`
+- WHEN the lint suite loads config
+- THEN it emits a warning and continues with the remaining config
+
+#### Scenario: Invalid lint level warns and keeps default
+
+- GIVEN `[tigerstyle.lint_levels] no_unwrap = "fatal"` in `dylint.toml`
+- WHEN the lint suite loads config
+- THEN it emits a warning and `no_unwrap` keeps its default level
+
+#### Scenario: Disabled lint beats level override
+
+- GIVEN `disabled_lints = ["no_unwrap"]` and `[tigerstyle.lint_levels] no_unwrap = "deny"` in `dylint.toml`
+- WHEN the lint suite loads config and runs
+- THEN it emits a warning about the conflicting config and `no_unwrap` stays disabled
+
+#### Scenario: Allow level suppresses diagnostics
+
+- GIVEN `[tigerstyle.lint_levels] no_unwrap = "allow"` in `dylint.toml`
+- WHEN `no_unwrap` sees violating code
+- THEN it emits no diagnostic
+
+#### Scenario: Warn level keeps warning behavior
+
+- GIVEN `[tigerstyle.lint_levels] no_unwrap = "warn"` in `dylint.toml`
+- WHEN `no_unwrap` sees violating code
+- THEN it emits a warning
+
+#### Scenario: Deny level upgrades to error
+
+- GIVEN `[tigerstyle.lint_levels] no_unwrap = "deny"` in `dylint.toml`
+- WHEN `no_unwrap` sees violating code
+- THEN it emits an error instead of a warning
+
+#### Scenario: Disabled lint beats source-level attrs
+
+- GIVEN `disabled_lints = ["no_unwrap"]` in `dylint.toml`
+- AND source code requests a source-level lint attribute for `tigerstyle::no_unwrap`
+- WHEN the lint suite runs on code that would otherwise violate `no_unwrap`
+- THEN `no_unwrap` still emits no diagnostic
+
+ok

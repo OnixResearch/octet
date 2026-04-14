@@ -55,10 +55,14 @@
   - saved config snapshot for the inventory-only replay
 - `openspec/changes/archive/2026-04-14-per-lint-configuration/evidence/check-ui-fixtures-and-snapshots.py`
   - deterministic helper that asserts the per-lint UI fixtures are present in `tests/ui.rs` and emits the snapshot contents used by review
+- `openspec/changes/archive/2026-04-14-per-lint-configuration/evidence/check-phase4-and-spec-sync.py`
+  - deterministic helper that asserts the archived Phase 4 evidence files contain the expected results and that the synced per-lint requirement block is present in `openspec/specs/documentation/spec.md`
+- `openspec/changes/archive/2026-04-14-per-lint-configuration/evidence/phase4-and-spec-sync.txt`
+  - review bundle that prints the `cargo test --lib` result, `nix flake check` summary, Aspen replay/checkpoint summaries, and the synced main-spec requirement block
 
 ## Task-to-evidence map
 
 - Phase 1 schema and validation tasks: `src/config.rs`, `src/lib.rs`, `tests/fixtures/lint_inventory_names.txt`, `tests/fixtures/lint_inventory_default_levels.txt`, `cargo-test-lib.txt`, `ui-fixtures-and-snapshots.txt`
 - Phase 2 registration and UI behavior tasks: `tests/ui.rs`, `ui_tests/no_unwrap_*`, `cargo-test-ui.txt`, `ui-fixtures-and-snapshots.txt`, `nix-flake-check.txt`
 - Phase 3 template/docs tasks: `templates/dylint.toml`, `docs/downstream-rollout.md`
-- Phase 4 external validation tasks: `nix-flake-check.txt`, `aspen-validation-checkpoint.txt`, `aspen-replay.txt`, `aspen-smoke.txt`, `aspen-boundary-first.txt`, `aspen-inventory-only.txt`, `aspen-inventory-only.dylint.toml`
+- Phase 4 external validation tasks: `nix-flake-check.txt`, `aspen-validation-checkpoint.txt`, `aspen-replay.txt`, `aspen-smoke.txt`, `aspen-boundary-first.txt`, `aspen-inventory-only.txt`, `aspen-inventory-only.dylint.toml`, `phase4-and-spec-sync.txt`
