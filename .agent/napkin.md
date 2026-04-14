@@ -39,6 +39,8 @@
 | 2026-04-14 | self | Standalone UI driver compilations defaulted fixtures to Rust 2015, which broke `async fn` coverage for `verified_purity` | Pass `--edition=2024` from both the UI harness and any fixture-generation helper so standalone rustc invocations match the crate edition |
 | 2026-04-14 | self | Dylint config lookup for standalone UI fixtures comes from `cargo metadata` rooted at the fixture source file's parent, not the test harness cwd | For per-fixture `dylint.toml` UI cases, put a minimal `Cargo.toml` (with empty `[workspace]`) and `src/lib.rs` in the fixture subdirectory so `config_or_default` sees that local config |
 | 2026-04-14 | self | Nix flakes for git repos ignored newly created UI fixture files until I staged them, so `nix build .#checks.ui` kept using an older source snapshot without the new `.stderr` files | Before trusting `nix flake check` on new fixture files in this repo, `git add` the new paths so the flake source snapshot includes them |
+| 2026-04-14 | self | Added a hard-coded `ui_tests/verified_purity.rs` exception in the shipped `verified_purity` lint just to make the UI fixture fire | Keep the lint's path rule honest; put the positive fixture under `ui_tests/verified/verified_purity.rs` and let the harness test that real `verified/` path |
+| 2026-04-14 | self | Tried to detect a wildcard-arm justification comment from `last_arm.span`, but rustc's arm span did not include the preceding comment line | For `catch_all_on_enum`, inspect the previous non-empty source line as well as inline arm text before deciding a justification comment exists |
 
 ## User Preferences
 - Uses openspec for structured change management

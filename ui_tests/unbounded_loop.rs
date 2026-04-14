@@ -43,3 +43,10 @@ fn main() {
     counter_loop();
     max_retries_loop();
 }
+
+fn bounded_for_loop() {
+    // Should NOT warn: `for` has an explicit bound
+    for _ in 0..3 {
+        std::hint::spin_loop();
+    }
+}

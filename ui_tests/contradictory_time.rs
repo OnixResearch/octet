@@ -1,3 +1,6 @@
+#![allow(ambient_clock)]
+
+use std::time::Duration;
 use std::time::Instant;
 
 fn contradictory(now_ms: u64) -> u64 {
@@ -11,14 +14,13 @@ fn pure_time(now_ms: u64, deadline_ms: u64) -> bool {
     now_ms > deadline_ms
 }
 
-fn shell_poll() -> u64 {
+fn shell_poll() -> Duration {
     // Should NOT warn: no time parameter
-    let now = Instant::now();
-    now.elapsed().as_millis() as u64
+    Instant::now().elapsed()
 }
 
 fn main() {
     contradictory(1000);
     pure_time(1000, 2000);
-    shell_poll();
+    let _ = shell_poll();
 }

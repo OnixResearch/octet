@@ -7,7 +7,7 @@ LL | |     let a = 1;
 LL | |     let b = 2;
 LL | |     let c = 3;
 ...  |
-LL | |     a + b + c + d + e + f + g + h + i + j + k + l + m + n + o + p + q + r + s + t + u + v + w + x + y + z + aa + bb + cc + dd + ee...
+LL | |     71
 LL | | }
    | |_^
    |

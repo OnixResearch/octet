@@ -27,12 +27,7 @@ fn is_in_verified_module(cx: &EarlyContext<'_>, span: Span) -> bool {
     let filename = source_map.span_to_filename(span);
     let display = filename.prefer_local_unconditionally();
     let path = format!("{display}");
-    path.contains("/verified/")
-        || path.contains("\\verified\\")
-        // UI harness keeps fixtures under `ui_tests/`; allow the dedicated
-        // verified-purity fixture filename to exercise the positive case.
-        || path.ends_with("/ui_tests/verified_purity.rs")
-        || path.ends_with("\\ui_tests\\verified_purity.rs")
+    path.contains("/verified/") || path.contains("\\verified\\")
 }
 
 fn is_in_test_cfg(item: &Item) -> bool {

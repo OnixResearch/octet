@@ -1,27 +1,10 @@
-warning: direct system clock read in production code
-  --> $DIR/contradictory_time.rs:5:14
+warning: function takes time parameter `now_ms` but also reads system time
+  --> $DIR/contradictory_time.rs:8:14
    |
 LL |     let _t = Instant::now();
    |              ^^^^^^^^^^^^^^
    |
-   = help: inject time as a parameter (e.g. `now: Instant`) so logic stays deterministic and testable. If this crate owns the clock boundary, add `#[allow(ambient_clock, reason = "...")]`
-   = note: `#[warn(ambient_clock)]` on by default
+   = help: use the time parameter instead of reading the system clock, or remove the parameter if this function should own its time source
+   = note: `#[warn(contradictory_time)]` on by default
 
-warning: direct system clock read in production code
-  --> $DIR/contradictory_time.rs:16:15
-   |
-LL |     let now = Instant::now();
-   |               ^^^^^^^^^^^^^^
-   |
-   = help: inject time as a parameter (e.g. `now: Instant`) so logic stays deterministic and testable. If this crate owns the clock boundary, add `#[allow(ambient_clock, reason = "...")]`
-
-warning: narrowing cast from `u128` to `u64` without bounds check
-  --> $DIR/contradictory_time.rs:17:5
-   |
-LL |     now.elapsed().as_millis() as u64
-   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-   |
-   = help: use `u64::try_from(value)` or guard with `if value <= u64::MAX as u128`
-   = note: `#[warn(unchecked_narrowing)]` on by default
-
-warning: 3 warnings emitted
+warning: 1 warning emitted

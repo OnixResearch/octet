@@ -37,24 +37,29 @@ struct TimeCallFinder {
     found: Option<Span>,
 }
 
+fn qpath_calls_now(qpath: &hir::QPath<'_>) -> bool {
+    match qpath {
+        hir::QPath::Resolved(_, path) => {
+            path.segments.last().map(|segment| segment.ident.name.as_str() == "now").unwrap_or(false)
+        }
+        hir::QPath::TypeRelative(_, segment) => segment.ident.name.as_str() == "now",
+    }
+}
+
 impl<'tcx> Visitor<'tcx> for TimeCallFinder {
     fn visit_expr(&mut self, expr: &'tcx hir::Expr<'tcx>) {
         if self.found.is_some() {
             return;
         }
 
-        if let ExprKind::Call(func, _) | ExprKind::MethodCall(_, func, _, _) = &expr.kind {
-            // Check for method calls like `Instant::now()`, `SystemTime::now()`
-            if let ExprKind::Path(qpath) = &func.kind {
-                let path_str = path_to_string(qpath);
-                if path_str.ends_with("::now") {
-                    self.found = Some(expr.span);
-                    return;
-                }
-            }
+        if let ExprKind::Call(func, _) = &expr.kind
+            && let ExprKind::Path(qpath) = &func.kind
+            && qpath_calls_now(qpath)
+        {
+            self.found = Some(expr.span);
+            return;
         }
 
-        // Also check method calls directly
         if let ExprKind::MethodCall(segment, _, _, _) = &expr.kind
             && segment.ident.name.as_str() == "now"
         {
@@ -63,15 +68,6 @@ impl<'tcx> Visitor<'tcx> for TimeCallFinder {
         }
 
         intravisit::walk_expr(self, expr);
-    }
-}
-
-fn path_to_string(qpath: &hir::QPath<'_>) -> String {
-    match qpath {
-        hir::QPath::Resolved(_, path) => {
-            path.segments.iter().map(|s| s.ident.name.as_str()).collect::<Vec<_>>().join("::")
-        }
-        hir::QPath::TypeRelative(_, segment) => segment.ident.name.to_string(),
     }
 }
 

@@ -31,7 +31,7 @@ const FIXTURES: &[&str] = &[
     "platform_dependent_cast",
     "ambiguous_params",
     "unjustified_allow",
-    "verified_purity",
+    "verified/verified_purity",
     "contradictory_time",
     "multi_lock_ordering",
     "function_length_custom/function_length_custom",
@@ -156,7 +156,7 @@ fn normalize_stderr(stderr: &str, fixture_path: &Path) -> String {
 }
 
 fn expects_failure(name: &str) -> bool {
-    matches!(name, "verified_purity")
+    matches!(name, "verified/verified_purity")
 }
 
 fn run_fixture(driver: &Path, library: &Path, host: &str, name: &str) {

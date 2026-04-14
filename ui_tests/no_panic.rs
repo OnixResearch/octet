@@ -16,3 +16,8 @@ fn will_unimplemented() {
 fn main() {
     // Don't actually call the panicking functions
 }
+
+#[test]
+fn test_only_panic_is_allowed() {
+    panic!("test-only panic");
+}
