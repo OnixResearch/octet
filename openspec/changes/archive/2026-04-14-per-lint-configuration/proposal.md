@@ -59,4 +59,6 @@ compound_assertion = "deny"
 - **APIs**: New fields on `Config` struct
 - **Dependencies**: None
 - **Testing**: Config parsing and warning-path tests, integration tests for
-  disabled lints, allow/warn/deny overrides, and fixture-local config cases
+  disabled lints, allow/warn/deny overrides, fixture-local config cases, and
+  a human Aspen replay when downstream rollout docs/templates change so the
+  primary consumer proof stays aligned with the shipped guidance

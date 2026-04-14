@@ -48,7 +48,8 @@ severity.
 **Implementation:** Validate `lint_levels` strings at config-load time,
 normalize accepted values into an internal enum, and ignore invalid
 values after emitting a warning. Registration then consults the validated
-override map when choosing each lint's effective level.
+override map and feeds the effective per-lint level into rustc's normal
+lint-level machinery while keeping the original lint statics registered.
 
 **Alternative:** Rely on `#![warn(...)]` / `#![deny(...)]` in source —
 rejected because it requires source changes in every crate.
@@ -95,3 +96,10 @@ attributes.
 **[Testing complexity]** → Need to test config parsing, lint-disable
 behavior, and level overrides. Mitigation: integration tests with
 different `dylint.toml` configs and expected diagnostic counts.
+
+**[Downstream rollout drift]** → This change updates consumer-facing
+rollout docs/templates that Aspen uses as the primary downstream proof.
+Mitigation: when those docs/templates change, save a human Aspen replay
+transcript under the change evidence directory using the canonical repo
+template path (`templates/tigerstyle-check.sh`) and the pinned Aspen
+revision recipe.

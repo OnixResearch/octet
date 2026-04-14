@@ -1,0 +1,81 @@
+$ nix develop -c bash -lc 'export RUSTUP_TOOLCHAIN=nightly; export CARGO_TARGET_DIR="$(mktemp -d /tmp/tigerstyle-ui-levels.XXXXXX)"; trap '\''rm -rf "$CARGO_TARGET_DIR"'\'' EXIT; cargo test --test ui -- --ignored --nocapture'
+   Compiling serde_core v1.0.228
+   Compiling proc-macro2 v1.0.106
+   Compiling quote v1.0.45
+   Compiling unicode-ident v1.0.24
+   Compiling memchr v2.8.0
+   Compiling winnow v1.0.1
+   Compiling toml_writer v1.1.1+spec-1.1.0
+   Compiling zmij v1.0.21
+   Compiling serde_json v1.0.149
+   Compiling serde v1.0.228
+   Compiling thiserror v2.0.18
+   Compiling camino v1.2.2
+   Compiling anyhow v1.0.102
+   Compiling itoa v1.0.18
+   Compiling regex-syntax v0.8.10
+   Compiling dylint_internal v5.0.0 (https://github.com/trailofbits/dylint?rev=0e0a71eefe6f01563d11acc6e1d7af1d505934a9#0e0a71ee)
+   Compiling paste v1.0.15
+   Compiling rustversion v1.0.22
+   Compiling log v0.4.29
+   Compiling toml_parser v1.1.2+spec-1.1.0
+   Compiling aho-corasick v1.1.4
+   Compiling syn v2.0.117
+   Compiling regex-automata v0.4.14
+   Compiling serde_derive v1.0.228
+   Compiling thiserror-impl v2.0.18
+   Compiling serde_spanned v1.1.1
+   Compiling toml_datetime v1.1.1+spec-1.1.0
+   Compiling semver v1.0.28
+   Compiling cargo-platform v0.3.2
+   Compiling toml v1.1.2+spec-1.1.0
+   Compiling dylint_linting v5.0.0 (https://github.com/trailofbits/dylint?rev=0e0a71eefe6f01563d11acc6e1d7af1d505934a9#0e0a71ee)
+   Compiling regex v1.12.3
+   Compiling cargo_metadata v0.23.1
+   Compiling tigerstyle v0.1.0 (/home/brittonr/git/tigerstyle)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 9.88s
+     Running tests/ui.rs (/tmp/tigerstyle-ui-levels.tmLE87/debug/deps/ui-7cbb8ebcfb833a03)
+
+running 1 test
+   Compiling tigerstyle v0.1.0 (/home/brittonr/git/tigerstyle)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 7.38s
+[ui fixture] ambient_clock
+[ui fixture] nested_conditionals
+[ui fixture] compound_assertion
+[ui fixture] unbounded_loop
+[ui fixture] no_panic
+[ui fixture] no_unwrap
+[ui fixture] no_recursion
+[ui fixture] ignored_result
+[ui fixture] unchecked_narrowing
+[ui fixture] unchecked_division
+[ui fixture] catch_all_on_enum
+[ui fixture] assertion_density
+[ui fixture] raw_arithmetic_overflow
+[ui fixture] function_length
+[ui fixture] compound_condition
+[ui fixture] acronym_style
+[ui fixture] numeric_units
+[ui fixture] bool_naming
+[ui fixture] float_for_currency
+[ui fixture] platform_dependent_cast
+[ui fixture] ambiguous_params
+[ui fixture] unjustified_allow
+[ui fixture] verified/verified_purity
+[ui fixture] contradictory_time
+[ui fixture] multi_lock_ordering
+[ui fixture] function_length_custom/function_length_custom
+[ui fixture] assertion_density_custom/assertion_density_custom
+[ui fixture] nesting_custom/nesting_custom
+[ui fixture] acronym_allowlist_custom/acronym_allowlist_custom
+[ui fixture] no_unwrap_disabled_custom/no_unwrap_disabled_custom
+[ui fixture] no_unwrap_allow_custom/no_unwrap_allow_custom
+[ui fixture] no_unwrap_warn_custom/no_unwrap_warn_custom
+[ui fixture] no_unwrap_deny_custom/no_unwrap_deny_custom
+[ui fixture] no_unwrap_default_custom/no_unwrap_default_custom
+[ui fixture] no_unwrap_disabled_deny_custom/no_unwrap_disabled_deny_custom
+[ui fixture] no_unwrap_disabled_source_attr_custom/no_unwrap_disabled_source_attr_custom
+test ui ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 33.75s
+

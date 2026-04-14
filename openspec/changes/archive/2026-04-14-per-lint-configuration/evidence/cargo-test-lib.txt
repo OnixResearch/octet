@@ -1,0 +1,59 @@
+$ nix develop -c bash -lc 'export RUSTUP_TOOLCHAIN=nightly; export CARGO_TARGET_DIR="$(mktemp -d /tmp/tigerstyle-lib-levels.XXXXXX)"; trap '\''rm -rf "$CARGO_TARGET_DIR"'\'' EXIT; cargo test --lib'
+   Compiling serde_core v1.0.228
+   Compiling proc-macro2 v1.0.106
+   Compiling unicode-ident v1.0.24
+   Compiling quote v1.0.45
+   Compiling memchr v2.8.0
+   Compiling winnow v1.0.1
+   Compiling toml_writer v1.1.1+spec-1.1.0
+   Compiling zmij v1.0.21
+   Compiling camino v1.2.2
+   Compiling serde v1.0.228
+   Compiling serde_json v1.0.149
+   Compiling thiserror v2.0.18
+   Compiling anyhow v1.0.102
+   Compiling regex-syntax v0.8.10
+   Compiling itoa v1.0.18
+   Compiling dylint_internal v5.0.0 (https://github.com/trailofbits/dylint?rev=0e0a71eefe6f01563d11acc6e1d7af1d505934a9#0e0a71ee)
+   Compiling paste v1.0.15
+   Compiling rustversion v1.0.22
+   Compiling log v0.4.29
+   Compiling toml_parser v1.1.2+spec-1.1.0
+   Compiling aho-corasick v1.1.4
+   Compiling syn v2.0.117
+   Compiling regex-automata v0.4.14
+   Compiling serde_spanned v1.1.1
+   Compiling toml_datetime v1.1.1+spec-1.1.0
+   Compiling semver v1.0.28
+   Compiling cargo-platform v0.3.2
+   Compiling serde_derive v1.0.228
+   Compiling thiserror-impl v2.0.18
+   Compiling toml v1.1.2+spec-1.1.0
+   Compiling dylint_linting v5.0.0 (https://github.com/trailofbits/dylint?rev=0e0a71eefe6f01563d11acc6e1d7af1d505934a9#0e0a71ee)
+   Compiling regex v1.12.3
+   Compiling cargo_metadata v0.23.1
+   Compiling tigerstyle v0.1.0 (/home/brittonr/git/tigerstyle)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 29.14s
+     Running unittests src/lib.rs (/tmp/tigerstyle-lib-levels.rWSbO8/debug/deps/tigerstyle-fe519a63e1b914d7)
+
+running 17 tests
+test config::tests::explicit_disabled_lints_and_lint_levels_deserialize_successfully ... ok
+test tests::lint_inventory_names_are_unique ... ok
+test tests::lint_inventory_snapshot_matches ... ok
+test config::tests::mixed_disabled_lints_keeps_valid_entry_while_warning_on_unknown_name ... ok
+test config::tests::invalid_lint_level_warns_and_keeps_default_behavior ... ok
+test config::tests::mixed_lint_levels_ignore_invalid_value_but_keep_valid_override ... ok
+test safety::compound_assertion::tests::detects_top_level_compound_assertion ... ok
+test config::tests::unknown_lint_levels_warn_without_failing_validation ... ok
+test config::tests::unknown_disabled_lints_warn_without_failing_validation ... ok
+test config::tests::overlapping_disabled_lints_and_lint_levels_warn_and_keep_lint_disabled ... ok
+test config::tests::mixed_lint_levels_ignores_unknown_name_but_keeps_valid_override ... ok
+test tests::lint_inventory_default_levels_snapshot_matches ... ok
+test config::tests::omitted_disabled_lints_and_lint_levels_default_to_empty ... ok
+test tests::config_validation_derives_names_from_lint_inventory ... ok
+test safety::no_panic::tests::finds_panic_macro_name ... ok
+test naming::acronym_style::tests::test_acronym_fix ... ok
+test config::tests::raw_lint_levels_preserve_original_strings ... ok
+
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

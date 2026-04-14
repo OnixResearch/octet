@@ -1,0 +1,104 @@
+$ python3 openspec/changes/archive/2026-04-14-per-lint-configuration/evidence/check-ui-fixtures-and-snapshots.py
+tests/ui.rs fixture count: 36
+per-lint fixtures required by per-lint-configuration:
+- no_unwrap_disabled_custom/no_unwrap_disabled_custom
+- no_unwrap_allow_custom/no_unwrap_allow_custom
+- no_unwrap_warn_custom/no_unwrap_warn_custom
+- no_unwrap_deny_custom/no_unwrap_deny_custom
+- no_unwrap_default_custom/no_unwrap_default_custom
+- no_unwrap_disabled_deny_custom/no_unwrap_disabled_deny_custom
+- no_unwrap_disabled_source_attr_custom/no_unwrap_disabled_source_attr_custom
+
+all tests/ui.rs fixtures:
+- ambient_clock
+- nested_conditionals
+- compound_assertion
+- unbounded_loop
+- no_panic
+- no_unwrap
+- no_recursion
+- ignored_result
+- unchecked_narrowing
+- unchecked_division
+- catch_all_on_enum
+- assertion_density
+- raw_arithmetic_overflow
+- function_length
+- compound_condition
+- acronym_style
+- numeric_units
+- bool_naming
+- float_for_currency
+- platform_dependent_cast
+- ambiguous_params
+- unjustified_allow
+- verified/verified_purity
+- contradictory_time
+- multi_lock_ordering
+- function_length_custom/function_length_custom
+- assertion_density_custom/assertion_density_custom
+- nesting_custom/nesting_custom
+- acronym_allowlist_custom/acronym_allowlist_custom
+- no_unwrap_disabled_custom/no_unwrap_disabled_custom
+- no_unwrap_allow_custom/no_unwrap_allow_custom
+- no_unwrap_warn_custom/no_unwrap_warn_custom
+- no_unwrap_deny_custom/no_unwrap_deny_custom
+- no_unwrap_default_custom/no_unwrap_default_custom
+- no_unwrap_disabled_deny_custom/no_unwrap_disabled_deny_custom
+- no_unwrap_disabled_source_attr_custom/no_unwrap_disabled_source_attr_custom
+
+== tests/fixtures/lint_inventory_names.txt ==
+compound_assertion
+function_length
+acronym_style
+numeric_units
+unbounded_loop
+compound_condition
+verified_purity
+unjustified_allow
+nested_conditionals
+assertion_density
+multi_lock_ordering
+bool_naming
+ignored_result
+unchecked_narrowing
+unchecked_division
+contradictory_time
+ambient_clock
+catch_all_on_enum
+platform_dependent_cast
+float_for_currency
+ambiguous_params
+raw_arithmetic_overflow
+no_unwrap
+no_panic
+no_recursion
+
+== tests/fixtures/lint_inventory_default_levels.txt ==
+compound_assertion=warn
+function_length=warn
+acronym_style=warn
+numeric_units=allow
+unbounded_loop=warn
+compound_condition=allow
+verified_purity=deny
+unjustified_allow=allow
+nested_conditionals=warn
+assertion_density=allow
+multi_lock_ordering=allow
+bool_naming=warn
+ignored_result=warn
+unchecked_narrowing=warn
+unchecked_division=warn
+contradictory_time=warn
+ambient_clock=warn
+catch_all_on_enum=warn
+platform_dependent_cast=warn
+float_for_currency=allow
+ambiguous_params=allow
+raw_arithmetic_overflow=allow
+no_unwrap=warn
+no_panic=warn
+no_recursion=warn
+
+ok
