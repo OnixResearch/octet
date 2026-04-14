@@ -9,9 +9,122 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
     flake-utils.url = "github:numtide/flake-utils";
+    dylint-src = {
+      url = "github:trailofbits/dylint/0e0a71eefe6f01563d11acc6e1d7af1d505934a9";
+      flake = false;
+    };
   };
 
-  outputs = { self, nixpkgs, crane, rust-overlay, flake-utils, ... }:
+  outputs = { self, nixpkgs, crane, rust-overlay, flake-utils, dylint-src, ... }:
+    let
+      # Consumer-check helper — usable from any downstream flake.
+      # Runs tigerstyle lints against consumer code via nix flake check.
+      mkConsumerCheck = {
+        system,
+        src,
+        packages ? [],
+        cargoExtraArgs ? "--lib",
+        cargoLock ? null,
+        nativeBuildInputs ? [],
+        buildInputs ? [],
+      }:
+        let
+          pkgs = import nixpkgs {
+            inherit system;
+            overlays = [ (import rust-overlay) ];
+          };
+          tsRustToolchain = pkgs.rust-bin.fromRustupToolchainFile "${self}/rust-toolchain.toml";
+          tsHostTriple = pkgs.stdenv.hostPlatform.rust.rustcTarget;
+          tsToolchainChannel = (builtins.fromTOML
+            (builtins.readFile "${self}/rust-toolchain.toml")).toolchain.channel;
+          tsRustupToolchain = if pkgs.lib.hasSuffix tsHostTriple tsToolchainChannel
+            then tsToolchainChannel
+            else "${tsToolchainChannel}-${tsHostTriple}";
+          tsCraneLib = (crane.mkLib pkgs).overrideToolchain tsRustToolchain;
+          tsRustToolchainLibPath = pkgs.lib.makeLibraryPath [ tsRustToolchain ];
+
+          tsRustupShim = pkgs.writeShellScriptBin "rustup" ''
+            toolchain="''${RUSTUP_TOOLCHAIN:-${tsRustupToolchain}}"
+            case "$1" in
+              which) which "$2" ;;
+              show)
+                if [ "$2" = "active-toolchain" ]; then
+                  echo "$toolchain (default)"
+                else
+                  echo "$toolchain"
+                fi
+                ;;
+              *) echo "rustup shim: unsupported: $*" >&2; exit 1 ;;
+            esac
+          '';
+          tsCargoShim = pkgs.writeShellScriptBin "cargo" ''
+            export RUSTUP_TOOLCHAIN="''${RUSTUP_TOOLCHAIN:-${tsRustupToolchain}}"
+            exec ${tsRustToolchain}/bin/cargo "$@"
+          '';
+          tsDylintShimPath = pkgs.lib.makeBinPath [ tsCargoShim tsRustupShim ];
+
+          tigerstylePkg = self.packages.${system}.default;
+          driverPkg = self.packages.${system}.dylint-driver;
+          sharedLibSuffix =
+            if pkgs.stdenv.hostPlatform.isDarwin then ".dylib" else ".so";
+          dllPrefix =
+            if pkgs.stdenv.hostPlatform.isDarwin then "lib" else "lib";
+          # Dylint parses the library filename as lib<name>@<toolchain>.<ext>
+          tigerstyleLibDir = pkgs.runCommand "tigerstyle-dylint-lib" {} ''
+            mkdir -p $out/lib
+            ln -s ${tigerstylePkg}/lib/${dllPrefix}tigerstyle${sharedLibSuffix} \
+              $out/lib/${dllPrefix}tigerstyle@${tsRustupToolchain}${sharedLibSuffix}
+          '';
+          tigerstyleLibPath =
+            "${tigerstyleLibDir}/lib/${dllPrefix}tigerstyle@${tsRustupToolchain}${sharedLibSuffix}";
+
+          checkNativeBuildInputs =
+            nativeBuildInputs ++ [ pkgs.pkg-config tsCargoShim tsRustupShim ];
+
+          consumerVendorDir = if cargoLock != null
+            then tsCraneLib.vendorCargoDeps { inherit cargoLock; }
+            else null;
+
+          consumerCargoArtifacts = tsCraneLib.buildDepsOnly ({
+            inherit src;
+            nativeBuildInputs = checkNativeBuildInputs;
+            inherit buildInputs;
+            RUSTUP_TOOLCHAIN = tsRustupToolchain;
+            # Consumer lockfile may have been generated with a different
+            # toolchain; allow cargo to adjust it offline.
+            buildPhaseCargoCommand = "cargo check --release --all-targets";
+          } // pkgs.lib.optionalAttrs (consumerVendorDir != null) {
+            cargoVendorDir = consumerVendorDir;
+          });
+
+          packageArgs = builtins.concatStringsSep " "
+            (map (p: "-p ${p}") packages);
+        in
+        tsCraneLib.mkCargoDerivation ({
+          inherit src;
+          cargoArtifacts = consumerCargoArtifacts;
+          pname = "tigerstyle-consumer-check";
+          version = "0.1.0";
+          nativeBuildInputs = checkNativeBuildInputs;
+          inherit buildInputs;
+          RUSTUP_TOOLCHAIN = tsRustupToolchain;
+          LD_LIBRARY_PATH = tsRustToolchainLibPath;
+          buildPhaseCargoCommand = ''
+            export PATH="${tsDylintShimPath}:$PATH"
+            RUSTC_WORKSPACE_WRAPPER="${driverPkg}/bin/dylint-driver" \
+            DYLINT_LIBS='["${tigerstyleLibPath}"]' \
+            DYLINT_NO_DEPS=1 \
+            cargo check ${packageArgs} ${cargoExtraArgs}
+          '';
+          checkPhaseCargoCommand = "";
+          installPhaseCommand = "mkdir -p $out";
+        } // pkgs.lib.optionalAttrs (consumerVendorDir != null) {
+          cargoVendorDir = consumerVendorDir;
+        });
+    in
+    {
+      lib = { inherit mkConsumerCheck; };
+    } //
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = import nixpkgs {
@@ -150,11 +263,72 @@
           mkdir -p "$out/lib"
           ln -s "${tigerstyle}/lib/${tigerstyleLibraryName}" "$out/lib/${tigerstyleUiLibraryName}"
         '';
+
+        # Dylint driver binary — used by mkConsumerCheck to run lints.
+        # Patches the upstream driver source to add a binary target, then
+        # builds offline with vendored deps.
+        dylintDriverSrc = pkgs.runCommand "dylint-driver-src" {} ''
+          cp -r ${dylint-src} $out
+          chmod -R u+w $out
+          cat > $out/driver/src/main.rs <<'MAIN'
+#![feature(rustc_private)]
+fn main() {
+    let args: Vec<_> = std::env::args_os().collect();
+    dylint_driver::dylint_driver(&args).unwrap_or_else(|e| {
+        eprintln!("dylint-driver: {e:#}");
+        std::process::exit(1);
+    });
+}
+MAIN
+        '';
+
+        dylintDriverVendorDir = craneLib.vendorCargoDeps {
+          cargoLock = "${dylint-src}/driver/Cargo.lock";
+        };
+
+        dylintDriver = pkgs.stdenv.mkDerivation {
+          pname = "dylint-driver";
+          version = "5.0.0";
+          src = dylintDriverSrc;
+          nativeBuildInputs = checkNativeBuildInputs ++ [ rustToolchain ];
+          buildInputs = buildInputs ++ (with pkgs; [ curl libgit2 ]);
+          LD_LIBRARY_PATH = rustToolchainLibPath;
+          # Setting RUSTUP_TOOLCHAIN to "nightly-<triple>" (without date)
+          # makes the build.rs skip cloning the clippy repo for extra symbols
+          # while still parsing as a valid toolchain string.
+          RUSTUP_TOOLCHAIN = "nightly-${hostTriple}";
+          LIBGIT2_SYS_USE_PKG_CONFIG = "1";
+          dontConfigure = true;
+
+          buildPhase = ''
+            runHook preBuild
+            export PATH="${dylintShimPath}:$PATH"
+            export CARGO_HOME="$PWD/.cargo-home"
+            mkdir -p "$CARGO_HOME"
+            cp "${dylintDriverVendorDir}/config.toml" "$CARGO_HOME/config.toml"
+            cd driver
+            cargo build --release --offline
+            runHook postBuild
+          '';
+
+          installPhase = ''
+            runHook preInstall
+            mkdir -p "$out/bin"
+            driver_bin=$(find .. -name 'dylint_driver' -type f -executable | head -1)
+            if [ -z "$driver_bin" ]; then
+              echo "dylint_driver binary not found" >&2
+              exit 1
+            fi
+            cp "$driver_bin" "$out/bin/dylint-driver"
+            runHook postInstall
+          '';
+        };
       in
       {
         packages = {
           default = tigerstyle;
           tigerstyle = tigerstyle;
+          dylint-driver = dylintDriver;
         };
 
         checks = {
