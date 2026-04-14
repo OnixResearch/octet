@@ -37,7 +37,7 @@ or a config file.
 
 ### Requirement: Compound Condition Decomposition
 
-The lint SHOULD warn on `if` conditions containing 3 or more `&&`/`||`
+The lint MUST be able to warn on `if` conditions containing 3 or more `&&`/`||`
 operators at the same nesting level.
 
 The lint MUST suggest decomposing into early returns or nested `if` blocks.
@@ -61,7 +61,7 @@ covered by a separate lint).
 
 ### Requirement: Ambiguous Same-Type Parameters
 
-The lint MAY warn on function signatures with 2 or more consecutive
+The lint MUST be able to warn on function signatures with 2 or more consecutive
 parameters of the same primitive type (`u8`–`u128`, `i8`–`i128`, `f32`,
 `f64`, `bool`, `&str`, `String`).
 
@@ -86,7 +86,7 @@ The lint MUST NOT fire on functions with only 1 parameter of that type.
 
 ### Requirement: Allow Attribute Without Justification
 
-The lint SHOULD warn on `#[allow(clippy::...)]` and `#![allow(clippy::...)]`
+The lint MUST be able to warn on `#[allow(clippy::...)]` and `#![allow(clippy::...)]`
 attributes that are not preceded by a comment explaining why the lint
 is suppressed.
 

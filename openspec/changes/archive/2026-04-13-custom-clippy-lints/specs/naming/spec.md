@@ -71,7 +71,7 @@ exceptions.
 
 ### Requirement: Numeric Variable Unit Suffix
 
-The lint SHOULD detect numeric variable bindings whose name contains
+The lint MUST be able to detect numeric variable bindings whose name contains
 a time or size word (`timeout`, `delay`, `duration`, `interval`, `latency`,
 `size`, `length`, `capacity`, `limit`, `offset`, `port`) without a unit
 suffix (`_ms`, `_secs`, `_us`, `_ns`, `_bytes`, `_kb`, `_mb`, `_gb`).
@@ -94,7 +94,7 @@ The lint MUST NOT fire on names that already end with a unit suffix.
 
 ### Requirement: Floating Point for Currency
 
-The lint SHOULD warn on struct fields or function return types using
+The lint MUST be able to warn on struct fields or function return types using
 `f32` or `f64` whose name contains `cost`, `price`, `budget`,
 `balance`, `amount`, `fee`, or `total_cost`.
 
