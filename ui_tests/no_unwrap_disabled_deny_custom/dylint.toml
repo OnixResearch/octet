@@ -1,0 +1,5 @@
+[tigerstyle]
+disabled_lints = ["no_unwrap"]
+
+[tigerstyle.lint_levels]
+no_unwrap = "deny"

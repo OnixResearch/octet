@@ -39,6 +39,12 @@ const FIXTURES: &[&str] = &[
     "nesting_custom/nesting_custom",
     "acronym_allowlist_custom/acronym_allowlist_custom",
     "no_unwrap_disabled_custom/no_unwrap_disabled_custom",
+    "no_unwrap_allow_custom/no_unwrap_allow_custom",
+    "no_unwrap_warn_custom/no_unwrap_warn_custom",
+    "no_unwrap_deny_custom/no_unwrap_deny_custom",
+    "no_unwrap_default_custom/no_unwrap_default_custom",
+    "no_unwrap_disabled_deny_custom/no_unwrap_disabled_deny_custom",
+    "no_unwrap_disabled_source_attr_custom/no_unwrap_disabled_source_attr_custom",
 ];
 
 #[cfg(unix)]
@@ -157,7 +163,7 @@ fn normalize_stderr(stderr: &str, fixture_path: &Path) -> String {
 }
 
 fn expects_failure(name: &str) -> bool {
-    matches!(name, "verified/verified_purity")
+    matches!(name, "verified/verified_purity" | "no_unwrap_deny_custom/no_unwrap_deny_custom")
 }
 
 fn run_fixture(driver: &Path, library: &Path, host: &str, name: &str) {
@@ -231,6 +237,7 @@ fn ui() {
     let driver = build_driver(&toolchain);
 
     for fixture in FIXTURES {
+        eprintln!("[ui fixture] {fixture}");
         run_fixture(&driver, &library, &host, fixture);
     }
 }

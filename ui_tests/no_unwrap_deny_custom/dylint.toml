@@ -1,0 +1,2 @@
+[tigerstyle.lint_levels]
+no_unwrap = "deny"

@@ -1,0 +1,18 @@
+warning: `.unwrap()` in production code will panic on failure
+  --> $DIR/no_unwrap_warn_custom/no_unwrap_warn_custom.rs:3:13
+   |
+LL |     let _ = val.unwrap();
+   |             ^^^^^^^^^^^^
+   |
+   = help: use `?` to propagate, or match/map the error explicitly
+   = note: requested on the command line with `-W no-unwrap`
+
+warning: `.expect()` in production code will panic on failure
+  --> $DIR/no_unwrap_warn_custom/no_unwrap_warn_custom.rs:8:13
+   |
+LL |     let _ = val.expect("missing");
+   |             ^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: use `?` with `.context()` (anyhow) or `.whatever_context()` (snafu) instead
+
+warning: 2 warnings emitted

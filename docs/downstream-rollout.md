@@ -98,6 +98,99 @@ Why this works:
 - false-positive and shell-boundary patterns get written down before rollout
 - promotion decisions stay tied to measured baselines
 
+## Profile-to-config mapping
+
+All three rollout profiles use the same wrapper path and differ in two knobs:
+
+- scope in the consumer check script (`default_scope` / targeted rerun args)
+- `disabled_lints` / `lint_levels` entries in consumer-owned `dylint.toml`
+
+Per-lint config rules to preserve in every consumer example:
+
+- omitted `disabled_lints` / `lint_levels` default to empty collections
+- unknown lint names and invalid level values warn and are ignored
+- `disabled_lints` wins over `lint_levels` and source-level lint attrs because
+  disabled lints are not registered
+
+### Smoke or boundary-first config example
+
+Smoke and boundary-first use the same lint config; the difference is scope.
+Smoke keeps scope to one owned crate. Boundary-first widens scope to 2-4 owned
+production crates.
+
+```toml
+[tigerstyle]
+disabled_lints = [
+  "function_length",
+  "acronym_style",
+  "numeric_units",
+  "unbounded_loop",
+  "compound_condition",
+  "verified_purity",
+  "unjustified_allow",
+  "nested_conditionals",
+  "assertion_density",
+  "multi_lock_ordering",
+  "bool_naming",
+  "ignored_result",
+  "unchecked_narrowing",
+  "unchecked_division",
+  "catch_all_on_enum",
+  "platform_dependent_cast",
+  "float_for_currency",
+  "ambiguous_params",
+  "raw_arithmetic_overflow",
+  "no_unwrap",
+  "no_panic",
+  "no_recursion",
+]
+```
+
+That leaves only `ambient_clock`, `compound_assertion`, and
+`contradictory_time` enabled.
+
+### Inventory-only config example
+
+Inventory-only means one deferred lint family at a time, one scope slice at a
+time. Example: inventory only `no_unwrap` while keeping every other lint out of
+that run.
+
+```toml
+[tigerstyle]
+disabled_lints = [
+  "compound_assertion",
+  "function_length",
+  "acronym_style",
+  "numeric_units",
+  "unbounded_loop",
+  "compound_condition",
+  "verified_purity",
+  "unjustified_allow",
+  "nested_conditionals",
+  "assertion_density",
+  "multi_lock_ordering",
+  "bool_naming",
+  "ignored_result",
+  "unchecked_narrowing",
+  "unchecked_division",
+  "contradictory_time",
+  "ambient_clock",
+  "catch_all_on_enum",
+  "platform_dependent_cast",
+  "float_for_currency",
+  "ambiguous_params",
+  "raw_arithmetic_overflow",
+  "no_panic",
+  "no_recursion",
+]
+
+[tigerstyle.lint_levels]
+no_unwrap = "warn"
+```
+
+After a family is low-noise, promote it by deleting it from `disabled_lints`
+and, if needed, raising it in `lint_levels`.
+
 ## Promotion checklist for adding crates or packages
 
 Add a new crate or package to the default path only when all of these hold:
@@ -211,12 +304,20 @@ instead of baking Aspen's patch revision into `tigerstyle` itself.
 
 Copy `templates/dylint.toml` into the consumer workspace root.
 
-The template separates three things that should stay consumer-owned:
+The template separates four things that should stay consumer-owned:
 
 - threshold overrides such as `function_length_max` or `nesting_max_depth`
 - allowlists such as `acronym_allowlist`
+- per-lint rollout controls (`disabled_lints`, `lint_levels`)
 - rationale comments that explain why the workspace differs from tigerstyle's
   defaults and what cleanup would remove the override
+
+Rules for the per-lint controls:
+
+- omitted `disabled_lints` and `lint_levels` default to empty collections
+- unknown lint names and invalid level values warn and are ignored
+- `disabled_lints` takes precedence over `lint_levels` and source-level attrs
+  because disabled lints never register
 
 Aspen phase-1 example values were:
 
