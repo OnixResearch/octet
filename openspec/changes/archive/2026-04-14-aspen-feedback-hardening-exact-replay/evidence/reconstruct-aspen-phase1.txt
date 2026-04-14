@@ -1,0 +1,132 @@
+$ bash openspec/changes/archive/2026-04-14-aspen-feedback-hardening-exact-replay/evidence/reconstruct-aspen-phase1.sh > openspec/changes/archive/2026-04-14-aspen-feedback-hardening-exact-replay/evidence/reconstruct-aspen-phase1.txt 2>&1
+$ ln -s /home/brittonr/git/aspen-dns /tmp/aspen-phase1-sandbox.HS6aNW/aspen-dns
+$ ln -s /home/brittonr/git/aspen-wasm-plugin /tmp/aspen-phase1-sandbox.HS6aNW/aspen-wasm-plugin
+$ git -C /home/brittonr/git/aspen worktree add --detach /tmp/aspen-phase1-sandbox.HS6aNW/aspen 909e5e9fa
+Preparing worktree (detached HEAD 909e5e9fa)
+HEAD is now at 909e5e9fa tigerstyle: add phase-1 rollout path and follow-up changes
+$ cp templates/tigerstyle-check.sh /tmp/aspen-phase1-sandbox.HS6aNW/aspen/scripts/tigerstyle-check.sh
+$ cp templates/dylint.toml /tmp/aspen-phase1-sandbox.HS6aNW/aspen/dylint.toml
+$ python3 /home/brittonr/git/tigerstyle/openspec/changes/archive/2026-04-14-aspen-feedback-hardening-exact-replay/evidence/prepare-aspen-phase1-worktree.py /tmp/aspen-phase1-sandbox.HS6aNW/aspen/scripts/tigerstyle-check.sh /tmp/aspen-phase1-sandbox.HS6aNW/aspen/dylint.toml
+configured /tmp/aspen-phase1-sandbox.HS6aNW/aspen/scripts/tigerstyle-check.sh
+configured /tmp/aspen-phase1-sandbox.HS6aNW/aspen/dylint.toml
+$ sed -n '1,80p' /tmp/aspen-phase1-sandbox.HS6aNW/aspen/scripts/tigerstyle-check.sh
+#!/usr/bin/env bash
+# Copy into a consumer repo as scripts/tigerstyle-check.sh and edit
+# `default_scope` for the chosen rollout profile from docs/downstream-rollout.md.
+#
+# This template is for workspaces where plain `cargo dylint` still needs local
+# wrapper logic. If your toolchain behaves like a standard rustup-managed
+# nightly, strip the wrapper section and call `cargo dylint` directly.
+
+set -euo pipefail
+
+usage() {
+  cat <<'EOF'
+Usage: scripts/tigerstyle-check.sh [cargo-dylint options] [package scope] [-- cargo-check args]
+
+Edit `default_scope` in the script before relying on the no-argument default.
+
+Environment:
+  TIGERSTYLE_PATH        local tigerstyle checkout (default: ../tigerstyle)
+  TIGERSTYLE_DYLINT_REV  optional dylint git rev to patch dylint_driver
+
+Reference starter profile from docs/downstream-rollout.md:
+  ambient_clock compound_assertion contradictory_time
+
+Default args in this template:
+  --lib --no-deps
+
+Examples:
+  scripts/tigerstyle-check.sh -p your-core-crate
+  scripts/tigerstyle-check.sh --workspace -- --all-targets
+  TIGERSTYLE_PATH=~/src/tigerstyle scripts/tigerstyle-check.sh -p your-core-crate
+  TIGERSTYLE_DYLINT_REV=<rev> scripts/tigerstyle-check.sh -p your-core-crate
+EOF
+}
+
+if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+  usage
+  exit 0
+fi
+
+need_cmd() {
+  if ! command -v "$1" >/dev/null 2>&1; then
+    echo "error: missing required command: $1" >&2
+    exit 1
+  fi
+}
+
+export PATH="${CARGO_HOME:-$HOME/.cargo}/bin:$PATH"
+
+need_cmd cargo
+need_cmd rustc
+need_cmd python3
+need_cmd cargo-dylint
+need_cmd dylint-link
+need_cmd git
+
+repo_root=$(git rev-parse --show-toplevel 2>/dev/null) || {
+  echo "error: not inside a git repository" >&2
+  exit 1
+}
+cd "$repo_root"
+
+workspace_name=$(basename "$repo_root")
+tigerstyle_path=$(python3 - "${TIGERSTYLE_PATH:-$repo_root/../tigerstyle}" <<'PY'
+import pathlib
+import sys
+print(pathlib.Path(sys.argv[1]).expanduser().resolve())
+PY
+)
+if [[ ! -d "$tigerstyle_path" ]]; then
+  echo "error: tigerstyle repo not found at $tigerstyle_path" >&2
+  echo "set TIGERSTYLE_PATH=/path/to/tigerstyle and retry" >&2
+  exit 1
+fi
+if [[ ! -f "$repo_root/dylint.toml" ]]; then
+  echo "error: expected workspace dylint config at $repo_root/dylint.toml" >&2
+  exit 1
+fi
+
+host_triple=$(rustc -vV | awk '/^host:/ {print $2}')
+toolchain_channel=$(python3 - "$tigerstyle_path/rust-toolchain.toml" <<'PY'
+$ cat /tmp/aspen-phase1-sandbox.HS6aNW/aspen/dylint.toml
+# Aspen-specific Tiger Style tuning reconstructed from the archived phase-1 rollout.
+#
+# This copy starts from `templates/dylint.toml` and applies the values recorded in
+# `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/rollout-notes.md`.
+
+[tigerstyle]
+
+# Aspen still has larger orchestration handlers. Start at 100 lines while the
+# first rollout proves the workflow, then tighten after the handler cleanup pass.
+function_length_max = 100
+
+# Several coordinator and RPC handlers still nest one level deeper than the
+# default tigerstyle threshold. Keep one extra level during phased adoption.
+nesting_max_depth = 4
+
+# Focus assertion-density checks on non-trivial functions. Thin shell wrappers
+# should not need placeholder assertions just to satisfy the lint.
+assertion_density_min_lines = 30
+assertion_density_min_assertions = 2
+
+# Transport and storage code use `IO` pervasively. Keep this single exception
+# explicit; add new acronym exceptions only with rollout-note rationale.
+acronym_allowlist = ["IO"]
+$ (cd /tmp/aspen-phase1-sandbox.HS6aNW/aspen && TIGERSTYLE_PATH=/home/brittonr/git/tigerstyle TIGERSTYLE_DYLINT_REV=0e0a71eefe6f01563d11acc6e1d7af1d505934a9 scripts/tigerstyle-check.sh) > /home/brittonr/git/tigerstyle/openspec/changes/archive/2026-04-14-aspen-feedback-hardening-exact-replay/evidence/reconstruct-default-run.txt 2>&1
+$ (cd /tmp/aspen-phase1-sandbox.HS6aNW/aspen && TIGERSTYLE_PATH=/home/brittonr/git/tigerstyle TIGERSTYLE_DYLINT_REV=0e0a71eefe6f01563d11acc6e1d7af1d505934a9 scripts/tigerstyle-check.sh -p aspen-coordination -- --lib) > /home/brittonr/git/tigerstyle/openspec/changes/archive/2026-04-14-aspen-feedback-hardening-exact-replay/evidence/reconstruct-coordination-spotcheck.txt 2>&1
+$ python3 /home/brittonr/git/tigerstyle/openspec/changes/archive/2026-04-14-aspen-feedback-hardening-exact-replay/evidence/check-aspen-phase1-counts.py /home/brittonr/git/tigerstyle/openspec/changes/archive/2026-04-14-aspen-feedback-hardening-exact-replay/evidence/reconstruct-default-run.txt /home/brittonr/git/tigerstyle/openspec/changes/archive/2026-04-14-aspen-feedback-hardening-exact-replay/evidence/reconstruct-coordination-spotcheck.txt
+default-run summary:
+  aspen-time: 2 ambient_clock
+  aspen-core: 4 ambient_clock
+  aspen-hlc: 0 starter findings
+  total: 6 warnings
+coordination spotcheck summary:
+  ambient_clock: 21
+  compound_assertion: 2
+  no_panic: 4
+  total: 27 warnings
+
+raw default run: /home/brittonr/git/tigerstyle/openspec/changes/archive/2026-04-14-aspen-feedback-hardening-exact-replay/evidence/reconstruct-default-run.txt
+raw coordination run: /home/brittonr/git/tigerstyle/openspec/changes/archive/2026-04-14-aspen-feedback-hardening-exact-replay/evidence/reconstruct-coordination-spotcheck.txt

@@ -1,0 +1,125 @@
+$ git diff HEAD -- AGENTS.md .agent/napkin.md docs/downstream-rollout.md openspec/specs/documentation/spec.md openspec/changes/archive/2026-04-14-aspen-feedback-hardening-exact-replay
+diff --git a/docs/downstream-rollout.md b/docs/downstream-rollout.md
+index 7b072d3..d39cf44 100644
+--- a/docs/downstream-rollout.md
++++ b/docs/downstream-rollout.md
+@@ -280,67 +280,42 @@ Not acceptable:
+ 
+ ## Aspen phase-1 reconstruction
+ 
+-A maintainer should be able to reconstruct Aspen's starter path from this repo
+-alone:
+-
+-1. create a disposable sandbox parent that recreates Aspen's sibling-repo
+-   layout before checking out the archived phase-1 commit:
+-
+-   ```bash
+-   sandbox=$(mktemp -d /tmp/aspen-phase1-sandbox.XXXXXX)
+-   ln -s /path/to/aspen-dns "$sandbox/aspen-dns"
+-   ln -s /path/to/aspen-wasm-plugin "$sandbox/aspen-wasm-plugin"
+-   git -C /path/to/aspen worktree add --detach "$sandbox/aspen" 909e5e9fa
+-   cd "$sandbox/aspen"
+-   ```
+-
+-   Aspen needs those sibling entries because path dependencies in
+-   `aspen-dns` and `aspen-wasm-plugin` resolve back through `../aspen`.
+-
+-2. copy `templates/tigerstyle-check.sh` and `templates/dylint.toml`
+-3. keep the boundary-first lint set:
+-   - `ambient_clock`
+-   - `compound_assertion`
+-   - `contradictory_time`
+-4. set `default_scope` to:
+-   - `-p aspen-time`
+-   - `-p aspen-hlc`
+-   - `-p aspen-core`
+-5. if matching Aspen's old nix-managed nightly problem, export:
+-
+-   ```bash
+-   export TIGERSTYLE_DYLINT_REV=0e0a71eefe6f01563d11acc6e1d7af1d505934a9
+-   ```
++Exact replay path from this repo:
+ 
+-6. run:
++```bash
++bash openspec/changes/archive/2026-04-14-aspen-feedback-hardening-exact-replay/evidence/reconstruct-aspen-phase1.sh \
++  > openspec/changes/archive/2026-04-14-aspen-feedback-hardening-exact-replay/evidence/reconstruct-aspen-phase1.txt 2>&1
++```
+ 
+-   ```bash
+-   scripts/tigerstyle-check.sh
+-   ```
++That archived helper is the exact replay path the saved transcript uses. It
++performs these steps internally:
+ 
+-7. confirm the archived phase-1 result:
++1. create a disposable sandbox parent with Aspen's required sibling layout:
++   - `aspen/` worktree at commit `909e5e9fa`
++   - `aspen-dns -> /path/to/aspen-dns`
++   - `aspen-wasm-plugin -> /path/to/aspen-wasm-plugin`
++2. copy `templates/tigerstyle-check.sh` and `templates/dylint.toml` into the
++   Aspen sandbox checkout
++3. configure the Aspen phase-1 scope:
++   - `-p aspen-time`
++   - `-p aspen-hlc`
++   - `-p aspen-core`
++4. apply the archived Aspen phase-1 `dylint.toml` values
++5. export `TIGERSTYLE_DYLINT_REV=0e0a71eefe6f01563d11acc6e1d7af1d505934a9`
++   while running the default path and the `aspen-coordination` spotcheck
++6. confirm the archived phase-1 result:
+    - 6 warnings total
+    - `aspen-time`: 2 `ambient_clock`
+    - `aspen-core`: 4 `ambient_clock`
+    - `aspen-hlc`: 0 starter findings
+-
+-8. spotcheck the deferred package:
+-
+-   ```bash
+-   scripts/tigerstyle-check.sh -p aspen-coordination -- --lib
+-   ```
+-
+-9. confirm the archived defer decision:
++7. confirm the archived defer decision:
+    - 21 `ambient_clock`
+    - 2 `compound_assertion`
+    - 4 `no_panic`
+ 
+-Optional cleanup when finished:
+-
+-```bash
+-git -C /path/to/aspen worktree remove --force "$sandbox/aspen"
+-rm -rf "$sandbox"
+-```
++Aspen needs the sibling entries because path dependencies in `aspen-dns` and
++`aspen-wasm-plugin` resolve back through `../aspen`. The helper also removes the
++sandbox worktree on exit.
+ 
+ Archive references for that reconstruction:
+ 
+diff --git a/openspec/specs/documentation/spec.md b/openspec/specs/documentation/spec.md
+index 19a3b0f..40c5257 100644
+--- a/openspec/specs/documentation/spec.md
++++ b/openspec/specs/documentation/spec.md
+@@ -170,6 +170,10 @@ The evidence MUST include:
+   reconstruction path depends on
+ - archived text artifacts whose recorded commands reference the archived helper
+   and evidence locations, not a deleted pre-archive change path
++- if the documented reconstruction path is a saved helper command, a transcript
++  whose top-level replay command matches that helper path exactly
++- check helpers that assert every summary claim the docs or verification notes
++  make about the replay output, including zero-warning claims
+ 
+ #### Scenario: Reviewing Aspen phase-1 reconstruction
+ 
+@@ -185,3 +189,11 @@ The evidence MUST include:
+ - THEN the recorded commands point at the archived helper scripts and evidence
+   files, not at a no-longer-active change directory
+ 
++#### Scenario: Reviewing replay summary claims
++
++- GIVEN the docs or verification notes claim `aspen-hlc: 0 starter findings`
++  or another concrete replay summary
++- WHEN a reviewer inspects the saved check helper
++- THEN they can see an explicit assertion for that claim, not only a printed
++  summary line
++

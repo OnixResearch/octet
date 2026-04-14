@@ -280,67 +280,42 @@ Not acceptable:
 
 ## Aspen phase-1 reconstruction
 
-A maintainer should be able to reconstruct Aspen's starter path from this repo
-alone:
+Exact replay path from this repo:
 
-1. create a disposable sandbox parent that recreates Aspen's sibling-repo
-   layout before checking out the archived phase-1 commit:
+```bash
+bash openspec/changes/archive/2026-04-14-aspen-feedback-hardening-exact-replay/evidence/reconstruct-aspen-phase1.sh \
+  > openspec/changes/archive/2026-04-14-aspen-feedback-hardening-exact-replay/evidence/reconstruct-aspen-phase1.txt 2>&1
+```
 
-   ```bash
-   sandbox=$(mktemp -d /tmp/aspen-phase1-sandbox.XXXXXX)
-   ln -s /path/to/aspen-dns "$sandbox/aspen-dns"
-   ln -s /path/to/aspen-wasm-plugin "$sandbox/aspen-wasm-plugin"
-   git -C /path/to/aspen worktree add --detach "$sandbox/aspen" 909e5e9fa
-   cd "$sandbox/aspen"
-   ```
+That archived helper is the exact replay path the saved transcript uses. It
+performs these steps internally:
 
-   Aspen needs those sibling entries because path dependencies in
-   `aspen-dns` and `aspen-wasm-plugin` resolve back through `../aspen`.
-
-2. copy `templates/tigerstyle-check.sh` and `templates/dylint.toml`
-3. keep the boundary-first lint set:
-   - `ambient_clock`
-   - `compound_assertion`
-   - `contradictory_time`
-4. set `default_scope` to:
+1. create a disposable sandbox parent with Aspen's required sibling layout:
+   - `aspen/` worktree at commit `909e5e9fa`
+   - `aspen-dns -> /path/to/aspen-dns`
+   - `aspen-wasm-plugin -> /path/to/aspen-wasm-plugin`
+2. copy `templates/tigerstyle-check.sh` and `templates/dylint.toml` into the
+   Aspen sandbox checkout
+3. configure the Aspen phase-1 scope:
    - `-p aspen-time`
    - `-p aspen-hlc`
    - `-p aspen-core`
-5. if matching Aspen's old nix-managed nightly problem, export:
-
-   ```bash
-   export TIGERSTYLE_DYLINT_REV=0e0a71eefe6f01563d11acc6e1d7af1d505934a9
-   ```
-
-6. run:
-
-   ```bash
-   scripts/tigerstyle-check.sh
-   ```
-
-7. confirm the archived phase-1 result:
+4. apply the archived Aspen phase-1 `dylint.toml` values
+5. export `TIGERSTYLE_DYLINT_REV=0e0a71eefe6f01563d11acc6e1d7af1d505934a9`
+   while running the default path and the `aspen-coordination` spotcheck
+6. confirm the archived phase-1 result:
    - 6 warnings total
    - `aspen-time`: 2 `ambient_clock`
    - `aspen-core`: 4 `ambient_clock`
    - `aspen-hlc`: 0 starter findings
-
-8. spotcheck the deferred package:
-
-   ```bash
-   scripts/tigerstyle-check.sh -p aspen-coordination -- --lib
-   ```
-
-9. confirm the archived defer decision:
+7. confirm the archived defer decision:
    - 21 `ambient_clock`
    - 2 `compound_assertion`
    - 4 `no_panic`
 
-Optional cleanup when finished:
-
-```bash
-git -C /path/to/aspen worktree remove --force "$sandbox/aspen"
-rm -rf "$sandbox"
-```
+Aspen needs the sibling entries because path dependencies in `aspen-dns` and
+`aspen-wasm-plugin` resolve back through `../aspen`. The helper also removes the
+sandbox worktree on exit.
 
 Archive references for that reconstruction:
 
