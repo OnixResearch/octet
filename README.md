@@ -4,7 +4,7 @@ Custom [dylint](https://github.com/trailofbits/dylint) lints enforcing
 [Tiger Style](https://github.com/tigerbeetle/tigerbeetle/blob/main/docs/TIGER_STYLE.md)
 coding principles for Rust.
 
-24 lints across 5 domains: safety, naming, structure, purity, concurrency.
+25 lints across 5 domains: safety, naming, structure, purity, concurrency.
 
 ## Lint Catalog
 
@@ -44,10 +44,11 @@ coding principles for Rust.
 | `unjustified_allow` | allow | `#[allow(...)]` without justification comment |
 | `ambiguous_params` | allow | 2+ consecutive same-type primitive parameters |
 
-### Purity (2 lints)
+### Purity (3 lints)
 
 | Lint | Default | Description |
 |------|---------|-------------|
+| `ambient_clock` | **warn** | Direct wall-clock reads should stay at explicit shell boundaries |
 | `verified_purity` | **deny** | async/IO/system time in `verified/` modules |
 | `contradictory_time` | **warn** | Function takes time param but also calls `Instant::now()` |
 
@@ -132,10 +133,10 @@ nix flake check                # full CI (build + test + clippy + fmt)
 ```
 src/
 ├── lib.rs                     # register_lints entry point
-├── safety/                    # 8 lints: assertions, errors, bounds
+├── safety/                    # 11 lints: assertions, panics, errors, bounds
 ├── naming/                    # 4 lints: booleans, acronyms, units
-├── structure/                 # 5 lints: length, conditions, params
-├── purity/                    # 2 lints: verified modules, time
+├── structure/                 # 6 lints: length, conditions, params, casts
+├── purity/                    # 3 lints: wall-clock boundaries, verified modules, time
 └── concurrency/               # 1 lint: lock ordering
 ui_tests/                      # dylint UI test fixtures
 openspec/                      # spec-driven change management
