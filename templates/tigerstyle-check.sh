@@ -18,10 +18,11 @@ Environment:
   TIGERSTYLE_PATH        local tigerstyle checkout (default: ../tigerstyle)
   TIGERSTYLE_DYLINT_REV  optional dylint git rev to patch dylint_driver
 
-Default profile in this template:
-  lints: ambient_clock compound_assertion contradictory_time
-  args:  --lib --no-deps
-  note:  non-profile tigerstyle warn/deny lints are forced to `allow`
+Reference starter profile from docs/downstream-rollout.md:
+  ambient_clock compound_assertion contradictory_time
+
+Default args in this template:
+  --lib --no-deps
 
 Examples:
   scripts/tigerstyle-check.sh -p your-core-crate
@@ -43,18 +44,6 @@ need_cmd() {
   fi
 }
 
-contains_lint() {
-  local needle="$1"
-  shift
-  local item
-  for item in "$@"; do
-    if [[ "$item" == "$needle" ]]; then
-      return 0
-    fi
-  done
-  return 1
-}
-
 export PATH="${CARGO_HOME:-$HOME/.cargo}/bin:$PATH"
 
 need_cmd cargo
@@ -71,7 +60,12 @@ repo_root=$(git rev-parse --show-toplevel 2>/dev/null) || {
 cd "$repo_root"
 
 workspace_name=$(basename "$repo_root")
-tigerstyle_path=$(realpath "${TIGERSTYLE_PATH:-$repo_root/../tigerstyle}")
+tigerstyle_path=$(python3 - "${TIGERSTYLE_PATH:-$repo_root/../tigerstyle}" <<'PY'
+import pathlib
+import sys
+print(pathlib.Path(sys.argv[1]).expanduser().resolve())
+PY
+)
 if [[ ! -d "$tigerstyle_path" ]]; then
   echo "error: tigerstyle repo not found at $tigerstyle_path" >&2
   echo "set TIGERSTYLE_PATH=/path/to/tigerstyle and retry" >&2
@@ -100,28 +94,6 @@ fi
 starter_lints=(
   ambient_clock
   compound_assertion
-  contradictory_time
-)
-
-# Keep this list in sync with README defaults. The template uses it to allow
-# non-profile tigerstyle warn/deny lints so a starter rollout stays focused.
-default_warn_or_deny_lints=(
-  compound_assertion
-  ignored_result
-  no_unwrap
-  no_panic
-  no_recursion
-  unchecked_narrowing
-  unchecked_division
-  unbounded_loop
-  catch_all_on_enum
-  acronym_style
-  bool_naming
-  function_length
-  nested_conditionals
-  platform_dependent_cast
-  ambient_clock
-  verified_purity
   contradictory_time
 )
 
@@ -268,26 +240,11 @@ if [[ ${#check_args[@]} -eq 0 ]]; then
   check_args=(--lib)
 fi
 
-lint_level_args=()
-for lint in "${default_warn_or_deny_lints[@]}"; do
-  if contains_lint "$lint" "${starter_lints[@]}"; then
-    lint_level_args+=("-W" "tigerstyle::$lint")
-  else
-    lint_level_args+=("-A" "tigerstyle::$lint")
-  fi
-done
-for lint in "${starter_lints[@]}"; do
-  if ! contains_lint "$lint" "${default_warn_or_deny_lints[@]}"; then
-    lint_level_args+=("-W" "tigerstyle::$lint")
-  fi
-done
-check_args=("${lint_level_args[@]}" "${check_args[@]}")
-
 echo "[tigerstyle] workspace: $workspace_name"
 echo "[tigerstyle] repo:      $tigerstyle_path"
 echo "[tigerstyle] toolchain: $toolchain"
 echo "[tigerstyle] scope:     ${scope_args[*]}"
-echo "[tigerstyle] lints:     ${starter_lints[*]}"
+echo "[tigerstyle] profile:   ${starter_lints[*]}"
 if [[ -n "$dylint_rev" ]]; then
   echo "[tigerstyle] dylint rev: $dylint_rev"
 fi

@@ -1,0 +1,4 @@
+$ bash -n templates/tigerstyle-check.sh
+$ bash -n openspec/changes/aspen-feedback-hardening-review-fixes/evidence/reconstruct-aspen-phase1.sh
+$ python3 -m py_compile openspec/changes/aspen-feedback-hardening-review-fixes/evidence/*.py
+ok

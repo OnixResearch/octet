@@ -1,0 +1,2 @@
+$ openspec validate aspen-feedback-hardening-review-fixes --strict --no-interactive
+Change 'aspen-feedback-hardening-review-fixes' is valid
