@@ -1,0 +1,2 @@
+$ python - <<"PY"
+parsed templates/dylint.toml with an empty [tigerstyle] table and comment-only overrides

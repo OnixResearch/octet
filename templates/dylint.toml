@@ -1,0 +1,33 @@
+# Copy into the consumer workspace root as `dylint.toml`.
+#
+# Keep this file consumer-owned. Tigerstyle defaults stay in the lint crate;
+# workspace-specific thresholds and allowlists live here.
+#
+# For every non-default value, record three things in rollout notes:
+#   1. why the workspace differs from the default
+#   2. which crates or packages currently need the override
+#   3. what cleanup would let you remove it later
+
+[tigerstyle]
+
+# Threshold overrides
+# Keep only the fields you actively tune. Delete the rest.
+
+# Larger handlers are still being decomposed. Tighten after the rollout proves
+# the check path and hotspot owners are clear.
+# function_length_max = 90
+
+# Some coordinator or RPC paths still nest one level deeper than the default.
+# Use this only with a concrete cleanup plan.
+# nesting_max_depth = 4
+
+# Focus assertion-density checks on functions large enough to matter. Thin shell
+# wrappers should not need placeholder assertions just to pass the lint.
+# assertion_density_min_lines = 30
+# assertion_density_min_assertions = 2
+
+# Narrow allowlists
+# Keep these explicit and domain-specific. Avoid catch-all naming exceptions.
+
+# Transport or storage code may use a small set of established acronyms.
+# acronym_allowlist = ["IO"]
