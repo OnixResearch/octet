@@ -1,0 +1,9 @@
+$ find openspec/changes -maxdepth 2 -type d | sort
+openspec/changes
+openspec/changes/archive
+openspec/changes/archive/2026-04-12-skill-full-coverage
+openspec/changes/archive/2026-04-13-aspen-consumer-rollout
+openspec/changes/archive/2026-04-13-custom-clippy-lints
+openspec/changes/archive/2026-04-14-aspen-feedback-hardening
+openspec/changes/archive/2026-04-14-aspen-feedback-hardening-archive-alignment
+openspec/changes/archive/2026-04-14-aspen-feedback-hardening-review-fixes
