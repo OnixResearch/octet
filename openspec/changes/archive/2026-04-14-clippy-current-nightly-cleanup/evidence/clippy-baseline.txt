@@ -37,7 +37,7 @@ tigerstyle-clippy> 118 ~         && allowlist.iter().any(|a| a == &acronym) {
 tigerstyle-clippy> 119 |             return;
 tigerstyle-clippy> 120 ~         }
 tigerstyle-clippy>     |
-tigerstyle-clippy> 
+tigerstyle-clippy>
 tigerstyle-clippy> error: this `if` statement can be collapsed
 tigerstyle-clippy>   --> src/purity/ambient_clock.rs:70:13
 tigerstyle-clippy>    |
@@ -56,7 +56,7 @@ tigerstyle-clippy> 71 ~                 && let Some(type_seg) = segments.iter().
 tigerstyle-clippy> 72 |                     return CLOCK_TYPES.contains(type_seg);
 tigerstyle-clippy> 73 ~                 }
 tigerstyle-clippy>    |
-tigerstyle-clippy> 
+tigerstyle-clippy>
 tigerstyle-clippy> error: this `if` statement can be collapsed
 tigerstyle-clippy>    --> src/purity/ambient_clock.rs:101:9
 tigerstyle-clippy>     |
@@ -78,7 +78,7 @@ tigerstyle-clippy> ...
 tigerstyle-clippy> 106 |                 }
 tigerstyle-clippy> 107 ~             }
 tigerstyle-clippy>     |
-tigerstyle-clippy> 
+tigerstyle-clippy>
 tigerstyle-clippy> error: this `if` statement can be collapsed
 tigerstyle-clippy>    --> src/purity/ambient_clock.rs:102:13
 tigerstyle-clippy>     |
@@ -99,7 +99,7 @@ tigerstyle-clippy> 104 |                     emit(cx, expr);
 tigerstyle-clippy> 105 |                     return;
 tigerstyle-clippy> 106 ~                 }
 tigerstyle-clippy>     |
-tigerstyle-clippy> 
+tigerstyle-clippy>
 tigerstyle-clippy> error: this `if` statement can be collapsed
 tigerstyle-clippy>    --> src/purity/ambient_clock.rs:112:9
 tigerstyle-clippy>     |
@@ -121,7 +121,7 @@ tigerstyle-clippy> ...
 tigerstyle-clippy> 123 |                 }
 tigerstyle-clippy> 124 ~             }
 tigerstyle-clippy>     |
-tigerstyle-clippy> 
+tigerstyle-clippy>
 tigerstyle-clippy> error: using `contains()` instead of `iter().any()` is more efficient
 tigerstyle-clippy>    --> src/purity/ambient_clock.rs:118:24
 tigerstyle-clippy>     |
@@ -131,7 +131,7 @@ tigerstyle-clippy>     |
 tigerstyle-clippy>     = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#manual_contains
 tigerstyle-clippy>     = note: `-D clippy::manual-contains` implied by `-D warnings`
 tigerstyle-clippy>     = help: to override `-D warnings` add `#[allow(clippy::manual_contains)]`
-tigerstyle-clippy> 
+tigerstyle-clippy>
 tigerstyle-clippy> error: this `if` statement can be collapsed
 tigerstyle-clippy>   --> src/purity/contradictory_time.rs:61:9
 tigerstyle-clippy>    |
@@ -152,7 +152,7 @@ tigerstyle-clippy> 63 |                 self.found = Some(expr.span);
 tigerstyle-clippy> 64 |                 return;
 tigerstyle-clippy> 65 ~             }
 tigerstyle-clippy>    |
-tigerstyle-clippy> 
+tigerstyle-clippy>
 tigerstyle-clippy> error: this `if` statement can be collapsed
 tigerstyle-clippy>   --> src/purity/verified_purity.rs:61:9
 tigerstyle-clippy>    |
@@ -174,7 +174,7 @@ tigerstyle-clippy> ...
 tigerstyle-clippy> 75 |                 );
 tigerstyle-clippy> 76 ~             }
 tigerstyle-clippy>    |
-tigerstyle-clippy> 
+tigerstyle-clippy>
 tigerstyle-clippy> error: this `if` statement can be collapsed
 tigerstyle-clippy>   --> src/safety/assertion_density.rs:66:9
 tigerstyle-clippy>    |
@@ -196,7 +196,7 @@ tigerstyle-clippy> 69 |                     self.count += 1;
 tigerstyle-clippy> 70 |                 }
 tigerstyle-clippy> 71 ~             }
 tigerstyle-clippy>    |
-tigerstyle-clippy> 
+tigerstyle-clippy>
 tigerstyle-clippy> error: this `if` statement can be collapsed
 tigerstyle-clippy>   --> src/safety/assertion_density.rs:67:13
 tigerstyle-clippy>    |
@@ -215,7 +215,7 @@ tigerstyle-clippy> 68 ~                 && ASSERT_MACROS.contains(&last.ident.na
 tigerstyle-clippy> 69 |                     self.count += 1;
 tigerstyle-clippy> 70 ~                 }
 tigerstyle-clippy>    |
-tigerstyle-clippy> 
+tigerstyle-clippy>
 tigerstyle-clippy> error: this `if` statement can be collapsed
 tigerstyle-clippy>   --> src/safety/assertion_density.rs:85:5
 tigerstyle-clippy>    |
@@ -234,7 +234,7 @@ tigerstyle-clippy> 86 ~         && let StmtKind::Expr(_) | StmtKind::Semi(_) = &
 tigerstyle-clippy> 87 |             return true;
 tigerstyle-clippy> 88 ~         }
 tigerstyle-clippy>    |
-tigerstyle-clippy> 
+tigerstyle-clippy>
 tigerstyle-clippy> error: this `if let` can be collapsed into the outer `match`
 tigerstyle-clippy>   --> src/safety/catch_all_on_enum.rs:27:13
 tigerstyle-clippy>    |
@@ -257,7 +257,7 @@ tigerstyle-clippy>    |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ with th
 tigerstyle-clippy>    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#collapsible_match
 tigerstyle-clippy>    = note: `-D clippy::collapsible-match` implied by `-D warnings`
 tigerstyle-clippy>    = help: to override `-D warnings` add `#[allow(clippy::collapsible_match)]`
-tigerstyle-clippy> 
+tigerstyle-clippy>
 tigerstyle-clippy> error: you seem to be trying to use `match` for destructuring a single pattern. Consider using `if let`
 tigerstyle-clippy>   --> src/safety/no_recursion.rs:32:9
 tigerstyle-clippy>    |
@@ -288,7 +288,7 @@ tigerstyle-clippy> 41 +                 }
 tigerstyle-clippy> 42 +             }
 tigerstyle-clippy> 43 +         }
 tigerstyle-clippy>    |
-tigerstyle-clippy> 
+tigerstyle-clippy>
 tigerstyle-clippy> error: this `if let` can be collapsed into the outer `if let`
 tigerstyle-clippy>   --> src/safety/no_recursion.rs:35:21
 tigerstyle-clippy>    |
@@ -308,7 +308,7 @@ tigerstyle-clippy>    |                                       ^^^^^ replace this
 tigerstyle-clippy> 35 |                     if let hir::QPath::Resolved(_, path) = qpath {
 tigerstyle-clippy>    |                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ with this pattern
 tigerstyle-clippy>    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#collapsible_match
-tigerstyle-clippy> 
+tigerstyle-clippy>
 tigerstyle-clippy> error: this `if` statement can be collapsed
 tigerstyle-clippy>   --> src/safety/no_recursion.rs:34:17
 tigerstyle-clippy>    |
@@ -330,7 +330,7 @@ tigerstyle-clippy> ...
 tigerstyle-clippy> 41 |                         }
 tigerstyle-clippy> 42 ~                     }
 tigerstyle-clippy>    |
-tigerstyle-clippy> 
+tigerstyle-clippy>
 tigerstyle-clippy> error: this `if` statement can be collapsed
 tigerstyle-clippy>   --> src/safety/no_recursion.rs:35:21
 tigerstyle-clippy>    |
@@ -352,7 +352,7 @@ tigerstyle-clippy> ...
 tigerstyle-clippy> 40 |                             }
 tigerstyle-clippy> 41 ~                         }
 tigerstyle-clippy>    |
-tigerstyle-clippy> 
+tigerstyle-clippy>
 tigerstyle-clippy> error: this `if` statement can be collapsed
 tigerstyle-clippy>   --> src/safety/no_recursion.rs:36:25
 tigerstyle-clippy>    |
@@ -373,7 +373,7 @@ tigerstyle-clippy> 38 |                                 self.found = Some(expr.s
 tigerstyle-clippy> 39 |                                 return;
 tigerstyle-clippy> 40 ~                             }
 tigerstyle-clippy>    |
-tigerstyle-clippy> 
+tigerstyle-clippy>
 tigerstyle-clippy> error: this `if` statement can be collapsed
 tigerstyle-clippy>   --> src/safety/unchecked_division.rs:77:21
 tigerstyle-clippy>    |
@@ -395,7 +395,7 @@ tigerstyle-clippy> ...
 tigerstyle-clippy> 86 |                             return true;
 tigerstyle-clippy> 87 ~                         }
 tigerstyle-clippy>    |
-tigerstyle-clippy> 
+tigerstyle-clippy>
 tigerstyle-clippy> error: casting to the same type is unnecessary (`u64` -> `u64`)
 tigerstyle-clippy>   --> src/safety/unchecked_narrowing.rs:22:55
 tigerstyle-clippy>    |
@@ -405,7 +405,7 @@ tigerstyle-clippy>    |
 tigerstyle-clippy>    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#unnecessary_cast
 tigerstyle-clippy>    = note: `-D clippy::unnecessary-cast` implied by `-D warnings`
 tigerstyle-clippy>    = help: to override `-D warnings` add `#[allow(clippy::unnecessary_cast)]`
-tigerstyle-clippy> 
+tigerstyle-clippy>
 tigerstyle-clippy> error: casting to the same type is unnecessary (`u64` -> `u64`)
 tigerstyle-clippy>   --> src/safety/unchecked_narrowing.rs:23:58
 tigerstyle-clippy>    |
@@ -413,7 +413,7 @@ tigerstyle-clippy> 23 |         ty::Uint(uint_ty) => uint_ty.bit_width().map(|w|
 tigerstyle-clippy>    |                                                          ^^^^^^^^ help: try: `w`
 tigerstyle-clippy>    |
 tigerstyle-clippy>    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#unnecessary_cast
-tigerstyle-clippy> 
+tigerstyle-clippy>
 tigerstyle-clippy> error: this `if` statement can be collapsed
 tigerstyle-clippy>   --> src/structure/unjustified_allow.rs:49:9
 tigerstyle-clippy>    |
@@ -435,7 +435,7 @@ tigerstyle-clippy> ...
 tigerstyle-clippy> 54 |                 }
 tigerstyle-clippy> 55 ~             }
 tigerstyle-clippy>    |
-tigerstyle-clippy> 
+tigerstyle-clippy>
 tigerstyle-clippy> error: could not compile `tigerstyle` (lib test) due to 21 previous errors
 tigerstyle-clippy> warning: build failed, waiting for other jobs to finish...
 tigerstyle-clippy> error: could not compile `tigerstyle` (lib) due to 21 previous errors

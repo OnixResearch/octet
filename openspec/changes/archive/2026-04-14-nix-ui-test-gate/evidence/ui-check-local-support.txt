@@ -225,19 +225,19 @@ tigerstyle> +++ command cargo test --release --locked
 tigerstyle>    Compiling tigerstyle v0.1.0 (/build/source)
 tigerstyle>     Finished `release` profile [optimized] target(s) in 1.36s
 tigerstyle>      Running unittests src/lib.rs (target/release/deps/tigerstyle-eb059e6138a1173a)
-tigerstyle> 
+tigerstyle>
 tigerstyle> running 1 test
 tigerstyle> test naming::acronym_style::tests::test_acronym_fix ... ok
-tigerstyle> 
+tigerstyle>
 tigerstyle> test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
-tigerstyle> 
+tigerstyle>
 tigerstyle>      Running tests/ui.rs (target/release/deps/ui-d6ce675cc2c34467)
-tigerstyle> 
+tigerstyle>
 tigerstyle> running 1 test
 tigerstyle> test ui ... ignored, run via nix flake check or cargo test --test ui -- --ignored --nocapture
-tigerstyle> 
+tigerstyle>
 tigerstyle> test result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
-tigerstyle> 
+tigerstyle>
 tigerstyle> Running phase: installPhase
 tigerstyle> actually installing contents of postBuildInstallFromCargoBuildLogOutTempj55 to /nix/store/m6qbkd5p6xnzw18wwgzkny00rlpp72j5-tigerstyle-0.1.0
 tigerstyle> stripping references to Rust toolchain
@@ -272,12 +272,12 @@ tigerstyle-ui> +++ command cargo test --release --locked --test ui -- --ignored 
 tigerstyle-ui>    Compiling tigerstyle v0.1.0 (/build/source)
 tigerstyle-ui>     Finished `release` profile [optimized] target(s) in 0.33s
 tigerstyle-ui>      Running tests/ui.rs (target/release/deps/ui-d6ce675cc2c34467)
-tigerstyle-ui> 
+tigerstyle-ui>
 tigerstyle-ui> running 1 test
 tigerstyle-ui> test ui ... ok
-tigerstyle-ui> 
+tigerstyle-ui>
 tigerstyle-ui> test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
-tigerstyle-ui> 
+tigerstyle-ui>
 tigerstyle-ui> Running phase: installPhase
 tigerstyle-ui> stripping references to Rust toolchain
 tigerstyle-ui> Rust toolchain at: /nix/store/1yvh3d6y3fj3xk2dgwczrp1dj5svd92c-rust-default-1.96.0-nightly-2026-03-21

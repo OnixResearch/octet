@@ -120,6 +120,74 @@ The integration kit MUST include:
 - THEN they can see the expected wrapper responsibilities and minimum
   environment assumptions
 
+### Requirement: Rollout Kit Covers Post-Starter Package Widening
+
+The downstream rollout kit MUST document how a consumer graduates a deferred
+package into the default tigerstyle path after the starter rollout is green.
+
+The guidance MUST include:
+
+- the conditions for choosing one deferred package as the next promotion target
+- the cleanup themes reviewers should classify before widening the default path
+- a concrete widened-reference state derived from Aspen after `aspen-coordination`
+  rejoined the default pilot
+- evidence showing both the widened default pilot and the cleaned deferred
+  package slice
+
+#### Scenario: Promoting a deferred package after phase 1
+
+- GIVEN a consumer finished the starter rollout and still has one deferred
+  package with a bounded finding set
+- WHEN a maintainer follows the rollout kit
+- THEN they can inventory the slice, clean or justify the blockers, and prove
+  the package can join the default path without rediscovering Aspen's phase-2
+  promotion steps
+
+### Requirement: Rollout Kit Has A Saved Non-Aspen Consumer Proof
+
+The downstream rollout kit MUST include one saved proof that a non-Aspen Rust
+consumer can follow the published templates and check-path guidance.
+
+That proof MUST include:
+
+- the chosen consumer workspace
+- the copied `templates/tigerstyle-check.sh` and `templates/dylint.toml`
+  workflow, or an exact saved helper that performs those copy/edit steps
+- a saved transcript of the resulting tigerstyle check run
+- enough sandbox or path-layout detail for a reviewer to replay the proof
+  without Aspen-specific assumptions
+
+#### Scenario: Reviewing the second consumer proof
+
+- GIVEN a reviewer wants to know whether the rollout kit only works for Aspen
+- WHEN they inspect the saved proof
+- THEN they can replay the helper on a non-Aspen consumer and see the template-
+  based tigerstyle check run end to end
+
+### Requirement: Nix Check Path Exercises UI Lint Fixtures
+
+The project MUST execute real Dylint UI fixtures as part of its nix-backed
+validation path.
+
+The nix check path MUST provide whatever rustup compatibility wiring the UI
+harness needs, rather than silently skipping when `rustup` is absent.
+
+The repository MUST keep at least one checked-in UI fixture whose expected
+stderr is validated during that nix check path.
+
+#### Scenario: Running nix flake check
+
+- GIVEN a maintainer runs `nix flake check`
+- WHEN the test suite reaches the UI harness
+- THEN it runs checked-in Dylint UI fixtures instead of returning early because
+  `rustup` is missing
+
+#### Scenario: UI regression in nix path
+
+- GIVEN a checked-in UI fixture's lint output changes unexpectedly
+- WHEN the nix validation path runs
+- THEN the UI test fails and reports the stderr mismatch
+
 ### Requirement: High-Noise Lint Promotion Playbook
 
 The project MUST maintain a promotion playbook for lint families that proved
