@@ -125,20 +125,21 @@ For a reusable consumer template, see `templates/dylint.toml`.
 
 Use these repo-local guides when onboarding a consumer workspace:
 
-- `docs/downstream-rollout.md` — starter profiles, `ambient_clock` boundary guidance, and the high-noise lint promotion playbook
+- `docs/downstream-rollout.md` — starter profiles, Aspen's phase-2 widening path, `ambient_clock` boundary guidance, the high-noise lint promotion playbook, and a saved non-Aspen consumer proof
 - `templates/tigerstyle-check.sh` — reusable check-path recipe for nix-managed or otherwise nonstandard Dylint toolchains
 - `templates/dylint.toml` — consumer-owned threshold and allowlist template
 
-The Aspen phase-1 reference state is archived under
+The Aspen phase-1 starter reference is archived under
 `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/`.
 
 ## Development
 
 ```bash
-nix develop                    # enter devshell
-cargo check                    # verify compilation
-cargo test                     # run unit tests + UI tests
-nix flake check                # full CI (build + test + clippy + fmt)
+nix develop                                   # enter devshell
+cargo check                                   # verify compilation
+cargo test                                    # run unit tests
+cargo test --test ui -- --ignored --nocapture # run checked-in UI fixtures
+nix flake check                               # CI checks, including dedicated nix UI fixture coverage
 ```
 
 ### Project structure
@@ -151,7 +152,7 @@ src/
 ├── structure/                 # 6 lints: length, conditions, params, casts
 ├── purity/                    # 3 lints: wall-clock boundaries, verified modules, time
 └── concurrency/               # 1 lint: lock ordering
-ui_tests/                      # dylint UI test fixtures
+ui_tests/                      # checked-in dylint UI fixtures exercised by nix checks
 openspec/                      # spec-driven change management
 ```
 

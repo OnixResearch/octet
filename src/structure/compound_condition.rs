@@ -1,7 +1,12 @@
-use rustc_ast::{BinOpKind, Expr, ExprKind};
+use rustc_ast::BinOpKind;
+use rustc_ast::Expr;
+use rustc_ast::ExprKind;
 use rustc_errors::DiagDecorator;
-use rustc_lint::{EarlyContext, EarlyLintPass, LintContext};
-use rustc_session::{declare_lint, declare_lint_pass};
+use rustc_lint::EarlyContext;
+use rustc_lint::EarlyLintPass;
+use rustc_lint::LintContext;
+use rustc_session::declare_lint;
+use rustc_session::declare_lint_pass;
 
 declare_lint! {
     /// Detects `if` conditions containing 3 or more `&&`/`||` operators
@@ -16,9 +21,7 @@ declare_lint_pass!(CompoundCondition => [COMPOUND_CONDITION]);
 
 fn count_logical_ops(expr: &Expr) -> usize {
     match &expr.kind {
-        ExprKind::Binary(op, lhs, rhs)
-            if matches!(op.node, BinOpKind::And | BinOpKind::Or) =>
-        {
+        ExprKind::Binary(op, lhs, rhs) if matches!(op.node, BinOpKind::And | BinOpKind::Or) => {
             1 + count_logical_ops(lhs) + count_logical_ops(rhs)
         }
         _ => 0,
@@ -42,9 +45,7 @@ impl EarlyLintPass for CompoundCondition {
                 COMPOUND_CONDITION,
                 Some(cond.span),
                 DiagDecorator(|diag| {
-                    diag.primary_message(format!(
-                        "condition has {ops} boolean operators",
-                    ));
+                    diag.primary_message(format!("condition has {ops} boolean operators",));
                     diag.help(
                         "decompose into early returns, guard clauses, \
                          or named boolean bindings",

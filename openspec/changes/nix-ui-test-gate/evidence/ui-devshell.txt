@@ -1,0 +1,45 @@
+$ nix develop -c bash -c target_dir=\$\(mktemp\ -d\ /tmp/tigerstyle-ui.XXXXXX\)\;\ trap\ \'rm\ -rf\ \"\$target_dir\"\'\ EXIT\;\ export\ CARGO_TARGET_DIR=\"\$target_dir\"\;\ cargo\ test\ --test\ ui\ --\ --ignored\ --nocapture
+   Compiling serde_core v1.0.228
+   Compiling proc-macro2 v1.0.106
+   Compiling quote v1.0.45
+   Compiling unicode-ident v1.0.24
+   Compiling winnow v1.0.0
+   Compiling memchr v2.8.0
+   Compiling zmij v1.0.21
+   Compiling toml_writer v1.0.7+spec-1.1.0
+   Compiling serde v1.0.228
+   Compiling serde_json v1.0.149
+   Compiling thiserror v2.0.18
+   Compiling camino v1.2.2
+   Compiling itoa v1.0.18
+   Compiling regex-syntax v0.8.10
+   Compiling anyhow v1.0.102
+   Compiling dylint_internal v5.0.0 (https://github.com/trailofbits/dylint?rev=0e0a71eefe6f01563d11acc6e1d7af1d505934a9#0e0a71ee)
+   Compiling rustversion v1.0.22
+   Compiling paste v1.0.15
+   Compiling log v0.4.29
+   Compiling toml_parser v1.0.10+spec-1.1.0
+   Compiling aho-corasick v1.1.4
+   Compiling syn v2.0.117
+   Compiling regex-automata v0.4.14
+   Compiling serde_spanned v1.0.4
+   Compiling toml_datetime v1.0.1+spec-1.1.0
+   Compiling cargo-platform v0.3.2
+   Compiling semver v1.0.27
+   Compiling toml v1.0.7+spec-1.1.0
+   Compiling serde_derive v1.0.228
+   Compiling thiserror-impl v2.0.18
+   Compiling dylint_linting v5.0.0 (https://github.com/trailofbits/dylint?rev=0e0a71eefe6f01563d11acc6e1d7af1d505934a9#0e0a71ee)
+   Compiling regex v1.12.3
+   Compiling cargo_metadata v0.23.1
+   Compiling tigerstyle v0.1.0 (/home/brittonr/git/tigerstyle)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.98s
+     Running tests/ui.rs (/tmp/tigerstyle-ui.SbhXdM/debug/deps/ui-13439acf2237fb9f)
+
+running 1 test
+   Compiling tigerstyle v0.1.0 (/home/brittonr/git/tigerstyle)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 2.87s
+test ui ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 12.75s
+

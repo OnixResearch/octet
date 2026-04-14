@@ -1,7 +1,12 @@
-use rustc_ast::{Item, ItemKind, Variant};
+use rustc_ast::Item;
+use rustc_ast::ItemKind;
+use rustc_ast::Variant;
 use rustc_errors::DiagDecorator;
-use rustc_lint::{EarlyContext, EarlyLintPass, LintContext};
-use rustc_session::{declare_lint, impl_lint_pass};
+use rustc_lint::EarlyContext;
+use rustc_lint::EarlyLintPass;
+use rustc_lint::LintContext;
+use rustc_session::declare_lint;
+use rustc_session::impl_lint_pass;
 use rustc_span::Span;
 
 declare_lint! {
@@ -114,17 +119,21 @@ fn extract_acronym(name: &str) -> Option<String> {
 
 fn check_name(cx: &EarlyContext<'_>, name: &str, span: Span, allowlist: &[String]) {
     // Skip if the acronym is in the allowlist
-    if let Some(acronym) = extract_acronym(name) {
-        if allowlist.iter().any(|a| a == &acronym) {
-            return;
-        }
+    if let Some(acronym) = extract_acronym(name)
+        && allowlist.iter().any(|a| a == &acronym)
+    {
+        return;
     }
 
     if let Some(suggestion) = suggest_acronym_fix(name) {
-        cx.opt_span_lint(ACRONYM_STYLE, Some(span), DiagDecorator(|diag| {
-            diag.primary_message(format!("`{name}` has acronym-style capitalization"));
-            diag.help(format!("use single-word capitalization: `{suggestion}`"));
-        }));
+        cx.opt_span_lint(
+            ACRONYM_STYLE,
+            Some(span),
+            DiagDecorator(|diag| {
+                diag.primary_message(format!("`{name}` has acronym-style capitalization"));
+                diag.help(format!("use single-word capitalization: `{suggestion}`"));
+            }),
+        );
     }
 }
 

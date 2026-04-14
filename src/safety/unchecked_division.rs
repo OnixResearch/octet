@@ -1,9 +1,13 @@
 use rustc_errors::DiagDecorator;
 use rustc_hir as hir;
-use rustc_hir::{BinOpKind, ExprKind};
-use rustc_lint::{LateContext, LateLintPass, LintContext};
+use rustc_hir::BinOpKind;
+use rustc_hir::ExprKind;
+use rustc_lint::LateContext;
+use rustc_lint::LateLintPass;
+use rustc_lint::LintContext;
 use rustc_middle::ty;
-use rustc_session::{declare_lint, declare_lint_pass};
+use rustc_session::declare_lint;
+use rustc_session::declare_lint_pass;
 
 declare_lint! {
     /// Detects `a / b` or `a % b` where `b` is a function parameter or
@@ -27,10 +31,7 @@ fn is_literal_or_const(expr: &hir::Expr<'_>) -> bool {
         ExprKind::Path(hir::QPath::Resolved(_, path)) => {
             matches!(
                 path.res,
-                hir::def::Res::Def(
-                    hir::def::DefKind::Const { .. } | hir::def::DefKind::AssocConst { .. },
-                    _
-                )
+                hir::def::Res::Def(hir::def::DefKind::Const { .. } | hir::def::DefKind::AssocConst { .. }, _)
             )
         }
         _ => false,
@@ -74,17 +75,14 @@ fn has_zero_guard(cx: &LateContext<'_>, expr: &hir::Expr<'_>, divisor_name: &str
                 // Check enclosing block for preceding assert statements
                 if let ExprKind::Block(block, _) = &parent.kind {
                     let source_map = cx.sess().source_map();
-                    if let Ok(snippet) = source_map.span_to_snippet(block.span) {
-                        if snippet.contains(divisor_name)
-                            && (snippet.contains("assert!")
-                                || snippet.contains("assert_ne!")
-                                || snippet.contains("requires"))
-                            && (snippet.contains("> 0")
-                                || snippet.contains("!= 0")
-                                || snippet.contains(">= 1"))
-                        {
-                            return true;
-                        }
+                    if let Ok(snippet) = source_map.span_to_snippet(block.span)
+                        && snippet.contains(divisor_name)
+                        && (snippet.contains("assert!")
+                            || snippet.contains("assert_ne!")
+                            || snippet.contains("requires"))
+                        && (snippet.contains("> 0") || snippet.contains("!= 0") || snippet.contains(">= 1"))
+                    {
+                        return true;
                     }
                 }
             }
@@ -125,12 +123,8 @@ impl<'tcx> LateLintPass<'tcx> for UncheckedDivision {
             UNCHECKED_DIVISION,
             Some(expr.span),
             DiagDecorator(|diag| {
-                diag.primary_message(format!(
-                    "division by `{name}` without zero check",
-                ));
-                diag.help(
-                    "add `assert!(divisor > 0)` or an early return for the zero case",
-                );
+                diag.primary_message(format!("division by `{name}` without zero check",));
+                diag.help("add `assert!(divisor > 0)` or an early return for the zero case");
             }),
         );
     }

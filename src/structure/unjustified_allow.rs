@@ -1,7 +1,11 @@
-use rustc_ast::{Attribute, Item};
+use rustc_ast::Attribute;
+use rustc_ast::Item;
 use rustc_errors::DiagDecorator;
-use rustc_lint::{EarlyContext, EarlyLintPass, LintContext};
-use rustc_session::{declare_lint, declare_lint_pass};
+use rustc_lint::EarlyContext;
+use rustc_lint::EarlyLintPass;
+use rustc_lint::LintContext;
+use rustc_session::declare_lint;
+use rustc_session::declare_lint_pass;
 use rustc_span::sym;
 
 declare_lint! {
@@ -46,12 +50,12 @@ fn has_comment_nearby(cx: &EarlyContext<'_>, attr: &Attribute) -> bool {
 
     if let Some(first_line) = lines.lines.first() {
         let line_idx = first_line.line_index;
-        if line_idx > 0 {
-            if let Some(prev_line) = lines.file.get_line(line_idx - 1) {
-                let prev = prev_line.trim();
-                if prev.starts_with("//") {
-                    return true;
-                }
+        if line_idx > 0
+            && let Some(prev_line) = lines.file.get_line(line_idx - 1)
+        {
+            let prev = prev_line.trim();
+            if prev.starts_with("//") {
+                return true;
             }
         }
     }
@@ -72,9 +76,7 @@ impl EarlyLintPass for UnjustifiedAllow {
                     UNJUSTIFIED_ALLOW,
                     Some(attr.span),
                     DiagDecorator(|diag| {
-                        diag.primary_message(
-                            "`#[allow(...)]` without justification comment",
-                        );
+                        diag.primary_message("`#[allow(...)]` without justification comment");
                         diag.help(
                             "add a comment on the preceding line or same line \
                              explaining why this lint is suppressed",

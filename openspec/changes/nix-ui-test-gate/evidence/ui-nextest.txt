@@ -1,0 +1,2 @@
+$ nix build .#checks.x86_64-linux.nextest -L --print-out-paths --no-link
+/nix/store/nl3vh6jzi8lj6r3jpwb9szn8dkphfhp1-tigerstyle-nextest-0.1.0

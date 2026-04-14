@@ -1,0 +1,290 @@
+these 5 derivations will be built:
+  /nix/store/l51s6zmskl3aj3x9g6fh1fh6v98n6xy2-tigerstyle-ui-driver-0.1.0.drv
+  /nix/store/pbglb66f4rzvfw323ndrd4b3pcrlw3c4-tigerstyle-deps-0.1.0.drv
+  /nix/store/xgablb3fr4p3d5gy3rlajwczgxq1liyh-tigerstyle-0.1.0.drv
+  /nix/store/ziv1ap5x7y6i16nn4rxjns7ax5rpkgb9-tigerstyle-ui-library.drv
+  /nix/store/3y01wnr528afnmawjf2l57ny6dvjdsrz-tigerstyle-ui-0.1.0.drv
+cannot build on 'ssh-ng://root@10.10.10.1': error: failed to start SSH connection to '10.10.10.1'
+building '/nix/store/pbglb66f4rzvfw323ndrd4b3pcrlw3c4-tigerstyle-deps-0.1.0.drv'...
+building '/nix/store/l51s6zmskl3aj3x9g6fh1fh6v98n6xy2-tigerstyle-ui-driver-0.1.0.drv'...
+tigerstyle-deps> cargoArtifacts not set, will not reuse any cargo artifacts
+tigerstyle-deps> Running phase: unpackPhase
+tigerstyle-deps> unpacking source archive /nix/store/vgxi99j6d88nwxvwhr77dl7srrjg99pr-source
+tigerstyle-deps> source root is source
+tigerstyle-deps> Running phase: patchPhase
+tigerstyle-deps> Executing configureCargoCommonVars
+tigerstyle-ui-driver> Running phase: unpackPhase
+tigerstyle-deps> Running phase: updateAutotoolsGnuConfigScriptsPhase
+tigerstyle-ui-driver> unpacking source archive /nix/store/i067p2yviy6lhjpy163aa4c9qq639ww3-support
+tigerstyle-deps> Running phase: configurePhase
+tigerstyle-ui-driver> source root is support
+tigerstyle-deps> will append /build/source/.cargo-home/config.toml with contents of /nix/store/5if6mjyzck5rhdwkycd33jblxcsg7hih-vendor-cargo-deps/config.toml
+tigerstyle-deps> default configurePhase, nothing to do
+tigerstyle-deps> Running phase: buildPhase
+tigerstyle-ui-driver> Running phase: patchPhase
+tigerstyle-deps> +++ command cargo --version
+tigerstyle-ui-driver> Running phase: updateAutotoolsGnuConfigScriptsPhase
+tigerstyle-deps> cargo 1.96.0-nightly (cbb9bb8bd 2026-03-13)
+tigerstyle-deps> +++ command cargo check --release --locked --all-targets
+tigerstyle-ui-driver> Running phase: buildPhase
+tigerstyle-deps>    Compiling serde_core v1.0.228
+tigerstyle-deps>    Compiling proc-macro2 v1.0.106
+tigerstyle-deps>    Compiling quote v1.0.45
+tigerstyle-deps>    Compiling unicode-ident v1.0.24
+tigerstyle-deps>     Checking memchr v2.8.0
+tigerstyle-deps>    Compiling zmij v1.0.21
+tigerstyle-deps>    Compiling serde_json v1.0.149
+tigerstyle-deps>    Compiling winnow v1.0.0
+tigerstyle-deps>    Compiling serde v1.0.228
+tigerstyle-deps>    Compiling thiserror v2.0.18
+tigerstyle-deps>    Compiling camino v1.2.2
+tigerstyle-deps>    Compiling anyhow v1.0.102
+tigerstyle-deps>    Compiling toml_writer v1.0.7+spec-1.1.0
+tigerstyle-deps>     Checking itoa v1.0.18
+tigerstyle-deps>     Checking regex-syntax v0.8.10
+tigerstyle-deps>    Compiling paste v1.0.15
+tigerstyle-deps>    Compiling dylint_internal v5.0.0 (https://github.com/trailofbits/dylint?rev=0e0a71eefe6f01563d11acc6e1d7af1d505934a9#0e0a71ee)
+tigerstyle-deps>    Compiling rustversion v1.0.22
+tigerstyle-deps>     Checking log v0.4.29
+tigerstyle-deps>    Compiling tigerstyle v0.1.0 (/build/source)
+tigerstyle-ui-driver>    Compiling proc-macro2 v1.0.106
+tigerstyle-ui-driver>    Compiling unicode-ident v1.0.24
+tigerstyle-ui-driver>    Compiling quote v1.0.45
+tigerstyle-ui-driver>    Compiling libc v0.2.185
+tigerstyle-ui-driver>    Compiling shlex v1.3.0
+tigerstyle-ui-driver>    Compiling find-msvc-tools v0.1.9
+tigerstyle-ui-driver>    Compiling pkg-config v0.3.33
+tigerstyle-ui-driver>    Compiling vcpkg v0.2.15
+tigerstyle-ui-driver>    Compiling stable_deref_trait v1.2.1
+tigerstyle-ui-driver>    Compiling serde_core v1.0.228
+tigerstyle-ui-driver>    Compiling zmij v1.0.21
+tigerstyle-ui-driver>    Compiling litemap v0.8.2
+tigerstyle-ui-driver>    Compiling writeable v0.6.3
+tigerstyle-ui-driver>    Compiling icu_properties_data v2.2.0
+tigerstyle-ui-driver>    Compiling icu_normalizer_data v2.2.0
+tigerstyle-ui-driver>    Compiling serde v1.0.228
+tigerstyle-ui-driver>    Compiling serde_json v1.0.149
+tigerstyle-ui-driver>    Compiling thiserror v2.0.18
+tigerstyle-ui-driver>    Compiling utf8_iter v1.0.4
+tigerstyle-ui-driver>    Compiling camino v1.2.2
+tigerstyle-ui-driver>    Compiling anyhow v1.0.102
+tigerstyle-ui-driver>    Compiling smallvec v1.15.1
+tigerstyle-ui-driver>    Compiling memchr v2.8.0
+tigerstyle-ui-driver>    Compiling percent-encoding v2.3.2
+tigerstyle-ui-driver>    Compiling rustix v1.1.4
+tigerstyle-ui-driver>    Compiling bitflags v2.11.0
+tigerstyle-ui-driver>    Compiling getrandom v0.4.2
+tigerstyle-ui-driver>    Compiling winnow v1.0.1
+tigerstyle-ui-driver>    Compiling toml_writer v1.1.1+spec-1.1.0
+tigerstyle-ui-driver>    Compiling hashbrown v0.17.0
+tigerstyle-ui-driver>    Compiling openssl-probe v0.1.6
+tigerstyle-ui-driver>    Compiling itoa v1.0.18
+tigerstyle-ui-driver>    Compiling regex-syntax v0.8.10
+tigerstyle-ui-driver>    Compiling cfg-if v1.0.4
+tigerstyle-ui-driver>    Compiling equivalent v1.0.2
+tigerstyle-ui-driver>    Compiling linux-raw-sys v0.12.1
+tigerstyle-ui-driver>    Compiling curl v0.4.49
+tigerstyle-ui-driver>    Compiling rustversion v1.0.22
+tigerstyle-ui-driver>    Compiling once_cell v1.21.4
+tigerstyle-ui-driver>    Compiling form_urlencoded v1.2.2
+tigerstyle-ui-driver>    Compiling fastrand v2.4.1
+tigerstyle-ui-driver>    Compiling log v0.4.29
+tigerstyle-ui-driver>    Compiling dylint_internal v5.0.0 (/build/support/dylint/internal)
+tigerstyle-ui-driver>    Compiling libloading v0.9.0
+tigerstyle-deps>     Checking toml_parser v1.0.10+spec-1.1.0
+tigerstyle-ui-driver>    Compiling aho-corasick v1.1.4
+tigerstyle-deps>     Checking aho-corasick v1.1.4
+tigerstyle-ui-driver>    Compiling indexmap v2.14.0
+tigerstyle-deps>    Compiling syn v2.0.117
+tigerstyle-ui-driver>    Compiling syn v2.0.117
+tigerstyle-ui-driver>    Compiling toml_parser v1.1.2+spec-1.1.0
+tigerstyle-ui-driver>    Compiling jobserver v0.1.34
+tigerstyle-ui-driver>    Compiling socket2 v0.6.3
+tigerstyle-ui-driver>    Compiling cc v1.2.60
+tigerstyle-ui-driver>    Compiling tempfile v3.27.0
+tigerstyle-deps>     Checking regex-automata v0.4.14
+tigerstyle-ui-driver>    Compiling regex-automata v0.4.14
+tigerstyle-deps>     Checking cargo-platform v0.3.2
+tigerstyle-deps>     Checking toml_datetime v1.0.1+spec-1.1.0
+tigerstyle-deps>     Checking semver v1.0.27
+tigerstyle-deps>     Checking serde_spanned v1.0.4
+tigerstyle-deps>     Checking toml v1.0.7+spec-1.1.0
+tigerstyle-deps>    Compiling serde_derive v1.0.228
+tigerstyle-deps>    Compiling thiserror-impl v2.0.18
+tigerstyle-ui-driver>    Compiling toml_datetime v1.1.1+spec-1.1.0
+tigerstyle-ui-driver>    Compiling semver v1.0.28
+tigerstyle-ui-driver>    Compiling cargo-platform v0.3.2
+tigerstyle-ui-driver>    Compiling serde_spanned v1.1.1
+tigerstyle-ui-driver>    Compiling openssl-sys v0.9.113
+tigerstyle-ui-driver>    Compiling libz-sys v1.1.28
+tigerstyle-ui-driver>    Compiling libssh2-sys v0.3.1
+tigerstyle-ui-driver>    Compiling curl-sys v0.4.87+curl-8.19.0
+tigerstyle-ui-driver>    Compiling libgit2-sys v0.18.3+1.9.2
+tigerstyle-ui-driver>    Compiling toml v1.1.2+spec-1.1.0
+tigerstyle-ui-driver>    Compiling toml_edit v0.25.11+spec-1.1.0
+tigerstyle-deps>    Compiling dylint_linting v5.0.0 (https://github.com/trailofbits/dylint?rev=0e0a71eefe6f01563d11acc6e1d7af1d505934a9#0e0a71ee)
+tigerstyle-deps>     Checking regex v1.12.3
+tigerstyle-ui-driver>    Compiling regex v1.12.3
+tigerstyle-ui-driver>    Compiling synstructure v0.13.2
+tigerstyle-ui-driver>    Compiling zerofrom-derive v0.1.7
+tigerstyle-ui-driver>    Compiling yoke-derive v0.8.2
+tigerstyle-ui-driver>    Compiling zerovec-derive v0.11.3
+tigerstyle-ui-driver>    Compiling displaydoc v0.2.5
+tigerstyle-ui-driver>    Compiling serde_derive v1.0.228
+tigerstyle-ui-driver>    Compiling thiserror-impl v2.0.18
+tigerstyle-deps>     Checking cargo_metadata v0.23.1
+tigerstyle-ui-driver>    Compiling zerofrom v0.1.7
+tigerstyle-ui-driver>    Compiling yoke v0.8.2
+tigerstyle-ui-driver>    Compiling zerotrie v0.2.4
+tigerstyle-ui-driver>    Compiling zerovec v0.11.6
+tigerstyle-ui-driver>    Compiling tinystr v0.8.3
+tigerstyle-ui-driver>    Compiling potential_utf v0.1.5
+tigerstyle-ui-driver>    Compiling icu_collections v2.2.0
+tigerstyle-ui-driver>    Compiling icu_locale_core v2.2.0
+tigerstyle-deps>     Finished `release` profile [optimized] target(s) in 7.36s
+tigerstyle-deps> +++ command cargo build --release --locked
+tigerstyle-deps>    Compiling serde_core v1.0.228
+tigerstyle-deps>    Compiling memchr v2.8.0
+tigerstyle-deps>    Compiling itoa v1.0.18
+tigerstyle-deps>    Compiling winnow v1.0.0
+tigerstyle-deps>    Compiling regex-syntax v0.8.10
+tigerstyle-deps>    Compiling toml_writer v1.0.7+spec-1.1.0
+tigerstyle-deps>    Compiling log v0.4.29
+tigerstyle-deps>    Compiling zmij v1.0.21
+tigerstyle-deps>    Compiling anyhow v1.0.102
+tigerstyle-deps>    Compiling thiserror v2.0.18
+tigerstyle-ui-driver>    Compiling icu_provider v2.2.0
+tigerstyle-deps>    Compiling toml_parser v1.0.10+spec-1.1.0
+tigerstyle-ui-driver>    Compiling icu_normalizer v2.2.0
+tigerstyle-ui-driver>    Compiling icu_properties v2.2.0
+tigerstyle-deps>    Compiling aho-corasick v1.1.4
+tigerstyle-ui-driver>    Compiling cargo_metadata v0.23.1
+tigerstyle-ui-driver>    Compiling idna_adapter v1.2.1
+tigerstyle-ui-driver>    Compiling idna v1.1.0
+tigerstyle-ui-driver>    Compiling url v2.5.8
+tigerstyle-deps>    Compiling regex-automata v0.4.14
+tigerstyle-ui-driver>    Compiling git2 v0.20.4
+tigerstyle-deps>    Compiling cargo-platform v0.3.2
+tigerstyle-deps>    Compiling serde_spanned v1.0.4
+tigerstyle-deps>    Compiling camino v1.2.2
+tigerstyle-deps>    Compiling serde_json v1.0.149
+tigerstyle-deps>    Compiling serde v1.0.228
+tigerstyle-deps>    Compiling toml_datetime v1.0.1+spec-1.1.0
+tigerstyle-deps>    Compiling semver v1.0.27
+tigerstyle-deps>    Compiling toml v1.0.7+spec-1.1.0
+tigerstyle-deps>    Compiling cargo_metadata v0.23.1
+tigerstyle-deps>    Compiling regex v1.12.3
+tigerstyle-deps>    Compiling dylint_internal v5.0.0 (https://github.com/trailofbits/dylint?rev=0e0a71eefe6f01563d11acc6e1d7af1d505934a9#0e0a71ee)
+tigerstyle-ui-driver>    Compiling dylint_driver v5.0.0 (/build/support/dylint/driver)
+tigerstyle-deps>    Compiling dylint_linting v5.0.0 (https://github.com/trailofbits/dylint?rev=0e0a71eefe6f01563d11acc6e1d7af1d505934a9#0e0a71ee)
+tigerstyle-ui-driver>    Compiling tigerstyle-ui-driver v0.1.0 (/build/support/ui-driver)
+tigerstyle-ui-driver>     Finished `release` profile [optimized] target(s) in 11.38s
+tigerstyle-ui-driver> Running phase: installPhase
+tigerstyle-ui-driver> Running phase: fixupPhase
+tigerstyle-ui-driver> shrinking RPATHs of ELF executables and libraries in /nix/store/9k355i4wqszcr2l78wsggrg8fcby2633-tigerstyle-ui-driver-0.1.0
+tigerstyle-ui-driver> shrinking /nix/store/9k355i4wqszcr2l78wsggrg8fcby2633-tigerstyle-ui-driver-0.1.0/bin/tigerstyle-ui-driver
+tigerstyle-ui-driver> checking for references to /build/ in /nix/store/9k355i4wqszcr2l78wsggrg8fcby2633-tigerstyle-ui-driver-0.1.0...
+tigerstyle-ui-driver> patching script interpreter paths in /nix/store/9k355i4wqszcr2l78wsggrg8fcby2633-tigerstyle-ui-driver-0.1.0
+tigerstyle-ui-driver> stripping (with command strip and flags -S -p) in  /nix/store/9k355i4wqszcr2l78wsggrg8fcby2633-tigerstyle-ui-driver-0.1.0/bin
+tigerstyle-deps>    Compiling tigerstyle v0.1.0 (/build/source)
+tigerstyle-deps>     Finished `release` profile [optimized] target(s) in 4.19s
+tigerstyle-deps> Running phase: checkPhase
+tigerstyle-deps> +++ command cargo test --release --locked --no-run
+tigerstyle-deps>    Compiling tigerstyle v0.1.0 (/build/source)
+tigerstyle-deps>     Finished `release` profile [optimized] target(s) in 0.10s
+tigerstyle-deps>   Executable unittests src/lib.rs (target/release/deps/tigerstyle-c1329a66034ede92)
+tigerstyle-deps> Running phase: installPhase
+tigerstyle-deps> no previous artifacts found, compressing and installing full archive of target to /nix/store/79a66ssa92f29ay0q95s8h1zsqsk5mfn-tigerstyle-deps-0.1.0/target.tar.zst
+tigerstyle-deps> /*stdin*\            : 25.92%   (   128 MiB =>   33.2 MiB, /nix/store/79a66ssa92f29ay0q95s8h1zsqsk5mfn-tigerstyle-deps-0.1.0/target.tar.zst)
+tigerstyle-deps> Running phase: fixupPhase
+tigerstyle-deps> shrinking RPATHs of ELF executables and libraries in /nix/store/79a66ssa92f29ay0q95s8h1zsqsk5mfn-tigerstyle-deps-0.1.0
+tigerstyle-deps> checking for references to /build/ in /nix/store/79a66ssa92f29ay0q95s8h1zsqsk5mfn-tigerstyle-deps-0.1.0...
+tigerstyle-deps> patching script interpreter paths in /nix/store/79a66ssa92f29ay0q95s8h1zsqsk5mfn-tigerstyle-deps-0.1.0
+building '/nix/store/xgablb3fr4p3d5gy3rlajwczgxq1liyh-tigerstyle-0.1.0.drv'...
+tigerstyle> Running phase: unpackPhase
+tigerstyle> unpacking source archive /nix/store/x0xv4bvqz906d79av3n7sjask6davhnp-source
+tigerstyle> source root is source
+tigerstyle> Running phase: patchPhase
+tigerstyle> Executing configureCargoCommonVars
+tigerstyle> decompressing cargo artifacts from /nix/store/79a66ssa92f29ay0q95s8h1zsqsk5mfn-tigerstyle-deps-0.1.0/target.tar.zst to target
+tigerstyle> Running phase: updateAutotoolsGnuConfigScriptsPhase
+tigerstyle> Running phase: configurePhase
+tigerstyle> will append /build/source/.cargo-home/config.toml with contents of /nix/store/5if6mjyzck5rhdwkycd33jblxcsg7hih-vendor-cargo-deps/config.toml
+tigerstyle> default configurePhase, nothing to do
+tigerstyle> Running phase: buildPhase
+tigerstyle> +++ command cargo --version
+tigerstyle> cargo 1.96.0-nightly (cbb9bb8bd 2026-03-13)
+tigerstyle> +++ command cargo build --release --message-format json-render-diagnostics --locked
+tigerstyle>    Compiling tigerstyle v0.1.0 (/build/source)
+tigerstyle>     Finished `release` profile [optimized] target(s) in 1.24s
+tigerstyle> searching for bins/libs to install from cargo build log at cargoBuildLogSycj.json
+tigerstyle> installing /build/source/target/release/libtigerstyle.so in postBuildInstallFromCargoBuildLogOutTempj55/lib
+tigerstyle> searching for bins/libs complete
+tigerstyle> Running phase: checkPhase
+tigerstyle> +++ command cargo test --release --locked
+tigerstyle>    Compiling tigerstyle v0.1.0 (/build/source)
+tigerstyle>     Finished `release` profile [optimized] target(s) in 1.36s
+tigerstyle>      Running unittests src/lib.rs (target/release/deps/tigerstyle-eb059e6138a1173a)
+tigerstyle> 
+tigerstyle> running 1 test
+tigerstyle> test naming::acronym_style::tests::test_acronym_fix ... ok
+tigerstyle> 
+tigerstyle> test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+tigerstyle> 
+tigerstyle>      Running tests/ui.rs (target/release/deps/ui-d6ce675cc2c34467)
+tigerstyle> 
+tigerstyle> running 1 test
+tigerstyle> test ui ... ignored, run via nix flake check or cargo test --test ui -- --ignored --nocapture
+tigerstyle> 
+tigerstyle> test result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
+tigerstyle> 
+tigerstyle> Running phase: installPhase
+tigerstyle> actually installing contents of postBuildInstallFromCargoBuildLogOutTempj55 to /nix/store/m6qbkd5p6xnzw18wwgzkny00rlpp72j5-tigerstyle-0.1.0
+tigerstyle> stripping references to Rust toolchain
+tigerstyle> Rust toolchain at: /nix/store/1yvh3d6y3fj3xk2dgwczrp1dj5svd92c-rust-default-1.96.0-nightly-2026-03-21
+tigerstyle> stripping Rust toolchain references done
+tigerstyle> stripping references to cargoVendorDir from:
+tigerstyle> /nix/store/m6qbkd5p6xnzw18wwgzkny00rlpp72j5-tigerstyle-0.1.0/lib/libtigerstyle.so
+tigerstyle> stripping references done
+tigerstyle> Running phase: fixupPhase
+tigerstyle> shrinking RPATHs of ELF executables and libraries in /nix/store/m6qbkd5p6xnzw18wwgzkny00rlpp72j5-tigerstyle-0.1.0
+tigerstyle> shrinking /nix/store/m6qbkd5p6xnzw18wwgzkny00rlpp72j5-tigerstyle-0.1.0/lib/libtigerstyle.so
+tigerstyle> checking for references to /build/ in /nix/store/m6qbkd5p6xnzw18wwgzkny00rlpp72j5-tigerstyle-0.1.0...
+tigerstyle> patching script interpreter paths in /nix/store/m6qbkd5p6xnzw18wwgzkny00rlpp72j5-tigerstyle-0.1.0
+tigerstyle> stripping (with command strip and flags -S -p) in  /nix/store/m6qbkd5p6xnzw18wwgzkny00rlpp72j5-tigerstyle-0.1.0/lib
+building '/nix/store/ziv1ap5x7y6i16nn4rxjns7ax5rpkgb9-tigerstyle-ui-library.drv'...
+building '/nix/store/3y01wnr528afnmawjf2l57ny6dvjdsrz-tigerstyle-ui-0.1.0.drv'...
+tigerstyle-ui> Running phase: unpackPhase
+tigerstyle-ui> unpacking source archive /nix/store/x0xv4bvqz906d79av3n7sjask6davhnp-source
+tigerstyle-ui> source root is source
+tigerstyle-ui> Running phase: patchPhase
+tigerstyle-ui> Executing configureCargoCommonVars
+tigerstyle-ui> decompressing cargo artifacts from /nix/store/79a66ssa92f29ay0q95s8h1zsqsk5mfn-tigerstyle-deps-0.1.0/target.tar.zst to target
+tigerstyle-ui> Running phase: updateAutotoolsGnuConfigScriptsPhase
+tigerstyle-ui> Running phase: configurePhase
+tigerstyle-ui> will append /build/source/.cargo-home/config.toml with contents of /nix/store/5if6mjyzck5rhdwkycd33jblxcsg7hih-vendor-cargo-deps/config.toml
+tigerstyle-ui> default configurePhase, nothing to do
+tigerstyle-ui> Running phase: buildPhase
+tigerstyle-ui> +++ command cargo --version
+tigerstyle-ui> cargo 1.96.0-nightly (cbb9bb8bd 2026-03-13)
+tigerstyle-ui> Running phase: checkPhase
+tigerstyle-ui> +++ command cargo test --release --locked --test ui -- --ignored --nocapture
+tigerstyle-ui>    Compiling tigerstyle v0.1.0 (/build/source)
+tigerstyle-ui>     Finished `release` profile [optimized] target(s) in 0.33s
+tigerstyle-ui>      Running tests/ui.rs (target/release/deps/ui-d6ce675cc2c34467)
+tigerstyle-ui> 
+tigerstyle-ui> running 1 test
+tigerstyle-ui> test ui ... ok
+tigerstyle-ui> 
+tigerstyle-ui> test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+tigerstyle-ui> 
+tigerstyle-ui> Running phase: installPhase
+tigerstyle-ui> stripping references to Rust toolchain
+tigerstyle-ui> Rust toolchain at: /nix/store/1yvh3d6y3fj3xk2dgwczrp1dj5svd92c-rust-default-1.96.0-nightly-2026-03-21
+tigerstyle-ui> stripping Rust toolchain references done
+tigerstyle-ui> stripping references to cargoVendorDir from:
+tigerstyle-ui> stripping references done
+tigerstyle-ui> Running phase: fixupPhase
+tigerstyle-ui> shrinking RPATHs of ELF executables and libraries in /nix/store/k36i536vw45rx8vnll3j6ac1p6dmlbhg-tigerstyle-ui-0.1.0
+tigerstyle-ui> checking for references to /build/ in /nix/store/k36i536vw45rx8vnll3j6ac1p6dmlbhg-tigerstyle-ui-0.1.0...
+tigerstyle-ui> patching script interpreter paths in /nix/store/k36i536vw45rx8vnll3j6ac1p6dmlbhg-tigerstyle-ui-0.1.0

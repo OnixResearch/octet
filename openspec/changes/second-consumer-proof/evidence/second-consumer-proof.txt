@@ -1,0 +1,393 @@
+$ nix develop /home/brittonr/git/tigerstyle -c bash -lc export\ PATH=\"\$HOME/.cargo/bin:\$PATH\"\ \&\&\ cd\ \"/tmp/second-consumer.RWcNx6/aspen-verus-metrics\"\ \&\&\ TIGERSTYLE_PATH=\"/home/brittonr/git/tigerstyle\"\ TIGERSTYLE_DYLINT_REV=\"0e0a71eefe6f01563d11acc6e1d7af1d505934a9\"\ scripts/tigerstyle-check.sh
+[tigerstyle] workspace: aspen-verus-metrics
+[tigerstyle] repo:      /home/brittonr/git/tigerstyle
+[tigerstyle] toolchain: nightly-2026-03-21-x86_64-unknown-linux-gnu
+[tigerstyle] scope:     -p aspen-verus-metrics
+[tigerstyle] profile:   ambient_clock compound_assertion contradictory_time
+[tigerstyle] dylint rev: 0e0a71eefe6f01563d11acc6e1d7af1d505934a9
+Building workspace metadata entry `tigerstyle`
+    Updating git repository `https://github.com/trailofbits/dylint`
+warning: patch `dylint_driver v5.0.0 (https://github.com/trailofbits/dylint?rev=0e0a71eefe6f01563d11acc6e1d7af1d505934a9#0e0a71ee)` was not used in the crate graph
+help: Check that the patched package version and available features are compatible
+      with the dependency requirements. If the patch has a different version from
+      what is locked in the Cargo.lock file, run `cargo update` to use the new
+      version. This may also occur with an optional dependency that is not enabled.
+   Compiling serde_core v1.0.228
+   Compiling proc-macro2 v1.0.106
+   Compiling quote v1.0.45
+   Compiling unicode-ident v1.0.24
+   Compiling memchr v2.8.0
+   Compiling zmij v1.0.21
+   Compiling thiserror v2.0.18
+   Compiling winnow v1.0.0
+   Compiling serde v1.0.228
+   Compiling camino v1.2.2
+   Compiling serde_json v1.0.149
+   Compiling itoa v1.0.18
+   Compiling regex-syntax v0.8.10
+   Compiling toml_writer v1.0.7+spec-1.1.0
+   Compiling anyhow v1.0.102
+   Compiling paste v1.0.15
+   Compiling rustversion v1.0.22
+   Compiling dylint_internal v5.0.0 (https://github.com/trailofbits/dylint?rev=0e0a71eefe6f01563d11acc6e1d7af1d505934a9#0e0a71ee)
+   Compiling log v0.4.29
+   Compiling toml_parser v1.0.10+spec-1.1.0
+   Compiling aho-corasick v1.1.4
+   Compiling syn v2.0.117
+   Compiling regex-automata v0.4.14
+   Compiling thiserror-impl v2.0.18
+   Compiling serde_derive v1.0.228
+   Compiling serde_spanned v1.0.4
+   Compiling toml_datetime v1.0.1+spec-1.1.0
+   Compiling cargo-platform v0.3.2
+   Compiling semver v1.0.27
+   Compiling toml v1.0.7+spec-1.1.0
+   Compiling dylint_linting v5.0.0 (https://github.com/trailofbits/dylint?rev=0e0a71eefe6f01563d11acc6e1d7af1d505934a9#0e0a71ee)
+   Compiling regex v1.12.3
+   Compiling cargo_metadata v0.23.1
+   Compiling tigerstyle v0.1.0 (/home/brittonr/git/tigerstyle)
+    Finished `release` profile [optimized] target(s) in 6.36s
+Building driver for toolchain `nightly-2026-03-21-x86_64-unknown-linux-gnu`
+    Updating git repository `https://github.com/trailofbits/dylint`
+    Updating crates.io index
+     Locking 139 packages to latest compatible versions
+   Compiling proc-macro2 v1.0.106
+   Compiling quote v1.0.45
+   Compiling unicode-ident v1.0.24
+   Compiling libc v0.2.185
+   Compiling find-msvc-tools v0.1.9
+   Compiling shlex v1.3.0
+   Compiling pkg-config v0.3.33
+   Compiling vcpkg v0.2.15
+   Compiling stable_deref_trait v1.2.1
+   Compiling serde_core v1.0.228
+   Compiling writeable v0.6.3
+   Compiling litemap v0.8.2
+   Compiling icu_properties_data v2.2.0
+   Compiling memchr v2.8.0
+   Compiling icu_normalizer_data v2.2.0
+   Compiling utf8_iter v1.0.4
+   Compiling smallvec v1.15.1
+   Compiling regex-syntax v0.8.10
+   Compiling zmij v1.0.21
+   Compiling camino v1.2.2
+   Compiling thiserror v2.0.18
+   Compiling serde_json v1.0.149
+   Compiling bitflags v2.11.0
+   Compiling serde v1.0.228
+   Compiling log v0.4.29
+   Compiling cfg-if v1.0.4
+   Compiling getrandom v0.4.2
+   Compiling percent-encoding v2.3.2
+   Compiling rustix v1.1.4
+   Compiling winnow v1.0.1
+   Compiling openssl-probe v0.1.6
+   Compiling linux-raw-sys v0.12.1
+   Compiling anyhow v1.0.102
+   Compiling equivalent v1.0.2
+   Compiling toml_writer v1.1.1+spec-1.1.0
+   Compiling hashbrown v0.17.0
+   Compiling itoa v1.0.18
+   Compiling form_urlencoded v1.2.2
+   Compiling curl v0.4.49
+   Compiling fastrand v2.4.1
+   Compiling dylint_internal v5.0.0 (https://github.com/trailofbits/dylint?rev=0e0a71eefe6f01563d11acc6e1d7af1d505934a9#0e0a71ee)
+   Compiling rustversion v1.0.22
+   Compiling once_cell v1.21.4
+   Compiling utf8parse v0.2.2
+   Compiling anstyle-query v1.1.5
+   Compiling is_terminal_polyfill v1.70.2
+   Compiling anstyle v1.0.14
+   Compiling colorchoice v1.0.5
+   Compiling libloading v0.9.0
+   Compiling jiff v0.2.23
+   Compiling anstyle-parse v1.0.0
+   Compiling anstream v1.0.0
+   Compiling aho-corasick v1.1.4
+   Compiling indexmap v2.14.0
+   Compiling syn v2.0.117
+   Compiling toml_parser v1.1.2+spec-1.1.0
+   Compiling jobserver v0.1.34
+   Compiling socket2 v0.6.3
+   Compiling cc v1.2.60
+   Compiling tempfile v3.27.0
+   Compiling regex-automata v0.4.14
+   Compiling toml_datetime v1.1.1+spec-1.1.0
+   Compiling serde_spanned v1.1.1
+   Compiling cargo-platform v0.3.2
+   Compiling semver v1.0.28
+   Compiling openssl-sys v0.9.113
+   Compiling libz-sys v1.1.28
+   Compiling libssh2-sys v0.3.1
+   Compiling libgit2-sys v0.18.3+1.9.2
+   Compiling curl-sys v0.4.87+curl-8.19.0
+   Compiling toml v1.1.2+spec-1.1.0
+   Compiling toml_edit v0.25.11+spec-1.1.0
+   Compiling regex v1.12.3
+   Compiling synstructure v0.13.2
+   Compiling env_filter v1.0.1
+   Compiling env_logger v0.11.10
+   Compiling zerofrom-derive v0.1.7
+   Compiling yoke-derive v0.8.2
+   Compiling zerovec-derive v0.11.3
+   Compiling displaydoc v0.2.5
+   Compiling thiserror-impl v2.0.18
+   Compiling serde_derive v1.0.228
+   Compiling zerofrom v0.1.7
+   Compiling yoke v0.8.2
+   Compiling zerovec v0.11.6
+   Compiling zerotrie v0.2.4
+   Compiling tinystr v0.8.3
+   Compiling potential_utf v0.1.5
+   Compiling icu_collections v2.2.0
+   Compiling icu_locale_core v2.2.0
+   Compiling icu_provider v2.2.0
+   Compiling icu_normalizer v2.2.0
+   Compiling icu_properties v2.2.0
+   Compiling cargo_metadata v0.23.1
+   Compiling idna_adapter v1.2.1
+   Compiling idna v1.1.0
+   Compiling url v2.5.8
+   Compiling git2 v0.20.4
+   Compiling dylint_driver v5.0.0 (https://github.com/trailofbits/dylint?rev=0e0a71eefe6f01563d11acc6e1d7af1d505934a9#0e0a71ee)
+   Compiling dylint_driver-nightly-2026-03-21-x86_64-unknown-linux-gnu v0.1.0 (/tmp/nix-shell.qms09m/.tmp1JQ99C)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 12.88s
+Checking with toolchain `nightly-2026-03-21-x86_64-unknown-linux-gnu`
+warning: patch `dylint_driver v5.0.0 (https://github.com/trailofbits/dylint?rev=0e0a71eefe6f01563d11acc6e1d7af1d505934a9#0e0a71ee)` was not used in the crate graph
+help: Check that the patched package version and available features are compatible
+      with the dependency requirements. If the patch has a different version from
+      what is locked in the Cargo.lock file, run `cargo update` to use the new
+      version. This may also occur with an optional dependency that is not enabled.
+   Compiling proc-macro2 v1.0.106
+   Compiling quote v1.0.44
+   Compiling unicode-ident v1.0.24
+   Compiling crossbeam-utils v0.8.21
+   Compiling serde_core v1.0.228
+   Compiling libc v0.2.182
+   Compiling serde v1.0.228
+   Compiling find-msvc-tools v0.1.9
+    Checking utf8parse v0.2.2
+   Compiling shlex v1.3.0
+    Checking cfg-if v1.0.4
+    Checking hashbrown v0.16.1
+    Checking log v0.4.29
+    Checking equivalent v1.0.2
+    Checking anstyle-query v1.1.5
+    Checking bitflags v1.3.2
+    Checking anstyle v1.0.13
+    Checking colorchoice v1.0.4
+    Checking same-file v1.0.6
+   Compiling rayon-core v1.13.0
+   Compiling zmij v1.0.21
+    Checking is_terminal_polyfill v1.70.2
+   Compiling heck v0.5.0
+    Checking strsim v0.11.1
+    Checking clap_lex v1.0.0
+   Compiling serde_json v1.0.149
+   Compiling thiserror v2.0.18
+    Checking toml_write v0.1.2
+    Checking winnow v0.7.14
+   Compiling anyhow v1.0.102
+    Checking arrayref v0.3.9
+    Checking cpufeatures v0.2.17
+    Checking itoa v1.0.17
+    Checking lazy_static v1.5.0
+    Checking anstyle-parse v0.2.7
+    Checking memchr v2.8.0
+    Checking arrayvec v0.7.6
+    Checking constant_time_eq v0.4.2
+    Checking either v1.15.0
+    Checking similar v2.7.0
+    Checking walkdir v2.5.0
+    Checking colored v2.2.0
+   Compiling cc v1.2.56
+    Checking anstream v0.6.21
+    Checking clap_builder v4.5.60
+    Checking crossbeam-epoch v0.9.18
+    Checking crossbeam-channel v0.5.15
+    Checking indexmap v2.13.0
+    Checking syn v2.0.117
+    Checking crossbeam-deque v0.8.6
+   Compiling blake3 v1.8.3
+    Checking inotify-sys v0.1.5
+    Checking filetime v0.2.27
+    Checking mio v0.8.11
+    Checking rayon v1.11.0
+    Checking inotify v0.9.6
+    Checking notify v6.1.1
+    Checking notify-debouncer-mini v0.4.1
+   Compiling serde_derive v1.0.228
+   Compiling clap_derive v4.5.55
+   Compiling thiserror-impl v2.0.18
+    Checking clap v4.5.60
+    Checking toml_datetime v0.6.11
+    Checking serde_spanned v0.6.9
+    Checking toml_edit v0.22.27
+    Checking toml v0.8.23
+    Checking aspen-verus-metrics v0.1.0 (/tmp/second-consumer.RWcNx6/aspen-verus-metrics)
+warning: conditional nesting is 4 levels deep (limit: 3)
+  --> src/comparison/normalizer.rs:91:25
+   |
+91 | /                         if let Some(next) = result[after..].find(name) {
+92 | |                             // Recurse would be complex, just break for now
+93 | |                             let _ = next;
+94 | |                         }
+   | |_________________________^
+   |
+   = help: flatten with early returns, guard clauses, or extract into a helper function
+   = note: `#[warn(nested_conditionals)]` on by default
+
+warning: loop without visible iteration bound
+   --> src/comparison/normalizer.rs:81:9
+    |
+ 81 | /         loop {
+ 82 | |             // Find the macro name
+ 83 | |             if let Some(name_start) = result.find(name) {
+...   |
+148 | |         }
+    | |_________^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+    = note: `#[warn(unbounded_loop)]` on by default
+
+warning: conditional nesting is 4 levels deep (limit: 3)
+   --> src/comparison/normalizer.rs:254:17
+    |
+254 | /                 if let Some(semi_pos) = trimmed[last_let..].rfind(&search) {
+255 | |                     let after_semi_ident = &trimmed[last_let + semi_pos + search.len()..].trim();
+256 | |                     if after_semi_ident.is_empty() {
+...   |
+270 | |                     return format!("{}{}", before, expr);
+271 | |                 }
+    | |_________________^
+    |
+    = help: flatten with early returns, guard clauses, or extract into a helper function
+
+warning: function `render` is 74 lines (limit: 70)
+   --> src/output/markdown.rs:11:78
+    |
+ 11 |   pub fn render(report: &VerificationReport, min_severity: Severity) -> String {
+    |  ______________________________________________________________________________^
+ 12 | |     let mut output = String::new();
+...   |
+103 | |     output
+104 | | }
+    | |_^
+    |
+    = help: decompose into smaller functions with clear responsibilities
+    = note: `#[warn(function_length)]` on by default
+
+warning: function `render_crate` is 79 lines (limit: 70)
+   --> src/output/terminal.rs:25:91
+    |
+ 25 |   fn render_crate(report: &CrateReport, is_verbose: bool, min_severity: Severity) -> String {
+    |  ___________________________________________________________________________________________^
+ 26 | |     let mut output = String::new();
+ 27 | |
+ 28 | |     output.push_str(&format!("Checking {}...\n", report.name.cyan()));
+...   |
+111 | |     output
+112 | | }
+    | |_^
+    |
+    = help: decompose into smaller functions with clear responsibilities
+
+warning: conditional nesting is 4 levels deep (limit: 3)
+  --> src/output/terminal.rs:71:32
+   |
+71 |                           } else if line.starts_with('+') {
+   |  ________________________________^
+72 | |                             line.green().to_string()
+73 | |                         } else {
+74 | |                             line.to_string()
+75 | |                         };
+   | |_________________________^
+   |
+   = help: flatten with early returns, guard clauses, or extract into a helper function
+
+warning: loop without visible iteration bound
+   --> src/parser/verus.rs:458:9
+    |
+458 | /         loop {
+459 | |             self.skip_trivia();
+460 | |
+461 | |             if self.lookahead_keyword("ensures") {
+...   |
+476 | |         }
+    | |_________^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+  --> src/watch.rs:56:5
+   |
+56 | /     loop {
+57 | |         match rx.recv() {
+58 | |             Ok(result) => match result {
+59 | |                 Ok(events) => {
+...  |
+76 | |     }
+   | |_____^
+   |
+   = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: boolean binding `in_comment` should have a predicate prefix
+   --> src/comparison/normalizer.rs:157:13
+    |
+157 |     let mut in_comment = false;
+    |             ^^^^^^^^^^
+    |
+    = help: rename to `is_in_comment` or use another prefix: has_, should_, can_, was_, will_, needs_
+    = note: `#[warn(bool_naming)]` on by default
+
+warning: boolean binding `prev_whitespace` should have a predicate prefix
+   --> src/comparison/normalizer.rs:180:13
+    |
+180 |     let mut prev_whitespace = false;
+    |             ^^^^^^^^^^^^^^^
+    |
+    = help: rename to `is_prev_whitespace` or use another prefix: has_, should_, can_, was_, will_, needs_
+
+warning: boolean binding `skip_body` should have a predicate prefix
+   --> src/parser/verus.rs:245:13
+    |
+245 |         let skip_body = self.try_parse_function_attributes();
+    |             ^^^^^^^^^
+    |
+    = help: rename to `is_skip_body` or use another prefix: has_, should_, can_, was_, will_, needs_
+
+warning: boolean binding `skip_body` should have a predicate prefix
+   --> src/parser/verus.rs:270:17
+    |
+270 |         let mut skip_body = false;
+    |                 ^^^^^^^^^
+    |
+    = help: rename to `is_skip_body` or use another prefix: has_, should_, can_, was_, will_, needs_
+
+warning: boolean binding `prev_space` should have a predicate prefix
+  --> src/parser/mod.rs:82:13
+   |
+82 |     let mut prev_space = false;
+   |             ^^^^^^^^^^
+   |
+   = help: rename to `is_prev_space` or use another prefix: has_, should_, can_, was_, will_, needs_
+
+warning: boolean binding `rs_changes` should have a predicate prefix
+  --> src/watch.rs:61:25
+   |
+61 |                     let rs_changes = events.iter().any(|e| e.path.extension().is_some_and(|ext| ext == "rs"));
+   |                         ^^^^^^^^^^
+   |
+   = help: rename to `is_rs_changes` or use another prefix: has_, should_, can_, was_, will_, needs_
+
+warning: direct system clock read in production code
+   --> src/watch.rs:114:15
+    |
+114 |     let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default();
+    |               ^^^^^^^^^^^^^^^^^
+    |
+    = help: inject time as a parameter (e.g. `now: Instant`) so logic stays deterministic and testable. If this crate owns the clock boundary, add `#[allow(ambient_clock, reason = "...")]`
+    = note: `#[warn(ambient_clock)]` on by default
+
+warning: `aspen-verus-metrics` (lib) generated 15 warnings
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 4.32s

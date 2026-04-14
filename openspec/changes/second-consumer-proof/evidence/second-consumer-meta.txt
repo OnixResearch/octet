@@ -1,0 +1,125 @@
+$ git -C /home/brittonr/git/aspen-verus-metrics rev-parse HEAD
+d6828449c3e6a802f21ce32c159a4bdd36301057
+$ git -C /home/brittonr/git/aspen-verus-metrics rev-parse --short HEAD
+d682844
+$ sed -n 1\,120p /tmp/second-consumer.RWcNx6/aspen-verus-metrics/scripts/tigerstyle-check.sh
+#!/usr/bin/env bash
+# Copy into a consumer repo as scripts/tigerstyle-check.sh and edit
+# `default_scope` for the chosen rollout profile from docs/downstream-rollout.md.
+#
+# This template is for workspaces where plain `cargo dylint` still needs local
+# wrapper logic. If your toolchain behaves like a standard rustup-managed
+# nightly, strip the wrapper section and call `cargo dylint` directly.
+
+set -euo pipefail
+
+usage() {
+  cat <<'EOF'
+Usage: scripts/tigerstyle-check.sh [cargo-dylint options] [package scope] [-- cargo-check args]
+
+Edit `default_scope` in the script before relying on the no-argument default.
+
+Environment:
+  TIGERSTYLE_PATH        local tigerstyle checkout (default: ../tigerstyle)
+  TIGERSTYLE_DYLINT_REV  optional dylint git rev to patch dylint_driver
+
+Reference starter profile from docs/downstream-rollout.md:
+  ambient_clock compound_assertion contradictory_time
+
+Default args in this template:
+  --lib --no-deps
+
+Examples:
+  scripts/tigerstyle-check.sh -p your-core-crate
+  scripts/tigerstyle-check.sh --workspace -- --all-targets
+  TIGERSTYLE_PATH=~/src/tigerstyle scripts/tigerstyle-check.sh -p your-core-crate
+  TIGERSTYLE_DYLINT_REV=<rev> scripts/tigerstyle-check.sh -p your-core-crate
+EOF
+}
+
+if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+  usage
+  exit 0
+fi
+
+need_cmd() {
+  if ! command -v "$1" >/dev/null 2>&1; then
+    echo "error: missing required command: $1" >&2
+    exit 1
+  fi
+}
+
+export PATH="${CARGO_HOME:-$HOME/.cargo}/bin:$PATH"
+
+need_cmd cargo
+need_cmd rustc
+need_cmd python3
+need_cmd cargo-dylint
+need_cmd dylint-link
+need_cmd git
+
+repo_root=$(git rev-parse --show-toplevel 2>/dev/null) || {
+  echo "error: not inside a git repository" >&2
+  exit 1
+}
+cd "$repo_root"
+
+workspace_name=$(basename "$repo_root")
+tigerstyle_path=$(python3 - "${TIGERSTYLE_PATH:-$repo_root/../tigerstyle}" <<'PY'
+import pathlib
+import sys
+print(pathlib.Path(sys.argv[1]).expanduser().resolve())
+PY
+)
+if [[ ! -d "$tigerstyle_path" ]]; then
+  echo "error: tigerstyle repo not found at $tigerstyle_path" >&2
+  echo "set TIGERSTYLE_PATH=/path/to/tigerstyle and retry" >&2
+  exit 1
+fi
+if [[ ! -f "$repo_root/dylint.toml" ]]; then
+  echo "error: expected workspace dylint config at $repo_root/dylint.toml" >&2
+  exit 1
+fi
+
+host_triple=$(rustc -vV | awk '/^host:/ {print $2}')
+toolchain_channel=$(python3 - "$tigerstyle_path/rust-toolchain.toml" <<'PY'
+import pathlib
+import sys
+import tomllib
+path = pathlib.Path(sys.argv[1])
+data = tomllib.loads(path.read_text())
+print(data["toolchain"]["channel"])
+PY
+)
+toolchain="$toolchain_channel"
+if [[ "$toolchain" != *"$host_triple" ]]; then
+  toolchain="${toolchain}-${host_triple}"
+fi
+
+starter_lints=(
+  ambient_clock
+  compound_assertion
+  contradictory_time
+)
+
+default_scope=(
+  -p aspen-verus-metrics
+)
+
+real_cargo=$(command -v cargo)
+real_rustc=$(command -v rustc)
+real_dylint_link=$(command -v dylint-link)
+dylint_rev="${TIGERSTYLE_DYLINT_REV:-}"
+
+wrap_dir=$(mktemp -d)
+cargo_home_tmp=$(mktemp -d)
+cleanup() {
+  rm -rf "${wrap_dir:-}" "${cargo_home_tmp:-}"
+}
+trap cleanup EXIT
+
+source_cargo_home="${CARGO_HOME:-$HOME/.cargo}"
+if [[ -d "$source_cargo_home/registry" ]]; then
+  ln -s "$source_cargo_home/registry" "$cargo_home_tmp/registry"
+fi
+if [[ -d "$source_cargo_home/git" ]]; then

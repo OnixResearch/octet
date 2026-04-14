@@ -1,0 +1,6 @@
+$ git -C /home/brittonr/git/aspen rev-parse HEAD
+8cddaec93ad1be8c224589e44ea33c6bcedd30b0
+$ git -C /home/brittonr/git/aspen rev-parse --short HEAD
+8cddaec93
+$ pwd
+/tmp/aspen-phase2.90Vamy

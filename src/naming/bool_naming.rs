@@ -1,8 +1,11 @@
 use rustc_errors::DiagDecorator;
 use rustc_hir as hir;
 use rustc_hir::PatKind;
-use rustc_lint::{LateContext, LateLintPass, LintContext};
-use rustc_session::{declare_lint, declare_lint_pass};
+use rustc_lint::LateContext;
+use rustc_lint::LateLintPass;
+use rustc_lint::LintContext;
+use rustc_session::declare_lint;
+use rustc_session::declare_lint_pass;
 
 declare_lint! {
     /// Detects `let` bindings of type `bool` whose name does not start with
@@ -16,9 +19,7 @@ declare_lint! {
 
 declare_lint_pass!(BoolNaming => [BOOL_NAMING]);
 
-const BOOL_PREFIXES: &[&str] = &[
-    "is_", "has_", "should_", "can_", "was_", "will_", "needs_",
-];
+const BOOL_PREFIXES: &[&str] = &["is_", "has_", "should_", "can_", "was_", "will_", "needs_"];
 
 impl<'tcx> LateLintPass<'tcx> for BoolNaming {
     fn check_local(&mut self, cx: &LateContext<'tcx>, local: &'tcx hir::LetStmt<'tcx>) {
@@ -49,9 +50,7 @@ impl<'tcx> LateLintPass<'tcx> for BoolNaming {
             BOOL_NAMING,
             Some(ident.span),
             DiagDecorator(|diag| {
-                diag.primary_message(format!(
-                    "boolean binding `{name}` should have a predicate prefix",
-                ));
+                diag.primary_message(format!("boolean binding `{name}` should have a predicate prefix",));
                 diag.help(format!(
                     "rename to `is_{name}` or use another prefix: \
                      has_, should_, can_, was_, will_, needs_",

@@ -1,0 +1,5 @@
+$ python3 openspec/changes/nix-ui-test-gate/evidence/check-nix-ui-test-gate.py openspec/changes/nix-ui-test-gate/evidence/ui-devshell.txt openspec/changes/nix-ui-test-gate/evidence/ui-nextest-detailed.txt openspec/changes/nix-ui-test-gate/evidence/ui-check.txt openspec/changes/nix-ui-test-gate/evidence/ui-check-local-support.txt
+ui-devshell: passed
+nextest: passed
+checks.ui: passed
+local-support-driver: passed

@@ -1,0 +1,2 @@
+default pilot: widened scope and lint set confirmed
+coordination slice: no starter-lint spans in saved transcript

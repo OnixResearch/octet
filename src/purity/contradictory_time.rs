@@ -1,9 +1,13 @@
 use rustc_errors::DiagDecorator;
 use rustc_hir as hir;
-use rustc_hir::intravisit::{self, Visitor};
 use rustc_hir::ExprKind;
-use rustc_lint::{LateContext, LateLintPass, LintContext};
-use rustc_session::{declare_lint, declare_lint_pass};
+use rustc_hir::intravisit::Visitor;
+use rustc_hir::intravisit::{self};
+use rustc_lint::LateContext;
+use rustc_lint::LateLintPass;
+use rustc_lint::LintContext;
+use rustc_session::declare_lint;
+use rustc_session::declare_lint_pass;
 use rustc_span::Span;
 
 declare_lint! {
@@ -21,14 +25,7 @@ declare_lint_pass!(ContradictoryTime => [CONTRADICTORY_TIME]);
 
 /// Time parameter name patterns.
 const TIME_SUFFIXES: &[&str] = &["_ms", "_secs", "_us", "_ns"];
-const TIME_NAMES: &[&str] = &[
-    "now",
-    "timestamp",
-    "current_time",
-    "elapsed",
-    "now_ms",
-    "now_secs",
-];
+const TIME_NAMES: &[&str] = &["now", "timestamp", "current_time", "elapsed", "now_ms", "now_secs"];
 
 fn is_time_param_name(name: &str) -> bool {
     TIME_NAMES.contains(&name) || TIME_SUFFIXES.iter().any(|s| name.ends_with(s))
@@ -58,11 +55,11 @@ impl<'tcx> Visitor<'tcx> for TimeCallFinder {
         }
 
         // Also check method calls directly
-        if let ExprKind::MethodCall(segment, _, _, _) = &expr.kind {
-            if segment.ident.name.as_str() == "now" {
-                self.found = Some(expr.span);
-                return;
-            }
+        if let ExprKind::MethodCall(segment, _, _, _) = &expr.kind
+            && segment.ident.name.as_str() == "now"
+        {
+            self.found = Some(expr.span);
+            return;
         }
 
         intravisit::walk_expr(self, expr);
@@ -71,12 +68,9 @@ impl<'tcx> Visitor<'tcx> for TimeCallFinder {
 
 fn path_to_string(qpath: &hir::QPath<'_>) -> String {
     match qpath {
-        hir::QPath::Resolved(_, path) => path
-            .segments
-            .iter()
-            .map(|s| s.ident.name.as_str())
-            .collect::<Vec<_>>()
-            .join("::"),
+        hir::QPath::Resolved(_, path) => {
+            path.segments.iter().map(|s| s.ident.name.as_str()).collect::<Vec<_>>().join("::")
+        }
         hir::QPath::TypeRelative(_, segment) => segment.ident.name.to_string(),
     }
 }

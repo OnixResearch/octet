@@ -1,7 +1,11 @@
-use rustc_ast::{Item, ItemKind};
+use rustc_ast::Item;
+use rustc_ast::ItemKind;
 use rustc_errors::DiagDecorator;
-use rustc_lint::{EarlyContext, EarlyLintPass, LintContext};
-use rustc_session::{declare_lint, declare_lint_pass};
+use rustc_lint::EarlyContext;
+use rustc_lint::EarlyLintPass;
+use rustc_lint::LintContext;
+use rustc_session::declare_lint;
+use rustc_session::declare_lint_pass;
 
 declare_lint! {
     /// Detects struct definitions containing 2 or more `Mutex` or `RwLock`
@@ -29,14 +33,7 @@ impl EarlyLintPass for MultiLockOrdering {
         };
 
         // Count fields that look like lock types (by name in source)
-        let lock_count = LOCK_TYPES
-            .iter()
-            .map(|lt| {
-                snippet
-                    .matches(&format!("{lt}<"))
-                    .count()
-            })
-            .sum::<usize>();
+        let lock_count = LOCK_TYPES.iter().map(|lt| snippet.matches(&format!("{lt}<")).count()).sum::<usize>();
 
         if lock_count < 2 {
             return;

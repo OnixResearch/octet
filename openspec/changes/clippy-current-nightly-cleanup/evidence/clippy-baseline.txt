@@ -1,0 +1,473 @@
+this derivation will be built:
+  /nix/store/cqi106lbaj1vs3srwxgk7v2q4kyx8m1b-tigerstyle-clippy-0.1.0.drv
+cannot build on 'ssh-ng://root@10.10.10.1': error: failed to start SSH connection to '10.10.10.1'
+building '/nix/store/cqi106lbaj1vs3srwxgk7v2q4kyx8m1b-tigerstyle-clippy-0.1.0.drv'...
+tigerstyle-clippy> Running phase: unpackPhase
+tigerstyle-clippy> unpacking source archive /nix/store/dq6ag9yzdrdj2mriqwbl21lj614n2gsk-source
+tigerstyle-clippy> source root is source
+tigerstyle-clippy> Running phase: patchPhase
+tigerstyle-clippy> Executing configureCargoCommonVars
+tigerstyle-clippy> decompressing cargo artifacts from /nix/store/79a66ssa92f29ay0q95s8h1zsqsk5mfn-tigerstyle-deps-0.1.0/target.tar.zst to target
+tigerstyle-clippy> Running phase: updateAutotoolsGnuConfigScriptsPhase
+tigerstyle-clippy> Running phase: configurePhase
+tigerstyle-clippy> will append /build/source/.cargo-home/config.toml with contents of /nix/store/5if6mjyzck5rhdwkycd33jblxcsg7hih-vendor-cargo-deps/config.toml
+tigerstyle-clippy> default configurePhase, nothing to do
+tigerstyle-clippy> Running phase: buildPhase
+tigerstyle-clippy> +++ command cargo --version
+tigerstyle-clippy> cargo 1.96.0-nightly (cbb9bb8bd 2026-03-13)
+tigerstyle-clippy> +++ command cargo clippy --release --locked --all-targets -- -D warnings
+tigerstyle-clippy>     Checking tigerstyle v0.1.0 (/build/source)
+tigerstyle-clippy> error: this `if` statement can be collapsed
+tigerstyle-clippy>    --> src/naming/acronym_style.rs:117:5
+tigerstyle-clippy>     |
+tigerstyle-clippy> 117 | /     if let Some(acronym) = extract_acronym(name) {
+tigerstyle-clippy> 118 | |         if allowlist.iter().any(|a| a == &acronym) {
+tigerstyle-clippy> 119 | |             return;
+tigerstyle-clippy> 120 | |         }
+tigerstyle-clippy> 121 | |     }
+tigerstyle-clippy>     | |_____^
+tigerstyle-clippy>     |
+tigerstyle-clippy>     = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#collapsible_if
+tigerstyle-clippy>     = note: `-D clippy::collapsible-if` implied by `-D warnings`
+tigerstyle-clippy>     = help: to override `-D warnings` add `#[allow(clippy::collapsible_if)]`
+tigerstyle-clippy> help: collapse nested if block
+tigerstyle-clippy>     |
+tigerstyle-clippy> 117 ~     if let Some(acronym) = extract_acronym(name)
+tigerstyle-clippy> 118 ~         && allowlist.iter().any(|a| a == &acronym) {
+tigerstyle-clippy> 119 |             return;
+tigerstyle-clippy> 120 ~         }
+tigerstyle-clippy>     |
+tigerstyle-clippy> 
+tigerstyle-clippy> error: this `if` statement can be collapsed
+tigerstyle-clippy>   --> src/purity/ambient_clock.rs:70:13
+tigerstyle-clippy>    |
+tigerstyle-clippy> 70 | /             if segments.last() == Some(&"now") {
+tigerstyle-clippy> 71 | |                 if let Some(type_seg) = segments.iter().rev().nth(1) {
+tigerstyle-clippy> 72 | |                     return CLOCK_TYPES.contains(type_seg);
+tigerstyle-clippy> 73 | |                 }
+tigerstyle-clippy> 74 | |             }
+tigerstyle-clippy>    | |_____________^
+tigerstyle-clippy>    |
+tigerstyle-clippy>    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#collapsible_if
+tigerstyle-clippy> help: collapse nested if block
+tigerstyle-clippy>    |
+tigerstyle-clippy> 70 ~             if segments.last() == Some(&"now")
+tigerstyle-clippy> 71 ~                 && let Some(type_seg) = segments.iter().rev().nth(1) {
+tigerstyle-clippy> 72 |                     return CLOCK_TYPES.contains(type_seg);
+tigerstyle-clippy> 73 ~                 }
+tigerstyle-clippy>    |
+tigerstyle-clippy> 
+tigerstyle-clippy> error: this `if` statement can be collapsed
+tigerstyle-clippy>    --> src/purity/ambient_clock.rs:101:9
+tigerstyle-clippy>     |
+tigerstyle-clippy> 101 | /         if let ExprKind::Call(func, _) = &expr.kind {
+tigerstyle-clippy> 102 | |             if let ExprKind::Path(ref qpath) = func.kind {
+tigerstyle-clippy> 103 | |                 if is_clock_now_path(qpath) && !is_in_test_context(cx, expr) {
+tigerstyle-clippy> 104 | |                     emit(cx, expr);
+tigerstyle-clippy> ...   |
+tigerstyle-clippy> 108 | |         }
+tigerstyle-clippy>     | |_________^
+tigerstyle-clippy>     |
+tigerstyle-clippy>     = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#collapsible_if
+tigerstyle-clippy> help: collapse nested if block
+tigerstyle-clippy>     |
+tigerstyle-clippy> 101 ~         if let ExprKind::Call(func, _) = &expr.kind
+tigerstyle-clippy> 102 ~             && let ExprKind::Path(ref qpath) = func.kind {
+tigerstyle-clippy> 103 |                 if is_clock_now_path(qpath) && !is_in_test_context(cx, expr) {
+tigerstyle-clippy> ...
+tigerstyle-clippy> 106 |                 }
+tigerstyle-clippy> 107 ~             }
+tigerstyle-clippy>     |
+tigerstyle-clippy> 
+tigerstyle-clippy> error: this `if` statement can be collapsed
+tigerstyle-clippy>    --> src/purity/ambient_clock.rs:102:13
+tigerstyle-clippy>     |
+tigerstyle-clippy> 102 | /             if let ExprKind::Path(ref qpath) = func.kind {
+tigerstyle-clippy> 103 | |                 if is_clock_now_path(qpath) && !is_in_test_context(cx, expr) {
+tigerstyle-clippy> 104 | |                     emit(cx, expr);
+tigerstyle-clippy> 105 | |                     return;
+tigerstyle-clippy> 106 | |                 }
+tigerstyle-clippy> 107 | |             }
+tigerstyle-clippy>     | |_____________^
+tigerstyle-clippy>     |
+tigerstyle-clippy>     = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#collapsible_if
+tigerstyle-clippy> help: collapse nested if block
+tigerstyle-clippy>     |
+tigerstyle-clippy> 102 ~             if let ExprKind::Path(ref qpath) = func.kind
+tigerstyle-clippy> 103 ~                 && is_clock_now_path(qpath) && !is_in_test_context(cx, expr) {
+tigerstyle-clippy> 104 |                     emit(cx, expr);
+tigerstyle-clippy> 105 |                     return;
+tigerstyle-clippy> 106 ~                 }
+tigerstyle-clippy>     |
+tigerstyle-clippy> 
+tigerstyle-clippy> error: this `if` statement can be collapsed
+tigerstyle-clippy>    --> src/purity/ambient_clock.rs:112:9
+tigerstyle-clippy>     |
+tigerstyle-clippy> 112 | /         if let ExprKind::MethodCall(segment, receiver, _, _) = &expr.kind {
+tigerstyle-clippy> 113 | |             if segment.ident.name.as_str() == "now" {
+tigerstyle-clippy> 114 | |                 let receiver_ty = cx.typeck_results().expr_ty(receiver);
+tigerstyle-clippy> 115 | |                 if let ty::Adt(adt, _) = receiver_ty.kind() {
+tigerstyle-clippy> ...   |
+tigerstyle-clippy> 125 | |         }
+tigerstyle-clippy>     | |_________^
+tigerstyle-clippy>     |
+tigerstyle-clippy>     = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#collapsible_if
+tigerstyle-clippy> help: collapse nested if block
+tigerstyle-clippy>     |
+tigerstyle-clippy> 112 ~         if let ExprKind::MethodCall(segment, receiver, _, _) = &expr.kind
+tigerstyle-clippy> 113 ~             && segment.ident.name.as_str() == "now" {
+tigerstyle-clippy> 114 |                 let receiver_ty = cx.typeck_results().expr_ty(receiver);
+tigerstyle-clippy> ...
+tigerstyle-clippy> 123 |                 }
+tigerstyle-clippy> 124 ~             }
+tigerstyle-clippy>     |
+tigerstyle-clippy> 
+tigerstyle-clippy> error: using `contains()` instead of `iter().any()` is more efficient
+tigerstyle-clippy>    --> src/purity/ambient_clock.rs:118:24
+tigerstyle-clippy>     |
+tigerstyle-clippy> 118 |                     if CLOCK_TYPES.iter().any(|&t| type_name == t)
+tigerstyle-clippy>     |                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: try: `CLOCK_TYPES.contains(&type_name)`
+tigerstyle-clippy>     |
+tigerstyle-clippy>     = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#manual_contains
+tigerstyle-clippy>     = note: `-D clippy::manual-contains` implied by `-D warnings`
+tigerstyle-clippy>     = help: to override `-D warnings` add `#[allow(clippy::manual_contains)]`
+tigerstyle-clippy> 
+tigerstyle-clippy> error: this `if` statement can be collapsed
+tigerstyle-clippy>   --> src/purity/contradictory_time.rs:61:9
+tigerstyle-clippy>    |
+tigerstyle-clippy> 61 | /         if let ExprKind::MethodCall(segment, _, _, _) = &expr.kind {
+tigerstyle-clippy> 62 | |             if segment.ident.name.as_str() == "now" {
+tigerstyle-clippy> 63 | |                 self.found = Some(expr.span);
+tigerstyle-clippy> 64 | |                 return;
+tigerstyle-clippy> 65 | |             }
+tigerstyle-clippy> 66 | |         }
+tigerstyle-clippy>    | |_________^
+tigerstyle-clippy>    |
+tigerstyle-clippy>    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#collapsible_if
+tigerstyle-clippy> help: collapse nested if block
+tigerstyle-clippy>    |
+tigerstyle-clippy> 61 ~         if let ExprKind::MethodCall(segment, _, _, _) = &expr.kind
+tigerstyle-clippy> 62 ~             && segment.ident.name.as_str() == "now" {
+tigerstyle-clippy> 63 |                 self.found = Some(expr.span);
+tigerstyle-clippy> 64 |                 return;
+tigerstyle-clippy> 65 ~             }
+tigerstyle-clippy>    |
+tigerstyle-clippy> 
+tigerstyle-clippy> error: this `if` statement can be collapsed
+tigerstyle-clippy>   --> src/purity/verified_purity.rs:61:9
+tigerstyle-clippy>    |
+tigerstyle-clippy> 61 | /         if let ItemKind::Fn(func) = &item.kind {
+tigerstyle-clippy> 62 | |             if func.sig.header.coroutine_kind.is_some() {
+tigerstyle-clippy> 63 | |                 cx.opt_span_lint(
+tigerstyle-clippy> 64 | |                     VERIFIED_PURITY,
+tigerstyle-clippy> ...  |
+tigerstyle-clippy> 77 | |         }
+tigerstyle-clippy>    | |_________^
+tigerstyle-clippy>    |
+tigerstyle-clippy>    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#collapsible_if
+tigerstyle-clippy> help: collapse nested if block
+tigerstyle-clippy>    |
+tigerstyle-clippy> 61 ~         if let ItemKind::Fn(func) = &item.kind
+tigerstyle-clippy> 62 ~             && func.sig.header.coroutine_kind.is_some() {
+tigerstyle-clippy> 63 |                 cx.opt_span_lint(
+tigerstyle-clippy> ...
+tigerstyle-clippy> 75 |                 );
+tigerstyle-clippy> 76 ~             }
+tigerstyle-clippy>    |
+tigerstyle-clippy> 
+tigerstyle-clippy> error: this `if` statement can be collapsed
+tigerstyle-clippy>   --> src/safety/assertion_density.rs:66:9
+tigerstyle-clippy>    |
+tigerstyle-clippy> 66 | /         if let ExprKind::MacCall(mac) = &expr.kind {
+tigerstyle-clippy> 67 | |             if let Some(last) = mac.path.segments.last() {
+tigerstyle-clippy> 68 | |                 if ASSERT_MACROS.contains(&last.ident.name.as_str()) {
+tigerstyle-clippy> 69 | |                     self.count += 1;
+tigerstyle-clippy> ...  |
+tigerstyle-clippy> 72 | |         }
+tigerstyle-clippy>    | |_________^
+tigerstyle-clippy>    |
+tigerstyle-clippy>    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#collapsible_if
+tigerstyle-clippy> help: collapse nested if block
+tigerstyle-clippy>    |
+tigerstyle-clippy> 66 ~         if let ExprKind::MacCall(mac) = &expr.kind
+tigerstyle-clippy> 67 ~             && let Some(last) = mac.path.segments.last() {
+tigerstyle-clippy> 68 |                 if ASSERT_MACROS.contains(&last.ident.name.as_str()) {
+tigerstyle-clippy> 69 |                     self.count += 1;
+tigerstyle-clippy> 70 |                 }
+tigerstyle-clippy> 71 ~             }
+tigerstyle-clippy>    |
+tigerstyle-clippy> 
+tigerstyle-clippy> error: this `if` statement can be collapsed
+tigerstyle-clippy>   --> src/safety/assertion_density.rs:67:13
+tigerstyle-clippy>    |
+tigerstyle-clippy> 67 | /             if let Some(last) = mac.path.segments.last() {
+tigerstyle-clippy> 68 | |                 if ASSERT_MACROS.contains(&last.ident.name.as_str()) {
+tigerstyle-clippy> 69 | |                     self.count += 1;
+tigerstyle-clippy> 70 | |                 }
+tigerstyle-clippy> 71 | |             }
+tigerstyle-clippy>    | |_____________^
+tigerstyle-clippy>    |
+tigerstyle-clippy>    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#collapsible_if
+tigerstyle-clippy> help: collapse nested if block
+tigerstyle-clippy>    |
+tigerstyle-clippy> 67 ~             if let Some(last) = mac.path.segments.last()
+tigerstyle-clippy> 68 ~                 && ASSERT_MACROS.contains(&last.ident.name.as_str()) {
+tigerstyle-clippy> 69 |                     self.count += 1;
+tigerstyle-clippy> 70 ~                 }
+tigerstyle-clippy>    |
+tigerstyle-clippy> 
+tigerstyle-clippy> error: this `if` statement can be collapsed
+tigerstyle-clippy>   --> src/safety/assertion_density.rs:85:5
+tigerstyle-clippy>    |
+tigerstyle-clippy> 85 | /     if body.stmts.len() == 1 {
+tigerstyle-clippy> 86 | |         if let StmtKind::Expr(_) | StmtKind::Semi(_) = &body.stmts[0].kind {
+tigerstyle-clippy> 87 | |             return true;
+tigerstyle-clippy> 88 | |         }
+tigerstyle-clippy> 89 | |     }
+tigerstyle-clippy>    | |_____^
+tigerstyle-clippy>    |
+tigerstyle-clippy>    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#collapsible_if
+tigerstyle-clippy> help: collapse nested if block
+tigerstyle-clippy>    |
+tigerstyle-clippy> 85 ~     if body.stmts.len() == 1
+tigerstyle-clippy> 86 ~         && let StmtKind::Expr(_) | StmtKind::Semi(_) = &body.stmts[0].kind {
+tigerstyle-clippy> 87 |             return true;
+tigerstyle-clippy> 88 ~         }
+tigerstyle-clippy>    |
+tigerstyle-clippy> 
+tigerstyle-clippy> error: this `if let` can be collapsed into the outer `match`
+tigerstyle-clippy>   --> src/safety/catch_all_on_enum.rs:27:13
+tigerstyle-clippy>    |
+tigerstyle-clippy> 27 | /             if let hir::QPath::Resolved(_, path) = qpath {
+tigerstyle-clippy> 28 | |                 let name = path
+tigerstyle-clippy> 29 | |                     .segments
+tigerstyle-clippy> 30 | |                     .last()
+tigerstyle-clippy> ...  |
+tigerstyle-clippy> 35 | |                 false
+tigerstyle-clippy> 36 | |             }
+tigerstyle-clippy>    | |_____________^
+tigerstyle-clippy>    |
+tigerstyle-clippy> help: the outer pattern can be modified to include the inner pattern
+tigerstyle-clippy>   --> src/safety/catch_all_on_enum.rs:26:24
+tigerstyle-clippy>    |
+tigerstyle-clippy> 26 |         ExprKind::Path(qpath) => {
+tigerstyle-clippy>    |                        ^^^^^ replace this binding
+tigerstyle-clippy> 27 |             if let hir::QPath::Resolved(_, path) = qpath {
+tigerstyle-clippy>    |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ with this pattern
+tigerstyle-clippy>    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#collapsible_match
+tigerstyle-clippy>    = note: `-D clippy::collapsible-match` implied by `-D warnings`
+tigerstyle-clippy>    = help: to override `-D warnings` add `#[allow(clippy::collapsible_match)]`
+tigerstyle-clippy> 
+tigerstyle-clippy> error: you seem to be trying to use `match` for destructuring a single pattern. Consider using `if let`
+tigerstyle-clippy>   --> src/safety/no_recursion.rs:32:9
+tigerstyle-clippy>    |
+tigerstyle-clippy> 32 | /         match &expr.kind {
+tigerstyle-clippy> 33 | |             ExprKind::Call(func, _) => {
+tigerstyle-clippy> 34 | |                 if let ExprKind::Path(qpath) = &func.kind {
+tigerstyle-clippy> 35 | |                     if let hir::QPath::Resolved(_, path) = qpath {
+tigerstyle-clippy> ...  |
+tigerstyle-clippy> 45 | |             _ => {}
+tigerstyle-clippy> 46 | |         }
+tigerstyle-clippy>    | |_________^
+tigerstyle-clippy>    |
+tigerstyle-clippy>    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#single_match
+tigerstyle-clippy>    = note: `-D clippy::single-match` implied by `-D warnings`
+tigerstyle-clippy>    = help: to override `-D warnings` add `#[allow(clippy::single_match)]`
+tigerstyle-clippy> help: try
+tigerstyle-clippy>    |
+tigerstyle-clippy> 32 ~         if let ExprKind::Call(func, _) = &expr.kind {
+tigerstyle-clippy> 33 +             if let ExprKind::Path(qpath) = &func.kind {
+tigerstyle-clippy> 34 +                 if let hir::QPath::Resolved(_, path) = qpath {
+tigerstyle-clippy> 35 +                     if let hir::def::Res::Def(_, def_id) = path.res {
+tigerstyle-clippy> 36 +                         if def_id == self.target_def_id {
+tigerstyle-clippy> 37 +                             self.found = Some(expr.span);
+tigerstyle-clippy> 38 +                             return;
+tigerstyle-clippy> 39 +                         }
+tigerstyle-clippy> 40 +                     }
+tigerstyle-clippy> 41 +                 }
+tigerstyle-clippy> 42 +             }
+tigerstyle-clippy> 43 +         }
+tigerstyle-clippy>    |
+tigerstyle-clippy> 
+tigerstyle-clippy> error: this `if let` can be collapsed into the outer `if let`
+tigerstyle-clippy>   --> src/safety/no_recursion.rs:35:21
+tigerstyle-clippy>    |
+tigerstyle-clippy> 35 | /                     if let hir::QPath::Resolved(_, path) = qpath {
+tigerstyle-clippy> 36 | |                         if let hir::def::Res::Def(_, def_id) = path.res {
+tigerstyle-clippy> 37 | |                             if def_id == self.target_def_id {
+tigerstyle-clippy> 38 | |                                 self.found = Some(expr.span);
+tigerstyle-clippy> ...  |
+tigerstyle-clippy> 42 | |                     }
+tigerstyle-clippy>    | |_____________________^
+tigerstyle-clippy>    |
+tigerstyle-clippy> help: the outer pattern can be modified to include the inner pattern
+tigerstyle-clippy>   --> src/safety/no_recursion.rs:34:39
+tigerstyle-clippy>    |
+tigerstyle-clippy> 34 |                 if let ExprKind::Path(qpath) = &func.kind {
+tigerstyle-clippy>    |                                       ^^^^^ replace this binding
+tigerstyle-clippy> 35 |                     if let hir::QPath::Resolved(_, path) = qpath {
+tigerstyle-clippy>    |                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ with this pattern
+tigerstyle-clippy>    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#collapsible_match
+tigerstyle-clippy> 
+tigerstyle-clippy> error: this `if` statement can be collapsed
+tigerstyle-clippy>   --> src/safety/no_recursion.rs:34:17
+tigerstyle-clippy>    |
+tigerstyle-clippy> 34 | /                 if let ExprKind::Path(qpath) = &func.kind {
+tigerstyle-clippy> 35 | |                     if let hir::QPath::Resolved(_, path) = qpath {
+tigerstyle-clippy> 36 | |                         if let hir::def::Res::Def(_, def_id) = path.res {
+tigerstyle-clippy> 37 | |                             if def_id == self.target_def_id {
+tigerstyle-clippy> ...  |
+tigerstyle-clippy> 43 | |                 }
+tigerstyle-clippy>    | |_________________^
+tigerstyle-clippy>    |
+tigerstyle-clippy>    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#collapsible_if
+tigerstyle-clippy> help: collapse nested if block
+tigerstyle-clippy>    |
+tigerstyle-clippy> 34 ~                 if let ExprKind::Path(qpath) = &func.kind
+tigerstyle-clippy> 35 ~                     && let hir::QPath::Resolved(_, path) = qpath {
+tigerstyle-clippy> 36 |                         if let hir::def::Res::Def(_, def_id) = path.res {
+tigerstyle-clippy> ...
+tigerstyle-clippy> 41 |                         }
+tigerstyle-clippy> 42 ~                     }
+tigerstyle-clippy>    |
+tigerstyle-clippy> 
+tigerstyle-clippy> error: this `if` statement can be collapsed
+tigerstyle-clippy>   --> src/safety/no_recursion.rs:35:21
+tigerstyle-clippy>    |
+tigerstyle-clippy> 35 | /                     if let hir::QPath::Resolved(_, path) = qpath {
+tigerstyle-clippy> 36 | |                         if let hir::def::Res::Def(_, def_id) = path.res {
+tigerstyle-clippy> 37 | |                             if def_id == self.target_def_id {
+tigerstyle-clippy> 38 | |                                 self.found = Some(expr.span);
+tigerstyle-clippy> ...  |
+tigerstyle-clippy> 42 | |                     }
+tigerstyle-clippy>    | |_____________________^
+tigerstyle-clippy>    |
+tigerstyle-clippy>    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#collapsible_if
+tigerstyle-clippy> help: collapse nested if block
+tigerstyle-clippy>    |
+tigerstyle-clippy> 35 ~                     if let hir::QPath::Resolved(_, path) = qpath
+tigerstyle-clippy> 36 ~                         && let hir::def::Res::Def(_, def_id) = path.res {
+tigerstyle-clippy> 37 |                             if def_id == self.target_def_id {
+tigerstyle-clippy> ...
+tigerstyle-clippy> 40 |                             }
+tigerstyle-clippy> 41 ~                         }
+tigerstyle-clippy>    |
+tigerstyle-clippy> 
+tigerstyle-clippy> error: this `if` statement can be collapsed
+tigerstyle-clippy>   --> src/safety/no_recursion.rs:36:25
+tigerstyle-clippy>    |
+tigerstyle-clippy> 36 | /                         if let hir::def::Res::Def(_, def_id) = path.res {
+tigerstyle-clippy> 37 | |                             if def_id == self.target_def_id {
+tigerstyle-clippy> 38 | |                                 self.found = Some(expr.span);
+tigerstyle-clippy> 39 | |                                 return;
+tigerstyle-clippy> 40 | |                             }
+tigerstyle-clippy> 41 | |                         }
+tigerstyle-clippy>    | |_________________________^
+tigerstyle-clippy>    |
+tigerstyle-clippy>    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#collapsible_if
+tigerstyle-clippy> help: collapse nested if block
+tigerstyle-clippy>    |
+tigerstyle-clippy> 36 ~                         if let hir::def::Res::Def(_, def_id) = path.res
+tigerstyle-clippy> 37 ~                             && def_id == self.target_def_id {
+tigerstyle-clippy> 38 |                                 self.found = Some(expr.span);
+tigerstyle-clippy> 39 |                                 return;
+tigerstyle-clippy> 40 ~                             }
+tigerstyle-clippy>    |
+tigerstyle-clippy> 
+tigerstyle-clippy> error: this `if` statement can be collapsed
+tigerstyle-clippy>   --> src/safety/unchecked_division.rs:77:21
+tigerstyle-clippy>    |
+tigerstyle-clippy> 77 | /                     if let Ok(snippet) = source_map.span_to_snippet(block.span) {
+tigerstyle-clippy> 78 | |                         if snippet.contains(divisor_name)
+tigerstyle-clippy> 79 | |                             && (snippet.contains("assert!")
+tigerstyle-clippy> 80 | |                                 || snippet.contains("assert_ne!")
+tigerstyle-clippy> ...  |
+tigerstyle-clippy> 88 | |                     }
+tigerstyle-clippy>    | |_____________________^
+tigerstyle-clippy>    |
+tigerstyle-clippy>    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#collapsible_if
+tigerstyle-clippy> help: collapse nested if block
+tigerstyle-clippy>    |
+tigerstyle-clippy> 77 ~                     if let Ok(snippet) = source_map.span_to_snippet(block.span)
+tigerstyle-clippy> 78 ~                         && snippet.contains(divisor_name)
+tigerstyle-clippy> 79 |                             && (snippet.contains("assert!")
+tigerstyle-clippy> ...
+tigerstyle-clippy> 86 |                             return true;
+tigerstyle-clippy> 87 ~                         }
+tigerstyle-clippy>    |
+tigerstyle-clippy> 
+tigerstyle-clippy> error: casting to the same type is unnecessary (`u64` -> `u64`)
+tigerstyle-clippy>   --> src/safety/unchecked_narrowing.rs:22:55
+tigerstyle-clippy>    |
+tigerstyle-clippy> 22 |         ty::Int(int_ty) => int_ty.bit_width().map(|w| w as u64),
+tigerstyle-clippy>    |                                                       ^^^^^^^^ help: try: `w`
+tigerstyle-clippy>    |
+tigerstyle-clippy>    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#unnecessary_cast
+tigerstyle-clippy>    = note: `-D clippy::unnecessary-cast` implied by `-D warnings`
+tigerstyle-clippy>    = help: to override `-D warnings` add `#[allow(clippy::unnecessary_cast)]`
+tigerstyle-clippy> 
+tigerstyle-clippy> error: casting to the same type is unnecessary (`u64` -> `u64`)
+tigerstyle-clippy>   --> src/safety/unchecked_narrowing.rs:23:58
+tigerstyle-clippy>    |
+tigerstyle-clippy> 23 |         ty::Uint(uint_ty) => uint_ty.bit_width().map(|w| w as u64),
+tigerstyle-clippy>    |                                                          ^^^^^^^^ help: try: `w`
+tigerstyle-clippy>    |
+tigerstyle-clippy>    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#unnecessary_cast
+tigerstyle-clippy> 
+tigerstyle-clippy> error: this `if` statement can be collapsed
+tigerstyle-clippy>   --> src/structure/unjustified_allow.rs:49:9
+tigerstyle-clippy>    |
+tigerstyle-clippy> 49 | /         if line_idx > 0 {
+tigerstyle-clippy> 50 | |             if let Some(prev_line) = lines.file.get_line(line_idx - 1) {
+tigerstyle-clippy> 51 | |                 let prev = prev_line.trim();
+tigerstyle-clippy> 52 | |                 if prev.starts_with("//") {
+tigerstyle-clippy> ...  |
+tigerstyle-clippy> 56 | |         }
+tigerstyle-clippy>    | |_________^
+tigerstyle-clippy>    |
+tigerstyle-clippy>    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#collapsible_if
+tigerstyle-clippy> help: collapse nested if block
+tigerstyle-clippy>    |
+tigerstyle-clippy> 49 ~         if line_idx > 0
+tigerstyle-clippy> 50 ~             && let Some(prev_line) = lines.file.get_line(line_idx - 1) {
+tigerstyle-clippy> 51 |                 let prev = prev_line.trim();
+tigerstyle-clippy> ...
+tigerstyle-clippy> 54 |                 }
+tigerstyle-clippy> 55 ~             }
+tigerstyle-clippy>    |
+tigerstyle-clippy> 
+tigerstyle-clippy> error: could not compile `tigerstyle` (lib test) due to 21 previous errors
+tigerstyle-clippy> warning: build failed, waiting for other jobs to finish...
+tigerstyle-clippy> error: could not compile `tigerstyle` (lib) due to 21 previous errors
+error: Cannot build '/nix/store/cqi106lbaj1vs3srwxgk7v2q4kyx8m1b-tigerstyle-clippy-0.1.0.drv'.
+       Reason: builder failed with exit code 101.
+       Output paths:
+         /nix/store/g2w2xzxcmb6kypiyq81d71bl91578wir-tigerstyle-clippy-0.1.0
+       Last 25 log lines:
+       > error: this `if` statement can be collapsed
+       >   --> src/structure/unjustified_allow.rs:49:9
+       >    |
+       > 49 | /         if line_idx > 0 {
+       > 50 | |             if let Some(prev_line) = lines.file.get_line(line_idx - 1) {
+       > 51 | |                 let prev = prev_line.trim();
+       > 52 | |                 if prev.starts_with("//") {
+       > ...  |
+       > 56 | |         }
+       >    | |_________^
+       >    |
+       >    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#collapsible_if
+       > help: collapse nested if block
+       >    |
+       > 49 ~         if line_idx > 0
+       > 50 ~             && let Some(prev_line) = lines.file.get_line(line_idx - 1) {
+       > 51 |                 let prev = prev_line.trim();
+       > ...
+       > 54 |                 }
+       > 55 ~             }
+       >    |
+       >
+       > error: could not compile `tigerstyle` (lib test) due to 21 previous errors
+       > warning: build failed, waiting for other jobs to finish...
+       > error: could not compile `tigerstyle` (lib) due to 21 previous errors
+       For full logs, run:
+         nix log /nix/store/cqi106lbaj1vs3srwxgk7v2q4kyx8m1b-tigerstyle-clippy-0.1.0.drv

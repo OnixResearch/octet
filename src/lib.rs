@@ -8,8 +8,8 @@ extern crate rustc_middle;
 extern crate rustc_session;
 extern crate rustc_span;
 
-pub mod config;
 mod concurrency;
+pub mod config;
 mod naming;
 mod purity;
 mod safety;
@@ -24,22 +24,16 @@ pub fn register_lints(sess: &rustc_session::Session, lint_store: &mut rustc_lint
 
     // -- Pre-expansion pass (sees unexpanded macros) --
     lint_store.register_lints(&[safety::compound_assertion::COMPOUND_ASSERTION]);
-    lint_store.register_pre_expansion_pass(|| {
-        Box::new(safety::compound_assertion::CompoundAssertion)
-    });
+    lint_store.register_pre_expansion_pass(|| Box::new(safety::compound_assertion::CompoundAssertion));
 
     // -- Early passes (post-expansion, syntax-only) --
     lint_store.register_lints(&[structure::function_length::FUNCTION_LENGTH]);
     let fl_max = cfg.function_length_max;
-    lint_store.register_early_pass(move || {
-        Box::new(structure::function_length::FunctionLength::new(fl_max))
-    });
+    lint_store.register_early_pass(move || Box::new(structure::function_length::FunctionLength::new(fl_max)));
 
     lint_store.register_lints(&[naming::acronym_style::ACRONYM_STYLE]);
     let allowlist = cfg.acronym_allowlist.clone();
-    lint_store.register_early_pass(move || {
-        Box::new(naming::acronym_style::AcronymStyle::new(allowlist.clone()))
-    });
+    lint_store.register_early_pass(move || Box::new(naming::acronym_style::AcronymStyle::new(allowlist.clone())));
 
     lint_store.register_lints(&[naming::numeric_units::NUMERIC_UNITS]);
     lint_store.register_early_pass(|| Box::new(naming::numeric_units::NumericUnits));
@@ -58,16 +52,13 @@ pub fn register_lints(sess: &rustc_session::Session, lint_store: &mut rustc_lint
 
     lint_store.register_lints(&[structure::nested_conditionals::NESTED_CONDITIONALS]);
     let nc_max = cfg.nesting_max_depth;
-    lint_store.register_early_pass(move || {
-        Box::new(structure::nested_conditionals::NestedConditionals::new(nc_max))
-    });
+    lint_store.register_early_pass(move || Box::new(structure::nested_conditionals::NestedConditionals::new(nc_max)));
 
     lint_store.register_lints(&[safety::assertion_density::ASSERTION_DENSITY]);
     let ad_lines = cfg.assertion_density_min_lines;
     let ad_asserts = cfg.assertion_density_min_assertions;
-    lint_store.register_early_pass(move || {
-        Box::new(safety::assertion_density::AssertionDensity::new(ad_lines, ad_asserts))
-    });
+    lint_store
+        .register_early_pass(move || Box::new(safety::assertion_density::AssertionDensity::new(ad_lines, ad_asserts)));
 
     lint_store.register_lints(&[concurrency::multi_lock_ordering::MULTI_LOCK_ORDERING]);
     lint_store.register_early_pass(|| Box::new(concurrency::multi_lock_ordering::MultiLockOrdering));

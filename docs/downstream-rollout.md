@@ -19,6 +19,28 @@ Current Aspen workspace scripts may already include later packages and later lin
 families. Reconstruct the starter path from the archived change above, not from
 whatever Aspen HEAD happens to run today.
 
+## Current widened reference: Aspen phase 2
+
+Use phase 1 as the canonical starter path. After that, Aspen's current widened
+reference is captured in this repo by:
+
+- replay helper: `bash openspec/changes/aspen-phase2-widening/evidence/replay-aspen-phase2.sh`
+- Aspen HEAD snapshot: `openspec/changes/aspen-phase2-widening/evidence/aspen-phase2-meta.txt`
+- widened default pilot: `openspec/changes/aspen-phase2-widening/evidence/aspen-phase2-default-pilot.txt`
+- targeted `aspen-coordination` rerun: `openspec/changes/aspen-phase2-widening/evidence/aspen-phase2-coordination.txt`
+- widening assertions: `openspec/changes/aspen-phase2-widening/evidence/aspen-phase2-check.txt`
+
+What that widened reference proves:
+
+- default scope now includes `-p aspen-time -p aspen-hlc -p aspen-core -p aspen-coordination`
+- Aspen's current default lint set is now `ambient_clock`,
+  `compound_assertion`, `contradictory_time`, `ignored_result`, and
+  `no_unwrap`
+- a targeted `aspen-coordination` rerun no longer emits starter-lint spans
+
+Treat this as the first post-starter promotion example, not as a replacement
+for the archived phase-1 starter reconstruction.
+
 ## Starter rollout profiles
 
 ### Smoke profile
@@ -92,6 +114,28 @@ Add a new crate or package to the default path only when all of these hold:
 6. one targeted rerun proves the candidate scope still produces actionable
    signal
 
+## Phase-2 widening playbook
+
+Use this after the starter rollout is green and one deferred package has a
+clear owner.
+
+1. pick one deferred package, not a whole family of packages at once
+2. inventory the package's current findings by theme before fixing anything
+3. separate shell-boundary cleanups from true core-logic refactors
+4. rerun the package by itself until starter-lint spans disappear or shrink to
+   a named, reviewable exception set
+5. only then widen the no-argument default path and save a transcript for both
+   the widened default run and the cleaned package slice
+
+Aspen phase-2 example:
+
+- deferred package: `aspen-coordination`
+- baseline inventory: 21 `ambient_clock`, 2 `compound_assertion`, 4 `no_panic`
+- cleanup themes: central wall-clock boundary helper, split verified
+  assertions, remove panic-family blockers
+- widened result: default pilot now includes `aspen-coordination` and two extra
+  low-noise safety lints (`ignored_result`, `no_unwrap`)
+
 ## Check-path recipe for nonstandard toolchains
 
 Copy `templates/tigerstyle-check.sh` into the consumer repo when plain
@@ -117,6 +161,11 @@ The template owns these responsibilities:
 - owns the documented starter profile, default scope, and default cargo-check
   args in one reviewable script
 
+The starter-profile lint list in the template is documentation and review
+scoping, not a hard per-lint CLI filter. External Dylint runs still use the
+consumer's enabled warn-by-default tigerstyle lints unless the consumer changes
+source-level lint configuration.
+
 Minimum assumptions for the template:
 
 - `bash`, `cargo`, `rustc`, `python3`, `cargo-dylint`, `dylint-link`, and
@@ -130,6 +179,20 @@ Minimum assumptions for the template:
 
 When wrappers are unnecessary, delete the wrapper section and call plain
 `cargo dylint`. The template is a recipe, not a policy requirement.
+
+## Second consumer proof
+
+Non-Aspen replay proof in this repo:
+
+- replay helper: `bash openspec/changes/second-consumer-proof/evidence/replay-second-consumer.sh`
+- consumer snapshot: `openspec/changes/second-consumer-proof/evidence/second-consumer-meta.txt`
+- run transcript: `openspec/changes/second-consumer-proof/evidence/second-consumer-proof.txt`
+- replay assertions: `openspec/changes/second-consumer-proof/evidence/second-consumer-check.txt`
+
+Current saved proof uses `aspen-verus-metrics` from a disposable sandbox. The
+helper copies `templates/tigerstyle-check.sh` and `templates/dylint.toml`, edits
+`default_scope` to `-p aspen-verus-metrics`, then runs the copied script through
+a tigerstyle-provided nightly toolchain environment.
 
 ### Aspen wrapper facts worth preserving
 

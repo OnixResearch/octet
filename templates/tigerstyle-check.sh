@@ -91,6 +91,9 @@ if [[ "$toolchain" != *"$host_triple" ]]; then
   toolchain="${toolchain}-${host_triple}"
 fi
 
+# Banner only: external Dylint runs still use the consumer's enabled
+# warn-by-default lints. Keep this list aligned with the documented starter
+# profile for review and rollout notes.
 starter_lints=(
   ambient_clock
   compound_assertion

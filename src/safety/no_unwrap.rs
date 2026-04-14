@@ -1,9 +1,12 @@
 use rustc_errors::DiagDecorator;
 use rustc_hir as hir;
 use rustc_hir::ExprKind;
-use rustc_lint::{LateContext, LateLintPass, LintContext};
+use rustc_lint::LateContext;
+use rustc_lint::LateLintPass;
+use rustc_lint::LintContext;
 use rustc_middle::ty;
-use rustc_session::{declare_lint, declare_lint_pass};
+use rustc_session::declare_lint;
+use rustc_session::declare_lint_pass;
 use rustc_span::sym;
 
 declare_lint! {
@@ -20,8 +23,7 @@ declare_lint_pass!(NoUnwrap => [NO_UNWRAP]);
 fn is_option_or_result(cx: &LateContext<'_>, ty: ty::Ty<'_>) -> bool {
     if let ty::Adt(adt, _) = ty.kind() {
         let did = adt.did();
-        cx.tcx.is_diagnostic_item(sym::Option, did)
-            || cx.tcx.is_diagnostic_item(sym::Result, did)
+        cx.tcx.is_diagnostic_item(sym::Option, did) || cx.tcx.is_diagnostic_item(sym::Result, did)
     } else {
         false
     }
@@ -39,9 +41,7 @@ fn is_in_test_context(cx: &LateContext<'_>, expr: &hir::Expr<'_>) -> bool {
             if let hir::ItemKind::Mod(..) = &item.kind {
                 for attr in attrs {
                     if attr.has_name(sym::cfg) {
-                        let source = cx.sess().source_map()
-                            .span_to_snippet(attr.span())
-                            .unwrap_or_default();
+                        let source = cx.sess().source_map().span_to_snippet(attr.span()).unwrap_or_default();
                         if source.contains("test") {
                             return true;
                         }
@@ -84,9 +84,7 @@ impl<'tcx> LateLintPass<'tcx> for NoUnwrap {
             NO_UNWRAP,
             Some(expr.span),
             DiagDecorator(|diag| {
-                diag.primary_message(format!(
-                    "`.{name}()` in production code will panic on failure",
-                ));
+                diag.primary_message(format!("`.{name}()` in production code will panic on failure",));
                 diag.help(suggestion);
             }),
         );

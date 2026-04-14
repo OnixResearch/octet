@@ -1,9 +1,13 @@
 use rustc_errors::DiagDecorator;
 use rustc_hir as hir;
-use rustc_hir::intravisit::{self, Visitor};
 use rustc_hir::ExprKind;
-use rustc_lint::{LateContext, LateLintPass, LintContext};
-use rustc_session::{declare_lint, declare_lint_pass};
+use rustc_hir::intravisit::Visitor;
+use rustc_hir::intravisit::{self};
+use rustc_lint::LateContext;
+use rustc_lint::LateLintPass;
+use rustc_lint::LintContext;
+use rustc_session::declare_lint;
+use rustc_session::declare_lint_pass;
 use rustc_span::Span;
 
 declare_lint! {
@@ -29,20 +33,13 @@ impl<'tcx> Visitor<'tcx> for RecursionFinder {
             return;
         }
 
-        match &expr.kind {
-            ExprKind::Call(func, _) => {
-                if let ExprKind::Path(qpath) = &func.kind {
-                    if let hir::QPath::Resolved(_, path) = qpath {
-                        if let hir::def::Res::Def(_, def_id) = path.res {
-                            if def_id == self.target_def_id {
-                                self.found = Some(expr.span);
-                                return;
-                            }
-                        }
-                    }
-                }
-            }
-            _ => {}
+        if let ExprKind::Call(func, _) = &expr.kind
+            && let ExprKind::Path(hir::QPath::Resolved(_, path)) = &func.kind
+            && let hir::def::Res::Def(_, def_id) = path.res
+            && def_id == self.target_def_id
+        {
+            self.found = Some(expr.span);
+            return;
         }
 
         intravisit::walk_expr(self, expr);
