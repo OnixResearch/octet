@@ -1,0 +1,11 @@
+Exact replay command: bash openspec/changes/archive/2026-04-14-per-lint-configuration/evidence/replay-aspen-profiles.sh
+Pinned Aspen revision: 909e5e9fa
+Phase-1 archive: openspec/changes/archive/2026-04-13-aspen-consumer-rollout/
+Phase-1 rollout notes: openspec/changes/archive/2026-04-13-aspen-consumer-rollout/rollout-notes.md
+Phase-1 validation counts: openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/validation-counts.txt
+Wrapper evidence path: openspec/changes/archive/2026-04-13-custom-clippy-lints/evidence/aspen-check-path-and-config.txt
+Authoritative repo template path: templates/tigerstyle-check.sh
+Boundary-first transcript: openspec/changes/archive/2026-04-14-per-lint-configuration/evidence/aspen-boundary-first.txt
+Smoke transcript: openspec/changes/archive/2026-04-14-per-lint-configuration/evidence/aspen-smoke.txt
+Inventory-only transcript: openspec/changes/archive/2026-04-14-per-lint-configuration/evidence/aspen-inventory-only.txt
+Inventory-only config snapshot: openspec/changes/archive/2026-04-14-per-lint-configuration/evidence/aspen-inventory-only.dylint.toml

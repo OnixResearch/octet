@@ -1,0 +1,208 @@
+$ tmp=/tmp/tigerstyle-flake-snapshot.Fh6RD2; git checkout-index -a -f --prefix="/tmp/tigerstyle-flake-snapshot.CSWOUf/"; cd /tmp/tigerstyle-flake-snapshot.CSWOUf; nix flake check -L
+evaluating flake...
+checking flake output 'packages'...
+checking derivation packages.x86_64-linux.default...
+derivation evaluated to /nix/store/mr8csy43q961vwrwcdf7n8isdd8hw4c6-tigerstyle-0.1.0.drv
+checking derivation packages.x86_64-linux.dylint-driver...
+derivation evaluated to /nix/store/55kbj5cyjzl2qvap666qg7d2cvn8gkyl-dylint-driver-5.0.0.drv
+checking derivation packages.x86_64-linux.tigerstyle...
+derivation evaluated to /nix/store/mr8csy43q961vwrwcdf7n8isdd8hw4c6-tigerstyle-0.1.0.drv
+checking flake output 'lib'...
+checking flake output 'checks'...
+checking derivation checks.x86_64-linux.tigerstyle...
+derivation evaluated to /nix/store/mr8csy43q961vwrwcdf7n8isdd8hw4c6-tigerstyle-0.1.0.drv
+checking derivation checks.x86_64-linux.nextest...
+derivation evaluated to /nix/store/3w97j3fcgpa6gjzh4lmgw90skigk0knw-tigerstyle-nextest-0.1.0.drv
+checking derivation checks.x86_64-linux.ui...
+derivation evaluated to /nix/store/b2cjv4q4zsxf24m0ganz7ga1yinhs394-tigerstyle-ui-0.1.0.drv
+checking derivation checks.x86_64-linux.clippy...
+derivation evaluated to /nix/store/qv7yy7vnr1p5p5yn7y0x9qxic0c73jna-tigerstyle-clippy-0.1.0.drv
+checking derivation checks.x86_64-linux.fmt...
+derivation evaluated to /nix/store/jm2pz3chq08011n5znbz3alnjw3yfzqa-tigerstyle-fmt-0.1.0.drv
+checking flake output 'devShells'...
+checking derivation devShells.x86_64-linux.default...
+derivation evaluated to /nix/store/5j34v56xwjl20gdpdbqwc5h5j9nwswwm-nix-shell.drv
+running 5 flake checks...
+cannot build on 'ssh-ng://root@10.10.10.1': error: failed to start SSH connection to '10.10.10.1'
+building '/nix/store/mr8csy43q961vwrwcdf7n8isdd8hw4c6-tigerstyle-0.1.0.drv'...
+building '/nix/store/qv7yy7vnr1p5p5yn7y0x9qxic0c73jna-tigerstyle-clippy-0.1.0.drv'...
+building '/nix/store/3w97j3fcgpa6gjzh4lmgw90skigk0knw-tigerstyle-nextest-0.1.0.drv'...
+tigerstyle> Running phase: unpackPhase
+tigerstyle> unpacking source archive /nix/store/v0vdyah8glwm527q1fch8g117npvki64-source
+tigerstyle-clippy> Running phase: unpackPhase
+tigerstyle-clippy> unpacking source archive /nix/store/v0vdyah8glwm527q1fch8g117npvki64-source
+tigerstyle> source root is source
+tigerstyle-clippy> source root is source
+tigerstyle> Running phase: patchPhase
+tigerstyle-clippy> Running phase: patchPhase
+tigerstyle> Executing configureCargoCommonVars
+tigerstyle> decompressing cargo artifacts from /nix/store/nrc61fadl168zsizcpjkkrkhgg0cd877-tigerstyle-deps-0.1.0/target.tar.zst to target
+tigerstyle-clippy> Executing configureCargoCommonVars
+tigerstyle-clippy> decompressing cargo artifacts from /nix/store/nrc61fadl168zsizcpjkkrkhgg0cd877-tigerstyle-deps-0.1.0/target.tar.zst to target
+tigerstyle-nextest> Running phase: unpackPhase
+tigerstyle-nextest> unpacking source archive /nix/store/v0vdyah8glwm527q1fch8g117npvki64-source
+tigerstyle-nextest> source root is source
+tigerstyle-nextest> Running phase: patchPhase
+tigerstyle-nextest> Executing configureCargoCommonVars
+tigerstyle-nextest> decompressing cargo artifacts from /nix/store/nrc61fadl168zsizcpjkkrkhgg0cd877-tigerstyle-deps-0.1.0/target.tar.zst to target
+tigerstyle> Running phase: updateAutotoolsGnuConfigScriptsPhase
+tigerstyle-clippy> Running phase: updateAutotoolsGnuConfigScriptsPhase
+tigerstyle> Running phase: configurePhase
+tigerstyle-clippy> Running phase: configurePhase
+tigerstyle> will append /build/source/.cargo-home/config.toml with contents of /nix/store/xh468cwpsvlxb2szskgzrwwa9ymcrh3x-vendor-cargo-deps/config.toml
+tigerstyle-clippy> will append /build/source/.cargo-home/config.toml with contents of /nix/store/xh468cwpsvlxb2szskgzrwwa9ymcrh3x-vendor-cargo-deps/config.toml
+tigerstyle> default configurePhase, nothing to do
+tigerstyle-clippy> default configurePhase, nothing to do
+tigerstyle-clippy> Running phase: buildPhase
+tigerstyle> Running phase: buildPhase
+tigerstyle-clippy> +++ command cargo --version
+tigerstyle> +++ command cargo --version
+tigerstyle-clippy> cargo 1.96.0-nightly (cbb9bb8bd 2026-03-13)
+tigerstyle> cargo 1.96.0-nightly (cbb9bb8bd 2026-03-13)
+tigerstyle-clippy> +++ command cargo clippy --release --locked --all-targets -- -D warnings
+tigerstyle> +++ command cargo build --release --message-format json-render-diagnostics --locked
+tigerstyle-nextest> Running phase: updateAutotoolsGnuConfigScriptsPhase
+tigerstyle-nextest> Running phase: configurePhase
+tigerstyle-nextest> will append /build/source/.cargo-home/config.toml with contents of /nix/store/xh468cwpsvlxb2szskgzrwwa9ymcrh3x-vendor-cargo-deps/config.toml
+tigerstyle-nextest> default configurePhase, nothing to do
+tigerstyle>    Compiling tigerstyle v0.1.0 (/build/source)
+tigerstyle-nextest> Running phase: buildPhase
+tigerstyle-nextest> +++ command cargo --version
+tigerstyle-nextest> cargo 1.96.0-nightly (cbb9bb8bd 2026-03-13)
+tigerstyle-nextest> +++ command cargo nextest --version
+tigerstyle-nextest> cargo-nextest 0.9.130
+tigerstyle-nextest> release: 0.9.130
+tigerstyle-nextest> host: x86_64-unknown-linux-gnu
+tigerstyle-nextest> Running phase: checkPhase
+tigerstyle-nextest> +++ command cargo nextest run --cargo-profile release
+tigerstyle-clippy>     Checking tigerstyle v0.1.0 (/build/source)
+tigerstyle-nextest>    Compiling tigerstyle v0.1.0 (/build/source)
+tigerstyle-clippy>     Finished `release` profile [optimized] target(s) in 1.85s
+tigerstyle-clippy> Running phase: installPhase
+tigerstyle-clippy> linking previous artifacts /nix/store/nrc61fadl168zsizcpjkkrkhgg0cd877-tigerstyle-deps-0.1.0/target.tar.zst to /nix/store/z1hqd1mwbyc7jw1mlqan1mmjmxhi0bln-tigerstyle-clippy-0.1.0/target.tar.zst
+tigerstyle-clippy> /*stdin*\            :  7.68%   (  40.0 KiB =>   3.07 KiB, /nix/store/z1hqd1mwbyc7jw1mlqan1mmjmxhi0bln-tigerstyle-clippy-0.1.0/target.tar.zst)
+tigerstyle-clippy> Running phase: fixupPhase
+tigerstyle-clippy> shrinking RPATHs of ELF executables and libraries in /nix/store/z1hqd1mwbyc7jw1mlqan1mmjmxhi0bln-tigerstyle-clippy-0.1.0
+tigerstyle-clippy> checking for references to /build/ in /nix/store/z1hqd1mwbyc7jw1mlqan1mmjmxhi0bln-tigerstyle-clippy-0.1.0...
+tigerstyle-clippy> patching script interpreter paths in /nix/store/z1hqd1mwbyc7jw1mlqan1mmjmxhi0bln-tigerstyle-clippy-0.1.0
+tigerstyle>     Finished `release` profile [optimized] target(s) in 6.39s
+tigerstyle> searching for bins/libs to install from cargo build log at cargoBuildLogyXAw.json
+tigerstyle> installing /build/source/target/release/libtigerstyle.so in postBuildInstallFromCargoBuildLogOutTemprps/lib
+tigerstyle> searching for bins/libs complete
+tigerstyle> Running phase: checkPhase
+tigerstyle> +++ command cargo test --release --locked
+tigerstyle>    Compiling tigerstyle v0.1.0 (/build/source)
+tigerstyle-nextest>     Finished `release` profile [optimized] target(s) in 7.44s
+tigerstyle-nextest> ------------
+tigerstyle-nextest>  Nextest run ID 6807edda-141e-4368-aeea-7a94809df1b9 with nextest profile: default
+tigerstyle-nextest>     Starting 17 tests across 2 binaries (1 test skipped)
+tigerstyle-nextest>         PASS [   0.036s] ( 1/17) tigerstyle config::tests::explicit_disabled_lints_and_lint_levels_deserialize_successfully
+tigerstyle-nextest>         PASS [   0.030s] ( 2/17) tigerstyle config::tests::invalid_lint_level_warns_and_keeps_default_behavior
+tigerstyle-nextest>         PASS [   0.032s] ( 3/17) tigerstyle config::tests::mixed_disabled_lints_keeps_valid_entry_while_warning_on_unknown_name
+tigerstyle-nextest>         PASS [   0.029s] ( 4/17) tigerstyle config::tests::mixed_lint_levels_ignore_invalid_value_but_keep_valid_override
+tigerstyle-nextest>         PASS [   0.032s] ( 5/17) tigerstyle config::tests::mixed_lint_levels_ignores_unknown_name_but_keeps_valid_override
+tigerstyle-nextest>         PASS [   0.035s] ( 6/17) tigerstyle config::tests::omitted_disabled_lints_and_lint_levels_default_to_empty
+tigerstyle-nextest>         PASS [   0.033s] ( 7/17) tigerstyle config::tests::overlapping_disabled_lints_and_lint_levels_warn_and_keep_lint_disabled
+tigerstyle-nextest>         PASS [   0.035s] ( 8/17) tigerstyle config::tests::raw_lint_levels_preserve_original_strings
+tigerstyle-nextest>         PASS [   0.029s] ( 9/17) tigerstyle config::tests::unknown_disabled_lints_warn_without_failing_validation
+tigerstyle-nextest>         PASS [   0.030s] (10/17) tigerstyle config::tests::unknown_lint_levels_warn_without_failing_validation
+tigerstyle-nextest>         PASS [   0.032s] (11/17) tigerstyle naming::acronym_style::tests::test_acronym_fix
+tigerstyle-nextest>         PASS [   0.028s] (12/17) tigerstyle safety::compound_assertion::tests::detects_top_level_compound_assertion
+tigerstyle-nextest>         PASS [   0.027s] (13/17) tigerstyle safety::no_panic::tests::finds_panic_macro_name
+tigerstyle-nextest>         PASS [   0.034s] (14/17) tigerstyle tests::config_validation_derives_names_from_lint_inventory
+tigerstyle-nextest>         PASS [   0.031s] (15/17) tigerstyle tests::lint_inventory_default_levels_snapshot_matches
+tigerstyle-nextest>         PASS [   0.039s] (16/17) tigerstyle tests::lint_inventory_names_are_unique
+tigerstyle-nextest>         PASS [   0.034s] (17/17) tigerstyle tests::lint_inventory_snapshot_matches
+tigerstyle-nextest> ------------
+tigerstyle-nextest>      Summary [   0.554s] 17 tests run: 17 passed, 1 skipped
+tigerstyle-nextest> Running phase: installPhase
+tigerstyle-nextest> linking previous artifacts /nix/store/nrc61fadl168zsizcpjkkrkhgg0cd877-tigerstyle-deps-0.1.0/target.tar.zst to /nix/store/4cfxakb1bvwxvv0rygv4d6zn8gamd6pp-tigerstyle-nextest-0.1.0/target.tar.zst
+tigerstyle-nextest> /*stdin*\            : 29.75%   (  2.11 MiB =>    643 KiB, /nix/store/4cfxakb1bvwxvv0rygv4d6zn8gamd6pp-tigerstyle-nextest-0.1.0/target.tar.zst)
+tigerstyle-nextest> Running phase: fixupPhase
+tigerstyle-nextest> shrinking RPATHs of ELF executables and libraries in /nix/store/4cfxakb1bvwxvv0rygv4d6zn8gamd6pp-tigerstyle-nextest-0.1.0
+tigerstyle-nextest> checking for references to /build/ in /nix/store/4cfxakb1bvwxvv0rygv4d6zn8gamd6pp-tigerstyle-nextest-0.1.0...
+tigerstyle-nextest> patching script interpreter paths in /nix/store/4cfxakb1bvwxvv0rygv4d6zn8gamd6pp-tigerstyle-nextest-0.1.0
+tigerstyle>     Finished `release` profile [optimized] target(s) in 8.70s
+tigerstyle>      Running unittests src/lib.rs (target/release/deps/tigerstyle-ac3559a7be07dbd8)
+tigerstyle> 
+tigerstyle> running 17 tests
+tigerstyle> test config::tests::explicit_disabled_lints_and_lint_levels_deserialize_successfully ... ok
+tigerstyle> test config::tests::invalid_lint_level_warns_and_keeps_default_behavior ... ok
+tigerstyle> test config::tests::mixed_lint_levels_ignores_unknown_name_but_keeps_valid_override ... ok
+tigerstyle> test config::tests::omitted_disabled_lints_and_lint_levels_default_to_empty ... ok
+tigerstyle> test config::tests::mixed_disabled_lints_keeps_valid_entry_while_warning_on_unknown_name ... ok
+tigerstyle> test config::tests::overlapping_disabled_lints_and_lint_levels_warn_and_keep_lint_disabled ... ok
+tigerstyle> test config::tests::raw_lint_levels_preserve_original_strings ... ok
+tigerstyle> test tests::config_validation_derives_names_from_lint_inventory ... ok
+tigerstyle> test safety::no_panic::tests::finds_panic_macro_name ... ok
+tigerstyle> test config::tests::unknown_lint_levels_warn_without_failing_validation ... ok
+tigerstyle> test safety::compound_assertion::tests::detects_top_level_compound_assertion ... ok
+tigerstyle> test config::tests::mixed_lint_levels_ignore_invalid_value_but_keep_valid_override ... ok
+tigerstyle> test naming::acronym_style::tests::test_acronym_fix ... ok
+tigerstyle> test tests::lint_inventory_default_levels_snapshot_matches ... ok
+tigerstyle> test config::tests::unknown_disabled_lints_warn_without_failing_validation ... ok
+tigerstyle> test tests::lint_inventory_names_are_unique ... ok
+tigerstyle> test tests::lint_inventory_snapshot_matches ... ok
+tigerstyle> 
+tigerstyle> test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+tigerstyle> 
+tigerstyle>      Running tests/ui.rs (target/release/deps/ui-7d3afcc80f86f9b7)
+tigerstyle> 
+tigerstyle> running 1 test
+tigerstyle> test ui ... ignored, run via nix flake check or cargo test --test ui -- --ignored --nocapture
+tigerstyle> 
+tigerstyle> test result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
+tigerstyle> 
+tigerstyle> Running phase: installPhase
+tigerstyle> actually installing contents of postBuildInstallFromCargoBuildLogOutTemprps to /nix/store/wbn1xgiwjql4s0x9ll4qlm109k5chpjc-tigerstyle-0.1.0
+tigerstyle> stripping references to Rust toolchain
+tigerstyle> Rust toolchain at: /nix/store/1yvh3d6y3fj3xk2dgwczrp1dj5svd92c-rust-default-1.96.0-nightly-2026-03-21
+tigerstyle> stripping Rust toolchain references done
+tigerstyle> stripping references to cargoVendorDir from:
+tigerstyle> /nix/store/wbn1xgiwjql4s0x9ll4qlm109k5chpjc-tigerstyle-0.1.0/lib/libtigerstyle.so
+tigerstyle> stripping references done
+tigerstyle> Running phase: fixupPhase
+tigerstyle> shrinking RPATHs of ELF executables and libraries in /nix/store/wbn1xgiwjql4s0x9ll4qlm109k5chpjc-tigerstyle-0.1.0
+tigerstyle> shrinking /nix/store/wbn1xgiwjql4s0x9ll4qlm109k5chpjc-tigerstyle-0.1.0/lib/libtigerstyle.so
+tigerstyle> checking for references to /build/ in /nix/store/wbn1xgiwjql4s0x9ll4qlm109k5chpjc-tigerstyle-0.1.0...
+tigerstyle> patching script interpreter paths in /nix/store/wbn1xgiwjql4s0x9ll4qlm109k5chpjc-tigerstyle-0.1.0
+tigerstyle> stripping (with command strip and flags -S -p) in  /nix/store/wbn1xgiwjql4s0x9ll4qlm109k5chpjc-tigerstyle-0.1.0/lib
+building '/nix/store/j96p8s37zf3llp2aklk4wzjbjzlih1c7-tigerstyle-ui-library.drv'...
+building '/nix/store/b2cjv4q4zsxf24m0ganz7ga1yinhs394-tigerstyle-ui-0.1.0.drv'...
+tigerstyle-ui> Running phase: unpackPhase
+tigerstyle-ui> unpacking source archive /nix/store/v0vdyah8glwm527q1fch8g117npvki64-source
+tigerstyle-ui> source root is source
+tigerstyle-ui> Running phase: patchPhase
+tigerstyle-ui> Executing configureCargoCommonVars
+tigerstyle-ui> decompressing cargo artifacts from /nix/store/nrc61fadl168zsizcpjkkrkhgg0cd877-tigerstyle-deps-0.1.0/target.tar.zst to target
+tigerstyle-ui> Running phase: updateAutotoolsGnuConfigScriptsPhase
+tigerstyle-ui> Running phase: configurePhase
+tigerstyle-ui> will append /build/source/.cargo-home/config.toml with contents of /nix/store/xh468cwpsvlxb2szskgzrwwa9ymcrh3x-vendor-cargo-deps/config.toml
+tigerstyle-ui> default configurePhase, nothing to do
+tigerstyle-ui> Running phase: buildPhase
+tigerstyle-ui> +++ command cargo --version
+tigerstyle-ui> cargo 1.96.0-nightly (cbb9bb8bd 2026-03-13)
+tigerstyle-ui> Running phase: checkPhase
+tigerstyle-ui> +++ command cargo test --release --locked --test ui -- --ignored --nocapture
+tigerstyle-ui>    Compiling tigerstyle v0.1.0 (/build/source)
+tigerstyle-ui>     Finished `release` profile [optimized] target(s) in 1.99s
+tigerstyle-ui>      Running tests/ui.rs (target/release/deps/ui-7d3afcc80f86f9b7)
+tigerstyle-ui> 
+tigerstyle-ui> running 1 test
+tigerstyle-ui> test ui ... ok
+tigerstyle-ui> 
+tigerstyle-ui> test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.79s
+tigerstyle-ui> 
+tigerstyle-ui> Running phase: installPhase
+tigerstyle-ui> stripping references to Rust toolchain
+tigerstyle-ui> Rust toolchain at: /nix/store/1yvh3d6y3fj3xk2dgwczrp1dj5svd92c-rust-default-1.96.0-nightly-2026-03-21
+tigerstyle-ui> stripping Rust toolchain references done
+tigerstyle-ui> stripping references to cargoVendorDir from:
+tigerstyle-ui> stripping references done
+tigerstyle-ui> Running phase: fixupPhase
+tigerstyle-ui> shrinking RPATHs of ELF executables and libraries in /nix/store/wdqwg5gz1ndf2axc71vw10vkfx6c4vj5-tigerstyle-ui-0.1.0
+tigerstyle-ui> checking for references to /build/ in /nix/store/wdqwg5gz1ndf2axc71vw10vkfx6c4vj5-tigerstyle-ui-0.1.0...
+tigerstyle-ui> patching script interpreter paths in /nix/store/wdqwg5gz1ndf2axc71vw10vkfx6c4vj5-tigerstyle-ui-0.1.0
+all checks passed!
+warning: The check omitted these incompatible systems: aarch64-darwin, aarch64-linux, x86_64-darwin
+Use '--all-systems' to check all.

@@ -1,0 +1,25 @@
+Exact replay command: bash openspec/changes/archive/2026-04-14-per-lint-configuration/evidence/replay-aspen-profiles.sh
+Phase-1 archive reference: openspec/changes/archive/2026-04-13-aspen-consumer-rollout/
+Phase-1 rollout notes: openspec/changes/archive/2026-04-13-aspen-consumer-rollout/rollout-notes.md
+Phase-1 validation counts: openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/validation-counts.txt
+Wrapper evidence path: openspec/changes/archive/2026-04-13-custom-clippy-lints/evidence/aspen-check-path-and-config.txt
+$ ln -s /home/brittonr/git/aspen-dns /tmp/aspen-per-lint-config.YcjAx0/aspen-dns
+$ ln -s /home/brittonr/git/aspen-wasm-plugin /tmp/aspen-per-lint-config.YcjAx0/aspen-wasm-plugin
+$ git -C /home/brittonr/git/aspen worktree add --detach /tmp/aspen-per-lint-config.YcjAx0/aspen 909e5e9fa
+Preparing worktree (detached HEAD 909e5e9fa)
+HEAD is now at 909e5e9fa tigerstyle: add phase-1 rollout path and follow-up changes
+$ cp /home/brittonr/git/tigerstyle/templates/tigerstyle-check.sh /tmp/aspen-per-lint-config.YcjAx0/aspen/scripts/tigerstyle-check.sh
+$ cp /home/brittonr/git/tigerstyle/templates/dylint.toml /tmp/aspen-per-lint-config.YcjAx0/aspen/dylint.toml
+$ python3 - /tmp/aspen-per-lint-config.YcjAx0/aspen/scripts/tigerstyle-check.sh
+$ write boundary-first config to /tmp/aspen-per-lint-config.YcjAx0/aspen/dylint.toml
+$ (cd /tmp/aspen-per-lint-config.YcjAx0/aspen && TIGERSTYLE_PATH=/home/brittonr/git/tigerstyle TIGERSTYLE_DYLINT_REV=0e0a71eefe6f01563d11acc6e1d7af1d505934a9 scripts/tigerstyle-check.sh) > /home/brittonr/git/tigerstyle/openspec/changes/archive/2026-04-14-per-lint-configuration/evidence/aspen-boundary-first.txt 2>&1
+$ (cd /tmp/aspen-per-lint-config.YcjAx0/aspen && TIGERSTYLE_PATH=/home/brittonr/git/tigerstyle TIGERSTYLE_DYLINT_REV=0e0a71eefe6f01563d11acc6e1d7af1d505934a9 scripts/tigerstyle-check.sh -p aspen-time -- --lib) > /home/brittonr/git/tigerstyle/openspec/changes/archive/2026-04-14-per-lint-configuration/evidence/aspen-smoke.txt 2>&1
+$ write inventory-only config to /tmp/aspen-per-lint-config.YcjAx0/aspen/dylint.toml
+$ cp /tmp/aspen-per-lint-config.YcjAx0/aspen/dylint.toml /home/brittonr/git/tigerstyle/openspec/changes/archive/2026-04-14-per-lint-configuration/evidence/aspen-inventory-only.dylint.toml
+$ python3 - /tmp/aspen-per-lint-config.YcjAx0/aspen/scripts/tigerstyle-check.sh inventory-only no_unwrap
+$ (cd /tmp/aspen-per-lint-config.YcjAx0/aspen && TIGERSTYLE_PATH=/home/brittonr/git/tigerstyle TIGERSTYLE_DYLINT_REV=0e0a71eefe6f01563d11acc6e1d7af1d505934a9 scripts/tigerstyle-check.sh) > /home/brittonr/git/tigerstyle/openspec/changes/archive/2026-04-14-per-lint-configuration/evidence/aspen-inventory-only.txt 2>&1
+checkpoint note: /home/brittonr/git/tigerstyle/openspec/changes/archive/2026-04-14-per-lint-configuration/evidence/aspen-validation-checkpoint.txt
+boundary-first transcript: /home/brittonr/git/tigerstyle/openspec/changes/archive/2026-04-14-per-lint-configuration/evidence/aspen-boundary-first.txt
+smoke transcript: /home/brittonr/git/tigerstyle/openspec/changes/archive/2026-04-14-per-lint-configuration/evidence/aspen-smoke.txt
+inventory-only transcript: /home/brittonr/git/tigerstyle/openspec/changes/archive/2026-04-14-per-lint-configuration/evidence/aspen-inventory-only.txt
+inventory-only config snapshot: /home/brittonr/git/tigerstyle/openspec/changes/archive/2026-04-14-per-lint-configuration/evidence/aspen-inventory-only.dylint.toml
