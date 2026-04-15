@@ -7,11 +7,11 @@
 
 ## Phase 2: Pattern-based suppression
 
-- [ ] `no_unwrap`: skip `.unwrap()` on compile-time-known `Some`/`Ok` (literal `.parse()`, `Some(x)`)
-- [ ] `no_unwrap`: skip `.unwrap()` after `.is_some()`/`.is_ok()` guard in same branch
+- [x] `no_unwrap`: skip `.unwrap()` on compile-time-known `Some`/`Ok` (literal `.parse()`, `Some(x)`)
+- [x] `no_unwrap`: skip `.unwrap()` after `.is_some()`/`.is_ok()` guard in same branch
 - [ ] `no_panic`: skip `unreachable!()` in exhaustive match trailing wildcard
 - [ ] `no_panic`: skip `todo!()` with `#[allow(tigerstyle::no_panic)]` + justification
-- [ ] `ignored_result`: skip `let _ = expr` inside `Drop::drop` impls
+- [x] `ignored_result`: skip `let _ = expr` inside `Drop::drop` impls
 - [ ] `ignored_result`: skip fire-and-forget `send` on shutdown paths (channel drop patterns)
 - [ ] UI fixtures for each suppression case
 
