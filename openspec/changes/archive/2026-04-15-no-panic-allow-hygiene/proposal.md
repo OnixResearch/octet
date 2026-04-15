@@ -17,6 +17,13 @@ companion-lint path.
   cleanup
 - Add UI proof for orphaned item-level and block-level escapes
 
+## Non-Goals
+
+- Expanding the hygiene audit to bare compatibility attrs like `#[allow(no_panic)]`
+- Diagnosing overly broad but still-live nested or container-level panic escapes
+- Auditing inactive `cfg_attr(...)` branches or non-executable container attrs on
+  `mod`, `impl`, or trait declarations
+
 ## Capabilities
 
 ### New Capabilities
@@ -25,8 +32,13 @@ companion-lint path.
 
 ## Impact
 
-- **Files**: `src/safety/no_panic.rs`, `ui_tests/no_panic_todo_allow.rs` or new
-  dedicated fixtures, `openspec/specs/safety/spec.md`
+- **Files**: `src/safety/no_panic.rs`,
+  `openspec/changes/no-panic-allow-hygiene/design.md`,
+  `ui_tests/no_panic_todo_allow.rs`, new `ui_tests/no_panic_orphan_allow.rs`,
+  `openspec/specs/safety/spec.md`
 - **APIs**: no new public lint names; tighter auditing of the existing escape
   hatch
-- **Testing**: `cargo test --lib`, `cargo test --test ui -- --ignored --nocapture`
+- **Testing**: keep `ui_tests/no_panic_todo_allow.rs` as the justified-live
+  regression fixture, add `ui_tests/no_panic_orphan_allow.rs` for orphaned
+  item/block coverage, then run `cargo test --lib` and
+  `cargo test --test ui -- --ignored --nocapture`

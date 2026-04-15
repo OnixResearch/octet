@@ -12,6 +12,7 @@
     "no_panic_exhaustive_non_exhaustive",
     "no_panic_exhaustive_indirect",
     "no_panic_todo_allow",
+    "no_panic_orphan_allow",
     "no_unwrap",
     "no_unwrap_tool_attr",
     "group_allow_safety",
