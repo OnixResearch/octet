@@ -1,0 +1,3778 @@
+$ bash openspec/changes/lint-precision-hardening/evidence/replay-aspen-comparison.sh
+# tigerstyle commit: f04333d6640228d2305904b981ce70f7d803424d
+# aspen commit: 909e5e9fa
+# phase-1 archive: openspec/changes/archive/2026-04-13-aspen-consumer-rollout/
+# phase-2 archive: openspec/changes/archive/2026-04-14-aspen-phase2-widening/
+$ (cd /tmp/aspen-lint-precision.3cEzkT/aspen && TIGERSTYLE_PATH=/tmp/aspen-lint-precision.3cEzkT/tigerstyle-before TIGERSTYLE_DYLINT_REV=0e0a71eefe6f01563d11acc6e1d7af1d505934a9 CARGO_TARGET_DIR=/tmp/aspen-lint-precision.3cEzkT/target-before scripts/tigerstyle-check.sh --workspace -- --all-targets)
+[tigerstyle] workspace: aspen
+[tigerstyle] repo:      /tmp/aspen-lint-precision.3cEzkT/tigerstyle-before
+[tigerstyle] toolchain: nightly-2026-03-21-x86_64-unknown-linux-gnu
+[tigerstyle] scope:     --workspace
+[tigerstyle] profile:   ignored_result no_unwrap no_panic unchecked_narrowing unbounded_loop
+[tigerstyle] dylint rev: 0e0a71eefe6f01563d11acc6e1d7af1d505934a9
+Building workspace metadata entry `tigerstyle`
+    Updating git repository `https://github.com/trailofbits/dylint`
+warning: patch `dylint_driver v5.0.0 (https://github.com/trailofbits/dylint?rev=0e0a71eefe6f01563d11acc6e1d7af1d505934a9#0e0a71ee)` was not used in the crate graph
+help: Check that the patched package version and available features are compatible
+      with the dependency requirements. If the patch has a different version from
+      what is locked in the Cargo.lock file, run `cargo update` to use the new
+      version. This may also occur with an optional dependency that is not enabled.
+   Compiling serde_core v1.0.228
+   Compiling proc-macro2 v1.0.106
+   Compiling unicode-ident v1.0.24
+   Compiling quote v1.0.45
+   Compiling memchr v2.8.0
+   Compiling zmij v1.0.21
+   Compiling winnow v1.0.1
+   Compiling serde v1.0.228
+   Compiling camino v1.2.2
+   Compiling thiserror v2.0.18
+   Compiling serde_json v1.0.149
+   Compiling toml_writer v1.1.1+spec-1.1.0
+   Compiling regex-syntax v0.8.10
+   Compiling itoa v1.0.18
+   Compiling anyhow v1.0.102
+   Compiling rustversion v1.0.22
+   Compiling dylint_internal v5.0.0 (https://github.com/trailofbits/dylint?rev=0e0a71eefe6f01563d11acc6e1d7af1d505934a9#0e0a71ee)
+   Compiling paste v1.0.15
+   Compiling log v0.4.29
+   Compiling toml_parser v1.1.2+spec-1.1.0
+   Compiling aho-corasick v1.1.4
+   Compiling syn v2.0.117
+   Compiling regex-automata v0.4.14
+   Compiling thiserror-impl v2.0.18
+   Compiling serde_derive v1.0.228
+   Compiling serde_spanned v1.1.1
+   Compiling toml_datetime v1.1.1+spec-1.1.0
+   Compiling toml v1.1.2+spec-1.1.0
+   Compiling semver v1.0.28
+   Compiling cargo-platform v0.3.2
+   Compiling dylint_linting v5.0.0 (https://github.com/trailofbits/dylint?rev=0e0a71eefe6f01563d11acc6e1d7af1d505934a9#0e0a71ee)
+   Compiling regex v1.12.3
+   Compiling cargo_metadata v0.23.1
+   Compiling tigerstyle v0.1.0 (/tmp/aspen-lint-precision.3cEzkT/tigerstyle-before)
+    Finished `release` profile [optimized] target(s) in 5.07s
+Building driver for toolchain `nightly-2026-03-21-x86_64-unknown-linux-gnu`
+    Updating git repository `https://github.com/trailofbits/dylint`
+    Updating crates.io index
+     Locking 139 packages to latest compatible versions
+   Compiling proc-macro2 v1.0.106
+   Compiling unicode-ident v1.0.24
+   Compiling quote v1.0.45
+   Compiling libc v0.2.185
+   Compiling shlex v1.3.0
+   Compiling find-msvc-tools v0.1.9
+   Compiling pkg-config v0.3.33
+   Compiling vcpkg v0.2.15
+   Compiling stable_deref_trait v1.2.1
+   Compiling serde_core v1.0.228
+   Compiling litemap v0.8.2
+   Compiling writeable v0.6.3
+   Compiling memchr v2.8.0
+   Compiling icu_normalizer_data v2.2.0
+   Compiling icu_properties_data v2.2.0
+   Compiling utf8_iter v1.0.4
+   Compiling smallvec v1.15.1
+   Compiling regex-syntax v0.8.10
+   Compiling zmij v1.0.21
+   Compiling camino v1.2.2
+   Compiling bitflags v2.11.1
+   Compiling serde_json v1.0.149
+   Compiling getrandom v0.4.2
+   Compiling rustix v1.1.4
+   Compiling percent-encoding v2.3.2
+   Compiling winnow v1.0.1
+   Compiling cfg-if v1.0.4
+   Compiling thiserror v2.0.18
+   Compiling serde v1.0.228
+   Compiling log v0.4.29
+   Compiling openssl-probe v0.1.6
+   Compiling itoa v1.0.18
+   Compiling linux-raw-sys v0.12.1
+   Compiling hashbrown v0.17.0
+   Compiling equivalent v1.0.2
+   Compiling toml_writer v1.1.1+spec-1.1.0
+   Compiling anyhow v1.0.102
+   Compiling form_urlencoded v1.2.2
+   Compiling once_cell v1.21.4
+   Compiling dylint_internal v5.0.0 (https://github.com/trailofbits/dylint?rev=0e0a71eefe6f01563d11acc6e1d7af1d505934a9#0e0a71ee)
+   Compiling curl v0.4.49
+   Compiling rustversion v1.0.22
+   Compiling fastrand v2.4.1
+   Compiling utf8parse v0.2.2
+   Compiling anstyle-query v1.1.5
+   Compiling is_terminal_polyfill v1.70.2
+   Compiling anstyle v1.0.14
+   Compiling colorchoice v1.0.5
+   Compiling anstyle-parse v1.0.0
+   Compiling libloading v0.9.0
+   Compiling jiff v0.2.23
+   Compiling anstream v1.0.0
+   Compiling aho-corasick v1.1.4
+   Compiling indexmap v2.14.0
+   Compiling syn v2.0.117
+   Compiling jobserver v0.1.34
+   Compiling socket2 v0.6.3
+   Compiling toml_parser v1.1.2+spec-1.1.0
+   Compiling cc v1.2.60
+   Compiling tempfile v3.27.0
+   Compiling regex-automata v0.4.14
+   Compiling toml_datetime v1.1.1+spec-1.1.0
+   Compiling cargo-platform v0.3.2
+   Compiling serde_spanned v1.1.1
+   Compiling semver v1.0.28
+   Compiling libz-sys v1.1.28
+   Compiling openssl-sys v0.9.113
+   Compiling libssh2-sys v0.3.1
+   Compiling libgit2-sys v0.18.3+1.9.2
+   Compiling curl-sys v0.4.87+curl-8.19.0
+   Compiling toml_edit v0.25.11+spec-1.1.0
+   Compiling toml v1.1.2+spec-1.1.0
+   Compiling regex v1.12.3
+   Compiling synstructure v0.13.2
+   Compiling env_filter v1.0.1
+   Compiling env_logger v0.11.10
+   Compiling zerofrom-derive v0.1.7
+   Compiling yoke-derive v0.8.2
+   Compiling zerovec-derive v0.11.3
+   Compiling displaydoc v0.2.5
+   Compiling serde_derive v1.0.228
+   Compiling thiserror-impl v2.0.18
+   Compiling zerofrom v0.1.7
+   Compiling yoke v0.8.2
+   Compiling zerovec v0.11.6
+   Compiling zerotrie v0.2.4
+   Compiling tinystr v0.8.3
+   Compiling potential_utf v0.1.5
+   Compiling icu_collections v2.2.0
+   Compiling icu_locale_core v2.2.0
+   Compiling icu_provider v2.2.0
+   Compiling icu_properties v2.2.0
+   Compiling icu_normalizer v2.2.0
+   Compiling cargo_metadata v0.23.1
+   Compiling idna_adapter v1.2.1
+   Compiling idna v1.1.0
+   Compiling url v2.5.8
+   Compiling git2 v0.20.4
+   Compiling dylint_driver v5.0.0 (https://github.com/trailofbits/dylint?rev=0e0a71eefe6f01563d11acc6e1d7af1d505934a9#0e0a71ee)
+   Compiling dylint_driver-nightly-2026-03-21-x86_64-unknown-linux-gnu v0.1.0 (/tmp/.tmpmBE1uP)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 11.17s
+Checking with toolchain `nightly-2026-03-21-x86_64-unknown-linux-gnu`
+warning: resolver for the non root package will be ignored, specify resolver at the workspace root:
+package:   /tmp/aspen-lint-precision.3cEzkT/aspen/vendor/iroh-h3/Cargo.toml
+workspace: /tmp/aspen-lint-precision.3cEzkT/aspen/Cargo.toml
+warning: resolver for the non root package will be ignored, specify resolver at the workspace root:
+package:   /tmp/aspen-lint-precision.3cEzkT/aspen/vendor/iroh-h3-axum/Cargo.toml
+workspace: /tmp/aspen-lint-precision.3cEzkT/aspen/Cargo.toml
+warning: patch `dylint_driver v5.0.0 (https://github.com/trailofbits/dylint?rev=0e0a71eefe6f01563d11acc6e1d7af1d505934a9#0e0a71ee)` was not used in the crate graph
+help: Check that the patched package version and available features are compatible
+      with the dependency requirements. If the patch has a different version from
+      what is locked in the Cargo.lock file, run `cargo update` to use the new
+      version. This may also occur with an optional dependency that is not enabled.
+   Compiling proc-macro2 v1.0.106
+   Compiling quote v1.0.45
+   Compiling unicode-ident v1.0.24
+   Compiling serde_core v1.0.228
+   Compiling libc v0.2.183
+   Compiling serde v1.0.228
+    Checking cfg-if v1.0.4
+    Checking memchr v2.8.0
+   Compiling version_check v0.9.5
+    Checking log v0.4.29
+    Checking allocator-api2 v0.2.21
+   Compiling portable-atomic v1.13.1
+    Checking itoa v1.0.17
+    Checking equivalent v1.0.2
+    Checking critical-section v1.2.0
+   Compiling parking_lot_core v0.9.12
+    Checking scopeguard v1.2.0
+    Checking futures-core v0.3.32
+    Checking pin-project-lite v0.2.17
+    Checking foldhash v0.2.0
+   Compiling libm v0.2.16
+   Compiling zerocopy v0.8.42
+   Compiling autocfg v1.5.0
+   Compiling zmij v1.0.21
+    Checking futures-io v0.3.32
+    Checking bitflags v2.11.0
+    Checking futures-sink v0.3.32
+    Checking slab v0.4.12
+    Checking futures-task v0.3.32
+   Compiling serde_json v1.0.149
+   Compiling getrandom v0.3.4
+    Checking lock_api v0.4.14
+    Checking subtle v2.6.1
+   Compiling find-msvc-tools v0.1.9
+   Compiling shlex v1.3.0
+   Compiling semver v1.0.27
+    Checking stable_deref_trait v1.2.1
+   Compiling heck v0.5.0
+    Checking futures-channel v0.3.32
+   Compiling generic-array v0.14.7
+   Compiling typenum v1.19.0
+   Compiling thiserror v2.0.18
+    Checking base64 v0.22.1
+    Checking percent-encoding v2.3.2
+    Checking hashbrown v0.16.1
+    Checking ryu v1.0.23
+   Compiling rustversion v1.0.22
+   Compiling anyhow v1.0.102
+    Checking cpufeatures v0.2.17
+   Compiling unicode-segmentation v1.12.0
+   Compiling num-traits v0.2.19
+    Checking form_urlencoded v1.2.2
+   Compiling unicode-xid v0.2.6
+   Compiling getrandom v0.4.2
+    Checking writeable v0.6.2
+    Checking litemap v0.8.1
+   Compiling icu_properties_data v2.1.2
+   Compiling icu_normalizer_data v2.1.1
+    Checking utf8_iter v1.0.4
+   Compiling rustc_version v0.4.1
+    Checking fnv v1.0.7
+    Checking fastrand v2.3.0
+   Compiling ident_case v1.0.1
+   Compiling dunce v1.0.5
+   Compiling fs_extra v1.3.0
+    Checking atomic-waker v1.1.2
+   Compiling httparse v1.10.1
+   Compiling cfg_aliases v0.2.1
+    Checking tower-service v0.3.3
+    Checking untrusted v0.9.0
+    Checking tower-layer v0.3.3
+    Checking httpdate v1.0.3
+   Compiling aws-lc-rs v1.16.1
+    Checking try-lock v0.2.5
+    Checking pin-utils v0.1.0
+   Compiling paste v1.0.15
+   Compiling convert_case v0.10.0
+    Checking siphasher v1.0.2
+   Compiling rustls v0.23.37
+   Compiling strsim v0.11.1
+   Compiling crossbeam-utils v0.8.21
+   Compiling litrs v1.0.0
+    Checking sync_wrapper v1.0.2
+   Compiling indexmap v2.13.0
+    Checking want v0.3.1
+   Compiling pkg-config v0.3.32
+    Checking openssl-probe v0.2.1
+    Checking adler2 v2.0.1
+    Checking simd-adler32 v0.3.8
+   Compiling rustix v1.1.4
+    Checking iana-time-zone v0.1.65
+    Checking linux-raw-sys v0.12.1
+    Checking arrayvec v0.7.6
+   Compiling num-conv v0.2.0
+   Compiling time-core v0.1.8
+    Checking simdutf8 v0.1.5
+    Checking byteorder v1.5.0
+   Compiling crc32fast v1.5.0
+   Compiling zstd-safe v7.2.4
+   Compiling syn v2.0.117
+    Checking powerfmt v0.2.0
+    Checking miniz_oxide v0.8.9
+    Checking num_threads v0.1.7
+    Checking spin v0.9.8
+    Checking iri-string v0.7.10
+    Checking base64ct v1.8.3
+   Compiling time-macros v0.2.27
+    Checking deranged v0.5.8
+    Checking lazy_static v1.5.0
+   Compiling heapless v0.7.17
+    Checking tinyvec_macros v0.1.1
+   Compiling rayon-core v1.13.0
+    Checking parking v2.2.1
+    Checking opaque-debug v0.3.1
+    Checking rustc-hash v2.1.1
+    Checking hash32 v0.2.1
+   Compiling document-features v0.2.12
+    Checking const-oid v0.10.2
+    Checking data-encoding v2.10.0
+    Checking lru v0.16.3
+   Compiling winnow v1.0.0
+    Checking spin v0.10.0
+   Compiling jobserver v0.1.34
+    Checking tinyvec v1.11.0
+    Checking arrayref v0.3.9
+    Checking futures-lite v2.6.1
+    Checking pem-rfc7468 v1.0.0
+    Checking constant_time_eq v0.4.2
+   Compiling curve25519-dalek v5.0.0-pre.1
+    Checking diatomic-waker v0.2.3
+    Checking self_cell v1.2.2
+    Checking cordyceps v0.3.4
+   Compiling vergen-lib v9.1.0
+   Compiling n0-future v0.3.2
+    Checking crossbeam-epoch v0.9.18
+    Checking netlink-packet-core v0.8.1
+   Compiling noq-udp v0.9.0
+    Checking signature v3.0.0-rc.10
+   Compiling vergen v9.1.0
+   Compiling vergen-lib v0.1.6
+   Compiling cc v1.2.57
+    Checking flate2 v1.1.9
+    Checking hybrid-array v0.4.8
+    Checking dyn-clone v1.0.20
+    Checking errno v0.3.14
+    Checking mio v1.1.1
+    Checking getrandom v0.2.17
+    Checking socket2 v0.6.3
+   Compiling vergen-gitcl v1.0.8
+   Compiling noq v0.17.0
+    Checking identity-hash v0.1.0
+    Checking signal-hook-registry v1.4.8
+    Checking rand_core v0.6.4
+    Checking crossbeam-deque v0.8.6
+    Checking lru-slab v0.1.2
+    Checking crc-catalog v2.4.0
+    Checking rand_core v0.9.5
+    Checking futures-buffered v0.2.13
+    Checking sorted-index-buffer v0.2.1
+    Checking netlink-packet-route v0.29.0
+    Checking crossbeam-channel v0.5.15
+    Checking flume v0.11.1
+   Compiling acto v0.8.0
+   Compiling netwatch v0.15.0
+    Checking crc v3.4.0
+   Compiling pkarr v5.0.2
+    Checking base32 v0.5.1
+    Checking xml-rs v0.8.28
+    Checking tagptr v0.2.0
+    Checking sha1_smol v1.0.1
+    Checking mac-addr v0.3.0
+    Checking simple-dns v0.9.3
+    Checking smol_str v0.1.24
+    Checking resolv-conf v0.7.6
+    Checking seize v0.5.1
+   Compiling iroh v0.97.0
+    Checking z32 v1.3.0
+    Checking humantime v2.3.0
+    Checking hex v0.4.3
+    Checking unicode-width v0.2.2
+    Checking regex-syntax v0.8.10
+    Checking aspen-constants v0.1.0 (/tmp/aspen-lint-precision.3cEzkT/aspen/crates/aspen-constants)
+    Checking crypto-common v0.1.7
+    Checking block-buffer v0.10.4
+    Checking inout v0.1.4
+    Checking crypto-common v0.2.1
+    Checking block-buffer v0.11.0
+    Checking aho-corasick v1.1.4
+   Compiling redb v2.6.3
+    Checking aspen-disk v0.1.0 (/tmp/aspen-lint-precision.3cEzkT/aspen/crates/aspen-disk)
+    Checking uuid v1.22.0
+    Checking serde_bytes v0.11.19
+    Checking papaya v0.2.3
+    Checking aspen-time v0.1.0 (/tmp/aspen-lint-precision.3cEzkT/aspen/crates/aspen-time)
+    Checking digest v0.10.7
+    Checking universal-hash v0.5.1
+    Checking aead v0.5.2
+   Compiling ahash v0.8.12
+    Checking colorchoice v1.0.5
+    Checking utf8parse v0.2.2
+    Checking anstyle-query v1.1.5
+    Checking anstyle v1.0.14
+    Checking is_terminal_polyfill v1.70.2
+    Checking time v0.3.47
+    Checking unicase v2.9.0
+    Checking clap_lex v1.1.0
+   Compiling toml_parser v1.0.10+spec-1.1.0
+    Checking polyval v0.6.2
+    Checking xmltree v0.10.3
+    Checking anstyle-parse v1.0.0
+    Checking pem v3.0.6
+   Compiling syn v1.0.109
+   Compiling cmake v0.1.57
+    Checking sha2 v0.10.9
+    Checking hmac v0.12.1
+    Checking either v1.15.0
+    Checking foldhash v0.1.5
+    Checking nu-ansi-term v0.50.3
+    Checking ghash v0.5.1
+   Compiling proc-macro-error-attr v0.4.12
+    Checking sharded-slab v0.1.7
+    Checking digest v0.11.0-rc.10
+    Checking anstream v1.0.0
+   Compiling proc-macro-error v0.4.12
+    Checking thread_local v1.1.9
+   Compiling proc-macro-hack v0.5.20+deprecated
+    Checking same-file v1.0.6
+    Checking hashbrown v0.15.5
+   Compiling ref-cast v1.0.25
+   Compiling itertools v0.14.0
+    Checking sha2 v0.11.0-rc.2
+    Checking genawaiter-macro v0.99.1
+    Checking binary-merge v0.1.2
+    Checking positioned-io v0.3.5
+   Compiling iroh-blobs v0.99.0
+    Checking walkdir v2.5.0
+    Checking static_assertions v1.1.0
+   Compiling thiserror v1.0.69
+    Checking poly1305 v0.8.0
+   Compiling memoffset v0.9.1
+    Checking fixedbitset v0.5.7
+   Compiling ring v0.17.14
+   Compiling aws-lc-sys v0.38.0
+   Compiling zstd-sys v2.0.16+zstd.1.5.7
+   Compiling bzip2-sys v0.1.13+1.0.8
+   Compiling lzma-sys v0.1.20
+   Compiling blake3 v1.8.3
+   Compiling toml_datetime v1.0.1+spec-1.1.0
+    Checking terminal_size v0.4.3
+    Checking reflink-copy v0.1.29
+    Checking clap_builder v4.6.0
+    Checking hkdf v0.12.4
+   Compiling rust_decimal v1.40.0
+    Checking keccak v0.1.6
+    Checking utf8-width v0.1.8
+    Checking maplit v1.0.2
+    Checking toml_writer v1.0.7+spec-1.1.0
+   Compiling toml_edit v0.25.5+spec-1.1.0
+    Checking sha3 v0.10.8
+    Checking serde_spanned v1.0.4
+   Compiling nix v0.29.0
+    Checking minimal-lexical v0.2.1
+    Checking winnow v0.7.15
+   Compiling petgraph v0.7.1
+   Compiling smallvec v1.15.1
+    Checking nom v7.1.3
+    Checking regex-automata v0.4.14
+   Compiling schemars v0.8.22
+    Checking glob v0.3.3
+   Compiling indoc v2.0.7
+    Checking byte-unit v5.2.0
+    Checking yasna v0.5.2
+    Checking md-5 v0.10.6
+    Checking unsafe-libyaml v0.2.11
+   Compiling proc-macro-crate v3.5.0
+   Compiling parking_lot v0.12.5
+    Checking termcolor v1.4.1
+   Compiling phf_shared v0.11.3
+    Checking bzip2 v0.5.2
+   Compiling bit-vec v0.8.0
+    Checking bytemuck v1.25.0
+   Compiling new_debug_unreachable v1.0.6
+   Compiling term v1.2.1
+   Compiling precomputed-hash v0.1.1
+   Compiling chrono v0.4.44
+   Compiling ena v0.14.4
+    Checking toml_datetime v0.7.5+spec-1.1.0
+   Compiling string_cache v0.8.9
+    Checking safe_arch v0.7.4
+   Compiling bit-set v0.8.0
+   Compiling malachite-nz v0.6.1
+   Compiling pico-args v0.5.0
+    Checking malachite-base v0.6.1
+   Compiling logos-codegen v0.15.1
+   Compiling proc-macro2-diagnostics v0.10.1
+    Checking vte v0.14.1
+   Compiling yansi v1.0.1
+   Compiling beef v0.5.2
+   Compiling ascii-canvas v4.0.0
+   Compiling heck v0.4.1
+    Checking bitmaps v3.2.1
+    Checking strip-ansi-escapes v0.2.1
+    Checking hashlink v0.10.0
+    Checking typed-arena v2.0.2
+    Checking arraydeque v0.5.1
+    Checking arrayvec v0.5.2
+    Checking aliasable v0.1.3
+    Checking wide v0.7.33
+    Checking simple-counter v0.1.0
+    Checking bumpalo v3.20.2
+    Checking sha-1 v0.10.1
+    Checking json_scanner v0.1.0
+   Compiling strsim v0.10.0
+   Compiling curve25519-dalek v4.1.3
+    Checking num_cpus v1.17.0
+    Checking signature v2.2.0
+    Checking sha1 v0.10.6
+   Compiling synstructure v0.13.2
+   Compiling darling_core v0.20.11
+   Compiling serde_derive_internals v0.29.1
+    Checking pretty v0.12.5
+    Checking saphyr-parser v0.0.6
+    Checking ed25519 v2.2.3
+    Checking xattr v1.6.1
+    Checking concurrent-queue v2.5.0
+    Checking wait-timeout v0.2.1
+    Checking quick-error v1.2.3
+    Checking rand_xorshift v0.4.0
+    Checking toml v0.9.12+spec-1.1.0
+    Checking toml_edit v0.23.10+spec-1.0.0
+    Checking imbl-sized-chunks v0.1.3
+    Checking unarray v0.1.4
+    Checking filetime v0.2.27
+    Checking rand_xoshiro v0.7.0
+    Checking raw-cpuid v11.6.0
+    Checking sketches-ddsketch v0.3.1
+    Checking pem-rfc7468 v0.7.0
+    Checking event-listener v5.4.1
+    Checking arc-swap v1.8.2
+    Checking similar v2.7.0
+   Compiling secp256k1-sys v0.10.1
+   Compiling nix v0.31.2
+   Compiling bitcoin-io v0.1.4
+    Checking bech32 v0.11.1
+    Checking utf-8 v0.7.6
+    Checking hex-conservative v0.2.2
+    Checking toml_write v0.1.2
+    Checking tar v0.4.44
+    Checking event-listener-strategy v0.5.4
+    Checking nix v0.27.1
+    Checking gix-trace v0.1.18
+   Compiling heapless v0.8.0
+    Checking unicode-normalization v0.1.25
+    Checking hash32 v0.3.1
+    Checking async-channel v2.5.0
+    Checking ssh-encoding v0.2.0
+    Checking sha1-checked v0.10.0
+    Checking base16ct v0.2.0
+    Checking jiff v0.2.23
+    Checking hex-conservative v0.3.2
+   Compiling object v0.37.3
+   Compiling aspen-nickel v0.1.0 (/tmp/aspen-lint-precision.3cEzkT/aspen/crates/aspen-nickel)
+    Checking bitflags v1.3.2
+    Checking sec1 v0.7.3
+   Compiling stacker v0.1.23
+   Compiling signal-hook v0.3.18
+   Compiling bytes v1.11.1
+   Compiling aspen-ci v0.1.0 (/tmp/aspen-lint-precision.3cEzkT/aspen/crates/aspen-ci)
+    Checking serde_path_to_error v0.1.20
+    Checking regex v1.12.3
+    Checking matchers v0.2.0
+    Checking lalrpop-util v0.22.2
+    Checking gix-utils v0.3.1
+    Checking bitcoin_hashes v0.15.0
+   Compiling once_cell v1.21.4
+   Compiling darling_core v0.23.0
+    Checking num-integer v0.1.46
+   Compiling chrono-tz v0.10.4
+    Checking cast v0.3.0
+    Checking oorandom v11.1.5
+    Checking plotters-backend v0.3.7
+    Checking ciborium-io v0.2.2
+    Checking itertools v0.10.5
+    Checking signal-hook-mio v0.2.5
+   Compiling prettyplease v0.2.37
+    Checking toml v1.0.7+spec-1.1.0
+    Checking rayon v1.11.0
+    Checking is-terminal v0.4.17
+   Compiling serde_derive v1.0.228
+   Compiling zerocopy-derive v0.8.42
+   Compiling tokio-macros v2.6.1
+   Compiling futures-macro v0.3.32
+   Compiling tracing-attributes v0.1.31
+   Compiling displaydoc v0.2.5
+   Compiling zeroize_derive v1.4.3
+   Compiling thiserror-impl v2.0.18
+   Compiling zerofrom-derive v0.1.6
+   Compiling yoke-derive v0.8.1
+   Compiling zerovec-derive v0.11.2
+   Compiling pin-project-internal v1.1.11
+   Compiling async-trait v0.1.89
+   Compiling derive_more-impl v2.1.1
+   Compiling curve25519-dalek-derive v0.1.1
+   Compiling postcard-derive v0.2.2
+    Checking zeroize v1.8.2
+   Compiling n0-error-macros v0.1.3
+   Compiling spez v0.1.2
+   Compiling num_enum_derive v0.7.6
+    Checking rustls-pki-types v1.14.0
+    Checking futures-util v0.3.32
+    Checking cipher v0.4.4
+    Checking der v0.8.0
+    Checking rustls-native-certs v0.8.3
+    Checking webpki-roots v1.0.6
+    Checking aes v0.8.4
+    Checking ctr v0.9.2
+   Compiling enum-assoc v1.3.0
+   Compiling enum-as-inner v0.6.1
+   Compiling iroh-metrics-derive v0.4.1
+   Compiling strum_macros v0.28.0
+    Checking zerofrom v0.1.6
+   Compiling darling_macro v0.20.11
+   Compiling snafu-derive v0.8.9
+   Compiling clap_derive v4.6.0
+   Compiling irpc-derive v0.10.0
+    Checking yoke v0.8.1
+    Checking pin-project v1.1.11
+   Compiling syn-mid v0.5.4
+   Compiling ref-cast-impl v1.0.25
+    Checking n0-error v0.1.3
+    Checking cobs v0.3.0
+    Checking num_enum v0.7.6
+    Checking aes-gcm v0.10.3
+    Checking zerovec v0.11.5
+    Checking zerotrie v0.2.3
+   Compiling darling v0.20.11
+   Compiling nested_enum_utils v0.2.3
+   Compiling thiserror-impl v1.0.69
+   Compiling derive_builder_core v0.20.2
+    Checking chacha20 v0.9.1
+   Compiling openraft-macros v0.10.0 (/tmp/aspen-lint-precision.3cEzkT/aspen/openraft/macros)
+   Compiling derive_more-impl v1.0.0
+   Compiling schemars_derive v0.8.22
+    Checking chacha20poly1305 v0.10.1
+warning: loop without visible iteration bound
+   --> openraft/macros/src/expand.rs:254:9
+    |
+254 | /         loop {
+255 | |             if input.is_empty() {
+256 | |                 break;
+...   |
+309 | |         }
+    | |_________^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+    = note: `#[warn(unbounded_loop)]` on by default
+
+warning: loop without visible iteration bound
+   --> openraft/macros/src/expand.rs:276:17
+    |
+276 | /                 loop {
+277 | |                     if content.is_empty() {
+278 | |                         break;
+...   |
+288 | |                     args.push(v);
+289 | |                 }
+    | |_________________^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/macros/src/since.rs:84:9
+    |
+ 84 | /         loop {
+ 85 | |             let Some(curr) = it.next() else {
+ 86 | |                 break;
+ 87 | |             };
+...   |
+101 | |         }
+    | |_________^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: `panic!` will abort the process on execution
+   --> openraft/macros/src/lib.rs:105:14
+    |
+105 |         _ => panic!("add_async_trait can only be used with traits"),
+    |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: return `Err(...)` instead of panicking
+    = note: `#[warn(no_panic)]` on by default
+
+   Compiling logos-derive v0.15.1
+   Compiling ouroboros_macro v0.18.5
+   Compiling darling_core v0.14.4
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/macros/src/since.rs:109:26
+    |
+109 |         let since_docs = proc_macro2::TokenStream::from_str(&since_docs_str).unwrap();
+    |                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+    = note: `#[warn(no_unwrap)]` on by default
+
+warning: `.unwrap()` in production code will panic on failure
+  --> openraft/macros/src/lib.rs:73:42
+   |
+73 |     let default_return_type: Box<Type> = parse_str("impl std::future::Future<Output = ()> + Send").unwrap();
+   |                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+  --> openraft/macros/src/lib.rs:92:50
+   |
+92 |                         ReturnType::Type(*arrow, parse2(tokens).unwrap())
+   |                                                  ^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+  --> openraft/macros/src/lib.rs:98:28
+   |
+98 |                 let body = parse2(quote!({ async move #body })).unwrap();
+   |                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: use `?` to propagate, or match/map the error explicitly
+
+   Compiling strum_macros v0.26.4
+    Checking spki v0.8.0-rc.4
+   Compiling lalrpop v0.22.2
+   Compiling bon-macros v2.3.0
+   Compiling genawaiter-proc-macro v0.99.1
+    Checking pkcs8 v0.11.0-rc.11
+    Checking logos v0.15.1
+    Checking ssh-cipher v0.2.0
+    Checking faster-hex v0.10.0
+    Checking vsock v0.5.3
+    Checking num-bigint v0.4.6
+    Checking tinystr v0.8.2
+    Checking potential_utf v0.1.4
+warning: `openraft-macros` (lib) generated 8 warnings
+    Checking plotters-svg v0.3.7
+   Compiling darling_macro v0.23.0
+    Checking criterion-plot v0.5.0
+    Checking icu_collections v2.1.1
+    Checking icu_locale_core v2.1.1
+    Checking genawaiter v0.99.1
+    Checking anes v0.1.6
+    Checking plotters v0.3.7
+    Checking rcgen v0.14.7
+   Compiling derive_builder_macro v0.20.2
+    Checking mime v0.3.17
+   Compiling memoffset v0.6.5
+   Compiling libmimalloc-sys v0.1.44
+   Compiling darling v0.23.0
+   Compiling serde_with_macros v3.18.0
+    Checking snafu v0.8.9
+    Checking endian-type v0.1.2
+   Compiling derive_builder v0.20.2
+    Checking ed25519-dalek v2.2.0
+    Checking caps v0.5.6
+    Checking mio v0.8.11
+    Checking nix v0.24.3
+    Checking strum v0.28.0
+    Checking matchit v0.8.4
+    Checking ssh-key v0.6.7
+   Compiling nix-compat v0.1.0 (https://git.snix.dev/snix/snix.git?rev=e20f82dd6fdebe953fb71bb2fde2f32841015c47#e20f82dd)
+    Checking ouroboros v0.18.5
+    Checking clap v4.6.0
+   Compiling nix-compat-derive v0.1.0 (https://git.snix.dev/snix/snix.git?rev=e20f82dd6fdebe953fb71bb2fde2f32841015c47#e20f82dd)
+   Compiling prost-derive v0.13.5
+   Compiling ar_archive_writer v0.5.1
+    Checking console v0.16.3
+    Checking nom v8.0.0
+    Checking icu_provider v2.1.1
+    Checking futures-executor v0.3.32
+   Compiling prost-derive v0.14.3
+    Checking strum v0.26.3
+    Checking icu_properties v2.1.2
+   Compiling multimap v0.10.1
+   Compiling iroh-relay v0.97.0
+    Checking futures v0.3.32
+    Checking gimli v0.32.3
+    Checking ipnet v2.12.0
+    Checking serde_urlencoded v0.7.1
+    Checking ed25519 v3.0.0-rc.4
+    Checking serde_bencode v0.2.4
+    Checking aspen-kv-types v0.1.0 (/tmp/aspen-lint-precision.3cEzkT/aspen/crates/aspen-kv-types)
+    Checking icu_normalizer v2.1.1
+    Checking bincode v1.3.3
+    Checking aspen-layer v0.1.0 (/tmp/aspen-lint-precision.3cEzkT/aspen/crates/aspen-layer)
+    Checking aspen-jobs-protocol v0.1.0 (/tmp/aspen-lint-precision.3cEzkT/aspen/crates/aspen-jobs-protocol)
+    Checking aspen-coordination-protocol v0.1.0 (/tmp/aspen-lint-precision.3cEzkT/aspen/crates/aspen-coordination-protocol)
+    Checking aspen-forge-protocol v0.1.0 (/tmp/aspen-lint-precision.3cEzkT/aspen/crates/aspen-forge-protocol)
+    Checking inplace-vec-builder v0.1.1
+    Checking secrecy v0.10.3
+    Checking range-collections v0.4.6
+    Checking anyerror v0.1.13
+    Checking derive_more v1.0.0
+    Checking futures-concurrency v7.7.1
+    Checking http v1.4.0
+    Checking tokio v1.50.0
+    Checking moka v0.12.14
+    Checking aspen-storage-types v0.1.0 (/tmp/aspen-lint-precision.3cEzkT/aspen/crates/aspen-storage-types)
+    Checking validit v0.2.5
+    Checking postcard v1.1.3
+    Checking derive_more v2.1.1
+warning: `Result` value silently discarded with `let _ = ...`
+  --> crates/aspen-layer/src/index/registry.rs:48:9
+   |
+48 | /         let _ = registry.register(SecondaryIndex::numeric(
+49 | |             "idx_mod_revision",
+50 | |             mod_rev_space,
+51 | |             Arc::new(|entry| Some(entry.mod_revision.to_be_bytes().to_vec())),
+52 | |         ));
+   | |___________^
+   |
+   = help: use `expr?` to propagate, `let _: () = expr?;` to assert infallibility, or handle the error explicitly
+   = note: `#[warn(ignored_result)]` on by default
+
+warning: `Result` value silently discarded with `let _ = ...`
+  --> crates/aspen-layer/src/index/registry.rs:56:9
+   |
+56 | /         let _ = registry.register(SecondaryIndex::numeric(
+57 | |             "idx_create_revision",
+58 | |             create_rev_space,
+59 | |             Arc::new(|entry| Some(entry.create_revision.to_be_bytes().to_vec())),
+60 | |         ));
+   | |___________^
+   |
+   = help: use `expr?` to propagate, `let _: () = expr?;` to assert infallibility, or handle the error explicitly
+
+warning: `Result` value silently discarded with `let _ = ...`
+  --> crates/aspen-layer/src/index/registry.rs:64:9
+   |
+64 | /         let _ = registry.register(SecondaryIndex::numeric(
+65 | |             "idx_expires_at",
+66 | |             expires_space,
+67 | |             Arc::new(|entry| entry.expires_at_ms.map(|ms| (ms as i64).to_be_bytes().to_vec())),
+68 | |         ));
+   | |___________^
+   |
+   = help: use `expr?` to propagate, `let _: () = expr?;` to assert infallibility, or handle the error explicitly
+
+warning: `Result` value silently discarded with `let _ = ...`
+  --> crates/aspen-layer/src/index/registry.rs:72:9
+   |
+72 | /         let _ = registry.register(SecondaryIndex::numeric(
+73 | |             "idx_lease_id",
+74 | |             lease_space,
+75 | |             Arc::new(|entry| entry.lease_id.map(|id| (id as i64).to_be_bytes().to_vec())),
+76 | |         ));
+   | |___________^
+   |
+   = help: use `expr?` to propagate, `let _: () = expr?;` to assert infallibility, or handle the error explicitly
+
+warning: `aspen-layer` (lib) generated 4 warnings
+    Checking serde_yaml v0.9.34+deprecated
+    Checking tracing-core v0.1.36
+    Checking ntimestamp v1.0.0
+    Checking tempfile v3.27.0
+    Checking codespan-reporting v0.13.1
+    Checking nickel-lang-vector v0.1.0
+   Compiling darling_macro v0.14.4
+    Checking idna_adapter v1.2.1
+    Checking bstr v1.12.1
+    Checking idna v1.1.0
+    Checking tracing v0.1.44
+    Checking tracing-log v0.2.0
+    Checking bon v2.3.0
+    Checking rusty-fork v0.3.1
+    Checking ed25519-dalek v3.0.0-pre.1
+    Checking quanta v0.12.6
+    Checking bitcoin_hashes v0.14.1
+   Compiling darling v0.14.4
+    Checking http-body v1.0.1
+    Checking iroh-metrics v0.38.3
+    Checking tracing-subscriber v0.3.23
+    Checking tracing-futures v0.2.5
+    Checking cron v0.13.0
+    Checking codespan v0.13.1
+    Checking url v2.5.8
+   Compiling madsim-macros v0.2.12
+    Checking toml_datetime v0.6.11
+    Checking http-body-util v0.1.3
+    Checking mainline v6.0.1
+    Checking serde_spanned v0.6.9
+    Checking prodash v30.0.1
+    Checking prodash v29.0.2
+    Checking faster-hex v0.9.0
+   Compiling psm v0.1.30
+    Checking aspen-ci-core v0.1.0 (/tmp/aspen-lint-precision.3cEzkT/aspen/crates/aspen-ci-core)
+    Checking gix-date v0.12.1
+    Checking gix-validate v0.10.1
+    Checking toml_edit v0.22.27
+    Checking quick-xml v0.38.4
+    Checking tinytemplate v1.2.1
+    Checking serde_with v3.18.0
+    Checking nibble_vec v0.1.0
+    Checking gix-path v0.10.22
+    Checking axum-core v0.5.6
+    Checking mimalloc v0.1.48
+    Checking radix_trie v0.2.1
+    Checking gix-features v0.45.2
+    Checking gix-actor v0.37.1
+    Checking crossterm v0.29.0
+    Checking gix-features v0.41.1
+    Checking rustc-demangle v0.1.27
+   Compiling pulldown-cmark v0.13.1
+    Checking attohttpc v0.30.1
+    Checking iroh-base v0.97.0
+    Checking gix-hash v0.21.2
+    Checking num-rational v0.4.2
+    Checking gix-hash v0.17.0
+    Checking num-iter v0.1.45
+    Checking num-complex v0.4.6
+   Compiling flatbuffers v24.12.23
+    Checking gix-hashtable v0.11.0
+   Compiling owo-colors v4.3.0
+   Compiling camino v1.2.2
+   Compiling prost v0.14.3
+    Checking ppv-lite86 v0.2.21
+    Checking iroh-tickets v0.4.0
+    Checking half v2.7.1
+    Checking gix-object v0.54.1
+    Checking phf_shared v0.12.1
+   Compiling winnow v0.5.40
+    Checking addr2line v0.25.1
+   Compiling target-lexicon v0.12.16
+    Checking phf v0.12.1
+    Checking num v0.4.3
+   Compiling petgraph v0.8.3
+   Compiling guppy-workspace-hack v0.1.0
+    Checking metrics v0.24.3
+    Checking hashbrown v0.14.5
+    Checking arrow-schema v54.3.1
+    Checking rand_chacha v0.9.0
+    Checking rand_chacha v0.3.1
+   Compiling prost-types v0.14.3
+    Checking opentelemetry v0.30.0
+    Checking ciborium-ll v0.2.2
+    Checking arrow-buffer v54.3.1
+    Checking prost v0.13.5
+    Checking smol_str v0.3.6
+    Checking rand v0.9.2
+    Checking rand v0.8.5
+    Checking ciborium v0.2.2
+   Compiling typeid v1.0.3
+    Checking xz2 v0.1.7
+   Compiling target-spec v3.4.1
+    Checking console v0.15.11
+    Checking anstyle-parse v0.2.7
+    Checking dashmap v6.1.0
+    Checking socket2 v0.5.10
+   Compiling erased-serde v0.4.10
+    Checking toml v0.8.23
+    Checking cfg-expr v0.17.2
+    Checking arrow-data v54.3.1
+    Checking anstream v0.6.21
+   Compiling sqlparser_derive v0.3.0
+   Compiling prost-types v0.13.5
+   Compiling darling_core v0.21.3
+    Checking is_ci v1.2.0
+   Compiling rustix v0.38.44
+    Checking pretty-hex v0.4.2
+    Checking number_prefix v0.4.0
+    Checking unicode-linebreak v0.1.5
+    Checking fastbloom v0.14.1
+    Checking proptest v1.10.0
+    Checking metrics-util v0.19.1
+    Checking tungstenite v0.28.0
+   Compiling nextest-workspace-hack v0.1.0
+    Checking uhlc v0.8.2
+    Checking secp256k1 v0.29.1
+    Checking lexical-util v1.0.7
+   Compiling color-spantrace v0.3.0
+   Compiling pulldown-cmark-to-cmark v22.0.0
+   Compiling eyre v0.6.12
+    Checking textwrap v0.16.2
+    Checking indicatif v0.17.11
+    Checking supports-color v3.0.2
+    Checking aspen-hlc v0.1.0 (/tmp/aspen-lint-precision.3cEzkT/aspen/crates/aspen-hlc)
+    Checking pathdiff v0.2.3
+    Checking tracing-error v0.2.1
+    Checking cargo-platform v0.1.9
+   Compiling miette-derive v7.6.0
+    Checking os_pipe v1.2.3
+    Checking nostr v0.44.2
+    Checking vte v0.15.0
+    Checking encoding_rs v0.8.35
+    Checking supports-hyperlinks v3.2.0
+    Checking shell-words v1.1.1
+    Checking indenter v0.3.4
+    Checking debug-ignore v1.0.5
+    Checking supports-unicode v3.0.0
+   Compiling typetag v0.2.21
+    Checking linux-raw-sys v0.4.15
+    Checking unicode-width v0.1.14
+    Checking cargo_metadata v0.19.2
+    Checking sigchld v0.2.4
+    Checking vt100 v0.16.2
+   Compiling tonic-build v0.14.5
+   Compiling typetag-impl v0.2.21
+   Compiling self_update v0.42.0
+    Checking inventory v0.3.22
+   Compiling prost-build v0.14.3
+    Checking nested v0.1.1
+    Checking unit-prefix v0.5.2
+    Checking shared_child v1.1.1
+   Compiling toml_edit v0.20.7
+    Checking nextest-metadata v0.12.1
+    Checking dialoguer v0.11.0
+    Checking lexical-parse-integer v1.0.6
+    Checking lexical-write-integer v1.0.6
+    Checking comfy-table v7.2.2
+    Checking globset v0.4.18
+    Checking indicatif v0.18.4
+    Checking self-replace v1.5.0
+   Compiling prost-build v0.13.5
+    Checking env_filter v1.0.0
+    Checking newtype-uuid v1.3.2
+   Compiling nix v0.30.1
+    Checking quick-xml v0.37.5
+    Checking urlencoding v2.1.3
+    Checking recursion v0.5.4
+   Compiling aspen v0.1.0 (/tmp/aspen-lint-precision.3cEzkT/aspen)
+    Checking env_logger v0.11.9
+    Checking quick-junit v0.5.2
+   Compiling unic-langid-impl v0.9.6
+   Compiling cargo-nextest v0.9.91
+    Checking lexical-write-float v1.0.6
+    Checking lexical-parse-float v1.0.6
+    Checking tracing-indicatif v0.3.14
+warning: `.unwrap()` in production code will panic on failure
+ --> build.rs:7:9
+  |
+7 |         std::process::Command::new("echo").arg("unknown").output().unwrap()
+  |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = help: use `?` to propagate, or match/map the error explicitly
+  = note: `#[warn(no_unwrap)]` on by default
+
+warning: `.unwrap()` in production code will panic on failure
+  --> build.rs:18:29
+   |
+18 |         .unwrap_or_else(|_| std::process::Command::new("echo").arg("unknown").output().unwrap());
+   |                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: use `?` to propagate, or match/map the error explicitly
+
+    Checking duct v0.13.7
+   Compiling prost-wkt-build v0.7.1
+   Compiling tonic-prost-build v0.14.5
+    Checking future-queue v0.4.0
+    Checking guppy v0.17.16
+    Checking config v0.15.22
+    Checking camino-tempfile v1.4.1
+    Checking mukti-metadata v0.3.0
+    Checking clap-verbosity-flag v3.0.4
+    Checking humantime-serde v1.1.1
+    Checking tokio-util v0.7.18
+    Checking netlink-sys v0.8.8
+    Checking async-compat v0.2.5
+    Checking backon v1.6.0
+    Checking iroh-io v0.6.2
+    Checking aspen-trust v0.1.0 (/tmp/aspen-lint-precision.3cEzkT/aspen/crates/aspen-trust)
+    Checking openraft v0.10.0 (/tmp/aspen-lint-precision.3cEzkT/aspen/openraft/openraft)
+    Checking ractor v0.15.12
+    Checking tokio-tungstenite v0.28.0
+    Checking command-group v5.0.1
+    Checking tokio-vsock v0.7.2
+warning: `aspen` (build script) generated 2 warnings
+    Checking criterion v0.5.1
+    Checking netlink-proto v0.12.0
+    Checking netdev v0.40.1
+   Compiling tonic-build v0.13.1
+    Checking backtrace v0.3.76
+warning: loop without visible iteration bound
+   --> crates/aspen-trust/src/reencrypt.rs:94:5
+    |
+ 94 | /     loop {
+ 95 | |         let batch = store.scan_secrets(prefix, after_key.as_deref(), REENCRYPTION_BATCH_SIZE).await?;
+ 96 | |
+ 97 | |         if batch.is_empty() {
+...   |
+139 | |     }
+    | |_____^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+    = note: `#[warn(unbounded_loop)]` on by default
+
+    Checking prost-wkt v0.7.1
+    Checking bao-tree v0.16.0
+    Checking async-scoped v0.9.0
+   Compiling derive-where v1.6.1
+   Compiling async-stream-impl v0.3.6
+    Checking serde_ignored v0.1.14
+    Checking xxhash-rust v0.8.15
+   Compiling prost-wkt-types v0.7.1
+   Compiling bigtable_rs v0.2.19
+    Checking indent_write v2.2.0
+   Compiling fuse-backend-rs v0.12.0
+    Checking swrite v0.1.0
+    Checking opentelemetry-semantic-conventions v0.30.0
+   Compiling redb v3.1.1
+    Checking safemem v0.2.0
+    Checking home v0.5.12
+    Checking backtrace-ext v0.2.1
+    Checking color-eyre v0.6.5
+    Checking base64 v0.7.0
+    Checking lexical-core v1.0.6
+    Checking miette v7.6.0
+   Compiling unic-langid v0.9.6
+warning: `.expect()` in production code will panic on failure
+  --> crates/aspen-trust/src/encryption.rs:67:19
+   |
+67 |         let key = self.keys.get(&self.epoch).expect("current epoch key must exist");
+   |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: use `?` with `.context()` (anyhow) or `.whatever_context()` (snafu) instead
+   = note: `#[warn(no_unwrap)]` on by default
+
+warning: `.expect()` in production code will panic on failure
+  --> crates/aspen-trust/src/encryption.rs:97:40
+   |
+97 |         let epoch = u64::from_be_bytes(stored[5..13].try_into().expect("8 bytes for u64"));
+   |                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: use `?` with `.context()` (anyhow) or `.whatever_context()` (snafu) instead
+
+warning: `.expect()` in production code will panic on failure
+   --> crates/aspen-trust/src/envelope.rs:133:40
+    |
+133 |         let epoch = u64::from_be_bytes(bytes[5..13].try_into().expect("8 bytes for u64"));
+    |                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` with `.context()` (anyhow) or `.whatever_context()` (snafu) instead
+
+warning: narrowing cast from `u16` to `u8` without bounds check
+  --> crates/aspen-trust/src/gf256.rs:28:23
+   |
+28 |             result ^= a as u8;
+   |                       ^^^^^^^
+   |
+   = help: use `u8::try_from(value)` or guard with `if value <= u8::MAX as u16`
+   = note: `#[warn(unchecked_narrowing)]` on by default
+
+warning: `.expect()` in production code will panic on failure
+  --> crates/aspen-trust/src/kdf.rs:50:5
+   |
+50 |     hk.expand(&info, &mut output).expect("32-byte output is within HKDF-SHA3-256 limits");
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: use `?` with `.context()` (anyhow) or `.whatever_context()` (snafu) instead
+
+warning: `.expect()` in production code will panic on failure
+  --> crates/aspen-trust/src/secret.rs:33:9
+   |
+33 |         OsRng.try_fill_bytes(&mut bytes).expect("OS CSPRNG failure");
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: use `?` with `.context()` (anyhow) or `.whatever_context()` (snafu) instead
+
+warning: `.expect()` in production code will panic on failure
+   --> crates/aspen-trust/src/shamir.rs:165:17
+    |
+165 |         let x = share_idx.checked_add(1).expect("total <= 255 so share_idx + 1 <= 255");
+    |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` with `.context()` (anyhow) or `.whatever_context()` (snafu) instead
+
+warning: narrowing cast from `u32` to `u8` without bounds check
+  --> crates/aspen-trust/src/verified/mod.rs:27:38
+   |
+27 |     if majority > 255 { 255 } else { majority as u8 }
+   |                                      ^^^^^^^^^^^^^^
+   |
+   = help: use `u8::try_from(value)` or guard with `if value <= u8::MAX as u32`
+
+    Checking async-stream v0.3.6
+    Checking http v0.2.12
+warning: `aspen-trust` (lib) generated 9 warnings
+   Compiling serde_repr v0.1.20
+    Checking h2 v0.4.13
+    Checking tower v0.5.3
+    Checking tokio-stream v0.1.18
+    Checking madsim v0.2.34
+    Checking n0-watcher v0.6.1
+   Compiling proc-macro-crate v2.0.0
+   Compiling darling_macro v0.21.3
+error: failed to run custom build command for `prost-wkt-types v0.7.1`
+
+Caused by:
+  process didn't exit successfully: `/tmp/aspen-lint-precision.3cEzkT/target-before/dylint/target/nightly-2026-03-21-x86_64-unknown-linux-gnu/debug/build/prost-wkt-types-c8e17aa6b3cb2458/build-script-build` (exit status: 101)
+  --- stderr
+
+  thread 'main' (1899086) panicked at /tmp/tmp.zC7ON9H6pK/registry/src/index.crates.io-1949cf8c6b5b557f/prost-wkt-types-0.7.1/build.rs:48:10:
+  called `Result::unwrap()` on an `Err` value: Custom { kind: NotFound, error: "Could not find `protoc`. If `protoc` is installed, try setting the `PROTOC` environment variable to the path of the `protoc` binary. To install it on Debian, run `apt-get install protobuf-compiler`. It is also available at https://github.com/protocolbuffers/protobuf/releases  For more information: https://docs.rs/prost-build/#sourcing-protoc" }
+  note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+warning: build failed, waiting for other jobs to finish...
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/core/raft_core.rs:245:75
+    |
+245 |     async fn do_main(&mut self, rx_shutdown: OneshotReceiverOf<C, ()>) -> Result<Infallible, Fatal<C>> {
+    |                                                                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+    = note: `#[warn(unbounded_loop)]` on by default
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/core/raft_core.rs:270:25
+    |
+270 |     pub(super) async fn handle_ensure_linearizable_read(&mut self, read_policy: ReadPolicy, tx: ClientReadTx<C>) {
+    |                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/core/raft_core.rs:530:19
+    |
+530 |     pub(super) fn change_membership(
+    |                   ^^^^^^^^^^^^^^^^^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/core/raft_core.rs:562:12
+    |
+562 |     pub fn write_entry(&mut self, entry: C::Entry, resp_tx: Option<CoreResponder<C>>) {
+    |            ^^^^^^^^^^^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/core/raft_core.rs:592:76
+    |
+592 |     pub(crate) fn send_heartbeat(&mut self, emitter: impl fmt::Display) -> bool {
+    |                                                                            ^^^^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/core/raft_core.rs:616:12
+    |
+616 |     pub fn flush_metrics(&mut self) {
+    |            ^^^^^^^^^^^^^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/core/raft_core.rs:640:19
+    |
+640 |     pub(crate) fn report_metrics(
+    |                   ^^^^^^^^^^^^^^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/core/raft_core.rs:742:19
+    |
+742 |     pub(crate) fn handle_initialize(
+    |                   ^^^^^^^^^^^^^^^^^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/core/raft_core.rs:788:19
+    |
+788 |     pub(crate) fn trigger_snapshot(&mut self) {
+    |                   ^^^^^^^^^^^^^^^^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/core/raft_core.rs:803:19
+    |
+803 |     pub(crate) fn trigger_routine_actions(&mut self) {
+    |                   ^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/core/raft_core.rs:822:44
+    |
+822 |     pub(crate) fn current_leader(&self) -> Option<C::NodeId> {
+    |                                            ^^^^^^^^^^^^^^^^^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/core/raft_core.rs:869:10
+    |
+869 |     ) -> Result<(), StorageError<C>> {
+    |          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/core/raft_core.rs:914:10
+    |
+914 |     ) -> ReplicationHandle<C> {
+    |          ^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/core/raft_core.rs:940:18
+    |
+940 |     pub async fn remove_all_replication(&mut self) {
+    |                  ^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/core/raft_core.rs:969:59
+    |
+969 |     pub(crate) async fn run_engine_commands(&mut self) -> Result<(), StorageError<C>> {
+    |                                                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+    --> openraft/openraft/src/core/raft_core.rs:1058:84
+     |
+1058 |     async fn runtime_loop(&mut self, mut rx_shutdown: OneshotReceiverOf<C, ()>) -> Result<Infallible, Fatal<C>> {
+     |                                                                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+    --> openraft/openraft/src/core/raft_core.rs:1202:14
+     |
+1202 |     async fn spawn_parallel_vote_requests(&mut self, vote_req: &VoteRequest<C>) {
+     |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+    --> openraft/openraft/src/core/raft_core.rs:1273:14
+     |
+1273 |     async fn broadcast_transfer_leader(&mut self, req: TransferLeaderRequest<C>) {
+     |              ^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+    --> openraft/openraft/src/core/raft_core.rs:1323:19
+     |
+1323 |     pub(super) fn handle_vote_request(&mut self, req: VoteRequest<C>, tx: VoteTx<C>) {
+     |                   ^^^^^^^^^^^^^^^^^^^
+     |
+     = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+    --> openraft/openraft/src/core/raft_core.rs:1337:19
+     |
+1337 |     pub(super) fn handle_append_entries_request(&mut self, req: AppendEntriesRequest<C>, tx: AppendEntriesTx<C>) {
+     |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+    --> openraft/openraft/src/core/raft_core.rs:1348:25
+     |
+1348 |     pub(crate) async fn handle_api_msg(&mut self, msg: RaftMsg<C>) {
+     |                         ^^^^^^^^^^^^^^
+     |
+     = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+    --> openraft/openraft/src/core/raft_core.rs:1485:78
+     |
+1485 |     pub(crate) fn handle_notification(&mut self, notify: Notification<C>) -> Result<(), Fatal<C>> {
+     |                                                                              ^^^^^^^^^^^^^^^^^^^^
+     |
+     = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+    --> openraft/openraft/src/core/raft_core.rs:1677:8
+     |
+1677 |     fn handle_tick_election(&mut self) {
+     |        ^^^^^^^^^^^^^^^^^^^^
+     |
+     = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+  --> openraft/openraft/src/core/sm/worker.rs:98:40
+   |
+98 |     async fn worker_loop(&mut self) -> Result<(), StorageError<C>> {
+   |                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/core/sm/worker.rs:99:9
+    |
+ 99 | /         loop {
+100 | |             let cmd = self.cmd_rx.recv().await;
+101 | |             let cmd = match cmd {
+102 | |                 None => {
+...   |
+173 | |             };
+174 | |         }
+    | |_________^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/core/sm/worker.rs:182:10
+    |
+182 |     ) -> Result<ApplyResult<C>, StorageError<C>> {
+    |          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/core/sm/worker.rs:249:14
+    |
+249 |     async fn build_snapshot(&mut self, resp_tx: MpscSenderOf<C, Notification<C>>) {
+    |              ^^^^^^^^^^^^^^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/core/sm/worker.rs:273:86
+    |
+273 |     async fn get_snapshot(&mut self, tx: OneshotSenderOf<C, Option<Snapshot<C>>>) -> Result<(), StorageError<C>> {
+    |                                                                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/core/tick.rs:89:9
+    |
+ 89 | /         loop {
+ 90 | |             let at = C::now() + self.interval;
+ 91 | |             let sleep_fut = std::pin::pin!(C::sleep_until(at));
+ 92 | |             let cancel_fut = cancel.as_mut();
+...   |
+117 | |         }
+    | |_________^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: `unreachable!` will abort the process on execution
+   --> openraft/openraft/src/progress/inflight/mod.rs:134:17
+    |
+134 |                 unreachable!("no inflight data")
+    |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: if truly unreachable, use `debug_assert!` or prove it with types
+    = note: `#[warn(no_panic)]` on by default
+
+warning: `unreachable!` will abort the process on execution
+   --> openraft/openraft/src/progress/inflight/mod.rs:167:17
+    |
+167 |                 unreachable!("no inflight data")
+    |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: if truly unreachable, use `debug_assert!` or prove it with types
+
+warning: `unreachable!` will abort the process on execution
+   --> openraft/openraft/src/progress/inflight/mod.rs:184:17
+    |
+184 |                 unreachable!("sending snapshot should not conflict");
+    |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: if truly unreachable, use `debug_assert!` or prove it with types
+
+warning: loop without visible iteration bound
+  --> openraft/openraft/src/replication/snapshot_transmitter.rs:92:14
+   |
+92 |     async fn stream_snapshot(mut self) {
+   |              ^^^^^^^^^^^^^^^
+   |
+   = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/replication/mod.rs:133:10
+    |
+133 |     ) -> ReplicationHandle<C> {
+    |          ^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/replication/mod.rs:184:32
+    |
+184 |     async fn main(mut self) -> Result<(), ReplicationClosed> {
+    |                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/replication/mod.rs:185:9
+    |
+185 | /         loop {
+186 | |             let action = self.next_action.take();
+187 | |
+188 | |             let Some(d) = action else {
+...   |
+276 | |             self.drain_events_with_backoff().await?;
+277 | |         }
+    | |_________^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/replication/mod.rs:304:69
+    |
+304 |     async fn send_log_entries(&mut self, log_ids: LogIdRange<C>) -> Result<(), ReplicationError<C>> {
+    |                                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/replication/mod.rs:526:74
+    |
+526 |     pub async fn backoff_drain_events(&mut self, until: InstantOf<C>) -> Result<(), ReplicationClosed> {
+    |                                                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/replication/mod.rs:555:45
+    |
+555 |     pub async fn drain_events(&mut self) -> Result<(), ReplicationClosed> {
+    |                                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/replication/mod.rs:574:49
+    |
+574 |     pub async fn try_drain_events(&mut self) -> Result<(), ReplicationClosed> {
+    |                                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/replication/mod.rs:580:9
+    |
+580 | /         loop {
+581 | |             let maybe_res = self.rx_event.recv().now_or_never();
+582 | |
+583 | |             let Some(recv_res) = maybe_res else {
+...   |
+590 | |             self.process_event(event);
+591 | |         }
+    | |_________^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/replication/mod.rs:595:12
+    |
+595 |     pub fn process_event(&mut self, event: Replicate<C>) {
+    |            ^^^^^^^^^^^^^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/engine/engine_impl.rs:140:19
+    |
+140 |     pub(crate) fn startup(&mut self) {
+    |                   ^^^^^^^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/engine/engine_impl.rs:181:65
+    |
+181 |     pub(crate) fn initialize(&mut self, mut entry: C::Entry) -> Result<(), InitializeError<C>> {
+    |                                                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/engine/engine_impl.rs:201:19
+    |
+201 |     pub(crate) fn elect(&mut self) {
+    |                   ^^^^^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/engine/engine_impl.rs:258:10
+    |
+258 |     ) -> Option<(LeaderHandler<'_, C>, Option<R>)>
+    |          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/engine/engine_impl.rs:279:70
+    |
+279 |     pub(crate) fn handle_vote_req(&mut self, req: VoteRequest<C>) -> VoteResponse<C> {
+    |                                                                      ^^^^^^^^^^^^^^^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/engine/engine_impl.rs:333:19
+    |
+333 |     pub(crate) fn handle_vote_resp(&mut self, target: C::NodeId, resp: VoteResponse<C>) {
+    |                   ^^^^^^^^^^^^^^^^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/engine/engine_impl.rs:398:19
+    |
+398 |     pub(crate) fn handle_append_entries(
+    |                   ^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/engine/engine_impl.rs:453:19
+    |
+453 |     pub(crate) fn handle_install_full_snapshot(
+    |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/engine/engine_impl.rs:486:19
+    |
+486 |     pub(crate) fn handle_begin_receiving_snapshot(&mut self, tx: OneshotSenderOf<C, SnapshotDataOf<C>>) {
+    |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/engine/engine_impl.rs:495:19
+    |
+495 |     pub(crate) fn leader_step_down(&mut self) {
+    |                   ^^^^^^^^^^^^^^^^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/engine/engine_impl.rs:531:19
+    |
+531 |     pub(crate) fn on_building_snapshot_done(&mut self, meta: Option<SnapshotMeta<C>>) {
+    |                   ^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/engine/engine_impl.rs:567:19
+    |
+567 |     pub(crate) fn try_purge_log(&mut self) {
+    |                   ^^^^^^^^^^^^^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/engine/engine_impl.rs:581:19
+    |
+581 |     pub(crate) fn trigger_purge_log(&mut self, mut index: u64) {
+    |                   ^^^^^^^^^^^^^^^^^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/engine/engine_impl.rs:687:8
+    |
+687 |     fn establish_leader(&mut self) {
+    |        ^^^^^^^^^^^^^^^^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: `unreachable!` will abort the process on execution
+   --> openraft/openraft/src/engine/engine_impl.rs:828:17
+    |
+828 |                 unreachable!("There is no leader, cannot handle replication");
+    |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: if truly unreachable, use `debug_assert!` or prove it with types
+
+warning: `unreachable!` will abort the process on execution
+  --> openraft/openraft/src/engine/engine_output.rs:58:25
+   |
+58 |                         unreachable!("Respond command to postpone must have a condition");
+   |                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: if truly unreachable, use `debug_assert!` or prove it with types
+
+warning: loop without visible iteration bound
+  --> openraft/openraft/src/engine/handler/following_handler/mod.rs:63:19
+   |
+63 |     pub(crate) fn append_entries(&mut self, prev_log_id: Option<LogIdOf<C>>, mut entries: Vec<C::Entry>) {
+   |                   ^^^^^^^^^^^^^^
+   |
+   = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/engine/handler/following_handler/mod.rs:145:19
+    |
+145 |     pub(crate) fn do_append_entries(&mut self, entries: Vec<C::Entry>) {
+    |                   ^^^^^^^^^^^^^^^^^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/engine/handler/following_handler/mod.rs:165:8
+    |
+165 |     fn truncate_logs(&mut self, since: u64) {
+    |        ^^^^^^^^^^^^^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/engine/handler/following_handler/mod.rs:210:8
+    |
+210 |     fn update_committed_membership(&mut self, membership: EffectiveMembership<C>) {
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/engine/handler/following_handler/mod.rs:242:78
+    |
+242 |     pub(crate) fn install_full_snapshot(&mut self, snapshot: Snapshot<C>) -> Option<Condition<C>> {
+    |                                                                              ^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+  --> openraft/openraft/src/engine/handler/leader_handler/mod.rs:53:19
+   |
+53 |     pub(crate) fn leader_append_entries(&mut self, mut entries: Vec<C::Entry>) {
+   |                   ^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+  --> openraft/openraft/src/engine/handler/leader_handler/mod.rs:94:19
+   |
+94 |     pub(crate) fn send_heartbeat(&mut self) {
+   |                   ^^^^^^^^^^^^^^
+   |
+   = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+  --> openraft/openraft/src/engine/handler/log_handler/mod.rs:31:19
+   |
+31 |     pub(crate) fn purge_log(&mut self) {
+   |                   ^^^^^^^^^
+   |
+   = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+  --> openraft/openraft/src/engine/handler/log_handler/mod.rs:57:19
+   |
+57 |     pub(crate) fn schedule_policy_based_purge(&mut self) {
+   |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+  --> openraft/openraft/src/engine/handler/log_handler/mod.rs:65:19
+   |
+65 |     pub(crate) fn update_purge_upto(&mut self, purge_upto: LogIdOf<C>) {
+   |                   ^^^^^^^^^^^^^^^^^
+   |
+   = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+  --> openraft/openraft/src/engine/handler/log_handler/mod.rs:78:45
+   |
+78 |     pub(crate) fn calc_purge_upto(&self) -> Option<LogIdOf<C>> {
+   |                                             ^^^^^^^^^^^^^^^^^^
+   |
+   = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+  --> openraft/openraft/src/engine/handler/replication_handler/mod.rs:61:19
+   |
+61 |     pub(crate) fn append_membership(&mut self, log_id: &LogIdOf<C>, m: &Membership<C>) {
+   |                   ^^^^^^^^^^^^^^^^^
+   |
+   = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+  --> openraft/openraft/src/engine/handler/replication_handler/mod.rs:93:19
+   |
+93 |     pub(crate) fn rebuild_progresses(&mut self) {
+   |                   ^^^^^^^^^^^^^^^^^^
+   |
+   = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/engine/handler/replication_handler/mod.rs:119:19
+    |
+119 |     pub(crate) fn update_leader_clock(&mut self, node_id: C::NodeId, t: InstantOf<C>) {
+    |                   ^^^^^^^^^^^^^^^^^^^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/engine/handler/replication_handler/mod.rs:154:19
+    |
+154 |     pub(crate) fn update_matching(
+    |                   ^^^^^^^^^^^^^^^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/engine/handler/replication_handler/mod.rs:184:19
+    |
+184 |     pub(crate) fn try_commit_quorum_accepted(&mut self, granted: Option<LogIdOf<C>>) {
+    |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/engine/handler/replication_handler/mod.rs:208:19
+    |
+208 |     pub(crate) fn update_conflicting(
+    |                   ^^^^^^^^^^^^^^^^^^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/engine/handler/replication_handler/mod.rs:249:19
+    |
+249 |     pub(crate) fn update_progress(
+    |                   ^^^^^^^^^^^^^^^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/engine/handler/replication_handler/mod.rs:288:19
+    |
+288 |     pub(crate) fn rebuild_replication_streams(&mut self) {
+    |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/engine/handler/replication_handler/mod.rs:307:19
+    |
+307 |     pub(crate) fn initiate_replication(&mut self) {
+    |                   ^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/engine/handler/replication_handler/mod.rs:332:19
+    |
+332 |     pub(crate) fn send_to_target(output: &mut EngineOutput<C>, target: &C::NodeId, inflight: &Inflight<C>) {
+    |                   ^^^^^^^^^^^^^^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: `unreachable!` will abort the process on execution
+   --> openraft/openraft/src/engine/handler/replication_handler/mod.rs:334:31
+    |
+334 |             Inflight::None => unreachable!("no data to send"),
+    |                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: if truly unreachable, use `debug_assert!` or prove it with types
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/engine/handler/replication_handler/mod.rs:359:19
+    |
+359 |     pub(crate) fn try_purge_log(&mut self) {
+    |                   ^^^^^^^^^^^^^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+  --> openraft/openraft/src/engine/handler/snapshot_handler/mod.rs:30:50
+   |
+30 |     pub(crate) fn trigger_snapshot(&mut self) -> bool {
+   |                                                  ^^^^
+   |
+   = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+  --> openraft/openraft/src/engine/handler/snapshot_handler/mod.rs:53:72
+   |
+53 |     pub(crate) fn update_snapshot(&mut self, meta: SnapshotMeta<C>) -> bool {
+   |                                                                        ^^^^
+   |
+   = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+  --> openraft/openraft/src/engine/handler/vote_handler/mod.rs:69:10
+   |
+69 |     ) -> Option<OneshotSenderOf<C, T>>
+   |          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/engine/handler/vote_handler/mod.rs:104:63
+    |
+104 |     pub(crate) fn update_vote(&mut self, vote: &VoteOf<C>) -> Result<(), RejectVoteRequest<C>> {
+    |                                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/engine/log_id_list.rs:68:9
+    |
+ 68 | /         loop {
+ 69 | |             let (first, last) = match stack.pop() {
+ 70 | |                 None => {
+ 71 | |                     break;
+...   |
+112 | |         }
+    | |_________^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/engine/pending_responds.rs:113:9
+    |
+113 | /         loop {
+114 | |             match self.phase {
+115 | |                 DrainPhase::LogIO => {
+116 | |                     if let Some(flushed) = self.io_state.log_progress.flushed()
+...   |
+152 | |         }
+    | |_________^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/raft_state/mod.rs:409:19
+    |
+409 |     pub(crate) fn purge_log(&mut self, upto: &LogIdOf<C>) {
+    |                   ^^^^^^^^^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/raft_state/mod.rs:420:63
+    |
+420 |     pub(crate) fn calc_server_state(&self, id: &C::NodeId) -> ServerState {
+    |                                                               ^^^^^^^^^^^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: `unreachable!` will abort the process on execution
+   --> openraft/openraft/src/error/mod.rs:584:17
+    |
+584 |                 unreachable!("the leader should always has a greater last log id")
+    |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: if truly unreachable, use `debug_assert!` or prove it with types
+
+warning: `unreachable!` will abort the process on execution
+   --> openraft/openraft/src/error/mod.rs:609:17
+    |
+609 |                 unreachable!("the leader should always has a greater last log id")
+    |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: if truly unreachable, use `debug_assert!` or prove it with types
+
+warning: `panic!` will abort the process on execution
+  --> openraft/openraft/src/log_id/log_index_option_ext.rs:31:17
+   |
+31 |                 panic!("None has no previous value");
+   |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: return `Err(...)` instead of panicking
+
+warning: `unreachable!` will abort the process on execution
+  --> openraft/openraft/src/log_id/raft_log_id.rs:37:9
+   |
+37 |         unreachable!("This method should not be called on a reference.")
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: if truly unreachable, use `debug_assert!` or prove it with types
+
+warning: `unreachable!` will abort the process on execution
+  --> openraft/openraft/src/log_id/ref_log_id.rs:55:9
+   |
+55 |         unreachable!("RefLogId does not own the leader id, so it cannot be created from it.")
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: if truly unreachable, use `debug_assert!` or prove it with types
+
+warning: loop without visible iteration bound
+  --> openraft/openraft/src/metrics/wait.rs:44:68
+   |
+44 |     pub async fn metrics<T>(&self, func: T, msg: impl ToString) -> Result<RaftMetrics<C>, WaitError>
+   |                                                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+  --> openraft/openraft/src/metrics/wait.rs:49:9
+   |
+49 | /         loop {
+50 | |             let latest = rx.borrow_watched().clone();
+51 | |
+52 | |             tracing::debug!("id={} wait {:} latest: {}", latest.id, msg.to_string(), latest);
+...  |
+92 | |         }
+   | |_________^
+   |
+   = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+  --> openraft/openraft/src/metrics/wait.rs:97:70
+   |
+97 |     pub async fn vote(&self, want: VoteOf<C>, msg: impl ToString) -> Result<RaftMetrics<C>, WaitError> {
+   |                                                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/metrics/wait.rs:103:85
+    |
+103 |     pub async fn current_leader(&self, leader_id: C::NodeId, msg: impl ToString) -> Result<RaftMetrics<C>, WaitError> {
+    |                                                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/metrics/wait.rs:114:81
+    |
+114 |     pub async fn log(&self, want_log_index: Option<u64>, msg: impl ToString) -> Result<RaftMetrics<C>, WaitError> {
+    |                                                                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/metrics/wait.rs:125:84
+    |
+125 |     pub async fn log_at_least(&self, want_log: Option<u64>, msg: impl ToString) -> Result<RaftMetrics<C>, WaitError> {
+    |                                                                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/metrics/wait.rs:132:78
+    |
+132 |     pub async fn log_index(&self, index: Option<u64>, msg: impl ToString) -> Result<RaftMetrics<C>, WaitError> {
+    |                                                                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/metrics/wait.rs:142:10
+    |
+142 |     ) -> Result<RaftMetrics<C>, WaitError> {
+    |          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/metrics/wait.rs:148:82
+    |
+148 |     pub async fn applied_index(&self, index: Option<u64>, msg: impl ToString) -> Result<RaftMetrics<C>, WaitError> {
+    |                                                                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/metrics/wait.rs:159:10
+    |
+159 |     ) -> Result<RaftMetrics<C>, WaitError> {
+    |          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/metrics/wait.rs:165:79
+    |
+165 |     pub async fn state(&self, want_state: ServerState, msg: impl ToString) -> Result<RaftMetrics<C>, WaitError> {
+    |                                                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/metrics/wait.rs:177:10
+    |
+177 |     ) -> Result<RaftMetrics<C>, WaitError> {
+    |          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/metrics/wait.rs:194:10
+    |
+194 |     ) -> Result<RaftMetrics<C>, WaitError> {
+    |          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/metrics/wait.rs:215:10
+    |
+215 |     ) -> Result<RaftMetrics<C>, WaitError> {
+    |          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/metrics/wait.rs:221:81
+    |
+221 |     pub async fn purged(&self, want: Option<LogIdOf<C>>, msg: impl ToString) -> Result<RaftMetrics<C>, WaitError> {
+    |                                                                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/metrics/wait.rs:247:81
+    |
+247 |     pub(crate) async fn until(&self, cond: Condition<C>, msg: impl ToString) -> Result<RaftMetrics<C>, WaitError> {
+    |                                                                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/network/snapshot_transport.rs:63:13
+    |
+ 63 | /             loop {
+ 64 | |                 // If canceled, return at once
+ 65 | |                 if let Some(err) = c.as_mut().now_or_never() {
+ 66 | |                     return Err(err.into());
+...   |
+155 | |                 offset += n_read as u64;
+156 | |             }
+    | |_____________^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+  --> openraft/openraft/src/raft/api/app.rs:41:10
+   |
+41 |     ) -> Result<Result<Linearizer<C>, LinearizableReadError<C>>, Fatal<C>> {
+   |          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+  --> openraft/openraft/src/raft/api/app.rs:52:10
+   |
+52 |     ) -> Result<Result<ClientWriteResponse<C>, ClientWriteError<C>>, Fatal<C>> {
+   |          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+  --> openraft/openraft/src/raft/api/app.rs:68:10
+   |
+68 |     ) -> Result<(), Fatal<C>> {
+   |          ^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+  --> openraft/openraft/src/raft/api/management.rs:45:61
+   |
+45 |     pub(crate) async fn initialize<T>(&self, members: T) -> Result<Result<(), InitializeError<C>>, Fatal<C>>
+   |                                                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+  --> openraft/openraft/src/raft/api/management.rs:65:10
+   |
+65 |     ) -> Result<ClientWriteResult<C>, Fatal<C>> {
+   |          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/raft/api/management.rs:131:10
+    |
+131 |     ) -> Result<ClientWriteResult<C>, Fatal<C>> {
+    |          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+  --> openraft/openraft/src/raft/api/protocol.rs:80:61
+   |
+80 |     pub(crate) async fn vote(&self, rpc: VoteRequest<C>) -> Result<VoteResponse<C>, Fatal<C>> {
+   |                                                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+  --> openraft/openraft/src/raft/api/protocol.rs:92:10
+   |
+92 |     ) -> Result<AppendEntriesResponse<C>, Fatal<C>> {
+   |          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/raft/api/protocol.rs:112:48
+    |
+112 |     pub(crate) async fn get_snapshot(&self) -> Result<Option<Snapshot<C>>, Fatal<C>> {
+    |                                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/raft/api/protocol.rs:122:60
+    |
+122 |     pub(crate) async fn begin_receiving_snapshot(&self) -> Result<SnapshotDataOf<C>, Fatal<C>> {
+    |                                                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/raft/api/protocol.rs:135:10
+    |
+135 |     ) -> Result<SnapshotResponse<C>, Fatal<C>> {
+    |          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+  --> openraft/openraft/src/raft/impl_raft_blocking_write.rs:70:10
+   |
+70 |     ) -> Result<ClientWriteResponse<C>, RaftError<C, ClientWriteError<C>>> {
+   |          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/raft/impl_raft_blocking_write.rs:110:10
+    |
+110 |     ) -> Result<ClientWriteResponse<C>, RaftError<C, ClientWriteError<C>>> {
+    |          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+  --> openraft/openraft/src/raft/raft_inner.rs:84:94
+   |
+84 |     pub(crate) async fn call_core<T>(&self, mes: RaftMsg<C>, rx: OneshotReceiverOf<C, T>) -> Result<T, Fatal<C>>
+   |                                                                                              ^^^^^^^^^^^^^^^^^^^
+   |
+   = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: `unreachable!` will abort the process on execution
+   --> openraft/openraft/src/raft/raft_inner.rs:146:17
+    |
+146 |                 unreachable!("RaftCore should have already quit")
+    |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: if truly unreachable, use `debug_assert!` or prove it with types
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/raft/raft_inner.rs:156:34
+    |
+156 |     pub(in crate::raft) async fn join_core_task(&self) {
+    |                                  ^^^^^^^^^^^^^^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/raft/raft_inner.rs:207:17
+    |
+207 | /                 loop {
+208 | |                     let res = rx.changed().await;
+209 | |                     if res.is_err() {
+210 | |                         break;
+...   |
+215 | |                 }
+    | |_________________^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/raft/mod.rs:331:5
+    |
+331 | /     loop {
+332 | |         // Wait for IO completion notification
+333 | |         if rx_io.changed().await.is_err() {
+...   |
+361 | |     }
+    | |_____^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/raft/mod.rs:392:10
+    |
+392 |     ) -> Result<Self, Fatal<C>>
+    |          ^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/raft/mod.rs:686:73
+    |
+686 |     pub async fn append_entries(&self, rpc: AppendEntriesRequest<C>) -> Result<AppendEntriesResponse<C>, RaftError<C>> {
+    |                                                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/raft/mod.rs:761:54
+    |
+761 |     pub async fn vote(&self, rpc: VoteRequest<C>) -> Result<VoteResponse<C>, RaftError<C>> {
+    |                                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/raft/mod.rs:770:41
+    |
+770 |     pub async fn get_snapshot(&self) -> Result<Option<Snapshot<C>>, RaftError<C>> {
+    |                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/raft/mod.rs:777:53
+    |
+777 |     pub async fn begin_receiving_snapshot(&self) -> Result<SnapshotDataOf<C>, RaftError<C>> {
+    |                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/raft/mod.rs:792:10
+    |
+792 |     ) -> Result<SnapshotResponse<C>, Fatal<C>> {
+    |          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/raft/mod.rs:808:10
+    |
+808 |     ) -> Result<InstallSnapshotResponse<C>, RaftError<C, crate::error::InstallSnapshotError>>
+    |          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/raft/mod.rs:854:43
+    |
+854 |     pub async fn current_leader(&self) -> Option<C::NodeId> {
+    |                                           ^^^^^^^^^^^^^^^^^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/raft/mod.rs:897:10
+    |
+897 |     ) -> Result<Option<LogIdOf<C>>, RaftError<C, LinearizableReadError<C>>> {
+    |          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/raft/mod.rs:917:10
+    |
+917 |     ) -> Result<(Option<LogIdOf<C>>, Option<LogIdOf<C>>), RaftError<C, LinearizableReadError<C>>> {
+    |          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/raft/mod.rs:975:10
+    |
+975 |     ) -> Result<Linearizer<C>, RaftError<C, LinearizableReadError<C>>> {
+    |          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+    --> openraft/openraft/src/raft/mod.rs:1010:10
+     |
+1010 |     ) -> Result<ClientWriteResponse<C>, RaftError<C, ClientWriteError<C>>> {
+     |          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+    --> openraft/openraft/src/raft/mod.rs:1083:82
+     |
+1083 |     pub async fn handle_transfer_leader(&self, req: TransferLeaderRequest<C>) -> Result<(), Fatal<C>> {
+     |                                                                                  ^^^^^^^^^^^^^^^^^^^^
+     |
+     = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+    --> openraft/openraft/src/raft/mod.rs:1139:54
+     |
+1139 |     pub async fn initialize<T>(&self, members: T) -> Result<(), RaftError<C, InitializeError<C>>>
+     |                                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/storage/helper.rs:348:10
+    |
+348 |     ) -> Result<Vec<StoredMembership<C>>, StorageError<C>> {
+    |          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/testing/runtime/mod.rs:782:9
+    |
+782 | /         loop {
+783 | |             {
+784 | |                 let current = rx.borrow_watched();
+785 | |                 if *current >= target {
+...   |
+797 | |         }
+    | |_________^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: `panic!` will abort the process on execution
+   --> openraft/openraft/src/testing/runtime/mod.rs:795:17
+    |
+795 |                 panic!("Too many iterations, possible hot loop bug");
+    |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: return `Err(...)` instead of panicking
+
+warning: `panic!` will abort the process on execution
+   --> openraft/openraft/src/testing/runtime/mod.rs:922:30
+    |
+922 |             Poll::Pending => panic!("first lock() should succeed"),
+    |                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: return `Err(...)` instead of panicking
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/type_config/async_runtime/watch/mod.rs:146:9
+    |
+146 | /         loop {
+147 | |             {
+148 | |                 let current = self.borrow_watched();
+149 | |                 if &*current >= value {
+...   |
+153 | |             self.changed().await?;
+154 | |         }
+    | |_________^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: loop without visible iteration bound
+   --> openraft/openraft/src/type_config/async_runtime/watch/mod.rs:188:9
+    |
+188 | /         loop {
+189 | |             {
+190 | |                 let current = self.borrow_watched();
+191 | |                 if condition(&*current) {
+...   |
+195 | |             self.changed().await?;
+196 | |         }
+    | |_________^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+
+warning: `unreachable!` will abort the process on execution
+  --> openraft/openraft/src/vote/committed.rs:96:9
+   |
+96 |         unreachable!("CommittedVote should only be built from a Vote")
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: if truly unreachable, use `debug_assert!` or prove it with types
+
+warning: `unreachable!` will abort the process on execution
+  --> openraft/openraft/src/vote/non_committed.rs:56:9
+   |
+56 |         unreachable!("NonCommittedVote should only be built from a Vote")
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: if truly unreachable, use `debug_assert!` or prove it with types
+
+warning: `unreachable!` will abort the process on execution
+  --> openraft/openraft/src/vote/ref_vote.rs:52:25
+   |
+52 |                         unreachable!("two incomparable leaders cannot be both committed: {} {}", self, other)
+   |                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: if truly unreachable, use `debug_assert!` or prove it with types
+
+warning: `.unwrap()` in production code will panic on failure
+  --> openraft/openraft/src/core/heartbeat/handle.rs:61:13
+   |
+61 |             self.workers.get(&target).unwrap().event_tx.send(Some(event)).ok();
+   |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: use `?` to propagate, or match/map the error explicitly
+   = note: `#[warn(no_unwrap)]` on by default
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/core/heartbeat/worker.rs:135:51
+    |
+135 | ...                   let conflict_log_id = heartbeat.matching.clone().unwrap();
+    |                                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `Result` value silently discarded with `let _ = ...`
+   --> openraft/openraft/src/core/raft_core.rs:236:13
+    |
+236 |             let _ = self.tx_metrics.send(curr);
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `expr?` to propagate, `let _: () = expr?;` to assert infallibility, or handle the error explicitly
+    = note: `#[warn(ignored_result)]` on by default
+
+warning: `Result` value silently discarded with `let _ = ...`
+   --> openraft/openraft/src/core/raft_core.rs:278:21
+    |
+278 |                     let _ = tx.send(Err(forward.into()));
+    |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `expr?` to propagate, `let _: () = expr?;` to assert infallibility, or handle the error explicitly
+
+warning: `Result` value silently discarded with `let _ = ...`
+   --> openraft/openraft/src/core/raft_core.rs:298:17
+    |
+298 |                 let _ = tx.send(Ok(resp));
+    |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `expr?` to propagate, `let _: () = expr?;` to assert infallibility, or handle the error explicitly
+
+warning: `Result` value silently discarded with `let _ = ...`
+   --> openraft/openraft/src/core/raft_core.rs:304:13
+    |
+304 |             let _ = tx.send(Err(err.into()));
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `expr?` to propagate, `let _: () = expr?;` to assert infallibility, or handle the error explicitly
+
+warning: `Result` value silently discarded with `let _ = ...`
+   --> openraft/openraft/src/core/raft_core.rs:318:13
+    |
+318 |             let _ = tx.send(Ok(resp));
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `expr?` to propagate, `let _: () = expr?;` to assert infallibility, or handle the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/core/raft_core.rs:326:22
+    |
+326 |             let l = &self.engine.leader.as_ref().unwrap();
+    |                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/core/raft_core.rs:346:31
+    |
+346 |             let target_node = eff_mem.get_node(&target).unwrap().clone();
+    |                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `Result` value silently discarded with `let _ = ...`
+   --> openraft/openraft/src/core/raft_core.rs:395:13
+    |
+395 | /             let _ = tx.send(Err(QuorumNotEnough {
+396 | |                 cluster: eff_mem.membership().to_string(),
+397 | |                 got: granted,
+398 | |             }
+399 | |             .into()));
+    | |______________________^
+    |
+    = help: use `expr?` to propagate, `let _: () = expr?;` to assert infallibility, or handle the error explicitly
+
+warning: `Result` value silently discarded with `let _ = ...`
+   --> openraft/openraft/src/core/raft_core.rs:482:21
+    |
+482 |                     let _ = tx.send(Ok(linearizer));
+    |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `expr?` to propagate, `let _: () = expr?;` to assert infallibility, or handle the error explicitly
+
+warning: `Result` value silently discarded with `let _ = ...`
+   --> openraft/openraft/src/core/raft_core.rs:485:21
+    |
+485 |                     let _ = tx.send(Err(forward.into()));
+    |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `expr?` to propagate, `let _: () = expr?;` to assert infallibility, or handle the error explicitly
+
+warning: `Result` value silently discarded with `let _ = ...`
+   --> openraft/openraft/src/core/raft_core.rs:488:21
+    |
+488 |                     let _ = tx.send(Err(QuorumNotEnough { cluster, got }.into()));
+    |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `expr?` to propagate, `let _: () = expr?;` to assert infallibility, or handle the error explicitly
+
+warning: `Result` value silently discarded with `let _ = ...`
+   --> openraft/openraft/src/core/raft_core.rs:496:21
+    |
+496 | /                     let _ = tx.send(Err(QuorumNotEnough {
+497 | |                         cluster: membership_str,
+498 | |                         got: btreeset! {},
+499 | |                     }
+500 | |                     .into()));
+    | |______________________________^
+    |
+    = help: use `expr?` to propagate, `let _: () = expr?;` to assert infallibility, or handle the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/core/raft_core.rs:582:21
+    |
+582 |         let index = lh.state.last_log_id().unwrap().index();
+    |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: narrowing cast from `u128` to `u64` without bounds check
+   --> openraft/openraft/src/core/raft_core.rs:646:65
+    |
+646 |         let millis_since_quorum_ack = last_quorum_acked.map(|t| t.elapsed().as_millis() as u64);
+    |                                                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `u64::try_from(value)` or guard with `if value <= u64::MAX as u128`
+    = note: `#[warn(unchecked_narrowing)]` on by default
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/core/raft_core.rs:897:26
+    |
+897 |             let log_id = self.engine.state.get_log_id(*index).unwrap();
+    |                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/core/raft_core.rs:916:27
+    |
+916 |         let target_node = self.engine.state.membership_state.effective().get_node(&target).unwrap();
+    |                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/core/raft_core.rs:921:22
+    |
+921 |         let leader = self.engine.leader.as_ref().unwrap();
+    |                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+    --> openraft/openraft/src/core/raft_core.rs:1215:31
+     |
+1215 |             let target_node = self.engine.state.membership_state.effective().get_node(&target).unwrap().clone();
+     |                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `Result` value silently discarded with `let _ = ...`
+    --> openraft/openraft/src/core/raft_core.rs:1250:33
+     |
+1250 | / ...                   let _ = tx
+1251 | | ...                       .send(Notification::VoteResponse {
+1252 | | ...                           target,
+1253 | | ...                           resp,
+1254 | | ...                           candidate_vote: vote.into_non_committed(),
+1255 | | ...                       })
+1256 | | ...                       .await;
+     | |_________________________________^
+     |
+     = help: use `expr?` to propagate, `let _: () = expr?;` to assert infallibility, or handle the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+    --> openraft/openraft/src/core/raft_core.rs:1284:31
+     |
+1284 |             let target_node = self.engine.state.membership_state.effective().get_node(&target).unwrap().clone();
+     |                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `Result` value silently discarded with `let _ = ...`
+    --> openraft/openraft/src/core/raft_core.rs:1471:25
+     |
+1471 |                         let _ = tx.send(res);
+     |                         ^^^^^^^^^^^^^^^^^^^^^
+     |
+     = help: use `expr?` to propagate, `let _: () = expr?;` to assert infallibility, or handle the error explicitly
+
+warning: `Result` value silently discarded with `let _ = ...`
+    --> openraft/openraft/src/core/raft_core.rs:1526:21
+     |
+1526 |                     let _ = self.engine.vote_handler().update_vote(&higher);
+     |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = help: use `expr?` to propagate, `let _: () = expr?;` to assert infallibility, or handle the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+    --> openraft/openraft/src/core/raft_core.rs:1898:35
+     |
+1898 |                 let last_log_id = entries.last().unwrap().log_id();
+     |                                   ^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `Result` value silently discarded with `let _ = ...`
+    --> openraft/openraft/src/core/raft_core.rs:1924:17
+     |
+1924 | /                 let _ = self
+1925 | |                     .tx_notification
+1926 | |                     .send(Notification::LocalIO {
+1927 | |                         io_id: IOId::new(&vote),
+1928 | |                     })
+1929 | |                     .await;
+     | |___________________________^
+     |
+     = help: use `expr?` to propagate, `let _: () = expr?;` to assert infallibility, or handle the error explicitly
+
+warning: `Result` value silently discarded with `let _ = ...`
+    --> openraft/openraft/src/core/raft_core.rs:1934:21
+     |
+1934 | /                     let _ = self
+1935 | |                         .tx_notification
+1936 | |                         .send(Notification::VoteResponse {
+1937 | |                             target: self.id.clone(),
+...    |
+1941 | |                         })
+1942 | |                         .await;
+     | |_______________________________^
+     |
+     = help: use `expr?` to propagate, `let _: () = expr?;` to assert infallibility, or handle the error explicitly
+
+warning: `Result` value silently discarded with `let _ = ...`
+    --> openraft/openraft/src/core/raft_core.rs:1970:21
+     |
+1970 | /                     let _ = node.tx_repl.send(Replicate::Committed {
+1971 | |                         committed: committed.clone(),
+1972 | |                     });
+     | |_______________________^
+     |
+     = help: use `expr?` to propagate, `let _: () = expr?;` to assert infallibility, or handle the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+    --> openraft/openraft/src/core/raft_core.rs:1986:29
+     |
+1986 |                 let first = self.engine.state.get_log_id(already_committed.next_index()).unwrap();
+     |                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.expect()` in production code will panic on failure
+    --> openraft/openraft/src/core/raft_core.rs:1990:28
+     |
+1990 |                 let node = self.replications.get(&target).expect("replication to target node exists");
+     |                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = help: use `?` with `.context()` (anyhow) or `.whatever_context()` (snafu) instead
+
+warning: `Result` value silently discarded with `let _ = ...`
+    --> openraft/openraft/src/core/raft_core.rs:1991:17
+     |
+1991 |                 let _ = node.tx_repl.send(req);
+     |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = help: use `expr?` to propagate, `let _: () = expr?;` to assert infallibility, or handle the error explicitly
+
+warning: `.expect()` in production code will panic on failure
+    --> openraft/openraft/src/core/raft_core.rs:1994:28
+     |
+1994 |                 let node = self.replications.get(&target).expect("replication to target node exists");
+     |                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = help: use `?` with `.context()` (anyhow) or `.whatever_context()` (snafu) instead
+
+warning: `.unwrap()` in production code will panic on failure
+    --> openraft/openraft/src/core/raft_core.rs:2000:35
+     |
+2000 |                 let target_node = self.engine.state.membership_state.effective().get_node(&target).unwrap();
+     |                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.expect()` in production code will panic on failure
+    --> openraft/openraft/src/core/raft_core.rs:2010:28
+     |
+2010 |                 let node = self.replications.get_mut(&target).expect("replication to target node exists");
+     |                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = help: use `?` with `.context()` (anyhow) or `.whatever_context()` (snafu) instead
+
+warning: `.unwrap()` in production code will panic on failure
+    --> openraft/openraft/src/core/raft_core.rs:2028:39
+     |
+2028 |                     (node_id.clone(), effective.get_node(&node_id).unwrap().clone())
+     |                                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `Result` value silently discarded with `let _ = ...`
+  --> openraft/openraft/src/core/sm/handle.rs:71:9
+   |
+71 |         let _ = cmd_tx.send(cmd);
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: use `expr?` to propagate, `let _: () = expr?;` to assert infallibility, or handle the error explicitly
+
+warning: `Result` value silently discarded with `let _ = ...`
+  --> openraft/openraft/src/core/sm/worker.rs:86:17
+   |
+86 | /                 let _ = self
+87 | |                     .resp_tx
+88 | |                     .send(Notification::StateMachine {
+89 | |                         command_result: CommandResult { result: Err(err) },
+90 | |                     })
+91 | |                     .await;
+   | |___________________________^
+   |
+   = help: use `expr?` to propagate, `let _: () = expr?;` to assert infallibility, or handle the error explicitly
+
+warning: `Result` value silently discarded with `let _ = ...`
+   --> openraft/openraft/src/core/sm/worker.rs:146:21
+    |
+146 |                     let _ = tx.send(snapshot_data);
+    |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `expr?` to propagate, `let _: () = expr?;` to assert infallibility, or handle the error explicitly
+
+warning: `Result` value silently discarded with `let _ = ...`
+   --> openraft/openraft/src/core/sm/worker.rs:279:9
+    |
+279 |         let _ = tx.send(snapshot);
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `expr?` to propagate, `let _: () = expr?;` to assert infallibility, or handle the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+  --> openraft/openraft/src/core/tick.rs:49:12
+   |
+49 |         if self.shutdown.lock().unwrap().is_none() {
+   |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/core/tick.rs:134:29
+    |
+134 |                 let mut x = self.shutdown.lock().unwrap();
+    |                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/core/tick.rs:147:25
+    |
+147 |             let mut x = self.join_handle.lock().unwrap();
+    |                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+  --> openraft/openraft/src/display_ext/display_slice.rs:37:29
+   |
+37 |             write!(f, "{}", self.slice.last().unwrap())?;
+   |                             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/progress/vec_progress.rs:258:21
+    |
+258 |         let index = self.index(id).unwrap();
+    |                     ^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `Result` value silently discarded with `let _ = ...`
+   --> openraft/openraft/src/progress/vec_progress.rs:287:13
+    |
+287 |             let _ = new_prog.update(&item.id, item.val);
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `expr?` to propagate, `let _: () = expr?;` to assert infallibility, or handle the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/replication/mod.rs:327:29
+    |
+327 |                 let first = logs.first().map(|ent| ent.ref_log_id()).unwrap();
+    |                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/replication/mod.rs:328:28
+    |
+328 |                 let last = logs.last().map(|ent| ent.log_id()).unwrap();
+    |                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/replication/mod.rs:635:17
+    |
+635 |                 self.inflight_id.unwrap(),
+    |                 ^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+  --> openraft/openraft/src/summary.rs:58:25
+   |
+58 |             let first = self.first().unwrap();
+   |                         ^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+  --> openraft/openraft/src/summary.rs:59:24
+   |
+59 |             let last = self.last().unwrap();
+   |                        ^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/engine/engine_impl.rs:128:9
+    |
+128 |         self.candidate.as_mut().unwrap()
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.expect()` in production code will panic on failure
+   --> openraft/openraft/src/engine/engine_impl.rs:187:17
+    |
+187 |         let m = entry.get_membership().expect("the only log entry for initializing has to be membership log");
+    |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` with `.context()` (anyhow) or `.whatever_context()` (snafu) instead
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/engine/engine_impl.rs:219:9
+    |
+219 |         self.vote_handler().update_vote(&new_vote).unwrap();
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `Result` value silently discarded with `let _ = ...`
+   --> openraft/openraft/src/engine/engine_impl.rs:391:9
+    |
+391 |         let _ = self.vote_handler().update_vote(&vote);
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `expr?` to propagate, `let _: () = expr?;` to assert infallibility, or handle the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/engine/engine_impl.rs:422:24
+    |
+422 |                 io_id: self.state.accepted_log_io().unwrap().clone(),
+    |                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/engine/engine_impl.rs:609:22
+    |
+609 |         let log_id = self.state.get_log_id(index).unwrap();
+    |                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/engine/engine_impl.rs:668:34
+    |
+668 |                 let apply_upto = applicable_upto.cloned().unwrap();
+    |                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/engine/engine_impl.rs:690:25
+    |
+690 |         let candidate = self.candidate.take().unwrap();
+    |                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/engine/engine_impl.rs:712:9
+    |
+712 | /         self.leader_handler()
+713 | |             .unwrap()
+    | |_____________________^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `Result` value silently discarded with `let _ = ...`
+   --> openraft/openraft/src/engine/command.rs:457:9
+    |
+457 |         let _ = self.tx.send(self.value);
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `expr?` to propagate, `let _: () = expr?;` to assert infallibility, or handle the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/engine/handler/following_handler/mod.rs:258:32
+    |
+258 |         let snap_last_log_id = snap_last_log_id.unwrap();
+    |                                ^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+  --> openraft/openraft/src/engine/handler/log_handler/mod.rs:45:20
+   |
+45 |         let upto = purge_upto.unwrap().clone();
+   |                    ^^^^^^^^^^^^^^^^^^^
+   |
+   = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.expect()` in production code will panic on failure
+   --> openraft/openraft/src/engine/handler/replication_handler/mod.rs:122:24
+    |
+122 |           let granted = *self
+    |  ________________________^
+123 | |             .leader
+124 | |             .clock_progress
+125 | |             .increase_to(&node_id, Some(t))
+126 | |             .expect("it should always update existing progress");
+    | |________________________________________________________________^
+    |
+    = help: use `?` with `.context()` (anyhow) or `.whatever_context()` (snafu) instead
+
+warning: `.expect()` in production code will panic on failure
+   --> openraft/openraft/src/engine/handler/replication_handler/mod.rs:166:31
+    |
+166 |           let quorum_accepted = self
+    |  _______________________________^
+167 | |             .leader
+168 | |             .progress
+169 | |             .update_with(&node_id, |prog_entry| {
+170 | |                 prog_entry.new_updater(&*self.config).update_matching(log_id, inflight_id)
+171 | |             })
+172 | |             .expect("it should always update existing progress")
+    | |________________________________________________________________^
+    |
+    = help: use `?` with `.context()` (anyhow) or `.whatever_context()` (snafu) instead
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/engine/handler/replication_handler/mod.rs:216:26
+    |
+216 |         let prog_entry = self.leader.progress.get_mut(&target).unwrap();
+    |                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/engine/handler/replication_handler/mod.rs:276:25
+    |
+276 |                 let p = self.leader.progress.get_mut(&target).unwrap();
+    |                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/engine/handler/replication_handler/mod.rs:375:26
+    |
+375 |         let purge_upto = self.state.purge_upto().unwrap().clone();
+    |                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/engine/handler/vote_handler/mod.rs:196:26
+    |
+196 |             let leader = self.leader.as_ref().unwrap();
+    |                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/engine/handler/vote_handler/mod.rs:245:22
+    |
+245 |         let leader = self.leader.as_mut().unwrap();
+    |                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/engine/handler/vote_handler/mod.rs:256:22
+    |
+256 |         let leader = self.leader.as_mut().unwrap();
+    |                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/engine/log_id_list.rs:355:24
+    |
+355 |             let last = self.last().cloned().unwrap();
+    |                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.expect()` in production code will panic on failure
+  --> openraft/openraft/src/proposer/candidate.rs:94:24
+   |
+94 |         let granted = *self.progress.update(target, true).expect("target not in quorum set");
+   |                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: use `?` with `.context()` (anyhow) or `.whatever_context()` (snafu) instead
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/proposer/leader.rs:123:13
+    |
+123 |             first.unwrap().clone()
+    |             ^^^^^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/raft_state/mod.rs:342:46
+    |
+342 |             self.apply_progress_mut().accept(committed.clone().unwrap());
+    |                                              ^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/utime.rs:161:13
+    |
+161 |             self.last_update.unwrap().display(),
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/utime.rs:162:13
+    |
+162 |             self.last_update.unwrap() - now,
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+  --> openraft/openraft/src/error/mod.rs:97:9
+   |
+97 |         self.into_fatal().unwrap()
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/membership/membership.rs:318:32
+    |
+318 |         let target_voter_ids = configs.pop().unwrap();
+    |                                ^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/metrics/serde_instant.rs:134:31
+    |
+134 |                         now + (system_time.duration_since(sys_now).unwrap())
+    |                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/metrics/serde_instant.rs:136:31
+    |
+136 |                         now - (sys_now.duration_since(system_time).unwrap())
+    |                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+  --> openraft/openraft/src/network/snapshot_transport.rs:78:34
+   |
+78 |                 let chunk_size = option.snapshot_chunk_size().unwrap();
+   |                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/network/snapshot_transport.rs:197:25
+    |
+197 |                 let s = streaming.as_mut().unwrap();
+    |                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/network/snapshot_transport.rs:204:33
+    |
+204 |                 let streaming = streaming.take().unwrap();
+    |                                 ^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/raft/api/management.rs:100:46
+    |
+100 |         let (log_id, joint) = (&resp.log_id, resp.membership.clone().unwrap());
+    |                                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+  --> openraft/openraft/src/raft/linearizable_read/linearizer.rs:75:12
+   |
+75 |         Ok(state_res.unwrap())
+   |            ^^^^^^^^^^^^^^^^^^
+   |
+   = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/raft/raft_inner.rs:131:21
+    |
+131 |         let state = self.core_state.lock().unwrap();
+    |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/raft/raft_inner.rs:142:25
+    |
+142 |             let state = self.core_state.lock().unwrap();
+    |                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/raft/raft_inner.rs:160:29
+    |
+160 |             let mut state = self.core_state.lock().unwrap();
+    |                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/raft/raft_inner.rs:200:37
+    |
+200 |                     let mut state = self.core_state.lock().unwrap();
+    |                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+    --> openraft/openraft/src/raft/mod.rs:1471:27
+     |
+1471 |         if let Some(tx) = self.inner.tx_shutdown.lock().unwrap().take() {
+     |                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `Result` value silently discarded with `let _ = ...`
+    --> openraft/openraft/src/raft/mod.rs:1479:13
+     |
+1479 |             let _ = join_handle.await;
+     |             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = help: use `expr?` to propagate, `let _: () = expr?;` to assert infallibility, or handle the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+  --> openraft/openraft/src/storage/helper.rs:92:74
+   |
+92 |             let leader_id = LeaderIdOf::<C>::new(TermOf::<C>::default(), self.id.clone().unwrap());
+   |                                                                          ^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/storage/helper.rs:157:34
+    |
+157 |             self.log_store.purge(last_applied.clone().unwrap()).await.sto_write_logs()?;
+    |                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/storage/helper.rs:173:33
+    |
+173 |                     let mut b = self.state_machine.try_create_snapshot_builder(true).await.unwrap();
+    |                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/storage/helper.rs:284:32
+    |
+284 |             let last_applied = entries.last().map(|e| e.log_id()).unwrap();
+    |                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/testing/log/suite.rs:404:26
+    |
+404 |         want.vote.update(initial.vote.last_update().unwrap(), Duration::default(), vote.clone());
+    |                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.expect()` in production code will panic on failure
+   --> openraft/openraft/src/testing/log/suite.rs:765:20
+    |
+765 |         let vote = store.read_vote().await?.expect("vote should be set");
+    |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` with `.context()` (anyhow) or `.whatever_context()` (snafu) instead
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/testing/log/suite.rs:774:62
+    |
+774 |             let actual: Vec<_> = entries.into_iter().map(|e| e.unwrap().log_id()).collect();
+    |                                                              ^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/testing/log/suite.rs:785:62
+    |
+785 |             let actual: Vec<_> = entries.into_iter().map(|e| e.unwrap().log_id()).collect();
+    |                                                              ^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/testing/log/suite.rs:796:62
+    |
+796 |             let actual: Vec<_> = entries.into_iter().map(|e| e.unwrap().log_id()).collect();
+    |                                                              ^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/testing/log/suite.rs:841:62
+    |
+841 |             let actual: Vec<_> = entries.into_iter().map(|e| e.unwrap().log_id()).collect();
+    |                                                              ^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/testing/log/suite.rs:852:62
+    |
+852 |             let actual: Vec<_> = entries.into_iter().map(|e| e.unwrap().log_id()).collect();
+    |                                                              ^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/testing/log/suite.rs:863:62
+    |
+863 |             let actual: Vec<_> = entries.into_iter().map(|e| e.unwrap().log_id()).collect();
+    |                                                              ^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/testing/log/suite.rs:883:62
+    |
+883 |             let actual: Vec<_> = entries.into_iter().map(|e| e.unwrap().log_id()).collect();
+    |                                                              ^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+    --> openraft/openraft/src/testing/log/suite.rs:1200:20
+     |
+1200 |         let last = store.try_get_log_entries(0..).await?.into_iter().next_back().unwrap();
+     |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+    --> openraft/openraft/src/testing/log/suite.rs:1212:25
+     |
+1212 |             let mut b = sm.try_create_snapshot_builder(true).await.unwrap();
+     |                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+    --> openraft/openraft/src/testing/log/suite.rs:1224:25
+     |
+1224 |             let mut b = sm.try_create_snapshot_builder(true).await.unwrap();
+     |                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+    --> openraft/openraft/src/testing/log/suite.rs:1326:19
+     |
+1326 |         let ss1 = sm_l.try_create_snapshot_builder(true).await.unwrap().build_snapshot().await?;
+     |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.expect()` in production code will panic on failure
+    --> openraft/openraft/src/testing/log/suite.rs:1329:23
+     |
+1329 |         let ss1_cur = sm_l.get_current_snapshot().await?.expect("uninitialized snapshot");
+     |                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = help: use `?` with `.context()` (anyhow) or `.whatever_context()` (snafu) instead
+
+warning: `.expect()` in production code will panic on failure
+    --> openraft/openraft/src/testing/log/suite.rs:1337:19
+     |
+1337 |         let ss2 = sm_f.get_current_snapshot().await?.expect("uninitialized snapshot");
+     |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = help: use `?` with `.context()` (anyhow) or `.whatever_context()` (snafu) instead
+
+warning: `.unwrap()` in production code will panic on failure
+    --> openraft/openraft/src/testing/log/suite.rs:1432:23
+     |
+1432 |     let last_log_id = entries.last().unwrap().log_id();
+     |                       ^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+  --> openraft/openraft/src/testing/runtime/mod.rs:96:29
+   |
+96 |             let ret_value = handle.await.unwrap();
+   |                             ^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/testing/runtime/mod.rs:245:25
+    |
+245 |         let ret_value = Rt::timeout(dur_10ms, async move { ret_number }).await.unwrap();
+    |                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/testing/runtime/mod.rs:264:25
+    |
+264 |         let ret_value = Rt::timeout_at(ddl, async move { ret_number }).await.unwrap();
+    |                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/testing/runtime/mod.rs:331:17
+    |
+331 |                 tx.send(idx).await.unwrap();
+    |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/testing/runtime/mod.rs:368:9
+    |
+368 |         tx.send(1).await.unwrap();
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/testing/runtime/mod.rs:369:9
+    |
+369 |         tx.send(2).await.unwrap();
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/testing/runtime/mod.rs:382:24
+    |
+382 |         let received = rx.recv().await.unwrap();
+    |                        ^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/testing/runtime/mod.rs:392:20
+    |
+392 |         assert_eq!(rx.recv().await.unwrap(), 2);
+    |                    ^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/testing/runtime/mod.rs:393:20
+    |
+393 |         assert_eq!(rx.recv().await.unwrap(), 3);
+    |                    ^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/testing/runtime/mod.rs:449:17
+    |
+449 |                 tx.send(idx).unwrap();
+    |                 ^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/testing/runtime/mod.rs:507:13
+    |
+507 |             tx.send(overwrite).unwrap();
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/testing/runtime/mod.rs:568:9
+    |
+568 |         tx.send(1).unwrap();
+    |         ^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/testing/runtime/mod.rs:569:9
+    |
+569 |         tx.send(3).unwrap();
+    |         ^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/testing/runtime/mod.rs:572:9
+    |
+572 |         tx.send(5).unwrap();
+    |         ^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/testing/runtime/mod.rs:576:27
+    |
+576 |         let final_value = handle.await.unwrap().unwrap();
+    |                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/testing/runtime/mod.rs:576:27
+    |
+576 |         let final_value = handle.await.unwrap().unwrap();
+    |                           ^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/testing/runtime/mod.rs:582:30
+    |
+582 |         let returned_value = rx2.wait_until_ge(&5).await.unwrap();
+    |                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/testing/runtime/mod.rs:591:22
+    |
+591 |         let result = handle3.await.unwrap();
+    |                      ^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/testing/runtime/mod.rs:605:9
+    |
+605 |         tx.send(3).unwrap();
+    |         ^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/testing/runtime/mod.rs:606:9
+    |
+606 |         tx.send(5).unwrap();
+    |         ^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/testing/runtime/mod.rs:609:9
+    |
+609 |         tx.send(6).unwrap();
+    |         ^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/testing/runtime/mod.rs:611:27
+    |
+611 |         let final_value = handle.await.unwrap().unwrap();
+    |                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/testing/runtime/mod.rs:611:27
+    |
+611 |         let final_value = handle.await.unwrap().unwrap();
+    |                           ^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/testing/runtime/mod.rs:618:30
+    |
+618 |         let returned_value = rx2.wait_until(is_greater_than_5).await.unwrap();
+    |                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/testing/runtime/mod.rs:628:22
+    |
+628 |         let result = handle3.await.unwrap();
+    |                      ^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/testing/runtime/mod.rs:650:9
+    |
+650 |         tx.send(1).unwrap();
+    |         ^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/testing/runtime/mod.rs:666:13
+    |
+666 |             tx_clone.send(2).unwrap();
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/testing/runtime/mod.rs:673:9
+    |
+673 |         rx.changed().await.unwrap();
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/testing/runtime/mod.rs:701:9
+    |
+701 |         tx.send(1).unwrap();
+    |         ^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/testing/runtime/mod.rs:730:9
+    |
+730 |         tx.send(1).unwrap();
+    |         ^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/testing/runtime/mod.rs:744:13
+    |
+744 |             tx_clone.send(2).unwrap();
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/testing/runtime/mod.rs:748:9
+    |
+748 |         rx.changed().await.unwrap();
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/testing/runtime/mod.rs:775:17
+    |
+775 |                 tx_clone.send(i).unwrap();
+    |                 ^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/testing/runtime/mod.rs:790:13
+    |
+790 |             rx.changed().await.unwrap();
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/testing/runtime/mod.rs:817:9
+    |
+817 |         tx.send(42).unwrap();
+    |         ^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/testing/runtime/mod.rs:830:13
+    |
+830 |             rx2_1.changed().await.unwrap();
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/testing/runtime/mod.rs:834:13
+    |
+834 |             rx2_2.changed().await.unwrap();
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/testing/runtime/mod.rs:842:9
+    |
+842 |         tx2.send(100).unwrap();
+    |         ^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/testing/runtime/mod.rs:844:20
+    |
+844 |         let val1 = handle1.await.unwrap();
+    |                    ^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/testing/runtime/mod.rs:845:20
+    |
+845 |         let val2 = handle2.await.unwrap();
+    |                    ^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/testing/runtime/mod.rs:860:9
+    |
+860 |         tx.send(number_to_send).unwrap();
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/testing/runtime/mod.rs:861:31
+    |
+861 |         let number_received = rx.await.unwrap();
+    |                               ^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/testing/runtime/mod.rs:871:13
+    |
+871 |             tx.send(number_to_send).unwrap();
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/testing/runtime/mod.rs:873:31
+    |
+873 |         let number_received = rx.await.unwrap();
+    |                               ^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/testing/runtime/mod.rs:907:13
+    |
+907 |             handle.await.unwrap();
+    |             ^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+  --> openraft/openraft/src/vote/committed.rs:56:9
+   |
+56 |         self.as_ref_vote().partial_cmp(&other.as_ref_vote()).unwrap()
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+   --> openraft/openraft/src/vote/leader_id/leader_id_std.rs:115:9
+    |
+115 |         self.voted_for.as_ref().unwrap()
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `openraft` (lib) generated 310 warnings
+Error: Error: Compilation failed with toolchain `nightly-2026-03-21-x86_64-unknown-linux-gnu`
+
+Caused by:
+    command failed: env -u CARGO -u RUSTC CLIPPY_DISABLE_DOCS_LINKS="null" DYLINT_LIBS="[\"/tmp/aspen-lint-precision.3cEzkT/target-before/dylint/libraries/nightly-2026-03-21-x86_64-unknown-linux-gnu/release/libtigerstyle@nightly-2026-03-21-x86_64-unknown-linux-gnu.so\"]" DYLINT_METADATA="null" DYLINT_NO_DEPS="0" RUSTC_WORKSPACE_WRAPPER="/tmp/tmp.zC7ON9H6pK/dylint-drivers/nightly-2026-03-21-x86_64-unknown-linux-gnu/dylint-driver" RUSTUP_TOOLCHAIN="nightly-2026-03-21-x86_64-unknown-linux-gnu" "cargo" "check" "--target-dir" "/tmp/aspen-lint-precision.3cEzkT/target-before/dylint/target/nightly-2026-03-21-x86_64-unknown-linux-gnu" "--workspace" "--all-targets"
+# exit status: 1
