@@ -1,358 +1,148 @@
-# Documentation Skill Coverage Specification
+## ADDED Requirements
 
-## Purpose
+### Requirement: Standardized Diagnostic Structure
 
-Documentation requirements that keep the Tiger Style agent skill aligned with
-its reference document while staying skimmable.
-## Requirements
-### Requirement: Tiger Style Skill Coverage Crosswalk
+Every lint diagnostic MUST include:
 
-The project MUST maintain an explicit crosswalk from the Tiger Style
-reference document to the agent skill.
+1. A one-line warning message describing the violation
+2. A help note in the exact form `Tiger Style (<principle>): <guidance>`;
+   for lints with a concrete approved pattern, `<guidance>` MUST include an
+   appended `Example: <approved pattern>` clause in the same help note
+3. A note in the exact form `see Tiger Style guide: <section>`
 
-The crosswalk MUST identify, for each major normative rule or grouped
-rule set in the reference, where that guidance appears in the skill.
+#### Scenario: Developer sees lint for the first time
 
-The crosswalk MUST call out any intentionally reference-only material
-as examples, rationale, or extended background.
+- GIVEN a developer runs tigerstyle and encounters `ambient_clock`
+- WHEN they read the diagnostic
+- THEN they see the principle name, the approved pattern, and where to
+  read more without opening a separate document
 
-#### Scenario: Reviewing a future skill edit
+#### Scenario: Diagnostic wording stays consistent across lints
 
-- GIVEN the skill has been edited
-- WHEN a maintainer verifies coverage
-- THEN the crosswalk shows whether any reference guidance was dropped
+- GIVEN two different tigerstyle lint diagnostics
+- WHEN a developer compares their help and note lines
+- THEN both diagnostics use the same `Tiger Style (...)` help prefix and
+  the same `see Tiger Style guide: ...` note prefix
 
-### Requirement: Skill Completeness Without Verbatim Duplication
+### Requirement: Canonical Tool-Scoped Tigerstyle Namespace
 
-The Tiger Style skill MUST remain skimmable while still covering all
-major normative guidance from the reference.
+Every consumer-facing tigerstyle lint MUST be registered as a true tool lint in
+canonical `tigerstyle::<lint_name>` form. Tool-scoped domain groups MUST be
+registered against those true tool-lint IDs rather than ad-hoc plain-lint
+aliases.
 
-The skill MAY group related rules into concise checklists.
+Standalone raw-rustc crates that use tool-scoped tigerstyle attrs MUST compile
+on the supported nightly toolchain and opt into `#![feature(register_tool)]`
+plus `#![register_tool(tigerstyle)]`.
 
-The skill MUST provide explicit pointers to the reference for extended
-examples, rationale, and long-form walkthroughs.
+#### Scenario: Tool-scoped per-lint attr resolves against a true tool lint
 
-The skill MUST NOT rely on the reference to carry normative rules that
-are absent from the skill.
+- GIVEN a crate on the supported nightly toolchain with
+  `#![feature(register_tool)]` and `#![register_tool(tigerstyle)]`
+- WHEN it uses a source-level attr like `#[allow(tigerstyle::no_unwrap)]`
+- THEN rustc resolves that attr against the real `tigerstyle::no_unwrap` lint
+  instead of a plain-lint compatibility shim
 
-#### Scenario: Agent uses skill only
+### Requirement: Tool-Lint Migration Precondition
 
-- GIVEN an agent reads the skill but not the full reference
-- WHEN it applies Tiger Style during coding or review
-- THEN it still sees all major normative rules needed for correct application
+Before converting all 25 consumer-facing lints, the project MUST validate the
+planned migration mechanism on a single representative lint under the repo's
+Dylint harness.
 
-### Requirement: Downstream Consumer Rollout Plan
+That precondition MUST prove both of these points together:
 
-The project MUST maintain a documented rollout plan for integrating
-`tigerstyle` into a real consumer workspace before claiming downstream
-readiness.
+- `declare_tool_lint!(pub tigerstyle::...)` works for the representative lint
+  under the project's Dylint loading path
+- the intended bare compatibility mechanism — a one-member bare alias
+  registered through `lint_store.register_group(...)` — still resolves the
+  current bare config / lint-level path for that representative lint
 
-The rollout plan MUST:
+#### Scenario: Representative spike proves canonical and compatibility paths
 
-- name the target workspace
-- identify the initial lint subset enabled for that workspace
-- explain how the workspace wires tigerstyle into flake checks or equivalent
-  CI
-- record which lint families are deferred because of known noise or missing
-  project-specific tuning
-- define promotion criteria for moving a deferred lint family into a later
-  rollout phase
+- GIVEN representative lint `no_unwrap`
+- WHEN the project migrates only that lint to
+  `declare_tool_lint!(pub tigerstyle::no_unwrap)` and registers a one-member
+  bare compatibility alias for it
+- THEN canonical tool-scoped attrs resolve in the supported standalone UI path
+- AND bare `disabled_lints`, bare `[tigerstyle.lint_levels]`, and the current
+  bare lint-level path still resolve for `no_unwrap`
+- AND the full 25-lint migration does not proceed until that spike passes
 
-#### Scenario: Preparing the first aspen rollout
+### Requirement: Lint Groups By Spec Domain
 
-- GIVEN aspen is the first downstream consumer
-- WHEN a maintainer follows the rollout plan
-- THEN aspen can run a scoped tigerstyle check without blindly enabling the
-  full lint catalog
+The project MUST register lint groups matching spec domains:
 
-### Requirement: Consumer Baseline And Configuration Evidence
+- `tigerstyle::safety`
+- `tigerstyle::naming`
+- `tigerstyle::structure`
+- `tigerstyle::purity`
+- `tigerstyle::concurrency`
 
-The project MUST capture baseline evidence and required configuration
-adjustments for each downstream workspace onboarded through the rollout plan.
+Consumers MUST be able to use group-level `#[allow]` and `#[deny]`
+attributes when compiling on the supported nightly toolchain and opting into
+`#![feature(register_tool)]` plus `#![register_tool(tigerstyle)]`.
 
-The integration notes MUST record:
+#### Scenario: Suppressing a domain during phased rollout
 
-- baseline violation counts or representative failures from the initial run
-- required `dylint.toml` thresholds or allowlists
-- rationale for each committed threshold, allowlist, or explicit exception used
-  by the rollout
-- validation steps showing the configured check runs end to end in the
-  consumer workspace
+- GIVEN a consumer in starter profile compiling on the supported nightly
+  toolchain with `#![feature(register_tool)]` and `#![register_tool(tigerstyle)]`
+- WHEN they add `#![allow(tigerstyle::safety)]` to a crate root
+- THEN all safety-domain lints are suppressed for that crate
 
-#### Scenario: Reviewing a tuned aspen configuration
+#### Scenario: Allowing one domain does not suppress another
 
-- GIVEN aspen needs workspace-specific thresholds or lint allowlists
-- WHEN a maintainer reviews the integration notes
-- THEN the reviewer can see why the config exists and how the check was
-  validated
+- GIVEN a crate on the supported nightly toolchain with
+  `#![feature(register_tool)]` and `#![register_tool(tigerstyle)]`
+- AND the crate would otherwise trigger both a safety lint and a naming lint
+- WHEN it adds `#![allow(tigerstyle::safety)]` to the crate root
+- THEN the safety lint is suppressed
+- AND the naming lint still emits a diagnostic
 
-### Requirement: Reusable Consumer Integration Kit
-
-After the first real downstream rollout, the project MUST generalize the
-consumer-specific lessons into a reusable onboarding kit for later consumers.
-
-The integration kit MUST include:
-
-- named starter rollout profiles with rationale for why they are suitable as
-  first adopters
-- a reusable check-path recipe for consumers whose toolchain or environment
-  needs Dylint wrappers or extra setup
-- a sample `dylint.toml` layout with commented threshold, allowlist, and
-  rationale sections
-- a checklist for deciding when a new crate or package is ready to join the
-  default pilot scope
-- pointers to evidence from the first consumer rollout that justify the kit's
-  defaults and cautions
-- documented minimum environment assumptions that match the published template's
-  actual runtime dependencies
-
-#### Scenario: Preparing a second downstream rollout
-
-- GIVEN a maintainer is onboarding a second consumer after Aspen
-- WHEN they follow the integration kit
-- THEN they can choose a starter profile, wire a working check path, and add
-  consumer-local tuning without rediscovering Aspen's setup work
-
-#### Scenario: Reviewing a consumer wrapper
-
-- GIVEN a consumer uses a nix-managed or otherwise nonstandard nightly toolchain
-- WHEN a reviewer checks the documented integration kit
-- THEN they can see the expected wrapper responsibilities and minimum
-  environment assumptions
-
-### Requirement: Rollout Kit Covers Post-Starter Package Widening
-
-The downstream rollout kit MUST document how a consumer graduates a deferred
-package into the default tigerstyle path after the starter rollout is green.
-
-The guidance MUST include:
-
-- the conditions for choosing one deferred package as the next promotion target
-- the cleanup themes reviewers should classify before widening the default path
-- a concrete widened-reference state derived from Aspen after `aspen-coordination`
-  rejoined the default pilot
-- evidence showing both the widened default pilot and the cleaned deferred
-  package slice
-
-#### Scenario: Promoting a deferred package after phase 1
-
-- GIVEN a consumer finished the starter rollout and still has one deferred
-  package with a bounded finding set
-- WHEN a maintainer follows the rollout kit
-- THEN they can inventory the slice, clean or justify the blockers, and prove
-  the package can join the default path without rediscovering Aspen's phase-2
-  promotion steps
-
-### Requirement: Rollout Kit Has A Saved Non-Aspen Consumer Proof
-
-The downstream rollout kit MUST include one saved proof that a non-Aspen Rust
-consumer can follow the published templates and check-path guidance.
-
-That proof MUST include:
-
-- the chosen consumer workspace
-- the copied `templates/tigerstyle-check.sh` and `templates/dylint.toml`
-  workflow, or an exact saved helper that performs those copy/edit steps
-- a saved transcript of the resulting tigerstyle check run
-- enough sandbox or path-layout detail for a reviewer to replay the proof
-  without Aspen-specific assumptions
-
-#### Scenario: Reviewing the second consumer proof
-
-- GIVEN a reviewer wants to know whether the rollout kit only works for Aspen
-- WHEN they inspect the saved proof
-- THEN they can replay the helper on a non-Aspen consumer and see the template-
-  based tigerstyle check run end to end
-
-### Requirement: Nix Check Path Exercises UI Lint Fixtures
-
-The project MUST execute real Dylint UI fixtures as part of its nix-backed
-validation path.
-
-The nix check path MUST provide whatever rustup compatibility wiring the UI
-harness needs, rather than silently skipping when `rustup` is absent.
-
-The repository MUST keep a checked-in UI fixture whose expected stderr is
-validated during that nix check path for every shipped tigerstyle lint.
-
-The repository MUST keep checked-in config-override UI fixtures for every
-configurable tigerstyle behavior:
-
-- `function_length_max`
-- `nesting_max_depth`
-- `assertion_density_min_lines` / `assertion_density_min_assertions`
-- `acronym_allowlist`
-
-The UI harness MUST assert the expected compiler exit status for each fixture,
-so deny-level fixtures still prove the command failed for the right reason
-instead of passing on stderr text alone.
-
-#### Scenario: Running nix flake check
-
-- GIVEN a maintainer runs `nix flake check`
-- WHEN the test suite reaches the UI harness
-- THEN it runs checked-in Dylint UI fixtures instead of returning early because
-  `rustup` is missing
-
-#### Scenario: Lint-wide regression coverage
-
-- GIVEN a shipped tigerstyle lint changes its diagnostic wording or stops firing
-- WHEN the nix validation path runs
-- THEN the matching checked-in fixture fails and reports the stderr mismatch
-
-#### Scenario: Config-override regression coverage
-
-- GIVEN a maintainer changes config parsing or a configurable threshold
-- WHEN the nix validation path runs
-- THEN the checked-in override fixtures catch regressions in the configured
-  behavior
-
-#### Scenario: Deny-level fixture exits non-zero
-
-- GIVEN a fixture that intentionally triggers a deny-by-default lint such as
-  `verified_purity`
-- WHEN the UI harness runs it
-- THEN the harness checks that the compiler command failed and that stderr
-  matches the expected deny-level diagnostic
-
-### Requirement: High-Noise Lint Promotion Playbook
-
-The project MUST maintain a promotion playbook for lint families that proved
-too noisy for blind rollout in Aspen.
-
-The playbook MUST:
-
-- name `ignored_result`, `no_unwrap`, `no_panic`, `unchecked_narrowing`, and
-  `unbounded_loop` as inventory-first families
-- require a per-crate or per-package inventory before a family is promoted
-  into the default downstream path
-- record known noise or classification patterns that reviewers should sort
-  before deciding whether a finding is real debt, justified shell code, or a
-  lint-precision problem
-- define the evidence required before promoting a family into a later rollout
-  phase
-- reject blanket `allow`-based promotion as a substitute for triage
-
-#### Scenario: Promoting `no_unwrap`
-
-- GIVEN a maintainer wants to add `no_unwrap` to a downstream default profile
-- WHEN they follow the playbook
-- THEN they first build an inventory, classify the highest-risk production
-  sites, and capture evidence for the reduced baseline before promotion
-
-#### Scenario: Reviewing `unbounded_loop` findings
-
-- GIVEN a downstream crate has many loop-related findings
-- WHEN a reviewer follows the playbook
-- THEN they can separate real unbounded retries from known event-loop patterns
-  and identify any remaining lint-precision gaps explicitly
-
-### Requirement: Audit-Ready Rollout Reconstruction Evidence
-
-When the project claims a reusable downstream rollout kit is complete, it MUST
-capture audit-ready evidence showing the documented reconstruction path works.
-
-The evidence MUST include:
-
-- a real end-to-end reconstruction transcript using the published templates or
-  equivalent copied artifacts, not only syntax or help output
-- the full helper scripts used for validation, stored as reviewable files
-- verification notes that reference exact commands or stored helper scripts
-  instead of elided here-doc summaries
-- enough detail to show the documented starter path was reconstructed without
-  relying on undocumented shell state or current downstream repo drift
-- any required sandbox, sibling-repo, or path-layout setup that the documented
-  reconstruction path depends on
-- archived text artifacts whose recorded commands reference the archived helper
-  and evidence locations, not a deleted pre-archive change path
-- if the documented reconstruction path is a saved helper command, a transcript
-  whose top-level replay command matches that helper path exactly
-- if the saved transcript starts with a command preamble, the repo MUST store a
-  documented helper or exact capture command that emits that preamble
-- consistency checks that verify the documented capture method, the saved
-  helper, and the saved transcript agree on that preamble source
-- check helpers that assert every summary claim the docs or verification notes
-  make about the replay output, including zero-warning claims
-
-#### Scenario: Reviewing transcript preamble provenance
-
-- GIVEN a reviewer opens a saved reconstruction transcript whose first line is a
-  `$ bash ...` command
-- WHEN they inspect the saved helper scripts and consistency checks
-- THEN they can see which documented helper emitted that preamble and verify the
-  transcript was captured through that same helper path
+#### Scenario: Escalating one domain during cleanup
+
+- GIVEN a consumer wants stricter naming cleanup and is compiling on the
+  supported nightly toolchain with `#![feature(register_tool)]` and
+  `#![register_tool(tigerstyle)]`
+- WHEN they add `#![deny(tigerstyle::naming)]` to a crate root
+- THEN naming-domain diagnostics in that crate become hard errors
+
+## MODIFIED Requirements
 
 ### Requirement: Per-Lint Configuration Support
 
-The project MUST support disabling individual lints and overriding lint
-severity through the consumer-owned `dylint.toml`.
+The project MUST continue to support disabling individual lints and overriding
+lint severity through the consumer-owned `dylint.toml` even after migrating the
+canonical lint namespace to `tigerstyle::<lint_name>`.
 
-The consumer-owned `[tigerstyle]` section in `dylint.toml` MUST support these
-optional controls and behaviors:
+The consumer-owned `[tigerstyle]` section in `dylint.toml` MUST keep these
+behaviors:
 
-- an optional `disabled_lints` list that prevents named lints from registering
-- an optional `lint_levels` table that maps lint names to `allow`, `warn`, or
-  `deny`
-- omitted `disabled_lints` and `lint_levels` keys default to empty collections
-  and preserve the existing default lint levels
-- a warning (not error) for unknown lint names in config
-- a warning (not error) for invalid `lint_levels` values, with the invalid
-  override ignored
-- a warning (not error) when a lint appears in both `disabled_lints` and
-  `lint_levels`, with the level override ignored
+- `disabled_lints` continues to use bare lint names like `no_unwrap`
+- `[tigerstyle.lint_levels]` continues to use bare lint names like `no_unwrap`
+- bare config names resolve to the matching canonical tool lint without
+  requiring consumers to rename config keys to `tigerstyle::...`
+- `disabled_lints` still prevents disabled lints from registering, so it beats
+  level overrides and source-level attrs
 
-#### Scenario: Omitted per-lint controls keep existing behavior
-
-- GIVEN a `dylint.toml` without `disabled_lints` or `lint_levels`
-- WHEN the lint suite loads config
-- THEN both controls default to empty and lints keep their default levels
-
-#### Scenario: Disabling a noisy lint
-
-- GIVEN `disabled_lints = ["no_unwrap"]` in `dylint.toml`
-- WHEN the lint suite runs
-- THEN `no_unwrap` produces no diagnostics
-
-#### Scenario: Unknown lint name warns and continues
-
-- GIVEN `disabled_lints = ["not_a_real_lint"]` in `dylint.toml`
-- WHEN the lint suite loads config
-- THEN it emits a warning and continues with the remaining config
-
-#### Scenario: Invalid lint level warns and keeps default
-
-- GIVEN `[tigerstyle.lint_levels] no_unwrap = "fatal"` in `dylint.toml`
-- WHEN the lint suite loads config
-- THEN it emits a warning and `no_unwrap` keeps its default level
-
-#### Scenario: Disabled lint beats level override
-
-- GIVEN `disabled_lints = ["no_unwrap"]` and `[tigerstyle.lint_levels] no_unwrap = "deny"` in `dylint.toml`
-- WHEN the lint suite loads config and runs
-- THEN it emits a warning about the conflicting config and `no_unwrap` stays disabled
-
-#### Scenario: Allow level suppresses diagnostics
-
-- GIVEN `[tigerstyle.lint_levels] no_unwrap = "allow"` in `dylint.toml`
-- WHEN `no_unwrap` sees violating code
-- THEN it emits no diagnostic
-
-#### Scenario: Warn level keeps warning behavior
-
-- GIVEN `[tigerstyle.lint_levels] no_unwrap = "warn"` in `dylint.toml`
-- WHEN `no_unwrap` sees violating code
-- THEN it emits a warning
-
-#### Scenario: Deny level upgrades to error
+#### Scenario: Bare config key still upgrades the canonical tool lint
 
 - GIVEN `[tigerstyle.lint_levels] no_unwrap = "deny"` in `dylint.toml`
-- WHEN `no_unwrap` sees violating code
-- THEN it emits an error instead of a warning
+- WHEN `no_unwrap` sees violating code after the tool-lint migration
+- THEN the canonical `tigerstyle::no_unwrap` lint emits an error instead of a
+  warning
 
-#### Scenario: Disabled lint beats source-level attrs
+#### Scenario: Bare disabled key still beats source-level attrs
 
 - GIVEN `disabled_lints = ["no_unwrap"]` in `dylint.toml`
-- AND source code requests a source-level lint attribute for `tigerstyle::no_unwrap`
+- AND source code requests a source-level lint attribute for
+  `tigerstyle::no_unwrap`
 - WHEN the lint suite runs on code that would otherwise violate `no_unwrap`
 - THEN `no_unwrap` still emits no diagnostic
 
+#### Scenario: Disabled bare key keeps the lint out of groups and aliases
+
+- GIVEN `disabled_lints = ["no_unwrap"]` in `dylint.toml`
+- WHEN the lint suite registers canonical domain groups and bare compatibility
+  aliases
+- THEN `no_unwrap` is omitted from those registrations
+- AND no canonical group or bare compatibility path re-enables that lint
