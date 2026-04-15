@@ -1,128 +1,141 @@
-# Safety Specification
+# Safety Lint Precision Hardening — Delta Spec
 
-## Purpose
+## ADDED Requirements
 
-Tiger Style safety requirements for both lint enforcement and agent-facing
-skill coverage: assertion quality, error handling discipline, bounded
-resource usage, and explicit control flow.
-## Requirements
-### Requirement: Full Assertion And Error-Handling Coverage In Skill
+### Requirement: No Unwrap In Production Code
 
-The Tiger Style skill MUST include the missing assertion and
-error-handling guidance from the reference.
+The lint MUST detect `.unwrap()` and `.expect()` calls on `Option` and
+`Result` in production code.
 
-The skill MUST cover:
+The lint MUST NOT fire in `#[test]` functions.
 
-- conditional assertions for implications
-- assertions on function arguments and return values
-- invariant validation during execution
-- pair assertions across critical points
-- fail-fast handling of programmer errors
-- exhaustive testing of valid AND invalid paths
-- treating compiler warnings as errors
-- avoiding implicit defaults in library calls
+The lint MUST NOT fire in items or modules guarded by `#[cfg(test)]` or an
+inner `#![cfg(test)]` that makes the enclosing item test-only.
 
-#### Scenario: Reviewing a guarded invariant
+The lint MUST NOT fire on compile-time-known infallible constructions such as
+`Some(value).unwrap()`, `Ok(value).unwrap()`, or valid literal-string parses
+for a finite supported standard set (primitive bool/int/float/char, `String`,
+and standard network address types such as `"127.0.0.1".parse().unwrap()`),
+including const/static-style initializer code.
 
-- GIVEN code where an invariant only holds under a precondition
-- WHEN an agent follows the skill
-- THEN it prefers `if precondition { assert!(invariant); }` over masking the invariant inside a compound assertion
+The lint MUST NOT fire when the unwrap is dominated by a same-branch
+`.is_some()` or `.is_ok()` guard.
 
-### Requirement: Positive And Bounded Control Flow Guidance
+In this change, the new dominance / compile-time-known suppression rules apply
+only to `.unwrap()`. `.expect()` continues to warn unless a future change
+specifies matching suppression behavior.
 
-The Tiger Style skill MUST include the missing safety guidance for
-positive predicates and bounded, understandable control flow.
+#### Scenario: Test helper unwrap
 
-The skill MUST cover:
-
-- minimizing variable scope
-- stating invariants positively
-- buffering external events before processing
-- decomposing compound conditions into one-check branches
-
-#### Scenario: Naming a readiness predicate
-
-- GIVEN a boolean predicate in review
-- WHEN an agent applies the skill
-- THEN it prefers `is_ready` or `has_quorum` over double-negation style names
-
-### Requirement: Compound Assertion Detection
-
-The lint MUST detect `assert!(expr1 && expr2)` and `assert!(expr1 || expr2)`
-where the macro argument contains a top-level binary `&&` or `||` operator.
-
-The lint MUST suggest splitting into separate `assert!()` calls.
-
-The lint MUST NOT fire on `assert_eq!` or `assert_ne!` (those already provide
-per-operand diagnostics).
-
-The lint SHOULD NOT fire on `debug_assert!` compound expressions in test code.
-
-#### Scenario: Simple compound
-
-- GIVEN `assert!(a > 0 && b > 0)`
-- WHEN the lint runs
-- THEN it emits a warning suggesting `assert!(a > 0); assert!(b > 0);`
-
-#### Scenario: Nested boolean in method call
-
-- GIVEN `assert!(vec.iter().all(|x| x > 0 && x < 100))`
-- WHEN the lint runs
-- THEN it does NOT fire (the `&&` is inside a closure, not top-level)
-
-#### Scenario: Conditional assertion (implication pattern)
-
-- GIVEN `if is_leader { assert!(has_quorum); }`
-- WHEN the lint runs
-- THEN it does NOT fire (this is the approved Tiger Style pattern)
-
-### Requirement: Assertion Density
-
-The lint MUST be able to warn on functions exceeding 20 lines that contain fewer
-than 2 assertion macros (`assert!`, `assert_eq!`, `assert_ne!`,
-`debug_assert!`, `debug_assert_eq!`, `debug_assert_ne!`).
-
-The lint MUST NOT fire on functions annotated `#[test]`, `#[cfg(test)]`,
-or inside `mod tests` blocks.
-
-The lint MUST NOT fire on functions whose body is a single expression or
-a pure delegation (`self.inner.method(args)`).
-
-#### Scenario: Function with no assertions
-
-- GIVEN a 30-line function with zero assertions
-- WHEN the lint runs
-- THEN it emits a suggestion to add assertions documenting invariants
-
-#### Scenario: Short function
-
-- GIVEN a 10-line function with zero assertions
-- WHEN the lint runs
-- THEN it does NOT fire (under the 20-line threshold)
-
-### Requirement: Unbounded Loop Detection
-
-The lint MUST warn on `loop { }` blocks that do not contain a visible
-iteration counter, `break` condition tied to a counter, or bounded
-channel receive.
-
-The lint SHOULD warn on `while let Some(_) = iter.next()` without a
-limit check in the body.
-
-The lint MUST NOT fire on `loop` blocks containing `tokio::select!`
-(event loops are a valid pattern when bounded by channel capacity).
-
-#### Scenario: Bare retry loop
-
-- GIVEN `loop { if try_connect() { break; } }`
-- WHEN the lint runs
-- THEN it warns about missing iteration bound
-
-#### Scenario: Bounded retry
-
-- GIVEN `for _ in 0..MAX_RETRIES { if try_connect() { break; } }`
+- GIVEN a `#[test]` function that calls `value.unwrap()`
 - WHEN the lint runs
 - THEN it does NOT fire
+
+#### Scenario: Cfg-test module unwrap
+
+- GIVEN a helper inside `#[cfg(test)] mod tests { ... }`
+- WHEN the lint runs
+- THEN it does NOT fire
+
+#### Scenario: Not-test cfg still warns
+
+- GIVEN a helper inside `#[cfg(not(test))] mod prod_only { ... }`
+- WHEN the lint runs
+- THEN it still warns on `value.unwrap()`
+
+#### Scenario: Compile-time-known unwrap
+
+- GIVEN `let v = Some(1_u32).unwrap();`
+- WHEN the lint runs
+- THEN it does NOT fire
+
+#### Scenario: Literal parse unwrap
+
+- GIVEN `static ADDR: std::net::IpAddr = "127.0.0.1".parse().unwrap();`
+- WHEN the lint runs
+- THEN it does NOT fire
+
+#### Scenario: Invalid literal parse still warns
+
+- GIVEN `let addr: std::net::IpAddr = "not an ip".parse().unwrap();`
+- WHEN the lint runs
+- THEN it still warns
+
+#### Scenario: Guarded unwrap
+
+- GIVEN `if value.is_some() { value.unwrap(); }`
+- WHEN the lint runs
+- THEN it does NOT fire
+
+### Requirement: Panic Macro In Production Code
+
+The lint MUST detect `panic!()`, `todo!()`, `unimplemented!()`, and
+`unreachable!()` in production code.
+
+The lint MUST NOT fire in `#[test]` functions.
+
+The lint MUST NOT fire in items or modules guarded by `#[cfg(test)]` or an
+inner `#![cfg(test)]` that makes the enclosing item test-only.
+
+The lint MUST NOT fire on `unreachable!()` in a trailing wildcard arm when the
+preceding enum match arms already list the concrete variants exhaustively for a
+local, non-`#[non_exhaustive]` enum.
+
+The lint MUST NOT fire on `todo!()` when the call is inside a function or
+block explicitly allowed with `#[allow(tigerstyle::no_panic)]` and an adjacent
+justification comment.
+
+For this rule, an adjacent justification comment is a `// ...` comment on the
+same line as the allow attribute or on the immediately preceding non-empty
+line. Blank lines, doc comments, and block comments do NOT count.
+
+#### Scenario: Test-only panic
+
+- GIVEN a `#[test]` helper that calls `panic!("boom")`
+- WHEN the lint runs
+- THEN it does NOT fire
+
+#### Scenario: Cfg-test module panic
+
+- GIVEN a helper inside `#[cfg(test)] mod tests { ... }`
+- WHEN the lint runs
+- THEN it does NOT fire
+
+#### Scenario: Not-test cfg still warns
+
+- GIVEN a helper inside `#[cfg(not(test))] mod prod_only { panic!(...) }`
+- WHEN the lint runs
+- THEN it still warns
+
+#### Scenario: Exhaustive wildcard unreachable
+
+- GIVEN a local enum match whose explicit arms already cover every variant and
+  whose trailing wildcard uses `unreachable!()`
+- WHEN the lint runs
+- THEN it does NOT fire
+
+#### Scenario: Justified todo allow
+
+- GIVEN `#[allow(tigerstyle::no_panic)] fn stub() { todo!(...) }` with a `//`
+  justification comment on the same line or the immediately preceding line
+- WHEN the lint runs
+- THEN it does NOT fire
+
+#### Scenario: Justified block todo allow
+
+- GIVEN a block annotated with `#[allow(tigerstyle::no_panic)]` and an
+  adjacent `//` justification comment that contains `todo!(...)`
+- WHEN the lint runs
+- THEN it does NOT fire
+
+#### Scenario: Unjustified todo still warns
+
+- GIVEN `#[allow(tigerstyle::no_panic)] fn stub() { todo!(...) }` without that
+  adjacent `//` justification comment
+- WHEN the lint runs
+- THEN it still warns
+
+## MODIFIED Requirements
 
 ### Requirement: Ignored Result Detection
 
@@ -135,11 +148,40 @@ handling.
 The lint MUST NOT fire on `let _ = expr` where `expr` returns a
 non-Result type (e.g., guard drops).
 
-#### Scenario: Silenced fallible call
+The lint MUST NOT fire inside `Drop::drop` implementations.
 
-- GIVEN `let _ = file.sync_all();`
+The lint MUST NOT fire on `let _ = tx.send(msg);` when all of the
+following hold:
+- the method name is exactly `send`
+- `tx` has type `std::sync::mpsc::Sender<_>` or `tokio::sync::mpsc::Sender<_>`
+- the enclosing function or method name is exactly `shutdown` or `close`
+
+#### Scenario: Drop cleanup swallow
+
+- GIVEN `impl Drop for Cleaner { fn drop(&mut self) { let _ = self.tx.send(msg); } }`
 - WHEN the lint runs
-- THEN it warns that a `Result` is being silently discarded
+- THEN it does NOT fire
+
+#### Scenario: Shutdown send swallow
+
+- GIVEN `fn shutdown(&self) { let _ = self.tx.send(msg); }` where `self.tx` has
+  type `std::sync::mpsc::Sender<_>`
+- WHEN the lint runs
+- THEN it does NOT fire
+
+#### Scenario: Tokio close send swallow
+
+- GIVEN `async fn close(&self) { let _ = self.tx.send(msg).await; }` where
+  `self.tx` has type `tokio::sync::mpsc::Sender<_>`
+- WHEN the lint runs
+- THEN it does NOT fire
+
+#### Scenario: Ordinary send still warns
+
+- GIVEN `fn publish(&self) { let _ = self.tx.send(msg); }` with the same sender
+  type
+- WHEN the lint runs
+- THEN it still warns
 
 ### Requirement: Unchecked Narrowing Cast
 
@@ -160,146 +202,90 @@ or narrower than the target (e.g., `u16 as u32`).
 The lint MUST NOT fire inside `#[allow(clippy::cast_possible_truncation)]`
 blocks (explicit opt-out).
 
-This lint exists because verified-logic dedicates an entire module
-(`conversion.rs`) to proving narrowing casts are safe — unchecked
-`as` casts silently truncate and are a common source of subtle bugs.
+The lint MUST NOT fire on bounded forms such as `value.min(u32::MAX as u64) as u32`.
 
-#### Scenario: Bare narrowing cast
+The lint MUST NOT fire on `u32::try_from(value).unwrap_or(u32::MAX)`.
 
-- GIVEN `let id: u32 = some_u64 as u32;`
-- WHEN the lint runs
-- THEN it warns: "narrowing cast from u64 to u32 without bounds check — use u32::try_from()"
+The lint MUST treat an earlier same-block `assert!(value <= u32::MAX as u64)`
+as a valid bounds check even when it is not the immediately preceding
+statement.
 
-#### Scenario: Cast with prior guard
+This same-block assert suppression MUST apply only when the asserted
+expression matches the casted value and the asserted bound matches the cast
+target. Unrelated asserts, shadowed values, mismatched bounds, or later asserts
+MUST NOT suppress the warning.
 
-- GIVEN `if value <= u32::MAX as u64 { let v = value as u32; }`
-- WHEN the lint runs
-- THEN it does NOT fire (bounds checked by the `if` guard)
+#### Scenario: Min-bounded narrowing
 
-#### Scenario: Same-width cast
-
-- GIVEN `let x: i64 = y as i64;` where `y: u32`
-- WHEN the lint runs
-- THEN it does NOT fire (widening cast, not narrowing)
-
-### Requirement: Raw Arithmetic Overflow Detection
-
-The lint MUST be able to warn on raw `+`, `-`, `*` operations on unsigned integer
-types (`u8`–`u128`) in production code where the operands are not
-compile-time constants and no overflow protection is present.
-
-Overflow protection includes: `checked_add`/`checked_sub`/`checked_mul`,
-`saturating_add`/`saturating_sub`/`saturating_mul`, a preceding
-`assert!` or `if` guard that bounds the operands, or being inside a
-`verus! { }` block.
-
-The lint MUST NOT fire on `+= 1` or `i + 1` loop increments where `i`
-is bounded by a `for` range or `while i < LIMIT` guard.
-
-The lint MUST NOT fire in test code.
-
-This lint exists because verified-logic uses `checked_mul`, `saturating_add`,
-and `saturating_sub` for every arithmetic operation — `backoff.rs` proves
-overflow safety with Verus, `rate_limit.rs` splits multiplications to
-avoid u64 overflow, and `expiration.rs` uses saturating arithmetic for
-all TTL calculations.
-
-#### Scenario: Unprotected multiplication
-
-- GIVEN `let total = count * item_size;` where both are `u64`
-- WHEN the lint runs
-- THEN it suggests `count.checked_mul(item_size)` or `count.saturating_mul(item_size)`
-
-#### Scenario: Constant arithmetic
-
-- GIVEN `const MAX: u64 = 1024 * 1024;`
-- WHEN the lint runs
-- THEN it does NOT fire (compile-time constants are checked by the compiler)
-
-### Requirement: Unchecked Division by Parameter
-
-The lint MUST warn on `a / b` or `a % b` where `b` is a function
-parameter or local variable (not a constant) and there is no prior
-`assert!(b > 0)`, `assert!(b != 0)`, `if b == 0 { return }`,
-or `requires b > 0` (Verus) guard in the function.
-
-The lint MUST suggest adding an assertion or early return for the
-zero-division case.
-
-The lint MUST NOT fire when the divisor is a literal or named constant.
-
-This lint exists because every division in verified-logic has an explicit
-`requires b > 0` precondition — `div_ceil` requires it, `rate_limit`
-requires `rate_per_sec > 0`, `hash_bucket` requires `bucket_count > 0`.
-
-#### Scenario: Division by parameter
-
-- GIVEN `fn avg(total: u64, count: u64) -> u64 { total / count }`
-- WHEN the lint runs
-- THEN it warns: "division by `count` without zero check"
-
-#### Scenario: Division by constant
-
-- GIVEN `let seconds = ms / 1000;`
+- GIVEN `let id = value.min(u32::MAX as u64) as u32;`
 - WHEN the lint runs
 - THEN it does NOT fire
 
-#### Scenario: Guarded division
+#### Scenario: Try-from fallback narrowing
 
-- GIVEN `assert!(count > 0); let avg = total / count;`
+- GIVEN `let id = u32::try_from(value).unwrap_or(u32::MAX);`
 - WHEN the lint runs
 - THEN it does NOT fire
 
-### Requirement: Catch-All Match Arm on Enum
+#### Scenario: Same-block assert narrowing
 
-The lint MUST be able to warn on `match` expressions over enum types where
-the last arm is a wildcard (`_`) that returns a "deny" value:
-`false`, `None`, `Err(...)`, or `0`.
-
-The lint MUST suggest replacing the wildcard with explicit variant
-listing so the compiler forces updates when new variants are added.
-
-The lint MUST NOT fire on `match` over non-enum types (`&str`,
-integers, tuples).
-
-The lint MUST NOT fire when the wildcard arm has a comment explaining
-the catch-all intent (e.g., `// All other variants are unauthorized`).
-
-This lint exists because clankers' `Capability::authorizes()` uses
-`_ => false` — if a new `Capability` variant is added, it silently
-gets denied authorization instead of forcing the developer to make
-an explicit decision. In security-relevant code, this is a class of
-bug that leads to silent privilege denial (or worse, silent grant if
-the default were `true`).
-
-#### Scenario: Security match with catch-all deny
-
-- GIVEN:
-  ```rust
-  match (self, op) {
-      (Capability::Read, Operation::Read) => true,
-      _ => false,
-  }
-  ```
+- GIVEN an earlier `assert!(value <= u32::MAX as u64);` in the same block
+  before `let id = value as u32;`
 - WHEN the lint runs
-- THEN it warns: "catch-all `_ => false` on enum match — new variants will be silently denied"
+- THEN it does NOT fire
 
-#### Scenario: Catch-all with justification comment
+#### Scenario: Unrelated same-block assert still warns
 
-- GIVEN:
-  ```rust
-  match event {
-      Event::Click(p) => Some(p),
-      // Non-positional events have no coordinates
-      _ => None,
-  }
-  ```
+- GIVEN a same-block assert about a different value, a shadowed value, the
+  wrong bound shape, or an assert that appears after the cast
+- WHEN the lint runs on `value as u32`
+- THEN it still warns
+
+### Requirement: Unbounded Loop Detection
+
+The lint MUST warn on `loop { }` blocks that do not contain a visible
+iteration counter, `break` condition tied to a counter, or bounded
+channel receive.
+
+The lint SHOULD warn on `while let Some(_) = iter.next()` without a
+limit check in the body.
+
+The lint MUST NOT fire on `loop` blocks containing Tokio's `select!`
+macro, written either as `tokio::select!` or an imported `select!`.
+
+The lint MUST NOT fire on `while let Some(_) = rx.recv().await` when `rx`
+has type `tokio::sync::mpsc::Receiver<_>`.
+
+The lint MUST continue warning on `tokio::sync::mpsc::UnboundedReceiver<_>`
+receive loops.
+
+#### Scenario: Tokio select loop
+
+- GIVEN `loop { tokio::select! { ... } }`
 - WHEN the lint runs
-- THEN it does NOT fire (comment justifies the catch-all)
+- THEN it does NOT fire
 
-#### Scenario: Match on string
+#### Scenario: Imported Tokio select loop
 
-- GIVEN `match cmd.as_str() { "start" => true, _ => false }`
+- GIVEN `use tokio::select; loop { select! { ... } }`
 - WHEN the lint runs
-- THEN it does NOT fire (not an enum match)
+- THEN it does NOT fire
 
+#### Scenario: Bounded receiver loop
+
+- GIVEN `while let Some(msg) = rx.recv().await { handle(msg); }`
+- WHEN `rx` has type `tokio::sync::mpsc::Receiver<_>`
+- THEN the lint does NOT fire
+
+#### Scenario: Iterator-next loop still warns
+
+- GIVEN `while let Some(msg) = iter.next() { handle(msg); }` without a limit
+  check in the body
+- WHEN the lint runs
+- THEN it still warns
+
+#### Scenario: Unbounded receiver loop still warns
+
+- GIVEN `while let Some(msg) = rx.recv().await { handle(msg); }`
+- WHEN `rx` has type `tokio::sync::mpsc::UnboundedReceiver<_>`
+- THEN the lint still warns
