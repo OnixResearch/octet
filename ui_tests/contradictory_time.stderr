@@ -4,7 +4,9 @@ warning: function takes time parameter `now_ms` but also reads system time
 LL |     let _t = Instant::now();
    |              ^^^^^^^^^^^^^^
    |
-   = help: use the time parameter instead of reading the system clock, or remove the parameter if this function should own its time source
+   = help: Tiger Style (Functional Core): choose one source of time for a code path and thread it through consistently Example: fn expires_at(now: Instant, ttl: Duration) -> Instant { now + ttl }
+   = note: see Tiger Style guide: Functional Core / Imperative Shell
    = note: `#[warn(contradictory_time)]` on by default
 
 warning: 1 warning emitted
+

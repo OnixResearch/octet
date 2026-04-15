@@ -1,14 +1,14 @@
-use rustc_errors::DiagDecorator;
 use rustc_hir as hir;
 use rustc_hir::ExprKind;
 use rustc_hir::intravisit::Visitor;
 use rustc_hir::intravisit::{self};
 use rustc_lint::LateContext;
 use rustc_lint::LateLintPass;
-use rustc_lint::LintContext;
 use rustc_session::declare_lint;
 use rustc_session::declare_lint_pass;
 use rustc_span::Span;
+
+use crate::diagnostics::emit_tiger_style_lint;
 
 declare_lint! {
     /// Detects direct recursion (a function calling itself). Tiger Style
@@ -63,17 +63,7 @@ impl<'tcx> LateLintPass<'tcx> for NoRecursion {
         finder.visit_expr(body.value);
 
         if let Some(call_span) = finder.found {
-            cx.opt_span_lint(
-                NO_RECURSION,
-                Some(call_span),
-                DiagDecorator(|diag| {
-                    diag.primary_message("function calls itself recursively");
-                    diag.help(
-                        "replace with iteration using an explicit loop and \
-                         a stack/queue data structure if needed",
-                    );
-                }),
-            );
+            emit_tiger_style_lint(cx, NO_RECURSION, call_span, "function calls itself recursively", "no_recursion");
         }
     }
 }

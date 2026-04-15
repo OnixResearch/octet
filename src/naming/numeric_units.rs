@@ -1,11 +1,11 @@
 use rustc_ast::Local;
 use rustc_ast::PatKind;
-use rustc_errors::DiagDecorator;
 use rustc_lint::EarlyContext;
 use rustc_lint::EarlyLintPass;
-use rustc_lint::LintContext;
 use rustc_session::declare_lint;
 use rustc_session::declare_lint_pass;
+
+use crate::diagnostics::emit_tiger_style_lint;
 
 declare_lint! {
     /// Detects numeric variable bindings whose names contain time or size
@@ -59,16 +59,12 @@ impl EarlyLintPass for NumericUnits {
         }
 
         if has_quantity_word(name) && !has_unit_suffix(name) {
-            cx.opt_span_lint(
+            emit_tiger_style_lint(
+                cx,
                 NUMERIC_UNITS,
-                Some(ident.span),
-                DiagDecorator(|diag| {
-                    diag.primary_message(format!("`{name}` looks like a quantity but has no unit suffix",));
-                    diag.help(
-                        "add a unit suffix like `_ms`, `_secs`, `_bytes`, etc. \
-                     to make the unit of measure explicit",
-                    );
-                }),
+                ident.span,
+                format!("`{name}` looks like a quantity but has no unit suffix"),
+                "numeric_units",
             );
         }
     }

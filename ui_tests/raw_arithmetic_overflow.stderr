@@ -4,7 +4,8 @@ warning: unprotected unsigned addition may overflow
 LL |     a + b
    |     ^^^^^
    |
-   = help: use `checked_add/saturating_add` for explicit overflow handling
+   = help: Tiger Style (Overflow Protection): use checked or saturating arithmetic when overflow would change behavior Example: let total = a.checked_add(b)?;
+   = note: see Tiger Style guide: Overflow Protection
 note: the lint level is defined here
   --> $DIR/raw_arithmetic_overflow.rs:1:9
    |
@@ -17,6 +18,8 @@ warning: unprotected unsigned multiplication may overflow
 LL |     a * b
    |     ^^^^^
    |
-   = help: use `checked_mul/saturating_mul` for explicit overflow handling
+   = help: Tiger Style (Overflow Protection): use checked or saturating arithmetic when overflow would change behavior Example: let total = a.checked_add(b)?;
+   = note: see Tiger Style guide: Overflow Protection
 
 warning: 2 warnings emitted
+

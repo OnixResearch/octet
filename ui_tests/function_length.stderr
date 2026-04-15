@@ -11,7 +11,9 @@ LL | |     71
 LL | | }
    | |_^
    |
-   = help: decompose into smaller functions with clear responsibilities
+   = help: Tiger Style (Function Length): split long functions into named helpers at invariant or phase boundaries
+   = note: see Tiger Style guide: Function Length
    = note: `#[warn(function_length)]` on by default
 
 warning: 1 warning emitted
+

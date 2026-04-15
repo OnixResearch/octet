@@ -11,7 +11,8 @@ LL | |     t
 LL | | }
    | |_^
    |
-   = help: add assertions documenting the function's invariants
+   = help: Tiger Style (Assertion Density): add enough assertions to make local invariants visible near the logic they defend
+   = note: see Tiger Style guide: Assertion Density
 note: the lint level is defined here
   --> $DIR/assertion_density.rs:1:9
    |
@@ -19,3 +20,4 @@ LL | #![warn(assertion_density)]
    |         ^^^^^^^^^^^^^^^^^
 
 warning: 1 warning emitted
+

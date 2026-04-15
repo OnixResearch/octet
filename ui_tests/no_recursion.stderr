@@ -4,7 +4,9 @@ warning: function calls itself recursively
 LL |         n * factorial(n - 1)
    |             ^^^^^^^^^^^^^^^^
    |
-   = help: replace with iteration using an explicit loop and a stack/queue data structure if needed
+   = help: Tiger Style (Simple Control Flow): prefer explicit iteration or work queues over self-recursive control flow Example: while let Some(item) = stack.pop() { ... }
+   = note: see Tiger Style guide: Simple Control Flow
    = note: `#[warn(no_recursion)]` on by default
 
 warning: 1 warning emitted
+

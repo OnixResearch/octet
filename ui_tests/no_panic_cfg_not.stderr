@@ -4,7 +4,9 @@ warning: `panic!` will abort the process on execution
 LL |         panic!("cfg-not-test panic");
    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
-   = help: return `Err(...)` instead of panicking
+   = help: Tiger Style (Fail Fast Correctly): return errors or prove exhaustiveness instead of panicking in production code Example: return Err(Error::invalid_state());
+   = note: see Tiger Style guide: Error Handling / Panics
    = note: `#[warn(no_panic)]` on by default
 
 warning: 1 warning emitted
+

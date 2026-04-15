@@ -4,7 +4,8 @@ warning: boolean binding `active` should have a predicate prefix
 LL |     let active = true;
    |         ^^^^^^
    |
-   = help: rename to `is_active` or use another prefix: has_, should_, can_, was_, will_, needs_
+   = help: Tiger Style (Positive Predicates): name booleans as predicates so call sites read like questions Example: let is_ready = status == Ready;
+   = note: see Tiger Style guide: Positive Predicates
    = note: `#[warn(bool_naming)]` on by default
 
 warning: boolean binding `ready` should have a predicate prefix
@@ -13,6 +14,8 @@ warning: boolean binding `ready` should have a predicate prefix
 LL |     let ready = false;
    |         ^^^^^
    |
-   = help: rename to `is_ready` or use another prefix: has_, should_, can_, was_, will_, needs_
+   = help: Tiger Style (Positive Predicates): name booleans as predicates so call sites read like questions Example: let is_ready = status == Ready;
+   = note: see Tiger Style guide: Positive Predicates
 
 warning: 2 warnings emitted
+

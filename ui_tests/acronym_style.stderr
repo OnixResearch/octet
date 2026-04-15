@@ -4,7 +4,8 @@ warning: `RPCHandler` has acronym-style capitalization
 LL | struct RPCHandler {
    |        ^^^^^^^^^^
    |
-   = help: use single-word capitalization: `RpcHandler`
+   = help: Tiger Style (Acronym Capitalization): capitalize acronyms like ordinary words in type and variant names Example: RpcHandler
+   = note: see Tiger Style guide: Acronym Capitalization
    = note: `#[warn(acronym_style)]` on by default
 
 warning: `SQLQuery` has acronym-style capitalization
@@ -13,6 +14,8 @@ warning: `SQLQuery` has acronym-style capitalization
 LL | enum SQLQuery {
    |      ^^^^^^^^
    |
-   = help: use single-word capitalization: `SqlQuery`
+   = help: Tiger Style (Acronym Capitalization): capitalize acronyms like ordinary words in type and variant names Example: RpcHandler
+   = note: see Tiger Style guide: Acronym Capitalization
 
 warning: 2 warnings emitted
+

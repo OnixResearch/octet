@@ -1,12 +1,12 @@
-use rustc_errors::DiagDecorator;
 use rustc_hir as hir;
 use rustc_hir::ItemKind;
 use rustc_lint::LateContext;
 use rustc_lint::LateLintPass;
-use rustc_lint::LintContext;
 use rustc_middle::ty;
 use rustc_session::declare_lint;
 use rustc_session::declare_lint_pass;
+
+use crate::diagnostics::emit_tiger_style_lint;
 
 declare_lint! {
     /// Detects struct fields using `f32` or `f64` whose name contains
@@ -52,16 +52,12 @@ impl<'tcx> LateLintPass<'tcx> for FloatForCurrency {
             // Check if the field type is f32 or f64
             let field_ty = cx.tcx.type_of(field.def_id).instantiate_identity();
             if is_float_ty(field_ty) {
-                cx.opt_span_lint(
+                emit_tiger_style_lint(
+                    cx,
                     FLOAT_FOR_CURRENCY,
-                    Some(field.span),
-                    DiagDecorator(|diag| {
-                        diag.primary_message(format!("floating point type for currency field `{name}`",));
-                        diag.help(
-                            "use integer types with explicit units \
-                             (e.g., `cost_microdollars: u64`) to avoid precision loss",
-                        );
-                    }),
+                    field.span,
+                    format!("floating point type for currency field `{name}`"),
+                    "float_for_currency",
                 );
             }
         }

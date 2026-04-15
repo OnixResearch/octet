@@ -6,7 +6,9 @@ LL | |                             return true;
 LL | |                         }
    | |_________________________^
    |
-   = help: flatten with early returns, guard clauses, or extract into a helper function
+   = help: Tiger Style (Simple Control Flow): flatten control flow with guards, early returns, or helper predicates Example: if !is_ready { return; }
+   = note: see Tiger Style guide: Simple Control Flow
    = note: `#[warn(nested_conditionals)]` on by default
 
 warning: 1 warning emitted
+

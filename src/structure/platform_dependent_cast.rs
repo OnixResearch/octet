@@ -1,12 +1,12 @@
-use rustc_errors::DiagDecorator;
 use rustc_hir as hir;
 use rustc_hir::ExprKind;
 use rustc_lint::LateContext;
 use rustc_lint::LateLintPass;
-use rustc_lint::LintContext;
 use rustc_middle::ty;
 use rustc_session::declare_lint;
 use rustc_session::declare_lint_pass;
+
+use crate::diagnostics::emit_tiger_style_lint;
 
 declare_lint! {
     /// Detects `as usize` and `as isize` casts from fixed-width integer
@@ -54,13 +54,12 @@ impl<'tcx> LateLintPass<'tcx> for PlatformDependentCast {
             let source_name = ty_name(source_ty);
             let target_name = ty_name(target_ty);
 
-            cx.opt_span_lint(
+            emit_tiger_style_lint(
+                cx,
                 PLATFORM_DEPENDENT_CAST,
-                Some(expr.span),
-                DiagDecorator(|diag| {
-                    diag.primary_message(format!("`as {target_name}` from `{source_name}` is platform-dependent",));
-                    diag.help(format!("use `{source_name}::try_into()` or keep the fixed-width type",));
-                }),
+                expr.span,
+                format!("`as {target_name}` from `{source_name}` is platform-dependent"),
+                "platform_dependent_cast",
             );
         }
     }

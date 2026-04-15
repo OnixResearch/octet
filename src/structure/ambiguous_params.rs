@@ -1,12 +1,12 @@
-use rustc_errors::DiagDecorator;
 use rustc_hir as hir;
 use rustc_hir::ItemKind;
 use rustc_lint::LateContext;
 use rustc_lint::LateLintPass;
-use rustc_lint::LintContext;
 use rustc_middle::ty;
 use rustc_session::declare_lint;
 use rustc_session::declare_lint_pass;
+
+use crate::diagnostics::emit_tiger_style_lint;
 
 declare_lint! {
     /// Detects function signatures with 2 or more consecutive parameters
@@ -66,15 +66,12 @@ impl<'tcx> LateLintPass<'tcx> for AmbiguousParams {
             }
 
             if run >= 2 {
-                cx.opt_span_lint(
+                emit_tiger_style_lint(
+                    cx,
                     AMBIGUOUS_PARAMS,
-                    Some(item.span),
-                    DiagDecorator(|diag| {
-                        diag.primary_message(format!(
-                            "{run} consecutive `{key}` parameters are easy to swap by accident",
-                        ));
-                        diag.help("wrap in a named struct to make each parameter's role explicit");
-                    }),
+                    item.span,
+                    format!("{run} consecutive `{key}` parameters are easy to swap by accident"),
+                    "ambiguous_params",
                 );
                 return;
             }

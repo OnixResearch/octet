@@ -1,9 +1,7 @@
-use rustc_errors::DiagDecorator;
 use rustc_hir as hir;
 use rustc_hir::ExprKind;
 use rustc_lint::LateContext;
 use rustc_lint::LateLintPass;
-use rustc_lint::LintContext;
 use rustc_middle::ty;
 use rustc_session::declare_lint;
 use rustc_session::declare_lint_pass;
@@ -11,6 +9,7 @@ use rustc_span::Span;
 use rustc_span::Symbol;
 use rustc_span::sym;
 
+use crate::diagnostics::emit_tiger_style_lint;
 use crate::test_context;
 
 declare_lint! {
@@ -242,19 +241,12 @@ impl<'tcx> LateLintPass<'tcx> for NoUnwrap {
             return;
         }
 
-        let suggestion = if name == "unwrap" {
-            "use `?` to propagate, or match/map the error explicitly"
-        } else {
-            "use `?` with `.context()` (anyhow) or `.whatever_context()` (snafu) instead"
-        };
-
-        cx.opt_span_lint(
+        emit_tiger_style_lint(
+            cx,
             NO_UNWRAP,
-            Some(expr.span),
-            DiagDecorator(|diag| {
-                diag.primary_message(format!("`.{name}()` in production code will panic on failure",));
-                diag.help(suggestion);
-            }),
+            expr.span,
+            format!("`.{name}()` in production code will panic on failure"),
+            "no_unwrap",
         );
     }
 }

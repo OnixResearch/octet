@@ -4,7 +4,8 @@ warning: compound assertion should be split into separate assertions
 LL |     assert!(a > 0 && b > 0);
    |     ^^^^^^^^^^^^^^^^^^^^^^^
    |
-   = help: split into separate `assert!()` calls so each condition reports independently on failure
+   = help: Tiger Style (Assertion Quality): split compound assertions so the failing clause is obvious Example: assert!(a > 0); assert!(b > 0);
+   = note: see Tiger Style guide: Assertion Density
    = note: `#[warn(compound_assertion)]` on by default
 
 warning: compound assertion should be split into separate assertions
@@ -13,6 +14,8 @@ warning: compound assertion should be split into separate assertions
 LL |     assert!(a > 0 || b > 0);
    |     ^^^^^^^^^^^^^^^^^^^^^^^
    |
-   = help: split into separate `assert!()` calls so each condition reports independently on failure
+   = help: Tiger Style (Assertion Quality): split compound assertions so the failing clause is obvious Example: assert!(a > 0); assert!(b > 0);
+   = note: see Tiger Style guide: Assertion Density
 
 warning: 2 warnings emitted
+

@@ -1,4 +1,3 @@
-use rustc_errors::DiagDecorator;
 use rustc_hir as hir;
 use rustc_hir::BinOpKind;
 use rustc_hir::ExprKind;
@@ -8,6 +7,8 @@ use rustc_lint::LintContext;
 use rustc_middle::ty;
 use rustc_session::declare_lint;
 use rustc_session::declare_lint_pass;
+
+use crate::diagnostics::emit_tiger_style_lint;
 
 declare_lint! {
     /// Detects `a / b` or `a % b` where `b` is a function parameter or
@@ -119,13 +120,12 @@ impl<'tcx> LateLintPass<'tcx> for UncheckedDivision {
             return;
         }
 
-        cx.opt_span_lint(
+        emit_tiger_style_lint(
+            cx,
             UNCHECKED_DIVISION,
-            Some(expr.span),
-            DiagDecorator(|diag| {
-                diag.primary_message(format!("division by `{name}` without zero check",));
-                diag.help("add `assert!(divisor > 0)` or an early return for the zero case");
-            }),
+            expr.span,
+            format!("division by `{name}` without zero check"),
+            "unchecked_division",
         );
     }
 }

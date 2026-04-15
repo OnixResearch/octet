@@ -74,6 +74,7 @@
 - Flake devShell with `LD_LIBRARY_PATH` and `RUSTUP_TOOLCHAIN` env vars for rustc_private crates
 - rustup shim via `pkgs.writeShellScriptBin` for nix environments
 - Pointing to git branches for unreleased fixes via `{ git = "...", branch = "..." }` in Cargo.toml
+- `BLESS=1 cargo test --test ui -- --ignored --nocapture` inside `nix develop` now refreshes the checked-in UI `.stderr` snapshots through `tests/ui.rs`
 
 ## Patterns That Don't Work
 - dylint_testing in pure nix — fundamentally tied to rustup (builds dylint_driver, uses `env -u RUSTUP_TOOLCHAIN`)

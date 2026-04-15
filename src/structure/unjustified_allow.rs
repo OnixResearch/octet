@@ -1,12 +1,13 @@
 use rustc_ast::Attribute;
 use rustc_ast::Item;
-use rustc_errors::DiagDecorator;
 use rustc_lint::EarlyContext;
 use rustc_lint::EarlyLintPass;
 use rustc_lint::LintContext;
 use rustc_session::declare_lint;
 use rustc_session::declare_lint_pass;
 use rustc_span::sym;
+
+use crate::diagnostics::emit_tiger_style_lint;
 
 declare_lint! {
     /// Detects `#[allow(clippy::...)]` attributes without an accompanying
@@ -72,16 +73,12 @@ impl EarlyLintPass for UnjustifiedAllow {
 
         for attr in &item.attrs {
             if is_clippy_allow_attr(attr) && !has_comment_nearby(cx, attr) {
-                cx.opt_span_lint(
+                emit_tiger_style_lint(
+                    cx,
                     UNJUSTIFIED_ALLOW,
-                    Some(attr.span),
-                    DiagDecorator(|diag| {
-                        diag.primary_message("`#[allow(...)]` without justification comment");
-                        diag.help(
-                            "add a comment on the preceding line or same line \
-                             explaining why this lint is suppressed",
-                        );
-                    }),
+                    attr.span,
+                    "`#[allow(...)]` without justification comment",
+                    "unjustified_allow",
                 );
             }
         }

@@ -4,7 +4,9 @@ warning: `as usize` from `u32` is platform-dependent
 LL |     x as usize
    |     ^^^^^^^^^^
    |
-   = help: use `u32::try_into()` or keep the fixed-width type
+   = help: Tiger Style (Explicit Types): use explicit-width types at boundaries instead of `usize` or `isize` conversions Example: let len: u32 = value.try_into()?;
+   = note: see Tiger Style guide: Explicit Types
    = note: `#[warn(platform_dependent_cast)]` on by default
 
 warning: 1 warning emitted
+

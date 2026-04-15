@@ -4,12 +4,12 @@ use rustc_ast::Item;
 use rustc_ast::ItemKind;
 use rustc_ast::visit::Visitor;
 use rustc_ast::visit::{self};
-use rustc_errors::DiagDecorator;
 use rustc_lint::EarlyContext;
 use rustc_lint::EarlyLintPass;
-use rustc_lint::LintContext;
 use rustc_session::declare_lint;
 use rustc_session::impl_lint_pass;
+
+use crate::diagnostics::emit_tiger_style_lint;
 
 declare_lint! {
     /// Detects `if`/`match` nesting deeper than a configurable limit
@@ -59,16 +59,12 @@ impl<'ast> Visitor<'ast> for NestingVisitor<'_, '_> {
             if self.depth > self.max_depth {
                 let depth = self.depth;
                 let max = self.max_depth;
-                self.cx.opt_span_lint(
+                emit_tiger_style_lint(
+                    self.cx,
                     NESTED_CONDITIONALS,
-                    Some(expr.span),
-                    DiagDecorator(|diag| {
-                        diag.primary_message(format!("conditional nesting is {depth} levels deep (limit: {max})",));
-                        diag.help(
-                            "flatten with early returns, guard clauses, \
-                             or extract into a helper function",
-                        );
-                    }),
+                    expr.span,
+                    format!("conditional nesting is {depth} levels deep (limit: {max})"),
+                    "nested_conditionals",
                 );
                 self.reported = true;
                 self.depth -= 1;

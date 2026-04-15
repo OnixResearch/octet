@@ -1,4 +1,3 @@
-use rustc_errors::DiagDecorator;
 use rustc_hir as hir;
 use rustc_hir::intravisit;
 use rustc_hir::intravisit::Visitor;
@@ -10,6 +9,8 @@ use rustc_session::declare_lint;
 use rustc_session::declare_lint_pass;
 use rustc_span::Span;
 use rustc_span::Symbol;
+
+use crate::diagnostics::emit_tiger_style_lint;
 
 declare_lint! {
     /// Detects `loop { }` blocks that appear to lack an iteration bound.
@@ -180,14 +181,7 @@ fn tokio_receiver_kind(cx: &LateContext<'_>, expr: &hir::Expr<'_>) -> Option<Tok
 }
 
 fn lint_unbounded_loop(cx: &LateContext<'_>, span: Span) {
-    cx.opt_span_lint(
-        UNBOUNDED_LOOP,
-        Some(span),
-        DiagDecorator(|diag| {
-            diag.primary_message("loop without visible iteration bound");
-            diag.help("add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead");
-        }),
-    );
+    emit_tiger_style_lint(cx, UNBOUNDED_LOOP, span, "loop without visible iteration bound", "unbounded_loop");
 }
 
 impl<'tcx> LateLintPass<'tcx> for UnboundedLoop {

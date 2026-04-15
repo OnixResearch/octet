@@ -4,7 +4,9 @@ warning: catch-all `_` on enum match returns deny value — new variants will be
 LL |         _ => false,
    |         ^^^^^^^^^^
    |
-   = help: list all variants explicitly so the compiler forces a decision when new variants are added
+   = help: Tiger Style (Exhaustive Matching): match enum variants explicitly so new variants cannot slip through `_` Example: match state { State::Open => ..., State::Closed => ... }
+   = note: see Tiger Style guide: Exhaustive Matching
    = note: `#[warn(catch_all_on_enum)]` on by default
 
 warning: 1 warning emitted
+

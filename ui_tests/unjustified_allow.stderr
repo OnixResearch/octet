@@ -4,7 +4,8 @@ warning: `#[allow(...)]` without justification comment
 LL | #[allow(clippy::needless_return)]
    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
-   = help: add a comment on the preceding line or same line explaining why this lint is suppressed
+   = help: Tiger Style (Documented Suppression): every lint suppression needs a local reason tied to the code shape Example: #[allow(no_panic, reason = "ffi boundary aborts process")]
+   = note: see Tiger Style guide: Documented Suppression
 note: the lint level is defined here
   --> $DIR/unjustified_allow.rs:1:9
    |
@@ -12,3 +13,4 @@ LL | #![warn(unjustified_allow)]
    |         ^^^^^^^^^^^^^^^^^
 
 warning: 1 warning emitted
+

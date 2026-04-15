@@ -1,13 +1,13 @@
-use rustc_errors::DiagDecorator;
 use rustc_hir as hir;
 use rustc_hir::BinOpKind;
 use rustc_hir::ExprKind;
 use rustc_lint::LateContext;
 use rustc_lint::LateLintPass;
-use rustc_lint::LintContext;
 use rustc_middle::ty;
 use rustc_session::declare_lint;
 use rustc_session::declare_lint_pass;
+
+use crate::diagnostics::emit_tiger_style_lint;
 
 declare_lint! {
     /// Detects unprotected `+`, `-`, `*` on unsigned integer types in
@@ -55,20 +55,12 @@ impl<'tcx> LateLintPass<'tcx> for RawArithmeticOverflow {
             _ => "arithmetic",
         };
 
-        let method = match op.node {
-            BinOpKind::Add => "checked_add/saturating_add",
-            BinOpKind::Sub => "checked_sub/saturating_sub",
-            BinOpKind::Mul => "checked_mul/saturating_mul",
-            _ => "checked_*/saturating_*",
-        };
-
-        cx.opt_span_lint(
+        emit_tiger_style_lint(
+            cx,
             RAW_ARITHMETIC_OVERFLOW,
-            Some(expr.span),
-            DiagDecorator(|diag| {
-                diag.primary_message(format!("unprotected unsigned {op_name} may overflow",));
-                diag.help(format!("use `{method}` for explicit overflow handling"));
-            }),
+            expr.span,
+            format!("unprotected unsigned {op_name} may overflow"),
+            "raw_arithmetic_overflow",
         );
     }
 }

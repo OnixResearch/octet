@@ -1,11 +1,12 @@
 use rustc_ast::Expr;
 use rustc_ast::ExprKind;
-use rustc_errors::DiagDecorator;
 use rustc_lint::EarlyContext;
 use rustc_lint::EarlyLintPass;
 use rustc_lint::LintContext;
 use rustc_session::declare_lint;
 use rustc_session::declare_lint_pass;
+
+use crate::diagnostics::emit_tiger_style_lint;
 
 declare_lint! {
     /// Detects `assert!(a && b)` and `assert!(a || b)` where the macro
@@ -78,16 +79,12 @@ impl EarlyLintPass for CompoundAssertion {
             return;
         }
 
-        cx.opt_span_lint(
+        emit_tiger_style_lint(
+            cx,
             COMPOUND_ASSERTION,
-            Some(callsite),
-            DiagDecorator(|diag| {
-                diag.primary_message("compound assertion should be split into separate assertions");
-                diag.help(
-                    "split into separate `assert!()` calls so each condition \
-                     reports independently on failure",
-                );
-            }),
+            callsite,
+            "compound assertion should be split into separate assertions",
+            "compound_assertion",
         );
     }
 }

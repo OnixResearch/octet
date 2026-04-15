@@ -1,11 +1,12 @@
 use rustc_ast::Item;
 use rustc_ast::ItemKind;
-use rustc_errors::DiagDecorator;
 use rustc_lint::EarlyContext;
 use rustc_lint::EarlyLintPass;
 use rustc_lint::LintContext;
 use rustc_session::declare_lint;
 use rustc_session::declare_lint_pass;
+
+use crate::diagnostics::emit_tiger_style_lint;
 
 declare_lint! {
     /// Detects struct definitions containing 2 or more `Mutex` or `RwLock`
@@ -45,19 +46,12 @@ impl EarlyLintPass for MultiLockOrdering {
             return;
         }
 
-        cx.opt_span_lint(
+        emit_tiger_style_lint(
+            cx,
             MULTI_LOCK_ORDERING,
-            Some(item.span),
-            DiagDecorator(|diag| {
-                diag.primary_message(format!(
-                    "struct `{}` has {lock_count} lock fields without documented ordering",
-                    ident.name,
-                ));
-                diag.help(
-                    "add a comment documenting the lock acquisition order, e.g.: \
-                     `// Lock ordering: acquire `a` before `b``",
-                );
-            }),
+            item.span,
+            format!("struct `{}` has {lock_count} lock fields without documented ordering", ident.name,),
+            "multi_lock_ordering",
         );
     }
 }
