@@ -52,6 +52,8 @@
 | 2026-04-14 | self | Named a negative UI fixture `*_test.rs`, and the shared test-file heuristic treated it as test context so the production warning disappeared | For production-context UI fixtures here, avoid filenames ending in `_test.rs`; that suffix is reserved for test-file suppression heuristics |
 | 2026-04-14 | self | Narrowed cfg-based test suppression by token-matching `test`, which accidentally swallowed production cases like `#[cfg(not(test))]` | For test-context helpers here, treat only cfg predicates that require `test`; substring/token presence is not enough |
 | 2026-04-14 | self | Early-pass source-line fallback looked only for `#[... ]` and missed inner attrs like `#![cfg(test)]` | When recovering cfg-based test context from source text, scan for both outer `#[...]` and inner `#![...]` attribute lines |
+| 2026-04-14 | self | Tried same-branch unwrap suppression via a raw condition-snippet search; `if x.is_some() || other { x.unwrap(); }` would have been wrongly suppressed | For guard-based unwrap suppression here, model implication over the condition structure: `&&` can carry the guard, but `||` only works when both sides require it |
+| 2026-04-14 | self | Detected `Drop::drop` by trait name string, which would also match unrelated user-defined traits named `Drop` | For HIR-side `Drop::drop` detection here, compare the enclosing trait impl against `tcx.lang_items().drop_trait()` instead of matching the trait name text |
 
 ## User Preferences
 - Uses openspec for structured change management

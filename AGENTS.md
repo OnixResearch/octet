@@ -19,6 +19,8 @@
 - The custom `tests/ui.rs` harness does not compile `#[cfg(test)]` fixture code unless that fixture gets an explicit `--cfg test`; add per-fixture rustc args when you need to exercise cfg-gated test modules.
 - Test-context suppression must treat only cfg predicates that require `test`; a token match on `test` is too broad and wrongly suppresses cases like `#[cfg(not(test))]`.
 - Early-pass line-scan fallback for test context must recognize both outer `#[cfg(test)]` and inner `#![cfg(test)]` attributes when recovering stripped cfgs from source text.
+- For same-branch unwrap suppression, a raw condition-snippet search is too broad: `if x.is_some() || other { x.unwrap(); }` is still unsafe. Use condition structure so `&&` can imply the guard, while `||` only counts when both sides require it.
+- When a lint needs to recognize `Drop::drop`, compare the enclosing trait impl against `tcx.lang_items().drop_trait()`; matching a trait name string like `Drop` is too loose.
 
 ## Lint registration / config
 - Do not implement per-lint severity by registering cloned `Lint` descriptors with patched `default_level`; passes still emit the original static lint IDs, so `allow`/`deny` overrides silently fail.
