@@ -277,6 +277,13 @@ receive loops.
 - WHEN `rx` has type `tokio::sync::mpsc::Receiver<_>`
 - THEN the lint does NOT fire
 
+#### Scenario: Iterator-next loop still warns
+
+- GIVEN `while let Some(msg) = iter.next() { handle(msg); }` without a limit
+  check in the body
+- WHEN the lint runs
+- THEN it still warns
+
 #### Scenario: Unbounded receiver loop still warns
 
 - GIVEN `while let Some(msg) = rx.recv().await { handle(msg); }`

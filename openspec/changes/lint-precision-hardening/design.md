@@ -136,7 +136,10 @@ Rust's await desugar before checking the receiver type and enclosing function
 or impl item name. Resolve Tokio sender identity through its concrete
 definition path rather than assuming the public re-export spelling appears in
 `get_def_path`. `Drop::drop` remains a separate rule rather than being folded
-into this one.
+into this one. Keep the existing diagnostic/help text unchanged for still-
+warning ignored-result cases so ordinary `let _ = expr` and non-teardown
+`send` calls continue steering users toward `let _: () = expr?;` or explicit
+error handling.
 
 ### 8. Same-block `assert!` recognition for `unchecked_narrowing`
 
@@ -222,10 +225,16 @@ standalone rustc edition used for the actual linted fixture.
   ordinary sends and exact-name `try_send` teardown calls still warn.
 - Keep explicit regression proof that existing visible-counter and
   counter-break `unbounded_loop` cases stay silent.
+- Keep explicit negative UI proof that `while let Some(_) = iter.next()`
+  without a limit check still warns, so the Tokio-specific precision work does
+  not broaden into generic iterator loops.
 - Keep explicit positive UI proof for both fully qualified `tokio::select!`
   and imported Tokio `select!`, plus negative proof that non-Tokio `select!`,
   bare async loops, and `UnboundedReceiver<_>` loops still warn for
   `unbounded_loop`.
+- Keep explicit diagnostic regression proof that ordinary `ignored_result`
+  warnings, including non-teardown `send` calls, still emit the existing help
+  text about `let _: () = expr?;` or explicit error handling.
 - Keep explicit async UI proof that plain `.await` outside a user-written loop
   stays silent so desugared polling loops do not reintroduce false positives.
 

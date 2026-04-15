@@ -96,12 +96,23 @@ fn block_contains_tokio_select<'tcx>(cx: &LateContext<'tcx>, block: &'tcx hir::B
     visitor.found
 }
 
+fn while_let_header_snippet(cx: &LateContext<'_>, header_span: Span) -> Option<String> {
+    let snippet = cx.sess().source_map().span_to_snippet(header_span.source_callsite()).ok()?;
+    Some(normalized_without_whitespace(&snippet))
+}
+
 fn header_is_recv_while_let(cx: &LateContext<'_>, header_span: Span) -> bool {
-    let Ok(snippet) = cx.sess().source_map().span_to_snippet(header_span.source_callsite()) else {
+    let Some(normalized) = while_let_header_snippet(cx, header_span) else {
         return false;
     };
-    let normalized = normalized_without_whitespace(&snippet);
     normalized.starts_with("whileletSome(") && normalized.contains(".recv().await")
+}
+
+fn header_is_iter_next_while_let(cx: &LateContext<'_>, header_span: Span) -> bool {
+    let Some(normalized) = while_let_header_snippet(cx, header_span) else {
+        return false;
+    };
+    normalized.starts_with("whileletSome(") && normalized.contains(".next()")
 }
 
 fn peel_transparent_expr<'tcx>(mut expr: &'tcx hir::Expr<'tcx>) -> &'tcx hir::Expr<'tcx> {
@@ -196,13 +207,17 @@ impl<'tcx> LateLintPass<'tcx> for UnboundedLoop {
                 }
             }
             hir::LoopSource::While => {
-                if !header_is_recv_while_let(cx, *header_span) {
-                    return;
-                }
-
-                if while_let_recv_receiver(expr).and_then(|receiver| tokio_receiver_kind(cx, receiver))
-                    == Some(TokioReceiverKind::Bounded)
-                {
+                if header_is_recv_while_let(cx, *header_span) {
+                    if while_let_recv_receiver(expr).and_then(|receiver| tokio_receiver_kind(cx, receiver))
+                        == Some(TokioReceiverKind::Bounded)
+                    {
+                        return;
+                    }
+                } else if header_is_iter_next_while_let(cx, *header_span) {
+                    if loop_has_visible_counter(cx, expr) {
+                        return;
+                    }
+                } else {
                     return;
                 }
             }

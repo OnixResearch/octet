@@ -43,6 +43,7 @@
 - [x] Implementation guardrail: async `ignored_result` teardown suppression unwraps await-desugared `send(...).await` before checking sender type and enclosing name
 - [x] UI proof: `ui_tests/tokio_async/ignored_result_shutdown_send_tokio.rs` shows `tokio::sync::mpsc::Sender<_>` inside `close` and `shutdown` stays silent
 - [x] UI proof: `ui_tests/tokio_async/ignored_result_try_send_tokio.rs` shows an exact `shutdown` / `close` function still warns when the supported sender uses a method other than exact `send` (`try_send`)
+- [x] UI proof: `ui_tests/ignored_result.rs` keeps ordinary ignored-`Result` warnings and their existing `let _: () = expr?;` / explicit-error-handling help text
 - [x] UI proof: `ui_tests/ignored_result_shutdown_send.rs` shows inexact names or ordinary `publish`-style sends still warn
 
 ## Phase 3: Bounds-check recognition
@@ -67,6 +68,7 @@
 - [x] UI proof: `ui_tests/tokio_async/unbounded_loop_bounded_receiver.rs` covers bounded `tokio::sync::mpsc::Receiver<_>`
 - [x] UI proof: `ui_tests/tokio_async/unbounded_loop_unbounded_receiver.rs` distinguishes `UnboundedReceiver<_>` and still warns
 - [x] Regression proof: `ui_tests/unbounded_loop.rs` keeps existing visible-counter and counter-break bounded loops silent while the bare loop still warns
+- [x] UI proof: `ui_tests/unbounded_loop_iter_next.rs` keeps `while let Some(_) = iter.next()` warning when there is no limit check in the body
 
 ## Phase 4: Downstream validation
 
