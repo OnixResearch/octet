@@ -37,6 +37,45 @@ fn ty_name(ty: Ty<'_>) -> &'static str {
     }
 }
 
+fn is_target_max_expr<'tcx>(cx: &LateContext<'tcx>, expr: &hir::Expr<'tcx>, target_ty: Ty<'tcx>) -> bool {
+    let ExprKind::Path(_) = &expr.kind else {
+        return false;
+    };
+
+    let Ok(snippet) = cx.sess().source_map().span_to_snippet(expr.span) else {
+        return false;
+    };
+
+    let normalized = snippet.chars().filter(|ch| !ch.is_whitespace()).collect::<String>();
+    let target_name = ty_name(target_ty);
+
+    normalized == format!("{target_name}::MAX") || normalized == format!("<{target_name}>::MAX")
+}
+
+fn is_min_bounded_cast<'tcx>(
+    cx: &LateContext<'tcx>,
+    inner: &'tcx hir::Expr<'tcx>,
+    source_ty: Ty<'tcx>,
+    target_ty: Ty<'tcx>,
+) -> bool {
+    let ExprKind::MethodCall(segment, receiver, args, _) = &inner.kind else {
+        return false;
+    };
+
+    if segment.ident.name.as_str() != "min" || args.len() != 1 || cx.typeck_results().expr_ty(receiver) != source_ty {
+        return false;
+    }
+
+    let arg = &args[0];
+    let ExprKind::Cast(max_expr, _) = &arg.kind else {
+        return false;
+    };
+
+    cx.typeck_results().expr_ty(arg) == source_ty
+        && cx.typeck_results().expr_ty(max_expr) == target_ty
+        && is_target_max_expr(cx, max_expr, target_ty)
+}
+
 /// Check if this cast is inside an `if` guard that looks like a bounds check
 /// (condition mentions MAX, max, or compares against the target type's range).
 fn has_bounds_guard(cx: &LateContext<'_>, expr: &hir::Expr<'_>) -> bool {
@@ -119,6 +158,10 @@ impl<'tcx> LateLintPass<'tcx> for UncheckedNarrowing {
         };
 
         if source_width <= target_width {
+            return;
+        }
+
+        if is_min_bounded_cast(cx, inner, source_ty, target_ty) {
             return;
         }
 

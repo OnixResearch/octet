@@ -1,4 +1,3 @@
-use rustc_ast::Attribute as AstAttribute;
 use rustc_hir as hir;
 use rustc_lint::LateContext;
 use rustc_lint::LintContext;
@@ -48,10 +47,6 @@ impl TruthDomain {
     }
 }
 
-pub(crate) fn ast_attrs_indicate_test(sess: &Session, attrs: &[AstAttribute]) -> bool {
-    attrs.iter().any(|attr| ast_attr_indicates_test(sess, attr))
-}
-
 pub(crate) fn hir_attrs_indicate_test(sess: &Session, attrs: &[hir::Attribute]) -> bool {
     attrs.iter().any(|attr| hir_attr_indicates_test(sess, attr))
 }
@@ -99,22 +94,6 @@ pub(crate) fn item_span_indicates_test(sess: &Session, span: Span) -> bool {
     }
 
     false
-}
-
-fn ast_attr_indicates_test(sess: &Session, attr: &AstAttribute) -> bool {
-    if attr.has_name(sym::test) {
-        return true;
-    }
-
-    if !attr.has_name(sym::cfg) {
-        return false;
-    }
-
-    let Ok(source) = sess.source_map().span_to_snippet(attr.span()) else {
-        return false;
-    };
-
-    cfg_attr_source_requires_test(&source)
 }
 
 fn hir_attr_indicates_test(sess: &Session, attr: &hir::Attribute) -> bool {
