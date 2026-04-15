@@ -14,6 +14,7 @@ const FIXTURES: &[&str] = &[
     "nested_conditionals",
     "compound_assertion",
     "unbounded_loop",
+    "unbounded_loop_iter_next",
     "no_panic",
     "no_panic_cfg_not",
     "no_panic_exhaustive",

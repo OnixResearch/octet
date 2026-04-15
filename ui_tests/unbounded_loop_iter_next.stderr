@@ -1,0 +1,12 @@
+warning: loop without visible iteration bound
+  --> $DIR/unbounded_loop_iter_next.rs:3:5
+   |
+LL | /     while let Some(value) = iter.next() {
+LL | |         std::hint::black_box(value);
+LL | |     }
+   | |_____^
+   |
+   = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+   = note: `#[warn(unbounded_loop)]` on by default
+
+warning: 1 warning emitted
