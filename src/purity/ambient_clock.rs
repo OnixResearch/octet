@@ -1,4 +1,3 @@
-use rustc_errors::DiagDecorator;
 use rustc_hir as hir;
 use rustc_hir::ExprKind;
 use rustc_lint::LateContext;
@@ -7,6 +6,8 @@ use rustc_lint::LintContext;
 use rustc_middle::ty;
 use rustc_session::declare_lint;
 use rustc_session::declare_lint_pass;
+
+use crate::diagnostics::emit_tiger_style_lint;
 
 declare_lint! {
     /// Detects direct calls to `Instant::now()`, `SystemTime::now()`,
@@ -118,16 +119,5 @@ impl<'tcx> LateLintPass<'tcx> for AmbientClock {
 }
 
 fn emit(cx: &LateContext<'_>, expr: &hir::Expr<'_>) {
-    cx.opt_span_lint(
-        AMBIENT_CLOCK,
-        Some(expr.span),
-        DiagDecorator(|diag| {
-            diag.primary_message("direct system clock read in production code");
-            diag.help(
-                "inject time as a parameter (e.g. `now: Instant`) so logic \
-                 stays deterministic and testable. If this crate owns the \
-                 clock boundary, add `#[allow(ambient_clock, reason = \"...\")]`",
-            );
-        }),
-    );
+    emit_tiger_style_lint(cx, AMBIENT_CLOCK, expr.span, "direct system clock read in production code", "ambient_clock");
 }

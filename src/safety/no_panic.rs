@@ -1,6 +1,5 @@
 use std::collections::HashSet;
 
-use rustc_errors::DiagDecorator;
 use rustc_hir as hir;
 use rustc_hir::ExprKind;
 use rustc_hir::def::CtorOf;
@@ -15,6 +14,7 @@ use rustc_session::impl_lint_pass;
 use rustc_span::Span;
 use rustc_span::sym;
 
+use crate::diagnostics::emit_tiger_style_lint;
 use crate::test_context;
 
 declare_lint! {
@@ -37,15 +37,6 @@ const PANIC_MACROS: &[&str] = &["panic!", "todo!", "unimplemented!", "unreachabl
 fn panic_macro_name_from_callsite(snippet: &str) -> Option<&'static str> {
     let trimmed = snippet.trim();
     PANIC_MACROS.iter().copied().find(|name| trimmed.starts_with(name))
-}
-
-fn suggestion_for(name: &str) -> &'static str {
-    match name {
-        "todo!" => "return an error or use a tracking issue instead of `todo!()`",
-        "unimplemented!" => "return `Err(...)` explaining what's missing",
-        "unreachable!" => "if truly unreachable, use `debug_assert!` or prove it with types",
-        _ => "return `Err(...)` instead of panicking",
-    }
 }
 
 fn variant_def_id_from_qpath(
@@ -306,15 +297,12 @@ impl<'tcx> LateLintPass<'tcx> for NoPanic {
             return;
         }
 
-        let suggestion = suggestion_for(name);
-
-        cx.opt_span_lint(
+        emit_tiger_style_lint(
+            cx,
             NO_PANIC,
-            Some(callsite),
-            DiagDecorator(|diag| {
-                diag.primary_message(format!("`{name}` will abort the process on execution"));
-                diag.help(suggestion);
-            }),
+            callsite,
+            format!("`{name}` will abort the process on execution"),
+            "no_panic",
         );
     }
 }

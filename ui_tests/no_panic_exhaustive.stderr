@@ -4,7 +4,9 @@ warning: `unreachable!` will abort the process on execution
 LL |         _ => unreachable!("Mode::B still reaches this arm"),
    |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
-   = help: if truly unreachable, use `debug_assert!` or prove it with types
+   = help: Tiger Style (Fail Fast Correctly): return errors or prove exhaustiveness instead of panicking in production code Example: return Err(Error::invalid_state());
+   = note: see Tiger Style guide: Error Handling / Panics
    = note: `#[warn(no_panic)]` on by default
 
 warning: 1 warning emitted
+

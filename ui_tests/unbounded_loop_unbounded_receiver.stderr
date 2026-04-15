@@ -6,7 +6,9 @@ LL | |         let _ = msg;
 LL | |     }
    | |_____^
    |
-   = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+   = help: Tiger Style (Bounded Control Flow): bound long-running loops with an exit condition, timeout, or bounded input Example: while let Some(msg) = rx.recv().await { ... }
+   = note: see Tiger Style guide: Bounded Control Flow
    = note: `#[warn(unbounded_loop)]` on by default
 
 warning: 1 warning emitted
+

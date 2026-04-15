@@ -1,4 +1,3 @@
-use rustc_errors::DiagDecorator;
 use rustc_hir as hir;
 use rustc_hir::ExprKind;
 use rustc_hir::PatKind;
@@ -8,6 +7,8 @@ use rustc_lint::LintContext;
 use rustc_middle::ty;
 use rustc_session::declare_lint;
 use rustc_session::declare_lint_pass;
+
+use crate::diagnostics::emit_tiger_style_lint;
 
 declare_lint! {
     /// Detects `match` over enum types where the last arm is a wildcard (`_`)
@@ -122,19 +123,12 @@ impl<'tcx> LateLintPass<'tcx> for CatchAllOnEnum {
             return;
         }
 
-        cx.opt_span_lint(
+        emit_tiger_style_lint(
+            cx,
             CATCH_ALL_ON_ENUM,
-            Some(last_arm.span),
-            DiagDecorator(|diag| {
-                diag.primary_message(
-                    "catch-all `_` on enum match returns deny value — \
-                     new variants will be silently handled",
-                );
-                diag.help(
-                    "list all variants explicitly so the compiler forces \
-                     a decision when new variants are added",
-                );
-            }),
+            last_arm.span,
+            "catch-all `_` on enum match returns deny value — new variants will be silently handled",
+            "catch_all_on_enum",
         );
     }
 }

@@ -2,13 +2,14 @@ use rustc_ast::Expr;
 use rustc_ast::ExprKind;
 use rustc_ast::Item;
 use rustc_ast::ItemKind;
-use rustc_errors::DiagDecorator;
 use rustc_lint::EarlyContext;
 use rustc_lint::EarlyLintPass;
 use rustc_lint::LintContext;
 use rustc_session::declare_lint;
 use rustc_session::declare_lint_pass;
 use rustc_span::Span;
+
+use crate::diagnostics::emit_tiger_style_lint;
 
 declare_lint! {
     /// Detects async functions, IO operations, and system time calls in
@@ -67,16 +68,12 @@ impl EarlyLintPass for VerifiedPurity {
         if let ItemKind::Fn(func) = &item.kind
             && func.sig.header.coroutine_kind.is_some()
         {
-            cx.opt_span_lint(
+            emit_tiger_style_lint(
+                cx,
                 VERIFIED_PURITY,
-                Some(item.span),
-                DiagDecorator(|diag| {
-                    diag.primary_message("async function in verified module");
-                    diag.help(
-                        "verified functions must be synchronous and pure — \
-                         no async, no IO, no system time",
-                    );
-                }),
+                item.span,
+                "async function in verified module",
+                "verified_purity",
             );
         }
     }
@@ -104,17 +101,7 @@ impl EarlyLintPass for VerifiedPurity {
                         "impure operation in verified module"
                     };
 
-                    cx.opt_span_lint(
-                        VERIFIED_PURITY,
-                        Some(expr.span),
-                        DiagDecorator(|diag| {
-                            diag.primary_message(msg);
-                            diag.help(
-                                "verified/ functions must be pure — \
-                                 no async, no IO, no system time",
-                            );
-                        }),
-                    );
+                    emit_tiger_style_lint(cx, VERIFIED_PURITY, expr.span, msg, "verified_purity");
                     return;
                 }
             }

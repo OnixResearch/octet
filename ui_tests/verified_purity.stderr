@@ -6,7 +6,9 @@ LL | |     // Should error: async fn in verified module
 LL | | }
    | |_^
    |
-   = help: verified functions must be synchronous and pure — no async, no IO, no system time
+   = help: Tiger Style (Verified Module Purity): keep verified modules free of runtime-only side effects and shell concerns Example: pub fn next_state(input: Input) -> Output
+   = note: see Tiger Style guide: Verified Module Purity
    = note: `#[deny(verified_purity)]` on by default
 
 error: aborting due to 1 previous error
+

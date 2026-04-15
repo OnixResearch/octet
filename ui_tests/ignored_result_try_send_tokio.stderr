@@ -4,7 +4,8 @@ warning: `Result` value silently discarded with `let _ = ...`
 LL |     let _ = tx.try_send(1);
    |     ^^^^^^^^^^^^^^^^^^^^^^^
    |
-   = help: use `expr?` to propagate, `let _: () = expr?;` to assert infallibility, or handle the error explicitly
+   = help: Tiger Style (Error Handling): handle fallible results explicitly with `?`, `match`, or an intentional logged drop Example: tx.send(msg)?;
+   = note: see Tiger Style guide: Error Handling
    = note: `#[warn(ignored_result)]` on by default
 
 warning: `Result` value silently discarded with `let _ = ...`
@@ -13,6 +14,8 @@ warning: `Result` value silently discarded with `let _ = ...`
 LL |         let _ = self.tx.try_send(1);
    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
-   = help: use `expr?` to propagate, `let _: () = expr?;` to assert infallibility, or handle the error explicitly
+   = help: Tiger Style (Error Handling): handle fallible results explicitly with `?`, `match`, or an intentional logged drop Example: tx.send(msg)?;
+   = note: see Tiger Style guide: Error Handling
 
 warning: 2 warnings emitted
+

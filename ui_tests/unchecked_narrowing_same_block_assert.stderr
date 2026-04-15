@@ -4,7 +4,8 @@ warning: narrowing cast from `u64` to `u32` without bounds check
 LL |     x as u32
    |     ^^^^^^^^
    |
-   = help: use `u32::try_from(value)` or guard with `if value <= u32::MAX as u64`
+   = help: Tiger Style (Safe Narrowing): narrow integers with checked conversions instead of `as` Example: let small = u32::try_from(value)?;
+   = note: see Tiger Style guide: Safe Narrowing / Conversions
    = note: `#[warn(unchecked_narrowing)]` on by default
 
 warning: narrowing cast from `u64` to `u32` without bounds check
@@ -13,7 +14,8 @@ warning: narrowing cast from `u64` to `u32` without bounds check
 LL |     x as u32
    |     ^^^^^^^^
    |
-   = help: use `u32::try_from(value)` or guard with `if value <= u32::MAX as u64`
+   = help: Tiger Style (Safe Narrowing): narrow integers with checked conversions instead of `as` Example: let small = u32::try_from(value)?;
+   = note: see Tiger Style guide: Safe Narrowing / Conversions
 
 warning: narrowing cast from `u64` to `u32` without bounds check
   --> $DIR/unchecked_narrowing_same_block_assert.rs:24:5
@@ -21,7 +23,8 @@ warning: narrowing cast from `u64` to `u32` without bounds check
 LL |     x as u32
    |     ^^^^^^^^
    |
-   = help: use `u32::try_from(value)` or guard with `if value <= u32::MAX as u64`
+   = help: Tiger Style (Safe Narrowing): narrow integers with checked conversions instead of `as` Example: let small = u32::try_from(value)?;
+   = note: see Tiger Style guide: Safe Narrowing / Conversions
 
 warning: narrowing cast from `u64` to `u32` without bounds check
   --> $DIR/unchecked_narrowing_same_block_assert.rs:29:20
@@ -29,6 +32,8 @@ warning: narrowing cast from `u64` to `u32` without bounds check
 LL |     let narrowed = x as u32;
    |                    ^^^^^^^^
    |
-   = help: use `u32::try_from(value)` or guard with `if value <= u32::MAX as u64`
+   = help: Tiger Style (Safe Narrowing): narrow integers with checked conversions instead of `as` Example: let small = u32::try_from(value)?;
+   = note: see Tiger Style guide: Safe Narrowing / Conversions
 
 warning: 4 warnings emitted
+

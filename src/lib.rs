@@ -10,6 +10,7 @@ extern crate rustc_span;
 
 mod concurrency;
 pub mod config;
+mod diagnostics;
 mod naming;
 mod purity;
 mod safety;
@@ -183,6 +184,8 @@ mod tests {
     use super::LINT_INVENTORY;
     use super::default_level_name;
     use crate::config::canonical_lint_names;
+    use crate::diagnostics;
+    use crate::diagnostics::ExampleMode;
 
     fn inventory_names() -> Vec<&'static str> {
         LINT_INVENTORY.iter().map(|lint| lint.name).collect()
@@ -193,6 +196,17 @@ mod tests {
             .iter()
             .map(|lint| format!("{}={}", lint.name, default_level_name(lint.lint.default_level)))
             .collect()
+    }
+
+    fn diagnostic_metadata_names() -> Vec<&'static str> {
+        diagnostics::all_metadata().iter().map(|meta| meta.lint_name).collect()
+    }
+
+    fn diagnostic_metadata_snapshot() -> String {
+        format!(
+            "{}\n",
+            serde_json::to_string_pretty(diagnostics::all_metadata()).expect("serialize diagnostic metadata snapshot")
+        )
     }
 
     #[test]
@@ -206,6 +220,25 @@ mod tests {
     #[test]
     fn config_validation_derives_names_from_lint_inventory() {
         assert_eq!(canonical_lint_names(), inventory_names());
+    }
+
+    #[test]
+    fn diagnostic_metadata_names_match_lint_inventory() {
+        assert_eq!(diagnostic_metadata_names(), inventory_names());
+    }
+
+    #[test]
+    fn diagnostic_metadata_required_examples_are_concrete() {
+        for meta in diagnostics::all_metadata() {
+            match meta.example_mode {
+                ExampleMode::Required => {
+                    assert!(meta.example_text.is_some(), "missing required example text for {}", meta.lint_name)
+                }
+                ExampleMode::None => {
+                    assert!(meta.example_text.is_none(), "unexpected example text for {}", meta.lint_name)
+                }
+            }
+        }
     }
 
     #[test]
@@ -225,5 +258,53 @@ mod tests {
             .unwrap_or_else(|error| panic!("read lint default-level snapshot {}: {error}", snapshot_path.display()));
         let actual = format!("{}\n", inventory_levels().join("\n"));
         assert_eq!(expected, actual, "lint default-level snapshot mismatch");
+    }
+
+    #[test]
+    fn diagnostic_metadata_snapshot_matches() {
+        let snapshot_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/lint_diagnostic_metadata.json");
+        let expected = fs::read_to_string(&snapshot_path)
+            .unwrap_or_else(|error| panic!("read diagnostic metadata snapshot {}: {error}", snapshot_path.display()));
+        let actual = diagnostic_metadata_snapshot();
+        assert_eq!(expected, actual, "diagnostic metadata snapshot mismatch");
+    }
+
+    #[test]
+    fn lint_modules_route_help_and_note_through_diagnostics_module() {
+        let lint_dirs = [
+            "src/concurrency",
+            "src/naming",
+            "src/purity",
+            "src/safety",
+            "src/structure",
+        ];
+        let forbidden = [
+            "Tiger Style (",
+            "see Tiger Style guide:",
+            ".help(",
+            ".note(",
+            "span_help(",
+            "span_note(",
+        ];
+
+        for lint_dir in lint_dirs {
+            let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join(lint_dir);
+            for entry in fs::read_dir(&dir).unwrap_or_else(|error| panic!("read lint dir {}: {error}", dir.display())) {
+                let path = entry.expect("lint dir entry").path();
+                if path.extension().and_then(|ext| ext.to_str()) != Some("rs") {
+                    continue;
+                }
+
+                let source = fs::read_to_string(&path)
+                    .unwrap_or_else(|error| panic!("read lint source {}: {error}", path.display()));
+                for needle in forbidden {
+                    assert!(
+                        !source.contains(needle),
+                        "{} must route help/note text through src/diagnostics.rs; found `{needle}`",
+                        path.display()
+                    );
+                }
+            }
+        }
     }
 }

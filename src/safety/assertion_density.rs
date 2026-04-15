@@ -2,13 +2,14 @@ use rustc_ast::Block;
 use rustc_ast::Item;
 use rustc_ast::ItemKind;
 use rustc_ast::StmtKind;
-use rustc_errors::DiagDecorator;
 use rustc_lint::EarlyContext;
 use rustc_lint::EarlyLintPass;
 use rustc_lint::LintContext;
 use rustc_session::declare_lint;
 use rustc_session::impl_lint_pass;
 use rustc_span::sym;
+
+use crate::diagnostics::emit_tiger_style_lint;
 
 declare_lint! {
     /// Warns on functions exceeding a configurable line count (default: 20)
@@ -166,16 +167,12 @@ impl EarlyLintPass for AssertionDensity {
         }
 
         let min_a = self.min_assertions;
-        cx.opt_span_lint(
+        emit_tiger_style_lint(
+            cx,
             ASSERTION_DENSITY,
-            Some(body.span),
-            DiagDecorator(|diag| {
-                diag.primary_message(format!(
-                    "function `{}` has {assertions} assertion(s) in {lines} lines (need {min_a}+)",
-                    func.ident.name,
-                ));
-                diag.help("add assertions documenting the function's invariants");
-            }),
+            body.span,
+            format!("function `{}` has {assertions} assertion(s) in {lines} lines (need {min_a}+)", func.ident.name,),
+            "assertion_density",
         );
     }
 }

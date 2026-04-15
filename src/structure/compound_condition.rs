@@ -1,12 +1,12 @@
 use rustc_ast::BinOpKind;
 use rustc_ast::Expr;
 use rustc_ast::ExprKind;
-use rustc_errors::DiagDecorator;
 use rustc_lint::EarlyContext;
 use rustc_lint::EarlyLintPass;
-use rustc_lint::LintContext;
 use rustc_session::declare_lint;
 use rustc_session::declare_lint_pass;
+
+use crate::diagnostics::emit_tiger_style_lint;
 
 declare_lint! {
     /// Detects `if` conditions containing 3 or more `&&`/`||` operators
@@ -41,16 +41,12 @@ impl EarlyLintPass for CompoundCondition {
 
         let ops = count_logical_ops(cond);
         if ops >= 3 {
-            cx.opt_span_lint(
+            emit_tiger_style_lint(
+                cx,
                 COMPOUND_CONDITION,
-                Some(cond.span),
-                DiagDecorator(|diag| {
-                    diag.primary_message(format!("condition has {ops} boolean operators",));
-                    diag.help(
-                        "decompose into early returns, guard clauses, \
-                         or named boolean bindings",
-                    );
-                }),
+                cond.span,
+                format!("condition has {ops} boolean operators"),
+                "compound_condition",
             );
         }
     }

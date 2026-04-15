@@ -4,7 +4,9 @@ warning: `.unwrap()` in production code will panic on failure
 LL |         let _ = val.unwrap();
    |                 ^^^^^^^^^^^^
    |
-   = help: use `?` to propagate, or match/map the error explicitly
+   = help: Tiger Style (Error Handling): propagate or handle absence explicitly instead of panicking with `unwrap` or `expect` Example: let value = maybe?;
+   = note: see Tiger Style guide: Error Handling
    = note: `#[warn(no_unwrap)]` on by default
 
 warning: 1 warning emitted
+

@@ -4,7 +4,8 @@ warning: condition has 3 boolean operators
 LL |     if a && b && c && d {
    |        ^^^^^^^^^^^^^^^^
    |
-   = help: decompose into early returns, guard clauses, or named boolean bindings
+   = help: Tiger Style (Condition Decomposition): break multi-part conditions into named predicates or nested guards Example: if is_leader { if has_quorum { ... } }
+   = note: see Tiger Style guide: Condition Decomposition
 note: the lint level is defined here
   --> $DIR/compound_condition.rs:1:9
    |
@@ -12,3 +13,4 @@ LL | #![warn(compound_condition)]
    |         ^^^^^^^^^^^^^^^^^^
 
 warning: 1 warning emitted
+

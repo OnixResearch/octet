@@ -4,7 +4,8 @@ warning: `.expect()` in production code will panic on failure
 LL |         let _ = value.expect("guarded expect should still warn");
    |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
-   = help: use `?` with `.context()` (anyhow) or `.whatever_context()` (snafu) instead
+   = help: Tiger Style (Error Handling): propagate or handle absence explicitly instead of panicking with `unwrap` or `expect` Example: let value = maybe?;
+   = note: see Tiger Style guide: Error Handling
    = note: `#[warn(no_unwrap)]` on by default
 
 warning: `.unwrap()` in production code will panic on failure
@@ -13,6 +14,8 @@ warning: `.unwrap()` in production code will panic on failure
 LL |         let _ = value.unwrap();
    |                 ^^^^^^^^^^^^^^
    |
-   = help: use `?` to propagate, or match/map the error explicitly
+   = help: Tiger Style (Error Handling): propagate or handle absence explicitly instead of panicking with `unwrap` or `expect` Example: let value = maybe?;
+   = note: see Tiger Style guide: Error Handling
 
 warning: 2 warnings emitted
+

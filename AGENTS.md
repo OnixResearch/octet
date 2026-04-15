@@ -30,6 +30,7 @@
 - Tokio `sync::mpsc` public re-exports resolve through internal def paths like `tokio::sync::mpsc::bounded::Sender` and `...::bounded::Receiver`; `get_def_path` matching must use the definition path, not just the public re-export spelling.
 - Late-pass `unbounded_loop` must ignore expansion/desugaring-generated loops or it will falsely warn on compiler-inserted `.await` polling loops.
 - `tests/ui.rs` can support async/Tokio standalone fixtures by building a sibling fixture-local `Cargo.toml` once, then passing `-L dependency=...` and `--extern tokio=...` while still compiling the actual linted fixture with `--edition=2024`.
+- The custom `tests/ui.rs` harness now supports snapshot refresh via `BLESS=1 cargo test --test ui -- --ignored --nocapture`; use it inside `nix develop` when updating `.stderr` files.
 
 ## Lint registration / config
 - Do not implement per-lint severity by registering cloned `Lint` descriptors with patched `default_level`; passes still emit the original static lint IDs, so `allow`/`deny` overrides silently fail.

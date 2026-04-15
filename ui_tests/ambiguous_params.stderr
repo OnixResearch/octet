@@ -6,7 +6,8 @@ LL | |     now_ms + timeout_ms
 LL | | }
    | |_^
    |
-   = help: wrap in a named struct to make each parameter's role explicit
+   = help: Tiger Style (Explicit Interfaces): replace same-type parameter clusters with named fields or an options struct Example: fn connect(opts: ConnectOptions) -> ...
+   = note: see Tiger Style guide: Explicit Interfaces
 note: the lint level is defined here
   --> $DIR/ambiguous_params.rs:1:9
    |
@@ -14,3 +15,4 @@ LL | #![warn(ambiguous_params)]
    |         ^^^^^^^^^^^^^^^^
 
 warning: 1 warning emitted
+

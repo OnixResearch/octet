@@ -1,11 +1,11 @@
-use rustc_errors::DiagDecorator;
 use rustc_hir as hir;
 use rustc_hir::PatKind;
 use rustc_lint::LateContext;
 use rustc_lint::LateLintPass;
-use rustc_lint::LintContext;
 use rustc_session::declare_lint;
 use rustc_session::declare_lint_pass;
+
+use crate::diagnostics::emit_tiger_style_lint;
 
 declare_lint! {
     /// Detects `let` bindings of type `bool` whose name does not start with
@@ -46,16 +46,12 @@ impl<'tcx> LateLintPass<'tcx> for BoolNaming {
             return;
         }
 
-        cx.opt_span_lint(
+        emit_tiger_style_lint(
+            cx,
             BOOL_NAMING,
-            Some(ident.span),
-            DiagDecorator(|diag| {
-                diag.primary_message(format!("boolean binding `{name}` should have a predicate prefix",));
-                diag.help(format!(
-                    "rename to `is_{name}` or use another prefix: \
-                     has_, should_, can_, was_, will_, needs_",
-                ));
-            }),
+            ident.span,
+            format!("boolean binding `{name}` should have a predicate prefix"),
+            "bool_naming",
         );
     }
 }

@@ -4,7 +4,8 @@ warning: `timeout` looks like a quantity but has no unit suffix
 LL |     let timeout = 5000;
    |         ^^^^^^^
    |
-   = help: add a unit suffix like `_ms`, `_secs`, `_bytes`, etc. to make the unit of measure explicit
+   = help: Tiger Style (Unit Suffixes): put the unit in the name of numeric quantities Example: timeout_ms
+   = note: see Tiger Style guide: Unit Suffixes
 note: the lint level is defined here
   --> $DIR/numeric_units.rs:1:9
    |
@@ -17,6 +18,8 @@ warning: `latency` looks like a quantity but has no unit suffix
 LL |     let latency = 100;
    |         ^^^^^^^
    |
-   = help: add a unit suffix like `_ms`, `_secs`, `_bytes`, etc. to make the unit of measure explicit
+   = help: Tiger Style (Unit Suffixes): put the unit in the name of numeric quantities Example: timeout_ms
+   = note: see Tiger Style guide: Unit Suffixes
 
 warning: 2 warnings emitted
+

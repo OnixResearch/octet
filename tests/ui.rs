@@ -302,6 +302,10 @@ fn extra_rustc_args(name: &str) -> &'static [&'static str] {
     }
 }
 
+fn bless_enabled() -> bool {
+    env::var_os("BLESS").is_some()
+}
+
 fn run_fixture(
     driver: &Path,
     library: &Path,
@@ -377,6 +381,12 @@ fn run_fixture(
     );
 
     let actual = normalize_stderr(&String::from_utf8(output.stderr).expect("utf8 stderr"), &fixture_path);
+    if bless_enabled() {
+        fs::write(&expected_path, actual)
+            .unwrap_or_else(|error| panic!("write expected stderr {}: {error}", expected_path.display()));
+        return;
+    }
+
     let expected = fs::read_to_string(&expected_path)
         .unwrap_or_else(|error| panic!("read expected stderr {}: {error}", expected_path.display()));
     assert_eq!(expected.trim_end_matches('\n'), actual.trim_end_matches('\n'), "stderr mismatch for fixture {name}");

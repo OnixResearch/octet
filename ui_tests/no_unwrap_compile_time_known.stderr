@@ -4,7 +4,8 @@ warning: `.expect()` in production code will panic on failure
 LL |     Some(1_u32).expect("constructor expect should still warn")
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
-   = help: use `?` with `.context()` (anyhow) or `.whatever_context()` (snafu) instead
+   = help: Tiger Style (Error Handling): propagate or handle absence explicitly instead of panicking with `unwrap` or `expect` Example: let value = maybe?;
+   = note: see Tiger Style guide: Error Handling
    = note: `#[warn(no_unwrap)]` on by default
 
 warning: `.unwrap()` in production code will panic on failure
@@ -13,7 +14,8 @@ warning: `.unwrap()` in production code will panic on failure
 LL |     "not an ip".parse().unwrap()
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
-   = help: use `?` to propagate, or match/map the error explicitly
+   = help: Tiger Style (Error Handling): propagate or handle absence explicitly instead of panicking with `unwrap` or `expect` Example: let value = maybe?;
+   = note: see Tiger Style guide: Error Handling
 
 warning: `.unwrap()` in production code will panic on failure
   --> $DIR/no_unwrap_compile_time_known.rs:29:5
@@ -21,7 +23,8 @@ warning: `.unwrap()` in production code will panic on failure
 LL |     "still warns".parse().unwrap()
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
-   = help: use `?` to propagate, or match/map the error explicitly
+   = help: Tiger Style (Error Handling): propagate or handle absence explicitly instead of panicking with `unwrap` or `expect` Example: let value = maybe?;
+   = note: see Tiger Style guide: Error Handling
 
 warning: `.unwrap()` in production code will panic on failure
   --> $DIR/no_unwrap_compile_time_known.rs:33:5
@@ -29,6 +32,8 @@ warning: `.unwrap()` in production code will panic on failure
 LL |     input.parse().unwrap()
    |     ^^^^^^^^^^^^^^^^^^^^^^
    |
-   = help: use `?` to propagate, or match/map the error explicitly
+   = help: Tiger Style (Error Handling): propagate or handle absence explicitly instead of panicking with `unwrap` or `expect` Example: let value = maybe?;
+   = note: see Tiger Style guide: Error Handling
 
 warning: 4 warnings emitted
+

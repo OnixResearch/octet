@@ -4,7 +4,8 @@ warning: floating point type for currency field `cost_usd`
 LL |     pub cost_usd: f64,
    |     ^^^^^^^^^^^^^^^^^
    |
-   = help: use integer types with explicit units (e.g., `cost_microdollars: u64`) to avoid precision loss
+   = help: Tiger Style (Integer Currency): store money as scaled integers, not floats Example: let price_micros: i64 = 125_000;
+   = note: see Tiger Style guide: Integer Currency
 note: the lint level is defined here
   --> $DIR/float_for_currency.rs:1:9
    |
@@ -12,3 +13,4 @@ LL | #![warn(float_for_currency)]
    |         ^^^^^^^^^^^^^^^^^^
 
 warning: 1 warning emitted
+

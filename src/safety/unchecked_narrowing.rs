@@ -1,4 +1,3 @@
-use rustc_errors::DiagDecorator;
 use rustc_hir as hir;
 use rustc_hir::ExprKind;
 use rustc_lint::LateContext;
@@ -8,6 +7,8 @@ use rustc_middle::ty::Ty;
 use rustc_middle::ty::{self};
 use rustc_session::declare_lint;
 use rustc_session::declare_lint_pass;
+
+use crate::diagnostics::emit_tiger_style_lint;
 
 declare_lint! {
     /// Detects `as u32`, `as u16`, `as u8`, `as i32`, `as i16`, `as i8`
@@ -255,18 +256,12 @@ impl<'tcx> LateLintPass<'tcx> for UncheckedNarrowing {
         let source_name = ty_name(source_ty);
         let target_name = ty_name(target_ty);
 
-        cx.opt_span_lint(
+        emit_tiger_style_lint(
+            cx,
             UNCHECKED_NARROWING,
-            Some(expr.span),
-            DiagDecorator(|diag| {
-                diag.primary_message(format!(
-                    "narrowing cast from `{source_name}` to `{target_name}` without bounds check",
-                ));
-                diag.help(format!(
-                    "use `{target_name}::try_from(value)` or guard with \
-                     `if value <= {target_name}::MAX as {source_name}`",
-                ));
-            }),
+            expr.span,
+            format!("narrowing cast from `{source_name}` to `{target_name}` without bounds check"),
+            "unchecked_narrowing",
         );
     }
 }

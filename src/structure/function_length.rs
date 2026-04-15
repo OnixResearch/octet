@@ -1,13 +1,14 @@
 use rustc_ast::Attribute;
 use rustc_ast::Item;
 use rustc_ast::ItemKind;
-use rustc_errors::DiagDecorator;
 use rustc_lint::EarlyContext;
 use rustc_lint::EarlyLintPass;
 use rustc_lint::LintContext;
 use rustc_session::declare_lint;
 use rustc_session::impl_lint_pass;
 use rustc_span::sym;
+
+use crate::diagnostics::emit_tiger_style_lint;
 
 declare_lint! {
     /// Detects functions whose body exceeds a configurable number of
@@ -103,13 +104,12 @@ impl EarlyLintPass for FunctionLength {
 
         if code_lines > max {
             let name = func.ident.name;
-            cx.opt_span_lint(
+            emit_tiger_style_lint(
+                cx,
                 FUNCTION_LENGTH,
-                Some(body.span),
-                DiagDecorator(|diag| {
-                    diag.primary_message(format!("function `{name}` is {code_lines} lines (limit: {max})",));
-                    diag.help("decompose into smaller functions with clear responsibilities");
-                }),
+                body.span,
+                format!("function `{name}` is {code_lines} lines (limit: {max})"),
+                "function_length",
             );
         }
     }
