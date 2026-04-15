@@ -1,11 +1,11 @@
-$ bash openspec/changes/lint-precision-hardening/evidence/replay-aspen-comparison.sh
+$ bash openspec/changes/archive/2026-04-15-lint-precision-hardening/evidence/replay-aspen-comparison.sh
 # tigerstyle commit: f04333d6640228d2305904b981ce70f7d803424d
 # aspen commit: 909e5e9fa
 # phase-1 archive: openspec/changes/archive/2026-04-13-aspen-consumer-rollout/
 # phase-2 archive: openspec/changes/archive/2026-04-14-aspen-phase2-widening/
-$ (cd /tmp/aspen-lint-precision.3cEzkT/aspen && TIGERSTYLE_PATH=/tmp/aspen-lint-precision.3cEzkT/tigerstyle-before TIGERSTYLE_DYLINT_REV=0e0a71eefe6f01563d11acc6e1d7af1d505934a9 CARGO_TARGET_DIR=/tmp/aspen-lint-precision.3cEzkT/target-before scripts/tigerstyle-check.sh --workspace -- --all-targets)
+$ (cd /tmp/aspen-lint-precision.JuajVW/aspen && TIGERSTYLE_PATH=/tmp/aspen-lint-precision.JuajVW/tigerstyle-before TIGERSTYLE_DYLINT_REV=0e0a71eefe6f01563d11acc6e1d7af1d505934a9 CARGO_TARGET_DIR=/tmp/aspen-lint-precision.JuajVW/target-before scripts/tigerstyle-check.sh --workspace -- --all-targets)
 [tigerstyle] workspace: aspen
-[tigerstyle] repo:      /tmp/aspen-lint-precision.3cEzkT/tigerstyle-before
+[tigerstyle] repo:      /tmp/aspen-lint-precision.JuajVW/tigerstyle-before
 [tigerstyle] toolchain: nightly-2026-03-21-x86_64-unknown-linux-gnu
 [tigerstyle] scope:     --workspace
 [tigerstyle] profile:   ignored_result no_unwrap no_panic unchecked_narrowing unbounded_loop
@@ -23,35 +23,35 @@ help: Check that the patched package version and available features are compatib
    Compiling quote v1.0.45
    Compiling memchr v2.8.0
    Compiling zmij v1.0.21
-   Compiling winnow v1.0.1
    Compiling serde v1.0.228
-   Compiling camino v1.2.2
-   Compiling thiserror v2.0.18
+   Compiling winnow v1.0.1
    Compiling serde_json v1.0.149
-   Compiling toml_writer v1.1.1+spec-1.1.0
+   Compiling thiserror v2.0.18
+   Compiling camino v1.2.2
    Compiling regex-syntax v0.8.10
-   Compiling itoa v1.0.18
    Compiling anyhow v1.0.102
+   Compiling toml_writer v1.1.1+spec-1.1.0
+   Compiling itoa v1.0.18
+   Compiling paste v1.0.15
    Compiling rustversion v1.0.22
    Compiling dylint_internal v5.0.0 (https://github.com/trailofbits/dylint?rev=0e0a71eefe6f01563d11acc6e1d7af1d505934a9#0e0a71ee)
-   Compiling paste v1.0.15
    Compiling log v0.4.29
    Compiling toml_parser v1.1.2+spec-1.1.0
    Compiling aho-corasick v1.1.4
    Compiling syn v2.0.117
    Compiling regex-automata v0.4.14
-   Compiling thiserror-impl v2.0.18
-   Compiling serde_derive v1.0.228
-   Compiling serde_spanned v1.1.1
    Compiling toml_datetime v1.1.1+spec-1.1.0
+   Compiling serde_spanned v1.1.1
    Compiling toml v1.1.2+spec-1.1.0
+   Compiling serde_derive v1.0.228
+   Compiling thiserror-impl v2.0.18
    Compiling semver v1.0.28
    Compiling cargo-platform v0.3.2
    Compiling dylint_linting v5.0.0 (https://github.com/trailofbits/dylint?rev=0e0a71eefe6f01563d11acc6e1d7af1d505934a9#0e0a71ee)
    Compiling regex v1.12.3
    Compiling cargo_metadata v0.23.1
-   Compiling tigerstyle v0.1.0 (/tmp/aspen-lint-precision.3cEzkT/tigerstyle-before)
-    Finished `release` profile [optimized] target(s) in 5.07s
+   Compiling tigerstyle v0.1.0 (/tmp/aspen-lint-precision.JuajVW/tigerstyle-before)
+    Finished `release` profile [optimized] target(s) in 5.76s
 Building driver for toolchain `nightly-2026-03-21-x86_64-unknown-linux-gnu`
     Updating git repository `https://github.com/trailofbits/dylint`
     Updating crates.io index
@@ -60,52 +60,52 @@ Building driver for toolchain `nightly-2026-03-21-x86_64-unknown-linux-gnu`
    Compiling unicode-ident v1.0.24
    Compiling quote v1.0.45
    Compiling libc v0.2.185
-   Compiling shlex v1.3.0
    Compiling find-msvc-tools v0.1.9
+   Compiling shlex v1.3.0
    Compiling pkg-config v0.3.33
    Compiling vcpkg v0.2.15
    Compiling stable_deref_trait v1.2.1
    Compiling serde_core v1.0.228
    Compiling litemap v0.8.2
    Compiling writeable v0.6.3
-   Compiling memchr v2.8.0
-   Compiling icu_normalizer_data v2.2.0
    Compiling icu_properties_data v2.2.0
+   Compiling icu_normalizer_data v2.2.0
    Compiling utf8_iter v1.0.4
+   Compiling memchr v2.8.0
    Compiling smallvec v1.15.1
    Compiling regex-syntax v0.8.10
    Compiling zmij v1.0.21
-   Compiling camino v1.2.2
-   Compiling bitflags v2.11.1
-   Compiling serde_json v1.0.149
-   Compiling getrandom v0.4.2
-   Compiling rustix v1.1.4
-   Compiling percent-encoding v2.3.2
-   Compiling winnow v1.0.1
    Compiling cfg-if v1.0.4
    Compiling thiserror v2.0.18
    Compiling serde v1.0.228
+   Compiling percent-encoding v2.3.2
+   Compiling getrandom v0.4.2
+   Compiling bitflags v2.11.1
    Compiling log v0.4.29
-   Compiling openssl-probe v0.1.6
-   Compiling itoa v1.0.18
-   Compiling linux-raw-sys v0.12.1
-   Compiling hashbrown v0.17.0
-   Compiling equivalent v1.0.2
-   Compiling toml_writer v1.1.1+spec-1.1.0
+   Compiling camino v1.2.2
+   Compiling rustix v1.1.4
+   Compiling winnow v1.0.1
+   Compiling serde_json v1.0.149
    Compiling anyhow v1.0.102
+   Compiling equivalent v1.0.2
+   Compiling hashbrown v0.17.0
+   Compiling itoa v1.0.18
+   Compiling openssl-probe v0.1.6
+   Compiling linux-raw-sys v0.12.1
+   Compiling toml_writer v1.1.1+spec-1.1.0
    Compiling form_urlencoded v1.2.2
    Compiling once_cell v1.21.4
-   Compiling dylint_internal v5.0.0 (https://github.com/trailofbits/dylint?rev=0e0a71eefe6f01563d11acc6e1d7af1d505934a9#0e0a71ee)
    Compiling curl v0.4.49
-   Compiling rustversion v1.0.22
    Compiling fastrand v2.4.1
+   Compiling rustversion v1.0.22
+   Compiling dylint_internal v5.0.0 (https://github.com/trailofbits/dylint?rev=0e0a71eefe6f01563d11acc6e1d7af1d505934a9#0e0a71ee)
    Compiling utf8parse v0.2.2
-   Compiling anstyle-query v1.1.5
-   Compiling is_terminal_polyfill v1.70.2
-   Compiling anstyle v1.0.14
    Compiling colorchoice v1.0.5
-   Compiling anstyle-parse v1.0.0
+   Compiling anstyle v1.0.14
+   Compiling is_terminal_polyfill v1.70.2
+   Compiling anstyle-query v1.1.5
    Compiling libloading v0.9.0
+   Compiling anstyle-parse v1.0.0
    Compiling jiff v0.2.23
    Compiling anstream v1.0.0
    Compiling aho-corasick v1.1.4
@@ -115,29 +115,29 @@ Building driver for toolchain `nightly-2026-03-21-x86_64-unknown-linux-gnu`
    Compiling socket2 v0.6.3
    Compiling toml_parser v1.1.2+spec-1.1.0
    Compiling cc v1.2.60
-   Compiling tempfile v3.27.0
    Compiling regex-automata v0.4.14
-   Compiling toml_datetime v1.1.1+spec-1.1.0
-   Compiling cargo-platform v0.3.2
-   Compiling serde_spanned v1.1.1
-   Compiling semver v1.0.28
+   Compiling tempfile v3.27.0
    Compiling libz-sys v1.1.28
    Compiling openssl-sys v0.9.113
    Compiling libssh2-sys v0.3.1
-   Compiling libgit2-sys v0.18.3+1.9.2
    Compiling curl-sys v0.4.87+curl-8.19.0
+   Compiling libgit2-sys v0.18.3+1.9.2
+   Compiling toml_datetime v1.1.1+spec-1.1.0
+   Compiling serde_spanned v1.1.1
+   Compiling semver v1.0.28
+   Compiling cargo-platform v0.3.2
    Compiling toml_edit v0.25.11+spec-1.1.0
    Compiling toml v1.1.2+spec-1.1.0
-   Compiling regex v1.12.3
    Compiling synstructure v0.13.2
+   Compiling regex v1.12.3
    Compiling env_filter v1.0.1
-   Compiling env_logger v0.11.10
    Compiling zerofrom-derive v0.1.7
    Compiling yoke-derive v0.8.2
    Compiling zerovec-derive v0.11.3
    Compiling displaydoc v0.2.5
    Compiling serde_derive v1.0.228
    Compiling thiserror-impl v2.0.18
+   Compiling env_logger v0.11.10
    Compiling zerofrom v0.1.7
    Compiling yoke v0.8.2
    Compiling zerovec v0.11.6
@@ -147,23 +147,23 @@ Building driver for toolchain `nightly-2026-03-21-x86_64-unknown-linux-gnu`
    Compiling icu_collections v2.2.0
    Compiling icu_locale_core v2.2.0
    Compiling icu_provider v2.2.0
-   Compiling icu_properties v2.2.0
    Compiling icu_normalizer v2.2.0
+   Compiling icu_properties v2.2.0
    Compiling cargo_metadata v0.23.1
    Compiling idna_adapter v1.2.1
    Compiling idna v1.1.0
    Compiling url v2.5.8
    Compiling git2 v0.20.4
    Compiling dylint_driver v5.0.0 (https://github.com/trailofbits/dylint?rev=0e0a71eefe6f01563d11acc6e1d7af1d505934a9#0e0a71ee)
-   Compiling dylint_driver-nightly-2026-03-21-x86_64-unknown-linux-gnu v0.1.0 (/tmp/.tmpmBE1uP)
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 11.17s
+   Compiling dylint_driver-nightly-2026-03-21-x86_64-unknown-linux-gnu v0.1.0 (/tmp/.tmpmYlhmq)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 12.90s
 Checking with toolchain `nightly-2026-03-21-x86_64-unknown-linux-gnu`
 warning: resolver for the non root package will be ignored, specify resolver at the workspace root:
-package:   /tmp/aspen-lint-precision.3cEzkT/aspen/vendor/iroh-h3/Cargo.toml
-workspace: /tmp/aspen-lint-precision.3cEzkT/aspen/Cargo.toml
+package:   /tmp/aspen-lint-precision.JuajVW/aspen/vendor/iroh-h3/Cargo.toml
+workspace: /tmp/aspen-lint-precision.JuajVW/aspen/Cargo.toml
 warning: resolver for the non root package will be ignored, specify resolver at the workspace root:
-package:   /tmp/aspen-lint-precision.3cEzkT/aspen/vendor/iroh-h3-axum/Cargo.toml
-workspace: /tmp/aspen-lint-precision.3cEzkT/aspen/Cargo.toml
+package:   /tmp/aspen-lint-precision.JuajVW/aspen/vendor/iroh-h3-axum/Cargo.toml
+workspace: /tmp/aspen-lint-precision.JuajVW/aspen/Cargo.toml
 warning: patch `dylint_driver v5.0.0 (https://github.com/trailofbits/dylint?rev=0e0a71eefe6f01563d11acc6e1d7af1d505934a9#0e0a71ee)` was not used in the crate graph
 help: Check that the patched package version and available features are compatible
       with the dependency requirements. If the patch has a different version from
@@ -181,8 +181,8 @@ help: Check that the patched package version and available features are compatib
     Checking log v0.4.29
     Checking allocator-api2 v0.2.21
    Compiling portable-atomic v1.13.1
-    Checking itoa v1.0.17
     Checking equivalent v1.0.2
+    Checking itoa v1.0.17
     Checking critical-section v1.2.0
    Compiling parking_lot_core v0.9.12
     Checking scopeguard v1.2.0
@@ -193,8 +193,8 @@ help: Check that the patched package version and available features are compatib
    Compiling zerocopy v0.8.42
    Compiling autocfg v1.5.0
    Compiling zmij v1.0.21
-    Checking futures-io v0.3.32
     Checking bitflags v2.11.0
+    Checking futures-io v0.3.32
     Checking futures-sink v0.3.32
     Checking slab v0.4.12
     Checking futures-task v0.3.32
@@ -204,57 +204,58 @@ help: Check that the patched package version and available features are compatib
     Checking subtle v2.6.1
    Compiling find-msvc-tools v0.1.9
    Compiling shlex v1.3.0
+   Compiling generic-array v0.14.7
    Compiling semver v1.0.27
     Checking stable_deref_trait v1.2.1
    Compiling heck v0.5.0
-    Checking futures-channel v0.3.32
-   Compiling generic-array v0.14.7
    Compiling typenum v1.19.0
    Compiling thiserror v2.0.18
     Checking base64 v0.22.1
-    Checking percent-encoding v2.3.2
     Checking hashbrown v0.16.1
+    Checking futures-channel v0.3.32
+    Checking percent-encoding v2.3.2
     Checking ryu v1.0.23
    Compiling rustversion v1.0.22
    Compiling anyhow v1.0.102
     Checking cpufeatures v0.2.17
+   Compiling unicode-xid v0.2.6
    Compiling unicode-segmentation v1.12.0
    Compiling num-traits v0.2.19
-    Checking form_urlencoded v1.2.2
-   Compiling unicode-xid v0.2.6
    Compiling getrandom v0.4.2
     Checking writeable v0.6.2
     Checking litemap v0.8.1
+   Compiling rustc_version v0.4.1
+    Checking form_urlencoded v1.2.2
    Compiling icu_properties_data v2.1.2
    Compiling icu_normalizer_data v2.1.1
-    Checking utf8_iter v1.0.4
-   Compiling rustc_version v0.4.1
     Checking fnv v1.0.7
-    Checking fastrand v2.3.0
+    Checking utf8_iter v1.0.4
    Compiling ident_case v1.0.1
-   Compiling dunce v1.0.5
+    Checking fastrand v2.3.0
    Compiling fs_extra v1.3.0
+   Compiling dunce v1.0.5
     Checking atomic-waker v1.1.2
    Compiling httparse v1.10.1
    Compiling cfg_aliases v0.2.1
-    Checking tower-service v0.3.3
     Checking untrusted v0.9.0
-    Checking tower-layer v0.3.3
-    Checking httpdate v1.0.3
-   Compiling aws-lc-rs v1.16.1
-    Checking try-lock v0.2.5
-    Checking pin-utils v0.1.0
-   Compiling paste v1.0.15
    Compiling convert_case v0.10.0
-    Checking siphasher v1.0.2
+    Checking tower-layer v0.3.3
+    Checking tower-service v0.3.3
+   Compiling aws-lc-rs v1.16.1
+    Checking httpdate v1.0.3
+    Checking try-lock v0.2.5
+   Compiling paste v1.0.15
+    Checking pin-utils v0.1.0
    Compiling rustls v0.23.37
+    Checking siphasher v1.0.2
    Compiling strsim v0.11.1
    Compiling crossbeam-utils v0.8.21
+   Compiling syn v2.0.117
+   Compiling indexmap v2.13.0
    Compiling litrs v1.0.0
     Checking sync_wrapper v1.0.2
-   Compiling indexmap v2.13.0
-    Checking want v0.3.1
    Compiling pkg-config v0.3.32
+    Checking want v0.3.1
     Checking openssl-probe v0.2.1
     Checking adler2 v2.0.1
     Checking simd-adler32 v0.3.8
@@ -262,223 +263,225 @@ help: Check that the patched package version and available features are compatib
     Checking iana-time-zone v0.1.65
     Checking linux-raw-sys v0.12.1
     Checking arrayvec v0.7.6
-   Compiling num-conv v0.2.0
    Compiling time-core v0.1.8
-    Checking simdutf8 v0.1.5
-    Checking byteorder v1.5.0
-   Compiling crc32fast v1.5.0
-   Compiling zstd-safe v7.2.4
-   Compiling syn v2.0.117
-    Checking powerfmt v0.2.0
+   Compiling num-conv v0.2.0
     Checking miniz_oxide v0.8.9
+    Checking simdutf8 v0.1.5
+   Compiling crc32fast v1.5.0
+    Checking byteorder v1.5.0
+   Compiling zstd-safe v7.2.4
+    Checking powerfmt v0.2.0
     Checking num_threads v0.1.7
-    Checking spin v0.9.8
-    Checking iri-string v0.7.10
-    Checking base64ct v1.8.3
+   Compiling jobserver v0.1.34
    Compiling time-macros v0.2.27
-    Checking deranged v0.5.8
+    Checking spin v0.9.8
+    Checking base64ct v1.8.3
+    Checking iri-string v0.7.10
     Checking lazy_static v1.5.0
    Compiling heapless v0.7.17
     Checking tinyvec_macros v0.1.1
-   Compiling rayon-core v1.13.0
-    Checking parking v2.2.1
     Checking opaque-debug v0.3.1
+    Checking parking v2.2.1
+   Compiling document-features v0.2.12
+    Checking deranged v0.5.8
+   Compiling rayon-core v1.13.0
     Checking rustc-hash v2.1.1
     Checking hash32 v0.2.1
-   Compiling document-features v0.2.12
-    Checking const-oid v0.10.2
     Checking data-encoding v2.10.0
+    Checking const-oid v0.10.2
     Checking lru v0.16.3
    Compiling winnow v1.0.0
+   Compiling cc v1.2.57
     Checking spin v0.10.0
-   Compiling jobserver v0.1.34
     Checking tinyvec v1.11.0
-    Checking arrayref v0.3.9
+    Checking hybrid-array v0.4.8
     Checking futures-lite v2.6.1
     Checking pem-rfc7468 v1.0.0
     Checking constant_time_eq v0.4.2
+    Checking arrayref v0.3.9
    Compiling curve25519-dalek v5.0.0-pre.1
     Checking diatomic-waker v0.2.3
     Checking self_cell v1.2.2
     Checking cordyceps v0.3.4
    Compiling vergen-lib v9.1.0
    Compiling n0-future v0.3.2
-    Checking crossbeam-epoch v0.9.18
-    Checking netlink-packet-core v0.8.1
    Compiling noq-udp v0.9.0
     Checking signature v3.0.0-rc.10
-   Compiling vergen v9.1.0
-   Compiling vergen-lib v0.1.6
-   Compiling cc v1.2.57
     Checking flate2 v1.1.9
-    Checking hybrid-array v0.4.8
+    Checking netlink-packet-core v0.8.1
+    Checking crossbeam-epoch v0.9.18
+   Compiling vergen-lib v0.1.6
+   Compiling vergen v9.1.0
     Checking dyn-clone v1.0.20
+   Compiling vergen-gitcl v1.0.8
+   Compiling noq v0.17.0
     Checking errno v0.3.14
     Checking mio v1.1.1
     Checking getrandom v0.2.17
     Checking socket2 v0.6.3
-   Compiling vergen-gitcl v1.0.8
-   Compiling noq v0.17.0
-    Checking identity-hash v0.1.0
-    Checking signal-hook-registry v1.4.8
-    Checking rand_core v0.6.4
-    Checking crossbeam-deque v0.8.6
-    Checking lru-slab v0.1.2
-    Checking crc-catalog v2.4.0
-    Checking rand_core v0.9.5
-    Checking futures-buffered v0.2.13
     Checking sorted-index-buffer v0.2.1
-    Checking netlink-packet-route v0.29.0
+    Checking lru-slab v0.1.2
+    Checking signal-hook-registry v1.4.8
+    Checking futures-buffered v0.2.13
+    Checking crc-catalog v2.4.0
+    Checking rand_core v0.6.4
+    Checking identity-hash v0.1.0
     Checking crossbeam-channel v0.5.15
     Checking flume v0.11.1
-   Compiling acto v0.8.0
-   Compiling netwatch v0.15.0
+    Checking rand_core v0.9.5
+    Checking block-buffer v0.10.4
+    Checking inout v0.1.4
+    Checking crossbeam-deque v0.8.6
+    Checking block-buffer v0.11.0
+    Checking crypto-common v0.2.1
+    Checking netlink-packet-route v0.29.0
     Checking crc v3.4.0
    Compiling pkarr v5.0.2
-    Checking base32 v0.5.1
+   Compiling netwatch v0.15.0
+   Compiling acto v0.8.0
     Checking xml-rs v0.8.28
-    Checking tagptr v0.2.0
-    Checking sha1_smol v1.0.1
+    Checking crypto-common v0.1.7
+    Checking uuid v1.22.0
+    Checking serde_bytes v0.11.19
     Checking mac-addr v0.3.0
+    Checking sha1_smol v1.0.1
+    Checking tagptr v0.2.0
+    Checking base32 v0.5.1
     Checking simple-dns v0.9.3
-    Checking smol_str v0.1.24
     Checking resolv-conf v0.7.6
+    Checking smol_str v0.1.24
     Checking seize v0.5.1
    Compiling iroh v0.97.0
     Checking z32 v1.3.0
     Checking humantime v2.3.0
+    Checking digest v0.10.7
+   Compiling cmake v0.1.57
+    Checking universal-hash v0.5.1
+    Checking aead v0.5.2
     Checking hex v0.4.3
     Checking unicode-width v0.2.2
     Checking regex-syntax v0.8.10
-    Checking aspen-constants v0.1.0 (/tmp/aspen-lint-precision.3cEzkT/aspen/crates/aspen-constants)
-    Checking crypto-common v0.1.7
-    Checking block-buffer v0.10.4
-    Checking inout v0.1.4
-    Checking crypto-common v0.2.1
-    Checking block-buffer v0.11.0
+    Checking aspen-constants v0.1.0 (/tmp/aspen-lint-precision.JuajVW/aspen/crates/aspen-constants)
     Checking aho-corasick v1.1.4
    Compiling redb v2.6.3
-    Checking aspen-disk v0.1.0 (/tmp/aspen-lint-precision.3cEzkT/aspen/crates/aspen-disk)
-    Checking uuid v1.22.0
-    Checking serde_bytes v0.11.19
+    Checking aspen-disk v0.1.0 (/tmp/aspen-lint-precision.JuajVW/aspen/crates/aspen-disk)
+    Checking polyval v0.6.2
     Checking papaya v0.2.3
-    Checking aspen-time v0.1.0 (/tmp/aspen-lint-precision.3cEzkT/aspen/crates/aspen-time)
-    Checking digest v0.10.7
-    Checking universal-hash v0.5.1
-    Checking aead v0.5.2
+    Checking aspen-time v0.1.0 (/tmp/aspen-lint-precision.JuajVW/aspen/crates/aspen-time)
    Compiling ahash v0.8.12
     Checking colorchoice v1.0.5
+    Checking digest v0.11.0-rc.10
+    Checking sha2 v0.10.9
     Checking utf8parse v0.2.2
-    Checking anstyle-query v1.1.5
-    Checking anstyle v1.0.14
+    Checking hmac v0.12.1
     Checking is_terminal_polyfill v1.70.2
     Checking time v0.3.47
-    Checking unicase v2.9.0
-    Checking clap_lex v1.1.0
    Compiling toml_parser v1.0.10+spec-1.1.0
-    Checking polyval v0.6.2
+    Checking anstyle v1.0.14
+   Compiling toml_datetime v1.0.1+spec-1.1.0
+    Checking ghash v0.5.1
     Checking xmltree v0.10.3
+    Checking anstyle-query v1.1.5
+    Checking unicase v2.9.0
     Checking anstyle-parse v1.0.0
+    Checking clap_lex v1.1.0
     Checking pem v3.0.6
    Compiling syn v1.0.109
-   Compiling cmake v0.1.57
-    Checking sha2 v0.10.9
-    Checking hmac v0.12.1
-    Checking either v1.15.0
-    Checking foldhash v0.1.5
-    Checking nu-ansi-term v0.50.3
-    Checking ghash v0.5.1
-   Compiling proc-macro-error-attr v0.4.12
-    Checking sharded-slab v0.1.7
-    Checking digest v0.11.0-rc.10
-    Checking anstream v1.0.0
-   Compiling proc-macro-error v0.4.12
-    Checking thread_local v1.1.9
-   Compiling proc-macro-hack v0.5.20+deprecated
-    Checking same-file v1.0.6
-    Checking hashbrown v0.15.5
-   Compiling ref-cast v1.0.25
-   Compiling itertools v0.14.0
     Checking sha2 v0.11.0-rc.2
-    Checking genawaiter-macro v0.99.1
-    Checking binary-merge v0.1.2
-    Checking positioned-io v0.3.5
-   Compiling iroh-blobs v0.99.0
-    Checking walkdir v2.5.0
-    Checking static_assertions v1.1.0
-   Compiling thiserror v1.0.69
-    Checking poly1305 v0.8.0
-   Compiling memoffset v0.9.1
-    Checking fixedbitset v0.5.7
+    Checking either v1.15.0
    Compiling ring v0.17.14
    Compiling aws-lc-sys v0.38.0
    Compiling zstd-sys v2.0.16+zstd.1.5.7
    Compiling bzip2-sys v0.1.13+1.0.8
    Compiling lzma-sys v0.1.20
    Compiling blake3 v1.8.3
-   Compiling toml_datetime v1.0.1+spec-1.1.0
+    Checking foldhash v0.1.5
+    Checking nu-ansi-term v0.50.3
+    Checking anstream v1.0.0
+   Compiling proc-macro-error-attr v0.4.12
+    Checking sharded-slab v0.1.7
+   Compiling proc-macro-error v0.4.12
+   Compiling toml_edit v0.25.5+spec-1.1.0
+    Checking thread_local v1.1.9
+   Compiling proc-macro-hack v0.5.20+deprecated
+    Checking hashbrown v0.15.5
+    Checking same-file v1.0.6
+   Compiling ref-cast v1.0.25
+    Checking binary-merge v0.1.2
+   Compiling itertools v0.14.0
+    Checking walkdir v2.5.0
+    Checking genawaiter-macro v0.99.1
+    Checking positioned-io v0.3.5
+   Compiling iroh-blobs v0.99.0
     Checking terminal_size v0.4.3
     Checking reflink-copy v0.1.29
+    Checking static_assertions v1.1.0
+   Compiling thiserror v1.0.69
     Checking clap_builder v4.6.0
+    Checking poly1305 v0.8.0
+   Compiling memoffset v0.9.1
+    Checking fixedbitset v0.5.7
     Checking hkdf v0.12.4
    Compiling rust_decimal v1.40.0
     Checking keccak v0.1.6
     Checking utf8-width v0.1.8
     Checking maplit v1.0.2
-    Checking toml_writer v1.0.7+spec-1.1.0
-   Compiling toml_edit v0.25.5+spec-1.1.0
     Checking sha3 v0.10.8
+    Checking toml_writer v1.0.7+spec-1.1.0
+   Compiling proc-macro-crate v3.5.0
     Checking serde_spanned v1.0.4
    Compiling nix v0.29.0
     Checking minimal-lexical v0.2.1
     Checking winnow v0.7.15
-   Compiling petgraph v0.7.1
    Compiling smallvec v1.15.1
+   Compiling petgraph v0.7.1
     Checking nom v7.1.3
-    Checking regex-automata v0.4.14
    Compiling schemars v0.8.22
     Checking glob v0.3.3
    Compiling indoc v2.0.7
-    Checking byte-unit v5.2.0
     Checking yasna v0.5.2
+    Checking regex-automata v0.4.14
     Checking md-5 v0.10.6
+    Checking byte-unit v5.2.0
     Checking unsafe-libyaml v0.2.11
-   Compiling proc-macro-crate v3.5.0
-   Compiling parking_lot v0.12.5
     Checking termcolor v1.4.1
-   Compiling phf_shared v0.11.3
     Checking bzip2 v0.5.2
-   Compiling bit-vec v0.8.0
-    Checking bytemuck v1.25.0
+   Compiling parking_lot v0.12.5
+   Compiling phf_shared v0.11.3
    Compiling new_debug_unreachable v1.0.6
-   Compiling term v1.2.1
+    Checking bytemuck v1.25.0
+   Compiling bit-vec v0.8.0
    Compiling precomputed-hash v0.1.1
-   Compiling chrono v0.4.44
+   Compiling term v1.2.1
    Compiling ena v0.14.4
     Checking toml_datetime v0.7.5+spec-1.1.0
-   Compiling string_cache v0.8.9
-    Checking safe_arch v0.7.4
-   Compiling bit-set v0.8.0
-   Compiling malachite-nz v0.6.1
    Compiling pico-args v0.5.0
+   Compiling string_cache v0.8.9
+   Compiling malachite-nz v0.6.1
+   Compiling chrono v0.4.44
+   Compiling synstructure v0.13.2
+   Compiling darling_core v0.20.11
+   Compiling serde_derive_internals v0.29.1
+   Compiling bit-set v0.8.0
+    Checking safe_arch v0.7.4
     Checking malachite-base v0.6.1
    Compiling logos-codegen v0.15.1
    Compiling proc-macro2-diagnostics v0.10.1
+   Compiling ascii-canvas v4.0.0
     Checking vte v0.14.1
    Compiling yansi v1.0.1
    Compiling beef v0.5.2
-   Compiling ascii-canvas v4.0.0
-   Compiling heck v0.4.1
-    Checking bitmaps v3.2.1
     Checking strip-ansi-escapes v0.2.1
+    Checking bitmaps v3.2.1
+   Compiling heck v0.4.1
     Checking hashlink v0.10.0
-    Checking typed-arena v2.0.2
     Checking arraydeque v0.5.1
-    Checking arrayvec v0.5.2
+    Checking typed-arena v2.0.2
     Checking aliasable v0.1.3
     Checking wide v0.7.33
-    Checking simple-counter v0.1.0
+    Checking arrayvec v0.5.2
     Checking bumpalo v3.20.2
+    Checking simple-counter v0.1.0
     Checking sha-1 v0.10.1
     Checking json_scanner v0.1.0
    Compiling strsim v0.10.0
@@ -486,77 +489,43 @@ help: Check that the patched package version and available features are compatib
     Checking num_cpus v1.17.0
     Checking signature v2.2.0
     Checking sha1 v0.10.6
-   Compiling synstructure v0.13.2
-   Compiling darling_core v0.20.11
-   Compiling serde_derive_internals v0.29.1
-    Checking pretty v0.12.5
     Checking saphyr-parser v0.0.6
-    Checking ed25519 v2.2.3
     Checking xattr v1.6.1
     Checking concurrent-queue v2.5.0
     Checking wait-timeout v0.2.1
+    Checking pretty v0.12.5
+    Checking ed25519 v2.2.3
     Checking quick-error v1.2.3
     Checking rand_xorshift v0.4.0
-    Checking toml v0.9.12+spec-1.1.0
-    Checking toml_edit v0.23.10+spec-1.0.0
-    Checking imbl-sized-chunks v0.1.3
     Checking unarray v0.1.4
     Checking filetime v0.2.27
+    Checking imbl-sized-chunks v0.1.3
     Checking rand_xoshiro v0.7.0
+    Checking event-listener v5.4.1
     Checking raw-cpuid v11.6.0
     Checking sketches-ddsketch v0.3.1
     Checking pem-rfc7468 v0.7.0
-    Checking event-listener v5.4.1
     Checking arc-swap v1.8.2
     Checking similar v2.7.0
    Compiling secp256k1-sys v0.10.1
    Compiling nix v0.31.2
    Compiling bitcoin-io v0.1.4
     Checking bech32 v0.11.1
+    Checking toml v0.9.12+spec-1.1.0
+    Checking toml_edit v0.23.10+spec-1.0.0
     Checking utf-8 v0.7.6
     Checking hex-conservative v0.2.2
     Checking toml_write v0.1.2
-    Checking tar v0.4.44
     Checking event-listener-strategy v0.5.4
+    Checking tar v0.4.44
     Checking nix v0.27.1
     Checking gix-trace v0.1.18
    Compiling heapless v0.8.0
+    Checking async-channel v2.5.0
     Checking unicode-normalization v0.1.25
     Checking hash32 v0.3.1
-    Checking async-channel v2.5.0
     Checking ssh-encoding v0.2.0
     Checking sha1-checked v0.10.0
-    Checking base16ct v0.2.0
-    Checking jiff v0.2.23
-    Checking hex-conservative v0.3.2
-   Compiling object v0.37.3
-   Compiling aspen-nickel v0.1.0 (/tmp/aspen-lint-precision.3cEzkT/aspen/crates/aspen-nickel)
-    Checking bitflags v1.3.2
-    Checking sec1 v0.7.3
-   Compiling stacker v0.1.23
-   Compiling signal-hook v0.3.18
-   Compiling bytes v1.11.1
-   Compiling aspen-ci v0.1.0 (/tmp/aspen-lint-precision.3cEzkT/aspen/crates/aspen-ci)
-    Checking serde_path_to_error v0.1.20
-    Checking regex v1.12.3
-    Checking matchers v0.2.0
-    Checking lalrpop-util v0.22.2
-    Checking gix-utils v0.3.1
-    Checking bitcoin_hashes v0.15.0
-   Compiling once_cell v1.21.4
-   Compiling darling_core v0.23.0
-    Checking num-integer v0.1.46
-   Compiling chrono-tz v0.10.4
-    Checking cast v0.3.0
-    Checking oorandom v11.1.5
-    Checking plotters-backend v0.3.7
-    Checking ciborium-io v0.2.2
-    Checking itertools v0.10.5
-    Checking signal-hook-mio v0.2.5
-   Compiling prettyplease v0.2.37
-    Checking toml v1.0.7+spec-1.1.0
-    Checking rayon v1.11.0
-    Checking is-terminal v0.4.17
    Compiling serde_derive v1.0.228
    Compiling zerocopy-derive v0.8.42
    Compiling tokio-macros v2.6.1
@@ -577,42 +546,41 @@ help: Check that the patched package version and available features are compatib
    Compiling n0-error-macros v0.1.3
    Compiling spez v0.1.2
    Compiling num_enum_derive v0.7.6
+   Compiling enum-as-inner v0.6.1
+   Compiling enum-assoc v1.3.0
     Checking rustls-pki-types v1.14.0
     Checking futures-util v0.3.32
     Checking cipher v0.4.4
     Checking der v0.8.0
-    Checking rustls-native-certs v0.8.3
-    Checking webpki-roots v1.0.6
-    Checking aes v0.8.4
-    Checking ctr v0.9.2
-   Compiling enum-assoc v1.3.0
-   Compiling enum-as-inner v0.6.1
    Compiling iroh-metrics-derive v0.4.1
    Compiling strum_macros v0.28.0
-    Checking zerofrom v0.1.6
-   Compiling darling_macro v0.20.11
    Compiling snafu-derive v0.8.9
    Compiling clap_derive v4.6.0
+    Checking rustls-native-certs v0.8.3
+    Checking webpki-roots v1.0.6
    Compiling irpc-derive v0.10.0
+    Checking zerofrom v0.1.6
+    Checking regex v1.12.3
+   Compiling darling_macro v0.20.11
+    Checking aes v0.8.4
+    Checking ctr v0.9.2
+    Checking matchers v0.2.0
     Checking yoke v0.8.1
-    Checking pin-project v1.1.11
    Compiling syn-mid v0.5.4
    Compiling ref-cast-impl v1.0.25
-    Checking n0-error v0.1.3
-    Checking cobs v0.3.0
-    Checking num_enum v0.7.6
-    Checking aes-gcm v0.10.3
-    Checking zerovec v0.11.5
-    Checking zerotrie v0.2.3
-   Compiling darling v0.20.11
+    Checking pin-project v1.1.11
    Compiling nested_enum_utils v0.2.3
    Compiling thiserror-impl v1.0.69
-   Compiling derive_builder_core v0.20.2
     Checking chacha20 v0.9.1
-   Compiling openraft-macros v0.10.0 (/tmp/aspen-lint-precision.3cEzkT/aspen/openraft/macros)
+    Checking cobs v0.3.0
+   Compiling openraft-macros v0.10.0 (/tmp/aspen-lint-precision.JuajVW/aspen/openraft/macros)
+    Checking zerovec v0.11.5
+    Checking zerotrie v0.2.3
+    Checking n0-error v0.1.3
+   Compiling darling v0.20.11
+    Checking num_enum v0.7.6
    Compiling derive_more-impl v1.0.0
-   Compiling schemars_derive v0.8.22
-    Checking chacha20poly1305 v0.10.1
+   Compiling derive_builder_core v0.20.2
 warning: loop without visible iteration bound
    --> openraft/macros/src/expand.rs:254:9
     |
@@ -661,8 +629,11 @@ warning: `panic!` will abort the process on execution
     = help: return `Err(...)` instead of panicking
     = note: `#[warn(no_panic)]` on by default
 
+   Compiling schemars_derive v0.8.22
    Compiling logos-derive v0.15.1
    Compiling ouroboros_macro v0.18.5
+    Checking chacha20poly1305 v0.10.1
+    Checking lalrpop-util v0.22.2
    Compiling darling_core v0.14.4
 warning: `.unwrap()` in production code will panic on failure
    --> openraft/macros/src/since.rs:109:26
@@ -698,85 +669,106 @@ warning: `.unwrap()` in production code will panic on failure
    = help: use `?` to propagate, or match/map the error explicitly
 
    Compiling strum_macros v0.26.4
-    Checking spki v0.8.0-rc.4
-   Compiling lalrpop v0.22.2
+    Checking aes-gcm v0.10.3
    Compiling bon-macros v2.3.0
-   Compiling genawaiter-proc-macro v0.99.1
-    Checking pkcs8 v0.11.0-rc.11
     Checking logos v0.15.1
+    Checking base16ct v0.2.0
+    Checking jiff v0.2.23
+    Checking sec1 v0.7.3
     Checking ssh-cipher v0.2.0
-    Checking faster-hex v0.10.0
-    Checking vsock v0.5.3
-    Checking num-bigint v0.4.6
+    Checking hex-conservative v0.3.2
+    Checking gix-utils v0.3.1
+    Checking spki v0.8.0-rc.4
+warning: `openraft-macros` (lib) generated 8 warnings
+    Checking pkcs8 v0.11.0-rc.11
+    Checking bitcoin_hashes v0.15.0
     Checking tinystr v0.8.2
     Checking potential_utf v0.1.4
-warning: `openraft-macros` (lib) generated 8 warnings
-    Checking plotters-svg v0.3.7
-   Compiling darling_macro v0.23.0
-    Checking criterion-plot v0.5.0
+    Checking faster-hex v0.10.0
+   Compiling object v0.37.3
+   Compiling derive_builder_macro v0.20.2
     Checking icu_collections v2.1.1
     Checking icu_locale_core v2.1.1
+    Checking bitflags v1.3.2
+   Compiling aspen-nickel v0.1.0 (/tmp/aspen-lint-precision.JuajVW/aspen/crates/aspen-nickel)
+   Compiling lalrpop v0.22.2
+   Compiling stacker v0.1.23
+   Compiling signal-hook v0.3.18
+   Compiling derive_builder v0.20.2
+   Compiling genawaiter-proc-macro v0.99.1
+    Checking snafu v0.8.9
+    Checking ed25519-dalek v2.2.0
+    Checking ouroboros v0.18.5
+   Compiling aspen-ci v0.1.0 (/tmp/aspen-lint-precision.JuajVW/aspen/crates/aspen-ci)
+   Compiling bytes v1.11.1
+    Checking serde_path_to_error v0.1.20
+    Checking vsock v0.5.3
+   Compiling once_cell v1.21.4
+    Checking ssh-key v0.6.7
+   Compiling darling_core v0.23.0
+    Checking strum v0.28.0
+    Checking clap v4.6.0
+    Checking signal-hook-mio v0.2.5
+    Checking num-integer v0.1.46
+   Compiling chrono-tz v0.10.4
+    Checking cast v0.3.0
+    Checking oorandom v11.1.5
     Checking genawaiter v0.99.1
+    Checking ciborium-io v0.2.2
+    Checking plotters-backend v0.3.7
+    Checking itertools v0.10.5
+    Checking icu_provider v2.1.1
+    Checking toml v1.0.7+spec-1.1.0
+   Compiling prettyplease v0.2.37
+    Checking rayon v1.11.0
+    Checking num-bigint v0.4.6
+    Checking is-terminal v0.4.17
     Checking anes v0.1.6
-    Checking plotters v0.3.7
-    Checking rcgen v0.14.7
-   Compiling derive_builder_macro v0.20.2
+    Checking strum v0.26.3
+   Compiling iroh-relay v0.97.0
     Checking mime v0.3.17
    Compiling memoffset v0.6.5
+   Compiling darling_macro v0.14.4
+    Checking plotters-svg v0.3.7
    Compiling libmimalloc-sys v0.1.44
-   Compiling darling v0.23.0
-   Compiling serde_with_macros v3.18.0
-    Checking snafu v0.8.9
     Checking endian-type v0.1.2
-   Compiling derive_builder v0.20.2
-    Checking ed25519-dalek v2.2.0
+    Checking icu_properties v2.1.2
+    Checking derive_more v1.0.0
+    Checking plotters v0.3.7
     Checking caps v0.5.6
     Checking mio v0.8.11
-    Checking nix v0.24.3
-    Checking strum v0.28.0
-    Checking matchit v0.8.4
-    Checking ssh-key v0.6.7
    Compiling nix-compat v0.1.0 (https://git.snix.dev/snix/snix.git?rev=e20f82dd6fdebe953fb71bb2fde2f32841015c47#e20f82dd)
-    Checking ouroboros v0.18.5
-    Checking clap v4.6.0
+   Compiling darling v0.14.4
+    Checking matchit v0.8.4
+    Checking nix v0.24.3
    Compiling nix-compat-derive v0.1.0 (https://git.snix.dev/snix/snix.git?rev=e20f82dd6fdebe953fb71bb2fde2f32841015c47#e20f82dd)
+   Compiling madsim-macros v0.2.12
    Compiling prost-derive v0.13.5
-   Compiling ar_archive_writer v0.5.1
     Checking console v0.16.3
-    Checking nom v8.0.0
-    Checking icu_provider v2.1.1
     Checking futures-executor v0.3.32
-   Compiling prost-derive v0.14.3
-    Checking strum v0.26.3
-    Checking icu_properties v2.1.2
-   Compiling multimap v0.10.1
-   Compiling iroh-relay v0.97.0
-    Checking futures v0.3.32
-    Checking gimli v0.32.3
     Checking ipnet v2.12.0
     Checking serde_urlencoded v0.7.1
+    Checking futures v0.3.32
     Checking ed25519 v3.0.0-rc.4
-    Checking serde_bencode v0.2.4
-    Checking aspen-kv-types v0.1.0 (/tmp/aspen-lint-precision.3cEzkT/aspen/crates/aspen-kv-types)
     Checking icu_normalizer v2.1.1
+    Checking serde_bencode v0.2.4
+    Checking aspen-kv-types v0.1.0 (/tmp/aspen-lint-precision.JuajVW/aspen/crates/aspen-kv-types)
     Checking bincode v1.3.3
-    Checking aspen-layer v0.1.0 (/tmp/aspen-lint-precision.3cEzkT/aspen/crates/aspen-layer)
-    Checking aspen-jobs-protocol v0.1.0 (/tmp/aspen-lint-precision.3cEzkT/aspen/crates/aspen-jobs-protocol)
-    Checking aspen-coordination-protocol v0.1.0 (/tmp/aspen-lint-precision.3cEzkT/aspen/crates/aspen-coordination-protocol)
-    Checking aspen-forge-protocol v0.1.0 (/tmp/aspen-lint-precision.3cEzkT/aspen/crates/aspen-forge-protocol)
+    Checking aspen-layer v0.1.0 (/tmp/aspen-lint-precision.JuajVW/aspen/crates/aspen-layer)
+    Checking aspen-jobs-protocol v0.1.0 (/tmp/aspen-lint-precision.JuajVW/aspen/crates/aspen-jobs-protocol)
+    Checking rcgen v0.14.7
+    Checking aspen-forge-protocol v0.1.0 (/tmp/aspen-lint-precision.JuajVW/aspen/crates/aspen-forge-protocol)
+    Checking aspen-coordination-protocol v0.1.0 (/tmp/aspen-lint-precision.JuajVW/aspen/crates/aspen-coordination-protocol)
+    Checking http v1.4.0
     Checking inplace-vec-builder v0.1.1
     Checking secrecy v0.10.3
-    Checking range-collections v0.4.6
-    Checking anyerror v0.1.13
-    Checking derive_more v1.0.0
-    Checking futures-concurrency v7.7.1
-    Checking http v1.4.0
     Checking tokio v1.50.0
-    Checking moka v0.12.14
-    Checking aspen-storage-types v0.1.0 (/tmp/aspen-lint-precision.3cEzkT/aspen/crates/aspen-storage-types)
-    Checking validit v0.2.5
-    Checking postcard v1.1.3
     Checking derive_more v2.1.1
+    Checking moka v0.12.14
+    Checking anyerror v0.1.13
+    Checking range-collections v0.4.6
+    Checking futures-concurrency v7.7.1
+    Checking aspen-storage-types v0.1.0 (/tmp/aspen-lint-precision.JuajVW/aspen/crates/aspen-storage-types)
 warning: `Result` value silently discarded with `let _ = ...`
   --> crates/aspen-layer/src/index/registry.rs:48:9
    |
@@ -826,183 +818,219 @@ warning: `Result` value silently discarded with `let _ = ...`
    |
    = help: use `expr?` to propagate, `let _: () = expr?;` to assert infallibility, or handle the error explicitly
 
+    Checking postcard v1.1.3
+    Checking idna_adapter v1.2.1
 warning: `aspen-layer` (lib) generated 4 warnings
     Checking serde_yaml v0.9.34+deprecated
     Checking tracing-core v0.1.36
     Checking ntimestamp v1.0.0
     Checking tempfile v3.27.0
+    Checking idna v1.1.0
+    Checking validit v0.2.5
     Checking codespan-reporting v0.13.1
     Checking nickel-lang-vector v0.1.0
-   Compiling darling_macro v0.14.4
-    Checking idna_adapter v1.2.1
     Checking bstr v1.12.1
-    Checking idna v1.1.0
-    Checking tracing v0.1.44
-    Checking tracing-log v0.2.0
     Checking bon v2.3.0
     Checking rusty-fork v0.3.1
-    Checking ed25519-dalek v3.0.0-pre.1
     Checking quanta v0.12.6
+    Checking url v2.5.8
+    Checking tracing v0.1.44
+    Checking tracing-log v0.2.0
+    Checking serde_spanned v0.6.9
+    Checking toml_datetime v0.6.11
+    Checking ed25519-dalek v3.0.0-pre.1
     Checking bitcoin_hashes v0.14.1
-   Compiling darling v0.14.4
+    Checking prodash v30.0.1
     Checking http-body v1.0.1
+    Checking cron v0.13.0
+    Checking prodash v29.0.2
+    Checking codespan v0.13.1
     Checking iroh-metrics v0.38.3
     Checking tracing-subscriber v0.3.23
-    Checking tracing-futures v0.2.5
-    Checking cron v0.13.0
-    Checking codespan v0.13.1
-    Checking url v2.5.8
-   Compiling madsim-macros v0.2.12
-    Checking toml_datetime v0.6.11
-    Checking http-body-util v0.1.3
     Checking mainline v6.0.1
-    Checking serde_spanned v0.6.9
-    Checking prodash v30.0.1
-    Checking prodash v29.0.2
+    Checking http-body-util v0.1.3
+    Checking tracing-futures v0.2.5
+    Checking toml_edit v0.22.27
     Checking faster-hex v0.9.0
-   Compiling psm v0.1.30
-    Checking aspen-ci-core v0.1.0 (/tmp/aspen-lint-precision.3cEzkT/aspen/crates/aspen-ci-core)
     Checking gix-date v0.12.1
     Checking gix-validate v0.10.1
-    Checking toml_edit v0.22.27
     Checking quick-xml v0.38.4
+    Checking aspen-ci-core v0.1.0 (/tmp/aspen-lint-precision.JuajVW/aspen/crates/aspen-ci-core)
+    Checking criterion-plot v0.5.0
     Checking tinytemplate v1.2.1
-    Checking serde_with v3.18.0
     Checking nibble_vec v0.1.0
     Checking gix-path v0.10.22
-    Checking axum-core v0.5.6
-    Checking mimalloc v0.1.48
-    Checking radix_trie v0.2.1
     Checking gix-features v0.45.2
-    Checking gix-actor v0.37.1
-    Checking crossterm v0.29.0
+    Checking axum-core v0.5.6
     Checking gix-features v0.41.1
-    Checking rustc-demangle v0.1.27
-   Compiling pulldown-cmark v0.13.1
     Checking attohttpc v0.30.1
     Checking iroh-base v0.97.0
+    Checking gix-actor v0.37.1
+    Checking radix_trie v0.2.1
+    Checking mimalloc v0.1.48
+    Checking nom v8.0.0
     Checking gix-hash v0.21.2
-    Checking num-rational v0.4.2
+   Compiling prost-derive v0.14.3
     Checking gix-hash v0.17.0
-    Checking num-iter v0.1.45
-    Checking num-complex v0.4.6
-   Compiling flatbuffers v24.12.23
-    Checking gix-hashtable v0.11.0
-   Compiling owo-colors v4.3.0
-   Compiling camino v1.2.2
-   Compiling prost v0.14.3
+   Compiling darling_macro v0.23.0
+   Compiling multimap v0.10.1
     Checking ppv-lite86 v0.2.21
-    Checking iroh-tickets v0.4.0
     Checking half v2.7.1
+    Checking gix-hashtable v0.11.0
+    Checking iroh-tickets v0.4.0
+    Checking gimli v0.32.3
+    Checking crossterm v0.29.0
+    Checking rustc-demangle v0.1.27
     Checking gix-object v0.54.1
-    Checking phf_shared v0.12.1
-   Compiling winnow v0.5.40
-    Checking addr2line v0.25.1
-   Compiling target-lexicon v0.12.16
-    Checking phf v0.12.1
-    Checking num v0.4.3
-   Compiling petgraph v0.8.3
-   Compiling guppy-workspace-hack v0.1.0
     Checking metrics v0.24.3
     Checking hashbrown v0.14.5
-    Checking arrow-schema v54.3.1
+   Compiling darling v0.23.0
+   Compiling pulldown-cmark v0.13.1
     Checking rand_chacha v0.9.0
     Checking rand_chacha v0.3.1
-   Compiling prost-types v0.14.3
-    Checking opentelemetry v0.30.0
+   Compiling serde_with_macros v3.18.0
+    Checking num-rational v0.4.2
     Checking ciborium-ll v0.2.2
-    Checking arrow-buffer v54.3.1
-    Checking prost v0.13.5
-    Checking smol_str v0.3.6
+    Checking num-iter v0.1.45
     Checking rand v0.9.2
     Checking rand v0.8.5
+   Compiling ar_archive_writer v0.5.1
     Checking ciborium v0.2.2
-   Compiling typeid v1.0.3
-    Checking xz2 v0.1.7
-   Compiling target-spec v3.4.1
-    Checking console v0.15.11
-    Checking anstyle-parse v0.2.7
+    Checking num-complex v0.4.6
+   Compiling flatbuffers v24.12.23
+   Compiling camino v1.2.2
+   Compiling owo-colors v4.3.0
+    Checking phf_shared v0.12.1
     Checking dashmap v6.1.0
-    Checking socket2 v0.5.10
-   Compiling erased-serde v0.4.10
+   Compiling winnow v0.5.40
+   Compiling target-lexicon v0.12.16
     Checking toml v0.8.23
-    Checking cfg-expr v0.17.2
-    Checking arrow-data v54.3.1
-    Checking anstream v0.6.21
-   Compiling sqlparser_derive v0.3.0
-   Compiling prost-types v0.13.5
-   Compiling darling_core v0.21.3
-    Checking is_ci v1.2.0
-   Compiling rustix v0.38.44
-    Checking pretty-hex v0.4.2
-    Checking number_prefix v0.4.0
-    Checking unicode-linebreak v0.1.5
+    Checking num v0.4.3
+    Checking arrow-buffer v54.3.1
+    Checking phf v0.12.1
+   Compiling petgraph v0.8.3
+   Compiling guppy-workspace-hack v0.1.0
+    Checking arrow-schema v54.3.1
     Checking fastbloom v0.14.1
+    Checking uhlc v0.8.2
     Checking proptest v1.10.0
     Checking metrics-util v0.19.1
-    Checking tungstenite v0.28.0
-   Compiling nextest-workspace-hack v0.1.0
-    Checking uhlc v0.8.2
     Checking secp256k1 v0.29.1
-    Checking lexical-util v1.0.7
-   Compiling color-spantrace v0.3.0
+    Checking tungstenite v0.28.0
+    Checking serde_with v3.18.0
+   Compiling psm v0.1.30
+   Compiling prost v0.14.3
+    Checking prost v0.13.5
+    Checking aspen-hlc v0.1.0 (/tmp/aspen-lint-precision.JuajVW/aspen/crates/aspen-hlc)
+    Checking opentelemetry v0.30.0
+    Checking smol_str v0.3.6
+   Compiling typeid v1.0.3
+   Compiling target-spec v3.4.1
+    Checking arrow-data v54.3.1
+    Checking console v0.15.11
+    Checking cfg-expr v0.17.2
+    Checking nostr v0.44.2
+    Checking xz2 v0.1.7
+    Checking anstyle-parse v0.2.7
+   Compiling prost-types v0.14.3
+    Checking socket2 v0.5.10
+   Compiling erased-serde v0.4.10
+   Compiling sqlparser_derive v0.3.0
+    Checking anstream v0.6.21
+   Compiling darling_core v0.21.3
+    Checking unicode-linebreak v0.1.5
+   Compiling nextest-workspace-hack v0.1.0
    Compiling pulldown-cmark-to-cmark v22.0.0
+   Compiling prost-types v0.13.5
+    Checking number_prefix v0.4.0
+   Compiling rustix v0.38.44
+    Checking lexical-util v1.0.7
    Compiling eyre v0.6.12
-    Checking textwrap v0.16.2
+    Checking pretty-hex v0.4.2
+    Checking is_ci v1.2.0
+   Compiling color-spantrace v0.3.0
     Checking indicatif v0.17.11
+    Checking textwrap v0.16.2
     Checking supports-color v3.0.2
-    Checking aspen-hlc v0.1.0 (/tmp/aspen-lint-precision.3cEzkT/aspen/crates/aspen-hlc)
     Checking pathdiff v0.2.3
     Checking tracing-error v0.2.1
     Checking cargo-platform v0.1.9
    Compiling miette-derive v7.6.0
     Checking os_pipe v1.2.3
-    Checking nostr v0.44.2
     Checking vte v0.15.0
     Checking encoding_rs v0.8.35
+    Checking addr2line v0.25.1
     Checking supports-hyperlinks v3.2.0
-    Checking shell-words v1.1.1
     Checking indenter v0.3.4
-    Checking debug-ignore v1.0.5
     Checking supports-unicode v3.0.0
+    Checking debug-ignore v1.0.5
    Compiling typetag v0.2.21
     Checking linux-raw-sys v0.4.15
     Checking unicode-width v0.1.14
+    Checking shell-words v1.1.1
+    Checking vt100 v0.16.2
     Checking cargo_metadata v0.19.2
     Checking sigchld v0.2.4
-    Checking vt100 v0.16.2
    Compiling tonic-build v0.14.5
    Compiling typetag-impl v0.2.21
-   Compiling self_update v0.42.0
-    Checking inventory v0.3.22
-   Compiling prost-build v0.14.3
-    Checking nested v0.1.1
-    Checking unit-prefix v0.5.2
-    Checking shared_child v1.1.1
    Compiling toml_edit v0.20.7
+   Compiling self_update v0.42.0
+    Checking unit-prefix v0.5.2
+    Checking nested v0.1.1
+   Compiling prost-build v0.14.3
+    Checking inventory v0.3.22
+    Checking shared_child v1.1.1
+    Checking indicatif v0.18.4
     Checking nextest-metadata v0.12.1
     Checking dialoguer v0.11.0
-    Checking lexical-parse-integer v1.0.6
     Checking lexical-write-integer v1.0.6
+    Checking lexical-parse-integer v1.0.6
     Checking comfy-table v7.2.2
     Checking globset v0.4.18
-    Checking indicatif v0.18.4
-    Checking self-replace v1.5.0
    Compiling prost-build v0.13.5
+    Checking self-replace v1.5.0
     Checking env_filter v1.0.0
+    Checking tokio-util v0.7.18
+    Checking netlink-sys v0.8.8
+    Checking async-compat v0.2.5
+    Checking backon v1.6.0
+    Checking iroh-io v0.6.2
+    Checking aspen-trust v0.1.0 (/tmp/aspen-lint-precision.JuajVW/aspen/crates/aspen-trust)
+    Checking openraft v0.10.0 (/tmp/aspen-lint-precision.JuajVW/aspen/openraft/openraft)
+    Checking ractor v0.15.12
+    Checking tokio-tungstenite v0.28.0
+    Checking command-group v5.0.1
+    Checking tokio-vsock v0.7.2
+    Checking criterion v0.5.1
+    Checking netlink-proto v0.12.0
+    Checking netdev v0.40.1
+warning: loop without visible iteration bound
+   --> crates/aspen-trust/src/reencrypt.rs:94:5
+    |
+ 94 | /     loop {
+ 95 | |         let batch = store.scan_secrets(prefix, after_key.as_deref(), REENCRYPTION_BATCH_SIZE).await?;
+ 96 | |
+ 97 | |         if batch.is_empty() {
+...   |
+139 | |     }
+    | |_____^
+    |
+    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+    = note: `#[warn(unbounded_loop)]` on by default
+
+    Checking bao-tree v0.16.0
+   Compiling prost-wkt-build v0.7.1
+   Compiling tonic-prost-build v0.14.5
+    Checking guppy v0.17.16
     Checking newtype-uuid v1.3.2
    Compiling nix v0.30.1
     Checking quick-xml v0.37.5
-    Checking urlencoding v2.1.3
     Checking recursion v0.5.4
-   Compiling aspen v0.1.0 (/tmp/aspen-lint-precision.3cEzkT/aspen)
-    Checking env_logger v0.11.9
+   Compiling aspen v0.1.0 (/tmp/aspen-lint-precision.JuajVW/aspen)
+    Checking urlencoding v2.1.3
     Checking quick-junit v0.5.2
-   Compiling unic-langid-impl v0.9.6
-   Compiling cargo-nextest v0.9.91
-    Checking lexical-write-float v1.0.6
-    Checking lexical-parse-float v1.0.6
-    Checking tracing-indicatif v0.3.14
+   Compiling tonic-build v0.13.1
+    Checking backtrace v0.3.76
 warning: `.unwrap()` in production code will panic on failure
  --> build.rs:7:9
   |
@@ -1020,69 +1048,9 @@ warning: `.unwrap()` in production code will panic on failure
    |
    = help: use `?` to propagate, or match/map the error explicitly
 
-    Checking duct v0.13.7
-   Compiling prost-wkt-build v0.7.1
-   Compiling tonic-prost-build v0.14.5
-    Checking future-queue v0.4.0
-    Checking guppy v0.17.16
-    Checking config v0.15.22
-    Checking camino-tempfile v1.4.1
-    Checking mukti-metadata v0.3.0
-    Checking clap-verbosity-flag v3.0.4
-    Checking humantime-serde v1.1.1
-    Checking tokio-util v0.7.18
-    Checking netlink-sys v0.8.8
-    Checking async-compat v0.2.5
-    Checking backon v1.6.0
-    Checking iroh-io v0.6.2
-    Checking aspen-trust v0.1.0 (/tmp/aspen-lint-precision.3cEzkT/aspen/crates/aspen-trust)
-    Checking openraft v0.10.0 (/tmp/aspen-lint-precision.3cEzkT/aspen/openraft/openraft)
-    Checking ractor v0.15.12
-    Checking tokio-tungstenite v0.28.0
-    Checking command-group v5.0.1
-    Checking tokio-vsock v0.7.2
-warning: `aspen` (build script) generated 2 warnings
-    Checking criterion v0.5.1
-    Checking netlink-proto v0.12.0
-    Checking netdev v0.40.1
-   Compiling tonic-build v0.13.1
-    Checking backtrace v0.3.76
-warning: loop without visible iteration bound
-   --> crates/aspen-trust/src/reencrypt.rs:94:5
-    |
- 94 | /     loop {
- 95 | |         let batch = store.scan_secrets(prefix, after_key.as_deref(), REENCRYPTION_BATCH_SIZE).await?;
- 96 | |
- 97 | |         if batch.is_empty() {
-...   |
-139 | |     }
-    | |_____^
-    |
-    = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
-    = note: `#[warn(unbounded_loop)]` on by default
-
+   Compiling unic-langid-impl v0.9.6
+    Checking tracing-indicatif v0.3.14
     Checking prost-wkt v0.7.1
-    Checking bao-tree v0.16.0
-    Checking async-scoped v0.9.0
-   Compiling derive-where v1.6.1
-   Compiling async-stream-impl v0.3.6
-    Checking serde_ignored v0.1.14
-    Checking xxhash-rust v0.8.15
-   Compiling prost-wkt-types v0.7.1
-   Compiling bigtable_rs v0.2.19
-    Checking indent_write v2.2.0
-   Compiling fuse-backend-rs v0.12.0
-    Checking swrite v0.1.0
-    Checking opentelemetry-semantic-conventions v0.30.0
-   Compiling redb v3.1.1
-    Checking safemem v0.2.0
-    Checking home v0.5.12
-    Checking backtrace-ext v0.2.1
-    Checking color-eyre v0.6.5
-    Checking base64 v0.7.0
-    Checking lexical-core v1.0.6
-    Checking miette v7.6.0
-   Compiling unic-langid v0.9.6
 warning: `.expect()` in production code will panic on failure
   --> crates/aspen-trust/src/encryption.rs:67:19
    |
@@ -1149,24 +1117,47 @@ warning: narrowing cast from `u32` to `u8` without bounds check
    |
    = help: use `u8::try_from(value)` or guard with `if value <= u8::MAX as u32`
 
-    Checking async-stream v0.3.6
-    Checking http v0.2.12
-warning: `aspen-trust` (lib) generated 9 warnings
-   Compiling serde_repr v0.1.20
+    Checking env_logger v0.11.9
     Checking h2 v0.4.13
     Checking tower v0.5.3
     Checking tokio-stream v0.1.18
+warning: `aspen-trust` (lib) generated 9 warnings
     Checking madsim v0.2.34
+    Checking lexical-write-float v1.0.6
+   Compiling prost-wkt-types v0.7.1
+   Compiling bigtable_rs v0.2.19
     Checking n0-watcher v0.6.1
+    Checking backtrace-ext v0.2.1
+warning: `aspen` (build script) generated 2 warnings
+    Checking color-eyre v0.6.5
+    Checking async-scoped v0.9.0
+   Compiling cargo-nextest v0.9.91
+    Checking lexical-parse-float v1.0.6
+    Checking miette v7.6.0
+    Checking duct v0.13.7
+    Checking future-queue v0.4.0
+    Checking config v0.15.22
+    Checking camino-tempfile v1.4.1
+    Checking mukti-metadata v0.3.0
    Compiling proc-macro-crate v2.0.0
+    Checking tokio-test v0.4.5
+    Checking zstd v0.13.3
+    Checking opentelemetry_sdk v0.30.0
+    Checking clap-verbosity-flag v3.0.4
+    Checking humantime-serde v1.1.1
+   Compiling async-stream-impl v0.3.6
+   Compiling derive-where v1.6.1
+    Checking serde_ignored v0.1.14
+   Compiling redb v3.1.1
    Compiling darling_macro v0.21.3
+   Compiling fuse-backend-rs v0.12.0
 error: failed to run custom build command for `prost-wkt-types v0.7.1`
 
 Caused by:
-  process didn't exit successfully: `/tmp/aspen-lint-precision.3cEzkT/target-before/dylint/target/nightly-2026-03-21-x86_64-unknown-linux-gnu/debug/build/prost-wkt-types-c8e17aa6b3cb2458/build-script-build` (exit status: 101)
+  process didn't exit successfully: `/tmp/aspen-lint-precision.JuajVW/target-before/dylint/target/nightly-2026-03-21-x86_64-unknown-linux-gnu/debug/build/prost-wkt-types-c8e17aa6b3cb2458/build-script-build` (exit status: 101)
   --- stderr
 
-  thread 'main' (1899086) panicked at /tmp/tmp.zC7ON9H6pK/registry/src/index.crates.io-1949cf8c6b5b557f/prost-wkt-types-0.7.1/build.rs:48:10:
+  thread 'main' (2098128) panicked at /tmp/tmp.cucb9jgGZT/registry/src/index.crates.io-1949cf8c6b5b557f/prost-wkt-types-0.7.1/build.rs:48:10:
   called `Result::unwrap()` on an `Err` value: Custom { kind: NotFound, error: "Could not find `protoc`. If `protoc` is installed, try setting the `PROTOC` environment variable to the path of the `protoc` binary. To install it on Debian, run `apt-get install protobuf-compiler`. It is also available at https://github.com/protocolbuffers/protobuf/releases  For more information: https://docs.rs/prost-build/#sourcing-protoc" }
   note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
 warning: build failed, waiting for other jobs to finish...
@@ -3774,5 +3765,5 @@ warning: `openraft` (lib) generated 310 warnings
 Error: Error: Compilation failed with toolchain `nightly-2026-03-21-x86_64-unknown-linux-gnu`
 
 Caused by:
-    command failed: env -u CARGO -u RUSTC CLIPPY_DISABLE_DOCS_LINKS="null" DYLINT_LIBS="[\"/tmp/aspen-lint-precision.3cEzkT/target-before/dylint/libraries/nightly-2026-03-21-x86_64-unknown-linux-gnu/release/libtigerstyle@nightly-2026-03-21-x86_64-unknown-linux-gnu.so\"]" DYLINT_METADATA="null" DYLINT_NO_DEPS="0" RUSTC_WORKSPACE_WRAPPER="/tmp/tmp.zC7ON9H6pK/dylint-drivers/nightly-2026-03-21-x86_64-unknown-linux-gnu/dylint-driver" RUSTUP_TOOLCHAIN="nightly-2026-03-21-x86_64-unknown-linux-gnu" "cargo" "check" "--target-dir" "/tmp/aspen-lint-precision.3cEzkT/target-before/dylint/target/nightly-2026-03-21-x86_64-unknown-linux-gnu" "--workspace" "--all-targets"
+    command failed: env -u CARGO -u RUSTC CLIPPY_DISABLE_DOCS_LINKS="null" DYLINT_LIBS="[\"/tmp/aspen-lint-precision.JuajVW/target-before/dylint/libraries/nightly-2026-03-21-x86_64-unknown-linux-gnu/release/libtigerstyle@nightly-2026-03-21-x86_64-unknown-linux-gnu.so\"]" DYLINT_METADATA="null" DYLINT_NO_DEPS="0" RUSTC_WORKSPACE_WRAPPER="/tmp/tmp.cucb9jgGZT/dylint-drivers/nightly-2026-03-21-x86_64-unknown-linux-gnu/dylint-driver" RUSTUP_TOOLCHAIN="nightly-2026-03-21-x86_64-unknown-linux-gnu" "cargo" "check" "--target-dir" "/tmp/aspen-lint-precision.JuajVW/target-before/dylint/target/nightly-2026-03-21-x86_64-unknown-linux-gnu" "--workspace" "--all-targets"
 # exit status: 1

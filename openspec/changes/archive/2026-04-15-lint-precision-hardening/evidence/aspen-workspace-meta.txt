@@ -1,12 +1,12 @@
-$ bash openspec/changes/lint-precision-hardening/evidence/replay-aspen-comparison.sh
+$ bash openspec/changes/archive/2026-04-15-lint-precision-hardening/evidence/replay-aspen-comparison.sh
 $ git -C /home/brittonr/git/aspen rev-parse HEAD
 8cddaec93ad1be8c224589e44ea33c6bcedd30b0
 $ git -C /home/brittonr/git/tigerstyle rev-parse f04333d6640228d2305904b981ce70f7d803424d
 f04333d6640228d2305904b981ce70f7d803424d
-$ git -C /home/brittonr/git/tigerstyle rev-parse 2eacd45e17c3f02c5a1e19025b63279981247f12
-2eacd45e17c3f02c5a1e19025b63279981247f12
+$ git -C /home/brittonr/git/tigerstyle rev-parse 51b6c6cabee12748fb971e36151464927cb54d7e
+51b6c6cabee12748fb971e36151464927cb54d7e
 $ pwd
-/tmp/aspen-lint-precision.3cEzkT
+/tmp/aspen-lint-precision.JuajVW
 # phase-1 archive: openspec/changes/archive/2026-04-13-aspen-consumer-rollout/
 # phase-2 archive: openspec/changes/archive/2026-04-14-aspen-phase2-widening/
 # dylint rev: 0e0a71eefe6f01563d11acc6e1d7af1d505934a9
