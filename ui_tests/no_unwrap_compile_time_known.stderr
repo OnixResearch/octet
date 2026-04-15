@@ -1,0 +1,26 @@
+warning: `.expect()` in production code will panic on failure
+  --> $DIR/no_unwrap_compile_time_known.rs:11:5
+   |
+LL |     Some(1_u32).expect("constructor expect should still warn")
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: use `?` with `.context()` (anyhow) or `.whatever_context()` (snafu) instead
+   = note: `#[warn(no_unwrap)]` on by default
+
+warning: `.unwrap()` in production code will panic on failure
+  --> $DIR/no_unwrap_compile_time_known.rs:15:5
+   |
+LL |     "not an ip".parse().unwrap()
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+  --> $DIR/no_unwrap_compile_time_known.rs:19:5
+   |
+LL |     input.parse().unwrap()
+   |     ^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: use `?` to propagate, or match/map the error explicitly
+
+warning: 3 warnings emitted

@@ -1,0 +1,10 @@
+warning: `unreachable!` will abort the process on execution
+  --> $DIR/no_panic_exhaustive_indirect.rs:14:13
+   |
+LL |             unreachable!("indirect wildcard body should still warn");
+   |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: if truly unreachable, use `debug_assert!` or prove it with types
+   = note: `#[warn(no_panic)]` on by default
+
+warning: 1 warning emitted

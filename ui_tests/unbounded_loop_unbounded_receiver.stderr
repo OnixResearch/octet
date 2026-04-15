@@ -1,0 +1,12 @@
+warning: loop without visible iteration bound
+  --> $DIR/tokio_async/unbounded_loop_unbounded_receiver.rs:4:5
+   |
+LL | /     while let Some(msg) = rx.recv().await {
+LL | |         let _ = msg;
+LL | |     }
+   | |_____^
+   |
+   = help: add a counter or max-iterations guard, or use `for _ in 0..MAX_RETRIES` instead
+   = note: `#[warn(unbounded_loop)]` on by default
+
+warning: 1 warning emitted

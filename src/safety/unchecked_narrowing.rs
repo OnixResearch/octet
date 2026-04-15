@@ -52,6 +52,18 @@ fn is_target_max_expr<'tcx>(cx: &LateContext<'tcx>, expr: &hir::Expr<'tcx>, targ
     normalized == format!("{target_name}::MAX") || normalized == format!("<{target_name}>::MAX")
 }
 
+fn same_checked_expr(lhs: &hir::Expr<'_>, rhs: &hir::Expr<'_>) -> bool {
+    match (&lhs.kind, &rhs.kind) {
+        (ExprKind::Path(hir::QPath::Resolved(_, lhs_path)), ExprKind::Path(hir::QPath::Resolved(_, rhs_path))) => {
+            lhs_path.res == rhs_path.res
+        }
+        (ExprKind::Field(lhs_base, lhs_ident), ExprKind::Field(rhs_base, rhs_ident)) => {
+            lhs_ident.name == rhs_ident.name && same_checked_expr(lhs_base, rhs_base)
+        }
+        _ => false,
+    }
+}
+
 fn is_min_bounded_cast<'tcx>(
     cx: &LateContext<'tcx>,
     inner: &'tcx hir::Expr<'tcx>,
@@ -92,23 +104,88 @@ fn has_bounds_guard(cx: &LateContext<'_>, expr: &hir::Expr<'_>) -> bool {
                         }
                     }
                 }
-                // Check for preceding assert! in a block — look at the parent block
-                if let ExprKind::Block(block, _) = &parent.kind {
-                    let source_map = cx.sess().source_map();
-                    if let Ok(snippet) = source_map.span_to_snippet(block.span) {
-                        let s = snippet.to_ascii_lowercase();
-                        // If the block contains an assert with MAX before the cast
-                        if s.contains("assert") && s.contains("max") {
-                            return true;
-                        }
-                    }
-                }
             }
             // Stop at function boundaries
             hir::Node::Item(_) | hir::Node::ImplItem(_) | hir::Node::TraitItem(_) => break,
             _ => {}
         }
     }
+    false
+}
+
+fn is_assert_bounds_condition<'tcx>(
+    cx: &LateContext<'tcx>,
+    cond: &'tcx hir::Expr<'tcx>,
+    inner: &'tcx hir::Expr<'tcx>,
+    source_ty: Ty<'tcx>,
+    target_ty: Ty<'tcx>,
+) -> bool {
+    let checked = match &cond.kind {
+        ExprKind::Unary(hir::UnOp::Not, checked) => checked,
+        _ => return false,
+    };
+
+    let ExprKind::Binary(op, lhs, rhs) = &checked.kind else {
+        return false;
+    };
+
+    matches!(op.node, hir::BinOpKind::Le)
+        && same_checked_expr(lhs, inner)
+        && matches!(&rhs.kind, ExprKind::Cast(max_expr, _) if cx.typeck_results().expr_ty(rhs) == source_ty
+            && cx.typeck_results().expr_ty(max_expr) == target_ty
+            && is_target_max_expr(cx, max_expr, target_ty))
+}
+
+fn has_prior_same_block_assert<'tcx>(
+    cx: &LateContext<'tcx>,
+    expr: &'tcx hir::Expr<'tcx>,
+    inner: &'tcx hir::Expr<'tcx>,
+    source_ty: Ty<'tcx>,
+    target_ty: Ty<'tcx>,
+) -> bool {
+    for (_, node) in cx.tcx.hir_parent_iter(expr.hir_id) {
+        match node {
+            hir::Node::Block(block) => {
+                let expr_callsite = expr.span.source_callsite();
+
+                for stmt in block.stmts {
+                    let stmt_callsite = stmt.span.source_callsite();
+                    if stmt_callsite.hi() > expr_callsite.lo() {
+                        break;
+                    }
+
+                    let (hir::StmtKind::Semi(assert_expr) | hir::StmtKind::Expr(assert_expr)) = stmt.kind else {
+                        continue;
+                    };
+
+                    let ExprKind::If(cond, _, _) = &assert_expr.kind else {
+                        continue;
+                    };
+
+                    if !assert_expr.span.from_expansion() {
+                        continue;
+                    }
+
+                    let Ok(callsite) = cx.sess().source_map().span_to_snippet(assert_expr.span.source_callsite())
+                    else {
+                        continue;
+                    };
+                    if !callsite.trim_start().starts_with("assert!") {
+                        continue;
+                    }
+
+                    if is_assert_bounds_condition(cx, cond, inner, source_ty, target_ty) {
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+            hir::Node::Item(_) | hir::Node::ImplItem(_) | hir::Node::TraitItem(_) => break,
+            _ => {}
+        }
+    }
+
     false
 }
 
@@ -166,7 +243,7 @@ impl<'tcx> LateLintPass<'tcx> for UncheckedNarrowing {
         }
 
         // Skip if inside a bounds-checking guard
-        if has_bounds_guard(cx, expr) {
+        if has_bounds_guard(cx, expr) || has_prior_same_block_assert(cx, expr, inner, source_ty, target_ty) {
             return;
         }
 

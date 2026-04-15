@@ -98,7 +98,7 @@ lint_inventory! {
         lint_store.register_early_pass(|| Box::new(naming::numeric_units::NumericUnits));
     },
     "unbounded_loop", safety::unbounded_loop::UNBOUNDED_LOOP => |lint_store, _cfg| {
-        lint_store.register_early_pass(|| Box::new(safety::unbounded_loop::UnboundedLoop));
+        lint_store.register_late_pass(|_| Box::new(safety::unbounded_loop::UnboundedLoop));
     },
     "compound_condition", structure::compound_condition::COMPOUND_CONDITION => |lint_store, _cfg| {
         lint_store.register_early_pass(|| Box::new(structure::compound_condition::CompoundCondition));

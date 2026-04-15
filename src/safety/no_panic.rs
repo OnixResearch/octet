@@ -12,6 +12,7 @@ use rustc_lint::LintContext;
 use rustc_middle::ty;
 use rustc_session::declare_lint;
 use rustc_session::impl_lint_pass;
+use rustc_span::Span;
 use rustc_span::sym;
 
 use crate::test_context;
@@ -82,6 +83,128 @@ fn collect_variant_ids_from_pat(
     }
 }
 
+fn item_span_indicates_non_exhaustive(cx: &LateContext<'_>, span: Span) -> bool {
+    let source_map = cx.sess().source_map();
+    let Ok(lines) = source_map.span_to_lines(span) else {
+        return false;
+    };
+    let Some(first_line_idx) = lines.lines.first().map(|line| line.line_index) else {
+        return false;
+    };
+
+    for idx in (0..first_line_idx).rev() {
+        let Some(line) = lines.file.get_line(idx) else {
+            continue;
+        };
+        let trimmed = line.trim();
+
+        if trimmed.is_empty() || trimmed.starts_with("//") {
+            continue;
+        }
+
+        if trimmed.starts_with("#[") || trimmed.starts_with("#![") {
+            if trimmed.contains("non_exhaustive") {
+                return true;
+            }
+            continue;
+        }
+
+        break;
+    }
+
+    false
+}
+
+fn is_line_comment(line: &str) -> bool {
+    let trimmed = line.trim();
+    trimmed.starts_with("//") && !trimmed.starts_with("///") && !trimmed.starts_with("//!")
+}
+
+fn line_has_no_panic_allow(line: &str) -> bool {
+    let normalized = line.chars().filter(|ch| !ch.is_whitespace()).collect::<String>();
+    normalized.contains("#[allow(tigerstyle::no_panic)]")
+}
+
+fn span_has_justified_no_panic_allow(cx: &LateContext<'_>, span: Span) -> bool {
+    let source_map = cx.sess().source_map();
+    let Ok(lines) = source_map.span_to_lines(span) else {
+        return false;
+    };
+    let Some(first_line_idx) = lines.lines.first().map(|line| line.line_index) else {
+        return false;
+    };
+
+    for idx in (0..first_line_idx).rev() {
+        let Some(line) = lines.file.get_line(idx) else {
+            continue;
+        };
+        let trimmed = line.trim();
+
+        if trimmed.is_empty() {
+            break;
+        }
+
+        if line_has_no_panic_allow(trimmed) {
+            if trimmed.contains("//") {
+                return true;
+            }
+
+            if idx > 0
+                && let Some(prev_line) = lines.file.get_line(idx - 1)
+                && is_line_comment(&prev_line)
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+        if is_line_comment(trimmed) || trimmed.starts_with("#[") || trimmed.starts_with("#![") {
+            continue;
+        }
+
+        break;
+    }
+
+    false
+}
+
+fn has_justified_todo_allow(cx: &LateContext<'_>, expr: &hir::Expr<'_>, name: &str) -> bool {
+    if name != "todo!" {
+        return false;
+    }
+
+    for (_, node) in cx.tcx.hir_parent_iter(expr.hir_id) {
+        match node {
+            hir::Node::Expr(parent_expr) => {
+                if let ExprKind::Block(block, _) = &parent_expr.kind
+                    && span_has_justified_no_panic_allow(cx, block.span.source_callsite())
+                {
+                    return true;
+                }
+            }
+            hir::Node::Item(item) => {
+                if span_has_justified_no_panic_allow(cx, item.span.source_callsite()) {
+                    return true;
+                }
+            }
+            hir::Node::ImplItem(impl_item) => {
+                if span_has_justified_no_panic_allow(cx, impl_item.span.source_callsite()) {
+                    return true;
+                }
+            }
+            hir::Node::TraitItem(trait_item) => {
+                if span_has_justified_no_panic_allow(cx, trait_item.span.source_callsite()) {
+                    return true;
+                }
+            }
+            _ => {}
+        }
+    }
+
+    false
+}
+
 fn is_exhaustive_unreachable_wildcard(cx: &LateContext<'_>, expr: &hir::Expr<'_>, name: &str) -> bool {
     if name != "unreachable!" {
         return false;
@@ -124,8 +247,11 @@ fn is_exhaustive_unreachable_wildcard(cx: &LateContext<'_>, expr: &hir::Expr<'_>
                 let Some(local_enum_def_id) = adt_def.did().as_local() else {
                     return false;
                 };
-                let enum_attrs = cx.tcx.hir_attrs(cx.tcx.local_def_id_to_hir_id(local_enum_def_id));
-                if enum_attrs.iter().any(|attr| attr.has_name(sym::non_exhaustive)) {
+                let enum_hir_id = cx.tcx.local_def_id_to_hir_id(local_enum_def_id);
+                let enum_attrs = cx.tcx.hir_attrs(enum_hir_id);
+                if enum_attrs.iter().any(|attr| attr.has_name(sym::non_exhaustive))
+                    || item_span_indicates_non_exhaustive(cx, cx.tcx.hir_span(enum_hir_id))
+                {
                     return false;
                 }
 
@@ -176,7 +302,7 @@ impl<'tcx> LateLintPass<'tcx> for NoPanic {
             return;
         };
 
-        if is_exhaustive_unreachable_wildcard(cx, expr, name) {
+        if is_exhaustive_unreachable_wildcard(cx, expr, name) || has_justified_todo_allow(cx, expr, name) {
             return;
         }
 
