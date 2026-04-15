@@ -16,11 +16,19 @@ LL |     "not an ip".parse().unwrap()
    = help: use `?` to propagate, or match/map the error explicitly
 
 warning: `.unwrap()` in production code will panic on failure
-  --> $DIR/no_unwrap_compile_time_known.rs:19:5
+  --> $DIR/no_unwrap_compile_time_known.rs:29:5
+   |
+LL |     "still warns".parse().unwrap()
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: use `?` to propagate, or match/map the error explicitly
+
+warning: `.unwrap()` in production code will panic on failure
+  --> $DIR/no_unwrap_compile_time_known.rs:33:5
    |
 LL |     input.parse().unwrap()
    |     ^^^^^^^^^^^^^^^^^^^^^^
    |
    = help: use `?` to propagate, or match/map the error explicitly
 
-warning: 3 warnings emitted
+warning: 4 warnings emitted

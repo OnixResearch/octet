@@ -17,7 +17,7 @@
 ## Phase 2: Pattern-based suppression
 
 - [x] `no_unwrap`: skip `.unwrap()` on compile-time-known `Some` / `Ok` and literal-string `.parse().unwrap()`, including const/static-style initializer contexts
-- [x] UI proof: `ui_tests/no_unwrap_compile_time_known.rs` stays silent for compile-time-known `Some` / `Ok` and valid literal-string `.parse().unwrap()` cases while equivalent `.expect()`, invalid literal parses, and non-literal `.parse().unwrap()` cases still warn
+- [x] UI proof: `ui_tests/no_unwrap_compile_time_known.rs` stays silent for compile-time-known `Some` / `Ok` and valid literal-string `.parse().unwrap()` cases while equivalent `.expect()`, invalid literal parses, unsupported literal parse targets, and non-literal `.parse().unwrap()` cases still warn
 - [x] `no_unwrap`: skip `.unwrap()` after `.is_some()` / `.is_ok()` guard in same branch
 - [x] Implementation guardrail: same-branch unwrap suppression uses condition structure (`&&` may carry the guard, `||` only counts when both sides imply it) instead of raw snippet matching
 - [x] UI proof: `ui_tests/no_unwrap_guarded.rs` stays silent in the guarded `.unwrap()` branch while guarded `.expect()` and the unguarded `else` path still warn
@@ -66,10 +66,11 @@
 - [x] `unbounded_loop`: recognize `while let Some(_) = rx.recv().await` only for `tokio::sync::mpsc::Receiver<_>`
 - [x] UI proof: `ui_tests/tokio_async/unbounded_loop_bounded_receiver.rs` covers bounded `tokio::sync::mpsc::Receiver<_>`
 - [x] UI proof: `ui_tests/tokio_async/unbounded_loop_unbounded_receiver.rs` distinguishes `UnboundedReceiver<_>` and still warns
+- [x] Regression proof: `ui_tests/unbounded_loop.rs` keeps existing visible-counter and counter-break bounded loops silent while the bare loop still warns
 
 ## Phase 4: Downstream validation
 
-- [ ] Re-run against Aspen and record before/after finding counts
-- [ ] Save reviewer-visible Aspen comparison artifact at `openspec/changes/lint-precision-hardening/evidence/aspen-comparison.md` with before/after counts and short notes per affected lint family
-- [ ] Confirm no real findings were lost in the precision changes
-- [ ] Update `docs/downstream-rollout.md` noise-level notes if any family becomes promotable
+- [x] Re-run against Aspen and record before/after finding counts
+- [x] Save reviewer-visible Aspen comparison artifact at `openspec/changes/lint-precision-hardening/evidence/aspen-comparison.md` with before/after counts and short notes per affected lint family
+- [x] Confirm no real findings were lost in the precision changes (`aspen-comparison.md`: no owned-package count deltas; workspace-only regression limited to vendored `openraft`)
+- [x] Review `docs/downstream-rollout.md` noise-level notes and keep them unchanged because this rerun did not make any additional family promotable
