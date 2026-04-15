@@ -25,8 +25,10 @@ belong in the narrow-allow workflow, not in lint suppression.
 test assertions and setup. These are already excluded by spec for other
 lints like `assertion_density`.
 
-**Implementation:** Check `cx.tcx.hir_attrs(hir_id)` for `test` or
-`cfg(test)` attributes. Walk parent items for `mod tests` detection.
+**Implementation:** Check HIR attrs plus enclosing-item source fallback for
+`#[test]`, `#[cfg(test)]`, and inner `#![cfg(test)]`. Keep explicit UI proof
+for `#[cfg(not(test))]` so suppression does not broaden back into production
+paths.
 
 ### 2. Compile-time-known unwrap suppression
 
@@ -49,22 +51,26 @@ during cleanup is the only option. The error would have to be logged
 or swallowed regardless.
 
 **Implementation:** Check if the enclosing function is a `Drop::drop`
-impl method.
+impl method, and match the trait through `tcx.lang_items().drop_trait()`
+rather than by trait-name text.
 
 ### 4. Exhaustive-match unreachable suppression for `no_panic`
 
-**Choice:** Skip `unreachable!()` in match arms that follow exhaustive
-variant listing.
+**Choice:** Skip `unreachable!()` in a trailing wildcard arm when earlier
+arms explicitly cover every variant of a local enum.
 
 **Rationale:** After listing all enum variants explicitly, a trailing
 `_ => unreachable!()` is defensive programming, not a liveness hazard.
 
-**Implementation:** Check if the match arm is a wildcard following
-variant-listing arms that cover all known variants.
+**Implementation:** In a late pass, inspect the enclosing `match`, require
+that the `unreachable!()` is the direct body of the last wildcard arm,
+collect concrete variant arms, and suppress only when they cover the full
+local enum variant set. Do not suppress external or `#[non_exhaustive]`
+enums.
 
 **Alternative:** Only suppress when the compiler can prove exhaustiveness
 — rejected because rustc's exhaustiveness check happens before our lint
-pass and we'd need to duplicate that logic.
+pass and we'd need to duplicate that logic anyway.
 
 ### 5. Broader bounds-check recognition for `unchecked_narrowing`
 
@@ -75,7 +81,89 @@ pass and we'd need to duplicate that logic.
 a preceding `assert!`.
 
 **Implementation:** Pattern-match on the expression structure surrounding
-the `as` cast.
+the cast or conversion.
+
+### 6. Justified `todo!()` suppression for `no_panic`
+
+**Choice:** Suppress `todo!()` only when the call is inside a function or
+block explicitly annotated with `#[allow(tigerstyle::no_panic)]` and the
+attribute has a justification comment on the same line or the immediately
+preceding non-empty line.
+
+**Rationale:** Stub-in-progress escapes should stay narrow and auditable.
+A loose comment rule would turn `todo!()` into an easy blanket opt-out.
+
+**Implementation:** Reuse the repo's existing justification-comment shape:
+only `// ...` comments count, with no blank line between comment and
+attribute. Doc comments and block comments do not count. Standalone UI
+fixtures that exercise the tool-scoped attr must register the tool.
+
+### 7. Shutdown-send suppression for `ignored_result`
+
+**Choice:** Limit fire-and-forget send suppression to `let _ = tx.send(msg);`
+in functions or methods named exactly `shutdown` or `close`, and only when
+`tx` has type `std::sync::mpsc::Sender<_>` or `tokio::sync::mpsc::Sender<_>`.
+
+**Rationale:** Receiver disappearance is expected during teardown, but the
+same `send` pattern is risky in ordinary request or replication paths.
+A narrow type-and-name rule keeps the exception reviewable.
+
+**Implementation:** Match the ignored expression as a `send` method call on
+those sender types, then check the enclosing function or impl item name.
+`Drop::drop` remains a separate rule rather than being folded into this one.
+
+### 8. Same-block `assert!` recognition for `unchecked_narrowing`
+
+**Choice:** Treat earlier `assert!(value <= T::MAX as WIDE)` statements in
+the same block as a valid bound for a later `value as T` cast.
+
+**Rationale:** Real code often separates validation from the cast with
+logging or small helper statements. Requiring the assert to be immediately
+adjacent adds noise without improving safety.
+
+**Implementation:** Walk the enclosing block, inspect only statements that
+textually precede the cast, and match the same source expression plus the
+`<= TARGET::MAX as WIDE` bound shape. Do not fall back to whole-block text
+search.
+
+### 9. `tokio::select!` loop recognition for `unbounded_loop`
+
+**Choice:** Treat `loop { tokio::select! { ... } }` and `loop { select! { ... } }`
+(imported from Tokio) as bounded event-loop patterns.
+
+**Rationale:** These loops wait on external readiness and are normal control
+flow in async services. The precision goal is to stop flagging the common
+Tokio case, not to bless arbitrary macros named `select!`.
+
+**Implementation:** Detect the loop-body macro callsite as `tokio::select!`
+or imported `select!` from Tokio. Keep the rule narrow; other event-loop
+macros stay out of scope for this change.
+
+### 10. Bounded receiver recognition for `unbounded_loop`
+
+**Choice:** Treat `while let Some(msg) = rx.recv().await` as bounded only
+when `rx` has type `tokio::sync::mpsc::Receiver<_>`. Do not suppress
+`tokio::sync::mpsc::UnboundedReceiver<_>`.
+
+**Rationale:** The bounded Tokio receiver has built-in capacity limits and
+is the main downstream pattern we care about. Collapsing bounded and
+unbounded receiver types would hide real liveness risks.
+
+**Implementation:** Resolve the receiver type of `recv().await` through HIR
+and typeck results. The positive and negative UI fixtures should use a small
+fixture-local crate with Tokio available if needed.
+
+### 11. Async UI harness parity
+
+**Choice:** Keep the standalone UI harness compiling every fixture with
+`--edition=2024`.
+
+**Rationale:** Pending async fixtures (`tokio::select!`, `recv().await`) must
+compile under the repo's real edition. Falling back to rustc's default edition
+would create false failures unrelated to the lint logic.
+
+**Implementation:** Preserve `--edition=2024` in `tests/ui.rs` and treat it as
+an explicit prerequisite for future async precision fixtures.
 
 ## Risks / Trade-offs
 
