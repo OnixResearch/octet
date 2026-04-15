@@ -1,49 +1,45 @@
-## Phase 1: Diagnostic helper
+## Phase 1: Diagnostic foundation
 
-- [ ] Create `src/diagnostics.rs` with `tiger_style_help()` helper
-- [ ] Define principle names and reference sections for all 26 lints
-- [ ] Add helper to each lint's diagnostic emission
+- [ ] Create `src/diagnostics.rs` with `LintDiagnosticMeta` inventory and `emit_tiger_style_lint()` wrapper
+- [ ] Declare and wire the new `diagnostics` module from `src/lib.rs` so lint modules can compile against the shared wrapper
+- [ ] Record principle, guide section, domain group, guidance, and example text policy for all 25 lints in one metadata table
+- [ ] Copy the canonical principle, guide section, domain group, guidance, and example text strings verbatim from the design appendix into the metadata inventory
+- [ ] Add a unit test proving diagnostic metadata names exactly match `LINT_INVENTORY`
+- [ ] Add a full metadata snapshot test covering lint name, principle, guide section, domain group, guidance, example mode, and example text
+- [ ] Assert every `ExampleMode::Required` entry has concrete example text
+- [ ] Add a shared-helper enforcement test that source-scans lint modules and rejects `Tiger Style (`, `see Tiger Style guide:`, `.help(`, `.note(`, `span_help(`, and `span_note(` outside `src/diagnostics.rs`
 
-## Phase 2: Safety domain diagnostics
+## Phase 2: Wire rich diagnostics into lint emissions
 
-- [ ] `compound_assertion`: principle "Assertion Quality", show split pattern
-- [ ] `assertion_density`: principle "Assertion Density", show minimum expectations
-- [ ] `unbounded_loop`: principle "Bounded Control Flow", show bounded alternative
-- [ ] `ignored_result`: principle "Error Handling", show propagation pattern
-- [ ] `unchecked_narrowing`: principle "Safe Narrowing", show `try_from` pattern
-- [ ] `unchecked_division`: principle "Explicit Division", show guard pattern
-- [ ] `raw_arithmetic_overflow`: principle "Overflow Protection", show checked ops
-- [ ] `catch_all_on_enum`: principle "Exhaustive Matching", show explicit variants
-- [ ] `no_unwrap`: principle "Error Handling", show `?` or `match` alternative
-- [ ] `no_panic`: principle "Fail Fast Correctly", explain panic vs error
-- [ ] `no_recursion`: principle "Simple Control Flow", suggest iteration
+- [ ] Route every lint emission through `emit_tiger_style_lint()` and remove direct help/note emission from lint modules before any snapshot refresh
+- [ ] Keep explicit lint/pass registration code as the source of truth for pass wiring; do not introduce a runtime function-pointer registration table while adding the shared inventory
+- [ ] Bind each lint below to its exact appendix-derived `LintDiagnosticMeta` row; do not paraphrase principle, guide section, domain group, guidance, example mode, or example text during rewiring
+- [ ] Safety lints: `compound_assertion`, `assertion_density`, `unbounded_loop`, `ignored_result`, `unchecked_narrowing`, `unchecked_division`, `raw_arithmetic_overflow`, `catch_all_on_enum`, `no_unwrap`, `no_panic`, `no_recursion`
+- [ ] Naming lints: `bool_naming`, `acronym_style`, `numeric_units`, `float_for_currency`
+- [ ] Structure lints: `function_length`, `compound_condition`, `ambiguous_params`, `platform_dependent_cast`, `unjustified_allow`, `nested_conditionals`
+- [ ] Purity lints: `ambient_clock`, `contradictory_time`, `verified_purity`
+- [ ] Concurrency lint: `multi_lock_ordering`
 
-## Phase 3: Other domain diagnostics
+## Phase 3: Register and verify domain groups
 
-- [ ] `ambient_clock`: principle "Functional Core", show injection pattern
-- [ ] `contradictory_time`: principle "Functional Core", show parameter-only pattern
-- [ ] `verified_purity`: principle "Verified Module Purity", show pure alternatives
-- [ ] `bool_naming`: principle "Positive Predicates", show prefixed pattern
-- [ ] `acronym_style`: principle "Acronym Capitalization", show single-word form
-- [ ] `numeric_units`: principle "Unit Suffixes", show suffixed name
-- [ ] `float_for_currency`: principle "Integer Currency", show microdollar pattern
-- [ ] `function_length`: principle "Function Length", show split guidance
-- [ ] `compound_condition`: principle "Condition Decomposition", show nested-if pattern
-- [ ] `ambiguous_params`: principle "Explicit Interfaces", show options struct
-- [ ] `platform_dependent_cast`: principle "Explicit Types", show fixed-width pattern
-- [ ] `unjustified_allow`: principle "Documented Suppression", show comment pattern
-- [ ] `nested_conditionals`: principle "Simple Control Flow", show flat alternative
-- [ ] `multi_lock_ordering`: principle "Lock Ordering", show comment pattern
+- [ ] Register domain groups from inventory-derived lists of the original static lint IDs; do not clone `Lint` descriptors or use a runtime registration table
+- [ ] Register `tigerstyle::safety` group from the shared metadata inventory (11 lints)
+- [ ] Register `tigerstyle::naming` group from the shared metadata inventory (4 lints)
+- [ ] Register `tigerstyle::structure` group from the shared metadata inventory (6 lints)
+- [ ] Register `tigerstyle::purity` group from the shared metadata inventory (3 lints)
+- [ ] Register `tigerstyle::concurrency` group from the shared metadata inventory (1 lint)
+- [ ] Add a full group-membership snapshot test covering all five group names and their ordered lint members
+- [ ] Add standalone UI fixture proving `#![allow(tigerstyle::safety)]` suppresses safety lints while a different-domain lint still warns
+- [ ] Add standalone UI fixture proving `#![deny(tigerstyle::naming)]` escalates a naming lint to an error
+- [ ] Keep group fixtures self-contained with `#![feature(register_tool)]`, `#![register_tool(tigerstyle)]`, and the existing `--edition=2024` UI path
 
-## Phase 4: Lint groups
+## Phase 4: Snapshot and emitted-diagnostic validation
 
-- [ ] Register `tigerstyle::safety` group (12 lints)
-- [ ] Register `tigerstyle::naming` group (4 lints)
-- [ ] Register `tigerstyle::structure` group (6 lints)
-- [ ] Register `tigerstyle::purity` group (3 lints)
-- [ ] Register `tigerstyle::concurrency` group (1 lint)
-
-## Phase 5: Fixture updates
-
-- [ ] Update all existing `.stderr` fixtures to match new diagnostic format
-- [ ] Verify all fixtures pass in `nix flake check`
+- [ ] Add a deterministic `lint -> emitting fixture` coverage manifest for all 25 lints and test that it matches the metadata inventory
+- [ ] Prove every `lint -> emitting fixture` mapping points to a fixture that actually emits that lint and is not a suppressed/non-emitting case
+- [ ] Add a deterministic fixture-set artifact listing the full existing UI fixture corpus plus the new group allow/deny fixtures
+- [ ] Add a test validating that the fixture-set artifact covers the full UI fixture corpus plus the new group allow/deny fixtures
+- [ ] Update all existing UI `.stderr` fixtures plus the new group allow/deny fixture snapshots to the canonical warning/help/note format
+- [ ] Run `cargo test --lib`
+- [ ] Run `cargo test --test ui -- --ignored --nocapture`
+- [ ] Verify all fixtures and snapshots pass in `nix flake check`
