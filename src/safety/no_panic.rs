@@ -1,12 +1,18 @@
-use rustc_ast::Expr;
-use rustc_ast::ExprKind;
-use rustc_ast::Item;
+use std::collections::HashSet;
+
 use rustc_errors::DiagDecorator;
-use rustc_lint::EarlyContext;
-use rustc_lint::EarlyLintPass;
+use rustc_hir as hir;
+use rustc_hir::ExprKind;
+use rustc_hir::def::CtorOf;
+use rustc_hir::def::DefKind;
+use rustc_hir::def::Res;
+use rustc_lint::LateContext;
+use rustc_lint::LateLintPass;
 use rustc_lint::LintContext;
+use rustc_middle::ty;
 use rustc_session::declare_lint;
 use rustc_session::impl_lint_pass;
+use rustc_span::sym;
 
 use crate::test_context;
 
@@ -21,24 +27,7 @@ declare_lint! {
 }
 
 #[derive(Default)]
-pub struct NoPanic {
-    test_context_depth: usize,
-}
-
-impl NoPanic {
-    fn in_test_context(&self) -> bool {
-        self.test_context_depth > 0
-    }
-
-    fn enter_test_context(&mut self) {
-        self.test_context_depth += 1;
-    }
-
-    fn leave_test_context(&mut self) {
-        debug_assert!(self.test_context_depth > 0);
-        self.test_context_depth -= 1;
-    }
-}
+pub struct NoPanic;
 
 impl_lint_pass!(NoPanic => [NO_PANIC]);
 
@@ -58,25 +47,110 @@ fn suggestion_for(name: &str) -> &'static str {
     }
 }
 
-impl EarlyLintPass for NoPanic {
-    fn check_item(&mut self, cx: &EarlyContext<'_>, item: &Item) {
-        if test_context::ast_attrs_indicate_test(cx.sess(), &item.attrs)
-            || test_context::item_span_indicates_test(cx.sess(), item.span)
-        {
-            self.enter_test_context();
+fn variant_def_id_from_qpath(
+    cx: &LateContext<'_>,
+    qpath: &hir::QPath<'_>,
+    hir_id: hir::HirId,
+) -> Option<rustc_hir::def_id::DefId> {
+    match cx.qpath_res(qpath, hir_id) {
+        Res::Def(DefKind::Variant, did) => Some(did),
+        Res::Def(DefKind::Ctor(CtorOf::Variant, _), did) => cx.tcx.opt_parent(did),
+        _ => None,
+    }
+}
+
+fn collect_variant_ids_from_pat(
+    cx: &LateContext<'_>,
+    pat: &hir::Pat<'_>,
+    covered: &mut HashSet<rustc_hir::def_id::DefId>,
+) -> bool {
+    match pat.kind {
+        hir::PatKind::Struct(qpath, ..) | hir::PatKind::TupleStruct(qpath, ..) => {
+            variant_def_id_from_qpath(cx, &qpath, pat.hir_id).is_some_and(|did| covered.insert(did))
+        }
+        hir::PatKind::Expr(pat_expr) => match pat_expr.kind {
+            hir::PatExprKind::Path(qpath) => {
+                variant_def_id_from_qpath(cx, &qpath, pat_expr.hir_id).is_some_and(|did| covered.insert(did))
+            }
+            hir::PatExprKind::Lit { .. } => false,
+        },
+        hir::PatKind::Or(pats) => pats.iter().all(|pat| collect_variant_ids_from_pat(cx, pat, covered)),
+        hir::PatKind::Ref(pat, ..) | hir::PatKind::Box(pat) | hir::PatKind::Deref(pat) => {
+            collect_variant_ids_from_pat(cx, pat, covered)
+        }
+        _ => false,
+    }
+}
+
+fn is_exhaustive_unreachable_wildcard(cx: &LateContext<'_>, expr: &hir::Expr<'_>, name: &str) -> bool {
+    if name != "unreachable!" {
+        return false;
+    }
+
+    let mut enclosing_arm = None;
+
+    for (_, node) in cx.tcx.hir_parent_iter(expr.hir_id) {
+        match node {
+            hir::Node::Arm(arm) => enclosing_arm = Some(arm),
+            hir::Node::Expr(parent_expr) => {
+                let Some(arm) = enclosing_arm else {
+                    continue;
+                };
+
+                let ExprKind::Match(scrutinee, arms, _) = parent_expr.kind else {
+                    continue;
+                };
+
+                let Some(last_arm) = arms.last() else {
+                    return false;
+                };
+
+                if last_arm.hir_id != arm.hir_id || !matches!(arm.pat.kind, hir::PatKind::Wild) || arm.guard.is_some() {
+                    return false;
+                }
+
+                if arm.body.span.source_callsite() != expr.span.source_callsite() {
+                    return false;
+                }
+
+                let ty::Adt(adt_def, _) = cx.typeck_results().expr_ty(scrutinee).kind() else {
+                    return false;
+                };
+
+                if !adt_def.is_enum() {
+                    return false;
+                }
+
+                let Some(local_enum_def_id) = adt_def.did().as_local() else {
+                    return false;
+                };
+                let enum_attrs = cx.tcx.hir_attrs(cx.tcx.local_def_id_to_hir_id(local_enum_def_id));
+                if enum_attrs.iter().any(|attr| attr.has_name(sym::non_exhaustive)) {
+                    return false;
+                }
+
+                let all_variants = adt_def.variants().iter().map(|variant| variant.def_id).collect::<HashSet<_>>();
+                let mut covered = HashSet::new();
+
+                for prior_arm in arms.iter().take(arms.len().saturating_sub(1)) {
+                    if prior_arm.guard.is_some() || !collect_variant_ids_from_pat(cx, prior_arm.pat, &mut covered) {
+                        return false;
+                    }
+                }
+
+                return covered == all_variants;
+            }
+            hir::Node::Item(_) | hir::Node::ImplItem(_) | hir::Node::TraitItem(_) => break,
+            _ => {}
         }
     }
 
-    fn check_item_post(&mut self, cx: &EarlyContext<'_>, item: &Item) {
-        if test_context::ast_attrs_indicate_test(cx.sess(), &item.attrs)
-            || test_context::item_span_indicates_test(cx.sess(), item.span)
-        {
-            self.leave_test_context();
-        }
-    }
+    false
+}
 
-    fn check_expr(&mut self, cx: &EarlyContext<'_>, expr: &Expr) {
-        // Panic macros are expanded before EarlyLintPass runs. We recover the
+impl<'tcx> LateLintPass<'tcx> for NoPanic {
+    fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx hir::Expr<'tcx>) {
+        // Panic macros are expanded before linting runs. We recover the
         // original macro invocation from the expansion callsite snippet.
         if !expr.span.from_expansion() {
             return;
@@ -88,7 +162,7 @@ impl EarlyLintPass for NoPanic {
             return;
         }
 
-        if self.in_test_context() {
+        if test_context::late_hir_id_is_in_test_context(cx, expr.hir_id, expr.span) {
             return;
         }
 
@@ -101,6 +175,10 @@ impl EarlyLintPass for NoPanic {
         let Some(name) = panic_macro_name_from_callsite(&snippet) else {
             return;
         };
+
+        if is_exhaustive_unreachable_wildcard(cx, expr, name) {
+            return;
+        }
 
         let suggestion = suggestion_for(name);
 
