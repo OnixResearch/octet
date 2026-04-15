@@ -6,7 +6,7 @@ LL |     x as u32
    |
    = help: Tiger Style (Safe Narrowing): narrow integers with checked conversions instead of `as` Example: let small = u32::try_from(value)?;
    = note: see Tiger Style guide: Safe Narrowing / Conversions
-   = note: `#[warn(unchecked_narrowing)]` on by default
+   = note: `#[warn(tigerstyle::unchecked_narrowing)]` on by default
 
 warning: 1 warning emitted
 

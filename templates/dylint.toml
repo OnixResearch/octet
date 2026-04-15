@@ -37,6 +37,9 @@
 # Unknown lint names and invalid level values warn and are ignored.
 # If the same lint appears in both places, `disabled_lints` wins and the level
 # override is ignored.
+# Keep keys here bare (`no_unwrap`), even though source attrs and group attrs in
+# Rust code use canonical tool names like `tigerstyle::no_unwrap` and
+# `tigerstyle::safety`.
 #
 # See `docs/downstream-rollout.md` for full smoke / boundary-first /
 # inventory-only profile examples.

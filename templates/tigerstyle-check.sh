@@ -5,6 +5,10 @@
 # This template is for workspaces where plain `cargo dylint` still needs local
 # wrapper logic. If your toolchain behaves like a standard rustup-managed
 # nightly, strip the wrapper section and call `cargo dylint` directly.
+#
+# Source attrs and group attrs in Rust code use canonical tool names like
+# `tigerstyle::ambient_clock` and `tigerstyle::safety`. Consumer `dylint.toml`
+# keys stay bare like `ambient_clock`.
 
 set -euo pipefail
 

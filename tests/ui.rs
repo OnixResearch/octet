@@ -9,68 +9,22 @@ use std::process::Command;
 use std::time::SystemTime;
 use std::time::UNIX_EPOCH;
 
-const FIXTURES: &[&str] = &[
-    "ambient_clock",
-    "nested_conditionals",
-    "compound_assertion",
-    "unbounded_loop",
-    "unbounded_loop_iter_next",
-    "no_panic",
-    "no_panic_cfg_not",
-    "no_panic_exhaustive",
-    "no_panic_exhaustive_external",
-    "no_panic_exhaustive_non_exhaustive",
-    "no_panic_exhaustive_indirect",
-    "no_panic_todo_allow",
-    "no_unwrap",
-    "no_unwrap_cfg_not",
-    "no_unwrap_compile_time_known",
-    "no_unwrap_guarded",
-    "no_recursion",
-    "ignored_result",
-    "ignored_result_drop",
-    "ignored_result_shutdown_send",
-    "tokio_async/ignored_result_shutdown_send_tokio",
-    "tokio_async/ignored_result_try_send_tokio",
-    "unchecked_narrowing",
-    "unchecked_narrowing_min",
-    "unchecked_narrowing_try_from",
-    "unchecked_narrowing_same_block_assert",
-    "unchecked_division",
-    "catch_all_on_enum",
-    "assertion_density",
-    "raw_arithmetic_overflow",
-    "function_length",
-    "compound_condition",
-    "acronym_style",
-    "numeric_units",
-    "bool_naming",
-    "float_for_currency",
-    "platform_dependent_cast",
-    "ambiguous_params",
-    "unjustified_allow",
-    "verified/verified_purity",
-    "contradictory_time",
-    "tokio_async/unbounded_loop_tokio_select",
-    "tokio_async/unbounded_loop_imported_select",
-    "tokio_async/unbounded_loop_non_tokio_select",
-    "tokio_async/unbounded_loop_bare_async",
-    "tokio_async/unbounded_loop_plain_await",
-    "tokio_async/unbounded_loop_bounded_receiver",
-    "tokio_async/unbounded_loop_unbounded_receiver",
-    "multi_lock_ordering",
-    "function_length_custom/function_length_custom",
-    "assertion_density_custom/assertion_density_custom",
-    "nesting_custom/nesting_custom",
-    "acronym_allowlist_custom/acronym_allowlist_custom",
-    "no_unwrap_disabled_custom/no_unwrap_disabled_custom",
-    "no_unwrap_allow_custom/no_unwrap_allow_custom",
-    "no_unwrap_warn_custom/no_unwrap_warn_custom",
-    "no_unwrap_deny_custom/no_unwrap_deny_custom",
-    "no_unwrap_default_custom/no_unwrap_default_custom",
-    "no_unwrap_disabled_deny_custom/no_unwrap_disabled_deny_custom",
-    "no_unwrap_disabled_source_attr_custom/no_unwrap_disabled_source_attr_custom",
-];
+use serde::Deserialize;
+
+#[derive(Debug, Deserialize)]
+struct UiFixtureSet {
+    all_fixtures: Vec<String>,
+    expected_failures: Vec<String>,
+}
+
+fn fixture_set() -> UiFixtureSet {
+    let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let path = manifest_dir.join("tests/fixtures/ui_fixture_set.json");
+    let raw = fs::read_to_string(&path)
+        .unwrap_or_else(|error| panic!("read UI fixture-set artifact {}: {error}", path.display()));
+    serde_json::from_str(&raw)
+        .unwrap_or_else(|error| panic!("parse UI fixture-set artifact {}: {error}", path.display()))
+}
 
 #[cfg(unix)]
 fn create_library_alias(plain: &Path, dylint: &Path) {
@@ -291,10 +245,6 @@ fn normalize_stderr(stderr: &str, fixture_path: &Path) -> String {
         .replace(fixture_path.to_string_lossy().as_ref(), &format!("$DIR/{relative}"))
 }
 
-fn expects_failure(name: &str) -> bool {
-    matches!(name, "verified/verified_purity" | "no_unwrap_deny_custom/no_unwrap_deny_custom")
-}
-
 fn extra_rustc_args(name: &str) -> &'static [&'static str] {
     match name {
         "no_panic" | "no_unwrap" => &["--cfg", "test"],
@@ -312,6 +262,7 @@ fn run_fixture(
     host: &str,
     toolchain: &str,
     name: &str,
+    expect_success: bool,
     support_cache: &mut HashMap<PathBuf, FixtureSupport>,
 ) {
     let ui_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("ui_tests");
@@ -371,7 +322,6 @@ fn run_fixture(
         String::from_utf8_lossy(&output.stderr)
     );
 
-    let expect_success = !expects_failure(name);
     assert_eq!(
         output.status.success(),
         expect_success,
@@ -395,14 +345,24 @@ fn run_fixture(
 #[test]
 #[ignore = "run via nix flake check or cargo test --test ui -- --ignored --nocapture"]
 fn ui() {
+    let fixture_set = fixture_set();
+    let expected_failures = fixture_set.expected_failures.into_iter().collect::<std::collections::HashSet<_>>();
     let toolchain = rustup_toolchain();
     let library = build_library(&toolchain);
     let host = host_triple();
     let driver = build_driver(&toolchain);
     let mut support_cache = HashMap::new();
 
-    for fixture in FIXTURES {
+    for fixture in fixture_set.all_fixtures {
         eprintln!("[ui fixture] {fixture}");
-        run_fixture(&driver, &library, &host, &toolchain, fixture, &mut support_cache);
+        run_fixture(
+            &driver,
+            &library,
+            &host,
+            &toolchain,
+            &fixture,
+            !expected_failures.contains(&fixture),
+            &mut support_cache,
+        );
     }
 }

@@ -10,7 +10,7 @@ LL | |     }
    |
    = help: Tiger Style (Bounded Control Flow): bound long-running loops with an exit condition, timeout, or bounded input Example: while let Some(msg) = rx.recv().await { ... }
    = note: see Tiger Style guide: Bounded Control Flow
-   = note: `#[warn(unbounded_loop)]` on by default
+   = note: `#[warn(tigerstyle::unbounded_loop)]` on by default
 
 warning: 1 warning emitted
 

@@ -6,7 +6,7 @@ LL |     let _ = tx.send(1);
    |
    = help: Tiger Style (Error Handling): handle fallible results explicitly with `?`, `match`, or an intentional logged drop Example: tx.send(msg)?;
    = note: see Tiger Style guide: Error Handling
-   = note: `#[warn(ignored_result)]` on by default
+   = note: `#[warn(tigerstyle::ignored_result)]` on by default
 
 warning: `Result` value silently discarded with `let _ = ...`
   --> $DIR/ignored_result_shutdown_send.rs:30:5

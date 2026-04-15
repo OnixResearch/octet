@@ -3,17 +3,17 @@ use rustc_ast::ItemKind;
 use rustc_lint::EarlyContext;
 use rustc_lint::EarlyLintPass;
 use rustc_lint::LintContext;
-use rustc_session::declare_lint;
 use rustc_session::declare_lint_pass;
+use rustc_session::declare_tool_lint;
 
 use crate::diagnostics::emit_tiger_style_lint;
 
-declare_lint! {
+declare_tool_lint! {
     /// Detects struct definitions containing 2 or more `Mutex` or `RwLock`
     /// fields without a comment documenting lock acquisition order.
     /// Undocumented lock ordering leads to deadlocks that only appear
     /// under production concurrency.
-    pub MULTI_LOCK_ORDERING,
+    pub tigerstyle::MULTI_LOCK_ORDERING,
     Allow,
     "struct has multiple lock fields without documented ordering"
 }

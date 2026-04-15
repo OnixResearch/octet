@@ -6,7 +6,7 @@ LL |         _ => unreachable!("external enum should still warn"),
    |
    = help: Tiger Style (Fail Fast Correctly): return errors or prove exhaustiveness instead of panicking in production code Example: return Err(Error::invalid_state());
    = note: see Tiger Style guide: Error Handling / Panics
-   = note: `#[warn(no_panic)]` on by default
+   = note: `#[warn(tigerstyle::no_panic)]` on by default
 
 warning: 1 warning emitted
 

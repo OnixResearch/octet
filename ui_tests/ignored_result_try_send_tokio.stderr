@@ -6,7 +6,7 @@ LL |     let _ = tx.try_send(1);
    |
    = help: Tiger Style (Error Handling): handle fallible results explicitly with `?`, `match`, or an intentional logged drop Example: tx.send(msg)?;
    = note: see Tiger Style guide: Error Handling
-   = note: `#[warn(ignored_result)]` on by default
+   = note: `#[warn(tigerstyle::ignored_result)]` on by default
 
 warning: `Result` value silently discarded with `let _ = ...`
   --> $DIR/tokio_async/ignored_result_try_send_tokio.rs:13:9

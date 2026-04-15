@@ -4,11 +4,11 @@ Custom [dylint](https://github.com/trailofbits/dylint) lints enforcing
 [Tiger Style](https://github.com/tigerbeetle/tigerbeetle/blob/main/docs/TIGER_STYLE.md)
 coding principles for Rust.
 
-25 lints across 5 domains: safety, naming, structure, purity, concurrency.
+26 lints across 5 domains: safety, naming, structure, purity, concurrency.
 
 ## Lint Catalog
 
-### Safety (11 lints)
+### Safety (12 lints)
 
 | Lint | Default | Description |
 |------|---------|-------------|
@@ -16,6 +16,7 @@ coding principles for Rust.
 | `ignored_result` | **warn** | `let _ = expr` silently discards a `Result` |
 | `no_unwrap` | **warn** | `.unwrap()`/`.expect()` in production code |
 | `no_panic` | **warn** | `panic!()`/`todo!()`/`unimplemented!()` in production code |
+| `unjustified_no_panic_allow` | **warn** | Invalid `#[allow(tigerstyle::no_panic)]` escape without adjacent `//` justification or around non-`todo!()` panic macros |
 | `no_recursion` | **warn** | Function calls itself recursively |
 | `unchecked_narrowing` | **warn** | `as u32` from wider type without bounds check |
 | `unchecked_division` | **warn** | `a / b` where `b` is a variable without zero guard |
@@ -41,7 +42,7 @@ coding principles for Rust.
 | `nested_conditionals` | **warn** | `if`/`match` nesting exceeds 3 levels |
 | `platform_dependent_cast` | **warn** | `as usize` from fixed-width integer is platform-dependent |
 | `compound_condition` | allow | `if` condition with 3+ boolean operators |
-| `unjustified_allow` | allow | `#[allow(...)]` without justification comment |
+| `unjustified_allow` | allow | `#[allow(clippy::...)]` without justification comment |
 | `ambiguous_params` | allow | 2+ consecutive same-type primitive parameters |
 
 ### Purity (3 lints)
@@ -87,6 +88,22 @@ Then run:
 cargo dylint tigerstyle
 ```
 
+### Canonical source attrs and groups
+
+Source-level lint attrs and group attrs use canonical tool names such as
+`#[allow(tigerstyle::unchecked_narrowing)]` and `#![deny(tigerstyle::naming)]`.
+
+Keep `dylint.toml` keys in bare form such as `no_unwrap`, not
+`tigerstyle::no_unwrap`.
+
+Standalone raw-rustc crates and UI fixtures that use tool-scoped tigerstyle
+attrs need the supported nightly toolchain plus:
+
+```rust
+#![feature(register_tool)]
+#![register_tool(tigerstyle)]
+```
+
 ### Suppressing a lint
 
 ```rust
@@ -106,7 +123,9 @@ fn narrow(x: u64) -> u32 {
 
 ### Per-project configuration
 
-Place a `dylint.toml` in your workspace root to tune thresholds:
+Place a `dylint.toml` in your workspace root to tune thresholds.
+Keep `disabled_lints` and `[tigerstyle.lint_levels]` keys in bare lint-name
+form:
 
 ```toml
 [tigerstyle]
@@ -138,7 +157,7 @@ The Aspen phase-1 starter reference is archived under
 nix develop                                   # enter devshell
 cargo check                                   # verify compilation
 cargo test                                    # run unit tests
-cargo test --test ui -- --ignored --nocapture # run 29 checked-in UI fixtures (25 lints + 4 config-override cases)
+cargo test --test ui -- --ignored --nocapture # run checked-in UI fixture corpus (canonical tool-group + compatibility/config cases)
 nix flake check                               # CI checks, including dedicated nix UI fixture coverage
 ```
 
@@ -147,22 +166,22 @@ nix flake check                               # CI checks, including dedicated n
 ```
 src/
 ├── lib.rs                     # register_lints entry point
-├── safety/                    # 11 lints: assertions, panics, errors, bounds
+├── safety/                    # 12 lints: assertions, panics, errors, bounds
 ├── naming/                    # 4 lints: booleans, acronyms, units
 ├── structure/                 # 6 lints: length, conditions, params, casts
 ├── purity/                    # 3 lints: wall-clock boundaries, verified modules, time
 └── concurrency/               # 1 lint: lock ordering
-ui_tests/                      # 29 checked-in dylint UI fixtures exercised by nix checks
-                               # includes *_custom/ subdirs with local Cargo.toml + dylint.toml overrides
+ui_tests/                      # checked-in dylint UI fixtures exercised by nix checks
+                               # includes canonical tool-group, compatibility, and *_custom/ config fixtures
 openspec/                      # spec-driven change management
 ```
 
 ### Adding a new lint
 
 1. Create `src/<domain>/<lint_name>.rs`
-2. Use `declare_lint!` + `declare_lint_pass!`
+2. Use `declare_tool_lint!(pub tigerstyle::...)`
 3. Implement `EarlyLintPass` (syntax-only) or `LateLintPass` (needs types)
-4. Register in `src/lib.rs` via `register_lints`
+4. Register in `src/lib.rs` via the explicit inventory / pass wiring
 5. Add a UI test fixture in `ui_tests/`
 6. If the lint is configurable, add a `ui_tests/*_custom/` fixture with a local `Cargo.toml` + `dylint.toml` override
 

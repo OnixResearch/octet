@@ -5,18 +5,18 @@ use rustc_lint::LateContext;
 use rustc_lint::LateLintPass;
 use rustc_lint::LintContext;
 use rustc_middle::ty;
-use rustc_session::declare_lint;
 use rustc_session::declare_lint_pass;
+use rustc_session::declare_tool_lint;
 use rustc_span::Span;
 use rustc_span::Symbol;
 
 use crate::diagnostics::emit_tiger_style_lint;
 
-declare_lint! {
+declare_tool_lint! {
     /// Detects `loop { }` blocks that appear to lack an iteration bound.
     /// Unbounded loops are a class of liveness bug — a retry loop without
     /// a max-attempts counter can stall a system indefinitely.
-    pub UNBOUNDED_LOOP,
+    pub tigerstyle::UNBOUNDED_LOOP,
     Warn,
     "loop without visible iteration bound"
 }

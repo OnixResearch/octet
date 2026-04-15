@@ -1,0 +1,106 @@
+[
+  {
+    "alias_name": "compound_assertion",
+    "canonical_lint_name": "tigerstyle::compound_assertion"
+  },
+  {
+    "alias_name": "function_length",
+    "canonical_lint_name": "tigerstyle::function_length"
+  },
+  {
+    "alias_name": "acronym_style",
+    "canonical_lint_name": "tigerstyle::acronym_style"
+  },
+  {
+    "alias_name": "numeric_units",
+    "canonical_lint_name": "tigerstyle::numeric_units"
+  },
+  {
+    "alias_name": "unbounded_loop",
+    "canonical_lint_name": "tigerstyle::unbounded_loop"
+  },
+  {
+    "alias_name": "compound_condition",
+    "canonical_lint_name": "tigerstyle::compound_condition"
+  },
+  {
+    "alias_name": "verified_purity",
+    "canonical_lint_name": "tigerstyle::verified_purity"
+  },
+  {
+    "alias_name": "unjustified_allow",
+    "canonical_lint_name": "tigerstyle::unjustified_allow"
+  },
+  {
+    "alias_name": "nested_conditionals",
+    "canonical_lint_name": "tigerstyle::nested_conditionals"
+  },
+  {
+    "alias_name": "assertion_density",
+    "canonical_lint_name": "tigerstyle::assertion_density"
+  },
+  {
+    "alias_name": "multi_lock_ordering",
+    "canonical_lint_name": "tigerstyle::multi_lock_ordering"
+  },
+  {
+    "alias_name": "bool_naming",
+    "canonical_lint_name": "tigerstyle::bool_naming"
+  },
+  {
+    "alias_name": "ignored_result",
+    "canonical_lint_name": "tigerstyle::ignored_result"
+  },
+  {
+    "alias_name": "unchecked_narrowing",
+    "canonical_lint_name": "tigerstyle::unchecked_narrowing"
+  },
+  {
+    "alias_name": "unchecked_division",
+    "canonical_lint_name": "tigerstyle::unchecked_division"
+  },
+  {
+    "alias_name": "contradictory_time",
+    "canonical_lint_name": "tigerstyle::contradictory_time"
+  },
+  {
+    "alias_name": "ambient_clock",
+    "canonical_lint_name": "tigerstyle::ambient_clock"
+  },
+  {
+    "alias_name": "catch_all_on_enum",
+    "canonical_lint_name": "tigerstyle::catch_all_on_enum"
+  },
+  {
+    "alias_name": "platform_dependent_cast",
+    "canonical_lint_name": "tigerstyle::platform_dependent_cast"
+  },
+  {
+    "alias_name": "float_for_currency",
+    "canonical_lint_name": "tigerstyle::float_for_currency"
+  },
+  {
+    "alias_name": "ambiguous_params",
+    "canonical_lint_name": "tigerstyle::ambiguous_params"
+  },
+  {
+    "alias_name": "raw_arithmetic_overflow",
+    "canonical_lint_name": "tigerstyle::raw_arithmetic_overflow"
+  },
+  {
+    "alias_name": "no_unwrap",
+    "canonical_lint_name": "tigerstyle::no_unwrap"
+  },
+  {
+    "alias_name": "no_panic",
+    "canonical_lint_name": "tigerstyle::no_panic"
+  },
+  {
+    "alias_name": "unjustified_no_panic_allow",
+    "canonical_lint_name": "tigerstyle::unjustified_no_panic_allow"
+  },
+  {
+    "alias_name": "no_recursion",
+    "canonical_lint_name": "tigerstyle::no_recursion"
+  }
+]

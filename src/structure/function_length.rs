@@ -4,13 +4,13 @@ use rustc_ast::ItemKind;
 use rustc_lint::EarlyContext;
 use rustc_lint::EarlyLintPass;
 use rustc_lint::LintContext;
-use rustc_session::declare_lint;
+use rustc_session::declare_tool_lint;
 use rustc_session::impl_lint_pass;
 use rustc_span::sym;
 
 use crate::diagnostics::emit_tiger_style_lint;
 
-declare_lint! {
+declare_tool_lint! {
     /// Detects functions whose body exceeds a configurable number of
     /// non-blank, non-comment lines (default: 70). Long functions are
     /// hard to reason about and typically indicate missing decomposition.
@@ -20,7 +20,7 @@ declare_lint! {
     /// [tigerstyle]
     /// function_length_max = 100
     /// ```
-    pub FUNCTION_LENGTH,
+    pub tigerstyle::FUNCTION_LENGTH,
     Warn,
     "function body exceeds line limit"
 }

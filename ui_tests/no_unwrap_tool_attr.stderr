@@ -1,0 +1,25 @@
+error: `.unwrap()` in production code will panic on failure
+  --> $DIR/no_unwrap_tool_attr.rs:7:13
+   |
+LL |     let _ = val.unwrap();
+   |             ^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Error Handling): propagate or handle absence explicitly instead of panicking with `unwrap` or `expect` Example: let value = maybe?;
+   = note: see Tiger Style guide: Error Handling
+note: the lint level is defined here
+  --> $DIR/no_unwrap_tool_attr.rs:3:9
+   |
+LL | #![deny(tigerstyle::no_unwrap)]
+   |         ^^^^^^^^^^^^^^^^^^^^^
+
+error: `.expect()` in production code will panic on failure
+  --> $DIR/no_unwrap_tool_attr.rs:12:13
+   |
+LL |     let _ = val.expect("missing");
+   |             ^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Error Handling): propagate or handle absence explicitly instead of panicking with `unwrap` or `expect` Example: let value = maybe?;
+   = note: see Tiger Style guide: Error Handling
+
+error: aborting due to 2 previous errors
+

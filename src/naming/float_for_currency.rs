@@ -3,18 +3,18 @@ use rustc_hir::ItemKind;
 use rustc_lint::LateContext;
 use rustc_lint::LateLintPass;
 use rustc_middle::ty;
-use rustc_session::declare_lint;
 use rustc_session::declare_lint_pass;
+use rustc_session::declare_tool_lint;
 
 use crate::diagnostics::emit_tiger_style_lint;
 
-declare_lint! {
+declare_tool_lint! {
     /// Detects struct fields using `f32` or `f64` whose name contains
     /// `cost`, `price`, `budget`, `balance`, `amount`, `fee`, or `total_cost`.
     /// IEEE 754 loses precision above 2^53 — accumulated rounding across
     /// thousands of operations adds up. Use integer types with explicit
     /// units (e.g., `cost_microdollars: u64`).
-    pub FLOAT_FOR_CURRENCY,
+    pub tigerstyle::FLOAT_FOR_CURRENCY,
     Allow,
     "floating point type used for currency"
 }

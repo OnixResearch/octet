@@ -6,12 +6,12 @@ use rustc_ast::visit::Visitor;
 use rustc_ast::visit::{self};
 use rustc_lint::EarlyContext;
 use rustc_lint::EarlyLintPass;
-use rustc_session::declare_lint;
+use rustc_session::declare_tool_lint;
 use rustc_session::impl_lint_pass;
 
 use crate::diagnostics::emit_tiger_style_lint;
 
-declare_lint! {
+declare_tool_lint! {
     /// Detects `if`/`match` nesting deeper than a configurable limit
     /// (default: 3) inside a function body. Deep nesting buries the
     /// important logic and makes control flow hard to follow.
@@ -21,7 +21,7 @@ declare_lint! {
     /// [tigerstyle]
     /// nesting_max_depth = 4
     /// ```
-    pub NESTED_CONDITIONALS,
+    pub tigerstyle::NESTED_CONDITIONALS,
     Warn,
     "conditional nesting exceeds depth limit"
 }

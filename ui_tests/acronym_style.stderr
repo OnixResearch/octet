@@ -6,7 +6,7 @@ LL | struct RPCHandler {
    |
    = help: Tiger Style (Acronym Capitalization): capitalize acronyms like ordinary words in type and variant names Example: RpcHandler
    = note: see Tiger Style guide: Acronym Capitalization
-   = note: `#[warn(acronym_style)]` on by default
+   = note: `#[warn(tigerstyle::acronym_style)]` on by default
 
 warning: `SQLQuery` has acronym-style capitalization
   --> $DIR/acronym_style.rs:7:6

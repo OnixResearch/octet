@@ -3,18 +3,18 @@ use rustc_ast::Item;
 use rustc_lint::EarlyContext;
 use rustc_lint::EarlyLintPass;
 use rustc_lint::LintContext;
-use rustc_session::declare_lint;
 use rustc_session::declare_lint_pass;
+use rustc_session::declare_tool_lint;
 use rustc_span::sym;
 
 use crate::diagnostics::emit_tiger_style_lint;
 
-declare_lint! {
+declare_tool_lint! {
     /// Detects `#[allow(clippy::...)]` attributes without an accompanying
     /// comment explaining why the lint is suppressed. Unjustified suppressions
     /// hide real bugs — verified-logic documents every `#[allow(...)]` with
     /// a rationale.
-    pub UNJUSTIFIED_ALLOW,
+    pub tigerstyle::UNJUSTIFIED_ALLOW,
     Allow,
     "`#[allow]` attribute without justification comment"
 }

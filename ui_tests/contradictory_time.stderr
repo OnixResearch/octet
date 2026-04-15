@@ -6,7 +6,7 @@ LL |     let _t = Instant::now();
    |
    = help: Tiger Style (Functional Core): choose one source of time for a code path and thread it through consistently Example: fn expires_at(now: Instant, ttl: Duration) -> Instant { now + ttl }
    = note: see Tiger Style guide: Functional Core / Imperative Shell
-   = note: `#[warn(contradictory_time)]` on by default
+   = note: `#[warn(tigerstyle::contradictory_time)]` on by default
 
 warning: 1 warning emitted
 

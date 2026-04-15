@@ -6,7 +6,7 @@ LL |     total / count
    |
    = help: Tiger Style (Explicit Division): guard divisors before division so zero is impossible Example: assert!(divisor != 0); let q = value / divisor;
    = note: see Tiger Style guide: Explicit Division
-   = note: `#[warn(unchecked_division)]` on by default
+   = note: `#[warn(tigerstyle::unchecked_division)]` on by default
 
 warning: 1 warning emitted
 

@@ -6,7 +6,7 @@ LL |         let _ = self.buf.write_all(b"bye");
    |
    = help: Tiger Style (Error Handling): handle fallible results explicitly with `?`, `match`, or an intentional logged drop Example: tx.send(msg)?;
    = note: see Tiger Style guide: Error Handling
-   = note: `#[warn(ignored_result)]` on by default
+   = note: `#[warn(tigerstyle::ignored_result)]` on by default
 
 warning: 1 warning emitted
 

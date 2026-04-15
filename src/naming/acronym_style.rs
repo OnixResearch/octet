@@ -3,13 +3,13 @@ use rustc_ast::ItemKind;
 use rustc_ast::Variant;
 use rustc_lint::EarlyContext;
 use rustc_lint::EarlyLintPass;
-use rustc_session::declare_lint;
+use rustc_session::declare_tool_lint;
 use rustc_session::impl_lint_pass;
 use rustc_span::Span;
 
 use crate::diagnostics::emit_tiger_style_lint;
 
-declare_lint! {
+declare_tool_lint! {
     /// Detects type names, enum variant names, and trait names containing
     /// multi-character uppercase acronyms like `RPCHandler` or `SQLQuery`.
     /// Tiger Style uses single-word capitalization: `RpcHandler`, `SqlQuery`.
@@ -19,7 +19,7 @@ declare_lint! {
     /// [tigerstyle]
     /// acronym_allowlist = ["IO", "ID"]
     /// ```
-    pub ACRONYM_STYLE,
+    pub tigerstyle::ACRONYM_STYLE,
     Warn,
     "acronym in type name should use single-word capitalization"
 }

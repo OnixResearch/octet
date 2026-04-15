@@ -81,6 +81,51 @@ fn apply_lint_level_overrides(sess: &rustc_session::Session, cfg: &Config) {
     }
 }
 
+fn lint_id_for_name(lint_name: &str) -> rustc_lint::LintId {
+    let entry = LINT_INVENTORY
+        .iter()
+        .find(|lint| lint.name == lint_name)
+        .unwrap_or_else(|| panic!("missing lint inventory entry for `{lint_name}`"));
+    rustc_lint::LintId::of(entry.lint)
+}
+
+fn register_no_panic_bundle(lint_store: &mut rustc_lint::LintStore, cfg: &Config) {
+    let emit_no_panic = !cfg.lint_is_disabled("no_panic");
+    let emit_unjustified_allow = !cfg.lint_is_disabled("unjustified_no_panic_allow");
+    if !emit_no_panic && !emit_unjustified_allow {
+        return;
+    }
+
+    lint_store
+        .register_late_pass(move |_| Box::new(safety::no_panic::NoPanic::new(emit_no_panic, emit_unjustified_allow)));
+}
+
+fn register_domain_groups(lint_store: &mut rustc_lint::LintStore, cfg: &Config) {
+    for group in diagnostics::group_snapshots() {
+        let lint_ids = group
+            .lint_names
+            .into_iter()
+            .filter(|lint_name| !cfg.lint_is_disabled(lint_name))
+            .map(lint_id_for_name)
+            .collect::<Vec<_>>();
+        if lint_ids.is_empty() {
+            continue;
+        }
+
+        lint_store.register_group(true, group.group_name, None, lint_ids);
+    }
+}
+
+fn register_compatibility_aliases(lint_store: &mut rustc_lint::LintStore, cfg: &Config) {
+    for lint in LINT_INVENTORY {
+        if cfg.lint_is_disabled(lint.name) {
+            continue;
+        }
+
+        lint_store.register_group(true, lint.name, None, vec![rustc_lint::LintId::of(lint.lint)]);
+    }
+}
+
 lint_inventory! {
     // Early passes (post-expansion, syntax-only).
     // compound_assertion detects the expanded `if !(a && b) { panic(..) }` pattern.
@@ -160,8 +205,9 @@ lint_inventory! {
     "no_unwrap", safety::no_unwrap::NO_UNWRAP => |lint_store, _cfg| {
         lint_store.register_late_pass(|_| Box::new(safety::no_unwrap::NoUnwrap));
     },
-    "no_panic", safety::no_panic::NO_PANIC => |lint_store, _cfg| {
-        lint_store.register_late_pass(|_| Box::new(safety::no_panic::NoPanic::default()));
+    "no_panic", safety::no_panic::NO_PANIC => |_lint_store, _cfg| {
+    },
+    "unjustified_no_panic_allow", safety::no_panic::UNJUSTIFIED_NO_PANIC_ALLOW => |_lint_store, _cfg| {
     },
     "no_recursion", safety::no_recursion::NO_RECURSION => |lint_store, _cfg| {
         lint_store.register_late_pass(|_| Box::new(safety::no_recursion::NoRecursion));
@@ -174,15 +220,26 @@ pub fn register_lints(sess: &rustc_session::Session, lint_store: &mut rustc_lint
     let cfg = config::load(sess);
     apply_lint_level_overrides(sess, &cfg);
     register_inventory(lint_store, &cfg);
+    register_no_panic_bundle(lint_store, &cfg);
+    register_domain_groups(lint_store, &cfg);
+    register_compatibility_aliases(lint_store, &cfg);
 }
 
 #[cfg(test)]
 mod tests {
     use std::fs;
     use std::path::Path;
+    use std::path::PathBuf;
+
+    use serde::Deserialize;
 
     use super::LINT_INVENTORY;
     use super::default_level_name;
+    use super::lint_id_for_name;
+    use super::register_compatibility_aliases;
+    use super::register_domain_groups;
+    use super::register_inventory;
+    use crate::config::Config;
     use crate::config::canonical_lint_names;
     use crate::diagnostics;
     use crate::diagnostics::ExampleMode;
@@ -207,6 +264,92 @@ mod tests {
             "{}\n",
             serde_json::to_string_pretty(diagnostics::all_metadata()).expect("serialize diagnostic metadata snapshot")
         )
+    }
+
+    fn diagnostic_group_snapshot() -> String {
+        format!(
+            "{}\n",
+            serde_json::to_string_pretty(&diagnostics::group_snapshots()).expect("serialize diagnostic group snapshot")
+        )
+    }
+
+    fn compatibility_alias_snapshot() -> String {
+        format!(
+            "{}\n",
+            serde_json::to_string_pretty(&diagnostics::compatibility_alias_snapshots())
+                .expect("serialize compatibility alias snapshot")
+        )
+    }
+
+    #[derive(Debug, Deserialize)]
+    struct UiFixtureSet {
+        all_fixtures: Vec<String>,
+        expected_failures: Vec<String>,
+        canonical_tool_group_fixtures: Vec<String>,
+        compatibility_fixtures: Vec<String>,
+        config_fixtures: Vec<String>,
+    }
+
+    #[derive(Debug, Deserialize)]
+    struct LintFixtureCoverage {
+        lint_name: String,
+        fixture: String,
+    }
+
+    fn read_fixture_json<T: for<'de> Deserialize<'de>>(name: &str) -> T {
+        let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures").join(name);
+        let raw = fs::read_to_string(&path)
+            .unwrap_or_else(|error| panic!("read fixture artifact {}: {error}", path.display()));
+        serde_json::from_str(&raw).unwrap_or_else(|error| panic!("parse fixture artifact {}: {error}", path.display()))
+    }
+
+    fn ui_fixture_set() -> UiFixtureSet {
+        read_fixture_json("ui_fixture_set.json")
+    }
+
+    fn lint_fixture_coverage() -> Vec<LintFixtureCoverage> {
+        read_fixture_json("lint_emitting_fixtures.json")
+    }
+
+    fn discovered_ui_fixtures() -> Vec<String> {
+        let ui_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("ui_tests");
+        let mut stack = vec![ui_dir.clone()];
+        let mut fixtures = Vec::new();
+
+        while let Some(dir) = stack.pop() {
+            let mut entries = fs::read_dir(&dir)
+                .unwrap_or_else(|error| panic!("read UI fixture dir {}: {error}", dir.display()))
+                .collect::<Result<Vec<_>, _>>()
+                .unwrap_or_else(|error| panic!("collect UI fixture dir {}: {error}", dir.display()));
+            entries.sort_by_key(|entry| entry.path());
+
+            for entry in entries {
+                let path = entry.path();
+                if path.is_dir() {
+                    stack.push(path);
+                    continue;
+                }
+                if path.extension().and_then(|ext| ext.to_str()) != Some("rs") {
+                    continue;
+                }
+
+                let relative = path.strip_prefix(&ui_dir).expect("fixture under ui_tests");
+                if relative.components().any(|component| component.as_os_str() == "src") {
+                    continue;
+                }
+                fixtures.push(relative.with_extension("").to_string_lossy().replace('\\', "/"));
+            }
+        }
+
+        fixtures.sort();
+        fixtures
+    }
+
+    fn fixture_stderr_path(fixture: &str) -> PathBuf {
+        let ui_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("ui_tests");
+        let fixture_path = ui_dir.join(format!("{fixture}.rs"));
+        let stem = fixture_path.file_stem().expect("fixture file stem");
+        ui_dir.join(format!("{}.stderr", stem.to_string_lossy()))
     }
 
     #[test]
@@ -267,6 +410,156 @@ mod tests {
             .unwrap_or_else(|error| panic!("read diagnostic metadata snapshot {}: {error}", snapshot_path.display()));
         let actual = diagnostic_metadata_snapshot();
         assert_eq!(expected, actual, "diagnostic metadata snapshot mismatch");
+    }
+
+    fn lint_store_with_groups_and_aliases(cfg: &Config) -> rustc_lint::LintStore {
+        let mut store = rustc_lint::LintStore::new();
+        register_inventory(&mut store, cfg);
+        register_domain_groups(&mut store, cfg);
+        register_compatibility_aliases(&mut store, cfg);
+        store
+    }
+
+    fn expected_group_ids(group_name: &str, cfg: &Config) -> Vec<rustc_lint::LintId> {
+        diagnostics::lint_names_for_group(group_name)
+            .into_iter()
+            .filter(|lint_name| !cfg.lint_is_disabled(lint_name))
+            .map(lint_id_for_name)
+            .collect()
+    }
+
+    #[test]
+    fn all_lints_register_canonical_and_bare_names() {
+        let store = lint_store_with_groups_and_aliases(&Config::default());
+
+        for lint in LINT_INVENTORY {
+            let canonical_name = diagnostics::canonical_lint_name(lint.name);
+            let canonical = store
+                .find_lints(&canonical_name)
+                .unwrap_or_else(|| panic!("missing canonical tool lint `{canonical_name}`"));
+            let bare = store
+                .find_lints(lint.name)
+                .unwrap_or_else(|| panic!("missing bare compatibility alias `{}`", lint.name));
+            assert_eq!(
+                canonical, bare,
+                "bare alias `{}` should resolve to canonical tool lint `{canonical_name}`",
+                lint.name
+            );
+        }
+    }
+
+    #[test]
+    fn domain_groups_register_expected_members() {
+        let cfg = Config::default();
+        let store = lint_store_with_groups_and_aliases(&cfg);
+
+        for &group_name in diagnostics::GROUP_NAMES {
+            let expected = expected_group_ids(group_name, &cfg);
+            let actual = store
+                .find_lints(group_name)
+                .unwrap_or_else(|| panic!("missing canonical domain group `{group_name}`"));
+            assert_eq!(actual, expected.as_slice(), "domain group `{group_name}` membership mismatch");
+        }
+    }
+
+    #[test]
+    fn disabled_lints_are_omitted_from_groups_and_aliases() {
+        let mut cfg = Config::default();
+        cfg.disabled_lints = vec!["no_unwrap".to_owned(), "no_panic".to_owned()];
+
+        let store = lint_store_with_groups_and_aliases(&cfg);
+        for lint_name in ["no_unwrap", "no_panic"] {
+            let canonical_name = diagnostics::canonical_lint_name(lint_name);
+            assert!(
+                store.find_lints(&canonical_name).is_none(),
+                "disabled canonical tool lint `{canonical_name}` should not register"
+            );
+            assert!(store.find_lints(lint_name).is_none(), "disabled bare alias `{lint_name}` should not register");
+        }
+
+        let safety = store
+            .find_lints(diagnostics::GROUP_SAFETY)
+            .expect("safety group should still register for remaining lints");
+        let expected_safety = expected_group_ids(diagnostics::GROUP_SAFETY, &cfg);
+        assert_eq!(safety, expected_safety.as_slice(), "disabled safety lints should be omitted from the safety group");
+    }
+
+    #[test]
+    fn diagnostic_group_snapshot_matches() {
+        let snapshot_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/lint_group_memberships.json");
+        let expected = fs::read_to_string(&snapshot_path)
+            .unwrap_or_else(|error| panic!("read diagnostic group snapshot {}: {error}", snapshot_path.display()));
+        let actual = diagnostic_group_snapshot();
+        assert_eq!(expected, actual, "diagnostic group snapshot mismatch");
+    }
+
+    #[test]
+    fn compatibility_alias_snapshot_matches() {
+        let snapshot_path =
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/lint_compatibility_aliases.json");
+        let expected = fs::read_to_string(&snapshot_path)
+            .unwrap_or_else(|error| panic!("read compatibility alias snapshot {}: {error}", snapshot_path.display()));
+        let actual = compatibility_alias_snapshot();
+        assert_eq!(expected, actual, "compatibility alias snapshot mismatch");
+    }
+
+    #[test]
+    fn ui_fixture_set_artifact_covers_the_full_corpus() {
+        let fixture_set = ui_fixture_set();
+        let discovered = discovered_ui_fixtures();
+        let listed = fixture_set.all_fixtures.clone();
+        let mut sorted_listed = listed.clone();
+        sorted_listed.sort();
+        sorted_listed.dedup();
+
+        assert_eq!(listed.len(), sorted_listed.len(), "ui_fixture_set.json should not list duplicate fixtures");
+        assert_eq!(sorted_listed, discovered, "ui_fixture_set.json must match the full checked-in UI fixture corpus");
+
+        for fixture in fixture_set
+            .expected_failures
+            .iter()
+            .chain(fixture_set.canonical_tool_group_fixtures.iter())
+            .chain(fixture_set.compatibility_fixtures.iter())
+            .chain(fixture_set.config_fixtures.iter())
+        {
+            assert!(
+                listed.contains(fixture),
+                "ui_fixture_set.json category entry `{fixture}` must appear in all_fixtures"
+            );
+        }
+    }
+
+    #[test]
+    fn lint_emitting_fixture_manifest_matches_inventory_and_emits() {
+        let coverage = lint_fixture_coverage();
+        let coverage_names = coverage.iter().map(|entry| entry.lint_name.as_str()).collect::<Vec<_>>();
+        let fixture_set = ui_fixture_set();
+
+        assert_eq!(
+            coverage_names,
+            diagnostic_metadata_names(),
+            "lint_emitting_fixtures.json must cover every lint exactly once in inventory order"
+        );
+
+        for entry in coverage {
+            assert!(
+                fixture_set.all_fixtures.contains(&entry.fixture),
+                "lint fixture `{}` for `{}` must be listed in ui_fixture_set.json",
+                entry.fixture,
+                entry.lint_name
+            );
+
+            let stderr_path = fixture_stderr_path(&entry.fixture);
+            let stderr = fs::read_to_string(&stderr_path)
+                .unwrap_or_else(|error| panic!("read fixture stderr {}: {error}", stderr_path.display()));
+            let canonical_name = diagnostics::canonical_lint_name(&entry.lint_name);
+            assert!(
+                stderr.contains(&canonical_name),
+                "fixture `{}` must emit `{canonical_name}` in {}",
+                entry.fixture,
+                stderr_path.display()
+            );
+        }
     }
 
     #[test]

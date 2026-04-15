@@ -5,17 +5,17 @@ use rustc_lint::LateLintPass;
 use rustc_lint::LintContext;
 use rustc_middle::ty::Ty;
 use rustc_middle::ty::{self};
-use rustc_session::declare_lint;
 use rustc_session::declare_lint_pass;
+use rustc_session::declare_tool_lint;
 
 use crate::diagnostics::emit_tiger_style_lint;
 
-declare_lint! {
+declare_tool_lint! {
     /// Detects `as u32`, `as u16`, `as u8`, `as i32`, `as i16`, `as i8`
     /// casts from a wider integer type without a prior bounds check.
     /// Unchecked narrowing casts silently truncate — use `TryFrom` or
     /// a checked conversion function.
-    pub UNCHECKED_NARROWING,
+    pub tigerstyle::UNCHECKED_NARROWING,
     Warn,
     "narrowing integer cast without bounds check"
 }

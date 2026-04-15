@@ -3,16 +3,16 @@ use rustc_hir::ItemKind;
 use rustc_lint::LateContext;
 use rustc_lint::LateLintPass;
 use rustc_middle::ty;
-use rustc_session::declare_lint;
 use rustc_session::declare_lint_pass;
+use rustc_session::declare_tool_lint;
 
 use crate::diagnostics::emit_tiger_style_lint;
 
-declare_lint! {
+declare_tool_lint! {
     /// Detects function signatures with 2 or more consecutive parameters
     /// of the same primitive type. Callers can accidentally swap arguments
     /// without a type error. Suggest wrapping in a named struct.
-    pub AMBIGUOUS_PARAMS,
+    pub tigerstyle::AMBIGUOUS_PARAMS,
     Allow,
     "consecutive same-type primitive parameters are easy to swap"
 }

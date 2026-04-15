@@ -5,18 +5,18 @@ use rustc_ast::ItemKind;
 use rustc_lint::EarlyContext;
 use rustc_lint::EarlyLintPass;
 use rustc_lint::LintContext;
-use rustc_session::declare_lint;
 use rustc_session::declare_lint_pass;
+use rustc_session::declare_tool_lint;
 use rustc_span::Span;
 
 use crate::diagnostics::emit_tiger_style_lint;
 
-declare_lint! {
+declare_tool_lint! {
     /// Detects async functions, IO operations, and system time calls in
     /// files under a `verified/` directory. Verified modules must be pure —
     /// no async, no IO, no system time — so they remain testable and
     /// formally verifiable.
-    pub VERIFIED_PURITY,
+    pub tigerstyle::VERIFIED_PURITY,
     Deny,
     "impure operation in verified module"
 }

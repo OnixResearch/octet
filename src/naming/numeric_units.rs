@@ -2,17 +2,17 @@ use rustc_ast::Local;
 use rustc_ast::PatKind;
 use rustc_lint::EarlyContext;
 use rustc_lint::EarlyLintPass;
-use rustc_session::declare_lint;
 use rustc_session::declare_lint_pass;
+use rustc_session::declare_tool_lint;
 
 use crate::diagnostics::emit_tiger_style_lint;
 
-declare_lint! {
+declare_tool_lint! {
     /// Detects numeric variable bindings whose names contain time or size
     /// words (timeout, delay, size, length, etc.) without a unit suffix
     /// (_ms, _secs, _bytes, etc.). Bare names create ambiguity about the
     /// unit of measure.
-    pub NUMERIC_UNITS,
+    pub tigerstyle::NUMERIC_UNITS,
     Allow,
     "numeric variable name missing unit suffix"
 }

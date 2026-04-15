@@ -2,17 +2,17 @@ use rustc_hir as hir;
 use rustc_hir::PatKind;
 use rustc_lint::LateContext;
 use rustc_lint::LateLintPass;
-use rustc_session::declare_lint;
 use rustc_session::declare_lint_pass;
+use rustc_session::declare_tool_lint;
 
 use crate::diagnostics::emit_tiger_style_lint;
 
-declare_lint! {
+declare_tool_lint! {
     /// Detects `let` bindings of type `bool` whose name does not start with
     /// a predicate prefix (`is_`, `has_`, `should_`, `can_`, `was_`, `will_`,
     /// `needs_`). Boolean variables without such prefixes read ambiguously —
     /// `active` could be a flag, a count, an enum variant.
-    pub BOOL_NAMING,
+    pub tigerstyle::BOOL_NAMING,
     Warn,
     "boolean binding should have a predicate prefix"
 }

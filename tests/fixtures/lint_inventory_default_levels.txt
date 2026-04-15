@@ -22,4 +22,5 @@ ambiguous_params=allow
 raw_arithmetic_overflow=allow
 no_unwrap=warn
 no_panic=warn
+unjustified_no_panic_allow=warn
 no_recursion=warn

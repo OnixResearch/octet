@@ -22,4 +22,5 @@ ambiguous_params
 raw_arithmetic_overflow
 no_unwrap
 no_panic
+unjustified_no_panic_allow
 no_recursion

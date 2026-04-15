@@ -142,6 +142,7 @@ disabled_lints = [
   "raw_arithmetic_overflow",
   "no_unwrap",
   "no_panic",
+  "unjustified_no_panic_allow",
   "no_recursion",
 ]
 ```
@@ -181,6 +182,7 @@ disabled_lints = [
   "ambiguous_params",
   "raw_arithmetic_overflow",
   "no_panic",
+  "unjustified_no_panic_allow",
   "no_recursion",
 ]
 
@@ -316,6 +318,9 @@ Rules for the per-lint controls:
 
 - omitted `disabled_lints` and `lint_levels` default to empty collections
 - unknown lint names and invalid level values warn and are ignored
+- `disabled_lints` and `[tigerstyle.lint_levels]` keep bare lint-name keys such
+  as `no_unwrap`; source attrs and group attrs use canonical tool names such as
+  `tigerstyle::no_unwrap` and `tigerstyle::safety`
 - `disabled_lints` takes precedence over `lint_levels` and source-level attrs
   because disabled lints never register
 
@@ -334,6 +339,19 @@ Evidence:
 
 - `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/rollout-notes.md`
 - `openspec/changes/archive/2026-04-13-custom-clippy-lints/evidence/aspen-check-path-and-config.txt`
+
+## Standalone raw-rustc tool attrs
+
+If a consumer writes tool-scoped tigerstyle attrs in standalone raw-rustc code
+or repo-local UI fixtures, use the supported nightly toolchain plus:
+
+```rust
+#![feature(register_tool)]
+#![register_tool(tigerstyle)]
+```
+
+Without that prelude, rustc rejects canonical attrs such as
+`#[allow(tigerstyle::ambient_clock)]` before the lint can run.
 
 ## `ambient_clock` boundary playbook
 
