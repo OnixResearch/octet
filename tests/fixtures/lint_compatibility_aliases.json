@@ -44,6 +44,30 @@
     "canonical_lint_name": "tigerstyle::multi_lock_ordering"
   },
   {
+    "alias_name": "explicit_defaults",
+    "canonical_lint_name": "tigerstyle::explicit_defaults"
+  },
+  {
+    "alias_name": "unbounded_channel",
+    "canonical_lint_name": "tigerstyle::unbounded_channel"
+  },
+  {
+    "alias_name": "unbounded_collection_growth",
+    "canonical_lint_name": "tigerstyle::unbounded_collection_growth"
+  },
+  {
+    "alias_name": "usize_in_public_api",
+    "canonical_lint_name": "tigerstyle::usize_in_public_api"
+  },
+  {
+    "alias_name": "too_many_parameters",
+    "canonical_lint_name": "tigerstyle::too_many_parameters"
+  },
+  {
+    "alias_name": "negated_predicate",
+    "canonical_lint_name": "tigerstyle::negated_predicate"
+  },
+  {
     "alias_name": "bool_naming",
     "canonical_lint_name": "tigerstyle::bool_naming"
   },

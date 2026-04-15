@@ -5,6 +5,9 @@
       "compound_assertion",
       "unbounded_loop",
       "assertion_density",
+      "explicit_defaults",
+      "unbounded_channel",
+      "unbounded_collection_growth",
       "ignored_result",
       "unchecked_narrowing",
       "unchecked_division",
@@ -21,6 +24,7 @@
     "lint_names": [
       "acronym_style",
       "numeric_units",
+      "negated_predicate",
       "bool_naming",
       "float_for_currency"
     ]
@@ -32,6 +36,8 @@
       "compound_condition",
       "unjustified_allow",
       "nested_conditionals",
+      "usize_in_public_api",
+      "too_many_parameters",
       "platform_dependent_cast",
       "ambiguous_params"
     ]

@@ -1,11 +1,14 @@
 pub mod assertion_density;
 pub mod catch_all_on_enum;
 pub mod compound_assertion;
+pub mod explicit_defaults;
 pub mod ignored_result;
 pub mod no_panic;
 pub mod no_recursion;
 pub mod no_unwrap;
 pub mod raw_arithmetic_overflow;
+pub mod unbounded_channel;
+pub mod unbounded_collection_growth;
 pub mod unbounded_loop;
 pub mod unchecked_division;
 pub mod unchecked_narrowing;

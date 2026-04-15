@@ -1,113 +1,180 @@
 ## Context
 
-The Tiger Style reference document and skill cover principles that have
-no corresponding lint. The performance spec domain has zero lints (and
-likely should stay that way — performance rules are design-time guidance,
-not pattern-matchable syntax). But several safety, structure, and naming
-principles are pattern-matchable and would catch real bugs.
+Tiger Style guidance still lacks lint coverage for six principles, but these
+six do not all have the same implementation risk.
+
+- `explicit_defaults` and `unbounded_channel` are mostly identity-matching
+  problems once type resolution is available.
+- `usize_in_public_api` and `too_many_parameters` are signature-shape checks.
+- `negated_predicate` is a naming-pattern check with a well-defined false-
+  positive boundary.
+- `unbounded_collection_growth` is the highest-risk lint because broad alias or
+  cross-block dataflow would create large false-positive surfaces.
+
+The repo already has several hard-won constraints from napkin history:
+- match compiler-known identities by resolved def path / lang items, not raw
+  source strings
+- avoid broad text scans when same-block structural reasoning is enough
+- keep noisy or uncertain lints inventory-first until downstream evidence says
+  otherwise
+- add config keys through the existing repo-owned `Config` loader in
+  `src/config.rs`, not via ad-hoc parsing
 
 ## Goals / Non-Goals
 
-**Goals:** Add lints for Tiger Style principles that are reliably
-detectable through syntax or type analysis.
+**Goals:**
+- Add six warn-by-default lint IDs that cover missing Tiger Style principles
+- Keep each lint scoped tightly enough to support deterministic UI fixtures
+- Reuse existing config plumbing for `max_parameters`
+- Produce Aspen evidence that records counts and classifies each new lint as
+  starter-candidate or inventory-first
 
-**Non-Goals:** Performance lints. Performance principles like "napkin math"
-and "batch operations" are design-time guidance that can't be reduced to
-syntax patterns.
+**Non-Goals:**
+- Tool-lint namespace migration or group registration work
+- Performance-domain lints
+- Cross-function, alias-heavy, or interprocedural reasoning for
+  `unbounded_collection_growth`
+- Automatic starter-profile promotion during the same change
 
 ## Decisions
 
-### 1. `explicit_defaults` targets external crate types only
+### 1. `explicit_defaults` matches resolved `Default` trait calls on foreign-crate types
 
-**Choice:** Only warn on `Default::default()` for types defined outside
-the current crate.
+**Choice:** Warn only when method resolution selects the `Default` trait's
+`default` function and the resulting concrete type belongs to a different crate
+from the current crate.
 
-**Rationale:** A project's own types have known, auditable defaults.
-External types can change their defaults across versions. This matches
-the Tiger Style principle: "do not rely on library defaults staying
-stable."
+Sibling workspace crates count as foreign for this lint because they compile as
+separate crate identities and can change defaults independently.
 
-**Implementation:** Late pass. Resolve the type of the `Default::default()`
-call. Check if the type's `DefId` belongs to an external crate.
+**Rationale:** The Tiger Style risk is relying on defaults outside the current
+crate's review boundary. Matching by lang item / resolved trait identity avoids
+false positives from unrelated inherent methods also named `default`.
 
-**Alternative:** Warn on all `Default::default()` — rejected because
-it's too noisy for types the project owns and controls.
+**Implementation:** Late pass. Match `Default::default()`,
+`<T as Default>::default()`, and `T::default()` only when the resolved callee is
+`Default::default`. Resolve the resulting type, require a concrete foreign ADT,
+and skip current-crate types plus test contexts.
 
-### 2. `unbounded_channel` covers three ecosystems
+**Alternative:** Warn on every source form spelled `*.default()`. Rejected
+because inherent constructors named `default` are not the same contract as the
+trait default.
 
-**Choice:** Detect `tokio::sync::mpsc::unbounded_channel`,
-`std::sync::mpsc::channel` (which is unbounded), and
-`crossbeam::channel::unbounded`.
+### 2. `unbounded_channel` matches resolved constructor identities, not just re-export spelling
 
-**Rationale:** These are the three most common Rust channel crates. Each
-has a bounded alternative.
+**Choice:** Cover exactly three constructor families:
+- `std::sync::mpsc::channel`
+- `crossbeam::channel::unbounded`
+- Tokio's unbounded MPSC constructor, resolved through its internal definition
+  path `tokio::sync::mpsc::unbounded::unbounded_channel`
 
-**Implementation:** Late pass. Match on call paths to the known functions.
+**Rationale:** Napkin already proved Tokio re-exports do not always appear in
+resolved def paths. The lint must match the actual definition identity.
 
-### 3. `unbounded_collection_growth` fires only in loops
+**Implementation:** Late pass. Match call expressions against those resolved
+paths and suggest the bounded alternative with explicit capacity.
 
-**Choice:** Only warn on `.push()`, `.insert()`, `.extend()` inside
-`loop`, `while`, or `for` bodies where the collection was not created
-with `with_capacity`.
+**Alternative:** Match the source-path text `tokio::sync::mpsc::unbounded_channel`.
+Rejected because it is fragile under re-exports and imports.
 
-**Rationale:** A single `.push()` outside a loop is normal. Unbounded
-growth inside a loop without capacity planning is the Tiger Style
-violation.
+### 3. `unbounded_collection_growth` stays same-block and local-binding only
 
-**Implementation:** Early pass. Walk loop bodies for method calls on
-collection types. Check if the receiver was created with `::new()` vs
-`::with_capacity()`.
+**Choice:** Warn only when all of these hold in one block:
+- a local binding of type `Vec`, `HashMap`, `BTreeMap`, or `VecDeque` is
+  initialized empty (`::new()` or empty `Default::default()`)
+- that same binding is later grown via `.push()`, `.insert()`, or `.extend()`
+  inside a `loop`, `while`, or `for`
+- the same binding has no earlier `with_capacity`, `reserve`, `reserve_exact`,
+  `try_reserve`, or explicit local len/capacity guard proving bounded growth
 
-**Alternative:** Warn on all `.push()` without capacity — rejected
-because it's far too noisy.
+Anything alias-heavy or cross-block is skipped.
 
-### 4. `usize_in_public_api` complements `platform_dependent_cast`
+**Rationale:** This keeps the lint reviewable and implementable without a custom
+alias-analysis engine. The rule catches the highest-signal cases while avoiding
+"guessy" warnings.
 
-**Choice:** Warn on `pub fn` parameters and return types that use `usize`
-or `isize`.
+**Implementation:** Late pass. Walk loop bodies, identify the mutated local
+binding, then inspect the enclosing block for the binding's same-block creation
+and prior reservation / guard statements. If creation, mutation target, or
+bound proof is ambiguous, do not warn.
 
-**Rationale:** `platform_dependent_cast` catches `as usize` at cast sites,
-but the problem starts earlier when `usize` enters the API surface.
-Fixing the API avoids the cast entirely.
+**Alternative:** Warn on any collection growth in loops unless the collection
+was built with `with_capacity`. Rejected as too noisy and too broad.
 
-**Implementation:** Late pass. Check `pub fn` signatures for `usize`/
-`isize` parameters and return types. Skip trait implementations (signature
-is dictated by the trait). Skip indexing helpers where `usize` is required
-by `Index`/`IndexMut`.
+### 4. `usize_in_public_api` targets inherent public APIs only
 
-### 5. `too_many_parameters` defaults to 5
+**Choice:** Warn on inherent `pub fn` parameter and return types that expose
+`usize` or `isize`. Skip trait declarations and trait implementations where the
+signature is dictated by the trait.
 
-**Choice:** Configurable threshold, default 5.
+**Rationale:** Trait-directed signatures often cannot change. The Tiger Style
+problem is consumer-facing inherent APIs that choose platform-sized integers
+when fixed-width types would travel better across boundaries.
 
-**Rationale:** Tiger Style says "simplify function signatures" and "limit
-parameters." Five is a common threshold in other linting tools (clippy's
-`too_many_arguments` defaults to 7). Five is more opinionated but matches
-Tiger Style's emphasis on options structs.
+**Implementation:** Late pass over free functions and inherent methods with
+public visibility. Exempt trait items and impls whose signature comes from the
+trait.
 
-**Implementation:** Early pass. Count function parameters. Skip `self`.
-Configurable via `dylint.toml` `max_parameters`.
+### 5. `too_many_parameters` reuses the repo config path with `max_parameters`
 
-### 6. `negated_predicate` checks names, not logic
+**Choice:** Default threshold is 5 counted parameters, configurable via
+`[tigerstyle].max_parameters` in `dylint.toml`.
 
-**Choice:** Warn on function and variable names containing `is_not_`,
-`has_no_`, `lacks_`, `not_`, `cant_`, `doesnt_`.
+Receivers (`self`, `&self`, `&mut self`) do not count.
 
-**Rationale:** Tiger Style says "state invariants positively." This is a
-naming lint, not a logic lint — it can't detect `!is_ready` usage patterns
-but can catch names that encode negation.
+**Rationale:** The repo already supports threshold-style config keys through the
+serde-backed `Config` loader. Reusing that path is lower risk than inventing a
+lint-local parser.
 
-**Implementation:** Early pass. Check identifier names against a list of
-negative prefixes.
+**Implementation:** Add `max_parameters` to `Config`, default it to 5, count
+non-receiver parameters from the resolved signature, and skip trait impls plus
+`#[test]` contexts. A HIR-aware pass is acceptable here because receiver
+handling and test-context reuse are more important than pre-typeck timing.
+
+### 6. `negated_predicate` uses whole-token prefixes on bool APIs and locals only
+
+**Choice:** Restrict matching to boolean-returning functions and bool-typed
+local bindings whose names begin with whole-token negative prefixes like
+`is_not_`, `has_no_`, `has_not_`, `lacks_`, `cannot_`, `does_not_`, or `no_`.
+Near-miss names such as `notify` do not match.
+
+**Rationale:** The Tiger Style principle is about predicate wording, not any
+identifier that happens to contain the letters `not`.
+
+**Implementation:** Match identifier spelling with word-boundary semantics and
+require boolean type / return type. A HIR-aware pass is acceptable here because
+bool local bindings and function return types are both easy to inspect after
+type checking. Keep a narrow exception for a private helper named exactly `not`.
+
+## Verification strategy
+
+- `explicit_defaults`: UI proof for foreign crate type, sibling workspace crate
+  type, and current-crate type; test-context negative case.
+- `unbounded_channel`: UI proof for `std`, `crossbeam`, and Tokio unbounded
+  constructors plus bounded Tokio negative case.
+- `unbounded_collection_growth`: UI proof for same-block `Vec::new()` + loop
+  growth, prior `reserve(...)` suppression, explicit local bound suppression,
+  and ambiguous outer-binding no-fire behavior.
+- `usize_in_public_api`: UI proof for inherent public API warning, private
+  function no-fire, and trait-directed signature no-fire.
+- `too_many_parameters`: UI proof for default threshold plus config fixture for
+  `[tigerstyle].max_parameters`.
+- `negated_predicate`: UI proof for negated bool function/local, positive form,
+  near-miss `notify`, and non-bool identifier no-fire.
+- Verification commands: `cargo test --lib`, `cargo test --test ui -- --ignored
+  --nocapture`, and Aspen evidence that records finding counts and starter vs
+  inventory-first classification per new lint.
 
 ## Risks / Trade-offs
 
-**[New-lint noise in downstream]** → Every new lint starts at warn level
-and could be noisy in existing codebases. Mitigation: new lints should
-be added to the inventory-first profile, not the starter profile, until
-downstream validation proves they're low-noise.
+**[Collection-growth false positives]** → same-block logic may still warn on a
+loop whose effective bound is encoded indirectly. Mitigation: skip ambiguous
+cases and require direct local evidence before warning.
 
-**[Collection-growth false positives]** → `unbounded_collection_growth`
-may fire on loops that are already bounded by the iterator (e.g.,
-`for x in bounded_iter { vec.push(x); }`). Mitigation: skip `for x in`
-loops where the iterator is bounded. Accept some false positives and
-let consumers use narrow allows.
+**[External-default breadth]** → treating sibling workspace crates as external
+increases warning surface. Mitigation: keep the rule warn-by-default and
+inventory-first until Aspen evidence says it is low-noise.
+
+**[Config surface growth]** → `max_parameters` adds another repo-owned config
+key. Mitigation: reuse the tested `Config` loader pattern already used for other
+numeric thresholds.

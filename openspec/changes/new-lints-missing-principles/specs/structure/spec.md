@@ -2,15 +2,15 @@
 
 ### Requirement: Usize In Public API
 
-The lint MUST warn on `pub fn` parameters and return types that use
+The lint MUST warn on inherent `pub fn` parameters and return types that use
 `usize` or `isize`.
 
-The lint MUST suggest using fixed-width integer types (`u32`, `u64`).
+The lint MUST suggest using fixed-width integer types such as `u32`, `u64`,
+`i32`, or `i64`.
 
-The lint MUST NOT fire on trait implementations (signature dictated by
-the trait).
-
-The lint MUST NOT fire on `Index`/`IndexMut` implementations.
+The lint MUST NOT fire on trait declarations or trait implementations where the
+signature is dictated by the trait, including but not limited to `Index`,
+`IndexMut`, `Iterator::nth`, and `Read::read`.
 
 The lint MUST NOT fire on private functions.
 
@@ -18,9 +18,9 @@ The lint MUST NOT fire on private functions.
 
 - GIVEN `pub fn get_item(index: usize) -> &Item`
 - WHEN the lint runs
-- THEN it warns: "`usize` in public API — use `u32` or `u64` for cross-platform consistency"
+- THEN it warns that `usize` in a public API harms cross-platform consistency
 
-#### Scenario: Trait implementation
+#### Scenario: Trait-directed signature
 
 - GIVEN `impl Index<usize> for MyVec { fn index(&self, idx: usize) -> &T { ... } }`
 - WHEN the lint runs
@@ -29,7 +29,9 @@ The lint MUST NOT fire on private functions.
 ### Requirement: Too Many Parameters
 
 The lint MUST warn on functions with more than a configurable number of
-parameters (default: 5). `self` and `&self` do not count.
+parameters. The default threshold MUST be 5.
+
+`self`, `&self`, and `&mut self` receivers MUST NOT count toward the threshold.
 
 The lint MUST suggest grouping parameters into a named struct.
 
@@ -37,16 +39,24 @@ The lint MUST NOT fire on trait implementations.
 
 The lint MUST NOT fire on `#[test]` functions.
 
-The threshold MUST be configurable via `max_parameters` in `dylint.toml`.
+The threshold MUST be configurable via `[tigerstyle].max_parameters` in
+`dylint.toml`, using the same repo-owned config loading path as other numeric
+thresholds.
 
-#### Scenario: Six parameters
+#### Scenario: Six parameters at default threshold
 
 - GIVEN `fn connect(host: &str, port: u16, timeout_ms: u64, retries: u32, tls: bool, proxy: &str)`
 - WHEN the lint runs
-- THEN it warns: "function has 6 parameters (limit: 5) — consider an options struct"
+- THEN it warns that the function exceeds the default limit of 5 parameters
 
-#### Scenario: Five parameters
+#### Scenario: Five parameters at default threshold
 
-- GIVEN a function with exactly 5 parameters
+- GIVEN a function with exactly 5 counted parameters
 - WHEN the lint runs
-- THEN it does NOT fire (at default threshold)
+- THEN it does NOT fire
+
+#### Scenario: Custom threshold
+
+- GIVEN `[tigerstyle] max_parameters = 7` in `dylint.toml`
+- WHEN the lint runs on a function with 6 counted parameters
+- THEN it does NOT fire

@@ -99,6 +99,60 @@
     "example_text": "// Lock order: state -> peer -> metrics"
   },
   {
+    "lint_name": "explicit_defaults",
+    "principle": "Explicit Defaults",
+    "guide_section": "Explicit Defaults",
+    "domain_group": "tigerstyle::safety",
+    "guidance": "construct foreign-crate values explicitly instead of relying on `Default`",
+    "example_mode": "required",
+    "example_text": "let client = reqwest::ClientBuilder::new();"
+  },
+  {
+    "lint_name": "unbounded_channel",
+    "principle": "Bounded Queues",
+    "guide_section": "Bounded Queues",
+    "domain_group": "tigerstyle::safety",
+    "guidance": "use bounded channels with explicit capacity instead of unbounded queues",
+    "example_mode": "required",
+    "example_text": "let (tx, rx) = tokio::sync::mpsc::channel(128);"
+  },
+  {
+    "lint_name": "unbounded_collection_growth",
+    "principle": "Bounded Resource Growth",
+    "guide_section": "Bounded Resource Growth",
+    "domain_group": "tigerstyle::safety",
+    "guidance": "reserve collection capacity or add an explicit local length bound before growing it in a loop",
+    "example_mode": "required",
+    "example_text": "let mut items = Vec::with_capacity(limit);"
+  },
+  {
+    "lint_name": "usize_in_public_api",
+    "principle": "Cross-Platform APIs",
+    "guide_section": "Explicit Types",
+    "domain_group": "tigerstyle::structure",
+    "guidance": "use fixed-width integers at API boundaries instead of `usize` or `isize`",
+    "example_mode": "required",
+    "example_text": "pub fn get(index: u32) -> Option<&Item>"
+  },
+  {
+    "lint_name": "too_many_parameters",
+    "principle": "Simple Interfaces",
+    "guide_section": "Explicit Interfaces",
+    "domain_group": "tigerstyle::structure",
+    "guidance": "group many parameters into a named options struct instead of a long positional signature",
+    "example_mode": "required",
+    "example_text": "fn connect(opts: ConnectOptions) -> ..."
+  },
+  {
+    "lint_name": "negated_predicate",
+    "principle": "Positive Predicates",
+    "guide_section": "Positive Predicates",
+    "domain_group": "tigerstyle::naming",
+    "guidance": "prefer positive predicate names over negated forms like `is_not_ready` or `no_capacity`",
+    "example_mode": "required",
+    "example_text": "fn is_ready(state: &State) -> bool"
+  },
+  {
     "lint_name": "bool_naming",
     "principle": "Positive Predicates",
     "guide_section": "Positive Predicates",

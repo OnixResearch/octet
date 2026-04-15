@@ -9,6 +9,12 @@ unjustified_allow
 nested_conditionals
 assertion_density
 multi_lock_ordering
+explicit_defaults
+unbounded_channel
+unbounded_collection_growth
+usize_in_public_api
+too_many_parameters
+negated_predicate
 bool_naming
 ignored_result
 unchecked_narrowing

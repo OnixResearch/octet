@@ -25,12 +25,17 @@
 - Early-pass line-scan fallback for test context must recognize both outer `#[cfg(test)]` and inner `#![cfg(test)]` attributes when recovering stripped cfgs from source text.
 - For same-branch unwrap suppression, a raw condition-snippet search is too broad: `if x.is_some() || other { x.unwrap(); }` is still unsafe. Use condition structure so `&&` can imply the guard, while `||` only counts when both sides require it.
 - When a lint needs to recognize `Drop::drop`, compare the enclosing trait impl against `tcx.lang_items().drop_trait()`; matching a trait name string like `Drop` is too loose.
+- On this nightly, `AssocItem` does not expose `fn_has_self_parameter`, and `tcx.impl_trait_ref(local_def_id)` is not an `Option`; for method receiver counting or trait-impl skipping in HIR, inspect the parent `ItemKind::Impl(...).of_trait` and `sig.decl.implicit_self` instead.
 - For `unchecked_narrowing`, scanning an entire enclosing block for `assert`/`MAX` is too broad and will suppress casts guarded only for other values or later statements; inspect only prior same-block assertions that match the casted expression.
 - In late HIR, `assert!(cond)` expands to an `if !cond { ... }`; same-block assert recognition must unwrap that leading `!` instead of looking for a bare binary condition.
 - In late HIR, `expr.await` lowers to an `AwaitDesugar` match around `IntoFuture::into_future(<method call>)`; async ignored-result rules should inspect the nested method call rather than looking for a top-level `MethodCall`.
-- Tokio `sync::mpsc` public re-exports resolve through internal def paths like `tokio::sync::mpsc::bounded::Sender` and `...::bounded::Receiver`; `get_def_path` matching must use the definition path, not just the public re-export spelling.
+- Tokio `sync::mpsc` public re-exports resolve through internal def paths like `tokio::sync::mpsc::bounded::Sender`, `...::bounded::Receiver`, and `...::unbounded::unbounded_channel`; `get_def_path` matching must use the definition path, not just the public re-export spelling.
+- `crossbeam::channel::unbounded()` resolves through the definition path `crossbeam_channel::channel::unbounded`; lint matching must use the source crate def path, not the facade path.
 - Late-pass `unbounded_loop` must ignore expansion/desugaring-generated loops or it will falsely warn on compiler-inserted `.await` polling loops.
+- User-written `for` loops arrive as `ExprKind::Loop` with `LoopSource::ForLoop`, but their `span.from_expansion()` can still be true because of `ForLoopDesugar`; lints that want real `for` coverage cannot blanket-skip expanded loop spans.
 - `tests/ui.rs` can support async/Tokio standalone fixtures by building a sibling fixture-local `Cargo.toml` once, then passing `-L dependency=...` and `--extern tokio=...` while still compiling the actual linted fixture with `--edition=2024`.
+- For fixture subdirs like `ui_tests/foo/foo.rs`, the checked-in snapshot path is still `ui_tests/foo.stderr` because the harness keys snapshots by file stem, not full relative path.
+- Fixture-local support manifests may depend on sibling path crates, but those nested path crates must NOT declare their own `[workspace]` table or Cargo reports multiple workspace roots under `ui_tests/...`.
 - Nix `checks.ui` only vendors dependencies present in the repo root `Cargo.lock`; if a fixture-local support crate depends on `tokio`, add matching root `dev-dependencies` so the vendored sandbox can resolve it.
 - The custom `tests/ui.rs` harness now supports snapshot refresh via `BLESS=1 cargo test --test ui -- --ignored --nocapture`; use it inside `nix develop` when updating `.stderr` files.
 

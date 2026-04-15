@@ -44,6 +44,30 @@
     "fixture": "multi_lock_ordering"
   },
   {
+    "lint_name": "explicit_defaults",
+    "fixture": "explicit_defaults/explicit_defaults"
+  },
+  {
+    "lint_name": "unbounded_channel",
+    "fixture": "unbounded_channel/unbounded_channel"
+  },
+  {
+    "lint_name": "unbounded_collection_growth",
+    "fixture": "unbounded_collection_growth"
+  },
+  {
+    "lint_name": "usize_in_public_api",
+    "fixture": "usize_in_public_api"
+  },
+  {
+    "lint_name": "too_many_parameters",
+    "fixture": "too_many_parameters"
+  },
+  {
+    "lint_name": "negated_predicate",
+    "fixture": "negated_predicate"
+  },
+  {
     "lint_name": "bool_naming",
     "fixture": "bool_naming"
   },

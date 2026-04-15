@@ -1,0 +1,40 @@
+warning: negated predicate name `is_not_ready` — prefer a positive form like `is_ready`
+  --> $DIR/negated_predicate.rs:3:4
+   |
+LL | fn is_not_ready(_state: &State) -> bool {
+   |    ^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Positive Predicates): prefer positive predicate names over negated forms like `is_not_ready` or `no_capacity` Example: fn is_ready(state: &State) -> bool
+   = note: see Tiger Style guide: Positive Predicates
+   = note: `#[warn(tigerstyle::negated_predicate)]` on by default
+
+warning: negated predicate name `has_no_capacity` — prefer a positive form like `is_ready`
+  --> $DIR/negated_predicate.rs:7:4
+   |
+LL | fn has_no_capacity() -> bool {
+   |    ^^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Positive Predicates): prefer positive predicate names over negated forms like `is_not_ready` or `no_capacity` Example: fn is_ready(state: &State) -> bool
+   = note: see Tiger Style guide: Positive Predicates
+
+warning: negated predicate name `no_capacity` — prefer a positive form like `is_ready`
+  --> $DIR/negated_predicate.rs:24:9
+   |
+LL |     let no_capacity = true;
+   |         ^^^^^^^^^^^
+   |
+   = help: Tiger Style (Positive Predicates): prefer positive predicate names over negated forms like `is_not_ready` or `no_capacity` Example: fn is_ready(state: &State) -> bool
+   = note: see Tiger Style guide: Positive Predicates
+
+warning: boolean binding `no_capacity` should have a predicate prefix
+  --> $DIR/negated_predicate.rs:24:9
+   |
+LL |     let no_capacity = true;
+   |         ^^^^^^^^^^^
+   |
+   = help: Tiger Style (Positive Predicates): name booleans as predicates so call sites read like questions Example: let is_ready = status == Ready;
+   = note: see Tiger Style guide: Positive Predicates
+   = note: `#[warn(tigerstyle::bool_naming)]` on by default
+
+warning: 4 warnings emitted
+
