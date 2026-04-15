@@ -20,6 +20,7 @@
 - When review needs proof of specific UI cases here, make the saved UI transcript print each fixture name and save a separate artifact that prints snapshot contents; a bare `test ui ... ok` transcript is not enough.
 - The custom `tests/ui.rs` harness does not compile `#[cfg(test)]` fixture code unless that fixture gets an explicit `--cfg test`; add per-fixture rustc args when you need to exercise cfg-gated test modules.
 - Standalone UI fixtures can use bare lint attrs like `#[allow(no_panic)]`, but tool-scoped forms like `#[allow(tigerstyle::no_panic)]` need `#![feature(register_tool)]` plus `#![register_tool(tigerstyle)]` or rustc rejects them before the lint runs.
+- Late-pass block attrs like `#[allow(tigerstyle::no_panic)]` on `{ ... }` attach to the enclosing `hir::Expr` with `ExprKind::Block`, not `hir::Block::hir_id`; candidate collection for block-level escape hatches must inspect the block expression HIR id.
 - Test-context suppression must treat only cfg predicates that require `test`; a token match on `test` is too broad and wrongly suppresses cases like `#[cfg(not(test))]`.
 - Early-pass line-scan fallback for test context must recognize both outer `#[cfg(test)]` and inner `#![cfg(test)]` attributes when recovering stripped cfgs from source text.
 - For same-branch unwrap suppression, a raw condition-snippet search is too broad: `if x.is_some() || other { x.unwrap(); }` is still unsafe. Use condition structure so `&&` can imply the guard, while `||` only counts when both sides require it.

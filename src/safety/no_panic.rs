@@ -40,6 +40,8 @@ pub struct NoPanic {
     emit_no_panic: bool,
     emit_unjustified_allow: bool,
     seen_unjustified_allow_spans: Vec<Span>,
+    candidate_allow_spans: Vec<Span>,
+    live_allow_spans: Vec<Span>,
 }
 
 impl NoPanic {
@@ -48,6 +50,8 @@ impl NoPanic {
             emit_no_panic,
             emit_unjustified_allow,
             seen_unjustified_allow_spans: Vec::new(),
+            candidate_allow_spans: Vec::new(),
+            live_allow_spans: Vec::new(),
         }
     }
 }
@@ -59,6 +63,12 @@ const PANIC_MACROS: &[&str] = &["panic!", "todo!", "unimplemented!", "unreachabl
 fn panic_macro_name_from_callsite(snippet: &str) -> Option<&'static str> {
     let trimmed = snippet.trim();
     PANIC_MACROS.iter().copied().find(|name| trimmed.starts_with(name))
+}
+
+fn remember_span(spans: &mut Vec<Span>, span: Span) {
+    if !spans.contains(&span) {
+        spans.push(span);
+    }
 }
 
 fn variant_def_id_from_qpath(
@@ -182,36 +192,38 @@ fn no_panic_allow_for_attr_span(cx: &LateContext<'_>, attr_span: Span) -> NoPani
     NoPanicAllow { attr_span, justified }
 }
 
-fn enclosing_no_panic_allow(cx: &LateContext<'_>, expr: &hir::Expr<'_>) -> Option<NoPanicAllow> {
+fn enclosing_no_panic_allows(cx: &LateContext<'_>, expr: &hir::Expr<'_>) -> Vec<NoPanicAllow> {
+    let mut allows = Vec::new();
+
     for (_, node) in cx.tcx.hir_parent_iter(expr.hir_id) {
         match node {
             hir::Node::Expr(parent_expr) => {
                 if matches!(parent_expr.kind, ExprKind::Block(..))
                     && let Some(attr_span) = no_panic_allow_attr_span(cx, parent_expr.hir_id)
                 {
-                    return Some(no_panic_allow_for_attr_span(cx, attr_span));
+                    allows.push(no_panic_allow_for_attr_span(cx, attr_span));
                 }
             }
             hir::Node::Item(item) => {
                 if let Some(attr_span) = no_panic_allow_attr_span(cx, item.hir_id()) {
-                    return Some(no_panic_allow_for_attr_span(cx, attr_span));
+                    allows.push(no_panic_allow_for_attr_span(cx, attr_span));
                 }
             }
             hir::Node::ImplItem(impl_item) => {
                 if let Some(attr_span) = no_panic_allow_attr_span(cx, impl_item.hir_id()) {
-                    return Some(no_panic_allow_for_attr_span(cx, attr_span));
+                    allows.push(no_panic_allow_for_attr_span(cx, attr_span));
                 }
             }
             hir::Node::TraitItem(trait_item) => {
                 if let Some(attr_span) = no_panic_allow_attr_span(cx, trait_item.hir_id()) {
-                    return Some(no_panic_allow_for_attr_span(cx, attr_span));
+                    allows.push(no_panic_allow_for_attr_span(cx, attr_span));
                 }
             }
             _ => {}
         }
     }
 
-    None
+    allows
 }
 
 fn is_exhaustive_unreachable_wildcard(cx: &LateContext<'_>, expr: &hir::Expr<'_>, name: &str) -> bool {
@@ -284,24 +296,75 @@ fn is_exhaustive_unreachable_wildcard(cx: &LateContext<'_>, expr: &hir::Expr<'_>
 }
 
 impl NoPanic {
-    fn emit_unjustified_allow_once(&mut self, cx: &LateContext<'_>, attr_span: Span, name: &str, justified: bool) {
+    fn collect_candidate_allow(&mut self, cx: &LateContext<'_>, hir_id: hir::HirId, span: Span) {
+        if !self.emit_unjustified_allow || test_context::late_hir_id_is_in_test_context(cx, hir_id, span) {
+            return;
+        }
+
+        if let Some(attr_span) = no_panic_allow_attr_span(cx, hir_id) {
+            remember_span(&mut self.candidate_allow_spans, attr_span);
+        }
+    }
+
+    fn mark_allow_live(&mut self, attr_span: Span) {
+        remember_span(&mut self.live_allow_spans, attr_span);
+    }
+
+    fn emit_unjustified_allow_message_once(&mut self, cx: &LateContext<'_>, attr_span: Span, message: String) {
         if self.seen_unjustified_allow_spans.contains(&attr_span) {
             return;
         }
         self.seen_unjustified_allow_spans.push(attr_span);
 
+        emit_tiger_style_lint(cx, UNJUSTIFIED_NO_PANIC_ALLOW, attr_span, message, "unjustified_no_panic_allow");
+    }
+
+    fn emit_unjustified_allow_once(&mut self, cx: &LateContext<'_>, attr_span: Span, name: &str, justified: bool) {
         let message = if !justified {
             "`#[allow(tigerstyle::no_panic)]` needs an adjacent `//` justification comment and may only wrap temporary `todo!()` stubs".to_owned()
         } else {
             format!("`#[allow(tigerstyle::no_panic)]` is reserved for temporary `todo!()` stubs, not `{name}`")
         };
 
-        emit_tiger_style_lint(cx, UNJUSTIFIED_NO_PANIC_ALLOW, attr_span, message, "unjustified_no_panic_allow");
+        self.emit_unjustified_allow_message_once(cx, attr_span, message);
+    }
+
+    fn emit_orphan_allow_once(&mut self, cx: &LateContext<'_>, attr_span: Span) {
+        self.emit_unjustified_allow_message_once(
+            cx,
+            attr_span,
+            "`#[allow(tigerstyle::no_panic)]` no longer covers any panic-family macro; remove it".to_owned(),
+        );
     }
 }
 
 impl<'tcx> LateLintPass<'tcx> for NoPanic {
+    fn check_item(&mut self, cx: &LateContext<'tcx>, item: &'tcx hir::Item<'tcx>) {
+        let hir::ItemKind::Fn { .. } = &item.kind else {
+            return;
+        };
+        self.collect_candidate_allow(cx, item.hir_id(), item.span);
+    }
+
+    fn check_impl_item(&mut self, cx: &LateContext<'tcx>, impl_item: &'tcx hir::ImplItem<'tcx>) {
+        let hir::ImplItemKind::Fn(_, _) = &impl_item.kind else {
+            return;
+        };
+        self.collect_candidate_allow(cx, impl_item.hir_id(), impl_item.span);
+    }
+
+    fn check_trait_item(&mut self, cx: &LateContext<'tcx>, trait_item: &'tcx hir::TraitItem<'tcx>) {
+        let hir::TraitItemKind::Fn(_, hir::TraitFn::Provided(_)) = &trait_item.kind else {
+            return;
+        };
+        self.collect_candidate_allow(cx, trait_item.hir_id(), trait_item.span);
+    }
+
     fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx hir::Expr<'tcx>) {
+        if matches!(expr.kind, ExprKind::Block(..)) {
+            self.collect_candidate_allow(cx, expr.hir_id, expr.span);
+        }
+
         // Panic macros are expanded before linting runs. We recover the
         // original macro invocation from the expansion callsite snippet.
         if !expr.span.from_expansion() {
@@ -328,11 +391,16 @@ impl<'tcx> LateLintPass<'tcx> for NoPanic {
             return;
         };
 
+        let allows = enclosing_no_panic_allows(cx, expr);
+        for allow in &allows {
+            self.mark_allow_live(allow.attr_span);
+        }
+
         if is_exhaustive_unreachable_wildcard(cx, expr, name) {
             return;
         }
 
-        if let Some(allow) = enclosing_no_panic_allow(cx, expr) {
+        if let Some(allow) = allows.first().copied() {
             if name == "todo!" && allow.justified {
                 return;
             }
@@ -354,6 +422,23 @@ impl<'tcx> LateLintPass<'tcx> for NoPanic {
             format!("`{name}` will abort the process on execution"),
             "no_panic",
         );
+    }
+
+    fn check_crate_post(&mut self, cx: &LateContext<'tcx>) {
+        if !self.emit_unjustified_allow {
+            return;
+        }
+
+        let orphan_allow_spans = self
+            .candidate_allow_spans
+            .iter()
+            .copied()
+            .filter(|attr_span| !self.live_allow_spans.contains(attr_span))
+            .collect::<Vec<_>>();
+
+        for attr_span in orphan_allow_spans {
+            self.emit_orphan_allow_once(cx, attr_span);
+        }
     }
 }
 

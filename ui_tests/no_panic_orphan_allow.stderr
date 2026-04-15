@@ -1,0 +1,53 @@
+warning: `#[allow(tigerstyle::no_panic)]` no longer covers any panic-family macro; remove it
+  --> $DIR/no_panic_orphan_allow.rs:6:1
+   |
+LL | #[allow(tigerstyle::no_panic)]
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Documented Panic Escape): reserve `#[allow(tigerstyle::no_panic)]` for temporary `todo!()` stubs with an adjacent `//` justification comment Example: // justified stub while API lands
+           #[allow(tigerstyle::no_panic)] fn stub() { todo!() }
+   = note: see Tiger Style guide: Error Handling / Panics
+   = note: `#[warn(tigerstyle::unjustified_no_panic_allow)]` on by default
+
+warning: `#[allow(tigerstyle::no_panic)]` no longer covers any panic-family macro; remove it
+  --> $DIR/no_panic_orphan_allow.rs:12:1
+   |
+LL | #[allow(tigerstyle::no_panic)]
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Documented Panic Escape): reserve `#[allow(tigerstyle::no_panic)]` for temporary `todo!()` stubs with an adjacent `//` justification comment Example: // justified stub while API lands
+           #[allow(tigerstyle::no_panic)] fn stub() { todo!() }
+   = note: see Tiger Style guide: Error Handling / Panics
+
+warning: `#[allow(tigerstyle::no_panic)]` no longer covers any panic-family macro; remove it
+  --> $DIR/no_panic_orphan_allow.rs:18:5
+   |
+LL |     #[allow(tigerstyle::no_panic)]
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Documented Panic Escape): reserve `#[allow(tigerstyle::no_panic)]` for temporary `todo!()` stubs with an adjacent `//` justification comment Example: // justified stub while API lands
+           #[allow(tigerstyle::no_panic)] fn stub() { todo!() }
+   = note: see Tiger Style guide: Error Handling / Panics
+
+warning: `#[allow(tigerstyle::no_panic)]` no longer covers any panic-family macro; remove it
+  --> $DIR/no_panic_orphan_allow.rs:26:5
+   |
+LL |     #[allow(tigerstyle::no_panic)]
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Documented Panic Escape): reserve `#[allow(tigerstyle::no_panic)]` for temporary `todo!()` stubs with an adjacent `//` justification comment Example: // justified stub while API lands
+           #[allow(tigerstyle::no_panic)] fn stub() { todo!() }
+   = note: see Tiger Style guide: Error Handling / Panics
+
+warning: `#[allow(tigerstyle::no_panic)]` no longer covers any panic-family macro; remove it
+  --> $DIR/no_panic_orphan_allow.rs:33:19
+   |
+LL | #[cfg_attr(all(), allow(tigerstyle::no_panic))]
+   |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Documented Panic Escape): reserve `#[allow(tigerstyle::no_panic)]` for temporary `todo!()` stubs with an adjacent `//` justification comment Example: // justified stub while API lands
+           #[allow(tigerstyle::no_panic)] fn stub() { todo!() }
+   = note: see Tiger Style guide: Error Handling / Panics
+
+warning: 5 warnings emitted
+
