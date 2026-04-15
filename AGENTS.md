@@ -17,11 +17,17 @@
 - After adding or removing Cargo dependencies, run `cargo generate-lockfile` before trusting fresh `--locked` Nix builds or `nix flake check`.
 - When review needs proof of specific UI cases here, make the saved UI transcript print each fixture name and save a separate artifact that prints snapshot contents; a bare `test ui ... ok` transcript is not enough.
 - The custom `tests/ui.rs` harness does not compile `#[cfg(test)]` fixture code unless that fixture gets an explicit `--cfg test`; add per-fixture rustc args when you need to exercise cfg-gated test modules.
-- Standalone UI fixtures can use bare lint attrs like `#[allow(no_panic)]`, but tool-scoped forms like `#[allow(tigerstyle::no_panic)]` need `#![register_tool(tigerstyle)]` or rustc rejects them before the lint runs.
+- Standalone UI fixtures can use bare lint attrs like `#[allow(no_panic)]`, but tool-scoped forms like `#[allow(tigerstyle::no_panic)]` need `#![feature(register_tool)]` plus `#![register_tool(tigerstyle)]` or rustc rejects them before the lint runs.
 - Test-context suppression must treat only cfg predicates that require `test`; a token match on `test` is too broad and wrongly suppresses cases like `#[cfg(not(test))]`.
 - Early-pass line-scan fallback for test context must recognize both outer `#[cfg(test)]` and inner `#![cfg(test)]` attributes when recovering stripped cfgs from source text.
 - For same-branch unwrap suppression, a raw condition-snippet search is too broad: `if x.is_some() || other { x.unwrap(); }` is still unsafe. Use condition structure so `&&` can imply the guard, while `||` only counts when both sides require it.
 - When a lint needs to recognize `Drop::drop`, compare the enclosing trait impl against `tcx.lang_items().drop_trait()`; matching a trait name string like `Drop` is too loose.
+- For `unchecked_narrowing`, scanning an entire enclosing block for `assert`/`MAX` is too broad and will suppress casts guarded only for other values or later statements; inspect only prior same-block assertions that match the casted expression.
+- In late HIR, `assert!(cond)` expands to an `if !cond { ... }`; same-block assert recognition must unwrap that leading `!` instead of looking for a bare binary condition.
+- In late HIR, `expr.await` lowers to an `AwaitDesugar` match around `IntoFuture::into_future(<method call>)`; async ignored-result rules should inspect the nested method call rather than looking for a top-level `MethodCall`.
+- Tokio `sync::mpsc` public re-exports resolve through internal def paths like `tokio::sync::mpsc::bounded::Sender` and `...::bounded::Receiver`; `get_def_path` matching must use the definition path, not just the public re-export spelling.
+- Late-pass `unbounded_loop` must ignore expansion/desugaring-generated loops or it will falsely warn on compiler-inserted `.await` polling loops.
+- `tests/ui.rs` can support async/Tokio standalone fixtures by building a sibling fixture-local `Cargo.toml` once, then passing `-L dependency=...` and `--extern tokio=...` while still compiling the actual linted fixture with `--edition=2024`.
 
 ## Lint registration / config
 - Do not implement per-lint severity by registering cloned `Lint` descriptors with patched `default_level`; passes still emit the original static lint IDs, so `allow`/`deny` overrides silently fail.

@@ -1,0 +1,18 @@
+warning: `Result` value silently discarded with `let _ = ...`
+  --> $DIR/ignored_result_shutdown_send.rs:26:5
+   |
+LL |     let _ = tx.send(1);
+   |     ^^^^^^^^^^^^^^^^^^^
+   |
+   = help: use `expr?` to propagate, `let _: () = expr?;` to assert infallibility, or handle the error explicitly
+   = note: `#[warn(ignored_result)]` on by default
+
+warning: `Result` value silently discarded with `let _ = ...`
+  --> $DIR/ignored_result_shutdown_send.rs:30:5
+   |
+LL |     let _ = tx.send(1);
+   |     ^^^^^^^^^^^^^^^^^^^
+   |
+   = help: use `expr?` to propagate, `let _: () = expr?;` to assert infallibility, or handle the error explicitly
+
+warning: 2 warnings emitted

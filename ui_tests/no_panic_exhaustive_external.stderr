@@ -1,0 +1,10 @@
+warning: `unreachable!` will abort the process on execution
+  --> $DIR/no_panic_exhaustive_external.rs:10:14
+   |
+LL |         _ => unreachable!("external enum should still warn"),
+   |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: if truly unreachable, use `debug_assert!` or prove it with types
+   = note: `#[warn(no_panic)]` on by default
+
+warning: 1 warning emitted

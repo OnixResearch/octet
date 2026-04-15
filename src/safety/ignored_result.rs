@@ -8,6 +8,7 @@ use rustc_lint::LintContext;
 use rustc_middle::ty;
 use rustc_session::declare_lint;
 use rustc_session::declare_lint_pass;
+use rustc_span::Symbol;
 use rustc_span::sym;
 
 declare_lint! {
@@ -28,6 +29,10 @@ fn is_result_type(cx: &LateContext<'_>, t: ty::Ty<'_>) -> bool {
     } else {
         false
     }
+}
+
+fn match_def_path(cx: &LateContext<'_>, did: rustc_hir::def_id::DefId, path: &[&str]) -> bool {
+    cx.get_def_path(did).iter().copied().eq(path.iter().map(|segment| Symbol::intern(segment)))
 }
 
 fn is_drop_impl_context(cx: &LateContext<'_>, hir_id: hir::HirId) -> bool {
@@ -65,6 +70,73 @@ fn is_drop_impl_context(cx: &LateContext<'_>, hir_id: hir::HirId) -> bool {
     false
 }
 
+fn supported_sender_type(cx: &LateContext<'_>, expr: &hir::Expr<'_>) -> bool {
+    let ty::Adt(adt, _) = cx.typeck_results().expr_ty(expr).peel_refs().kind() else {
+        return false;
+    };
+
+    match_def_path(cx, adt.did(), &["std", "sync", "mpsc", "Sender"])
+        || match_def_path(cx, adt.did(), &["tokio", "sync", "mpsc", "Sender"])
+        || match_def_path(cx, adt.did(), &["tokio", "sync", "mpsc", "bounded", "Sender"])
+}
+
+fn peel_transparent_expr<'tcx>(mut expr: &'tcx hir::Expr<'tcx>) -> &'tcx hir::Expr<'tcx> {
+    loop {
+        match &expr.kind {
+            hir::ExprKind::DropTemps(inner) => expr = inner,
+            hir::ExprKind::Block(block, _) if block.stmts.is_empty() => {
+                let Some(inner) = block.expr else {
+                    break expr;
+                };
+                expr = inner;
+            }
+            _ => break expr,
+        }
+    }
+}
+
+fn send_receiver_from_expr<'tcx>(expr: &'tcx hir::Expr<'tcx>) -> Option<&'tcx hir::Expr<'tcx>> {
+    let expr = peel_transparent_expr(expr);
+
+    match &expr.kind {
+        hir::ExprKind::MethodCall(segment, receiver, args, _) => {
+            (segment.ident.name.as_str() == "send" && args.len() == 1).then_some(*receiver)
+        }
+        hir::ExprKind::Match(scrutinee, _, hir::MatchSource::AwaitDesugar) => {
+            let hir::ExprKind::Call(_, [future_expr]) = &scrutinee.kind else {
+                return None;
+            };
+            let hir::ExprKind::MethodCall(segment, receiver, args, _) = &future_expr.kind else {
+                return None;
+            };
+            (segment.ident.name.as_str() == "send" && args.len() == 1).then_some(*receiver)
+        }
+        _ => None,
+    }
+}
+
+fn is_shutdown_or_close_context(cx: &LateContext<'_>, hir_id: hir::HirId) -> bool {
+    for (_, node) in cx.tcx.hir_parent_iter(hir_id) {
+        let name = match node {
+            hir::Node::ImplItem(impl_item) => Some(impl_item.ident.name),
+            hir::Node::TraitItem(trait_item) => Some(trait_item.ident.name),
+            hir::Node::Item(item) => cx.tcx.hir_opt_name(cx.tcx.local_def_id_to_hir_id(item.owner_id.def_id)),
+            _ => None,
+        };
+
+        if name.is_some_and(|name| matches!(name.as_str().as_ref(), "shutdown" | "close")) {
+            return true;
+        }
+    }
+
+    false
+}
+
+fn is_fire_and_forget_shutdown_send(cx: &LateContext<'_>, hir_id: hir::HirId, init: &hir::Expr<'_>) -> bool {
+    is_shutdown_or_close_context(cx, hir_id)
+        && send_receiver_from_expr(init).is_some_and(|receiver| supported_sender_type(cx, receiver))
+}
+
 impl<'tcx> LateLintPass<'tcx> for IgnoredResult {
     fn check_local(&mut self, cx: &LateContext<'tcx>, local: &'tcx hir::LetStmt<'tcx>) {
         // Only fire on wildcard pattern: `let _ = ...`
@@ -81,7 +153,7 @@ impl<'tcx> LateLintPass<'tcx> for IgnoredResult {
             return;
         }
 
-        if is_drop_impl_context(cx, local.hir_id) {
+        if is_drop_impl_context(cx, local.hir_id) || is_fire_and_forget_shutdown_send(cx, local.hir_id, init) {
             return;
         }
 

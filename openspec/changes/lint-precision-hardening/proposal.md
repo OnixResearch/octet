@@ -10,14 +10,14 @@ families makes them promotable into default downstream paths sooner.
 ## What Changes
 
 ### `ignored_result`
-- Skip `let _ = expr` where the Result type is a known fire-and-forget
-  pattern (e.g., `mpsc::Sender::send` in shutdown paths when the receiver
-  may already be dropped)
+- Skip `let _ = tx.send(msg)` only for narrow fire-and-forget teardown
+  paths: supported `std::sync::mpsc::Sender` / `tokio::sync::mpsc::Sender`
+  sends inside functions or methods named exactly `shutdown` or `close`
 - Skip inside `Drop::drop` implementations where propagation is impossible
 
 ### `no_unwrap`
-- Skip `.unwrap()` on `const` or `static` initializers where the value is
-  a compile-time-known `Some`/`Ok` (e.g., `"127.0.0.1".parse().unwrap()`)
+- Skip `.unwrap()` on compile-time-known `Some` / `Ok` constructions,
+  including const/static-style initializers (e.g., `"127.0.0.1".parse().unwrap()`)
 - Skip `.unwrap()` immediately after a `.is_some()` / `.is_ok()` guard in
   the same `if` branch
 - Skip in `#[cfg(test)]` and `#[test]` contexts
@@ -39,8 +39,9 @@ families makes them promotable into default downstream paths sooner.
 ### `unbounded_loop`
 - Recognize `loop { tokio::select! { ... } }` as a bounded event loop
   (already spec'd but implementation may be incomplete)
-- Recognize `while let Some(_) = rx.recv().await` as bounded by channel
-  capacity when `rx` is a bounded receiver type
+- Recognize `while let Some(_) = rx.recv().await` as bounded only for
+  `tokio::sync::mpsc::Receiver<_>` and keep warning on
+  `tokio::sync::mpsc::UnboundedReceiver<_>`
 
 ## Capabilities
 
@@ -55,8 +56,11 @@ families makes them promotable into default downstream paths sooner.
 
 - **Files**: `src/safety/ignored_result.rs`, `src/safety/no_unwrap.rs`,
   `src/safety/no_panic.rs`, `src/safety/unchecked_narrowing.rs`,
-  `src/safety/unbounded_loop.rs`
+  `src/safety/unbounded_loop.rs`, `tests/ui.rs`, async fixture support under
+  `ui_tests/tokio_async/`, and downstream evidence at
+  `openspec/changes/lint-precision-hardening/evidence/aspen-comparison.md`
 - **APIs**: No public API changes
 - **Dependencies**: None
-- **Testing**: New UI fixtures for each precision improvement, plus
-  re-validation against Aspen to confirm reduced noise
+- **Testing**: New UI fixtures for each precision improvement (including async
+  Tokio-backed standalone fixtures), plus re-validation against Aspen to
+  confirm reduced noise

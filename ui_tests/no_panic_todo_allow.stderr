@@ -1,0 +1,58 @@
+warning: `todo!` will abort the process on execution
+  --> $DIR/no_panic_todo_allow.rs:26:5
+   |
+LL |     todo!("doc comment should still warn");
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: return an error or use a tracking issue instead of `todo!()`
+   = note: `#[warn(no_panic)]` on by default
+
+warning: `todo!` will abort the process on execution
+  --> $DIR/no_panic_todo_allow.rs:32:5
+   |
+LL |     todo!("block comment should still warn");
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: return an error or use a tracking issue instead of `todo!()`
+
+warning: `todo!` will abort the process on execution
+  --> $DIR/no_panic_todo_allow.rs:39:5
+   |
+LL |     todo!("blank line should still warn");
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: return an error or use a tracking issue instead of `todo!()`
+
+warning: `todo!` will abort the process on execution
+  --> $DIR/no_panic_todo_allow.rs:44:5
+   |
+LL |     todo!("missing comment should still warn");
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: return an error or use a tracking issue instead of `todo!()`
+
+warning: `panic!` will abort the process on execution
+  --> $DIR/no_panic_todo_allow.rs:50:5
+   |
+LL |     panic!("panic should still warn");
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: return `Err(...)` instead of panicking
+
+warning: `unimplemented!` will abort the process on execution
+  --> $DIR/no_panic_todo_allow.rs:56:5
+   |
+LL |     unimplemented!("unimplemented should still warn");
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: return `Err(...)` explaining what's missing
+
+warning: `unreachable!` will abort the process on execution
+  --> $DIR/no_panic_todo_allow.rs:62:5
+   |
+LL |     unreachable!("unreachable should still warn");
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: if truly unreachable, use `debug_assert!` or prove it with types
+
+warning: 7 warnings emitted

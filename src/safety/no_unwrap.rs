@@ -8,6 +8,7 @@ use rustc_middle::ty;
 use rustc_session::declare_lint;
 use rustc_session::declare_lint_pass;
 use rustc_span::Span;
+use rustc_span::Symbol;
 use rustc_span::sym;
 
 use crate::test_context;
@@ -44,14 +45,90 @@ fn is_known_constructor_call(receiver: &hir::Expr<'_>) -> bool {
     matches!(path.segments.last().map(|segment| segment.ident.name.as_str().as_ref()), Some("Some") | Some("Ok"))
 }
 
-fn is_string_literal_parse(receiver: &hir::Expr<'_>) -> bool {
+fn match_def_path(cx: &LateContext<'_>, did: rustc_hir::def_id::DefId, path: &[&str]) -> bool {
+    cx.get_def_path(did).iter().copied().eq(path.iter().map(|segment| Symbol::intern(segment)))
+}
+
+fn parse_literal_string_and_target<'tcx>(
+    cx: &LateContext<'tcx>,
+    receiver: &'tcx hir::Expr<'tcx>,
+) -> Option<(String, ty::Ty<'tcx>)> {
     let ExprKind::MethodCall(segment, target, args, _) = &receiver.kind else {
+        return None;
+    };
+    if segment.ident.name.as_str() != "parse" || !args.is_empty() {
+        return None;
+    }
+
+    let ExprKind::Lit(lit) = target.kind else {
+        return None;
+    };
+    let rustc_ast::LitKind::Str(symbol, _) = lit.node else {
+        return None;
+    };
+
+    let ty::Adt(adt, args) = cx.typeck_results().expr_ty(receiver).kind() else {
+        return None;
+    };
+    if !cx.tcx.is_diagnostic_item(sym::Result, adt.did()) {
+        return None;
+    }
+
+    Some((symbol.as_str().to_string(), args[0].expect_ty()))
+}
+
+fn literal_parse_succeeds_for_target(cx: &LateContext<'_>, literal: &str, target_ty: ty::Ty<'_>) -> bool {
+    match target_ty.kind() {
+        ty::Bool => literal.parse::<bool>().is_ok(),
+        ty::Char => literal.parse::<char>().is_ok(),
+        ty::Int(int_ty) => match int_ty {
+            ty::IntTy::Isize => literal.parse::<isize>().is_ok(),
+            ty::IntTy::I8 => literal.parse::<i8>().is_ok(),
+            ty::IntTy::I16 => literal.parse::<i16>().is_ok(),
+            ty::IntTy::I32 => literal.parse::<i32>().is_ok(),
+            ty::IntTy::I64 => literal.parse::<i64>().is_ok(),
+            ty::IntTy::I128 => literal.parse::<i128>().is_ok(),
+        },
+        ty::Uint(uint_ty) => match uint_ty {
+            ty::UintTy::Usize => literal.parse::<usize>().is_ok(),
+            ty::UintTy::U8 => literal.parse::<u8>().is_ok(),
+            ty::UintTy::U16 => literal.parse::<u16>().is_ok(),
+            ty::UintTy::U32 => literal.parse::<u32>().is_ok(),
+            ty::UintTy::U64 => literal.parse::<u64>().is_ok(),
+            ty::UintTy::U128 => literal.parse::<u128>().is_ok(),
+        },
+        ty::Float(float_ty) => match float_ty {
+            ty::FloatTy::F16 => false,
+            ty::FloatTy::F32 => literal.parse::<f32>().is_ok(),
+            ty::FloatTy::F64 => literal.parse::<f64>().is_ok(),
+            ty::FloatTy::F128 => false,
+        },
+        ty::Adt(adt, _) => {
+            match_def_path(cx, adt.did(), &["alloc", "string", "String"])
+                || match_def_path(cx, adt.did(), &["std", "string", "String"])
+                || match_def_path(cx, adt.did(), &["core", "net", "ip_addr", "IpAddr"])
+                    && literal.parse::<std::net::IpAddr>().is_ok()
+                || match_def_path(cx, adt.did(), &["core", "net", "ip_addr", "Ipv4Addr"])
+                    && literal.parse::<std::net::Ipv4Addr>().is_ok()
+                || match_def_path(cx, adt.did(), &["core", "net", "ip_addr", "Ipv6Addr"])
+                    && literal.parse::<std::net::Ipv6Addr>().is_ok()
+                || match_def_path(cx, adt.did(), &["core", "net", "socket_addr", "SocketAddr"])
+                    && literal.parse::<std::net::SocketAddr>().is_ok()
+                || match_def_path(cx, adt.did(), &["core", "net", "socket_addr", "SocketAddrV4"])
+                    && literal.parse::<std::net::SocketAddrV4>().is_ok()
+                || match_def_path(cx, adt.did(), &["core", "net", "socket_addr", "SocketAddrV6"])
+                    && literal.parse::<std::net::SocketAddrV6>().is_ok()
+        }
+        _ => false,
+    }
+}
+
+fn is_provably_infallible_literal_parse<'tcx>(cx: &LateContext<'tcx>, receiver: &'tcx hir::Expr<'tcx>) -> bool {
+    let Some((literal, target_ty)) = parse_literal_string_and_target(cx, receiver) else {
         return false;
     };
 
-    segment.ident.name.as_str() == "parse"
-        && args.is_empty()
-        && matches!(target.kind, ExprKind::Lit(lit) if matches!(lit.node, rustc_ast::LitKind::Str(..)))
+    literal_parse_succeeds_for_target(cx, &literal, target_ty)
 }
 
 fn span_contains(outer: Span, inner: Span) -> bool {
@@ -125,7 +202,12 @@ fn has_same_branch_guard(cx: &LateContext<'_>, expr: &hir::Expr<'_>, receiver: &
     false
 }
 
-fn should_skip_unwrap(cx: &LateContext<'_>, expr: &hir::Expr<'_>, receiver: &hir::Expr<'_>, name: &str) -> bool {
+fn should_skip_unwrap<'tcx>(
+    cx: &LateContext<'tcx>,
+    expr: &'tcx hir::Expr<'tcx>,
+    receiver: &'tcx hir::Expr<'tcx>,
+    name: &str,
+) -> bool {
     if test_context::late_hir_id_is_in_test_context(cx, expr.hir_id, expr.span) {
         return true;
     }
@@ -135,7 +217,7 @@ fn should_skip_unwrap(cx: &LateContext<'_>, expr: &hir::Expr<'_>, receiver: &hir
     }
 
     is_known_constructor_call(receiver)
-        || is_string_literal_parse(receiver)
+        || is_provably_infallible_literal_parse(cx, receiver)
         || has_same_branch_guard(cx, expr, receiver)
 }
 

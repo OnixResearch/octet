@@ -39,8 +39,28 @@ on a literal, `Some(x).unwrap()`).
 **Rationale:** These are idiomatic Rust for const initialization and
 zero-cost at runtime. Flagging them adds noise without catching bugs.
 
-**Implementation:** Check if the receiver of `.unwrap()` is a call to
-`parse()` on a string literal, `Some(...)`, or `Ok(...)`.
+**Implementation:** Check if the receiver of `.unwrap()` is `Some(...)`,
+`Ok(...)`, or a string-literal `parse()` targeting a finite supported set of
+standard types whose literal value can be validated cheaply at lint time:
+primitive bool/int/float/char, `String`, and standard network address types
+(`IpAddr`, `Ipv4Addr`, `Ipv6Addr`, `SocketAddr`, `SocketAddrV4`,
+`SocketAddrV6`). Invalid literal parses and analogous `.expect()` calls keep
+warning, with explicit negative UI proof for those boundaries.
+
+### 2b. Same-branch guard suppression for `no_unwrap`
+
+**Choice:** `no_unwrap` skips `.unwrap()` only when the same branch is already
+logically dominated by `.is_some()` or `.is_ok()` on the same value.
+
+**Rationale:** This is a common Rust pattern for narrowing `Option` / `Result`
+state before using the value. Flagging it adds noise, but only when the guard
+really implies the unwrap is safe.
+
+**Implementation:** Match the condition structure rather than searching raw
+source snippets. `&&` may carry the guard into the branch, while `||` only
+counts when both sides imply the same guard. Keep UI proof for both the silent
+same-branch `.unwrap()` case and the still-warning `.expect()` / unsafe-branch
+cases.
 
 ### 3. Drop-impl suppression for `ignored_result`
 
@@ -96,7 +116,9 @@ A loose comment rule would turn `todo!()` into an easy blanket opt-out.
 **Implementation:** Reuse the repo's existing justification-comment shape:
 only `// ...` comments count, with no blank line between comment and
 attribute. Doc comments and block comments do not count. Standalone UI
-fixtures that exercise the tool-scoped attr must register the tool.
+fixtures that exercise the tool-scoped attr must register the tool; this is a
+change-contract-driven exception to the repo's usual preference for bare lint
+names in standalone fixtures.
 
 ### 7. Shutdown-send suppression for `ignored_result`
 
@@ -109,8 +131,12 @@ same `send` pattern is risky in ordinary request or replication paths.
 A narrow type-and-name rule keeps the exception reviewable.
 
 **Implementation:** Match the ignored expression as a `send` method call on
-those sender types, then check the enclosing function or impl item name.
-`Drop::drop` remains a separate rule rather than being folded into this one.
+those sender types, including the awaited `send(...).await` shape by unwrapping
+Rust's await desugar before checking the receiver type and enclosing function
+or impl item name. Resolve Tokio sender identity through its concrete
+definition path rather than assuming the public re-export spelling appears in
+`get_def_path`. `Drop::drop` remains a separate rule rather than being folded
+into this one.
 
 ### 8. Same-block `assert!` recognition for `unchecked_narrowing`
 
@@ -122,9 +148,9 @@ logging or small helper statements. Requiring the assert to be immediately
 adjacent adds noise without improving safety.
 
 **Implementation:** Walk the enclosing block, inspect only statements that
-textually precede the cast, and match the same source expression plus the
-`<= TARGET::MAX as WIDE` bound shape. Do not fall back to whole-block text
-search.
+textually precede the cast, and match the same binding / expression identity
+plus the `<= TARGET::MAX as WIDE` bound shape. Do not fall back to whole-block
+text search or raw source-text equality that could confuse shadowed values.
 
 ### 9. `tokio::select!` loop recognition for `unbounded_loop`
 
@@ -135,9 +161,10 @@ search.
 flow in async services. The precision goal is to stop flagging the common
 Tokio case, not to bless arbitrary macros named `select!`.
 
-**Implementation:** Detect the loop-body macro callsite as `tokio::select!`
-or imported `select!` from Tokio. Keep the rule narrow; other event-loop
-macros stay out of scope for this change.
+**Implementation:** Detect the loop-body macro callsite from
+`expr.span.source_callsite()` and confirm Tokio origin through macro-backtrace
+metadata. Keep the rule narrow; other event-loop macros stay out of scope for
+this change.
 
 ### 10. Bounded receiver recognition for `unbounded_loop`
 
@@ -150,8 +177,10 @@ is the main downstream pattern we care about. Collapsing bounded and
 unbounded receiver types would hide real liveness risks.
 
 **Implementation:** Resolve the receiver type of `recv().await` through HIR
-and typeck results. The positive and negative UI fixtures should use a small
-fixture-local crate with Tokio available if needed.
+and typeck results, matching Tokio's concrete bounded / unbounded definition
+paths instead of just the public re-export spelling. The positive and negative
+UI fixtures should use a small fixture-local Cargo crate that provides Tokio
+externs to the standalone UI harness.
 
 ### 11. Async UI harness parity
 
@@ -162,8 +191,43 @@ fixture-local crate with Tokio available if needed.
 compile under the repo's real edition. Falling back to rustc's default edition
 would create false failures unrelated to the lint logic.
 
-**Implementation:** Preserve `--edition=2024` in `tests/ui.rs` and treat it as
-an explicit prerequisite for future async precision fixtures.
+**Implementation:** Preserve `--edition=2024` in `tests/ui.rs`, and let
+fixture-local Cargo support add Tokio externs without changing the direct
+standalone rustc edition used for the actual linted fixture.
+
+## Verification strategy
+
+- Keep explicit positive UI proof that `#[cfg(test)]` and inner
+  `#![cfg(test)]` suppression works for both `no_unwrap` and `no_panic`, plus
+  negative UI proof that `#[cfg(not(test))]` production code still warns.
+- Keep explicit positive UI proof for compile-time-known `Some(...)`,
+  `Ok(...)`, const/static-style initializer `.unwrap()` use, and valid
+  literal-string `.parse().unwrap()` exemptions, plus negative proof that
+  invalid literal parses and analogous `.expect()` calls still warn.
+- Keep explicit positive UI proof for `unchecked_narrowing` on
+  `min(... as ...) as target`, `try_from(...).unwrap_or(T::MAX)`, and earlier
+  same-block `assert!(...)`, plus negative proof for unrelated, shadowed,
+  mismatched, and later asserts.
+- Keep explicit negative UI proof that unsafe `else` branches and other
+  non-dominated paths still warn for guarded `no_unwrap` cases.
+- Keep explicit negative UI proof that external enums,
+  `#[non_exhaustive]` local enums, and indirect wildcard-arm panics still warn.
+- Keep explicit positive UI proof for both exhaustive local-enum wildcard
+  `unreachable!()` suppression and function-scoped / block-scoped justified
+  `todo!()` allows, plus negative UI proof that unjustified `todo!()` still
+  warns when the adjacent `//` comment rule is not satisfied.
+- Keep explicit positive UI proof for `ignored_result` both inside
+  `Drop::drop`, for `std::sync::mpsc::Sender<_>` in `shutdown`, and for
+  `tokio::sync::mpsc::Sender<_>` in `close`, plus negative UI proof that
+  ordinary sends and exact-name `try_send` teardown calls still warn.
+- Keep explicit regression proof that existing visible-counter and
+  counter-break `unbounded_loop` cases stay silent.
+- Keep explicit positive UI proof for both fully qualified `tokio::select!`
+  and imported Tokio `select!`, plus negative proof that non-Tokio `select!`,
+  bare async loops, and `UnboundedReceiver<_>` loops still warn for
+  `unbounded_loop`.
+- Keep explicit async UI proof that plain `.await` outside a user-written loop
+  stays silent so desugared polling loops do not reintroduce false positives.
 
 ## Risks / Trade-offs
 
@@ -173,4 +237,7 @@ and the continued detection of the real-bug case.
 
 **[Downstream validation]** → Must re-run against Aspen to confirm noise
 reduction without losing real findings. Mitigation: save before/after
-finding counts as evidence.
+finding counts per affected lint family as evidence, treat any increase in
+false positives or any lost real finding as a regression, and summarize the
+before/after comparison in the reviewer-visible artifact
+`openspec/changes/lint-precision-hardening/evidence/aspen-comparison.md`.

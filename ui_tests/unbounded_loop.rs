@@ -7,14 +7,6 @@ fn bare_loop() {
     }
 }
 
-fn select_loop() {
-    // Should NOT warn: contains select!
-    loop {
-        // select! { ... }
-        break;
-    }
-}
-
 fn counter_loop() {
     // Should NOT warn: contains "attempt"
     let mut attempt = 0;

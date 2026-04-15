@@ -13,11 +13,17 @@ The lint MUST NOT fire in items or modules guarded by `#[cfg(test)]` or an
 inner `#![cfg(test)]` that makes the enclosing item test-only.
 
 The lint MUST NOT fire on compile-time-known infallible constructions such as
-`Some(value).unwrap()`, `Ok(value).unwrap()`, or literal-string
-`"127.0.0.1".parse().unwrap()`, including const/static-style initializer code.
+`Some(value).unwrap()`, `Ok(value).unwrap()`, or valid literal-string parses
+for a finite supported standard set (primitive bool/int/float/char, `String`,
+and standard network address types such as `"127.0.0.1".parse().unwrap()`),
+including const/static-style initializer code.
 
 The lint MUST NOT fire when the unwrap is dominated by a same-branch
 `.is_some()` or `.is_ok()` guard.
+
+In this change, the new dominance / compile-time-known suppression rules apply
+only to `.unwrap()`. `.expect()` continues to warn unless a future change
+specifies matching suppression behavior.
 
 #### Scenario: Test helper unwrap
 
@@ -48,6 +54,12 @@ The lint MUST NOT fire when the unwrap is dominated by a same-branch
 - GIVEN `static ADDR: std::net::IpAddr = "127.0.0.1".parse().unwrap();`
 - WHEN the lint runs
 - THEN it does NOT fire
+
+#### Scenario: Invalid literal parse still warns
+
+- GIVEN `let addr: std::net::IpAddr = "not an ip".parse().unwrap();`
+- WHEN the lint runs
+- THEN it still warns
 
 #### Scenario: Guarded unwrap
 
@@ -109,6 +121,13 @@ line. Blank lines, doc comments, and block comments do NOT count.
 - WHEN the lint runs
 - THEN it does NOT fire
 
+#### Scenario: Justified block todo allow
+
+- GIVEN a block annotated with `#[allow(tigerstyle::no_panic)]` and an
+  adjacent `//` justification comment that contains `todo!(...)`
+- WHEN the lint runs
+- THEN it does NOT fire
+
 #### Scenario: Unjustified todo still warns
 
 - GIVEN `#[allow(tigerstyle::no_panic)] fn stub() { todo!(...) }` without that
@@ -131,7 +150,7 @@ non-Result type (e.g., guard drops).
 
 The lint MUST NOT fire inside `Drop::drop` implementations.
 
-The lint SHOULD NOT fire on `let _ = tx.send(msg);` when all of the
+The lint MUST NOT fire on `let _ = tx.send(msg);` when all of the
 following hold:
 - the method name is exactly `send`
 - `tx` has type `std::sync::mpsc::Sender<_>` or `tokio::sync::mpsc::Sender<_>`
@@ -147,6 +166,13 @@ following hold:
 
 - GIVEN `fn shutdown(&self) { let _ = self.tx.send(msg); }` where `self.tx` has
   type `std::sync::mpsc::Sender<_>`
+- WHEN the lint runs
+- THEN it does NOT fire
+
+#### Scenario: Tokio close send swallow
+
+- GIVEN `async fn close(&self) { let _ = self.tx.send(msg).await; }` where
+  `self.tx` has type `tokio::sync::mpsc::Sender<_>`
 - WHEN the lint runs
 - THEN it does NOT fire
 
@@ -184,6 +210,11 @@ The lint MUST treat an earlier same-block `assert!(value <= u32::MAX as u64)`
 as a valid bounds check even when it is not the immediately preceding
 statement.
 
+This same-block assert suppression MUST apply only when the asserted
+expression matches the casted value and the asserted bound matches the cast
+target. Unrelated asserts, shadowed values, mismatched bounds, or later asserts
+MUST NOT suppress the warning.
+
 #### Scenario: Min-bounded narrowing
 
 - GIVEN `let id = value.min(u32::MAX as u64) as u32;`
@@ -202,6 +233,13 @@ statement.
   before `let id = value as u32;`
 - WHEN the lint runs
 - THEN it does NOT fire
+
+#### Scenario: Unrelated same-block assert still warns
+
+- GIVEN a same-block assert about a different value, a shadowed value, the
+  wrong bound shape, or an assert that appears after the cast
+- WHEN the lint runs on `value as u32`
+- THEN it still warns
 
 ### Requirement: Unbounded Loop Detection
 
@@ -224,6 +262,12 @@ receive loops.
 #### Scenario: Tokio select loop
 
 - GIVEN `loop { tokio::select! { ... } }`
+- WHEN the lint runs
+- THEN it does NOT fire
+
+#### Scenario: Imported Tokio select loop
+
+- GIVEN `use tokio::select; loop { select! { ... } }`
 - WHEN the lint runs
 - THEN it does NOT fire
 

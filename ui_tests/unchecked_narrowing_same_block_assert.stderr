@@ -1,0 +1,34 @@
+warning: narrowing cast from `u64` to `u32` without bounds check
+  --> $DIR/unchecked_narrowing_same_block_assert.rs:11:5
+   |
+LL |     x as u32
+   |     ^^^^^^^^
+   |
+   = help: use `u32::try_from(value)` or guard with `if value <= u32::MAX as u64`
+   = note: `#[warn(unchecked_narrowing)]` on by default
+
+warning: narrowing cast from `u64` to `u32` without bounds check
+  --> $DIR/unchecked_narrowing_same_block_assert.rs:18:5
+   |
+LL |     x as u32
+   |     ^^^^^^^^
+   |
+   = help: use `u32::try_from(value)` or guard with `if value <= u32::MAX as u64`
+
+warning: narrowing cast from `u64` to `u32` without bounds check
+  --> $DIR/unchecked_narrowing_same_block_assert.rs:24:5
+   |
+LL |     x as u32
+   |     ^^^^^^^^
+   |
+   = help: use `u32::try_from(value)` or guard with `if value <= u32::MAX as u64`
+
+warning: narrowing cast from `u64` to `u32` without bounds check
+  --> $DIR/unchecked_narrowing_same_block_assert.rs:29:20
+   |
+LL |     let narrowed = x as u32;
+   |                    ^^^^^^^^
+   |
+   = help: use `u32::try_from(value)` or guard with `if value <= u32::MAX as u64`
+
+warning: 4 warnings emitted
