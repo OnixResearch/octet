@@ -169,6 +169,25 @@ lint_inventory! {
     },
 
     // Late passes (post-type-resolution, need type info).
+    "explicit_defaults", safety::explicit_defaults::EXPLICIT_DEFAULTS => |lint_store, _cfg| {
+        lint_store.register_late_pass(|_| Box::new(safety::explicit_defaults::ExplicitDefaults));
+    },
+    "unbounded_channel", safety::unbounded_channel::UNBOUNDED_CHANNEL => |lint_store, _cfg| {
+        lint_store.register_late_pass(|_| Box::new(safety::unbounded_channel::UnboundedChannel));
+    },
+    "unbounded_collection_growth", safety::unbounded_collection_growth::UNBOUNDED_COLLECTION_GROWTH => |lint_store, _cfg| {
+        lint_store.register_late_pass(|_| Box::new(safety::unbounded_collection_growth::UnboundedCollectionGrowth));
+    },
+    "usize_in_public_api", structure::usize_in_public_api::USIZE_IN_PUBLIC_API => |lint_store, _cfg| {
+        lint_store.register_late_pass(|_| Box::new(structure::usize_in_public_api::UsizeInPublicApi));
+    },
+    "too_many_parameters", structure::too_many_parameters::TOO_MANY_PARAMETERS => |lint_store, cfg| {
+        let max_parameters = cfg.max_parameters;
+        lint_store.register_late_pass(move |_| Box::new(structure::too_many_parameters::TooManyParameters::new(max_parameters)));
+    },
+    "negated_predicate", naming::negated_predicate::NEGATED_PREDICATE => |lint_store, _cfg| {
+        lint_store.register_late_pass(|_| Box::new(naming::negated_predicate::NegatedPredicate));
+    },
     "bool_naming", naming::bool_naming::BOOL_NAMING => |lint_store, _cfg| {
         lint_store.register_late_pass(|_| Box::new(naming::bool_naming::BoolNaming));
     },

@@ -1,3 +1,5 @@
+#![allow(unbounded_channel)]
+
 use std::sync::mpsc;
 
 fn shutdown(tx: mpsc::Sender<u8>) {

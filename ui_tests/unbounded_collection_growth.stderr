@@ -1,0 +1,39 @@
+warning: collection grows in loop without a prior reservation or explicit local bound
+  --> $DIR/unbounded_collection_growth.rs:17:9
+   |
+LL |         items.push(next_byte());
+   |         ^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Bounded Resource Growth): reserve collection capacity or add an explicit local length bound before growing it in a loop Example: let mut items = Vec::with_capacity(limit);
+   = note: see Tiger Style guide: Bounded Resource Growth
+   = note: `#[warn(tigerstyle::unbounded_collection_growth)]` on by default
+
+warning: collection grows in loop without a prior reservation or explicit local bound
+  --> $DIR/unbounded_collection_growth.rs:24:9
+   |
+LL |         items.insert(next_byte(), next_byte());
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Bounded Resource Growth): reserve collection capacity or add an explicit local length bound before growing it in a loop Example: let mut items = Vec::with_capacity(limit);
+   = note: see Tiger Style guide: Bounded Resource Growth
+
+warning: collection grows in loop without a prior reservation or explicit local bound
+  --> $DIR/unbounded_collection_growth.rs:31:9
+   |
+LL |         items.extend([next_byte()]);
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Bounded Resource Growth): reserve collection capacity or add an explicit local length bound before growing it in a loop Example: let mut items = Vec::with_capacity(limit);
+   = note: see Tiger Style guide: Bounded Resource Growth
+
+warning: collection grows in loop without a prior reservation or explicit local bound
+  --> $DIR/unbounded_collection_growth.rs:38:9
+   |
+LL |         items.push(value);
+   |         ^^^^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Bounded Resource Growth): reserve collection capacity or add an explicit local length bound before growing it in a loop Example: let mut items = Vec::with_capacity(limit);
+   = note: see Tiger Style guide: Bounded Resource Growth
+
+warning: 4 warnings emitted
+

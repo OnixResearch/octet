@@ -1,5 +1,5 @@
 warning: `Result` value silently discarded with `let _ = ...`
-  --> $DIR/ignored_result_shutdown_send.rs:26:5
+  --> $DIR/ignored_result_shutdown_send.rs:28:5
    |
 LL |     let _ = tx.send(1);
    |     ^^^^^^^^^^^^^^^^^^^
@@ -9,7 +9,7 @@ LL |     let _ = tx.send(1);
    = note: `#[warn(tigerstyle::ignored_result)]` on by default
 
 warning: `Result` value silently discarded with `let _ = ...`
-  --> $DIR/ignored_result_shutdown_send.rs:30:5
+  --> $DIR/ignored_result_shutdown_send.rs:32:5
    |
 LL |     let _ = tx.send(1);
    |     ^^^^^^^^^^^^^^^^^^^

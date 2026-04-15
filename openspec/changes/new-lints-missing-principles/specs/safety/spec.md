@@ -2,10 +2,21 @@
 
 ### Requirement: Explicit Defaults Detection
 
-The lint MUST warn on `Default::default()` calls where the resulting type
-is defined in an external crate.
+The lint MUST warn when a call resolves to the `Default` trait's `default`
+function and the resulting concrete type is defined in a different crate than
+the current crate.
 
-The lint MUST suggest constructing the value with explicit field values.
+For this rule, sibling workspace crates count as external crates because they
+compile as distinct crate identities.
+
+This rule MUST cover these source forms when they resolve to the `Default`
+trait implementation:
+- `Default::default()`
+- `<T as Default>::default()`
+- `T::default()`
+
+The lint MUST use resolved trait/function identity rather than path-text string
+matching.
 
 The lint MUST NOT fire on types defined in the current crate.
 
@@ -15,18 +26,34 @@ The lint MUST NOT fire in `#[cfg(test)]` contexts.
 
 - GIVEN `let config = reqwest::ClientBuilder::default();`
 - WHEN the lint runs
-- THEN it warns: "implicit default on external type — construct with explicit values"
+- THEN it warns that the code relies on an implicit default from an external
+  crate
+
+#### Scenario: Sibling workspace type default
+
+- GIVEN `let cfg: shared_types::Config = Default::default();` where
+  `shared_types` is a different crate in the same workspace
+- WHEN the lint runs
+- THEN it warns
 
 #### Scenario: Own type default
 
-- GIVEN `let state = MyState::default();` where `MyState` is defined in the current crate
+- GIVEN `let state = MyState::default();` where `MyState` is defined in the
+  current crate
 - WHEN the lint runs
 - THEN it does NOT fire
 
 ### Requirement: Unbounded Channel Detection
 
-The lint MUST warn on calls to `tokio::sync::mpsc::unbounded_channel()`,
-`std::sync::mpsc::channel()`, and `crossbeam::channel::unbounded()`.
+The lint MUST warn on calls whose resolved callee identity is one of these
+unbounded channel constructors:
+- `std::sync::mpsc::channel`
+- `crossbeam::channel::unbounded`
+- Tokio's unbounded MPSC constructor, whose resolved definition path is
+  `tokio::sync::mpsc::unbounded::unbounded_channel`
+
+The lint MUST match by resolved function identity or definition path, not only
+by the public re-export spelling that appears in source.
 
 The lint MUST suggest using the bounded alternative with explicit capacity.
 
@@ -34,7 +61,7 @@ The lint MUST suggest using the bounded alternative with explicit capacity.
 
 - GIVEN `let (tx, rx) = tokio::sync::mpsc::unbounded_channel();`
 - WHEN the lint runs
-- THEN it warns: "unbounded channel — use `mpsc::channel(capacity)` with explicit bound"
+- THEN it warns to use the bounded channel constructor with explicit capacity
 
 #### Scenario: Bounded channel
 
@@ -44,14 +71,28 @@ The lint MUST suggest using the bounded alternative with explicit capacity.
 
 ### Requirement: Unbounded Collection Growth In Loops
 
-The lint MUST warn on `.push()`, `.insert()`, or `.extend()` calls on
-`Vec`, `HashMap`, `BTreeMap`, or `VecDeque` inside `loop`, `while`, or
-`for` bodies when the collection was not created with `with_capacity()`.
+The lint MUST warn only on narrow same-block cases where:
+- a local binding of type `Vec`, `HashMap`, `BTreeMap`, or `VecDeque` is
+  initialized empty in the same block
+- that same binding is grown with `.push()`, `.insert()`, or `.extend()`
+  inside a `loop`, `while`, or `for` body in that same block
+- and the same binding has no prior reservation or explicit growth bound that
+  makes the loop growth reviewably finite
 
-The lint MUST NOT fire on collection operations outside of loops.
+For this rule, an accepted prior reservation is one of these on the same
+binding before the loop-growth site:
+- `::with_capacity(...)`
+- `reserve(...)`
+- `reserve_exact(...)`
+- `try_reserve(...)`
 
-The lint MUST NOT fire when the collection was created with
-`::with_capacity()` or `::from_iter()`.
+The lint MUST NOT fire when dataflow or aliasing is unclear, including bindings
+created outside the current block or mutated through a different binding.
+
+The lint MUST NOT fire on collection operations outside loops.
+
+The lint MUST NOT fire when the same binding is guarded by an explicit local
+capacity/length bound that makes the growth finite and reviewable.
 
 #### Scenario: Push in loop without capacity
 
@@ -61,10 +102,23 @@ The lint MUST NOT fire when the collection was created with
   loop { items.push(read_item()); }
   ```
 - WHEN the lint runs
-- THEN it warns: "unbounded collection growth in loop — use `Vec::with_capacity()` or add a size limit"
+- THEN it warns that the loop grows the collection without a prior bound or
+  reservation
 
-#### Scenario: Push outside loop
+#### Scenario: Reserved before loop
 
-- GIVEN `let mut v = Vec::new(); v.push(1);`
+- GIVEN:
+  ```rust
+  let mut items = Vec::new();
+  items.reserve(128);
+  while has_more() { items.push(read_item()); }
+  ```
+- WHEN the lint runs
+- THEN it does NOT fire
+
+#### Scenario: Ambiguous outer binding
+
+- GIVEN a collection binding created outside the current block and later grown
+  inside a loop
 - WHEN the lint runs
 - THEN it does NOT fire

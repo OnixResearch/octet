@@ -8,6 +8,7 @@
 //! nesting_max_depth = 4
 //! assertion_density_min_lines = 30
 //! assertion_density_min_assertions = 3
+//! max_parameters = 7
 //! acronym_allowlist = ["IO", "ID"]
 //! disabled_lints = ["no_unwrap", "no_panic"]
 //!
@@ -63,6 +64,9 @@ pub struct Config {
     /// Minimum assertion count required in functions exceeding the line threshold.
     pub assertion_density_min_assertions: usize,
 
+    /// Maximum counted parameters before warning.
+    pub max_parameters: usize,
+
     /// Acronyms that should not trigger the acronym_style lint.
     /// Entries are case-sensitive and matched against the uppercase run
     /// (e.g., `"IO"` allows `IOError`).
@@ -86,6 +90,7 @@ impl Default for Config {
             nesting_max_depth: 3,
             assertion_density_min_lines: 20,
             assertion_density_min_assertions: 2,
+            max_parameters: 5,
             acronym_allowlist: Vec::new(),
             disabled_lints: Vec::new(),
             lint_levels: HashMap::new(),
@@ -188,6 +193,7 @@ mod tests {
     #[test]
     fn omitted_disabled_lints_and_lint_levels_default_to_empty() {
         let cfg = parse_config("[tigerstyle]\n");
+        assert_eq!(cfg.max_parameters, 5);
         assert!(cfg.disabled_lints.is_empty());
         assert!(cfg.lint_levels.is_empty());
         assert_eq!(cfg.lint_level("no_unwrap"), None);
@@ -198,6 +204,7 @@ mod tests {
         let (cfg, warnings) = parse_and_validate(
             r#"
 [tigerstyle]
+max_parameters = 7
 disabled_lints = ["no_panic"]
 
 [tigerstyle.lint_levels]
@@ -206,6 +213,7 @@ no_unwrap = "deny"
         );
 
         assert!(warnings.is_empty());
+        assert_eq!(cfg.max_parameters, 7);
         assert_eq!(cfg.disabled_lints, vec!["no_panic".to_owned()]);
         assert_eq!(cfg.lint_levels.get("no_unwrap"), Some(&"deny".to_owned()));
         assert_eq!(cfg.lint_level("no_unwrap"), Some(LintLevel::Deny));
