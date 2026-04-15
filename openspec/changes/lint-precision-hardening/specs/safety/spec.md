@@ -14,7 +14,7 @@ inner `#![cfg(test)]` that makes the enclosing item test-only.
 
 The lint MUST NOT fire on compile-time-known infallible constructions such as
 `Some(value).unwrap()`, `Ok(value).unwrap()`, or literal-string
-`"127.0.0.1".parse().unwrap()`.
+`"127.0.0.1".parse().unwrap()`, including const/static-style initializer code.
 
 The lint MUST NOT fire when the unwrap is dominated by a same-branch
 `.is_some()` or `.is_ok()` guard.
@@ -43,6 +43,12 @@ The lint MUST NOT fire when the unwrap is dominated by a same-branch
 - WHEN the lint runs
 - THEN it does NOT fire
 
+#### Scenario: Literal parse unwrap
+
+- GIVEN `static ADDR: std::net::IpAddr = "127.0.0.1".parse().unwrap();`
+- WHEN the lint runs
+- THEN it does NOT fire
+
 #### Scenario: Guarded unwrap
 
 - GIVEN `if value.is_some() { value.unwrap(); }`
@@ -60,10 +66,16 @@ The lint MUST NOT fire in items or modules guarded by `#[cfg(test)]` or an
 inner `#![cfg(test)]` that makes the enclosing item test-only.
 
 The lint MUST NOT fire on `unreachable!()` in a trailing wildcard arm when the
-preceding enum match arms already list the concrete variants exhaustively.
+preceding enum match arms already list the concrete variants exhaustively for a
+local, non-`#[non_exhaustive]` enum.
 
-The lint MUST NOT fire on `todo!()` when the site is explicitly allowed with
-`#[allow(tigerstyle::no_panic)]` and an adjacent justification comment.
+The lint MUST NOT fire on `todo!()` when the call is inside a function or
+block explicitly allowed with `#[allow(tigerstyle::no_panic)]` and an adjacent
+justification comment.
+
+For this rule, an adjacent justification comment is a `// ...` comment on the
+same line as the allow attribute or on the immediately preceding non-empty
+line. Blank lines, doc comments, and block comments do NOT count.
 
 #### Scenario: Test-only panic
 
@@ -85,10 +97,24 @@ The lint MUST NOT fire on `todo!()` when the site is explicitly allowed with
 
 #### Scenario: Exhaustive wildcard unreachable
 
-- GIVEN an enum match whose explicit arms already cover every variant and whose
-  trailing wildcard uses `unreachable!()`
+- GIVEN a local enum match whose explicit arms already cover every variant and
+  whose trailing wildcard uses `unreachable!()`
 - WHEN the lint runs
 - THEN it does NOT fire
+
+#### Scenario: Justified todo allow
+
+- GIVEN `#[allow(tigerstyle::no_panic)] fn stub() { todo!(...) }` with a `//`
+  justification comment on the same line or the immediately preceding line
+- WHEN the lint runs
+- THEN it does NOT fire
+
+#### Scenario: Unjustified todo still warns
+
+- GIVEN `#[allow(tigerstyle::no_panic)] fn stub() { todo!(...) }` without that
+  adjacent `//` justification comment
+- WHEN the lint runs
+- THEN it still warns
 
 ## MODIFIED Requirements
 
@@ -105,14 +131,31 @@ non-Result type (e.g., guard drops).
 
 The lint MUST NOT fire inside `Drop::drop` implementations.
 
-The lint SHOULD NOT fire on known fire-and-forget shutdown send paths where the
-receiver may already be dropped.
+The lint SHOULD NOT fire on `let _ = tx.send(msg);` when all of the
+following hold:
+- the method name is exactly `send`
+- `tx` has type `std::sync::mpsc::Sender<_>` or `tokio::sync::mpsc::Sender<_>`
+- the enclosing function or method name is exactly `shutdown` or `close`
 
 #### Scenario: Drop cleanup swallow
 
 - GIVEN `impl Drop for Cleaner { fn drop(&mut self) { let _ = self.tx.send(msg); } }`
 - WHEN the lint runs
 - THEN it does NOT fire
+
+#### Scenario: Shutdown send swallow
+
+- GIVEN `fn shutdown(&self) { let _ = self.tx.send(msg); }` where `self.tx` has
+  type `std::sync::mpsc::Sender<_>`
+- WHEN the lint runs
+- THEN it does NOT fire
+
+#### Scenario: Ordinary send still warns
+
+- GIVEN `fn publish(&self) { let _ = self.tx.send(msg); }` with the same sender
+  type
+- WHEN the lint runs
+- THEN it still warns
 
 ### Requirement: Unchecked Narrowing Cast
 
@@ -137,8 +180,9 @@ The lint MUST NOT fire on bounded forms such as `value.min(u32::MAX as u64) as u
 
 The lint MUST NOT fire on `u32::try_from(value).unwrap_or(u32::MAX)`.
 
-The lint MUST treat a same-block `assert!(value <= u32::MAX as u64)` as a valid
-bounds check even when it is not the immediately preceding statement.
+The lint MUST treat an earlier same-block `assert!(value <= u32::MAX as u64)`
+as a valid bounds check even when it is not the immediately preceding
+statement.
 
 #### Scenario: Min-bounded narrowing
 
@@ -152,6 +196,13 @@ bounds check even when it is not the immediately preceding statement.
 - WHEN the lint runs
 - THEN it does NOT fire
 
+#### Scenario: Same-block assert narrowing
+
+- GIVEN an earlier `assert!(value <= u32::MAX as u64);` in the same block
+  before `let id = value as u32;`
+- WHEN the lint runs
+- THEN it does NOT fire
+
 ### Requirement: Unbounded Loop Detection
 
 The lint MUST warn on `loop { }` blocks that do not contain a visible
@@ -161,14 +212,29 @@ channel receive.
 The lint SHOULD warn on `while let Some(_) = iter.next()` without a
 limit check in the body.
 
-The lint MUST NOT fire on `loop` blocks containing `tokio::select!`
-(event loops are a valid pattern when bounded by channel capacity).
+The lint MUST NOT fire on `loop` blocks containing Tokio's `select!`
+macro, written either as `tokio::select!` or an imported `select!`.
 
 The lint MUST NOT fire on `while let Some(_) = rx.recv().await` when `rx`
-is a bounded receiver type.
+has type `tokio::sync::mpsc::Receiver<_>`.
+
+The lint MUST continue warning on `tokio::sync::mpsc::UnboundedReceiver<_>`
+receive loops.
+
+#### Scenario: Tokio select loop
+
+- GIVEN `loop { tokio::select! { ... } }`
+- WHEN the lint runs
+- THEN it does NOT fire
 
 #### Scenario: Bounded receiver loop
 
 - GIVEN `while let Some(msg) = rx.recv().await { handle(msg); }`
-- WHEN `rx` is a bounded receiver type
+- WHEN `rx` has type `tokio::sync::mpsc::Receiver<_>`
 - THEN the lint does NOT fire
+
+#### Scenario: Unbounded receiver loop still warns
+
+- GIVEN `while let Some(msg) = rx.recv().await { handle(msg); }`
+- WHEN `rx` has type `tokio::sync::mpsc::UnboundedReceiver<_>`
+- THEN the lint still warns

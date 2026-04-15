@@ -54,6 +54,7 @@
 | 2026-04-14 | self | Early-pass source-line fallback looked only for `#[... ]` and missed inner attrs like `#![cfg(test)]` | When recovering cfg-based test context from source text, scan for both outer `#[...]` and inner `#![...]` attribute lines |
 | 2026-04-14 | self | Tried same-branch unwrap suppression via a raw condition-snippet search; `if x.is_some() || other { x.unwrap(); }` would have been wrongly suppressed | For guard-based unwrap suppression here, model implication over the condition structure: `&&` can carry the guard, but `||` only works when both sides require it |
 | 2026-04-14 | self | Detected `Drop::drop` by trait name string, which would also match unrelated user-defined traits named `Drop` | For HIR-side `Drop::drop` detection here, compare the enclosing trait impl against `tcx.lang_items().drop_trait()` instead of matching the trait name text |
+| 2026-04-14 | self | Probed `#[allow(tigerstyle::no_panic)]` in a standalone UI fixture without registering the tool and rustc failed before the lint ran | In standalone fixture crates here, either use bare lint names like `#[allow(no_panic)]` or add `#![register_tool(tigerstyle)]` before tool-scoped attrs |
 
 ## User Preferences
 - Uses openspec for structured change management
