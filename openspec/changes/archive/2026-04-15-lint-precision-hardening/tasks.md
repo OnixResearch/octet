@@ -73,6 +73,8 @@
 ## Phase 4: Downstream validation
 
 - [x] Re-run against Aspen and record before/after finding counts
-- [x] Save reviewer-visible Aspen comparison artifact at `openspec/changes/lint-precision-hardening/evidence/aspen-comparison.md` with before/after counts and short notes per affected lint family
-- [x] Confirm no real findings were lost in the precision changes (`aspen-comparison.md`: no owned-package count deltas; workspace-only regression limited to vendored `openraft`)
+- [x] Save reviewer-visible Aspen comparison artifact at `openspec/changes/archive/2026-04-15-lint-precision-hardening/evidence/aspen-comparison.md` with before/after counts and short notes per affected lint family
+- [x] Save ignored UI harness transcript at `openspec/changes/archive/2026-04-15-lint-precision-hardening/evidence/ui-ignored-test-run.txt`, including `[ui fixture] unbounded_loop_iter_next` and the passing `cargo test --test ui -- --ignored --nocapture` result
+- [x] Confirm no real findings were lost in the precision changes (`aspen-comparison.md`: no owned-package count deltas; supplementary workspace-only `unbounded_loop +8` limited to vendored `openraft/*`)
+- [x] Accept the supplementary workspace-only `openraft/*` `unbounded_loop +8` as non-blocking context because the completion gate for this change is the owned Aspen rollout scope, not vendored workspace members outside consumer-owned code
 - [x] Review `docs/downstream-rollout.md` noise-level notes and keep them unchanged because this rerun did not make any additional family promotable

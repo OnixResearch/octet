@@ -10,6 +10,8 @@
 - If a saved replay narrows the enabled lint set through per-lint config, make the transcript self-describing by patching the copied wrapper banner for that run or saving the applied `dylint.toml` snapshot alongside the log.
 - Saved check helpers must assert every printed summary claim, including zero-warning claims like `aspen-hlc: 0 starter findings`.
 - If a transcript starts with `$ bash ...`, store and document the capture helper or exact shell wrapper that emits that preamble; do not claim a quieter inner helper produced it.
+- When a reviewable fix depends on `cargo test --test ui -- --ignored --nocapture`, save that ignored-run transcript under the change evidence path; a generic `cargo test --lib --test ui` artifact is not enough for newly added UI fixtures.
+- If supplementary workspace reruns are non-blocking because regressions stay in vendored or otherwise out-of-scope paths, say that acceptance explicitly in the archived tasks/evidence files before calling the change done.
 
 ## Build / test
 - Run Rust builds inside the nix devshell: `nix develop -c bash -c '...'`. Plain `cargo` outside the shell can miss OpenSSL/pkg-config and rustc-private setup needed by Dylint.

@@ -61,3 +61,6 @@ Added workspace-only `unbounded_loop` paths:
   the supplementary workspace-wide rerun, so it is tracked as out-of-scope for
   current Aspen rollout promotion decisions rather than as a consumer-owned
   regression.
+- Archive acceptance uses the owned Aspen rollout scope as the blocking gate;
+  the supplementary vendored `openraft/*` `unbounded_loop +8` remains recorded
+  context, not a completion blocker.

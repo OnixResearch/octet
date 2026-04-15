@@ -1,0 +1,7 @@
+$ nix develop -c bash -c 'export CARGO_TARGET_DIR=/tmp/tigerstyle-ui-ignored-proof.76KvGF; cargo test --test ui -- --ignored --nocapture'
+
+running 1 test
+test ui ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 15.39s
+
