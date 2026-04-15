@@ -1,0 +1,366 @@
+$ bash -lc 'cat tests/fixtures/ui_fixture_set.json; printf "\n== lint_emitting_fixtures ==\n"; cat tests/fixtures/lint_emitting_fixtures.json; printf "\n== group_allow_safety.stderr ==\n"; cat ui_tests/group_allow_safety.stderr; printf "\n== group_deny_naming.stderr ==\n"; cat ui_tests/group_deny_naming.stderr; printf "\n== no_panic_todo_allow.stderr ==\n"; cat ui_tests/no_panic_todo_allow.stderr; printf "\n== assertion_density.stderr ==\n"; cat ui_tests/assertion_density.stderr; printf "\n== no_unwrap_default_custom.stderr ==\n"; cat ui_tests/no_unwrap_default_custom.stderr'
+{
+  "all_fixtures": [
+    "ambient_clock",
+    "nested_conditionals",
+    "compound_assertion",
+    "unbounded_loop",
+    "unbounded_loop_iter_next",
+    "no_panic",
+    "no_panic_cfg_not",
+    "no_panic_exhaustive",
+    "no_panic_exhaustive_external",
+    "no_panic_exhaustive_non_exhaustive",
+    "no_panic_exhaustive_indirect",
+    "no_panic_todo_allow",
+    "no_unwrap",
+    "no_unwrap_tool_attr",
+    "group_allow_safety",
+    "group_deny_naming",
+    "no_unwrap_cfg_not",
+    "no_unwrap_compile_time_known",
+    "no_unwrap_guarded",
+    "no_recursion",
+    "ignored_result",
+    "ignored_result_drop",
+    "ignored_result_shutdown_send",
+    "tokio_async/ignored_result_shutdown_send_tokio",
+    "tokio_async/ignored_result_try_send_tokio",
+    "unchecked_narrowing",
+    "unchecked_narrowing_min",
+    "unchecked_narrowing_try_from",
+    "unchecked_narrowing_same_block_assert",
+    "unchecked_division",
+    "catch_all_on_enum",
+    "assertion_density",
+    "raw_arithmetic_overflow",
+    "function_length",
+    "compound_condition",
+    "acronym_style",
+    "numeric_units",
+    "bool_naming",
+    "float_for_currency",
+    "platform_dependent_cast",
+    "ambiguous_params",
+    "unjustified_allow",
+    "verified/verified_purity",
+    "contradictory_time",
+    "tokio_async/unbounded_loop_tokio_select",
+    "tokio_async/unbounded_loop_imported_select",
+    "tokio_async/unbounded_loop_non_tokio_select",
+    "tokio_async/unbounded_loop_bare_async",
+    "tokio_async/unbounded_loop_plain_await",
+    "tokio_async/unbounded_loop_bounded_receiver",
+    "tokio_async/unbounded_loop_unbounded_receiver",
+    "multi_lock_ordering",
+    "function_length_custom/function_length_custom",
+    "assertion_density_custom/assertion_density_custom",
+    "nesting_custom/nesting_custom",
+    "acronym_allowlist_custom/acronym_allowlist_custom",
+    "no_unwrap_disabled_custom/no_unwrap_disabled_custom",
+    "no_unwrap_allow_custom/no_unwrap_allow_custom",
+    "no_unwrap_warn_custom/no_unwrap_warn_custom",
+    "no_unwrap_deny_custom/no_unwrap_deny_custom",
+    "no_unwrap_default_custom/no_unwrap_default_custom",
+    "no_unwrap_disabled_deny_custom/no_unwrap_disabled_deny_custom",
+    "no_unwrap_disabled_source_attr_custom/no_unwrap_disabled_source_attr_custom"
+  ],
+  "expected_failures": [
+    "verified/verified_purity",
+    "no_unwrap_tool_attr",
+    "group_deny_naming",
+    "no_unwrap_deny_custom/no_unwrap_deny_custom"
+  ],
+  "canonical_tool_group_fixtures": [
+    "group_allow_safety",
+    "group_deny_naming"
+  ],
+  "compatibility_fixtures": [
+    "assertion_density",
+    "raw_arithmetic_overflow",
+    "compound_condition",
+    "numeric_units",
+    "float_for_currency",
+    "ambiguous_params",
+    "unjustified_allow",
+    "multi_lock_ordering"
+  ],
+  "config_fixtures": [
+    "function_length_custom/function_length_custom",
+    "assertion_density_custom/assertion_density_custom",
+    "nesting_custom/nesting_custom",
+    "acronym_allowlist_custom/acronym_allowlist_custom",
+    "no_unwrap_disabled_custom/no_unwrap_disabled_custom",
+    "no_unwrap_allow_custom/no_unwrap_allow_custom",
+    "no_unwrap_warn_custom/no_unwrap_warn_custom",
+    "no_unwrap_deny_custom/no_unwrap_deny_custom",
+    "no_unwrap_default_custom/no_unwrap_default_custom",
+    "no_unwrap_disabled_deny_custom/no_unwrap_disabled_deny_custom",
+    "no_unwrap_disabled_source_attr_custom/no_unwrap_disabled_source_attr_custom"
+  ]
+}
+
+== lint_emitting_fixtures ==
+[
+  {
+    "lint_name": "compound_assertion",
+    "fixture": "compound_assertion"
+  },
+  {
+    "lint_name": "function_length",
+    "fixture": "function_length"
+  },
+  {
+    "lint_name": "acronym_style",
+    "fixture": "acronym_style"
+  },
+  {
+    "lint_name": "numeric_units",
+    "fixture": "numeric_units"
+  },
+  {
+    "lint_name": "unbounded_loop",
+    "fixture": "unbounded_loop"
+  },
+  {
+    "lint_name": "compound_condition",
+    "fixture": "compound_condition"
+  },
+  {
+    "lint_name": "verified_purity",
+    "fixture": "verified/verified_purity"
+  },
+  {
+    "lint_name": "unjustified_allow",
+    "fixture": "unjustified_allow"
+  },
+  {
+    "lint_name": "nested_conditionals",
+    "fixture": "nested_conditionals"
+  },
+  {
+    "lint_name": "assertion_density",
+    "fixture": "assertion_density"
+  },
+  {
+    "lint_name": "multi_lock_ordering",
+    "fixture": "multi_lock_ordering"
+  },
+  {
+    "lint_name": "bool_naming",
+    "fixture": "bool_naming"
+  },
+  {
+    "lint_name": "ignored_result",
+    "fixture": "ignored_result"
+  },
+  {
+    "lint_name": "unchecked_narrowing",
+    "fixture": "unchecked_narrowing"
+  },
+  {
+    "lint_name": "unchecked_division",
+    "fixture": "unchecked_division"
+  },
+  {
+    "lint_name": "contradictory_time",
+    "fixture": "contradictory_time"
+  },
+  {
+    "lint_name": "ambient_clock",
+    "fixture": "ambient_clock"
+  },
+  {
+    "lint_name": "catch_all_on_enum",
+    "fixture": "catch_all_on_enum"
+  },
+  {
+    "lint_name": "platform_dependent_cast",
+    "fixture": "platform_dependent_cast"
+  },
+  {
+    "lint_name": "float_for_currency",
+    "fixture": "float_for_currency"
+  },
+  {
+    "lint_name": "ambiguous_params",
+    "fixture": "ambiguous_params"
+  },
+  {
+    "lint_name": "raw_arithmetic_overflow",
+    "fixture": "raw_arithmetic_overflow"
+  },
+  {
+    "lint_name": "no_unwrap",
+    "fixture": "no_unwrap"
+  },
+  {
+    "lint_name": "no_panic",
+    "fixture": "no_panic"
+  },
+  {
+    "lint_name": "unjustified_no_panic_allow",
+    "fixture": "no_panic_todo_allow"
+  },
+  {
+    "lint_name": "no_recursion",
+    "fixture": "no_recursion"
+  }
+]
+
+== group_allow_safety.stderr ==
+warning: boolean binding `ready` should have a predicate prefix
+  --> $DIR/group_allow_safety.rs:11:9
+   |
+LL |     let ready = true;
+   |         ^^^^^
+   |
+   = help: Tiger Style (Positive Predicates): name booleans as predicates so call sites read like questions Example: let is_ready = status == Ready;
+   = note: see Tiger Style guide: Positive Predicates
+   = note: `#[warn(tigerstyle::bool_naming)]` on by default
+
+warning: 1 warning emitted
+
+
+== group_deny_naming.stderr ==
+error: boolean binding `ready` should have a predicate prefix
+  --> $DIR/group_deny_naming.rs:6:9
+   |
+LL |     let ready = true;
+   |         ^^^^^
+   |
+   = help: Tiger Style (Positive Predicates): name booleans as predicates so call sites read like questions Example: let is_ready = status == Ready;
+   = note: see Tiger Style guide: Positive Predicates
+note: the lint level is defined here
+  --> $DIR/group_deny_naming.rs:3:9
+   |
+LL | #![deny(tigerstyle::naming)]
+   |         ^^^^^^^^^^^^^^^^^^
+   = note: `#[deny(tigerstyle::bool_naming)]` implied by `#[deny(tigerstyle::naming)]`
+
+error: aborting due to 1 previous error
+
+
+== no_panic_todo_allow.stderr ==
+warning: `#[allow(tigerstyle::no_panic)]` needs an adjacent `//` justification comment and may only wrap temporary `todo!()` stubs
+  --> $DIR/no_panic_todo_allow.rs:24:1
+   |
+LL | #[allow(tigerstyle::no_panic)]
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Documented Panic Escape): reserve `#[allow(tigerstyle::no_panic)]` for temporary `todo!()` stubs with an adjacent `//` justification comment Example: // justified stub while API lands
+           #[allow(tigerstyle::no_panic)] fn stub() { todo!() }
+   = note: see Tiger Style guide: Error Handling / Panics
+   = note: `#[warn(tigerstyle::unjustified_no_panic_allow)]` on by default
+
+warning: `#[allow(tigerstyle::no_panic)]` needs an adjacent `//` justification comment and may only wrap temporary `todo!()` stubs
+  --> $DIR/no_panic_todo_allow.rs:30:1
+   |
+LL | #[allow(tigerstyle::no_panic)]
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Documented Panic Escape): reserve `#[allow(tigerstyle::no_panic)]` for temporary `todo!()` stubs with an adjacent `//` justification comment Example: // justified stub while API lands
+           #[allow(tigerstyle::no_panic)] fn stub() { todo!() }
+   = note: see Tiger Style guide: Error Handling / Panics
+
+warning: `#[allow(tigerstyle::no_panic)]` needs an adjacent `//` justification comment and may only wrap temporary `todo!()` stubs
+  --> $DIR/no_panic_todo_allow.rs:37:1
+   |
+LL | #[allow(tigerstyle::no_panic)]
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Documented Panic Escape): reserve `#[allow(tigerstyle::no_panic)]` for temporary `todo!()` stubs with an adjacent `//` justification comment Example: // justified stub while API lands
+           #[allow(tigerstyle::no_panic)] fn stub() { todo!() }
+   = note: see Tiger Style guide: Error Handling / Panics
+
+warning: `#[allow(tigerstyle::no_panic)]` needs an adjacent `//` justification comment and may only wrap temporary `todo!()` stubs
+  --> $DIR/no_panic_todo_allow.rs:42:1
+   |
+LL | #[allow(tigerstyle::no_panic)]
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Documented Panic Escape): reserve `#[allow(tigerstyle::no_panic)]` for temporary `todo!()` stubs with an adjacent `//` justification comment Example: // justified stub while API lands
+           #[allow(tigerstyle::no_panic)] fn stub() { todo!() }
+   = note: see Tiger Style guide: Error Handling / Panics
+
+warning: `#[allow(tigerstyle::no_panic)]` is reserved for temporary `todo!()` stubs, not `panic!`
+  --> $DIR/no_panic_todo_allow.rs:48:1
+   |
+LL | #[allow(tigerstyle::no_panic)]
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Documented Panic Escape): reserve `#[allow(tigerstyle::no_panic)]` for temporary `todo!()` stubs with an adjacent `//` justification comment Example: // justified stub while API lands
+           #[allow(tigerstyle::no_panic)] fn stub() { todo!() }
+   = note: see Tiger Style guide: Error Handling / Panics
+
+warning: `#[allow(tigerstyle::no_panic)]` is reserved for temporary `todo!()` stubs, not `unimplemented!`
+  --> $DIR/no_panic_todo_allow.rs:54:1
+   |
+LL | #[allow(tigerstyle::no_panic)]
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Documented Panic Escape): reserve `#[allow(tigerstyle::no_panic)]` for temporary `todo!()` stubs with an adjacent `//` justification comment Example: // justified stub while API lands
+           #[allow(tigerstyle::no_panic)] fn stub() { todo!() }
+   = note: see Tiger Style guide: Error Handling / Panics
+
+warning: `#[allow(tigerstyle::no_panic)]` is reserved for temporary `todo!()` stubs, not `unreachable!`
+  --> $DIR/no_panic_todo_allow.rs:60:1
+   |
+LL | #[allow(tigerstyle::no_panic)]
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Documented Panic Escape): reserve `#[allow(tigerstyle::no_panic)]` for temporary `todo!()` stubs with an adjacent `//` justification comment Example: // justified stub while API lands
+           #[allow(tigerstyle::no_panic)] fn stub() { todo!() }
+   = note: see Tiger Style guide: Error Handling / Panics
+
+warning: 7 warnings emitted
+
+
+== assertion_density.stderr ==
+warning: function `sparse_function` has 0 assertion(s) in 23 lines (need 2+)
+  --> $DIR/assertion_density.rs:3:42
+   |
+LL |   fn sparse_function(data: &[u8]) -> usize {
+   |  __________________________________________^
+LL | |     // Should warn: 20+ lines with 0 assertions
+LL | |     let a = data.len();
+LL | |     let b = a + 1;
+...  |
+LL | |     t
+LL | | }
+   | |_^
+   |
+   = help: Tiger Style (Assertion Density): add enough assertions to make local invariants visible near the logic they defend
+   = note: see Tiger Style guide: Assertion Density
+note: the lint level is defined here
+  --> $DIR/assertion_density.rs:1:9
+   |
+LL | #![warn(assertion_density)]
+   |         ^^^^^^^^^^^^^^^^^
+   = note: `#[warn(tigerstyle::assertion_density)]` implied by `#[warn(assertion_density)]`
+
+warning: 1 warning emitted
+
+
+== no_unwrap_default_custom.stderr ==
+warning: `.unwrap()` in production code will panic on failure
+  --> $DIR/no_unwrap_default_custom/no_unwrap_default_custom.rs:3:13
+   |
+LL |     let _ = val.unwrap();
+   |             ^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Error Handling): propagate or handle absence explicitly instead of panicking with `unwrap` or `expect` Example: let value = maybe?;
+   = note: see Tiger Style guide: Error Handling
+   = note: `#[warn(tigerstyle::no_unwrap)]` on by default
+
+warning: `.expect()` in production code will panic on failure
+  --> $DIR/no_unwrap_default_custom/no_unwrap_default_custom.rs:8:13
+   |
+LL |     let _ = val.expect("missing");
+   |             ^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Error Handling): propagate or handle absence explicitly instead of panicking with `unwrap` or `expect` Example: let value = maybe?;
+   = note: see Tiger Style guide: Error Handling
+
+warning: 2 warnings emitted
+

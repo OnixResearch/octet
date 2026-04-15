@@ -1,0 +1,20 @@
+Revalidated archived Aspen phase-1 starter path against current tigerstyle.
+
+Reference archive:
+- openspec/changes/archive/2026-04-13-aspen-consumer-rollout/
+- Aspen commit: 909e5e9fa
+
+Result:
+- default starter scope still matches the archived phase-1 expectation:
+  - aspen-time: 2 ambient_clock
+  - aspen-core: 4 ambient_clock
+  - aspen-hlc: 0 starter findings
+  - total: 6 warnings
+- targeted aspen-coordination spotcheck still runs end to end through the archived replay shape, but current tigerstyle now emits a smaller warning set than the archived 27-warning baseline:
+  - ambient_clock: 21
+  - compound_assertion: 1
+  - no_panic: 0
+  - total: 22 warnings
+
+Acceptance:
+- This change is acceptable for diagnostic-quality because the tool-lint namespace migration did not break the archived consumer path, bare dylint.toml keys still resolved, and the only delta versus archived spotcheck counts is lower noise from later tigerstyle lint behavior.

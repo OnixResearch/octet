@@ -1,0 +1,16 @@
+Phase 3 `no_unwrap` spike note
+=============================
+
+The spike converted only `no_unwrap` to a true tool lint and added a one-member
+bare compatibility alias for `no_unwrap`.
+
+Observed side effect:
+- once `tigerstyle::no_unwrap` existed as a real tool lint, standalone fixtures
+  that already used `#![register_tool(tigerstyle)]` for still-plain lints no
+  longer took rustc's silent MissingTool path
+- `ui_tests/no_panic_todo_allow.rs` therefore started emitting `unknown lint:
+  tigerstyle::no_panic` warnings with a suggestion to the bare `no_panic` name
+
+This is expected mixed-phase churn while only one lint has migrated. The spike
+left that snapshot updated rather than adding another temporary bridge for
+`no_panic` before the broader tool-lint migration proceeds.

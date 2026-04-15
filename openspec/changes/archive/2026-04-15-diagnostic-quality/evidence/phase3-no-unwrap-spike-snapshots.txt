@@ -1,0 +1,334 @@
+== ui_tests/no_unwrap.stderr ==
+warning: `.unwrap()` in production code will panic on failure
+  --> $DIR/no_unwrap.rs:4:13
+   |
+LL |     let _ = val.unwrap();
+   |             ^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Error Handling): propagate or handle absence explicitly instead of panicking with `unwrap` or `expect` Example: let value = maybe?;
+   = note: see Tiger Style guide: Error Handling
+   = note: `#[warn(tigerstyle::no_unwrap)]` on by default
+
+warning: `.expect()` in production code will panic on failure
+  --> $DIR/no_unwrap.rs:10:13
+   |
+LL |     let _ = val.expect("missing");
+   |             ^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Error Handling): propagate or handle absence explicitly instead of panicking with `unwrap` or `expect` Example: let value = maybe?;
+   = note: see Tiger Style guide: Error Handling
+
+warning: 2 warnings emitted
+
+
+== ui_tests/no_unwrap_tool_attr.stderr ==
+error: `.unwrap()` in production code will panic on failure
+  --> $DIR/no_unwrap_tool_attr.rs:7:13
+   |
+LL |     let _ = val.unwrap();
+   |             ^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Error Handling): propagate or handle absence explicitly instead of panicking with `unwrap` or `expect` Example: let value = maybe?;
+   = note: see Tiger Style guide: Error Handling
+note: the lint level is defined here
+  --> $DIR/no_unwrap_tool_attr.rs:3:9
+   |
+LL | #![deny(tigerstyle::no_unwrap)]
+   |         ^^^^^^^^^^^^^^^^^^^^^
+
+error: `.expect()` in production code will panic on failure
+  --> $DIR/no_unwrap_tool_attr.rs:12:13
+   |
+LL |     let _ = val.expect("missing");
+   |             ^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Error Handling): propagate or handle absence explicitly instead of panicking with `unwrap` or `expect` Example: let value = maybe?;
+   = note: see Tiger Style guide: Error Handling
+
+error: aborting due to 2 previous errors
+
+
+== ui_tests/no_unwrap_default_custom.stderr ==
+warning: `.unwrap()` in production code will panic on failure
+  --> $DIR/no_unwrap_default_custom/no_unwrap_default_custom.rs:3:13
+   |
+LL |     let _ = val.unwrap();
+   |             ^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Error Handling): propagate or handle absence explicitly instead of panicking with `unwrap` or `expect` Example: let value = maybe?;
+   = note: see Tiger Style guide: Error Handling
+   = note: `#[warn(tigerstyle::no_unwrap)]` on by default
+
+warning: `.expect()` in production code will panic on failure
+  --> $DIR/no_unwrap_default_custom/no_unwrap_default_custom.rs:8:13
+   |
+LL |     let _ = val.expect("missing");
+   |             ^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Error Handling): propagate or handle absence explicitly instead of panicking with `unwrap` or `expect` Example: let value = maybe?;
+   = note: see Tiger Style guide: Error Handling
+
+warning: 2 warnings emitted
+
+
+== ui_tests/no_unwrap_allow_custom.stderr ==
+(empty file)
+
+== ui_tests/no_unwrap_warn_custom.stderr ==
+warning: `.unwrap()` in production code will panic on failure
+  --> $DIR/no_unwrap_warn_custom/no_unwrap_warn_custom.rs:3:13
+   |
+LL |     let _ = val.unwrap();
+   |             ^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Error Handling): propagate or handle absence explicitly instead of panicking with `unwrap` or `expect` Example: let value = maybe?;
+   = note: see Tiger Style guide: Error Handling
+   = note: `-W tigerstyle::no-unwrap` implied by `-W no-unwrap`
+   = help: to override `-W no-unwrap` add `#[allow(tigerstyle::no_unwrap)]`
+
+warning: `.expect()` in production code will panic on failure
+  --> $DIR/no_unwrap_warn_custom/no_unwrap_warn_custom.rs:8:13
+   |
+LL |     let _ = val.expect("missing");
+   |             ^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Error Handling): propagate or handle absence explicitly instead of panicking with `unwrap` or `expect` Example: let value = maybe?;
+   = note: see Tiger Style guide: Error Handling
+
+warning: 2 warnings emitted
+
+
+== ui_tests/no_unwrap_deny_custom.stderr ==
+error: `.unwrap()` in production code will panic on failure
+  --> $DIR/no_unwrap_deny_custom/no_unwrap_deny_custom.rs:3:13
+   |
+LL |     let _ = val.unwrap();
+   |             ^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Error Handling): propagate or handle absence explicitly instead of panicking with `unwrap` or `expect` Example: let value = maybe?;
+   = note: see Tiger Style guide: Error Handling
+   = note: `-D tigerstyle::no-unwrap` implied by `-D no-unwrap`
+   = help: to override `-D no-unwrap` add `#[allow(tigerstyle::no_unwrap)]`
+
+error: `.expect()` in production code will panic on failure
+  --> $DIR/no_unwrap_deny_custom/no_unwrap_deny_custom.rs:8:13
+   |
+LL |     let _ = val.expect("missing");
+   |             ^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Error Handling): propagate or handle absence explicitly instead of panicking with `unwrap` or `expect` Example: let value = maybe?;
+   = note: see Tiger Style guide: Error Handling
+
+error: aborting due to 2 previous errors
+
+
+== ui_tests/no_unwrap_disabled_custom.stderr ==
+(empty file)
+
+== ui_tests/no_unwrap_disabled_deny_custom.stderr ==
+warning: conflicting tigerstyle config in `dylint.toml`: `no_unwrap` appears in both `disabled_lints` and `lint_levels`; ignoring level override
+
+warning: 1 warning emitted
+
+
+== ui_tests/no_unwrap_disabled_source_attr_custom.stderr ==
+warning: unknown lint: `no_unwrap`
+  --> $DIR/no_unwrap_disabled_source_attr_custom/no_unwrap_disabled_source_attr_custom.rs:1:9
+   |
+LL | #![deny(no_unwrap)]
+   |         ^^^^^^^^^
+   |
+   = note: `#[warn(unknown_lints)]` on by default
+
+warning: 1 warning emitted
+
+
+== ui_tests/no_panic_todo_allow.stderr ==
+warning: unknown lint: `tigerstyle::no_panic`
+  --> $DIR/no_panic_todo_allow.rs:5:9
+   |
+LL | #[allow(tigerstyle::no_panic)]
+   |         ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unknown_lints)]` on by default
+help: a lint with a similar name exists in `rustc` lints
+   |
+LL - #[allow(tigerstyle::no_panic)]
+LL + #[allow(no_panic)]
+   |
+
+warning: unknown lint: `tigerstyle::no_panic`
+  --> $DIR/no_panic_todo_allow.rs:10:9
+   |
+LL | #[allow(tigerstyle::no_panic)] // justified inline stub while API lands
+   |         ^^^^^^^^^^^^^^^^^^^^
+   |
+help: a lint with a similar name exists in `rustc` lints
+   |
+LL - #[allow(tigerstyle::no_panic)] // justified inline stub while API lands
+LL + #[allow(no_panic)] // justified inline stub while API lands
+   |
+
+warning: unknown lint: `tigerstyle::no_panic`
+  --> $DIR/no_panic_todo_allow.rs:17:13
+   |
+LL |     #[allow(tigerstyle::no_panic)]
+   |             ^^^^^^^^^^^^^^^^^^^^
+   |
+help: a lint with a similar name exists in `rustc` lints
+   |
+LL -     #[allow(tigerstyle::no_panic)]
+LL +     #[allow(no_panic)]
+   |
+
+warning: unknown lint: `tigerstyle::no_panic`
+  --> $DIR/no_panic_todo_allow.rs:24:9
+   |
+LL | #[allow(tigerstyle::no_panic)]
+   |         ^^^^^^^^^^^^^^^^^^^^
+   |
+help: a lint with a similar name exists in `rustc` lints
+   |
+LL - #[allow(tigerstyle::no_panic)]
+LL + #[allow(no_panic)]
+   |
+
+warning: unknown lint: `tigerstyle::no_panic`
+  --> $DIR/no_panic_todo_allow.rs:30:9
+   |
+LL | #[allow(tigerstyle::no_panic)]
+   |         ^^^^^^^^^^^^^^^^^^^^
+   |
+help: a lint with a similar name exists in `rustc` lints
+   |
+LL - #[allow(tigerstyle::no_panic)]
+LL + #[allow(no_panic)]
+   |
+
+warning: unknown lint: `tigerstyle::no_panic`
+  --> $DIR/no_panic_todo_allow.rs:37:9
+   |
+LL | #[allow(tigerstyle::no_panic)]
+   |         ^^^^^^^^^^^^^^^^^^^^
+   |
+help: a lint with a similar name exists in `rustc` lints
+   |
+LL - #[allow(tigerstyle::no_panic)]
+LL + #[allow(no_panic)]
+   |
+
+warning: unknown lint: `tigerstyle::no_panic`
+  --> $DIR/no_panic_todo_allow.rs:42:9
+   |
+LL | #[allow(tigerstyle::no_panic)]
+   |         ^^^^^^^^^^^^^^^^^^^^
+   |
+help: a lint with a similar name exists in `rustc` lints
+   |
+LL - #[allow(tigerstyle::no_panic)]
+LL + #[allow(no_panic)]
+   |
+
+warning: unknown lint: `tigerstyle::no_panic`
+  --> $DIR/no_panic_todo_allow.rs:48:9
+   |
+LL | #[allow(tigerstyle::no_panic)]
+   |         ^^^^^^^^^^^^^^^^^^^^
+   |
+help: a lint with a similar name exists in `rustc` lints
+   |
+LL - #[allow(tigerstyle::no_panic)]
+LL + #[allow(no_panic)]
+   |
+
+warning: unknown lint: `tigerstyle::no_panic`
+  --> $DIR/no_panic_todo_allow.rs:54:9
+   |
+LL | #[allow(tigerstyle::no_panic)]
+   |         ^^^^^^^^^^^^^^^^^^^^
+   |
+help: a lint with a similar name exists in `rustc` lints
+   |
+LL - #[allow(tigerstyle::no_panic)]
+LL + #[allow(no_panic)]
+   |
+
+warning: unknown lint: `tigerstyle::no_panic`
+  --> $DIR/no_panic_todo_allow.rs:60:9
+   |
+LL | #[allow(tigerstyle::no_panic)]
+   |         ^^^^^^^^^^^^^^^^^^^^
+   |
+help: a lint with a similar name exists in `rustc` lints
+   |
+LL - #[allow(tigerstyle::no_panic)]
+LL + #[allow(no_panic)]
+   |
+
+warning: `todo!` will abort the process on execution
+  --> $DIR/no_panic_todo_allow.rs:26:5
+   |
+LL |     todo!("doc comment should still warn");
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Fail Fast Correctly): return errors or prove exhaustiveness instead of panicking in production code Example: return Err(Error::invalid_state());
+   = note: see Tiger Style guide: Error Handling / Panics
+   = note: `#[warn(no_panic)]` on by default
+
+warning: `todo!` will abort the process on execution
+  --> $DIR/no_panic_todo_allow.rs:32:5
+   |
+LL |     todo!("block comment should still warn");
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Fail Fast Correctly): return errors or prove exhaustiveness instead of panicking in production code Example: return Err(Error::invalid_state());
+   = note: see Tiger Style guide: Error Handling / Panics
+
+warning: `todo!` will abort the process on execution
+  --> $DIR/no_panic_todo_allow.rs:39:5
+   |
+LL |     todo!("blank line should still warn");
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Fail Fast Correctly): return errors or prove exhaustiveness instead of panicking in production code Example: return Err(Error::invalid_state());
+   = note: see Tiger Style guide: Error Handling / Panics
+
+warning: `todo!` will abort the process on execution
+  --> $DIR/no_panic_todo_allow.rs:44:5
+   |
+LL |     todo!("missing comment should still warn");
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Fail Fast Correctly): return errors or prove exhaustiveness instead of panicking in production code Example: return Err(Error::invalid_state());
+   = note: see Tiger Style guide: Error Handling / Panics
+
+warning: `panic!` will abort the process on execution
+  --> $DIR/no_panic_todo_allow.rs:50:5
+   |
+LL |     panic!("panic should still warn");
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Fail Fast Correctly): return errors or prove exhaustiveness instead of panicking in production code Example: return Err(Error::invalid_state());
+   = note: see Tiger Style guide: Error Handling / Panics
+
+warning: `unimplemented!` will abort the process on execution
+  --> $DIR/no_panic_todo_allow.rs:56:5
+   |
+LL |     unimplemented!("unimplemented should still warn");
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Fail Fast Correctly): return errors or prove exhaustiveness instead of panicking in production code Example: return Err(Error::invalid_state());
+   = note: see Tiger Style guide: Error Handling / Panics
+
+warning: `unreachable!` will abort the process on execution
+  --> $DIR/no_panic_todo_allow.rs:62:5
+   |
+LL |     unreachable!("unreachable should still warn");
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Fail Fast Correctly): return errors or prove exhaustiveness instead of panicking in production code Example: return Err(Error::invalid_state());
+   = note: see Tiger Style guide: Error Handling / Panics
+
+warning: 17 warnings emitted
+
+
