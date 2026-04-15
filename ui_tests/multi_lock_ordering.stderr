@@ -14,6 +14,7 @@ note: the lint level is defined here
    |
 LL | #![warn(multi_lock_ordering)]
    |         ^^^^^^^^^^^^^^^^^^^
+   = note: `#[warn(tigerstyle::multi_lock_ordering)]` implied by `#[warn(multi_lock_ordering)]`
 
 warning: 1 warning emitted
 

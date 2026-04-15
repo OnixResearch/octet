@@ -3,8 +3,8 @@ use rustc_hir::ExprKind;
 use rustc_lint::LateContext;
 use rustc_lint::LateLintPass;
 use rustc_middle::ty;
-use rustc_session::declare_lint;
 use rustc_session::declare_lint_pass;
+use rustc_session::declare_tool_lint;
 use rustc_span::Span;
 use rustc_span::Symbol;
 use rustc_span::sym;
@@ -12,11 +12,11 @@ use rustc_span::sym;
 use crate::diagnostics::emit_tiger_style_lint;
 use crate::test_context;
 
-declare_lint! {
+declare_tool_lint! {
     /// Detects `.unwrap()` and `.expect()` calls on `Option` and `Result`
     /// in non-test code. These panic on failure, crashing the process
     /// instead of propagating the error.
-    pub NO_UNWRAP,
+    pub tigerstyle::NO_UNWRAP,
     Warn,
     "`.unwrap()`/`.expect()` in production code"
 }
@@ -41,7 +41,7 @@ fn is_known_constructor_call(receiver: &hir::Expr<'_>) -> bool {
         return false;
     };
 
-    matches!(path.segments.last().map(|segment| segment.ident.name.as_str().as_ref()), Some("Some") | Some("Ok"))
+    matches!(path.segments.last().map(|segment| segment.ident.name.as_str()), Some("Some") | Some("Ok"))
 }
 
 fn match_def_path(cx: &LateContext<'_>, did: rustc_hir::def_id::DefId, path: &[&str]) -> bool {
@@ -237,7 +237,7 @@ impl<'tcx> LateLintPass<'tcx> for NoUnwrap {
             return;
         }
 
-        if should_skip_unwrap(cx, expr, receiver, &name) {
+        if should_skip_unwrap(cx, expr, receiver, name) {
             return;
         }
 

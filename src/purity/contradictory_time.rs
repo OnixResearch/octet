@@ -4,19 +4,19 @@ use rustc_hir::intravisit::Visitor;
 use rustc_hir::intravisit::{self};
 use rustc_lint::LateContext;
 use rustc_lint::LateLintPass;
-use rustc_session::declare_lint;
 use rustc_session::declare_lint_pass;
+use rustc_session::declare_tool_lint;
 use rustc_span::Span;
 
 use crate::diagnostics::emit_tiger_style_lint;
 
-declare_lint! {
+declare_tool_lint! {
     /// Detects functions that both accept a time parameter (name matching
     /// `*_ms`, `*_secs`, `now`, `timestamp`, etc.) AND call
     /// `Instant::now()` or `SystemTime::now()` in their body. Two time
     /// sources in the same function is always a design error — verified-logic
     /// functions take time as an explicit parameter for purity and testability.
-    pub CONTRADICTORY_TIME,
+    pub tigerstyle::CONTRADICTORY_TIME,
     Warn,
     "function takes time parameter but also reads system time"
 }

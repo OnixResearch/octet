@@ -4,19 +4,19 @@ use rustc_hir::PatKind;
 use rustc_lint::LateContext;
 use rustc_lint::LateLintPass;
 use rustc_middle::ty;
-use rustc_session::declare_lint;
 use rustc_session::declare_lint_pass;
+use rustc_session::declare_tool_lint;
 use rustc_span::Symbol;
 use rustc_span::sym;
 
 use crate::diagnostics::emit_tiger_style_lint;
 
-declare_lint! {
+declare_tool_lint! {
     /// Detects `let _ = expr` where `expr` returns `Result<_, _>`. Silently
     /// discarding a Result hides errors that could propagate or be logged.
     /// A study of catastrophic failures in distributed systems found that
     /// 92% had an error path that was explicitly ignored.
-    pub IGNORED_RESULT,
+    pub tigerstyle::IGNORED_RESULT,
     Warn,
     "Result value silently discarded with `let _ = ...`"
 }
@@ -124,7 +124,7 @@ fn is_shutdown_or_close_context(cx: &LateContext<'_>, hir_id: hir::HirId) -> boo
             _ => None,
         };
 
-        if name.is_some_and(|name| matches!(name.as_str().as_ref(), "shutdown" | "close")) {
+        if name.is_some_and(|name| matches!(name.as_str(), "shutdown" | "close")) {
             return true;
         }
     }

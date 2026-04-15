@@ -6,7 +6,7 @@ LL |     Instant::now() + timeout
    |
    = help: Tiger Style (Functional Core): pass time into core logic or isolate clock reads in a shell-boundary helper with a narrow allow reason Example: #[allow(tigerstyle::ambient_clock, reason = "shell boundary clock read")] fn read_now() -> Instant { Instant::now() }
    = note: see Tiger Style guide: Functional Core / Imperative Shell
-   = note: `#[warn(ambient_clock)]` on by default
+   = note: `#[warn(tigerstyle::ambient_clock)]` on by default
 
 warning: 1 warning emitted
 

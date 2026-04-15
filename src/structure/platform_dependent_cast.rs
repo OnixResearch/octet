@@ -3,17 +3,17 @@ use rustc_hir::ExprKind;
 use rustc_lint::LateContext;
 use rustc_lint::LateLintPass;
 use rustc_middle::ty;
-use rustc_session::declare_lint;
 use rustc_session::declare_lint_pass;
+use rustc_session::declare_tool_lint;
 
 use crate::diagnostics::emit_tiger_style_lint;
 
-declare_lint! {
+declare_tool_lint! {
     /// Detects `as usize` and `as isize` casts from fixed-width integer
     /// types. On a 32-bit platform, `u64 as usize` silently truncates.
     /// Tiger Style mandates explicitly sized types for cross-platform
     /// consistency.
-    pub PLATFORM_DEPENDENT_CAST,
+    pub tigerstyle::PLATFORM_DEPENDENT_CAST,
     Warn,
     "`as usize`/`as isize` from fixed-width integer is platform-dependent"
 }

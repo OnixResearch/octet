@@ -398,7 +398,7 @@ This appendix remains the source of truth for emitted `guidance` and
   - example: `let len: u32 = value.try_into()?;`
 - `unjustified_allow`
   - guidance: every lint suppression needs a local reason tied to the code shape
-  - example: `#[allow(tigerstyle::no_panic, reason = "ffi boundary aborts process")]`
+  - example: `// Verified casts: Verus checks every narrowing in this module.\n#[allow(clippy::cast_possible_truncation)]`
 - `nested_conditionals`
   - guidance: flatten control flow with guards, early returns, or helper predicates
   - example: `if !is_ready { return; }`

@@ -4,12 +4,12 @@ use rustc_lint::LateContext;
 use rustc_lint::LateLintPass;
 use rustc_lint::LintContext;
 use rustc_middle::ty;
-use rustc_session::declare_lint;
 use rustc_session::declare_lint_pass;
+use rustc_session::declare_tool_lint;
 
 use crate::diagnostics::emit_tiger_style_lint;
 
-declare_lint! {
+declare_tool_lint! {
     /// Detects direct calls to `Instant::now()`, `SystemTime::now()`,
     /// and `Utc::now()` (chrono) in production code. Reading the system
     /// clock is a side effect — core/pure crates should receive time as
@@ -19,9 +19,9 @@ declare_lint! {
     /// legitimately own the clock can suppress this with:
     ///
     /// ```rust
-    /// #[allow(ambient_clock, reason = "entry-point owns time capture")]
+    /// #[allow(tigerstyle::ambient_clock, reason = "entry-point owns time capture")]
     /// ```
-    pub AMBIENT_CLOCK,
+    pub tigerstyle::AMBIENT_CLOCK,
     Warn,
     "direct system clock read — inject time as a parameter instead"
 }

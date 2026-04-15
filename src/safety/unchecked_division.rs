@@ -5,17 +5,17 @@ use rustc_lint::LateContext;
 use rustc_lint::LateLintPass;
 use rustc_lint::LintContext;
 use rustc_middle::ty;
-use rustc_session::declare_lint;
 use rustc_session::declare_lint_pass;
+use rustc_session::declare_tool_lint;
 
 use crate::diagnostics::emit_tiger_style_lint;
 
-declare_lint! {
+declare_tool_lint! {
     /// Detects `a / b` or `a % b` where `b` is a function parameter or
     /// local variable (not a constant) and there is no prior zero-guard
     /// in the function. Every division in verified-logic has an explicit
     /// `requires b > 0` precondition.
-    pub UNCHECKED_DIVISION,
+    pub tigerstyle::UNCHECKED_DIVISION,
     Warn,
     "division by variable without zero check"
 }

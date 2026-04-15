@@ -13,7 +13,7 @@ LL | | }
    |
    = help: Tiger Style (Function Length): split long functions into named helpers at invariant or phase boundaries
    = note: see Tiger Style guide: Function Length
-   = note: `#[warn(function_length)]` on by default
+   = note: `#[warn(tigerstyle::function_length)]` on by default
 
 warning: 1 warning emitted
 

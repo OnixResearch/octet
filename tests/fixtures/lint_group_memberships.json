@@ -1,0 +1,53 @@
+[
+  {
+    "group_name": "tigerstyle::safety",
+    "lint_names": [
+      "compound_assertion",
+      "unbounded_loop",
+      "assertion_density",
+      "ignored_result",
+      "unchecked_narrowing",
+      "unchecked_division",
+      "catch_all_on_enum",
+      "raw_arithmetic_overflow",
+      "no_unwrap",
+      "no_panic",
+      "unjustified_no_panic_allow",
+      "no_recursion"
+    ]
+  },
+  {
+    "group_name": "tigerstyle::naming",
+    "lint_names": [
+      "acronym_style",
+      "numeric_units",
+      "bool_naming",
+      "float_for_currency"
+    ]
+  },
+  {
+    "group_name": "tigerstyle::structure",
+    "lint_names": [
+      "function_length",
+      "compound_condition",
+      "unjustified_allow",
+      "nested_conditionals",
+      "platform_dependent_cast",
+      "ambiguous_params"
+    ]
+  },
+  {
+    "group_name": "tigerstyle::purity",
+    "lint_names": [
+      "verified_purity",
+      "contradictory_time",
+      "ambient_clock"
+    ]
+  },
+  {
+    "group_name": "tigerstyle::concurrency",
+    "lint_names": [
+      "multi_lock_ordering"
+    ]
+  }
+]

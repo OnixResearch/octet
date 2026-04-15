@@ -6,7 +6,8 @@ LL |     let _ = val.unwrap();
    |
    = help: Tiger Style (Error Handling): propagate or handle absence explicitly instead of panicking with `unwrap` or `expect` Example: let value = maybe?;
    = note: see Tiger Style guide: Error Handling
-   = note: requested on the command line with `-D no-unwrap`
+   = note: `-D tigerstyle::no-unwrap` implied by `-D no-unwrap`
+   = help: to override `-D no-unwrap` add `#[allow(tigerstyle::no_unwrap)]`
 
 error: `.expect()` in production code will panic on failure
   --> $DIR/no_unwrap_deny_custom/no_unwrap_deny_custom.rs:8:13

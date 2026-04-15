@@ -1,0 +1,12 @@
+warning: boolean binding `ready` should have a predicate prefix
+  --> $DIR/group_allow_safety.rs:11:9
+   |
+LL |     let ready = true;
+   |         ^^^^^
+   |
+   = help: Tiger Style (Positive Predicates): name booleans as predicates so call sites read like questions Example: let is_ready = status == Ready;
+   = note: see Tiger Style guide: Positive Predicates
+   = note: `#[warn(tigerstyle::bool_naming)]` on by default
+
+warning: 1 warning emitted
+

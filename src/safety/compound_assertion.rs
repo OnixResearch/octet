@@ -3,17 +3,17 @@ use rustc_ast::ExprKind;
 use rustc_lint::EarlyContext;
 use rustc_lint::EarlyLintPass;
 use rustc_lint::LintContext;
-use rustc_session::declare_lint;
 use rustc_session::declare_lint_pass;
+use rustc_session::declare_tool_lint;
 
 use crate::diagnostics::emit_tiger_style_lint;
 
-declare_lint! {
+declare_tool_lint! {
     /// Detects `assert!(a && b)` and `assert!(a || b)` where the macro
     /// argument contains a top-level `&&` or `||`. Compound assertions
     /// produce a single "assertion failed" message on failure, hiding
     /// which condition actually broke.
-    pub COMPOUND_ASSERTION,
+    pub tigerstyle::COMPOUND_ASSERTION,
     Warn,
     "compound assertion should be split into separate assertions"
 }

@@ -13,6 +13,7 @@ note: the lint level is defined here
    |
 LL | #![warn(ambiguous_params)]
    |         ^^^^^^^^^^^^^^^^
+   = note: `#[warn(tigerstyle::ambiguous_params)]` implied by `#[warn(ambiguous_params)]`
 
 warning: 1 warning emitted
 

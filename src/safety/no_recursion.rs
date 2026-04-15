@@ -4,18 +4,18 @@ use rustc_hir::intravisit::Visitor;
 use rustc_hir::intravisit::{self};
 use rustc_lint::LateContext;
 use rustc_lint::LateLintPass;
-use rustc_session::declare_lint;
 use rustc_session::declare_lint_pass;
+use rustc_session::declare_tool_lint;
 use rustc_span::Span;
 
 use crate::diagnostics::emit_tiger_style_lint;
 
-declare_lint! {
+declare_tool_lint! {
     /// Detects direct recursion (a function calling itself). Tiger Style
     /// avoids recursion because it makes execution depth unpredictable
     /// and can overflow the stack. Use iteration with explicit bounds
     /// instead.
-    pub NO_RECURSION,
+    pub tigerstyle::NO_RECURSION,
     Warn,
     "function calls itself recursively"
 }

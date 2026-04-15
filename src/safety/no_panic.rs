@@ -9,7 +9,7 @@ use rustc_lint::LateContext;
 use rustc_lint::LateLintPass;
 use rustc_lint::LintContext;
 use rustc_middle::ty;
-use rustc_session::declare_lint;
+use rustc_session::declare_tool_lint;
 use rustc_session::impl_lint_pass;
 use rustc_span::Span;
 use rustc_span::sym;
@@ -17,20 +17,42 @@ use rustc_span::sym;
 use crate::diagnostics::emit_tiger_style_lint;
 use crate::test_context;
 
-declare_lint! {
+declare_tool_lint! {
     /// Detects `panic!()`, `todo!()`, `unimplemented!()`, and
     /// `unreachable!()` in non-test code. These abort the process
     /// instead of returning an error. Production code should return
     /// `Result` and let the caller decide how to handle failure.
-    pub NO_PANIC,
+    pub tigerstyle::NO_PANIC,
     Warn,
     "panic macro in production code"
 }
 
-#[derive(Default)]
-pub struct NoPanic;
+declare_tool_lint! {
+    /// Detects misuse of `#[allow(tigerstyle::no_panic)]`. That escape hatch is
+    /// reserved for temporary `todo!()` stubs with an adjacent `//`
+    /// justification comment.
+    pub tigerstyle::UNJUSTIFIED_NO_PANIC_ALLOW,
+    Warn,
+    "invalid `#[allow(tigerstyle::no_panic)]` escape hatch"
+}
 
-impl_lint_pass!(NoPanic => [NO_PANIC]);
+pub struct NoPanic {
+    emit_no_panic: bool,
+    emit_unjustified_allow: bool,
+    seen_unjustified_allow_spans: Vec<Span>,
+}
+
+impl NoPanic {
+    pub fn new(emit_no_panic: bool, emit_unjustified_allow: bool) -> Self {
+        Self {
+            emit_no_panic,
+            emit_unjustified_allow,
+            seen_unjustified_allow_spans: Vec::new(),
+        }
+    }
+}
+
+impl_lint_pass!(NoPanic => [NO_PANIC, UNJUSTIFIED_NO_PANIC_ALLOW]);
 
 const PANIC_MACROS: &[&str] = &["panic!", "todo!", "unimplemented!", "unreachable!"];
 
@@ -111,89 +133,85 @@ fn is_line_comment(line: &str) -> bool {
     trimmed.starts_with("//") && !trimmed.starts_with("///") && !trimmed.starts_with("//!")
 }
 
-fn line_has_no_panic_allow(line: &str) -> bool {
-    let normalized = line.chars().filter(|ch| !ch.is_whitespace()).collect::<String>();
-    normalized.contains("#[allow(tigerstyle::no_panic)]")
+#[derive(Clone, Copy)]
+struct NoPanicAllow {
+    attr_span: Span,
+    justified: bool,
 }
 
-fn span_has_justified_no_panic_allow(cx: &LateContext<'_>, span: Span) -> bool {
+fn no_panic_allow_attr_span(cx: &LateContext<'_>, hir_id: hir::HirId) -> Option<Span> {
     let source_map = cx.sess().source_map();
-    let Ok(lines) = source_map.span_to_lines(span) else {
-        return false;
+    cx.tcx.hir_attrs(hir_id).iter().find_map(|attr| {
+        if !attr.has_name(sym::allow) {
+            return None;
+        }
+
+        let has_no_panic = source_map
+            .span_to_snippet(attr.span())
+            .map(|snippet| snippet.contains("tigerstyle::no_panic"))
+            .unwrap_or_else(|_| format!("{attr:?}").contains("tigerstyle::no_panic"));
+        has_no_panic.then_some(attr.span())
+    })
+}
+
+fn no_panic_allow_for_attr_span(cx: &LateContext<'_>, attr_span: Span) -> NoPanicAllow {
+    let source_map = cx.sess().source_map();
+    let Ok(lines) = source_map.span_to_lines(attr_span) else {
+        return NoPanicAllow {
+            attr_span,
+            justified: false,
+        };
     };
     let Some(first_line_idx) = lines.lines.first().map(|line| line.line_index) else {
-        return false;
+        return NoPanicAllow {
+            attr_span,
+            justified: false,
+        };
     };
 
-    for idx in (0..first_line_idx).rev() {
-        let Some(line) = lines.file.get_line(idx) else {
-            continue;
+    if lines.file.get_line(first_line_idx).is_some_and(|line| line.trim().contains("//")) {
+        return NoPanicAllow {
+            attr_span,
+            justified: true,
         };
-        let trimmed = line.trim();
-
-        if trimmed.is_empty() {
-            break;
-        }
-
-        if line_has_no_panic_allow(trimmed) {
-            if trimmed.contains("//") {
-                return true;
-            }
-
-            if idx > 0
-                && let Some(prev_line) = lines.file.get_line(idx - 1)
-                && is_line_comment(&prev_line)
-            {
-                return true;
-            }
-
-            return false;
-        }
-
-        if is_line_comment(trimmed) || trimmed.starts_with("#[") || trimmed.starts_with("#![") {
-            continue;
-        }
-
-        break;
     }
 
-    false
+    let justified = first_line_idx > 0
+        && lines.file.get_line(first_line_idx - 1).is_some_and(|prev_line| is_line_comment(&prev_line));
+
+    NoPanicAllow { attr_span, justified }
 }
 
-fn has_justified_todo_allow(cx: &LateContext<'_>, expr: &hir::Expr<'_>, name: &str) -> bool {
-    if name != "todo!" {
-        return false;
-    }
-
+fn enclosing_no_panic_allow(cx: &LateContext<'_>, expr: &hir::Expr<'_>) -> Option<NoPanicAllow> {
     for (_, node) in cx.tcx.hir_parent_iter(expr.hir_id) {
         match node {
             hir::Node::Expr(parent_expr) => {
-                if let ExprKind::Block(block, _) = &parent_expr.kind
-                    && span_has_justified_no_panic_allow(cx, block.span.source_callsite())
+                if matches!(parent_expr.kind, ExprKind::Block(..))
+                    && let Some(attr_span) = no_panic_allow_attr_span(cx, parent_expr.hir_id)
                 {
-                    return true;
+                    return Some(no_panic_allow_for_attr_span(cx, attr_span));
                 }
             }
             hir::Node::Item(item) => {
-                if span_has_justified_no_panic_allow(cx, item.span.source_callsite()) {
-                    return true;
+                if let Some(attr_span) = no_panic_allow_attr_span(cx, item.hir_id()) {
+                    return Some(no_panic_allow_for_attr_span(cx, attr_span));
                 }
             }
             hir::Node::ImplItem(impl_item) => {
-                if span_has_justified_no_panic_allow(cx, impl_item.span.source_callsite()) {
-                    return true;
+                if let Some(attr_span) = no_panic_allow_attr_span(cx, impl_item.hir_id()) {
+                    return Some(no_panic_allow_for_attr_span(cx, attr_span));
                 }
             }
             hir::Node::TraitItem(trait_item) => {
-                if span_has_justified_no_panic_allow(cx, trait_item.span.source_callsite()) {
-                    return true;
+                if let Some(attr_span) = no_panic_allow_attr_span(cx, trait_item.hir_id()) {
+                    return Some(no_panic_allow_for_attr_span(cx, attr_span));
                 }
             }
             _ => {}
         }
     }
 
-    false
+    None
 }
 
 fn is_exhaustive_unreachable_wildcard(cx: &LateContext<'_>, expr: &hir::Expr<'_>, name: &str) -> bool {
@@ -265,6 +283,23 @@ fn is_exhaustive_unreachable_wildcard(cx: &LateContext<'_>, expr: &hir::Expr<'_>
     false
 }
 
+impl NoPanic {
+    fn emit_unjustified_allow_once(&mut self, cx: &LateContext<'_>, attr_span: Span, name: &str, justified: bool) {
+        if self.seen_unjustified_allow_spans.contains(&attr_span) {
+            return;
+        }
+        self.seen_unjustified_allow_spans.push(attr_span);
+
+        let message = if !justified {
+            "`#[allow(tigerstyle::no_panic)]` needs an adjacent `//` justification comment and may only wrap temporary `todo!()` stubs".to_owned()
+        } else {
+            format!("`#[allow(tigerstyle::no_panic)]` is reserved for temporary `todo!()` stubs, not `{name}`")
+        };
+
+        emit_tiger_style_lint(cx, UNJUSTIFIED_NO_PANIC_ALLOW, attr_span, message, "unjustified_no_panic_allow");
+    }
+}
+
 impl<'tcx> LateLintPass<'tcx> for NoPanic {
     fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx hir::Expr<'tcx>) {
         // Panic macros are expanded before linting runs. We recover the
@@ -293,7 +328,22 @@ impl<'tcx> LateLintPass<'tcx> for NoPanic {
             return;
         };
 
-        if is_exhaustive_unreachable_wildcard(cx, expr, name) || has_justified_todo_allow(cx, expr, name) {
+        if is_exhaustive_unreachable_wildcard(cx, expr, name) {
+            return;
+        }
+
+        if let Some(allow) = enclosing_no_panic_allow(cx, expr) {
+            if name == "todo!" && allow.justified {
+                return;
+            }
+
+            if self.emit_unjustified_allow {
+                self.emit_unjustified_allow_once(cx, allow.attr_span, name, allow.justified);
+            }
+            return;
+        }
+
+        if !self.emit_no_panic {
             return;
         }
 

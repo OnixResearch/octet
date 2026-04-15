@@ -5,13 +5,13 @@ use rustc_ast::StmtKind;
 use rustc_lint::EarlyContext;
 use rustc_lint::EarlyLintPass;
 use rustc_lint::LintContext;
-use rustc_session::declare_lint;
+use rustc_session::declare_tool_lint;
 use rustc_session::impl_lint_pass;
 use rustc_span::sym;
 
 use crate::diagnostics::emit_tiger_style_lint;
 
-declare_lint! {
+declare_tool_lint! {
     /// Warns on functions exceeding a configurable line count (default: 20)
     /// that contain fewer than a required number of assertions (default: 2).
     /// Functions without assertions lack documentation of their invariants.
@@ -22,7 +22,7 @@ declare_lint! {
     /// assertion_density_min_lines = 30
     /// assertion_density_min_assertions = 3
     /// ```
-    pub ASSERTION_DENSITY,
+    pub tigerstyle::ASSERTION_DENSITY,
     Allow,
     "function has low assertion density"
 }

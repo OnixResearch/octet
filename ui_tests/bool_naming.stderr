@@ -6,7 +6,7 @@ LL |     let active = true;
    |
    = help: Tiger Style (Positive Predicates): name booleans as predicates so call sites read like questions Example: let is_ready = status == Ready;
    = note: see Tiger Style guide: Positive Predicates
-   = note: `#[warn(bool_naming)]` on by default
+   = note: `#[warn(tigerstyle::bool_naming)]` on by default
 
 warning: boolean binding `ready` should have a predicate prefix
   --> $DIR/bool_naming.rs:6:9

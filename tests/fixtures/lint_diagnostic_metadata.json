@@ -69,7 +69,7 @@
     "domain_group": "tigerstyle::structure",
     "guidance": "every lint suppression needs a local reason tied to the code shape",
     "example_mode": "required",
-    "example_text": "#[allow(no_panic, reason = \"ffi boundary aborts process\")]"
+    "example_text": "// Verified casts: Verus checks every narrowing in this module.\n#[allow(clippy::cast_possible_truncation)]"
   },
   {
     "lint_name": "nested_conditionals",
@@ -214,6 +214,15 @@
     "guidance": "return errors or prove exhaustiveness instead of panicking in production code",
     "example_mode": "required",
     "example_text": "return Err(Error::invalid_state());"
+  },
+  {
+    "lint_name": "unjustified_no_panic_allow",
+    "principle": "Documented Panic Escape",
+    "guide_section": "Error Handling / Panics",
+    "domain_group": "tigerstyle::safety",
+    "guidance": "reserve `#[allow(tigerstyle::no_panic)]` for temporary `todo!()` stubs with an adjacent `//` justification comment",
+    "example_mode": "required",
+    "example_text": "// justified stub while API lands\n#[allow(tigerstyle::no_panic)] fn stub() { todo!() }"
   },
   {
     "lint_name": "no_recursion",

@@ -5,17 +5,17 @@ use rustc_lint::LateContext;
 use rustc_lint::LateLintPass;
 use rustc_lint::LintContext;
 use rustc_middle::ty;
-use rustc_session::declare_lint;
 use rustc_session::declare_lint_pass;
+use rustc_session::declare_tool_lint;
 
 use crate::diagnostics::emit_tiger_style_lint;
 
-declare_lint! {
+declare_tool_lint! {
     /// Detects `match` over enum types where the last arm is a wildcard (`_`)
     /// returning a "deny" value: `false`, `None`, `Err(...)`, or `0`. When
     /// new variants are added, the wildcard silently handles them instead of
     /// forcing an explicit decision.
-    pub CATCH_ALL_ON_ENUM,
+    pub tigerstyle::CATCH_ALL_ON_ENUM,
     Warn,
     "catch-all wildcard on enum match returns deny value"
 }

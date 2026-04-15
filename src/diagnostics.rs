@@ -9,6 +9,13 @@ pub(crate) const GROUP_NAMING: &str = "tigerstyle::naming";
 pub(crate) const GROUP_STRUCTURE: &str = "tigerstyle::structure";
 pub(crate) const GROUP_PURITY: &str = "tigerstyle::purity";
 pub(crate) const GROUP_CONCURRENCY: &str = "tigerstyle::concurrency";
+pub(crate) const GROUP_NAMES: &[&str] = &[
+    GROUP_SAFETY,
+    GROUP_NAMING,
+    GROUP_STRUCTURE,
+    GROUP_PURITY,
+    GROUP_CONCURRENCY,
+];
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -26,6 +33,19 @@ pub(crate) struct LintDiagnosticMeta {
     pub guidance: &'static str,
     pub example_mode: ExampleMode,
     pub example_text: Option<&'static str>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub(crate) struct LintGroupSnapshot {
+    pub group_name: &'static str,
+    pub lint_names: Vec<&'static str>,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub(crate) struct CompatibilityAliasSnapshot {
+    pub alias_name: &'static str,
+    pub canonical_lint_name: String,
 }
 
 impl LintDiagnosticMeta {
@@ -113,7 +133,9 @@ pub(crate) const DIAGNOSTIC_METADATA: &[LintDiagnosticMeta] = &[
         domain_group: GROUP_STRUCTURE,
         guidance: "every lint suppression needs a local reason tied to the code shape",
         example_mode: ExampleMode::Required,
-        example_text: Some("#[allow(no_panic, reason = \"ffi boundary aborts process\")]"),
+        example_text: Some(
+            "// Verified casts: Verus checks every narrowing in this module.\n#[allow(clippy::cast_possible_truncation)]",
+        ),
     },
     LintDiagnosticMeta {
         lint_name: "nested_conditionals",
@@ -262,6 +284,15 @@ pub(crate) const DIAGNOSTIC_METADATA: &[LintDiagnosticMeta] = &[
         example_text: Some("return Err(Error::invalid_state());"),
     },
     LintDiagnosticMeta {
+        lint_name: "unjustified_no_panic_allow",
+        principle: "Documented Panic Escape",
+        guide_section: "Error Handling / Panics",
+        domain_group: GROUP_SAFETY,
+        guidance: "reserve `#[allow(tigerstyle::no_panic)]` for temporary `todo!()` stubs with an adjacent `//` justification comment",
+        example_mode: ExampleMode::Required,
+        example_text: Some("// justified stub while API lands\n#[allow(tigerstyle::no_panic)] fn stub() { todo!() }"),
+    },
+    LintDiagnosticMeta {
         lint_name: "no_recursion",
         principle: "Simple Control Flow",
         guide_section: "Simple Control Flow",
@@ -275,6 +306,40 @@ pub(crate) const DIAGNOSTIC_METADATA: &[LintDiagnosticMeta] = &[
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn all_metadata() -> &'static [LintDiagnosticMeta] {
     DIAGNOSTIC_METADATA
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn canonical_lint_name(lint_name: &str) -> String {
+    format!("tigerstyle::{lint_name}")
+}
+
+pub(crate) fn lint_names_for_group(group_name: &str) -> Vec<&'static str> {
+    DIAGNOSTIC_METADATA
+        .iter()
+        .filter(|meta| meta.domain_group == group_name)
+        .map(|meta| meta.lint_name)
+        .collect()
+}
+
+pub(crate) fn group_snapshots() -> Vec<LintGroupSnapshot> {
+    GROUP_NAMES
+        .iter()
+        .map(|group_name| LintGroupSnapshot {
+            group_name,
+            lint_names: lint_names_for_group(group_name),
+        })
+        .collect()
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn compatibility_alias_snapshots() -> Vec<CompatibilityAliasSnapshot> {
+    DIAGNOSTIC_METADATA
+        .iter()
+        .map(|meta| CompatibilityAliasSnapshot {
+            alias_name: meta.lint_name,
+            canonical_lint_name: canonical_lint_name(meta.lint_name),
+        })
+        .collect()
 }
 
 pub(crate) fn diagnostic_meta(lint_name: &str) -> &'static LintDiagnosticMeta {

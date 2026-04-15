@@ -1,0 +1,106 @@
+[
+  {
+    "lint_name": "compound_assertion",
+    "fixture": "compound_assertion"
+  },
+  {
+    "lint_name": "function_length",
+    "fixture": "function_length"
+  },
+  {
+    "lint_name": "acronym_style",
+    "fixture": "acronym_style"
+  },
+  {
+    "lint_name": "numeric_units",
+    "fixture": "numeric_units"
+  },
+  {
+    "lint_name": "unbounded_loop",
+    "fixture": "unbounded_loop"
+  },
+  {
+    "lint_name": "compound_condition",
+    "fixture": "compound_condition"
+  },
+  {
+    "lint_name": "verified_purity",
+    "fixture": "verified/verified_purity"
+  },
+  {
+    "lint_name": "unjustified_allow",
+    "fixture": "unjustified_allow"
+  },
+  {
+    "lint_name": "nested_conditionals",
+    "fixture": "nested_conditionals"
+  },
+  {
+    "lint_name": "assertion_density",
+    "fixture": "assertion_density"
+  },
+  {
+    "lint_name": "multi_lock_ordering",
+    "fixture": "multi_lock_ordering"
+  },
+  {
+    "lint_name": "bool_naming",
+    "fixture": "bool_naming"
+  },
+  {
+    "lint_name": "ignored_result",
+    "fixture": "ignored_result"
+  },
+  {
+    "lint_name": "unchecked_narrowing",
+    "fixture": "unchecked_narrowing"
+  },
+  {
+    "lint_name": "unchecked_division",
+    "fixture": "unchecked_division"
+  },
+  {
+    "lint_name": "contradictory_time",
+    "fixture": "contradictory_time"
+  },
+  {
+    "lint_name": "ambient_clock",
+    "fixture": "ambient_clock"
+  },
+  {
+    "lint_name": "catch_all_on_enum",
+    "fixture": "catch_all_on_enum"
+  },
+  {
+    "lint_name": "platform_dependent_cast",
+    "fixture": "platform_dependent_cast"
+  },
+  {
+    "lint_name": "float_for_currency",
+    "fixture": "float_for_currency"
+  },
+  {
+    "lint_name": "ambiguous_params",
+    "fixture": "ambiguous_params"
+  },
+  {
+    "lint_name": "raw_arithmetic_overflow",
+    "fixture": "raw_arithmetic_overflow"
+  },
+  {
+    "lint_name": "no_unwrap",
+    "fixture": "no_unwrap"
+  },
+  {
+    "lint_name": "no_panic",
+    "fixture": "no_panic"
+  },
+  {
+    "lint_name": "unjustified_no_panic_allow",
+    "fixture": "no_panic_todo_allow"
+  },
+  {
+    "lint_name": "no_recursion",
+    "fixture": "no_recursion"
+  }
+]

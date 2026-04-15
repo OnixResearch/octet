@@ -4,16 +4,16 @@ use rustc_hir::ExprKind;
 use rustc_lint::LateContext;
 use rustc_lint::LateLintPass;
 use rustc_middle::ty;
-use rustc_session::declare_lint;
 use rustc_session::declare_lint_pass;
+use rustc_session::declare_tool_lint;
 
 use crate::diagnostics::emit_tiger_style_lint;
 
-declare_lint! {
+declare_tool_lint! {
     /// Detects unprotected `+`, `-`, `*` on unsigned integer types in
     /// production code where overflow is not checked. Verified-logic uses
     /// `checked_add`, `saturating_sub`, etc. for every arithmetic operation.
-    pub RAW_ARITHMETIC_OVERFLOW,
+    pub tigerstyle::RAW_ARITHMETIC_OVERFLOW,
     Allow,
     "unprotected arithmetic on unsigned integers"
 }

@@ -3,16 +3,16 @@ use rustc_ast::Expr;
 use rustc_ast::ExprKind;
 use rustc_lint::EarlyContext;
 use rustc_lint::EarlyLintPass;
-use rustc_session::declare_lint;
 use rustc_session::declare_lint_pass;
+use rustc_session::declare_tool_lint;
 
 use crate::diagnostics::emit_tiger_style_lint;
 
-declare_lint! {
+declare_tool_lint! {
     /// Detects `if` conditions containing 3 or more `&&`/`||` operators
     /// at the same nesting level. Complex conditions should be decomposed
     /// into early returns, guard clauses, or named boolean bindings.
-    pub COMPOUND_CONDITION,
+    pub tigerstyle::COMPOUND_CONDITION,
     Allow,
     "if condition has 3+ boolean operators"
 }
