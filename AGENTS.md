@@ -5,6 +5,7 @@
 - Consumer rollout guidance now lives in `docs/downstream-rollout.md`, with the active copyable consumer config in `templates/dylint.toml`.
 - Historical wrapper default `../tigerstyle` only worked when the consumer repo was a direct sibling of `tigerstyle`; nested consumers like `mc/valence` needed wrapper-side auto-detection (for example `../../tigerstyle`) or an explicit `TIGERSTYLE_PATH`.
 - To reproduce Aspen phase-1 evidence, use Aspen commit `909e5e9fa`. A naive temp worktree fails because Aspen has sibling path dependencies (`aspen-dns`, `aspen-wasm-plugin`); use a sandbox parent with `aspen/` worktree plus sibling symlinks.
+- On Aspen commit `909e5e9fa`, back-to-back `cargo-tigerstyle check` runs that reuse one `CARGO_TARGET_DIR` can hit rustc incremental ICEs like `shallow_lint_levels_on(...): Found unstable fingerprints`; use separate target dirs (or clean between runs) for default-scope and focused reruns in saved evidence helpers.
 - If a change archives helper scripts and transcripts, regenerate the `.txt` outputs from the archived location before committing so saved commands point at `openspec/changes/archive/...`, not the deleted active change path.
 - If the exact replay proof uses a helper script, document that helper command as the exact replay path and prepend the same command line to the saved transcript.
 - If a saved replay narrows the enabled lint set through per-lint config, make the transcript self-describing by patching the copied wrapper banner for that run or saving the applied `dylint.toml` snapshot alongside the log.

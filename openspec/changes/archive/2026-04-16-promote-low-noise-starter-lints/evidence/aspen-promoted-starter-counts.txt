@@ -1,0 +1,41 @@
+$ bash openspec/changes/archive/2026-04-16-promote-low-noise-starter-lints/evidence/replay-aspen-promoted-starter.sh
+$ python3 openspec/changes/archive/2026-04-16-promote-low-noise-starter-lints/evidence/check-aspen-promoted-starter.py openspec/changes/archive/2026-04-16-promote-low-noise-starter-lints/evidence
+# Aspen promoted starter validation
+
+Phase-1 reference:
+- archive: `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/`
+- Aspen commit: `909e5e9fa`
+
+Starter scope:
+- `aspen-time`
+- `aspen-hlc`
+- `aspen-core`
+
+Focused spotcheck:
+- `aspen-coordination --lib`
+
+Promoted starter families:
+- `explicit_defaults`
+- `unbounded_channel`
+- `usize_in_public_api`
+- `negated_predicate`
+
+Still deferred:
+- `unbounded_collection_growth`
+- `too_many_parameters`
+
+Config assertions:
+- promoted families omitted from `disabled_lints`: yes
+- `unbounded_collection_growth` stays disabled: yes
+- `too_many_parameters` stays disabled: yes
+
+| Family | Starter scope (`aspen-time`, `aspen-hlc`, `aspen-core`) | `aspen-coordination --lib` | Starter status |
+| --- | ---: | ---: | --- |
+| `explicit_defaults` | 1 | 2 | promoted |
+| `unbounded_channel` | 0 | 0 | promoted |
+| `usize_in_public_api` | 3 | 0 | promoted |
+| `negated_predicate` | 0 | 2 | promoted |
+| `unbounded_collection_growth` | 0 | 0 | inventory-first (disabled in promoted starter profile) |
+| `too_many_parameters` | 0 | 0 | inventory-first (disabled in promoted starter profile) |
+
+All promoted-profile assertions passed.

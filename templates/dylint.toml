@@ -44,19 +44,36 @@
 # See `docs/downstream-rollout.md` for full smoke / boundary-first /
 # inventory-only profile examples.
 
-# Example: keep pending families out of the current starter profile until the
-# rollout notes promote them.
+# Example starter profile: enable `ambient_clock`, `compound_assertion`,
+# `contradictory_time`, `explicit_defaults`, `unbounded_channel`,
+# `usize_in_public_api`, and `negated_predicate`, while keeping the deferred
+# and high-noise families disabled.
 # disabled_lints = [
-#   "explicit_defaults",
-#   "unbounded_channel",
-#   "unbounded_collection_growth",
-#   "usize_in_public_api",
-#   "too_many_parameters",
-#   "negated_predicate",
-#   "ignored_result",
-#   "no_panic",
-#   "unchecked_narrowing",
+#   "function_length",
+#   "acronym_style",
+#   "numeric_units",
 #   "unbounded_loop",
+#   "compound_condition",
+#   "verified_purity",
+#   "unjustified_allow",
+#   "nested_conditionals",
+#   "assertion_density",
+#   "multi_lock_ordering",
+#   "unbounded_collection_growth",
+#   "too_many_parameters",
+#   "bool_naming",
+#   "ignored_result",
+#   "unchecked_narrowing",
+#   "unchecked_division",
+#   "catch_all_on_enum",
+#   "platform_dependent_cast",
+#   "float_for_currency",
+#   "ambiguous_params",
+#   "raw_arithmetic_overflow",
+#   "no_unwrap",
+#   "no_panic",
+#   "unjustified_no_panic_allow",
+#   "no_recursion",
 # ]
 
 [tigerstyle.lint_levels]
