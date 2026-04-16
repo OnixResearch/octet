@@ -1,0 +1,56 @@
+$ git show 6a9a6fd -- templates/dylint.toml
+commit 6a9a6fd82efe29b7391c13350ec8428fe3904d89
+Author: brittonr <b@robitzs.ch>
+Date:   Wed Apr 15 23:14:56 2026 -0400
+
+    openspec: complete promote-low-noise-starter-lints
+
+diff --git a/templates/dylint.toml b/templates/dylint.toml
+index d5c8698..614c038 100644
+--- a/templates/dylint.toml
++++ b/templates/dylint.toml
+@@ -44,19 +44,36 @@
+ # See `docs/downstream-rollout.md` for full smoke / boundary-first /
+ # inventory-only profile examples.
+
+-# Example: keep pending families out of the current starter profile until the
+-# rollout notes promote them.
++# Example starter profile: enable `ambient_clock`, `compound_assertion`,
++# `contradictory_time`, `explicit_defaults`, `unbounded_channel`,
++# `usize_in_public_api`, and `negated_predicate`, while keeping the deferred
++# and high-noise families disabled.
+ # disabled_lints = [
+-#   "explicit_defaults",
+-#   "unbounded_channel",
++#   "function_length",
++#   "acronym_style",
++#   "numeric_units",
++#   "unbounded_loop",
++#   "compound_condition",
++#   "verified_purity",
++#   "unjustified_allow",
++#   "nested_conditionals",
++#   "assertion_density",
++#   "multi_lock_ordering",
+ #   "unbounded_collection_growth",
+-#   "usize_in_public_api",
+ #   "too_many_parameters",
+-#   "negated_predicate",
++#   "bool_naming",
+ #   "ignored_result",
+-#   "no_panic",
+ #   "unchecked_narrowing",
+-#   "unbounded_loop",
++#   "unchecked_division",
++#   "catch_all_on_enum",
++#   "platform_dependent_cast",
++#   "float_for_currency",
++#   "ambiguous_params",
++#   "raw_arithmetic_overflow",
++#   "no_unwrap",
++#   "no_panic",
++#   "unjustified_no_panic_allow",
++#   "no_recursion",
+ # ]
+
+ [tigerstyle.lint_levels]
