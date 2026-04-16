@@ -1,0 +1,270 @@
+$ cat /tmp/aspen-new-lints.eqpFYs/aspen/dylint.toml
+# Aspen probe config for too_many_parameters only.
+[tigerstyle]
+function_length_max = 100
+nesting_max_depth = 4
+assertion_density_min_lines = 30
+assertion_density_min_assertions = 2
+acronym_allowlist = ["IO"]
+disabled_lints = [
+  "compound_assertion",
+  "function_length",
+  "acronym_style",
+  "numeric_units",
+  "unbounded_loop",
+  "compound_condition",
+  "verified_purity",
+  "unjustified_allow",
+  "nested_conditionals",
+  "assertion_density",
+  "multi_lock_ordering",
+  "explicit_defaults",
+  "unbounded_channel",
+  "unbounded_collection_growth",
+  "usize_in_public_api",
+  "negated_predicate",
+  "bool_naming",
+  "ignored_result",
+  "unchecked_narrowing",
+  "unchecked_division",
+  "contradictory_time",
+  "ambient_clock",
+  "catch_all_on_enum",
+  "platform_dependent_cast",
+  "float_for_currency",
+  "ambiguous_params",
+  "raw_arithmetic_overflow",
+  "no_unwrap",
+  "no_panic",
+  "unjustified_no_panic_allow",
+  "no_recursion",
+]
+
+$ (cd /tmp/aspen-new-lints.eqpFYs/aspen && CARGO_TARGET_DIR=/tmp/aspen-new-lints.eqpFYs/target /nix/store/7157c8580mlk2dq69fa0rxnkvwpz7qdm-cargo-tigerstyle-0.1.0/bin/cargo-tigerstyle check -p aspen-coordination -- --lib)
+warning: resolver for the non root package will be ignored, specify resolver at the workspace root:
+package:   /tmp/aspen-new-lints.eqpFYs/aspen/vendor/iroh-h3/Cargo.toml
+workspace: /tmp/aspen-new-lints.eqpFYs/aspen/Cargo.toml
+warning: resolver for the non root package will be ignored, specify resolver at the workspace root:
+package:   /tmp/aspen-new-lints.eqpFYs/aspen/vendor/iroh-h3-axum/Cargo.toml
+workspace: /tmp/aspen-new-lints.eqpFYs/aspen/Cargo.toml
+    Checking aspen-coordination v0.1.0 (/tmp/aspen-new-lints.eqpFYs/aspen/crates/aspen-coordination)
+warning: function has 6 parameters (limit: 5) — consider an options struct
+   --> crates/aspen-coordination/src/barrier.rs:370:5
+    |
+370 | /     async fn leave_update_state(
+371 | |         &self,
+372 | |         name: &str,
+373 | |         participant_id: &str,
+...   |
+399 | |     }
+    | |_____^
+    |
+    = help: Tiger Style (Simple Interfaces): group many parameters into a named options struct instead of a long positional signature Example: fn connect(opts: ConnectOptions) -> ...
+    = note: see Tiger Style guide: Explicit Interfaces
+    = note: `#[warn(tigerstyle::too_many_parameters)]` on by default
+
+warning: function has 6 parameters (limit: 5) — consider an options struct
+   --> crates/aspen-coordination/src/lock.rs:196:5
+    |
+196 | /     async fn try_acquire_cas(
+197 | |         &self,
+198 | |         current: Option<LockEntry>,
+199 | |         expected: Option<String>,
+...   |
+243 | |     }
+    | |_____^
+    |
+    = help: Tiger Style (Simple Interfaces): group many parameters into a named options struct instead of a long positional signature Example: fn connect(opts: ConnectOptions) -> ...
+    = note: see Tiger Style guide: Explicit Interfaces
+
+warning: function has 8 parameters (limit: 5) — consider an options struct
+   --> crates/aspen-coordination/src/queue/dequeue.rs:192:5
+    |
+192 | /     async fn dequeue_process_item(
+193 | |         &self,
+194 | |         name: &str,
+195 | |         consumer_id: &str,
+...   |
+243 | |         self.dequeue_claim_item(name, consumer_id, item_key, &item, visibility_timeout_ms, now).await
+244 | |     }
+    | |_____^
+    |
+    = help: Tiger Style (Simple Interfaces): group many parameters into a named options struct instead of a long positional signature Example: fn connect(opts: ConnectOptions) -> ...
+    = note: see Tiger Style guide: Explicit Interfaces
+
+warning: function has 6 parameters (limit: 5) — consider an options struct
+   --> crates/aspen-coordination/src/queue/dequeue.rs:247:5
+    |
+247 | /     async fn dequeue_claim_item(
+248 | |         &self,
+249 | |         name: &str,
+250 | |         consumer_id: &str,
+...   |
+335 | |     }
+    | |_____^
+    |
+    = help: Tiger Style (Simple Interfaces): group many parameters into a named options struct instead of a long positional signature Example: fn connect(opts: ConnectOptions) -> ...
+    = note: see Tiger Style guide: Explicit Interfaces
+
+warning: function has 9 parameters (limit: 5) — consider an options struct
+   --> crates/aspen-coordination/src/registry/registration.rs:70:5
+    |
+ 70 | /     fn register_build_instance(
+ 71 | |         &self,
+ 72 | |         service_name: &str,
+ 73 | |         instance_id: &str,
+...   |
+100 | |     }
+    | |_____^
+    |
+    = help: Tiger Style (Simple Interfaces): group many parameters into a named options struct instead of a long positional signature Example: fn connect(opts: ConnectOptions) -> ...
+    = note: see Tiger Style guide: Explicit Interfaces
+
+warning: function has 6 parameters (limit: 5) — consider an options struct
+   --> crates/aspen-coordination/src/rwlock/downgrade.rs:54:5
+    |
+ 54 | /     async fn downgrade_execute(
+ 55 | |         &self,
+ 56 | |         name: &str,
+ 57 | |         holder_id: &str,
+...   |
+106 | |     }
+    | |_____^
+    |
+    = help: Tiger Style (Simple Interfaces): group many parameters into a named options struct instead of a long positional signature Example: fn connect(opts: ConnectOptions) -> ...
+    = note: see Tiger Style guide: Explicit Interfaces
+
+warning: function has 6 parameters (limit: 5) — consider an options struct
+   --> crates/aspen-coordination/src/semaphore.rs:108:5
+    |
+108 | /     pub async fn acquire(
+109 | |         &self,
+110 | |         name: &str,
+111 | |         holder_id: &str,
+...   |
+140 | |     }
+    | |_____^
+    |
+    = help: Tiger Style (Simple Interfaces): group many parameters into a named options struct instead of a long positional signature Example: fn connect(opts: ConnectOptions) -> ...
+    = note: see Tiger Style guide: Explicit Interfaces
+
+warning: function has 6 parameters (limit: 5) — consider an options struct
+   --> crates/aspen-coordination/src/semaphore.rs:198:5
+    |
+198 | /     async fn try_acquire_create(
+199 | |         &self,
+200 | |         name: &str,
+201 | |         holder_id: &str,
+...   |
+242 | |     }
+    | |_____^
+    |
+    = help: Tiger Style (Simple Interfaces): group many parameters into a named options struct instead of a long positional signature Example: fn connect(opts: ConnectOptions) -> ...
+    = note: see Tiger Style guide: Explicit Interfaces
+
+warning: function has 6 parameters (limit: 5) — consider an options struct
+   --> crates/aspen-coordination/src/semaphore.rs:286:5
+    |
+286 | /     async fn try_acquire_new(
+287 | |         &self,
+288 | |         name: &str,
+289 | |         holder_id: &str,
+...   |
+344 | |     }
+    | |_____^
+    |
+    = help: Tiger Style (Simple Interfaces): group many parameters into a named options struct instead of a long positional signature Example: fn connect(opts: ConnectOptions) -> ...
+    = note: see Tiger Style guide: Explicit Interfaces
+
+warning: function has 6 parameters (limit: 5) — consider an options struct
+   --> crates/aspen-coordination/src/verified/barrier.rs:205:1
+    |
+205 | / pub fn check_barrier_deadlock(
+206 | |     phase: BarrierPhase,
+207 | |     participant_count: u32,
+208 | |     required_count: u32,
+...   |
+244 | |     DeadlockCheckResult::Healthy
+245 | | }
+    | |_^
+    |
+    = help: Tiger Style (Simple Interfaces): group many parameters into a named options struct instead of a long positional signature Example: fn connect(opts: ConnectOptions) -> ...
+    = note: see Tiger Style guide: Explicit Interfaces
+
+warning: function has 6 parameters (limit: 5) — consider an options struct
+   --> crates/aspen-coordination/src/verified/fencing.rs:110:1
+    |
+110 | / pub fn validate_consistent_fencing_tokens(
+111 | |     lock_token: u64,
+112 | |     election_token: u64,
+113 | |     rwlock_token: u64,
+...   |
+140 | |     FencingValidation::Valid
+141 | | }
+    | |_^
+    |
+    = help: Tiger Style (Simple Interfaces): group many parameters into a named options struct instead of a long positional signature Example: fn connect(opts: ConnectOptions) -> ...
+    = note: see Tiger Style guide: Explicit Interfaces
+
+warning: function has 6 parameters (limit: 5) — consider an options struct
+   --> crates/aspen-coordination/src/verified/queue/dequeue.rs:83:1
+    |
+ 83 | / pub fn check_dequeue_eligibility(
+ 84 | |     expires_at_ms: u64,
+ 85 | |     delivery_attempts: u32,
+ 86 | |     max_delivery_attempts: u32,
+...   |
+108 | |     DequeueEligibility::Eligible
+109 | | }
+    | |_^
+    |
+    = help: Tiger Style (Simple Interfaces): group many parameters into a named options struct instead of a long positional signature Example: fn connect(opts: ConnectOptions) -> ...
+    = note: see Tiger Style guide: Explicit Interfaces
+
+warning: function has 6 parameters (limit: 5) — consider an options struct
+   --> crates/aspen-coordination/src/verified/registry.rs:117:1
+    |
+117 | / pub fn matches_discovery_filter<S: AsRef<str>>(
+118 | |     health_status: HealthStatus,
+119 | |     tags: &[S],
+120 | |     version: &str,
+...   |
+147 | |     true
+148 | | }
+    | |_^
+    |
+    = help: Tiger Style (Simple Interfaces): group many parameters into a named options struct instead of a long positional signature Example: fn connect(opts: ConnectOptions) -> ...
+    = note: see Tiger Style guide: Explicit Interfaces
+
+warning: function has 6 parameters (limit: 5) — consider an options struct
+   --> crates/aspen-coordination/src/verified/worker.rs:366:1
+    |
+366 | / pub fn is_steal_target(
+367 | |     is_healthy: bool,
+368 | |     is_alive: bool,
+369 | |     load: f32,
+...   |
+379 | |     is_operational && has_capacity
+380 | | }
+    | |_^
+    |
+    = help: Tiger Style (Simple Interfaces): group many parameters into a named options struct instead of a long positional signature Example: fn connect(opts: ConnectOptions) -> ...
+    = note: see Tiger Style guide: Explicit Interfaces
+
+warning: function has 6 parameters (limit: 5) — consider an options struct
+   --> crates/aspen-coordination/src/verified/worker.rs:651:1
+    |
+651 | / pub fn has_pressure_capacity(
+652 | |     cpu_pressure_avg10: f32,
+653 | |     memory_pressure_avg10: f32,
+654 | |     io_pressure_avg10: f32,
+...   |
+663 | |         && disk_free_store_pct >= thresholds.disk_free_store_min_pct
+664 | | }
+    | |_^
+    |
+    = help: Tiger Style (Simple Interfaces): group many parameters into a named options struct instead of a long positional signature Example: fn connect(opts: ConnectOptions) -> ...
+    = note: see Tiger Style guide: Explicit Interfaces
+
+warning: `aspen-coordination` (lib) generated 15 warnings
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.81s

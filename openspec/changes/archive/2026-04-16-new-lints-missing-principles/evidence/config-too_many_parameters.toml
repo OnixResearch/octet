@@ -1,0 +1,40 @@
+# Aspen probe config for too_many_parameters only.
+[tigerstyle]
+function_length_max = 100
+nesting_max_depth = 4
+assertion_density_min_lines = 30
+assertion_density_min_assertions = 2
+acronym_allowlist = ["IO"]
+disabled_lints = [
+  "compound_assertion",
+  "function_length",
+  "acronym_style",
+  "numeric_units",
+  "unbounded_loop",
+  "compound_condition",
+  "verified_purity",
+  "unjustified_allow",
+  "nested_conditionals",
+  "assertion_density",
+  "multi_lock_ordering",
+  "explicit_defaults",
+  "unbounded_channel",
+  "unbounded_collection_growth",
+  "usize_in_public_api",
+  "negated_predicate",
+  "bool_naming",
+  "ignored_result",
+  "unchecked_narrowing",
+  "unchecked_division",
+  "contradictory_time",
+  "ambient_clock",
+  "catch_all_on_enum",
+  "platform_dependent_cast",
+  "float_for_currency",
+  "ambiguous_params",
+  "raw_arithmetic_overflow",
+  "no_unwrap",
+  "no_panic",
+  "unjustified_no_panic_allow",
+  "no_recursion",
+]

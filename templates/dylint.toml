@@ -44,8 +44,15 @@
 # See `docs/downstream-rollout.md` for full smoke / boundary-first /
 # inventory-only profile examples.
 
-# Example: keep a noisy lint inventory-only until owners classify it.
+# Example: keep pending families out of the current starter profile until the
+# rollout notes promote them.
 # disabled_lints = [
+#   "explicit_defaults",
+#   "unbounded_channel",
+#   "unbounded_collection_growth",
+#   "usize_in_public_api",
+#   "too_many_parameters",
+#   "negated_predicate",
 #   "ignored_result",
 #   "no_panic",
 #   "unchecked_narrowing",

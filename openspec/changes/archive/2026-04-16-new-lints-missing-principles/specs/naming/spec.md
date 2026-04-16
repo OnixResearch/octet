@@ -6,7 +6,7 @@ The lint MUST warn on:
 - boolean-returning functions
 - bool-typed local bindings
 
-when their names begin with a whole-token negative prefix such as:
+when their names begin with one of these whole-token negative prefixes:
 - `is_not_`
 - `has_no_`
 - `has_not_`
@@ -24,6 +24,10 @@ The lint MUST suggest a positive reformulation.
 
 The lint MUST use word-boundary semantics for prefix matching, so near-miss
 names like `notify` or `notion_ready` do NOT count as negative prefixes.
+
+The `no_` prefix is intentionally broad for bool names. A bool helper like
+`no_capacity` still counts as a negated predicate; only infix or near-miss
+spellings stay quiet.
 
 The lint MUST NOT fire on non-boolean bindings or functions.
 
