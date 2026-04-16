@@ -1,0 +1,137 @@
+$ export TIGERSTYLE_DYLINT_REV=0e0a71eefe6f01563d11acc6e1d7af1d505934a9
+$ cargo tigerstyle check
+$ rustup show active-toolchain
+nightly-2026-03-21-x86_64-unknown-linux-gnu (default)
+    Updating git repository `https://github.com/trailofbits/dylint`
+    Updating crates.io index
+     Locking 124 packages to latest Rust 1.96.0-nightly compatible versions
+   Compiling proc-macro2 v1.0.106
+   Compiling unicode-ident v1.0.24
+   Compiling quote v1.0.45
+   Compiling libc v0.2.185
+   Compiling shlex v1.3.0
+   Compiling find-msvc-tools v0.1.9
+   Compiling pkg-config v0.3.33
+   Compiling vcpkg v0.2.15
+   Compiling stable_deref_trait v1.2.1
+   Compiling serde_core v1.0.228
+   Compiling zmij v1.0.21
+   Compiling writeable v0.6.3
+   Compiling litemap v0.8.2
+   Compiling camino v1.2.2
+   Compiling utf8_iter v1.0.4
+   Compiling thiserror v2.0.18
+   Compiling icu_normalizer_data v2.2.0
+   Compiling icu_properties_data v2.2.0
+   Compiling serde_json v1.0.149
+   Compiling serde v1.0.228
+   Compiling anyhow v1.0.102
+   Compiling memchr v2.8.0
+   Compiling smallvec v1.15.1
+   Compiling winnow v1.0.1
+   Compiling bitflags v2.11.1
+   Compiling percent-encoding v2.3.2
+   Compiling rustix v1.1.4
+   Compiling getrandom v0.4.2
+   Compiling linux-raw-sys v0.12.1
+   Compiling hashbrown v0.17.0
+   Compiling openssl-probe v0.1.6
+   Compiling equivalent v1.0.2
+   Compiling cfg-if v1.0.4
+   Compiling itoa v1.0.18
+   Compiling form_urlencoded v1.2.2
+   Compiling toml_writer v1.1.1+spec-1.1.0
+   Compiling regex-syntax v0.8.10
+   Compiling rustversion v1.0.22
+   Compiling dylint_internal v5.0.0 (https://github.com/trailofbits/dylint?rev=0e0a71eefe6f01563d11acc6e1d7af1d505934a9#0e0a71ee)
+   Compiling curl v0.4.49
+   Compiling log v0.4.29
+   Compiling fastrand v2.4.1
+   Compiling once_cell v1.21.4
+   Compiling libloading v0.9.0
+   Compiling aho-corasick v1.1.4
+   Compiling indexmap v2.14.0
+   Compiling syn v2.0.117
+   Compiling jobserver v0.1.34
+   Compiling socket2 v0.6.3
+   Compiling toml_parser v1.1.2+spec-1.1.0
+   Compiling cc v1.2.60
+   Compiling tempfile v3.27.0
+   Compiling regex-automata v0.4.14
+   Compiling libz-sys v1.1.28
+   Compiling openssl-sys v0.9.113
+   Compiling libssh2-sys v0.3.1
+   Compiling libgit2-sys v0.18.3+1.9.2
+   Compiling curl-sys v0.4.87+curl-8.19.0
+   Compiling toml_datetime v1.1.1+spec-1.1.0
+   Compiling semver v1.0.28
+   Compiling cargo-platform v0.3.2
+   Compiling serde_spanned v1.1.1
+   Compiling toml v1.1.2+spec-1.1.0
+   Compiling toml_edit v0.25.11+spec-1.1.0
+   Compiling regex v1.12.3
+   Compiling synstructure v0.13.2
+   Compiling zerofrom-derive v0.1.7
+   Compiling yoke-derive v0.8.2
+   Compiling zerovec-derive v0.11.3
+   Compiling displaydoc v0.2.5
+   Compiling serde_derive v1.0.228
+   Compiling thiserror-impl v2.0.18
+   Compiling zerofrom v0.1.7
+   Compiling yoke v0.8.2
+   Compiling zerovec v0.11.6
+   Compiling zerotrie v0.2.4
+   Compiling tinystr v0.8.3
+   Compiling potential_utf v0.1.5
+   Compiling icu_collections v2.2.0
+   Compiling icu_locale_core v2.2.0
+   Compiling icu_provider v2.2.0
+   Compiling icu_properties v2.2.0
+   Compiling icu_normalizer v2.2.0
+   Compiling cargo_metadata v0.23.1
+   Compiling idna_adapter v1.2.1
+   Compiling idna v1.1.0
+   Compiling url v2.5.8
+   Compiling git2 v0.20.4
+   Compiling dylint_driver v5.0.0 (https://github.com/trailofbits/dylint?rev=0e0a71eefe6f01563d11acc6e1d7af1d505934a9#0e0a71ee)
+   Compiling tigerstyle-dylint-driver v0.1.0 (/tmp/nix-shell.xIfdyj/tigerstyle-dylint-driver-1697263-1776301350448488868/bootstrap)
+    Finished `release` profile [optimized] target(s) in 12.48s
+   Compiling serde_core v1.0.228
+   Compiling proc-macro2 v1.0.106
+   Compiling unicode-ident v1.0.24
+   Compiling quote v1.0.45
+   Compiling memchr v2.8.0
+   Compiling zmij v1.0.21
+   Compiling serde v1.0.228
+   Compiling camino v1.2.2
+   Compiling serde_json v1.0.149
+   Compiling winnow v1.0.1
+   Compiling thiserror v2.0.18
+   Compiling itoa v1.0.18
+   Compiling anyhow v1.0.102
+   Compiling toml_writer v1.1.1+spec-1.1.0
+   Compiling regex-syntax v0.8.10
+   Compiling paste v1.0.15
+   Compiling dylint_internal v5.0.0 (https://github.com/trailofbits/dylint?rev=0e0a71eefe6f01563d11acc6e1d7af1d505934a9#0e0a71ee)
+   Compiling rustversion v1.0.22
+   Compiling log v0.4.29
+   Compiling toml_parser v1.1.2+spec-1.1.0
+   Compiling aho-corasick v1.1.4
+   Compiling syn v2.0.117
+   Compiling regex-automata v0.4.14
+   Compiling serde_spanned v1.1.1
+   Compiling toml_datetime v1.1.1+spec-1.1.0
+   Compiling serde_derive v1.0.228
+   Compiling thiserror-impl v2.0.18
+   Compiling toml v1.1.2+spec-1.1.0
+   Compiling cargo-platform v0.3.2
+   Compiling semver v1.0.28
+   Compiling dylint_linting v5.0.0 (https://github.com/trailofbits/dylint?rev=0e0a71eefe6f01563d11acc6e1d7af1d505934a9#0e0a71ee)
+   Compiling regex v1.12.3
+   Compiling cargo_metadata v0.23.1
+   Compiling tigerstyle v0.1.0 (/home/brittonr/.cache/tigerstyle/sources/20b21c3a60b4da9c0ca75716ea40760b69309cd6aad0925a34df5df436da0d89)
+    Finished `release` profile [optimized] target(s) in 6.59s
+    Checking good v0.1.0 (/tmp/tigerstyle-first-class-consumer-proof.s7Lb2D/consumer/crates/good)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.05s
+$ cmp -s Cargo.lock Cargo.lock.before
+Cargo.lock unchanged

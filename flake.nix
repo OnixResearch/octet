@@ -23,7 +23,7 @@
         system,
         src,
         packages ? [],
-        cargoExtraArgs ? "--lib",
+        cargoExtraArgs ? null,
         cargoLock ? null,
         nativeBuildInputs ? [],
         buildInputs ? [],
@@ -85,42 +85,34 @@
             then tsCraneLib.vendorCargoDeps { inherit cargoLock; }
             else null;
 
-          consumerCargoArtifacts = tsCraneLib.buildDepsOnly ({
-            inherit src;
-            nativeBuildInputs = checkNativeBuildInputs;
-            inherit buildInputs;
-            RUSTUP_TOOLCHAIN = tsRustupToolchain;
-            # Consumer lockfile may have been generated with a different
-            # toolchain; allow cargo to adjust it offline.
-            buildPhaseCargoCommand = "cargo check --release --all-targets";
-          } // pkgs.lib.optionalAttrs (consumerVendorDir != null) {
-            cargoVendorDir = consumerVendorDir;
-          });
-
           packageArgs = builtins.concatStringsSep " "
             (map (p: "-p ${p}") packages);
+          cargoCheckTail = if cargoExtraArgs != null && cargoExtraArgs != ""
+            then " -- ${cargoExtraArgs}"
+            else "";
         in
-        tsCraneLib.mkCargoDerivation ({
-          inherit src;
-          cargoArtifacts = consumerCargoArtifacts;
-          pname = "tigerstyle-consumer-check";
-          version = "0.1.0";
+        pkgs.runCommand "tigerstyle-consumer-check" {
           nativeBuildInputs = checkNativeBuildInputs;
           inherit buildInputs;
-          RUSTUP_TOOLCHAIN = tsRustupToolchain;
           LD_LIBRARY_PATH = tsRustToolchainLibPath;
-          buildPhaseCargoCommand = ''
-            export PATH="${tsDylintShimPath}:$PATH"
-            RUSTC_WORKSPACE_WRAPPER="${driverPkg}/bin/dylint-driver" \
-            DYLINT_LIBS='["${tigerstyleLibPath}"]' \
-            DYLINT_NO_DEPS=1 \
-            cargo check ${packageArgs} ${cargoExtraArgs}
-          '';
-          checkPhaseCargoCommand = "";
-          installPhaseCommand = "mkdir -p $out";
-        } // pkgs.lib.optionalAttrs (consumerVendorDir != null) {
-          cargoVendorDir = consumerVendorDir;
-        });
+        } ''
+          export PATH="${tsDylintShimPath}:$PATH"
+          export HOME="$PWD/home"
+          mkdir -p "$HOME"
+          cp -r ${src} source
+          chmod -R u+w source
+          cd source
+          export TIGERSTYLE_DRIVER_PATH="${driverPkg}/bin/dylint-driver"
+          export TIGERSTYLE_LINT_LIB="${tigerstyleLibPath}"
+          export TIGERSTYLE_TOOLCHAIN="${tsRustupToolchain}"
+          ${pkgs.lib.optionalString (consumerVendorDir != null) ''
+            export CARGO_HOME="$PWD/.cargo-home"
+            mkdir -p "$CARGO_HOME"
+            cp "${consumerVendorDir}/config.toml" "$CARGO_HOME/config.toml"
+          ''}
+          ${self.packages.${system}.cargo-tigerstyle}/bin/cargo-tigerstyle check ${packageArgs}${cargoCheckTail}
+          mkdir -p "$out"
+        '';
     in
     {
       lib = { inherit mkConsumerCheck; };
@@ -147,7 +139,9 @@
             let
               inUiTests = pkgs.lib.hasSuffix "/ui_tests" path || pkgs.lib.hasInfix "/ui_tests/" path;
               inTestFixtures = pkgs.lib.hasSuffix "/tests/fixtures" path || pkgs.lib.hasInfix "/tests/fixtures/" path;
-            in (craneLib.filterCargoSources path type) || inUiTests || inTestFixtures;
+              inDocs = pkgs.lib.hasSuffix "/docs" path || pkgs.lib.hasInfix "/docs/" path;
+              inTemplates = pkgs.lib.hasSuffix "/templates" path || pkgs.lib.hasInfix "/templates/" path;
+            in (craneLib.filterCargoSources path type) || inUiTests || inTestFixtures || inDocs || inTemplates;
         };
         fmtSrc = pkgs.lib.cleanSourceWith {
           src = ./.;
@@ -193,7 +187,7 @@
 
         dylintShimPath = pkgs.lib.makeBinPath [ cargo-shim rustup-shim ];
         rustToolchainLibPath = pkgs.lib.makeLibraryPath [ rustToolchain ];
-        checkNativeBuildInputs = nativeBuildInputs ++ [ cargo-shim rustup-shim ];
+        checkNativeBuildInputs = nativeBuildInputs ++ [ cargo-shim rustup-shim pkgs.git pkgs.python3 ];
         sharedLibraryPrefix = if pkgs.stdenv.hostPlatform.isWindows then "" else "lib";
         sharedLibrarySuffix =
           if pkgs.stdenv.hostPlatform.isDarwin then ".dylib"
@@ -209,6 +203,15 @@
 
         tigerstyle = craneLib.buildPackage {
           inherit src cargoArtifacts nativeBuildInputs buildInputs;
+          doCheck = false;
+        };
+
+        cargoTigerstyleUnwrapped = craneLib.buildPackage {
+          inherit src cargoArtifacts nativeBuildInputs buildInputs;
+          pname = "cargo-tigerstyle";
+          version = "0.1.0";
+          cargoExtraArgs = "-p cargo-tigerstyle";
+          doCheck = false;
         };
 
         uiDriverVendorDir = craneLib.vendorCargoDeps {
@@ -325,12 +328,34 @@ MAIN
             runHook postInstall
           '';
         };
+
+        cargoTigerstyle = pkgs.symlinkJoin {
+          name = "cargo-tigerstyle-0.1.0";
+          paths = [ cargoTigerstyleUnwrapped ];
+          nativeBuildInputs = [ pkgs.makeWrapper ];
+          postBuild = ''
+            wrapProgram "$out/bin/cargo-tigerstyle" \
+              --prefix PATH : "${dylintShimPath}" \
+              --prefix LD_LIBRARY_PATH : "${rustToolchainLibPath}" \
+              --set TIGERSTYLE_TOOLCHAIN "${rustupToolchain}" \
+              --set TIGERSTYLE_DRIVER_PATH "${dylintDriver}/bin/dylint-driver" \
+              --set TIGERSTYLE_LINT_LIB "${tigerstyleUiLibrary}/lib/${tigerstyleUiLibraryName}"
+          '';
+        };
       in
       {
         packages = {
           default = tigerstyle;
           tigerstyle = tigerstyle;
+          cargo-tigerstyle = cargoTigerstyle;
           dylint-driver = dylintDriver;
+        };
+
+        apps = {
+          cargo-tigerstyle = flake-utils.lib.mkApp {
+            drv = cargoTigerstyle;
+            exePath = "/bin/cargo-tigerstyle";
+          };
         };
 
         checks = {
@@ -341,10 +366,12 @@ MAIN
             nativeBuildInputs = checkNativeBuildInputs;
             partitions = 1;
             partitionType = "count";
+            CARGO_TIGERSTYLE_BIN = "${cargoTigerstyleUnwrapped}/bin/cargo-tigerstyle";
             LD_LIBRARY_PATH = rustToolchainLibPath;
             RUSTUP_TOOLCHAIN = rustupToolchain;
             preCheck = ''
               export PATH="${dylintShimPath}:$PATH"
+              export CARGO_TIGERSTYLE_BIN="${cargoTigerstyleUnwrapped}/bin/cargo-tigerstyle"
             '';
           };
 

@@ -1,7 +1,38 @@
 # Downstream rollout kit
 
 Aspen gave `tigerstyle` its first evidence-backed downstream rollout. This kit
-turns that rollout into copyable guidance for later consumers.
+turns that rollout into guidance for later consumers.
+
+## Active path: first-class consumer integration
+
+Use the first-class engine, not a copied shell wrapper.
+
+### Rust workspaces
+
+1. add consumer-owned lint tuning in `dylint.toml`
+2. add runner metadata in `[workspace.metadata.tigerstyle]` in the workspace
+   `Cargo.toml`
+3. run `cargo tigerstyle check`
+
+Example metadata:
+
+```toml
+[workspace.metadata.tigerstyle]
+default_scope = ["-p", "your-core-crate"]
+cargo_check_args = ["--lib"]
+```
+
+### Nix workspaces
+
+Use the published flake app or helper instead of copying bash glue:
+
+- `nix run path:/path/to/tigerstyle#cargo-tigerstyle -- check`
+- consumer flake checks should call the same `cargo-tigerstyle` engine through
+  `lib.mkConsumerCheck`
+
+Repo-local helpers like `just tigerstyle` should stay thin and delegate to the
+same command surface rather than reimplementing toolchain, lockfile, or Dylint
+policy.
 
 ## Reference state: use the Aspen archive, not Aspen HEAD
 
@@ -100,9 +131,11 @@ Why this works:
 
 ## Profile-to-config mapping
 
-All three rollout profiles use the same wrapper path and differ in two knobs:
+All three rollout profiles now use the same first-class engine path and differ
+in two knobs:
 
-- scope in the consumer check script (`default_scope` / targeted rerun args)
+- scope in `[workspace.metadata.tigerstyle]` (`default_scope`) or in explicit
+  `cargo tigerstyle check -p ...` overrides
 - `disabled_lints` / `lint_levels` entries in consumer-owned `dylint.toml`
 
 Per-lint config rules to preserve in every consumer example:
@@ -231,17 +264,16 @@ Aspen phase-2 example:
 - widened result: default pilot now includes `aspen-coordination` and two extra
   low-noise safety lints (`ignored_result`, `no_unwrap`)
 
-## Check-path recipe for nonstandard toolchains
+## Historical wrapper path for replay only
 
-Copy `templates/tigerstyle-check.sh` into the consumer repo when plain
-`cargo dylint` is not reliable enough yet.
+The copied shell-wrapper path is retained only inside archived replay materials
+and historical rollout reconstruction. It is no longer the active recommended
+consumer path.
 
-```bash
-cp templates/tigerstyle-check.sh /path/to/consumer/scripts/tigerstyle-check.sh
-chmod +x /path/to/consumer/scripts/tigerstyle-check.sh
-```
+For historical replay, use the archived reconstruction helpers directly instead
+of copying a live repo wrapper.
 
-The template owns these responsibilities:
+That historical wrapper owned these responsibilities:
 
 - derives a full nightly toolchain triple from `tigerstyle/rust-toolchain.toml`
   and the host triple
@@ -249,8 +281,10 @@ The template owns these responsibilities:
   toolchain manager reports something nonstandard like `nix-managed`
 - wraps `cargo` and `dylint-link` so `RUSTUP_TOOLCHAIN` is set during build and
   link steps
-- keeps optional `dylint_driver` patching in a temporary `CARGO_HOME` instead of
-  mutating the caller's shell
+- bootstraps an optional pinned `dylint_driver` in an isolated temporary crate
+  so the consumer workspace `Cargo.lock` stays untouched
+- restores the original `Cargo.lock` and fails if the check path still mutates
+  the consumer lockfile
 - points Dylint at a local `tigerstyle` checkout through `TIGERSTYLE_PATH` or a
   sibling checkout
 - owns the documented starter profile, default scope, and default cargo-check
@@ -265,8 +299,8 @@ Minimum assumptions for the template:
 
 - `bash`, `cargo`, `rustc`, `python3`, `cargo-dylint`, `dylint-link`, and
   `git` are on `PATH`
-- standard Unix userland is available for `awk`, `basename`, `chmod`, `ln`,
-  `mkdir`, `mktemp`, and `sed`
+- standard Unix userland is available for `awk`, `basename`, `chmod`, `cmp`,
+  `cp`, `ln`, `mkdir`, `mktemp`, and `sed`
 - the consumer repo has its own `dylint.toml`
 - a local `tigerstyle` checkout exists next to the consumer repo, or
   `TIGERSTYLE_PATH` is set
@@ -284,10 +318,12 @@ Non-Aspen replay proof in this repo:
 - run transcript: `openspec/changes/second-consumer-proof/evidence/second-consumer-proof.txt`
 - replay assertions: `openspec/changes/second-consumer-proof/evidence/second-consumer-check.txt`
 
-Current saved proof uses `aspen-verus-metrics` from a disposable sandbox. The
-helper copies `templates/tigerstyle-check.sh` and `templates/dylint.toml`, edits
-`default_scope` to `-p aspen-verus-metrics`, then runs the copied script through
-a tigerstyle-provided nightly toolchain environment.
+Current saved proof uses `aspen-verus-metrics` from a disposable sandbox. That
+archived helper still copies the historical shell wrapper plus
+`templates/dylint.toml`, edits `default_scope` to `-p aspen-verus-metrics`, then
+runs the copied script through a tigerstyle-provided nightly toolchain
+environment. Keep this as replay evidence only; new consumers should use
+`cargo tigerstyle check` plus `[workspace.metadata.tigerstyle]`.
 
 ### Aspen wrapper facts worth preserving
 
@@ -296,8 +332,9 @@ Aspen phase 1 needed three wrapper behaviors:
 1. `rustup show active-toolchain` had to return a real nightly triple instead of
    `nix-managed`
 2. `dylint-link` needed `RUSTUP_TOOLCHAIN` during link steps
-3. `dylint_driver` needed an unreleased upstream fix, injected through a
-   temporary `CARGO_HOME/config.toml`
+3. `dylint_driver` needed an unreleased upstream fix; the current template
+   satisfies that by bootstrapping a pinned driver in an isolated temporary
+   crate before touching the consumer workspace
 
 That third point is exactly why the template exposes `TIGERSTYLE_DYLINT_REV`
 instead of baking Aspen's patch revision into `tigerstyle` itself.
@@ -478,8 +515,8 @@ internally:
    - `aspen/` worktree at commit `909e5e9fa`
    - `aspen-dns -> /path/to/aspen-dns`
    - `aspen-wasm-plugin -> /path/to/aspen-wasm-plugin`
-2. copy `templates/tigerstyle-check.sh` and `templates/dylint.toml` into the
-   Aspen sandbox checkout
+2. copy the archived phase-1 shell wrapper together with `templates/dylint.toml`
+   into the Aspen sandbox checkout
 3. configure the Aspen phase-1 scope:
    - `-p aspen-time`
    - `-p aspen-hlc`
