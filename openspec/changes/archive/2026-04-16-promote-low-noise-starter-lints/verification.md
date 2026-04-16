@@ -19,6 +19,7 @@ symlinks in a disposable sandbox.
 - `evidence/aspen-promoted-starter-default.txt`
 - `evidence/aspen-promoted-starter-coordination.txt`
 - `evidence/aspen-promoted-starter-counts.txt`
+- `evidence/templates-dylint.diff`
 
 ## Promotion summary
 
@@ -32,6 +33,13 @@ Observed promoted-family counts from `evidence/aspen-promoted-starter-counts.txt
 | `negated_predicate` | 0 | 2 | promoted |
 | `unbounded_collection_growth` | 0 | 0 | inventory-first (disabled in promoted starter profile) |
 | `too_many_parameters` | 0 | 0 | inventory-first (disabled in promoted starter profile) |
+
+Template proof:
+
+- `evidence/templates-dylint.diff` shows the exact `templates/dylint.toml` hunk
+  that removed the four promoted families from the example `disabled_lints`
+  list while keeping `unbounded_collection_growth` and
+  `too_many_parameters` deferred.
 
 Starter-profile totals in the saved transcripts:
 

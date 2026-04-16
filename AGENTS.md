@@ -9,6 +9,7 @@
 - If a change archives helper scripts and transcripts, regenerate the `.txt` outputs from the archived location before committing so saved commands point at `openspec/changes/archive/...`, not the deleted active change path.
 - If the exact replay proof uses a helper script, document that helper command as the exact replay path and prepend the same command line to the saved transcript.
 - If a saved replay narrows the enabled lint set through per-lint config, make the transcript self-describing by patching the copied wrapper banner for that run or saving the applied `dylint.toml` snapshot alongside the log.
+- If a completed rollout task claims the consumer template changed, archive a small artifact or verification note that shows the exact `templates/dylint.toml` hunk; a diffstat-only mention is not enough for review.
 - For repeated first-class consumer evidence runs, prefer `nix build .#cargo-tigerstyle` and reuse the wrapped `cargo-tigerstyle` binary from the Nix store; it already pins `TIGERSTYLE_TOOLCHAIN`, `TIGERSTYLE_DRIVER_PATH`, and `TIGERSTYLE_LINT_LIB`, so repeated Aspen probes do not rebuild the driver or lint library each run.
 - Saved check helpers must assert every printed summary claim, including zero-warning claims like `aspen-hlc: 0 starter findings`.
 - If a transcript starts with `$ bash ...`, store and document the capture helper or exact shell wrapper that emits that preamble; do not claim a quieter inner helper produced it.
