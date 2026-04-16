@@ -1,4 +1,12 @@
-## ADDED Requirements
+# Consumer Integration Specification
+
+## Purpose
+
+Tiger Style consumer-integration requirements for the first-class
+`cargo tigerstyle check` engine, metadata contract, lockfile safety, and
+supported downstream entry points.
+
+## Requirements
 
 ### Requirement: First-Class Consumer Check Command
 

@@ -9,18 +9,23 @@ the current crate.
 For this rule, sibling workspace crates count as external crates because they
 compile as distinct crate identities.
 
-This rule MUST cover these source forms when they resolve to the `Default`
-trait implementation:
+This rule MUST cover these user-visible forms when they resolve to the
+`Default` trait implementation:
 - `Default::default()`
 - `<T as Default>::default()`
 - `T::default()`
+- struct-update shorthand such as `Config { timeout_ms: 5_000, ..Default::default() }`
+- attribute- or derive-driven shorthand such as `#[serde(default)]` when the
+  expanded call resolves to a foreign `Default::default()`
 
 The lint MUST use resolved trait/function identity rather than path-text string
 matching.
 
 The lint MUST NOT fire on types defined in the current crate.
 
-The lint MUST NOT fire in `#[cfg(test)]` contexts.
+The lint MUST NOT fire in the repo's supported test contexts, including
+`#[cfg(test)]`, `#[test]`, and source-file test heuristics already used by the
+shared test-context helper.
 
 #### Scenario: External type default
 
@@ -36,6 +41,13 @@ The lint MUST NOT fire in `#[cfg(test)]` contexts.
 - WHEN the lint runs
 - THEN it warns
 
+#### Scenario: Struct update shorthand
+
+- GIVEN `let cfg = ClientCfg { retries: 3, ..Default::default() };` where the
+  base `Default::default()` resolves to an external type
+- WHEN the lint runs
+- THEN it warns
+
 #### Scenario: Own type default
 
 - GIVEN `let state = MyState::default();` where `MyState` is defined in the
@@ -48,7 +60,8 @@ The lint MUST NOT fire in `#[cfg(test)]` contexts.
 The lint MUST warn on calls whose resolved callee identity is one of these
 unbounded channel constructors:
 - `std::sync::mpsc::channel`
-- `crossbeam::channel::unbounded`
+- `crossbeam::channel::unbounded`, whose resolved definition path is
+  `crossbeam_channel::channel::unbounded`
 - Tokio's unbounded MPSC constructor, whose resolved definition path is
   `tokio::sync::mpsc::unbounded::unbounded_channel`
 
@@ -92,7 +105,12 @@ created outside the current block or mutated through a different binding.
 The lint MUST NOT fire on collection operations outside loops.
 
 The lint MUST NOT fire when the same binding is guarded by an explicit local
-capacity/length bound that makes the growth finite and reviewable.
+capacity/length bound on that same binding (for example `items.len() < limit`
+or `items.len() < items.capacity()`) that makes the growth finite and
+reviewable.
+
+A finite loop bound that is not expressed through the same binding's local
+reservation or `len`/`capacity` check does NOT suppress the lint.
 
 #### Scenario: Push in loop without capacity
 
@@ -115,6 +133,17 @@ capacity/length bound that makes the growth finite and reviewable.
   ```
 - WHEN the lint runs
 - THEN it does NOT fire
+
+#### Scenario: Finite range loop still warns without a collection-local bound
+
+- GIVEN:
+  ```rust
+  let mut items = Vec::new();
+  for value in 0..10 { items.push(value); }
+  ```
+- WHEN the lint runs
+- THEN it still warns because the loop has no prior reservation and no
+  collection-local `len`/`capacity` guard
 
 #### Scenario: Ambiguous outer binding
 

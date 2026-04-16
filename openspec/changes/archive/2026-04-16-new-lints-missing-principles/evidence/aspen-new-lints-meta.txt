@@ -1,0 +1,8 @@
+$ bash openspec/changes/archive/2026-04-16-new-lints-missing-principles/evidence/replay-aspen-new-lints.sh
+aspen_head: 627952326c2407e4b3d3d590e04723ccf94dd714
+aspen_head_short: 627952326
+cargo_tigerstyle_store: /nix/store/7157c8580mlk2dq69fa0rxnkvwpz7qdm-cargo-tigerstyle-0.1.0
+cargo_tigerstyle_bin: /nix/store/7157c8580mlk2dq69fa0rxnkvwpz7qdm-cargo-tigerstyle-0.1.0/bin/cargo-tigerstyle
+sandbox_root: /tmp/aspen-new-lints.eqpFYs
+default_scope: -p aspen-time -p aspen-hlc -p aspen-core -- --lib
+coordination_scope: -p aspen-coordination -- --lib

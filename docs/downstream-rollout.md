@@ -164,6 +164,12 @@ disabled_lints = [
   "nested_conditionals",
   "assertion_density",
   "multi_lock_ordering",
+  "explicit_defaults",
+  "unbounded_channel",
+  "unbounded_collection_growth",
+  "usize_in_public_api",
+  "too_many_parameters",
+  "negated_predicate",
   "bool_naming",
   "ignored_result",
   "unchecked_narrowing",
@@ -182,6 +188,36 @@ disabled_lints = [
 
 That leaves only `ambient_clock`, `compound_assertion`, and
 `contradictory_time` enabled.
+
+### Aspen classification for pending new families
+
+Saved evidence for the six new families from
+`new-lints-missing-principles` lives here:
+
+- replay helper: `bash openspec/changes/archive/2026-04-16-new-lints-missing-principles/evidence/replay-aspen-new-lints.sh`
+- summary table: `openspec/changes/archive/2026-04-16-new-lints-missing-principles/evidence/validation-counts.txt`
+
+Low-noise rule for this change:
+
+- `starter-candidate`: <= 3 findings on the starter scope and <= 5 findings on
+  `aspen-coordination`
+- `inventory-first`: anything larger stays out of starter-profile promotion for
+  now
+
+Current Aspen classification:
+
+| Family | Starter scope | `aspen-coordination` | Classification |
+| --- | ---: | ---: | --- |
+| `explicit_defaults` | 1 | 2 | `starter-candidate` |
+| `unbounded_channel` | 0 | 0 | `starter-candidate` |
+| `unbounded_collection_growth` | 0 | 8 | `inventory-first` |
+| `usize_in_public_api` | 0 | 0 | `starter-candidate` |
+| `too_many_parameters` | 0 | 15 | `inventory-first` |
+| `negated_predicate` | 0 | 2 | `starter-candidate` |
+
+All six stay out of the copied starter-profile config until a later promotion
+change lands. `starter-candidate` here means the family is low-noise enough to
+consider later; it is not promoted yet.
 
 ### Inventory-only config example
 
@@ -203,6 +239,12 @@ disabled_lints = [
   "nested_conditionals",
   "assertion_density",
   "multi_lock_ordering",
+  "explicit_defaults",
+  "unbounded_channel",
+  "unbounded_collection_growth",
+  "usize_in_public_api",
+  "too_many_parameters",
+  "negated_predicate",
   "bool_naming",
   "ignored_result",
   "unchecked_narrowing",
@@ -230,8 +272,8 @@ and, if needed, raising it in `lint_levels`.
 
 Add a new crate or package to the default path only when all of these hold:
 
-1. the scripted check runs without ad-hoc shell setup beyond the documented
-   wrapper/template
+1. the documented `cargo tigerstyle check` / `nix run ...#cargo-tigerstyle`
+   path runs without ad-hoc shell setup beyond the rollout notes
 2. the candidate scope has a bounded warning set with a named owner
 3. consumer-owned `dylint.toml` changes are recorded with rationale and a
    cleanup trigger
@@ -468,6 +510,8 @@ reviewable baseline:
 - `no_panic`
 - `unchecked_narrowing`
 - `unbounded_loop`
+- `unbounded_collection_growth`
+- `too_many_parameters`
 
 ### Inventory expectations by family
 

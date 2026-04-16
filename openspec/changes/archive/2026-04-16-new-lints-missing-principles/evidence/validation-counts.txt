@@ -1,0 +1,14 @@
+# Aspen new-lint validation counts
+
+Low-noise rule for this change:
+- `starter-candidate`: <= 3 findings on the starter scope and <= 5 findings on `aspen-coordination`
+- `inventory-first`: anything larger stays out of starter-profile promotion for now
+
+| Lint | Starter scope (`aspen-time`, `aspen-hlc`, `aspen-core`) | `aspen-coordination` | Classification |
+| --- | ---: | ---: | --- |
+| `explicit_defaults` | 1 | 2 | starter-candidate |
+| `unbounded_channel` | 0 | 0 | starter-candidate |
+| `unbounded_collection_growth` | 0 | 8 | inventory-first |
+| `usize_in_public_api` | 0 | 0 | starter-candidate |
+| `too_many_parameters` | 0 | 15 | inventory-first |
+| `negated_predicate` | 0 | 2 | starter-candidate |

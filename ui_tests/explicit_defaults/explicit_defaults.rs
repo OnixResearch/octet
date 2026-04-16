@@ -21,6 +21,13 @@ fn sibling_workspace_default() {
     let _cfg = shared_types::Config::default();
 }
 
+fn sibling_workspace_struct_update() {
+    let _cfg = shared_types::Config {
+        retries: 3,
+        ..Default::default()
+    };
+}
+
 fn local_default_is_allowed() {
     let local = LocalState::default();
     let _ = local.retries;
@@ -42,5 +49,6 @@ fn main() {
     external_default_trait();
     external_default_ufcs();
     sibling_workspace_default();
+    sibling_workspace_struct_update();
     local_default_is_allowed();
 }

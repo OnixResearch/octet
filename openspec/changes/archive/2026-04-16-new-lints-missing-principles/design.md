@@ -28,6 +28,8 @@ The repo already has several hard-won constraints from napkin history:
 - Reuse existing config plumbing for `max_parameters`
 - Produce Aspen evidence that records counts and classifies each new lint as
   starter-candidate or inventory-first
+- Update the rollout kit, template, and README so consumers can see the saved
+  Aspen classifications and keep non-promoted families out of starter examples
 
 **Non-Goals:**
 - Tool-lint namespace migration or group registration work
@@ -48,13 +50,16 @@ Sibling workspace crates count as foreign for this lint because they compile as
 separate crate identities and can change defaults independently.
 
 **Rationale:** The Tiger Style risk is relying on defaults outside the current
-crate's review boundary. Matching by lang item / resolved trait identity avoids
-false positives from unrelated inherent methods also named `default`.
+crate's review boundary. Matching by resolved trait identity avoids false
+positives from unrelated inherent methods also named `default`.
 
 **Implementation:** Late pass. Match `Default::default()`,
 `<T as Default>::default()`, and `T::default()` only when the resolved callee is
-`Default::default`. Resolve the resulting type, require a concrete foreign ADT,
-and skip current-crate types plus test contexts.
+`Default::default`. This includes user-written shorthand such as
+`..Default::default()` and expanded attribute-driven forms like
+`#[serde(default)]` when the lowered callsite still resolves to the same trait
+function. Resolve the resulting type, require a concrete foreign ADT, and skip
+current-crate types plus supported test contexts.
 
 **Alternative:** Warn on every source form spelled `*.default()`. Rejected
 because inherent constructors named `default` are not the same contract as the
@@ -64,7 +69,8 @@ trait default.
 
 **Choice:** Cover exactly three constructor families:
 - `std::sync::mpsc::channel`
-- `crossbeam::channel::unbounded`
+- `crossbeam::channel::unbounded`, resolved through the definition path
+  `crossbeam_channel::channel::unbounded`
 - Tokio's unbounded MPSC constructor, resolved through its internal definition
   path `tokio::sync::mpsc::unbounded::unbounded_channel`
 
@@ -127,8 +133,9 @@ serde-backed `Config` loader. Reusing that path is lower risk than inventing a
 lint-local parser.
 
 **Implementation:** Add `max_parameters` to `Config`, default it to 5, count
-non-receiver parameters from the resolved signature, and skip trait impls plus
-`#[test]` contexts. A HIR-aware pass is acceptable here because receiver
+non-receiver parameters from the resolved signature, evaluate free functions,
+inherent methods, and trait method signatures, and skip trait impls plus
+supported test contexts. A HIR-aware pass is acceptable here because receiver
 handling and test-context reuse are more important than pre-typeck timing.
 
 ### 6. `negated_predicate` uses whole-token prefixes on bool APIs and locals only
@@ -149,7 +156,9 @@ type checking. Keep a narrow exception for a private helper named exactly `not`.
 ## Verification strategy
 
 - `explicit_defaults`: UI proof for foreign crate type, sibling workspace crate
-  type, and current-crate type; test-context negative case.
+  type, struct-update shorthand, and current-crate type; Aspen proof for
+  attribute-driven shorthand like `#[serde(default)]`; test-context negative
+  case.
 - `unbounded_channel`: UI proof for `std`, `crossbeam`, and Tokio unbounded
   constructors plus bounded Tokio negative case.
 - `unbounded_collection_growth`: UI proof for same-block `Vec::new()` + loop
@@ -157,13 +166,23 @@ type checking. Keep a narrow exception for a private helper named exactly `not`.
   and ambiguous outer-binding no-fire behavior.
 - `usize_in_public_api`: UI proof for inherent public API warning, private
   function no-fire, and trait-directed signature no-fire.
-- `too_many_parameters`: UI proof for default threshold plus config fixture for
-  `[tigerstyle].max_parameters`.
+- `too_many_parameters`: UI proof for default threshold, trait-signature
+  coverage, and config fixture for `[tigerstyle].max_parameters`.
 - `negated_predicate`: UI proof for negated bool function/local, positive form,
   near-miss `notify`, and non-bool identifier no-fire.
 - Verification commands: `cargo test --lib`, `cargo test --test ui -- --ignored
-  --nocapture`, and Aspen evidence that records finding counts and starter vs
-  inventory-first classification per new lint.
+  --nocapture`, and `bash openspec/changes/archive/2026-04-16-new-lints-missing-principles/evidence/replay-aspen-new-lints.sh`.
+- Aspen evidence artifacts for this change are:
+  - `evidence/replay-aspen-new-lints.sh`
+  - `evidence/check-aspen-new-lints.py`
+  - `evidence/validation-counts.txt`
+  - `evidence/aspen-<lint>-default.txt`
+  - `evidence/aspen-<lint>-coordination.txt`
+  - `evidence/config-<lint>.toml`
+- Low-noise classification for this change means <= 3 findings on the Aspen
+  starter scope and <= 5 findings on the focused `aspen-coordination` lib-only
+  spotcheck. Anything larger stays inventory-first until a later promotion
+  change revisits it.
 
 ## Risks / Trade-offs
 

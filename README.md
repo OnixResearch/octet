@@ -4,11 +4,11 @@ Custom [dylint](https://github.com/trailofbits/dylint) lints enforcing
 [Tiger Style](https://github.com/tigerbeetle/tigerbeetle/blob/main/docs/TIGER_STYLE.md)
 coding principles for Rust.
 
-26 lints across 5 domains: safety, naming, structure, purity, concurrency.
+32 lints across 5 domains: safety, naming, structure, purity, concurrency.
 
 ## Lint Catalog
 
-### Safety (12 lints)
+### Safety (15 lints)
 
 | Lint | Default | Description |
 |------|---------|-------------|
@@ -22,25 +22,31 @@ coding principles for Rust.
 | `unchecked_division` | **warn** | `a / b` where `b` is a variable without zero guard |
 | `unbounded_loop` | **warn** | `loop {}` without visible iteration bound |
 | `catch_all_on_enum` | **warn** | `_ => false` catch-all on enum match hides new variants |
+| `explicit_defaults` | **warn** | Foreign `Default` use, including shorthand like `..Default::default()` |
+| `unbounded_channel` | **warn** | Known unbounded channel constructors from std, crossbeam, or Tokio |
+| `unbounded_collection_growth` | **warn** | Loop grows a local collection without prior reservation or a collection-local bound |
 | `assertion_density` | allow | 20+ line function with fewer than 2 assertions |
 | `raw_arithmetic_overflow` | allow | Unprotected `+`/`-`/`*` on unsigned integers |
 
-### Naming (4 lints)
+### Naming (5 lints)
 
 | Lint | Default | Description |
 |------|---------|-------------|
 | `acronym_style` | **warn** | `RPCHandler` should be `RpcHandler` |
 | `bool_naming` | **warn** | Boolean binding without `is_`/`has_`/`should_`/`can_` prefix |
+| `negated_predicate` | **warn** | Bool APIs or locals named with prefixes like `is_not_` or `no_` |
 | `numeric_units` | allow | Bare `timeout` without unit suffix (`_ms`, `_secs`) |
 | `float_for_currency` | allow | `f64` in cost/price/budget struct fields |
 
-### Structure (6 lints)
+### Structure (8 lints)
 
 | Lint | Default | Description |
 |------|---------|-------------|
 | `function_length` | **warn** | Function body exceeds 70 non-blank, non-comment lines |
 | `nested_conditionals` | **warn** | `if`/`match` nesting exceeds 3 levels |
 | `platform_dependent_cast` | **warn** | `as usize` from fixed-width integer is platform-dependent |
+| `usize_in_public_api` | **warn** | Inherent public APIs should avoid `usize`/`isize` at boundaries |
+| `too_many_parameters` | **warn** | Function signature exceeds the configured parameter limit |
 | `compound_condition` | allow | `if` condition with 3+ boolean operators |
 | `unjustified_allow` | allow | `#[allow(clippy::...)]` without justification comment |
 | `ambiguous_params` | allow | 2+ consecutive same-type primitive parameters |
@@ -64,28 +70,26 @@ coding principles for Rust.
 ### Prerequisites
 
 - Nightly Rust toolchain with `rustc-dev` and `llvm-tools-preview` components
-- [cargo-dylint](https://github.com/trailofbits/dylint) and `dylint-link`
-
-```bash
-cargo install cargo-dylint dylint-link
-```
+- the first-class `cargo-tigerstyle` runner, either through `nix run` or a
+  locally available `cargo-tigerstyle` binary
 
 ### Running lints
 
-Add tigerstyle as a dependency in your workspace:
+Keep consumer-owned lint tuning in `dylint.toml`, then add runner policy in the
+workspace `Cargo.toml`:
 
 ```toml
-# Cargo.toml or workspace Cargo.toml
-[workspace.metadata.dylint]
-libraries = [
-    { git = "https://github.com/your-org/tigerstyle" },
-]
+[workspace.metadata.tigerstyle]
+default_scope = ["-p", "your-core-crate"]
+cargo_check_args = ["--lib"]
 ```
 
-Then run:
+Run the first-class engine:
 
 ```bash
-cargo dylint tigerstyle
+nix run path:/path/to/tigerstyle#cargo-tigerstyle -- check
+# or, if the binary is already installed/on PATH:
+cargo tigerstyle check
 ```
 
 ### Canonical source attrs and groups
@@ -144,9 +148,9 @@ For a reusable consumer template, see `templates/dylint.toml`.
 
 Use these repo-local guides when onboarding a consumer workspace:
 
-- `docs/downstream-rollout.md` — starter profiles, Aspen's phase-2 widening path, `ambient_clock` boundary guidance, the high-noise lint promotion playbook, and a saved non-Aspen consumer proof
-- `templates/tigerstyle-check.sh` — reusable check-path recipe for nix-managed or otherwise nonstandard Dylint toolchains
-- `templates/dylint.toml` — consumer-owned threshold and allowlist template
+- `docs/downstream-rollout.md` — starter profiles, Aspen's phase-2 widening path, current Aspen classification for the six pending new families, `ambient_clock` boundary guidance, and the high-noise lint promotion playbook
+- `templates/dylint.toml` — consumer-owned threshold, allowlist, and per-lint rollout template
+- `openspec/changes/archive/2026-04-16-new-lints-missing-principles/evidence/replay-aspen-new-lints.sh` — exact replay path for the saved Aspen new-family classification evidence
 
 The Aspen phase-1 starter reference is archived under
 `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/`.
@@ -166,9 +170,9 @@ nix flake check                               # CI checks, including dedicated n
 ```
 src/
 ├── lib.rs                     # register_lints entry point
-├── safety/                    # 12 lints: assertions, panics, errors, bounds
-├── naming/                    # 4 lints: booleans, acronyms, units
-├── structure/                 # 6 lints: length, conditions, params, casts
+├── safety/                    # 15 lints: assertions, panics, errors, defaults, bounds
+├── naming/                    # 5 lints: booleans, acronyms, positive predicates, units
+├── structure/                 # 8 lints: length, conditions, params, casts, public APIs
 ├── purity/                    # 3 lints: wall-clock boundaries, verified modules, time
 └── concurrency/               # 1 lint: lock ordering
 ui_tests/                      # checked-in dylint UI fixtures exercised by nix checks

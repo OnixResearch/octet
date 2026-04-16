@@ -14,8 +14,10 @@ promotion.
 
 - **`explicit_defaults`**: warn when code relies on the `Default` trait for a
   type defined outside the current crate, including sibling workspace crates.
-  This covers `Default::default()`, `<T as Default>::default()`, and
-  `T::default()` when method resolution selects the trait default.
+  This covers `Default::default()`, `<T as Default>::default()`,
+  `T::default()`, struct-update shorthand like `..Default::default()`, and
+  user-written shorthand that expands to the same trait call such as
+  `#[serde(default)]`.
 - **`unbounded_channel`**: warn on known unbounded channel constructors from
   `std`, `crossbeam`, and Tokio, matched by resolved function identity rather
   than source spelling alone.
@@ -61,17 +63,29 @@ promotion.
 
 - All six lints are intended to register **warn-by-default** in the repo.
 - Downstream rollout starts as **inventory-first**, not starter-profile.
+- Aspen evidence for this change lives under
+  `openspec/changes/archive/2026-04-16-new-lints-missing-principles/evidence/`, with one config
+  snapshot plus starter-scope and `aspen-coordination` transcripts per lint,
+  summarized by `validation-counts.txt`.
 - A lint only becomes starter-profile eligible after Aspen evidence records its
-  finding count and classifies it as low-noise.
+  finding count and classifies it as low-noise. For this change,
+  `starter-candidate` means <= 3 findings on the Aspen starter scope and <= 5
+  findings on the focused `aspen-coordination` lib-only spotcheck; anything
+  larger stays `inventory-first`.
 
 ## Impact
 
 - **Files**: new lint modules in `src/safety/`, `src/structure/`, and
   `src/naming/`; registration in `src/lib.rs`; config update in `src/config.rs`
-  for `max_parameters`; UI fixtures and snapshots per lint
+  for `max_parameters`; UI fixtures and snapshots per lint; rollout evidence in
+  `openspec/changes/archive/2026-04-16-new-lints-missing-principles/evidence/`; rollout guidance
+  updates in `docs/downstream-rollout.md`, `templates/dylint.toml`, and
+  `README.md`
 - **APIs**: six new lint IDs, all warn-by-default
 - **Dependencies**: none required up front; Tokio / crossbeam matching uses the
   existing repo approach of resolved def paths and fixture-local support crates
 - **Testing**: per-lint UI fixtures, config fixture for `max_parameters`,
-  explicit false-positive boundary fixtures, and Aspen evidence that records
-  counts plus starter-vs-inventory-first classification for each lint
+  explicit false-positive boundary fixtures, deterministic fixture inventories
+  in `tests/fixtures/ui_fixture_set.json` and related snapshot metadata files,
+  and Aspen evidence that records counts plus starter-vs-inventory-first
+  classification for each lint
