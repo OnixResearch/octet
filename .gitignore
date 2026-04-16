@@ -17,3 +17,5 @@ result*
 *.redb
 *.sock
 data/
+/.agent
+/.pi
