@@ -24,7 +24,14 @@ pub fn run(check: CheckArgs) -> Result<i32, String> {
     let cargo_check_args = check.cargo_check_args.unwrap_or(cfg.cargo_check_args.clone());
 
     let lockfile_path = cfg.workspace_root.join("Cargo.lock");
-    let lockfile_before = snapshot_lockfile(&lockfile_path)?;
+    let skip_lockfile_guard = env::var("TIGERSTYLE_SKIP_LOCKFILE_CHECK")
+        .map(|v| !v.is_empty() && v != "0")
+        .unwrap_or(false);
+    let lockfile_before = if skip_lockfile_guard {
+        LockfileSnapshot::Missing
+    } else {
+        snapshot_lockfile(&lockfile_path)?
+    };
 
     let result = (|| {
         let toolchain = resolve_toolchain()?;
@@ -56,7 +63,7 @@ pub fn run(check: CheckArgs) -> Result<i32, String> {
         Err("cargo check terminated without an exit code".to_owned())
     })();
 
-    if lockfile_changed(&lockfile_path, &lockfile_before)? {
+    if !skip_lockfile_guard && lockfile_changed(&lockfile_path, &lockfile_before)? {
         restore_lockfile(&lockfile_path, &lockfile_before)?;
         let lockfile_error = format!(
             "cargo tigerstyle check modified {}; restored the original lockfile",
