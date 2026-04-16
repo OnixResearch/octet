@@ -79,7 +79,7 @@ for the archived phase-1 starter reconstruction.
 Use this when toolchain plumbing is still unproven.
 
 - scope: one owned production crate
-- lints: `ambient_clock`, `compound_assertion`, `contradictory_time`
+- lints: `ambient_clock`, `compound_assertion`, `contradictory_time`, `explicit_defaults`, `unbounded_channel`, `usize_in_public_api`, `negated_predicate`
 - cargo-check args: `--lib`
 - deps: `--no-deps`
 - exit condition: scripted check runs end to end with a finding set small enough
@@ -88,15 +88,17 @@ Use this when toolchain plumbing is still unproven.
 Why this works:
 
 - it proves the Dylint wiring before you widen scope
-- it avoids dropping into noisy families before the wrapper/config story is
-  stable
+- it keeps the starter path on families that already stayed <= 3 findings on
+  Aspen's starter scope and <= 5 findings on `aspen-coordination`
+- it still avoids the noisy inventory-first families that need a separate
+  cleanup owner first
 
 ### Boundary-first profile
 
 Use this for the first repeatable default path.
 
 - scope: 2-4 production crates with clear owners and moderate churn
-- lints: `ambient_clock`, `compound_assertion`, `contradictory_time`
+- lints: `ambient_clock`, `compound_assertion`, `contradictory_time`, `explicit_defaults`, `unbounded_channel`, `usize_in_public_api`, `negated_predicate`
 - cargo-check args: `--lib`
 - deps: `--no-deps`
 
@@ -107,12 +109,18 @@ Why this works:
 - `compound_assertion` stays low-noise and usually fixes quickly
 - `contradictory_time` catches the easy mistake of accepting time as input and
   still reading the clock locally
+- the four promoted new families already proved low-noise on Aspen before they
+  moved into starter guidance
 
-Aspen phase-1 reference for this profile:
+Aspen starter references for this profile:
 
-- scope: `-p aspen-time -p aspen-hlc -p aspen-core`
-- result: 6 warnings total, all `ambient_clock`
-- evidence: `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/aspen-default-run.txt`
+- historical phase-1 baseline: 6 warnings total, all `ambient_clock`
+  - evidence: `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/aspen-default-run.txt`
+- promoted starter replay on the same package set: 10 warnings total
+  - 6 `ambient_clock`
+  - 1 `explicit_defaults`
+  - 3 `usize_in_public_api`
+  - evidence: `openspec/changes/archive/2026-04-16-promote-low-noise-starter-lints/evidence/aspen-promoted-starter-default.txt`
 
 ### Inventory-only profile
 
@@ -164,12 +172,8 @@ disabled_lints = [
   "nested_conditionals",
   "assertion_density",
   "multi_lock_ordering",
-  "explicit_defaults",
-  "unbounded_channel",
   "unbounded_collection_growth",
-  "usize_in_public_api",
   "too_many_parameters",
-  "negated_predicate",
   "bool_naming",
   "ignored_result",
   "unchecked_narrowing",
@@ -186,38 +190,47 @@ disabled_lints = [
 ]
 ```
 
-That leaves only `ambient_clock`, `compound_assertion`, and
-`contradictory_time` enabled.
+That leaves `ambient_clock`, `compound_assertion`, `contradictory_time`,
+`explicit_defaults`, `unbounded_channel`, `usize_in_public_api`, and
+`negated_predicate` enabled.
 
-### Aspen classification for pending new families
+### Aspen classification and promoted starter families
 
-Saved evidence for the six new families from
-`new-lints-missing-principles` lives here:
+Saved evidence now splits into two layers:
 
-- replay helper: `bash openspec/changes/archive/2026-04-16-new-lints-missing-principles/evidence/replay-aspen-new-lints.sh`
-- summary table: `openspec/changes/archive/2026-04-16-new-lints-missing-principles/evidence/validation-counts.txt`
+- archived classification pass for the six new families:
+  - replay helper: `bash openspec/changes/archive/2026-04-16-new-lints-missing-principles/evidence/replay-aspen-new-lints.sh`
+  - summary table: `openspec/changes/archive/2026-04-16-new-lints-missing-principles/evidence/validation-counts.txt`
+- promoted starter replay for the copied starter profile:
+  - replay helper: `bash openspec/changes/archive/2026-04-16-promote-low-noise-starter-lints/evidence/replay-aspen-promoted-starter.sh`
+  - config snapshot: `openspec/changes/archive/2026-04-16-promote-low-noise-starter-lints/evidence/aspen-promoted-starter-config.toml`
+  - summary table: `openspec/changes/archive/2026-04-16-promote-low-noise-starter-lints/evidence/aspen-promoted-starter-counts.txt`
+  - saved spotcheck: `openspec/changes/archive/2026-04-16-promote-low-noise-starter-lints/evidence/aspen-promoted-starter-coordination.txt`
 
-Low-noise rule for this change:
+Low-noise rule for promotion stayed the same:
 
 - `starter-candidate`: <= 3 findings on the starter scope and <= 5 findings on
   `aspen-coordination`
 - `inventory-first`: anything larger stays out of starter-profile promotion for
   now
 
-Current Aspen classification:
+Current Aspen-backed starter status:
 
-| Family | Starter scope | `aspen-coordination` | Classification |
+| Family | Starter scope | `aspen-coordination` | Starter status |
 | --- | ---: | ---: | --- |
-| `explicit_defaults` | 1 | 2 | `starter-candidate` |
-| `unbounded_channel` | 0 | 0 | `starter-candidate` |
+| `explicit_defaults` | 1 | 2 | `promoted` |
+| `unbounded_channel` | 0 | 0 | `promoted` |
 | `unbounded_collection_growth` | 0 | 8 | `inventory-first` |
-| `usize_in_public_api` | 0 | 0 | `starter-candidate` |
+| `usize_in_public_api` | 3 | 0 | `promoted` |
 | `too_many_parameters` | 0 | 15 | `inventory-first` |
-| `negated_predicate` | 0 | 2 | `starter-candidate` |
+| `negated_predicate` | 0 | 2 | `promoted` |
 
-All six stay out of the copied starter-profile config until a later promotion
-change lands. `starter-candidate` here means the family is low-noise enough to
-consider later; it is not promoted yet.
+The promoted starter replay stays pinned to the documented starter package set
+from `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/`:
+`aspen-time`, `aspen-hlc`, and `aspen-core`.
+
+Only `unbounded_collection_growth` and `too_many_parameters` still stay out of
+the copied starter-profile config among these six families.
 
 ### Inventory-only config example
 

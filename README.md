@@ -148,9 +148,10 @@ For a reusable consumer template, see `templates/dylint.toml`.
 
 Use these repo-local guides when onboarding a consumer workspace:
 
-- `docs/downstream-rollout.md` — starter profiles, Aspen's phase-2 widening path, current Aspen classification for the six pending new families, `ambient_clock` boundary guidance, and the high-noise lint promotion playbook
-- `templates/dylint.toml` — consumer-owned threshold, allowlist, and per-lint rollout template
-- `openspec/changes/archive/2026-04-16-new-lints-missing-principles/evidence/replay-aspen-new-lints.sh` — exact replay path for the saved Aspen new-family classification evidence
+- `docs/downstream-rollout.md` — starter profiles, the four promoted low-noise starter families, the two still-deferred new families, Aspen's phase-2 widening path, `ambient_clock` boundary guidance, and the high-noise lint promotion playbook
+- `templates/dylint.toml` — consumer-owned threshold, allowlist, and starter-profile rollout template
+- `openspec/changes/archive/2026-04-16-new-lints-missing-principles/evidence/replay-aspen-new-lints.sh` — exact replay path for the archived Aspen new-family classification pass
+- `openspec/changes/archive/2026-04-16-promote-low-noise-starter-lints/evidence/replay-aspen-promoted-starter.sh` — exact replay path for the promoted starter-profile proof
 
 The Aspen phase-1 starter reference is archived under
 `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/`.
