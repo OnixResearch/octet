@@ -36,7 +36,7 @@ fn parse_check(args: &[String]) -> Result<CheckArgs, String> {
         }
 
         match arg.as_str() {
-            "-p" | "--package" => {
+            "-p" | "--package" | "--exclude" => {
                 let value = args.get(index + 1).ok_or_else(|| format!("missing value after `{arg}`"))?;
                 scope_args.push(arg.clone());
                 scope_args.push(value.clone());
