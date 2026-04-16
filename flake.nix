@@ -185,7 +185,7 @@
           exec ${rustToolchain}/bin/cargo "$@"
         '';
 
-        dylintShimPath = pkgs.lib.makeBinPath [ cargo-shim rustup-shim ];
+        dylintShimPath = pkgs.lib.makeBinPath [ cargo-shim rustup-shim rustToolchain ];
         rustToolchainLibPath = pkgs.lib.makeLibraryPath [ rustToolchain ];
         checkNativeBuildInputs = nativeBuildInputs ++ [ cargo-shim rustup-shim pkgs.git pkgs.python3 ];
         sharedLibraryPrefix = if pkgs.stdenv.hostPlatform.isWindows then "" else "lib";
