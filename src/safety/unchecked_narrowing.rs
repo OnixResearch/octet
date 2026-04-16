@@ -1,3 +1,4 @@
+use rustc_errors::Applicability;
 use rustc_hir as hir;
 use rustc_hir::ExprKind;
 use rustc_lint::LateContext;
@@ -8,7 +9,9 @@ use rustc_middle::ty::{self};
 use rustc_session::declare_lint_pass;
 use rustc_session::declare_tool_lint;
 
+use crate::diagnostics::LintSuggestion;
 use crate::diagnostics::emit_tiger_style_lint;
+use crate::diagnostics::emit_tiger_style_lint_with_suggestion;
 
 declare_tool_lint! {
     /// Detects `as u32`, `as u16`, `as u8`, `as i32`, `as i16`, `as i8`
@@ -36,6 +39,15 @@ fn ty_name(ty: Ty<'_>) -> &'static str {
         ty::Uint(u) => u.name_str(),
         _ => "?",
     }
+}
+
+fn expr_snippet(cx: &LateContext<'_>, expr: &hir::Expr<'_>) -> Option<String> {
+    cx.sess().source_map().span_to_snippet(expr.span).ok()
+}
+
+fn narrowing_replacement<'tcx>(cx: &LateContext<'tcx>, inner: &hir::Expr<'tcx>, target_ty: Ty<'tcx>) -> Option<String> {
+    let inner = expr_snippet(cx, inner)?;
+    Some(format!("{}::try_from({inner})?", ty_name(target_ty)))
 }
 
 fn is_target_max_expr<'tcx>(cx: &LateContext<'tcx>, expr: &hir::Expr<'tcx>, target_ty: Ty<'tcx>) -> bool {
@@ -256,12 +268,23 @@ impl<'tcx> LateLintPass<'tcx> for UncheckedNarrowing {
         let source_name = ty_name(source_ty);
         let target_name = ty_name(target_ty);
 
-        emit_tiger_style_lint(
-            cx,
-            UNCHECKED_NARROWING,
-            expr.span,
-            format!("narrowing cast from `{source_name}` to `{target_name}` without bounds check"),
-            "unchecked_narrowing",
-        );
+        let message = format!("narrowing cast from `{source_name}` to `{target_name}` without bounds check");
+        if let Some(replacement) = narrowing_replacement(cx, inner, target_ty) {
+            emit_tiger_style_lint_with_suggestion(
+                cx,
+                UNCHECKED_NARROWING,
+                expr.span,
+                message,
+                "unchecked_narrowing",
+                LintSuggestion::Single {
+                    span: expr.span,
+                    message: format!("replace with `{target_name}::try_from(...)`"),
+                    replacement,
+                    applicability: Applicability::MaybeIncorrect,
+                },
+            );
+        } else {
+            emit_tiger_style_lint(cx, UNCHECKED_NARROWING, expr.span, message, "unchecked_narrowing");
+        }
     }
 }

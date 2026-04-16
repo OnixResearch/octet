@@ -581,6 +581,154 @@ mod tests {
         }
     }
 
+    const AUTOFIX_ROLLOUT_LINTS: &[&str] = &[
+        "compound_assertion",
+        "bool_naming",
+        "acronym_style",
+        "numeric_units",
+        "unchecked_division",
+        "raw_arithmetic_overflow",
+        "unchecked_narrowing",
+        "platform_dependent_cast",
+        "unjustified_allow",
+    ];
+
+    const AUTOFIX_OUT_OF_SCOPE_LINTS: &[&str] = &[
+        "assertion_density",
+        "function_length",
+        "ambiguous_params",
+        "multi_lock_ordering",
+        "catch_all_on_enum",
+        "no_recursion",
+        "ambient_clock",
+        "compound_condition",
+        "contradictory_time",
+        "explicit_defaults",
+        "float_for_currency",
+        "ignored_result",
+        "negated_predicate",
+        "nested_conditionals",
+        "no_panic",
+        "no_unwrap",
+        "too_many_parameters",
+        "unbounded_channel",
+        "unbounded_collection_growth",
+        "unbounded_loop",
+        "unjustified_no_panic_allow",
+        "usize_in_public_api",
+        "verified_purity",
+    ];
+
+    fn expected_autofix_tier(lint_name: &str) -> &'static str {
+        match lint_name {
+            "compound_assertion" => "MachineApplicable",
+            "bool_naming"
+            | "acronym_style"
+            | "unchecked_division"
+            | "raw_arithmetic_overflow"
+            | "unchecked_narrowing"
+            | "platform_dependent_cast" => "MaybeIncorrect",
+            "numeric_units" | "unjustified_allow" => "HasPlaceholders",
+            other => panic!("missing autofix tier for `{other}`"),
+        }
+    }
+
+    fn lint_source_path(lint_name: &str) -> &'static str {
+        match lint_name {
+            "compound_assertion" => "src/safety/compound_assertion.rs",
+            "function_length" => "src/structure/function_length.rs",
+            "acronym_style" => "src/naming/acronym_style.rs",
+            "numeric_units" => "src/naming/numeric_units.rs",
+            "unbounded_loop" => "src/safety/unbounded_loop.rs",
+            "compound_condition" => "src/structure/compound_condition.rs",
+            "verified_purity" => "src/purity/verified_purity.rs",
+            "unjustified_allow" => "src/structure/unjustified_allow.rs",
+            "nested_conditionals" => "src/structure/nested_conditionals.rs",
+            "assertion_density" => "src/safety/assertion_density.rs",
+            "multi_lock_ordering" => "src/concurrency/multi_lock_ordering.rs",
+            "explicit_defaults" => "src/safety/explicit_defaults.rs",
+            "unbounded_channel" => "src/safety/unbounded_channel.rs",
+            "unbounded_collection_growth" => "src/safety/unbounded_collection_growth.rs",
+            "usize_in_public_api" => "src/structure/usize_in_public_api.rs",
+            "too_many_parameters" => "src/structure/too_many_parameters.rs",
+            "negated_predicate" => "src/naming/negated_predicate.rs",
+            "bool_naming" => "src/naming/bool_naming.rs",
+            "ignored_result" => "src/safety/ignored_result.rs",
+            "unchecked_narrowing" => "src/safety/unchecked_narrowing.rs",
+            "unchecked_division" => "src/safety/unchecked_division.rs",
+            "contradictory_time" => "src/purity/contradictory_time.rs",
+            "ambient_clock" => "src/purity/ambient_clock.rs",
+            "catch_all_on_enum" => "src/safety/catch_all_on_enum.rs",
+            "platform_dependent_cast" => "src/structure/platform_dependent_cast.rs",
+            "float_for_currency" => "src/naming/float_for_currency.rs",
+            "ambiguous_params" => "src/structure/ambiguous_params.rs",
+            "raw_arithmetic_overflow" => "src/safety/raw_arithmetic_overflow.rs",
+            "no_unwrap" => "src/safety/no_unwrap.rs",
+            "no_panic" | "unjustified_no_panic_allow" => "src/safety/no_panic.rs",
+            "no_recursion" => "src/safety/no_recursion.rs",
+            other => panic!("missing lint source mapping for `{other}`"),
+        }
+    }
+
+    #[test]
+    fn autofix_rollout_scope_matches_change_contract() {
+        let coverage = lint_fixture_coverage();
+        let ui_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("ui_tests");
+        let fixed_fixtures = fs::read_dir(&ui_dir)
+            .unwrap_or_else(|error| panic!("read autofix fixture dir {}: {error}", ui_dir.display()))
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap_or_else(|error| panic!("collect autofix fixture dir {}: {error}", ui_dir.display()))
+            .into_iter()
+            .filter_map(|entry| {
+                let path = entry.path();
+                (path.extension().and_then(|ext| ext.to_str()) == Some("fixed"))
+                    .then(|| path.file_stem().expect("fixed fixture file stem").to_string_lossy().into_owned())
+            })
+            .collect::<Vec<_>>();
+
+        for &lint_name in AUTOFIX_ROLLOUT_LINTS {
+            let source_path = Path::new(env!("CARGO_MANIFEST_DIR")).join(lint_source_path(lint_name));
+            let source = fs::read_to_string(&source_path)
+                .unwrap_or_else(|error| panic!("read rollout lint source {}: {error}", source_path.display()));
+            assert!(
+                source.contains("emit_tiger_style_lint_with_suggestion"),
+                "rollout lint `{lint_name}` must route through structured suggestion emission in {}",
+                source_path.display()
+            );
+        }
+
+        for &lint_name in AUTOFIX_OUT_OF_SCOPE_LINTS {
+            let source_path = Path::new(env!("CARGO_MANIFEST_DIR")).join(lint_source_path(lint_name));
+            let source = fs::read_to_string(&source_path)
+                .unwrap_or_else(|error| panic!("read out-of-scope lint source {}: {error}", source_path.display()));
+            assert!(
+                !source.contains("emit_tiger_style_lint_with_suggestion"),
+                "out-of-scope lint `{lint_name}` must stay diagnostic-only in {}",
+                source_path.display()
+            );
+            assert!(
+                fixed_fixtures.iter().all(|fixture| !fixture.contains(lint_name)),
+                "out-of-scope lint `{lint_name}` must stay out of `.fixed` autofix artifacts"
+            );
+        }
+
+        for entry in coverage {
+            if !AUTOFIX_ROLLOUT_LINTS.contains(&entry.lint_name.as_str()) {
+                continue;
+            }
+            let stderr_path = fixture_stderr_path(&entry.fixture);
+            let stderr = fs::read_to_string(&stderr_path)
+                .unwrap_or_else(|error| panic!("read fixture stderr {}: {error}", stderr_path.display()));
+            let expected_tier = expected_autofix_tier(&entry.lint_name);
+            assert!(
+                stderr.contains(&format!("structured suggestion applicability: {expected_tier}")),
+                "rollout lint `{}` must show tier `{expected_tier}` in {}",
+                entry.lint_name,
+                stderr_path.display()
+            );
+        }
+    }
+
     #[test]
     fn lint_modules_route_help_and_note_through_diagnostics_module() {
         let lint_dirs = [
@@ -595,6 +743,9 @@ mod tests {
             "see Tiger Style guide:",
             ".help(",
             ".note(",
+            ".span_suggestion(",
+            ".span_suggestion_verbose(",
+            ".multipart_suggestion(",
             "span_help(",
             "span_note(",
         ];

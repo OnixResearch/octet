@@ -5,8 +5,14 @@ LL |     assert!(a > 0 && b > 0);
    |     ^^^^^^^^^^^^^^^^^^^^^^^
    |
    = help: Tiger Style (Assertion Quality): split compound assertions so the failing clause is obvious Example: assert!(a > 0); assert!(b > 0);
+   = note: structured suggestion applicability: MachineApplicable
    = note: see Tiger Style guide: Assertion Density
    = note: `#[warn(tigerstyle::compound_assertion)]` on by default
+help: split into separate assertions
+   |
+LL ~     assert!(a > 0);
+LL ~     assert!(b > 0);
+   |
 
 warning: compound assertion should be split into separate assertions
   --> $DIR/compound_assertion.rs:8:5

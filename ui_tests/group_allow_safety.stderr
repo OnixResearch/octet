@@ -5,8 +5,13 @@ LL |     let ready = true;
    |         ^^^^^
    |
    = help: Tiger Style (Positive Predicates): name booleans as predicates so call sites read like questions Example: let is_ready = status == Ready;
+   = note: structured suggestion applicability: MaybeIncorrect
    = note: see Tiger Style guide: Positive Predicates
    = note: `#[warn(tigerstyle::bool_naming)]` on by default
+help: rename binding to `is_ready`
+   |
+LL |     let is_ready = true;
+   |         +++
 
 warning: 1 warning emitted
 

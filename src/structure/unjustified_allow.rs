@@ -1,5 +1,6 @@
 use rustc_ast::Attribute;
 use rustc_ast::Item;
+use rustc_errors::Applicability;
 use rustc_lint::EarlyContext;
 use rustc_lint::EarlyLintPass;
 use rustc_lint::LintContext;
@@ -7,7 +8,8 @@ use rustc_session::declare_lint_pass;
 use rustc_session::declare_tool_lint;
 use rustc_span::sym;
 
-use crate::diagnostics::emit_tiger_style_lint;
+use crate::diagnostics::LintSuggestion;
+use crate::diagnostics::emit_tiger_style_lint_with_suggestion;
 
 declare_tool_lint! {
     /// Detects `#[allow(clippy::...)]` attributes without an accompanying
@@ -28,6 +30,13 @@ fn is_clippy_allow_attr(attr: &Attribute) -> bool {
     // Only fire on #[allow(clippy::...)] — check the nested tokens
     let source = format!("{attr:?}");
     source.contains("clippy")
+}
+
+fn justification_stub(cx: &EarlyContext<'_>, attr: &Attribute) -> String {
+    let source_map = cx.sess().source_map();
+    let indent_width = source_map.lookup_char_pos(attr.span.lo()).col.0;
+    let indent = " ".repeat(indent_width);
+    format!("// TODO(tigerstyle): explain why this allow is safe here\n{indent}")
 }
 
 fn has_comment_nearby(cx: &EarlyContext<'_>, attr: &Attribute) -> bool {
@@ -73,12 +82,18 @@ impl EarlyLintPass for UnjustifiedAllow {
 
         for attr in &item.attrs {
             if is_clippy_allow_attr(attr) && !has_comment_nearby(cx, attr) {
-                emit_tiger_style_lint(
+                emit_tiger_style_lint_with_suggestion(
                     cx,
                     UNJUSTIFIED_ALLOW,
                     attr.span,
                     "`#[allow(...)]` without justification comment",
                     "unjustified_allow",
+                    LintSuggestion::Single {
+                        span: attr.span.shrink_to_lo(),
+                        message: "add a local justification comment".to_owned(),
+                        replacement: justification_stub(cx, attr),
+                        applicability: Applicability::HasPlaceholders,
+                    },
                 );
             }
         }
