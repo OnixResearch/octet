@@ -124,8 +124,12 @@
     "fixture": "no_panic"
   },
   {
-    "lint_name": "unjustified_no_panic_allow",
-    "fixture": "no_panic_todo_allow"
+    "lint_name": "no_todo",
+    "fixture": "no_todo"
+  },
+  {
+    "lint_name": "unjustified_no_todo_allow",
+    "fixture": "no_todo_allow"
   },
   {
     "lint_name": "no_recursion",

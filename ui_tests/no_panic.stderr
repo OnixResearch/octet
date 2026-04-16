@@ -8,17 +8,8 @@ LL |     panic!("something went wrong");
    = note: see Tiger Style guide: Error Handling / Panics
    = note: `#[warn(tigerstyle::no_panic)]` on by default
 
-warning: `todo!` will abort the process on execution
-  --> $DIR/no_panic.rs:8:5
-   |
-LL |     todo!("implement later");
-   |     ^^^^^^^^^^^^^^^^^^^^^^^^
-   |
-   = help: Tiger Style (Fail Fast Correctly): return errors or prove exhaustiveness instead of panicking in production code Example: return Err(Error::invalid_state());
-   = note: see Tiger Style guide: Error Handling / Panics
-
 warning: `unimplemented!` will abort the process on execution
-  --> $DIR/no_panic.rs:13:5
+  --> $DIR/no_panic.rs:8:5
    |
 LL |     unimplemented!("not done");
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -26,5 +17,5 @@ LL |     unimplemented!("not done");
    = help: Tiger Style (Fail Fast Correctly): return errors or prove exhaustiveness instead of panicking in production code Example: return Err(Error::invalid_state());
    = note: see Tiger Style guide: Error Handling / Panics
 
-warning: 3 warnings emitted
+warning: 2 warnings emitted
 

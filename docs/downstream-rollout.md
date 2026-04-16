@@ -128,7 +128,7 @@ Use this before promoting any noisy lint family into a default path.
 
 - scope: one lint family at a time, one crate or package slice at a time
 - goal: build an inventory, not enforce a workspace-wide default yet
-- default families: `ignored_result`, `no_unwrap`, `no_panic`,
+- default families: `ignored_result`, `no_unwrap`, `no_panic`, `no_todo`,
   `unchecked_narrowing`, `unbounded_loop`
 
 Why this works:
@@ -152,6 +152,22 @@ Per-lint config rules to preserve in every consumer example:
 - unknown lint names and invalid level values warn and are ignored
 - `disabled_lints` wins over `lint_levels` and source-level lint attrs because
   disabled lints are not registered
+
+### breaking-change: migrate `todo!()` escapes from `no_panic` to `no_todo`
+
+Current tigerstyle contract:
+
+- `no_todo` owns `todo!()` in production code
+- `no_panic` now owns only `panic!()`, `unimplemented!()`, and
+  `unreachable!()`
+- old escape-hatch spellings `#[allow(no_panic)]` and
+  `#[allow(tigerstyle::no_panic)]` no longer justify `todo!()`
+- migrate justified stubs to `#[allow(no_todo)]` or
+  `#[allow(tigerstyle::no_todo)]`
+
+Live Aspen code still carries bare `#![allow(no_panic)]` crate attrs, so keep
+that bare-source migration note in rollout checklists until consumers finish the
+rename.
 
 ### Smoke or boundary-first config example
 
@@ -185,7 +201,8 @@ disabled_lints = [
   "raw_arithmetic_overflow",
   "no_unwrap",
   "no_panic",
-  "unjustified_no_panic_allow",
+  "no_todo",
+  "unjustified_no_todo_allow",
   "no_recursion",
 ]
 ```
@@ -270,7 +287,8 @@ disabled_lints = [
   "ambiguous_params",
   "raw_arithmetic_overflow",
   "no_panic",
-  "unjustified_no_panic_allow",
+  "no_todo",
+  "unjustified_no_todo_allow",
   "no_recursion",
 ]
 
@@ -521,6 +539,7 @@ reviewable baseline:
 - `ignored_result`
 - `no_unwrap`
 - `no_panic`
+- `no_todo`
 - `unchecked_narrowing`
 - `unbounded_loop`
 - `unbounded_collection_growth`
@@ -532,7 +551,8 @@ reviewable baseline:
 | --- | --- | --- | --- |
 | `ignored_result` | propagate with `?`, explicit best-effort shell cleanup, lint-precision gaps | fire-and-forget send/log paths, shutdown cleanup, intentionally ignored infallible conversions | per-crate count, owners for remaining sites, rerun after replacing silent drops with propagation or explicit handling |
 | `no_unwrap` | production panic path, startup/bootstrap assumption, generated code, test-only leakage | parsing trusted constants, one-shot process bootstrap, accidental production `expect` left from tests | inventory with highest-risk production sites fixed first, narrow allows justified, reduced baseline transcript |
-| `no_panic` | `todo!`, `unimplemented!`, `panic!`, `unreachable!`, generated code | legacy stubs, crash-only boundary shims, impossible states not yet encoded in types | categorized inventory, follow-up cleanup issue for each surviving allow, rerun proving default scope stays bounded |
+| `no_panic` | `unimplemented!`, `panic!`, `unreachable!`, generated code | crash-only boundary shims, impossible states not yet encoded in types | categorized inventory, follow-up cleanup issue for each surviving abort site, rerun proving default scope stays bounded |
+| `no_todo` | `todo!`, legacy `allow(no_panic)` stubs, generated code | temporary rollout stubs, unfinished migrations, stale bare/tool-scoped escape hatches | categorized inventory, rename any surviving `allow(no_panic)` stub escapes to `no_todo`, rerun proving the remaining stub set stays reviewable |
 | `unchecked_narrowing` | proven bounds, protocol-validated ranges, FFI/bit-packing, real truncation risk | prior `assert!` or guard, external type contracts, local proof comments | inventory plus representative fixes to `try_from` or explicit guards, any surviving allow linked to proof/range rationale |
 | `unbounded_loop` | event loop, cancellable worker, bounded retry disguised as `loop`, true runaway retry | `select!`/reactor loops, loops with shutdown channels, loops whose bound lives in surrounding scheduler | inventory that separates event loops from real liveness debt, rerun after adding visible bounds or documented boundary allows |
 
@@ -589,7 +609,7 @@ internally:
 7. confirm the archived defer decision:
    - 21 `ambient_clock`
    - 2 `compound_assertion`
-   - 4 `no_panic`
+   - 4 `no_panic` (historical pre-split count; `todo!()` debt now lives under `no_todo`)
 
 Aspen needs the sibling entries because path dependencies in `aspen-dns` and
 `aspen-wasm-plugin` resolve back through `../aspen`. The helper also removes the

@@ -1,0 +1,12 @@
+# input: aspen@bd486f3dc
+# asserts: saved docs migration note covers the real downstream no_panic source-attr spellings still present in Aspen
+$ bash -lc 'rg -n "allow\((tigerstyle::)?no_panic\)" /home/brittonr/git/aspen'
+/home/brittonr/git/aspen/crates/aspen-time/src/lib.rs:21:#![allow(no_panic)]
+/home/brittonr/git/aspen/crates/aspen-hlc/src/lib.rs:39:#![allow(no_panic)]
+/home/brittonr/git/aspen/crates/aspen-core/src/lib.rs:21:#![allow(no_panic)]
+/home/brittonr/git/aspen/openspec/changes/archive/2026-04-13-tigerstyle-phase-3-safety-debt-cleanup/evidence/implementation-diff.txt:352: #![allow(no_panic)]
+/home/brittonr/git/aspen/openspec/changes/archive/2026-04-13-tigerstyle-phase-3-safety-debt-cleanup/evidence/implementation-diff.txt:746: #![allow(no_panic)]
+/home/brittonr/git/aspen/openspec/changes/archive/2026-04-13-tigerstyle-phase-3-safety-debt-cleanup/evidence/implementation-diff.txt:777: #![allow(no_panic)]
+/home/brittonr/git/aspen/openspec/changes/archive/2026-04-13-tigerstyle-phase-3-safety-debt-cleanup/evidence/implementation-diff.txt:822: #![allow(no_panic)]
+/home/brittonr/git/aspen/crates/aspen-coordination/src/lib.rs:86:#![allow(no_panic)]
+/home/brittonr/git/aspen/openspec/changes/archive/2026-04-13-tigerstyle-phase-2-coordination-cleanup/evidence/implementation-diff.txt:86: #![allow(no_panic)]

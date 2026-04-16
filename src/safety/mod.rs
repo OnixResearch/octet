@@ -5,6 +5,7 @@ pub mod explicit_defaults;
 pub mod ignored_result;
 pub mod no_panic;
 pub mod no_recursion;
+pub mod no_todo;
 pub mod no_unwrap;
 pub mod raw_arithmetic_overflow;
 pub mod sentinel_fallback;

@@ -124,8 +124,12 @@
     "canonical_lint_name": "tigerstyle::no_panic"
   },
   {
-    "alias_name": "unjustified_no_panic_allow",
-    "canonical_lint_name": "tigerstyle::unjustified_no_panic_allow"
+    "alias_name": "no_todo",
+    "canonical_lint_name": "tigerstyle::no_todo"
+  },
+  {
+    "alias_name": "unjustified_no_todo_allow",
+    "canonical_lint_name": "tigerstyle::unjustified_no_todo_allow"
   },
   {
     "alias_name": "no_recursion",
