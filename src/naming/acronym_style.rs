@@ -1,13 +1,15 @@
 use rustc_ast::Item;
 use rustc_ast::ItemKind;
 use rustc_ast::Variant;
+use rustc_errors::Applicability;
 use rustc_lint::EarlyContext;
 use rustc_lint::EarlyLintPass;
 use rustc_session::declare_tool_lint;
 use rustc_session::impl_lint_pass;
 use rustc_span::Span;
 
-use crate::diagnostics::emit_tiger_style_lint;
+use crate::diagnostics::LintSuggestion;
+use crate::diagnostics::emit_tiger_style_lint_with_suggestion;
 
 declare_tool_lint! {
     /// Detects type names, enum variant names, and trait names containing
@@ -125,13 +127,19 @@ fn check_name(cx: &EarlyContext<'_>, name: &str, span: Span, allowlist: &[String
         return;
     }
 
-    if suggest_acronym_fix(name).is_some() {
-        emit_tiger_style_lint(
+    if let Some(suggested_name) = suggest_acronym_fix(name) {
+        emit_tiger_style_lint_with_suggestion(
             cx,
             ACRONYM_STYLE,
             span,
             format!("`{name}` has acronym-style capitalization"),
             "acronym_style",
+            LintSuggestion::Single {
+                span,
+                message: format!("rename `{name}` to `{suggested_name}`"),
+                replacement: suggested_name,
+                applicability: Applicability::MaybeIncorrect,
+            },
         );
     }
 }

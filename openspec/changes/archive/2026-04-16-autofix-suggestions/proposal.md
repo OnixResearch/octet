@@ -50,6 +50,18 @@ pattern with the right `Applicability` tier.
   `verified_purity` — these keep their current diagnostic-only behavior and do
   not gain structured suggestions in this change
 
+## Non-Goals
+
+- No new lint families or lint-level policy changes
+- No `rustfix`-specific acceptance rail beyond the saved nix-devshell `cargo fix`
+  proof path
+- No declaration + use-site rename propagation for `bool_naming` or
+  `acronym_style` in this rollout
+- No widening of `compound_assertion` coverage from existing `assert!` handling
+  to `debug_assert!` in this rollout
+- No structural auto-fixes for diagnostics-only lints like
+  `function_length`, `assertion_density`, or `multi_lock_ordering`
+
 ## Capabilities
 
 ### New Capabilities
@@ -63,5 +75,6 @@ pattern with the right `Applicability` tier.
 - **APIs**: No public API changes
 - **Dependencies**: None
 - **Testing**: Update ignored UI `.stderr` snapshots for all rollout lints,
-  add `.fixed` proof for each `MachineApplicable` pattern, and save one
-  nix-devshell `cargo fix` transcript as the supported autofix validation path
+  add `.fixed` proof for each `MachineApplicable` pattern through the ignored
+  `autofix_machine_applicable` rail, and save one nix-devshell `cargo fix`
+  transcript as the supported autofix validation path

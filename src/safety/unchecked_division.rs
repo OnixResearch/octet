@@ -1,3 +1,4 @@
+use rustc_errors::Applicability;
 use rustc_hir as hir;
 use rustc_hir::BinOpKind;
 use rustc_hir::ExprKind;
@@ -8,7 +9,9 @@ use rustc_middle::ty;
 use rustc_session::declare_lint_pass;
 use rustc_session::declare_tool_lint;
 
+use crate::diagnostics::LintSuggestion;
 use crate::diagnostics::emit_tiger_style_lint;
+use crate::diagnostics::emit_tiger_style_lint_with_suggestion;
 
 declare_tool_lint! {
     /// Detects `a / b` or `a % b` where `b` is a function parameter or
@@ -53,6 +56,29 @@ fn expr_name(expr: &hir::Expr<'_>) -> Option<String> {
 ///   - `assert!(b > 0)` / `assert!(b != 0)` / `assert_ne!(b, 0)`
 ///   - `if b == 0 { return ... }`
 ///   - `if b > 0 { ... division ... }`
+fn expr_snippet(cx: &LateContext<'_>, expr: &hir::Expr<'_>) -> Option<String> {
+    cx.sess().source_map().span_to_snippet(expr.span).ok()
+}
+
+fn guarded_division_replacement(
+    cx: &LateContext<'_>,
+    lhs: &hir::Expr<'_>,
+    rhs: &hir::Expr<'_>,
+    op: BinOpKind,
+) -> Option<String> {
+    let lhs = expr_snippet(cx, lhs)?;
+    let rhs = expr_snippet(cx, rhs)?;
+    let op = match op {
+        BinOpKind::Div => "/",
+        BinOpKind::Rem => "%",
+        _ => return None,
+    };
+
+    Some(format!(
+        "{{ let __tigerstyle_divisor = {rhs}; assert!(__tigerstyle_divisor != 0); {lhs} {op} __tigerstyle_divisor }}"
+    ))
+}
+
 fn has_zero_guard(cx: &LateContext<'_>, expr: &hir::Expr<'_>, divisor_name: &str) -> bool {
     // Check parent chain for an enclosing if-guard
     for (_, node) in cx.tcx.hir_parent_iter(expr.hir_id) {
@@ -120,12 +146,23 @@ impl<'tcx> LateLintPass<'tcx> for UncheckedDivision {
             return;
         }
 
-        emit_tiger_style_lint(
-            cx,
-            UNCHECKED_DIVISION,
-            expr.span,
-            format!("division by `{name}` without zero check"),
-            "unchecked_division",
-        );
+        let message = format!("division by `{name}` without zero check");
+        if let Some(replacement) = guarded_division_replacement(cx, _lhs, rhs, op.node) {
+            emit_tiger_style_lint_with_suggestion(
+                cx,
+                UNCHECKED_DIVISION,
+                expr.span,
+                message,
+                "unchecked_division",
+                LintSuggestion::Single {
+                    span: expr.span,
+                    message: format!("guard `{name}` before division"),
+                    replacement,
+                    applicability: Applicability::MaybeIncorrect,
+                },
+            );
+        } else {
+            emit_tiger_style_lint(cx, UNCHECKED_DIVISION, expr.span, message, "unchecked_division");
+        }
     }
 }

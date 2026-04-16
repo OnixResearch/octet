@@ -1,3 +1,4 @@
+use rustc_errors::Applicability;
 use rustc_errors::DiagDecorator;
 use rustc_lint::Lint;
 use rustc_lint::LintContext;
@@ -403,6 +404,29 @@ pub(crate) fn diagnostic_meta(lint_name: &str) -> &'static LintDiagnosticMeta {
         .unwrap_or_else(|| panic!("missing diagnostic metadata for lint `{lint_name}`"))
 }
 
+pub(crate) enum LintSuggestion {
+    Single {
+        span: Span,
+        message: String,
+        replacement: String,
+        applicability: Applicability,
+    },
+    Multipart {
+        message: String,
+        parts: Vec<(Span, String)>,
+        applicability: Applicability,
+    },
+}
+
+fn applicability_label(applicability: Applicability) -> &'static str {
+    match applicability {
+        Applicability::MachineApplicable => "MachineApplicable",
+        Applicability::MaybeIncorrect => "MaybeIncorrect",
+        Applicability::HasPlaceholders => "HasPlaceholders",
+        Applicability::Unspecified => "Unspecified",
+    }
+}
+
 pub(crate) fn emit_tiger_style_lint(
     cx: &impl LintContext,
     lint: &'static Lint,
@@ -419,6 +443,51 @@ pub(crate) fn emit_tiger_style_lint(
         DiagDecorator(|diag| {
             diag.primary_message(message.clone());
             diag.help(meta.help_text());
+            diag.note(format!("see Tiger Style guide: {}", meta.guide_section));
+        }),
+    );
+}
+
+pub(crate) fn emit_tiger_style_lint_with_suggestion(
+    cx: &impl LintContext,
+    lint: &'static Lint,
+    span: Span,
+    message: impl Into<String>,
+    lint_name: &'static str,
+    suggestion: LintSuggestion,
+) {
+    let meta = diagnostic_meta(lint_name);
+    let message = message.into();
+    let applicability = match &suggestion {
+        LintSuggestion::Single { applicability, .. } | LintSuggestion::Multipart { applicability, .. } => {
+            *applicability
+        }
+    };
+
+    cx.opt_span_lint(
+        lint,
+        Some(span),
+        DiagDecorator(|diag| {
+            diag.primary_message(message.clone());
+            match suggestion {
+                LintSuggestion::Single {
+                    span,
+                    message,
+                    replacement,
+                    applicability,
+                } => {
+                    diag.span_suggestion_verbose(span, message, replacement, applicability);
+                }
+                LintSuggestion::Multipart {
+                    message,
+                    parts,
+                    applicability,
+                } => {
+                    diag.multipart_suggestion(message, parts, applicability);
+                }
+            }
+            diag.help(meta.help_text());
+            diag.note(format!("structured suggestion applicability: {}", applicability_label(applicability)));
             diag.note(format!("see Tiger Style guide: {}", meta.guide_section));
         }),
     );

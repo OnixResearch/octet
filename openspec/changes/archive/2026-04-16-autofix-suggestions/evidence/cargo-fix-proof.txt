@@ -1,0 +1,78 @@
+$ tmp=$(mktemp -d /tmp/tigerstyle-autofix-evidence-fix.XXXXXX) && export tmp && trap 'rm -rf "$tmp"' EXIT && nix develop -c env CARGO_TARGET_DIR="$tmp" cargo test --test ui autofix_machine_applicable -- --ignored --nocapture
+   Compiling serde_core v1.0.228
+   Compiling proc-macro2 v1.0.106
+   Compiling unicode-ident v1.0.24
+   Compiling quote v1.0.45
+   Compiling memchr v2.8.0
+   Compiling crossbeam-utils v0.8.21
+   Compiling winnow v1.0.1
+   Compiling zmij v1.0.21
+   Compiling toml_writer v1.1.1+spec-1.1.0
+   Compiling serde_json v1.0.149
+   Compiling camino v1.2.2
+   Compiling serde v1.0.228
+   Compiling thiserror v2.0.18
+   Compiling anyhow v1.0.102
+   Compiling itoa v1.0.18
+   Compiling regex-syntax v0.8.10
+   Compiling paste v1.0.15
+   Compiling dylint_internal v5.0.0 (https://github.com/trailofbits/dylint?rev=0e0a71eefe6f01563d11acc6e1d7af1d505934a9#0e0a71ee)
+   Compiling rustversion v1.0.22
+   Compiling log v0.4.29
+   Compiling pin-project-lite v0.2.17
+   Compiling toml_parser v1.1.2+spec-1.1.0
+   Compiling aho-corasick v1.1.4
+   Compiling crossbeam-epoch v0.9.18
+   Compiling crossbeam-channel v0.5.15
+   Compiling crossbeam-queue v0.3.12
+   Compiling syn v2.0.117
+   Compiling crossbeam-deque v0.8.6
+   Compiling crossbeam v0.8.4
+   Compiling regex-automata v0.4.14
+   Compiling toml_datetime v1.1.1+spec-1.1.0
+   Compiling serde_spanned v1.1.1
+   Compiling semver v1.0.28
+   Compiling cargo-platform v0.3.2
+   Compiling toml v1.1.2+spec-1.1.0
+   Compiling thiserror-impl v2.0.18
+   Compiling serde_derive v1.0.228
+   Compiling tokio-macros v2.7.0
+   Compiling dylint_linting v5.0.0 (https://github.com/trailofbits/dylint?rev=0e0a71eefe6f01563d11acc6e1d7af1d505934a9#0e0a71ee)
+   Compiling tokio v1.52.0
+   Compiling regex v1.12.3
+   Compiling cargo_metadata v0.23.1
+   Compiling tigerstyle v0.1.0 (/home/brittonr/git/tigerstyle)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.86s
+     Running tests/ui.rs (/tmp/tigerstyle-autofix-evidence-fix.Xmgi9n/debug/deps/ui-4a0d0be233eb8fe9)
+
+running 1 test
+   Compiling syn v2.0.117
+   Compiling serde_derive v1.0.228
+   Compiling thiserror-impl v2.0.18
+   Compiling thiserror v2.0.18
+   Compiling serde v1.0.228
+   Compiling cargo_metadata v0.23.1
+   Compiling dylint_internal v5.0.0 (https://github.com/trailofbits/dylint?rev=0e0a71eefe6f01563d11acc6e1d7af1d505934a9#0e0a71ee)
+   Compiling dylint_linting v5.0.0 (https://github.com/trailofbits/dylint?rev=0e0a71eefe6f01563d11acc6e1d7af1d505934a9#0e0a71ee)
+   Compiling tigerstyle v0.1.0 (/home/brittonr/git/tigerstyle)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 5.67s
+[autofix fixture] compound_assertion_indented
+[autofix command] (cd /tmp/nix-shell.9sZYTZ/tigerstyle-autofix-compound_assertion_indented-3489037-1776315535267023089 && cargo fix --allow-dirty --allow-staged --allow-no-vcs --bin autofix_fixture)
+[autofix stderr]
+    Checking autofix_fixture v0.1.0 (/tmp/nix-shell.9sZYTZ/tigerstyle-autofix-compound_assertion_indented-3489037-1776315535267023089)
+       Fixed src/main.rs (1 fix)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.09s
+
+[autofix post-check command] (cd /tmp/nix-shell.9sZYTZ/tigerstyle-autofix-compound_assertion_indented-3489037-1776315535267023089 && cargo check --quiet --bin autofix_fixture)
+[autofix fixture] compound_assertion_machine_applicable
+[autofix command] (cd /tmp/nix-shell.9sZYTZ/tigerstyle-autofix-compound_assertion_machine_applicable-3489037-1776315535403163999 && cargo fix --allow-dirty --allow-staged --allow-no-vcs --bin autofix_fixture)
+[autofix stderr]
+    Checking autofix_fixture v0.1.0 (/tmp/nix-shell.9sZYTZ/tigerstyle-autofix-compound_assertion_machine_applicable-3489037-1776315535403163999)
+       Fixed src/main.rs (2 fixes)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.09s
+
+[autofix post-check command] (cd /tmp/nix-shell.9sZYTZ/tigerstyle-autofix-compound_assertion_machine_applicable-3489037-1776315535403163999 && cargo check --quiet --bin autofix_fixture)
+test autofix_machine_applicable ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 12.80s
+

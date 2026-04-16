@@ -342,6 +342,124 @@ fn run_fixture(
     assert_eq!(expected.trim_end_matches('\n'), actual.trim_end_matches('\n'), "stderr mismatch for fixture {name}");
 }
 
+fn fixed_fixture_names() -> Vec<String> {
+    let ui_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("ui_tests");
+    let mut fixtures = fs::read_dir(&ui_dir)
+        .unwrap_or_else(|error| panic!("read fixed fixture dir {}: {error}", ui_dir.display()))
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap_or_else(|error| panic!("collect fixed fixture dir {}: {error}", ui_dir.display()))
+        .into_iter()
+        .filter_map(|entry| {
+            let path = entry.path();
+            (path.extension().and_then(|ext| ext.to_str()) == Some("fixed"))
+                .then(|| path.file_stem().expect("fixed fixture file stem").to_string_lossy().into_owned())
+        })
+        .collect::<Vec<_>>();
+    fixtures.sort();
+    fixtures
+}
+
+fn run_autofix_fixture(driver: &Path, library: &Path, toolchain: &str, name: &str) {
+    let ui_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("ui_tests");
+    let fixture_path = ui_dir.join(format!("{name}.rs"));
+    let fixed_path = ui_dir.join(format!("{name}.fixed"));
+    let expected = fs::read_to_string(&fixed_path)
+        .unwrap_or_else(|error| panic!("read expected fixed output {}: {error}", fixed_path.display()));
+    let source = fs::read_to_string(&fixture_path)
+        .unwrap_or_else(|error| panic!("read autofix fixture {}: {error}", fixture_path.display()));
+
+    let library = if library.is_absolute() {
+        library.to_path_buf()
+    } else {
+        Path::new(env!("CARGO_MANIFEST_DIR")).join(library)
+    };
+    let dylint_libs = serde_json::to_string(&vec![library]).expect("encode DYLINT_LIBS for autofix fixture");
+
+    let crate_dir = temp_path(&format!("tigerstyle-autofix-{name}"));
+    let src_dir = crate_dir.join("src");
+    fs::create_dir_all(&src_dir).expect("create autofix src dir");
+    fs::write(
+        crate_dir.join("Cargo.toml"),
+        "[package]\nname = \"autofix_fixture\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\n[workspace]\n",
+    )
+    .expect("write autofix Cargo.toml");
+    let main_rs = src_dir.join("main.rs");
+    fs::write(&main_rs, source).expect("write autofix main.rs");
+
+    let mut fix = Command::new("cargo");
+    fix.current_dir(&crate_dir)
+        .env("CLIPPY_DISABLE_DOCS_LINKS", "true")
+        .env("DYLINT_LIBS", &dylint_libs)
+        .env("DYLINT_NO_DEPS", "1")
+        .env("RUSTC_WORKSPACE_WRAPPER", driver)
+        .env("RUSTUP_TOOLCHAIN", toolchain)
+        .env("CARGO_TARGET_DIR", crate_dir.join("target"))
+        .args([
+            "fix",
+            "--allow-dirty",
+            "--allow-staged",
+            "--allow-no-vcs",
+            "--bin",
+            "autofix_fixture",
+        ]);
+
+    eprintln!("[autofix fixture] {name}");
+    eprintln!(
+        "[autofix command] (cd {} && cargo fix --allow-dirty --allow-staged --allow-no-vcs --bin autofix_fixture)",
+        crate_dir.display()
+    );
+    let fix_output = fix.output().expect("run cargo fix for autofix fixture");
+    let fix_stdout = String::from_utf8(fix_output.stdout).expect("utf8 cargo fix stdout");
+    let fix_stderr = String::from_utf8(fix_output.stderr).expect("utf8 cargo fix stderr");
+    if !fix_stdout.is_empty() {
+        eprintln!("[autofix stdout]\n{fix_stdout}");
+    }
+    if !fix_stderr.is_empty() {
+        eprintln!("[autofix stderr]\n{fix_stderr}");
+    }
+    assert!(
+        fix_output.status.success(),
+        "cargo fix failed for fixture {name}:\nstdout:\n{fix_stdout}\nstderr:\n{fix_stderr}"
+    );
+
+    let actual = fs::read_to_string(&main_rs).expect("read autofixed main.rs");
+    assert_eq!(expected, actual, "autofix output mismatch for fixture {name}");
+
+    eprintln!(
+        "[autofix post-check command] (cd {} && cargo check --quiet --bin autofix_fixture)",
+        crate_dir.display()
+    );
+    let mut check = Command::new("cargo");
+    check
+        .current_dir(&crate_dir)
+        .env("CLIPPY_DISABLE_DOCS_LINKS", "true")
+        .env("DYLINT_LIBS", &dylint_libs)
+        .env("DYLINT_NO_DEPS", "1")
+        .env("RUSTC_WORKSPACE_WRAPPER", driver)
+        .env("RUSTUP_TOOLCHAIN", toolchain)
+        .env("CARGO_TARGET_DIR", crate_dir.join("target"))
+        .args(["check", "--quiet", "--bin", "autofix_fixture"]);
+
+    let check_output = check.output().expect("run cargo check for autofix fixture");
+    let check_stdout = String::from_utf8(check_output.stdout).expect("utf8 cargo check stdout");
+    let check_stderr = String::from_utf8(check_output.stderr).expect("utf8 cargo check stderr");
+    if !check_stdout.is_empty() {
+        eprintln!("[autofix post-check stdout]\n{check_stdout}");
+    }
+    if !check_stderr.is_empty() {
+        eprintln!("[autofix post-check stderr]\n{check_stderr}");
+    }
+    assert!(
+        check_output.status.success(),
+        "cargo check failed for autofixed fixture {name}:\nstdout:\n{check_stdout}\nstderr:\n{check_stderr}"
+    );
+    let combined_check_output = format!("{check_stdout}{check_stderr}");
+    assert!(
+        !combined_check_output.contains("warning:"),
+        "autofixed fixture {name} still emitted warnings:\n{combined_check_output}"
+    );
+}
+
 #[test]
 #[ignore = "run via nix flake check or cargo test --test ui -- --ignored --nocapture"]
 fn ui() {
@@ -355,6 +473,14 @@ fn ui() {
 
     for fixture in fixture_set.all_fixtures {
         eprintln!("[ui fixture] {fixture}");
+        let snapshot_stem = Path::new(&fixture).file_stem().expect("fixture file stem").to_string_lossy();
+        eprintln!(
+            "[ui snapshot] {}",
+            Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("ui_tests")
+                .join(format!("{snapshot_stem}.stderr"))
+                .display()
+        );
         run_fixture(
             &driver,
             &library,
@@ -364,5 +490,17 @@ fn ui() {
             !expected_failures.contains(&fixture),
             &mut support_cache,
         );
+    }
+}
+
+#[test]
+#[ignore = "run via cargo test --test ui autofix_machine_applicable -- --ignored --nocapture"]
+fn autofix_machine_applicable() {
+    let toolchain = rustup_toolchain();
+    let library = build_library(&toolchain);
+    let driver = build_driver(&toolchain);
+
+    for fixture in fixed_fixture_names() {
+        run_autofix_fixture(&driver, &library, &toolchain, &fixture);
     }
 }
