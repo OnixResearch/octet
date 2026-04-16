@@ -193,6 +193,17 @@ pub(crate) const DIAGNOSTIC_METADATA: &[LintDiagnosticMeta] = &[
         example_text: Some("let mut items = Vec::with_capacity(limit);"),
     },
     LintDiagnosticMeta {
+        lint_name: "sentinel_fallback",
+        principle: "safety",
+        guide_section: "make invalid state explicit",
+        domain_group: GROUP_SAFETY,
+        guidance: "branch explicitly, propagate the missing/error state, or emit tagged fallback text instead of <int>::MAX/<int>::MIN.",
+        example_mode: ExampleMode::Required,
+        example_text: Some(
+            "match u64::try_from(command_index) { Ok(i) => format!(\"recent_{i}\"), Err(_) => \"recent_missing_index\".to_string() }",
+        ),
+    },
+    LintDiagnosticMeta {
         lint_name: "usize_in_public_api",
         principle: "Cross-Platform APIs",
         guide_section: "Explicit Types",

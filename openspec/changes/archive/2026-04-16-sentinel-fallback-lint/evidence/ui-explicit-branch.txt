@@ -1,0 +1,16 @@
+$ nix develop -c bash -c 'cargo test --test ui ui -- --ignored --nocapture'
+== Scenario: Explicit branch stays quiet ==
+
+== source ==
+fn explicit_branch(command_index: i128) -> String {
+    match u64::try_from(command_index) {
+        Ok(index) => format!("recent_{index}"),
+        Err(_) => "recent_missing_index".to_string(),
+    }
+}
+
+== snapshot reference ==
+ui_tests/sentinel_fallback.stderr
+
+== assertion ==
+No diagnostic for `explicit_branch` in ui_tests/sentinel_fallback.stderr; snapshot contains only the three expected sentinel-fallback warnings.

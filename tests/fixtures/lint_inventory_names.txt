@@ -12,6 +12,7 @@ multi_lock_ordering
 explicit_defaults
 unbounded_channel
 unbounded_collection_growth
+sentinel_fallback
 usize_in_public_api
 too_many_parameters
 negated_predicate

@@ -56,6 +56,10 @@
     "canonical_lint_name": "tigerstyle::unbounded_collection_growth"
   },
   {
+    "alias_name": "sentinel_fallback",
+    "canonical_lint_name": "tigerstyle::sentinel_fallback"
+  },
+  {
     "alias_name": "usize_in_public_api",
     "canonical_lint_name": "tigerstyle::usize_in_public_api"
   },

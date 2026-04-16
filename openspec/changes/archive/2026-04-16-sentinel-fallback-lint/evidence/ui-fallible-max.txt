@@ -1,0 +1,14 @@
+$ nix develop -c bash -c 'cargo test --test ui ui -- --ignored --nocapture'
+== Scenario: Fallible conversion masked by max sentinel ==
+
+== source ==
+fn formatted_recent(command_index: i128) -> String {
+    format!("recent_{}", u64::try_from(command_index).unwrap_or(u64::MAX))
+}
+
+== snapshot reference ==
+ui_tests/sentinel_fallback.stderr
+
+== assertion ==
+warning: extreme sentinel fallback masks absence or failure
+  --> $DIR/sentinel_fallback.rs:4:26

@@ -126,6 +126,15 @@
     "example_text": "let mut items = Vec::with_capacity(limit);"
   },
   {
+    "lint_name": "sentinel_fallback",
+    "principle": "safety",
+    "guide_section": "make invalid state explicit",
+    "domain_group": "tigerstyle::safety",
+    "guidance": "branch explicitly, propagate the missing/error state, or emit tagged fallback text instead of <int>::MAX/<int>::MIN.",
+    "example_mode": "required",
+    "example_text": "match u64::try_from(command_index) { Ok(i) => format!(\"recent_{i}\"), Err(_) => \"recent_missing_index\".to_string() }"
+  },
+  {
     "lint_name": "usize_in_public_api",
     "principle": "Cross-Platform APIs",
     "guide_section": "Explicit Types",

@@ -8,6 +8,7 @@
       "explicit_defaults",
       "unbounded_channel",
       "unbounded_collection_growth",
+      "sentinel_fallback",
       "ignored_result",
       "unchecked_narrowing",
       "unchecked_division",

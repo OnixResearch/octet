@@ -56,6 +56,10 @@
     "fixture": "unbounded_collection_growth"
   },
   {
+    "lint_name": "sentinel_fallback",
+    "fixture": "sentinel_fallback"
+  },
+  {
     "lint_name": "usize_in_public_api",
     "fixture": "usize_in_public_api"
   },

@@ -178,6 +178,9 @@ lint_inventory! {
     "unbounded_collection_growth", safety::unbounded_collection_growth::UNBOUNDED_COLLECTION_GROWTH => |lint_store, _cfg| {
         lint_store.register_late_pass(|_| Box::new(safety::unbounded_collection_growth::UnboundedCollectionGrowth));
     },
+    "sentinel_fallback", safety::sentinel_fallback::SENTINEL_FALLBACK => |lint_store, _cfg| {
+        lint_store.register_late_pass(|_| Box::new(safety::sentinel_fallback::SentinelFallback));
+    },
     "usize_in_public_api", structure::usize_in_public_api::USIZE_IN_PUBLIC_API => |lint_store, _cfg| {
         lint_store.register_late_pass(|_| Box::new(structure::usize_in_public_api::UsizeInPublicApi));
     },
@@ -614,6 +617,7 @@ mod tests {
         "unbounded_channel",
         "unbounded_collection_growth",
         "unbounded_loop",
+        "sentinel_fallback",
         "unjustified_no_panic_allow",
         "usize_in_public_api",
         "verified_purity",
@@ -649,6 +653,7 @@ mod tests {
             "explicit_defaults" => "src/safety/explicit_defaults.rs",
             "unbounded_channel" => "src/safety/unbounded_channel.rs",
             "unbounded_collection_growth" => "src/safety/unbounded_collection_growth.rs",
+            "sentinel_fallback" => "src/safety/sentinel_fallback.rs",
             "usize_in_public_api" => "src/structure/usize_in_public_api.rs",
             "too_many_parameters" => "src/structure/too_many_parameters.rs",
             "negated_predicate" => "src/naming/negated_predicate.rs",

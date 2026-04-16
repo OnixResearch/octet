@@ -247,7 +247,11 @@ fn normalize_stderr(stderr: &str, fixture_path: &Path) -> String {
 
 fn extra_rustc_args(name: &str) -> &'static [&'static str] {
     match name {
-        "no_panic" | "no_unwrap" | "explicit_defaults/explicit_defaults" | "too_many_parameters" => &["--cfg", "test"],
+        "no_panic"
+        | "no_unwrap"
+        | "explicit_defaults/explicit_defaults"
+        | "too_many_parameters"
+        | "sentinel_fallback" => &["--cfg", "test"],
         _ => &[],
     }
 }
