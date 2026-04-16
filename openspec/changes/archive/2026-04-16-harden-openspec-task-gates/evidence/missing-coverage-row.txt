@@ -1,0 +1,34 @@
+$ openspec_gate stage=tasks change=fixture-missing-coverage-row
+Strategy: cross-family
+
+## Tasks-Stage Gate Review: `fixture-missing-coverage-row`
+
+### 1. Traceability
+
+**Pass.** I1, V1, V2 all trace to the two spec scenarios. Coverage matrix has one row for the second scenario.
+
+### 2. Small, verifiable, ordered sensibly
+
+**Pass.** Three tasks, correctly ordered.
+
+### 3. Verification work included
+
+**Pass.** V1 and V2 each cover one scenario.
+
+### 4. Napkin entries
+
+**No gaps.**
+
+### 5. What blocks readiness?
+
+**Finding (blocking, expected):** `Scenario "Reviewer can trace a scenario to proof" has no verification coverage row` — the delta spec has two scenarios but `## Verification Coverage` only contains the row for "Shared transcript still keeps separate scenario rows."
+
+This is the fixture's intended outcome. The design explicitly says: *"Keep a valid V1/V2 task pair but include only the second scenario in `## Verification Coverage`."*
+
+The fixture is correctly shaped:
+- Two delta-spec scenarios, one coverage row deliberately omitted
+- No spurious I-task mixed-claim violations (I1 text is clean)
+- No H-task field violations (no H-tasks present)
+- The omitted scenario is isolated as the single intended blocker
+
+**Status: 0/3 done. Ready to be exercised by parent change V3 and V7.**

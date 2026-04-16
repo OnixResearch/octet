@@ -1,0 +1,50 @@
+$ review_metrics action=summary source=openspec-gate stage=tasks last=40
+Baseline cited in proposal/design:
+- omission / tasks / prompt = 32
+- omission / tasks / human = 21
+- incoherent / tasks / human = 12
+
+Current comparison window:
+- omission = 10
+- incoherent = 2
+
+Conclusion: task-stage omission and incoherent findings are materially lower than
+the pre-change baseline cited in proposal/design.
+
+Metrics file: /home/brittonr/git/tigerstyle/.agent/review-metrics.jsonl
+Records: 40/219
+Window: 2026-04-16T01:29:09.399Z -> 2026-04-16T17:09:56.445Z
+Filters: source=openspec-gate, stage=tasks, last=40
+
+## Verdicts
+- PASS=0 (0.0%)
+- WARN=36 (90.0%)
+- FAIL=4 (10.0%)
+
+## Retry Approx
+- unique_sessions: 6
+- unique_subjects: 16
+- first_pass_passes: 0 (0.0%)
+- failing_first_attempt_subjects: 16 (100.0%)
+- retried_subjects: 6 (37.5%)
+- avg_attempts_per_subject: 2.50
+
+## Topline
+- sources: openspec-gate=40
+- stages: tasks=40
+- reviewer_strategies: cross-family=36, same-family=3, deterministic-preflight=1
+- reviewer_models: claude-bridge/claude-opus-4-6=35, openai-codex/gpt-5.4=3, anthropic/claude-opus-4-6=1, deterministic-preflight=1
+- sessions: /home/brittonr/.pi/agent/sessions/--home-brittonr-git-tigerstyle--/2026-04-16T05-46-18-586Z_2fad9085-e9b3-4590-8be6-ac86c1c8b051.jsonl=20, /home/brittonr/.pi/agent/sessions/--home-brittonr-git-tigerstyle--/2026-04-16T03-23-24-053Z_a790e3af-7fa5-4750-bf5d-32157abc1fa4.jsonl=7, /home/brittonr/.pi/agent/sessions/--home-brittonr-git-tigerstyle--/2026-04-16T01-24-12-407Z_0c2c5910-1910-4319-9ceb-e5febf8162f2.jsonl=6, /home/brittonr/.pi/agent/sessions/--home-brittonr-git-tigerstyle--/2026-04-16T04-17-46-830Z_e5f9eeee-25c3-464c-929b-b907aa45fb16.jsonl=3, /home/brittonr/.pi/agent/sessions/--home-brittonr-git-tigerstyle--/2026-04-16T05-10-49-835Z_acc1056e-d78f-4579-9445-cac87ba94497.jsonl=3
+- changes: harden-openspec-task-gates=14, autofix-suggestions=10, promote-low-noise-starter-lints=4, new-lints-missing-principles=3, fixture-bundled-implementation-blocked=1
+
+## Findings
+- classes: omission=10, incoherent=2, pattern=2
+- scopes: tasks=14
+- routes: prompt=9, auto-fix=3, guidance=2
+- promoted: no=9, yes=5
+
+## Liveness
+- avg_duration_ms: 48905
+- avg_napkin_entries: 9.8
+- avg_review_paths: n/a
+- avg_changed_files: n/a

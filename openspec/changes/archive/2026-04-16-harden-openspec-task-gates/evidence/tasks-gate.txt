@@ -1,0 +1,30 @@
+$ openspec_gate stage=tasks change=harden-openspec-task-gates
+Strategy: cross-family
+
+**Tasks Review**
+
+**1. Does every task trace back to proposal/design/spec work?**
+
+Yes. I1–I4 map to the four spec requirements. V1–V8 each map to exactly one scenario (confirmed by the Verification Coverage matrix). H1–H4 cover gate-stage evidence and post-change metrics.
+
+**2. Are tasks small, verifiable, and ordered sensibly?**
+
+Yes. Implementation (I1–I4) precedes verification (V1–V8) which precedes human checkpoints (H1–H4). Each task is a single claim. No `I<n>` task contains verification markers. No `V<n>` task bundles multiple scenarios.
+
+**3. Do tasks include verification for all spec scenarios?**
+
+All 8 delta-spec scenarios have coverage rows. Each row names a distinct `V<n>` and a specific evidence path. The evidence files exist for all completed V-tasks.
+
+**4. Do napkin entries imply missing tasks?**
+
+No. The napkin entries about transcript self-description and zero-warning assertions are about lint-engine work, not relevant here. The "design must own full contract" napkin is satisfied by the design decisions already written.
+
+**5. Status and what blocks readiness.**
+
+13 of 16 tasks are done. 3 remain:
+
+- **H1** — proposal gate transcript not yet saved to `evidence/proposal-gate.txt`
+- **H2** — design gate transcript not yet saved to `evidence/design-gate.txt`
+- **H4** — post-change review metrics not yet captured to `evidence/post-change-review-metrics.txt`
+
+H1 and H2 can be completed now by running the respective gates and saving transcripts. H4 requires a post-implementation comparison window — it measures whether task-stage findings actually decreased, so it can only be completed after the hardened gate has been exercised by subsequent changes.

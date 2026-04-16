@@ -1,0 +1,21 @@
+$ openspec_gate stage=tasks change=fixture-missing-scenario-mapping-blocked
+Strategy: cross-family
+
+## Tasks-Stage Gate Review: `fixture-missing-scenario-mapping-blocked`
+
+### 1–4: Pass
+
+Same structure as `fixture-missing-coverage-row`. Tasks trace to spec, are small and ordered, include verification, no napkin gaps.
+
+### 5. What blocks readiness?
+
+**Finding (blocking, expected):** `Scenario "Missing scenario mapping is blocked" has no verification coverage row` — the delta spec has two scenarios but `## Verification Coverage` only contains the row for "Shared transcript still keeps separate scenario rows."
+
+Correctly shaped: one intentional omission, no spurious I-task or H-task violations.
+
+This fixture parallels `fixture-missing-coverage-row` the same way the two bundled-implementation fixtures paralleled each other — same violation type, different parent-change V-tasks:
+
+- `fixture-missing-coverage-row` serves parent V3 (scenario "Reviewer can trace a scenario to proof")
+- `fixture-missing-scenario-mapping-blocked` serves parent V7 (scenario "Missing scenario mapping is blocked")
+
+**Status: 0/3 done. Ready to be exercised by parent change V7.**

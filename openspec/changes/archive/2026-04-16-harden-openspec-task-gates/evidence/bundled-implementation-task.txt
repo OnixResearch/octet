@@ -1,0 +1,40 @@
+$ openspec_gate stage=tasks change=fixture-bundled-implementation-split
+Strategy: cross-family
+
+## Tasks-Stage Gate Review: `fixture-bundled-implementation-split`
+
+### 1. Does every task trace back to proposal/design/spec work?
+
+**Pass.** I1 traces to the single scenario "Implementation and verification are split." V1 covers verification of that scenario. Coverage matrix has one row matching the one spec scenario.
+
+### 2. Are tasks small, verifiable, and ordered sensibly?
+
+**Pass.** Two tasks, one per class, correctly ordered.
+
+### 3. Do tasks include verification work?
+
+**Pass.** V1 covers the single scenario.
+
+### 4. Do relevant napkin entries imply missing tasks?
+
+**No gaps.** Napkin entries are lint-engine scoped.
+
+### 5. What blocks readiness?
+
+**Intentional governance violation — this is the point.**
+
+I1 reads: `update parser and save openspec/changes/example/evidence/parser.txt`
+
+Per the governance rules just landed by `harden-openspec-task-gates` (config.yaml line 32), this I-task is invalid because it contains both `save` and a repo-relative `evidence/` path. The gate **should** flag it with:
+
+> `Task I1 mixes implementation and verification/evidence claims`
+
+**This is correct behavior.** The fixture exists to prove the gate catches exactly this failure mode. The fixture's proposal explicitly says: *"This fixture exists to prove the tasks-stage gate blocks an `I<n>` checkbox when it mixes implementation work with saved-evidence capture."*
+
+### Verdict
+
+**Finding (blocking, expected):** `Task I1 mixes implementation and verification/evidence claims` — I1 text includes `save` and `evidence/` path markers.
+
+This is the fixture's intended outcome. When the parent change (`harden-openspec-task-gates`) runs V1/V6 against this fixture, that blocking finding is the evidence they capture. The fixture is correctly shaped: one intentional failure, coverage matrix otherwise complete, no spurious H-field or scenario-row violations.
+
+**Status: 0/2 tasks done. The fixture is ready to be exercised by the parent change's V1 and V6 evidence capture.**

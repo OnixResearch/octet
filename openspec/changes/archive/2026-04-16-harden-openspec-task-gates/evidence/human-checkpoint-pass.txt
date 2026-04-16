@@ -1,0 +1,16 @@
+$ openspec_gate stage=tasks change=fixture-human-checkpoint-pass
+Strategy: cross-family
+
+## Tasks-Stage Gate Review: `fixture-human-checkpoint-pass`
+
+### 1–4: Pass
+
+H1 traces to the single spec scenario. All four required fields present. No napkin gaps.
+
+### 5. What blocks readiness?
+
+**No blocking findings.** H1 includes all four fields (`command=`, `input=`, `asserts=`, `evidence=`). Coverage matrix maps the single scenario to H1. No I-task or scenario-coverage violations.
+
+This is the **passing** counterpart to `fixture-human-checkpoint-missing-field`. Together they serve parent change V5 (scenario "Aspen replay task is self-describing") — the missing-field fixture proves the gate blocks, this fixture proves the gate accepts.
+
+**Status: 0/1 done. Ready to be exercised by parent change V5.**

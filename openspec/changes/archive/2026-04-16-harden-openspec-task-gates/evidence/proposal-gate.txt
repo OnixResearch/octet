@@ -1,0 +1,32 @@
+$ openspec_gate stage=proposal change=harden-openspec-task-gates
+Strategy: cross-family
+
+**1. Does the proposal clearly state why, scope, non-goals, and verification expectations?**
+
+Yes. The "Why" section cites concrete review metrics (omission/tasks/prompt=32, omission/tasks/human=21, incoherent/tasks/human=12) and names the specific failure patterns. Non-goals are clear. Verification expectations are stated in the Impact section.
+
+**2. Do the delta specs actually encode the capabilities implied by the proposal?**
+
+Yes. The four requirements map directly to the proposal's "What Changes" bullets:
+- "Structured Task Units" → one auditable claim per checkbox class
+- "Verification Coverage Matrix" → scenario-to-proof mapping
+- "Human/Oracle Checkpoints Name Exact Inputs" → command/input/asserts/evidence fields
+- "Tasks-Stage Gate Flags Missing Governance" → deterministic failure cases
+
+**3. Are there ambiguities or omissions that should block design work?**
+
+Two minor items worth noting but not blocking:
+
+- The spec says `I<n>` triggers on markers like `verify`, `save`, `capture`, `evidence=`, or `evidence/` path. The word "save" appears naturally in implementation contexts (e.g., "save the file"). The design should clarify whether this is a substring match or something more structured — but that's design-stage detail, not a proposal blocker.
+
+- The spec scopes to "active" changes excluding `archive/**`. The proposal doesn't mention how in-flight changes already past tasks-stage would be handled. Since non-goals say "no retroactive rewrite of archived changes," this is implicitly covered.
+
+**4. Do relevant napkin entries add missing constraints?**
+
+The napkin entries about transcript self-description, zero-warning assertions, and evidence path rigor are exactly the patterns this spec codifies. No napkin constraint contradicts or is missing from the spec.
+
+**5. Should any napkin pattern be promoted into a spec rule?**
+
+The "save every summary claim including zero-warning claims" pattern is already captured by the `H<n>` `asserts=` field requirement. No additional promotion needed at proposal stage.
+
+**Verdict: proposal is ready to advance to design.** The scope is tight, the spec requirements are traceable to the stated problem, and the scenarios cover the key failure modes from recent history.

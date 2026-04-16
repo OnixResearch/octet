@@ -45,6 +45,14 @@
 - The custom `tests/ui.rs` harness now supports snapshot refresh via `BLESS=1 cargo test --test ui -- --ignored --nocapture`; use it inside `nix develop` when updating `.stderr` files.
 - `tests/ui.rs` now also has ignored rail `autofix_machine_applicable`; it discovers every checked-in `ui_tests/*.fixed`, runs `cargo fix` in a temporary Cargo crate with the built tigerstyle Dylint wrapper, compares the result to the `.fixed` file, then reruns `cargo check` and asserts zero warnings remain.
 
+## OpenSpec workflow
+- Repo-local OpenSpec task guidance now lives at `openspec/templates/tasks.md`; active changes should dogfood that `I<n>` / `V<n>` / `H<n>` shape and end with `## Verification Coverage`.
+- `I<n>` tasks are implementation-only units; if a checkbox text says `verify`, `save`, `capture`, `evidence=`, or names an `evidence/` path, split that work into `V<n>` or `H<n>` instead.
+- `## Verification Coverage` is scenario-based, not artifact-based: every added or modified scenario heading gets its own row even when multiple rows point at one shared transcript.
+- `H<n>` tasks must carry all four replay fields: `command=`, `input=`, `asserts=`, and `evidence=`.
+- For OpenSpec gate-fixture proof here, keep the committed fixture under `tests/fixtures/openspec-task-governance/`, temporarily copy it into `openspec/changes/<fixture-name>/` before calling `openspec_gate`, then remove the temporary active change after saving the transcript.
+- `openspec archive` can create a new main spec with a placeholder `## Purpose` line (`TBD - created by archiving change ...`); replace that placeholder before committing the archive.
+
 ## Lint registration / config
 - Do not implement per-lint severity by registering cloned `Lint` descriptors with patched `default_level`; passes still emit the original static lint IDs, so `allow`/`deny` overrides silently fail.
 - In this repo, per-lint severity overrides must keep original lint statics registered and feed effective levels through rustc lint opts before lint-level computation.
