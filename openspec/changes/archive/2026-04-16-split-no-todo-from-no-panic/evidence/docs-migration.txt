@@ -1,0 +1,28 @@
+$ bash -lc 'rg -n "no_todo|unjustified_no_todo_allow|breaking-change|allow\((tigerstyle::)?no_panic\)|allow\((tigerstyle::)?no_todo\)" README.md docs/downstream-rollout.md templates/dylint.toml'
+templates/dylint.toml:52:# breaking-change: justified `todo!()` stubs must migrate from `allow(no_panic)`
+templates/dylint.toml:53:# / `allow(tigerstyle::no_panic)` to `allow(no_todo)` /
+templates/dylint.toml:54:# `allow(tigerstyle::no_todo)`. `no_panic` now covers only `panic!()`,
+templates/dylint.toml:80:#   "no_todo",
+templates/dylint.toml:81:#   "unjustified_no_todo_allow",
+docs/downstream-rollout.md:131:- default families: `ignored_result`, `no_unwrap`, `no_panic`, `no_todo`,
+docs/downstream-rollout.md:156:### breaking-change: migrate `todo!()` escapes from `no_panic` to `no_todo`
+docs/downstream-rollout.md:160:- `no_todo` owns `todo!()` in production code
+docs/downstream-rollout.md:163:- old escape-hatch spellings `#[allow(no_panic)]` and
+docs/downstream-rollout.md:164:  `#[allow(tigerstyle::no_panic)]` no longer justify `todo!()`
+docs/downstream-rollout.md:165:- migrate justified stubs to `#[allow(no_todo)]` or
+docs/downstream-rollout.md:166:  `#[allow(tigerstyle::no_todo)]`
+docs/downstream-rollout.md:168:Live Aspen code still carries bare `#![allow(no_panic)]` crate attrs, so keep
+docs/downstream-rollout.md:204:  "no_todo",
+docs/downstream-rollout.md:205:  "unjustified_no_todo_allow",
+docs/downstream-rollout.md:290:  "no_todo",
+docs/downstream-rollout.md:291:  "unjustified_no_todo_allow",
+docs/downstream-rollout.md:542:- `no_todo`
+docs/downstream-rollout.md:555:| `no_todo` | `todo!`, legacy `allow(no_panic)` stubs, generated code | temporary rollout stubs, unfinished migrations, stale bare/tool-scoped escape hatches | categorized inventory, rename any surviving `allow(no_panic)` stub escapes to `no_todo`, rerun proving the remaining stub set stays reviewable |
+docs/downstream-rollout.md:612:   - 4 `no_panic` (historical pre-split count; `todo!()` debt now lives under `no_todo`)
+README.md:19:| `no_todo` | **warn** | `todo!()` in production code |
+README.md:20:| `unjustified_no_todo_allow` | **warn** | Invalid `#[allow(tigerstyle::no_todo)]` or `#[allow(no_todo)]` escape without adjacent `//` justification, around non-`todo!()` panic macros, or after stub cleanup |
+README.md:122:### breaking-change: `todo!()` escape hatch moved off `no_panic`
+README.md:124:Use `no_todo` for temporary stub escapes now.
+README.md:126:- old spellings like `#[allow(tigerstyle::no_panic)]` and `#[allow(no_panic)]`
+README.md:128:- migrate justified stubs to `#[allow(tigerstyle::no_todo)]` or
+README.md:129:  `#[allow(no_todo)]`

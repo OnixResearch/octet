@@ -48,6 +48,11 @@
 # `contradictory_time`, `explicit_defaults`, `unbounded_channel`,
 # `usize_in_public_api`, and `negated_predicate`, while keeping the deferred
 # and high-noise families disabled.
+#
+# breaking-change: justified `todo!()` stubs must migrate from `allow(no_panic)`
+# / `allow(tigerstyle::no_panic)` to `allow(no_todo)` /
+# `allow(tigerstyle::no_todo)`. `no_panic` now covers only `panic!()`,
+# `unimplemented!()`, and `unreachable!()`.
 # disabled_lints = [
 #   "function_length",
 #   "acronym_style",
@@ -72,7 +77,8 @@
 #   "raw_arithmetic_overflow",
 #   "no_unwrap",
 #   "no_panic",
-#   "unjustified_no_panic_allow",
+#   "no_todo",
+#   "unjustified_no_todo_allow",
 #   "no_recursion",
 # ]
 

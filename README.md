@@ -4,19 +4,20 @@ Custom [dylint](https://github.com/trailofbits/dylint) lints enforcing
 [Tiger Style](https://github.com/tigerbeetle/tigerbeetle/blob/main/docs/TIGER_STYLE.md)
 coding principles for Rust.
 
-32 lints across 5 domains: safety, naming, structure, purity, concurrency.
+33 lints across 5 domains: safety, naming, structure, purity, concurrency.
 
 ## Lint Catalog
 
-### Safety (15 lints)
+### Safety (17 lints)
 
 | Lint | Default | Description |
 |------|---------|-------------|
 | `compound_assertion` | **warn** | `assert!(a && b)` should be split into separate assertions |
 | `ignored_result` | **warn** | `let _ = expr` silently discards a `Result` |
 | `no_unwrap` | **warn** | `.unwrap()`/`.expect()` in production code |
-| `no_panic` | **warn** | `panic!()`/`todo!()`/`unimplemented!()` in production code |
-| `unjustified_no_panic_allow` | **warn** | Invalid `#[allow(tigerstyle::no_panic)]` escape without adjacent `//` justification or around non-`todo!()` panic macros |
+| `no_panic` | **warn** | `panic!()`/`unimplemented!()`/`unreachable!()` in production code |
+| `no_todo` | **warn** | `todo!()` in production code |
+| `unjustified_no_todo_allow` | **warn** | Invalid `#[allow(tigerstyle::no_todo)]` or `#[allow(no_todo)]` escape without adjacent `//` justification, around non-`todo!()` panic macros, or after stub cleanup |
 | `no_recursion` | **warn** | Function calls itself recursively |
 | `unchecked_narrowing` | **warn** | `as u32` from wider type without bounds check |
 | `unchecked_division` | **warn** | `a / b` where `b` is a variable without zero guard |
@@ -118,6 +119,17 @@ fn narrow(x: u64) -> u32 {
 }
 ```
 
+### breaking-change: `todo!()` escape hatch moved off `no_panic`
+
+Use `no_todo` for temporary stub escapes now.
+
+- old spellings like `#[allow(tigerstyle::no_panic)]` and `#[allow(no_panic)]`
+  no longer justify `todo!()`
+- migrate justified stubs to `#[allow(tigerstyle::no_todo)]` or
+  `#[allow(no_todo)]`
+- `no_panic` now covers only `panic!()`, `unimplemented!()`, and
+  `unreachable!()`
+
 ### Enabling an allow-by-default lint
 
 ```rust
@@ -171,7 +183,7 @@ nix flake check                               # CI checks, including dedicated n
 ```
 src/
 ├── lib.rs                     # register_lints entry point
-├── safety/                    # 15 lints: assertions, panics, errors, defaults, bounds
+├── safety/                    # 17 lints: assertions, panics, todo stubs, errors, defaults, bounds
 ├── naming/                    # 5 lints: booleans, acronyms, positive predicates, units
 ├── structure/                 # 8 lints: length, conditions, params, casts, public APIs
 ├── purity/                    # 3 lints: wall-clock boundaries, verified modules, time

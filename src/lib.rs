@@ -89,15 +89,14 @@ fn lint_id_for_name(lint_name: &str) -> rustc_lint::LintId {
     rustc_lint::LintId::of(entry.lint)
 }
 
-fn register_no_panic_bundle(lint_store: &mut rustc_lint::LintStore, cfg: &Config) {
-    let emit_no_panic = !cfg.lint_is_disabled("no_panic");
-    let emit_unjustified_allow = !cfg.lint_is_disabled("unjustified_no_panic_allow");
-    if !emit_no_panic && !emit_unjustified_allow {
+fn register_no_todo_bundle(lint_store: &mut rustc_lint::LintStore, cfg: &Config) {
+    let emit_no_todo = !cfg.lint_is_disabled("no_todo");
+    let emit_unjustified_allow = !cfg.lint_is_disabled("unjustified_no_todo_allow");
+    if !emit_no_todo && !emit_unjustified_allow {
         return;
     }
 
-    lint_store
-        .register_late_pass(move |_| Box::new(safety::no_panic::NoPanic::new(emit_no_panic, emit_unjustified_allow)));
+    lint_store.register_late_pass(move |_| Box::new(safety::no_todo::NoTodo::new(emit_no_todo, emit_unjustified_allow)));
 }
 
 fn register_domain_groups(lint_store: &mut rustc_lint::LintStore, cfg: &Config) {
@@ -227,9 +226,12 @@ lint_inventory! {
     "no_unwrap", safety::no_unwrap::NO_UNWRAP => |lint_store, _cfg| {
         lint_store.register_late_pass(|_| Box::new(safety::no_unwrap::NoUnwrap));
     },
-    "no_panic", safety::no_panic::NO_PANIC => |_lint_store, _cfg| {
+    "no_panic", safety::no_panic::NO_PANIC => |lint_store, _cfg| {
+        lint_store.register_late_pass(|_| Box::new(safety::no_panic::NoPanic));
     },
-    "unjustified_no_panic_allow", safety::no_panic::UNJUSTIFIED_NO_PANIC_ALLOW => |_lint_store, _cfg| {
+    "no_todo", safety::no_todo::NO_TODO => |_lint_store, _cfg| {
+    },
+    "unjustified_no_todo_allow", safety::no_todo::UNJUSTIFIED_NO_TODO_ALLOW => |_lint_store, _cfg| {
     },
     "no_recursion", safety::no_recursion::NO_RECURSION => |lint_store, _cfg| {
         lint_store.register_late_pass(|_| Box::new(safety::no_recursion::NoRecursion));
@@ -242,7 +244,7 @@ pub fn register_lints(sess: &rustc_session::Session, lint_store: &mut rustc_lint
     let cfg = config::load(sess);
     apply_lint_level_overrides(sess, &cfg);
     register_inventory(lint_store, &cfg);
-    register_no_panic_bundle(lint_store, &cfg);
+    register_no_todo_bundle(lint_store, &cfg);
     register_domain_groups(lint_store, &cfg);
     register_compatibility_aliases(lint_store, &cfg);
 }
@@ -612,13 +614,14 @@ mod tests {
         "negated_predicate",
         "nested_conditionals",
         "no_panic",
+        "no_todo",
         "no_unwrap",
         "too_many_parameters",
         "unbounded_channel",
         "unbounded_collection_growth",
         "unbounded_loop",
         "sentinel_fallback",
-        "unjustified_no_panic_allow",
+        "unjustified_no_todo_allow",
         "usize_in_public_api",
         "verified_purity",
     ];
@@ -669,7 +672,8 @@ mod tests {
             "ambiguous_params" => "src/structure/ambiguous_params.rs",
             "raw_arithmetic_overflow" => "src/safety/raw_arithmetic_overflow.rs",
             "no_unwrap" => "src/safety/no_unwrap.rs",
-            "no_panic" | "unjustified_no_panic_allow" => "src/safety/no_panic.rs",
+            "no_panic" => "src/safety/no_panic.rs",
+            "no_todo" | "unjustified_no_todo_allow" => "src/safety/no_todo.rs",
             "no_recursion" => "src/safety/no_recursion.rs",
             other => panic!("missing lint source mapping for `{other}`"),
         }
