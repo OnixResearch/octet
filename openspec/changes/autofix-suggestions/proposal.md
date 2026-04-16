@@ -1,44 +1,67 @@
 ## Why
 
-None of the 26 lints provide machine-applicable fix suggestions. When a
+None of the currently shipped tigerstyle lints provide structured fix
+suggestions today. When a
 downstream consumer runs tigerstyle and gets 50 warnings, every fix is
-manual. Lints like `compound_assertion`, `bool_naming`, `acronym_style`,
-and `numeric_units` have mechanical, predictable fixes that could be
-applied automatically via `cargo fix` or `rustfix`.
+manual even when tigerstyle already knows an approved next edit.
+
+This change adds structured suggestions with honest applicability tiers, so
+safe cases can participate in `cargo fix` while riskier cases still surface a
+reviewable suggested edit.
 
 ## What Changes
 
-Add `Applicability::MachineApplicable` or `MaybeIncorrect` suggestions to
-lints where the fix is mechanical:
+Add structured suggestions to the first autofix rollout and classify each
+pattern with the right `Applicability` tier.
 
 ### Machine-applicable (safe to auto-apply)
-- `compound_assertion`: split `assert!(a && b)` into `assert!(a); assert!(b);`
-- `bool_naming`: suggest `is_` prefix rename
-- `acronym_style`: suggest single-word capitalization (`RPCHandler` → `RpcHandler`)
-- `numeric_units`: suggest unit suffix (`timeout` → `timeout_ms`)
+- `compound_assertion`: split validated top-level `assert!(a && b)` cases into
+  separate `assert!` calls
 
-### Maybe-incorrect (suggested but needs human review)
+### Review-required (`MaybeIncorrect`)
+- `bool_naming`: declaration-site rename suggestion unless the implementation
+  also rewrites every affected use site needed to keep the validated fixture
+  compiling
+- `acronym_style`: declaration-site rename suggestion unless the implementation
+  also rewrites every affected use site needed to keep the validated fixture
+  compiling
 - `unchecked_division`: suggest `assert!(b != 0);` before the division
-- `raw_arithmetic_overflow`: suggest `.checked_mul()` / `.saturating_add()`
+- `raw_arithmetic_overflow`: suggest checked or saturating arithmetic
 - `unchecked_narrowing`: suggest `u32::try_from(value)?`
 - `platform_dependent_cast`: suggest `usize::try_from(value)?`
-- `unjustified_allow`: insert `// TODO: add justification` comment
+
+### Placeholder-driven (`HasPlaceholders`)
+- `numeric_units`: suggest a unit-bearing rename with explicit placeholder
+  choices
+- `unjustified_allow`: insert a stub justification comment that the maintainer
+  must replace with a real rationale
 
 ### Not auto-fixable (diagnostics only)
 - `assertion_density`, `function_length`, `ambiguous_params`,
   `multi_lock_ordering`, `catch_all_on_enum`, `no_recursion` — these
   require structural refactoring
 
+### Unchanged / out of scope in this change
+- `ambient_clock`, `compound_condition`, `contradictory_time`,
+  `explicit_defaults`, `float_for_currency`, `ignored_result`,
+  `negated_predicate`, `nested_conditionals`, `no_panic`, `no_unwrap`,
+  `too_many_parameters`, `unbounded_channel`, `unbounded_collection_growth`,
+  `unbounded_loop`, `unjustified_no_panic_allow`, `usize_in_public_api`,
+  `verified_purity` — these keep their current diagnostic-only behavior and do
+  not gain structured suggestions in this change
+
 ## Capabilities
 
 ### New Capabilities
-- `autofix`: Lints with mechanical fixes emit structured suggestions that
-  `cargo fix` can apply
+- `autofix`: Selected lints emit structured suggestions with explicit
+  applicability tiers; only the validated `MachineApplicable` subset is in
+  scope for automatic application
 
 ## Impact
 
 - **Files**: Every lint source file that gets a suggestion added
 - **APIs**: No public API changes
 - **Dependencies**: None
-- **Testing**: UI test `.stderr` files must be updated to include the
-  suggestion text; new `.fixed` files for machine-applicable lints
+- **Testing**: Update ignored UI `.stderr` snapshots for all rollout lints,
+  add `.fixed` proof for each `MachineApplicable` pattern, and save one
+  nix-devshell `cargo fix` transcript as the supported autofix validation path
