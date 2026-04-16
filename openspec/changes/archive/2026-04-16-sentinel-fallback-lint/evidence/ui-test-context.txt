@@ -1,0 +1,14 @@
+$ nix develop -c bash -c 'cargo test --test ui ui -- --ignored --nocapture'
+== Scenario: Test-context sentinel fallback stays quiet ==
+
+== source ==
+#[cfg(test)]
+fn test_only(raw_index: i128) -> u64 {
+    u64::try_from(raw_index).unwrap_or(u64::MAX)
+}
+
+== snapshot reference ==
+ui_tests/sentinel_fallback.stderr
+
+== assertion ==
+No diagnostic for `test_only` in ui_tests/sentinel_fallback.stderr; the test-context case compiles under --cfg test without adding a fourth sentinel-fallback warning.

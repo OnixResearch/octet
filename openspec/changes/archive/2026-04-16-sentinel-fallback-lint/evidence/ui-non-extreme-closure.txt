@@ -1,0 +1,13 @@
+$ nix develop -c bash -c 'cargo test --test ui ui -- --ignored --nocapture'
+== Scenario: Non-extreme closure default stays quiet ==
+
+== source ==
+fn non_extreme_closure(raw_index: i128) -> i64 {
+    i64::try_from(raw_index).unwrap_or_else(|_| 0)
+}
+
+== snapshot reference ==
+ui_tests/sentinel_fallback.stderr
+
+== assertion ==
+No diagnostic for `non_extreme_closure` in ui_tests/sentinel_fallback.stderr; snapshot contains only the three expected sentinel-fallback warnings.

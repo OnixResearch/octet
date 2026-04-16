@@ -1,0 +1,17 @@
+$ nix develop -c bash -c 'cargo test --test ui ui -- --ignored --nocapture'
+== Scenario: Side-effect closure masked by min sentinel ==
+
+== source ==
+fn closure_min(raw_index: i128) -> i64 {
+    i64::try_from(raw_index).unwrap_or_else(|err| {
+        eprintln!("{err}");
+        i64::MIN
+    })
+}
+
+== snapshot reference ==
+ui_tests/sentinel_fallback.stderr
+
+== assertion ==
+warning: extreme sentinel fallback masks absence or failure
+  --> $DIR/sentinel_fallback.rs:12:5

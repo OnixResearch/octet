@@ -41,6 +41,7 @@
     "unbounded_channel/unbounded_channel",
     "unbounded_collection_growth",
     "raw_arithmetic_overflow",
+    "sentinel_fallback",
     "function_length",
     "usize_in_public_api",
     "too_many_parameters",

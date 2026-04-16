@@ -7,6 +7,7 @@ pub mod no_panic;
 pub mod no_recursion;
 pub mod no_unwrap;
 pub mod raw_arithmetic_overflow;
+pub mod sentinel_fallback;
 pub mod unbounded_channel;
 pub mod unbounded_collection_growth;
 pub mod unbounded_loop;

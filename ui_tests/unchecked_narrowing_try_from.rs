@@ -1,8 +1,8 @@
 use std::convert::TryFrom;
 
 fn checked_fallback(x: u64) -> u32 {
-    // Should NOT warn: checked conversion with bounded fallback
-    u32::try_from(x).unwrap_or(u32::MAX)
+    // Should NOT warn: checked conversion with non-extreme fallback
+    u32::try_from(x).unwrap_or(0)
 }
 
 fn bare_narrow(x: u64) -> u32 {

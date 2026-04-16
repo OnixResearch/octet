@@ -1,0 +1,13 @@
+$ nix develop -c bash -c 'cargo test --test ui ui -- --ignored --nocapture'
+== Scenario: Non-extreme default stays quiet ==
+
+== source ==
+fn non_extreme_default(maybe_index: Option<u32>) -> u32 {
+    maybe_index.unwrap_or(0)
+}
+
+== snapshot reference ==
+ui_tests/sentinel_fallback.stderr
+
+== assertion ==
+No diagnostic for `non_extreme_default` in ui_tests/sentinel_fallback.stderr; snapshot contains only the three expected sentinel-fallback warnings.
