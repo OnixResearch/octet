@@ -1,0 +1,7 @@
+$ bash openspec/changes/first-class-consumer-integration/evidence/record-first-class-consumer-proof.sh
+system: x86_64-linux
+repo_root: /home/brittonr/git/tigerstyle
+fixture_template: tests/fixtures/consumer-integration/nix-consumer
+fixture_default_scope: -p good
+fixture_override_scope: -p bad -- --all-targets
+cli_driver_bootstrap_rev: 0e0a71eefe6f01563d11acc6e1d7af1d505934a9

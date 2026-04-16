@@ -1,0 +1,7 @@
+[workspace]
+members = ["crates/good", "crates/bad"]
+resolver = "2"
+
+[workspace.metadata.tigerstyle]
+default_scope = ["-p", "good"]
+cargo_check_args = ["--lib"]

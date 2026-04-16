@@ -1,0 +1,5 @@
+$ nix run path:/home/brittonr/git/tigerstyle#cargo-tigerstyle -- check
+    Checking good v0.1.0 (/tmp/tigerstyle-first-class-consumer-proof.s7Lb2D/consumer/crates/good)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.05s
+$ cmp -s Cargo.lock Cargo.lock.before
+Cargo.lock unchanged

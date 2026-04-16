@@ -24,3 +24,4 @@ toml = "1"
 rustc_private = true
 
 [workspace]
+members = ["cargo-tigerstyle"]
