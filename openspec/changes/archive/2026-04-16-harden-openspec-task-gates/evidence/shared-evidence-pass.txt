@@ -1,0 +1,16 @@
+$ openspec_gate stage=tasks change=fixture-shared-evidence-pass
+Strategy: cross-family
+
+## Tasks-Stage Gate Review: `fixture-shared-evidence-pass`
+
+### 1–4: Pass
+
+V1 and V2 each trace to one spec scenario. Coverage matrix has two rows, one per scenario, both pointing at the same shared artifact. No napkin gaps.
+
+### 5. What blocks readiness?
+
+**No blocking findings.** Each scenario has its own V-task and its own coverage row. The shared artifact path is explicitly allowed by the governance spec: *"A scenario MAY share the same evidence artifact as another scenario, but it MUST still keep its own mapping row."*
+
+This is the **passing** fixture that serves parent change V4 (scenario "Shared transcript still keeps separate scenario rows").
+
+**Status: 0/2 done. Ready to be exercised by parent change V4.**

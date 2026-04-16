@@ -1,0 +1,43 @@
+<!-- Copy this file into openspec/changes/<change>/tasks.md and replace the placeholders. -->
+<!-- Use this template for active changes under openspec/changes/<change>/; archived changes keep their historical task shape. -->
+
+## Task ID rules
+
+- `I<n>` — one implementation claim only. Do not combine code changes with verification runs, saved evidence, or transcript capture in the same checkbox. Split that work into a separate `V<n>` or `H<n>` task.
+- Treat an `I<n>` checkbox as invalid if its text includes verification/evidence markers such as `verify`, `save`, `capture`, `evidence=`, or a repo-relative `evidence/` path.
+- `V<n>` — one deterministic verification claim for exactly one delta-spec scenario or one requirement-level invariant that has no scenario heading.
+- Before marking a change ready, read the delta specs and ensure every added or modified `Scenario:` heading appears in `## Verification Coverage` exactly once. Shared artifacts still need separate scenario rows.
+- `H<n>` — one human/oracle checkpoint using the exact field layout shown in `H1` below.
+- Treat an `H<n>` checkbox as invalid if any of `command=`, `input=`, `asserts=`, or `evidence=` is missing.
+
+## Phase 1: Implementation
+
+- [ ] I1 Implement <one code or document change>
+- [ ] I2 Update <one follow-on code or document change>
+
+Bad: `- [ ] I3 update parser and save cargo-test-lib.txt`
+Good: `- [ ] I3 update parser` plus `- [ ] V4 save cargo-test-lib.txt`
+
+## Phase 2: Deterministic verification
+
+- [ ] V1 Verify scenario "<Scenario heading>" with <test/helper>; save output at `openspec/changes/<change>/evidence/<artifact>.txt`
+- [ ] V2 Verify requirement "<Requirement heading>" with <test/helper>; save output at `openspec/changes/<change>/evidence/<artifact>.txt`
+
+## Phase 3: Human/oracle checkpoints
+
+- [ ] H1 Human/oracle checkpoint: command=`<exact command or helper path>`; input=`<pinned revision, fixture, or prerequisite artifact>`; asserts=`<single human claim>`; evidence=`openspec/changes/<change>/evidence/<artifact>.txt`
+
+## Verification Coverage
+
+- `Scenario: <Scenario heading>` -> `V1` -> `openspec/changes/<change>/evidence/<artifact>.txt`
+- `Requirement: <Requirement heading>` -> `V2` -> `openspec/changes/<change>/evidence/<artifact>.txt`
+
+Use one coverage row for every added or modified scenario heading.
+Use `Requirement:` rows only when a requirement has zero scenario headings.
+Multiple rows may point at the same artifact, but each scenario still needs its
+own row.
+
+Bad: `Scenario: A and B` -> `V3` -> `openspec/changes/<change>/evidence/shared.txt`
+Good:
+- `Scenario: A` -> `V3` -> `openspec/changes/<change>/evidence/shared.txt`
+- `Scenario: B` -> `V4` -> `openspec/changes/<change>/evidence/shared.txt`

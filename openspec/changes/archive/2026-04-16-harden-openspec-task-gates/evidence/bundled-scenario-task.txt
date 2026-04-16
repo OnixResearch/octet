@@ -1,0 +1,22 @@
+$ openspec_gate stage=tasks change=fixture-bundled-scenario-task
+Strategy: cross-family
+
+## Tasks-Stage Gate Review: `fixture-bundled-scenario-task`
+
+### 1–4: Pass
+
+V1 traces to both spec scenarios. Coverage matrix has two rows. No napkin gaps.
+
+### 5. What blocks readiness?
+
+**Finding (blocking, expected):** V1 names two scenarios in one checkbox — *"Verify scenarios 'One scenario does not hide inside a bundled checkbox' **and** 'Shared transcript still keeps separate scenario rows'"*. Per the governance spec, `V<n>` tasks MUST verify exactly one named scenario. This should be split into V1 and V2.
+
+The fixture is correctly shaped:
+- Coverage rows are both present (no spurious missing-row finding)
+- No I-task mixed-claim violations
+- No H-task field violations
+- The bundled V-task is the single intended blocker
+
+This fixture serves parent change V2 (scenario "One scenario does not hide inside a bundled checkbox").
+
+**Status: 0/1 done. Ready to be exercised by parent change V2.**

@@ -28,5 +28,9 @@ rules:
     - Reference concrete violations found in aspen
   tasks:
     - Changes must cover every MUST added by their delta specs
+    - Follow `openspec/templates/tasks.md` for `I<n>`, `V<n>`, and `H<n>` task IDs plus the trailing `## Verification Coverage` section
+    - Keep implementation, deterministic verification, and human/oracle checkpoints in separate checkbox units; an `I<n>` task becomes invalid if it includes markers like `verify`, `save`, `capture`, `evidence=`, or a repo-relative `evidence/` path
+    - Compare `tasks.md` against the delta-spec scenario headings and keep one `## Verification Coverage` row per added or modified scenario, even when multiple rows share one artifact
+    - `H<n>` tasks are invalid unless they include `command=`, `input=`, `asserts=`, and `evidence=`
     - Keep a reference-to-skill crosswalk for skill-coverage changes
     - Record validation evidence before marking the change complete

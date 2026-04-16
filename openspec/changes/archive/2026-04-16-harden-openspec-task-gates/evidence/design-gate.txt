@@ -1,0 +1,35 @@
+$ openspec_gate stage=design change=harden-openspec-task-gates
+Strategy: cross-family
+
+**Design Review**
+
+**1. Does the design cover the proposal and delta specs concretely?**
+
+Yes. Each of the four spec requirements maps to a numbered design decision:
+- Decision 1 → Structured Task Units
+- Decision 2 → Verification Coverage Matrix
+- Decision 3 → Human/Oracle Checkpoints Name Exact Inputs
+- Decision 4 → Tasks-Stage Gate Flags Missing Governance
+- Decision 5 → Proof strategy via fixtures
+
+The design specifies the exact emitted finding strings, the exact field layout for `H<n>`, the exact coverage row shape, and the structural markers that trigger `I<n>` blocking. This matches the napkin lesson about designs needing to own the full user-visible contract.
+
+**2. Are key decisions, trade-offs, risks, and verification strategy explicit?**
+
+Yes. Each decision includes rationale, rejected alternative, and implementation notes. Risks section covers authoring overhead, gate false positives on archived changes, and checkpoint sprawl. Verification strategy (Decision 5) names the fixture set and where transcripts land.
+
+**3. Does the design avoid known napkin anti-patterns?**
+
+- The "representative examples alone are not enough" napkin is addressed — Decision 5 commits to deterministic fixture-based proof, not hand-waved claims.
+- The design scopes to active changes only, avoiding retroactive archive churn.
+- The lint-engine napkin entries are irrelevant to this change (no Rust/lint work).
+
+**4. Are there unresolved choices that require human input before tasks?**
+
+One minor observation: Decision 4 lists `verify`, `save`, `capture`, `evidence=`, and `evidence/` as the structural markers for `I<n>` blocking. The word "save" could fire on legitimate implementation prose like "save the config to disk." The design doesn't discuss false-positive mitigation for that specific marker. However, the spec already committed to this exact marker set, and the risk is low in practice since `I<n>` tasks describe code changes, not file I/O operations. This doesn't need to block design advancement — it can be tuned during implementation if real false positives appear.
+
+**5. Should any napkin pattern be promoted?**
+
+The "any saved checker must assert every summary claim including zero-warning claims" pattern is already encoded in the `H<n>` `asserts=` field requirement. No additional promotion needed.
+
+**Verdict: design is ready to advance to tasks.** The decisions are concrete, the proof strategy is deterministic, and there are no unresolved choices blocking implementation planning.

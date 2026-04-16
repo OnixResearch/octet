@@ -1,0 +1,18 @@
+$ openspec_gate stage=tasks change=fixture-human-checkpoint-missing-evidence-blocked
+Strategy: cross-family
+
+## Tasks-Stage Gate Review: `fixture-human-checkpoint-missing-evidence-blocked`
+
+### 1–4: Pass
+
+H1 traces to the single spec scenario. No napkin gaps.
+
+### 5. What blocks readiness?
+
+**Finding (blocking, expected):** `Human/oracle task H1 is missing command=, input=, asserts=, or evidence=` — H1 includes `command=`, `input=`, and `asserts=` but omits `evidence=`.
+
+Correctly shaped: one intentional H-field omission, no spurious I-task or scenario-coverage violations. Coverage matrix maps the single scenario to H1.
+
+This fixture serves parent change V8 (scenario "Human checkpoint missing evidence path is blocked"). It parallels `fixture-human-checkpoint-missing-field` (which serves V5) with the same violation but targeting the specific blocking-finding scenario.
+
+**Status: 0/1 done. Ready to be exercised by parent change V8.**

@@ -1,0 +1,33 @@
+$ openspec_gate stage=tasks change=fixture-bundled-implementation-blocked
+Strategy: cross-family
+
+## Tasks-Stage Gate Review: `fixture-bundled-implementation-blocked`
+
+### 1. Traceability
+
+**Pass.** I1 and V1 both trace to the single spec scenario "Bundled implementation task is blocked." Coverage matrix has one row for that scenario.
+
+### 2. Small, verifiable, ordered sensibly
+
+**Pass.** Two tasks, correctly ordered.
+
+### 3. Verification work included
+
+**Pass.** V1 covers the single scenario.
+
+### 4. Napkin entries
+
+**No gaps.**
+
+### 5. What blocks readiness?
+
+**Finding (blocking, expected):** `Task I1 mixes implementation and verification/evidence claims` — I1 text includes `save` and `evidence/` path.
+
+This is the fixture's intended outcome, identical to the `fixture-bundled-implementation-split` fixture reviewed earlier. Both fixtures target the same governance violation but from different parent-change V-tasks:
+
+- `fixture-bundled-implementation-split` serves V1 (scenario "Implementation and verification are split")
+- `fixture-bundled-implementation-blocked` serves V6 (scenario "Bundled implementation task is blocked")
+
+The fixture is correctly shaped: one intentional I-task violation, coverage matrix otherwise complete, no spurious failures.
+
+**Status: 0/2 done. Ready to be exercised by parent change V6.**
