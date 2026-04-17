@@ -10,11 +10,28 @@ For rollout profiles and Aspen-backed evidence, see `downstream-rollout.md`.
 
 ## Supported entry points
 
-Use the first-class runner surface:
+Use the first-class runner surface. Pick one of these paths:
+
+Nix one-off:
 
 ```bash
-cargo tigerstyle check
 nix run path:/path/to/tigerstyle#cargo-tigerstyle -- check
+```
+
+Outside Nix, install the subcommand once, then export the bootstrap revision
+used by this repo before running it:
+
+```bash
+cargo install --path /path/to/tigerstyle/cargo-tigerstyle
+export TIGERSTYLE_DYLINT_REV=0e0a71eefe6f01563d11acc6e1d7af1d505934a9
+cargo tigerstyle check
+```
+
+For repo-local one-offs without installation, reuse the same
+`TIGERSTYLE_DYLINT_REV` export and run the binary from the checkout:
+
+```bash
+cargo run --manifest-path /path/to/tigerstyle/cargo-tigerstyle/Cargo.toml -- check
 ```
 
 For Nix consumers wiring tigerstyle into `nix flake check`, use the first-party
@@ -23,8 +40,8 @@ helper exposed from `flake.nix`:
 - `lib.mkConsumerCheck`
 
 Historical `TIGERSTYLE_PATH` wrappers still exist in archived rollout evidence,
-but they are replay-only. New consumers should start from
-`cargo tigerstyle check` plus `[workspace.metadata.tigerstyle]`.
+but they are replay-only. New consumers should start from one of the first-class
+paths above plus `[workspace.metadata.tigerstyle]`.
 
 ## Quick start
 
@@ -62,6 +79,9 @@ Runner keys:
 | `cargo_check_args` | default cargo-check tail such as `--lib` |
 
 ### 3. Run the check
+
+Run one of the supported entry points above from the workspace root. If you
+installed `cargo-tigerstyle`, the common shape is:
 
 ```bash
 cargo tigerstyle check
@@ -127,7 +147,10 @@ Current names that appear in wrappers and support tooling:
 - `TIGERSTYLE_DRIVER_PATH`
 - `TIGERSTYLE_LINT_LIB`
 - `TIGERSTYLE_TOOLCHAIN`
-- `TIGERSTYLE_DYLINT_REV` for bootstrap/replay helpers
+- `TIGERSTYLE_DYLINT_REV` for driver bootstrap and replay helpers
+
+Outside Nix, `TIGERSTYLE_DYLINT_REV` is the simplest bootstrap knob when your
+wrapper does not already provide `TIGERSTYLE_DRIVER_PATH`.
 
 `TIGERSTYLE_PATH` belongs to historical wrapper-based replay flows, not the
 current recommended onboarding path.

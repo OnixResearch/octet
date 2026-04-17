@@ -18,11 +18,20 @@ default_scope = ["-p", "your-core-crate"]
 cargo_check_args = ["--lib"]
 ```
 
-3. Run tigerstyle through the first-class runner:
+3. Run tigerstyle through the first-class runner.
+
+Nix:
 
 ```bash
-cargo tigerstyle check
 nix run path:/path/to/tigerstyle#cargo-tigerstyle -- check
+```
+
+Outside Nix, install the cargo subcommand once, then follow
+`docs/consumer-guide.md` for the repo-pinned `TIGERSTYLE_DYLINT_REV` bootstrap
+before running `cargo tigerstyle check`:
+
+```bash
+cargo install --path /path/to/tigerstyle/cargo-tigerstyle
 ```
 
 4. Tune thresholds, disabled lints, and per-lint levels in `dylint.toml`.
@@ -44,10 +53,6 @@ path.
 | workspace runner config | `[workspace.metadata.tigerstyle]` |
 | lint tuning config | `[tigerstyle]` and `[tigerstyle.lint_levels]` |
 | support env prefix | `TIGERSTYLE_*` |
-
-Typical Rust convention: keep the short canonical name for the project and
-crate, and use a `-rs` GitHub slug only when the repo slug needs a Rust-specific
-disambiguator.
 
 ## Lint domains at a glance
 
