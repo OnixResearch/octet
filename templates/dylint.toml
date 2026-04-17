@@ -65,6 +65,7 @@
 #   "assertion_density",
 #   "multi_lock_ordering",
 #   "unbounded_collection_growth",
+#   "sentinel_fallback",
 #   "too_many_parameters",
 #   "bool_naming",
 #   "ignored_result",

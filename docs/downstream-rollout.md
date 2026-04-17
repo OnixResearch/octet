@@ -56,14 +56,14 @@ whatever Aspen HEAD happens to run today.
 
 ## Current widened reference: Aspen phase 2
 
-Use phase 1 as the canonical starter path. After that, Aspen's current widened
-reference is captured in this repo by:
+Use phase 1 as the canonical starter path. After that, Aspen's widened phase-2
+reference is archived in this repo at:
 
-- replay helper: `bash openspec/changes/aspen-phase2-widening/evidence/replay-aspen-phase2.sh`
-- Aspen HEAD snapshot: `openspec/changes/aspen-phase2-widening/evidence/aspen-phase2-meta.txt`
-- widened default pilot: `openspec/changes/aspen-phase2-widening/evidence/aspen-phase2-default-pilot.txt`
-- targeted `aspen-coordination` rerun: `openspec/changes/aspen-phase2-widening/evidence/aspen-phase2-coordination.txt`
-- widening assertions: `openspec/changes/aspen-phase2-widening/evidence/aspen-phase2-check.txt`
+- replay helper: `bash openspec/changes/archive/2026-04-14-aspen-phase2-widening/evidence/replay-aspen-phase2.sh`
+- Aspen HEAD snapshot: `openspec/changes/archive/2026-04-14-aspen-phase2-widening/evidence/aspen-phase2-meta.txt`
+- widened default pilot: `openspec/changes/archive/2026-04-14-aspen-phase2-widening/evidence/aspen-phase2-default-pilot.txt`
+- targeted `aspen-coordination` rerun: `openspec/changes/archive/2026-04-14-aspen-phase2-widening/evidence/aspen-phase2-coordination.txt`
+- widening assertions: `openspec/changes/archive/2026-04-14-aspen-phase2-widening/evidence/aspen-phase2-check.txt`
 
 What that widened reference proves:
 
@@ -193,6 +193,7 @@ disabled_lints = [
   "assertion_density",
   "multi_lock_ordering",
   "unbounded_collection_growth",
+  "sentinel_fallback",
   "too_many_parameters",
   "bool_naming",
   "ignored_result",
@@ -276,6 +277,7 @@ disabled_lints = [
   "explicit_defaults",
   "unbounded_channel",
   "unbounded_collection_growth",
+  "sentinel_fallback",
   "usize_in_public_api",
   "too_many_parameters",
   "negated_predicate",
@@ -383,17 +385,23 @@ Minimum assumptions for the template:
   `TIGERSTYLE_PATH` is set
 - the maintainer edits `default_scope` before landing the script
 
-When wrappers are unnecessary, delete the wrapper section and call plain
-`cargo dylint`. The template is a recipe, not a policy requirement.
+When archive-only wrappers are unnecessary, delete the wrapper section and call
+the supported first-class runner instead:
+
+- `cargo tigerstyle check`
+- `nix run path:/path/to/tigerstyle#cargo-tigerstyle -- check`
+
+Do not treat plain `cargo dylint` as the rollout surface. The template is a
+recipe, not a policy requirement.
 
 ## Second consumer proof
 
-Non-Aspen replay proof in this repo:
+Archived non-Aspen replay proof in this repo:
 
-- replay helper: `bash openspec/changes/second-consumer-proof/evidence/replay-second-consumer.sh`
-- consumer snapshot: `openspec/changes/second-consumer-proof/evidence/second-consumer-meta.txt`
-- run transcript: `openspec/changes/second-consumer-proof/evidence/second-consumer-proof.txt`
-- replay assertions: `openspec/changes/second-consumer-proof/evidence/second-consumer-check.txt`
+- replay helper: `bash openspec/changes/archive/2026-04-14-second-consumer-proof/evidence/replay-second-consumer.sh`
+- consumer snapshot: `openspec/changes/archive/2026-04-14-second-consumer-proof/evidence/second-consumer-meta.txt`
+- run transcript: `openspec/changes/archive/2026-04-14-second-consumer-proof/evidence/second-consumer-proof.txt`
+- replay assertions: `openspec/changes/archive/2026-04-14-second-consumer-proof/evidence/second-consumer-check.txt`
 
 Current saved proof uses `aspen-verus-metrics` from a disposable sandbox. That
 archived helper still copies the historical shell wrapper plus
