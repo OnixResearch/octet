@@ -1,5 +1,9 @@
 # Downstream rollout kit
 
+Start with `docs/consumer-guide.md` if you need first-run setup, config split,
+or the current supported entry points. This page is the deeper rollout playbook
+for staged adoption, Aspen-backed evidence, and replay-only historical paths.
+
 Aspen gave `tigerstyle` its first evidence-backed downstream rollout. This kit
 turns that rollout into guidance for later consumers.
 

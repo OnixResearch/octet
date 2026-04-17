@@ -1,0 +1,53 @@
+$ printf "README headings\\n"; rg -n "^#{1,2} " README.md; printf "\\nDocs headings\\n"; find docs -maxdepth 1 -name "*.md" | sort | xargs -r -n1 sh -c 'printf "%s\\n" "--- $1"; rg -n "^#{1,2} " "$1"' sh
+README headings
+1:# tigerstyle
+10:## Quick start
+33:## Naming map
+48:## Lint domains at a glance
+61:## Documentation
+68:## License
+
+Docs headings
+--- docs/consumer-guide.md
+1:# Consumer guide
+11:## Supported entry points
+29:## Quick start
+96:## Nix integration
+119:## Runtime environment contract
+135:## Migration note: `todo!()` escapes moved to `no_todo`
+151:## Next docs
+--- docs/contributor-guide.md
+1:# Contributor guide
+10:## Source-of-truth map
+28:## If you add or change a lint
+46:## If you add or change a config key
+66:## If you add or change a published entry point
+88:## Verification rails
+107:## OpenSpec touchpoints
+--- docs/downstream-rollout.md
+1:# Downstream rollout kit
+10:## Active path: first-class consumer integration
+41:## Reference state: use the Aspen archive, not Aspen HEAD
+57:## Current widened reference: Aspen phase 2
+79:## Starter rollout profiles
+144:## Profile-to-config mapping
+306:## Promotion checklist for adding crates or packages
+322:## Phase-2 widening playbook
+344:## Historical wrapper path for replay only
+389:## Second consumer proof
+419:## Consumer-owned `dylint.toml`
+457:## Standalone raw-rustc tool attrs
+470:## `ambient_clock` boundary playbook
+538:## High-noise lint promotion playbook
+581:## Aspen phase-1 reconstruction
+--- docs/lint-reference.md
+1:# Lint reference
+9:## Catalog summary
+21:## Suppression and level controls
+55:## Config keys
+70:## Safety lints (`tigerstyle::safety`)
+92:## Naming lints (`tigerstyle::naming`)
+102:## Structure lints (`tigerstyle::structure`)
+115:## Purity lints (`tigerstyle::purity`)
+123:## Concurrency lints (`tigerstyle::concurrency`)
+129:## Related docs

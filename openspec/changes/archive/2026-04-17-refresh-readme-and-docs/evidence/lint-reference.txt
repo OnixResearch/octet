@@ -1,0 +1,99 @@
+$ rg -n "default|allow\\(|deny\\(|disabled_lints|lint_levels|tigerstyle::" docs/*.md
+docs/lint-reference.md:3:This page lists the shipped tigerstyle lints, their default levels, and the
+docs/lint-reference.md:15:| safety | `tigerstyle::safety` | 17 |
+docs/lint-reference.md:16:| naming | `tigerstyle::naming` | 5 |
+docs/lint-reference.md:17:| structure | `tigerstyle::structure` | 8 |
+docs/lint-reference.md:18:| purity | `tigerstyle::purity` | 3 |
+docs/lint-reference.md:19:| concurrency | `tigerstyle::concurrency` | 1 |
+docs/lint-reference.md:26:#[allow(tigerstyle::unchecked_narrowing)]
+docs/lint-reference.md:27:#![deny(tigerstyle::naming)]
+docs/lint-reference.md:28:#![warn(tigerstyle::numeric_units)]
+docs/lint-reference.md:35:disabled_lints = ["no_unwrap"]
+docs/lint-reference.md:37:[tigerstyle.lint_levels]
+docs/lint-reference.md:44:- source attrs and domain groups use `tigerstyle::...`
+docs/lint-reference.md:45:- `disabled_lints` and `[tigerstyle.lint_levels]` use bare lint names
+docs/lint-reference.md:46:- `disabled_lints` wins over `lint_levels`
+docs/lint-reference.md:47:- allow-by-default lints can be turned on with `#![warn(...)]` or a lint-level override
+docs/lint-reference.md:65:| `disabled_lints` | `[]` | all lints | bare lint names only; disabled lints do not register |
+docs/lint-reference.md:66:| `[tigerstyle.lint_levels]` | `{}` | all lints | bare lint names mapped to `allow`, `warn`, or `deny` |
+docs/lint-reference.md:70:## Safety lints (`tigerstyle::safety`)
+docs/lint-reference.md:79:| `unjustified_no_todo_allow` | `warn` | require a local `//` justification for `allow(no_todo)` / `allow(tigerstyle::no_todo)` |
+docs/lint-reference.md:85:| `explicit_defaults` | `warn` | avoid foreign `Default` shorthands such as `..Default::default()` |
+docs/lint-reference.md:92:## Naming lints (`tigerstyle::naming`)
+docs/lint-reference.md:102:## Structure lints (`tigerstyle::structure`)
+docs/lint-reference.md:112:| `unjustified_allow` | `allow` | require local justification for `#[allow(clippy::...)]` |
+docs/lint-reference.md:115:## Purity lints (`tigerstyle::purity`)
+docs/lint-reference.md:123:## Concurrency lints (`tigerstyle::concurrency`)
+docs/contributor-guide.md:16:| config schema and defaults | `src/config.rs` |
+docs/contributor-guide.md:38:- `docs/lint-reference.md` for name, default level, domain, and summary
+docs/contributor-guide.md:64:- source attrs and group attrs stay canonical (`tigerstyle::no_unwrap`, `tigerstyle::safety`)
+docs/contributor-guide.md:104:rg -n "cargo tigerstyle check|cargo-tigerstyle|tigerstyle::|\[tigerstyle\]|\[workspace.metadata.tigerstyle\]" README.md docs/*.md
+docs/consumer-guide.md:42:`disabled_lints`, or `[tigerstyle.lint_levels]`.
+docs/consumer-guide.md:48:default_scope = ["-p", "your-core-crate"]
+docs/consumer-guide.md:61:| `default_scope` | default `cargo check` scope when the command gets no explicit `-p` / `--workspace` flags |
+docs/consumer-guide.md:62:| `cargo_check_args` | default cargo-check tail such as `--lib` |
+docs/consumer-guide.md:83:disabled_lints = ["no_unwrap"]
+docs/consumer-guide.md:85:[tigerstyle.lint_levels]
+docs/consumer-guide.md:92:#[allow(tigerstyle::unchecked_narrowing)]
+docs/consumer-guide.md:93:#![deny(tigerstyle::naming)]
+docs/consumer-guide.md:137:If a workspace still uses justified `todo!()` stubs under `allow(no_panic)` or
+docs/consumer-guide.md:138:`allow(tigerstyle::no_panic)`, migrate them to `no_todo`:
+docs/consumer-guide.md:140:- `#[allow(no_todo)]`
+docs/consumer-guide.md:141:- `#[allow(tigerstyle::no_todo)]`
+docs/consumer-guide.md:153:- `lint-reference.md` for the full lint catalog, defaults, and config keys
+docs/downstream-rollout.md:25:default_scope = ["-p", "your-core-crate"]
+docs/downstream-rollout.md:48:- default-run transcript: `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/aspen-default-run.txt`
+docs/downstream-rollout.md:64:- widened default pilot: `openspec/changes/aspen-phase2-widening/evidence/aspen-phase2-default-pilot.txt`
+docs/downstream-rollout.md:70:- default scope now includes `-p aspen-time -p aspen-hlc -p aspen-core -p aspen-coordination`
+docs/downstream-rollout.md:71:- Aspen's current default lint set is now `ambient_clock`,
+docs/downstream-rollout.md:86:- lints: `ambient_clock`, `compound_assertion`, `contradictory_time`, `explicit_defaults`, `unbounded_channel`, `usize_in_public_api`, `negated_predicate`
+docs/downstream-rollout.md:102:Use this for the first repeatable default path.
+docs/downstream-rollout.md:105:- lints: `ambient_clock`, `compound_assertion`, `contradictory_time`, `explicit_defaults`, `unbounded_channel`, `usize_in_public_api`, `negated_predicate`
+docs/downstream-rollout.md:122:  - evidence: `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/aspen-default-run.txt`
+docs/downstream-rollout.md:125:  - 1 `explicit_defaults`
+docs/downstream-rollout.md:127:  - evidence: `openspec/changes/archive/2026-04-16-promote-low-noise-starter-lints/evidence/aspen-promoted-starter-default.txt`
+docs/downstream-rollout.md:131:Use this before promoting any noisy lint family into a default path.
+docs/downstream-rollout.md:134:- goal: build an inventory, not enforce a workspace-wide default yet
+docs/downstream-rollout.md:135:- default families: `ignored_result`, `no_unwrap`, `no_panic`, `no_todo`,
+docs/downstream-rollout.md:149:- scope in `[workspace.metadata.tigerstyle]` (`default_scope`) or in explicit
+docs/downstream-rollout.md:151:- `disabled_lints` / `lint_levels` entries in consumer-owned `dylint.toml`
+docs/downstream-rollout.md:155:- omitted `disabled_lints` / `lint_levels` default to empty collections
+docs/downstream-rollout.md:157:- `disabled_lints` wins over `lint_levels` and source-level lint attrs because
+docs/downstream-rollout.md:167:- old escape-hatch spellings `#[allow(no_panic)]` and
+docs/downstream-rollout.md:168:  `#[allow(tigerstyle::no_panic)]` no longer justify `todo!()`
+docs/downstream-rollout.md:169:- migrate justified stubs to `#[allow(no_todo)]` or
+docs/downstream-rollout.md:170:  `#[allow(tigerstyle::no_todo)]`
+docs/downstream-rollout.md:172:Live Aspen code still carries bare `#![allow(no_panic)]` crate attrs, so keep
+docs/downstream-rollout.md:184:disabled_lints = [
+docs/downstream-rollout.md:215:`explicit_defaults`, `unbounded_channel`, `usize_in_public_api`, and
+docs/downstream-rollout.md:242:| `explicit_defaults` | 1 | 2 | `promoted` |
+docs/downstream-rollout.md:264:disabled_lints = [
+docs/downstream-rollout.md:276:  "explicit_defaults",
+docs/downstream-rollout.md:299:[tigerstyle.lint_levels]
+docs/downstream-rollout.md:303:After a family is low-noise, promote it by deleting it from `disabled_lints`
+docs/downstream-rollout.md:304:and, if needed, raising it in `lint_levels`.
+docs/downstream-rollout.md:308:Add a new crate or package to the default path only when all of these hold:
+docs/downstream-rollout.md:317:5. no crate- or module-wide `#![allow(tigerstyle::...)]` is hiding unresolved
+docs/downstream-rollout.md:332:5. only then widen the no-argument default path and save a transcript for both
+docs/downstream-rollout.md:333:   the widened default run and the cleaned package slice
+docs/downstream-rollout.md:341:- widened result: default pilot now includes `aspen-coordination` and two extra
+docs/downstream-rollout.md:367:- owns the documented starter profile, default scope, and default cargo-check
+docs/downstream-rollout.md:372:consumer's enabled warn-by-default tigerstyle lints unless the consumer changes
+docs/downstream-rollout.md:384:- the maintainer edits `default_scope` before landing the script
+docs/downstream-rollout.md:400:`templates/dylint.toml`, edits `default_scope` to `-p aspen-verus-metrics`, then
+docs/downstream-rollout.md:427:- per-lint rollout controls (`disabled_lints`, `lint_levels`)
+docs/downstream-rollout.md:429:  defaults and what cleanup would remove the override
+docs/downstream-rollout.md:433:- omitted `disabled_lints` and `lint_levels` default to empty collections
+docs/downstream-rollout.md:435:- `disabled_lints` and `[tigerstyle.lint_levels]` keep bare lint-name keys such
+docs/downstream-rollout.md:437:  `tigerstyle::no_unwrap` and `tigerstyle::safety`
+docs/downstream-rollout.md:438:- `disabled_lints` takes precedence over `lint_levels` and source-level attrs
+docs/downstream-rollout.md:450:`tigerstyle` defaults.
+docs/downstream-rollout.md:468:`#[allow(tigerstyle::ambient_clock)]` before the lint can run.
+docs/downstream-rollout.md:483:#[allow(tigerstyle::ambient_clock, reason = "RPC boundary owns deadline capture")]
+docs/downstream-rollout.md:514:#[allow(tigerstyle::ambient_clock, reason = "poll loop owns wall-clock timeout")]
+docs/downstream-rollout.md:529:- crate-wide `#![allow(tigerstyle::ambient_clock)]`
+docs/downstream-rollout.md:558:| `no_panic` | `unimplemented!`, `panic!`, `unreachable!`, generated code | crash-only boundary shims, impossible states not yet encoded in types | categorized inventory, follow-up cleanup issue for each surviving abort site, rerun proving default scope stays bounded |
+docs/downstream-rollout.md:559:| `no_todo` | `todo!`, legacy `allow(no_panic)` stubs, generated code | temporary rollout stubs, unfinished migrations, stale bare/tool-scoped escape hatches | categorized inventory, rename any surviving `allow(no_panic)` stub escapes to `no_todo`, rerun proving the remaining stub set stays reviewable |
+docs/downstream-rollout.md:565:A narrow item-scoped `#[allow(tigerstyle::... , reason = "...")]` is acceptable
+docs/downstream-rollout.md:607:   while running the default path and the `aspen-coordination` spotcheck
+docs/downstream-rollout.md:625:- `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/aspen-default-run.txt`

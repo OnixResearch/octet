@@ -1,0 +1,41 @@
+$ rg -n "src/lib.rs|src/diagnostics.rs|README.md|docs/|templates/dylint.toml|openspec/specs" docs/*.md
+docs/lint-reference.md:7:For the landing-page naming map, see `../README.md`.
+docs/lint-reference.md:133:- `../templates/dylint.toml` — copyable consumer template with rollout comments
+docs/downstream-rollout.md:3:Start with `docs/consumer-guide.md` if you need first-run setup, config split,
+docs/downstream-rollout.md:400:`templates/dylint.toml`, edits `default_scope` to `-p aspen-verus-metrics`, then
+docs/downstream-rollout.md:421:Copy `templates/dylint.toml` into the consumer workspace root.
+docs/downstream-rollout.md:599:2. copy the archived phase-1 shell wrapper together with `templates/dylint.toml`
+docs/consumer-guide.md:7:For the landing page and naming map, see `../README.md`.
+docs/consumer-guide.md:33:Copy `templates/dylint.toml` into the workspace root as `dylint.toml`.
+docs/contributor-guide.md:6:For the landing page and naming table, see `../README.md`.
+docs/contributor-guide.md:14:| lint inventory and registration | `src/lib.rs` |
+docs/contributor-guide.md:15:| diagnostic wording, guide sections, domain groups | `src/diagnostics.rs` |
+docs/contributor-guide.md:19:| consumer-owned template | `templates/dylint.toml` |
+docs/contributor-guide.md:20:| landing page and naming map | `README.md` |
+docs/contributor-guide.md:21:| consumer onboarding docs | `docs/consumer-guide.md` |
+docs/contributor-guide.md:22:| lint catalog and config reference | `docs/lint-reference.md` |
+docs/contributor-guide.md:23:| deep rollout playbook | `docs/downstream-rollout.md` |
+docs/contributor-guide.md:24:| OpenSpec documentation contract | `openspec/specs/documentation/spec.md` |
+docs/contributor-guide.md:25:| OpenSpec consumer runner contract | `openspec/specs/consumer-integration/spec.md` |
+docs/contributor-guide.md:32:- `src/lib.rs`
+docs/contributor-guide.md:33:- `src/diagnostics.rs`
+docs/contributor-guide.md:38:- `docs/lint-reference.md` for name, default level, domain, and summary
+docs/contributor-guide.md:39:- `README.md` if the total lint count or domain summary changes
+docs/contributor-guide.md:40:- `docs/consumer-guide.md` if suppression or rollout guidance changes
+docs/contributor-guide.md:41:- `docs/downstream-rollout.md` if starter or inventory guidance changes
+docs/contributor-guide.md:44:- the relevant OpenSpec spec (`openspec/specs/documentation/spec.md` and domain specs such as `openspec/specs/safety/spec.md`)
+docs/contributor-guide.md:55:- `docs/lint-reference.md` config table
+docs/contributor-guide.md:56:- `docs/consumer-guide.md` if onboarding or tuning guidance changes
+docs/contributor-guide.md:57:- `templates/dylint.toml`
+docs/contributor-guide.md:58:- `README.md` if the naming or quick-start surface changes
+docs/contributor-guide.md:59:- the relevant OpenSpec spec (`openspec/specs/documentation/spec.md` and any affected domain spec)
+docs/contributor-guide.md:76:- `README.md` naming map and quick-start section
+docs/contributor-guide.md:77:- `docs/consumer-guide.md`
+docs/contributor-guide.md:78:- `docs/downstream-rollout.md` if rollout guidance changes
+docs/contributor-guide.md:81:- `openspec/specs/documentation/spec.md`
+docs/contributor-guide.md:82:- `openspec/specs/consumer-integration/spec.md`
+docs/contributor-guide.md:85:`README.md` as the canonical public list and make deeper docs link back to it
+docs/contributor-guide.md:104:rg -n "cargo tigerstyle check|cargo-tigerstyle|tigerstyle::|\[tigerstyle\]|\[workspace.metadata.tigerstyle\]" README.md docs/*.md
+docs/contributor-guide.md:113:- update `openspec/specs/documentation/spec.md` when the docs contract changes
+docs/contributor-guide.md:114:- update `openspec/specs/consumer-integration/spec.md` when command, Nix helper, or metadata behavior changes
+docs/contributor-guide.md:116:If a change finishes every task, sync the delta spec into `openspec/specs/` and
