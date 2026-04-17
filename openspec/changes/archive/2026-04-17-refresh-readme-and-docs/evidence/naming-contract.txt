@@ -1,0 +1,83 @@
+$ rg -n "cargo-tigerstyle|cargo tigerstyle check|tigerstyle::|\\[tigerstyle\\]|\\[workspace.metadata.tigerstyle\\]|TIGERSTYLE_" README.md docs/*.md
+docs/lint-reference.md:15:| safety | `tigerstyle::safety` | 17 |
+docs/lint-reference.md:16:| naming | `tigerstyle::naming` | 5 |
+docs/lint-reference.md:17:| structure | `tigerstyle::structure` | 8 |
+docs/lint-reference.md:18:| purity | `tigerstyle::purity` | 3 |
+docs/lint-reference.md:19:| concurrency | `tigerstyle::concurrency` | 1 |
+docs/lint-reference.md:26:#[allow(tigerstyle::unchecked_narrowing)]
+docs/lint-reference.md:27:#![deny(tigerstyle::naming)]
+docs/lint-reference.md:28:#![warn(tigerstyle::numeric_units)]
+docs/lint-reference.md:34:[tigerstyle]
+docs/lint-reference.md:44:- source attrs and domain groups use `tigerstyle::...`
+docs/lint-reference.md:70:## Safety lints (`tigerstyle::safety`)
+docs/lint-reference.md:79:| `unjustified_no_todo_allow` | `warn` | require a local `//` justification for `allow(no_todo)` / `allow(tigerstyle::no_todo)` |
+docs/lint-reference.md:92:## Naming lints (`tigerstyle::naming`)
+docs/lint-reference.md:102:## Structure lints (`tigerstyle::structure`)
+docs/lint-reference.md:115:## Purity lints (`tigerstyle::purity`)
+docs/lint-reference.md:123:## Concurrency lints (`tigerstyle::concurrency`)
+docs/contributor-guide.md:17:| cargo subcommand parsing and engine behavior | `cargo-tigerstyle/src/cli.rs`, `cargo-tigerstyle/src/config.rs`, `cargo-tigerstyle/src/engine.rs` |
+docs/contributor-guide.md:64:- source attrs and group attrs stay canonical (`tigerstyle::no_unwrap`, `tigerstyle::safety`)
+docs/contributor-guide.md:70:- `cargo-tigerstyle/src/cli.rs`
+docs/contributor-guide.md:71:- `cargo-tigerstyle/src/engine.rs`
+docs/contributor-guide.md:84:If the change touches `TIGERSTYLE_*` names, keep the naming table in
+docs/contributor-guide.md:104:rg -n "cargo tigerstyle check|cargo-tigerstyle|tigerstyle::|\[tigerstyle\]|\[workspace.metadata.tigerstyle\]" README.md docs/*.md
+docs/downstream-rollout.md:17:2. add runner metadata in `[workspace.metadata.tigerstyle]` in the workspace
+docs/downstream-rollout.md:19:3. run `cargo tigerstyle check`
+docs/downstream-rollout.md:24:[workspace.metadata.tigerstyle]
+docs/downstream-rollout.md:33:- `nix run path:/path/to/tigerstyle#cargo-tigerstyle -- check`
+docs/downstream-rollout.md:34:- consumer flake checks should call the same `cargo-tigerstyle` engine through
+docs/downstream-rollout.md:149:- scope in `[workspace.metadata.tigerstyle]` (`default_scope`) or in explicit
+docs/downstream-rollout.md:150:  `cargo tigerstyle check -p ...` overrides
+docs/downstream-rollout.md:168:  `#[allow(tigerstyle::no_panic)]` no longer justify `todo!()`
+docs/downstream-rollout.md:170:  `#[allow(tigerstyle::no_todo)]`
+docs/downstream-rollout.md:183:[tigerstyle]
+docs/downstream-rollout.md:263:[tigerstyle]
+docs/downstream-rollout.md:310:1. the documented `cargo tigerstyle check` / `nix run ...#cargo-tigerstyle`
+docs/downstream-rollout.md:317:5. no crate- or module-wide `#![allow(tigerstyle::...)]` is hiding unresolved
+docs/downstream-rollout.md:365:- points Dylint at a local `tigerstyle` checkout through `TIGERSTYLE_PATH` or a
+docs/downstream-rollout.md:383:  `TIGERSTYLE_PATH` is set
+docs/downstream-rollout.md:403:`cargo tigerstyle check` plus `[workspace.metadata.tigerstyle]`.
+docs/downstream-rollout.md:416:That third point is exactly why the template exposes `TIGERSTYLE_DYLINT_REV`
+docs/downstream-rollout.md:437:  `tigerstyle::no_unwrap` and `tigerstyle::safety`
+docs/downstream-rollout.md:468:`#[allow(tigerstyle::ambient_clock)]` before the lint can run.
+docs/downstream-rollout.md:483:#[allow(tigerstyle::ambient_clock, reason = "RPC boundary owns deadline capture")]
+docs/downstream-rollout.md:514:#[allow(tigerstyle::ambient_clock, reason = "poll loop owns wall-clock timeout")]
+docs/downstream-rollout.md:529:- crate-wide `#![allow(tigerstyle::ambient_clock)]`
+docs/downstream-rollout.md:565:A narrow item-scoped `#[allow(tigerstyle::... , reason = "...")]` is acceptable
+docs/downstream-rollout.md:606:5. export `TIGERSTYLE_DYLINT_REV=0e0a71eefe6f01563d11acc6e1d7af1d505934a9`
+README.md:16:[workspace.metadata.tigerstyle]
+README.md:24:cargo tigerstyle check
+README.md:25:nix run path:/path/to/tigerstyle#cargo-tigerstyle -- check
+README.md:38:| binary | `cargo-tigerstyle` |
+README.md:39:| command | `cargo tigerstyle check` |
+README.md:40:| lint attrs and domain groups | `tigerstyle::<lint>` and `tigerstyle::<domain>` |
+README.md:41:| workspace runner config | `[workspace.metadata.tigerstyle]` |
+README.md:42:| lint tuning config | `[tigerstyle]` and `[tigerstyle.lint_levels]` |
+README.md:43:| support env prefix | `TIGERSTYLE_*` |
+docs/consumer-guide.md:16:cargo tigerstyle check
+docs/consumer-guide.md:17:nix run path:/path/to/tigerstyle#cargo-tigerstyle -- check
+docs/consumer-guide.md:25:Historical `TIGERSTYLE_PATH` wrappers still exist in archived rollout evidence,
+docs/consumer-guide.md:27:`cargo tigerstyle check` plus `[workspace.metadata.tigerstyle]`.
+docs/consumer-guide.md:38:[tigerstyle]
+docs/consumer-guide.md:47:[workspace.metadata.tigerstyle]
+docs/consumer-guide.md:54:- `[workspace.metadata.tigerstyle]` owns runner policy
+docs/consumer-guide.md:55:- `[tigerstyle]` in `dylint.toml` owns lint tuning
+docs/consumer-guide.md:67:cargo tigerstyle check
+docs/consumer-guide.md:73:cargo tigerstyle check -p crate-a
+docs/consumer-guide.md:74:cargo tigerstyle check -p crate-a -- --all-targets
+docs/consumer-guide.md:82:[tigerstyle]
+docs/consumer-guide.md:92:#[allow(tigerstyle::unchecked_narrowing)]
+docs/consumer-guide.md:93:#![deny(tigerstyle::naming)]
+docs/consumer-guide.md:104:nix run path:/path/to/tigerstyle#cargo-tigerstyle -- check
+docs/consumer-guide.md:113:- `TIGERSTYLE_DRIVER_PATH`
+docs/consumer-guide.md:114:- `TIGERSTYLE_LINT_LIB`
+docs/consumer-guide.md:115:- `TIGERSTYLE_TOOLCHAIN`
+docs/consumer-guide.md:117:Replay or bootstrap helpers may also set `TIGERSTYLE_DYLINT_REV`.
+docs/consumer-guide.md:121:The public runner surface uses the `TIGERSTYLE_*` namespace for support wiring.
+docs/consumer-guide.md:127:- `TIGERSTYLE_DRIVER_PATH`
+docs/consumer-guide.md:128:- `TIGERSTYLE_LINT_LIB`
+docs/consumer-guide.md:129:- `TIGERSTYLE_TOOLCHAIN`
+docs/consumer-guide.md:130:- `TIGERSTYLE_DYLINT_REV` for bootstrap/replay helpers
+docs/consumer-guide.md:132:`TIGERSTYLE_PATH` belongs to historical wrapper-based replay flows, not the
+docs/consumer-guide.md:138:`allow(tigerstyle::no_panic)`, migrate them to `no_todo`:
+docs/consumer-guide.md:141:- `#[allow(tigerstyle::no_todo)]`

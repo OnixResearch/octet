@@ -1,0 +1,24 @@
+$ rg -n "\\[workspace.metadata.tigerstyle\\]|\\[tigerstyle\\]|downstream-rollout" README.md docs/*.md
+docs/lint-reference.md:34:[tigerstyle]
+docs/lint-reference.md:132:- `downstream-rollout.md` — rollout profiles and Aspen-backed evidence
+docs/downstream-rollout.md:17:2. add runner metadata in `[workspace.metadata.tigerstyle]` in the workspace
+docs/downstream-rollout.md:24:[workspace.metadata.tigerstyle]
+docs/downstream-rollout.md:149:- scope in `[workspace.metadata.tigerstyle]` (`default_scope`) or in explicit
+docs/downstream-rollout.md:183:[tigerstyle]
+docs/downstream-rollout.md:263:[tigerstyle]
+docs/downstream-rollout.md:403:`cargo tigerstyle check` plus `[workspace.metadata.tigerstyle]`.
+README.md:16:[workspace.metadata.tigerstyle]
+README.md:41:| workspace runner config | `[workspace.metadata.tigerstyle]` |
+README.md:42:| lint tuning config | `[tigerstyle]` and `[tigerstyle.lint_levels]` |
+README.md:66:- `docs/downstream-rollout.md` — deep rollout playbook and Aspen-backed rollout evidence
+docs/consumer-guide.md:9:For rollout profiles and Aspen-backed evidence, see `downstream-rollout.md`.
+docs/consumer-guide.md:27:`cargo tigerstyle check` plus `[workspace.metadata.tigerstyle]`.
+docs/consumer-guide.md:38:[tigerstyle]
+docs/consumer-guide.md:47:[workspace.metadata.tigerstyle]
+docs/consumer-guide.md:54:- `[workspace.metadata.tigerstyle]` owns runner policy
+docs/consumer-guide.md:55:- `[tigerstyle]` in `dylint.toml` owns lint tuning
+docs/consumer-guide.md:82:[tigerstyle]
+docs/consumer-guide.md:154:- `downstream-rollout.md` for smoke, boundary-first, and inventory-only rollout profiles
+docs/contributor-guide.md:23:| deep rollout playbook | `docs/downstream-rollout.md` |
+docs/contributor-guide.md:41:- `docs/downstream-rollout.md` if starter or inventory guidance changes
+docs/contributor-guide.md:78:- `docs/downstream-rollout.md` if rollout guidance changes
