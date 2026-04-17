@@ -2,6 +2,7 @@
 
 ## Downstream rollout evidence
 - Use `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/` as the canonical Aspen phase-1 starter-rollout reference. Current `/home/brittonr/git/aspen` scripts may already include later scope and lint promotions. Replay helpers and checkpoint notes must cite that archive path explicitly, not just a local Aspen worktree.
+- Repo `.gitignore` ignores `/.pi`; shareable project-local pi skills for this repo belong under `.agents/skills/`, not `.pi/skills/`.
 - Consumer rollout guidance now lives in `docs/downstream-rollout.md`, with the active copyable consumer config in `templates/dylint.toml`.
 - Historical wrapper default `../tigerstyle` only worked when the consumer repo was a direct sibling of `tigerstyle`; nested consumers like `mc/valence` needed wrapper-side auto-detection (for example `../../tigerstyle`) or an explicit `TIGERSTYLE_PATH`.
 - To reproduce Aspen phase-1 evidence, use Aspen commit `909e5e9fa`. A naive temp worktree fails because Aspen has sibling path dependencies (`aspen-dns`, `aspen-wasm-plugin`); use a sandbox parent with `aspen/` worktree plus sibling symlinks.
