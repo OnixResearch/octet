@@ -5,8 +5,6 @@ Custom [Dylint](https://github.com/trailofbits/dylint) lints for Rust that apply
 rules: explicit shell/core boundaries, bounded resource use, positive naming,
 compact functions, and reviewable suppressions.
 
-Public name and site: `tigerstyle.dev`.
-
 `tigerstyle` currently ships 34 lints across 5 domains.
 
 ## Quick start
