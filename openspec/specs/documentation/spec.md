@@ -310,15 +310,19 @@ surfaces.
 
 That naming contract MUST distinguish at least these layers:
 
-- repo/package name: `tigerstyle`
+- public site: `tigerstyle.dev`
+- project name: `tigerstyle`
+- GitHub repo slug: `tigerstyle-rs`
+- crate/package name: `tigerstyle`
 - binary name: `cargo-tigerstyle`
 - cargo subcommand: `cargo tigerstyle check`
 - lint namespace and groups: `tigerstyle::...`
 - consumer config tables: `[tigerstyle]` and `[workspace.metadata.tigerstyle]`
 - environment variables that remain part of the supported integration surface
 
-This change's docs MUST treat a repo/package rename as out of scope and keep the
-current names as canonical.
+This documentation contract MUST treat the current site, project, repo, crate,
+binary, and command names as canonical unless a dedicated rename change says
+otherwise.
 
 #### Scenario: Reader distinguishes project name from command and namespace
 

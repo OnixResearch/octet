@@ -5,6 +5,8 @@ Custom [Dylint](https://github.com/trailofbits/dylint) lints for Rust that apply
 rules: explicit shell/core boundaries, bounded resource use, positive naming,
 compact functions, and reviewable suppressions.
 
+Public name and site: `tigerstyle.dev`.
+
 `tigerstyle` currently ships 34 lints across 5 domains.
 
 ## Quick start
@@ -34,7 +36,10 @@ path.
 
 | Surface | Canonical name |
 | --- | --- |
-| repo and lint package | `tigerstyle` |
+| public site | `tigerstyle.dev` |
+| project name | `tigerstyle` |
+| GitHub repo slug | `tigerstyle-rs` |
+| crate and lint package | `tigerstyle` |
 | binary | `cargo-tigerstyle` |
 | command | `cargo tigerstyle check` |
 | lint attrs and domain groups | `tigerstyle::<lint>` and `tigerstyle::<domain>` |
@@ -42,8 +47,9 @@ path.
 | lint tuning config | `[tigerstyle]` and `[tigerstyle.lint_levels]` |
 | support env prefix | `TIGERSTYLE_*` |
 
-These names are the current public contract. This docs refresh keeps them in
-place; rename work is out of scope.
+Typical Rust convention: keep the short canonical name for the project and
+crate, and use a `-rs` GitHub slug only when the repo slug needs a Rust-specific
+disambiguator.
 
 ## Lint domains at a glance
 
