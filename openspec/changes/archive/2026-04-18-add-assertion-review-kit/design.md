@@ -110,11 +110,11 @@ silently drop the specific Tiger Style rules this change is meant to expose.
 
 ### 4. Put discoverability in the README and contributor crosswalk
 
-**Choice:** Update `README.md` to add these exact Markdown links:
+**Choice:** Update `README.md` to add these exact Markdown links as standalone lines at the top of the existing `## Documentation` section:
 - `[Assertion review guide](docs/assertion-review.md)`
 - `[Assertion checklist template](templates/assertion-checklist.md)`
 
-Update `docs/contributor-guide.md` to add these exact Markdown links:
+Update `docs/contributor-guide.md` to add these exact Markdown links as standalone lines near the top of the file after the existing intro paragraphs and before `## Source-of-truth map`:
 - `[Assertion review guide](assertion-review.md)`
 - `[Assertion checklist template](../templates/assertion-checklist.md)`
 - `[Safety spec contract](../openspec/specs/safety/spec.md)`
@@ -148,12 +148,12 @@ notes. Rejected because that keeps the assertion material effectively hidden.
   exist.
 - deterministic proof must be saved at these paths so review can inspect the
   machine checks:
-  - `openspec/changes/add-assertion-review-kit/evidence/assertion-guide-headings.txt`, containing the exact guide headings in order, one per line, after verification confirms they are the only second-level headings present
-  - `openspec/changes/add-assertion-review-kit/evidence/assertion-template-headings.txt`, containing the exact template headings in order, one per line, after verification confirms they are the only second-level headings present
-  - `openspec/changes/add-assertion-review-kit/evidence/readme-assertion-links.txt`, containing explicit `exists:...` lines for the linked files plus the two exact README link lines
-  - `openspec/changes/add-assertion-review-kit/evidence/contributor-assertion-links.txt`, containing explicit `exists:...` lines for the linked files plus the three exact contributor-guide link lines
-  - `openspec/changes/add-assertion-review-kit/evidence/human-assertion-review-labels.txt`, containing these exact lines in order after exact-once validation succeeds: `reviewer role: Tiger Style maintainer:1`, `reviewed artifact paths: docs/assertion-review.md, templates/assertion-checklist.md:1`, `question 1: pass - guide explains why the checklist matters and includes reviewer prompts under every required heading:1`, `question 2: pass - guide covers every required assertion topic from Public Tiger Style Assertion Review Guide under the designated headings:1`, `question 3: pass - template covers every required field, and every section stays a fill-in field or prompt rather than free-form prose:1`, `question 4: pass - overall guide guidance says assertions fail fast on programmer errors, pair across boundaries, require invalid-path testing, and are not only about raw density:1`, `verdict: pass:1`
-- `openspec/changes/add-assertion-review-kit/evidence/human-assertion-review.txt`
+  - `openspec/changes/archive/2026-04-18-add-assertion-review-kit/evidence/assertion-guide-headings.txt`, containing the exact guide headings in order, one per line, after verification confirms they are the only second-level headings present
+  - `openspec/changes/archive/2026-04-18-add-assertion-review-kit/evidence/assertion-template-headings.txt`, containing the exact template headings in order, one per line, after verification confirms they are the only second-level headings present
+  - `openspec/changes/archive/2026-04-18-add-assertion-review-kit/evidence/readme-assertion-links.txt`, containing explicit `exists:...` lines for the linked files plus the two exact README link lines
+  - `openspec/changes/archive/2026-04-18-add-assertion-review-kit/evidence/contributor-assertion-links.txt`, containing explicit `exists:...` lines for the linked files plus the three exact contributor-guide link lines
+  - `openspec/changes/archive/2026-04-18-add-assertion-review-kit/evidence/human-assertion-review-labels.txt`, containing these exact lines in order after exact-once validation succeeds: `reviewer role: Tiger Style maintainer:1`, `reviewed artifact paths: docs/assertion-review.md, templates/assertion-checklist.md:1`, `question 1: pass - guide explains why the checklist matters and includes reviewer prompts under every required heading:1`, `question 2: pass - guide covers every required assertion topic from Public Tiger Style Assertion Review Guide under the designated headings:1`, `question 3: pass - template covers every required field, and every section stays a fill-in field or prompt rather than free-form prose:1`, `question 4: pass - overall guide guidance says assertions fail fast on programmer errors, pair across boundaries, require invalid-path testing, and are not only about raw density:1`, `verdict: pass:1`
+- `openspec/changes/archive/2026-04-18-add-assertion-review-kit/evidence/human-assertion-review.txt`
   must exist after the human/oracle checkpoint and must contain these exact
   labeled lines:
   - `reviewer role: Tiger Style maintainer`
@@ -166,11 +166,13 @@ notes. Rejected because that keeps the assertion material effectively hidden.
 
 The human/oracle checkpoint is owned by a Tiger Style maintainer. The saved
 review record uses those exact lines and answer tokens, and each required label
-appears exactly once. `human-assertion-review-labels.txt` records exact-once
-matches for the required `pass` lines listed above, so deterministic proof
-shows both label presence and acceptance-critical answers. For acceptance,
-questions 1 through 4 must all be `pass` and `verdict` must be `pass`; any
-failed question blocks completion until the docs are corrected.
+appears exactly once. `human-assertion-review.txt` is created first during the
+human/oracle checkpoint, and `human-assertion-review-labels.txt` is generated
+only afterward from that saved file. `human-assertion-review-labels.txt`
+records exact-once matches for the required `pass` lines listed above, so
+deterministic proof shows both label presence and acceptance-critical answers.
+For acceptance, questions 1 through 4 must all be `pass` and `verdict` must be
+`pass`; any failed question blocks completion until the docs are corrected.
 
 **Rationale:** Grep can prove the skeleton exists. It cannot prove the guide
 avoids shallow or misleading assertion advice.
