@@ -1,8 +1,8 @@
 ## Phase 1: Implementation
 
-- [ ] I1 Add `docs/bounds-and-pacing-review.md` with the exact guide headings from `openspec/changes/add-bounds-and-pacing-review-kit/specs/safety/spec.md`, reviewer prompts under every required heading, explanation of why the checklist matters, allocation lifetime guidance, startup sizing guidance, queue/backpressure guidance, external-event pacing guidance, batch/work budgeting guidance, overload behavior guidance, and explicit content for audited exceptions plus review cadence under `## Reviewer prompts and escape hatches`.
-- [ ] I2 Add `templates/bounds-and-pacing-checklist.md` with the exact template headings from `openspec/changes/add-bounds-and-pacing-review-kit/specs/safety/spec.md`, make every section a fill-in field or prompt rather than free-form prose, and include prompts for allocation plans, limits, backpressure choices, pacing, batching, overload behavior, and open risks.
-- [ ] I3 Add exact Markdown links `[Bounds and pacing review guide](docs/bounds-and-pacing-review.md)` and `[Bounds and pacing template](templates/bounds-and-pacing-checklist.md)` to `README.md`, and add exact Markdown links `[Bounds and pacing review guide](bounds-and-pacing-review.md)`, `[Bounds and pacing template](../templates/bounds-and-pacing-checklist.md)`, and `[Safety spec contract](../openspec/specs/safety/spec.md)` to `docs/contributor-guide.md`.
+- [x] I1 Add `docs/bounds-and-pacing-review.md` with the exact guide headings from `openspec/changes/add-bounds-and-pacing-review-kit/specs/safety/spec.md`, reviewer prompts under every required heading, explanation of why the checklist matters, allocation lifetime guidance, startup sizing guidance, queue/backpressure guidance, external-event pacing guidance, batch/work budgeting guidance, overload behavior guidance, and explicit content for audited exceptions plus review cadence under `## Reviewer prompts and escape hatches`.
+- [x] I2 Add `templates/bounds-and-pacing-checklist.md` with the exact template headings from `openspec/changes/add-bounds-and-pacing-review-kit/specs/safety/spec.md`, make every section a fill-in field or prompt rather than free-form prose, and include prompts for allocation plans, limits, backpressure choices, pacing, batching, overload behavior, and open risks.
+- [x] I3 Add exact Markdown links `[Bounds and pacing review guide](docs/bounds-and-pacing-review.md)` and `[Bounds and pacing template](templates/bounds-and-pacing-checklist.md)` to `README.md`, and add exact Markdown links `[Bounds and pacing review guide](bounds-and-pacing-review.md)`, `[Bounds and pacing template](../templates/bounds-and-pacing-checklist.md)`, and `[Safety spec contract](../openspec/specs/safety/spec.md)` to `docs/contributor-guide.md`.
 
 ## Phase 2: Human/oracle checkpoints
 
@@ -92,7 +92,7 @@ PY`; save output at `openspec/changes/add-bounds-and-pacing-review-kit/evidence/
 
 ## Change Status
 - Status: in-progress
-- Open tasks: I1, I2, I3, H1, V1, V3, V4, V5, V6
+- Open tasks: H1, V1, V3, V4, V5, V6
 ## Verification Coverage
 
 - `Scenario: Guide keeps required headings and order` -> `V1` -> `openspec/changes/add-bounds-and-pacing-review-kit/evidence/bounds-guide-headings.txt`

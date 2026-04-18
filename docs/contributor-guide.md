@@ -10,6 +10,8 @@ For the shipped lint catalog, see `lint-reference.md`.
 [Assertion review guide](assertion-review.md)
 [Assertion checklist template](../templates/assertion-checklist.md)
 [Safety-critical claims guide](safety-critical.md)
+[Bounds and pacing review guide](bounds-and-pacing-review.md)
+[Bounds and pacing template](../templates/bounds-and-pacing-checklist.md)
 [Safety spec contract](../openspec/specs/safety/spec.md)
 [Performance review guide](performance-review.md)
 [Performance sketch template](../templates/performance-sketch.md)

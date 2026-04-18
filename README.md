@@ -72,6 +72,8 @@ and config keys.
 [Assertion review guide](docs/assertion-review.md)
 [Assertion checklist template](templates/assertion-checklist.md)
 [Safety-critical claims guide](docs/safety-critical.md)
+[Bounds and pacing review guide](docs/bounds-and-pacing-review.md)
+[Bounds and pacing template](templates/bounds-and-pacing-checklist.md)
 [Performance review guide](docs/performance-review.md)
 [Performance sketch template](templates/performance-sketch.md)
 [Concurrency and distributed-state review guide](docs/concurrency-state-review.md)
