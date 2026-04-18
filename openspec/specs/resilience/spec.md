@@ -1,5 +1,9 @@
-## ADDED Requirements
+# Resilience Specification
 
+## Purpose
+
+Tiger Style resilience requirements for reviewable incident analysis: symptom-to-design reasoning, blast-radius and invariant review, retry and degradation assumptions, and explicit fail-open versus fail-closed decisions.
+## Requirements
 ### Requirement: Public Resilience Review Guide
 
 The project MUST ship a public resilience review guide at
@@ -79,7 +83,7 @@ That template MUST keep these exact second-level headings:
 ### Requirement: Human Review Record For Resilience Kit
 
 The implementation MUST save one human/oracle review record at
-`openspec/changes/add-resilience-review-kit/evidence/human-resilience-review.txt`
+`openspec/changes/archive/2026-04-18-add-resilience-review-kit/evidence/human-resilience-review.txt`
 for the published guide and template.
 
 That review record MUST include these exact labeled lines with `pass` or
@@ -109,7 +113,8 @@ and block completion until the guide or template is corrected.
 
 - GIVEN the human/oracle review has been completed
 - WHEN deterministic verification reads
-  `openspec/changes/add-resilience-review-kit/evidence/human-resilience-review.txt`
+  `openspec/changes/archive/2026-04-18-add-resilience-review-kit/evidence/human-resilience-review.txt`
 - THEN the file contains the exact labeled lines required above
 - AND `question 1` through `question 5` are all `pass`
 - AND `verdict` is `pass`
+

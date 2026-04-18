@@ -13,6 +13,8 @@ For the shipped lint catalog, see `lint-reference.md`.
 [Bounds and pacing review guide](bounds-and-pacing-review.md)
 [Bounds and pacing template](../templates/bounds-and-pacing-checklist.md)
 [Safety spec contract](../openspec/specs/safety/spec.md)
+[Resilience review guide](resilience-review.md)
+[Five-whys architecture template](../templates/five-whys-architecture.md)
 [Performance review guide](performance-review.md)
 [Performance sketch template](../templates/performance-sketch.md)
 [Performance spec contract](../openspec/specs/performance/spec.md)

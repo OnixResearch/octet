@@ -1,0 +1,8 @@
+reviewer role: Tiger Style maintainer
+reviewed artifact paths: docs/resilience-review.md, templates/five-whys-architecture.md
+question 1: pass - guide climbs from symptom and workaround to a design decision rather than stopping at retry or restart
+question 2: pass - guide makes blast radius, affected invariants, retry or replay assumptions, and degradation posture explicit
+question 3: pass - guide requires an explicit fail-open versus fail-closed decision, follow-up ownership, and the rule that restart or retry alone is not root cause
+question 4: pass - every required guide heading includes at least one explicit reviewer prompt or checklist question
+question 5: pass - template covers every required section and each section stays a fill-in prompt rather than free-form prose
+verdict: pass
