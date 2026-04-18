@@ -1,0 +1,7 @@
+## Deterministic Proof Plan
+- scenario or requirement:
+- artifact path:
+- command / helper:
+- exact expected output / acceptance signal:
+- ordering / prerequisites:
+- cleanup / postcondition:
