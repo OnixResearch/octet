@@ -136,11 +136,11 @@ Template section ownership stays explicit:
 The implementation MUST save deterministic verification artifacts at these
 paths:
 
-- `openspec/changes/add-bounds-and-pacing-review-kit/evidence/bounds-guide-headings.txt`
-- `openspec/changes/add-bounds-and-pacing-review-kit/evidence/bounds-template-headings.txt`
-- `openspec/changes/add-bounds-and-pacing-review-kit/evidence/readme-bounds-links.txt`
-- `openspec/changes/add-bounds-and-pacing-review-kit/evidence/contributor-bounds-links.txt`
-- `openspec/changes/add-bounds-and-pacing-review-kit/evidence/human-bounds-review-labels.txt`
+- `openspec/changes/archive/2026-04-18-add-bounds-and-pacing-review-kit/evidence/bounds-guide-headings.txt`
+- `openspec/changes/archive/2026-04-18-add-bounds-and-pacing-review-kit/evidence/bounds-template-headings.txt`
+- `openspec/changes/archive/2026-04-18-add-bounds-and-pacing-review-kit/evidence/readme-bounds-links.txt`
+- `openspec/changes/archive/2026-04-18-add-bounds-and-pacing-review-kit/evidence/contributor-bounds-links.txt`
+- `openspec/changes/archive/2026-04-18-add-bounds-and-pacing-review-kit/evidence/human-bounds-review-labels.txt`
 
 Those artifacts MUST capture these exact saved outputs:
 
@@ -198,14 +198,14 @@ Those artifacts MUST capture these exact saved outputs:
 #### Scenario: Saved review-label artifact keeps exact label counts
 
 - GIVEN deterministic verification checks
-  `openspec/changes/add-bounds-and-pacing-review-kit/evidence/human-bounds-review.txt`
+  `openspec/changes/archive/2026-04-18-add-bounds-and-pacing-review-kit/evidence/human-bounds-review.txt`
 - WHEN it saves `human-bounds-review-labels.txt`
 - THEN the artifact records the exact required label-count lines in order
 
 ### Requirement: Human Review Record For Bounds And Pacing Kit
 
 The implementation MUST save one human/oracle review record at
-`openspec/changes/add-bounds-and-pacing-review-kit/evidence/human-bounds-review.txt`
+`openspec/changes/archive/2026-04-18-add-bounds-and-pacing-review-kit/evidence/human-bounds-review.txt`
 for the published guide and template. Each required label below MUST appear
 exactly once in that file.
 
@@ -236,7 +236,7 @@ and block completion until the docs are corrected.
 
 - GIVEN the human/oracle review has been completed
 - WHEN deterministic verification reads
-  `openspec/changes/add-bounds-and-pacing-review-kit/evidence/human-bounds-review.txt`
+  `openspec/changes/archive/2026-04-18-add-bounds-and-pacing-review-kit/evidence/human-bounds-review.txt`
 - THEN the file contains the exact labeled lines required above
 - AND `question 1` through `question 4` are all `pass`
 - AND `verdict` is `pass`

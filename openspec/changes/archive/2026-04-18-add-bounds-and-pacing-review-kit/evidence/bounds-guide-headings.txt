@@ -1,0 +1,7 @@
+## Allocation lifetime and ownership
+## Startup sizing and post-init bounds
+## Queues, buffers, and backpressure
+## External-event pacing
+## Batch and work budgeting
+## Overload and failure behavior
+## Reviewer prompts and escape hatches

@@ -1,0 +1,6 @@
+exists:docs/bounds-and-pacing-review.md
+exists:templates/bounds-and-pacing-checklist.md
+exists:openspec/specs/safety/spec.md
+[Bounds and pacing review guide](bounds-and-pacing-review.md)
+[Bounds and pacing template](../templates/bounds-and-pacing-checklist.md)
+[Safety spec contract](../openspec/specs/safety/spec.md)
