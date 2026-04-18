@@ -1,0 +1,10 @@
+## Context
+## Goals / Non-Goals
+## Decisions
+## Deterministic Proof Plan
+## Risks / Trade-offs
+- scenario or requirement:
+- artifact path:
+- command / helper:
+- ordering / prerequisites:
+- cleanup / postcondition:

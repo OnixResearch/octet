@@ -23,6 +23,8 @@ For the shipped lint catalog, see `lint-reference.md`.
 [Concurrency spec contract](../openspec/specs/concurrency/spec.md)
 [System comprehension guide](system-comprehension.md)
 [System walkthrough template](../templates/system-walkthrough.md)
+[OpenSpec proposal template](../openspec/templates/proposal.md)
+[OpenSpec design template](../openspec/templates/design.md)
 
 ## Source-of-truth map
 
@@ -126,6 +128,8 @@ rg -n "cargo tigerstyle check|cargo-tigerstyle|tigerstyle::|\[tigerstyle\]|\[wor
 When public docs or public runner surfaces change:
 
 - update the active change under `openspec/changes/<change>/`
+- start proposals from `openspec/templates/proposal.md`
+- start designs from `openspec/templates/design.md`
 - keep `tasks.md` in the repo template shape from `openspec/templates/tasks.md`
 - update `openspec/specs/documentation/spec.md` when the docs contract changes
 - update `openspec/specs/consumer-integration/spec.md` when command, Nix helper, or metadata behavior changes

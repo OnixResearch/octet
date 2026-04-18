@@ -1,0 +1,4 @@
+[OpenSpec proposal template](../openspec/templates/proposal.md)
+[OpenSpec design template](../openspec/templates/design.md)
+proposal rule -> openspec/templates/proposal.md
+design rule -> openspec/templates/design.md
