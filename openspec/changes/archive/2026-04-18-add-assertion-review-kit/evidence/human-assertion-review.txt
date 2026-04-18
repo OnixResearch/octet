@@ -1,0 +1,7 @@
+reviewer role: Tiger Style maintainer
+reviewed artifact paths: docs/assertion-review.md, templates/assertion-checklist.md
+question 1: pass - guide explains why the checklist matters and includes reviewer prompts under every required heading
+question 2: pass - guide covers every required assertion topic from Public Tiger Style Assertion Review Guide under the designated headings
+question 3: pass - template covers every required field, and every section stays a fill-in field or prompt rather than free-form prose
+question 4: pass - overall guide guidance says assertions fail fast on programmer errors, pair across boundaries, require invalid-path testing, and are not only about raw density
+verdict: pass

@@ -7,6 +7,10 @@ For the landing page and naming table, see `../README.md`.
 For consumer onboarding, see `consumer-guide.md`.
 For the shipped lint catalog, see `lint-reference.md`.
 
+[Assertion review guide](assertion-review.md)
+[Assertion checklist template](../templates/assertion-checklist.md)
+[Safety spec contract](../openspec/specs/safety/spec.md)
+
 ## Source-of-truth map
 
 | Contract area | Source of truth |

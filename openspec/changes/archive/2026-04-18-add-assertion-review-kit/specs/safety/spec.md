@@ -116,11 +116,11 @@ That template MUST keep these exact second-level headings:
 The implementation MUST save deterministic verification artifacts at these
 paths:
 
-- `openspec/changes/add-assertion-review-kit/evidence/assertion-guide-headings.txt`
-- `openspec/changes/add-assertion-review-kit/evidence/assertion-template-headings.txt`
-- `openspec/changes/add-assertion-review-kit/evidence/readme-assertion-links.txt`
-- `openspec/changes/add-assertion-review-kit/evidence/contributor-assertion-links.txt`
-- `openspec/changes/add-assertion-review-kit/evidence/human-assertion-review-labels.txt`
+- `openspec/changes/archive/2026-04-18-add-assertion-review-kit/evidence/assertion-guide-headings.txt`
+- `openspec/changes/archive/2026-04-18-add-assertion-review-kit/evidence/assertion-template-headings.txt`
+- `openspec/changes/archive/2026-04-18-add-assertion-review-kit/evidence/readme-assertion-links.txt`
+- `openspec/changes/archive/2026-04-18-add-assertion-review-kit/evidence/contributor-assertion-links.txt`
+- `openspec/changes/archive/2026-04-18-add-assertion-review-kit/evidence/human-assertion-review-labels.txt`
 
 Those artifacts MUST capture these exact saved outputs:
 
@@ -138,7 +138,9 @@ Those artifacts MUST capture these exact saved outputs:
   `exists:openspec/specs/safety/spec.md`, then the three exact contributor-doc
   link lines.
 - `human-assertion-review-labels.txt` prints these exact lines in order after
-  exact-once validation succeeds:
+  exact-once validation succeeds, and it is generated only after
+  `openspec/changes/archive/2026-04-18-add-assertion-review-kit/evidence/human-assertion-review.txt`
+  already exists:
   - `reviewer role: Tiger Style maintainer:1`
   - `reviewed artifact paths: docs/assertion-review.md, templates/assertion-checklist.md:1`
   - `question 1: pass - guide explains why the checklist matters and includes reviewer prompts under every required heading:1`
@@ -147,10 +149,45 @@ Those artifacts MUST capture these exact saved outputs:
   - `question 4: pass - overall guide guidance says assertions fail fast on programmer errors, pair across boundaries, require invalid-path testing, and are not only about raw density:1`
   - `verdict: pass:1`
 
+#### Scenario: Saved guide heading proof is reviewable
+
+- GIVEN guide heading verification has passed
+- WHEN a maintainer opens `openspec/changes/archive/2026-04-18-add-assertion-review-kit/evidence/assertion-guide-headings.txt`
+- THEN the file exists
+- AND it prints the full detected guide heading list in the required order
+
+#### Scenario: Saved template heading proof is reviewable
+
+- GIVEN template heading verification has passed
+- WHEN a maintainer opens `openspec/changes/archive/2026-04-18-add-assertion-review-kit/evidence/assertion-template-headings.txt`
+- THEN the file exists
+- AND it prints the full detected template heading list in the required order
+
+#### Scenario: Saved README link proof is reviewable
+
+- GIVEN README link verification has passed
+- WHEN a maintainer opens `openspec/changes/archive/2026-04-18-add-assertion-review-kit/evidence/readme-assertion-links.txt`
+- THEN the file exists
+- AND it prints the required `exists:` lines plus the two exact README link lines
+
+#### Scenario: Saved contributor link proof is reviewable
+
+- GIVEN contributor-guide link verification has passed
+- WHEN a maintainer opens `openspec/changes/archive/2026-04-18-add-assertion-review-kit/evidence/contributor-assertion-links.txt`
+- THEN the file exists
+- AND it prints the required `exists:` lines plus the three exact contributor-guide link lines
+
+#### Scenario: Saved review-label proof is reviewable
+
+- GIVEN human review label verification has passed
+- WHEN a maintainer opens `openspec/changes/archive/2026-04-18-add-assertion-review-kit/evidence/human-assertion-review-labels.txt`
+- THEN the file exists
+- AND it prints the exact-once label counts for the required `pass` review record lines
+
 ### Requirement: Human Review Record For Assertion Kit
 
 The implementation MUST save one human/oracle review record at
-`openspec/changes/add-assertion-review-kit/evidence/human-assertion-review.txt`
+`openspec/changes/archive/2026-04-18-add-assertion-review-kit/evidence/human-assertion-review.txt`
 for the published guide and template. Each required label below MUST appear
 exactly once in that file.
 
@@ -180,7 +217,7 @@ and block completion until the docs are corrected.
 
 - GIVEN the human/oracle review has been completed
 - WHEN deterministic verification reads
-  `openspec/changes/add-assertion-review-kit/evidence/human-assertion-review.txt`
+  `openspec/changes/archive/2026-04-18-add-assertion-review-kit/evidence/human-assertion-review.txt`
 - THEN the file contains the exact labeled lines required above
 - AND `question 1` through `question 4` are all `pass`
 - AND `verdict` is `pass`

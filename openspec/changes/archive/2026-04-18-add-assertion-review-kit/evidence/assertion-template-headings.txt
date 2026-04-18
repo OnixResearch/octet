@@ -1,0 +1,8 @@
+## Function, boundary, or invariant under review
+## Assertions on inputs, outputs, and invariants
+## Paired assertion sites
+## Positive and negative space cases
+## Implications and split assertions
+## Compile-time assertions
+## Invalid-path tests
+## Open risks and follow-ups

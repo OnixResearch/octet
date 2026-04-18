@@ -1,0 +1,6 @@
+exists:docs/assertion-review.md
+exists:templates/assertion-checklist.md
+exists:openspec/specs/safety/spec.md
+[Assertion review guide](assertion-review.md)
+[Assertion checklist template](../templates/assertion-checklist.md)
+[Safety spec contract](../openspec/specs/safety/spec.md)

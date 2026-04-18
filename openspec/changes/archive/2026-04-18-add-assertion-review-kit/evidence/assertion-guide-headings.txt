@@ -1,0 +1,7 @@
+## Assertion targets: arguments, returns, invariants
+## Pair assertions across boundaries
+## Positive and negative space
+## Implication assertions and split checks
+## Compile-time assertions
+## Invalid-path testing
+## Reviewer prompts and failure handling
