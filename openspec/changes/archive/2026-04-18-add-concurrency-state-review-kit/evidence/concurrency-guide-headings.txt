@@ -1,0 +1,6 @@
+## Shared-state inventory and ownership
+## Lock ordering and peer ordering
+## State-machine transitions and invariants
+## Message ordering, retries, and idempotence
+## Unsafe quarantine and escape hatches
+## Reviewer prompts and failure handling

@@ -14,6 +14,9 @@ For the shipped lint catalog, see `lint-reference.md`.
 [Performance review guide](performance-review.md)
 [Performance sketch template](../templates/performance-sketch.md)
 [Performance spec contract](../openspec/specs/performance/spec.md)
+[Concurrency and distributed-state review guide](concurrency-state-review.md)
+[Concurrency and distributed-state template](../templates/concurrency-state-checklist.md)
+[Concurrency spec contract](../openspec/specs/concurrency/spec.md)
 
 ## Source-of-truth map
 

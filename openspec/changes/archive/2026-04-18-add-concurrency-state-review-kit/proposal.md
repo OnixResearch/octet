@@ -44,11 +44,11 @@ concurrency and distributed-state rules.
 
 - **Files**: `README.md`, `docs/concurrency-state-review.md`,
   `docs/contributor-guide.md`, `templates/concurrency-state-checklist.md`,
-  `openspec/changes/add-concurrency-state-review-kit/specs/concurrency/spec.md`,
-  `openspec/changes/add-concurrency-state-review-kit/specs/documentation/spec.md`
+  `openspec/changes/archive/2026-04-18-add-concurrency-state-review-kit/specs/concurrency/spec.md`,
+  `openspec/changes/archive/2026-04-18-add-concurrency-state-review-kit/specs/documentation/spec.md`
 - **APIs**: None.
 - **Existing contracts**: `openspec/specs/concurrency/spec.md` already exists
   as the canonical main concurrency spec; contributor docs will link to that
   existing file rather than the change-local delta.
 - **Dependencies**: None.
-- **Testing**: Deterministic checks saved under `openspec/changes/add-concurrency-state-review-kit/evidence/` for exact section headings with no extra second-level headings, literal Markdown link destinations, explicit existence lines, and exact labeled-line acceptance at `human-concurrency-review-labels.txt`, plus a saved human/oracle review record at `openspec/changes/add-concurrency-state-review-kit/evidence/human-concurrency-review.txt` with explicit pass/fail questions, including canonical-alignment review against `openspec/specs/concurrency/spec.md`.
+- **Testing**: Deterministic checks saved under `openspec/changes/archive/2026-04-18-add-concurrency-state-review-kit/evidence/` for exact section headings with no extra second-level headings, literal Markdown link destinations, explicit existence lines, and exact labeled-line acceptance at `human-concurrency-review-labels.txt`, plus a saved human/oracle review record at `openspec/changes/archive/2026-04-18-add-concurrency-state-review-kit/evidence/human-concurrency-review.txt` with explicit pass/fail questions, including canonical-alignment review against `openspec/specs/concurrency/spec.md`.
