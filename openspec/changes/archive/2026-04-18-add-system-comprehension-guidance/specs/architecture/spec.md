@@ -77,7 +77,7 @@ That template MUST keep these exact second-level headings:
 ### Requirement: Human Review Record For System Comprehension Kit
 
 The implementation MUST save one human/oracle review record at
-`openspec/changes/add-system-comprehension-guidance/evidence/human-system-comprehension-review.txt`
+`openspec/changes/archive/2026-04-18-add-system-comprehension-guidance/evidence/human-system-comprehension-review.txt`
 for the published guide and template.
 
 That review record MUST include these exact labeled lines with `pass` or
@@ -107,7 +107,7 @@ and block completion until the guide or template is corrected.
 
 - GIVEN the human/oracle review has been completed
 - WHEN deterministic verification reads
-  `openspec/changes/add-system-comprehension-guidance/evidence/human-system-comprehension-review.txt`
+  `openspec/changes/archive/2026-04-18-add-system-comprehension-guidance/evidence/human-system-comprehension-review.txt`
 - THEN the file contains the exact labeled lines required above
 - AND `question 1` through `question 5` are all `pass`
 - AND `verdict` is `pass`

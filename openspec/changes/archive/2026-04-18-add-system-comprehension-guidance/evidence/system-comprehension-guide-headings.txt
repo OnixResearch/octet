@@ -1,0 +1,6 @@
+## Reader, boundary, and system slice
+## Structure before function
+## Functional walkthrough after structure
+## Deep dives, weak spots, and ownership
+## Top-level docs, crate roots, and dependency maps
+## Reviewer prompts for 2-minute legibility

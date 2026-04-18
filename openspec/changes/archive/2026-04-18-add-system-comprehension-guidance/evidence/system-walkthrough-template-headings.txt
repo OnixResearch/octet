@@ -1,0 +1,6 @@
+## Intended reader and system slice
+## Major components and boundaries
+## Key relationships and dependency edges
+## Primary end-to-end flow
+## Deep dives and weak spots
+## Open questions and follow-ups

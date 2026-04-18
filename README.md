@@ -80,6 +80,8 @@ and config keys.
 [Performance sketch template](templates/performance-sketch.md)
 [Concurrency and distributed-state review guide](docs/concurrency-state-review.md)
 [Concurrency and distributed-state template](templates/concurrency-state-checklist.md)
+[System comprehension guide](docs/system-comprehension.md)
+[System walkthrough template](templates/system-walkthrough.md)
 - `docs/consumer-guide.md` — first run, config split, Nix integration, migration notes
 - `docs/lint-reference.md` — full lint catalog, default levels, suppression paths, config reference
 - `docs/contributor-guide.md` — source-of-truth map, doc-update crosswalk, verification rails

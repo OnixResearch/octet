@@ -21,6 +21,8 @@ For the shipped lint catalog, see `lint-reference.md`.
 [Concurrency and distributed-state review guide](concurrency-state-review.md)
 [Concurrency and distributed-state template](../templates/concurrency-state-checklist.md)
 [Concurrency spec contract](../openspec/specs/concurrency/spec.md)
+[System comprehension guide](system-comprehension.md)
+[System walkthrough template](../templates/system-walkthrough.md)
 
 ## Source-of-truth map
 

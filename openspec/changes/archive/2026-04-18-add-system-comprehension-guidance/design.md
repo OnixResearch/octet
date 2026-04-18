@@ -115,7 +115,7 @@ as if they were canonical public contracts.
 ### 5. Require a saved human review record for legibility quality
 
 **Choice:** Save one human/oracle review record at
-`openspec/changes/add-system-comprehension-guidance/evidence/human-system-comprehension-review.txt`.
+`openspec/changes/archive/2026-04-18-add-system-comprehension-guidance/evidence/human-system-comprehension-review.txt`.
 That file uses these exact labeled lines:
 - `reviewer role: Tiger Style maintainer`
 - `reviewed artifact paths: docs/system-comprehension.md, templates/system-walkthrough.md`
@@ -135,7 +135,7 @@ usable for architecture legibility review.
 ### 6. Save deterministic proof artifacts with exact output contracts
 
 **Choice:** Deterministic verification saves these exact artifacts under
-`openspec/changes/add-system-comprehension-guidance/evidence/`:
+`openspec/changes/archive/2026-04-18-add-system-comprehension-guidance/evidence/`:
 - `system-comprehension-guide-headings.txt` prints the full detected list of
   guide second-level headings, one per line, after validation confirms the list
   is an exact no-extra match.
