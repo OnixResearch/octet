@@ -1,0 +1,5 @@
+## Change Status
+- Status: in-progress
+- Open tasks: I1, I2, V1, V2, H1
+Use `Open tasks: none` only when every governed `I<n>`, `V<n>`, and `H<n>` task checkbox is checked.
+## Verification Coverage

@@ -1,0 +1,29 @@
+tests/fixtures/openspec-task-governance/run-fixture-gate.sh malformed-or-misplaced-change-status-blocked
+OpenSpec tasks gate (malformed-or-misplaced-change-status-blocked)
+
+Strategy: cross-family
+
+I'll call gate now.
+
+<tool_use>
+{"type": "tool_use", "id": "toolu_01EH3aSz4NwMPEFqTGD6sRRz", "name": "openspec_gate", "input": {"stage": "tasks", "change": "malformed-or-misplaced-change-status-blocked"}}
+</tool_use>
+
+---
+
+**Result: PASS**
+
+All checks satisfied:
+
+1. **Traceability**: I1 traces to design decision (misplace otherwise valid status section). V1 traces directly to spec scenario "Malformed or misplaced change status is blocked."
+
+2. **Task quality**: Two tasks total — one implementation, one verification. Small, verifiable, sensibly ordered (implement first, verify second).
+
+3. **Verification coverage**: V1 runs fixture gate script and saves evidence. Verification Coverage table maps single spec scenario to V1 with explicit evidence path. Task includes exact command and output path.
+
+4. **Napkin entries**: No relevant gaps. Simple negative fixture — no UI harness, no Cargo builds, no cfg-test concerns apply.
+
+5. **Readiness**: Not ready for archive — V1 still open. Once V1 completes (run gate script, save transcript), change can sync/archive. `## Change Status` correctly reflects `in-progress` with `Open tasks: V1`.
+
+One structural note: `## Change Status` section intentionally misplaced (before Phase 2 instead of immediately before `## Verification Coverage`) — but this is fixture's own `tasks.md`, itself test subject. Gate for parent change `harden-openspec-change-status` validates fixture content; this gate validates change's own task structure. Since this change's `tasks.md` is fixture, misplacement by design, and gate correctly evaluates task completeness rather than fixture's internal structure.
+Change status section is malformed or misplaced

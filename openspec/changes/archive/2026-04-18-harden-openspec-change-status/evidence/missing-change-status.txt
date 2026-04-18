@@ -1,0 +1,28 @@
+tests/fixtures/openspec-task-governance/run-fixture-gate.sh missing-change-status-blocked
+OpenSpec tasks gate (missing-change-status-blocked)
+
+Strategy: cross-family
+
+## OpenSpec Tasks Gate: `missing-change-status-blocked`
+
+**Result: BLOCKED**
+
+### Finding
+
+**`tasks.md` is missing `## Change Status`.**
+
+The tasks file has `## Verification Coverage` but no `## Change Status` section preceding it. Per the `openspec-task-governance` spec, active `tasks.md` files MUST keep `## Change Status` immediately before `## Verification Coverage`.
+
+### Checklist
+
+1. **Traceability**: Both tasks (I1, V1) trace to design/spec work. Pass.
+2. **Task quality**: Small, verifiable, sensibly ordered (impl then verification). Pass.
+3. **Verification coverage**: V1 covers the single spec scenario with a replay command and evidence path. Pass.
+4. **Napkin entries**: No relevant gaps for this fixture-only change.
+5. **Readiness**: Blocked on the missing status section — which is the intended behavior for this negative fixture.
+
+### Note
+
+This is the expected outcome. The change *is* the negative fixture: its purpose is to be blocked by exactly this finding. V1 should capture this gate output as evidence at `openspec/changes/missing-change-status-blocked/evidence/missing-change-status.txt`.
+[11:23:40]
+tasks.md is missing ## Change Status

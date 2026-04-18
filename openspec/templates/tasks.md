@@ -27,6 +27,10 @@ Good: `- [ ] I3 update parser` plus `- [ ] V4 save cargo-test-lib.txt`
 
 - [ ] H1 Human/oracle checkpoint: command=`<exact command or helper path>`; input=`<pinned revision, fixture, or prerequisite artifact>`; asserts=`<single human claim>`; evidence=`openspec/changes/<change>/evidence/<artifact>.txt`
 
+## Change Status
+- Status: in-progress
+- Open tasks: I1, I2, V1, V2, H1
+Use `Open tasks: none` only when every governed `I<n>`, `V<n>`, and `H<n>` task checkbox is checked.
 ## Verification Coverage
 
 - `Scenario: <Scenario heading>` -> `V1` -> `openspec/changes/<change>/evidence/<artifact>.txt`

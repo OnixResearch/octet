@@ -92,6 +92,9 @@ for line in required:
     print(f'{line}:{counts[line]}')
 PY`; save output at `openspec/changes/add-system-comprehension-guidance/evidence/human-system-comprehension-review-labels.txt`
 
+## Change Status
+- Status: in-progress
+- Open tasks: I1, I2, I3, H1, V1, V2, V3, V4, V5
 ## Verification Coverage
 
 - `Scenario: Guide teaches structure before function before depth` -> `V1` -> `openspec/changes/add-system-comprehension-guidance/evidence/system-comprehension-guide-headings.txt`

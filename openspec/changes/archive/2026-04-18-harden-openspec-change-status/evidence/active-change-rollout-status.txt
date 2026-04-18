@@ -1,0 +1,28 @@
+file:openspec/changes/add-performance-review-kit/tasks.md
+- Status: in-progress
+- Open tasks: I1, I2, I3, H1, V1, V3, V4, V5, V6
+## Verification Coverage
+file:openspec/changes/add-assertion-review-kit/tasks.md
+- Status: in-progress
+- Open tasks: I1, I2, I3, H1, V1, V3, V4, V5, V6
+## Verification Coverage
+file:openspec/changes/add-bounds-and-pacing-review-kit/tasks.md
+- Status: in-progress
+- Open tasks: I1, I2, I3, H1, V1, V3, V4, V5, V6
+## Verification Coverage
+file:openspec/changes/add-concurrency-state-review-kit/tasks.md
+- Status: in-progress
+- Open tasks: I1, I2, I3, H1, V1, V3, V4, V5, V6
+## Verification Coverage
+file:openspec/changes/clarify-safety-critical-claims/tasks.md
+- Status: in-progress
+- Open tasks: I1, I2, H1, V1, V2, V3, V4
+## Verification Coverage
+file:openspec/changes/add-system-comprehension-guidance/tasks.md
+- Status: in-progress
+- Open tasks: I1, I2, I3, H1, V1, V2, V3, V4, V5
+## Verification Coverage
+file:openspec/changes/add-resilience-review-kit/tasks.md
+- Status: in-progress
+- Open tasks: I1, I2, I3, H1, V1, V2, V3, V4, V5
+## Verification Coverage

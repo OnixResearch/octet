@@ -163,6 +163,18 @@ Saved proof uses these exact outputs:
   - `- Status: in-progress`
   - `- Open tasks: I1, I2, I3, H1, V1, V3, V4, V5, V6`
   - `## Verification Coverage`
+  - `file:openspec/changes/clarify-safety-critical-claims/tasks.md`
+  - `- Status: in-progress`
+  - `- Open tasks: I1, I2, H1, V1, V2, V3, V4`
+  - `## Verification Coverage`
+  - `file:openspec/changes/add-system-comprehension-guidance/tasks.md`
+  - `- Status: in-progress`
+  - `- Open tasks: I1, I2, I3, H1, V1, V2, V3, V4, V5`
+  - `## Verification Coverage`
+  - `file:openspec/changes/add-resilience-review-kit/tasks.md`
+  - `- Status: in-progress`
+  - `- Open tasks: I1, I2, I3, H1, V1, V2, V3, V4, V5`
+  - `## Verification Coverage`
 - `missing-change-status.txt` is a tasks-stage gate transcript for fixture
   `missing-change-status-blocked` and contains the command preamble
   `tests/fixtures/openspec-task-governance/run-fixture-gate.sh missing-change-status-blocked`
@@ -192,7 +204,7 @@ Fixture-to-artifact mapping stays explicit:
 - `change-status-in-progress-pass` -> `change-status-in-progress-pass.txt`
 - `change-status-complete-pass` -> `change-status-complete-pass.txt`
 - `change-status-ignores-unstructured-checkboxes-pass` -> `unstructured-checkboxes-ignored-pass.txt`
-- current active review-kit task files -> `active-change-rollout-status.txt`
+- current active sibling task files -> `active-change-rollout-status.txt`
 - `missing-change-status-blocked` -> `missing-change-status.txt`
 - `malformed-or-misplaced-change-status-blocked` -> `malformed-or-misplaced-change-status.txt`
 - `complete-status-with-open-tasks-blocked` -> `complete-status-blocked.txt`
@@ -205,7 +217,7 @@ and failing examples, not broad prose.
 
 ### 5. Roll out the new status section to current active changes in the same change
 
-**Choice:** The implementation updates the currently active review-kit change
+**Choice:** The implementation updates the currently active sibling change
 files below so they carry compliant `## Change Status` sections in the same
 rollout as the hardened tasks-stage gate:
 
@@ -213,6 +225,9 @@ rollout as the hardened tasks-stage gate:
 - `openspec/changes/add-assertion-review-kit/tasks.md`
 - `openspec/changes/add-bounds-and-pacing-review-kit/tasks.md`
 - `openspec/changes/add-concurrency-state-review-kit/tasks.md`
+- `openspec/changes/clarify-safety-critical-claims/tasks.md`
+- `openspec/changes/add-system-comprehension-guidance/tasks.md`
+- `openspec/changes/add-resilience-review-kit/tasks.md`
 
 **Rationale:** Tightening the gate in one change while updating the already-
 active task files in that same rollout avoids a mixed governance state and does

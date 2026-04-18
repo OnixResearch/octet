@@ -1,0 +1,31 @@
+tests/fixtures/openspec-task-governance/run-fixture-gate.sh open-task-list-mismatch-blocked
+OpenSpec tasks gate (open-task-list-mismatch-blocked)
+
+Strategy: cross-family
+
+# Tasks-Stage Gate: `open-task-list-mismatch-blocked`
+
+## Result: **BLOCKED**
+
+### Finding: Change status open-task list does not match unchecked tasks
+
+| Field | Value |
+|-------|-------|
+| Unchecked governed tasks (file order) | `I2`, `V1` |
+| `Open tasks` line | `I2` |
+| Missing from list | `V1` |
+
+The `Open tasks` line must match unchecked governed task IDs exactly. `V1` is unchecked but not listed.
+
+### Other checks (all pass)
+
+1. **Traceability**: All tasks trace to proposal/design/spec. I1 creates fixture, I2 intentionally open per design, V1 covers spec scenario.
+2. **Task quality**: Small, verifiable, sensibly ordered (implementation before verification).
+3. **Verification coverage**: V1 maps to single spec scenario with replay command and evidence path.
+4. **Napkin entries**: No missing tasks or guardrails implied.
+
+---
+
+This expected outcome. Fixture exists to prove gate catches exactly this mismatch.
+[11:26:38]
+Change status open-task list does not match unchecked tasks
