@@ -1,0 +1,7 @@
+## Component or protocol boundary
+## Shared-state inventory
+## Lock and peer ordering
+## State-machine transitions and invariants
+## Delivery, retry, and idempotence assumptions
+## Unsafe boundary and escape hatches
+## Open risks and follow-ups
