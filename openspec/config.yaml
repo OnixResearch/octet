@@ -26,6 +26,9 @@ rules:
   proposal:
     - Keep it under 500 words
     - Reference concrete violations found in aspen
+    - Follow `openspec/templates/proposal.md`; name exact repo-relative files/artifacts, ordering/dependencies, and planned saved evidence or helper/gate runs
+  design:
+    - Follow `openspec/templates/design.md`; keep `## Deterministic Proof Plan` with scenario/requirement, artifact path, command/helper, ordering/prerequisites, and cleanup/postcondition prompts
   tasks:
     - Changes must cover every MUST added by their delta specs
     - Follow `openspec/templates/tasks.md` for `I<n>`, `V<n>`, and `H<n>` task IDs, the exact `## Change Status` section, and the trailing `## Verification Coverage` section

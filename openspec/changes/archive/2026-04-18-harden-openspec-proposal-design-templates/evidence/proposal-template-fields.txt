@@ -1,0 +1,10 @@
+## Why
+## What Changes
+## Non-Goals
+## Capabilities
+## Impact
+### New Capabilities
+### Modified Capabilities
+- **Files / artifacts**: <exact repo-relative paths touched by this change>
+- **Ordering / dependencies**: <what must land first or stay in lockstep>
+- **Verification / evidence**: <saved artifacts or helper/gate runs planned for review>
