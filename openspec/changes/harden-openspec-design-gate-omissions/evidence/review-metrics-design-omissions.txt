@@ -1,0 +1,7 @@
+$ review_metrics promotions min=3
+- count=52 [class=omission] [scope=design] [route=prompt]
+  suggestion: Promote into OpenSpec rule/template/stage-gate check.
+  task: Strengthen OpenSpec design gate/template to block repeated omission findings.
+  example: The design does not cover the required same-branch guard suppression for `no_unwrap`.
+  example: Verification is only partially specified for the new suppressions and their required negative controls.
+  example: Verification is incomplete for the imported Tokio `select!` form.
