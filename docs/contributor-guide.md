@@ -24,6 +24,7 @@ For the shipped lint catalog, see `lint-reference.md`.
 [System comprehension guide](system-comprehension.md)
 [System walkthrough template](../templates/system-walkthrough.md)
 [OpenSpec proposal template](../openspec/templates/proposal.md)
+[OpenSpec delta-spec template](../openspec/templates/spec.md)
 [OpenSpec design template](../openspec/templates/design.md)
 
 ## Source-of-truth map
@@ -129,6 +130,7 @@ When public docs or public runner surfaces change:
 
 - update the active change under `openspec/changes/<change>/`
 - start proposals from `openspec/templates/proposal.md`
+- start delta specs from `openspec/templates/spec.md`
 - start designs from `openspec/templates/design.md`
 - keep `tasks.md` in the repo template shape from `openspec/templates/tasks.md`
 - update `openspec/specs/documentation/spec.md` when the docs contract changes

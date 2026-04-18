@@ -1,0 +1,6 @@
+[OpenSpec proposal template](../openspec/templates/proposal.md)
+[OpenSpec delta-spec template](../openspec/templates/spec.md)
+[OpenSpec design template](../openspec/templates/design.md)
+proposal rule -> openspec/templates/proposal.md
+proposal rule -> openspec/templates/spec.md
+design rule -> openspec/templates/design.md
