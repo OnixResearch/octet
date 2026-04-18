@@ -1,0 +1,4 @@
+exists:docs/system-comprehension.md
+exists:templates/system-walkthrough.md
+[System comprehension guide](system-comprehension.md)
+[System walkthrough template](../templates/system-walkthrough.md)

@@ -33,9 +33,9 @@ for architecture legibility, onboarding, and system explanation.
 
 - **Files**: `README.md`, `docs/system-comprehension.md`,
   `docs/contributor-guide.md`, `templates/system-walkthrough.md`,
-  `openspec/changes/add-system-comprehension-guidance/specs/architecture/spec.md`,
-  `openspec/changes/add-system-comprehension-guidance/specs/documentation/spec.md`,
-  `openspec/changes/add-system-comprehension-guidance/evidence/human-system-comprehension-review.txt`
+  `openspec/changes/archive/2026-04-18-add-system-comprehension-guidance/specs/architecture/spec.md`,
+  `openspec/changes/archive/2026-04-18-add-system-comprehension-guidance/specs/documentation/spec.md`,
+  `openspec/changes/archive/2026-04-18-add-system-comprehension-guidance/evidence/human-system-comprehension-review.txt`
 - **APIs**: None.
 - **Existing contracts**: No canonical main architecture spec exists yet in
   `openspec/specs/`; this change adds the architecture contract through a
@@ -45,6 +45,6 @@ for architecture legibility, onboarding, and system explanation.
 - **Testing**: Deterministic checks on exact section headings, literal
   Markdown link destinations, and exact human-review label lines, plus a saved
   human/oracle review record at
-  `openspec/changes/add-system-comprehension-guidance/evidence/human-system-comprehension-review.txt`
+  `openspec/changes/archive/2026-04-18-add-system-comprehension-guidance/evidence/human-system-comprehension-review.txt`
   whose explicit pass/fail questions cover all required guide sections,
   per-heading reviewer prompts, and fill-in-only template sections.
