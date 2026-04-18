@@ -1,0 +1,63 @@
+openspec_gate stage=proposal change=harden-openspec-delta-spec-template
+OpenSpec proposal gate (harden-openspec-delta-spec-template)
+
+Strategy: cross-family
+
+I'll review the proposal and delta spec against the gate checklist.
+
+## Proposal Gate Review: `harden-openspec-delta-spec-template`
+
+### 1. Why / Scope / Non-Goals / Verification
+
+The proposal is clear and well-scoped:
+- **Why**: concrete problem statement grounded in observed review failures (missing MUST sentences, missing scenarios, path-only artifacts, delta-vs-main confusion).
+- **Scope**: one template file, two guidance touch-points, deterministic proof.
+- **Non-goals**: appropriately fence off upstream OpenSpec, archived rewrites, and task-template governance.
+- **Verification**: names three deterministic extracts plus a proposal-stage gate transcript.
+
+No issues here.
+
+### 2. Do the delta specs encode the proposal's capabilities?
+
+**`openspec-delta-spec-authoring` (new)** — covered by the two ADDED requirements (template headings/prompts and repo-specific guardrails). Both have scenarios. Both spell out exact expected content. Good.
+
+**`openspec-stage-authoring` (modified)** — covered by the MODIFIED requirement updating guidance entry points. Scenarios cover both `contributor-guide.md` and `config.yaml`. Good.
+
+### 3. Ambiguities or omissions that should block design
+
+I see two items worth raising:
+
+**A. The MODIFIED requirement's `config.yaml` clause is underspecified relative to the proposal.**
+
+The requirement says:
+
+> `openspec/config.yaml` MUST contain one proposal rule that names `openspec/templates/proposal.md` and one proposal rule that names `openspec/templates/spec.md` for delta-spec authoring, plus one design rule that names `openspec/templates/design.md`.
+
+This tells us *what keys to look for* but not the exact YAML shape or rule text. The ADDED requirements pin exact comment strings and exact headings — but this MODIFIED requirement leaves the config rule content as prose. That's probably fine for a guidance-wiring requirement (the config format is owned by OpenSpec upstream), but the scenario should be clear that verification checks for the *presence* of those rule names, not exact rule text.
+
+**Verdict**: not blocking. The scenario's THEN clauses ("one proposal rule names ...") are testable by grepping the YAML. Design can pin the exact lines if needed.
+
+**B. No explicit scenario for the "no extra second-level headings" negative condition.**
+
+The first ADDED requirement says the template "MUST keep these exact second-level headings ... with no additional second-level headings." The scenario covers the positive path (maintainer can add requirements without inventing headings) but doesn't have a verification scenario that explicitly asserts the heading inventory is exactly three. 
+
+**Verdict**: not blocking. The requirement text is normative and unambiguous. Design/tasks can extract the heading inventory as a deterministic artifact per the existing CLAUDE.md note about heading-inventory artifacts.
+
+### 4. Napkin entry relevance
+
+Most napkin entries are about lint tooling evidence and aren't directly relevant here. Two general patterns apply:
+
+- **Path-only artifact claims**: The proposal already addresses this — the fifth guardrail comment in the template literally says "describe the artifact's exact expected output or schema, not only the path." This is the pattern being *codified*, not violated.
+- **Design must own the full user-visible contract**: Relevant for the design stage. The proposal's verification section names three extracts; design will need to specify their exact content.
+
+No napkin entries need promotion into spec rules for this change.
+
+### 5. Napkin pattern promotion
+
+No recurring patterns need escalation. The "path-only artifact" anti-pattern is already being addressed by this very change (guardrail comment #5).
+
+---
+
+### Gate Result: **PASS**
+
+The proposal is clear, well-bounded, and the delta specs encode the stated capabilities with testable scenarios. The two minor observations (config rule shape, negative heading-count scenario) are design-stage concerns, not proposal blockers.
