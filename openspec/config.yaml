@@ -29,7 +29,7 @@ rules:
     - Follow `openspec/templates/proposal.md`; name exact repo-relative files/artifacts, ordering/dependencies, and planned saved evidence or helper/gate runs
     - Follow `openspec/templates/spec.md` for delta-spec authoring; keep change-local specs in delta form, start each added or modified requirement with `The system MUST ...`, and give every added or modified requirement at least one `#### Scenario:` block
   design:
-    - Follow `openspec/templates/design.md`; keep `## Deterministic Proof Plan` with scenario/requirement, artifact path, command/helper, ordering/prerequisites, and cleanup/postcondition prompts
+    - Follow `openspec/templates/design.md`; every added or modified scenario heading or zero-scenario requirement must appear in a decision's `**Covers:**` field; name boundary cases for non-trigger or continued-warning conditions; every saved proof artifact must state its exact expected output or acceptance signal
   tasks:
     - Changes must cover every MUST added by their delta specs
     - Follow `openspec/templates/tasks.md` for `I<n>`, `V<n>`, and `H<n>` task IDs, the exact `## Change Status` section, and the trailing `## Verification Coverage` section
