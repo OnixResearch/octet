@@ -1,7 +1,7 @@
 ## Phase 1: Implementation
 
-- [ ] I1 Update `openspec/templates/design.md` so each copied decision block keeps the exact `**Covers:**` and `**Boundary cases:**` prompt lines promised by `openspec/changes/harden-openspec-design-gate-omissions/specs/openspec-stage-authoring/spec.md`.
-- [ ] I2 Update `openspec/config.yaml` so the design-stage rule names `openspec/templates/design.md`, requires coverage for every added or modified scenario heading or zero-scenario requirement, and requires named boundary cases plus exact proof acceptance signals.
+- [x] I1 Update `openspec/templates/design.md` so each copied decision block keeps the exact `**Covers:**` and `**Boundary cases:**` prompt lines promised by `openspec/changes/harden-openspec-design-gate-omissions/specs/openspec-stage-authoring/spec.md`.
+- [x] I2 Update `openspec/config.yaml` so the design-stage rule names `openspec/templates/design.md`, requires coverage for every added or modified scenario heading or zero-scenario requirement, and requires named boundary cases plus exact proof acceptance signals.
 
 ## Phase 2: Deterministic verification
 
@@ -15,7 +15,7 @@
 
 ## Change Status
 - Status: in-progress
-- Open tasks: I1, I2, V1, V2, V3, H1
+- Open tasks: V1, V2, V3, H1
 Use `Open tasks: none` only when every governed `I<n>`, `V<n>`, and `H<n>` task checkbox is checked.
 ## Verification Coverage
 

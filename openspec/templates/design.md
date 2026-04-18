@@ -27,6 +27,10 @@
 
 **Implementation:** <how this will be carried out>
 
+**Covers:** <exact delta-spec scenario headings or requirement headings this decision satisfies>
+
+**Boundary cases:** <negative controls, continued-warning cases, or intentional gaps reviewers must see>
+
 ## Deterministic Proof Plan
 
 - scenario or requirement:
@@ -35,6 +39,8 @@
   - <repo-relative evidence path>
 - command / helper:
   - <exact command or helper path>
+- exact expected output / acceptance signal:
+  - <exact line set, schema, or pass condition the artifact must prove>
 - ordering / prerequisites:
   - <what must exist or run first>
 - cleanup / postcondition:
