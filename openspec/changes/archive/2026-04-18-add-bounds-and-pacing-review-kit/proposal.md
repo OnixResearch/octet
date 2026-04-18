@@ -39,11 +39,11 @@ limits, backpressure, and self-paced external-event handling.
 
 - **Files**: `README.md`, `docs/bounds-and-pacing-review.md`,
   `docs/contributor-guide.md`, `templates/bounds-and-pacing-checklist.md`,
-  `openspec/changes/add-bounds-and-pacing-review-kit/specs/safety/spec.md`,
-  `openspec/changes/add-bounds-and-pacing-review-kit/specs/documentation/spec.md`
+  `openspec/changes/archive/2026-04-18-add-bounds-and-pacing-review-kit/specs/safety/spec.md`,
+  `openspec/changes/archive/2026-04-18-add-bounds-and-pacing-review-kit/specs/documentation/spec.md`
 - **APIs**: None.
 - **Existing contracts**: `openspec/specs/safety/spec.md` already exists as
   the canonical main safety spec; contributor docs will link to that existing
   file rather than the change-local delta.
 - **Dependencies**: None.
-- **Testing**: Deterministic checks saved under `openspec/changes/add-bounds-and-pacing-review-kit/evidence/` for exact section headings with no extra second-level headings, explicit existence lines plus literal Markdown link destinations, and exact labeled-line acceptance at `human-bounds-review-labels.txt`, plus a saved human/oracle review record at `openspec/changes/add-bounds-and-pacing-review-kit/evidence/human-bounds-review.txt` with explicit pass/fail questions.
+- **Testing**: Deterministic checks saved under `openspec/changes/archive/2026-04-18-add-bounds-and-pacing-review-kit/evidence/` for exact section headings with no extra second-level headings, explicit existence lines plus literal Markdown link destinations, and exact labeled-line acceptance at `human-bounds-review-labels.txt`, plus a saved human/oracle review record at `openspec/changes/archive/2026-04-18-add-bounds-and-pacing-review-kit/evidence/human-bounds-review.txt` with explicit pass/fail questions.

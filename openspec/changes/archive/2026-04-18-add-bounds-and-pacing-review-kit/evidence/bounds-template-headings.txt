@@ -1,0 +1,8 @@
+## Component or boundary
+## Allocation plan
+## Startup sizing and post-init limits
+## Queue and buffer bounds
+## External-event intake and pacing
+## Batch and work budget
+## Overload and failure behavior
+## Open risks and follow-ups
