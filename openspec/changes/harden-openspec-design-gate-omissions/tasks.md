@@ -5,9 +5,9 @@
 
 ## Phase 2: Deterministic verification
 
-- [ ] V1 Verify scenario "Maintainer maps design decisions to exact delta-spec coverage" with a Python extract over `openspec/templates/design.md` that proves the exact `## ` heading order plus `**Covers:**` / `**Boundary cases:**`; save output at `openspec/changes/harden-openspec-design-gate-omissions/evidence/design-template-coverage-fields.txt`.
-- [ ] V2 Verify scenario "Maintainer names negative controls and proof acceptance signals" with a Python extract over `openspec/templates/design.md`; save output at `openspec/changes/harden-openspec-design-gate-omissions/evidence/design-template-proof-fields.txt`.
-- [ ] V3 Verify scenario "Design-stage guidance names coverage and boundary expectations" with a Python extract over `openspec/config.yaml`; save output at `openspec/changes/harden-openspec-design-gate-omissions/evidence/design-stage-guidance.txt`.
+- [x] V1 Verify scenario "Maintainer maps design decisions to exact delta-spec coverage" with a Python extract over `openspec/templates/design.md` that proves the exact `## ` heading order plus `**Covers:**` / `**Boundary cases:**`; save output at `openspec/changes/harden-openspec-design-gate-omissions/evidence/design-template-coverage-fields.txt`.
+- [x] V2 Verify scenario "Maintainer names negative controls and proof acceptance signals" with a Python extract over `openspec/templates/design.md`; save output at `openspec/changes/harden-openspec-design-gate-omissions/evidence/design-template-proof-fields.txt`.
+- [x] V3 Verify scenario "Design-stage guidance names coverage and boundary expectations" with a Python extract over `openspec/config.yaml`; save output at `openspec/changes/harden-openspec-design-gate-omissions/evidence/design-stage-guidance.txt`.
 
 ## Phase 3: Human/oracle checkpoints
 
@@ -15,7 +15,7 @@
 
 ## Change Status
 - Status: in-progress
-- Open tasks: V1, V2, V3, H1
+- Open tasks: H1
 Use `Open tasks: none` only when every governed `I<n>`, `V<n>`, and `H<n>` task checkbox is checked.
 ## Verification Coverage
 

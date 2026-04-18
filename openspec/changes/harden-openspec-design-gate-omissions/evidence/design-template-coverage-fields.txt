@@ -1,0 +1,7 @@
+## Context
+## Goals / Non-Goals
+## Decisions
+## Deterministic Proof Plan
+## Risks / Trade-offs
+**Covers:** <exact delta-spec scenario headings or requirement headings this decision satisfies>
+**Boundary cases:** <negative controls, continued-warning cases, or intentional gaps reviewers must see>
