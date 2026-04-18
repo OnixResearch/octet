@@ -1,0 +1,8 @@
+reviewer role: Tiger Style maintainer:1
+reviewed artifact paths: docs/safety-critical.md:1
+question 1: pass - guide distinguishes clearly between supported Tiger Style claims and unsupported certification or assurance claims:1
+question 2: pass - guide explains the difference among lints, tests, formal proof, assurance evidence, and certification without overstating any one surface:1
+question 3: pass - guide says high-consequence claims need named evidence and human review beyond green automation:1
+question 4: pass - every required section includes at least one explicit maintainer prompt or wording rule:1
+question 5: pass - guide gives explicit wording guidance for docs, reviews, and rollout notes so maintainers do not imply unsupported safety-critical guarantees:1
+verdict: pass:1

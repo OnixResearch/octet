@@ -101,5 +101,10 @@ PY`; save output at `openspec/changes/add-bounds-and-pacing-review-kit/evidence/
 - `Scenario: Planning allocation and pacing limits` -> `H1` -> `openspec/changes/add-bounds-and-pacing-review-kit/evidence/human-bounds-review.txt`
 - `Scenario: Reader finds the bounds guide from README` -> `V4` -> `openspec/changes/add-bounds-and-pacing-review-kit/evidence/readme-bounds-links.txt`
 - `Scenario: Contributor sees bounds doc touchpoints` -> `V5` -> `openspec/changes/add-bounds-and-pacing-review-kit/evidence/contributor-bounds-links.txt`
+- `Scenario: Saved guide heading artifact keeps exact heading inventory` -> `V1` -> `openspec/changes/add-bounds-and-pacing-review-kit/evidence/bounds-guide-headings.txt`
+- `Scenario: Saved template heading artifact keeps exact heading inventory` -> `V3` -> `openspec/changes/add-bounds-and-pacing-review-kit/evidence/bounds-template-headings.txt`
+- `Scenario: Saved README link artifact keeps existence and exact link lines` -> `V4` -> `openspec/changes/add-bounds-and-pacing-review-kit/evidence/readme-bounds-links.txt`
+- `Scenario: Saved contributor link artifact keeps existence and exact link lines` -> `V5` -> `openspec/changes/add-bounds-and-pacing-review-kit/evidence/contributor-bounds-links.txt`
 - `Scenario: Reviewer signs off bounds and pacing coverage` -> `H1` -> `openspec/changes/add-bounds-and-pacing-review-kit/evidence/human-bounds-review.txt`
+- `Scenario: Saved review-label artifact keeps exact label counts` -> `V6` -> `openspec/changes/add-bounds-and-pacing-review-kit/evidence/human-bounds-review-labels.txt`
 - `Scenario: Saved review record keeps required labels` -> `V6` -> `openspec/changes/add-bounds-and-pacing-review-kit/evidence/human-bounds-review-labels.txt`

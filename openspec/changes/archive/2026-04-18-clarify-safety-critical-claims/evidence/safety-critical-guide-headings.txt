@@ -1,0 +1,5 @@
+## What Tiger Style can claim
+## What Tiger Style cannot claim
+## Lints, tests, proof, assurance, and certification
+## Evidence and human review
+## Responsible wording in docs and reviews

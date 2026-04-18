@@ -9,7 +9,11 @@ For the shipped lint catalog, see `lint-reference.md`.
 
 [Assertion review guide](assertion-review.md)
 [Assertion checklist template](../templates/assertion-checklist.md)
+[Safety-critical claims guide](safety-critical.md)
 [Safety spec contract](../openspec/specs/safety/spec.md)
+[Performance review guide](performance-review.md)
+[Performance sketch template](../templates/performance-sketch.md)
+[Performance spec contract](../openspec/specs/performance/spec.md)
 
 ## Source-of-truth map
 

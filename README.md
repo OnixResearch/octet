@@ -71,6 +71,9 @@ and config keys.
 
 [Assertion review guide](docs/assertion-review.md)
 [Assertion checklist template](templates/assertion-checklist.md)
+[Safety-critical claims guide](docs/safety-critical.md)
+[Performance review guide](docs/performance-review.md)
+[Performance sketch template](templates/performance-sketch.md)
 - `docs/consumer-guide.md` — first run, config split, Nix integration, migration notes
 - `docs/lint-reference.md` — full lint catalog, default levels, suppression paths, config reference
 - `docs/contributor-guide.md` — source-of-truth map, doc-update crosswalk, verification rails

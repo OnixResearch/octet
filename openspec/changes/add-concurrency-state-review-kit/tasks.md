@@ -99,5 +99,10 @@ PY`; save output at `openspec/changes/add-concurrency-state-review-kit/evidence/
 - `Scenario: Planning ordering and retry assumptions` -> `H1` -> `openspec/changes/add-concurrency-state-review-kit/evidence/human-concurrency-review.txt`
 - `Scenario: Reader finds the concurrency guide from README` -> `V4` -> `openspec/changes/add-concurrency-state-review-kit/evidence/readme-concurrency-links.txt`
 - `Scenario: Contributor sees concurrency doc touchpoints` -> `V5` -> `openspec/changes/add-concurrency-state-review-kit/evidence/contributor-concurrency-links.txt`
+- `Scenario: Saved guide heading artifact keeps exact heading inventory` -> `V1` -> `openspec/changes/add-concurrency-state-review-kit/evidence/concurrency-guide-headings.txt`
+- `Scenario: Saved template heading artifact keeps exact heading inventory` -> `V3` -> `openspec/changes/add-concurrency-state-review-kit/evidence/concurrency-template-headings.txt`
+- `Scenario: Saved README link artifact keeps existence and exact link lines` -> `V4` -> `openspec/changes/add-concurrency-state-review-kit/evidence/readme-concurrency-links.txt`
+- `Scenario: Saved contributor link artifact keeps existence and exact link lines` -> `V5` -> `openspec/changes/add-concurrency-state-review-kit/evidence/contributor-concurrency-links.txt`
 - `Scenario: Reviewer signs off concurrency coverage` -> `H1` -> `openspec/changes/add-concurrency-state-review-kit/evidence/human-concurrency-review.txt`
+- `Scenario: Saved review-label artifact keeps exact label counts` -> `V6` -> `openspec/changes/add-concurrency-state-review-kit/evidence/human-concurrency-review-labels.txt`
 - `Scenario: Saved review record keeps required labels` -> `V6` -> `openspec/changes/add-concurrency-state-review-kit/evidence/human-concurrency-review-labels.txt`

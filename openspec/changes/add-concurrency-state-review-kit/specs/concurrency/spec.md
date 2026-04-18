@@ -146,6 +146,40 @@ Those artifacts MUST capture these exact saved outputs:
   - `question 4: pass - overall guide guidance says unsafe stays behind narrow safe wrappers, dangerous escape hatches stay grep-able and explicit, and this document is a review kit rather than the full enforcement story:1`
   - `verdict: pass:1`
 
+#### Scenario: Saved guide heading artifact keeps exact heading inventory
+
+- GIVEN deterministic verification checks `docs/concurrency-state-review.md`
+- WHEN it saves `concurrency-guide-headings.txt`
+- THEN the artifact records the full verified heading inventory with no extras
+
+#### Scenario: Saved template heading artifact keeps exact heading inventory
+
+- GIVEN deterministic verification checks
+  `templates/concurrency-state-checklist.md`
+- WHEN it saves `concurrency-template-headings.txt`
+- THEN the artifact records the full verified heading inventory with no extras
+
+#### Scenario: Saved README link artifact keeps existence and exact link lines
+
+- GIVEN deterministic verification checks `README.md`
+- WHEN it saves `readme-concurrency-links.txt`
+- THEN the artifact records the required file existence lines and exact README
+  link lines
+
+#### Scenario: Saved contributor link artifact keeps existence and exact link lines
+
+- GIVEN deterministic verification checks `docs/contributor-guide.md`
+- WHEN it saves `contributor-concurrency-links.txt`
+- THEN the artifact records the required existence lines and exact
+  contributor-doc link lines
+
+#### Scenario: Saved review-label artifact keeps exact label counts
+
+- GIVEN deterministic verification checks
+  `openspec/changes/add-concurrency-state-review-kit/evidence/human-concurrency-review.txt`
+- WHEN it saves `human-concurrency-review-labels.txt`
+- THEN the artifact records the exact required label-count lines in order
+
 ### Requirement: Human Review Record For Concurrency Kit
 
 The implementation MUST save one human/oracle review record at
