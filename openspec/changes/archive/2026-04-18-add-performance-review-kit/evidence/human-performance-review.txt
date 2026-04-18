@@ -1,0 +1,7 @@
+reviewer role: Tiger Style maintainer
+reviewed artifact paths: docs/performance-review.md, templates/performance-sketch.md
+question 1: pass - guide explains why the checklist matters and includes reviewer prompts under every required heading
+question 2: pass - guide covers every required performance topic from Public Tiger Style Performance Review Guide under the designated headings
+question 3: pass - template covers every required field, including resource budgets or limits per relevant resource, and every section stays a fill-in field or prompt rather than free-form prose
+question 4: pass - overall guide guidance, not only per-section boilerplate, says static lints and benchmarks do not replace workload reasoning
+verdict: pass

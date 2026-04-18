@@ -96,7 +96,7 @@ Update `docs/contributor-guide.md` to add these exact Markdown links:
 - `templates/performance-sketch.md` must contain every exact heading from Decision 3 exactly once, in order, as standalone `## ...` lines with no extra second-level headings.
 - `README.md` must contain the exact Markdown-link lines `[Performance review guide](docs/performance-review.md)` and `[Performance sketch template](templates/performance-sketch.md)`, and deterministic proof must also show `docs/performance-review.md` plus `templates/performance-sketch.md` exist.
 - `docs/contributor-guide.md` must contain the exact Markdown-link lines `[Performance review guide](performance-review.md)`, `[Performance sketch template](../templates/performance-sketch.md)`, and `[Performance spec contract](../openspec/specs/performance/spec.md)`, and deterministic proof must also show `docs/performance-review.md`, `templates/performance-sketch.md`, and `openspec/specs/performance/spec.md` exist.
-- `openspec/changes/add-performance-review-kit/evidence/human-performance-review.txt` must exist after the human/oracle checkpoint and must contain these exact labeled lines:
+- `openspec/changes/archive/2026-04-18-add-performance-review-kit/evidence/human-performance-review.txt` must exist after the human/oracle checkpoint and must contain these exact labeled lines:
   - `reviewer role: Tiger Style maintainer`
   - `reviewed artifact paths: docs/performance-review.md, templates/performance-sketch.md`
   - `question 1: <pass|fail> - guide explains why the checklist matters and includes reviewer prompts under every required heading`

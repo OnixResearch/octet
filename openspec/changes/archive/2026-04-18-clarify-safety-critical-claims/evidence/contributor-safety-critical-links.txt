@@ -1,0 +1,4 @@
+exists:docs/safety-critical.md
+exists:openspec/specs/safety/spec.md
+[Safety-critical claims guide](safety-critical.md)
+[Safety spec contract](../openspec/specs/safety/spec.md)

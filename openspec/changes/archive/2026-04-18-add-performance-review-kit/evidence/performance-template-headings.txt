@@ -1,0 +1,9 @@
+## Workload or entry point
+## Assumptions and units
+## Bandwidth and latency sketch
+## Resource budgets or limits
+## Cost × frequency ranking
+## Control-plane vs data-plane split
+## Batching, limits, queues, and backpressure
+## Measurement or validation plan
+## Open risks and non-goals

@@ -9,6 +9,7 @@
 - On Aspen commit `909e5e9fa`, back-to-back `cargo-tigerstyle check` runs that reuse one `CARGO_TARGET_DIR` can hit rustc incremental ICEs like `shallow_lint_levels_on(...): Found unstable fingerprints`; use separate target dirs (or clean between runs) for default-scope and focused reruns in saved evidence helpers.
 - If a change archives helper scripts and transcripts, regenerate the `.txt` outputs from the archived location before committing so saved commands point at `openspec/changes/archive/...`, not the deleted active change path.
 - If the exact replay proof uses a helper script, document that helper command as the exact replay path and prepend the same command line to the saved transcript.
+- After `openspec archive`, archived change-local markdown can still mention dead active-change paths; if proposal/design/tasks/delta-spec text names change-local files or evidence, rewrite those references to `openspec/changes/archive/<date>-<name>/...` before calling the archive review-clean.
 - If a saved replay narrows the enabled lint set through per-lint config, make the transcript self-describing by patching the copied wrapper banner for that run or saving the applied `dylint.toml` snapshot alongside the log.
 - If a completed rollout task claims the consumer template changed, archive a small artifact or verification note that shows the exact `templates/dylint.toml` hunk; a diffstat-only mention is not enough for review.
 - For repeated first-class consumer evidence runs, prefer `nix build .#cargo-tigerstyle` and reuse the wrapped `cargo-tigerstyle` binary from the Nix store; it already pins `TIGERSTYLE_TOOLCHAIN`, `TIGERSTYLE_DRIVER_PATH`, and `TIGERSTYLE_LINT_LIB`, so repeated Aspen probes do not rebuild the driver or lint library each run.
@@ -58,6 +59,7 @@
 - When a change requires saved deterministic proof artifacts under `evidence/`, make the spec/design name each artifact's exact expected output, not just the file path; gate review treats path-only artifact requirements as underspecified.
 - If a spec says a guide or template allows no extra `##` headings, describe the saved headings artifact as the complete extracted second-level-heading inventory after no-extra validation, not just the required heading list; otherwise design review treats the negative condition as unproven.
 - If spec acceptance depends on exact link-artifact line order or exact-once human-review labels, restate that order/counting explicitly in design and task output contracts; design review does not assume those details carry over implicitly from the spec.
+- Some doc-discoverability V-tasks here grep exact bare Markdown-link lines with `^...$`; when tasks/design use those commands, keep required links on standalone lines rather than bullets or inline sentences or deterministic verification will fail.
 - `openspec validate --strict` rejects delta requirements with no `#### Scenario:` blocks, even proof-artifact requirements; give every added/modified requirement at least one scenario and trace it in `## Verification Coverage`.
 
 ## Lint registration / config

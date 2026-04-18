@@ -22,8 +22,8 @@ Result: tigerstyle gives consumers strong safety/style enforcement, but weak sup
 
 ## Impact
 
-- **Files**: `README.md`, `docs/performance-review.md`, `docs/contributor-guide.md`, `templates/performance-sketch.md`, `openspec/changes/add-performance-review-kit/specs/performance/spec.md`, `openspec/changes/add-performance-review-kit/specs/documentation/spec.md`
+- **Files**: `README.md`, `docs/performance-review.md`, `docs/contributor-guide.md`, `templates/performance-sketch.md`, `openspec/changes/archive/2026-04-18-add-performance-review-kit/specs/performance/spec.md`, `openspec/changes/archive/2026-04-18-add-performance-review-kit/specs/documentation/spec.md`
 - **APIs**: None.
 - **Existing contracts**: `openspec/specs/performance/spec.md` already exists as the canonical main performance spec; contributor docs will link to that existing file rather than the change-local delta.
 - **Dependencies**: None.
-- **Testing**: Deterministic checks on exact section headings and literal Markdown link destinations, plus a saved human/oracle review record at `openspec/changes/add-performance-review-kit/evidence/human-performance-review.txt` with explicit pass/fail questions.
+- **Testing**: Deterministic checks on exact section headings and literal Markdown link destinations, plus a saved human/oracle review record at `openspec/changes/archive/2026-04-18-add-performance-review-kit/evidence/human-performance-review.txt` with explicit pass/fail questions.

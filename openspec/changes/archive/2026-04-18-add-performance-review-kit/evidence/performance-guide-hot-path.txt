@@ -1,0 +1,8 @@
+## Workload and hot path
+## Napkin math
+## Resource sketch: network, disk, memory, CPU
+## Cost × frequency ranking
+## Control plane vs data plane
+## Batching, limits, queues, and backpressure
+## CPU predictability and compiler luck
+## Measurement and validation

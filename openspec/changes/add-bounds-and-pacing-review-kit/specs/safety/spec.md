@@ -168,6 +168,40 @@ Those artifacts MUST capture these exact saved outputs:
   - `question 4: pass - the External-event pacing guidance says systems buffer external events and run at their own pace instead of reacting directly to every event:1`
   - `verdict: pass:1`
 
+#### Scenario: Saved guide heading artifact keeps exact heading inventory
+
+- GIVEN deterministic verification checks `docs/bounds-and-pacing-review.md`
+- WHEN it saves `bounds-guide-headings.txt`
+- THEN the artifact records the full verified heading inventory with no extras
+
+#### Scenario: Saved template heading artifact keeps exact heading inventory
+
+- GIVEN deterministic verification checks
+  `templates/bounds-and-pacing-checklist.md`
+- WHEN it saves `bounds-template-headings.txt`
+- THEN the artifact records the full verified heading inventory with no extras
+
+#### Scenario: Saved README link artifact keeps existence and exact link lines
+
+- GIVEN deterministic verification checks `README.md`
+- WHEN it saves `readme-bounds-links.txt`
+- THEN the artifact records the required file existence lines and exact README
+  link lines
+
+#### Scenario: Saved contributor link artifact keeps existence and exact link lines
+
+- GIVEN deterministic verification checks `docs/contributor-guide.md`
+- WHEN it saves `contributor-bounds-links.txt`
+- THEN the artifact records the required existence lines and exact contributor
+  link lines
+
+#### Scenario: Saved review-label artifact keeps exact label counts
+
+- GIVEN deterministic verification checks
+  `openspec/changes/add-bounds-and-pacing-review-kit/evidence/human-bounds-review.txt`
+- WHEN it saves `human-bounds-review-labels.txt`
+- THEN the artifact records the exact required label-count lines in order
+
 ### Requirement: Human Review Record For Bounds And Pacing Kit
 
 The implementation MUST save one human/oracle review record at
