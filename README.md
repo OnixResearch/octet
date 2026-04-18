@@ -74,6 +74,8 @@ and config keys.
 [Safety-critical claims guide](docs/safety-critical.md)
 [Bounds and pacing review guide](docs/bounds-and-pacing-review.md)
 [Bounds and pacing template](templates/bounds-and-pacing-checklist.md)
+[Resilience review guide](docs/resilience-review.md)
+[Five-whys architecture template](templates/five-whys-architecture.md)
 [Performance review guide](docs/performance-review.md)
 [Performance sketch template](templates/performance-sketch.md)
 [Concurrency and distributed-state review guide](docs/concurrency-state-review.md)

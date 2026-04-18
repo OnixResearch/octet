@@ -1,0 +1,6 @@
+## Incident, symptom, and immediate workaround
+## Five whys to the design decision
+## Boundary, blast radius, and affected invariants
+## Retry, replay, idempotence, and degradation
+## Fail-open vs fail-closed
+## Reviewer prompts and follow-ups

@@ -108,7 +108,7 @@ creating broken links to a future main spec path.
 ### 5. Require a saved human review record for resilience quality
 
 **Choice:** Save one human/oracle review record at
-`openspec/changes/add-resilience-review-kit/evidence/human-resilience-review.txt`.
+`openspec/changes/archive/2026-04-18-add-resilience-review-kit/evidence/human-resilience-review.txt`.
 That file uses these exact labeled lines:
 - `reviewer role: Tiger Style maintainer`
 - `reviewed artifact paths: docs/resilience-review.md, templates/five-whys-architecture.md`
@@ -128,7 +128,7 @@ resilience review well.
 ### 6. Save deterministic proof artifacts with exact output contracts
 
 **Choice:** Deterministic verification saves these exact artifacts under
-`openspec/changes/add-resilience-review-kit/evidence/`:
+`openspec/changes/archive/2026-04-18-add-resilience-review-kit/evidence/`:
 - `resilience-guide-headings.txt` prints the full detected list of guide
   second-level headings, one per line, after validation confirms the list is an
   exact no-extra match.

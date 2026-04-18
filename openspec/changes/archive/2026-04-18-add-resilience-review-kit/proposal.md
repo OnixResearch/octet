@@ -37,9 +37,9 @@ failure semantics.
 
 - **Files**: `README.md`, `docs/resilience-review.md`,
   `docs/contributor-guide.md`, `templates/five-whys-architecture.md`,
-  `openspec/changes/add-resilience-review-kit/specs/resilience/spec.md`,
-  `openspec/changes/add-resilience-review-kit/specs/documentation/spec.md`,
-  `openspec/changes/add-resilience-review-kit/evidence/human-resilience-review.txt`
+  `openspec/changes/archive/2026-04-18-add-resilience-review-kit/specs/resilience/spec.md`,
+  `openspec/changes/archive/2026-04-18-add-resilience-review-kit/specs/documentation/spec.md`,
+  `openspec/changes/archive/2026-04-18-add-resilience-review-kit/evidence/human-resilience-review.txt`
 - **APIs**: None.
 - **Existing contracts**: No canonical main resilience spec exists yet in
   `openspec/specs/`; this change adds the resilience contract through a
@@ -49,7 +49,7 @@ failure semantics.
 - **Testing**: Deterministic checks on exact section headings, literal
   Markdown link destinations, and exact human-review label lines, plus a saved
   human/oracle review record at
-  `openspec/changes/add-resilience-review-kit/evidence/human-resilience-review.txt`
+  `openspec/changes/archive/2026-04-18-add-resilience-review-kit/evidence/human-resilience-review.txt`
   whose explicit pass/fail questions cover per-heading reviewer prompts,
   symptom-to-design reasoning, follow-up ownership, and fill-in-only template
   sections.

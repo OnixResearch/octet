@@ -1,0 +1,7 @@
+## Incident or scenario under review
+## Symptom and immediate workaround
+## Five whys chain
+## Boundary, blast radius, and affected invariants
+## Retry, replay, idempotence, and degradation assumptions
+## Fail-open vs fail-closed decision
+## Follow-ups, owners, and non-goals
