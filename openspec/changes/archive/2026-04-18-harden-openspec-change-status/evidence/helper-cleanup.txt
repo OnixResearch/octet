@@ -1,0 +1,2 @@
+tests/fixtures/openspec-task-governance/run-fixture-gate.sh missing-change-status-blocked
+removed:openspec/changes/missing-change-status-blocked

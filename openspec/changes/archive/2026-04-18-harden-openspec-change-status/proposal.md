@@ -15,14 +15,17 @@ like full change completion.
 
 ## What Changes
 
-- This active change hardens repo-local OpenSpec task governance. The active
-  review-kit changes still keep their own feature scope, and this same change
-  will update these `tasks.md` files to add `## Change Status` in the same
+- This active change hardens repo-local OpenSpec task governance. The other
+  active changes still keep their own feature scope, and this same change will
+  update these sibling `tasks.md` files to add `## Change Status` in the same
   rollout as the tightened gate:
   `openspec/changes/add-performance-review-kit/tasks.md`,
   `openspec/changes/add-assertion-review-kit/tasks.md`,
-  `openspec/changes/add-bounds-and-pacing-review-kit/tasks.md`, and
-  `openspec/changes/add-concurrency-state-review-kit/tasks.md`.
+  `openspec/changes/add-bounds-and-pacing-review-kit/tasks.md`,
+  `openspec/changes/add-concurrency-state-review-kit/tasks.md`,
+  `openspec/changes/clarify-safety-critical-claims/tasks.md`,
+  `openspec/changes/add-system-comprehension-guidance/tasks.md`, and
+  `openspec/changes/add-resilience-review-kit/tasks.md`.
 - Extend the existing canonical main spec at
   `openspec/specs/openspec-task-governance/spec.md`; this change does not add a
   new main spec path.
@@ -61,14 +64,17 @@ like full change completion.
   `tests/fixtures/openspec-task-governance/`,
   `openspec/changes/add-performance-review-kit/tasks.md`,
   `openspec/changes/add-assertion-review-kit/tasks.md`,
-  `openspec/changes/add-bounds-and-pacing-review-kit/tasks.md`, and
-  `openspec/changes/add-concurrency-state-review-kit/tasks.md`.
+  `openspec/changes/add-bounds-and-pacing-review-kit/tasks.md`,
+  `openspec/changes/add-concurrency-state-review-kit/tasks.md`,
+  `openspec/changes/clarify-safety-critical-claims/tasks.md`,
+  `openspec/changes/add-system-comprehension-guidance/tasks.md`, and
+  `openspec/changes/add-resilience-review-kit/tasks.md`.
 - **APIs**: repo-local `tasks.md` contract and tasks-stage gate behavior.
 - **Dependencies**: None.
 - **Testing**: Save deterministic artifacts for the exact template snippet, a
   passing in-progress status fixture, a passing complete status fixture, a
   passing fixture that ignores non-`I/V/H` checkboxes, a rollout artifact for
-  the four real active change files, and blocking gate transcripts for missing
+  the seven real active sibling change files, and blocking gate transcripts for missing
   status, malformed or misplaced status, complete-with-open-tasks,
   in-progress-without-open-tasks, and open-task-list mismatch cases under
   `openspec/changes/harden-openspec-change-status/evidence/`. Each saved gate

@@ -1,0 +1,43 @@
+tests/fixtures/openspec-task-governance/run-fixture-gate.sh in-progress-without-open-tasks-blocked
+OpenSpec tasks gate (in-progress-without-open-tasks-blocked)
+
+Strategy: cross-family
+
+I need to call the openspec_gate tool. Let me do that now.
+
+<tool_call>
+{"name": "openspec_gate", "arguments": {"stage": "tasks", "change": "in-progress-without-open-tasks-blocked"}}
+</tool_call>
+
+Here is full result:
+
+---
+
+**Gate: tasks — Change: in-progress-without-open-tasks-blocked**
+
+**Status: PASS**
+
+All tasks trace back to proposal, design, spec:
+
+1. **I1** (finish fixture) — directly implements proposal single capability (`openspec-task-governance-fixture`: negative fixture for in-progress status with no open tasks). Matches design decision 1 ("check every governed task and still say in-progress").
+
+2. **V1** (verify scenario) — proves single spec scenario "In-progress status with no open tasks is blocked" by running fixture gate script and saving output. Replay command, input, evidence path explicit.
+
+Tasks small, verifiable, sensibly ordered (implement then verify). Verification Coverage maps single scenario to V1 with evidence path.
+
+**Napkin entries**: No relevant entries apply — standalone test fixture, not lint or toolchain change.
+
+**Blocking issue — Change Status self-contradictory:**
+
+Change Status section says:
+```text
+- Status: in-progress
+- Open tasks: none
+```
+
+All tasks checked (0 open). This intentionally fixture own subject matter — fixture exists to prove exact contradiction gets caught. But this is real change's `tasks.md`, not just fixture. Change itself done and should say `Status: complete`.
+
+**Recommendation:** Update change own `tasks.md` Change Status to `Status: complete` then archive. In-progress-with-no-open-tasks contradiction should live only inside fixture copy at `tests/fixtures/openspec-task-governance/in-progress-without-open-tasks-blocked/tasks.md`, not active change real status.
+
+[11:26:02]
+Change status says in-progress but no open tasks remain

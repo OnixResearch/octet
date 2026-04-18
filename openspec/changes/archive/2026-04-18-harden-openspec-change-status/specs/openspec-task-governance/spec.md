@@ -87,7 +87,7 @@ file is checked.
 
 ### Requirement: Current Active Changes Are Migrated Alongside Gate Hardening
 
-The currently active review-kit task files below MUST gain compliant
+The currently active sibling task files below MUST gain compliant
 `## Change Status` sections in the same rollout as the hardened change-status
 gate:
 
@@ -95,6 +95,9 @@ gate:
 - `openspec/changes/add-assertion-review-kit/tasks.md`
 - `openspec/changes/add-bounds-and-pacing-review-kit/tasks.md`
 - `openspec/changes/add-concurrency-state-review-kit/tasks.md`
+- `openspec/changes/clarify-safety-critical-claims/tasks.md`
+- `openspec/changes/add-system-comprehension-guidance/tasks.md`
+- `openspec/changes/add-resilience-review-kit/tasks.md`
 
 Each file MUST keep `## Change Status` immediately before
 `## Verification Coverage`, and each `Open tasks` line MUST match that file's
@@ -103,15 +106,15 @@ unchecked governed task IDs.
 #### Scenario: Existing active changes stay compliant during rollout
 
 - GIVEN the hardened gate is ready to enforce repo-wide
-- WHEN a maintainer opens the four currently active review-kit task files above
+- WHEN a maintainer opens the seven currently active sibling task files above
 - THEN each file has a compliant `## Change Status` section immediately before
   `## Verification Coverage`
 - AND each `Open tasks` line matches that file's unchecked governed task IDs
 
 ### Requirement: Replay Helper Cleans Up Temporary Active Changes
 
-The replay helper
-`tests/fixtures/openspec-task-governance/run-fixture-gate.sh` MUST remove the
+The system MUST ensure the replay helper
+`tests/fixtures/openspec-task-governance/run-fixture-gate.sh` removes the
 temporary `openspec/changes/<fixture-name>/` directory after each fixture gate
 run finishes.
 
@@ -125,9 +128,9 @@ run finishes.
 
 ### Requirement: Tasks-Stage Gate Flags Missing Governance
 
-In addition to the existing blocking findings already required by the canonical
-main `openspec-task-governance` spec, tigerstyle's tasks-stage gate MUST also
-report blocking findings for these change-status cases:
+The system MUST make tigerstyle's tasks-stage gate report the existing
+canonical `openspec-task-governance` blocking findings plus these additional
+change-status blocking findings:
 
 - `tasks.md is missing ## Change Status`
 - `Change status section is malformed or misplaced`

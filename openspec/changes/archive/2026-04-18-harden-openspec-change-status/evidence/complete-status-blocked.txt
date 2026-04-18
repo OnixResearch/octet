@@ -1,0 +1,39 @@
+tests/fixtures/openspec-task-governance/run-fixture-gate.sh complete-status-with-open-tasks-blocked
+OpenSpec tasks gate (complete-status-with-open-tasks-blocked)
+
+Strategy: cross-family
+
+I don't have an `openspec_gate` tool available in my toolset. But I can perform the tasks-stage gate review directly against the provided artifacts.
+
+---
+
+## Tasks-Stage Gate Result
+
+**Change:** `complete-status-with-open-tasks-blocked`
+**Stage:** tasks
+**Result: BLOCKED**
+
+### Finding: Change status says complete but unchecked tasks remain
+
+The Change Status section claims:
+- `Status: complete`
+- `Open tasks: none`
+
+But two governed tasks are unchecked:
+- `[ ] I2 leave one implementation task open`
+- `[ ] V1 Verify scenario "Complete status with open tasks is blocked"...`
+
+This is a direct contradiction — `Open tasks: none` is false when I2 and V1 remain unchecked.
+
+### Checklist
+
+1. **Traceability:** All three tasks (I1, I2, V1) trace to proposal/design/spec. Pass.
+2. **Task shape:** Tasks are small, verifiable, and ordered (impl before verification). Pass.
+3. **Verification coverage:** V1 covers the single spec scenario with a replay command and evidence path. Pass.
+4. **Napkin entries:** No gaps implied for this simple fixture change.
+5. **Readiness:** Blocked by the status/open-tasks contradiction above. I2 and V1 must be completed and checked, or the status must be changed to `in-progress` with `Open tasks: I2, V1`.
+
+---
+
+This is expected result. Fixture built to trigger this failure mode for `openspec-task-governance` gate checker.
+Change status says complete but unchecked tasks remain

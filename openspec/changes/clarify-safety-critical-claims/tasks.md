@@ -69,6 +69,9 @@ for line in required:
     print(f'{line}:{counts[line]}')
 PY`; save output at `openspec/changes/clarify-safety-critical-claims/evidence/human-safety-critical-review-labels.txt`
 
+## Change Status
+- Status: in-progress
+- Open tasks: I1, I2, H1, V1, V2, V3, V4
 ## Verification Coverage
 
 - `Scenario: Reader sees what Tiger Style can and cannot claim` -> `V1` -> `openspec/changes/clarify-safety-critical-claims/evidence/safety-critical-guide-headings.txt`

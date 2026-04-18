@@ -88,6 +88,9 @@ for line in expected_lines:
     print(f'{line}:1')
 PY`; save output at `openspec/changes/add-concurrency-state-review-kit/evidence/human-concurrency-review-labels.txt`
 
+## Change Status
+- Status: in-progress
+- Open tasks: I1, I2, I3, H1, V1, V3, V4, V5, V6
 ## Verification Coverage
 
 - `Scenario: Guide keeps required headings and order` -> `V1` -> `openspec/changes/add-concurrency-state-review-kit/evidence/concurrency-guide-headings.txt`

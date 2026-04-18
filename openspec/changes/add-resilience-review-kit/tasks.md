@@ -93,6 +93,9 @@ for line in required:
     print(f'{line}:{counts[line]}')
 PY`; save output at `openspec/changes/add-resilience-review-kit/evidence/human-resilience-review-labels.txt`
 
+## Change Status
+- Status: in-progress
+- Open tasks: I1, I2, I3, H1, V1, V2, V3, V4, V5
 ## Verification Coverage
 
 - `Scenario: Guide traces a recurring incident to a design decision` -> `V1` -> `openspec/changes/add-resilience-review-kit/evidence/resilience-guide-headings.txt`

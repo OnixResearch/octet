@@ -52,6 +52,7 @@
 - `## Verification Coverage` is scenario-based, not artifact-based: every added or modified scenario heading gets its own row even when multiple rows point at one shared transcript.
 - `H<n>` tasks must carry all four replay fields: `command=`, `input=`, `asserts=`, and `evidence=`.
 - For OpenSpec gate-fixture proof here, keep the committed fixture under `tests/fixtures/openspec-task-governance/`, temporarily copy it into `openspec/changes/<fixture-name>/` before calling `openspec_gate`, then remove the temporary active change after saving the transcript.
+- Shell-launched `pi -p` helpers that rely on `openspec_gate` need explicit `-e ~/.pi/agent/extensions/openspec-gates.ts`; default non-interactive pi startup may omit that tool.
 - `openspec archive` can create a new main spec with a placeholder `## Purpose` line (`TBD - created by archiving change ...`); replace that placeholder before committing the archive.
 - If a change links contributor docs back to an existing canonical main spec (for example `openspec/specs/performance/spec.md`), say explicitly in the proposal that the main spec already exists and the link targets that canonical file rather than the change-local delta path, or proposal/design gates may treat the spec path as unresolved.
 - When a change requires saved deterministic proof artifacts under `evidence/`, make the spec/design name each artifact's exact expected output, not just the file path; gate review treats path-only artifact requirements as underspecified.
