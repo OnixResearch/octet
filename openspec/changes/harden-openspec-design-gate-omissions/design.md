@@ -32,6 +32,8 @@ scenario heading or zero-scenario requirement must be covered explicitly.
 **Choice:** extend each design-template decision block with exact `**Covers:**`
 and `**Boundary cases:**` prompts.
 
+**Covers:** `Scenario: Maintainer maps design decisions to exact delta-spec coverage`
+
 **Rationale:** the highest-repeat design omissions are missing scenario
 coverage and missing non-trigger boundaries. Putting those prompts inside every
 decision block makes the reviewer-visible gap obvious before implementation.
@@ -50,11 +52,17 @@ When a delta requirement has one or more scenarios, `**Covers:**` names the
 exact scenario headings. A bare requirement heading is only valid for a
 zero-scenario requirement.
 
+**Boundary cases:** zero-scenario requirements may name the requirement heading
+instead of a scenario heading, but multi-scenario requirements may not collapse
+coverage back to the parent requirement heading.
+
 ### 2. Deterministic proof items carry exact acceptance signals
 
 **Choice:** add one exact proof-plan prompt line,
 `- exact expected output / acceptance signal:`, alongside the existing path,
 command, ordering, and cleanup fields.
+
+**Covers:** `Scenario: Maintainer names negative controls and proof acceptance signals`
 
 **Rationale:** repeated design findings show that path-only artifact planning is
 not enough; review needs the exact line set, schema, or pass condition that the
@@ -66,7 +74,13 @@ output makes the artifact acceptable.
 
 **Implementation:** update `openspec/templates/design.md` and the delta spec so
 `## Deterministic Proof Plan` keeps the new prompt line in addition to the
-existing required labels.
+existing required labels. Use one checked-in helper,
+`python3 openspec/changes/harden-openspec-design-gate-omissions/evidence/update-proof-artifacts.py`,
+to regenerate the deterministic extracts exactly as review expects.
+
+**Boundary cases:** path-only artifact planning is still insufficient even when
+an evidence path is stable; the replay contract must include the exact helper
+path plus the exact expected output lines.
 
 ### 3. Design-stage guidance names full coverage obligations
 
@@ -74,6 +88,8 @@ existing required labels.
 `openspec/templates/design.md`, requires every added/modified scenario heading
 or zero-scenario requirement to appear in design coverage, and requires named
 boundary cases plus exact acceptance signals when saved proof artifacts matter.
+
+**Covers:** `Scenario: Contributor guide points authors at the repo-local stage templates`; `Scenario: Proposal-stage and delta-spec guidance keep pointing at repo-local templates`; `Scenario: Design-stage guidance names coverage and boundary expectations`
 
 **Rationale:** template changes alone do not help if stage guidance still asks
 for only a generic design. The repo-local gate prompt must ask for the same
@@ -88,7 +104,12 @@ the new coverage and boundary expectations. The exact-five-`##`-headings rule
 applies to the shipped template file `openspec/templates/design.md`, not to
 every authored change-local `design.md` copied from it. `docs/contributor-guide.md`
 keeps its existing template links unchanged in this rollout; alignment is
-retained, not re-authored.
+retained, not re-authored, and saved proof will verify those unchanged exact
+link lines through the checked-in helper.
+
+**Boundary cases:** this change preserves the existing proposal and delta-spec
+stage guidance lines; it only strengthens design-stage guidance plus the
+unchanged contributor-guide template-link proof.
 
 ## Deterministic Proof Plan
 
@@ -97,15 +118,19 @@ retained, not re-authored.
 - artifact path:
   - `openspec/changes/harden-openspec-design-gate-omissions/evidence/design-template-coverage-fields.txt`
 - command / helper:
-  - `python3` extract over `openspec/templates/design.md`
+  - `python3 openspec/changes/harden-openspec-design-gate-omissions/evidence/update-proof-artifacts.py`
 - exact expected output / acceptance signal:
-  - the saved extract prints these exact lines, in order:
+  - the saved extract is the complete second-level-heading inventory plus full decision-block label inventory for `openspec/templates/design.md`, and it prints exactly these lines, in order, with no additional `## ` headings omitted or allowed:
     - `## Context`
     - `## Goals / Non-Goals`
     - `## Decisions`
     - `## Deterministic Proof Plan`
     - `## Risks / Trade-offs`
+    - `**Choice:** <what was decided>`
     - `**Covers:** <exact delta-spec scenario headings or requirement headings this decision satisfies>`
+    - `**Rationale:** <why this choice wins>`
+    - `**Alternative considered:** <what was rejected and why>`
+    - `**Implementation:** <how this will be carried out>`
     - `**Boundary cases:** <negative controls, continued-warning cases, or intentional gaps reviewers must see>`
 - ordering / prerequisites:
   - update `openspec/templates/design.md` first so the extract matches final text
@@ -117,7 +142,7 @@ retained, not re-authored.
 - artifact path:
   - `openspec/changes/harden-openspec-design-gate-omissions/evidence/design-template-proof-fields.txt`
 - command / helper:
-  - `python3` extract over `openspec/templates/design.md`
+  - `python3 openspec/changes/harden-openspec-design-gate-omissions/evidence/update-proof-artifacts.py`
 - exact expected output / acceptance signal:
   - the saved extract prints these exact lines, in order:
     - `## Deterministic Proof Plan`
@@ -133,21 +158,53 @@ retained, not re-authored.
   - the artifact reflects the final template text only
 
 - scenario or requirement:
+  - proposal scoping excerpt from `review_metrics promotions min=3`
+- artifact path:
+  - `openspec/changes/harden-openspec-design-gate-omissions/evidence/review-metrics-design-omissions.txt`
+- command / helper:
+  - `review_metrics action=promotions min=3`
+- exact expected output / acceptance signal:
+  - the saved extract prints these exact leading lines, in order:
+    - `$ review_metrics promotions min=3`
+    - `- count=52 [class=omission] [scope=design] [route=prompt]`
+    - `  task: Strengthen OpenSpec design gate/template to block repeated omission findings.`
+- ordering / prerequisites:
+  - capture the scoping excerpt before finalizing proposal/design wording so the motivating repetition count is reviewable
+- cleanup / postcondition:
+  - the artifact remains a stable saved excerpt of the motivating design-omission cluster
+
+- scenario or requirement:
+  - `Scenario: Contributor guide points authors at the repo-local stage templates`
+- artifact path:
+  - `openspec/changes/harden-openspec-design-gate-omissions/evidence/contributor-guide-template-links.txt`
+- command / helper:
+  - `python3 openspec/changes/harden-openspec-design-gate-omissions/evidence/update-proof-artifacts.py`
+- exact expected output / acceptance signal:
+  - the saved extract prints these exact standalone markdown-link lines, in order:
+    - `[OpenSpec proposal template](../openspec/templates/proposal.md)`
+    - `[OpenSpec delta-spec template](../openspec/templates/spec.md)`
+    - `[OpenSpec design template](../openspec/templates/design.md)`
+- ordering / prerequisites:
+  - none; `docs/contributor-guide.md` already carries the canonical links this change retains
+- cleanup / postcondition:
+  - the artifact contains only the three exact markdown-link lines needed for review
+
+- scenario or requirement:
+  - `Scenario: Proposal-stage and delta-spec guidance keep pointing at repo-local templates`
   - `Scenario: Design-stage guidance names coverage and boundary expectations`
 - artifact path:
   - `openspec/changes/harden-openspec-design-gate-omissions/evidence/design-stage-guidance.txt`
 - command / helper:
-  - `python3` extract over `openspec/config.yaml`
+  - `python3 openspec/changes/harden-openspec-design-gate-omissions/evidence/update-proof-artifacts.py`
 - exact expected output / acceptance signal:
-  - the saved extract prints one final design-rule excerpt that contains all of:
-    - `openspec/templates/design.md`
-    - `every added or modified scenario heading or zero-scenario requirement`
-    - `boundary cases`
-    - `exact expected output or acceptance signal`
+  - the saved extract prints these exact `openspec/config.yaml` rule lines, in order:
+    - `    - Follow \`openspec/templates/proposal.md\`; name exact repo-relative files/artifacts, ordering/dependencies, and planned saved evidence or helper/gate runs`
+    - `    - Follow \`openspec/templates/spec.md\` for delta-spec authoring; keep change-local specs in delta form, start each added or modified requirement with \`The system MUST ...\`, and give every added or modified requirement at least one \`#### Scenario:\` block`
+    - `    - Follow \`openspec/templates/design.md\`; every added or modified scenario heading or zero-scenario requirement must appear in a decision's \`**Covers:**\` field; name boundary cases for non-trigger or continued-warning conditions; every saved proof artifact must state its exact expected output or acceptance signal`
 - ordering / prerequisites:
-  - update `openspec/config.yaml` after the template wording is final so the rule matches the template
+  - update `openspec/config.yaml` after the template wording is final so the saved extract matches the final proposal/spec/design rule trio
 - cleanup / postcondition:
-  - the artifact contains only the final guidance line needed for review
+  - the artifact contains only the three exact config-rule lines needed for review
 
 - scenario or requirement:
   - human/oracle checkpoint for the full change
@@ -156,7 +213,7 @@ retained, not re-authored.
 - command / helper:
   - `openspec_gate stage=design change=harden-openspec-design-gate-omissions`
 - exact expected output / acceptance signal:
-  - the transcript reports no missing design-coverage, boundary-case, or artifact-contract findings for this change
+  - the transcript reports an overall passing design-stage gate result for this change and does not report any design-stage blocker findings
 - ordering / prerequisites:
   - run after the final proposal, delta spec, design, and tasks are in place
 - cleanup / postcondition:

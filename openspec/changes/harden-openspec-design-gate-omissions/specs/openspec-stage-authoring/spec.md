@@ -46,7 +46,13 @@ labels:
 
 - GIVEN a maintainer copies `openspec/templates/design.md`
 - WHEN they draft a design for a change with multiple scenario headings or a zero-scenario requirement
-- THEN `openspec/templates/design.md` still shows the exact five `## ` headings in order plus the `**Covers:**` and `**Boundary cases:**` prompt labels
+- THEN `openspec/templates/design.md` still shows the exact five `## ` headings in order plus the full decision-block label inventory:
+  - `**Choice:** <what was decided>`
+  - `**Covers:** <exact delta-spec scenario headings or requirement headings this decision satisfies>`
+  - `**Rationale:** <why this choice wins>`
+  - `**Alternative considered:** <what was rejected and why>`
+  - `**Implementation:** <how this will be carried out>`
+  - `**Boundary cases:** <negative controls, continued-warning cases, or intentional gaps reviewers must see>`
 - AND they can name the exact scenario headings or requirement heading each decision satisfies
 - AND a reviewer can tell when a normative case still lacks design coverage
 
@@ -78,6 +84,22 @@ lines:
 heading or zero-scenario requirement to appear in design coverage, and requires
 named boundary cases plus exact expected output or acceptance signals when saved
 proof artifacts matter.
+
+#### Scenario: Contributor guide points authors at the repo-local stage templates
+
+- GIVEN repo-local OpenSpec guidance reads `docs/contributor-guide.md`
+- WHEN a maintainer looks up the stage templates before implementation
+- THEN `docs/contributor-guide.md` still contains these exact standalone markdown-link lines:
+  - `[OpenSpec proposal template](../openspec/templates/proposal.md)`
+  - `[OpenSpec delta-spec template](../openspec/templates/spec.md)`
+  - `[OpenSpec design template](../openspec/templates/design.md)`
+
+#### Scenario: Proposal-stage and delta-spec guidance keep pointing at repo-local templates
+
+- GIVEN repo-local OpenSpec stage guidance reads `openspec/config.yaml`
+- WHEN proposal-stage prompts are prepared for a new change
+- THEN one proposal rule names `openspec/templates/proposal.md`
+- AND one proposal rule names `openspec/templates/spec.md` for delta-spec authoring
 
 #### Scenario: Design-stage guidance names coverage and boundary expectations
 

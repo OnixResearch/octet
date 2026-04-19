@@ -1,1 +1,3 @@
+    - Follow `openspec/templates/proposal.md`; name exact repo-relative files/artifacts, ordering/dependencies, and planned saved evidence or helper/gate runs
+    - Follow `openspec/templates/spec.md` for delta-spec authoring; keep change-local specs in delta form, start each added or modified requirement with `The system MUST ...`, and give every added or modified requirement at least one `#### Scenario:` block
     - Follow `openspec/templates/design.md`; every added or modified scenario heading or zero-scenario requirement must appear in a decision's `**Covers:**` field; name boundary cases for non-trigger or continued-warning conditions; every saved proof artifact must state its exact expected output or acceptance signal
