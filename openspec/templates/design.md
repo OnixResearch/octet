@@ -21,13 +21,13 @@
 
 **Choice:** <what was decided>
 
+**Covers:** <exact delta-spec scenario headings or requirement headings this decision satisfies>
+
 **Rationale:** <why this choice wins>
 
 **Alternative considered:** <what was rejected and why>
 
 **Implementation:** <how this will be carried out>
-
-**Covers:** <exact delta-spec scenario headings or requirement headings this decision satisfies>
 
 **Boundary cases:** <negative controls, continued-warning cases, or intentional gaps reviewers must see>
 

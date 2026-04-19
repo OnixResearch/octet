@@ -1,0 +1,38 @@
+$ openspec_gate stage=design change=harden-openspec-design-gate-omissions
+Strategy: same-family
+
+VERDICT: PASS
+
+## Findings
+
+## Stage Check
+- Proposal-to-design traceability is present in the supplied evidence.
+  - `proposal.md` says the change will tighten `openspec/templates/design.md`, tighten the design-stage rule in `openspec/config.yaml`, and save deterministic extracts plus an `openspec_gate stage=design` transcript.
+  - `design.md` contains three decisions that map to those outcomes:
+    - Decision 1 covers explicit scenario/requirement coverage and boundary prompts.
+    - Decision 2 covers exact proof acceptance signals.
+    - Decision 3 covers hardened `openspec/config.yaml` guidance plus unchanged contributor-guide link proof.
+- Delta-spec coverage is concrete.
+  - `specs/openspec-stage-authoring/spec.md` defines five scenarios.
+  - `design.md` Decision 1 `**Covers:**` names `Scenario: Maintainer maps design decisions to exact delta-spec coverage`.
+  - `design.md` Decision 2 `**Covers:**` names `Scenario: Maintainer names negative controls and proof acceptance signals`.
+  - `design.md` Decision 3 `**Covers:**` names:
+    - `Scenario: Contributor guide points authors at the repo-local stage templates`
+    - `Scenario: Proposal-stage and delta-spec guidance keep pointing at repo-local templates`
+    - `Scenario: Design-stage guidance names coverage and boundary expectations`
+- Verification strategy is explicit and deterministic in the supplied design.
+  - `design.md` `## Deterministic Proof Plan` names artifact paths, command/helper, ordering, cleanup, and exact acceptance signals for:
+    - `evidence/design-template-coverage-fields.txt`
+    - `evidence/design-template-proof-fields.txt`
+    - `evidence/review-metrics-design-omissions.txt`
+    - `evidence/contributor-guide-template-links.txt`
+    - `evidence/design-stage-guidance.txt`
+    - `evidence/design-gate.txt`
+- Risks and trade-offs are stated.
+  - `design.md` `## Risks / Trade-offs` covers added ceremony, over-constraining simple changes, and template/config drift.
+- No unresolved design choice requiring human escalation is explicit in the supplied artifacts.
+- Limitation: no `tasks.md` content was supplied here, so no design-to-tasks consistency check was possible from the provided evidence alone. Based on the design-stage contract in the supplied proposal/design/spec artifacts, the stage is ready to proceed.
+
+## Next Actions
+- Proceed to the next stage using this design as the contract.
+- When tasks are reviewed, verify they preserve the exact artifact set and replay commands listed in `design.md`.
