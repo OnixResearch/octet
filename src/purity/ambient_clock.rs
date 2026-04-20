@@ -1,3 +1,4 @@
+use rustc_errors::Applicability;
 use rustc_hir as hir;
 use rustc_hir::ExprKind;
 use rustc_lint::LateContext;
@@ -7,7 +8,8 @@ use rustc_middle::ty;
 use rustc_session::declare_lint_pass;
 use rustc_session::declare_tool_lint;
 
-use crate::diagnostics::emit_tiger_style_lint;
+use crate::diagnostics::LintSuggestion;
+use crate::diagnostics::emit_tiger_style_lint_with_suggestion;
 
 declare_tool_lint! {
     /// Detects direct calls to `Instant::now()`, `SystemTime::now()`,
@@ -119,5 +121,18 @@ impl<'tcx> LateLintPass<'tcx> for AmbientClock {
 }
 
 fn emit(cx: &LateContext<'_>, expr: &hir::Expr<'_>) {
-    emit_tiger_style_lint(cx, AMBIENT_CLOCK, expr.span, "direct system clock read in production code", "ambient_clock");
+    let suggestion = LintSuggestion::Single {
+        span: expr.span,
+        message: "inject time as a parameter instead of reading the system clock".to_owned(),
+        replacement: "/* inject time parameter */".to_owned(),
+        applicability: Applicability::HasPlaceholders,
+    };
+    emit_tiger_style_lint_with_suggestion(
+        cx,
+        AMBIENT_CLOCK,
+        expr.span,
+        "direct system clock read in production code",
+        "ambient_clock",
+        suggestion,
+    );
 }

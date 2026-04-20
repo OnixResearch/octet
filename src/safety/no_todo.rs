@@ -1,3 +1,4 @@
+use rustc_errors::Applicability;
 use rustc_hir as hir;
 use rustc_hir::ExprKind;
 use rustc_lint::LateContext;
@@ -8,7 +9,9 @@ use rustc_session::impl_lint_pass;
 use rustc_span::Span;
 use rustc_span::sym;
 
+use crate::diagnostics::LintSuggestion;
 use crate::diagnostics::emit_tiger_style_lint;
+use crate::diagnostics::emit_tiger_style_lint_with_suggestion;
 use crate::test_context;
 
 declare_tool_lint! {
@@ -203,7 +206,8 @@ impl NoTodo {
         self.emit_unjustified_allow_message_once(
             cx,
             attr_span,
-            "`#[allow(tigerstyle::no_todo)]` / `#[allow(no_todo)]` no longer covers any `todo!()` stub; remove it".to_owned(),
+            "`#[allow(tigerstyle::no_todo)]` / `#[allow(no_todo)]` no longer covers any `todo!()` stub; remove it"
+                .to_owned(),
         );
     }
 }
@@ -273,12 +277,18 @@ impl<'tcx> LateLintPass<'tcx> for NoTodo {
             return;
         }
 
-        emit_tiger_style_lint(
+        emit_tiger_style_lint_with_suggestion(
             cx,
             NO_TODO,
             callsite,
-            "`todo!()` marks unfinished production code".to_owned(),
+            "`todo!()` marks unfinished production code",
             "no_todo",
+            LintSuggestion::Single {
+                span: callsite,
+                message: "replace `todo!()` with an explicit error path".to_owned(),
+                replacement: "return Err(/* TODO: implement error */)".to_owned(),
+                applicability: Applicability::HasPlaceholders,
+            },
         );
     }
 

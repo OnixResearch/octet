@@ -1,15 +1,19 @@
+use rustc_errors::Applicability;
 use rustc_hir as hir;
 use rustc_hir::ItemKind;
 use rustc_hir::PatKind;
 use rustc_lint::LateContext;
 use rustc_lint::LateLintPass;
+use rustc_lint::LintContext;
 use rustc_middle::ty;
 use rustc_session::declare_lint_pass;
 use rustc_session::declare_tool_lint;
 use rustc_span::Symbol;
 use rustc_span::sym;
 
+use crate::diagnostics::LintSuggestion;
 use crate::diagnostics::emit_tiger_style_lint;
+use crate::diagnostics::emit_tiger_style_lint_with_suggestion;
 
 declare_tool_lint! {
     /// Detects `let _ = expr` where `expr` returns `Result<_, _>`. Silently
@@ -157,12 +161,32 @@ impl<'tcx> LateLintPass<'tcx> for IgnoredResult {
             return;
         }
 
-        emit_tiger_style_lint(
-            cx,
-            IGNORED_RESULT,
-            local.span,
-            "`Result` value silently discarded with `let _ = ...`",
-            "ignored_result",
-        );
+        let message = "`Result` value silently discarded with `let _ = ...`";
+        if let Some(suggestion) = ignored_result_suggestion(cx, local) {
+            emit_tiger_style_lint_with_suggestion(
+                cx,
+                IGNORED_RESULT,
+                local.span,
+                message,
+                "ignored_result",
+                suggestion,
+            );
+        } else {
+            emit_tiger_style_lint(cx, IGNORED_RESULT, local.span, message, "ignored_result");
+        }
     }
+}
+
+fn ignored_result_suggestion(cx: &LateContext<'_>, local: &hir::LetStmt<'_>) -> Option<LintSuggestion> {
+    let init = local.init?;
+    let sm = cx.sess().source_map();
+    let init_snippet = sm.span_to_snippet(init.span).ok()?;
+    let replacement = format!("{init_snippet}?");
+
+    Some(LintSuggestion::Single {
+        span: local.span,
+        message: "propagate the error with `?` instead of discarding".to_owned(),
+        replacement,
+        applicability: Applicability::MaybeIncorrect,
+    })
 }

@@ -63,6 +63,21 @@ The rollout MUST cover these lint families:
 - `unchecked_narrowing`
 - `platform_dependent_cast`
 - `unjustified_allow`
+- `negated_predicate`
+- `float_for_currency`
+- `no_todo`
+- `ambient_clock`
+- `no_unwrap`
+- `sentinel_fallback`
+- `ignored_result`
+- `contradictory_time`
+- `unbounded_channel`
+- `explicit_defaults`
+- `catch_all_on_enum`
+- `usize_in_public_api`
+- `multi_lock_ordering`
+- `compound_condition`
+- `unbounded_collection_growth`
 
 For this rollout, tigerstyle MUST keep the suggestion tier honest for each
 reported pattern:
@@ -71,17 +86,21 @@ reported pattern:
   emitted rewrite is semantics-preserving for the validated pattern; top-level
   `assert!(a || b)` diagnostics MUST NOT claim `MachineApplicable` unless the
   project first proves a semantics-preserving rewrite for that pattern
-- rename-oriented suggestions such as `bool_naming` and `acronym_style` MUST
-  NOT claim `MachineApplicable` when the emitted edit rewrites only the
-  declaration span; declaration-only rename suggestions MUST use
-  `MaybeIncorrect` unless the implementation also rewrites the affected use
-  sites needed to keep the validated fixture compiling
-- `numeric_units` and `unjustified_allow` MUST use `HasPlaceholders` when the
-  emitted text still requires the maintainer to choose a unit or fill in a
-  real justification
-- `unchecked_division`, `raw_arithmetic_overflow`, `unchecked_narrowing`, and
-  `platform_dependent_cast` MUST use `MaybeIncorrect` when the suggested change
-  may alter guards, control flow, or conversion/error-handling behavior
+- rename-oriented suggestions such as `bool_naming`, `acronym_style`, and
+  `negated_predicate` MUST NOT claim `MachineApplicable` when the emitted edit
+  rewrites only the declaration span; declaration-only rename suggestions MUST
+  use `MaybeIncorrect` or `HasPlaceholders` unless the implementation also
+  rewrites the affected use sites needed to keep the validated fixture compiling
+- `numeric_units`, `unjustified_allow`, `float_for_currency`, `no_todo`,
+  `ambient_clock`, `unbounded_channel`, `explicit_defaults`, `catch_all_on_enum`,
+  `multi_lock_ordering`, `compound_condition`, and `unbounded_collection_growth`
+  MUST use `HasPlaceholders` when the emitted text still requires the maintainer
+  to choose a value, fill in a justification, or complete a placeholder
+- `unchecked_division`, `raw_arithmetic_overflow`, `unchecked_narrowing`,
+  `platform_dependent_cast`, `no_unwrap`, `sentinel_fallback`, `ignored_result`,
+  `contradictory_time`, and `usize_in_public_api` MUST use `MaybeIncorrect`
+  when the suggested change may alter guards, control flow, error propagation,
+  or type-width behavior
 
 #### Scenario: Top-level conjunction gets machine-applicable split
 
@@ -123,30 +142,18 @@ suggestions or autofix proof artifacts:
 - `assertion_density`
 - `function_length`
 - `ambiguous_params`
-- `multi_lock_ordering`
-- `catch_all_on_enum`
 - `no_recursion`
-
-This change MUST also leave these additional shipped lint families unchanged
-and out of scope for structured suggestions:
-
-- `ambient_clock`
-- `compound_condition`
-- `contradictory_time`
-- `explicit_defaults`
-- `float_for_currency`
-- `ignored_result`
-- `negated_predicate`
 - `nested_conditionals`
 - `no_panic`
-- `no_unwrap`
 - `too_many_parameters`
-- `unbounded_channel`
-- `unbounded_collection_growth`
 - `unbounded_loop`
-- `unjustified_no_panic_allow`
-- `usize_in_public_api`
+- `unjustified_no_todo_allow`
 - `verified_purity`
+
+Note: `unjustified_no_todo_allow` shares its source file with `no_todo`
+(which is in the rollout). The rollout scope test exempts shared-source lints
+from the "source must not contain emit_tiger_style_lint_with_suggestion"
+assertion.
 
 #### Scenario: Diagnostics-only lint stays outside autofix scope
 
@@ -155,14 +162,6 @@ and out of scope for structured suggestions:
 - WHEN they inspect this change's acceptance scope
 - THEN they do not expect structured suggestions or autofix proof artifacts for
   that lint in this change
-
-#### Scenario: Unchanged lint stays outside rollout work
-
-- GIVEN a maintainer reviews `ambient_clock` or another unchanged lint named
-  above
-- WHEN they inspect this change's acceptance scope
-- THEN they do not expect structured suggestions, autofix artifacts, or task
-  work for that lint in this change
 
 ### Requirement: Autofix Validation Artifacts
 

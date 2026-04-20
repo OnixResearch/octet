@@ -1,6 +1,7 @@
 use std::env;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
+use std::path::PathBuf;
 
 fn main() {
     let manifest_dir = PathBuf::from(env::var_os("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR"));
@@ -9,11 +10,7 @@ fn main() {
     let mut files = Vec::new();
     collect_file(&repo_root.join("Cargo.toml"), Path::new("Cargo.toml"), &mut files);
     collect_file(&repo_root.join("Cargo.lock"), Path::new("Cargo.lock"), &mut files);
-    collect_file(
-        &repo_root.join("rust-toolchain.toml"),
-        Path::new("rust-toolchain.toml"),
-        &mut files,
-    );
+    collect_file(&repo_root.join("rust-toolchain.toml"), Path::new("rust-toolchain.toml"), &mut files);
     collect_dir(&repo_root.join("src"), Path::new("src"), &mut files);
     collect_dir(&manifest_dir, Path::new("cargo-tigerstyle"), &mut files);
     files.sort_by(|left, right| left.0.cmp(&right.0));

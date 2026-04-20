@@ -1,12 +1,15 @@
 use rustc_ast::Item;
 use rustc_ast::ItemKind;
+use rustc_errors::Applicability;
 use rustc_lint::EarlyContext;
 use rustc_lint::EarlyLintPass;
 use rustc_lint::LintContext;
 use rustc_session::declare_lint_pass;
 use rustc_session::declare_tool_lint;
 
+use crate::diagnostics::LintSuggestion;
 use crate::diagnostics::emit_tiger_style_lint;
+use crate::diagnostics::emit_tiger_style_lint_with_suggestion;
 
 declare_tool_lint! {
     /// Detects struct definitions containing 2 or more `Mutex` or `RwLock`
@@ -46,12 +49,35 @@ impl EarlyLintPass for MultiLockOrdering {
             return;
         }
 
-        emit_tiger_style_lint(
-            cx,
-            MULTI_LOCK_ORDERING,
-            item.span,
-            format!("struct `{}` has {lock_count} lock fields without documented ordering", ident.name,),
-            "multi_lock_ordering",
-        );
+        let message = format!("struct `{}` has {lock_count} lock fields without documented ordering", ident.name);
+        if let Some(suggestion) = lock_ordering_suggestion(&snippet, item.span, lock_count) {
+            emit_tiger_style_lint_with_suggestion(
+                cx,
+                MULTI_LOCK_ORDERING,
+                item.span,
+                message,
+                "multi_lock_ordering",
+                suggestion,
+            );
+        } else {
+            emit_tiger_style_lint(cx, MULTI_LOCK_ORDERING, item.span, message, "multi_lock_ordering");
+        }
     }
+}
+
+fn lock_ordering_suggestion(snippet: &str, item_span: rustc_span::Span, lock_count: usize) -> Option<LintSuggestion> {
+    let brace_pos = snippet.find('{')?;
+
+    // Build insertion point: just after the opening brace
+    let insert_offset = rustc_span::BytePos((brace_pos + 1) as u32);
+    let insert_span = item_span.with_lo(item_span.lo() + insert_offset).with_hi(item_span.lo() + insert_offset);
+
+    let replacement = format!("\n    // Lock order: <document acquisition order for {} locks>", lock_count);
+
+    Some(LintSuggestion::Single {
+        span: insert_span,
+        message: "add lock ordering documentation".to_owned(),
+        replacement,
+        applicability: Applicability::HasPlaceholders,
+    })
 }

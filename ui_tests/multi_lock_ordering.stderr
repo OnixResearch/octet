@@ -8,6 +8,7 @@ LL | | }
    | |_^
    |
    = help: Tiger Style (Lock Ordering): document and preserve one lock acquisition order across the codebase Example: // Lock order: state -> peer -> metrics
+   = note: structured suggestion applicability: HasPlaceholders
    = note: see Tiger Style guide: Lock Ordering
 note: the lint level is defined here
   --> $DIR/multi_lock_ordering.rs:1:9
@@ -15,6 +16,11 @@ note: the lint level is defined here
 LL | #![warn(multi_lock_ordering)]
    |         ^^^^^^^^^^^^^^^^^^^
    = note: `#[warn(tigerstyle::multi_lock_ordering)]` implied by `#[warn(multi_lock_ordering)]`
+help: add lock ordering documentation
+   |
+LL ~ struct Tracker {
+LL +     // Lock order: <document acquisition order for 2 locks>
+   |
 
 warning: 1 warning emitted
 

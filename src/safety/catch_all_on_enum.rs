@@ -1,3 +1,4 @@
+use rustc_errors::Applicability;
 use rustc_hir as hir;
 use rustc_hir::ExprKind;
 use rustc_hir::PatKind;
@@ -8,7 +9,9 @@ use rustc_middle::ty;
 use rustc_session::declare_lint_pass;
 use rustc_session::declare_tool_lint;
 
+use crate::diagnostics::LintSuggestion;
 use crate::diagnostics::emit_tiger_style_lint;
+use crate::diagnostics::emit_tiger_style_lint_with_suggestion;
 
 declare_tool_lint! {
     /// Detects `match` over enum types where the last arm is a wildcard (`_`)
@@ -123,12 +126,66 @@ impl<'tcx> LateLintPass<'tcx> for CatchAllOnEnum {
             return;
         }
 
-        emit_tiger_style_lint(
-            cx,
-            CATCH_ALL_ON_ENUM,
-            last_arm.span,
-            "catch-all `_` on enum match returns deny value — new variants will be silently handled",
-            "catch_all_on_enum",
-        );
+        let message = "catch-all `_` on enum match returns deny value — new variants will be silently handled";
+        if let Some(suggestion) = expand_wildcard_suggestion(cx, scrutinee, last_arm) {
+            emit_tiger_style_lint_with_suggestion(
+                cx,
+                CATCH_ALL_ON_ENUM,
+                last_arm.span,
+                message,
+                "catch_all_on_enum",
+                suggestion,
+            );
+        } else {
+            emit_tiger_style_lint(cx, CATCH_ALL_ON_ENUM, last_arm.span, message, "catch_all_on_enum");
+        }
     }
+}
+
+fn expand_wildcard_suggestion(
+    cx: &LateContext<'_>,
+    scrutinee: &hir::Expr<'_>,
+    last_arm: &hir::Arm<'_>,
+) -> Option<LintSuggestion> {
+    let scrutinee_ty = cx.typeck_results().expr_ty(scrutinee);
+    let ty::Adt(adt, _) = scrutinee_ty.kind() else {
+        return None;
+    };
+
+    let sm = cx.sess().source_map();
+    let indent_pos = sm.lookup_char_pos(last_arm.span.lo());
+    let indent = " ".repeat(indent_pos.col.0);
+
+    let type_name = cx.tcx.def_path_str(adt.did());
+
+    let variants: Vec<_> = adt.variants().iter().collect();
+    let mut arm_lines = Vec::new();
+    for (i, variant) in variants.iter().enumerate() {
+        let variant_name = variant.name.as_str();
+        let pattern = if variant.fields.is_empty() {
+            format!("{type_name}::{variant_name}")
+        } else if variant.ctor.is_none() {
+            // Struct variant (no constructor fn — uses brace syntax)
+            format!("{type_name}::{variant_name} {{ .. }}")
+        } else {
+            // Tuple variant
+            format!("{type_name}::{variant_name}(..)")
+        };
+        // Skip trailing comma on last arm — the original span includes it
+        let comma = if i + 1 < variants.len() { "," } else { "" };
+        arm_lines.push(format!("{pattern} => todo!(\"handle {variant_name}\"){comma}"));
+    }
+
+    if arm_lines.is_empty() {
+        return None;
+    }
+
+    let replacement = arm_lines.join(&format!("\n{indent}"));
+
+    Some(LintSuggestion::Single {
+        span: last_arm.span,
+        message: "expand wildcard into explicit variant arms".to_owned(),
+        replacement,
+        applicability: Applicability::HasPlaceholders,
+    })
 }

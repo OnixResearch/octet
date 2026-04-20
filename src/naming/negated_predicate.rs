@@ -1,3 +1,4 @@
+use rustc_errors::Applicability;
 use rustc_hir as hir;
 use rustc_hir::PatKind;
 use rustc_lint::LateContext;
@@ -5,7 +6,8 @@ use rustc_lint::LateLintPass;
 use rustc_session::declare_lint_pass;
 use rustc_session::declare_tool_lint;
 
-use crate::diagnostics::emit_tiger_style_lint;
+use crate::diagnostics::LintSuggestion;
+use crate::diagnostics::emit_tiger_style_lint_with_suggestion;
 
 declare_tool_lint! {
     /// Detects negative predicate names on boolean-returning functions and
@@ -37,13 +39,45 @@ fn has_negative_prefix(name: &str) -> bool {
     NEGATIVE_PREFIXES.iter().any(|prefix| name.starts_with(prefix))
 }
 
+fn positive_name(name: &str) -> String {
+    const TRANSFORMS: &[(&str, &str)] = &[
+        ("is_not_", "is_"),
+        ("has_no_", "has_"),
+        ("has_not_", "has_"),
+        ("lacks_", "has_"),
+        ("cannot_", "can_"),
+        ("cant_", "can_"),
+        ("does_not_", "does_"),
+        ("doesnt_", "does_"),
+        ("isnt_", "is_"),
+        ("wasnt_", "was_"),
+        ("wont_", "will_"),
+        ("no_", "has_"),
+    ];
+
+    for &(neg, pos) in TRANSFORMS {
+        if let Some(suffix) = name.strip_prefix(neg) {
+            return format!("{pos}{suffix}");
+        }
+    }
+
+    name.to_owned()
+}
+
 fn lint_name(cx: &LateContext<'_>, span: rustc_span::Span, name: &str) {
-    emit_tiger_style_lint(
+    let suggested = positive_name(name);
+    emit_tiger_style_lint_with_suggestion(
         cx,
         NEGATED_PREDICATE,
         span,
-        format!("negated predicate name `{name}` — prefer a positive form like `is_ready`"),
+        format!("negated predicate name `{name}` — prefer a positive form like `{suggested}`"),
         "negated_predicate",
+        LintSuggestion::Single {
+            span,
+            message: format!("rename to `{suggested}`"),
+            replacement: suggested,
+            applicability: Applicability::HasPlaceholders,
+        },
     );
 }
 
