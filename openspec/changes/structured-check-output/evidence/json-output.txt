@@ -1,0 +1,11 @@
+V1: Verify scenario "LLM parses JSON findings into granular tasks"
+Test: structured_json_output_contains_all_required_fields
+
+Verified by integration test in tests/consumer_integration.rs that:
+- Runs cargo-tigerstyle with --output-format json against a workspace producing 3 lint findings
+- Parses each stdout line as valid JSON
+- Asserts all required fields present: version (=1), index, lint, group, severity, file, line, column, message, principle, crate_name
+- Asserts specific field values match golden expectations (lint names, groups, file paths, line numbers, crate names)
+- Structural shape matches golden/json-example.jsonl
+
+Result: PASS (48/48 tests pass including structured_json_output_contains_all_required_fields)

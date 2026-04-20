@@ -1,0 +1,9 @@
+V11: Verify scenario "Conflicting --message-format rejected"
+Test: conflicting_message_format_in_passthrough_args_rejected
+
+Verified by integration test in tests/consumer_integration.rs that:
+- Runs with -- --message-format=short in passthrough args
+- Asserts exit code 2
+- Asserts stderr contains "--message-format"
+
+Result: PASS

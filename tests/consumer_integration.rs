@@ -156,6 +156,9 @@ EOF
 # mutated by fake cargo
 EOF
     fi
+    if [[ -n "${{TS_STDOUT_FILE:-}}" ]]; then
+      cat "$TS_STDOUT_FILE"
+    fi
     if [[ -n "${{TS_STDERR:-}}" ]]; then
       printf '%s\n' "$TS_STDERR" >&2
     fi
@@ -1856,4 +1859,368 @@ fn thin_wrapper_fixture_delegates_without_policy_logic() {
             fixture_path.display()
         );
     }
+}
+
+// --- Structured output integration tests ---
+
+fn cargo_compiler_message(target_name: &str, lint_name: &str, message: &str, file: &str, line: u32, col: u32, suggestion: Option<(&str, &str)>) -> String {
+    let children = match suggestion {
+        Some((replacement, applicability)) => format!(
+            r#"[{{"message":"try this","code":null,"level":"help","spans":[{{"file_name":"{file}","byte_start":0,"byte_end":1,"line_start":{line},"line_end":{line},"column_start":{col},"column_end":{col},"is_primary":true,"text":[],"label":null,"suggested_replacement":"{replacement}","suggestion_applicability":"{applicability}","expansion":null}}],"children":[],"rendered":null}}]"#
+        ),
+        None => "[]".to_owned(),
+    };
+    format!(
+        r#"{{"reason":"compiler-message","package_id":"path+file:///fake#{target_name}@0.1.0","manifest_path":"/fake/Cargo.toml","target":{{"kind":["lib"],"crate_types":["lib"],"name":"{target_name}","src_path":"/fake/src/lib.rs","edition":"2024","doc":true,"doctest":true,"test":true}},"message":{{"$message_type":"diagnostic","message":"{message}","code":{{"code":"{lint_name}","explanation":null}},"level":"warning","spans":[{{"file_name":"{file}","byte_start":0,"byte_end":1,"line_start":{line},"line_end":{line},"column_start":{col},"column_end":{col},"is_primary":true,"text":[],"label":null,"suggested_replacement":null,"suggestion_applicability":null,"expansion":null}}],"children":{children},"rendered":"warning[{lint_name}]: {message}\n --> {file}:{line}:{col}\n"}}}}"#
+    )
+}
+
+fn cargo_build_finished(success: bool) -> String {
+    format!(r#"{{"reason":"build-finished","success":{success}}}"#)
+}
+
+fn cargo_compiler_artifact(target_name: &str, fresh: bool) -> String {
+    format!(
+        r#"{{"reason":"compiler-artifact","package_id":"path+file:///fake#{target_name}@0.1.0","manifest_path":"/fake/Cargo.toml","target":{{"kind":["lib"],"crate_types":["lib"],"name":"{target_name}","src_path":"/fake/src/lib.rs","edition":"2024","doc":true,"doctest":true,"test":true}},"profile":{{"opt_level":"0","debuginfo":2,"debug_assertions":true,"overflow_checks":true,"test":false}},"features":[],"filenames":["/fake/target/debug/lib{target_name}.rlib"],"executable":null,"fresh":{fresh}}}"#
+    )
+}
+
+fn write_json_stdout_file(fixture: &ConsumerFixture, lines: &[String]) -> PathBuf {
+    let path = fixture.repo.join("../.cargo-json-stdout");
+    fs::write(&path, lines.join("\n") + "\n").expect("write JSON stdout file");
+    path
+}
+
+fn run_with_output_format(
+    fixture: &ConsumerFixture,
+    output_format: &str,
+    json_lines: &[String],
+    cargo_exit: i32,
+) -> std::process::Output {
+    let stdout_file = write_json_stdout_file(fixture, json_lines);
+    fixture.run_with_launcher_and_env(
+        None,
+        &[
+            ("TS_STDOUT_FILE", stdout_file.to_str().unwrap()),
+        ],
+        &["--output-format", output_format],
+        cargo_exit,
+        false,
+        Some("nightly-2026-03-21-x86_64-unknown-linux-gnu"),
+        Some(fixture.driver_path.as_path()),
+        Some(fixture.lint_lib_path.as_path()),
+        None,
+    )
+}
+
+fn three_finding_json_lines() -> Vec<String> {
+    vec![
+        cargo_compiler_artifact("aspen-core", false),
+        cargo_compiler_message(
+            "aspen-core", "no_unwrap",
+            "use of `.unwrap()`",
+            "src/connection.rs", 42, 5,
+            Some((".expect(\\\"reason\\\")", "MaybeIncorrect")),
+        ),
+        cargo_compiler_message(
+            "aspen-core", "function_length",
+            "function `handle_request` is 82 lines long (limit: 70)",
+            "src/router.rs", 15, 1,
+            None,
+        ),
+        cargo_compiler_artifact("aspen-dns", false),
+        cargo_compiler_message(
+            "aspen-dns", "unbounded_channel",
+            "use of unbounded channel",
+            "src/resolver.rs", 28, 9,
+            None,
+        ),
+        cargo_build_finished(true),
+    ]
+}
+
+#[test]
+fn structured_json_output_contains_all_required_fields() {
+    let fixture = ConsumerFixture::new("json-output", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
+    let output = run_with_output_format(&fixture, "json", &three_finding_json_lines(), 0);
+
+    assert_eq!(output.status.code(), Some(1), "findings should exit 1: stderr={}", String::from_utf8_lossy(&output.stderr));
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let findings: Vec<serde_json::Value> = stdout
+        .lines()
+        .map(|line| serde_json::from_str(line).expect("parse JSON finding"))
+        .collect();
+
+    assert_eq!(findings.len(), 3, "expected 3 findings, got: {stdout}");
+
+    for (i, f) in findings.iter().enumerate() {
+        assert_eq!(f["version"], 1, "finding {i} missing version");
+        assert!(f["index"].as_str().is_some(), "finding {i} missing index");
+        assert!(f["lint"].as_str().is_some(), "finding {i} missing lint");
+        assert!(f["group"].as_str().is_some(), "finding {i} missing group");
+        assert!(f["severity"].as_str().is_some(), "finding {i} missing severity");
+        assert!(f["file"].as_str().is_some(), "finding {i} missing file");
+        assert!(f["line"].is_number(), "finding {i} missing line");
+        assert!(f["column"].is_number(), "finding {i} missing column");
+        assert!(f["message"].as_str().is_some(), "finding {i} missing message");
+        assert!(f["principle"].as_str().is_some(), "finding {i} missing principle");
+        assert!(f["crate_name"].as_str().is_some(), "finding {i} missing crate_name");
+    }
+
+    assert_eq!(findings[0]["lint"], "no_unwrap");
+    assert_eq!(findings[0]["group"], "tigerstyle::safety");
+    assert_eq!(findings[0]["file"], "src/connection.rs");
+    assert_eq!(findings[0]["line"], 42);
+    assert_eq!(findings[0]["crate_name"], "aspen-core");
+
+    assert_eq!(findings[1]["lint"], "function_length");
+    assert_eq!(findings[1]["group"], "tigerstyle::structure");
+
+    assert_eq!(findings[2]["lint"], "unbounded_channel");
+    assert_eq!(findings[2]["crate_name"], "aspen-dns");
+}
+
+#[test]
+fn json_output_coexists_with_summary_on_stderr() {
+    let fixture = ConsumerFixture::new("json-stderr", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
+    let output = run_with_output_format(&fixture, "json", &three_finding_json_lines(), 0);
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    // stdout is pure JSON-lines
+    for line in stdout.lines() {
+        assert!(
+            serde_json::from_str::<serde_json::Value>(line).is_ok(),
+            "stdout line is not valid JSON: {line}"
+        );
+    }
+
+    // stderr has summary but no human diagnostics
+    assert!(stderr.contains("--- tigerstyle summary ---"), "stderr missing summary header: {stderr}");
+    assert!(stderr.contains("Findings: 3"), "stderr missing finding count: {stderr}");
+    assert!(!stderr.contains("warning[no_unwrap]"), "stderr should not contain human diagnostics in json mode: {stderr}");
+}
+
+#[test]
+fn sarif_output_has_required_structural_fields() {
+    let fixture = ConsumerFixture::new("sarif-output", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
+    let output = run_with_output_format(&fixture, "sarif", &three_finding_json_lines(), 0);
+
+    assert_eq!(output.status.code(), Some(1), "findings should exit 1: stderr={}", String::from_utf8_lossy(&output.stderr));
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let sarif: serde_json::Value = serde_json::from_str(&stdout).expect("parse SARIF JSON");
+
+    assert_eq!(sarif["$schema"].as_str().unwrap(), "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/main/sarif-2.1/schema/sarif-schema-2.1.0.json");
+    assert_eq!(sarif["version"], "2.1.0");
+
+    let run = &sarif["runs"][0];
+    assert_eq!(run["tool"]["driver"]["name"], "cargo-tigerstyle");
+    assert!(run["tool"]["driver"]["version"].as_str().is_some(), "missing driver version");
+
+    let rules = run["tool"]["driver"]["rules"].as_array().expect("rules array");
+    assert_eq!(rules.len(), 3, "expected 3 rules for 3 distinct lints");
+
+    let results = run["results"].as_array().expect("results array");
+    assert_eq!(results.len(), 3, "expected 3 results");
+
+    for (i, r) in results.iter().enumerate() {
+        assert!(r["ruleId"].as_str().is_some(), "result {i} missing ruleId");
+        assert!(r["level"].as_str().is_some(), "result {i} missing level");
+        assert!(r["message"]["text"].as_str().is_some(), "result {i} missing message text");
+        assert!(
+            r["locations"][0]["physicalLocation"]["artifactLocation"]["uri"].as_str().is_some(),
+            "result {i} missing location uri"
+        );
+        assert!(
+            r["properties"]["findingIndex"].as_str().is_some(),
+            "result {i} missing findingIndex property"
+        );
+    }
+
+    assert_eq!(results[0]["properties"]["findingIndex"], "F1");
+    assert_eq!(results[2]["properties"]["findingIndex"], "F3");
+}
+
+#[test]
+fn summary_format_for_noisy_run() {
+    let fixture = ConsumerFixture::new("summary-noisy", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
+    let output = run_with_output_format(&fixture, "json", &three_finding_json_lines(), 0);
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    assert!(stderr.contains("--- tigerstyle summary ---"), "missing summary header: {stderr}");
+    assert!(stderr.contains("Findings: 3"), "missing total count: {stderr}");
+    assert!(stderr.contains("By crate:"), "missing by-crate section: {stderr}");
+    assert!(stderr.contains("aspen-core"), "missing aspen-core in summary: {stderr}");
+    assert!(stderr.contains("aspen-dns"), "missing aspen-dns in summary: {stderr}");
+    assert!(stderr.contains("By lint:"), "missing by-lint section: {stderr}");
+    assert!(stderr.contains("no_unwrap"), "missing no_unwrap in summary: {stderr}");
+    assert!(stderr.contains("Index:"), "missing index section: {stderr}");
+    assert!(stderr.contains("F1"), "missing F1 in index: {stderr}");
+    assert!(stderr.contains("F3"), "missing F3 in index: {stderr}");
+    assert!(stderr.ends_with("---\n"), "missing summary closing delimiter: {stderr}");
+}
+
+#[test]
+fn summary_for_clean_run() {
+    let fixture = ConsumerFixture::new("summary-clean", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
+    let lines = vec![cargo_build_finished(true)];
+    let output = run_with_output_format(&fixture, "json", &lines, 0);
+
+    assert!(output.status.success(), "clean run should exit 0: stderr={}", String::from_utf8_lossy(&output.stderr));
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("--- tigerstyle summary ---"), "missing summary header: {stderr}");
+    assert!(stderr.contains("Findings: 0"), "clean run should show Findings: 0: {stderr}");
+    assert!(!stderr.contains("By crate:"), "clean run should not have by-crate section: {stderr}");
+    assert!(!stderr.contains("By lint:"), "clean run should not have by-lint section: {stderr}");
+}
+
+#[test]
+fn finding_indices_are_unique_and_monotonic() {
+    let fixture = ConsumerFixture::new("finding-index", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
+    let output = run_with_output_format(&fixture, "json", &three_finding_json_lines(), 0);
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let findings: Vec<serde_json::Value> = stdout
+        .lines()
+        .map(|line| serde_json::from_str(line).expect("parse JSON finding"))
+        .collect();
+
+    let indices: Vec<&str> = findings.iter().map(|f| f["index"].as_str().unwrap()).collect();
+    assert_eq!(indices, vec!["F1", "F2", "F3"], "indices should be F1, F2, F3 in order");
+
+    // Check uniqueness
+    let mut unique = indices.clone();
+    unique.sort();
+    unique.dedup();
+    assert_eq!(unique.len(), indices.len(), "all indices must be unique");
+}
+
+#[test]
+fn default_human_mode_preserves_diagnostics_on_stderr_with_summary() {
+    let fixture = ConsumerFixture::new("default-human", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
+    let json_lines = three_finding_json_lines();
+    let stdout_file = write_json_stdout_file(&fixture, &json_lines);
+    let output = fixture.run_with_launcher_and_env(
+        None,
+        &[("TS_STDOUT_FILE", stdout_file.to_str().unwrap())],
+        &[],  // no --output-format flag = human default
+        0,
+        false,
+        Some("nightly-2026-03-21-x86_64-unknown-linux-gnu"),
+        Some(fixture.driver_path.as_path()),
+        Some(fixture.lint_lib_path.as_path()),
+        None,
+    );
+
+    assert_eq!(output.status.code(), Some(1), "findings should exit 1");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    // (a) stderr has human-readable diagnostics
+    assert!(stderr.contains("warning[no_unwrap]"), "human mode should show rendered diagnostics on stderr: {stderr}");
+
+    // (b) stderr has trailing summary
+    assert!(stderr.contains("--- tigerstyle summary ---"), "human mode should append summary: {stderr}");
+
+    // (c) no structured output on stdout
+    assert!(stdout.is_empty(), "human mode should produce no stdout output: {stdout}");
+}
+
+#[test]
+fn invalid_output_format_rejected() {
+    let fixture = ConsumerFixture::new("invalid-format", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
+    let output = fixture.run(
+        &["--output-format", "xml"],
+        0,
+        false,
+        Some("nightly-2026-03-21-x86_64-unknown-linux-gnu"),
+        Some(fixture.driver_path.as_path()),
+        Some(fixture.lint_lib_path.as_path()),
+        None,
+    );
+
+    assert_eq!(output.status.code(), Some(2), "invalid format should exit 2: stderr={}", String::from_utf8_lossy(&output.stderr));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("unsupported output format"), "should report unsupported format: {stderr}");
+}
+
+#[test]
+fn compilation_error_during_json_output_produces_valid_json() {
+    let fixture = ConsumerFixture::new("error-json", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
+    // Simulate compilation error: cargo exits non-zero, with a non-lint compiler-message
+    let lines = vec![
+        cargo_compiler_message(
+            "consumer", "no_unwrap",
+            "use of `.unwrap()`",
+            "src/lib.rs", 10, 5,
+            None,
+        ),
+        cargo_build_finished(false),
+    ];
+    let output = run_with_output_format(&fixture, "json", &lines, 1);
+
+    assert_eq!(output.status.code(), Some(1), "error path should exit 1");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    // All stdout lines must be valid JSON
+    for line in stdout.lines() {
+        assert!(
+            serde_json::from_str::<serde_json::Value>(line).is_ok(),
+            "stdout line is not valid JSON during error path: {line}"
+        );
+    }
+
+    // Summary still printed
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("--- tigerstyle summary ---"), "summary should print even during error: {stderr}");
+}
+
+#[test]
+fn compilation_error_during_sarif_output_produces_valid_sarif() {
+    let fixture = ConsumerFixture::new("error-sarif", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
+    let lines = vec![
+        cargo_compiler_message(
+            "consumer", "no_unwrap",
+            "use of `.unwrap()`",
+            "src/lib.rs", 10, 5,
+            None,
+        ),
+        cargo_build_finished(false),
+    ];
+    let output = run_with_output_format(&fixture, "sarif", &lines, 1);
+
+    assert_eq!(output.status.code(), Some(1), "error path should exit 1");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let sarif: serde_json::Value = serde_json::from_str(&stdout)
+        .unwrap_or_else(|e| panic!("SARIF must be valid JSON even on error path: {e}\nstdout: {stdout}"));
+    assert_eq!(sarif["version"], "2.1.0", "SARIF version must be present on error path");
+    assert!(sarif["runs"][0]["results"].as_array().is_some(), "SARIF results must be present on error path");
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("--- tigerstyle summary ---"), "summary should print even during error: {stderr}");
+}
+
+#[test]
+fn conflicting_message_format_in_passthrough_args_rejected() {
+    let fixture = ConsumerFixture::new("msg-format-conflict", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
+    let output = fixture.run(
+        &["--", "--message-format=short"],
+        0,
+        false,
+        Some("nightly-2026-03-21-x86_64-unknown-linux-gnu"),
+        Some(fixture.driver_path.as_path()),
+        Some(fixture.lint_lib_path.as_path()),
+        None,
+    );
+
+    assert_eq!(output.status.code(), Some(2), "conflicting --message-format should exit 2: stderr={}", String::from_utf8_lossy(&output.stderr));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("--message-format"), "should mention --message-format in error: {stderr}");
 }

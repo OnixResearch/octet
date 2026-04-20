@@ -1,0 +1,10 @@
+V2: Verify scenario "JSON output coexists with human stderr"
+Test: json_output_coexists_with_summary_on_stderr
+
+Verified by integration test in tests/consumer_integration.rs that:
+- Runs cargo-tigerstyle with --output-format json
+- Asserts every stdout line is valid JSON (no human diagnostic text leaked)
+- Asserts stderr contains summary header "--- tigerstyle summary ---" and "Findings: 3"
+- Asserts stderr does NOT contain human-formatted diagnostics like "warning[no_unwrap]"
+
+Result: PASS

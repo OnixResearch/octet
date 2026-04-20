@@ -1,0 +1,9 @@
+V6: Verify scenario "LLM references specific finding by index"
+Test: finding_indices_are_unique_and_monotonic
+
+Verified by integration test in tests/consumer_integration.rs that:
+- Parses JSON output and extracts all finding indices
+- Asserts indices are ["F1", "F2", "F3"] in order (monotonically increasing)
+- Asserts all indices are unique (dedup length == original length)
+
+Result: PASS

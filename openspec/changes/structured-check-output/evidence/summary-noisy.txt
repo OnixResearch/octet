@@ -1,0 +1,14 @@
+V4: Verify scenario "Summary after noisy run"
+Test: summary_format_for_noisy_run
+
+Verified by integration test in tests/consumer_integration.rs that:
+- Runs against a workspace with 3 findings across 2 crates
+- Asserts summary header "--- tigerstyle summary ---" present
+- Asserts total count "Findings: 3" present
+- Asserts "By crate:" section with "aspen-core" and "aspen-dns"
+- Asserts "By lint:" section with "no_unwrap"
+- Asserts "Index:" section with "F1" and "F3"
+- Asserts closing delimiter "---" at end
+- Structure matches golden/summary-example.txt format
+
+Result: PASS

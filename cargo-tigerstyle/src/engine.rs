@@ -1,11 +1,19 @@
 use std::env;
 use std::fs;
+use std::io::BufRead;
+use std::io::BufReader;
+use std::io::IsTerminal;
+use std::io::Write;
 use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
+use std::process::Stdio;
 
 use crate::cli::CheckArgs;
+use crate::cli::OutputFormat;
 use crate::config;
+use crate::output;
+use crate::output::Finding;
 
 mod embedded_source {
     include!(concat!(env!("OUT_DIR"), "/embedded_source.rs"));
@@ -22,6 +30,16 @@ pub fn run(check: CheckArgs) -> Result<i32, String> {
         check.scope_args
     };
     let cargo_check_args = check.cargo_check_args.unwrap_or(cfg.cargo_check_args.clone());
+
+    // I7: detect --message-format conflict in passthrough args
+    if cargo_check_args
+        .iter()
+        .any(|arg| arg.starts_with("--message-format"))
+    {
+        return Err(
+            "`--message-format` is managed by `--output-format`; remove it from passthrough args".to_owned(),
+        );
+    }
 
     let lockfile_path = cfg.workspace_root.join("Cargo.lock");
     let skip_lockfile_guard = env::var("TIGERSTYLE_SKIP_LOCKFILE_CHECK")
@@ -40,27 +58,107 @@ pub fn run(check: CheckArgs) -> Result<i32, String> {
         let dylint_libs = serde_json::to_string(&vec![lint_lib.path().to_owned()])
             .map_err(|error| format!("encode DYLINT_LIBS: {error}"))?;
 
-        let status = Command::new("cargo")
-            .arg("check")
-            .args(&scope_args)
+        let mut cmd = Command::new("cargo");
+        cmd.arg("check").arg("--message-format=json");
+
+        // I9: inject --color=always when stderr is a TTY and human mode, unless overridden
+        if check.output_format == OutputFormat::Human
+            && std::io::stderr().is_terminal()
+            && !cargo_check_args.iter().any(|a| a.starts_with("--color"))
+        {
+            cmd.arg("--color=always");
+        }
+
+        cmd.args(&scope_args)
             .args(&cargo_check_args)
             .current_dir(&cfg.workspace_root)
             .env("RUSTC_WORKSPACE_WRAPPER", driver.path())
-            .env("DYLINT_LIBS", dylint_libs)
+            .env("DYLINT_LIBS", &dylint_libs)
             .env("DYLINT_NO_DEPS", "1")
             .env("RUSTUP_TOOLCHAIN", &toolchain)
-            .status()
-            .map_err(|error| format!("run cargo check: {error}"))?;
+            .stdout(Stdio::piped());
 
-        if status.success() {
-            return Ok(0);
+        // In json/sarif modes, suppress child stderr (cargo progress output)
+        if check.output_format != OutputFormat::Human {
+            cmd.stderr(Stdio::null());
         }
 
-        if status.code().is_some() {
-            return Ok(1);
+        let mut child = cmd.spawn().map_err(|error| format!("run cargo check: {error}"))?;
+        let child_stdout = child.stdout.take().expect("stdout piped");
+
+        let meta_map = output::lint_meta_map();
+        let mut findings: Vec<Finding> = Vec::new();
+        let mut finding_counter: usize = 0;
+        let mut stdout_lock = std::io::stdout().lock();
+        let mut stderr_lock = std::io::stderr().lock();
+
+        for line in BufReader::new(child_stdout).lines() {
+            let line = line.map_err(|e| format!("read cargo stdout: {e}"))?;
+            let json: serde_json::Value =
+                serde_json::from_str(&line).map_err(|e| format!("parse cargo JSON: {e}"))?;
+
+            let reason = json["reason"].as_str().unwrap_or("");
+
+            match reason {
+                "compiler-message" => {
+                    let message = &json["message"];
+
+                    // I8: in human mode, print rendered diagnostic to stderr
+                    if check.output_format == OutputFormat::Human {
+                        if let Some(rendered) = message["rendered"].as_str() {
+                            let _ = write!(stderr_lock, "{rendered}");
+                        }
+                    }
+
+                    // Check if this is a tigerstyle lint
+                    let code = message["code"]["code"].as_str().unwrap_or("");
+                    let lint_name = normalize_lint_name(code);
+
+                    if let Some(meta) = meta_map.get(lint_name.as_str()) {
+                        finding_counter += 1;
+                        let finding = build_finding(finding_counter, &json, meta, &lint_name);
+
+                        if check.output_format == OutputFormat::Json {
+                            output::emit_json_line(&finding, &mut stdout_lock)?;
+                        }
+
+                        findings.push(finding);
+                    }
+                }
+                "compiler-artifact" if check.output_format == OutputFormat::Human => {
+                    if let Some(banner) = format_compiling_banner(&json) {
+                        let _ = writeln!(stderr_lock, "{banner}");
+                    }
+                }
+                "build-finished" if check.output_format == OutputFormat::Human => {
+                    let success = json["success"].as_bool().unwrap_or(false);
+                    if success {
+                        let _ = writeln!(stderr_lock, "    Finished checking");
+                    }
+                }
+                _ => {}
+            }
         }
 
-        Err("cargo check terminated without an exit code".to_owned())
+        let status = child.wait().map_err(|error| format!("wait for cargo check: {error}"))?;
+
+        // Emit SARIF after all findings collected
+        if check.output_format == OutputFormat::Sarif {
+            output::emit_sarif(&findings, &meta_map, &mut stdout_lock)?;
+        }
+
+        // I4: always emit summary to stderr
+        output::emit_summary(&findings, &mut stderr_lock)?;
+
+        // Exit code: 0 = clean, 1 = findings or cargo failure
+        if !status.success() || !findings.is_empty() {
+            if status.code().is_some() {
+                return Ok(1);
+            }
+            return Err("cargo check terminated without an exit code".to_owned());
+        }
+
+        Ok(0)
     })();
 
     if !skip_lockfile_guard && lockfile_changed(&lockfile_path, &lockfile_before)? {
@@ -77,6 +175,108 @@ pub fn run(check: CheckArgs) -> Result<i32, String> {
 
     result
 }
+
+fn normalize_lint_name(code: &str) -> String {
+    code.strip_prefix("tigerstyle::").unwrap_or(code).to_owned()
+}
+
+fn build_finding(
+    index: usize,
+    cargo_msg: &serde_json::Value,
+    meta: &output::LintMeta,
+    lint_name: &str,
+) -> Finding {
+    let message = &cargo_msg["message"];
+
+    let primary_span = message["spans"]
+        .as_array()
+        .and_then(|spans| spans.iter().find(|s| s["is_primary"].as_bool() == Some(true)))
+        .or_else(|| message["spans"].as_array().and_then(|s| s.first()));
+
+    let file = primary_span
+        .and_then(|s| s["file_name"].as_str())
+        .unwrap_or("unknown")
+        .to_owned();
+    let line = primary_span
+        .and_then(|s| s["line_start"].as_u64())
+        .unwrap_or(0) as u32;
+    let column = primary_span
+        .and_then(|s| s["column_start"].as_u64())
+        .unwrap_or(0) as u32;
+
+    let msg_text = message["message"].as_str().unwrap_or("").to_owned();
+    let severity = message["level"].as_str().unwrap_or("warning").to_owned();
+    let crate_name = cargo_msg["target"]["name"]
+        .as_str()
+        .unwrap_or("unknown")
+        .to_owned();
+
+    let (suggestion, applicability) = extract_suggestion(message);
+
+    Finding {
+        version: 1,
+        index: format!("F{index}"),
+        lint: lint_name.to_owned(),
+        group: meta.group.to_owned(),
+        severity,
+        file,
+        line,
+        column,
+        message: msg_text,
+        suggestion,
+        applicability,
+        principle: meta.principle.to_owned(),
+        crate_name,
+    }
+}
+
+fn extract_suggestion(message: &serde_json::Value) -> (Option<String>, Option<String>) {
+    let children = match message["children"].as_array() {
+        Some(c) => c,
+        None => return (None, None),
+    };
+
+    for child in children {
+        if let Some(spans) = child["spans"].as_array() {
+            for span in spans {
+                if let Some(replacement) = span["suggested_replacement"].as_str() {
+                    let applicability = span["suggestion_applicability"].as_str().map(ToOwned::to_owned);
+                    return (Some(replacement.to_owned()), applicability);
+                }
+            }
+        }
+    }
+
+    (None, None)
+}
+
+fn format_compiling_banner(json: &serde_json::Value) -> Option<String> {
+    let fresh = json["fresh"].as_bool().unwrap_or(true);
+    if fresh {
+        return None;
+    }
+
+    let target_name = json["target"]["name"].as_str()?;
+
+    let version = json["package_id"]
+        .as_str()
+        .and_then(|pid| pid.rsplit_once('#'))
+        .map(|(_, fragment)| {
+            if let Some((_, ver)) = fragment.rsplit_once('@') {
+                ver
+            } else {
+                fragment
+            }
+        });
+
+    if let Some(ver) = version {
+        Some(format!("   Compiling {target_name} v{ver}"))
+    } else {
+        Some(format!("   Compiling {target_name}"))
+    }
+}
+
+// --- Everything below is unchanged from the original engine ---
 
 struct TempDir {
     path: PathBuf,
