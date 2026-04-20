@@ -1,6 +1,7 @@
 mod cli;
 mod config;
 mod engine;
+mod output;
 
 use std::process::ExitCode;
 

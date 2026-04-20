@@ -1,0 +1,11 @@
+V5: Verify scenario "Summary for clean run"
+Test: summary_for_clean_run
+
+Verified by integration test in tests/consumer_integration.rs that:
+- Runs against a clean workspace (no lint findings)
+- Asserts exit code 0
+- Asserts summary contains "Findings: 0"
+- Asserts no "By crate:" section (not present for zero findings)
+- Asserts no "By lint:" section
+
+Result: PASS

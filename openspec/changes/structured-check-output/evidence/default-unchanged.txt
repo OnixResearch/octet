@@ -1,0 +1,11 @@
+V7: Verify scenario "Default behavior unchanged"
+Test: default_human_mode_preserves_diagnostics_on_stderr_with_summary
+
+Verified by integration test in tests/consumer_integration.rs that:
+- Runs with no --output-format flag (human default)
+- (a) Lint diagnostics appear on stderr in human-readable format (contains "warning[no_unwrap]")
+- (b) A trailing summary block is appended to stderr ("--- tigerstyle summary ---")
+- (c) No output on stdout (stdout is empty)
+- (d) Exit code 1 (findings present)
+
+Result: PASS

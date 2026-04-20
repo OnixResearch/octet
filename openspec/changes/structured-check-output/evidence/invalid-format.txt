@@ -1,0 +1,9 @@
+V8: Verify scenario "Invalid format rejected"
+Test: invalid_output_format_rejected
+
+Verified by integration test in tests/consumer_integration.rs that:
+- Runs with --output-format xml
+- Asserts exit code 2
+- Asserts stderr contains "unsupported output format"
+
+Result: PASS

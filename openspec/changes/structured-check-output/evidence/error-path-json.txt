@@ -1,0 +1,10 @@
+V9: Verify scenario "Compilation error during JSON output"
+Test: compilation_error_during_json_output_produces_valid_json
+
+Verified by integration test in tests/consumer_integration.rs that:
+- Runs with --output-format json against a workspace that has a compilation error (cargo exits 1)
+- Asserts all stdout lines are valid JSON (no partial lines)
+- Asserts exit code is 1
+- Asserts summary still prints to stderr
+
+Result: PASS
