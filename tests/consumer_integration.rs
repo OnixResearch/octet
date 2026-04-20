@@ -248,15 +248,8 @@ esac
             .env("TS_CONSUMER_LOCKFILE", self.repo.join("Cargo.lock"))
             .env("CARGO_TARGET_DIR", &self.target_dir);
 
-        fs::write(
-            &self.log_path,
-            format!(
-                "LAUNCHER:{}\nPATH:{}\n",
-                command.get_program().to_string_lossy(),
-                path,
-            ),
-        )
-        .expect("seed cargo log");
+        fs::write(&self.log_path, format!("LAUNCHER:{}\nPATH:{}\n", command.get_program().to_string_lossy(), path,))
+            .expect("seed cargo log");
 
         match lint_lib_env {
             Some(value) => {
@@ -434,22 +427,12 @@ esac
             .env("TS_LOG", &self.log_path)
             .env("TS_CARGO_EXIT_STATUS", cargo_exit_status.to_string())
             .env("TS_MUTATE_LOCKFILE", if mutate_lockfile { "1" } else { "0" })
-            .env(
-                "TS_MUTATE_LOCKFILE_ON_BUILD",
-                if mutate_lockfile_on_build { "1" } else { "0" },
-            )
+            .env("TS_MUTATE_LOCKFILE_ON_BUILD", if mutate_lockfile_on_build { "1" } else { "0" })
             .env("TS_CONSUMER_LOCKFILE", self.repo.join("Cargo.lock"))
             .env("CARGO_TARGET_DIR", &self.target_dir);
 
-        fs::write(
-            &self.log_path,
-            format!(
-                "LAUNCHER:{}\nPATH:{}\n",
-                command.get_program().to_string_lossy(),
-                path,
-            ),
-        )
-        .expect("seed cargo log");
+        fs::write(&self.log_path, format!("LAUNCHER:{}\nPATH:{}\n", command.get_program().to_string_lossy(), path,))
+            .expect("seed cargo log");
 
         match lint_lib_env {
             Some(value) => {
@@ -567,7 +550,13 @@ fn build_standalone_cargo_tigerstyle() -> StandaloneCargoTigerstyle {
     let target_dir = tmp.path().join("target");
     let repo_root = Path::new(env!("CARGO_MANIFEST_DIR"));
 
-    for relative in ["Cargo.toml", "Cargo.lock", "rust-toolchain.toml", "src", "cargo-tigerstyle"] {
+    for relative in [
+        "Cargo.toml",
+        "Cargo.lock",
+        "rust-toolchain.toml",
+        "src",
+        "cargo-tigerstyle",
+    ] {
         copy_path(&repo_root.join(relative), &source_root.join(relative));
     }
 
@@ -646,8 +635,14 @@ fn cargo_style_argv_prefix_parses_like_bare_check() {
 
     let log = fixture.log();
     assert!(log.contains("ARGS:check"), "cargo-style argv prefix should still invoke cargo check, got: {log}");
-    assert!(log.contains("-p consumer"), "cargo-style argv prefix should preserve metadata default scope, got: {log}");
-    assert!(log.contains("--lib"), "cargo-style argv prefix should preserve metadata cargo_check_args, got: {log}");
+    assert!(
+        log.contains("-p consumer"),
+        "cargo-style argv prefix should preserve metadata default scope, got: {log}"
+    );
+    assert!(
+        log.contains("--lib"),
+        "cargo-style argv prefix should preserve metadata cargo_check_args, got: {log}"
+    );
 }
 
 #[test]
@@ -732,12 +727,16 @@ fn explicit_workspace_scope_override_beats_metadata_defaults() {
     let log = fixture.log();
     assert!(log.contains("--workspace"), "expected explicit --workspace scope override, got: {log}");
     assert!(!log.contains("-p consumer"), "explicit --workspace should replace metadata default scope: {log}");
-    assert!(log.contains("--lib"), "metadata cargo_check_args should still apply without explicit cargo tail args: {log}");
+    assert!(
+        log.contains("--lib"),
+        "metadata cargo_check_args should still apply without explicit cargo tail args: {log}"
+    );
 }
 
 #[test]
 fn repeated_package_scope_flags_forward_in_order_and_replace_metadata_defaults() {
-    let fixture = ConsumerFixture::new("repeated-package-overrides", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
+    let fixture =
+        ConsumerFixture::new("repeated-package-overrides", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
 
     let output = fixture.run(
         &["--package", "consumer", "-p", "other"],
@@ -759,8 +758,14 @@ fn repeated_package_scope_flags_forward_in_order_and_replace_metadata_defaults()
     let consumer_pos = log.find("--package consumer").expect("expected --package consumer in cargo log");
     let other_pos = log.find("-p other").expect("expected -p other in cargo log");
     assert!(consumer_pos < other_pos, "repeated package scope flags should preserve order: {log}");
-    assert!(!log.contains("-p consumer"), "repeated package scope flags should replace metadata default scope: {log}");
-    assert!(log.contains("--lib"), "metadata cargo_check_args should still apply without explicit cargo tail args: {log}");
+    assert!(
+        !log.contains("-p consumer"),
+        "repeated package scope flags should replace metadata default scope: {log}"
+    );
+    assert!(
+        log.contains("--lib"),
+        "metadata cargo_check_args should still apply without explicit cargo tail args: {log}"
+    );
 }
 
 #[test]
@@ -785,7 +790,10 @@ fn bare_double_dash_replaces_metadata_cargo_check_args_with_nothing() {
 
     let log = fixture.log();
     assert!(log.contains("-p consumer"), "bare -- should keep metadata default scope: {log}");
-    assert!(!log.contains("--lib"), "bare -- should replace metadata cargo_check_args with an empty explicit tail: {log}");
+    assert!(
+        !log.contains("--lib"),
+        "bare -- should replace metadata cargo_check_args with an empty explicit tail: {log}"
+    );
 }
 
 #[test]
@@ -812,7 +820,10 @@ fn explicit_workspace_scope_with_cargo_tail_replaces_metadata_scope_and_args() {
     assert!(log.contains("--workspace"), "expected explicit --workspace scope override, got: {log}");
     assert!(log.contains("--all-targets"), "expected explicit cargo tail args, got: {log}");
     assert!(!log.contains("-p consumer"), "explicit --workspace should replace metadata default scope: {log}");
-    assert!(!log.contains("--lib"), "explicit cargo tail args should replace metadata defaults even with --workspace: {log}");
+    assert!(
+        !log.contains("--lib"),
+        "explicit cargo tail args should replace metadata defaults even with --workspace: {log}"
+    );
 }
 
 #[test]
@@ -1162,11 +1173,7 @@ fn missing_package_value_after_scope_flag_exits_with_integration_failure_code_an
     };
 
     assert_missing_value_failure("missing-package-short", &["-p"], "error: missing value after `-p`");
-    assert_missing_value_failure(
-        "missing-package-long",
-        &["--package"],
-        "error: missing value after `--package`",
-    );
+    assert_missing_value_failure("missing-package-long", &["--package"], "error: missing value after `--package`");
 }
 
 #[test]
@@ -1204,12 +1211,17 @@ fn cargo_termination_without_exit_code_exits_two_and_restores_lockfile() {
         String::from_utf8_lossy(&output.stdout),
         stderr
     );
-    assert_eq!(fixture.lockfile(), fixture.original_lockfile, "signal-terminated cargo should restore the consumer lockfile");
+    assert_eq!(
+        fixture.lockfile(),
+        fixture.original_lockfile,
+        "signal-terminated cargo should restore the consumer lockfile"
+    );
 }
 
 #[test]
 fn cargo_termination_without_exit_code_and_without_lockfile_mutation_reports_only_root_cause() {
-    let fixture = ConsumerFixture::new("signal-terminated-clean-lockfile", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
+    let fixture =
+        ConsumerFixture::new("signal-terminated-clean-lockfile", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
 
     let output = fixture.run_with_launcher_and_env(
         None,
@@ -1242,28 +1254,22 @@ fn cargo_termination_without_exit_code_and_without_lockfile_mutation_reports_onl
         String::from_utf8_lossy(&output.stdout),
         stderr
     );
-    assert_eq!(fixture.lockfile(), fixture.original_lockfile, "clean signal-terminated cargo should leave the consumer lockfile unchanged");
+    assert_eq!(
+        fixture.lockfile(),
+        fixture.original_lockfile,
+        "clean signal-terminated cargo should leave the consumer lockfile unchanged"
+    );
 }
 
 #[test]
 fn explicit_empty_tigerstyle_env_vars_exit_with_integration_failure_code() {
-    let assert_empty_env_failure = |
-        label: &str,
-        toolchain_env: Option<&str>,
-        driver_env: Option<&Path>,
-        lint_lib_env: Option<&Path>,
-        dylint_rev_env: Option<&str>,
-    | {
+    let assert_empty_env_failure = |label: &str,
+                                    toolchain_env: Option<&str>,
+                                    driver_env: Option<&Path>,
+                                    lint_lib_env: Option<&Path>,
+                                    dylint_rev_env: Option<&str>| {
         let fixture = ConsumerFixture::new(label, &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
-        let output = fixture.run(
-            &[],
-            0,
-            false,
-            toolchain_env,
-            driver_env,
-            lint_lib_env,
-            dylint_rev_env,
-        );
+        let output = fixture.run(&[], 0, false, toolchain_env, driver_env, lint_lib_env, dylint_rev_env);
         assert_eq!(
             output.status.code(),
             Some(2),
@@ -1275,7 +1281,8 @@ fn explicit_empty_tigerstyle_env_vars_exit_with_integration_failure_code() {
         assert!(!log.contains("ARGS:"), "{label} should fail before invoking cargo: {log}");
     };
 
-    let toolchain_fixture = ConsumerFixture::new("empty-toolchain-fixture", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
+    let toolchain_fixture =
+        ConsumerFixture::new("empty-toolchain-fixture", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
     assert_empty_env_failure(
         "empty-toolchain",
         Some(""),
@@ -1284,7 +1291,8 @@ fn explicit_empty_tigerstyle_env_vars_exit_with_integration_failure_code() {
         None,
     );
 
-    let driver_fixture = ConsumerFixture::new("empty-driver-fixture", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
+    let driver_fixture =
+        ConsumerFixture::new("empty-driver-fixture", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
     assert_empty_env_failure(
         "empty-driver-path",
         Some("nightly-2026-03-21-x86_64-unknown-linux-gnu"),
@@ -1293,7 +1301,8 @@ fn explicit_empty_tigerstyle_env_vars_exit_with_integration_failure_code() {
         None,
     );
 
-    let lint_fixture = ConsumerFixture::new("empty-lint-lib-fixture", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
+    let lint_fixture =
+        ConsumerFixture::new("empty-lint-lib-fixture", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
     assert_empty_env_failure(
         "empty-lint-lib",
         Some("nightly-2026-03-21-x86_64-unknown-linux-gnu"),
@@ -1302,7 +1311,8 @@ fn explicit_empty_tigerstyle_env_vars_exit_with_integration_failure_code() {
         None,
     );
 
-    let dylint_rev_fixture = ConsumerFixture::new("empty-dylint-rev-fixture", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
+    let dylint_rev_fixture =
+        ConsumerFixture::new("empty-dylint-rev-fixture", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
     assert_empty_env_failure(
         "empty-dylint-rev",
         Some("nightly-2026-03-21-x86_64-unknown-linux-gnu"),
@@ -1451,7 +1461,8 @@ fn missing_lockfile_clean_success_preserves_absence() {
 
 #[test]
 fn bootstrap_lockfile_mutation_restores_original_and_exits_two() {
-    let fixture = ConsumerFixture::new("bootstrap-lockfile-restore", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
+    let fixture =
+        ConsumerFixture::new("bootstrap-lockfile-restore", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
 
     let output = fixture.run_with_bootstrap_lockfile_mutation(
         &[],
@@ -1468,7 +1479,11 @@ fn bootstrap_lockfile_mutation_restores_original_and_exits_two() {
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
-    assert_eq!(fixture.lockfile(), fixture.original_lockfile, "bootstrap mutation should restore the consumer lockfile");
+    assert_eq!(
+        fixture.lockfile(),
+        fixture.original_lockfile,
+        "bootstrap mutation should restore the consumer lockfile"
+    );
 }
 
 #[test]
@@ -1646,7 +1661,8 @@ fn installed_cargo_subcommand_recovers_corrupt_embedded_source_cache() {
 
     let source_dir = first_embedded_source_dir(&cache_home);
     let marker_path = source_dir.join(".tigerstyle-source-blake3");
-    fs::write(&marker_path, "corrupt-marker\n").unwrap_or_else(|error| panic!("write {}: {error}", marker_path.display()));
+    fs::write(&marker_path, "corrupt-marker\n")
+        .unwrap_or_else(|error| panic!("write {}: {error}", marker_path.display()));
 
     let second_output = fixture.run_with_launcher_and_env(
         Some(&standalone.bin_path),
@@ -1665,14 +1681,20 @@ fn installed_cargo_subcommand_recovers_corrupt_embedded_source_cache() {
         String::from_utf8_lossy(&second_output.stdout),
         String::from_utf8_lossy(&second_output.stderr)
     );
-    let marker = fs::read_to_string(&marker_path).unwrap_or_else(|error| panic!("read {}: {error}", marker_path.display()));
-    assert_ne!(marker.trim_end(), "corrupt-marker", "embedded source cache marker should be rewritten after recovery");
+    let marker =
+        fs::read_to_string(&marker_path).unwrap_or_else(|error| panic!("read {}: {error}", marker_path.display()));
+    assert_ne!(
+        marker.trim_end(),
+        "corrupt-marker",
+        "embedded source cache marker should be rewritten after recovery"
+    );
 }
 
 #[test]
 fn installed_cargo_subcommand_falls_back_to_temp_cache_when_home_caches_are_unwritable() {
     let standalone = build_standalone_cargo_tigerstyle();
-    let fixture = ConsumerFixture::new("installed-temp-cache-fallback", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
+    let fixture =
+        ConsumerFixture::new("installed-temp-cache-fallback", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
     let blocked_roots = TempDir::new("installed-temp-cache-blocked");
     let blocked_xdg = blocked_roots.path().join("blocked-xdg");
     let blocked_home = blocked_roots.path().join("blocked-home");
@@ -1773,10 +1795,7 @@ fn installed_cargo_subcommand_handles_concurrent_first_use_of_shared_embedded_so
     }
 
     let source_dir = first_embedded_source_dir(&cache_home);
-    let file_name = source_dir
-        .file_name()
-        .and_then(|value| value.to_str())
-        .expect("embedded source dir name");
+    let file_name = source_dir.file_name().and_then(|value| value.to_str()).expect("embedded source dir name");
     assert!(
         !file_name.starts_with('.'),
         "concurrent cache extraction should leave the final hash dir, not a staging dir: {}",
@@ -1792,8 +1811,9 @@ fn installed_cargo_subcommand_handles_concurrent_first_use_of_shared_embedded_so
 #[test]
 fn checked_in_nix_consumer_fixture_is_reviewable() {
     let fixture_root = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/consumer-integration/nix-consumer");
-    let cargo_toml = fs::read_to_string(fixture_root.join("Cargo.toml"))
-        .unwrap_or_else(|error| panic!("read checked-in nix consumer Cargo.toml under {}: {error}", fixture_root.display()));
+    let cargo_toml = fs::read_to_string(fixture_root.join("Cargo.toml")).unwrap_or_else(|error| {
+        panic!("read checked-in nix consumer Cargo.toml under {}: {error}", fixture_root.display())
+    });
     let flake = fs::read_to_string(fixture_root.join("flake.nix"))
         .unwrap_or_else(|error| panic!("read checked-in nix consumer flake under {}: {error}", fixture_root.display()));
 
@@ -1863,7 +1883,15 @@ fn thin_wrapper_fixture_delegates_without_policy_logic() {
 
 // --- Structured output integration tests ---
 
-fn cargo_compiler_message(target_name: &str, lint_name: &str, message: &str, file: &str, line: u32, col: u32, suggestion: Option<(&str, &str)>) -> String {
+fn cargo_compiler_message(
+    target_name: &str,
+    lint_name: &str,
+    message: &str,
+    file: &str,
+    line: u32,
+    col: u32,
+    suggestion: Option<(&str, &str)>,
+) -> String {
     let children = match suggestion {
         Some((replacement, applicability)) => format!(
             r#"[{{"message":"try this","code":null,"level":"help","spans":[{{"file_name":"{file}","byte_start":0,"byte_end":1,"line_start":{line},"line_end":{line},"column_start":{col},"column_end":{col},"is_primary":true,"text":[],"label":null,"suggested_replacement":"{replacement}","suggestion_applicability":"{applicability}","expansion":null}}],"children":[],"rendered":null}}]"#
@@ -1900,9 +1928,7 @@ fn run_with_output_format(
     let stdout_file = write_json_stdout_file(fixture, json_lines);
     fixture.run_with_launcher_and_env(
         None,
-        &[
-            ("TS_STDOUT_FILE", stdout_file.to_str().unwrap()),
-        ],
+        &[("TS_STDOUT_FILE", stdout_file.to_str().unwrap())],
         &["--output-format", output_format],
         cargo_exit,
         false,
@@ -1917,22 +1943,31 @@ fn three_finding_json_lines() -> Vec<String> {
     vec![
         cargo_compiler_artifact("aspen-core", false),
         cargo_compiler_message(
-            "aspen-core", "no_unwrap",
+            "aspen-core",
+            "no_unwrap",
             "use of `.unwrap()`",
-            "src/connection.rs", 42, 5,
+            "src/connection.rs",
+            42,
+            5,
             Some((".expect(\\\"reason\\\")", "MaybeIncorrect")),
         ),
         cargo_compiler_message(
-            "aspen-core", "function_length",
+            "aspen-core",
+            "function_length",
             "function `handle_request` is 82 lines long (limit: 70)",
-            "src/router.rs", 15, 1,
+            "src/router.rs",
+            15,
+            1,
             None,
         ),
         cargo_compiler_artifact("aspen-dns", false),
         cargo_compiler_message(
-            "aspen-dns", "unbounded_channel",
+            "aspen-dns",
+            "unbounded_channel",
             "use of unbounded channel",
-            "src/resolver.rs", 28, 9,
+            "src/resolver.rs",
+            28,
+            9,
             None,
         ),
         cargo_build_finished(true),
@@ -1944,13 +1979,16 @@ fn structured_json_output_contains_all_required_fields() {
     let fixture = ConsumerFixture::new("json-output", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
     let output = run_with_output_format(&fixture, "json", &three_finding_json_lines(), 0);
 
-    assert_eq!(output.status.code(), Some(1), "findings should exit 1: stderr={}", String::from_utf8_lossy(&output.stderr));
+    assert_eq!(
+        output.status.code(),
+        Some(1),
+        "findings should exit 1: stderr={}",
+        String::from_utf8_lossy(&output.stderr)
+    );
 
     let stdout = String::from_utf8_lossy(&output.stdout);
-    let findings: Vec<serde_json::Value> = stdout
-        .lines()
-        .map(|line| serde_json::from_str(line).expect("parse JSON finding"))
-        .collect();
+    let findings: Vec<serde_json::Value> =
+        stdout.lines().map(|line| serde_json::from_str(line).expect("parse JSON finding")).collect();
 
     assert_eq!(findings.len(), 3, "expected 3 findings, got: {stdout}");
 
@@ -1991,16 +2029,16 @@ fn json_output_coexists_with_summary_on_stderr() {
 
     // stdout is pure JSON-lines
     for line in stdout.lines() {
-        assert!(
-            serde_json::from_str::<serde_json::Value>(line).is_ok(),
-            "stdout line is not valid JSON: {line}"
-        );
+        assert!(serde_json::from_str::<serde_json::Value>(line).is_ok(), "stdout line is not valid JSON: {line}");
     }
 
     // stderr has summary but no human diagnostics
     assert!(stderr.contains("--- tigerstyle summary ---"), "stderr missing summary header: {stderr}");
     assert!(stderr.contains("Findings: 3"), "stderr missing finding count: {stderr}");
-    assert!(!stderr.contains("warning[no_unwrap]"), "stderr should not contain human diagnostics in json mode: {stderr}");
+    assert!(
+        !stderr.contains("warning[no_unwrap]"),
+        "stderr should not contain human diagnostics in json mode: {stderr}"
+    );
 }
 
 #[test]
@@ -2008,12 +2046,20 @@ fn sarif_output_has_required_structural_fields() {
     let fixture = ConsumerFixture::new("sarif-output", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
     let output = run_with_output_format(&fixture, "sarif", &three_finding_json_lines(), 0);
 
-    assert_eq!(output.status.code(), Some(1), "findings should exit 1: stderr={}", String::from_utf8_lossy(&output.stderr));
+    assert_eq!(
+        output.status.code(),
+        Some(1),
+        "findings should exit 1: stderr={}",
+        String::from_utf8_lossy(&output.stderr)
+    );
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     let sarif: serde_json::Value = serde_json::from_str(&stdout).expect("parse SARIF JSON");
 
-    assert_eq!(sarif["$schema"].as_str().unwrap(), "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/main/sarif-2.1/schema/sarif-schema-2.1.0.json");
+    assert_eq!(
+        sarif["$schema"].as_str().unwrap(),
+        "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/main/sarif-2.1/schema/sarif-schema-2.1.0.json"
+    );
     assert_eq!(sarif["version"], "2.1.0");
 
     let run = &sarif["runs"][0];
@@ -2034,10 +2080,7 @@ fn sarif_output_has_required_structural_fields() {
             r["locations"][0]["physicalLocation"]["artifactLocation"]["uri"].as_str().is_some(),
             "result {i} missing location uri"
         );
-        assert!(
-            r["properties"]["findingIndex"].as_str().is_some(),
-            "result {i} missing findingIndex property"
-        );
+        assert!(r["properties"]["findingIndex"].as_str().is_some(), "result {i} missing findingIndex property");
     }
 
     assert_eq!(results[0]["properties"]["findingIndex"], "F1");
@@ -2070,7 +2113,11 @@ fn summary_for_clean_run() {
     let lines = vec![cargo_build_finished(true)];
     let output = run_with_output_format(&fixture, "json", &lines, 0);
 
-    assert!(output.status.success(), "clean run should exit 0: stderr={}", String::from_utf8_lossy(&output.stderr));
+    assert!(
+        output.status.success(),
+        "clean run should exit 0: stderr={}",
+        String::from_utf8_lossy(&output.stderr)
+    );
 
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("--- tigerstyle summary ---"), "missing summary header: {stderr}");
@@ -2085,10 +2132,8 @@ fn finding_indices_are_unique_and_monotonic() {
     let output = run_with_output_format(&fixture, "json", &three_finding_json_lines(), 0);
 
     let stdout = String::from_utf8_lossy(&output.stdout);
-    let findings: Vec<serde_json::Value> = stdout
-        .lines()
-        .map(|line| serde_json::from_str(line).expect("parse JSON finding"))
-        .collect();
+    let findings: Vec<serde_json::Value> =
+        stdout.lines().map(|line| serde_json::from_str(line).expect("parse JSON finding")).collect();
 
     let indices: Vec<&str> = findings.iter().map(|f| f["index"].as_str().unwrap()).collect();
     assert_eq!(indices, vec!["F1", "F2", "F3"], "indices should be F1, F2, F3 in order");
@@ -2108,7 +2153,7 @@ fn default_human_mode_preserves_diagnostics_on_stderr_with_summary() {
     let output = fixture.run_with_launcher_and_env(
         None,
         &[("TS_STDOUT_FILE", stdout_file.to_str().unwrap())],
-        &[],  // no --output-format flag = human default
+        &[], // no --output-format flag = human default
         0,
         false,
         Some("nightly-2026-03-21-x86_64-unknown-linux-gnu"),
@@ -2123,7 +2168,10 @@ fn default_human_mode_preserves_diagnostics_on_stderr_with_summary() {
     let stderr = String::from_utf8_lossy(&output.stderr);
 
     // (a) stderr has human-readable diagnostics
-    assert!(stderr.contains("warning[no_unwrap]"), "human mode should show rendered diagnostics on stderr: {stderr}");
+    assert!(
+        stderr.contains("warning[no_unwrap]"),
+        "human mode should show rendered diagnostics on stderr: {stderr}"
+    );
 
     // (b) stderr has trailing summary
     assert!(stderr.contains("--- tigerstyle summary ---"), "human mode should append summary: {stderr}");
@@ -2145,7 +2193,12 @@ fn invalid_output_format_rejected() {
         None,
     );
 
-    assert_eq!(output.status.code(), Some(2), "invalid format should exit 2: stderr={}", String::from_utf8_lossy(&output.stderr));
+    assert_eq!(
+        output.status.code(),
+        Some(2),
+        "invalid format should exit 2: stderr={}",
+        String::from_utf8_lossy(&output.stderr)
+    );
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("unsupported output format"), "should report unsupported format: {stderr}");
 }
@@ -2155,12 +2208,7 @@ fn compilation_error_during_json_output_produces_valid_json() {
     let fixture = ConsumerFixture::new("error-json", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
     // Simulate compilation error: cargo exits non-zero, with a non-lint compiler-message
     let lines = vec![
-        cargo_compiler_message(
-            "consumer", "no_unwrap",
-            "use of `.unwrap()`",
-            "src/lib.rs", 10, 5,
-            None,
-        ),
+        cargo_compiler_message("consumer", "no_unwrap", "use of `.unwrap()`", "src/lib.rs", 10, 5, None),
         cargo_build_finished(false),
     ];
     let output = run_with_output_format(&fixture, "json", &lines, 1);
@@ -2185,12 +2233,7 @@ fn compilation_error_during_json_output_produces_valid_json() {
 fn compilation_error_during_sarif_output_produces_valid_sarif() {
     let fixture = ConsumerFixture::new("error-sarif", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
     let lines = vec![
-        cargo_compiler_message(
-            "consumer", "no_unwrap",
-            "use of `.unwrap()`",
-            "src/lib.rs", 10, 5,
-            None,
-        ),
+        cargo_compiler_message("consumer", "no_unwrap", "use of `.unwrap()`", "src/lib.rs", 10, 5, None),
         cargo_build_finished(false),
     ];
     let output = run_with_output_format(&fixture, "sarif", &lines, 1);
@@ -2220,7 +2263,12 @@ fn conflicting_message_format_in_passthrough_args_rejected() {
         None,
     );
 
-    assert_eq!(output.status.code(), Some(2), "conflicting --message-format should exit 2: stderr={}", String::from_utf8_lossy(&output.stderr));
+    assert_eq!(
+        output.status.code(),
+        Some(2),
+        "conflicting --message-format should exit 2: stderr={}",
+        String::from_utf8_lossy(&output.stderr)
+    );
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("--message-format"), "should mention --message-format in error: {stderr}");
 }

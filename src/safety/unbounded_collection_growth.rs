@@ -1,5 +1,7 @@
+use std::collections::HashMap;
 use std::collections::HashSet;
 
+use rustc_errors::Applicability;
 use rustc_hir as hir;
 use rustc_hir::ExprKind;
 use rustc_hir::def::Res;
@@ -7,13 +9,16 @@ use rustc_hir::intravisit::Visitor;
 use rustc_hir::intravisit::{self};
 use rustc_lint::LateContext;
 use rustc_lint::LateLintPass;
+use rustc_lint::LintContext;
 use rustc_middle::ty::Ty;
 use rustc_middle::ty::{self};
 use rustc_session::declare_lint_pass;
 use rustc_session::declare_tool_lint;
 use rustc_span::Symbol;
 
+use crate::diagnostics::LintSuggestion;
 use crate::diagnostics::emit_tiger_style_lint;
+use crate::diagnostics::emit_tiger_style_lint_with_suggestion;
 
 declare_tool_lint! {
     /// Detects narrow same-block cases where a local collection starts empty and
@@ -390,10 +395,11 @@ fn collect_candidate_bindings_before_loop<'tcx>(
     cx: &LateContext<'tcx>,
     block: &'tcx hir::Block<'tcx>,
     loop_expr: &'tcx hir::Expr<'tcx>,
-) -> (HashSet<hir::HirId>, HashSet<hir::HirId>) {
+) -> (HashSet<hir::HirId>, HashSet<hir::HirId>, HashMap<hir::HirId, rustc_span::Span>) {
     let loop_callsite = loop_expr.span.source_callsite();
     let mut candidates = HashSet::new();
     let mut reserved = HashSet::new();
+    let mut init_spans = HashMap::new();
 
     for stmt in block.stmts {
         let stmt_callsite = stmt.span.source_callsite();
@@ -413,10 +419,12 @@ fn collect_candidate_bindings_before_loop<'tcx>(
                 match classify_collection_init(cx, local_ty, init) {
                     Some(InitKind::Empty) => {
                         candidates.insert(local_id);
+                        init_spans.insert(local_id, init.span);
                     }
                     Some(InitKind::Reserved) => {
                         candidates.remove(&local_id);
                         reserved.remove(&local_id);
+                        init_spans.remove(&local_id);
                     }
                     None => {}
                 }
@@ -429,13 +437,14 @@ fn collect_candidate_bindings_before_loop<'tcx>(
                 for local_id in assignment_hits {
                     candidates.remove(&local_id);
                     reserved.remove(&local_id);
+                    init_spans.remove(&local_id);
                 }
             }
             hir::StmtKind::Item(_) => {}
         }
     }
 
-    (candidates, reserved)
+    (candidates, reserved, init_spans)
 }
 
 struct LoopBodyAnalyzer<'a, 'tcx> {
@@ -444,6 +453,7 @@ struct LoopBodyAnalyzer<'a, 'tcx> {
     warned: &'a mut HashSet<hir::HirId>,
     guarded: HashSet<hir::HirId>,
     reserved: HashSet<hir::HirId>,
+    init_spans: &'a HashMap<hir::HirId, rustc_span::Span>,
 }
 
 impl<'tcx> Visitor<'tcx> for LoopBodyAnalyzer<'_, 'tcx> {
@@ -520,17 +530,54 @@ impl<'tcx> Visitor<'tcx> for LoopBodyAnalyzer<'_, 'tcx> {
             && !self.reserved.contains(&local_id)
             && self.warned.insert(local_id)
         {
-            emit_tiger_style_lint(
-                self.cx,
-                UNBOUNDED_COLLECTION_GROWTH,
-                expr.span.source_callsite(),
-                "collection grows in loop without a prior reservation or explicit local bound",
-                "unbounded_collection_growth",
-            );
+            let message = "collection grows in loop without a prior reservation or explicit local bound";
+            let report_span = expr.span.source_callsite();
+            if let Some(suggestion) = collection_growth_suggestion(self.cx, local_id, self.init_spans) {
+                emit_tiger_style_lint_with_suggestion(
+                    self.cx,
+                    UNBOUNDED_COLLECTION_GROWTH,
+                    report_span,
+                    message,
+                    "unbounded_collection_growth",
+                    suggestion,
+                );
+            } else {
+                emit_tiger_style_lint(
+                    self.cx,
+                    UNBOUNDED_COLLECTION_GROWTH,
+                    report_span,
+                    message,
+                    "unbounded_collection_growth",
+                );
+            }
         }
 
         intravisit::walk_expr(self, expr);
     }
+}
+
+fn collection_growth_suggestion(
+    cx: &LateContext<'_>,
+    local_id: hir::HirId,
+    init_spans: &HashMap<hir::HirId, rustc_span::Span>,
+) -> Option<LintSuggestion> {
+    let init_span = *init_spans.get(&local_id)?;
+    let sm = cx.sess().source_map();
+    let snippet = sm.span_to_snippet(init_span).ok()?;
+
+    // Only suggest for ::new() calls — replace with ::with_capacity(/* LIMIT */)
+    let replacement = if snippet.contains("::new()") {
+        snippet.replace("::new()", "::with_capacity(/* LIMIT */)")
+    } else {
+        return None;
+    };
+
+    Some(LintSuggestion::Single {
+        span: init_span,
+        message: "pre-allocate with an explicit capacity before the loop".to_owned(),
+        replacement,
+        applicability: Applicability::HasPlaceholders,
+    })
 }
 
 impl<'tcx> LateLintPass<'tcx> for UnboundedCollectionGrowth {
@@ -545,7 +592,7 @@ impl<'tcx> LateLintPass<'tcx> for UnboundedCollectionGrowth {
         let Some(parent_block) = enclosing_block(cx, expr.hir_id) else {
             return;
         };
-        let (candidates, pre_reserved) = collect_candidate_bindings_before_loop(cx, parent_block, expr);
+        let (candidates, pre_reserved, init_spans) = collect_candidate_bindings_before_loop(cx, parent_block, expr);
         if candidates.is_empty() {
             return;
         }
@@ -557,6 +604,7 @@ impl<'tcx> LateLintPass<'tcx> for UnboundedCollectionGrowth {
             warned: &mut warned,
             guarded: HashSet::new(),
             reserved: pre_reserved,
+            init_spans: &init_spans,
         };
         analyzer.visit_block(loop_block);
     }

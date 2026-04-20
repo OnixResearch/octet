@@ -5,8 +5,15 @@ LL |         _ => false,
    |         ^^^^^^^^^^
    |
    = help: Tiger Style (Exhaustive Matching): match enum variants explicitly so new variants cannot slip through `_` Example: match state { State::Open => ..., State::Closed => ... }
+   = note: structured suggestion applicability: HasPlaceholders
    = note: see Tiger Style guide: Exhaustive Matching
    = note: `#[warn(tigerstyle::catch_all_on_enum)]` on by default
+help: expand wildcard into explicit variant arms
+   |
+LL ~         Permission::Read => todo!("handle Read"),
+LL +         Permission::Write => todo!("handle Write"),
+LL ~         Permission::Admin => todo!("handle Admin"),
+   |
 
 warning: 1 warning emitted
 

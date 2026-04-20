@@ -1,3 +1,4 @@
+use rustc_errors::Applicability;
 use rustc_hir as hir;
 use rustc_hir::ExprKind;
 use rustc_hir::def::Res;
@@ -8,7 +9,9 @@ use rustc_session::declare_lint_pass;
 use rustc_session::declare_tool_lint;
 use rustc_span::Symbol;
 
+use crate::diagnostics::LintSuggestion;
 use crate::diagnostics::emit_tiger_style_lint;
+use crate::diagnostics::emit_tiger_style_lint_with_suggestion;
 use crate::test_context;
 
 declare_tool_lint! {
@@ -71,12 +74,35 @@ impl<'tcx> LateLintPass<'tcx> for ExplicitDefaults {
             return;
         }
 
-        emit_tiger_style_lint(
-            cx,
-            EXPLICIT_DEFAULTS,
-            expr.span,
-            "implicit default on external type — construct with explicit values",
-            "explicit_defaults",
-        );
+        let message = "implicit default on external type — construct with explicit values";
+        if let Some(suggestion) = explicit_default_suggestion(cx, expr) {
+            emit_tiger_style_lint_with_suggestion(
+                cx,
+                EXPLICIT_DEFAULTS,
+                expr.span,
+                message,
+                "explicit_defaults",
+                suggestion,
+            );
+        } else {
+            emit_tiger_style_lint(cx, EXPLICIT_DEFAULTS, expr.span, message, "explicit_defaults");
+        }
     }
+}
+
+fn explicit_default_suggestion(cx: &LateContext<'_>, expr: &hir::Expr<'_>) -> Option<LintSuggestion> {
+    let ty = cx.typeck_results().expr_ty(expr);
+    let ty::Adt(adt, _) = ty.kind() else {
+        return None;
+    };
+
+    let type_name = cx.tcx.def_path_str(adt.did());
+    let replacement = format!("{type_name}::new(/* fields */)");
+
+    Some(LintSuggestion::Single {
+        span: expr.span,
+        message: format!("use explicit constructor instead of `Default::default()`"),
+        replacement,
+        applicability: Applicability::HasPlaceholders,
+    })
 }

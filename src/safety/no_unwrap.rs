@@ -1,7 +1,9 @@
+use rustc_errors::Applicability;
 use rustc_hir as hir;
 use rustc_hir::ExprKind;
 use rustc_lint::LateContext;
 use rustc_lint::LateLintPass;
+use rustc_lint::LintContext;
 use rustc_middle::ty;
 use rustc_session::declare_lint_pass;
 use rustc_session::declare_tool_lint;
@@ -9,7 +11,9 @@ use rustc_span::Span;
 use rustc_span::Symbol;
 use rustc_span::sym;
 
+use crate::diagnostics::LintSuggestion;
 use crate::diagnostics::emit_tiger_style_lint;
+use crate::diagnostics::emit_tiger_style_lint_with_suggestion;
 use crate::test_context;
 
 declare_tool_lint! {
@@ -241,12 +245,24 @@ impl<'tcx> LateLintPass<'tcx> for NoUnwrap {
             return;
         }
 
-        emit_tiger_style_lint(
-            cx,
-            NO_UNWRAP,
-            expr.span,
-            format!("`.{name}()` in production code will panic on failure"),
-            "no_unwrap",
-        );
+        let message = format!("`.{name}()` in production code will panic on failure");
+        if let Some(suggestion) = unwrap_suggestion(cx, expr, receiver) {
+            emit_tiger_style_lint_with_suggestion(cx, NO_UNWRAP, expr.span, message, "no_unwrap", suggestion);
+        } else {
+            emit_tiger_style_lint(cx, NO_UNWRAP, expr.span, message, "no_unwrap");
+        }
     }
+}
+
+fn unwrap_suggestion(cx: &LateContext<'_>, expr: &hir::Expr<'_>, receiver: &hir::Expr<'_>) -> Option<LintSuggestion> {
+    let sm = cx.sess().source_map();
+    let receiver_snippet = sm.span_to_snippet(receiver.span).ok()?;
+    let replacement = format!("{receiver_snippet}?");
+
+    Some(LintSuggestion::Single {
+        span: expr.span,
+        message: "propagate the error with `?` instead of panicking".to_owned(),
+        replacement,
+        applicability: Applicability::MaybeIncorrect,
+    })
 }

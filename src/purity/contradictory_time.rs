@@ -1,3 +1,4 @@
+use rustc_errors::Applicability;
 use rustc_hir as hir;
 use rustc_hir::ExprKind;
 use rustc_hir::intravisit::Visitor;
@@ -8,7 +9,8 @@ use rustc_session::declare_lint_pass;
 use rustc_session::declare_tool_lint;
 use rustc_span::Span;
 
-use crate::diagnostics::emit_tiger_style_lint;
+use crate::diagnostics::LintSuggestion;
+use crate::diagnostics::emit_tiger_style_lint_with_suggestion;
 
 declare_tool_lint! {
     /// Detects functions that both accept a time parameter (name matching
@@ -114,13 +116,22 @@ impl<'tcx> LateLintPass<'tcx> for ContradictoryTime {
                 .collect();
 
             let param_list = time_params.join("`, `");
+            let message = format!("function takes time parameter `{param_list}` but also reads system time");
 
-            emit_tiger_style_lint(
+            let first_param = time_params.first().copied().unwrap_or("now");
+            let suggestion = LintSuggestion::Single {
+                span: call_span,
+                message: format!("use the `{first_param}` parameter instead of reading system time"),
+                replacement: first_param.to_owned(),
+                applicability: Applicability::MaybeIncorrect,
+            };
+            emit_tiger_style_lint_with_suggestion(
                 cx,
                 CONTRADICTORY_TIME,
                 call_span,
-                format!("function takes time parameter `{param_list}` but also reads system time"),
+                message,
                 "contradictory_time",
+                suggestion,
             );
         }
     }

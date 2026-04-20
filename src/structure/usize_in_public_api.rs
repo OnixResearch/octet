@@ -1,3 +1,4 @@
+use rustc_errors::Applicability;
 use rustc_hir as hir;
 use rustc_hir::ItemKind;
 use rustc_lint::LateContext;
@@ -6,7 +7,9 @@ use rustc_middle::ty;
 use rustc_session::declare_lint_pass;
 use rustc_session::declare_tool_lint;
 
+use crate::diagnostics::LintSuggestion;
 use crate::diagnostics::emit_tiger_style_lint;
+use crate::diagnostics::emit_tiger_style_lint_with_suggestion;
 
 declare_tool_lint! {
     /// Detects inherent public APIs that expose platform-sized integers.
@@ -40,9 +43,88 @@ fn lint_message(name: &str) -> String {
     }
 }
 
+fn collect_platform_int_spans(ty: &hir::Ty<'_>) -> Vec<(rustc_span::Span, &'static str)> {
+    let mut results = Vec::new();
+    collect_platform_int_ty(ty, &mut results);
+    results
+}
+
+fn collect_platform_int_ty(ty: &hir::Ty<'_>, out: &mut Vec<(rustc_span::Span, &'static str)>) {
+    match &ty.kind {
+        hir::TyKind::Path(hir::QPath::Resolved(_, path)) => {
+            if let hir::def::Res::PrimTy(prim) = path.res {
+                match prim {
+                    hir::PrimTy::Uint(rustc_ast::UintTy::Usize) => out.push((ty.span, "usize")),
+                    hir::PrimTy::Int(rustc_ast::IntTy::Isize) => out.push((ty.span, "isize")),
+                    _ => {}
+                }
+            }
+        }
+        hir::TyKind::Ref(_, mut_ty) => collect_platform_int_ty(mut_ty.ty, out),
+        hir::TyKind::Slice(inner) => collect_platform_int_ty(inner, out),
+        hir::TyKind::Array(inner, _) => collect_platform_int_ty(inner, out),
+        hir::TyKind::Tup(items) => items.iter().for_each(|t| collect_platform_int_ty(t, out)),
+        _ => {}
+    }
+}
+
+fn usize_suggestion(decl: &hir::FnDecl<'_>) -> Option<LintSuggestion> {
+    let mut spans = Vec::new();
+    for input in decl.inputs {
+        spans.extend(collect_platform_int_spans(input));
+    }
+    if let hir::FnRetTy::Return(ret_ty) = &decl.output {
+        spans.extend(collect_platform_int_spans(ret_ty));
+    }
+
+    if spans.is_empty() {
+        return None;
+    }
+
+    let parts: Vec<(rustc_span::Span, String)> = spans
+        .iter()
+        .map(|(span, name)| {
+            let replacement = if *name == "usize" { "u64" } else { "i64" };
+            (*span, replacement.to_owned())
+        })
+        .collect();
+
+    if parts.len() == 1 {
+        let (span, replacement) = parts.into_iter().next().unwrap();
+        Some(LintSuggestion::Single {
+            span,
+            message: format!("replace with `{replacement}` for cross-platform consistency"),
+            replacement,
+            applicability: Applicability::MaybeIncorrect,
+        })
+    } else {
+        Some(LintSuggestion::Multipart {
+            message: "replace platform-sized integers with fixed-width types".to_owned(),
+            parts,
+            applicability: Applicability::MaybeIncorrect,
+        })
+    }
+}
+
+fn emit_with_suggestion(cx: &LateContext<'_>, report_span: rustc_span::Span, decl: &hir::FnDecl<'_>, name: &str) {
+    let message = lint_message(name);
+    if let Some(suggestion) = usize_suggestion(decl) {
+        emit_tiger_style_lint_with_suggestion(
+            cx,
+            USIZE_IN_PUBLIC_API,
+            report_span,
+            message,
+            "usize_in_public_api",
+            suggestion,
+        );
+    } else {
+        emit_tiger_style_lint(cx, USIZE_IN_PUBLIC_API, report_span, message, "usize_in_public_api");
+    }
+}
+
 impl<'tcx> LateLintPass<'tcx> for UsizeInPublicApi {
     fn check_item(&mut self, cx: &LateContext<'tcx>, item: &'tcx hir::Item<'tcx>) {
-        let ItemKind::Fn { .. } = item.kind else {
+        let ItemKind::Fn { sig, .. } = &item.kind else {
             return;
         };
 
@@ -52,20 +134,20 @@ impl<'tcx> LateLintPass<'tcx> for UsizeInPublicApi {
         }
 
         let fn_sig = cx.tcx.fn_sig(def_id).instantiate_identity();
-        let sig = fn_sig.skip_binder();
+        let mir_sig = fn_sig.skip_binder();
 
-        if let Some(name) = sig.inputs().iter().find_map(|ty| platform_sized_int_name(*ty)) {
-            emit_tiger_style_lint(cx, USIZE_IN_PUBLIC_API, item.span, lint_message(name), "usize_in_public_api");
+        if let Some(name) = mir_sig.inputs().iter().find_map(|ty| platform_sized_int_name(*ty)) {
+            emit_with_suggestion(cx, item.span, sig.decl, name);
             return;
         }
 
-        if let Some(name) = platform_sized_int_name(sig.output()) {
-            emit_tiger_style_lint(cx, USIZE_IN_PUBLIC_API, item.span, lint_message(name), "usize_in_public_api");
+        if let Some(name) = platform_sized_int_name(mir_sig.output()) {
+            emit_with_suggestion(cx, item.span, sig.decl, name);
         }
     }
 
     fn check_impl_item(&mut self, cx: &LateContext<'tcx>, impl_item: &'tcx hir::ImplItem<'tcx>) {
-        let hir::ImplItemKind::Fn(_, _) = impl_item.kind else {
+        let hir::ImplItemKind::Fn(sig, _) = &impl_item.kind else {
             return;
         };
 
@@ -82,15 +164,15 @@ impl<'tcx> LateLintPass<'tcx> for UsizeInPublicApi {
         }
 
         let fn_sig = cx.tcx.fn_sig(def_id).instantiate_identity();
-        let sig = fn_sig.skip_binder();
+        let mir_sig = fn_sig.skip_binder();
 
-        if let Some(name) = sig.inputs().iter().find_map(|ty| platform_sized_int_name(*ty)) {
-            emit_tiger_style_lint(cx, USIZE_IN_PUBLIC_API, impl_item.span, lint_message(name), "usize_in_public_api");
+        if let Some(name) = mir_sig.inputs().iter().find_map(|ty| platform_sized_int_name(*ty)) {
+            emit_with_suggestion(cx, impl_item.span, sig.decl, name);
             return;
         }
 
-        if let Some(name) = platform_sized_int_name(sig.output()) {
-            emit_tiger_style_lint(cx, USIZE_IN_PUBLIC_API, impl_item.span, lint_message(name), "usize_in_public_api");
+        if let Some(name) = platform_sized_int_name(mir_sig.output()) {
+            emit_with_suggestion(cx, impl_item.span, sig.decl, name);
         }
     }
 }

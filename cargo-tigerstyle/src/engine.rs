@@ -32,19 +32,13 @@ pub fn run(check: CheckArgs) -> Result<i32, String> {
     let cargo_check_args = check.cargo_check_args.unwrap_or(cfg.cargo_check_args.clone());
 
     // I7: detect --message-format conflict in passthrough args
-    if cargo_check_args
-        .iter()
-        .any(|arg| arg.starts_with("--message-format"))
-    {
-        return Err(
-            "`--message-format` is managed by `--output-format`; remove it from passthrough args".to_owned(),
-        );
+    if cargo_check_args.iter().any(|arg| arg.starts_with("--message-format")) {
+        return Err("`--message-format` is managed by `--output-format`; remove it from passthrough args".to_owned());
     }
 
     let lockfile_path = cfg.workspace_root.join("Cargo.lock");
-    let skip_lockfile_guard = env::var("TIGERSTYLE_SKIP_LOCKFILE_CHECK")
-        .map(|v| !v.is_empty() && v != "0")
-        .unwrap_or(false);
+    let skip_lockfile_guard =
+        env::var("TIGERSTYLE_SKIP_LOCKFILE_CHECK").map(|v| !v.is_empty() && v != "0").unwrap_or(false);
     let lockfile_before = if skip_lockfile_guard {
         LockfileSnapshot::Missing
     } else {
@@ -94,8 +88,7 @@ pub fn run(check: CheckArgs) -> Result<i32, String> {
 
         for line in BufReader::new(child_stdout).lines() {
             let line = line.map_err(|e| format!("read cargo stdout: {e}"))?;
-            let json: serde_json::Value =
-                serde_json::from_str(&line).map_err(|e| format!("parse cargo JSON: {e}"))?;
+            let json: serde_json::Value = serde_json::from_str(&line).map_err(|e| format!("parse cargo JSON: {e}"))?;
 
             let reason = json["reason"].as_str().unwrap_or("");
 
@@ -163,10 +156,8 @@ pub fn run(check: CheckArgs) -> Result<i32, String> {
 
     if !skip_lockfile_guard && lockfile_changed(&lockfile_path, &lockfile_before)? {
         restore_lockfile(&lockfile_path, &lockfile_before)?;
-        let lockfile_error = format!(
-            "cargo tigerstyle check modified {}; restored the original lockfile",
-            lockfile_path.display()
-        );
+        let lockfile_error =
+            format!("cargo tigerstyle check modified {}; restored the original lockfile", lockfile_path.display());
         return Err(match result {
             Err(error) => format!("{error}; {lockfile_error}"),
             Ok(_) => lockfile_error,
@@ -180,12 +171,7 @@ fn normalize_lint_name(code: &str) -> String {
     code.strip_prefix("tigerstyle::").unwrap_or(code).to_owned()
 }
 
-fn build_finding(
-    index: usize,
-    cargo_msg: &serde_json::Value,
-    meta: &output::LintMeta,
-    lint_name: &str,
-) -> Finding {
+fn build_finding(index: usize, cargo_msg: &serde_json::Value, meta: &output::LintMeta, lint_name: &str) -> Finding {
     let message = &cargo_msg["message"];
 
     let primary_span = message["spans"]
@@ -193,23 +179,13 @@ fn build_finding(
         .and_then(|spans| spans.iter().find(|s| s["is_primary"].as_bool() == Some(true)))
         .or_else(|| message["spans"].as_array().and_then(|s| s.first()));
 
-    let file = primary_span
-        .and_then(|s| s["file_name"].as_str())
-        .unwrap_or("unknown")
-        .to_owned();
-    let line = primary_span
-        .and_then(|s| s["line_start"].as_u64())
-        .unwrap_or(0) as u32;
-    let column = primary_span
-        .and_then(|s| s["column_start"].as_u64())
-        .unwrap_or(0) as u32;
+    let file = primary_span.and_then(|s| s["file_name"].as_str()).unwrap_or("unknown").to_owned();
+    let line = primary_span.and_then(|s| s["line_start"].as_u64()).unwrap_or(0) as u32;
+    let column = primary_span.and_then(|s| s["column_start"].as_u64()).unwrap_or(0) as u32;
 
     let msg_text = message["message"].as_str().unwrap_or("").to_owned();
     let severity = message["level"].as_str().unwrap_or("warning").to_owned();
-    let crate_name = cargo_msg["target"]["name"]
-        .as_str()
-        .unwrap_or("unknown")
-        .to_owned();
+    let crate_name = cargo_msg["target"]["name"].as_str().unwrap_or("unknown").to_owned();
 
     let (suggestion, applicability) = extract_suggestion(message);
 
@@ -258,16 +234,13 @@ fn format_compiling_banner(json: &serde_json::Value) -> Option<String> {
 
     let target_name = json["target"]["name"].as_str()?;
 
-    let version = json["package_id"]
-        .as_str()
-        .and_then(|pid| pid.rsplit_once('#'))
-        .map(|(_, fragment)| {
-            if let Some((_, ver)) = fragment.rsplit_once('@') {
-                ver
-            } else {
-                fragment
-            }
-        });
+    let version = json["package_id"].as_str().and_then(|pid| pid.rsplit_once('#')).map(|(_, fragment)| {
+        if let Some((_, ver)) = fragment.rsplit_once('@') {
+            ver
+        } else {
+            fragment
+        }
+    });
 
     if let Some(ver) = version {
         Some(format!("   Compiling {target_name} v{ver}"))
@@ -493,10 +466,7 @@ fn materialize_embedded_source() -> Result<PathBuf, String> {
     for (relative_path, contents) in embedded_source::EMBEDDED_SOURCE_FILES {
         write_bytes(&staging_dir.join(relative_path), contents)?;
     }
-    write_bytes(
-        &staging_dir.join(SOURCE_HASH_MARKER),
-        embedded_source::EMBEDDED_SOURCE_HASH.as_bytes(),
-    )?;
+    write_bytes(&staging_dir.join(SOURCE_HASH_MARKER), embedded_source::EMBEDDED_SOURCE_HASH.as_bytes())?;
 
     if final_dir.exists() && !cache_marker_matches(&final_dir)? {
         fs::remove_dir_all(&final_dir).map_err(|error| format!("remove {}: {error}", final_dir.display()))?;
@@ -509,11 +479,7 @@ fn materialize_embedded_source() -> Result<PathBuf, String> {
             if final_dir.exists() && cache_marker_matches(&final_dir)? {
                 Ok(final_dir)
             } else {
-                Err(format!(
-                    "rename {} -> {}: {error}",
-                    staging_dir.display(),
-                    final_dir.display()
-                ))
+                Err(format!("rename {} -> {}: {error}", staging_dir.display(), final_dir.display()))
             }
         }
     }

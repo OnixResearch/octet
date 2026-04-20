@@ -96,7 +96,8 @@ fn register_no_todo_bundle(lint_store: &mut rustc_lint::LintStore, cfg: &Config)
         return;
     }
 
-    lint_store.register_late_pass(move |_| Box::new(safety::no_todo::NoTodo::new(emit_no_todo, emit_unjustified_allow)));
+    lint_store
+        .register_late_pass(move |_| Box::new(safety::no_todo::NoTodo::new(emit_no_todo, emit_unjustified_allow)));
 }
 
 fn register_domain_groups(lint_store: &mut rustc_lint::LintStore, cfg: &Config) {
@@ -596,35 +597,45 @@ mod tests {
         "unchecked_narrowing",
         "platform_dependent_cast",
         "unjustified_allow",
+        // Phase 1: single-span name/type replacement
+        "negated_predicate",
+        "float_for_currency",
+        "no_todo",
+        "ambient_clock",
+        // Phase 2: method-call / expression replacement
+        "no_unwrap",
+        "sentinel_fallback",
+        "ignored_result",
+        "contradictory_time",
+        // Phase 3: constructor/call replacement
+        "unbounded_channel",
+        "explicit_defaults",
+        "catch_all_on_enum",
+        // Phase 4: structural / insertion
+        "usize_in_public_api",
+        "multi_lock_ordering",
+        "compound_condition",
+        // Phase 5: complex structural
+        "unbounded_collection_growth",
     ];
 
     const AUTOFIX_OUT_OF_SCOPE_LINTS: &[&str] = &[
         "assertion_density",
         "function_length",
         "ambiguous_params",
-        "multi_lock_ordering",
-        "catch_all_on_enum",
         "no_recursion",
-        "ambient_clock",
-        "compound_condition",
-        "contradictory_time",
-        "explicit_defaults",
-        "float_for_currency",
-        "ignored_result",
-        "negated_predicate",
         "nested_conditionals",
         "no_panic",
-        "no_todo",
-        "no_unwrap",
         "too_many_parameters",
-        "unbounded_channel",
-        "unbounded_collection_growth",
         "unbounded_loop",
-        "sentinel_fallback",
         "unjustified_no_todo_allow",
-        "usize_in_public_api",
         "verified_purity",
     ];
+
+    /// Lints that share a source file with a rollout lint and therefore
+    /// cannot satisfy the "source must not contain emit_tiger_style_lint_with_suggestion"
+    /// assertion for out-of-scope lints.
+    const SHARED_SOURCE_EXEMPTIONS: &[&str] = &["unjustified_no_todo_allow"];
 
     fn expected_autofix_tier(lint_name: &str) -> &'static str {
         match lint_name {
@@ -634,8 +645,24 @@ mod tests {
             | "unchecked_division"
             | "raw_arithmetic_overflow"
             | "unchecked_narrowing"
-            | "platform_dependent_cast" => "MaybeIncorrect",
-            "numeric_units" | "unjustified_allow" => "HasPlaceholders",
+            | "platform_dependent_cast"
+            | "no_unwrap"
+            | "sentinel_fallback"
+            | "ignored_result"
+            | "contradictory_time"
+            | "usize_in_public_api" => "MaybeIncorrect",
+            "numeric_units"
+            | "unjustified_allow"
+            | "negated_predicate"
+            | "float_for_currency"
+            | "no_todo"
+            | "ambient_clock"
+            | "unbounded_channel"
+            | "explicit_defaults"
+            | "catch_all_on_enum"
+            | "multi_lock_ordering"
+            | "compound_condition"
+            | "unbounded_collection_growth" => "HasPlaceholders",
             other => panic!("missing autofix tier for `{other}`"),
         }
     }
@@ -710,11 +737,14 @@ mod tests {
             let source_path = Path::new(env!("CARGO_MANIFEST_DIR")).join(lint_source_path(lint_name));
             let source = fs::read_to_string(&source_path)
                 .unwrap_or_else(|error| panic!("read out-of-scope lint source {}: {error}", source_path.display()));
-            assert!(
-                !source.contains("emit_tiger_style_lint_with_suggestion"),
-                "out-of-scope lint `{lint_name}` must stay diagnostic-only in {}",
-                source_path.display()
-            );
+            // Skip source-file check for lints that share a file with a rollout lint
+            if !SHARED_SOURCE_EXEMPTIONS.contains(&lint_name) {
+                assert!(
+                    !source.contains("emit_tiger_style_lint_with_suggestion"),
+                    "out-of-scope lint `{lint_name}` must stay diagnostic-only in {}",
+                    source_path.display()
+                );
+            }
             assert!(
                 fixed_fixtures.iter().all(|fixture| !fixture.contains(lint_name)),
                 "out-of-scope lint `{lint_name}` must stay out of `.fixed` autofix artifacts"

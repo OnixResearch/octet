@@ -45,9 +45,7 @@ fn parse_check(args: &[String]) -> Result<CheckArgs, String> {
         }
 
         if arg == "--output-format" {
-            let value = args
-                .get(index + 1)
-                .ok_or_else(|| "missing value after `--output-format`".to_owned())?;
+            let value = args.get(index + 1).ok_or_else(|| "missing value after `--output-format`".to_owned())?;
             output_format = parse_output_format(value)?;
             index += 2;
         } else if let Some(value) = arg.strip_prefix("--output-format=") {
@@ -56,9 +54,7 @@ fn parse_check(args: &[String]) -> Result<CheckArgs, String> {
         } else {
             match arg.as_str() {
                 "-p" | "--package" | "--exclude" => {
-                    let value = args
-                        .get(index + 1)
-                        .ok_or_else(|| format!("missing value after `{arg}`"))?;
+                    let value = args.get(index + 1).ok_or_else(|| format!("missing value after `{arg}`"))?;
                     scope_args.push(arg.clone());
                     scope_args.push(value.clone());
                     index += 2;
@@ -84,8 +80,6 @@ fn parse_output_format(value: &str) -> Result<OutputFormat, String> {
         "human" => Ok(OutputFormat::Human),
         "json" => Ok(OutputFormat::Json),
         "sarif" => Ok(OutputFormat::Sarif),
-        other => Err(format!(
-            "unsupported output format `{other}`; expected `human`, `json`, or `sarif`"
-        )),
+        other => Err(format!("unsupported output format `{other}`; expected `human`, `json`, or `sarif`")),
     }
 }
