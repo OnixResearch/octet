@@ -1,11 +1,8 @@
-V7: Verify scenario "Default behavior unchanged"
-Test: default_human_mode_preserves_diagnostics_on_stderr_with_summary
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.02s
+     Running tests/consumer_integration.rs (/home/brittonr/.cargo-target/debug/deps/consumer_integration-1fde4b4af96dc332)
 
-Verified by integration test in tests/consumer_integration.rs that:
-- Runs with no --output-format flag (human default)
-- (a) Lint diagnostics appear on stderr in human-readable format (contains "warning[no_unwrap]")
-- (b) A trailing summary block is appended to stderr ("--- tigerstyle summary ---")
-- (c) No output on stdout (stdout is empty)
-- (d) Exit code 1 (findings present)
+running 1 test
+test default_human_mode_preserves_diagnostics_on_stderr_with_summary ... ok
 
-Result: PASS
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 47 filtered out; finished in 2.52s
+

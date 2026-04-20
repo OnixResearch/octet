@@ -1,9 +1,8 @@
-V6: Verify scenario "LLM references specific finding by index"
-Test: finding_indices_are_unique_and_monotonic
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.02s
+     Running tests/consumer_integration.rs (/home/brittonr/.cargo-target/debug/deps/consumer_integration-1fde4b4af96dc332)
 
-Verified by integration test in tests/consumer_integration.rs that:
-- Parses JSON output and extracts all finding indices
-- Asserts indices are ["F1", "F2", "F3"] in order (monotonically increasing)
-- Asserts all indices are unique (dedup length == original length)
+running 1 test
+test finding_indices_are_unique_and_monotonic ... ok
 
-Result: PASS
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 47 filtered out; finished in 2.57s
+

@@ -1,17 +1,8 @@
-V3: Verify scenario "GitHub Code Scanning ingestion"
-Test: sarif_output_has_required_structural_fields
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.02s
+     Running tests/consumer_integration.rs (/home/brittonr/.cargo-target/debug/deps/consumer_integration-1fde4b4af96dc332)
 
-Verified by integration test in tests/consumer_integration.rs that:
-- Runs cargo-tigerstyle with --output-format sarif
-- Parses stdout as single valid JSON document
-- Asserts $schema matches SARIF 2.1.0 schema URL
-- Asserts version == "2.1.0"
-- Asserts runs[0].tool.driver.name == "cargo-tigerstyle"
-- Asserts runs[0].tool.driver.version is present
-- Asserts runs[0].tool.driver.rules has 3 entries (one per distinct lint)
-- Asserts runs[0].results has 3 entries
-- Each result has: ruleId, level, message.text, locations[0].physicalLocation.artifactLocation.uri, properties.findingIndex
-- Finding indices are F1 and F3 at expected positions
-- Structural shape matches golden/sarif-example.json
+running 1 test
+test sarif_output_has_required_structural_fields ... ok
 
-Result: PASS
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 47 filtered out; finished in 2.52s
+

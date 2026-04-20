@@ -1,10 +1,8 @@
-V10: Verify scenario "Compilation error during SARIF output"
-Test: compilation_error_during_sarif_output_produces_valid_sarif
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.02s
+     Running tests/consumer_integration.rs (/home/brittonr/.cargo-target/debug/deps/consumer_integration-1fde4b4af96dc332)
 
-Verified by integration test in tests/consumer_integration.rs that:
-- Runs with --output-format sarif against a workspace with compilation error (cargo exits 1)
-- Asserts stdout is valid SARIF JSON with version "2.1.0" and results array present
-- Asserts exit code is 1
-- Asserts summary still prints to stderr
+running 1 test
+test compilation_error_during_sarif_output_produces_valid_sarif ... ok
 
-Result: PASS
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 47 filtered out; finished in 2.53s
+

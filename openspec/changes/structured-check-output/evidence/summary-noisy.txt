@@ -1,14 +1,8 @@
-V4: Verify scenario "Summary after noisy run"
-Test: summary_format_for_noisy_run
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.02s
+     Running tests/consumer_integration.rs (/home/brittonr/.cargo-target/debug/deps/consumer_integration-1fde4b4af96dc332)
 
-Verified by integration test in tests/consumer_integration.rs that:
-- Runs against a workspace with 3 findings across 2 crates
-- Asserts summary header "--- tigerstyle summary ---" present
-- Asserts total count "Findings: 3" present
-- Asserts "By crate:" section with "aspen-core" and "aspen-dns"
-- Asserts "By lint:" section with "no_unwrap"
-- Asserts "Index:" section with "F1" and "F3"
-- Asserts closing delimiter "---" at end
-- Structure matches golden/summary-example.txt format
+running 1 test
+test summary_format_for_noisy_run ... ok
 
-Result: PASS
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 47 filtered out; finished in 2.62s
+
