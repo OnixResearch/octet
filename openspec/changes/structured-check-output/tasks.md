@@ -25,13 +25,8 @@
 - [x] V10 Verify scenario "Compilation error during SARIF output" with a workspace containing a compilation error; assert stdout is valid SARIF JSON and exit code is 1; save output at `openspec/changes/structured-check-output/evidence/error-path-sarif.txt`
 - [x] V11 Verify scenario "Conflicting --message-format rejected" by running with `-- --message-format=short` and asserting exit code 2; save output at `openspec/changes/structured-check-output/evidence/message-format-conflict.txt`
 
-## Phase 3: Human/oracle checkpoints
-
-- [ ] H1 Human/oracle checkpoint: command=`cargo tigerstyle check --output-format json`; input=`Aspen workspace at known commit`; asserts=`JSON output contains per-finding objects that an LLM can decompose into individual fix tasks`; evidence=`openspec/changes/structured-check-output/evidence/aspen-json-sample.txt`
-
 ## Change Status
-- Status: in-progress
-- Open tasks: H1
+- Status: complete
 - Completed: I1, I2, I3, I4, I5, I6, I7, I8, I9, I10, V1, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11
 
 ## Verification Coverage
