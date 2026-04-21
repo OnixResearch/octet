@@ -20,6 +20,36 @@ mod embedded_source {
 }
 
 const SOURCE_HASH_MARKER: &str = ".tigerstyle-source-blake3";
+const CARGO_COMMAND: &str = "cargo";
+const CARGO_CHECK_SUBCOMMAND: &str = "check";
+const CARGO_MESSAGE_FORMAT_JSON: &str = "--message-format=json";
+const COLOR_ALWAYS_FLAG: &str = "--color=always";
+const COMMAND_ARTIFACT_NAME: &str = "command.txt";
+const STATUS_ARTIFACT_NAME: &str = "status.json";
+const SUMMARY_ARTIFACT_NAME: &str = "summary.txt";
+const JSON_RESULTS_ARTIFACT_NAME: &str = "results.jsonl";
+const SARIF_RESULTS_ARTIFACT_NAME: &str = "results.sarif";
+const TERMINATED_WITHOUT_EXIT_CODE_ERROR: &str = "cargo check terminated without an exit code";
+
+#[derive(Debug, Clone)]
+struct StructuredArtifact {
+    file_name: &'static str,
+    contents: String,
+}
+
+#[derive(Debug, Clone)]
+struct RunArtifacts {
+    summary: String,
+    status_json: String,
+    structured_output: Option<StructuredArtifact>,
+}
+
+#[derive(Debug, Clone)]
+struct FinalizedRun {
+    outcome: output::RunOutcome,
+    run_artifacts: RunArtifacts,
+    error: Option<String>,
+}
 
 pub fn run(check: CheckArgs) -> Result<i32, String> {
     let cwd = env::current_dir().map_err(|error| format!("current_dir: {error}"))?;
@@ -27,18 +57,18 @@ pub fn run(check: CheckArgs) -> Result<i32, String> {
     let scope_args = if check.scope_args.is_empty() {
         cfg.default_scope.clone()
     } else {
-        check.scope_args
+        check.scope_args.clone()
     };
-    let cargo_check_args = check.cargo_check_args.unwrap_or(cfg.cargo_check_args.clone());
+    let cargo_check_args = check.cargo_check_args.clone().unwrap_or(cfg.cargo_check_args.clone());
 
-    // I7: detect --message-format conflict in passthrough args
     if cargo_check_args.iter().any(|arg| arg.starts_with("--message-format")) {
         return Err("`--message-format` is managed by `--output-format`; remove it from passthrough args".to_owned());
     }
 
     let lockfile_path = cfg.workspace_root.join("Cargo.lock");
-    let skip_lockfile_guard =
-        env::var("TIGERSTYLE_SKIP_LOCKFILE_CHECK").map(|v| !v.is_empty() && v != "0").unwrap_or(false);
+    let skip_lockfile_guard = env::var("TIGERSTYLE_SKIP_LOCKFILE_CHECK")
+        .map(|value| !value.is_empty() && value != "0")
+        .unwrap_or(false);
     let lockfile_before = if skip_lockfile_guard {
         LockfileSnapshot::Missing
     } else {
@@ -52,15 +82,14 @@ pub fn run(check: CheckArgs) -> Result<i32, String> {
         let dylint_libs = serde_json::to_string(&vec![lint_lib.path().to_owned()])
             .map_err(|error| format!("encode DYLINT_LIBS: {error}"))?;
 
-        let mut cmd = Command::new("cargo");
-        cmd.arg("check").arg("--message-format=json");
+        let mut cmd = Command::new(CARGO_COMMAND);
+        cmd.arg(CARGO_CHECK_SUBCOMMAND).arg(CARGO_MESSAGE_FORMAT_JSON);
 
-        // I9: inject --color=always when stderr is a TTY and human mode, unless overridden
         if check.output_format == OutputFormat::Human
             && std::io::stderr().is_terminal()
-            && !cargo_check_args.iter().any(|a| a.starts_with("--color"))
+            && !cargo_check_args.iter().any(|argument| argument.starts_with("--color"))
         {
-            cmd.arg("--color=always");
+            cmd.arg(COLOR_ALWAYS_FLAG);
         }
 
         cmd.args(&scope_args)
@@ -72,7 +101,6 @@ pub fn run(check: CheckArgs) -> Result<i32, String> {
             .env("RUSTUP_TOOLCHAIN", &toolchain)
             .stdout(Stdio::piped());
 
-        // In json/sarif modes, suppress child stderr (cargo progress output)
         if check.output_format != OutputFormat::Human {
             cmd.stderr(Stdio::null());
         }
@@ -87,8 +115,9 @@ pub fn run(check: CheckArgs) -> Result<i32, String> {
         let mut stderr_lock = std::io::stderr().lock();
 
         for line in BufReader::new(child_stdout).lines() {
-            let line = line.map_err(|e| format!("read cargo stdout: {e}"))?;
-            let json: serde_json::Value = serde_json::from_str(&line).map_err(|e| format!("parse cargo JSON: {e}"))?;
+            let line = line.map_err(|error| format!("read cargo stdout: {error}"))?;
+            let json: serde_json::Value =
+                serde_json::from_str(&line).map_err(|error| format!("parse cargo JSON: {error}"))?;
 
             let reason = json["reason"].as_str().unwrap_or("");
 
@@ -96,26 +125,18 @@ pub fn run(check: CheckArgs) -> Result<i32, String> {
                 "compiler-message" => {
                     let message = &json["message"];
 
-                    // I8: in human mode, print rendered diagnostic to stderr
                     if check.output_format == OutputFormat::Human {
                         if let Some(rendered) = message["rendered"].as_str() {
                             let _ = write!(stderr_lock, "{rendered}");
                         }
                     }
 
-                    // Check if this is a tigerstyle lint
                     let code = message["code"]["code"].as_str().unwrap_or("");
                     let lint_name = normalize_lint_name(code);
 
                     if let Some(meta) = meta_map.get(lint_name.as_str()) {
                         finding_counter += 1;
-                        let finding = build_finding(finding_counter, &json, meta, &lint_name);
-
-                        if check.output_format == OutputFormat::Json {
-                            output::emit_json_line(&finding, &mut stdout_lock)?;
-                        }
-
-                        findings.push(finding);
+                        findings.push(build_finding(finding_counter, &json, meta, &lint_name));
                     }
                 }
                 "compiler-artifact" if check.output_format == OutputFormat::Human => {
@@ -133,25 +154,25 @@ pub fn run(check: CheckArgs) -> Result<i32, String> {
             }
         }
 
-        let status = child.wait().map_err(|error| format!("wait for cargo check: {error}"))?;
+        let cargo_process_exit =
+            classify_cargo_process_exit(child.wait().map_err(|error| format!("wait for cargo check: {error}"))?);
+        let base_outcome = output::RunOutcome::classify(&findings, cargo_process_exit);
+        let finalized_run = finalize_run(&check, &findings, &meta_map, base_outcome)?;
 
-        // Emit SARIF after all findings collected
-        if check.output_format == OutputFormat::Sarif {
-            output::emit_sarif(&findings, &meta_map, &mut stdout_lock)?;
+        if let Some(structured_output) = finalized_run.run_artifacts.structured_output.as_ref() {
+            stdout_lock
+                .write_all(structured_output.contents.as_bytes())
+                .map_err(|error| format!("write stdout: {error}"))?;
         }
 
-        // I4: always emit summary to stderr
-        output::emit_summary(&findings, &mut stderr_lock)?;
+        stderr_lock
+            .write_all(finalized_run.run_artifacts.summary.as_bytes())
+            .map_err(|error| format!("write summary: {error}"))?;
 
-        // Exit code: 0 = clean, 1 = findings or cargo failure
-        if !status.success() || !findings.is_empty() {
-            if status.code().is_some() {
-                return Ok(1);
-            }
-            return Err("cargo check terminated without an exit code".to_owned());
+        match finalized_run.error {
+            Some(error) => Err(error),
+            None => Ok(finalized_run.outcome.exit_code),
         }
-
-        Ok(0)
     })();
 
     if !skip_lockfile_guard && lockfile_changed(&lockfile_path, &lockfile_before)? {
@@ -165,6 +186,189 @@ pub fn run(check: CheckArgs) -> Result<i32, String> {
     }
 
     result
+}
+
+fn build_run_artifacts(
+    check: &CheckArgs,
+    findings: &[Finding],
+    meta_map: &std::collections::HashMap<&str, output::LintMeta>,
+    outcome: &output::RunOutcome,
+) -> Result<RunArtifacts, String> {
+    let summary = output::render_summary(findings, outcome)?;
+    let status_json = output::render_status_json(outcome, check.output_format.as_str())?;
+    let structured_output = render_structured_output(check, findings, meta_map, outcome)?;
+
+    Ok(RunArtifacts {
+        summary,
+        status_json,
+        structured_output,
+    })
+}
+
+fn finalize_run(
+    check: &CheckArgs,
+    findings: &[Finding],
+    meta_map: &std::collections::HashMap<&str, output::LintMeta>,
+    base_outcome: output::RunOutcome,
+) -> Result<FinalizedRun, String> {
+    let terminated_error = terminated_run_error(&base_outcome);
+
+    let Some(artifact_dir) = check.artifact_dir.as_deref() else {
+        return Ok(FinalizedRun {
+            outcome: base_outcome.clone(),
+            run_artifacts: build_run_artifacts(check, findings, meta_map, &base_outcome)?,
+            error: terminated_error,
+        });
+    };
+
+    if let Err(error) = prepare_artifact_dir(artifact_dir) {
+        let final_outcome = base_outcome.force_integration_failure();
+        return Ok(FinalizedRun {
+            outcome: final_outcome.clone(),
+            run_artifacts: build_run_artifacts(check, findings, meta_map, &final_outcome)?,
+            error: Some(combine_errors(error, terminated_error)),
+        });
+    }
+
+    let initial_artifacts = build_run_artifacts(check, findings, meta_map, &base_outcome)?;
+    match write_run_artifacts(artifact_dir, &check.command_line, &initial_artifacts) {
+        Ok(()) => Ok(FinalizedRun {
+            outcome: base_outcome,
+            run_artifacts: initial_artifacts,
+            error: terminated_error,
+        }),
+        Err(error) => {
+            let final_outcome = base_outcome.force_integration_failure();
+            let final_artifacts = build_run_artifacts(check, findings, meta_map, &final_outcome)?;
+            invalidate_failed_bundle_best_effort(artifact_dir, &final_artifacts);
+            rewrite_status_sidecars_best_effort(artifact_dir, &check.command_line, &final_artifacts);
+            Ok(FinalizedRun {
+                outcome: final_outcome,
+                run_artifacts: final_artifacts,
+                error: Some(combine_errors(error, terminated_error)),
+            })
+        }
+    }
+}
+
+fn terminated_run_error(outcome: &output::RunOutcome) -> Option<String> {
+    if outcome.cargo_process_exit.is_terminated() {
+        Some(TERMINATED_WITHOUT_EXIT_CODE_ERROR.to_owned())
+    } else {
+        None
+    }
+}
+
+fn combine_errors(primary: String, secondary: Option<String>) -> String {
+    match secondary {
+        Some(secondary) => format!("{primary}; {secondary}"),
+        None => primary,
+    }
+}
+
+fn render_structured_output(
+    check: &CheckArgs,
+    findings: &[Finding],
+    meta_map: &std::collections::HashMap<&str, output::LintMeta>,
+    outcome: &output::RunOutcome,
+) -> Result<Option<StructuredArtifact>, String> {
+    match check.output_format {
+        OutputFormat::Human => Ok(None),
+        OutputFormat::Json => Ok(Some(StructuredArtifact {
+            file_name: JSON_RESULTS_ARTIFACT_NAME,
+            contents: output::render_json_lines(findings)?,
+        })),
+        OutputFormat::Sarif => Ok(Some(StructuredArtifact {
+            file_name: SARIF_RESULTS_ARTIFACT_NAME,
+            contents: output::render_sarif(findings, meta_map, outcome, &check.command_line)?,
+        })),
+    }
+}
+
+fn write_run_artifacts(artifact_dir: &Path, command_line: &str, run_artifacts: &RunArtifacts) -> Result<(), String> {
+    let expected_files =
+        expected_artifact_files(run_artifacts.structured_output.as_ref().map(|artifact| artifact.file_name));
+    remove_extra_artifact_paths(artifact_dir, &expected_files)?;
+    write_status_sidecars(artifact_dir, command_line, run_artifacts)?;
+
+    if let Some(structured_output) = run_artifacts.structured_output.as_ref() {
+        let structured_path = artifact_dir.join(structured_output.file_name);
+        write_bytes(&structured_path, structured_output.contents.as_bytes())?;
+    }
+
+    Ok(())
+}
+
+fn prepare_artifact_dir(artifact_dir: &Path) -> Result<(), String> {
+    fs::create_dir_all(artifact_dir).map_err(|error| format!("create {}: {error}", artifact_dir.display()))
+}
+
+fn write_status_sidecars(artifact_dir: &Path, command_line: &str, run_artifacts: &RunArtifacts) -> Result<(), String> {
+    let command_path = artifact_dir.join(COMMAND_ARTIFACT_NAME);
+    let status_path = artifact_dir.join(STATUS_ARTIFACT_NAME);
+    let summary_path = artifact_dir.join(SUMMARY_ARTIFACT_NAME);
+
+    write_bytes(&command_path, format!("{command_line}\n").as_bytes())?;
+    write_bytes(&status_path, run_artifacts.status_json.as_bytes())?;
+    write_bytes(&summary_path, run_artifacts.summary.as_bytes())?;
+    Ok(())
+}
+
+fn rewrite_status_sidecars_best_effort(artifact_dir: &Path, command_line: &str, run_artifacts: &RunArtifacts) {
+    let _ = write_status_sidecars(artifact_dir, command_line, run_artifacts);
+}
+
+fn invalidate_failed_bundle_best_effort(artifact_dir: &Path, run_artifacts: &RunArtifacts) {
+    let Some(structured_output) = run_artifacts.structured_output.as_ref() else {
+        return;
+    };
+
+    remove_artifact_path_best_effort(&artifact_dir.join(structured_output.file_name));
+}
+
+fn remove_artifact_path_best_effort(path: &Path) {
+    let _ = remove_artifact_path(path);
+}
+
+fn expected_artifact_files(selected_structured_artifact: Option<&'static str>) -> Vec<&'static str> {
+    let mut files = vec![COMMAND_ARTIFACT_NAME, STATUS_ARTIFACT_NAME, SUMMARY_ARTIFACT_NAME];
+    if let Some(structured_artifact) = selected_structured_artifact {
+        files.push(structured_artifact);
+    }
+    files
+}
+
+fn remove_extra_artifact_paths(artifact_dir: &Path, expected_files: &[&'static str]) -> Result<(), String> {
+    for entry in fs::read_dir(artifact_dir).map_err(|error| format!("read {}: {error}", artifact_dir.display()))? {
+        let entry = entry.map_err(|error| format!("read {} entry: {error}", artifact_dir.display()))?;
+        let file_name = entry.file_name();
+        let file_name = file_name.to_string_lossy();
+        if expected_files.iter().any(|expected| *expected == file_name) {
+            continue;
+        }
+
+        remove_artifact_path(&entry.path())?;
+    }
+
+    Ok(())
+}
+
+fn remove_artifact_path(path: &Path) -> Result<(), String> {
+    match fs::remove_file(path) {
+        Ok(()) => Ok(()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(error) if error.kind() == std::io::ErrorKind::IsADirectory => {
+            fs::remove_dir_all(path).map_err(|dir_error| format!("remove {}: {dir_error}", path.display()))
+        }
+        Err(error) => Err(format!("remove {}: {error}", path.display())),
+    }
+}
+
+fn classify_cargo_process_exit(status: std::process::ExitStatus) -> output::CargoProcessExit {
+    match status.code() {
+        Some(code) => output::CargoProcessExit::exit_code(code),
+        None => output::CargoProcessExit::terminated(),
+    }
 }
 
 fn normalize_lint_name(code: &str) -> String {
@@ -190,7 +394,7 @@ fn build_finding(index: usize, cargo_msg: &serde_json::Value, meta: &output::Lin
     let (suggestion, applicability) = extract_suggestion(message);
 
     Finding {
-        version: 1,
+        version: output::finding_version(),
         index: format!("F{index}"),
         lint: lint_name.to_owned(),
         group: meta.group.to_owned(),

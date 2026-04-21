@@ -1,0 +1,33 @@
+$ openspec_gate stage=design change=harden-check-status-artifacts
+OpenSpec design gate (harden-check-status-artifacts)
+
+Strategy: same-family
+
+VERDICT: PASS
+
+## Findings
+
+## Stage Check
+- Matches:
+  - `openspec/changes/archive/2026-04-21-harden-check-status-artifacts/design.md` covers the proposal’s two stated failures from `proposal.md` with concrete decisions for typed outcome classification, artifact bundles, summary/SARIF metadata, test updates, and docs updates.
+  - The design is consistent with `openspec/changes/archive/2026-04-21-harden-check-status-artifacts/specs/consumer-integration/spec.md` on:
+    - exit-code contract `0` / `1` / `2`
+    - exact summary line order and status values
+    - exact `status.json` top-level keys
+    - exact `cargo_process_exit.{classification,code}` schema
+    - exact artifact bundle membership rules for `human` / `json` / `sarif`
+    - SARIF invocation and run-property requirements
+    - temp-workspace launch constraints
+  - Traceability is explicit: each decision in `design.md` names the scenarios it covers, and the deterministic proof plan maps each scenario/requirement to an evidence file, command, and acceptance signal.
+  - The design addresses the relevant napkin failure pattern about design-stage completeness by specifying exact emitted wording, exact metadata keys, exact bundle rules, and deterministic proof artifacts.
+
+- Missing:
+  - No blocker-level omissions or unresolved contract choices were identified from the supplied artifacts.
+
+- Ready to proceed:
+  - Yes. The design stage is complete enough to proceed to tasks/implementation.
+
+## Next Actions
+- Generate tasks directly from the scenarios and proof-plan items in `openspec/changes/archive/2026-04-21-harden-check-status-artifacts/design.md`.
+- Preserve the exact key names, summary line order, bundle validity rules, and temp-workspace launch contract when writing tasks and tests.
+- Keep the docs-contract helper at `openspec/changes/archive/2026-04-21-harden-check-status-artifacts/check-docs-contract.py` aligned with the documented `README.md` and `docs/consumer-guide.md` requirements.

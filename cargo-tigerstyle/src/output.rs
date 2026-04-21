@@ -1,8 +1,23 @@
 use std::collections::BTreeMap;
 use std::collections::HashMap;
-use std::io::Write;
+use std::fmt::Write as _;
 
 use serde::Serialize;
+
+const FINDING_SCHEMA_VERSION: u32 = 1;
+const EXIT_SUCCESS: i32 = 0;
+const EXIT_LINT_FAILURE: i32 = 1;
+const EXIT_INTEGRATION_FAILURE: i32 = 2;
+const SUMMARY_HEADER: &str = "--- tigerstyle summary ---";
+const SUMMARY_FOOTER: &str = "---";
+const SARIF_SCHEMA_URL: &str =
+    "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/main/sarif-2.1/schema/sarif-schema-2.1.0.json";
+const SARIF_VERSION: &str = "2.1.0";
+const CARGO_PROCESS_SUCCESS: &str = "success";
+const CARGO_PROCESS_EXIT_CODE: &str = "exit-code";
+const CARGO_PROCESS_TERMINATED: &str = "terminated";
+const WARNING_SEVERITY: &str = "warning";
+const ERROR_SEVERITY: &str = "error";
 
 pub struct LintMeta {
     pub group: &'static str,
@@ -10,7 +25,7 @@ pub struct LintMeta {
     pub guidance: &'static str,
 }
 
-#[derive(Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct Finding {
     pub version: u32,
     pub index: String,
@@ -35,6 +50,161 @@ impl Finding {
     pub fn location(&self) -> String {
         format!("{}:{}", self.file, self.line)
     }
+
+    pub fn severity_is_error(&self) -> bool {
+        self.severity == ERROR_SEVERITY
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FindingCounts {
+    pub total_findings: usize,
+    pub warning_findings: usize,
+    pub error_findings: usize,
+    pub autofixable_findings: usize,
+}
+
+impl FindingCounts {
+    pub fn from_findings(findings: &[Finding]) -> Self {
+        let warning_findings = findings.iter().filter(|finding| !finding.severity_is_error()).count();
+        let error_findings = findings.iter().filter(|finding| finding.severity_is_error()).count();
+        let autofixable_findings = findings.iter().filter(|finding| finding.is_autofixable()).count();
+
+        Self {
+            total_findings: findings.len(),
+            warning_findings,
+            error_findings,
+            autofixable_findings,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum RunStatus {
+    Clean,
+    WarningOnly,
+    LintFailure,
+    IntegrationFailure,
+}
+
+impl RunStatus {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Clean => "clean",
+            Self::WarningOnly => "warning-only",
+            Self::LintFailure => "lint-failure",
+            Self::IntegrationFailure => "integration-failure",
+        }
+    }
+
+    pub fn exit_code(self) -> i32 {
+        match self {
+            Self::Clean | Self::WarningOnly => EXIT_SUCCESS,
+            Self::LintFailure => EXIT_LINT_FAILURE,
+            Self::IntegrationFailure => EXIT_INTEGRATION_FAILURE,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct CargoProcessExit {
+    pub classification: &'static str,
+    pub code: Option<i32>,
+}
+
+impl CargoProcessExit {
+    pub fn success() -> Self {
+        Self {
+            classification: CARGO_PROCESS_SUCCESS,
+            code: Some(EXIT_SUCCESS),
+        }
+    }
+
+    pub fn exit_code(code: i32) -> Self {
+        if code == EXIT_SUCCESS {
+            return Self::success();
+        }
+
+        Self {
+            classification: CARGO_PROCESS_EXIT_CODE,
+            code: Some(code),
+        }
+    }
+
+    pub fn terminated() -> Self {
+        Self {
+            classification: CARGO_PROCESS_TERMINATED,
+            code: None,
+        }
+    }
+
+    pub fn is_success(&self) -> bool {
+        self.classification == CARGO_PROCESS_SUCCESS
+    }
+
+    pub fn is_terminated(&self) -> bool {
+        self.classification == CARGO_PROCESS_TERMINATED
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RunOutcome {
+    pub status: RunStatus,
+    pub exit_code: i32,
+    pub counts: FindingCounts,
+    pub cargo_process_exit: CargoProcessExit,
+}
+
+impl RunOutcome {
+    pub fn classify(findings: &[Finding], cargo_process_exit: CargoProcessExit) -> Self {
+        let counts = FindingCounts::from_findings(findings);
+        let status = classify_status(&counts, &cargo_process_exit);
+
+        Self {
+            status,
+            exit_code: status.exit_code(),
+            counts,
+            cargo_process_exit,
+        }
+    }
+
+    pub fn force_integration_failure(&self) -> Self {
+        Self {
+            status: RunStatus::IntegrationFailure,
+            exit_code: RunStatus::IntegrationFailure.exit_code(),
+            counts: self.counts.clone(),
+            cargo_process_exit: self.cargo_process_exit.clone(),
+        }
+    }
+}
+
+#[derive(Serialize)]
+struct StatusArtifact<'a> {
+    status: RunStatus,
+    exit_code: i32,
+    output_format: &'a str,
+    total_findings: usize,
+    warning_findings: usize,
+    error_findings: usize,
+    autofixable_findings: usize,
+    cargo_process_exit: &'a CargoProcessExit,
+}
+
+fn classify_status(counts: &FindingCounts, cargo_process_exit: &CargoProcessExit) -> RunStatus {
+    if !cargo_process_exit.is_success() {
+        return RunStatus::IntegrationFailure;
+    }
+
+    if counts.error_findings > 0 {
+        return RunStatus::LintFailure;
+    }
+
+    if counts.total_findings > 0 {
+        return RunStatus::WarningOnly;
+    }
+
+    RunStatus::Clean
 }
 
 pub fn lint_meta_map() -> HashMap<&'static str, LintMeta> {
@@ -257,29 +427,40 @@ pub fn lint_meta_map() -> HashMap<&'static str, LintMeta> {
         .collect()
 }
 
-pub fn emit_json_line(finding: &Finding, out: &mut impl Write) -> Result<(), String> {
-    serde_json::to_writer(&mut *out, finding).map_err(|e| format!("write JSON finding: {e}"))?;
-    writeln!(out).map_err(|e| format!("write newline: {e}"))?;
-    Ok(())
+pub fn finding_version() -> u32 {
+    FINDING_SCHEMA_VERSION
 }
 
-pub fn emit_sarif(
+pub fn render_json_lines(findings: &[Finding]) -> Result<String, String> {
+    let mut rendered = String::new();
+
+    for finding in findings {
+        let line = serde_json::to_string(finding).map_err(|error| format!("write JSON finding: {error}"))?;
+        rendered.push_str(&line);
+        rendered.push('\n');
+    }
+
+    Ok(rendered)
+}
+
+pub fn render_sarif(
     findings: &[Finding],
     meta_map: &HashMap<&str, LintMeta>,
-    out: &mut impl Write,
-) -> Result<(), String> {
+    outcome: &RunOutcome,
+    command_line: &str,
+) -> Result<String, String> {
     let mut seen_rules: Vec<&str> = Vec::new();
-    for f in findings {
-        if !seen_rules.contains(&f.lint.as_str()) {
-            seen_rules.push(&f.lint);
+    for finding in findings {
+        if !seen_rules.contains(&finding.lint.as_str()) {
+            seen_rules.push(&finding.lint);
         }
     }
 
     let rules: Vec<serde_json::Value> = seen_rules
         .iter()
         .map(|lint_name| {
-            let guidance = meta_map.get(lint_name).map(|m| m.guidance).unwrap_or("unknown");
-            let group = meta_map.get(lint_name).map(|m| m.group).unwrap_or("tigerstyle::unknown");
+            let guidance = meta_map.get(lint_name).map(|meta| meta.guidance).unwrap_or("unknown");
+            let group = meta_map.get(lint_name).map(|meta| meta.group).unwrap_or("tigerstyle::unknown");
             serde_json::json!({
                 "id": lint_name,
                 "shortDescription": { "text": guidance },
@@ -290,28 +471,28 @@ pub fn emit_sarif(
 
     let results: Vec<serde_json::Value> = findings
         .iter()
-        .map(|f| {
+        .map(|finding| {
             serde_json::json!({
-                "ruleId": f.lint,
-                "level": f.severity,
-                "message": { "text": f.message },
+                "ruleId": finding.lint,
+                "level": finding.severity,
+                "message": { "text": finding.message },
                 "locations": [{
                     "physicalLocation": {
-                        "artifactLocation": { "uri": f.file },
+                        "artifactLocation": { "uri": finding.file },
                         "region": {
-                            "startLine": f.line,
-                            "startColumn": f.column
+                            "startLine": finding.line,
+                            "startColumn": finding.column
                         }
                     }
                 }],
-                "properties": { "findingIndex": f.index }
+                "properties": { "findingIndex": finding.index }
             })
         })
         .collect();
 
     let sarif = serde_json::json!({
-        "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/main/sarif-2.1/schema/sarif-schema-2.1.0.json",
-        "version": "2.1.0",
+        "$schema": SARIF_SCHEMA_URL,
+        "version": SARIF_VERSION,
         "runs": [{
             "tool": {
                 "driver": {
@@ -320,83 +501,118 @@ pub fn emit_sarif(
                     "rules": rules
                 }
             },
+            "invocations": [{
+                "commandLine": command_line,
+                "executionSuccessful": outcome.exit_code == EXIT_SUCCESS,
+                "exitCode": outcome.exit_code
+            }],
+            "properties": {
+                "status": outcome.status.as_str(),
+                "exitCode": outcome.exit_code,
+                "totalFindings": outcome.counts.total_findings,
+                "warningFindings": outcome.counts.warning_findings,
+                "errorFindings": outcome.counts.error_findings,
+                "autofixableFindings": outcome.counts.autofixable_findings,
+                "cargoProcessExitClassification": outcome.cargo_process_exit.classification,
+                "cargoProcessExitCode": outcome.cargo_process_exit.code,
+            },
             "results": results
         }]
     });
 
-    serde_json::to_writer_pretty(&mut *out, &sarif).map_err(|e| format!("write SARIF: {e}"))?;
-    writeln!(out).map_err(|e| format!("write newline: {e}"))?;
-    Ok(())
+    let mut rendered = serde_json::to_string_pretty(&sarif).map_err(|error| format!("write SARIF: {error}"))?;
+    rendered.push('\n');
+    Ok(rendered)
 }
 
-pub fn emit_summary(findings: &[Finding], out: &mut impl Write) -> Result<(), String> {
-    let w = |e: std::io::Error| format!("write summary: {e}");
+pub fn render_status_json(outcome: &RunOutcome, output_format: &str) -> Result<String, String> {
+    let artifact = StatusArtifact {
+        status: outcome.status,
+        exit_code: outcome.exit_code,
+        output_format,
+        total_findings: outcome.counts.total_findings,
+        warning_findings: outcome.counts.warning_findings,
+        error_findings: outcome.counts.error_findings,
+        autofixable_findings: outcome.counts.autofixable_findings,
+        cargo_process_exit: &outcome.cargo_process_exit,
+    };
 
-    writeln!(out, "--- tigerstyle summary ---").map_err(w)?;
+    let mut rendered =
+        serde_json::to_string_pretty(&artifact).map_err(|error| format!("write status JSON: {error}"))?;
+    rendered.push('\n');
+    Ok(rendered)
+}
+
+pub fn render_summary(findings: &[Finding], outcome: &RunOutcome) -> Result<String, String> {
+    let mut summary = String::new();
+
+    writeln!(&mut summary, "{SUMMARY_HEADER}").map_err(|error| format!("write summary: {error}"))?;
+    writeln!(&mut summary, "Status: {}", outcome.status.as_str()).map_err(|error| format!("write summary: {error}"))?;
+    writeln!(&mut summary, "Findings: {}", outcome.counts.total_findings)
+        .map_err(|error| format!("write summary: {error}"))?;
+    writeln!(&mut summary, "Warnings: {}", outcome.counts.warning_findings)
+        .map_err(|error| format!("write summary: {error}"))?;
+    writeln!(&mut summary, "Errors: {}", outcome.counts.error_findings)
+        .map_err(|error| format!("write summary: {error}"))?;
+    writeln!(&mut summary, "Autofixable: {}", outcome.counts.autofixable_findings)
+        .map_err(|error| format!("write summary: {error}"))?;
 
     if findings.is_empty() {
-        writeln!(out, "Findings: 0").map_err(w)?;
-        writeln!(out, "---").map_err(w)?;
-        return Ok(());
+        writeln!(&mut summary, "{SUMMARY_FOOTER}").map_err(|error| format!("write summary: {error}"))?;
+        return Ok(summary);
     }
 
-    let autofixable = findings.iter().filter(|f| f.is_autofixable()).count();
-    writeln!(out, "Findings: {} ({autofixable} autofixable)", findings.len()).map_err(w)?;
-
-    // By crate (sorted by count descending, then name ascending)
     let mut by_crate: BTreeMap<&str, usize> = BTreeMap::new();
-    for f in findings {
-        *by_crate.entry(&f.crate_name).or_default() += 1;
+    for finding in findings {
+        *by_crate.entry(&finding.crate_name).or_default() += 1;
     }
     let mut by_crate_sorted: Vec<_> = by_crate.into_iter().collect();
-    by_crate_sorted.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(b.0)));
+    by_crate_sorted.sort_by(|left, right| right.1.cmp(&left.1).then(left.0.cmp(right.0)));
+    let max_crate_name = by_crate_sorted.iter().map(|(name, _)| name.len()).max().unwrap_or(0);
 
-    let max_crate_name = by_crate_sorted.iter().map(|(n, _)| n.len()).max().unwrap_or(0);
-
-    writeln!(out).map_err(w)?;
-    writeln!(out, "By crate:").map_err(w)?;
+    writeln!(&mut summary).map_err(|error| format!("write summary: {error}"))?;
+    writeln!(&mut summary, "By crate:").map_err(|error| format!("write summary: {error}"))?;
     for (name, count) in &by_crate_sorted {
-        writeln!(out, "  {name:<width$} {count}", width = max_crate_name + 6).map_err(w)?;
+        writeln!(&mut summary, "  {name:<width$} {count}", width = max_crate_name + WARNING_SEVERITY.len())
+            .map_err(|error| format!("write summary: {error}"))?;
     }
 
-    // By lint (sorted by count descending, then name ascending)
     let mut by_lint: BTreeMap<&str, usize> = BTreeMap::new();
-    for f in findings {
-        *by_lint.entry(&f.lint).or_default() += 1;
+    for finding in findings {
+        *by_lint.entry(&finding.lint).or_default() += 1;
     }
     let mut by_lint_sorted: Vec<_> = by_lint.into_iter().collect();
-    by_lint_sorted.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(b.0)));
+    by_lint_sorted.sort_by(|left, right| right.1.cmp(&left.1).then(left.0.cmp(right.0)));
+    let max_lint_name = by_lint_sorted.iter().map(|(name, _)| name.len()).max().unwrap_or(0);
 
-    let max_lint_name = by_lint_sorted.iter().map(|(n, _)| n.len()).max().unwrap_or(0);
-
-    writeln!(out).map_err(w)?;
-    writeln!(out, "By lint:").map_err(w)?;
+    writeln!(&mut summary).map_err(|error| format!("write summary: {error}"))?;
+    writeln!(&mut summary, "By lint:").map_err(|error| format!("write summary: {error}"))?;
     for (name, count) in &by_lint_sorted {
-        writeln!(out, "  {name:<width$} {count}", width = max_lint_name + 6).map_err(w)?;
+        writeln!(&mut summary, "  {name:<width$} {count}", width = max_lint_name + WARNING_SEVERITY.len())
+            .map_err(|error| format!("write summary: {error}"))?;
     }
 
-    // Index table
-    let max_idx = findings.iter().map(|f| f.index.len()).max().unwrap_or(0);
-    let max_lint = findings.iter().map(|f| f.lint.len()).max().unwrap_or(0);
-    let max_crate = findings.iter().map(|f| f.crate_name.len()).max().unwrap_or(0);
+    let max_index_width = findings.iter().map(|finding| finding.index.len()).max().unwrap_or(0);
+    let max_lint_width = findings.iter().map(|finding| finding.lint.len()).max().unwrap_or(0);
+    let max_crate_width = findings.iter().map(|finding| finding.crate_name.len()).max().unwrap_or(0);
 
-    writeln!(out).map_err(w)?;
-    writeln!(out, "Index:").map_err(w)?;
-    for f in findings {
+    writeln!(&mut summary).map_err(|error| format!("write summary: {error}"))?;
+    writeln!(&mut summary, "Index:").map_err(|error| format!("write summary: {error}"))?;
+    for finding in findings {
         writeln!(
-            out,
-            "  {:<iw$}  {:<lw$} {:<cw$}  {}",
-            f.index,
-            f.lint,
-            f.crate_name,
-            f.location(),
-            iw = max_idx,
-            lw = max_lint,
-            cw = max_crate,
+            &mut summary,
+            "  {:<index_width$}  {:<lint_width$} {:<crate_width$}  {}",
+            finding.index,
+            finding.lint,
+            finding.crate_name,
+            finding.location(),
+            index_width = max_index_width,
+            lint_width = max_lint_width,
+            crate_width = max_crate_width,
         )
-        .map_err(w)?;
+        .map_err(|error| format!("write summary: {error}"))?;
     }
 
-    writeln!(out, "---").map_err(w)?;
-    Ok(())
+    writeln!(&mut summary, "{SUMMARY_FOOTER}").map_err(|error| format!("write summary: {error}"))?;
+    Ok(summary)
 }

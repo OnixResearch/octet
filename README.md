@@ -26,6 +26,18 @@ Nix:
 nix run path:/path/to/tigerstyle#cargo-tigerstyle -- check
 ```
 
+Structured output and reviewable sidecars are first-class too:
+
+```bash
+cargo tigerstyle check --output-format sarif --artifact-dir artifacts/tigerstyle
+```
+
+Exit codes stay stable for automation:
+
+- `0` clean or warning-only runs
+- `1` error-level lint findings
+- `2` integration or cargo-check failures
+
 Outside Nix, install the cargo subcommand once, then follow
 `docs/consumer-guide.md` for the repo-pinned `TIGERSTYLE_DYLINT_REV` bootstrap
 before running `cargo tigerstyle check`:
@@ -82,7 +94,7 @@ and config keys.
 [Concurrency and distributed-state template](templates/concurrency-state-checklist.md)
 [System comprehension guide](docs/system-comprehension.md)
 [System walkthrough template](templates/system-walkthrough.md)
-- `docs/consumer-guide.md` — first run, config split, Nix integration, migration notes
+- `docs/consumer-guide.md` — first run, config split, Nix integration, output modes, artifact bundles, migration notes
 - `docs/lint-reference.md` — full lint catalog, default levels, suppression paths, config reference
 - `docs/contributor-guide.md` — source-of-truth map, doc-update crosswalk, verification rails
 - `docs/downstream-rollout.md` — deep rollout playbook and Aspen-backed rollout evidence

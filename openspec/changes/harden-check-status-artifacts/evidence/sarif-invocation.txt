@@ -1,1 +1,0 @@
-PENDING: V5 unchecked. pending verification artifact for Scenario: SARIF carries invocation metadata.

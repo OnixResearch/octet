@@ -1,1 +1,0 @@
-PENDING: V1 unchecked. pending verification artifact for Scenario: Clean structured run stays exit 0.

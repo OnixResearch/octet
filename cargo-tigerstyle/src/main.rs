@@ -16,6 +16,6 @@ fn main() -> ExitCode {
 }
 
 fn try_main() -> Result<i32, String> {
-    let check = cli::parse(std::env::args_os().skip(1))?;
+    let check = cli::parse(std::env::args_os())?;
     engine::run(check)
 }

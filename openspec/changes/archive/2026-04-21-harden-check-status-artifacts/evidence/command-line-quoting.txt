@@ -1,0 +1,9 @@
+$ nix develop -c bash -lc 'cargo test -p cargo-tigerstyle cli::tests::command_line_quoting_matches_contract -- --nocapture'
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.02s
+     Running unittests src/main.rs (/home/brittonr/.cargo-target/debug/deps/cargo_tigerstyle-0e49dcb0fa35f2fb)
+
+running 1 test
+test cli::tests::command_line_quoting_matches_contract ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

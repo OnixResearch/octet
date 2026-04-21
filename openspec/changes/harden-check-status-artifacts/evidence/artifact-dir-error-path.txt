@@ -1,1 +1,0 @@
-PENDING: V4 unchecked. pending verification artifact for Scenario: Artifact directory records integration failure cleanly.

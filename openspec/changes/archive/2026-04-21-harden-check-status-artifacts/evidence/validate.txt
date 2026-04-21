@@ -1,0 +1,18 @@
+$ nix develop -c bash -lc 'openspec validate --strict --all'
+- Validating...
+✓ spec/architecture
+✓ spec/autofix
+✓ spec/concurrency
+✓ spec/consumer-integration
+✓ spec/documentation
+✓ change/harden-openspec-design-gate-omissions
+✓ spec/naming
+✓ spec/openspec-stage-authoring
+✓ spec/openspec-task-governance
+✓ spec/performance
+✓ spec/purity
+✓ spec/resilience
+✓ spec/safety
+✓ spec/structure
+✓ change/structured-check-output
+Totals: 15 passed, 0 failed (15 items)
