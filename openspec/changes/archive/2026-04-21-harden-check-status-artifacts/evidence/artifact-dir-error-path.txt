@@ -1,0 +1,5 @@
+$ nix develop -c bash -lc 'cargo test --test consumer_integration artifact_directory_records_integration_failure_cleanly -- --nocapture'
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.03s
+     Running tests/consumer_integration.rs (/home/brittonr/.cargo-target/debug/deps/consumer_integration-1fde4b4af96dc332)
+
+running 1 test

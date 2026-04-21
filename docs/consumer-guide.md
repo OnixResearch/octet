@@ -94,6 +94,21 @@ cargo tigerstyle check -p crate-a
 cargo tigerstyle check -p crate-a -- --all-targets
 ```
 
+You can also choose machine-readable output and a saved artifact bundle:
+
+```bash
+cargo tigerstyle check --output-format json
+cargo tigerstyle check --output-format sarif --artifact-dir artifacts/tigerstyle
+```
+
+Exit codes are stable for automation:
+
+- `0` clean or warning-only runs
+- `1` error-level lint findings
+- `2` integration/configuration failures, including underlying `cargo check` failures
+
+When `--artifact-dir` is set, the runner writes `command.txt`, `status.json`, `summary.txt`, and the selected structured-output mirror (`results.jsonl` or `results.sarif`). `status.json` and SARIF run properties carry the same run classification and count fields, so downstream tools do not need to scrape stderr.
+
 ### 4. Tune rollout controls in `dylint.toml`
 
 Keep config keys bare in `dylint.toml`:

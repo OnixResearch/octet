@@ -23,8 +23,9 @@ before more downstream repos build automation on the wrong behavior.
 - Add first-class run artifact output (`--artifact-dir`) with machine-readable
   `status.json`, stable summary/output sidecars, and self-describing SARIF
   invocation metadata.
-- Update consumer-facing docs and contract tests so specs, tests, and runtime
-  behavior agree on exit codes and emitted run metadata.
+- Update contract tests and consumer-facing docs so specs, tests, docs, and
+  runtime behavior agree on exit codes, artifact bundles, and the supported
+  temp-workspace launch path.
 
 ## Non-Goals
 
@@ -34,19 +35,13 @@ before more downstream repos build automation on the wrong behavior.
 
 ## Capabilities
 
-### New Capabilities
-
-- `check-run-artifacts`: callers can persist a reviewable artifact bundle for a
-  tigerstyle run without scraping ad-hoc logs.
-
 ### Modified Capabilities
 
 - `consumer-integration`: `cargo tigerstyle check` now publishes deterministic
-  run-outcome classification across clean, lint-failure, and integration-failure
-  paths.
+  run-outcome classification across clean, warning-only, lint-failure, and
+  integration-failure paths, plus optional reviewable run artifacts.
 
 ## Impact
 
-- **Files / artifacts**: `cargo-tigerstyle/src/cli.rs`, `cargo-tigerstyle/src/engine.rs`, `cargo-tigerstyle/src/output.rs`, `tests/consumer_integration.rs`, `README.md`, `docs/consumer-guide.md`, `openspec/changes/harden-check-status-artifacts/`, and `openspec/changes/harden-check-status-artifacts/specs/consumer-integration/spec.md`.
-- **Ordering / dependencies**: this change extends the same output surface as the active `structured-check-output` change; implementation must either land after that change syncs or rebase the same output-contract edits in lockstep.
-- **Verification / evidence**: save consumer-integration transcripts for clean structured runs, compile-failure runs, artifact-dir bundles, SARIF invocation metadata, and a design-stage gate transcript under `openspec/changes/harden-check-status-artifacts/evidence/`.
+- **Files / artifacts**: `cargo-tigerstyle/src/cli.rs`, `cargo-tigerstyle/src/engine.rs`, `cargo-tigerstyle/src/output.rs`, `tests/consumer_integration.rs`, `README.md`, `docs/consumer-guide.md`, `openspec/changes/archive/2026-04-21-harden-check-status-artifacts/`, and `openspec/changes/archive/2026-04-21-harden-check-status-artifacts/specs/consumer-integration/spec.md`.
+- **Verification / evidence**: save consumer-integration transcripts for clean structured runs, compile-failure runs, artifact-dir bundles, SARIF invocation metadata, a docs-contract check, and a design-stage gate transcript under `openspec/changes/archive/2026-04-21-harden-check-status-artifacts/evidence/`.

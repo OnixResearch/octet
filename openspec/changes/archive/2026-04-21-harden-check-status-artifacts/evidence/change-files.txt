@@ -1,3 +1,58 @@
+=== proposal.md ===
+## Why
+
+Aspen exposed two tooling-contract failures in `cargo tigerstyle check`.
+First, a clean structured run (`--output-format sarif`) produced `SARIF_RESULTS=0`
+and `Findings: 0` yet still exited `1`, which made downstream automation and
+review treat a clean run as a failure. Second, the tool emits findings but not a
+stable run-status artifact, so reviewers had to reconstruct what happened from
+summary text plus detached logs instead of reading one self-describing proof
+bundle.
+
+The current code path in `cargo-tigerstyle/src/engine.rs` still collapses
+`!status.success()` and `!findings.is_empty()` into the same exit code, and
+`tests/consumer_integration.rs` still expects compilation-error JSON/SARIF runs
+to exit `1` even though the consumer-integration contract already reserves exit
+`2` for integration/configuration failures. We should harden the runner surface
+before more downstream repos build automation on the wrong behavior.
+
+## What Changes
+
+- Restore a typed run-outcome contract in `cargo-tigerstyle` so clean and
+  warning-only runs exit `0`, error-level lint findings exit `1`, and
+  cargo/config/bootstrap failures exit `2`.
+- Add first-class run artifact output (`--artifact-dir`) with machine-readable
+  `status.json`, stable summary/output sidecars, and self-describing SARIF
+  invocation metadata.
+- Update consumer-facing docs and contract tests so specs, tests, and runtime
+  behavior agree on exit codes and emitted run metadata.
+
+## Non-Goals
+
+- No new lint rules, autofix heuristics, or severity-policy changes.
+- No redesign of OpenSpec workflow, Aspen-specific helper scripts, or
+  downstream crate-test selection outside the runner/artifact contract.
+
+## Capabilities
+
+### New Capabilities
+
+- `check-run-artifacts`: callers can persist a reviewable artifact bundle for a
+  tigerstyle run without scraping ad-hoc logs.
+
+### Modified Capabilities
+
+- `consumer-integration`: `cargo tigerstyle check` now publishes deterministic
+  run-outcome classification across clean, lint-failure, and integration-failure
+  paths.
+
+## Impact
+
+- **Files / artifacts**: `cargo-tigerstyle/src/cli.rs`, `cargo-tigerstyle/src/engine.rs`, `cargo-tigerstyle/src/output.rs`, `tests/consumer_integration.rs`, `README.md`, `docs/consumer-guide.md`, `openspec/changes/archive/2026-04-21-harden-check-status-artifacts/`, and `openspec/changes/archive/2026-04-21-harden-check-status-artifacts/specs/consumer-integration/spec.md`.
+- **Ordering / dependencies**: this change extends the same output surface as the active `structured-check-output` change; implementation must either land after that change syncs or rebase the same output-contract edits in lockstep.
+- **Verification / evidence**: save consumer-integration transcripts for clean structured runs, compile-failure runs, artifact-dir bundles, SARIF invocation metadata, and a design-stage gate transcript under `openspec/changes/archive/2026-04-21-harden-check-status-artifacts/evidence/`.
+
+=== design.md ===
 ## Context
 
 `tigerstyle` already has the right high-level contract on paper: warning-only
@@ -93,7 +148,7 @@ self-describing status file plus structured-output sidecars.
 - scenario or requirement:
   - `Scenario: Clean structured run stays exit 0`
 - artifact path:
-  - `openspec/changes/harden-check-status-artifacts/evidence/clean-sarif-status.txt`
+  - `openspec/changes/archive/2026-04-21-harden-check-status-artifacts/evidence/clean-sarif-status.txt`
 - command / helper:
   - `nix develop -c bash -lc 'cargo test --test consumer_integration clean_structured_run_stays_exit_zero -- --nocapture'`
 - exact expected output / acceptance signal:
@@ -106,7 +161,7 @@ self-describing status file plus structured-output sidecars.
 - scenario or requirement:
   - `Scenario: Cargo compilation failure uses integration-failure exit code`
 - artifact path:
-  - `openspec/changes/harden-check-status-artifacts/evidence/error-path-exit-code.txt`
+  - `openspec/changes/archive/2026-04-21-harden-check-status-artifacts/evidence/error-path-exit-code.txt`
 - command / helper:
   - `nix develop -c bash -lc 'cargo test --test consumer_integration cargo_compilation_failure_uses_integration_failure_exit_code -- --nocapture'`
 - exact expected output / acceptance signal:
@@ -119,7 +174,7 @@ self-describing status file plus structured-output sidecars.
 - scenario or requirement:
   - `Scenario: Artifact directory captures a structured run`
 - artifact path:
-  - `openspec/changes/harden-check-status-artifacts/evidence/artifact-dir-structured-run.txt`
+  - `openspec/changes/archive/2026-04-21-harden-check-status-artifacts/evidence/artifact-dir-structured-run.txt`
 - command / helper:
   - `nix develop -c bash -lc 'cargo test --test consumer_integration artifact_directory_captures_structured_run -- --nocapture'`
 - exact expected output / acceptance signal:
@@ -132,7 +187,7 @@ self-describing status file plus structured-output sidecars.
 - scenario or requirement:
   - `Scenario: Artifact directory records integration failure cleanly`
 - artifact path:
-  - `openspec/changes/harden-check-status-artifacts/evidence/artifact-dir-error-path.txt`
+  - `openspec/changes/archive/2026-04-21-harden-check-status-artifacts/evidence/artifact-dir-error-path.txt`
 - command / helper:
   - `nix develop -c bash -lc 'cargo test --test consumer_integration artifact_directory_records_integration_failure_cleanly -- --nocapture'`
 - exact expected output / acceptance signal:
@@ -145,7 +200,7 @@ self-describing status file plus structured-output sidecars.
 - scenario or requirement:
   - `Scenario: SARIF carries invocation metadata`
 - artifact path:
-  - `openspec/changes/harden-check-status-artifacts/evidence/sarif-invocation.txt`
+  - `openspec/changes/archive/2026-04-21-harden-check-status-artifacts/evidence/sarif-invocation.txt`
 - command / helper:
   - `nix develop -c bash -lc 'cargo test --test consumer_integration sarif_carries_invocation_metadata -- --nocapture'`
 - exact expected output / acceptance signal:
@@ -158,7 +213,7 @@ self-describing status file plus structured-output sidecars.
 - scenario or requirement:
   - human/oracle checkpoint for the full change
 - artifact path:
-  - `openspec/changes/harden-check-status-artifacts/evidence/design-gate.txt`
+  - `openspec/changes/archive/2026-04-21-harden-check-status-artifacts/evidence/design-gate.txt`
 - command / helper:
   - `openspec_gate stage=design change=harden-check-status-artifacts`
 - exact expected output / acceptance signal:
@@ -173,3 +228,115 @@ self-describing status file plus structured-output sidecars.
 - more CLI surface area -> keep `--artifact-dir` optional and preserve existing stdout/stderr defaults when it is absent
 - status metadata drift across summary, sidecar, and SARIF -> drive all three from one `RunOutcome` structure and one count aggregation path
 - output-contract overlap with the active `structured-check-output` change -> land this change after that syncs or rebase the same files in lockstep so the two contracts do not fork
+
+=== tasks.md ===
+## Phase 1: Implementation
+
+- [ ] I1 Refactor `cargo-tigerstyle/src/engine.rs` to compute a typed `RunOutcome` and enforce the `0` / `1` / `2` exit-code contract for clean-or-warning-only, lint-failure, and integration-failure runs.
+- [ ] I2 Update `cargo-tigerstyle/src/output.rs` so the stderr summary reports explicit status plus warning/error/autofixable counts, and the SARIF emitter carries invocation and run-status metadata.
+- [ ] I3 Extend `cargo-tigerstyle/src/cli.rs` and runner plumbing with `--artifact-dir`, then write `status.json`, `command.txt`, `summary.txt`, and structured-output mirrors for `json` / `sarif` runs.
+- [ ] I4 Update `tests/consumer_integration.rs`, `README.md`, and `docs/consumer-guide.md` so fixtures, expectations, and consumer docs match the hardened run-status and artifact-bundle contract.
+
+## Phase 2: Deterministic verification
+
+- [ ] V1 Verify scenario "Clean structured run stays exit 0" with `cargo test --test consumer_integration clean_structured_run_stays_exit_zero -- --nocapture`; save output at `openspec/changes/archive/2026-04-21-harden-check-status-artifacts/evidence/clean-sarif-status.txt`
+- [ ] V2 Verify scenario "Cargo compilation failure uses integration-failure exit code" with `cargo test --test consumer_integration cargo_compilation_failure_uses_integration_failure_exit_code -- --nocapture`; save output at `openspec/changes/archive/2026-04-21-harden-check-status-artifacts/evidence/error-path-exit-code.txt`
+- [ ] V3 Verify scenario "Artifact directory captures a structured run" with `cargo test --test consumer_integration artifact_directory_captures_structured_run -- --nocapture`; save output at `openspec/changes/archive/2026-04-21-harden-check-status-artifacts/evidence/artifact-dir-structured-run.txt`
+- [ ] V4 Verify scenario "Artifact directory records integration failure cleanly" with `cargo test --test consumer_integration artifact_directory_records_integration_failure_cleanly -- --nocapture`; save output at `openspec/changes/archive/2026-04-21-harden-check-status-artifacts/evidence/artifact-dir-error-path.txt`
+- [ ] V5 Verify scenario "SARIF carries invocation metadata" with `cargo test --test consumer_integration sarif_carries_invocation_metadata -- --nocapture`; save output at `openspec/changes/archive/2026-04-21-harden-check-status-artifacts/evidence/sarif-invocation.txt`
+
+## Phase 3: Human/oracle checkpoints
+
+- [ ] H1 Human/oracle checkpoint: command=`openspec_gate stage=design change=harden-check-status-artifacts`; input=`final proposal.md plus consumer-integration delta spec and design.md`; asserts=`design-stage review accepts the exit-code, artifact-dir, and SARIF-invocation contract without ambiguity`; evidence=`openspec/changes/archive/2026-04-21-harden-check-status-artifacts/evidence/design-gate.txt`
+
+## Change Status
+- Status: in-progress
+- Open tasks: I1, I2, I3, I4, V1, V2, V3, V4, V5, H1
+Use `Open tasks: none` only when every governed `I<n>`, `V<n>`, and `H<n>` task checkbox is checked.
+## Verification Coverage
+
+- `Scenario: Clean structured run stays exit 0` -> `V1` -> `openspec/changes/archive/2026-04-21-harden-check-status-artifacts/evidence/clean-sarif-status.txt`
+- `Scenario: Cargo compilation failure uses integration-failure exit code` -> `V2` -> `openspec/changes/archive/2026-04-21-harden-check-status-artifacts/evidence/error-path-exit-code.txt`
+- `Scenario: Artifact directory captures a structured run` -> `V3` -> `openspec/changes/archive/2026-04-21-harden-check-status-artifacts/evidence/artifact-dir-structured-run.txt`
+- `Scenario: Artifact directory records integration failure cleanly` -> `V4` -> `openspec/changes/archive/2026-04-21-harden-check-status-artifacts/evidence/artifact-dir-error-path.txt`
+- `Scenario: SARIF carries invocation metadata` -> `V5` -> `openspec/changes/archive/2026-04-21-harden-check-status-artifacts/evidence/sarif-invocation.txt`
+
+=== specs/consumer-integration/spec.md ===
+## ADDED Requirements
+
+### Requirement: Run Outcome Artifacts
+
+The system MUST optionally persist a reviewable run artifact bundle when the
+caller passes `--artifact-dir <dir>` to `cargo tigerstyle check`.
+
+The artifact bundle MUST include:
+- `status.json` with `status`, `exit_code`, `output_format`, `total_findings`,
+  `warning_findings`, `error_findings`, `autofixable_findings`, and the
+  underlying cargo-process exit classification
+- `command.txt` with the exact top-level command line used for the run
+- `summary.txt` containing the same trailing summary block written to stderr
+- a mirror of the selected structured output (`results.jsonl` or
+  `results.sarif`) when `--output-format json` or `sarif` is selected
+
+When output format is `sarif`, the SARIF document MUST also embed invocation
+metadata that records the command line, exit code, and run-status
+classification so the SARIF file is self-describing without the sidecar
+summary.
+
+#### Scenario: Artifact directory captures a structured run
+
+- GIVEN a caller provides `--artifact-dir <dir>` and `--output-format sarif`
+- WHEN a run completes
+- THEN `<dir>/status.json`, `<dir>/command.txt`, `<dir>/summary.txt`, and
+  `<dir>/results.sarif` exist
+- AND `status.json` and `summary.txt` agree on the exit classification and
+  finding counts
+
+#### Scenario: Artifact directory records integration failure cleanly
+
+- GIVEN a caller provides `--artifact-dir <dir>` and the underlying
+  `cargo check` fails after any earlier diagnostics are emitted
+- WHEN the run completes
+- THEN `status.json` and `summary.txt` still exist
+- AND the selected structured-output mirror remains valid for its format
+- AND `status.json` reports an `integration-failure` status
+
+#### Scenario: SARIF carries invocation metadata
+
+- GIVEN `cargo tigerstyle check --output-format sarif` completes
+- WHEN a consumer inspects the SARIF run object
+- THEN `runs[0].invocations[0]` records the command line and exit code
+- AND the SARIF run properties expose the same status classification as
+  `status.json`
+
+## MODIFIED Requirements
+
+### Requirement: First-Class Consumer Check Command
+
+The system MUST classify `cargo tigerstyle check` runs as
+clean-or-warning-only, lint-failure, or integration-failure.
+
+Clean runs and warning-only runs MUST exit `0`. Error-level lint findings MUST
+exit `1`. Integration/configuration failures, including underlying
+`cargo check` compilation failures, MUST exit `2`.
+
+The trailing summary and any machine-readable run-status output MUST report the
+same classification and exit code.
+
+#### Scenario: Clean structured run stays exit 0
+
+- GIVEN a workspace with zero tigerstyle findings
+- WHEN `cargo tigerstyle check --output-format sarif` completes
+- THEN the exit code is `0`
+- AND the trailing summary reports status `clean`
+- AND the emitted SARIF document has zero results
+
+#### Scenario: Cargo compilation failure uses integration-failure exit code
+
+- GIVEN a workspace where the underlying `cargo check` fails to compile after
+  any earlier lint diagnostics are emitted
+- WHEN `cargo tigerstyle check --output-format json` or `--output-format sarif`
+  completes
+- THEN the exit code is `2`
+- AND structured stdout remains valid for the selected format
+- AND the trailing summary reports an `integration-failure` status
