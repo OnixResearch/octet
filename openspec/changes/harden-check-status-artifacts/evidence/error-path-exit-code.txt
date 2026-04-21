@@ -1,0 +1,1 @@
+PENDING: V2 unchecked. pending verification artifact for Scenario: Cargo compilation failure uses integration-failure exit code.

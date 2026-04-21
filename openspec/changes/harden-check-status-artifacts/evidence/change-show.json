@@ -1,0 +1,71 @@
+{
+  "id": "harden-check-status-artifacts",
+  "title": "harden-check-status-artifacts",
+  "deltaCount": 2,
+  "deltas": [
+    {
+      "spec": "consumer-integration",
+      "operation": "ADDED",
+      "description": "Add requirement: The system MUST optionally persist a reviewable run artifact bundle when the",
+      "requirement": {
+        "text": "The system MUST optionally persist a reviewable run artifact bundle when the",
+        "scenarios": [
+          {
+            "rawText": "- GIVEN a caller provides `--artifact-dir <dir>` and `--output-format sarif`\n- WHEN a run completes\n- THEN `<dir>/status.json`, `<dir>/command.txt`, `<dir>/summary.txt`, and\n  `<dir>/results.sarif` exist\n- AND `status.json` and `summary.txt` agree on the exit classification and\n  finding counts"
+          },
+          {
+            "rawText": "- GIVEN a caller provides `--artifact-dir <dir>` and the underlying\n  `cargo check` fails after any earlier diagnostics are emitted\n- WHEN the run completes\n- THEN `status.json` and `summary.txt` still exist\n- AND the selected structured-output mirror remains valid for its format\n- AND `status.json` reports an `integration-failure` status"
+          },
+          {
+            "rawText": "- GIVEN `cargo tigerstyle check --output-format sarif` completes\n- WHEN a consumer inspects the SARIF run object\n- THEN `runs[0].invocations[0]` records the command line and exit code\n- AND the SARIF run properties expose the same status classification as\n  `status.json`"
+          }
+        ]
+      },
+      "requirements": [
+        {
+          "text": "The system MUST optionally persist a reviewable run artifact bundle when the",
+          "scenarios": [
+            {
+              "rawText": "- GIVEN a caller provides `--artifact-dir <dir>` and `--output-format sarif`\n- WHEN a run completes\n- THEN `<dir>/status.json`, `<dir>/command.txt`, `<dir>/summary.txt`, and\n  `<dir>/results.sarif` exist\n- AND `status.json` and `summary.txt` agree on the exit classification and\n  finding counts"
+            },
+            {
+              "rawText": "- GIVEN a caller provides `--artifact-dir <dir>` and the underlying\n  `cargo check` fails after any earlier diagnostics are emitted\n- WHEN the run completes\n- THEN `status.json` and `summary.txt` still exist\n- AND the selected structured-output mirror remains valid for its format\n- AND `status.json` reports an `integration-failure` status"
+            },
+            {
+              "rawText": "- GIVEN `cargo tigerstyle check --output-format sarif` completes\n- WHEN a consumer inspects the SARIF run object\n- THEN `runs[0].invocations[0]` records the command line and exit code\n- AND the SARIF run properties expose the same status classification as\n  `status.json`"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "spec": "consumer-integration",
+      "operation": "MODIFIED",
+      "description": "Modify requirement: The system MUST classify `cargo tigerstyle check` runs as",
+      "requirement": {
+        "text": "The system MUST classify `cargo tigerstyle check` runs as",
+        "scenarios": [
+          {
+            "rawText": "- GIVEN a workspace with zero tigerstyle findings\n- WHEN `cargo tigerstyle check --output-format sarif` completes\n- THEN the exit code is `0`\n- AND the trailing summary reports status `clean`\n- AND the emitted SARIF document has zero results"
+          },
+          {
+            "rawText": "- GIVEN a workspace where the underlying `cargo check` fails to compile after\n  any earlier lint diagnostics are emitted\n- WHEN `cargo tigerstyle check --output-format json` or `--output-format sarif`\n  completes\n- THEN the exit code is `2`\n- AND structured stdout remains valid for the selected format\n- AND the trailing summary reports an `integration-failure` status"
+          }
+        ]
+      },
+      "requirements": [
+        {
+          "text": "The system MUST classify `cargo tigerstyle check` runs as",
+          "scenarios": [
+            {
+              "rawText": "- GIVEN a workspace with zero tigerstyle findings\n- WHEN `cargo tigerstyle check --output-format sarif` completes\n- THEN the exit code is `0`\n- AND the trailing summary reports status `clean`\n- AND the emitted SARIF document has zero results"
+            },
+            {
+              "rawText": "- GIVEN a workspace where the underlying `cargo check` fails to compile after\n  any earlier lint diagnostics are emitted\n- WHEN `cargo tigerstyle check --output-format json` or `--output-format sarif`\n  completes\n- THEN the exit code is `2`\n- AND structured stdout remains valid for the selected format\n- AND the trailing summary reports an `integration-failure` status"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

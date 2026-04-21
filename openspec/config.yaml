@@ -24,19 +24,19 @@ context: |
 
 rules:
   proposal:
-    - Keep it under 500 words
-    - Reference concrete violations found in aspen
-    - Follow `openspec/templates/proposal.md`; name exact repo-relative files/artifacts, ordering/dependencies, and planned saved evidence or helper/gate runs
-    - Follow `openspec/templates/spec.md` for delta-spec authoring; keep change-local specs in delta form, start each added or modified requirement with `The system MUST ...`, and give every added or modified requirement at least one `#### Scenario:` block
+    - "Keep it under 500 words"
+    - "Reference concrete violations found in aspen"
+    - "Follow `openspec/templates/proposal.md`; name exact repo-relative files/artifacts, ordering/dependencies, and planned saved evidence or helper/gate runs"
+    - "Follow `openspec/templates/spec.md` for delta-spec authoring; keep change-local specs in delta form, start each added or modified requirement with `The system MUST ...`, and give every added or modified requirement at least one `#### Scenario:` block"
   design:
-    - Follow `openspec/templates/design.md`; every added or modified scenario heading or zero-scenario requirement must appear in a decision's `**Covers:**` field; name boundary cases for non-trigger or continued-warning conditions; every saved proof artifact must state its exact expected output or acceptance signal
+    - "Follow `openspec/templates/design.md`; every added or modified scenario heading or zero-scenario requirement must appear in a decision's `**Covers:**` field; name boundary cases for non-trigger or continued-warning conditions; every saved proof artifact must state its exact expected output or acceptance signal"
   tasks:
-    - Changes must cover every MUST added by their delta specs
-    - Follow `openspec/templates/tasks.md` for `I<n>`, `V<n>`, and `H<n>` task IDs, the exact `## Change Status` section, and the trailing `## Verification Coverage` section
-    - Keep implementation, deterministic verification, and human/oracle checkpoints in separate checkbox units; an `I<n>` task becomes invalid if it includes markers like `verify`, `save`, `capture`, `evidence=`, or a repo-relative `evidence/` path
-    - Compare `tasks.md` against the delta-spec scenario headings and keep one `## Verification Coverage` row per added or modified scenario, even when multiple rows share one artifact
-    - Keep `## Change Status` immediately before `## Verification Coverage`; use either `- Status: in-progress` plus unchecked governed `I<n>`, `V<n>`, and `H<n>` IDs in file order, or `- Status: complete` plus `- Open tasks: none`
-    - Block these exact change-status findings when they apply: `tasks.md is missing ## Change Status`, `Change status section is malformed or misplaced`, `Change status says complete but unchecked tasks remain`, `Change status says in-progress but no open tasks remain`, `Change status open-task list does not match unchecked tasks`
-    - `H<n>` tasks are invalid unless they include `command=`, `input=`, `asserts=`, and `evidence=`
-    - Keep a reference-to-skill crosswalk for skill-coverage changes
-    - Record validation evidence before marking the change complete
+    - "Changes must cover every MUST added by their delta specs"
+    - "Follow `openspec/templates/tasks.md` for `I<n>`, `V<n>`, and `H<n>` task IDs, the exact `## Change Status` section, and the trailing `## Verification Coverage` section"
+    - "Keep implementation, deterministic verification, and human/oracle checkpoints in separate checkbox units; an `I<n>` task becomes invalid if it includes markers like `verify`, `save`, `capture`, `evidence=`, or a repo-relative `evidence/` path"
+    - "Compare `tasks.md` against the delta-spec scenario headings and keep one `## Verification Coverage` row per added or modified scenario, even when multiple rows share one artifact"
+    - "Keep `## Change Status` immediately before `## Verification Coverage`; use either `- Status: in-progress` plus unchecked governed `I<n>`, `V<n>`, and `H<n>` IDs in file order, or `- Status: complete` plus `- Open tasks: none`"
+    - "Block these exact change-status findings when they apply: `tasks.md is missing ## Change Status`, `Change status section is malformed or misplaced`, `Change status says complete but unchecked tasks remain`, `Change status says in-progress but no open tasks remain`, `Change status open-task list does not match unchecked tasks`"
+    - "`H<n>` tasks are invalid unless they include `command=`, `input=`, `asserts=`, and `evidence=`"
+    - "Keep a reference-to-skill crosswalk for skill-coverage changes"
+    - "Record validation evidence before marking the change complete"
