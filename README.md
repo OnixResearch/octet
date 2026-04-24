@@ -5,7 +5,9 @@ Custom [Dylint](https://github.com/trailofbits/dylint) lints for Rust that apply
 rules: explicit shell/core boundaries, bounded resource use, positive naming,
 compact functions, and reviewable suppressions.
 
-`tigerstyle` currently ships 34 lints across 5 domains.
+`tigerstyle` currently ships 34 lints across 5 domains. The repo also owns a
+separate standards registry/checker seam for policy traceability and
+non-Dylint source-shape rules.
 
 ## Quick start
 
@@ -48,6 +50,13 @@ cargo install --path /path/to/tigerstyle/cargo-tigerstyle
 
 4. Tune thresholds, disabled lints, and per-lint levels in `dylint.toml`.
 
+Standards registry checks live behind a separate command surface:
+
+```bash
+nix run .#tigerstyle-policy-validate
+nix run .#tigerstyle-standards -- --help
+```
+
 Start with `docs/consumer-guide.md` for the full consumer setup and rollout
 path.
 
@@ -59,8 +68,10 @@ path.
 | project name | `tigerstyle` |
 | GitHub repo slug | `tigerstyle-rs` |
 | crate and lint package | `tigerstyle` |
-| binary | `cargo-tigerstyle` |
-| command | `cargo tigerstyle check` |
+| lint runner binary | `cargo-tigerstyle` |
+| lint runner command | `cargo tigerstyle check` |
+| standards checker binary | `tigerstyle-standards` |
+| standards policy commands | `tigerstyle-policy-export`, `tigerstyle-policy-validate` |
 | lint attrs and domain groups | `tigerstyle::<lint>` and `tigerstyle::<domain>` |
 | workspace runner config | `[workspace.metadata.tigerstyle]` |
 | lint tuning config | `[tigerstyle]` and `[tigerstyle.lint_levels]` |
@@ -98,6 +109,8 @@ and config keys.
 - `docs/lint-reference.md` — full lint catalog, default levels, suppression paths, config reference
 - `docs/contributor-guide.md` — source-of-truth map, doc-update crosswalk, verification rails
 - `docs/downstream-rollout.md` — deep rollout playbook and Aspen-backed rollout evidence
+- `standards/policies/README.md` — typed policy registry and traceability contract
+- `docs/standards/policy-contract.md` — standards rules mapped to verification rails
 
 ## License
 

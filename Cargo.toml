@@ -24,4 +24,5 @@ toml = "1"
 rustc_private = true
 
 [workspace]
-members = ["cargo-tigerstyle"]
+resolver = "2"
+members = ["cargo-tigerstyle", "crates/tigerstyle-standards"]

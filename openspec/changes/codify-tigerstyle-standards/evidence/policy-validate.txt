@@ -1,0 +1,2 @@
+$ nix run .#tigerstyle-policy-validate
+exit=0

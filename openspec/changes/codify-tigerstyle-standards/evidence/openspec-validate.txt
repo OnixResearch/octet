@@ -1,0 +1,3 @@
+$ nix develop -c bash -c 'openspec validate codify-tigerstyle-standards --strict'
+Change 'codify-tigerstyle-standards' is valid
+exit=0

@@ -1,0 +1,3 @@
+AskClaude read-only staged-change review
+
+Verdict: no critical issues. Naming cleanup complete, seams clean: standards checker has no Dylint coupling and uses JSON/report artifacts as boundary. Manual note: architecture checker path suffixes are fixture/planned FCIS convention paths (`tigerstyle-core`, `tigerstyle-std`), not claims that those crates are live workspace members today.

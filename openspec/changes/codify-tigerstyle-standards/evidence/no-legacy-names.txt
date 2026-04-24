@@ -1,0 +1,2 @@
+$ rg -n -i 'e[v]ermeta' . --glob '*.{rs,md,toml,ncl,adoc,nix,yml,yaml,txt}' || true
+(no output; no legacy project strings found in scanned Tiger Style artifacts)
