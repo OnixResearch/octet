@@ -26,6 +26,8 @@ For the shipped lint catalog, see `lint-reference.md`.
 [OpenSpec proposal template](../openspec/templates/proposal.md)
 [OpenSpec delta-spec template](../openspec/templates/spec.md)
 [OpenSpec design template](../openspec/templates/design.md)
+[Tiger Style policy registry](../standards/policies/README.md)
+[Tiger Style standards contract](standards/policy-contract.md)
 
 ## Source-of-truth map
 
@@ -35,6 +37,8 @@ For the shipped lint catalog, see `lint-reference.md`.
 | diagnostic wording, guide sections, domain groups | `src/diagnostics.rs` |
 | config schema and defaults | `src/config.rs` |
 | cargo subcommand parsing and engine behavior | `cargo-tigerstyle/src/cli.rs`, `cargo-tigerstyle/src/config.rs`, `cargo-tigerstyle/src/engine.rs` |
+| standards registry and checker core | `standards/policies/`, `crates/tigerstyle-standards/src/` |
+| standards source material | `docs/standards/source/` |
 | published Nix entry points and helpers | `flake.nix` |
 | consumer-owned template | `templates/dylint.toml` |
 | landing page and naming map | `README.md` |
@@ -83,6 +87,26 @@ Remember:
 - `dylint.toml` keys stay bare (`no_unwrap`)
 - source attrs and group attrs stay canonical (`tigerstyle::no_unwrap`, `tigerstyle::safety`)
 
+## If you add or change standards policy
+
+Check these source files first:
+
+- `standards/policies/registry.ncl`
+- `standards/policies/contracts.ncl`
+- `crates/tigerstyle-standards/src/`
+- `standards/check-fixtures/`
+- `docs/standards/source/`
+
+Then update:
+
+- `standards/policies/README.md`
+- `docs/standards/policy-contract.md`
+- `README.md` if command surfaces change
+- `flake.nix` checks/apps when verification changes
+
+Keep the seam intact: Dylint lints stay in `src/`; policy registry and
+source-shape checks stay in `crates/tigerstyle-standards` and `standards/`.
+
 ## If you add or change a published entry point
 
 Check these source files first:
@@ -115,6 +139,8 @@ Common checks:
 nix develop -c bash -c 'cargo check'
 nix develop -c bash -c 'cargo test --lib'
 nix develop -c bash -c 'cargo test --test ui ui -- --ignored --nocapture'
+nix develop -c bash -c 'cargo test -p tigerstyle-standards'
+nix run .#tigerstyle-policy-validate
 ```
 
 Useful doc-facing spot checks:

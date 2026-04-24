@@ -1,0 +1,37 @@
+$ nix develop -c bash -c 'export CARGO_TARGET_DIR=target/verify-standards; cargo test -p tigerstyle-standards'
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.07s
+     Running unittests src/lib.rs (target/verify-standards/debug/deps/tigerstyle_standards-026b9ff690555e86)
+
+running 16 tests
+test tests::advisory_only_report_is_non_blocking ... ok
+test tests::fixture_manifest_accepts_covered_hard_policies ... ok
+test tests::fixture_manifest_rejects_missing_noncompliant_fixture ... ok
+test tests::architecture_checks_reject_missing_core_no_std ... ok
+test tests::architecture_checks_reject_thick_root_file ... ok
+test tests::architecture_checks_reject_core_runtime_dependency ... ok
+test tests::architecture_checks_accept_compliant_workspace_shape ... ok
+test tests::family_selection_skips_unselected_policy ... ok
+test tests::missing_suppression_metadata_returns_blocking_diagnostics ... ok
+test tests::blanket_suppression_scope_is_rejected ... ok
+test tests::markdown_output_is_stable ... ok
+test tests::json_output_is_stable ... ok
+test tests::resource_checks_accept_bounded_channel ... ok
+test tests::resource_checks_reject_unbounded_channel ... ok
+test tests::unknown_policy_is_rejected ... ok
+test tests::valid_suppression_is_reported_as_active ... ok
+
+test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (target/verify-standards/debug/deps/tigerstyle_standards-90119fbd17fe9f25)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests tigerstyle_standards
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+exit=0

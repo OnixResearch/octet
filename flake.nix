@@ -140,8 +140,9 @@
               inUiTests = pkgs.lib.hasSuffix "/ui_tests" path || pkgs.lib.hasInfix "/ui_tests/" path;
               inTestFixtures = pkgs.lib.hasSuffix "/tests/fixtures" path || pkgs.lib.hasInfix "/tests/fixtures/" path;
               inDocs = pkgs.lib.hasSuffix "/docs" path || pkgs.lib.hasInfix "/docs/" path;
+              inStandards = pkgs.lib.hasSuffix "/standards" path || pkgs.lib.hasInfix "/standards/" path;
               inTemplates = pkgs.lib.hasSuffix "/templates" path || pkgs.lib.hasInfix "/templates/" path;
-            in (craneLib.filterCargoSources path type) || inUiTests || inTestFixtures || inDocs || inTemplates;
+            in (craneLib.filterCargoSources path type) || inUiTests || inTestFixtures || inDocs || inStandards || inTemplates;
         };
         fmtSrc = pkgs.lib.cleanSourceWith {
           src = ./.;
@@ -211,6 +212,14 @@
           pname = "cargo-tigerstyle";
           version = "0.1.0";
           cargoExtraArgs = "-p cargo-tigerstyle";
+          doCheck = false;
+        };
+
+        tigerstyleStandards = craneLib.buildPackage {
+          inherit src cargoArtifacts nativeBuildInputs buildInputs;
+          pname = "tigerstyle-standards";
+          version = "0.1.0";
+          cargoExtraArgs = "-p tigerstyle-standards";
           doCheck = false;
         };
 
@@ -342,6 +351,175 @@ MAIN
               --set TIGERSTYLE_LINT_LIB "${tigerstyleUiLibrary}/lib/${tigerstyleUiLibraryName}"
           '';
         };
+
+        policyExport = pkgs.writeShellApplication {
+          name = "tigerstyle-policy-export";
+          runtimeInputs = with pkgs; [ nickel ];
+          text = ''
+            exec nickel export --format json standards/policies/registry.ncl
+          '';
+        };
+
+        policyValidate = pkgs.writeShellApplication {
+          name = "tigerstyle-policy-validate";
+          runtimeInputs = with pkgs; [ gawk jq nickel ];
+          text = ''
+            nickel typecheck standards/policies/registry.ncl
+            nickel export --format json standards/policies/registry.ncl \
+              | jq --exit-status '.policies | length > 0' >/dev/null
+
+            while IFS=$'\t' read -r policy_id source_path source_heading; do
+              if [ ! -f "$source_path" ]; then
+                echo "policy $policy_id references missing source path: $source_path" >&2
+                exit 1
+              fi
+              if ! awk -v heading="$source_heading" '
+                /^=+ / {
+                  current = $0
+                  sub(/^=+ /, "", current)
+                  if (current == heading) {
+                    found = 1
+                  }
+                }
+                END { exit found ? 0 : 1 }
+              ' "$source_path"; then
+                echo "policy $policy_id references missing source heading: $source_heading" >&2
+                exit 1
+              fi
+            done < <(nickel export --format json standards/policies/registry.ncl \
+              | jq --raw-output '.policies[] | [.policy_id, .source_path, .source_heading] | @tsv')
+
+            for file in standards/policies/fixtures/valid/*.ncl; do
+              nickel export --format json "$file" >/dev/null
+            done
+
+            for file in standards/policies/fixtures/invalid/*.ncl; do
+              if nickel export --format json "$file" >/dev/null 2>&1; then
+                echo "invalid policy fixture passed: $file" >&2
+                exit 1
+              fi
+            done
+          '';
+        };
+
+        policyRegistryCheck = pkgs.runCommand "tigerstyle-policy-registry-check"
+          {
+            nativeBuildInputs = with pkgs; [ gawk jq nickel ];
+          } ''
+          cd ${./.}
+          nickel typecheck standards/policies/registry.ncl
+          nickel export --format json standards/policies/registry.ncl \
+            | jq --exit-status '.policies | length > 0' >/dev/null
+
+          while IFS=$'\t' read -r policy_id source_path source_heading; do
+            if [ ! -f "$source_path" ]; then
+              echo "policy $policy_id references missing source path: $source_path" >&2
+              exit 1
+            fi
+            if ! awk -v heading="$source_heading" '
+              /^=+ / {
+                current = $0
+                sub(/^=+ /, "", current)
+                if (current == heading) {
+                  found = 1
+                }
+              }
+              END { exit found ? 0 : 1 }
+            ' "$source_path"; then
+              echo "policy $policy_id references missing source heading: $source_heading" >&2
+              exit 1
+            fi
+          done < <(nickel export --format json standards/policies/registry.ncl \
+            | jq --raw-output '.policies[] | [.policy_id, .source_path, .source_heading] | @tsv')
+
+          for file in standards/policies/fixtures/valid/*.ncl; do
+            nickel export --format json "$file" >/dev/null
+          done
+
+          for file in standards/policies/fixtures/invalid/*.ncl; do
+            if nickel export --format json "$file" >/dev/null 2>&1; then
+              echo "invalid policy fixture passed: $file" >&2
+              exit 1
+            fi
+          done
+
+          touch "$out"
+        '';
+
+        standardsFixtureCheck = pkgs.runCommand "tigerstyle-standards-fixtures"
+          {
+            nativeBuildInputs = with pkgs; [ jq nickel tigerstyleStandards ];
+          } ''
+          cd ${./.}
+          registry_json=$(mktemp)
+          compliant_json=$(mktemp)
+          noncompliant_json=$(mktemp)
+          markdown_report=$(mktemp)
+
+          nickel export --format json standards/policies/registry.ncl > "$registry_json"
+
+          tigerstyle-standards check \
+            --registry "$registry_json" \
+            --source standards/check-fixtures/suppressions/compliant \
+            --family devtools \
+            --output json > "$compliant_json"
+          jq --exit-status '.diagnostics | length == 0' "$compliant_json" >/dev/null
+          jq --exit-status '.active_suppressions | length == 1' "$compliant_json" >/dev/null
+
+          tigerstyle-standards check \
+            --registry "$registry_json" \
+            --source standards/check-fixtures/architecture/compliant \
+            --family architecture \
+            --output json > "$compliant_json"
+          jq --exit-status '.diagnostics | length == 0' "$compliant_json" >/dev/null
+
+          tigerstyle-standards check \
+            --registry "$registry_json" \
+            --source standards/check-fixtures/embedded/compliant \
+            --family embedded \
+            --output json > "$compliant_json"
+          jq --exit-status '.diagnostics | length == 0' "$compliant_json" >/dev/null
+
+          if tigerstyle-standards check \
+            --registry "$registry_json" \
+            --source standards/check-fixtures/suppressions/noncompliant \
+            --family devtools \
+            --output json > "$noncompliant_json"; then
+            echo "noncompliant suppression fixtures unexpectedly passed" >&2
+            exit 1
+          fi
+          jq --exit-status '.diagnostics | length >= 1' "$noncompliant_json" >/dev/null
+
+          if tigerstyle-standards check \
+            --registry "$registry_json" \
+            --source standards/check-fixtures/architecture/noncompliant \
+            --family architecture \
+            --output json > "$noncompliant_json"; then
+            echo "noncompliant architecture fixtures unexpectedly passed" >&2
+            exit 1
+          fi
+          jq --exit-status '.diagnostics | length >= 4' "$noncompliant_json" >/dev/null
+
+          if tigerstyle-standards check \
+            --registry "$registry_json" \
+            --source standards/check-fixtures/embedded/noncompliant \
+            --family embedded \
+            --output json > "$noncompliant_json"; then
+            echo "noncompliant embedded fixtures unexpectedly passed" >&2
+            exit 1
+          fi
+          jq --exit-status '.diagnostics | length >= 1' "$noncompliant_json" >/dev/null
+
+          tigerstyle-standards check \
+            --registry "$registry_json" \
+            --source standards/check-fixtures/suppressions/compliant \
+            --family devtools \
+            --output markdown > "$markdown_report"
+          grep --fixed-strings "# Tiger Style Standards Report" "$markdown_report" >/dev/null
+          grep --fixed-strings "## Active Suppressions" "$markdown_report" >/dev/null
+
+          touch "$out"
+        '';
       in
       {
         packages = {
@@ -349,12 +527,30 @@ MAIN
           tigerstyle = tigerstyle;
           cargo-tigerstyle = cargoTigerstyle;
           dylint-driver = dylintDriver;
+          tigerstyle-standards = tigerstyleStandards;
+          tigerstyle-policy-export = policyExport;
+          tigerstyle-policy-validate = policyValidate;
         };
 
         apps = {
           cargo-tigerstyle = flake-utils.lib.mkApp {
             drv = cargoTigerstyle;
             exePath = "/bin/cargo-tigerstyle";
+          };
+
+          tigerstyle-standards = flake-utils.lib.mkApp {
+            drv = tigerstyleStandards;
+            exePath = "/bin/tigerstyle-standards";
+          };
+
+          tigerstyle-policy-export = flake-utils.lib.mkApp {
+            drv = policyExport;
+            exePath = "/bin/tigerstyle-policy-export";
+          };
+
+          tigerstyle-policy-validate = flake-utils.lib.mkApp {
+            drv = policyValidate;
+            exePath = "/bin/tigerstyle-policy-validate";
           };
         };
 
@@ -404,6 +600,9 @@ MAIN
           fmt = craneLib.cargoFmt {
             src = fmtSrc;
           };
+
+          policy-registry = policyRegistryCheck;
+          standards-fixtures = standardsFixtureCheck;
         };
 
         devShells.default = craneLib.devShell {
@@ -414,7 +613,10 @@ MAIN
             rustup-shim
             pkgs.cargo-nextest
             pkgs.cargo-watch
+            pkgs.jq
+            pkgs.nickel
             pkgs.rust-analyzer
+            tigerstyleStandards
           ];
 
           inputsFrom = [ tigerstyle ];
