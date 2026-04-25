@@ -129,6 +129,62 @@ If the change touches `TIGERSTYLE_*` names, keep the naming table in
 `README.md` as the canonical public list and make deeper docs link back to it
 instead of publishing conflicting variants.
 
+## Operational gotchas
+
+These are hard-won lessons that affect daily development in this repo.
+
+### Nix devshell is mandatory
+
+Plain `cargo` outside `nix develop` can miss rustc-private libraries,
+OpenSSL/pkg-config, and the pinned nightly toolchain. Always wrap Rust commands:
+
+```bash
+nix develop -c bash -c 'cargo check'
+```
+
+### Refreshing UI snapshots
+
+When lint diagnostic wording or help text changes, `.stderr` snapshots in
+`ui_tests/` will drift. Refresh them with:
+
+```bash
+nix develop -c bash -c 'BLESS=1 cargo test --test ui ui -- --ignored --nocapture'
+```
+
+### Target directory lock contention
+
+The shared `~/.cargo-target` directory can block on unrelated repo builds. Use a
+temporary target directory when this happens:
+
+```bash
+tmp_target="$(mktemp -d /tmp/tigerstyle-target.XXXXXX)"
+trap 'rm -rf "$tmp_target"' EXIT
+CARGO_TARGET_DIR="$tmp_target" nix develop -c bash -c 'cargo test --lib'
+```
+
+### Tool-scoped attrs in standalone fixtures
+
+Standalone UI fixtures that use canonical `tigerstyle::` attrs need:
+
+```rust
+#![feature(register_tool)]
+#![register_tool(tigerstyle)]
+```
+
+Without this, rustc rejects the attrs before the lint can run. Bare lint names
+like `#[allow(no_unwrap)]` work without the prelude.
+
+### Staging new files before Nix checks
+
+Git-backed flake sources do not include untracked files. `git add` new fixture
+files, workspace members, and standards fixture trees before running
+`nix flake check` or `nix develop`.
+
+### Lockfile regeneration after dependency changes
+
+After adding or removing Cargo dependencies, run `cargo generate-lockfile`
+before trusting `--locked` Nix builds.
+
 ## Verification rails
 
 Run Rust commands inside the Nix devshell here.
