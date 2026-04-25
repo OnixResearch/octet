@@ -1,0 +1,42 @@
+$ cargo test --test ui ui -- --ignored --nocapture
+# Fixture: negated_predicate (main fixture covers function-level warnings)
+
+--- from negated_predicate.stderr ---
+
+warning: negated predicate name `is_not_ready` — prefer a positive form like `is_ready`
+  --> $DIR/negated_predicate.rs:3:4
+   |
+LL | fn is_not_ready(_state: &State) -> bool {
+   |    ^^^^^^^^^^^^
+   |
+   = note: structured suggestion applicability: HasPlaceholders
+help: rename to `is_ready`
+   |
+LL - fn is_not_ready(_state: &State) -> bool {
+LL + fn is_ready(_state: &State) -> bool {
+   |
+
+warning: negated predicate name `has_no_capacity` — prefer a positive form like `has_capacity`
+  --> $DIR/negated_predicate.rs:7:4
+   |
+LL | fn has_no_capacity() -> bool {
+   |    ^^^^^^^^^^^^^^^
+   |
+   = note: structured suggestion applicability: HasPlaceholders
+
+warning: negated predicate name `no_capacity` — prefer a positive form like `has_capacity`
+  --> $DIR/negated_predicate.rs:24:9
+   |
+LL |     let no_capacity = true;
+   |         ^^^^^^^^^^^
+   |
+   = note: structured suggestion applicability: MachineApplicable
+
+--- assertions ---
+1. Function-level `is_not_ready`: HasPlaceholders (single suggestion, NOT promoted)
+2. Function-level `has_no_capacity`: HasPlaceholders (single suggestion, NOT promoted)
+3. Local binding `no_capacity`: MachineApplicable (multipart suggestion, promoted)
+4. Function-level warnings stay at review-required tier per design
+
+test ui ... ok
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out

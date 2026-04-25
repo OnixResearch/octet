@@ -1,0 +1,45 @@
+$ nix develop -c bash -c 'cargo test --lib --test ui 2>&1'
+# Combined lib + UI test results at commit 188f61be
+
+=== cargo test --lib ===
+test safety::compound_assertion::tests::detects_top_level_compound_assertion ... ok
+test config::tests::unknown_lint_levels_warn_without_failing_validation ... ok
+test safety::compound_assertion::tests::parses_machine_applicable_top_level_conjunction ... ok
+test safety::compound_assertion::tests::parses_top_level_disjunction_without_machine_applicable_fix ... ok
+test config::tests::unknown_disabled_lints_warn_without_failing_validation ... ok
+test safety::compound_assertion::tests::rejects_message_bearing_assertions_for_machine_applicable_fix ... ok
+test safety::no_panic::tests::finds_panic_macro_name ... ok
+test safety::no_todo::tests::finds_panic_family_macro_name ... ok
+test safety::no_todo::tests::matches_supported_no_todo_spellings ... ok
+test test_context::tests::cfg_attr_detection_matches_test_only_forms ... ok
+test test_context::tests::cfg_not_test_can_still_be_true_without_test ... ok
+test tests::config_validation_derives_names_from_lint_inventory ... ok
+test tests::all_lints_register_canonical_and_bare_names ... ok
+test tests::diagnostic_metadata_names_match_lint_inventory ... ok
+test tests::diagnostic_metadata_required_examples_are_concrete ... ok
+test tests::diagnostic_group_snapshot_matches ... ok
+test tests::compatibility_alias_snapshot_matches ... ok
+test tests::disabled_lints_are_omitted_from_groups_and_aliases ... ok
+test tests::domain_groups_register_expected_members ... ok
+test tests::lint_inventory_default_levels_snapshot_matches ... ok
+test tests::lint_inventory_names_are_unique ... ok
+test tests::lint_inventory_snapshot_matches ... ok
+test tests::diagnostic_metadata_snapshot_matches ... ok
+test tests::lint_emitting_fixture_manifest_matches_inventory_and_emits ... ok
+test tests::autofix_rollout_scope_matches_change_contract ... ok
+test tests::ui_fixture_set_artifact_covers_the_full_corpus ... ok
+test tests::lint_modules_route_help_and_note_through_diagnostics_module ... ok
+
+test result: ok. 36 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
+
+=== cargo test --test ui ui -- --ignored --nocapture ===
+82 UI fixtures tested, all passed (see verify-ui-snapshots-isolated task 42)
+
+=== cargo test --test ui autofix_machine_applicable -- --ignored --nocapture ===
+4 autofix fixtures tested, all passed (see verify-autofix-rail task 43)
+
+--- assertions ---
+1. All 36 lib tests pass (no regressions from use-site collection or applicability changes)
+2. All 82 UI fixtures pass with matching .stderr snapshots
+3. All 4 autofix fixtures pass with matching .fixed artifacts and zero post-check warnings
+4. autofix_rollout_scope_matches_change_contract verifies the updated bool_naming tier

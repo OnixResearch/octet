@@ -1,0 +1,41 @@
+$ cargo test --test ui ui -- --ignored --nocapture
+# Fixture: bool_naming_macro_fallback
+
+--- from bool_naming_macro_fallback.stderr ---
+
+warning: boolean binding `enabled` should have a predicate prefix
+  --> $DIR/bool_naming_macro_fallback.rs:3:13
+   |
+LL |         let enabled = true;
+   |             ^^^^^^^
+...
+LL |     make_flag!();
+   |     ------------ in this macro invocation
+   |
+   = note: structured suggestion applicability: MaybeIncorrect
+   = note: this warning originates in the macro `make_flag`
+help: rename binding to `is_enabled`
+   |
+LL |         let is_enabled = true;
+   |             +++
+
+warning: boolean binding `ready` should have a predicate prefix
+  --> $DIR/bool_naming_macro_fallback.rs:13:9
+   |
+LL |     let ready = true;
+   |         ^^^^^
+   |
+   = note: structured suggestion applicability: MachineApplicable
+help: rename binding to `is_ready`
+   |
+LL ~     let is_ready = true;
+LL ~     let _a = is_ready;
+   |
+
+--- assertions ---
+1. Macro-expanded binding `enabled` (from make_flag!()): MaybeIncorrect single suggestion
+2. Non-macro binding `ready`: MachineApplicable multipart suggestion
+3. Fixture confirms macro-expanded declarations fall back to review-required tier
+
+test ui ... ok
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out
