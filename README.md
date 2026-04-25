@@ -92,25 +92,21 @@ and config keys.
 
 ## Documentation
 
-[Assertion review guide](docs/assertion-review.md)
-[Assertion checklist template](templates/assertion-checklist.md)
-[Safety-critical claims guide](docs/safety-critical.md)
-[Bounds and pacing review guide](docs/bounds-and-pacing-review.md)
-[Bounds and pacing template](templates/bounds-and-pacing-checklist.md)
-[Resilience review guide](docs/resilience-review.md)
-[Five-whys architecture template](templates/five-whys-architecture.md)
-[Performance review guide](docs/performance-review.md)
-[Performance sketch template](templates/performance-sketch.md)
-[Concurrency and distributed-state review guide](docs/concurrency-state-review.md)
-[Concurrency and distributed-state template](templates/concurrency-state-checklist.md)
-[System comprehension guide](docs/system-comprehension.md)
-[System walkthrough template](templates/system-walkthrough.md)
+- [Assertion review guide](docs/assertion-review.md) and [checklist template](templates/assertion-checklist.md)
+- [Safety-critical claims guide](docs/safety-critical.md)
+- [Bounds and pacing review guide](docs/bounds-and-pacing-review.md) and [checklist template](templates/bounds-and-pacing-checklist.md)
+- [Resilience review guide](docs/resilience-review.md) and [five-whys template](templates/five-whys-architecture.md)
+- [Performance review guide](docs/performance-review.md) and [sketch template](templates/performance-sketch.md)
+- [Concurrency and distributed-state review guide](docs/concurrency-state-review.md) and [checklist template](templates/concurrency-state-checklist.md)
+- [System comprehension guide](docs/system-comprehension.md) and [walkthrough template](templates/system-walkthrough.md)
 - `docs/consumer-guide.md` — first run, config split, Nix integration, output modes, artifact bundles, migration notes
 - `docs/lint-reference.md` — full lint catalog, default levels, suppression paths, config reference
 - `docs/contributor-guide.md` — source-of-truth map, doc-update crosswalk, verification rails
-- `docs/downstream-rollout.md` — deep rollout playbook and Aspen-backed rollout evidence
+- `docs/downstream-rollout.md` — rollout profiles, promotion playbooks, and boundary guidance
+- `docs/downstream-rollout-evidence.md` — Aspen-backed rollout evidence and historical replay paths
 - `standards/policies/README.md` — typed policy registry and traceability contract
 - `docs/standards/policy-contract.md` — standards rules mapped to verification rails
+- `CHANGELOG.md` — breaking changes and notable updates for consumers
 
 ## License
 

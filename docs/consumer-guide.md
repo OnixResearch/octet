@@ -6,7 +6,7 @@ next.
 
 For the landing page and naming map, see `../README.md`.
 For the full lint catalog, see `lint-reference.md`.
-For rollout profiles and Aspen-backed evidence, see `downstream-rollout.md`.
+For rollout profiles, see `downstream-rollout.md`.
 
 ## Supported entry points
 
@@ -190,4 +190,5 @@ Use `unjustified_no_todo_allow` to keep stub escapes documented and local.
 
 - `lint-reference.md` for the full lint catalog, defaults, and config keys
 - `downstream-rollout.md` for smoke, boundary-first, and inventory-only rollout profiles
+- `downstream-rollout-evidence.md` for Aspen-backed evidence and historical replay paths
 - `contributor-guide.md` if you are changing lints, config keys, or published runner surfaces
