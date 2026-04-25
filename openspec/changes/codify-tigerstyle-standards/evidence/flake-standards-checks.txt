@@ -1,11 +1,7 @@
 $ nix build .#checks.x86_64-linux.policy-registry --no-link
 this derivation will be built:
-  /nix/store/c3931cn5z5clg71dsahlj52xhqppj4kc-tigerstyle-policy-registry-check.drv
+  /nix/store/jwi7spwzpx9z8i9wjnqc36n4dyy36nvz-tigerstyle-policy-registry-check.drv
 cannot build on 'ssh-ng://root@10.10.10.1': error: failed to start SSH connection to '10.10.10.1'
-building '/nix/store/c3931cn5z5clg71dsahlj52xhqppj4kc-tigerstyle-policy-registry-check.drv'...
+building '/nix/store/jwi7spwzpx9z8i9wjnqc36n4dyy36nvz-tigerstyle-policy-registry-check.drv'...
 $ nix build .#checks.x86_64-linux.standards-fixtures --no-link
-this derivation will be built:
-  /nix/store/qfjnm5gxrm4zcf2ni4j92gp1inwvd84v-tigerstyle-standards-fixtures.drv
-cannot build on 'ssh-ng://root@10.10.10.1': error: failed to start SSH connection to '10.10.10.1'
-building '/nix/store/qfjnm5gxrm4zcf2ni4j92gp1inwvd84v-tigerstyle-standards-fixtures.drv'...
 exit=0

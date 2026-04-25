@@ -5,7 +5,6 @@ use crate::diagnostic::DiagnosticInput;
 use crate::model::FamilySelection;
 use crate::model::PolicyEntry;
 use crate::model::PolicyRegistry;
-use crate::model::Severity;
 use crate::source::SourceFile;
 
 const EMBEDDED_FAMILY: &str = "embedded";
@@ -70,7 +69,7 @@ fn policy_diagnostic(policy: &PolicyEntry, source: &SourceFile, line_index: usiz
         source_section: policy.source_anchor.clone(),
         path: source.path.clone(),
         line: Some(line_number_from_index(line_index)),
-        severity: Severity::Error,
+        severity: policy.default_severity,
         message: format!("unbounded queue/channel pattern `{pattern}` is not allowed"),
         remediation: "use a bounded queue/channel with explicit capacity and backpressure behavior".to_owned(),
     })

@@ -6,6 +6,7 @@ Fixtures exercise `tigerstyle-standards` behavior independently from production 
 - `suppressions/noncompliant/` contains source that should fail with stable suppression diagnostics.
 - `architecture/compliant/` contains FCIS-shaped source that should pass architecture checks.
 - `architecture/noncompliant/` contains missing-`no_std`, forbidden-runtime-dependency, std-shell, and thick-root failures.
+- `architecture/advisory/` contains public API budget fixtures that should report warnings without failing the command.
 - `embedded/compliant/` contains bounded queue/channel source that should pass resource checks.
 - `embedded/noncompliant/` contains unbounded queue/channel source that should fail resource checks.
 
