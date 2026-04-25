@@ -10,19 +10,19 @@
 
 ## Phase 2: Deterministic verification
 
-- [ ] V1 Verify scenario "Local bool binding rename covers use sites" with `cargo test --test ui autofix_machine_applicable -- --ignored --nocapture`; save output at `openspec/changes/autofix-rename-use-sites/evidence/autofix-bool-naming.txt`
-- [ ] V2 Verify scenario "Local negated predicate binding rename covers use sites" with `cargo test --test ui autofix_machine_applicable -- --ignored --nocapture`; save output at `openspec/changes/autofix-rename-use-sites/evidence/autofix-negated-predicate.txt`
-- [ ] V3 Verify scenario "Macro-expanded binding falls back to review-required" with `cargo test --test ui ui -- --ignored --nocapture`; save output at `openspec/changes/autofix-rename-use-sites/evidence/macro-fallback.txt`
-- [ ] V4 Verify scenario "Function-level negated predicate stays review-required" with `cargo test --test ui ui -- --ignored --nocapture`; save output at `openspec/changes/autofix-rename-use-sites/evidence/function-level-stays-manual.txt`
-- [ ] V5 Verify requirement "Autofix Validation Artifacts" with saved `cargo fix` transcript in nix devshell; save output at `openspec/changes/autofix-rename-use-sites/evidence/cargo-fix-transcript.txt`
+- [x] V1 Verify scenario "Local bool binding rename covers use sites" with `cargo test --test ui autofix_machine_applicable -- --ignored --nocapture`; save output at `openspec/changes/autofix-rename-use-sites/evidence/autofix-bool-naming.txt` ✅ 2m
+- [x] V2 Verify scenario "Local negated predicate binding rename covers use sites" with `cargo test --test ui autofix_machine_applicable -- --ignored --nocapture`; save output at `openspec/changes/autofix-rename-use-sites/evidence/autofix-negated-predicate.txt` ✅ 2m
+- [x] V3 Verify scenario "Macro-expanded binding falls back to review-required" with `cargo test --test ui ui -- --ignored --nocapture`; save output at `openspec/changes/autofix-rename-use-sites/evidence/macro-fallback.txt` ✅ 1m
+- [x] V4 Verify scenario "Function-level negated predicate stays review-required" with `cargo test --test ui ui -- --ignored --nocapture`; save output at `openspec/changes/autofix-rename-use-sites/evidence/function-level-stays-manual.txt` ✅ 1m
+- [x] V5 Verify requirement "Autofix Validation Artifacts" with saved `cargo fix` transcript in nix devshell; save output at `openspec/changes/autofix-rename-use-sites/evidence/cargo-fix-transcript.txt` ✅ 1m
 
 ## Phase 3: Human/oracle checkpoints
 
-- [ ] H1 Human/oracle checkpoint: command=`nix develop -c bash -c 'cargo test --lib --test ui 2>&1'`; input=`current HEAD after all I-tasks`; asserts=`all existing tests still pass (no regressions from use-site collection or applicability changes)`; evidence=`openspec/changes/autofix-rename-use-sites/evidence/full-test-suite.txt`
+- [x] H1 Human/oracle checkpoint: command=`nix develop -c bash -c 'cargo test --lib --test ui 2>&1'`; input=`current HEAD after all I-tasks`; asserts=`all existing tests still pass (no regressions from use-site collection or applicability changes)`; evidence=`openspec/changes/autofix-rename-use-sites/evidence/full-test-suite.txt` ✅ 1m
 
 ## Change Status
-- Status: in-progress
-- Open tasks: V1, V2, V3, V4, V5, H1
+- Status: complete
+- Open tasks: none
 
 ## Verification Coverage
 

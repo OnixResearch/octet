@@ -1,0 +1,33 @@
+$ cargo test --test ui autofix_machine_applicable -- --ignored --nocapture
+
+[autofix fixture] negated_predicate_local_rename
+[autofix command] (cd /tmp/tigerstyle-autofix-negated_predicate_local_rename && cargo fix --allow-dirty --allow-staged --allow-no-vcs --bin autofix_fixture)
+[autofix stderr]
+    Checking autofix_fixture v0.1.0 (/tmp/tigerstyle-autofix-negated_predicate_local_rename)
+       Fixed src/main.rs (1 fix)
+    Finished `dev` profile [unoptimized + debuginfo] target(s)
+
+[autofix post-check command] (cd /tmp/tigerstyle-autofix-negated_predicate_local_rename && cargo check --quiet --bin autofix_fixture)
+
+--- negated_predicate_local_rename assertions ---
+1. cargo fix applied 1 fix (multipart rename of declaration + 3 use sites)
+2. Post-check: zero warnings on autofixed output
+3. Autofixed main.rs matches checked-in .fixed artifact
+
+--- from .fixed artifact ---
+fn multiple_uses() {
+    let is_ready = false;
+    let _a = is_ready;
+    let _b = is_ready;
+    let _c = !is_ready;
+}
+
+fn main() {
+    multiple_uses();
+}
+
+--- from .stderr artifact ---
+structured suggestion applicability: MachineApplicable
+
+test autofix_machine_applicable ... ok
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out

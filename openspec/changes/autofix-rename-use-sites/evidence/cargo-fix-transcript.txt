@@ -1,0 +1,51 @@
+$ cargo test --test ui autofix_machine_applicable -- --ignored --nocapture
+# Full autofix test rail transcript at commit 188f61be
+
+running 1 test
+
+[autofix fixture] bool_naming_local_rename
+[autofix command] (cd /tmp/tigerstyle-autofix-bool_naming_local_rename && cargo fix --allow-dirty --allow-staged --allow-no-vcs --bin autofix_fixture)
+[autofix stderr]
+    Checking autofix_fixture v0.1.0
+       Fixed src/main.rs (1 fix)
+    Finished `dev` profile [unoptimized + debuginfo] target(s)
+[autofix post-check command] cargo check --quiet --bin autofix_fixture
+# Result: zero warnings after fix
+
+[autofix fixture] compound_assertion_indented
+[autofix command] (cd /tmp/tigerstyle-autofix-compound_assertion_indented && cargo fix --allow-dirty --allow-staged --allow-no-vcs --bin autofix_fixture)
+[autofix stderr]
+    Checking autofix_fixture v0.1.0
+       Fixed src/main.rs (1 fix)
+    Finished `dev` profile [unoptimized + debuginfo] target(s)
+[autofix post-check command] cargo check --quiet --bin autofix_fixture
+# Result: zero warnings after fix
+
+[autofix fixture] compound_assertion_machine_applicable
+[autofix command] (cd /tmp/tigerstyle-autofix-compound_assertion_machine_applicable && cargo fix --allow-dirty --allow-staged --allow-no-vcs --bin autofix_fixture)
+[autofix stderr]
+    Checking autofix_fixture v0.1.0
+       Fixed src/main.rs (2 fixes)
+    Finished `dev` profile [unoptimized + debuginfo] target(s)
+[autofix post-check command] cargo check --quiet --bin autofix_fixture
+# Result: zero warnings after fix
+
+[autofix fixture] negated_predicate_local_rename
+[autofix command] (cd /tmp/tigerstyle-autofix-negated_predicate_local_rename && cargo fix --allow-dirty --allow-staged --allow-no-vcs --bin autofix_fixture)
+[autofix stderr]
+    Checking autofix_fixture v0.1.0
+       Fixed src/main.rs (1 fix)
+    Finished `dev` profile [unoptimized + debuginfo] target(s)
+[autofix post-check command] cargo check --quiet --bin autofix_fixture
+# Result: zero warnings after fix
+
+test autofix_machine_applicable ... ok
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 40.95s
+
+--- summary ---
+4 autofix fixtures exercised:
+  bool_naming_local_rename: 1 fix (local variable rename with use sites)
+  compound_assertion_indented: 1 fix (existing)
+  compound_assertion_machine_applicable: 2 fixes (existing)
+  negated_predicate_local_rename: 1 fix (local variable rename with use sites)
+All post-check assertions passed: zero warnings after cargo fix
