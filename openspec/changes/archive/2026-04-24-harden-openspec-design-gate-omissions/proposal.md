@@ -3,7 +3,7 @@
 `review_metrics promotions min=3` shows design-stage omission findings are now
 this repo's biggest repeated OpenSpec churn: the same missing-coverage review
 notes appear 52 times. See the saved excerpt at
-`openspec/changes/harden-openspec-design-gate-omissions/evidence/review-metrics-design-omissions.txt`.
+`openspec/changes/archive/2026-04-24-harden-openspec-design-gate-omissions/evidence/review-metrics-design-omissions.txt`.
 The repeated misses are concrete: designs omit which scenario a decision
 covers, omit negative controls or continued-warning boundaries, and name saved
 artifacts without saying what exact output proves success.
@@ -45,6 +45,6 @@ already written the file.
 
 ## Impact
 
-- **Files / artifacts**: `openspec/templates/design.md`, `openspec/config.yaml`, `docs/contributor-guide.md` (existing alignment retained; no edit planned), `openspec/changes/harden-openspec-design-gate-omissions/specs/openspec-stage-authoring/spec.md`, `openspec/changes/harden-openspec-design-gate-omissions/design.md`, `openspec/changes/harden-openspec-design-gate-omissions/tasks.md`, and saved proof under `openspec/changes/harden-openspec-design-gate-omissions/evidence/`.
+- **Files / artifacts**: `openspec/templates/design.md`, `openspec/config.yaml`, `docs/contributor-guide.md` (existing alignment retained; no edit planned), `openspec/changes/archive/2026-04-24-harden-openspec-design-gate-omissions/specs/openspec-stage-authoring/spec.md`, `openspec/changes/archive/2026-04-24-harden-openspec-design-gate-omissions/design.md`, `openspec/changes/archive/2026-04-24-harden-openspec-design-gate-omissions/tasks.md`, and saved proof under `openspec/changes/archive/2026-04-24-harden-openspec-design-gate-omissions/evidence/`.
 - **Ordering / dependencies**: this change bootstraps from the pre-hardening design template already in repo, then updates the delta spec and design-template contract, then updates the template and config rule, then saves deterministic extracts, then runs the design-stage gate transcript.
 - **Verification / evidence**: save the scoping excerpt from `review_metrics`, one extract for the full decision-block label inventory plus template heading order, one extract for the proof-plan acceptance-signal field, one contributor-guide template-link extract, one config-rule extract that captures the preserved proposal/delta-spec rules plus the hardened design rule, and one `openspec_gate stage=design` transcript.
