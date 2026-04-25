@@ -75,7 +75,7 @@ output makes the artifact acceptable.
 **Implementation:** update `openspec/templates/design.md` and the delta spec so
 `## Deterministic Proof Plan` keeps the new prompt line in addition to the
 existing required labels. Use one checked-in helper,
-`python3 openspec/changes/harden-openspec-design-gate-omissions/evidence/update-proof-artifacts.py`,
+`python3 openspec/changes/archive/2026-04-24-harden-openspec-design-gate-omissions/evidence/update-proof-artifacts.py`,
 to regenerate the deterministic extracts exactly as review expects.
 
 **Boundary cases:** path-only artifact planning is still insufficient even when
@@ -116,9 +116,9 @@ unchanged contributor-guide template-link proof.
 - scenario or requirement:
   - `Scenario: Maintainer maps design decisions to exact delta-spec coverage`
 - artifact path:
-  - `openspec/changes/harden-openspec-design-gate-omissions/evidence/design-template-coverage-fields.txt`
+  - `openspec/changes/archive/2026-04-24-harden-openspec-design-gate-omissions/evidence/design-template-coverage-fields.txt`
 - command / helper:
-  - `python3 openspec/changes/harden-openspec-design-gate-omissions/evidence/update-proof-artifacts.py`
+  - `python3 openspec/changes/archive/2026-04-24-harden-openspec-design-gate-omissions/evidence/update-proof-artifacts.py`
 - exact expected output / acceptance signal:
   - the saved extract is the complete second-level-heading inventory plus full decision-block label inventory for `openspec/templates/design.md`, and it prints exactly these lines, in order, with no additional `## ` headings omitted or allowed:
     - `## Context`
@@ -140,9 +140,9 @@ unchanged contributor-guide template-link proof.
 - scenario or requirement:
   - `Scenario: Maintainer names negative controls and proof acceptance signals`
 - artifact path:
-  - `openspec/changes/harden-openspec-design-gate-omissions/evidence/design-template-proof-fields.txt`
+  - `openspec/changes/archive/2026-04-24-harden-openspec-design-gate-omissions/evidence/design-template-proof-fields.txt`
 - command / helper:
-  - `python3 openspec/changes/harden-openspec-design-gate-omissions/evidence/update-proof-artifacts.py`
+  - `python3 openspec/changes/archive/2026-04-24-harden-openspec-design-gate-omissions/evidence/update-proof-artifacts.py`
 - exact expected output / acceptance signal:
   - the saved extract prints these exact lines, in order:
     - `## Deterministic Proof Plan`
@@ -160,7 +160,7 @@ unchanged contributor-guide template-link proof.
 - scenario or requirement:
   - proposal scoping excerpt from `review_metrics promotions min=3`
 - artifact path:
-  - `openspec/changes/harden-openspec-design-gate-omissions/evidence/review-metrics-design-omissions.txt`
+  - `openspec/changes/archive/2026-04-24-harden-openspec-design-gate-omissions/evidence/review-metrics-design-omissions.txt`
 - command / helper:
   - `review_metrics action=promotions min=3`
 - exact expected output / acceptance signal:
@@ -176,9 +176,9 @@ unchanged contributor-guide template-link proof.
 - scenario or requirement:
   - `Scenario: Contributor guide points authors at the repo-local stage templates`
 - artifact path:
-  - `openspec/changes/harden-openspec-design-gate-omissions/evidence/contributor-guide-template-links.txt`
+  - `openspec/changes/archive/2026-04-24-harden-openspec-design-gate-omissions/evidence/contributor-guide-template-links.txt`
 - command / helper:
-  - `python3 openspec/changes/harden-openspec-design-gate-omissions/evidence/update-proof-artifacts.py`
+  - `python3 openspec/changes/archive/2026-04-24-harden-openspec-design-gate-omissions/evidence/update-proof-artifacts.py`
 - exact expected output / acceptance signal:
   - the saved extract prints these exact standalone markdown-link lines, in order:
     - `[OpenSpec proposal template](../openspec/templates/proposal.md)`
@@ -193,9 +193,9 @@ unchanged contributor-guide template-link proof.
   - `Scenario: Proposal-stage and delta-spec guidance keep pointing at repo-local templates`
   - `Scenario: Design-stage guidance names coverage and boundary expectations`
 - artifact path:
-  - `openspec/changes/harden-openspec-design-gate-omissions/evidence/design-stage-guidance.txt`
+  - `openspec/changes/archive/2026-04-24-harden-openspec-design-gate-omissions/evidence/design-stage-guidance.txt`
 - command / helper:
-  - `python3 openspec/changes/harden-openspec-design-gate-omissions/evidence/update-proof-artifacts.py`
+  - `python3 openspec/changes/archive/2026-04-24-harden-openspec-design-gate-omissions/evidence/update-proof-artifacts.py`
 - exact expected output / acceptance signal:
   - the saved extract prints these exact `openspec/config.yaml` rule lines, in order:
     - `    - Follow \`openspec/templates/proposal.md\`; name exact repo-relative files/artifacts, ordering/dependencies, and planned saved evidence or helper/gate runs`
@@ -209,7 +209,7 @@ unchanged contributor-guide template-link proof.
 - scenario or requirement:
   - human/oracle checkpoint for the full change
 - artifact path:
-  - `openspec/changes/harden-openspec-design-gate-omissions/evidence/design-gate.txt`
+  - `openspec/changes/archive/2026-04-24-harden-openspec-design-gate-omissions/evidence/design-gate.txt`
 - command / helper:
   - `openspec_gate stage=design change=harden-openspec-design-gate-omissions`
 - exact expected output / acceptance signal:
