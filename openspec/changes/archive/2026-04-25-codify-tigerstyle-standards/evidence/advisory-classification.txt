@@ -1,0 +1,18 @@
+$ registry_json=$(mktemp)
+$ nix run .#tigerstyle-policy-export > "$registry_json"
+$ jq -r '... public-api-budget classification fields ...' "$registry_json"
+policy_id=tigerstyle.architecture.public-api-budget
+classification=advisory
+enforcement_level=advisory
+default_severity=warning
+classification_rationale=Surface growth is measurable, but intended API design remains contextual.
+false_positive_risk=medium
+$ nix run .#tigerstyle-standards -- check --registry "$registry_json" --source standards/check-fixtures/architecture/advisory --family architecture --output json > advisory-report.json
+check_exit=0
+$ jq -r '... advisory report summary ...' advisory-report.json
+diagnostics=1
+policy_id=tigerstyle.architecture.public-api-budget
+severity=warning
+blocking=false
+active_suppressions=0
+exit=0

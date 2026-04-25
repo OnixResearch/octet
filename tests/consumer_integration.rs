@@ -341,6 +341,10 @@ esac
         )
     }
 
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "test harness exposes independent CLI/env knobs"
+    )]
     fn run_from_dir_with_launcher_and_env(
         &self,
         current_dir: &Path,
@@ -393,6 +397,10 @@ esac
         )
     }
 
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "test harness centralizes independent CLI/env knobs"
+    )]
     fn run_internal(
         &self,
         current_dir: Option<&Path>,
@@ -556,6 +564,7 @@ fn build_standalone_cargo_tigerstyle() -> StandaloneCargoTigerstyle {
         "rust-toolchain.toml",
         "src",
         "cargo-tigerstyle",
+        "crates/tigerstyle-standards",
     ] {
         copy_path(&repo_root.join(relative), &source_root.join(relative));
     }

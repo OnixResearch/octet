@@ -13,7 +13,7 @@ The standards material and checker foundation now live in `tigerstyle`, not a st
 **Non-Goals:**
 - No full implementation of every future rule family in this wave.
 - No merge of `crates/tigerstyle-standards` into the Dylint plugin crate.
-- No claim that fitness reporting, dependency audit fixtures, or final single-command verification are complete until their open tasks land.
+- No claim that fitness reporting, dependency audit fixtures, or final single-command verification are complete until separate follow-up changes land.
 
 ## Decisions
 
@@ -78,7 +78,7 @@ The standards material and checker foundation now live in `tigerstyle`, not a st
 - scenario or requirement:
   - Legacy project names are absent from Tiger Style standards artifacts
 - artifact path:
-  - `openspec/changes/codify-tigerstyle-standards/evidence/no-legacy-names.txt`
+  - `openspec/changes/archive/2026-04-25-codify-tigerstyle-standards/evidence/no-legacy-names.txt`
 - command / helper:
   - `rg -n -i 'e[v]ermeta' . --glob '*.{rs,md,toml,ncl,adoc,nix,yml,yaml,txt}' || true`
 - exact expected output / acceptance signal:
@@ -91,7 +91,7 @@ The standards material and checker foundation now live in `tigerstyle`, not a st
 - scenario or requirement:
   - Valid Nickel policy exports for tools; Invalid policy fails before checks run; Missing traceability is rejected
 - artifact path:
-  - `openspec/changes/codify-tigerstyle-standards/evidence/policy-validate.txt`
+  - `openspec/changes/archive/2026-04-25-codify-tigerstyle-standards/evidence/policy-validate.txt`
 - command / helper:
   - `nix run .#tigerstyle-policy-validate`
 - exact expected output / acceptance signal:
@@ -104,28 +104,64 @@ The standards material and checker foundation now live in `tigerstyle`, not a st
 - scenario or requirement:
   - Blocking hard rule fails deterministically; Advisory rule reports without blocking; Hard rule has fixture evidence; Narrow suppression is accepted; Blanket suppression is rejected
 - artifact path:
-  - `openspec/changes/codify-tigerstyle-standards/evidence/standards-tests.txt`
+  - `openspec/changes/archive/2026-04-25-codify-tigerstyle-standards/evidence/standards-tests.txt`
 - command / helper:
   - `nix develop -c bash -c 'export CARGO_TARGET_DIR=target/verify-standards; cargo test -p tigerstyle-standards'`
 - exact expected output / acceptance signal:
-  - 16 unit tests pass and doc-tests pass
+  - 19 unit tests pass and doc-tests pass
 - ordering / prerequisites:
   - crate is a workspace member
 - cleanup / postcondition:
   - target artifacts stay under repo-local `target/verify-standards`
 
 - scenario or requirement:
-  - Fixture regression blocks CI; Local-first standards verification succeeds
+  - Fixture regression blocks CI
 - artifact path:
-  - `openspec/changes/codify-tigerstyle-standards/evidence/flake-standards-checks.txt`
+  - `openspec/changes/archive/2026-04-25-codify-tigerstyle-standards/evidence/flake-standards-checks.txt`
 - command / helper:
   - `nix build .#checks.x86_64-linux.policy-registry --no-link && nix build .#checks.x86_64-linux.standards-fixtures --no-link`
 - exact expected output / acceptance signal:
   - both builds exit 0
+  - `standards-fixtures` asserts at least one `tigerstyle.architecture.external-domain-leakage` diagnostic from the architecture noncompliant fixture set
+  - `standards-fixtures` asserts the thick-root fixture emits `tigerstyle.architecture.root-crate-thinness` and does not also emit `tigerstyle.architecture.public-api-budget`
 - ordering / prerequisites:
   - new files are staged so Git-backed flake source includes them
 - cleanup / postcondition:
   - no `result` link is created because `--no-link` is used
+
+- scenario or requirement:
+  - Local-first standards verification succeeds
+- artifact path:
+  - `openspec/changes/archive/2026-04-25-codify-tigerstyle-standards/evidence/verification-rails.txt`
+- command / helper:
+  - `nix build .#checks.x86_64-linux.fmt --no-link && nix build .#checks.x86_64-linux.clippy --no-link && nix build .#checks.x86_64-linux.nextest --no-link && nix build .#checks.x86_64-linux.ui --no-link`
+- exact expected output / acceptance signal:
+  - all four builds exit 0
+  - the rails cover formatting, Clippy denial, workspace tests, and Tiger Style lint UI checks as separate flake seams
+- ordering / prerequisites:
+  - changed files are staged so Git-backed flake source includes them
+- cleanup / postcondition:
+  - no `result` link is created because `--no-link` is used
+
+- scenario or requirement:
+  - Candidate rule with weak signal becomes advisory
+- artifact path:
+  - `openspec/changes/archive/2026-04-25-codify-tigerstyle-standards/evidence/advisory-classification.txt`
+- command / helper:
+  - `nix run .#tigerstyle-policy-export > "$registry_json"` followed by `jq` field extraction and `nix run .#tigerstyle-standards -- check --registry "$registry_json" --source standards/check-fixtures/architecture/advisory --family architecture --output json`
+- exact expected output / acceptance signal:
+  - `policy_id=tigerstyle.architecture.public-api-budget`
+  - `classification=advisory`
+  - `enforcement_level=advisory`
+  - `default_severity=warning`
+  - `check_exit=0`
+  - `diagnostics=1`
+  - `severity=warning`
+  - `blocking=false`
+- ordering / prerequisites:
+  - registry export and advisory fixture are present
+- cleanup / postcondition:
+  - temp registry/report files are removed
 
 ## Risks / Trade-offs
 

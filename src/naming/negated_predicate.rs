@@ -91,13 +91,13 @@ impl<'tcx> LateLintPass<'tcx> for NegatedPredicate {
         if name == "not" && !cx.tcx.visibility(item.owner_id.def_id).is_public() {
             return;
         }
-        if !has_negative_prefix(&name) {
+        if !has_negative_prefix(name) {
             return;
         }
 
         let fn_sig = cx.tcx.fn_sig(item.owner_id.def_id).instantiate_identity();
         if fn_sig.skip_binder().output().is_bool() {
-            lint_name(cx, ident.span, &name);
+            lint_name(cx, ident.span, name);
         }
     }
 
@@ -106,13 +106,13 @@ impl<'tcx> LateLintPass<'tcx> for NegatedPredicate {
             return;
         };
         let name = impl_item.ident.name.as_str();
-        if !has_negative_prefix(&name) {
+        if !has_negative_prefix(name) {
             return;
         }
 
         let fn_sig = cx.tcx.fn_sig(impl_item.owner_id.def_id).instantiate_identity();
         if fn_sig.skip_binder().output().is_bool() {
-            lint_name(cx, impl_item.ident.span, &name);
+            lint_name(cx, impl_item.ident.span, name);
         }
     }
 
@@ -121,13 +121,13 @@ impl<'tcx> LateLintPass<'tcx> for NegatedPredicate {
             return;
         };
         let name = trait_item.ident.name.as_str();
-        if !has_negative_prefix(&name) {
+        if !has_negative_prefix(name) {
             return;
         }
 
         let fn_sig = cx.tcx.fn_sig(trait_item.owner_id.def_id).instantiate_identity();
         if fn_sig.skip_binder().output().is_bool() {
-            lint_name(cx, trait_item.ident.span, &name);
+            lint_name(cx, trait_item.ident.span, name);
         }
     }
 
@@ -137,10 +137,10 @@ impl<'tcx> LateLintPass<'tcx> for NegatedPredicate {
         };
 
         let name = ident.name.as_str();
-        if !has_negative_prefix(&name) || !cx.typeck_results().pat_ty(local.pat).is_bool() {
+        if !has_negative_prefix(name) || !cx.typeck_results().pat_ty(local.pat).is_bool() {
             return;
         }
 
-        lint_name(cx, ident.span, &name);
+        lint_name(cx, ident.span, name);
     }
 }
