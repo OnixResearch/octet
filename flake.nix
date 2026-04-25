@@ -454,6 +454,7 @@ MAIN
           registry_json=$(mktemp)
           compliant_json=$(mktemp)
           noncompliant_json=$(mktemp)
+          advisory_json=$(mktemp)
           markdown_report=$(mktemp)
 
           nickel export --format json standards/policies/registry.ncl > "$registry_json"
@@ -479,6 +480,15 @@ MAIN
             --family embedded \
             --output json > "$compliant_json"
           jq --exit-status '.diagnostics | length == 0' "$compliant_json" >/dev/null
+
+          tigerstyle-standards check \
+            --registry "$registry_json" \
+            --source standards/check-fixtures/architecture/advisory \
+            --family architecture \
+            --output json > "$advisory_json"
+          jq --exit-status '.diagnostics | length == 1' "$advisory_json" >/dev/null
+          jq --exit-status '.diagnostics[0].policy_id == "tigerstyle.architecture.public-api-budget"' "$advisory_json" >/dev/null
+          jq --exit-status '.diagnostics[0].severity == "warning"' "$advisory_json" >/dev/null
 
           if tigerstyle-standards check \
             --registry "$registry_json" \

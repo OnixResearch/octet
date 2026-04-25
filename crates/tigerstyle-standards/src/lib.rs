@@ -20,8 +20,6 @@ mod tests {
     use pretty_assertions::assert_eq;
 
     use crate::architecture::check_architecture;
-    use crate::diagnostic::Diagnostic;
-    use crate::diagnostic::DiagnosticInput;
     use crate::fixture::FixtureManifest;
     use crate::fixture::PolicyFixtureCoverage;
     use crate::fixture::validate_hard_policy_fixture_coverage;
@@ -34,7 +32,6 @@ mod tests {
     use crate::model::PolicyRegistry;
     use crate::model::Severity;
     use crate::model::SuppressionRequirements;
-    use crate::report::CheckReport;
     use crate::report::render_json;
     use crate::report::render_markdown;
     use crate::resource::check_resources;
@@ -46,6 +43,7 @@ mod tests {
     const EMBEDDED_POLICY_ID: &str = "tigerstyle.embedded.bounded-queues";
     const FCIS_POLICY_ID: &str = "tigerstyle.architecture.fcis-crate-boundary";
     const ROOT_THINNESS_POLICY_ID: &str = "tigerstyle.architecture.root-crate-thinness";
+    const PUBLIC_API_BUDGET_POLICY_ID: &str = "tigerstyle.architecture.public-api-budget";
     const SOURCE_PATH: &str = "src/lib.rs";
     const DEVTOOLS_SOURCE: &str = "docs/standards/source/devtools.adoc#enforcing-not-advising";
     const EMBEDDED_SOURCE: &str = "docs/standards/source/embedded.adoc#bounded-everything";
@@ -57,6 +55,10 @@ mod tests {
     const MISSING_FIXTURE_COVERAGE_DIAGNOSTICS: usize = 4;
     const THICK_ROOT_LINE_COUNT: usize = 50;
     const BOUNDED_CHANNEL_CAPACITY: u16 = 16;
+    const PUBLIC_API_BUDGET_FIXTURE_PATH: &str =
+        "standards/check-fixtures/architecture/advisory/public-api-budget/src/lib.rs";
+    const PUBLIC_API_BUDGET_FIXTURE_SOURCE: &str =
+        include_str!("../../../standards/check-fixtures/architecture/advisory/public-api-budget/src/lib.rs");
 
     #[test]
     fn valid_suppression_is_reported_as_active() {
@@ -209,7 +211,7 @@ mod tests {
 
     #[test]
     fn architecture_checks_reject_thick_root_file() {
-        let thick_root = (0..THICK_ROOT_LINE_COUNT).map(|_| "pub fn helper() {}\n").collect::<String>();
+        let thick_root = (0..THICK_ROOT_LINE_COUNT).map(|_| "fn helper() {}\n").collect::<String>();
         let sources = vec![SourceFile::new("src/lib.rs", thick_root)];
         let diagnostics =
             check_architecture(&sample_registry(), &sources, &FamilySelection::from_families(["architecture"]));
@@ -251,22 +253,36 @@ mod tests {
     }
 
     #[test]
-    fn advisory_only_report_is_non_blocking() {
-        let report = CheckReport {
-            diagnostics: vec![Diagnostic::new(DiagnosticInput {
-                policy_id: "tigerstyle.fixture.advisory".to_owned(),
-                source_section: "docs/standards/source/fitness.adoc#1-readability".to_owned(),
-                path: SOURCE_PATH.to_owned(),
-                line: Some(1),
-                severity: Severity::Warning,
-                message: "advisory finding".to_owned(),
-                remediation: "inspect trend".to_owned(),
-            })],
-            active_suppressions: Vec::new(),
-            evaluated_policy_ids: Vec::new(),
-        };
+    fn advisory_rule_reports_through_run_checks_without_blocking() {
+        let report = run_checks(&CheckInput {
+            registry: sample_registry(),
+            sources: vec![SourceFile::new(
+                PUBLIC_API_BUDGET_FIXTURE_PATH,
+                PUBLIC_API_BUDGET_FIXTURE_SOURCE,
+            )],
+            selection: FamilySelection::from_families(["architecture"]),
+        });
 
+        assert_eq!(report.diagnostics.len(), 1);
+        let diagnostic = &report.diagnostics[0];
+        assert_eq!(diagnostic.policy_id, PUBLIC_API_BUDGET_POLICY_ID);
+        assert_eq!(diagnostic.severity, Severity::Warning);
+        assert!(diagnostic.source_section.contains("when-boundaries-are-too-tight"));
+        assert!(diagnostic.message.contains("advisory budget"));
         assert!(report.is_advisory_only());
+        assert!(!report.has_blocking_diagnostics());
+        assert!(report.evaluated_policy_ids.iter().any(|policy_id| policy_id == PUBLIC_API_BUDGET_POLICY_ID));
+    }
+
+    #[test]
+    fn advisory_rule_accepts_small_public_surface() {
+        let report = run_checks(&CheckInput {
+            registry: sample_registry(),
+            sources: vec![SourceFile::new(SOURCE_PATH, "pub fn one_public_item() {}\n")],
+            selection: FamilySelection::from_families(["architecture"]),
+        });
+
+        assert!(report.diagnostics.is_empty());
         assert!(!report.has_blocking_diagnostics());
     }
 
@@ -303,7 +319,33 @@ mod tests {
                     "architecture",
                     "docs/standards/source/architecture.adoc#boundaries-the-compiler-can-see",
                 ),
+                sample_advisory_policy(
+                    PUBLIC_API_BUDGET_POLICY_ID,
+                    "architecture",
+                    "docs/standards/source/architecture.adoc#when-boundaries-are-too-tight",
+                ),
             ],
+        }
+    }
+
+    fn sample_advisory_policy(policy_id: &str, pillar: &str, source_anchor: &str) -> PolicyEntry {
+        PolicyEntry {
+            classification: Classification::Advisory,
+            enforcement_level: EnforcementLevel::Advisory,
+            default_severity: Severity::Warning,
+            suppression_requirements: advisory_suppression_requirements(),
+            fixture_coverage: FixtureCoverage {
+                status: FixtureStatus::NotApplicable,
+                compliant: Vec::new(),
+                noncompliant: Vec::new(),
+            },
+            verification_evidence_requirements: vec![
+                "deterministic sample input".to_owned(),
+                "stable advisory report".to_owned(),
+            ],
+            classification_rationale: "sample advisory policy".to_owned(),
+            false_positive_risk: "medium".to_owned(),
+            ..sample_policy(policy_id, pillar, source_anchor)
         }
     }
 
@@ -331,6 +373,17 @@ mod tests {
             false_positive_risk: "low".to_owned(),
             existing_enforcement: Vec::new(),
             custom_checker_justification: "test".to_owned(),
+        }
+    }
+
+    fn advisory_suppression_requirements() -> SuppressionRequirements {
+        SuppressionRequirements {
+            requires_policy_id: true,
+            requires_source_section: true,
+            requires_owner: false,
+            requires_rationale: true,
+            requires_review_trigger: false,
+            requires_safer_default: false,
         }
     }
 

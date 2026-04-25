@@ -5,12 +5,12 @@ use crate::diagnostic::DiagnosticInput;
 use crate::model::FamilySelection;
 use crate::model::PolicyEntry;
 use crate::model::PolicyRegistry;
-use crate::model::Severity;
 use crate::source::SourceFile;
 
 const ARCHITECTURE_FAMILY: &str = "architecture";
 const FCIS_POLICY_ID: &str = "tigerstyle.architecture.fcis-crate-boundary";
 const ROOT_THINNESS_POLICY_ID: &str = "tigerstyle.architecture.root-crate-thinness";
+const PUBLIC_API_BUDGET_POLICY_ID: &str = "tigerstyle.architecture.public-api-budget";
 const FORBIDDEN_RUNTIME_POLICY_ID: &str = "tigerstyle.architecture.fcis-crate-boundary";
 const STD_SHELL_POLICY_ID: &str = "tigerstyle.architecture.fcis-crate-boundary";
 const CORE_LIB_PATH_SUFFIX: &str = "crates/tigerstyle-core/src/lib.rs";
@@ -24,8 +24,11 @@ const DEV_DEPENDENCIES_SECTION: &str = "[dev-dependencies]";
 const CORE_FORBIDDEN_DEPENDENCIES: &[&str] = &["tokio", "tracing", "tracing-subscriber", "clap", "parking_lot", "url"];
 const ROOT_LIB_MAX_LINES: usize = 40;
 const ROOT_MAIN_MAX_LINES: usize = 80;
+const ROOT_PUBLIC_API_ITEM_BUDGET: usize = 8;
+const FIRST_PUBLIC_API_OVER_BUDGET_INDEX: usize = ROOT_PUBLIC_API_ITEM_BUDGET;
 const FIRST_LINE: u32 = 1;
 const FIRST_LINE_NUMBER_OFFSET: usize = 1;
+const PUBLIC_VISIBILITY_PREFIXES: &[&str] = &["pub ", "pub("];
 
 /// Runs architecture policy checks over source files.
 #[must_use]
@@ -43,6 +46,7 @@ pub fn check_architecture(
     check_core_forbidden_dependencies(registry, sources, &mut diagnostics);
     check_std_shell_owns_std(registry, sources, &mut diagnostics);
     check_root_thinness(registry, sources, &mut diagnostics);
+    check_public_api_budget(registry, sources, &mut diagnostics);
     diagnostics
 }
 
@@ -140,6 +144,43 @@ fn check_root_file_thinness(
     ));
 }
 
+fn check_public_api_budget(registry: &PolicyRegistry, sources: &[SourceFile], diagnostics: &mut Vec<Diagnostic>) {
+    let Some(policy) = registry.policy_by_id(PUBLIC_API_BUDGET_POLICY_ID) else {
+        return;
+    };
+    let Some(source) = root_source_by_suffix(sources, ROOT_LIB_PATH_SUFFIX) else {
+        return;
+    };
+    let public_item_lines = public_api_item_lines(&source.text);
+    if public_item_lines.len() <= ROOT_PUBLIC_API_ITEM_BUDGET {
+        return;
+    }
+    assert!(public_item_lines.len() > FIRST_PUBLIC_API_OVER_BUDGET_INDEX);
+    diagnostics.push(policy_diagnostic(
+        policy,
+        source,
+        Some(public_item_lines[FIRST_PUBLIC_API_OVER_BUDGET_INDEX]),
+        &format!(
+            "root public API has {} visible items, exceeding advisory budget {}",
+            public_item_lines.len(),
+            ROOT_PUBLIC_API_ITEM_BUDGET
+        ),
+        "move public surface into domain crates or document the expansion in API review",
+    ));
+}
+
+fn public_api_item_lines(text: &str) -> Vec<u32> {
+    text.lines()
+        .enumerate()
+        .filter_map(|(line_index, line)| is_public_api_item_line(line).then_some(line_number_from_index(line_index)))
+        .collect()
+}
+
+fn is_public_api_item_line(line: &str) -> bool {
+    let trimmed = line.trim_start();
+    PUBLIC_VISIBILITY_PREFIXES.iter().any(|prefix| trimmed.starts_with(prefix))
+}
+
 fn source_by_suffix<'a>(sources: &'a [SourceFile], suffix: &str) -> Option<&'a SourceFile> {
     sources.iter().find(|source| source.path.ends_with(suffix))
 }
@@ -197,7 +238,7 @@ fn policy_diagnostic(
         source_section: policy.source_anchor.clone(),
         path: source.path.clone(),
         line,
-        severity: Severity::Error,
+        severity: policy.default_severity,
         message: message.to_owned(),
         remediation: remediation.to_owned(),
     })
