@@ -91,6 +91,15 @@ reported pattern:
   rewrites only the declaration span; declaration-only rename suggestions MUST
   use `MaybeIncorrect` or `HasPlaceholders` unless the implementation also
   rewrites the affected use sites needed to keep the validated fixture compiling
+- `bool_naming` and `negated_predicate` MAY use `MachineApplicable` for
+  local-variable rename patterns (triggered by `check_local`) when the
+  implementation collects all references to the flagged binding within the
+  enclosing function body and the emitted multipart suggestion covers
+  declaration plus every collected use site
+- the `MachineApplicable` promotion for local-variable renames MUST fall back
+  to `MaybeIncorrect` when any collected span originates from macro expansion
+  or when the binding escapes the enclosing function body through a closure
+  capture that the lint cannot rewrite
 - `numeric_units`, `unjustified_allow`, `float_for_currency`, `no_todo`,
   `ambient_clock`, `unbounded_channel`, `explicit_defaults`, `catch_all_on_enum`,
   `multi_lock_ordering`, `compound_condition`, and `unbounded_collection_growth`
@@ -116,6 +125,40 @@ reported pattern:
 - WHEN tigerstyle emits a diagnostic for that pattern
 - THEN the diagnostic does not label the rewrite `MachineApplicable` unless a
   semantics-preserving rewrite has been proven for that exact pattern
+
+#### Scenario: Local bool binding rename covers use sites
+
+- GIVEN `bool_naming` reports a local `let ready = true;` binding
+- WHEN tigerstyle emits the structured suggestion for that pattern
+- THEN the suggestion is a multipart suggestion covering the declaration span
+  and every use of `ready` within the enclosing function body
+- AND the suggestion uses `MachineApplicable`
+- AND the `.fixed` proof compiles without manual edits
+
+#### Scenario: Local negated predicate binding rename covers use sites
+
+- GIVEN `negated_predicate` reports a local `let is_not_ready = false;` binding
+- WHEN tigerstyle emits the structured suggestion for that pattern
+- THEN the suggestion is a multipart suggestion covering the declaration span
+  and every use of `is_not_ready` within the enclosing function body
+- AND the suggestion uses `MachineApplicable`
+- AND the `.fixed` proof compiles without manual edits
+
+#### Scenario: Macro-expanded binding falls back to review-required
+
+- GIVEN `bool_naming` reports a local binding whose declaration or a use site
+  has a span from macro expansion
+- WHEN tigerstyle emits the structured suggestion
+- THEN the suggestion uses `MaybeIncorrect` instead of `MachineApplicable`
+- AND the diagnostic still shows the suggested rename for manual review
+
+#### Scenario: Function-level negated predicate stays review-required
+
+- GIVEN `negated_predicate` reports a function or method name (not a local
+  binding)
+- WHEN tigerstyle emits the structured suggestion
+- THEN the suggestion still uses `HasPlaceholders` or `MaybeIncorrect`
+- AND the function-level rename is not promoted to `MachineApplicable`
 
 #### Scenario: Declaration-only rename stays review-required
 
@@ -178,6 +221,12 @@ The proof contract for this change MUST include:
   exercised by this change
 - a saved nix-devshell `cargo fix` transcript showing the exact proof command
   and the machine-applicable target it exercised
+- `.fixed` fixture coverage MUST include at least one `bool_naming`
+  local-variable rename with multiple use sites
+- `.fixed` fixture coverage MUST include at least one `negated_predicate`
+  local-variable rename with multiple use sites
+- the saved `cargo fix` transcript MUST exercise at least one
+  local-variable rename from each promoted lint
 
 Tigerstyle MUST NOT promote a suggestion pattern to `MachineApplicable`
 without the matching `.fixed` proof for that pattern.
@@ -188,6 +237,16 @@ without the matching `.fixed` proof for that pattern.
 - WHEN they inspect the saved autofix validation artifacts
 - THEN they can find the matching `.fixed` proof for that pattern
 - AND the proof shows the post-fix code compiling cleanly
+
+#### Scenario: Review checks local-variable rename proof
+
+- GIVEN a maintainer reviews a `bool_naming` or `negated_predicate`
+  local-variable pattern marked `MachineApplicable`
+- WHEN they inspect the saved autofix validation artifacts
+- THEN they find a `.fixed` fixture showing the post-fix code with declaration
+  and all use sites renamed
+- AND the `.fixed` fixture compiles cleanly through the `autofix_machine_applicable`
+  test rail
 
 #### Scenario: Review checks manual-only suggestion proof
 
