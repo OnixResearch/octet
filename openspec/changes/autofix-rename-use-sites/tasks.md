@@ -1,12 +1,12 @@
 ## Phase 1: Implementation
 
-- [ ] I1 Add `collect_local_use_sites(cx, body, hir_id) -> Vec<Span>` helper that walks a HIR `Body` and collects every `Path` segment resolving to the given `HirId`
-- [ ] I2 Update `bool_naming` `check_local` to call the use-site collector and emit a multipart `MachineApplicable` suggestion when all spans are non-expansion; fall back to current `MaybeIncorrect` single suggestion otherwise
-- [ ] I3 Update `negated_predicate` `check_local` to call the same collector and emit multipart `MachineApplicable` for local bindings; leave `check_item`/`check_impl_item`/`check_trait_item` at `HasPlaceholders`
-- [ ] I4 Add `.fixed` UI fixture for `bool_naming` local-variable rename with multiple use sites
-- [ ] I5 Add `.fixed` UI fixture for `negated_predicate` local-variable rename with multiple use sites
-- [ ] I6 Add or update `.stderr` snapshots for updated suggestion output (multipart format, `MachineApplicable` applicability note)
-- [ ] I7 Add macro-expansion fallback fixture showing `MaybeIncorrect` tier when declaration or use site is macro-generated
+- [x] I1 Add `collect_local_use_sites(cx, body, hir_id) -> Vec<Span>` helper that walks a HIR `Body` and collects every `Path` segment resolving to the given `HirId` ✅ 5m
+- [x] I2 Update `bool_naming` `check_local` to call the use-site collector and emit a multipart `MachineApplicable` suggestion when all spans are non-expansion; fall back to current `MaybeIncorrect` single suggestion otherwise ✅ 3m
+- [x] I3 Update `negated_predicate` `check_local` to call the same collector and emit multipart `MachineApplicable` for local bindings; leave `check_item`/`check_impl_item`/`check_trait_item` at `HasPlaceholders` ✅ 3m
+- [x] I4 Add `.fixed` UI fixture for `bool_naming` local-variable rename with multiple use sites ✅ 2m
+- [x] I5 Add `.fixed` UI fixture for `negated_predicate` local-variable rename with multiple use sites ✅ 2m
+- [x] I6 Add or update `.stderr` snapshots for updated suggestion output (multipart format, `MachineApplicable` applicability note) ✅ 2m
+- [x] I7 Add macro-expansion fallback fixture showing `MaybeIncorrect` tier when declaration or use site is macro-generated ✅ 2m
 
 ## Phase 2: Deterministic verification
 
@@ -22,7 +22,7 @@
 
 ## Change Status
 - Status: in-progress
-- Open tasks: I1, I2, I3, I4, I5, I6, I7, V1, V2, V3, V4, V5, H1
+- Open tasks: V1, V2, V3, V4, V5, H1
 
 ## Verification Coverage
 

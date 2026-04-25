@@ -6,6 +6,7 @@ use rustc_lint::LateLintPass;
 use rustc_session::declare_lint_pass;
 use rustc_session::declare_tool_lint;
 
+use super::use_site_collector;
 use crate::diagnostics::LintSuggestion;
 use crate::diagnostics::emit_tiger_style_lint_with_suggestion;
 
@@ -132,7 +133,7 @@ impl<'tcx> LateLintPass<'tcx> for NegatedPredicate {
     }
 
     fn check_local(&mut self, cx: &LateContext<'tcx>, local: &'tcx hir::LetStmt<'tcx>) {
-        let PatKind::Binding(_, _, ident, _) = &local.pat.kind else {
+        let PatKind::Binding(_, binding_hir_id, ident, _) = local.pat.kind else {
             return;
         };
 
@@ -141,6 +142,41 @@ impl<'tcx> LateLintPass<'tcx> for NegatedPredicate {
             return;
         }
 
-        lint_name(cx, ident.span, name);
+        let suggested = positive_name(name);
+        let suggestion = if !ident.span.from_expansion() {
+            let body = use_site_collector::enclosing_body(cx, local.hir_id);
+            if let Some(use_sites) = use_site_collector::collect_local_use_sites(cx, body, binding_hir_id) {
+                let mut parts = vec![(ident.span, suggested.clone())];
+                parts.extend(use_sites.into_iter().map(|span| (span, suggested.clone())));
+                LintSuggestion::Multipart {
+                    message: format!("rename to `{suggested}`"),
+                    parts,
+                    applicability: Applicability::MachineApplicable,
+                }
+            } else {
+                LintSuggestion::Single {
+                    span: ident.span,
+                    message: format!("rename to `{suggested}`"),
+                    replacement: suggested.clone(),
+                    applicability: Applicability::MaybeIncorrect,
+                }
+            }
+        } else {
+            LintSuggestion::Single {
+                span: ident.span,
+                message: format!("rename to `{suggested}`"),
+                replacement: suggested.clone(),
+                applicability: Applicability::MaybeIncorrect,
+            }
+        };
+
+        emit_tiger_style_lint_with_suggestion(
+            cx,
+            NEGATED_PREDICATE,
+            ident.span,
+            format!("negated predicate name `{name}` — prefer a positive form like `{suggested}`"),
+            "negated_predicate",
+            suggestion,
+        );
     }
 }

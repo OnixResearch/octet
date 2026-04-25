@@ -6,6 +6,7 @@ use rustc_lint::LateLintPass;
 use rustc_session::declare_lint_pass;
 use rustc_session::declare_tool_lint;
 
+use super::use_site_collector;
 use crate::diagnostics::LintSuggestion;
 use crate::diagnostics::emit_tiger_style_lint_with_suggestion;
 
@@ -53,18 +54,44 @@ impl<'tcx> LateLintPass<'tcx> for BoolNaming {
         }
 
         let suggested_name = suggested_bool_name(name);
+        let PatKind::Binding(_, binding_hir_id, _, _) = local.pat.kind else {
+            return;
+        };
+
+        let suggestion = if !ident.span.from_expansion() {
+            let body = use_site_collector::enclosing_body(cx, local.hir_id);
+            if let Some(use_sites) = use_site_collector::collect_local_use_sites(cx, body, binding_hir_id) {
+                let mut parts = vec![(ident.span, suggested_name.clone())];
+                parts.extend(use_sites.into_iter().map(|span| (span, suggested_name.clone())));
+                LintSuggestion::Multipart {
+                    message: format!("rename binding to `{suggested_name}`"),
+                    parts,
+                    applicability: Applicability::MachineApplicable,
+                }
+            } else {
+                LintSuggestion::Single {
+                    span: ident.span,
+                    message: format!("rename binding to `{suggested_name}`"),
+                    replacement: suggested_name,
+                    applicability: Applicability::MaybeIncorrect,
+                }
+            }
+        } else {
+            LintSuggestion::Single {
+                span: ident.span,
+                message: format!("rename binding to `{suggested_name}`"),
+                replacement: suggested_name,
+                applicability: Applicability::MaybeIncorrect,
+            }
+        };
+
         emit_tiger_style_lint_with_suggestion(
             cx,
             BOOL_NAMING,
             ident.span,
             format!("boolean binding `{name}` should have a predicate prefix"),
             "bool_naming",
-            LintSuggestion::Single {
-                span: ident.span,
-                message: format!("rename binding to `{suggested_name}`"),
-                replacement: suggested_name,
-                applicability: Applicability::MaybeIncorrect,
-            },
+            suggestion,
         );
     }
 }
