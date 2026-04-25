@@ -101,7 +101,7 @@ fn explicit_default_suggestion(cx: &LateContext<'_>, expr: &hir::Expr<'_>) -> Op
 
     Some(LintSuggestion::Single {
         span: expr.span,
-        message: format!("use explicit constructor instead of `Default::default()`"),
+        message: "use explicit constructor instead of `Default::default()`".to_owned(),
         replacement,
         applicability: Applicability::HasPlaceholders,
     })

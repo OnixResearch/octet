@@ -1,0 +1,27 @@
+$ nix build .#checks.x86_64-linux.fmt --no-link
+this derivation will be built:
+  /nix/store/c7ss838vhc71q2i6hngb8q80mqdvg41n-tigerstyle-fmt-0.1.0.drv
+cannot build on 'ssh-ng://root@10.10.10.1': error: failed to start SSH connection to '10.10.10.1'
+building '/nix/store/c7ss838vhc71q2i6hngb8q80mqdvg41n-tigerstyle-fmt-0.1.0.drv'...
+$ nix build .#checks.x86_64-linux.clippy --no-link
+this derivation will be built:
+  /nix/store/blx5mwh3y4qizjqmbjldrrqv0qwmcy2j-tigerstyle-clippy-0.1.0.drv
+cannot build on 'ssh-ng://root@10.10.10.1': error: failed to start SSH connection to '10.10.10.1'
+building '/nix/store/blx5mwh3y4qizjqmbjldrrqv0qwmcy2j-tigerstyle-clippy-0.1.0.drv'...
+$ nix build .#checks.x86_64-linux.nextest --no-link
+these 2 derivations will be built:
+  /nix/store/fs4sdlg39yyd4a8vx65c5g560svsgqiz-cargo-tigerstyle-0.1.0.drv
+  /nix/store/xi74fks8s5vp3j0kkh2m671dzy8cmwll-tigerstyle-nextest-0.1.0.drv
+cannot build on 'ssh-ng://root@10.10.10.1': error: failed to start SSH connection to '10.10.10.1'
+building '/nix/store/fs4sdlg39yyd4a8vx65c5g560svsgqiz-cargo-tigerstyle-0.1.0.drv'...
+building '/nix/store/xi74fks8s5vp3j0kkh2m671dzy8cmwll-tigerstyle-nextest-0.1.0.drv'...
+$ nix build .#checks.x86_64-linux.ui --no-link
+these 3 derivations will be built:
+  /nix/store/11jpkg6z9ngsha17s5v3xxrsfbscgq98-tigerstyle-0.1.0.drv
+  /nix/store/gz164id9b6chzs1lg4p2lmif9cm5kv75-tigerstyle-ui-library.drv
+  /nix/store/k6n3z9fjl0wjwm582mgml8lv407zzvsr-tigerstyle-ui-0.1.0.drv
+cannot build on 'ssh-ng://root@10.10.10.1': error: failed to start SSH connection to '10.10.10.1'
+building '/nix/store/11jpkg6z9ngsha17s5v3xxrsfbscgq98-tigerstyle-0.1.0.drv'...
+building '/nix/store/gz164id9b6chzs1lg4p2lmif9cm5kv75-tigerstyle-ui-library.drv'...
+building '/nix/store/k6n3z9fjl0wjwm582mgml8lv407zzvsr-tigerstyle-ui-0.1.0.drv'...
+exit=0

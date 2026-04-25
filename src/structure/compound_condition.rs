@@ -62,7 +62,7 @@ impl EarlyLintPass for CompoundCondition {
     }
 }
 
-fn collect_condition_leaves<'a>(expr: &'a Expr) -> Vec<&'a Expr> {
+fn collect_condition_leaves(expr: &Expr) -> Vec<&Expr> {
     match &expr.kind {
         ExprKind::Binary(op, lhs, rhs) if matches!(op.node, BinOpKind::And | BinOpKind::Or) => {
             let mut leaves = collect_condition_leaves(lhs);

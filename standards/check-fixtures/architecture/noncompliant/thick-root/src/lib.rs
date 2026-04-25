@@ -1,50 +1,50 @@
-pub fn helper_0() {}
-pub fn helper_1() {}
-pub fn helper_2() {}
-pub fn helper_3() {}
-pub fn helper_4() {}
-pub fn helper_5() {}
-pub fn helper_6() {}
-pub fn helper_7() {}
-pub fn helper_8() {}
-pub fn helper_9() {}
-pub fn helper_10() {}
-pub fn helper_11() {}
-pub fn helper_12() {}
-pub fn helper_13() {}
-pub fn helper_14() {}
-pub fn helper_15() {}
-pub fn helper_16() {}
-pub fn helper_17() {}
-pub fn helper_18() {}
-pub fn helper_19() {}
-pub fn helper_20() {}
-pub fn helper_21() {}
-pub fn helper_22() {}
-pub fn helper_23() {}
-pub fn helper_24() {}
-pub fn helper_25() {}
-pub fn helper_26() {}
-pub fn helper_27() {}
-pub fn helper_28() {}
-pub fn helper_29() {}
-pub fn helper_30() {}
-pub fn helper_31() {}
-pub fn helper_32() {}
-pub fn helper_33() {}
-pub fn helper_34() {}
-pub fn helper_35() {}
-pub fn helper_36() {}
-pub fn helper_37() {}
-pub fn helper_38() {}
-pub fn helper_39() {}
-pub fn helper_40() {}
-pub fn helper_41() {}
-pub fn helper_42() {}
-pub fn helper_43() {}
-pub fn helper_44() {}
-pub fn helper_45() {}
-pub fn helper_46() {}
-pub fn helper_47() {}
-pub fn helper_48() {}
-pub fn helper_49() {}
+fn helper_0() {}
+fn helper_1() {}
+fn helper_2() {}
+fn helper_3() {}
+fn helper_4() {}
+fn helper_5() {}
+fn helper_6() {}
+fn helper_7() {}
+fn helper_8() {}
+fn helper_9() {}
+fn helper_10() {}
+fn helper_11() {}
+fn helper_12() {}
+fn helper_13() {}
+fn helper_14() {}
+fn helper_15() {}
+fn helper_16() {}
+fn helper_17() {}
+fn helper_18() {}
+fn helper_19() {}
+fn helper_20() {}
+fn helper_21() {}
+fn helper_22() {}
+fn helper_23() {}
+fn helper_24() {}
+fn helper_25() {}
+fn helper_26() {}
+fn helper_27() {}
+fn helper_28() {}
+fn helper_29() {}
+fn helper_30() {}
+fn helper_31() {}
+fn helper_32() {}
+fn helper_33() {}
+fn helper_34() {}
+fn helper_35() {}
+fn helper_36() {}
+fn helper_37() {}
+fn helper_38() {}
+fn helper_39() {}
+fn helper_40() {}
+fn helper_41() {}
+fn helper_42() {}
+fn helper_43() {}
+fn helper_44() {}
+fn helper_45() {}
+fn helper_46() {}
+fn helper_47() {}
+fn helper_48() {}
+fn helper_49() {}

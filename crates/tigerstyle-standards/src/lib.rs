@@ -42,6 +42,7 @@ mod tests {
     const DEVTOOLS_POLICY_ID: &str = "tigerstyle.devtools.lint-suppressions";
     const EMBEDDED_POLICY_ID: &str = "tigerstyle.embedded.bounded-queues";
     const FCIS_POLICY_ID: &str = "tigerstyle.architecture.fcis-crate-boundary";
+    const EXTERNAL_DOMAIN_LEAKAGE_POLICY_ID: &str = "tigerstyle.architecture.external-domain-leakage";
     const ROOT_THINNESS_POLICY_ID: &str = "tigerstyle.architecture.root-crate-thinness";
     const PUBLIC_API_BUDGET_POLICY_ID: &str = "tigerstyle.architecture.public-api-budget";
     const SOURCE_PATH: &str = "src/lib.rs";
@@ -52,7 +53,7 @@ mod tests {
     const REVIEW: &str = "review=next hardware revision";
     const SAFER_DEFAULT: &str = "safer_default=bounded queue";
     const MISSING_SUPPRESSION_METADATA_DIAGNOSTICS: usize = 4;
-    const MISSING_FIXTURE_COVERAGE_DIAGNOSTICS: usize = 4;
+    const MISSING_FIXTURE_COVERAGE_DIAGNOSTICS: usize = 5;
     const THICK_ROOT_LINE_COUNT: usize = 50;
     const BOUNDED_CHANNEL_CAPACITY: u16 = 16;
     const PUBLIC_API_BUDGET_FIXTURE_PATH: &str =
@@ -210,6 +211,35 @@ mod tests {
     }
 
     #[test]
+    fn architecture_checks_reject_external_domain_leakage() {
+        let sources = vec![SourceFile::new(
+            "crates/tigerstyle-core/src/lib.rs",
+            "#![no_std]\n\npub fn accept(input: axum::Json<DomainCommand>) -> DomainCommand {\n    input.0\n}\n\npub struct DomainCommand;\n",
+        )];
+        let diagnostics =
+            check_architecture(&sample_registry(), &sources, &FamilySelection::from_families(["architecture"]));
+
+        assert_eq!(diagnostics.len(), 1);
+        assert_eq!(diagnostics[0].policy_id, EXTERNAL_DOMAIN_LEAKAGE_POLICY_ID);
+        assert!(diagnostics[0].message.contains("axum::"));
+        assert!(diagnostics[0].remediation.contains("translate at the boundary"));
+    }
+
+    #[test]
+    fn architecture_checks_reject_multiple_core_fixture_shapes() {
+        let sources = vec![
+            SourceFile::new("missing/crates/tigerstyle-core/src/lib.rs", "pub fn core() {}\n"),
+            SourceFile::new("leak/crates/tigerstyle-core/src/lib.rs", "#![no_std]\n\npub use tonic::Status;\n"),
+        ];
+        let diagnostics =
+            check_architecture(&sample_registry(), &sources, &FamilySelection::from_families(["architecture"]));
+
+        assert_eq!(diagnostics.len(), 2);
+        assert!(diagnostics.iter().any(|diagnostic| diagnostic.policy_id == FCIS_POLICY_ID));
+        assert!(diagnostics.iter().any(|diagnostic| diagnostic.policy_id == EXTERNAL_DOMAIN_LEAKAGE_POLICY_ID));
+    }
+
+    #[test]
     fn architecture_checks_reject_thick_root_file() {
         let thick_root = (0..THICK_ROOT_LINE_COUNT).map(|_| "fn helper() {}\n").collect::<String>();
         let sources = vec![SourceFile::new("src/lib.rs", thick_root)];
@@ -313,6 +343,11 @@ mod tests {
                     FCIS_POLICY_ID,
                     "architecture",
                     "docs/standards/source/architecture.adoc#boundaries-the-compiler-can-see",
+                ),
+                sample_policy(
+                    EXTERNAL_DOMAIN_LEAKAGE_POLICY_ID,
+                    "architecture",
+                    "docs/standards/source/architecture.adoc#boundaries-as-architecture",
                 ),
                 sample_policy(
                     ROOT_THINNESS_POLICY_ID,
@@ -421,6 +456,11 @@ mod tests {
                     policy_id: FCIS_POLICY_ID.to_owned(),
                     compliant: vec!["architecture/ok.rs".to_owned()],
                     noncompliant: vec!["architecture/bad.rs".to_owned()],
+                },
+                PolicyFixtureCoverage {
+                    policy_id: EXTERNAL_DOMAIN_LEAKAGE_POLICY_ID.to_owned(),
+                    compliant: vec!["architecture/domain-ok.rs".to_owned()],
+                    noncompliant: vec!["architecture/domain-bad.rs".to_owned()],
                 },
                 PolicyFixtureCoverage {
                     policy_id: ROOT_THINNESS_POLICY_ID.to_owned(),

@@ -508,7 +508,10 @@ MAIN
             echo "noncompliant architecture fixtures unexpectedly passed" >&2
             exit 1
           fi
-          jq --exit-status '.diagnostics | length >= 4' "$noncompliant_json" >/dev/null
+          jq --exit-status '.diagnostics | length >= 5' "$noncompliant_json" >/dev/null
+          jq --exit-status 'any(.diagnostics[]; .policy_id == "tigerstyle.architecture.external-domain-leakage")' "$noncompliant_json" >/dev/null
+          jq --exit-status 'any(.diagnostics[]; .policy_id == "tigerstyle.architecture.root-crate-thinness" and (.path | contains("thick-root")))' "$noncompliant_json" >/dev/null
+          jq --exit-status 'all(.diagnostics[]; ((.path | contains("thick-root")) | not) or .policy_id != "tigerstyle.architecture.public-api-budget")' "$noncompliant_json" >/dev/null
 
           if tigerstyle-standards check \
             --registry "$registry_json" \

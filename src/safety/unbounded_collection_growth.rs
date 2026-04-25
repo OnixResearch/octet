@@ -122,9 +122,7 @@ fn classify_collection_init(cx: &LateContext<'_>, local_ty: Ty<'_>, init: &hir::
 
     if name == "with_capacity" && args.len() == 1 {
         Some(InitKind::Reserved)
-    } else if name == "new" && args.is_empty() {
-        Some(InitKind::Empty)
-    } else if args.is_empty() && is_default_trait_function(cx, did) {
+    } else if args.is_empty() && (name == "new" || is_default_trait_function(cx, did)) {
         Some(InitKind::Empty)
     } else {
         None

@@ -33,6 +33,6 @@ The goal is to keep the seams explicit: Dylint lints stay in `src/` and `cargo-t
 
 ## Impact
 
-- **Files / artifacts**: `openspec/changes/codify-tigerstyle-standards/**`, `crates/tigerstyle-standards/**`, `standards/**`, `docs/standards/**`, `README.md`, `docs/contributor-guide.md`, `Cargo.toml`, `Cargo.lock`, `flake.nix`.
+- **Files / artifacts**: `openspec/changes/archive/2026-04-25-codify-tigerstyle-standards/**`, `crates/tigerstyle-standards/**`, `standards/**`, `docs/standards/**`, `README.md`, `docs/contributor-guide.md`, `Cargo.toml`, `Cargo.lock`, `flake.nix`.
 - **Ordering / dependencies**: Standards source paths, Nickel policy IDs, Rust checker constants, fixtures, and Nix command names must stay renamed in lockstep.
-- **Verification / evidence**: Saved evidence under `openspec/changes/codify-tigerstyle-standards/evidence/` covers rename hygiene, policy validation, standards tests, fixture flake checks, and command-surface exposure.
+- **Verification / evidence**: Saved evidence under `openspec/changes/archive/2026-04-25-codify-tigerstyle-standards/evidence/` covers rename hygiene, policy validation, standards tests, fixture flake checks, and command-surface exposure.
