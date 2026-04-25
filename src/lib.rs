@@ -639,9 +639,8 @@ mod tests {
 
     fn expected_autofix_tier(lint_name: &str) -> &'static str {
         match lint_name {
-            "compound_assertion" => "MachineApplicable",
-            "bool_naming"
-            | "acronym_style"
+            "compound_assertion" | "bool_naming" => "MachineApplicable",
+            "acronym_style"
             | "unchecked_division"
             | "raw_arithmetic_overflow"
             | "unchecked_narrowing"
