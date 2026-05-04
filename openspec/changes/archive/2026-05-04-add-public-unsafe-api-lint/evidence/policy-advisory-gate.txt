@@ -1,0 +1,7 @@
+$ nix run .#tigerstyle-policy-validate
+$ grep public_unsafe_api rollout defaults
+docs/downstream-rollout.md:166:  "public_unsafe_api",
+docs/downstream-rollout.md:221:  "public_unsafe_api",
+docs/lint-reference.md:92:| `public_unsafe_api` | `warn` | flag public Rust `unsafe fn` APIs that leak unsafe obligations to callers |
+$ grep public_unsafe_api default level
+34:public_unsafe_api=warn

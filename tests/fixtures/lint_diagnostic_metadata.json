@@ -297,6 +297,15 @@
     "example_text": "return Err(Error::invalid_state());"
   },
   {
+    "lint_name": "public_unsafe_api",
+    "principle": "Contained Unsafe",
+    "guide_section": "Unsafe Containment",
+    "domain_group": "tigerstyle::safety",
+    "guidance": "keep public APIs safe when possible; move unsafe operations into small private helpers with audited invariants",
+    "example_mode": "required",
+    "example_text": "pub fn read(ptr: NonNull<u8>) -> u8 { unsafe { read_raw(ptr) } }"
+  },
+  {
     "lint_name": "no_todo",
     "principle": "Fail Fast Correctly",
     "guide_section": "Error Handling / Panics",

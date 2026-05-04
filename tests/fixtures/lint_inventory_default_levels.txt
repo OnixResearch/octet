@@ -31,6 +31,7 @@ ambiguous_params=allow
 raw_arithmetic_overflow=allow
 no_unwrap=warn
 no_panic=warn
+public_unsafe_api=warn
 no_todo=warn
 unjustified_no_todo_allow=warn
 no_recursion=warn
