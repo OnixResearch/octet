@@ -17,3 +17,4 @@
 * xref:verification.adoc[Verification (75-80)]
 * xref:what-safety-critical-means.adoc[What Safety-Critical Means (81-87)]
 * xref:one-idiom-one-verifier.adoc[One Idiom, One Verifier (88-94)]
+* xref:external-sources.adoc[External Source Incorporation]

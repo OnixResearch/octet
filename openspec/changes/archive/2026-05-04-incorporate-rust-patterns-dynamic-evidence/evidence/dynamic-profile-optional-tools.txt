@@ -1,0 +1,10 @@
+PASS optional heavy tool named: Valgrind
+PASS optional heavy tool named: Miri
+PASS optional heavy tool named: sanitizers
+PASS optional heavy tool named: heap profilers
+PASS optional heavy tool named: cache profilers
+PASS optional heavy tool named: Loom
+PASS optionality phrase present: Do not require Valgrind
+PASS optionality phrase present: default consumer path
+PASS optionality phrase present: normal consumer lint run must not require
+RESULT pass: heavyweight tools remain optional until selected

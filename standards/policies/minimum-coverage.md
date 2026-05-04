@@ -44,3 +44,14 @@ This matrix ties the OpenSpec `Hard Rule Families` minimum candidate list to the
 | Verification | Exact error assertions | `tigerstyle.verification.exact-error-assertions` | Test, Telemetry, and Audit Rules |
 | Verification | Target/hardware coverage declarations | `tigerstyle.verification.target-hardware-coverage` | Fitness and Safety Evidence |
 | Verification | Safety-critical evidence prompts | `tigerstyle.verification.safety-critical-claims` | Fitness and Safety Evidence |
+
+## External source and pattern-incorporation roadmap
+
+These entries are not part of the original hard-rule minimum list. They capture future-rule staging for the Valgrind and Rust Design Patterns incorporation change.
+
+| Source family | Candidate | Policy ID | First tier | Fixture gate before hard promotion |
+|---|---|---|---|---|
+| External sources | Classification before incorporation | `tigerstyle.external.source-classification` | hard registry/documentation rule | OpenSpec/package inventory checks |
+| Dynamic evidence | Opt-in runtime/profile evidence profiles | `tigerstyle.devtools.dynamic-evidence-profiles` | advisory/human evidence rule | Tool-specific profile fixtures before any CI promotion |
+| Rust idioms | Imported Rust idioms | `tigerstyle.idioms.imported-rust-idioms` | advisory guidance | Per-lint compliant and noncompliant fixtures |
+| Functional APIs | Type-level state/protocol boundaries | `tigerstyle.idioms.functional-api-boundaries` | human-process-only | Human design review before any checker proposal |

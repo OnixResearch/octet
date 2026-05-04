@@ -73,6 +73,18 @@ That is our job. And one of the simplest tools we have is a name.
 
 When the same primitive access pattern appears in two or more modules, extract a newtype. Not because duplication is ugly. Because unnamed patterns diverge silently -- and in safety-critical systems, silent divergence is how people get hurt.
 
+== Imported Rust idiom guidance
+
+External Rust idioms are accepted only when they encode a Tiger Style contract. Newtypes name units, capabilities, and secrets. RAII guards mediate resources. Contained unsafe modules keep invariants auditable. Borrowed argument types avoid needless ownership. Temporary mutability narrows mutation windows. Recoverable consumed-argument errors preserve retry paths. FFI wrappers and explicit error mapping keep foreign callers from owning Rust lifetimes. Restrained `Deref` avoids inheritance-shaped APIs.
+
+Each imported idiom starts as documentation, checklist, or advisory policy unless fixture evidence proves a hard gate can distinguish compliant code from legitimate exceptions.
+
+== Functional API boundaries
+
+The functional programming lesson Tigerstyle imports is type-level separation, not opaque point-free style. Use generics, sealed traits, associated types, and marker states when they make invalid protocol, state, capability, or format operations unrepresentable.
+
+Visitor, prism, or optics-like adapter splits are advanced boundary tools for serialization, traversal, plugins, and format adapters. They require human design review because macro-heavy or lifetime-erased bridge code can hide too much. Long iterator chains and `fold` pipelines are acceptable only when bounds, branches, assertions, and hot-path costs remain obvious.
+
 == Grounding
 
 [quote, Jim Coplien]

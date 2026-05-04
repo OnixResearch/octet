@@ -1,0 +1,16 @@
+PASS idiom maps outcome: Newtype
+PASS idiom maps outcome: RAII guard
+PASS idiom maps outcome: Contained unsafe module
+PASS idiom maps outcome: Borrowed argument type
+PASS idiom maps outcome: Temporary mutability
+PASS idiom maps outcome: Clone-avoidance
+PASS idiom maps outcome: Recoverable consumed argument errors
+PASS idiom maps outcome: Constrained builder
+PASS idiom maps outcome: Command/effects-as-data
+PASS idiom maps outcome: FFI wrappers and errors
+PASS idiom maps outcome: Restrained `Deref`
+PASS idiom maps outcome: Small crates
+PASS guidance field present: Tiger Style outcome
+PASS guidance field present: First enforcement tier
+PASS guidance field present: Lint promotion rule
+RESULT pass: Rust idiom guidance maps imported patterns to Tiger Style outcomes

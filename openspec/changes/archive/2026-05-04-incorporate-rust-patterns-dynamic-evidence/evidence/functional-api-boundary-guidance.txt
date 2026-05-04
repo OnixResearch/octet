@@ -1,0 +1,11 @@
+PASS functional guidance covers: type-level boundary
+PASS functional guidance covers: sealed traits
+PASS functional guidance covers: associated types
+PASS functional guidance covers: marker-state APIs
+PASS functional guidance covers: Visitor, prism, and optics-style seams
+PASS functional guidance covers: Declarative code limits
+PASS opaque-cleverness warning covers: hot
+PASS opaque-cleverness warning covers: bounds
+PASS opaque-cleverness warning covers: assertion density
+PASS opaque-cleverness warning covers: error handling
+RESULT pass: functional API guidance promotes type-level state separation without opaque cleverness

@@ -1,0 +1,13 @@
+PASS external source doc: docs/standards/source/external-sources.adoc
+PASS policy registry: standards/policies/registry.ncl
+PASS roadmap: standards/policies/minimum-coverage.md
+PASS external source classification includes: https://valgrind.org/info/
+PASS external source classification includes: https://github.com/rust-unofficial/patterns
+PASS external source classification includes: enforcement tier
+PASS external source classification includes: first implementation surface
+PASS external source classification includes: hard gate needs deterministic fixtures
+PASS policy classified: tigerstyle.external.source-classification
+PASS policy classified: tigerstyle.devtools.dynamic-evidence-profiles
+PASS policy classified: tigerstyle.idioms.imported-rust-idioms
+PASS policy classified: tigerstyle.idioms.functional-api-boundaries
+RESULT pass: external concepts are classified before incorporation

@@ -1,0 +1,7 @@
+PASS fixture-gate phrase present: compliant fixture
+PASS fixture-gate phrase present: noncompliant fixture
+PASS fixture-gate phrase present: false-positive boundary
+PASS fixture-gate phrase present: Per-lint compliant and noncompliant fixtures
+PASS fixture-gate phrase present: staged rollout profile
+PASS imported idioms policy remains advisory before hard gate promotion
+RESULT pass: future lints require fixtures before hard gating

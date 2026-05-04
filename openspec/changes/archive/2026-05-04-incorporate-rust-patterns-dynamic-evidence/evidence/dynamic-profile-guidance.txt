@@ -1,0 +1,15 @@
+PASS profile present: Memory and allocation
+PASS profile present: Heap growth
+PASS profile present: Cache or hot path
+PASS profile present: Race and concurrency
+PASS profile present: Unsafe or FFI boundary
+PASS profile present: Release readiness
+PASS run timing present: After a big change
+PASS run timing present: When a bug is suspected
+PASS run timing present: Before release
+PASS run timing present: Focused CI or nightly
+PASS acceptance evidence term present: Acceptance signal
+PASS acceptance evidence term present: expected acceptance signal
+PASS acceptance evidence term present: observed result
+PASS template exists: templates/dynamic-evidence-profile.md
+RESULT pass: dynamic profile guidance names run timing and acceptance signal

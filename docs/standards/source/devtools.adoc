@@ -72,6 +72,12 @@ This is what separates a standard from a suggestion. A suggestion relies on huma
 
 Put the standard in the toolchain. It will outlast every engineer on the team.
 
+== Dynamic evidence profiles
+
+Some bug classes need runtime or profiling evidence in addition to static linting. Memory and allocation errors, heap growth, cache behavior, thread races, unsafe boundaries, FFI ownership, and release readiness each need a selected tool, run timing, and acceptance signal.
+
+These profiles are opt-in evidence rails. A normal consumer lint run must not require Valgrind, Miri, sanitizers, heap profilers, cache profilers, or Loom unless a separate OpenSpec promotes one profile for a declared scope. The evidence artifact must include the exact command, tool version, target workload or fixture, expected acceptance signal, observed result, and suppression summary.
+
 == Grounding
 
 [quote, Martin Fowler, "Continuous Integration" (2006)]
