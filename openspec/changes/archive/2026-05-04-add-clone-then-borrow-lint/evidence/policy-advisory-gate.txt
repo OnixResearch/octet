@@ -1,0 +1,9 @@
+$ nix run .#tigerstyle-policy-validate
+
+$ grep clone_then_borrow tests/fixtures/lint_inventory_default_levels.txt
+clone_then_borrow=warn
+
+$ grep -n clone_then_borrow templates/dylint.toml docs/downstream-rollout.md
+templates/dylint.toml:77:#   "clone_then_borrow",
+docs/downstream-rollout.md:160:  "clone_then_borrow",
+docs/downstream-rollout.md:215:  "clone_then_borrow",

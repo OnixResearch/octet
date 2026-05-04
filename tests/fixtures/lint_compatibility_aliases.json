@@ -68,6 +68,10 @@
     "canonical_lint_name": "tigerstyle::borrowed_argument_types"
   },
   {
+    "alias_name": "clone_then_borrow",
+    "canonical_lint_name": "tigerstyle::clone_then_borrow"
+  },
+  {
     "alias_name": "too_many_parameters",
     "canonical_lint_name": "tigerstyle::too_many_parameters"
   },

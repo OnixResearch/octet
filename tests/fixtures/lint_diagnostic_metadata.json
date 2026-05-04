@@ -153,6 +153,15 @@
     "example_text": "fn parse_name(name: &str) -> Result<Name, Error>"
   },
   {
+    "lint_name": "clone_then_borrow",
+    "principle": "Clone Avoidance",
+    "guide_section": "Performance / Ownership Clarity",
+    "domain_group": "tigerstyle::performance",
+    "guidance": "borrow the original value or use an explicit borrowed adapter instead of cloning only to take a shared borrow",
+    "example_mode": "required",
+    "example_text": "emit(&name);"
+  },
+  {
     "lint_name": "too_many_parameters",
     "principle": "Simple Interfaces",
     "guide_section": "Explicit Interfaces",

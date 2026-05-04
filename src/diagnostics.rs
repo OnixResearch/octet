@@ -7,12 +7,14 @@ use serde::Serialize;
 
 pub(crate) const GROUP_SAFETY: &str = "tigerstyle::safety";
 pub(crate) const GROUP_NAMING: &str = "tigerstyle::naming";
+pub(crate) const GROUP_PERFORMANCE: &str = "tigerstyle::performance";
 pub(crate) const GROUP_STRUCTURE: &str = "tigerstyle::structure";
 pub(crate) const GROUP_PURITY: &str = "tigerstyle::purity";
 pub(crate) const GROUP_CONCURRENCY: &str = "tigerstyle::concurrency";
 pub(crate) const GROUP_NAMES: &[&str] = &[
     GROUP_SAFETY,
     GROUP_NAMING,
+    GROUP_PERFORMANCE,
     GROUP_STRUCTURE,
     GROUP_PURITY,
     GROUP_CONCURRENCY,
@@ -220,6 +222,15 @@ pub(crate) const DIAGNOSTIC_METADATA: &[LintDiagnosticMeta] = &[
         guidance: "accept general borrowed argument types such as `&str`, `&[T]`, and `&Path` instead of references to owned containers",
         example_mode: ExampleMode::Required,
         example_text: Some("fn parse_name(name: &str) -> Result<Name, Error>"),
+    },
+    LintDiagnosticMeta {
+        lint_name: "clone_then_borrow",
+        principle: "Clone Avoidance",
+        guide_section: "Performance / Ownership Clarity",
+        domain_group: GROUP_PERFORMANCE,
+        guidance: "borrow the original value or use an explicit borrowed adapter instead of cloning only to take a shared borrow",
+        example_mode: ExampleMode::Required,
+        example_text: Some("emit(&name);"),
     },
     LintDiagnosticMeta {
         lint_name: "too_many_parameters",
