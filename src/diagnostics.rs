@@ -213,6 +213,15 @@ pub(crate) const DIAGNOSTIC_METADATA: &[LintDiagnosticMeta] = &[
         example_text: Some("pub fn get(index: u32) -> Option<&Item>"),
     },
     LintDiagnosticMeta {
+        lint_name: "borrowed_argument_types",
+        principle: "Borrowed Interfaces",
+        guide_section: "Explicit Interfaces",
+        domain_group: GROUP_STRUCTURE,
+        guidance: "accept general borrowed argument types such as `&str`, `&[T]`, and `&Path` instead of references to owned containers",
+        example_mode: ExampleMode::Required,
+        example_text: Some("fn parse_name(name: &str) -> Result<Name, Error>"),
+    },
+    LintDiagnosticMeta {
         lint_name: "too_many_parameters",
         principle: "Simple Interfaces",
         guide_section: "Explicit Interfaces",

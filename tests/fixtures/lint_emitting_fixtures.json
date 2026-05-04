@@ -64,6 +64,10 @@
     "fixture": "usize_in_public_api"
   },
   {
+    "lint_name": "borrowed_argument_types",
+    "fixture": "borrowed_argument_types"
+  },
+  {
     "lint_name": "too_many_parameters",
     "fixture": "too_many_parameters"
   },

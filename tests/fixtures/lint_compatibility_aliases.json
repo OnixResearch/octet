@@ -64,6 +64,10 @@
     "canonical_lint_name": "tigerstyle::usize_in_public_api"
   },
   {
+    "alias_name": "borrowed_argument_types",
+    "canonical_lint_name": "tigerstyle::borrowed_argument_types"
+  },
+  {
     "alias_name": "too_many_parameters",
     "canonical_lint_name": "tigerstyle::too_many_parameters"
   },

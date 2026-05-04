@@ -1,0 +1,269 @@
+$ nix develop -c bash -c 'tmp=$(mktemp -d); trap "rm -rf $tmp" EXIT; CARGO_TARGET_DIR=$tmp cargo test --lib && CARGO_TARGET_DIR=$tmp cargo test --test ui ui -- --ignored --nocapture'
+   Compiling proc-macro2 v1.0.106
+   Compiling serde_core v1.0.228
+   Compiling quote v1.0.45
+   Compiling unicode-ident v1.0.24
+   Compiling memchr v2.8.0
+   Compiling winnow v1.0.2
+   Compiling crossbeam-utils v0.8.21
+   Compiling toml_writer v1.1.1+spec-1.1.0
+   Compiling zmij v1.0.21
+   Compiling serde_json v1.0.149
+   Compiling thiserror v2.0.18
+   Compiling serde v1.0.228
+   Compiling camino v1.2.2
+   Compiling regex-syntax v0.8.10
+   Compiling itoa v1.0.18
+   Compiling anyhow v1.0.102
+   Compiling rustversion v1.0.22
+   Compiling paste v1.0.15
+   Compiling dylint_internal v5.0.0 (https://github.com/trailofbits/dylint?rev=0e0a71eefe6f01563d11acc6e1d7af1d505934a9#0e0a71ee)
+   Compiling log v0.4.29
+   Compiling pin-project-lite v0.2.17
+   Compiling aho-corasick v1.1.4
+   Compiling toml_parser v1.1.2+spec-1.1.0
+   Compiling crossbeam-epoch v0.9.18
+   Compiling crossbeam-channel v0.5.15
+   Compiling crossbeam-queue v0.3.12
+   Compiling crossbeam-deque v0.8.6
+   Compiling syn v2.0.117
+   Compiling crossbeam v0.8.4
+   Compiling serde_spanned v1.1.1
+   Compiling toml_datetime v1.1.1+spec-1.1.0
+   Compiling regex-automata v0.4.14
+   Compiling semver v1.0.28
+   Compiling cargo-platform v0.3.3
+   Compiling toml v1.1.2+spec-1.1.0
+   Compiling serde_derive v1.0.228
+   Compiling thiserror-impl v2.0.18
+   Compiling tokio-macros v2.7.0
+   Compiling dylint_linting v5.0.0 (https://github.com/trailofbits/dylint?rev=0e0a71eefe6f01563d11acc6e1d7af1d505934a9#0e0a71ee)
+   Compiling tokio v1.52.1
+   Compiling regex v1.12.3
+   Compiling cargo_metadata v0.23.1
+   Compiling tigerstyle v0.1.0 (/home/brittonr/git/tigerstyle)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 8.93s
+     Running unittests src/lib.rs (/tmp/nix-shell.Tn6hY0/tmp.TufI6Pm8kQ/debug/deps/tigerstyle-0f4f9be17fe47127)
+
+running 36 tests
+test config::tests::omitted_disabled_lints_and_lint_levels_default_to_empty ... ok
+test config::tests::invalid_lint_level_warns_and_keeps_default_behavior ... ok
+test config::tests::mixed_disabled_lints_keeps_valid_entry_while_warning_on_unknown_name ... ok
+test config::tests::mixed_lint_levels_ignore_invalid_value_but_keep_valid_override ... ok
+test config::tests::overlapping_disabled_lints_and_lint_levels_warn_and_keep_lint_disabled ... ok
+test config::tests::explicit_disabled_lints_and_lint_levels_deserialize_successfully ... ok
+test config::tests::unknown_lint_levels_warn_without_failing_validation ... ok
+test config::tests::mixed_lint_levels_ignores_unknown_name_but_keeps_valid_override ... ok
+test naming::acronym_style::tests::test_acronym_fix ... ok
+test safety::compound_assertion::tests::detects_top_level_compound_assertion ... ok
+test config::tests::unknown_disabled_lints_warn_without_failing_validation ... ok
+test config::tests::raw_lint_levels_preserve_original_strings ... ok
+test safety::compound_assertion::tests::parses_top_level_disjunction_without_machine_applicable_fix ... ok
+test safety::compound_assertion::tests::parses_machine_applicable_top_level_conjunction ... ok
+test safety::compound_assertion::tests::rejects_message_bearing_assertions_for_machine_applicable_fix ... ok
+test safety::no_panic::tests::finds_panic_macro_name ... ok
+test safety::no_todo::tests::finds_panic_family_macro_name ... ok
+test safety::no_todo::tests::matches_supported_no_todo_spellings ... ok
+test test_context::tests::cfg_attr_detection_matches_test_only_forms ... ok
+test test_context::tests::cfg_not_test_can_still_be_true_without_test ... ok
+test tests::config_validation_derives_names_from_lint_inventory ... ok
+test tests::diagnostic_metadata_names_match_lint_inventory ... ok
+test tests::all_lints_register_canonical_and_bare_names ... ok
+test tests::diagnostic_metadata_required_examples_are_concrete ... ok
+test tests::diagnostic_group_snapshot_matches ... ok
+test tests::compatibility_alias_snapshot_matches ... ok
+test tests::disabled_lints_are_omitted_from_groups_and_aliases ... ok
+test tests::domain_groups_register_expected_members ... ok
+test tests::lint_inventory_default_levels_snapshot_matches ... ok
+test tests::lint_inventory_names_are_unique ... ok
+test tests::lint_inventory_snapshot_matches ... ok
+test tests::diagnostic_metadata_snapshot_matches ... ok
+test tests::lint_emitting_fixture_manifest_matches_inventory_and_emits ... ok
+test tests::autofix_rollout_scope_matches_change_contract ... ok
+test tests::ui_fixture_set_artifact_covers_the_full_corpus ... ok
+test tests::lint_modules_route_help_and_note_through_diagnostics_module ... ok
+
+test result: ok. 36 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Compiling tigerstyle v0.1.0 (/home/brittonr/git/tigerstyle)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.36s
+     Running tests/ui.rs (/tmp/nix-shell.Tn6hY0/tmp.TufI6Pm8kQ/debug/deps/ui-a9bba694b5a2d3d3)
+
+running 1 test
+   Compiling syn v2.0.117
+   Compiling thiserror-impl v2.0.18
+   Compiling serde_derive v1.0.228
+   Compiling thiserror v2.0.18
+   Compiling serde v1.0.228
+   Compiling cargo_metadata v0.23.1
+   Compiling dylint_internal v5.0.0 (https://github.com/trailofbits/dylint?rev=0e0a71eefe6f01563d11acc6e1d7af1d505934a9#0e0a71ee)
+   Compiling dylint_linting v5.0.0 (https://github.com/trailofbits/dylint?rev=0e0a71eefe6f01563d11acc6e1d7af1d505934a9#0e0a71ee)
+   Compiling tigerstyle v0.1.0 (/home/brittonr/git/tigerstyle)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 6.60s
+[ui fixture] acronym_allowlist_custom/acronym_allowlist_custom
+[ui snapshot] /home/brittonr/git/tigerstyle/ui_tests/acronym_allowlist_custom.stderr
+[ui fixture] acronym_style
+[ui snapshot] /home/brittonr/git/tigerstyle/ui_tests/acronym_style.stderr
+[ui fixture] ambient_clock
+[ui snapshot] /home/brittonr/git/tigerstyle/ui_tests/ambient_clock.stderr
+[ui fixture] ambiguous_params
+[ui snapshot] /home/brittonr/git/tigerstyle/ui_tests/ambiguous_params.stderr
+[ui fixture] assertion_density
+[ui snapshot] /home/brittonr/git/tigerstyle/ui_tests/assertion_density.stderr
+[ui fixture] assertion_density_custom/assertion_density_custom
+[ui snapshot] /home/brittonr/git/tigerstyle/ui_tests/assertion_density_custom.stderr
+[ui fixture] bool_naming
+[ui snapshot] /home/brittonr/git/tigerstyle/ui_tests/bool_naming.stderr
+[ui fixture] bool_naming_local_rename
+[ui snapshot] /home/brittonr/git/tigerstyle/ui_tests/bool_naming_local_rename.stderr
+[ui fixture] bool_naming_macro_fallback
+[ui snapshot] /home/brittonr/git/tigerstyle/ui_tests/bool_naming_macro_fallback.stderr
+[ui fixture] borrowed_argument_types
+[ui snapshot] /home/brittonr/git/tigerstyle/ui_tests/borrowed_argument_types.stderr
+[ui fixture] catch_all_on_enum
+[ui snapshot] /home/brittonr/git/tigerstyle/ui_tests/catch_all_on_enum.stderr
+[ui fixture] compound_assertion
+[ui snapshot] /home/brittonr/git/tigerstyle/ui_tests/compound_assertion.stderr
+[ui fixture] compound_assertion_indented
+[ui snapshot] /home/brittonr/git/tigerstyle/ui_tests/compound_assertion_indented.stderr
+[ui fixture] compound_assertion_machine_applicable
+[ui snapshot] /home/brittonr/git/tigerstyle/ui_tests/compound_assertion_machine_applicable.stderr
+[ui fixture] compound_assertion_message_guardrail
+[ui snapshot] /home/brittonr/git/tigerstyle/ui_tests/compound_assertion_message_guardrail.stderr
+[ui fixture] compound_assertion_or_guardrail
+[ui snapshot] /home/brittonr/git/tigerstyle/ui_tests/compound_assertion_or_guardrail.stderr
+[ui fixture] compound_condition
+[ui snapshot] /home/brittonr/git/tigerstyle/ui_tests/compound_condition.stderr
+[ui fixture] contradictory_time
+[ui snapshot] /home/brittonr/git/tigerstyle/ui_tests/contradictory_time.stderr
+[ui fixture] explicit_defaults/explicit_defaults
+[ui snapshot] /home/brittonr/git/tigerstyle/ui_tests/explicit_defaults.stderr
+[ui fixture] float_for_currency
+[ui snapshot] /home/brittonr/git/tigerstyle/ui_tests/float_for_currency.stderr
+[ui fixture] function_length
+[ui snapshot] /home/brittonr/git/tigerstyle/ui_tests/function_length.stderr
+[ui fixture] function_length_custom/function_length_custom
+[ui snapshot] /home/brittonr/git/tigerstyle/ui_tests/function_length_custom.stderr
+[ui fixture] group_allow_safety
+[ui snapshot] /home/brittonr/git/tigerstyle/ui_tests/group_allow_safety.stderr
+[ui fixture] group_deny_naming
+[ui snapshot] /home/brittonr/git/tigerstyle/ui_tests/group_deny_naming.stderr
+[ui fixture] ignored_result
+[ui snapshot] /home/brittonr/git/tigerstyle/ui_tests/ignored_result.stderr
+[ui fixture] ignored_result_drop
+[ui snapshot] /home/brittonr/git/tigerstyle/ui_tests/ignored_result_drop.stderr
+[ui fixture] ignored_result_shutdown_send
+[ui snapshot] /home/brittonr/git/tigerstyle/ui_tests/ignored_result_shutdown_send.stderr
+[ui fixture] max_parameters_custom/max_parameters_custom
+[ui snapshot] /home/brittonr/git/tigerstyle/ui_tests/max_parameters_custom.stderr
+[ui fixture] multi_lock_ordering
+[ui snapshot] /home/brittonr/git/tigerstyle/ui_tests/multi_lock_ordering.stderr
+[ui fixture] negated_predicate
+[ui snapshot] /home/brittonr/git/tigerstyle/ui_tests/negated_predicate.stderr
+[ui fixture] negated_predicate_local_rename
+[ui snapshot] /home/brittonr/git/tigerstyle/ui_tests/negated_predicate_local_rename.stderr
+[ui fixture] nested_conditionals
+[ui snapshot] /home/brittonr/git/tigerstyle/ui_tests/nested_conditionals.stderr
+[ui fixture] nesting_custom/nesting_custom
+[ui snapshot] /home/brittonr/git/tigerstyle/ui_tests/nesting_custom.stderr
+[ui fixture] no_panic
+[ui snapshot] /home/brittonr/git/tigerstyle/ui_tests/no_panic.stderr
+[ui fixture] no_panic_cfg_not
+[ui snapshot] /home/brittonr/git/tigerstyle/ui_tests/no_panic_cfg_not.stderr
+[ui fixture] no_panic_exhaustive
+[ui snapshot] /home/brittonr/git/tigerstyle/ui_tests/no_panic_exhaustive.stderr
+[ui fixture] no_panic_exhaustive_external
+[ui snapshot] /home/brittonr/git/tigerstyle/ui_tests/no_panic_exhaustive_external.stderr
+[ui fixture] no_panic_exhaustive_indirect
+[ui snapshot] /home/brittonr/git/tigerstyle/ui_tests/no_panic_exhaustive_indirect.stderr
+[ui fixture] no_panic_exhaustive_non_exhaustive
+[ui snapshot] /home/brittonr/git/tigerstyle/ui_tests/no_panic_exhaustive_non_exhaustive.stderr
+[ui fixture] no_recursion
+[ui snapshot] /home/brittonr/git/tigerstyle/ui_tests/no_recursion.stderr
+[ui fixture] no_todo
+[ui snapshot] /home/brittonr/git/tigerstyle/ui_tests/no_todo.stderr
+[ui fixture] no_todo_allow
+[ui snapshot] /home/brittonr/git/tigerstyle/ui_tests/no_todo_allow.stderr
+[ui fixture] no_todo_legacy_no_panic_allow
+[ui snapshot] /home/brittonr/git/tigerstyle/ui_tests/no_todo_legacy_no_panic_allow.stderr
+[ui fixture] no_todo_orphan_allow
+[ui snapshot] /home/brittonr/git/tigerstyle/ui_tests/no_todo_orphan_allow.stderr
+[ui fixture] no_unwrap
+[ui snapshot] /home/brittonr/git/tigerstyle/ui_tests/no_unwrap.stderr
+[ui fixture] no_unwrap_allow_custom/no_unwrap_allow_custom
+[ui snapshot] /home/brittonr/git/tigerstyle/ui_tests/no_unwrap_allow_custom.stderr
+[ui fixture] no_unwrap_cfg_not
+[ui snapshot] /home/brittonr/git/tigerstyle/ui_tests/no_unwrap_cfg_not.stderr
+[ui fixture] no_unwrap_compile_time_known
+[ui snapshot] /home/brittonr/git/tigerstyle/ui_tests/no_unwrap_compile_time_known.stderr
+[ui fixture] no_unwrap_default_custom/no_unwrap_default_custom
+[ui snapshot] /home/brittonr/git/tigerstyle/ui_tests/no_unwrap_default_custom.stderr
+[ui fixture] no_unwrap_deny_custom/no_unwrap_deny_custom
+[ui snapshot] /home/brittonr/git/tigerstyle/ui_tests/no_unwrap_deny_custom.stderr
+[ui fixture] no_unwrap_disabled_custom/no_unwrap_disabled_custom
+[ui snapshot] /home/brittonr/git/tigerstyle/ui_tests/no_unwrap_disabled_custom.stderr
+[ui fixture] no_unwrap_disabled_deny_custom/no_unwrap_disabled_deny_custom
+[ui snapshot] /home/brittonr/git/tigerstyle/ui_tests/no_unwrap_disabled_deny_custom.stderr
+[ui fixture] no_unwrap_disabled_source_attr_custom/no_unwrap_disabled_source_attr_custom
+[ui snapshot] /home/brittonr/git/tigerstyle/ui_tests/no_unwrap_disabled_source_attr_custom.stderr
+[ui fixture] no_unwrap_guarded
+[ui snapshot] /home/brittonr/git/tigerstyle/ui_tests/no_unwrap_guarded.stderr
+[ui fixture] no_unwrap_tool_attr
+[ui snapshot] /home/brittonr/git/tigerstyle/ui_tests/no_unwrap_tool_attr.stderr
+[ui fixture] no_unwrap_warn_custom/no_unwrap_warn_custom
+[ui snapshot] /home/brittonr/git/tigerstyle/ui_tests/no_unwrap_warn_custom.stderr
+[ui fixture] numeric_units
+[ui snapshot] /home/brittonr/git/tigerstyle/ui_tests/numeric_units.stderr
+[ui fixture] platform_dependent_cast
+[ui snapshot] /home/brittonr/git/tigerstyle/ui_tests/platform_dependent_cast.stderr
+[ui fixture] raw_arithmetic_overflow
+[ui snapshot] /home/brittonr/git/tigerstyle/ui_tests/raw_arithmetic_overflow.stderr
+[ui fixture] sentinel_fallback
+[ui snapshot] /home/brittonr/git/tigerstyle/ui_tests/sentinel_fallback.stderr
+[ui fixture] tokio_async/ignored_result_shutdown_send_tokio
+[ui snapshot] /home/brittonr/git/tigerstyle/ui_tests/ignored_result_shutdown_send_tokio.stderr
+[ui fixture] tokio_async/ignored_result_try_send_tokio
+[ui snapshot] /home/brittonr/git/tigerstyle/ui_tests/ignored_result_try_send_tokio.stderr
+[ui fixture] tokio_async/unbounded_loop_bare_async
+[ui snapshot] /home/brittonr/git/tigerstyle/ui_tests/unbounded_loop_bare_async.stderr
+[ui fixture] tokio_async/unbounded_loop_bounded_receiver
+[ui snapshot] /home/brittonr/git/tigerstyle/ui_tests/unbounded_loop_bounded_receiver.stderr
+[ui fixture] tokio_async/unbounded_loop_imported_select
+[ui snapshot] /home/brittonr/git/tigerstyle/ui_tests/unbounded_loop_imported_select.stderr
+[ui fixture] tokio_async/unbounded_loop_non_tokio_select
+[ui snapshot] /home/brittonr/git/tigerstyle/ui_tests/unbounded_loop_non_tokio_select.stderr
+[ui fixture] tokio_async/unbounded_loop_plain_await
+[ui snapshot] /home/brittonr/git/tigerstyle/ui_tests/unbounded_loop_plain_await.stderr
+[ui fixture] tokio_async/unbounded_loop_tokio_select
+[ui snapshot] /home/brittonr/git/tigerstyle/ui_tests/unbounded_loop_tokio_select.stderr
+[ui fixture] tokio_async/unbounded_loop_unbounded_receiver
+[ui snapshot] /home/brittonr/git/tigerstyle/ui_tests/unbounded_loop_unbounded_receiver.stderr
+[ui fixture] too_many_parameters
+[ui snapshot] /home/brittonr/git/tigerstyle/ui_tests/too_many_parameters.stderr
+[ui fixture] unbounded_channel/unbounded_channel
+[ui snapshot] /home/brittonr/git/tigerstyle/ui_tests/unbounded_channel.stderr
+[ui fixture] unbounded_collection_growth
+[ui snapshot] /home/brittonr/git/tigerstyle/ui_tests/unbounded_collection_growth.stderr
+[ui fixture] unbounded_loop
+[ui snapshot] /home/brittonr/git/tigerstyle/ui_tests/unbounded_loop.stderr
+[ui fixture] unbounded_loop_iter_next
+[ui snapshot] /home/brittonr/git/tigerstyle/ui_tests/unbounded_loop_iter_next.stderr
+[ui fixture] unchecked_division
+[ui snapshot] /home/brittonr/git/tigerstyle/ui_tests/unchecked_division.stderr
+[ui fixture] unchecked_narrowing
+[ui snapshot] /home/brittonr/git/tigerstyle/ui_tests/unchecked_narrowing.stderr
+[ui fixture] unchecked_narrowing_min
+[ui snapshot] /home/brittonr/git/tigerstyle/ui_tests/unchecked_narrowing_min.stderr
+[ui fixture] unchecked_narrowing_same_block_assert
+[ui snapshot] /home/brittonr/git/tigerstyle/ui_tests/unchecked_narrowing_same_block_assert.stderr
+[ui fixture] unchecked_narrowing_try_from
+[ui snapshot] /home/brittonr/git/tigerstyle/ui_tests/unchecked_narrowing_try_from.stderr
+[ui fixture] unjustified_allow
+[ui snapshot] /home/brittonr/git/tigerstyle/ui_tests/unjustified_allow.stderr
+[ui fixture] usize_in_public_api
+[ui snapshot] /home/brittonr/git/tigerstyle/ui_tests/usize_in_public_api.stderr
+[ui fixture] verified/verified_purity
+[ui snapshot] /home/brittonr/git/tigerstyle/ui_tests/verified_purity.stderr
+test ui ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 22.92s

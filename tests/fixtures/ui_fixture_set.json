@@ -9,6 +9,7 @@
     "bool_naming",
     "bool_naming_local_rename",
     "bool_naming_macro_fallback",
+    "borrowed_argument_types",
     "catch_all_on_enum",
     "compound_assertion",
     "compound_assertion_indented",

@@ -1,0 +1,6 @@
+$ openspec validate add-borrowed-argument-types-lint --strict
+Change 'add-borrowed-argument-types-lint' is valid
+$ nix run .#tigerstyle-policy-validate
+$ git diff --check
+
+Advisory gate assertion: borrowed_argument_types is registered at warn level and remains listed in downstream disabled_lints templates for starter/inventory rollout.

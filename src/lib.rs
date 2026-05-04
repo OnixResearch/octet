@@ -184,6 +184,9 @@ lint_inventory! {
     "usize_in_public_api", structure::usize_in_public_api::USIZE_IN_PUBLIC_API => |lint_store, _cfg| {
         lint_store.register_late_pass(|_| Box::new(structure::usize_in_public_api::UsizeInPublicApi));
     },
+    "borrowed_argument_types", structure::borrowed_argument_types::BORROWED_ARGUMENT_TYPES => |lint_store, _cfg| {
+        lint_store.register_late_pass(|_| Box::new(structure::borrowed_argument_types::BorrowedArgumentTypes));
+    },
     "too_many_parameters", structure::too_many_parameters::TOO_MANY_PARAMETERS => |lint_store, cfg| {
         let max_parameters = cfg.max_parameters;
         lint_store.register_late_pass(move |_| Box::new(structure::too_many_parameters::TooManyParameters::new(max_parameters)));
@@ -649,7 +652,8 @@ mod tests {
             | "sentinel_fallback"
             | "ignored_result"
             | "contradictory_time"
-            | "usize_in_public_api" => "MaybeIncorrect",
+            | "usize_in_public_api"
+            | "borrowed_argument_types" => "MaybeIncorrect",
             "numeric_units"
             | "unjustified_allow"
             | "negated_predicate"

@@ -1,4 +1,5 @@
 pub mod ambiguous_params;
+pub mod borrowed_argument_types;
 pub mod compound_condition;
 pub mod function_length;
 pub mod nested_conditionals;
