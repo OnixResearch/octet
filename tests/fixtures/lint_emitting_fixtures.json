@@ -132,6 +132,10 @@
     "fixture": "no_panic"
   },
   {
+    "lint_name": "public_unsafe_api",
+    "fixture": "public_unsafe_api"
+  },
+  {
     "lint_name": "no_todo",
     "fixture": "no_todo"
   },

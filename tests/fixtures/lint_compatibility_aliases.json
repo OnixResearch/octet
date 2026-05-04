@@ -132,6 +132,10 @@
     "canonical_lint_name": "tigerstyle::no_panic"
   },
   {
+    "alias_name": "public_unsafe_api",
+    "canonical_lint_name": "tigerstyle::public_unsafe_api"
+  },
+  {
     "alias_name": "no_todo",
     "canonical_lint_name": "tigerstyle::no_todo"
   },

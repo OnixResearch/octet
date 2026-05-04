@@ -370,6 +370,15 @@ pub(crate) const DIAGNOSTIC_METADATA: &[LintDiagnosticMeta] = &[
         example_text: Some("return Err(Error::invalid_state());"),
     },
     LintDiagnosticMeta {
+        lint_name: "public_unsafe_api",
+        principle: "Contained Unsafe",
+        guide_section: "Unsafe Containment",
+        domain_group: GROUP_SAFETY,
+        guidance: "keep public APIs safe when possible; move unsafe operations into small private helpers with audited invariants",
+        example_mode: ExampleMode::Required,
+        example_text: Some("pub fn read(ptr: NonNull<u8>) -> u8 { unsafe { read_raw(ptr) } }"),
+    },
+    LintDiagnosticMeta {
         lint_name: "no_todo",
         principle: "Fail Fast Correctly",
         guide_section: "Error Handling / Panics",

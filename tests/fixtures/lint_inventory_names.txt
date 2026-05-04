@@ -31,6 +31,7 @@ ambiguous_params
 raw_arithmetic_overflow
 no_unwrap
 no_panic
+public_unsafe_api
 no_todo
 unjustified_no_todo_allow
 no_recursion

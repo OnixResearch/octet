@@ -8,11 +8,11 @@ For the landing-page naming map, see `../README.md`.
 
 ## Catalog summary
 
-`tigerstyle` ships 36 lints across 6 domains.
+`tigerstyle` ships 37 lints across 6 domains.
 
 | Domain | Group | Count |
 | --- | --- | ---: |
-| safety | `tigerstyle::safety` | 17 |
+| safety | `tigerstyle::safety` | 18 |
 | naming | `tigerstyle::naming` | 5 |
 | performance | `tigerstyle::performance` | 1 |
 | structure | `tigerstyle::structure` | 9 |
@@ -89,6 +89,7 @@ Unknown lint names and invalid level values warn and are ignored.
 | `assertion_density` | `allow` | flag large functions with too few assertions |
 | `raw_arithmetic_overflow` | `allow` | flag unchecked `+`, `-`, or `*` on unsigned integers |
 | `sentinel_fallback` | `warn` | flag `<int>::MAX` / `<int>::MIN` sentinel fallbacks instead of explicit branching or tagged fallback text |
+| `public_unsafe_api` | `warn` | flag public Rust `unsafe fn` APIs that leak unsafe obligations to callers |
 
 ## Naming lints (`tigerstyle::naming`)
 

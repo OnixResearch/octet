@@ -237,6 +237,9 @@ lint_inventory! {
     "no_panic", safety::no_panic::NO_PANIC => |lint_store, _cfg| {
         lint_store.register_late_pass(|_| Box::new(safety::no_panic::NoPanic));
     },
+    "public_unsafe_api", safety::public_unsafe_api::PUBLIC_UNSAFE_API => |lint_store, _cfg| {
+        lint_store.register_late_pass(|_| Box::new(safety::public_unsafe_api::PublicUnsafeApi));
+    },
     "no_todo", safety::no_todo::NO_TODO => |_lint_store, _cfg| {
     },
     "unjustified_no_todo_allow", safety::no_todo::UNJUSTIFIED_NO_TODO_ALLOW => |_lint_store, _cfg| {
@@ -636,6 +639,7 @@ mod tests {
         "too_many_parameters",
         "unbounded_loop",
         "unjustified_no_todo_allow",
+        "public_unsafe_api",
         "verified_purity",
     ];
 
@@ -710,6 +714,7 @@ mod tests {
             "raw_arithmetic_overflow" => "src/safety/raw_arithmetic_overflow.rs",
             "no_unwrap" => "src/safety/no_unwrap.rs",
             "no_panic" => "src/safety/no_panic.rs",
+            "public_unsafe_api" => "src/safety/public_unsafe_api.rs",
             "no_todo" | "unjustified_no_todo_allow" => "src/safety/no_todo.rs",
             "no_recursion" => "src/safety/no_recursion.rs",
             other => panic!("missing lint source mapping for `{other}`"),
