@@ -30,6 +30,17 @@ This change imports one focused Unison-inspired concept into Tigerstyle's Rust-f
 
 **Rationale:** Tigerstyle standards should not drift into prose-only claims.
 
+
+### 3. Reference capability-oriented Rust crates before inventing examples
+
+**Choice:** Cite `cap-std`, `cap-directories`, and `ambient-authority` as prior art for explicit authority values and non-ambient filesystem/network/clock access.
+
+**Rationale:** These crates already encode the Rust ecosystem vocabulary for capability-based APIs. Tigerstyle can reference their patterns without making every consumer adopt them.
+
+**Implementation:** Standards examples should show local Tigerstyle capability traits and effect enums first, then note when a shell crate MAY use `cap-std`/`cap-directories` handles instead of raw `std::fs`/`std::net`. Use `ambient-authority` as a named example of an intentionally loud escape hatch.
+
+**Alternative:** Require `cap-std` in consumers. Rejected because Tigerstyle is a lint/standards tool and must support projects that already have their own shell abstractions.
+
 ## Risks / Trade-offs
 
 **Concept overreach** → Keep this change scoped to the listed requirements and classify weak signals as advisory.

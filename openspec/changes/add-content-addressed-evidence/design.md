@@ -30,6 +30,17 @@ This change imports one focused Unison-inspired concept into Tigerstyle's Rust-f
 
 **Rationale:** Tigerstyle standards should not drift into prose-only claims.
 
+
+### 3. Reuse existing evidence/hash ecosystem crates
+
+**Choice:** Use the existing `blake3` dependency for digest computation and reference `cargo_metadata` for workspace/package identity when implementation needs stable Cargo graph context. Keep JSON evidence on `serde`/`serde_json`, which the runner already uses.
+
+**Rationale:** Tigerstyle already depends on `blake3` in `cargo-tigerstyle`; adding a second hashing stack would fragment evidence IDs. `cargo_metadata` is the standard way to identify packages, targets, and workspace roots without scraping `cargo` text output.
+
+**Implementation:** Evidence schemas should name digest algorithm/version fields explicitly (`blake3`, normalization version, config/tool hash inputs). If SARIF output needs richer modeling later, evaluate a SARIF crate only after proving the existing hand-written output cannot carry the required fingerprint fields.
+
+**Alternative:** Shell out to `cargo metadata` and hash raw source bytes only. Rejected because token/path/config normalization needs structured inputs and stable schema fields.
+
 ## Risks / Trade-offs
 
 **Concept overreach** → Keep this change scoped to the listed requirements and classify weak signals as advisory.

@@ -77,6 +77,17 @@ pub fn apply_event(...) -> ... { ... }
 
 **Alternative:** Default hard gate for all fingerprints. Rejected as too disruptive during rollout.
 
+
+### 6. Reuse parser/token crates only at the right boundary
+
+**Choice:** Keep `blake3` as the digest implementation. For standalone CLI fingerprint write/check paths, evaluate `syn`/`proc-macro2` tokenization or rust-analyzer `ra_ap_syntax` only behind a small normalization adapter. For Dylint-time checks, prefer rustc HIR/token data already available to the lint pass.
+
+**Rationale:** Function fingerprints need stable normalized tokens and must ignore their own marker. Parser crates can help outside rustc, but adding them to the hot lint path may duplicate data rustc already has.
+
+**Implementation:** Define a normalization-version trait/module with fixture coverage before choosing one parser backend permanently. Macro-heavy bodies should remain warning-only unless the normalization backend includes explicit macro-expansion semantics.
+
+**Alternative:** Hash raw source spans directly. Rejected because raw source hashing is brittle, self-referential around markers, and too sensitive to comments/formatting.
+
 ## Risks / Trade-offs
 
 **Token normalization drift** → Version the hash format and make version changes explicit in diagnostics.
