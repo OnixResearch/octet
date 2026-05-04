@@ -1,0 +1,11 @@
+Review command: review docs/templates/lint metadata diff
+Input: changed lint catalog/config files
+
+Result: PASS
+
+Assertions:
+- `deref_polymorphism` is registered at default level `warn`.
+- `deref_polymorphism` is classified in the structure domain and diagnostic metadata uses principle `Explicit Interfaces`.
+- `docs/lint-reference.md`, `README.md`, fixture manifests, and rollout docs account for 38 total lints and 10 structure lints.
+- `templates/dylint.toml` includes `#   "deref_polymorphism",` in the commented advisory starter disabled-list block.
+- `docs/downstream-rollout.md` includes `deref_polymorphism` in the advisory disabled-list examples, so starter rollout remains diagnostic-only rather than hard-gated.

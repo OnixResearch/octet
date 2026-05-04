@@ -68,6 +68,10 @@
     "fixture": "borrowed_argument_types"
   },
   {
+    "lint_name": "deref_polymorphism",
+    "fixture": "deref_polymorphism"
+  },
+  {
     "lint_name": "clone_then_borrow",
     "fixture": "clone_then_borrow"
   },

@@ -8,14 +8,14 @@ For the landing-page naming map, see `../README.md`.
 
 ## Catalog summary
 
-`tigerstyle` ships 37 lints across 6 domains.
+`tigerstyle` ships 38 lints across 6 domains.
 
 | Domain | Group | Count |
 | --- | --- | ---: |
 | safety | `tigerstyle::safety` | 18 |
 | naming | `tigerstyle::naming` | 5 |
 | performance | `tigerstyle::performance` | 1 |
-| structure | `tigerstyle::structure` | 9 |
+| structure | `tigerstyle::structure` | 10 |
 | purity | `tigerstyle::purity` | 3 |
 | concurrency | `tigerstyle::concurrency` | 1 |
 
@@ -116,6 +116,7 @@ Unknown lint names and invalid level values warn and are ignored.
 | `platform_dependent_cast` | `warn` | flag casts like `as usize` from fixed-width integers |
 | `usize_in_public_api` | `warn` | avoid `usize` / `isize` at inherent public API boundaries |
 | `borrowed_argument_types` | `warn` | prefer `&str`, `&[T]`, and `&Path` over borrowed owned containers |
+| `deref_polymorphism` | `warn` | flag public `Deref` impls to nominal target types that hide API boundaries |
 | `too_many_parameters` | `warn` | flag signatures that exceed the configured parameter limit |
 | `compound_condition` | `allow` | flag conditions with 3 or more boolean operators |
 | `unjustified_allow` | `allow` | require local justification for `#[allow(clippy::...)]` |

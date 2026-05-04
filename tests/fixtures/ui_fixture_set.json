@@ -11,6 +11,7 @@
     "bool_naming_macro_fallback",
     "borrowed_argument_types",
     "catch_all_on_enum",
+    "deref_polymorphism",
     "clone_then_borrow",
     "compound_assertion",
     "compound_assertion_indented",

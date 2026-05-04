@@ -47,6 +47,7 @@
       "nested_conditionals",
       "usize_in_public_api",
       "borrowed_argument_types",
+      "deref_polymorphism",
       "too_many_parameters",
       "platform_dependent_cast",
       "ambiguous_params"
