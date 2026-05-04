@@ -4,6 +4,7 @@
 - [ ] I2 Add Valgrind-style dynamic evidence profile documentation and review template coverage
 - [ ] I3 Add Rust idiom guidance for selected Rust Design Patterns concepts and anti-patterns
 - [ ] I4 Add policy roadmap rows for future lint candidates without promoting hard gates prematurely
+- [ ] I5 Add functional API boundary guidance for generics/type-state, optics/visitor adapter seams, and fold-heavy style limits
 
 ## Phase 2: Deterministic verification
 
@@ -12,6 +13,7 @@
 - [ ] V3 Verify scenario "Heavyweight tools remain optional until a profile is selected" with Nix/check dependency inspection; save output at `openspec/changes/incorporate-rust-patterns-dynamic-evidence/evidence/dynamic-profile-optional-tools.txt`
 - [ ] V4 Verify scenario "Rust idiom guidance maps each imported pattern to Tiger Style outcomes" with checklist coverage helper; save output at `openspec/changes/incorporate-rust-patterns-dynamic-evidence/evidence/rust-idiom-guidance-coverage.txt`
 - [ ] V5 Verify scenario "Future lints require fixtures before hard gating" with policy classification and fixture-reference checks; save output at `openspec/changes/incorporate-rust-patterns-dynamic-evidence/evidence/future-lint-fixture-gate.txt`
+- [ ] V6 Verify scenario "Functional API guidance promotes type-level state separation without opaque cleverness" with guidance coverage checks; save output at `openspec/changes/incorporate-rust-patterns-dynamic-evidence/evidence/functional-api-boundary-guidance.txt`
 
 ## Phase 3: Human/oracle checkpoints
 
@@ -19,7 +21,7 @@
 
 ## Change Status
 - Status: in-progress
-- Open tasks: I1, I2, I3, I4, V1, V2, V3, V4, V5, H1
+- Open tasks: I1, I2, I3, I4, I5, V1, V2, V3, V4, V5, V6, H1
 
 ## Verification Coverage
 
@@ -28,3 +30,4 @@
 - `Scenario: Heavyweight tools remain optional until a profile is selected` -> `V3` -> `openspec/changes/incorporate-rust-patterns-dynamic-evidence/evidence/dynamic-profile-optional-tools.txt`
 - `Scenario: Rust idiom guidance maps each imported pattern to Tiger Style outcomes` -> `V4` -> `openspec/changes/incorporate-rust-patterns-dynamic-evidence/evidence/rust-idiom-guidance-coverage.txt`
 - `Scenario: Future lints require fixtures before hard gating` -> `V5` -> `openspec/changes/incorporate-rust-patterns-dynamic-evidence/evidence/future-lint-fixture-gate.txt`
+- `Scenario: Functional API guidance promotes type-level state separation without opaque cleverness` -> `V6` -> `openspec/changes/incorporate-rust-patterns-dynamic-evidence/evidence/functional-api-boundary-guidance.txt`

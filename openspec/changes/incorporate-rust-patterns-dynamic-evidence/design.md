@@ -52,6 +52,18 @@ The source material has two different roles. Valgrind contributes a product/work
 
 **Covers:** Scenario: Rust idiom guidance maps each imported pattern to Tiger Style outcomes; Scenario: Future lints require fixtures before hard gating
 
+### 4. Add functional API design guidance only where it strengthens type-level boundaries
+
+**Choice:** Import the functional chapter's type-class/generic-state lesson as Tigerstyle guidance for protocol/state-specific APIs, and treat optics/visitor/prism material as advanced human-review guidance for serialization, traversal, and plugin boundaries.
+
+**Rationale:** The high-value functional idea is not point-free style; it is using Rust's type system to make invalid protocol/state operations unrepresentable. Optics-style APIs can also clarify two-sided adapter designs, but they are too abstract and macro-heavy for default code style.
+
+**Alternative:** Encourage broad declarative/fold-heavy functional style. Rejected because Tigerstyle values explicit bounded control flow, assertion density, and readable hot paths; iterator chains are useful only when they remain simple and inspectable.
+
+**Implementation:** Add guidance that recommends sealed traits/generic marker types for state/protocol capabilities, names when visitor/prism-like adapter splits are appropriate, and cautions against opaque functional cleverness in hot or safety-critical code.
+
+**Covers:** Scenario: Functional API guidance promotes type-level state separation without opaque cleverness
+
 ## Risks / Trade-offs
 
 **Scope creep** → Keep the first slice documentation/policy-roadmap only; require separate child OpenSpecs for actual lints.
