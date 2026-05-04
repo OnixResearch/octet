@@ -30,6 +30,17 @@ This change imports one focused Unison-inspired concept into Tigerstyle's Rust-f
 
 **Rationale:** Tigerstyle standards should not drift into prose-only claims.
 
+
+### 3. Reference capability crates for shell escape hatches, not core purity
+
+**Choice:** Cite `cap-std`/`ambient-authority` as examples of explicit authority at shell boundaries, while keeping pure-core enforcement based on Rust modules/crates, lint analysis, and dependency classification.
+
+**Rationale:** Top-level purity is primarily a standards/lint concern: constructors, globals, and lazy statics must not hide IO/time/env/network access. Capability crates are useful examples for shell code but cannot by themselves prove Tigerstyle core purity.
+
+**Implementation:** Examples should prefer injected values and delayed effect descriptors. If a shell example needs filesystem access, prefer a directory handle/capability example over an ambient path example.
+
+**Alternative:** Recommend `once_cell`/`lazy_static` wrappers for delayed effects. Rejected as a default because those crates can make hidden top-level effects easier; Tigerstyle should instead require explicit task/command/effect construction.
+
 ## Risks / Trade-offs
 
 **Concept overreach** → Keep this change scoped to the listed requirements and classify weak signals as advisory.

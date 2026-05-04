@@ -30,6 +30,17 @@ This change imports one focused Unison-inspired concept into Tigerstyle's Rust-f
 
 **Rationale:** Tigerstyle standards should not drift into prose-only claims.
 
+
+### 3. Align vocabulary with existing capability and secret-handling crates
+
+**Choice:** Reference `cap-std`, `cap-directories`, and `ambient-authority` for filesystem/network/clock authority vocabulary; reference `secrecy`/`zeroize` as examples for credential-bearing capability values.
+
+**Rationale:** Capability names such as `Clock`, `Entropy`, `ObjectStore`, `CredentialReader`, and `RemoteExecutor` should feel Rust-native and auditable. Existing crates provide useful naming and safety precedent even when Tigerstyle consumers implement local traits.
+
+**Implementation:** Guidance should show local traits/tokens first, then optional adapters over ecosystem crates. Credential examples MUST avoid exposing `Display`/`Debug` secrets and SHOULD document zeroization/redaction expectations.
+
+**Alternative:** Provide a Tigerstyle runtime capability crate immediately. Rejected for this change because the first deliverable is standards vocabulary and lintable boundaries, not a runtime framework.
+
 ## Risks / Trade-offs
 
 **Concept overreach** → Keep this change scoped to the listed requirements and classify weak signals as advisory.

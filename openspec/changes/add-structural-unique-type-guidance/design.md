@@ -30,6 +30,17 @@ This change imports one focused Unison-inspired concept into Tigerstyle's Rust-f
 
 **Rationale:** Tigerstyle standards should not drift into prose-only claims.
 
+
+### 3. Reference newtype and secret crates as implementation aids
+
+**Choice:** Cite `nutype`, `derive_more`, typed-ID crates, `uuid`, `secrecy`, and `zeroize` as implementation references for nominal IDs, units, secrets, protocol states, and capability tokens.
+
+**Rationale:** Tigerstyle should require the pattern, not one macro crate. Projects differ on proc-macro budgets, compile-time tolerance, and public API stability.
+
+**Implementation:** Examples should start with plain tuple structs and hand-written constructors, then mention derive/newtype crates as optional boilerplate reducers when they preserve invariants. Secret wrappers should avoid accidental `Debug`/`Clone`/serialization and document erasure/redaction behavior.
+
+**Alternative:** Require a specific newtype macro. Rejected because macro-generated trait impls can weaken invariants if chosen carelessly.
+
 ## Risks / Trade-offs
 
 **Concept overreach** → Keep this change scoped to the listed requirements and classify weak signals as advisory.

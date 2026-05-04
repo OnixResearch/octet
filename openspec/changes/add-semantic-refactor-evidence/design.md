@@ -30,6 +30,17 @@ This change imports one focused Unison-inspired concept into Tigerstyle's Rust-f
 
 **Rationale:** Tigerstyle standards should not drift into prose-only claims.
 
+
+### 3. Reference rust-analyzer crates for semantic identity spikes
+
+**Choice:** Reference `ra_ap_syntax`, `ra_ap_ide`, and related rust-analyzer crates as optional spike dependencies for symbol identity and rename/move evidence; use `cargo_metadata` for workspace graph/package identity.
+
+**Rationale:** Semantic refactor evidence needs more than text diffs, but a full rust-analyzer dependency is large and toolchain-sensitive. It should be evaluated behind an adapter, not embedded into the base lint path prematurely.
+
+**Implementation:** Initial implementation MAY use compiler/HIR information already available in Dylint for lint-local identities and `cargo_metadata` for package context. A later spike can compare rust-analyzer-derived symbol IDs against Tigerstyle fingerprints and old/new mappings.
+
+**Alternative:** Depend directly on rust-analyzer internals in the default runner. Rejected because version churn and compile cost are likely high for normal `cargo tigerstyle check` users.
+
 ## Risks / Trade-offs
 
 **Concept overreach** → Keep this change scoped to the listed requirements and classify weak signals as advisory.

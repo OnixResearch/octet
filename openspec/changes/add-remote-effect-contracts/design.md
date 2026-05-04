@@ -30,6 +30,17 @@ This change imports one focused Unison-inspired concept into Tigerstyle's Rust-f
 
 **Rationale:** Tigerstyle standards should not drift into prose-only claims.
 
+
+### 3. Reference service, retry, and test-double crates without coupling the standard
+
+**Choice:** Reference `tower::Service`/layers as prior art for bounded service middleware, and reference `wiremock` or `httpmock` for deterministic remote-handler tests. Consider `uuid`/`ulid`-style crates for idempotency keys only in consumer examples that already need globally unique request IDs.
+
+**Rationale:** Remote effects need explicit timeouts, retry budgets, idempotency keys, receipts, and replay semantics. The `tower` ecosystem models middleware composition well, but Tigerstyle should not require a specific async stack.
+
+**Implementation:** The standard should define required fields and verification behavior. Implementations MAY map those fields onto `tower` layers or existing client middleware. Tests SHOULD use local deterministic fakes or HTTP test doubles rather than live network services.
+
+**Alternative:** Standardize on `reqwest` or one HTTP client. Rejected because remote effects also include queues, subprocesses, RPC, and forge APIs.
+
 ## Risks / Trade-offs
 
 **Concept overreach** → Keep this change scoped to the listed requirements and classify weak signals as advisory.

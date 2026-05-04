@@ -30,6 +30,17 @@ This change imports one focused Unison-inspired concept into Tigerstyle's Rust-f
 
 **Rationale:** Tigerstyle standards should not drift into prose-only claims.
 
+
+### 3. Use established deterministic testing crates where they fit
+
+**Choice:** Reference `proptest` for property coverage, `insta`/`expect-test` for stable snapshots, `tokio-test` for async shell tests, and `wiremock`/`httpmock` for local remote-service doubles.
+
+**Rationale:** Handler testing should prove behavior across valid and invalid paths without live clocks, random sources, stores, or networks. Existing crates cover input generation, snapshot review, async execution, and HTTP doubles.
+
+**Implementation:** Pure effect handlers should still use simple in-memory fakes by default. Add external test crates only when they reduce evidence noise or cover a class of behavior that table tests cannot. Snapshot artifacts MUST stay deterministic and reviewable.
+
+**Alternative:** Mock everything through a generic mocking framework. Rejected as the default because explicit fake handlers better expose Tigerstyle capability boundaries and invalid-path cleanup obligations.
+
 ## Risks / Trade-offs
 
 **Concept overreach** → Keep this change scoped to the listed requirements and classify weak signals as advisory.

@@ -30,6 +30,17 @@ This change imports one focused Unison-inspired concept into Tigerstyle's Rust-f
 
 **Rationale:** Tigerstyle standards should not drift into prose-only claims.
 
+
+### 3. Build on Rust's executable documentation tools
+
+**Choice:** Treat `rustdoc` doctests and `cargo test --doc` as the default live-doc mechanism; reference `trybuild` for compile-fail examples and `mdbook` only for book-style documentation integration.
+
+**Rationale:** Rust already has executable examples in documentation. Tigerstyle should standardize how examples are discovered, bounded, and reported rather than inventing a parallel runner.
+
+**Implementation:** Positive examples SHOULD be ordinary doctests or fixture crates. Compile-fail policy examples MAY use `trybuild`-style fixtures or the existing repo UI harness, whichever keeps snapshots more stable. Keep `assert_cmd`/`snapbox`-style CLI transcript checks in the runner test layer where they already fit.
+
+**Alternative:** Parse every Markdown fence with a custom runner first. Rejected because rustdoc already defines Rust code-fence semantics and avoids many edition/import edge cases.
+
 ## Risks / Trade-offs
 
 **Concept overreach** → Keep this change scoped to the listed requirements and classify weak signals as advisory.
