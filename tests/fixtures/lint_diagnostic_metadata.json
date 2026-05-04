@@ -144,6 +144,15 @@
     "example_text": "pub fn get(index: u32) -> Option<&Item>"
   },
   {
+    "lint_name": "borrowed_argument_types",
+    "principle": "Borrowed Interfaces",
+    "guide_section": "Explicit Interfaces",
+    "domain_group": "tigerstyle::structure",
+    "guidance": "accept general borrowed argument types such as `&str`, `&[T]`, and `&Path` instead of references to owned containers",
+    "example_mode": "required",
+    "example_text": "fn parse_name(name: &str) -> Result<Name, Error>"
+  },
+  {
     "lint_name": "too_many_parameters",
     "principle": "Simple Interfaces",
     "guide_section": "Explicit Interfaces",

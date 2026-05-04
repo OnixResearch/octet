@@ -73,6 +73,7 @@
 #   "unchecked_division",
 #   "catch_all_on_enum",
 #   "platform_dependent_cast",
+#   "borrowed_argument_types",
 #   "float_for_currency",
 #   "ambiguous_params",
 #   "raw_arithmetic_overflow",
