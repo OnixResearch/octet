@@ -1,0 +1,10 @@
+$ nix develop -c bash -c 'tmp=$(mktemp -d); trap "rm -rf $tmp" EXIT; CARGO_TARGET_DIR=$tmp cargo test --lib && CARGO_TARGET_DIR=$tmp cargo test --test ui ui -- --ignored --nocapture'
+
+Result: PASS
+
+Assertions:
+- `cargo test --lib` passed: 36 passed, 0 failed.
+- Full ignored UI suite passed: 1 passed, 0 failed.
+- The UI run discovered `deref_polymorphism` and wrote/read `ui_tests/deref_polymorphism.stderr`.
+- `ui_tests/deref_polymorphism.stderr` contains exactly two warning diagnostics for public `Deref` impls targeting nominal `Engine` types.
+- Accepted boundaries in `ui_tests/deref_polymorphism.rs` stayed quiet: private wrapper, `Deref<Target = str>`, `Deref<Target = [u8]>`, and explicit accessor-only wrapper.

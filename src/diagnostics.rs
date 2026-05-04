@@ -224,6 +224,15 @@ pub(crate) const DIAGNOSTIC_METADATA: &[LintDiagnosticMeta] = &[
         example_text: Some("fn parse_name(name: &str) -> Result<Name, Error>"),
     },
     LintDiagnosticMeta {
+        lint_name: "deref_polymorphism",
+        principle: "Explicit Interfaces",
+        guide_section: "Rust Idioms / Deref Polymorphism",
+        domain_group: GROUP_STRUCTURE,
+        guidance: "prefer explicit accessors over public `Deref` to another nominal domain type",
+        example_mode: ExampleMode::Required,
+        example_text: Some("pub fn as_inner(&self) -> &Inner"),
+    },
+    LintDiagnosticMeta {
         lint_name: "clone_then_borrow",
         principle: "Clone Avoidance",
         guide_section: "Performance / Ownership Clarity",

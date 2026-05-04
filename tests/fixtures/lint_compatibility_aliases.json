@@ -68,6 +68,10 @@
     "canonical_lint_name": "tigerstyle::borrowed_argument_types"
   },
   {
+    "alias_name": "deref_polymorphism",
+    "canonical_lint_name": "tigerstyle::deref_polymorphism"
+  },
+  {
     "alias_name": "clone_then_borrow",
     "canonical_lint_name": "tigerstyle::clone_then_borrow"
   },

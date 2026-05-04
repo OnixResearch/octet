@@ -1,0 +1,10 @@
+$ openspec validate add-deref-polymorphism-lint --strict && openspec validate structure --strict && openspec validate --specs --json && nix run .#tigerstyle-policy-validate && git diff --check
+
+Result: PASS
+
+Observed outputs:
+- Change 'add-deref-polymorphism-lint' is valid
+- Specification 'structure' is valid
+- OpenSpec specs summary: 14 items, 14 passed, 0 failed
+- Policy validation completed with exit 0
+- `git diff --check` completed with exit 0

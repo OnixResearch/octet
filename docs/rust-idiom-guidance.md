@@ -16,7 +16,7 @@ Tigerstyle imports Rust idioms only when they make safety, explicitness, bounded
 | Constrained builder | Many options or same-type parameters get named setters, explicit required fields, and `build()` invariant checks | Already related to parameter/default lints; docs first |
 | Command/effects-as-data | Core returns commands/effects, shell executes them, rollback/replay is explicit | Architecture guidance and OpenSpec review |
 | FFI wrappers and errors | Foreign APIs see stable handles/codes while Rust keeps lifetimes and rich errors internally | Human checklist plus optional dynamic evidence profile |
-| Restrained `Deref` | `Deref` is for smart-pointer/guard ergonomics, not inheritance-like API smuggling | Future lint candidate with fixtures |
+| Restrained `Deref` | `Deref` is for smart-pointer/guard ergonomics, not inheritance-like API smuggling | Advisory `deref_polymorphism` lint plus fixtures |
 | Small crates | Crates enforce real boundaries such as core/shell, unsafe, FFI, policy, or verifier seams | Architecture guidance; hard only for declared repo roles |
 
 ## Review prompts

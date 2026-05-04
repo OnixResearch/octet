@@ -188,6 +188,9 @@ lint_inventory! {
     "borrowed_argument_types", structure::borrowed_argument_types::BORROWED_ARGUMENT_TYPES => |lint_store, _cfg| {
         lint_store.register_late_pass(|_| Box::new(structure::borrowed_argument_types::BorrowedArgumentTypes));
     },
+    "deref_polymorphism", structure::deref_polymorphism::DEREF_POLYMORPHISM => |lint_store, _cfg| {
+        lint_store.register_late_pass(|_| Box::new(structure::deref_polymorphism::DerefPolymorphism));
+    },
     "clone_then_borrow", performance::clone_then_borrow::CLONE_THEN_BORROW => |lint_store, _cfg| {
         lint_store.register_late_pass(|_| Box::new(performance::clone_then_borrow::CloneThenBorrow));
     },

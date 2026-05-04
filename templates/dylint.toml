@@ -74,6 +74,7 @@
 #   "catch_all_on_enum",
 #   "platform_dependent_cast",
 #   "borrowed_argument_types",
+#   "deref_polymorphism",
 #   "clone_then_borrow",
 #   "float_for_currency",
 #   "ambiguous_params",

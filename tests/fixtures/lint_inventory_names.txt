@@ -15,6 +15,7 @@ unbounded_collection_growth
 sentinel_fallback
 usize_in_public_api
 borrowed_argument_types
+deref_polymorphism
 clone_then_borrow
 too_many_parameters
 negated_predicate
