@@ -28,6 +28,10 @@ For the shipped lint catalog, see `lint-reference.md`.
 [OpenSpec design template](../openspec/templates/design.md)
 [Tiger Style policy registry](../standards/policies/README.md)
 [Tiger Style standards contract](standards/policy-contract.md)
+[Dynamic evidence profiles](dynamic-evidence-profiles.md)
+[Dynamic evidence profile template](../templates/dynamic-evidence-profile.md)
+[Rust idiom guidance](rust-idiom-guidance.md)
+[Functional API boundary guidance](functional-api-boundaries.md)
 
 ## Source-of-truth map
 

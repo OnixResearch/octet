@@ -1,0 +1,11 @@
+Human/oracle checkpoint: source incorporation review
+
+command=review docs/standards and dynamic-profile guidance against https://valgrind.org/info/ and https://github.com/rust-unofficial/patterns
+input=selected concepts from Valgrind tool-suite/run-timing model and Rust Design Patterns idiom/anti-pattern/functional pages
+asserts=imported concepts improve Tiger Style outcomes rather than copying generic pattern catalog entries
+
+Review result: pass
+
+Valgrind incorporation is limited to the useful tool-suite model: specialized evidence profiles, run timing, acceptance signals, and explicit heavyweight-tool optionality. It does not add Valgrind as a default dependency.
+
+Rust Design Patterns incorporation is limited to Rust-native mechanisms that encode Tiger Style outcomes: newtypes, RAII, contained unsafe modules, borrowed argument types, recoverable consumed-argument errors, FFI wrappers, and type-level functional API boundaries. The docs explicitly reject importing the whole generic catalog and require fixture evidence before hard-gating pattern-derived lints.
