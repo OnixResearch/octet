@@ -32,6 +32,12 @@
     ]
   },
   {
+    "group_name": "tigerstyle::performance",
+    "lint_names": [
+      "clone_then_borrow"
+    ]
+  },
+  {
     "group_name": "tigerstyle::structure",
     "lint_names": [
       "function_length",

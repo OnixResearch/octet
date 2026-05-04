@@ -12,6 +12,7 @@ mod concurrency;
 pub mod config;
 mod diagnostics;
 mod naming;
+mod performance;
 mod purity;
 mod safety;
 mod structure;
@@ -186,6 +187,9 @@ lint_inventory! {
     },
     "borrowed_argument_types", structure::borrowed_argument_types::BORROWED_ARGUMENT_TYPES => |lint_store, _cfg| {
         lint_store.register_late_pass(|_| Box::new(structure::borrowed_argument_types::BorrowedArgumentTypes));
+    },
+    "clone_then_borrow", performance::clone_then_borrow::CLONE_THEN_BORROW => |lint_store, _cfg| {
+        lint_store.register_late_pass(|_| Box::new(performance::clone_then_borrow::CloneThenBorrow));
     },
     "too_many_parameters", structure::too_many_parameters::TOO_MANY_PARAMETERS => |lint_store, cfg| {
         let max_parameters = cfg.max_parameters;
@@ -653,7 +657,8 @@ mod tests {
             | "ignored_result"
             | "contradictory_time"
             | "usize_in_public_api"
-            | "borrowed_argument_types" => "MaybeIncorrect",
+            | "borrowed_argument_types"
+            | "clone_then_borrow" => "MaybeIncorrect",
             "numeric_units"
             | "unjustified_allow"
             | "negated_predicate"
@@ -688,6 +693,8 @@ mod tests {
             "unbounded_collection_growth" => "src/safety/unbounded_collection_growth.rs",
             "sentinel_fallback" => "src/safety/sentinel_fallback.rs",
             "usize_in_public_api" => "src/structure/usize_in_public_api.rs",
+            "borrowed_argument_types" => "src/structure/borrowed_argument_types.rs",
+            "clone_then_borrow" => "src/performance/clone_then_borrow.rs",
             "too_many_parameters" => "src/structure/too_many_parameters.rs",
             "negated_predicate" => "src/naming/negated_predicate.rs",
             "bool_naming" => "src/naming/bool_naming.rs",
@@ -776,6 +783,7 @@ mod tests {
         let lint_dirs = [
             "src/concurrency",
             "src/naming",
+            "src/performance",
             "src/purity",
             "src/safety",
             "src/structure",

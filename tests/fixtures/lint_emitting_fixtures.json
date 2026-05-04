@@ -68,6 +68,10 @@
     "fixture": "borrowed_argument_types"
   },
   {
+    "lint_name": "clone_then_borrow",
+    "fixture": "clone_then_borrow"
+  },
+  {
     "lint_name": "too_many_parameters",
     "fixture": "too_many_parameters"
   },

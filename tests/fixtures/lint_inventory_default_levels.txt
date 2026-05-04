@@ -15,6 +15,7 @@ unbounded_collection_growth=warn
 sentinel_fallback=warn
 usize_in_public_api=warn
 borrowed_argument_types=warn
+clone_then_borrow=warn
 too_many_parameters=warn
 negated_predicate=warn
 bool_naming=warn

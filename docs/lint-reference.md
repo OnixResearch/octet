@@ -8,12 +8,13 @@ For the landing-page naming map, see `../README.md`.
 
 ## Catalog summary
 
-`tigerstyle` ships 35 lints across 5 domains.
+`tigerstyle` ships 36 lints across 6 domains.
 
 | Domain | Group | Count |
 | --- | --- | ---: |
 | safety | `tigerstyle::safety` | 17 |
 | naming | `tigerstyle::naming` | 5 |
+| performance | `tigerstyle::performance` | 1 |
 | structure | `tigerstyle::structure` | 9 |
 | purity | `tigerstyle::purity` | 3 |
 | concurrency | `tigerstyle::concurrency` | 1 |
@@ -98,6 +99,12 @@ Unknown lint names and invalid level values warn and are ignored.
 | `negated_predicate` | `warn` | avoid names like `is_not_ready` or `no_capacity` |
 | `numeric_units` | `allow` | require unit suffixes such as `_ms`, `_secs`, or `_bytes` |
 | `float_for_currency` | `allow` | avoid `f64` in price, cost, or budget fields |
+
+## Performance lints (`tigerstyle::performance`)
+
+| Lint | Default | Summary |
+| --- | --- | --- |
+| `clone_then_borrow` | `warn` | flag cloning a value only to immediately take a shared borrow |
 
 ## Structure lints (`tigerstyle::structure`)
 
