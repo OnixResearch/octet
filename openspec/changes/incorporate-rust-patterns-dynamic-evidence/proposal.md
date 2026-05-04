@@ -5,7 +5,7 @@ Tigerstyle already encodes core/shell, safety, boundedness, and lint guidance, b
 ## What Changes
 
 - **Tool-suite profiles**: Add a Valgrind-inspired documentation model for when to run static lint profiles, dynamic profilers, race/model checks, and release evidence.
-- **Rust idiom standards**: Add Tigerstyle guidance for newtypes, RAII guards, contained unsafe modules, borrowed argument types, temporary mutability, clone-avoidance, recoverable consumed-argument errors, constrained builders, command/effects-as-data, FFI wrappers/errors, Deref restraint, and small-crate boundaries.
+- **Rust idiom standards**: Add Tigerstyle guidance for newtypes, RAII guards, contained unsafe modules, borrowed argument types, temporary mutability, clone-avoidance, recoverable consumed-argument errors, constrained builders, command/effects-as-data, FFI wrappers/errors, Deref restraint, small-crate boundaries, and functional API design patterns that encode protocol differences in types.
 - **Policy/lint roadmap**: Classify each imported pattern as hard, advisory, or human-process-only before adding lints.
 
 ## Capabilities

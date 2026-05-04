@@ -37,7 +37,7 @@ The profiles MUST cover memory/allocation behavior, cache or hot-path profiling,
 
 The system MUST provide Tigerstyle-owned Rust idiom guidance that imports only patterns that improve safety, explicitness, boundedness, recoverability, performance evidence, or developer comprehension.
 
-The guidance MUST cover newtypes for units/capabilities/secrets, RAII resource guards, contained unsafe modules, borrowed argument types, temporary mutability, clone-to-satisfy-borrow-checker alternatives, returning consumed arguments on error, constrained builders, command/effects-as-data, FFI wrappers and error mapping, restrained `Deref` use, and small-crate boundaries.
+The guidance MUST cover newtypes for units/capabilities/secrets, RAII resource guards, contained unsafe modules, borrowed argument types, temporary mutability, clone-to-satisfy-borrow-checker alternatives, returning consumed arguments on error, constrained builders, command/effects-as-data, FFI wrappers and error mapping, restrained `Deref` use, small-crate boundaries, and functional API patterns that use generics or sealed traits to make invalid protocol/state operations unrepresentable.
 
 #### Scenario: Rust idiom guidance maps each imported pattern to Tiger Style outcomes [r[rust-idiom-guidance.scenario.maps-patterns-to-outcomes]]
 
@@ -52,3 +52,17 @@ The guidance MUST cover newtypes for units/capabilities/secrets, RAII resource g
 - WHEN the policy registry classifies it as a hard rule
 - THEN positive and negative fixtures prove the intended compliant and noncompliant shapes
 - AND the lint is not promoted to a default hard gate without that fixture evidence
+
+### Requirement: Functional API Boundary Guidance [r[functional-api-boundary-guidance]]
+
+The system MUST document which functional programming concepts from Rust Design Patterns are acceptable Tigerstyle guidance and which remain non-goals.
+
+The guidance MUST promote type-class-style generics, sealed traits, associated types, and marker-state APIs when they encode protocol, state, capability, or format differences at compile time. It MUST treat optics, visitors, and prism-like adapter splits as advanced human-review guidance for serialization, traversal, and plugin boundaries rather than default application style. It MUST caution against opaque point-free or deeply chained functional code in hot paths, safety-critical paths, and code that needs dense assertions.
+
+#### Scenario: Functional API guidance promotes type-level state separation without opaque cleverness [r[functional-api-boundary-guidance.scenario.type-level-state-not-cleverness]]
+
+- GIVEN a Tigerstyle guide imports functional programming concepts
+- WHEN a reader compares type-class/generic-state APIs, optics/visitor adapter APIs, and fold-heavy declarative code
+- THEN the guide recommends type-level state or protocol separation where it removes runtime `Option`/enum checks from known-state code paths
+- AND it classifies optics or visitor/prism patterns as advanced boundary tools requiring human design review
+- AND it warns that long iterator chains or point-free transformations are inappropriate when they hide bounds, branches, assertions, or hot-loop costs
