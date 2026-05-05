@@ -329,3 +329,38 @@ fn assert_directory_records(stdout: &[u8], expected: &BTreeSet<&str>, status: &s
     assert!(records.iter().all(|record| !record["evidence"].is_null()));
     assert!(records.iter().all(|record| record["macro_warning"] == false));
 }
+
+#[test]
+fn fingerprint_check_reports_single_directory_drift() {
+    let temp = tempfile::tempdir().expect("create tempdir");
+    write_directory_fixture(temp.path());
+
+    let update = Command::new(cargo_tigerstyle())
+        .args(["fingerprint", "--update", "--output-format=json"])
+        .arg(temp.path())
+        .output()
+        .expect("run fingerprint update");
+    assert!(update.status.success(), "update stderr: {}", String::from_utf8_lossy(&update.stderr));
+
+    let lib_rs = temp.path().join("src/lib.rs");
+    let source = fs::read_to_string(&lib_rs).expect("read lib.rs");
+    fs::write(&lib_rs, source.replace("input.saturating_add(1)", "input.saturating_add(2)"))
+        .expect("mutate marked function");
+
+    let check = Command::new(cargo_tigerstyle())
+        .args(["fingerprint", "--check", "--output-format=json"])
+        .arg(temp.path())
+        .output()
+        .expect("run fingerprint check");
+    assert!(!check.status.success(), "drift check should fail");
+
+    let json: serde_json::Value = serde_json::from_slice(&check.stdout).expect("json output");
+    let records = json["records"].as_array().expect("records array");
+    assert_eq!(records.len(), 6);
+    let mismatches = records.iter().filter(|record| record["status"] == "mismatch").collect::<Vec<_>>();
+    assert_eq!(mismatches.len(), 1);
+    assert_eq!(mismatches[0]["name"], "root_plain");
+    assert!(records.iter().all(|record| !record["review"].is_null()));
+    assert!(records.iter().all(|record| !record["evidence"].is_null()));
+    assert!(records.iter().all(|record| record["macro_warning"] == false));
+}
