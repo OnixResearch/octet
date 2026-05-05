@@ -616,6 +616,91 @@ pub fn capped_retries(requested: u32) -> u32 {
 }
 
 #[test]
+fn fingerprint_source_scanner_docs_fixture_matches_transcript() {
+    let root = repo_root();
+    let docs_dir = root.join("docs/examples/function-fingerprint-source-scanner");
+    let final_fixture = docs_dir.join("reviewed.rs");
+    let transcript = fs::read_to_string(docs_dir.join("transcript.md")).expect("read source scanner transcript");
+
+    let final_check = Command::new(cargo_tigerstyle())
+        .args(["fingerprint", "--check", "--output-format=json", "reviewed.rs"])
+        .current_dir(&docs_dir)
+        .output()
+        .expect("run source scanner final check");
+    assert!(
+        final_check.status.success(),
+        "source scanner final check stderr: {}",
+        String::from_utf8_lossy(&final_check.stderr)
+    );
+    let json: serde_json::Value = serde_json::from_slice(&final_check.stdout).expect("source scanner json output");
+    let records = json["records"].as_array().expect("records array");
+    assert_eq!(records.len(), 1);
+    assert_eq!(records[0]["name"], "explicit_generated_boundary");
+    assert_ne!(records[0]["name"], "generated_boundary");
+    assert_eq!(records[0]["status"], "match");
+    assert_eq!(records[0]["review"], "source-scanner-boundary");
+    assert_transcript_contains_stdout(&transcript, &final_check.stdout, "source scanner final json check");
+
+    let temp = tempfile::tempdir().expect("create tempdir");
+    let fixture = temp.path().join("reviewed.rs");
+    fs::write(
+        &fixture,
+        r#"macro_rules! define_generated_boundary {
+    ($name:ident) => {
+        pub fn $name(input: u32) -> u32 {
+            input.saturating_add(1)
+        }
+    };
+}
+
+define_generated_boundary!(generated_boundary);
+
+// tigerstyle-fingerprint: b3:0; review=source-scanner-boundary; evidence=docs/examples/function-fingerprint-source-scanner/transcript.md
+pub fn explicit_generated_boundary(input: u32) -> u32 {
+    generated_boundary(input).min(64)
+}
+"#,
+    )
+    .expect("write source scanner initial fixture");
+
+    let update = Command::new(cargo_tigerstyle())
+        .args(["fingerprint", "--update", "reviewed.rs"])
+        .current_dir(temp.path())
+        .output()
+        .expect("run source scanner update");
+    assert!(update.status.success());
+    let update_stdout = String::from_utf8_lossy(&update.stdout);
+    assert!(update_stdout.contains("summary total=1 match=0 mismatch=0 missing=0 written=1"));
+    assert!(update_stdout.contains("explicit_generated_boundary written"));
+    assert!(!update_stdout.contains("reviewed.rs generated_boundary "));
+    assert_transcript_contains_stdout(&transcript, &update.stdout, "source scanner update");
+
+    let json_check = Command::new(cargo_tigerstyle())
+        .args(["fingerprint", "--check", "--output-format=json", "reviewed.rs"])
+        .current_dir(temp.path())
+        .output()
+        .expect("run source scanner json check");
+    assert!(json_check.status.success());
+    assert_transcript_contains_stdout(&transcript, &json_check.stdout, "source scanner json check");
+    let json: serde_json::Value = serde_json::from_slice(&json_check.stdout).expect("source scanner json check");
+    let records = json["records"].as_array().expect("records array");
+    assert_eq!(records.len(), 1);
+    assert_eq!(records[0]["name"], "explicit_generated_boundary");
+
+    let human_check = Command::new(cargo_tigerstyle())
+        .args(["fingerprint", "--check", "reviewed.rs"])
+        .current_dir(temp.path())
+        .output()
+        .expect("run source scanner human check");
+    assert!(human_check.status.success());
+    assert_transcript_contains_stdout(&transcript, &human_check.stdout, "source scanner human check");
+
+    let updated_source = fs::read_to_string(&fixture).expect("read source scanner fixture");
+    let checked_in_source = fs::read_to_string(final_fixture).expect("read final source scanner fixture");
+    assert_eq!(updated_source, checked_in_source);
+}
+
+#[test]
 fn fingerprint_write_then_check_works_for_external_crate_file() {
     let temp = tempfile::tempdir().expect("create tempdir");
     write_consumer_fixture(temp.path());
