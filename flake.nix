@@ -215,6 +215,65 @@
           doCheck = false;
         };
 
+        fingerprintDocsDownstreamSmoke = pkgs.writeShellApplication {
+          name = "tigerstyle-fingerprint-docs-downstream-smoke";
+          runtimeInputs = [ pkgs.coreutils pkgs.findutils pkgs.gnused pkgs.jq ];
+          text = ''
+            repo_root="''${1:-${src}}"
+            scratch="$(mktemp -d)"
+            trap 'rm -rf "$scratch"' EXIT
+
+            mkdir -p "$scratch/consumer/src"
+            cat > "$scratch/consumer/Cargo.toml" <<'EOF'
+            [package]
+            name = "tigerstyle-fingerprint-downstream-smoke"
+            version = "0.1.0"
+            edition = "2024"
+            EOF
+            cat > "$scratch/consumer/src/lib.rs" <<'EOF'
+            pub mod human_summary;
+            pub mod json_output;
+            pub mod lifecycle;
+            pub mod source_scanner;
+            pub mod warning_summary;
+            EOF
+
+            cp "$repo_root/docs/examples/function-fingerprint-human-summary/reviewed.rs" "$scratch/consumer/src/human_summary.rs"
+            cp "$repo_root/docs/examples/function-fingerprint-json-output/reviewed.rs" "$scratch/consumer/src/json_output.rs"
+            cp "$repo_root/docs/examples/function-fingerprint-lifecycle/reviewed.rs" "$scratch/consumer/src/lifecycle.rs"
+            cp "$repo_root/docs/examples/function-fingerprint-source-scanner/reviewed.rs" "$scratch/consumer/src/source_scanner.rs"
+            cp "$repo_root/docs/examples/function-fingerprint-warning-summary/reviewed.rs" "$scratch/consumer/src/warning_summary.rs"
+            chmod -R u+w "$scratch/consumer"
+
+            set +e
+            ${cargoTigerstyleUnwrapped}/bin/cargo-tigerstyle fingerprint --check --output-format=json "$scratch/consumer/src" > "$scratch/check.json" 2> "$scratch/check.err"
+            check_status="$?"
+            set -e
+            test "$check_status" -eq 1
+            jq -e '.schema_version == 1 and .mode == "check"' "$scratch/check.json" > /dev/null
+            jq -e '.records | length == 7' "$scratch/check.json" > /dev/null
+            jq -e '[.records[].name] | index("bounded_retry_delay_ms") and index("capped_batch_size") and index("capped_retries") and index("describe_batch") and index("explicit_generated_boundary") and index("missing_gate_metadata") and index("unreviewed_macro_path")' "$scratch/check.json" > /dev/null
+            jq -e '[.records[].name] | index("generated_boundary") | not' "$scratch/check.json" > /dev/null
+            jq -e '[.records[] | select(.macro_warning == true)] | length == 1' "$scratch/check.json" > /dev/null
+            jq -e '[.records[] | select(.review == null or .evidence == null)] | length == 1' "$scratch/check.json" > /dev/null
+            jq -e '[.records[] | select(.status == "match")] | length == 7' "$scratch/check.json" > /dev/null
+
+            sed -i 's/requested.min(5)/requested.min(8)/' "$scratch/consumer/src/json_output.rs"
+            set +e
+            ${cargoTigerstyleUnwrapped}/bin/cargo-tigerstyle fingerprint --check --output-format=json "$scratch/consumer/src/json_output.rs" > "$scratch/drift.json" 2> "$scratch/drift.err"
+            drift_status="$?"
+            set -e
+            test "$drift_status" -eq 1
+            jq -e '.records | length == 1' "$scratch/drift.json" > /dev/null
+            jq -e '.records[0].name == "capped_retries" and .records[0].status == "mismatch"' "$scratch/drift.json" > /dev/null
+
+            ${cargoTigerstyleUnwrapped}/bin/cargo-tigerstyle fingerprint --update --output-format=json "$scratch/consumer/src/json_output.rs" > "$scratch/update.json"
+            jq -e '.records[0].name == "capped_retries" and .records[0].status == "written"' "$scratch/update.json" > /dev/null
+            ${cargoTigerstyleUnwrapped}/bin/cargo-tigerstyle fingerprint --check --output-format=json "$scratch/consumer/src/json_output.rs" > "$scratch/repaired.json"
+            jq -e '.records[0].name == "capped_retries" and .records[0].status == "match"' "$scratch/repaired.json" > /dev/null
+          '';
+        };
+
         tigerstyleStandards = craneLib.buildPackage {
           inherit src cargoArtifacts nativeBuildInputs buildInputs;
           pname = "tigerstyle-standards";
@@ -539,6 +598,7 @@ MAIN
           default = tigerstyle;
           tigerstyle = tigerstyle;
           cargo-tigerstyle = cargoTigerstyle;
+          fingerprint-docs-downstream-smoke = fingerprintDocsDownstreamSmoke;
           dylint-driver = dylintDriver;
           tigerstyle-standards = tigerstyleStandards;
           tigerstyle-policy-export = policyExport;
@@ -549,6 +609,11 @@ MAIN
           cargo-tigerstyle = flake-utils.lib.mkApp {
             drv = cargoTigerstyle;
             exePath = "/bin/cargo-tigerstyle";
+          };
+
+          fingerprint-docs-downstream-smoke = flake-utils.lib.mkApp {
+            drv = fingerprintDocsDownstreamSmoke;
+            exePath = "/bin/tigerstyle-fingerprint-docs-downstream-smoke";
           };
 
           tigerstyle-standards = flake-utils.lib.mkApp {
@@ -604,6 +669,10 @@ MAIN
           fingerprintSourceScannerDocs = mkFingerprintDocsCheck
             "tigerstyle-fingerprint-source-scanner-docs"
             "fingerprint_source_scanner_docs_fixture_matches_transcript";
+          fingerprintDocsDownstreamSmokeCheck = pkgs.runCommand "tigerstyle-fingerprint-docs-downstream-smoke-check" { } ''
+            ${fingerprintDocsDownstreamSmoke}/bin/tigerstyle-fingerprint-docs-downstream-smoke
+            mkdir -p "$out"
+          '';
         in {
           inherit tigerstyle;
 
@@ -648,12 +717,15 @@ MAIN
           fingerprint-json-output-docs = fingerprintJsonOutputDocs;
           fingerprint-source-scanner-docs = fingerprintSourceScannerDocs;
 
+          fingerprint-docs-downstream-smoke = fingerprintDocsDownstreamSmokeCheck;
+
           docs-examples = pkgs.runCommand "tigerstyle-docs-examples" { } ''
             test -d ${fingerprintLifecycleDocs}
             test -d ${fingerprintHumanSummaryDocs}
             test -d ${fingerprintWarningSummaryDocs}
             test -d ${fingerprintJsonOutputDocs}
             test -d ${fingerprintSourceScannerDocs}
+            test -d ${fingerprintDocsDownstreamSmokeCheck}
             mkdir -p "$out"
           '';
 

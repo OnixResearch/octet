@@ -119,6 +119,9 @@ For complete checked-in transcripts, see:
 - [`docs/examples/function-fingerprint-source-scanner/transcript.md`](examples/function-fingerprint-source-scanner/transcript.md),
   which shows the source-scanner boundary for `macro_rules!` generated functions
   and the explicit wrapper pattern for reviewed generated-code edges.
+- [`docs/examples/function-fingerprint-downstream-smoke.md`](examples/function-fingerprint-downstream-smoke.md),
+  which documents the flake-backed scratch-consumer smoke over all checked
+  fingerprint docs fixtures.
 
 These examples are part of the contributor verification surface. When the
 fingerprint CLI output, marker rewrite behavior, human summary counts, or example
@@ -131,8 +134,9 @@ nix build .#checks.x86_64-linux.docs-examples --no-link -L
 That `docs-examples` Nix check is part of `nix flake check` and is the aggregate
 home for executable docs/examples regressions. It currently replays the documented
 fingerprint lifecycle, human-summary, warning-summary, JSON-output, and
-source-scanner-boundary flows; asserts the observed stdout appears in the
-checked-in transcripts; parses JSON payloads for script-facing field guarantees;
+source-scanner-boundary flows; runs the checked fixtures through a scratch
+consumer crate via `fingerprint-docs-downstream-smoke`; asserts the observed
+stdout appears in the checked-in transcripts; parses JSON payloads for script-facing field guarantees;
 and confirms repaired or updated scratch sources exactly match the checked-in
 `reviewed.rs` fixtures. For focused local debugging, run the narrower flake checks
 or underlying Cargo tests directly:
@@ -143,6 +147,7 @@ nix build .#checks.x86_64-linux.fingerprint-human-summary-docs --no-link -L
 nix build .#checks.x86_64-linux.fingerprint-warning-summary-docs --no-link -L
 nix build .#checks.x86_64-linux.fingerprint-json-output-docs --no-link -L
 nix build .#checks.x86_64-linux.fingerprint-source-scanner-docs --no-link -L
+nix build .#checks.x86_64-linux.fingerprint-docs-downstream-smoke --no-link -L
 nix develop -c bash -c 'cargo test -p cargo-tigerstyle --test fingerprint_consumer fingerprint_lifecycle_docs_fixture_matches_transcript -- --nocapture'
 nix develop -c bash -c 'cargo test -p cargo-tigerstyle --test fingerprint_consumer fingerprint_human_summary_docs_fixture_matches_transcript -- --nocapture'
 nix develop -c bash -c 'cargo test -p cargo-tigerstyle --test fingerprint_consumer fingerprint_warning_summary_docs_fixture_matches_transcript -- --nocapture'
