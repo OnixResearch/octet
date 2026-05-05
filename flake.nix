@@ -598,6 +598,9 @@ MAIN
           fingerprintWarningSummaryDocs = mkFingerprintDocsCheck
             "tigerstyle-fingerprint-warning-summary-docs"
             "fingerprint_warning_summary_docs_fixture_matches_transcript";
+          fingerprintJsonOutputDocs = mkFingerprintDocsCheck
+            "tigerstyle-fingerprint-json-output-docs"
+            "fingerprint_json_output_docs_fixture_matches_transcript";
         in {
           inherit tigerstyle;
 
@@ -639,11 +642,13 @@ MAIN
           fingerprint-lifecycle-docs = fingerprintLifecycleDocs;
           fingerprint-human-summary-docs = fingerprintHumanSummaryDocs;
           fingerprint-warning-summary-docs = fingerprintWarningSummaryDocs;
+          fingerprint-json-output-docs = fingerprintJsonOutputDocs;
 
           docs-examples = pkgs.runCommand "tigerstyle-docs-examples" { } ''
             test -d ${fingerprintLifecycleDocs}
             test -d ${fingerprintHumanSummaryDocs}
             test -d ${fingerprintWarningSummaryDocs}
+            test -d ${fingerprintJsonOutputDocs}
             mkdir -p "$out"
           '';
 
