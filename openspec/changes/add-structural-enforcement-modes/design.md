@@ -12,6 +12,7 @@ Relevant sibling references are useful but must not become implicit trust shortc
 
 **Goals:**
 - Add policy vocabulary for lint, gate, structural, verified, and human/oracle enforcement.
+- Define Nickel-typed policy, mechanism, evidence, suppression, proof-rail, and seed-manifest contracts with cross-field validation.
 - Specify how Tigerstyle validates structural Rust mechanisms and proof rails.
 - Specify safe vendoring of reference seeds from sibling repositories.
 - Keep implementation staged behind fixtures, manifests, and local verification.
@@ -37,7 +38,21 @@ Relevant sibling references are useful but must not become implicit trust shortc
 
 **Boundary cases:** Policies with weak static signal must stay `lint` or `human-oracle`; the design must not promote them just because structural vocabulary exists.
 
-### 2. Structural validation proves the claimed Rust mechanism exists
+### 2. Nickel is the typed policy authoring surface
+
+**Choice:** Put policy identity, enforcement modes, mechanism-specific obligations, evidence contracts, suppression schema, proof-rail metadata, and seed manifests in closed Nickel contracts. Export deterministic JSON/TOML for Rust tools to consume.
+
+**Covers:** Scenario: Closed Nickel policy contract rejects unknown fields; Scenario: Structural mode requires structural mechanism contract; Scenario: Verified mode requires proof rail contract; Scenario: Deny severity requires deterministic checker and evidence; Scenario: Crate boundary contract exports core and shell obligations; Scenario: Capability contract exports constructor authority; Scenario: Bounded and type-state contracts export API obligations; Scenario: Seed corpus contract exports provenance and role
+
+**Rationale:** Nickel gives typed configuration, defaults, merge semantics, contracts, and exportable machine data. That keeps policy intent reviewable and prevents Rust checkers from reconstructing enforcement intent from scattered prose or ad-hoc flags.
+
+**Alternative considered:** Encode the policy schema directly in Rust or TOML. Rust-only schemas are harder to review as policy, while TOML lacks contract-level cross-field validation such as `structural` requiring a structural mechanism or `verified` requiring proof rails.
+
+**Implementation:** Add `standards/policies/schema.ncl`, enforcement-mode enums, mechanism contracts, policy bundles, and export commands before adding checker behavior. Rust checkers consume the exported machine data and report policy IDs plus mechanism-specific failure kinds.
+
+**Boundary cases:** Nickel remains the policy/config layer, not the source analyzer. Source parsing, crate graph inspection, hash checking, proof execution, and machine-output generation stay in Rust.
+
+### 3. Structural validation proves the claimed Rust mechanism exists
 
 **Choice:** Structural enforcement requires concrete checks for crate graph, crate attributes, forbidden imports, approved capability constructors, bounded primitives, and type-state API surfaces.
 
@@ -51,7 +66,7 @@ Relevant sibling references are useful but must not become implicit trust shortc
 
 **Boundary cases:** Stable crates may require compatibility profiles instead of `#![no_std]`. Compatibility profiles must be explicit and fixture-backed rather than silently weakening structural claims.
 
-### 3. Verified enforcement requires local proof artifacts
+### 4. Verified enforcement requires local proof artifacts
 
 **Choice:** Verified mode requires an explicit backend, proof command, source/proof mapping, expected pass signal, and trust-boundary accounting.
 
@@ -65,7 +80,7 @@ Relevant sibling references are useful but must not become implicit trust shortc
 
 **Boundary cases:** Some imported verified modules may contain trusted crypto or parser boundaries. Those must be counted and reported, not hidden.
 
-### 4. Vendored seeds are manifest-gated and role-scoped
+### 5. Vendored seeds are manifest-gated and role-scoped
 
 **Choice:** Optional imports from `../vericoder-mvp/`, `../verified-logic/`, and `../ucan/` require a seed manifest with source commit, paths, hashes, license/provenance review, role, and local acceptance command.
 
@@ -94,6 +109,38 @@ Relevant sibling references are useful but must not become implicit trust shortc
   - policy schema implementation exists
 - cleanup / postcondition:
   - fixtures remain checked in and referenced by the policy registry tests
+
+- scenario or requirement:
+  - Scenario: Closed Nickel policy contract rejects unknown fields
+  - Scenario: Structural mode requires structural mechanism contract
+  - Scenario: Verified mode requires proof rail contract
+  - Scenario: Deny severity requires deterministic checker and evidence
+- artifact path:
+  - `openspec/changes/add-structural-enforcement-modes/evidence/nickel-policy-contracts.txt`
+- command / helper:
+  - future Nickel typecheck/export command over positive and negative policy fixtures
+- exact expected output / acceptance signal:
+  - valid fixtures export deterministic policy JSON/TOML; invalid fixtures fail with diagnostics for unknown fields, missing structural mechanisms, missing proof rails, and deny policies lacking checker/evidence contracts
+- ordering / prerequisites:
+  - `standards/policies/schema.ncl` and policy fixture files exist
+- cleanup / postcondition:
+  - exported artifacts are regenerated rather than hand-edited
+
+- scenario or requirement:
+  - Scenario: Crate boundary contract exports core and shell obligations
+  - Scenario: Capability contract exports constructor authority
+  - Scenario: Bounded and type-state contracts export API obligations
+  - Scenario: Seed corpus contract exports provenance and role
+- artifact path:
+  - `openspec/changes/add-structural-enforcement-modes/evidence/nickel-mechanism-contracts.txt`
+- command / helper:
+  - future Nickel export command over mechanism-specific policy fixtures
+- exact expected output / acceptance signal:
+  - exported records include the mechanism fields required by Rust checkers for crate boundaries, capabilities, bounded primitives, type-state protocols, proof rails, and seed corpora
+- ordering / prerequisites:
+  - mechanism contracts exist in Nickel
+- cleanup / postcondition:
+  - Rust checker fixtures consume exported machine data rather than raw `.ncl` snippets
 
 - scenario or requirement:
   - Scenario: No-std core boundary is enforced

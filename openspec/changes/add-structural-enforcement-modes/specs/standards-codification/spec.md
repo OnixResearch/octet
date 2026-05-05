@@ -20,6 +20,72 @@ Each mode declaration MUST name the checker or mechanism responsible for enforce
 - THEN the exported policy includes both current and target enforcement modes
 - AND it includes the fixture or proof evidence required before promotion
 
+### Requirement: Nickel Typed Policy Contracts [r[nickel-typed-policy-contracts]]
+
+The system MUST define Tiger Style policy configuration in Nickel with typed, closed contracts for policies, enforcement modes, mechanisms, evidence, suppressions, proof rails, and reference seed manifests.
+
+The Nickel source MUST be the authoring surface for policy intent and MUST export deterministic machine data consumed by Rust checkers; Rust checkers MUST NOT treat ad-hoc TOML, JSON, or CLI flags as the source of policy truth when a Nickel policy export exists.
+
+#### Scenario: Closed Nickel policy contract rejects unknown fields [r[nickel-typed-policy-contracts.scenario.closed-contract-rejects-unknown-fields]]
+
+- GIVEN a policy entry contains an undeclared field or misspelled enforcement mode
+- WHEN Nickel policy validation runs
+- THEN validation fails before source-code checkers run
+- AND the diagnostic names the invalid policy entry and field
+
+#### Scenario: Structural mode requires structural mechanism contract [r[nickel-typed-policy-contracts.scenario.structural-requires-mechanism]]
+
+- GIVEN a policy declares `current = 'structural`
+- WHEN Nickel cross-field validation evaluates the policy
+- THEN the policy is valid only if `mechanism.kind` is one of `crate_boundary`, `capability_api`, `bounded_primitive`, `typestate`, or `seed_corpus`
+- AND the required mechanism-specific contract fields are present
+
+#### Scenario: Verified mode requires proof rail contract [r[nickel-typed-policy-contracts.scenario.verified-requires-proof-rail]]
+
+- GIVEN a policy declares `current = 'verified`
+- WHEN Nickel cross-field validation evaluates the policy
+- THEN the policy is valid only if `mechanism.kind = 'proof_rail`
+- AND the proof backend, command, source paths, expected signal, and trust-boundary accounting are present
+
+#### Scenario: Deny severity requires deterministic checker and evidence [r[nickel-typed-policy-contracts.scenario.deny-requires-checker-evidence]]
+
+- GIVEN a policy declares `severity = 'deny`
+- WHEN Nickel cross-field validation evaluates the policy
+- THEN the policy is valid only if a deterministic checker command and expected evidence signal are configured
+- AND suppressions, when allowed, require policy ID, source section, owner, rationale, review trigger, and safer default metadata
+
+### Requirement: Nickel Mechanism Contracts [r[nickel-mechanism-contracts]]
+
+The system MUST define mechanism-specific Nickel contracts for crate boundaries, capability APIs, bounded primitives, type-state protocols, proof rails, and seed corpora.
+
+Mechanism contracts MUST include the fields needed by Rust checkers to validate the corresponding structural or verified claim without inferring policy intent from prose.
+
+#### Scenario: Crate boundary contract exports core and shell obligations [r[nickel-mechanism-contracts.scenario.crate-boundary-contract]]
+
+- GIVEN a policy uses `mechanism.kind = 'crate_boundary`
+- WHEN the Nickel export is generated
+- THEN the exported mechanism includes core crates, shell crates, no-std requirement, alloc allowance, forbidden core imports, forbidden core dependencies, and optional compatibility profile
+
+#### Scenario: Capability contract exports constructor authority [r[nickel-mechanism-contracts.scenario.capability-contract]]
+
+- GIVEN a policy uses `mechanism.kind = 'capability_api`
+- WHEN the Nickel export is generated
+- THEN the exported mechanism includes capability type names, approved constructor modules, forbidden constructor scopes, allowed injected value inputs, private-field requirement, and sealed-trait requirement
+
+#### Scenario: Bounded and type-state contracts export API obligations [r[nickel-mechanism-contracts.scenario.bounded-typestate-contracts]]
+
+- GIVEN policies use `mechanism.kind = 'bounded_primitive` and `mechanism.kind = 'typestate`
+- WHEN the Nickel export is generated
+- THEN bounded primitive exports include approved types, forbidden APIs, and capacity-witness requirements
+- AND type-state exports include state names, transitions, dangerous operations, required states, and raw-primitive API restrictions
+
+#### Scenario: Seed corpus contract exports provenance and role [r[nickel-mechanism-contracts.scenario.seed-corpus-contract]]
+
+- GIVEN a policy uses `mechanism.kind = 'seed_corpus`
+- WHEN the Nickel export is generated
+- THEN the exported seed contract includes source repo, source commit, selected paths, role, license review, provenance review, hash algorithm, hashes, local acceptance command, and expected signal
+- AND proof-relevant seeds require local proof or an explicit trust-boundary report before acceptance
+
 ### Requirement: Structural Mechanism Validation [r[structural-mechanism-validation]]
 
 The system MUST validate claimed structural enforcement mechanisms before accepting a policy as structurally enforced.
