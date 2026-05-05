@@ -12,6 +12,8 @@ use std::process::Stdio;
 use crate::cli::CheckArgs;
 use crate::cli::OutputFormat;
 use crate::config;
+use crate::determinism;
+use crate::determinism::RunMetadata;
 use crate::output;
 use crate::output::Finding;
 
@@ -77,6 +79,13 @@ pub fn run(check: CheckArgs) -> Result<i32, String> {
 
     let result = (|| {
         let toolchain = resolve_toolchain()?;
+        let run_metadata = determinism::build_run_metadata(determinism::MetadataInput {
+            workspace_root: &cfg.workspace_root,
+            toolchain: &toolchain,
+            scope_args: &scope_args,
+            cargo_check_args: &cargo_check_args,
+            output_format: check.output_format.as_str(),
+        });
         let driver = resolve_driver(&toolchain)?;
         let lint_lib = resolve_lint_lib(&toolchain)?;
         let dylint_libs = serde_json::to_string(&vec![lint_lib.path().to_owned()])
@@ -156,8 +165,9 @@ pub fn run(check: CheckArgs) -> Result<i32, String> {
 
         let cargo_process_exit =
             classify_cargo_process_exit(child.wait().map_err(|error| format!("wait for cargo check: {error}"))?);
+        canonicalize_findings(&mut findings);
         let base_outcome = output::RunOutcome::classify(&findings, cargo_process_exit);
-        let finalized_run = finalize_run(&check, &findings, &meta_map, base_outcome)?;
+        let finalized_run = finalize_run(&check, &findings, &meta_map, base_outcome, &run_metadata)?;
 
         if let Some(structured_output) = finalized_run.run_artifacts.structured_output.as_ref() {
             stdout_lock
@@ -193,10 +203,11 @@ fn build_run_artifacts(
     findings: &[Finding],
     meta_map: &std::collections::HashMap<&str, output::LintMeta>,
     outcome: &output::RunOutcome,
+    metadata: &RunMetadata,
 ) -> Result<RunArtifacts, String> {
-    let summary = output::render_summary(findings, outcome)?;
-    let status_json = output::render_status_json(outcome, check.output_format.as_str())?;
-    let structured_output = render_structured_output(check, findings, meta_map, outcome)?;
+    let summary = output::render_summary(findings, outcome, metadata)?;
+    let status_json = output::render_status_json(outcome, check.output_format.as_str(), metadata)?;
+    let structured_output = render_structured_output(check, findings, meta_map, outcome, metadata)?;
 
     Ok(RunArtifacts {
         summary,
@@ -210,13 +221,14 @@ fn finalize_run(
     findings: &[Finding],
     meta_map: &std::collections::HashMap<&str, output::LintMeta>,
     base_outcome: output::RunOutcome,
+    metadata: &RunMetadata,
 ) -> Result<FinalizedRun, String> {
     let terminated_error = terminated_run_error(&base_outcome);
 
     let Some(artifact_dir) = check.artifact_dir.as_deref() else {
         return Ok(FinalizedRun {
             outcome: base_outcome.clone(),
-            run_artifacts: build_run_artifacts(check, findings, meta_map, &base_outcome)?,
+            run_artifacts: build_run_artifacts(check, findings, meta_map, &base_outcome, metadata)?,
             error: terminated_error,
         });
     };
@@ -225,12 +237,12 @@ fn finalize_run(
         let final_outcome = base_outcome.force_integration_failure();
         return Ok(FinalizedRun {
             outcome: final_outcome.clone(),
-            run_artifacts: build_run_artifacts(check, findings, meta_map, &final_outcome)?,
+            run_artifacts: build_run_artifacts(check, findings, meta_map, &final_outcome, metadata)?,
             error: Some(combine_errors(error, terminated_error)),
         });
     }
 
-    let initial_artifacts = build_run_artifacts(check, findings, meta_map, &base_outcome)?;
+    let initial_artifacts = build_run_artifacts(check, findings, meta_map, &base_outcome, metadata)?;
     match write_run_artifacts(artifact_dir, &check.command_line, &initial_artifacts) {
         Ok(()) => Ok(FinalizedRun {
             outcome: base_outcome,
@@ -239,7 +251,7 @@ fn finalize_run(
         }),
         Err(error) => {
             let final_outcome = base_outcome.force_integration_failure();
-            let final_artifacts = build_run_artifacts(check, findings, meta_map, &final_outcome)?;
+            let final_artifacts = build_run_artifacts(check, findings, meta_map, &final_outcome, metadata)?;
             invalidate_failed_bundle_best_effort(artifact_dir, &final_artifacts);
             rewrite_status_sidecars_best_effort(artifact_dir, &check.command_line, &final_artifacts);
             Ok(FinalizedRun {
@@ -271,6 +283,7 @@ fn render_structured_output(
     findings: &[Finding],
     meta_map: &std::collections::HashMap<&str, output::LintMeta>,
     outcome: &output::RunOutcome,
+    metadata: &RunMetadata,
 ) -> Result<Option<StructuredArtifact>, String> {
     match check.output_format {
         OutputFormat::Human => Ok(None),
@@ -280,7 +293,7 @@ fn render_structured_output(
         })),
         OutputFormat::Sarif => Ok(Some(StructuredArtifact {
             file_name: SARIF_RESULTS_ARTIFACT_NAME,
-            contents: output::render_sarif(findings, meta_map, outcome, &check.command_line)?,
+            contents: output::render_sarif(findings, meta_map, outcome, &check.command_line, metadata)?,
         })),
     }
 }
@@ -371,6 +384,22 @@ fn classify_cargo_process_exit(status: std::process::ExitStatus) -> output::Carg
     }
 }
 
+fn canonicalize_findings(findings: &mut [Finding]) {
+    findings.sort_by(|left, right| {
+        left.file
+            .cmp(&right.file)
+            .then(left.crate_name.cmp(&right.crate_name))
+            .then(left.line.cmp(&right.line))
+            .then(left.column.cmp(&right.column))
+            .then(left.lint.cmp(&right.lint))
+            .then(left.stable_id.cmp(&right.stable_id))
+    });
+
+    for (offset, finding) in findings.iter_mut().enumerate() {
+        finding.index = format!("F{}", offset + 1);
+    }
+}
+
 fn normalize_lint_name(code: &str) -> String {
     code.strip_prefix("tigerstyle::").unwrap_or(code).to_owned()
 }
@@ -396,6 +425,7 @@ fn build_finding(index: usize, cargo_msg: &serde_json::Value, meta: &output::Lin
     Finding {
         version: output::finding_version(),
         index: format!("F{index}"),
+        stable_id: determinism::stable_finding_id(&lint_name, &file, &crate_name, &msg_text, suggestion.as_deref()),
         lint: lint_name.to_owned(),
         group: meta.group.to_owned(),
         severity,

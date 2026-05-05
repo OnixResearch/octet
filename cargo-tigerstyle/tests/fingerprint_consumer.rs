@@ -305,6 +305,42 @@ fn assert_transcript_contains_stdout(transcript: &str, stdout: &[u8], label: &st
 }
 
 #[test]
+fn fingerprint_review_manifest_is_stable_and_sorted() {
+    let temp = tempfile::tempdir().expect("create tempdir");
+    write_consumer_fixture(temp.path());
+    let manifest = temp.path().join("review-manifest.json");
+
+    let output = Command::new(cargo_tigerstyle())
+        .args([
+            "fingerprint",
+            "--check",
+            "--review-manifest",
+            manifest.to_str().expect("manifest path utf8"),
+            "src/lib.rs",
+        ])
+        .current_dir(temp.path())
+        .output()
+        .expect("run fingerprint review manifest");
+    assert!(!output.status.success(), "zero hashes should require review/update");
+
+    let json: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(&manifest).expect("read manifest")).expect("parse manifest");
+    assert_eq!(json["schema_version"], 1);
+    assert_eq!(json["tool_name"], "cargo-tigerstyle");
+    assert_eq!(json["mode"], "check");
+    assert!(json["manifest_hash"].as_str().expect("manifest hash").starts_with("b3:"));
+
+    let records = json["records"].as_array().expect("records array");
+    assert_eq!(records.len(), 2);
+    assert_eq!(records[0]["name"], "checked_add_one");
+    assert_eq!(records[1]["name"], "rendered");
+    for record in records {
+        assert!(record["stable_id"].as_str().expect("stable id").starts_with("b3:"));
+        assert_eq!(record["requires_review"], true);
+    }
+}
+
+#[test]
 fn fingerprint_human_summary_docs_fixture_matches_transcript() {
     let root = repo_root();
     let docs_dir = root.join("docs/examples/function-fingerprint-human-summary");

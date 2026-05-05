@@ -7,6 +7,7 @@ use serde::Serialize;
 use crate::cli::FingerprintArgs;
 use crate::cli::FingerprintMode;
 use crate::cli::OutputFormat;
+use crate::determinism;
 
 const HASH_PREFIX: &str = "b3:";
 const COMMENT_MARKER: &str = "// tigerstyle-fingerprint:";
@@ -44,6 +45,31 @@ struct FingerprintReport {
     records: Vec<FunctionRecord>,
 }
 
+#[derive(Debug, Serialize)]
+struct FingerprintReviewManifest {
+    schema_version: u32,
+    tool_name: &'static str,
+    tool_version: &'static str,
+    mode: &'static str,
+    input_paths: Vec<String>,
+    manifest_hash: String,
+    records: Vec<ReviewManifestRecord>,
+}
+
+#[derive(Debug, Serialize)]
+struct ReviewManifestRecord {
+    stable_id: String,
+    path: String,
+    name: String,
+    status: FingerprintStatus,
+    stored_hash: Option<String>,
+    computed_hash: String,
+    review: Option<String>,
+    evidence: Option<String>,
+    requires_review: bool,
+    macro_warning: bool,
+}
+
 #[derive(Debug, Clone)]
 struct FunctionSpan {
     name: String,
@@ -69,6 +95,7 @@ pub fn run(args: FingerprintArgs) -> Result<i32, String> {
     } else {
         args.paths.clone()
     };
+    let input_paths: Vec<String> = paths.iter().map(|path| determinism::normalize_path(path)).collect();
     let mut files = Vec::new();
     for path in paths {
         collect_rust_files(&path, &mut files)?;
@@ -148,6 +175,9 @@ pub fn run(args: FingerprintArgs) -> Result<i32, String> {
         mode: mode_name(args.mode),
         records,
     };
+    if let Some(path) = args.review_manifest.as_deref() {
+        write_review_manifest(path, &report, input_paths)?;
+    }
     match args.output_format {
         OutputFormat::Human => print_human(&report),
         OutputFormat::Json => println!("{}", serde_json::to_string_pretty(&report).map_err(|error| error.to_string())?),
@@ -162,6 +192,61 @@ pub fn run(args: FingerprintArgs) -> Result<i32, String> {
                 || record.evidence.is_none())
     });
     Ok(if failing { 1 } else { 0 })
+}
+
+fn write_review_manifest(path: &Path, report: &FingerprintReport, input_paths: Vec<String>) -> Result<(), String> {
+    let mut records: Vec<ReviewManifestRecord> = report
+        .records
+        .iter()
+        .map(|record| ReviewManifestRecord {
+            stable_id: fingerprint_record_stable_id(record),
+            path: record.path.clone(),
+            name: record.name.clone(),
+            status: record.status,
+            stored_hash: record.stored_hash.clone(),
+            computed_hash: record.computed_hash.clone(),
+            review: record.review.clone(),
+            evidence: record.evidence.clone(),
+            requires_review: record.status != FingerprintStatus::Match
+                || record.review.is_none()
+                || record.evidence.is_none()
+                || record.macro_warning,
+            macro_warning: record.macro_warning,
+        })
+        .collect();
+    records.sort_by(|left, right| {
+        left.path
+            .cmp(&right.path)
+            .then(left.name.cmp(&right.name))
+            .then(left.stable_id.cmp(&right.stable_id))
+    });
+
+    let hash_payload = serde_json::json!({
+        "mode": report.mode,
+        "input_paths": &input_paths,
+        "records": &records,
+    });
+    let manifest = FingerprintReviewManifest {
+        schema_version: 1,
+        tool_name: "cargo-tigerstyle",
+        tool_version: env!("CARGO_PKG_VERSION"),
+        mode: report.mode,
+        input_paths,
+        manifest_hash: determinism::full_hash(&hash_payload.to_string()),
+        records,
+    };
+    let contents =
+        serde_json::to_string_pretty(&manifest).map_err(|error| format!("write review manifest JSON: {error}"))?;
+    fs::write(path, format!("{contents}\n")).map_err(|error| format!("write {}: {error}", path.display()))
+}
+
+fn fingerprint_record_stable_id(record: &FunctionRecord) -> String {
+    determinism::short_hash(&format!(
+        "path={}\nname={}\ncomputed_hash={}\n",
+        determinism::normalize_path_text(&record.path),
+        record.name,
+        record.computed_hash
+    ))
 }
 
 fn collect_rust_files(path: &Path, files: &mut Vec<PathBuf>) -> Result<(), String> {

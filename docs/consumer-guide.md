@@ -107,7 +107,7 @@ Exit codes are stable for automation:
 - `1` error-level lint findings
 - `2` integration/configuration failures, including underlying `cargo check` failures
 
-When `--artifact-dir` is set, the runner writes `command.txt`, `status.json`, `summary.txt`, and the selected structured-output mirror (`results.jsonl` or `results.sarif`). `status.json` and SARIF run properties carry the same run classification and count fields, so downstream tools do not need to scrape stderr.
+When `--artifact-dir` is set, the runner writes `command.txt`, `status.json`, `summary.txt`, and the selected structured-output mirror (`results.jsonl` or `results.sarif`). JSON findings carry a stable `stable_id`, and `status.json`, SARIF run properties, and stderr summaries include replay metadata such as the toolchain plus config/profile hashes. Downstream tools can compare runs without scraping ambient stderr.
 
 ### 4. Tune rollout controls in `dylint.toml`
 
