@@ -58,6 +58,44 @@ mod tests {
     .expect("write lib.rs");
 }
 
+fn write_macro_generated_fixture(root: &Path) {
+    let src_dir = root.join("src");
+    fs::create_dir_all(&src_dir).expect("create src dir");
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"fingerprint-macro-generated-smoke\"\nversion = \"0.1.0\"\nedition = \"2024\"\n",
+    )
+    .expect("write Cargo.toml");
+    fs::write(
+        src_dir.join("lib.rs"),
+        r#"macro_rules! define_parametric {
+    ($name:ident) => {
+        pub fn $name(input: u32) -> u32 {
+            input + 1
+        }
+    };
+}
+
+macro_rules! define_literal {
+    () => {
+        pub fn literal_generated() -> u32 {
+            7
+        }
+    };
+}
+
+define_parametric!(generated_checked);
+define_literal!();
+
+// tigerstyle-fingerprint: b3:0; review=explicit-wrapper; evidence=evidence/wrapper; macro=allow
+pub fn explicit_wrapper(input: u32) -> u32 {
+    generated_checked(input)
+}
+"#,
+    )
+    .expect("write lib.rs");
+}
+
 #[test]
 fn fingerprint_write_then_check_works_for_external_crate_file() {
     let temp = tempfile::tempdir().expect("create tempdir");
@@ -112,4 +150,35 @@ fn fingerprint_update_then_check_only_tracks_marked_functions() {
     assert_eq!(records[0]["name"], "checked_age");
     assert_eq!(records[0]["status"], "match");
     assert_eq!(records[0]["macro_warning"], false);
+}
+
+#[test]
+fn fingerprint_write_skips_functions_inside_macro_rules_definitions() {
+    let temp = tempfile::tempdir().expect("create tempdir");
+    write_macro_generated_fixture(temp.path());
+    let fixture = temp.path().join("src/lib.rs");
+
+    let write = Command::new(cargo_tigerstyle())
+        .args(["fingerprint", "--write", "--output-format=json"])
+        .arg(&fixture)
+        .output()
+        .expect("run fingerprint write");
+    assert!(write.status.success(), "write stderr: {}", String::from_utf8_lossy(&write.stderr));
+
+    let json: serde_json::Value = serde_json::from_slice(&write.stdout).expect("json output");
+    let records = json["records"].as_array().expect("records array");
+    assert_eq!(records.len(), 1);
+    assert_eq!(records[0]["name"], "explicit_wrapper");
+    assert_eq!(records[0]["status"], "written");
+
+    let updated = fs::read_to_string(&fixture).expect("read updated fixture");
+    assert!(!updated.contains("review=TODO"));
+    assert_eq!(updated.matches("tigerstyle-fingerprint").count(), 1);
+
+    let check = Command::new(cargo_tigerstyle())
+        .args(["fingerprint", "--check", "--output-format=json"])
+        .arg(&fixture)
+        .output()
+        .expect("run fingerprint check");
+    assert!(check.status.success(), "check stderr: {}", String::from_utf8_lossy(&check.stderr));
 }

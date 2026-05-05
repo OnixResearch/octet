@@ -187,6 +187,7 @@ fn collect_rust_files(path: &Path, files: &mut Vec<PathBuf>) -> Result<(), Strin
 fn find_functions(source: &str) -> Vec<FunctionSpan> {
     let mut spans = Vec::new();
     let bytes = source.as_bytes();
+    let macro_rules_ranges = macro_rules_ranges(source);
     let mut cursor = 0;
     while let Some(relative) = source[cursor..].find("fn ") {
         let fn_pos = cursor + relative;
@@ -194,7 +195,15 @@ fn find_functions(source: &str) -> Vec<FunctionSpan> {
             cursor = fn_pos + 3;
             continue;
         }
+        if macro_rules_ranges.iter().any(|(start, end)| (*start..*end).contains(&fn_pos)) {
+            cursor = fn_pos + 3;
+            continue;
+        }
         let name_start = fn_pos + 3;
+        if !source[name_start..].chars().next().is_some_and(is_ident) {
+            cursor = name_start;
+            continue;
+        }
         let Some(name_end) = source[name_start..].find(|c: char| !is_ident(c)).map(|offset| name_start + offset) else {
             break;
         };
@@ -223,6 +232,23 @@ fn find_functions(source: &str) -> Vec<FunctionSpan> {
         cursor = end;
     }
     spans
+}
+
+fn macro_rules_ranges(source: &str) -> Vec<(usize, usize)> {
+    let mut ranges = Vec::new();
+    let mut cursor = 0;
+    while let Some(relative) = source[cursor..].find("macro_rules!") {
+        let macro_start = cursor + relative;
+        let Some(open_brace) = source[macro_start..].find('{').map(|offset| macro_start + offset) else {
+            break;
+        };
+        let Some(end) = matching_brace(source, open_brace) else {
+            break;
+        };
+        ranges.push((macro_start, end));
+        cursor = end;
+    }
+    ranges
 }
 
 fn function_item_start(source: &str, fn_pos: usize) -> usize {
@@ -498,6 +524,23 @@ mod tests {
         assert!(contains_macro_call("{ path::macro_name! { value } }"));
         assert!(!contains_macro_call("{ if !is_ready && value != 0 { return true; } }"));
         assert!(!contains_macro_call("{ let message = \"not a macro!\"; }"));
+    }
+
+    #[test]
+    fn macro_generated_functions_are_not_source_fingerprinted() {
+        let source = "macro_rules! define_checked {\n    ($name:ident) => {\n        pub fn $name(input: u32) -> u32 { input + 1 }\n    };\n}\n\ndefine_checked!(generated_checked);\n\n// tigerstyle-fingerprint: b3:abc; review=R; evidence=E\npub fn explicit_wrapper(input: u32) -> u32 { generated_checked(input) }\n";
+        let functions = find_functions(source);
+        assert_eq!(functions.len(), 1);
+        assert_eq!(functions[0].name, "explicit_wrapper");
+        assert!(functions[0].marker.is_some());
+    }
+
+    #[test]
+    fn literal_functions_inside_macro_rules_are_not_source_fingerprinted() {
+        let source = "macro_rules! define_literal {\n    () => {\n        pub fn generated_literal() -> u32 { 1 }\n    };\n}\n\npub fn explicit_function() -> u32 { 2 }\n";
+        let functions = find_functions(source);
+        assert_eq!(functions.len(), 1);
+        assert_eq!(functions[0].name, "explicit_function");
     }
 
     #[test]
