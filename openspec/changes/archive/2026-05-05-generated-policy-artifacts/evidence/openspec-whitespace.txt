@@ -1,0 +1,3 @@
+$ openspec validate generated-policy-artifacts --strict
+Change 'generated-policy-artifacts' is valid
+$ git diff --check

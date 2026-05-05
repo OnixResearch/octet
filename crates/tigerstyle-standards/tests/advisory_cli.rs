@@ -23,6 +23,9 @@ const PUBLIC_API_BUDGET_POLICY_ID: &str = "tigerstyle.architecture.public-api-bu
 const ARCHITECTURE_FAMILY: &str = "architecture";
 const CHECKER_ID: &str = "tigerstyle-standards";
 const REGISTRY_FILE_NAME: &str = "registry.json";
+const POLICIES_JSON_FILE: &str = "tigerstyle-policies.json";
+const CHECK_CONFIG_TOML_FILE: &str = "tigerstyle-check-config.toml";
+const SEED_MANIFESTS_JSON_FILE: &str = "tigerstyle-seed-manifests.json";
 const ADVISORY_FIXTURE: &str = "standards/check-fixtures/architecture/advisory/public-api-budget";
 const HARD_FAILURE_FIXTURE: &str = "standards/check-fixtures/architecture/noncompliant/missing-no-std";
 
@@ -62,11 +65,57 @@ fn hard_policy_cli_report_exits_with_failure() {
     );
 }
 
+#[test]
+fn exported_policy_artifacts_drive_checker() {
+    let temp = TempDir::new().expect("temp dir should be created");
+    let registry = write_registry(&temp);
+    let artifact_dir = temp.path().join("generated");
+
+    let export = Command::new(binary_path())
+        .arg("export-artifacts")
+        .arg("--registry")
+        .arg(&registry)
+        .arg("--out-dir")
+        .arg(&artifact_dir)
+        .output()
+        .expect("artifact export should run");
+    assert_success(&export);
+
+    assert!(artifact_dir.join(POLICIES_JSON_FILE).is_file());
+    assert!(artifact_dir.join(CHECK_CONFIG_TOML_FILE).is_file());
+    assert!(artifact_dir.join(SEED_MANIFESTS_JSON_FILE).is_file());
+
+    let config =
+        std::fs::read_to_string(artifact_dir.join(CHECK_CONFIG_TOML_FILE)).expect("check config should be readable");
+    assert!(config.contains("hard_policy_ids"));
+    assert!(config.contains(FCIS_POLICY_ID));
+
+    let output = run_architecture_artifact_check(&artifact_dir, &repo_path(HARD_FAILURE_FIXTURE));
+    assert_failure(&output);
+    let report = parse_report(&output);
+    assert!(report.has_blocking_diagnostics());
+}
+
 fn run_architecture_check(registry: &Path, source: &Path) -> Output {
     Command::new(binary_path())
         .arg("check")
         .arg("--registry")
         .arg(registry)
+        .arg("--source")
+        .arg(source)
+        .arg("--family")
+        .arg(ARCHITECTURE_FAMILY)
+        .arg("--output")
+        .arg("json")
+        .output()
+        .expect("standards checker should run")
+}
+
+fn run_architecture_artifact_check(policy_artifacts_dir: &Path, source: &Path) -> Output {
+    Command::new(binary_path())
+        .arg("check")
+        .arg("--policy-artifacts-dir")
+        .arg(policy_artifacts_dir)
         .arg("--source")
         .arg(source)
         .arg("--family")

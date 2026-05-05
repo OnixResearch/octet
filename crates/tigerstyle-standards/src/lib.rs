@@ -6,6 +6,7 @@
 //! Functional core for the Tiger Style policy checker.
 
 pub mod architecture;
+pub mod artifacts;
 pub mod diagnostic;
 pub mod fixture;
 pub mod model;
