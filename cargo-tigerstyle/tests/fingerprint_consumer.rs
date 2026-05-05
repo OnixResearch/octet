@@ -363,4 +363,42 @@ fn fingerprint_check_reports_single_directory_drift() {
     assert!(records.iter().all(|record| !record["review"].is_null()));
     assert!(records.iter().all(|record| !record["evidence"].is_null()));
     assert!(records.iter().all(|record| record["macro_warning"] == false));
+
+    let repair = Command::new(cargo_tigerstyle())
+        .args(["fingerprint", "--update", "--output-format=json"])
+        .arg(temp.path())
+        .output()
+        .expect("run fingerprint repair update");
+    assert!(repair.status.success(), "repair stderr: {}", String::from_utf8_lossy(&repair.stderr));
+
+    let repair_json: serde_json::Value = serde_json::from_slice(&repair.stdout).expect("repair json output");
+    let repair_records = repair_json["records"].as_array().expect("repair records array");
+    assert_eq!(repair_records.len(), 6);
+    let written = repair_records.iter().filter(|record| record["status"] == "written").collect::<Vec<_>>();
+    assert_eq!(written.len(), 1);
+    assert_eq!(written[0]["name"], "root_plain");
+    assert!(repair_records.iter().all(|record| record["status"] == "match" || record["status"] == "written"));
+
+    let repaired_check = Command::new(cargo_tigerstyle())
+        .args(["fingerprint", "--check", "--output-format=json"])
+        .arg(temp.path())
+        .output()
+        .expect("run repaired fingerprint check");
+    assert!(
+        repaired_check.status.success(),
+        "repaired check stderr: {}",
+        String::from_utf8_lossy(&repaired_check.stderr)
+    );
+    assert_directory_records(
+        &repaired_check.stdout,
+        &BTreeSet::from([
+            "attributed_nested",
+            "explicit_test_helper",
+            "nested_test_helper",
+            "read_value",
+            "root_plain",
+            "root_with_macro",
+        ]),
+        "match",
+    );
 }
