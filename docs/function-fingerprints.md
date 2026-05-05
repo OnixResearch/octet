@@ -112,12 +112,18 @@ fingerprint CLI output, marker rewrite behavior, or lifecycle transcript changes
 run the focused regression before review:
 
 ```bash
-nix develop -c bash -c 'cargo test -p cargo-tigerstyle --test fingerprint_consumer fingerprint_lifecycle_docs_fixture_matches_transcript -- --nocapture'
+nix build .#checks.x86_64-linux.fingerprint-lifecycle-docs --no-link -L
 ```
 
-That test replays the documented update/check/diff/update/check flow, asserts the
-observed stdout appears in the checked-in transcript, and confirms the repaired
-scratch source exactly matches `docs/examples/function-fingerprint-lifecycle/reviewed.rs`.
+That Nix check is part of `nix flake check`. It replays the documented
+update/check/diff/update/check flow, asserts the observed stdout appears in the
+checked-in transcript, and confirms the repaired scratch source exactly matches
+`docs/examples/function-fingerprint-lifecycle/reviewed.rs`. For focused local
+debugging, run the underlying Cargo test directly:
+
+```bash
+nix develop -c bash -c 'cargo test -p cargo-tigerstyle --test fingerprint_consumer fingerprint_lifecycle_docs_fixture_matches_transcript -- --nocapture'
+```
 
 ## JSON output
 

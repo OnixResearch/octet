@@ -50,10 +50,10 @@ fn self_type_is_public_local(cx: &LateContext<'_>, self_ty: &hir::Ty<'_>) -> boo
 fn target_type<'tcx>(cx: &LateContext<'tcx>, impl_block: &hir::Impl<'tcx>) -> Option<&'tcx hir::Ty<'tcx>> {
     for item_id in impl_block.items {
         let impl_item = cx.tcx.hir_expect_impl_item(item_id.owner_id.def_id);
-        if impl_item.ident.name == sym::Target {
-            if let hir::ImplItemKind::Type(ty) = impl_item.kind {
-                return Some(ty);
-            }
+        if impl_item.ident.name == sym::Target
+            && let hir::ImplItemKind::Type(ty) = impl_item.kind
+        {
+            return Some(ty);
         }
     }
     None
