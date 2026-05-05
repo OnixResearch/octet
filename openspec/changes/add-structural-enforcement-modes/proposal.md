@@ -5,6 +5,7 @@ Tigerstyle can already observe violations with lints and hard-gate them in CI, b
 ## What Changes
 
 - Add an enforcement-mode model for policies: lint, gate, structural, verified, and human/oracle.
+- Define the Nickel-typed policy contracts for enforcement modes, mechanisms, evidence, suppressions, and seed manifests before Rust checkers consume exported machine data.
 - Require `cargo-tigerstyle`/standards tooling to validate structural claims such as no-std core crates, shell-only effects, approved capabilities, bounded primitives, type-state protocols, and Verus proof rails.
 - Define vendored seed-corpus rules for importing examples or reusable code from `../vericoder-mvp/`, `../verified-logic/`, and `../ucan/` only after provenance, hashes, licensing, and local verification are recorded.
 
@@ -23,8 +24,8 @@ Tigerstyle can already observe violations with lints and hard-gate them in CI, b
 
 ### Modified Capabilities
 
-- `tigerstyle-policy-registry`: policy entries gain current/target enforcement mode and accepted mechanism metadata.
-- `tigerstyle-standards`: standards checks can fail when a project claims structural or verified enforcement but the crate graph, API shape, or proof evidence is missing.
+- `tigerstyle-policy-registry`: policy entries gain current/target enforcement mode, typed Nickel contracts, cross-field validation, and accepted mechanism metadata.
+- `tigerstyle-standards`: standards checks can fail when a project claims structural or verified enforcement but the Nickel config, crate graph, API shape, or proof evidence is missing.
 
 ## Impact
 
