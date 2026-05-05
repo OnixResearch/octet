@@ -100,7 +100,7 @@ Relevant sibling references are useful but must not become implicit trust shortc
   - Scenario: Lint-only policy remains explicit
   - Scenario: Target mode stronger than current mode records escalation
 - artifact path:
-  - `openspec/changes/add-structural-enforcement-modes/evidence/policy-mode-schema.txt`
+  - `openspec/changes/archive/2026-05-05-add-structural-enforcement-modes/evidence/policy-mode-schema.txt`
 - command / helper:
   - future policy validation command over positive/negative policy fixtures
 - exact expected output / acceptance signal:
@@ -116,7 +116,7 @@ Relevant sibling references are useful but must not become implicit trust shortc
   - Scenario: Verified mode requires proof rail contract
   - Scenario: Deny severity requires deterministic checker and evidence
 - artifact path:
-  - `openspec/changes/add-structural-enforcement-modes/evidence/nickel-policy-contracts.txt`
+  - `openspec/changes/archive/2026-05-05-add-structural-enforcement-modes/evidence/nickel-policy-contracts.txt`
 - command / helper:
   - future Nickel typecheck/export command over positive and negative policy fixtures
 - exact expected output / acceptance signal:
@@ -132,7 +132,7 @@ Relevant sibling references are useful but must not become implicit trust shortc
   - Scenario: Bounded and type-state contracts export API obligations
   - Scenario: Seed corpus contract exports provenance and role
 - artifact path:
-  - `openspec/changes/add-structural-enforcement-modes/evidence/nickel-mechanism-contracts.txt`
+  - `openspec/changes/archive/2026-05-05-add-structural-enforcement-modes/evidence/nickel-mechanism-contracts.txt`
 - command / helper:
   - future Nickel export command over mechanism-specific policy fixtures
 - exact expected output / acceptance signal:
@@ -147,7 +147,7 @@ Relevant sibling references are useful but must not become implicit trust shortc
   - Scenario: Shell-to-core dependency direction is enforced
   - Scenario: UCAN seed demonstrates core-shell vendoring shape
 - artifact path:
-  - `openspec/changes/add-structural-enforcement-modes/evidence/core-shell-structural-fixtures.txt`
+  - `openspec/changes/archive/2026-05-05-add-structural-enforcement-modes/evidence/core-shell-structural-fixtures.txt`
 - command / helper:
   - future structural checker over positive UCAN-style and negative ambient-effect fixtures
 - exact expected output / acceptance signal:
@@ -161,7 +161,7 @@ Relevant sibling references are useful but must not become implicit trust shortc
   - Scenario: Verified policy requires proof command
   - Scenario: Verified-logic seed requires local proof boundary
 - artifact path:
-  - `openspec/changes/add-structural-enforcement-modes/evidence/verified-seed-proof-rail.txt`
+  - `openspec/changes/archive/2026-05-05-add-structural-enforcement-modes/evidence/verified-seed-proof-rail.txt`
 - command / helper:
   - future proof-rail validation over verified seed manifest and local proof command transcript
 - exact expected output / acceptance signal:
