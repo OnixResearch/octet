@@ -567,7 +567,28 @@ MAIN
           };
         };
 
-        checks = {
+        checks = let
+          fingerprintLifecycleDocs = craneLib.buildPackage {
+            inherit src cargoArtifacts buildInputs;
+            cargoToml = ./Cargo.toml;
+            pname = "tigerstyle-fingerprint-lifecycle-docs";
+            version = "0.1.0";
+            nativeBuildInputs = checkNativeBuildInputs;
+            cargoExtraArgs = "-p cargo-tigerstyle";
+            doNotPostBuildInstallCargoBinaries = true;
+            buildPhaseCargoCommand = ":";
+            cargoTestExtraArgs = "--test fingerprint_consumer fingerprint_lifecycle_docs_fixture_matches_transcript -- --nocapture";
+            installPhaseCommand = ''
+              mkdir -p "$out"
+            '';
+            LD_LIBRARY_PATH = rustToolchainLibPath;
+            RUSTUP_TOOLCHAIN = rustupToolchain;
+            preCheck = ''
+              export PATH="${dylintShimPath}:$PATH"
+              export CARGO_TIGERSTYLE_BIN="${cargoTigerstyleUnwrapped}/bin/cargo-tigerstyle"
+            '';
+          };
+        in {
           inherit tigerstyle;
 
           nextest = craneLib.cargoNextest {
@@ -605,26 +626,12 @@ MAIN
             '';
           };
 
-          fingerprint-lifecycle-docs = craneLib.buildPackage {
-            inherit src cargoArtifacts buildInputs;
-            cargoToml = ./Cargo.toml;
-            pname = "tigerstyle-fingerprint-lifecycle-docs";
-            version = "0.1.0";
-            nativeBuildInputs = checkNativeBuildInputs;
-            cargoExtraArgs = "-p cargo-tigerstyle";
-            doNotPostBuildInstallCargoBinaries = true;
-            buildPhaseCargoCommand = ":";
-            cargoTestExtraArgs = "--test fingerprint_consumer fingerprint_lifecycle_docs_fixture_matches_transcript -- --nocapture";
-            installPhaseCommand = ''
-              mkdir -p "$out"
-            '';
-            LD_LIBRARY_PATH = rustToolchainLibPath;
-            RUSTUP_TOOLCHAIN = rustupToolchain;
-            preCheck = ''
-              export PATH="${dylintShimPath}:$PATH"
-              export CARGO_TIGERSTYLE_BIN="${cargoTigerstyleUnwrapped}/bin/cargo-tigerstyle"
-            '';
-          };
+          fingerprint-lifecycle-docs = fingerprintLifecycleDocs;
+
+          docs-examples = pkgs.runCommand "tigerstyle-docs-examples" { } ''
+            test -d ${fingerprintLifecycleDocs}
+            mkdir -p "$out"
+          '';
 
           clippy = craneLib.cargoClippy {
             inherit src cargoArtifacts nativeBuildInputs buildInputs;

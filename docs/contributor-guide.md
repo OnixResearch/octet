@@ -209,6 +209,7 @@ Useful doc-facing spot checks:
 
 ```bash
 nix develop -c bash -c 'cargo test --test consumer_integration downstream_rollout_docs_point_to_first_class_cli_path -- --nocapture'
+nix build .#checks.x86_64-linux.docs-examples --no-link -L
 nix build .#checks.x86_64-linux.fingerprint-lifecycle-docs --no-link -L
 nix develop -c bash -c 'cargo test -p cargo-tigerstyle --test fingerprint_consumer fingerprint_lifecycle_docs_fixture_matches_transcript -- --nocapture'
 rg -n "cargo tigerstyle check|cargo-tigerstyle|tigerstyle::|\[tigerstyle\]|\[workspace.metadata.tigerstyle\]" README.md docs/*.md
@@ -216,10 +217,11 @@ rg -n "cargo tigerstyle check|cargo-tigerstyle|tigerstyle::|\[tigerstyle\]|\[wor
 
 Run the fingerprint lifecycle regression whenever `cargo tigerstyle fingerprint`
 output, marker rewrite behavior, or
-`docs/examples/function-fingerprint-lifecycle/` changes. Prefer the Nix check
-because it is part of `nix flake check`; the direct Cargo command is the focused
-local debug path. The check keeps the fixture and transcript synchronized with
-the CLI behavior contributors see in CI.
+`docs/examples/function-fingerprint-lifecycle/` changes. Prefer `docs-examples`
+because it is part of `nix flake check` and is the aggregate home for executable
+docs examples; use `fingerprint-lifecycle-docs` or the direct Cargo command only
+as focused local debug paths. The check keeps the fixture and transcript
+synchronized with the CLI behavior contributors see in CI.
 
 ## OpenSpec touchpoints
 
