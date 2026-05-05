@@ -30,6 +30,8 @@ pub struct CheckArgs {
     pub cargo_check_args: Option<Vec<String>>,
     pub output_format: OutputFormat,
     pub artifact_dir: Option<PathBuf>,
+    pub baseline: Option<PathBuf>,
+    pub write_baseline: Option<PathBuf>,
     pub command_line: String,
 }
 
@@ -81,6 +83,8 @@ fn parse_check(args: &[String], command_line: String) -> Result<CheckArgs, Strin
     let mut cargo_check_args = None;
     let mut output_format = OutputFormat::Human;
     let mut artifact_dir = None;
+    let mut baseline = None;
+    let mut write_baseline = None;
     let mut index = 0;
 
     while index < args.len() {
@@ -104,6 +108,20 @@ fn parse_check(args: &[String], command_line: String) -> Result<CheckArgs, Strin
         } else if let Some(value) = arg.strip_prefix("--artifact-dir=") {
             artifact_dir = Some(PathBuf::from(value));
             index += 1;
+        } else if arg == "--baseline" {
+            let value = args.get(index + 1).ok_or_else(|| "missing value after `--baseline`".to_owned())?;
+            baseline = Some(PathBuf::from(value));
+            index += 2;
+        } else if let Some(value) = arg.strip_prefix("--baseline=") {
+            baseline = Some(PathBuf::from(value));
+            index += 1;
+        } else if arg == "--write-baseline" {
+            let value = args.get(index + 1).ok_or_else(|| "missing value after `--write-baseline`".to_owned())?;
+            write_baseline = Some(PathBuf::from(value));
+            index += 2;
+        } else if let Some(value) = arg.strip_prefix("--write-baseline=") {
+            write_baseline = Some(PathBuf::from(value));
+            index += 1;
         } else {
             match arg.as_str() {
                 "-p" | "--package" | "--exclude" => {
@@ -126,6 +144,8 @@ fn parse_check(args: &[String], command_line: String) -> Result<CheckArgs, Strin
         cargo_check_args,
         output_format,
         artifact_dir,
+        baseline,
+        write_baseline,
         command_line,
     })
 }
