@@ -3,6 +3,8 @@
 use crate::diagnostic::Diagnostic;
 use crate::diagnostic::DiagnosticInput;
 use crate::model::FamilySelection;
+use crate::model::Mechanism;
+use crate::model::MechanismKind;
 use crate::model::PolicyEntry;
 use crate::model::PolicyRegistry;
 use crate::source::SourceFile;
@@ -37,13 +39,16 @@ const CORE_FORBIDDEN_DEPENDENCIES: &[&str] = &[
     "tigerstyle-std",
 ];
 const CORE_CRATE_DEPENDENCY: &str = "tigerstyle-core";
-const AMBIENT_CAPABILITY_PATTERNS: &[&str] = &[
+const FALLBACK_AMBIENT_CAPABILITY_PATTERNS: &[&str] = &[
     "std::env::",
     "std::fs::",
     "std::net::",
+    "std::process::",
     "SystemTime::now(",
+    "Instant::now(",
     "File::open(",
 ];
+const FALLBACK_CORE_SOURCE_SCOPES: &[&str] = &[CORE_RUST_PATH_SEGMENT];
 const RAW_TYPE_STATE_PATTERNS: &[&str] = &[
     "send_raw(",
     "raw_send(",
@@ -89,6 +94,72 @@ const EXTERNAL_LEAK_REMEDIATION: &str =
 struct PublicApiChunk {
     line: u32,
     text: String,
+}
+
+#[derive(Debug)]
+struct CapabilityApiObligations {
+    forbidden_ambient_apis: Vec<String>,
+    core_source_scopes: Vec<String>,
+    shell_constructor_scopes: Vec<String>,
+    approved_capability_names: Vec<String>,
+}
+
+impl CapabilityApiObligations {
+    fn from_policy(policy: &PolicyEntry) -> Self {
+        let capability_mechanism =
+            policy.mechanisms.iter().find(|mechanism| mechanism.kind == MechanismKind::CapabilityApi);
+        Self {
+            forbidden_ambient_apis: mechanism_field_or_fallback(
+                capability_mechanism,
+                |mechanism| &mechanism.forbidden_ambient_apis,
+                FALLBACK_AMBIENT_CAPABILITY_PATTERNS,
+            ),
+            core_source_scopes: mechanism_field_or_fallback(
+                capability_mechanism,
+                |mechanism| &mechanism.core_source_scopes,
+                FALLBACK_CORE_SOURCE_SCOPES,
+            ),
+            shell_constructor_scopes: mechanism_field_or_fallback(
+                capability_mechanism,
+                |mechanism| &mechanism.shell_constructor_scopes,
+                &[],
+            ),
+            approved_capability_names: mechanism_field_or_fallback(
+                capability_mechanism,
+                |mechanism| &mechanism.approved_capability_names,
+                &[],
+            ),
+        }
+    }
+
+    fn remediation(&self) -> String {
+        if self.approved_capability_names.is_empty() {
+            return "move ambient authority constructors to the shell and inject data or narrow capability traits into core"
+                .to_owned();
+        }
+        format!(
+            "move ambient authority constructors to the shell and inject data or named capabilities such as {} into core",
+            self.approved_capability_names.join(", ")
+        )
+    }
+}
+
+fn mechanism_field_or_fallback(
+    mechanism: Option<&Mechanism>,
+    field: impl FnOnce(&Mechanism) -> &Vec<String>,
+    fallback: &[&str],
+) -> Vec<String> {
+    mechanism.map_or_else(
+        || fallback.iter().map(|value| (*value).to_owned()).collect(),
+        |mechanism| {
+            let values = field(mechanism);
+            if values.is_empty() {
+                fallback.iter().map(|value| (*value).to_owned()).collect()
+            } else {
+                values.clone()
+            }
+        },
+    )
 }
 
 /// Runs architecture policy checks over source files.
@@ -202,9 +273,16 @@ fn check_core_capability_constructors(
     let Some(policy) = registry.policy_by_id(EFFECT_CAPABILITY_POLICY_ID) else {
         return;
     };
-    for source in core_rust_sources(sources) {
+    let obligations = CapabilityApiObligations::from_policy(policy);
+    let remediation = obligations.remediation();
+    for source in capability_core_sources(sources, &obligations) {
         for (line_index, line) in source.text.lines().enumerate() {
-            let Some(pattern) = AMBIENT_CAPABILITY_PATTERNS.iter().copied().find(|pattern| line.contains(pattern))
+            let trimmed = line.trim_start();
+            if trimmed.starts_with("//") || trimmed.starts_with("///") {
+                continue;
+            }
+            let Some(pattern) =
+                obligations.forbidden_ambient_apis.iter().find(|pattern| line.contains(pattern.as_str()))
             else {
                 continue;
             };
@@ -212,8 +290,10 @@ fn check_core_capability_constructors(
                 policy,
                 source,
                 Some(line_number_from_index(line_index)),
-                &format!("core performs ambient authority operation `{pattern}` instead of accepting an injected capability"),
-                "move ambient authority constructors to the shell and inject data or narrow capability traits into core",
+                &format!(
+                    "core performs ambient authority operation `{pattern}` instead of accepting an injected capability"
+                ),
+                &remediation,
             ));
         }
     }
@@ -411,6 +491,17 @@ fn core_rust_sources(sources: &[SourceFile]) -> impl Iterator<Item = &SourceFile
     sources
         .iter()
         .filter(|source| source.path.contains(CORE_RUST_PATH_SEGMENT) && source.path.ends_with(RUST_SOURCE_EXTENSION))
+}
+
+fn capability_core_sources<'a>(
+    sources: &'a [SourceFile],
+    obligations: &'a CapabilityApiObligations,
+) -> impl Iterator<Item = &'a SourceFile> {
+    sources.iter().filter(|source| {
+        source.path.ends_with(RUST_SOURCE_EXTENSION)
+            && obligations.core_source_scopes.iter().any(|scope| source.path.contains(scope))
+            && !obligations.shell_constructor_scopes.iter().any(|scope| source.path.contains(scope))
+    })
 }
 
 fn dependency_section(manifest: &str) -> &str {

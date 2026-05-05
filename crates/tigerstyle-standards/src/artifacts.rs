@@ -63,6 +63,15 @@ pub fn render_check_config_toml(registry: &PolicyRegistry) -> String {
         bounded_queue_mechanism_field(bounded_queue, |mechanism| &mechanism.capacity_witnesses);
     let bounded_queue_backpressure_behaviors =
         bounded_queue_mechanism_field(bounded_queue, |mechanism| &mechanism.backpressure_behaviors);
+    let capability_policy = effect_capability_policy(registry);
+    let capability_forbidden_ambient_apis =
+        capability_mechanism_field(capability_policy, |mechanism| &mechanism.forbidden_ambient_apis);
+    let capability_core_source_scopes =
+        capability_mechanism_field(capability_policy, |mechanism| &mechanism.core_source_scopes);
+    let capability_shell_constructor_scopes =
+        capability_mechanism_field(capability_policy, |mechanism| &mechanism.shell_constructor_scopes);
+    let capability_approved_names =
+        capability_mechanism_field(capability_policy, |mechanism| &mechanism.approved_capability_names);
 
     let mut toml = String::new();
     toml.push_str("schema_version = \"");
@@ -84,11 +93,33 @@ pub fn render_check_config_toml(registry: &PolicyRegistry) -> String {
     append_toml_array(&mut toml, "bounded_queue_wrapper_scopes", &bounded_queue_wrapper_scopes);
     append_toml_array(&mut toml, "bounded_queue_capacity_witnesses", &bounded_queue_capacity_witnesses);
     append_toml_array(&mut toml, "bounded_queue_backpressure_behaviors", &bounded_queue_backpressure_behaviors);
+    append_toml_array(&mut toml, "capability_forbidden_ambient_apis", &capability_forbidden_ambient_apis);
+    append_toml_array(&mut toml, "capability_core_source_scopes", &capability_core_source_scopes);
+    append_toml_array(&mut toml, "capability_shell_constructor_scopes", &capability_shell_constructor_scopes);
+    append_toml_array(&mut toml, "capability_approved_names", &capability_approved_names);
     toml
 }
 
 fn bounded_queue_policy(registry: &PolicyRegistry) -> Option<&PolicyEntry> {
     registry.policy_by_id("tigerstyle.embedded.bounded-queues")
+}
+
+fn effect_capability_policy(registry: &PolicyRegistry) -> Option<&PolicyEntry> {
+    registry.policy_by_id("tigerstyle.architecture.effect-capability-boundaries")
+}
+
+fn capability_mechanism_field(
+    policy: Option<&PolicyEntry>,
+    field: impl Fn(&crate::model::Mechanism) -> &Vec<String>,
+) -> Vec<String> {
+    policy
+        .and_then(|policy| {
+            policy
+                .mechanisms
+                .iter()
+                .find(|mechanism| mechanism.kind == crate::model::MechanismKind::CapabilityApi)
+        })
+        .map_or_else(Vec::new, |mechanism| field(mechanism).clone())
 }
 
 fn bounded_queue_mechanism_field(

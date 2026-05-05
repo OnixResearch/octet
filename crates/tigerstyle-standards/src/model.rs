@@ -99,6 +99,18 @@ pub struct Mechanism {
     /// Backpressure or overflow behavior witness strings accepted by bounded primitive mechanisms.
     #[serde(default)]
     pub backpressure_behaviors: Vec<String>,
+    /// Forbidden ambient authority API patterns for capability-api mechanisms.
+    #[serde(default)]
+    pub forbidden_ambient_apis: Vec<String>,
+    /// Core source path scopes where ambient authority constructors are forbidden.
+    #[serde(default)]
+    pub core_source_scopes: Vec<String>,
+    /// Shell source path scopes where ambient authority constructors are allowed.
+    #[serde(default)]
+    pub shell_constructor_scopes: Vec<String>,
+    /// Approved capability trait, token, or effect-data names for capability-api mechanisms.
+    #[serde(default)]
+    pub approved_capability_names: Vec<String>,
 }
 
 /// Deterministic evidence command metadata.

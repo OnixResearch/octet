@@ -32,6 +32,12 @@ evidence.
 - Hard policies need positive and negative fixtures before becoming blocking.
 - Policies that target `structural` MUST export at least one mechanism contract
   such as crate-boundary, capability-api, bounded-primitive, or type-state.
+- Capability-api mechanisms export forbidden ambient authority APIs, declared
+  core scopes, shell constructor scopes, and approved capability names so the
+  architecture checker can reject core-side ambient effects from generated
+  policy artifacts.
+- Bounded-primitive mechanisms export forbidden unbounded APIs, approved bounded
+  constructors/wrappers, capacity witnesses, and backpressure/overflow witnesses.
 - Policies that target `verified` MUST export a proof rail with command, source
   mapping, pass signal, and trust-boundary accounting.
 - Proof-relevant seed manifests MUST remain untrusted until a local acceptance
