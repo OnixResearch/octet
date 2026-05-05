@@ -124,23 +124,26 @@ For complete checked-in transcripts, see:
   fingerprint docs fixtures.
 
 These examples are part of the contributor verification surface. When the
-fingerprint CLI output, marker rewrite behavior, human summary counts, or example
-transcripts change, run the executable docs regression before review:
+fingerprint CLI output, marker rewrite behavior, human summary counts, JSON
+fields, source-scanner boundary behavior, downstream scratch-smoke behavior, or
+example transcripts change, use this single CI/operator review gate:
 
 ```bash
 nix build .#checks.x86_64-linux.docs-examples --no-link -L
 ```
 
 That `docs-examples` Nix check is part of `nix flake check` and is the aggregate
-home for executable docs/examples regressions. It currently replays the documented
-fingerprint lifecycle, human-summary, warning-summary, JSON-output, and
-source-scanner-boundary flows; runs the checked fixtures through a scratch
-consumer crate via `fingerprint-docs-downstream-smoke`; asserts downstream
-human/JSON `--diff` parity before repair; asserts the observed stdout appears in
-the checked-in transcripts; parses JSON payloads for script-facing field guarantees;
-and confirms repaired or updated scratch sources exactly match the checked-in
-`reviewed.rs` fixtures. For focused local debugging, run the narrower flake checks
-or underlying Cargo tests directly:
+home for executable docs/examples regressions. Treat it as the review command;
+use the narrower checks below only to debug a failing slice. It currently replays
+the documented fingerprint lifecycle, human-summary, warning-summary,
+JSON-output, and source-scanner-boundary flows; runs the checked fixtures through
+a scratch consumer crate via `fingerprint-docs-downstream-smoke`; asserts
+downstream human/JSON `--diff` parity before repair; asserts the observed stdout
+appears in the checked-in transcripts; parses JSON payloads for script-facing
+field guarantees; and confirms repaired or updated scratch sources exactly match
+the checked-in `reviewed.rs` fixtures.
+
+Focused local debug commands:
 
 ```bash
 nix build .#checks.x86_64-linux.fingerprint-lifecycle-docs --no-link -L

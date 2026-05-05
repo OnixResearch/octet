@@ -209,29 +209,22 @@ Useful doc-facing spot checks:
 
 ```bash
 nix develop -c bash -c 'cargo test --test consumer_integration downstream_rollout_docs_point_to_first_class_cli_path -- --nocapture'
-nix build .#checks.x86_64-linux.docs-examples --no-link -L
-nix build .#checks.x86_64-linux.fingerprint-lifecycle-docs --no-link -L
-nix build .#checks.x86_64-linux.fingerprint-human-summary-docs --no-link -L
-nix build .#checks.x86_64-linux.fingerprint-warning-summary-docs --no-link -L
-nix build .#checks.x86_64-linux.fingerprint-json-output-docs --no-link -L
-nix build .#checks.x86_64-linux.fingerprint-source-scanner-docs --no-link -L
-nix build .#checks.x86_64-linux.fingerprint-docs-downstream-smoke --no-link -L
-nix develop -c bash -c 'cargo test -p cargo-tigerstyle --test fingerprint_consumer fingerprint_lifecycle_docs_fixture_matches_transcript -- --nocapture'
-nix develop -c bash -c 'cargo test -p cargo-tigerstyle --test fingerprint_consumer fingerprint_human_summary_docs_fixture_matches_transcript -- --nocapture'
-nix develop -c bash -c 'cargo test -p cargo-tigerstyle --test fingerprint_consumer fingerprint_warning_summary_docs_fixture_matches_transcript -- --nocapture'
-nix develop -c bash -c 'cargo test -p cargo-tigerstyle --test fingerprint_consumer fingerprint_json_output_docs_fixture_matches_transcript -- --nocapture'
-nix develop -c bash -c 'cargo test -p cargo-tigerstyle --test fingerprint_consumer fingerprint_source_scanner_docs_fixture_matches_transcript -- --nocapture'
 rg -n "cargo tigerstyle check|cargo-tigerstyle|tigerstyle::|\[tigerstyle\]|\[workspace.metadata.tigerstyle\]" README.md docs/*.md
 ```
 
-Run the fingerprint docs regressions whenever `cargo tigerstyle fingerprint`
-output, marker rewrite behavior, summary counts, JSON fields, source-scanner
-boundary examples, downstream scratch-smoke behavior, downstream diff parity, or
-`docs/examples/function-fingerprint-*` changes. Prefer `docs-examples` because it
-is part of `nix flake check` and is the aggregate home for executable docs
-examples; use the narrower flake checks or direct Cargo commands only as focused
-local debug paths. The check keeps the fixtures and transcripts synchronized with
-the CLI behavior contributors see in CI.
+For fingerprint docs/examples, use one review command:
+
+```bash
+nix build .#checks.x86_64-linux.docs-examples --no-link -L
+```
+
+Run it whenever `cargo tigerstyle fingerprint` output, marker rewrite behavior,
+summary counts, JSON fields, source-scanner boundary examples, downstream
+scratch-smoke behavior, downstream diff parity, or
+`docs/examples/function-fingerprint-*` changes. This aggregate check is part of
+`nix flake check` and is the CI/operator gate for executable fingerprint docs.
+Use narrower flake checks or direct Cargo filters only as focused local debug
+paths after this command identifies a failing slice.
 
 ## OpenSpec touchpoints
 
