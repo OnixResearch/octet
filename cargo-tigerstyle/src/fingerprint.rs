@@ -440,18 +440,40 @@ fn print_human(report: &FingerprintReport) {
             "{} {} {} stored={} computed=b3:{} review={} evidence={} macro_warning={}",
             record.path,
             record.name,
-            match record.status {
-                FingerprintStatus::Match => "match",
-                FingerprintStatus::Mismatch => "mismatch",
-                FingerprintStatus::Missing => "missing",
-                FingerprintStatus::Written => "written",
-            },
+            status_name(record.status),
             record.stored_hash.as_deref().unwrap_or("<none>"),
             record.computed_hash,
             record.review.as_deref().unwrap_or("<missing>"),
             record.evidence.as_deref().unwrap_or("<missing>"),
             record.macro_warning,
         );
+    }
+
+    let match_count = report.records.iter().filter(|record| record.status == FingerprintStatus::Match).count();
+    let mismatch_count = report.records.iter().filter(|record| record.status == FingerprintStatus::Mismatch).count();
+    let missing_count = report.records.iter().filter(|record| record.status == FingerprintStatus::Missing).count();
+    let written_count = report.records.iter().filter(|record| record.status == FingerprintStatus::Written).count();
+    let macro_warning_count = report.records.iter().filter(|record| record.macro_warning).count();
+    let metadata_missing_count =
+        report.records.iter().filter(|record| record.review.is_none() || record.evidence.is_none()).count();
+    println!(
+        "summary total={} match={} mismatch={} missing={} written={} macro_warnings={} metadata_missing={}",
+        report.records.len(),
+        match_count,
+        mismatch_count,
+        missing_count,
+        written_count,
+        macro_warning_count,
+        metadata_missing_count,
+    );
+}
+
+fn status_name(status: FingerprintStatus) -> &'static str {
+    match status {
+        FingerprintStatus::Match => "match",
+        FingerprintStatus::Mismatch => "mismatch",
+        FingerprintStatus::Missing => "missing",
+        FingerprintStatus::Written => "written",
     }
 }
 
