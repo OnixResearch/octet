@@ -267,6 +267,24 @@
             jq -e '.records | length == 1' "$scratch/drift.json" > /dev/null
             jq -e '.records[0].name == "capped_retries" and .records[0].status == "mismatch"' "$scratch/drift.json" > /dev/null
 
+            set +e
+            ${cargoTigerstyleUnwrapped}/bin/cargo-tigerstyle fingerprint --diff "$scratch/consumer/src/json_output.rs" > "$scratch/diff.txt" 2> "$scratch/diff.err"
+            diff_status="$?"
+            ${cargoTigerstyleUnwrapped}/bin/cargo-tigerstyle fingerprint --diff --output-format=json "$scratch/consumer/src/json_output.rs" > "$scratch/diff.json" 2> "$scratch/diff-json.err"
+            diff_json_status="$?"
+            set -e
+            test "$diff_status" -eq 1
+            test "$diff_json_status" -eq 1
+            grep -F "tigerstyle fingerprint diff" "$scratch/diff.txt" > /dev/null
+            grep -F "capped_retries mismatch" "$scratch/diff.txt" > /dev/null
+            grep -F "summary total=1 match=0 mismatch=1 missing=0 written=0 macro_warnings=0 metadata_missing=0" "$scratch/diff.txt" > /dev/null
+            jq -e '.schema_version == 1 and .mode == "diff"' "$scratch/diff.json" > /dev/null
+            jq -e '.records | length == 1' "$scratch/diff.json" > /dev/null
+            jq -e '.records[0].name == "capped_retries" and .records[0].status == "mismatch" and .records[0].macro_warning == false' "$scratch/diff.json" > /dev/null
+            diff_human_name="$(grep -F "capped_retries mismatch" "$scratch/diff.txt" | sed -E 's/.* ([^ ]+) mismatch .*/\1/')"
+            diff_json_name="$(jq -r '.records[0].name' "$scratch/diff.json")"
+            test "$diff_human_name" = "$diff_json_name"
+
             ${cargoTigerstyleUnwrapped}/bin/cargo-tigerstyle fingerprint --update --output-format=json "$scratch/consumer/src/json_output.rs" > "$scratch/update.json"
             jq -e '.records[0].name == "capped_retries" and .records[0].status == "written"' "$scratch/update.json" > /dev/null
             ${cargoTigerstyleUnwrapped}/bin/cargo-tigerstyle fingerprint --check --output-format=json "$scratch/consumer/src/json_output.rs" > "$scratch/repaired.json"

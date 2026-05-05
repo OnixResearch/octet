@@ -14,7 +14,8 @@ directory. It asserts that:
 - all seven documented records are discovered outside the Tigerstyle checkout;
 - `macro_rules!` generated functions are still absent from the record set;
 - warning and missing-metadata examples keep their nonzero operator-warning status;
-- JSON drift, update, and repaired-check behavior work on a copied downstream file.
+- JSON drift, human `--diff`, JSON `--diff`, update, and repaired-check behavior work on a copied downstream file;
+- human and JSON diff modes identify the same mismatched function before repair.
 
 The reusable script is also exposed as:
 
