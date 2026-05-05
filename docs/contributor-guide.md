@@ -226,7 +226,7 @@ rg -n "cargo tigerstyle check|cargo-tigerstyle|tigerstyle::|\[tigerstyle\]|\[wor
 
 Run the fingerprint docs regressions whenever `cargo tigerstyle fingerprint`
 output, marker rewrite behavior, summary counts, JSON fields, source-scanner
-boundary examples, downstream scratch-smoke behavior, or
+boundary examples, downstream scratch-smoke behavior, downstream diff parity, or
 `docs/examples/function-fingerprint-*` changes. Prefer `docs-examples` because it
 is part of `nix flake check` and is the aggregate home for executable docs
 examples; use the narrower flake checks or direct Cargo commands only as focused

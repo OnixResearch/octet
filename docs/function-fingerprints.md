@@ -135,8 +135,9 @@ That `docs-examples` Nix check is part of `nix flake check` and is the aggregate
 home for executable docs/examples regressions. It currently replays the documented
 fingerprint lifecycle, human-summary, warning-summary, JSON-output, and
 source-scanner-boundary flows; runs the checked fixtures through a scratch
-consumer crate via `fingerprint-docs-downstream-smoke`; asserts the observed
-stdout appears in the checked-in transcripts; parses JSON payloads for script-facing field guarantees;
+consumer crate via `fingerprint-docs-downstream-smoke`; asserts downstream
+human/JSON `--diff` parity before repair; asserts the observed stdout appears in
+the checked-in transcripts; parses JSON payloads for script-facing field guarantees;
 and confirms repaired or updated scratch sources exactly match the checked-in
 `reviewed.rs` fixtures. For focused local debugging, run the narrower flake checks
 or underlying Cargo tests directly:
