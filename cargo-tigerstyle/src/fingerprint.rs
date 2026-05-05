@@ -218,7 +218,7 @@ fn find_functions(source: &str) -> Vec<FunctionSpan> {
             start: marker.as_ref().map_or(item_start, |m| m.end),
             end,
             marker,
-            macro_calls: body.contains("!"),
+            macro_calls: contains_macro_call(body),
         });
         cursor = end;
     }
@@ -378,6 +378,22 @@ fn strip_comments_and_strings(source: &str) -> String {
     out
 }
 
+fn contains_macro_call(source: &str) -> bool {
+    let stripped = strip_comments_and_strings(source);
+    let chars = stripped.char_indices().collect::<Vec<_>>();
+    for (index, (byte_index, ch)) in chars.iter().enumerate() {
+        if *ch != '!' {
+            continue;
+        }
+        let previous = chars[..index].iter().rev().find_map(|(_, c)| (!c.is_whitespace()).then_some(*c));
+        let next = stripped[*byte_index + ch.len_utf8()..].chars().find(|c| !c.is_whitespace());
+        if previous.is_some_and(is_ident) && next.is_some_and(|c| matches!(c, '(' | '[' | '{')) {
+            return true;
+        }
+    }
+    false
+}
+
 fn is_ident(ch: char) -> bool {
     ch.is_ascii_alphanumeric() || ch == '_'
 }
@@ -415,6 +431,7 @@ fn print_human(report: &FingerprintReport) {
 
 #[cfg(test)]
 mod tests {
+    use super::contains_macro_call;
     use super::find_functions;
     use super::function_hash;
     use super::normalize_tokens;
@@ -473,6 +490,14 @@ mod tests {
         assert_eq!(functions[0].name, "f");
         assert!(functions[0].marker.is_some());
         assert!(normalize_tokens(&source[functions[0].start..functions[0].end]).starts_with("# [ inline ] # [ allow"));
+    }
+
+    #[test]
+    fn macro_detection_ignores_unary_not_and_inequality() {
+        assert!(contains_macro_call("{ assert!(value != 0); }"));
+        assert!(contains_macro_call("{ path::macro_name! { value } }"));
+        assert!(!contains_macro_call("{ if !is_ready && value != 0 { return true; } }"));
+        assert!(!contains_macro_call("{ let message = \"not a macro!\"; }"));
     }
 
     #[test]
