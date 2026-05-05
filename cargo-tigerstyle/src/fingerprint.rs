@@ -198,7 +198,13 @@ fn find_functions(source: &str) -> Vec<FunctionSpan> {
         let Some(name_end) = source[name_start..].find(|c: char| !is_ident(c)).map(|offset| name_start + offset) else {
             break;
         };
-        let Some(open_brace) = source[name_end..].find('{').map(|offset| name_end + offset) else {
+        let next_open_brace = source[name_end..].find('{').map(|offset| name_end + offset);
+        let next_semicolon = source[name_end..].find(';').map(|offset| name_end + offset);
+        if next_semicolon.is_some_and(|semicolon| next_open_brace.is_none_or(|open_brace| semicolon < open_brace)) {
+            cursor = next_semicolon.unwrap_or(name_end) + 1;
+            continue;
+        }
+        let Some(open_brace) = next_open_brace else {
             break;
         };
         let Some(end) = matching_brace(source, open_brace) else {
@@ -234,8 +240,32 @@ fn function_item_start(source: &str, fn_pos: usize) -> usize {
             line_start = previous_start;
             continue;
         }
+        if (previous.starts_with(']') || previous.starts_with(')'))
+            && let Some(attribute_start) = multiline_attribute_start(source, previous_start)
+        {
+            line_start = attribute_start;
+            continue;
+        }
 
         return line_start;
+    }
+}
+
+fn multiline_attribute_start(source: &str, before_line_start: usize) -> Option<usize> {
+    let mut line_end = before_line_start.saturating_sub(1);
+    loop {
+        let line_start = source[..line_end].rfind('\n').map_or(0, |index| index + 1);
+        let line = source[line_start..line_end].trim();
+        if line.starts_with("#[") {
+            return Some(line_start);
+        }
+        if line.is_empty() || (!line.ends_with(',') && !line.contains('=')) {
+            return None;
+        }
+        if line_start == 0 {
+            return None;
+        }
+        line_end = line_start.saturating_sub(1);
     }
 }
 
@@ -433,5 +463,25 @@ mod tests {
         assert!(functions[0].marker.is_none());
         assert_eq!(functions[0].start, 0);
         assert!(normalize_tokens(&source[functions[0].start..functions[0].end]).starts_with("# [ inline ] pub fn f"));
+    }
+
+    #[test]
+    fn marker_before_multiline_attribute_attaches_to_function() {
+        let source = "// tigerstyle-fingerprint: b3:abc; review=R; evidence=E\n#[inline]\n#[allow(\n    ambient_clock,\n    reason = \"clock boundary\"\n)]\npub fn f() -> u32 { 1 }\n";
+        let functions = find_functions(source);
+        assert_eq!(functions.len(), 1);
+        assert_eq!(functions[0].name, "f");
+        assert!(functions[0].marker.is_some());
+        assert!(normalize_tokens(&source[functions[0].start..functions[0].end]).starts_with("# [ inline ] # [ allow"));
+    }
+
+    #[test]
+    fn trait_declarations_do_not_swallow_later_impl_methods() {
+        let source = "trait T {\n    fn f(&self) -> u64;\n}\nimpl T for S {\n    // tigerstyle-fingerprint: b3:abc; review=R; evidence=E\n    #[inline]\n    fn f(&self) -> u64 { 1 }\n}\nstruct S;\n";
+        let functions = find_functions(source);
+        assert_eq!(functions.len(), 1);
+        assert_eq!(functions[0].name, "f");
+        assert!(functions[0].marker.is_some());
+        assert!(normalize_tokens(&source[functions[0].start..functions[0].end]).starts_with("# [ inline ] fn f"));
     }
 }
