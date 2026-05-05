@@ -1,0 +1,448 @@
+$ nix develop -c bash -c "cargo test -p tigerstyle-standards && cargo clippy -p tigerstyle-standards --all-targets -- -D warnings"
+building '/nix/store/wa7nwy47jf7rz55v9q3qc2gai9bb8ihn-nix-shell-env.drv'...
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.11s
+     Running unittests src/lib.rs (/home/brittonr/.cargo-target/debug/deps/tigerstyle_standards-026b9ff690555e86)
+
+running 21 tests
+test artifacts::tests::seed_manifest_artifact_preserves_registry_schema ... ok
+test artifacts::tests::check_config_output_is_stable ... ok
+test tests::advisory_rule_accepts_small_public_surface ... ok
+test tests::architecture_checks_accept_compliant_workspace_shape ... ok
+test tests::advisory_rule_reports_through_run_checks_without_blocking ... ok
+test tests::architecture_checks_reject_core_runtime_dependency ... ok
+test tests::architecture_checks_reject_external_domain_leakage ... ok
+test tests::architecture_checks_reject_multiple_core_fixture_shapes ... ok
+test tests::architecture_checks_reject_thick_root_file ... ok
+test tests::architecture_checks_reject_missing_core_no_std ... ok
+test tests::family_selection_skips_unselected_policy ... ok
+test tests::fixture_manifest_accepts_covered_hard_policies ... ok
+test tests::blanket_suppression_scope_is_rejected ... ok
+test tests::fixture_manifest_rejects_missing_noncompliant_fixture ... ok
+test tests::missing_suppression_metadata_returns_blocking_diagnostics ... ok
+test tests::resource_checks_accept_bounded_channel ... ok
+test tests::markdown_output_is_stable ... ok
+test tests::json_output_is_stable ... ok
+test tests::resource_checks_reject_unbounded_channel ... ok
+test tests::unknown_policy_is_rejected ... ok
+test tests::valid_suppression_is_reported_as_active ... ok
+
+test result: ok. 21 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (/home/brittonr/.cargo-target/debug/deps/tigerstyle_standards-90119fbd17fe9f25)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/advisory_cli.rs (/home/brittonr/.cargo-target/debug/deps/advisory_cli-70fbd33caaac3597)
+
+running 3 tests
+test hard_policy_cli_report_exits_with_failure ... ok
+test advisory_only_cli_report_exits_successfully ... ok
+test exported_policy_artifacts_drive_checker ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests tigerstyle_standards
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.08s
+$ nix run .#tigerstyle-policy-validate
+$ nix build .#checks.x86_64-linux.policy-artifact-consumer-fixture --no-link -L
+this derivation will be built:
+  /nix/store/n996xzj16ki340j11ibhlfmxp4nk882a-tigerstyle-policy-artifact-consumer-check.drv
+cannot build on 'ssh-ng://root@10.10.10.1': error: failed to start SSH connection to '10.10.10.1'
+building '/nix/store/n996xzj16ki340j11ibhlfmxp4nk882a-tigerstyle-policy-artifact-consumer-check.drv'...
+$ nix build .#checks.x86_64-linux.docs-examples --no-link -L
+these 10 derivations will be built:
+  /nix/store/dsmk5ikkwv04a578crgrfl5n4865fxi8-cargo-tigerstyle-0.1.0.drv
+  /nix/store/7vqfyi5yrh5krmnq2yf50s3nd620jgqw-tigerstyle-fingerprint-source-scanner-docs-0.1.0.drv
+  /nix/store/937zl9qrrqri55ndcawys397afi6ya2k-tigerstyle-fingerprint-lifecycle-docs-0.1.0.drv
+  /nix/store/a6dlg41iq2fzlm1g8ay356qvz2gsbs1s-tigerstyle-fingerprint-warning-summary-docs-0.1.0.drv
+  /nix/store/g2fazxs5chqylf3nlwyr3gq9wn13pidr-tigerstyle-fingerprint-docs-downstream-smoke.drv
+  /nix/store/dxl5kl5sbhiv6zly13hwm0kn5vphkll4-tigerstyle-fingerprint-docs-downstream-smoke-check.drv
+  /nix/store/gw0pncr2zg2806zjlbcl3dislprvsf7g-tigerstyle-fingerprint-docs-review-gate-docs-check.drv
+  /nix/store/mh6hgiqs52ivhbsz1m1sqimz9kw8kxqy-tigerstyle-fingerprint-json-output-docs-0.1.0.drv
+  /nix/store/x1p58d7jp0lycky98wzdwcw0n12baizm-tigerstyle-fingerprint-human-summary-docs-0.1.0.drv
+  /nix/store/96mhwlfd43y9547sa3fw9nb92va7324m-tigerstyle-docs-examples.drv
+cannot build on 'ssh-ng://root@10.10.10.1': error: failed to start SSH connection to '10.10.10.1'
+building '/nix/store/gw0pncr2zg2806zjlbcl3dislprvsf7g-tigerstyle-fingerprint-docs-review-gate-docs-check.drv'...
+building '/nix/store/dsmk5ikkwv04a578crgrfl5n4865fxi8-cargo-tigerstyle-0.1.0.drv'...
+tigerstyle-fingerprint-docs-review-gate-docs-check> For fingerprint docs/examples, use one review command:
+tigerstyle-fingerprint-docs-review-gate-docs-check> nix build .#checks.x86_64-linux.docs-examples --no-link -L
+tigerstyle-fingerprint-docs-review-gate-docs-check> is part of `nix flake check` and is the CI/operator gate for executable
+tigerstyle-fingerprint-docs-review-gate-docs-check> focused flake checks or direct Cargo filters only after the aggregate gate
+tigerstyle-fingerprint-docs-review-gate-docs-check> ## 2026-05-05: Function fingerprint docs and checks
+tigerstyle-fingerprint-docs-review-gate-docs-check> nix build .#checks.x86_64-linux.docs-examples --no-link -L
+cargo-tigerstyle> Running phase: unpackPhase
+cargo-tigerstyle> unpacking source archive /nix/store/vjyr3khfqyyvxjb58hmvianj48i56nhk-source
+cargo-tigerstyle> source root is source
+cargo-tigerstyle> Running phase: patchPhase
+cargo-tigerstyle> Executing configureCargoCommonVars
+cargo-tigerstyle> decompressing cargo artifacts from /nix/store/vk7gsmqbkld1818vn2s4r792hnpd6fz5-tigerstyle-deps-0.1.0/target.tar.zst to target
+cargo-tigerstyle> Running phase: updateAutotoolsGnuConfigScriptsPhase
+cargo-tigerstyle> Running phase: configurePhase
+cargo-tigerstyle> will append /build/source/.cargo-home/config.toml with contents of /nix/store/mz7bb4p6a2ybq97w056xncdzvq6b9rgq-vendor-cargo-deps/config.toml
+cargo-tigerstyle> default configurePhase, nothing to do
+cargo-tigerstyle> Running phase: buildPhase
+cargo-tigerstyle> +++ command cargo --version
+cargo-tigerstyle> cargo 1.96.0-nightly (cbb9bb8bd 2026-03-13)
+cargo-tigerstyle> +++ command cargo build --release --message-format json-render-diagnostics -p cargo-tigerstyle
+cargo-tigerstyle>    Compiling shlex v1.3.0
+cargo-tigerstyle>    Compiling find-msvc-tools v0.1.9
+cargo-tigerstyle>    Compiling serde_core v1.0.228
+cargo-tigerstyle>    Compiling proc-macro2 v1.0.106
+cargo-tigerstyle>    Compiling quote v1.0.45
+cargo-tigerstyle>    Compiling cfg-if v1.0.4
+cargo-tigerstyle>    Compiling cpufeatures v0.3.0
+cargo-tigerstyle>    Compiling arrayvec v0.7.6
+cargo-tigerstyle>    Compiling constant_time_eq v0.4.2
+cargo-tigerstyle>    Compiling arrayref v0.3.9
+cargo-tigerstyle>    Compiling serde_json v1.0.149
+cargo-tigerstyle>    Compiling cc v1.2.61
+cargo-tigerstyle>    Compiling syn v2.0.117
+cargo-tigerstyle>    Compiling blake3 v1.8.4
+cargo-tigerstyle>    Compiling cargo-tigerstyle v0.1.0 (/build/source/cargo-tigerstyle)
+cargo-tigerstyle>    Compiling serde_spanned v1.1.1
+cargo-tigerstyle>    Compiling toml_datetime v1.1.1+spec-1.1.0
+cargo-tigerstyle>    Compiling toml v1.1.2+spec-1.1.0
+cargo-tigerstyle>    Compiling serde_derive v1.0.228
+cargo-tigerstyle>    Compiling serde v1.0.228
+cargo-tigerstyle>     Finished `release` profile [optimized] target(s) in 3.56s
+cargo-tigerstyle> searching for bins/libs to install from cargo build log at cargoBuildLogO0EL.json
+cargo-tigerstyle> installing /build/source/target/release/cargo-tigerstyle in postBuildInstallFromCargoBuildLogOutTemp1tR/bin
+cargo-tigerstyle> searching for bins/libs complete
+cargo-tigerstyle> Running phase: installPhase
+cargo-tigerstyle> actually installing contents of postBuildInstallFromCargoBuildLogOutTemp1tR to /nix/store/c9cps1l4q1y06z95qg58844yacwgjsxa-cargo-tigerstyle-0.1.0
+cargo-tigerstyle> stripping references to Rust toolchain
+cargo-tigerstyle> Rust toolchain at: /nix/store/1yvh3d6y3fj3xk2dgwczrp1dj5svd92c-rust-default-1.96.0-nightly-2026-03-21
+cargo-tigerstyle> stripping Rust toolchain references done
+cargo-tigerstyle> stripping references to cargoVendorDir from:
+cargo-tigerstyle> /nix/store/c9cps1l4q1y06z95qg58844yacwgjsxa-cargo-tigerstyle-0.1.0/bin/cargo-tigerstyle
+cargo-tigerstyle> stripping references done
+cargo-tigerstyle> Running phase: fixupPhase
+cargo-tigerstyle> shrinking RPATHs of ELF executables and libraries in /nix/store/c9cps1l4q1y06z95qg58844yacwgjsxa-cargo-tigerstyle-0.1.0
+cargo-tigerstyle> shrinking /nix/store/c9cps1l4q1y06z95qg58844yacwgjsxa-cargo-tigerstyle-0.1.0/bin/cargo-tigerstyle
+cargo-tigerstyle> checking for references to /build/ in /nix/store/c9cps1l4q1y06z95qg58844yacwgjsxa-cargo-tigerstyle-0.1.0...
+cargo-tigerstyle> patching script interpreter paths in /nix/store/c9cps1l4q1y06z95qg58844yacwgjsxa-cargo-tigerstyle-0.1.0
+cargo-tigerstyle> stripping (with command strip and flags -S -p) in  /nix/store/c9cps1l4q1y06z95qg58844yacwgjsxa-cargo-tigerstyle-0.1.0/bin
+building '/nix/store/g2fazxs5chqylf3nlwyr3gq9wn13pidr-tigerstyle-fingerprint-docs-downstream-smoke.drv'...
+building '/nix/store/x1p58d7jp0lycky98wzdwcw0n12baizm-tigerstyle-fingerprint-human-summary-docs-0.1.0.drv'...
+building '/nix/store/mh6hgiqs52ivhbsz1m1sqimz9kw8kxqy-tigerstyle-fingerprint-json-output-docs-0.1.0.drv'...
+building '/nix/store/937zl9qrrqri55ndcawys397afi6ya2k-tigerstyle-fingerprint-lifecycle-docs-0.1.0.drv'...
+building '/nix/store/7vqfyi5yrh5krmnq2yf50s3nd620jgqw-tigerstyle-fingerprint-source-scanner-docs-0.1.0.drv'...
+building '/nix/store/a6dlg41iq2fzlm1g8ay356qvz2gsbs1s-tigerstyle-fingerprint-warning-summary-docs-0.1.0.drv'...
+building '/nix/store/dxl5kl5sbhiv6zly13hwm0kn5vphkll4-tigerstyle-fingerprint-docs-downstream-smoke-check.drv'...
+tigerstyle-fingerprint-human-summary-docs> Running phase: unpackPhase
+tigerstyle-fingerprint-human-summary-docs> unpacking source archive /nix/store/vjyr3khfqyyvxjb58hmvianj48i56nhk-source
+tigerstyle-fingerprint-json-output-docs> Running phase: unpackPhase
+tigerstyle-fingerprint-json-output-docs> unpacking source archive /nix/store/vjyr3khfqyyvxjb58hmvianj48i56nhk-source
+tigerstyle-fingerprint-lifecycle-docs> Running phase: unpackPhase
+tigerstyle-fingerprint-human-summary-docs> source root is source
+tigerstyle-fingerprint-lifecycle-docs> unpacking source archive /nix/store/vjyr3khfqyyvxjb58hmvianj48i56nhk-source
+tigerstyle-fingerprint-source-scanner-docs> Running phase: unpackPhase
+tigerstyle-fingerprint-json-output-docs> source root is source
+tigerstyle-fingerprint-source-scanner-docs> unpacking source archive /nix/store/vjyr3khfqyyvxjb58hmvianj48i56nhk-source
+tigerstyle-fingerprint-human-summary-docs> Running phase: patchPhase
+tigerstyle-fingerprint-human-summary-docs> Executing configureCargoCommonVars
+tigerstyle-fingerprint-human-summary-docs> decompressing cargo artifacts from /nix/store/vk7gsmqbkld1818vn2s4r792hnpd6fz5-tigerstyle-deps-0.1.0/target.tar.zst to target
+tigerstyle-fingerprint-warning-summary-docs> Running phase: unpackPhase
+tigerstyle-fingerprint-json-output-docs> Running phase: patchPhase
+tigerstyle-fingerprint-warning-summary-docs> unpacking source archive /nix/store/vjyr3khfqyyvxjb58hmvianj48i56nhk-source
+tigerstyle-fingerprint-json-output-docs> Executing configureCargoCommonVars
+tigerstyle-fingerprint-json-output-docs> decompressing cargo artifacts from /nix/store/vk7gsmqbkld1818vn2s4r792hnpd6fz5-tigerstyle-deps-0.1.0/target.tar.zst to target
+tigerstyle-fingerprint-lifecycle-docs> source root is source
+tigerstyle-fingerprint-source-scanner-docs> source root is source
+tigerstyle-fingerprint-lifecycle-docs> Running phase: patchPhase
+tigerstyle-fingerprint-lifecycle-docs> Executing configureCargoCommonVars
+tigerstyle-fingerprint-lifecycle-docs> decompressing cargo artifacts from /nix/store/vk7gsmqbkld1818vn2s4r792hnpd6fz5-tigerstyle-deps-0.1.0/target.tar.zst to target
+tigerstyle-fingerprint-warning-summary-docs> source root is source
+tigerstyle-fingerprint-source-scanner-docs> Running phase: patchPhase
+tigerstyle-fingerprint-source-scanner-docs> Executing configureCargoCommonVars
+tigerstyle-fingerprint-source-scanner-docs> decompressing cargo artifacts from /nix/store/vk7gsmqbkld1818vn2s4r792hnpd6fz5-tigerstyle-deps-0.1.0/target.tar.zst to target
+tigerstyle-fingerprint-warning-summary-docs> Running phase: patchPhase
+tigerstyle-fingerprint-warning-summary-docs> Executing configureCargoCommonVars
+tigerstyle-fingerprint-warning-summary-docs> decompressing cargo artifacts from /nix/store/vk7gsmqbkld1818vn2s4r792hnpd6fz5-tigerstyle-deps-0.1.0/target.tar.zst to target
+tigerstyle-fingerprint-human-summary-docs> Running phase: updateAutotoolsGnuConfigScriptsPhase
+tigerstyle-fingerprint-json-output-docs> Running phase: updateAutotoolsGnuConfigScriptsPhase
+tigerstyle-fingerprint-human-summary-docs> Running phase: configurePhase
+tigerstyle-fingerprint-human-summary-docs> will append /build/source/.cargo-home/config.toml with contents of /nix/store/mz7bb4p6a2ybq97w056xncdzvq6b9rgq-vendor-cargo-deps/config.toml
+tigerstyle-fingerprint-human-summary-docs> default configurePhase, nothing to do
+tigerstyle-fingerprint-json-output-docs> Running phase: configurePhase
+tigerstyle-fingerprint-human-summary-docs> Running phase: buildPhase
+tigerstyle-fingerprint-json-output-docs> will append /build/source/.cargo-home/config.toml with contents of /nix/store/mz7bb4p6a2ybq97w056xncdzvq6b9rgq-vendor-cargo-deps/config.toml
+tigerstyle-fingerprint-json-output-docs> default configurePhase, nothing to do
+tigerstyle-fingerprint-human-summary-docs> +++ command cargo --version
+tigerstyle-fingerprint-json-output-docs> Running phase: buildPhase
+tigerstyle-fingerprint-json-output-docs> +++ command cargo --version
+tigerstyle-fingerprint-human-summary-docs> cargo 1.96.0-nightly (cbb9bb8bd 2026-03-13)
+tigerstyle-fingerprint-json-output-docs> cargo 1.96.0-nightly (cbb9bb8bd 2026-03-13)
+tigerstyle-fingerprint-human-summary-docs> Running phase: checkPhase
+tigerstyle-fingerprint-json-output-docs> Running phase: checkPhase
+tigerstyle-fingerprint-human-summary-docs> +++ command cargo test --release -p cargo-tigerstyle --test fingerprint_consumer fingerprint_human_summary_docs_fixture_matches_transcript -- --nocapture
+tigerstyle-fingerprint-json-output-docs> +++ command cargo test --release -p cargo-tigerstyle --test fingerprint_consumer fingerprint_json_output_docs_fixture_matches_transcript -- --nocapture
+tigerstyle-fingerprint-lifecycle-docs> Running phase: updateAutotoolsGnuConfigScriptsPhase
+tigerstyle-fingerprint-json-output-docs>    Compiling shlex v1.3.0
+tigerstyle-fingerprint-json-output-docs>    Compiling find-msvc-tools v0.1.9
+tigerstyle-fingerprint-json-output-docs>    Compiling serde_core v1.0.228
+tigerstyle-fingerprint-json-output-docs>    Compiling proc-macro2 v1.0.106
+tigerstyle-fingerprint-json-output-docs>    Compiling quote v1.0.45
+tigerstyle-fingerprint-json-output-docs>    Compiling arrayvec v0.7.6
+tigerstyle-fingerprint-human-summary-docs>    Compiling shlex v1.3.0
+tigerstyle-fingerprint-human-summary-docs>    Compiling find-msvc-tools v0.1.9
+tigerstyle-fingerprint-human-summary-docs>    Compiling serde_core v1.0.228
+tigerstyle-fingerprint-human-summary-docs>    Compiling proc-macro2 v1.0.106
+tigerstyle-fingerprint-human-summary-docs>    Compiling quote v1.0.45
+tigerstyle-fingerprint-json-output-docs>    Compiling cfg-if v1.0.4
+tigerstyle-fingerprint-source-scanner-docs> Running phase: updateAutotoolsGnuConfigScriptsPhase
+tigerstyle-fingerprint-json-output-docs>    Compiling arrayref v0.3.9
+tigerstyle-fingerprint-human-summary-docs>    Compiling constant_time_eq v0.4.2
+tigerstyle-fingerprint-human-summary-docs>    Compiling arrayvec v0.7.6
+tigerstyle-fingerprint-human-summary-docs>    Compiling cfg-if v1.0.4
+tigerstyle-fingerprint-human-summary-docs>    Compiling cpufeatures v0.3.0
+tigerstyle-fingerprint-human-summary-docs>    Compiling libc v0.2.186
+tigerstyle-fingerprint-human-summary-docs>    Compiling arrayref v0.3.9
+tigerstyle-fingerprint-human-summary-docs>    Compiling rustix v1.1.4
+tigerstyle-fingerprint-json-output-docs>    Compiling libc v0.2.186
+tigerstyle-fingerprint-json-output-docs>    Compiling cpufeatures v0.3.0
+tigerstyle-fingerprint-json-output-docs>    Compiling constant_time_eq v0.4.2
+tigerstyle-fingerprint-human-summary-docs>    Compiling getrandom v0.4.2
+tigerstyle-fingerprint-json-output-docs>    Compiling getrandom v0.4.2
+tigerstyle-fingerprint-json-output-docs>    Compiling serde_json v1.0.149
+tigerstyle-fingerprint-human-summary-docs>    Compiling serde_json v1.0.149
+tigerstyle-fingerprint-json-output-docs>    Compiling rustix v1.1.4
+tigerstyle-fingerprint-json-output-docs>    Compiling bitflags v2.11.1
+tigerstyle-fingerprint-human-summary-docs>    Compiling bitflags v2.11.1
+tigerstyle-fingerprint-human-summary-docs>    Compiling linux-raw-sys v0.12.1
+tigerstyle-fingerprint-json-output-docs>    Compiling linux-raw-sys v0.12.1
+tigerstyle-fingerprint-json-output-docs>    Compiling once_cell v1.21.4
+tigerstyle-fingerprint-json-output-docs>    Compiling fastrand v2.4.1
+tigerstyle-fingerprint-human-summary-docs>    Compiling once_cell v1.21.4
+tigerstyle-fingerprint-human-summary-docs>    Compiling fastrand v2.4.1
+tigerstyle-fingerprint-lifecycle-docs> Running phase: configurePhase
+tigerstyle-fingerprint-lifecycle-docs> will append /build/source/.cargo-home/config.toml with contents of /nix/store/mz7bb4p6a2ybq97w056xncdzvq6b9rgq-vendor-cargo-deps/config.toml
+tigerstyle-fingerprint-lifecycle-docs> default configurePhase, nothing to do
+tigerstyle-fingerprint-lifecycle-docs> Running phase: buildPhase
+tigerstyle-fingerprint-source-scanner-docs> Running phase: configurePhase
+tigerstyle-fingerprint-lifecycle-docs> +++ command cargo --version
+tigerstyle-fingerprint-source-scanner-docs> will append /build/source/.cargo-home/config.toml with contents of /nix/store/mz7bb4p6a2ybq97w056xncdzvq6b9rgq-vendor-cargo-deps/config.toml
+tigerstyle-fingerprint-lifecycle-docs> cargo 1.96.0-nightly (cbb9bb8bd 2026-03-13)
+tigerstyle-fingerprint-warning-summary-docs> Running phase: updateAutotoolsGnuConfigScriptsPhase
+tigerstyle-fingerprint-source-scanner-docs> default configurePhase, nothing to do
+tigerstyle-fingerprint-lifecycle-docs> Running phase: checkPhase
+tigerstyle-fingerprint-source-scanner-docs> Running phase: buildPhase
+tigerstyle-fingerprint-lifecycle-docs> +++ command cargo test --release -p cargo-tigerstyle --test fingerprint_consumer fingerprint_lifecycle_docs_fixture_matches_transcript -- --nocapture
+tigerstyle-fingerprint-source-scanner-docs> +++ command cargo --version
+tigerstyle-fingerprint-source-scanner-docs> cargo 1.96.0-nightly (cbb9bb8bd 2026-03-13)
+tigerstyle-fingerprint-source-scanner-docs> Running phase: checkPhase
+tigerstyle-fingerprint-source-scanner-docs> +++ command cargo test --release -p cargo-tigerstyle --test fingerprint_consumer fingerprint_source_scanner_docs_fixture_matches_transcript -- --nocapture
+tigerstyle-fingerprint-warning-summary-docs> Running phase: configurePhase
+tigerstyle-fingerprint-warning-summary-docs> will append /build/source/.cargo-home/config.toml with contents of /nix/store/mz7bb4p6a2ybq97w056xncdzvq6b9rgq-vendor-cargo-deps/config.toml
+tigerstyle-fingerprint-warning-summary-docs> default configurePhase, nothing to do
+tigerstyle-fingerprint-warning-summary-docs> Running phase: buildPhase
+tigerstyle-fingerprint-warning-summary-docs> +++ command cargo --version
+tigerstyle-fingerprint-warning-summary-docs> cargo 1.96.0-nightly (cbb9bb8bd 2026-03-13)
+tigerstyle-fingerprint-warning-summary-docs> Running phase: checkPhase
+tigerstyle-fingerprint-warning-summary-docs> +++ command cargo test --release -p cargo-tigerstyle --test fingerprint_consumer fingerprint_warning_summary_docs_fixture_matches_transcript -- --nocapture
+tigerstyle-fingerprint-lifecycle-docs>    Compiling find-msvc-tools v0.1.9
+tigerstyle-fingerprint-lifecycle-docs>    Compiling shlex v1.3.0
+tigerstyle-fingerprint-lifecycle-docs>    Compiling serde_core v1.0.228
+tigerstyle-fingerprint-lifecycle-docs>    Compiling proc-macro2 v1.0.106
+tigerstyle-fingerprint-lifecycle-docs>    Compiling quote v1.0.45
+tigerstyle-fingerprint-lifecycle-docs>    Compiling constant_time_eq v0.4.2
+tigerstyle-fingerprint-lifecycle-docs>    Compiling cpufeatures v0.3.0
+tigerstyle-fingerprint-lifecycle-docs>    Compiling cfg-if v1.0.4
+tigerstyle-fingerprint-lifecycle-docs>    Compiling arrayref v0.3.9
+tigerstyle-fingerprint-lifecycle-docs>    Compiling libc v0.2.186
+tigerstyle-fingerprint-lifecycle-docs>    Compiling arrayvec v0.7.6
+tigerstyle-fingerprint-lifecycle-docs>    Compiling getrandom v0.4.2
+tigerstyle-fingerprint-lifecycle-docs>    Compiling serde_json v1.0.149
+tigerstyle-fingerprint-lifecycle-docs>    Compiling rustix v1.1.4
+tigerstyle-fingerprint-lifecycle-docs>    Compiling bitflags v2.11.1
+tigerstyle-fingerprint-source-scanner-docs>    Compiling find-msvc-tools v0.1.9
+tigerstyle-fingerprint-source-scanner-docs>    Compiling shlex v1.3.0
+tigerstyle-fingerprint-source-scanner-docs>    Compiling serde_core v1.0.228
+tigerstyle-fingerprint-source-scanner-docs>    Compiling proc-macro2 v1.0.106
+tigerstyle-fingerprint-source-scanner-docs>    Compiling quote v1.0.45
+tigerstyle-fingerprint-source-scanner-docs>    Compiling cfg-if v1.0.4
+tigerstyle-fingerprint-source-scanner-docs>    Compiling libc v0.2.186
+tigerstyle-fingerprint-source-scanner-docs>    Compiling arrayref v0.3.9
+tigerstyle-fingerprint-source-scanner-docs>    Compiling constant_time_eq v0.4.2
+tigerstyle-fingerprint-source-scanner-docs>    Compiling arrayvec v0.7.6
+tigerstyle-fingerprint-source-scanner-docs>    Compiling cpufeatures v0.3.0
+tigerstyle-fingerprint-source-scanner-docs>    Compiling rustix v1.1.4
+tigerstyle-fingerprint-source-scanner-docs>    Compiling getrandom v0.4.2
+tigerstyle-fingerprint-source-scanner-docs>    Compiling serde_json v1.0.149
+tigerstyle-fingerprint-source-scanner-docs>    Compiling linux-raw-sys v0.12.1
+tigerstyle-fingerprint-lifecycle-docs>    Compiling linux-raw-sys v0.12.1
+tigerstyle-fingerprint-source-scanner-docs>    Compiling bitflags v2.11.1
+tigerstyle-fingerprint-source-scanner-docs>    Compiling fastrand v2.4.1
+tigerstyle-fingerprint-source-scanner-docs>    Compiling once_cell v1.21.4
+tigerstyle-fingerprint-lifecycle-docs>    Compiling once_cell v1.21.4
+tigerstyle-fingerprint-lifecycle-docs>    Compiling fastrand v2.4.1
+tigerstyle-fingerprint-json-output-docs>    Compiling cc v1.2.61
+tigerstyle-fingerprint-human-summary-docs>    Compiling cc v1.2.61
+tigerstyle-fingerprint-warning-summary-docs>    Compiling shlex v1.3.0
+tigerstyle-fingerprint-warning-summary-docs>    Compiling find-msvc-tools v0.1.9
+tigerstyle-fingerprint-warning-summary-docs>    Compiling serde_core v1.0.228
+tigerstyle-fingerprint-warning-summary-docs>    Compiling proc-macro2 v1.0.106
+tigerstyle-fingerprint-warning-summary-docs>    Compiling quote v1.0.45
+tigerstyle-fingerprint-warning-summary-docs>    Compiling arrayvec v0.7.6
+tigerstyle-fingerprint-warning-summary-docs>    Compiling constant_time_eq v0.4.2
+tigerstyle-fingerprint-warning-summary-docs>    Compiling cpufeatures v0.3.0
+tigerstyle-fingerprint-warning-summary-docs>    Compiling arrayref v0.3.9
+tigerstyle-fingerprint-warning-summary-docs>    Compiling cfg-if v1.0.4
+tigerstyle-fingerprint-warning-summary-docs>    Compiling libc v0.2.186
+tigerstyle-fingerprint-warning-summary-docs>    Compiling getrandom v0.4.2
+tigerstyle-fingerprint-warning-summary-docs>    Compiling rustix v1.1.4
+tigerstyle-fingerprint-warning-summary-docs>    Compiling serde_json v1.0.149
+tigerstyle-fingerprint-warning-summary-docs>    Compiling linux-raw-sys v0.12.1
+tigerstyle-fingerprint-warning-summary-docs>    Compiling bitflags v2.11.1
+tigerstyle-fingerprint-warning-summary-docs>    Compiling fastrand v2.4.1
+tigerstyle-fingerprint-warning-summary-docs>    Compiling once_cell v1.21.4
+tigerstyle-fingerprint-source-scanner-docs>    Compiling cc v1.2.61
+tigerstyle-fingerprint-lifecycle-docs>    Compiling cc v1.2.61
+tigerstyle-fingerprint-warning-summary-docs>    Compiling cc v1.2.61
+tigerstyle-fingerprint-human-summary-docs>    Compiling syn v2.0.117
+tigerstyle-fingerprint-json-output-docs>    Compiling syn v2.0.117
+tigerstyle-fingerprint-lifecycle-docs>    Compiling syn v2.0.117
+tigerstyle-fingerprint-source-scanner-docs>    Compiling syn v2.0.117
+tigerstyle-fingerprint-warning-summary-docs>    Compiling syn v2.0.117
+tigerstyle-fingerprint-json-output-docs>    Compiling blake3 v1.8.4
+tigerstyle-fingerprint-human-summary-docs>    Compiling blake3 v1.8.4
+tigerstyle-fingerprint-lifecycle-docs>    Compiling blake3 v1.8.4
+tigerstyle-fingerprint-source-scanner-docs>    Compiling blake3 v1.8.4
+tigerstyle-fingerprint-warning-summary-docs>    Compiling blake3 v1.8.4
+tigerstyle-fingerprint-json-output-docs>    Compiling tempfile v3.27.0
+tigerstyle-fingerprint-warning-summary-docs>    Compiling cargo-tigerstyle v0.1.0 (/build/source/cargo-tigerstyle)
+tigerstyle-fingerprint-lifecycle-docs>    Compiling cargo-tigerstyle v0.1.0 (/build/source/cargo-tigerstyle)
+tigerstyle-fingerprint-source-scanner-docs>    Compiling cargo-tigerstyle v0.1.0 (/build/source/cargo-tigerstyle)
+tigerstyle-fingerprint-human-summary-docs>    Compiling cargo-tigerstyle v0.1.0 (/build/source/cargo-tigerstyle)
+tigerstyle-fingerprint-json-output-docs>    Compiling cargo-tigerstyle v0.1.0 (/build/source/cargo-tigerstyle)
+tigerstyle-fingerprint-human-summary-docs>    Compiling tempfile v3.27.0
+tigerstyle-fingerprint-lifecycle-docs>    Compiling tempfile v3.27.0
+tigerstyle-fingerprint-source-scanner-docs>    Compiling tempfile v3.27.0
+tigerstyle-fingerprint-warning-summary-docs>    Compiling tempfile v3.27.0
+tigerstyle-fingerprint-json-output-docs>    Compiling serde_derive v1.0.228
+tigerstyle-fingerprint-human-summary-docs>    Compiling serde_derive v1.0.228
+tigerstyle-fingerprint-source-scanner-docs>    Compiling serde_derive v1.0.228
+tigerstyle-fingerprint-warning-summary-docs>    Compiling serde_derive v1.0.228
+tigerstyle-fingerprint-human-summary-docs>    Compiling toml_datetime v1.1.1+spec-1.1.0
+tigerstyle-fingerprint-human-summary-docs>    Compiling serde_spanned v1.1.1
+tigerstyle-fingerprint-lifecycle-docs>    Compiling serde_derive v1.0.228
+tigerstyle-fingerprint-lifecycle-docs>    Compiling toml_datetime v1.1.1+spec-1.1.0
+tigerstyle-fingerprint-lifecycle-docs>    Compiling serde_spanned v1.1.1
+tigerstyle-fingerprint-source-scanner-docs>    Compiling serde_spanned v1.1.1
+tigerstyle-fingerprint-source-scanner-docs>    Compiling toml_datetime v1.1.1+spec-1.1.0
+tigerstyle-fingerprint-warning-summary-docs>    Compiling serde_spanned v1.1.1
+tigerstyle-fingerprint-warning-summary-docs>    Compiling toml_datetime v1.1.1+spec-1.1.0
+tigerstyle-fingerprint-json-output-docs>    Compiling toml_datetime v1.1.1+spec-1.1.0
+tigerstyle-fingerprint-json-output-docs>    Compiling serde_spanned v1.1.1
+tigerstyle-fingerprint-human-summary-docs>    Compiling toml v1.1.2+spec-1.1.0
+tigerstyle-fingerprint-lifecycle-docs>    Compiling toml v1.1.2+spec-1.1.0
+tigerstyle-fingerprint-source-scanner-docs>    Compiling toml v1.1.2+spec-1.1.0
+tigerstyle-fingerprint-warning-summary-docs>    Compiling toml v1.1.2+spec-1.1.0
+tigerstyle-fingerprint-json-output-docs>    Compiling toml v1.1.2+spec-1.1.0
+tigerstyle-fingerprint-human-summary-docs>    Compiling serde v1.0.228
+tigerstyle-fingerprint-source-scanner-docs>    Compiling serde v1.0.228
+tigerstyle-fingerprint-json-output-docs>    Compiling serde v1.0.228
+tigerstyle-fingerprint-warning-summary-docs>    Compiling serde v1.0.228
+tigerstyle-fingerprint-lifecycle-docs>    Compiling serde v1.0.228
+tigerstyle-fingerprint-human-summary-docs>     Finished `release` profile [optimized] target(s) in 8.54s
+tigerstyle-fingerprint-human-summary-docs>      Running tests/fingerprint_consumer.rs (target/release/deps/fingerprint_consumer-066e57e37ce0f494)
+tigerstyle-fingerprint-human-summary-docs>
+tigerstyle-fingerprint-human-summary-docs> running 1 test
+tigerstyle-fingerprint-human-summary-docs> test fingerprint_human_summary_docs_fixture_matches_transcript ... ok
+tigerstyle-fingerprint-human-summary-docs>
+tigerstyle-fingerprint-human-summary-docs> test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out; finished in 0.00s
+tigerstyle-fingerprint-human-summary-docs>
+tigerstyle-fingerprint-human-summary-docs> Running phase: installPhase
+tigerstyle-fingerprint-human-summary-docs> stripping references to Rust toolchain
+tigerstyle-fingerprint-human-summary-docs> Rust toolchain at: /nix/store/1yvh3d6y3fj3xk2dgwczrp1dj5svd92c-rust-default-1.96.0-nightly-2026-03-21
+tigerstyle-fingerprint-human-summary-docs> stripping Rust toolchain references done
+tigerstyle-fingerprint-human-summary-docs> stripping references to cargoVendorDir from:
+tigerstyle-fingerprint-human-summary-docs> stripping references done
+tigerstyle-fingerprint-human-summary-docs> Running phase: fixupPhase
+tigerstyle-fingerprint-human-summary-docs> shrinking RPATHs of ELF executables and libraries in /nix/store/vhxh20a0ldgwdap13wicc0cv2dzrb6dc-tigerstyle-fingerprint-human-summary-docs-0.1.0
+tigerstyle-fingerprint-human-summary-docs> checking for references to /build/ in /nix/store/vhxh20a0ldgwdap13wicc0cv2dzrb6dc-tigerstyle-fingerprint-human-summary-docs-0.1.0...
+tigerstyle-fingerprint-human-summary-docs> patching script interpreter paths in /nix/store/vhxh20a0ldgwdap13wicc0cv2dzrb6dc-tigerstyle-fingerprint-human-summary-docs-0.1.0
+tigerstyle-fingerprint-json-output-docs>     Finished `release` profile [optimized] target(s) in 8.62s
+tigerstyle-fingerprint-json-output-docs>      Running tests/fingerprint_consumer.rs (target/release/deps/fingerprint_consumer-066e57e37ce0f494)
+tigerstyle-fingerprint-json-output-docs>
+tigerstyle-fingerprint-json-output-docs> running 1 test
+tigerstyle-fingerprint-json-output-docs> test fingerprint_json_output_docs_fixture_matches_transcript ... ok
+tigerstyle-fingerprint-json-output-docs>
+tigerstyle-fingerprint-json-output-docs> test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out; finished in 0.01s
+tigerstyle-fingerprint-json-output-docs>
+tigerstyle-fingerprint-json-output-docs> Running phase: installPhase
+tigerstyle-fingerprint-json-output-docs> stripping references to Rust toolchain
+tigerstyle-fingerprint-json-output-docs> Rust toolchain at: /nix/store/1yvh3d6y3fj3xk2dgwczrp1dj5svd92c-rust-default-1.96.0-nightly-2026-03-21
+tigerstyle-fingerprint-json-output-docs> stripping Rust toolchain references done
+tigerstyle-fingerprint-json-output-docs> stripping references to cargoVendorDir from:
+tigerstyle-fingerprint-json-output-docs> stripping references done
+tigerstyle-fingerprint-json-output-docs> Running phase: fixupPhase
+tigerstyle-fingerprint-json-output-docs> shrinking RPATHs of ELF executables and libraries in /nix/store/6ka702b160hk5icl4jm9rhnzmbigxlc6-tigerstyle-fingerprint-json-output-docs-0.1.0
+tigerstyle-fingerprint-json-output-docs> checking for references to /build/ in /nix/store/6ka702b160hk5icl4jm9rhnzmbigxlc6-tigerstyle-fingerprint-json-output-docs-0.1.0...
+tigerstyle-fingerprint-json-output-docs> patching script interpreter paths in /nix/store/6ka702b160hk5icl4jm9rhnzmbigxlc6-tigerstyle-fingerprint-json-output-docs-0.1.0
+tigerstyle-fingerprint-lifecycle-docs>     Finished `release` profile [optimized] target(s) in 8.43s
+tigerstyle-fingerprint-lifecycle-docs>      Running tests/fingerprint_consumer.rs (target/release/deps/fingerprint_consumer-066e57e37ce0f494)
+tigerstyle-fingerprint-lifecycle-docs>
+tigerstyle-fingerprint-lifecycle-docs> running 1 test
+tigerstyle-fingerprint-lifecycle-docs> test fingerprint_lifecycle_docs_fixture_matches_transcript ... ok
+tigerstyle-fingerprint-lifecycle-docs>
+tigerstyle-fingerprint-lifecycle-docs> test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out; finished in 0.00s
+tigerstyle-fingerprint-lifecycle-docs>
+tigerstyle-fingerprint-lifecycle-docs> Running phase: installPhase
+tigerstyle-fingerprint-lifecycle-docs> stripping references to Rust toolchain
+tigerstyle-fingerprint-source-scanner-docs>     Finished `release` profile [optimized] target(s) in 8.36s
+tigerstyle-fingerprint-source-scanner-docs>      Running tests/fingerprint_consumer.rs (target/release/deps/fingerprint_consumer-066e57e37ce0f494)
+tigerstyle-fingerprint-source-scanner-docs>
+tigerstyle-fingerprint-source-scanner-docs> running 1 test
+tigerstyle-fingerprint-source-scanner-docs> test fingerprint_source_scanner_docs_fixture_matches_transcript ... ok
+tigerstyle-fingerprint-source-scanner-docs>
+tigerstyle-fingerprint-source-scanner-docs> test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out; finished in 0.00s
+tigerstyle-fingerprint-source-scanner-docs>
+tigerstyle-fingerprint-source-scanner-docs> Running phase: installPhase
+tigerstyle-fingerprint-source-scanner-docs> stripping references to Rust toolchain
+tigerstyle-fingerprint-source-scanner-docs> Rust toolchain at: /nix/store/1yvh3d6y3fj3xk2dgwczrp1dj5svd92c-rust-default-1.96.0-nightly-2026-03-21
+tigerstyle-fingerprint-source-scanner-docs> stripping Rust toolchain references done
+tigerstyle-fingerprint-source-scanner-docs> stripping references to cargoVendorDir from:
+tigerstyle-fingerprint-source-scanner-docs> stripping references done
+tigerstyle-fingerprint-source-scanner-docs> Running phase: fixupPhase
+tigerstyle-fingerprint-source-scanner-docs> shrinking RPATHs of ELF executables and libraries in /nix/store/wbd5r3q5ic88f2vzh35y6c4v9bz93dg9-tigerstyle-fingerprint-source-scanner-docs-0.1.0
+tigerstyle-fingerprint-source-scanner-docs> checking for references to /build/ in /nix/store/wbd5r3q5ic88f2vzh35y6c4v9bz93dg9-tigerstyle-fingerprint-source-scanner-docs-0.1.0...
+tigerstyle-fingerprint-source-scanner-docs> patching script interpreter paths in /nix/store/wbd5r3q5ic88f2vzh35y6c4v9bz93dg9-tigerstyle-fingerprint-source-scanner-docs-0.1.0
+tigerstyle-fingerprint-warning-summary-docs>     Finished `release` profile [optimized] target(s) in 8.36s
+tigerstyle-fingerprint-warning-summary-docs>      Running tests/fingerprint_consumer.rs (target/release/deps/fingerprint_consumer-066e57e37ce0f494)
+tigerstyle-fingerprint-warning-summary-docs>
+tigerstyle-fingerprint-warning-summary-docs> running 1 test
+tigerstyle-fingerprint-warning-summary-docs> test fingerprint_warning_summary_docs_fixture_matches_transcript ... ok
+tigerstyle-fingerprint-warning-summary-docs>
+tigerstyle-fingerprint-warning-summary-docs> test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out; finished in 0.00s
+tigerstyle-fingerprint-warning-summary-docs>
+tigerstyle-fingerprint-warning-summary-docs> Running phase: installPhase
+tigerstyle-fingerprint-warning-summary-docs> stripping references to Rust toolchain
+tigerstyle-fingerprint-warning-summary-docs> Rust toolchain at: /nix/store/1yvh3d6y3fj3xk2dgwczrp1dj5svd92c-rust-default-1.96.0-nightly-2026-03-21
+tigerstyle-fingerprint-lifecycle-docs> Rust toolchain at: /nix/store/1yvh3d6y3fj3xk2dgwczrp1dj5svd92c-rust-default-1.96.0-nightly-2026-03-21
+tigerstyle-fingerprint-lifecycle-docs> stripping Rust toolchain references done
+tigerstyle-fingerprint-lifecycle-docs> stripping references to cargoVendorDir from:
+tigerstyle-fingerprint-lifecycle-docs> stripping references done
+tigerstyle-fingerprint-lifecycle-docs> Running phase: fixupPhase
+tigerstyle-fingerprint-lifecycle-docs> shrinking RPATHs of ELF executables and libraries in /nix/store/ziy2rnmgrqwl719hvgi9wv1hmlv3smdr-tigerstyle-fingerprint-lifecycle-docs-0.1.0
+tigerstyle-fingerprint-lifecycle-docs> checking for references to /build/ in /nix/store/ziy2rnmgrqwl719hvgi9wv1hmlv3smdr-tigerstyle-fingerprint-lifecycle-docs-0.1.0...
+tigerstyle-fingerprint-lifecycle-docs> patching script interpreter paths in /nix/store/ziy2rnmgrqwl719hvgi9wv1hmlv3smdr-tigerstyle-fingerprint-lifecycle-docs-0.1.0
+tigerstyle-fingerprint-warning-summary-docs> stripping Rust toolchain references done
+tigerstyle-fingerprint-warning-summary-docs> stripping references to cargoVendorDir from:
+tigerstyle-fingerprint-warning-summary-docs> stripping references done
+tigerstyle-fingerprint-warning-summary-docs> Running phase: fixupPhase
+tigerstyle-fingerprint-warning-summary-docs> shrinking RPATHs of ELF executables and libraries in /nix/store/083ps07ijfwv5qdsscjb80sddp4yxzfx-tigerstyle-fingerprint-warning-summary-docs-0.1.0
+tigerstyle-fingerprint-warning-summary-docs> checking for references to /build/ in /nix/store/083ps07ijfwv5qdsscjb80sddp4yxzfx-tigerstyle-fingerprint-warning-summary-docs-0.1.0...
+tigerstyle-fingerprint-warning-summary-docs> patching script interpreter paths in /nix/store/083ps07ijfwv5qdsscjb80sddp4yxzfx-tigerstyle-fingerprint-warning-summary-docs-0.1.0
+building '/nix/store/96mhwlfd43y9547sa3fw9nb92va7324m-tigerstyle-docs-examples.drv'...
+$ openspec validate enforce-bounded-queue-structural-gate --strict
+Change 'enforce-bounded-queue-structural-gate' is valid
+$ git diff --check
+result: pass - focused Rust, Nix, OpenSpec, and whitespace checks passed

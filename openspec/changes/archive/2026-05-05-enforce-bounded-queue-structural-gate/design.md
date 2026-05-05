@@ -64,7 +64,7 @@ The policy registry already models structural enforcement modes and generated ar
 - scenario or requirement:
   - Scenario: Bounded queue artifact exports checker obligations
 - artifact path:
-  - `openspec/changes/enforce-bounded-queue-structural-gate/evidence/policy-artifact-export.txt`
+  - `openspec/changes/archive/2026-05-05-enforce-bounded-queue-structural-gate/evidence/policy-artifact-export.txt`
 - command / helper:
   - `nix run .#tigerstyle-policy-artifacts -- /tmp/tigerstyle-policy-artifacts-bounded-queue-proof` plus JSON/TOML assertions over the exported bundle
 - exact expected output / acceptance signal:
@@ -79,7 +79,7 @@ The policy registry already models structural enforcement modes and generated ar
   - Scenario: Bounded construction with witness passes
   - Scenario: Missing capacity witness remains a structural finding
 - artifact path:
-  - `openspec/changes/enforce-bounded-queue-structural-gate/evidence/standards-fixtures.txt`
+  - `openspec/changes/archive/2026-05-05-enforce-bounded-queue-structural-gate/evidence/standards-fixtures.txt`
 - command / helper:
   - `nix build .#checks.x86_64-linux.standards-fixtures --no-link -L`
 - exact expected output / acceptance signal:
@@ -92,7 +92,7 @@ The policy registry already models structural enforcement modes and generated ar
 - scenario or requirement:
   - Scenario: Downstream mutation fails the policy artifact consumer check
 - artifact path:
-  - `openspec/changes/enforce-bounded-queue-structural-gate/evidence/aspen-policy-artifact-mutation.txt`
+  - `openspec/changes/archive/2026-05-05-enforce-bounded-queue-structural-gate/evidence/aspen-policy-artifact-mutation.txt`
 - command / helper:
   - `nix build .#checks.x86_64-linux.tigerstyle-policy-artifacts --no-link -L` from an Aspen scratch copy containing one inserted unbounded constructor
 - exact expected output / acceptance signal:

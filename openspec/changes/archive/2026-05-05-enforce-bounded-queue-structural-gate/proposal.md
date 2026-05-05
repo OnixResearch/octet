@@ -27,6 +27,6 @@
 
 ## Impact
 
-- **Files / artifacts**: `standards/policies/registry.ncl`, `crates/tigerstyle-standards/src/resource.rs`, resource fixtures under `standards/check-fixtures/`, JSON/TOML artifact export tests, `docs/examples/aspen-policy-artifact-dogfood.md`, and evidence under `openspec/changes/enforce-bounded-queue-structural-gate/evidence/`.
+- **Files / artifacts**: `standards/policies/registry.ncl`, `crates/tigerstyle-standards/src/resource.rs`, resource fixtures under `standards/check-fixtures/`, JSON/TOML artifact export tests, `docs/examples/aspen-policy-artifact-dogfood.md`, and evidence under `openspec/changes/archive/2026-05-05-enforce-bounded-queue-structural-gate/evidence/`.
 - **Ordering / dependencies**: generated artifact fields must be added before the checker can consume them; local fixtures should pass before Aspen scratch mutation proof is captured.
 - **Verification / evidence**: `cargo test -p tigerstyle-standards`, `nix run .#tigerstyle-policy-artifacts`, `nix build .#checks.x86_64-linux.standards-fixtures --no-link -L`, `nix build .#checks.x86_64-linux.policy-artifact-consumer-fixture --no-link -L`, and an Aspen scratch-copy mutation transcript for `checks.x86_64-linux.tigerstyle-policy-artifacts`.

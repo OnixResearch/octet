@@ -513,31 +513,14 @@ The system MUST define mechanism-specific Nickel contracts for crate boundaries,
 
 Mechanism contracts MUST include the fields needed by Rust checkers to validate the corresponding structural or verified claim without inferring policy intent from prose.
 
-#### Scenario: Crate boundary contract exports core and shell obligations [r[nickel-mechanism-contracts.scenario.crate-boundary-contract]]
+For bounded primitive mechanisms, the exported contract MUST include approved bounded APIs or wrapper scopes, forbidden unbounded APIs, capacity-witness requirements, and backpressure or overflow behavior requirements.
 
-- GIVEN a policy uses `mechanism.kind = 'crate_boundary`
-- WHEN the Nickel export is generated
-- THEN the exported mechanism includes core crates, shell crates, no-std requirement, alloc allowance, forbidden core imports, forbidden core dependencies, and optional compatibility profile
+#### Scenario: Bounded queue artifact exports checker obligations [r[nickel-mechanism-contracts.scenario.bounded-queue-artifact-obligations]]
 
-#### Scenario: Capability contract exports constructor authority [r[nickel-mechanism-contracts.scenario.capability-contract]]
-
-- GIVEN a policy uses `mechanism.kind = 'capability_api`
-- WHEN the Nickel export is generated
-- THEN the exported mechanism includes capability type names, approved constructor modules, forbidden constructor scopes, allowed injected value inputs, private-field requirement, and sealed-trait requirement
-
-#### Scenario: Bounded and type-state contracts export API obligations [r[nickel-mechanism-contracts.scenario.bounded-typestate-contracts]]
-
-- GIVEN policies use `mechanism.kind = 'bounded_primitive` and `mechanism.kind = 'typestate`
-- WHEN the Nickel export is generated
-- THEN bounded primitive exports include approved types, forbidden APIs, and capacity-witness requirements
-- AND type-state exports include state names, transitions, dangerous operations, required states, and raw-primitive API restrictions
-
-#### Scenario: Seed corpus contract exports provenance and role [r[nickel-mechanism-contracts.scenario.seed-corpus-contract]]
-
-- GIVEN a policy uses `mechanism.kind = 'seed_corpus`
-- WHEN the Nickel export is generated
-- THEN the exported seed contract includes source repo, source commit, selected paths, role, license review, provenance review, hash algorithm, hashes, local acceptance command, and expected signal
-- AND proof-relevant seeds require local proof or an explicit trust-boundary report before acceptance
+- GIVEN `tigerstyle.embedded.bounded-queues` declares `mechanism.kind = 'bounded_primitive`
+- WHEN generated policy artifacts are exported
+- THEN the bounded queue policy artifact includes forbidden unbounded constructors, approved bounded constructors or wrapper scopes, required capacity-witness fields, and required backpressure or overflow behavior fields
+- AND the artifact preserves `tigerstyle.embedded.bounded-queues` as the policy ID consumed by `tigerstyle-standards check --policy-artifacts-dir`
 
 ### Requirement: Structural Mechanism Validation [r[structural-mechanism-validation]]
 
@@ -545,40 +528,36 @@ The system MUST validate claimed structural enforcement mechanisms before accept
 
 Structural validation MUST cover at least no-std core crates, shell-only side effects, approved capability constructors, bounded primitive use, type-state protocol surfaces, and crate dependency direction.
 
-#### Scenario: No-std core boundary is enforced [r[structural-mechanism-validation.scenario.no-std-core-boundary]]
+For bounded queue policies, structural validation MUST reject configured unbounded queue constructors in selected source roots and MUST accept only approved bounded constructors or wrappers with explicit capacity and backpressure witnesses.
 
-- GIVEN a project declares a crate as a Tiger Style deterministic core
-- WHEN structural validation runs
-- THEN the checker fails unless the crate is `#![no_std]` or has an explicitly justified compatibility profile
-- AND the core crate is rejected if it imports shell-only effects such as filesystem, network, environment, wall-clock time, async runtimes, or process execution
+#### Scenario: Artifact-backed checker rejects configured unbounded constructors [r[structural-mechanism-validation.scenario.bounded-queue-rejects-unbounded-constructors]]
 
-#### Scenario: Shell-to-core dependency direction is enforced [r[structural-mechanism-validation.scenario.shell-core-dependency-direction]]
+- GIVEN a generated policy artifact for `tigerstyle.embedded.bounded-queues` lists Tokio, Crossbeam, or std unbounded channel constructors as forbidden APIs
+- WHEN `tigerstyle-standards check --policy-artifacts-dir <dir> --family embedded` scans a source root containing one configured unbounded constructor
+- THEN the checker exits non-zero
+- AND the diagnostic includes policy ID `tigerstyle.embedded.bounded-queues`, structural enforcement mode, bounded primitive mechanism, source path, line when available, and remediation to use an explicit bounded queue with backpressure
 
-- GIVEN a project declares core crates and shell crates
-- WHEN crate graph validation runs
-- THEN shell crates may depend on core crates
-- AND core crates MUST NOT depend on shell crates or effect adapter crates
+#### Scenario: Bounded construction with witness passes [r[structural-mechanism-validation.scenario.bounded-queue-witness-passes]]
 
-#### Scenario: Capability constructors are shell-owned [r[structural-mechanism-validation.scenario.capability-constructors-shell-owned]]
+- GIVEN source code constructs queues only through approved bounded APIs or approved wrapper scopes
+- AND each construction has an explicit capacity constant, capacity argument, or configured wrapper witness plus backpressure or overflow behavior
+- WHEN the artifact-backed embedded structural checker scans the source root
+- THEN the checker reports zero bounded queue diagnostics
+- AND policy evaluation metadata still records that `tigerstyle.embedded.bounded-queues` was evaluated as a structural bounded primitive policy
 
-- GIVEN a policy claims time, I/O, randomness, or authority is enforced by capability APIs
-- WHEN source validation scans constructors and public APIs
-- THEN capability construction is accepted only in approved shell modules or private wrappers
-- AND core logic receives injected values, snapshots, effect descriptions, or sealed capability types rather than reaching for ambient effects
+#### Scenario: Missing capacity witness remains a structural finding [r[structural-mechanism-validation.scenario.bounded-queue-missing-witness-fails]]
 
-#### Scenario: Type-state protocol surfaces reject raw operations [r[structural-mechanism-validation.scenario.typestate-rejects-raw-operations]]
+- GIVEN source code hides queue construction behind a wrapper or helper that does not expose a configured capacity witness or backpressure behavior
+- WHEN the artifact-backed embedded structural checker scans the source root
+- THEN the checker reports a structural finding for `tigerstyle.embedded.bounded-queues`
+- AND the remediation names the missing capacity or backpressure witness rather than reporting a generic lint failure
 
-- GIVEN a protocol declares raw, parsed, validated, authorized, or committed states
-- WHEN API validation runs
-- THEN dangerous operations accept only the refined state type required by the policy
-- AND public APIs exposing raw primitive substitutes for the refined state are reported unless explicitly justified
+#### Scenario: Downstream mutation fails the policy artifact consumer check [r[structural-mechanism-validation.scenario.bounded-queue-downstream-mutation-fails]]
 
-#### Scenario: Bounded primitive requirement rejects unbounded replacement [r[structural-mechanism-validation.scenario.bounded-primitive-required]]
-
-- GIVEN a policy declares bounded collections, queues, retries, or buffers as structural
-- WHEN source validation checks the configured scope
-- THEN approved bounded primitive types or explicit bound witnesses are accepted
-- AND unbounded growth APIs remain findings even when ordinary lint diagnostics are otherwise clean
+- GIVEN Aspen pins a Tigerstyle flake exposing `lib.mkPolicyArtifactConsumerCheck` and checks selected embedded roots with `checks.x86_64-linux.tigerstyle-policy-artifacts`
+- WHEN a scratch Aspen copy inserts exactly one configured unbounded queue constructor inside a checked root
+- THEN the focused Aspen policy artifact check exits non-zero
+- AND the saved transcript names `tigerstyle.embedded.bounded-queues`, the mutated file, and the single expected mutation diagnostic before the scratch mutation is removed or discarded
 
 ### Requirement: Verified Enforcement Rails [r[verified-enforcement-rails]]
 

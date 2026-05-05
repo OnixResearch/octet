@@ -64,6 +64,9 @@ What it proves:
 - The same artifact-backed seam is now packaged for downstream flakes as
   `lib.mkPolicyArtifactConsumerCheck` and regression-covered by
   `checks.x86_64-linux.policy-artifact-consumer-fixture`.
+- The bounded-queue structural policy is enforced from the generated artifact
+  fields. A downstream scratch mutation that introduces a configured unbounded
+  constructor is expected to fail the focused policy-artifact consumer check.
 
 ## Aspen starter references for boundary-first profile
 

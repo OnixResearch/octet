@@ -100,3 +100,8 @@ and the command exited successfully.
 - The JSON report still carries structural policy-evaluation metadata, including
   `tigerstyle.embedded.bounded-queues` with `target_enforcement_mode =
   "structural"`.
+- The bounded-queue policy is now a hard structural gate: the generated bundle
+  exports forbidden unbounded constructors, approved bounded APIs/wrapper scopes,
+  capacity witnesses, and backpressure behavior witnesses; an Aspen scratch
+  mutation that introduces a configured unbounded constructor must fail
+  `checks.x86_64-linux.tigerstyle-policy-artifacts`.

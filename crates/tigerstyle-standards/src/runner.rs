@@ -47,7 +47,6 @@ fn evaluated_policy_ids(registry: &PolicyRegistry, selection: &FamilySelection) 
         .collect()
 }
 
-
 fn policy_evaluations(registry: &PolicyRegistry, selection: &FamilySelection) -> Vec<PolicyEvaluation> {
     registry
         .policies

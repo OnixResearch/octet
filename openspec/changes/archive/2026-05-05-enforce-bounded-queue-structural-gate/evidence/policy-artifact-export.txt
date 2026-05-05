@@ -1,0 +1,7 @@
+$ rm -rf /tmp/tigerstyle-policy-artifacts-bounded-queue-proof && nix run .#tigerstyle-policy-artifacts -- /tmp/tigerstyle-policy-artifacts-bounded-queue-proof
+$ jq assertions over generated artifacts
+true
+bounded_queue_forbidden_apis = ["tokio::sync::mpsc::unbounded_channel", "mpsc::unbounded_channel", "crossbeam_channel::unbounded", "std::sync::mpsc::channel"]
+bounded_queue_capacity_witnesses = ["capacity_witness=", "DEVICE_QUEUE_CAPACITY", "QUEUE_CAPACITY"]
+bounded_queue_backpressure_behaviors = ["backpressure=await_send", "overflow=drop_oldest", "overflow=reject"]
+result: pass - generated artifact exports bounded queue checker obligations

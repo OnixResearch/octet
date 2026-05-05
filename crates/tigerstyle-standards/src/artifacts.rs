@@ -52,6 +52,17 @@ pub fn render_check_config_toml(registry: &PolicyRegistry) -> String {
     let structural_policy_ids = policy_ids_by_target_mode(registry, EnforcementMode::Structural);
     let verified_policy_ids = policy_ids_by_target_mode(registry, EnforcementMode::Verified);
     let families = policy_families(registry);
+    let bounded_queue = bounded_queue_policy(registry);
+    let bounded_queue_forbidden_apis =
+        bounded_queue_mechanism_field(bounded_queue, |mechanism| &mechanism.forbidden_apis);
+    let bounded_queue_approved_apis =
+        bounded_queue_mechanism_field(bounded_queue, |mechanism| &mechanism.approved_bounded_apis);
+    let bounded_queue_wrapper_scopes =
+        bounded_queue_mechanism_field(bounded_queue, |mechanism| &mechanism.approved_wrapper_scopes);
+    let bounded_queue_capacity_witnesses =
+        bounded_queue_mechanism_field(bounded_queue, |mechanism| &mechanism.capacity_witnesses);
+    let bounded_queue_backpressure_behaviors =
+        bounded_queue_mechanism_field(bounded_queue, |mechanism| &mechanism.backpressure_behaviors);
 
     let mut toml = String::new();
     toml.push_str("schema_version = \"");
@@ -68,7 +79,30 @@ pub fn render_check_config_toml(registry: &PolicyRegistry) -> String {
     append_toml_array(&mut toml, "hard_policy_ids", &hard_policy_ids);
     append_toml_array(&mut toml, "structural_policy_ids", &structural_policy_ids);
     append_toml_array(&mut toml, "verified_policy_ids", &verified_policy_ids);
+    append_toml_array(&mut toml, "bounded_queue_forbidden_apis", &bounded_queue_forbidden_apis);
+    append_toml_array(&mut toml, "bounded_queue_approved_apis", &bounded_queue_approved_apis);
+    append_toml_array(&mut toml, "bounded_queue_wrapper_scopes", &bounded_queue_wrapper_scopes);
+    append_toml_array(&mut toml, "bounded_queue_capacity_witnesses", &bounded_queue_capacity_witnesses);
+    append_toml_array(&mut toml, "bounded_queue_backpressure_behaviors", &bounded_queue_backpressure_behaviors);
     toml
+}
+
+fn bounded_queue_policy(registry: &PolicyRegistry) -> Option<&PolicyEntry> {
+    registry.policy_by_id("tigerstyle.embedded.bounded-queues")
+}
+
+fn bounded_queue_mechanism_field(
+    policy: Option<&PolicyEntry>,
+    field: impl Fn(&crate::model::Mechanism) -> &Vec<String>,
+) -> Vec<String> {
+    policy
+        .and_then(|policy| {
+            policy
+                .mechanisms
+                .iter()
+                .find(|mechanism| mechanism.kind == crate::model::MechanismKind::BoundedPrimitive)
+        })
+        .map_or_else(Vec::new, |mechanism| field(mechanism).clone())
 }
 
 fn policy_ids_by_level(registry: &PolicyRegistry, level: EnforcementLevel) -> Vec<String> {

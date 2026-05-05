@@ -1,0 +1,3 @@
+$ git -C /home/brittonr/git/aspen status --short --branch
+## main...origin/main
+result: pass - no retained scratch mutation in Aspen checkout

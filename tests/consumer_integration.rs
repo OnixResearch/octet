@@ -2243,7 +2243,12 @@ fn baseline_file_accepts_current_findings_and_gates_new_ids() {
 
     let write_output = run_with_check_args(
         &fixture,
-        &["--output-format", JSON_OUTPUT_FORMAT, "--write-baseline", baseline_path_str],
+        &[
+            "--output-format",
+            JSON_OUTPUT_FORMAT,
+            "--write-baseline",
+            baseline_path_str,
+        ],
         &three_finding_json_lines(),
         EXIT_CODE_SUCCESS,
     );
@@ -2329,10 +2334,7 @@ fn baseline_file_accepts_current_findings_and_gates_new_ids() {
     assert_eq!(drift_status["baseline"]["accepted_current"], 3);
     assert_eq!(drift_status["baseline"]["new_total"], 1);
     assert_eq!(drift_status["baseline"]["stale_total"], 0);
-    assert_eq!(
-        drift_status["baseline"]["new_finding_ids"].as_array().expect("new finding ids").len(),
-        1
-    );
+    assert_eq!(drift_status["baseline"]["new_finding_ids"].as_array().expect("new finding ids").len(), 1);
 }
 
 #[test]
@@ -2347,7 +2349,12 @@ fn baseline_write_skips_incomplete_cargo_runs() {
 
     let output = run_with_check_args(
         &fixture,
-        &["--output-format", JSON_OUTPUT_FORMAT, "--write-baseline", baseline_path_str],
+        &[
+            "--output-format",
+            JSON_OUTPUT_FORMAT,
+            "--write-baseline",
+            baseline_path_str,
+        ],
         &lines,
         EXIT_CODE_LINT_FAILURE,
     );
@@ -2359,10 +2366,7 @@ fn baseline_write_skips_incomplete_cargo_runs() {
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
-    assert!(
-        !baseline_path.exists(),
-        "failed cargo runs must not create or overwrite acceptance baselines"
-    );
+    assert!(!baseline_path.exists(), "failed cargo runs must not create or overwrite acceptance baselines");
 }
 
 #[test]

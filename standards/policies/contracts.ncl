@@ -123,6 +123,11 @@ let MechanismContract = {
   crate_boundary | Array NonEmptyString | default = [],
   constructor_authority | Array NonEmptyString | default = [],
   api_obligations | Array NonEmptyString | default = [],
+  forbidden_apis | Array NonEmptyString | default = [],
+  approved_bounded_apis | Array NonEmptyString | default = [],
+  approved_wrapper_scopes | Array NonEmptyString | default = [],
+  capacity_witnesses | Array NonEmptyString | default = [],
+  backpressure_behaviors | Array NonEmptyString | default = [],
 }
 in
 

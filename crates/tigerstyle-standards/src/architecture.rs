@@ -27,10 +27,29 @@ const ROOT_MAIN_PATH_SUFFIX: &str = "src/main.rs";
 const NO_STD_ATTRIBUTE: &str = "#![no_std]";
 const CORE_DEPENDENCIES_SECTION: &str = "[dependencies]";
 const DEV_DEPENDENCIES_SECTION: &str = "[dev-dependencies]";
-const CORE_FORBIDDEN_DEPENDENCIES: &[&str] = &["tokio", "tracing", "tracing-subscriber", "clap", "parking_lot", "url", "tigerstyle-std"];
+const CORE_FORBIDDEN_DEPENDENCIES: &[&str] = &[
+    "tokio",
+    "tracing",
+    "tracing-subscriber",
+    "clap",
+    "parking_lot",
+    "url",
+    "tigerstyle-std",
+];
 const CORE_CRATE_DEPENDENCY: &str = "tigerstyle-core";
-const AMBIENT_CAPABILITY_PATTERNS: &[&str] = &["std::env::", "std::fs::", "std::net::", "SystemTime::now(", "File::open("];
-const RAW_TYPE_STATE_PATTERNS: &[&str] = &["send_raw(", "raw_send(", "type ConnectionState = bool", "pub fn open_raw"];
+const AMBIENT_CAPABILITY_PATTERNS: &[&str] = &[
+    "std::env::",
+    "std::fs::",
+    "std::net::",
+    "SystemTime::now(",
+    "File::open(",
+];
+const RAW_TYPE_STATE_PATTERNS: &[&str] = &[
+    "send_raw(",
+    "raw_send(",
+    "type ConnectionState = bool",
+    "pub fn open_raw",
+];
 const EXTERNAL_DOMAIN_TYPE_PATTERNS: &[&str] = &[
     "axum::",
     "hyper::",
@@ -156,7 +175,6 @@ fn check_std_shell_owns_std(registry: &PolicyRegistry, sources: &[SourceFile], d
     }
 }
 
-
 fn check_shell_depends_on_core(registry: &PolicyRegistry, sources: &[SourceFile], diagnostics: &mut Vec<Diagnostic>) {
     let Some(policy) = registry.policy_by_id(FCIS_POLICY_ID) else {
         return;
@@ -186,7 +204,8 @@ fn check_core_capability_constructors(
     };
     for source in core_rust_sources(sources) {
         for (line_index, line) in source.text.lines().enumerate() {
-            let Some(pattern) = AMBIENT_CAPABILITY_PATTERNS.iter().copied().find(|pattern| line.contains(pattern)) else {
+            let Some(pattern) = AMBIENT_CAPABILITY_PATTERNS.iter().copied().find(|pattern| line.contains(pattern))
+            else {
                 continue;
             };
             diagnostics.push(policy_diagnostic(
@@ -200,7 +219,11 @@ fn check_core_capability_constructors(
     }
 }
 
-fn check_raw_type_state_operations(registry: &PolicyRegistry, sources: &[SourceFile], diagnostics: &mut Vec<Diagnostic>) {
+fn check_raw_type_state_operations(
+    registry: &PolicyRegistry,
+    sources: &[SourceFile],
+    diagnostics: &mut Vec<Diagnostic>,
+) {
     let Some(policy) = registry.policy_by_id(TYPE_STATE_POLICY_ID) else {
         return;
     };
