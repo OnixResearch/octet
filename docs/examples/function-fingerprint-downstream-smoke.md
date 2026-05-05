@@ -1,6 +1,14 @@
 # Function fingerprint downstream smoke
 
-The flake exposes a scratch-consumer smoke for the checked fingerprint docs examples:
+The flake exposes a scratch-consumer smoke for the checked fingerprint docs examples.
+Most reviewers should run the aggregate executable-docs gate instead of this focused
+check directly:
+
+```bash
+nix build .#checks.x86_64-linux.docs-examples --no-link -L
+```
+
+Use the focused downstream smoke only when debugging the consumer-path slice:
 
 ```bash
 nix build .#checks.x86_64-linux.fingerprint-docs-downstream-smoke --no-link -L
