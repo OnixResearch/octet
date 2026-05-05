@@ -15,13 +15,13 @@ impl<'a, 'tcx> Visitor<'tcx> for UseSiteCollector<'a, 'tcx> {
     fn visit_expr(&mut self, expr: &'tcx hir::Expr<'tcx>) {
         if let hir::ExprKind::Path(ref qpath) = expr.kind {
             let res = self.cx.typeck_results().qpath_res(qpath, expr.hir_id);
-            if let hir::def::Res::Local(hir_id) = res {
-                if hir_id == self.target {
-                    if expr.span.from_expansion() {
-                        self.has_expansion = true;
-                    }
-                    self.use_sites.push(expr.span);
+            if let hir::def::Res::Local(hir_id) = res
+                && hir_id == self.target
+            {
+                if expr.span.from_expansion() {
+                    self.has_expansion = true;
                 }
+                self.use_sites.push(expr.span);
             }
         }
         intravisit::walk_expr(self, expr);
