@@ -1,0 +1,17 @@
+$ nickel export --format json standards/policies/registry.ncl
+exit=0
+$ tigerstyle-standards export-artifacts --registry /tmp/nix-shell.WtdL8I/tmpo77n1hbi/registry.json --out-dir /tmp/nix-shell.WtdL8I/tmpo77n1hbi/artifacts
+exit=0
+$ tigerstyle-standards check --policy-artifacts-dir /tmp/nix-shell.WtdL8I/tmpo77n1hbi/artifacts --source standards/check-fixtures/architecture/compliant/typestate-protocol --family idioms --output json
+exit=0
+compliant type-state diagnostics: 0
+$ tigerstyle-standards check --policy-artifacts-dir /tmp/nix-shell.WtdL8I/tmpo77n1hbi/artifacts --source standards/check-fixtures/architecture/noncompliant --family architecture --output json
+exit=1
+architecture-only diagnostics: 8
+architecture-only type-state diagnostics: 0
+$ tigerstyle-standards check --policy-artifacts-dir /tmp/nix-shell.WtdL8I/tmpo77n1hbi/artifacts --source standards/check-fixtures/architecture/noncompliant/typestate-raw --family idioms --output json
+exit=1
+idioms type-state diagnostics: 3
+- tigerstyle.idioms.nominal-type-boundaries: raw protocol bypass `type ConnectionState = bool` violates artifact-backed type-state obligations
+- tigerstyle.idioms.nominal-type-boundaries: raw protocol bypass `send_raw(` violates artifact-backed type-state obligations
+- tigerstyle.idioms.nominal-type-boundaries: type-state source is missing required marker or transition evidence: markers=[Disconnected, Connected, Authenticated], methods=[connect(, authenticate(, send(]

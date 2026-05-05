@@ -111,6 +111,21 @@ pub struct Mechanism {
     /// Approved capability trait, token, or effect-data names for capability-api mechanisms.
     #[serde(default)]
     pub approved_capability_names: Vec<String>,
+    /// Source path scopes where type-state protocol obligations apply.
+    #[serde(default)]
+    pub type_state_source_scopes: Vec<String>,
+    /// Raw state alias patterns rejected by type-state mechanisms.
+    #[serde(default)]
+    pub raw_state_alias_patterns: Vec<String>,
+    /// Raw transition or bypass patterns rejected by type-state mechanisms.
+    #[serde(default)]
+    pub raw_transition_patterns: Vec<String>,
+    /// Required nominal state marker names accepted as type-state evidence.
+    #[serde(default)]
+    pub required_state_markers: Vec<String>,
+    /// Required transition method names accepted as type-state evidence.
+    #[serde(default)]
+    pub required_transition_methods: Vec<String>,
 }
 
 /// Deterministic evidence command metadata.

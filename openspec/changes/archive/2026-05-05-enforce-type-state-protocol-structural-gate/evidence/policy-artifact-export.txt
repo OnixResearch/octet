@@ -1,0 +1,15 @@
+$ nickel export --format json standards/policies/registry.ncl > registry.json
+$ tigerstyle-standards export-artifacts --registry registry.json --out-dir artifacts
+policy_id: tigerstyle.idioms.nominal-type-boundaries
+classification: hard
+enforcement_level: hard
+current_enforcement_mode: structural
+target_enforcement_mode: structural
+default_severity: error
+mechanism_kind: type-state
+type_state_source_scopes: typestate-protocol/src/, typestate-raw/src/
+raw_state_alias_patterns: type ConnectionState = bool, type ProtocolState = bool
+raw_transition_patterns: send_raw(, raw_send(, open_raw(
+required_state_markers: Disconnected, Connected, Authenticated
+required_transition_methods: connect(, authenticate(, send(
+artifact assertions: pass
