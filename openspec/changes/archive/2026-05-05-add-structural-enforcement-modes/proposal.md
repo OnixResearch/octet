@@ -29,6 +29,6 @@ Tigerstyle can already observe violations with lints and hard-gate them in CI, b
 
 ## Impact
 
-- **Files / artifacts**: `openspec/changes/add-structural-enforcement-modes/{proposal.md,design.md,tasks.md,specs/standards-codification/spec.md}`. Future implementation may touch `standards/policies/`, `src/`, `cargo-tigerstyle/`, docs, templates, Nix checks, and a controlled `vendor/` or fixture path.
+- **Files / artifacts**: `openspec/changes/archive/2026-05-05-add-structural-enforcement-modes/{proposal.md,design.md,tasks.md,specs/standards-codification/spec.md}`. Future implementation may touch `standards/policies/`, `src/`, `cargo-tigerstyle/`, docs, templates, Nix checks, and a controlled `vendor/` or fixture path.
 - **Ordering / dependencies**: land this spec before implementation. Any vendoring from `../vericoder-mvp/`, `../verified-logic/`, or `../ucan/` must be preceded by a manifest containing source commit, file list, hashes, license review, intended role, and local verification command.
 - **Verification / evidence**: planned evidence includes policy-schema validation, positive/negative structural fixtures, sibling-seed manifest validation, no-std/core-shell fixture checks, capability/type-state fixture checks, and Verus/proof-rail smoke checks where verified mode is selected.
