@@ -1,0 +1,6 @@
+$ nix build .#checks.x86_64-linux.standards-fixtures --no-link -L
+this derivation will be built:
+  /nix/store/qg7r7cs4km2fcrgr1l8k7y1vfaqqll9r-tigerstyle-standards-fixtures.drv
+cannot build on 'ssh-ng://root@10.10.10.1': error: failed to start SSH connection to '10.10.10.1'
+building '/nix/store/qg7r7cs4km2fcrgr1l8k7y1vfaqqll9r-tigerstyle-standards-fixtures.drv'...
+result: pass - standards fixtures cover compliant witness pass, unbounded rejection, and missing witness rejection

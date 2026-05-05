@@ -350,8 +350,26 @@ in
       mechanisms = [{
         kind = "bounded-primitive",
         description = "queues and channels expose explicit capacities and backpressure",
-        exported_obligations = ["reject unbounded_channel", "require explicit bounded capacity"],
+        exported_obligations = [
+          "reject configured unbounded queue constructors",
+          "require explicit bounded capacity witness",
+          "require backpressure or overflow behavior witness",
+        ],
         api_obligations = ["bounded capacity argument", "backpressure behavior documented"],
+        forbidden_apis = [
+          "tokio::sync::mpsc::unbounded_channel",
+          "mpsc::unbounded_channel",
+          "crossbeam_channel::unbounded",
+          "std::sync::mpsc::channel",
+        ],
+        approved_bounded_apis = [
+          "tokio::sync::mpsc::channel",
+          "mpsc::channel",
+          "crossbeam_channel::bounded",
+        ],
+        approved_wrapper_scopes = ["bounded_device_queue"],
+        capacity_witnesses = ["capacity_witness=", "DEVICE_QUEUE_CAPACITY", "QUEUE_CAPACITY"],
+        backpressure_behaviors = ["backpressure=await_send", "overflow=drop_oldest", "overflow=reject"],
       }],
       checker_owner = "embedded",
       checker_id = "tigerstyle",

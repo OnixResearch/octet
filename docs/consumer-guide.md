@@ -177,7 +177,11 @@ checks.${system}.tigerstyle-standards = tigerstyle.lib.mkPolicyArtifactConsumerC
 The helper exports and asserts the generated bundle files, copies the consumer
 source into the check sandbox, runs `tigerstyle-standards check
 --policy-artifacts-dir ...`, asserts the expected diagnostic count, and can
-assert required policy IDs are present in the policy-evaluation metadata.
+assert required policy IDs are present in the policy-evaluation metadata. For
+`family = "embedded"`, the generated artifact now drives the
+`tigerstyle.embedded.bounded-queues` structural gate: forbidden unbounded
+constructors fail, while approved bounded APIs or wrappers need explicit
+capacity/backpressure witnesses.
 
 Wrapped Nix outputs already provide the runtime environment expected by the
 runner, including:

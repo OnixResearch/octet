@@ -627,6 +627,10 @@ MAIN
           test -s "$artifact_dir/tigerstyle-check-config.toml"
           test -s "$artifact_dir/tigerstyle-seed-manifests.json"
           grep --fixed-strings "structural_policy_ids" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
+          grep --fixed-strings "bounded_queue_forbidden_apis" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
+          grep --fixed-strings "tokio::sync::mpsc::unbounded_channel" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
+          grep --fixed-strings "bounded_queue_capacity_witnesses" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
+          grep --fixed-strings "bounded_queue_backpressure_behaviors" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
 
           tigerstyle-standards check \
             --policy-artifacts-dir "$artifact_dir" \
@@ -695,7 +699,9 @@ MAIN
             echo "noncompliant embedded fixtures unexpectedly passed" >&2
             exit 1
           fi
-          jq --exit-status '.diagnostics | length >= 1' "$noncompliant_json" >/dev/null
+          jq --exit-status '.diagnostics | length >= 2' "$noncompliant_json" >/dev/null
+          jq --exit-status 'any(.diagnostics[]; .policy_id == "tigerstyle.embedded.bounded-queues" and (.message | contains("forbidden unbounded API")))' "$noncompliant_json" >/dev/null
+          jq --exit-status 'any(.diagnostics[]; .policy_id == "tigerstyle.embedded.bounded-queues" and (.message | contains("missing capacity or backpressure witness")))' "$noncompliant_json" >/dev/null
 
           tigerstyle-standards check \
             --policy-artifacts-dir "$artifact_dir" \

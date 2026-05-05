@@ -33,7 +33,6 @@ pub enum EnforcementLevel {
     Deferred,
 }
 
-
 /// Policy enforcement mode declared by the Nickel registry.
 #[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "kebab-case")]
@@ -50,7 +49,6 @@ pub enum EnforcementMode {
     /// Human/oracle judgment is required.
     HumanOracle,
 }
-
 
 /// Mechanism kind exported from Nickel for structural policies.
 #[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
@@ -86,8 +84,22 @@ pub struct Mechanism {
     /// API obligations for bounded/type-state mechanisms.
     #[serde(default)]
     pub api_obligations: Vec<String>,
+    /// Forbidden API patterns for bounded primitive mechanisms.
+    #[serde(default)]
+    pub forbidden_apis: Vec<String>,
+    /// Approved bounded API patterns for bounded primitive mechanisms.
+    #[serde(default)]
+    pub approved_bounded_apis: Vec<String>,
+    /// Approved wrapper scopes/functions for bounded primitive mechanisms.
+    #[serde(default)]
+    pub approved_wrapper_scopes: Vec<String>,
+    /// Capacity witness strings accepted by bounded primitive mechanisms.
+    #[serde(default)]
+    pub capacity_witnesses: Vec<String>,
+    /// Backpressure or overflow behavior witness strings accepted by bounded primitive mechanisms.
+    #[serde(default)]
+    pub backpressure_behaviors: Vec<String>,
 }
-
 
 /// Deterministic evidence command metadata.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]

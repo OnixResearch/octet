@@ -1,0 +1,113 @@
+$ git -C /tmp/aspen-bounded-queue-mutation status --short --branch
+## HEAD (no branch)
+ M crates/aspen-core/src/lib.rs
+$ nix run /home/brittonr/git/tigerstyle#tigerstyle-policy-artifacts -- /tmp/tigerstyle-policy-artifacts-aspen-mutation
+$ nix run /home/brittonr/git/tigerstyle#tigerstyle-standards -- check ... mutated Aspen roots
+{
+  "diagnostics": 1,
+  "bounded_queue_findings": [
+    {
+      "policy_id": "tigerstyle.embedded.bounded-queues",
+      "path": "/tmp/aspen-bounded-queue-mutation/crates/aspen-core/src/lib.rs",
+      "line": 196,
+      "message": "structural bounded primitive violation: forbidden unbounded API `tokio::sync::mpsc::unbounded_channel` is not allowed"
+    }
+  ]
+}
+$ nix build .#checks.x86_64-linux.tigerstyle-policy-artifacts --override-input tigerstyle path:/home/brittonr/git/tigerstyle --no-link -L
+Using saved setting for 'builders = ' from ~/.local/share/nix/trusted-settings.json.
+Using saved setting for 'connect-timeout = 30' from ~/.local/share/nix/trusted-settings.json.
+Using saved setting for 'download-attempts = 3' from ~/.local/share/nix/trusted-settings.json.
+Using saved setting for 'extra-substituters = https://cache.nixos.org https://microvm.cachix.org' from ~/.local/share/nix/trusted-settings.json.
+Using saved setting for 'extra-trusted-public-keys = cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY= microvm.cachix.org-1:oXnBc6hRE3eX5rSYdRyMYXnfzcCxC7yKPTbZXALsqys=' from ~/.local/share/nix/trusted-settings.json.
+Using saved setting for 'fallback = true' from ~/.local/share/nix/trusted-settings.json.
+Using saved setting for 'keepOutputs = true' from ~/.local/share/nix/trusted-settings.json.
+Using saved setting for 'max-free = 10737418240' from ~/.local/share/nix/trusted-settings.json.
+Using saved setting for 'max-jobs = auto' from ~/.local/share/nix/trusted-settings.json.
+Using saved setting for 'min-free = 5368709120' from ~/.local/share/nix/trusted-settings.json.
+warning: not writing modified lock file of flake 'git+file:///tmp/aspen-bounded-queue-mutation':
+• Updated input 'tigerstyle':
+    'github:brittonr/tigerstyle-rs/a27180d?narHash=sha256-pyd09Sb6QfxllXOi71GucO57oPOQFUlcCfIp/youxEs%3D' (2026-05-05)
+  → 'path:/home/brittonr/git/tigerstyle?lastModified=1778016775&narHash=sha256-iOUJQuyMnDANAaWA1v0cOAhU3UD0dh/z0nYwKtYISWc%3D' (2026-05-05)
+building '/nix/store/qlyrfd3q135d4i6aaxhsps94jyjr1r9p-aspen-u2n-src.drv'...
+building '/nix/store/bg3v7gpxdjgnxr33qkx18gf0n4pw5hbk-aspen-u2n-test-src.drv'...
+building '/nix/store/z517fs88bm2g1c8spsf0iybw4nhppwqq-unit2nix-build-plan.drv'...
+unit2nix-build-plan> Running cargo build --unit-graph...
+unit2nix-build-plan>   1151 units, 131 roots
+unit2nix-build-plan> Running cargo metadata...
+unit2nix-build-plan>   1235 packages
+unit2nix-build-plan> Reading Cargo.lock...
+unit2nix-build-plan>   1189 packages with checksums
+unit2nix-build-plan>   sha256: d73659faf7f17cb6ebc87e52d78260033ad0f211221428007e305c0016958ca4
+unit2nix-build-plan> Running cargo test --unit-graph (for dev dependencies)...
+unit2nix-build-plan>   1722 units, 377 roots
+unit2nix-build-plan> Merging...
+unit2nix-build-plan> warning: skipping path+file:///build/source/aspen/crates/aspen-cli#0.1.0: no lib/bin/proc-macro target
+unit2nix-build-plan> warning: skipping path+file:///build/source/aspen/crates/aspen-dogfood#0.1.0: no lib/bin/proc-macro target
+unit2nix-build-plan> warning: skipping path+file:///build/source/aspen/crates/aspen-durable-workflow-test#0.1.0: no lib/bin/proc-macro target
+unit2nix-build-plan> warning: skipping path+file:///build/source/aspen/crates/aspen-job-primitives-test#0.1.0: no lib/bin/proc-macro target
+unit2nix-build-plan> warning: skipping path+file:///build/source/aspen/crates/aspen-sops-install-secrets#0.1.0: no lib/bin/proc-macro target
+unit2nix-build-plan>   1008 crates in build plan
+unit2nix-build-plan>   114 workspace members
+unit2nix-build-plan> Wrote /build/build-plan.json
+these 3 derivations will be built:
+  /nix/store/xkbhy5mdd6z3v2hasapxkbm9msahh0kl-tigerstyle-standards-0.1.0.drv
+  /nix/store/x3gkg7v38pwjxnphrza9nb8k0iml7fad-tigerstyle-policy-artifacts.drv
+  /nix/store/rrjwgzk7gzc0i0bw984p1mq1dqczwl3i-tigerstyle-policy-artifact-consumer-check.drv
+building '/nix/store/xkbhy5mdd6z3v2hasapxkbm9msahh0kl-tigerstyle-standards-0.1.0.drv'...
+tigerstyle-standards> Running phase: unpackPhase
+tigerstyle-standards> unpacking source archive /nix/store/jmmxhaq851gckz28fsbr6mb26hg1y3ss-source
+tigerstyle-standards> source root is source
+tigerstyle-standards> Running phase: patchPhase
+tigerstyle-standards> Executing configureCargoCommonVars
+tigerstyle-standards> decompressing cargo artifacts from /nix/store/lkb1xj3g7mfas6qjrrmplk92k357s2xa-tigerstyle-deps-0.1.0/target.tar.zst to target
+tigerstyle-standards> Running phase: updateAutotoolsGnuConfigScriptsPhase
+tigerstyle-standards> Running phase: configurePhase
+tigerstyle-standards> will append /build/source/.cargo-home/config.toml with contents of /nix/store/9p555ing33wpdd3wg6b4ldbgykx0q62v-vendor-cargo-deps/config.toml
+tigerstyle-standards> default configurePhase, nothing to do
+tigerstyle-standards> Running phase: buildPhase
+tigerstyle-standards> +++ command cargo --version
+tigerstyle-standards> cargo 1.96.0-nightly (cbb9bb8bd 2026-03-13)
+tigerstyle-standards> +++ command cargo build --release --message-format json-render-diagnostics -p tigerstyle-standards
+tigerstyle-standards>    Compiling serde_core v1.0.228
+tigerstyle-standards>    Compiling utf8parse v0.2.2
+tigerstyle-standards>    Compiling anstyle v1.0.14
+tigerstyle-standards>    Compiling colorchoice v1.0.5
+tigerstyle-standards>    Compiling is_terminal_polyfill v1.70.2
+tigerstyle-standards>    Compiling anstyle-query v1.1.5
+tigerstyle-standards>    Compiling strsim v0.11.1
+tigerstyle-standards>    Compiling serde_json v1.0.149
+tigerstyle-standards>    Compiling heck v0.5.0
+tigerstyle-standards>    Compiling clap_lex v1.1.0
+tigerstyle-standards>    Compiling anstyle-parse v1.0.0
+tigerstyle-standards>    Compiling clap_derive v4.6.1
+tigerstyle-standards>    Compiling anstream v1.0.0
+tigerstyle-standards>    Compiling clap_builder v4.6.0
+tigerstyle-standards>    Compiling serde v1.0.228
+tigerstyle-standards>    Compiling clap v4.6.1
+tigerstyle-standards>    Compiling tigerstyle-standards v0.1.0 (/build/source/crates/tigerstyle-standards)
+tigerstyle-standards>     Finished `release` profile [optimized] target(s) in 3.35s
+tigerstyle-standards> searching for bins/libs to install from cargo build log at cargoBuildLog6EiV.json
+tigerstyle-standards> installing /build/source/target/release/tigerstyle-standards in postBuildInstallFromCargoBuildLogOutTempyf0/bin
+tigerstyle-standards> searching for bins/libs complete
+tigerstyle-standards> Running phase: installPhase
+tigerstyle-standards> actually installing contents of postBuildInstallFromCargoBuildLogOutTempyf0 to /nix/store/mzila7srbzm4l3rdh1nm8smpla6padic-tigerstyle-standards-0.1.0
+tigerstyle-standards> stripping references to Rust toolchain
+tigerstyle-standards> Rust toolchain at: /nix/store/8q108a6midc3yh8mpk84r97p8yfjipca-rust-default-1.96.0-nightly-2026-03-21
+tigerstyle-standards> stripping Rust toolchain references done
+tigerstyle-standards> stripping references to cargoVendorDir from:
+tigerstyle-standards> /nix/store/mzila7srbzm4l3rdh1nm8smpla6padic-tigerstyle-standards-0.1.0/bin/tigerstyle-standards
+tigerstyle-standards> stripping references done
+tigerstyle-standards> Running phase: fixupPhase
+tigerstyle-standards> shrinking RPATHs of ELF executables and libraries in /nix/store/mzila7srbzm4l3rdh1nm8smpla6padic-tigerstyle-standards-0.1.0
+tigerstyle-standards> shrinking /nix/store/mzila7srbzm4l3rdh1nm8smpla6padic-tigerstyle-standards-0.1.0/bin/tigerstyle-standards
+tigerstyle-standards> checking for references to /build/ in /nix/store/mzila7srbzm4l3rdh1nm8smpla6padic-tigerstyle-standards-0.1.0...
+tigerstyle-standards> patching script interpreter paths in /nix/store/mzila7srbzm4l3rdh1nm8smpla6padic-tigerstyle-standards-0.1.0
+tigerstyle-standards> stripping (with command strip and flags -S -p) in  /nix/store/mzila7srbzm4l3rdh1nm8smpla6padic-tigerstyle-standards-0.1.0/bin
+building '/nix/store/x3gkg7v38pwjxnphrza9nb8k0iml7fad-tigerstyle-policy-artifacts.drv'...
+building '/nix/store/rrjwgzk7gzc0i0bw984p1mq1dqczwl3i-tigerstyle-policy-artifact-consumer-check.drv'...
+error: Cannot build '/nix/store/rrjwgzk7gzc0i0bw984p1mq1dqczwl3i-tigerstyle-policy-artifact-consumer-check.drv'.
+       Reason: builder failed with exit code 1.
+       Output paths:
+         /nix/store/mp9zgh6gnwbvkzxz0l8yqaagfd9nidyy-tigerstyle-policy-artifact-consumer-check
+result: pass - mutated Aspen policy-artifact check failed as expected
