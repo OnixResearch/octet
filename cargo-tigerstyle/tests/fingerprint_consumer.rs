@@ -305,6 +305,118 @@ fn assert_transcript_contains_stdout(transcript: &str, stdout: &[u8], label: &st
 }
 
 #[test]
+fn fingerprint_human_summary_docs_fixture_matches_transcript() {
+    let root = repo_root();
+    let docs_dir = root.join("docs/examples/function-fingerprint-human-summary");
+    let final_fixture = docs_dir.join("reviewed.rs");
+    let transcript = fs::read_to_string(docs_dir.join("transcript.md")).expect("read human summary transcript");
+
+    let final_check = Command::new(cargo_tigerstyle())
+        .args(["fingerprint", "--check", "reviewed.rs"])
+        .current_dir(&docs_dir)
+        .output()
+        .expect("run human summary final check");
+    assert!(
+        final_check.status.success(),
+        "human summary final check stderr: {}",
+        String::from_utf8_lossy(&final_check.stderr)
+    );
+    let final_stdout = String::from_utf8_lossy(&final_check.stdout);
+    assert!(final_stdout.contains("capped_batch_size match"));
+    assert!(final_stdout.contains("describe_batch match"));
+    assert!(final_stdout.contains("summary total=2 match=2 mismatch=0 missing=0 written=0"));
+    assert!(
+        transcript.contains(final_stdout.as_ref()),
+        "transcript missing final human summary check output:\n{final_stdout}"
+    );
+
+    let temp = tempfile::tempdir().expect("create tempdir");
+    let fixture = temp.path().join("reviewed.rs");
+    fs::write(
+        &fixture,
+        r#"// tigerstyle-fingerprint: b3:0; review=operator-human-summary; evidence=docs/examples/function-fingerprint-human-summary/transcript.md
+pub fn capped_batch_size(requested: u32) -> u32 {
+    requested.min(128)
+}
+
+// tigerstyle-fingerprint: b3:0; review=operator-human-summary; evidence=docs/examples/function-fingerprint-human-summary/transcript.md; macro=allow
+pub fn describe_batch(size: u32) -> String {
+    format!("batch={size}")
+}
+"#,
+    )
+    .expect("write human summary initial fixture");
+
+    let initial_update = Command::new(cargo_tigerstyle())
+        .args(["fingerprint", "--update", "reviewed.rs"])
+        .current_dir(temp.path())
+        .output()
+        .expect("run human summary initial update");
+    assert!(
+        initial_update.status.success(),
+        "human summary initial update stderr: {}",
+        String::from_utf8_lossy(&initial_update.stderr)
+    );
+    assert_transcript_contains_stdout(&transcript, &initial_update.stdout, "human summary initial update");
+
+    let clean_check = Command::new(cargo_tigerstyle())
+        .args(["fingerprint", "--check", "reviewed.rs"])
+        .current_dir(temp.path())
+        .output()
+        .expect("run human summary clean check");
+    assert!(
+        clean_check.status.success(),
+        "human summary clean check stderr: {}",
+        String::from_utf8_lossy(&clean_check.stderr)
+    );
+    assert_transcript_contains_stdout(&transcript, &clean_check.stdout, "human summary clean check");
+
+    let source = fs::read_to_string(&fixture).expect("read human summary fixture");
+    fs::write(&fixture, source.replace("requested.min(128)", "requested.min(256)"))
+        .expect("mutate human summary fixture");
+
+    let drift_check = Command::new(cargo_tigerstyle())
+        .args(["fingerprint", "--check", "reviewed.rs"])
+        .current_dir(temp.path())
+        .output()
+        .expect("run human summary drift check");
+    assert!(!drift_check.status.success(), "human summary drift check should fail");
+    let drift_stdout = String::from_utf8_lossy(&drift_check.stdout);
+    assert!(drift_stdout.contains("summary total=2 match=1 mismatch=1 missing=0 written=0"));
+    assert_transcript_contains_stdout(&transcript, &drift_check.stdout, "human summary drift check");
+
+    let repair_update = Command::new(cargo_tigerstyle())
+        .args(["fingerprint", "--update", "reviewed.rs"])
+        .current_dir(temp.path())
+        .output()
+        .expect("run human summary repair update");
+    assert!(
+        repair_update.status.success(),
+        "human summary repair update stderr: {}",
+        String::from_utf8_lossy(&repair_update.stderr)
+    );
+    let repair_stdout = String::from_utf8_lossy(&repair_update.stdout);
+    assert!(repair_stdout.contains("summary total=2 match=1 mismatch=0 missing=0 written=1"));
+    assert_transcript_contains_stdout(&transcript, &repair_update.stdout, "human summary repair update");
+
+    let repaired_check = Command::new(cargo_tigerstyle())
+        .args(["fingerprint", "--check", "reviewed.rs"])
+        .current_dir(temp.path())
+        .output()
+        .expect("run human summary repaired check");
+    assert!(
+        repaired_check.status.success(),
+        "human summary repaired check stderr: {}",
+        String::from_utf8_lossy(&repaired_check.stderr)
+    );
+    assert_transcript_contains_stdout(&transcript, &repaired_check.stdout, "human summary repaired check");
+
+    let repaired_source = fs::read_to_string(&fixture).expect("read repaired human summary fixture");
+    let checked_in_source = fs::read_to_string(final_fixture).expect("read final human summary fixture");
+    assert_eq!(repaired_source, checked_in_source);
+}
+
+#[test]
 fn fingerprint_write_then_check_works_for_external_crate_file() {
     let temp = tempfile::tempdir().expect("create tempdir");
     write_consumer_fixture(temp.path());
