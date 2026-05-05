@@ -31,6 +31,8 @@ mod tests {
     use crate::model::FamilySelection;
     use crate::model::FixtureCoverage;
     use crate::model::FixtureStatus;
+    use crate::model::Mechanism;
+    use crate::model::MechanismKind;
     use crate::model::PolicyEntry;
     use crate::model::PolicyRegistry;
     use crate::model::Severity;
@@ -48,6 +50,7 @@ mod tests {
     const EXTERNAL_DOMAIN_LEAKAGE_POLICY_ID: &str = "tigerstyle.architecture.external-domain-leakage";
     const ROOT_THINNESS_POLICY_ID: &str = "tigerstyle.architecture.root-crate-thinness";
     const PUBLIC_API_BUDGET_POLICY_ID: &str = "tigerstyle.architecture.public-api-budget";
+    const EFFECT_CAPABILITY_POLICY_ID: &str = "tigerstyle.architecture.effect-capability-boundaries";
     const SOURCE_PATH: &str = "src/lib.rs";
     const DEVTOOLS_SOURCE: &str = "docs/standards/source/devtools.adoc#enforcing-not-advising";
     const EMBEDDED_SOURCE: &str = "docs/standards/source/embedded.adoc#bounded-everything";
@@ -56,7 +59,7 @@ mod tests {
     const REVIEW: &str = "review=next hardware revision";
     const SAFER_DEFAULT: &str = "safer_default=bounded queue";
     const MISSING_SUPPRESSION_METADATA_DIAGNOSTICS: usize = 4;
-    const MISSING_FIXTURE_COVERAGE_DIAGNOSTICS: usize = 5;
+    const MISSING_FIXTURE_COVERAGE_DIAGNOSTICS: usize = 6;
     const THICK_ROOT_LINE_COUNT: usize = 50;
     const BOUNDED_CHANNEL_CAPACITY: u16 = 16;
     const PUBLIC_API_BUDGET_FIXTURE_PATH: &str =
@@ -255,6 +258,39 @@ mod tests {
     }
 
     #[test]
+    fn architecture_checks_reject_artifact_backed_ambient_capability() {
+        let sources = vec![SourceFile::new(
+            "crates/tigerstyle-core/src/lib.rs",
+            "#![no_std]\n\npub fn process_id() -> u32 { std::process::id() }\n",
+        )];
+        let diagnostics =
+            check_architecture(&sample_registry(), &sources, &FamilySelection::from_families(["architecture"]));
+
+        assert_eq!(diagnostics.len(), 1);
+        assert_eq!(diagnostics[0].policy_id, EFFECT_CAPABILITY_POLICY_ID);
+        assert!(diagnostics[0].message.contains("std::process::"));
+        assert!(diagnostics[0].remediation.contains("Clock"));
+    }
+
+    #[test]
+    fn architecture_checks_accept_artifact_backed_shell_constructor_scope() {
+        let sources = vec![
+            SourceFile::new(
+                "crates/tigerstyle-core/src/lib.rs",
+                "#![no_std]\n\npub trait Clock { fn now_ms(&self) -> u64; }\n",
+            ),
+            SourceFile::new(
+                "crates/tigerstyle-std/src/lib.rs",
+                "pub fn now_ms() -> u64 { std::time::SystemTime::now().elapsed().map_or(0, |_| 1) }\n",
+            ),
+        ];
+        let diagnostics =
+            check_architecture(&sample_registry(), &sources, &FamilySelection::from_families(["architecture"]));
+
+        assert!(diagnostics.is_empty());
+    }
+
+    #[test]
     fn resource_checks_reject_unbounded_channel() {
         let sources = vec![SourceFile::new(
             "src/device.rs",
@@ -362,6 +398,7 @@ mod tests {
                     "architecture",
                     "docs/standards/source/architecture.adoc#when-boundaries-are-too-tight",
                 ),
+                sample_effect_capability_policy(),
             ],
             seed_manifests: Vec::new(),
         }
@@ -385,6 +422,27 @@ mod tests {
             classification_rationale: "sample advisory policy".to_owned(),
             false_positive_risk: "medium".to_owned(),
             ..sample_policy(policy_id, pillar, source_anchor)
+        }
+    }
+
+    fn sample_effect_capability_policy() -> PolicyEntry {
+        PolicyEntry {
+            mechanisms: vec![Mechanism {
+                kind: MechanismKind::CapabilityApi,
+                description: "test capability mechanism".to_owned(),
+                forbidden_ambient_apis: vec!["std::process::".to_owned(), "SystemTime::now(".to_owned()],
+                core_source_scopes: vec!["crates/tigerstyle-core/src/".to_owned()],
+                shell_constructor_scopes: vec!["crates/tigerstyle-std/src/".to_owned()],
+                approved_capability_names: vec!["Clock".to_owned()],
+                ..Mechanism::default()
+            }],
+            current_enforcement_mode: EnforcementMode::Gate,
+            target_enforcement_mode: EnforcementMode::Structural,
+            ..sample_policy(
+                EFFECT_CAPABILITY_POLICY_ID,
+                "architecture",
+                "docs/standards/source/architecture.adoc#effect-capability-boundaries",
+            )
         }
     }
 
@@ -476,6 +534,11 @@ mod tests {
                     policy_id: ROOT_THINNESS_POLICY_ID.to_owned(),
                     compliant: vec!["architecture/root-ok.rs".to_owned()],
                     noncompliant: vec!["architecture/root-bad.rs".to_owned()],
+                },
+                PolicyFixtureCoverage {
+                    policy_id: EFFECT_CAPABILITY_POLICY_ID.to_owned(),
+                    compliant: vec!["architecture/capability-ok.rs".to_owned()],
+                    noncompliant: vec!["architecture/capability-bad.rs".to_owned()],
                 },
             ],
         }

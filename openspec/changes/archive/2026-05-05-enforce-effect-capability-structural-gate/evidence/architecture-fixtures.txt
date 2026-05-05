@@ -1,0 +1,34 @@
+$ artifact_dir=$(mktemp -d)
+$ nickel export --format json standards/policies/registry.ncl > "$registry_json"
+$ tigerstyle-standards export-artifacts --registry "$registry_json" --out-dir "$artifact_dir"
+$ tigerstyle-standards check compliant capability-injected fixture
+# Tiger Style Standards Report
+
+No findings.
+
+compliant_exit=0
+$ tigerstyle-standards check noncompliant ambient env fixture
+noncompliant_env_exit=1
+$ tigerstyle-standards check noncompliant ambient process fixture
+noncompliant_process_exit=1
+$ python summarize fixture diagnostics
+{
+  "env": [
+    {
+      "path": "standards/check-fixtures/architecture/noncompliant/capability-core-ambient/crates/tigerstyle-core/src/lib.rs",
+      "line": 4,
+      "severity": "error",
+      "blocking_exit": true,
+      "message": "core performs ambient authority operation `std::env::` instead of accepting an injected capability"
+    }
+  ],
+  "process": [
+    {
+      "path": "standards/check-fixtures/architecture/noncompliant/capability-core-ambient-process/crates/tigerstyle-core/src/lib.rs",
+      "line": 4,
+      "severity": "error",
+      "blocking_exit": true,
+      "message": "core performs ambient authority operation `std::process::` instead of accepting an injected capability"
+    }
+  ]
+}

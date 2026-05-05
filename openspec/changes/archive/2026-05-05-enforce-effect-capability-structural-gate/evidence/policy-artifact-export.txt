@@ -1,0 +1,36 @@
+$ artifact_dir=$(mktemp -d)
+$ registry_json=$(mktemp)
+$ nickel export --format json standards/policies/registry.ncl > "$registry_json"
+$ tigerstyle-standards export-artifacts --registry "$registry_json" --out-dir "$artifact_dir"
+$ python /tmp/capture-effect-policy-artifact.py "$artifact_dir"
+{
+  "policy_id": "tigerstyle.architecture.effect-capability-boundaries",
+  "classification": "hard",
+  "mode": "structural",
+  "capability_api_fields": {
+    "forbidden_ambient_apis": [
+      "std::env::",
+      "std::fs::",
+      "std::net::",
+      "std::process::",
+      "SystemTime::now(",
+      "Instant::now(",
+      "File::open("
+    ],
+    "core_source_scopes": [
+      "crates/tigerstyle-core/src/"
+    ],
+    "shell_constructor_scopes": [
+      "crates/tigerstyle-std/src/",
+      "src/main.rs"
+    ],
+    "approved_capability_names": [
+      "Clock",
+      "FileStore",
+      "EnvVars",
+      "Effect",
+      "Capability"
+    ]
+  },
+  "check_config_effect_capability": true
+}

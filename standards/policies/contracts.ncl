@@ -128,6 +128,10 @@ let MechanismContract = {
   approved_wrapper_scopes | Array NonEmptyString | default = [],
   capacity_witnesses | Array NonEmptyString | default = [],
   backpressure_behaviors | Array NonEmptyString | default = [],
+  forbidden_ambient_apis | Array NonEmptyString | default = [],
+  core_source_scopes | Array NonEmptyString | default = [],
+  shell_constructor_scopes | Array NonEmptyString | default = [],
+  approved_capability_names | Array NonEmptyString | default = [],
 }
 in
 

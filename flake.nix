@@ -631,6 +631,11 @@ MAIN
           grep --fixed-strings "tokio::sync::mpsc::unbounded_channel" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
           grep --fixed-strings "bounded_queue_capacity_witnesses" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
           grep --fixed-strings "bounded_queue_backpressure_behaviors" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
+          grep --fixed-strings "capability_forbidden_ambient_apis" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
+          grep --fixed-strings "std::process::" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
+          grep --fixed-strings "capability_core_source_scopes" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
+          grep --fixed-strings "capability_shell_constructor_scopes" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
+          grep --fixed-strings "capability_approved_names" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
 
           tigerstyle-standards check \
             --policy-artifacts-dir "$artifact_dir" \

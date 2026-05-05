@@ -1,0 +1,5 @@
+Status: captured
+
+- command: review design proof plan against tasks and delta spec
+- input: openspec/changes/archive/2026-05-05-enforce-effect-capability-structural-gate/{design.md,tasks.md,specs/standards-codification/spec.md}
+- result: pass — every delta scenario has a distinct V-task coverage row, and this Tigerstyle-local slice explicitly excludes Aspen/downstream mutation proof.
