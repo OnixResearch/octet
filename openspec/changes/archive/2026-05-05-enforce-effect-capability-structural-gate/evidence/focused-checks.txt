@@ -350,23 +350,23 @@ tigerstyle-fingerprint-json-output-docs>    Compiling serde v1.0.228
 tigerstyle-fingerprint-warning-summary-docs>    Compiling serde v1.0.228
 tigerstyle-fingerprint-lifecycle-docs>     Finished `release` profile [optimized] target(s) in 8.29s
 tigerstyle-fingerprint-lifecycle-docs>      Running tests/fingerprint_consumer.rs (target/release/deps/fingerprint_consumer-066e57e37ce0f494)
-tigerstyle-fingerprint-lifecycle-docs> 
+tigerstyle-fingerprint-lifecycle-docs>
 tigerstyle-fingerprint-lifecycle-docs> running 1 test
 tigerstyle-fingerprint-lifecycle-docs> test fingerprint_lifecycle_docs_fixture_matches_transcript ... ok
-tigerstyle-fingerprint-lifecycle-docs> 
+tigerstyle-fingerprint-lifecycle-docs>
 tigerstyle-fingerprint-lifecycle-docs> test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out; finished in 0.02s
-tigerstyle-fingerprint-lifecycle-docs> 
+tigerstyle-fingerprint-lifecycle-docs>
 tigerstyle-fingerprint-lifecycle-docs> Running phase: installPhase
 tigerstyle-fingerprint-human-summary-docs>     Finished `release` profile [optimized] target(s) in 8.66s
 tigerstyle-fingerprint-lifecycle-docs> stripping references to Rust toolchain
 tigerstyle-fingerprint-human-summary-docs>      Running tests/fingerprint_consumer.rs (target/release/deps/fingerprint_consumer-066e57e37ce0f494)
-tigerstyle-fingerprint-human-summary-docs> 
+tigerstyle-fingerprint-human-summary-docs>
 tigerstyle-fingerprint-human-summary-docs> running 1 test
 tigerstyle-fingerprint-lifecycle-docs> Rust toolchain at: /nix/store/1yvh3d6y3fj3xk2dgwczrp1dj5svd92c-rust-default-1.96.0-nightly-2026-03-21
 tigerstyle-fingerprint-human-summary-docs> test fingerprint_human_summary_docs_fixture_matches_transcript ... ok
-tigerstyle-fingerprint-human-summary-docs> 
+tigerstyle-fingerprint-human-summary-docs>
 tigerstyle-fingerprint-human-summary-docs> test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out; finished in 0.00s
-tigerstyle-fingerprint-human-summary-docs> 
+tigerstyle-fingerprint-human-summary-docs>
 tigerstyle-fingerprint-lifecycle-docs> stripping Rust toolchain references done
 tigerstyle-fingerprint-lifecycle-docs> stripping references to cargoVendorDir from:
 tigerstyle-fingerprint-lifecycle-docs> stripping references done
@@ -378,26 +378,26 @@ tigerstyle-fingerprint-json-output-docs>     Finished `release` profile [optimiz
 tigerstyle-fingerprint-lifecycle-docs> shrinking RPATHs of ELF executables and libraries in /nix/store/7zns6cd7jkzdzwj0hk5b5dcwqigyg68v-tigerstyle-fingerprint-lifecycle-docs-0.1.0
 tigerstyle-fingerprint-lifecycle-docs> checking for references to /build/ in /nix/store/7zns6cd7jkzdzwj0hk5b5dcwqigyg68v-tigerstyle-fingerprint-lifecycle-docs-0.1.0...
 tigerstyle-fingerprint-source-scanner-docs>      Running tests/fingerprint_consumer.rs (target/release/deps/fingerprint_consumer-066e57e37ce0f494)
-tigerstyle-fingerprint-source-scanner-docs> 
+tigerstyle-fingerprint-source-scanner-docs>
 tigerstyle-fingerprint-source-scanner-docs> running 1 test
 tigerstyle-fingerprint-human-summary-docs> Rust toolchain at: /nix/store/1yvh3d6y3fj3xk2dgwczrp1dj5svd92c-rust-default-1.96.0-nightly-2026-03-21
 tigerstyle-fingerprint-lifecycle-docs> patching script interpreter paths in /nix/store/7zns6cd7jkzdzwj0hk5b5dcwqigyg68v-tigerstyle-fingerprint-lifecycle-docs-0.1.0
 tigerstyle-fingerprint-human-summary-docs> stripping Rust toolchain references done
 tigerstyle-fingerprint-human-summary-docs> stripping references to cargoVendorDir from:
 tigerstyle-fingerprint-source-scanner-docs> test fingerprint_source_scanner_docs_fixture_matches_transcript ... ok
-tigerstyle-fingerprint-source-scanner-docs> 
+tigerstyle-fingerprint-source-scanner-docs>
 tigerstyle-fingerprint-source-scanner-docs> test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out; finished in 0.00s
-tigerstyle-fingerprint-source-scanner-docs> 
+tigerstyle-fingerprint-source-scanner-docs>
 tigerstyle-fingerprint-json-output-docs>      Running tests/fingerprint_consumer.rs (target/release/deps/fingerprint_consumer-066e57e37ce0f494)
-tigerstyle-fingerprint-json-output-docs> 
+tigerstyle-fingerprint-json-output-docs>
 tigerstyle-fingerprint-json-output-docs> running 1 test
 tigerstyle-fingerprint-human-summary-docs> stripping references done
 tigerstyle-fingerprint-human-summary-docs> Running phase: fixupPhase
 tigerstyle-fingerprint-source-scanner-docs> Running phase: installPhase
 tigerstyle-fingerprint-json-output-docs> test fingerprint_json_output_docs_fixture_matches_transcript ... ok
-tigerstyle-fingerprint-json-output-docs> 
+tigerstyle-fingerprint-json-output-docs>
 tigerstyle-fingerprint-json-output-docs> test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out; finished in 0.00s
-tigerstyle-fingerprint-json-output-docs> 
+tigerstyle-fingerprint-json-output-docs>
 tigerstyle-fingerprint-human-summary-docs> shrinking RPATHs of ELF executables and libraries in /nix/store/dsi2nnrxjdxr628bkhazsv0hbm8gn3hh-tigerstyle-fingerprint-human-summary-docs-0.1.0
 tigerstyle-fingerprint-human-summary-docs> checking for references to /build/ in /nix/store/dsi2nnrxjdxr628bkhazsv0hbm8gn3hh-tigerstyle-fingerprint-human-summary-docs-0.1.0...
 tigerstyle-fingerprint-human-summary-docs> patching script interpreter paths in /nix/store/dsi2nnrxjdxr628bkhazsv0hbm8gn3hh-tigerstyle-fingerprint-human-summary-docs-0.1.0
@@ -422,12 +422,12 @@ tigerstyle-fingerprint-source-scanner-docs> checking for references to /build/ i
 tigerstyle-fingerprint-source-scanner-docs> patching script interpreter paths in /nix/store/gm8g276p6dj3ajfwf39gx4sxx2f3za3n-tigerstyle-fingerprint-source-scanner-docs-0.1.0
 tigerstyle-fingerprint-warning-summary-docs>     Finished `release` profile [optimized] target(s) in 8.44s
 tigerstyle-fingerprint-warning-summary-docs>      Running tests/fingerprint_consumer.rs (target/release/deps/fingerprint_consumer-066e57e37ce0f494)
-tigerstyle-fingerprint-warning-summary-docs> 
+tigerstyle-fingerprint-warning-summary-docs>
 tigerstyle-fingerprint-warning-summary-docs> running 1 test
 tigerstyle-fingerprint-warning-summary-docs> test fingerprint_warning_summary_docs_fixture_matches_transcript ... ok
-tigerstyle-fingerprint-warning-summary-docs> 
+tigerstyle-fingerprint-warning-summary-docs>
 tigerstyle-fingerprint-warning-summary-docs> test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out; finished in 0.01s
-tigerstyle-fingerprint-warning-summary-docs> 
+tigerstyle-fingerprint-warning-summary-docs>
 tigerstyle-fingerprint-warning-summary-docs> Running phase: installPhase
 tigerstyle-fingerprint-warning-summary-docs> stripping references to Rust toolchain
 tigerstyle-fingerprint-warning-summary-docs> Rust toolchain at: /nix/store/1yvh3d6y3fj3xk2dgwczrp1dj5svd92c-rust-default-1.96.0-nightly-2026-03-21
