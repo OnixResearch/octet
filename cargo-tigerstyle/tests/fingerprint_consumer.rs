@@ -417,6 +417,78 @@ pub fn describe_batch(size: u32) -> String {
 }
 
 #[test]
+fn fingerprint_warning_summary_docs_fixture_matches_transcript() {
+    let root = repo_root();
+    let docs_dir = root.join("docs/examples/function-fingerprint-warning-summary");
+    let final_fixture = docs_dir.join("reviewed.rs");
+    let transcript = fs::read_to_string(docs_dir.join("transcript.md")).expect("read warning summary transcript");
+
+    let final_check = Command::new(cargo_tigerstyle())
+        .args(["fingerprint", "--check", "reviewed.rs"])
+        .current_dir(&docs_dir)
+        .output()
+        .expect("run warning summary final check");
+    assert!(!final_check.status.success(), "warning summary final check should fail on warning counts");
+    let final_stdout = String::from_utf8_lossy(&final_check.stdout);
+    assert!(final_stdout.contains("unreviewed_macro_path match"));
+    assert!(final_stdout.contains("missing_gate_metadata match"));
+    assert!(
+        final_stdout
+            .contains("summary total=2 match=2 mismatch=0 missing=0 written=0 macro_warnings=1 metadata_missing=1")
+    );
+    assert!(
+        transcript.contains(final_stdout.as_ref()),
+        "transcript missing final warning summary check output:\n{final_stdout}"
+    );
+
+    let temp = tempfile::tempdir().expect("create tempdir");
+    let fixture = temp.path().join("reviewed.rs");
+    fs::write(
+        &fixture,
+        r#"// tigerstyle-fingerprint: b3:0; review=macro-warning-example; evidence=docs/examples/function-fingerprint-warning-summary/transcript.md
+pub fn unreviewed_macro_path(size: u32) -> String {
+    format!("size={size}")
+}
+
+// tigerstyle-fingerprint: b3:0
+pub fn missing_gate_metadata(limit: u32) -> u32 {
+    limit.min(64)
+}
+"#,
+    )
+    .expect("write warning summary initial fixture");
+
+    let initial_update = Command::new(cargo_tigerstyle())
+        .args(["fingerprint", "--update", "reviewed.rs"])
+        .current_dir(temp.path())
+        .output()
+        .expect("run warning summary initial update");
+    assert!(
+        initial_update.status.success(),
+        "warning summary initial update stderr: {}",
+        String::from_utf8_lossy(&initial_update.stderr)
+    );
+    let initial_stdout = String::from_utf8_lossy(&initial_update.stdout);
+    assert!(
+        initial_stdout
+            .contains("summary total=2 match=0 mismatch=0 missing=0 written=2 macro_warnings=1 metadata_missing=1")
+    );
+    assert_transcript_contains_stdout(&transcript, &initial_update.stdout, "warning summary initial update");
+
+    let clean_check = Command::new(cargo_tigerstyle())
+        .args(["fingerprint", "--check", "reviewed.rs"])
+        .current_dir(temp.path())
+        .output()
+        .expect("run warning summary clean check");
+    assert!(!clean_check.status.success(), "warning summary clean check should fail on warning counts");
+    assert_transcript_contains_stdout(&transcript, &clean_check.stdout, "warning summary clean check");
+
+    let updated_source = fs::read_to_string(&fixture).expect("read updated warning summary fixture");
+    let checked_in_source = fs::read_to_string(final_fixture).expect("read final warning summary fixture");
+    assert_eq!(updated_source, checked_in_source);
+}
+
+#[test]
 fn fingerprint_write_then_check_works_for_external_crate_file() {
     let temp = tempfile::tempdir().expect("create tempdir");
     write_consumer_fixture(temp.path());

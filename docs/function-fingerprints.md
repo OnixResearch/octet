@@ -110,6 +110,9 @@ For complete checked-in transcripts, see:
 - [`docs/examples/function-fingerprint-human-summary/transcript.md`](examples/function-fingerprint-human-summary/transcript.md),
   which shows human summary counts for two marked functions, one-function drift,
   non-zero check status, one-marker repair, and final clean check.
+- [`docs/examples/function-fingerprint-warning-summary/transcript.md`](examples/function-fingerprint-warning-summary/transcript.md),
+  which shows `macro_warnings` and `metadata_missing` counts, including the
+  non-zero clean-check status for unresolved operator warnings.
 
 These examples are part of the contributor verification surface. When the
 fingerprint CLI output, marker rewrite behavior, human summary counts, or example
@@ -121,16 +124,19 @@ nix build .#checks.x86_64-linux.docs-examples --no-link -L
 
 That `docs-examples` Nix check is part of `nix flake check` and is the aggregate
 home for executable docs/examples regressions. It currently replays the documented
-fingerprint lifecycle and human-summary flows, asserts the observed stdout
-appears in the checked-in transcripts, and confirms repaired scratch sources
-exactly match the checked-in `reviewed.rs` fixtures. For focused local debugging,
-run the narrower flake checks or underlying Cargo tests directly:
+fingerprint lifecycle, human-summary, and warning-summary flows; asserts the
+observed stdout appears in the checked-in transcripts; and confirms repaired or
+updated scratch sources exactly match the checked-in `reviewed.rs` fixtures. For
+focused local debugging, run the narrower flake checks or underlying Cargo tests
+directly:
 
 ```bash
 nix build .#checks.x86_64-linux.fingerprint-lifecycle-docs --no-link -L
 nix build .#checks.x86_64-linux.fingerprint-human-summary-docs --no-link -L
+nix build .#checks.x86_64-linux.fingerprint-warning-summary-docs --no-link -L
 nix develop -c bash -c 'cargo test -p cargo-tigerstyle --test fingerprint_consumer fingerprint_lifecycle_docs_fixture_matches_transcript -- --nocapture'
 nix develop -c bash -c 'cargo test -p cargo-tigerstyle --test fingerprint_consumer fingerprint_human_summary_docs_fixture_matches_transcript -- --nocapture'
+nix develop -c bash -c 'cargo test -p cargo-tigerstyle --test fingerprint_consumer fingerprint_warning_summary_docs_fixture_matches_transcript -- --nocapture'
 ```
 
 ## JSON output
