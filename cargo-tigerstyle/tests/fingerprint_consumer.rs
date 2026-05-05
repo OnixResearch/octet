@@ -356,13 +356,18 @@ fn fingerprint_check_reports_single_directory_drift() {
 
     let json: serde_json::Value = serde_json::from_slice(&check.stdout).expect("json output");
     let records = json["records"].as_array().expect("records array");
-    assert_eq!(records.len(), 6);
-    let mismatches = records.iter().filter(|record| record["status"] == "mismatch").collect::<Vec<_>>();
-    assert_eq!(mismatches.len(), 1);
-    assert_eq!(mismatches[0]["name"], "root_plain");
-    assert!(records.iter().all(|record| !record["review"].is_null()));
-    assert!(records.iter().all(|record| !record["evidence"].is_null()));
-    assert!(records.iter().all(|record| record["macro_warning"] == false));
+    assert_single_directory_mismatch(records);
+
+    let diff = Command::new(cargo_tigerstyle())
+        .args(["fingerprint", "--diff", "--output-format=json"])
+        .arg(temp.path())
+        .output()
+        .expect("run fingerprint drift diff");
+    assert!(!diff.status.success(), "drift diff should fail");
+
+    let diff_json: serde_json::Value = serde_json::from_slice(&diff.stdout).expect("diff json output");
+    let diff_records = diff_json["records"].as_array().expect("diff records array");
+    assert_single_directory_mismatch(diff_records);
 
     let repair = Command::new(cargo_tigerstyle())
         .args(["fingerprint", "--update", "--output-format=json"])
@@ -401,4 +406,37 @@ fn fingerprint_check_reports_single_directory_drift() {
         ]),
         "match",
     );
+
+    let repaired_diff = Command::new(cargo_tigerstyle())
+        .args(["fingerprint", "--diff", "--output-format=json"])
+        .arg(temp.path())
+        .output()
+        .expect("run repaired fingerprint diff");
+    assert!(
+        repaired_diff.status.success(),
+        "repaired diff stderr: {}",
+        String::from_utf8_lossy(&repaired_diff.stderr)
+    );
+    assert_directory_records(
+        &repaired_diff.stdout,
+        &BTreeSet::from([
+            "attributed_nested",
+            "explicit_test_helper",
+            "nested_test_helper",
+            "read_value",
+            "root_plain",
+            "root_with_macro",
+        ]),
+        "match",
+    );
+}
+
+fn assert_single_directory_mismatch(records: &[serde_json::Value]) {
+    assert_eq!(records.len(), 6);
+    let mismatches = records.iter().filter(|record| record["status"] == "mismatch").collect::<Vec<_>>();
+    assert_eq!(mismatches.len(), 1);
+    assert_eq!(mismatches[0]["name"], "root_plain");
+    assert!(records.iter().all(|record| !record["review"].is_null()));
+    assert!(records.iter().all(|record| !record["evidence"].is_null()));
+    assert!(records.iter().all(|record| record["macro_warning"] == false));
 }
