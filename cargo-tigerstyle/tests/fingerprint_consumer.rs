@@ -354,6 +354,15 @@ fn fingerprint_check_reports_single_directory_drift() {
         .expect("run fingerprint check");
     assert!(!check.status.success(), "drift check should fail");
 
+    let human_check = Command::new(cargo_tigerstyle())
+        .args(["fingerprint", "--check"])
+        .arg(temp.path())
+        .output()
+        .expect("run human fingerprint check");
+    assert!(!human_check.status.success(), "human drift check should fail");
+    assert_human_summary(&human_check.stdout, "match=5 mismatch=1 missing=0 written=0");
+    assert_human_contains_record(&human_check.stdout, "root_plain", "mismatch");
+
     let json: serde_json::Value = serde_json::from_slice(&check.stdout).expect("json output");
     let records = json["records"].as_array().expect("records array");
     assert_single_directory_mismatch(records);
@@ -370,19 +379,13 @@ fn fingerprint_check_reports_single_directory_drift() {
     assert_single_directory_mismatch(diff_records);
 
     let repair = Command::new(cargo_tigerstyle())
-        .args(["fingerprint", "--update", "--output-format=json"])
+        .args(["fingerprint", "--update"])
         .arg(temp.path())
         .output()
         .expect("run fingerprint repair update");
     assert!(repair.status.success(), "repair stderr: {}", String::from_utf8_lossy(&repair.stderr));
-
-    let repair_json: serde_json::Value = serde_json::from_slice(&repair.stdout).expect("repair json output");
-    let repair_records = repair_json["records"].as_array().expect("repair records array");
-    assert_eq!(repair_records.len(), 6);
-    let written = repair_records.iter().filter(|record| record["status"] == "written").collect::<Vec<_>>();
-    assert_eq!(written.len(), 1);
-    assert_eq!(written[0]["name"], "root_plain");
-    assert!(repair_records.iter().all(|record| record["status"] == "match" || record["status"] == "written"));
+    assert_human_summary(&repair.stdout, "match=5 mismatch=0 missing=0 written=1");
+    assert_human_contains_record(&repair.stdout, "root_plain", "written");
 
     let repaired_check = Command::new(cargo_tigerstyle())
         .args(["fingerprint", "--check", "--output-format=json"])
@@ -439,4 +442,20 @@ fn assert_single_directory_mismatch(records: &[serde_json::Value]) {
     assert!(records.iter().all(|record| !record["review"].is_null()));
     assert!(records.iter().all(|record| !record["evidence"].is_null()));
     assert!(records.iter().all(|record| record["macro_warning"] == false));
+}
+
+fn assert_human_summary(stdout: &[u8], expected_counts: &str) {
+    let text = String::from_utf8_lossy(stdout);
+    let summary = text.lines().find(|line| line.starts_with("summary total=6 ")).expect("human summary line");
+    assert!(summary.contains(expected_counts), "summary `{summary}` missing `{expected_counts}`");
+    assert!(summary.contains("macro_warnings=0"));
+    assert!(summary.contains("metadata_missing=0"));
+}
+
+fn assert_human_contains_record(stdout: &[u8], name: &str, status: &str) {
+    let text = String::from_utf8_lossy(stdout);
+    assert!(
+        text.lines().any(|line| line.contains(name) && line.contains(status)),
+        "human output did not include {name} as {status}:\n{text}"
+    );
 }
