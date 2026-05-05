@@ -102,6 +102,11 @@ A clean check has every marked function in `match` status and a summary like:
 summary total=12 match=12 mismatch=0 missing=0 written=0 macro_warnings=0 metadata_missing=0
 ```
 
+For a complete checked-in lifecycle transcript, see
+[`docs/examples/function-fingerprint-lifecycle/lifecycle-transcript.md`](examples/function-fingerprint-lifecycle/lifecycle-transcript.md).
+It shows initial `--update`, clean `--check`, drift, failing `--diff`, accepted
+`--update`, and final clean `--check`.
+
 ## JSON output
 
 Use JSON for scripts that need exact counts or per-record assertions:
