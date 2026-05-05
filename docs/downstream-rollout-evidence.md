@@ -46,6 +46,22 @@ What that widened reference proves:
 Treat this as the first post-starter promotion example, not as a replacement
 for the archived phase-1 starter reconstruction.
 
+## Generated policy artifact dogfood
+
+The first Aspen-backed smoke for generated policy artifacts is saved at
+`docs/examples/aspen-policy-artifact-dogfood.md`.
+
+What it proves:
+
+- `nix run .#tigerstyle-policy-artifacts -- <out-dir>` emits the three expected
+  generated files.
+- `tigerstyle-standards check --policy-artifacts-dir <out-dir>` can run against
+  Aspen source without reading the Nickel registry directly.
+- The selected Aspen production roots (`aspen-core`, `aspen-coordination`, and
+  `aspen-rpc-handlers`) report zero `embedded` diagnostics while still exposing
+  structural policy-evaluation metadata for
+  `tigerstyle.embedded.bounded-queues`.
+
 ## Aspen starter references for boundary-first profile
 
 - historical phase-1 baseline: 6 warnings total, all `ambient_clock`
