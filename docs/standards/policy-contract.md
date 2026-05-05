@@ -39,7 +39,11 @@ evidence.
 - Bounded-primitive mechanisms export forbidden unbounded APIs, approved bounded
   constructors/wrappers, capacity witnesses, and backpressure/overflow witnesses.
 - Policies that target `verified` MUST export a proof rail with command, source
-  mapping, pass signal, and trust-boundary accounting.
+  mapping, proof artifact path, pass signal, and trust-boundary accounting.
+  Verification-family checks treat source mappings and proof artifact pass signals
+  as hard artifact obligations: a selected verified policy fails unless the
+  declared source and proof files are present in the checked source tree and the
+  proof artifact contains the exact configured pass signal.
 - Proof-relevant seed manifests MUST remain untrusted until a local acceptance
   command or human/oracle review records provenance and re-verification.
 - Advisory and human-process-only policies stay visible without pretending static

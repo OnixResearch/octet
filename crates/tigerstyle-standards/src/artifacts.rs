@@ -83,6 +83,12 @@ pub fn render_check_config_toml(registry: &PolicyRegistry) -> String {
         type_state_mechanism_field(type_state_policy, |mechanism| &mechanism.required_state_markers);
     let type_state_required_transition_methods =
         type_state_mechanism_field(type_state_policy, |mechanism| &mechanism.required_transition_methods);
+    let proof_rail_backends = proof_rail_field(registry, |rail| &rail.backend);
+    let proof_rail_commands = proof_rail_field(registry, |rail| &rail.command);
+    let proof_rail_source_paths = proof_rail_fields(registry, |rail| &rail.source_paths);
+    let proof_rail_proof_paths = proof_rail_fields(registry, |rail| &rail.proof_paths);
+    let proof_rail_pass_signals = proof_rail_field(registry, |rail| &rail.pass_signal);
+    let proof_rail_trust_boundaries = proof_rail_fields(registry, |rail| &rail.trust_boundaries);
 
     let mut toml = String::new();
     toml.push_str("schema_version = \"");
@@ -113,7 +119,40 @@ pub fn render_check_config_toml(registry: &PolicyRegistry) -> String {
     append_toml_array(&mut toml, "type_state_raw_transition_patterns", &type_state_raw_transition_patterns);
     append_toml_array(&mut toml, "type_state_required_state_markers", &type_state_required_state_markers);
     append_toml_array(&mut toml, "type_state_required_transition_methods", &type_state_required_transition_methods);
+    append_toml_array(&mut toml, "proof_rail_backends", &proof_rail_backends);
+    append_toml_array(&mut toml, "proof_rail_commands", &proof_rail_commands);
+    append_toml_array(&mut toml, "proof_rail_source_paths", &proof_rail_source_paths);
+    append_toml_array(&mut toml, "proof_rail_proof_paths", &proof_rail_proof_paths);
+    append_toml_array(&mut toml, "proof_rail_pass_signals", &proof_rail_pass_signals);
+    append_toml_array(&mut toml, "proof_rail_trust_boundaries", &proof_rail_trust_boundaries);
     toml
+}
+
+fn proof_rail_field(registry: &PolicyRegistry, field: impl Fn(&crate::model::ProofRail) -> &String) -> Vec<String> {
+    let mut values = registry
+        .policies
+        .iter()
+        .flat_map(|policy| policy.proof_rails.iter())
+        .map(|rail| field(rail).clone())
+        .collect::<Vec<_>>();
+    values.sort();
+    values.dedup();
+    values
+}
+
+fn proof_rail_fields(
+    registry: &PolicyRegistry,
+    field: impl Fn(&crate::model::ProofRail) -> &Vec<String>,
+) -> Vec<String> {
+    let mut values = registry
+        .policies
+        .iter()
+        .flat_map(|policy| policy.proof_rails.iter())
+        .flat_map(|rail| field(rail).clone())
+        .collect::<Vec<_>>();
+    values.sort();
+    values.dedup();
+    values
 }
 
 fn bounded_queue_policy(registry: &PolicyRegistry) -> Option<&PolicyEntry> {

@@ -1,0 +1,31 @@
+$ tmp=$(mktemp -d); nix run .#tigerstyle-policy-artifacts -- "$tmp" >/dev/null; printf 'artifact fields:\n'; grep -E 'proof_rail_(backends|source_paths|proof_paths|pass_signals)' "$tmp/tigerstyle-check-config.toml"; printf '\ncompliant fixture:\n'; nix run .#tigerstyle-standards -- check --policy-artifacts-dir "$tmp" --source standards/check-fixtures/verification/compliant --family verification; printf '\nnoncompliant fixture:\n'; if nix run .#tigerstyle-standards -- check --policy-artifacts-dir "$tmp" --source standards/check-fixtures/verification/noncompliant --family verification; then echo unexpected-success; else echo expected-failure; fi
+this derivation will be built:
+  /nix/store/n5wyf1qhg4hjhnfdpl7a1wqqdarn170a-tigerstyle-policy-artifacts.drv
+cannot build on 'ssh-ng://root@10.10.10.1': error: failed to start SSH connection to '10.10.10.1'
+building '/nix/store/n5wyf1qhg4hjhnfdpl7a1wqqdarn170a-tigerstyle-policy-artifacts.drv'...
+artifact fields:
+proof_rail_backends = ["local-receipt"]
+proof_rail_source_paths = ["standards/check-fixtures/verification/"]
+proof_rail_proof_paths = ["proof-receipt.txt"]
+proof_rail_pass_signals = ["proof-result: pass deterministic-effect-handlers"]
+
+compliant fixture:
+# Tiger Style Standards Report
+
+No findings.
+
+
+noncompliant fixture:
+# Tiger Style Standards Report
+
+## Findings
+
+- [error] `tigerstyle.verification.deterministic-effect-handlers` at `standards/check-fixtures/verification/noncompliant/proof-receipt.txt:unknown` — verified proof rail `local-receipt` is missing pass signal `proof-result: pass deterministic-effect-handlers`
+  - Source: docs/standards/source/verification.adoc#deterministic-effect-handler-tests
+  - Remediation: rerun the configured proof command and save a passing proof receipt under the declared proof path
+
+## Active Suppressions
+
+No active suppressions.
+
+expected-failure

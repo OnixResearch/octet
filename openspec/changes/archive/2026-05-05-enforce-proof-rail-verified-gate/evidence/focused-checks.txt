@@ -1,0 +1,9 @@
+nix develop -c bash -c 'cargo fmt --all --check && cargo clippy -p tigerstyle-standards --all-targets -- -D warnings && cargo test -p tigerstyle-standards'
+nix run .#tigerstyle-policy-validate
+nix build .#checks.x86_64-linux.standards-fixtures --no-link -L
+openspec validate enforce-proof-rail-verified-gate --strict
+openspec validate standards-codification --strict
+openspec validate --specs --strict
+git diff --check
+
+status: all commands passed in final combined verification run.
