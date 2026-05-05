@@ -61,6 +61,9 @@ What it proves:
   `aspen-rpc-handlers`) report zero `embedded` diagnostics while still exposing
   structural policy-evaluation metadata for
   `tigerstyle.embedded.bounded-queues`.
+- The same artifact-backed seam is now packaged for downstream flakes as
+  `lib.mkPolicyArtifactConsumerCheck` and regression-covered by
+  `checks.x86_64-linux.policy-artifact-consumer-fixture`.
 
 ## Aspen starter references for boundary-first profile
 
