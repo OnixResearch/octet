@@ -132,6 +132,11 @@ let MechanismContract = {
   core_source_scopes | Array NonEmptyString | default = [],
   shell_constructor_scopes | Array NonEmptyString | default = [],
   approved_capability_names | Array NonEmptyString | default = [],
+  type_state_source_scopes | Array NonEmptyString | default = [],
+  raw_state_alias_patterns | Array NonEmptyString | default = [],
+  raw_transition_patterns | Array NonEmptyString | default = [],
+  required_state_markers | Array NonEmptyString | default = [],
+  required_transition_methods | Array NonEmptyString | default = [],
 }
 in
 

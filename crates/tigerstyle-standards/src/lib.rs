@@ -51,6 +51,7 @@ mod tests {
     const ROOT_THINNESS_POLICY_ID: &str = "tigerstyle.architecture.root-crate-thinness";
     const PUBLIC_API_BUDGET_POLICY_ID: &str = "tigerstyle.architecture.public-api-budget";
     const EFFECT_CAPABILITY_POLICY_ID: &str = "tigerstyle.architecture.effect-capability-boundaries";
+    const TYPE_STATE_POLICY_ID: &str = "tigerstyle.idioms.nominal-type-boundaries";
     const SOURCE_PATH: &str = "src/lib.rs";
     const DEVTOOLS_SOURCE: &str = "docs/standards/source/devtools.adoc#enforcing-not-advising";
     const EMBEDDED_SOURCE: &str = "docs/standards/source/embedded.adoc#bounded-everything";
@@ -59,7 +60,7 @@ mod tests {
     const REVIEW: &str = "review=next hardware revision";
     const SAFER_DEFAULT: &str = "safer_default=bounded queue";
     const MISSING_SUPPRESSION_METADATA_DIAGNOSTICS: usize = 4;
-    const MISSING_FIXTURE_COVERAGE_DIAGNOSTICS: usize = 6;
+    const MISSING_FIXTURE_COVERAGE_DIAGNOSTICS: usize = 7;
     const THICK_ROOT_LINE_COUNT: usize = 50;
     const BOUNDED_CHANNEL_CAPACITY: u16 = 16;
     const PUBLIC_API_BUDGET_FIXTURE_PATH: &str =
@@ -291,6 +292,52 @@ mod tests {
     }
 
     #[test]
+    fn idioms_selection_skips_architecture_family_diagnostics() {
+        let sources = vec![SourceFile::new(
+            "crates/tigerstyle-core/src/lib.rs",
+            "pub fn core() {}\n",
+        )];
+        let diagnostics = check_architecture(&sample_registry(), &sources, &FamilySelection::from_families(["idioms"]));
+
+        assert!(diagnostics.is_empty());
+    }
+
+    #[test]
+    fn architecture_checks_reject_artifact_backed_raw_type_state() {
+        let sources = vec![SourceFile::new(
+            "standards/check-fixtures/architecture/noncompliant/typestate-raw/src/lib.rs",
+            "type ConnectionState = bool;
+
+pub fn send_raw(_state: ConnectionState, _bytes: &[u8]) {}
+",
+        )];
+        let diagnostics = check_architecture(&sample_registry(), &sources, &FamilySelection::from_families(["idioms"]));
+
+        assert_eq!(diagnostics.len(), 3);
+        assert!(diagnostics.iter().any(|diagnostic| diagnostic.policy_id == TYPE_STATE_POLICY_ID));
+        assert!(diagnostics.iter().any(|diagnostic| diagnostic.message.contains("type ConnectionState = bool")));
+        assert!(diagnostics.iter().any(|diagnostic| diagnostic.message.contains("send_raw(")));
+        assert!(diagnostics.iter().any(|diagnostic| diagnostic.message.contains("missing required marker")));
+    }
+
+    #[test]
+    fn architecture_checks_accept_artifact_backed_type_state_api() {
+        let sources = vec![SourceFile::new(
+            "standards/check-fixtures/architecture/compliant/typestate-protocol/src/lib.rs",
+            "pub struct Disconnected;
+pub struct Connected;
+pub struct Authenticated;
+impl Session<Disconnected> { pub fn connect(self) -> Session<Connected> { todo!() } }
+impl Session<Connected> { pub fn authenticate(self) -> Session<Authenticated> { todo!() } }
+impl Session<Authenticated> { pub fn send(self) {} }
+",
+        )];
+        let diagnostics = check_architecture(&sample_registry(), &sources, &FamilySelection::from_families(["idioms"]));
+
+        assert!(diagnostics.is_empty());
+    }
+
+    #[test]
     fn resource_checks_reject_unbounded_channel() {
         let sources = vec![SourceFile::new(
             "src/device.rs",
@@ -399,6 +446,7 @@ mod tests {
                     "docs/standards/source/architecture.adoc#when-boundaries-are-too-tight",
                 ),
                 sample_effect_capability_policy(),
+                sample_type_state_policy(),
             ],
             seed_manifests: Vec::new(),
         }
@@ -442,6 +490,36 @@ mod tests {
                 EFFECT_CAPABILITY_POLICY_ID,
                 "architecture",
                 "docs/standards/source/architecture.adoc#effect-capability-boundaries",
+            )
+        }
+    }
+
+    fn sample_type_state_policy() -> PolicyEntry {
+        PolicyEntry {
+            mechanisms: vec![Mechanism {
+                kind: MechanismKind::TypeState,
+                description: "test type-state mechanism".to_owned(),
+                type_state_source_scopes: vec!["typestate-protocol/src/".to_owned(), "typestate-raw/src/".to_owned()],
+                raw_state_alias_patterns: vec!["type ConnectionState = bool".to_owned()],
+                raw_transition_patterns: vec!["send_raw(".to_owned()],
+                required_state_markers: vec![
+                    "Disconnected".to_owned(),
+                    "Connected".to_owned(),
+                    "Authenticated".to_owned(),
+                ],
+                required_transition_methods: vec![
+                    "connect(".to_owned(),
+                    "authenticate(".to_owned(),
+                    "send(".to_owned(),
+                ],
+                ..Mechanism::default()
+            }],
+            current_enforcement_mode: EnforcementMode::Structural,
+            target_enforcement_mode: EnforcementMode::Structural,
+            ..sample_policy(
+                TYPE_STATE_POLICY_ID,
+                "idioms",
+                "docs/standards/source/idioms.adoc#nominal-and-structural-type-boundaries",
             )
         }
     }
@@ -539,6 +617,11 @@ mod tests {
                     policy_id: EFFECT_CAPABILITY_POLICY_ID.to_owned(),
                     compliant: vec!["architecture/capability-ok.rs".to_owned()],
                     noncompliant: vec!["architecture/capability-bad.rs".to_owned()],
+                },
+                PolicyFixtureCoverage {
+                    policy_id: TYPE_STATE_POLICY_ID.to_owned(),
+                    compliant: vec!["architecture/typestate-ok.rs".to_owned()],
+                    noncompliant: vec!["architecture/typestate-bad.rs".to_owned()],
                 },
             ],
         }

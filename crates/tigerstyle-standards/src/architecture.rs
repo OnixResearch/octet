@@ -10,6 +10,7 @@ use crate::model::PolicyRegistry;
 use crate::source::SourceFile;
 
 const ARCHITECTURE_FAMILY: &str = "architecture";
+const IDIOMS_FAMILY: &str = "idioms";
 const FCIS_POLICY_ID: &str = "tigerstyle.architecture.fcis-crate-boundary";
 const EXTERNAL_DOMAIN_LEAKAGE_POLICY_ID: &str = "tigerstyle.architecture.external-domain-leakage";
 const ROOT_THINNESS_POLICY_ID: &str = "tigerstyle.architecture.root-crate-thinness";
@@ -49,12 +50,11 @@ const FALLBACK_AMBIENT_CAPABILITY_PATTERNS: &[&str] = &[
     "File::open(",
 ];
 const FALLBACK_CORE_SOURCE_SCOPES: &[&str] = &[CORE_RUST_PATH_SEGMENT];
-const RAW_TYPE_STATE_PATTERNS: &[&str] = &[
-    "send_raw(",
-    "raw_send(",
-    "type ConnectionState = bool",
-    "pub fn open_raw",
-];
+const FALLBACK_TYPE_STATE_SOURCE_SCOPES: &[&str] = &["typestate-raw/src/", "typestate-protocol/src/"];
+const FALLBACK_RAW_STATE_ALIAS_PATTERNS: &[&str] = &["type ConnectionState = bool"];
+const FALLBACK_RAW_TRANSITION_PATTERNS: &[&str] = &["send_raw(", "raw_send(", "open_raw("];
+const FALLBACK_REQUIRED_STATE_MARKERS: &[&str] = &["Disconnected", "Connected"];
+const FALLBACK_REQUIRED_TRANSITION_METHODS: &[&str] = &["connect(", "send("];
 const EXTERNAL_DOMAIN_TYPE_PATTERNS: &[&str] = &[
     "axum::",
     "hyper::",
@@ -102,6 +102,49 @@ struct CapabilityApiObligations {
     core_source_scopes: Vec<String>,
     shell_constructor_scopes: Vec<String>,
     approved_capability_names: Vec<String>,
+}
+
+#[derive(Debug)]
+struct TypeStateObligations {
+    source_scopes: Vec<String>,
+    raw_state_alias_patterns: Vec<String>,
+    raw_transition_patterns: Vec<String>,
+    required_state_markers: Vec<String>,
+    required_transition_methods: Vec<String>,
+}
+
+impl TypeStateObligations {
+    fn from_policy(policy: &PolicyEntry) -> Self {
+        let type_state_mechanism =
+            policy.mechanisms.iter().find(|mechanism| mechanism.kind == MechanismKind::TypeState);
+        Self {
+            source_scopes: mechanism_field_or_fallback(
+                type_state_mechanism,
+                |mechanism| &mechanism.type_state_source_scopes,
+                FALLBACK_TYPE_STATE_SOURCE_SCOPES,
+            ),
+            raw_state_alias_patterns: mechanism_field_or_fallback(
+                type_state_mechanism,
+                |mechanism| &mechanism.raw_state_alias_patterns,
+                FALLBACK_RAW_STATE_ALIAS_PATTERNS,
+            ),
+            raw_transition_patterns: mechanism_field_or_fallback(
+                type_state_mechanism,
+                |mechanism| &mechanism.raw_transition_patterns,
+                FALLBACK_RAW_TRANSITION_PATTERNS,
+            ),
+            required_state_markers: mechanism_field_or_fallback(
+                type_state_mechanism,
+                |mechanism| &mechanism.required_state_markers,
+                FALLBACK_REQUIRED_STATE_MARKERS,
+            ),
+            required_transition_methods: mechanism_field_or_fallback(
+                type_state_mechanism,
+                |mechanism| &mechanism.required_transition_methods,
+                FALLBACK_REQUIRED_TRANSITION_METHODS,
+            ),
+        }
+    }
 }
 
 impl CapabilityApiObligations {
@@ -169,20 +212,26 @@ pub fn check_architecture(
     sources: &[SourceFile],
     selection: &FamilySelection,
 ) -> Vec<Diagnostic> {
-    if !selection.includes(ARCHITECTURE_FAMILY) {
+    let includes_architecture = selection.includes(ARCHITECTURE_FAMILY);
+    let includes_idioms = selection.includes(IDIOMS_FAMILY);
+    if !includes_architecture && !includes_idioms {
         return Vec::new();
     }
 
     let mut diagnostics = Vec::new();
-    check_core_no_std(registry, sources, &mut diagnostics);
-    check_core_forbidden_dependencies(registry, sources, &mut diagnostics);
-    check_std_shell_owns_std(registry, sources, &mut diagnostics);
-    check_shell_depends_on_core(registry, sources, &mut diagnostics);
-    check_core_capability_constructors(registry, sources, &mut diagnostics);
-    check_raw_type_state_operations(registry, sources, &mut diagnostics);
-    check_external_domain_leakage(registry, sources, &mut diagnostics);
-    check_root_thinness(registry, sources, &mut diagnostics);
-    check_public_api_budget(registry, sources, &mut diagnostics);
+    if includes_architecture {
+        check_core_no_std(registry, sources, &mut diagnostics);
+        check_core_forbidden_dependencies(registry, sources, &mut diagnostics);
+        check_std_shell_owns_std(registry, sources, &mut diagnostics);
+        check_shell_depends_on_core(registry, sources, &mut diagnostics);
+        check_core_capability_constructors(registry, sources, &mut diagnostics);
+        check_external_domain_leakage(registry, sources, &mut diagnostics);
+        check_root_thinness(registry, sources, &mut diagnostics);
+        check_public_api_budget(registry, sources, &mut diagnostics);
+    }
+    if includes_idioms {
+        check_raw_type_state_operations(registry, sources, &mut diagnostics);
+    }
     diagnostics
 }
 
@@ -307,20 +356,74 @@ fn check_raw_type_state_operations(
     let Some(policy) = registry.policy_by_id(TYPE_STATE_POLICY_ID) else {
         return;
     };
-    for source in sources {
-        for (line_index, line) in source.text.lines().enumerate() {
-            let Some(pattern) = RAW_TYPE_STATE_PATTERNS.iter().copied().find(|pattern| line.contains(pattern)) else {
-                continue;
-            };
-            diagnostics.push(policy_diagnostic(
-                policy,
-                source,
-                Some(line_number_from_index(line_index)),
-                &format!("raw protocol operation `{pattern}` bypasses type-state surface"),
-                "model protocol states with nominal wrappers and transition methods instead of raw operation shortcuts",
-            ));
-        }
+    let obligations = TypeStateObligations::from_policy(policy);
+    for source in type_state_sources(sources, &obligations) {
+        append_raw_type_state_bypass_diagnostics(policy, source, &obligations, diagnostics);
+        append_missing_type_state_evidence_diagnostics(policy, source, &obligations, diagnostics);
     }
+}
+
+fn append_raw_type_state_bypass_diagnostics(
+    policy: &PolicyEntry,
+    source: &SourceFile,
+    obligations: &TypeStateObligations,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    for (line_index, line) in source.text.lines().enumerate() {
+        let trimmed = line.trim_start();
+        if trimmed.starts_with("//") || trimmed.starts_with("///") {
+            continue;
+        }
+        let Some(pattern) = obligations
+            .raw_state_alias_patterns
+            .iter()
+            .chain(obligations.raw_transition_patterns.iter())
+            .find(|pattern| line.contains(pattern.as_str()))
+        else {
+            continue;
+        };
+        diagnostics.push(policy_diagnostic(
+            policy,
+            source,
+            Some(line_number_from_index(line_index)),
+            &format!("raw protocol bypass `{pattern}` violates artifact-backed type-state obligations"),
+            "model protocol states with nominal marker wrappers and consuming transition methods instead of raw shortcuts",
+        ));
+    }
+}
+
+fn append_missing_type_state_evidence_diagnostics(
+    policy: &PolicyEntry,
+    source: &SourceFile,
+    obligations: &TypeStateObligations,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let missing_markers = obligations
+        .required_state_markers
+        .iter()
+        .filter(|marker| !source.text.contains(marker.as_str()))
+        .cloned()
+        .collect::<Vec<_>>();
+    let missing_methods = obligations
+        .required_transition_methods
+        .iter()
+        .filter(|method| !source.text.contains(method.as_str()))
+        .cloned()
+        .collect::<Vec<_>>();
+    if missing_markers.is_empty() && missing_methods.is_empty() {
+        return;
+    }
+    diagnostics.push(policy_diagnostic(
+        policy,
+        source,
+        Some(FIRST_LINE),
+        &format!(
+            "type-state source is missing required marker or transition evidence: markers=[{}], methods=[{}]",
+            missing_markers.join(", "),
+            missing_methods.join(", ")
+        ),
+        "declare nominal state marker types and transition methods for the configured protocol surface",
+    ));
 }
 
 fn check_external_domain_leakage(registry: &PolicyRegistry, sources: &[SourceFile], diagnostics: &mut Vec<Diagnostic>) {
@@ -501,6 +604,16 @@ fn capability_core_sources<'a>(
         source.path.ends_with(RUST_SOURCE_EXTENSION)
             && obligations.core_source_scopes.iter().any(|scope| source.path.contains(scope))
             && !obligations.shell_constructor_scopes.iter().any(|scope| source.path.contains(scope))
+    })
+}
+
+fn type_state_sources<'a>(
+    sources: &'a [SourceFile],
+    obligations: &'a TypeStateObligations,
+) -> impl Iterator<Item = &'a SourceFile> {
+    sources.iter().filter(|source| {
+        source.path.ends_with(RUST_SOURCE_EXTENSION)
+            && obligations.source_scopes.iter().any(|scope| source.path.contains(scope))
     })
 }
 

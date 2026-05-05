@@ -1,0 +1,13 @@
+$ review design proof plan before archive
+input: openspec/changes/archive/2026-05-05-enforce-type-state-protocol-structural-gate/design.md and evidence transcripts
+asserts: the change claims structural API enforcement only, not verified protocol correctness
+
+Review result: pass
+
+The implementation and evidence assert a narrow structural gate:
+- Nickel declares deterministic type-state mechanism obligations.
+- Generated artifacts preserve source scopes, raw alias/bypass patterns, nominal marker names, and transition method names.
+- tigerstyle-standards rejects configured raw protocol shortcuts in declared source scopes.
+- tigerstyle-standards accepts a nominal marker-state fixture.
+
+The evidence does not claim verified protocol correctness, exhaustive Rust type-system proof, or semantic transition completeness. Those remain future verified/proof-rail work.

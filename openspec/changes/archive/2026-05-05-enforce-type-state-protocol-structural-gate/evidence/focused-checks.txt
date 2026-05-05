@@ -1,0 +1,83 @@
+$ nix develop -c bash -c 'cargo fmt --all --check && cargo clippy -p tigerstyle-standards --all-targets -- -D warnings && cargo test -p tigerstyle-standards'
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.10s
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.08s
+     Running unittests src/lib.rs (/home/brittonr/.cargo-target/debug/deps/tigerstyle_standards-026b9ff690555e86)
+
+running 26 tests
+test artifacts::tests::seed_manifest_artifact_preserves_registry_schema ... ok
+test artifacts::tests::check_config_output_is_stable ... ok
+test tests::advisory_rule_accepts_small_public_surface ... ok
+test tests::advisory_rule_reports_through_run_checks_without_blocking ... ok
+test tests::architecture_checks_accept_artifact_backed_shell_constructor_scope ... ok
+test tests::architecture_checks_accept_compliant_workspace_shape ... ok
+test tests::architecture_checks_accept_artifact_backed_type_state_api ... ok
+test tests::architecture_checks_reject_artifact_backed_ambient_capability ... ok
+test tests::architecture_checks_reject_artifact_backed_raw_type_state ... ok
+test tests::architecture_checks_reject_core_runtime_dependency ... ok
+test tests::architecture_checks_reject_missing_core_no_std ... ok
+test tests::architecture_checks_reject_external_domain_leakage ... ok
+test tests::architecture_checks_reject_multiple_core_fixture_shapes ... ok
+test tests::architecture_checks_reject_thick_root_file ... ok
+test tests::fixture_manifest_accepts_covered_hard_policies ... ok
+test tests::family_selection_skips_unselected_policy ... ok
+test tests::fixture_manifest_rejects_missing_noncompliant_fixture ... ok
+test tests::blanket_suppression_scope_is_rejected ... ok
+test tests::idioms_selection_skips_architecture_family_diagnostics ... ok
+test tests::json_output_is_stable ... ok
+test tests::resource_checks_reject_unbounded_channel ... ok
+test tests::resource_checks_accept_bounded_channel ... ok
+test tests::markdown_output_is_stable ... ok
+test tests::missing_suppression_metadata_returns_blocking_diagnostics ... ok
+test tests::unknown_policy_is_rejected ... ok
+test tests::valid_suppression_is_reported_as_active ... ok
+
+test result: ok. 26 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (/home/brittonr/.cargo-target/debug/deps/tigerstyle_standards-90119fbd17fe9f25)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/advisory_cli.rs (/home/brittonr/.cargo-target/debug/deps/advisory_cli-70fbd33caaac3597)
+
+running 3 tests
+test hard_policy_cli_report_exits_with_failure ... ok
+test advisory_only_cli_report_exits_successfully ... ok
+test exported_policy_artifacts_drive_checker ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests tigerstyle_standards
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+$ nix run .#tigerstyle-policy-validate
+$ nix build .#checks.x86_64-linux.standards-fixtures --no-link -L
+this derivation will be built:
+  /nix/store/8hpw3299pk8ik6r09qrz4vkisg1i383p-tigerstyle-standards-fixtures.drv
+cannot build on 'ssh-ng://root@10.10.10.1': error: failed to start SSH connection to '10.10.10.1'
+building '/nix/store/8hpw3299pk8ik6r09qrz4vkisg1i383p-tigerstyle-standards-fixtures.drv'...
+$ openspec validate standards-codification --strict
+Specification 'standards-codification' is valid
+$ openspec validate --specs --strict
+- Validating...
+✓ spec/architecture
+✓ spec/autofix
+✓ spec/concurrency
+✓ spec/consumer-integration
+✓ spec/documentation
+✓ spec/naming
+✓ spec/openspec-stage-authoring
+✓ spec/openspec-task-governance
+✓ spec/performance
+✓ spec/purity
+✓ spec/resilience
+✓ spec/safety
+✓ spec/standards-codification
+✓ spec/structure
+Totals: 14 passed, 0 failed (14 items)
+$ git diff --check
+$ git diff --cached --check

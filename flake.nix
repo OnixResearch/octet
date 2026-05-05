@@ -636,6 +636,12 @@ MAIN
           grep --fixed-strings "capability_core_source_scopes" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
           grep --fixed-strings "capability_shell_constructor_scopes" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
           grep --fixed-strings "capability_approved_names" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
+          grep --fixed-strings "type_state_source_scopes" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
+          grep --fixed-strings "type_state_raw_alias_patterns" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
+          grep --fixed-strings "type_state_raw_transition_patterns" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
+          grep --fixed-strings "type_state_required_state_markers" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
+          grep --fixed-strings "type_state_required_transition_methods" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
+          grep --fixed-strings "send_raw(" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
 
           tigerstyle-standards check \
             --policy-artifacts-dir "$artifact_dir" \
@@ -659,6 +665,15 @@ MAIN
             --family embedded \
             --output json > "$compliant_json"
           jq --exit-status '.diagnostics | length == 0' "$compliant_json" >/dev/null
+
+          tigerstyle-standards check \
+            --policy-artifacts-dir "$artifact_dir" \
+            --source standards/check-fixtures/architecture/compliant/typestate-protocol \
+            --family idioms \
+            --output json > "$compliant_json"
+          jq --exit-status '.diagnostics | length == 0' "$compliant_json" >/dev/null
+          jq --exit-status 'all(.diagnostics[]; .policy_id == "tigerstyle.idioms.nominal-type-boundaries")' "$compliant_json" >/dev/null
+          jq --exit-status 'any(.policy_evaluations[]; .policy_id == "tigerstyle.idioms.nominal-type-boundaries")' "$compliant_json" >/dev/null
 
           tigerstyle-standards check \
             --policy-artifacts-dir "$artifact_dir" \
@@ -687,14 +702,26 @@ MAIN
             echo "noncompliant architecture fixtures unexpectedly passed" >&2
             exit 1
           fi
-          jq --exit-status '.diagnostics | length >= 5' "$noncompliant_json" >/dev/null
+          jq --exit-status '.diagnostics | length >= 4' "$noncompliant_json" >/dev/null
           jq --exit-status 'any(.diagnostics[]; .policy_id == "tigerstyle.architecture.external-domain-leakage")' "$noncompliant_json" >/dev/null
           jq --exit-status 'any(.diagnostics[]; .policy_id == "tigerstyle.architecture.root-crate-thinness" and (.path | contains("thick-root")))' "$noncompliant_json" >/dev/null
           jq --exit-status 'any(.diagnostics[]; .policy_id == "tigerstyle.architecture.fcis-crate-boundary" and (.message | contains("must depend on tigerstyle-core")))' "$noncompliant_json" >/dev/null
           jq --exit-status 'any(.diagnostics[]; .policy_id == "tigerstyle.architecture.effect-capability-boundaries")' "$noncompliant_json" >/dev/null
-          jq --exit-status 'any(.diagnostics[]; .policy_id == "tigerstyle.idioms.nominal-type-boundaries")' "$noncompliant_json" >/dev/null
+          jq --exit-status 'all(.diagnostics[]; .policy_id != "tigerstyle.idioms.nominal-type-boundaries")' "$noncompliant_json" >/dev/null
           jq --exit-status 'any(.policy_evaluations[]; .target_enforcement_mode == "structural")' "$noncompliant_json" >/dev/null
           jq --exit-status 'all(.diagnostics[]; ((.path | contains("thick-root")) | not) or .policy_id != "tigerstyle.architecture.public-api-budget")' "$noncompliant_json" >/dev/null
+
+          if tigerstyle-standards check \
+            --policy-artifacts-dir "$artifact_dir" \
+            --source standards/check-fixtures/architecture/noncompliant/typestate-raw \
+            --family idioms \
+            --output json > "$noncompliant_json"; then
+            echo "noncompliant type-state fixtures unexpectedly passed" >&2
+            exit 1
+          fi
+          jq --exit-status '.diagnostics | length >= 1' "$noncompliant_json" >/dev/null
+          jq --exit-status 'all(.diagnostics[]; .policy_id == "tigerstyle.idioms.nominal-type-boundaries")' "$noncompliant_json" >/dev/null
+          jq --exit-status 'any(.diagnostics[]; .message | contains("type ConnectionState = bool"))' "$noncompliant_json" >/dev/null
 
           if tigerstyle-standards check \
             --policy-artifacts-dir "$artifact_dir" \

@@ -72,6 +72,17 @@ pub fn render_check_config_toml(registry: &PolicyRegistry) -> String {
         capability_mechanism_field(capability_policy, |mechanism| &mechanism.shell_constructor_scopes);
     let capability_approved_names =
         capability_mechanism_field(capability_policy, |mechanism| &mechanism.approved_capability_names);
+    let type_state_policy = nominal_type_boundary_policy(registry);
+    let type_state_source_scopes =
+        type_state_mechanism_field(type_state_policy, |mechanism| &mechanism.type_state_source_scopes);
+    let type_state_raw_alias_patterns =
+        type_state_mechanism_field(type_state_policy, |mechanism| &mechanism.raw_state_alias_patterns);
+    let type_state_raw_transition_patterns =
+        type_state_mechanism_field(type_state_policy, |mechanism| &mechanism.raw_transition_patterns);
+    let type_state_required_state_markers =
+        type_state_mechanism_field(type_state_policy, |mechanism| &mechanism.required_state_markers);
+    let type_state_required_transition_methods =
+        type_state_mechanism_field(type_state_policy, |mechanism| &mechanism.required_transition_methods);
 
     let mut toml = String::new();
     toml.push_str("schema_version = \"");
@@ -97,6 +108,11 @@ pub fn render_check_config_toml(registry: &PolicyRegistry) -> String {
     append_toml_array(&mut toml, "capability_core_source_scopes", &capability_core_source_scopes);
     append_toml_array(&mut toml, "capability_shell_constructor_scopes", &capability_shell_constructor_scopes);
     append_toml_array(&mut toml, "capability_approved_names", &capability_approved_names);
+    append_toml_array(&mut toml, "type_state_source_scopes", &type_state_source_scopes);
+    append_toml_array(&mut toml, "type_state_raw_alias_patterns", &type_state_raw_alias_patterns);
+    append_toml_array(&mut toml, "type_state_raw_transition_patterns", &type_state_raw_transition_patterns);
+    append_toml_array(&mut toml, "type_state_required_state_markers", &type_state_required_state_markers);
+    append_toml_array(&mut toml, "type_state_required_transition_methods", &type_state_required_transition_methods);
     toml
 }
 
@@ -106,6 +122,21 @@ fn bounded_queue_policy(registry: &PolicyRegistry) -> Option<&PolicyEntry> {
 
 fn effect_capability_policy(registry: &PolicyRegistry) -> Option<&PolicyEntry> {
     registry.policy_by_id("tigerstyle.architecture.effect-capability-boundaries")
+}
+
+fn nominal_type_boundary_policy(registry: &PolicyRegistry) -> Option<&PolicyEntry> {
+    registry.policy_by_id("tigerstyle.idioms.nominal-type-boundaries")
+}
+
+fn type_state_mechanism_field(
+    policy: Option<&PolicyEntry>,
+    field: impl Fn(&crate::model::Mechanism) -> &Vec<String>,
+) -> Vec<String> {
+    policy
+        .and_then(|policy| {
+            policy.mechanisms.iter().find(|mechanism| mechanism.kind == crate::model::MechanismKind::TypeState)
+        })
+        .map_or_else(Vec::new, |mechanism| field(mechanism).clone())
 }
 
 fn capability_mechanism_field(
