@@ -642,6 +642,10 @@ MAIN
           grep --fixed-strings "type_state_required_state_markers" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
           grep --fixed-strings "type_state_required_transition_methods" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
           grep --fixed-strings "send_raw(" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
+          grep --fixed-strings "proof_rail_backends" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
+          grep --fixed-strings "local-receipt" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
+          grep --fixed-strings "proof_rail_pass_signals" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
+          grep --fixed-strings "proof-result: pass deterministic-effect-handlers" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
 
           tigerstyle-standards check \
             --policy-artifacts-dir "$artifact_dir" \
@@ -674,6 +678,14 @@ MAIN
           jq --exit-status '.diagnostics | length == 0' "$compliant_json" >/dev/null
           jq --exit-status 'all(.diagnostics[]; .policy_id == "tigerstyle.idioms.nominal-type-boundaries")' "$compliant_json" >/dev/null
           jq --exit-status 'any(.policy_evaluations[]; .policy_id == "tigerstyle.idioms.nominal-type-boundaries")' "$compliant_json" >/dev/null
+
+          tigerstyle-standards check \
+            --policy-artifacts-dir "$artifact_dir" \
+            --source standards/check-fixtures/verification/compliant \
+            --family verification \
+            --output json > "$compliant_json"
+          jq --exit-status '.diagnostics | length == 0' "$compliant_json" >/dev/null
+          jq --exit-status 'any(.policy_evaluations[]; .policy_id == "tigerstyle.verification.deterministic-effect-handlers" and .current_enforcement_mode == "verified" and .failure_type == "verified-proof-rail")' "$compliant_json" >/dev/null
 
           tigerstyle-standards check \
             --policy-artifacts-dir "$artifact_dir" \
@@ -722,6 +734,18 @@ MAIN
           jq --exit-status '.diagnostics | length >= 1' "$noncompliant_json" >/dev/null
           jq --exit-status 'all(.diagnostics[]; .policy_id == "tigerstyle.idioms.nominal-type-boundaries")' "$noncompliant_json" >/dev/null
           jq --exit-status 'any(.diagnostics[]; .message | contains("type ConnectionState = bool"))' "$noncompliant_json" >/dev/null
+
+          if tigerstyle-standards check \
+            --policy-artifacts-dir "$artifact_dir" \
+            --source standards/check-fixtures/verification/noncompliant \
+            --family verification \
+            --output json > "$noncompliant_json"; then
+            echo "noncompliant proof-rail fixtures unexpectedly passed" >&2
+            exit 1
+          fi
+          jq --exit-status '.diagnostics | length >= 1' "$noncompliant_json" >/dev/null
+          jq --exit-status 'all(.diagnostics[]; .policy_id == "tigerstyle.verification.deterministic-effect-handlers")' "$noncompliant_json" >/dev/null
+          jq --exit-status 'any(.diagnostics[]; .message | contains("missing pass signal"))' "$noncompliant_json" >/dev/null
 
           if tigerstyle-standards check \
             --policy-artifacts-dir "$artifact_dir" \

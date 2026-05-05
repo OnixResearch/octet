@@ -10,6 +10,7 @@ pub mod artifacts;
 pub mod diagnostic;
 pub mod fixture;
 pub mod model;
+pub mod proof;
 pub mod report;
 pub mod resource;
 pub mod runner;
@@ -35,8 +36,10 @@ mod tests {
     use crate::model::MechanismKind;
     use crate::model::PolicyEntry;
     use crate::model::PolicyRegistry;
+    use crate::model::ProofRail;
     use crate::model::Severity;
     use crate::model::SuppressionRequirements;
+    use crate::proof::check_verified_proof_rails;
     use crate::report::render_json;
     use crate::report::render_markdown;
     use crate::resource::check_resources;
@@ -52,6 +55,7 @@ mod tests {
     const PUBLIC_API_BUDGET_POLICY_ID: &str = "tigerstyle.architecture.public-api-budget";
     const EFFECT_CAPABILITY_POLICY_ID: &str = "tigerstyle.architecture.effect-capability-boundaries";
     const TYPE_STATE_POLICY_ID: &str = "tigerstyle.idioms.nominal-type-boundaries";
+    const VERIFIED_POLICY_ID: &str = "tigerstyle.verification.deterministic-effect-handlers";
     const SOURCE_PATH: &str = "src/lib.rs";
     const DEVTOOLS_SOURCE: &str = "docs/standards/source/devtools.adoc#enforcing-not-advising";
     const EMBEDDED_SOURCE: &str = "docs/standards/source/embedded.adoc#bounded-everything";
@@ -60,7 +64,7 @@ mod tests {
     const REVIEW: &str = "review=next hardware revision";
     const SAFER_DEFAULT: &str = "safer_default=bounded queue";
     const MISSING_SUPPRESSION_METADATA_DIAGNOSTICS: usize = 4;
-    const MISSING_FIXTURE_COVERAGE_DIAGNOSTICS: usize = 7;
+    const MISSING_FIXTURE_COVERAGE_DIAGNOSTICS: usize = 8;
     const THICK_ROOT_LINE_COUNT: usize = 50;
     const BOUNDED_CHANNEL_CAPACITY: u16 = 16;
     const PUBLIC_API_BUDGET_FIXTURE_PATH: &str =
@@ -338,6 +342,81 @@ impl Session<Authenticated> { pub fn send(self) {} }
     }
 
     #[test]
+    fn proof_rail_checks_accept_passing_receipt() {
+        let sources = vec![
+            SourceFile::new(
+                "standards/check-fixtures/verification/compliant/src/lib.rs",
+                "pub enum Effect { ReadEnv }
+",
+            ),
+            SourceFile::new(
+                "standards/check-fixtures/verification/compliant/proof-receipt.txt",
+                "proof-result: pass deterministic-effect-handlers
+",
+            ),
+        ];
+        let diagnostics =
+            check_verified_proof_rails(&sample_registry(), &sources, &FamilySelection::from_families(["verification"]));
+
+        assert!(diagnostics.is_empty());
+    }
+
+    #[test]
+    fn proof_rail_checks_reject_missing_pass_signal() {
+        let sources = vec![
+            SourceFile::new(
+                "standards/check-fixtures/verification/noncompliant/src/lib.rs",
+                "pub enum Effect { ReadEnv }
+",
+            ),
+            SourceFile::new(
+                "standards/check-fixtures/verification/noncompliant/proof-receipt.txt",
+                "proof-result: fail deterministic-effect-handlers
+",
+            ),
+        ];
+        let diagnostics =
+            check_verified_proof_rails(&sample_registry(), &sources, &FamilySelection::from_families(["verification"]));
+
+        assert_eq!(diagnostics.len(), 1);
+        assert_eq!(diagnostics[0].policy_id, VERIFIED_POLICY_ID);
+        assert!(diagnostics[0].message.contains("missing pass signal"));
+        assert!(diagnostics[0].remediation.contains("rerun the configured proof command"));
+    }
+
+    #[test]
+    fn proof_rail_default_selection_rejects_relevant_noncompliant_receipt() {
+        let sources = vec![
+            SourceFile::new(
+                "standards/check-fixtures/verification/noncompliant/src/lib.rs",
+                "pub enum Effect { ReadEnv }\n",
+            ),
+            SourceFile::new(
+                "standards/check-fixtures/verification/noncompliant/proof-receipt.txt",
+                "proof-result: fail deterministic-effect-handlers\n",
+            ),
+        ];
+        let diagnostics = check_verified_proof_rails(&sample_registry(), &sources, &FamilySelection::all());
+
+        assert_eq!(diagnostics.len(), 1);
+        assert_eq!(diagnostics[0].policy_id, VERIFIED_POLICY_ID);
+        assert!(diagnostics[0].message.contains("missing pass signal"));
+    }
+
+    #[test]
+    fn proof_rail_family_isolation_skips_verification_diagnostics() {
+        let sources = vec![SourceFile::new(
+            "standards/check-fixtures/verification/noncompliant/proof-receipt.txt",
+            "proof-result: fail deterministic-effect-handlers
+",
+        )];
+        let diagnostics =
+            check_verified_proof_rails(&sample_registry(), &sources, &FamilySelection::from_families(["embedded"]));
+
+        assert!(diagnostics.is_empty());
+    }
+
+    #[test]
     fn resource_checks_reject_unbounded_channel() {
         let sources = vec![SourceFile::new(
             "src/device.rs",
@@ -447,6 +526,7 @@ impl Session<Authenticated> { pub fn send(self) {} }
                 ),
                 sample_effect_capability_policy(),
                 sample_type_state_policy(),
+                sample_verified_policy(),
             ],
             seed_manifests: Vec::new(),
         }
@@ -520,6 +600,26 @@ impl Session<Authenticated> { pub fn send(self) {} }
                 TYPE_STATE_POLICY_ID,
                 "idioms",
                 "docs/standards/source/idioms.adoc#nominal-and-structural-type-boundaries",
+            )
+        }
+    }
+
+    fn sample_verified_policy() -> PolicyEntry {
+        PolicyEntry {
+            current_enforcement_mode: EnforcementMode::Verified,
+            target_enforcement_mode: EnforcementMode::Verified,
+            proof_rails: vec![ProofRail {
+                backend: "local-receipt".to_owned(),
+                command: "cargo test proof_rail".to_owned(),
+                source_paths: vec!["standards/check-fixtures/verification/".to_owned()],
+                proof_paths: vec!["proof-receipt.txt".to_owned()],
+                pass_signal: "proof-result: pass deterministic-effect-handlers".to_owned(),
+                trust_boundaries: vec!["fixture receipt only".to_owned()],
+            }],
+            ..sample_policy(
+                VERIFIED_POLICY_ID,
+                "verification",
+                "docs/standards/source/verification.adoc#deterministic-effect-handler-tests",
             )
         }
     }
@@ -622,6 +722,11 @@ impl Session<Authenticated> { pub fn send(self) {} }
                     policy_id: TYPE_STATE_POLICY_ID.to_owned(),
                     compliant: vec!["architecture/typestate-ok.rs".to_owned()],
                     noncompliant: vec!["architecture/typestate-bad.rs".to_owned()],
+                },
+                PolicyFixtureCoverage {
+                    policy_id: VERIFIED_POLICY_ID.to_owned(),
+                    compliant: vec!["verification/proof-ok.txt".to_owned()],
+                    noncompliant: vec!["verification/proof-bad.txt".to_owned()],
                 },
             ],
         }

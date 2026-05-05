@@ -1,0 +1,3 @@
+proof-command: nix develop -c bash -c 'cargo test -p tigerstyle-standards proof_rail -- --nocapture'
+proof-result: pass deterministic-effect-handlers
+trust-boundary: receipt proves local fixture proof command evidence shape, not arbitrary downstream semantic correctness

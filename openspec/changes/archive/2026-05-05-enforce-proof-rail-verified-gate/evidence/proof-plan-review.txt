@@ -1,0 +1,6 @@
+review: verified proof rails now have hard artifact-backed checker behavior for the verification family.
+asserts:
+- generated artifacts export proof rail backend/source/proof/pass-signal fields.
+- compliant fixture with source plus matching proof receipt has no findings.
+- noncompliant fixture with failing receipt exits nonzero and emits tigerstyle.verification.deterministic-effect-handlers.
+- family isolation keeps verification diagnostics out of embedded-family checks.
