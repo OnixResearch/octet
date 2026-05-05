@@ -192,6 +192,118 @@ fn explicit_test_helper(input: u32) -> u32 {
     .expect("write integration fixture");
 }
 
+fn repo_root() -> std::path::PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR")).parent().expect("workspace root").to_path_buf()
+}
+
+#[test]
+fn fingerprint_lifecycle_docs_fixture_matches_transcript() {
+    let root = repo_root();
+    let docs_dir = root.join("docs/examples/function-fingerprint-lifecycle");
+    let final_fixture = docs_dir.join("reviewed.rs");
+    let transcript = fs::read_to_string(docs_dir.join("lifecycle-transcript.md")).expect("read lifecycle transcript");
+
+    let final_check = Command::new(cargo_tigerstyle())
+        .args(["fingerprint", "--check", "reviewed.rs"])
+        .current_dir(&docs_dir)
+        .output()
+        .expect("run docs final check");
+    assert!(
+        final_check.status.success(),
+        "docs final check stderr: {}",
+        String::from_utf8_lossy(&final_check.stderr)
+    );
+    let final_stdout = String::from_utf8_lossy(&final_check.stdout);
+    assert!(final_stdout.contains("bounded_retry_delay_ms match"));
+    assert!(final_stdout.contains("summary total=1 match=1 mismatch=0 missing=0 written=0"));
+    assert!(transcript.contains(final_stdout.as_ref()), "transcript missing final check output:\n{final_stdout}");
+
+    let temp = tempfile::tempdir().expect("create tempdir");
+    let fixture = temp.path().join("reviewed.rs");
+    fs::write(
+        &fixture,
+        r#"#[rustfmt::skip]
+// tigerstyle-fingerprint: b3:0; review=safety-critical; evidence=docs/examples/function-fingerprint-lifecycle/lifecycle-transcript.md; macro=allow
+pub fn bounded_retry_delay_ms(attempt: u32) -> u32 {
+    assert!(attempt <= 5);
+    50_u32.saturating_mul(attempt.saturating_add(1))
+}
+"#,
+    )
+    .expect("write docs lifecycle initial fixture");
+
+    let initial_update = Command::new(cargo_tigerstyle())
+        .args(["fingerprint", "--update", "reviewed.rs"])
+        .current_dir(temp.path())
+        .output()
+        .expect("run initial docs update");
+    assert!(
+        initial_update.status.success(),
+        "initial update stderr: {}",
+        String::from_utf8_lossy(&initial_update.stderr)
+    );
+    assert_transcript_contains_stdout(&transcript, &initial_update.stdout, "initial update");
+
+    let clean_check = Command::new(cargo_tigerstyle())
+        .args(["fingerprint", "--check", "reviewed.rs"])
+        .current_dir(temp.path())
+        .output()
+        .expect("run initial docs check");
+    assert!(clean_check.status.success(), "clean check stderr: {}", String::from_utf8_lossy(&clean_check.stderr));
+    assert_transcript_contains_stdout(&transcript, &clean_check.stdout, "clean check");
+
+    let source = fs::read_to_string(&fixture).expect("read lifecycle fixture");
+    fs::write(
+        &fixture,
+        source.replace(
+            "50_u32.saturating_mul(attempt.saturating_add(1))",
+            "75_u32.saturating_mul(attempt.saturating_add(1))",
+        ),
+    )
+    .expect("mutate lifecycle fixture");
+
+    let drift_diff = Command::new(cargo_tigerstyle())
+        .args(["fingerprint", "--diff", "reviewed.rs"])
+        .current_dir(temp.path())
+        .output()
+        .expect("run docs drift diff");
+    assert!(!drift_diff.status.success(), "drift diff should fail");
+    assert_transcript_contains_stdout(&transcript, &drift_diff.stdout, "drift diff");
+
+    let repair_update = Command::new(cargo_tigerstyle())
+        .args(["fingerprint", "--update", "reviewed.rs"])
+        .current_dir(temp.path())
+        .output()
+        .expect("run docs repair update");
+    assert!(
+        repair_update.status.success(),
+        "repair update stderr: {}",
+        String::from_utf8_lossy(&repair_update.stderr)
+    );
+    assert_transcript_contains_stdout(&transcript, &repair_update.stdout, "repair update");
+
+    let repaired_check = Command::new(cargo_tigerstyle())
+        .args(["fingerprint", "--check", "reviewed.rs"])
+        .current_dir(temp.path())
+        .output()
+        .expect("run docs repaired check");
+    assert!(
+        repaired_check.status.success(),
+        "repaired check stderr: {}",
+        String::from_utf8_lossy(&repaired_check.stderr)
+    );
+    assert_transcript_contains_stdout(&transcript, &repaired_check.stdout, "repaired check");
+
+    let repaired_source = fs::read_to_string(&fixture).expect("read repaired lifecycle fixture");
+    let checked_in_source = fs::read_to_string(final_fixture).expect("read final docs fixture");
+    assert_eq!(repaired_source, checked_in_source);
+}
+
+fn assert_transcript_contains_stdout(transcript: &str, stdout: &[u8], label: &str) {
+    let text = String::from_utf8_lossy(stdout);
+    assert!(transcript.contains(text.as_ref()), "transcript missing {label} output:\n{text}");
+}
+
 #[test]
 fn fingerprint_write_then_check_works_for_external_crate_file() {
     let temp = tempfile::tempdir().expect("create tempdir");
