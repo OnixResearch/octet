@@ -2067,6 +2067,26 @@ fn sorted_object_keys(value: &serde_json::Value) -> Vec<String> {
     keys
 }
 
+fn assert_metadata_shape(metadata: &serde_json::Value) {
+    assert_eq!(
+        sorted_object_keys(metadata),
+        vec![
+            "config_hash".to_owned(),
+            "profile_hash".to_owned(),
+            "profile_name".to_owned(),
+            "rustc_version".to_owned(),
+            "tool_name".to_owned(),
+            "tool_version".to_owned(),
+            "toolchain".to_owned(),
+        ],
+        "metadata should expose deterministic replay fields"
+    );
+    assert_eq!(metadata["tool_name"], "cargo-tigerstyle");
+    assert!(metadata["config_hash"].as_str().expect("config hash").starts_with("b3:"));
+    assert!(metadata["profile_hash"].as_str().expect("profile hash").starts_with("b3:"));
+    assert!(metadata["rustc_version"].as_str().expect("rustc version").starts_with("rustc "));
+}
+
 fn expected_artifact_files(output_format: &str) -> Vec<String> {
     let mut names = match output_format {
         "human" => vec![
@@ -2173,6 +2193,7 @@ fn structured_json_output_contains_all_required_fields() {
     for (i, f) in findings.iter().enumerate() {
         assert_eq!(f["version"], 1, "finding {i} missing version");
         assert!(f["index"].as_str().is_some(), "finding {i} missing index");
+        assert!(f["stable_id"].as_str().is_some(), "finding {i} missing stable_id");
         assert!(f["lint"].as_str().is_some(), "finding {i} missing lint");
         assert!(f["group"].as_str().is_some(), "finding {i} missing group");
         assert!(f["severity"].as_str().is_some(), "finding {i} missing severity");
@@ -2190,11 +2211,11 @@ fn structured_json_output_contains_all_required_fields() {
     assert_eq!(findings[0]["line"], 42);
     assert_eq!(findings[0]["crate_name"], "aspen-core");
 
-    assert_eq!(findings[1]["lint"], "function_length");
-    assert_eq!(findings[1]["group"], "tigerstyle::structure");
+    assert_eq!(findings[1]["lint"], "unbounded_channel");
+    assert_eq!(findings[1]["crate_name"], "aspen-dns");
 
-    assert_eq!(findings[2]["lint"], "unbounded_channel");
-    assert_eq!(findings[2]["crate_name"], "aspen-dns");
+    assert_eq!(findings[2]["lint"], "function_length");
+    assert_eq!(findings[2]["group"], "tigerstyle::structure");
 }
 
 #[test]
@@ -2269,6 +2290,7 @@ fn sarif_output_has_required_structural_fields() {
             "result {i} missing location uri"
         );
         assert!(r["properties"]["findingIndex"].as_str().is_some(), "result {i} missing findingIndex property");
+        assert!(r["properties"]["stableId"].as_str().is_some(), "result {i} missing stableId property");
     }
 
     assert_eq!(results[0]["properties"]["findingIndex"], "F1");
@@ -2436,6 +2458,7 @@ fn artifact_directory_captures_structured_run() {
             "cargo_process_exit".to_owned(),
             "error_findings".to_owned(),
             "exit_code".to_owned(),
+            "metadata".to_owned(),
             "output_format".to_owned(),
             "status".to_owned(),
             "total_findings".to_owned(),
@@ -2455,6 +2478,7 @@ fn artifact_directory_captures_structured_run() {
     assert_eq!(status["error_findings"], 0);
     assert_eq!(status["cargo_process_exit"]["classification"], "success");
     assert_eq!(status["cargo_process_exit"]["code"], EXIT_CODE_SUCCESS);
+    assert_metadata_shape(&status["metadata"]);
 
     let summary = read_artifact(&dir.join(SUMMARY_TXT_FILE));
     assert_eq!(
@@ -2544,6 +2568,7 @@ fn artifact_directory_captures_json_run() {
     assert_eq!(status["autofixable_findings"], 0);
     assert_eq!(status["cargo_process_exit"]["classification"], "success");
     assert_eq!(status["cargo_process_exit"]["code"], EXIT_CODE_SUCCESS);
+    assert_metadata_shape(&status["metadata"]);
 
     let summary = read_artifact(&dir.join(SUMMARY_TXT_FILE));
     assert_eq!(
@@ -2616,6 +2641,7 @@ fn artifact_directory_records_integration_failure_cleanly() {
             "cargo_process_exit".to_owned(),
             "error_findings".to_owned(),
             "exit_code".to_owned(),
+            "metadata".to_owned(),
             "output_format".to_owned(),
             "status".to_owned(),
             "total_findings".to_owned(),
@@ -2631,6 +2657,7 @@ fn artifact_directory_records_integration_failure_cleanly() {
     assert_eq!(status["exit_code"], output.status.code().expect("integration-failure exit code"));
     assert_eq!(status["cargo_process_exit"]["classification"], "exit-code");
     assert_eq!(status["cargo_process_exit"]["code"], EXIT_CODE_LINT_FAILURE);
+    assert_metadata_shape(&status["metadata"]);
 
     let summary = read_artifact(&dir.join(SUMMARY_TXT_FILE));
     assert_eq!(
@@ -2957,6 +2984,7 @@ fn sarif_carries_invocation_metadata() {
             "cargoProcessExitCode".to_owned(),
             "errorFindings".to_owned(),
             "exitCode".to_owned(),
+            "metadata".to_owned(),
             "status".to_owned(),
             "totalFindings".to_owned(),
             "warningFindings".to_owned(),

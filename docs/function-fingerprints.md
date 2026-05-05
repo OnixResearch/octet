@@ -185,6 +185,21 @@ cargo tigerstyle fingerprint --update src --output-format=json \
   | jq '[.records[] | select(.status == "written")] | length == 1'
 ```
 
+## Review manifests
+
+Use `--review-manifest <path>` when a CI job or human reviewer needs a stable
+review plan alongside normal output:
+
+```bash
+cargo tigerstyle fingerprint --check src --review-manifest artifacts/fingerprint-review.json
+```
+
+The manifest records the tool name/version, input paths, mode, a BLAKE3
+`manifest_hash`, and sorted records. Each record includes a stable content ID,
+path, function name, computed/stored hash, review/evidence metadata, macro
+warning state, and `requires_review` boolean. Sorting is by path, function name,
+and stable ID so two runs over the same source produce comparable manifests.
+
 ## Source-scanner boundaries
 
 The fingerprint command is a source scanner, not a macro-expansion analyzer.

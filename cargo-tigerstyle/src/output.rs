@@ -4,6 +4,8 @@ use std::fmt::Write as _;
 
 use serde::Serialize;
 
+use crate::determinism::RunMetadata;
+
 const FINDING_SCHEMA_VERSION: u32 = 1;
 const EXIT_SUCCESS: i32 = 0;
 const EXIT_LINT_FAILURE: i32 = 1;
@@ -29,6 +31,7 @@ pub struct LintMeta {
 pub struct Finding {
     pub version: u32,
     pub index: String,
+    pub stable_id: String,
     pub lint: String,
     pub group: String,
     pub severity: String,
@@ -184,6 +187,7 @@ struct StatusArtifact<'a> {
     status: RunStatus,
     exit_code: i32,
     output_format: &'a str,
+    metadata: &'a RunMetadata,
     total_findings: usize,
     warning_findings: usize,
     error_findings: usize,
@@ -448,6 +452,7 @@ pub fn render_sarif(
     meta_map: &HashMap<&str, LintMeta>,
     outcome: &RunOutcome,
     command_line: &str,
+    metadata: &RunMetadata,
 ) -> Result<String, String> {
     let mut seen_rules: Vec<&str> = Vec::new();
     for finding in findings {
@@ -485,7 +490,7 @@ pub fn render_sarif(
                         }
                     }
                 }],
-                "properties": { "findingIndex": finding.index }
+                "properties": { "findingIndex": finding.index, "stableId": finding.stable_id }
             })
         })
         .collect();
@@ -515,6 +520,7 @@ pub fn render_sarif(
                 "autofixableFindings": outcome.counts.autofixable_findings,
                 "cargoProcessExitClassification": outcome.cargo_process_exit.classification,
                 "cargoProcessExitCode": outcome.cargo_process_exit.code,
+                "metadata": metadata,
             },
             "results": results
         }]
@@ -525,11 +531,12 @@ pub fn render_sarif(
     Ok(rendered)
 }
 
-pub fn render_status_json(outcome: &RunOutcome, output_format: &str) -> Result<String, String> {
+pub fn render_status_json(outcome: &RunOutcome, output_format: &str, metadata: &RunMetadata) -> Result<String, String> {
     let artifact = StatusArtifact {
         status: outcome.status,
         exit_code: outcome.exit_code,
         output_format,
+        metadata,
         total_findings: outcome.counts.total_findings,
         warning_findings: outcome.counts.warning_findings,
         error_findings: outcome.counts.error_findings,
@@ -543,7 +550,7 @@ pub fn render_status_json(outcome: &RunOutcome, output_format: &str) -> Result<S
     Ok(rendered)
 }
 
-pub fn render_summary(findings: &[Finding], outcome: &RunOutcome) -> Result<String, String> {
+pub fn render_summary(findings: &[Finding], outcome: &RunOutcome, metadata: &RunMetadata) -> Result<String, String> {
     let mut summary = String::new();
 
     writeln!(&mut summary, "{SUMMARY_HEADER}").map_err(|error| format!("write summary: {error}"))?;
@@ -555,6 +562,13 @@ pub fn render_summary(findings: &[Finding], outcome: &RunOutcome) -> Result<Stri
     writeln!(&mut summary, "Errors: {}", outcome.counts.error_findings)
         .map_err(|error| format!("write summary: {error}"))?;
     writeln!(&mut summary, "Autofixable: {}", outcome.counts.autofixable_findings)
+        .map_err(|error| format!("write summary: {error}"))?;
+    writeln!(&mut summary, "Tool: {} {}", metadata.tool_name, metadata.tool_version)
+        .map_err(|error| format!("write summary: {error}"))?;
+    writeln!(&mut summary, "Toolchain: {}", metadata.toolchain).map_err(|error| format!("write summary: {error}"))?;
+    writeln!(&mut summary, "Config hash: {}", metadata.config_hash)
+        .map_err(|error| format!("write summary: {error}"))?;
+    writeln!(&mut summary, "Profile hash: {}", metadata.profile_hash)
         .map_err(|error| format!("write summary: {error}"))?;
 
     if findings.is_empty() {

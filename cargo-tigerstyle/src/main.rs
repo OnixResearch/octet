@@ -1,5 +1,6 @@
 mod cli;
 mod config;
+mod determinism;
 mod engine;
 mod fingerprint;
 mod output;

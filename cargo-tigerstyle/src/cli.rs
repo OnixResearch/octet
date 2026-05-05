@@ -46,6 +46,7 @@ pub struct FingerprintArgs {
     pub mode: FingerprintMode,
     pub paths: Vec<PathBuf>,
     pub output_format: OutputFormat,
+    pub review_manifest: Option<PathBuf>,
 }
 
 pub fn parse(argv: impl IntoIterator<Item = OsString>) -> Result<CommandArgs, String> {
@@ -133,6 +134,7 @@ fn parse_fingerprint(args: &[String]) -> Result<FingerprintArgs, String> {
     let mut mode = None;
     let mut paths = Vec::new();
     let mut output_format = OutputFormat::Human;
+    let mut review_manifest = None;
     let mut index = 0;
 
     while index < args.len() {
@@ -163,6 +165,15 @@ fn parse_fingerprint(args: &[String]) -> Result<FingerprintArgs, String> {
                 output_format = parse_output_format(arg.trim_start_matches("--output-format="))?;
                 index += 1;
             }
+            "--review-manifest" => {
+                let value = args.get(index + 1).ok_or_else(|| "missing value after `--review-manifest`".to_owned())?;
+                review_manifest = Some(PathBuf::from(value));
+                index += 2;
+            }
+            _ if arg.starts_with("--review-manifest=") => {
+                review_manifest = Some(PathBuf::from(arg.trim_start_matches("--review-manifest=")));
+                index += 1;
+            }
             _ if arg.starts_with('-') => return Err(format!("unsupported fingerprint argument `{arg}`")),
             _ => {
                 paths.push(PathBuf::from(arg));
@@ -175,6 +186,7 @@ fn parse_fingerprint(args: &[String]) -> Result<FingerprintArgs, String> {
         mode: mode.unwrap_or(FingerprintMode::Check),
         paths,
         output_format,
+        review_manifest,
     })
 }
 

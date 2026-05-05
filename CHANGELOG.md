@@ -11,7 +11,9 @@ For rollout profiles, see `docs/downstream-rollout.md`.
 `cargo tigerstyle fingerprint` now has checked operator docs for the full
 review lifecycle: human summaries, warning/metadata summaries, script-facing
 JSON output, source-scanner boundaries, downstream scratch-consumer behavior,
-and human/JSON `--diff` parity.
+human/JSON `--diff` parity, and deterministic review manifests. `cargo
+tigerstyle check` outputs now include stable finding IDs plus replay metadata
+for toolchain, config hash, and profile hash.
 
 Use one review command for these executable docs:
 
