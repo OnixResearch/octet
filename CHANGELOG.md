@@ -6,6 +6,24 @@ specific commits via `TIGERSTYLE_DYLINT_REV`.
 For the full lint catalog, see `docs/lint-reference.md`.
 For rollout profiles, see `docs/downstream-rollout.md`.
 
+## 2026-05-05: Function fingerprint docs and checks
+
+`cargo tigerstyle fingerprint` now has checked operator docs for the full
+review lifecycle: human summaries, warning/metadata summaries, script-facing
+JSON output, source-scanner boundaries, downstream scratch-consumer behavior,
+and human/JSON `--diff` parity.
+
+Use one review command for these executable docs:
+
+```bash
+nix build .#checks.x86_64-linux.docs-examples --no-link -L
+```
+
+That aggregate gate is also part of `nix flake check`. Focused checks such as
+`fingerprint-json-output-docs`, `fingerprint-source-scanner-docs`, and
+`fingerprint-docs-downstream-smoke` are intended for local debugging after the
+aggregate gate identifies a failing slice.
+
 ## 2026-04-16: Starter profile expanded
 
 Promoted four low-noise lint families into the starter rollout profile:
