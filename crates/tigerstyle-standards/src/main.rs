@@ -14,6 +14,11 @@ use std::process::ExitCode;
 use clap::Parser;
 use clap::Subcommand;
 use clap::ValueEnum;
+use tigerstyle_standards::artifacts::CHECK_CONFIG_TOML_FILE;
+use tigerstyle_standards::artifacts::POLICIES_JSON_FILE;
+use tigerstyle_standards::artifacts::SEED_MANIFESTS_JSON_FILE;
+use tigerstyle_standards::artifacts::render_check_config_toml;
+use tigerstyle_standards::artifacts::seed_manifest_artifact;
 use tigerstyle_standards::fixture::FixtureManifest;
 use tigerstyle_standards::fixture::validate_hard_policy_fixture_coverage;
 use tigerstyle_standards::model::FamilySelection;
@@ -40,6 +45,8 @@ struct Cli {
 enum Command {
     /// Check source files for Tiger Style policy diagnostics.
     Check(CheckArgs),
+    /// Export deterministic policy artifacts for consumer checkers.
+    ExportArtifacts(ExportArtifactsArgs),
     /// Validate hard-policy fixture coverage from a manifest.
     FixtureCoverage(FixtureCoverageArgs),
 }
@@ -49,7 +56,11 @@ enum Command {
 struct CheckArgs {
     /// JSON registry exported from `standards/policies/registry.ncl`.
     #[arg(long)]
-    registry: PathBuf,
+    registry: Option<PathBuf>,
+
+    /// Directory containing generated Tiger Style policy artifacts.
+    #[arg(long)]
+    policy_artifacts_dir: Option<PathBuf>,
 
     /// Source files or directories to inspect.
     #[arg(long, required = true)]
@@ -62,6 +73,18 @@ struct CheckArgs {
     /// Output format.
     #[arg(long, value_enum, default_value_t = OutputFormat::Human)]
     output: OutputFormat,
+}
+
+/// Generated-artifact export arguments.
+#[derive(Debug, Parser)]
+struct ExportArtifactsArgs {
+    /// JSON registry exported from `standards/policies/registry.ncl`.
+    #[arg(long)]
+    registry: PathBuf,
+
+    /// Output directory for generated policy artifacts.
+    #[arg(long)]
+    out_dir: PathBuf,
 }
 
 /// Fixture-coverage arguments.
@@ -99,8 +122,17 @@ enum CliError {
     #[error("failed to parse {path} as JSON: {source}")]
     Json { path: PathBuf, source: serde_json::Error },
 
+    #[error("failed to create {path}: {source}")]
+    CreateDir { path: PathBuf, source: io::Error },
+
+    #[error("failed to write {path}: {source}")]
+    Write { path: PathBuf, source: io::Error },
+
     #[error("failed to serialize report as JSON: {source}")]
     Serialize { source: serde_json::Error },
+
+    #[error("{message}")]
+    Config { message: String },
 }
 
 fn main() -> ExitCode {
@@ -116,12 +148,13 @@ fn main() -> ExitCode {
 fn run_cli(cli: Cli) -> Result<bool, CliError> {
     match cli.command {
         Command::Check(args) => run_check_command(args),
+        Command::ExportArtifacts(args) => run_export_artifacts_command(&args),
         Command::FixtureCoverage(args) => run_fixture_coverage_command(args),
     }
 }
 
 fn run_check_command(args: CheckArgs) -> Result<bool, CliError> {
-    let registry = load_json::<PolicyRegistry>(&args.registry)?;
+    let registry = load_registry_for_check(&args)?;
     let sources = load_sources(&args.source)?;
     let selection = FamilySelection::from_families(args.family);
     let report = run_checks(&CheckInput {
@@ -131,6 +164,18 @@ fn run_check_command(args: CheckArgs) -> Result<bool, CliError> {
     });
     emit_report(args.output, &report)?;
     Ok(report.has_blocking_diagnostics())
+}
+
+fn run_export_artifacts_command(args: &ExportArtifactsArgs) -> Result<bool, CliError> {
+    let registry = load_json::<PolicyRegistry>(&args.registry)?;
+    fs::create_dir_all(&args.out_dir).map_err(|source| CliError::CreateDir {
+        path: args.out_dir.clone(),
+        source,
+    })?;
+    write_json(&args.out_dir.join(POLICIES_JSON_FILE), &registry)?;
+    write_text(&args.out_dir.join(CHECK_CONFIG_TOML_FILE), &render_check_config_toml(&registry))?;
+    write_json(&args.out_dir.join(SEED_MANIFESTS_JSON_FILE), &seed_manifest_artifact(&registry))?;
+    Ok(false)
 }
 
 fn run_fixture_coverage_command(args: FixtureCoverageArgs) -> Result<bool, CliError> {
@@ -159,6 +204,34 @@ where T: serde::de::DeserializeOwned {
         source,
     })?;
     serde_json::from_str(&text).map_err(|source| CliError::Json {
+        path: path.to_path_buf(),
+        source,
+    })
+}
+
+fn load_registry_for_check(args: &CheckArgs) -> Result<PolicyRegistry, CliError> {
+    match (&args.registry, &args.policy_artifacts_dir) {
+        (Some(registry), None) => load_json::<PolicyRegistry>(registry),
+        (None, Some(directory)) => load_json::<PolicyRegistry>(&directory.join(POLICIES_JSON_FILE)),
+        (Some(_), Some(_)) => Err(CliError::Config {
+            message: "pass either --registry or --policy-artifacts-dir, not both".to_owned(),
+        }),
+        (None, None) => Err(CliError::Config {
+            message: "pass --registry or --policy-artifacts-dir".to_owned(),
+        }),
+    }
+}
+
+fn write_json<T>(path: &Path, value: &T) -> Result<(), CliError>
+where T: serde::Serialize {
+    let text = serde_json::to_string_pretty(value).map_err(|source| CliError::Serialize { source })?;
+    write_text(path, &text)
+}
+
+fn write_text(path: &Path, text: &str) -> Result<(), CliError> {
+    let mut text = text.to_owned();
+    text.push('\n');
+    fs::write(path, text).map_err(|source| CliError::Write {
         path: path.to_path_buf(),
         source,
     })

@@ -437,6 +437,20 @@ MAIN
           '';
         };
 
+        policyArtifacts = pkgs.writeShellApplication {
+          name = "tigerstyle-policy-artifacts";
+          runtimeInputs = with pkgs; [ nickel tigerstyleStandards ];
+          text = ''
+            if [ "$#" -ne 1 ]; then
+              echo "usage: tigerstyle-policy-artifacts OUT_DIR" >&2
+              exit 2
+            fi
+            registry_json=$(mktemp)
+            nickel export --format json standards/policies/registry.ncl > "$registry_json"
+            exec tigerstyle-standards export-artifacts --registry "$registry_json" --out-dir "$1"
+          '';
+        };
+
         policyValidate = pkgs.writeShellApplication {
           name = "tigerstyle-policy-validate";
           runtimeInputs = with pkgs; [ gawk jq nickel ];
@@ -540,6 +554,7 @@ MAIN
             nativeBuildInputs = with pkgs; [ jq nickel tigerstyleStandards ];
           } ''
           cd ${./.}
+          artifact_dir=$(mktemp -d)
           registry_json=$(mktemp)
           compliant_json=$(mktemp)
           noncompliant_json=$(mktemp)
@@ -547,9 +562,14 @@ MAIN
           markdown_report=$(mktemp)
 
           nickel export --format json standards/policies/registry.ncl > "$registry_json"
+          tigerstyle-standards export-artifacts --registry "$registry_json" --out-dir "$artifact_dir"
+          test -s "$artifact_dir/tigerstyle-policies.json"
+          test -s "$artifact_dir/tigerstyle-check-config.toml"
+          test -s "$artifact_dir/tigerstyle-seed-manifests.json"
+          grep --fixed-strings "structural_policy_ids" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
 
           tigerstyle-standards check \
-            --registry "$registry_json" \
+            --policy-artifacts-dir "$artifact_dir" \
             --source standards/check-fixtures/suppressions/compliant \
             --family devtools \
             --output json > "$compliant_json"
@@ -557,7 +577,7 @@ MAIN
           jq --exit-status '.active_suppressions | length == 1' "$compliant_json" >/dev/null
 
           tigerstyle-standards check \
-            --registry "$registry_json" \
+            --policy-artifacts-dir "$artifact_dir" \
             --source standards/check-fixtures/architecture/compliant \
             --family architecture \
             --output json > "$compliant_json"
@@ -565,14 +585,14 @@ MAIN
           jq --exit-status 'any(.policy_evaluations[]; .policy_id == "tigerstyle.architecture.fcis-crate-boundary" and .target_enforcement_mode == "structural" and .failure_type == "crate-boundary")' "$compliant_json" >/dev/null
 
           tigerstyle-standards check \
-            --registry "$registry_json" \
+            --policy-artifacts-dir "$artifact_dir" \
             --source standards/check-fixtures/embedded/compliant \
             --family embedded \
             --output json > "$compliant_json"
           jq --exit-status '.diagnostics | length == 0' "$compliant_json" >/dev/null
 
           tigerstyle-standards check \
-            --registry "$registry_json" \
+            --policy-artifacts-dir "$artifact_dir" \
             --source standards/check-fixtures/architecture/advisory \
             --family architecture \
             --output json > "$advisory_json"
@@ -581,7 +601,7 @@ MAIN
           jq --exit-status '.diagnostics[0].severity == "warning"' "$advisory_json" >/dev/null
 
           if tigerstyle-standards check \
-            --registry "$registry_json" \
+            --policy-artifacts-dir "$artifact_dir" \
             --source standards/check-fixtures/suppressions/noncompliant \
             --family devtools \
             --output json > "$noncompliant_json"; then
@@ -591,7 +611,7 @@ MAIN
           jq --exit-status '.diagnostics | length >= 1' "$noncompliant_json" >/dev/null
 
           if tigerstyle-standards check \
-            --registry "$registry_json" \
+            --policy-artifacts-dir "$artifact_dir" \
             --source standards/check-fixtures/architecture/noncompliant \
             --family architecture \
             --output json > "$noncompliant_json"; then
@@ -608,7 +628,7 @@ MAIN
           jq --exit-status 'all(.diagnostics[]; ((.path | contains("thick-root")) | not) or .policy_id != "tigerstyle.architecture.public-api-budget")' "$noncompliant_json" >/dev/null
 
           if tigerstyle-standards check \
-            --registry "$registry_json" \
+            --policy-artifacts-dir "$artifact_dir" \
             --source standards/check-fixtures/embedded/noncompliant \
             --family embedded \
             --output json > "$noncompliant_json"; then
@@ -618,7 +638,7 @@ MAIN
           jq --exit-status '.diagnostics | length >= 1' "$noncompliant_json" >/dev/null
 
           tigerstyle-standards check \
-            --registry "$registry_json" \
+            --policy-artifacts-dir "$artifact_dir" \
             --source standards/check-fixtures/suppressions/compliant \
             --family devtools \
             --output markdown > "$markdown_report"
@@ -637,6 +657,7 @@ MAIN
           dylint-driver = dylintDriver;
           tigerstyle-standards = tigerstyleStandards;
           tigerstyle-policy-export = policyExport;
+          tigerstyle-policy-artifacts = policyArtifacts;
           tigerstyle-policy-validate = policyValidate;
         };
 
@@ -659,6 +680,11 @@ MAIN
           tigerstyle-policy-export = flake-utils.lib.mkApp {
             drv = policyExport;
             exePath = "/bin/tigerstyle-policy-export";
+          };
+
+          tigerstyle-policy-artifacts = flake-utils.lib.mkApp {
+            drv = policyArtifacts;
+            exePath = "/bin/tigerstyle-policy-artifacts";
           };
 
           tigerstyle-policy-validate = flake-utils.lib.mkApp {

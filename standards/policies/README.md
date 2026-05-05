@@ -12,12 +12,19 @@ The first checker foundation uses the existing Rust/Serde JSON stack and consume
 - `fixtures/valid/*.ncl` — positive registry contract fixtures.
 - `fixtures/invalid/*.ncl` — negative fixtures for missing traceability, unknown modes/checkers, missing suppression metadata, unknown fields, missing structural mechanisms, missing proof rails, target-mode regressions, and proof-relevant seeds without local acceptance.
 
-## Local checks
+Policy registry validation and deterministic artifact export:
 
 ```bash
 nix run .#tigerstyle-policy-validate
 nix run .#tigerstyle-policy-export | jq '.policies | length'
+nix run .#tigerstyle-policy-artifacts -- /tmp/tigerstyle-policy-artifacts
 ```
+
+The artifact export writes three consumer-facing files:
+
+- `tigerstyle-policies.json` — canonical registry JSON consumed by `tigerstyle-standards check --policy-artifacts-dir`.
+- `tigerstyle-check-config.toml` — deterministic checker configuration summary for CI/operator review.
+- `tigerstyle-seed-manifests.json` — manifest-gated seed corpus metadata.
 
 Invalid fixtures should fail export:
 

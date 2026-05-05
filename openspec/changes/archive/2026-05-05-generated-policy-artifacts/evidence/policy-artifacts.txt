@@ -1,0 +1,1 @@
+$ scratch=$(mktemp -d); nix run .#tigerstyle-policy-artifacts -- "$scratch"; test artifacts; nix build .#checks.x86_64-linux.standards-fixtures --no-link -L

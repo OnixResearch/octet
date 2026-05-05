@@ -1,0 +1,153 @@
+//! Generated policy artifacts consumed by standards tooling.
+
+use std::collections::BTreeSet;
+
+use serde::Deserialize;
+use serde::Serialize;
+
+use crate::model::EnforcementLevel;
+use crate::model::EnforcementMode;
+use crate::model::PolicyEntry;
+use crate::model::PolicyRegistry;
+use crate::model::SeedManifest;
+
+/// Canonical registry artifact file name.
+pub const POLICIES_JSON_FILE: &str = "tigerstyle-policies.json";
+/// Checker configuration artifact file name.
+pub const CHECK_CONFIG_TOML_FILE: &str = "tigerstyle-check-config.toml";
+/// Seed manifest artifact file name.
+pub const SEED_MANIFESTS_JSON_FILE: &str = "tigerstyle-seed-manifests.json";
+
+const GENERATED_ARTIFACT_SCHEMA_VERSION: &str = "1";
+const GENERATED_FROM: &str = "standards/policies/registry.ncl";
+
+/// Deterministic seed-manifest export artifact.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct SeedManifestArtifact {
+    /// Artifact schema version.
+    pub schema_version: String,
+    /// Source policy registry path.
+    pub generated_from: String,
+    /// Registry schema version this artifact was generated from.
+    pub registry_schema_version: String,
+    /// Seed manifests copied from the policy registry.
+    pub seed_manifests: Vec<SeedManifest>,
+}
+
+/// Build the seed-manifest artifact from a registry.
+#[must_use]
+pub fn seed_manifest_artifact(registry: &PolicyRegistry) -> SeedManifestArtifact {
+    SeedManifestArtifact {
+        schema_version: GENERATED_ARTIFACT_SCHEMA_VERSION.to_owned(),
+        generated_from: GENERATED_FROM.to_owned(),
+        registry_schema_version: registry.schema_version.clone(),
+        seed_manifests: registry.seed_manifests.clone(),
+    }
+}
+
+/// Render deterministic checker configuration TOML from a registry.
+#[must_use]
+pub fn render_check_config_toml(registry: &PolicyRegistry) -> String {
+    let hard_policy_ids = policy_ids_by_level(registry, EnforcementLevel::Hard);
+    let structural_policy_ids = policy_ids_by_target_mode(registry, EnforcementMode::Structural);
+    let verified_policy_ids = policy_ids_by_target_mode(registry, EnforcementMode::Verified);
+    let families = policy_families(registry);
+
+    let mut toml = String::new();
+    toml.push_str("schema_version = \"");
+    toml.push_str(GENERATED_ARTIFACT_SCHEMA_VERSION);
+    toml.push_str("\"\n");
+    toml.push_str("generated_from = \"");
+    toml.push_str(GENERATED_FROM);
+    toml.push_str("\"\n");
+    toml.push_str("registry_schema_version = \"");
+    toml.push_str(&escape_toml_string(&registry.schema_version));
+    toml.push_str("\"\n");
+    append_toml_array(&mut toml, "checker_ids", &registry.checker_ids);
+    append_toml_array(&mut toml, "families", &families);
+    append_toml_array(&mut toml, "hard_policy_ids", &hard_policy_ids);
+    append_toml_array(&mut toml, "structural_policy_ids", &structural_policy_ids);
+    append_toml_array(&mut toml, "verified_policy_ids", &verified_policy_ids);
+    toml
+}
+
+fn policy_ids_by_level(registry: &PolicyRegistry, level: EnforcementLevel) -> Vec<String> {
+    sorted_policy_ids(registry.policies.iter().filter(|policy| policy.enforcement_level == level))
+}
+
+fn policy_ids_by_target_mode(registry: &PolicyRegistry, mode: EnforcementMode) -> Vec<String> {
+    sorted_policy_ids(registry.policies.iter().filter(|policy| policy.target_enforcement_mode == mode))
+}
+
+fn sorted_policy_ids<'a>(policies: impl Iterator<Item = &'a PolicyEntry>) -> Vec<String> {
+    let mut ids = policies.map(|policy| policy.policy_id.clone()).collect::<Vec<_>>();
+    ids.sort();
+    ids
+}
+
+fn policy_families(registry: &PolicyRegistry) -> Vec<String> {
+    registry
+        .policies
+        .iter()
+        .map(|policy| policy.pillar.clone())
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .collect()
+}
+
+fn append_toml_array(toml: &mut String, name: &str, values: &[String]) {
+    toml.push_str(name);
+    toml.push_str(" = [");
+    for (index, value) in values.iter().enumerate() {
+        if index > 0 {
+            toml.push_str(", ");
+        }
+        toml.push('"');
+        toml.push_str(&escape_toml_string(value));
+        toml.push('"');
+    }
+    toml.push_str("]\n");
+}
+
+fn escape_toml_string(value: &str) -> String {
+    value.replace('\\', "\\\\").replace('"', "\\\"")
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::artifacts::render_check_config_toml;
+    use crate::artifacts::seed_manifest_artifact;
+    use crate::model::PolicyRegistry;
+
+    #[test]
+    fn seed_manifest_artifact_preserves_registry_schema() {
+        let registry = PolicyRegistry {
+            schema_version: "test-schema".to_owned(),
+            checker_ids: Vec::new(),
+            policies: Vec::new(),
+            seed_manifests: Vec::new(),
+        };
+
+        let artifact = seed_manifest_artifact(&registry);
+
+        assert_eq!(artifact.schema_version, "1");
+        assert_eq!(artifact.registry_schema_version, "test-schema");
+        assert!(artifact.seed_manifests.is_empty());
+    }
+
+    #[test]
+    fn check_config_output_is_stable() {
+        let registry = PolicyRegistry {
+            schema_version: "test".to_owned(),
+            checker_ids: vec!["checker-b".to_owned(), "checker-a".to_owned()],
+            policies: Vec::new(),
+            seed_manifests: Vec::new(),
+        };
+
+        let output = render_check_config_toml(&registry);
+
+        assert!(output.starts_with("schema_version = \"1\"\n"));
+        assert!(output.contains("checker_ids = [\"checker-b\", \"checker-a\"]\n"));
+        assert!(output.contains("hard_policy_ids = []\n"));
+    }
+}
