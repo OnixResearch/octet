@@ -113,9 +113,68 @@
           ${self.packages.${system}.cargo-tigerstyle}/bin/cargo-tigerstyle check ${packageArgs}${cargoCheckTail}
           mkdir -p "$out"
         '';
+
+      # Generated-policy-artifact consumer helper — usable from downstream
+      # flakes when they want the Nickel-authored policy bundle exported by this
+      # flake, then consumed by tigerstyle-standards in one reproducible check.
+      mkPolicyArtifactConsumerCheck = {
+        system,
+        src,
+        family,
+        sourceSubdir ? ".",
+        sourceSubdirs ? null,
+        expectedDiagnostics ? 0,
+        requiredPolicyIds ? [],
+        extraArgs ? [],
+        nativeBuildInputs ? [],
+        buildInputs ? [],
+      }:
+        let
+          pkgs = import nixpkgs {
+            inherit system;
+            overlays = [ (import rust-overlay) ];
+          };
+          selectedSourceSubdirs = if sourceSubdirs == null then [ sourceSubdir ] else sourceSubdirs;
+          sourceArgFor = subdir:
+            if subdir == "." then "--source source" else "--source source/${subdir}";
+          sourceArgs = builtins.concatStringsSep " " (map sourceArgFor selectedSourceSubdirs);
+          extraCheckArgs = builtins.concatStringsSep " " extraArgs;
+          requiredPolicyAssertions = builtins.concatStringsSep "\n" (map (policyId: ''
+            jq --exit-status \
+              'any(.policy_evaluations[]; .policy_id == "${policyId}")' \
+              "$report_json" >/dev/null
+          '') requiredPolicyIds);
+        in
+        pkgs.runCommand "tigerstyle-policy-artifact-consumer-check" {
+          nativeBuildInputs = nativeBuildInputs ++ [ pkgs.jq self.packages.${system}.tigerstyle-standards ];
+          inherit buildInputs;
+        } ''
+          artifact_dir=$(mktemp -d)
+          report_json=$(mktemp)
+
+          ${self.packages.${system}.tigerstyle-policy-artifacts}/bin/tigerstyle-policy-artifacts "$artifact_dir"
+          test -s "$artifact_dir/tigerstyle-policies.json"
+          test -s "$artifact_dir/tigerstyle-check-config.toml"
+          test -s "$artifact_dir/tigerstyle-seed-manifests.json"
+
+          cp -r ${src} source
+          chmod -R u+w source
+          tigerstyle-standards check \
+            --policy-artifacts-dir "$artifact_dir" \
+            ${sourceArgs} \
+            --family ${family} \
+            --output json \
+            ${extraCheckArgs} > "$report_json"
+
+          jq --exit-status \
+            '.diagnostics | length == ${builtins.toString expectedDiagnostics}' \
+            "$report_json" >/dev/null
+          ${requiredPolicyAssertions}
+          mkdir -p "$out"
+        '';
     in
     {
-      lib = { inherit mkConsumerCheck; };
+      lib = { inherit mkConsumerCheck mkPolicyArtifactConsumerCheck; };
     } //
     flake-utils.lib.eachDefaultSystem (system:
       let
@@ -445,6 +504,7 @@ MAIN
               echo "usage: tigerstyle-policy-artifacts OUT_DIR" >&2
               exit 2
             fi
+            cd ${self}
             registry_json=$(mktemp)
             nickel export --format json standards/policies/registry.ncl > "$registry_json"
             exec tigerstyle-standards export-artifacts --registry "$registry_json" --out-dir "$1"
@@ -647,6 +707,14 @@ MAIN
 
           touch "$out"
         '';
+
+        policyArtifactConsumerFixtureCheck = mkPolicyArtifactConsumerCheck {
+          inherit system;
+          src = ./standards/check-fixtures/embedded/compliant;
+          family = "embedded";
+          expectedDiagnostics = 0;
+          requiredPolicyIds = [ "tigerstyle.embedded.bounded-queues" ];
+        };
       in
       {
         packages = {
@@ -813,6 +881,7 @@ MAIN
 
           policy-registry = policyRegistryCheck;
           standards-fixtures = standardsFixtureCheck;
+          policy-artifact-consumer-fixture = policyArtifactConsumerFixtureCheck;
         };
 
         devShells.default = craneLib.devShell {

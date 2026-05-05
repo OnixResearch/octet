@@ -144,8 +144,8 @@ Source attrs and group attrs stay canonical in Rust code:
 
 ## Nix integration
 
-The flake publishes the same runner surface through `nix run` and
-`lib.mkConsumerCheck`.
+The flake publishes the same runner surface through `nix run`,
+`lib.mkConsumerCheck`, and `lib.mkPolicyArtifactConsumerCheck`.
 
 Use `nix run` for one-off checks:
 
@@ -155,6 +155,29 @@ nix run path:/path/to/tigerstyle#cargo-tigerstyle -- check
 
 Use `lib.mkConsumerCheck` when you want tigerstyle inside downstream flake
 checks.
+
+Use `lib.mkPolicyArtifactConsumerCheck` when a downstream flake should consume
+the generated policy artifact bundle rather than reading the Nickel registry at
+check time:
+
+```nix
+checks.${system}.tigerstyle-standards = tigerstyle.lib.mkPolicyArtifactConsumerCheck {
+  inherit system;
+  src = self;
+  family = "embedded";
+  sourceSubdirs = [
+    "crates/my-core"
+    "crates/my-shell"
+  ];
+  expectedDiagnostics = 0;
+  requiredPolicyIds = [ "tigerstyle.embedded.bounded-queues" ];
+};
+```
+
+The helper exports and asserts the generated bundle files, copies the consumer
+source into the check sandbox, runs `tigerstyle-standards check
+--policy-artifacts-dir ...`, asserts the expected diagnostic count, and can
+assert required policy IDs are present in the policy-evaluation metadata.
 
 Wrapped Nix outputs already provide the runtime environment expected by the
 runner, including:

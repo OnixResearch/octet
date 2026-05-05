@@ -24,6 +24,31 @@ The local Aspen worktree had one unrelated dirty file,
 `tests/operator_receipts_docs.rs`, outside the checked source roots. The smoke
 only reads source files and does not mutate Aspen.
 
+## Reusable Nix check helper
+
+Downstream flakes can package the same artifact-backed seam as a normal flake
+check with `lib.mkPolicyArtifactConsumerCheck`:
+
+```nix
+checks.${system}.tigerstyle-standards-artifacts =
+  tigerstyle.lib.mkPolicyArtifactConsumerCheck {
+    inherit system;
+    src = self;
+    family = "embedded";
+    sourceSubdirs = [
+      "crates/aspen-core"
+      "crates/aspen-coordination"
+      "crates/aspen-rpc-handlers"
+    ];
+    expectedDiagnostics = 0;
+    requiredPolicyIds = [ "tigerstyle.embedded.bounded-queues" ];
+  };
+```
+
+The Tigerstyle repo keeps a fixture-backed regression for this helper at
+`checks.x86_64-linux.policy-artifact-consumer-fixture`; the Aspen command below
+is the real-consumer replay that motivated that reusable check surface.
+
 ## Replay command
 
 ```bash
