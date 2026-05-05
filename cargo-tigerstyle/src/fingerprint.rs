@@ -84,6 +84,9 @@ pub fn run(args: FingerprintArgs) -> Result<i32, String> {
         for span in spans {
             let computed_hash = function_hash(&source[span.start..span.end]);
             let marker = span.marker.clone();
+            if !matches!(args.mode, FingerprintMode::Write) && marker.is_none() {
+                continue;
+            }
             let status = match marker.as_ref().map(|m| m.stored_hash.as_str()) {
                 Some(stored) if stored == computed_hash => FingerprintStatus::Match,
                 Some(_) => FingerprintStatus::Mismatch,
@@ -201,11 +204,12 @@ fn find_functions(source: &str) -> Vec<FunctionSpan> {
         let Some(end) = matching_brace(source, open_brace) else {
             break;
         };
-        let marker = preceding_marker(source, fn_pos);
+        let item_start = function_item_start(source, fn_pos);
+        let marker = preceding_marker(source, item_start);
         let body = &source[open_brace..end];
         spans.push(FunctionSpan {
             name: source[name_start..name_end].to_owned(),
-            start: marker.as_ref().map_or(fn_pos, |m| m.end),
+            start: marker.as_ref().map_or(item_start, |m| m.end),
             end,
             marker,
             macro_calls: body.contains("!"),
@@ -215,8 +219,28 @@ fn find_functions(source: &str) -> Vec<FunctionSpan> {
     spans
 }
 
-fn preceding_marker(source: &str, fn_pos: usize) -> Option<Marker> {
-    let prefix = &source[..fn_pos];
+fn function_item_start(source: &str, fn_pos: usize) -> usize {
+    let mut line_start = source[..fn_pos].rfind('\n').map_or(0, |index| index + 1);
+
+    loop {
+        let previous_end = line_start.saturating_sub(1);
+        if previous_end == 0 {
+            return line_start;
+        }
+
+        let previous_start = source[..previous_end].rfind('\n').map_or(0, |index| index + 1);
+        let previous = source[previous_start..previous_end].trim();
+        if previous.starts_with("#[") {
+            line_start = previous_start;
+            continue;
+        }
+
+        return line_start;
+    }
+}
+
+fn preceding_marker(source: &str, item_start: usize) -> Option<Marker> {
+    let prefix = &source[..item_start];
     let line_start = prefix.rfind('\n').map_or(0, |index| index + 1);
     let previous_end = line_start.saturating_sub(1);
     let previous_start = source[..previous_end].rfind('\n').map_or(0, |index| index + 1);
@@ -385,5 +409,29 @@ mod tests {
         assert_eq!(functions[0].name, "f");
         assert!(functions[0].marker.is_some());
         assert!(normalize_tokens(&source[functions[0].start..functions[0].end]).starts_with("fn f"));
+    }
+
+    #[test]
+    fn marker_before_attributes_attaches_to_function() {
+        let source =
+            "// tigerstyle-fingerprint: b3:abc; review=R; evidence=E\n#[inline]\npub const fn f() -> u32 { 1 }\n";
+        let functions = find_functions(source);
+        assert_eq!(functions.len(), 1);
+        assert_eq!(functions[0].name, "f");
+        assert!(functions[0].marker.is_some());
+        assert!(
+            normalize_tokens(&source[functions[0].start..functions[0].end]).starts_with("# [ inline ] pub const fn f")
+        );
+    }
+
+    #[test]
+    fn insertion_start_includes_visibility_before_fn_keyword() {
+        let source = "#[inline]\npub fn f() -> u32 { 1 }\n";
+        let functions = find_functions(source);
+        assert_eq!(functions.len(), 1);
+        assert_eq!(functions[0].name, "f");
+        assert!(functions[0].marker.is_none());
+        assert_eq!(functions[0].start, 0);
+        assert!(normalize_tokens(&source[functions[0].start..functions[0].end]).starts_with("# [ inline ] pub fn f"));
     }
 }
