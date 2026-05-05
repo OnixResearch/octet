@@ -691,6 +691,14 @@ MAIN
             ${fingerprintDocsDownstreamSmoke}/bin/tigerstyle-fingerprint-docs-downstream-smoke
             mkdir -p "$out"
           '';
+          fingerprintDocsReviewGateDocsCheck = pkgs.runCommand "tigerstyle-fingerprint-docs-review-gate-docs-check" { } ''
+            cd ${self}
+            grep -F "For fingerprint docs/examples, use one review command:" docs/contributor-guide.md
+            grep -F "nix build .#checks.x86_64-linux.docs-examples --no-link -L" docs/contributor-guide.md
+            grep -F "CI/operator gate for executable fingerprint docs" docs/contributor-guide.md
+            grep -F "Use narrower flake checks or direct Cargo filters only as focused local debug" docs/contributor-guide.md
+            mkdir -p "$out"
+          '';
         in {
           inherit tigerstyle;
 
@@ -736,6 +744,7 @@ MAIN
           fingerprint-source-scanner-docs = fingerprintSourceScannerDocs;
 
           fingerprint-docs-downstream-smoke = fingerprintDocsDownstreamSmokeCheck;
+          fingerprint-docs-review-gate-docs = fingerprintDocsReviewGateDocsCheck;
 
           docs-examples = pkgs.runCommand "tigerstyle-docs-examples" { } ''
             test -d ${fingerprintLifecycleDocs}
@@ -744,6 +753,7 @@ MAIN
             test -d ${fingerprintJsonOutputDocs}
             test -d ${fingerprintSourceScannerDocs}
             test -d ${fingerprintDocsDownstreamSmokeCheck}
+            test -d ${fingerprintDocsReviewGateDocsCheck}
             mkdir -p "$out"
           '';
 
