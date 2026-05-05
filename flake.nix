@@ -568,26 +568,33 @@ MAIN
         };
 
         checks = let
-          fingerprintLifecycleDocs = craneLib.buildPackage {
-            inherit src cargoArtifacts buildInputs;
-            cargoToml = ./Cargo.toml;
-            pname = "tigerstyle-fingerprint-lifecycle-docs";
-            version = "0.1.0";
-            nativeBuildInputs = checkNativeBuildInputs;
-            cargoExtraArgs = "-p cargo-tigerstyle";
-            doNotPostBuildInstallCargoBinaries = true;
-            buildPhaseCargoCommand = ":";
-            cargoTestExtraArgs = "--test fingerprint_consumer fingerprint_lifecycle_docs_fixture_matches_transcript -- --nocapture";
-            installPhaseCommand = ''
-              mkdir -p "$out"
-            '';
-            LD_LIBRARY_PATH = rustToolchainLibPath;
-            RUSTUP_TOOLCHAIN = rustupToolchain;
-            preCheck = ''
-              export PATH="${dylintShimPath}:$PATH"
-              export CARGO_TIGERSTYLE_BIN="${cargoTigerstyleUnwrapped}/bin/cargo-tigerstyle"
-            '';
-          };
+          mkFingerprintDocsCheck = pname: testFilter:
+            craneLib.buildPackage {
+              inherit src cargoArtifacts buildInputs;
+              cargoToml = ./Cargo.toml;
+              inherit pname;
+              version = "0.1.0";
+              nativeBuildInputs = checkNativeBuildInputs;
+              cargoExtraArgs = "-p cargo-tigerstyle";
+              doNotPostBuildInstallCargoBinaries = true;
+              buildPhaseCargoCommand = ":";
+              cargoTestExtraArgs = "--test fingerprint_consumer ${testFilter} -- --nocapture";
+              installPhaseCommand = ''
+                mkdir -p "$out"
+              '';
+              LD_LIBRARY_PATH = rustToolchainLibPath;
+              RUSTUP_TOOLCHAIN = rustupToolchain;
+              preCheck = ''
+                export PATH="${dylintShimPath}:$PATH"
+                export CARGO_TIGERSTYLE_BIN="${cargoTigerstyleUnwrapped}/bin/cargo-tigerstyle"
+              '';
+            };
+          fingerprintLifecycleDocs = mkFingerprintDocsCheck
+            "tigerstyle-fingerprint-lifecycle-docs"
+            "fingerprint_lifecycle_docs_fixture_matches_transcript";
+          fingerprintHumanSummaryDocs = mkFingerprintDocsCheck
+            "tigerstyle-fingerprint-human-summary-docs"
+            "fingerprint_human_summary_docs_fixture_matches_transcript";
         in {
           inherit tigerstyle;
 
@@ -627,9 +634,11 @@ MAIN
           };
 
           fingerprint-lifecycle-docs = fingerprintLifecycleDocs;
+          fingerprint-human-summary-docs = fingerprintHumanSummaryDocs;
 
           docs-examples = pkgs.runCommand "tigerstyle-docs-examples" { } ''
             test -d ${fingerprintLifecycleDocs}
+            test -d ${fingerprintHumanSummaryDocs}
             mkdir -p "$out"
           '';
 

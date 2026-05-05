@@ -102,14 +102,18 @@ A clean check has every marked function in `match` status and a summary like:
 summary total=12 match=12 mismatch=0 missing=0 written=0 macro_warnings=0 metadata_missing=0
 ```
 
-For a complete checked-in lifecycle transcript, see
-[`docs/examples/function-fingerprint-lifecycle/lifecycle-transcript.md`](examples/function-fingerprint-lifecycle/lifecycle-transcript.md).
-It shows initial `--update`, clean `--check`, drift, failing `--diff`, accepted
-`--update`, and final clean `--check`.
+For complete checked-in transcripts, see:
 
-The lifecycle example is part of the contributor verification surface. When the
-fingerprint CLI output, marker rewrite behavior, or lifecycle transcript changes,
-run the focused regression before review:
+- [`docs/examples/function-fingerprint-lifecycle/lifecycle-transcript.md`](examples/function-fingerprint-lifecycle/lifecycle-transcript.md),
+  which shows initial `--update`, clean `--check`, drift, failing `--diff`,
+  accepted `--update`, and final clean `--check`.
+- [`docs/examples/function-fingerprint-human-summary/transcript.md`](examples/function-fingerprint-human-summary/transcript.md),
+  which shows human summary counts for two marked functions, one-function drift,
+  non-zero check status, one-marker repair, and final clean check.
+
+These examples are part of the contributor verification surface. When the
+fingerprint CLI output, marker rewrite behavior, human summary counts, or example
+transcripts change, run the executable docs regression before review:
 
 ```bash
 nix build .#checks.x86_64-linux.docs-examples --no-link -L
@@ -117,14 +121,16 @@ nix build .#checks.x86_64-linux.docs-examples --no-link -L
 
 That `docs-examples` Nix check is part of `nix flake check` and is the aggregate
 home for executable docs/examples regressions. It currently replays the documented
-update/check/diff/update/check flow, asserts the observed stdout appears in the
-checked-in transcript, and confirms the repaired scratch source exactly matches
-`docs/examples/function-fingerprint-lifecycle/reviewed.rs`. For focused local
-debugging, run the narrower flake check or underlying Cargo test directly:
+fingerprint lifecycle and human-summary flows, asserts the observed stdout
+appears in the checked-in transcripts, and confirms repaired scratch sources
+exactly match the checked-in `reviewed.rs` fixtures. For focused local debugging,
+run the narrower flake checks or underlying Cargo tests directly:
 
 ```bash
 nix build .#checks.x86_64-linux.fingerprint-lifecycle-docs --no-link -L
+nix build .#checks.x86_64-linux.fingerprint-human-summary-docs --no-link -L
 nix develop -c bash -c 'cargo test -p cargo-tigerstyle --test fingerprint_consumer fingerprint_lifecycle_docs_fixture_matches_transcript -- --nocapture'
+nix develop -c bash -c 'cargo test -p cargo-tigerstyle --test fingerprint_consumer fingerprint_human_summary_docs_fixture_matches_transcript -- --nocapture'
 ```
 
 ## JSON output
