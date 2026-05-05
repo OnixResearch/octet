@@ -212,8 +212,10 @@ nix develop -c bash -c 'cargo test --test consumer_integration downstream_rollou
 nix build .#checks.x86_64-linux.docs-examples --no-link -L
 nix build .#checks.x86_64-linux.fingerprint-lifecycle-docs --no-link -L
 nix build .#checks.x86_64-linux.fingerprint-human-summary-docs --no-link -L
+nix build .#checks.x86_64-linux.fingerprint-warning-summary-docs --no-link -L
 nix develop -c bash -c 'cargo test -p cargo-tigerstyle --test fingerprint_consumer fingerprint_lifecycle_docs_fixture_matches_transcript -- --nocapture'
 nix develop -c bash -c 'cargo test -p cargo-tigerstyle --test fingerprint_consumer fingerprint_human_summary_docs_fixture_matches_transcript -- --nocapture'
+nix develop -c bash -c 'cargo test -p cargo-tigerstyle --test fingerprint_consumer fingerprint_warning_summary_docs_fixture_matches_transcript -- --nocapture'
 rg -n "cargo tigerstyle check|cargo-tigerstyle|tigerstyle::|\[tigerstyle\]|\[workspace.metadata.tigerstyle\]" README.md docs/*.md
 ```
 
