@@ -1,0 +1,389 @@
+use std::fs;
+use std::path::Path;
+use std::path::PathBuf;
+
+use serde::Serialize;
+
+use crate::cli::FingerprintArgs;
+use crate::cli::FingerprintMode;
+use crate::cli::OutputFormat;
+
+const HASH_PREFIX: &str = "b3:";
+const COMMENT_MARKER: &str = "// tigerstyle-fingerprint:";
+const ATTR_MARKER: &str = "#[fingerprint(";
+const REVIEW_KEY: &str = "review=";
+const EVIDENCE_KEY: &str = "evidence=";
+const MACRO_ALLOW_KEY: &str = "macro=allow";
+
+#[derive(Debug, Clone, Serialize)]
+struct FunctionRecord {
+    path: String,
+    name: String,
+    stored_hash: Option<String>,
+    computed_hash: String,
+    status: FingerprintStatus,
+    review: Option<String>,
+    evidence: Option<String>,
+    macro_calls: bool,
+    macro_warning: bool,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
+enum FingerprintStatus {
+    Match,
+    Mismatch,
+    Missing,
+    Written,
+}
+
+#[derive(Debug, Serialize)]
+struct FingerprintReport {
+    schema_version: u32,
+    mode: &'static str,
+    records: Vec<FunctionRecord>,
+}
+
+#[derive(Debug, Clone)]
+struct FunctionSpan {
+    name: String,
+    start: usize,
+    end: usize,
+    marker: Option<Marker>,
+    macro_calls: bool,
+}
+
+#[derive(Debug, Clone)]
+struct Marker {
+    start: usize,
+    end: usize,
+    stored_hash: String,
+    review: Option<String>,
+    evidence: Option<String>,
+    macro_allowed: bool,
+}
+
+pub fn run(args: FingerprintArgs) -> Result<i32, String> {
+    let paths = if args.paths.is_empty() {
+        vec![PathBuf::from(".")]
+    } else {
+        args.paths.clone()
+    };
+    let mut files = Vec::new();
+    for path in paths {
+        collect_rust_files(&path, &mut files)?;
+    }
+    files.sort();
+    files.dedup();
+
+    let mut records = Vec::new();
+    for path in files {
+        let source = fs::read_to_string(&path).map_err(|error| format!("read {}: {error}", path.display()))?;
+        let spans = find_functions(&source);
+        let mut replacements = Vec::new();
+        for span in spans {
+            let computed_hash = function_hash(&source[span.start..span.end]);
+            let marker = span.marker.clone();
+            let status = match marker.as_ref().map(|m| m.stored_hash.as_str()) {
+                Some(stored) if stored == computed_hash => FingerprintStatus::Match,
+                Some(_) => FingerprintStatus::Mismatch,
+                None => FingerprintStatus::Missing,
+            };
+            let macro_warning = span.macro_calls && !marker.as_ref().is_some_and(|m| m.macro_allowed);
+            let record = FunctionRecord {
+                path: path.display().to_string(),
+                name: span.name.clone(),
+                stored_hash: marker.as_ref().map(|m| m.stored_hash.clone()),
+                computed_hash: computed_hash.clone(),
+                status: if matches!(args.mode, FingerprintMode::Write | FingerprintMode::Update)
+                    && status != FingerprintStatus::Match
+                {
+                    FingerprintStatus::Written
+                } else {
+                    status
+                },
+                review: marker.as_ref().and_then(|m| m.review.clone()),
+                evidence: marker.as_ref().and_then(|m| m.evidence.clone()),
+                macro_calls: span.macro_calls,
+                macro_warning,
+            };
+            if matches!(args.mode, FingerprintMode::Write | FingerprintMode::Update)
+                && status != FingerprintStatus::Match
+            {
+                let review = marker.as_ref().and_then(|m| m.review.as_deref()).unwrap_or("TODO");
+                let evidence = marker.as_ref().and_then(|m| m.evidence.as_deref()).unwrap_or("TODO");
+                let macro_suffix = if marker.as_ref().is_some_and(|m| m.macro_allowed) {
+                    "; macro=allow"
+                } else if span.macro_calls {
+                    "; macro=review-required"
+                } else {
+                    ""
+                };
+                let line = format!(
+                    "// tigerstyle-fingerprint: b3:{}; review={review}; evidence={evidence}{macro_suffix}\n",
+                    computed_hash,
+                );
+                if let Some(marker) = marker {
+                    replacements.push((marker.start, marker.end, line));
+                } else {
+                    replacements.push((span.start, span.start, line));
+                }
+            }
+            records.push(record);
+        }
+        if !replacements.is_empty() {
+            let mut updated = source;
+            for (start, end, replacement) in replacements.into_iter().rev() {
+                updated.replace_range(start..end, &replacement);
+            }
+            fs::write(&path, updated).map_err(|error| format!("write {}: {error}", path.display()))?;
+        }
+    }
+
+    let report = FingerprintReport {
+        schema_version: 1,
+        mode: mode_name(args.mode),
+        records,
+    };
+    match args.output_format {
+        OutputFormat::Human => print_human(&report),
+        OutputFormat::Json => println!("{}", serde_json::to_string_pretty(&report).map_err(|error| error.to_string())?),
+        OutputFormat::Sarif => return Err("fingerprint does not support SARIF output; use human or json".to_owned()),
+    }
+
+    let failing = report.records.iter().any(|record| {
+        matches!(args.mode, FingerprintMode::Check | FingerprintMode::Diff)
+            && (record.status != FingerprintStatus::Match
+                || record.macro_warning
+                || record.review.is_none()
+                || record.evidence.is_none())
+    });
+    Ok(if failing { 1 } else { 0 })
+}
+
+fn collect_rust_files(path: &Path, files: &mut Vec<PathBuf>) -> Result<(), String> {
+    if path.is_file() {
+        if path.extension().is_some_and(|ext| ext == "rs") {
+            files.push(path.to_path_buf());
+        }
+        return Ok(());
+    }
+    if path.is_dir() {
+        for entry in fs::read_dir(path).map_err(|error| format!("read dir {}: {error}", path.display()))? {
+            let entry = entry.map_err(|error| format!("read dir entry {}: {error}", path.display()))?;
+            let child = entry.path();
+            if child.file_name().is_some_and(|name| name == "target" || name == ".git") {
+                continue;
+            }
+            collect_rust_files(&child, files)?;
+        }
+    }
+    Ok(())
+}
+
+fn find_functions(source: &str) -> Vec<FunctionSpan> {
+    let mut spans = Vec::new();
+    let bytes = source.as_bytes();
+    let mut cursor = 0;
+    while let Some(relative) = source[cursor..].find("fn ") {
+        let fn_pos = cursor + relative;
+        if fn_pos > 0 && is_ident(bytes[fn_pos - 1] as char) {
+            cursor = fn_pos + 3;
+            continue;
+        }
+        let name_start = fn_pos + 3;
+        let Some(name_end) = source[name_start..].find(|c: char| !is_ident(c)).map(|offset| name_start + offset) else {
+            break;
+        };
+        let Some(open_brace) = source[name_end..].find('{').map(|offset| name_end + offset) else {
+            break;
+        };
+        let Some(end) = matching_brace(source, open_brace) else {
+            break;
+        };
+        let marker = preceding_marker(source, fn_pos);
+        let body = &source[open_brace..end];
+        spans.push(FunctionSpan {
+            name: source[name_start..name_end].to_owned(),
+            start: marker.as_ref().map_or(fn_pos, |m| m.end),
+            end,
+            marker,
+            macro_calls: body.contains("!"),
+        });
+        cursor = end;
+    }
+    spans
+}
+
+fn preceding_marker(source: &str, fn_pos: usize) -> Option<Marker> {
+    let prefix = &source[..fn_pos];
+    let line_start = prefix.rfind('\n').map_or(0, |index| index + 1);
+    let previous_end = line_start.saturating_sub(1);
+    let previous_start = source[..previous_end].rfind('\n').map_or(0, |index| index + 1);
+    let previous = source[previous_start..previous_end].trim();
+    if previous.starts_with(COMMENT_MARKER) {
+        let line_end = if previous_end < source.len() {
+            previous_end + 1
+        } else {
+            previous_end
+        };
+        return parse_marker(previous, previous_start, line_end);
+    }
+    if previous.starts_with(ATTR_MARKER) {
+        let line_end = if previous_end < source.len() {
+            previous_end + 1
+        } else {
+            previous_end
+        };
+        return parse_marker(previous, previous_start, line_end);
+    }
+    None
+}
+
+fn parse_marker(line: &str, start: usize, end: usize) -> Option<Marker> {
+    let hash_start = line.find(HASH_PREFIX)? + HASH_PREFIX.len();
+    let hash = line[hash_start..].chars().take_while(|c| c.is_ascii_hexdigit()).collect::<String>();
+    if hash.is_empty() {
+        return None;
+    }
+    Some(Marker {
+        start,
+        end,
+        stored_hash: hash,
+        review: value_after(line, REVIEW_KEY),
+        evidence: value_after(line, EVIDENCE_KEY),
+        macro_allowed: line.contains(MACRO_ALLOW_KEY),
+    })
+}
+
+fn value_after(line: &str, key: &str) -> Option<String> {
+    let bare_key = key.trim_end_matches('=');
+    let start = line.find(bare_key)? + bare_key.len();
+    let value_start = line[start..].find('=')? + start + 1;
+    let value = line[value_start..]
+        .split([';', ',', ')', ']'])
+        .next()
+        .unwrap_or("")
+        .trim()
+        .trim_matches('"')
+        .to_owned();
+    (!value.is_empty() && value != "TODO").then_some(value)
+}
+
+fn matching_brace(source: &str, open: usize) -> Option<usize> {
+    let mut depth = 0u32;
+    for (offset, ch) in source[open..].char_indices() {
+        match ch {
+            '{' => depth += 1,
+            '}' => {
+                depth = depth.checked_sub(1)?;
+                if depth == 0 {
+                    return Some(open + offset + ch.len_utf8());
+                }
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
+fn function_hash(function_source: &str) -> String {
+    let normalized = normalize_tokens(function_source);
+    blake3::hash(normalized.as_bytes()).to_hex().to_string()
+}
+
+fn normalize_tokens(source: &str) -> String {
+    let without_comments = strip_comments_and_strings(source);
+    let mut tokens = Vec::new();
+    let mut current = String::new();
+    for ch in without_comments.chars() {
+        if is_ident(ch) {
+            current.push(ch);
+        } else {
+            if !current.is_empty() {
+                tokens.push(std::mem::take(&mut current));
+            }
+            if !ch.is_whitespace() {
+                tokens.push(ch.to_string());
+            }
+        }
+    }
+    if !current.is_empty() {
+        tokens.push(current);
+    }
+    tokens.join(" ")
+}
+
+fn strip_comments_and_strings(source: &str) -> String {
+    let mut out = String::new();
+    for line in source.lines() {
+        let code = line.split("//").next().unwrap_or("");
+        out.push_str(code);
+        out.push('\n');
+    }
+    out
+}
+
+fn is_ident(ch: char) -> bool {
+    ch.is_ascii_alphanumeric() || ch == '_'
+}
+
+fn mode_name(mode: FingerprintMode) -> &'static str {
+    match mode {
+        FingerprintMode::Check => "check",
+        FingerprintMode::Write => "write",
+        FingerprintMode::Update => "update",
+        FingerprintMode::Diff => "diff",
+    }
+}
+
+fn print_human(report: &FingerprintReport) {
+    println!("tigerstyle fingerprint {}", report.mode);
+    for record in &report.records {
+        println!(
+            "{} {} {} stored={} computed=b3:{} review={} evidence={} macro_warning={}",
+            record.path,
+            record.name,
+            match record.status {
+                FingerprintStatus::Match => "match",
+                FingerprintStatus::Mismatch => "mismatch",
+                FingerprintStatus::Missing => "missing",
+                FingerprintStatus::Written => "written",
+            },
+            record.stored_hash.as_deref().unwrap_or("<none>"),
+            record.computed_hash,
+            record.review.as_deref().unwrap_or("<missing>"),
+            record.evidence.as_deref().unwrap_or("<missing>"),
+            record.macro_warning,
+        );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::find_functions;
+    use super::function_hash;
+    use super::normalize_tokens;
+
+    #[test]
+    fn formatting_and_comments_do_not_change_hash() {
+        let one = "fn checked(input: u32) -> u32 { // comment\n input + 1 }";
+        let two = "fn checked( input:u32)->u32{input+1}";
+        assert_eq!(function_hash(one), function_hash(two));
+    }
+
+    #[test]
+    fn token_changes_update_hash() {
+        assert_ne!(function_hash("fn f() -> u32 { 1 }"), function_hash("fn f() -> u32 { 2 }"));
+    }
+
+    #[test]
+    fn marker_is_not_part_of_function_span() {
+        let source = "// tigerstyle-fingerprint: b3:abc; review=R; evidence=E\nfn f() -> u32 { 1 }\n";
+        let functions = find_functions(source);
+        assert_eq!(functions.len(), 1);
+        assert_eq!(functions[0].name, "f");
+        assert!(functions[0].marker.is_some());
+        assert!(normalize_tokens(&source[functions[0].start..functions[0].end]).starts_with("fn f"));
+    }
+}

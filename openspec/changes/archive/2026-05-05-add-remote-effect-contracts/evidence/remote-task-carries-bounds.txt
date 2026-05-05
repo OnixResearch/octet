@@ -1,0 +1,6 @@
+# Remote task carries bounds
+
+command=grep required strings in templates/remote-effect-contract.md
+
+## Assertions
+- PASS: templates/remote-effect-contract.md contains: timeout, retry_policy

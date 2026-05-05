@@ -1,0 +1,6 @@
+# Constructors validate only
+
+command=grep required strings in docs/standards/source/architecture.adoc
+
+## Assertions
+- PASS: docs/standards/source/architecture.adoc contains: validate values and assemble plans only

@@ -1,0 +1,28 @@
+# Machine output captures mismatch identity
+
+command=cargo tigerstyle fingerprint --check /tmp/tigerstyle-fp/mismatch.rs --output-format=json
+
+## Assertions
+- PASS: JSON includes path, name, stored_hash, computed_hash, status=mismatch
+
+## Evidence
+### output
+```
+{
+  "schema_version": 1,
+  "mode": "check",
+  "records": [
+    {
+      "path": "/tmp/tigerstyle-fp/mismatch.rs",
+      "name": "changed_value",
+      "stored_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+      "computed_hash": "7d5a17005a50f12f5da78a340dfc343cbd0f3e9860c94e0f6630103a0befd3ea",
+      "status": "mismatch",
+      "review": "safety-critical",
+      "evidence": "openspec/changes/archive/2026-05-05-add-function-fingerprints/evidence/check-mismatch.txt",
+      "macro_calls": false,
+      "macro_warning": false
+    }
+  ]
+}
+```

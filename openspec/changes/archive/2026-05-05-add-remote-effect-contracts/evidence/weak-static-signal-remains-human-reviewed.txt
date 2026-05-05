@@ -1,0 +1,6 @@
+# Weak static signal remains human reviewed
+
+command=grep required strings in standards/policies/registry.ncl
+
+## Assertions
+- PASS: standards/policies/registry.ncl contains: tigerstyle.resilience.remote-effect-contracts, false_positive_risk = "medium"

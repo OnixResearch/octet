@@ -3,7 +3,6 @@
 ## Purpose
 
 This spec defines the Tiger Style standards policy registry, standards-checker command surface, fixture expectations, suppression metadata, verification rails, and naming hygiene needed to keep codified standards traceable to their source material.
-
 ## Requirements
 ### Requirement: Tiger Style Policy Registry
 
@@ -219,3 +218,237 @@ The guidance MUST promote type-class-style generics, sealed traits, associated t
 - THEN the guide recommends type-level state or protocol separation where it removes runtime `Option`/enum checks from known-state code paths
 - AND it classifies optics or visitor/prism patterns as advanced boundary tools requiring human design review
 - AND it warns that long iterator chains or point-free transformations are inappropriate when they hide bounds, branches, assertions, or hot-loop costs
+
+### Requirement: Function Fingerprint Policy [r[function-fingerprint-policy]]
+
+The system MUST define a Tigerstyle policy for selective content-addressed function fingerprints that bind safety-critical Rust functions to exact reviewed or verified source-token bodies.
+
+The policy MUST state that fingerprints are identity and review gates, not correctness proofs. It MUST recommend fingerprints for verified primitives, protocol transitions, security-sensitive functions, capability/token constructors, safety-critical arithmetic, and fixture-backed documentation examples. It MUST NOT require blanket fingerprints for every function in a workspace.
+
+#### Scenario: Critical function categories are documented [r[function-fingerprint-policy.scenario.critical-categories]]
+
+- GIVEN a maintainer reads the function fingerprint guidance
+- WHEN they decide whether a function should be fingerprinted
+- THEN the guidance names verified primitives, protocol transitions, security-sensitive functions, capability/token constructors, safety-critical arithmetic, and fixture-backed examples as recommended categories
+- AND the guidance says ordinary functions do not need fingerprints by default
+
+#### Scenario: Fingerprints do not claim correctness [r[function-fingerprint-policy.scenario.identity-not-correctness]]
+
+- GIVEN a fingerprinted function matches its stored hash
+- WHEN the tool reports the fingerprint as valid
+- THEN the documentation and diagnostic language state that the exact source body matches the reviewed body
+- AND they do not claim the function is semantically correct, safe, or verified solely because the hash matches
+
+### Requirement: Function Fingerprint Metadata [r[function-fingerprint-metadata]]
+
+The system MUST require review metadata for function fingerprints so each selected function records why content identity matters.
+
+At minimum, each fingerprint MUST name the hash value and review class. Supported review classes MUST include `verified`, `protocol-transition`, `security`, `capability-token`, `safety-arithmetic`, and `example-evidence`. Optional metadata MAY include owner, spec ID, evidence path, and macro allowance.
+
+#### Scenario: Missing review class is rejected [r[function-fingerprint-metadata.scenario.missing-review-class]]
+
+- GIVEN a function carries a fingerprint hash but omits review class metadata
+- WHEN fingerprint validation runs in strict mode
+- THEN validation reports the function as incomplete
+- AND the diagnostic names the missing review class field
+
+#### Scenario: Review metadata links to evidence [r[function-fingerprint-metadata.scenario.links-to-evidence]]
+
+- GIVEN a fingerprinted verified primitive or protocol transition names a spec ID or evidence path
+- WHEN fingerprint inventory output is generated
+- THEN the output preserves the function name, hash, review class, and evidence reference
+- AND reviewers can trace the function identity to the relevant OpenSpec or verification artifact
+
+### Requirement: Function Fingerprint Hash Semantics [r[function-fingerprint-hash-semantics]]
+
+The system MUST compute function fingerprints from a versioned, domain-separated, normalized representation of Rust function source tokens.
+
+The hash input MUST include normalized visibility, signature, generic parameters, where clauses, and body tokens. It MUST exclude the fingerprint attribute or marker itself, whitespace, comments, file paths, line numbers, timestamps, local usernames, and absolute paths. The hash algorithm MUST be identified with a `b3:` prefix for BLAKE3 values.
+
+#### Scenario: Formatting and comments do not change hash [r[function-fingerprint-hash-semantics.scenario.formatting-stable]]
+
+- GIVEN a fingerprinted function whose executable tokens are unchanged
+- WHEN only rustfmt layout, comments, or line numbers change
+- THEN recomputing the fingerprint yields the same `b3:` value
+
+#### Scenario: Signature or body token changes update hash [r[function-fingerprint-hash-semantics.scenario.token-change-detected]]
+
+- GIVEN a fingerprinted function with a stored hash
+- WHEN its signature, generics, where clause, visibility, or body tokens change
+- THEN fingerprint validation reports a mismatch with expected and actual `b3:` values
+
+### Requirement: Function Fingerprint Macro Boundary [r[function-fingerprint-macro-boundary]]
+
+The system MUST make macro-call limitations explicit for fingerprinted functions.
+
+If a fingerprinted function contains source macro invocations, validation MUST report a macro-boundary warning unless the fingerprint metadata explicitly allows macros. The warning MUST explain that source-token fingerprints do not cover macro definition changes or expansion semantics.
+
+#### Scenario: Macro call warns by default [r[function-fingerprint-macro-boundary.scenario.warns-by-default]]
+
+- GIVEN a fingerprinted function body contains a macro invocation
+- WHEN fingerprint validation runs
+- THEN validation emits a macro-boundary diagnostic
+- AND the diagnostic explains that macro definitions are not covered by the function source-token hash
+
+#### Scenario: Explicit macro allowance suppresses caveat [r[function-fingerprint-macro-boundary.scenario.explicit-allowance]]
+
+- GIVEN a fingerprinted function body contains a macro invocation and metadata explicitly allows macros
+- WHEN fingerprint validation runs
+- THEN validation does not emit the default macro-boundary warning
+- AND inventory output preserves that macro allowance for review
+
+### Requirement: Effect Capability Boundary Guidance [r[effect-capability-boundary-guidance]]
+
+The system MUST document a Rust effect-capability boundary model that keeps domain core logic free of ambient IO, time, randomness, env access, process spawning, networking, and remote execution while allowing effects to appear as explicit data or named capability traits.
+
+#### Scenario: Core effects are explicit [r[effect-capability-boundary-guidance-scenario-core-effects-are-explicit]]
+
+- GIVEN a developer designs a core function
+- WHEN they consult the guidance
+- THEN it describes returning effect descriptions or accepting named capabilities instead of reading ambient state directly
+
+#### Scenario: Shell interprets capabilities [r[effect-capability-boundary-guidance-scenario-shell-interprets-capabilities]]
+
+- GIVEN core logic emits an effect description
+- WHEN shell code executes the program
+- THEN the shell owns IO, time, randomness, network, process, and remote side effects
+
+### Requirement: Future effect lint classification [r[future-effect-lint-classification]]
+
+The system MUST classify future effect-boundary lint candidates before hard gating them, including effectful globals, effectful constructors, and expanded pure-module checks.
+
+#### Scenario: Lint candidates stay staged [r[future-effect-lint-classification-scenario-lint-candidates-stay-staged]]
+
+- GIVEN an effect-boundary checker has weak static signal
+- WHEN policy metadata is reviewed
+- THEN the checker remains advisory or human-process-only until positive and negative fixtures prove low false-positive behavior
+
+### Requirement: Top Level Purity Guidance [r[top-level-purity-guidance]]
+
+The system MUST document that Rust globals, static initializers, lazy initializers, constructors, Default implementations, and builders should not hide filesystem, env, clock, randomness, network, process, or spawn effects.
+
+#### Scenario: Initializer side effects are rejected by guidance [r[top-level-purity-guidance-scenario-initializer-side-effects-are-rejected-by-guidance]]
+
+- GIVEN a LazyLock initializer reads env or files
+- WHEN a reviewer applies the guidance
+- THEN it is classified as shell work or delayed effect construction rather than pure initialization
+
+#### Scenario: Constructors validate only [r[top-level-purity-guidance-scenario-constructors-validate-only]]
+
+- GIVEN a `new`, `default`, or `build` function exists in core logic
+- WHEN it is reviewed
+- THEN the accepted shape validates and constructs values without performing ambient effects
+
+### Requirement: Delayed Effect Pattern [r[delayed-effect-pattern]]
+
+The system MUST document delayed-effect alternatives such as returning commands, plans, tasks, or capability requests for shell interpretation.
+
+#### Scenario: Effect is represented as data [r[delayed-effect-pattern-scenario-effect-is-represented-as-data]]
+
+- GIVEN construction needs future IO
+- WHEN the code follows the delayed-effect pattern
+- THEN it returns an explicit effect description and leaves execution to shell code
+
+### Requirement: Remote Execution Effect Contract [r[remote-execution-effect-contract]]
+
+The system MUST document remote execution as a first-class effect family that requires explicit timeout, retry bound, batch bound, idempotency key, and receipt or replay semantics.
+
+#### Scenario: Remote task carries bounds [r[remote-execution-effect-contract-scenario-remote-task-carries-bounds]]
+
+- GIVEN a design schedules remote work
+- WHEN the remote effect contract is applied
+- THEN the task model names timeout, max retries, idempotency key, and batch bound
+
+#### Scenario: Receipt semantics are explicit [r[remote-execution-effect-contract-scenario-receipt-semantics-are-explicit]]
+
+- GIVEN remote work completes or fails
+- WHEN review evidence is captured
+- THEN the receipt records enough identity to replay, correlate, or audit the attempted work
+
+### Requirement: Remote Lint Staging [r[remote-lint-staging]]
+
+The system MUST keep remote-effect enforcement advisory or checklist-based until fixtures prove a low false-positive static signal.
+
+#### Scenario: Weak static signal remains human reviewed [r[remote-lint-staging-scenario-weak-static-signal-remains-human-reviewed]]
+
+- GIVEN remote execution APIs differ by consumer
+- WHEN a checker is proposed
+- THEN the policy records human-process or advisory classification before hard gating
+
+### Requirement: Named Capability Vocabulary [r[named-capability-vocabulary]]
+
+The system MUST document a Rust capability vocabulary pattern for domain effects using explicit traits, tokens, or effect enums with names that expose authority and lifecycle obligations.
+
+#### Scenario: Capability name exposes authority [r[named-capability-vocabulary-scenario-capability-name-exposes-authority]]
+
+- GIVEN code needs clock, entropy, credential, object-store, or remote authority
+- WHEN the capability is modeled
+- THEN its name and API expose the authority being granted rather than hiding it behind generic context objects
+
+#### Scenario: Core admissibility is explicit [r[named-capability-vocabulary-scenario-core-admissibility-is-explicit]]
+
+- GIVEN a capability crosses into core-adjacent logic
+- WHEN it is reviewed
+- THEN guidance distinguishes pure data capabilities from shell-only effectful capabilities
+
+### Requirement: Deterministic Capability Handlers [r[deterministic-capability-handlers]]
+
+The system MUST require examples for capability traits to include deterministic test handlers such as fixed clocks, seeded entropy, recording stores, or fake remote executors.
+
+#### Scenario: Test handler avoids ambient state [r[deterministic-capability-handlers-scenario-test-handler-avoids-ambient-state]]
+
+- GIVEN a capability example appears in docs
+- WHEN the test form is shown
+- THEN it uses deterministic handler state rather than ambient time, randomness, network, or filesystem
+
+### Requirement: Nominal Type Boundary Guidance [r[nominal-type-boundary-guidance]]
+
+The system MUST document when Rust code should use nominal newtypes instead of interchangeable primitive or structural types for IDs, units, secrets, capability tokens, protocol states, and authority-bearing values.
+
+#### Scenario: Identity values use nominal wrappers [r[nominal-type-boundary-guidance-scenario-identity-values-use-nominal-wrappers]]
+
+- GIVEN a public API accepts an account ID, job ID, token, unit-bearing value, or secret
+- WHEN type-boundary guidance is applied
+- THEN the API prefers a named wrapper over a raw primitive when confusion would be safety-relevant
+
+#### Scenario: Structural records remain intentional [r[nominal-type-boundary-guidance-scenario-structural-records-remain-intentional]]
+
+- GIVEN two data shapes are intentionally interchangeable plain data
+- WHEN structural guidance is applied
+- THEN a plain record or tuple remains acceptable with documented interchangeability
+
+### Requirement: Primitive Alias Lint Staging [r[primitive-alias-lint-staging]]
+
+The system MUST classify future primitive-alias or missing-newtype lint candidates as staged until fixtures prove that warnings identify safety-relevant ambiguity.
+
+#### Scenario: Primitive lint needs evidence [r[primitive-alias-lint-staging-scenario-primitive-lint-needs-evidence]]
+
+- GIVEN a future checker flags raw IDs or unit values
+- WHEN hard-gate promotion is considered
+- THEN positive and negative fixtures prove it avoids harmless local primitives
+
+### Requirement: Deterministic Handler Test Guidance [r[deterministic-handler-test-guidance]]
+
+The system MUST document deterministic handler testing for effectful boundaries, including fixed clocks, seeded randomness, recording stores, fake remotes, and configured failure handlers.
+
+#### Scenario: Handler test is ambient-free [r[deterministic-handler-test-guidance-scenario-handler-test-is-ambient-free]]
+
+- GIVEN a test exercises effect-boundary logic
+- WHEN deterministic handler guidance is applied
+- THEN the test uses injected handler state rather than live time, randomness, network, or filesystem
+
+#### Scenario: Recording handler proves requested effects [r[deterministic-handler-test-guidance-scenario-recording-handler-proves-requested-effects]]
+
+- GIVEN core code emits effect descriptions
+- WHEN a recording handler test runs
+- THEN the test can assert the exact ordered effects without performing real side effects
+
+### Requirement: Invalid Path Handler Evidence [r[invalid-path-handler-evidence]]
+
+The system MUST require handler tests to cover invalid paths and cleanup obligations where the effect contract includes failure behavior.
+
+#### Scenario: Failure handler proves cleanup [r[invalid-path-handler-evidence-scenario-failure-handler-proves-cleanup]]
+
+- GIVEN an effect handler can fail after partial progress
+- WHEN invalid-path evidence is captured
+- THEN the evidence shows the reported error and cleanup or no-mutation behavior

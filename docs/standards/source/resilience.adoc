@@ -89,3 +89,11 @@ ____
 ____
 Systems programming is about dealing with the constraints imposed by real hardware. The real world is messy, unreliable, and does not conform to abstract models.
 ____
+
+== Remote effect contracts
+
+Remote work is an effect family, not just a function call. A remote boundary should name the endpoint authority, timeout, retry policy, idempotency key, request hash, response or receipt identity, and replay fixture. Retries without idempotency are not resilience; they are duplicated side effects waiting to happen.
+
+== Semantic refactor evidence
+
+A rename or move that claims behavior preservation should leave machine-readable evidence: old symbol, new symbol, reason, previous fingerprint or finding identity, new fingerprint or finding identity, and the verification command that proves the mapping.

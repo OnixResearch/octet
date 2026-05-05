@@ -1,0 +1,29 @@
+# Macro call warns by default
+
+command=cargo tigerstyle fingerprint --check /tmp/tigerstyle-fp/macro_warn.rs --output-format=json
+
+## Assertions
+- PASS: exit code is 1
+- PASS: macro_warning=true
+
+## Evidence
+### output
+```
+{
+  "schema_version": 1,
+  "mode": "check",
+  "records": [
+    {
+      "path": "/tmp/tigerstyle-fp/macro_warn.rs",
+      "name": "macro_warn",
+      "stored_hash": "acd1658bfae7d238b4f04a62bea8b75607123082378e9ea40c197ea771d420e5",
+      "computed_hash": "acd1658bfae7d238b4f04a62bea8b75607123082378e9ea40c197ea771d420e5",
+      "status": "match",
+      "review": "safety-critical",
+      "evidence": "openspec/changes/archive/2026-05-05-add-function-fingerprints/evidence/macro-warns-by-default.txt",
+      "macro_calls": true,
+      "macro_warning": true
+    }
+  ]
+}
+```

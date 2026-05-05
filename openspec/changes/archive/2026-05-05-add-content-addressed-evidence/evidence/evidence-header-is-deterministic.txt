@@ -1,0 +1,6 @@
+# Evidence header is deterministic
+
+command=grep required strings in templates/content-addressed-evidence-header.md
+
+## Assertions
+- PASS: templates/content-addressed-evidence-header.md contains: evidence_hash: b3:

@@ -19,6 +19,12 @@ impl OutputFormat {
 }
 
 #[derive(Debug)]
+pub enum CommandArgs {
+    Check(CheckArgs),
+    Fingerprint(FingerprintArgs),
+}
+
+#[derive(Debug)]
 pub struct CheckArgs {
     pub scope_args: Vec<String>,
     pub cargo_check_args: Option<Vec<String>>,
@@ -27,7 +33,22 @@ pub struct CheckArgs {
     pub command_line: String,
 }
 
-pub fn parse(argv: impl IntoIterator<Item = OsString>) -> Result<CheckArgs, String> {
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FingerprintMode {
+    Check,
+    Write,
+    Update,
+    Diff,
+}
+
+#[derive(Debug)]
+pub struct FingerprintArgs {
+    pub mode: FingerprintMode,
+    pub paths: Vec<PathBuf>,
+    pub output_format: OutputFormat,
+}
+
+pub fn parse(argv: impl IntoIterator<Item = OsString>) -> Result<CommandArgs, String> {
     let mut argv = argv
         .into_iter()
         .map(|arg| arg.into_string().map_err(|_| "non-utf8 arguments are not supported".to_owned()))
@@ -47,9 +68,10 @@ pub fn parse(argv: impl IntoIterator<Item = OsString>) -> Result<CheckArgs, Stri
     }
 
     match argv.first().map(String::as_str) {
-        Some("check") => parse_check(&argv[1..], command_line),
-        Some(other) => Err(format!("unknown subcommand `{other}`; expected `check`")),
-        None => Err("missing subcommand; expected `check`".to_owned()),
+        Some("check") => parse_check(&argv[1..], command_line).map(CommandArgs::Check),
+        Some("fingerprint") => parse_fingerprint(&argv[1..]).map(CommandArgs::Fingerprint),
+        Some(other) => Err(format!("unknown subcommand `{other}`; expected `check` or `fingerprint`")),
+        None => Err("missing subcommand; expected `check` or `fingerprint`".to_owned()),
     }
 }
 
@@ -107,6 +129,55 @@ fn parse_check(args: &[String], command_line: String) -> Result<CheckArgs, Strin
     })
 }
 
+fn parse_fingerprint(args: &[String]) -> Result<FingerprintArgs, String> {
+    let mut mode = None;
+    let mut paths = Vec::new();
+    let mut output_format = OutputFormat::Human;
+    let mut index = 0;
+
+    while index < args.len() {
+        let arg = &args[index];
+        match arg.as_str() {
+            "--check" => {
+                mode = Some(FingerprintMode::Check);
+                index += 1;
+            }
+            "--write" => {
+                mode = Some(FingerprintMode::Write);
+                index += 1;
+            }
+            "--update" => {
+                mode = Some(FingerprintMode::Update);
+                index += 1;
+            }
+            "--diff" => {
+                mode = Some(FingerprintMode::Diff);
+                index += 1;
+            }
+            "--output-format" => {
+                let value = args.get(index + 1).ok_or_else(|| "missing value after `--output-format`".to_owned())?;
+                output_format = parse_output_format(value)?;
+                index += 2;
+            }
+            _ if arg.starts_with("--output-format=") => {
+                output_format = parse_output_format(arg.trim_start_matches("--output-format="))?;
+                index += 1;
+            }
+            _ if arg.starts_with('-') => return Err(format!("unsupported fingerprint argument `{arg}`")),
+            _ => {
+                paths.push(PathBuf::from(arg));
+                index += 1;
+            }
+        }
+    }
+
+    Ok(FingerprintArgs {
+        mode: mode.unwrap_or(FingerprintMode::Check),
+        paths,
+        output_format,
+    })
+}
+
 fn parse_output_format(value: &str) -> Result<OutputFormat, String> {
     match value {
         "human" => Ok(OutputFormat::Human),
@@ -138,7 +209,25 @@ fn is_shell_safe(character: char) -> bool {
 
 #[cfg(test)]
 mod tests {
+    use std::ffi::OsString;
+
+    use super::CommandArgs;
+    use super::FingerprintMode;
     use super::format_command_line;
+    use super::parse;
+
+    #[test]
+    fn fingerprint_parse_accepts_default_check() {
+        let parsed = parse(["cargo", "tigerstyle", "fingerprint", "src/lib.rs"].map(OsString::from))
+            .expect("parse fingerprint args");
+        match parsed {
+            CommandArgs::Fingerprint(args) => {
+                assert_eq!(args.mode, FingerprintMode::Check);
+                assert_eq!(args.paths.len(), 1);
+            }
+            CommandArgs::Check(_) => panic!("expected fingerprint args"),
+        }
+    }
 
     #[test]
     fn command_line_quoting_matches_contract() {

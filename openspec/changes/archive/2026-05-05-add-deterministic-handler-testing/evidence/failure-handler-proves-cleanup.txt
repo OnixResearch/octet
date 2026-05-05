@@ -1,0 +1,6 @@
+# Failure handler proves cleanup
+
+command=grep required strings in docs/standards/source/verification.adoc
+
+## Assertions
+- PASS: docs/standards/source/verification.adoc contains: proves cleanup after invalid paths

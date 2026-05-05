@@ -1,0 +1,6 @@
+# Recording handler proves requested effects
+
+command=grep required strings in docs/standards/source/verification.adoc
+
+## Assertions
+- PASS: docs/standards/source/verification.adoc contains: records requested effects

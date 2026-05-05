@@ -1,0 +1,6 @@
+# Line moves do not define identity
+
+command=grep required strings in docs/unison-inspired-rust-patterns.md
+
+## Assertions
+- PASS: docs/unison-inspired-rust-patterns.md contains: finding hashes tie diagnostics

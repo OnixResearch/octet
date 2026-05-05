@@ -1,0 +1,7 @@
+# Critical function categories are documented
+
+command=grep -R safety-critical docs/function-fingerprints.md standards/policies/registry.ncl
+
+## Assertions
+- PASS: docs/function-fingerprints.md contains: selective review gates, safety-critical
+- PASS: standards/policies/registry.ncl contains: tigerstyle.devtools.content-addressed-evidence

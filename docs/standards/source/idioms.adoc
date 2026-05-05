@@ -101,3 +101,11 @@ ____
 ____
 We made an incorrect usage pattern unrepresentable, by construction -- it will not compile.
 ____
+
+== Nominal and structural type boundaries
+
+Unison distinguishes structural convenience from unique nominal identity. Rust should use nominal wrappers for identities, units, secrets, capability tokens, protocol states, idempotency keys, and authority-bearing values. Structural records remain appropriate for plain data transfer and configuration snapshots when field names carry the meaning and no unique authority is implied.
+
+== Named capability vocabulary
+
+Capability traits and tokens should be named by the authority they carry: `ReadConfigDir`, `Clock`, `ArtifactStore`, `CredentialVault`, or `RemoteEndpoint` are reviewable; `Context`, `Client`, and `Manager` hide authority. Core admissibility rules should state which capabilities are allowed in core, shell, tests, and remote adapters.

@@ -73,3 +73,11 @@ ____
 ____
 Each crate has its own separate set of items, with its own namespace, but you can import items from one crate into another.
 ____
+
+== Effect capability boundaries
+
+Unison's ability model becomes a Rust boundary rule: core code names effects as data or accepts narrow capability traits, while shell code interprets those capabilities. Clocks, files, environment, network, credentials, process spawning, and remote calls must not appear as ambient authority inside pure core modules. Capability names should expose the authority they grant, and remote capabilities must record timeout, retry, idempotency, and receipt expectations at the boundary.
+
+== Top-level purity and delayed effects
+
+Statics, lazy initialization, constructors, and builders should validate values and assemble plans only. Work that reads time, environment, files, sockets, randomness, or process state is a delayed effect: represent it as data and execute it through an explicit shell or handler.

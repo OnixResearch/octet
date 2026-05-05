@@ -74,3 +74,7 @@ ____
 ____
 We want each test to be independent -- we do not want the result of a test to depend on the outcome of the tests that ran before it.
 ____
+
+== Deterministic effect handler tests
+
+Effect handlers earn trust only when tests can replay them without ambient state. A deterministic handler records requested effects, returns scripted responses, fixes time and randomness, and proves cleanup after invalid paths. Network, filesystem, clock, and environment interactions in unit tests should pass through such handlers instead of using process globals.

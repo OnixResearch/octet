@@ -94,3 +94,11 @@ ____
 ____
 Set up a CI pipeline for your project as early as possible… At a minimum, your CI pipeline should include: formatting checks, linting, testing, and code coverage.
 ____
+
+== Content-addressed evidence and function fingerprints
+
+Tiger Style uses content addressing for evidence identity, not as a replacement for Git. Finding records, fixture manifests, transcripts, and function fingerprints should include BLAKE3 content identifiers when they are used as review gates. A function fingerprint proves that the reviewed token stream is unchanged; it does not prove that the function is correct.
+
+== Live example verification
+
+Documentation examples should be executable or fixture-backed when they make verification claims. A prose-only example must say it is illustrative. A live example manifest records the source document, fixture path, command, expected result, and content hash so changed examples invalidate stale evidence.

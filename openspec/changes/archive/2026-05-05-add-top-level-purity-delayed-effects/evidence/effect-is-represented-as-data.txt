@@ -1,0 +1,6 @@
+# Effect is represented as data
+
+command=grep required strings in docs/unison-inspired-rust-patterns.md
+
+## Assertions
+- PASS: docs/unison-inspired-rust-patterns.md contains: return an effect description as data

@@ -1,0 +1,29 @@
+# Missing review class is rejected
+
+command=cargo tigerstyle fingerprint --check /tmp/tigerstyle-fp/missing_review.rs --output-format=json
+
+## Assertions
+- PASS: exit code is 1
+- PASS: JSON record has review=null
+
+## Evidence
+### output
+```
+{
+  "schema_version": 1,
+  "mode": "check",
+  "records": [
+    {
+      "path": "/tmp/tigerstyle-fp/missing_review.rs",
+      "name": "missing_review",
+      "stored_hash": "dcac3e4d87bb73d5c002ba9bda8d52f57a1f5cd502f2480c6a66d9911cf9bdb6",
+      "computed_hash": "dcac3e4d87bb73d5c002ba9bda8d52f57a1f5cd502f2480c6a66d9911cf9bdb6",
+      "status": "match",
+      "review": null,
+      "evidence": "openspec/changes/archive/2026-05-05-add-function-fingerprints/evidence/missing-review-class.txt",
+      "macro_calls": false,
+      "macro_warning": false
+    }
+  ]
+}
+```

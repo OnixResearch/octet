@@ -1,0 +1,6 @@
+# Capability name exposes authority
+
+command=grep required strings in docs/standards/source/idioms.adoc
+
+## Assertions
+- PASS: docs/standards/source/idioms.adoc contains: Capability traits and tokens should be named by the authority

@@ -1,0 +1,39 @@
+# Inventory preserves evidence references
+
+command=cargo tigerstyle fingerprint --check tests/fixtures/fingerprints/reviewed.rs --output-format=json
+
+## Assertions
+- PASS: JSON includes evidence paths from markers
+
+## Evidence
+### output
+```
+{
+  "schema_version": 1,
+  "mode": "check",
+  "records": [
+    {
+      "path": "tests/fixtures/fingerprints/reviewed.rs",
+      "name": "checked_transition",
+      "stored_hash": "a51dfd30275003ecdbd5b2f5d2b6b863da41a88dca08b94b15e038739cdefd48",
+      "computed_hash": "a51dfd30275003ecdbd5b2f5d2b6b863da41a88dca08b94b15e038739cdefd48",
+      "status": "match",
+      "review": "safety-critical",
+      "evidence": "openspec/changes/archive/2026-05-05-add-function-fingerprints/evidence/check-matching.txt",
+      "macro_calls": false,
+      "macro_warning": false
+    },
+    {
+      "path": "tests/fixtures/fingerprints/reviewed.rs",
+      "name": "macro_reviewed",
+      "stored_hash": "7ac614cc7e388f63544631ae86a15f42ecbbc5d1cc099912b726d6774b79d703",
+      "computed_hash": "7ac614cc7e388f63544631ae86a15f42ecbbc5d1cc099912b726d6774b79d703",
+      "status": "match",
+      "review": "safety-critical",
+      "evidence": "openspec/changes/archive/2026-05-05-add-function-fingerprints/evidence/macro-explicit-allowance.txt",
+      "macro_calls": true,
+      "macro_warning": false
+    }
+  ]
+}
+```
