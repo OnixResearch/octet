@@ -1,0 +1,6 @@
+# Receipt semantics are explicit
+
+command=grep required strings in docs/standards/source/resilience.adoc
+
+## Assertions
+- PASS: docs/standards/source/resilience.adoc contains: receipt identity

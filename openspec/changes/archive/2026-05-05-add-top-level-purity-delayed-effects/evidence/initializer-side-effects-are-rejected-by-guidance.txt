@@ -1,0 +1,6 @@
+# Initializer side effects are rejected by guidance
+
+command=grep required strings in docs/standards/source/architecture.adoc
+
+## Assertions
+- PASS: docs/standards/source/architecture.adoc contains: Statics, lazy initialization, constructors, and builders

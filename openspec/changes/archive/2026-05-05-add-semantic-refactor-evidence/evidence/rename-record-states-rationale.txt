@@ -1,0 +1,6 @@
+# Rename record states rationale
+
+command=grep required strings in templates/semantic-refactor-record.json
+
+## Assertions
+- PASS: templates/semantic-refactor-record.json contains: rationale

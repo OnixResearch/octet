@@ -1,5 +1,6 @@
 use rustc_hir as hir;
-use rustc_hir::intravisit::{self, Visitor};
+use rustc_hir::intravisit::Visitor;
+use rustc_hir::intravisit::{self};
 use rustc_lint::LateContext;
 use rustc_span::Span;
 
@@ -27,10 +28,7 @@ impl<'a, 'tcx> Visitor<'tcx> for UseSiteCollector<'a, 'tcx> {
     }
 }
 
-pub(crate) fn enclosing_body<'tcx>(
-    cx: &LateContext<'tcx>,
-    hir_id: hir::HirId,
-) -> &'tcx hir::Body<'tcx> {
+pub(crate) fn enclosing_body<'tcx>(cx: &LateContext<'tcx>, hir_id: hir::HirId) -> &'tcx hir::Body<'tcx> {
     let body_owner = cx.tcx.hir_enclosing_body_owner(hir_id);
     cx.tcx.hir_body_owned_by(body_owner)
 }

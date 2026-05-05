@@ -1,0 +1,6 @@
+# Structural records remain intentional
+
+command=grep required strings in docs/standards/source/idioms.adoc
+
+## Assertions
+- PASS: docs/standards/source/idioms.adoc contains: Structural records remain appropriate

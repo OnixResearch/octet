@@ -1,0 +1,6 @@
+# Machine output is stable
+
+command=grep required strings in templates/semantic-refactor-record.json
+
+## Assertions
+- PASS: templates/semantic-refactor-record.json contains: schema_version

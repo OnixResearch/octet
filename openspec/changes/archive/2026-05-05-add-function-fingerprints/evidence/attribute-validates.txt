@@ -1,0 +1,29 @@
+# Attribute marker validates
+
+command=cargo tigerstyle fingerprint --write /tmp/tigerstyle-fp/attribute.rs && --check
+
+## Assertions
+- PASS: attribute marker parsed, converted to stable comment marker, then checked as match
+- PASS: review metadata is parsed independently from evidence metadata
+
+## Evidence
+### output
+```
+{
+  "schema_version": 1,
+  "mode": "check",
+  "records": [
+    {
+      "path": "/tmp/tigerstyle-fp/attribute.rs",
+      "name": "attribute_reviewed",
+      "stored_hash": "121df3bb1038f4b8f3cd7b5f4920b68d7d58bb44d5ff2647bb556d2ff49675ab",
+      "computed_hash": "121df3bb1038f4b8f3cd7b5f4920b68d7d58bb44d5ff2647bb556d2ff49675ab",
+      "status": "match",
+      "review": "safety-critical",
+      "evidence": "openspec/changes/archive/2026-05-05-add-function-fingerprints/evidence/attribute-validates.txt",
+      "macro_calls": false,
+      "macro_warning": false
+    }
+  ]
+}
+```

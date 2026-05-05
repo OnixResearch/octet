@@ -32,6 +32,8 @@ For the shipped lint catalog, see `lint-reference.md`.
 [Dynamic evidence profile template](../templates/dynamic-evidence-profile.md)
 [Rust idiom guidance](rust-idiom-guidance.md)
 [Functional API boundary guidance](functional-api-boundaries.md)
+[Unison-inspired Rust patterns](unison-inspired-rust-patterns.md)
+[Function fingerprint guide](function-fingerprints.md)
 
 ## Source-of-truth map
 

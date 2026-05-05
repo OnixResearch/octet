@@ -1,0 +1,6 @@
+# Example links to fixture
+
+command=grep required strings in templates/live-example-manifest.json
+
+## Assertions
+- PASS: templates/live-example-manifest.json contains: tests/fixtures/fingerprints/reviewed.rs

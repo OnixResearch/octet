@@ -1,0 +1,6 @@
+# Handler test is ambient-free
+
+command=grep required strings in docs/standards/source/verification.adoc
+
+## Assertions
+- PASS: docs/standards/source/verification.adoc contains: without ambient state

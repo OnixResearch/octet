@@ -1,0 +1,7 @@
+# Fingerprints do not claim correctness
+
+command=grep -R "not prove correctness" docs/function-fingerprints.md docs/unison-inspired-rust-patterns.md
+
+## Assertions
+- PASS: docs/function-fingerprints.md contains: do not prove correctness
+- PASS: docs/unison-inspired-rust-patterns.md contains: not a correctness proof

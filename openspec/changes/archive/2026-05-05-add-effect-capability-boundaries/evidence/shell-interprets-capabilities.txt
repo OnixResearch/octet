@@ -1,0 +1,6 @@
+# Shell interprets capabilities
+
+command=grep required strings in docs/unison-inspired-rust-patterns.md
+
+## Assertions
+- PASS: docs/unison-inspired-rust-patterns.md contains: The shell owns interpretation

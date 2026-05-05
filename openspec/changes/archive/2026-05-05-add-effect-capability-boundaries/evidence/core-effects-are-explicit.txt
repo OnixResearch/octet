@@ -1,0 +1,6 @@
+# Core effects are explicit
+
+command=grep required strings in docs/standards/source/architecture.adoc
+
+## Assertions
+- PASS: docs/standards/source/architecture.adoc contains: Effect capability boundaries, core code names effects as data

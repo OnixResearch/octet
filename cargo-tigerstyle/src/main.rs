@@ -1,6 +1,7 @@
 mod cli;
 mod config;
 mod engine;
+mod fingerprint;
 mod output;
 
 use std::process::ExitCode;
@@ -16,6 +17,8 @@ fn main() -> ExitCode {
 }
 
 fn try_main() -> Result<i32, String> {
-    let check = cli::parse(std::env::args_os())?;
-    engine::run(check)
+    match cli::parse(std::env::args_os())? {
+        cli::CommandArgs::Check(check) => engine::run(check),
+        cli::CommandArgs::Fingerprint(args) => fingerprint::run(args),
+    }
 }

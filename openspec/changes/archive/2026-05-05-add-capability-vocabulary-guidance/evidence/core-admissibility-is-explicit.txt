@@ -1,0 +1,6 @@
+# Core admissibility is explicit
+
+command=grep required strings in docs/unison-inspired-rust-patterns.md
+
+## Assertions
+- PASS: docs/unison-inspired-rust-patterns.md contains: which capabilities are allowed in core, shell, tests, and remote adapters

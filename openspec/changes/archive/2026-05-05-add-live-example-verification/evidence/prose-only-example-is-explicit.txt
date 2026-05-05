@@ -1,0 +1,6 @@
+# Prose-only example is explicit
+
+command=grep required strings in docs/standards/source/devtools.adoc
+
+## Assertions
+- PASS: docs/standards/source/devtools.adoc contains: prose-only example must say it is illustrative

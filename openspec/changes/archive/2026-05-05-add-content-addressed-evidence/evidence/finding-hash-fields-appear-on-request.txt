@@ -1,0 +1,6 @@
+# Finding hash fields appear on request
+
+command=grep required strings in docs/standards/source/devtools.adoc
+
+## Assertions
+- PASS: docs/standards/source/devtools.adoc contains: BLAKE3 content identifiers

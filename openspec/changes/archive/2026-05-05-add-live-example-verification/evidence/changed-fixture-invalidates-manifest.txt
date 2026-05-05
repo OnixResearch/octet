@@ -1,0 +1,6 @@
+# Changed fixture invalidates manifest
+
+command=grep required strings in templates/live-example-manifest.json
+
+## Assertions
+- PASS: templates/live-example-manifest.json contains: content_hash_algorithm
