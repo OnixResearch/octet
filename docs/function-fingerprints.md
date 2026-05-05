@@ -107,6 +107,18 @@ For a complete checked-in lifecycle transcript, see
 It shows initial `--update`, clean `--check`, drift, failing `--diff`, accepted
 `--update`, and final clean `--check`.
 
+The lifecycle example is part of the contributor verification surface. When the
+fingerprint CLI output, marker rewrite behavior, or lifecycle transcript changes,
+run the focused regression before review:
+
+```bash
+nix develop -c bash -c 'cargo test -p cargo-tigerstyle --test fingerprint_consumer fingerprint_lifecycle_docs_fixture_matches_transcript -- --nocapture'
+```
+
+That test replays the documented update/check/diff/update/check flow, asserts the
+observed stdout appears in the checked-in transcript, and confirms the repaired
+scratch source exactly matches `docs/examples/function-fingerprint-lifecycle/reviewed.rs`.
+
 ## JSON output
 
 Use JSON for scripts that need exact counts or per-record assertions:
