@@ -223,6 +223,8 @@ summary counts, JSON fields, source-scanner boundary examples, downstream
 scratch-smoke behavior, downstream diff parity, or
 `docs/examples/function-fingerprint-*` changes. This aggregate check is part of
 `nix flake check` and is the CI/operator gate for executable fingerprint docs.
+It also includes a grep regression that keeps this preferred command documented
+here, so review guidance cannot silently drift back to a list of narrow checks.
 Use narrower flake checks or direct Cargo filters only as focused local debug
 paths after this command identifies a failing slice.
 
