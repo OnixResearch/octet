@@ -101,13 +101,27 @@ cargo tigerstyle check --output-format json
 cargo tigerstyle check --output-format sarif --artifact-dir artifacts/tigerstyle
 ```
 
+Once a rollout has known debt, capture it as an explicit acceptance baseline:
+
+```bash
+cargo tigerstyle check --output-format json --write-baseline tigerstyle-baseline.json
+cargo tigerstyle check --output-format json --baseline tigerstyle-baseline.json
+```
+
+The baseline file records the current stable finding IDs plus enough finding
+context for review. Future `--baseline` runs compare the current finding set to
+that accepted ID set. Fully accepted warning-only findings keep exit `0`; any new
+unaccepted stable ID fails the run with exit `1` and records `baseline` counts in
+`status.json` / SARIF properties. Stale accepted IDs are reported so teams can
+prune resolved debt without blocking the gate.
+
 Exit codes are stable for automation:
 
 - `0` clean or warning-only runs
 - `1` error-level lint findings
 - `2` integration/configuration failures, including underlying `cargo check` failures
 
-When `--artifact-dir` is set, the runner writes `command.txt`, `status.json`, `summary.txt`, and the selected structured-output mirror (`results.jsonl` or `results.sarif`). JSON findings carry a stable `stable_id`, and `status.json`, SARIF run properties, and stderr summaries include replay metadata such as the toolchain plus config/profile hashes. Downstream tools can compare runs without scraping ambient stderr.
+When `--artifact-dir` is set, the runner writes `command.txt`, `status.json`, `summary.txt`, and the selected structured-output mirror (`results.jsonl` or `results.sarif`). JSON findings carry a stable `stable_id`, and `status.json`, SARIF run properties, baseline evaluations, and stderr summaries include replay metadata such as the toolchain plus config/profile hashes. Downstream tools can compare runs without scraping ambient stderr.
 
 ### 4. Tune rollout controls in `dylint.toml`
 

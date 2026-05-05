@@ -9,6 +9,8 @@ use std::path::PathBuf;
 use std::process::Command;
 use std::process::Stdio;
 
+use crate::baseline;
+use crate::baseline::BaselineEvaluation;
 use crate::cli::CheckArgs;
 use crate::cli::OutputFormat;
 use crate::config;
@@ -51,6 +53,18 @@ struct FinalizedRun {
     outcome: output::RunOutcome,
     run_artifacts: RunArtifacts,
     error: Option<String>,
+}
+
+fn apply_baseline_gate(
+    outcome: output::RunOutcome,
+    baseline_evaluation: Option<&BaselineEvaluation>,
+) -> output::RunOutcome {
+    if outcome.cargo_process_exit.is_success() && baseline_evaluation.is_some_and(BaselineEvaluation::has_new_findings)
+    {
+        return outcome.force_lint_failure();
+    }
+
+    outcome
 }
 
 pub fn run(check: CheckArgs) -> Result<i32, String> {
@@ -166,8 +180,20 @@ pub fn run(check: CheckArgs) -> Result<i32, String> {
         let cargo_process_exit =
             classify_cargo_process_exit(child.wait().map_err(|error| format!("wait for cargo check: {error}"))?);
         canonicalize_findings(&mut findings);
+        let cargo_process_succeeded = cargo_process_exit.is_success();
         let base_outcome = output::RunOutcome::classify(&findings, cargo_process_exit);
-        let finalized_run = finalize_run(&check, &findings, &meta_map, base_outcome, &run_metadata)?;
+        let baseline_evaluation = match check.baseline.as_deref() {
+            Some(path) => Some(baseline::evaluate_baseline(path, &findings)?),
+            None => None,
+        };
+        if let Some(path) = check.write_baseline.as_deref() {
+            if cargo_process_succeeded {
+                baseline::write_baseline(path, &findings, &run_metadata)?;
+            }
+        }
+        let base_outcome = apply_baseline_gate(base_outcome, baseline_evaluation.as_ref());
+        let finalized_run =
+            finalize_run(&check, &findings, &meta_map, base_outcome, &run_metadata, baseline_evaluation.as_ref())?;
 
         if let Some(structured_output) = finalized_run.run_artifacts.structured_output.as_ref() {
             stdout_lock
@@ -204,10 +230,12 @@ fn build_run_artifacts(
     meta_map: &std::collections::HashMap<&str, output::LintMeta>,
     outcome: &output::RunOutcome,
     metadata: &RunMetadata,
+    baseline_evaluation: Option<&BaselineEvaluation>,
 ) -> Result<RunArtifacts, String> {
-    let summary = output::render_summary(findings, outcome, metadata)?;
-    let status_json = output::render_status_json(outcome, check.output_format.as_str(), metadata)?;
-    let structured_output = render_structured_output(check, findings, meta_map, outcome, metadata)?;
+    let summary = output::render_summary(findings, outcome, metadata, baseline_evaluation)?;
+    let status_json = output::render_status_json(outcome, check.output_format.as_str(), metadata, baseline_evaluation)?;
+    let structured_output =
+        render_structured_output(check, findings, meta_map, outcome, metadata, baseline_evaluation)?;
 
     Ok(RunArtifacts {
         summary,
@@ -222,13 +250,21 @@ fn finalize_run(
     meta_map: &std::collections::HashMap<&str, output::LintMeta>,
     base_outcome: output::RunOutcome,
     metadata: &RunMetadata,
+    baseline_evaluation: Option<&BaselineEvaluation>,
 ) -> Result<FinalizedRun, String> {
     let terminated_error = terminated_run_error(&base_outcome);
 
     let Some(artifact_dir) = check.artifact_dir.as_deref() else {
         return Ok(FinalizedRun {
             outcome: base_outcome.clone(),
-            run_artifacts: build_run_artifacts(check, findings, meta_map, &base_outcome, metadata)?,
+            run_artifacts: build_run_artifacts(
+                check,
+                findings,
+                meta_map,
+                &base_outcome,
+                metadata,
+                baseline_evaluation,
+            )?,
             error: terminated_error,
         });
     };
@@ -237,12 +273,20 @@ fn finalize_run(
         let final_outcome = base_outcome.force_integration_failure();
         return Ok(FinalizedRun {
             outcome: final_outcome.clone(),
-            run_artifacts: build_run_artifacts(check, findings, meta_map, &final_outcome, metadata)?,
+            run_artifacts: build_run_artifacts(
+                check,
+                findings,
+                meta_map,
+                &final_outcome,
+                metadata,
+                baseline_evaluation,
+            )?,
             error: Some(combine_errors(error, terminated_error)),
         });
     }
 
-    let initial_artifacts = build_run_artifacts(check, findings, meta_map, &base_outcome, metadata)?;
+    let initial_artifacts =
+        build_run_artifacts(check, findings, meta_map, &base_outcome, metadata, baseline_evaluation)?;
     match write_run_artifacts(artifact_dir, &check.command_line, &initial_artifacts) {
         Ok(()) => Ok(FinalizedRun {
             outcome: base_outcome,
@@ -251,7 +295,8 @@ fn finalize_run(
         }),
         Err(error) => {
             let final_outcome = base_outcome.force_integration_failure();
-            let final_artifacts = build_run_artifacts(check, findings, meta_map, &final_outcome, metadata)?;
+            let final_artifacts =
+                build_run_artifacts(check, findings, meta_map, &final_outcome, metadata, baseline_evaluation)?;
             invalidate_failed_bundle_best_effort(artifact_dir, &final_artifacts);
             rewrite_status_sidecars_best_effort(artifact_dir, &check.command_line, &final_artifacts);
             Ok(FinalizedRun {
@@ -284,6 +329,7 @@ fn render_structured_output(
     meta_map: &std::collections::HashMap<&str, output::LintMeta>,
     outcome: &output::RunOutcome,
     metadata: &RunMetadata,
+    baseline_evaluation: Option<&BaselineEvaluation>,
 ) -> Result<Option<StructuredArtifact>, String> {
     match check.output_format {
         OutputFormat::Human => Ok(None),
@@ -293,7 +339,14 @@ fn render_structured_output(
         })),
         OutputFormat::Sarif => Ok(Some(StructuredArtifact {
             file_name: SARIF_RESULTS_ARTIFACT_NAME,
-            contents: output::render_sarif(findings, meta_map, outcome, &check.command_line, metadata)?,
+            contents: output::render_sarif(
+                findings,
+                meta_map,
+                outcome,
+                &check.command_line,
+                metadata,
+                baseline_evaluation,
+            )?,
         })),
     }
 }

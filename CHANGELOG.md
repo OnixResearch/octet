@@ -13,7 +13,9 @@ review lifecycle: human summaries, warning/metadata summaries, script-facing
 JSON output, source-scanner boundaries, downstream scratch-consumer behavior,
 human/JSON `--diff` parity, and deterministic review manifests. `cargo
 tigerstyle check` outputs now include stable finding IDs plus replay metadata
-for toolchain, config hash, and profile hash.
+for toolchain, config hash, and profile hash. Check runs can now write and gate
+against `tigerstyle-baseline.json` acceptance files so existing warning-only debt
+is explicit while new stable IDs fail CI deterministically.
 
 Use one review command for these executable docs:
 

@@ -2172,6 +2172,23 @@ fn three_finding_json_lines() -> Vec<String> {
     ]
 }
 
+fn four_finding_json_lines() -> Vec<String> {
+    let mut lines = three_finding_json_lines();
+    lines.insert(
+        lines.len() - 1,
+        cargo_compiler_message(
+            "aspen-core",
+            "no_unwrap",
+            "use of `.unwrap()` in new path",
+            "src/new_connection.rs",
+            7,
+            3,
+            None,
+        ),
+    );
+    lines
+}
+
 #[test]
 fn structured_json_output_contains_all_required_fields() {
     let fixture = ConsumerFixture::new("json-output", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
@@ -2216,6 +2233,136 @@ fn structured_json_output_contains_all_required_fields() {
 
     assert_eq!(findings[2]["lint"], "function_length");
     assert_eq!(findings[2]["group"], "tigerstyle::structure");
+}
+
+#[test]
+fn baseline_file_accepts_current_findings_and_gates_new_ids() {
+    let fixture = ConsumerFixture::new("baseline-file", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
+    let baseline_path = fixture.repo.join("tigerstyle-baseline.json");
+    let baseline_path_str = baseline_path.to_str().expect("baseline path utf8");
+
+    let write_output = run_with_check_args(
+        &fixture,
+        &["--output-format", JSON_OUTPUT_FORMAT, "--write-baseline", baseline_path_str],
+        &three_finding_json_lines(),
+        EXIT_CODE_SUCCESS,
+    );
+    assert_eq!(
+        write_output.status.code(),
+        Some(EXIT_CODE_SUCCESS),
+        "writing a warning-only baseline should keep the normal exit code: stderr={}",
+        String::from_utf8_lossy(&write_output.stderr)
+    );
+
+    let baseline = read_json_artifact(&baseline_path);
+    assert_eq!(baseline["schema_version"], 1);
+    assert_eq!(baseline["finding_schema_version"], 1);
+    assert!(baseline["baseline_hash"].as_str().is_some(), "baseline should carry a deterministic hash");
+    assert_metadata_shape(&baseline["metadata"]);
+    assert_eq!(baseline["findings"].as_array().expect("baseline findings array").len(), 3);
+    assert!(
+        baseline["findings"]
+            .as_array()
+            .expect("baseline findings array")
+            .iter()
+            .all(|finding| finding["stable_id"].as_str().is_some()),
+        "every accepted finding should store a stable_id"
+    );
+
+    let accepted_dir = artifact_dir(&fixture, "baseline-accepted");
+    let accepted_output = run_with_check_args(
+        &fixture,
+        &[
+            "--output-format",
+            JSON_OUTPUT_FORMAT,
+            "--baseline",
+            baseline_path_str,
+            "--artifact-dir",
+            accepted_dir.to_str().expect("accepted artifact dir utf8"),
+        ],
+        &three_finding_json_lines(),
+        EXIT_CODE_SUCCESS,
+    );
+    assert_eq!(
+        accepted_output.status.code(),
+        Some(EXIT_CODE_SUCCESS),
+        "fully accepted warning-only findings should stay exit 0: stderr={}",
+        String::from_utf8_lossy(&accepted_output.stderr)
+    );
+    let accepted_status = read_json_artifact(&accepted_dir.join(STATUS_JSON_FILE));
+    assert_eq!(accepted_status["status"], STATUS_WARNING_ONLY);
+    assert_eq!(accepted_status["baseline"]["accepted_total"], 3);
+    assert_eq!(accepted_status["baseline"]["accepted_current"], 3);
+    assert_eq!(accepted_status["baseline"]["new_total"], 0);
+    assert_eq!(accepted_status["baseline"]["stale_total"], 0);
+    assert_eq!(
+        accepted_status["baseline"]["baseline_hash"], baseline["baseline_hash"],
+        "evaluating a just-written baseline should report the stored baseline hash"
+    );
+
+    let drift_dir = artifact_dir(&fixture, "baseline-drift");
+    let drift_output = run_with_check_args(
+        &fixture,
+        &[
+            "--output-format",
+            JSON_OUTPUT_FORMAT,
+            "--baseline",
+            baseline_path_str,
+            "--artifact-dir",
+            drift_dir.to_str().expect("drift artifact dir utf8"),
+        ],
+        &four_finding_json_lines(),
+        EXIT_CODE_SUCCESS,
+    );
+    assert_eq!(
+        drift_output.status.code(),
+        Some(EXIT_CODE_LINT_FAILURE),
+        "one unaccepted stable_id should fail the drift gate: stdout={} stderr={}",
+        String::from_utf8_lossy(&drift_output.stdout),
+        String::from_utf8_lossy(&drift_output.stderr)
+    );
+    let drift_stdout = String::from_utf8_lossy(&drift_output.stdout);
+    assert_eq!(drift_stdout.lines().count(), 4, "drift run should still emit all current findings");
+    let drift_status = read_json_artifact(&drift_dir.join(STATUS_JSON_FILE));
+    assert_eq!(drift_status["status"], STATUS_LINT_FAILURE);
+    assert_eq!(drift_status["baseline"]["accepted_total"], 3);
+    assert_eq!(drift_status["baseline"]["accepted_current"], 3);
+    assert_eq!(drift_status["baseline"]["new_total"], 1);
+    assert_eq!(drift_status["baseline"]["stale_total"], 0);
+    assert_eq!(
+        drift_status["baseline"]["new_finding_ids"].as_array().expect("new finding ids").len(),
+        1
+    );
+}
+
+#[test]
+fn baseline_write_skips_incomplete_cargo_runs() {
+    let fixture = ConsumerFixture::new("baseline-write-failed", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
+    let baseline_path = fixture.repo.join("tigerstyle-baseline.json");
+    let baseline_path_str = baseline_path.to_str().expect("baseline path utf8");
+    let lines = vec![
+        cargo_compiler_message("consumer", "no_unwrap", "use of `.unwrap()`", "src/lib.rs", 10, 5, None),
+        cargo_build_finished(false),
+    ];
+
+    let output = run_with_check_args(
+        &fixture,
+        &["--output-format", JSON_OUTPUT_FORMAT, "--write-baseline", baseline_path_str],
+        &lines,
+        EXIT_CODE_LINT_FAILURE,
+    );
+
+    assert_eq!(
+        output.status.code(),
+        Some(EXIT_CODE_INTEGRATION_FAILURE),
+        "failed cargo runs should report integration failure: stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        !baseline_path.exists(),
+        "failed cargo runs must not create or overwrite acceptance baselines"
+    );
 }
 
 #[test]

@@ -4,6 +4,7 @@ use std::fmt::Write as _;
 
 use serde::Serialize;
 
+use crate::baseline::BaselineEvaluation;
 use crate::determinism::RunMetadata;
 
 const FINDING_SCHEMA_VERSION: u32 = 1;
@@ -180,6 +181,15 @@ impl RunOutcome {
             cargo_process_exit: self.cargo_process_exit.clone(),
         }
     }
+
+    pub fn force_lint_failure(&self) -> Self {
+        Self {
+            status: RunStatus::LintFailure,
+            exit_code: RunStatus::LintFailure.exit_code(),
+            counts: self.counts.clone(),
+            cargo_process_exit: self.cargo_process_exit.clone(),
+        }
+    }
 }
 
 #[derive(Serialize)]
@@ -188,6 +198,8 @@ struct StatusArtifact<'a> {
     exit_code: i32,
     output_format: &'a str,
     metadata: &'a RunMetadata,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    baseline: Option<&'a BaselineEvaluation>,
     total_findings: usize,
     warning_findings: usize,
     error_findings: usize,
@@ -453,6 +465,7 @@ pub fn render_sarif(
     outcome: &RunOutcome,
     command_line: &str,
     metadata: &RunMetadata,
+    baseline: Option<&BaselineEvaluation>,
 ) -> Result<String, String> {
     let mut seen_rules: Vec<&str> = Vec::new();
     for finding in findings {
@@ -495,6 +508,21 @@ pub fn render_sarif(
         })
         .collect();
 
+    let mut properties = serde_json::json!({
+        "status": outcome.status.as_str(),
+        "exitCode": outcome.exit_code,
+        "totalFindings": outcome.counts.total_findings,
+        "warningFindings": outcome.counts.warning_findings,
+        "errorFindings": outcome.counts.error_findings,
+        "autofixableFindings": outcome.counts.autofixable_findings,
+        "cargoProcessExitClassification": outcome.cargo_process_exit.classification,
+        "cargoProcessExitCode": outcome.cargo_process_exit.code,
+        "metadata": metadata,
+    });
+    if let Some(baseline) = baseline {
+        properties["baseline"] = serde_json::json!(baseline);
+    }
+
     let sarif = serde_json::json!({
         "$schema": SARIF_SCHEMA_URL,
         "version": SARIF_VERSION,
@@ -511,17 +539,7 @@ pub fn render_sarif(
                 "executionSuccessful": outcome.exit_code == EXIT_SUCCESS,
                 "exitCode": outcome.exit_code
             }],
-            "properties": {
-                "status": outcome.status.as_str(),
-                "exitCode": outcome.exit_code,
-                "totalFindings": outcome.counts.total_findings,
-                "warningFindings": outcome.counts.warning_findings,
-                "errorFindings": outcome.counts.error_findings,
-                "autofixableFindings": outcome.counts.autofixable_findings,
-                "cargoProcessExitClassification": outcome.cargo_process_exit.classification,
-                "cargoProcessExitCode": outcome.cargo_process_exit.code,
-                "metadata": metadata,
-            },
+            "properties": properties,
             "results": results
         }]
     });
@@ -531,12 +549,18 @@ pub fn render_sarif(
     Ok(rendered)
 }
 
-pub fn render_status_json(outcome: &RunOutcome, output_format: &str, metadata: &RunMetadata) -> Result<String, String> {
+pub fn render_status_json(
+    outcome: &RunOutcome,
+    output_format: &str,
+    metadata: &RunMetadata,
+    baseline: Option<&BaselineEvaluation>,
+) -> Result<String, String> {
     let artifact = StatusArtifact {
         status: outcome.status,
         exit_code: outcome.exit_code,
         output_format,
         metadata,
+        baseline,
         total_findings: outcome.counts.total_findings,
         warning_findings: outcome.counts.warning_findings,
         error_findings: outcome.counts.error_findings,
@@ -550,7 +574,12 @@ pub fn render_status_json(outcome: &RunOutcome, output_format: &str, metadata: &
     Ok(rendered)
 }
 
-pub fn render_summary(findings: &[Finding], outcome: &RunOutcome, metadata: &RunMetadata) -> Result<String, String> {
+pub fn render_summary(
+    findings: &[Finding],
+    outcome: &RunOutcome,
+    metadata: &RunMetadata,
+    baseline: Option<&BaselineEvaluation>,
+) -> Result<String, String> {
     let mut summary = String::new();
 
     writeln!(&mut summary, "{SUMMARY_HEADER}").map_err(|error| format!("write summary: {error}"))?;
@@ -570,6 +599,17 @@ pub fn render_summary(findings: &[Finding], outcome: &RunOutcome, metadata: &Run
         .map_err(|error| format!("write summary: {error}"))?;
     writeln!(&mut summary, "Profile hash: {}", metadata.profile_hash)
         .map_err(|error| format!("write summary: {error}"))?;
+
+    if let Some(baseline) = baseline {
+        writeln!(&mut summary, "Baseline hash: {}", baseline.baseline_hash)
+            .map_err(|error| format!("write summary: {error}"))?;
+        writeln!(
+            &mut summary,
+            "Baseline: {} accepted, {} current accepted, {} new, {} stale",
+            baseline.accepted_total, baseline.accepted_current, baseline.new_total, baseline.stale_total
+        )
+        .map_err(|error| format!("write summary: {error}"))?;
+    }
 
     if findings.is_empty() {
         writeln!(&mut summary, "{SUMMARY_FOOTER}").map_err(|error| format!("write summary: {error}"))?;
