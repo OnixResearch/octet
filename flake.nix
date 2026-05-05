@@ -695,8 +695,8 @@ MAIN
             cd ${self}
             grep -F "For fingerprint docs/examples, use one review command:" docs/contributor-guide.md
             grep -F "nix build .#checks.x86_64-linux.docs-examples --no-link -L" docs/contributor-guide.md
-            grep -F "CI/operator gate for executable fingerprint docs" docs/contributor-guide.md
-            grep -F "Use narrower flake checks or direct Cargo filters only as focused local debug" docs/contributor-guide.md
+            grep -F "CI/operator gate for executable" docs/contributor-guide.md
+            grep -F "focused flake checks or direct Cargo filters only after the aggregate gate" docs/contributor-guide.md
             grep -F "2026-05-05: Function fingerprint docs and checks" CHANGELOG.md
             grep -F "nix build .#checks.x86_64-linux.docs-examples --no-link -L" CHANGELOG.md
             mkdir -p "$out"

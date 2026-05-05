@@ -218,15 +218,12 @@ For fingerprint docs/examples, use one review command:
 nix build .#checks.x86_64-linux.docs-examples --no-link -L
 ```
 
-Run it whenever `cargo tigerstyle fingerprint` output, marker rewrite behavior,
-summary counts, JSON fields, source-scanner boundary examples, downstream
-scratch-smoke behavior, downstream diff parity, or
-`docs/examples/function-fingerprint-*` changes. This aggregate check is part of
-`nix flake check` and is the CI/operator gate for executable fingerprint docs.
-It also includes a grep regression that keeps this preferred command documented
-here, so review guidance cannot silently drift back to a list of narrow checks.
-Use narrower flake checks or direct Cargo filters only as focused local debug
-paths after this command identifies a failing slice.
+Run it whenever `cargo tigerstyle fingerprint` behavior or checked
+`docs/examples/function-fingerprint-*` transcripts change. This aggregate check
+is part of `nix flake check` and is the CI/operator gate for executable
+fingerprint docs, including downstream smoke and the docs grep regression. Use
+focused flake checks or direct Cargo filters only after the aggregate gate
+identifies a failing slice.
 
 ## OpenSpec touchpoints
 
