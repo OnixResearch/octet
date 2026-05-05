@@ -4,6 +4,7 @@ use serde::Deserialize;
 use serde::Serialize;
 
 use crate::diagnostic::Diagnostic;
+use crate::model::EnforcementMode;
 use crate::model::Severity;
 use crate::suppression::Suppression;
 
@@ -22,6 +23,22 @@ pub struct CheckReport {
     pub active_suppressions: Vec<Suppression>,
     /// Evaluated policy IDs.
     pub evaluated_policy_ids: Vec<String>,
+    /// Enforcement-mode metadata for evaluated policies.
+    #[serde(default)]
+    pub policy_evaluations: Vec<PolicyEvaluation>,
+}
+
+/// Enforcement metadata emitted in machine-readable reports.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct PolicyEvaluation {
+    /// Policy ID.
+    pub policy_id: String,
+    /// Current enforcement mode.
+    pub current_enforcement_mode: EnforcementMode,
+    /// Target enforcement mode.
+    pub target_enforcement_mode: EnforcementMode,
+    /// Mechanism or fallback classification for failures.
+    pub failure_type: String,
 }
 
 impl CheckReport {

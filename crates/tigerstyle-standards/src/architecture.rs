@@ -12,10 +12,13 @@ const FCIS_POLICY_ID: &str = "tigerstyle.architecture.fcis-crate-boundary";
 const EXTERNAL_DOMAIN_LEAKAGE_POLICY_ID: &str = "tigerstyle.architecture.external-domain-leakage";
 const ROOT_THINNESS_POLICY_ID: &str = "tigerstyle.architecture.root-crate-thinness";
 const PUBLIC_API_BUDGET_POLICY_ID: &str = "tigerstyle.architecture.public-api-budget";
+const EFFECT_CAPABILITY_POLICY_ID: &str = "tigerstyle.architecture.effect-capability-boundaries";
+const TYPE_STATE_POLICY_ID: &str = "tigerstyle.idioms.nominal-type-boundaries";
 const FORBIDDEN_RUNTIME_POLICY_ID: &str = "tigerstyle.architecture.fcis-crate-boundary";
 const STD_SHELL_POLICY_ID: &str = "tigerstyle.architecture.fcis-crate-boundary";
 const CORE_LIB_PATH_SUFFIX: &str = "crates/tigerstyle-core/src/lib.rs";
 const CORE_MANIFEST_PATH_SUFFIX: &str = "crates/tigerstyle-core/Cargo.toml";
+const STD_MANIFEST_PATH_SUFFIX: &str = "crates/tigerstyle-std/Cargo.toml";
 const CORE_RUST_PATH_SEGMENT: &str = "crates/tigerstyle-core/src/";
 const RUST_SOURCE_EXTENSION: &str = ".rs";
 const STD_LIB_PATH_SUFFIX: &str = "crates/tigerstyle-std/src/lib.rs";
@@ -24,7 +27,10 @@ const ROOT_MAIN_PATH_SUFFIX: &str = "src/main.rs";
 const NO_STD_ATTRIBUTE: &str = "#![no_std]";
 const CORE_DEPENDENCIES_SECTION: &str = "[dependencies]";
 const DEV_DEPENDENCIES_SECTION: &str = "[dev-dependencies]";
-const CORE_FORBIDDEN_DEPENDENCIES: &[&str] = &["tokio", "tracing", "tracing-subscriber", "clap", "parking_lot", "url"];
+const CORE_FORBIDDEN_DEPENDENCIES: &[&str] = &["tokio", "tracing", "tracing-subscriber", "clap", "parking_lot", "url", "tigerstyle-std"];
+const CORE_CRATE_DEPENDENCY: &str = "tigerstyle-core";
+const AMBIENT_CAPABILITY_PATTERNS: &[&str] = &["std::env::", "std::fs::", "std::net::", "SystemTime::now(", "File::open("];
+const RAW_TYPE_STATE_PATTERNS: &[&str] = &["send_raw(", "raw_send(", "type ConnectionState = bool", "pub fn open_raw"];
 const EXTERNAL_DOMAIN_TYPE_PATTERNS: &[&str] = &[
     "axum::",
     "hyper::",
@@ -81,6 +87,9 @@ pub fn check_architecture(
     check_core_no_std(registry, sources, &mut diagnostics);
     check_core_forbidden_dependencies(registry, sources, &mut diagnostics);
     check_std_shell_owns_std(registry, sources, &mut diagnostics);
+    check_shell_depends_on_core(registry, sources, &mut diagnostics);
+    check_core_capability_constructors(registry, sources, &mut diagnostics);
+    check_raw_type_state_operations(registry, sources, &mut diagnostics);
     check_external_domain_leakage(registry, sources, &mut diagnostics);
     check_root_thinness(registry, sources, &mut diagnostics);
     check_public_api_budget(registry, sources, &mut diagnostics);
@@ -144,6 +153,70 @@ fn check_std_shell_owns_std(registry: &PolicyRegistry, sources: &[SourceFile], d
             "tigerstyle-std must not declare #![no_std]",
             "keep std/runtime shell code in tigerstyle-std and no_std code in tigerstyle-core",
         ));
+    }
+}
+
+
+fn check_shell_depends_on_core(registry: &PolicyRegistry, sources: &[SourceFile], diagnostics: &mut Vec<Diagnostic>) {
+    let Some(policy) = registry.policy_by_id(FCIS_POLICY_ID) else {
+        return;
+    };
+    for source in sources_by_suffix(sources, STD_MANIFEST_PATH_SUFFIX) {
+        let dependency_section = dependency_section(&source.text);
+        if dependency_section_contains(dependency_section, CORE_CRATE_DEPENDENCY) {
+            continue;
+        }
+        diagnostics.push(policy_diagnostic(
+            policy,
+            source,
+            None,
+            "tigerstyle-std must depend on tigerstyle-core",
+            "make shell crates depend inward on the core crate and keep the reverse dependency forbidden",
+        ));
+    }
+}
+
+fn check_core_capability_constructors(
+    registry: &PolicyRegistry,
+    sources: &[SourceFile],
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let Some(policy) = registry.policy_by_id(EFFECT_CAPABILITY_POLICY_ID) else {
+        return;
+    };
+    for source in core_rust_sources(sources) {
+        for (line_index, line) in source.text.lines().enumerate() {
+            let Some(pattern) = AMBIENT_CAPABILITY_PATTERNS.iter().copied().find(|pattern| line.contains(pattern)) else {
+                continue;
+            };
+            diagnostics.push(policy_diagnostic(
+                policy,
+                source,
+                Some(line_number_from_index(line_index)),
+                &format!("core performs ambient authority operation `{pattern}` instead of accepting an injected capability"),
+                "move ambient authority constructors to the shell and inject data or narrow capability traits into core",
+            ));
+        }
+    }
+}
+
+fn check_raw_type_state_operations(registry: &PolicyRegistry, sources: &[SourceFile], diagnostics: &mut Vec<Diagnostic>) {
+    let Some(policy) = registry.policy_by_id(TYPE_STATE_POLICY_ID) else {
+        return;
+    };
+    for source in sources {
+        for (line_index, line) in source.text.lines().enumerate() {
+            let Some(pattern) = RAW_TYPE_STATE_PATTERNS.iter().copied().find(|pattern| line.contains(pattern)) else {
+                continue;
+            };
+            diagnostics.push(policy_diagnostic(
+                policy,
+                source,
+                Some(line_number_from_index(line_index)),
+                &format!("raw protocol operation `{pattern}` bypasses type-state surface"),
+                "model protocol states with nominal wrappers and transition methods instead of raw operation shortcuts",
+            ));
+        }
     }
 }
 

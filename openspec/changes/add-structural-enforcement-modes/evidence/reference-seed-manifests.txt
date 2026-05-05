@@ -1,0 +1,42 @@
+$ git sibling seed commits
+== ../vericoder-mvp
+12c0e10
+== ../verified-logic
+fdca36b7
+== ../ucan
+423ff11
+$ nickel export --format json standards/policies/registry.ncl | jq seed assertions
+[
+  {
+    "name": "vericoder-mvp-architecture-seed",
+    "source_path": "../vericoder-mvp/",
+    "source_commit": "12c0e10",
+    "role": "architecture-reference",
+    "proof_relevant": false,
+    "local_acceptance": [
+      "manual provenance review"
+    ]
+  },
+  {
+    "name": "verified-logic-proof-seed",
+    "source_path": "../verified-logic/",
+    "source_commit": "fdca36b7",
+    "role": "proof-seed",
+    "proof_relevant": true,
+    "local_acceptance": [
+      "run local proof rail after import",
+      "record trust-boundary account"
+    ]
+  },
+  {
+    "name": "ucan-core-shell-seed",
+    "source_path": "../ucan/",
+    "source_commit": "423ff11",
+    "role": "core-shell-fixture",
+    "proof_relevant": false,
+    "local_acceptance": [
+      "manual provenance review",
+      "core-shell fixture review"
+    ]
+  }
+]

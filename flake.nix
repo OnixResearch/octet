@@ -444,6 +444,12 @@ MAIN
             nickel typecheck standards/policies/registry.ncl
             nickel export --format json standards/policies/registry.ncl \
               | jq --exit-status '.policies | length > 0' >/dev/null
+            nickel export --format json standards/policies/registry.ncl \
+              | jq --exit-status '.seed_manifests | length == 3' >/dev/null
+            nickel export --format json standards/policies/registry.ncl \
+              | jq --exit-status 'any(.policies[]; .target_enforcement_mode == "structural" and (.mechanisms | length > 0))' >/dev/null
+            nickel export --format json standards/policies/registry.ncl \
+              | jq --exit-status 'any(.policies[]; .target_enforcement_mode == "verified" and (.proof_rails | length > 0))' >/dev/null
 
             while IFS=$'\t' read -r policy_id source_path source_heading; do
               if [ ! -f "$source_path" ]; then
@@ -487,6 +493,12 @@ MAIN
           nickel typecheck standards/policies/registry.ncl
           nickel export --format json standards/policies/registry.ncl \
             | jq --exit-status '.policies | length > 0' >/dev/null
+          nickel export --format json standards/policies/registry.ncl \
+            | jq --exit-status '.seed_manifests | length == 3' >/dev/null
+          nickel export --format json standards/policies/registry.ncl \
+            | jq --exit-status 'any(.policies[]; .target_enforcement_mode == "structural" and (.mechanisms | length > 0))' >/dev/null
+          nickel export --format json standards/policies/registry.ncl \
+            | jq --exit-status 'any(.policies[]; .target_enforcement_mode == "verified" and (.proof_rails | length > 0))' >/dev/null
 
           while IFS=$'\t' read -r policy_id source_path source_heading; do
             if [ ! -f "$source_path" ]; then
@@ -550,6 +562,7 @@ MAIN
             --family architecture \
             --output json > "$compliant_json"
           jq --exit-status '.diagnostics | length == 0' "$compliant_json" >/dev/null
+          jq --exit-status 'any(.policy_evaluations[]; .policy_id == "tigerstyle.architecture.fcis-crate-boundary" and .target_enforcement_mode == "structural" and .failure_type == "crate-boundary")' "$compliant_json" >/dev/null
 
           tigerstyle-standards check \
             --registry "$registry_json" \
@@ -588,6 +601,10 @@ MAIN
           jq --exit-status '.diagnostics | length >= 5' "$noncompliant_json" >/dev/null
           jq --exit-status 'any(.diagnostics[]; .policy_id == "tigerstyle.architecture.external-domain-leakage")' "$noncompliant_json" >/dev/null
           jq --exit-status 'any(.diagnostics[]; .policy_id == "tigerstyle.architecture.root-crate-thinness" and (.path | contains("thick-root")))' "$noncompliant_json" >/dev/null
+          jq --exit-status 'any(.diagnostics[]; .policy_id == "tigerstyle.architecture.fcis-crate-boundary" and (.message | contains("must depend on tigerstyle-core")))' "$noncompliant_json" >/dev/null
+          jq --exit-status 'any(.diagnostics[]; .policy_id == "tigerstyle.architecture.effect-capability-boundaries")' "$noncompliant_json" >/dev/null
+          jq --exit-status 'any(.diagnostics[]; .policy_id == "tigerstyle.idioms.nominal-type-boundaries")' "$noncompliant_json" >/dev/null
+          jq --exit-status 'any(.policy_evaluations[]; .target_enforcement_mode == "structural")' "$noncompliant_json" >/dev/null
           jq --exit-status 'all(.diagnostics[]; ((.path | contains("thick-root")) | not) or .policy_id != "tigerstyle.architecture.public-api-budget")' "$noncompliant_json" >/dev/null
 
           if tigerstyle-standards check \

@@ -1,0 +1,64 @@
+$ nickel export --format json standards/policies/registry.ncl | jq verified proof rail assertions
+[
+  {
+    "checker_id": "tigerstyle-standards",
+    "checker_owner": "verification",
+    "classification": "hard",
+    "classification_rationale": "Declared handler fixtures can deterministically prove ambient-free replay and cleanup behavior.",
+    "current_enforcement_mode": "gate",
+    "custom_checker_justification": "existing tools must be preferred; custom checker requires precision and cross-family reuse note",
+    "default_severity": "error",
+    "deterministic_checker": {
+      "command": "registry validation",
+      "expected_signal": "export succeeds"
+    },
+    "enforcement_level": "hard",
+    "escalation_criteria": "verified mode requires a local proof rail before imported proof-relevant code is trusted",
+    "existing_enforcement": [],
+    "false_positive_risk": "low for declared handler fixtures, medium for broad source inference",
+    "fixture_coverage": {
+      "compliant": [],
+      "noncompliant": [],
+      "status": "planned"
+    },
+    "mechanisms": [],
+    "pillar": "verification",
+    "policy_id": "tigerstyle.verification.deterministic-effect-handlers",
+    "proof_rails": [
+      {
+        "backend": "local-command",
+        "command": "nix develop -c bash -c 'cargo test -p tigerstyle-standards'",
+        "pass_signal": "cargo test exits 0",
+        "proof_paths": [
+          "standards/check-fixtures/"
+        ],
+        "source_paths": [
+          "crates/tigerstyle-standards/src/"
+        ],
+        "trust_boundaries": [
+          "fixture checks prove local checker behavior, not upstream repo correctness"
+        ]
+      }
+    ],
+    "source_anchor": "docs/standards/source/verification.adoc#deterministic-effect-handler-tests",
+    "source_heading": "Deterministic effect handler tests",
+    "source_path": "docs/standards/source/verification.adoc",
+    "summary": "Effect handlers used for tests record requested effects and replay scripted time, filesystem, network, and environment responses.",
+    "suppression_requirements": {
+      "requires_owner": true,
+      "requires_policy_id": true,
+      "requires_rationale": true,
+      "requires_review_trigger": true,
+      "requires_safer_default": true,
+      "requires_source_section": true
+    },
+    "target_enforcement_mode": "verified",
+    "verification_evidence_requirements": [
+      "compliant fixture",
+      "noncompliant fixture",
+      "diagnostic regression"
+    ]
+  }
+]
+$ nickel export invalid proof-relevant seed fixture # expect failure
+expected-fail

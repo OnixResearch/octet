@@ -1,0 +1,53 @@
+command=manual review of seed manifest and vendored paths before accepting sibling import
+input=source commits and manifests for ../vericoder-mvp/, ../verified-logic/, and ../ucan/
+asserts=license/provenance and role classification are sufficient for every vendored seed; no source code was copied in this slice
+evidence=manifest-only seeds exported from standards/policies/registry.ncl; source commits captured below
+== ../vericoder-mvp
+12c0e10
+## main
+== ../verified-logic
+fdca36b7
+## main...origin/main
+== ../ucan
+423ff11
+## main...origin/main
+[
+  {
+    "name": "vericoder-mvp-architecture-seed",
+    "source_path": "../vericoder-mvp/",
+    "source_commit": "12c0e10",
+    "provenance": "local sibling reference repository; advisory architecture and trajectory material only",
+    "license": "repo-local license must be reviewed before import",
+    "role": "architecture-reference",
+    "proof_relevant": false,
+    "local_acceptance": [
+      "manual provenance review"
+    ]
+  },
+  {
+    "name": "verified-logic-proof-seed",
+    "source_path": "../verified-logic/",
+    "source_commit": "fdca36b7",
+    "provenance": "local sibling verified primitive reference; proof-relevant until reverified here",
+    "license": "repo-local license must be reviewed before import",
+    "role": "proof-seed",
+    "proof_relevant": true,
+    "local_acceptance": [
+      "run local proof rail after import",
+      "record trust-boundary account"
+    ]
+  },
+  {
+    "name": "ucan-core-shell-seed",
+    "source_path": "../ucan/",
+    "source_commit": "423ff11",
+    "provenance": "local sibling UCAN-style core/shell reference material",
+    "license": "repo-local license must be reviewed before import",
+    "role": "core-shell-fixture",
+    "proof_relevant": false,
+    "local_acceptance": [
+      "manual provenance review",
+      "core-shell fixture review"
+    ]
+  }
+]

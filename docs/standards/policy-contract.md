@@ -10,7 +10,9 @@ This repo enforces a reusable Rust safety profile through two explicit seams:
 The machine-readable policy index lives in
 [`standards/policies/registry.ncl`](../../standards/policies/registry.ncl). It
 links Tiger Style source sections to stable policy IDs, enforcement levels,
-checker ownership, suppression requirements, and planned fixture evidence.
+current/target enforcement modes, structural mechanisms, proof rails, seed
+manifests, checker ownership, suppression requirements, and planned fixture
+evidence.
 
 ## Functional Core / Imperative Shell
 
@@ -28,6 +30,12 @@ checker ownership, suppression requirements, and planned fixture evidence.
 - Suppressions use `tigerstyle-allow:` comments and MUST cite policy ID, source
   section, owner, rationale, review trigger, and safer default for hard rules.
 - Hard policies need positive and negative fixtures before becoming blocking.
+- Policies that target `structural` MUST export at least one mechanism contract
+  such as crate-boundary, capability-api, bounded-primitive, or type-state.
+- Policies that target `verified` MUST export a proof rail with command, source
+  mapping, pass signal, and trust-boundary accounting.
+- Proof-relevant seed manifests MUST remain untrusted until a local acceptance
+  command or human/oracle review records provenance and re-verification.
 - Advisory and human-process-only policies stay visible without pretending static
   tooling can judge them.
 
