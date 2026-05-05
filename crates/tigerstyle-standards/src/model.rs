@@ -33,6 +33,141 @@ pub enum EnforcementLevel {
     Deferred,
 }
 
+
+/// Policy enforcement mode declared by the Nickel registry.
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum EnforcementMode {
+    /// Advisory lint observation.
+    #[default]
+    Lint,
+    /// Blocking gate observation.
+    Gate,
+    /// Rust construction mechanisms make violations structurally invalid.
+    Structural,
+    /// Local proof or proof-equivalent rails back the policy.
+    Verified,
+    /// Human/oracle judgment is required.
+    HumanOracle,
+}
+
+
+/// Mechanism kind exported from Nickel for structural policies.
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum MechanismKind {
+    /// Crate graph or crate attribute boundary.
+    #[default]
+    CrateBoundary,
+    /// Shell-owned capability API.
+    CapabilityApi,
+    /// Bounded primitive API.
+    BoundedPrimitive,
+    /// Type-state protocol API.
+    TypeState,
+}
+
+/// Structural mechanism metadata exported from Nickel.
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+pub struct Mechanism {
+    /// Mechanism kind.
+    pub kind: MechanismKind,
+    /// Human summary.
+    pub description: String,
+    /// Exported obligations consumed by checkers or reviewers.
+    #[serde(default)]
+    pub exported_obligations: Vec<String>,
+    /// Crate-boundary obligations.
+    #[serde(default)]
+    pub crate_boundary: Vec<String>,
+    /// Capability constructor owners.
+    #[serde(default)]
+    pub constructor_authority: Vec<String>,
+    /// API obligations for bounded/type-state mechanisms.
+    #[serde(default)]
+    pub api_obligations: Vec<String>,
+}
+
+
+/// Deterministic evidence command metadata.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct EvidenceCommand {
+    /// Command to run.
+    pub command: String,
+    /// Expected pass signal.
+    pub expected_signal: String,
+}
+
+impl Default for EvidenceCommand {
+    fn default() -> Self {
+        Self {
+            command: "registry validation".to_owned(),
+            expected_signal: "export succeeds".to_owned(),
+        }
+    }
+}
+
+/// Verified-mode proof rail metadata.
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ProofRail {
+    /// Proof backend identifier.
+    pub backend: String,
+    /// Proof command.
+    pub command: String,
+    /// Source files covered by this rail.
+    #[serde(default)]
+    pub source_paths: Vec<String>,
+    /// Proof or fixture paths.
+    #[serde(default)]
+    pub proof_paths: Vec<String>,
+    /// Expected success signal.
+    pub pass_signal: String,
+    /// Trust-boundary notes.
+    #[serde(default)]
+    pub trust_boundaries: Vec<String>,
+}
+
+/// Seed role exported from Nickel.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum SeedRole {
+    /// Architecture reference only.
+    ArchitectureReference,
+    /// Trajectory fixture.
+    TrajectoryFixture,
+    /// Proof-relevant seed.
+    ProofSeed,
+    /// Core/shell shape fixture.
+    CoreShellFixture,
+}
+
+/// Reference seed manifest metadata.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct SeedManifest {
+    /// Stable seed name.
+    pub name: String,
+    /// Source path or repository.
+    pub source_path: String,
+    /// Source commit or local reference marker.
+    pub source_commit: String,
+    /// Seed role.
+    pub role: SeedRole,
+    /// Included paths.
+    #[serde(default)]
+    pub paths: Vec<String>,
+    /// Provenance note.
+    pub provenance: String,
+    /// License note.
+    pub license: String,
+    /// Content hash or manifest gate marker.
+    pub content_hash: String,
+    /// True when proof-relevant.
+    pub proof_relevant: bool,
+    /// Local acceptance commands/reviews.
+    #[serde(default)]
+    pub local_acceptance: Vec<String>,
+}
+
 /// Diagnostic severity.
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize)]
 #[serde(rename_all = "kebab-case")]
@@ -110,6 +245,24 @@ pub struct PolicyEntry {
     pub classification: Classification,
     /// Enforcement level.
     pub enforcement_level: EnforcementLevel,
+    /// Current enforcement mode.
+    #[serde(default)]
+    pub current_enforcement_mode: EnforcementMode,
+    /// Target enforcement mode.
+    #[serde(default)]
+    pub target_enforcement_mode: EnforcementMode,
+    /// Required criteria for target-mode escalation.
+    #[serde(default)]
+    pub escalation_criteria: String,
+    /// Structural mechanisms declared for this policy.
+    #[serde(default)]
+    pub mechanisms: Vec<Mechanism>,
+    /// Deterministic checker command metadata.
+    #[serde(default)]
+    pub deterministic_checker: EvidenceCommand,
+    /// Verified proof rails.
+    #[serde(default)]
+    pub proof_rails: Vec<ProofRail>,
     /// Owner for checker behavior.
     pub checker_owner: String,
     /// Canonical checker ID.
@@ -141,6 +294,9 @@ pub struct PolicyRegistry {
     pub checker_ids: Vec<String>,
     /// Policy entries.
     pub policies: Vec<PolicyEntry>,
+    /// Optional reference seed manifests.
+    #[serde(default)]
+    pub seed_manifests: Vec<SeedManifest>,
 }
 
 impl PolicyRegistry {

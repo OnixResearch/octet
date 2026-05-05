@@ -1,0 +1,41 @@
+$ nickel export --format json standards/policies/registry.ncl | jq policy mode assertions
+{
+  "lint_only": [
+    {
+      "current_enforcement_mode": "lint",
+      "target_enforcement_mode": "lint"
+    }
+  ],
+  "escalations": [
+    {
+      "policy_id": "tigerstyle.architecture.fcis-crate-boundary",
+      "current_enforcement_mode": "gate",
+      "target_enforcement_mode": "structural",
+      "escalation_criteria": "core/shell crate graph, no_std core, forbidden core effects, and shell dependency direction are checked deterministically"
+    },
+    {
+      "policy_id": "tigerstyle.embedded.bounded-queues",
+      "current_enforcement_mode": "gate",
+      "target_enforcement_mode": "structural",
+      "escalation_criteria": "bounded primitive constructors are checked with source fixtures before broad rollout"
+    },
+    {
+      "policy_id": "tigerstyle.architecture.effect-capability-boundaries",
+      "current_enforcement_mode": "lint",
+      "target_enforcement_mode": "structural",
+      "escalation_criteria": "capability constructor ownership can be checked once project capability wrappers are declared"
+    },
+    {
+      "policy_id": "tigerstyle.idioms.nominal-type-boundaries",
+      "current_enforcement_mode": "lint",
+      "target_enforcement_mode": "structural",
+      "escalation_criteria": "type-state and nominal wrappers are exported as API obligations before broad hard gating"
+    },
+    {
+      "policy_id": "tigerstyle.verification.deterministic-effect-handlers",
+      "current_enforcement_mode": "gate",
+      "target_enforcement_mode": "verified",
+      "escalation_criteria": "verified mode requires a local proof rail before imported proof-relevant code is trusted"
+    }
+  ]
+}

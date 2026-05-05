@@ -31,6 +31,34 @@ let EnforcementLevelContract =
   ]
 in
 
+let EnforcementModeContract =
+  OneOf [
+    "lint",
+    "gate",
+    "structural",
+    "verified",
+    "human-oracle",
+  ]
+in
+
+let MechanismKindContract =
+  OneOf [
+    "crate-boundary",
+    "capability-api",
+    "bounded-primitive",
+    "type-state",
+  ]
+in
+
+let SeedRoleContract =
+  OneOf [
+    "architecture-reference",
+    "trajectory-fixture",
+    "proof-seed",
+    "core-shell-fixture",
+  ]
+in
+
 let SeverityContract =
   OneOf [
     "error",
@@ -82,6 +110,78 @@ let FixtureCoverage = {
 }
 in
 
+let EvidenceContract = {
+  command | NonEmptyString,
+  expected_signal | NonEmptyString,
+}
+in
+
+let MechanismContract = {
+  kind | MechanismKindContract,
+  description | NonEmptyString,
+  exported_obligations | Array NonEmptyString,
+  crate_boundary | Array NonEmptyString | default = [],
+  constructor_authority | Array NonEmptyString | default = [],
+  api_obligations | Array NonEmptyString | default = [],
+}
+in
+
+let ProofRailContract = {
+  backend | NonEmptyString,
+  command | NonEmptyString,
+  source_paths | Array NonEmptyString,
+  proof_paths | Array NonEmptyString,
+  pass_signal | NonEmptyString,
+  trust_boundaries | Array NonEmptyString,
+}
+in
+
+let SeedManifestContract = {
+  name | NonEmptyString,
+  source_path | NonEmptyString,
+  source_commit | NonEmptyString,
+  role | SeedRoleContract,
+  paths | Array NonEmptyString,
+  provenance | NonEmptyString,
+  license | NonEmptyString,
+  content_hash | NonEmptyString,
+  proof_relevant | Bool,
+  local_acceptance | Array NonEmptyString,
+}
+in
+
+let mode_rank = fun mode =>
+  if mode == "lint" then 0
+  else if mode == "gate" then 1
+  else if mode == "structural" then 2
+  else if mode == "verified" then 3
+  else 4
+in
+
+let has_mechanism = fun policy kind =>
+  std.array.any (fun mechanism => mechanism.kind == kind) policy.mechanisms
+in
+
+let policy_cross_fields_valid = fun policy =>
+  (mode_rank policy.target_enforcement_mode >= mode_rank policy.current_enforcement_mode)
+  && (policy.target_enforcement_mode == policy.current_enforcement_mode || std.string.length policy.escalation_criteria > 0)
+  && (policy.target_enforcement_mode != "structural" || std.array.length policy.mechanisms > 0)
+  && (policy.target_enforcement_mode != "verified" || std.array.length policy.proof_rails > 0)
+  && (policy.default_severity != "error" || std.array.length policy.verification_evidence_requirements > 0)
+  && (policy.default_severity != "error" || std.string.length policy.deterministic_checker.command > 0)
+in
+
+let seed_cross_fields_valid = fun seed =>
+  (!seed.proof_relevant) || std.array.length seed.local_acceptance > 0
+in
+
+let RegistryCrossFieldContract =
+  std.contract.from_predicate (fun registry =>
+    std.array.all policy_cross_fields_valid registry.policies
+    && std.array.all seed_cross_fields_valid registry.seed_manifests
+  )
+in
+
 let PolicyEntryContract = {
   policy_id | NonEmptyString,
   pillar | NonEmptyString,
@@ -91,6 +191,12 @@ let PolicyEntryContract = {
   summary | NonEmptyString,
   classification | ClassificationContract,
   enforcement_level | EnforcementLevelContract,
+  current_enforcement_mode | EnforcementModeContract | default = "lint",
+  target_enforcement_mode | EnforcementModeContract | default = "lint",
+  escalation_criteria | String | default = "no escalation planned",
+  mechanisms | Array MechanismContract | default = [],
+  deterministic_checker | EvidenceContract | default = { command = "registry validation", expected_signal = "export succeeds" },
+  proof_rails | Array ProofRailContract | default = [],
   checker_owner | NonEmptyString,
   checker_id | CheckerIdContract,
   default_severity | SeverityContract,
@@ -109,6 +215,7 @@ in
     schema_version | NonEmptyString,
     checker_ids | Array CheckerIdContract,
     policies | Array PolicyEntryContract,
+    seed_manifests | Array SeedManifestContract | default = [],
   },
 
   PolicyEntry = PolicyEntryContract,
@@ -116,4 +223,9 @@ in
   Classification = ClassificationContract,
   EnforcementLevel = EnforcementLevelContract,
   Severity = SeverityContract,
+  EnforcementMode = EnforcementModeContract,
+  Mechanism = MechanismContract,
+  ProofRail = ProofRailContract,
+  SeedManifest = SeedManifestContract,
+  PolicyRegistryRules = RegistryCrossFieldContract,
 }

@@ -7,6 +7,8 @@ use pretty_assertions::assert_eq;
 use tempfile::TempDir;
 use tigerstyle_standards::model::Classification;
 use tigerstyle_standards::model::EnforcementLevel;
+use tigerstyle_standards::model::EnforcementMode;
+use tigerstyle_standards::model::EvidenceCommand;
 use tigerstyle_standards::model::FixtureCoverage;
 use tigerstyle_standards::model::FixtureStatus;
 use tigerstyle_standards::model::PolicyEntry;
@@ -125,6 +127,7 @@ fn test_registry() -> PolicyRegistry {
                 "docs/standards/source/architecture.adoc#when-boundaries-are-too-tight",
             ),
         ],
+        seed_manifests: Vec::new(),
     }
 }
 
@@ -138,6 +141,12 @@ fn hard_policy(policy_id: &str, source_anchor: &str) -> PolicyEntry {
         summary: "test hard policy".to_owned(),
         classification: Classification::Hard,
         enforcement_level: EnforcementLevel::Hard,
+        current_enforcement_mode: EnforcementMode::Gate,
+        target_enforcement_mode: EnforcementMode::Gate,
+        escalation_criteria: "already gated".to_owned(),
+        mechanisms: Vec::new(),
+        deterministic_checker: EvidenceCommand::default(),
+        proof_rails: Vec::new(),
         checker_owner: ARCHITECTURE_FAMILY.to_owned(),
         checker_id: CHECKER_ID.to_owned(),
         default_severity: Severity::Error,

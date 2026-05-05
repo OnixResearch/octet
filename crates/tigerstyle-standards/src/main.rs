@@ -146,6 +146,7 @@ fn run_fixture_coverage_command(args: FixtureCoverageArgs) -> Result<bool, CliEr
         diagnostics,
         active_suppressions: Vec::new(),
         evaluated_policy_ids: Vec::new(),
+        policy_evaluations: Vec::new(),
     };
     emit_report(output, &report)?;
     Ok(report.has_blocking_diagnostics())

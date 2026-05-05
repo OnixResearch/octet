@@ -1,0 +1,17 @@
+$ nickel export --format json standards/policies/registry.ncl | jq capability mechanism assertions
+[
+  {
+    "api_obligations": [],
+    "constructor_authority": [
+      "std shell",
+      "adapter shell"
+    ],
+    "crate_boundary": [],
+    "description": "shell-owned capability constructors inject data or narrow traits into pure core",
+    "exported_obligations": [
+      "shell owns ambient authority constructors",
+      "core accepts injected values or traits"
+    ],
+    "kind": "capability-api"
+  }
+]

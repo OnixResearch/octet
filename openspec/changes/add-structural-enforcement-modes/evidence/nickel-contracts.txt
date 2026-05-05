@@ -1,0 +1,28 @@
+$ nickel typecheck standards/policies/contracts.ncl
+$ nickel export --format json standards/policies/fixtures/valid/minimum.ncl >/dev/null
+$ nickel export --format json standards/policies/fixtures/valid/structural-and-seeds.ncl >/dev/null
+$ for f in standards/policies/fixtures/invalid/*.ncl; do nickel export --format json "$f"; done # expect each to fail
+expected-fail standards/policies/fixtures/invalid/escalation_target_weaker.ncl
+expected-fail standards/policies/fixtures/invalid/missing_source_heading.ncl
+expected-fail standards/policies/fixtures/invalid/missing_source_path.ncl
+expected-fail standards/policies/fixtures/invalid/missing_suppression_metadata.ncl
+expected-fail standards/policies/fixtures/invalid/proof_seed_missing_acceptance.ncl
+expected-fail standards/policies/fixtures/invalid/structural_missing_mechanism.ncl
+expected-fail standards/policies/fixtures/invalid/unknown_checker_reference.ncl
+expected-fail standards/policies/fixtures/invalid/unknown_enforcement_level.ncl
+expected-fail standards/policies/fixtures/invalid/unknown_policy_field.ncl
+expected-fail standards/policies/fixtures/invalid/verified_missing_proof_rail.ncl
+$ nickel export --format json standards/policies/registry.ncl | jq ...
+{
+  "policies": 62,
+  "seeds": 3,
+  "structural": [
+    "tigerstyle.architecture.fcis-crate-boundary",
+    "tigerstyle.embedded.bounded-queues",
+    "tigerstyle.architecture.effect-capability-boundaries",
+    "tigerstyle.idioms.nominal-type-boundaries"
+  ],
+  "verified": [
+    "tigerstyle.verification.deterministic-effect-handlers"
+  ]
+}

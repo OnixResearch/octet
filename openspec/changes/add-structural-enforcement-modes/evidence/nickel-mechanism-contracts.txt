@@ -1,0 +1,117 @@
+$ nickel export --format json standards/policies/registry.ncl | jq mechanism and seed assertions
+{
+  "mechanisms": [
+    {
+      "api_obligations": [],
+      "constructor_authority": [],
+      "crate_boundary": [
+        "crates/tigerstyle-core",
+        "crates/tigerstyle-std"
+      ],
+      "description": "no_std core crate plus std shell crate with one-way dependency",
+      "exported_obligations": [
+        "core crate declares #![no_std]",
+        "core manifest excludes runtime dependencies",
+        "std shell depends on core",
+        "core never depends on std shell"
+      ],
+      "kind": "crate-boundary"
+    },
+    {
+      "api_obligations": [
+        "bounded capacity argument",
+        "backpressure behavior documented"
+      ],
+      "constructor_authority": [],
+      "crate_boundary": [],
+      "description": "queues and channels expose explicit capacities and backpressure",
+      "exported_obligations": [
+        "reject unbounded_channel",
+        "require explicit bounded capacity"
+      ],
+      "kind": "bounded-primitive"
+    },
+    {
+      "api_obligations": [],
+      "constructor_authority": [
+        "std shell",
+        "adapter shell"
+      ],
+      "crate_boundary": [],
+      "description": "shell-owned capability constructors inject data or narrow traits into pure core",
+      "exported_obligations": [
+        "shell owns ambient authority constructors",
+        "core accepts injected values or traits"
+      ],
+      "kind": "capability-api"
+    },
+    {
+      "api_obligations": [
+        "nominal state wrappers",
+        "transition methods",
+        "no raw open/send shortcuts"
+      ],
+      "constructor_authority": [],
+      "crate_boundary": [],
+      "description": "protocol states and capabilities use nominal wrappers instead of raw operations",
+      "exported_obligations": [
+        "state transition methods consume prior state",
+        "raw operation bypasses are rejected in fixtures"
+      ],
+      "kind": "type-state"
+    }
+  ],
+  "seeds": [
+    {
+      "content_hash": "manifest-gated-before-copy",
+      "license": "repo-local license must be reviewed before import",
+      "local_acceptance": [
+        "manual provenance review"
+      ],
+      "name": "vericoder-mvp-architecture-seed",
+      "paths": [
+        "openspec/",
+        "src/"
+      ],
+      "proof_relevant": false,
+      "provenance": "local sibling reference repository; advisory architecture and trajectory material only",
+      "role": "architecture-reference",
+      "source_commit": "12c0e10",
+      "source_path": "../vericoder-mvp/"
+    },
+    {
+      "content_hash": "manifest-gated-before-copy",
+      "license": "repo-local license must be reviewed before import",
+      "local_acceptance": [
+        "run local proof rail after import",
+        "record trust-boundary account"
+      ],
+      "name": "verified-logic-proof-seed",
+      "paths": [
+        "src/"
+      ],
+      "proof_relevant": true,
+      "provenance": "local sibling verified primitive reference; proof-relevant until reverified here",
+      "role": "proof-seed",
+      "source_commit": "fdca36b7",
+      "source_path": "../verified-logic/"
+    },
+    {
+      "content_hash": "manifest-gated-before-copy",
+      "license": "repo-local license must be reviewed before import",
+      "local_acceptance": [
+        "manual provenance review",
+        "core-shell fixture review"
+      ],
+      "name": "ucan-core-shell-seed",
+      "paths": [
+        "src/"
+      ],
+      "proof_relevant": false,
+      "provenance": "local sibling UCAN-style core/shell reference material",
+      "role": "core-shell-fixture",
+      "source_commit": "423ff11",
+      "source_path": "../ucan/"
+    }
+  ]
+}

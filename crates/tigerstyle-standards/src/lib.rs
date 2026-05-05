@@ -25,6 +25,8 @@ mod tests {
     use crate::fixture::validate_hard_policy_fixture_coverage;
     use crate::model::Classification;
     use crate::model::EnforcementLevel;
+    use crate::model::EnforcementMode;
+    use crate::model::EvidenceCommand;
     use crate::model::FamilySelection;
     use crate::model::FixtureCoverage;
     use crate::model::FixtureStatus;
@@ -360,6 +362,7 @@ mod tests {
                     "docs/standards/source/architecture.adoc#when-boundaries-are-too-tight",
                 ),
             ],
+            seed_manifests: Vec::new(),
         }
     }
 
@@ -394,6 +397,12 @@ mod tests {
             summary: "sample policy".to_owned(),
             classification: Classification::Hard,
             enforcement_level: EnforcementLevel::Hard,
+            current_enforcement_mode: EnforcementMode::Gate,
+            target_enforcement_mode: EnforcementMode::Gate,
+            escalation_criteria: "already gated".to_owned(),
+            mechanisms: Vec::new(),
+            deterministic_checker: EvidenceCommand::default(),
+            proof_rails: Vec::new(),
             checker_owner: "test".to_owned(),
             checker_id: "tigerstyle-standards".to_owned(),
             default_severity: Severity::Error,
