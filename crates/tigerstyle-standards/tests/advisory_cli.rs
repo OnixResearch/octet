@@ -391,6 +391,80 @@ fn receipt_only_proof_rail_rejects_verifier_receipt_without_nix_closure_digest()
 }
 
 #[test]
+fn receipt_only_proof_rail_rejects_verifier_receipt_without_nix_closure_graph_digest() {
+    let temp = TempDir::new().expect("temp dir should be created");
+    let registry = write_registry_value(&temp, proof_registry());
+    let fixture = temp.path().join("nix-closure-graph-bound-proof-fixture");
+    std::fs::create_dir_all(fixture.join("src")).expect("proof fixture dirs should be created");
+    let source = "pub fn proof_witness() {}
+";
+    let build_closure = "verifier = tigerstyle-standards
+closure-accounting = test manifest
+";
+    let nix_closure = "nix-derivation = tigerstyle-standards.drv
+closure-source = exportReferencesGraph
+";
+    std::fs::write(fixture.join("src/lib.rs"), source).expect("proof source should be written");
+    std::fs::write(fixture.join("proof-build-closure.txt"), build_closure)
+        .expect("build closure manifest should be written");
+    std::fs::write(fixture.join("proof-nix-closure.txt"), nix_closure).expect("Nix closure manifest should be written");
+    std::fs::write(fixture.join("proof-nix-closure.graph"), nix_closure_graph())
+        .expect("Nix closure graph should be written");
+    std::fs::write(
+        fixture.join("proof-receipt.txt"),
+        format!(
+            "proof-receipt-schema: tigerstyle-proof-receipt/v1
+proof-backend: local-command-receipt
+proof-runner: tigerstyle-standards
+proof-environment: local-source-root
+trust-boundary: test command receipt
+proof-verifier: tigerstyle-standards@proof-receipt/v1
+proof-verifier-blake3: 9fb0cd3ff1b2898eba4c6f71479f93ae3cdc80f869cd8ae5e6355235ec5f9aef
+proof-verifier-binary: tigerstyle-standards
+proof-verifier-binary-blake3: {}
+proof-verifier-build-closure: nix-tigerstyle-standards-build-closure/v1
+proof-verifier-build-closure-blake3: {}
+proof-verifier-nix-derivation: tigerstyle-standards.drv
+proof-verifier-nix-derivation-blake3: {}
+proof-verifier-nix-closure: nix-store-recursive-closure/v1
+proof-verifier-nix-closure-blake3: {}
+proof-toolchain: rust-toolchain.toml
+proof-toolchain-blake3: 50692525e10589e3a1060a0ed0adc77f695ad5617121b572e549ef9855ceb7a8
+proof-command-blake3: {}
+proof-source-blake3: {}:{}
+proof-result: pass deterministic-effect-handlers
+",
+            blake3_file_hex(binary_path()),
+            build_closure_digest_line(&fixture.join("proof-build-closure.txt")),
+            blake3_hex("tigerstyle-standards.drv"),
+            build_closure_digest_line(&fixture.join("proof-nix-closure.txt")),
+            blake3_hex("bash proof-command.sh"),
+            fixture.join("src/lib.rs").display(),
+            blake3_hex(source),
+        ),
+    )
+    .expect("Nix-closure-graph-bound proof receipt should be written");
+
+    let output = Command::new(binary_path())
+        .arg("check")
+        .arg("--registry")
+        .arg(&registry)
+        .arg("--source")
+        .arg(&fixture)
+        .arg("--family")
+        .arg(VERIFICATION_FAMILY)
+        .arg("--output")
+        .arg("json")
+        .output()
+        .expect("standards checker should run");
+    assert_failure(&output);
+    let report = parse_report(&output);
+    assert!(report.diagnostics.iter().any(|diagnostic| {
+        diagnostic.policy_id == PROOF_POLICY_ID && diagnostic.message.contains("mismatched receipt verifier metadata")
+    }));
+}
+
+#[test]
 fn execute_proof_rails_replaces_stale_committed_receipt() {
     let temp = TempDir::new().expect("temp dir should be created");
     let registry =
@@ -490,6 +564,16 @@ fn build_closure_digest_line(path: &Path) -> String {
     blake3_hex(&format!("{}:{}\n", path.display(), file_digest))
 }
 
+fn nix_closure_graph() -> &'static str {
+    "/nix/store/aaa-tigerstyle-standards\n\n2\n/nix/store/bbb-glibc\n/nix/store/ccc-libgcc\n\n/nix/store/bbb-glibc\n\n0\n\n/nix/store/ccc-libgcc\n\n1\n/nix/store/bbb-glibc\n"
+}
+
+fn nix_closure_graph_digest_line(path: &Path) -> String {
+    let canonical = "/nix/store/aaa-tigerstyle-standards\n2\n/nix/store/bbb-glibc\n/nix/store/ccc-libgcc\n/nix/store/bbb-glibc\n0\n/nix/store/ccc-libgcc\n1\n/nix/store/bbb-glibc\n";
+    let graph_digest = blake3_hex(canonical);
+    blake3_hex(&format!("{}:{}\n", path.display(), graph_digest))
+}
+
 fn repo_path(relative_path: &str) -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../..")
@@ -584,6 +668,8 @@ fn verified_policy(current: EnforcementMode, target: EnforcementMode) -> PolicyE
                 verifier_nix_closure: "nix-store-recursive-closure/v1".to_owned(),
                 verifier_nix_closure_digest: "fixture-nix-closure-digest".to_owned(),
                 verifier_nix_closure_paths: vec!["proof-nix-closure.txt".to_owned()],
+                verifier_nix_closure_graph_digest: nix_closure_graph_digest_line(Path::new("proof-nix-closure.graph")),
+                verifier_nix_closure_graph_paths: vec!["proof-nix-closure.graph".to_owned()],
                 toolchain_id: "rust-toolchain.toml".to_owned(),
                 toolchain_digest: "50692525e10589e3a1060a0ed0adc77f695ad5617121b572e549ef9855ceb7a8".to_owned(),
             },

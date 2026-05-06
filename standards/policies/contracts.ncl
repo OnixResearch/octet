@@ -122,6 +122,8 @@ let ReceiptVerifierContract = {
   verifier_nix_closure | String | default = "",
   verifier_nix_closure_digest | String | default = "",
   verifier_nix_closure_paths | Array NonEmptyString | default = [],
+  verifier_nix_closure_graph_digest | String | default = "",
+  verifier_nix_closure_graph_paths | Array NonEmptyString | default = [],
   toolchain_id | String | default = "",
   toolchain_digest | String | default = "",
 }

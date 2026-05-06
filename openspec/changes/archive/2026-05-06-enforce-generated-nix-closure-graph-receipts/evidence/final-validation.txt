@@ -1,0 +1,22 @@
+$ openspec validate enforce-generated-nix-closure-graph-receipts --strict
+Change 'enforce-generated-nix-closure-graph-receipts' is valid
+$ openspec validate standards-codification --strict
+Specification 'standards-codification' is valid
+$ openspec validate --specs --strict
+- Validating...
+✓ spec/architecture
+✓ spec/autofix
+✓ spec/concurrency
+✓ spec/consumer-integration
+✓ spec/documentation
+✓ spec/naming
+✓ spec/openspec-stage-authoring
+✓ spec/openspec-task-governance
+✓ spec/performance
+✓ spec/purity
+✓ spec/resilience
+✓ spec/safety
+✓ spec/standards-codification
+✓ spec/structure
+Totals: 14 passed, 0 failed (14 items)
+$ git diff --check

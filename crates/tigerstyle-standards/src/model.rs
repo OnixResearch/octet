@@ -185,6 +185,13 @@ pub struct ReceiptVerifier {
     /// Source-root-relative Nix recursive closure manifest paths covered by generated receipts.
     #[serde(default)]
     pub verifier_nix_closure_paths: Vec<String>,
+    /// BLAKE3 digest of canonical generated Nix exportReferencesGraph artifacts.
+    #[serde(default)]
+    pub verifier_nix_closure_graph_digest: String,
+    /// Source-root-relative generated Nix exportReferencesGraph artifact paths covered by generated
+    /// receipts.
+    #[serde(default)]
+    pub verifier_nix_closure_graph_paths: Vec<String>,
     /// Toolchain identity expected in proof receipts.
     #[serde(default)]
     pub toolchain_id: String,
