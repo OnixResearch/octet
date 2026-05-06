@@ -1,6 +1,6 @@
 ## MODIFIED Requirements
 
-### Requirement: Verified Proof Rail Enforcement
+### Requirement: Verified Enforcement Rails [r[verified-enforcement-rails]]
 
 Verified-mode policies MUST support an explicit command-execution path that runs relevant declared proof commands and treats the resulting command output as the proof receipt for the current check run, while preserving the default read-only artifact-backed receipt check.
 

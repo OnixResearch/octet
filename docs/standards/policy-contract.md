@@ -41,9 +41,15 @@ evidence.
 - Policies that target `verified` MUST export a proof rail with command, source
   mapping, proof artifact path, pass signal, and trust-boundary accounting.
   Verification-family checks treat source mappings and proof artifact pass signals
-  as hard artifact obligations: a selected verified policy fails unless the
-  declared source and proof files are present in the checked source tree and the
-  proof artifact contains the exact configured pass signal.
+  as hard artifact obligations: by default, a selected verified policy fails
+  unless the declared source and proof files are present in the checked source
+  tree and the proof artifact contains the exact configured pass signal. When
+  `tigerstyle-standards check --execute-proof-rails` is enabled, the checker runs
+  each relevant declared proof command from the checked source root, captures the
+  command, working directory, exit status, stdout, and stderr as an in-memory
+  proof receipt at the configured proof path, and then applies the same pass
+  signal gate. Command execution is explicit opt-in; read-only receipt checking
+  remains the default for consumer safety.
 - Proof-relevant seed manifests MUST remain untrusted until a local acceptance
   command or human/oracle review records provenance and re-verification.
 - Advisory and human-process-only policies stay visible without pretending static

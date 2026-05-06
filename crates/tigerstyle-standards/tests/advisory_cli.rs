@@ -13,6 +13,7 @@ use tigerstyle_standards::model::FixtureCoverage;
 use tigerstyle_standards::model::FixtureStatus;
 use tigerstyle_standards::model::PolicyEntry;
 use tigerstyle_standards::model::PolicyRegistry;
+use tigerstyle_standards::model::ProofRail;
 use tigerstyle_standards::model::Severity;
 use tigerstyle_standards::model::SuppressionRequirements;
 use tigerstyle_standards::report::CheckReport;
@@ -20,7 +21,9 @@ use tigerstyle_standards::report::CheckReport;
 const FCIS_POLICY_ID: &str = "tigerstyle.architecture.fcis-crate-boundary";
 const ROOT_THINNESS_POLICY_ID: &str = "tigerstyle.architecture.root-crate-thinness";
 const PUBLIC_API_BUDGET_POLICY_ID: &str = "tigerstyle.architecture.public-api-budget";
+const PROOF_POLICY_ID: &str = "tigerstyle.verification.deterministic-effect-handlers";
 const ARCHITECTURE_FAMILY: &str = "architecture";
+const VERIFICATION_FAMILY: &str = "verification";
 const CHECKER_ID: &str = "tigerstyle-standards";
 const REGISTRY_FILE_NAME: &str = "registry.json";
 const POLICIES_JSON_FILE: &str = "tigerstyle-policies.json";
@@ -96,6 +99,74 @@ fn exported_policy_artifacts_drive_checker() {
     assert!(report.has_blocking_diagnostics());
 }
 
+#[test]
+fn execute_proof_rails_uses_command_output_as_receipt() {
+    let temp = TempDir::new().expect("temp dir should be created");
+    let registry = write_registry_value(&temp, proof_registry());
+    let fixture = temp.path().join("proof-fixture");
+    std::fs::create_dir_all(fixture.join("src")).expect("proof fixture dirs should be created");
+    std::fs::write(fixture.join("src/lib.rs"), "pub fn proof_witness() {}\n").expect("proof source should be written");
+    std::fs::write(
+        fixture.join("proof-command.sh"),
+        "#!/usr/bin/env bash\nset -euo pipefail\nprintf '%s\\n' 'proof-result: pass deterministic-effect-handlers'\n",
+    )
+    .expect("proof command should be written");
+
+    let output = Command::new(binary_path())
+        .arg("check")
+        .arg("--registry")
+        .arg(&registry)
+        .arg("--source")
+        .arg(&fixture)
+        .arg("--family")
+        .arg(VERIFICATION_FAMILY)
+        .arg("--execute-proof-rails")
+        .arg("--output")
+        .arg("json")
+        .output()
+        .expect("standards checker should run");
+    assert_success(&output);
+    let report = parse_report(&output);
+    assert_eq!(report.diagnostics.len(), 0);
+    assert!(report.evaluated_policy_ids.iter().any(|policy_id| policy_id == PROOF_POLICY_ID));
+}
+
+#[test]
+fn execute_proof_rails_replaces_stale_committed_receipt() {
+    let temp = TempDir::new().expect("temp dir should be created");
+    let registry =
+        write_registry_value(&temp, proof_registry_with_modes(EnforcementMode::Verified, EnforcementMode::Gate));
+    let fixture = temp.path().join("stale-proof-fixture");
+    std::fs::create_dir_all(fixture.join("src")).expect("proof fixture dirs should be created");
+    std::fs::write(fixture.join("src/lib.rs"), "pub fn proof_witness() {}\n").expect("proof source should be written");
+    std::fs::write(fixture.join("proof-receipt.txt"), "proof-result: pass deterministic-effect-handlers\n")
+        .expect("stale proof receipt should be written");
+    std::fs::write(
+        fixture.join("proof-command.sh"),
+        "#!/usr/bin/env bash\nset -euo pipefail\nprintf '%s\\n' 'proof-result: fail deterministic-effect-handlers'\n",
+    )
+    .expect("proof command should be written");
+
+    let output = Command::new(binary_path())
+        .arg("check")
+        .arg("--registry")
+        .arg(&registry)
+        .arg("--source")
+        .arg(&fixture)
+        .arg("--family")
+        .arg(VERIFICATION_FAMILY)
+        .arg("--execute-proof-rails")
+        .arg("--output")
+        .arg("json")
+        .output()
+        .expect("standards checker should run");
+    assert_failure(&output);
+    let report = parse_report(&output);
+    assert!(report.diagnostics.iter().any(|diagnostic| {
+        diagnostic.policy_id == PROOF_POLICY_ID && diagnostic.message.contains("missing pass signal")
+    }));
+}
+
 fn run_architecture_check(registry: &Path, source: &Path) -> Output {
     Command::new(binary_path())
         .arg("check")
@@ -155,8 +226,12 @@ fn repo_path(relative_path: &str) -> PathBuf {
 }
 
 fn write_registry(temp: &TempDir) -> PathBuf {
+    write_registry_value(temp, test_registry())
+}
+
+fn write_registry_value(temp: &TempDir, registry: PolicyRegistry) -> PathBuf {
     let registry_path = temp.path().join(REGISTRY_FILE_NAME);
-    let registry_json = serde_json::to_string(&test_registry()).expect("registry should serialize");
+    let registry_json = serde_json::to_string(&registry).expect("registry should serialize");
     std::fs::write(&registry_path, registry_json).expect("registry file should be written");
     registry_path
 }
@@ -177,6 +252,59 @@ fn test_registry() -> PolicyRegistry {
             ),
         ],
         seed_manifests: Vec::new(),
+    }
+}
+
+fn proof_registry() -> PolicyRegistry {
+    proof_registry_with_modes(EnforcementMode::Verified, EnforcementMode::Verified)
+}
+
+fn proof_registry_with_modes(current: EnforcementMode, target: EnforcementMode) -> PolicyRegistry {
+    PolicyRegistry {
+        schema_version: "test".to_owned(),
+        checker_ids: vec![CHECKER_ID.to_owned()],
+        policies: vec![verified_policy(current, target)],
+        seed_manifests: Vec::new(),
+    }
+}
+
+fn verified_policy(current: EnforcementMode, target: EnforcementMode) -> PolicyEntry {
+    PolicyEntry {
+        policy_id: PROOF_POLICY_ID.to_owned(),
+        pillar: VERIFICATION_FAMILY.to_owned(),
+        source_path: "docs/standards/source/testing.adoc".to_owned(),
+        source_heading: "Deterministic Effect Handlers".to_owned(),
+        source_anchor: "docs/standards/source/testing.adoc#deterministic-effect-handlers".to_owned(),
+        summary: "test verified policy".to_owned(),
+        classification: Classification::Hard,
+        enforcement_level: EnforcementLevel::Hard,
+        current_enforcement_mode: current,
+        target_enforcement_mode: target,
+        escalation_criteria: "proof command is executed".to_owned(),
+        mechanisms: Vec::new(),
+        deterministic_checker: EvidenceCommand::default(),
+        proof_rails: vec![ProofRail {
+            backend: "local-command-receipt".to_owned(),
+            command: "bash proof-command.sh".to_owned(),
+            source_paths: vec!["src/lib.rs".to_owned()],
+            proof_paths: vec!["proof-receipt.txt".to_owned()],
+            pass_signal: "proof-result: pass deterministic-effect-handlers".to_owned(),
+            trust_boundaries: vec!["temporary local command fixture".to_owned()],
+        }],
+        checker_owner: VERIFICATION_FAMILY.to_owned(),
+        checker_id: CHECKER_ID.to_owned(),
+        default_severity: Severity::Error,
+        suppression_requirements: hard_suppression_requirements(),
+        fixture_coverage: FixtureCoverage {
+            status: FixtureStatus::Covered,
+            compliant: Vec::new(),
+            noncompliant: Vec::new(),
+        },
+        verification_evidence_requirements: vec!["proof command receipt".to_owned()],
+        classification_rationale: "local command receipt is deterministic".to_owned(),
+        false_positive_risk: "low".to_owned(),
+        existing_enforcement: Vec::new(),
+        custom_checker_justification: "test".to_owned(),
     }
 }
 
