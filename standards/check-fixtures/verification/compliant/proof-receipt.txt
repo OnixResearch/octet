@@ -5,6 +5,8 @@ proof-environment: local-source-root
 trust-boundary: opt-in command execution proves local fixture proof command evidence shape, not arbitrary downstream semantic correctness
 proof-verifier: tigerstyle-standards@proof-receipt/v1
 proof-verifier-blake3: 9fb0cd3ff1b2898eba4c6f71479f93ae3cdc80f869cd8ae5e6355235ec5f9aef
+proof-verifier-binary: tigerstyle-standards
+proof-verifier-binary-blake3: 25306cbaef89c92cf3359b8ba0e8560cf555ff41a62e8996cee2d1318ccd455f
 proof-toolchain: rust-toolchain.toml
 proof-toolchain-blake3: 50692525e10589e3a1060a0ed0adc77f695ad5617121b572e549ef9855ceb7a8
 proof-command-blake3: 71f5bd32c3c27f0795008e3ff5ee56e7736a7fac5b2d06fbb38cd8d19b4a6609

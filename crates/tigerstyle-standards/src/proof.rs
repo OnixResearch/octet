@@ -183,6 +183,8 @@ fn receipt_verifier_enabled(rail: &ProofRail) -> bool {
     let verifier = &rail.receipt_verifier;
     !verifier.verifier_id.is_empty()
         || !verifier.verifier_digest.is_empty()
+        || !verifier.verifier_binary_path.is_empty()
+        || !verifier.verifier_binary_digest.is_empty()
         || !verifier.toolchain_id.is_empty()
         || !verifier.toolchain_digest.is_empty()
 }
@@ -197,6 +199,8 @@ fn expected_receipt_verifier_lines(rail: &ProofRail) -> Vec<String> {
     let ReceiptVerifier {
         verifier_id,
         verifier_digest,
+        verifier_binary_path,
+        verifier_binary_digest,
         toolchain_id,
         toolchain_digest,
     } = &rail.receipt_verifier;
@@ -206,6 +210,12 @@ fn expected_receipt_verifier_lines(rail: &ProofRail) -> Vec<String> {
     }
     if !verifier_digest.is_empty() {
         lines.push(format!("proof-verifier-blake3: {verifier_digest}"));
+    }
+    if !verifier_binary_path.is_empty() {
+        lines.push(format!("proof-verifier-binary: {verifier_binary_path}"));
+    }
+    if !verifier_binary_digest.is_empty() {
+        lines.push(format!("proof-verifier-binary-blake3: {verifier_binary_digest}"));
     }
     if !toolchain_id.is_empty() {
         lines.push(format!("proof-toolchain: {toolchain_id}"));

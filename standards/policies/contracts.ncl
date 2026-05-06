@@ -112,6 +112,8 @@ in
 let ReceiptVerifierContract = {
   verifier_id | String | default = "",
   verifier_digest | String | default = "",
+  verifier_binary_path | String | default = "",
+  verifier_binary_digest | String | default = "",
   toolchain_id | String | default = "",
   toolchain_digest | String | default = "",
 }

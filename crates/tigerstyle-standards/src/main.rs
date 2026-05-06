@@ -5,6 +5,7 @@
 #![allow(clippy::module_name_repetitions)]
 //! CLI shell for `tigerstyle-standards`.
 
+use std::env;
 use std::fs;
 use std::io;
 use std::path::Path;
@@ -389,6 +390,15 @@ fn proof_receipt_verifier(rail: &tigerstyle_standards::model::ProofRail) -> Stri
     if !verifier.verifier_digest.is_empty() {
         lines.push(format!("proof-verifier-blake3: {}", verifier.verifier_digest));
     }
+    if !verifier.verifier_binary_path.is_empty() {
+        lines.push(format!("proof-verifier-binary: {}", verifier.verifier_binary_path));
+    }
+    if !verifier.verifier_binary_digest.is_empty() {
+        lines.push(format!(
+            "proof-verifier-binary-blake3: {}",
+            current_exe_blake3().unwrap_or_else(|| "unavailable".to_owned())
+        ));
+    }
     if !verifier.toolchain_id.is_empty() {
         lines.push(format!("proof-toolchain: {}", verifier.toolchain_id));
     }
@@ -404,6 +414,12 @@ fn proof_receipt_verifier(rail: &tigerstyle_standards::model::ProofRail) -> Stri
         ) + "
 "
     }
+}
+
+fn current_exe_blake3() -> Option<String> {
+    let path = env::current_exe().ok()?;
+    let bytes = fs::read(path).ok()?;
+    Some(blake3::hash(&bytes).to_hex().to_string())
 }
 
 fn proof_receipt_binding(rail: &tigerstyle_standards::model::ProofRail, sources: &[SourceFile]) -> String {

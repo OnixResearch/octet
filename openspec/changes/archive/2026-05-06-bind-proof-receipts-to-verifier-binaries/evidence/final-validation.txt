@@ -1,0 +1,119 @@
+$ tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT; nix develop -c bash -c "cargo fmt --all --check && CARGO_TARGET_DIR=$tmp cargo clippy -p tigerstyle-standards --all-targets -- -D warnings"
+   Compiling proc-macro2 v1.0.106
+   Compiling unicode-ident v1.0.24
+   Compiling quote v1.0.45
+   Compiling find-msvc-tools v0.1.9
+    Checking utf8parse v0.2.2
+   Compiling serde_core v1.0.228
+   Compiling shlex v1.3.0
+    Checking anstyle v1.0.14
+    Checking is_terminal_polyfill v1.70.2
+    Checking anstyle-query v1.1.5
+   Compiling zmij v1.0.21
+    Checking colorchoice v1.0.5
+    Checking cfg-if v1.0.4
+    Checking clap_lex v1.1.0
+   Compiling thiserror v2.0.18
+   Compiling heck v0.5.0
+   Compiling libc v0.2.186
+    Checking strsim v0.11.1
+   Compiling serde v1.0.228
+   Compiling serde_json v1.0.149
+   Compiling getrandom v0.4.2
+   Compiling rustix v1.1.4
+    Checking memchr v2.8.0
+    Checking arrayvec v0.7.6
+    Checking cpufeatures v0.3.0
+    Checking itoa v1.0.18
+    Checking constant_time_eq v0.4.2
+    Checking arrayref v0.3.9
+    Checking linux-raw-sys v0.12.1
+    Checking bitflags v2.11.1
+    Checking diff v0.1.13
+    Checking once_cell v1.21.4
+    Checking yansi v1.0.1
+    Checking fastrand v2.4.1
+    Checking anstyle-parse v1.0.0
+   Compiling cc v1.2.61
+    Checking anstream v1.0.0
+    Checking pretty_assertions v1.4.1
+    Checking clap_builder v4.6.0
+   Compiling syn v2.0.117
+   Compiling blake3 v1.8.5
+    Checking tempfile v3.27.0
+   Compiling thiserror-impl v2.0.18
+   Compiling clap_derive v4.6.1
+   Compiling serde_derive v1.0.228
+    Checking clap v4.6.1
+    Checking tigerstyle-standards v0.1.0 (/home/brittonr/git/tigerstyle/crates/tigerstyle-standards)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 17.84s
+$ nix build .#checks.x86_64-linux.docs-examples --no-link -L
+these 2 derivations will be built:
+  /nix/store/2sfs896aldakin1x65lwpc5hmdckhiw6-tigerstyle-fingerprint-docs-review-gate-docs-check.drv
+  /nix/store/sdq0qkja59ni5g4k2mg2yq2aaqv1fvhj-tigerstyle-docs-examples.drv
+cannot build on 'ssh-ng://root@10.10.10.1': error: failed to start SSH connection to '10.10.10.1'
+building '/nix/store/2sfs896aldakin1x65lwpc5hmdckhiw6-tigerstyle-fingerprint-docs-review-gate-docs-check.drv'...
+tigerstyle-fingerprint-docs-review-gate-docs-check> For fingerprint docs/examples, use one review command:
+tigerstyle-fingerprint-docs-review-gate-docs-check> nix build .#checks.x86_64-linux.docs-examples --no-link -L
+tigerstyle-fingerprint-docs-review-gate-docs-check> is part of `nix flake check` and is the CI/operator gate for executable
+tigerstyle-fingerprint-docs-review-gate-docs-check> focused flake checks or direct Cargo filters only after the aggregate gate
+tigerstyle-fingerprint-docs-review-gate-docs-check> ## 2026-05-05: Function fingerprint docs and checks
+tigerstyle-fingerprint-docs-review-gate-docs-check> nix build .#checks.x86_64-linux.docs-examples --no-link -L
+building '/nix/store/sdq0qkja59ni5g4k2mg2yq2aaqv1fvhj-tigerstyle-docs-examples.drv'...
+$ openspec validate bind-proof-receipts-to-verifier-binaries --strict
+Change 'bind-proof-receipts-to-verifier-binaries' is valid
+$ openspec validate standards-codification --strict
+Specification 'standards-codification' is valid
+$ openspec validate --specs --strict
+- Validating...
+✓ spec/architecture
+✓ spec/autofix
+✓ spec/concurrency
+✓ spec/consumer-integration
+✓ spec/documentation
+✓ spec/naming
+✓ spec/openspec-stage-authoring
+✓ spec/openspec-task-governance
+✓ spec/performance
+✓ spec/purity
+✓ spec/resilience
+✓ spec/safety
+✓ spec/standards-codification
+✓ spec/structure
+Totals: 14 passed, 0 failed (14 items)
+$ openspec list
+Changes:
+  bind-proof-receipts-to-verifier-binaries     0/6 tasks     just now
+$ git diff --check
+$ git diff --cached --check
+openspec/changes/archive/2026-05-06-bind-proof-receipts-to-verifier-binaries/evidence/final-validation.txt:362: trailing whitespace.
++tigerstyle-fingerprint-human-summary-docs>
+openspec/changes/archive/2026-05-06-bind-proof-receipts-to-verifier-binaries/evidence/final-validation.txt:365: trailing whitespace.
++tigerstyle-fingerprint-human-summary-docs>
+openspec/changes/archive/2026-05-06-bind-proof-receipts-to-verifier-binaries/evidence/final-validation.txt:367: trailing whitespace.
++tigerstyle-fingerprint-human-summary-docs>
+openspec/changes/archive/2026-05-06-bind-proof-receipts-to-verifier-binaries/evidence/final-validation.txt:382: trailing whitespace.
++tigerstyle-fingerprint-json-output-docs>
+openspec/changes/archive/2026-05-06-bind-proof-receipts-to-verifier-binaries/evidence/final-validation.txt:385: trailing whitespace.
++tigerstyle-fingerprint-source-scanner-docs>
+openspec/changes/archive/2026-05-06-bind-proof-receipts-to-verifier-binaries/evidence/final-validation.txt:388: trailing whitespace.
++tigerstyle-fingerprint-json-output-docs>
+openspec/changes/archive/2026-05-06-bind-proof-receipts-to-verifier-binaries/evidence/final-validation.txt:390: trailing whitespace.
++tigerstyle-fingerprint-json-output-docs>
+openspec/changes/archive/2026-05-06-bind-proof-receipts-to-verifier-binaries/evidence/final-validation.txt:392: trailing whitespace.
++tigerstyle-fingerprint-source-scanner-docs>
+openspec/changes/archive/2026-05-06-bind-proof-receipts-to-verifier-binaries/evidence/final-validation.txt:394: trailing whitespace.
++tigerstyle-fingerprint-source-scanner-docs>
+openspec/changes/archive/2026-05-06-bind-proof-receipts-to-verifier-binaries/evidence/final-validation.txt:420: trailing whitespace.
++tigerstyle-fingerprint-warning-summary-docs>
+openspec/changes/archive/2026-05-06-bind-proof-receipts-to-verifier-binaries/evidence/final-validation.txt:423: trailing whitespace.
++tigerstyle-fingerprint-lifecycle-docs>
+openspec/changes/archive/2026-05-06-bind-proof-receipts-to-verifier-binaries/evidence/final-validation.txt:426: trailing whitespace.
++tigerstyle-fingerprint-warning-summary-docs>
+openspec/changes/archive/2026-05-06-bind-proof-receipts-to-verifier-binaries/evidence/final-validation.txt:428: trailing whitespace.
++tigerstyle-fingerprint-warning-summary-docs>
+openspec/changes/archive/2026-05-06-bind-proof-receipts-to-verifier-binaries/evidence/final-validation.txt:432: trailing whitespace.
++tigerstyle-fingerprint-lifecycle-docs>
+openspec/changes/archive/2026-05-06-bind-proof-receipts-to-verifier-binaries/evidence/final-validation.txt:434: trailing whitespace.
++tigerstyle-fingerprint-lifecycle-docs>
+openspec/changes/archive/2026-05-06-bind-proof-receipts-to-verifier-binaries/evidence/focused-checks.txt:81: new blank line at EOF.
