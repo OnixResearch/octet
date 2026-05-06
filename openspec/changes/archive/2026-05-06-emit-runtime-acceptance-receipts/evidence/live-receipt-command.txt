@@ -1,0 +1,1 @@
+$ nix develop -c bash openspec/changes/emit-runtime-acceptance-receipts/evidence/live-receipt-run.sh

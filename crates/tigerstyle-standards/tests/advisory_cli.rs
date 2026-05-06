@@ -32,6 +32,7 @@ const POLICIES_JSON_FILE: &str = "tigerstyle-policies.json";
 const CHECK_CONFIG_TOML_FILE: &str = "tigerstyle-check-config.toml";
 const SEED_MANIFESTS_JSON_FILE: &str = "tigerstyle-seed-manifests.json";
 const PROOF_BUNDLES_JSON_FILE: &str = "tigerstyle-proof-bundles.json";
+const CONFIG_RECEIPT_FAMILIES_JSON_FILE: &str = "tigerstyle-config-receipt-families.json";
 const ARTIFACT_MANIFEST_JSON_FILE: &str = "tigerstyle-artifact-manifest.json";
 const PROOF_BUNDLE_SCHEMA_VERSION: &str = "tigerstyle-proof-bundle/v1";
 const ARTIFACT_MANIFEST_SCHEMA_VERSION: &str = "tigerstyle-artifact-manifest/v1";
@@ -117,6 +118,100 @@ fn exported_policy_artifacts_drive_checker() {
     assert_failure(&output);
     let report = parse_report(&output);
     assert!(report.has_blocking_diagnostics());
+}
+
+#[test]
+fn export_artifacts_emits_profile_bound_acceptance_receipt() {
+    let temp = TempDir::new().expect("temp dir should be created");
+    let registry = write_registry(&temp);
+    let artifact_dir = temp.path().join("generated-with-receipt");
+    let receipt_path = temp.path().join("receipts/acceptance.json");
+    let profile_path = temp.path().join("profile.json");
+    let profile_json = test_profile_json();
+    std::fs::write(&profile_path, profile_json).expect("profile JSON should be written");
+
+    let output = Command::new(binary_path())
+        .arg("export-artifacts")
+        .arg("--registry")
+        .arg(&registry)
+        .arg("--out-dir")
+        .arg(&artifact_dir)
+        .arg("--profile-json")
+        .arg(&profile_path)
+        .arg("--receipt-out")
+        .arg(&receipt_path)
+        .arg("--verification-command")
+        .arg("nickel export --format json standards/profiles/local.ncl")
+        .output()
+        .expect("artifact export should run");
+    assert_success(&output);
+
+    let receipt_text = std::fs::read_to_string(&receipt_path).expect("receipt should be readable");
+    let receipt: serde_json::Value = serde_json::from_str(&receipt_text).expect("receipt should parse as JSON");
+    assert_eq!(receipt["schema_version"], "tigerstyle-acceptance-receipt/v1");
+    assert_eq!(receipt["status"], "passed");
+    assert_eq!(receipt["config_digest"], blake3_hex(profile_json));
+    assert_eq!(receipt["config_digest_detail"]["algorithm"], "blake3");
+    assert_eq!(receipt["raw_log_path"], "");
+    assert!(receipt.get("stdout").is_none());
+    assert!(receipt.get("stderr").is_none());
+    assert_receipt_artifact(&receipt, POLICIES_JSON_FILE, &artifact_dir);
+    assert_receipt_artifact(&receipt, CHECK_CONFIG_TOML_FILE, &artifact_dir);
+    assert_receipt_artifact(&receipt, CONFIG_RECEIPT_FAMILIES_JSON_FILE, &artifact_dir);
+    assert_receipt_artifact(&receipt, ARTIFACT_MANIFEST_JSON_FILE, &artifact_dir);
+    assert!(
+        receipt["verification_commands"].as_array().expect("commands should be an array")[0]["command"]
+            .as_str()
+            .expect("command should be a string")
+            .contains("nickel export")
+    );
+}
+
+#[test]
+fn export_artifacts_receipt_requires_profile_json() {
+    let temp = TempDir::new().expect("temp dir should be created");
+    let registry = write_registry(&temp);
+    let artifact_dir = temp.path().join("generated-without-profile");
+    let receipt_path = temp.path().join("receipts/acceptance.json");
+
+    let output = Command::new(binary_path())
+        .arg("export-artifacts")
+        .arg("--registry")
+        .arg(&registry)
+        .arg("--out-dir")
+        .arg(&artifact_dir)
+        .arg("--receipt-out")
+        .arg(&receipt_path)
+        .output()
+        .expect("artifact export should run");
+    assert_failure(&output);
+    assert!(String::from_utf8_lossy(&output.stderr).contains("pass --profile-json when --receipt-out is set"));
+}
+
+#[test]
+fn export_artifacts_receipt_rejects_non_blake3_profile_digest() {
+    let temp = TempDir::new().expect("temp dir should be created");
+    let registry = write_registry(&temp);
+    let artifact_dir = temp.path().join("generated-bad-profile");
+    let receipt_path = temp.path().join("receipts/acceptance.json");
+    let profile_path = temp.path().join("profile.json");
+    std::fs::write(&profile_path, test_profile_json().replace("blake3", "sha256"))
+        .expect("profile JSON should be written");
+
+    let output = Command::new(binary_path())
+        .arg("export-artifacts")
+        .arg("--registry")
+        .arg(&registry)
+        .arg("--out-dir")
+        .arg(&artifact_dir)
+        .arg("--profile-json")
+        .arg(&profile_path)
+        .arg("--receipt-out")
+        .arg(&receipt_path)
+        .output()
+        .expect("artifact export should run");
+    assert_failure(&output);
+    assert!(String::from_utf8_lossy(&output.stderr).contains("unsupported config digest algorithm `sha256`"));
 }
 
 #[test]
@@ -709,6 +804,32 @@ fn export_artifacts(registry: &Path, artifact_dir: &Path) {
         .output()
         .expect("artifact export should run");
     assert_success(&output);
+}
+
+fn assert_receipt_artifact(receipt: &serde_json::Value, artifact_name: &str, artifact_dir: &Path) {
+    let artifact_path = artifact_dir.join(artifact_name);
+    let artifact_bytes = std::fs::read(&artifact_path).expect("receipt artifact should be readable");
+    let artifact_digest = blake3::hash(&artifact_bytes).to_hex().to_string();
+    let artifacts = receipt["artifacts"].as_array().expect("receipt artifacts should be an array");
+    assert!(artifacts.iter().any(|artifact| {
+        artifact["path"] == artifact_path.display().to_string()
+            && artifact["blake3"] == artifact_digest
+            && artifact["bytes"] == u64::try_from(artifact_bytes.len()).expect("artifact length fits u64")
+    }));
+}
+
+fn test_profile_json() -> &'static str {
+    r#"{
+  "schema_version": "tigerstyle-run-profile/v1",
+  "profile_id": "cli-receipt-test",
+  "source_paths": ["standards/policies/registry.ncl"],
+  "artifact_out_dir": "build/tigerstyle-artifacts",
+  "receipt_out_dir": "build/tigerstyle-receipts",
+  "config_digest_algorithm": "blake3",
+  "enabled_policy_families": ["architecture"],
+  "secret_refs": []
+}
+"#
 }
 
 fn write_executable_proof_fixture(temp: &TempDir, name: &str) -> PathBuf {
