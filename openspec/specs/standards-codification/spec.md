@@ -592,22 +592,16 @@ For type-state protocol policies, structural validation MUST reject configured r
 - THEN every focused check exits successfully and the saved transcript names the commands used
 
 ### Requirement: Verified Enforcement Rails [r[verified-enforcement-rails]]
-Tigerstyle policy artifacts MUST define verified-mode proof rails that bind proof evidence to deterministic commands, source coverage, receipt provenance, verifier identity, and build closure identity.
 
-#### Scenario: Verified receipts account for verifier build closure identity [r[verified-enforcement-rails.build-closure-accounting]]
-- GIVEN a verified proof rail with configured verifier build-closure identity and digest metadata
-- WHEN a proof receipt contains the pass signal but omits or changes the build-closure receipt lines
-- THEN the standards checker MUST emit a hard verified diagnostic for mismatched receipt verifier metadata
+Verified enforcement rails MUST bind proof receipts to command/source hashes, receipt provenance, verifier/toolchain identity, verifier binary identity, build-closure identity, and Nix derivation/recursive closure identity when those obligations are configured by policy artifacts.
 
-#### Scenario: Executed proof rails emit build closure receipt metadata [r[verified-enforcement-rails.generated-build-closure]]
-- GIVEN an executed proof rail with build-closure manifest paths
-- WHEN `tigerstyle-standards check --execute-proof-rails` synthesizes an in-memory receipt
-- THEN the generated receipt MUST include `proof-verifier-build-closure:` and `proof-verifier-build-closure-blake3:` lines derived from the configured manifest
+#### Scenario: Receipt records Nix derivation and recursive closure identity [r[verified-enforcement-rails.nix-closure-identity]]
 
-#### Scenario: Generated policy artifacts export build closure obligations [r[verified-enforcement-rails.export-build-closure]]
-- GIVEN the Nickel policy registry declares verifier build-closure obligations
-- WHEN `tigerstyle-standards export-artifacts` renders checker configuration
-- THEN the generated artifact MUST include build-closure identity, digest, and manifest path fields for downstream checkers
+- GIVEN a verified proof rail configured with verifier Nix derivation and recursive closure metadata
+- WHEN receipt-only proof checking evaluates a passing proof receipt
+- THEN the checker MUST require matching `proof-verifier-nix-derivation`, `proof-verifier-nix-derivation-blake3`, `proof-verifier-nix-closure`, and `proof-verifier-nix-closure-blake3` lines
+- AND generated proof command receipts MUST include those lines when `--execute-proof-rails` is enabled
+- AND generated policy artifacts MUST export the configured Nix derivation and closure obligations for downstream checkers
 
 ### Requirement: Reference Seed Corpus Vendoring [r[reference-seed-corpus-vendoring]]
 

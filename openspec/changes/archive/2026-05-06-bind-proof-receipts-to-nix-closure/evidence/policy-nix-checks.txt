@@ -1,0 +1,13 @@
+$ nix run .#tigerstyle-policy-validate
+$ nix build .#checks.x86_64-linux.standards-fixtures --no-link -L
+this derivation will be built:
+  /nix/store/92j1q2imfammlipdmhf5is5hh89b99s5-tigerstyle-standards-fixtures.drv
+cannot build on 'ssh-ng://root@10.10.10.1': error: failed to start SSH connection to '10.10.10.1'
+building '/nix/store/92j1q2imfammlipdmhf5is5hh89b99s5-tigerstyle-standards-fixtures.drv'...
+$ nix build .#checks.x86_64-linux.tigerstyle-standards-nix-closure-manifest --no-link -L
+these 2 derivations will be built:
+  /nix/store/w8lar1xqgw37s9hllpmlh4vsw63jv366-tigerstyle-standards-nix-closure-manifest.drv
+  /nix/store/kswa6nzblcj7q0z3gli79a5was677nv0-tigerstyle-standards-nix-closure-manifest-check.drv
+cannot build on 'ssh-ng://root@10.10.10.1': error: failed to start SSH connection to '10.10.10.1'
+building '/nix/store/w8lar1xqgw37s9hllpmlh4vsw63jv366-tigerstyle-standards-nix-closure-manifest.drv'...
+building '/nix/store/kswa6nzblcj7q0z3gli79a5was677nv0-tigerstyle-standards-nix-closure-manifest-check.drv'...

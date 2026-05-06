@@ -192,6 +192,11 @@ fn receipt_verifier_enabled(rail: &ProofRail) -> bool {
         || !verifier.verifier_build_closure.is_empty()
         || !verifier.verifier_build_closure_digest.is_empty()
         || !verifier.verifier_build_closure_paths.is_empty()
+        || !verifier.verifier_nix_derivation.is_empty()
+        || !verifier.verifier_nix_derivation_digest.is_empty()
+        || !verifier.verifier_nix_closure.is_empty()
+        || !verifier.verifier_nix_closure_digest.is_empty()
+        || !verifier.verifier_nix_closure_paths.is_empty()
         || !verifier.toolchain_id.is_empty()
         || !verifier.toolchain_digest.is_empty()
 }
@@ -211,6 +216,11 @@ fn expected_receipt_verifier_lines(rail: &ProofRail, sources: &[SourceFile]) -> 
         verifier_build_closure,
         verifier_build_closure_digest,
         verifier_build_closure_paths,
+        verifier_nix_derivation,
+        verifier_nix_derivation_digest,
+        verifier_nix_closure,
+        verifier_nix_closure_digest,
+        verifier_nix_closure_paths,
         toolchain_id,
         toolchain_digest,
     } = &rail.receipt_verifier;
@@ -234,6 +244,20 @@ fn expected_receipt_verifier_lines(rail: &ProofRail, sources: &[SourceFile]) -> 
         let digest = build_closure_digest(verifier_build_closure_paths, sources)
             .unwrap_or_else(|| verifier_build_closure_digest.clone());
         lines.push(format!("proof-verifier-build-closure-blake3: {digest}"));
+    }
+    if !verifier_nix_derivation.is_empty() {
+        lines.push(format!("proof-verifier-nix-derivation: {verifier_nix_derivation}"));
+    }
+    if !verifier_nix_derivation_digest.is_empty() {
+        lines.push(format!("proof-verifier-nix-derivation-blake3: {verifier_nix_derivation_digest}"));
+    }
+    if !verifier_nix_closure.is_empty() {
+        lines.push(format!("proof-verifier-nix-closure: {verifier_nix_closure}"));
+    }
+    if !verifier_nix_closure_digest.is_empty() {
+        let digest = build_closure_digest(verifier_nix_closure_paths, sources)
+            .unwrap_or_else(|| verifier_nix_closure_digest.clone());
+        lines.push(format!("proof-verifier-nix-closure-blake3: {digest}"));
     }
     if !toolchain_id.is_empty() {
         lines.push(format!("proof-toolchain: {toolchain_id}"));

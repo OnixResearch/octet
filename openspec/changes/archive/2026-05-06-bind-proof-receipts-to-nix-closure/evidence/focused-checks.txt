@@ -1,0 +1,19 @@
+$ nix develop -c bash -c 'cargo fmt --all --check && cargo test -p tigerstyle-standards execute_proof_rails_uses_command_output_as_receipt --test advisory_cli -- --nocapture && cargo test -p tigerstyle-standards receipt_only_proof_rail_rejects_verifier_receipt_without_nix_closure_digest --test advisory_cli -- --nocapture'
+cannot build on 'ssh-ng://root@10.10.10.1': error: failed to start SSH connection to '10.10.10.1'
+building '/nix/store/qd9agmily2wcixsnsapghphi8dcb143k-tigerstyle-standards-0.1.0.drv'...
+building '/nix/store/8mzpxcs290c9mjj0y3mg7nvpk43ww3pg-nix-shell-env.drv'...
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.11s
+     Running tests/advisory_cli.rs (/home/brittonr/.cargo-target/debug/deps/advisory_cli-c55b0a8ea7f01175)
+
+running 1 test
+test execute_proof_rails_uses_command_output_as_receipt ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out; finished in 0.04s
+
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.03s
+     Running tests/advisory_cli.rs (/home/brittonr/.cargo-target/debug/deps/advisory_cli-c55b0a8ea7f01175)
+
+running 1 test
+test receipt_only_proof_rail_rejects_verifier_receipt_without_nix_closure_digest ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out; finished in 0.03s

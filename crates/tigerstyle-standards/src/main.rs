@@ -404,9 +404,23 @@ fn proof_receipt_verifier(rail: &tigerstyle_standards::model::ProofRail, sources
         lines.push(format!("proof-verifier-build-closure: {}", verifier.verifier_build_closure));
     }
     if !verifier.verifier_build_closure_digest.is_empty() {
-        let digest =
-            build_closure_digest(verifier, sources).unwrap_or_else(|| verifier.verifier_build_closure_digest.clone());
+        let digest = build_closure_digest(&verifier.verifier_build_closure_paths, sources)
+            .unwrap_or_else(|| verifier.verifier_build_closure_digest.clone());
         lines.push(format!("proof-verifier-build-closure-blake3: {digest}"));
+    }
+    if !verifier.verifier_nix_derivation.is_empty() {
+        lines.push(format!("proof-verifier-nix-derivation: {}", verifier.verifier_nix_derivation));
+    }
+    if !verifier.verifier_nix_derivation_digest.is_empty() {
+        lines.push(format!("proof-verifier-nix-derivation-blake3: {}", verifier.verifier_nix_derivation_digest));
+    }
+    if !verifier.verifier_nix_closure.is_empty() {
+        lines.push(format!("proof-verifier-nix-closure: {}", verifier.verifier_nix_closure));
+    }
+    if !verifier.verifier_nix_closure_digest.is_empty() {
+        let digest = build_closure_digest(&verifier.verifier_nix_closure_paths, sources)
+            .unwrap_or_else(|| verifier.verifier_nix_closure_digest.clone());
+        lines.push(format!("proof-verifier-nix-closure-blake3: {digest}"));
     }
     if !verifier.toolchain_id.is_empty() {
         lines.push(format!("proof-toolchain: {}", verifier.toolchain_id));
@@ -431,16 +445,13 @@ fn current_exe_blake3() -> Option<String> {
     Some(blake3::hash(&bytes).to_hex().to_string())
 }
 
-fn build_closure_digest(
-    verifier: &tigerstyle_standards::model::ReceiptVerifier,
-    sources: &[SourceFile],
-) -> Option<String> {
-    if verifier.verifier_build_closure_paths.is_empty() {
+fn build_closure_digest(paths: &[String], sources: &[SourceFile]) -> Option<String> {
+    if paths.is_empty() {
         return None;
     }
     let mut matched_sources = sources
         .iter()
-        .filter(|source| verifier.verifier_build_closure_paths.iter().any(|pattern| source.path.contains(pattern)))
+        .filter(|source| paths.iter().any(|pattern| source.path.contains(pattern)))
         .collect::<Vec<_>>();
     if matched_sources.is_empty() {
         return None;

@@ -114,6 +114,11 @@ fn execute_proof_rails_uses_command_output_as_receipt() {
     )
     .expect("proof closure manifest should be written");
     std::fs::write(
+        fixture.join("proof-nix-closure.txt"),
+        "nix-derivation = tigerstyle-standards.drv\nclosure-source = exportReferencesGraph\n",
+    )
+    .expect("proof Nix closure manifest should be written");
+    std::fs::write(
         fixture.join("proof-command.sh"),
         "#!/usr/bin/env bash\nset -euo pipefail\nprintf '%s\\n' 'proof-result: pass deterministic-effect-handlers'\n",
     )
@@ -343,6 +348,49 @@ fn receipt_only_proof_rail_rejects_verifier_receipt_without_build_closure_digest
 }
 
 #[test]
+fn receipt_only_proof_rail_rejects_verifier_receipt_without_nix_closure_digest() {
+    let temp = TempDir::new().expect("temp dir should be created");
+    let registry = write_registry_value(&temp, proof_registry());
+    let fixture = temp.path().join("nix-closure-bound-proof-fixture");
+    std::fs::create_dir_all(fixture.join("src")).expect("proof fixture dirs should be created");
+    let source = "pub fn proof_witness() {}\n";
+    let build_closure = "verifier = tigerstyle-standards\nclosure-accounting = test manifest\n";
+    std::fs::write(fixture.join("src/lib.rs"), source).expect("proof source should be written");
+    std::fs::write(fixture.join("proof-build-closure.txt"), build_closure)
+        .expect("build closure manifest should be written");
+    std::fs::write(
+        fixture.join("proof-receipt.txt"),
+        format!(
+            "proof-receipt-schema: tigerstyle-proof-receipt/v1\nproof-backend: local-command-receipt\nproof-runner: tigerstyle-standards\nproof-environment: local-source-root\ntrust-boundary: test command receipt\nproof-verifier: tigerstyle-standards@proof-receipt/v1\nproof-verifier-blake3: 9fb0cd3ff1b2898eba4c6f71479f93ae3cdc80f869cd8ae5e6355235ec5f9aef\nproof-verifier-binary: tigerstyle-standards\nproof-verifier-binary-blake3: {}\nproof-verifier-build-closure: nix-tigerstyle-standards-build-closure/v1\nproof-verifier-build-closure-blake3: {}\nproof-toolchain: rust-toolchain.toml\nproof-toolchain-blake3: 50692525e10589e3a1060a0ed0adc77f695ad5617121b572e549ef9855ceb7a8\nproof-command-blake3: {}\nproof-source-blake3: {}:{}\nproof-result: pass deterministic-effect-handlers\n",
+            blake3_file_hex(binary_path()),
+            build_closure_digest_line(&fixture.join("proof-build-closure.txt")),
+            blake3_hex("bash proof-command.sh"),
+            fixture.join("src/lib.rs").display(),
+            blake3_hex(source),
+        ),
+    )
+    .expect("Nix-closure-bound proof receipt should be written");
+
+    let output = Command::new(binary_path())
+        .arg("check")
+        .arg("--registry")
+        .arg(&registry)
+        .arg("--source")
+        .arg(&fixture)
+        .arg("--family")
+        .arg(VERIFICATION_FAMILY)
+        .arg("--output")
+        .arg("json")
+        .output()
+        .expect("standards checker should run");
+    assert_failure(&output);
+    let report = parse_report(&output);
+    assert!(report.diagnostics.iter().any(|diagnostic| {
+        diagnostic.policy_id == PROOF_POLICY_ID && diagnostic.message.contains("mismatched receipt verifier metadata")
+    }));
+}
+
+#[test]
 fn execute_proof_rails_replaces_stale_committed_receipt() {
     let temp = TempDir::new().expect("temp dir should be created");
     let registry =
@@ -437,6 +485,11 @@ fn blake3_file_hex(path: &str) -> String {
     blake3::hash(&bytes).to_hex().to_string()
 }
 
+fn build_closure_digest_line(path: &Path) -> String {
+    let file_digest = blake3_file_hex(&path.display().to_string());
+    blake3_hex(&format!("{}:{}\n", path.display(), file_digest))
+}
+
 fn repo_path(relative_path: &str) -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../..")
@@ -526,6 +579,11 @@ fn verified_policy(current: EnforcementMode, target: EnforcementMode) -> PolicyE
                 verifier_build_closure: "nix-tigerstyle-standards-build-closure/v1".to_owned(),
                 verifier_build_closure_digest: "fixture-build-closure-digest".to_owned(),
                 verifier_build_closure_paths: vec!["proof-build-closure.txt".to_owned()],
+                verifier_nix_derivation: "tigerstyle-standards.drv".to_owned(),
+                verifier_nix_derivation_digest: blake3_hex("tigerstyle-standards.drv"),
+                verifier_nix_closure: "nix-store-recursive-closure/v1".to_owned(),
+                verifier_nix_closure_digest: "fixture-nix-closure-digest".to_owned(),
+                verifier_nix_closure_paths: vec!["proof-nix-closure.txt".to_owned()],
                 toolchain_id: "rust-toolchain.toml".to_owned(),
                 toolchain_digest: "50692525e10589e3a1060a0ed0adc77f695ad5617121b572e549ef9855ceb7a8".to_owned(),
             },
