@@ -100,12 +100,43 @@ let ReceiptBindingContract =
   ]
 in
 
+let ConfigReceiptOwnershipContract =
+  OneOf [
+    "nickel-authored",
+    "rust-derived",
+    "non-candidate",
+  ]
+in
+
+let ConfigReceiptFamilyStatusContract =
+  OneOf [
+    "planned",
+    "existing",
+    "non-candidate",
+  ]
+in
+
 let ReceiptProvenanceContract = {
   schema_version | String | default = "",
   runner | String | default = "",
   environment | String | default = "",
   requires_backend | Bool | default = false,
   requires_trust_boundary | Bool | default = false,
+}
+in
+
+let ConfigReceiptFamilyContract = {
+  family_id | NonEmptyString,
+  ownership | ConfigReceiptOwnershipContract,
+  owner_source_path | NonEmptyString,
+  artifact_path | String | default = "",
+  generation_command | NonEmptyString,
+  validation_command | NonEmptyString,
+  status | ConfigReceiptFamilyStatusContract,
+  config_digest_required | Bool | default = false,
+  positive_fixtures | Array NonEmptyString | default = [],
+  negative_fixtures | Array NonEmptyString | default = [],
+  exclusion_rationale | String | default = "",
 }
 in
 
@@ -268,10 +299,25 @@ let seed_cross_fields_valid = fun seed =>
   (!seed.proof_relevant) || std.array.length seed.local_acceptance > 0
 in
 
+let config_receipt_family_valid = fun family =>
+  if family.ownership == "nickel-authored" then
+    std.string.length family.artifact_path > 0
+    && std.string.length family.exclusion_rationale == 0
+    && family.config_digest_required
+  else if family.ownership == "rust-derived" then
+    std.string.length family.artifact_path > 0
+    && std.string.length family.exclusion_rationale == 0
+  else
+    family.status == "non-candidate"
+    && std.string.length family.artifact_path == 0
+    && std.string.length family.exclusion_rationale > 0
+in
+
 let RegistryCrossFieldContract =
   std.contract.from_predicate (fun registry =>
     std.array.all policy_cross_fields_valid registry.policies
     && std.array.all seed_cross_fields_valid registry.seed_manifests
+    && std.array.all config_receipt_family_valid registry.config_receipt_families
   )
 in
 
@@ -309,6 +355,7 @@ in
     checker_ids | Array CheckerIdContract,
     policies | Array PolicyEntryContract,
     seed_manifests | Array SeedManifestContract | default = [],
+    config_receipt_families | Array ConfigReceiptFamilyContract | default = [],
   },
 
   PolicyEntry = PolicyEntryContract,
@@ -320,6 +367,8 @@ in
   Mechanism = MechanismContract,
   ProofRail = ProofRailContract,
   SeedManifest = SeedManifestContract,
+  ConfigReceiptFamily = ConfigReceiptFamilyContract,
+  ConfigReceiptOwnership = ConfigReceiptOwnershipContract,
   ProofBundleArtifact = ProofBundleArtifactContract,
   ProofBundleSchemaVersion = ProofBundleSchemaVersionContract,
   ArtifactManifest = ArtifactManifestContract,

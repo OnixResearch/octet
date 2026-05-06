@@ -20,11 +20,13 @@ use clap::ValueEnum;
 use tigerstyle_standards::artifacts::ARTIFACT_MANIFEST_JSON_FILE;
 use tigerstyle_standards::artifacts::ArtifactManifest;
 use tigerstyle_standards::artifacts::CHECK_CONFIG_TOML_FILE;
+use tigerstyle_standards::artifacts::CONFIG_RECEIPT_FAMILIES_JSON_FILE;
 use tigerstyle_standards::artifacts::POLICIES_JSON_FILE;
 use tigerstyle_standards::artifacts::PROOF_BUNDLES_JSON_FILE;
 use tigerstyle_standards::artifacts::ProofBundleArtifact;
 use tigerstyle_standards::artifacts::SEED_MANIFESTS_JSON_FILE;
 use tigerstyle_standards::artifacts::artifact_manifest;
+use tigerstyle_standards::artifacts::config_receipt_family_artifact;
 use tigerstyle_standards::artifacts::proof_bundle_artifact;
 use tigerstyle_standards::artifacts::registry_has_verified_proof_rails;
 use tigerstyle_standards::artifacts::render_check_config_toml;
@@ -341,6 +343,7 @@ fn load_generated_artifact_texts(directory: &Path) -> Result<Vec<(String, String
         CHECK_CONFIG_TOML_FILE,
         SEED_MANIFESTS_JSON_FILE,
         PROOF_BUNDLES_JSON_FILE,
+        CONFIG_RECEIPT_FAMILIES_JSON_FILE,
     ]
     .into_iter()
     .map(|file_name| {
@@ -405,6 +408,7 @@ fn generated_artifact_texts(registry: &PolicyRegistry) -> Result<Vec<(String, St
         (CHECK_CONFIG_TOML_FILE.to_owned(), text_with_trailing_newline(&render_check_config_toml(registry))),
         (SEED_MANIFESTS_JSON_FILE.to_owned(), json_text(&seed_manifest_artifact(registry))?),
         (PROOF_BUNDLES_JSON_FILE.to_owned(), json_text(&proof_bundle_artifact(registry))?),
+        (CONFIG_RECEIPT_FAMILIES_JSON_FILE.to_owned(), json_text(&config_receipt_family_artifact(registry))?),
     ])
 }
 

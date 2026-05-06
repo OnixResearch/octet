@@ -1,0 +1,91 @@
+$ nix develop -c bash -c 'cargo fmt --check && cargo test -p tigerstyle-standards --lib --tests && nickel export --format json standards/policies/registry.ncl >/tmp/registry.json && nickel export --format json standards/profiles/local.ncl >/tmp/profile.json && nickel export --format json standards/receipts/fixtures/valid/acceptance_receipt.ncl >/tmp/receipt.json && openspec validate add-nickel-config-receipt-boundaries --strict --json && git diff --check'
+
+running 30 tests
+test artifacts::tests::seed_manifest_artifact_preserves_registry_schema ... ok
+test artifacts::tests::check_config_output_is_stable ... ok
+test tests::advisory_rule_accepts_small_public_surface ... ok
+test tests::architecture_checks_accept_compliant_workspace_shape ... ok
+test tests::architecture_checks_accept_artifact_backed_type_state_api ... ok
+test tests::advisory_rule_reports_through_run_checks_without_blocking ... ok
+test tests::architecture_checks_accept_artifact_backed_shell_constructor_scope ... ok
+test tests::architecture_checks_reject_artifact_backed_ambient_capability ... ok
+test tests::architecture_checks_reject_artifact_backed_raw_type_state ... ok
+test tests::architecture_checks_reject_core_runtime_dependency ... ok
+test tests::architecture_checks_reject_external_domain_leakage ... ok
+test tests::architecture_checks_reject_missing_core_no_std ... ok
+test tests::architecture_checks_reject_multiple_core_fixture_shapes ... ok
+test tests::architecture_checks_reject_thick_root_file ... ok
+test tests::family_selection_skips_unselected_policy ... ok
+test tests::fixture_manifest_accepts_covered_hard_policies ... ok
+test tests::blanket_suppression_scope_is_rejected ... ok
+test tests::fixture_manifest_rejects_missing_noncompliant_fixture ... ok
+test tests::idioms_selection_skips_architecture_family_diagnostics ... ok
+test tests::json_output_is_stable ... ok
+test tests::markdown_output_is_stable ... ok
+test tests::missing_suppression_metadata_returns_blocking_diagnostics ... ok
+test tests::proof_rail_checks_accept_passing_receipt ... ok
+test tests::proof_rail_checks_reject_missing_pass_signal ... ok
+test tests::proof_rail_family_isolation_skips_verification_diagnostics ... ok
+test tests::proof_rail_default_selection_rejects_relevant_noncompliant_receipt ... ok
+test tests::resource_checks_accept_bounded_channel ... ok
+test tests::resource_checks_reject_unbounded_channel ... ok
+test tests::unknown_policy_is_rejected ... ok
+test tests::valid_suppression_is_reported_as_active ... ok
+
+test result: ok. 30 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 19 tests
+test advisory_only_cli_report_exits_successfully ... ok
+test hard_policy_cli_report_exits_with_failure ... ok
+test artifact_backed_manifest_rejects_tampered_generated_artifact ... ok
+test artifact_backed_manifest_rejects_missing_manifest_before_policy_json_parse ... ok
+test artifact_backed_manifest_rejects_missing_manifest_file ... ok
+test exported_policy_artifacts_drive_checker ... ok
+test receipt_only_proof_rail_rejects_unbound_stale_receipt ... ok
+test receipt_only_proof_rail_rejects_verifier_receipt_without_binary_digest ... ok
+test receipt_only_proof_rail_rejects_hash_bound_receipt_without_provenance ... ok
+test receipt_only_proof_rail_rejects_provenance_receipt_without_verifier_digest ... ok
+test exported_proof_bundle_preserves_verified_rail_schema ... ok
+test artifact_backed_proof_bundle_rejects_missing_bundle_file ... ok
+test artifact_backed_proof_bundle_rejects_unsupported_schema_version ... ok
+test receipt_only_proof_rail_rejects_verifier_receipt_without_nix_closure_digest ... ok
+test receipt_only_proof_rail_rejects_verifier_receipt_without_build_closure_digest ... ok
+test receipt_only_proof_rail_rejects_verifier_receipt_without_nix_closure_graph_digest ... ok
+test execute_proof_rails_replaces_stale_committed_receipt ... ok
+test artifact_backed_proof_bundle_accepts_complete_bundle ... ok
+test execute_proof_rails_uses_command_output_as_receipt ... ok
+
+test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.11s
+
+{
+  "items": [
+    {
+      "id": "add-nickel-config-receipt-boundaries",
+      "type": "change",
+      "valid": true,
+      "issues": [],
+      "durationMs": 1
+    }
+  ],
+  "summary": {
+    "totals": {
+      "items": 1,
+      "passed": 1,
+      "failed": 0
+    },
+    "byType": {
+      "change": {
+        "items": 1,
+        "passed": 1,
+        "failed": 0
+      }
+    }
+  },
+  "version": "1.0"
+}

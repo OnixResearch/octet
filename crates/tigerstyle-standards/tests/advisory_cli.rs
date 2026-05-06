@@ -861,6 +861,7 @@ fn test_registry() -> PolicyRegistry {
             ),
         ],
         seed_manifests: Vec::new(),
+        config_receipt_families: Vec::new(),
     }
 }
 
@@ -874,6 +875,7 @@ fn proof_registry_with_modes(current: EnforcementMode, target: EnforcementMode) 
         checker_ids: vec![CHECKER_ID.to_owned()],
         policies: vec![verified_policy(current, target)],
         seed_manifests: Vec::new(),
+        config_receipt_families: Vec::new(),
     }
 }
 

@@ -1,0 +1,10 @@
+$ nix develop -c bash -c 'tmp=$(mktemp -d); nickel export --format json standards/policies/registry.ncl > "$tmp/registry.json"; tigerstyle-standards export-artifacts --registry "$tmp/registry.json" --out-dir "$tmp/out"; cp "$tmp/out/tigerstyle-artifact-manifest.json" /tmp/manifest.json; python - <<PY
+import json
+m=json.load(open("/tmp/manifest.json"))
+paths=[a["path"] for a in m["artifacts"]]
+print(paths)
+assert "tigerstyle-config-receipt-families.json" in paths
+print("config/receipt artifact freshness covered")
+PY'
+['tigerstyle-check-config.toml', 'tigerstyle-config-receipt-families.json', 'tigerstyle-policies.json', 'tigerstyle-proof-bundles.json', 'tigerstyle-seed-manifests.json']
+config/receipt artifact freshness covered

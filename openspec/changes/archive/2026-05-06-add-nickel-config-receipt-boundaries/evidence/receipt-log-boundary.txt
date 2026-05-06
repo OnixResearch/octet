@@ -1,0 +1,3 @@
+raw_log_path is optional debug metadata only; acceptance receipt validation binds evidence through config_digest and verification_evidence digests, not raw logs.
+raw_log_path logs/debug.log
+raw logs remain debug aids
