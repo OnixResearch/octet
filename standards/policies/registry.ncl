@@ -1164,7 +1164,7 @@ in
           verifier_id = "tigerstyle-standards@proof-receipt/v1",
           verifier_digest = "9fb0cd3ff1b2898eba4c6f71479f93ae3cdc80f869cd8ae5e6355235ec5f9aef",
           verifier_binary_path = "tigerstyle-standards",
-          verifier_binary_digest = "b3c824e791af9fd4f58200f8a2f3723668decc5bb1a7751cb4880fa8a642c4de",
+          verifier_binary_digest = "f441cb3dbf3b49e6df671f716c81538b53bca0f277db26cbfd3f0270c1880252",
           verifier_build_closure = "nix-tigerstyle-standards-build-closure/v1",
           verifier_build_closure_digest = "372b744f6321abc8065322b626388256dcabe4111f772d50a6c6a50afd030a55",
           verifier_build_closure_paths = ["proof-build-closure.txt"],

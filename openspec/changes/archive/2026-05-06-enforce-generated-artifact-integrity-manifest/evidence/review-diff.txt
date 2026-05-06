@@ -1,0 +1,601 @@
+diff --git a/crates/tigerstyle-standards/src/artifacts.rs b/crates/tigerstyle-standards/src/artifacts.rs
+index 0008cb18..7aeceb85 100644
+--- a/crates/tigerstyle-standards/src/artifacts.rs
++++ b/crates/tigerstyle-standards/src/artifacts.rs
+@@ -20,12 +20,40 @@ pub const CHECK_CONFIG_TOML_FILE: &str = "tigerstyle-check-config.toml";
+ pub const SEED_MANIFESTS_JSON_FILE: &str = "tigerstyle-seed-manifests.json";
+ /// Proof-bundle artifact file name.
+ pub const PROOF_BUNDLES_JSON_FILE: &str = "tigerstyle-proof-bundles.json";
++/// Generated artifact integrity manifest file name.
++pub const ARTIFACT_MANIFEST_JSON_FILE: &str = "tigerstyle-artifact-manifest.json";
+ /// Supported proof-bundle artifact schema version.
+ pub const PROOF_BUNDLE_SCHEMA_VERSION: &str = "tigerstyle-proof-bundle/v1";
++/// Supported generated artifact manifest schema version.
++pub const ARTIFACT_MANIFEST_SCHEMA_VERSION: &str = "tigerstyle-artifact-manifest/v1";
+
+ const GENERATED_ARTIFACT_SCHEMA_VERSION: &str = "1";
+ const GENERATED_FROM: &str = "standards/policies/registry.ncl";
+
++/// Deterministic generated artifact integrity manifest.
++#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
++pub struct ArtifactManifest {
++    /// Artifact manifest schema version.
++    pub schema_version: String,
++    /// Source policy registry path.
++    pub generated_from: String,
++    /// Registry schema version this manifest was generated from.
++    pub registry_schema_version: String,
++    /// Generated artifacts covered by this manifest.
++    pub artifacts: Vec<ArtifactManifestEntry>,
++}
++
++/// One generated artifact digest entry.
++#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
++pub struct ArtifactManifestEntry {
++    /// Generated artifact file name.
++    pub path: String,
++    /// BLAKE3 digest over the exact written artifact bytes.
++    pub blake3: String,
++    /// Exact written artifact byte length.
++    pub bytes: u64,
++}
++
+ /// Deterministic seed-manifest export artifact.
+ #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+ pub struct SeedManifestArtifact {
+@@ -63,6 +91,102 @@ pub struct ProofBundleEntry {
+     pub proof_rail: ProofRail,
+ }
+
++/// Build the generated artifact integrity manifest from exact artifact texts.
++///
++/// # Panics
++///
++/// Panics only if an in-memory artifact text length does not fit in `u64`.
++#[must_use]
++pub fn artifact_manifest(
++    registry: &PolicyRegistry,
++    artifacts: &[(impl AsRef<str>, impl AsRef<str>)],
++) -> ArtifactManifest {
++    let mut entries = artifacts
++        .iter()
++        .map(|(path, text)| {
++            let text = text.as_ref();
++            ArtifactManifestEntry {
++                path: path.as_ref().to_owned(),
++                blake3: blake3::hash(text.as_bytes()).to_hex().to_string(),
++                bytes: u64::try_from(text.len()).expect("artifact text length should fit u64"),
++            }
++        })
++        .collect::<Vec<_>>();
++    entries.sort_by(|left, right| left.path.cmp(&right.path));
++    ArtifactManifest {
++        schema_version: ARTIFACT_MANIFEST_SCHEMA_VERSION.to_owned(),
++        generated_from: GENERATED_FROM.to_owned(),
++        registry_schema_version: registry.schema_version.clone(),
++        artifacts: entries,
++    }
++}
++
++/// Validate generated artifact digests against a manifest without parsing policy metadata.
++///
++/// # Panics
++///
++/// Panics only if an in-memory artifact text length does not fit in `u64`.
++#[must_use]
++pub fn validate_artifact_manifest_texts(
++    manifest: &ArtifactManifest,
++    artifacts: &[(impl AsRef<str>, impl AsRef<str>)],
++) -> Vec<String> {
++    let mut errors = Vec::new();
++    if manifest.schema_version != ARTIFACT_MANIFEST_SCHEMA_VERSION {
++        errors.push(format!(
++            "unsupported artifact manifest schema version `{}`; expected `{}`",
++            manifest.schema_version, ARTIFACT_MANIFEST_SCHEMA_VERSION
++        ));
++    }
++
++    let mut expected_entries = artifacts
++        .iter()
++        .map(|(path, text)| {
++            let text = text.as_ref();
++            ArtifactManifestEntry {
++                path: path.as_ref().to_owned(),
++                blake3: blake3::hash(text.as_bytes()).to_hex().to_string(),
++                bytes: u64::try_from(text.len()).expect("artifact text length should fit u64"),
++            }
++        })
++        .collect::<Vec<_>>();
++    expected_entries.sort_by(|left, right| left.path.cmp(&right.path));
++    for expected_entry in &expected_entries {
++        match manifest.artifacts.iter().find(|entry| entry.path == expected_entry.path) {
++            Some(actual) if actual == expected_entry => {}
++            Some(actual) => errors.push(format!(
++                "artifact integrity mismatch for `{}`; expected blake3 {} bytes {}, got blake3 {} bytes {}",
++                expected_entry.path, expected_entry.blake3, expected_entry.bytes, actual.blake3, actual.bytes
++            )),
++            None => errors.push(format!("artifact manifest is missing generated artifact `{}`", expected_entry.path)),
++        }
++    }
++    for actual in &manifest.artifacts {
++        if !expected_entries.iter().any(|entry| entry.path == actual.path) {
++            errors.push(format!("artifact manifest contains stale or unknown generated artifact `{}`", actual.path));
++        }
++    }
++
++    errors
++}
++
++/// Validate generated artifact digests and registry schema against a manifest.
++#[must_use]
++pub fn validate_artifact_manifest(
++    registry: &PolicyRegistry,
++    manifest: &ArtifactManifest,
++    artifacts: &[(impl AsRef<str>, impl AsRef<str>)],
++) -> Vec<String> {
++    let mut errors = validate_artifact_manifest_texts(manifest, artifacts);
++    if manifest.registry_schema_version != registry.schema_version {
++        errors.push(format!(
++            "artifact manifest registry schema version `{}` does not match policy registry `{}`",
++            manifest.registry_schema_version, registry.schema_version
++        ));
++    }
++    errors
++}
++
+ /// Build the proof-bundle artifact from a registry.
+ #[must_use]
+ pub fn proof_bundle_artifact(registry: &PolicyRegistry) -> ProofBundleArtifact {
+diff --git a/crates/tigerstyle-standards/src/main.rs b/crates/tigerstyle-standards/src/main.rs
+index 43eda670..c21c89a2 100644
+--- a/crates/tigerstyle-standards/src/main.rs
++++ b/crates/tigerstyle-standards/src/main.rs
+@@ -17,15 +17,20 @@ use std::process::ExitCode;
+ use clap::Parser;
+ use clap::Subcommand;
+ use clap::ValueEnum;
++use tigerstyle_standards::artifacts::ARTIFACT_MANIFEST_JSON_FILE;
++use tigerstyle_standards::artifacts::ArtifactManifest;
+ use tigerstyle_standards::artifacts::CHECK_CONFIG_TOML_FILE;
+ use tigerstyle_standards::artifacts::POLICIES_JSON_FILE;
+ use tigerstyle_standards::artifacts::PROOF_BUNDLES_JSON_FILE;
+ use tigerstyle_standards::artifacts::ProofBundleArtifact;
+ use tigerstyle_standards::artifacts::SEED_MANIFESTS_JSON_FILE;
++use tigerstyle_standards::artifacts::artifact_manifest;
+ use tigerstyle_standards::artifacts::proof_bundle_artifact;
+ use tigerstyle_standards::artifacts::registry_has_verified_proof_rails;
+ use tigerstyle_standards::artifacts::render_check_config_toml;
+ use tigerstyle_standards::artifacts::seed_manifest_artifact;
++use tigerstyle_standards::artifacts::validate_artifact_manifest;
++use tigerstyle_standards::artifacts::validate_artifact_manifest_texts;
+ use tigerstyle_standards::artifacts::validate_proof_bundle_artifact;
+ use tigerstyle_standards::diagnostic::Diagnostic;
+ use tigerstyle_standards::diagnostic::DiagnosticInput;
+@@ -169,22 +174,35 @@ fn run_cli(cli: Cli) -> Result<bool, CliError> {
+ }
+
+ fn run_check_command(args: CheckArgs) -> Result<bool, CliError> {
+-    let registry = load_registry_for_check(&args)?;
+-    let mut sources = load_sources(&args.source)?;
++    if args.registry.is_some() && args.policy_artifacts_dir.is_some() {
++        return Err(CliError::Config {
++            message: "pass either --registry or --policy-artifacts-dir, not both".to_owned(),
++        });
++    }
++
+     let selection = FamilySelection::from_families(args.family);
+-    if let Some(policy_artifacts_dir) = &args.policy_artifacts_dir {
+-        let diagnostics = validate_artifact_backed_proof_bundle(&registry, policy_artifacts_dir);
+-        if !diagnostics.is_empty() {
+-            let report = CheckReport {
+-                diagnostics,
+-                active_suppressions: Vec::new(),
+-                evaluated_policy_ids: Vec::new(),
+-                policy_evaluations: Vec::new(),
+-            };
+-            emit_report(args.output, &report)?;
+-            return Ok(report.has_blocking_diagnostics());
++    let registry = if let Some(policy_artifacts_dir) = &args.policy_artifacts_dir {
++        match load_artifact_backed_registry(policy_artifacts_dir)? {
++            ArtifactBackedRegistry::Valid(registry) => registry,
++            ArtifactBackedRegistry::Diagnostics(diagnostics) => {
++                let report = CheckReport {
++                    diagnostics,
++                    active_suppressions: Vec::new(),
++                    evaluated_policy_ids: Vec::new(),
++                    policy_evaluations: Vec::new(),
++                };
++                emit_report(args.output, &report)?;
++                return Ok(report.has_blocking_diagnostics());
++            }
+         }
+-    }
++    } else if let Some(registry) = &args.registry {
++        load_json::<PolicyRegistry>(registry)?
++    } else {
++        return Err(CliError::Config {
++            message: "pass --registry or --policy-artifacts-dir".to_owned(),
++        });
++    };
++    let mut sources = load_sources(&args.source)?;
+     if args.execute_proof_rails {
+         let executed = execute_relevant_proof_rails(&registry, &sources, &selection, &args.source);
+         sources.retain(|source| !executed.proof_path_patterns.iter().any(|pattern| source.path.contains(pattern)));
+@@ -205,10 +223,13 @@ fn run_export_artifacts_command(args: &ExportArtifactsArgs) -> Result<bool, CliE
+         path: args.out_dir.clone(),
+         source,
+     })?;
+-    write_json(&args.out_dir.join(POLICIES_JSON_FILE), &registry)?;
+-    write_text(&args.out_dir.join(CHECK_CONFIG_TOML_FILE), &render_check_config_toml(&registry))?;
+-    write_json(&args.out_dir.join(SEED_MANIFESTS_JSON_FILE), &seed_manifest_artifact(&registry))?;
+-    write_json(&args.out_dir.join(PROOF_BUNDLES_JSON_FILE), &proof_bundle_artifact(&registry))?;
++
++    let generated_artifacts = generated_artifact_texts(&registry)?;
++    let manifest_text = json_text(&artifact_manifest(&registry, &generated_artifacts))?;
++    for (file_name, text) in &generated_artifacts {
++        write_text(&args.out_dir.join(file_name), text)?;
++    }
++    write_text(&args.out_dir.join(ARTIFACT_MANIFEST_JSON_FILE), &manifest_text)?;
+     Ok(false)
+ }
+
+@@ -243,17 +264,105 @@ where T: serde::de::DeserializeOwned {
+     })
+ }
+
+-fn load_registry_for_check(args: &CheckArgs) -> Result<PolicyRegistry, CliError> {
+-    match (&args.registry, &args.policy_artifacts_dir) {
+-        (Some(registry), None) => load_json::<PolicyRegistry>(registry),
+-        (None, Some(directory)) => load_json::<PolicyRegistry>(&directory.join(POLICIES_JSON_FILE)),
+-        (Some(_), Some(_)) => Err(CliError::Config {
+-            message: "pass either --registry or --policy-artifacts-dir, not both".to_owned(),
+-        }),
+-        (None, None) => Err(CliError::Config {
+-            message: "pass --registry or --policy-artifacts-dir".to_owned(),
+-        }),
++enum ArtifactBackedRegistry {
++    Valid(PolicyRegistry),
++    Diagnostics(Vec<Diagnostic>),
++}
++
++fn load_artifact_backed_registry(directory: &Path) -> Result<ArtifactBackedRegistry, CliError> {
++    let manifest_path = directory.join(ARTIFACT_MANIFEST_JSON_FILE);
++    let manifest = match load_json::<ArtifactManifest>(&manifest_path) {
++        Ok(manifest) => manifest,
++        Err(error) => {
++            return Ok(ArtifactBackedRegistry::Diagnostics(vec![artifact_manifest_diagnostic(
++                manifest_path.display().to_string(),
++                format!("missing or unreadable artifact integrity manifest: {error}"),
++            )]));
++        }
++    };
++    let generated_artifacts = match load_generated_artifact_texts(directory) {
++        Ok(artifacts) => artifacts,
++        Err(error) => {
++            return Ok(ArtifactBackedRegistry::Diagnostics(vec![artifact_manifest_diagnostic(
++                manifest_path.display().to_string(),
++                error,
++            )]));
++        }
++    };
++    let manifest_diagnostics = artifact_manifest_diagnostics(
++        &manifest_path.display().to_string(),
++        validate_artifact_manifest_texts(&manifest, &generated_artifacts),
++    );
++    if !manifest_diagnostics.is_empty() {
++        return Ok(ArtifactBackedRegistry::Diagnostics(manifest_diagnostics));
++    }
++
++    let policies_text = generated_artifacts
++        .iter()
++        .find(|(file_name, _)| file_name == POLICIES_JSON_FILE)
++        .map(|(_, text)| text)
++        .expect("generated artifact loader should include policies JSON");
++    let registry = serde_json::from_str::<PolicyRegistry>(policies_text).map_err(|source| CliError::Json {
++        path: directory.join(POLICIES_JSON_FILE),
++        source,
++    })?;
++    let diagnostics = validate_policy_artifact_directory(&registry, &manifest, &generated_artifacts, directory);
++    if diagnostics.is_empty() {
++        Ok(ArtifactBackedRegistry::Valid(registry))
++    } else {
++        Ok(ArtifactBackedRegistry::Diagnostics(diagnostics))
++    }
++}
++
++fn validate_policy_artifact_directory(
++    registry: &PolicyRegistry,
++    manifest: &ArtifactManifest,
++    generated_artifacts: &[(String, String)],
++    directory: &Path,
++) -> Vec<Diagnostic> {
++    let manifest_path = directory.join(ARTIFACT_MANIFEST_JSON_FILE).display().to_string();
++    let mut diagnostics = artifact_manifest_diagnostics(
++        &manifest_path,
++        validate_artifact_manifest(registry, manifest, generated_artifacts),
++    );
++    if diagnostics.is_empty() {
++        diagnostics.extend(validate_artifact_backed_proof_bundle(registry, directory));
+     }
++    diagnostics
++}
++
++fn artifact_manifest_diagnostics(path: &str, messages: Vec<String>) -> Vec<Diagnostic> {
++    messages.into_iter().map(|message| artifact_manifest_diagnostic(path.to_owned(), message)).collect()
++}
++
++fn load_generated_artifact_texts(directory: &Path) -> Result<Vec<(String, String)>, String> {
++    [
++        POLICIES_JSON_FILE,
++        CHECK_CONFIG_TOML_FILE,
++        SEED_MANIFESTS_JSON_FILE,
++        PROOF_BUNDLES_JSON_FILE,
++    ]
++    .into_iter()
++    .map(|file_name| {
++        let path = directory.join(file_name);
++        fs::read_to_string(&path)
++            .map(|text| (file_name.to_owned(), text))
++            .map_err(|error| format!("failed to read generated artifact `{}`: {error}", path.display()))
++    })
++    .collect()
++}
++
++fn artifact_manifest_diagnostic(path: String, message: String) -> Diagnostic {
++    Diagnostic::new(DiagnosticInput {
++        policy_id: "tigerstyle.generated-artifacts.integrity-manifest".to_owned(),
++        source_section: "openspec/specs/standards-codification/spec.md#generated-artifact-integrity-manifest"
++            .to_owned(),
++        path,
++        line: None,
++        severity: Severity::Error,
++        message,
++        remediation: "regenerate policy artifacts with tigerstyle-standards export-artifacts and consume the complete generated directory".to_owned(),
++    })
+ }
+
+ fn validate_artifact_backed_proof_bundle(registry: &PolicyRegistry, directory: &Path) -> Vec<Diagnostic> {
+@@ -290,15 +399,30 @@ fn proof_bundle_diagnostic(path: String, message: String) -> Diagnostic {
+     })
+ }
+
+-fn write_json<T>(path: &Path, value: &T) -> Result<(), CliError>
++fn generated_artifact_texts(registry: &PolicyRegistry) -> Result<Vec<(String, String)>, CliError> {
++    Ok(vec![
++        (POLICIES_JSON_FILE.to_owned(), json_text(registry)?),
++        (CHECK_CONFIG_TOML_FILE.to_owned(), text_with_trailing_newline(&render_check_config_toml(registry))),
++        (SEED_MANIFESTS_JSON_FILE.to_owned(), json_text(&seed_manifest_artifact(registry))?),
++        (PROOF_BUNDLES_JSON_FILE.to_owned(), json_text(&proof_bundle_artifact(registry))?),
++    ])
++}
++
++fn json_text<T>(value: &T) -> Result<String, CliError>
+ where T: serde::Serialize {
+     let text = serde_json::to_string_pretty(value).map_err(|source| CliError::Serialize { source })?;
+-    write_text(path, &text)
++    Ok(text_with_trailing_newline(&text))
+ }
+
+-fn write_text(path: &Path, text: &str) -> Result<(), CliError> {
++fn text_with_trailing_newline(text: &str) -> String {
+     let mut text = text.to_owned();
+-    text.push('\n');
++    if !text.ends_with('\n') {
++        text.push('\n');
++    }
++    text
++}
++
++fn write_text(path: &Path, text: &str) -> Result<(), CliError> {
+     fs::write(path, text).map_err(|source| CliError::Write {
+         path: path.to_path_buf(),
+         source,
+diff --git a/crates/tigerstyle-standards/tests/advisory_cli.rs b/crates/tigerstyle-standards/tests/advisory_cli.rs
+index aa746465..68672d82 100644
+--- a/crates/tigerstyle-standards/tests/advisory_cli.rs
++++ b/crates/tigerstyle-standards/tests/advisory_cli.rs
+@@ -32,7 +32,9 @@ const POLICIES_JSON_FILE: &str = "tigerstyle-policies.json";
+ const CHECK_CONFIG_TOML_FILE: &str = "tigerstyle-check-config.toml";
+ const SEED_MANIFESTS_JSON_FILE: &str = "tigerstyle-seed-manifests.json";
+ const PROOF_BUNDLES_JSON_FILE: &str = "tigerstyle-proof-bundles.json";
++const ARTIFACT_MANIFEST_JSON_FILE: &str = "tigerstyle-artifact-manifest.json";
+ const PROOF_BUNDLE_SCHEMA_VERSION: &str = "tigerstyle-proof-bundle/v1";
++const ARTIFACT_MANIFEST_SCHEMA_VERSION: &str = "tigerstyle-artifact-manifest/v1";
+ const ADVISORY_FIXTURE: &str = "standards/check-fixtures/architecture/advisory/public-api-budget";
+ const HARD_FAILURE_FIXTURE: &str = "standards/check-fixtures/architecture/noncompliant/missing-no-std";
+
+@@ -92,6 +94,19 @@ fn exported_policy_artifacts_drive_checker() {
+     assert!(artifact_dir.join(CHECK_CONFIG_TOML_FILE).is_file());
+     assert!(artifact_dir.join(SEED_MANIFESTS_JSON_FILE).is_file());
+     assert!(artifact_dir.join(PROOF_BUNDLES_JSON_FILE).is_file());
++    assert!(artifact_dir.join(ARTIFACT_MANIFEST_JSON_FILE).is_file());
++
++    let manifest = std::fs::read_to_string(artifact_dir.join(ARTIFACT_MANIFEST_JSON_FILE))
++        .expect("artifact manifest should be readable");
++    let manifest: serde_json::Value = serde_json::from_str(&manifest).expect("artifact manifest should parse as JSON");
++    assert_eq!(manifest["schema_version"], ARTIFACT_MANIFEST_SCHEMA_VERSION);
++    assert!(
++        manifest["artifacts"].as_array().expect("manifest artifacts should be an array").iter().any(
++            |entry| entry["path"] == POLICIES_JSON_FILE
++                && entry["blake3"].as_str().is_some()
++                && entry["bytes"].as_u64().is_some()
++        )
++    );
+
+     let config =
+         std::fs::read_to_string(artifact_dir.join(CHECK_CONFIG_TOML_FILE)).expect("check config should be readable");
+@@ -104,6 +119,66 @@ fn exported_policy_artifacts_drive_checker() {
+     assert!(report.has_blocking_diagnostics());
+ }
+
++#[test]
++fn artifact_backed_manifest_rejects_tampered_generated_artifact() {
++    let temp = TempDir::new().expect("temp dir should be created");
++    let registry = write_registry(&temp);
++    let artifact_dir = temp.path().join("generated-tampered");
++    export_artifacts(&registry, &artifact_dir);
++    std::fs::write(artifact_dir.join(CHECK_CONFIG_TOML_FILE), "schema_version = \"tampered\"\n")
++        .expect("tampered check config should be written");
++
++    let output = run_architecture_artifact_check(&artifact_dir, &repo_path(HARD_FAILURE_FIXTURE));
++    assert_failure(&output);
++    let report = parse_report(&output);
++    assert!(report.diagnostics.iter().any(|diagnostic| {
++        diagnostic.policy_id == "tigerstyle.generated-artifacts.integrity-manifest"
++            && diagnostic.message.contains("artifact integrity mismatch")
++            && diagnostic.message.contains(CHECK_CONFIG_TOML_FILE)
++    }));
++}
++
++#[test]
++fn artifact_backed_manifest_rejects_missing_manifest_file() {
++    let temp = TempDir::new().expect("temp dir should be created");
++    let registry = write_registry(&temp);
++    let artifact_dir = temp.path().join("generated-missing-manifest");
++    export_artifacts(&registry, &artifact_dir);
++    std::fs::remove_file(artifact_dir.join(ARTIFACT_MANIFEST_JSON_FILE)).expect("manifest should be removed");
++
++    let output = run_architecture_artifact_check(&artifact_dir, &repo_path(HARD_FAILURE_FIXTURE));
++    assert_failure(&output);
++    let report = parse_report(&output);
++    assert!(report.diagnostics.iter().any(|diagnostic| {
++        diagnostic.policy_id == "tigerstyle.generated-artifacts.integrity-manifest"
++            && diagnostic.message.contains("missing or unreadable artifact integrity manifest")
++    }));
++}
++
++#[test]
++fn artifact_backed_manifest_rejects_missing_manifest_before_policy_json_parse() {
++    let temp = TempDir::new().expect("temp dir should be created");
++    let registry = write_registry(&temp);
++    let artifact_dir = temp.path().join("generated-corrupt-policy-missing-manifest");
++    export_artifacts(&registry, &artifact_dir);
++    std::fs::write(artifact_dir.join(POLICIES_JSON_FILE), "{ not valid policy json")
++        .expect("corrupt policies artifact should be written");
++    std::fs::remove_file(artifact_dir.join(ARTIFACT_MANIFEST_JSON_FILE)).expect("manifest should be removed");
++
++    let output = run_architecture_artifact_check(&artifact_dir, &repo_path(HARD_FAILURE_FIXTURE));
++    assert_failure(&output);
++    assert!(
++        output.stderr.is_empty(),
++        "manifest-first validation should emit JSON diagnostics, not a CLI parse error: {}",
++        String::from_utf8_lossy(&output.stderr)
++    );
++    let report = parse_report(&output);
++    assert!(report.diagnostics.iter().any(|diagnostic| {
++        diagnostic.policy_id == "tigerstyle.generated-artifacts.integrity-manifest"
++            && diagnostic.message.contains("missing or unreadable artifact integrity manifest")
++    }));
++}
++
+ #[test]
+ fn exported_proof_bundle_preserves_verified_rail_schema() {
+     let temp = TempDir::new().expect("temp dir should be created");
+@@ -142,6 +217,7 @@ fn artifact_backed_proof_bundle_rejects_unsupported_schema_version() {
+     let proof_bundle = std::fs::read_to_string(&proof_bundle_path).expect("proof bundle should be readable");
+     std::fs::write(&proof_bundle_path, proof_bundle.replace(PROOF_BUNDLE_SCHEMA_VERSION, "tigerstyle-proof-bundle/v0"))
+         .expect("mutated proof bundle should be written");
++    refresh_manifest_entry(&artifact_dir, PROOF_BUNDLES_JSON_FILE);
+     let fixture = write_executable_proof_fixture(&temp, "unsupported-schema-proof-fixture");
+
+     let output = Command::new(binary_path())
+@@ -191,8 +267,9 @@ fn artifact_backed_proof_bundle_rejects_missing_bundle_file() {
+     assert_failure(&output);
+     let report = parse_report(&output);
+     assert!(report.diagnostics.iter().any(|diagnostic| {
+-        diagnostic.policy_id == "tigerstyle.verification.proof-bundle-schema"
+-            && diagnostic.message.contains("missing or unreadable proof-bundle artifact")
++        diagnostic.policy_id == "tigerstyle.generated-artifacts.integrity-manifest"
++            && diagnostic.message.contains("failed to read generated artifact")
++            && diagnostic.message.contains(PROOF_BUNDLES_JSON_FILE)
+     }));
+ }
+
+@@ -658,6 +735,23 @@ fn write_executable_proof_fixture(temp: &TempDir, name: &str) -> PathBuf {
+     fixture
+ }
+
++fn refresh_manifest_entry(artifact_dir: &Path, artifact_name: &str) {
++    let manifest_path = artifact_dir.join(ARTIFACT_MANIFEST_JSON_FILE);
++    let artifact_path = artifact_dir.join(artifact_name);
++    let artifact_bytes = std::fs::read(&artifact_path).expect("artifact should be readable for manifest refresh");
++    let manifest_text = std::fs::read_to_string(&manifest_path).expect("manifest should be readable");
++    let mut manifest: serde_json::Value = serde_json::from_str(&manifest_text).expect("manifest should parse as JSON");
++    let entries = manifest["artifacts"].as_array_mut().expect("manifest artifacts should be an array");
++    let entry = entries
++        .iter_mut()
++        .find(|entry| entry["path"] == artifact_name)
++        .expect("manifest entry should exist");
++    entry["blake3"] = serde_json::Value::String(blake3::hash(&artifact_bytes).to_hex().to_string());
++    entry["bytes"] = serde_json::Value::from(u64::try_from(artifact_bytes.len()).expect("artifact bytes fit u64"));
++    let text = serde_json::to_string_pretty(&manifest).expect("manifest should serialize");
++    std::fs::write(&manifest_path, format!("{text}\n")).expect("manifest should be refreshed");
++}
++
+ fn run_architecture_check(registry: &Path, source: &Path) -> Output {
+     Command::new(binary_path())
+         .arg("check")
+diff --git a/flake.nix b/flake.nix
+index 7c0fb3d4..5964a852 100644
+--- a/flake.nix
++++ b/flake.nix
+@@ -674,6 +674,11 @@ MAIN
+           test -s "$artifact_dir/tigerstyle-check-config.toml"
+           test -s "$artifact_dir/tigerstyle-seed-manifests.json"
+           test -s "$artifact_dir/tigerstyle-proof-bundles.json"
++          test -s "$artifact_dir/tigerstyle-artifact-manifest.json"
++          jq --exit-status '.schema_version == "tigerstyle-artifact-manifest/v1"' "$artifact_dir/tigerstyle-artifact-manifest.json" >/dev/null
++          jq --exit-status '(.artifacts | length) == 4' "$artifact_dir/tigerstyle-artifact-manifest.json" >/dev/null
++          jq --exit-status 'any(.artifacts[]; .path == "tigerstyle-policies.json" and (.blake3 | length) == 64 and .bytes > 0)' "$artifact_dir/tigerstyle-artifact-manifest.json" >/dev/null
++          jq --exit-status 'any(.artifacts[]; .path == "tigerstyle-check-config.toml" and (.blake3 | length) == 64 and .bytes > 0)' "$artifact_dir/tigerstyle-artifact-manifest.json" >/dev/null
+           jq --exit-status '.schema_version == "tigerstyle-proof-bundle/v1"' "$artifact_dir/tigerstyle-proof-bundles.json" >/dev/null
+           jq --exit-status 'any(.proof_bundles[]; .policy_id == "tigerstyle.verification.deterministic-effect-handlers")' "$artifact_dir/tigerstyle-proof-bundles.json" >/dev/null
+           jq --exit-status 'any(.proof_bundles[]; .proof_rail.receipt_verifier.verifier_nix_closure_graph_paths[] == "proof-nix-closure.graph")' "$artifact_dir/tigerstyle-proof-bundles.json" >/dev/null
+@@ -715,7 +720,7 @@ MAIN
+           grep --fixed-strings "9fb0cd3ff1b2898eba4c6f71479f93ae3cdc80f869cd8ae5e6355235ec5f9aef" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
+           grep --fixed-strings "proof_rail_receipt_verifier_binaries" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
+           grep --fixed-strings "proof_rail_receipt_verifier_binary_digests" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
+-          grep --fixed-strings "b3c824e791af9fd4f58200f8a2f3723668decc5bb1a7751cb4880fa8a642c4de" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
++          grep --fixed-strings "f441cb3dbf3b49e6df671f716c81538b53bca0f277db26cbfd3f0270c1880252" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
+           grep --fixed-strings "proof_rail_receipt_verifier_build_closures" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
+           grep --fixed-strings "nix-tigerstyle-standards-build-closure/v1" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
+           grep --fixed-strings "proof_rail_receipt_verifier_build_closure_digests" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
+diff --git a/standards/policies/contracts.ncl b/standards/policies/contracts.ncl
+index fd7b1c9a..d2b6b91d 100644
+--- a/standards/policies/contracts.ncl
++++ b/standards/policies/contracts.ncl
+@@ -208,6 +208,26 @@ let ProofBundleSchemaVersionContract = OneOf [
+ ]
+ in
+
++let ArtifactManifestSchemaVersionContract = OneOf [
++  "tigerstyle-artifact-manifest/v1",
++]
++in
++
++let ArtifactManifestEntryContract = {
++  path | NonEmptyString,
++  blake3 | NonEmptyString,
++  bytes | Number,
++}
++in
++
++let ArtifactManifestContract = {
++  schema_version | ArtifactManifestSchemaVersionContract,
++  generated_from | NonEmptyString,
++  registry_schema_version | NonEmptyString,
++  artifacts | Array ArtifactManifestEntryContract,
++}
++in
++
+ let ProofBundleEntryContract = {
+   policy_id | NonEmptyString,
+   rail_index | Number,
+@@ -302,5 +322,7 @@ in
+   SeedManifest = SeedManifestContract,
+   ProofBundleArtifact = ProofBundleArtifactContract,
+   ProofBundleSchemaVersion = ProofBundleSchemaVersionContract,
++  ArtifactManifest = ArtifactManifestContract,
++  ArtifactManifestSchemaVersion = ArtifactManifestSchemaVersionContract,
+   PolicyRegistryRules = RegistryCrossFieldContract,
+ }

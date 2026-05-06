@@ -20,11 +20,39 @@ pub const CHECK_CONFIG_TOML_FILE: &str = "tigerstyle-check-config.toml";
 pub const SEED_MANIFESTS_JSON_FILE: &str = "tigerstyle-seed-manifests.json";
 /// Proof-bundle artifact file name.
 pub const PROOF_BUNDLES_JSON_FILE: &str = "tigerstyle-proof-bundles.json";
+/// Generated artifact integrity manifest file name.
+pub const ARTIFACT_MANIFEST_JSON_FILE: &str = "tigerstyle-artifact-manifest.json";
 /// Supported proof-bundle artifact schema version.
 pub const PROOF_BUNDLE_SCHEMA_VERSION: &str = "tigerstyle-proof-bundle/v1";
+/// Supported generated artifact manifest schema version.
+pub const ARTIFACT_MANIFEST_SCHEMA_VERSION: &str = "tigerstyle-artifact-manifest/v1";
 
 const GENERATED_ARTIFACT_SCHEMA_VERSION: &str = "1";
 const GENERATED_FROM: &str = "standards/policies/registry.ncl";
+
+/// Deterministic generated artifact integrity manifest.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ArtifactManifest {
+    /// Artifact manifest schema version.
+    pub schema_version: String,
+    /// Source policy registry path.
+    pub generated_from: String,
+    /// Registry schema version this manifest was generated from.
+    pub registry_schema_version: String,
+    /// Generated artifacts covered by this manifest.
+    pub artifacts: Vec<ArtifactManifestEntry>,
+}
+
+/// One generated artifact digest entry.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ArtifactManifestEntry {
+    /// Generated artifact file name.
+    pub path: String,
+    /// BLAKE3 digest over the exact written artifact bytes.
+    pub blake3: String,
+    /// Exact written artifact byte length.
+    pub bytes: u64,
+}
 
 /// Deterministic seed-manifest export artifact.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -61,6 +89,102 @@ pub struct ProofBundleEntry {
     pub rail_index: u32,
     /// Verified proof rail metadata and receipt obligations.
     pub proof_rail: ProofRail,
+}
+
+/// Build the generated artifact integrity manifest from exact artifact texts.
+///
+/// # Panics
+///
+/// Panics only if an in-memory artifact text length does not fit in `u64`.
+#[must_use]
+pub fn artifact_manifest(
+    registry: &PolicyRegistry,
+    artifacts: &[(impl AsRef<str>, impl AsRef<str>)],
+) -> ArtifactManifest {
+    let mut entries = artifacts
+        .iter()
+        .map(|(path, text)| {
+            let text = text.as_ref();
+            ArtifactManifestEntry {
+                path: path.as_ref().to_owned(),
+                blake3: blake3::hash(text.as_bytes()).to_hex().to_string(),
+                bytes: u64::try_from(text.len()).expect("artifact text length should fit u64"),
+            }
+        })
+        .collect::<Vec<_>>();
+    entries.sort_by(|left, right| left.path.cmp(&right.path));
+    ArtifactManifest {
+        schema_version: ARTIFACT_MANIFEST_SCHEMA_VERSION.to_owned(),
+        generated_from: GENERATED_FROM.to_owned(),
+        registry_schema_version: registry.schema_version.clone(),
+        artifacts: entries,
+    }
+}
+
+/// Validate generated artifact digests against a manifest without parsing policy metadata.
+///
+/// # Panics
+///
+/// Panics only if an in-memory artifact text length does not fit in `u64`.
+#[must_use]
+pub fn validate_artifact_manifest_texts(
+    manifest: &ArtifactManifest,
+    artifacts: &[(impl AsRef<str>, impl AsRef<str>)],
+) -> Vec<String> {
+    let mut errors = Vec::new();
+    if manifest.schema_version != ARTIFACT_MANIFEST_SCHEMA_VERSION {
+        errors.push(format!(
+            "unsupported artifact manifest schema version `{}`; expected `{}`",
+            manifest.schema_version, ARTIFACT_MANIFEST_SCHEMA_VERSION
+        ));
+    }
+
+    let mut expected_entries = artifacts
+        .iter()
+        .map(|(path, text)| {
+            let text = text.as_ref();
+            ArtifactManifestEntry {
+                path: path.as_ref().to_owned(),
+                blake3: blake3::hash(text.as_bytes()).to_hex().to_string(),
+                bytes: u64::try_from(text.len()).expect("artifact text length should fit u64"),
+            }
+        })
+        .collect::<Vec<_>>();
+    expected_entries.sort_by(|left, right| left.path.cmp(&right.path));
+    for expected_entry in &expected_entries {
+        match manifest.artifacts.iter().find(|entry| entry.path == expected_entry.path) {
+            Some(actual) if actual == expected_entry => {}
+            Some(actual) => errors.push(format!(
+                "artifact integrity mismatch for `{}`; expected blake3 {} bytes {}, got blake3 {} bytes {}",
+                expected_entry.path, expected_entry.blake3, expected_entry.bytes, actual.blake3, actual.bytes
+            )),
+            None => errors.push(format!("artifact manifest is missing generated artifact `{}`", expected_entry.path)),
+        }
+    }
+    for actual in &manifest.artifacts {
+        if !expected_entries.iter().any(|entry| entry.path == actual.path) {
+            errors.push(format!("artifact manifest contains stale or unknown generated artifact `{}`", actual.path));
+        }
+    }
+
+    errors
+}
+
+/// Validate generated artifact digests and registry schema against a manifest.
+#[must_use]
+pub fn validate_artifact_manifest(
+    registry: &PolicyRegistry,
+    manifest: &ArtifactManifest,
+    artifacts: &[(impl AsRef<str>, impl AsRef<str>)],
+) -> Vec<String> {
+    let mut errors = validate_artifact_manifest_texts(manifest, artifacts);
+    if manifest.registry_schema_version != registry.schema_version {
+        errors.push(format!(
+            "artifact manifest registry schema version `{}` does not match policy registry `{}`",
+            manifest.registry_schema_version, registry.schema_version
+        ));
+    }
+    errors
 }
 
 /// Build the proof-bundle artifact from a registry.

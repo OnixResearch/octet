@@ -208,6 +208,26 @@ let ProofBundleSchemaVersionContract = OneOf [
 ]
 in
 
+let ArtifactManifestSchemaVersionContract = OneOf [
+  "tigerstyle-artifact-manifest/v1",
+]
+in
+
+let ArtifactManifestEntryContract = {
+  path | NonEmptyString,
+  blake3 | NonEmptyString,
+  bytes | Number,
+}
+in
+
+let ArtifactManifestContract = {
+  schema_version | ArtifactManifestSchemaVersionContract,
+  generated_from | NonEmptyString,
+  registry_schema_version | NonEmptyString,
+  artifacts | Array ArtifactManifestEntryContract,
+}
+in
+
 let ProofBundleEntryContract = {
   policy_id | NonEmptyString,
   rail_index | Number,
@@ -302,5 +322,7 @@ in
   SeedManifest = SeedManifestContract,
   ProofBundleArtifact = ProofBundleArtifactContract,
   ProofBundleSchemaVersion = ProofBundleSchemaVersionContract,
+  ArtifactManifest = ArtifactManifestContract,
+  ArtifactManifestSchemaVersion = ArtifactManifestSchemaVersionContract,
   PolicyRegistryRules = RegistryCrossFieldContract,
 }

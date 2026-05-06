@@ -1,0 +1,10 @@
+$ cargo test -p tigerstyle-standards --test advisory_cli artifact_backed_manifest -- --nocapture
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.04s
+     Running tests/advisory_cli.rs (/home/brittonr/.cargo-target/debug/deps/advisory_cli-c55b0a8ea7f01175)
+
+running 3 tests
+test artifact_backed_manifest_rejects_missing_manifest_before_policy_json_parse ... ok
+test artifact_backed_manifest_rejects_missing_manifest_file ... ok
+test artifact_backed_manifest_rejects_tampered_generated_artifact ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 16 filtered out; finished in 0.00s
