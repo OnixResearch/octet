@@ -1,0 +1,4 @@
+nix-derivation = tigerstyle-standards.drv
+nix-output = tigerstyle-standards-0.1.0
+closure-source = flake exportReferencesGraph tigerstyle-standards
+closure-scope = recursive runtime closure paths for verifier derivation

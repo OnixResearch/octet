@@ -359,6 +359,18 @@
           doCheck = false;
         };
 
+        tigerstyleStandardsNixClosureManifest = pkgs.runCommand "tigerstyle-standards-nix-closure-manifest" {
+          exportReferencesGraph = [ "tigerstyle-standards-closure" tigerstyleStandards ];
+        } ''
+          mkdir -p "$out"
+          cat > "$out/proof-nix-closure.txt" <<'EOF'
+          proof-verifier-nix-derivation: ${tigerstyleStandards.drvPath}
+          proof-verifier-nix-output: ${tigerstyleStandards}
+          proof-verifier-nix-closure: exportReferencesGraph:tigerstyle-standards-closure
+          EOF
+          cp tigerstyle-standards-closure "$out/tigerstyle-standards-closure.graph"
+        '';
+
         uiDriverVendorDir = craneLib.vendorCargoDeps {
           src = uiDriverSrc;
           cargoLock = ./tests/support/ui-driver/Cargo.lock;
@@ -664,13 +676,23 @@ MAIN
           grep --fixed-strings "9fb0cd3ff1b2898eba4c6f71479f93ae3cdc80f869cd8ae5e6355235ec5f9aef" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
           grep --fixed-strings "proof_rail_receipt_verifier_binaries" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
           grep --fixed-strings "proof_rail_receipt_verifier_binary_digests" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
-          grep --fixed-strings "4f683ae48d5effda2c06e48777b3c6a514af0b1e297be16c518fb68c4c29fcc1" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
+          grep --fixed-strings "769d83a708596addb12593979cd25b9566c5ecf546e743807e53872265af09df" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
           grep --fixed-strings "proof_rail_receipt_verifier_build_closures" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
           grep --fixed-strings "nix-tigerstyle-standards-build-closure/v1" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
           grep --fixed-strings "proof_rail_receipt_verifier_build_closure_digests" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
           grep --fixed-strings "372b744f6321abc8065322b626388256dcabe4111f772d50a6c6a50afd030a55" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
           grep --fixed-strings "proof_rail_receipt_verifier_build_closure_paths" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
           grep --fixed-strings "proof-build-closure.txt" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
+          grep --fixed-strings "proof_rail_receipt_verifier_nix_derivations" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
+          grep --fixed-strings "tigerstyle-standards.drv" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
+          grep --fixed-strings "proof_rail_receipt_verifier_nix_derivation_digests" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
+          grep --fixed-strings "395cf66a51543cf89028075deef9cf172bac902fd777f0ba0bead91aa68afec4" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
+          grep --fixed-strings "proof_rail_receipt_verifier_nix_closures" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
+          grep --fixed-strings "nix-store-recursive-closure/v1" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
+          grep --fixed-strings "proof_rail_receipt_verifier_nix_closure_digests" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
+          grep --fixed-strings "918d21e52d62044ea97d1b2c2e6bf5ec06751738984ff4b029ae156d903487c9" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
+          grep --fixed-strings "proof_rail_receipt_verifier_nix_closure_paths" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
+          grep --fixed-strings "proof-nix-closure.txt" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
           grep --fixed-strings "proof_rail_receipt_toolchains" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
           grep --fixed-strings "rust-toolchain.toml" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
           grep --fixed-strings "proof_rail_receipt_toolchain_digests" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
@@ -835,6 +857,7 @@ MAIN
           fingerprint-docs-downstream-smoke = fingerprintDocsDownstreamSmoke;
           dylint-driver = dylintDriver;
           tigerstyle-standards = tigerstyleStandards;
+          tigerstyle-standards-nix-closure-manifest = tigerstyleStandardsNixClosureManifest;
           tigerstyle-policy-export = policyExport;
           tigerstyle-policy-artifacts = policyArtifacts;
           tigerstyle-policy-validate = policyValidate;
@@ -992,6 +1015,14 @@ MAIN
 
           policy-registry = policyRegistryCheck;
           standards-fixtures = standardsFixtureCheck;
+          tigerstyle-standards-nix-closure-manifest = pkgs.runCommand "tigerstyle-standards-nix-closure-manifest-check" { } ''
+            test -s ${tigerstyleStandardsNixClosureManifest}/proof-nix-closure.txt
+            test -s ${tigerstyleStandardsNixClosureManifest}/tigerstyle-standards-closure.graph
+            grep -F "proof-verifier-nix-derivation:" ${tigerstyleStandardsNixClosureManifest}/proof-nix-closure.txt >/dev/null
+            grep -F "proof-verifier-nix-output: ${tigerstyleStandards}" ${tigerstyleStandardsNixClosureManifest}/proof-nix-closure.txt >/dev/null
+            grep -F "proof-verifier-nix-closure: exportReferencesGraph:tigerstyle-standards-closure" ${tigerstyleStandardsNixClosureManifest}/proof-nix-closure.txt >/dev/null
+            mkdir -p "$out"
+          '';
           policy-artifact-consumer-fixture = policyArtifactConsumerFixtureCheck;
         };
 
