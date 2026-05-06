@@ -263,6 +263,63 @@ pub enum SeedRole {
     CoreShellFixture,
 }
 
+/// Config or receipt source-of-truth ownership.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum ConfigReceiptOwnership {
+    /// Nickel owns human-authored config and exports deterministic tool input.
+    NickelAuthored,
+    /// Rust owns runtime DTOs and generates Nickel validation contracts.
+    RustDerived,
+    /// The surface must not be owned by Nickel contracts.
+    NonCandidate,
+}
+
+/// Config or receipt family lifecycle status.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum ConfigReceiptFamilyStatus {
+    /// Planned family with declared ownership.
+    Planned,
+    /// Existing family with concrete artifacts and validation commands.
+    Existing,
+    /// Explicitly excluded family.
+    NonCandidate,
+}
+
+/// One config or receipt family source-of-truth entry.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ConfigReceiptFamily {
+    /// Stable family ID.
+    pub family_id: String,
+    /// Source-of-truth ownership classification.
+    pub ownership: ConfigReceiptOwnership,
+    /// Authoritative Nickel or Rust source path, or rationale owner for non-candidates.
+    pub owner_source_path: String,
+    /// Generated artifact path when applicable.
+    #[serde(default)]
+    pub artifact_path: String,
+    /// Command that generates or reviews this family.
+    pub generation_command: String,
+    /// Command that validates this family.
+    pub validation_command: String,
+    /// Lifecycle status.
+    pub status: ConfigReceiptFamilyStatus,
+    /// True when receipts emitted from this family must bind a config digest or exported config
+    /// artifact identity.
+    #[serde(default)]
+    pub config_digest_required: bool,
+    /// Positive fixtures covering this family.
+    #[serde(default)]
+    pub positive_fixtures: Vec<String>,
+    /// Negative fixtures covering this family.
+    #[serde(default)]
+    pub negative_fixtures: Vec<String>,
+    /// Required rationale for non-candidate families.
+    #[serde(default)]
+    pub exclusion_rationale: String,
+}
+
 /// Reference seed manifest metadata.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct SeedManifest {
@@ -419,6 +476,9 @@ pub struct PolicyRegistry {
     /// Optional reference seed manifests.
     #[serde(default)]
     pub seed_manifests: Vec<SeedManifest>,
+    /// Config and receipt source-of-truth families.
+    #[serde(default)]
+    pub config_receipt_families: Vec<ConfigReceiptFamily>,
 }
 
 impl PolicyRegistry {

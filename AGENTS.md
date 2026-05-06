@@ -1,5 +1,11 @@
 # Agent Notes
 
+## Config and receipt source of truth
+- Prefer Nickel over JSON for human-authored config, profiles, fixture matrices, policy knobs, artifact retention, retry/timeout/stage lists, and environment overlays. If humans compose or override it before execution, author it as Nickel and export deterministic tool input from Nickel.
+- Prefer Rust-owned DTOs with generated Nickel contracts for emitted receipts, proof/evidence summaries, persisted checkpoints, and other versioned runtime outputs. If Rust emits it after execution and compatibility matters, derive the Nickel contract from Rust instead of hand-authoring JSON schema.
+- Raw secrets, cryptographic internals, serialized capabilities, wire discriminants, async/runtime behavior, hot-path constants, and raw logs are non-candidates: keep them out of Nickel-owned config/contracts except as references, handles, paths, allowlists, or explicit exclusion rationale.
+- Register every config/receipt family in `standards/policies/registry.ncl` under `config_receipt_families` as `nickel-authored`, `rust-derived`, or `non-candidate`; keep generated artifacts covered by `tigerstyle-artifact-manifest.json` freshness checks.
+
 ## Downstream rollout evidence
 - Use `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/` as the canonical Aspen phase-1 starter-rollout reference. Current `/home/brittonr/git/aspen` scripts may already include later scope and lint promotions. Replay helpers and checkpoint notes must cite that archive path explicitly, not just a local Aspen worktree.
 - Repo `.gitignore` ignores `/.pi`; shareable project-local pi skills for this repo belong under `.agents/skills/`, not `.pi/skills/`.

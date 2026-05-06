@@ -1,0 +1,13 @@
+command=review registry classifications and generated-contract ownership
+input=config/receipt registry diff, generated config/receipt artifact diff, Nickel profile/receipt contracts, and AGENTS.md guidance
+asserts=human-authored config is Nickel-owned, runtime receipts are Rust-derived, and non-candidates do not expose secrets or runtime internals to Nickel
+
+Reviewed classifications:
+- tigerstyle.run-profile: nickel-authored; humans compose profile/source/output/secret-reference handles before execution.
+- tigerstyle.generated-policy-artifacts: nickel-authored registry source exported deterministically; manifest freshness covers generated outputs.
+- tigerstyle.proof-bundle-receipt: rust-derived; Rust owns emitted proof bundle DTO shape and generated artifact freshness.
+- tigerstyle.acceptance-receipt: rust-derived/planned; fixture contract requires schema_version, run_id, timestamps, tool/version/git revision, config_digest, inputs, stages, artifacts, status, warnings/errors, verification_commands, and verification_evidence.
+- tigerstyle.raw-secrets-and-crypto-internals: non-candidate; Nickel sees only refs/handles/paths, not raw secrets or crypto internals.
+- tigerstyle.runtime-behavior-and-wire-discriminants: non-candidate; runtime behavior and protocol discriminants stay Rust-owned.
+
+Decision: ownership boundary matches the requested rule: Nickel for human-authored pre-execution config; Rust-derived contracts for emitted receipts; explicit non-candidates for raw secrets/logs/runtime internals.

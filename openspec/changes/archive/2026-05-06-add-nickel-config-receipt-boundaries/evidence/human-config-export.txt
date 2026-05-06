@@ -1,0 +1,11 @@
+$ nix develop -c bash -c 'nickel export --format json standards/profiles/local.ncl >/tmp/tigerstyle-profile.json && python - <<PY
+import json
+p=json.load(open("/tmp/tigerstyle-profile.json"))
+print(json.dumps(p, sort_keys=True))
+assert p["schema_version"] == "tigerstyle-run-profile/v1"
+assert p["config_digest_algorithm"] == "blake3"
+assert p["secret_refs"][0]["ref"] == "env:GITHUB_TOKEN"
+print("human run profile export deterministic")
+PY'
+{"artifact_out_dir": "build/tigerstyle-artifacts", "config_digest_algorithm": "blake3", "enabled_policy_families": ["architecture", "safety", "correctness"], "profile_id": "local-standards-check", "receipt_out_dir": "build/tigerstyle-receipts", "schema_version": "tigerstyle-run-profile/v1", "secret_refs": [{"id": "github-token", "ref": "env:GITHUB_TOKEN"}], "source_paths": ["docs/standards/source", "standards/policies/registry.ncl"]}
+human run profile export deterministic

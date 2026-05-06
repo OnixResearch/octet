@@ -531,6 +531,7 @@ impl Session<Authenticated> { pub fn send(self) {} }
                 sample_verified_policy(),
             ],
             seed_manifests: Vec::new(),
+            config_receipt_families: Vec::new(),
         }
     }
 

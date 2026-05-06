@@ -5,6 +5,7 @@ use std::collections::BTreeSet;
 use serde::Deserialize;
 use serde::Serialize;
 
+use crate::model::ConfigReceiptFamily;
 use crate::model::EnforcementLevel;
 use crate::model::EnforcementMode;
 use crate::model::PolicyEntry;
@@ -20,6 +21,8 @@ pub const CHECK_CONFIG_TOML_FILE: &str = "tigerstyle-check-config.toml";
 pub const SEED_MANIFESTS_JSON_FILE: &str = "tigerstyle-seed-manifests.json";
 /// Proof-bundle artifact file name.
 pub const PROOF_BUNDLES_JSON_FILE: &str = "tigerstyle-proof-bundles.json";
+/// Config/receipt source-of-truth family artifact file name.
+pub const CONFIG_RECEIPT_FAMILIES_JSON_FILE: &str = "tigerstyle-config-receipt-families.json";
 /// Generated artifact integrity manifest file name.
 pub const ARTIFACT_MANIFEST_JSON_FILE: &str = "tigerstyle-artifact-manifest.json";
 /// Supported proof-bundle artifact schema version.
@@ -65,6 +68,19 @@ pub struct SeedManifestArtifact {
     pub registry_schema_version: String,
     /// Seed manifests copied from the policy registry.
     pub seed_manifests: Vec<SeedManifest>,
+}
+
+/// Deterministic config/receipt source-of-truth family export artifact.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ConfigReceiptFamilyArtifact {
+    /// Artifact schema version.
+    pub schema_version: String,
+    /// Source policy registry path.
+    pub generated_from: String,
+    /// Registry schema version this artifact was generated from.
+    pub registry_schema_version: String,
+    /// Config and receipt families copied from the policy registry.
+    pub config_receipt_families: Vec<ConfigReceiptFamily>,
 }
 
 /// Deterministic proof-bundle export artifact.
@@ -287,6 +303,17 @@ pub fn seed_manifest_artifact(registry: &PolicyRegistry) -> SeedManifestArtifact
         generated_from: GENERATED_FROM.to_owned(),
         registry_schema_version: registry.schema_version.clone(),
         seed_manifests: registry.seed_manifests.clone(),
+    }
+}
+
+/// Build the config/receipt source-of-truth family artifact from a registry.
+#[must_use]
+pub fn config_receipt_family_artifact(registry: &PolicyRegistry) -> ConfigReceiptFamilyArtifact {
+    ConfigReceiptFamilyArtifact {
+        schema_version: GENERATED_ARTIFACT_SCHEMA_VERSION.to_owned(),
+        generated_from: GENERATED_FROM.to_owned(),
+        registry_schema_version: registry.schema_version.clone(),
+        config_receipt_families: registry.config_receipt_families.clone(),
     }
 }
 
@@ -615,6 +642,7 @@ mod tests {
             checker_ids: Vec::new(),
             policies: Vec::new(),
             seed_manifests: Vec::new(),
+            config_receipt_families: Vec::new(),
         };
 
         let artifact = seed_manifest_artifact(&registry);
@@ -631,6 +659,7 @@ mod tests {
             checker_ids: vec!["checker-b".to_owned(), "checker-a".to_owned()],
             policies: Vec::new(),
             seed_manifests: Vec::new(),
+            config_receipt_families: Vec::new(),
         };
 
         let output = render_check_config_toml(&registry);

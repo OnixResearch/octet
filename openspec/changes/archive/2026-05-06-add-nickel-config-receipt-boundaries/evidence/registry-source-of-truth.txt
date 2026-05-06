@@ -1,0 +1,15 @@
+$ nix develop -c bash -c 'nickel export --format json standards/policies/registry.ncl >/tmp/tigerstyle-registry.json && python - <<PY
+import json
+r=json.load(open("/tmp/tigerstyle-registry.json"))
+f=r["config_receipt_families"]
+print("families", len(f))
+print("ownership", sorted(set(x["ownership"] for x in f)))
+assert len({x["family_id"] for x in f}) == len(f)
+assert {"nickel-authored", "rust-derived", "non-candidate"} <= set(x["ownership"] for x in f)
+for x in f:
+    assert x["family_id"] and x["owner_source_path"] and x["generation_command"] and x["validation_command"]
+print("registry source-of-truth ok")
+PY'
+families 5
+ownership ['nickel-authored', 'non-candidate', 'rust-derived']
+registry source-of-truth ok
