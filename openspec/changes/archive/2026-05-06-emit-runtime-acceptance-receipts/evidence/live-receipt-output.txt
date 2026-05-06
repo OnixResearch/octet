@@ -1,0 +1,6 @@
+cannot build on 'ssh-ng://root@10.10.10.1': error: failed to start SSH connection to '10.10.10.1'
+building '/nix/store/apnfc1yn9cn70yb3admx0hvp5npqnkk0-tigerstyle-standards-0.1.0.drv'...
+building '/nix/store/z1kj931vzzi4ylx7l2m3zxgnl3mx40dg-nix-shell-env.drv'...
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.03s
+     Running `/home/brittonr/.cargo-target/debug/tigerstyle-standards export-artifacts --registry /tmp/nix-shell.zoJRX6/tmp.dqtP60noNh/registry.json --out-dir /tmp/nix-shell.zoJRX6/tmp.dqtP60noNh/artifacts --profile-json /tmp/nix-shell.zoJRX6/tmp.dqtP60noNh/profile.json --receipt-out /tmp/nix-shell.zoJRX6/tmp.dqtP60noNh/receipt.json --verification-command 'nickel export --format json standards/profiles/local.ncl'`
+receipt assertions passed

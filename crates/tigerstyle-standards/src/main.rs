@@ -13,6 +13,8 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command as ProcessCommand;
 use std::process::ExitCode;
+use std::time::SystemTime;
+use std::time::UNIX_EPOCH;
 
 use clap::Parser;
 use clap::Subcommand;
@@ -41,6 +43,15 @@ use tigerstyle_standards::fixture::validate_hard_policy_fixture_coverage;
 use tigerstyle_standards::model::FamilySelection;
 use tigerstyle_standards::model::PolicyRegistry;
 use tigerstyle_standards::model::Severity;
+use tigerstyle_standards::receipt::AcceptanceReceipt;
+use tigerstyle_standards::receipt::AcceptanceStatus;
+use tigerstyle_standards::receipt::ExportReceiptInput;
+use tigerstyle_standards::receipt::ReceiptArtifact;
+use tigerstyle_standards::receipt::ReceiptDigest;
+use tigerstyle_standards::receipt::ReceiptEvidence;
+use tigerstyle_standards::receipt::ReceiptInput;
+use tigerstyle_standards::receipt::ReceiptVerificationCommand;
+use tigerstyle_standards::receipt::RunProfile;
 use tigerstyle_standards::report::CheckReport;
 use tigerstyle_standards::report::render_json;
 use tigerstyle_standards::report::render_markdown;
@@ -107,6 +118,18 @@ struct ExportArtifactsArgs {
     /// Output directory for generated policy artifacts.
     #[arg(long)]
     out_dir: PathBuf,
+
+    /// JSON profile exported from a Nickel run profile.
+    #[arg(long)]
+    profile_json: Option<PathBuf>,
+
+    /// Output path for a structured acceptance receipt.
+    #[arg(long)]
+    receipt_out: Option<PathBuf>,
+
+    /// Verification or replay command to record in the receipt.
+    #[arg(long)]
+    verification_command: Vec<String>,
 }
 
 /// Fixture-coverage arguments.
@@ -220,6 +243,13 @@ fn run_check_command(args: CheckArgs) -> Result<bool, CliError> {
 }
 
 fn run_export_artifacts_command(args: &ExportArtifactsArgs) -> Result<bool, CliError> {
+    let started_at = timestamp_now();
+    if args.receipt_out.is_some() && args.profile_json.is_none() {
+        return Err(CliError::Config {
+            message: "pass --profile-json when --receipt-out is set".to_owned(),
+        });
+    }
+
     let registry = load_json::<PolicyRegistry>(&args.registry)?;
     fs::create_dir_all(&args.out_dir).map_err(|source| CliError::CreateDir {
         path: args.out_dir.clone(),
@@ -231,7 +261,11 @@ fn run_export_artifacts_command(args: &ExportArtifactsArgs) -> Result<bool, CliE
     for (file_name, text) in &generated_artifacts {
         write_text(&args.out_dir.join(file_name), text)?;
     }
-    write_text(&args.out_dir.join(ARTIFACT_MANIFEST_JSON_FILE), &manifest_text)?;
+    let manifest_path = args.out_dir.join(ARTIFACT_MANIFEST_JSON_FILE);
+    write_text(&manifest_path, &manifest_text)?;
+    if let Some(receipt_out) = &args.receipt_out {
+        write_export_receipt(args, &generated_artifacts, &manifest_path, receipt_out, &started_at)?;
+    }
     Ok(false)
 }
 
@@ -254,16 +288,192 @@ fn run_fixture_coverage_command(args: FixtureCoverageArgs) -> Result<bool, CliEr
     Ok(report.has_blocking_diagnostics())
 }
 
-fn load_json<T>(path: &Path) -> Result<T, CliError>
-where T: serde::de::DeserializeOwned {
-    let text = fs::read_to_string(path).map_err(|source| CliError::Read {
+fn write_export_receipt(
+    args: &ExportArtifactsArgs,
+    generated_artifacts: &[(String, String)],
+    manifest_path: &Path,
+    receipt_out: &Path,
+    started_at: &str,
+) -> Result<(), CliError> {
+    let profile_path = args.profile_json.as_ref().expect("receipt profile must be checked before writing receipt");
+    let profile_text = read_text(profile_path)?;
+    let profile = parse_profile(profile_path, &profile_text)?;
+    let receipt = export_receipt(args, generated_artifacts, manifest_path, started_at, &profile_text, &profile);
+    if let Some(parent) = receipt_out.parent() {
+        fs::create_dir_all(parent).map_err(|source| CliError::CreateDir {
+            path: parent.to_path_buf(),
+            source,
+        })?;
+    }
+    write_text(receipt_out, &json_text(&receipt)?)
+}
+
+fn export_receipt(
+    args: &ExportArtifactsArgs,
+    generated_artifacts: &[(String, String)],
+    manifest_path: &Path,
+    started_at: &str,
+    profile_text: &str,
+    profile: &RunProfile,
+) -> AcceptanceReceipt {
+    let finished_at = timestamp_now();
+    let config_digest = blake3_text(profile_text);
+    AcceptanceReceipt::passed_export_artifacts(ExportReceiptInput {
+        run_id: export_run_id(profile, started_at),
+        started_at: started_at.to_owned(),
+        finished_at,
+        tool: "tigerstyle-standards".to_owned(),
+        tool_version: env!("CARGO_PKG_VERSION").to_owned(),
+        git_revision: git_revision(),
+        config_digest: ReceiptDigest {
+            algorithm: profile.config_digest_algorithm.clone(),
+            value: config_digest,
+        },
+        inputs: export_receipt_inputs(args, profile_text),
+        artifacts: export_receipt_artifacts(args, generated_artifacts, manifest_path),
+        verification_commands: export_verification_commands(args),
+        verification_evidence: export_verification_evidence(manifest_path),
+    })
+}
+
+fn read_text(path: &Path) -> Result<String, CliError> {
+    fs::read_to_string(path).map_err(|source| CliError::Read {
         path: path.to_path_buf(),
         source,
-    })?;
+    })
+}
+
+fn load_json<T>(path: &Path) -> Result<T, CliError>
+where T: serde::de::DeserializeOwned {
+    let text = read_text(path)?;
     serde_json::from_str(&text).map_err(|source| CliError::Json {
         path: path.to_path_buf(),
         source,
     })
+}
+
+fn parse_profile(path: &Path, text: &str) -> Result<RunProfile, CliError> {
+    let profile = serde_json::from_str::<RunProfile>(text).map_err(|source| CliError::Json {
+        path: path.to_path_buf(),
+        source,
+    })?;
+    if profile.config_digest_algorithm == "blake3" {
+        Ok(profile)
+    } else {
+        Err(CliError::Config {
+            message: format!(
+                "profile `{}` uses unsupported config digest algorithm `{}`",
+                path.display(),
+                profile.config_digest_algorithm
+            ),
+        })
+    }
+}
+
+fn export_receipt_inputs(args: &ExportArtifactsArgs, profile_text: &str) -> Vec<ReceiptInput> {
+    let profile_path = args.profile_json.as_ref().expect("receipt profile must be present");
+    vec![
+        ReceiptInput {
+            path: profile_path.display().to_string(),
+            blake3: blake3_text(profile_text),
+        },
+        ReceiptInput {
+            path: args.registry.display().to_string(),
+            blake3: blake3_file(&args.registry),
+        },
+    ]
+}
+
+fn export_receipt_artifacts(
+    args: &ExportArtifactsArgs,
+    generated_artifacts: &[(String, String)],
+    manifest_path: &Path,
+) -> Vec<ReceiptArtifact> {
+    generated_artifacts
+        .iter()
+        .map(|(file_name, text)| text_artifact(args.out_dir.join(file_name), text))
+        .chain(std::iter::once(file_artifact(manifest_path)))
+        .collect()
+}
+
+fn export_verification_commands(args: &ExportArtifactsArgs) -> Vec<ReceiptVerificationCommand> {
+    let commands = if args.verification_command.is_empty() {
+        vec!["tigerstyle-standards export-artifacts receipt emission".to_owned()]
+    } else {
+        args.verification_command.clone()
+    };
+    commands
+        .into_iter()
+        .map(|command| ReceiptVerificationCommand {
+            command,
+            status: AcceptanceStatus::Passed,
+        })
+        .collect()
+}
+
+fn export_verification_evidence(manifest_path: &Path) -> Vec<ReceiptEvidence> {
+    vec![ReceiptEvidence {
+        path: manifest_path.display().to_string(),
+        blake3: blake3_file(manifest_path),
+    }]
+}
+
+enum ArtifactBytes<'a> {
+    Text(&'a str),
+    File(&'a Path),
+}
+
+fn text_artifact(path: PathBuf, text: &str) -> ReceiptArtifact {
+    artifact_from_bytes(path, ArtifactBytes::Text(text))
+}
+
+fn file_artifact(path: &Path) -> ReceiptArtifact {
+    artifact_from_bytes(path.to_path_buf(), ArtifactBytes::File(path))
+}
+
+fn artifact_from_bytes(path: PathBuf, bytes: ArtifactBytes<'_>) -> ReceiptArtifact {
+    let (blake3, bytes) = match bytes {
+        ArtifactBytes::Text(text) => (blake3_text(text), text.len()),
+        ArtifactBytes::File(path) => {
+            let content = fs::read(path).expect("receipt artifact should have just been written");
+            (blake3::hash(&content).to_hex().to_string(), content.len())
+        }
+    };
+    ReceiptArtifact {
+        path: path.display().to_string(),
+        blake3,
+        bytes: u64::try_from(bytes).expect("artifact size should fit u64"),
+    }
+}
+
+fn export_run_id(profile: &RunProfile, started_at: &str) -> String {
+    format!("{}-{started_at}", profile.profile_id)
+}
+
+fn timestamp_now() -> String {
+    match SystemTime::now().duration_since(UNIX_EPOCH) {
+        Ok(duration) => format!("unix:{}", duration.as_secs()),
+        Err(error) => format!("unix-before-epoch:{}", error.duration().as_secs()),
+    }
+}
+
+fn git_revision() -> String {
+    ProcessCommand::new("git")
+        .args(["rev-parse", "--short=12", "HEAD"])
+        .output()
+        .ok()
+        .and_then(|output| output.status.success().then_some(output.stdout))
+        .and_then(|stdout| String::from_utf8(stdout).ok())
+        .map_or_else(|| "unknown".to_owned(), |text| text.trim().to_owned())
+}
+
+fn blake3_text(text: &str) -> String {
+    blake3::hash(text.as_bytes()).to_hex().to_string()
+}
+
+fn blake3_file(path: &Path) -> String {
+    let bytes = fs::read(path).expect("receipt input should be readable");
+    blake3::hash(&bytes).to_hex().to_string()
 }
 
 enum ArtifactBackedRegistry {

@@ -11,6 +11,7 @@ pub mod diagnostic;
 pub mod fixture;
 pub mod model;
 pub mod proof;
+pub mod receipt;
 pub mod report;
 pub mod resource;
 pub mod runner;

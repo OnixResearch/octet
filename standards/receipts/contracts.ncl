@@ -1,12 +1,32 @@
+# Structured receipt contracts for Rust-emitted acceptance evidence.
+
 let NonEmptyString = std.contract.from_predicate (fun value => std.string.length value > 0) in
 let Status = std.contract.from_predicate (fun value => value == "passed" || value == "failed" || value == "blocked") in
-let Evidence = {
-  path | NonEmptyString,
-  blake3 | NonEmptyString,
+let DigestAlgorithm = std.contract.from_predicate (fun value => value == "blake3") in
+let Digest = {
+  algorithm | DigestAlgorithm,
+  value | NonEmptyString,
 } in
 let Stage = {
   name | NonEmptyString,
   status | Status,
+} in
+let Input = {
+  path | NonEmptyString,
+  blake3 | NonEmptyString,
+} in
+let Artifact = {
+  path | NonEmptyString,
+  blake3 | NonEmptyString,
+  bytes | Number,
+} in
+let VerificationCommand = {
+  command | NonEmptyString,
+  status | Status,
+} in
+let ReceiptEvidence = {
+  path | NonEmptyString,
+  blake3 | NonEmptyString,
 } in
 {
   AcceptanceReceipt = {
@@ -16,16 +36,17 @@ let Stage = {
     finished_at | NonEmptyString,
     tool | NonEmptyString,
     tool_version | NonEmptyString,
-    git_revision | NonEmptyString,
+    git_revision | String,
     config_digest | NonEmptyString,
-    inputs | Array NonEmptyString,
+    config_digest_detail | Digest,
+    inputs | Array Input,
     stages | Array Stage,
-    artifacts | Array NonEmptyString,
+    artifacts | Array Artifact,
     status | Status,
-    warnings | Array String | default = [],
-    errors | Array String | default = [],
-    verification_commands | Array NonEmptyString,
-    verification_evidence | Array Evidence,
-    raw_log_path | String | default = "",
+    warnings | Array String,
+    errors | Array String,
+    verification_commands | Array VerificationCommand,
+    verification_evidence | Array ReceiptEvidence,
+    raw_log_path | String,
   },
 }
