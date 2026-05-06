@@ -90,6 +90,10 @@ pub fn render_check_config_toml(registry: &PolicyRegistry) -> String {
     let proof_rail_pass_signals = proof_rail_field(registry, |rail| &rail.pass_signal);
     let proof_rail_trust_boundaries = proof_rail_fields(registry, |rail| &rail.trust_boundaries);
     let proof_rail_receipt_bindings = proof_rail_field(registry, |rail| &rail.receipt_binding);
+    let proof_rail_receipt_schemas = proof_rail_field(registry, |rail| &rail.receipt_provenance.schema_version);
+    let proof_rail_receipt_runners = proof_rail_field(registry, |rail| &rail.receipt_provenance.runner);
+    let proof_rail_receipt_environments = proof_rail_field(registry, |rail| &rail.receipt_provenance.environment);
+    let proof_rail_receipt_requires = proof_rail_receipt_requirements(registry);
 
     let mut toml = String::new();
     toml.push_str("schema_version = \"");
@@ -127,6 +131,10 @@ pub fn render_check_config_toml(registry: &PolicyRegistry) -> String {
     append_toml_array(&mut toml, "proof_rail_pass_signals", &proof_rail_pass_signals);
     append_toml_array(&mut toml, "proof_rail_trust_boundaries", &proof_rail_trust_boundaries);
     append_toml_array(&mut toml, "proof_rail_receipt_bindings", &proof_rail_receipt_bindings);
+    append_toml_array(&mut toml, "proof_rail_receipt_schemas", &proof_rail_receipt_schemas);
+    append_toml_array(&mut toml, "proof_rail_receipt_runners", &proof_rail_receipt_runners);
+    append_toml_array(&mut toml, "proof_rail_receipt_environments", &proof_rail_receipt_environments);
+    append_toml_array(&mut toml, "proof_rail_receipt_requires", &proof_rail_receipt_requires);
     toml
 }
 
@@ -136,6 +144,24 @@ fn proof_rail_field(registry: &PolicyRegistry, field: impl Fn(&crate::model::Pro
         .iter()
         .flat_map(|policy| policy.proof_rails.iter())
         .map(|rail| field(rail).clone())
+        .collect::<Vec<_>>();
+    values.sort();
+    values.dedup();
+    values
+}
+
+fn proof_rail_receipt_requirements(registry: &PolicyRegistry) -> Vec<String> {
+    let mut values = registry
+        .policies
+        .iter()
+        .flat_map(|policy| policy.proof_rails.iter())
+        .flat_map(|rail| {
+            [
+                rail.receipt_provenance.requires_backend.then_some("backend".to_owned()),
+                rail.receipt_provenance.requires_trust_boundary.then_some("trust-boundary".to_owned()),
+            ]
+        })
+        .flatten()
         .collect::<Vec<_>>();
     values.sort();
     values.dedup();

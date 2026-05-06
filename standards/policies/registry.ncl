@@ -1153,6 +1153,13 @@ in
         pass_signal = "proof-result: pass deterministic-effect-handlers",
         trust_boundaries = ["opt-in command execution proves local fixture proof command evidence shape, not arbitrary downstream semantic correctness"],
         receipt_binding = "blake3-command-and-source",
+        receipt_provenance = {
+          schema_version = "tigerstyle-proof-receipt/v1",
+          runner = "tigerstyle-standards",
+          environment = "local-source-root",
+          requires_backend = true,
+          requires_trust_boundary = true,
+        },
       }],
       checker_owner = "verification",
       checker_id = "tigerstyle-standards",

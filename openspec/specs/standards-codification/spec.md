@@ -593,83 +593,26 @@ For type-state protocol policies, structural validation MUST reject configured r
 
 ### Requirement: Verified Enforcement Rails [r[verified-enforcement-rails]]
 
-The system MUST require proof-rail evidence when a policy declares `current = "verified"` or targets verified enforcement for critical primitives.
+Verified enforcement MUST name the proof backend, source/proof mapping, expected command, accepted proof artifact shape, trust-boundary accounting, receipt binding, and receipt provenance obligations when the rail is promoted to hard verified enforcement. Verified enforcement MUST also provide artifact-backed checker diagnostics when declared local proof evidence is absent, does not contain the configured pass signal, has mismatched receipt binding, or lacks required provenance/trust-boundary lines.
 
-Verified enforcement MUST name the proof backend, source/proof mapping, expected command, accepted proof artifact shape, trust-boundary accounting, and receipt binding when the rail is promoted to hard verified enforcement. Verified enforcement MUST also provide artifact-backed checker diagnostics when declared local proof evidence is absent or does not contain the configured pass signal.
+#### Scenario: Proof receipt provenance obligations exported [r[verified-enforcement-rails.receipt-provenance-artifact]]
 
-Verified-mode policies MUST support an explicit command-execution path that runs relevant declared proof commands and treats the resulting command output as the proof receipt for the current check run, while preserving the default read-only artifact-backed receipt check.
-
-#### Scenario: Proof rail obligations are exported [r[verified-enforcement-rails.scenario.proof-rail-obligations-exported]]
-
-- GIVEN a policy declares verified enforcement with proof rail metadata
+- GIVEN the Nickel registry declares proof receipt provenance obligations for a verified proof rail
 - WHEN generated policy artifacts are exported
-- THEN the generated check config summarizes proof rail backends, commands, source paths, proof paths, pass signals, and trust boundaries
-- AND the artifact-backed checker can consume those proof rail fields without reading Nickel source directly
+- THEN the check config and policy JSON expose the receipt schema, runner, environment, backend, and trust-boundary obligations for deterministic consumer checks
 
-#### Scenario: Compliant proof rail receipt passes [r[verified-enforcement-rails.scenario.compliant-proof-rail-passes]]
+#### Scenario: Command-generated receipt includes provenance [r[verified-enforcement-rails.receipt-provenance-generated]]
 
-- GIVEN checked source includes the declared source path and a declared proof receipt path
-- WHEN `tigerstyle-standards check --policy-artifacts-dir` runs for the verification family
-- THEN the checker exits zero when the proof receipt contains the configured pass signal
-- AND the evaluated policy metadata classifies the failure type as `verified-proof-rail`
-
-#### Scenario: Missing proof pass signal fails [r[verified-enforcement-rails.scenario.missing-proof-pass-signal-fails]]
-
-- GIVEN checked source includes a proof receipt path without the configured pass signal
-- WHEN `tigerstyle-standards check --policy-artifacts-dir` runs for the verification family
-- THEN the checker exits nonzero with a verified-proof diagnostic naming the missing pass signal
-- AND the remediation tells the developer to rerun the proof command and save a passing receipt
-
-#### Scenario: Focused implementation checks pass [r[verified-enforcement-rails.scenario.focused-implementation-checks-pass]]
-
-- GIVEN the proof-rail checker, artifacts, registry, fixtures, and OpenSpec package have been updated
-- WHEN the focused Rust, Nickel/Nix, OpenSpec, docs, and whitespace validation commands run
-- THEN every command exits successfully
-- AND the saved transcript names the exact commands used
-
-#### Scenario: Opt-in proof command execution [r[verified-enforcement-rails.scenario.opt-in-proof-command-execution]]
-
-- GIVEN a selected verified policy with a relevant proof rail command and source root
-- WHEN `tigerstyle-standards check` is run with proof command execution enabled
-- THEN the checker MUST run the declared command from the checked source root and evaluate the emitted command receipt for the configured pass signal
-
-#### Scenario: Default read-only proof receipt check [r[verified-enforcement-rails.scenario.default-read-only-proof-receipt-check]]
-
-- GIVEN a selected verified policy with a relevant proof rail and committed proof receipt
-- WHEN `tigerstyle-standards check` is run without proof command execution
-- THEN the checker MUST evaluate the checked proof receipt without running the declared command
-
-#### Scenario: Failing proof command blocks verified policy [r[verified-enforcement-rails.scenario.failing-proof-command-blocks-verified-policy]]
-
-- GIVEN a selected verified policy whose relevant proof command exits without emitting the configured pass signal
-- WHEN proof command execution is enabled
-- THEN the checker MUST emit a blocking verified-proof-rail diagnostic for the policy
-
-#### Scenario: Proof rail gate does not overclaim semantic proof execution [r[verified-enforcement-rails.scenario.no-semantic-proof-overclaim]]
-
-- GIVEN the checker validates proof receipt shape and pass-signal presence from either committed receipts or opt-in command output
-- WHEN reviewers inspect the design and evidence
-- THEN the change states that opt-in command execution proves the local fixture proof command evidence shape, not arbitrary downstream semantic correctness
-- AND semantic proof status outside local fixture receipts remains the responsibility of saved deterministic evidence commands and trust-boundary accounting
-
-#### Scenario: Command and source hash-bound receipt accepted [r[verified-enforcement-rails.receipt-binding-pass]]
-
-- GIVEN a verified proof rail with receipt binding enabled, a checked source file, and a proof command
+- GIVEN a verified proof rail with receipt provenance obligations enabled
 - WHEN `tigerstyle-standards check --execute-proof-rails` runs the local command and produces a proof receipt
-- THEN the receipt includes deterministic command and source BLAKE3 binding lines
-- AND the verified proof rail checker accepts the receipt only when those binding lines match the checked command and source contents
+- THEN the generated receipt includes deterministic schema, backend, runner, environment, and trust-boundary lines before validation
+- AND the verified proof rail checker accepts the receipt only when those provenance lines match the policy contract
 
-#### Scenario: Stale proof receipt rejected [r[verified-enforcement-rails.receipt-binding-stale]]
+#### Scenario: Stale receipt without provenance rejected [r[verified-enforcement-rails.receipt-provenance-stale]]
 
-- GIVEN a proof receipt with the expected pass signal but command or source hash lines that do not match the checked proof rail command or source contents
+- GIVEN a proof receipt with the expected pass signal and matching hash binding but missing required provenance or trust-boundary lines
 - WHEN the verification-family checker evaluates the proof rail
-- THEN the checker MUST emit a blocking diagnostic for the mismatched receipt binding
-
-#### Scenario: Receipt binding exported in policy artifacts [r[verified-enforcement-rails.receipt-binding-artifact]]
-
-- GIVEN the Nickel registry declares a proof rail receipt binding mode
-- WHEN generated policy artifacts are exported
-- THEN the check config and policy JSON expose the receipt binding mode for deterministic consumer checks
+- THEN the checker MUST emit a blocking diagnostic for mismatched receipt provenance
 
 ### Requirement: Reference Seed Corpus Vendoring [r[reference-seed-corpus-vendoring]]
 

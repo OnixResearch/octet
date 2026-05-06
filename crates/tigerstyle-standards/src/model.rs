@@ -146,6 +146,26 @@ impl Default for EvidenceCommand {
     }
 }
 
+/// Receipt provenance metadata required from verified proof receipts.
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ReceiptProvenance {
+    /// Receipt schema version line expected in proof receipts.
+    #[serde(default)]
+    pub schema_version: String,
+    /// Runner identity expected in proof receipts.
+    #[serde(default)]
+    pub runner: String,
+    /// Execution environment account expected in proof receipts.
+    #[serde(default)]
+    pub environment: String,
+    /// True when receipts must name the configured backend.
+    #[serde(default)]
+    pub requires_backend: bool,
+    /// True when receipts must include at least one configured trust-boundary line.
+    #[serde(default)]
+    pub requires_trust_boundary: bool,
+}
+
 /// Verified-mode proof rail metadata.
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 pub struct ProofRail {
@@ -167,6 +187,9 @@ pub struct ProofRail {
     /// Receipt binding mode, such as `none` or `blake3-command-and-source`.
     #[serde(default)]
     pub receipt_binding: String,
+    /// Receipt provenance obligations required from proof receipts.
+    #[serde(default)]
+    pub receipt_provenance: ReceiptProvenance,
 }
 
 /// Seed role exported from Nickel.

@@ -1,0 +1,29 @@
+$ nix develop -c bash -c 'cargo test -p tigerstyle-standards receipt_only_proof_rail_rejects_hash_bound_receipt_without_provenance --test advisory_cli -- --nocapture && cargo test -p tigerstyle-standards execute_proof_rails_uses_command_output_as_receipt --test advisory_cli -- --nocapture && cargo test -p tigerstyle-standards proof_rail_checks_accept_passing_receipt --lib -- --nocapture'
+   Compiling tigerstyle-standards v0.1.0 (/home/brittonr/git/tigerstyle/crates/tigerstyle-standards)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.33s
+     Running tests/advisory_cli.rs (/home/brittonr/.cargo-target/debug/deps/advisory_cli-c55b0a8ea7f01175)
+
+running 1 test
+test receipt_only_proof_rail_rejects_hash_bound_receipt_without_provenance ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 0.00s
+
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.04s
+     Running tests/advisory_cli.rs (/home/brittonr/.cargo-target/debug/deps/advisory_cli-c55b0a8ea7f01175)
+
+running 1 test
+test execute_proof_rails_uses_command_output_as_receipt ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 0.01s
+
+   Compiling tigerstyle-standards v0.1.0 (/home/brittonr/git/tigerstyle/crates/tigerstyle-standards)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.18s
+     Running unittests src/lib.rs (/home/brittonr/.cargo-target/debug/deps/tigerstyle_standards-f88d9e5c1f272224)
+
+running 1 test
+test tests::proof_rail_checks_accept_passing_receipt ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 29 filtered out; finished in 0.00s
+
+exit-code: 0
+asserts: stale hash-bound receipt without provenance rejected; execute-proof-rails generated provenance receipt accepted; unit proof rail accepts complete receipt

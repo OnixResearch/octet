@@ -14,6 +14,7 @@ use tigerstyle_standards::model::FixtureStatus;
 use tigerstyle_standards::model::PolicyEntry;
 use tigerstyle_standards::model::PolicyRegistry;
 use tigerstyle_standards::model::ProofRail;
+use tigerstyle_standards::model::ReceiptProvenance;
 use tigerstyle_standards::model::Severity;
 use tigerstyle_standards::model::SuppressionRequirements;
 use tigerstyle_standards::report::CheckReport;
@@ -161,6 +162,44 @@ fn receipt_only_proof_rail_rejects_unbound_stale_receipt() {
 }
 
 #[test]
+fn receipt_only_proof_rail_rejects_hash_bound_receipt_without_provenance() {
+    let temp = TempDir::new().expect("temp dir should be created");
+    let registry = write_registry_value(&temp, proof_registry());
+    let fixture = temp.path().join("hash-bound-proof-fixture");
+    std::fs::create_dir_all(fixture.join("src")).expect("proof fixture dirs should be created");
+    let source = "pub fn proof_witness() {}\n";
+    std::fs::write(fixture.join("src/lib.rs"), source).expect("proof source should be written");
+    std::fs::write(
+        fixture.join("proof-receipt.txt"),
+        format!(
+            "proof-command-blake3: {}\nproof-source-blake3: {}:{}\nproof-result: pass deterministic-effect-handlers\n",
+            blake3_hex("bash proof-command.sh"),
+            fixture.join("src/lib.rs").display(),
+            blake3_hex(source),
+        ),
+    )
+    .expect("hash-bound proof receipt should be written");
+
+    let output = Command::new(binary_path())
+        .arg("check")
+        .arg("--registry")
+        .arg(&registry)
+        .arg("--source")
+        .arg(&fixture)
+        .arg("--family")
+        .arg(VERIFICATION_FAMILY)
+        .arg("--output")
+        .arg("json")
+        .output()
+        .expect("standards checker should run");
+    assert_failure(&output);
+    let report = parse_report(&output);
+    assert!(report.diagnostics.iter().any(|diagnostic| {
+        diagnostic.policy_id == PROOF_POLICY_ID && diagnostic.message.contains("mismatched receipt provenance")
+    }));
+}
+
+#[test]
 fn execute_proof_rails_replaces_stale_committed_receipt() {
     let temp = TempDir::new().expect("temp dir should be created");
     let registry =
@@ -246,6 +285,10 @@ fn binary_path() -> &'static str {
     env!("CARGO_BIN_EXE_tigerstyle-standards")
 }
 
+fn blake3_hex(text: &str) -> String {
+    blake3::hash(text.as_bytes()).to_hex().to_string()
+}
+
 fn repo_path(relative_path: &str) -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../..")
@@ -320,6 +363,13 @@ fn verified_policy(current: EnforcementMode, target: EnforcementMode) -> PolicyE
             pass_signal: "proof-result: pass deterministic-effect-handlers".to_owned(),
             trust_boundaries: vec!["test command receipt".to_owned()],
             receipt_binding: "blake3-command-and-source".to_owned(),
+            receipt_provenance: ReceiptProvenance {
+                schema_version: "tigerstyle-proof-receipt/v1".to_owned(),
+                runner: CHECKER_ID.to_owned(),
+                environment: "local-source-root".to_owned(),
+                requires_backend: true,
+                requires_trust_boundary: true,
+            },
         }],
         checker_owner: VERIFICATION_FAMILY.to_owned(),
         checker_id: CHECKER_ID.to_owned(),

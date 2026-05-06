@@ -100,6 +100,15 @@ let ReceiptBindingContract =
   ]
 in
 
+let ReceiptProvenanceContract = {
+  schema_version | String | default = "",
+  runner | String | default = "",
+  environment | String | default = "",
+  requires_backend | Bool | default = false,
+  requires_trust_boundary | Bool | default = false,
+}
+in
+
 let SuppressionRequirements = {
   requires_policy_id | Bool,
   requires_source_section | Bool,
@@ -155,6 +164,7 @@ let ProofRailContract = {
   pass_signal | NonEmptyString,
   trust_boundaries | Array NonEmptyString,
   receipt_binding | ReceiptBindingContract | default = "none",
+  receipt_provenance | ReceiptProvenanceContract | default = {},
 }
 in
 
