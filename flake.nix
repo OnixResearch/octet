@@ -648,6 +648,8 @@ MAIN
           grep --fixed-strings "bash proof-command.sh" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
           grep --fixed-strings "proof_rail_pass_signals" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
           grep --fixed-strings "proof-result: pass deterministic-effect-handlers" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
+          grep --fixed-strings "proof_rail_receipt_bindings" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
+          grep --fixed-strings "blake3-command-and-source" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
 
           tigerstyle-standards check \
             --policy-artifacts-dir "$artifact_dir" \

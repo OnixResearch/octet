@@ -1148,10 +1148,11 @@ in
       proof_rails = [{
         backend = "local-command-receipt",
         command = "bash proof-command.sh",
-        source_paths = ["standards/check-fixtures/verification/"],
+        source_paths = ["src/lib.rs"],
         proof_paths = ["proof-receipt.txt"],
         pass_signal = "proof-result: pass deterministic-effect-handlers",
         trust_boundaries = ["opt-in command execution proves local fixture proof command evidence shape, not arbitrary downstream semantic correctness"],
+        receipt_binding = "blake3-command-and-source",
       }],
       checker_owner = "verification",
       checker_id = "tigerstyle-standards",

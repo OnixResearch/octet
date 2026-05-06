@@ -89,6 +89,7 @@ pub fn render_check_config_toml(registry: &PolicyRegistry) -> String {
     let proof_rail_proof_paths = proof_rail_fields(registry, |rail| &rail.proof_paths);
     let proof_rail_pass_signals = proof_rail_field(registry, |rail| &rail.pass_signal);
     let proof_rail_trust_boundaries = proof_rail_fields(registry, |rail| &rail.trust_boundaries);
+    let proof_rail_receipt_bindings = proof_rail_field(registry, |rail| &rail.receipt_binding);
 
     let mut toml = String::new();
     toml.push_str("schema_version = \"");
@@ -125,6 +126,7 @@ pub fn render_check_config_toml(registry: &PolicyRegistry) -> String {
     append_toml_array(&mut toml, "proof_rail_proof_paths", &proof_rail_proof_paths);
     append_toml_array(&mut toml, "proof_rail_pass_signals", &proof_rail_pass_signals);
     append_toml_array(&mut toml, "proof_rail_trust_boundaries", &proof_rail_trust_boundaries);
+    append_toml_array(&mut toml, "proof_rail_receipt_bindings", &proof_rail_receipt_bindings);
     toml
 }
 

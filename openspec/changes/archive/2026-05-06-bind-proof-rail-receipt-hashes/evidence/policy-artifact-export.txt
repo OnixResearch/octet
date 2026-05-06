@@ -1,0 +1,4 @@
+$ nix develop -c bash -c 'tmp=$(mktemp -d); nickel export --format json standards/policies/registry.ncl > $tmp/registry.json; tigerstyle-standards export-artifacts --registry $tmp/registry.json --out-dir $tmp/artifacts; grep --fixed-strings proof_rail_receipt_bindings $tmp/artifacts/tigerstyle-check-config.toml; grep --fixed-strings blake3-command-and-source $tmp/artifacts/tigerstyle-check-config.toml; jq --exit-status "any(.policies[].proof_rails[]?; .receipt_binding == \"blake3-command-and-source\")" $tmp/artifacts/tigerstyle-policies.json >/dev/null'
+exit=0
+proof_rail_receipt_bindings = ["blake3-command-and-source"]
+proof_rail_receipt_bindings = ["blake3-command-and-source"]

@@ -93,6 +93,13 @@ let CheckerIdContract =
   ]
 in
 
+let ReceiptBindingContract =
+  OneOf [
+    "none",
+    "blake3-command-and-source",
+  ]
+in
+
 let SuppressionRequirements = {
   requires_policy_id | Bool,
   requires_source_section | Bool,
@@ -147,6 +154,7 @@ let ProofRailContract = {
   proof_paths | Array NonEmptyString,
   pass_signal | NonEmptyString,
   trust_boundaries | Array NonEmptyString,
+  receipt_binding | ReceiptBindingContract | default = "none",
 }
 in
 

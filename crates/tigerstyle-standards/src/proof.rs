@@ -9,6 +9,7 @@ use crate::model::PolicyRegistry;
 use crate::model::ProofRail;
 use crate::source::SourceFile;
 
+const RECEIPT_BINDING_BLAKE3_COMMAND_AND_SOURCE: &str = "blake3-command-and-source";
 const VERIFIED_PROOF_REMEDIATION: &str =
     "rerun the configured proof command and save a passing proof receipt under the declared proof path";
 
@@ -81,13 +82,34 @@ fn check_proof_rail(policy: &PolicyEntry, rail: &ProofRail, sources: &[SourceFil
                 rail.proof_paths.join(", ")
             ),
         ));
-    } else if !proof_sources.iter().any(|source| source.text.contains(&rail.pass_signal)) {
-        diagnostics.push(proof_diagnostic(
-            policy,
-            &proof_sources[0].path,
-            None,
-            format!("verified proof rail `{}` is missing pass signal `{}`", rail.backend, rail.pass_signal),
-        ));
+    } else {
+        let passing_proof_sources = proof_sources
+            .iter()
+            .copied()
+            .filter(|source| source.text.contains(&rail.pass_signal))
+            .collect::<Vec<_>>();
+        if passing_proof_sources.is_empty() {
+            diagnostics.push(proof_diagnostic(
+                policy,
+                &proof_sources[0].path,
+                None,
+                format!("verified proof rail `{}` is missing pass signal `{}`", rail.backend, rail.pass_signal),
+            ));
+        } else if receipt_binding_enabled(rail)
+            && !passing_proof_sources
+                .iter()
+                .any(|proof_source| receipt_binding_matches(rail, sources, proof_source))
+        {
+            diagnostics.push(proof_diagnostic(
+                policy,
+                &passing_proof_sources[0].path,
+                None,
+                format!(
+                    "verified proof rail `{}` has mismatched receipt binding `{}`",
+                    rail.backend, rail.receipt_binding
+                ),
+            ));
+        }
     }
 
     diagnostics
@@ -110,6 +132,32 @@ fn matching_sources<'a>(patterns: &[String], sources: &'a [SourceFile]) -> Vec<&
 
 fn first_path_or_policy(paths: &[String]) -> &str {
     paths.first().map_or("policy", String::as_str)
+}
+
+fn receipt_binding_enabled(rail: &ProofRail) -> bool {
+    rail.receipt_binding == RECEIPT_BINDING_BLAKE3_COMMAND_AND_SOURCE
+}
+
+fn receipt_binding_matches(rail: &ProofRail, sources: &[SourceFile], proof_source: &SourceFile) -> bool {
+    expected_receipt_binding_lines(rail, sources)
+        .iter()
+        .all(|line| proof_source.text.lines().any(|receipt_line| receipt_line == line))
+}
+
+fn expected_receipt_binding_lines(rail: &ProofRail, sources: &[SourceFile]) -> Vec<String> {
+    let mut lines = vec![format!("proof-command-blake3: {}", blake3_hex(&rail.command))];
+    let mut matched_sources = matching_sources(&rail.source_paths, sources);
+    matched_sources.sort_by(|left, right| left.path.cmp(&right.path));
+    lines.extend(
+        matched_sources
+            .into_iter()
+            .map(|source| format!("proof-source-blake3: {}:{}", source.path, blake3_hex(&source.text))),
+    );
+    lines
+}
+
+fn blake3_hex(text: &str) -> String {
+    blake3::hash(text.as_bytes()).to_hex().to_string()
 }
 
 fn proof_diagnostic(policy: &PolicyEntry, path: &str, line: Option<u32>, message: String) -> Diagnostic {
