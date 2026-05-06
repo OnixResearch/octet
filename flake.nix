@@ -673,6 +673,10 @@ MAIN
           test -s "$artifact_dir/tigerstyle-policies.json"
           test -s "$artifact_dir/tigerstyle-check-config.toml"
           test -s "$artifact_dir/tigerstyle-seed-manifests.json"
+          test -s "$artifact_dir/tigerstyle-proof-bundles.json"
+          jq --exit-status '.schema_version == "tigerstyle-proof-bundle/v1"' "$artifact_dir/tigerstyle-proof-bundles.json" >/dev/null
+          jq --exit-status 'any(.proof_bundles[]; .policy_id == "tigerstyle.verification.deterministic-effect-handlers")' "$artifact_dir/tigerstyle-proof-bundles.json" >/dev/null
+          jq --exit-status 'any(.proof_bundles[]; .proof_rail.receipt_verifier.verifier_nix_closure_graph_paths[] == "proof-nix-closure.graph")' "$artifact_dir/tigerstyle-proof-bundles.json" >/dev/null
           grep --fixed-strings "structural_policy_ids" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
           grep --fixed-strings "bounded_queue_forbidden_apis" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
           grep --fixed-strings "tokio::sync::mpsc::unbounded_channel" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
@@ -711,7 +715,7 @@ MAIN
           grep --fixed-strings "9fb0cd3ff1b2898eba4c6f71479f93ae3cdc80f869cd8ae5e6355235ec5f9aef" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
           grep --fixed-strings "proof_rail_receipt_verifier_binaries" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
           grep --fixed-strings "proof_rail_receipt_verifier_binary_digests" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
-          grep --fixed-strings "2ba96767a574ade1d1e7a20242e49d9479be76ffe91fcb4e232ae24b998683e0" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
+          grep --fixed-strings "b3c824e791af9fd4f58200f8a2f3723668decc5bb1a7751cb4880fa8a642c4de" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
           grep --fixed-strings "proof_rail_receipt_verifier_build_closures" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
           grep --fixed-strings "nix-tigerstyle-standards-build-closure/v1" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
           grep --fixed-strings "proof_rail_receipt_verifier_build_closure_digests" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null

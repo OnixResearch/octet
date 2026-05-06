@@ -19,13 +19,21 @@ use clap::Subcommand;
 use clap::ValueEnum;
 use tigerstyle_standards::artifacts::CHECK_CONFIG_TOML_FILE;
 use tigerstyle_standards::artifacts::POLICIES_JSON_FILE;
+use tigerstyle_standards::artifacts::PROOF_BUNDLES_JSON_FILE;
+use tigerstyle_standards::artifacts::ProofBundleArtifact;
 use tigerstyle_standards::artifacts::SEED_MANIFESTS_JSON_FILE;
+use tigerstyle_standards::artifacts::proof_bundle_artifact;
+use tigerstyle_standards::artifacts::registry_has_verified_proof_rails;
 use tigerstyle_standards::artifacts::render_check_config_toml;
 use tigerstyle_standards::artifacts::seed_manifest_artifact;
+use tigerstyle_standards::artifacts::validate_proof_bundle_artifact;
+use tigerstyle_standards::diagnostic::Diagnostic;
+use tigerstyle_standards::diagnostic::DiagnosticInput;
 use tigerstyle_standards::fixture::FixtureManifest;
 use tigerstyle_standards::fixture::validate_hard_policy_fixture_coverage;
 use tigerstyle_standards::model::FamilySelection;
 use tigerstyle_standards::model::PolicyRegistry;
+use tigerstyle_standards::model::Severity;
 use tigerstyle_standards::report::CheckReport;
 use tigerstyle_standards::report::render_json;
 use tigerstyle_standards::report::render_markdown;
@@ -164,6 +172,19 @@ fn run_check_command(args: CheckArgs) -> Result<bool, CliError> {
     let registry = load_registry_for_check(&args)?;
     let mut sources = load_sources(&args.source)?;
     let selection = FamilySelection::from_families(args.family);
+    if let Some(policy_artifacts_dir) = &args.policy_artifacts_dir {
+        let diagnostics = validate_artifact_backed_proof_bundle(&registry, policy_artifacts_dir);
+        if !diagnostics.is_empty() {
+            let report = CheckReport {
+                diagnostics,
+                active_suppressions: Vec::new(),
+                evaluated_policy_ids: Vec::new(),
+                policy_evaluations: Vec::new(),
+            };
+            emit_report(args.output, &report)?;
+            return Ok(report.has_blocking_diagnostics());
+        }
+    }
     if args.execute_proof_rails {
         let executed = execute_relevant_proof_rails(&registry, &sources, &selection, &args.source);
         sources.retain(|source| !executed.proof_path_patterns.iter().any(|pattern| source.path.contains(pattern)));
@@ -187,6 +208,7 @@ fn run_export_artifacts_command(args: &ExportArtifactsArgs) -> Result<bool, CliE
     write_json(&args.out_dir.join(POLICIES_JSON_FILE), &registry)?;
     write_text(&args.out_dir.join(CHECK_CONFIG_TOML_FILE), &render_check_config_toml(&registry))?;
     write_json(&args.out_dir.join(SEED_MANIFESTS_JSON_FILE), &seed_manifest_artifact(&registry))?;
+    write_json(&args.out_dir.join(PROOF_BUNDLES_JSON_FILE), &proof_bundle_artifact(&registry))?;
     Ok(false)
 }
 
@@ -232,6 +254,40 @@ fn load_registry_for_check(args: &CheckArgs) -> Result<PolicyRegistry, CliError>
             message: "pass --registry or --policy-artifacts-dir".to_owned(),
         }),
     }
+}
+
+fn validate_artifact_backed_proof_bundle(registry: &PolicyRegistry, directory: &Path) -> Vec<Diagnostic> {
+    if !registry_has_verified_proof_rails(registry) {
+        return Vec::new();
+    }
+
+    let path = directory.join(PROOF_BUNDLES_JSON_FILE);
+    let artifact = match load_json::<ProofBundleArtifact>(&path) {
+        Ok(artifact) => artifact,
+        Err(error) => {
+            return vec![proof_bundle_diagnostic(
+                path.display().to_string(),
+                format!("missing or unreadable proof-bundle artifact: {error}"),
+            )];
+        }
+    };
+
+    validate_proof_bundle_artifact(registry, &artifact)
+        .into_iter()
+        .map(|message| proof_bundle_diagnostic(path.display().to_string(), message))
+        .collect()
+}
+
+fn proof_bundle_diagnostic(path: String, message: String) -> Diagnostic {
+    Diagnostic::new(DiagnosticInput {
+        policy_id: "tigerstyle.verification.proof-bundle-schema".to_owned(),
+        source_section: "openspec/specs/standards-codification/spec.md#proof-bundle-schema-validation".to_owned(),
+        path,
+        line: None,
+        severity: Severity::Error,
+        message,
+        remediation: "regenerate policy artifacts with tigerstyle-standards export-artifacts and keep tigerstyle-proof-bundles.json with the policy bundle".to_owned(),
+    })
 }
 
 fn write_json<T>(path: &Path, value: &T) -> Result<(), CliError>

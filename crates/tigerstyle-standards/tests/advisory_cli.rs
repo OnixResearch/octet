@@ -31,6 +31,8 @@ const REGISTRY_FILE_NAME: &str = "registry.json";
 const POLICIES_JSON_FILE: &str = "tigerstyle-policies.json";
 const CHECK_CONFIG_TOML_FILE: &str = "tigerstyle-check-config.toml";
 const SEED_MANIFESTS_JSON_FILE: &str = "tigerstyle-seed-manifests.json";
+const PROOF_BUNDLES_JSON_FILE: &str = "tigerstyle-proof-bundles.json";
+const PROOF_BUNDLE_SCHEMA_VERSION: &str = "tigerstyle-proof-bundle/v1";
 const ADVISORY_FIXTURE: &str = "standards/check-fixtures/architecture/advisory/public-api-budget";
 const HARD_FAILURE_FIXTURE: &str = "standards/check-fixtures/architecture/noncompliant/missing-no-std";
 
@@ -89,6 +91,7 @@ fn exported_policy_artifacts_drive_checker() {
     assert!(artifact_dir.join(POLICIES_JSON_FILE).is_file());
     assert!(artifact_dir.join(CHECK_CONFIG_TOML_FILE).is_file());
     assert!(artifact_dir.join(SEED_MANIFESTS_JSON_FILE).is_file());
+    assert!(artifact_dir.join(PROOF_BUNDLES_JSON_FILE).is_file());
 
     let config =
         std::fs::read_to_string(artifact_dir.join(CHECK_CONFIG_TOML_FILE)).expect("check config should be readable");
@@ -99,6 +102,125 @@ fn exported_policy_artifacts_drive_checker() {
     assert_failure(&output);
     let report = parse_report(&output);
     assert!(report.has_blocking_diagnostics());
+}
+
+#[test]
+fn exported_proof_bundle_preserves_verified_rail_schema() {
+    let temp = TempDir::new().expect("temp dir should be created");
+    let registry = write_registry_value(&temp, proof_registry());
+    let artifact_dir = temp.path().join("generated-proof-bundle");
+
+    let export = Command::new(binary_path())
+        .arg("export-artifacts")
+        .arg("--registry")
+        .arg(&registry)
+        .arg("--out-dir")
+        .arg(&artifact_dir)
+        .output()
+        .expect("artifact export should run");
+    assert_success(&export);
+
+    let proof_bundle =
+        std::fs::read_to_string(artifact_dir.join(PROOF_BUNDLES_JSON_FILE)).expect("proof bundle should be readable");
+    let value: serde_json::Value = serde_json::from_str(&proof_bundle).expect("proof bundle should parse as JSON");
+    assert_eq!(value["schema_version"], PROOF_BUNDLE_SCHEMA_VERSION);
+    assert_eq!(value["proof_bundles"][0]["policy_id"], PROOF_POLICY_ID);
+    assert_eq!(value["proof_bundles"][0]["proof_rail"]["receipt_binding"], "blake3-command-and-source");
+    assert_eq!(
+        value["proof_bundles"][0]["proof_rail"]["receipt_verifier"]["verifier_nix_closure_graph_paths"][0],
+        "proof-nix-closure.graph"
+    );
+}
+
+#[test]
+fn artifact_backed_proof_bundle_rejects_unsupported_schema_version() {
+    let temp = TempDir::new().expect("temp dir should be created");
+    let registry = write_registry_value(&temp, proof_registry());
+    let artifact_dir = temp.path().join("generated-proof-bundle");
+    export_artifacts(&registry, &artifact_dir);
+    let proof_bundle_path = artifact_dir.join(PROOF_BUNDLES_JSON_FILE);
+    let proof_bundle = std::fs::read_to_string(&proof_bundle_path).expect("proof bundle should be readable");
+    std::fs::write(&proof_bundle_path, proof_bundle.replace(PROOF_BUNDLE_SCHEMA_VERSION, "tigerstyle-proof-bundle/v0"))
+        .expect("mutated proof bundle should be written");
+    let fixture = write_executable_proof_fixture(&temp, "unsupported-schema-proof-fixture");
+
+    let output = Command::new(binary_path())
+        .arg("check")
+        .arg("--policy-artifacts-dir")
+        .arg(&artifact_dir)
+        .arg("--source")
+        .arg(&fixture)
+        .arg("--family")
+        .arg(VERIFICATION_FAMILY)
+        .arg("--execute-proof-rails")
+        .arg("--output")
+        .arg("json")
+        .output()
+        .expect("standards checker should run");
+    assert_failure(&output);
+    let report = parse_report(&output);
+    assert!(report.diagnostics.iter().any(|diagnostic| {
+        diagnostic.policy_id == "tigerstyle.verification.proof-bundle-schema"
+            && diagnostic.message.contains("unsupported proof-bundle schema version")
+            && diagnostic.message.contains(PROOF_BUNDLE_SCHEMA_VERSION)
+    }));
+}
+
+#[test]
+fn artifact_backed_proof_bundle_rejects_missing_bundle_file() {
+    let temp = TempDir::new().expect("temp dir should be created");
+    let registry = write_registry_value(&temp, proof_registry());
+    let artifact_dir = temp.path().join("generated-proof-bundle");
+    export_artifacts(&registry, &artifact_dir);
+    std::fs::remove_file(artifact_dir.join(PROOF_BUNDLES_JSON_FILE)).expect("proof bundle should be removed");
+    let fixture = write_executable_proof_fixture(&temp, "missing-bundle-proof-fixture");
+
+    let output = Command::new(binary_path())
+        .arg("check")
+        .arg("--policy-artifacts-dir")
+        .arg(&artifact_dir)
+        .arg("--source")
+        .arg(&fixture)
+        .arg("--family")
+        .arg(VERIFICATION_FAMILY)
+        .arg("--execute-proof-rails")
+        .arg("--output")
+        .arg("json")
+        .output()
+        .expect("standards checker should run");
+    assert_failure(&output);
+    let report = parse_report(&output);
+    assert!(report.diagnostics.iter().any(|diagnostic| {
+        diagnostic.policy_id == "tigerstyle.verification.proof-bundle-schema"
+            && diagnostic.message.contains("missing or unreadable proof-bundle artifact")
+    }));
+}
+
+#[test]
+fn artifact_backed_proof_bundle_accepts_complete_bundle() {
+    let temp = TempDir::new().expect("temp dir should be created");
+    let registry = write_registry_value(&temp, proof_registry());
+    let artifact_dir = temp.path().join("generated-proof-bundle");
+    export_artifacts(&registry, &artifact_dir);
+    let fixture = write_executable_proof_fixture(&temp, "complete-bundle-proof-fixture");
+
+    let output = Command::new(binary_path())
+        .arg("check")
+        .arg("--policy-artifacts-dir")
+        .arg(&artifact_dir)
+        .arg("--source")
+        .arg(&fixture)
+        .arg("--family")
+        .arg(VERIFICATION_FAMILY)
+        .arg("--execute-proof-rails")
+        .arg("--output")
+        .arg("json")
+        .output()
+        .expect("standards checker should run");
+    assert_success(&output);
+    let report = parse_report(&output);
+    assert!(report.diagnostics.is_empty());
+    assert!(report.evaluated_policy_ids.iter().any(|policy_id| policy_id == PROOF_POLICY_ID));
 }
 
 #[test]
@@ -498,6 +620,42 @@ fn execute_proof_rails_replaces_stale_committed_receipt() {
     assert!(report.diagnostics.iter().any(|diagnostic| {
         diagnostic.policy_id == PROOF_POLICY_ID && diagnostic.message.contains("missing pass signal")
     }));
+}
+
+fn export_artifacts(registry: &Path, artifact_dir: &Path) {
+    let output = Command::new(binary_path())
+        .arg("export-artifacts")
+        .arg("--registry")
+        .arg(registry)
+        .arg("--out-dir")
+        .arg(artifact_dir)
+        .output()
+        .expect("artifact export should run");
+    assert_success(&output);
+}
+
+fn write_executable_proof_fixture(temp: &TempDir, name: &str) -> PathBuf {
+    let fixture = temp.path().join(name);
+    std::fs::create_dir_all(fixture.join("src")).expect("proof fixture dirs should be created");
+    std::fs::write(fixture.join("src/lib.rs"), "pub fn proof_witness() {}\n").expect("proof source should be written");
+    std::fs::write(
+        fixture.join("proof-build-closure.txt"),
+        "verifier = tigerstyle-standards\nclosure-accounting = test manifest\n",
+    )
+    .expect("proof closure manifest should be written");
+    std::fs::write(
+        fixture.join("proof-nix-closure.txt"),
+        "nix-derivation = tigerstyle-standards.drv\nclosure-source = exportReferencesGraph\n",
+    )
+    .expect("proof Nix closure manifest should be written");
+    std::fs::write(fixture.join("proof-nix-closure.graph"), nix_closure_graph())
+        .expect("proof Nix closure graph should be written");
+    std::fs::write(
+        fixture.join("proof-command.sh"),
+        "#!/usr/bin/env bash\nset -euo pipefail\nprintf '%s\\n' 'proof-result: pass deterministic-effect-handlers'\n",
+    )
+    .expect("proof command should be written");
+    fixture
 }
 
 fn run_architecture_check(registry: &Path, source: &Path) -> Output {

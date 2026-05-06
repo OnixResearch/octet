@@ -1,0 +1,13 @@
+cannot build on 'ssh-ng://root@10.10.10.1': error: failed to start SSH connection to '10.10.10.1'
+building '/nix/store/7qg6vcml7hv4h68a7kn6six2bna11f5q-tigerstyle-standards-0.1.0.drv'...
+building '/nix/store/qbgcj2zl4l1r5y8z1bm9p37j1v0hjyl6-nix-shell-env.drv'...
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.25s
+     Running tests/advisory_cli.rs (/home/brittonr/.cargo-target/debug/deps/advisory_cli-c55b0a8ea7f01175)
+
+running 4 tests
+test exported_proof_bundle_preserves_verified_rail_schema ... ok
+test artifact_backed_proof_bundle_rejects_unsupported_schema_version ... ok
+test artifact_backed_proof_bundle_rejects_missing_bundle_file ... ok
+test artifact_backed_proof_bundle_accepts_complete_bundle ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 12 filtered out; finished in 0.13s

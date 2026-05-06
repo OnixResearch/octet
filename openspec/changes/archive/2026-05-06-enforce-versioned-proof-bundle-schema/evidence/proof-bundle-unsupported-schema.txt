@@ -1,0 +1,8 @@
+$ nix develop -c bash -c 'cargo test -p tigerstyle-standards --test advisory_cli artifact_backed_proof_bundle_rejects_unsupported_schema_version -- --nocapture'
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.09s
+     Running tests/advisory_cli.rs (/home/brittonr/.cargo-target/debug/deps/advisory_cli-c55b0a8ea7f01175)
+
+running 1 test
+test artifact_backed_proof_bundle_rejects_unsupported_schema_version ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 15 filtered out; finished in 0.05s
