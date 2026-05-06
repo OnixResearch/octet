@@ -592,22 +592,22 @@ For type-state protocol policies, structural validation MUST reject configured r
 - THEN every focused check exits successfully and the saved transcript names the commands used
 
 ### Requirement: Verified Enforcement Rails [r[verified-enforcement-rails]]
-Verified enforcement MUST require deterministic proof rails that bind proof outcomes to checked source, proof commands, receipt provenance, verifier identity, verifier binary identity, and toolchain identity before the checker reports the policy as satisfied.
+Tigerstyle policy artifacts MUST define verified-mode proof rails that bind proof evidence to deterministic commands, source coverage, receipt provenance, verifier identity, and build closure identity.
 
-#### Scenario: Verified receipts account for verifier binary digests [r[verified-enforcement-rails.verifier-binary-accounting]]
-- GIVEN a verified proof rail declares verifier binary path and digest metadata
-- WHEN a proof receipt contains the pass signal and all other required binding metadata
-- THEN the checker MUST also require exact verifier binary path and BLAKE3 digest receipt lines before accepting the receipt
+#### Scenario: Verified receipts account for verifier build closure identity [r[verified-enforcement-rails.build-closure-accounting]]
+- GIVEN a verified proof rail with configured verifier build-closure identity and digest metadata
+- WHEN a proof receipt contains the pass signal but omits or changes the build-closure receipt lines
+- THEN the standards checker MUST emit a hard verified diagnostic for mismatched receipt verifier metadata
 
-#### Scenario: Command-generated receipts bind the running verifier binary [r[verified-enforcement-rails.generated-verifier-binary]]
-- GIVEN `--execute-proof-rails` runs a verified proof command with configured verifier binary metadata
-- WHEN the command-generated receipt is checked
-- THEN the generated receipt MUST include the running verifier executable path and BLAKE3 digest metadata
+#### Scenario: Executed proof rails emit build closure receipt metadata [r[verified-enforcement-rails.generated-build-closure]]
+- GIVEN an executed proof rail with build-closure manifest paths
+- WHEN `tigerstyle-standards check --execute-proof-rails` synthesizes an in-memory receipt
+- THEN the generated receipt MUST include `proof-verifier-build-closure:` and `proof-verifier-build-closure-blake3:` lines derived from the configured manifest
 
-#### Scenario: Generated artifacts expose verifier binary digest obligations [r[verified-enforcement-rails.export-verifier-binary]]
-- GIVEN a policy registry declares verifier binary receipt metadata for a verified rail
-- WHEN generated policy artifacts are exported
-- THEN the checker configuration artifact MUST expose verifier binary path and digest obligations for downstream consumers
+#### Scenario: Generated policy artifacts export build closure obligations [r[verified-enforcement-rails.export-build-closure]]
+- GIVEN the Nickel policy registry declares verifier build-closure obligations
+- WHEN `tigerstyle-standards export-artifacts` renders checker configuration
+- THEN the generated artifact MUST include build-closure identity, digest, and manifest path fields for downstream checkers
 
 ### Requirement: Reference Seed Corpus Vendoring [r[reference-seed-corpus-vendoring]]
 

@@ -1,0 +1,2 @@
+$ nix run .#tigerstyle-policy-validate
+$ nix build .#checks.x86_64-linux.standards-fixtures --no-link -L

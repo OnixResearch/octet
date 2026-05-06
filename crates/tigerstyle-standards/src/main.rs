@@ -6,6 +6,7 @@
 //! CLI shell for `tigerstyle-standards`.
 
 use std::env;
+use std::fmt::Write as _;
 use std::fs;
 use std::io;
 use std::path::Path;
@@ -326,7 +327,7 @@ fn proof_command_receipt(
     output: Result<std::process::Output, io::Error>,
 ) -> String {
     let receipt_provenance = proof_receipt_provenance(rail);
-    let receipt_verifier = proof_receipt_verifier(rail);
+    let receipt_verifier = proof_receipt_verifier(rail, sources);
     let receipt_binding = proof_receipt_binding(rail, sources);
     match output {
         Ok(output) => format!(
@@ -381,7 +382,7 @@ fn proof_receipt_provenance(rail: &tigerstyle_standards::model::ProofRail) -> St
     }
 }
 
-fn proof_receipt_verifier(rail: &tigerstyle_standards::model::ProofRail) -> String {
+fn proof_receipt_verifier(rail: &tigerstyle_standards::model::ProofRail, sources: &[SourceFile]) -> String {
     let verifier = &rail.receipt_verifier;
     let mut lines = Vec::new();
     if !verifier.verifier_id.is_empty() {
@@ -398,6 +399,14 @@ fn proof_receipt_verifier(rail: &tigerstyle_standards::model::ProofRail) -> Stri
             "proof-verifier-binary-blake3: {}",
             current_exe_blake3().unwrap_or_else(|| "unavailable".to_owned())
         ));
+    }
+    if !verifier.verifier_build_closure.is_empty() {
+        lines.push(format!("proof-verifier-build-closure: {}", verifier.verifier_build_closure));
+    }
+    if !verifier.verifier_build_closure_digest.is_empty() {
+        let digest =
+            build_closure_digest(verifier, sources).unwrap_or_else(|| verifier.verifier_build_closure_digest.clone());
+        lines.push(format!("proof-verifier-build-closure-blake3: {digest}"));
     }
     if !verifier.toolchain_id.is_empty() {
         lines.push(format!("proof-toolchain: {}", verifier.toolchain_id));
@@ -420,6 +429,28 @@ fn current_exe_blake3() -> Option<String> {
     let path = env::current_exe().ok()?;
     let bytes = fs::read(path).ok()?;
     Some(blake3::hash(&bytes).to_hex().to_string())
+}
+
+fn build_closure_digest(
+    verifier: &tigerstyle_standards::model::ReceiptVerifier,
+    sources: &[SourceFile],
+) -> Option<String> {
+    if verifier.verifier_build_closure_paths.is_empty() {
+        return None;
+    }
+    let mut matched_sources = sources
+        .iter()
+        .filter(|source| verifier.verifier_build_closure_paths.iter().any(|pattern| source.path.contains(pattern)))
+        .collect::<Vec<_>>();
+    if matched_sources.is_empty() {
+        return None;
+    }
+    matched_sources.sort_by(|left, right| left.path.cmp(&right.path));
+    let mut manifest = String::new();
+    for source in matched_sources {
+        writeln!(manifest, "{}:{}", source.path, blake3_hex(&source.text)).expect("writing to string should not fail");
+    }
+    Some(blake3_hex(&manifest))
 }
 
 fn proof_receipt_binding(rail: &tigerstyle_standards::model::ProofRail, sources: &[SourceFile]) -> String {

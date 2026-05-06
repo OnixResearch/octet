@@ -54,14 +54,18 @@ evidence.
   exact verifier/toolchain accounting lines:
   `proof-verifier: <id>`, `proof-verifier-blake3: <hex>`,
   `proof-verifier-binary: <path-or-label>`,
-  `proof-verifier-binary-blake3: <hex>`, `proof-toolchain: <id>`, and
-  `proof-toolchain-blake3: <hex>`. When `tigerstyle-standards check
+  `proof-verifier-binary-blake3: <hex>`,
+  `proof-verifier-build-closure: <id>`,
+  `proof-verifier-build-closure-blake3: <hex>`, `proof-toolchain: <id>`, and
+  `proof-toolchain-blake3: <hex>`. If `verifier_build_closure_paths` are
+  configured, the build-closure digest is derived from the checked manifest file
+  contents instead of trusting ambient build state. When `tigerstyle-standards check
   --execute-proof-rails` is enabled, the checker runs each relevant declared
   proof command from the checked source root, captures deterministic provenance,
-  verifier/toolchain and verifier-binary metadata, command/source BLAKE3
+  verifier/toolchain, verifier-binary, and build-closure metadata, command/source BLAKE3
   bindings, command, working directory, exit status, stdout, and stderr as an
   in-memory proof receipt at the configured proof path, and then applies the same
-  pass-signal, binding, provenance, and verifier/toolchain gates. Command
+  pass-signal, binding, provenance, verifier/toolchain, binary, and closure gates. Command
   execution is explicit opt-in; read-only receipt checking remains the default
   for consumer safety.
 - Proof-relevant seed manifests MUST remain untrusted until a local acceptance

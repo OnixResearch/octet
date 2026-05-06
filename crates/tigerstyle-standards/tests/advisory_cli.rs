@@ -109,6 +109,11 @@ fn execute_proof_rails_uses_command_output_as_receipt() {
     std::fs::create_dir_all(fixture.join("src")).expect("proof fixture dirs should be created");
     std::fs::write(fixture.join("src/lib.rs"), "pub fn proof_witness() {}\n").expect("proof source should be written");
     std::fs::write(
+        fixture.join("proof-build-closure.txt"),
+        "verifier = tigerstyle-standards\nclosure-accounting = test manifest\n",
+    )
+    .expect("proof closure manifest should be written");
+    std::fs::write(
         fixture.join("proof-command.sh"),
         "#!/usr/bin/env bash\nset -euo pipefail\nprintf '%s\\n' 'proof-result: pass deterministic-effect-handlers'\n",
     )
@@ -278,6 +283,45 @@ proof-result: pass deterministic-effect-handlers
         ),
     )
     .expect("verifier-bound proof receipt should be written");
+
+    let output = Command::new(binary_path())
+        .arg("check")
+        .arg("--registry")
+        .arg(&registry)
+        .arg("--source")
+        .arg(&fixture)
+        .arg("--family")
+        .arg(VERIFICATION_FAMILY)
+        .arg("--output")
+        .arg("json")
+        .output()
+        .expect("standards checker should run");
+    assert_failure(&output);
+    let report = parse_report(&output);
+    assert!(report.diagnostics.iter().any(|diagnostic| {
+        diagnostic.policy_id == PROOF_POLICY_ID && diagnostic.message.contains("mismatched receipt verifier metadata")
+    }));
+}
+
+#[test]
+fn receipt_only_proof_rail_rejects_verifier_receipt_without_build_closure_digest() {
+    let temp = TempDir::new().expect("temp dir should be created");
+    let registry = write_registry_value(&temp, proof_registry());
+    let fixture = temp.path().join("build-closure-bound-proof-fixture");
+    std::fs::create_dir_all(fixture.join("src")).expect("proof fixture dirs should be created");
+    let source = "pub fn proof_witness() {}\n";
+    std::fs::write(fixture.join("src/lib.rs"), source).expect("proof source should be written");
+    std::fs::write(
+        fixture.join("proof-receipt.txt"),
+        format!(
+            "proof-receipt-schema: tigerstyle-proof-receipt/v1\nproof-backend: local-command-receipt\nproof-runner: tigerstyle-standards\nproof-environment: local-source-root\ntrust-boundary: test command receipt\nproof-verifier: tigerstyle-standards@proof-receipt/v1\nproof-verifier-blake3: 9fb0cd3ff1b2898eba4c6f71479f93ae3cdc80f869cd8ae5e6355235ec5f9aef\nproof-verifier-binary: tigerstyle-standards\nproof-verifier-binary-blake3: {}\nproof-toolchain: rust-toolchain.toml\nproof-toolchain-blake3: 50692525e10589e3a1060a0ed0adc77f695ad5617121b572e549ef9855ceb7a8\nproof-command-blake3: {}\nproof-source-blake3: {}:{}\nproof-result: pass deterministic-effect-handlers\n",
+            blake3_file_hex(binary_path()),
+            blake3_hex("bash proof-command.sh"),
+            fixture.join("src/lib.rs").display(),
+            blake3_hex(source),
+        ),
+    )
+    .expect("build-closure-bound proof receipt should be written");
 
     let output = Command::new(binary_path())
         .arg("check")
@@ -479,6 +523,9 @@ fn verified_policy(current: EnforcementMode, target: EnforcementMode) -> PolicyE
                 verifier_digest: "9fb0cd3ff1b2898eba4c6f71479f93ae3cdc80f869cd8ae5e6355235ec5f9aef".to_owned(),
                 verifier_binary_path: "tigerstyle-standards".to_owned(),
                 verifier_binary_digest: blake3_file_hex(binary_path()),
+                verifier_build_closure: "nix-tigerstyle-standards-build-closure/v1".to_owned(),
+                verifier_build_closure_digest: "fixture-build-closure-digest".to_owned(),
+                verifier_build_closure_paths: vec!["proof-build-closure.txt".to_owned()],
                 toolchain_id: "rust-toolchain.toml".to_owned(),
                 toolchain_digest: "50692525e10589e3a1060a0ed0adc77f695ad5617121b572e549ef9855ceb7a8".to_owned(),
             },
