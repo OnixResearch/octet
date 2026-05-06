@@ -9,6 +9,7 @@ use crate::model::EnforcementLevel;
 use crate::model::EnforcementMode;
 use crate::model::PolicyEntry;
 use crate::model::PolicyRegistry;
+use crate::model::ProofRail;
 use crate::model::SeedManifest;
 
 /// Canonical registry artifact file name.
@@ -17,6 +18,10 @@ pub const POLICIES_JSON_FILE: &str = "tigerstyle-policies.json";
 pub const CHECK_CONFIG_TOML_FILE: &str = "tigerstyle-check-config.toml";
 /// Seed manifest artifact file name.
 pub const SEED_MANIFESTS_JSON_FILE: &str = "tigerstyle-seed-manifests.json";
+/// Proof-bundle artifact file name.
+pub const PROOF_BUNDLES_JSON_FILE: &str = "tigerstyle-proof-bundles.json";
+/// Supported proof-bundle artifact schema version.
+pub const PROOF_BUNDLE_SCHEMA_VERSION: &str = "tigerstyle-proof-bundle/v1";
 
 const GENERATED_ARTIFACT_SCHEMA_VERSION: &str = "1";
 const GENERATED_FROM: &str = "standards/policies/registry.ncl";
@@ -32,6 +37,122 @@ pub struct SeedManifestArtifact {
     pub registry_schema_version: String,
     /// Seed manifests copied from the policy registry.
     pub seed_manifests: Vec<SeedManifest>,
+}
+
+/// Deterministic proof-bundle export artifact.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ProofBundleArtifact {
+    /// Artifact schema version.
+    pub schema_version: String,
+    /// Source policy registry path.
+    pub generated_from: String,
+    /// Registry schema version this artifact was generated from.
+    pub registry_schema_version: String,
+    /// Verified proof rails exported from the policy registry.
+    pub proof_bundles: Vec<ProofBundleEntry>,
+}
+
+/// One verified proof-rail bundle entry.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ProofBundleEntry {
+    /// Policy ID that owns the proof rail.
+    pub policy_id: String,
+    /// Zero-based proof rail index within the owning policy.
+    pub rail_index: u32,
+    /// Verified proof rail metadata and receipt obligations.
+    pub proof_rail: ProofRail,
+}
+
+/// Build the proof-bundle artifact from a registry.
+#[must_use]
+pub fn proof_bundle_artifact(registry: &PolicyRegistry) -> ProofBundleArtifact {
+    ProofBundleArtifact {
+        schema_version: PROOF_BUNDLE_SCHEMA_VERSION.to_owned(),
+        generated_from: GENERATED_FROM.to_owned(),
+        registry_schema_version: registry.schema_version.clone(),
+        proof_bundles: proof_bundle_entries(registry),
+    }
+}
+
+/// Validate that a proof-bundle artifact matches the registry's verified proof rails.
+#[must_use]
+pub fn validate_proof_bundle_artifact(registry: &PolicyRegistry, artifact: &ProofBundleArtifact) -> Vec<String> {
+    let mut errors = Vec::new();
+    if artifact.schema_version != PROOF_BUNDLE_SCHEMA_VERSION {
+        errors.push(format!(
+            "unsupported proof-bundle schema version `{}`; expected `{}`",
+            artifact.schema_version, PROOF_BUNDLE_SCHEMA_VERSION
+        ));
+    }
+    if artifact.registry_schema_version != registry.schema_version {
+        errors.push(format!(
+            "proof-bundle registry schema version `{}` does not match policy registry `{}`",
+            artifact.registry_schema_version, registry.schema_version
+        ));
+    }
+
+    let expected_entries = proof_bundle_entries(registry);
+    for expected in &expected_entries {
+        let covered = artifact.proof_bundles.iter().any(|entry| {
+            entry.policy_id == expected.policy_id
+                && entry.rail_index == expected.rail_index
+                && entry.proof_rail == expected.proof_rail
+        });
+        if !covered {
+            errors.push(format!(
+                "proof bundle is missing verified rail `{}` index {}",
+                expected.policy_id, expected.rail_index
+            ));
+        }
+    }
+    for actual in &artifact.proof_bundles {
+        let expected = expected_entries.iter().any(|entry| {
+            entry.policy_id == actual.policy_id
+                && entry.rail_index == actual.rail_index
+                && entry.proof_rail == actual.proof_rail
+        });
+        if !expected {
+            errors.push(format!(
+                "proof bundle contains stale or unknown verified rail `{}` index {}",
+                actual.policy_id, actual.rail_index
+            ));
+        }
+    }
+
+    errors
+}
+
+/// Returns true when a registry declares at least one verified proof rail.
+#[must_use]
+pub fn registry_has_verified_proof_rails(registry: &PolicyRegistry) -> bool {
+    registry.policies.iter().any(|policy| policy_is_verified(policy) && !policy.proof_rails.is_empty())
+}
+
+fn proof_bundle_entries(registry: &PolicyRegistry) -> Vec<ProofBundleEntry> {
+    let mut entries = registry
+        .policies
+        .iter()
+        .filter(|policy| policy_is_verified(policy))
+        .flat_map(|policy| {
+            policy.proof_rails.iter().enumerate().map(move |(rail_index, rail)| ProofBundleEntry {
+                policy_id: policy.policy_id.clone(),
+                rail_index: u32::try_from(rail_index).expect("proof rail index should fit u32"),
+                proof_rail: rail.clone(),
+            })
+        })
+        .collect::<Vec<_>>();
+    entries.sort_by(|left, right| {
+        left.policy_id
+            .cmp(&right.policy_id)
+            .then_with(|| left.rail_index.cmp(&right.rail_index))
+            .then_with(|| left.proof_rail.backend.cmp(&right.proof_rail.backend))
+    });
+    entries
+}
+
+fn policy_is_verified(policy: &PolicyEntry) -> bool {
+    policy.current_enforcement_mode == EnforcementMode::Verified
+        || policy.target_enforcement_mode == EnforcementMode::Verified
 }
 
 /// Build the seed-manifest artifact from a registry.

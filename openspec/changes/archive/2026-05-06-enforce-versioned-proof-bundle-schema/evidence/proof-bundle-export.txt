@@ -1,0 +1,61 @@
+$ nix develop -c bash -c 'artifact_dir=$(mktemp -d); registry_json=$(mktemp); nickel export --format json standards/policies/registry.ncl > "$registry_json"; tigerstyle-standards export-artifacts --registry "$registry_json" --out-dir "$artifact_dir"; test -s "$artifact_dir/tigerstyle-proof-bundles.json"; jq --exit-status ...'
+true
+true
+true
+{
+  "schema_version": "tigerstyle-proof-bundle/v1",
+  "generated_from": "standards/policies/registry.ncl",
+  "registry_schema_version": "2026-04-24",
+  "proof_bundles": [
+    {
+      "policy_id": "tigerstyle.verification.deterministic-effect-handlers",
+      "rail_index": 0,
+      "proof_rail": {
+        "backend": "local-command-receipt",
+        "command": "bash proof-command.sh",
+        "source_paths": [
+          "src/lib.rs"
+        ],
+        "proof_paths": [
+          "proof-receipt.txt"
+        ],
+        "pass_signal": "proof-result: pass deterministic-effect-handlers",
+        "trust_boundaries": [
+          "opt-in command execution proves local fixture proof command evidence shape, not arbitrary downstream semantic correctness"
+        ],
+        "receipt_binding": "blake3-command-and-source",
+        "receipt_provenance": {
+          "schema_version": "tigerstyle-proof-receipt/v1",
+          "runner": "tigerstyle-standards",
+          "environment": "local-source-root",
+          "requires_backend": true,
+          "requires_trust_boundary": true
+        },
+        "receipt_verifier": {
+          "verifier_id": "tigerstyle-standards@proof-receipt/v1",
+          "verifier_digest": "9fb0cd3ff1b2898eba4c6f71479f93ae3cdc80f869cd8ae5e6355235ec5f9aef",
+          "verifier_binary_path": "tigerstyle-standards",
+          "verifier_binary_digest": "b3c824e791af9fd4f58200f8a2f3723668decc5bb1a7751cb4880fa8a642c4de",
+          "verifier_build_closure": "nix-tigerstyle-standards-build-closure/v1",
+          "verifier_build_closure_digest": "372b744f6321abc8065322b626388256dcabe4111f772d50a6c6a50afd030a55",
+          "verifier_build_closure_paths": [
+            "proof-build-closure.txt"
+          ],
+          "verifier_nix_derivation": "tigerstyle-standards.drv",
+          "verifier_nix_derivation_digest": "395cf66a51543cf89028075deef9cf172bac902fd777f0ba0bead91aa68afec4",
+          "verifier_nix_closure": "nix-store-recursive-closure/v1",
+          "verifier_nix_closure_digest": "918d21e52d62044ea97d1b2c2e6bf5ec06751738984ff4b029ae156d903487c9",
+          "verifier_nix_closure_paths": [
+            "proof-nix-closure.txt"
+          ],
+          "verifier_nix_closure_graph_digest": "4713839b1f999f6a369f85e446ccb80f68e46d2f085aeead8ac323c29032dc21",
+          "verifier_nix_closure_graph_paths": [
+            "proof-nix-closure.graph"
+          ],
+          "toolchain_id": "rust-toolchain.toml",
+          "toolchain_digest": "50692525e10589e3a1060a0ed0adc77f695ad5617121b572e549ef9855ceb7a8"
+        }
+      }
+    }
+  ]
+}

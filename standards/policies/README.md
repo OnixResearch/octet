@@ -20,11 +20,12 @@ nix run .#tigerstyle-policy-export | jq '.policies | length'
 nix run .#tigerstyle-policy-artifacts -- /tmp/tigerstyle-policy-artifacts
 ```
 
-The artifact export writes three consumer-facing files:
+The artifact export writes four consumer-facing files:
 
 - `tigerstyle-policies.json` — canonical registry JSON consumed by `tigerstyle-standards check --policy-artifacts-dir`.
 - `tigerstyle-check-config.toml` — deterministic checker configuration summary for CI/operator review.
 - `tigerstyle-seed-manifests.json` — manifest-gated seed corpus metadata.
+- `tigerstyle-proof-bundles.json` — `tigerstyle-proof-bundle/v1` schema for verified proof rails and receipt obligations.
 
 Invalid fixtures should fail export:
 

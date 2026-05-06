@@ -203,6 +203,26 @@ let SeedManifestContract = {
 }
 in
 
+let ProofBundleSchemaVersionContract = OneOf [
+  "tigerstyle-proof-bundle/v1",
+]
+in
+
+let ProofBundleEntryContract = {
+  policy_id | NonEmptyString,
+  rail_index | Number,
+  proof_rail | ProofRailContract,
+}
+in
+
+let ProofBundleArtifactContract = {
+  schema_version | ProofBundleSchemaVersionContract,
+  generated_from | NonEmptyString,
+  registry_schema_version | NonEmptyString,
+  proof_bundles | Array ProofBundleEntryContract,
+}
+in
+
 let mode_rank = fun mode =>
   if mode == "lint" then 0
   else if mode == "gate" then 1
@@ -280,5 +300,7 @@ in
   Mechanism = MechanismContract,
   ProofRail = ProofRailContract,
   SeedManifest = SeedManifestContract,
+  ProofBundleArtifact = ProofBundleArtifactContract,
+  ProofBundleSchemaVersion = ProofBundleSchemaVersionContract,
   PolicyRegistryRules = RegistryCrossFieldContract,
 }

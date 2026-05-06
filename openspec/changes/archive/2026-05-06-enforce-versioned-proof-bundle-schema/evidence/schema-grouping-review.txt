@@ -1,0 +1,497 @@
+$ git diff -- crates/tigerstyle-standards/src/artifacts.rs crates/tigerstyle-standards/src/main.rs crates/tigerstyle-standards/tests/advisory_cli.rs standards/policies/contracts.ncl flake.nix
+diff --git a/crates/tigerstyle-standards/src/artifacts.rs b/crates/tigerstyle-standards/src/artifacts.rs
+index 678bd258..0008cb18 100644
+--- a/crates/tigerstyle-standards/src/artifacts.rs
++++ b/crates/tigerstyle-standards/src/artifacts.rs
+@@ -9,6 +9,7 @@ use crate::model::EnforcementLevel;
+ use crate::model::EnforcementMode;
+ use crate::model::PolicyEntry;
+ use crate::model::PolicyRegistry;
++use crate::model::ProofRail;
+ use crate::model::SeedManifest;
+
+ /// Canonical registry artifact file name.
+@@ -17,6 +18,10 @@ pub const POLICIES_JSON_FILE: &str = "tigerstyle-policies.json";
+ pub const CHECK_CONFIG_TOML_FILE: &str = "tigerstyle-check-config.toml";
+ /// Seed manifest artifact file name.
+ pub const SEED_MANIFESTS_JSON_FILE: &str = "tigerstyle-seed-manifests.json";
++/// Proof-bundle artifact file name.
++pub const PROOF_BUNDLES_JSON_FILE: &str = "tigerstyle-proof-bundles.json";
++/// Supported proof-bundle artifact schema version.
++pub const PROOF_BUNDLE_SCHEMA_VERSION: &str = "tigerstyle-proof-bundle/v1";
+
+ const GENERATED_ARTIFACT_SCHEMA_VERSION: &str = "1";
+ const GENERATED_FROM: &str = "standards/policies/registry.ncl";
+@@ -34,6 +39,122 @@ pub struct SeedManifestArtifact {
+     pub seed_manifests: Vec<SeedManifest>,
+ }
+
++/// Deterministic proof-bundle export artifact.
++#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
++pub struct ProofBundleArtifact {
++    /// Artifact schema version.
++    pub schema_version: String,
++    /// Source policy registry path.
++    pub generated_from: String,
++    /// Registry schema version this artifact was generated from.
++    pub registry_schema_version: String,
++    /// Verified proof rails exported from the policy registry.
++    pub proof_bundles: Vec<ProofBundleEntry>,
++}
++
++/// One verified proof-rail bundle entry.
++#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
++pub struct ProofBundleEntry {
++    /// Policy ID that owns the proof rail.
++    pub policy_id: String,
++    /// Zero-based proof rail index within the owning policy.
++    pub rail_index: u32,
++    /// Verified proof rail metadata and receipt obligations.
++    pub proof_rail: ProofRail,
++}
++
++/// Build the proof-bundle artifact from a registry.
++#[must_use]
++pub fn proof_bundle_artifact(registry: &PolicyRegistry) -> ProofBundleArtifact {
++    ProofBundleArtifact {
++        schema_version: PROOF_BUNDLE_SCHEMA_VERSION.to_owned(),
++        generated_from: GENERATED_FROM.to_owned(),
++        registry_schema_version: registry.schema_version.clone(),
++        proof_bundles: proof_bundle_entries(registry),
++    }
++}
++
++/// Validate that a proof-bundle artifact matches the registry's verified proof rails.
++#[must_use]
++pub fn validate_proof_bundle_artifact(registry: &PolicyRegistry, artifact: &ProofBundleArtifact) -> Vec<String> {
++    let mut errors = Vec::new();
++    if artifact.schema_version != PROOF_BUNDLE_SCHEMA_VERSION {
++        errors.push(format!(
++            "unsupported proof-bundle schema version `{}`; expected `{}`",
++            artifact.schema_version, PROOF_BUNDLE_SCHEMA_VERSION
++        ));
++    }
++    if artifact.registry_schema_version != registry.schema_version {
++        errors.push(format!(
++            "proof-bundle registry schema version `{}` does not match policy registry `{}`",
++            artifact.registry_schema_version, registry.schema_version
++        ));
++    }
++
++    let expected_entries = proof_bundle_entries(registry);
++    for expected in &expected_entries {
++        let covered = artifact.proof_bundles.iter().any(|entry| {
++            entry.policy_id == expected.policy_id
++                && entry.rail_index == expected.rail_index
++                && entry.proof_rail == expected.proof_rail
++        });
++        if !covered {
++            errors.push(format!(
++                "proof bundle is missing verified rail `{}` index {}",
++                expected.policy_id, expected.rail_index
++            ));
++        }
++    }
++    for actual in &artifact.proof_bundles {
++        let expected = expected_entries.iter().any(|entry| {
++            entry.policy_id == actual.policy_id
++                && entry.rail_index == actual.rail_index
++                && entry.proof_rail == actual.proof_rail
++        });
++        if !expected {
++            errors.push(format!(
++                "proof bundle contains stale or unknown verified rail `{}` index {}",
++                actual.policy_id, actual.rail_index
++            ));
++        }
++    }
++
++    errors
++}
++
++/// Returns true when a registry declares at least one verified proof rail.
++#[must_use]
++pub fn registry_has_verified_proof_rails(registry: &PolicyRegistry) -> bool {
++    registry.policies.iter().any(|policy| policy_is_verified(policy) && !policy.proof_rails.is_empty())
++}
++
++fn proof_bundle_entries(registry: &PolicyRegistry) -> Vec<ProofBundleEntry> {
++    let mut entries = registry
++        .policies
++        .iter()
++        .filter(|policy| policy_is_verified(policy))
++        .flat_map(|policy| {
++            policy.proof_rails.iter().enumerate().map(move |(rail_index, rail)| ProofBundleEntry {
++                policy_id: policy.policy_id.clone(),
++                rail_index: u32::try_from(rail_index).expect("proof rail index should fit u32"),
++                proof_rail: rail.clone(),
++            })
++        })
++        .collect::<Vec<_>>();
++    entries.sort_by(|left, right| {
++        left.policy_id
++            .cmp(&right.policy_id)
++            .then_with(|| left.rail_index.cmp(&right.rail_index))
++            .then_with(|| left.proof_rail.backend.cmp(&right.proof_rail.backend))
++    });
++    entries
++}
++
++fn policy_is_verified(policy: &PolicyEntry) -> bool {
++    policy.current_enforcement_mode == EnforcementMode::Verified
++        || policy.target_enforcement_mode == EnforcementMode::Verified
++}
++
+ /// Build the seed-manifest artifact from a registry.
+ #[must_use]
+ pub fn seed_manifest_artifact(registry: &PolicyRegistry) -> SeedManifestArtifact {
+diff --git a/crates/tigerstyle-standards/src/main.rs b/crates/tigerstyle-standards/src/main.rs
+index 7d4fa4b1..43eda670 100644
+--- a/crates/tigerstyle-standards/src/main.rs
++++ b/crates/tigerstyle-standards/src/main.rs
+@@ -19,13 +19,21 @@ use clap::Subcommand;
+ use clap::ValueEnum;
+ use tigerstyle_standards::artifacts::CHECK_CONFIG_TOML_FILE;
+ use tigerstyle_standards::artifacts::POLICIES_JSON_FILE;
++use tigerstyle_standards::artifacts::PROOF_BUNDLES_JSON_FILE;
++use tigerstyle_standards::artifacts::ProofBundleArtifact;
+ use tigerstyle_standards::artifacts::SEED_MANIFESTS_JSON_FILE;
++use tigerstyle_standards::artifacts::proof_bundle_artifact;
++use tigerstyle_standards::artifacts::registry_has_verified_proof_rails;
+ use tigerstyle_standards::artifacts::render_check_config_toml;
+ use tigerstyle_standards::artifacts::seed_manifest_artifact;
++use tigerstyle_standards::artifacts::validate_proof_bundle_artifact;
++use tigerstyle_standards::diagnostic::Diagnostic;
++use tigerstyle_standards::diagnostic::DiagnosticInput;
+ use tigerstyle_standards::fixture::FixtureManifest;
+ use tigerstyle_standards::fixture::validate_hard_policy_fixture_coverage;
+ use tigerstyle_standards::model::FamilySelection;
+ use tigerstyle_standards::model::PolicyRegistry;
++use tigerstyle_standards::model::Severity;
+ use tigerstyle_standards::report::CheckReport;
+ use tigerstyle_standards::report::render_json;
+ use tigerstyle_standards::report::render_markdown;
+@@ -164,6 +172,19 @@ fn run_check_command(args: CheckArgs) -> Result<bool, CliError> {
+     let registry = load_registry_for_check(&args)?;
+     let mut sources = load_sources(&args.source)?;
+     let selection = FamilySelection::from_families(args.family);
++    if let Some(policy_artifacts_dir) = &args.policy_artifacts_dir {
++        let diagnostics = validate_artifact_backed_proof_bundle(&registry, policy_artifacts_dir);
++        if !diagnostics.is_empty() {
++            let report = CheckReport {
++                diagnostics,
++                active_suppressions: Vec::new(),
++                evaluated_policy_ids: Vec::new(),
++                policy_evaluations: Vec::new(),
++            };
++            emit_report(args.output, &report)?;
++            return Ok(report.has_blocking_diagnostics());
++        }
++    }
+     if args.execute_proof_rails {
+         let executed = execute_relevant_proof_rails(&registry, &sources, &selection, &args.source);
+         sources.retain(|source| !executed.proof_path_patterns.iter().any(|pattern| source.path.contains(pattern)));
+@@ -187,6 +208,7 @@ fn run_export_artifacts_command(args: &ExportArtifactsArgs) -> Result<bool, CliE
+     write_json(&args.out_dir.join(POLICIES_JSON_FILE), &registry)?;
+     write_text(&args.out_dir.join(CHECK_CONFIG_TOML_FILE), &render_check_config_toml(&registry))?;
+     write_json(&args.out_dir.join(SEED_MANIFESTS_JSON_FILE), &seed_manifest_artifact(&registry))?;
++    write_json(&args.out_dir.join(PROOF_BUNDLES_JSON_FILE), &proof_bundle_artifact(&registry))?;
+     Ok(false)
+ }
+
+@@ -234,6 +256,40 @@ fn load_registry_for_check(args: &CheckArgs) -> Result<PolicyRegistry, CliError>
+     }
+ }
+
++fn validate_artifact_backed_proof_bundle(registry: &PolicyRegistry, directory: &Path) -> Vec<Diagnostic> {
++    if !registry_has_verified_proof_rails(registry) {
++        return Vec::new();
++    }
++
++    let path = directory.join(PROOF_BUNDLES_JSON_FILE);
++    let artifact = match load_json::<ProofBundleArtifact>(&path) {
++        Ok(artifact) => artifact,
++        Err(error) => {
++            return vec![proof_bundle_diagnostic(
++                path.display().to_string(),
++                format!("missing or unreadable proof-bundle artifact: {error}"),
++            )];
++        }
++    };
++
++    validate_proof_bundle_artifact(registry, &artifact)
++        .into_iter()
++        .map(|message| proof_bundle_diagnostic(path.display().to_string(), message))
++        .collect()
++}
++
++fn proof_bundle_diagnostic(path: String, message: String) -> Diagnostic {
++    Diagnostic::new(DiagnosticInput {
++        policy_id: "tigerstyle.verification.proof-bundle-schema".to_owned(),
++        source_section: "openspec/specs/standards-codification/spec.md#proof-bundle-schema-validation".to_owned(),
++        path,
++        line: None,
++        severity: Severity::Error,
++        message,
++        remediation: "regenerate policy artifacts with tigerstyle-standards export-artifacts and keep tigerstyle-proof-bundles.json with the policy bundle".to_owned(),
++    })
++}
++
+ fn write_json<T>(path: &Path, value: &T) -> Result<(), CliError>
+ where T: serde::Serialize {
+     let text = serde_json::to_string_pretty(value).map_err(|source| CliError::Serialize { source })?;
+diff --git a/crates/tigerstyle-standards/tests/advisory_cli.rs b/crates/tigerstyle-standards/tests/advisory_cli.rs
+index e73f9557..aa746465 100644
+--- a/crates/tigerstyle-standards/tests/advisory_cli.rs
++++ b/crates/tigerstyle-standards/tests/advisory_cli.rs
+@@ -31,6 +31,8 @@ const REGISTRY_FILE_NAME: &str = "registry.json";
+ const POLICIES_JSON_FILE: &str = "tigerstyle-policies.json";
+ const CHECK_CONFIG_TOML_FILE: &str = "tigerstyle-check-config.toml";
+ const SEED_MANIFESTS_JSON_FILE: &str = "tigerstyle-seed-manifests.json";
++const PROOF_BUNDLES_JSON_FILE: &str = "tigerstyle-proof-bundles.json";
++const PROOF_BUNDLE_SCHEMA_VERSION: &str = "tigerstyle-proof-bundle/v1";
+ const ADVISORY_FIXTURE: &str = "standards/check-fixtures/architecture/advisory/public-api-budget";
+ const HARD_FAILURE_FIXTURE: &str = "standards/check-fixtures/architecture/noncompliant/missing-no-std";
+
+@@ -89,6 +91,7 @@ fn exported_policy_artifacts_drive_checker() {
+     assert!(artifact_dir.join(POLICIES_JSON_FILE).is_file());
+     assert!(artifact_dir.join(CHECK_CONFIG_TOML_FILE).is_file());
+     assert!(artifact_dir.join(SEED_MANIFESTS_JSON_FILE).is_file());
++    assert!(artifact_dir.join(PROOF_BUNDLES_JSON_FILE).is_file());
+
+     let config =
+         std::fs::read_to_string(artifact_dir.join(CHECK_CONFIG_TOML_FILE)).expect("check config should be readable");
+@@ -101,6 +104,125 @@ fn exported_policy_artifacts_drive_checker() {
+     assert!(report.has_blocking_diagnostics());
+ }
+
++#[test]
++fn exported_proof_bundle_preserves_verified_rail_schema() {
++    let temp = TempDir::new().expect("temp dir should be created");
++    let registry = write_registry_value(&temp, proof_registry());
++    let artifact_dir = temp.path().join("generated-proof-bundle");
++
++    let export = Command::new(binary_path())
++        .arg("export-artifacts")
++        .arg("--registry")
++        .arg(&registry)
++        .arg("--out-dir")
++        .arg(&artifact_dir)
++        .output()
++        .expect("artifact export should run");
++    assert_success(&export);
++
++    let proof_bundle =
++        std::fs::read_to_string(artifact_dir.join(PROOF_BUNDLES_JSON_FILE)).expect("proof bundle should be readable");
++    let value: serde_json::Value = serde_json::from_str(&proof_bundle).expect("proof bundle should parse as JSON");
++    assert_eq!(value["schema_version"], PROOF_BUNDLE_SCHEMA_VERSION);
++    assert_eq!(value["proof_bundles"][0]["policy_id"], PROOF_POLICY_ID);
++    assert_eq!(value["proof_bundles"][0]["proof_rail"]["receipt_binding"], "blake3-command-and-source");
++    assert_eq!(
++        value["proof_bundles"][0]["proof_rail"]["receipt_verifier"]["verifier_nix_closure_graph_paths"][0],
++        "proof-nix-closure.graph"
++    );
++}
++
++#[test]
++fn artifact_backed_proof_bundle_rejects_unsupported_schema_version() {
++    let temp = TempDir::new().expect("temp dir should be created");
++    let registry = write_registry_value(&temp, proof_registry());
++    let artifact_dir = temp.path().join("generated-proof-bundle");
++    export_artifacts(&registry, &artifact_dir);
++    let proof_bundle_path = artifact_dir.join(PROOF_BUNDLES_JSON_FILE);
++    let proof_bundle = std::fs::read_to_string(&proof_bundle_path).expect("proof bundle should be readable");
++    std::fs::write(&proof_bundle_path, proof_bundle.replace(PROOF_BUNDLE_SCHEMA_VERSION, "tigerstyle-proof-bundle/v0"))
++        .expect("mutated proof bundle should be written");
++    let fixture = write_executable_proof_fixture(&temp, "unsupported-schema-proof-fixture");
++
++    let output = Command::new(binary_path())
++        .arg("check")
++        .arg("--policy-artifacts-dir")
++        .arg(&artifact_dir)
++        .arg("--source")
++        .arg(&fixture)
++        .arg("--family")
++        .arg(VERIFICATION_FAMILY)
++        .arg("--execute-proof-rails")
++        .arg("--output")
++        .arg("json")
++        .output()
++        .expect("standards checker should run");
++    assert_failure(&output);
++    let report = parse_report(&output);
++    assert!(report.diagnostics.iter().any(|diagnostic| {
++        diagnostic.policy_id == "tigerstyle.verification.proof-bundle-schema"
++            && diagnostic.message.contains("unsupported proof-bundle schema version")
++            && diagnostic.message.contains(PROOF_BUNDLE_SCHEMA_VERSION)
++    }));
++}
++
++#[test]
++fn artifact_backed_proof_bundle_rejects_missing_bundle_file() {
++    let temp = TempDir::new().expect("temp dir should be created");
++    let registry = write_registry_value(&temp, proof_registry());
++    let artifact_dir = temp.path().join("generated-proof-bundle");
++    export_artifacts(&registry, &artifact_dir);
++    std::fs::remove_file(artifact_dir.join(PROOF_BUNDLES_JSON_FILE)).expect("proof bundle should be removed");
++    let fixture = write_executable_proof_fixture(&temp, "missing-bundle-proof-fixture");
++
++    let output = Command::new(binary_path())
++        .arg("check")
++        .arg("--policy-artifacts-dir")
++        .arg(&artifact_dir)
++        .arg("--source")
++        .arg(&fixture)
++        .arg("--family")
++        .arg(VERIFICATION_FAMILY)
++        .arg("--execute-proof-rails")
++        .arg("--output")
++        .arg("json")
++        .output()
++        .expect("standards checker should run");
++    assert_failure(&output);
++    let report = parse_report(&output);
++    assert!(report.diagnostics.iter().any(|diagnostic| {
++        diagnostic.policy_id == "tigerstyle.verification.proof-bundle-schema"
++            && diagnostic.message.contains("missing or unreadable proof-bundle artifact")
++    }));
++}
++
++#[test]
++fn artifact_backed_proof_bundle_accepts_complete_bundle() {
++    let temp = TempDir::new().expect("temp dir should be created");
++    let registry = write_registry_value(&temp, proof_registry());
++    let artifact_dir = temp.path().join("generated-proof-bundle");
++    export_artifacts(&registry, &artifact_dir);
++    let fixture = write_executable_proof_fixture(&temp, "complete-bundle-proof-fixture");
++
++    let output = Command::new(binary_path())
++        .arg("check")
++        .arg("--policy-artifacts-dir")
++        .arg(&artifact_dir)
++        .arg("--source")
++        .arg(&fixture)
++        .arg("--family")
++        .arg(VERIFICATION_FAMILY)
++        .arg("--execute-proof-rails")
++        .arg("--output")
++        .arg("json")
++        .output()
++        .expect("standards checker should run");
++    assert_success(&output);
++    let report = parse_report(&output);
++    assert!(report.diagnostics.is_empty());
++    assert!(report.evaluated_policy_ids.iter().any(|policy_id| policy_id == PROOF_POLICY_ID));
++}
++
+ #[test]
+ fn execute_proof_rails_uses_command_output_as_receipt() {
+     let temp = TempDir::new().expect("temp dir should be created");
+@@ -500,6 +622,42 @@ fn execute_proof_rails_replaces_stale_committed_receipt() {
+     }));
+ }
+
++fn export_artifacts(registry: &Path, artifact_dir: &Path) {
++    let output = Command::new(binary_path())
++        .arg("export-artifacts")
++        .arg("--registry")
++        .arg(registry)
++        .arg("--out-dir")
++        .arg(artifact_dir)
++        .output()
++        .expect("artifact export should run");
++    assert_success(&output);
++}
++
++fn write_executable_proof_fixture(temp: &TempDir, name: &str) -> PathBuf {
++    let fixture = temp.path().join(name);
++    std::fs::create_dir_all(fixture.join("src")).expect("proof fixture dirs should be created");
++    std::fs::write(fixture.join("src/lib.rs"), "pub fn proof_witness() {}\n").expect("proof source should be written");
++    std::fs::write(
++        fixture.join("proof-build-closure.txt"),
++        "verifier = tigerstyle-standards\nclosure-accounting = test manifest\n",
++    )
++    .expect("proof closure manifest should be written");
++    std::fs::write(
++        fixture.join("proof-nix-closure.txt"),
++        "nix-derivation = tigerstyle-standards.drv\nclosure-source = exportReferencesGraph\n",
++    )
++    .expect("proof Nix closure manifest should be written");
++    std::fs::write(fixture.join("proof-nix-closure.graph"), nix_closure_graph())
++        .expect("proof Nix closure graph should be written");
++    std::fs::write(
++        fixture.join("proof-command.sh"),
++        "#!/usr/bin/env bash\nset -euo pipefail\nprintf '%s\\n' 'proof-result: pass deterministic-effect-handlers'\n",
++    )
++    .expect("proof command should be written");
++    fixture
++}
++
+ fn run_architecture_check(registry: &Path, source: &Path) -> Output {
+     Command::new(binary_path())
+         .arg("check")
+diff --git a/flake.nix b/flake.nix
+index b670d1aa..7c0fb3d4 100644
+--- a/flake.nix
++++ b/flake.nix
+@@ -673,6 +673,10 @@ MAIN
+           test -s "$artifact_dir/tigerstyle-policies.json"
+           test -s "$artifact_dir/tigerstyle-check-config.toml"
+           test -s "$artifact_dir/tigerstyle-seed-manifests.json"
++          test -s "$artifact_dir/tigerstyle-proof-bundles.json"
++          jq --exit-status '.schema_version == "tigerstyle-proof-bundle/v1"' "$artifact_dir/tigerstyle-proof-bundles.json" >/dev/null
++          jq --exit-status 'any(.proof_bundles[]; .policy_id == "tigerstyle.verification.deterministic-effect-handlers")' "$artifact_dir/tigerstyle-proof-bundles.json" >/dev/null
++          jq --exit-status 'any(.proof_bundles[]; .proof_rail.receipt_verifier.verifier_nix_closure_graph_paths[] == "proof-nix-closure.graph")' "$artifact_dir/tigerstyle-proof-bundles.json" >/dev/null
+           grep --fixed-strings "structural_policy_ids" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
+           grep --fixed-strings "bounded_queue_forbidden_apis" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
+           grep --fixed-strings "tokio::sync::mpsc::unbounded_channel" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
+@@ -711,7 +715,7 @@ MAIN
+           grep --fixed-strings "9fb0cd3ff1b2898eba4c6f71479f93ae3cdc80f869cd8ae5e6355235ec5f9aef" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
+           grep --fixed-strings "proof_rail_receipt_verifier_binaries" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
+           grep --fixed-strings "proof_rail_receipt_verifier_binary_digests" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
+-          grep --fixed-strings "2ba96767a574ade1d1e7a20242e49d9479be76ffe91fcb4e232ae24b998683e0" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
++          grep --fixed-strings "b3c824e791af9fd4f58200f8a2f3723668decc5bb1a7751cb4880fa8a642c4de" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
+           grep --fixed-strings "proof_rail_receipt_verifier_build_closures" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
+           grep --fixed-strings "nix-tigerstyle-standards-build-closure/v1" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
+           grep --fixed-strings "proof_rail_receipt_verifier_build_closure_digests" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
+diff --git a/standards/policies/contracts.ncl b/standards/policies/contracts.ncl
+index 633a976b..fd7b1c9a 100644
+--- a/standards/policies/contracts.ncl
++++ b/standards/policies/contracts.ncl
+@@ -203,6 +203,26 @@ let SeedManifestContract = {
+ }
+ in
+
++let ProofBundleSchemaVersionContract = OneOf [
++  "tigerstyle-proof-bundle/v1",
++]
++in
++
++let ProofBundleEntryContract = {
++  policy_id | NonEmptyString,
++  rail_index | Number,
++  proof_rail | ProofRailContract,
++}
++in
++
++let ProofBundleArtifactContract = {
++  schema_version | ProofBundleSchemaVersionContract,
++  generated_from | NonEmptyString,
++  registry_schema_version | NonEmptyString,
++  proof_bundles | Array ProofBundleEntryContract,
++}
++in
++
+ let mode_rank = fun mode =>
+   if mode == "lint" then 0
+   else if mode == "gate" then 1
+@@ -280,5 +300,7 @@ in
+   Mechanism = MechanismContract,
+   ProofRail = ProofRailContract,
+   SeedManifest = SeedManifestContract,
++  ProofBundleArtifact = ProofBundleArtifactContract,
++  ProofBundleSchemaVersion = ProofBundleSchemaVersionContract,
+   PolicyRegistryRules = RegistryCrossFieldContract,
+ }
+
+Review assertion: generated artifact groups proof metadata by schema_version/generated_from/registry_schema_version plus proof_bundles[{policy_id, rail_index, proof_rail}], and check --policy-artifacts-dir validates this grouped artifact before accepting verified proof rails. This is not only flattened TOML array enforcement.
