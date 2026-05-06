@@ -1160,6 +1160,12 @@ in
           requires_backend = true,
           requires_trust_boundary = true,
         },
+        receipt_verifier = {
+          verifier_id = "tigerstyle-standards@proof-receipt/v1",
+          verifier_digest = "9fb0cd3ff1b2898eba4c6f71479f93ae3cdc80f869cd8ae5e6355235ec5f9aef",
+          toolchain_id = "rust-toolchain.toml",
+          toolchain_digest = "50692525e10589e3a1060a0ed0adc77f695ad5617121b572e549ef9855ceb7a8",
+        },
       }],
       checker_owner = "verification",
       checker_id = "tigerstyle-standards",

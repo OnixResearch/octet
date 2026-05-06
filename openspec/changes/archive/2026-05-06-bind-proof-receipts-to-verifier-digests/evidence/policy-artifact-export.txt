@@ -1,0 +1,16 @@
+$ git add -A && tmp=$(mktemp -d /tmp/tigerstyle-verifier-artifacts.XXXXXX) && nix run .#tigerstyle-policy-artifacts -- $tmp && grep --fixed-strings 'proof_rail_receipt_verifiers' $tmp/tigerstyle-check-config.toml && grep --fixed-strings 'tigerstyle-standards@proof-receipt/v1' $tmp/tigerstyle-check-config.toml && grep --fixed-strings 'proof_rail_receipt_verifier_digests' $tmp/tigerstyle-check-config.toml && grep --fixed-strings '9fb0cd3ff1b2898eba4c6f71479f93ae3cdc80f869cd8ae5e6355235ec5f9aef' $tmp/tigerstyle-check-config.toml && grep --fixed-strings 'proof_rail_receipt_toolchains' $tmp/tigerstyle-check-config.toml && grep --fixed-strings 'rust-toolchain.toml' $tmp/tigerstyle-check-config.toml && grep --fixed-strings 'proof_rail_receipt_toolchain_digests' $tmp/tigerstyle-check-config.toml && grep --fixed-strings '50692525e10589e3a1060a0ed0adc77f695ad5617121b572e549ef9855ceb7a8' $tmp/tigerstyle-check-config.toml
+exit_code=0
+these 2 derivations will be built:
+  /nix/store/x0csqanyaakqndq7kk6h2yjx5s205dyz-tigerstyle-standards-0.1.0.drv
+  /nix/store/w90dy3fvn6sdg3jms0i5a3gg2cy0ca6s-tigerstyle-policy-artifacts.drv
+cannot build on 'ssh-ng://root@10.10.10.1': error: failed to start SSH connection to '10.10.10.1'
+building '/nix/store/x0csqanyaakqndq7kk6h2yjx5s205dyz-tigerstyle-standards-0.1.0.drv'...
+building '/nix/store/w90dy3fvn6sdg3jms0i5a3gg2cy0ca6s-tigerstyle-policy-artifacts.drv'...
+proof_rail_receipt_verifiers = ["tigerstyle-standards@proof-receipt/v1"]
+proof_rail_receipt_verifiers = ["tigerstyle-standards@proof-receipt/v1"]
+proof_rail_receipt_verifier_digests = ["9fb0cd3ff1b2898eba4c6f71479f93ae3cdc80f869cd8ae5e6355235ec5f9aef"]
+proof_rail_receipt_verifier_digests = ["9fb0cd3ff1b2898eba4c6f71479f93ae3cdc80f869cd8ae5e6355235ec5f9aef"]
+proof_rail_receipt_toolchains = ["rust-toolchain.toml"]
+proof_rail_receipt_toolchains = ["rust-toolchain.toml"]
+proof_rail_receipt_toolchain_digests = ["50692525e10589e3a1060a0ed0adc77f695ad5617121b572e549ef9855ceb7a8"]
+proof_rail_receipt_toolchain_digests = ["50692525e10589e3a1060a0ed0adc77f695ad5617121b572e549ef9855ceb7a8"]

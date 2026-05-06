@@ -325,23 +325,26 @@ fn proof_command_receipt(
     output: Result<std::process::Output, io::Error>,
 ) -> String {
     let receipt_provenance = proof_receipt_provenance(rail);
+    let receipt_verifier = proof_receipt_verifier(rail);
     let receipt_binding = proof_receipt_binding(rail, sources);
     match output {
         Ok(output) => format!(
-            "proof-command: {}\nproof-cwd: {}\n{}{}exit-status: {}\nstdout:\n{}\nstderr:\n{}\n",
+            "proof-command: {}\nproof-cwd: {}\n{}{}{}exit-status: {}\nstdout:\n{}\nstderr:\n{}\n",
             rail.command,
             working_dir.display(),
             receipt_provenance,
+            receipt_verifier,
             receipt_binding,
             output.status.code().map_or_else(|| "signal".to_owned(), |code| code.to_string()),
             String::from_utf8_lossy(&output.stdout),
             String::from_utf8_lossy(&output.stderr)
         ),
         Err(error) => format!(
-            "proof-command: {}\nproof-cwd: {}\n{}{}exit-status: spawn-error\nstderr:\n{}\n",
+            "proof-command: {}\nproof-cwd: {}\n{}{}{}exit-status: spawn-error\nstderr:\n{}\n",
             rail.command,
             working_dir.display(),
             receipt_provenance,
+            receipt_verifier,
             receipt_binding,
             error
         ),
@@ -365,6 +368,32 @@ fn proof_receipt_provenance(rail: &tigerstyle_standards::model::ProofRail) -> St
     }
     if provenance.requires_trust_boundary {
         lines.extend(rail.trust_boundaries.iter().map(|boundary| format!("trust-boundary: {boundary}")));
+    }
+    if lines.is_empty() {
+        String::new()
+    } else {
+        lines.join(
+            "
+",
+        ) + "
+"
+    }
+}
+
+fn proof_receipt_verifier(rail: &tigerstyle_standards::model::ProofRail) -> String {
+    let verifier = &rail.receipt_verifier;
+    let mut lines = Vec::new();
+    if !verifier.verifier_id.is_empty() {
+        lines.push(format!("proof-verifier: {}", verifier.verifier_id));
+    }
+    if !verifier.verifier_digest.is_empty() {
+        lines.push(format!("proof-verifier-blake3: {}", verifier.verifier_digest));
+    }
+    if !verifier.toolchain_id.is_empty() {
+        lines.push(format!("proof-toolchain: {}", verifier.toolchain_id));
+    }
+    if !verifier.toolchain_digest.is_empty() {
+        lines.push(format!("proof-toolchain-blake3: {}", verifier.toolchain_digest));
     }
     if lines.is_empty() {
         String::new()

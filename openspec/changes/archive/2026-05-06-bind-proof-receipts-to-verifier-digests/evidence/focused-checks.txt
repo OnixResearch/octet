@@ -1,0 +1,17 @@
+$ nix develop -c bash -c 'cargo test -p tigerstyle-standards --test advisory_cli receipt_only_proof_rail_rejects_provenance_receipt_without_verifier_digest -- --nocapture && cargo test -p tigerstyle-standards --test advisory_cli execute_proof_rails_uses_command_output_as_receipt -- --nocapture'
+exit_code=0
+Finished `test` profile [unoptimized + debuginfo] target(s) in 0.41s
+     Running tests/advisory_cli.rs (/home/brittonr/.cargo-target/debug/deps/advisory_cli-c55b0a8ea7f01175)
+
+running 1 test
+test receipt_only_proof_rail_rejects_provenance_receipt_without_verifier_digest ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.01s
+
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.14s
+     Running tests/advisory_cli.rs (/home/brittonr/.cargo-target/debug/deps/advisory_cli-c55b0a8ea7f01175)
+
+running 1 test
+test execute_proof_rails_uses_command_output_as_receipt ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.02s

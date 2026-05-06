@@ -109,6 +109,14 @@ let ReceiptProvenanceContract = {
 }
 in
 
+let ReceiptVerifierContract = {
+  verifier_id | String | default = "",
+  verifier_digest | String | default = "",
+  toolchain_id | String | default = "",
+  toolchain_digest | String | default = "",
+}
+in
+
 let SuppressionRequirements = {
   requires_policy_id | Bool,
   requires_source_section | Bool,
@@ -165,6 +173,7 @@ let ProofRailContract = {
   trust_boundaries | Array NonEmptyString,
   receipt_binding | ReceiptBindingContract | default = "none",
   receipt_provenance | ReceiptProvenanceContract | default = {},
+  receipt_verifier | ReceiptVerifierContract | default = {},
 }
 in
 

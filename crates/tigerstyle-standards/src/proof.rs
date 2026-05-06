@@ -8,6 +8,7 @@ use crate::model::PolicyEntry;
 use crate::model::PolicyRegistry;
 use crate::model::ProofRail;
 use crate::model::ReceiptProvenance;
+use crate::model::ReceiptVerifier;
 use crate::source::SourceFile;
 
 const RECEIPT_BINDING_BLAKE3_COMMAND_AND_SOURCE: &str = "blake3-command-and-source";
@@ -119,6 +120,15 @@ fn check_proof_rail(policy: &PolicyEntry, rail: &ProofRail, sources: &[SourceFil
                 None,
                 format!("verified proof rail `{}` has mismatched receipt provenance", rail.backend),
             ));
+        } else if receipt_verifier_enabled(rail)
+            && !passing_proof_sources.iter().any(|proof_source| receipt_verifier_matches(rail, proof_source))
+        {
+            diagnostics.push(proof_diagnostic(
+                policy,
+                &passing_proof_sources[0].path,
+                None,
+                format!("verified proof rail `{}` has mismatched receipt verifier metadata", rail.backend),
+            ));
         }
     }
 
@@ -167,6 +177,43 @@ fn receipt_provenance_matches(rail: &ProofRail, proof_source: &SourceFile) -> bo
     expected_receipt_provenance_lines(rail)
         .iter()
         .all(|line| proof_source.text.lines().any(|receipt_line| receipt_line == line))
+}
+
+fn receipt_verifier_enabled(rail: &ProofRail) -> bool {
+    let verifier = &rail.receipt_verifier;
+    !verifier.verifier_id.is_empty()
+        || !verifier.verifier_digest.is_empty()
+        || !verifier.toolchain_id.is_empty()
+        || !verifier.toolchain_digest.is_empty()
+}
+
+fn receipt_verifier_matches(rail: &ProofRail, proof_source: &SourceFile) -> bool {
+    expected_receipt_verifier_lines(rail)
+        .iter()
+        .all(|line| proof_source.text.lines().any(|receipt_line| receipt_line == line))
+}
+
+fn expected_receipt_verifier_lines(rail: &ProofRail) -> Vec<String> {
+    let ReceiptVerifier {
+        verifier_id,
+        verifier_digest,
+        toolchain_id,
+        toolchain_digest,
+    } = &rail.receipt_verifier;
+    let mut lines = Vec::new();
+    if !verifier_id.is_empty() {
+        lines.push(format!("proof-verifier: {verifier_id}"));
+    }
+    if !verifier_digest.is_empty() {
+        lines.push(format!("proof-verifier-blake3: {verifier_digest}"));
+    }
+    if !toolchain_id.is_empty() {
+        lines.push(format!("proof-toolchain: {toolchain_id}"));
+    }
+    if !toolchain_digest.is_empty() {
+        lines.push(format!("proof-toolchain-blake3: {toolchain_digest}"));
+    }
+    lines
 }
 
 fn expected_receipt_provenance_lines(rail: &ProofRail) -> Vec<String> {
