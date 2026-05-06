@@ -650,6 +650,14 @@ MAIN
           grep --fixed-strings "proof-result: pass deterministic-effect-handlers" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
           grep --fixed-strings "proof_rail_receipt_bindings" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
           grep --fixed-strings "blake3-command-and-source" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
+          grep --fixed-strings "proof_rail_receipt_schemas" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
+          grep --fixed-strings "tigerstyle-proof-receipt/v1" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
+          grep --fixed-strings "proof_rail_receipt_runners" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
+          grep --fixed-strings "tigerstyle-standards" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
+          grep --fixed-strings "proof_rail_receipt_environments" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
+          grep --fixed-strings "local-source-root" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
+          grep --fixed-strings "proof_rail_receipt_requires" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
+          grep --fixed-strings "trust-boundary" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
 
           tigerstyle-standards check \
             --policy-artifacts-dir "$artifact_dir" \

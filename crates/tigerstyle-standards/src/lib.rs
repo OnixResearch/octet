@@ -37,6 +37,7 @@ mod tests {
     use crate::model::PolicyEntry;
     use crate::model::PolicyRegistry;
     use crate::model::ProofRail;
+    use crate::model::ReceiptProvenance;
     use crate::model::Severity;
     use crate::model::SuppressionRequirements;
     use crate::proof::check_verified_proof_rails;
@@ -616,6 +617,7 @@ impl Session<Authenticated> { pub fn send(self) {} }
                 pass_signal: "proof-result: pass deterministic-effect-handlers".to_owned(),
                 trust_boundaries: vec!["fixture receipt only".to_owned()],
                 receipt_binding: "none".to_owned(),
+                receipt_provenance: ReceiptProvenance::default(),
             }],
             ..sample_policy(
                 VERIFIED_POLICY_ID,

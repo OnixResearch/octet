@@ -1,4 +1,8 @@
+proof-receipt-schema: tigerstyle-proof-receipt/v1
+proof-backend: local-command-receipt
+proof-runner: tigerstyle-standards
+proof-environment: local-source-root
+trust-boundary: opt-in command execution proves local fixture proof command evidence shape, not arbitrary downstream semantic correctness
 proof-command-blake3: 71f5bd32c3c27f0795008e3ff5ee56e7736a7fac5b2d06fbb38cd8d19b4a6609
 proof-source-blake3: standards/check-fixtures/verification/compliant/src/lib.rs:641fadb612cd129e2f9682cdf660e132257779c81ef6c9195cd4d506023d4a5d
 proof-result: pass deterministic-effect-handlers
-trust-boundary: local fixture receipt is bound to command and source hashes

@@ -7,6 +7,7 @@ use crate::model::FamilySelection;
 use crate::model::PolicyEntry;
 use crate::model::PolicyRegistry;
 use crate::model::ProofRail;
+use crate::model::ReceiptProvenance;
 use crate::source::SourceFile;
 
 const RECEIPT_BINDING_BLAKE3_COMMAND_AND_SOURCE: &str = "blake3-command-and-source";
@@ -109,6 +110,15 @@ fn check_proof_rail(policy: &PolicyEntry, rail: &ProofRail, sources: &[SourceFil
                     rail.backend, rail.receipt_binding
                 ),
             ));
+        } else if receipt_provenance_enabled(rail)
+            && !passing_proof_sources.iter().any(|proof_source| receipt_provenance_matches(rail, proof_source))
+        {
+            diagnostics.push(proof_diagnostic(
+                policy,
+                &passing_proof_sources[0].path,
+                None,
+                format!("verified proof rail `{}` has mismatched receipt provenance", rail.backend),
+            ));
         }
     }
 
@@ -142,6 +152,48 @@ fn receipt_binding_matches(rail: &ProofRail, sources: &[SourceFile], proof_sourc
     expected_receipt_binding_lines(rail, sources)
         .iter()
         .all(|line| proof_source.text.lines().any(|receipt_line| receipt_line == line))
+}
+
+fn receipt_provenance_enabled(rail: &ProofRail) -> bool {
+    let provenance = &rail.receipt_provenance;
+    !provenance.schema_version.is_empty()
+        || !provenance.runner.is_empty()
+        || !provenance.environment.is_empty()
+        || provenance.requires_backend
+        || provenance.requires_trust_boundary
+}
+
+fn receipt_provenance_matches(rail: &ProofRail, proof_source: &SourceFile) -> bool {
+    expected_receipt_provenance_lines(rail)
+        .iter()
+        .all(|line| proof_source.text.lines().any(|receipt_line| receipt_line == line))
+}
+
+fn expected_receipt_provenance_lines(rail: &ProofRail) -> Vec<String> {
+    let ReceiptProvenance {
+        schema_version,
+        runner,
+        environment,
+        requires_backend,
+        requires_trust_boundary,
+    } = &rail.receipt_provenance;
+    let mut lines = Vec::new();
+    if !schema_version.is_empty() {
+        lines.push(format!("proof-receipt-schema: {schema_version}"));
+    }
+    if *requires_backend {
+        lines.push(format!("proof-backend: {}", rail.backend));
+    }
+    if !runner.is_empty() {
+        lines.push(format!("proof-runner: {runner}"));
+    }
+    if !environment.is_empty() {
+        lines.push(format!("proof-environment: {environment}"));
+    }
+    if *requires_trust_boundary {
+        lines.extend(rail.trust_boundaries.iter().map(|boundary| format!("trust-boundary: {boundary}")));
+    }
+    lines
 }
 
 fn expected_receipt_binding_lines(rail: &ProofRail, sources: &[SourceFile]) -> Vec<String> {

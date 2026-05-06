@@ -324,24 +324,56 @@ fn proof_command_receipt(
     working_dir: &Path,
     output: Result<std::process::Output, io::Error>,
 ) -> String {
+    let receipt_provenance = proof_receipt_provenance(rail);
     let receipt_binding = proof_receipt_binding(rail, sources);
     match output {
         Ok(output) => format!(
-            "proof-command: {}\nproof-cwd: {}\n{}exit-status: {}\nstdout:\n{}\nstderr:\n{}\n",
+            "proof-command: {}\nproof-cwd: {}\n{}{}exit-status: {}\nstdout:\n{}\nstderr:\n{}\n",
             rail.command,
             working_dir.display(),
+            receipt_provenance,
             receipt_binding,
             output.status.code().map_or_else(|| "signal".to_owned(), |code| code.to_string()),
             String::from_utf8_lossy(&output.stdout),
             String::from_utf8_lossy(&output.stderr)
         ),
         Err(error) => format!(
-            "proof-command: {}\nproof-cwd: {}\n{}exit-status: spawn-error\nstderr:\n{}\n",
+            "proof-command: {}\nproof-cwd: {}\n{}{}exit-status: spawn-error\nstderr:\n{}\n",
             rail.command,
             working_dir.display(),
+            receipt_provenance,
             receipt_binding,
             error
         ),
+    }
+}
+
+fn proof_receipt_provenance(rail: &tigerstyle_standards::model::ProofRail) -> String {
+    let provenance = &rail.receipt_provenance;
+    let mut lines = Vec::new();
+    if !provenance.schema_version.is_empty() {
+        lines.push(format!("proof-receipt-schema: {}", provenance.schema_version));
+    }
+    if provenance.requires_backend {
+        lines.push(format!("proof-backend: {}", rail.backend));
+    }
+    if !provenance.runner.is_empty() {
+        lines.push(format!("proof-runner: {}", provenance.runner));
+    }
+    if !provenance.environment.is_empty() {
+        lines.push(format!("proof-environment: {}", provenance.environment));
+    }
+    if provenance.requires_trust_boundary {
+        lines.extend(rail.trust_boundaries.iter().map(|boundary| format!("trust-boundary: {boundary}")));
+    }
+    if lines.is_empty() {
+        String::new()
+    } else {
+        lines.join(
+            "
+",
+        ) + "
+"
     }
 }
 

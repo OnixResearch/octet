@@ -1,0 +1,20 @@
+$ artifact_dir=$(mktemp -d /tmp/tigerstyle-policy-artifacts.XXXXXX)
+$ nix run .#tigerstyle-policy-artifacts -- "$artifact_dir"
+this derivation will be built:
+  /nix/store/flpj17mwvm15p7igxv96y5a1gg76d69q-tigerstyle-policy-artifacts.drv
+cannot build on 'ssh-ng://root@10.10.10.1': error: failed to start SSH connection to '10.10.10.1'
+building '/nix/store/flpj17mwvm15p7igxv96y5a1gg76d69q-tigerstyle-policy-artifacts.drv'...
+export-exit-code: 0
+$ grep proof_rail_receipt_* "$artifact_dir/tigerstyle-check-config.toml"
+proof_rail_receipt_bindings = ["blake3-command-and-source"]
+proof_rail_receipt_schemas = ["tigerstyle-proof-receipt/v1"]
+proof_rail_receipt_runners = ["tigerstyle-standards"]
+proof_rail_receipt_environments = ["local-source-root"]
+proof_rail_receipt_requires = ["backend", "trust-boundary"]
+$ grep receipt_provenance "$artifact_dir/tigerstyle-policies.json"
+          "receipt_provenance": {
+$ grep tigerstyle-proof-receipt/v1 "$artifact_dir/tigerstyle-policies.json"
+            "schema_version": "tigerstyle-proof-receipt/v1",
+$ nix run .#tigerstyle-policy-validate
+validate-exit-code: 0
+asserts: generated TOML and JSON export receipt provenance obligations; Nickel policy validation accepts typed registry and invalid fixture remains covered by standards-fixtures gate
