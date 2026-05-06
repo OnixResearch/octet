@@ -597,6 +597,8 @@ The system MUST require proof-rail evidence when a policy declares `current = "v
 
 Verified enforcement MUST name the proof backend, source/proof mapping, expected command, accepted proof artifact shape, and trust-boundary accounting. Verified enforcement MUST also provide artifact-backed checker diagnostics when declared local proof evidence is absent or does not contain the configured pass signal.
 
+Verified-mode policies MUST support an explicit command-execution path that runs relevant declared proof commands and treats the resulting command output as the proof receipt for the current check run, while preserving the default read-only artifact-backed receipt check.
+
 #### Scenario: Proof rail obligations are exported [r[verified-enforcement-rails.scenario.proof-rail-obligations-exported]]
 
 - GIVEN a policy declares verified enforcement with proof rail metadata
@@ -621,16 +623,34 @@ Verified enforcement MUST name the proof backend, source/proof mapping, expected
 #### Scenario: Focused implementation checks pass [r[verified-enforcement-rails.scenario.focused-implementation-checks-pass]]
 
 - GIVEN the proof-rail checker, artifacts, registry, fixtures, and OpenSpec package have been updated
-- WHEN the focused Rust, Nickel/Nix, and OpenSpec validation commands run
+- WHEN the focused Rust, Nickel/Nix, OpenSpec, docs, and whitespace validation commands run
 - THEN every command exits successfully
 - AND the saved transcript names the exact commands used
 
+#### Scenario: Opt-in proof command execution [r[verified-enforcement-rails.scenario.opt-in-proof-command-execution]]
+
+- GIVEN a selected verified policy with a relevant proof rail command and source root
+- WHEN `tigerstyle-standards check` is run with proof command execution enabled
+- THEN the checker MUST run the declared command from the checked source root and evaluate the emitted command receipt for the configured pass signal
+
+#### Scenario: Default read-only proof receipt check [r[verified-enforcement-rails.scenario.default-read-only-proof-receipt-check]]
+
+- GIVEN a selected verified policy with a relevant proof rail and committed proof receipt
+- WHEN `tigerstyle-standards check` is run without proof command execution
+- THEN the checker MUST evaluate the checked proof receipt without running the declared command
+
+#### Scenario: Failing proof command blocks verified policy [r[verified-enforcement-rails.scenario.failing-proof-command-blocks-verified-policy]]
+
+- GIVEN a selected verified policy whose relevant proof command exits without emitting the configured pass signal
+- WHEN proof command execution is enabled
+- THEN the checker MUST emit a blocking verified-proof-rail diagnostic for the policy
+
 #### Scenario: Proof rail gate does not overclaim semantic proof execution [r[verified-enforcement-rails.scenario.no-semantic-proof-overclaim]]
 
-- GIVEN the checker validates proof receipt shape and pass-signal presence
+- GIVEN the checker validates proof receipt shape and pass-signal presence from either committed receipts or opt-in command output
 - WHEN reviewers inspect the design and evidence
-- THEN the change states that `tigerstyle-standards check` does not execute arbitrary proof commands
-- AND semantic proof execution remains the responsibility of the saved deterministic evidence command outside the pure checker
+- THEN the change states that opt-in command execution proves the local fixture proof command evidence shape, not arbitrary downstream semantic correctness
+- AND semantic proof status outside local fixture receipts remains the responsibility of saved deterministic evidence commands and trust-boundary accounting
 
 ### Requirement: Reference Seed Corpus Vendoring [r[reference-seed-corpus-vendoring]]
 

@@ -9,6 +9,7 @@ use std::fs;
 use std::io;
 use std::path::Path;
 use std::path::PathBuf;
+use std::process::Command as ProcessCommand;
 use std::process::ExitCode;
 
 use clap::Parser;
@@ -73,6 +74,10 @@ struct CheckArgs {
     /// Output format.
     #[arg(long, value_enum, default_value_t = OutputFormat::Human)]
     output: OutputFormat,
+
+    /// Execute relevant verified proof rail commands and use their output as proof receipts.
+    #[arg(long)]
+    execute_proof_rails: bool,
 }
 
 /// Generated-artifact export arguments.
@@ -155,8 +160,13 @@ fn run_cli(cli: Cli) -> Result<bool, CliError> {
 
 fn run_check_command(args: CheckArgs) -> Result<bool, CliError> {
     let registry = load_registry_for_check(&args)?;
-    let sources = load_sources(&args.source)?;
+    let mut sources = load_sources(&args.source)?;
     let selection = FamilySelection::from_families(args.family);
+    if args.execute_proof_rails {
+        let executed = execute_relevant_proof_rails(&registry, &sources, &selection, &args.source);
+        sources.retain(|source| !executed.proof_path_patterns.iter().any(|pattern| source.path.contains(pattern)));
+        sources.extend(executed.receipts);
+    }
     let report = run_checks(&CheckInput {
         registry,
         sources,
@@ -235,6 +245,96 @@ fn write_text(path: &Path, text: &str) -> Result<(), CliError> {
         path: path.to_path_buf(),
         source,
     })
+}
+
+struct ExecutedProofRails {
+    receipts: Vec<SourceFile>,
+    proof_path_patterns: Vec<String>,
+}
+
+fn execute_relevant_proof_rails(
+    registry: &PolicyRegistry,
+    sources: &[SourceFile],
+    selection: &FamilySelection,
+    source_paths: &[PathBuf],
+) -> ExecutedProofRails {
+    let mut proof_path_patterns = Vec::new();
+    let receipts = registry
+        .policies
+        .iter()
+        .filter(|policy| selection.includes(&policy.pillar))
+        .filter(|policy| policy_is_verified(policy))
+        .flat_map(|policy| policy.proof_rails.iter())
+        .filter(|rail| proof_rail_is_relevant(rail, sources))
+        .map(|rail| {
+            proof_path_patterns.extend(rail.proof_paths.iter().cloned());
+            execute_proof_rail(rail, source_paths)
+        })
+        .collect();
+    ExecutedProofRails {
+        receipts,
+        proof_path_patterns,
+    }
+}
+
+fn policy_is_verified(policy: &tigerstyle_standards::model::PolicyEntry) -> bool {
+    policy.current_enforcement_mode == tigerstyle_standards::model::EnforcementMode::Verified
+        || policy.target_enforcement_mode == tigerstyle_standards::model::EnforcementMode::Verified
+}
+
+fn proof_rail_is_relevant(rail: &tigerstyle_standards::model::ProofRail, sources: &[SourceFile]) -> bool {
+    rail.source_paths
+        .iter()
+        .chain(&rail.proof_paths)
+        .any(|pattern| sources.iter().any(|source| source.path.contains(pattern)))
+}
+
+fn execute_proof_rail(rail: &tigerstyle_standards::model::ProofRail, source_paths: &[PathBuf]) -> SourceFile {
+    let working_dir = proof_command_working_dir(source_paths);
+    let output = ProcessCommand::new("sh").arg("-c").arg(&rail.command).current_dir(&working_dir).output();
+    let receipt = proof_command_receipt(rail, &working_dir, output);
+    let receipt_path = working_dir.join(first_proof_path(rail));
+    SourceFile::new(receipt_path.display().to_string(), receipt)
+}
+
+fn proof_command_working_dir(source_paths: &[PathBuf]) -> PathBuf {
+    source_paths.first().map_or_else(
+        || PathBuf::from("."),
+        |path| {
+            if path.is_dir() {
+                path.clone()
+            } else {
+                path.parent().map_or_else(|| PathBuf::from("."), Path::to_path_buf)
+            }
+        },
+    )
+}
+
+fn first_proof_path(rail: &tigerstyle_standards::model::ProofRail) -> &str {
+    rail.proof_paths.first().map_or("proof-receipt.txt", String::as_str)
+}
+
+fn proof_command_receipt(
+    rail: &tigerstyle_standards::model::ProofRail,
+    working_dir: &Path,
+    output: Result<std::process::Output, io::Error>,
+) -> String {
+    match output {
+        Ok(output) => format!(
+            "proof-command: {}\nproof-cwd: {}\nexit-status: {}\nstdout:\n{}\nstderr:\n{}\n",
+            rail.command,
+            working_dir.display(),
+            output.status.code().map_or_else(|| "signal".to_owned(), |code| code.to_string()),
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        ),
+        Err(error) => format!(
+            "proof-command: {}\nproof-cwd: {}\nexit-status: spawn-error\nstderr:\n{}\n",
+            rail.command,
+            working_dir.display(),
+            error
+        ),
+    }
 }
 
 fn load_sources(paths: &[PathBuf]) -> Result<Vec<SourceFile>, CliError> {

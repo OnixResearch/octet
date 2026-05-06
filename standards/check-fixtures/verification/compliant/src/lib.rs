@@ -18,3 +18,7 @@ impl<'a> ScriptedHandler<'a> {
         self.effects.len()
     }
 }
+
+pub fn proof_witness_deterministic_effect_handlers(handler: &ScriptedHandler<'_>) -> usize {
+    handler.effect_count()
+}

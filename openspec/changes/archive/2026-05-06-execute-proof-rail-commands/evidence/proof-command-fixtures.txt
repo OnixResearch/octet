@@ -1,0 +1,19 @@
+$ nix develop -c bash -c '<run compliant/noncompliant proof command fixtures and stale-receipt regression>'
+exit_code=0
+building '/nix/store/2icjh235il6fad3hyilavl6yzyrhbcfd-nix-shell-env.drv'...
+{"compliant_diagnostics":0,"evaluated":["tigerstyle.verification.positive-negative-tests","tigerstyle.verification.first-properties","tigerstyle.verification.exact-error-assertions","tigerstyle.verification.target-hardware-coverage","tigerstyle.verification.safety-critical-claims","tigerstyle.verification.deterministic-effect-handlers"]}
+{"noncompliant_diagnostics":1,"messages":["verified proof rail `local-command-receipt` is missing pass signal `proof-result: pass deterministic-effect-handlers`"]}
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 30 filtered out; finished in 0.01s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 2 tests
+..
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.01s
