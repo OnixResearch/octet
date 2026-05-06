@@ -592,27 +592,22 @@ For type-state protocol policies, structural validation MUST reject configured r
 - THEN every focused check exits successfully and the saved transcript names the commands used
 
 ### Requirement: Verified Enforcement Rails [r[verified-enforcement-rails]]
+Verified enforcement MUST require deterministic proof rails that bind proof outcomes to checked source, proof commands, receipt provenance, verifier identity, and toolchain identity before the checker reports the policy as satisfied.
 
-Verified enforcement MUST name the proof backend, source/proof mapping, expected command, accepted proof artifact shape, trust-boundary accounting, receipt binding, and receipt provenance obligations when the rail is promoted to hard verified enforcement. Verified enforcement MUST also provide artifact-backed checker diagnostics when declared local proof evidence is absent, does not contain the configured pass signal, has mismatched receipt binding, or lacks required provenance/trust-boundary lines.
+#### Scenario: Verified receipts account for verifier and toolchain identity [r[verified-enforcement-rails.verifier-toolchain-accounting]]
+- GIVEN a verified proof rail declares verifier and toolchain receipt metadata
+- WHEN a proof receipt contains the pass signal and all other required binding metadata
+- THEN the checker MUST also require exact verifier and toolchain identity/digest receipt lines before accepting the receipt
 
-#### Scenario: Proof receipt provenance obligations exported [r[verified-enforcement-rails.receipt-provenance-artifact]]
+#### Scenario: Receipt-only checks reject missing verifier/toolchain digests [r[verified-enforcement-rails.reject-missing-verifier-toolchain]]
+- GIVEN a checked proof receipt has correct source hashes, command hashes, pass signal, and provenance lines
+- WHEN the receipt omits the configured verifier or toolchain digest lines
+- THEN receipt-only checking MUST emit a blocking verified diagnostic instead of accepting the receipt
 
-- GIVEN the Nickel registry declares proof receipt provenance obligations for a verified proof rail
+#### Scenario: Generated artifacts expose verifier/toolchain digest obligations [r[verified-enforcement-rails.export-verifier-toolchain]]
+- GIVEN a policy registry declares verifier and toolchain receipt metadata for a verified rail
 - WHEN generated policy artifacts are exported
-- THEN the check config and policy JSON expose the receipt schema, runner, environment, backend, and trust-boundary obligations for deterministic consumer checks
-
-#### Scenario: Command-generated receipt includes provenance [r[verified-enforcement-rails.receipt-provenance-generated]]
-
-- GIVEN a verified proof rail with receipt provenance obligations enabled
-- WHEN `tigerstyle-standards check --execute-proof-rails` runs the local command and produces a proof receipt
-- THEN the generated receipt includes deterministic schema, backend, runner, environment, and trust-boundary lines before validation
-- AND the verified proof rail checker accepts the receipt only when those provenance lines match the policy contract
-
-#### Scenario: Stale receipt without provenance rejected [r[verified-enforcement-rails.receipt-provenance-stale]]
-
-- GIVEN a proof receipt with the expected pass signal and matching hash binding but missing required provenance or trust-boundary lines
-- WHEN the verification-family checker evaluates the proof rail
-- THEN the checker MUST emit a blocking diagnostic for mismatched receipt provenance
+- THEN the checker configuration artifact MUST expose verifier and toolchain identity/digest obligations for downstream consumers
 
 ### Requirement: Reference Seed Corpus Vendoring [r[reference-seed-corpus-vendoring]]
 

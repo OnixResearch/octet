@@ -94,6 +94,11 @@ pub fn render_check_config_toml(registry: &PolicyRegistry) -> String {
     let proof_rail_receipt_runners = proof_rail_field(registry, |rail| &rail.receipt_provenance.runner);
     let proof_rail_receipt_environments = proof_rail_field(registry, |rail| &rail.receipt_provenance.environment);
     let proof_rail_receipt_requires = proof_rail_receipt_requirements(registry);
+    let proof_rail_receipt_verifiers = proof_rail_field(registry, |rail| &rail.receipt_verifier.verifier_id);
+    let proof_rail_receipt_verifier_digests = proof_rail_field(registry, |rail| &rail.receipt_verifier.verifier_digest);
+    let proof_rail_receipt_toolchains = proof_rail_field(registry, |rail| &rail.receipt_verifier.toolchain_id);
+    let proof_rail_receipt_toolchain_digests =
+        proof_rail_field(registry, |rail| &rail.receipt_verifier.toolchain_digest);
 
     let mut toml = String::new();
     toml.push_str("schema_version = \"");
@@ -135,6 +140,10 @@ pub fn render_check_config_toml(registry: &PolicyRegistry) -> String {
     append_toml_array(&mut toml, "proof_rail_receipt_runners", &proof_rail_receipt_runners);
     append_toml_array(&mut toml, "proof_rail_receipt_environments", &proof_rail_receipt_environments);
     append_toml_array(&mut toml, "proof_rail_receipt_requires", &proof_rail_receipt_requires);
+    append_toml_array(&mut toml, "proof_rail_receipt_verifiers", &proof_rail_receipt_verifiers);
+    append_toml_array(&mut toml, "proof_rail_receipt_verifier_digests", &proof_rail_receipt_verifier_digests);
+    append_toml_array(&mut toml, "proof_rail_receipt_toolchains", &proof_rail_receipt_toolchains);
+    append_toml_array(&mut toml, "proof_rail_receipt_toolchain_digests", &proof_rail_receipt_toolchain_digests);
     toml
 }
 

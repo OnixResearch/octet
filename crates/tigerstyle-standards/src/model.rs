@@ -146,6 +146,23 @@ impl Default for EvidenceCommand {
     }
 }
 
+/// Receipt verifier/toolchain metadata required from verified proof receipts.
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ReceiptVerifier {
+    /// Verifier/tool identity expected in proof receipts.
+    #[serde(default)]
+    pub verifier_id: String,
+    /// Deterministic verifier/tool digest expected in proof receipts.
+    #[serde(default)]
+    pub verifier_digest: String,
+    /// Toolchain identity expected in proof receipts.
+    #[serde(default)]
+    pub toolchain_id: String,
+    /// Deterministic toolchain digest expected in proof receipts.
+    #[serde(default)]
+    pub toolchain_digest: String,
+}
+
 /// Receipt provenance metadata required from verified proof receipts.
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 pub struct ReceiptProvenance {
@@ -190,6 +207,9 @@ pub struct ProofRail {
     /// Receipt provenance obligations required from proof receipts.
     #[serde(default)]
     pub receipt_provenance: ReceiptProvenance,
+    /// Receipt verifier/toolchain obligations required from proof receipts.
+    #[serde(default)]
+    pub receipt_verifier: ReceiptVerifier,
 }
 
 /// Seed role exported from Nickel.

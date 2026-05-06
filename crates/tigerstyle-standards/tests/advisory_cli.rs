@@ -15,6 +15,7 @@ use tigerstyle_standards::model::PolicyEntry;
 use tigerstyle_standards::model::PolicyRegistry;
 use tigerstyle_standards::model::ProofRail;
 use tigerstyle_standards::model::ReceiptProvenance;
+use tigerstyle_standards::model::ReceiptVerifier;
 use tigerstyle_standards::model::Severity;
 use tigerstyle_standards::model::SuppressionRequirements;
 use tigerstyle_standards::report::CheckReport;
@@ -200,6 +201,53 @@ fn receipt_only_proof_rail_rejects_hash_bound_receipt_without_provenance() {
 }
 
 #[test]
+fn receipt_only_proof_rail_rejects_provenance_receipt_without_verifier_digest() {
+    let temp = TempDir::new().expect("temp dir should be created");
+    let registry = write_registry_value(&temp, proof_registry());
+    let fixture = temp.path().join("provenance-bound-proof-fixture");
+    std::fs::create_dir_all(fixture.join("src")).expect("proof fixture dirs should be created");
+    let source = "pub fn proof_witness() {}
+";
+    std::fs::write(fixture.join("src/lib.rs"), source).expect("proof source should be written");
+    std::fs::write(
+        fixture.join("proof-receipt.txt"),
+        format!(
+            "proof-receipt-schema: tigerstyle-proof-receipt/v1
+proof-backend: local-command-receipt
+proof-runner: tigerstyle-standards
+proof-environment: local-source-root
+trust-boundary: test command receipt
+proof-command-blake3: {}
+proof-source-blake3: {}:{}
+proof-result: pass deterministic-effect-handlers
+",
+            blake3_hex("bash proof-command.sh"),
+            fixture.join("src/lib.rs").display(),
+            blake3_hex(source),
+        ),
+    )
+    .expect("provenance-bound proof receipt should be written");
+
+    let output = Command::new(binary_path())
+        .arg("check")
+        .arg("--registry")
+        .arg(&registry)
+        .arg("--source")
+        .arg(&fixture)
+        .arg("--family")
+        .arg(VERIFICATION_FAMILY)
+        .arg("--output")
+        .arg("json")
+        .output()
+        .expect("standards checker should run");
+    assert_failure(&output);
+    let report = parse_report(&output);
+    assert!(report.diagnostics.iter().any(|diagnostic| {
+        diagnostic.policy_id == PROOF_POLICY_ID && diagnostic.message.contains("mismatched receipt verifier metadata")
+    }));
+}
+
+#[test]
 fn execute_proof_rails_replaces_stale_committed_receipt() {
     let temp = TempDir::new().expect("temp dir should be created");
     let registry =
@@ -369,6 +417,12 @@ fn verified_policy(current: EnforcementMode, target: EnforcementMode) -> PolicyE
                 environment: "local-source-root".to_owned(),
                 requires_backend: true,
                 requires_trust_boundary: true,
+            },
+            receipt_verifier: ReceiptVerifier {
+                verifier_id: "tigerstyle-standards@proof-receipt/v1".to_owned(),
+                verifier_digest: "9fb0cd3ff1b2898eba4c6f71479f93ae3cdc80f869cd8ae5e6355235ec5f9aef".to_owned(),
+                toolchain_id: "rust-toolchain.toml".to_owned(),
+                toolchain_digest: "50692525e10589e3a1060a0ed0adc77f695ad5617121b572e549ef9855ceb7a8".to_owned(),
             },
         }],
         checker_owner: VERIFICATION_FAMILY.to_owned(),
