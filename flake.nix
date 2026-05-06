@@ -674,6 +674,11 @@ MAIN
           test -s "$artifact_dir/tigerstyle-check-config.toml"
           test -s "$artifact_dir/tigerstyle-seed-manifests.json"
           test -s "$artifact_dir/tigerstyle-proof-bundles.json"
+          test -s "$artifact_dir/tigerstyle-artifact-manifest.json"
+          jq --exit-status '.schema_version == "tigerstyle-artifact-manifest/v1"' "$artifact_dir/tigerstyle-artifact-manifest.json" >/dev/null
+          jq --exit-status '(.artifacts | length) == 4' "$artifact_dir/tigerstyle-artifact-manifest.json" >/dev/null
+          jq --exit-status 'any(.artifacts[]; .path == "tigerstyle-policies.json" and (.blake3 | length) == 64 and .bytes > 0)' "$artifact_dir/tigerstyle-artifact-manifest.json" >/dev/null
+          jq --exit-status 'any(.artifacts[]; .path == "tigerstyle-check-config.toml" and (.blake3 | length) == 64 and .bytes > 0)' "$artifact_dir/tigerstyle-artifact-manifest.json" >/dev/null
           jq --exit-status '.schema_version == "tigerstyle-proof-bundle/v1"' "$artifact_dir/tigerstyle-proof-bundles.json" >/dev/null
           jq --exit-status 'any(.proof_bundles[]; .policy_id == "tigerstyle.verification.deterministic-effect-handlers")' "$artifact_dir/tigerstyle-proof-bundles.json" >/dev/null
           jq --exit-status 'any(.proof_bundles[]; .proof_rail.receipt_verifier.verifier_nix_closure_graph_paths[] == "proof-nix-closure.graph")' "$artifact_dir/tigerstyle-proof-bundles.json" >/dev/null
@@ -715,7 +720,7 @@ MAIN
           grep --fixed-strings "9fb0cd3ff1b2898eba4c6f71479f93ae3cdc80f869cd8ae5e6355235ec5f9aef" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
           grep --fixed-strings "proof_rail_receipt_verifier_binaries" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
           grep --fixed-strings "proof_rail_receipt_verifier_binary_digests" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
-          grep --fixed-strings "b3c824e791af9fd4f58200f8a2f3723668decc5bb1a7751cb4880fa8a642c4de" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
+          grep --fixed-strings "f441cb3dbf3b49e6df671f716c81538b53bca0f277db26cbfd3f0270c1880252" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
           grep --fixed-strings "proof_rail_receipt_verifier_build_closures" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
           grep --fixed-strings "nix-tigerstyle-standards-build-closure/v1" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
           grep --fixed-strings "proof_rail_receipt_verifier_build_closure_digests" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null

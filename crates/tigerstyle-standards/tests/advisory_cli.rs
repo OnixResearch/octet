@@ -32,7 +32,9 @@ const POLICIES_JSON_FILE: &str = "tigerstyle-policies.json";
 const CHECK_CONFIG_TOML_FILE: &str = "tigerstyle-check-config.toml";
 const SEED_MANIFESTS_JSON_FILE: &str = "tigerstyle-seed-manifests.json";
 const PROOF_BUNDLES_JSON_FILE: &str = "tigerstyle-proof-bundles.json";
+const ARTIFACT_MANIFEST_JSON_FILE: &str = "tigerstyle-artifact-manifest.json";
 const PROOF_BUNDLE_SCHEMA_VERSION: &str = "tigerstyle-proof-bundle/v1";
+const ARTIFACT_MANIFEST_SCHEMA_VERSION: &str = "tigerstyle-artifact-manifest/v1";
 const ADVISORY_FIXTURE: &str = "standards/check-fixtures/architecture/advisory/public-api-budget";
 const HARD_FAILURE_FIXTURE: &str = "standards/check-fixtures/architecture/noncompliant/missing-no-std";
 
@@ -92,6 +94,19 @@ fn exported_policy_artifacts_drive_checker() {
     assert!(artifact_dir.join(CHECK_CONFIG_TOML_FILE).is_file());
     assert!(artifact_dir.join(SEED_MANIFESTS_JSON_FILE).is_file());
     assert!(artifact_dir.join(PROOF_BUNDLES_JSON_FILE).is_file());
+    assert!(artifact_dir.join(ARTIFACT_MANIFEST_JSON_FILE).is_file());
+
+    let manifest = std::fs::read_to_string(artifact_dir.join(ARTIFACT_MANIFEST_JSON_FILE))
+        .expect("artifact manifest should be readable");
+    let manifest: serde_json::Value = serde_json::from_str(&manifest).expect("artifact manifest should parse as JSON");
+    assert_eq!(manifest["schema_version"], ARTIFACT_MANIFEST_SCHEMA_VERSION);
+    assert!(
+        manifest["artifacts"].as_array().expect("manifest artifacts should be an array").iter().any(
+            |entry| entry["path"] == POLICIES_JSON_FILE
+                && entry["blake3"].as_str().is_some()
+                && entry["bytes"].as_u64().is_some()
+        )
+    );
 
     let config =
         std::fs::read_to_string(artifact_dir.join(CHECK_CONFIG_TOML_FILE)).expect("check config should be readable");
@@ -102,6 +117,66 @@ fn exported_policy_artifacts_drive_checker() {
     assert_failure(&output);
     let report = parse_report(&output);
     assert!(report.has_blocking_diagnostics());
+}
+
+#[test]
+fn artifact_backed_manifest_rejects_tampered_generated_artifact() {
+    let temp = TempDir::new().expect("temp dir should be created");
+    let registry = write_registry(&temp);
+    let artifact_dir = temp.path().join("generated-tampered");
+    export_artifacts(&registry, &artifact_dir);
+    std::fs::write(artifact_dir.join(CHECK_CONFIG_TOML_FILE), "schema_version = \"tampered\"\n")
+        .expect("tampered check config should be written");
+
+    let output = run_architecture_artifact_check(&artifact_dir, &repo_path(HARD_FAILURE_FIXTURE));
+    assert_failure(&output);
+    let report = parse_report(&output);
+    assert!(report.diagnostics.iter().any(|diagnostic| {
+        diagnostic.policy_id == "tigerstyle.generated-artifacts.integrity-manifest"
+            && diagnostic.message.contains("artifact integrity mismatch")
+            && diagnostic.message.contains(CHECK_CONFIG_TOML_FILE)
+    }));
+}
+
+#[test]
+fn artifact_backed_manifest_rejects_missing_manifest_file() {
+    let temp = TempDir::new().expect("temp dir should be created");
+    let registry = write_registry(&temp);
+    let artifact_dir = temp.path().join("generated-missing-manifest");
+    export_artifacts(&registry, &artifact_dir);
+    std::fs::remove_file(artifact_dir.join(ARTIFACT_MANIFEST_JSON_FILE)).expect("manifest should be removed");
+
+    let output = run_architecture_artifact_check(&artifact_dir, &repo_path(HARD_FAILURE_FIXTURE));
+    assert_failure(&output);
+    let report = parse_report(&output);
+    assert!(report.diagnostics.iter().any(|diagnostic| {
+        diagnostic.policy_id == "tigerstyle.generated-artifacts.integrity-manifest"
+            && diagnostic.message.contains("missing or unreadable artifact integrity manifest")
+    }));
+}
+
+#[test]
+fn artifact_backed_manifest_rejects_missing_manifest_before_policy_json_parse() {
+    let temp = TempDir::new().expect("temp dir should be created");
+    let registry = write_registry(&temp);
+    let artifact_dir = temp.path().join("generated-corrupt-policy-missing-manifest");
+    export_artifacts(&registry, &artifact_dir);
+    std::fs::write(artifact_dir.join(POLICIES_JSON_FILE), "{ not valid policy json")
+        .expect("corrupt policies artifact should be written");
+    std::fs::remove_file(artifact_dir.join(ARTIFACT_MANIFEST_JSON_FILE)).expect("manifest should be removed");
+
+    let output = run_architecture_artifact_check(&artifact_dir, &repo_path(HARD_FAILURE_FIXTURE));
+    assert_failure(&output);
+    assert!(
+        output.stderr.is_empty(),
+        "manifest-first validation should emit JSON diagnostics, not a CLI parse error: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let report = parse_report(&output);
+    assert!(report.diagnostics.iter().any(|diagnostic| {
+        diagnostic.policy_id == "tigerstyle.generated-artifacts.integrity-manifest"
+            && diagnostic.message.contains("missing or unreadable artifact integrity manifest")
+    }));
 }
 
 #[test]
@@ -142,6 +217,7 @@ fn artifact_backed_proof_bundle_rejects_unsupported_schema_version() {
     let proof_bundle = std::fs::read_to_string(&proof_bundle_path).expect("proof bundle should be readable");
     std::fs::write(&proof_bundle_path, proof_bundle.replace(PROOF_BUNDLE_SCHEMA_VERSION, "tigerstyle-proof-bundle/v0"))
         .expect("mutated proof bundle should be written");
+    refresh_manifest_entry(&artifact_dir, PROOF_BUNDLES_JSON_FILE);
     let fixture = write_executable_proof_fixture(&temp, "unsupported-schema-proof-fixture");
 
     let output = Command::new(binary_path())
@@ -191,8 +267,9 @@ fn artifact_backed_proof_bundle_rejects_missing_bundle_file() {
     assert_failure(&output);
     let report = parse_report(&output);
     assert!(report.diagnostics.iter().any(|diagnostic| {
-        diagnostic.policy_id == "tigerstyle.verification.proof-bundle-schema"
-            && diagnostic.message.contains("missing or unreadable proof-bundle artifact")
+        diagnostic.policy_id == "tigerstyle.generated-artifacts.integrity-manifest"
+            && diagnostic.message.contains("failed to read generated artifact")
+            && diagnostic.message.contains(PROOF_BUNDLES_JSON_FILE)
     }));
 }
 
@@ -656,6 +733,23 @@ fn write_executable_proof_fixture(temp: &TempDir, name: &str) -> PathBuf {
     )
     .expect("proof command should be written");
     fixture
+}
+
+fn refresh_manifest_entry(artifact_dir: &Path, artifact_name: &str) {
+    let manifest_path = artifact_dir.join(ARTIFACT_MANIFEST_JSON_FILE);
+    let artifact_path = artifact_dir.join(artifact_name);
+    let artifact_bytes = std::fs::read(&artifact_path).expect("artifact should be readable for manifest refresh");
+    let manifest_text = std::fs::read_to_string(&manifest_path).expect("manifest should be readable");
+    let mut manifest: serde_json::Value = serde_json::from_str(&manifest_text).expect("manifest should parse as JSON");
+    let entries = manifest["artifacts"].as_array_mut().expect("manifest artifacts should be an array");
+    let entry = entries
+        .iter_mut()
+        .find(|entry| entry["path"] == artifact_name)
+        .expect("manifest entry should exist");
+    entry["blake3"] = serde_json::Value::String(blake3::hash(&artifact_bytes).to_hex().to_string());
+    entry["bytes"] = serde_json::Value::from(u64::try_from(artifact_bytes.len()).expect("artifact bytes fit u64"));
+    let text = serde_json::to_string_pretty(&manifest).expect("manifest should serialize");
+    std::fs::write(&manifest_path, format!("{text}\n")).expect("manifest should be refreshed");
 }
 
 fn run_architecture_check(registry: &Path, source: &Path) -> Output {

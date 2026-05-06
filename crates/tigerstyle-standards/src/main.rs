@@ -17,15 +17,20 @@ use std::process::ExitCode;
 use clap::Parser;
 use clap::Subcommand;
 use clap::ValueEnum;
+use tigerstyle_standards::artifacts::ARTIFACT_MANIFEST_JSON_FILE;
+use tigerstyle_standards::artifacts::ArtifactManifest;
 use tigerstyle_standards::artifacts::CHECK_CONFIG_TOML_FILE;
 use tigerstyle_standards::artifacts::POLICIES_JSON_FILE;
 use tigerstyle_standards::artifacts::PROOF_BUNDLES_JSON_FILE;
 use tigerstyle_standards::artifacts::ProofBundleArtifact;
 use tigerstyle_standards::artifacts::SEED_MANIFESTS_JSON_FILE;
+use tigerstyle_standards::artifacts::artifact_manifest;
 use tigerstyle_standards::artifacts::proof_bundle_artifact;
 use tigerstyle_standards::artifacts::registry_has_verified_proof_rails;
 use tigerstyle_standards::artifacts::render_check_config_toml;
 use tigerstyle_standards::artifacts::seed_manifest_artifact;
+use tigerstyle_standards::artifacts::validate_artifact_manifest;
+use tigerstyle_standards::artifacts::validate_artifact_manifest_texts;
 use tigerstyle_standards::artifacts::validate_proof_bundle_artifact;
 use tigerstyle_standards::diagnostic::Diagnostic;
 use tigerstyle_standards::diagnostic::DiagnosticInput;
@@ -169,22 +174,35 @@ fn run_cli(cli: Cli) -> Result<bool, CliError> {
 }
 
 fn run_check_command(args: CheckArgs) -> Result<bool, CliError> {
-    let registry = load_registry_for_check(&args)?;
-    let mut sources = load_sources(&args.source)?;
-    let selection = FamilySelection::from_families(args.family);
-    if let Some(policy_artifacts_dir) = &args.policy_artifacts_dir {
-        let diagnostics = validate_artifact_backed_proof_bundle(&registry, policy_artifacts_dir);
-        if !diagnostics.is_empty() {
-            let report = CheckReport {
-                diagnostics,
-                active_suppressions: Vec::new(),
-                evaluated_policy_ids: Vec::new(),
-                policy_evaluations: Vec::new(),
-            };
-            emit_report(args.output, &report)?;
-            return Ok(report.has_blocking_diagnostics());
-        }
+    if args.registry.is_some() && args.policy_artifacts_dir.is_some() {
+        return Err(CliError::Config {
+            message: "pass either --registry or --policy-artifacts-dir, not both".to_owned(),
+        });
     }
+
+    let selection = FamilySelection::from_families(args.family);
+    let registry = if let Some(policy_artifacts_dir) = &args.policy_artifacts_dir {
+        match load_artifact_backed_registry(policy_artifacts_dir)? {
+            ArtifactBackedRegistry::Valid(registry) => registry,
+            ArtifactBackedRegistry::Diagnostics(diagnostics) => {
+                let report = CheckReport {
+                    diagnostics,
+                    active_suppressions: Vec::new(),
+                    evaluated_policy_ids: Vec::new(),
+                    policy_evaluations: Vec::new(),
+                };
+                emit_report(args.output, &report)?;
+                return Ok(report.has_blocking_diagnostics());
+            }
+        }
+    } else if let Some(registry) = &args.registry {
+        load_json::<PolicyRegistry>(registry)?
+    } else {
+        return Err(CliError::Config {
+            message: "pass --registry or --policy-artifacts-dir".to_owned(),
+        });
+    };
+    let mut sources = load_sources(&args.source)?;
     if args.execute_proof_rails {
         let executed = execute_relevant_proof_rails(&registry, &sources, &selection, &args.source);
         sources.retain(|source| !executed.proof_path_patterns.iter().any(|pattern| source.path.contains(pattern)));
@@ -205,10 +223,13 @@ fn run_export_artifacts_command(args: &ExportArtifactsArgs) -> Result<bool, CliE
         path: args.out_dir.clone(),
         source,
     })?;
-    write_json(&args.out_dir.join(POLICIES_JSON_FILE), &registry)?;
-    write_text(&args.out_dir.join(CHECK_CONFIG_TOML_FILE), &render_check_config_toml(&registry))?;
-    write_json(&args.out_dir.join(SEED_MANIFESTS_JSON_FILE), &seed_manifest_artifact(&registry))?;
-    write_json(&args.out_dir.join(PROOF_BUNDLES_JSON_FILE), &proof_bundle_artifact(&registry))?;
+
+    let generated_artifacts = generated_artifact_texts(&registry)?;
+    let manifest_text = json_text(&artifact_manifest(&registry, &generated_artifacts))?;
+    for (file_name, text) in &generated_artifacts {
+        write_text(&args.out_dir.join(file_name), text)?;
+    }
+    write_text(&args.out_dir.join(ARTIFACT_MANIFEST_JSON_FILE), &manifest_text)?;
     Ok(false)
 }
 
@@ -243,17 +264,105 @@ where T: serde::de::DeserializeOwned {
     })
 }
 
-fn load_registry_for_check(args: &CheckArgs) -> Result<PolicyRegistry, CliError> {
-    match (&args.registry, &args.policy_artifacts_dir) {
-        (Some(registry), None) => load_json::<PolicyRegistry>(registry),
-        (None, Some(directory)) => load_json::<PolicyRegistry>(&directory.join(POLICIES_JSON_FILE)),
-        (Some(_), Some(_)) => Err(CliError::Config {
-            message: "pass either --registry or --policy-artifacts-dir, not both".to_owned(),
-        }),
-        (None, None) => Err(CliError::Config {
-            message: "pass --registry or --policy-artifacts-dir".to_owned(),
-        }),
+enum ArtifactBackedRegistry {
+    Valid(PolicyRegistry),
+    Diagnostics(Vec<Diagnostic>),
+}
+
+fn load_artifact_backed_registry(directory: &Path) -> Result<ArtifactBackedRegistry, CliError> {
+    let manifest_path = directory.join(ARTIFACT_MANIFEST_JSON_FILE);
+    let manifest = match load_json::<ArtifactManifest>(&manifest_path) {
+        Ok(manifest) => manifest,
+        Err(error) => {
+            return Ok(ArtifactBackedRegistry::Diagnostics(vec![artifact_manifest_diagnostic(
+                manifest_path.display().to_string(),
+                format!("missing or unreadable artifact integrity manifest: {error}"),
+            )]));
+        }
+    };
+    let generated_artifacts = match load_generated_artifact_texts(directory) {
+        Ok(artifacts) => artifacts,
+        Err(error) => {
+            return Ok(ArtifactBackedRegistry::Diagnostics(vec![artifact_manifest_diagnostic(
+                manifest_path.display().to_string(),
+                error,
+            )]));
+        }
+    };
+    let manifest_diagnostics = artifact_manifest_diagnostics(
+        &manifest_path.display().to_string(),
+        validate_artifact_manifest_texts(&manifest, &generated_artifacts),
+    );
+    if !manifest_diagnostics.is_empty() {
+        return Ok(ArtifactBackedRegistry::Diagnostics(manifest_diagnostics));
     }
+
+    let policies_text = generated_artifacts
+        .iter()
+        .find(|(file_name, _)| file_name == POLICIES_JSON_FILE)
+        .map(|(_, text)| text)
+        .expect("generated artifact loader should include policies JSON");
+    let registry = serde_json::from_str::<PolicyRegistry>(policies_text).map_err(|source| CliError::Json {
+        path: directory.join(POLICIES_JSON_FILE),
+        source,
+    })?;
+    let diagnostics = validate_policy_artifact_directory(&registry, &manifest, &generated_artifacts, directory);
+    if diagnostics.is_empty() {
+        Ok(ArtifactBackedRegistry::Valid(registry))
+    } else {
+        Ok(ArtifactBackedRegistry::Diagnostics(diagnostics))
+    }
+}
+
+fn validate_policy_artifact_directory(
+    registry: &PolicyRegistry,
+    manifest: &ArtifactManifest,
+    generated_artifacts: &[(String, String)],
+    directory: &Path,
+) -> Vec<Diagnostic> {
+    let manifest_path = directory.join(ARTIFACT_MANIFEST_JSON_FILE).display().to_string();
+    let mut diagnostics = artifact_manifest_diagnostics(
+        &manifest_path,
+        validate_artifact_manifest(registry, manifest, generated_artifacts),
+    );
+    if diagnostics.is_empty() {
+        diagnostics.extend(validate_artifact_backed_proof_bundle(registry, directory));
+    }
+    diagnostics
+}
+
+fn artifact_manifest_diagnostics(path: &str, messages: Vec<String>) -> Vec<Diagnostic> {
+    messages.into_iter().map(|message| artifact_manifest_diagnostic(path.to_owned(), message)).collect()
+}
+
+fn load_generated_artifact_texts(directory: &Path) -> Result<Vec<(String, String)>, String> {
+    [
+        POLICIES_JSON_FILE,
+        CHECK_CONFIG_TOML_FILE,
+        SEED_MANIFESTS_JSON_FILE,
+        PROOF_BUNDLES_JSON_FILE,
+    ]
+    .into_iter()
+    .map(|file_name| {
+        let path = directory.join(file_name);
+        fs::read_to_string(&path)
+            .map(|text| (file_name.to_owned(), text))
+            .map_err(|error| format!("failed to read generated artifact `{}`: {error}", path.display()))
+    })
+    .collect()
+}
+
+fn artifact_manifest_diagnostic(path: String, message: String) -> Diagnostic {
+    Diagnostic::new(DiagnosticInput {
+        policy_id: "tigerstyle.generated-artifacts.integrity-manifest".to_owned(),
+        source_section: "openspec/specs/standards-codification/spec.md#generated-artifact-integrity-manifest"
+            .to_owned(),
+        path,
+        line: None,
+        severity: Severity::Error,
+        message,
+        remediation: "regenerate policy artifacts with tigerstyle-standards export-artifacts and consume the complete generated directory".to_owned(),
+    })
 }
 
 fn validate_artifact_backed_proof_bundle(registry: &PolicyRegistry, directory: &Path) -> Vec<Diagnostic> {
@@ -290,15 +399,30 @@ fn proof_bundle_diagnostic(path: String, message: String) -> Diagnostic {
     })
 }
 
-fn write_json<T>(path: &Path, value: &T) -> Result<(), CliError>
+fn generated_artifact_texts(registry: &PolicyRegistry) -> Result<Vec<(String, String)>, CliError> {
+    Ok(vec![
+        (POLICIES_JSON_FILE.to_owned(), json_text(registry)?),
+        (CHECK_CONFIG_TOML_FILE.to_owned(), text_with_trailing_newline(&render_check_config_toml(registry))),
+        (SEED_MANIFESTS_JSON_FILE.to_owned(), json_text(&seed_manifest_artifact(registry))?),
+        (PROOF_BUNDLES_JSON_FILE.to_owned(), json_text(&proof_bundle_artifact(registry))?),
+    ])
+}
+
+fn json_text<T>(value: &T) -> Result<String, CliError>
 where T: serde::Serialize {
     let text = serde_json::to_string_pretty(value).map_err(|source| CliError::Serialize { source })?;
-    write_text(path, &text)
+    Ok(text_with_trailing_newline(&text))
+}
+
+fn text_with_trailing_newline(text: &str) -> String {
+    let mut text = text.to_owned();
+    if !text.ends_with('\n') {
+        text.push('\n');
+    }
+    text
 }
 
 fn write_text(path: &Path, text: &str) -> Result<(), CliError> {
-    let mut text = text.to_owned();
-    text.push('\n');
     fs::write(path, text).map_err(|source| CliError::Write {
         path: path.to_path_buf(),
         source,
