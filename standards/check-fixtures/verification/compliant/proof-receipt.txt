@@ -6,7 +6,9 @@ trust-boundary: opt-in command execution proves local fixture proof command evid
 proof-verifier: tigerstyle-standards@proof-receipt/v1
 proof-verifier-blake3: 9fb0cd3ff1b2898eba4c6f71479f93ae3cdc80f869cd8ae5e6355235ec5f9aef
 proof-verifier-binary: tigerstyle-standards
-proof-verifier-binary-blake3: 25306cbaef89c92cf3359b8ba0e8560cf555ff41a62e8996cee2d1318ccd455f
+proof-verifier-binary-blake3: 4f683ae48d5effda2c06e48777b3c6a514af0b1e297be16c518fb68c4c29fcc1
+proof-verifier-build-closure: nix-tigerstyle-standards-build-closure/v1
+proof-verifier-build-closure-blake3: 372b744f6321abc8065322b626388256dcabe4111f772d50a6c6a50afd030a55
 proof-toolchain: rust-toolchain.toml
 proof-toolchain-blake3: 50692525e10589e3a1060a0ed0adc77f695ad5617121b572e549ef9855ceb7a8
 proof-command-blake3: 71f5bd32c3c27f0795008e3ff5ee56e7736a7fac5b2d06fbb38cd8d19b4a6609

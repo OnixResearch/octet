@@ -161,6 +161,15 @@ pub struct ReceiptVerifier {
     /// BLAKE3 digest of the verifier binary/build artifact expected in proof receipts.
     #[serde(default)]
     pub verifier_binary_digest: String,
+    /// Verifier build closure identity expected in proof receipts.
+    #[serde(default)]
+    pub verifier_build_closure: String,
+    /// BLAKE3 digest of the verifier build closure manifest expected in proof receipts.
+    #[serde(default)]
+    pub verifier_build_closure_digest: String,
+    /// Source-root-relative build closure manifest paths covered by generated receipts.
+    #[serde(default)]
+    pub verifier_build_closure_paths: Vec<String>,
     /// Toolchain identity expected in proof receipts.
     #[serde(default)]
     pub toolchain_id: String,

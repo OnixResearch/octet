@@ -1,5 +1,7 @@
 //! Verified proof-rail checks.
 
+use std::fmt::Write as _;
+
 use crate::diagnostic::Diagnostic;
 use crate::diagnostic::DiagnosticInput;
 use crate::model::EnforcementMode;
@@ -121,7 +123,9 @@ fn check_proof_rail(policy: &PolicyEntry, rail: &ProofRail, sources: &[SourceFil
                 format!("verified proof rail `{}` has mismatched receipt provenance", rail.backend),
             ));
         } else if receipt_verifier_enabled(rail)
-            && !passing_proof_sources.iter().any(|proof_source| receipt_verifier_matches(rail, proof_source))
+            && !passing_proof_sources
+                .iter()
+                .any(|proof_source| receipt_verifier_matches(rail, sources, proof_source))
         {
             diagnostics.push(proof_diagnostic(
                 policy,
@@ -185,22 +189,28 @@ fn receipt_verifier_enabled(rail: &ProofRail) -> bool {
         || !verifier.verifier_digest.is_empty()
         || !verifier.verifier_binary_path.is_empty()
         || !verifier.verifier_binary_digest.is_empty()
+        || !verifier.verifier_build_closure.is_empty()
+        || !verifier.verifier_build_closure_digest.is_empty()
+        || !verifier.verifier_build_closure_paths.is_empty()
         || !verifier.toolchain_id.is_empty()
         || !verifier.toolchain_digest.is_empty()
 }
 
-fn receipt_verifier_matches(rail: &ProofRail, proof_source: &SourceFile) -> bool {
-    expected_receipt_verifier_lines(rail)
+fn receipt_verifier_matches(rail: &ProofRail, sources: &[SourceFile], proof_source: &SourceFile) -> bool {
+    expected_receipt_verifier_lines(rail, sources)
         .iter()
         .all(|line| proof_source.text.lines().any(|receipt_line| receipt_line == line))
 }
 
-fn expected_receipt_verifier_lines(rail: &ProofRail) -> Vec<String> {
+fn expected_receipt_verifier_lines(rail: &ProofRail, sources: &[SourceFile]) -> Vec<String> {
     let ReceiptVerifier {
         verifier_id,
         verifier_digest,
         verifier_binary_path,
         verifier_binary_digest,
+        verifier_build_closure,
+        verifier_build_closure_digest,
+        verifier_build_closure_paths,
         toolchain_id,
         toolchain_digest,
     } = &rail.receipt_verifier;
@@ -217,6 +227,14 @@ fn expected_receipt_verifier_lines(rail: &ProofRail) -> Vec<String> {
     if !verifier_binary_digest.is_empty() {
         lines.push(format!("proof-verifier-binary-blake3: {verifier_binary_digest}"));
     }
+    if !verifier_build_closure.is_empty() {
+        lines.push(format!("proof-verifier-build-closure: {verifier_build_closure}"));
+    }
+    if !verifier_build_closure_digest.is_empty() {
+        let digest = build_closure_digest(verifier_build_closure_paths, sources)
+            .unwrap_or_else(|| verifier_build_closure_digest.clone());
+        lines.push(format!("proof-verifier-build-closure-blake3: {digest}"));
+    }
     if !toolchain_id.is_empty() {
         lines.push(format!("proof-toolchain: {toolchain_id}"));
     }
@@ -224,6 +242,25 @@ fn expected_receipt_verifier_lines(rail: &ProofRail) -> Vec<String> {
         lines.push(format!("proof-toolchain-blake3: {toolchain_digest}"));
     }
     lines
+}
+
+fn build_closure_digest(paths: &[String], sources: &[SourceFile]) -> Option<String> {
+    if paths.is_empty() {
+        return None;
+    }
+    let mut matched_sources = sources
+        .iter()
+        .filter(|source| paths.iter().any(|pattern| source.path.contains(pattern)))
+        .collect::<Vec<_>>();
+    if matched_sources.is_empty() {
+        return None;
+    }
+    matched_sources.sort_by(|left, right| left.path.cmp(&right.path));
+    let mut manifest = String::new();
+    for source in matched_sources {
+        writeln!(manifest, "{}:{}", source.path, blake3_hex(&source.text)).expect("writing to string should not fail");
+    }
+    Some(blake3_hex(&manifest))
 }
 
 fn expected_receipt_provenance_lines(rail: &ProofRail) -> Vec<String> {

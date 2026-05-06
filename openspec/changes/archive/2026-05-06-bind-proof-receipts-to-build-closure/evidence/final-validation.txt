@@ -1,0 +1,19 @@
+$ nix build .#checks.x86_64-linux.docs-examples --no-link -L
+$ openspec validate bind-proof-receipts-to-build-closure --strict
+Change 'bind-proof-receipts-to-build-closure' is valid
+$ openspec validate --specs --strict
+✓ spec/architecture
+✓ spec/autofix
+✓ spec/concurrency
+✓ spec/consumer-integration
+✓ spec/documentation
+✓ spec/naming
+✓ spec/openspec-stage-authoring
+✓ spec/openspec-task-governance
+✓ spec/performance
+✓ spec/purity
+✓ spec/resilience
+✓ spec/safety
+✓ spec/standards-codification
+✓ spec/structure
+Totals: 14 passed, 0 failed (14 items)
