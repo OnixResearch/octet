@@ -164,6 +164,9 @@ pub struct ProofRail {
     /// Trust-boundary notes.
     #[serde(default)]
     pub trust_boundaries: Vec<String>,
+    /// Receipt binding mode, such as `none` or `blake3-command-and-source`.
+    #[serde(default)]
+    pub receipt_binding: String,
 }
 
 /// Seed role exported from Nickel.

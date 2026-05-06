@@ -1,0 +1,16 @@
+$ git add -A && nix develop -c bash -c 'cargo fmt --all --check && cargo clippy -p tigerstyle-standards --all-targets -- -D warnings && cargo test -p tigerstyle-standards' && nix run .#tigerstyle-policy-validate && nix build .#checks.x86_64-linux.standards-fixtures --no-link -L && nix build .#checks.x86_64-linux.docs-examples --no-link -L && openspec validate standards-codification --strict && openspec validate --specs --strict && openspec list && git diff --check && git diff --cached --check
+exit: 0
+
+Assertions:
+- cargo fmt --all --check passed.
+- cargo clippy -p tigerstyle-standards --all-targets -- -D warnings passed.
+- cargo test -p tigerstyle-standards passed: 30 unit tests and 6 advisory CLI tests passed.
+- nix run .#tigerstyle-policy-validate passed.
+- nix build .#checks.x86_64-linux.standards-fixtures --no-link -L passed.
+- nix build .#checks.x86_64-linux.docs-examples --no-link -L passed.
+- openspec validate standards-codification --strict passed.
+- openspec validate --specs --strict passed: 14 specs passed, 0 failed.
+- openspec list printed: No active changes found.
+- git diff --check and git diff --cached --check passed.
+
+Note: Nix attempted ssh-ng://root@10.10.10.1 remote builds and fell back locally after SSH connection failures; the overall command exited 0.

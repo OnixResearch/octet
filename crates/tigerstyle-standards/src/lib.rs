@@ -615,6 +615,7 @@ impl Session<Authenticated> { pub fn send(self) {} }
                 proof_paths: vec!["proof-receipt.txt".to_owned()],
                 pass_signal: "proof-result: pass deterministic-effect-handlers".to_owned(),
                 trust_boundaries: vec!["fixture receipt only".to_owned()],
+                receipt_binding: "none".to_owned(),
             }],
             ..sample_policy(
                 VERIFIED_POLICY_ID,

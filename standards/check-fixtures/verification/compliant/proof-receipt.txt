@@ -1,3 +1,4 @@
-proof-command: nix develop -c bash -c 'cargo test -p tigerstyle-standards proof_rail -- --nocapture'
+proof-command-blake3: 71f5bd32c3c27f0795008e3ff5ee56e7736a7fac5b2d06fbb38cd8d19b4a6609
+proof-source-blake3: standards/check-fixtures/verification/compliant/src/lib.rs:641fadb612cd129e2f9682cdf660e132257779c81ef6c9195cd4d506023d4a5d
 proof-result: pass deterministic-effect-handlers
-trust-boundary: receipt proves local fixture proof command evidence shape, not arbitrary downstream semantic correctness
+trust-boundary: local fixture receipt is bound to command and source hashes

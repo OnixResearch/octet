@@ -268,7 +268,7 @@ fn execute_relevant_proof_rails(
         .filter(|rail| proof_rail_is_relevant(rail, sources))
         .map(|rail| {
             proof_path_patterns.extend(rail.proof_paths.iter().cloned());
-            execute_proof_rail(rail, source_paths)
+            execute_proof_rail(rail, sources, source_paths)
         })
         .collect();
     ExecutedProofRails {
@@ -289,10 +289,14 @@ fn proof_rail_is_relevant(rail: &tigerstyle_standards::model::ProofRail, sources
         .any(|pattern| sources.iter().any(|source| source.path.contains(pattern)))
 }
 
-fn execute_proof_rail(rail: &tigerstyle_standards::model::ProofRail, source_paths: &[PathBuf]) -> SourceFile {
+fn execute_proof_rail(
+    rail: &tigerstyle_standards::model::ProofRail,
+    sources: &[SourceFile],
+    source_paths: &[PathBuf],
+) -> SourceFile {
     let working_dir = proof_command_working_dir(source_paths);
     let output = ProcessCommand::new("sh").arg("-c").arg(&rail.command).current_dir(&working_dir).output();
-    let receipt = proof_command_receipt(rail, &working_dir, output);
+    let receipt = proof_command_receipt(rail, sources, &working_dir, output);
     let receipt_path = working_dir.join(first_proof_path(rail));
     SourceFile::new(receipt_path.display().to_string(), receipt)
 }
@@ -316,25 +320,51 @@ fn first_proof_path(rail: &tigerstyle_standards::model::ProofRail) -> &str {
 
 fn proof_command_receipt(
     rail: &tigerstyle_standards::model::ProofRail,
+    sources: &[SourceFile],
     working_dir: &Path,
     output: Result<std::process::Output, io::Error>,
 ) -> String {
+    let receipt_binding = proof_receipt_binding(rail, sources);
     match output {
         Ok(output) => format!(
-            "proof-command: {}\nproof-cwd: {}\nexit-status: {}\nstdout:\n{}\nstderr:\n{}\n",
+            "proof-command: {}\nproof-cwd: {}\n{}exit-status: {}\nstdout:\n{}\nstderr:\n{}\n",
             rail.command,
             working_dir.display(),
+            receipt_binding,
             output.status.code().map_or_else(|| "signal".to_owned(), |code| code.to_string()),
             String::from_utf8_lossy(&output.stdout),
             String::from_utf8_lossy(&output.stderr)
         ),
         Err(error) => format!(
-            "proof-command: {}\nproof-cwd: {}\nexit-status: spawn-error\nstderr:\n{}\n",
+            "proof-command: {}\nproof-cwd: {}\n{}exit-status: spawn-error\nstderr:\n{}\n",
             rail.command,
             working_dir.display(),
+            receipt_binding,
             error
         ),
     }
+}
+
+fn proof_receipt_binding(rail: &tigerstyle_standards::model::ProofRail, sources: &[SourceFile]) -> String {
+    if rail.receipt_binding != "blake3-command-and-source" {
+        return String::new();
+    }
+    let mut lines = vec![format!("proof-command-blake3: {}", blake3_hex(&rail.command))];
+    let mut matched_sources = sources
+        .iter()
+        .filter(|source| rail.source_paths.iter().any(|pattern| source.path.contains(pattern)))
+        .collect::<Vec<_>>();
+    matched_sources.sort_by(|left, right| left.path.cmp(&right.path));
+    lines.extend(
+        matched_sources
+            .into_iter()
+            .map(|source| format!("proof-source-blake3: {}:{}", source.path, blake3_hex(&source.text))),
+    );
+    lines.join("\n") + "\n"
+}
+
+fn blake3_hex(text: &str) -> String {
+    blake3::hash(text.as_bytes()).to_hex().to_string()
 }
 
 fn load_sources(paths: &[PathBuf]) -> Result<Vec<SourceFile>, CliError> {

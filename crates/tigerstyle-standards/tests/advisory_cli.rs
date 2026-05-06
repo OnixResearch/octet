@@ -132,6 +132,35 @@ fn execute_proof_rails_uses_command_output_as_receipt() {
 }
 
 #[test]
+fn receipt_only_proof_rail_rejects_unbound_stale_receipt() {
+    let temp = TempDir::new().expect("temp dir should be created");
+    let registry = write_registry_value(&temp, proof_registry());
+    let fixture = temp.path().join("unbound-proof-fixture");
+    std::fs::create_dir_all(fixture.join("src")).expect("proof fixture dirs should be created");
+    std::fs::write(fixture.join("src/lib.rs"), "pub fn proof_witness() {}\n").expect("proof source should be written");
+    std::fs::write(fixture.join("proof-receipt.txt"), "proof-result: pass deterministic-effect-handlers\n")
+        .expect("unbound proof receipt should be written");
+
+    let output = Command::new(binary_path())
+        .arg("check")
+        .arg("--registry")
+        .arg(&registry)
+        .arg("--source")
+        .arg(&fixture)
+        .arg("--family")
+        .arg(VERIFICATION_FAMILY)
+        .arg("--output")
+        .arg("json")
+        .output()
+        .expect("standards checker should run");
+    assert_failure(&output);
+    let report = parse_report(&output);
+    assert!(report.diagnostics.iter().any(|diagnostic| {
+        diagnostic.policy_id == PROOF_POLICY_ID && diagnostic.message.contains("mismatched receipt binding")
+    }));
+}
+
+#[test]
 fn execute_proof_rails_replaces_stale_committed_receipt() {
     let temp = TempDir::new().expect("temp dir should be created");
     let registry =
@@ -289,7 +318,8 @@ fn verified_policy(current: EnforcementMode, target: EnforcementMode) -> PolicyE
             source_paths: vec!["src/lib.rs".to_owned()],
             proof_paths: vec!["proof-receipt.txt".to_owned()],
             pass_signal: "proof-result: pass deterministic-effect-handlers".to_owned(),
-            trust_boundaries: vec!["temporary local command fixture".to_owned()],
+            trust_boundaries: vec!["test command receipt".to_owned()],
+            receipt_binding: "blake3-command-and-source".to_owned(),
         }],
         checker_owner: VERIFICATION_FAMILY.to_owned(),
         checker_id: CHECKER_ID.to_owned(),
