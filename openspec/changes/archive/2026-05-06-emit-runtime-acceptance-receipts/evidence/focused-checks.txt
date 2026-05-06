@@ -69,4 +69,3 @@ test artifact_backed_proof_bundle_accepts_complete_bundle ... ok
 test execute_proof_rails_replaces_stale_committed_receipt ... ok
 
 test result: ok. 22 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.14s
-
