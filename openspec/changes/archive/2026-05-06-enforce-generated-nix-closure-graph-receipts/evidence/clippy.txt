@@ -1,0 +1,3 @@
+$ nix develop -c bash -c 'cargo clippy -p tigerstyle-standards --all-targets -- -D warnings'
+    Checking tigerstyle-standards v0.1.0 (/home/brittonr/git/tigerstyle/crates/tigerstyle-standards)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.91s

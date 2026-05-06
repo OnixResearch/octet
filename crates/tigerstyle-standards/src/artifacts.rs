@@ -150,6 +150,10 @@ fn append_proof_rail_config(toml: &mut String, registry: &PolicyRegistry) {
         proof_rail_field(registry, |rail| &rail.receipt_verifier.verifier_nix_closure_digest);
     let proof_rail_receipt_verifier_nix_closure_paths =
         proof_rail_fields(registry, |rail| &rail.receipt_verifier.verifier_nix_closure_paths);
+    let proof_rail_receipt_verifier_nix_closure_graph_digests =
+        proof_rail_field(registry, |rail| &rail.receipt_verifier.verifier_nix_closure_graph_digest);
+    let proof_rail_receipt_verifier_nix_closure_graph_paths =
+        proof_rail_fields(registry, |rail| &rail.receipt_verifier.verifier_nix_closure_graph_paths);
     let proof_rail_receipt_toolchains = proof_rail_field(registry, |rail| &rail.receipt_verifier.toolchain_id);
     let proof_rail_receipt_toolchain_digests =
         proof_rail_field(registry, |rail| &rail.receipt_verifier.toolchain_digest);
@@ -200,6 +204,16 @@ fn append_proof_rail_config(toml: &mut String, registry: &PolicyRegistry) {
         toml,
         "proof_rail_receipt_verifier_nix_closure_paths",
         &proof_rail_receipt_verifier_nix_closure_paths,
+    );
+    append_toml_array(
+        toml,
+        "proof_rail_receipt_verifier_nix_closure_graph_digests",
+        &proof_rail_receipt_verifier_nix_closure_graph_digests,
+    );
+    append_toml_array(
+        toml,
+        "proof_rail_receipt_verifier_nix_closure_graph_paths",
+        &proof_rail_receipt_verifier_nix_closure_graph_paths,
     );
     append_toml_array(toml, "proof_rail_receipt_toolchains", &proof_rail_receipt_toolchains);
     append_toml_array(toml, "proof_rail_receipt_toolchain_digests", &proof_rail_receipt_toolchain_digests);

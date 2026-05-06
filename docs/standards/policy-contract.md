@@ -60,12 +60,17 @@ evidence.
   `proof-verifier-nix-derivation: <drv-id>`,
   `proof-verifier-nix-derivation-blake3: <hex>`,
   `proof-verifier-nix-closure: <closure-id>`,
-  `proof-verifier-nix-closure-blake3: <hex>`, `proof-toolchain: <id>`, and
+  `proof-verifier-nix-closure-blake3: <hex>`,
+  `proof-verifier-nix-closure-graph-blake3: <hex>`, `proof-toolchain: <id>`, and
   `proof-toolchain-blake3: <hex>`. If `verifier_build_closure_paths` or
   `verifier_nix_closure_paths` are configured, the corresponding digest is
   derived from checked manifest file contents instead of trusting ambient build
-  state. A local Nix package exports the `tigerstyle-standards` references graph
-  so fixture Nix closure receipts have a first-class regeneration seam. When
+  state. If `verifier_nix_closure_graph_paths` are configured, the graph digest
+  is derived from canonicalized generated Nix `exportReferencesGraph` artifacts
+  so fixture receipts bind to recursive closure graph evidence, not just a
+  declared closure label. A local Nix package exports the `tigerstyle-standards`
+  references graph and digest sidecar so fixture Nix closure receipts have a
+  first-class regeneration seam. When
   `tigerstyle-standards check --execute-proof-rails` is enabled, the checker runs
   each relevant declared proof command from the checked source root, captures
   deterministic provenance, verifier/toolchain, verifier-binary, build-closure,

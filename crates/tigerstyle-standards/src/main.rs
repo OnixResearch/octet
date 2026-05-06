@@ -422,6 +422,11 @@ fn proof_receipt_verifier(rail: &tigerstyle_standards::model::ProofRail, sources
             .unwrap_or_else(|| verifier.verifier_nix_closure_digest.clone());
         lines.push(format!("proof-verifier-nix-closure-blake3: {digest}"));
     }
+    if !verifier.verifier_nix_closure_graph_digest.is_empty() {
+        let digest = nix_closure_graph_digest(&verifier.verifier_nix_closure_graph_paths, sources)
+            .unwrap_or_else(|| verifier.verifier_nix_closure_graph_digest.clone());
+        lines.push(format!("proof-verifier-nix-closure-graph-blake3: {digest}"));
+    }
     if !verifier.toolchain_id.is_empty() {
         lines.push(format!("proof-toolchain: {}", verifier.toolchain_id));
     }
@@ -462,6 +467,76 @@ fn build_closure_digest(paths: &[String], sources: &[SourceFile]) -> Option<Stri
         writeln!(manifest, "{}:{}", source.path, blake3_hex(&source.text)).expect("writing to string should not fail");
     }
     Some(blake3_hex(&manifest))
+}
+
+fn nix_closure_graph_digest(paths: &[String], sources: &[SourceFile]) -> Option<String> {
+    if paths.is_empty() {
+        return None;
+    }
+    let mut matched_sources = sources
+        .iter()
+        .filter(|source| paths.iter().any(|pattern| source.path.contains(pattern)))
+        .collect::<Vec<_>>();
+    if matched_sources.is_empty() {
+        return None;
+    }
+    matched_sources.sort_by(|left, right| left.path.cmp(&right.path));
+    let mut canonical_graphs = String::new();
+    for source in matched_sources {
+        let canonical = canonical_nix_closure_graph(&source.text)?;
+        canonical_graphs.push_str(&canonical);
+    }
+    Some(blake3_hex(&canonical_graphs))
+}
+
+fn canonical_nix_closure_graph(text: &str) -> Option<String> {
+    let lines = text.lines().collect::<Vec<_>>();
+    let mut index = 0;
+    let mut records = Vec::new();
+    while index < lines.len() {
+        while index < lines.len() && lines[index].trim().is_empty() {
+            index += 1;
+        }
+        if index >= lines.len() {
+            break;
+        }
+        let path = lines[index].trim().to_owned();
+        index += 1;
+        while index < lines.len() && lines[index].trim().is_empty() {
+            index += 1;
+        }
+        if index >= lines.len() {
+            return None;
+        }
+        let reference_count = lines[index].trim().parse::<usize>().ok()?;
+        index += 1;
+        let mut references = Vec::with_capacity(reference_count);
+        for _ in 0..reference_count {
+            while index < lines.len() && lines[index].trim().is_empty() {
+                index += 1;
+            }
+            if index >= lines.len() {
+                return None;
+            }
+            references.push(lines[index].trim().to_owned());
+            index += 1;
+        }
+        references.sort();
+        records.push((path, references));
+    }
+    if records.is_empty() {
+        return None;
+    }
+    records.sort_by(|left, right| left.0.cmp(&right.0));
+    let mut canonical = String::new();
+    for (path, references) in records {
+        writeln!(canonical, "{path}").expect("writing to string should not fail");
+        writeln!(canonical, "{}", references.len()).expect("writing to string should not fail");
+        for reference in references {
+            writeln!(canonical, "{reference}").expect("writing to string should not fail");
+        }
+    }
+    Some(canonical)
 }
 
 fn proof_receipt_binding(rail: &tigerstyle_standards::model::ProofRail, sources: &[SourceFile]) -> String {

@@ -360,15 +360,50 @@
         };
 
         tigerstyleStandardsNixClosureManifest = pkgs.runCommand "tigerstyle-standards-nix-closure-manifest" {
+          nativeBuildInputs = [ pkgs.b3sum pkgs.python3 ];
           exportReferencesGraph = [ "tigerstyle-standards-closure" tigerstyleStandards ];
         } ''
           mkdir -p "$out"
-          cat > "$out/proof-nix-closure.txt" <<'EOF'
+          cp tigerstyle-standards-closure "$out/tigerstyle-standards-closure.graph"
+          GRAPH="$out/tigerstyle-standards-closure.graph" python3 - <<'PY' > "$out/tigerstyle-standards-closure.graph.canonical"
+          import os
+          from pathlib import Path
+          text = Path(os.environ["GRAPH"]).read_text()
+          lines = text.splitlines()
+          index = 0
+          records = []
+          while index < len(lines):
+              while index < len(lines) and not lines[index].strip():
+                  index += 1
+              if index >= len(lines):
+                  break
+              path = lines[index].strip()
+              index += 1
+              while index < len(lines) and not lines[index].strip():
+                  index += 1
+              count = int(lines[index].strip())
+              index += 1
+              refs = []
+              for _ in range(count):
+                  while index < len(lines) and not lines[index].strip():
+                      index += 1
+                  refs.append(lines[index].strip())
+                  index += 1
+              records.append((path, sorted(refs)))
+          for path, refs in sorted(records):
+              print(path)
+              print(len(refs))
+              for ref in refs:
+                  print(ref)
+          PY
+          graph_digest=$(b3sum "$out/tigerstyle-standards-closure.graph.canonical" | cut -d' ' -f1)
+          printf '%s\n' "$graph_digest" > "$out/tigerstyle-standards-closure.graph.blake3"
+          cat > "$out/proof-nix-closure.txt" <<EOF
           proof-verifier-nix-derivation: ${tigerstyleStandards.drvPath}
           proof-verifier-nix-output: ${tigerstyleStandards}
           proof-verifier-nix-closure: exportReferencesGraph:tigerstyle-standards-closure
+          proof-verifier-nix-closure-graph-blake3: $graph_digest
           EOF
-          cp tigerstyle-standards-closure "$out/tigerstyle-standards-closure.graph"
         '';
 
         uiDriverVendorDir = craneLib.vendorCargoDeps {
@@ -676,7 +711,7 @@ MAIN
           grep --fixed-strings "9fb0cd3ff1b2898eba4c6f71479f93ae3cdc80f869cd8ae5e6355235ec5f9aef" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
           grep --fixed-strings "proof_rail_receipt_verifier_binaries" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
           grep --fixed-strings "proof_rail_receipt_verifier_binary_digests" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
-          grep --fixed-strings "769d83a708596addb12593979cd25b9566c5ecf546e743807e53872265af09df" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
+          grep --fixed-strings "2ba96767a574ade1d1e7a20242e49d9479be76ffe91fcb4e232ae24b998683e0" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
           grep --fixed-strings "proof_rail_receipt_verifier_build_closures" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
           grep --fixed-strings "nix-tigerstyle-standards-build-closure/v1" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
           grep --fixed-strings "proof_rail_receipt_verifier_build_closure_digests" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
@@ -693,6 +728,10 @@ MAIN
           grep --fixed-strings "918d21e52d62044ea97d1b2c2e6bf5ec06751738984ff4b029ae156d903487c9" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
           grep --fixed-strings "proof_rail_receipt_verifier_nix_closure_paths" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
           grep --fixed-strings "proof-nix-closure.txt" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
+          grep --fixed-strings "proof_rail_receipt_verifier_nix_closure_graph_digests" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
+          grep --fixed-strings "4713839b1f999f6a369f85e446ccb80f68e46d2f085aeead8ac323c29032dc21" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
+          grep --fixed-strings "proof_rail_receipt_verifier_nix_closure_graph_paths" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
+          grep --fixed-strings "proof-nix-closure.graph" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
           grep --fixed-strings "proof_rail_receipt_toolchains" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
           grep --fixed-strings "rust-toolchain.toml" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
           grep --fixed-strings "proof_rail_receipt_toolchain_digests" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
@@ -1018,9 +1057,13 @@ MAIN
           tigerstyle-standards-nix-closure-manifest = pkgs.runCommand "tigerstyle-standards-nix-closure-manifest-check" { } ''
             test -s ${tigerstyleStandardsNixClosureManifest}/proof-nix-closure.txt
             test -s ${tigerstyleStandardsNixClosureManifest}/tigerstyle-standards-closure.graph
+            test -s ${tigerstyleStandardsNixClosureManifest}/tigerstyle-standards-closure.graph.canonical
+            test -s ${tigerstyleStandardsNixClosureManifest}/tigerstyle-standards-closure.graph.blake3
             grep -F "proof-verifier-nix-derivation:" ${tigerstyleStandardsNixClosureManifest}/proof-nix-closure.txt >/dev/null
             grep -F "proof-verifier-nix-output: ${tigerstyleStandards}" ${tigerstyleStandardsNixClosureManifest}/proof-nix-closure.txt >/dev/null
             grep -F "proof-verifier-nix-closure: exportReferencesGraph:tigerstyle-standards-closure" ${tigerstyleStandardsNixClosureManifest}/proof-nix-closure.txt >/dev/null
+            graph_digest=$(cat ${tigerstyleStandardsNixClosureManifest}/tigerstyle-standards-closure.graph.blake3)
+            grep -F "proof-verifier-nix-closure-graph-blake3: $graph_digest" ${tigerstyleStandardsNixClosureManifest}/proof-nix-closure.txt >/dev/null
             mkdir -p "$out"
           '';
           policy-artifact-consumer-fixture = policyArtifactConsumerFixtureCheck;

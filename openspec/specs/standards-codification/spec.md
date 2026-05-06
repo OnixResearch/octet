@@ -592,16 +592,20 @@ For type-state protocol policies, structural validation MUST reject configured r
 - THEN every focused check exits successfully and the saved transcript names the commands used
 
 ### Requirement: Verified Enforcement Rails [r[verified-enforcement-rails]]
+Verified proof rails MUST bind proof receipts to the configured verifier identity, toolchain identity, executable identity, build closure identity, and Nix closure graph evidence.
 
-Verified enforcement rails MUST bind proof receipts to command/source hashes, receipt provenance, verifier/toolchain identity, verifier binary identity, build-closure identity, and Nix derivation/recursive closure identity when those obligations are configured by policy artifacts.
+#### Scenario: Receipt records generated Nix closure graph digest [r[verified-enforcement-rails.nix-closure-graph-digest]]
 
-#### Scenario: Receipt records Nix derivation and recursive closure identity [r[verified-enforcement-rails.nix-closure-identity]]
+- GIVEN a verified proof rail configured with `verifier_nix_closure_graph_paths` and `verifier_nix_closure_graph_digest`
+- WHEN the checker validates a passing proof receipt
+- THEN the checker MUST recompute a BLAKE3 digest from the configured generated Nix `exportReferencesGraph` artifacts
+- AND the checker MUST require a matching `proof-verifier-nix-closure-graph-blake3` receipt line
 
-- GIVEN a verified proof rail configured with verifier Nix derivation and recursive closure metadata
-- WHEN receipt-only proof checking evaluates a passing proof receipt
-- THEN the checker MUST require matching `proof-verifier-nix-derivation`, `proof-verifier-nix-derivation-blake3`, `proof-verifier-nix-closure`, and `proof-verifier-nix-closure-blake3` lines
-- AND generated proof command receipts MUST include those lines when `--execute-proof-rails` is enabled
-- AND generated policy artifacts MUST export the configured Nix derivation and closure obligations for downstream checkers
+#### Scenario: Generated artifacts expose Nix closure graph obligations [r[verified-enforcement-rails.nix-closure-graph-artifacts]]
+
+- GIVEN policy artifacts are exported for a verified proof rail with Nix closure graph obligations
+- WHEN downstream checkers consume the generated artifact bundle
+- THEN the artifact bundle MUST include the configured Nix closure graph digest and graph artifact path obligations
 
 ### Requirement: Reference Seed Corpus Vendoring [r[reference-seed-corpus-vendoring]]
 
