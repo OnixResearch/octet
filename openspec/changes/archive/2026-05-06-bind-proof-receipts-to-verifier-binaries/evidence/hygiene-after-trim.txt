@@ -1,0 +1,4 @@
+$ git diff --check
+$ git diff --cached --check
+$ openspec validate bind-proof-receipts-to-verifier-binaries --strict
+Change 'bind-proof-receipts-to-verifier-binaries' is valid

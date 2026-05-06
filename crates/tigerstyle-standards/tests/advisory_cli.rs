@@ -248,6 +248,57 @@ proof-result: pass deterministic-effect-handlers
 }
 
 #[test]
+fn receipt_only_proof_rail_rejects_verifier_receipt_without_binary_digest() {
+    let temp = TempDir::new().expect("temp dir should be created");
+    let registry = write_registry_value(&temp, proof_registry());
+    let fixture = temp.path().join("verifier-bound-proof-fixture");
+    std::fs::create_dir_all(fixture.join("src")).expect("proof fixture dirs should be created");
+    let source = "pub fn proof_witness() {}
+";
+    std::fs::write(fixture.join("src/lib.rs"), source).expect("proof source should be written");
+    std::fs::write(
+        fixture.join("proof-receipt.txt"),
+        format!(
+            "proof-receipt-schema: tigerstyle-proof-receipt/v1
+proof-backend: local-command-receipt
+proof-runner: tigerstyle-standards
+proof-environment: local-source-root
+trust-boundary: test command receipt
+proof-verifier: tigerstyle-standards@proof-receipt/v1
+proof-verifier-blake3: 9fb0cd3ff1b2898eba4c6f71479f93ae3cdc80f869cd8ae5e6355235ec5f9aef
+proof-toolchain: rust-toolchain.toml
+proof-toolchain-blake3: 50692525e10589e3a1060a0ed0adc77f695ad5617121b572e549ef9855ceb7a8
+proof-command-blake3: {}
+proof-source-blake3: {}:{}
+proof-result: pass deterministic-effect-handlers
+",
+            blake3_hex("bash proof-command.sh"),
+            fixture.join("src/lib.rs").display(),
+            blake3_hex(source),
+        ),
+    )
+    .expect("verifier-bound proof receipt should be written");
+
+    let output = Command::new(binary_path())
+        .arg("check")
+        .arg("--registry")
+        .arg(&registry)
+        .arg("--source")
+        .arg(&fixture)
+        .arg("--family")
+        .arg(VERIFICATION_FAMILY)
+        .arg("--output")
+        .arg("json")
+        .output()
+        .expect("standards checker should run");
+    assert_failure(&output);
+    let report = parse_report(&output);
+    assert!(report.diagnostics.iter().any(|diagnostic| {
+        diagnostic.policy_id == PROOF_POLICY_ID && diagnostic.message.contains("mismatched receipt verifier metadata")
+    }));
+}
+
+#[test]
 fn execute_proof_rails_replaces_stale_committed_receipt() {
     let temp = TempDir::new().expect("temp dir should be created");
     let registry =
@@ -337,6 +388,11 @@ fn blake3_hex(text: &str) -> String {
     blake3::hash(text.as_bytes()).to_hex().to_string()
 }
 
+fn blake3_file_hex(path: &str) -> String {
+    let bytes = std::fs::read(path).expect("file should be readable for BLAKE3 hashing");
+    blake3::hash(&bytes).to_hex().to_string()
+}
+
 fn repo_path(relative_path: &str) -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../..")
@@ -421,6 +477,8 @@ fn verified_policy(current: EnforcementMode, target: EnforcementMode) -> PolicyE
             receipt_verifier: ReceiptVerifier {
                 verifier_id: "tigerstyle-standards@proof-receipt/v1".to_owned(),
                 verifier_digest: "9fb0cd3ff1b2898eba4c6f71479f93ae3cdc80f869cd8ae5e6355235ec5f9aef".to_owned(),
+                verifier_binary_path: "tigerstyle-standards".to_owned(),
+                verifier_binary_digest: blake3_file_hex(binary_path()),
                 toolchain_id: "rust-toolchain.toml".to_owned(),
                 toolchain_digest: "50692525e10589e3a1060a0ed0adc77f695ad5617121b572e549ef9855ceb7a8".to_owned(),
             },

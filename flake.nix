@@ -662,6 +662,9 @@ MAIN
           grep --fixed-strings "tigerstyle-standards@proof-receipt/v1" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
           grep --fixed-strings "proof_rail_receipt_verifier_digests" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
           grep --fixed-strings "9fb0cd3ff1b2898eba4c6f71479f93ae3cdc80f869cd8ae5e6355235ec5f9aef" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
+          grep --fixed-strings "proof_rail_receipt_verifier_binaries" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
+          grep --fixed-strings "proof_rail_receipt_verifier_binary_digests" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
+          grep --fixed-strings "25306cbaef89c92cf3359b8ba0e8560cf555ff41a62e8996cee2d1318ccd455f" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
           grep --fixed-strings "proof_rail_receipt_toolchains" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
           grep --fixed-strings "rust-toolchain.toml" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
           grep --fixed-strings "proof_rail_receipt_toolchain_digests" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null

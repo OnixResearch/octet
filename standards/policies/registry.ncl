@@ -1163,6 +1163,8 @@ in
         receipt_verifier = {
           verifier_id = "tigerstyle-standards@proof-receipt/v1",
           verifier_digest = "9fb0cd3ff1b2898eba4c6f71479f93ae3cdc80f869cd8ae5e6355235ec5f9aef",
+          verifier_binary_path = "tigerstyle-standards",
+          verifier_binary_digest = "25306cbaef89c92cf3359b8ba0e8560cf555ff41a62e8996cee2d1318ccd455f",
           toolchain_id = "rust-toolchain.toml",
           toolchain_digest = "50692525e10589e3a1060a0ed0adc77f695ad5617121b572e549ef9855ceb7a8",
         },

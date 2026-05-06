@@ -1,0 +1,10 @@
+$ nix run .#tigerstyle-policy-validate
+$ nix build .#checks.x86_64-linux.standards-fixtures --no-link -L
+$ nix run .#tigerstyle-policy-artifacts -- /tmp/tigerstyle-policy-artifacts-binary && grep verifier_binary /tmp/tigerstyle-policy-artifacts-binary/tigerstyle-check-config.toml
+this derivation will be built:
+  /nix/store/b8i56y1l2ag0yjicv03g84lzwr72p7jb-tigerstyle-policy-artifacts.drv
+cannot build on 'ssh-ng://root@10.10.10.1': error: failed to start SSH connection to '10.10.10.1'
+building '/nix/store/b8i56y1l2ag0yjicv03g84lzwr72p7jb-tigerstyle-policy-artifacts.drv'...
+proof_rail_receipt_verifier_binaries = ["tigerstyle-standards"]
+proof_rail_receipt_verifier_binary_digests = ["25306cbaef89c92cf3359b8ba0e8560cf555ff41a62e8996cee2d1318ccd455f"]
+proof_rail_receipt_verifier_binary_digests = ["25306cbaef89c92cf3359b8ba0e8560cf555ff41a62e8996cee2d1318ccd455f"]

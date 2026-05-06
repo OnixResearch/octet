@@ -155,6 +155,12 @@ pub struct ReceiptVerifier {
     /// Deterministic verifier/tool digest expected in proof receipts.
     #[serde(default)]
     pub verifier_digest: String,
+    /// Verifier binary/build artifact path or label expected in proof receipts.
+    #[serde(default)]
+    pub verifier_binary_path: String,
+    /// BLAKE3 digest of the verifier binary/build artifact expected in proof receipts.
+    #[serde(default)]
+    pub verifier_binary_digest: String,
     /// Toolchain identity expected in proof receipts.
     #[serde(default)]
     pub toolchain_id: String,

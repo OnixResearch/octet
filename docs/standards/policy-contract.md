@@ -53,10 +53,12 @@ evidence.
   `trust-boundary:` lines. Rails with `receipt_verifier` configured also require
   exact verifier/toolchain accounting lines:
   `proof-verifier: <id>`, `proof-verifier-blake3: <hex>`,
-  `proof-toolchain: <id>`, and `proof-toolchain-blake3: <hex>`. When
-  `tigerstyle-standards check --execute-proof-rails` is enabled, the checker runs
-  each relevant declared proof command from the checked source root, captures
-  deterministic provenance, verifier/toolchain metadata, command/source BLAKE3
+  `proof-verifier-binary: <path-or-label>`,
+  `proof-verifier-binary-blake3: <hex>`, `proof-toolchain: <id>`, and
+  `proof-toolchain-blake3: <hex>`. When `tigerstyle-standards check
+  --execute-proof-rails` is enabled, the checker runs each relevant declared
+  proof command from the checked source root, captures deterministic provenance,
+  verifier/toolchain and verifier-binary metadata, command/source BLAKE3
   bindings, command, working directory, exit status, stdout, and stderr as an
   in-memory proof receipt at the configured proof path, and then applies the same
   pass-signal, binding, provenance, and verifier/toolchain gates. Command
