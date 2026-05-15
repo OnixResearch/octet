@@ -58,8 +58,6 @@ def classify(rel: str, line: str) -> str:
     ]
     if any(token in line for token in compatibility_tokens):
         return "compatibility"
-    if rel.startswith("openspec/changes/rename-to-slotcar/"):
-        return "compatibility"
     return "needs-fix"
 
 
@@ -71,7 +69,7 @@ def iter_text_files() -> list[Path]:
         rel = path.relative_to(ROOT)
         if any(part in SKIP_PARTS for part in rel.parts):
             continue
-        if rel.as_posix() == "openspec/changes/rename-to-slotcar/evidence/name-classification.txt":
+        if rel.as_posix().endswith("/evidence/name-classification.txt"):
             continue
         if path.suffix.lower() in BINARY_SUFFIXES:
             continue

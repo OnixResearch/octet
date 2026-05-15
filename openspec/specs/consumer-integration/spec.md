@@ -278,4 +278,3 @@ The deterministic proof artifact `openspec/changes/archive/2026-05-15-rename-to-
 - GIVEN the implementation keeps `cargo tigerstyle` available during the rename transition
 - WHEN a consumer invokes that old command path
 - THEN it is documented and tested as a compatibility alias to the canonical `cargo slotcar` behavior rather than a second independent tool surface
-
