@@ -4,7 +4,7 @@
 
 The system MUST expose `cargo slotcar` / `cargo-slotcar` as the canonical downstream command surface for check runs, structured output, summaries, SARIF tool metadata, Nix package/app outputs, and consumer templates. If the old `cargo tigerstyle` / `cargo-tigerstyle` path remains available during transition, it MUST be documented as a compatibility alias and MUST delegate to the same implementation and output schema as `slotcar`.
 
-The deterministic proof artifact `openspec/changes/rename-to-slotcar/evidence/cli-surface.txt` MUST show the canonical binary/package surfaces include `slotcar` and that any supported compatibility alias exits successfully with equivalent behavior for a minimal fixture.
+The deterministic proof artifact `openspec/changes/archive/2026-05-15-rename-to-slotcar/evidence/cli-surface.txt` MUST show the canonical binary/package surfaces include `slotcar` and that any supported compatibility alias exits successfully with equivalent behavior for a minimal fixture.
 
 #### Scenario: Cargo subcommand uses slotcar
 

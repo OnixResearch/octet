@@ -4,7 +4,7 @@
 
 The system MUST present `slotcar` as the canonical repository, package, binary, cargo subcommand, Nix output, and documentation identity anywhere the text describes the product or tool that users install or invoke. Documentation MAY retain `Tiger Style` / `tigerstyle` only when the occurrence is explicitly about the coding philosophy, historical compatibility, lint namespace compatibility, or archived evidence.
 
-The deterministic proof artifact `openspec/changes/rename-to-slotcar/evidence/name-classification.txt` MUST list every remaining non-archived `tigerstyle` occurrence after implementation as one of `philosophy`, `compatibility`, `namespace`, `archived`, or `needs-fix`, and the accepted artifact MUST contain zero `needs-fix` rows.
+The deterministic proof artifact `openspec/changes/archive/2026-05-15-rename-to-slotcar/evidence/name-classification.txt` MUST list every remaining non-archived `tigerstyle` occurrence after implementation as one of `philosophy`, `compatibility`, `namespace`, `archived`, or `needs-fix`, and the accepted artifact MUST contain zero `needs-fix` rows.
 
 #### Scenario: Canonical install and usage docs say slotcar
 

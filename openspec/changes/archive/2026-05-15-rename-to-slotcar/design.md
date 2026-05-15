@@ -50,7 +50,7 @@ The repo currently uses `tigerstyle` in Cargo package names, Dylint/library name
   - Scenario: Canonical install and usage docs say slotcar
   - Scenario: Philosophy references remain distinguishable
 - artifact path:
-  - `openspec/changes/rename-to-slotcar/evidence/name-classification.txt`
+  - `openspec/changes/archive/2026-05-15-rename-to-slotcar/evidence/name-classification.txt`
 - command / helper:
   - `nix develop -c bash -c '<repo rename classification helper>'`
 - exact expected output / acceptance signal:
@@ -65,7 +65,7 @@ The repo currently uses `tigerstyle` in Cargo package names, Dylint/library name
   - Scenario: Structured outputs name slotcar
   - Scenario: Compatibility alias is explicit
 - artifact path:
-  - `openspec/changes/rename-to-slotcar/evidence/cli-surface.txt`
+  - `openspec/changes/archive/2026-05-15-rename-to-slotcar/evidence/cli-surface.txt`
 - command / helper:
   - `nix develop -c bash -c '<focused cargo slotcar integration check>'`
 - exact expected output / acceptance signal:

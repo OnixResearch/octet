@@ -28,6 +28,6 @@ The repository and first-class cargo subcommand are still named `tigerstyle`, bu
 
 ## Impact
 
-- **Files / artifacts**: `Cargo.toml`, `cargo-tigerstyle/`, `crates/tigerstyle-standards/`, `flake.nix`, `README.md`, `CHANGELOG.md`, `docs/**`, `templates/**`, `tests/**`, `ui_tests/**`, `openspec/config.yaml`, generated evidence under `openspec/changes/rename-to-slotcar/evidence/`.
+- **Files / artifacts**: `Cargo.toml`, `cargo-tigerstyle/`, `crates/tigerstyle-standards/`, `flake.nix`, `README.md`, `CHANGELOG.md`, `docs/**`, `templates/**`, `tests/**`, `ui_tests/**`, `openspec/config.yaml`, generated evidence under `openspec/changes/archive/2026-05-15-rename-to-slotcar/evidence/`.
 - **Ordering / dependencies**: Rename manifests/Nix outputs before docs and fixtures; update tests after canonical command names settle; categorize remaining `tigerstyle` strings before compatibility decisions.
 - **Verification / evidence**: Saved grep/classification transcript for remaining names, CLI/package surface checks for `cargo slotcar`, and focused integration tests proving canonical and compatibility command behavior.
