@@ -23,12 +23,16 @@ pub fn load(start_dir: &Path) -> Result<WorkspaceConfig, String> {
 
     let workspace = table_field(&document, "workspace", manifest_path.as_path())?;
     let metadata = table_field(workspace, "metadata", manifest_path.as_path())?;
-    let tigerstyle = table_field(metadata, "tigerstyle", manifest_path.as_path())?;
+    let slotcar = metadata
+        .get("slotcar")
+        .and_then(toml::Value::as_table)
+        .or_else(|| metadata.get("tigerstyle").and_then(toml::Value::as_table))
+        .ok_or_else(|| format!("missing `[workspace.metadata.slotcar]` table in {}", manifest_path.display()))?;
 
     Ok(WorkspaceConfig {
         workspace_root,
-        default_scope: string_array_field(tigerstyle, "default_scope", manifest_path.as_path())?,
-        cargo_check_args: string_array_field(tigerstyle, "cargo_check_args", manifest_path.as_path())?,
+        default_scope: string_array_field(slotcar, "default_scope", manifest_path.as_path())?,
+        cargo_check_args: string_array_field(slotcar, "cargo_check_args", manifest_path.as_path())?,
     })
 }
 

@@ -1,7 +1,7 @@
 # Function fingerprint source-scanner example
 
 This example documents the intentional source-scanner boundary for
-`cargo tigerstyle fingerprint`.
+`cargo slotcar fingerprint`.
 
 `macro_rules!` defines `generated_boundary`, but the fingerprint command does not
 analyze post-expansion generated functions. The reviewed boundary is the explicit

@@ -11,7 +11,7 @@ use crate::model::Severity;
 
 const FIXTURE_POLICY_ID: &str = "tigerstyle.check.fixture-coverage";
 const FIXTURE_SOURCE_SECTION: &str =
-    "openspec/changes/codify-tigerstyle-standards/specs/standards-codification/spec.md#hard-rule-families";
+    "openspec/changes/codify-slotcar-standards/specs/standards-codification/spec.md#hard-rule-families";
 const FIXTURE_PATH: &str = "fixture-manifest";
 const MISSING_POLICY_REMEDIATION: &str = "add manifest coverage for the enabled hard policy";
 const MISSING_COMPLIANT_REMEDIATION: &str = "add at least one compliant fixture reference";

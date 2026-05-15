@@ -7,9 +7,9 @@ let PolicyRegistry = contracts.PolicyRegistry in
     {
       policy_id = "tigerstyle.fixture.valid",
       pillar = "fixture",
-      source_path = "docs/standards/source/tigerstyle-standards.adoc",
+      source_path = "docs/standards/source/slotcar-standards.adoc",
       source_heading = "Tiger Style Standards",
-      source_anchor = "docs/standards/source/tigerstyle-standards.adoc#tiger-style-standards",
+      source_anchor = "docs/standards/source/slotcar-standards.adoc#tiger-style-standards",
       summary = "Valid fixture policy entry.",
       classification = "hard",
       enforcement_level = "hard",

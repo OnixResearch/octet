@@ -22,7 +22,7 @@ let contracts = import "../../contracts.ncl" in
         requires_trust_boundary = true,
       },
       receipt_verifier = {
-        verifier_id = "tigerstyle-standards@proof-receipt/v1",
+        verifier_id = "slotcar-standards@proof-receipt/v1",
         verifier_digest = "fixture",
       },
     },

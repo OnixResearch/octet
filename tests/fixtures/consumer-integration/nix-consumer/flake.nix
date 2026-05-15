@@ -1,8 +1,8 @@
 {
-  description = "Checked-in consumer fixture for tigerstyle Nix parity";
-  inputs.tigerstyle.url = "path:@TIGERSTYLE_PATH@";
-  outputs = { self, tigerstyle }: {
-    checks.@SYSTEM@.default = tigerstyle.lib.mkConsumerCheck {
+  description = "Checked-in consumer fixture for slotcar Nix parity";
+  inputs.slotcar.url = "path:@TIGERSTYLE_PATH@";
+  outputs = { self, slotcar }: {
+    checks.@SYSTEM@.default = slotcar.lib.mkConsumerCheck {
       system = "@SYSTEM@";
       src = ./.;
       cargoLock = ./Cargo.lock;

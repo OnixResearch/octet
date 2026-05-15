@@ -16,7 +16,7 @@ LL | #![warn(unjustified_allow)]
    = note: `#[warn(tigerstyle::unjustified_allow)]` implied by `#[warn(unjustified_allow)]`
 help: add a local justification comment
    |
-LL + // TODO(tigerstyle): explain why this allow is safe here
+LL + // TODO(slotcar): explain why this allow is safe here
    |
 
 warning: 1 warning emitted

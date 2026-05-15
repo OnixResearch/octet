@@ -1,9 +1,17 @@
 [package]
-name = "cargo-tigerstyle"
+name = "cargo-slotcar"
 version = "0.1.0"
 edition = "2024"
 license = "AGPL-3.0-or-later"
-description = "First-class downstream consumer integration for tigerstyle"
+description = "First-class downstream consumer integration for slotcar"
+
+[[bin]]
+name = "cargo-slotcar"
+path = "src/main.rs"
+
+[[bin]]
+name = "cargo-tigerstyle"
+path = "src/main.rs"
 
 [dependencies]
 blake3 = "1"

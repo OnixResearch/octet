@@ -1,6 +1,6 @@
 # Lint reference
 
-This page lists the shipped tigerstyle lints, their default levels, and the
+This page lists the shipped slotcar lints, their default levels, and the
 supported suppression and config paths.
 
 For consumer setup, see `consumer-guide.md`.
@@ -8,49 +8,49 @@ For the landing-page naming map, see `../README.md`.
 
 ## Catalog summary
 
-`tigerstyle` ships 38 lints across 6 domains.
+`slotcar` ships 38 lints across 6 domains.
 
 | Domain | Group | Count |
 | --- | --- | ---: |
-| safety | `tigerstyle::safety` | 18 |
-| naming | `tigerstyle::naming` | 5 |
-| performance | `tigerstyle::performance` | 1 |
-| structure | `tigerstyle::structure` | 10 |
-| purity | `tigerstyle::purity` | 3 |
-| concurrency | `tigerstyle::concurrency` | 1 |
+| safety | `slotcar::safety` | 18 |
+| naming | `slotcar::naming` | 5 |
+| performance | `slotcar::performance` | 1 |
+| structure | `slotcar::structure` | 10 |
+| purity | `slotcar::purity` | 3 |
+| concurrency | `slotcar::concurrency` | 1 |
 
 ## Suppression and level controls
 
 Source attrs and group attrs use canonical tool names:
 
 ```rust
-#[allow(tigerstyle::unchecked_narrowing)]
-#![deny(tigerstyle::naming)]
-#![warn(tigerstyle::numeric_units)]
+#[allow(slotcar::unchecked_narrowing)]
+#![deny(slotcar::naming)]
+#![warn(slotcar::numeric_units)]
 ```
 
 Keep config keys bare in `dylint.toml`:
 
 ```toml
-[tigerstyle]
+[slotcar]
 disabled_lints = ["no_unwrap"]
 
-[tigerstyle.lint_levels]
+[slotcar.lint_levels]
 numeric_units = "warn"
 no_unwrap = "deny"
 ```
 
 Rules to keep straight:
 
-- source attrs and domain groups use `tigerstyle::...`
-- `disabled_lints` and `[tigerstyle.lint_levels]` use bare lint names
+- source attrs and domain groups use `slotcar::...`
+- `disabled_lints` and `[slotcar.lint_levels]` use bare lint names
 - `disabled_lints` wins over `lint_levels`
 - allow-by-default lints can be turned on with `#![warn(...)]` or a lint-level override
 - standalone raw-rustc crates and UI fixtures that use tool-scoped attrs need:
 
 ```rust
 #![feature(register_tool)]
-#![register_tool(tigerstyle)]
+#![register_tool(slotcar)]
 ```
 
 ## Config keys
@@ -64,11 +64,11 @@ Rules to keep straight:
 | `max_parameters` | `5` | `too_many_parameters` | maximum counted parameters before warning |
 | `acronym_allowlist` | `[]` | `acronym_style` | case-sensitive allowlist such as `IO` or `ID` |
 | `disabled_lints` | `[]` | all lints | bare lint names only; disabled lints do not register |
-| `[tigerstyle.lint_levels]` | `{}` | all lints | bare lint names mapped to `allow`, `warn`, or `deny` |
+| `[slotcar.lint_levels]` | `{}` | all lints | bare lint names mapped to `allow`, `warn`, or `deny` |
 
 Unknown lint names and invalid level values warn and are ignored.
 
-## Safety lints (`tigerstyle::safety`)
+## Safety lints (`slotcar::safety`)
 
 | Lint | Default | Summary |
 | --- | --- | --- |
@@ -77,7 +77,7 @@ Unknown lint names and invalid level values warn and are ignored.
 | `no_unwrap` | `warn` | ban `.unwrap()` and `.expect()` in production code |
 | `no_panic` | `warn` | ban `panic!()`, `unimplemented!()`, and `unreachable!()` in production code |
 | `no_todo` | `warn` | ban `todo!()` in production code |
-| `unjustified_no_todo_allow` | `warn` | require a local `//` justification for `allow(no_todo)` / `allow(tigerstyle::no_todo)` |
+| `unjustified_no_todo_allow` | `warn` | require a local `//` justification for `allow(no_todo)` / `allow(slotcar::no_todo)` |
 | `no_recursion` | `warn` | flag direct self-recursion |
 | `unchecked_narrowing` | `warn` | flag `as u32`-style narrowing without a checked bound |
 | `unchecked_division` | `warn` | require a zero guard before dividing by a variable |
@@ -91,7 +91,7 @@ Unknown lint names and invalid level values warn and are ignored.
 | `sentinel_fallback` | `warn` | flag `<int>::MAX` / `<int>::MIN` sentinel fallbacks instead of explicit branching or tagged fallback text |
 | `public_unsafe_api` | `warn` | flag public Rust `unsafe fn` APIs that leak unsafe obligations to callers |
 
-## Naming lints (`tigerstyle::naming`)
+## Naming lints (`slotcar::naming`)
 
 | Lint | Default | Summary |
 | --- | --- | --- |
@@ -101,13 +101,13 @@ Unknown lint names and invalid level values warn and are ignored.
 | `numeric_units` | `allow` | require unit suffixes such as `_ms`, `_secs`, or `_bytes` |
 | `float_for_currency` | `allow` | avoid `f64` in price, cost, or budget fields |
 
-## Performance lints (`tigerstyle::performance`)
+## Performance lints (`slotcar::performance`)
 
 | Lint | Default | Summary |
 | --- | --- | --- |
 | `clone_then_borrow` | `warn` | flag cloning a value only to immediately take a shared borrow |
 
-## Structure lints (`tigerstyle::structure`)
+## Structure lints (`slotcar::structure`)
 
 | Lint | Default | Summary |
 | --- | --- | --- |
@@ -122,7 +122,7 @@ Unknown lint names and invalid level values warn and are ignored.
 | `unjustified_allow` | `allow` | require local justification for `#[allow(clippy::...)]` |
 | `ambiguous_params` | `allow` | flag consecutive same-type primitive parameters |
 
-## Purity lints (`tigerstyle::purity`)
+## Purity lints (`slotcar::purity`)
 
 | Lint | Default | Summary |
 | --- | --- | --- |
@@ -130,7 +130,7 @@ Unknown lint names and invalid level values warn and are ignored.
 | `verified_purity` | `deny` | ban async, IO, and wall-clock usage in `verified/` modules |
 | `contradictory_time` | `warn` | avoid taking time as input and then reading the clock again |
 
-## Concurrency lints (`tigerstyle::concurrency`)
+## Concurrency lints (`slotcar::concurrency`)
 
 | Lint | Default | Summary |
 | --- | --- | --- |

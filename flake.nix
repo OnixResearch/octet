@@ -1,5 +1,5 @@
 {
-  description = "tigerstyle — Custom lints enforcing Tiger Style coding principles";
+  description = "slotcar — Custom lints enforcing Tiger Style coding principles";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
@@ -18,7 +18,7 @@
   outputs = { self, nixpkgs, crane, rust-overlay, flake-utils, dylint-src, ... }:
     let
       # Consumer-check helper — usable from any downstream flake.
-      # Runs tigerstyle lints against consumer code via nix flake check.
+      # Runs slotcar lints against consumer code via nix flake check.
       mkConsumerCheck = {
         system,
         src,
@@ -63,20 +63,20 @@
           '';
           tsDylintShimPath = pkgs.lib.makeBinPath [ tsCargoShim tsRustupShim ];
 
-          tigerstylePkg = self.packages.${system}.default;
+          slotcarPkg = self.packages.${system}.default;
           driverPkg = self.packages.${system}.dylint-driver;
           sharedLibSuffix =
             if pkgs.stdenv.hostPlatform.isDarwin then ".dylib" else ".so";
           dllPrefix =
             if pkgs.stdenv.hostPlatform.isDarwin then "lib" else "lib";
           # Dylint parses the library filename as lib<name>@<toolchain>.<ext>
-          tigerstyleLibDir = pkgs.runCommand "tigerstyle-dylint-lib" {} ''
+          slotcarDylintLibDir = pkgs.runCommand "tigerstyle-dylint-lib" {} ''
             mkdir -p $out/lib
-            ln -s ${tigerstylePkg}/lib/${dllPrefix}tigerstyle${sharedLibSuffix} \
+            ln -s ${slotcarPkg}/lib/${dllPrefix}tigerstyle${sharedLibSuffix} \
               $out/lib/${dllPrefix}tigerstyle@${tsRustupToolchain}${sharedLibSuffix}
           '';
-          tigerstyleLibPath =
-            "${tigerstyleLibDir}/lib/${dllPrefix}tigerstyle@${tsRustupToolchain}${sharedLibSuffix}";
+          slotcarDylintLibPath =
+            "${slotcarDylintLibDir}/lib/${dllPrefix}tigerstyle@${tsRustupToolchain}${sharedLibSuffix}";
 
           checkNativeBuildInputs =
             nativeBuildInputs ++ [ pkgs.pkg-config tsCargoShim tsRustupShim ];
@@ -91,7 +91,7 @@
             then " -- ${cargoExtraArgs}"
             else "";
         in
-        pkgs.runCommand "tigerstyle-consumer-check" {
+        pkgs.runCommand "slotcar-consumer-check" {
           nativeBuildInputs = checkNativeBuildInputs;
           inherit buildInputs;
           LD_LIBRARY_PATH = tsRustToolchainLibPath;
@@ -103,20 +103,20 @@
           chmod -R u+w source
           cd source
           export TIGERSTYLE_DRIVER_PATH="${driverPkg}/bin/dylint-driver"
-          export TIGERSTYLE_LINT_LIB="${tigerstyleLibPath}"
+          export TIGERSTYLE_LINT_LIB="${slotcarDylintLibPath}"
           export TIGERSTYLE_TOOLCHAIN="${tsRustupToolchain}"
           ${pkgs.lib.optionalString (consumerVendorDir != null) ''
             export CARGO_HOME="$PWD/.cargo-home"
             mkdir -p "$CARGO_HOME"
             cp "${consumerVendorDir}/config.toml" "$CARGO_HOME/config.toml"
           ''}
-          ${self.packages.${system}.cargo-tigerstyle}/bin/cargo-tigerstyle check ${packageArgs}${cargoCheckTail}
+          ${self.packages.${system}.cargo-slotcar}/bin/cargo-slotcar check ${packageArgs}${cargoCheckTail}
           mkdir -p "$out"
         '';
 
       # Generated-policy-artifact consumer helper — usable from downstream
       # flakes when they want the Nickel-authored policy bundle exported by this
-      # flake, then consumed by tigerstyle-standards in one reproducible check.
+      # flake, then consumed by slotcar-standards in one reproducible check.
       mkPolicyArtifactConsumerCheck = {
         system,
         src,
@@ -145,8 +145,8 @@
               "$report_json" >/dev/null
           '') requiredPolicyIds);
         in
-        pkgs.runCommand "tigerstyle-policy-artifact-consumer-check" {
-          nativeBuildInputs = nativeBuildInputs ++ [ pkgs.jq self.packages.${system}.tigerstyle-standards ];
+        pkgs.runCommand "slotcar-policy-artifact-consumer-check" {
+          nativeBuildInputs = nativeBuildInputs ++ [ pkgs.jq self.packages.${system}.slotcar-standards ];
           inherit buildInputs;
         } ''
           artifact_dir=$(mktemp -d)
@@ -159,7 +159,7 @@
 
           cp -r ${src} source
           chmod -R u+w source
-          tigerstyle-standards check \
+          slotcar-standards check \
             --policy-artifacts-dir "$artifact_dir" \
             ${sourceArgs} \
             --family ${family} \
@@ -253,24 +253,24 @@
           if pkgs.stdenv.hostPlatform.isDarwin then ".dylib"
           else if pkgs.stdenv.hostPlatform.isWindows then ".dll"
           else ".so";
-        tigerstyleLibraryName = "${sharedLibraryPrefix}tigerstyle${sharedLibrarySuffix}";
-        tigerstyleUiLibraryName = "${sharedLibraryPrefix}tigerstyle@${rustupToolchain}${sharedLibrarySuffix}";
+        slotcarLibraryName = "${sharedLibraryPrefix}tigerstyle${sharedLibrarySuffix}";
+        slotcarUiLibraryName = "${sharedLibraryPrefix}tigerstyle@${rustupToolchain}${sharedLibrarySuffix}";
 
         cargoArtifacts = craneLib.buildDepsOnly {
           inherit src nativeBuildInputs buildInputs;
           RUSTUP_TOOLCHAIN = rustupToolchain;
         };
 
-        tigerstyle = craneLib.buildPackage {
+        slotcar = craneLib.buildPackage {
           inherit src cargoArtifacts nativeBuildInputs buildInputs;
           doCheck = false;
         };
 
-        cargoTigerstyleUnwrapped = craneLib.buildPackage {
+        cargoSlotcarUnwrapped = craneLib.buildPackage {
           inherit src cargoArtifacts nativeBuildInputs buildInputs;
-          pname = "cargo-tigerstyle";
+          pname = "cargo-slotcar";
           version = "0.1.0";
-          cargoExtraArgs = "-p cargo-tigerstyle";
+          cargoExtraArgs = "-p cargo-slotcar";
           doCheck = false;
         };
 
@@ -305,7 +305,7 @@
             chmod -R u+w "$scratch/consumer"
 
             set +e
-            ${cargoTigerstyleUnwrapped}/bin/cargo-tigerstyle fingerprint --check --output-format=json "$scratch/consumer/src" > "$scratch/check.json" 2> "$scratch/check.err"
+            ${cargoSlotcarUnwrapped}/bin/cargo-slotcar fingerprint --check --output-format=json "$scratch/consumer/src" > "$scratch/check.json" 2> "$scratch/check.err"
             check_status="$?"
             set -e
             test "$check_status" -eq 1
@@ -319,7 +319,7 @@
 
             sed -i 's/requested.min(5)/requested.min(8)/' "$scratch/consumer/src/json_output.rs"
             set +e
-            ${cargoTigerstyleUnwrapped}/bin/cargo-tigerstyle fingerprint --check --output-format=json "$scratch/consumer/src/json_output.rs" > "$scratch/drift.json" 2> "$scratch/drift.err"
+            ${cargoSlotcarUnwrapped}/bin/cargo-slotcar fingerprint --check --output-format=json "$scratch/consumer/src/json_output.rs" > "$scratch/drift.json" 2> "$scratch/drift.err"
             drift_status="$?"
             set -e
             test "$drift_status" -eq 1
@@ -327,14 +327,14 @@
             jq -e '.records[0].name == "capped_retries" and .records[0].status == "mismatch"' "$scratch/drift.json" > /dev/null
 
             set +e
-            ${cargoTigerstyleUnwrapped}/bin/cargo-tigerstyle fingerprint --diff "$scratch/consumer/src/json_output.rs" > "$scratch/diff.txt" 2> "$scratch/diff.err"
+            ${cargoSlotcarUnwrapped}/bin/cargo-slotcar fingerprint --diff "$scratch/consumer/src/json_output.rs" > "$scratch/diff.txt" 2> "$scratch/diff.err"
             diff_status="$?"
-            ${cargoTigerstyleUnwrapped}/bin/cargo-tigerstyle fingerprint --diff --output-format=json "$scratch/consumer/src/json_output.rs" > "$scratch/diff.json" 2> "$scratch/diff-json.err"
+            ${cargoSlotcarUnwrapped}/bin/cargo-slotcar fingerprint --diff --output-format=json "$scratch/consumer/src/json_output.rs" > "$scratch/diff.json" 2> "$scratch/diff-json.err"
             diff_json_status="$?"
             set -e
             test "$diff_status" -eq 1
             test "$diff_json_status" -eq 1
-            grep -F "tigerstyle fingerprint diff" "$scratch/diff.txt" > /dev/null
+            grep -F "slotcar fingerprint diff" "$scratch/diff.txt" > /dev/null
             grep -F "capped_retries mismatch" "$scratch/diff.txt" > /dev/null
             grep -F "summary total=1 match=0 mismatch=1 missing=0 written=0 macro_warnings=0 metadata_missing=0" "$scratch/diff.txt" > /dev/null
             jq -e '.schema_version == 1 and .mode == "diff"' "$scratch/diff.json" > /dev/null
@@ -344,28 +344,28 @@
             diff_json_name="$(jq -r '.records[0].name' "$scratch/diff.json")"
             test "$diff_human_name" = "$diff_json_name"
 
-            ${cargoTigerstyleUnwrapped}/bin/cargo-tigerstyle fingerprint --update --output-format=json "$scratch/consumer/src/json_output.rs" > "$scratch/update.json"
+            ${cargoSlotcarUnwrapped}/bin/cargo-slotcar fingerprint --update --output-format=json "$scratch/consumer/src/json_output.rs" > "$scratch/update.json"
             jq -e '.records[0].name == "capped_retries" and .records[0].status == "written"' "$scratch/update.json" > /dev/null
-            ${cargoTigerstyleUnwrapped}/bin/cargo-tigerstyle fingerprint --check --output-format=json "$scratch/consumer/src/json_output.rs" > "$scratch/repaired.json"
+            ${cargoSlotcarUnwrapped}/bin/cargo-slotcar fingerprint --check --output-format=json "$scratch/consumer/src/json_output.rs" > "$scratch/repaired.json"
             jq -e '.records[0].name == "capped_retries" and .records[0].status == "match"' "$scratch/repaired.json" > /dev/null
           '';
         };
 
-        tigerstyleStandards = craneLib.buildPackage {
+        slotcarStandards = craneLib.buildPackage {
           inherit src cargoArtifacts nativeBuildInputs buildInputs;
-          pname = "tigerstyle-standards";
+          pname = "slotcar-standards";
           version = "0.1.0";
-          cargoExtraArgs = "-p tigerstyle-standards";
+          cargoExtraArgs = "-p slotcar-standards";
           doCheck = false;
         };
 
-        tigerstyleStandardsNixClosureManifest = pkgs.runCommand "tigerstyle-standards-nix-closure-manifest" {
+        slotcarStandardsNixClosureManifest = pkgs.runCommand "slotcar-standards-nix-closure-manifest" {
           nativeBuildInputs = [ pkgs.b3sum pkgs.python3 ];
-          exportReferencesGraph = [ "tigerstyle-standards-closure" tigerstyleStandards ];
+          exportReferencesGraph = [ "slotcar-standards-closure" slotcarStandards ];
         } ''
           mkdir -p "$out"
-          cp tigerstyle-standards-closure "$out/tigerstyle-standards-closure.graph"
-          GRAPH="$out/tigerstyle-standards-closure.graph" python3 - <<'PY' > "$out/tigerstyle-standards-closure.graph.canonical"
+          cp slotcar-standards-closure "$out/slotcar-standards-closure.graph"
+          GRAPH="$out/slotcar-standards-closure.graph" python3 - <<'PY' > "$out/slotcar-standards-closure.graph.canonical"
           import os
           from pathlib import Path
           text = Path(os.environ["GRAPH"]).read_text()
@@ -396,12 +396,12 @@
               for ref in refs:
                   print(ref)
           PY
-          graph_digest=$(b3sum "$out/tigerstyle-standards-closure.graph.canonical" | cut -d' ' -f1)
-          printf '%s\n' "$graph_digest" > "$out/tigerstyle-standards-closure.graph.blake3"
+          graph_digest=$(b3sum "$out/slotcar-standards-closure.graph.canonical" | cut -d' ' -f1)
+          printf '%s\n' "$graph_digest" > "$out/slotcar-standards-closure.graph.blake3"
           cat > "$out/proof-nix-closure.txt" <<EOF
-          proof-verifier-nix-derivation: ${tigerstyleStandards.drvPath}
-          proof-verifier-nix-output: ${tigerstyleStandards}
-          proof-verifier-nix-closure: exportReferencesGraph:tigerstyle-standards-closure
+          proof-verifier-nix-derivation: ${slotcarStandards.drvPath}
+          proof-verifier-nix-output: ${slotcarStandards}
+          proof-verifier-nix-closure: exportReferencesGraph:slotcar-standards-closure
           proof-verifier-nix-closure-graph-blake3: $graph_digest
           EOF
         '';
@@ -447,7 +447,7 @@
               fi
             done
             if [ -z "$driver_bin" ]; then
-              echo "missing tigerstyle UI driver binary" >&2
+              echo "missing slotcar UI driver binary" >&2
               find . -maxdepth 4 \( -name 'tigerstyle-ui-driver' -o -name 'tigerstyle_ui_driver' \) -print >&2 || true
               exit 1
             fi
@@ -456,9 +456,9 @@
           '';
         };
 
-        tigerstyleUiLibrary = pkgs.runCommand "tigerstyle-ui-library" { } ''
+        slotcarUiLibrary = pkgs.runCommand "tigerstyle-ui-library" { } ''
           mkdir -p "$out/lib"
-          ln -s "${tigerstyle}/lib/${tigerstyleLibraryName}" "$out/lib/${tigerstyleUiLibraryName}"
+          ln -s "${slotcar}/lib/${slotcarLibraryName}" "$out/lib/${slotcarUiLibraryName}"
         '';
 
         # Dylint driver binary — used by mkConsumerCheck to run lints.
@@ -521,17 +521,23 @@ MAIN
           '';
         };
 
-        cargoTigerstyle = pkgs.symlinkJoin {
-          name = "cargo-tigerstyle-0.1.0";
-          paths = [ cargoTigerstyleUnwrapped ];
+        cargoSlotcar = pkgs.symlinkJoin {
+          name = "cargo-slotcar-0.1.0";
+          paths = [ cargoSlotcarUnwrapped ];
           nativeBuildInputs = [ pkgs.makeWrapper ];
           postBuild = ''
+            wrapProgram "$out/bin/cargo-slotcar" \
+              --prefix PATH : "${dylintShimPath}" \
+              --prefix LD_LIBRARY_PATH : "${rustToolchainLibPath}" \
+              --set TIGERSTYLE_TOOLCHAIN "${rustupToolchain}" \
+              --set TIGERSTYLE_DRIVER_PATH "${dylintDriver}/bin/dylint-driver" \
+              --set TIGERSTYLE_LINT_LIB "${slotcarUiLibrary}/lib/${slotcarUiLibraryName}"
             wrapProgram "$out/bin/cargo-tigerstyle" \
               --prefix PATH : "${dylintShimPath}" \
               --prefix LD_LIBRARY_PATH : "${rustToolchainLibPath}" \
               --set TIGERSTYLE_TOOLCHAIN "${rustupToolchain}" \
               --set TIGERSTYLE_DRIVER_PATH "${dylintDriver}/bin/dylint-driver" \
-              --set TIGERSTYLE_LINT_LIB "${tigerstyleUiLibrary}/lib/${tigerstyleUiLibraryName}"
+              --set TIGERSTYLE_LINT_LIB "${slotcarUiLibrary}/lib/${slotcarUiLibraryName}"
           '';
         };
 
@@ -545,7 +551,7 @@ MAIN
 
         policyArtifacts = pkgs.writeShellApplication {
           name = "tigerstyle-policy-artifacts";
-          runtimeInputs = with pkgs; [ nickel tigerstyleStandards ];
+          runtimeInputs = with pkgs; [ nickel slotcarStandards ];
           text = ''
             if [ "$#" -ne 1 ]; then
               echo "usage: tigerstyle-policy-artifacts OUT_DIR" >&2
@@ -554,7 +560,7 @@ MAIN
             cd ${self}
             registry_json=$(mktemp)
             nickel export --format json standards/policies/registry.ncl > "$registry_json"
-            exec tigerstyle-standards export-artifacts --registry "$registry_json" --out-dir "$1"
+            exec slotcar-standards export-artifacts --registry "$registry_json" --out-dir "$1"
           '';
         };
 
@@ -656,9 +662,9 @@ MAIN
           touch "$out"
         '';
 
-        standardsFixtureCheck = pkgs.runCommand "tigerstyle-standards-fixtures"
+        standardsFixtureCheck = pkgs.runCommand "slotcar-standards-fixtures"
           {
-            nativeBuildInputs = with pkgs; [ jq nickel tigerstyleStandards ];
+            nativeBuildInputs = with pkgs; [ jq nickel slotcarStandards ];
           } ''
           cd ${./.}
           artifact_dir=$(mktemp -d)
@@ -669,7 +675,7 @@ MAIN
           markdown_report=$(mktemp)
 
           nickel export --format json standards/policies/registry.ncl > "$registry_json"
-          tigerstyle-standards export-artifacts --registry "$registry_json" --out-dir "$artifact_dir"
+          slotcar-standards export-artifacts --registry "$registry_json" --out-dir "$artifact_dir"
           test -s "$artifact_dir/tigerstyle-policies.json"
           test -s "$artifact_dir/tigerstyle-check-config.toml"
           test -s "$artifact_dir/tigerstyle-seed-manifests.json"
@@ -709,26 +715,26 @@ MAIN
           grep --fixed-strings "proof_rail_receipt_schemas" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
           grep --fixed-strings "tigerstyle-proof-receipt/v1" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
           grep --fixed-strings "proof_rail_receipt_runners" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
-          grep --fixed-strings "tigerstyle-standards" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
+          grep --fixed-strings "slotcar-standards" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
           grep --fixed-strings "proof_rail_receipt_environments" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
           grep --fixed-strings "local-source-root" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
           grep --fixed-strings "proof_rail_receipt_requires" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
           grep --fixed-strings "trust-boundary" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
           grep --fixed-strings "proof_rail_receipt_verifiers" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
-          grep --fixed-strings "tigerstyle-standards@proof-receipt/v1" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
+          grep --fixed-strings "slotcar-standards@proof-receipt/v1" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
           grep --fixed-strings "proof_rail_receipt_verifier_digests" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
           grep --fixed-strings "9fb0cd3ff1b2898eba4c6f71479f93ae3cdc80f869cd8ae5e6355235ec5f9aef" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
           grep --fixed-strings "proof_rail_receipt_verifier_binaries" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
           grep --fixed-strings "proof_rail_receipt_verifier_binary_digests" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
           grep --fixed-strings "f441cb3dbf3b49e6df671f716c81538b53bca0f277db26cbfd3f0270c1880252" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
           grep --fixed-strings "proof_rail_receipt_verifier_build_closures" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
-          grep --fixed-strings "nix-tigerstyle-standards-build-closure/v1" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
+          grep --fixed-strings "nix-slotcar-standards-build-closure/v1" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
           grep --fixed-strings "proof_rail_receipt_verifier_build_closure_digests" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
           grep --fixed-strings "372b744f6321abc8065322b626388256dcabe4111f772d50a6c6a50afd030a55" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
           grep --fixed-strings "proof_rail_receipt_verifier_build_closure_paths" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
           grep --fixed-strings "proof-build-closure.txt" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
           grep --fixed-strings "proof_rail_receipt_verifier_nix_derivations" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
-          grep --fixed-strings "tigerstyle-standards.drv" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
+          grep --fixed-strings "slotcar-standards.drv" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
           grep --fixed-strings "proof_rail_receipt_verifier_nix_derivation_digests" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
           grep --fixed-strings "395cf66a51543cf89028075deef9cf172bac902fd777f0ba0bead91aa68afec4" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
           grep --fixed-strings "proof_rail_receipt_verifier_nix_closures" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
@@ -746,7 +752,7 @@ MAIN
           grep --fixed-strings "proof_rail_receipt_toolchain_digests" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
           grep --fixed-strings "50692525e10589e3a1060a0ed0adc77f695ad5617121b572e549ef9855ceb7a8" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
 
-          tigerstyle-standards check \
+          slotcar-standards check \
             --policy-artifacts-dir "$artifact_dir" \
             --source standards/check-fixtures/suppressions/compliant \
             --family devtools \
@@ -754,7 +760,7 @@ MAIN
           jq --exit-status '.diagnostics | length == 0' "$compliant_json" >/dev/null
           jq --exit-status '.active_suppressions | length == 1' "$compliant_json" >/dev/null
 
-          tigerstyle-standards check \
+          slotcar-standards check \
             --policy-artifacts-dir "$artifact_dir" \
             --source standards/check-fixtures/architecture/compliant \
             --family architecture \
@@ -762,14 +768,14 @@ MAIN
           jq --exit-status '.diagnostics | length == 0' "$compliant_json" >/dev/null
           jq --exit-status 'any(.policy_evaluations[]; .policy_id == "tigerstyle.architecture.fcis-crate-boundary" and .target_enforcement_mode == "structural" and .failure_type == "crate-boundary")' "$compliant_json" >/dev/null
 
-          tigerstyle-standards check \
+          slotcar-standards check \
             --policy-artifacts-dir "$artifact_dir" \
             --source standards/check-fixtures/embedded/compliant \
             --family embedded \
             --output json > "$compliant_json"
           jq --exit-status '.diagnostics | length == 0' "$compliant_json" >/dev/null
 
-          tigerstyle-standards check \
+          slotcar-standards check \
             --policy-artifacts-dir "$artifact_dir" \
             --source standards/check-fixtures/architecture/compliant/typestate-protocol \
             --family idioms \
@@ -778,7 +784,7 @@ MAIN
           jq --exit-status 'all(.diagnostics[]; .policy_id == "tigerstyle.idioms.nominal-type-boundaries")' "$compliant_json" >/dev/null
           jq --exit-status 'any(.policy_evaluations[]; .policy_id == "tigerstyle.idioms.nominal-type-boundaries")' "$compliant_json" >/dev/null
 
-          tigerstyle-standards check \
+          slotcar-standards check \
             --policy-artifacts-dir "$artifact_dir" \
             --source standards/check-fixtures/verification/compliant \
             --family verification \
@@ -786,7 +792,7 @@ MAIN
           jq --exit-status '.diagnostics | length == 0' "$compliant_json" >/dev/null
           jq --exit-status 'any(.policy_evaluations[]; .policy_id == "tigerstyle.verification.deterministic-effect-handlers" and .current_enforcement_mode == "verified" and .failure_type == "verified-proof-rail")' "$compliant_json" >/dev/null
 
-          tigerstyle-standards check \
+          slotcar-standards check \
             --policy-artifacts-dir "$artifact_dir" \
             --source standards/check-fixtures/verification/compliant \
             --family verification \
@@ -794,7 +800,7 @@ MAIN
             --output json > "$compliant_json"
           jq --exit-status '.diagnostics | length == 0' "$compliant_json" >/dev/null
 
-          tigerstyle-standards check \
+          slotcar-standards check \
             --policy-artifacts-dir "$artifact_dir" \
             --source standards/check-fixtures/architecture/advisory \
             --family architecture \
@@ -803,7 +809,7 @@ MAIN
           jq --exit-status '.diagnostics[0].policy_id == "tigerstyle.architecture.public-api-budget"' "$advisory_json" >/dev/null
           jq --exit-status '.diagnostics[0].severity == "warning"' "$advisory_json" >/dev/null
 
-          if tigerstyle-standards check \
+          if slotcar-standards check \
             --policy-artifacts-dir "$artifact_dir" \
             --source standards/check-fixtures/suppressions/noncompliant \
             --family devtools \
@@ -813,7 +819,7 @@ MAIN
           fi
           jq --exit-status '.diagnostics | length >= 1' "$noncompliant_json" >/dev/null
 
-          if tigerstyle-standards check \
+          if slotcar-standards check \
             --policy-artifacts-dir "$artifact_dir" \
             --source standards/check-fixtures/architecture/noncompliant \
             --family architecture \
@@ -830,7 +836,7 @@ MAIN
           jq --exit-status 'any(.policy_evaluations[]; .target_enforcement_mode == "structural")' "$noncompliant_json" >/dev/null
           jq --exit-status 'all(.diagnostics[]; ((.path | contains("thick-root")) | not) or .policy_id != "tigerstyle.architecture.public-api-budget")' "$noncompliant_json" >/dev/null
 
-          if tigerstyle-standards check \
+          if slotcar-standards check \
             --policy-artifacts-dir "$artifact_dir" \
             --source standards/check-fixtures/architecture/noncompliant/typestate-raw \
             --family idioms \
@@ -842,7 +848,7 @@ MAIN
           jq --exit-status 'all(.diagnostics[]; .policy_id == "tigerstyle.idioms.nominal-type-boundaries")' "$noncompliant_json" >/dev/null
           jq --exit-status 'any(.diagnostics[]; .message | contains("type ConnectionState = bool"))' "$noncompliant_json" >/dev/null
 
-          if tigerstyle-standards check \
+          if slotcar-standards check \
             --policy-artifacts-dir "$artifact_dir" \
             --source standards/check-fixtures/verification/noncompliant \
             --family verification \
@@ -854,7 +860,7 @@ MAIN
           jq --exit-status 'all(.diagnostics[]; .policy_id == "tigerstyle.verification.deterministic-effect-handlers")' "$noncompliant_json" >/dev/null
           jq --exit-status 'any(.diagnostics[]; .message | contains("missing pass signal"))' "$noncompliant_json" >/dev/null
 
-          if tigerstyle-standards check \
+          if slotcar-standards check \
             --policy-artifacts-dir "$artifact_dir" \
             --source standards/check-fixtures/verification/noncompliant \
             --family verification \
@@ -866,7 +872,7 @@ MAIN
           jq --exit-status '.diagnostics | length >= 1' "$noncompliant_json" >/dev/null
           jq --exit-status 'any(.diagnostics[]; .message | contains("missing pass signal"))' "$noncompliant_json" >/dev/null
 
-          if tigerstyle-standards check \
+          if slotcar-standards check \
             --policy-artifacts-dir "$artifact_dir" \
             --source standards/check-fixtures/embedded/noncompliant \
             --family embedded \
@@ -878,7 +884,7 @@ MAIN
           jq --exit-status 'any(.diagnostics[]; .policy_id == "tigerstyle.embedded.bounded-queues" and (.message | contains("forbidden unbounded API")))' "$noncompliant_json" >/dev/null
           jq --exit-status 'any(.diagnostics[]; .policy_id == "tigerstyle.embedded.bounded-queues" and (.message | contains("missing capacity or backpressure witness")))' "$noncompliant_json" >/dev/null
 
-          tigerstyle-standards check \
+          slotcar-standards check \
             --policy-artifacts-dir "$artifact_dir" \
             --source standards/check-fixtures/suppressions/compliant \
             --family devtools \
@@ -899,21 +905,27 @@ MAIN
       in
       {
         packages = {
-          default = tigerstyle;
-          tigerstyle = tigerstyle;
-          cargo-tigerstyle = cargoTigerstyle;
+          default = slotcar;
+          slotcar = slotcar;
+          tigerstyle = slotcar;
+          cargo-slotcar = cargoSlotcar;
+          cargo-tigerstyle = cargoSlotcar;
           fingerprint-docs-downstream-smoke = fingerprintDocsDownstreamSmoke;
           dylint-driver = dylintDriver;
-          tigerstyle-standards = tigerstyleStandards;
-          tigerstyle-standards-nix-closure-manifest = tigerstyleStandardsNixClosureManifest;
+          slotcar-standards = slotcarStandards;
+          slotcar-standards-nix-closure-manifest = slotcarStandardsNixClosureManifest;
           tigerstyle-policy-export = policyExport;
           tigerstyle-policy-artifacts = policyArtifacts;
           tigerstyle-policy-validate = policyValidate;
         };
 
         apps = {
+          cargo-slotcar = flake-utils.lib.mkApp {
+            drv = cargoSlotcar;
+            exePath = "/bin/cargo-slotcar";
+          };
           cargo-tigerstyle = flake-utils.lib.mkApp {
-            drv = cargoTigerstyle;
+            drv = cargoSlotcar;
             exePath = "/bin/cargo-tigerstyle";
           };
 
@@ -922,9 +934,9 @@ MAIN
             exePath = "/bin/tigerstyle-fingerprint-docs-downstream-smoke";
           };
 
-          tigerstyle-standards = flake-utils.lib.mkApp {
-            drv = tigerstyleStandards;
-            exePath = "/bin/tigerstyle-standards";
+          slotcar-standards = flake-utils.lib.mkApp {
+            drv = slotcarStandards;
+            exePath = "/bin/slotcar-standards";
           };
 
           tigerstyle-policy-export = flake-utils.lib.mkApp {
@@ -951,7 +963,7 @@ MAIN
               inherit pname;
               version = "0.1.0";
               nativeBuildInputs = checkNativeBuildInputs;
-              cargoExtraArgs = "-p cargo-tigerstyle";
+              cargoExtraArgs = "-p cargo-slotcar";
               doNotPostBuildInstallCargoBinaries = true;
               buildPhaseCargoCommand = ":";
               cargoTestExtraArgs = "--test fingerprint_consumer ${testFilter} -- --nocapture";
@@ -962,7 +974,7 @@ MAIN
               RUSTUP_TOOLCHAIN = rustupToolchain;
               preCheck = ''
                 export PATH="${dylintShimPath}:$PATH"
-                export CARGO_TIGERSTYLE_BIN="${cargoTigerstyleUnwrapped}/bin/cargo-tigerstyle"
+                export CARGO_TIGERSTYLE_BIN="${cargoSlotcarUnwrapped}/bin/cargo-slotcar"
               '';
             };
           fingerprintLifecycleDocs = mkFingerprintDocsCheck
@@ -995,26 +1007,27 @@ MAIN
             mkdir -p "$out"
           '';
         in {
-          inherit tigerstyle;
+          inherit slotcar;
+          tigerstyle = slotcar;
 
           nextest = craneLib.cargoNextest {
             inherit src cargoArtifacts buildInputs;
             nativeBuildInputs = checkNativeBuildInputs;
             partitions = 1;
             partitionType = "count";
-            CARGO_TIGERSTYLE_BIN = "${cargoTigerstyleUnwrapped}/bin/cargo-tigerstyle";
+            CARGO_TIGERSTYLE_BIN = "${cargoSlotcarUnwrapped}/bin/cargo-slotcar";
             LD_LIBRARY_PATH = rustToolchainLibPath;
             RUSTUP_TOOLCHAIN = rustupToolchain;
             preCheck = ''
               export PATH="${dylintShimPath}:$PATH"
-              export CARGO_TIGERSTYLE_BIN="${cargoTigerstyleUnwrapped}/bin/cargo-tigerstyle"
+              export CARGO_TIGERSTYLE_BIN="${cargoSlotcarUnwrapped}/bin/cargo-slotcar"
             '';
           };
 
           ui = craneLib.buildPackage {
             inherit src cargoArtifacts buildInputs;
             cargoToml = ./Cargo.toml;
-            pname = "tigerstyle-ui";
+            pname = "slotcar-ui";
             version = "0.1.0";
             nativeBuildInputs = checkNativeBuildInputs;
             doNotPostBuildInstallCargoBinaries = true;
@@ -1028,7 +1041,7 @@ MAIN
             preCheck = ''
               export PATH="${dylintShimPath}:$PATH"
               export TIGERSTYLE_UI_DRIVER="${uiDriver}/bin/tigerstyle-ui-driver"
-              export TIGERSTYLE_UI_LIBRARY="${tigerstyleUiLibrary}/lib/${tigerstyleUiLibraryName}"
+              export TIGERSTYLE_UI_LIBRARY="${slotcarUiLibrary}/lib/${slotcarUiLibraryName}"
             '';
           };
 
@@ -1063,16 +1076,16 @@ MAIN
 
           policy-registry = policyRegistryCheck;
           standards-fixtures = standardsFixtureCheck;
-          tigerstyle-standards-nix-closure-manifest = pkgs.runCommand "tigerstyle-standards-nix-closure-manifest-check" { } ''
-            test -s ${tigerstyleStandardsNixClosureManifest}/proof-nix-closure.txt
-            test -s ${tigerstyleStandardsNixClosureManifest}/tigerstyle-standards-closure.graph
-            test -s ${tigerstyleStandardsNixClosureManifest}/tigerstyle-standards-closure.graph.canonical
-            test -s ${tigerstyleStandardsNixClosureManifest}/tigerstyle-standards-closure.graph.blake3
-            grep -F "proof-verifier-nix-derivation:" ${tigerstyleStandardsNixClosureManifest}/proof-nix-closure.txt >/dev/null
-            grep -F "proof-verifier-nix-output: ${tigerstyleStandards}" ${tigerstyleStandardsNixClosureManifest}/proof-nix-closure.txt >/dev/null
-            grep -F "proof-verifier-nix-closure: exportReferencesGraph:tigerstyle-standards-closure" ${tigerstyleStandardsNixClosureManifest}/proof-nix-closure.txt >/dev/null
-            graph_digest=$(cat ${tigerstyleStandardsNixClosureManifest}/tigerstyle-standards-closure.graph.blake3)
-            grep -F "proof-verifier-nix-closure-graph-blake3: $graph_digest" ${tigerstyleStandardsNixClosureManifest}/proof-nix-closure.txt >/dev/null
+          slotcar-standards-nix-closure-manifest = pkgs.runCommand "slotcar-standards-nix-closure-manifest-check" { } ''
+            test -s ${slotcarStandardsNixClosureManifest}/proof-nix-closure.txt
+            test -s ${slotcarStandardsNixClosureManifest}/slotcar-standards-closure.graph
+            test -s ${slotcarStandardsNixClosureManifest}/slotcar-standards-closure.graph.canonical
+            test -s ${slotcarStandardsNixClosureManifest}/slotcar-standards-closure.graph.blake3
+            grep -F "proof-verifier-nix-derivation:" ${slotcarStandardsNixClosureManifest}/proof-nix-closure.txt >/dev/null
+            grep -F "proof-verifier-nix-output: ${slotcarStandards}" ${slotcarStandardsNixClosureManifest}/proof-nix-closure.txt >/dev/null
+            grep -F "proof-verifier-nix-closure: exportReferencesGraph:slotcar-standards-closure" ${slotcarStandardsNixClosureManifest}/proof-nix-closure.txt >/dev/null
+            graph_digest=$(cat ${slotcarStandardsNixClosureManifest}/slotcar-standards-closure.graph.blake3)
+            grep -F "proof-verifier-nix-closure-graph-blake3: $graph_digest" ${slotcarStandardsNixClosureManifest}/proof-nix-closure.txt >/dev/null
             mkdir -p "$out"
           '';
           policy-artifact-consumer-fixture = policyArtifactConsumerFixtureCheck;
@@ -1089,10 +1102,10 @@ MAIN
             pkgs.jq
             pkgs.nickel
             pkgs.rust-analyzer
-            tigerstyleStandards
+            slotcarStandards
           ];
 
-          inputsFrom = [ tigerstyle ];
+          inputsFrom = [ slotcar ];
 
           LD_LIBRARY_PATH = rustToolchainLibPath;
           RUSTUP_TOOLCHAIN = rustupToolchain;

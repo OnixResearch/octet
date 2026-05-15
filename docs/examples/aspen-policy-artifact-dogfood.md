@@ -2,12 +2,12 @@
 
 This is a read-only downstream smoke for the generated Tiger Style policy
 artifact seam. It proves a consumer can receive the generated artifact bundle and
-run `tigerstyle-standards check --policy-artifacts-dir ...` without reading the
+run `slotcar-standards check --policy-artifacts-dir ...` without reading the
 Nickel registry directly.
 
 ## Scope
 
-- Tigerstyle checkout: `/home/brittonr/git/tigerstyle`
+- Slotcar checkout: `/home/brittonr/git/slotcar`
 - Aspen checkout: `/home/brittonr/git/aspen`
 - Aspen HEAD during capture: `10bb6fb38` (`Document operator receipt evidence`)
 - Aspen source roots checked:
@@ -16,9 +16,9 @@ Nickel registry directly.
   - `crates/aspen-rpc-handlers`
 - Family: `embedded`
 - Artifact files asserted non-empty:
-  - `tigerstyle-policies.json`
-  - `tigerstyle-check-config.toml`
-  - `tigerstyle-seed-manifests.json`
+  - `slotcar-policies.json`
+  - `slotcar-check-config.toml`
+  - `slotcar-seed-manifests.json`
 
 The local Aspen worktree had one unrelated dirty file,
 `tests/operator_receipts_docs.rs`, outside the checked source roots. The smoke
@@ -30,8 +30,8 @@ Downstream flakes can package the same artifact-backed seam as a normal flake
 check with `lib.mkPolicyArtifactConsumerCheck`:
 
 ```nix
-checks.${system}.tigerstyle-standards-artifacts =
-  tigerstyle.lib.mkPolicyArtifactConsumerCheck {
+checks.${system}.slotcar-standards-artifacts =
+  slotcar.lib.mkPolicyArtifactConsumerCheck {
     inherit system;
     src = self;
     family = "embedded";
@@ -41,11 +41,11 @@ checks.${system}.tigerstyle-standards-artifacts =
       "crates/aspen-rpc-handlers"
     ];
     expectedDiagnostics = 0;
-    requiredPolicyIds = [ "tigerstyle.embedded.bounded-queues" ];
+    requiredPolicyIds = [ "slotcar.embedded.bounded-queues" ];
   };
 ```
 
-The Tigerstyle repo keeps a fixture-backed regression for this helper at
+The Slotcar repo keeps a fixture-backed regression for this helper at
 `checks.x86_64-linux.policy-artifact-consumer-fixture`; the Aspen command below
 is the real-consumer replay that motivated that reusable check surface.
 
@@ -55,11 +55,11 @@ is the real-consumer replay that motivated that reusable check surface.
 set -euo pipefail
 artifact_dir=$(mktemp -d)
 out_json=$(mktemp)
-nix run .#tigerstyle-policy-artifacts -- "$artifact_dir"
-for f in tigerstyle-policies.json tigerstyle-check-config.toml tigerstyle-seed-manifests.json; do
+nix run .#slotcar-policy-artifacts -- "$artifact_dir"
+for f in slotcar-policies.json slotcar-check-config.toml slotcar-seed-manifests.json; do
   test -s "$artifact_dir/$f"
 done
-nix run .#tigerstyle-standards -- check \
+nix run .#slotcar-standards -- check \
   --policy-artifacts-dir "$artifact_dir" \
   --source /home/brittonr/git/aspen/crates/aspen-core \
   --source /home/brittonr/git/aspen/crates/aspen-coordination \
@@ -68,7 +68,7 @@ nix run .#tigerstyle-standards -- check \
   --output json > "$out_json"
 jq '{diagnostics:(.diagnostics|length), active_suppressions:(.active_suppressions|length), evaluated:(.evaluated_policy_ids|length), structural:any(.policy_evaluations[]; .target_enforcement_mode=="structural")}' "$out_json"
 jq --exit-status '.diagnostics | length == 0' "$out_json" >/dev/null
-jq --exit-status 'any(.policy_evaluations[]; .policy_id == "tigerstyle.embedded.bounded-queues" and .target_enforcement_mode == "structural")' "$out_json" >/dev/null
+jq --exit-status 'any(.policy_evaluations[]; .policy_id == "slotcar.embedded.bounded-queues" and .target_enforcement_mode == "structural")' "$out_json" >/dev/null
 ```
 
 ## Captured result
@@ -76,9 +76,9 @@ jq --exit-status 'any(.policy_evaluations[]; .policy_id == "tigerstyle.embedded.
 ```text
 artifact_dir=/tmp/tmp.RRfOhlihwA
 this derivation will be built:
-  /nix/store/r4p41wxyhxhx8hk85x63zakj4266094d-tigerstyle-policy-artifacts.drv
+  /nix/store/r4p41wxyhxhx8hk85x63zakj4266094d-slotcar-policy-artifacts.drv
 cannot build on 'ssh-ng://root@10.10.10.1': error: failed to start SSH connection to '10.10.10.1'
-building '/nix/store/r4p41wxyhxhx8hk85x63zakj4266094d-tigerstyle-policy-artifacts.drv'...
+building '/nix/store/r4p41wxyhxhx8hk85x63zakj4266094d-slotcar-policy-artifacts.drv'...
 {
   "diagnostics": 0,
   "active_suppressions": 0,
@@ -98,10 +98,10 @@ and the command exited successfully.
 - Aspen's selected production crates have zero `embedded` family diagnostics for
   the artifact-backed bounded-queue structural policy.
 - The JSON report still carries structural policy-evaluation metadata, including
-  `tigerstyle.embedded.bounded-queues` with `target_enforcement_mode =
+  `slotcar.embedded.bounded-queues` with `target_enforcement_mode =
   "structural"`.
 - The bounded-queue policy is now a hard structural gate: the generated bundle
   exports forbidden unbounded constructors, approved bounded APIs/wrapper scopes,
   capacity witnesses, and backpressure behavior witnesses; an Aspen scratch
   mutation that introduces a configured unbounded constructor must fail
-  `checks.x86_64-linux.tigerstyle-policy-artifacts`.
+  `checks.x86_64-linux.slotcar-policy-artifacts`.

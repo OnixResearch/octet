@@ -1,7 +1,7 @@
 ---
-name: tigerstyle-repo
-description: Work in the tigerstyle repo at /home/brittonr/git/tigerstyle. Use when adding or changing lints, diagnostics, config, UI fixtures, cargo-tigerstyle engine code, downstream rollout docs/templates, or OpenSpec evidence in this workspace.
-compatibility: Project-specific skill for /home/brittonr/git/tigerstyle. Assumes nix devshell, nightly rustc_private tooling, Dylint, and OpenSpec.
+name: slotcar-repo
+description: Work in the slotcar repo at /home/brittonr/git/tigerstyle. Use when adding or changing lints, diagnostics, config, UI fixtures, cargo-slotcar engine code, downstream rollout docs/templates, or OpenSpec evidence in this workspace.
+compatibility: Project-specific skill for /home/brittonr/git/tigerstyle (slotcar repo checkout). Assumes nix devshell, nightly rustc_private tooling, Dylint, and OpenSpec.
 ---
 
 # Tigerstyle Repo
@@ -13,7 +13,7 @@ Use `references/quick-reference.md` for a compact command sheet, file-path map, 
 Direct command form:
 
 ```bash
-/skill:tigerstyle-repo <area> [name]
+/skill:slotcar-repo <area> [name]
 ```
 
 Areas:
@@ -27,10 +27,10 @@ Areas:
 Examples:
 
 ```bash
-/skill:tigerstyle-repo lint no_unwrap
-/skill:tigerstyle-repo runner
-/skill:tigerstyle-repo ui compound_assertion
-/skill:tigerstyle-repo downstream
+/skill:slotcar-repo lint no_unwrap
+/skill:slotcar-repo runner
+/skill:slotcar-repo ui compound_assertion
+/skill:slotcar-repo downstream
 ```
 
 Interpret first arg as target area. Second arg, when present, is the lint, fixture, or change name to inspect first.
@@ -64,7 +64,7 @@ If shared target-dir lock contention shows up, use a temporary `CARGO_TARGET_DIR
 - `src/concurrency/` -> concurrency lints
 - `src/diagnostics.rs` -> lint metadata, group membership, guidance text, suggestion helpers
 - `src/config.rs` -> `dylint.toml` parsing, defaults, validation, per-lint levels
-- `cargo-tigerstyle/src/` -> first-class downstream runner and engine
+- `cargo-slotcar/src/` -> first-class downstream runner and engine
 - `ui_tests/` -> checked-in UI fixtures and `.stderr` / `.fixed` artifacts
 - `tests/ui.rs` -> custom UI harness and autofix rails
 - `tests/fixtures/` -> fixture inventory snapshots and coverage manifests
@@ -101,7 +101,7 @@ When adding or extending a lint, keep this checklist in sync:
 8. if lint emits structured fixes, add or update `.fixed` artifacts and autofix coverage
 
 Repo rules worth keeping straight:
-- new lints use canonical tool names in Rust attrs, like `tigerstyle::no_unwrap`
+- new lints use canonical tool names in Rust attrs, like `tigerstyle::no_unwrap` (legacy Dylint namespace during transition)
 - `dylint.toml` keeps bare lint keys like `no_unwrap`
 - compatibility aliases are deliberate; keep bare-name behavior working unless change explicitly removes it
 - `todo!()` escape hatches belong to `no_todo`, not `no_panic`
@@ -123,29 +123,29 @@ nix develop -c bash -c 'BLESS=1 cargo test --test ui ui -- --ignored --nocapture
 
 ### `runner`
 
-Use for `cargo-tigerstyle` engine changes, downstream check-path logic, lockfile fail-closed behavior, embedded source extraction, or CLI work.
+Use for `cargo-slotcar` engine changes, downstream check-path logic, lockfile fail-closed behavior, embedded source extraction, or CLI work.
 
 Read first:
-- `cargo-tigerstyle/src/main.rs`
-- `cargo-tigerstyle/src/cli.rs`
-- `cargo-tigerstyle/src/engine.rs`
-- `cargo-tigerstyle/src/config.rs`
+- `cargo-slotcar/src/main.rs`
+- `cargo-slotcar/src/cli.rs`
+- `cargo-slotcar/src/engine.rs`
+- `cargo-slotcar/src/config.rs`
 - `README.md` usage section
 - `docs/downstream-rollout.md`
 - `flake.nix` if Nix consumer path changes
 
 Keep first-class engine path intact:
-- `cargo tigerstyle check`
-- `nix run .#cargo-tigerstyle -- check`
+- `cargo slotcar check`
+- `nix run .#cargo-slotcar -- check`
 
 Do not regress back to copied historical wrapper guidance unless work is explicitly about archived replay paths.
 
 Useful commands:
 
 ```bash
-nix develop -c bash -c 'cargo check -p cargo-tigerstyle'
-nix develop -c bash -c 'cargo test -p cargo-tigerstyle'
-nix build .#cargo-tigerstyle
+nix develop -c bash -c 'cargo check -p cargo-slotcar'
+nix develop -c bash -c 'cargo test -p cargo-slotcar'
+nix build .#cargo-slotcar
 ```
 
 ### `config`
@@ -160,8 +160,8 @@ Read first:
 - `src/diagnostics.rs` if groups or canonical names change
 
 Keep these contracts straight:
-- source attrs and group attrs use canonical tool names like `tigerstyle::safety`
-- `disabled_lints` and `[tigerstyle.lint_levels]` use bare lint names
+- source attrs and group attrs use canonical tool names like `tigerstyle::safety` (legacy Dylint namespace during transition)
+- `disabled_lints` and `[slotcar.lint_levels]` use bare lint names
 - unknown lint names and invalid levels warn and are ignored
 - `disabled_lints` wins over per-lint levels
 
@@ -204,8 +204,8 @@ Read first:
 
 Current recommended consumer path:
 - consumer-owned `dylint.toml`
-- `[workspace.metadata.tigerstyle]` in consumer `Cargo.toml`
-- `cargo tigerstyle check` or `nix run ...#cargo-tigerstyle -- check`
+- `[workspace.metadata.slotcar]` in consumer `Cargo.toml`
+- `cargo slotcar check` or `nix run ...#cargo-slotcar -- check`
 
 Historical wrapper scripts are replay-only. Keep docs explicit about that.
 
@@ -244,13 +244,13 @@ nix flake check
 Good package-targeted commands:
 
 ```bash
-nix develop -c bash -c 'cargo check -p cargo-tigerstyle'
-nix develop -c bash -c 'cargo test -p cargo-tigerstyle'
+nix develop -c bash -c 'cargo check -p cargo-slotcar'
+nix develop -c bash -c 'cargo test -p cargo-slotcar'
 ```
 
 ## Repo-specific gotchas
 
-- This repo already has a global `tigerstyle` skill elsewhere. Project-local repo guidance must use a distinct skill name like `tigerstyle-repo`, or pi keeps the first-discovered skill and hides the repo-local one.
+- This repo already has a global `slotcar` skill elsewhere. Project-local repo guidance must use a distinct skill name like `slotcar-repo`, or pi keeps the first-discovered skill and hides the repo-local one.
 - Use the nix devshell for Rust commands here.
 - `cargo test --test ui ui -- --ignored --nocapture` is the right ignored UI invocation here.
 - `dylint.toml` uses bare lint names; Rust source attrs use canonical `tigerstyle::...` names.

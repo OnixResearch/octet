@@ -1,7 +1,7 @@
 schema: spec-driven
 
 project:
-  name: tigerstyle
+  name: slotcar
   description: Custom Clippy lints and agent-facing guidance enforcing Tiger Style coding principles
   language: rust
 
@@ -20,7 +20,7 @@ context: |
   Primary consumer is the aspen distributed systems project.
   Lints target production code — test code gets exemptions where noted.
   We use nix flakes for builds, nextest for testing.
-  The repo also maintains the Tiger Style agent skill under ~/.pi/agent/skills/tigerstyle/.
+  The repo also maintains the Tiger Style agent skill under ~/.pi/agent/skills/slotcar/.
 
 rules:
   proposal:

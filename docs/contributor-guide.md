@@ -42,8 +42,8 @@ For the shipped lint catalog, see `lint-reference.md`.
 | lint inventory and registration | `src/lib.rs` |
 | diagnostic wording, guide sections, domain groups | `src/diagnostics.rs` |
 | config schema and defaults | `src/config.rs` |
-| cargo subcommand parsing and engine behavior | `cargo-tigerstyle/src/cli.rs`, `cargo-tigerstyle/src/config.rs`, `cargo-tigerstyle/src/engine.rs` |
-| standards registry and checker core | `standards/policies/`, `crates/tigerstyle-standards/src/` |
+| cargo subcommand parsing and engine behavior | `cargo-slotcar/src/cli.rs`, `cargo-slotcar/src/config.rs`, `cargo-slotcar/src/engine.rs` |
+| standards registry and checker core | `standards/policies/`, `crates/slotcar-standards/src/` |
 | standards source material | `docs/standards/source/` |
 | published Nix entry points and helpers | `flake.nix` |
 | consumer-owned template | `templates/dylint.toml` |
@@ -91,7 +91,7 @@ Then update:
 Remember:
 
 - `dylint.toml` keys stay bare (`no_unwrap`)
-- source attrs and group attrs stay canonical (`tigerstyle::no_unwrap`, `tigerstyle::safety`)
+- source attrs and group attrs stay canonical (`slotcar::no_unwrap`, `slotcar::safety`)
 
 ## If you add or change standards policy
 
@@ -99,7 +99,7 @@ Check these source files first:
 
 - `standards/policies/registry.ncl`
 - `standards/policies/contracts.ncl`
-- `crates/tigerstyle-standards/src/`
+- `crates/slotcar-standards/src/`
 - `standards/check-fixtures/`
 - `docs/standards/source/`
 
@@ -111,14 +111,14 @@ Then update:
 - `flake.nix` checks/apps when verification changes
 
 Keep the seam intact: Dylint lints stay in `src/`; policy registry and
-source-shape checks stay in `crates/tigerstyle-standards` and `standards/`.
+source-shape checks stay in `crates/slotcar-standards` and `standards/`.
 
 ## If you add or change a published entry point
 
 Check these source files first:
 
-- `cargo-tigerstyle/src/cli.rs`
-- `cargo-tigerstyle/src/engine.rs`
+- `cargo-slotcar/src/cli.rs`
+- `cargo-slotcar/src/engine.rs`
 - `flake.nix`
 
 Then update:
@@ -163,18 +163,18 @@ The shared `~/.cargo-target` directory can block on unrelated repo builds. Use a
 temporary target directory when this happens:
 
 ```bash
-tmp_target="$(mktemp -d /tmp/tigerstyle-target.XXXXXX)"
+tmp_target="$(mktemp -d /tmp/slotcar-target.XXXXXX)"
 trap 'rm -rf "$tmp_target"' EXIT
 CARGO_TARGET_DIR="$tmp_target" nix develop -c bash -c 'cargo test --lib'
 ```
 
 ### Tool-scoped attrs in standalone fixtures
 
-Standalone UI fixtures that use canonical `tigerstyle::` attrs need:
+Standalone UI fixtures that use canonical `slotcar::` attrs need:
 
 ```rust
 #![feature(register_tool)]
-#![register_tool(tigerstyle)]
+#![register_tool(slotcar)]
 ```
 
 Without this, rustc rejects the attrs before the lint can run. Bare lint names
@@ -201,15 +201,15 @@ Common checks:
 nix develop -c bash -c 'cargo check'
 nix develop -c bash -c 'cargo test --lib'
 nix develop -c bash -c 'cargo test --test ui ui -- --ignored --nocapture'
-nix develop -c bash -c 'cargo test -p tigerstyle-standards'
-nix run .#tigerstyle-policy-validate
+nix develop -c bash -c 'cargo test -p slotcar-standards'
+nix run .#slotcar-policy-validate
 ```
 
 Useful doc-facing spot checks:
 
 ```bash
 nix develop -c bash -c 'cargo test --test consumer_integration downstream_rollout_docs_point_to_first_class_cli_path -- --nocapture'
-rg -n "cargo tigerstyle check|cargo-tigerstyle|tigerstyle::|\[tigerstyle\]|\[workspace.metadata.tigerstyle\]" README.md docs/*.md
+rg -n "cargo slotcar check|cargo-slotcar|slotcar::|\[slotcar\]|\[workspace.metadata.slotcar\]" README.md docs/*.md
 ```
 
 For fingerprint docs/examples, use one review command:
@@ -218,7 +218,7 @@ For fingerprint docs/examples, use one review command:
 nix build .#checks.x86_64-linux.docs-examples --no-link -L
 ```
 
-Run it whenever `cargo tigerstyle fingerprint` behavior or checked
+Run it whenever `cargo slotcar fingerprint` behavior or checked
 `docs/examples/function-fingerprint-*` transcripts change. This aggregate check
 is part of `nix flake check` and is the CI/operator gate for executable
 fingerprint docs, including downstream smoke and the docs grep regression. Use

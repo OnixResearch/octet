@@ -1,6 +1,6 @@
 # Rust idiom guidance
 
-Tigerstyle imports Rust idioms only when they make safety, explicitness, boundedness, recoverability, performance evidence, or developer comprehension stronger. Generic pattern names are not enough; every imported pattern must state the Tiger Style outcome it protects.
+Slotcar imports Rust idioms only when they make safety, explicitness, boundedness, recoverability, performance evidence, or developer comprehension stronger. Generic pattern names are not enough; every imported pattern must state the Tiger Style outcome it protects.
 
 ## Immediate guidance
 
