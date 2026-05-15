@@ -3,8 +3,8 @@ use std::fs;
 use std::path::Path;
 use std::process::Command;
 
-fn cargo_tigerstyle() -> &'static str {
-    env!("CARGO_BIN_EXE_cargo-tigerstyle")
+fn cargo_slotcar() -> &'static str {
+    env!("CARGO_BIN_EXE_cargo-slotcar")
 }
 
 fn write_consumer_fixture(root: &Path) {
@@ -203,7 +203,7 @@ fn fingerprint_lifecycle_docs_fixture_matches_transcript() {
     let final_fixture = docs_dir.join("reviewed.rs");
     let transcript = fs::read_to_string(docs_dir.join("lifecycle-transcript.md")).expect("read lifecycle transcript");
 
-    let final_check = Command::new(cargo_tigerstyle())
+    let final_check = Command::new(cargo_slotcar())
         .args(["fingerprint", "--check", "reviewed.rs"])
         .current_dir(&docs_dir)
         .output()
@@ -232,7 +232,7 @@ pub fn bounded_retry_delay_ms(attempt: u32) -> u32 {
     )
     .expect("write docs lifecycle initial fixture");
 
-    let initial_update = Command::new(cargo_tigerstyle())
+    let initial_update = Command::new(cargo_slotcar())
         .args(["fingerprint", "--update", "reviewed.rs"])
         .current_dir(temp.path())
         .output()
@@ -244,7 +244,7 @@ pub fn bounded_retry_delay_ms(attempt: u32) -> u32 {
     );
     assert_transcript_contains_stdout(&transcript, &initial_update.stdout, "initial update");
 
-    let clean_check = Command::new(cargo_tigerstyle())
+    let clean_check = Command::new(cargo_slotcar())
         .args(["fingerprint", "--check", "reviewed.rs"])
         .current_dir(temp.path())
         .output()
@@ -262,7 +262,7 @@ pub fn bounded_retry_delay_ms(attempt: u32) -> u32 {
     )
     .expect("mutate lifecycle fixture");
 
-    let drift_diff = Command::new(cargo_tigerstyle())
+    let drift_diff = Command::new(cargo_slotcar())
         .args(["fingerprint", "--diff", "reviewed.rs"])
         .current_dir(temp.path())
         .output()
@@ -270,7 +270,7 @@ pub fn bounded_retry_delay_ms(attempt: u32) -> u32 {
     assert!(!drift_diff.status.success(), "drift diff should fail");
     assert_transcript_contains_stdout(&transcript, &drift_diff.stdout, "drift diff");
 
-    let repair_update = Command::new(cargo_tigerstyle())
+    let repair_update = Command::new(cargo_slotcar())
         .args(["fingerprint", "--update", "reviewed.rs"])
         .current_dir(temp.path())
         .output()
@@ -282,7 +282,7 @@ pub fn bounded_retry_delay_ms(attempt: u32) -> u32 {
     );
     assert_transcript_contains_stdout(&transcript, &repair_update.stdout, "repair update");
 
-    let repaired_check = Command::new(cargo_tigerstyle())
+    let repaired_check = Command::new(cargo_slotcar())
         .args(["fingerprint", "--check", "reviewed.rs"])
         .current_dir(temp.path())
         .output()
@@ -310,7 +310,7 @@ fn fingerprint_review_manifest_is_stable_and_sorted() {
     write_consumer_fixture(temp.path());
     let manifest = temp.path().join("review-manifest.json");
 
-    let output = Command::new(cargo_tigerstyle())
+    let output = Command::new(cargo_slotcar())
         .args([
             "fingerprint",
             "--check",
@@ -326,7 +326,7 @@ fn fingerprint_review_manifest_is_stable_and_sorted() {
     let json: serde_json::Value =
         serde_json::from_str(&fs::read_to_string(&manifest).expect("read manifest")).expect("parse manifest");
     assert_eq!(json["schema_version"], 1);
-    assert_eq!(json["tool_name"], "cargo-tigerstyle");
+    assert_eq!(json["tool_name"], "cargo-slotcar");
     assert_eq!(json["mode"], "check");
     assert!(json["manifest_hash"].as_str().expect("manifest hash").starts_with("b3:"));
 
@@ -347,7 +347,7 @@ fn fingerprint_human_summary_docs_fixture_matches_transcript() {
     let final_fixture = docs_dir.join("reviewed.rs");
     let transcript = fs::read_to_string(docs_dir.join("transcript.md")).expect("read human summary transcript");
 
-    let final_check = Command::new(cargo_tigerstyle())
+    let final_check = Command::new(cargo_slotcar())
         .args(["fingerprint", "--check", "reviewed.rs"])
         .current_dir(&docs_dir)
         .output()
@@ -383,7 +383,7 @@ pub fn describe_batch(size: u32) -> String {
     )
     .expect("write human summary initial fixture");
 
-    let initial_update = Command::new(cargo_tigerstyle())
+    let initial_update = Command::new(cargo_slotcar())
         .args(["fingerprint", "--update", "reviewed.rs"])
         .current_dir(temp.path())
         .output()
@@ -395,7 +395,7 @@ pub fn describe_batch(size: u32) -> String {
     );
     assert_transcript_contains_stdout(&transcript, &initial_update.stdout, "human summary initial update");
 
-    let clean_check = Command::new(cargo_tigerstyle())
+    let clean_check = Command::new(cargo_slotcar())
         .args(["fingerprint", "--check", "reviewed.rs"])
         .current_dir(temp.path())
         .output()
@@ -411,7 +411,7 @@ pub fn describe_batch(size: u32) -> String {
     fs::write(&fixture, source.replace("requested.min(128)", "requested.min(256)"))
         .expect("mutate human summary fixture");
 
-    let drift_check = Command::new(cargo_tigerstyle())
+    let drift_check = Command::new(cargo_slotcar())
         .args(["fingerprint", "--check", "reviewed.rs"])
         .current_dir(temp.path())
         .output()
@@ -421,7 +421,7 @@ pub fn describe_batch(size: u32) -> String {
     assert!(drift_stdout.contains("summary total=2 match=1 mismatch=1 missing=0 written=0"));
     assert_transcript_contains_stdout(&transcript, &drift_check.stdout, "human summary drift check");
 
-    let repair_update = Command::new(cargo_tigerstyle())
+    let repair_update = Command::new(cargo_slotcar())
         .args(["fingerprint", "--update", "reviewed.rs"])
         .current_dir(temp.path())
         .output()
@@ -435,7 +435,7 @@ pub fn describe_batch(size: u32) -> String {
     assert!(repair_stdout.contains("summary total=2 match=1 mismatch=0 missing=0 written=1"));
     assert_transcript_contains_stdout(&transcript, &repair_update.stdout, "human summary repair update");
 
-    let repaired_check = Command::new(cargo_tigerstyle())
+    let repaired_check = Command::new(cargo_slotcar())
         .args(["fingerprint", "--check", "reviewed.rs"])
         .current_dir(temp.path())
         .output()
@@ -459,7 +459,7 @@ fn fingerprint_warning_summary_docs_fixture_matches_transcript() {
     let final_fixture = docs_dir.join("reviewed.rs");
     let transcript = fs::read_to_string(docs_dir.join("transcript.md")).expect("read warning summary transcript");
 
-    let final_check = Command::new(cargo_tigerstyle())
+    let final_check = Command::new(cargo_slotcar())
         .args(["fingerprint", "--check", "reviewed.rs"])
         .current_dir(&docs_dir)
         .output()
@@ -494,7 +494,7 @@ pub fn missing_gate_metadata(limit: u32) -> u32 {
     )
     .expect("write warning summary initial fixture");
 
-    let initial_update = Command::new(cargo_tigerstyle())
+    let initial_update = Command::new(cargo_slotcar())
         .args(["fingerprint", "--update", "reviewed.rs"])
         .current_dir(temp.path())
         .output()
@@ -511,7 +511,7 @@ pub fn missing_gate_metadata(limit: u32) -> u32 {
     );
     assert_transcript_contains_stdout(&transcript, &initial_update.stdout, "warning summary initial update");
 
-    let clean_check = Command::new(cargo_tigerstyle())
+    let clean_check = Command::new(cargo_slotcar())
         .args(["fingerprint", "--check", "reviewed.rs"])
         .current_dir(temp.path())
         .output()
@@ -548,7 +548,7 @@ fn fingerprint_json_output_docs_fixture_matches_transcript() {
     let final_fixture = docs_dir.join("reviewed.rs");
     let transcript = fs::read_to_string(docs_dir.join("transcript.md")).expect("read json output transcript");
 
-    let final_check = Command::new(cargo_tigerstyle())
+    let final_check = Command::new(cargo_slotcar())
         .args(["fingerprint", "--check", "--output-format=json", "reviewed.rs"])
         .current_dir(&docs_dir)
         .output()
@@ -578,7 +578,7 @@ pub fn capped_retries(requested: u32) -> u32 {
     )
     .expect("write json output initial fixture");
 
-    let initial_update = Command::new(cargo_tigerstyle())
+    let initial_update = Command::new(cargo_slotcar())
         .args(["fingerprint", "--update", "--output-format=json", "reviewed.rs"])
         .current_dir(temp.path())
         .output()
@@ -587,7 +587,7 @@ pub fn capped_retries(requested: u32) -> u32 {
     assert_fingerprint_json_record(&initial_update.stdout, "update", "written", "0");
     assert_transcript_contains_stdout(&transcript, &initial_update.stdout, "json output initial update");
 
-    let clean_check = Command::new(cargo_tigerstyle())
+    let clean_check = Command::new(cargo_slotcar())
         .args(["fingerprint", "--check", "--output-format=json", "reviewed.rs"])
         .current_dir(temp.path())
         .output()
@@ -604,7 +604,7 @@ pub fn capped_retries(requested: u32) -> u32 {
     let source = fs::read_to_string(&fixture).expect("read json output fixture");
     fs::write(&fixture, source.replace("requested.min(3)", "requested.min(5)")).expect("mutate json output fixture");
 
-    let drift_check = Command::new(cargo_tigerstyle())
+    let drift_check = Command::new(cargo_slotcar())
         .args(["fingerprint", "--check", "--output-format=json", "reviewed.rs"])
         .current_dir(temp.path())
         .output()
@@ -618,7 +618,7 @@ pub fn capped_retries(requested: u32) -> u32 {
     );
     assert_transcript_contains_stdout(&transcript, &drift_check.stdout, "json output drift check");
 
-    let accepted_update = Command::new(cargo_tigerstyle())
+    let accepted_update = Command::new(cargo_slotcar())
         .args(["fingerprint", "--update", "--output-format=json", "reviewed.rs"])
         .current_dir(temp.path())
         .output()
@@ -632,7 +632,7 @@ pub fn capped_retries(requested: u32) -> u32 {
     );
     assert_transcript_contains_stdout(&transcript, &accepted_update.stdout, "json output accepted update");
 
-    let accepted_check = Command::new(cargo_tigerstyle())
+    let accepted_check = Command::new(cargo_slotcar())
         .args(["fingerprint", "--check", "--output-format=json", "reviewed.rs"])
         .current_dir(temp.path())
         .output()
@@ -658,7 +658,7 @@ fn fingerprint_source_scanner_docs_fixture_matches_transcript() {
     let final_fixture = docs_dir.join("reviewed.rs");
     let transcript = fs::read_to_string(docs_dir.join("transcript.md")).expect("read source scanner transcript");
 
-    let final_check = Command::new(cargo_tigerstyle())
+    let final_check = Command::new(cargo_slotcar())
         .args(["fingerprint", "--check", "--output-format=json", "reviewed.rs"])
         .current_dir(&docs_dir)
         .output()
@@ -699,7 +699,7 @@ pub fn explicit_generated_boundary(input: u32) -> u32 {
     )
     .expect("write source scanner initial fixture");
 
-    let update = Command::new(cargo_tigerstyle())
+    let update = Command::new(cargo_slotcar())
         .args(["fingerprint", "--update", "reviewed.rs"])
         .current_dir(temp.path())
         .output()
@@ -711,7 +711,7 @@ pub fn explicit_generated_boundary(input: u32) -> u32 {
     assert!(!update_stdout.contains("reviewed.rs generated_boundary "));
     assert_transcript_contains_stdout(&transcript, &update.stdout, "source scanner update");
 
-    let json_check = Command::new(cargo_tigerstyle())
+    let json_check = Command::new(cargo_slotcar())
         .args(["fingerprint", "--check", "--output-format=json", "reviewed.rs"])
         .current_dir(temp.path())
         .output()
@@ -723,7 +723,7 @@ pub fn explicit_generated_boundary(input: u32) -> u32 {
     assert_eq!(records.len(), 1);
     assert_eq!(records[0]["name"], "explicit_generated_boundary");
 
-    let human_check = Command::new(cargo_tigerstyle())
+    let human_check = Command::new(cargo_slotcar())
         .args(["fingerprint", "--check", "reviewed.rs"])
         .current_dir(temp.path())
         .output()
@@ -742,14 +742,14 @@ fn fingerprint_write_then_check_works_for_external_crate_file() {
     write_consumer_fixture(temp.path());
     let fixture = temp.path().join("src/lib.rs");
 
-    let write = Command::new(cargo_tigerstyle())
+    let write = Command::new(cargo_slotcar())
         .args(["fingerprint", "--write"])
         .arg(&fixture)
         .output()
         .expect("run fingerprint write");
     assert!(write.status.success(), "write stderr: {}", String::from_utf8_lossy(&write.stderr));
 
-    let check = Command::new(cargo_tigerstyle())
+    let check = Command::new(cargo_slotcar())
         .args(["fingerprint", "--check", "--output-format=json"])
         .arg(&fixture)
         .output()
@@ -770,14 +770,14 @@ fn fingerprint_update_then_check_only_tracks_marked_functions() {
     write_selective_fixture(temp.path());
     let fixture = temp.path().join("src/lib.rs");
 
-    let update = Command::new(cargo_tigerstyle())
+    let update = Command::new(cargo_slotcar())
         .args(["fingerprint", "--update"])
         .arg(&fixture)
         .output()
         .expect("run fingerprint update");
     assert!(update.status.success(), "update stderr: {}", String::from_utf8_lossy(&update.stderr));
 
-    let check = Command::new(cargo_tigerstyle())
+    let check = Command::new(cargo_slotcar())
         .args(["fingerprint", "--check", "--output-format=json"])
         .arg(&fixture)
         .output()
@@ -798,7 +798,7 @@ fn fingerprint_write_skips_functions_inside_macro_rules_definitions() {
     write_macro_generated_fixture(temp.path());
     let fixture = temp.path().join("src/lib.rs");
 
-    let write = Command::new(cargo_tigerstyle())
+    let write = Command::new(cargo_slotcar())
         .args(["fingerprint", "--write", "--output-format=json"])
         .arg(&fixture)
         .output()
@@ -813,9 +813,9 @@ fn fingerprint_write_skips_functions_inside_macro_rules_definitions() {
 
     let updated = fs::read_to_string(&fixture).expect("read updated fixture");
     assert!(!updated.contains("review=TODO"));
-    assert_eq!(updated.matches("tigerstyle-fingerprint").count(), 1);
+    assert_eq!(updated.matches("slotcar-fingerprint").count(), 1);
 
-    let check = Command::new(cargo_tigerstyle())
+    let check = Command::new(cargo_slotcar())
         .args(["fingerprint", "--check", "--output-format=json"])
         .arg(&fixture)
         .output()
@@ -828,7 +828,7 @@ fn fingerprint_update_check_and_diff_walk_directory_tree() {
     let temp = tempfile::tempdir().expect("create tempdir");
     write_directory_fixture(temp.path());
 
-    let update = Command::new(cargo_tigerstyle())
+    let update = Command::new(cargo_slotcar())
         .args(["fingerprint", "--update", "--output-format=json"])
         .arg(temp.path())
         .output()
@@ -845,7 +845,7 @@ fn fingerprint_update_check_and_diff_walk_directory_tree() {
     ]);
     assert_directory_records(&update.stdout, &expected, "written");
 
-    let check = Command::new(cargo_tigerstyle())
+    let check = Command::new(cargo_slotcar())
         .args(["fingerprint", "--check", "--output-format=json"])
         .arg(temp.path())
         .output()
@@ -853,7 +853,7 @@ fn fingerprint_update_check_and_diff_walk_directory_tree() {
     assert!(check.status.success(), "check stderr: {}", String::from_utf8_lossy(&check.stderr));
     assert_directory_records(&check.stdout, &expected, "match");
 
-    let diff = Command::new(cargo_tigerstyle())
+    let diff = Command::new(cargo_slotcar())
         .args(["fingerprint", "--diff", "--output-format=json"])
         .arg(temp.path())
         .output()
@@ -879,7 +879,7 @@ fn fingerprint_check_reports_single_directory_drift() {
     let temp = tempfile::tempdir().expect("create tempdir");
     write_directory_fixture(temp.path());
 
-    let update = Command::new(cargo_tigerstyle())
+    let update = Command::new(cargo_slotcar())
         .args(["fingerprint", "--update", "--output-format=json"])
         .arg(temp.path())
         .output()
@@ -891,14 +891,14 @@ fn fingerprint_check_reports_single_directory_drift() {
     fs::write(&lib_rs, source.replace("input.saturating_add(1)", "input.saturating_add(2)"))
         .expect("mutate marked function");
 
-    let check = Command::new(cargo_tigerstyle())
+    let check = Command::new(cargo_slotcar())
         .args(["fingerprint", "--check", "--output-format=json"])
         .arg(temp.path())
         .output()
         .expect("run fingerprint check");
     assert!(!check.status.success(), "drift check should fail");
 
-    let human_check = Command::new(cargo_tigerstyle())
+    let human_check = Command::new(cargo_slotcar())
         .args(["fingerprint", "--check"])
         .arg(temp.path())
         .output()
@@ -911,7 +911,7 @@ fn fingerprint_check_reports_single_directory_drift() {
     let records = json["records"].as_array().expect("records array");
     assert_single_directory_mismatch(records);
 
-    let diff = Command::new(cargo_tigerstyle())
+    let diff = Command::new(cargo_slotcar())
         .args(["fingerprint", "--diff", "--output-format=json"])
         .arg(temp.path())
         .output()
@@ -922,7 +922,7 @@ fn fingerprint_check_reports_single_directory_drift() {
     let diff_records = diff_json["records"].as_array().expect("diff records array");
     assert_single_directory_mismatch(diff_records);
 
-    let repair = Command::new(cargo_tigerstyle())
+    let repair = Command::new(cargo_slotcar())
         .args(["fingerprint", "--update"])
         .arg(temp.path())
         .output()
@@ -931,7 +931,7 @@ fn fingerprint_check_reports_single_directory_drift() {
     assert_human_summary(&repair.stdout, "match=5 mismatch=0 missing=0 written=1");
     assert_human_contains_record(&repair.stdout, "root_plain", "written");
 
-    let repaired_check = Command::new(cargo_tigerstyle())
+    let repaired_check = Command::new(cargo_slotcar())
         .args(["fingerprint", "--check", "--output-format=json"])
         .arg(temp.path())
         .output()
@@ -954,7 +954,7 @@ fn fingerprint_check_reports_single_directory_drift() {
         "match",
     );
 
-    let repaired_diff = Command::new(cargo_tigerstyle())
+    let repaired_diff = Command::new(cargo_slotcar())
         .args(["fingerprint", "--diff", "--output-format=json"])
         .arg(temp.path())
         .output()

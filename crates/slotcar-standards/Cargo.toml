@@ -1,5 +1,5 @@
 [package]
-name = "tigerstyle-standards"
+name = "slotcar-standards"
 version = "0.1.0"
 edition = "2024"
 license = "AGPL-3.0-or-later"
@@ -7,11 +7,11 @@ publish = false
 description = "Policy registry and standards checks for tigerstyle"
 
 [lib]
-name = "tigerstyle_standards"
+name = "slotcar_standards"
 path = "src/lib.rs"
 
 [[bin]]
-name = "tigerstyle-standards"
+name = "slotcar-standards"
 path = "src/main.rs"
 
 [dependencies]

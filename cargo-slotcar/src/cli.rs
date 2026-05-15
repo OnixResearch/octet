@@ -60,13 +60,14 @@ pub fn parse(argv: impl IntoIterator<Item = OsString>) -> Result<CommandArgs, St
     let program = argv.first().cloned().ok_or_else(|| "missing argv[0]".to_owned())?;
     argv.remove(0);
 
-    let command_line = if argv.first().is_some_and(|arg| arg == "tigerstyle") {
+    let invoked_as_cargo_subcommand = argv.first().is_some_and(|arg| matches!(arg.as_str(), "slotcar" | "tigerstyle"));
+    let command_line = if invoked_as_cargo_subcommand {
         format_command_line("cargo", &argv)
     } else {
         format_command_line(&program, &argv)
     };
 
-    if argv.first().is_some_and(|arg| arg == "tigerstyle") {
+    if invoked_as_cargo_subcommand {
         argv.remove(0);
     }
 
@@ -250,6 +251,19 @@ mod tests {
 
     #[test]
     fn fingerprint_parse_accepts_default_check() {
+        let parsed = parse(["cargo", "slotcar", "fingerprint", "src/lib.rs"].map(OsString::from))
+            .expect("parse fingerprint args");
+        match parsed {
+            CommandArgs::Fingerprint(args) => {
+                assert_eq!(args.mode, FingerprintMode::Check);
+                assert_eq!(args.paths.len(), 1);
+            }
+            CommandArgs::Check(_) => panic!("expected fingerprint args"),
+        }
+    }
+
+    #[test]
+    fn fingerprint_parse_accepts_compatibility_alias() {
         let parsed = parse(["cargo", "tigerstyle", "fingerprint", "src/lib.rs"].map(OsString::from))
             .expect("parse fingerprint args");
         match parsed {
@@ -263,10 +277,7 @@ mod tests {
 
     #[test]
     fn command_line_quoting_matches_contract() {
-        assert_eq!(
-            format_command_line("cargo", &["tigerstyle".to_owned(), "check".to_owned()]),
-            "cargo tigerstyle check"
-        );
+        assert_eq!(format_command_line("cargo", &["slotcar".to_owned(), "check".to_owned()]), "cargo slotcar check");
         assert_eq!(format_command_line("cargo", &["arg with spaces".to_owned()]), "cargo 'arg with spaces'");
         assert_eq!(format_command_line("cargo", &["can't".to_owned()]), "cargo 'can'\"'\"'t'");
         assert_eq!(format_command_line("cargo", &[String::new()]), "cargo ''");

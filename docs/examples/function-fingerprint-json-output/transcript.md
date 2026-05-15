@@ -5,7 +5,7 @@ This transcript is executable documentation for script-facing JSON output. Comma
 ## Initial JSON update writes the marker
 
 ```console
-$ cargo tigerstyle fingerprint --update --output-format=json reviewed.rs
+$ cargo slotcar fingerprint --update --output-format=json reviewed.rs
 {
   "schema_version": 1,
   "mode": "update",
@@ -29,7 +29,7 @@ $ cargo tigerstyle fingerprint --update --output-format=json reviewed.rs
 ## Clean JSON check reports one match
 
 ```console
-$ cargo tigerstyle fingerprint --check --output-format=json reviewed.rs
+$ cargo slotcar fingerprint --check --output-format=json reviewed.rs
 {
   "schema_version": 1,
   "mode": "check",
@@ -53,7 +53,7 @@ $ cargo tigerstyle fingerprint --check --output-format=json reviewed.rs
 ## Drift JSON check reports one mismatch
 
 ```console
-$ cargo tigerstyle fingerprint --check --output-format=json reviewed.rs
+$ cargo slotcar fingerprint --check --output-format=json reviewed.rs
 {
   "schema_version": 1,
   "mode": "check",
@@ -77,7 +77,7 @@ $ cargo tigerstyle fingerprint --check --output-format=json reviewed.rs
 ## Accepted JSON update rewrites the marker
 
 ```console
-$ cargo tigerstyle fingerprint --update --output-format=json reviewed.rs
+$ cargo slotcar fingerprint --update --output-format=json reviewed.rs
 {
   "schema_version": 1,
   "mode": "update",
@@ -101,7 +101,7 @@ $ cargo tigerstyle fingerprint --update --output-format=json reviewed.rs
 ## Accepted JSON check reports one match
 
 ```console
-$ cargo tigerstyle fingerprint --check --output-format=json reviewed.rs
+$ cargo slotcar fingerprint --check --output-format=json reviewed.rs
 {
   "schema_version": 1,
   "mode": "check",

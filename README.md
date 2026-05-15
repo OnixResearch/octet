@@ -1,11 +1,11 @@
-# tigerstyle
+# slotcar
 
 Custom [Dylint](https://github.com/trailofbits/dylint) lints for Rust that apply
 [Tiger Style](https://github.com/tigerbeetle/tigerbeetle/blob/main/docs/TIGER_STYLE.md)
 rules: explicit shell/core boundaries, bounded resource use, positive naming,
 compact functions, and reviewable suppressions.
 
-`tigerstyle` currently ships 38 lints across 6 domains. The repo also owns a
+`slotcar` currently ships 38 lints across 6 domains. The repo also owns a
 separate standards registry/checker seam for policy traceability and
 non-Dylint source-shape rules.
 
@@ -15,23 +15,23 @@ non-Dylint source-shape rules.
 2. Add runner metadata to the workspace `Cargo.toml`:
 
 ```toml
-[workspace.metadata.tigerstyle]
+[workspace.metadata.slotcar]
 default_scope = ["-p", "your-core-crate"]
 cargo_check_args = ["--lib"]
 ```
 
-3. Run tigerstyle through the first-class runner.
+3. Run slotcar through the first-class runner.
 
 Nix:
 
 ```bash
-nix run path:/path/to/tigerstyle#cargo-tigerstyle -- check
+nix run path:/path/to/slotcar#cargo-slotcar -- check
 ```
 
 Structured output and reviewable sidecars are first-class too:
 
 ```bash
-cargo tigerstyle check --output-format sarif --artifact-dir artifacts/tigerstyle
+cargo slotcar check --output-format sarif --artifact-dir artifacts/slotcar
 ```
 
 Exit codes stay stable for automation:
@@ -42,10 +42,10 @@ Exit codes stay stable for automation:
 
 Outside Nix, install the cargo subcommand once, then follow
 `docs/consumer-guide.md` for the repo-pinned `TIGERSTYLE_DYLINT_REV` bootstrap
-before running `cargo tigerstyle check`:
+before running `cargo slotcar check`:
 
 ```bash
-cargo install --path /path/to/tigerstyle/cargo-tigerstyle
+cargo install --path /path/to/slotcar/cargo-slotcar
 ```
 
 4. Tune thresholds, disabled lints, and per-lint levels in `dylint.toml`.
@@ -53,8 +53,8 @@ cargo install --path /path/to/tigerstyle/cargo-tigerstyle
 Standards registry checks live behind a separate command surface:
 
 ```bash
-nix run .#tigerstyle-policy-validate
-nix run .#tigerstyle-standards -- --help
+nix run .#slotcar-policy-validate
+nix run .#slotcar-standards -- --help
 ```
 
 Start with `docs/consumer-guide.md` for the full consumer setup and rollout
@@ -64,17 +64,17 @@ path.
 
 | Surface | Canonical name |
 | --- | --- |
-| public site | `tigerstyle.dev` |
-| project name | `tigerstyle` |
-| GitHub repo slug | `tigerstyle-rs` |
-| crate and lint package | `tigerstyle` |
-| lint runner binary | `cargo-tigerstyle` |
-| lint runner command | `cargo tigerstyle check` |
-| standards checker binary | `tigerstyle-standards` |
-| standards policy commands | `tigerstyle-policy-export`, `tigerstyle-policy-validate` |
-| lint attrs and domain groups | `tigerstyle::<lint>` and `tigerstyle::<domain>` |
-| workspace runner config | `[workspace.metadata.tigerstyle]` |
-| lint tuning config | `[tigerstyle]` and `[tigerstyle.lint_levels]` |
+| public site | `slotcar.dev` |
+| project name | `slotcar` |
+| GitHub repo slug | `slotcar-rs` |
+| crate and lint package | `slotcar` |
+| lint runner binary | `cargo-slotcar` |
+| lint runner command | `cargo slotcar check` |
+| standards checker binary | `slotcar-standards` |
+| standards policy commands | `slotcar-policy-export`, `slotcar-policy-validate` |
+| lint attrs and domain groups | `slotcar::<lint>` and `slotcar::<domain>` |
+| workspace runner config | `[workspace.metadata.slotcar]` |
+| lint tuning config | `[slotcar]` and `[slotcar.lint_levels]` |
 | support env prefix | `TIGERSTYLE_*` |
 
 ## Lint domains at a glance

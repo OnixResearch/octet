@@ -36,7 +36,7 @@ fn justification_stub(cx: &EarlyContext<'_>, attr: &Attribute) -> String {
     let source_map = cx.sess().source_map();
     let indent_width = source_map.lookup_char_pos(attr.span.lo()).col.0;
     let indent = " ".repeat(indent_width);
-    format!("// TODO(tigerstyle): explain why this allow is safe here\n{indent}")
+    format!("// TODO(slotcar): explain why this allow is safe here\n{indent}")
 }
 
 fn has_comment_nearby(cx: &EarlyContext<'_>, attr: &Attribute) -> bool {

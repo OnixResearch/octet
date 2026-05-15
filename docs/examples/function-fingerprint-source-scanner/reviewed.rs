@@ -8,7 +8,7 @@ macro_rules! define_generated_boundary {
 
 define_generated_boundary!(generated_boundary);
 
-// tigerstyle-fingerprint: b3:eba4de659452eb0c6179a962b1452a986b4fd6af24afb52a54badf4a250e4a42; review=source-scanner-boundary; evidence=docs/examples/function-fingerprint-source-scanner/transcript.md
+// slotcar-fingerprint: b3:eba4de659452eb0c6179a962b1452a986b4fd6af24afb52a54badf4a250e4a42; review=source-scanner-boundary; evidence=docs/examples/function-fingerprint-source-scanner/transcript.md
 pub fn explicit_generated_boundary(input: u32) -> u32 {
     generated_boundary(input).min(64)
 }

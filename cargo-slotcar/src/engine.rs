@@ -214,7 +214,7 @@ pub fn run(check: CheckArgs) -> Result<i32, String> {
     if !skip_lockfile_guard && lockfile_changed(&lockfile_path, &lockfile_before)? {
         restore_lockfile(&lockfile_path, &lockfile_before)?;
         let lockfile_error =
-            format!("cargo tigerstyle check modified {}; restored the original lockfile", lockfile_path.display());
+            format!("cargo slotcar check modified {}; restored the original lockfile", lockfile_path.display());
         return Err(match result {
             Err(error) => format!("{error}; {lockfile_error}"),
             Ok(_) => lockfile_error,
@@ -548,7 +548,7 @@ impl TempDir {
             .duration_since(std::time::UNIX_EPOCH)
             .map_err(|error| format!("system clock error: {error}"))?
             .as_nanos();
-        let path = env::temp_dir().join(format!("tigerstyle-{label}-{}-{nanos}", std::process::id()));
+        let path = env::temp_dir().join(format!("slotcar-{label}-{}-{nanos}", std::process::id()));
         fs::create_dir_all(&path).map_err(|error| format!("create {}: {error}", path.display()))?;
         Ok(Self { path })
     }
@@ -678,19 +678,19 @@ fn build_lint_lib(toolchain: &str) -> Result<ManagedPath, String> {
         .arg("build")
         .arg("--manifest-path")
         .arg(&manifest_path)
-        .args(["--release", "--locked", "-p", "tigerstyle", "--lib"])
+        .args(["--release", "--locked", "-p", "slotcar", "--lib"])
         .current_dir(&source_root)
         .env("CARGO_TARGET_DIR", &target_dir)
         .env("RUSTUP_TOOLCHAIN", toolchain)
         .status()
-        .map_err(|error| format!("run cargo build for tigerstyle lint library: {error}"))?;
+        .map_err(|error| format!("run cargo build for slotcar lint library: {error}"))?;
     if !status.success() {
-        return Err("tigerstyle lint library build failed".to_owned());
+        return Err("slotcar lint library build failed".to_owned());
     }
 
     let built_lib_path = target_dir.join("release").join(&built_lib_name);
     if !built_lib_path.is_file() {
-        return Err(format!("built tigerstyle lint library missing at {}", built_lib_path.display()));
+        return Err(format!("built slotcar lint library missing at {}", built_lib_path.display()));
     }
 
     let dylint_lib_path = tempdir.path().join(&dylint_lib_name);
@@ -780,11 +780,11 @@ fn sources_cache_root() -> Result<PathBuf, String> {
     if let Some(path) = env::var_os("HOME") {
         candidates.push(PathBuf::from(path).join(".cache"));
     }
-    candidates.push(env::temp_dir().join("tigerstyle-cache"));
+    candidates.push(env::temp_dir().join("slotcar-cache"));
 
     let mut failures = Vec::new();
     for candidate in candidates {
-        let sources_root = candidate.join("tigerstyle").join("sources");
+        let sources_root = candidate.join("slotcar").join("sources");
         match fs::create_dir_all(&sources_root) {
             Ok(()) => return Ok(sources_root),
             Err(error) => failures.push(format!("create {}: {error}", sources_root.display())),

@@ -8,13 +8,13 @@ For rollout profiles, see `docs/downstream-rollout.md`.
 
 ## 2026-05-05: Function fingerprint docs and checks
 
-`cargo tigerstyle fingerprint` now has checked operator docs for the full
+`cargo slotcar fingerprint` now has checked operator docs for the full
 review lifecycle: human summaries, warning/metadata summaries, script-facing
 JSON output, source-scanner boundaries, downstream scratch-consumer behavior,
 human/JSON `--diff` parity, and deterministic review manifests. `cargo
-tigerstyle check` outputs now include stable finding IDs plus replay metadata
+slotcar check` outputs now include stable finding IDs plus replay metadata
 for toolchain, config hash, and profile hash. Check runs can now write and gate
-against `tigerstyle-baseline.json` acceptance files so existing warning-only debt
+against `slotcar-baseline.json` acceptance files so existing warning-only debt
 is explicit while new stable IDs fail CI deterministically.
 
 Use one review command for these executable docs:
@@ -45,32 +45,32 @@ detection, and `unjustified_no_todo_allow` requires justification for
 `allow(no_todo)` escapes.
 
 **Migration:** consumers with justified `todo!()` stubs under `allow(no_panic)`
-must migrate to `allow(no_todo)` or `allow(tigerstyle::no_todo)`.
+must migrate to `allow(no_todo)` or `allow(slotcar::no_todo)`.
 
 ## 2026-04-15: Tool-scoped lint attrs
 
 Lint attrs migrated from bare names to tool-scoped canonical names:
 
-- `#[allow(tigerstyle::no_unwrap)]` instead of `#[allow(no_unwrap)]`
-- `#![deny(tigerstyle::naming)]` for domain groups
+- `#[allow(slotcar::no_unwrap)]` instead of `#[allow(no_unwrap)]`
+- `#![deny(slotcar::naming)]` for domain groups
 
 Bare names still work through compatibility aliases. Standalone raw-rustc
-fixtures need `#![feature(register_tool)]` and `#![register_tool(tigerstyle)]`.
+fixtures need `#![feature(register_tool)]` and `#![register_tool(slotcar)]`.
 
-Config keys in `dylint.toml` stay bare (`no_unwrap`, not `tigerstyle::no_unwrap`).
+Config keys in `dylint.toml` stay bare (`no_unwrap`, not `slotcar::no_unwrap`).
 
 ## 2026-04-14: First-class runner replaces shell wrapper
 
-`cargo tigerstyle check` and `nix run .#cargo-tigerstyle -- check` are the
+`cargo slotcar check` and `nix run .#cargo-slotcar -- check` are the
 supported consumer entry points. The historical shell wrapper is retained only
 in archived replay evidence.
 
-New consumers should use `[workspace.metadata.tigerstyle]` for runner policy
+New consumers should use `[workspace.metadata.slotcar]` for runner policy
 and `dylint.toml` for lint tuning. See `docs/consumer-guide.md`.
 
 ## 2026-04-14: Structured output
 
-`cargo tigerstyle check` gained `--output-format` (json, sarif) and
+`cargo slotcar check` gained `--output-format` (json, sarif) and
 `--artifact-dir` for machine-readable output and saved artifact bundles.
 
 Exit codes: `0` clean/warning-only, `1` error-level findings, `2` integration

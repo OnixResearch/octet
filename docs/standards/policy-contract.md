@@ -4,8 +4,8 @@
 
 This repo enforces a reusable Rust safety profile through two explicit seams:
 
-- the Dylint lint engine in `src/` and `cargo-tigerstyle/`
-- the policy registry and standards checker in `standards/` and `crates/tigerstyle-standards/`
+- the Dylint lint engine in `src/` and `cargo-slotcar/`
+- the policy registry and standards checker in `standards/` and `crates/slotcar-standards/`
 
 The machine-readable policy index lives in
 [`standards/policies/registry.ncl`](../../standards/policies/registry.ncl). It
@@ -16,18 +16,18 @@ evidence.
 
 ## Functional Core / Imperative Shell
 
-- Standards policy logic MUST live in `crates/tigerstyle-standards/src/` as pure
+- Standards policy logic MUST live in `crates/slotcar-standards/src/` as pure
   rule functions over plain inputs.
 - Filesystem walking, JSON loading, CLI parsing, and exit-code mapping MUST stay
-  in the `tigerstyle-standards` binary shell.
+  in the `slotcar-standards` binary shell.
 - Dylint lint implementation MUST stay in `src/`; standards policy checks MUST
   not be folded into the compiler-plugin crate unless they need rustc HIR.
-- `cargo-tigerstyle/` MUST remain the lint runner seam for downstream projects.
+- `cargo-slotcar/` MUST remain the lint runner seam for downstream projects.
 
 ## Policy Registry
 
-- Policy IDs use the `tigerstyle.<pillar>.<rule>` namespace.
-- Suppressions use `tigerstyle-allow:` comments and MUST cite policy ID, source
+- Policy IDs use the `slotcar.<pillar>.<rule>` namespace.
+- Suppressions use `slotcar-allow:` comments and MUST cite policy ID, source
   section, owner, rationale, review trigger, and safer default for hard rules.
 - Hard policies need positive and negative fixtures before becoming blocking.
 - Policies that target `structural` MUST export at least one mechanism contract
@@ -68,10 +68,10 @@ evidence.
   state. If `verifier_nix_closure_graph_paths` are configured, the graph digest
   is derived from canonicalized generated Nix `exportReferencesGraph` artifacts
   so fixture receipts bind to recursive closure graph evidence, not just a
-  declared closure label. A local Nix package exports the `tigerstyle-standards`
+  declared closure label. A local Nix package exports the `slotcar-standards`
   references graph and digest sidecar so fixture Nix closure receipts have a
   first-class regeneration seam. When
-  `tigerstyle-standards check --execute-proof-rails` is enabled, the checker runs
+  `slotcar-standards check --execute-proof-rails` is enabled, the checker runs
   each relevant declared proof command from the checked source root, captures
   deterministic provenance, verifier/toolchain, verifier-binary, build-closure,
   and Nix derivation/closure metadata, command/source BLAKE3 bindings, command,
@@ -106,12 +106,12 @@ evidence.
 Run these inside `nix develop` or through `nix develop path:. -c ...`:
 
 ```bash
-cargo test -p tigerstyle-standards
+cargo test -p slotcar-standards
 cargo check --workspace --all-targets
 cargo clippy --workspace --all-targets -- -D warnings
-nix run .#tigerstyle-policy-validate
-nix run .#tigerstyle-standards -- --help
+nix run .#slotcar-policy-validate
+nix run .#slotcar-standards -- --help
 nix build .#checks.x86_64-linux.policy-registry --no-link
 nix build .#checks.x86_64-linux.standards-fixtures --no-link
-nix run .#cargo-tigerstyle -- check
+nix run .#cargo-slotcar -- check
 ```

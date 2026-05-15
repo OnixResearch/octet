@@ -81,7 +81,7 @@ Each imported idiom starts as documentation, checklist, or advisory policy unles
 
 == Functional API boundaries
 
-The functional programming lesson Tigerstyle imports is type-level separation, not opaque point-free style. Use generics, sealed traits, associated types, and marker states when they make invalid protocol, state, capability, or format operations unrepresentable.
+The functional programming lesson Slotcar imports is type-level separation, not opaque point-free style. Use generics, sealed traits, associated types, and marker states when they make invalid protocol, state, capability, or format operations unrepresentable.
 
 Visitor, prism, or optics-like adapter splits are advanced boundary tools for serialization, traversal, plugins, and format adapters. They require human design review because macro-heavy or lifetime-erased bridge code can hide too much. Long iterator chains and `fold` pipelines are acceptable only when bounds, branches, assertions, and hot-path costs remain obvious.
 

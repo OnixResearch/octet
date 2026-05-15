@@ -7,7 +7,7 @@ registry & {
       policy & {
         proof_rails = [{
           receipt_verifier = {
-            verifier_id = "tigerstyle-standards@proof-receipt/v1",
+            verifier_id = "slotcar-standards@proof-receipt/v1",
             verifier_digest = true,
             toolchain_id = "rust-toolchain.toml",
             toolchain_digest = "50692525e10589e3a1060a0ed0adc77f695ad5617121b572e549ef9855ceb7a8",

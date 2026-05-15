@@ -86,7 +86,7 @@ let CheckerIdContract =
     "cargo-deny",
     "tracey",
     "verus",
-    "tigerstyle-standards",
+    "slotcar-standards",
     "fitness-report",
     "safety-evidence",
     "human-process",

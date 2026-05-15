@@ -20,7 +20,7 @@ and make review notes concrete.
 
 ## What Tiger Style cannot claim
 
-A clean tigerstyle run is not a certification, regulator approval, or complete
+A clean slotcar run is not a certification, regulator approval, or complete
 safety case. Passing tests, green CI, or a finished review kit do not by
 themselves prove that a product is safe for a high-consequence deployment.
 
@@ -80,7 +80,7 @@ repo only supports narrower claims.
 - Preferred: `The repo has lint coverage, tests, and review artifacts for this
   claim; broader assurance still needs separate evidence.`
 - Avoid: `Tiger Style certifies this system as safe.`
-- Avoid: `A clean tigerstyle run proves the system is safety-critical ready.`
+- Avoid: `A clean slotcar run proves the system is safety-critical ready.`
 - Avoid: `Reviewed and green, therefore safe.`
 - Wording rule: In rollout notes and review summaries, state what improved,
   what evidence exists, and what still requires separate assurance work.

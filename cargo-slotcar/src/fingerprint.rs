@@ -10,7 +10,8 @@ use crate::cli::OutputFormat;
 use crate::determinism;
 
 const HASH_PREFIX: &str = "b3:";
-const COMMENT_MARKER: &str = "// tigerstyle-fingerprint:";
+const COMMENT_MARKER: &str = "// slotcar-fingerprint:";
+const LEGACY_COMMENT_MARKER: &str = "// tigerstyle-fingerprint:";
 const ATTR_MARKER: &str = "#[fingerprint(";
 const REVIEW_KEY: &str = "review=";
 const EVIDENCE_KEY: &str = "evidence=";
@@ -150,7 +151,7 @@ pub fn run(args: FingerprintArgs) -> Result<i32, String> {
                     ""
                 };
                 let line = format!(
-                    "// tigerstyle-fingerprint: b3:{}; review={review}; evidence={evidence}{macro_suffix}\n",
+                    "// slotcar-fingerprint: b3:{}; review={review}; evidence={evidence}{macro_suffix}\n",
                     computed_hash,
                 );
                 if let Some(marker) = marker {
@@ -228,7 +229,7 @@ fn write_review_manifest(path: &Path, report: &FingerprintReport, input_paths: V
     });
     let manifest = FingerprintReviewManifest {
         schema_version: 1,
-        tool_name: "cargo-tigerstyle",
+        tool_name: "cargo-slotcar",
         tool_version: env!("CARGO_PKG_VERSION"),
         mode: report.mode,
         input_paths,
@@ -386,7 +387,7 @@ fn preceding_marker(source: &str, item_start: usize) -> Option<Marker> {
     let previous_end = line_start.saturating_sub(1);
     let previous_start = source[..previous_end].rfind('\n').map_or(0, |index| index + 1);
     let previous = source[previous_start..previous_end].trim();
-    if previous.starts_with(COMMENT_MARKER) {
+    if previous.starts_with(COMMENT_MARKER) || previous.starts_with(LEGACY_COMMENT_MARKER) {
         let line_end = if previous_end < source.len() {
             previous_end + 1
         } else {
@@ -519,7 +520,7 @@ fn mode_name(mode: FingerprintMode) -> &'static str {
 }
 
 fn print_human(report: &FingerprintReport) {
-    println!("tigerstyle fingerprint {}", report.mode);
+    println!("slotcar fingerprint {}", report.mode);
     for record in &report.records {
         println!(
             "{} {} {} stored={} computed=b3:{} review={} evidence={} macro_warning={}",

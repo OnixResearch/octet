@@ -9,14 +9,14 @@ copied into `reviewed.rs`. Commands were run from the scratch directory with the
 repo-local binary:
 
 ```bash
-TOOL='cargo run -q --manifest-path /home/brittonr/git/tigerstyle/cargo-tigerstyle/Cargo.toml --'
+TOOL='cargo run -q --manifest-path /home/brittonr/git/slotcar/cargo-slotcar/Cargo.toml --'
 ```
 
 ## Initial fixture
 
 ```rust
 #[rustfmt::skip]
-// tigerstyle-fingerprint: b3:0; review=safety-critical; evidence=docs/examples/function-fingerprint-lifecycle/lifecycle-transcript.md; macro=allow
+// slotcar-fingerprint: b3:0; review=safety-critical; evidence=docs/examples/function-fingerprint-lifecycle/lifecycle-transcript.md; macro=allow
 pub fn bounded_retry_delay_ms(attempt: u32) -> u32 {
     assert!(attempt <= 5);
     50_u32.saturating_mul(attempt.saturating_add(1))
@@ -33,7 +33,7 @@ $ $TOOL fingerprint --update reviewed.rs
 ```
 
 ```text
-tigerstyle fingerprint update
+slotcar fingerprint update
 reviewed.rs bounded_retry_delay_ms written stored=0 computed=b3:c5707c7c97cc9590933c9b45064bcfc39d19ef7ad553e5b9ec1d751cc242b48c review=safety-critical evidence=docs/examples/function-fingerprint-lifecycle/lifecycle-transcript.md macro_warning=false
 summary total=1 match=0 mismatch=0 missing=0 written=1 macro_warnings=0 metadata_missing=0
 ```
@@ -45,7 +45,7 @@ $ $TOOL fingerprint --check reviewed.rs
 ```
 
 ```text
-tigerstyle fingerprint check
+slotcar fingerprint check
 reviewed.rs bounded_retry_delay_ms match stored=c5707c7c97cc9590933c9b45064bcfc39d19ef7ad553e5b9ec1d751cc242b48c computed=b3:c5707c7c97cc9590933c9b45064bcfc39d19ef7ad553e5b9ec1d751cc242b48c review=safety-critical evidence=docs/examples/function-fingerprint-lifecycle/lifecycle-transcript.md macro_warning=false
 summary total=1 match=1 mismatch=0 missing=0 written=0 macro_warnings=0 metadata_missing=0
 ```
@@ -73,7 +73,7 @@ $ echo $?
 ```
 
 ```text
-tigerstyle fingerprint diff
+slotcar fingerprint diff
 reviewed.rs bounded_retry_delay_ms mismatch stored=c5707c7c97cc9590933c9b45064bcfc39d19ef7ad553e5b9ec1d751cc242b48c computed=b3:7deb37887bd38ad0b5e586a9700eb9d34f61153df85ab06649c3f468f6816114 review=safety-critical evidence=docs/examples/function-fingerprint-lifecycle/lifecycle-transcript.md macro_warning=false
 summary total=1 match=0 mismatch=1 missing=0 written=0 macro_warnings=0 metadata_missing=0
 ```
@@ -85,7 +85,7 @@ $ $TOOL fingerprint --update reviewed.rs
 ```
 
 ```text
-tigerstyle fingerprint update
+slotcar fingerprint update
 reviewed.rs bounded_retry_delay_ms written stored=c5707c7c97cc9590933c9b45064bcfc39d19ef7ad553e5b9ec1d751cc242b48c computed=b3:7deb37887bd38ad0b5e586a9700eb9d34f61153df85ab06649c3f468f6816114 review=safety-critical evidence=docs/examples/function-fingerprint-lifecycle/lifecycle-transcript.md macro_warning=false
 summary total=1 match=0 mismatch=0 missing=0 written=1 macro_warnings=0 metadata_missing=0
 ```
@@ -97,7 +97,7 @@ $ $TOOL fingerprint --check reviewed.rs
 ```
 
 ```text
-tigerstyle fingerprint check
+slotcar fingerprint check
 reviewed.rs bounded_retry_delay_ms match stored=7deb37887bd38ad0b5e586a9700eb9d34f61153df85ab06649c3f468f6816114 computed=b3:7deb37887bd38ad0b5e586a9700eb9d34f61153df85ab06649c3f468f6816114 review=safety-critical evidence=docs/examples/function-fingerprint-lifecycle/lifecycle-transcript.md macro_warning=false
 summary total=1 match=1 mismatch=0 missing=0 written=0 macro_warnings=0 metadata_missing=0
 ```

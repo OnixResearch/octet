@@ -4,21 +4,21 @@ use std::process::Command;
 use std::process::Output;
 
 use pretty_assertions::assert_eq;
+use slotcar_standards::model::Classification;
+use slotcar_standards::model::EnforcementLevel;
+use slotcar_standards::model::EnforcementMode;
+use slotcar_standards::model::EvidenceCommand;
+use slotcar_standards::model::FixtureCoverage;
+use slotcar_standards::model::FixtureStatus;
+use slotcar_standards::model::PolicyEntry;
+use slotcar_standards::model::PolicyRegistry;
+use slotcar_standards::model::ProofRail;
+use slotcar_standards::model::ReceiptProvenance;
+use slotcar_standards::model::ReceiptVerifier;
+use slotcar_standards::model::Severity;
+use slotcar_standards::model::SuppressionRequirements;
+use slotcar_standards::report::CheckReport;
 use tempfile::TempDir;
-use tigerstyle_standards::model::Classification;
-use tigerstyle_standards::model::EnforcementLevel;
-use tigerstyle_standards::model::EnforcementMode;
-use tigerstyle_standards::model::EvidenceCommand;
-use tigerstyle_standards::model::FixtureCoverage;
-use tigerstyle_standards::model::FixtureStatus;
-use tigerstyle_standards::model::PolicyEntry;
-use tigerstyle_standards::model::PolicyRegistry;
-use tigerstyle_standards::model::ProofRail;
-use tigerstyle_standards::model::ReceiptProvenance;
-use tigerstyle_standards::model::ReceiptVerifier;
-use tigerstyle_standards::model::Severity;
-use tigerstyle_standards::model::SuppressionRequirements;
-use tigerstyle_standards::report::CheckReport;
 
 const FCIS_POLICY_ID: &str = "tigerstyle.architecture.fcis-crate-boundary";
 const ROOT_THINNESS_POLICY_ID: &str = "tigerstyle.architecture.root-crate-thinness";
@@ -26,7 +26,7 @@ const PUBLIC_API_BUDGET_POLICY_ID: &str = "tigerstyle.architecture.public-api-bu
 const PROOF_POLICY_ID: &str = "tigerstyle.verification.deterministic-effect-handlers";
 const ARCHITECTURE_FAMILY: &str = "architecture";
 const VERIFICATION_FAMILY: &str = "verification";
-const CHECKER_ID: &str = "tigerstyle-standards";
+const CHECKER_ID: &str = "slotcar-standards";
 const REGISTRY_FILE_NAME: &str = "registry.json";
 const POLICIES_JSON_FILE: &str = "tigerstyle-policies.json";
 const CHECK_CONFIG_TOML_FILE: &str = "tigerstyle-check-config.toml";
@@ -404,12 +404,12 @@ fn execute_proof_rails_uses_command_output_as_receipt() {
     std::fs::write(fixture.join("src/lib.rs"), "pub fn proof_witness() {}\n").expect("proof source should be written");
     std::fs::write(
         fixture.join("proof-build-closure.txt"),
-        "verifier = tigerstyle-standards\nclosure-accounting = test manifest\n",
+        "verifier = slotcar-standards\nclosure-accounting = test manifest\n",
     )
     .expect("proof closure manifest should be written");
     std::fs::write(
         fixture.join("proof-nix-closure.txt"),
-        "nix-derivation = tigerstyle-standards.drv\nclosure-source = exportReferencesGraph\n",
+        "nix-derivation = slotcar-standards.drv\nclosure-source = exportReferencesGraph\n",
     )
     .expect("proof Nix closure manifest should be written");
     std::fs::write(
@@ -518,7 +518,7 @@ fn receipt_only_proof_rail_rejects_provenance_receipt_without_verifier_digest() 
         format!(
             "proof-receipt-schema: tigerstyle-proof-receipt/v1
 proof-backend: local-command-receipt
-proof-runner: tigerstyle-standards
+proof-runner: slotcar-standards
 proof-environment: local-source-root
 trust-boundary: test command receipt
 proof-command-blake3: {}
@@ -565,10 +565,10 @@ fn receipt_only_proof_rail_rejects_verifier_receipt_without_binary_digest() {
         format!(
             "proof-receipt-schema: tigerstyle-proof-receipt/v1
 proof-backend: local-command-receipt
-proof-runner: tigerstyle-standards
+proof-runner: slotcar-standards
 proof-environment: local-source-root
 trust-boundary: test command receipt
-proof-verifier: tigerstyle-standards@proof-receipt/v1
+proof-verifier: slotcar-standards@proof-receipt/v1
 proof-verifier-blake3: 9fb0cd3ff1b2898eba4c6f71479f93ae3cdc80f869cd8ae5e6355235ec5f9aef
 proof-toolchain: rust-toolchain.toml
 proof-toolchain-blake3: 50692525e10589e3a1060a0ed0adc77f695ad5617121b572e549ef9855ceb7a8
@@ -613,7 +613,7 @@ fn receipt_only_proof_rail_rejects_verifier_receipt_without_build_closure_digest
     std::fs::write(
         fixture.join("proof-receipt.txt"),
         format!(
-            "proof-receipt-schema: tigerstyle-proof-receipt/v1\nproof-backend: local-command-receipt\nproof-runner: tigerstyle-standards\nproof-environment: local-source-root\ntrust-boundary: test command receipt\nproof-verifier: tigerstyle-standards@proof-receipt/v1\nproof-verifier-blake3: 9fb0cd3ff1b2898eba4c6f71479f93ae3cdc80f869cd8ae5e6355235ec5f9aef\nproof-verifier-binary: tigerstyle-standards\nproof-verifier-binary-blake3: {}\nproof-toolchain: rust-toolchain.toml\nproof-toolchain-blake3: 50692525e10589e3a1060a0ed0adc77f695ad5617121b572e549ef9855ceb7a8\nproof-command-blake3: {}\nproof-source-blake3: {}:{}\nproof-result: pass deterministic-effect-handlers\n",
+            "proof-receipt-schema: tigerstyle-proof-receipt/v1\nproof-backend: local-command-receipt\nproof-runner: slotcar-standards\nproof-environment: local-source-root\ntrust-boundary: test command receipt\nproof-verifier: slotcar-standards@proof-receipt/v1\nproof-verifier-blake3: 9fb0cd3ff1b2898eba4c6f71479f93ae3cdc80f869cd8ae5e6355235ec5f9aef\nproof-verifier-binary: slotcar-standards\nproof-verifier-binary-blake3: {}\nproof-toolchain: rust-toolchain.toml\nproof-toolchain-blake3: 50692525e10589e3a1060a0ed0adc77f695ad5617121b572e549ef9855ceb7a8\nproof-command-blake3: {}\nproof-source-blake3: {}:{}\nproof-result: pass deterministic-effect-handlers\n",
             blake3_file_hex(binary_path()),
             blake3_hex("bash proof-command.sh"),
             fixture.join("src/lib.rs").display(),
@@ -648,14 +648,14 @@ fn receipt_only_proof_rail_rejects_verifier_receipt_without_nix_closure_digest()
     let fixture = temp.path().join("nix-closure-bound-proof-fixture");
     std::fs::create_dir_all(fixture.join("src")).expect("proof fixture dirs should be created");
     let source = "pub fn proof_witness() {}\n";
-    let build_closure = "verifier = tigerstyle-standards\nclosure-accounting = test manifest\n";
+    let build_closure = "verifier = slotcar-standards\nclosure-accounting = test manifest\n";
     std::fs::write(fixture.join("src/lib.rs"), source).expect("proof source should be written");
     std::fs::write(fixture.join("proof-build-closure.txt"), build_closure)
         .expect("build closure manifest should be written");
     std::fs::write(
         fixture.join("proof-receipt.txt"),
         format!(
-            "proof-receipt-schema: tigerstyle-proof-receipt/v1\nproof-backend: local-command-receipt\nproof-runner: tigerstyle-standards\nproof-environment: local-source-root\ntrust-boundary: test command receipt\nproof-verifier: tigerstyle-standards@proof-receipt/v1\nproof-verifier-blake3: 9fb0cd3ff1b2898eba4c6f71479f93ae3cdc80f869cd8ae5e6355235ec5f9aef\nproof-verifier-binary: tigerstyle-standards\nproof-verifier-binary-blake3: {}\nproof-verifier-build-closure: nix-tigerstyle-standards-build-closure/v1\nproof-verifier-build-closure-blake3: {}\nproof-toolchain: rust-toolchain.toml\nproof-toolchain-blake3: 50692525e10589e3a1060a0ed0adc77f695ad5617121b572e549ef9855ceb7a8\nproof-command-blake3: {}\nproof-source-blake3: {}:{}\nproof-result: pass deterministic-effect-handlers\n",
+            "proof-receipt-schema: tigerstyle-proof-receipt/v1\nproof-backend: local-command-receipt\nproof-runner: slotcar-standards\nproof-environment: local-source-root\ntrust-boundary: test command receipt\nproof-verifier: slotcar-standards@proof-receipt/v1\nproof-verifier-blake3: 9fb0cd3ff1b2898eba4c6f71479f93ae3cdc80f869cd8ae5e6355235ec5f9aef\nproof-verifier-binary: slotcar-standards\nproof-verifier-binary-blake3: {}\nproof-verifier-build-closure: nix-slotcar-standards-build-closure/v1\nproof-verifier-build-closure-blake3: {}\nproof-toolchain: rust-toolchain.toml\nproof-toolchain-blake3: 50692525e10589e3a1060a0ed0adc77f695ad5617121b572e549ef9855ceb7a8\nproof-command-blake3: {}\nproof-source-blake3: {}:{}\nproof-result: pass deterministic-effect-handlers\n",
             blake3_file_hex(binary_path()),
             build_closure_digest_line(&fixture.join("proof-build-closure.txt")),
             blake3_hex("bash proof-command.sh"),
@@ -692,10 +692,10 @@ fn receipt_only_proof_rail_rejects_verifier_receipt_without_nix_closure_graph_di
     std::fs::create_dir_all(fixture.join("src")).expect("proof fixture dirs should be created");
     let source = "pub fn proof_witness() {}
 ";
-    let build_closure = "verifier = tigerstyle-standards
+    let build_closure = "verifier = slotcar-standards
 closure-accounting = test manifest
 ";
-    let nix_closure = "nix-derivation = tigerstyle-standards.drv
+    let nix_closure = "nix-derivation = slotcar-standards.drv
 closure-source = exportReferencesGraph
 ";
     std::fs::write(fixture.join("src/lib.rs"), source).expect("proof source should be written");
@@ -709,16 +709,16 @@ closure-source = exportReferencesGraph
         format!(
             "proof-receipt-schema: tigerstyle-proof-receipt/v1
 proof-backend: local-command-receipt
-proof-runner: tigerstyle-standards
+proof-runner: slotcar-standards
 proof-environment: local-source-root
 trust-boundary: test command receipt
-proof-verifier: tigerstyle-standards@proof-receipt/v1
+proof-verifier: slotcar-standards@proof-receipt/v1
 proof-verifier-blake3: 9fb0cd3ff1b2898eba4c6f71479f93ae3cdc80f869cd8ae5e6355235ec5f9aef
-proof-verifier-binary: tigerstyle-standards
+proof-verifier-binary: slotcar-standards
 proof-verifier-binary-blake3: {}
-proof-verifier-build-closure: nix-tigerstyle-standards-build-closure/v1
+proof-verifier-build-closure: nix-slotcar-standards-build-closure/v1
 proof-verifier-build-closure-blake3: {}
-proof-verifier-nix-derivation: tigerstyle-standards.drv
+proof-verifier-nix-derivation: slotcar-standards.drv
 proof-verifier-nix-derivation-blake3: {}
 proof-verifier-nix-closure: nix-store-recursive-closure/v1
 proof-verifier-nix-closure-blake3: {}
@@ -730,7 +730,7 @@ proof-result: pass deterministic-effect-handlers
 ",
             blake3_file_hex(binary_path()),
             build_closure_digest_line(&fixture.join("proof-build-closure.txt")),
-            blake3_hex("tigerstyle-standards.drv"),
+            blake3_hex("slotcar-standards.drv"),
             build_closure_digest_line(&fixture.join("proof-nix-closure.txt")),
             blake3_hex("bash proof-command.sh"),
             fixture.join("src/lib.rs").display(),
@@ -838,12 +838,12 @@ fn write_executable_proof_fixture(temp: &TempDir, name: &str) -> PathBuf {
     std::fs::write(fixture.join("src/lib.rs"), "pub fn proof_witness() {}\n").expect("proof source should be written");
     std::fs::write(
         fixture.join("proof-build-closure.txt"),
-        "verifier = tigerstyle-standards\nclosure-accounting = test manifest\n",
+        "verifier = slotcar-standards\nclosure-accounting = test manifest\n",
     )
     .expect("proof closure manifest should be written");
     std::fs::write(
         fixture.join("proof-nix-closure.txt"),
-        "nix-derivation = tigerstyle-standards.drv\nclosure-source = exportReferencesGraph\n",
+        "nix-derivation = slotcar-standards.drv\nclosure-source = exportReferencesGraph\n",
     )
     .expect("proof Nix closure manifest should be written");
     std::fs::write(fixture.join("proof-nix-closure.graph"), nix_closure_graph())
@@ -920,7 +920,7 @@ fn parse_report(output: &Output) -> CheckReport {
 }
 
 fn binary_path() -> &'static str {
-    env!("CARGO_BIN_EXE_tigerstyle-standards")
+    env!("CARGO_BIN_EXE_slotcar-standards")
 }
 
 fn blake3_hex(text: &str) -> String {
@@ -938,11 +938,11 @@ fn build_closure_digest_line(path: &Path) -> String {
 }
 
 fn nix_closure_graph() -> &'static str {
-    "/nix/store/aaa-tigerstyle-standards\n\n2\n/nix/store/bbb-glibc\n/nix/store/ccc-libgcc\n\n/nix/store/bbb-glibc\n\n0\n\n/nix/store/ccc-libgcc\n\n1\n/nix/store/bbb-glibc\n"
+    "/nix/store/aaa-slotcar-standards\n\n2\n/nix/store/bbb-glibc\n/nix/store/ccc-libgcc\n\n/nix/store/bbb-glibc\n\n0\n\n/nix/store/ccc-libgcc\n\n1\n/nix/store/bbb-glibc\n"
 }
 
 fn nix_closure_graph_digest_line(path: &Path) -> String {
-    let canonical = "/nix/store/aaa-tigerstyle-standards\n2\n/nix/store/bbb-glibc\n/nix/store/ccc-libgcc\n/nix/store/bbb-glibc\n0\n/nix/store/ccc-libgcc\n1\n/nix/store/bbb-glibc\n";
+    let canonical = "/nix/store/aaa-slotcar-standards\n2\n/nix/store/bbb-glibc\n/nix/store/ccc-libgcc\n/nix/store/bbb-glibc\n0\n/nix/store/ccc-libgcc\n1\n/nix/store/bbb-glibc\n";
     let graph_digest = blake3_hex(canonical);
     blake3_hex(&format!("{}:{}\n", path.display(), graph_digest))
 }
@@ -1031,15 +1031,15 @@ fn verified_policy(current: EnforcementMode, target: EnforcementMode) -> PolicyE
                 requires_trust_boundary: true,
             },
             receipt_verifier: ReceiptVerifier {
-                verifier_id: "tigerstyle-standards@proof-receipt/v1".to_owned(),
+                verifier_id: "slotcar-standards@proof-receipt/v1".to_owned(),
                 verifier_digest: "9fb0cd3ff1b2898eba4c6f71479f93ae3cdc80f869cd8ae5e6355235ec5f9aef".to_owned(),
-                verifier_binary_path: "tigerstyle-standards".to_owned(),
+                verifier_binary_path: "slotcar-standards".to_owned(),
                 verifier_binary_digest: blake3_file_hex(binary_path()),
-                verifier_build_closure: "nix-tigerstyle-standards-build-closure/v1".to_owned(),
+                verifier_build_closure: "nix-slotcar-standards-build-closure/v1".to_owned(),
                 verifier_build_closure_digest: "fixture-build-closure-digest".to_owned(),
                 verifier_build_closure_paths: vec!["proof-build-closure.txt".to_owned()],
-                verifier_nix_derivation: "tigerstyle-standards.drv".to_owned(),
-                verifier_nix_derivation_digest: blake3_hex("tigerstyle-standards.drv"),
+                verifier_nix_derivation: "slotcar-standards.drv".to_owned(),
+                verifier_nix_derivation_digest: blake3_hex("slotcar-standards.drv"),
                 verifier_nix_closure: "nix-store-recursive-closure/v1".to_owned(),
                 verifier_nix_closure_digest: "fixture-nix-closure-digest".to_owned(),
                 verifier_nix_closure_paths: vec!["proof-nix-closure.txt".to_owned()],

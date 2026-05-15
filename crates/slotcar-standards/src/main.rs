@@ -3,7 +3,7 @@
 #![deny(clippy::pedantic)]
 #![deny(clippy::undocumented_unsafe_blocks)]
 #![allow(clippy::module_name_repetitions)]
-//! CLI shell for `tigerstyle-standards`.
+//! CLI shell for `slotcar-standards`.
 
 use std::env;
 use std::fmt::Write as _;
@@ -19,52 +19,52 @@ use std::time::UNIX_EPOCH;
 use clap::Parser;
 use clap::Subcommand;
 use clap::ValueEnum;
-use tigerstyle_standards::artifacts::ARTIFACT_MANIFEST_JSON_FILE;
-use tigerstyle_standards::artifacts::ArtifactManifest;
-use tigerstyle_standards::artifacts::CHECK_CONFIG_TOML_FILE;
-use tigerstyle_standards::artifacts::CONFIG_RECEIPT_FAMILIES_JSON_FILE;
-use tigerstyle_standards::artifacts::POLICIES_JSON_FILE;
-use tigerstyle_standards::artifacts::PROOF_BUNDLES_JSON_FILE;
-use tigerstyle_standards::artifacts::ProofBundleArtifact;
-use tigerstyle_standards::artifacts::SEED_MANIFESTS_JSON_FILE;
-use tigerstyle_standards::artifacts::artifact_manifest;
-use tigerstyle_standards::artifacts::config_receipt_family_artifact;
-use tigerstyle_standards::artifacts::proof_bundle_artifact;
-use tigerstyle_standards::artifacts::registry_has_verified_proof_rails;
-use tigerstyle_standards::artifacts::render_check_config_toml;
-use tigerstyle_standards::artifacts::seed_manifest_artifact;
-use tigerstyle_standards::artifacts::validate_artifact_manifest;
-use tigerstyle_standards::artifacts::validate_artifact_manifest_texts;
-use tigerstyle_standards::artifacts::validate_proof_bundle_artifact;
-use tigerstyle_standards::diagnostic::Diagnostic;
-use tigerstyle_standards::diagnostic::DiagnosticInput;
-use tigerstyle_standards::fixture::FixtureManifest;
-use tigerstyle_standards::fixture::validate_hard_policy_fixture_coverage;
-use tigerstyle_standards::model::FamilySelection;
-use tigerstyle_standards::model::PolicyRegistry;
-use tigerstyle_standards::model::Severity;
-use tigerstyle_standards::receipt::AcceptanceReceipt;
-use tigerstyle_standards::receipt::AcceptanceStatus;
-use tigerstyle_standards::receipt::ExportReceiptInput;
-use tigerstyle_standards::receipt::ReceiptArtifact;
-use tigerstyle_standards::receipt::ReceiptDigest;
-use tigerstyle_standards::receipt::ReceiptEvidence;
-use tigerstyle_standards::receipt::ReceiptInput;
-use tigerstyle_standards::receipt::ReceiptVerificationCommand;
-use tigerstyle_standards::receipt::RunProfile;
-use tigerstyle_standards::report::CheckReport;
-use tigerstyle_standards::report::render_json;
-use tigerstyle_standards::report::render_markdown;
-use tigerstyle_standards::runner::CheckInput;
-use tigerstyle_standards::runner::run_checks;
-use tigerstyle_standards::source::SourceFile;
+use slotcar_standards::artifacts::ARTIFACT_MANIFEST_JSON_FILE;
+use slotcar_standards::artifacts::ArtifactManifest;
+use slotcar_standards::artifacts::CHECK_CONFIG_TOML_FILE;
+use slotcar_standards::artifacts::CONFIG_RECEIPT_FAMILIES_JSON_FILE;
+use slotcar_standards::artifacts::POLICIES_JSON_FILE;
+use slotcar_standards::artifacts::PROOF_BUNDLES_JSON_FILE;
+use slotcar_standards::artifacts::ProofBundleArtifact;
+use slotcar_standards::artifacts::SEED_MANIFESTS_JSON_FILE;
+use slotcar_standards::artifacts::artifact_manifest;
+use slotcar_standards::artifacts::config_receipt_family_artifact;
+use slotcar_standards::artifacts::proof_bundle_artifact;
+use slotcar_standards::artifacts::registry_has_verified_proof_rails;
+use slotcar_standards::artifacts::render_check_config_toml;
+use slotcar_standards::artifacts::seed_manifest_artifact;
+use slotcar_standards::artifacts::validate_artifact_manifest;
+use slotcar_standards::artifacts::validate_artifact_manifest_texts;
+use slotcar_standards::artifacts::validate_proof_bundle_artifact;
+use slotcar_standards::diagnostic::Diagnostic;
+use slotcar_standards::diagnostic::DiagnosticInput;
+use slotcar_standards::fixture::FixtureManifest;
+use slotcar_standards::fixture::validate_hard_policy_fixture_coverage;
+use slotcar_standards::model::FamilySelection;
+use slotcar_standards::model::PolicyRegistry;
+use slotcar_standards::model::Severity;
+use slotcar_standards::receipt::AcceptanceReceipt;
+use slotcar_standards::receipt::AcceptanceStatus;
+use slotcar_standards::receipt::ExportReceiptInput;
+use slotcar_standards::receipt::ReceiptArtifact;
+use slotcar_standards::receipt::ReceiptDigest;
+use slotcar_standards::receipt::ReceiptEvidence;
+use slotcar_standards::receipt::ReceiptInput;
+use slotcar_standards::receipt::ReceiptVerificationCommand;
+use slotcar_standards::receipt::RunProfile;
+use slotcar_standards::report::CheckReport;
+use slotcar_standards::report::render_json;
+use slotcar_standards::report::render_markdown;
+use slotcar_standards::runner::CheckInput;
+use slotcar_standards::runner::run_checks;
+use slotcar_standards::source::SourceFile;
 
 const EXIT_SUCCESS: u8 = 0;
 const EXIT_FAILURE: u8 = 1;
 
 /// Tiger Style policy checker.
 #[derive(Debug, Parser)]
-#[command(name = "tigerstyle-standards", about = "Run Tiger Style policy checks")]
+#[command(name = "slotcar-standards", about = "Run Tiger Style policy checks")]
 struct Cli {
     #[command(subcommand)]
     command: Command,
@@ -322,7 +322,7 @@ fn export_receipt(
         run_id: export_run_id(profile, started_at),
         started_at: started_at.to_owned(),
         finished_at,
-        tool: "tigerstyle-standards".to_owned(),
+        tool: "slotcar-standards".to_owned(),
         tool_version: env!("CARGO_PKG_VERSION").to_owned(),
         git_revision: git_revision(),
         config_digest: ReceiptDigest {
@@ -398,7 +398,7 @@ fn export_receipt_artifacts(
 
 fn export_verification_commands(args: &ExportArtifactsArgs) -> Vec<ReceiptVerificationCommand> {
     let commands = if args.verification_command.is_empty() {
-        vec!["tigerstyle-standards export-artifacts receipt emission".to_owned()]
+        vec!["slotcar-standards export-artifacts receipt emission".to_owned()]
     } else {
         args.verification_command.clone()
     };
@@ -574,7 +574,7 @@ fn artifact_manifest_diagnostic(path: String, message: String) -> Diagnostic {
         line: None,
         severity: Severity::Error,
         message,
-        remediation: "regenerate policy artifacts with tigerstyle-standards export-artifacts and consume the complete generated directory".to_owned(),
+        remediation: "regenerate policy artifacts with slotcar-standards export-artifacts and consume the complete generated directory".to_owned(),
     })
 }
 
@@ -608,7 +608,7 @@ fn proof_bundle_diagnostic(path: String, message: String) -> Diagnostic {
         line: None,
         severity: Severity::Error,
         message,
-        remediation: "regenerate policy artifacts with tigerstyle-standards export-artifacts and keep tigerstyle-proof-bundles.json with the policy bundle".to_owned(),
+        remediation: "regenerate policy artifacts with slotcar-standards export-artifacts and keep tigerstyle-proof-bundles.json with the policy bundle".to_owned(),
     })
 }
 
@@ -673,12 +673,12 @@ fn execute_relevant_proof_rails(
     }
 }
 
-fn policy_is_verified(policy: &tigerstyle_standards::model::PolicyEntry) -> bool {
-    policy.current_enforcement_mode == tigerstyle_standards::model::EnforcementMode::Verified
-        || policy.target_enforcement_mode == tigerstyle_standards::model::EnforcementMode::Verified
+fn policy_is_verified(policy: &slotcar_standards::model::PolicyEntry) -> bool {
+    policy.current_enforcement_mode == slotcar_standards::model::EnforcementMode::Verified
+        || policy.target_enforcement_mode == slotcar_standards::model::EnforcementMode::Verified
 }
 
-fn proof_rail_is_relevant(rail: &tigerstyle_standards::model::ProofRail, sources: &[SourceFile]) -> bool {
+fn proof_rail_is_relevant(rail: &slotcar_standards::model::ProofRail, sources: &[SourceFile]) -> bool {
     rail.source_paths
         .iter()
         .chain(&rail.proof_paths)
@@ -686,7 +686,7 @@ fn proof_rail_is_relevant(rail: &tigerstyle_standards::model::ProofRail, sources
 }
 
 fn execute_proof_rail(
-    rail: &tigerstyle_standards::model::ProofRail,
+    rail: &slotcar_standards::model::ProofRail,
     sources: &[SourceFile],
     source_paths: &[PathBuf],
 ) -> SourceFile {
@@ -710,12 +710,12 @@ fn proof_command_working_dir(source_paths: &[PathBuf]) -> PathBuf {
     )
 }
 
-fn first_proof_path(rail: &tigerstyle_standards::model::ProofRail) -> &str {
+fn first_proof_path(rail: &slotcar_standards::model::ProofRail) -> &str {
     rail.proof_paths.first().map_or("proof-receipt.txt", String::as_str)
 }
 
 fn proof_command_receipt(
-    rail: &tigerstyle_standards::model::ProofRail,
+    rail: &slotcar_standards::model::ProofRail,
     sources: &[SourceFile],
     working_dir: &Path,
     output: Result<std::process::Output, io::Error>,
@@ -747,7 +747,7 @@ fn proof_command_receipt(
     }
 }
 
-fn proof_receipt_provenance(rail: &tigerstyle_standards::model::ProofRail) -> String {
+fn proof_receipt_provenance(rail: &slotcar_standards::model::ProofRail) -> String {
     let provenance = &rail.receipt_provenance;
     let mut lines = Vec::new();
     if !provenance.schema_version.is_empty() {
@@ -776,7 +776,7 @@ fn proof_receipt_provenance(rail: &tigerstyle_standards::model::ProofRail) -> St
     }
 }
 
-fn proof_receipt_verifier(rail: &tigerstyle_standards::model::ProofRail, sources: &[SourceFile]) -> String {
+fn proof_receipt_verifier(rail: &slotcar_standards::model::ProofRail, sources: &[SourceFile]) -> String {
     let verifier = &rail.receipt_verifier;
     let mut lines = Vec::new();
     if !verifier.verifier_id.is_empty() {
@@ -933,7 +933,7 @@ fn canonical_nix_closure_graph(text: &str) -> Option<String> {
     Some(canonical)
 }
 
-fn proof_receipt_binding(rail: &tigerstyle_standards::model::ProofRail, sources: &[SourceFile]) -> String {
+fn proof_receipt_binding(rail: &slotcar_standards::model::ProofRail, sources: &[SourceFile]) -> String {
     if rail.receipt_binding != "blake3-command-and-source" {
         return String::new();
     }

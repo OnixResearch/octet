@@ -1,11 +1,12 @@
 [package]
-name = "tigerstyle"
+name = "slotcar"
 version = "0.1.0"
 edition = "2024"
 license = "AGPL-3.0-or-later"
 description = "Custom lints enforcing Tiger Style coding principles"
 
 [lib]
+name = "tigerstyle"
 crate-type = ["cdylib"]
 
 [dependencies]
@@ -25,4 +26,4 @@ rustc_private = true
 
 [workspace]
 resolver = "2"
-members = ["cargo-tigerstyle", "crates/tigerstyle-standards"]
+members = ["cargo-slotcar", "crates/slotcar-standards"]

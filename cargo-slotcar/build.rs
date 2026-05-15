@@ -5,14 +5,14 @@ use std::path::PathBuf;
 
 fn main() {
     let manifest_dir = PathBuf::from(env::var_os("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR"));
-    let repo_root = manifest_dir.parent().expect("cargo-tigerstyle repo root").to_path_buf();
+    let repo_root = manifest_dir.parent().expect("cargo-slotcar repo root").to_path_buf();
 
     let mut files = Vec::new();
     collect_file(&repo_root.join("Cargo.toml"), Path::new("Cargo.toml"), &mut files);
     collect_file(&repo_root.join("Cargo.lock"), Path::new("Cargo.lock"), &mut files);
     collect_file(&repo_root.join("rust-toolchain.toml"), Path::new("rust-toolchain.toml"), &mut files);
     collect_dir(&repo_root.join("src"), Path::new("src"), &mut files);
-    collect_dir(&manifest_dir, Path::new("cargo-tigerstyle"), &mut files);
+    collect_dir(&manifest_dir, Path::new("cargo-slotcar"), &mut files);
     files.sort_by(|left, right| left.0.cmp(&right.0));
 
     let mut hasher = blake3::Hasher::new();

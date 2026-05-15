@@ -1,15 +1,15 @@
 proof-receipt-schema: tigerstyle-proof-receipt/v1
 proof-backend: local-command-receipt
-proof-runner: tigerstyle-standards
+proof-runner: slotcar-standards
 proof-environment: local-source-root
 trust-boundary: opt-in command execution proves local fixture proof command evidence shape, not arbitrary downstream semantic correctness
-proof-verifier: tigerstyle-standards@proof-receipt/v1
+proof-verifier: slotcar-standards@proof-receipt/v1
 proof-verifier-blake3: 9fb0cd3ff1b2898eba4c6f71479f93ae3cdc80f869cd8ae5e6355235ec5f9aef
-proof-verifier-binary: tigerstyle-standards
+proof-verifier-binary: slotcar-standards
 proof-verifier-binary-blake3: f441cb3dbf3b49e6df671f716c81538b53bca0f277db26cbfd3f0270c1880252
-proof-verifier-build-closure: nix-tigerstyle-standards-build-closure/v1
+proof-verifier-build-closure: nix-slotcar-standards-build-closure/v1
 proof-verifier-build-closure-blake3: 372b744f6321abc8065322b626388256dcabe4111f772d50a6c6a50afd030a55
-proof-verifier-nix-derivation: tigerstyle-standards.drv
+proof-verifier-nix-derivation: slotcar-standards.drv
 proof-verifier-nix-derivation-blake3: 395cf66a51543cf89028075deef9cf172bac902fd777f0ba0bead91aa68afec4
 proof-verifier-nix-closure: nix-store-recursive-closure/v1
 proof-verifier-nix-closure-blake3: 918d21e52d62044ea97d1b2c2e6bf5ec06751738984ff4b029ae156d903487c9

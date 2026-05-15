@@ -5,8 +5,8 @@ This transcript documents the source-scanner boundary: `macro_rules!` generated 
 ## Update fingerprints only the explicit source wrapper
 
 ```console
-$ cargo tigerstyle fingerprint --update reviewed.rs
-tigerstyle fingerprint update
+$ cargo slotcar fingerprint --update reviewed.rs
+slotcar fingerprint update
 reviewed.rs explicit_generated_boundary written stored=0 computed=b3:eba4de659452eb0c6179a962b1452a986b4fd6af24afb52a54badf4a250e4a42 review=source-scanner-boundary evidence=docs/examples/function-fingerprint-source-scanner/transcript.md macro_warning=false
 summary total=1 match=0 mismatch=0 missing=0 written=1 macro_warnings=0 metadata_missing=0
 # exit status: 0
@@ -15,7 +15,7 @@ summary total=1 match=0 mismatch=0 missing=0 written=1 macro_warnings=0 metadata
 ## JSON check reports one explicit source function
 
 ```console
-$ cargo tigerstyle fingerprint --check --output-format=json reviewed.rs
+$ cargo slotcar fingerprint --check --output-format=json reviewed.rs
 {
   "schema_version": 1,
   "mode": "check",
@@ -39,8 +39,8 @@ $ cargo tigerstyle fingerprint --check --output-format=json reviewed.rs
 ## Human check reports one explicit source function
 
 ```console
-$ cargo tigerstyle fingerprint --check reviewed.rs
-tigerstyle fingerprint check
+$ cargo slotcar fingerprint --check reviewed.rs
+slotcar fingerprint check
 reviewed.rs explicit_generated_boundary match stored=eba4de659452eb0c6179a962b1452a986b4fd6af24afb52a54badf4a250e4a42 computed=b3:eba4de659452eb0c6179a962b1452a986b4fd6af24afb52a54badf4a250e4a42 review=source-scanner-boundary evidence=docs/examples/function-fingerprint-source-scanner/transcript.md macro_warning=false
 summary total=1 match=1 mismatch=0 missing=0 written=0 macro_warnings=0 metadata_missing=0
 # exit status: 0

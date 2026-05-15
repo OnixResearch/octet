@@ -16,10 +16,10 @@ nix build .#checks.x86_64-linux.fingerprint-docs-downstream-smoke --no-link -L
 
 The check creates a temporary Cargo crate, copies every checked
 `docs/examples/function-fingerprint-*/reviewed.rs` fixture into that crate, and
-runs the real `cargo-tigerstyle fingerprint` binary over the consumer `src/`
+runs the real `cargo-slotcar fingerprint` binary over the consumer `src/`
 directory. It asserts that:
 
-- all seven documented records are discovered outside the Tigerstyle checkout;
+- all seven documented records are discovered outside the Slotcar checkout;
 - `macro_rules!` generated functions are still absent from the record set;
 - warning and missing-metadata examples keep their nonzero operator-warning status;
 - JSON drift, human `--diff`, JSON `--diff`, update, and repaired-check behavior work on a copied downstream file;

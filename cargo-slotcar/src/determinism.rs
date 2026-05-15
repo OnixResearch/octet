@@ -30,7 +30,7 @@ pub fn build_run_metadata(input: MetadataInput<'_>) -> RunMetadata {
     let profile_hash = profile_hash(input.scope_args, input.cargo_check_args, input.output_format, &config_hash);
 
     RunMetadata {
-        tool_name: "cargo-tigerstyle",
+        tool_name: "cargo-slotcar",
         tool_version: env!("CARGO_PKG_VERSION"),
         rustc_version: rustc_version(input.toolchain),
         toolchain: input.toolchain.to_owned(),

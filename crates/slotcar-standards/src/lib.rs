@@ -503,7 +503,7 @@ impl Session<Authenticated> { pub fn send(self) {} }
     fn sample_registry() -> PolicyRegistry {
         PolicyRegistry {
             schema_version: "test".to_owned(),
-            checker_ids: vec!["tigerstyle-standards".to_owned()],
+            checker_ids: vec!["slotcar-standards".to_owned()],
             policies: vec![
                 sample_policy(DEVTOOLS_POLICY_ID, "devtools", DEVTOOLS_SOURCE),
                 sample_policy(EMBEDDED_POLICY_ID, "embedded", EMBEDDED_SOURCE),
@@ -648,7 +648,7 @@ impl Session<Authenticated> { pub fn send(self) {} }
             deterministic_checker: EvidenceCommand::default(),
             proof_rails: Vec::new(),
             checker_owner: "test".to_owned(),
-            checker_id: "tigerstyle-standards".to_owned(),
+            checker_id: "slotcar-standards".to_owned(),
             default_severity: Severity::Error,
             suppression_requirements: hard_suppression_requirements(),
             fixture_coverage: FixtureCoverage {
