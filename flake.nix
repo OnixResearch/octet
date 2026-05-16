@@ -1011,6 +1011,25 @@ MAIN
             grep -F "nix build .#checks.x86_64-linux.docs-examples --no-link -L" CHANGELOG.md
             mkdir -p "$out"
           '';
+          releaseCandidateSmokeCheck = pkgs.runCommand "slotcar-release-candidate-smoke" { } ''
+            repo=${self}
+            grep -F 'Candidate version: `0.1.0`' "$repo/docs/release-candidate.md"
+            grep -F 'nix build .#checks.x86_64-linux.release-candidate-smoke -L --no-link' "$repo/docs/release-candidate.md"
+            grep -F 'nix flake check -L' "$repo/docs/release-candidate.md"
+            grep -F 'cargo-slotcar' "$repo/docs/release-candidate.md"
+            grep -F 'cargo-tigerstyle' "$repo/docs/release-candidate.md"
+            grep -F 'slotcar' "$repo/docs/release-candidate.md"
+            grep -F 'tigerstyle' "$repo/docs/release-candidate.md"
+            test -x ${cargoSlotcarUnwrapped}/bin/cargo-slotcar
+            test -x ${cargoSlotcarUnwrapped}/bin/cargo-tigerstyle
+            ${cargoSlotcarUnwrapped}/bin/cargo-slotcar --version | tee "$TMPDIR/cargo-slotcar.version"
+            ${cargoSlotcarUnwrapped}/bin/cargo-tigerstyle --version | tee "$TMPDIR/cargo-tigerstyle.version"
+            grep -Fx "cargo-slotcar 0.1.0" "$TMPDIR/cargo-slotcar.version"
+            grep -Fx "cargo-slotcar 0.1.0" "$TMPDIR/cargo-tigerstyle.version"
+            test -d ${slotcar}
+            test -d ${cargoSlotcarUnwrapped}
+            mkdir -p "$out"
+          '';
         in {
           inherit slotcar;
           tigerstyle = slotcar;
@@ -1056,6 +1075,7 @@ MAIN
           fingerprint-json-output-docs = fingerprintJsonOutputDocs;
           fingerprint-source-scanner-docs = fingerprintSourceScannerDocs;
           release-operator-smoke-docs = releaseOperatorSmokeDocs;
+          release-candidate-smoke = releaseCandidateSmokeCheck;
 
           fingerprint-docs-downstream-smoke = fingerprintDocsDownstreamSmokeCheck;
           fingerprint-docs-review-gate-docs = fingerprintDocsReviewGateDocsCheck;

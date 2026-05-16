@@ -136,6 +136,8 @@ and config keys.
 - `docs/downstream-rollout-evidence.md` — Aspen-backed rollout evidence and historical replay paths
 - `standards/policies/README.md` — typed policy registry and traceability contract
 - `docs/standards/policy-contract.md` — standards rules mapped to verification rails
+- `docs/examples/release-operator-smoke/transcript.md` — one bounded release smoke transcript covering operator surfaces
+- `docs/release-candidate.md` — pre-tag release candidate checklist and local smoke receipt path
 - `CHANGELOG.md` — breaking changes and notable updates for consumers
 
 ## License

@@ -1,0 +1,4 @@
+$ nix build .#checks.x86_64-linux.release-candidate-smoke -L --no-link
+exit=0
+$ nix build .#cargo-slotcar .#cargo-tigerstyle .#slotcar .#tigerstyle --no-link
+exit=0

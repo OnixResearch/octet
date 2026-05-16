@@ -25,6 +25,7 @@ pub enum CommandArgs {
     Migrate(MigrateArgs),
     Transcript(TranscriptArgs),
     Help(HelpTopic),
+    Version,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -107,6 +108,7 @@ pub fn parse(argv: impl IntoIterator<Item = OsString>) -> Result<CommandArgs, St
 
     match argv.first().map(String::as_str) {
         Some("--help" | "-h" | "help") => Ok(CommandArgs::Help(HelpTopic::Root)),
+        Some("--version" | "-V" | "version") => Ok(CommandArgs::Version),
         Some("check") if wants_help(&argv[1..]) => Ok(CommandArgs::Help(HelpTopic::Check)),
         Some("check") => parse_check(&argv[1..], command_line).map(CommandArgs::Check),
         Some("fingerprint") if wants_help(&argv[1..]) => Ok(CommandArgs::Help(HelpTopic::Fingerprint)),
@@ -143,6 +145,7 @@ Usage:
   cargo slotcar fingerprint [--check|--update|--diff] [PATHS...]
   cargo slotcar migrate <start|status|apply-safe> [--manifest PATH]
   cargo slotcar transcript <PATH>
+  cargo slotcar --version
 
 Release smoke surfaces: fingerprint identity review, migrate manifests, check --cache lint-cache status, effect-summary output in summaries/artifacts, and executable transcript validation.
 
@@ -455,6 +458,19 @@ mod tests {
 
         let check = parse(["cargo", "slotcar", "check", "--help"].map(OsString::from)).expect("parse check help");
         assert!(matches!(check, CommandArgs::Help(HelpTopic::Check)));
+    }
+
+    #[test]
+    fn version_parse_accepts_root_version_aliases() {
+        for args in [
+            ["cargo", "slotcar", "--version"],
+            ["cargo", "slotcar", "-V"],
+            ["cargo", "slotcar", "version"],
+            ["cargo", "tigerstyle", "--version"],
+        ] {
+            let parsed = parse(args.map(OsString::from)).expect("parse version");
+            assert!(matches!(parsed, CommandArgs::Version));
+        }
     }
 
     #[test]

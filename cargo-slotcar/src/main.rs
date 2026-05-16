@@ -30,5 +30,9 @@ fn try_main() -> Result<i32, String> {
             println!("{}", cli::help_text(topic));
             Ok(0)
         }
+        cli::CommandArgs::Version => {
+            println!("cargo-slotcar {}", env!("CARGO_PKG_VERSION"));
+            Ok(0)
+        }
     }
 }
