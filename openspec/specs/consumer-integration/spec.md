@@ -278,3 +278,69 @@ The deterministic proof artifact `openspec/changes/archive/2026-05-15-rename-to-
 - GIVEN the implementation keeps `cargo tigerstyle` available during the rename transition
 - WHEN a consumer invokes that old command path
 - THEN it is documented and tested as a compatibility alias to the canonical `cargo slotcar` behavior rather than a second independent tool surface
+
+### Requirement: Effect Surface Reporting [r[effect-surface-reporting]]
+
+The system MUST classify Slotcar findings into reviewable effect families such as `time`, `failure`, `resource`, `concurrency`, `io`, `remote`, `randomness`, `unsafe`, or `unknown`. Machine outputs MUST include the effect family, and human summaries MUST aggregate findings by effect family.
+
+#### Scenario: JSON findings include effect family [r[effect-surface-reporting.scenario.json-findings-include-effect-family]]
+
+- GIVEN JSON output is requested for findings from safety, purity, and concurrency lints
+- WHEN `cargo slotcar check --output-format json` emits findings
+- THEN each finding includes an `effect_family` field resolved from static diagnostic metadata
+
+#### Scenario: Human summary aggregates effects [r[effect-surface-reporting.scenario.human-summary-aggregates-effects]]
+
+- GIVEN a run emits findings across multiple effect families
+- WHEN the check summary is printed
+- THEN the summary includes deterministic per-effect counts sorted by count then family name
+
+#### Scenario: Unknown lints stay explicit [r[effect-surface-reporting.scenario.unknown-lints-stay-explicit]]
+
+- GIVEN a diagnostic is emitted for a lint missing effect metadata
+- WHEN machine output is generated
+- THEN the finding uses `effect_family: "unknown"` and the metadata coverage check fails in repo tests
+
+### Requirement: Semantic Review Identity [r[semantic-review-identity]]
+
+The system MUST provide a semantic review identity for fingerprinted Rust items and lint findings that treats names, file paths, and line numbers as metadata rather than the sole identity source. The identity MUST include deterministic hashes for normalized item shape, lint/config context, Slotcar tool version, and dependency identity where available. It MUST NOT include absolute paths, usernames, timestamps, or secrets.
+
+#### Scenario: Normalized item identity survives rename [r[semantic-review-identity.scenario.normalized-item-identity-survives-rename]]
+
+- GIVEN a fingerprinted function is renamed without changing its normalized body shape or dependency identity
+- WHEN `cargo slotcar fingerprint --check --output-format json` emits the record
+- THEN the semantic identity stays stable while name metadata changes
+
+#### Scenario: Baseline matching uses semantic identity first [r[semantic-review-identity.scenario.baseline-matching-uses-semantic-identity-first]]
+
+- GIVEN a lint finding moves to a new line after a behavior-preserving refactor
+- WHEN baseline comparison runs with semantic identity fields present
+- THEN the finding is attributed by semantic identity before falling back to path and line
+
+#### Scenario: Dependency identity is explicit when unavailable [r[semantic-review-identity.scenario.dependency-identity-is-explicit-when-unavailable]]
+
+- GIVEN a function calls code whose dependency identity cannot be computed by the source scanner
+- WHEN the review manifest is generated
+- THEN the manifest records an explicit `dependency_identity_status` instead of silently pretending dependencies were hashed
+
+### Requirement: Structured Rollout Migration Sessions [r[structured-rollout-migration-sessions]]
+
+The system MUST support structured rollout migration sessions that record lint rollout state as deterministic manifests rather than requiring consumers to triage an unstructured diagnostic stream. A session MUST capture profile, command inputs, config hash, tool revision, finding identities, accepted findings, autofix actions, deferred findings, and manual-review checkpoints.
+
+#### Scenario: Migration start writes deterministic manifest [r[structured-rollout-migration-sessions.scenario.migration-start-writes-deterministic-manifest]]
+
+- GIVEN a consumer workspace requests a starter-profile migration
+- WHEN `cargo slotcar migrate start --profile starter` runs
+- THEN a migration manifest is written with profile, tool revision, config hash, and initial finding identities
+
+#### Scenario: Migration status reports remaining work [r[structured-rollout-migration-sessions.scenario.migration-status-reports-remaining-work]]
+
+- GIVEN a migration manifest contains accepted, fixed, deferred, and unresolved findings
+- WHEN `cargo slotcar migrate status --format json` runs
+- THEN the output reports deterministic counts and unresolved work without reclassifying accepted findings
+
+#### Scenario: Safe apply does not modify manual-review findings [r[structured-rollout-migration-sessions.scenario.safe-apply-does-not-modify-manual-review-findings]]
+
+- GIVEN a migration has both machine-applicable findings and findings marked manual-review
+- WHEN `cargo slotcar migrate apply-safe` runs
+- THEN only machine-applicable changes are applied and manual-review findings remain pending

@@ -1,0 +1,45 @@
+warning: /home/brittonr/git/slotcar/cargo-slotcar/Cargo.toml: file `/home/brittonr/git/slotcar/cargo-slotcar/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `cargo-slotcar`
+  * `bin` target `cargo-tigerstyle`
+    Blocking waiting for file lock on build directory
+   Compiling cargo-slotcar v0.1.0 (/home/brittonr/git/slotcar/cargo-slotcar)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 13.51s
+     Running `/home/brittonr/.cargo-target/debug/cargo-slotcar fingerprint --output-format json tests/fixtures/fingerprints/reviewed.rs`
+{
+  "schema_version": 1,
+  "mode": "check",
+  "records": [
+    {
+      "path": "tests/fixtures/fingerprints/reviewed.rs",
+      "name": "checked_transition",
+      "stored_hash": "a51dfd30275003ecdbd5b2f5d2b6b863da41a88dca08b94b15e038739cdefd48",
+      "computed_hash": "a51dfd30275003ecdbd5b2f5d2b6b863da41a88dca08b94b15e038739cdefd48",
+      "normalized_body_hash": "b3:a51dfd30275003ecdbd5b2f5d2b6b863da41a88dca08b94b15e038739cdefd48",
+      "semantic_id": "b3:fab82a7747bf2fe4",
+      "dependency_set_hash": "b3:4bbba2df774e06ba6837ffa62889aa0356e0987837fbdb6f9c40b027113ff6f4",
+      "dependency_identity_status": "source-scanner-token-set",
+      "tool_version": "0.1.0",
+      "status": "match",
+      "review": "safety-critical",
+      "evidence": "openspec/changes/archive/2026-05-05-add-function-fingerprints/evidence/check-matching.txt",
+      "macro_calls": false,
+      "macro_warning": false
+    },
+    {
+      "path": "tests/fixtures/fingerprints/reviewed.rs",
+      "name": "macro_reviewed",
+      "stored_hash": "7ac614cc7e388f63544631ae86a15f42ecbbc5d1cc099912b726d6774b79d703",
+      "computed_hash": "7ac614cc7e388f63544631ae86a15f42ecbbc5d1cc099912b726d6774b79d703",
+      "normalized_body_hash": "b3:7ac614cc7e388f63544631ae86a15f42ecbbc5d1cc099912b726d6774b79d703",
+      "semantic_id": "b3:7d52d42349f6deb5",
+      "dependency_set_hash": "b3:7eedf0cd7b38fb028464f403184d6a681a550aec18be9b99a19773917c86664c",
+      "dependency_identity_status": "unsupported-macro-context",
+      "tool_version": "0.1.0",
+      "status": "match",
+      "review": "safety-critical",
+      "evidence": "openspec/changes/archive/2026-05-05-add-function-fingerprints/evidence/macro-explicit-allowance.txt",
+      "macro_calls": true,
+      "macro_warning": false
+    }
+  ]
+}

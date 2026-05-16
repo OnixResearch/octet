@@ -157,10 +157,16 @@ pub fn run(check: CheckArgs) -> Result<i32, String> {
                     let code = message["code"]["code"].as_str().unwrap_or("");
                     let lint_name = normalize_lint_name(code);
 
-                    if let Some(meta) = meta_map.get(lint_name.as_str()) {
-                        finding_counter += 1;
-                        findings.push(build_finding(finding_counter, &json, meta, &lint_name));
-                    }
+                    let meta = meta_map.get(lint_name.as_str()).unwrap_or(&output::UNKNOWN_LINT_META);
+                    finding_counter += 1;
+                    findings.push(build_finding(
+                        finding_counter,
+                        &json,
+                        meta,
+                        &lint_name,
+                        &run_metadata.config_hash,
+                        check.cache,
+                    ));
                 }
                 "compiler-artifact" if check.output_format == OutputFormat::Human => {
                     if let Some(banner) = format_compiling_banner(&json) {
@@ -180,6 +186,9 @@ pub fn run(check: CheckArgs) -> Result<i32, String> {
         let cargo_process_exit =
             classify_cargo_process_exit(child.wait().map_err(|error| format!("wait for cargo check: {error}"))?);
         canonicalize_findings(&mut findings);
+        if check.cache {
+            update_lint_cache(&cfg.workspace_root, &mut findings)?;
+        }
         let cargo_process_succeeded = cargo_process_exit.is_success();
         let base_outcome = output::RunOutcome::classify(&findings, cargo_process_exit);
         let baseline_evaluation = match check.baseline.as_deref() {
@@ -437,6 +446,44 @@ fn classify_cargo_process_exit(status: std::process::ExitStatus) -> output::Carg
     }
 }
 
+fn update_lint_cache(workspace_root: &Path, findings: &mut [Finding]) -> Result<(), String> {
+    let cache_path = workspace_root.join(".slotcar/cache/findings.json");
+    let mut cached: std::collections::BTreeSet<String> = match fs::read_to_string(&cache_path) {
+        Ok(contents) => {
+            serde_json::from_str(&contents).map_err(|error| format!("parse {}: {error}", cache_path.display()))?
+        }
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => std::collections::BTreeSet::new(),
+        Err(error) => return Err(format!("read {}: {error}", cache_path.display())),
+    };
+
+    let mut changed = false;
+    for finding in findings {
+        if finding.identity_status != "computed" {
+            finding.cache_status = "bypassed".to_owned();
+            continue;
+        }
+        if cached.contains(&finding.semantic_id) {
+            finding.cache_status = "hit".to_owned();
+        } else {
+            cached.insert(finding.semantic_id.clone());
+            finding.cache_status = "miss".to_owned();
+            changed = true;
+        }
+    }
+
+    if changed {
+        if let Some(parent) = cache_path.parent() {
+            fs::create_dir_all(parent).map_err(|error| format!("create {}: {error}", parent.display()))?;
+        }
+        let mut rendered =
+            serde_json::to_string_pretty(&cached).map_err(|error| format!("serialize lint cache: {error}"))?;
+        rendered.push('\n');
+        fs::write(&cache_path, rendered).map_err(|error| format!("write {}: {error}", cache_path.display()))?;
+    }
+
+    Ok(())
+}
+
 fn canonicalize_findings(findings: &mut [Finding]) {
     findings.sort_by(|left, right| {
         left.file
@@ -457,7 +504,14 @@ fn normalize_lint_name(code: &str) -> String {
     code.strip_prefix("tigerstyle::").unwrap_or(code).to_owned()
 }
 
-fn build_finding(index: usize, cargo_msg: &serde_json::Value, meta: &output::LintMeta, lint_name: &str) -> Finding {
+fn build_finding(
+    index: usize,
+    cargo_msg: &serde_json::Value,
+    meta: &output::LintMeta,
+    lint_name: &str,
+    config_hash: &str,
+    cache_enabled: bool,
+) -> Finding {
     let message = &cargo_msg["message"];
 
     let primary_span = message["spans"]
@@ -474,11 +528,34 @@ fn build_finding(index: usize, cargo_msg: &serde_json::Value, meta: &output::Lin
     let crate_name = cargo_msg["target"]["name"].as_str().unwrap_or("unknown").to_owned();
 
     let (suggestion, applicability) = extract_suggestion(message);
+    let normalized_snippet_hash = primary_span
+        .map(snippet_from_span)
+        .filter(|snippet| !snippet.trim().is_empty())
+        .map(|snippet| determinism::normalized_snippet_hash(&snippet))
+        .unwrap_or_else(|| "unsupported".to_owned());
+    let identity_status = if normalized_snippet_hash == "unsupported" {
+        "unsupported"
+    } else {
+        "computed"
+    };
+    let semantic_id = determinism::semantic_finding_id(
+        lint_name,
+        &crate_name,
+        &msg_text,
+        suggestion.as_deref(),
+        &normalized_snippet_hash,
+        Some(config_hash),
+    );
 
     Finding {
         version: output::finding_version(),
         index: format!("F{index}"),
-        stable_id: determinism::stable_finding_id(&lint_name, &file, &crate_name, &msg_text, suggestion.as_deref()),
+        stable_id: semantic_id.clone(),
+        semantic_id,
+        identity_status: identity_status.to_owned(),
+        normalized_snippet_hash,
+        config_hash: config_hash.to_owned(),
+        cache_status: if cache_enabled { "pending" } else { "disabled" }.to_owned(),
         lint: lint_name.to_owned(),
         group: meta.group.to_owned(),
         severity,
@@ -489,8 +566,16 @@ fn build_finding(index: usize, cargo_msg: &serde_json::Value, meta: &output::Lin
         suggestion,
         applicability,
         principle: meta.principle.to_owned(),
+        effect_family: meta.effect_family.to_owned(),
         crate_name,
     }
+}
+
+fn snippet_from_span(span: &serde_json::Value) -> String {
+    span["text"]
+        .as_array()
+        .map(|lines| lines.iter().filter_map(|line| line["text"].as_str()).collect::<Vec<_>>().join("\n"))
+        .unwrap_or_default()
 }
 
 fn extract_suggestion(message: &serde_json::Value) -> (Option<String>, Option<String>) {

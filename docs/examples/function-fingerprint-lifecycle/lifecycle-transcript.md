@@ -111,3 +111,44 @@ operator assertions are:
 - drift diff exits `1` and reports `mismatch=1`;
 - accepted update reports exactly one `written` marker;
 - final check returns to `match=1 mismatch=0 written=0`.
+## Regenerated output compatibility
+
+### Output 1
+
+```text
+slotcar fingerprint update
+reviewed.rs bounded_retry_delay_ms written semantic_id=b3:24c411c1ceef0f49 stored=0 computed=b3:c5707c7c97cc9590933c9b45064bcfc39d19ef7ad553e5b9ec1d751cc242b48c normalized_body_hash=b3:c5707c7c97cc9590933c9b45064bcfc39d19ef7ad553e5b9ec1d751cc242b48c dependency_identity_status=unsupported-macro-context review=safety-critical evidence=docs/examples/function-fingerprint-lifecycle/lifecycle-transcript.md macro_warning=false
+summary total=1 match=0 mismatch=0 missing=0 written=1 macro_warnings=0 metadata_missing=0
+```
+
+### Output 2
+
+```text
+slotcar fingerprint check
+reviewed.rs bounded_retry_delay_ms match semantic_id=b3:24c411c1ceef0f49 stored=c5707c7c97cc9590933c9b45064bcfc39d19ef7ad553e5b9ec1d751cc242b48c computed=b3:c5707c7c97cc9590933c9b45064bcfc39d19ef7ad553e5b9ec1d751cc242b48c normalized_body_hash=b3:c5707c7c97cc9590933c9b45064bcfc39d19ef7ad553e5b9ec1d751cc242b48c dependency_identity_status=unsupported-macro-context review=safety-critical evidence=docs/examples/function-fingerprint-lifecycle/lifecycle-transcript.md macro_warning=false
+summary total=1 match=1 mismatch=0 missing=0 written=0 macro_warnings=0 metadata_missing=0
+```
+
+### Output 3
+
+```text
+slotcar fingerprint diff
+reviewed.rs bounded_retry_delay_ms mismatch semantic_id=b3:9e54661bd2e84ee2 stored=c5707c7c97cc9590933c9b45064bcfc39d19ef7ad553e5b9ec1d751cc242b48c computed=b3:7deb37887bd38ad0b5e586a9700eb9d34f61153df85ab06649c3f468f6816114 normalized_body_hash=b3:7deb37887bd38ad0b5e586a9700eb9d34f61153df85ab06649c3f468f6816114 dependency_identity_status=unsupported-macro-context review=safety-critical evidence=docs/examples/function-fingerprint-lifecycle/lifecycle-transcript.md macro_warning=false
+summary total=1 match=0 mismatch=1 missing=0 written=0 macro_warnings=0 metadata_missing=0
+```
+
+### Output 4
+
+```text
+slotcar fingerprint update
+reviewed.rs bounded_retry_delay_ms written semantic_id=b3:9e54661bd2e84ee2 stored=c5707c7c97cc9590933c9b45064bcfc39d19ef7ad553e5b9ec1d751cc242b48c computed=b3:7deb37887bd38ad0b5e586a9700eb9d34f61153df85ab06649c3f468f6816114 normalized_body_hash=b3:7deb37887bd38ad0b5e586a9700eb9d34f61153df85ab06649c3f468f6816114 dependency_identity_status=unsupported-macro-context review=safety-critical evidence=docs/examples/function-fingerprint-lifecycle/lifecycle-transcript.md macro_warning=false
+summary total=1 match=0 mismatch=0 missing=0 written=1 macro_warnings=0 metadata_missing=0
+```
+
+### Output 5
+
+```text
+slotcar fingerprint check
+reviewed.rs bounded_retry_delay_ms match semantic_id=b3:9e54661bd2e84ee2 stored=7deb37887bd38ad0b5e586a9700eb9d34f61153df85ab06649c3f468f6816114 computed=b3:7deb37887bd38ad0b5e586a9700eb9d34f61153df85ab06649c3f468f6816114 normalized_body_hash=b3:7deb37887bd38ad0b5e586a9700eb9d34f61153df85ab06649c3f468f6816114 dependency_identity_status=unsupported-macro-context review=safety-critical evidence=docs/examples/function-fingerprint-lifecycle/lifecycle-transcript.md macro_warning=false
+summary total=1 match=1 mismatch=0 missing=0 written=0 macro_warnings=0 metadata_missing=0
+```

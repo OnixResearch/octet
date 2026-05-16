@@ -1,0 +1,20 @@
+cannot build on 'ssh-ng://root@10.10.10.1': error: failed to start SSH connection to '10.10.10.1'
+building '/nix/store/fq9bb17v0jw15h2n50kqbrcv51d1svb1-slotcar-standards-0.1.0.drv'...
+building '/nix/store/2ds2ki9q7g83gp12srjwihxxj4inyn6c-nix-shell-env.drv'...
+warning: /home/brittonr/git/slotcar/cargo-slotcar/Cargo.toml: file `/home/brittonr/git/slotcar/cargo-slotcar/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `cargo-slotcar`
+  * `bin` target `cargo-tigerstyle`
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.03s
+     Running tests/consumer_integration.rs (/home/brittonr/.cargo-target/debug/deps/consumer_integration-8f604bc7f4431bb8)
+
+running 7 tests
+test transcript_reports_content_hash_and_fails_closed ... ok
+test migration_manifest_commands_are_deterministic_and_safe ... ok
+test human_summary_aggregates_by_effect_family ... ok
+test json_findings_report_effect_family_cache_status_and_unknown_lints ... ok
+test semantic_identity_survives_file_rename ... ok
+test baseline_matches_semantic_identity_after_rename ... ok
+test cache_uses_content_identity_and_bypasses_unsupported_inputs ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 63 filtered out; finished in 3.05s
+

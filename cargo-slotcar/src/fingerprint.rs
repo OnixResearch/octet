@@ -23,6 +23,11 @@ struct FunctionRecord {
     name: String,
     stored_hash: Option<String>,
     computed_hash: String,
+    normalized_body_hash: String,
+    semantic_id: String,
+    dependency_set_hash: String,
+    dependency_identity_status: String,
+    tool_version: &'static str,
     status: FingerprintStatus,
     review: Option<String>,
     evidence: Option<String>,
@@ -65,6 +70,11 @@ struct ReviewManifestRecord {
     status: FingerprintStatus,
     stored_hash: Option<String>,
     computed_hash: String,
+    normalized_body_hash: String,
+    semantic_id: String,
+    dependency_set_hash: String,
+    dependency_identity_status: String,
+    tool_version: &'static str,
     review: Option<String>,
     evidence: Option<String>,
     requires_review: bool,
@@ -110,7 +120,15 @@ pub fn run(args: FingerprintArgs) -> Result<i32, String> {
         let spans = find_functions(&source);
         let mut replacements = Vec::new();
         for span in spans {
-            let computed_hash = function_hash(&source[span.start..span.end]);
+            let function_source = &source[span.start..span.end];
+            let computed_hash = function_hash(function_source);
+            let normalized_body_hash = determinism::full_hash(&normalize_tokens(function_source));
+            let dependency_set_hash = dependency_set_hash(function_source);
+            let dependency_identity_status = dependency_identity_status(function_source).to_owned();
+            let semantic_id = determinism::short_hash(&format!(
+                "body={normalized_body_hash}\ndeps={dependency_set_hash}\ndep_status={dependency_identity_status}\ntool={}\n",
+                env!("CARGO_PKG_VERSION"),
+            ));
             let marker = span.marker.clone();
             if !matches!(args.mode, FingerprintMode::Write) && marker.is_none() {
                 continue;
@@ -126,6 +144,11 @@ pub fn run(args: FingerprintArgs) -> Result<i32, String> {
                 name: span.name.clone(),
                 stored_hash: marker.as_ref().map(|m| m.stored_hash.clone()),
                 computed_hash: computed_hash.clone(),
+                normalized_body_hash,
+                semantic_id,
+                dependency_set_hash,
+                dependency_identity_status,
+                tool_version: env!("CARGO_PKG_VERSION"),
                 status: if matches!(args.mode, FingerprintMode::Write | FingerprintMode::Update)
                     && status != FingerprintStatus::Match
                 {
@@ -206,6 +229,11 @@ fn write_review_manifest(path: &Path, report: &FingerprintReport, input_paths: V
             status: record.status,
             stored_hash: record.stored_hash.clone(),
             computed_hash: record.computed_hash.clone(),
+            normalized_body_hash: record.normalized_body_hash.clone(),
+            semantic_id: record.semantic_id.clone(),
+            dependency_set_hash: record.dependency_set_hash.clone(),
+            dependency_identity_status: record.dependency_identity_status.clone(),
+            tool_version: record.tool_version,
             review: record.review.clone(),
             evidence: record.evidence.clone(),
             requires_review: record.status != FingerprintStatus::Match
@@ -242,12 +270,7 @@ fn write_review_manifest(path: &Path, report: &FingerprintReport, input_paths: V
 }
 
 fn fingerprint_record_stable_id(record: &FunctionRecord) -> String {
-    determinism::short_hash(&format!(
-        "path={}\nname={}\ncomputed_hash={}\n",
-        determinism::normalize_path_text(&record.path),
-        record.name,
-        record.computed_hash
-    ))
+    record.semantic_id.clone()
 }
 
 fn collect_rust_files(path: &Path, files: &mut Vec<PathBuf>) -> Result<(), String> {
@@ -458,6 +481,26 @@ fn function_hash(function_source: &str) -> String {
     blake3::hash(normalized.as_bytes()).to_hex().to_string()
 }
 
+fn dependency_set_hash(function_source: &str) -> String {
+    let mut calls = Vec::new();
+    for token in normalize_tokens(function_source).split_whitespace() {
+        if token.chars().next().is_some_and(|ch| ch.is_ascii_alphabetic() || ch == '_') {
+            calls.push(token.to_owned());
+        }
+    }
+    calls.sort();
+    calls.dedup();
+    determinism::full_hash(&calls.join("\n"))
+}
+
+fn dependency_identity_status(function_source: &str) -> &'static str {
+    if contains_macro_call(function_source) {
+        "unsupported-macro-context"
+    } else {
+        "source-scanner-token-set"
+    }
+}
+
 fn normalize_tokens(source: &str) -> String {
     let without_comments = strip_comments_and_strings(source);
     let mut tokens = Vec::new();
@@ -523,12 +566,15 @@ fn print_human(report: &FingerprintReport) {
     println!("slotcar fingerprint {}", report.mode);
     for record in &report.records {
         println!(
-            "{} {} {} stored={} computed=b3:{} review={} evidence={} macro_warning={}",
+            "{} {} {} semantic_id={} stored={} computed=b3:{} normalized_body_hash={} dependency_identity_status={} review={} evidence={} macro_warning={}",
             record.path,
             record.name,
             status_name(record.status),
+            record.semantic_id,
             record.stored_hash.as_deref().unwrap_or("<none>"),
             record.computed_hash,
+            record.normalized_body_hash,
+            record.dependency_identity_status,
             record.review.as_deref().unwrap_or("<missing>"),
             record.evidence.as_deref().unwrap_or("<missing>"),
             record.macro_warning,

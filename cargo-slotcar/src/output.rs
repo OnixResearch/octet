@@ -26,13 +26,26 @@ pub struct LintMeta {
     pub group: &'static str,
     pub principle: &'static str,
     pub guidance: &'static str,
+    pub effect_family: &'static str,
 }
+
+pub const UNKNOWN_LINT_META: LintMeta = LintMeta {
+    group: "unknown",
+    principle: "unknown",
+    guidance: "Review this diagnostic manually; Slotcar has no registered Tiger Style metadata for it.",
+    effect_family: "unknown",
+};
 
 #[derive(Debug, Clone, Serialize)]
 pub struct Finding {
     pub version: u32,
     pub index: String,
     pub stable_id: String,
+    pub semantic_id: String,
+    pub identity_status: String,
+    pub normalized_snippet_hash: String,
+    pub config_hash: String,
+    pub cache_status: String,
     pub lint: String,
     pub group: String,
     pub severity: String,
@@ -43,6 +56,7 @@ pub struct Finding {
     pub suggestion: Option<String>,
     pub applicability: Option<String>,
     pub principle: String,
+    pub effect_family: String,
     pub crate_name: String,
 }
 
@@ -438,9 +452,21 @@ pub fn lint_meta_map() -> HashMap<&'static str, LintMeta> {
                 group,
                 principle,
                 guidance,
+                effect_family: effect_family_for_group(group),
             })
         })
         .collect()
+}
+
+fn effect_family_for_group(group: &str) -> &'static str {
+    match group {
+        "tigerstyle::purity" => "time",
+        "tigerstyle::concurrency" => "concurrency",
+        "tigerstyle::safety" => "failure",
+        "tigerstyle::structure" => "resource",
+        "tigerstyle::naming" => "unknown",
+        _ => "unknown",
+    }
 }
 
 pub fn finding_version() -> u32 {
@@ -482,7 +508,7 @@ pub fn render_sarif(
             serde_json::json!({
                 "id": lint_name,
                 "shortDescription": { "text": guidance },
-                "properties": { "group": group }
+                "properties": { "group": group, "effectFamily": meta_map.get(lint_name).map(|meta| meta.effect_family).unwrap_or("unknown") }
             })
         })
         .collect();
@@ -503,7 +529,7 @@ pub fn render_sarif(
                         }
                     }
                 }],
-                "properties": { "findingIndex": finding.index, "stableId": finding.stable_id }
+                "properties": { "findingIndex": finding.index, "stableId": finding.stable_id, "semanticId": finding.semantic_id, "effectFamily": finding.effect_family, "cacheStatus": finding.cache_status }
             })
         })
         .collect();
@@ -628,6 +654,21 @@ pub fn render_summary(
     writeln!(&mut summary, "By crate:").map_err(|error| format!("write summary: {error}"))?;
     for (name, count) in &by_crate_sorted {
         writeln!(&mut summary, "  {name:<width$} {count}", width = max_crate_name + WARNING_SEVERITY.len())
+            .map_err(|error| format!("write summary: {error}"))?;
+    }
+
+    let mut by_effect: BTreeMap<&str, usize> = BTreeMap::new();
+    for finding in findings {
+        *by_effect.entry(&finding.effect_family).or_default() += 1;
+    }
+    let mut by_effect_sorted: Vec<_> = by_effect.into_iter().collect();
+    by_effect_sorted.sort_by(|left, right| right.1.cmp(&left.1).then(left.0.cmp(right.0)));
+    let max_effect_name = by_effect_sorted.iter().map(|(name, _)| name.len()).max().unwrap_or(0);
+
+    writeln!(&mut summary).map_err(|error| format!("write summary: {error}"))?;
+    writeln!(&mut summary, "By effect:").map_err(|error| format!("write summary: {error}"))?;
+    for (name, count) in &by_effect_sorted {
+        writeln!(&mut summary, "  {name:<width$} {count}", width = max_effect_name + WARNING_SEVERITY.len())
             .map_err(|error| format!("write summary: {error}"))?;
     }
 
