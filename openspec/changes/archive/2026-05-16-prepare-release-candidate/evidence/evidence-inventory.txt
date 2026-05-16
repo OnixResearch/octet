@@ -1,0 +1,5 @@
+$ find openspec/changes/archive/2026-05-16-prepare-release-candidate/evidence -maxdepth 1 -type f -name "*.txt" -printf "%f\\n" | sort
+evidence-inventory.txt
+release-candidate-review.txt
+release-candidate-smoke.txt
+version-smoke.txt

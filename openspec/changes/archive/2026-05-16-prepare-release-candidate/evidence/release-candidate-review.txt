@@ -1,0 +1,4 @@
+$ review docs/release-candidate.md and smoke evidence before tagging
+input=docs/release-candidate.md and openspec/changes/archive/2026-05-16-prepare-release-candidate/evidence/*.txt
+asserts=pre-tag checklist and receipt only; no tag, publish, sign, or deploy side effects performed
+status=review-ready

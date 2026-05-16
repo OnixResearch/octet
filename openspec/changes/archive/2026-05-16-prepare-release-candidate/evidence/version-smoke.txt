@@ -1,0 +1,6 @@
+$ nix build .#cargo-slotcar --print-out-paths --no-link
+/nix/store/h7vvp1nzllliciykfp6nz1pf17zg6vr9-cargo-slotcar-0.1.0
+$ <cargo-slotcar>/bin/cargo-slotcar --version
+cargo-slotcar 0.1.0
+$ <cargo-slotcar>/bin/cargo-tigerstyle --version
+cargo-slotcar 0.1.0
