@@ -305,6 +305,38 @@ fn assert_transcript_contains_stdout(transcript: &str, stdout: &[u8], label: &st
 }
 
 #[test]
+fn release_operator_smoke_transcript_and_help_cover_operator_surfaces() {
+    let root = repo_root();
+    let transcript_path = root.join("docs/examples/release-operator-smoke/transcript.md");
+    let transcript = fs::read_to_string(&transcript_path).expect("read release smoke transcript");
+
+    let transcript_output = Command::new(cargo_slotcar())
+        .args(["transcript", transcript_path.to_str().expect("transcript path utf8")])
+        .output()
+        .expect("run release smoke transcript validation");
+    assert!(
+        transcript_output.status.success(),
+        "release smoke transcript stderr: {}",
+        String::from_utf8_lossy(&transcript_output.stderr)
+    );
+    let transcript_stdout = String::from_utf8_lossy(&transcript_output.stdout);
+    assert!(transcript_stdout.contains("command_blocks=5"));
+    assert!(transcript_stdout.contains("expected_output_blocks=6"));
+    assert!(transcript_stdout.contains("status=passed"));
+
+    for surface in ["fingerprint", "migrate", "effect-summary", "lint-cache", "transcript"] {
+        assert!(transcript.contains(surface), "release smoke transcript missing {surface}");
+    }
+
+    let help_output = Command::new(cargo_slotcar()).arg("--help").output().expect("run root help");
+    assert!(help_output.status.success(), "root help should succeed");
+    let help_stdout = String::from_utf8_lossy(&help_output.stdout);
+    for surface in ["fingerprint", "migrate", "effect-summary", "lint-cache", "transcript"] {
+        assert!(help_stdout.contains(surface), "root help missing {surface}");
+    }
+}
+
+#[test]
 fn fingerprint_review_manifest_is_stable_and_sorted() {
     let temp = tempfile::tempdir().expect("create tempdir");
     write_consumer_fixture(temp.path());

@@ -248,33 +248,27 @@ documented.
 
 ### Requirement: README Landing Page
 
-The repo MUST keep `README.md` as a newcomer landing page instead of the only
-full manual.
+The repo MUST keep `README.md` as a newcomer landing page instead of the only full manual.
 
 That landing page MUST, near the top of the file:
 
 - state what tigerstyle is
-- show the first-class consumer run path with `cargo tigerstyle check` and the
-  matching `nix run ...#cargo-tigerstyle -- check` form
-- link to deeper docs by audience instead of embedding every rollout detail in
-  the README itself
-- summarize the current naming surface well enough that a new reader can tell
-  the project name, binary name, command name, and lint/config namespaces apart
+- show the first-class consumer run path with `cargo tigerstyle check` and the matching `nix run ...#cargo-tigerstyle -- check` form
+- link to deeper docs by audience instead of embedding every rollout detail in the README itself
+- identify the release-critical operator surfaces for `fingerprint`, `migrate`, effect-summary output, lint-cache behavior, and executable transcript examples
+- point operators to one deterministic smoke transcript or docs-example gate that covers those release-critical surfaces together
 
-#### Scenario: New visitor finds the first-class run path from README
+#### Scenario: New user chooses an install/run path [r[readme-landing-page.scenario.new-user-chooses-an-install-run-path]]
 
-- GIVEN a new reader opens `README.md`
-- WHEN they look for the supported way to run tigerstyle in a consumer workspace
-- THEN they can find `cargo tigerstyle check`
-- AND they can find the matching Nix entry point
-- AND they do not need to read Aspen archive notes first
+- GIVEN a new user opens `README.md`
+- WHEN they read the first setup section
+- THEN they can choose between the installed `cargo tigerstyle check` path and the `nix run ...#cargo-tigerstyle -- check` path without reading archive specs
 
-#### Scenario: README routes readers to deeper docs by audience
+#### Scenario: Operator finds release-critical surfaces [r[readme-landing-page.scenario.operator-finds-release-critical-surfaces]]
 
-- GIVEN a reader arrives at `README.md`
-- WHEN they need consumer, lint-reference, or contributor details
-- THEN the README links them to the matching deeper docs page
-- AND it does not force every audience through one giant mixed document
+- GIVEN an operator is preparing a release smoke run
+- WHEN they read `README.md` and command help
+- THEN they can find the `fingerprint`, `migrate`, effect-summary, lint-cache, and executable transcript surfaces from the release-facing docs/help path
 
 ### Requirement: Audience-Split Documentation Set
 
@@ -662,4 +656,10 @@ The system MUST support executable documentation transcripts for Slotcar example
 - GIVEN the same transcript, fixture, command, and tool revision are run twice
 - WHEN the transcript runner writes its artifact header
 - THEN the transcript hash fields are identical across runs
+
+#### Scenario: Release smoke transcript covers operator surfaces [r[executable-documentation-transcripts.scenario.release-smoke-transcript-covers-operator-surfaces]]
+
+- GIVEN an operator wants one deterministic release-readiness smoke artifact
+- WHEN they run the documented smoke transcript or docs-example gate
+- THEN the saved transcript output names `fingerprint`, `migrate`, effect-summary, lint-cache, and executable transcript behavior in one bounded artifact
 

@@ -24,6 +24,16 @@ pub enum CommandArgs {
     Fingerprint(FingerprintArgs),
     Migrate(MigrateArgs),
     Transcript(TranscriptArgs),
+    Help(HelpTopic),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HelpTopic {
+    Root,
+    Check,
+    Fingerprint,
+    Migrate,
+    Transcript,
 }
 
 #[derive(Debug)]
@@ -96,16 +106,70 @@ pub fn parse(argv: impl IntoIterator<Item = OsString>) -> Result<CommandArgs, St
     }
 
     match argv.first().map(String::as_str) {
+        Some("--help" | "-h" | "help") => Ok(CommandArgs::Help(HelpTopic::Root)),
+        Some("check") if wants_help(&argv[1..]) => Ok(CommandArgs::Help(HelpTopic::Check)),
         Some("check") => parse_check(&argv[1..], command_line).map(CommandArgs::Check),
+        Some("fingerprint") if wants_help(&argv[1..]) => Ok(CommandArgs::Help(HelpTopic::Fingerprint)),
         Some("fingerprint") => parse_fingerprint(&argv[1..]).map(CommandArgs::Fingerprint),
+        Some("migrate") if wants_help(&argv[1..]) => Ok(CommandArgs::Help(HelpTopic::Migrate)),
         Some("migrate") => parse_migrate(&argv[1..]).map(CommandArgs::Migrate),
+        Some("transcript") if wants_help(&argv[1..]) => Ok(CommandArgs::Help(HelpTopic::Transcript)),
         Some("transcript") => parse_transcript(&argv[1..]).map(CommandArgs::Transcript),
         Some(other) => {
             Err(format!("unknown subcommand `{other}`; expected `check`, `fingerprint`, `migrate`, or `transcript`"))
         }
-        None => Err("missing subcommand; expected `check` or `fingerprint`".to_owned()),
+        None => Err("missing subcommand; expected `check`, `fingerprint`, `migrate`, or `transcript`".to_owned()),
     }
 }
+
+fn wants_help(args: &[String]) -> bool {
+    matches!(args.first().map(String::as_str), Some("--help" | "-h" | "help"))
+}
+
+pub fn help_text(topic: HelpTopic) -> &'static str {
+    match topic {
+        HelpTopic::Root => ROOT_HELP,
+        HelpTopic::Check => CHECK_HELP,
+        HelpTopic::Fingerprint => FINGERPRINT_HELP,
+        HelpTopic::Migrate => MIGRATE_HELP,
+        HelpTopic::Transcript => TRANSCRIPT_HELP,
+    }
+}
+
+const ROOT_HELP: &str = "slotcar operator commands
+
+Usage:
+  cargo slotcar check [SCOPE] [-- CARGO_CHECK_ARGS]
+  cargo slotcar fingerprint [--check|--update|--diff] [PATHS...]
+  cargo slotcar migrate <start|status|apply-safe> [--manifest PATH]
+  cargo slotcar transcript <PATH>
+
+Release smoke surfaces: fingerprint identity review, migrate manifests, check --cache lint-cache status, effect-summary output in summaries/artifacts, and executable transcript validation.
+
+Nix: nix run path:/path/to/slotcar#cargo-tigerstyle -- check
+";
+
+const CHECK_HELP: &str = "cargo slotcar check
+
+Options: --output-format human|json|sarif, --artifact-dir PATH, --baseline PATH, --write-baseline PATH, --cache.
+
+Artifacts include summary.txt effect-summary output, findings JSON/SARIF, and cache_status fields when --cache enables the lint-cache.
+";
+
+const FINGERPRINT_HELP: &str = "cargo slotcar fingerprint
+
+Modes: --check, --write, --update, --diff. Use --review-manifest PATH to save review records. Fingerprint receipts use stable semantic identity and BLAKE3 hashes.
+";
+
+const MIGRATE_HELP: &str = "cargo slotcar migrate
+
+Subcommands: start, status, apply-safe. Migration manifests are deterministic and safe-reviewable before applying.
+";
+
+const TRANSCRIPT_HELP: &str = "cargo slotcar transcript <PATH>
+
+Validates executable transcript command blocks and expected-output assertions for docs-example and release smoke artifacts.
+";
 
 fn parse_check(args: &[String], command_line: String) -> Result<CheckArgs, String> {
     let mut scope_args = Vec::new();
@@ -354,6 +418,7 @@ mod tests {
 
     use super::CommandArgs;
     use super::FingerprintMode;
+    use super::HelpTopic;
     use super::format_command_line;
     use super::parse;
 
@@ -381,6 +446,15 @@ mod tests {
             }
             other => panic!("expected fingerprint args, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn help_parse_accepts_root_and_subcommand_help() {
+        let root = parse(["cargo", "slotcar", "--help"].map(OsString::from)).expect("parse root help");
+        assert!(matches!(root, CommandArgs::Help(HelpTopic::Root)));
+
+        let check = parse(["cargo", "slotcar", "check", "--help"].map(OsString::from)).expect("parse check help");
+        assert!(matches!(check, CommandArgs::Help(HelpTopic::Check)));
     }
 
     #[test]

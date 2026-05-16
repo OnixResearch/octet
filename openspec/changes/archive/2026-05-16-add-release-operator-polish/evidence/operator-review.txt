@@ -1,0 +1,4 @@
+Human/oracle checkpoint: command=review README/help and smoke transcript as a release operator
+input=README.md, command help output, and docs/examples/release-operator-smoke/transcript.md
+asserts=a release operator can find fingerprint, migrate, effect-summary, cache/lint-cache, and transcript surfaces without reading archived OpenSpec changes
+result=accepted; README exposes install/run paths and operator workflow, help exposes root/subcommand surface descriptions, and the release smoke transcript validates the same surface set through the docs-example gate.
