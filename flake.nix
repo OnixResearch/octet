@@ -994,6 +994,9 @@ MAIN
           fingerprintSourceScannerDocs = mkFingerprintDocsCheck
             "tigerstyle-fingerprint-source-scanner-docs"
             "fingerprint_source_scanner_docs_fixture_matches_transcript";
+          releaseOperatorSmokeDocs = mkFingerprintDocsCheck
+            "tigerstyle-release-operator-smoke-docs"
+            "release_operator_smoke_transcript_and_help_cover_operator_surfaces";
           fingerprintDocsDownstreamSmokeCheck = pkgs.runCommand "tigerstyle-fingerprint-docs-downstream-smoke-check" { } ''
             ${fingerprintDocsDownstreamSmoke}/bin/tigerstyle-fingerprint-docs-downstream-smoke
             mkdir -p "$out"
@@ -1052,6 +1055,7 @@ MAIN
           fingerprint-warning-summary-docs = fingerprintWarningSummaryDocs;
           fingerprint-json-output-docs = fingerprintJsonOutputDocs;
           fingerprint-source-scanner-docs = fingerprintSourceScannerDocs;
+          release-operator-smoke-docs = releaseOperatorSmokeDocs;
 
           fingerprint-docs-downstream-smoke = fingerprintDocsDownstreamSmokeCheck;
           fingerprint-docs-review-gate-docs = fingerprintDocsReviewGateDocsCheck;
@@ -1062,6 +1066,7 @@ MAIN
             test -d ${fingerprintWarningSummaryDocs}
             test -d ${fingerprintJsonOutputDocs}
             test -d ${fingerprintSourceScannerDocs}
+            test -d ${releaseOperatorSmokeDocs}
             test -d ${fingerprintDocsDownstreamSmokeCheck}
             test -d ${fingerprintDocsReviewGateDocsCheck}
             mkdir -p "$out"

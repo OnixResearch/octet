@@ -26,5 +26,9 @@ fn try_main() -> Result<i32, String> {
         cli::CommandArgs::Fingerprint(args) => fingerprint::run(args),
         cli::CommandArgs::Migrate(args) => migrate::run(args),
         cli::CommandArgs::Transcript(args) => transcript::run(args),
+        cli::CommandArgs::Help(topic) => {
+            println!("{}", cli::help_text(topic));
+            Ok(0)
+        }
     }
 }

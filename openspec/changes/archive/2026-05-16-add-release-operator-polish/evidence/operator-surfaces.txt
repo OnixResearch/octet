@@ -1,0 +1,35 @@
+$ grep -nE "fingerprint|migrate|effect-summary|lint-cache|transcript" README.md docs/examples/release-operator-smoke/transcript.md
+README.md:75:  effect-summary output in `summary.txt`, sidecar findings, and lint-cache
+README.md:77:- `cargo tigerstyle fingerprint --check --review-manifest artifacts/fingerprint-review.json src/lib.rs`
+README.md:78:  verifies semantic identity fingerprints with BLAKE3-backed review records.
+README.md:79:- `cargo tigerstyle migrate start --manifest artifacts/slotcar-migration.json`
+README.md:81:- `cargo tigerstyle transcript docs/examples/release-operator-smoke/transcript.md`
+README.md:82:  validates executable transcript command blocks and expected-output assertions.
+README.md:90:The smoke transcript lives at
+README.md:91:`docs/examples/release-operator-smoke/transcript.md`.
+docs/examples/release-operator-smoke/transcript.md:1:# Release operator smoke transcript
+docs/examples/release-operator-smoke/transcript.md:3:This executable transcript is the release-facing smoke index for operator surfaces that should be discoverable from README/help before a release.
+docs/examples/release-operator-smoke/transcript.md:5:```slotcar-transcript
+docs/examples/release-operator-smoke/transcript.md:7:=> effect-summary output is written in artifacts/slotcar/summary.txt
+docs/examples/release-operator-smoke/transcript.md:8:=> lint-cache status is recorded per finding as cache_status=miss|hit|bypassed
+docs/examples/release-operator-smoke/transcript.md:10:$ cargo tigerstyle fingerprint --check --review-manifest artifacts/fingerprint-review.json src/lib.rs
+docs/examples/release-operator-smoke/transcript.md:11:=> fingerprint records stable semantic identity and BLAKE3 review hashes
+docs/examples/release-operator-smoke/transcript.md:13:$ cargo tigerstyle migrate start --manifest artifacts/slotcar-migration.json
+docs/examples/release-operator-smoke/transcript.md:14:=> migrate writes a deterministic manifest for safe operator review
+docs/examples/release-operator-smoke/transcript.md:16:$ cargo tigerstyle transcript docs/examples/release-operator-smoke/transcript.md
+docs/examples/release-operator-smoke/transcript.md:17:=> executable transcript validation checks command blocks and expected-output assertions
+docs/examples/release-operator-smoke/transcript.md:20:=> release smoke transcript is covered by the docs-example gate
+
+$ nix run .#cargo-slotcar -- check --help | grep -nE 'fingerprint|migrate|effect-summary|lint-cache|transcript|cache'
+3:Options: --output-format human|json|sarif, --artifact-dir PATH, --baseline PATH, --write-baseline PATH, --cache.
+5:Artifacts include summary.txt effect-summary output, findings JSON/SARIF, and cache_status fields when --cache enables the lint-cache.
+
+$ nix run .#cargo-slotcar -- fingerprint --help | grep -nE 'fingerprint|migrate|effect-summary|lint-cache|transcript|cache'
+1:cargo slotcar fingerprint
+
+$ nix run .#cargo-slotcar -- migrate --help | grep -nE 'fingerprint|migrate|effect-summary|lint-cache|transcript|cache'
+1:cargo slotcar migrate
+
+$ nix run .#cargo-slotcar -- transcript --help | grep -nE 'fingerprint|migrate|effect-summary|lint-cache|transcript|cache'
+1:cargo slotcar transcript <PATH>
+3:Validates executable transcript command blocks and expected-output assertions for docs-example and release smoke artifacts.

@@ -1,0 +1,5 @@
+$ nix run .#cargo-slotcar -- transcript docs/examples/release-operator-smoke/transcript.md
+slotcar transcript docs/examples/release-operator-smoke/transcript.md command_blocks=5 expected_output_blocks=6 status=passed
+
+$ nix build .#checks.x86_64-linux.release-operator-smoke-docs -L --no-link
+exit=0

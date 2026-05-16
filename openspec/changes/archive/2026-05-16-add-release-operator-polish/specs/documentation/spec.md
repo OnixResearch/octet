@@ -1,6 +1,6 @@
 ## MODIFIED Requirements
 
-### Requirement: README Landing Page [r[readme-landing-page]]
+### Requirement: README Landing Page
 
 The repo MUST keep `README.md` as a newcomer landing page instead of the only full manual.
 

@@ -22,16 +22,22 @@ cargo_check_args = ["--lib"]
 
 3. Run slotcar through the first-class runner.
 
-Nix:
+Installed cargo subcommand:
 
 ```bash
-nix run path:/path/to/slotcar#cargo-slotcar -- check
+cargo tigerstyle check
+```
+
+Nix, without installing into the consumer toolchain:
+
+```bash
+nix run path:/path/to/slotcar#cargo-tigerstyle -- check
 ```
 
 Structured output and reviewable sidecars are first-class too:
 
 ```bash
-cargo slotcar check --output-format sarif --artifact-dir artifacts/slotcar
+cargo tigerstyle check --output-format sarif --artifact-dir artifacts/slotcar
 ```
 
 Exit codes stay stable for automation:
@@ -60,6 +66,30 @@ nix run .#slotcar-standards -- --help
 Start with `docs/consumer-guide.md` for the full consumer setup and rollout
 path.
 
+## Release/operator smoke path
+
+For release readiness, operators should be able to find the critical surfaces from
+this README plus command help, without reading archived OpenSpec changes:
+
+- `cargo tigerstyle check --cache --artifact-dir artifacts/slotcar` records
+  effect-summary output in `summary.txt`, sidecar findings, and lint-cache
+  `cache_status` fields.
+- `cargo tigerstyle fingerprint --check --review-manifest artifacts/fingerprint-review.json src/lib.rs`
+  verifies semantic identity fingerprints with BLAKE3-backed review records.
+- `cargo tigerstyle migrate start --manifest artifacts/slotcar-migration.json`
+  writes a deterministic migration manifest before safe application.
+- `cargo tigerstyle transcript docs/examples/release-operator-smoke/transcript.md`
+  validates executable transcript command blocks and expected-output assertions.
+
+One bounded smoke artifact covers those surfaces together:
+
+```bash
+nix build .#checks.x86_64-linux.docs-examples --no-link -L
+```
+
+The smoke transcript lives at
+`docs/examples/release-operator-smoke/transcript.md`.
+
 ## Naming map
 
 | Surface | Canonical name |
@@ -69,7 +99,7 @@ path.
 | GitHub repo slug | `slotcar-rs` |
 | crate and lint package | `slotcar` |
 | lint runner binary | `cargo-slotcar` |
-| lint runner command | `cargo slotcar check` |
+| lint runner command | `cargo tigerstyle check` (`cargo slotcar check` compatibility alias) |
 | standards checker binary | `slotcar-standards` |
 | standards policy commands | `slotcar-policy-export`, `slotcar-policy-validate` |
 | lint attrs and domain groups | `slotcar::<lint>` and `slotcar::<domain>` |
