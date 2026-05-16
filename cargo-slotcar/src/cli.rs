@@ -22,6 +22,8 @@ impl OutputFormat {
 pub enum CommandArgs {
     Check(CheckArgs),
     Fingerprint(FingerprintArgs),
+    Migrate(MigrateArgs),
+    Transcript(TranscriptArgs),
 }
 
 #[derive(Debug)]
@@ -32,6 +34,7 @@ pub struct CheckArgs {
     pub artifact_dir: Option<PathBuf>,
     pub baseline: Option<PathBuf>,
     pub write_baseline: Option<PathBuf>,
+    pub cache: bool,
     pub command_line: String,
 }
 
@@ -49,6 +52,27 @@ pub struct FingerprintArgs {
     pub paths: Vec<PathBuf>,
     pub output_format: OutputFormat,
     pub review_manifest: Option<PathBuf>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MigrateMode {
+    Start,
+    Status,
+    ApplySafe,
+}
+
+#[derive(Debug)]
+pub struct MigrateArgs {
+    pub mode: MigrateMode,
+    pub profile: Option<String>,
+    pub output_format: OutputFormat,
+    pub manifest: PathBuf,
+}
+
+#[derive(Debug)]
+pub struct TranscriptArgs {
+    pub path: PathBuf,
+    pub output_format: OutputFormat,
 }
 
 pub fn parse(argv: impl IntoIterator<Item = OsString>) -> Result<CommandArgs, String> {
@@ -74,7 +98,11 @@ pub fn parse(argv: impl IntoIterator<Item = OsString>) -> Result<CommandArgs, St
     match argv.first().map(String::as_str) {
         Some("check") => parse_check(&argv[1..], command_line).map(CommandArgs::Check),
         Some("fingerprint") => parse_fingerprint(&argv[1..]).map(CommandArgs::Fingerprint),
-        Some(other) => Err(format!("unknown subcommand `{other}`; expected `check` or `fingerprint`")),
+        Some("migrate") => parse_migrate(&argv[1..]).map(CommandArgs::Migrate),
+        Some("transcript") => parse_transcript(&argv[1..]).map(CommandArgs::Transcript),
+        Some(other) => {
+            Err(format!("unknown subcommand `{other}`; expected `check`, `fingerprint`, `migrate`, or `transcript`"))
+        }
         None => Err("missing subcommand; expected `check` or `fingerprint`".to_owned()),
     }
 }
@@ -86,6 +114,7 @@ fn parse_check(args: &[String], command_line: String) -> Result<CheckArgs, Strin
     let mut artifact_dir = None;
     let mut baseline = None;
     let mut write_baseline = None;
+    let mut cache = false;
     let mut index = 0;
 
     while index < args.len() {
@@ -115,6 +144,9 @@ fn parse_check(args: &[String], command_line: String) -> Result<CheckArgs, Strin
             index += 2;
         } else if let Some(value) = arg.strip_prefix("--baseline=") {
             baseline = Some(PathBuf::from(value));
+            index += 1;
+        } else if arg == "--cache" {
+            cache = true;
             index += 1;
         } else if arg == "--write-baseline" {
             let value = args.get(index + 1).ok_or_else(|| "missing value after `--write-baseline`".to_owned())?;
@@ -147,6 +179,7 @@ fn parse_check(args: &[String], command_line: String) -> Result<CheckArgs, Strin
         artifact_dir,
         baseline,
         write_baseline,
+        cache,
         command_line,
     })
 }
@@ -211,6 +244,81 @@ fn parse_fingerprint(args: &[String]) -> Result<FingerprintArgs, String> {
     })
 }
 
+fn parse_migrate(args: &[String]) -> Result<MigrateArgs, String> {
+    let mode = match args.first().map(String::as_str) {
+        Some("start") => MigrateMode::Start,
+        Some("status") => MigrateMode::Status,
+        Some("apply-safe") => MigrateMode::ApplySafe,
+        Some(other) => {
+            return Err(format!("unknown migrate subcommand `{other}`; expected `start`, `status`, or `apply-safe`"));
+        }
+        None => return Err("missing migrate subcommand; expected `start`, `status`, or `apply-safe`".to_owned()),
+    };
+    let mut profile = None;
+    let mut output_format = OutputFormat::Human;
+    let mut manifest = PathBuf::from(".slotcar/migrations/slotcar-migration.json");
+    let mut index = 1;
+    while index < args.len() {
+        let arg = &args[index];
+        if arg == "--profile" {
+            profile = Some(args.get(index + 1).ok_or_else(|| "missing value after `--profile`".to_owned())?.clone());
+            index += 2;
+        } else if let Some(value) = arg.strip_prefix("--profile=") {
+            profile = Some(value.to_owned());
+            index += 1;
+        } else if arg == "--format" || arg == "--output-format" {
+            output_format =
+                parse_output_format(args.get(index + 1).ok_or_else(|| format!("missing value after `{arg}`"))?)?;
+            index += 2;
+        } else if let Some(value) = arg.strip_prefix("--format=").or_else(|| arg.strip_prefix("--output-format=")) {
+            output_format = parse_output_format(value)?;
+            index += 1;
+        } else if arg == "--manifest" {
+            manifest = PathBuf::from(args.get(index + 1).ok_or_else(|| "missing value after `--manifest`".to_owned())?);
+            index += 2;
+        } else if let Some(value) = arg.strip_prefix("--manifest=") {
+            manifest = PathBuf::from(value);
+            index += 1;
+        } else {
+            return Err(format!("unsupported migrate argument `{arg}`"));
+        }
+    }
+    Ok(MigrateArgs {
+        mode,
+        profile,
+        output_format,
+        manifest,
+    })
+}
+
+fn parse_transcript(args: &[String]) -> Result<TranscriptArgs, String> {
+    let mut path = None;
+    let mut output_format = OutputFormat::Human;
+    let mut index = 0;
+    while index < args.len() {
+        let arg = &args[index];
+        if arg == "--output-format" || arg == "--format" {
+            output_format =
+                parse_output_format(args.get(index + 1).ok_or_else(|| format!("missing value after `{arg}`"))?)?;
+            index += 2;
+        } else if let Some(value) = arg.strip_prefix("--output-format=").or_else(|| arg.strip_prefix("--format=")) {
+            output_format = parse_output_format(value)?;
+            index += 1;
+        } else if arg.starts_with('-') {
+            return Err(format!("unsupported transcript argument `{arg}`"));
+        } else if path.is_none() {
+            path = Some(PathBuf::from(arg));
+            index += 1;
+        } else {
+            return Err(format!("unexpected extra transcript path `{arg}`"));
+        }
+    }
+    Ok(TranscriptArgs {
+        path: path.ok_or_else(|| "missing transcript path".to_owned())?,
+        output_format,
+    })
+}
+
 fn parse_output_format(value: &str) -> Result<OutputFormat, String> {
     match value {
         "human" => Ok(OutputFormat::Human),
@@ -258,7 +366,7 @@ mod tests {
                 assert_eq!(args.mode, FingerprintMode::Check);
                 assert_eq!(args.paths.len(), 1);
             }
-            CommandArgs::Check(_) => panic!("expected fingerprint args"),
+            other => panic!("expected fingerprint args, got {other:?}"),
         }
     }
 
@@ -271,7 +379,7 @@ mod tests {
                 assert_eq!(args.mode, FingerprintMode::Check);
                 assert_eq!(args.paths.len(), 1);
             }
-            CommandArgs::Check(_) => panic!("expected fingerprint args"),
+            other => panic!("expected fingerprint args, got {other:?}"),
         }
     }
 

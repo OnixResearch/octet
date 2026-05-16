@@ -41,6 +41,8 @@ struct BaselineFile<'a> {
 #[derive(Debug, Serialize)]
 struct BaselineFinding<'a> {
     stable_id: &'a str,
+    semantic_id: &'a str,
+    identity_status: &'a str,
     lint: &'a str,
     group: &'a str,
     severity: &'a str,
@@ -68,6 +70,8 @@ pub fn write_baseline(path: &Path, findings: &[Finding], metadata: &RunMetadata)
         .iter()
         .map(|finding| BaselineFinding {
             stable_id: &finding.stable_id,
+            semantic_id: &finding.semantic_id,
+            identity_status: &finding.identity_status,
             lint: &finding.lint,
             group: &finding.group,
             severity: &finding.severity,

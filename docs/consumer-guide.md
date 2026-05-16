@@ -108,8 +108,11 @@ cargo slotcar check --output-format json --write-baseline slotcar-baseline.json
 cargo slotcar check --output-format json --baseline slotcar-baseline.json
 ```
 
-The baseline file records the current stable finding IDs plus enough finding
-context for review. Future `--baseline` runs compare the current finding set to
+The baseline file records the current semantic/stable finding IDs plus enough
+finding context for review. Semantic IDs are derived from the lint, crate,
+message/suggestion, normalized snippet hash when available, config hash, and
+Slotcar tool version; file paths remain display metadata so simple renames do not
+create fresh debt. Future `--baseline` runs compare the current finding set to
 that accepted ID set. Fully accepted warning-only findings keep exit `0`; any new
 unaccepted stable ID fails the run with exit `1` and records `baseline` counts in
 `status.json` / SARIF properties. Stale accepted IDs are reported so teams can
@@ -121,7 +124,41 @@ Exit codes are stable for automation:
 - `1` error-level lint findings
 - `2` integration/configuration failures, including underlying `cargo check` failures
 
-When `--artifact-dir` is set, the runner writes `command.txt`, `status.json`, `summary.txt`, and the selected structured-output mirror (`results.jsonl` or `results.sarif`). JSON findings carry a stable `stable_id`, and `status.json`, SARIF run properties, baseline evaluations, and stderr summaries include replay metadata such as the toolchain plus config/profile hashes. Downstream tools can compare runs without scraping ambient stderr.
+When `--artifact-dir` is set, the runner writes `command.txt`, `status.json`, `summary.txt`, and the selected structured-output mirror (`results.jsonl` or `results.sarif`). JSON findings carry `stable_id`, `semantic_id`, `identity_status`, `normalized_snippet_hash`, `effect_family`, and `cache_status`; `status.json`, SARIF run properties, baseline evaluations, and stderr summaries include replay metadata such as the toolchain plus config/profile hashes. Downstream tools can compare runs without scraping ambient stderr.
+
+### 3a. Plan structured migrations
+
+Use the migration manifest commands when rolling out a new profile or policy set:
+
+```bash
+cargo slotcar migrate start --profile starter --manifest .slotcar/migrations/starter.json
+cargo slotcar migrate status --manifest .slotcar/migrations/starter.json
+cargo slotcar migrate apply-safe --manifest .slotcar/migrations/starter.json
+```
+
+`start` writes a deterministic manifest with config and crate-graph hashes.
+`status` reports accepted/fixed/deferred/manual/unresolved counts. `apply-safe`
+only records safe-apply state and preserves manual-review buckets; code edits
+still flow through the existing machine-applicable cargo-fix rails.
+
+### 3b. Verify executable documentation transcripts
+
+Markdown examples can carry fenced transcript blocks with `$ ` command lines and
+`=> ` expected-output assertions:
+
+```slotcar-transcript
+$ cargo slotcar check --output-format json
+=> {"version":1
+```
+
+Verify a document with:
+
+```bash
+cargo slotcar transcript docs/examples/my-transcript.md --format json
+```
+
+The transcript report is content-addressed with `transcript_hash` so docs can be
+stored as deterministic regression evidence.
 
 ### 4. Tune rollout controls in `dylint.toml`
 

@@ -1988,6 +1988,20 @@ fn cargo_compiler_message_with_level(
     )
 }
 
+fn cargo_compiler_message_with_source_text(
+    target_name: &str,
+    lint_name: &str,
+    message: &str,
+    file: &str,
+    line: u32,
+    col: u32,
+    source_text: &str,
+) -> String {
+    format!(
+        r#"{{"reason":"compiler-message","package_id":"path+file:///fake#{target_name}@0.1.0","manifest_path":"/fake/Cargo.toml","target":{{"kind":["lib"],"crate_types":["lib"],"name":"{target_name}","src_path":"/fake/src/lib.rs","edition":"2024","doc":true,"doctest":true,"test":true}},"message":{{"$message_type":"diagnostic","message":"{message}","code":{{"code":"{lint_name}","explanation":null}},"level":"warning","spans":[{{"file_name":"{file}","byte_start":0,"byte_end":1,"line_start":{line},"line_end":{line},"column_start":{col},"column_end":{col},"is_primary":true,"text":[{{"text":"{source_text}","highlight_start":{col},"highlight_end":{col}}}],"label":null,"suggested_replacement":null,"suggestion_applicability":null,"expansion":null}}],"children":[],"rendered":"warning[{lint_name}]: {message}\n --> {file}:{line}:{col}\n"}}}}"#
+    )
+}
+
 fn cargo_build_finished(success: bool) -> String {
     format!(r#"{{"reason":"build-finished","success":{success}}}"#)
 }
@@ -2233,6 +2247,305 @@ fn structured_json_output_contains_all_required_fields() {
 
     assert_eq!(findings[2]["lint"], "function_length");
     assert_eq!(findings[2]["group"], "tigerstyle::structure");
+}
+
+#[test]
+fn semantic_identity_survives_file_rename() {
+    let fixture = ConsumerFixture::new("semantic-identity-rename", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
+    let original = vec![
+        cargo_compiler_artifact("aspen-core", false),
+        cargo_compiler_message("aspen-core", "no_unwrap", "use of `.unwrap()`", "src/old_name.rs", 10, 5, None),
+        cargo_build_finished(true),
+    ];
+    let renamed = vec![
+        cargo_compiler_artifact("aspen-core", false),
+        cargo_compiler_message("aspen-core", "no_unwrap", "use of `.unwrap()`", "src/new_name.rs", 10, 5, None),
+        cargo_build_finished(true),
+    ];
+
+    let first = run_with_output_format(&fixture, JSON_OUTPUT_FORMAT, &original, EXIT_CODE_SUCCESS);
+    let second = run_with_output_format(&fixture, JSON_OUTPUT_FORMAT, &renamed, EXIT_CODE_SUCCESS);
+    assert_eq!(first.status.code(), Some(EXIT_CODE_SUCCESS));
+    assert_eq!(second.status.code(), Some(EXIT_CODE_SUCCESS));
+
+    let first_finding: serde_json::Value =
+        serde_json::from_str(String::from_utf8_lossy(&first.stdout).lines().next().expect("first finding"))
+            .expect("json");
+    let second_finding: serde_json::Value =
+        serde_json::from_str(String::from_utf8_lossy(&second.stdout).lines().next().expect("second finding"))
+            .expect("json");
+    assert_eq!(first_finding["semantic_id"], second_finding["semantic_id"]);
+    assert_eq!(first_finding["stable_id"], second_finding["stable_id"]);
+    assert_eq!(first_finding["identity_status"], "unsupported");
+    assert_eq!(first_finding["normalized_snippet_hash"], "unsupported");
+}
+
+#[test]
+fn json_findings_report_effect_family_cache_status_and_unknown_lints() {
+    let fixture = ConsumerFixture::new("effect-cache-output", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
+    let lines = vec![
+        cargo_compiler_artifact("aspen-core", false),
+        cargo_compiler_message("aspen-core", "no_unwrap", "use of `.unwrap()`", "src/lib.rs", 10, 5, None),
+        cargo_compiler_message("aspen-core", "mystery_lint", "unknown diagnostic", "src/lib.rs", 11, 5, None),
+        cargo_build_finished(true),
+    ];
+    let output =
+        run_with_check_args(&fixture, &["--output-format", JSON_OUTPUT_FORMAT, "--cache"], &lines, EXIT_CODE_SUCCESS);
+    assert_eq!(output.status.code(), Some(EXIT_CODE_SUCCESS));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let findings: Vec<serde_json::Value> =
+        stdout.lines().map(|line| serde_json::from_str(line).expect("parse JSON finding")).collect();
+    assert_eq!(findings[0]["effect_family"], "failure");
+    assert_eq!(findings[0]["cache_status"], "bypassed");
+    assert_eq!(findings[1]["lint"], "mystery_lint");
+    assert_eq!(findings[1]["group"], "unknown");
+    assert_eq!(findings[1]["effect_family"], "unknown");
+}
+
+#[test]
+fn human_summary_aggregates_by_effect_family() {
+    let fixture = ConsumerFixture::new("effect-summary", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
+    let output = run_with_output_format(&fixture, "human", &three_finding_json_lines(), EXIT_CODE_SUCCESS);
+    assert_eq!(output.status.code(), Some(EXIT_CODE_SUCCESS));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let summary = trailing_summary(&stderr);
+    assert!(summary.contains("By effect:"), "summary should include effect aggregation: {summary}");
+    assert!(summary.contains("failure"), "summary should include failure effect: {summary}");
+    assert!(summary.contains("resource"), "summary should include resource effect: {summary}");
+}
+
+#[test]
+fn cache_uses_content_identity_and_bypasses_unsupported_inputs() {
+    let fixture = ConsumerFixture::new("content-cache", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
+    let computed = vec![
+        cargo_compiler_artifact("aspen-core", false),
+        cargo_compiler_message_with_source_text(
+            "aspen-core",
+            "no_unwrap",
+            "use of `.unwrap()`",
+            "src/lib.rs",
+            10,
+            5,
+            "let value = input.unwrap();",
+        ),
+        cargo_build_finished(true),
+    ];
+
+    let first = run_with_check_args(
+        &fixture,
+        &["--output-format", JSON_OUTPUT_FORMAT, "--cache"],
+        &computed,
+        EXIT_CODE_SUCCESS,
+    );
+    assert_eq!(first.status.code(), Some(EXIT_CODE_SUCCESS));
+    let first_finding: serde_json::Value =
+        serde_json::from_str(String::from_utf8_lossy(&first.stdout).lines().next().expect("first finding"))
+            .expect("json");
+    assert_eq!(first_finding["identity_status"], "computed");
+    assert_eq!(first_finding["cache_status"], "miss");
+
+    let second = run_with_check_args(
+        &fixture,
+        &["--output-format", JSON_OUTPUT_FORMAT, "--cache"],
+        &computed,
+        EXIT_CODE_SUCCESS,
+    );
+    assert_eq!(second.status.code(), Some(EXIT_CODE_SUCCESS));
+    let second_finding: serde_json::Value =
+        serde_json::from_str(String::from_utf8_lossy(&second.stdout).lines().next().expect("second finding"))
+            .expect("json");
+    assert_eq!(second_finding["cache_status"], "hit");
+
+    write_file(&fixture.repo.join("dylint.toml"), "[tigerstyle]\n# changed config\n");
+    let changed_config = run_with_check_args(
+        &fixture,
+        &["--output-format", JSON_OUTPUT_FORMAT, "--cache"],
+        &computed,
+        EXIT_CODE_SUCCESS,
+    );
+    assert_eq!(changed_config.status.code(), Some(EXIT_CODE_SUCCESS));
+    let changed_finding: serde_json::Value =
+        serde_json::from_str(String::from_utf8_lossy(&changed_config.stdout).lines().next().expect("changed finding"))
+            .expect("json");
+    assert_eq!(changed_finding["cache_status"], "miss");
+    assert_ne!(changed_finding["semantic_id"], first_finding["semantic_id"]);
+
+    let unsupported = vec![
+        cargo_compiler_artifact("aspen-core", false),
+        cargo_compiler_message("aspen-core", "no_unwrap", "use of `.unwrap()`", "src/lib.rs", 10, 5, None),
+        cargo_build_finished(true),
+    ];
+    let bypass = run_with_check_args(
+        &fixture,
+        &["--output-format", JSON_OUTPUT_FORMAT, "--cache"],
+        &unsupported,
+        EXIT_CODE_SUCCESS,
+    );
+    assert_eq!(bypass.status.code(), Some(EXIT_CODE_SUCCESS));
+    let bypass_finding: serde_json::Value =
+        serde_json::from_str(String::from_utf8_lossy(&bypass.stdout).lines().next().expect("bypass finding"))
+            .expect("json");
+    assert_eq!(bypass_finding["identity_status"], "unsupported");
+    assert_eq!(bypass_finding["cache_status"], "bypassed");
+}
+
+#[test]
+fn baseline_matches_semantic_identity_after_rename() {
+    let fixture = ConsumerFixture::new("baseline-semantic-rename", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
+    let baseline_path = fixture.repo.join("slotcar-baseline.json");
+    let baseline_path_str = baseline_path.to_str().expect("baseline path utf8");
+    let original = vec![
+        cargo_compiler_artifact("aspen-core", false),
+        cargo_compiler_message("aspen-core", "no_unwrap", "use of `.unwrap()`", "src/old_name.rs", 10, 5, None),
+        cargo_build_finished(true),
+    ];
+    let renamed = vec![
+        cargo_compiler_artifact("aspen-core", false),
+        cargo_compiler_message("aspen-core", "no_unwrap", "use of `.unwrap()`", "src/new_name.rs", 10, 5, None),
+        cargo_build_finished(true),
+    ];
+
+    let write_output = run_with_check_args(
+        &fixture,
+        &[
+            "--output-format",
+            JSON_OUTPUT_FORMAT,
+            "--write-baseline",
+            baseline_path_str,
+        ],
+        &original,
+        EXIT_CODE_SUCCESS,
+    );
+    assert_eq!(write_output.status.code(), Some(EXIT_CODE_SUCCESS));
+
+    let accepted_output = run_with_check_args(
+        &fixture,
+        &["--output-format", JSON_OUTPUT_FORMAT, "--baseline", baseline_path_str],
+        &renamed,
+        EXIT_CODE_SUCCESS,
+    );
+    assert_eq!(accepted_output.status.code(), Some(EXIT_CODE_SUCCESS));
+    let baseline = read_json_artifact(&baseline_path);
+    let stored = &baseline["findings"][0];
+    assert!(stored["semantic_id"].as_str().is_some(), "baseline stores semantic_id: {stored}");
+    assert_eq!(stored["identity_status"], "unsupported");
+}
+
+#[test]
+fn migration_manifest_commands_are_deterministic_and_safe() {
+    let fixture = ConsumerFixture::new("migration-manifest", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
+    let manifest = fixture.repo.join(".slotcar/migrations/starter.json");
+    let bin = built_cargo_slotcar_bin().expect("build cargo-slotcar binary");
+
+    let start = Command::new(&bin)
+        .args([
+            "migrate",
+            "start",
+            "--profile",
+            "starter",
+            "--manifest",
+            manifest.to_str().expect("manifest utf8"),
+            "--format",
+            JSON_OUTPUT_FORMAT,
+        ])
+        .current_dir(&fixture.repo)
+        .output()
+        .expect("run migrate start");
+    assert_eq!(start.status.code(), Some(EXIT_CODE_SUCCESS), "stderr={}", String::from_utf8_lossy(&start.stderr));
+    let manifest_json = read_json_artifact(&manifest);
+    assert_eq!(manifest_json["schema_version"], 1);
+    assert_eq!(manifest_json["profile"], "starter");
+    assert!(manifest_json["config_hash"].as_str().expect("config hash").starts_with("b3:"));
+    assert!(manifest_json["crate_graph_hash"].as_str().expect("crate graph hash").starts_with("b3:"));
+
+    let status = Command::new(&bin)
+        .args([
+            "migrate",
+            "status",
+            "--manifest",
+            manifest.to_str().expect("manifest utf8"),
+            "--format",
+            JSON_OUTPUT_FORMAT,
+        ])
+        .current_dir(&fixture.repo)
+        .output()
+        .expect("run migrate status");
+    assert_eq!(status.status.code(), Some(EXIT_CODE_SUCCESS));
+    let status_json: serde_json::Value = serde_json::from_slice(&status.stdout).expect("status json");
+    assert_eq!(status_json["unresolved"], 0);
+    assert_eq!(status_json["manual_review_required"], 0);
+
+    let before = fs::read_to_string(&manifest).expect("read manifest before apply-safe");
+    let apply = Command::new(&bin)
+        .args([
+            "migrate",
+            "apply-safe",
+            "--manifest",
+            manifest.to_str().expect("manifest utf8"),
+            "--format",
+            JSON_OUTPUT_FORMAT,
+        ])
+        .current_dir(&fixture.repo)
+        .output()
+        .expect("run migrate apply-safe");
+    assert_eq!(apply.status.code(), Some(EXIT_CODE_SUCCESS));
+    let after = fs::read_to_string(&manifest).expect("read manifest after apply-safe");
+    assert_eq!(before, after, "safe apply must not mutate manual-review state without machine-applicable fixes");
+}
+
+#[test]
+fn transcript_reports_content_hash_and_fails_closed() {
+    let fixture = ConsumerFixture::new("transcript-report", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
+    let good = fixture.repo.join("docs/good.md");
+    write_file(
+        &good,
+        r#"# Example
+
+```slotcar-transcript
+$ cargo slotcar check --output-format json
+=> {"version":1
+```
+"#,
+    );
+    let bad = fixture.repo.join("docs/bad.md");
+    write_file(&bad, "# Missing expected output\n\n```slotcar-transcript\n$ cargo slotcar check\n```\n");
+    let bin = built_cargo_slotcar_bin().expect("build cargo-slotcar binary");
+
+    let good_output = Command::new(&bin)
+        .args([
+            "transcript",
+            good.to_str().expect("good utf8"),
+            "--format",
+            JSON_OUTPUT_FORMAT,
+        ])
+        .current_dir(&fixture.repo)
+        .output()
+        .expect("run transcript good");
+    assert_eq!(good_output.status.code(), Some(EXIT_CODE_SUCCESS));
+    let good_json: serde_json::Value = serde_json::from_slice(&good_output.stdout).expect("good transcript json");
+    assert_eq!(good_json["status"], "passed");
+    assert!(good_json["transcript_hash"].as_str().expect("transcript hash").starts_with("b3:"));
+
+    let bad_output = Command::new(&bin)
+        .args([
+            "transcript",
+            bad.to_str().expect("bad utf8"),
+            "--format",
+            JSON_OUTPUT_FORMAT,
+        ])
+        .current_dir(&fixture.repo)
+        .output()
+        .expect("run transcript bad");
+    assert_eq!(bad_output.status.code(), Some(EXIT_CODE_LINT_FAILURE));
+    let bad_json: serde_json::Value = serde_json::from_slice(&bad_output.stdout).expect("bad transcript json");
+    assert_eq!(bad_json["status"], "failed");
+    assert!(
+        bad_json["failures"]
+            .as_array()
+            .expect("failures")
+            .iter()
+            .any(|failure| failure.as_str().unwrap_or_default().contains("expected-output"))
+    );
 }
 
 #[test]

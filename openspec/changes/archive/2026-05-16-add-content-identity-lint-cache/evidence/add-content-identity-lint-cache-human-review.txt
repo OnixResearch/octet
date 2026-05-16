@@ -1,0 +1,5 @@
+command=review the implemented content-identity-lint-cache UX and schema
+input=docs, fixtures, and JSON/SARIF/human output artifacts
+asserts=the feature is understandable without Unison-specific vocabulary
+result=pass
+notes=Feature names and output fields use Slotcar review, effect, migration, transcript, and cache vocabulary; no user-facing Unison terminology is required.

@@ -40,13 +40,34 @@ pub fn build_run_metadata(input: MetadataInput<'_>) -> RunMetadata {
     }
 }
 
-pub fn stable_finding_id(lint: &str, file: &str, crate_name: &str, message: &str, suggestion: Option<&str>) -> String {
+pub fn semantic_finding_id(
+    lint: &str,
+    crate_name: &str,
+    message: &str,
+    suggestion: Option<&str>,
+    normalized_snippet_hash: &str,
+    config_hash: Option<&str>,
+) -> String {
     let canonical = format!(
-        "lint={lint}\nfile={}\ncrate={crate_name}\nmessage={message}\nsuggestion={}\n",
-        normalize_path_text(file),
-        suggestion.unwrap_or("")
+        "lint={lint}\ncrate={crate_name}\nmessage={message}\nsuggestion={}\nsnippet={normalized_snippet_hash}\nconfig={}\ntool=cargo-slotcar@{}\n",
+        suggestion.unwrap_or(""),
+        config_hash.unwrap_or("unknown"),
+        env!("CARGO_PKG_VERSION"),
     );
     short_hash(&canonical)
+}
+
+pub fn normalized_snippet_hash(snippet: &str) -> String {
+    let normalized = snippet.split_whitespace().collect::<Vec<_>>().join(" ");
+    full_hash(&normalized)
+}
+
+pub fn crate_graph_hash(workspace_root: &Path) -> String {
+    let payload = serde_json::json!({
+        "cargo_toml": file_hash(workspace_root.join("Cargo.toml")),
+        "cargo_lock": file_hash(workspace_root.join("Cargo.lock")),
+    });
+    full_hash(&payload.to_string())
 }
 
 pub fn short_hash(input: &str) -> String {
@@ -90,16 +111,14 @@ fn config_hash(workspace_root: &Path, scope_args: &[String], cargo_check_args: &
 
 fn push_file_hash(path: PathBuf, files: &mut Vec<serde_json::Value>) {
     let relative = path.file_name().and_then(|name| name.to_str()).unwrap_or("unknown");
-    match fs::read(&path) {
-        Ok(bytes) => files.push(serde_json::json!({
-            "path": relative,
-            "hash": format!("b3:{}", blake3::hash(&bytes).to_hex()),
-        })),
-        Err(_) => files.push(serde_json::json!({
-            "path": relative,
-            "hash": null,
-        })),
-    }
+    files.push(serde_json::json!({
+        "path": relative,
+        "hash": file_hash(path),
+    }));
+}
+
+fn file_hash(path: PathBuf) -> Option<String> {
+    fs::read(&path).ok().map(|bytes| format!("b3:{}", blake3::hash(&bytes).to_hex()))
 }
 
 fn rustc_version(toolchain: &str) -> String {
