@@ -49,7 +49,7 @@ impl LintLevel {
 }
 
 /// All configurable thresholds and allowlists. Missing fields use defaults.
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, PartialEq)]
 #[serde(default)]
 pub struct Config {
     /// Maximum non-blank, non-comment lines in a function body.
@@ -157,9 +157,19 @@ impl Config {
     }
 }
 
+fn prefer_primary_or_legacy_config(primary: Config, legacy: Config) -> Config {
+    if primary == Config::default() && legacy != Config::default() {
+        legacy
+    } else {
+        primary
+    }
+}
+
 /// Load the project config from `dylint.toml`, falling back to defaults.
 pub fn load(sess: &rustc_session::Session) -> Config {
-    let mut cfg = dylint_linting::config_or_default::<Config>(env!("CARGO_PKG_NAME"));
+    let primary_cfg = dylint_linting::config_or_default::<Config>(env!("CARGO_PKG_NAME"));
+    let legacy_cfg = dylint_linting::config_or_default::<Config>("tigerstyle");
+    let mut cfg = prefer_primary_or_legacy_config(primary_cfg, legacy_cfg);
     for warning in cfg.validate() {
         sess.dcx().warn(warning);
     }
@@ -174,6 +184,7 @@ mod tests {
 
     use super::Config;
     use super::LintLevel;
+    use super::prefer_primary_or_legacy_config;
 
     #[derive(Deserialize)]
     struct Wrapper {
@@ -188,6 +199,35 @@ mod tests {
         let mut cfg = parse_config(doc);
         let warnings = cfg.validate();
         (cfg, warnings)
+    }
+
+    #[test]
+    fn legacy_tigerstyle_config_is_used_when_slotcar_section_is_absent() {
+        let primary = Config::default();
+        let legacy = Config {
+            acronym_allowlist: vec!["IO".to_owned()],
+            ..Default::default()
+        };
+
+        let selected = prefer_primary_or_legacy_config(primary, legacy);
+
+        assert_eq!(selected.acronym_allowlist, vec!["IO".to_owned()]);
+    }
+
+    #[test]
+    fn primary_slotcar_config_wins_over_legacy_tigerstyle_config() {
+        let primary = Config {
+            acronym_allowlist: vec!["RPC".to_owned()],
+            ..Default::default()
+        };
+        let legacy = Config {
+            acronym_allowlist: vec!["IO".to_owned()],
+            ..Default::default()
+        };
+
+        let selected = prefer_primary_or_legacy_config(primary, legacy);
+
+        assert_eq!(selected.acronym_allowlist, vec!["RPC".to_owned()]);
     }
 
     #[test]
