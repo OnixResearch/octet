@@ -1,0 +1,1 @@
+Reviewed scope: capability vocabulary classifies explicit authority for FCIS review and exposes known/unknown/advisory status without adding a Rust algebraic-effects system.

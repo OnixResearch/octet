@@ -1,0 +1,4 @@
+$ grep -E "capsule (capture|replay)|fingerprint-capsule" docs/replay-capsules.md
+cargo slotcar roadmap capsule capture --input check-capsule-input.json --capsule check-capsule.json
+cargo slotcar roadmap capsule capture --input fingerprint-capsule-input.json --capsule fingerprint-capsule.json
+cargo slotcar roadmap capsule replay --capsule check-capsule.json --observed observed-check.json

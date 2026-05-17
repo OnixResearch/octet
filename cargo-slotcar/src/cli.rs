@@ -151,7 +151,7 @@ Usage:
   cargo slotcar check [SCOPE] [-- CARGO_CHECK_ARGS]
   cargo slotcar fingerprint [--check|--update|--diff] [PATHS...]
   cargo slotcar migrate <start|status|apply-safe> [--manifest PATH]
-  cargo slotcar roadmap <artifact|ability|pointer|session|pure-cache> ...
+  cargo slotcar roadmap <artifact|capsule|ability|pointer|session|pure-cache> ...
   cargo slotcar transcript <PATH>
   cargo slotcar --version
 
@@ -183,7 +183,8 @@ Unison-inspired agent roadmap fixtures: content-addressed artifacts, ability man
 
 Actions:
   artifact store|inspect|replay
-  ability enforce
+  capsule capture|inspect|replay
+  ability registry|summary|enforce
   pointer set|inspect|rollback
   session check|migrate|todo
   pure-cache check

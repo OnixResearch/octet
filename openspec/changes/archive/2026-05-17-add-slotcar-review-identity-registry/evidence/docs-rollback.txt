@@ -1,0 +1,5 @@
+$ grep -E "pointer rollback|Rollback|previous hash|without mutating" docs/review-identity-registry.md
+## Rollback
+Pointer updates write receipts with the previous hash. Roll back a bad pointer
+move without mutating either target hash:
+cargo slotcar roadmap pointer rollback --registry review-registry.json --receipt update.json

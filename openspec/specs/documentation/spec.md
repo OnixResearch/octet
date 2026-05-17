@@ -705,3 +705,39 @@ The project MUST document and expose structured session todo states for pending 
 - WHEN the session state is inspected later
 - THEN completed, deferred, and blocked items are represented as separate states
 - AND blocked items preserve the blocker reason and required next evidence
+
+### Requirement: Replay Capsule Operator Guidance [r[replay-capsule-operator-guidance]]
+
+The system MUST document how operators capture, inspect, and replay Slotcar replay capsules for lint and fingerprint evidence. The guidance MUST name exact commands, required inputs, redaction guarantees, and evidence paths suitable for OpenSpec review.
+
+#### Scenario: Operator guide names capture and replay commands [r[replay-capsule-operator-guidance.scenario.commands-named]]
+
+- GIVEN an operator needs to preserve a release, review, or bug-reproduction Slotcar run
+- WHEN they read the replay-capsule documentation
+- THEN the guide names the capture, inspect, and replay commands
+- AND it states which capsule fields are required for `cargo slotcar check` and `cargo slotcar fingerprint` evidence
+
+#### Scenario: Operator guide states replay limits [r[replay-capsule-operator-guidance.scenario.limits-stated]]
+
+- GIVEN a replay capsule reports `match`
+- WHEN an operator reads the guidance
+- THEN the guidance states that the capsule proves reproducible evidence only
+- AND it does not claim semantic correctness, safety, or verification solely from matching hashes
+
+### Requirement: Review Identity Operator Guidance [r[review-identity-operator-guidance]]
+
+The system MUST document how operators create, inspect, update, and roll back Slotcar review identity registry entries. The guidance MUST explain the distinction between mutable labels and immutable target hashes.
+
+#### Scenario: Guidance explains name and hash roles [r[review-identity-operator-guidance.scenario.name-hash-roles]]
+
+- GIVEN an operator reads the review identity guide
+- WHEN the guide introduces labels and target hashes
+- THEN it states that labels are ergonomic mutable pointers
+- AND immutable hashes are the durable evidence identity used for validation and replay
+
+#### Scenario: Guidance documents rollback [r[review-identity-operator-guidance.scenario.rollback]]
+
+- GIVEN an operator needs to revert a review label to a previous evidence target
+- WHEN they read the guide
+- THEN the guide names the inspect and rollback workflow
+- AND it states that rollback changes the pointer only, not the immutable target records

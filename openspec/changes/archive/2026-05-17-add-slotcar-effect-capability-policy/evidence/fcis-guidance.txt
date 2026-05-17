@@ -1,0 +1,7 @@
+$ grep -E "core-prohibited|interpreter responsibilities|time|filesystem|concurrency" docs/unison-inspired-rust-patterns.md
+hatches, mutable global state, or concurrency primitives directly. Slotcar's
+approved capability families are `time`, `randomness`, `filesystem`, `network`,
+`global-state`, `concurrency`, and explicit `unknown`. Core code should either:
+Shell-allowed uses are interpreter responsibilities, while functional-core uses
+values only. They must not hide IO, time, networking, process spawning, random
+filesystem, or environment dependencies.

@@ -1,0 +1,80 @@
+$ cargo slotcar roadmap ability registry
+exit=0
+{
+  "families": [
+    {
+      "capability_family": "time",
+      "description": "ambient time or clock authority",
+      "fcis_core_policy": "core-prohibited-unless-explicit-data-or-named-capability",
+      "shell_policy": "interpreter-responsibility"
+    },
+    {
+      "capability_family": "randomness",
+      "description": "non-deterministic random data",
+      "fcis_core_policy": "core-prohibited-unless-explicit-data-or-named-capability",
+      "shell_policy": "interpreter-responsibility"
+    },
+    {
+      "capability_family": "filesystem",
+      "description": "filesystem reads, writes, metadata, and paths",
+      "fcis_core_policy": "core-prohibited-unless-explicit-data-or-named-capability",
+      "shell_policy": "interpreter-responsibility"
+    },
+    {
+      "capability_family": "network",
+      "description": "network sockets, DNS, and HTTP-like authority",
+      "fcis_core_policy": "core-prohibited-unless-explicit-data-or-named-capability",
+      "shell_policy": "interpreter-responsibility"
+    },
+    {
+      "capability_family": "process",
+      "description": "process spawning and subprocess control",
+      "fcis_core_policy": "core-prohibited-unless-explicit-data-or-named-capability",
+      "shell_policy": "interpreter-responsibility"
+    },
+    {
+      "capability_family": "environment",
+      "description": "environment variables and host configuration",
+      "fcis_core_policy": "core-prohibited-unless-explicit-data-or-named-capability",
+      "shell_policy": "interpreter-responsibility"
+    },
+    {
+      "capability_family": "secrets",
+      "description": "secret material or credential access",
+      "fcis_core_policy": "core-prohibited-unless-explicit-data-or-named-capability",
+      "shell_policy": "interpreter-responsibility"
+    },
+    {
+      "capability_family": "remote-execution",
+      "description": "remote machine or service execution",
+      "fcis_core_policy": "core-prohibited-unless-explicit-data-or-named-capability",
+      "shell_policy": "interpreter-responsibility"
+    },
+    {
+      "capability_family": "unsafe-code",
+      "description": "unsafe Rust or unchecked low-level authority",
+      "fcis_core_policy": "core-prohibited-unless-explicit-data-or-named-capability",
+      "shell_policy": "interpreter-responsibility"
+    },
+    {
+      "capability_family": "global-state",
+      "description": "mutable static or ambient global state",
+      "fcis_core_policy": "core-prohibited-unless-explicit-data-or-named-capability",
+      "shell_policy": "interpreter-responsibility"
+    },
+    {
+      "capability_family": "concurrency",
+      "description": "threading, task, channel, or synchronization authority",
+      "fcis_core_policy": "core-prohibited-unless-explicit-data-or-named-capability",
+      "shell_policy": "interpreter-responsibility"
+    },
+    {
+      "capability_family": "unknown",
+      "description": "explicit unmapped capability status",
+      "fcis_core_policy": "must-be-made-explicit",
+      "shell_policy": "interpreter-responsibility"
+    }
+  ],
+  "schema_version": 1,
+  "status": "approved-capability-vocabulary"
+}

@@ -1,0 +1,14 @@
+$ cargo slotcar roadmap capsule replay --capsule /home/brittonr/git/slotcar/target/unison-evidence-fixtures/check-capsule.json --observed /home/brittonr/git/slotcar/target/unison-evidence-fixtures/check-drift.json
+exit=1
+{
+  "capsule_hash": "b3:fbee867143b50d7d0ea7633a623a1796620efd1d14151595d83e973b3c5b1169",
+  "drift_behavior": "fail-closed",
+  "expected_exit_code": 0,
+  "mismatches": [
+    "config_hash"
+  ],
+  "observed_exit_code": 0,
+  "operation": "replay",
+  "schema_version": 1,
+  "status": "drifted"
+}

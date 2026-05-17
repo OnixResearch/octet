@@ -1,0 +1,16 @@
+$ cargo slotcar roadmap ability summary --findings /home/brittonr/git/slotcar/target/unison-evidence-fixtures/findings.json
+exit=0
+{
+  "advisory_counts_by_capability": {
+    "filesystem": 1,
+    "unknown": 1
+  },
+  "counts_by_capability": {
+    "filesystem": 1,
+    "time": 1,
+    "unknown": 1
+  },
+  "schema_version": 1,
+  "status": "capability-summary",
+  "unknown_capability_visible": true
+}

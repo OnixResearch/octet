@@ -25,6 +25,21 @@ pub enum RoadmapCommand {
         hash: String,
         store_dir: PathBuf,
     },
+    CapsuleCapture {
+        input: PathBuf,
+        capsule: PathBuf,
+    },
+    CapsuleInspect {
+        capsule: PathBuf,
+    },
+    CapsuleReplay {
+        capsule: PathBuf,
+        observed: PathBuf,
+    },
+    AbilityRegistry,
+    AbilitySummary {
+        findings: PathBuf,
+    },
     AbilityEnforce {
         manifest: PathBuf,
         trace: PathBuf,
@@ -64,6 +79,7 @@ pub enum RoadmapCommand {
 pub fn parse(args: &[String]) -> Result<RoadmapCommand, String> {
     match args.first().map(String::as_str) {
         Some("artifact") => parse_artifact(&args[1..]),
+        Some("capsule") => parse_capsule(&args[1..]),
         Some("ability") => parse_ability(&args[1..]),
         Some("pointer") => parse_pointer(&args[1..]),
         Some("session") => parse_session(&args[1..]),
@@ -78,6 +94,11 @@ pub fn run(command: RoadmapCommand) -> Result<i32, String> {
         RoadmapCommand::ArtifactStore { kind, input, store_dir } => artifact_store(&kind, &input, &store_dir),
         RoadmapCommand::ArtifactInspect { hash, store_dir } => artifact_inspect(&hash, &store_dir, "inspect"),
         RoadmapCommand::ArtifactReplay { hash, store_dir } => artifact_replay(&hash, &store_dir),
+        RoadmapCommand::CapsuleCapture { input, capsule } => capsule_capture(&input, &capsule),
+        RoadmapCommand::CapsuleInspect { capsule } => capsule_inspect(&capsule),
+        RoadmapCommand::CapsuleReplay { capsule, observed } => capsule_replay(&capsule, &observed),
+        RoadmapCommand::AbilityRegistry => ability_registry(),
+        RoadmapCommand::AbilitySummary { findings } => ability_summary(&findings),
         RoadmapCommand::AbilityEnforce { manifest, trace } => ability_enforce(&manifest, &trace),
         RoadmapCommand::PointerSet {
             registry,
@@ -119,14 +140,37 @@ fn parse_artifact(args: &[String]) -> Result<RoadmapCommand, String> {
     }
 }
 
-fn parse_ability(args: &[String]) -> Result<RoadmapCommand, String> {
-    if !matches!(args.first().map(String::as_str), Some("enforce")) {
-        return Err("ability expects `enforce`".to_owned());
+fn parse_capsule(args: &[String]) -> Result<RoadmapCommand, String> {
+    match args.first().map(String::as_str) {
+        Some("capture") => Ok(RoadmapCommand::CapsuleCapture {
+            input: PathBuf::from(required_value(args, "--input")?),
+            capsule: PathBuf::from(required_value(args, "--capsule")?),
+        }),
+        Some("inspect") => Ok(RoadmapCommand::CapsuleInspect {
+            capsule: PathBuf::from(required_value(args, "--capsule")?),
+        }),
+        Some("replay") => Ok(RoadmapCommand::CapsuleReplay {
+            capsule: PathBuf::from(required_value(args, "--capsule")?),
+            observed: PathBuf::from(required_value(args, "--observed")?),
+        }),
+        Some(other) => Err(format!("unknown capsule action `{other}`")),
+        None => Err("missing capsule action".to_owned()),
     }
-    Ok(RoadmapCommand::AbilityEnforce {
-        manifest: PathBuf::from(required_value(args, "--manifest")?),
-        trace: PathBuf::from(required_value(args, "--trace")?),
-    })
+}
+
+fn parse_ability(args: &[String]) -> Result<RoadmapCommand, String> {
+    match args.first().map(String::as_str) {
+        Some("registry") => Ok(RoadmapCommand::AbilityRegistry),
+        Some("summary") => Ok(RoadmapCommand::AbilitySummary {
+            findings: PathBuf::from(required_value(args, "--findings")?),
+        }),
+        Some("enforce") => Ok(RoadmapCommand::AbilityEnforce {
+            manifest: PathBuf::from(required_value(args, "--manifest")?),
+            trace: PathBuf::from(required_value(args, "--trace")?),
+        }),
+        Some(other) => Err(format!("unknown ability action `{other}`")),
+        None => Err("missing ability action".to_owned()),
+    }
 }
 
 fn parse_pointer(args: &[String]) -> Result<RoadmapCommand, String> {
@@ -258,6 +302,165 @@ fn artifact_replay(hash: &str, store_dir: &Path) -> Result<i32, String> {
     artifact_inspect(hash, store_dir, "replay")
 }
 
+fn capsule_capture(input: &Path, capsule_path: &Path) -> Result<i32, String> {
+    let manifest = normalize_value(read_json(input)?);
+    for field in [
+        "command_argv",
+        "run_kind",
+        "slotcar_binary_identity",
+        "config_hash",
+        "input_hashes",
+        "output_hashes",
+        "expected_exit_code",
+    ] {
+        if manifest.get(field).is_none() {
+            return Err(format!("capsule input missing {field}"));
+        }
+    }
+    let canonical = canonical_json(&manifest)?;
+    let capsule_hash = determinism::full_hash(&canonical);
+    let capsule = serde_json::json!({
+        "schema_version": SCHEMA_VERSION,
+        "capsule_hash": capsule_hash,
+        "capsule_kind": "slotcar-replay-capsule",
+        "manifest": manifest,
+        "replay_contract": {
+            "input_match": "required",
+            "output_match": "required",
+            "expected_failure_allowed": true,
+            "drift_behavior": "fail-closed"
+        },
+        "redaction_status": "normalized-no-secret-values-or-local-paths"
+    });
+    write_json(capsule_path, &capsule)?;
+    print_json(&capsule)?;
+    Ok(0)
+}
+
+fn capsule_inspect(capsule_path: &Path) -> Result<i32, String> {
+    let capsule = read_json(capsule_path)?;
+    print_json(&serde_json::json!({
+        "schema_version": SCHEMA_VERSION,
+        "operation": "inspect",
+        "capsule_hash": capsule["capsule_hash"],
+        "run_kind": capsule["manifest"]["run_kind"],
+        "command_argv": capsule["manifest"]["command_argv"],
+        "input_hashes": capsule["manifest"]["input_hashes"],
+        "output_hashes": capsule["manifest"]["output_hashes"],
+        "expected_exit_code": capsule["manifest"]["expected_exit_code"],
+        "redaction_status": capsule["redaction_status"],
+    }))?;
+    Ok(0)
+}
+
+fn capsule_replay(capsule_path: &Path, observed_path: &Path) -> Result<i32, String> {
+    let capsule = read_json(capsule_path)?;
+    let observed = normalize_value(read_json(observed_path)?);
+    let manifest = &capsule["manifest"];
+    let mismatches = capsule_mismatches(manifest, &observed);
+    let expected_exit = manifest["expected_exit_code"].as_i64().unwrap_or(0);
+    let observed_exit = observed["exit_code"].as_i64().unwrap_or(i64::MIN);
+    let status = if mismatches.is_empty() && expected_exit == observed_exit {
+        if expected_exit == 0 {
+            "replayed"
+        } else {
+            "expected-failure-replayed"
+        }
+    } else {
+        "drifted"
+    };
+    print_json(&serde_json::json!({
+        "schema_version": SCHEMA_VERSION,
+        "operation": "replay",
+        "capsule_hash": capsule["capsule_hash"],
+        "status": status,
+        "expected_exit_code": expected_exit,
+        "observed_exit_code": observed_exit,
+        "mismatches": mismatches,
+        "drift_behavior": "fail-closed",
+    }))?;
+    Ok(if status == "drifted" { 1 } else { 0 })
+}
+
+fn capsule_mismatches(manifest: &Value, observed: &Value) -> Vec<String> {
+    let mut mismatches = Vec::new();
+    for field in [
+        "command_argv",
+        "run_kind",
+        "slotcar_binary_identity",
+        "config_hash",
+        "input_hashes",
+        "output_hashes",
+    ] {
+        if manifest.get(field) != observed.get(field) {
+            mismatches.push(field.to_owned());
+        }
+    }
+    mismatches
+}
+
+fn ability_registry() -> Result<i32, String> {
+    let families = [
+        ("time", "ambient time or clock authority"),
+        ("randomness", "non-deterministic random data"),
+        ("filesystem", "filesystem reads, writes, metadata, and paths"),
+        ("network", "network sockets, DNS, and HTTP-like authority"),
+        ("process", "process spawning and subprocess control"),
+        ("environment", "environment variables and host configuration"),
+        ("secrets", "secret material or credential access"),
+        ("remote-execution", "remote machine or service execution"),
+        ("unsafe-code", "unsafe Rust or unchecked low-level authority"),
+        ("global-state", "mutable static or ambient global state"),
+        ("concurrency", "threading, task, channel, or synchronization authority"),
+        ("unknown", "explicit unmapped capability status"),
+    ];
+    let entries: Vec<_> = families
+        .iter()
+        .map(|(family, description)| {
+            serde_json::json!({
+                "capability_family": family,
+                "description": description,
+                "fcis_core_policy": if *family == "unknown" { "must-be-made-explicit" } else { "core-prohibited-unless-explicit-data-or-named-capability" },
+                "shell_policy": "interpreter-responsibility",
+            })
+        })
+        .collect();
+    print_json(&serde_json::json!({
+        "schema_version": SCHEMA_VERSION,
+        "status": "approved-capability-vocabulary",
+        "families": entries,
+    }))?;
+    Ok(0)
+}
+
+fn ability_summary(findings_path: &Path) -> Result<i32, String> {
+    let findings = read_json(findings_path)?;
+    let array = findings.as_array().ok_or_else(|| "findings must be a JSON array".to_owned())?;
+    let mut counts: BTreeMap<String, usize> = BTreeMap::new();
+    let mut advisory: BTreeMap<String, usize> = BTreeMap::new();
+    for finding in array {
+        let family = finding.get("effect_family").and_then(Value::as_str).unwrap_or("unknown");
+        let status = finding.get("capability_status").and_then(Value::as_str).unwrap_or(if family == "unknown" {
+            "unknown"
+        } else {
+            "known"
+        });
+        let key = if status == "unknown" { "unknown" } else { family };
+        *counts.entry(key.to_owned()).or_default() += 1;
+        if finding.get("enforcement").and_then(Value::as_str) == Some("advisory") {
+            *advisory.entry(key.to_owned()).or_default() += 1;
+        }
+    }
+    print_json(&serde_json::json!({
+        "schema_version": SCHEMA_VERSION,
+        "status": "capability-summary",
+        "counts_by_capability": counts,
+        "advisory_counts_by_capability": advisory,
+        "unknown_capability_visible": counts.contains_key("unknown"),
+    }))?;
+    Ok(0)
+}
+
 fn ability_enforce(manifest_path: &Path, trace_path: &Path) -> Result<i32, String> {
     let manifest = read_json(manifest_path)?;
     let trace = read_json(trace_path)?;
@@ -292,6 +495,8 @@ fn ability_enforce(manifest_path: &Path, trace_path: &Path) -> Result<i32, Strin
 #[derive(Debug, Clone, Serialize, serde::Deserialize, Default)]
 struct PointerRegistry {
     pointers: BTreeMap<String, PointerTarget>,
+    #[serde(default)]
+    history: BTreeMap<String, Vec<PointerTarget>>,
 }
 
 #[derive(Debug, Clone, Serialize, serde::Deserialize, Default)]
@@ -312,7 +517,11 @@ struct PointerReceipt {
 
 fn pointer_set(registry_path: &Path, name: &str, kind: &str, hash: &str, receipt_path: &Path) -> Result<i32, String> {
     let mut registry = read_registry(registry_path)?;
-    let old_hash = registry.pointers.get(name).map(|target| target.hash.clone());
+    let old_target = registry.pointers.get(name).cloned();
+    let old_hash = old_target.as_ref().map(|target| target.hash.clone());
+    if let Some(target) = old_target {
+        registry.history.entry(name.to_owned()).or_default().push(target);
+    }
     registry.pointers.insert(name.to_owned(), PointerTarget {
         artifact_kind: kind.to_owned(),
         hash: hash.to_owned(),
@@ -344,6 +553,10 @@ fn pointer_inspect(registry_path: &Path, name: &str) -> Result<i32, String> {
         "target_hash": target.hash,
         "target_artifact_kind": target.artifact_kind,
         "identity_source": "immutable-hash",
+        "human_label": name,
+        "previous_targets": registry.history.get(name).cloned().unwrap_or_default(),
+        "review_identity_status": "matched-identity-not-correctness-proof",
+        "correctness_claim": "none",
     }))?;
     Ok(0)
 }
@@ -353,6 +566,9 @@ fn pointer_rollback(registry_path: &Path, receipt_path: &Path) -> Result<i32, St
         serde_json::from_value(read_json(receipt_path)?).map_err(|error| format!("parse receipt: {error}"))?;
     let mut registry = read_registry(registry_path)?;
     if let Some(old_hash) = receipt.old_hash.clone() {
+        if let Some(current) = registry.pointers.get(&receipt.name).cloned() {
+            registry.history.entry(receipt.name.clone()).or_default().push(current);
+        }
         registry.pointers.insert(receipt.name.clone(), PointerTarget {
             artifact_kind: receipt.target_kind.clone(),
             hash: old_hash.clone(),

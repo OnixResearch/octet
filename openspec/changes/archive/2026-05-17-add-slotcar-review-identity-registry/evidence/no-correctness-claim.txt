@@ -1,0 +1,18 @@
+$ cargo slotcar roadmap pointer inspect --registry /home/brittonr/git/slotcar/target/unison-evidence-fixtures/registry.json --name done-review
+exit=0
+{
+  "correctness_claim": "none",
+  "human_label": "done-review",
+  "identity_source": "immutable-hash",
+  "name": "done-review",
+  "previous_targets": [
+    {
+      "artifact_kind": "prompt",
+      "hash": "b3:old"
+    }
+  ],
+  "review_identity_status": "matched-identity-not-correctness-proof",
+  "schema_version": 1,
+  "target_artifact_kind": "prompt",
+  "target_hash": "b3:new"
+}
