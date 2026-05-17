@@ -320,18 +320,32 @@ fn release_operator_smoke_transcript_and_help_cover_operator_surfaces() {
         String::from_utf8_lossy(&transcript_output.stderr)
     );
     let transcript_stdout = String::from_utf8_lossy(&transcript_output.stdout);
-    assert!(transcript_stdout.contains("command_blocks=5"));
-    assert!(transcript_stdout.contains("expected_output_blocks=6"));
+    assert!(transcript_stdout.contains("command_blocks=6"));
+    assert!(transcript_stdout.contains("expected_output_blocks=7"));
     assert!(transcript_stdout.contains("status=passed"));
 
-    for surface in ["fingerprint", "migrate", "effect-summary", "lint-cache", "transcript"] {
+    for surface in [
+        "fingerprint",
+        "migrate",
+        "effect-summary",
+        "lint-cache",
+        "transcript",
+        "roadmap",
+    ] {
         assert!(transcript.contains(surface), "release smoke transcript missing {surface}");
     }
 
     let help_output = Command::new(cargo_slotcar()).arg("--help").output().expect("run root help");
     assert!(help_output.status.success(), "root help should succeed");
     let help_stdout = String::from_utf8_lossy(&help_output.stdout);
-    for surface in ["fingerprint", "migrate", "effect-summary", "lint-cache", "transcript"] {
+    for surface in [
+        "fingerprint",
+        "migrate",
+        "effect-summary",
+        "lint-cache",
+        "transcript",
+        "roadmap",
+    ] {
         assert!(help_stdout.contains(surface), "root help missing {surface}");
     }
 }

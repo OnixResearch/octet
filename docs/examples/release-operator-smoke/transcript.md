@@ -16,6 +16,9 @@ $ cargo tigerstyle migrate start --manifest artifacts/slotcar-migration.json
 $ cargo tigerstyle transcript docs/examples/release-operator-smoke/transcript.md
 => executable transcript validation checks command blocks and expected-output assertions
 
+$ cargo slotcar roadmap artifact store --kind prompt --input prompt.json --store-dir store
+=> roadmap surfaces expose content-addressed artifacts, ability checks, pointer rollback, typed sessions, structured todos, and pure-cache receipts
+
 $ nix build .#checks.x86_64-linux.docs-examples --no-link -L
 => release smoke transcript is covered by the docs-example gate
 ```
