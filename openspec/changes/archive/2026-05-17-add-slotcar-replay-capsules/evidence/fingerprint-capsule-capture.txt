@@ -1,0 +1,33 @@
+$ cargo slotcar roadmap capsule capture --input /home/brittonr/git/slotcar/target/unison-evidence-fixtures/fingerprint-input.json --capsule /home/brittonr/git/slotcar/target/unison-evidence-fixtures/fingerprint-capsule.json
+exit=0
+{
+  "capsule_hash": "b3:a0e86d177b6dcb795192058b60d1222fae868575e4211734ed31584e7ef93660",
+  "capsule_kind": "slotcar-replay-capsule",
+  "manifest": {
+    "command_argv": [
+      "cargo",
+      "slotcar",
+      "fingerprint",
+      "--check",
+      "src/lib.rs"
+    ],
+    "config_hash": "b3:cfg",
+    "expected_exit_code": 1,
+    "input_hashes": [
+      "b3:src"
+    ],
+    "output_hashes": [
+      "b3:diff"
+    ],
+    "run_kind": "fingerprint",
+    "slotcar_binary_identity": "b3:bin"
+  },
+  "redaction_status": "normalized-no-secret-values-or-local-paths",
+  "replay_contract": {
+    "drift_behavior": "fail-closed",
+    "expected_failure_allowed": true,
+    "input_match": "required",
+    "output_match": "required"
+  },
+  "schema_version": 1
+}

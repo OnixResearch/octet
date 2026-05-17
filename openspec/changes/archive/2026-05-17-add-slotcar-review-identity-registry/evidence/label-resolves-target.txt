@@ -1,0 +1,10 @@
+$ cargo slotcar roadmap pointer set --registry /home/brittonr/git/slotcar/target/unison-evidence-fixtures/registry.json --name done-review --kind prompt --hash b3:old --receipt /home/brittonr/git/slotcar/target/unison-evidence-fixtures/receipt1.json
+exit=0
+{
+  "schema_version": 1,
+  "name": "done-review",
+  "target_kind": "prompt",
+  "old_hash": null,
+  "new_hash": "b3:old",
+  "rollback_hint": "cargo slotcar roadmap pointer rollback --registry /home/brittonr/git/slotcar/target/unison-evidence-fixtures/registry.json --receipt /home/brittonr/git/slotcar/target/unison-evidence-fixtures/receipt1.json"
+}

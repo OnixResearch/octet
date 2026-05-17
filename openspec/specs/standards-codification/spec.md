@@ -860,3 +860,75 @@ Acceptance receipts MUST include schema version, run or receipt ID, timestamps, 
 - THEN the command writes a structured acceptance receipt
 - AND the receipt `config_digest` equals the BLAKE3 digest of the profile JSON bytes
 - AND the receipt lists the generated artifact bundle and verification command evidence without embedding raw logs
+
+### Requirement: Slotcar Effect Capability Vocabulary [r[slotcar-effect-capability-vocabulary]]
+
+The system MUST maintain a stable Slotcar capability vocabulary for effect-like authority that includes time, randomness, filesystem, network, process spawning, environment variables, secrets, remote execution, unsafe code, global state, and concurrency.
+
+#### Scenario: Policy registry names capability family [r[slotcar-effect-capability-vocabulary.scenario.registry-names-family]]
+
+- GIVEN a policy or lint detects an ambient effect or shell authority
+- WHEN the policy registry is exported
+- THEN the entry includes a stable Slotcar capability family name
+- AND the family name belongs to the approved capability vocabulary
+
+#### Scenario: FCIS guidance classifies core and shell authority [r[slotcar-effect-capability-vocabulary.scenario.fcis-classifies-authority]]
+
+- GIVEN a policy describes deterministic functional core / imperative shell boundaries
+- WHEN a reader reviews the capability vocabulary
+- THEN ambient time, randomness, filesystem, network, process, environment, secrets, remote execution, unsafe, global state, and concurrency authority are classified as core-prohibited unless represented as explicit data or named capability traits
+- AND shell-allowed uses are documented as interpreter responsibilities
+
+### Requirement: Slotcar Effect Capability Mapping Validation [r[slotcar-effect-capability-mapping-validation]]
+
+The system MUST validate that effect-like lint and policy outputs either map to a known capability family or explicitly report an unknown capability status. Unknown status MUST be visible in human and machine-readable summaries.
+
+#### Scenario: Known capability appears in output [r[slotcar-effect-capability-mapping-validation.scenario.known-capability-output]]
+
+- GIVEN a lint finding is mapped to the `time` or `filesystem` capability family
+- WHEN JSON, SARIF, or human summary output is generated
+- THEN the output includes the mapped capability family
+- AND effect summaries count the finding under that family
+
+#### Scenario: Unknown capability is visible [r[slotcar-effect-capability-mapping-validation.scenario.unknown-capability-visible]]
+
+- GIVEN a new lint has no capability-family mapping
+- WHEN policy validation or summary output runs
+- THEN the result reports an explicit unknown capability status
+- AND the unknown status is not omitted from effect summaries
+
+### Requirement: Slotcar Review Identity Registry [r[slotcar-review-identity-registry]]
+
+The system MUST support a review identity registry that maps mutable human-readable review labels, evidence aliases, policy names, and fingerprint manifest handles to immutable content-addressed targets.
+
+#### Scenario: Label resolves to immutable review target [r[slotcar-review-identity-registry.scenario.label-resolves-target]]
+
+- GIVEN a fingerprint review manifest references a review label or evidence alias
+- WHEN registry validation runs
+- THEN the label resolves to an immutable target hash and target kind
+- AND the manifest output preserves both the human label and immutable target hash
+
+#### Scenario: Pointer history supports rollback [r[slotcar-review-identity-registry.scenario.pointer-rollback]]
+
+- GIVEN a review label is updated to point at a newer evidence target
+- WHEN pointer history is inspected or rolled back
+- THEN the previous immutable target remains visible
+- AND rollback restores the label to the prior target without mutating either target hash
+
+### Requirement: Slotcar Review Identity Diagnostics [r[slotcar-review-identity-diagnostics]]
+
+The system MUST diagnose stale, missing, or mismatched review identity pointers without claiming that identity matches prove semantic correctness.
+
+#### Scenario: Missing identity is diagnosed [r[slotcar-review-identity-diagnostics.scenario.missing-identity]]
+
+- GIVEN a fingerprint review manifest names a registry label that does not exist
+- WHEN strict review identity validation runs
+- THEN validation fails with the missing label and expected target kind
+- AND the diagnostic names the manifest entry that referenced it
+
+#### Scenario: Identity match avoids correctness claim [r[slotcar-review-identity-diagnostics.scenario.no-correctness-claim]]
+
+- GIVEN a review identity pointer resolves and the fingerprint hash matches
+- WHEN human or machine output is generated
+- THEN the output states that the reviewed identity and source body match
+- AND it does not state that the function is correct, safe, or verified solely because the identity matches

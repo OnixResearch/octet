@@ -1,0 +1,1 @@
+Reviewed scope: capsules bind command/config/binary/input/output hashes and expected exit codes; they do not replace JSON/SARIF/fingerprint outputs and do not claim semantic correctness.

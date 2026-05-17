@@ -8,8 +8,12 @@ refactors.
 
 ## Effect capability boundaries
 
-Pure core code should not read clocks, environment variables, files, sockets, or
-process state directly. It should either:
+Pure core code should not read clocks, random sources, environment variables,
+files, sockets, process state, secret stores, remote executors, unsafe escape
+hatches, mutable global state, or concurrency primitives directly. Slotcar's
+approved capability families are `time`, `randomness`, `filesystem`, `network`,
+`process`, `environment`, `secrets`, `remote-execution`, `unsafe-code`,
+`global-state`, `concurrency`, and explicit `unknown`. Core code should either:
 
 - return an effect description as data, such as an enum command for the shell to
   interpret; or
@@ -21,6 +25,8 @@ The shell owns interpretation. That shell may use `std`, `tokio`, `tower`,
 Capability names must expose the authority they grant: `ReadConfigDir` is better
 than `Context`, and `PublishReceipt` is better than `Client`. Each project should
 state which capabilities are allowed in core, shell, tests, and remote adapters.
+Shell-allowed uses are interpreter responsibilities, while functional-core uses
+are prohibited unless represented as explicit data or named capability traits.
 
 ## Delayed effects and top-level purity
 

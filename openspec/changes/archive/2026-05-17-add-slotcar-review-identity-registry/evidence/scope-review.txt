@@ -1,0 +1,1 @@
+Reviewed scope: registry separates human labels from immutable BLAKE3 targets, preserves pointer history/rollback, and explicitly avoids correctness claims from identity matches.

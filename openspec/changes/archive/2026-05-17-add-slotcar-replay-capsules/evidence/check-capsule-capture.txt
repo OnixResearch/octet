@@ -1,0 +1,33 @@
+$ cargo slotcar roadmap capsule capture --input /home/brittonr/git/slotcar/target/unison-evidence-fixtures/check-input.json --capsule /home/brittonr/git/slotcar/target/unison-evidence-fixtures/check-capsule.json
+exit=0
+{
+  "capsule_hash": "b3:fbee867143b50d7d0ea7633a623a1796620efd1d14151595d83e973b3c5b1169",
+  "capsule_kind": "slotcar-replay-capsule",
+  "manifest": {
+    "command_argv": [
+      "cargo",
+      "slotcar",
+      "check",
+      "--output-format",
+      "json"
+    ],
+    "config_hash": "b3:cfg",
+    "expected_exit_code": 0,
+    "input_hashes": [
+      "b3:src"
+    ],
+    "output_hashes": [
+      "b3:findings"
+    ],
+    "run_kind": "check",
+    "slotcar_binary_identity": "b3:bin"
+  },
+  "redaction_status": "normalized-no-secret-values-or-local-paths",
+  "replay_contract": {
+    "drift_behavior": "fail-closed",
+    "expected_failure_allowed": true,
+    "input_match": "required",
+    "output_match": "required"
+  },
+  "schema_version": 1
+}

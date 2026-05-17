@@ -1,0 +1,5 @@
+$ grep -E "mutable label|immutable target|not a correctness" docs/review-identity-registry.md
+Use a mutable label when humans need a memorable handle:
+The inspect output preserves both the human label and the immutable target hash.
+evidence. It is not a correctness, safety, or verification claim.
+Pointer history keeps the previous immutable target visible for review. Missing

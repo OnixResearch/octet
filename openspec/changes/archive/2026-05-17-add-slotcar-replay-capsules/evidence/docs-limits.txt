@@ -1,0 +1,2 @@
+$ grep -E "does not prove|drifted|fails closed" docs/replay-capsules.md
+is reported as `drifted` and fails closed.

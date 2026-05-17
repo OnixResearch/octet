@@ -118,6 +118,187 @@ fn artifact_hash_inspect_and_replay_are_content_addressed() {
 }
 
 #[test]
+fn replay_capsules_capture_inspect_replay_and_drift() {
+    let temp = tempfile::tempdir().unwrap();
+    let input = temp.path().join("capsule-input.json");
+    let capsule = temp.path().join("capsule.json");
+    let observed = temp.path().join("observed.json");
+    let drifted = temp.path().join("drifted.json");
+    write_json(
+        &input,
+        serde_json::json!({
+            "command_argv": ["cargo", "slotcar", "check", "--output-format", "json"],
+            "run_kind": "check",
+            "slotcar_binary_identity": "b3:bin",
+            "config_hash": "b3:cfg",
+            "input_hashes": ["b3:src"],
+            "output_hashes": ["b3:findings"],
+            "expected_exit_code": 0,
+            "absolute_path": "/private/worktree",
+            "raw_secret": "do-not-store"
+        }),
+    );
+    write_json(
+        &observed,
+        serde_json::json!({
+            "command_argv": ["cargo", "slotcar", "check", "--output-format", "json"],
+            "run_kind": "check",
+            "slotcar_binary_identity": "b3:bin",
+            "config_hash": "b3:cfg",
+            "input_hashes": ["b3:src"],
+            "output_hashes": ["b3:findings"],
+            "exit_code": 0
+        }),
+    );
+    let captured = stdout_json(&run(
+        &[
+            "roadmap",
+            "capsule",
+            "capture",
+            "--input",
+            input.to_str().unwrap(),
+            "--capsule",
+            capsule.to_str().unwrap(),
+        ],
+        temp.path(),
+    ));
+    assert_eq!(captured["capsule_kind"], "slotcar-replay-capsule");
+    assert!(captured["capsule_hash"].as_str().unwrap().starts_with("b3:"));
+    assert!(!captured.to_string().contains("do-not-store"));
+
+    let inspected =
+        stdout_json(&run(&["roadmap", "capsule", "inspect", "--capsule", capsule.to_str().unwrap()], temp.path()));
+    assert_eq!(inspected["run_kind"], "check");
+    let replay = stdout_json(&run(
+        &[
+            "roadmap",
+            "capsule",
+            "replay",
+            "--capsule",
+            capsule.to_str().unwrap(),
+            "--observed",
+            observed.to_str().unwrap(),
+        ],
+        temp.path(),
+    ));
+    assert_eq!(replay["status"], "replayed");
+
+    write_json(
+        &drifted,
+        serde_json::json!({
+            "command_argv": ["cargo", "slotcar", "check", "--output-format", "json"],
+            "run_kind": "check",
+            "slotcar_binary_identity": "b3:bin",
+            "config_hash": "b3:changed",
+            "input_hashes": ["b3:src"],
+            "output_hashes": ["b3:findings"],
+            "exit_code": 0
+        }),
+    );
+    let drift = run(
+        &[
+            "roadmap",
+            "capsule",
+            "replay",
+            "--capsule",
+            capsule.to_str().unwrap(),
+            "--observed",
+            drifted.to_str().unwrap(),
+        ],
+        temp.path(),
+    );
+    assert!(!drift.status.success());
+    let drift_report: serde_json::Value = serde_json::from_slice(&drift.stdout).unwrap();
+    assert_eq!(drift_report["status"], "drifted");
+    assert_eq!(drift_report["mismatches"], serde_json::json!(["config_hash"]));
+}
+
+#[test]
+fn replay_capsules_accept_expected_failures() {
+    let temp = tempfile::tempdir().unwrap();
+    let input = temp.path().join("fingerprint-input.json");
+    let capsule = temp.path().join("capsule.json");
+    write_json(
+        &input,
+        serde_json::json!({
+            "command_argv": ["cargo", "slotcar", "fingerprint", "--check", "src/lib.rs"],
+            "run_kind": "fingerprint",
+            "slotcar_binary_identity": "b3:bin",
+            "config_hash": "b3:cfg",
+            "input_hashes": ["b3:src"],
+            "output_hashes": ["b3:diff"],
+            "expected_exit_code": 1
+        }),
+    );
+    stdout_json(&run(
+        &[
+            "roadmap",
+            "capsule",
+            "capture",
+            "--input",
+            input.to_str().unwrap(),
+            "--capsule",
+            capsule.to_str().unwrap(),
+        ],
+        temp.path(),
+    ));
+    let mut observed: serde_json::Value = serde_json::from_str(&fs::read_to_string(&input).unwrap()).unwrap();
+    observed["exit_code"] = serde_json::json!(1);
+    write_json(&input, observed);
+    let replay = stdout_json(&run(
+        &[
+            "roadmap",
+            "capsule",
+            "replay",
+            "--capsule",
+            capsule.to_str().unwrap(),
+            "--observed",
+            input.to_str().unwrap(),
+        ],
+        temp.path(),
+    ));
+    assert_eq!(replay["status"], "expected-failure-replayed");
+}
+
+#[test]
+fn capability_registry_and_summary_report_known_unknown_and_advisory() {
+    let temp = tempfile::tempdir().unwrap();
+    let registry = stdout_json(&run(&["roadmap", "ability", "registry"], temp.path()));
+    assert_eq!(registry["status"], "approved-capability-vocabulary");
+    assert!(registry["families"].to_string().contains("filesystem"));
+    assert!(
+        registry["families"]
+            .to_string()
+            .contains("core-prohibited-unless-explicit-data-or-named-capability")
+    );
+
+    let findings = temp.path().join("findings.json");
+    write_json(
+        &findings,
+        serde_json::json!([
+            {"lint": "no_system_time", "effect_family": "time", "capability_status": "known", "enforcement": "hard"},
+            {"lint": "no_absolute_path", "effect_family": "filesystem", "capability_status": "known", "enforcement": "advisory"},
+            {"lint": "new_lint", "effect_family": "unknown", "capability_status": "unknown", "enforcement": "advisory"}
+        ]),
+    );
+    let summary = stdout_json(&run(
+        &[
+            "roadmap",
+            "ability",
+            "summary",
+            "--findings",
+            findings.to_str().unwrap(),
+        ],
+        temp.path(),
+    ));
+    assert_eq!(summary["counts_by_capability"]["time"], 1);
+    assert_eq!(summary["counts_by_capability"]["filesystem"], 1);
+    assert_eq!(summary["counts_by_capability"]["unknown"], 1);
+    assert_eq!(summary["advisory_counts_by_capability"]["filesystem"], 1);
+    assert_eq!(summary["unknown_capability_visible"], true);
+}
+
+#[test]
 fn ability_manifest_denies_undeclared_effects() {
     let temp = tempfile::tempdir().unwrap();
     let manifest = temp.path().join("manifest.json");
@@ -198,6 +379,10 @@ fn name_pointer_updates_are_rollbackable() {
         temp.path(),
     ));
     assert_eq!(inspected["target_hash"], "b3:new");
+    assert_eq!(inspected["human_label"], "done-review");
+    assert_eq!(inspected["previous_targets"][0]["hash"], "b3:old");
+    assert_eq!(inspected["review_identity_status"], "matched-identity-not-correctness-proof");
+    assert_eq!(inspected["correctness_claim"], "none");
     stdout_json(&run(
         &[
             "roadmap",

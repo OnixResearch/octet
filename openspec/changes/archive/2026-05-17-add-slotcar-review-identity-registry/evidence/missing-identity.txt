@@ -1,0 +1,4 @@
+$ cargo slotcar roadmap pointer inspect --registry /home/brittonr/git/slotcar/target/unison-evidence-fixtures/registry.json --name missing-label
+exit=2
+stderr:
+error: name `missing-label` is not registered
