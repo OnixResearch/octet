@@ -24,6 +24,10 @@ fn stdout_json(output: &std::process::Output) -> serde_json::Value {
     serde_json::from_slice(&output.stdout).unwrap()
 }
 
+fn stderr_text(output: &std::process::Output) -> String {
+    String::from_utf8_lossy(&output.stderr).to_string()
+}
+
 #[test]
 fn artifact_hash_inspect_and_replay_are_content_addressed() {
     let temp = tempfile::tempdir().unwrap();
@@ -337,4 +341,89 @@ fn pure_cache_hits_only_matching_key_components() {
     ));
     assert_eq!(drift["status"], "miss");
     assert_eq!(drift["changed_key_component"], "new-or-changed-key");
+}
+
+#[test]
+fn roadmap_docs_transcript_covers_agent_surfaces() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().expect("workspace root");
+    let transcript_path = root.join("docs/examples/roadmap-agent-surfaces/transcript.md");
+    let transcript = fs::read_to_string(&transcript_path).expect("read roadmap transcript");
+
+    let output = run(&["transcript", transcript_path.to_str().unwrap()], root);
+    assert!(output.status.success(), "stderr={}", stderr_text(&output));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("command_blocks=10"));
+    assert!(stdout.contains("expected_output_blocks=10"));
+    assert!(stdout.contains("status=passed"));
+
+    for surface in ["artifact", "ability", "pointer", "session", "todo", "pure-cache"] {
+        assert!(transcript.contains(surface), "roadmap transcript missing {surface}");
+    }
+}
+
+#[test]
+fn roadmap_error_paths_fail_closed_with_operator_context() {
+    let temp = tempfile::tempdir().unwrap();
+    let missing_artifact = run(
+        &[
+            "roadmap",
+            "artifact",
+            "inspect",
+            "--hash",
+            "b3:missing",
+            "--store-dir",
+            temp.path().join("store").to_str().unwrap(),
+        ],
+        temp.path(),
+    );
+    assert!(!missing_artifact.status.success());
+    assert!(stderr_text(&missing_artifact).contains("read"));
+    assert!(stderr_text(&missing_artifact).contains("b3_missing.json"));
+
+    let malformed_manifest = temp.path().join("manifest.json");
+    let trace = temp.path().join("trace.json");
+    fs::write(&malformed_manifest, "not json").unwrap();
+    write_json(&trace, serde_json::json!({"effects": ["Network"]}));
+    let malformed = run(
+        &[
+            "roadmap",
+            "ability",
+            "enforce",
+            "--manifest",
+            malformed_manifest.to_str().unwrap(),
+            "--trace",
+            trace.to_str().unwrap(),
+        ],
+        temp.path(),
+    );
+    assert!(!malformed.status.success());
+    assert!(stderr_text(&malformed).contains("parse"));
+    assert!(stderr_text(&malformed).contains("manifest.json"));
+
+    let bad_session = temp.path().join("session.json");
+    write_json(&bad_session, serde_json::json!({"records": [{"kind": "tool_call"}]}));
+    let session = run(&["roadmap", "session", "check", "--input", bad_session.to_str().unwrap()], temp.path());
+    assert!(!session.status.success());
+    assert!(
+        stderr_text(&session).contains("session record missing kind, schema_version, identity, or redaction_status")
+    );
+
+    let bad_key = temp.path().join("key.json");
+    write_json(&bad_key, serde_json::json!({"command_identity": "cargo-check"}));
+    let cache = run(
+        &[
+            "roadmap",
+            "pure-cache",
+            "check",
+            "--key",
+            bad_key.to_str().unwrap(),
+            "--store-dir",
+            temp.path().join("cache").to_str().unwrap(),
+            "--output-hash",
+            "b3:out",
+        ],
+        temp.path(),
+    );
+    assert!(!cache.status.success());
+    assert!(stderr_text(&cache).contains("cache key missing input_hashes"));
 }

@@ -997,6 +997,26 @@ MAIN
           releaseOperatorSmokeDocs = mkFingerprintDocsCheck
             "tigerstyle-release-operator-smoke-docs"
             "release_operator_smoke_transcript_and_help_cover_operator_surfaces";
+          roadmapAgentSurfacesDocs = craneLib.buildPackage {
+            inherit src cargoArtifacts buildInputs;
+            cargoToml = ./Cargo.toml;
+            pname = "slotcar-roadmap-agent-surfaces-docs";
+            version = "0.1.0";
+            nativeBuildInputs = checkNativeBuildInputs;
+            cargoExtraArgs = "-p cargo-slotcar";
+            doNotPostBuildInstallCargoBinaries = true;
+            buildPhaseCargoCommand = ":";
+            cargoTestExtraArgs = "--test unison_roadmap roadmap_docs_transcript_covers_agent_surfaces -- --nocapture";
+            installPhaseCommand = ''
+              mkdir -p "$out"
+            '';
+            LD_LIBRARY_PATH = rustToolchainLibPath;
+            RUSTUP_TOOLCHAIN = rustupToolchain;
+            preCheck = ''
+              export PATH="${dylintShimPath}:$PATH"
+              export CARGO_TIGERSTYLE_BIN="${cargoSlotcarUnwrapped}/bin/cargo-slotcar"
+            '';
+          };
           fingerprintDocsDownstreamSmokeCheck = pkgs.runCommand "tigerstyle-fingerprint-docs-downstream-smoke-check" { } ''
             ${fingerprintDocsDownstreamSmoke}/bin/tigerstyle-fingerprint-docs-downstream-smoke
             mkdir -p "$out"
@@ -1075,6 +1095,7 @@ MAIN
           fingerprint-json-output-docs = fingerprintJsonOutputDocs;
           fingerprint-source-scanner-docs = fingerprintSourceScannerDocs;
           release-operator-smoke-docs = releaseOperatorSmokeDocs;
+          roadmap-agent-surfaces-docs = roadmapAgentSurfacesDocs;
           release-candidate-smoke = releaseCandidateSmokeCheck;
 
           fingerprint-docs-downstream-smoke = fingerprintDocsDownstreamSmokeCheck;
@@ -1087,6 +1108,7 @@ MAIN
             test -d ${fingerprintJsonOutputDocs}
             test -d ${fingerprintSourceScannerDocs}
             test -d ${releaseOperatorSmokeDocs}
+            test -d ${roadmapAgentSurfacesDocs}
             test -d ${fingerprintDocsDownstreamSmokeCheck}
             test -d ${fingerprintDocsReviewGateDocsCheck}
             mkdir -p "$out"
