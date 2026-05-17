@@ -1,0 +1,8 @@
+# Scenario: Inspect and replay by hash
+
+command=cargo test -p cargo-slotcar --test unison_roadmap artifact_hash_inspect_and_replay_are_content_addressed -- --nocapture
+input=openspec/changes/add-unison-inspired-agent-roadmap plus cargo-slotcar roadmap fixtures
+
+## Assertions
+- PASS: roadmap artifact inspect reported schema version, artifact kind, hash, dependencies, and replay prerequisites; replay reported operation=replay for present dependencies.
+- PASS: verified by cargo-slotcar integration test `cargo-slotcar/tests/unison_roadmap.rs` and deterministic JSON receipts.

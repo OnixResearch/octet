@@ -1,0 +1,8 @@
+# Human/oracle checkpoint: scope review
+
+command=review add-unison-inspired-agent-roadmap proposal/design/specs against Unison-inspired source concepts and Slotcar Rust/OpenSpec constraints
+input=openspec/changes/add-unison-inspired-agent-roadmap plus cargo-slotcar roadmap fixtures
+
+## Assertions
+- PASS: scope imports content identity, ability contracts, pointer names, typed sessions, structured todos, and pure caching without copying Unison syntax, UCM workflows, or runtime semantics.
+- PASS: verified by cargo-slotcar integration test `cargo-slotcar/tests/unison_roadmap.rs` and deterministic JSON receipts.

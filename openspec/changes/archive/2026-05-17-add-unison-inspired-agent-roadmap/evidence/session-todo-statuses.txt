@@ -1,0 +1,8 @@
+# Scenario: Resolved and unresolved work remain distinguishable
+
+command=cargo test -p cargo-slotcar --test unison_roadmap session_records_todos_and_migrations_are_typed -- --nocapture
+input=openspec/changes/add-unison-inspired-agent-roadmap plus cargo-slotcar roadmap fixtures
+
+## Assertions
+- PASS: todo export counted blocked=1, completed=1, and deferred=1 separately, preserving blocker reason for blocked work.
+- PASS: verified by cargo-slotcar integration test `cargo-slotcar/tests/unison_roadmap.rs` and deterministic JSON receipts.

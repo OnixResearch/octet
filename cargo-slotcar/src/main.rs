@@ -6,6 +6,7 @@ mod engine;
 mod fingerprint;
 mod migrate;
 mod output;
+mod roadmap;
 mod transcript;
 
 use std::process::ExitCode;
@@ -25,6 +26,7 @@ fn try_main() -> Result<i32, String> {
         cli::CommandArgs::Check(check) => engine::run(check),
         cli::CommandArgs::Fingerprint(args) => fingerprint::run(args),
         cli::CommandArgs::Migrate(args) => migrate::run(args),
+        cli::CommandArgs::Roadmap(args) => roadmap::run(args),
         cli::CommandArgs::Transcript(args) => transcript::run(args),
         cli::CommandArgs::Help(topic) => {
             println!("{}", cli::help_text(topic));

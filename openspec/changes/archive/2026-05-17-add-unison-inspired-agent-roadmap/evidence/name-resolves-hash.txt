@@ -1,0 +1,8 @@
+# Scenario: Name resolves to immutable hash
+
+command=cargo test -p cargo-slotcar --test unison_roadmap name_pointer_updates_are_rollbackable -- --nocapture
+input=openspec/changes/add-unison-inspired-agent-roadmap plus cargo-slotcar roadmap fixtures
+
+## Assertions
+- PASS: pointer inspect for done-review reported target_hash=b3:new, target_artifact_kind=prompt, and identity_source=immutable-hash.
+- PASS: verified by cargo-slotcar integration test `cargo-slotcar/tests/unison_roadmap.rs` and deterministic JSON receipts.
