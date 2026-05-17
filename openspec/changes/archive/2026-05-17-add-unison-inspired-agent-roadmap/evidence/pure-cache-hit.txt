@@ -1,0 +1,8 @@
+# Scenario: Pure cache hit reuses matching result
+
+command=cargo test -p cargo-slotcar --test unison_roadmap pure_cache_hits_only_matching_key_components -- --nocapture
+input=openspec/changes/add-unison-inspired-agent-roadmap plus cargo-slotcar roadmap fixtures
+
+## Assertions
+- PASS: pure-cache check produced miss on first matching key, hit on second matching key, and hit receipt included stored_output_hash=b3:out.
+- PASS: verified by cargo-slotcar integration test `cargo-slotcar/tests/unison_roadmap.rs` and deterministic JSON receipts.

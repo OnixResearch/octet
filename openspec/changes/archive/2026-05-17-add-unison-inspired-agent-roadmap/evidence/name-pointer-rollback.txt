@@ -1,0 +1,8 @@
+# Scenario: Pointer update supports rollback
+
+command=cargo test -p cargo-slotcar --test unison_roadmap name_pointer_updates_are_rollbackable -- --nocapture
+input=openspec/changes/add-unison-inspired-agent-roadmap plus cargo-slotcar roadmap fixtures
+
+## Assertions
+- PASS: pointer update receipt included old_hash=b3:old and new_hash=b3:new; rollback restored target_hash=b3:old without mutating artifact hashes.
+- PASS: verified by cargo-slotcar integration test `cargo-slotcar/tests/unison_roadmap.rs` and deterministic JSON receipts.

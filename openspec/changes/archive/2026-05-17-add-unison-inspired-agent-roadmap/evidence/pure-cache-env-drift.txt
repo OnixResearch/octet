@@ -1,0 +1,8 @@
+# Scenario: Environment drift invalidates cache
+
+command=cargo test -p cargo-slotcar --test unison_roadmap pure_cache_hits_only_matching_key_components -- --nocapture
+input=openspec/changes/add-unison-inspired-agent-roadmap plus cargo-slotcar roadmap fixtures
+
+## Assertions
+- PASS: changed tool_revision changed the cache key and produced status=miss with changed_key_component=new-or-changed-key rather than reusing prior output.
+- PASS: verified by cargo-slotcar integration test `cargo-slotcar/tests/unison_roadmap.rs` and deterministic JSON receipts.

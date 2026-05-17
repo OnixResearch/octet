@@ -1,0 +1,8 @@
+# Scenario: Session todo state is structured
+
+command=cargo test -p cargo-slotcar --test unison_roadmap session_records_todos_and_migrations_are_typed -- --nocapture
+input=openspec/changes/add-unison-inspired-agent-roadmap plus cargo-slotcar roadmap fixtures
+
+## Assertions
+- PASS: session todo export emitted machine-readable items with kind, status, source, next_action, and blocker handle fields.
+- PASS: verified by cargo-slotcar integration test `cargo-slotcar/tests/unison_roadmap.rs` and deterministic JSON receipts.

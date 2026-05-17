@@ -23,6 +23,7 @@ pub enum CommandArgs {
     Check(CheckArgs),
     Fingerprint(FingerprintArgs),
     Migrate(MigrateArgs),
+    Roadmap(crate::roadmap::RoadmapCommand),
     Transcript(TranscriptArgs),
     Help(HelpTopic),
     Version,
@@ -34,6 +35,7 @@ pub enum HelpTopic {
     Check,
     Fingerprint,
     Migrate,
+    Roadmap,
     Transcript,
 }
 
@@ -115,12 +117,16 @@ pub fn parse(argv: impl IntoIterator<Item = OsString>) -> Result<CommandArgs, St
         Some("fingerprint") => parse_fingerprint(&argv[1..]).map(CommandArgs::Fingerprint),
         Some("migrate") if wants_help(&argv[1..]) => Ok(CommandArgs::Help(HelpTopic::Migrate)),
         Some("migrate") => parse_migrate(&argv[1..]).map(CommandArgs::Migrate),
+        Some("roadmap") if wants_help(&argv[1..]) => Ok(CommandArgs::Help(HelpTopic::Roadmap)),
+        Some("roadmap") => crate::roadmap::parse(&argv[1..]).map(CommandArgs::Roadmap),
         Some("transcript") if wants_help(&argv[1..]) => Ok(CommandArgs::Help(HelpTopic::Transcript)),
         Some("transcript") => parse_transcript(&argv[1..]).map(CommandArgs::Transcript),
-        Some(other) => {
-            Err(format!("unknown subcommand `{other}`; expected `check`, `fingerprint`, `migrate`, or `transcript`"))
+        Some(other) => Err(format!(
+            "unknown subcommand `{other}`; expected `check`, `fingerprint`, `migrate`, `roadmap`, or `transcript`"
+        )),
+        None => {
+            Err("missing subcommand; expected `check`, `fingerprint`, `migrate`, `roadmap`, or `transcript`".to_owned())
         }
-        None => Err("missing subcommand; expected `check`, `fingerprint`, `migrate`, or `transcript`".to_owned()),
     }
 }
 
@@ -134,6 +140,7 @@ pub fn help_text(topic: HelpTopic) -> &'static str {
         HelpTopic::Check => CHECK_HELP,
         HelpTopic::Fingerprint => FINGERPRINT_HELP,
         HelpTopic::Migrate => MIGRATE_HELP,
+        HelpTopic::Roadmap => ROADMAP_HELP,
         HelpTopic::Transcript => TRANSCRIPT_HELP,
     }
 }
@@ -144,6 +151,7 @@ Usage:
   cargo slotcar check [SCOPE] [-- CARGO_CHECK_ARGS]
   cargo slotcar fingerprint [--check|--update|--diff] [PATHS...]
   cargo slotcar migrate <start|status|apply-safe> [--manifest PATH]
+  cargo slotcar roadmap <artifact|ability|pointer|session|pure-cache> ...
   cargo slotcar transcript <PATH>
   cargo slotcar --version
 
@@ -167,6 +175,18 @@ Modes: --check, --write, --update, --diff. Use --review-manifest PATH to save re
 const MIGRATE_HELP: &str = "cargo slotcar migrate
 
 Subcommands: start, status, apply-safe. Migration manifests are deterministic and safe-reviewable before applying.
+";
+
+const ROADMAP_HELP: &str = "cargo slotcar roadmap
+
+Unison-inspired agent roadmap fixtures: content-addressed artifacts, ability manifests, name-to-hash pointers, typed session records, structured todos, and pure-result cache receipts.
+
+Actions:
+  artifact store|inspect|replay
+  ability enforce
+  pointer set|inspect|rollback
+  session check|migrate|todo
+  pure-cache check
 ";
 
 const TRANSCRIPT_HELP: &str = "cargo slotcar transcript <PATH>

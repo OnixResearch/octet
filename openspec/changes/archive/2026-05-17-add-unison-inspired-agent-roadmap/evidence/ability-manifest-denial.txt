@@ -1,0 +1,8 @@
+# Scenario: Manifest gates authority
+
+command=cargo test -p cargo-slotcar --test unison_roadmap ability_manifest_denies_undeclared_effects -- --nocapture
+input=openspec/changes/add-unison-inspired-agent-roadmap plus cargo-slotcar roadmap fixtures
+
+## Assertions
+- PASS: FileRead-only manifest denied observed Network effect and receipt named denied_effects=["Network"] without secret values.
+- PASS: verified by cargo-slotcar integration test `cargo-slotcar/tests/unison_roadmap.rs` and deterministic JSON receipts.

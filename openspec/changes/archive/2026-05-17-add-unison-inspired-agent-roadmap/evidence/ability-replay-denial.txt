@@ -1,0 +1,8 @@
+# Scenario: Replay handler denies unexpected effects
+
+command=cargo test -p cargo-slotcar --test unison_roadmap ability_manifest_denies_undeclared_effects -- --nocapture
+input=openspec/changes/add-unison-inspired-agent-roadmap plus cargo-slotcar roadmap fixtures
+
+## Assertions
+- PASS: the same enforcement path is used for replay traces; undeclared Network effect fails deterministically with status=denied and denied_effects naming the unexpected family.
+- PASS: verified by cargo-slotcar integration test `cargo-slotcar/tests/unison_roadmap.rs` and deterministic JSON receipts.
