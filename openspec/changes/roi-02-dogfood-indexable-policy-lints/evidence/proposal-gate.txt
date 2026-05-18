@@ -1,0 +1,35 @@
+$ pi --no-session --thinking minimal -e ~/.pi/agent/extensions/openspec-gates.ts -p "Call the openspec_gate tool with stage=proposal and change=roi-02-dogfood-indexable-policy-lints. Print the full result."
+OpenSpec proposal gate result:
+
+```text
+OpenSpec proposal gate (roi-02-dogfood-indexable-policy-lints)
+
+Strategy: same-family
+
+VERDICT: PASS
+
+## Findings
+- None
+
+## Stage Check
+- Proposal states why and product risk: `proposal.md` says archived `add-indexable-policy-lints` fixture evidence exists, and this change dogfoods the lint family on Octet itself.
+- Scope is clear: `proposal.md` limits work to a scoped dogfood helper, saved evidence artifacts, and narrow cleanup tied directly to findings.
+- Non-goals are explicit: no new lint semantics, diagnostics, registration changes, broad style cleanup, or external consumer rollout.
+- Delta spec encodes the proposed capability:
+  - `openspec/changes/roi-02-dogfood-indexable-policy-lints/specs/consumer-integration/spec.md`
+  - Requirement `r[indexable-policy-self-dogfood-inventory]`
+  - Scenarios `r[indexable-policy-self-dogfood-inventory.scenario.machine-inventory]` and `r[indexable-policy-self-dogfood-inventory.scenario.triage-recorded]`
+- Verification expectations are concrete: `proposal.md` names `dogfood-run.txt`, `dogfood-findings.jsonl`, `dogfood-summary.txt`, `dogfood-triage.txt`, `openspec-validate.txt`, and gate transcripts.
+- Napkin constraints about deterministic evidence and explicit triage are addressed by planned raw JSON, summaries, triage notes, and validation artifacts.
+- No proposal-stage blocker found. The change is ready to proceed to design.
+
+## Next Actions
+- Proceed to design.
+- In design, define the exact helper command, JSON parsing/summarization behavior, triage record format, and deterministic artifact contents.
+```
+Extension error (/home/brittonr/.pi/agent/extensions/done-review.ts): This extension ctx is stale after session replacement or reload. Do not use a captured pi or command ctx after ctx.newSession(), ctx.fork(), ctx.switchSession(), or ctx.reload(). For newSession, fork, and switchSession, move post-replacement work into withSession and use the ctx passed to withSession. For reload, do not use the old ctx after await ctx.reload().
+Extension error (/home/brittonr/.pi/agent/extensions/git-dirty.ts): This extension ctx is stale after session replacement or reload. Do not use a captured pi or command ctx after ctx.newSession(), ctx.fork(), ctx.switchSession(), or ctx.reload(). For newSession, fork, and switchSession, move post-replacement work into withSession and use the ctx passed to withSession. For reload, do not use the old ctx after await ctx.reload().
+Extension error (/home/brittonr/.pi/agent/extensions/prefer-rust-scripts.ts): This extension ctx is stale after session replacement or reload. Do not use a captured pi or command ctx after ctx.newSession(), ctx.fork(), ctx.switchSession(), or ctx.reload(). For newSession, fork, and switchSession, move post-replacement work into withSession and use the ctx passed to withSession. For reload, do not use the old ctx after await ctx.reload().
+Extension error (/home/brittonr/.pi/agent/extensions/swarm.ts): This extension ctx is stale after session replacement or reload. Do not use a captured pi or command ctx after ctx.newSession(), ctx.fork(), ctx.switchSession(), or ctx.reload(). For newSession, fork, and switchSession, move post-replacement work into withSession and use the ctx passed to withSession. For reload, do not use the old ctx after await ctx.reload().
+Extension error (/home/brittonr/.pi/agent/git/github.com/davebcn87/pi-autoresearch/extensions/pi-autoresearch/index.ts): This extension ctx is stale after session replacement or reload. Do not use a captured pi or command ctx after ctx.newSession(), ctx.fork(), ctx.switchSession(), or ctx.reload(). For newSession, fork, and switchSession, move post-replacement work into withSession and use the ctx passed to withSession. For reload, do not use the old ctx after await ctx.reload().
+--- gate proposal exit=0
