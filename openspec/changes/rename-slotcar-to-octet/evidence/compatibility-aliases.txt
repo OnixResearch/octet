@@ -1,0 +1,108 @@
+$ nix develop -c cargo test -p cargo-octet --bins cli::tests -- --nocapture
+warning: /home/brittonr/git/slotcar/crates/slotcar-standards/Cargo.toml: file `/home/brittonr/git/slotcar/crates/slotcar-standards/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `octet-standards`
+  * `bin` target `slotcar-standards`
+  * `bin` target `tigerstyle-standards`
+warning: /home/brittonr/git/slotcar/cargo-octet/Cargo.toml: file `/home/brittonr/git/slotcar/cargo-octet/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `cargo-octet`
+  * `bin` target `cargo-slotcar`
+  * `bin` target `cargo-tigerstyle`
+    Blocking waiting for file lock on build directory
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.65s
+     Running unittests src/main.rs (/home/brittonr/.cargo-target/debug/deps/cargo_octet-2effaf9a943ebe1f)
+
+running 6 tests
+test cli::tests::compatibility_alias_command_line_records_octet_canonical_identity ... ok
+test cli::tests::help_parse_accepts_root_and_subcommand_help ... ok
+test cli::tests::fingerprint_parse_accepts_compatibility_alias ... ok
+test cli::tests::fingerprint_parse_accepts_default_check ... ok
+test cli::tests::version_parse_accepts_root_version_aliases ... ok
+test cli::tests::command_line_quoting_matches_contract ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 13 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (/home/brittonr/.cargo-target/debug/deps/cargo_slotcar-48143f7c669aff01)
+
+running 6 tests
+test cli::tests::help_parse_accepts_root_and_subcommand_help ... ok
+test cli::tests::fingerprint_parse_accepts_default_check ... ok
+test cli::tests::fingerprint_parse_accepts_compatibility_alias ... ok
+test cli::tests::version_parse_accepts_root_version_aliases ... ok
+test cli::tests::compatibility_alias_command_line_records_octet_canonical_identity ... ok
+test cli::tests::command_line_quoting_matches_contract ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 13 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (/home/brittonr/.cargo-target/debug/deps/cargo_tigerstyle-611d3eb647e08459)
+
+running 6 tests
+test cli::tests::help_parse_accepts_root_and_subcommand_help ... ok
+test cli::tests::compatibility_alias_command_line_records_octet_canonical_identity ... ok
+test cli::tests::version_parse_accepts_root_version_aliases ... ok
+test cli::tests::fingerprint_parse_accepts_compatibility_alias ... ok
+test cli::tests::fingerprint_parse_accepts_default_check ... ok
+test cli::tests::command_line_quoting_matches_contract ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 13 filtered out; finished in 0.00s
+
+
+$ nix develop -c cargo test -p octet --lib all_lints_register_canonical_and_bare_names -- --nocapture
+warning: /home/brittonr/git/slotcar/cargo-octet/Cargo.toml: file `/home/brittonr/git/slotcar/cargo-octet/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `cargo-octet`
+  * `bin` target `cargo-slotcar`
+  * `bin` target `cargo-tigerstyle`
+warning: /home/brittonr/git/slotcar/crates/slotcar-standards/Cargo.toml: file `/home/brittonr/git/slotcar/crates/slotcar-standards/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `octet-standards`
+  * `bin` target `slotcar-standards`
+  * `bin` target `tigerstyle-standards`
+   Compiling octet v0.1.0 (/home/brittonr/git/slotcar)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.70s
+     Running unittests src/lib.rs (/home/brittonr/.cargo-target/debug/deps/octet-06a19db794aff816)
+
+running 1 test
+test tests::all_lints_register_canonical_and_bare_names ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 39 filtered out; finished in 0.00s
+
+
+$ nix develop -c cargo test -p octet --lib compatibility_alias_snapshot_matches -- --nocapture
+warning: /home/brittonr/git/slotcar/cargo-octet/Cargo.toml: file `/home/brittonr/git/slotcar/cargo-octet/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `cargo-octet`
+  * `bin` target `cargo-slotcar`
+  * `bin` target `cargo-tigerstyle`
+warning: /home/brittonr/git/slotcar/crates/slotcar-standards/Cargo.toml: file `/home/brittonr/git/slotcar/crates/slotcar-standards/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `octet-standards`
+  * `bin` target `slotcar-standards`
+  * `bin` target `tigerstyle-standards`
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.06s
+     Running unittests src/lib.rs (/home/brittonr/.cargo-target/debug/deps/octet-06a19db794aff816)
+
+running 1 test
+test tests::compatibility_alias_snapshot_matches ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 39 filtered out; finished in 0.00s
+
+
+$ nix build .#checks.x86_64-linux.release-candidate-smoke --no-link -L
+
+$ nix run .#cargo-slotcar -- --version
+cargo-octet 0.1.0
+$ nix run .#cargo-tigerstyle -- --version
+cargo-octet 0.1.0
+
+$ grep -n "compatibility aliases" README.md docs/consumer-guide.md docs/release-candidate.md
+README.md:74:compatibility aliases only.
+README.md:115:| standards checker binary | `octet-standards` | `slotcar-standards` / `tigerstyle-standards` are compatibility aliases |
+README.md:116:| standards policy commands | `octet-policy-export`, `octet-policy-validate` | old policy command names are compatibility aliases |
+docs/consumer-guide.md:5:`slotcar` / `tigerstyle` command or config names are compatibility aliases only.
+docs/consumer-guide.md:76:- legacy `[workspace.metadata.slotcar]` and `[slotcar]` are compatibility aliases; Octet config wins when both are present
+docs/consumer-guide.md:250:The previous `TIGERSTYLE_*` variables are compatibility aliases while Dylint
+docs/release-candidate.md:10:- Lint library package output: `octet` with compatibility aliases `slotcar` and `tigerstyle`
+docs/release-candidate.md:45:- any known compatibility aliases or non-goals.
+
+assert.cargo-slotcar-version-canonical: PASS (release-candidate-smoke and nix run output report cargo-octet 0.1.0)
+assert.cargo-tigerstyle-version-canonical: PASS (release-candidate-smoke and nix run output report cargo-octet 0.1.0)
+assert.cli-aliases-normalize-command-line: PASS (cli::tests includes fingerprint/version/check alias coverage)
+assert.lint-bare-aliases-register: PASS (all_lints_register_canonical_and_bare_names)
+assert.alias-snapshot-current: PASS (compatibility_alias_snapshot_matches)
+assert.alias-docs-explicit: PASS (README/docs/release-candidate grep)
