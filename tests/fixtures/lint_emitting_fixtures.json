@@ -32,6 +32,10 @@
     "fixture": "underscore_in_module_filename"
   },
   {
+    "lint_name": "non_trait_imports",
+    "fixture": "non_trait_imports"
+  },
+  {
     "lint_name": "unbounded_loop",
     "fixture": "unbounded_loop"
   },

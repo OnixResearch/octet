@@ -6,6 +6,7 @@ magic_number=warn
 excessive_file_length=warn
 module_file_count=warn
 underscore_in_module_filename=warn
+non_trait_imports=warn
 unbounded_loop=warn
 compound_condition=allow
 verified_purity=deny

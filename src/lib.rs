@@ -158,6 +158,9 @@ lint_inventory! {
     "underscore_in_module_filename", naming::underscore_in_module_filename::UNDERSCORE_IN_MODULE_FILENAME => |lint_store, _cfg| {
         lint_store.register_early_pass(|| Box::new(naming::underscore_in_module_filename::UnderscoreInModuleFilename));
     },
+    "non_trait_imports", naming::non_trait_imports::NON_TRAIT_IMPORTS => |lint_store, _cfg| {
+        lint_store.register_late_pass(|_| Box::new(naming::non_trait_imports::NonTraitImports));
+    },
     "unbounded_loop", safety::unbounded_loop::UNBOUNDED_LOOP => |lint_store, _cfg| {
         lint_store.register_late_pass(|_| Box::new(safety::unbounded_loop::UnboundedLoop));
     },
@@ -658,6 +661,7 @@ mod tests {
         "fallible_int_fallback",
         "magic_number",
         "underscore_in_module_filename",
+        "non_trait_imports",
         "function_length",
         "ambiguous_params",
         "no_recursion",
@@ -713,6 +717,7 @@ mod tests {
             "acronym_style" => "src/naming/acronym_style.rs",
             "numeric_units" => "src/naming/numeric_units.rs",
             "underscore_in_module_filename" => "src/naming/underscore_in_module_filename.rs",
+            "non_trait_imports" => "src/naming/non_trait_imports.rs",
             "unbounded_loop" => "src/safety/unbounded_loop.rs",
             "compound_condition" => "src/structure/compound_condition.rs",
             "verified_purity" => "src/purity/verified_purity.rs",

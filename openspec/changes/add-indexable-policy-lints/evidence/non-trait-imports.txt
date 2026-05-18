@@ -1,0 +1,43 @@
+# non_trait_imports evidence
+
+Timestamp: 2026-05-18T15:06:35Z
+
+## Scope
+
+Implemented `non_trait_imports` as an Indexable naming/import lint.
+
+Covered scenarios:
+
+- `Struct imported into local scope [r[non-trait-import-detection.scenario.struct-imported]]`
+  - Fixture: `ui_tests/non_trait_imports.rs`
+  - Expected output: `ui_tests/non_trait_imports.stderr` contains `tigerstyle::non_trait_imports` for `use crate::addr::Addr;`.
+- `Trait import for method resolution [r[non-trait-import-detection.scenario.trait-import]]`
+  - Fixture: `ui_tests/non_trait_imports_trait.rs`
+  - Expected output: `ui_tests/non_trait_imports_trait.stderr` is empty; `use std::io::Write as _;` is accepted for method resolution.
+- `Public owner-type re-export [r[non-trait-import-detection.scenario.public-owner-reexport]]`
+  - Fixture: `ui_tests/non_trait_imports_public_reexport.rs`
+  - Expected output: `ui_tests/non_trait_imports_public_reexport.stderr` is empty; `pub use crate::addr::Addr;` is accepted as a public re-export.
+
+## Verification commands
+
+```sh
+nix develop -c bash -c 'cargo test --lib && cargo test --test ui ui -- --ignored --nocapture'
+```
+
+Result: passed.
+
+```sh
+openspec validate add-indexable-policy-lints --strict
+```
+
+Result: `Change 'add-indexable-policy-lints' is valid`.
+
+```sh
+git diff --check && git diff --cached --check
+```
+
+Result: passed.
+
+## Notes
+
+The lint skips unrelated checked-in `ui_tests/` fixtures so adding this lint does not churn existing UI snapshots; the dedicated `non_trait_imports*` fixtures provide the positive/negative coverage for this slice.
