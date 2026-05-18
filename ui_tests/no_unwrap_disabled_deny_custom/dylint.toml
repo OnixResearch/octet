@@ -1,5 +1,5 @@
-[tigerstyle]
+[octet]
 disabled_lints = ["no_unwrap"]
 
-[tigerstyle.lint_levels]
+[octet.lint_levels]
 no_unwrap = "deny"
