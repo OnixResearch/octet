@@ -109,9 +109,9 @@ The implementation ships these exact new omission-prevention snippets:
 - scenario or requirement:
   - `Scenario: Maintainer sees repeated proposal omission checks before drafting`
 - artifact path:
-  - `openspec/changes/roi-01-openspec-omission-gate-rails/evidence/proposal-template-omission-prompts.txt`
+  - `openspec/changes/archive/2026-05-18-roi-01-openspec-omission-gate-rails/evidence/proposal-template-omission-prompts.txt`
 - command / helper:
-  - `python3 openspec/changes/roi-01-openspec-omission-gate-rails/evidence/update-omission-artifacts.py`
+  - `python3 openspec/changes/archive/2026-05-18-roi-01-openspec-omission-gate-rails/evidence/update-omission-artifacts.py`
 - exact expected output / acceptance signal:
   - artifact prints the proposal omission-prevention checklist lines mentioning verification/evidence expectations, affected files/artifacts, and non-goal boundaries
 - ordering / prerequisites:
@@ -122,9 +122,9 @@ The implementation ships these exact new omission-prevention snippets:
 - scenario or requirement:
   - `Scenario: Maintainer sees repeated delta-spec omission checks before review`
 - artifact path:
-  - `openspec/changes/roi-01-openspec-omission-gate-rails/evidence/spec-template-omission-prompts.txt`
+  - `openspec/changes/archive/2026-05-18-roi-01-openspec-omission-gate-rails/evidence/spec-template-omission-prompts.txt`
 - command / helper:
-  - `python3 openspec/changes/roi-01-openspec-omission-gate-rails/evidence/update-omission-artifacts.py`
+  - `python3 openspec/changes/archive/2026-05-18-roi-01-openspec-omission-gate-rails/evidence/update-omission-artifacts.py`
 - exact expected output / acceptance signal:
   - artifact prints spec-template lines mentioning boundary cases, negative controls, continued-warning or continued-blocking cases, and exact proof output/schema
 - ordering / prerequisites:
@@ -135,9 +135,9 @@ The implementation ships these exact new omission-prevention snippets:
 - scenario or requirement:
   - `Scenario: Maintainer sees repeated design omission checks before implementation`
 - artifact path:
-  - `openspec/changes/roi-01-openspec-omission-gate-rails/evidence/design-template-omission-prompts.txt`
+  - `openspec/changes/archive/2026-05-18-roi-01-openspec-omission-gate-rails/evidence/design-template-omission-prompts.txt`
 - command / helper:
-  - `python3 openspec/changes/roi-01-openspec-omission-gate-rails/evidence/update-omission-artifacts.py`
+  - `python3 openspec/changes/archive/2026-05-18-roi-01-openspec-omission-gate-rails/evidence/update-omission-artifacts.py`
 - exact expected output / acceptance signal:
   - artifact prints design-template lines mentioning scenario coverage, boundary cases, continued-warning cases, and exact proof acceptance signals
 - ordering / prerequisites:
@@ -149,9 +149,9 @@ The implementation ships these exact new omission-prevention snippets:
   - `Scenario: Config guidance includes promoted omission-prevention checks`
   - `Scenario: Config task guidance includes promoted task omission checks`
 - artifact path:
-  - `openspec/changes/roi-01-openspec-omission-gate-rails/evidence/config-omission-guidance.txt`
+  - `openspec/changes/archive/2026-05-18-roi-01-openspec-omission-gate-rails/evidence/config-omission-guidance.txt`
 - command / helper:
-  - `python3 openspec/changes/roi-01-openspec-omission-gate-rails/evidence/update-omission-artifacts.py`
+  - `python3 openspec/changes/archive/2026-05-18-roi-01-openspec-omission-gate-rails/evidence/update-omission-artifacts.py`
 - exact expected output / acceptance signal:
   - artifact prints final `openspec/config.yaml` rule lines that mention proposal evidence/artifact expectations, spec boundary/negative cases, design coverage/proof signals, task split/coverage obligations, and task oracle replay fields
 - ordering / prerequisites:
@@ -163,9 +163,9 @@ The implementation ships these exact new omission-prevention snippets:
   - `Scenario: Maintainer sees repeated task omission checks before gate review`
   - `Scenario: Human checkpoint guidance blocks implicit oracle inputs`
 - artifact path:
-  - `openspec/changes/roi-01-openspec-omission-gate-rails/evidence/tasks-template-omission-prompts.txt`
+  - `openspec/changes/archive/2026-05-18-roi-01-openspec-omission-gate-rails/evidence/tasks-template-omission-prompts.txt`
 - command / helper:
-  - `python3 openspec/changes/roi-01-openspec-omission-gate-rails/evidence/update-omission-artifacts.py`
+  - `python3 openspec/changes/archive/2026-05-18-roi-01-openspec-omission-gate-rails/evidence/update-omission-artifacts.py`
 - exact expected output / acceptance signal:
   - artifact prints task-template lines mentioning split I/V/H units, one scenario per coverage row, and exact H-task `command=`, `input=`, `asserts=`, `evidence=` fields
 - ordering / prerequisites:
@@ -176,7 +176,7 @@ The implementation ships these exact new omission-prevention snippets:
 - scenario or requirement:
   - repeated review-metrics omission source evidence
 - artifact path:
-  - `openspec/changes/roi-01-openspec-omission-gate-rails/evidence/review-metrics-omissions.txt`
+  - `openspec/changes/archive/2026-05-18-roi-01-openspec-omission-gate-rails/evidence/review-metrics-omissions.txt`
 - command / helper:
   - `review_metrics_promotions --cwd /home/brittonr/git/octet --min 2 --limit 5`
 - exact expected output / acceptance signal:
@@ -189,7 +189,7 @@ The implementation ships these exact new omission-prevention snippets:
 - scenario or requirement:
   - active change validity
 - artifact path:
-  - `openspec/changes/roi-01-openspec-omission-gate-rails/evidence/openspec-validate.txt`
+  - `openspec/changes/archive/2026-05-18-roi-01-openspec-omission-gate-rails/evidence/openspec-validate.txt`
 - command / helper:
   - `openspec validate roi-01-openspec-omission-gate-rails --strict --json`
 - exact expected output / acceptance signal:
@@ -202,9 +202,9 @@ The implementation ships these exact new omission-prevention snippets:
 - scenario or requirement:
   - proposal/design/tasks stage gate oracle review
 - artifact path:
-  - `openspec/changes/roi-01-openspec-omission-gate-rails/evidence/proposal-gate.txt`
-  - `openspec/changes/roi-01-openspec-omission-gate-rails/evidence/design-gate.txt`
-  - `openspec/changes/roi-01-openspec-omission-gate-rails/evidence/tasks-gate.txt`
+  - `openspec/changes/archive/2026-05-18-roi-01-openspec-omission-gate-rails/evidence/proposal-gate.txt`
+  - `openspec/changes/archive/2026-05-18-roi-01-openspec-omission-gate-rails/evidence/design-gate.txt`
+  - `openspec/changes/archive/2026-05-18-roi-01-openspec-omission-gate-rails/evidence/tasks-gate.txt`
 - command / helper:
   - `openspec_gate stage=proposal change=roi-01-openspec-omission-gate-rails`
   - `openspec_gate stage=design change=roi-01-openspec-omission-gate-rails`

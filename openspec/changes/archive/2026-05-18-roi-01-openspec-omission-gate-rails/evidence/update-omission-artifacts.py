@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[4]
-CHANGE = ROOT / "openspec/changes/roi-01-openspec-omission-gate-rails"
+CHANGE = ROOT / "openspec/changes/archive/2026-05-18-roi-01-openspec-omission-gate-rails"
 EVIDENCE = CHANGE / "evidence"
 
 
