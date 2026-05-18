@@ -1,0 +1,21 @@
+Octet docs metaphor verification
+root: /home/brittonr/git/slotcar
+source: README.md
+assert.project overview names Octet: PASS
+assert.chemistry metaphor names octet/stable full valence shell: PASS
+assert.inert-by-default behavior is stated: PASS
+assert.closed/complete explicit interfaces are stated: PASS
+assert.effects/capabilities/APIs/proofs/review surfaces are named: PASS
+excerpt:
+1: # Octet
+2: 
+3: Octet is a Rust-compatible toolchain and lint distribution for systems code that
+4: should be stable through closed interfaces. It applies
+5: [Tiger Style](https://github.com/tigerbeetle/tigerbeetle/blob/main/docs/TIGER_STYLE.md)
+6: rules: explicit shell/core boundaries, bounded resource use, positive naming,
+7: compact functions, and reviewable suppressions.
+8: 
+9: The chemistry metaphor is intentional: an octet is a stable full valence shell.
+10: Octet treats Rust-compatible code as inert by default across APIs, effects,
+11: capabilities, proofs, and review surfaces; interaction happens only through
+12: complete, explicit interfaces.
