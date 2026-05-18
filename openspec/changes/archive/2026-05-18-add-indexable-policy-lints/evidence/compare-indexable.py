@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import os
 import pathlib
 import re
 import subprocess
@@ -47,11 +48,14 @@ def octet_inventory_current():
     return set(re.findall(r'^\s*"([^"]+)"\s*,\s*[A-Za-z_][A-Za-z0-9_:]*::[A-Z0-9_]+\s*=>', text, re.M))
 
 
+baseline_ref = os.environ.get('OCTET_BASELINE_REF', 'b42259a7')
+coverage_ref = os.environ.get('OCTET_COVERAGE_REF', '76915357')
+
 fork_lints = clippy_lints(fork)
 upstream_lints = clippy_lints(upstream)
 fork_specific = sorted(fork_lints - upstream_lints)
-octet_b422 = octet_inventory_at('b42259a7')
-octet_current = octet_inventory_current()
+octet_b422 = octet_inventory_at(baseline_ref)
+octet_current = octet_inventory_at(coverage_ref)
 covered = sorted(set(expected) & octet_current)
 missing = sorted(set(expected) - octet_current)
 preexisting = sorted(set(expected) & octet_b422)
@@ -61,8 +65,8 @@ print()
 print('Inputs:')
 print(f'- indexable-inc/clippy: {git(fork, "rev-parse", "HEAD")}')
 print(f'- rust-lang/rust-clippy comparison baseline: {git(upstream, "rev-parse", "HEAD")}')
-print(f'- Octet pre-change baseline: {git(slotcar, "rev-parse", "b42259a7")}')
-print(f'- Octet current: {git(slotcar, "rev-parse", "HEAD")}')
+print(f'- Octet pre-change baseline: {git(slotcar, "rev-parse", baseline_ref)}')
+print(f'- Octet coverage target: {git(slotcar, "rev-parse", coverage_ref)}')
 print()
 print('Counts:')
 print(f'- fork declared Clippy lints: {len(fork_lints)}')
