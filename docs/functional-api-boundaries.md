@@ -1,6 +1,6 @@
 # Functional API boundary guidance
 
-Slotcar's useful functional lesson is type-level boundary design, not point-free cleverness. Rust generics, associated types, sealed traits, and marker states can move protocol and state errors from runtime checks into compile errors.
+Octet's useful functional lesson is type-level boundary design, not point-free cleverness. Rust generics, associated types, sealed traits, and marker states can move protocol and state errors from runtime checks into compile errors.
 
 ## Use type-level separation when state is known
 

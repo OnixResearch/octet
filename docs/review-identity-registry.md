@@ -1,6 +1,6 @@
 # Review identity registry
 
-Slotcar review identity separates mutable names from immutable evidence. Human
+Octet review identity separates mutable names from immutable evidence. Human
 labels such as `done-review`, policy names, evidence aliases, and fingerprint
 manifest handles are pointers; BLAKE3 content hashes are the review targets.
 

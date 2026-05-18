@@ -10,7 +10,7 @@ refactors.
 
 Pure core code should not read clocks, random sources, environment variables,
 files, sockets, process state, secret stores, remote executors, unsafe escape
-hatches, mutable global state, or concurrency primitives directly. Slotcar's
+hatches, mutable global state, or concurrency primitives directly. Octet's
 approved capability families are `time`, `randomness`, `filesystem`, `network`,
 `process`, `environment`, `secrets`, `remote-execution`, `unsafe-code`,
 `global-state`, `concurrency`, and explicit `unknown`. Core code should either:

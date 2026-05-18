@@ -11,11 +11,11 @@ Tiger Style lints are the default guardrail, but some bug classes need runtime o
 | Cache or hot path | Data-plane loops, parsers, encoders, schedulers, or code changed for speed | Profile identifies the claimed hot path and does not show unexpected branch/cache/allocation dominance | Workload description, profile command, top functions/lines, and comparison to the performance sketch |
 | Race and concurrency | Locking, atomics, channels, task topology, or replay/idempotence changes | Loom/Miri/sanitizer/model run passes for the scoped fixture, or remaining risk is escalated to human review | Scenario name, scheduler/model bounds, failing seed if any, and pass/fail summary |
 | Unsafe or FFI boundary | New `unsafe`, raw pointers, C ABI, lifetime erasure, or external ownership changes | Miri/sanitizer/Valgrind-style run covers the boundary fixture and the unsafe invariant checklist is complete | Boundary fixture, exact command, unsafe invariant checklist, and diagnostic transcript |
-| Release readiness | Before tagging or before enabling a hard gate for a high-risk crate | Static Slotcar check passes and the one selected dynamic profile for the highest-risk path has saved evidence | Release candidate revision, static check transcript, selected dynamic profile transcript |
+| Release readiness | Before tagging or before enabling a hard gate for a high-risk crate | Static Octet check passes and the one selected dynamic profile for the highest-risk path has saved evidence | Release candidate revision, static check transcript, selected dynamic profile transcript |
 
 ## Run timing
 
-- **Always/local default:** static Slotcar and standards checks only.
+- **Always/local default:** static Octet and standards checks only.
 - **After a big change:** select the profile for the changed risk surface.
 - **When a bug is suspected:** select the profile that can reproduce or falsify the suspected class.
 - **Before release:** run static checks plus one selected high-risk dynamic profile.
