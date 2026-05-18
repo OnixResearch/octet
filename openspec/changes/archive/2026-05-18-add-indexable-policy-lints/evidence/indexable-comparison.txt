@@ -4,7 +4,7 @@ Inputs:
 - indexable-inc/clippy: c5f8f62dacfc666fa29615b13f777bb7404a1e60
 - rust-lang/rust-clippy comparison baseline: b7348544470ebec3bd9b7146662b86ec44c8b459
 - Octet pre-change baseline: b42259a73a31e17c2a179e285ed3761667a71ac3
-- Octet current: b864dd6484897cb69888911bb8b5a0c5ee398db8
+- Octet coverage target: 7691535791f928def1d8c9777032f56c2c16b21e
 
 Counts:
 - fork declared Clippy lints: 824

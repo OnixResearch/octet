@@ -74,5 +74,5 @@ The new lints span three existing domains:
 
 - Add one focused UI fixture per scenario group.
 - Add config/registration tests proving every new lint appears in inventory, metadata, groups, and JSON output metadata.
-- Save deterministic transcripts under `openspec/changes/add-indexable-policy-lints/evidence/`.
+- Save deterministic transcripts under `openspec/changes/archive/2026-05-18-add-indexable-policy-lints/evidence/`.
 - Run `openspec validate add-indexable-policy-lints --strict` before implementation and before archive.
