@@ -1,6 +1,6 @@
 # Function fingerprint human summary example
 
-This example documents the human-output path for `cargo slotcar fingerprint`.
+This example documents the human-output path for `cargo octet fingerprint`.
 It shows two reviewed functions, a one-function drift, the non-zero check result,
 and the repair update that rewrites exactly one marker.
 

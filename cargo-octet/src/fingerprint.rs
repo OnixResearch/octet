@@ -10,8 +10,9 @@ use crate::cli::OutputFormat;
 use crate::determinism;
 
 const HASH_PREFIX: &str = "b3:";
-const COMMENT_MARKER: &str = "// slotcar-fingerprint:";
-const LEGACY_COMMENT_MARKER: &str = "// tigerstyle-fingerprint:";
+const COMMENT_MARKER: &str = "// octet-fingerprint:";
+const LEGACY_SLOTCAR_COMMENT_MARKER: &str = "// slotcar-fingerprint:";
+const LEGACY_TIGERSTYLE_COMMENT_MARKER: &str = "// tigerstyle-fingerprint:";
 const ATTR_MARKER: &str = "#[fingerprint(";
 const REVIEW_KEY: &str = "review=";
 const EVIDENCE_KEY: &str = "evidence=";
@@ -174,7 +175,7 @@ pub fn run(args: FingerprintArgs) -> Result<i32, String> {
                     ""
                 };
                 let line = format!(
-                    "// slotcar-fingerprint: b3:{}; review={review}; evidence={evidence}{macro_suffix}\n",
+                    "// octet-fingerprint: b3:{}; review={review}; evidence={evidence}{macro_suffix}\n",
                     computed_hash,
                 );
                 if let Some(marker) = marker {
@@ -410,7 +411,10 @@ fn preceding_marker(source: &str, item_start: usize) -> Option<Marker> {
     let previous_end = line_start.saturating_sub(1);
     let previous_start = source[..previous_end].rfind('\n').map_or(0, |index| index + 1);
     let previous = source[previous_start..previous_end].trim();
-    if previous.starts_with(COMMENT_MARKER) || previous.starts_with(LEGACY_COMMENT_MARKER) {
+    if previous.starts_with(COMMENT_MARKER)
+        || previous.starts_with(LEGACY_SLOTCAR_COMMENT_MARKER)
+        || previous.starts_with(LEGACY_TIGERSTYLE_COMMENT_MARKER)
+    {
         let line_end = if previous_end < source.len() {
             previous_end + 1
         } else {
@@ -630,6 +634,16 @@ mod tests {
 
     #[test]
     fn marker_is_not_part_of_function_span() {
+        let source = "// octet-fingerprint: b3:abc; review=R; evidence=E\nfn f() -> u32 { 1 }\n";
+        let functions = find_functions(source);
+        assert_eq!(functions.len(), 1);
+        assert_eq!(functions[0].name, "f");
+        assert!(functions[0].marker.is_some());
+        assert!(normalize_tokens(&source[functions[0].start..functions[0].end]).starts_with("fn f"));
+    }
+
+    #[test]
+    fn legacy_marker_is_not_part_of_function_span() {
         let source = "// tigerstyle-fingerprint: b3:abc; review=R; evidence=E\nfn f() -> u32 { 1 }\n";
         let functions = find_functions(source);
         assert_eq!(functions.len(), 1);

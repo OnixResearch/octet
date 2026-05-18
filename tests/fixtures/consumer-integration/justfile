@@ -1,4 +1,4 @@
 set shell := ["bash", "-euo", "pipefail", "-c"]
 
-slotcar:
-    cargo slotcar check
+octet:
+    cargo octet check

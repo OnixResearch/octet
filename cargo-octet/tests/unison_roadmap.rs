@@ -127,9 +127,9 @@ fn replay_capsules_capture_inspect_replay_and_drift() {
     write_json(
         &input,
         serde_json::json!({
-            "command_argv": ["cargo", "slotcar", "check", "--output-format", "json"],
+            "command_argv": ["cargo", "octet", "check", "--output-format", "json"],
             "run_kind": "check",
-            "slotcar_binary_identity": "b3:bin",
+            "octet_binary_identity": "b3:bin",
             "config_hash": "b3:cfg",
             "input_hashes": ["b3:src"],
             "output_hashes": ["b3:findings"],
@@ -141,9 +141,9 @@ fn replay_capsules_capture_inspect_replay_and_drift() {
     write_json(
         &observed,
         serde_json::json!({
-            "command_argv": ["cargo", "slotcar", "check", "--output-format", "json"],
+            "command_argv": ["cargo", "octet", "check", "--output-format", "json"],
             "run_kind": "check",
-            "slotcar_binary_identity": "b3:bin",
+            "octet_binary_identity": "b3:bin",
             "config_hash": "b3:cfg",
             "input_hashes": ["b3:src"],
             "output_hashes": ["b3:findings"],
@@ -162,7 +162,9 @@ fn replay_capsules_capture_inspect_replay_and_drift() {
         ],
         temp.path(),
     ));
-    assert_eq!(captured["capsule_kind"], "slotcar-replay-capsule");
+    assert_eq!(captured["capsule_kind"], "octet-replay-capsule");
+    assert_eq!(captured["manifest"]["octet_binary_identity"], "b3:bin");
+    assert!(captured["manifest"].get("slotcar_binary_identity").is_none());
     assert!(captured["capsule_hash"].as_str().unwrap().starts_with("b3:"));
     assert!(!captured.to_string().contains("do-not-store"));
 
@@ -186,9 +188,9 @@ fn replay_capsules_capture_inspect_replay_and_drift() {
     write_json(
         &drifted,
         serde_json::json!({
-            "command_argv": ["cargo", "slotcar", "check", "--output-format", "json"],
+            "command_argv": ["cargo", "octet", "check", "--output-format", "json"],
             "run_kind": "check",
-            "slotcar_binary_identity": "b3:bin",
+            "octet_binary_identity": "b3:bin",
             "config_hash": "b3:changed",
             "input_hashes": ["b3:src"],
             "output_hashes": ["b3:findings"],
@@ -214,6 +216,41 @@ fn replay_capsules_capture_inspect_replay_and_drift() {
 }
 
 #[test]
+fn replay_capsules_normalize_legacy_slotcar_identity_field() {
+    let temp = tempfile::tempdir().unwrap();
+    let input = temp.path().join("legacy-capsule-input.json");
+    let capsule = temp.path().join("legacy-capsule.json");
+    write_json(
+        &input,
+        serde_json::json!({
+            "command_argv": ["cargo", "slotcar", "check"],
+            "run_kind": "check",
+            "slotcar_binary_identity": "b3:legacy-bin",
+            "config_hash": "b3:cfg",
+            "input_hashes": ["b3:src"],
+            "output_hashes": ["b3:findings"],
+            "expected_exit_code": 0
+        }),
+    );
+
+    let captured = stdout_json(&run(
+        &[
+            "roadmap",
+            "capsule",
+            "capture",
+            "--input",
+            input.to_str().unwrap(),
+            "--capsule",
+            capsule.to_str().unwrap(),
+        ],
+        temp.path(),
+    ));
+
+    assert_eq!(captured["manifest"]["octet_binary_identity"], "b3:legacy-bin");
+    assert!(captured["manifest"].get("slotcar_binary_identity").is_none());
+}
+
+#[test]
 fn replay_capsules_accept_expected_failures() {
     let temp = tempfile::tempdir().unwrap();
     let input = temp.path().join("fingerprint-input.json");
@@ -221,9 +258,9 @@ fn replay_capsules_accept_expected_failures() {
     write_json(
         &input,
         serde_json::json!({
-            "command_argv": ["cargo", "slotcar", "fingerprint", "--check", "src/lib.rs"],
+            "command_argv": ["cargo", "octet", "fingerprint", "--check", "src/lib.rs"],
             "run_kind": "fingerprint",
-            "slotcar_binary_identity": "b3:bin",
+            "octet_binary_identity": "b3:bin",
             "config_hash": "b3:cfg",
             "input_hashes": ["b3:src"],
             "output_hashes": ["b3:diff"],
