@@ -1,0 +1,34 @@
+$ pi --no-session --thinking minimal -e ~/.pi/agent/extensions/openspec-gates.ts -p "Call the openspec_gate tool with stage=proposal and change=roi-01-openspec-omission-gate-rails. Print the full result."
+OpenSpec proposal gate result:
+
+```
+OpenSpec proposal gate (roi-01-openspec-omission-gate-rails)
+
+Strategy: same-family
+
+VERDICT: PASS
+
+## Findings
+- None.
+
+## Stage Check
+- Proposal is ready for design.
+- Matches:
+  - `proposal.md` states why: omission findings dominate review failures and cites `evidence/review-metrics-omissions.txt`.
+  - Scope is clear: updates `openspec/templates/proposal.md`, `spec.md`, `design.md`, `tasks.md`, `openspec/config.yaml`, delta specs, and saved evidence.
+  - Non-goals are explicit: no archived-change rewrite, no product/CLI/config behavior changes, no replacement of human review.
+  - Verification expectations are explicit: template excerpts, config-rule excerpt, `openspec validate`, and proposal/design/tasks gate transcripts.
+  - Delta specs encode the proposed capabilities:
+    - `openspec-stage-authoring/spec.md` adds omission-prevention requirements for proposal, delta-spec, design, and config guidance.
+    - `openspec-task-governance/spec.md` adds omission-prevention requirements for tasks, human/oracle fields, and tasks-stage config guidance.
+- Missing:
+  - Nothing blocking at proposal stage.
+- Napkin:
+  - Prior napkin entries about exact proof artifacts and deterministic evidence align with the proposal’s planned evidence; no conflict found.
+
+## Next Actions
+- Proceed to design.
+- In design, map each modified scenario to exact template/config edits and deterministic proof artifacts.
+[13:53:21]
+```
+--- gate proposal exit=1
