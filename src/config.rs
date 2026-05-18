@@ -399,6 +399,49 @@ no_unwrap = "deny"
         assert_eq!(cfg.lint_levels, expected);
     }
 
+    const INDEXABLE_POLICY_LINTS: &[&str] = &[
+        "drop_must_use",
+        "fallible_int_fallback",
+        "magic_number",
+        "excessive_file_length",
+        "module_file_count",
+        "underscore_in_module_filename",
+        "non_trait_imports",
+        "renamed_imports",
+        "path_segment_repetition",
+    ];
+
+    #[test]
+    fn indexable_policy_lints_are_accepted_by_config_validation() {
+        let disabled = INDEXABLE_POLICY_LINTS
+            .iter()
+            .map(|lint_name| format!("\"{lint_name}\""))
+            .collect::<Vec<_>>()
+            .join(", ");
+        let levels = INDEXABLE_POLICY_LINTS
+            .iter()
+            .map(|lint_name| format!("{lint_name} = \"deny\""))
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        let (disabled_cfg, disabled_warnings) =
+            parse_and_validate(&format!("[octet]\ndisabled_lints = [{disabled}]\n"));
+        assert!(disabled_warnings.is_empty(), "indexable disabled_lints should validate without warnings");
+        for lint_name in INDEXABLE_POLICY_LINTS {
+            assert!(disabled_cfg.lint_is_disabled(lint_name), "{lint_name} should be accepted in disabled_lints");
+        }
+
+        let (levels_cfg, level_warnings) = parse_and_validate(&format!("[octet.lint_levels]\n{levels}\n"));
+        assert!(level_warnings.is_empty(), "indexable lint_levels should validate without warnings");
+        for lint_name in INDEXABLE_POLICY_LINTS {
+            assert_eq!(
+                levels_cfg.lint_level(lint_name),
+                Some(LintLevel::Deny),
+                "{lint_name} should accept lint_levels override"
+            );
+        }
+    }
+
     #[test]
     fn parsed_octet_section_wins_over_legacy_sections() {
         let cfg = parse_config(

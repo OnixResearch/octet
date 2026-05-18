@@ -1,0 +1,47 @@
+# I10 registration/metadata coverage evidence
+
+Timestamp: 2026-05-18T16:32:47Z
+
+Scope:
+- Added explicit unit coverage for all nine indexable policy lints:
+  - drop_must_use
+  - fallible_int_fallback
+  - magic_number
+  - excessive_file_length
+  - module_file_count
+  - underscore_in_module_filename
+  - non_trait_imports
+  - renamed_imports
+  - path_segment_repetition
+- `src/lib.rs::tests::indexable_policy_lints_have_registration_metadata_aliases_groups_and_sources` asserts each lint is present in `LINT_INVENTORY`, has diagnostic metadata, belongs to a registered domain group, resolves through canonical `tigerstyle::<lint>` and bare compatibility alias names, and has a mapped source file.
+- `src/config.rs::tests::indexable_policy_lints_are_accepted_by_config_validation` asserts every indexable lint is accepted by config validation in both `disabled_lints` and `lint_levels` without warnings.
+- Added missing source-path/autofix out-of-scope accounting for `excessive_file_length`, `module_file_count`, and `path_segment_repetition`.
+
+Verification commands run:
+
+```sh
+nix develop -c bash -c 'cargo fmt -- src/lib.rs src/config.rs && cargo test --lib'
+```
+
+Result:
+- Passed.
+- `cargo test --lib`: 42 passed; 0 failed.
+- Includes new tests:
+  - `config::tests::indexable_policy_lints_are_accepted_by_config_validation ... ok`
+  - `tests::indexable_policy_lints_have_registration_metadata_aliases_groups_and_sources ... ok`
+
+Full regression command:
+
+```sh
+nix develop -c bash -c 'cargo test --lib && cargo test --test ui ui -- --ignored --nocapture'
+```
+
+Result:
+- Passed.
+- `cargo test --lib`: 42 passed; 0 failed.
+- `cargo test --test ui ui -- --ignored --nocapture`: `test ui ... ok`, 1 passed; 0 failed; 1 filtered out.
+- UI run printed every fixture and snapshot path, including all indexable lint fixtures.
+
+Non-blocking environment warnings observed:
+- Nix remote builder `ssh-ng://root@10.10.10.1` failed to connect, then local build continued and passed.
+- Cargo duplicate target warnings for `cargo-octet` and `slotcar-standards` remained non-blocking.
