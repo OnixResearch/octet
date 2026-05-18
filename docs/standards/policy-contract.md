@@ -71,7 +71,7 @@ evidence.
   declared closure label. A local Nix package exports the `slotcar-standards`
   references graph and digest sidecar so fixture Nix closure receipts have a
   first-class regeneration seam. When
-  `slotcar-standards check --execute-proof-rails` is enabled, the checker runs
+  `octet-standards check --execute-proof-rails` is enabled, the checker runs
   each relevant declared proof command from the checked source root, captures
   deterministic provenance, verifier/toolchain, verifier-binary, build-closure,
   and Nix derivation/closure metadata, command/source BLAKE3 bindings, command,

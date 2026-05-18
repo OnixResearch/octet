@@ -2,7 +2,7 @@
 
 This is a read-only downstream smoke for the generated Tiger Style policy
 artifact seam. It proves a consumer can receive the generated artifact bundle and
-run `slotcar-standards check --policy-artifacts-dir ...` without reading the
+run `octet-standards check --policy-artifacts-dir ...` without reading the
 Nickel registry directly.
 
 ## Scope

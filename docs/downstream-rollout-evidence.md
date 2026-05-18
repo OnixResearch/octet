@@ -55,7 +55,7 @@ What it proves:
 
 - `nix run .#slotcar-policy-artifacts -- <out-dir>` emits the three expected
   generated files.
-- `slotcar-standards check --policy-artifacts-dir <out-dir>` can run against
+- `octet-standards check --policy-artifacts-dir <out-dir>` can run against
   Aspen source without reading the Nickel registry directly.
 - The selected Aspen production roots (`aspen-core`, `aspen-coordination`, and
   `aspen-rpc-handlers`) report zero `embedded` diagnostics while still exposing

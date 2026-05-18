@@ -1,6 +1,6 @@
 # Tiger Style Standards Fixtures
 
-Fixtures exercise `slotcar-standards` behavior independently from production source.
+Fixtures exercise `octet-standards` behavior independently from production source.
 
 - `suppressions/compliant/` contains source that should pass while reporting active narrow suppressions.
 - `suppressions/noncompliant/` contains source that should fail with stable suppression diagnostics.

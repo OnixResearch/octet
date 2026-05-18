@@ -2,17 +2,17 @@
 let contracts = import "../../contracts.ncl" in
 
 {
-  schema_version = "tigerstyle-artifact-manifest/v1",
+  schema_version = "octet-artifact-manifest/v1",
   generated_from = "standards/policies/registry.ncl",
   registry_schema_version = "1",
   artifacts = [
     {
-      path = "tigerstyle-check-config.toml",
+      path = "octet-check-config.toml",
       blake3 = "1111111111111111111111111111111111111111111111111111111111111111",
       bytes = 42,
     },
     {
-      path = "tigerstyle-policies.json",
+      path = "octet-policies.json",
       blake3 = "2222222222222222222222222222222222222222222222222222222222222222",
       bytes = 84,
     },

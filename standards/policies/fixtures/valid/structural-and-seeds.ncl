@@ -3,7 +3,7 @@ let PolicyRegistry = contracts.PolicyRegistry in
 let PolicyRegistryRules = contracts.PolicyRegistryRules in
 {
   schema_version = "fixture",
-  checker_ids = ["registry", "slotcar-standards"],
+  checker_ids = ["registry", "octet-standards"],
   seed_manifests = [{
     name = "fixture-proof-seed",
     source_path = "../verified-logic/",
@@ -35,7 +35,7 @@ let PolicyRegistryRules = contracts.PolicyRegistryRules in
       crate_boundary = ["crates/core", "crates/std"],
     }],
     checker_owner = "fixture",
-    checker_id = "slotcar-standards",
+    checker_id = "octet-standards",
     default_severity = "error",
     suppression_requirements = {
       requires_policy_id = true,

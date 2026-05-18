@@ -15,17 +15,18 @@ The first checker foundation uses the existing Rust/Serde JSON stack and consume
 Policy registry validation and deterministic artifact export:
 
 ```bash
-nix run .#tigerstyle-policy-validate
-nix run .#tigerstyle-policy-export | jq '.policies | length'
-nix run .#tigerstyle-policy-artifacts -- /tmp/tigerstyle-policy-artifacts
+nix run .#octet-policy-validate
+nix run .#octet-policy-export | jq '.policies | length'
+nix run .#octet-policy-artifacts -- /tmp/octet-policy-artifacts
 ```
 
-The artifact export writes four consumer-facing files:
+The artifact export writes five consumer-facing files:
 
-- `tigerstyle-policies.json` — canonical registry JSON consumed by `slotcar-standards check --policy-artifacts-dir`.
-- `tigerstyle-check-config.toml` — deterministic checker configuration summary for CI/operator review.
-- `tigerstyle-seed-manifests.json` — manifest-gated seed corpus metadata.
-- `tigerstyle-proof-bundles.json` — `tigerstyle-proof-bundle/v1` schema for verified proof rails and receipt obligations.
+- `octet-policies.json` — canonical registry JSON consumed by `octet-standards check --policy-artifacts-dir`.
+- `octet-check-config.toml` — deterministic checker configuration summary for CI/operator review.
+- `octet-seed-manifests.json` — manifest-gated seed corpus metadata.
+- `octet-proof-bundles.json` — `octet-proof-bundle/v1` schema for verified proof rails and receipt obligations.
+- `octet-config-receipt-families.json` — config/receipt source-of-truth registry for freshness checks.
 
 Invalid fixtures should fail export:
 

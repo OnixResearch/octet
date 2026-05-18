@@ -1,6 +1,6 @@
 let contracts = import "../../contracts.ncl" in
 {
-  schema_version = "tigerstyle-proof-bundle/v1",
+  schema_version = "octet-proof-bundle/v1",
   generated_from = "standards/policies/registry.ncl",
   registry_schema_version = "fixture",
   proof_bundles = [{
@@ -22,7 +22,7 @@ let contracts = import "../../contracts.ncl" in
         requires_trust_boundary = true,
       },
       receipt_verifier = {
-        verifier_id = "slotcar-standards@proof-receipt/v1",
+        verifier_id = "octet-standards@proof-receipt/v1",
         verifier_digest = "fixture",
       },
     },

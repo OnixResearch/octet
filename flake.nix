@@ -146,20 +146,20 @@
           '') requiredPolicyIds);
         in
         pkgs.runCommand "slotcar-policy-artifact-consumer-check" {
-          nativeBuildInputs = nativeBuildInputs ++ [ pkgs.jq self.packages.${system}.slotcar-standards ];
+          nativeBuildInputs = nativeBuildInputs ++ [ pkgs.jq self.packages.${system}.octet-standards ];
           inherit buildInputs;
         } ''
           artifact_dir=$(mktemp -d)
           report_json=$(mktemp)
 
-          ${self.packages.${system}.tigerstyle-policy-artifacts}/bin/tigerstyle-policy-artifacts "$artifact_dir"
-          test -s "$artifact_dir/tigerstyle-policies.json"
-          test -s "$artifact_dir/tigerstyle-check-config.toml"
-          test -s "$artifact_dir/tigerstyle-seed-manifests.json"
+          ${self.packages.${system}.octet-policy-artifacts}/bin/octet-policy-artifacts "$artifact_dir"
+          test -s "$artifact_dir/octet-policies.json"
+          test -s "$artifact_dir/octet-check-config.toml"
+          test -s "$artifact_dir/octet-seed-manifests.json"
 
           cp -r ${src} source
           chmod -R u+w source
-          slotcar-standards check \
+          octet-standards check \
             --policy-artifacts-dir "$artifact_dir" \
             ${sourceArgs} \
             --family ${family} \
@@ -353,19 +353,19 @@
 
         slotcarStandards = craneLib.buildPackage {
           inherit src cargoArtifacts nativeBuildInputs buildInputs;
-          pname = "slotcar-standards";
+          pname = "octet-standards";
           version = "0.1.0";
           cargoExtraArgs = "-p slotcar-standards";
           doCheck = false;
         };
 
-        slotcarStandardsNixClosureManifest = pkgs.runCommand "slotcar-standards-nix-closure-manifest" {
+        slotcarStandardsNixClosureManifest = pkgs.runCommand "octet-standards-nix-closure-manifest" {
           nativeBuildInputs = [ pkgs.b3sum pkgs.python3 ];
-          exportReferencesGraph = [ "slotcar-standards-closure" slotcarStandards ];
+          exportReferencesGraph = [ "octet-standards-closure" slotcarStandards ];
         } ''
           mkdir -p "$out"
-          cp slotcar-standards-closure "$out/slotcar-standards-closure.graph"
-          GRAPH="$out/slotcar-standards-closure.graph" python3 - <<'PY' > "$out/slotcar-standards-closure.graph.canonical"
+          cp octet-standards-closure "$out/octet-standards-closure.graph"
+          GRAPH="$out/octet-standards-closure.graph" python3 - <<'PY' > "$out/octet-standards-closure.graph.canonical"
           import os
           from pathlib import Path
           text = Path(os.environ["GRAPH"]).read_text()
@@ -396,12 +396,12 @@
               for ref in refs:
                   print(ref)
           PY
-          graph_digest=$(b3sum "$out/slotcar-standards-closure.graph.canonical" | cut -d' ' -f1)
-          printf '%s\n' "$graph_digest" > "$out/slotcar-standards-closure.graph.blake3"
+          graph_digest=$(b3sum "$out/octet-standards-closure.graph.canonical" | cut -d' ' -f1)
+          printf '%s\n' "$graph_digest" > "$out/octet-standards-closure.graph.blake3"
           cat > "$out/proof-nix-closure.txt" <<EOF
           proof-verifier-nix-derivation: ${slotcarStandards.drvPath}
           proof-verifier-nix-output: ${slotcarStandards}
-          proof-verifier-nix-closure: exportReferencesGraph:slotcar-standards-closure
+          proof-verifier-nix-closure: exportReferencesGraph:octet-standards-closure
           proof-verifier-nix-closure-graph-blake3: $graph_digest
           EOF
         '';
@@ -548,7 +548,7 @@ MAIN
         };
 
         policyExport = pkgs.writeShellApplication {
-          name = "tigerstyle-policy-export";
+          name = "octet-policy-export";
           runtimeInputs = with pkgs; [ nickel ];
           text = ''
             exec nickel export --format json standards/policies/registry.ncl
@@ -556,22 +556,22 @@ MAIN
         };
 
         policyArtifacts = pkgs.writeShellApplication {
-          name = "tigerstyle-policy-artifacts";
+          name = "octet-policy-artifacts";
           runtimeInputs = with pkgs; [ nickel slotcarStandards ];
           text = ''
             if [ "$#" -ne 1 ]; then
-              echo "usage: tigerstyle-policy-artifacts OUT_DIR" >&2
+              echo "usage: octet-policy-artifacts OUT_DIR" >&2
               exit 2
             fi
             cd ${self}
             registry_json=$(mktemp)
             nickel export --format json standards/policies/registry.ncl > "$registry_json"
-            exec slotcar-standards export-artifacts --registry "$registry_json" --out-dir "$1"
+            exec octet-standards export-artifacts --registry "$registry_json" --out-dir "$1"
           '';
         };
 
         policyValidate = pkgs.writeShellApplication {
-          name = "tigerstyle-policy-validate";
+          name = "octet-policy-validate";
           runtimeInputs = with pkgs; [ gawk jq nickel ];
           text = ''
             nickel typecheck standards/policies/registry.ncl
@@ -618,7 +618,7 @@ MAIN
           '';
         };
 
-        policyRegistryCheck = pkgs.runCommand "tigerstyle-policy-registry-check"
+        policyRegistryCheck = pkgs.runCommand "octet-policy-registry-check"
           {
             nativeBuildInputs = with pkgs; [ gawk jq nickel ];
           } ''
@@ -668,7 +668,7 @@ MAIN
           touch "$out"
         '';
 
-        standardsFixtureCheck = pkgs.runCommand "slotcar-standards-fixtures"
+        standardsFixtureCheck = pkgs.runCommand "octet-standards-fixtures"
           {
             nativeBuildInputs = with pkgs; [ jq nickel slotcarStandards ];
           } ''
@@ -681,86 +681,86 @@ MAIN
           markdown_report=$(mktemp)
 
           nickel export --format json standards/policies/registry.ncl > "$registry_json"
-          slotcar-standards export-artifacts --registry "$registry_json" --out-dir "$artifact_dir"
-          test -s "$artifact_dir/tigerstyle-policies.json"
-          test -s "$artifact_dir/tigerstyle-check-config.toml"
-          test -s "$artifact_dir/tigerstyle-seed-manifests.json"
-          test -s "$artifact_dir/tigerstyle-proof-bundles.json"
-          test -s "$artifact_dir/tigerstyle-config-receipt-families.json"
-          test -s "$artifact_dir/tigerstyle-artifact-manifest.json"
-          jq --exit-status '.schema_version == "tigerstyle-artifact-manifest/v1"' "$artifact_dir/tigerstyle-artifact-manifest.json" >/dev/null
-          jq --exit-status '(.artifacts | length) == 5' "$artifact_dir/tigerstyle-artifact-manifest.json" >/dev/null
-          jq --exit-status 'any(.artifacts[]; .path == "tigerstyle-policies.json" and (.blake3 | length) == 64 and .bytes > 0)' "$artifact_dir/tigerstyle-artifact-manifest.json" >/dev/null
-          jq --exit-status 'any(.artifacts[]; .path == "tigerstyle-config-receipt-families.json" and (.blake3 | length) == 64 and .bytes > 0)' "$artifact_dir/tigerstyle-artifact-manifest.json" >/dev/null
-          jq --exit-status 'any(.artifacts[]; .path == "tigerstyle-check-config.toml" and (.blake3 | length) == 64 and .bytes > 0)' "$artifact_dir/tigerstyle-artifact-manifest.json" >/dev/null
-          jq --exit-status '.schema_version == "tigerstyle-proof-bundle/v1"' "$artifact_dir/tigerstyle-proof-bundles.json" >/dev/null
-          jq --exit-status 'any(.proof_bundles[]; .policy_id == "tigerstyle.verification.deterministic-effect-handlers")' "$artifact_dir/tigerstyle-proof-bundles.json" >/dev/null
-          jq --exit-status 'any(.proof_bundles[]; .proof_rail.receipt_verifier.verifier_nix_closure_graph_paths[] == "proof-nix-closure.graph")' "$artifact_dir/tigerstyle-proof-bundles.json" >/dev/null
-          grep --fixed-strings "structural_policy_ids" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
-          grep --fixed-strings "bounded_queue_forbidden_apis" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
-          grep --fixed-strings "tokio::sync::mpsc::unbounded_channel" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
-          grep --fixed-strings "bounded_queue_capacity_witnesses" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
-          grep --fixed-strings "bounded_queue_backpressure_behaviors" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
-          grep --fixed-strings "capability_forbidden_ambient_apis" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
-          grep --fixed-strings "std::process::" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
-          grep --fixed-strings "capability_core_source_scopes" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
-          grep --fixed-strings "capability_shell_constructor_scopes" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
-          grep --fixed-strings "capability_approved_names" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
-          grep --fixed-strings "type_state_source_scopes" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
-          grep --fixed-strings "type_state_raw_alias_patterns" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
-          grep --fixed-strings "type_state_raw_transition_patterns" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
-          grep --fixed-strings "type_state_required_state_markers" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
-          grep --fixed-strings "type_state_required_transition_methods" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
-          grep --fixed-strings "send_raw(" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
-          grep --fixed-strings "proof_rail_backends" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
-          grep --fixed-strings "local-command-receipt" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
-          grep --fixed-strings "proof_rail_commands" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
-          grep --fixed-strings "bash proof-command.sh" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
-          grep --fixed-strings "proof_rail_pass_signals" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
-          grep --fixed-strings "proof-result: pass deterministic-effect-handlers" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
-          grep --fixed-strings "proof_rail_receipt_bindings" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
-          grep --fixed-strings "blake3-command-and-source" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
-          grep --fixed-strings "proof_rail_receipt_schemas" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
-          grep --fixed-strings "tigerstyle-proof-receipt/v1" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
-          grep --fixed-strings "proof_rail_receipt_runners" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
-          grep --fixed-strings "slotcar-standards" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
-          grep --fixed-strings "proof_rail_receipt_environments" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
-          grep --fixed-strings "local-source-root" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
-          grep --fixed-strings "proof_rail_receipt_requires" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
-          grep --fixed-strings "trust-boundary" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
-          grep --fixed-strings "proof_rail_receipt_verifiers" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
-          grep --fixed-strings "slotcar-standards@proof-receipt/v1" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
-          grep --fixed-strings "proof_rail_receipt_verifier_digests" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
-          grep --fixed-strings "9fb0cd3ff1b2898eba4c6f71479f93ae3cdc80f869cd8ae5e6355235ec5f9aef" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
-          grep --fixed-strings "proof_rail_receipt_verifier_binaries" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
-          grep --fixed-strings "proof_rail_receipt_verifier_binary_digests" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
-          grep --fixed-strings "0d16de395c41ce1723da5047b8efc43819f9a81cf1eafac8f63a503f9b5cde27" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
-          grep --fixed-strings "proof_rail_receipt_verifier_build_closures" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
-          grep --fixed-strings "nix-slotcar-standards-build-closure/v1" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
-          grep --fixed-strings "proof_rail_receipt_verifier_build_closure_digests" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
-          grep --fixed-strings "4f3f850a5bd3a71171dd24ca76732de451b81bc3759833f242ab9ef21675b8c1" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
-          grep --fixed-strings "proof_rail_receipt_verifier_build_closure_paths" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
-          grep --fixed-strings "proof-build-closure.txt" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
-          grep --fixed-strings "proof_rail_receipt_verifier_nix_derivations" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
-          grep --fixed-strings "slotcar-standards.drv" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
-          grep --fixed-strings "proof_rail_receipt_verifier_nix_derivation_digests" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
-          grep --fixed-strings "395cf66a51543cf89028075deef9cf172bac902fd777f0ba0bead91aa68afec4" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
-          grep --fixed-strings "proof_rail_receipt_verifier_nix_closures" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
-          grep --fixed-strings "nix-store-recursive-closure/v1" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
-          grep --fixed-strings "proof_rail_receipt_verifier_nix_closure_digests" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
-          grep --fixed-strings "4f22aa23fc29fea280cb03e0b69643113681ca81493547e7239e113764990160" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
-          grep --fixed-strings "proof_rail_receipt_verifier_nix_closure_paths" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
-          grep --fixed-strings "proof-nix-closure.txt" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
-          grep --fixed-strings "proof_rail_receipt_verifier_nix_closure_graph_digests" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
-          grep --fixed-strings "e65bb6d911f9f6a878dc93d876cc03dc6504a4b9078aab71986b10e5ca862349" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
-          grep --fixed-strings "proof_rail_receipt_verifier_nix_closure_graph_paths" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
-          grep --fixed-strings "proof-nix-closure.graph" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
-          grep --fixed-strings "proof_rail_receipt_toolchains" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
-          grep --fixed-strings "rust-toolchain.toml" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
-          grep --fixed-strings "proof_rail_receipt_toolchain_digests" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
-          grep --fixed-strings "50692525e10589e3a1060a0ed0adc77f695ad5617121b572e549ef9855ceb7a8" "$artifact_dir/tigerstyle-check-config.toml" >/dev/null
+          octet-standards export-artifacts --registry "$registry_json" --out-dir "$artifact_dir"
+          test -s "$artifact_dir/octet-policies.json"
+          test -s "$artifact_dir/octet-check-config.toml"
+          test -s "$artifact_dir/octet-seed-manifests.json"
+          test -s "$artifact_dir/octet-proof-bundles.json"
+          test -s "$artifact_dir/octet-config-receipt-families.json"
+          test -s "$artifact_dir/octet-artifact-manifest.json"
+          jq --exit-status '.schema_version == "octet-artifact-manifest/v1"' "$artifact_dir/octet-artifact-manifest.json" >/dev/null
+          jq --exit-status '(.artifacts | length) == 5' "$artifact_dir/octet-artifact-manifest.json" >/dev/null
+          jq --exit-status 'any(.artifacts[]; .path == "octet-policies.json" and (.blake3 | length) == 64 and .bytes > 0)' "$artifact_dir/octet-artifact-manifest.json" >/dev/null
+          jq --exit-status 'any(.artifacts[]; .path == "octet-config-receipt-families.json" and (.blake3 | length) == 64 and .bytes > 0)' "$artifact_dir/octet-artifact-manifest.json" >/dev/null
+          jq --exit-status 'any(.artifacts[]; .path == "octet-check-config.toml" and (.blake3 | length) == 64 and .bytes > 0)' "$artifact_dir/octet-artifact-manifest.json" >/dev/null
+          jq --exit-status '.schema_version == "octet-proof-bundle/v1"' "$artifact_dir/octet-proof-bundles.json" >/dev/null
+          jq --exit-status 'any(.proof_bundles[]; .policy_id == "tigerstyle.verification.deterministic-effect-handlers")' "$artifact_dir/octet-proof-bundles.json" >/dev/null
+          jq --exit-status 'any(.proof_bundles[]; .proof_rail.receipt_verifier.verifier_nix_closure_graph_paths[] == "proof-nix-closure.graph")' "$artifact_dir/octet-proof-bundles.json" >/dev/null
+          grep --fixed-strings "structural_policy_ids" "$artifact_dir/octet-check-config.toml" >/dev/null
+          grep --fixed-strings "bounded_queue_forbidden_apis" "$artifact_dir/octet-check-config.toml" >/dev/null
+          grep --fixed-strings "tokio::sync::mpsc::unbounded_channel" "$artifact_dir/octet-check-config.toml" >/dev/null
+          grep --fixed-strings "bounded_queue_capacity_witnesses" "$artifact_dir/octet-check-config.toml" >/dev/null
+          grep --fixed-strings "bounded_queue_backpressure_behaviors" "$artifact_dir/octet-check-config.toml" >/dev/null
+          grep --fixed-strings "capability_forbidden_ambient_apis" "$artifact_dir/octet-check-config.toml" >/dev/null
+          grep --fixed-strings "std::process::" "$artifact_dir/octet-check-config.toml" >/dev/null
+          grep --fixed-strings "capability_core_source_scopes" "$artifact_dir/octet-check-config.toml" >/dev/null
+          grep --fixed-strings "capability_shell_constructor_scopes" "$artifact_dir/octet-check-config.toml" >/dev/null
+          grep --fixed-strings "capability_approved_names" "$artifact_dir/octet-check-config.toml" >/dev/null
+          grep --fixed-strings "type_state_source_scopes" "$artifact_dir/octet-check-config.toml" >/dev/null
+          grep --fixed-strings "type_state_raw_alias_patterns" "$artifact_dir/octet-check-config.toml" >/dev/null
+          grep --fixed-strings "type_state_raw_transition_patterns" "$artifact_dir/octet-check-config.toml" >/dev/null
+          grep --fixed-strings "type_state_required_state_markers" "$artifact_dir/octet-check-config.toml" >/dev/null
+          grep --fixed-strings "type_state_required_transition_methods" "$artifact_dir/octet-check-config.toml" >/dev/null
+          grep --fixed-strings "send_raw(" "$artifact_dir/octet-check-config.toml" >/dev/null
+          grep --fixed-strings "proof_rail_backends" "$artifact_dir/octet-check-config.toml" >/dev/null
+          grep --fixed-strings "local-command-receipt" "$artifact_dir/octet-check-config.toml" >/dev/null
+          grep --fixed-strings "proof_rail_commands" "$artifact_dir/octet-check-config.toml" >/dev/null
+          grep --fixed-strings "bash proof-command.sh" "$artifact_dir/octet-check-config.toml" >/dev/null
+          grep --fixed-strings "proof_rail_pass_signals" "$artifact_dir/octet-check-config.toml" >/dev/null
+          grep --fixed-strings "proof-result: pass deterministic-effect-handlers" "$artifact_dir/octet-check-config.toml" >/dev/null
+          grep --fixed-strings "proof_rail_receipt_bindings" "$artifact_dir/octet-check-config.toml" >/dev/null
+          grep --fixed-strings "blake3-command-and-source" "$artifact_dir/octet-check-config.toml" >/dev/null
+          grep --fixed-strings "proof_rail_receipt_schemas" "$artifact_dir/octet-check-config.toml" >/dev/null
+          grep --fixed-strings "tigerstyle-proof-receipt/v1" "$artifact_dir/octet-check-config.toml" >/dev/null
+          grep --fixed-strings "proof_rail_receipt_runners" "$artifact_dir/octet-check-config.toml" >/dev/null
+          grep --fixed-strings "octet-standards" "$artifact_dir/octet-check-config.toml" >/dev/null
+          grep --fixed-strings "proof_rail_receipt_environments" "$artifact_dir/octet-check-config.toml" >/dev/null
+          grep --fixed-strings "local-source-root" "$artifact_dir/octet-check-config.toml" >/dev/null
+          grep --fixed-strings "proof_rail_receipt_requires" "$artifact_dir/octet-check-config.toml" >/dev/null
+          grep --fixed-strings "trust-boundary" "$artifact_dir/octet-check-config.toml" >/dev/null
+          grep --fixed-strings "proof_rail_receipt_verifiers" "$artifact_dir/octet-check-config.toml" >/dev/null
+          grep --fixed-strings "octet-standards@proof-receipt/v1" "$artifact_dir/octet-check-config.toml" >/dev/null
+          grep --fixed-strings "proof_rail_receipt_verifier_digests" "$artifact_dir/octet-check-config.toml" >/dev/null
+          grep --fixed-strings "9fb0cd3ff1b2898eba4c6f71479f93ae3cdc80f869cd8ae5e6355235ec5f9aef" "$artifact_dir/octet-check-config.toml" >/dev/null
+          grep --fixed-strings "proof_rail_receipt_verifier_binaries" "$artifact_dir/octet-check-config.toml" >/dev/null
+          grep --fixed-strings "proof_rail_receipt_verifier_binary_digests" "$artifact_dir/octet-check-config.toml" >/dev/null
+          grep --fixed-strings "ca07415846ec49c45311f7b889ba9be3f316e180ad51eab64b0903c5dcd27821" "$artifact_dir/octet-check-config.toml" >/dev/null
+          grep --fixed-strings "proof_rail_receipt_verifier_build_closures" "$artifact_dir/octet-check-config.toml" >/dev/null
+          grep --fixed-strings "nix-octet-standards-build-closure/v1" "$artifact_dir/octet-check-config.toml" >/dev/null
+          grep --fixed-strings "proof_rail_receipt_verifier_build_closure_digests" "$artifact_dir/octet-check-config.toml" >/dev/null
+          grep --fixed-strings "d482e4bbbb8e9e1a102319c19c55327cc6944fbb9abbd67122e1f9f88a9109ee" "$artifact_dir/octet-check-config.toml" >/dev/null
+          grep --fixed-strings "proof_rail_receipt_verifier_build_closure_paths" "$artifact_dir/octet-check-config.toml" >/dev/null
+          grep --fixed-strings "proof-build-closure.txt" "$artifact_dir/octet-check-config.toml" >/dev/null
+          grep --fixed-strings "proof_rail_receipt_verifier_nix_derivations" "$artifact_dir/octet-check-config.toml" >/dev/null
+          grep --fixed-strings "octet-standards.drv" "$artifact_dir/octet-check-config.toml" >/dev/null
+          grep --fixed-strings "proof_rail_receipt_verifier_nix_derivation_digests" "$artifact_dir/octet-check-config.toml" >/dev/null
+          grep --fixed-strings "395cf66a51543cf89028075deef9cf172bac902fd777f0ba0bead91aa68afec4" "$artifact_dir/octet-check-config.toml" >/dev/null
+          grep --fixed-strings "proof_rail_receipt_verifier_nix_closures" "$artifact_dir/octet-check-config.toml" >/dev/null
+          grep --fixed-strings "nix-store-recursive-closure/v1" "$artifact_dir/octet-check-config.toml" >/dev/null
+          grep --fixed-strings "proof_rail_receipt_verifier_nix_closure_digests" "$artifact_dir/octet-check-config.toml" >/dev/null
+          grep --fixed-strings "b1501c0c0d38a17b4a5ddd298136b1c168a499237b872cf02fc72f2650a002f2" "$artifact_dir/octet-check-config.toml" >/dev/null
+          grep --fixed-strings "proof_rail_receipt_verifier_nix_closure_paths" "$artifact_dir/octet-check-config.toml" >/dev/null
+          grep --fixed-strings "proof-nix-closure.txt" "$artifact_dir/octet-check-config.toml" >/dev/null
+          grep --fixed-strings "proof_rail_receipt_verifier_nix_closure_graph_digests" "$artifact_dir/octet-check-config.toml" >/dev/null
+          grep --fixed-strings "0ed5ac9f1899c34eeda9035c5a165eefeb0beb254a1e36e354e458ae97d4943b" "$artifact_dir/octet-check-config.toml" >/dev/null
+          grep --fixed-strings "proof_rail_receipt_verifier_nix_closure_graph_paths" "$artifact_dir/octet-check-config.toml" >/dev/null
+          grep --fixed-strings "proof-nix-closure.graph" "$artifact_dir/octet-check-config.toml" >/dev/null
+          grep --fixed-strings "proof_rail_receipt_toolchains" "$artifact_dir/octet-check-config.toml" >/dev/null
+          grep --fixed-strings "rust-toolchain.toml" "$artifact_dir/octet-check-config.toml" >/dev/null
+          grep --fixed-strings "proof_rail_receipt_toolchain_digests" "$artifact_dir/octet-check-config.toml" >/dev/null
+          grep --fixed-strings "50692525e10589e3a1060a0ed0adc77f695ad5617121b572e549ef9855ceb7a8" "$artifact_dir/octet-check-config.toml" >/dev/null
 
-          slotcar-standards check \
+          octet-standards check \
             --policy-artifacts-dir "$artifact_dir" \
             --source standards/check-fixtures/suppressions/compliant \
             --family devtools \
@@ -768,7 +768,7 @@ MAIN
           jq --exit-status '.diagnostics | length == 0' "$compliant_json" >/dev/null
           jq --exit-status '.active_suppressions | length == 1' "$compliant_json" >/dev/null
 
-          slotcar-standards check \
+          octet-standards check \
             --policy-artifacts-dir "$artifact_dir" \
             --source standards/check-fixtures/architecture/compliant \
             --family architecture \
@@ -776,14 +776,14 @@ MAIN
           jq --exit-status '.diagnostics | length == 0' "$compliant_json" >/dev/null
           jq --exit-status 'any(.policy_evaluations[]; .policy_id == "tigerstyle.architecture.fcis-crate-boundary" and .target_enforcement_mode == "structural" and .failure_type == "crate-boundary")' "$compliant_json" >/dev/null
 
-          slotcar-standards check \
+          octet-standards check \
             --policy-artifacts-dir "$artifact_dir" \
             --source standards/check-fixtures/embedded/compliant \
             --family embedded \
             --output json > "$compliant_json"
           jq --exit-status '.diagnostics | length == 0' "$compliant_json" >/dev/null
 
-          slotcar-standards check \
+          octet-standards check \
             --policy-artifacts-dir "$artifact_dir" \
             --source standards/check-fixtures/architecture/compliant/typestate-protocol \
             --family idioms \
@@ -792,7 +792,7 @@ MAIN
           jq --exit-status 'all(.diagnostics[]; .policy_id == "tigerstyle.idioms.nominal-type-boundaries")' "$compliant_json" >/dev/null
           jq --exit-status 'any(.policy_evaluations[]; .policy_id == "tigerstyle.idioms.nominal-type-boundaries")' "$compliant_json" >/dev/null
 
-          slotcar-standards check \
+          octet-standards check \
             --policy-artifacts-dir "$artifact_dir" \
             --source standards/check-fixtures/verification/compliant \
             --family verification \
@@ -800,7 +800,7 @@ MAIN
           jq --exit-status '.diagnostics | length == 0' "$compliant_json" >/dev/null
           jq --exit-status 'any(.policy_evaluations[]; .policy_id == "tigerstyle.verification.deterministic-effect-handlers" and .current_enforcement_mode == "verified" and .failure_type == "verified-proof-rail")' "$compliant_json" >/dev/null
 
-          slotcar-standards check \
+          octet-standards check \
             --policy-artifacts-dir "$artifact_dir" \
             --source standards/check-fixtures/verification/compliant \
             --family verification \
@@ -808,7 +808,7 @@ MAIN
             --output json > "$compliant_json"
           jq --exit-status '.diagnostics | length == 0' "$compliant_json" >/dev/null
 
-          slotcar-standards check \
+          octet-standards check \
             --policy-artifacts-dir "$artifact_dir" \
             --source standards/check-fixtures/architecture/advisory \
             --family architecture \
@@ -817,7 +817,7 @@ MAIN
           jq --exit-status '.diagnostics[0].policy_id == "tigerstyle.architecture.public-api-budget"' "$advisory_json" >/dev/null
           jq --exit-status '.diagnostics[0].severity == "warning"' "$advisory_json" >/dev/null
 
-          if slotcar-standards check \
+          if octet-standards check \
             --policy-artifacts-dir "$artifact_dir" \
             --source standards/check-fixtures/suppressions/noncompliant \
             --family devtools \
@@ -827,7 +827,7 @@ MAIN
           fi
           jq --exit-status '.diagnostics | length >= 1' "$noncompliant_json" >/dev/null
 
-          if slotcar-standards check \
+          if octet-standards check \
             --policy-artifacts-dir "$artifact_dir" \
             --source standards/check-fixtures/architecture/noncompliant \
             --family architecture \
@@ -844,7 +844,7 @@ MAIN
           jq --exit-status 'any(.policy_evaluations[]; .target_enforcement_mode == "structural")' "$noncompliant_json" >/dev/null
           jq --exit-status 'all(.diagnostics[]; ((.path | contains("thick-root")) | not) or .policy_id != "tigerstyle.architecture.public-api-budget")' "$noncompliant_json" >/dev/null
 
-          if slotcar-standards check \
+          if octet-standards check \
             --policy-artifacts-dir "$artifact_dir" \
             --source standards/check-fixtures/architecture/noncompliant/typestate-raw \
             --family idioms \
@@ -856,7 +856,7 @@ MAIN
           jq --exit-status 'all(.diagnostics[]; .policy_id == "tigerstyle.idioms.nominal-type-boundaries")' "$noncompliant_json" >/dev/null
           jq --exit-status 'any(.diagnostics[]; .message | contains("type ConnectionState = bool"))' "$noncompliant_json" >/dev/null
 
-          if slotcar-standards check \
+          if octet-standards check \
             --policy-artifacts-dir "$artifact_dir" \
             --source standards/check-fixtures/verification/noncompliant \
             --family verification \
@@ -868,7 +868,7 @@ MAIN
           jq --exit-status 'all(.diagnostics[]; .policy_id == "tigerstyle.verification.deterministic-effect-handlers")' "$noncompliant_json" >/dev/null
           jq --exit-status 'any(.diagnostics[]; .message | contains("missing pass signal"))' "$noncompliant_json" >/dev/null
 
-          if slotcar-standards check \
+          if octet-standards check \
             --policy-artifacts-dir "$artifact_dir" \
             --source standards/check-fixtures/verification/noncompliant \
             --family verification \
@@ -880,7 +880,7 @@ MAIN
           jq --exit-status '.diagnostics | length >= 1' "$noncompliant_json" >/dev/null
           jq --exit-status 'any(.diagnostics[]; .message | contains("missing pass signal"))' "$noncompliant_json" >/dev/null
 
-          if slotcar-standards check \
+          if octet-standards check \
             --policy-artifacts-dir "$artifact_dir" \
             --source standards/check-fixtures/embedded/noncompliant \
             --family embedded \
@@ -892,7 +892,7 @@ MAIN
           jq --exit-status 'any(.diagnostics[]; .policy_id == "tigerstyle.embedded.bounded-queues" and (.message | contains("forbidden unbounded API")))' "$noncompliant_json" >/dev/null
           jq --exit-status 'any(.diagnostics[]; .policy_id == "tigerstyle.embedded.bounded-queues" and (.message | contains("missing capacity or backpressure witness")))' "$noncompliant_json" >/dev/null
 
-          slotcar-standards check \
+          octet-standards check \
             --policy-artifacts-dir "$artifact_dir" \
             --source standards/check-fixtures/suppressions/compliant \
             --family devtools \
@@ -922,10 +922,16 @@ MAIN
           cargo-tigerstyle = cargoOctet;
           fingerprint-docs-downstream-smoke = fingerprintDocsDownstreamSmoke;
           dylint-driver = dylintDriver;
+          octet-standards = slotcarStandards;
           slotcar-standards = slotcarStandards;
+          tigerstyle-standards = slotcarStandards;
+          octet-standards-nix-closure-manifest = slotcarStandardsNixClosureManifest;
           slotcar-standards-nix-closure-manifest = slotcarStandardsNixClosureManifest;
+          octet-policy-export = policyExport;
           tigerstyle-policy-export = policyExport;
+          octet-policy-artifacts = policyArtifacts;
           tigerstyle-policy-artifacts = policyArtifacts;
+          octet-policy-validate = policyValidate;
           tigerstyle-policy-validate = policyValidate;
         };
 
@@ -949,24 +955,49 @@ MAIN
             exePath = "/bin/tigerstyle-fingerprint-docs-downstream-smoke";
           };
 
+          octet-standards = flake-utils.lib.mkApp {
+            drv = slotcarStandards;
+            exePath = "/bin/octet-standards";
+          };
+
           slotcar-standards = flake-utils.lib.mkApp {
             drv = slotcarStandards;
             exePath = "/bin/slotcar-standards";
           };
 
+          tigerstyle-standards = flake-utils.lib.mkApp {
+            drv = slotcarStandards;
+            exePath = "/bin/tigerstyle-standards";
+          };
+
+          octet-policy-export = flake-utils.lib.mkApp {
+            drv = policyExport;
+            exePath = "/bin/octet-policy-export";
+          };
+
           tigerstyle-policy-export = flake-utils.lib.mkApp {
             drv = policyExport;
-            exePath = "/bin/tigerstyle-policy-export";
+            exePath = "/bin/octet-policy-export";
+          };
+
+          octet-policy-artifacts = flake-utils.lib.mkApp {
+            drv = policyArtifacts;
+            exePath = "/bin/octet-policy-artifacts";
           };
 
           tigerstyle-policy-artifacts = flake-utils.lib.mkApp {
             drv = policyArtifacts;
-            exePath = "/bin/tigerstyle-policy-artifacts";
+            exePath = "/bin/octet-policy-artifacts";
+          };
+
+          octet-policy-validate = flake-utils.lib.mkApp {
+            drv = policyValidate;
+            exePath = "/bin/octet-policy-validate";
           };
 
           tigerstyle-policy-validate = flake-utils.lib.mkApp {
             drv = policyValidate;
-            exePath = "/bin/tigerstyle-policy-validate";
+            exePath = "/bin/octet-policy-validate";
           };
         };
 
@@ -1142,18 +1173,19 @@ MAIN
 
           policy-registry = policyRegistryCheck;
           standards-fixtures = standardsFixtureCheck;
-          slotcar-standards-nix-closure-manifest = pkgs.runCommand "slotcar-standards-nix-closure-manifest-check" { } ''
+          octet-standards-nix-closure-manifest = pkgs.runCommand "octet-standards-nix-closure-manifest-check" { } ''
             test -s ${slotcarStandardsNixClosureManifest}/proof-nix-closure.txt
-            test -s ${slotcarStandardsNixClosureManifest}/slotcar-standards-closure.graph
-            test -s ${slotcarStandardsNixClosureManifest}/slotcar-standards-closure.graph.canonical
-            test -s ${slotcarStandardsNixClosureManifest}/slotcar-standards-closure.graph.blake3
+            test -s ${slotcarStandardsNixClosureManifest}/octet-standards-closure.graph
+            test -s ${slotcarStandardsNixClosureManifest}/octet-standards-closure.graph.canonical
+            test -s ${slotcarStandardsNixClosureManifest}/octet-standards-closure.graph.blake3
             grep -F "proof-verifier-nix-derivation:" ${slotcarStandardsNixClosureManifest}/proof-nix-closure.txt >/dev/null
             grep -F "proof-verifier-nix-output: ${slotcarStandards}" ${slotcarStandardsNixClosureManifest}/proof-nix-closure.txt >/dev/null
-            grep -F "proof-verifier-nix-closure: exportReferencesGraph:slotcar-standards-closure" ${slotcarStandardsNixClosureManifest}/proof-nix-closure.txt >/dev/null
-            graph_digest=$(cat ${slotcarStandardsNixClosureManifest}/slotcar-standards-closure.graph.blake3)
+            grep -F "proof-verifier-nix-closure: exportReferencesGraph:octet-standards-closure" ${slotcarStandardsNixClosureManifest}/proof-nix-closure.txt >/dev/null
+            graph_digest=$(cat ${slotcarStandardsNixClosureManifest}/octet-standards-closure.graph.blake3)
             grep -F "proof-verifier-nix-closure-graph-blake3: $graph_digest" ${slotcarStandardsNixClosureManifest}/proof-nix-closure.txt >/dev/null
             mkdir -p "$out"
           '';
+          slotcar-standards-nix-closure-manifest = self.checks.${system}.octet-standards-nix-closure-manifest;
           policy-artifact-consumer-fixture = policyArtifactConsumerFixtureCheck;
         };
 

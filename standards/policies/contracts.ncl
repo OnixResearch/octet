@@ -86,7 +86,7 @@ let CheckerIdContract =
     "cargo-deny",
     "tracey",
     "verus",
-    "slotcar-standards",
+    "octet-standards",
     "fitness-report",
     "safety-evidence",
     "human-process",
@@ -235,12 +235,12 @@ let SeedManifestContract = {
 in
 
 let ProofBundleSchemaVersionContract = OneOf [
-  "tigerstyle-proof-bundle/v1",
+  "octet-proof-bundle/v1",
 ]
 in
 
 let ArtifactManifestSchemaVersionContract = OneOf [
-  "tigerstyle-artifact-manifest/v1",
+  "octet-artifact-manifest/v1",
 ]
 in
 

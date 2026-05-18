@@ -1,4 +1,4 @@
-nix-derivation = slotcar-standards.drv
-nix-output = slotcar-standards-0.1.0
-closure-source = flake exportReferencesGraph slotcar-standards
+nix-derivation = octet-standards.drv
+nix-output = octet-standards-0.1.0
+closure-source = flake exportReferencesGraph octet-standards
 closure-scope = recursive runtime closure paths for verifier derivation
