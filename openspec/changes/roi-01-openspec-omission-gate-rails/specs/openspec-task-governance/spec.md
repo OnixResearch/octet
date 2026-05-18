@@ -39,6 +39,8 @@ implicit input, multi-claim assertion, or missing evidence path.
 - AND it tells them to provide the exact pinned input or prerequisite artifact
 - AND it tells them to provide one assertion and one evidence path
 
+## ADDED Requirements
+
 ### Requirement: Tasks-Stage Config Guidance Names Omission Checks
 
 `openspec/config.yaml` MUST include tasks-stage rules that mention the repeated
