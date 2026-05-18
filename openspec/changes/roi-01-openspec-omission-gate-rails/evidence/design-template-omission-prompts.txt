@@ -1,0 +1,6 @@
+# Design Template Omission Prompts
+
+<!-- Omission-prevention checklist: check every added/modified scenario heading and every zero-scenario requirement against decision coverage, boundary cases, continued-warning cases, and exact proof acceptance signals before implementation starts. -->
+**Covers:** <exact delta-spec scenario headings or requirement headings this decision satisfies>
+**Boundary cases:** <negative controls, continued-warning cases, or intentional gaps reviewers must see>
+- exact expected output / acceptance signal:

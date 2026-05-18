@@ -1,0 +1,6 @@
+# Config Omission Guidance
+
+    - "Follow `openspec/templates/proposal.md`; name exact repo-relative files/artifacts, ordering/dependencies, explicit non-goal boundaries, and planned saved evidence or helper/gate runs before drafting specs or tasks"
+    - "Follow `openspec/templates/spec.md` for delta-spec authoring; keep change-local specs in delta form, start each added or modified requirement with `The system MUST ...`, give every added or modified requirement at least one `#### Scenario:` block, enumerate boundary cases/negative controls/continued-warning or continued-blocking cases when behavior has non-trigger or regression-catching paths, and describe exact proof output/schema when artifacts matter"
+    - "Follow `openspec/templates/design.md`; every added or modified scenario heading or zero-scenario requirement must appear in a decision's `**Covers:**` field; name boundary cases, continued-warning cases, and intentional gaps reviewers must see; every saved proof artifact must state its exact expected output or acceptance signal"
+    - "`H<n>` tasks are invalid unless they include exact `command=`, pinned `input=` or prerequisite artifact, one `asserts=` claim, and saved `evidence=` path; broad workflows, implicit inputs, bundled assertions, or missing evidence paths are underspecified"

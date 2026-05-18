@@ -1,0 +1,7 @@
+# Tasks Template Omission Prompts
+
+<!-- Omission-prevention checklist: keep implementation separate from verification/evidence, give every added or modified scenario its own coverage row, and make each H<n> oracle checkpoint self-verifiable with exact command=, input=, asserts=, and evidence= fields. -->
+- `I<n>` — one implementation claim only. Do not combine code changes with verification runs, saved evidence, or transcript capture in the same checkbox. Split that work into a separate `V<n>` or `H<n>` task.
+- Before marking a change ready, read the delta specs and ensure every added or modified `Scenario:` heading appears in `## Verification Coverage` exactly once. Shared artifacts still need separate scenario rows.
+- Treat an `H<n>` checkbox as underspecified if `command=` is a broad workflow instead of an exact command/helper, `input=` omits the pinned fixture or prerequisite artifact, `asserts=` bundles multiple human claims, or `evidence=` omits the saved review artifact path.
+- [ ] H1 Human/oracle checkpoint: command=`<exact command or helper path>`; input=`<pinned revision, fixture, or prerequisite artifact>`; asserts=`<single human claim>`; evidence=`openspec/changes/<change>/evidence/<artifact>.txt`
