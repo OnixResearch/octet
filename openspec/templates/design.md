@@ -1,5 +1,6 @@
 <!-- Copy this file into openspec/changes/<change>/design.md and replace the placeholders. -->
 <!-- Keep decisions, proof planning, and trade-offs explicit before implementation. -->
+<!-- Omission-prevention checklist: check every added/modified scenario heading and every zero-scenario requirement against decision coverage, boundary cases, continued-warning cases, and exact proof acceptance signals before implementation starts. -->
 
 ## Context
 
