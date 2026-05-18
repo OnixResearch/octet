@@ -1,9 +1,10 @@
 ## Why
 
 Review metrics show omission findings are still the dominant OpenSpec review
-failure mode after prior template hardening: design prompt omissions repeated 79
-times, spec prompt omissions 40 times, proposal prompt omissions 33 times, and
-tasks human/auto-fix omissions 22 and 16 times. The examples are concrete:
+failure mode after prior template hardening: design prompt omissions repeated 80
+times, spec prompt omissions 41 times, proposal prompt omissions 33 times, and
+tasks human/auto-fix omissions 23 and 16 times, as captured in
+`evidence/review-metrics-omissions.txt`. The examples are concrete:
 designs omit required scenario coverage, specs omit boundary cases, proposals
 omit verification expectations, and tasks omit self-verifiable oracle details.
 

@@ -1,0 +1,23 @@
+$ pi --no-session --thinking minimal -e ~/.pi/agent/extensions/openspec-gates.ts -p "Call the openspec_gate tool with stage=tasks and change=roi-01-openspec-omission-gate-rails. Print the full result."
+OpenSpec tasks gate (roi-01-openspec-omission-gate-rails)
+
+Strategy: same-family
+
+VERDICT: PASS
+
+## Findings
+
+## Stage Check
+- Tasks complete: `17 done, 0 in progress, 0 todo`
+- Status complete / open tasks none
+- Traceability present across implementation, verification, metrics, human checkpoints
+- All seven delta-spec scenarios covered in `## Verification Coverage`
+- All checkbox tasks have parallelization markers
+- Evidence paths explicit under change evidence dir
+- No napkin conflict found
+- Tasks stage ready; archive/sync next
+
+## Next Actions
+- Archive completed change through repo OpenSpec archive flow.
+- Refresh evidence paths after archive if transcripts embed active-change paths.
+--- gate tasks exit=0

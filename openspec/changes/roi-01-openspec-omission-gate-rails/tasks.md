@@ -14,19 +14,19 @@
 - [x] V4 [depends:I3] Verify scenario "Config guidance includes promoted omission-prevention checks" with `python3 openspec/changes/roi-01-openspec-omission-gate-rails/evidence/update-omission-artifacts.py`; save output at `openspec/changes/roi-01-openspec-omission-gate-rails/evidence/config-omission-guidance.txt`. ✅ 1m (completed: 2026-05-18T17:40:05Z)
 - [x] V5 [depends:I2] Verify scenario "Maintainer sees repeated task omission checks before gate review" with `python3 openspec/changes/roi-01-openspec-omission-gate-rails/evidence/update-omission-artifacts.py`; save output at `openspec/changes/roi-01-openspec-omission-gate-rails/evidence/tasks-template-omission-prompts.txt`. ✅ 1m (completed: 2026-05-18T17:40:05Z)
 - [x] V6 [depends:I2] Verify scenario "Human checkpoint guidance blocks implicit oracle inputs" with `python3 openspec/changes/roi-01-openspec-omission-gate-rails/evidence/update-omission-artifacts.py`; save output at `openspec/changes/roi-01-openspec-omission-gate-rails/evidence/tasks-template-omission-prompts.txt`. ✅ 1m (completed: 2026-05-18T17:40:05Z)
-- [x] V7 [depends:I1] Verify active change validity with `openspec validate roi-01-openspec-omission-gate-rails --strict --json`; save output at `openspec/changes/roi-01-openspec-omission-gate-rails/evidence/openspec-validate.txt`. ✅ 1m (completed: 2026-05-18T17:40:05Z)
+- [x] V7 [depends:I0,I1,I2,I3,I4,V1,V2,V3,V4,V5,V6,V8,V9] Verify active change validity with `openspec validate roi-01-openspec-omission-gate-rails --strict --json`; save output at `openspec/changes/roi-01-openspec-omission-gate-rails/evidence/openspec-validate.txt`. ✅ 1m (completed: 2026-05-18T17:56:03Z)
 - [x] V8 [depends:I3] Verify scenario "Config task guidance includes promoted task omission checks" with `python3 openspec/changes/roi-01-openspec-omission-gate-rails/evidence/update-omission-artifacts.py`; save output at `openspec/changes/roi-01-openspec-omission-gate-rails/evidence/config-omission-guidance.txt`. ✅ 1m (completed: 2026-05-18T17:44:00Z)
 - [x] V9 [depends:I0] Verify repeated omission source metrics with `review_metrics_promotions --cwd /home/brittonr/git/octet --min 2 --limit 5`; save output at `openspec/changes/roi-01-openspec-omission-gate-rails/evidence/review-metrics-omissions.txt`. ✅ 1m (completed: 2026-05-18T17:44:00Z)
 
 ## Phase 3: Human/oracle checkpoints
 
-- [ ] H1 [depends:V7] Human/oracle checkpoint: command=`openspec_gate stage=proposal change=roi-01-openspec-omission-gate-rails`; input=`proposal.md plus openspec-stage-authoring and openspec-task-governance delta specs`; asserts=`proposal-stage review accepts the omission-prevention scope and evidence plan`; evidence=`openspec/changes/roi-01-openspec-omission-gate-rails/evidence/proposal-gate.txt`
-- [ ] H2 [depends:V7] Human/oracle checkpoint: command=`openspec_gate stage=design change=roi-01-openspec-omission-gate-rails`; input=`final design.md with scenario coverage and proof plan`; asserts=`design-stage review accepts the scenario coverage, boundary cases, and proof acceptance signals`; evidence=`openspec/changes/roi-01-openspec-omission-gate-rails/evidence/design-gate.txt`
-- [ ] H3 [depends:V7] Human/oracle checkpoint: command=`openspec_gate stage=tasks change=roi-01-openspec-omission-gate-rails`; input=`tasks.md and delta specs`; asserts=`tasks-stage review accepts one task per scenario and exact H-task replay fields`; evidence=`openspec/changes/roi-01-openspec-omission-gate-rails/evidence/tasks-gate.txt`
+- [x] H1 [depends:V7,V8,V9] Human/oracle checkpoint: command=`openspec_gate stage=proposal change=roi-01-openspec-omission-gate-rails`; input=`proposal.md plus openspec-stage-authoring and openspec-task-governance delta specs`; asserts=`proposal-stage review accepts the omission-prevention scope and evidence plan`; evidence=`openspec/changes/roi-01-openspec-omission-gate-rails/evidence/proposal-gate.txt` ✅ 1m (completed: 2026-05-18T17:53:21Z)
+- [x] H2 [depends:V7,V8,V9,H1] Human/oracle checkpoint: command=`openspec_gate stage=design change=roi-01-openspec-omission-gate-rails`; input=`final design.md with scenario coverage and proof plan`; asserts=`design-stage review accepts the scenario coverage, boundary cases, and proof acceptance signals`; evidence=`openspec/changes/roi-01-openspec-omission-gate-rails/evidence/design-gate.txt` ✅ 1m (completed: 2026-05-18T17:53:56Z)
+- [x] H3 [depends:V7,V8,V9,H1,H2] Human/oracle checkpoint: command=`openspec_gate stage=tasks change=roi-01-openspec-omission-gate-rails`; input=`tasks.md and delta specs`; asserts=`tasks-stage review accepts one task per scenario and exact H-task replay fields`; evidence=`openspec/changes/roi-01-openspec-omission-gate-rails/evidence/tasks-gate.txt` ✅ 1m (completed: 2026-05-18T17:56:03Z)
 
 ## Change Status
-- Status: in-progress
-- Open tasks: H1, H2, H3
+- Status: complete
+- Open tasks: none
 Use `Open tasks: none` only when every governed `I<n>`, `V<n>`, and `H<n>` task checkbox is checked.
 ## Verification Coverage
 

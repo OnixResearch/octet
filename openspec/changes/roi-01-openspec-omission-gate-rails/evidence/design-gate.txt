@@ -1,0 +1,31 @@
+$ pi --no-session --thinking minimal -e ~/.pi/agent/extensions/openspec-gates.ts -p "Call the openspec_gate tool with stage=design and change=roi-01-openspec-omission-gate-rails. Print the full result."
+OpenSpec design gate result:
+
+```text
+OpenSpec design gate (roi-01-openspec-omission-gate-rails)
+
+Strategy: same-family
+
+VERDICT: PASS
+
+## Findings
+- None
+
+## Stage Check
+- Design covers the proposal scope: template prompt updates, `openspec/config.yaml` guidance, deterministic extracts, `openspec validate`, and gate transcripts are all planned in `design.md`.
+- Design maps decisions to all supplied delta-spec scenarios via `**Covers:**` fields:
+  - proposal/spec/design/task template omission prompts
+  - config omission guidance
+  - task human/oracle replay guidance
+- Verification strategy is explicit in `design.md` under `## Deterministic Proof Plan`, with artifact paths, commands/helpers, expected acceptance signals, ordering, and cleanup.
+- Trade-offs and risks are stated in `## Risks / Trade-offs`.
+- No unresolved human/oracle choice blocks design-stage readiness.
+- Tasks-stage parallelization markers are not evaluated at this design stage.
+
+## Next Actions
+- Proceed to tasks drafting.
+- Ensure later `tasks.md` checkbox tasks include required concurrency markers at tasks stage.
+- Preserve the planned evidence paths under `openspec/changes/roi-01-openspec-omission-gate-rails/evidence/`.
+[13:53:56]
+```
+--- gate design exit=0

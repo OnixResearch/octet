@@ -91,6 +91,19 @@ OpenSpec archive if the change is completed later.
 blocker transcript and keep deterministic extracts plus `openspec validate` as
 the non-oracle proof; do not mark the H-task complete without a gate transcript.
 
+## Exact Prompt And Config Snippets
+
+The implementation ships these exact new omission-prevention snippets:
+
+- proposal template: `<!-- Omission-prevention checklist: name planned verification/evidence expectations, exact affected files/artifacts, and explicit non-goal boundaries before writing specs or tasks. -->`
+- delta-spec template: `<!-- Omission-prevention checklist: enumerate boundary cases, negative controls, and continued-warning or continued-blocking scenarios when the requirement has non-trigger or regression-catching behavior. -->`
+- design template: `<!-- Omission-prevention checklist: check every added/modified scenario heading and every zero-scenario requirement against decision coverage, boundary cases, continued-warning cases, and exact proof acceptance signals before implementation starts. -->`
+- tasks template: `<!-- Omission-prevention checklist: keep implementation separate from verification/evidence, give every added or modified scenario its own coverage row, and make each H<n> oracle checkpoint self-verifiable with exact command=, input=, asserts=, and evidence= fields. -->`
+- config proposal rule: `Follow openspec/templates/proposal.md; name exact repo-relative files/artifacts, ordering/dependencies, explicit non-goal boundaries, and planned saved evidence or helper/gate runs before drafting specs or tasks`
+- config delta-spec rule: `Follow openspec/templates/spec.md ... enumerate boundary cases/negative controls/continued-warning or continued-blocking cases ... and describe exact proof output/schema when artifacts matter`
+- config design rule: `Follow openspec/templates/design.md ... every added or modified scenario heading or zero-scenario requirement must appear in a decision's **Covers:** field ... every saved proof artifact must state its exact expected output or acceptance signal`
+- config tasks rules: keep implementation, deterministic verification, and human/oracle checkpoints separate; keep one verification coverage row per scenario; require exact H-task `command=`, `input=`, `asserts=`, and `evidence=` fields.
+
 ## Deterministic Proof Plan
 
 - scenario or requirement:
