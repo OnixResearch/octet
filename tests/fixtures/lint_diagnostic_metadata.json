@@ -81,6 +81,15 @@
     "example_text": "crate::addr::Addr"
   },
   {
+    "lint_name": "renamed_imports",
+    "principle": "Searchable Import Names",
+    "guide_section": "Naming",
+    "domain_group": "tigerstyle::naming",
+    "guidance": "avoid `use ... as ...` aliases that hide the original searchable item name",
+    "example_mode": "required",
+    "example_text": "use crate::transport::Config;"
+  },
+  {
     "lint_name": "unbounded_loop",
     "principle": "Bounded Control Flow",
     "guide_section": "Bounded Control Flow",

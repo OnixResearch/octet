@@ -1,0 +1,33 @@
+# renamed_imports evidence
+
+Timestamp: 2026-05-18T15:38:49Z
+
+Scope:
+- Implemented warn-by-default naming/import lint `renamed_imports`.
+- The lint warns on private/local `use ... as ...` aliases because they hide the original searchable item name.
+- The lint allows trait imports renamed to `_` for method resolution.
+- The lint allows documented public compatibility re-export aliases.
+
+Focused fixtures:
+- `ui_tests/renamed_imports.rs` contains `use crate::transport::Config as TransportConfig;` and emits `tigerstyle::renamed_imports`.
+- `ui_tests/renamed_imports_trait.rs` contains `use std::fmt::Write as _;` and emits no diagnostics.
+- `ui_tests/renamed_imports_compat.rs` contains documented `pub use crate::octet::Config as SlotcarConfig;` compatibility alias and emits no diagnostics.
+
+Verification commands:
+
+```sh
+nix develop -c bash -c 'cargo fmt -- src/naming/renamed_imports.rs src/naming/mod.rs src/lib.rs src/diagnostics.rs && BLESS=1 cargo test --test ui ui -- --ignored --nocapture && cargo test --lib'
+```
+
+Result: passed. UI harness printed and refreshed the focused fixtures; `cargo test --lib` passed 40 tests.
+
+Final pre-commit verification:
+
+```sh
+nix develop -c bash -c 'cargo test --lib && cargo test --test ui ui -- --ignored --nocapture'
+openspec validate add-indexable-policy-lints --strict
+git diff --check
+git diff --cached --check
+```
+
+Expected result: all commands pass and OpenSpec reports `Change 'add-indexable-policy-lints' is valid`.

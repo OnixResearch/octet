@@ -148,6 +148,15 @@ pub(crate) const DIAGNOSTIC_METADATA: &[LintDiagnosticMeta] = &[
         example_text: Some("crate::addr::Addr"),
     },
     LintDiagnosticMeta {
+        lint_name: "renamed_imports",
+        principle: "Searchable Import Names",
+        guide_section: "Naming",
+        domain_group: GROUP_NAMING,
+        guidance: "avoid `use ... as ...` aliases that hide the original searchable item name",
+        example_mode: ExampleMode::Required,
+        example_text: Some("use crate::transport::Config;"),
+    },
+    LintDiagnosticMeta {
         lint_name: "unbounded_loop",
         principle: "Bounded Control Flow",
         guide_section: "Bounded Control Flow",
