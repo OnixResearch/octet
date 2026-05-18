@@ -2,7 +2,7 @@
 
 - [x] I1 [serial] Update `openspec/templates/proposal.md`, `openspec/templates/spec.md`, and `openspec/templates/design.md` with omission-prevention prompts for the promoted proposal/spec/design omission classes. ✅ 4m (completed: 2026-05-18T17:32:05Z)
 - [x] I2 [serial] Update `openspec/templates/tasks.md` with omission-prevention prompts for split implementation/proof tasks, one-row-per-scenario coverage, and exact `H<n>` replay fields. ✅ 3m (completed: 2026-05-18T17:36:03Z)
-- [ ] I3 [serial] Update `openspec/config.yaml` stage rules so proposal/spec/design/tasks prompts name the same omission-prevention obligations.
+- [x] I3 [serial] Update `openspec/config.yaml` stage rules so proposal/spec/design/tasks prompts name the same omission-prevention obligations. ✅ 2m (completed: 2026-05-18T17:37:18Z)
 - [ ] I4 [serial] Add deterministic evidence helper `openspec/changes/roi-01-openspec-omission-gate-rails/evidence/update-omission-artifacts.py`.
 
 ## Phase 2: Deterministic verification
@@ -23,7 +23,7 @@
 
 ## Change Status
 - Status: in-progress
-- Open tasks: I3, I4, V1, V2, V3, V4, V5, V6, V7, H1, H2, H3
+- Open tasks: I4, V1, V2, V3, V4, V5, V6, V7, H1, H2, H3
 Use `Open tasks: none` only when every governed `I<n>`, `V<n>`, and `H<n>` task checkbox is checked.
 ## Verification Coverage
 
