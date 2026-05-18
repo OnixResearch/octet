@@ -100,7 +100,9 @@ pub fn parse(argv: impl IntoIterator<Item = OsString>) -> Result<CommandArgs, St
     let invoked_as_cargo_subcommand =
         argv.first().is_some_and(|arg| matches!(arg.as_str(), "octet" | "slotcar" | "tigerstyle"));
     let command_line = if invoked_as_cargo_subcommand {
-        format_command_line("cargo", &argv)
+        let mut canonical_argv = argv.clone();
+        canonical_argv[0] = "octet".to_owned();
+        format_command_line("cargo", &canonical_argv)
     } else {
         format_command_line(&program, &argv)
     };
@@ -501,5 +503,15 @@ mod tests {
         assert_eq!(format_command_line("cargo", &["arg with spaces".to_owned()]), "cargo 'arg with spaces'");
         assert_eq!(format_command_line("cargo", &["can't".to_owned()]), "cargo 'can'\"'\"'t'");
         assert_eq!(format_command_line("cargo", &[String::new()]), "cargo ''");
+    }
+
+    #[test]
+    fn compatibility_alias_command_line_records_octet_canonical_identity() {
+        let parsed = parse(["cargo", "slotcar", "check", "--output-format", "json"].map(OsString::from))
+            .expect("parse alias check args");
+        match parsed {
+            CommandArgs::Check(args) => assert_eq!(args.command_line, "cargo octet check --output-format json"),
+            other => panic!("expected check args, got {other:?}"),
+        }
     }
 }

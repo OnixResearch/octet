@@ -303,11 +303,10 @@ fn artifact_replay(hash: &str, store_dir: &Path) -> Result<i32, String> {
 }
 
 fn capsule_capture(input: &Path, capsule_path: &Path) -> Result<i32, String> {
-    let manifest = normalize_value(read_json(input)?);
+    let mut manifest = normalize_value(read_json(input)?);
     for field in [
         "command_argv",
         "run_kind",
-        "slotcar_binary_identity",
         "config_hash",
         "input_hashes",
         "output_hashes",
@@ -317,12 +316,21 @@ fn capsule_capture(input: &Path, capsule_path: &Path) -> Result<i32, String> {
             return Err(format!("capsule input missing {field}"));
         }
     }
+    if manifest.get("octet_binary_identity").is_none() {
+        let Some(legacy_identity) = manifest.get("slotcar_binary_identity").cloned() else {
+            return Err("capsule input missing octet_binary_identity".to_owned());
+        };
+        manifest["octet_binary_identity"] = legacy_identity;
+    }
+    if let Some(object) = manifest.as_object_mut() {
+        object.remove("slotcar_binary_identity");
+    }
     let canonical = canonical_json(&manifest)?;
     let capsule_hash = determinism::full_hash(&canonical);
     let capsule = serde_json::json!({
         "schema_version": SCHEMA_VERSION,
         "capsule_hash": capsule_hash,
-        "capsule_kind": "slotcar-replay-capsule",
+        "capsule_kind": "octet-replay-capsule",
         "manifest": manifest,
         "replay_contract": {
             "input_match": "required",
@@ -355,7 +363,15 @@ fn capsule_inspect(capsule_path: &Path) -> Result<i32, String> {
 
 fn capsule_replay(capsule_path: &Path, observed_path: &Path) -> Result<i32, String> {
     let capsule = read_json(capsule_path)?;
-    let observed = normalize_value(read_json(observed_path)?);
+    let mut observed = normalize_value(read_json(observed_path)?);
+    if observed.get("octet_binary_identity").is_none() {
+        if let Some(legacy_identity) = observed.get("slotcar_binary_identity").cloned() {
+            observed["octet_binary_identity"] = legacy_identity;
+        }
+    }
+    if let Some(object) = observed.as_object_mut() {
+        object.remove("slotcar_binary_identity");
+    }
     let manifest = &capsule["manifest"];
     let mismatches = capsule_mismatches(manifest, &observed);
     let expected_exit = manifest["expected_exit_code"].as_i64().unwrap_or(0);
@@ -387,7 +403,7 @@ fn capsule_mismatches(manifest: &Value, observed: &Value) -> Vec<String> {
     for field in [
         "command_argv",
         "run_kind",
-        "slotcar_binary_identity",
+        "octet_binary_identity",
         "config_hash",
         "input_hashes",
         "output_hashes",
@@ -534,7 +550,7 @@ fn pointer_set(registry_path: &Path, name: &str, kind: &str, hash: &str, receipt
         old_hash,
         new_hash: hash.to_owned(),
         rollback_hint: format!(
-            "cargo slotcar roadmap pointer rollback --registry {} --receipt {}",
+            "cargo octet roadmap pointer rollback --registry {} --receipt {}",
             registry_path.display(),
             receipt_path.display()
         ),

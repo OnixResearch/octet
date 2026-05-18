@@ -16,7 +16,7 @@ nix build .#checks.x86_64-linux.fingerprint-docs-downstream-smoke --no-link -L
 
 The check creates a temporary Cargo crate, copies every checked
 `docs/examples/function-fingerprint-*/reviewed.rs` fixture into that crate, and
-runs the real `cargo-slotcar fingerprint` binary over the consumer `src/`
+runs the real `cargo-octet fingerprint` binary over the consumer `src/`
 directory. It asserts that:
 
 - all seven documented records are discovered outside the Slotcar checkout;

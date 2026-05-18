@@ -13,7 +13,7 @@ them as a replacement for tests, proofs, or normal code review.
 Comment markers work in stable Rust without adding an attribute macro:
 
 ```rust
-// slotcar-fingerprint: b3:<hash>; review=safety-critical; evidence=openspec/.../evidence/check.txt
+// octet-fingerprint: b3:<hash>; review=safety-critical; evidence=openspec/.../evidence/check.txt
 fn checked_transition(input: State) -> State { /* ... */ }
 ```
 

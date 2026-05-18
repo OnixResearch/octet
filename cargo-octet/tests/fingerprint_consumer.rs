@@ -859,7 +859,7 @@ fn fingerprint_write_skips_functions_inside_macro_rules_definitions() {
 
     let updated = fs::read_to_string(&fixture).expect("read updated fixture");
     assert!(!updated.contains("review=TODO"));
-    assert_eq!(updated.matches("slotcar-fingerprint").count(), 1);
+    assert_eq!(updated.matches("octet-fingerprint").count(), 1);
 
     let check = Command::new(cargo_octet())
         .args(["fingerprint", "--check", "--output-format=json"])

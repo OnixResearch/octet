@@ -28,7 +28,7 @@ Pointer updates write receipts with the previous hash. Roll back a bad pointer
 move without mutating either target hash:
 
 ```sh
-cargo slotcar roadmap pointer rollback --registry review-registry.json --receipt update.json
+cargo octet roadmap pointer rollback --registry review-registry.json --receipt update.json
 ```
 
 Pointer history keeps the previous immutable target visible for review. Missing

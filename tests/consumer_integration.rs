@@ -2501,14 +2501,14 @@ fn transcript_reports_content_hash_and_fails_closed() {
         &good,
         r#"# Example
 
-```slotcar-transcript
+```octet-transcript
 $ cargo octet check --output-format json
 => {"version":1
 ```
 "#,
     );
     let bad = fixture.repo.join("docs/bad.md");
-    write_file(&bad, "# Missing expected output\n\n```slotcar-transcript\n$ cargo octet check\n```\n");
+    write_file(&bad, "# Missing expected output\n\n```octet-transcript\n$ cargo octet check\n```\n");
     let bin = built_cargo_octet_bin().expect("build cargo-octet binary");
 
     let good_output = Command::new(&bin)
