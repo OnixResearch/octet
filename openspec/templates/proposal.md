@@ -1,5 +1,6 @@
 <!-- Copy this file into openspec/changes/<change>/proposal.md and replace the placeholders. -->
 <!-- Keep proposal scope concrete before drafting specs, design, and tasks. -->
+<!-- Omission-prevention checklist: name planned verification/evidence expectations, exact affected files/artifacts, and explicit non-goal boundaries before writing specs or tasks. -->
 
 ## Why
 

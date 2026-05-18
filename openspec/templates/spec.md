@@ -3,6 +3,7 @@
 <!-- Start each added or modified requirement with an explicit sentence beginning "The system MUST ...". -->
 <!-- Give every added or modified requirement at least one "#### Scenario:" block. -->
 <!-- If acceptance depends on a saved artifact, describe the artifact's exact expected output or schema in the requirement body, not only the path. -->
+<!-- Omission-prevention checklist: enumerate boundary cases, negative controls, and continued-warning or continued-blocking scenarios when the requirement has non-trigger or regression-catching behavior. -->
 
 ## ADDED Requirements
 
