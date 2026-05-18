@@ -1,0 +1,42 @@
+# Indexable fork comparison evidence
+
+Inputs:
+- indexable-inc/clippy: c5f8f62dacfc666fa29615b13f777bb7404a1e60
+- rust-lang/rust-clippy comparison baseline: b7348544470ebec3bd9b7146662b86ec44c8b459
+- Octet pre-change baseline: b42259a73a31e17c2a179e285ed3761667a71ac3
+- Octet current: b864dd6484897cb69888911bb8b5a0c5ee398db8
+
+Counts:
+- fork declared Clippy lints: 824
+- upstream declared Clippy lints: 815
+- fork-specific lints: 9
+
+Fork-specific lints:
+- drop_must_use
+- excessive_file_length
+- fallible_int_fallback
+- magic_number
+- module_file_count
+- non_trait_imports
+- path_segment_repetition
+- renamed_imports
+- underscore_in_module_filename
+
+Octet b422 pre-existing matches:
+- none
+
+Octet current coverage:
+- drop_must_use
+- excessive_file_length
+- fallible_int_fallback
+- magic_number
+- module_file_count
+- non_trait_imports
+- path_segment_repetition
+- renamed_imports
+- underscore_in_module_filename
+
+Missing from Octet current:
+- none
+
+ASSERTION: PASS - the change covers the nine fork-specific Indexable lints not already present as Octet lints.
