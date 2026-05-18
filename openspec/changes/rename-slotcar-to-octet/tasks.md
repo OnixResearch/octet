@@ -16,7 +16,7 @@
 - [x] V3 Verify scenario "Legacy names remain distinguishable" with the remaining-name classification helper; save output at `openspec/changes/rename-slotcar-to-octet/evidence/name-classification.txt` ✅ 0m (verified: 2026-05-18T04:11:46Z; evidence: `openspec/changes/rename-slotcar-to-octet/evidence/name-classification.txt`)
 - [x] V4 Verify scenario "Cargo subcommand uses Octet" with focused cargo runner help/integration checks; save output at `openspec/changes/rename-slotcar-to-octet/evidence/cli-surface.txt` ✅ 0m (verified: 2026-05-18T04:18:07Z; evidence: `openspec/changes/rename-slotcar-to-octet/evidence/cli-surface.txt`)
 - [x] V5 Verify scenario "Structured outputs name Octet" with focused human/JSON/SARIF output checks; save output at `openspec/changes/rename-slotcar-to-octet/evidence/structured-output.txt` ✅ 1m08s (started: 2026-05-18T04:36:37Z → completed: 2026-05-18T04:37:45Z; evidence: `openspec/changes/rename-slotcar-to-octet/evidence/structured-output.txt`)
-- [ ] V6 Verify scenario "Compatibility aliases are explicit" with compatibility invocation tests or a documented no-alias decision; save output at `openspec/changes/rename-slotcar-to-octet/evidence/compatibility-aliases.txt`
+- [x] V6 Verify scenario "Compatibility aliases are explicit" with compatibility invocation tests or a documented no-alias decision; save output at `openspec/changes/rename-slotcar-to-octet/evidence/compatibility-aliases.txt` ✅ 1m59s (started: 2026-05-18T04:39:20Z → completed: 2026-05-18T04:41:19Z; evidence: `openspec/changes/rename-slotcar-to-octet/evidence/compatibility-aliases.txt`)
 - [ ] V7 Verify scenario "Octet config section controls lint behavior" with a focused config fixture/integration test; save output at `openspec/changes/rename-slotcar-to-octet/evidence/config-surface.txt`
 - [ ] V8 Verify scenario "Octet workspace metadata controls runner policy" with a focused consumer integration test; save output at `openspec/changes/rename-slotcar-to-octet/evidence/config-surface.txt`
 - [ ] V9 Verify scenario "Octet config wins over legacy config" with a focused precedence test; save output at `openspec/changes/rename-slotcar-to-octet/evidence/config-precedence.txt`
@@ -25,7 +25,7 @@
 
 ## Change Status
 - Status: in-progress
-- Open tasks: V6, V7, V8, V9, V10
+- Open tasks: V7, V8, V9, V10
 
 ## Verification Coverage
 
