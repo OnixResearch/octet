@@ -1,0 +1,60 @@
+# fallible_int_fallback evidence
+
+Timestamp: 2026-05-18T06:23:53Z
+Change: add-indexable-policy-lints
+Tasks: I2, V3, V4, V22, V23
+
+## Implementation
+
+Implemented `fallible_int_fallback` as a late safety lint in `src/safety/fallible_int_fallback.rs`.
+
+The lint reports fallible integer conversions that immediately hide failure behind sentinel/default fallbacks:
+
+- `u32::try_from(count).unwrap_or(0)`
+- `u8::try_from(count).unwrap_or(u8::MAX)`
+- `i32::try_from(count).unwrap_or(i32::MIN)`
+- `u16::try_from(count).unwrap_or_default()`
+
+The implementation verifies the receiver type is `Result<integer, _>`, so non-integer `Result` fallbacks are outside this lint. It also suppresses test-context code through the existing `test_context` helper.
+
+## Positive/negative UI fixture
+
+Fixture: `ui_tests/fallible_int_fallback.rs`
+Snapshot: `ui_tests/fallible_int_fallback.stderr`
+
+The fixture includes:
+
+- zero fallback after `TryFrom` narrowing;
+- extreme MIN/MAX fallback after narrowing;
+- default fallback after narrowing;
+- explicit `match` error handling as a non-emitting negative case;
+- non-integer `Result<String, _>.unwrap_or_default()` as a non-emitting negative case.
+
+The checked snapshot contains `fallible_int_fallback` diagnostics for the zero, extreme, and default integer fallback cases and no diagnostic for the explicit handling or non-integer default fallback cases.
+
+## Verification commands
+
+```console
+$ nix develop -c bash -c 'CARGO_TARGET_DIR=$(mktemp -d) cargo test --lib -- --nocapture'
+...
+test result: ok. 40 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+```
+
+```console
+$ nix develop -c bash -c 'CARGO_TARGET_DIR=$(mktemp -d) cargo test --test ui ui -- --ignored --nocapture'
+...
+[ui fixture] fallible_int_fallback
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/fallible_int_fallback.stderr
+...
+test ui ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 28.24s
+```
+
+## Assertions
+
+- V3 zero fallback: `ui_tests/fallible_int_fallback.stderr` reports `u32::try_from(count).unwrap_or(0)`.
+- V4 explicit error handling: `explicit_error_handling` uses `match u32::try_from(count)` and has no diagnostic in the snapshot.
+- V22 extreme fallback: snapshot reports both `u8::MAX` and `i32::MIN` fallback cases.
+- V23 default fallback: snapshot reports `u16::try_from(count).unwrap_or_default()`.
+- Regression coverage: lib tests verify inventory, diagnostics metadata, domain groups, compatibility aliases, config validation, source-path metadata, and fixture manifests after registration.

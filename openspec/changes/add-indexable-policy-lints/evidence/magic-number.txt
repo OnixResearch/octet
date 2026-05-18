@@ -1,0 +1,61 @@
+# magic_number evidence
+
+Timestamp: 2026-05-18T06:41:47Z
+Change: add-indexable-policy-lints
+Tasks: I3, V5, V6, V24, V25, V26
+
+## Implementation
+
+Implemented `magic_number` as a warn-by-default structure lint in `src/structure/magic_number.rs`.
+
+Wiring added:
+- `src/structure/mod.rs`
+- `src/lib.rs` inventory/pass/source mapping
+- `src/diagnostics.rs` metadata
+- `tests/fixtures/lint_*` metadata/group/alias/default-level snapshots
+- `tests/fixtures/ui_fixture_set.json`
+- `tests/ui.rs` expected-emitting UI fixture list
+
+The lint reports inline numeric policy thresholds in production comparisons where the peer expression carries a domain/unit-bearing name. It suppresses generated spans, Octet test contexts, conventional literals (`0`, `1`, `-1`), named constants/statics, unit-bearing locals/constants, and constructor/wrapper argument positions.
+
+## Fixture coverage
+
+Fixture: `ui_tests/magic_number.rs`
+Snapshot: `ui_tests/magic_number.stderr`
+
+Covered scenarios:
+- V5 inline timeout threshold: `if elapsed_ms > 30_000 { reconnect(); }` emits `magic_number`.
+- V6 named constant: `const RECONNECT_TIMEOUT_MS: u64 = 30_000` and `elapsed_ms > RECONNECT_TIMEOUT_MS` do not emit a second warning.
+- V24 conventional literals: `0`, `1`, and `-1` do not emit.
+- V25 unit-bearing binding: `let retry_delay_ms = 250;` does not emit.
+- V26 test-context magic number: `#[test] assert_eq!(30_000, 30_000);` does not emit.
+
+Expected snapshot excerpt:
+
+```text
+error: inline numeric literal should be extracted into a named constant or configuration field
+  --> $DIR/magic_number.rs:11:21
+   |
+LL |     if elapsed_ms > 30_000 {
+   |                     ^^^^^^
+   |
+   = help: Tiger Style (Named Constants): extract policy thresholds and domain values into named constants or configuration fields Example: const RECONNECT_TIMEOUT_MS: u64 = 30_000;
+   = note: see Tiger Style guide: Explicit Defaults / Named Constants
+note: the lint level is defined here
+  --> $DIR/magic_number.rs:2:9
+   |
+LL | #![deny(magic_number)]
+   |         ^^^^^^^^^^^^
+   = note: `#[deny(tigerstyle::magic_number)]` implied by `#[deny(magic_number)]`
+```
+
+## Verification commands
+
+```bash
+nix develop -c bash -c 'CARGO_TARGET_DIR=$(mktemp -d) cargo test --lib -- --nocapture'
+nix develop -c bash -c 'CARGO_TARGET_DIR=$(mktemp -d) cargo test --test ui ui -- --ignored --nocapture'
+```
+
+Result:
+- lib tests: 40 passed, 0 failed
+- UI test: 1 passed, 0 failed

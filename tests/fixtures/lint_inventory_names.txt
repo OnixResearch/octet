@@ -2,6 +2,8 @@ compound_assertion
 function_length
 acronym_style
 numeric_units
+magic_number
+excessive_file_length
 unbounded_loop
 compound_condition
 verified_purity
@@ -21,6 +23,8 @@ too_many_parameters
 negated_predicate
 bool_naming
 ignored_result
+drop_must_use
+fallible_int_fallback
 unchecked_narrowing
 unchecked_division
 contradictory_time

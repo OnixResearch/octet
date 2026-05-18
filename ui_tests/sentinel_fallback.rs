@@ -1,4 +1,5 @@
 #![warn(sentinel_fallback)]
+#![allow(fallible_int_fallback)]
 
 fn formatted_recent(command_index: i128) -> String {
     format!("recent_{}", u64::try_from(command_index).unwrap_or(u64::MAX))

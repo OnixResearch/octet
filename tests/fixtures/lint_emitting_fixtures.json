@@ -16,6 +16,14 @@
     "fixture": "numeric_units"
   },
   {
+    "lint_name": "magic_number",
+    "fixture": "magic_number"
+  },
+  {
+    "lint_name": "excessive_file_length",
+    "fixture": "excessive_file_length"
+  },
+  {
     "lint_name": "unbounded_loop",
     "fixture": "unbounded_loop"
   },
@@ -90,6 +98,14 @@
   {
     "lint_name": "ignored_result",
     "fixture": "ignored_result"
+  },
+  {
+    "lint_name": "drop_must_use",
+    "fixture": "drop_must_use"
+  },
+  {
+    "lint_name": "fallible_int_fallback",
+    "fixture": "fallible_int_fallback"
   },
   {
     "lint_name": "unchecked_narrowing",

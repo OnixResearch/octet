@@ -1,5 +1,5 @@
 warning: extreme sentinel fallback masks absence or failure
-  --> $DIR/sentinel_fallback.rs:4:26
+  --> $DIR/sentinel_fallback.rs:5:26
    |
 LL |     format!("recent_{}", u64::try_from(command_index).unwrap_or(u64::MAX))
    |                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -20,7 +20,7 @@ LL +     format!("recent_{}", u64::try_from(command_index)?)
    |
 
 warning: extreme sentinel fallback masks absence or failure
-  --> $DIR/sentinel_fallback.rs:8:5
+  --> $DIR/sentinel_fallback.rs:9:5
    |
 LL |     maybe_index.unwrap_or(u32::MAX)
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -35,7 +35,7 @@ LL +     maybe_index?
    |
 
 warning: extreme sentinel fallback masks absence or failure
-  --> $DIR/sentinel_fallback.rs:12:5
+  --> $DIR/sentinel_fallback.rs:13:5
    |
 LL | /     i64::try_from(raw_index).unwrap_or_else(|err| {
 LL | |         eprintln!("{err}");

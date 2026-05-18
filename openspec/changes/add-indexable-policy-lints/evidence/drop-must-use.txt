@@ -1,0 +1,63 @@
+# drop_must_use evidence
+
+Timestamp: 2026-05-18T06:08:23Z
+Change: add-indexable-policy-lints
+Tasks: I1, V1, V2, V20, V21
+
+## Implementation
+
+Implemented `drop_must_use` as a late safety lint in `src/safety/drop_must_use.rs`.
+Registered it in:
+
+- `src/safety/mod.rs`
+- `src/lib.rs` lint inventory
+- `src/diagnostics.rs` diagnostic metadata and safety group membership
+- snapshot fixtures under `tests/fixtures/`
+- UI fixture corpus in `tests/fixtures/ui_fixture_set.json`
+- emitting fixture coverage in `tests/fixtures/lint_emitting_fixtures.json`
+
+The lint recognizes explicit `std::mem::drop(...)` / imported `drop(...)` calls whose argument is either:
+
+- a must-use type such as `Result`, `Option`, or an ADT with `#[must_use]`; or
+- a direct function/method call whose callee has `#[must_use]`.
+
+The lint suppresses diagnostics in test-only contexts via `test_context::late_hir_id_is_in_test_context`.
+
+## Fixture assertions
+
+Fixture: `ui_tests/drop_must_use.rs`
+Snapshot: `ui_tests/drop_must_use.stderr`
+
+Covered scenarios:
+
+- V1 / `drop-must-use-detection.scenario.dropped-result`: `drop(result)` where `result: Result<String, String>` emits `tigerstyle::drop_must_use`.
+- V2 / `drop-must-use-detection.scenario.non-must-use`: `drop(plain)` where `plain: Plain` emits no `tigerstyle::drop_must_use` diagnostic.
+- V20 / `drop-must-use-detection.scenario.must-use-return-value`: `drop(build_token())`, where `build_token` is `#[must_use]`, emits `tigerstyle::drop_must_use`.
+- V21 / `drop-must-use-detection.scenario.test-context-suppressed`: `#[cfg(test)] fn test_context_dropped_result() { drop(result); }` emits no `tigerstyle::drop_must_use` diagnostic.
+
+Snapshot contains exactly two `drop_must_use` warnings, both expected production cases:
+
+```text
+warning: explicitly dropping a must-use value hides the required handling
+  --> $DIR/drop_must_use.rs:21:5
+LL |     drop(result);
+
+warning: explicitly dropping a must-use value hides the required handling
+  --> $DIR/drop_must_use.rs:25:5
+LL |     drop(build_token());
+
+warning: 2 warnings emitted
+```
+
+## Commands run
+
+```bash
+nix develop -c bash -c 'cargo fmt && CARGO_TARGET_DIR=$(mktemp -d) BLESS=1 cargo test --test ui ui -- --ignored --nocapture'
+# PASS: regenerated `ui_tests/drop_must_use.stderr` and full UI fixture run passed.
+
+nix develop -c bash -c 'CARGO_TARGET_DIR=$(mktemp -d) cargo test --lib -- --nocapture'
+# PASS: 40 passed; 0 failed.
+
+nix develop -c bash -c 'CARGO_TARGET_DIR=$(mktemp -d) cargo test --test ui ui -- --ignored --nocapture'
+# PASS: full UI fixture run passed against checked-in snapshots.
+```

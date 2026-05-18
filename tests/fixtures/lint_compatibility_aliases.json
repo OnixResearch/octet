@@ -16,6 +16,14 @@
     "canonical_lint_name": "tigerstyle::numeric_units"
   },
   {
+    "alias_name": "magic_number",
+    "canonical_lint_name": "tigerstyle::magic_number"
+  },
+  {
+    "alias_name": "excessive_file_length",
+    "canonical_lint_name": "tigerstyle::excessive_file_length"
+  },
+  {
     "alias_name": "unbounded_loop",
     "canonical_lint_name": "tigerstyle::unbounded_loop"
   },
@@ -90,6 +98,14 @@
   {
     "alias_name": "ignored_result",
     "canonical_lint_name": "tigerstyle::ignored_result"
+  },
+  {
+    "alias_name": "drop_must_use",
+    "canonical_lint_name": "tigerstyle::drop_must_use"
+  },
+  {
+    "alias_name": "fallible_int_fallback",
+    "canonical_lint_name": "tigerstyle::fallible_int_fallback"
   },
   {
     "alias_name": "unchecked_narrowing",

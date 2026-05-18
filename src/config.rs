@@ -4,6 +4,7 @@
 //!
 //! ```toml
 //! [octet]
+//! excessive_file_length_max = 300
 //! function_length_max = 100
 //! nesting_max_depth = 4
 //! assertion_density_min_lines = 30
@@ -55,6 +56,9 @@ pub struct Config {
     /// Maximum non-blank, non-comment lines in a function body.
     pub function_length_max: usize,
 
+    /// Maximum physical lines in a production source file.
+    pub excessive_file_length_max: usize,
+
     /// Maximum if/match nesting depth before warning.
     pub nesting_max_depth: usize,
 
@@ -87,6 +91,7 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             function_length_max: 70,
+            excessive_file_length_max: 300,
             nesting_max_depth: 3,
             assertion_density_min_lines: 20,
             assertion_density_min_assertions: 2,
