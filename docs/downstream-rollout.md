@@ -14,14 +14,14 @@ Use the first-class engine, not a copied shell wrapper.
 ### Rust workspaces
 
 1. add consumer-owned lint tuning in `dylint.toml`
-2. add runner metadata in `[workspace.metadata.slotcar]` in the workspace
+2. add runner metadata in `[workspace.metadata.octet]` in the workspace
    `Cargo.toml`
-3. run `cargo slotcar check`
+3. run `cargo octet check`
 
 Example metadata:
 
 ```toml
-[workspace.metadata.slotcar]
+[workspace.metadata.octet]
 default_scope = ["-p", "your-core-crate"]
 cargo_check_args = ["--lib"]
 ```
@@ -30,8 +30,8 @@ cargo_check_args = ["--lib"]
 
 Use the published flake app or helper instead of copying bash glue:
 
-- `nix run path:/path/to/slotcar#cargo-slotcar -- check`
-- consumer flake checks should call the same `cargo-slotcar` engine through
+- `nix run path:/path/to/slotcar#cargo-octet -- check`
+- consumer flake checks should call the same `cargo-octet` engine through
   `lib.mkConsumerCheck`
 
 Repo-local helpers like `just slotcar` should stay thin and delegate to the
@@ -101,8 +101,8 @@ Why this works:
 All three rollout profiles now use the same first-class engine path and differ
 in two knobs:
 
-- scope in `[workspace.metadata.slotcar]` (`default_scope`) or in explicit
-  `cargo slotcar check -p ...` overrides
+- scope in `[workspace.metadata.octet]` (`default_scope`) or in explicit
+  `cargo octet check -p ...` overrides
 - `disabled_lints` / `lint_levels` entries in consumer-owned `dylint.toml`
 
 Per-lint config rules to preserve in every consumer example:
@@ -135,7 +135,7 @@ Smoke keeps scope to one owned crate. Boundary-first widens scope to 2-4 owned
 production crates.
 
 ```toml
-[slotcar]
+[octet]
 disabled_lints = [
   "function_length",
   "acronym_style",
@@ -185,7 +185,7 @@ time. Example: inventory only `no_unwrap` while keeping every other lint out of
 that run.
 
 ```toml
-[slotcar]
+[octet]
 disabled_lints = [
   "compound_assertion",
   "function_length",
@@ -226,7 +226,7 @@ disabled_lints = [
   "no_recursion",
 ]
 
-[slotcar.lint_levels]
+[octet.lint_levels]
 no_unwrap = "warn"
 ```
 
@@ -237,7 +237,7 @@ and, if needed, raising it in `lint_levels`.
 
 Add a new crate or package to the default path only when all of these hold:
 
-1. the documented `cargo slotcar check` / `nix run ...#cargo-slotcar`
+1. the documented `cargo octet check` / `nix run ...#cargo-octet`
    path runs without ad-hoc shell setup beyond the rollout notes
 2. the candidate scope has a bounded warning set with a named owner
 3. consumer-owned `dylint.toml` changes are recorded with rationale and a
@@ -287,7 +287,7 @@ Rules for the per-lint controls:
 
 - omitted `disabled_lints` and `lint_levels` default to empty collections
 - unknown lint names and invalid level values warn and are ignored
-- `disabled_lints` and `[slotcar.lint_levels]` keep bare lint-name keys such
+- `disabled_lints` and `[octet.lint_levels]` keep bare lint-name keys such
   as `no_unwrap`; source attrs and group attrs use canonical tool names such as
   `slotcar::no_unwrap` and `slotcar::safety`
 - `disabled_lints` takes precedence over `lint_levels` and source-level attrs

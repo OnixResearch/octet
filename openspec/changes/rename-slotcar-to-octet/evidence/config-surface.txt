@@ -1,0 +1,118 @@
+$ nix develop -c cargo fmt --check
+cannot build on 'ssh-ng://root@10.10.10.1': error: failed to start SSH connection to '10.10.10.1'
+building '/nix/store/yafsfxfxzzfk481y5plp0rd658fklmp0-slotcar-standards-0.1.0.drv'...
+building '/nix/store/yady7kkxjdp76b41r7chhx4m3a9d6cn6-nix-shell-env.drv'...
+
+$ nix develop -c cargo test --lib config::tests
+warning: /home/brittonr/git/slotcar/cargo-octet/Cargo.toml: file `/home/brittonr/git/slotcar/cargo-octet/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `cargo-octet`
+  * `bin` target `cargo-slotcar`
+  * `bin` target `cargo-tigerstyle`
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.03s
+     Running unittests src/lib.rs (/home/brittonr/.cargo-target/debug/deps/octet-06a19db794aff816)
+
+running 14 tests
+test config::tests::legacy_slotcar_config_is_used_when_octet_section_is_absent ... ok
+test config::tests::invalid_lint_level_warns_and_keeps_default_behavior ... ok
+test config::tests::mixed_lint_levels_ignore_invalid_value_but_keep_valid_override ... ok
+test config::tests::mixed_disabled_lints_keeps_valid_entry_while_warning_on_unknown_name ... ok
+test config::tests::explicit_disabled_lints_and_lint_levels_deserialize_successfully ... ok
+test config::tests::octet_config_wins_over_legacy_slotcar_and_tigerstyle_config ... ok
+test config::tests::overlapping_disabled_lints_and_lint_levels_warn_and_keep_lint_disabled ... ok
+test config::tests::mixed_lint_levels_ignores_unknown_name_but_keeps_valid_override ... ok
+test config::tests::omitted_disabled_lints_and_lint_levels_default_to_empty ... ok
+test config::tests::parsed_octet_section_wins_over_legacy_sections ... ok
+test config::tests::parsed_slotcar_section_wins_over_tigerstyle_fallback ... ok
+test config::tests::raw_lint_levels_preserve_original_strings ... ok
+test config::tests::unknown_disabled_lints_warn_without_failing_validation ... ok
+test config::tests::unknown_lint_levels_warn_without_failing_validation ... ok
+
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 26 filtered out; finished in 0.00s
+
+
+$ nix develop -c cargo test -p cargo-octet config::tests
+warning: /home/brittonr/git/slotcar/cargo-octet/Cargo.toml: file `/home/brittonr/git/slotcar/cargo-octet/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `cargo-octet`
+  * `bin` target `cargo-slotcar`
+  * `bin` target `cargo-tigerstyle`
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.03s
+     Running unittests src/main.rs (/home/brittonr/.cargo-target/debug/deps/cargo_octet-2effaf9a943ebe1f)
+
+running 2 tests
+test config::tests::slotcar_metadata_remains_legacy_fallback ... ok
+test config::tests::octet_metadata_wins_over_legacy_sections ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 15 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (/home/brittonr/.cargo-target/debug/deps/cargo_slotcar-48143f7c669aff01)
+
+running 2 tests
+test config::tests::slotcar_metadata_remains_legacy_fallback ... ok
+test config::tests::octet_metadata_wins_over_legacy_sections ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 15 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (/home/brittonr/.cargo-target/debug/deps/cargo_tigerstyle-611d3eb647e08459)
+
+running 2 tests
+test config::tests::slotcar_metadata_remains_legacy_fallback ... ok
+test config::tests::octet_metadata_wins_over_legacy_sections ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 15 filtered out; finished in 0.00s
+
+     Running tests/fingerprint_consumer.rs (/home/brittonr/.cargo-target/debug/deps/fingerprint_consumer-e64a4f0e00c6cfc9)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 12 filtered out; finished in 0.00s
+
+     Running tests/unison_roadmap.rs (/home/brittonr/.cargo-target/debug/deps/unison_roadmap-df01f34458c5b59b)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out; finished in 0.00s
+
+
+$ nix develop -c cargo test --test consumer_integration no_argument_check_uses_workspace_metadata_defaults
+warning: /home/brittonr/git/slotcar/cargo-octet/Cargo.toml: file `/home/brittonr/git/slotcar/cargo-octet/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `cargo-octet`
+  * `bin` target `cargo-slotcar`
+  * `bin` target `cargo-tigerstyle`
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.03s
+     Running tests/consumer_integration.rs (/home/brittonr/.cargo-target/debug/deps/consumer_integration-83496b2b6bc9a231)
+
+running 1 test
+test no_argument_check_uses_workspace_metadata_defaults ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 69 filtered out; finished in 3.95s
+
+
+$ nix develop -c cargo test --test consumer_integration checked_in_nix_consumer_fixture_is_reviewable
+warning: /home/brittonr/git/slotcar/cargo-octet/Cargo.toml: file `/home/brittonr/git/slotcar/cargo-octet/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `cargo-octet`
+  * `bin` target `cargo-slotcar`
+  * `bin` target `cargo-tigerstyle`
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.03s
+     Running tests/consumer_integration.rs (/home/brittonr/.cargo-target/debug/deps/consumer_integration-83496b2b6bc9a231)
+
+running 1 test
+test checked_in_nix_consumer_fixture_is_reviewable ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 69 filtered out; finished in 0.00s
+
+
+$ nix develop -c cargo test --test consumer_integration downstream_rollout_docs_point_to_first_class_cli_path
+warning: /home/brittonr/git/slotcar/cargo-octet/Cargo.toml: file `/home/brittonr/git/slotcar/cargo-octet/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `cargo-octet`
+  * `bin` target `cargo-slotcar`
+  * `bin` target `cargo-tigerstyle`
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.03s
+     Running tests/consumer_integration.rs (/home/brittonr/.cargo-target/debug/deps/consumer_integration-83496b2b6bc9a231)
+
+running 1 test
+test downstream_rollout_docs_point_to_first_class_cli_path ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 69 filtered out; finished in 0.00s
+
+
+$ git diff --check

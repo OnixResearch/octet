@@ -3,7 +3,7 @@
 //! Projects place a `dylint.toml` next to their `Cargo.toml`:
 //!
 //! ```toml
-//! [slotcar]
+//! [octet]
 //! function_length_max = 100
 //! nesting_max_depth = 4
 //! assertion_density_min_lines = 30
@@ -12,7 +12,7 @@
 //! acronym_allowlist = ["IO", "ID"]
 //! disabled_lints = ["no_unwrap", "no_panic"]
 //!
-//! [slotcar.lint_levels]
+//! [octet.lint_levels]
 //! no_unwrap = "deny"
 //! ```
 
@@ -122,7 +122,7 @@ impl Config {
             if !known_lints.iter().any(|known| known == &lint_name.as_str())
                 && unknown_disabled_lints.insert(lint_name.as_str())
             {
-                warnings.push(format!("unknown slotcar lint in `dylint.toml` disabled_lints: `{lint_name}`"));
+                warnings.push(format!("unknown octet lint in `dylint.toml` disabled_lints: `{lint_name}`"));
             }
         }
 
@@ -132,20 +132,20 @@ impl Config {
 
         for (lint_name, raw_level) in lint_levels {
             if !known_lints.iter().any(|known| known == &lint_name.as_str()) {
-                warnings.push(format!("unknown slotcar lint in `dylint.toml` lint_levels: `{lint_name}`"));
+                warnings.push(format!("unknown octet lint in `dylint.toml` lint_levels: `{lint_name}`"));
                 continue;
             }
 
             if disabled_lints.contains(lint_name.as_str()) {
                 warnings.push(format!(
-                    "conflicting slotcar config in `dylint.toml`: `{lint_name}` appears in both `disabled_lints` and `lint_levels`; ignoring level override"
+                    "conflicting octet config in `dylint.toml`: `{lint_name}` appears in both `disabled_lints` and `lint_levels`; ignoring level override"
                 ));
                 continue;
             }
 
             let Some(level) = LintLevel::parse(raw_level) else {
                 warnings.push(format!(
-                    "invalid slotcar lint level in `dylint.toml` lint_levels for `{lint_name}`: `{raw_level}` (expected `allow`, `warn`, or `deny`)"
+                    "invalid octet lint level in `dylint.toml` lint_levels for `{lint_name}`: `{raw_level}` (expected `allow`, `warn`, or `deny`)"
                 ));
                 continue;
             };
@@ -157,19 +157,23 @@ impl Config {
     }
 }
 
-fn prefer_primary_or_legacy_config(primary: Config, legacy: Config) -> Config {
-    if primary == Config::default() && legacy != Config::default() {
-        legacy
-    } else {
-        primary
-    }
+fn prefer_octet_or_legacy_config(octet: Option<Config>, slotcar: Option<Config>, tigerstyle: Option<Config>) -> Config {
+    octet.or(slotcar).or(tigerstyle).unwrap_or_default()
 }
 
 /// Load the project config from `dylint.toml`, falling back to defaults.
 pub fn load(sess: &rustc_session::Session) -> Config {
-    let primary_cfg = dylint_linting::config_or_default::<Config>(env!("CARGO_PKG_NAME"));
-    let legacy_cfg = dylint_linting::config_or_default::<Config>("tigerstyle");
-    let mut cfg = prefer_primary_or_legacy_config(primary_cfg, legacy_cfg);
+    let mut cfg = prefer_octet_or_legacy_config(
+        dylint_linting::config::<Config>(env!("CARGO_PKG_NAME")).unwrap_or_else(|error| {
+            panic!("Could not parse config as `{}`: {}", std::any::type_name::<Config>(), error)
+        }),
+        dylint_linting::config::<Config>("slotcar").unwrap_or_else(|error| {
+            panic!("Could not parse config as `{}`: {}", std::any::type_name::<Config>(), error)
+        }),
+        dylint_linting::config::<Config>("tigerstyle").unwrap_or_else(|error| {
+            panic!("Could not parse config as `{}`: {}", std::any::type_name::<Config>(), error)
+        }),
+    );
     for warning in cfg.validate() {
         sess.dcx().warn(warning);
     }
@@ -184,15 +188,18 @@ mod tests {
 
     use super::Config;
     use super::LintLevel;
-    use super::prefer_primary_or_legacy_config;
+    use super::prefer_octet_or_legacy_config;
 
     #[derive(Deserialize)]
     struct Wrapper {
-        slotcar: Config,
+        octet: Option<Config>,
+        slotcar: Option<Config>,
+        tigerstyle: Option<Config>,
     }
 
     fn parse_config(doc: &str) -> Config {
-        toml::from_str::<Wrapper>(doc).expect("parse test dylint.toml").slotcar
+        let wrapper = toml::from_str::<Wrapper>(doc).expect("parse test dylint.toml");
+        prefer_octet_or_legacy_config(wrapper.octet, wrapper.slotcar, wrapper.tigerstyle)
     }
 
     fn parse_and_validate(doc: &str) -> (Config, Vec<String>) {
@@ -202,20 +209,19 @@ mod tests {
     }
 
     #[test]
-    fn legacy_tigerstyle_config_is_used_when_slotcar_section_is_absent() {
-        let primary = Config::default();
+    fn legacy_slotcar_config_is_used_when_octet_section_is_absent() {
         let legacy = Config {
             acronym_allowlist: vec!["IO".to_owned()],
             ..Default::default()
         };
 
-        let selected = prefer_primary_or_legacy_config(primary, legacy);
+        let selected = prefer_octet_or_legacy_config(None, Some(legacy), None);
 
         assert_eq!(selected.acronym_allowlist, vec!["IO".to_owned()]);
     }
 
     #[test]
-    fn primary_slotcar_config_wins_over_legacy_tigerstyle_config() {
+    fn octet_config_wins_over_legacy_slotcar_and_tigerstyle_config() {
         let primary = Config {
             acronym_allowlist: vec!["RPC".to_owned()],
             ..Default::default()
@@ -225,14 +231,21 @@ mod tests {
             ..Default::default()
         };
 
-        let selected = prefer_primary_or_legacy_config(primary, legacy);
+        let selected = prefer_octet_or_legacy_config(
+            Some(primary),
+            Some(legacy),
+            Some(Config {
+                max_parameters: 9,
+                ..Default::default()
+            }),
+        );
 
         assert_eq!(selected.acronym_allowlist, vec!["RPC".to_owned()]);
     }
 
     #[test]
     fn omitted_disabled_lints_and_lint_levels_default_to_empty() {
-        let cfg = parse_config("[slotcar]\n");
+        let cfg = parse_config("[octet]\n");
         assert_eq!(cfg.max_parameters, 5);
         assert!(cfg.disabled_lints.is_empty());
         assert!(cfg.lint_levels.is_empty());
@@ -243,11 +256,11 @@ mod tests {
     fn explicit_disabled_lints_and_lint_levels_deserialize_successfully() {
         let (cfg, warnings) = parse_and_validate(
             r#"
-[slotcar]
+[octet]
 max_parameters = 7
 disabled_lints = ["no_panic"]
 
-[slotcar.lint_levels]
+[octet.lint_levels]
 no_unwrap = "deny"
 "#,
         );
@@ -263,12 +276,12 @@ no_unwrap = "deny"
     fn unknown_disabled_lints_warn_without_failing_validation() {
         let (cfg, warnings) = parse_and_validate(
             r#"
-[slotcar]
+[octet]
 disabled_lints = ["not_a_real_lint"]
 "#,
         );
 
-        assert_eq!(warnings, vec!["unknown slotcar lint in `dylint.toml` disabled_lints: `not_a_real_lint`"]);
+        assert_eq!(warnings, vec!["unknown octet lint in `dylint.toml` disabled_lints: `not_a_real_lint`"]);
         assert!(cfg.lint_levels.is_empty());
     }
 
@@ -276,12 +289,12 @@ disabled_lints = ["not_a_real_lint"]
     fn mixed_disabled_lints_keeps_valid_entry_while_warning_on_unknown_name() {
         let (cfg, warnings) = parse_and_validate(
             r#"
-[slotcar]
+[octet]
 disabled_lints = ["not_a_real_lint", "no_unwrap"]
 "#,
         );
 
-        assert_eq!(warnings, vec!["unknown slotcar lint in `dylint.toml` disabled_lints: `not_a_real_lint`"]);
+        assert_eq!(warnings, vec!["unknown octet lint in `dylint.toml` disabled_lints: `not_a_real_lint`"]);
         assert!(cfg.lint_is_disabled("no_unwrap"));
     }
 
@@ -289,12 +302,12 @@ disabled_lints = ["not_a_real_lint", "no_unwrap"]
     fn unknown_lint_levels_warn_without_failing_validation() {
         let (cfg, warnings) = parse_and_validate(
             r#"
-[slotcar.lint_levels]
+[octet.lint_levels]
 not_a_real_lint = "deny"
 "#,
         );
 
-        assert_eq!(warnings, vec!["unknown slotcar lint in `dylint.toml` lint_levels: `not_a_real_lint`"]);
+        assert_eq!(warnings, vec!["unknown octet lint in `dylint.toml` lint_levels: `not_a_real_lint`"]);
         assert_eq!(cfg.lint_level("not_a_real_lint"), None);
     }
 
@@ -302,13 +315,13 @@ not_a_real_lint = "deny"
     fn mixed_lint_levels_ignores_unknown_name_but_keeps_valid_override() {
         let (cfg, warnings) = parse_and_validate(
             r#"
-[slotcar.lint_levels]
+[octet.lint_levels]
 not_a_real_lint = "deny"
 no_unwrap = "warn"
 "#,
         );
 
-        assert_eq!(warnings, vec!["unknown slotcar lint in `dylint.toml` lint_levels: `not_a_real_lint`"]);
+        assert_eq!(warnings, vec!["unknown octet lint in `dylint.toml` lint_levels: `not_a_real_lint`"]);
         assert_eq!(cfg.lint_level("no_unwrap"), Some(LintLevel::Warn));
     }
 
@@ -316,13 +329,13 @@ no_unwrap = "warn"
     fn invalid_lint_level_warns_and_keeps_default_behavior() {
         let (cfg, warnings) = parse_and_validate(
             r#"
-[slotcar.lint_levels]
+[octet.lint_levels]
 no_unwrap = "fatal"
 "#,
         );
 
         assert_eq!(warnings, vec![
-            "invalid slotcar lint level in `dylint.toml` lint_levels for `no_unwrap`: `fatal` (expected `allow`, `warn`, or `deny`)"
+            "invalid octet lint level in `dylint.toml` lint_levels for `no_unwrap`: `fatal` (expected `allow`, `warn`, or `deny`)"
         ]);
         assert_eq!(cfg.lint_level("no_unwrap"), None);
     }
@@ -331,14 +344,14 @@ no_unwrap = "fatal"
     fn mixed_lint_levels_ignore_invalid_value_but_keep_valid_override() {
         let (cfg, warnings) = parse_and_validate(
             r#"
-[slotcar.lint_levels]
+[octet.lint_levels]
 no_unwrap = "fatal"
 no_panic = "deny"
 "#,
         );
 
         assert_eq!(warnings, vec![
-            "invalid slotcar lint level in `dylint.toml` lint_levels for `no_unwrap`: `fatal` (expected `allow`, `warn`, or `deny`)"
+            "invalid octet lint level in `dylint.toml` lint_levels for `no_unwrap`: `fatal` (expected `allow`, `warn`, or `deny`)"
         ]);
         assert_eq!(cfg.lint_level("no_panic"), Some(LintLevel::Deny));
     }
@@ -347,16 +360,16 @@ no_panic = "deny"
     fn overlapping_disabled_lints_and_lint_levels_warn_and_keep_lint_disabled() {
         let (cfg, warnings) = parse_and_validate(
             r#"
-[slotcar]
+[octet]
 disabled_lints = ["no_unwrap"]
 
-[slotcar.lint_levels]
+[octet.lint_levels]
 no_unwrap = "deny"
 "#,
         );
 
         assert_eq!(warnings, vec![
-            "conflicting slotcar config in `dylint.toml`: `no_unwrap` appears in both `disabled_lints` and `lint_levels`; ignoring level override"
+            "conflicting octet config in `dylint.toml`: `no_unwrap` appears in both `disabled_lints` and `lint_levels`; ignoring level override"
         ]);
         assert!(cfg.lint_is_disabled("no_unwrap"));
         assert_eq!(cfg.lint_level("no_unwrap"), None);
@@ -366,7 +379,7 @@ no_unwrap = "deny"
     fn raw_lint_levels_preserve_original_strings() {
         let cfg = parse_config(
             r#"
-[slotcar.lint_levels]
+[octet.lint_levels]
 no_unwrap = "deny"
 "#,
         );
@@ -374,5 +387,38 @@ no_unwrap = "deny"
         let mut expected = HashMap::new();
         expected.insert("no_unwrap".to_owned(), "deny".to_owned());
         assert_eq!(cfg.lint_levels, expected);
+    }
+
+    #[test]
+    fn parsed_octet_section_wins_over_legacy_sections() {
+        let cfg = parse_config(
+            r#"
+[octet]
+max_parameters = 7
+
+[slotcar]
+max_parameters = 8
+
+[tigerstyle]
+max_parameters = 9
+"#,
+        );
+
+        assert_eq!(cfg.max_parameters, 7);
+    }
+
+    #[test]
+    fn parsed_slotcar_section_wins_over_tigerstyle_fallback() {
+        let cfg = parse_config(
+            r#"
+[slotcar]
+max_parameters = 8
+
+[tigerstyle]
+max_parameters = 9
+"#,
+        );
+
+        assert_eq!(cfg.max_parameters, 8);
     }
 }

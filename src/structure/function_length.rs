@@ -17,7 +17,7 @@ declare_tool_lint! {
     ///
     /// Configure in `dylint.toml`:
     /// ```toml
-    /// [tigerstyle]
+    /// [octet]
     /// function_length_max = 100
     /// ```
     pub tigerstyle::FUNCTION_LENGTH,

@@ -18,7 +18,7 @@ declare_tool_lint! {
     ///
     /// Configure in `dylint.toml`:
     /// ```toml
-    /// [slotcar]
+    /// [octet]
     /// assertion_density_min_lines = 30
     /// assertion_density_min_assertions = 3
     /// ```

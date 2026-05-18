@@ -1,6 +1,6 @@
 # Lint reference
 
-This page lists the shipped slotcar lints, their default levels, and the
+This page lists the shipped Octet lints, their default levels, and the
 supported suppression and config paths.
 
 For consumer setup, see `consumer-guide.md`.
@@ -8,7 +8,7 @@ For the landing-page naming map, see `../README.md`.
 
 ## Catalog summary
 
-`slotcar` ships 38 lints across 6 domains.
+`octet` ships 38 lints across 6 domains.
 
 | Domain | Group | Count |
 | --- | --- | ---: |
@@ -32,10 +32,10 @@ Source attrs and group attrs use canonical tool names:
 Keep config keys bare in `dylint.toml`:
 
 ```toml
-[slotcar]
+[octet]
 disabled_lints = ["no_unwrap"]
 
-[slotcar.lint_levels]
+[octet.lint_levels]
 numeric_units = "warn"
 no_unwrap = "deny"
 ```
@@ -43,7 +43,7 @@ no_unwrap = "deny"
 Rules to keep straight:
 
 - source attrs and domain groups use `slotcar::...`
-- `disabled_lints` and `[slotcar.lint_levels]` use bare lint names
+- `disabled_lints` and `[octet.lint_levels]` use bare lint names
 - `disabled_lints` wins over `lint_levels`
 - allow-by-default lints can be turned on with `#![warn(...)]` or a lint-level override
 - standalone raw-rustc crates and UI fixtures that use tool-scoped attrs need:
@@ -64,7 +64,7 @@ Rules to keep straight:
 | `max_parameters` | `5` | `too_many_parameters` | maximum counted parameters before warning |
 | `acronym_allowlist` | `[]` | `acronym_style` | case-sensitive allowlist such as `IO` or `ID` |
 | `disabled_lints` | `[]` | all lints | bare lint names only; disabled lints do not register |
-| `[slotcar.lint_levels]` | `{}` | all lints | bare lint names mapped to `allow`, `warn`, or `deny` |
+| `[octet.lint_levels]` | `{}` | all lints | bare lint names mapped to `allow`, `warn`, or `deny` |
 
 Unknown lint names and invalid level values warn and are ignored.
 

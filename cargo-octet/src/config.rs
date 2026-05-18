@@ -23,17 +23,22 @@ pub fn load(start_dir: &Path) -> Result<WorkspaceConfig, String> {
 
     let workspace = table_field(&document, "workspace", manifest_path.as_path())?;
     let metadata = table_field(workspace, "metadata", manifest_path.as_path())?;
-    let slotcar = metadata
-        .get("slotcar")
-        .and_then(toml::Value::as_table)
-        .or_else(|| metadata.get("tigerstyle").and_then(toml::Value::as_table))
-        .ok_or_else(|| format!("missing `[workspace.metadata.slotcar]` table in {}", manifest_path.display()))?;
+    let octet = workspace_metadata_table(metadata, manifest_path.as_path())?;
 
     Ok(WorkspaceConfig {
         workspace_root,
-        default_scope: string_array_field(slotcar, "default_scope", manifest_path.as_path())?,
-        cargo_check_args: string_array_field(slotcar, "cargo_check_args", manifest_path.as_path())?,
+        default_scope: string_array_field(octet, "default_scope", manifest_path.as_path())?,
+        cargo_check_args: string_array_field(octet, "cargo_check_args", manifest_path.as_path())?,
     })
+}
+
+fn workspace_metadata_table<'a>(metadata: &'a toml::Table, manifest_path: &Path) -> Result<&'a toml::Table, String> {
+    metadata
+        .get("octet")
+        .and_then(toml::Value::as_table)
+        .or_else(|| metadata.get("slotcar").and_then(toml::Value::as_table))
+        .or_else(|| metadata.get("tigerstyle").and_then(toml::Value::as_table))
+        .ok_or_else(|| format!("missing `[workspace.metadata.octet]` table in {}", manifest_path.display()))
 }
 
 fn find_workspace_manifest(start_dir: &Path) -> Result<PathBuf, String> {
@@ -82,4 +87,60 @@ fn string_array_field(table: &toml::Table, key: &str, manifest_path: &Path) -> R
                 .ok_or_else(|| format!("`{key}` must contain only strings in {}", manifest_path.display()))
         })
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::workspace_metadata_table;
+
+    fn metadata_table(source: &str) -> toml::Table {
+        let document = source.parse::<toml::Table>().expect("parse Cargo.toml");
+        document
+            .get("workspace")
+            .and_then(toml::Value::as_table)
+            .and_then(|workspace| workspace.get("metadata"))
+            .and_then(toml::Value::as_table)
+            .cloned()
+            .expect("workspace metadata table")
+    }
+
+    #[test]
+    fn octet_metadata_wins_over_legacy_sections() {
+        let metadata = metadata_table(
+            r#"
+[workspace.metadata.octet]
+default_scope = ["-p", "octet"]
+cargo_check_args = ["--lib"]
+
+[workspace.metadata.slotcar]
+default_scope = ["-p", "slotcar"]
+cargo_check_args = ["--tests"]
+
+[workspace.metadata.tigerstyle]
+default_scope = ["-p", "tigerstyle"]
+cargo_check_args = ["--bins"]
+"#,
+        );
+
+        let selected =
+            workspace_metadata_table(&metadata, std::path::Path::new("Cargo.toml")).expect("select metadata");
+
+        assert_eq!(selected["default_scope"].as_array().unwrap()[1].as_str(), Some("octet"));
+    }
+
+    #[test]
+    fn slotcar_metadata_remains_legacy_fallback() {
+        let metadata = metadata_table(
+            r#"
+[workspace.metadata.slotcar]
+default_scope = ["-p", "slotcar"]
+cargo_check_args = ["--lib"]
+"#,
+        );
+
+        let selected =
+            workspace_metadata_table(&metadata, std::path::Path::new("Cargo.toml")).expect("select metadata");
+
+        assert_eq!(selected["default_scope"].as_array().unwrap()[1].as_str(), Some("slotcar"));
+    }
 }
