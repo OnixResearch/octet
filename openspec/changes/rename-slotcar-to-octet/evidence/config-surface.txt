@@ -1,118 +1,288 @@
-$ nix develop -c cargo fmt --check
+$ nix develop -c cargo test --lib config::tests -- --nocapture
 cannot build on 'ssh-ng://root@10.10.10.1': error: failed to start SSH connection to '10.10.10.1'
-building '/nix/store/yafsfxfxzzfk481y5plp0rd658fklmp0-slotcar-standards-0.1.0.drv'...
-building '/nix/store/yady7kkxjdp76b41r7chhx4m3a9d6cn6-nix-shell-env.drv'...
-
-$ nix develop -c cargo test --lib config::tests
+building '/nix/store/b4pb3hibgnr5qkcwaa9gvnsjw66pp6p6-octet-standards-0.1.0.drv'...
+building '/nix/store/mxn86qrrl2m72igyva3kd8v1x8il8m2v-nix-shell-env.drv'...
+warning: /home/brittonr/git/slotcar/crates/slotcar-standards/Cargo.toml: file `/home/brittonr/git/slotcar/crates/slotcar-standards/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `octet-standards`
+  * `bin` target `slotcar-standards`
+  * `bin` target `tigerstyle-standards`
 warning: /home/brittonr/git/slotcar/cargo-octet/Cargo.toml: file `/home/brittonr/git/slotcar/cargo-octet/src/main.rs` found to be present in multiple build targets:
   * `bin` target `cargo-octet`
   * `bin` target `cargo-slotcar`
   * `bin` target `cargo-tigerstyle`
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.03s
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.14s
      Running unittests src/lib.rs (/home/brittonr/.cargo-target/debug/deps/octet-06a19db794aff816)
 
 running 14 tests
+test config::tests::octet_config_wins_over_legacy_slotcar_and_tigerstyle_config ... ok
 test config::tests::legacy_slotcar_config_is_used_when_octet_section_is_absent ... ok
+test config::tests::omitted_disabled_lints_and_lint_levels_default_to_empty ... ok
+test config::tests::parsed_slotcar_section_wins_over_tigerstyle_fallback ... ok
+test config::tests::parsed_octet_section_wins_over_legacy_sections ... ok
+test config::tests::raw_lint_levels_preserve_original_strings ... ok
+test config::tests::unknown_lint_levels_warn_without_failing_validation ... ok
 test config::tests::invalid_lint_level_warns_and_keeps_default_behavior ... ok
+test config::tests::mixed_lint_levels_ignores_unknown_name_but_keeps_valid_override ... ok
 test config::tests::mixed_lint_levels_ignore_invalid_value_but_keep_valid_override ... ok
+test config::tests::unknown_disabled_lints_warn_without_failing_validation ... ok
 test config::tests::mixed_disabled_lints_keeps_valid_entry_while_warning_on_unknown_name ... ok
 test config::tests::explicit_disabled_lints_and_lint_levels_deserialize_successfully ... ok
-test config::tests::octet_config_wins_over_legacy_slotcar_and_tigerstyle_config ... ok
 test config::tests::overlapping_disabled_lints_and_lint_levels_warn_and_keep_lint_disabled ... ok
-test config::tests::mixed_lint_levels_ignores_unknown_name_but_keeps_valid_override ... ok
-test config::tests::omitted_disabled_lints_and_lint_levels_default_to_empty ... ok
-test config::tests::parsed_octet_section_wins_over_legacy_sections ... ok
-test config::tests::parsed_slotcar_section_wins_over_tigerstyle_fallback ... ok
-test config::tests::raw_lint_levels_preserve_original_strings ... ok
-test config::tests::unknown_disabled_lints_warn_without_failing_validation ... ok
-test config::tests::unknown_lint_levels_warn_without_failing_validation ... ok
 
 test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 26 filtered out; finished in 0.00s
 
 
-$ nix develop -c cargo test -p cargo-octet config::tests
+$ nix develop -c cargo test --test ui -- --ignored --nocapture
 warning: /home/brittonr/git/slotcar/cargo-octet/Cargo.toml: file `/home/brittonr/git/slotcar/cargo-octet/src/main.rs` found to be present in multiple build targets:
   * `bin` target `cargo-octet`
   * `bin` target `cargo-slotcar`
   * `bin` target `cargo-tigerstyle`
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.03s
-     Running unittests src/main.rs (/home/brittonr/.cargo-target/debug/deps/cargo_octet-2effaf9a943ebe1f)
+warning: /home/brittonr/git/slotcar/crates/slotcar-standards/Cargo.toml: file `/home/brittonr/git/slotcar/crates/slotcar-standards/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `octet-standards`
+  * `bin` target `slotcar-standards`
+  * `bin` target `tigerstyle-standards`
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.04s
+     Running tests/ui.rs (/home/brittonr/.cargo-target/debug/deps/ui-ea71925560980909)
 
 running 2 tests
-test config::tests::slotcar_metadata_remains_legacy_fallback ... ok
-test config::tests::octet_metadata_wins_over_legacy_sections ... ok
-
-test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 15 filtered out; finished in 0.00s
-
-     Running unittests src/main.rs (/home/brittonr/.cargo-target/debug/deps/cargo_slotcar-48143f7c669aff01)
-
-running 2 tests
-test config::tests::slotcar_metadata_remains_legacy_fallback ... ok
-test config::tests::octet_metadata_wins_over_legacy_sections ... ok
-
-test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 15 filtered out; finished in 0.00s
-
-     Running unittests src/main.rs (/home/brittonr/.cargo-target/debug/deps/cargo_tigerstyle-611d3eb647e08459)
-
-running 2 tests
-test config::tests::slotcar_metadata_remains_legacy_fallback ... ok
-test config::tests::octet_metadata_wins_over_legacy_sections ... ok
-
-test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 15 filtered out; finished in 0.00s
-
-     Running tests/fingerprint_consumer.rs (/home/brittonr/.cargo-target/debug/deps/fingerprint_consumer-e64a4f0e00c6cfc9)
-
-running 0 tests
-
-test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 12 filtered out; finished in 0.00s
-
-     Running tests/unison_roadmap.rs (/home/brittonr/.cargo-target/debug/deps/unison_roadmap-df01f34458c5b59b)
-
-running 0 tests
-
-test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out; finished in 0.00s
-
-
-$ nix develop -c cargo test --test consumer_integration no_argument_check_uses_workspace_metadata_defaults
-warning: /home/brittonr/git/slotcar/cargo-octet/Cargo.toml: file `/home/brittonr/git/slotcar/cargo-octet/src/main.rs` found to be present in multiple build targets:
+warningwarning: /home/brittonr/git/slotcar/crates/slotcar-standards/Cargo.toml: file `/home/brittonr/git/slotcar/crates/slotcar-standards/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `octet-standards`
+  * `bin` target `slotcar-standards`
+  * `bin` target `tigerstyle-standards`
+: /home/brittonr/git/slotcar/crates/slotcar-standards/Cargo.toml: file `/home/brittonr/git/slotcar/crates/slotcar-standards/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `octet-standards`
+  * `bin` target `slotcar-standards`
+  * `bin` target `tigerstyle-standards`
+warningwarning: /home/brittonr/git/slotcar/cargo-octet/Cargo.toml: file `/home/brittonr/git/slotcar/cargo-octet/src/main.rs` found to be present in multiple build targets:
   * `bin` target `cargo-octet`
   * `bin` target `cargo-slotcar`
   * `bin` target `cargo-tigerstyle`
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.03s
-     Running tests/consumer_integration.rs (/home/brittonr/.cargo-target/debug/deps/consumer_integration-83496b2b6bc9a231)
-
-running 1 test
-test no_argument_check_uses_workspace_metadata_defaults ... ok
-
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 69 filtered out; finished in 3.95s
-
-
-$ nix develop -c cargo test --test consumer_integration checked_in_nix_consumer_fixture_is_reviewable
-warning: /home/brittonr/git/slotcar/cargo-octet/Cargo.toml: file `/home/brittonr/git/slotcar/cargo-octet/src/main.rs` found to be present in multiple build targets:
+: /home/brittonr/git/slotcar/cargo-octet/Cargo.toml: file `/home/brittonr/git/slotcar/cargo-octet/src/main.rs` found to be present in multiple build targets:
   * `bin` target `cargo-octet`
   * `bin` target `cargo-slotcar`
   * `bin` target `cargo-tigerstyle`
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.03s
-     Running tests/consumer_integration.rs (/home/brittonr/.cargo-target/debug/deps/consumer_integration-83496b2b6bc9a231)
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on build directory
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.05s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.06s
+[autofix fixture] bool_naming_local_rename
+[autofix command] (cd /tmp/nix-shell.BiumhG/octet-autofix-bool_naming_local_rename-2278555-1779079674559103393 && cargo fix --allow-dirty --allow-staged --allow-no-vcs --bin autofix_fixture)
+[ui fixture] acronym_allowlist_custom/acronym_allowlist_custom
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/acronym_allowlist_custom.stderr
+[ui fixture] acronym_style
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/acronym_style.stderr
+[ui fixture] ambient_clock
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/ambient_clock.stderr
+[ui fixture] ambiguous_params
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/ambiguous_params.stderr
+[ui fixture] assertion_density
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/assertion_density.stderr
+[ui fixture] assertion_density_custom/assertion_density_custom
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/assertion_density_custom.stderr
+[ui fixture] bool_naming
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/bool_naming.stderr
+[ui fixture] bool_naming_local_rename
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/bool_naming_local_rename.stderr
+[ui fixture] bool_naming_macro_fallback
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/bool_naming_macro_fallback.stderr
+[ui fixture] borrowed_argument_types
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/borrowed_argument_types.stderr
+[ui fixture] catch_all_on_enum
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/catch_all_on_enum.stderr
+[ui fixture] deref_polymorphism
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/deref_polymorphism.stderr
+[ui fixture] clone_then_borrow
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/clone_then_borrow.stderr
+[ui fixture] compound_assertion
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/compound_assertion.stderr
+[autofix stderr]
+    Checking autofix_fixture v0.1.0 (/tmp/nix-shell.BiumhG/octet-autofix-bool_naming_local_rename-2278555-1779079674559103393)
+       Fixed src/main.rs (1 fix)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.45s
 
-running 1 test
-test checked_in_nix_consumer_fixture_is_reviewable ... ok
+[autofix post-check command] (cd /tmp/nix-shell.BiumhG/octet-autofix-bool_naming_local_rename-2278555-1779079674559103393 && cargo check --quiet --bin autofix_fixture)
+[ui fixture] compound_assertion_indented
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/compound_assertion_indented.stderr
+[ui fixture] compound_assertion_machine_applicable
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/compound_assertion_machine_applicable.stderr
+[ui fixture] compound_assertion_message_guardrail
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/compound_assertion_message_guardrail.stderr
+[autofix fixture] compound_assertion_indented
+[autofix command] (cd /tmp/nix-shell.BiumhG/octet-autofix-compound_assertion_indented-2278555-1779079675069296581 && cargo fix --allow-dirty --allow-staged --allow-no-vcs --bin autofix_fixture)
+[ui fixture] compound_assertion_or_guardrail
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/compound_assertion_or_guardrail.stderr
+[ui fixture] compound_condition
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/compound_condition.stderr
+[ui fixture] contradictory_time
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/contradictory_time.stderr
+[ui fixture] explicit_defaults/explicit_defaults
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/explicit_defaults.stderr
+[autofix stderr]
+    Checking autofix_fixture v0.1.0 (/tmp/nix-shell.BiumhG/octet-autofix-compound_assertion_indented-2278555-1779079675069296581)
+       Fixed src/main.rs (1 fix)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.21s
 
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 69 filtered out; finished in 0.00s
+[autofix post-check command] (cd /tmp/nix-shell.BiumhG/octet-autofix-compound_assertion_indented-2278555-1779079675069296581 && cargo check --quiet --bin autofix_fixture)
+[autofix fixture] compound_assertion_machine_applicable
+[autofix command] (cd /tmp/nix-shell.BiumhG/octet-autofix-compound_assertion_machine_applicable-2278555-1779079675335967130 && cargo fix --allow-dirty --allow-staged --allow-no-vcs --bin autofix_fixture)
+[ui fixture] float_for_currency
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/float_for_currency.stderr
+[ui fixture] function_length
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/function_length.stderr
+[ui fixture] function_length_custom/function_length_custom
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/function_length_custom.stderr
+[ui fixture] group_allow_safety
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/group_allow_safety.stderr
+[ui fixture] group_deny_naming
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/group_deny_naming.stderr
+[ui fixture] ignored_result
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/ignored_result.stderr
+[ui fixture] ignored_result_drop
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/ignored_result_drop.stderr
+[autofix stderr]
+    Checking autofix_fixture v0.1.0 (/tmp/nix-shell.BiumhG/octet-autofix-compound_assertion_machine_applicable-2278555-1779079675335967130)
+       Fixed src/main.rs (2 fixes)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.20s
+
+[autofix post-check command] (cd /tmp/nix-shell.BiumhG/octet-autofix-compound_assertion_machine_applicable-2278555-1779079675335967130 && cargo check --quiet --bin autofix_fixture)
+[ui fixture] ignored_result_shutdown_send
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/ignored_result_shutdown_send.stderr
+[ui fixture] max_parameters_custom/max_parameters_custom
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/max_parameters_custom.stderr
+[ui fixture] multi_lock_ordering
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/multi_lock_ordering.stderr
+[autofix fixture] negated_predicate_local_rename
+[autofix command] (cd /tmp/nix-shell.BiumhG/octet-autofix-negated_predicate_local_rename-2278555-1779079675599182012 && cargo fix --allow-dirty --allow-staged --allow-no-vcs --bin autofix_fixture)
+[ui fixture] negated_predicate
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/negated_predicate.stderr
+[ui fixture] negated_predicate_local_rename
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/negated_predicate_local_rename.stderr
+[ui fixture] nested_conditionals
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/nested_conditionals.stderr
+[ui fixture] nesting_custom/nesting_custom
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/nesting_custom.stderr
+[ui fixture] no_panic
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/no_panic.stderr
+[ui fixture] no_panic_cfg_not
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/no_panic_cfg_not.stderr
+[ui fixture] no_panic_exhaustive
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/no_panic_exhaustive.stderr
+[autofix stderr]
+    Checking autofix_fixture v0.1.0 (/tmp/nix-shell.BiumhG/octet-autofix-negated_predicate_local_rename-2278555-1779079675599182012)
+       Fixed src/main.rs (1 fix)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.21s
+
+[autofix post-check command] (cd /tmp/nix-shell.BiumhG/octet-autofix-negated_predicate_local_rename-2278555-1779079675599182012 && cargo check --quiet --bin autofix_fixture)
+[ui fixture] no_panic_exhaustive_external
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/no_panic_exhaustive_external.stderr
+[ui fixture] no_panic_exhaustive_indirect
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/no_panic_exhaustive_indirect.stderr
+test autofix_machine_applicable ... ok
+[ui fixture] no_panic_exhaustive_non_exhaustive
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/no_panic_exhaustive_non_exhaustive.stderr
+[ui fixture] no_recursion
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/no_recursion.stderr
+[ui fixture] no_todo
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/no_todo.stderr
+[ui fixture] no_todo_allow
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/no_todo_allow.stderr
+[ui fixture] no_todo_legacy_no_panic_allow
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/no_todo_legacy_no_panic_allow.stderr
+[ui fixture] no_todo_orphan_allow
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/no_todo_orphan_allow.stderr
+[ui fixture] no_unwrap
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/no_unwrap.stderr
+[ui fixture] no_unwrap_allow_custom/no_unwrap_allow_custom
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/no_unwrap_allow_custom.stderr
+[ui fixture] no_unwrap_cfg_not
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/no_unwrap_cfg_not.stderr
+[ui fixture] no_unwrap_compile_time_known
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/no_unwrap_compile_time_known.stderr
+[ui fixture] no_unwrap_default_custom/no_unwrap_default_custom
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/no_unwrap_default_custom.stderr
+[ui fixture] no_unwrap_deny_custom/no_unwrap_deny_custom
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/no_unwrap_deny_custom.stderr
+[ui fixture] no_unwrap_disabled_custom/no_unwrap_disabled_custom
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/no_unwrap_disabled_custom.stderr
+[ui fixture] no_unwrap_disabled_deny_custom/no_unwrap_disabled_deny_custom
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/no_unwrap_disabled_deny_custom.stderr
+[ui fixture] no_unwrap_disabled_source_attr_custom/no_unwrap_disabled_source_attr_custom
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/no_unwrap_disabled_source_attr_custom.stderr
+[ui fixture] no_unwrap_guarded
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/no_unwrap_guarded.stderr
+[ui fixture] no_unwrap_tool_attr
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/no_unwrap_tool_attr.stderr
+[ui fixture] no_unwrap_warn_custom/no_unwrap_warn_custom
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/no_unwrap_warn_custom.stderr
+[ui fixture] numeric_units
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/numeric_units.stderr
+[ui fixture] platform_dependent_cast
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/platform_dependent_cast.stderr
+[ui fixture] public_unsafe_api
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/public_unsafe_api.stderr
+[ui fixture] raw_arithmetic_overflow
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/raw_arithmetic_overflow.stderr
+[ui fixture] sentinel_fallback
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/sentinel_fallback.stderr
+[ui fixture] tokio_async/ignored_result_shutdown_send_tokio
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/ignored_result_shutdown_send_tokio.stderr
+[ui fixture] tokio_async/ignored_result_try_send_tokio
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/ignored_result_try_send_tokio.stderr
+[ui fixture] tokio_async/unbounded_loop_bare_async
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/unbounded_loop_bare_async.stderr
+[ui fixture] tokio_async/unbounded_loop_bounded_receiver
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/unbounded_loop_bounded_receiver.stderr
+[ui fixture] tokio_async/unbounded_loop_imported_select
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/unbounded_loop_imported_select.stderr
+[ui fixture] tokio_async/unbounded_loop_non_tokio_select
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/unbounded_loop_non_tokio_select.stderr
+[ui fixture] tokio_async/unbounded_loop_plain_await
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/unbounded_loop_plain_await.stderr
+[ui fixture] tokio_async/unbounded_loop_tokio_select
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/unbounded_loop_tokio_select.stderr
+[ui fixture] tokio_async/unbounded_loop_unbounded_receiver
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/unbounded_loop_unbounded_receiver.stderr
+[ui fixture] too_many_parameters
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/too_many_parameters.stderr
+[ui fixture] unbounded_channel/unbounded_channel
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/unbounded_channel.stderr
+[ui fixture] unbounded_collection_growth
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/unbounded_collection_growth.stderr
+[ui fixture] unbounded_loop
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/unbounded_loop.stderr
+[ui fixture] unbounded_loop_iter_next
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/unbounded_loop_iter_next.stderr
+[ui fixture] unchecked_division
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/unchecked_division.stderr
+[ui fixture] unchecked_narrowing
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/unchecked_narrowing.stderr
+[ui fixture] unchecked_narrowing_min
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/unchecked_narrowing_min.stderr
+[ui fixture] unchecked_narrowing_same_block_assert
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/unchecked_narrowing_same_block_assert.stderr
+[ui fixture] unchecked_narrowing_try_from
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/unchecked_narrowing_try_from.stderr
+[ui fixture] unjustified_allow
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/unjustified_allow.stderr
+[ui fixture] usize_in_public_api
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/usize_in_public_api.stderr
+[ui fixture] verified/verified_purity
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/verified_purity.stderr
+test ui ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 26.16s
 
 
-$ nix develop -c cargo test --test consumer_integration downstream_rollout_docs_point_to_first_class_cli_path
-warning: /home/brittonr/git/slotcar/cargo-octet/Cargo.toml: file `/home/brittonr/git/slotcar/cargo-octet/src/main.rs` found to be present in multiple build targets:
-  * `bin` target `cargo-octet`
-  * `bin` target `cargo-slotcar`
-  * `bin` target `cargo-tigerstyle`
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.03s
-     Running tests/consumer_integration.rs (/home/brittonr/.cargo-target/debug/deps/consumer_integration-83496b2b6bc9a231)
-
-running 1 test
-test downstream_rollout_docs_point_to_first_class_cli_path ... ok
-
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 69 filtered out; finished in 0.00s
-
+assert.ui_tests/no_unwrap_allow_custom/dylint.toml.uses_octet_config: PASS
+assert.ui_tests/no_unwrap_warn_custom/dylint.toml.uses_octet_config: PASS
+assert.ui_tests/no_unwrap_deny_custom/dylint.toml.uses_octet_config: PASS
+assert.ui_tests/no_unwrap_disabled_custom/dylint.toml.uses_octet_config: PASS
+assert.ui_tests/no_unwrap_disabled_deny_custom/dylint.toml.uses_octet_config: PASS
+assert.octet_config_section_controls_no_unwrap_behavior: PASS
 
 $ git diff --check

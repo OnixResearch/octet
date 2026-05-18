@@ -1,2 +1,2 @@
-[tigerstyle.lint_levels]
+[octet.lint_levels]
 no_unwrap = "warn"
