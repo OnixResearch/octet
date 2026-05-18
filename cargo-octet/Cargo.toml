@@ -1,9 +1,13 @@
 [package]
-name = "cargo-slotcar"
+name = "cargo-octet"
 version = "0.1.0"
 edition = "2024"
 license = "AGPL-3.0-or-later"
-description = "First-class downstream consumer integration for slotcar"
+description = "First-class downstream consumer integration for Octet"
+
+[[bin]]
+name = "cargo-octet"
+path = "src/main.rs"
 
 [[bin]]
 name = "cargo-slotcar"

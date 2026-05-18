@@ -2,8 +2,8 @@ use std::fs;
 use std::path::Path;
 use std::process::Command;
 
-fn cargo_slotcar() -> &'static str {
-    env!("CARGO_BIN_EXE_cargo-slotcar")
+fn cargo_octet() -> &'static str {
+    env!("CARGO_BIN_EXE_cargo-octet")
 }
 
 fn write_json(path: &Path, value: serde_json::Value) {
@@ -11,7 +11,7 @@ fn write_json(path: &Path, value: serde_json::Value) {
 }
 
 fn run(args: &[&str], cwd: &Path) -> std::process::Output {
-    Command::new(cargo_slotcar()).args(args).current_dir(cwd).output().unwrap()
+    Command::new(cargo_octet()).args(args).current_dir(cwd).output().unwrap()
 }
 
 fn stdout_json(output: &std::process::Output) -> serde_json::Value {

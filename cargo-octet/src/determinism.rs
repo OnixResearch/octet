@@ -30,7 +30,7 @@ pub fn build_run_metadata(input: MetadataInput<'_>) -> RunMetadata {
     let profile_hash = profile_hash(input.scope_args, input.cargo_check_args, input.output_format, &config_hash);
 
     RunMetadata {
-        tool_name: "cargo-slotcar",
+        tool_name: "cargo-octet",
         tool_version: env!("CARGO_PKG_VERSION"),
         rustc_version: rustc_version(input.toolchain),
         toolchain: input.toolchain.to_owned(),
@@ -49,7 +49,7 @@ pub fn semantic_finding_id(
     config_hash: Option<&str>,
 ) -> String {
     let canonical = format!(
-        "lint={lint}\ncrate={crate_name}\nmessage={message}\nsuggestion={}\nsnippet={normalized_snippet_hash}\nconfig={}\ntool=cargo-slotcar@{}\n",
+        "lint={lint}\ncrate={crate_name}\nmessage={message}\nsuggestion={}\nsnippet={normalized_snippet_hash}\nconfig={}\ntool=cargo-octet@{}\n",
         suggestion.unwrap_or(""),
         config_hash.unwrap_or("unknown"),
         env!("CARGO_PKG_VERSION"),

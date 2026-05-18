@@ -10,15 +10,15 @@ use std::sync::OnceLock;
 use std::time::SystemTime;
 use std::time::UNIX_EPOCH;
 
-struct StandaloneCargoTigerstyle {
+struct StandaloneCargoOctet {
     _tmp: TempDir,
     source_root: PathBuf,
     bin_path: PathBuf,
 }
 
-const COMPILED_CARGO_TIGERSTYLE_BIN: Option<&str> = option_env!("CARGO_TIGERSTYLE_BIN");
+const COMPILED_CARGO_OCTET_BIN: Option<&str> = option_env!("CARGO_OCTET_BIN");
 static BASH_PATH: OnceLock<Result<PathBuf, String>> = OnceLock::new();
-static BUILT_CARGO_TIGERSTYLE_BIN: OnceLock<Result<PathBuf, String>> = OnceLock::new();
+static BUILT_CARGO_OCTET_BIN: OnceLock<Result<PathBuf, String>> = OnceLock::new();
 
 struct TempDir {
     path: PathBuf,
@@ -93,7 +93,7 @@ impl ConsumerFixture {
         let fakebin = tmp.path().join("fakebin");
         let log_path = tmp.path().join("cargo.log");
         let driver_path = tmp.path().join("bin/dylint-driver");
-        let lint_lib_path = tmp.path().join("lib/libtigerstyle.so");
+        let lint_lib_path = tmp.path().join("lib/liboctet.so");
         let target_dir = tmp.path().join("target");
 
         fs::create_dir_all(&repo).expect("create repo dir");
@@ -135,12 +135,12 @@ case "${{1:-}}" in
 # mutated by fake cargo build
 EOF
     fi
-    if [[ " $* " == *" -p slotcar "* ]]; then
-      cat > "$out_dir/libtigerstyle.so" <<'EOF'
-fake built slotcar dylint library
+    if [[ " $* " == *" -p octet "* ]]; then
+      cat > "$out_dir/liboctet.so" <<'EOF'
+fake built Octet dylint library
 EOF
       toolchain="${{RUSTUP_TOOLCHAIN:?}}"
-      ln -sf "$out_dir/libtigerstyle.so" "$out_dir/libtigerstyle@${{toolchain}}.so"
+      ln -sf "$out_dir/liboctet.so" "$out_dir/liboctet@${{toolchain}}.so"
     else
       cat > "$out_dir/tigerstyle-dylint-driver" <<'EOF'
 #!{bash}
@@ -177,7 +177,7 @@ esac
             ),
         );
         write_executable(&driver_path, &format!("#!{}\necho fake dylint driver\n", bash.display()));
-        write_file(&lint_lib_path, "fake slotcar dylint library\n");
+        write_file(&lint_lib_path, "fake Octet dylint library\n");
 
         let original_lockfile = fs::read_to_string(repo.join("Cargo.lock")).expect("read original lockfile");
 
@@ -230,11 +230,11 @@ esac
     ) -> std::process::Output {
         let path = format!("{}:{}", self.fakebin.display(), env::var("PATH").expect("PATH"));
 
-        let mut command = match env::var("CARGO_TIGERSTYLE_BIN") {
+        let mut command = match env::var("CARGO_OCTET_BIN") {
             Ok(bin) if !bin.is_empty() => Command::new(bin),
-            _ => match COMPILED_CARGO_TIGERSTYLE_BIN.filter(|bin| !bin.is_empty()) {
+            _ => match COMPILED_CARGO_OCTET_BIN.filter(|bin| !bin.is_empty()) {
                 Some(bin) => Command::new(bin),
-                None => Command::new(built_cargo_slotcar_bin().expect("build cargo-slotcar binary")),
+                None => Command::new(built_cargo_octet_bin().expect("build cargo-octet binary")),
             },
         };
         command
@@ -287,7 +287,7 @@ esac
             }
         }
 
-        command.output().expect("run cargo-slotcar")
+        command.output().expect("run cargo-octet")
     }
 
     fn run_with_launcher(
@@ -419,11 +419,11 @@ esac
 
         let mut command = match launcher {
             Some(bin) => Command::new(bin),
-            None => match env::var("CARGO_TIGERSTYLE_BIN") {
+            None => match env::var("CARGO_OCTET_BIN") {
                 Ok(bin) if !bin.is_empty() => Command::new(bin),
-                _ => match COMPILED_CARGO_TIGERSTYLE_BIN.filter(|bin| !bin.is_empty()) {
+                _ => match COMPILED_CARGO_OCTET_BIN.filter(|bin| !bin.is_empty()) {
                     Some(bin) => Command::new(bin),
-                    None => Command::new(built_cargo_slotcar_bin().expect("build cargo-slotcar binary")),
+                    None => Command::new(built_cargo_octet_bin().expect("build cargo-octet binary")),
                 },
             },
         };
@@ -482,7 +482,7 @@ esac
             command.env(key, value);
         }
 
-        command.output().expect("run cargo-slotcar")
+        command.output().expect("run cargo-octet")
     }
 
     fn log(&self) -> String {
@@ -519,11 +519,11 @@ fn bash_path() -> Result<PathBuf, String> {
         .clone()
 }
 
-fn built_cargo_slotcar_bin() -> Result<PathBuf, String> {
-    BUILT_CARGO_TIGERSTYLE_BIN
+fn built_cargo_octet_bin() -> Result<PathBuf, String> {
+    BUILT_CARGO_OCTET_BIN
         .get_or_init(|| {
             let cargo = env::var("CARGO").map_err(|_| "missing `CARGO` env var".to_owned())?;
-            let manifest_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("cargo-slotcar/Cargo.toml");
+            let manifest_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("cargo-octet/Cargo.toml");
             let target_dir = env::temp_dir().join("tigerstyle-consumer-integration-cli-target");
 
             let status = Command::new(cargo)
@@ -533,18 +533,18 @@ fn built_cargo_slotcar_bin() -> Result<PathBuf, String> {
                 .arg("--manifest-path")
                 .arg(&manifest_path)
                 .arg("--bin")
-                .arg("cargo-slotcar")
+                .arg("cargo-octet")
                 .arg("--target-dir")
                 .arg(&target_dir)
                 .status()
-                .map_err(|error| format!("build cargo-slotcar binary: {error}"))?;
+                .map_err(|error| format!("build cargo-octet binary: {error}"))?;
             if !status.success() {
-                return Err("cargo-slotcar build failed".to_owned());
+                return Err("cargo-octet build failed".to_owned());
             }
 
-            let binary_path = target_dir.join("debug").join(format!("cargo-slotcar{}", env::consts::EXE_SUFFIX));
+            let binary_path = target_dir.join("debug").join(format!("cargo-octet{}", env::consts::EXE_SUFFIX));
             if !binary_path.is_file() {
-                return Err(format!("built cargo-slotcar binary missing at {}", binary_path.display()));
+                return Err(format!("built cargo-octet binary missing at {}", binary_path.display()));
             }
 
             Ok(binary_path)
@@ -552,8 +552,8 @@ fn built_cargo_slotcar_bin() -> Result<PathBuf, String> {
         .clone()
 }
 
-fn build_standalone_cargo_slotcar() -> StandaloneCargoTigerstyle {
-    let tmp = TempDir::new("installed-cargo-slotcar");
+fn build_standalone_cargo_octet() -> StandaloneCargoOctet {
+    let tmp = TempDir::new("installed-cargo-octet");
     let source_root = tmp.path().join("source");
     let target_dir = tmp.path().join("target");
     let repo_root = Path::new(env!("CARGO_MANIFEST_DIR"));
@@ -563,14 +563,14 @@ fn build_standalone_cargo_slotcar() -> StandaloneCargoTigerstyle {
         "Cargo.lock",
         "rust-toolchain.toml",
         "src",
-        "cargo-slotcar",
+        "cargo-octet",
         "crates/slotcar-standards",
     ] {
         copy_path(&repo_root.join(relative), &source_root.join(relative));
     }
 
     let cargo = env::var("CARGO").expect("CARGO env var");
-    let manifest_path = source_root.join("cargo-slotcar/Cargo.toml");
+    let manifest_path = source_root.join("cargo-octet/Cargo.toml");
     let status = Command::new(cargo)
         .arg("build")
         .arg("-q")
@@ -578,20 +578,20 @@ fn build_standalone_cargo_slotcar() -> StandaloneCargoTigerstyle {
         .arg("--manifest-path")
         .arg(&manifest_path)
         .arg("--bin")
-        .arg("cargo-slotcar")
+        .arg("cargo-octet")
         .arg("--target-dir")
         .arg(&target_dir)
         .status()
-        .expect("build standalone cargo-slotcar");
-    assert!(status.success(), "standalone cargo-slotcar build failed: {status}");
+        .expect("build standalone cargo-octet");
+    assert!(status.success(), "standalone cargo-octet build failed: {status}");
 
-    let bin_path = target_dir.join("debug").join(format!("cargo-slotcar{}", env::consts::EXE_SUFFIX));
-    assert!(bin_path.is_file(), "standalone cargo-slotcar binary missing at {}", bin_path.display());
+    let bin_path = target_dir.join("debug").join(format!("cargo-octet{}", env::consts::EXE_SUFFIX));
+    assert!(bin_path.is_file(), "standalone cargo-octet binary missing at {}", bin_path.display());
 
     fs::remove_dir_all(&source_root).expect("remove standalone source root");
     assert!(!source_root.exists(), "standalone source root should be gone: {}", source_root.display());
 
-    StandaloneCargoTigerstyle {
+    StandaloneCargoOctet {
         _tmp: tmp,
         source_root,
         bin_path,
@@ -669,7 +669,7 @@ fn no_argument_check_uses_workspace_metadata_defaults() {
     );
     assert!(
         output.status.success(),
-        "cargo-slotcar should succeed: stdout={} stderr={}",
+        "cargo-octet should succeed: stdout={} stderr={}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
@@ -701,7 +701,7 @@ fn no_argument_check_from_nested_workspace_subdirectory_uses_workspace_metadata_
     );
     assert!(
         output.status.success(),
-        "cargo-slotcar from a nested workspace subdirectory should succeed: stdout={} stderr={}",
+        "cargo-octet from a nested workspace subdirectory should succeed: stdout={} stderr={}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
@@ -718,7 +718,7 @@ fn temp_workspace_launch_uses_built_binary_and_preserves_consumer_cwd() {
     let fixture = ConsumerFixture::new("temp-workspace-launch", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
     let nested_dir = fixture.repo.join("nested/deeper");
     fs::create_dir_all(&nested_dir).unwrap_or_else(|error| panic!("create {}: {error}", nested_dir.display()));
-    let launcher = built_cargo_slotcar_bin().expect("build cargo-slotcar binary");
+    let launcher = built_cargo_octet_bin().expect("build cargo-octet binary");
 
     let output = fixture.run_from_dir_with_launcher_and_env(
         &nested_dir,
@@ -764,7 +764,7 @@ fn explicit_workspace_scope_override_beats_metadata_defaults() {
     );
     assert!(
         output.status.success(),
-        "cargo-slotcar should succeed with explicit --workspace: stdout={} stderr={}",
+        "cargo-octet should succeed with explicit --workspace: stdout={} stderr={}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
@@ -794,7 +794,7 @@ fn repeated_package_scope_flags_forward_in_order_and_replace_metadata_defaults()
     );
     assert!(
         output.status.success(),
-        "cargo-slotcar should succeed with repeated package scope flags: stdout={} stderr={}",
+        "cargo-octet should succeed with repeated package scope flags: stdout={} stderr={}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
@@ -828,7 +828,7 @@ fn bare_double_dash_replaces_metadata_cargo_check_args_with_nothing() {
     );
     assert!(
         output.status.success(),
-        "cargo-slotcar should succeed with a bare -- override: stdout={} stderr={}",
+        "cargo-octet should succeed with a bare -- override: stdout={} stderr={}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
@@ -856,7 +856,7 @@ fn explicit_workspace_scope_with_cargo_tail_replaces_metadata_scope_and_args() {
     );
     assert!(
         output.status.success(),
-        "cargo-slotcar should succeed with explicit --workspace plus cargo tail: stdout={} stderr={}",
+        "cargo-octet should succeed with explicit --workspace plus cargo tail: stdout={} stderr={}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
@@ -886,7 +886,7 @@ fn explicit_scope_and_check_args_override_metadata_defaults() {
     );
     assert!(
         output.status.success(),
-        "cargo-slotcar should succeed: stdout={} stderr={}",
+        "cargo-octet should succeed: stdout={} stderr={}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
@@ -1239,7 +1239,7 @@ fn cargo_termination_without_exit_code_exits_two_and_restores_lockfile() {
     assert_eq!(
         output.status.code(),
         Some(2),
-        "signal-terminated cargo should exit 2 from cargo-slotcar: stdout={} stderr={}",
+        "signal-terminated cargo should exit 2 from cargo-octet: stdout={} stderr={}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
@@ -1251,7 +1251,7 @@ fn cargo_termination_without_exit_code_exits_two_and_restores_lockfile() {
         stderr
     );
     assert!(
-        stderr.contains("cargo slotcar check modified"),
+        stderr.contains("cargo octet check modified"),
         "signal-terminated cargo should also report fail-closed lockfile restoration: stdout={} stderr={}",
         String::from_utf8_lossy(&output.stdout),
         stderr
@@ -1282,7 +1282,7 @@ fn cargo_termination_without_exit_code_and_without_lockfile_mutation_reports_onl
     assert_eq!(
         output.status.code(),
         Some(2),
-        "clean signal-terminated cargo should exit 2 from cargo-slotcar: stdout={} stderr={}",
+        "clean signal-terminated cargo should exit 2 from cargo-octet: stdout={} stderr={}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
@@ -1294,7 +1294,7 @@ fn cargo_termination_without_exit_code_and_without_lockfile_mutation_reports_onl
         stderr
     );
     assert!(
-        !stderr.contains("cargo slotcar check modified"),
+        !stderr.contains("cargo octet check modified"),
         "clean signal-terminated cargo should not claim lockfile restoration when no mutation happened: stdout={} stderr={}",
         String::from_utf8_lossy(&output.stdout),
         stderr
@@ -1570,13 +1570,13 @@ fn bootstraps_lint_library_when_explicit_path_is_missing() {
         "lint-library bootstrap should not reuse the explicit fixture lint path: {log}"
     );
     assert!(
-        log.contains("libtigerstyle@nightly-2026-03-21-x86_64-unknown-linux-gnu.so"),
+        log.contains("liboctet@nightly-2026-03-21-x86_64-unknown-linux-gnu.so"),
         "bootstrapped lint library should use the toolchain-suffixed dylint path: {log}"
     );
 }
 
 fn first_embedded_source_dir(cache_home: &Path) -> PathBuf {
-    let sources_root = cache_home.join("slotcar/sources");
+    let sources_root = cache_home.join("octet/sources");
     let entries = fs::read_dir(&sources_root)
         .unwrap_or_else(|error| panic!("read embedded source cache {}: {error}", sources_root.display()))
         .filter_map(Result::ok)
@@ -1603,7 +1603,7 @@ fn set_tree_permissions(root: &Path, dir_mode: u32, file_mode: u32) {
 
 #[test]
 fn installed_cargo_subcommand_works_without_repo_checkout() {
-    let standalone = build_standalone_cargo_slotcar();
+    let standalone = build_standalone_cargo_octet();
     let fixture = ConsumerFixture::new("installed-subcommand", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
 
     let output = fixture.run_with_launcher(
@@ -1618,7 +1618,7 @@ fn installed_cargo_subcommand_works_without_repo_checkout() {
     );
     assert!(
         output.status.success(),
-        "installed cargo-slotcar should succeed without a repo checkout: stdout={} stderr={}",
+        "installed cargo-octet should succeed without a repo checkout: stdout={} stderr={}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
@@ -1629,13 +1629,13 @@ fn installed_cargo_subcommand_works_without_repo_checkout() {
     assert!(build_pos < check_pos, "lint-library build should happen before cargo check: {log}");
     assert!(
         !log.contains(&standalone.source_root.display().to_string()),
-        "installed cargo-slotcar should not rely on the removed standalone source tree: {log}"
+        "installed cargo-octet should not rely on the removed standalone source tree: {log}"
     );
 }
 
 #[test]
 fn installed_cargo_subcommand_reuses_valid_embedded_source_cache_without_reextracting() {
-    let standalone = build_standalone_cargo_slotcar();
+    let standalone = build_standalone_cargo_octet();
     let fixture = ConsumerFixture::new("installed-cache-hit", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
     let cache_home_tmp = TempDir::new("installed-cache-hit-home");
     let cache_home = cache_home_tmp.path().join("cache-home");
@@ -1654,7 +1654,7 @@ fn installed_cargo_subcommand_reuses_valid_embedded_source_cache_without_reextra
     );
     assert!(
         first_output.status.success(),
-        "first installed cargo-slotcar run should succeed: stdout={} stderr={}",
+        "first installed cargo-octet run should succeed: stdout={} stderr={}",
         String::from_utf8_lossy(&first_output.stdout),
         String::from_utf8_lossy(&first_output.stderr)
     );
@@ -1675,7 +1675,7 @@ fn installed_cargo_subcommand_reuses_valid_embedded_source_cache_without_reextra
     );
     assert!(
         second_output.status.success(),
-        "cached installed cargo-slotcar run should succeed without re-extracting: stdout={} stderr={}",
+        "cached installed cargo-octet run should succeed without re-extracting: stdout={} stderr={}",
         String::from_utf8_lossy(&second_output.stdout),
         String::from_utf8_lossy(&second_output.stderr)
     );
@@ -1690,7 +1690,7 @@ fn installed_cargo_subcommand_reuses_valid_embedded_source_cache_without_reextra
 
 #[test]
 fn installed_cargo_subcommand_recovers_corrupt_embedded_source_cache() {
-    let standalone = build_standalone_cargo_slotcar();
+    let standalone = build_standalone_cargo_octet();
     let fixture = ConsumerFixture::new("installed-cache-recovery", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
     let cache_home_tmp = TempDir::new("installed-cache-recovery-home");
     let cache_home = cache_home_tmp.path().join("cache-home");
@@ -1709,7 +1709,7 @@ fn installed_cargo_subcommand_recovers_corrupt_embedded_source_cache() {
     );
     assert!(
         first_output.status.success(),
-        "first installed cargo-slotcar run should succeed: stdout={} stderr={}",
+        "first installed cargo-octet run should succeed: stdout={} stderr={}",
         String::from_utf8_lossy(&first_output.stdout),
         String::from_utf8_lossy(&first_output.stderr)
     );
@@ -1732,7 +1732,7 @@ fn installed_cargo_subcommand_recovers_corrupt_embedded_source_cache() {
     );
     assert!(
         second_output.status.success(),
-        "installed cargo-slotcar should recover corrupt embedded source cache: stdout={} stderr={}",
+        "installed cargo-octet should recover corrupt embedded source cache: stdout={} stderr={}",
         String::from_utf8_lossy(&second_output.stdout),
         String::from_utf8_lossy(&second_output.stderr)
     );
@@ -1747,7 +1747,7 @@ fn installed_cargo_subcommand_recovers_corrupt_embedded_source_cache() {
 
 #[test]
 fn installed_cargo_subcommand_falls_back_to_temp_cache_when_home_caches_are_unwritable() {
-    let standalone = build_standalone_cargo_slotcar();
+    let standalone = build_standalone_cargo_octet();
     let fixture =
         ConsumerFixture::new("installed-temp-cache-fallback", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
     let blocked_roots = TempDir::new("installed-temp-cache-blocked");
@@ -1782,12 +1782,12 @@ fn installed_cargo_subcommand_falls_back_to_temp_cache_when_home_caches_are_unwr
     );
     assert!(
         output.status.success(),
-        "installed cargo-slotcar should fall back to temp cache when home caches are unwritable: stdout={} stderr={}",
+        "installed cargo-octet should fall back to temp cache when home caches are unwritable: stdout={} stderr={}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
 
-    let temp_cache_root = temp_root.join("slotcar-cache");
+    let temp_cache_root = temp_root.join("octet-cache");
     let source_dir = first_embedded_source_dir(&temp_cache_root);
     assert!(
         source_dir.starts_with(&temp_cache_root),
@@ -1812,7 +1812,7 @@ fn installed_cargo_subcommand_falls_back_to_temp_cache_when_home_caches_are_unwr
 
 #[test]
 fn installed_cargo_subcommand_handles_concurrent_first_use_of_shared_embedded_source_cache() {
-    let standalone = build_standalone_cargo_slotcar();
+    let standalone = build_standalone_cargo_octet();
     let cache_home_tmp = TempDir::new("installed-concurrent-cache-home");
     let cache_home = cache_home_tmp.path().join("cache-home");
     fs::create_dir_all(&cache_home).unwrap_or_else(|error| panic!("create {}: {error}", cache_home.display()));
@@ -1840,7 +1840,7 @@ fn installed_cargo_subcommand_handles_concurrent_first_use_of_shared_embedded_so
     }
 
     for handle in handles {
-        let (label, output) = handle.join().expect("join concurrent installed cargo-slotcar run");
+        let (label, output) = handle.join().expect("join concurrent installed cargo-octet run");
         assert!(
             output.status.success(),
             "{label} should succeed during concurrent first-use cache extraction: stdout={} stderr={}",
@@ -1891,10 +1891,10 @@ fn downstream_rollout_docs_point_to_first_class_cli_path() {
         .unwrap_or_else(|error| panic!("read downstream rollout doc {}: {error}", doc_path.display()));
 
     for required in [
-        "cargo slotcar check",
+        "cargo octet check",
         "[workspace.metadata.slotcar]",
         "nix run",
-        "cargo-slotcar",
+        "cargo-octet",
     ] {
         assert!(
             source.contains(required),
@@ -1916,8 +1916,8 @@ fn thin_wrapper_fixture_delegates_without_policy_logic() {
         .unwrap_or_else(|error| panic!("read thin-wrapper fixture {}: {error}", fixture_path.display()));
 
     assert!(
-        source.contains("cargo slotcar check"),
-        "thin-wrapper fixture must delegate to cargo slotcar check: {}",
+        source.contains("cargo octet check"),
+        "thin-wrapper fixture must delegate to cargo octet check: {}",
         fixture_path.display()
     );
     for forbidden in [
@@ -2095,7 +2095,7 @@ fn assert_metadata_shape(metadata: &serde_json::Value) {
         ],
         "metadata should expose deterministic replay fields"
     );
-    assert_eq!(metadata["tool_name"], "cargo-slotcar");
+    assert_eq!(metadata["tool_name"], "cargo-octet");
     assert!(metadata["config_hash"].as_str().expect("config hash").starts_with("b3:"));
     assert!(metadata["profile_hash"].as_str().expect("profile hash").starts_with("b3:"));
     assert!(metadata["rustc_version"].as_str().expect("rustc version").starts_with("rustc "));
@@ -2146,7 +2146,7 @@ fn launcher_path_from_log(log: &str) -> &str {
 }
 
 fn trailing_summary(stderr: &str) -> &str {
-    let summary_header = "--- slotcar summary ---";
+    let summary_header = "--- octet summary ---";
     let start = stderr.find(summary_header).unwrap_or_else(|| panic!("missing summary header in stderr: {stderr}"));
     &stderr[start..]
 }
@@ -2435,7 +2435,7 @@ fn baseline_matches_semantic_identity_after_rename() {
 fn migration_manifest_commands_are_deterministic_and_safe() {
     let fixture = ConsumerFixture::new("migration-manifest", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
     let manifest = fixture.repo.join(".slotcar/migrations/starter.json");
-    let bin = built_cargo_slotcar_bin().expect("build cargo-slotcar binary");
+    let bin = built_cargo_octet_bin().expect("build cargo-octet binary");
 
     let start = Command::new(&bin)
         .args([
@@ -2502,14 +2502,14 @@ fn transcript_reports_content_hash_and_fails_closed() {
         r#"# Example
 
 ```slotcar-transcript
-$ cargo slotcar check --output-format json
+$ cargo octet check --output-format json
 => {"version":1
 ```
 "#,
     );
     let bad = fixture.repo.join("docs/bad.md");
-    write_file(&bad, "# Missing expected output\n\n```slotcar-transcript\n$ cargo slotcar check\n```\n");
-    let bin = built_cargo_slotcar_bin().expect("build cargo-slotcar binary");
+    write_file(&bad, "# Missing expected output\n\n```slotcar-transcript\n$ cargo octet check\n```\n");
+    let bin = built_cargo_octet_bin().expect("build cargo-octet binary");
 
     let good_output = Command::new(&bin)
         .args([
@@ -2696,7 +2696,7 @@ fn json_output_coexists_with_summary_on_stderr() {
     }
 
     // stderr has summary but no human diagnostics
-    assert!(stderr.contains("--- slotcar summary ---"), "stderr missing summary header: {stderr}");
+    assert!(stderr.contains("--- octet summary ---"), "stderr missing summary header: {stderr}");
     assert!(stderr.contains("Findings: 3"), "stderr missing finding count: {stderr}");
     assert!(
         !stderr.contains("warning[no_unwrap]"),
@@ -2726,7 +2726,7 @@ fn sarif_output_has_required_structural_fields() {
     assert_eq!(sarif["version"], "2.1.0");
 
     let run = &sarif["runs"][0];
-    assert_eq!(run["tool"]["driver"]["name"], "cargo-slotcar");
+    assert_eq!(run["tool"]["driver"]["name"], "cargo-octet");
     assert!(run["tool"]["driver"]["version"].as_str().is_some(), "missing driver version");
 
     let rules = run["tool"]["driver"]["rules"].as_array().expect("rules array");
@@ -2768,7 +2768,7 @@ fn summary_format_for_noisy_run() {
 
     let stderr = String::from_utf8_lossy(&output.stderr);
 
-    assert!(stderr.contains("--- slotcar summary ---"), "missing summary header: {stderr}");
+    assert!(stderr.contains("--- octet summary ---"), "missing summary header: {stderr}");
     assert!(stderr.contains("Status: warning-only"), "missing warning-only status: {stderr}");
     assert!(stderr.contains("Findings: 3"), "missing total count: {stderr}");
     assert!(stderr.contains("Warnings: 3"), "missing warning count: {stderr}");
@@ -2798,7 +2798,7 @@ fn summary_for_clean_run() {
     );
 
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("--- slotcar summary ---"), "missing summary header: {stderr}");
+    assert!(stderr.contains("--- octet summary ---"), "missing summary header: {stderr}");
     assert!(stderr.contains("Status: clean"), "clean run should show clean status: {stderr}");
     assert!(stderr.contains("Findings: 0"), "clean run should show Findings: 0: {stderr}");
     assert!(stderr.contains("Warnings: 0"), "clean run should show zero warnings: {stderr}");
@@ -3270,7 +3270,7 @@ fn artifact_directory_mid_write_failure_exits_two_and_invalidates_bundle() {
     );
 
     let stderr = String::from_utf8_lossy(&output.stderr);
-    let summary_index = stderr.find("--- slotcar summary ---").expect("summary header in stderr");
+    let summary_index = stderr.find("--- octet summary ---").expect("summary header in stderr");
     let error_index = stderr.find("error:").expect("artifact write error in stderr");
     assert!(
         summary_index < error_index,
@@ -3331,7 +3331,7 @@ fn artifact_directory_setup_failure_exits_two() {
     );
 
     let stderr = String::from_utf8_lossy(&output.stderr);
-    let summary_index = stderr.find("--- slotcar summary ---").expect("summary header in stderr");
+    let summary_index = stderr.find("--- octet summary ---").expect("summary header in stderr");
     let error_index = stderr.find("error:").expect("artifact-dir error in stderr");
     assert!(summary_index < error_index, "artifact-dir error should be reported after the summary: {stderr}");
     assert!(
@@ -3512,7 +3512,7 @@ fn default_human_mode_preserves_diagnostics_on_stderr_with_summary() {
     );
 
     // (b) stderr has trailing summary
-    assert!(stderr.contains("--- slotcar summary ---"), "human mode should append summary: {stderr}");
+    assert!(stderr.contains("--- octet summary ---"), "human mode should append summary: {stderr}");
 
     // (c) no structured output on stdout
     assert!(stdout.is_empty(), "human mode should produce no stdout output: {stdout}");
@@ -3593,7 +3593,7 @@ fn compilation_error_during_json_output_produces_valid_json() {
     }
 
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("--- slotcar summary ---"), "summary should print even during error: {stderr}");
+    assert!(stderr.contains("--- octet summary ---"), "summary should print even during error: {stderr}");
     assert!(
         stderr.contains("Status: integration-failure"),
         "summary should report integration-failure on compile error: {stderr}"
@@ -3626,7 +3626,7 @@ fn compilation_error_during_sarif_output_produces_valid_sarif() {
     assert_eq!(sarif["runs"][0]["invocations"][0]["exitCode"], EXIT_CODE_INTEGRATION_FAILURE);
 
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("--- slotcar summary ---"), "summary should print even during error: {stderr}");
+    assert!(stderr.contains("--- octet summary ---"), "summary should print even during error: {stderr}");
     assert!(
         stderr.contains("Status: integration-failure"),
         "summary should report integration-failure on compile error: {stderr}"

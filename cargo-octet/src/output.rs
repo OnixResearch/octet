@@ -11,7 +11,7 @@ const FINDING_SCHEMA_VERSION: u32 = 1;
 const EXIT_SUCCESS: i32 = 0;
 const EXIT_LINT_FAILURE: i32 = 1;
 const EXIT_INTEGRATION_FAILURE: i32 = 2;
-const SUMMARY_HEADER: &str = "--- slotcar summary ---";
+const SUMMARY_HEADER: &str = "--- octet summary ---";
 const SUMMARY_FOOTER: &str = "---";
 const SARIF_SCHEMA_URL: &str =
     "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/main/sarif-2.1/schema/sarif-schema-2.1.0.json";
@@ -32,7 +32,7 @@ pub struct LintMeta {
 pub const UNKNOWN_LINT_META: LintMeta = LintMeta {
     group: "unknown",
     principle: "unknown",
-    guidance: "Review this diagnostic manually; Slotcar has no registered Tiger Style metadata for it.",
+    guidance: "Review this diagnostic manually; Octet has no registered Tiger Style metadata for it.",
     effect_family: "unknown",
 };
 
@@ -555,7 +555,7 @@ pub fn render_sarif(
         "runs": [{
             "tool": {
                 "driver": {
-                    "name": "cargo-slotcar",
+                    "name": "cargo-octet",
                     "version": env!("CARGO_PKG_VERSION"),
                     "rules": rules
                 }

@@ -1,5 +1,5 @@
 {
-  description = "slotcar — Custom lints enforcing Tiger Style coding principles";
+  description = "Octet — Custom lints enforcing Tiger Style coding principles under closed interfaces";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
@@ -18,7 +18,7 @@
   outputs = { self, nixpkgs, crane, rust-overlay, flake-utils, dylint-src, ... }:
     let
       # Consumer-check helper — usable from any downstream flake.
-      # Runs slotcar lints against consumer code via nix flake check.
+      # Runs Octet lints against consumer code via nix flake check.
       mkConsumerCheck = {
         system,
         src,
@@ -63,20 +63,20 @@
           '';
           tsDylintShimPath = pkgs.lib.makeBinPath [ tsCargoShim tsRustupShim ];
 
-          slotcarPkg = self.packages.${system}.default;
+          octetPkg = self.packages.${system}.default;
           driverPkg = self.packages.${system}.dylint-driver;
           sharedLibSuffix =
             if pkgs.stdenv.hostPlatform.isDarwin then ".dylib" else ".so";
           dllPrefix =
             if pkgs.stdenv.hostPlatform.isDarwin then "lib" else "lib";
           # Dylint parses the library filename as lib<name>@<toolchain>.<ext>
-          slotcarDylintLibDir = pkgs.runCommand "tigerstyle-dylint-lib" {} ''
+          octetDylintLibDir = pkgs.runCommand "octet-dylint-lib" {} ''
             mkdir -p $out/lib
-            ln -s ${slotcarPkg}/lib/${dllPrefix}tigerstyle${sharedLibSuffix} \
-              $out/lib/${dllPrefix}tigerstyle@${tsRustupToolchain}${sharedLibSuffix}
+            ln -s ${octetPkg}/lib/${dllPrefix}octet${sharedLibSuffix} \
+              $out/lib/${dllPrefix}octet@${tsRustupToolchain}${sharedLibSuffix}
           '';
-          slotcarDylintLibPath =
-            "${slotcarDylintLibDir}/lib/${dllPrefix}tigerstyle@${tsRustupToolchain}${sharedLibSuffix}";
+          octetDylintLibPath =
+            "${octetDylintLibDir}/lib/${dllPrefix}octet@${tsRustupToolchain}${sharedLibSuffix}";
 
           checkNativeBuildInputs =
             nativeBuildInputs ++ [ pkgs.pkg-config tsCargoShim tsRustupShim ];
@@ -91,7 +91,7 @@
             then " -- ${cargoExtraArgs}"
             else "";
         in
-        pkgs.runCommand "slotcar-consumer-check" {
+        pkgs.runCommand "octet-consumer-check" {
           nativeBuildInputs = checkNativeBuildInputs;
           inherit buildInputs;
           LD_LIBRARY_PATH = tsRustToolchainLibPath;
@@ -103,14 +103,14 @@
           chmod -R u+w source
           cd source
           export TIGERSTYLE_DRIVER_PATH="${driverPkg}/bin/dylint-driver"
-          export TIGERSTYLE_LINT_LIB="${slotcarDylintLibPath}"
+          export TIGERSTYLE_LINT_LIB="${octetDylintLibPath}"
           export TIGERSTYLE_TOOLCHAIN="${tsRustupToolchain}"
           ${pkgs.lib.optionalString (consumerVendorDir != null) ''
             export CARGO_HOME="$PWD/.cargo-home"
             mkdir -p "$CARGO_HOME"
             cp "${consumerVendorDir}/config.toml" "$CARGO_HOME/config.toml"
           ''}
-          ${self.packages.${system}.cargo-slotcar}/bin/cargo-slotcar check ${packageArgs}${cargoCheckTail}
+          ${self.packages.${system}.cargo-octet}/bin/cargo-octet check ${packageArgs}${cargoCheckTail}
           mkdir -p "$out"
         '';
 
@@ -253,24 +253,24 @@
           if pkgs.stdenv.hostPlatform.isDarwin then ".dylib"
           else if pkgs.stdenv.hostPlatform.isWindows then ".dll"
           else ".so";
-        slotcarLibraryName = "${sharedLibraryPrefix}tigerstyle${sharedLibrarySuffix}";
-        slotcarUiLibraryName = "${sharedLibraryPrefix}tigerstyle@${rustupToolchain}${sharedLibrarySuffix}";
+        octetLibraryName = "${sharedLibraryPrefix}octet${sharedLibrarySuffix}";
+        octetUiLibraryName = "${sharedLibraryPrefix}octet@${rustupToolchain}${sharedLibrarySuffix}";
 
         cargoArtifacts = craneLib.buildDepsOnly {
           inherit src nativeBuildInputs buildInputs;
           RUSTUP_TOOLCHAIN = rustupToolchain;
         };
 
-        slotcar = craneLib.buildPackage {
+        octet = craneLib.buildPackage {
           inherit src cargoArtifacts nativeBuildInputs buildInputs;
           doCheck = false;
         };
 
-        cargoSlotcarUnwrapped = craneLib.buildPackage {
+        cargoOctetUnwrapped = craneLib.buildPackage {
           inherit src cargoArtifacts nativeBuildInputs buildInputs;
-          pname = "cargo-slotcar";
+          pname = "cargo-octet";
           version = "0.1.0";
-          cargoExtraArgs = "-p cargo-slotcar";
+          cargoExtraArgs = "-p cargo-octet";
           doCheck = false;
         };
 
@@ -305,7 +305,7 @@
             chmod -R u+w "$scratch/consumer"
 
             set +e
-            ${cargoSlotcarUnwrapped}/bin/cargo-slotcar fingerprint --check --output-format=json "$scratch/consumer/src" > "$scratch/check.json" 2> "$scratch/check.err"
+            ${cargoOctetUnwrapped}/bin/cargo-octet fingerprint --check --output-format=json "$scratch/consumer/src" > "$scratch/check.json" 2> "$scratch/check.err"
             check_status="$?"
             set -e
             test "$check_status" -eq 1
@@ -319,7 +319,7 @@
 
             sed -i 's/requested.min(5)/requested.min(8)/' "$scratch/consumer/src/json_output.rs"
             set +e
-            ${cargoSlotcarUnwrapped}/bin/cargo-slotcar fingerprint --check --output-format=json "$scratch/consumer/src/json_output.rs" > "$scratch/drift.json" 2> "$scratch/drift.err"
+            ${cargoOctetUnwrapped}/bin/cargo-octet fingerprint --check --output-format=json "$scratch/consumer/src/json_output.rs" > "$scratch/drift.json" 2> "$scratch/drift.err"
             drift_status="$?"
             set -e
             test "$drift_status" -eq 1
@@ -327,14 +327,14 @@
             jq -e '.records[0].name == "capped_retries" and .records[0].status == "mismatch"' "$scratch/drift.json" > /dev/null
 
             set +e
-            ${cargoSlotcarUnwrapped}/bin/cargo-slotcar fingerprint --diff "$scratch/consumer/src/json_output.rs" > "$scratch/diff.txt" 2> "$scratch/diff.err"
+            ${cargoOctetUnwrapped}/bin/cargo-octet fingerprint --diff "$scratch/consumer/src/json_output.rs" > "$scratch/diff.txt" 2> "$scratch/diff.err"
             diff_status="$?"
-            ${cargoSlotcarUnwrapped}/bin/cargo-slotcar fingerprint --diff --output-format=json "$scratch/consumer/src/json_output.rs" > "$scratch/diff.json" 2> "$scratch/diff-json.err"
+            ${cargoOctetUnwrapped}/bin/cargo-octet fingerprint --diff --output-format=json "$scratch/consumer/src/json_output.rs" > "$scratch/diff.json" 2> "$scratch/diff-json.err"
             diff_json_status="$?"
             set -e
             test "$diff_status" -eq 1
             test "$diff_json_status" -eq 1
-            grep -F "slotcar fingerprint diff" "$scratch/diff.txt" > /dev/null
+            grep -F "octet fingerprint diff" "$scratch/diff.txt" > /dev/null
             grep -F "capped_retries mismatch" "$scratch/diff.txt" > /dev/null
             grep -F "summary total=1 match=0 mismatch=1 missing=0 written=0 macro_warnings=0 metadata_missing=0" "$scratch/diff.txt" > /dev/null
             jq -e '.schema_version == 1 and .mode == "diff"' "$scratch/diff.json" > /dev/null
@@ -344,9 +344,9 @@
             diff_json_name="$(jq -r '.records[0].name' "$scratch/diff.json")"
             test "$diff_human_name" = "$diff_json_name"
 
-            ${cargoSlotcarUnwrapped}/bin/cargo-slotcar fingerprint --update --output-format=json "$scratch/consumer/src/json_output.rs" > "$scratch/update.json"
+            ${cargoOctetUnwrapped}/bin/cargo-octet fingerprint --update --output-format=json "$scratch/consumer/src/json_output.rs" > "$scratch/update.json"
             jq -e '.records[0].name == "capped_retries" and .records[0].status == "written"' "$scratch/update.json" > /dev/null
-            ${cargoSlotcarUnwrapped}/bin/cargo-slotcar fingerprint --check --output-format=json "$scratch/consumer/src/json_output.rs" > "$scratch/repaired.json"
+            ${cargoOctetUnwrapped}/bin/cargo-octet fingerprint --check --output-format=json "$scratch/consumer/src/json_output.rs" > "$scratch/repaired.json"
             jq -e '.records[0].name == "capped_retries" and .records[0].status == "match"' "$scratch/repaired.json" > /dev/null
           '';
         };
@@ -456,9 +456,9 @@
           '';
         };
 
-        slotcarUiLibrary = pkgs.runCommand "tigerstyle-ui-library" { } ''
+        octetUiLibrary = pkgs.runCommand "octet-ui-library" { } ''
           mkdir -p "$out/lib"
-          ln -s "${slotcar}/lib/${slotcarLibraryName}" "$out/lib/${slotcarUiLibraryName}"
+          ln -s "${octet}/lib/${octetLibraryName}" "$out/lib/${octetUiLibraryName}"
         '';
 
         # Dylint driver binary — used by mkConsumerCheck to run lints.
@@ -521,23 +521,29 @@ MAIN
           '';
         };
 
-        cargoSlotcar = pkgs.symlinkJoin {
-          name = "cargo-slotcar-0.1.0";
-          paths = [ cargoSlotcarUnwrapped ];
+        cargoOctet = pkgs.symlinkJoin {
+          name = "cargo-octet-0.1.0";
+          paths = [ cargoOctetUnwrapped ];
           nativeBuildInputs = [ pkgs.makeWrapper ];
           postBuild = ''
+            wrapProgram "$out/bin/cargo-octet" \
+              --prefix PATH : "${dylintShimPath}" \
+              --prefix LD_LIBRARY_PATH : "${rustToolchainLibPath}" \
+              --set TIGERSTYLE_TOOLCHAIN "${rustupToolchain}" \
+              --set TIGERSTYLE_DRIVER_PATH "${dylintDriver}/bin/dylint-driver" \
+              --set TIGERSTYLE_LINT_LIB "${octetUiLibrary}/lib/${octetUiLibraryName}"
             wrapProgram "$out/bin/cargo-slotcar" \
               --prefix PATH : "${dylintShimPath}" \
               --prefix LD_LIBRARY_PATH : "${rustToolchainLibPath}" \
               --set TIGERSTYLE_TOOLCHAIN "${rustupToolchain}" \
               --set TIGERSTYLE_DRIVER_PATH "${dylintDriver}/bin/dylint-driver" \
-              --set TIGERSTYLE_LINT_LIB "${slotcarUiLibrary}/lib/${slotcarUiLibraryName}"
+              --set TIGERSTYLE_LINT_LIB "${octetUiLibrary}/lib/${octetUiLibraryName}"
             wrapProgram "$out/bin/cargo-tigerstyle" \
               --prefix PATH : "${dylintShimPath}" \
               --prefix LD_LIBRARY_PATH : "${rustToolchainLibPath}" \
               --set TIGERSTYLE_TOOLCHAIN "${rustupToolchain}" \
               --set TIGERSTYLE_DRIVER_PATH "${dylintDriver}/bin/dylint-driver" \
-              --set TIGERSTYLE_LINT_LIB "${slotcarUiLibrary}/lib/${slotcarUiLibraryName}"
+              --set TIGERSTYLE_LINT_LIB "${octetUiLibrary}/lib/${octetUiLibraryName}"
           '';
         };
 
@@ -907,11 +913,13 @@ MAIN
       in
       {
         packages = {
-          default = slotcar;
-          slotcar = slotcar;
-          tigerstyle = slotcar;
-          cargo-slotcar = cargoSlotcar;
-          cargo-tigerstyle = cargoSlotcar;
+          default = octet;
+          octet = octet;
+          slotcar = octet;
+          tigerstyle = octet;
+          cargo-octet = cargoOctet;
+          cargo-slotcar = cargoOctet;
+          cargo-tigerstyle = cargoOctet;
           fingerprint-docs-downstream-smoke = fingerprintDocsDownstreamSmoke;
           dylint-driver = dylintDriver;
           slotcar-standards = slotcarStandards;
@@ -922,12 +930,17 @@ MAIN
         };
 
         apps = {
+          cargo-octet = flake-utils.lib.mkApp {
+            drv = cargoOctet;
+            exePath = "/bin/cargo-octet";
+          };
+
           cargo-slotcar = flake-utils.lib.mkApp {
-            drv = cargoSlotcar;
+            drv = cargoOctet;
             exePath = "/bin/cargo-slotcar";
           };
           cargo-tigerstyle = flake-utils.lib.mkApp {
-            drv = cargoSlotcar;
+            drv = cargoOctet;
             exePath = "/bin/cargo-tigerstyle";
           };
 
@@ -965,7 +978,7 @@ MAIN
               inherit pname;
               version = "0.1.0";
               nativeBuildInputs = checkNativeBuildInputs;
-              cargoExtraArgs = "-p cargo-slotcar";
+              cargoExtraArgs = "-p cargo-octet";
               doNotPostBuildInstallCargoBinaries = true;
               buildPhaseCargoCommand = ":";
               cargoTestExtraArgs = "--test fingerprint_consumer ${testFilter} -- --nocapture";
@@ -976,7 +989,7 @@ MAIN
               RUSTUP_TOOLCHAIN = rustupToolchain;
               preCheck = ''
                 export PATH="${dylintShimPath}:$PATH"
-                export CARGO_TIGERSTYLE_BIN="${cargoSlotcarUnwrapped}/bin/cargo-slotcar"
+                export CARGO_OCTET_BIN="${cargoOctetUnwrapped}/bin/cargo-octet"
               '';
             };
           fingerprintLifecycleDocs = mkFingerprintDocsCheck
@@ -1003,7 +1016,7 @@ MAIN
             pname = "slotcar-roadmap-agent-surfaces-docs";
             version = "0.1.0";
             nativeBuildInputs = checkNativeBuildInputs;
-            cargoExtraArgs = "-p cargo-slotcar";
+            cargoExtraArgs = "-p cargo-octet";
             doNotPostBuildInstallCargoBinaries = true;
             buildPhaseCargoCommand = ":";
             cargoTestExtraArgs = "--test unison_roadmap roadmap_docs_transcript_covers_agent_surfaces -- --nocapture";
@@ -1014,7 +1027,7 @@ MAIN
             RUSTUP_TOOLCHAIN = rustupToolchain;
             preCheck = ''
               export PATH="${dylintShimPath}:$PATH"
-              export CARGO_TIGERSTYLE_BIN="${cargoSlotcarUnwrapped}/bin/cargo-slotcar"
+              export CARGO_OCTET_BIN="${cargoOctetUnwrapped}/bin/cargo-octet"
             '';
           };
           fingerprintDocsDownstreamSmokeCheck = pkgs.runCommand "tigerstyle-fingerprint-docs-downstream-smoke-check" { } ''
@@ -1040,31 +1053,35 @@ MAIN
             grep -F 'cargo-tigerstyle' "$repo/docs/release-candidate.md"
             grep -F 'slotcar' "$repo/docs/release-candidate.md"
             grep -F 'tigerstyle' "$repo/docs/release-candidate.md"
-            test -x ${cargoSlotcarUnwrapped}/bin/cargo-slotcar
-            test -x ${cargoSlotcarUnwrapped}/bin/cargo-tigerstyle
-            ${cargoSlotcarUnwrapped}/bin/cargo-slotcar --version | tee "$TMPDIR/cargo-slotcar.version"
-            ${cargoSlotcarUnwrapped}/bin/cargo-tigerstyle --version | tee "$TMPDIR/cargo-tigerstyle.version"
-            grep -Fx "cargo-slotcar 0.1.0" "$TMPDIR/cargo-slotcar.version"
-            grep -Fx "cargo-slotcar 0.1.0" "$TMPDIR/cargo-tigerstyle.version"
-            test -d ${slotcar}
-            test -d ${cargoSlotcarUnwrapped}
+            test -x ${cargoOctetUnwrapped}/bin/cargo-octet
+            test -x ${cargoOctetUnwrapped}/bin/cargo-slotcar
+            test -x ${cargoOctetUnwrapped}/bin/cargo-tigerstyle
+            ${cargoOctetUnwrapped}/bin/cargo-octet --version | tee "$TMPDIR/cargo-octet.version"
+            ${cargoOctetUnwrapped}/bin/cargo-slotcar --version | tee "$TMPDIR/cargo-slotcar.version"
+            ${cargoOctetUnwrapped}/bin/cargo-tigerstyle --version | tee "$TMPDIR/cargo-tigerstyle.version"
+            grep -Fx "cargo-octet 0.1.0" "$TMPDIR/cargo-octet.version"
+            grep -Fx "cargo-octet 0.1.0" "$TMPDIR/cargo-slotcar.version"
+            grep -Fx "cargo-octet 0.1.0" "$TMPDIR/cargo-tigerstyle.version"
+            test -d ${octet}
+            test -d ${cargoOctetUnwrapped}
             mkdir -p "$out"
           '';
         in {
-          inherit slotcar;
-          tigerstyle = slotcar;
+          octet = octet;
+          slotcar = octet;
+          tigerstyle = octet;
 
           nextest = craneLib.cargoNextest {
             inherit src cargoArtifacts buildInputs;
             nativeBuildInputs = checkNativeBuildInputs;
             partitions = 1;
             partitionType = "count";
-            CARGO_TIGERSTYLE_BIN = "${cargoSlotcarUnwrapped}/bin/cargo-slotcar";
+            CARGO_OCTET_BIN = "${cargoOctetUnwrapped}/bin/cargo-octet";
             LD_LIBRARY_PATH = rustToolchainLibPath;
             RUSTUP_TOOLCHAIN = rustupToolchain;
             preCheck = ''
               export PATH="${dylintShimPath}:$PATH"
-              export CARGO_TIGERSTYLE_BIN="${cargoSlotcarUnwrapped}/bin/cargo-slotcar"
+              export CARGO_OCTET_BIN="${cargoOctetUnwrapped}/bin/cargo-octet"
             '';
           };
 
@@ -1085,7 +1102,7 @@ MAIN
             preCheck = ''
               export PATH="${dylintShimPath}:$PATH"
               export TIGERSTYLE_UI_DRIVER="${uiDriver}/bin/tigerstyle-ui-driver"
-              export TIGERSTYLE_UI_LIBRARY="${slotcarUiLibrary}/lib/${slotcarUiLibraryName}"
+              export TIGERSTYLE_UI_LIBRARY="${octetUiLibrary}/lib/${octetUiLibraryName}"
             '';
           };
 
@@ -1154,7 +1171,7 @@ MAIN
             slotcarStandards
           ];
 
-          inputsFrom = [ slotcar ];
+          inputsFrom = [ octet ];
 
           LD_LIBRARY_PATH = rustToolchainLibPath;
           RUSTUP_TOOLCHAIN = rustupToolchain;
