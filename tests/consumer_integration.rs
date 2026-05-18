@@ -496,7 +496,7 @@ esac
 
 fn metadata(default_scope: &str, cargo_check_args: &str) -> String {
     format!(
-        r#"[workspace.metadata.tigerstyle]
+        r#"[workspace.metadata.octet]
 default_scope = {default_scope}
 cargo_check_args = {cargo_check_args}
 "#
@@ -1001,7 +1001,7 @@ fn missing_metadata_block_exits_with_integration_failure_code() {
     assert_eq!(
         output.status.code(),
         Some(2),
-        "missing workspace.metadata.tigerstyle should exit 2: stdout={} stderr={}",
+        "missing workspace.metadata.octet should exit 2: stdout={} stderr={}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
@@ -1873,8 +1873,8 @@ fn checked_in_nix_consumer_fixture_is_reviewable() {
         .unwrap_or_else(|error| panic!("read checked-in nix consumer flake under {}: {error}", fixture_root.display()));
 
     assert!(
-        cargo_toml.contains("[workspace.metadata.slotcar]"),
-        "checked-in nix consumer fixture must carry workspace slotcar metadata: {}",
+        cargo_toml.contains("[workspace.metadata.octet]"),
+        "checked-in nix consumer fixture must carry workspace octet metadata: {}",
         fixture_root.display()
     );
     assert!(
@@ -1892,7 +1892,7 @@ fn downstream_rollout_docs_point_to_first_class_cli_path() {
 
     for required in [
         "cargo octet check",
-        "[workspace.metadata.slotcar]",
+        "[workspace.metadata.octet]",
         "nix run",
         "cargo-octet",
     ] {

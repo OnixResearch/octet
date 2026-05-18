@@ -65,7 +65,7 @@ Config keys in `dylint.toml` stay bare (`no_unwrap`, not `slotcar::no_unwrap`).
 supported consumer entry points. The historical shell wrapper is retained only
 in archived replay evidence.
 
-New consumers should use `[workspace.metadata.slotcar]` for runner policy
+New consumers should use `[workspace.metadata.octet] for runner policy
 and `dylint.toml` for lint tuning. See `docs/consumer-guide.md`.
 
 ## 2026-04-14: Structured output

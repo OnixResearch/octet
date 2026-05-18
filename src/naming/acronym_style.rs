@@ -18,7 +18,7 @@ declare_tool_lint! {
     ///
     /// Configure in `dylint.toml`:
     /// ```toml
-    /// [tigerstyle]
+    /// [octet]
     /// acronym_allowlist = ["IO", "ID"]
     /// ```
     pub tigerstyle::ACRONYM_STYLE,

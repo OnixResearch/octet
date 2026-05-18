@@ -18,7 +18,7 @@ declare_tool_lint! {
     ///
     /// Configure in `dylint.toml`:
     /// ```toml
-    /// [tigerstyle]
+    /// [octet]
     /// nesting_max_depth = 4
     /// ```
     pub tigerstyle::NESTED_CONDITIONALS,

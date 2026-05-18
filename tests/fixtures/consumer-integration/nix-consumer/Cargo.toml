@@ -2,6 +2,6 @@
 members = ["crates/good", "crates/bad"]
 resolver = "2"
 
-[workspace.metadata.slotcar]
+[workspace.metadata.octet]
 default_scope = ["-p", "good"]
 cargo_check_args = ["--lib"]

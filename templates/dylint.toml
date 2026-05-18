@@ -1,6 +1,6 @@
 # Copy into the consumer workspace root as `dylint.toml`.
 #
-# Keep this file consumer-owned. Slotcar defaults stay in the lint crate;
+# Keep this file consumer-owned. Octet defaults stay in the lint crate;
 # workspace-specific thresholds, allowlists, and rollout controls live here.
 #
 # For every non-default value, record three things in rollout notes:
@@ -8,7 +8,7 @@
 #   2. which crates or packages currently need the override
 #   3. what cleanup would let you remove it later
 
-[slotcar]
+[octet]
 
 # Threshold overrides
 # Keep only the fields you actively tune. Delete the rest.
@@ -38,8 +38,8 @@
 # If the same lint appears in both places, `disabled_lints` wins and the level
 # override is ignored.
 # Keep keys here bare (`no_unwrap`), even though source attrs and group attrs in
-# Rust code use canonical tool names like `slotcar::no_unwrap` and
-# `slotcar::safety`.
+# Rust code currently uses source-attribute tool names like `slotcar::no_unwrap`
+# and `slotcar::safety`; keep config keys bare here.
 #
 # See `docs/downstream-rollout.md` for full smoke / boundary-first /
 # inventory-only profile examples.
@@ -87,7 +87,7 @@
 #   "no_recursion",
 # ]
 
-[slotcar.lint_levels]
+[octet.lint_levels]
 # Example: keep the default warn path explicit during rollout.
 # no_unwrap = "warn"
 # Example: promote one lint after owners fix the low-noise backlog.
