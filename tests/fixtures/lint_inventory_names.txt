@@ -7,6 +7,7 @@ excessive_file_length
 module_file_count
 underscore_in_module_filename
 non_trait_imports
+renamed_imports
 unbounded_loop
 compound_condition
 verified_purity

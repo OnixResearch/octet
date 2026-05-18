@@ -94,6 +94,9 @@
     "non_trait_imports",
     "non_trait_imports_trait",
     "non_trait_imports_public_reexport",
+    "renamed_imports_compat",
+    "renamed_imports_trait",
+    "renamed_imports",
     "unjustified_allow",
     "usize_in_public_api",
     "verified/verified_purity"

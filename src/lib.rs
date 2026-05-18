@@ -161,6 +161,9 @@ lint_inventory! {
     "non_trait_imports", naming::non_trait_imports::NON_TRAIT_IMPORTS => |lint_store, _cfg| {
         lint_store.register_late_pass(|_| Box::new(naming::non_trait_imports::NonTraitImports));
     },
+    "renamed_imports", naming::renamed_imports::RENAMED_IMPORTS => |lint_store, _cfg| {
+        lint_store.register_late_pass(|_| Box::new(naming::renamed_imports::RenamedImports));
+    },
     "unbounded_loop", safety::unbounded_loop::UNBOUNDED_LOOP => |lint_store, _cfg| {
         lint_store.register_late_pass(|_| Box::new(safety::unbounded_loop::UnboundedLoop));
     },
@@ -662,6 +665,7 @@ mod tests {
         "magic_number",
         "underscore_in_module_filename",
         "non_trait_imports",
+        "renamed_imports",
         "function_length",
         "ambiguous_params",
         "no_recursion",
@@ -718,6 +722,7 @@ mod tests {
             "numeric_units" => "src/naming/numeric_units.rs",
             "underscore_in_module_filename" => "src/naming/underscore_in_module_filename.rs",
             "non_trait_imports" => "src/naming/non_trait_imports.rs",
+            "renamed_imports" => "src/naming/renamed_imports.rs",
             "unbounded_loop" => "src/safety/unbounded_loop.rs",
             "compound_condition" => "src/structure/compound_condition.rs",
             "verified_purity" => "src/purity/verified_purity.rs",

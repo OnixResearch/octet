@@ -7,7 +7,7 @@
 - [x] [serial] I5 Implement `module_file_count` structure lint. Completed 2026-05-18T13:32:06Z; evidence=`openspec/changes/add-indexable-policy-lints/evidence/module-file-count.txt`
 - [x] [serial] I6 Implement `underscore_in_module_filename` naming lint. Completed 2026-05-18T14:39:10Z; evidence=`openspec/changes/add-indexable-policy-lints/evidence/underscore-module-filename.txt`
 - [x] [serial] I7 Implement `non_trait_imports` naming/import lint. Completed 2026-05-18T15:06:35Z; evidence=`openspec/changes/add-indexable-policy-lints/evidence/non-trait-imports.txt`
-- [ ] [serial] I8 Implement `renamed_imports` naming/import lint.
+- [x] [serial] I8 Implement `renamed_imports` naming/import lint. Completed 2026-05-18T15:38:49Z; evidence=`openspec/changes/add-indexable-policy-lints/evidence/renamed-imports.txt`
 - [ ] [serial] I9 Implement `path_segment_repetition` naming lint.
 - [ ] [serial] I10 Register all nine lints in inventory, diagnostics metadata, domain groups, bare compatibility aliases, config validation, and output metadata.
 
@@ -27,8 +27,8 @@
 - [x] [depends:I6] V12 Verify scenario "Directory-based module filename [r[underscore-module-filename-detection.scenario.directory-based-module-filename]]" with focused UI fixture/helper; save output at `openspec/changes/add-indexable-policy-lints/evidence/underscore-module-filename.txt` Verified 2026-05-18T14:39:10Z; evidence=`openspec/changes/add-indexable-policy-lints/evidence/underscore-module-filename.txt`
 - [x] [depends:I7] V13 Verify scenario "Struct imported into local scope [r[non-trait-import-detection.scenario.struct-imported]]" with focused UI fixture; save output at `openspec/changes/add-indexable-policy-lints/evidence/non-trait-imports.txt` Verified 2026-05-18T15:06:35Z; evidence=`openspec/changes/add-indexable-policy-lints/evidence/non-trait-imports.txt`
 - [x] [depends:I7] V14 Verify scenario "Trait import for method resolution [r[non-trait-import-detection.scenario.trait-import]]" with focused UI fixture; save output at `openspec/changes/add-indexable-policy-lints/evidence/non-trait-imports.txt` Verified 2026-05-18T15:06:35Z; evidence=`openspec/changes/add-indexable-policy-lints/evidence/non-trait-imports.txt`
-- [ ] [depends:I8] V15 Verify scenario "Renamed private import [r[renamed-import-detection.scenario.renamed-private-import]]" with focused UI fixture; save output at `openspec/changes/add-indexable-policy-lints/evidence/renamed-imports.txt`
-- [ ] [depends:I8] V16 Verify scenario "Trait import as underscore [r[renamed-import-detection.scenario.trait-import-underscore]]" with focused UI fixture; save output at `openspec/changes/add-indexable-policy-lints/evidence/renamed-imports.txt`
+- [x] [depends:I8] V15 Verify scenario "Renamed private import [r[renamed-import-detection.scenario.renamed-private-import]]" with focused UI fixture; save output at `openspec/changes/add-indexable-policy-lints/evidence/renamed-imports.txt` Verified 2026-05-18T15:38:49Z; evidence=`openspec/changes/add-indexable-policy-lints/evidence/renamed-imports.txt`
+- [x] [depends:I8] V16 Verify scenario "Trait import as underscore [r[renamed-import-detection.scenario.trait-import-underscore]]" with focused UI fixture; save output at `openspec/changes/add-indexable-policy-lints/evidence/renamed-imports.txt` Verified 2026-05-18T15:38:49Z; evidence=`openspec/changes/add-indexable-policy-lints/evidence/renamed-imports.txt`
 - [ ] [depends:I9] V17 Verify scenario "Function repeats module name [r[path-segment-repetition-detection.scenario.function-repeats-module]]" with focused UI fixture; save output at `openspec/changes/add-indexable-policy-lints/evidence/path-segment-repetition.txt`
 - [ ] [depends:I9] V18 Verify scenario "Non-repeating item name [r[path-segment-repetition-detection.scenario.non-repeating-item]]" with focused UI fixture; save output at `openspec/changes/add-indexable-policy-lints/evidence/path-segment-repetition.txt`
 - [ ] [depends:I10] V19 Verify registration and metadata coverage for all nine new lints with unit/config tests; save output at `openspec/changes/add-indexable-policy-lints/evidence/registration-metadata.txt`
@@ -40,7 +40,7 @@
 - [x] [depends:I3] V25 Verify scenario "Unit-bearing binding [r[magic-number-detection.scenario.unit-bearing-binding]]" with focused UI fixture; save output at `openspec/changes/add-indexable-policy-lints/evidence/magic-number.txt` Verified 2026-05-18T06:41:47Z; evidence=`openspec/changes/add-indexable-policy-lints/evidence/magic-number.txt`
 - [x] [depends:I3] V26 Verify scenario "Test-context magic number [r[magic-number-detection.scenario.test-context-suppressed]]" with focused UI fixture; save output at `openspec/changes/add-indexable-policy-lints/evidence/magic-number.txt` Verified 2026-05-18T06:41:47Z; evidence=`openspec/changes/add-indexable-policy-lints/evidence/magic-number.txt`
 - [x] [depends:I7] V27 Verify scenario "Public owner-type re-export [r[non-trait-import-detection.scenario.public-owner-reexport]]" with focused UI fixture; save output at `openspec/changes/add-indexable-policy-lints/evidence/non-trait-imports.txt` Verified 2026-05-18T15:06:35Z; evidence=`openspec/changes/add-indexable-policy-lints/evidence/non-trait-imports.txt`
-- [ ] [depends:I8] V28 Verify scenario "Documented compatibility alias [r[renamed-import-detection.scenario.compatibility-alias]]" with focused UI fixture; save output at `openspec/changes/add-indexable-policy-lints/evidence/renamed-imports.txt`
+- [x] [depends:I8] V28 Verify scenario "Documented compatibility alias [r[renamed-import-detection.scenario.compatibility-alias]]" with focused UI fixture; save output at `openspec/changes/add-indexable-policy-lints/evidence/renamed-imports.txt` Verified 2026-05-18T15:38:49Z; evidence=`openspec/changes/add-indexable-policy-lints/evidence/renamed-imports.txt`
 - [ ] [depends:I9] V29 Verify scenario "Compatibility name repeats path [r[path-segment-repetition-detection.scenario.compatibility-name]]" with focused UI fixture; save output at `openspec/changes/add-indexable-policy-lints/evidence/path-segment-repetition.txt`
 - [ ] [depends:I10] V30 Verify bare compatibility alias registration for all nine new lints; save output at `openspec/changes/add-indexable-policy-lints/evidence/registration-metadata.txt`
 
@@ -51,7 +51,7 @@
 ## Change Status
 
 - Status: in-progress
-- Open tasks: I8, I9, I10, V15, V16, V17, V18, V19, V28, V29, V30, H1
+- Open tasks: I9, I10, V17, V18, V19, V29, V30, H1
 
 ## Verification Coverage
 

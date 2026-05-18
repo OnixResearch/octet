@@ -31,6 +31,7 @@
       "numeric_units",
       "underscore_in_module_filename",
       "non_trait_imports",
+      "renamed_imports",
       "negated_predicate",
       "bool_naming",
       "float_for_currency"
