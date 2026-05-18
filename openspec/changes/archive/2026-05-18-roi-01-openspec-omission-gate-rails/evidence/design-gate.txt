@@ -25,7 +25,7 @@ VERDICT: PASS
 ## Next Actions
 - Proceed to tasks drafting.
 - Ensure later `tasks.md` checkbox tasks include required concurrency markers at tasks stage.
-- Preserve the planned evidence paths under `openspec/changes/roi-01-openspec-omission-gate-rails/evidence/`.
+- Preserve the planned evidence paths under `openspec/changes/archive/2026-05-18-roi-01-openspec-omission-gate-rails/evidence/`.
 [13:53:56]
 ```
 --- gate design exit=0

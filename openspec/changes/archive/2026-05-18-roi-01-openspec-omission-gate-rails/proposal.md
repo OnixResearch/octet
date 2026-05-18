@@ -49,8 +49,8 @@ stage.
 - **Files / artifacts**: `openspec/templates/proposal.md`,
   `openspec/templates/spec.md`, `openspec/templates/design.md`,
   `openspec/templates/tasks.md`, `openspec/config.yaml`, delta specs under
-  `openspec/changes/roi-01-openspec-omission-gate-rails/specs/`, and saved
-  evidence under `openspec/changes/roi-01-openspec-omission-gate-rails/evidence/`.
+  `openspec/changes/archive/2026-05-18-roi-01-openspec-omission-gate-rails/specs/`, and saved
+  evidence under `openspec/changes/archive/2026-05-18-roi-01-openspec-omission-gate-rails/evidence/`.
 - **Ordering / dependencies**: update stage-authoring and task-governance specs
   first, then templates/config, then deterministic extracts/gate transcripts.
 - **Verification / evidence**: save `review-metrics-omissions.txt`, template

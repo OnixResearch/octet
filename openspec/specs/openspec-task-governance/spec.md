@@ -82,20 +82,21 @@ still keep its own mapping row.
 
 ### Requirement: Human/Oracle Checkpoints Name Exact Inputs
 
-Every `H<n>` checkbox MUST use this exact field layout in the task text:
+Every `H<n>` checkbox MUST continue to use the exact field layout with
+`command=`, `input=`, `asserts=`, and `evidence=`.
 
-`Human/oracle checkpoint: command=`<command or helper>`; input=`<pinned revision, fixture, or prerequisite artifact>`; asserts=`<single human claim>`; evidence=`<repo-relative evidence path>`
+The repo-local tasks guidance MUST also describe the repeated omission risk:
+human/oracle tasks are not self-verifiable when they cite a broad command,
+implicit input, multi-claim assertion, or missing evidence path.
 
-The `command=` field MAY point at a helper script instead of an inline shell
-command, but it MUST still identify the exact replay path.
+#### Scenario: Human checkpoint guidance blocks implicit oracle inputs
 
-#### Scenario: Aspen replay task is self-describing
-
-- GIVEN a maintainer needs a downstream replay against a pinned Aspen commit
-- WHEN they read the `H<n>` task
-- THEN the task itself names the replay command or helper
-- AND it names the pinned Aspen revision or prerequisite artifact
-- AND it names the saved evidence file used for review
+- GIVEN a maintainer writes an `H<n>` task
+- WHEN the task names a human/oracle checkpoint
+- THEN repo-local guidance tells them to provide the exact replay command or
+  helper path
+- AND it tells them to provide the exact pinned input or prerequisite artifact
+- AND it tells them to provide one assertion and one evidence path
 
 ### Requirement: Tasks-Stage Gate Flags Missing Governance
 
@@ -147,30 +148,23 @@ change-status blocking findings:
 ### Requirement: Task Template Shows Change-Status Fields
 
 Tigerstyle's repo-local task template at `openspec/templates/tasks.md` MUST
-include a `## Change Status` section immediately before
-`## Verification Coverage`.
+continue to include a `## Change Status` section immediately before
+`## Verification Coverage` with the existing required example lines and note.
 
-That template section MUST keep these exact example lines in order:
+The template MUST also include an omission-prevention prompt that tells authors
+to split implementation from verification, give every scenario its own coverage
+row, and make `H<n>` oracle tasks self-verifiable with exact `command=`,
+`input=`, `asserts=`, and `evidence=` fields.
 
-- `## Change Status`
-- `- Status: in-progress`
-- `- Open tasks: I1, I2, V1, V2, H1`
-
-The example `Open tasks` line MUST match the unchecked placeholder task IDs
-that appear earlier in the template, in file order.
-
-The template MUST also include this exact note after the example lines:
-
-`Use \`Open tasks: none\` only when every governed \`I<n>\`, \`V<n>\`, and \`H<n>\` task checkbox is checked.`
-
-#### Scenario: Template shows change-status fields
+#### Scenario: Maintainer sees repeated task omission checks before gate review
 
 - GIVEN a maintainer copies `openspec/templates/tasks.md`
-- WHEN they reach the status section before `## Verification Coverage`
-- THEN they see the exact `in-progress` example lines above
-- AND the example `Open tasks` line matches the placeholder task IDs in file
-  order
-- AND they see the exact `Open tasks: none` note above
+- WHEN they write implementation, verification, and human/oracle tasks
+- THEN the template reminds them not to combine implementation with evidence
+  capture in a single `I<n>` task
+- AND it reminds them that every added or modified scenario needs its own
+  verification coverage row
+- AND it reminds them that each `H<n>` task needs exact replay fields
 
 ### Requirement: Change Status Mirrors Task State
 
@@ -268,3 +262,18 @@ run finishes.
 - WHEN the helper exits
 - THEN `openspec/changes/missing-change-status-blocked/` no longer exists
 
+### Requirement: Tasks-Stage Config Guidance Names Omission Checks
+
+`openspec/config.yaml` MUST include tasks-stage rules that mention the repeated
+omission-prevention prompts for split implementation/proof tasks, one-row-per-
+scenario coverage, and exact human/oracle replay fields.
+
+#### Scenario: Config task guidance includes promoted task omission checks
+
+- GIVEN repo-local OpenSpec stage guidance reads `openspec/config.yaml`
+- WHEN tasks-stage prompts are prepared for a new change
+- THEN the tasks rules mention split implementation, verification, and
+  human/oracle tasks
+- AND the tasks rules mention one verification coverage row per scenario
+- AND the tasks rules mention exact `H<n>` `command=`, `input=`, `asserts=`,
+  and `evidence=` fields
