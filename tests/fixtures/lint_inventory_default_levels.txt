@@ -8,6 +8,7 @@ module_file_count=warn
 underscore_in_module_filename=warn
 non_trait_imports=warn
 renamed_imports=warn
+path_segment_repetition=warn
 unbounded_loop=warn
 compound_condition=allow
 verified_purity=deny

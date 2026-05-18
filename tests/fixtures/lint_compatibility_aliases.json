@@ -40,6 +40,10 @@
     "canonical_lint_name": "tigerstyle::renamed_imports"
   },
   {
+    "alias_name": "path_segment_repetition",
+    "canonical_lint_name": "tigerstyle::path_segment_repetition"
+  },
+  {
     "alias_name": "unbounded_loop",
     "canonical_lint_name": "tigerstyle::unbounded_loop"
   },
