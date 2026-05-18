@@ -1,0 +1,728 @@
+# Indexable-policy dogfood summary
+command: nix develop path:/home/brittonr/git/slotcar -c nix run path:/home/brittonr/git/slotcar#cargo-octet -- check -p octet --output-format json -- --lib
+exit_code: 0
+target_lints: drop_must_use, fallible_int_fallback, magic_number, excessive_file_length, module_file_count, underscore_in_module_filename, non_trait_imports, renamed_imports, path_segment_repetition
+enabled_lints: drop_must_use, fallible_int_fallback, magic_number, excessive_file_length, module_file_count, underscore_in_module_filename, non_trait_imports, renamed_imports, path_segment_repetition
+disabled_lints_count: 38
+findings_total: 653
+external_findings_excluded: 6
+assert.uses_canonical_cargo_octet: PASS
+assert.enabled_exactly_nine_archived_lints: PASS
+assert.non_target_lints_disabled: PASS
+assert.no_repo_root_temporary_dylint_toml: PASS
+
+## Counts by lint
+- excessive_file_length: 5
+- module_file_count: 3
+- non_trait_imports: 471
+- path_segment_repetition: 91
+- renamed_imports: 35
+- underscore_in_module_filename: 48
+
+## Counts by file
+- src/concurrency/multi_lock_ordering.rs: 11
+- src/config.rs: 6
+- src/diagnostics.rs: 6
+- src/lib.rs: 2
+- src/naming/acronym_style.rs: 15
+- src/naming/bool_naming.rs: 12
+- src/naming/float_for_currency.rs: 14
+- src/naming/negated_predicate.rs: 11
+- src/naming/non_trait_imports.rs: 12
+- src/naming/numeric_units.rs: 9
+- src/naming/path_segment_repetition.rs: 13
+- src/naming/renamed_imports.rs: 11
+- src/naming/underscore_in_module_filename.rs: 13
+- src/naming/use_site_collector.rs: 8
+- src/performance/clone_then_borrow.rs: 14
+- src/purity/ambient_clock.rs: 13
+- src/purity/contradictory_time.rs: 14
+- src/purity/verified_purity.rs: 11
+- src/safety/assertion_density.rs: 12
+- src/safety/catch_all_on_enum.rs: 13
+- src/safety/compound_assertion.rs: 15
+- src/safety/drop_must_use.rs: 16
+- src/safety/explicit_defaults.rs: 16
+- src/safety/fallible_int_fallback.rs: 14
+- src/safety/ignored_result.rs: 17
+- src/safety/no_panic.rs: 18
+- src/safety/no_recursion.rs: 11
+- src/safety/no_todo.rs: 21
+- src/safety/no_unwrap.rs: 18
+- src/safety/public_unsafe_api.rs: 9
+- src/safety/raw_arithmetic_overflow.rs: 13
+- src/safety/sentinel_fallback.rs: 18
+- src/safety/unbounded_channel.rs: 14
+- src/safety/unbounded_collection_growth.rs: 28
+- src/safety/unbounded_loop.rs: 13
+- src/safety/unchecked_division.rs: 14
+- src/safety/unchecked_narrowing.rs: 14
+- src/structure/ambiguous_params.rs: 10
+- src/structure/borrowed_argument_types.rs: 13
+- src/structure/compound_condition.rs: 13
+- src/structure/deref_polymorphism.rs: 10
+- src/structure/excessive_file_length.rs: 11
+- src/structure/function_length.rs: 11
+- src/structure/magic_number.rs: 10
+- src/structure/module_file_count.rs: 16
+- src/structure/nested_conditionals.rs: 11
+- src/structure/platform_dependent_cast.rs: 14
+- src/structure/too_many_parameters.rs: 9
+- src/structure/unjustified_allow.rs: 11
+- src/structure/usize_in_public_api.rs: 13
+- src/test_context.rs: 12
+
+## Finding index
+- F1: excessive_file_length src/config.rs:1 source file is 477 lines (limit: 300)
+- F2: excessive_file_length src/diagnostics.rs:1 source file is 633 lines (limit: 300)
+- F3: excessive_file_length src/lib.rs:1 source file is 923 lines (limit: 300)
+- F4: excessive_file_length src/safety/no_todo.rs:1 source file is 333 lines (limit: 300)
+- F5: excessive_file_length src/safety/unbounded_collection_growth.rs:1 source file is 609 lines (limit: 300)
+- F6: module_file_count src/naming/acronym_style.rs:1 module directory `src/naming` contains 11 Rust source files (limit: 7)
+- F7: module_file_count src/safety/assertion_density.rs:1 module directory `src/safety` contains 20 Rust source files (limit: 7)
+- F8: module_file_count src/structure/ambiguous_params.rs:1 module directory `src/structure` contains 14 Rust source files (limit: 7)
+- F9: non_trait_imports src/concurrency/multi_lock_ordering.rs:1 non-trait import `Item` hides the owner path; prefer the qualified path at the use site
+- F10: non_trait_imports src/concurrency/multi_lock_ordering.rs:2 non-trait import `ItemKind` hides the owner path; prefer the qualified path at the use site
+- F11: non_trait_imports src/concurrency/multi_lock_ordering.rs:3 non-trait import `Applicability` hides the owner path; prefer the qualified path at the use site
+- F12: non_trait_imports src/concurrency/multi_lock_ordering.rs:4 non-trait import `EarlyContext` hides the owner path; prefer the qualified path at the use site
+- F13: non_trait_imports src/concurrency/multi_lock_ordering.rs:7 non-trait import `declare_lint_pass` hides the owner path; prefer the qualified path at the use site
+- F14: non_trait_imports src/concurrency/multi_lock_ordering.rs:8 non-trait import `declare_tool_lint` hides the owner path; prefer the qualified path at the use site
+- F15: non_trait_imports src/concurrency/multi_lock_ordering.rs:10 non-trait import `LintSuggestion` hides the owner path; prefer the qualified path at the use site
+- F16: non_trait_imports src/concurrency/multi_lock_ordering.rs:11 non-trait import `emit_tiger_style_lint` hides the owner path; prefer the qualified path at the use site
+- F17: non_trait_imports src/concurrency/multi_lock_ordering.rs:12 non-trait import `emit_tiger_style_lint_with_suggestion` hides the owner path; prefer the qualified path at the use site
+- F18: non_trait_imports src/config.rs:21 non-trait import `BTreeSet` hides the owner path; prefer the qualified path at the use site
+- F19: non_trait_imports src/config.rs:22 non-trait import `HashMap` hides the owner path; prefer the qualified path at the use site
+- F20: non_trait_imports src/config.rs:24 non-trait import `Deserialize` hides the owner path; prefer the qualified path at the use site
+- F21: non_trait_imports src/diagnostics.rs:1 non-trait import `Applicability` hides the owner path; prefer the qualified path at the use site
+- F22: non_trait_imports src/diagnostics.rs:2 non-trait import `DiagDecorator` hides the owner path; prefer the qualified path at the use site
+- F23: non_trait_imports src/diagnostics.rs:3 non-trait import `Lint` hides the owner path; prefer the qualified path at the use site
+- F24: non_trait_imports src/diagnostics.rs:5 non-trait import `Span` hides the owner path; prefer the qualified path at the use site
+- F25: non_trait_imports src/diagnostics.rs:6 non-trait import `Serialize` hides the owner path; prefer the qualified path at the use site
+- F26: non_trait_imports src/lib.rs:21 non-trait import `Config` hides the owner path; prefer the qualified path at the use site
+- F27: non_trait_imports src/naming/acronym_style.rs:1 non-trait import `Item` hides the owner path; prefer the qualified path at the use site
+- F28: non_trait_imports src/naming/acronym_style.rs:2 non-trait import `ItemKind` hides the owner path; prefer the qualified path at the use site
+- F29: non_trait_imports src/naming/acronym_style.rs:3 non-trait import `Variant` hides the owner path; prefer the qualified path at the use site
+- F30: non_trait_imports src/naming/acronym_style.rs:4 non-trait import `Applicability` hides the owner path; prefer the qualified path at the use site
+- F31: non_trait_imports src/naming/acronym_style.rs:5 non-trait import `EarlyContext` hides the owner path; prefer the qualified path at the use site
+- F32: non_trait_imports src/naming/acronym_style.rs:7 non-trait import `declare_tool_lint` hides the owner path; prefer the qualified path at the use site
+- F33: non_trait_imports src/naming/acronym_style.rs:8 non-trait import `impl_lint_pass` hides the owner path; prefer the qualified path at the use site
+- F34: non_trait_imports src/naming/acronym_style.rs:9 non-trait import `Span` hides the owner path; prefer the qualified path at the use site
+- F35: non_trait_imports src/naming/acronym_style.rs:11 non-trait import `LintSuggestion` hides the owner path; prefer the qualified path at the use site
+- F36: non_trait_imports src/naming/acronym_style.rs:12 non-trait import `emit_tiger_style_lint_with_suggestion` hides the owner path; prefer the qualified path at the use site
+- F37: non_trait_imports src/naming/bool_naming.rs:1 non-trait import `Applicability` hides the owner path; prefer the qualified path at the use site
+- F38: non_trait_imports src/naming/bool_naming.rs:2 non-trait import `rustc_hir as hir` hides the owner path; prefer the qualified path at the use site
+- F39: non_trait_imports src/naming/bool_naming.rs:3 non-trait import `PatKind` hides the owner path; prefer the qualified path at the use site
+- F40: non_trait_imports src/naming/bool_naming.rs:4 non-trait import `LateContext` hides the owner path; prefer the qualified path at the use site
+- F41: non_trait_imports src/naming/bool_naming.rs:6 non-trait import `declare_lint_pass` hides the owner path; prefer the qualified path at the use site
+- F42: non_trait_imports src/naming/bool_naming.rs:7 non-trait import `declare_tool_lint` hides the owner path; prefer the qualified path at the use site
+- F43: non_trait_imports src/naming/bool_naming.rs:9 non-trait import `use_site_collector` hides the owner path; prefer the qualified path at the use site
+- F44: non_trait_imports src/naming/bool_naming.rs:10 non-trait import `LintSuggestion` hides the owner path; prefer the qualified path at the use site
+- F45: non_trait_imports src/naming/bool_naming.rs:11 non-trait import `emit_tiger_style_lint_with_suggestion` hides the owner path; prefer the qualified path at the use site
+- F46: non_trait_imports src/naming/float_for_currency.rs:1 non-trait import `Applicability` hides the owner path; prefer the qualified path at the use site
+- F47: non_trait_imports src/naming/float_for_currency.rs:2 non-trait import `rustc_hir as hir` hides the owner path; prefer the qualified path at the use site
+- F48: non_trait_imports src/naming/float_for_currency.rs:3 non-trait import `ItemKind` hides the owner path; prefer the qualified path at the use site
+- F49: non_trait_imports src/naming/float_for_currency.rs:4 non-trait import `LateContext` hides the owner path; prefer the qualified path at the use site
+- F50: non_trait_imports src/naming/float_for_currency.rs:7 non-trait import `ty` hides the owner path; prefer the qualified path at the use site
+- F51: non_trait_imports src/naming/float_for_currency.rs:8 non-trait import `declare_lint_pass` hides the owner path; prefer the qualified path at the use site
+- F52: non_trait_imports src/naming/float_for_currency.rs:9 non-trait import `declare_tool_lint` hides the owner path; prefer the qualified path at the use site
+- F53: non_trait_imports src/naming/float_for_currency.rs:11 non-trait import `LintSuggestion` hides the owner path; prefer the qualified path at the use site
+- F54: non_trait_imports src/naming/float_for_currency.rs:12 non-trait import `emit_tiger_style_lint` hides the owner path; prefer the qualified path at the use site
+- F55: non_trait_imports src/naming/float_for_currency.rs:13 non-trait import `emit_tiger_style_lint_with_suggestion` hides the owner path; prefer the qualified path at the use site
+- F56: non_trait_imports src/naming/negated_predicate.rs:1 non-trait import `Applicability` hides the owner path; prefer the qualified path at the use site
+- F57: non_trait_imports src/naming/negated_predicate.rs:2 non-trait import `rustc_hir as hir` hides the owner path; prefer the qualified path at the use site
+- F58: non_trait_imports src/naming/negated_predicate.rs:3 non-trait import `PatKind` hides the owner path; prefer the qualified path at the use site
+- F59: non_trait_imports src/naming/negated_predicate.rs:4 non-trait import `LateContext` hides the owner path; prefer the qualified path at the use site
+- F60: non_trait_imports src/naming/negated_predicate.rs:6 non-trait import `declare_lint_pass` hides the owner path; prefer the qualified path at the use site
+- F61: non_trait_imports src/naming/negated_predicate.rs:7 non-trait import `declare_tool_lint` hides the owner path; prefer the qualified path at the use site
+- F62: non_trait_imports src/naming/negated_predicate.rs:9 non-trait import `use_site_collector` hides the owner path; prefer the qualified path at the use site
+- F63: non_trait_imports src/naming/negated_predicate.rs:10 non-trait import `LintSuggestion` hides the owner path; prefer the qualified path at the use site
+- F64: non_trait_imports src/naming/negated_predicate.rs:11 non-trait import `emit_tiger_style_lint_with_suggestion` hides the owner path; prefer the qualified path at the use site
+- F65: non_trait_imports src/naming/non_trait_imports.rs:1 non-trait import `rustc_hir as hir` hides the owner path; prefer the qualified path at the use site
+- F66: non_trait_imports src/naming/non_trait_imports.rs:2 non-trait import `DefKind` hides the owner path; prefer the qualified path at the use site
+- F67: non_trait_imports src/naming/non_trait_imports.rs:3 non-trait import `Res` hides the owner path; prefer the qualified path at the use site
+- F68: non_trait_imports src/naming/non_trait_imports.rs:4 non-trait import `LateContext` hides the owner path; prefer the qualified path at the use site
+- F69: non_trait_imports src/naming/non_trait_imports.rs:7 non-trait import `declare_lint_pass` hides the owner path; prefer the qualified path at the use site
+- F70: non_trait_imports src/naming/non_trait_imports.rs:8 non-trait import `declare_tool_lint` hides the owner path; prefer the qualified path at the use site
+- F71: non_trait_imports src/naming/non_trait_imports.rs:9 non-trait import `Ident` hides the owner path; prefer the qualified path at the use site
+- F72: non_trait_imports src/naming/non_trait_imports.rs:11 non-trait import `emit_tiger_style_lint` hides the owner path; prefer the qualified path at the use site
+- F73: non_trait_imports src/naming/numeric_units.rs:1 non-trait import `Local` hides the owner path; prefer the qualified path at the use site
+- F74: non_trait_imports src/naming/numeric_units.rs:2 non-trait import `PatKind` hides the owner path; prefer the qualified path at the use site
+- F75: non_trait_imports src/naming/numeric_units.rs:3 non-trait import `Applicability` hides the owner path; prefer the qualified path at the use site
+- F76: non_trait_imports src/naming/numeric_units.rs:4 non-trait import `EarlyContext` hides the owner path; prefer the qualified path at the use site
+- F77: non_trait_imports src/naming/numeric_units.rs:6 non-trait import `declare_lint_pass` hides the owner path; prefer the qualified path at the use site
+- F78: non_trait_imports src/naming/numeric_units.rs:7 non-trait import `declare_tool_lint` hides the owner path; prefer the qualified path at the use site
+- F79: non_trait_imports src/naming/numeric_units.rs:9 non-trait import `LintSuggestion` hides the owner path; prefer the qualified path at the use site
+- F80: non_trait_imports src/naming/numeric_units.rs:10 non-trait import `emit_tiger_style_lint_with_suggestion` hides the owner path; prefer the qualified path at the use site
+- F81: non_trait_imports src/naming/path_segment_repetition.rs:1 non-trait import `BTreeSet` hides the owner path; prefer the qualified path at the use site
+- F82: non_trait_imports src/naming/path_segment_repetition.rs:3 non-trait import `rustc_hir as hir` hides the owner path; prefer the qualified path at the use site
+- F83: non_trait_imports src/naming/path_segment_repetition.rs:4 non-trait import `LateContext` hides the owner path; prefer the qualified path at the use site
+- F84: non_trait_imports src/naming/path_segment_repetition.rs:7 non-trait import `declare_lint_pass` hides the owner path; prefer the qualified path at the use site
+- F85: non_trait_imports src/naming/path_segment_repetition.rs:8 non-trait import `declare_tool_lint` hides the owner path; prefer the qualified path at the use site
+- F86: non_trait_imports src/naming/path_segment_repetition.rs:9 non-trait import `Ident` hides the owner path; prefer the qualified path at the use site
+- F87: non_trait_imports src/naming/path_segment_repetition.rs:11 non-trait import `emit_tiger_style_lint` hides the owner path; prefer the qualified path at the use site
+- F88: non_trait_imports src/naming/renamed_imports.rs:1 non-trait import `rustc_hir as hir` hides the owner path; prefer the qualified path at the use site
+- F89: non_trait_imports src/naming/renamed_imports.rs:2 non-trait import `DefKind` hides the owner path; prefer the qualified path at the use site
+- F90: non_trait_imports src/naming/renamed_imports.rs:3 non-trait import `Res` hides the owner path; prefer the qualified path at the use site
+- F91: non_trait_imports src/naming/renamed_imports.rs:4 non-trait import `LateContext` hides the owner path; prefer the qualified path at the use site
+- F92: non_trait_imports src/naming/renamed_imports.rs:7 non-trait import `declare_lint_pass` hides the owner path; prefer the qualified path at the use site
+- F93: non_trait_imports src/naming/renamed_imports.rs:8 non-trait import `declare_tool_lint` hides the owner path; prefer the qualified path at the use site
+- F94: non_trait_imports src/naming/renamed_imports.rs:9 non-trait import `Ident` hides the owner path; prefer the qualified path at the use site
+- F95: non_trait_imports src/naming/renamed_imports.rs:11 non-trait import `emit_tiger_style_lint` hides the owner path; prefer the qualified path at the use site
+- F96: non_trait_imports src/naming/underscore_in_module_filename.rs:1 non-trait import `Component` hides the owner path; prefer the qualified path at the use site
+- F97: non_trait_imports src/naming/underscore_in_module_filename.rs:2 non-trait import `Path` hides the owner path; prefer the qualified path at the use site
+- F98: non_trait_imports src/naming/underscore_in_module_filename.rs:3 non-trait import `PathBuf` hides the owner path; prefer the qualified path at the use site
+- F99: non_trait_imports src/naming/underscore_in_module_filename.rs:5 non-trait import `Crate` hides the owner path; prefer the qualified path at the use site
+- F100: non_trait_imports src/naming/underscore_in_module_filename.rs:6 non-trait import `EarlyContext` hides the owner path; prefer the qualified path at the use site
+- F101: non_trait_imports src/naming/underscore_in_module_filename.rs:9 non-trait import `declare_tool_lint` hides the owner path; prefer the qualified path at the use site
+- F102: non_trait_imports src/naming/underscore_in_module_filename.rs:10 non-trait import `impl_lint_pass` hides the owner path; prefer the qualified path at the use site
+- F103: non_trait_imports src/naming/underscore_in_module_filename.rs:11 non-trait import `SourceFile` hides the owner path; prefer the qualified path at the use site
+- F104: non_trait_imports src/naming/underscore_in_module_filename.rs:12 non-trait import `Span` hides the owner path; prefer the qualified path at the use site
+- F105: non_trait_imports src/naming/underscore_in_module_filename.rs:13 non-trait import `SyntaxContext` hides the owner path; prefer the qualified path at the use site
+- F106: non_trait_imports src/naming/underscore_in_module_filename.rs:15 non-trait import `emit_tiger_style_lint` hides the owner path; prefer the qualified path at the use site
+- F107: non_trait_imports src/naming/use_site_collector.rs:1 non-trait import `rustc_hir as hir` hides the owner path; prefer the qualified path at the use site
+- F108: non_trait_imports src/naming/use_site_collector.rs:3 non-trait import `intravisit` hides the owner path; prefer the qualified path at the use site
+- F109: non_trait_imports src/naming/use_site_collector.rs:4 non-trait import `LateContext` hides the owner path; prefer the qualified path at the use site
+- F110: non_trait_imports src/naming/use_site_collector.rs:5 non-trait import `Span` hides the owner path; prefer the qualified path at the use site
+- F111: non_trait_imports src/performance/clone_then_borrow.rs:1 non-trait import `Applicability` hides the owner path; prefer the qualified path at the use site
+- F112: non_trait_imports src/performance/clone_then_borrow.rs:2 non-trait import `rustc_hir as hir` hides the owner path; prefer the qualified path at the use site
+- F113: non_trait_imports src/performance/clone_then_borrow.rs:3 non-trait import `LateContext` hides the owner path; prefer the qualified path at the use site
+- F114: non_trait_imports src/performance/clone_then_borrow.rs:6 non-trait import `ty` hides the owner path; prefer the qualified path at the use site
+- F115: non_trait_imports src/performance/clone_then_borrow.rs:7 non-trait import `declare_lint_pass` hides the owner path; prefer the qualified path at the use site
+- F116: non_trait_imports src/performance/clone_then_borrow.rs:8 non-trait import `declare_tool_lint` hides the owner path; prefer the qualified path at the use site
+- F117: non_trait_imports src/performance/clone_then_borrow.rs:9 non-trait import `Symbol` hides the owner path; prefer the qualified path at the use site
+- F118: non_trait_imports src/performance/clone_then_borrow.rs:11 non-trait import `LintSuggestion` hides the owner path; prefer the qualified path at the use site
+- F119: non_trait_imports src/performance/clone_then_borrow.rs:12 non-trait import `emit_tiger_style_lint_with_suggestion` hides the owner path; prefer the qualified path at the use site
+- F120: non_trait_imports src/purity/ambient_clock.rs:1 non-trait import `Applicability` hides the owner path; prefer the qualified path at the use site
+- F121: non_trait_imports src/purity/ambient_clock.rs:2 non-trait import `rustc_hir as hir` hides the owner path; prefer the qualified path at the use site
+- F122: non_trait_imports src/purity/ambient_clock.rs:3 non-trait import `ExprKind` hides the owner path; prefer the qualified path at the use site
+- F123: non_trait_imports src/purity/ambient_clock.rs:4 non-trait import `LateContext` hides the owner path; prefer the qualified path at the use site
+- F124: non_trait_imports src/purity/ambient_clock.rs:7 non-trait import `ty` hides the owner path; prefer the qualified path at the use site
+- F125: non_trait_imports src/purity/ambient_clock.rs:8 non-trait import `declare_lint_pass` hides the owner path; prefer the qualified path at the use site
+- F126: non_trait_imports src/purity/ambient_clock.rs:9 non-trait import `declare_tool_lint` hides the owner path; prefer the qualified path at the use site
+- F127: non_trait_imports src/purity/ambient_clock.rs:11 non-trait import `LintSuggestion` hides the owner path; prefer the qualified path at the use site
+- F128: non_trait_imports src/purity/ambient_clock.rs:12 non-trait import `emit_tiger_style_lint_with_suggestion` hides the owner path; prefer the qualified path at the use site
+- F129: non_trait_imports src/purity/ambient_clock.rs:42 non-trait import `sym` hides the owner path; prefer the qualified path at the use site
+- F130: non_trait_imports src/purity/contradictory_time.rs:1 non-trait import `Applicability` hides the owner path; prefer the qualified path at the use site
+- F131: non_trait_imports src/purity/contradictory_time.rs:2 non-trait import `rustc_hir as hir` hides the owner path; prefer the qualified path at the use site
+- F132: non_trait_imports src/purity/contradictory_time.rs:3 non-trait import `ExprKind` hides the owner path; prefer the qualified path at the use site
+- F133: non_trait_imports src/purity/contradictory_time.rs:5 non-trait import `intravisit` hides the owner path; prefer the qualified path at the use site
+- F134: non_trait_imports src/purity/contradictory_time.rs:6 non-trait import `LateContext` hides the owner path; prefer the qualified path at the use site
+- F135: non_trait_imports src/purity/contradictory_time.rs:8 non-trait import `declare_lint_pass` hides the owner path; prefer the qualified path at the use site
+- F136: non_trait_imports src/purity/contradictory_time.rs:9 non-trait import `declare_tool_lint` hides the owner path; prefer the qualified path at the use site
+- F137: non_trait_imports src/purity/contradictory_time.rs:10 non-trait import `Span` hides the owner path; prefer the qualified path at the use site
+- F138: non_trait_imports src/purity/contradictory_time.rs:12 non-trait import `LintSuggestion` hides the owner path; prefer the qualified path at the use site
+- F139: non_trait_imports src/purity/contradictory_time.rs:13 non-trait import `emit_tiger_style_lint_with_suggestion` hides the owner path; prefer the qualified path at the use site
+- F140: non_trait_imports src/purity/verified_purity.rs:1 non-trait import `Expr` hides the owner path; prefer the qualified path at the use site
+- F141: non_trait_imports src/purity/verified_purity.rs:2 non-trait import `ExprKind` hides the owner path; prefer the qualified path at the use site
+- F142: non_trait_imports src/purity/verified_purity.rs:3 non-trait import `Item` hides the owner path; prefer the qualified path at the use site
+- F143: non_trait_imports src/purity/verified_purity.rs:4 non-trait import `ItemKind` hides the owner path; prefer the qualified path at the use site
+- F144: non_trait_imports src/purity/verified_purity.rs:5 non-trait import `EarlyContext` hides the owner path; prefer the qualified path at the use site
+- F145: non_trait_imports src/purity/verified_purity.rs:8 non-trait import `declare_lint_pass` hides the owner path; prefer the qualified path at the use site
+- F146: non_trait_imports src/purity/verified_purity.rs:9 non-trait import `declare_tool_lint` hides the owner path; prefer the qualified path at the use site
+- F147: non_trait_imports src/purity/verified_purity.rs:10 non-trait import `Span` hides the owner path; prefer the qualified path at the use site
+- F148: non_trait_imports src/purity/verified_purity.rs:12 non-trait import `emit_tiger_style_lint` hides the owner path; prefer the qualified path at the use site
+- F149: non_trait_imports src/safety/assertion_density.rs:1 non-trait import `Block` hides the owner path; prefer the qualified path at the use site
+- F150: non_trait_imports src/safety/assertion_density.rs:2 non-trait import `Item` hides the owner path; prefer the qualified path at the use site
+- F151: non_trait_imports src/safety/assertion_density.rs:3 non-trait import `ItemKind` hides the owner path; prefer the qualified path at the use site
+- F152: non_trait_imports src/safety/assertion_density.rs:4 non-trait import `StmtKind` hides the owner path; prefer the qualified path at the use site
+- F153: non_trait_imports src/safety/assertion_density.rs:5 non-trait import `EarlyContext` hides the owner path; prefer the qualified path at the use site
+- F154: non_trait_imports src/safety/assertion_density.rs:8 non-trait import `declare_tool_lint` hides the owner path; prefer the qualified path at the use site
+- F155: non_trait_imports src/safety/assertion_density.rs:9 non-trait import `impl_lint_pass` hides the owner path; prefer the qualified path at the use site
+- F156: non_trait_imports src/safety/assertion_density.rs:10 non-trait import `sym` hides the owner path; prefer the qualified path at the use site
+- F157: non_trait_imports src/safety/assertion_density.rs:12 non-trait import `emit_tiger_style_lint` hides the owner path; prefer the qualified path at the use site
+- F158: non_trait_imports src/safety/catch_all_on_enum.rs:1 non-trait import `Applicability` hides the owner path; prefer the qualified path at the use site
+- F159: non_trait_imports src/safety/catch_all_on_enum.rs:2 non-trait import `rustc_hir as hir` hides the owner path; prefer the qualified path at the use site
+- F160: non_trait_imports src/safety/catch_all_on_enum.rs:3 non-trait import `ExprKind` hides the owner path; prefer the qualified path at the use site
+- F161: non_trait_imports src/safety/catch_all_on_enum.rs:4 non-trait import `PatKind` hides the owner path; prefer the qualified path at the use site
+- F162: non_trait_imports src/safety/catch_all_on_enum.rs:5 non-trait import `LateContext` hides the owner path; prefer the qualified path at the use site
+- F163: non_trait_imports src/safety/catch_all_on_enum.rs:8 non-trait import `ty` hides the owner path; prefer the qualified path at the use site
+- F164: non_trait_imports src/safety/catch_all_on_enum.rs:9 non-trait import `declare_lint_pass` hides the owner path; prefer the qualified path at the use site
+- F165: non_trait_imports src/safety/catch_all_on_enum.rs:10 non-trait import `declare_tool_lint` hides the owner path; prefer the qualified path at the use site
+- F166: non_trait_imports src/safety/catch_all_on_enum.rs:12 non-trait import `LintSuggestion` hides the owner path; prefer the qualified path at the use site
+- F167: non_trait_imports src/safety/catch_all_on_enum.rs:13 non-trait import `emit_tiger_style_lint` hides the owner path; prefer the qualified path at the use site
+- F168: non_trait_imports src/safety/catch_all_on_enum.rs:14 non-trait import `emit_tiger_style_lint_with_suggestion` hides the owner path; prefer the qualified path at the use site
+- F169: non_trait_imports src/safety/compound_assertion.rs:1 non-trait import `Expr` hides the owner path; prefer the qualified path at the use site
+- F170: non_trait_imports src/safety/compound_assertion.rs:2 non-trait import `ExprKind` hides the owner path; prefer the qualified path at the use site
+- F171: non_trait_imports src/safety/compound_assertion.rs:3 non-trait import `Applicability` hides the owner path; prefer the qualified path at the use site
+- F172: non_trait_imports src/safety/compound_assertion.rs:4 non-trait import `EarlyContext` hides the owner path; prefer the qualified path at the use site
+- F173: non_trait_imports src/safety/compound_assertion.rs:7 non-trait import `declare_lint_pass` hides the owner path; prefer the qualified path at the use site
+- F174: non_trait_imports src/safety/compound_assertion.rs:8 non-trait import `declare_tool_lint` hides the owner path; prefer the qualified path at the use site
+- F175: non_trait_imports src/safety/compound_assertion.rs:9 non-trait import `Span` hides the owner path; prefer the qualified path at the use site
+- F176: non_trait_imports src/safety/compound_assertion.rs:11 non-trait import `LintSuggestion` hides the owner path; prefer the qualified path at the use site
+- F177: non_trait_imports src/safety/compound_assertion.rs:12 non-trait import `emit_tiger_style_lint` hides the owner path; prefer the qualified path at the use site
+- F178: non_trait_imports src/safety/compound_assertion.rs:13 non-trait import `emit_tiger_style_lint_with_suggestion` hides the owner path; prefer the qualified path at the use site
+- F179: non_trait_imports src/safety/drop_must_use.rs:1 non-trait import `rustc_hir as hir` hides the owner path; prefer the qualified path at the use site
+- F180: non_trait_imports src/safety/drop_must_use.rs:2 non-trait import `AttributeKind` hides the owner path; prefer the qualified path at the use site
+- F181: non_trait_imports src/safety/drop_must_use.rs:3 non-trait import `find_attr` hides the owner path; prefer the qualified path at the use site
+- F182: non_trait_imports src/safety/drop_must_use.rs:4 non-trait import `LateContext` hides the owner path; prefer the qualified path at the use site
+- F183: non_trait_imports src/safety/drop_must_use.rs:6 non-trait import `ty` hides the owner path; prefer the qualified path at the use site
+- F184: non_trait_imports src/safety/drop_must_use.rs:7 non-trait import `declare_lint_pass` hides the owner path; prefer the qualified path at the use site
+- F185: non_trait_imports src/safety/drop_must_use.rs:8 non-trait import `declare_tool_lint` hides the owner path; prefer the qualified path at the use site
+- F186: non_trait_imports src/safety/drop_must_use.rs:9 non-trait import `sym` hides the owner path; prefer the qualified path at the use site
+- F187: non_trait_imports src/safety/drop_must_use.rs:11 non-trait import `emit_tiger_style_lint` hides the owner path; prefer the qualified path at the use site
+- F188: non_trait_imports src/safety/drop_must_use.rs:12 non-trait import `test_context` hides the owner path; prefer the qualified path at the use site
+- F189: non_trait_imports src/safety/explicit_defaults.rs:1 non-trait import `Applicability` hides the owner path; prefer the qualified path at the use site
+- F190: non_trait_imports src/safety/explicit_defaults.rs:2 non-trait import `rustc_hir as hir` hides the owner path; prefer the qualified path at the use site
+- F191: non_trait_imports src/safety/explicit_defaults.rs:3 non-trait import `ExprKind` hides the owner path; prefer the qualified path at the use site
+- F192: non_trait_imports src/safety/explicit_defaults.rs:4 non-trait import `Res` hides the owner path; prefer the qualified path at the use site
+- F193: non_trait_imports src/safety/explicit_defaults.rs:5 non-trait import `LateContext` hides the owner path; prefer the qualified path at the use site
+- F194: non_trait_imports src/safety/explicit_defaults.rs:7 non-trait import `ty` hides the owner path; prefer the qualified path at the use site
+- F195: non_trait_imports src/safety/explicit_defaults.rs:8 non-trait import `declare_lint_pass` hides the owner path; prefer the qualified path at the use site
+- F196: non_trait_imports src/safety/explicit_defaults.rs:9 non-trait import `declare_tool_lint` hides the owner path; prefer the qualified path at the use site
+- F197: non_trait_imports src/safety/explicit_defaults.rs:10 non-trait import `Symbol` hides the owner path; prefer the qualified path at the use site
+- F198: non_trait_imports src/safety/explicit_defaults.rs:12 non-trait import `LintSuggestion` hides the owner path; prefer the qualified path at the use site
+- F199: non_trait_imports src/safety/explicit_defaults.rs:13 non-trait import `emit_tiger_style_lint` hides the owner path; prefer the qualified path at the use site
+- F200: non_trait_imports src/safety/explicit_defaults.rs:14 non-trait import `emit_tiger_style_lint_with_suggestion` hides the owner path; prefer the qualified path at the use site
+- F201: non_trait_imports src/safety/explicit_defaults.rs:15 non-trait import `test_context` hides the owner path; prefer the qualified path at the use site
+- F202: non_trait_imports src/safety/fallible_int_fallback.rs:1 non-trait import `LitKind` hides the owner path; prefer the qualified path at the use site
+- F203: non_trait_imports src/safety/fallible_int_fallback.rs:2 non-trait import `rustc_hir as hir` hides the owner path; prefer the qualified path at the use site
+- F204: non_trait_imports src/safety/fallible_int_fallback.rs:3 non-trait import `ExprKind` hides the owner path; prefer the qualified path at the use site
+- F205: non_trait_imports src/safety/fallible_int_fallback.rs:4 non-trait import `LateContext` hides the owner path; prefer the qualified path at the use site
+- F206: non_trait_imports src/safety/fallible_int_fallback.rs:7 non-trait import `ty` hides the owner path; prefer the qualified path at the use site
+- F207: non_trait_imports src/safety/fallible_int_fallback.rs:8 non-trait import `declare_lint_pass` hides the owner path; prefer the qualified path at the use site
+- F208: non_trait_imports src/safety/fallible_int_fallback.rs:9 non-trait import `declare_tool_lint` hides the owner path; prefer the qualified path at the use site
+- F209: non_trait_imports src/safety/fallible_int_fallback.rs:10 non-trait import `sym` hides the owner path; prefer the qualified path at the use site
+- F210: non_trait_imports src/safety/fallible_int_fallback.rs:12 non-trait import `emit_tiger_style_lint` hides the owner path; prefer the qualified path at the use site
+- F211: non_trait_imports src/safety/fallible_int_fallback.rs:13 non-trait import `test_context` hides the owner path; prefer the qualified path at the use site
+- F212: non_trait_imports src/safety/ignored_result.rs:1 non-trait import `Applicability` hides the owner path; prefer the qualified path at the use site
+- F213: non_trait_imports src/safety/ignored_result.rs:2 non-trait import `rustc_hir as hir` hides the owner path; prefer the qualified path at the use site
+- F214: non_trait_imports src/safety/ignored_result.rs:3 non-trait import `ItemKind` hides the owner path; prefer the qualified path at the use site
+- F215: non_trait_imports src/safety/ignored_result.rs:4 non-trait import `PatKind` hides the owner path; prefer the qualified path at the use site
+- F216: non_trait_imports src/safety/ignored_result.rs:5 non-trait import `LateContext` hides the owner path; prefer the qualified path at the use site
+- F217: non_trait_imports src/safety/ignored_result.rs:8 non-trait import `ty` hides the owner path; prefer the qualified path at the use site
+- F218: non_trait_imports src/safety/ignored_result.rs:9 non-trait import `declare_lint_pass` hides the owner path; prefer the qualified path at the use site
+- F219: non_trait_imports src/safety/ignored_result.rs:10 non-trait import `declare_tool_lint` hides the owner path; prefer the qualified path at the use site
+- F220: non_trait_imports src/safety/ignored_result.rs:11 non-trait import `Symbol` hides the owner path; prefer the qualified path at the use site
+- F221: non_trait_imports src/safety/ignored_result.rs:12 non-trait import `sym` hides the owner path; prefer the qualified path at the use site
+- F222: non_trait_imports src/safety/ignored_result.rs:14 non-trait import `LintSuggestion` hides the owner path; prefer the qualified path at the use site
+- F223: non_trait_imports src/safety/ignored_result.rs:15 non-trait import `emit_tiger_style_lint` hides the owner path; prefer the qualified path at the use site
+- F224: non_trait_imports src/safety/ignored_result.rs:16 non-trait import `emit_tiger_style_lint_with_suggestion` hides the owner path; prefer the qualified path at the use site
+- F225: non_trait_imports src/safety/no_panic.rs:1 non-trait import `HashSet` hides the owner path; prefer the qualified path at the use site
+- F226: non_trait_imports src/safety/no_panic.rs:3 non-trait import `rustc_hir as hir` hides the owner path; prefer the qualified path at the use site
+- F227: non_trait_imports src/safety/no_panic.rs:4 non-trait import `ExprKind` hides the owner path; prefer the qualified path at the use site
+- F228: non_trait_imports src/safety/no_panic.rs:5 non-trait import `CtorOf` hides the owner path; prefer the qualified path at the use site
+- F229: non_trait_imports src/safety/no_panic.rs:6 non-trait import `DefKind` hides the owner path; prefer the qualified path at the use site
+- F230: non_trait_imports src/safety/no_panic.rs:7 non-trait import `Res` hides the owner path; prefer the qualified path at the use site
+- F231: non_trait_imports src/safety/no_panic.rs:8 non-trait import `LateContext` hides the owner path; prefer the qualified path at the use site
+- F232: non_trait_imports src/safety/no_panic.rs:11 non-trait import `ty` hides the owner path; prefer the qualified path at the use site
+- F233: non_trait_imports src/safety/no_panic.rs:12 non-trait import `declare_tool_lint` hides the owner path; prefer the qualified path at the use site
+- F234: non_trait_imports src/safety/no_panic.rs:13 non-trait import `impl_lint_pass` hides the owner path; prefer the qualified path at the use site
+- F235: non_trait_imports src/safety/no_panic.rs:14 non-trait import `Span` hides the owner path; prefer the qualified path at the use site
+- F236: non_trait_imports src/safety/no_panic.rs:15 non-trait import `sym` hides the owner path; prefer the qualified path at the use site
+- F237: non_trait_imports src/safety/no_panic.rs:17 non-trait import `emit_tiger_style_lint` hides the owner path; prefer the qualified path at the use site
+- F238: non_trait_imports src/safety/no_panic.rs:18 non-trait import `test_context` hides the owner path; prefer the qualified path at the use site
+- F239: non_trait_imports src/safety/no_recursion.rs:1 non-trait import `rustc_hir as hir` hides the owner path; prefer the qualified path at the use site
+- F240: non_trait_imports src/safety/no_recursion.rs:2 non-trait import `ExprKind` hides the owner path; prefer the qualified path at the use site
+- F241: non_trait_imports src/safety/no_recursion.rs:4 non-trait import `intravisit` hides the owner path; prefer the qualified path at the use site
+- F242: non_trait_imports src/safety/no_recursion.rs:5 non-trait import `LateContext` hides the owner path; prefer the qualified path at the use site
+- F243: non_trait_imports src/safety/no_recursion.rs:7 non-trait import `declare_lint_pass` hides the owner path; prefer the qualified path at the use site
+- F244: non_trait_imports src/safety/no_recursion.rs:8 non-trait import `declare_tool_lint` hides the owner path; prefer the qualified path at the use site
+- F245: non_trait_imports src/safety/no_recursion.rs:9 non-trait import `Span` hides the owner path; prefer the qualified path at the use site
+- F246: non_trait_imports src/safety/no_recursion.rs:11 non-trait import `emit_tiger_style_lint` hides the owner path; prefer the qualified path at the use site
+- F247: non_trait_imports src/safety/no_todo.rs:1 non-trait import `Applicability` hides the owner path; prefer the qualified path at the use site
+- F248: non_trait_imports src/safety/no_todo.rs:2 non-trait import `rustc_hir as hir` hides the owner path; prefer the qualified path at the use site
+- F249: non_trait_imports src/safety/no_todo.rs:3 non-trait import `ExprKind` hides the owner path; prefer the qualified path at the use site
+- F250: non_trait_imports src/safety/no_todo.rs:4 non-trait import `LateContext` hides the owner path; prefer the qualified path at the use site
+- F251: non_trait_imports src/safety/no_todo.rs:7 non-trait import `declare_tool_lint` hides the owner path; prefer the qualified path at the use site
+- F252: non_trait_imports src/safety/no_todo.rs:8 non-trait import `impl_lint_pass` hides the owner path; prefer the qualified path at the use site
+- F253: non_trait_imports src/safety/no_todo.rs:9 non-trait import `Span` hides the owner path; prefer the qualified path at the use site
+- F254: non_trait_imports src/safety/no_todo.rs:10 non-trait import `sym` hides the owner path; prefer the qualified path at the use site
+- F255: non_trait_imports src/safety/no_todo.rs:12 non-trait import `LintSuggestion` hides the owner path; prefer the qualified path at the use site
+- F256: non_trait_imports src/safety/no_todo.rs:13 non-trait import `emit_tiger_style_lint` hides the owner path; prefer the qualified path at the use site
+- F257: non_trait_imports src/safety/no_todo.rs:14 non-trait import `emit_tiger_style_lint_with_suggestion` hides the owner path; prefer the qualified path at the use site
+- F258: non_trait_imports src/safety/no_todo.rs:15 non-trait import `test_context` hides the owner path; prefer the qualified path at the use site
+- F259: non_trait_imports src/safety/no_unwrap.rs:1 non-trait import `Applicability` hides the owner path; prefer the qualified path at the use site
+- F260: non_trait_imports src/safety/no_unwrap.rs:2 non-trait import `rustc_hir as hir` hides the owner path; prefer the qualified path at the use site
+- F261: non_trait_imports src/safety/no_unwrap.rs:3 non-trait import `ExprKind` hides the owner path; prefer the qualified path at the use site
+- F262: non_trait_imports src/safety/no_unwrap.rs:4 non-trait import `LateContext` hides the owner path; prefer the qualified path at the use site
+- F263: non_trait_imports src/safety/no_unwrap.rs:7 non-trait import `ty` hides the owner path; prefer the qualified path at the use site
+- F264: non_trait_imports src/safety/no_unwrap.rs:8 non-trait import `declare_lint_pass` hides the owner path; prefer the qualified path at the use site
+- F265: non_trait_imports src/safety/no_unwrap.rs:9 non-trait import `declare_tool_lint` hides the owner path; prefer the qualified path at the use site
+- F266: non_trait_imports src/safety/no_unwrap.rs:10 non-trait import `Span` hides the owner path; prefer the qualified path at the use site
+- F267: non_trait_imports src/safety/no_unwrap.rs:11 non-trait import `Symbol` hides the owner path; prefer the qualified path at the use site
+- F268: non_trait_imports src/safety/no_unwrap.rs:12 non-trait import `sym` hides the owner path; prefer the qualified path at the use site
+- F269: non_trait_imports src/safety/no_unwrap.rs:14 non-trait import `LintSuggestion` hides the owner path; prefer the qualified path at the use site
+- F270: non_trait_imports src/safety/no_unwrap.rs:15 non-trait import `emit_tiger_style_lint` hides the owner path; prefer the qualified path at the use site
+- F271: non_trait_imports src/safety/no_unwrap.rs:16 non-trait import `emit_tiger_style_lint_with_suggestion` hides the owner path; prefer the qualified path at the use site
+- F272: non_trait_imports src/safety/no_unwrap.rs:17 non-trait import `test_context` hides the owner path; prefer the qualified path at the use site
+- F273: non_trait_imports src/safety/public_unsafe_api.rs:1 non-trait import `rustc_hir as hir` hides the owner path; prefer the qualified path at the use site
+- F274: non_trait_imports src/safety/public_unsafe_api.rs:2 non-trait import `LateContext` hides the owner path; prefer the qualified path at the use site
+- F275: non_trait_imports src/safety/public_unsafe_api.rs:5 non-trait import `declare_lint_pass` hides the owner path; prefer the qualified path at the use site
+- F276: non_trait_imports src/safety/public_unsafe_api.rs:6 non-trait import `declare_tool_lint` hides the owner path; prefer the qualified path at the use site
+- F277: non_trait_imports src/safety/public_unsafe_api.rs:8 non-trait import `emit_tiger_style_lint` hides the owner path; prefer the qualified path at the use site
+- F278: non_trait_imports src/safety/public_unsafe_api.rs:9 non-trait import `late_hir_id_is_in_test_context` hides the owner path; prefer the qualified path at the use site
+- F279: non_trait_imports src/safety/raw_arithmetic_overflow.rs:1 non-trait import `Applicability` hides the owner path; prefer the qualified path at the use site
+- F280: non_trait_imports src/safety/raw_arithmetic_overflow.rs:2 non-trait import `rustc_hir as hir` hides the owner path; prefer the qualified path at the use site
+- F281: non_trait_imports src/safety/raw_arithmetic_overflow.rs:3 non-trait import `BinOpKind` hides the owner path; prefer the qualified path at the use site
+- F282: non_trait_imports src/safety/raw_arithmetic_overflow.rs:4 non-trait import `ExprKind` hides the owner path; prefer the qualified path at the use site
+- F283: non_trait_imports src/safety/raw_arithmetic_overflow.rs:5 non-trait import `LateContext` hides the owner path; prefer the qualified path at the use site
+- F284: non_trait_imports src/safety/raw_arithmetic_overflow.rs:8 non-trait import `ty` hides the owner path; prefer the qualified path at the use site
+- F285: non_trait_imports src/safety/raw_arithmetic_overflow.rs:9 non-trait import `declare_lint_pass` hides the owner path; prefer the qualified path at the use site
+- F286: non_trait_imports src/safety/raw_arithmetic_overflow.rs:10 non-trait import `declare_tool_lint` hides the owner path; prefer the qualified path at the use site
+- F287: non_trait_imports src/safety/raw_arithmetic_overflow.rs:12 non-trait import `LintSuggestion` hides the owner path; prefer the qualified path at the use site
+- F288: non_trait_imports src/safety/raw_arithmetic_overflow.rs:13 non-trait import `emit_tiger_style_lint` hides the owner path; prefer the qualified path at the use site
+- F289: non_trait_imports src/safety/raw_arithmetic_overflow.rs:14 non-trait import `emit_tiger_style_lint_with_suggestion` hides the owner path; prefer the qualified path at the use site
+- F290: non_trait_imports src/safety/sentinel_fallback.rs:1 non-trait import `Applicability` hides the owner path; prefer the qualified path at the use site
+- F291: non_trait_imports src/safety/sentinel_fallback.rs:2 non-trait import `rustc_hir as hir` hides the owner path; prefer the qualified path at the use site
+- F292: non_trait_imports src/safety/sentinel_fallback.rs:3 non-trait import `ExprKind` hides the owner path; prefer the qualified path at the use site
+- F293: non_trait_imports src/safety/sentinel_fallback.rs:4 non-trait import `Res` hides the owner path; prefer the qualified path at the use site
+- F294: non_trait_imports src/safety/sentinel_fallback.rs:5 non-trait import `LateContext` hides the owner path; prefer the qualified path at the use site
+- F295: non_trait_imports src/safety/sentinel_fallback.rs:8 non-trait import `ty` hides the owner path; prefer the qualified path at the use site
+- F296: non_trait_imports src/safety/sentinel_fallback.rs:9 non-trait import `declare_lint_pass` hides the owner path; prefer the qualified path at the use site
+- F297: non_trait_imports src/safety/sentinel_fallback.rs:10 non-trait import `declare_tool_lint` hides the owner path; prefer the qualified path at the use site
+- F298: non_trait_imports src/safety/sentinel_fallback.rs:11 non-trait import `Symbol` hides the owner path; prefer the qualified path at the use site
+- F299: non_trait_imports src/safety/sentinel_fallback.rs:12 non-trait import `sym` hides the owner path; prefer the qualified path at the use site
+- F300: non_trait_imports src/safety/sentinel_fallback.rs:14 non-trait import `LintSuggestion` hides the owner path; prefer the qualified path at the use site
+- F301: non_trait_imports src/safety/sentinel_fallback.rs:15 non-trait import `emit_tiger_style_lint` hides the owner path; prefer the qualified path at the use site
+- F302: non_trait_imports src/safety/sentinel_fallback.rs:16 non-trait import `emit_tiger_style_lint_with_suggestion` hides the owner path; prefer the qualified path at the use site
+- F303: non_trait_imports src/safety/sentinel_fallback.rs:17 non-trait import `test_context` hides the owner path; prefer the qualified path at the use site
+- F304: non_trait_imports src/safety/unbounded_channel.rs:1 non-trait import `Applicability` hides the owner path; prefer the qualified path at the use site
+- F305: non_trait_imports src/safety/unbounded_channel.rs:2 non-trait import `rustc_hir as hir` hides the owner path; prefer the qualified path at the use site
+- F306: non_trait_imports src/safety/unbounded_channel.rs:3 non-trait import `ExprKind` hides the owner path; prefer the qualified path at the use site
+- F307: non_trait_imports src/safety/unbounded_channel.rs:4 non-trait import `Res` hides the owner path; prefer the qualified path at the use site
+- F308: non_trait_imports src/safety/unbounded_channel.rs:5 non-trait import `LateContext` hides the owner path; prefer the qualified path at the use site
+- F309: non_trait_imports src/safety/unbounded_channel.rs:8 non-trait import `declare_lint_pass` hides the owner path; prefer the qualified path at the use site
+- F310: non_trait_imports src/safety/unbounded_channel.rs:9 non-trait import `declare_tool_lint` hides the owner path; prefer the qualified path at the use site
+- F311: non_trait_imports src/safety/unbounded_channel.rs:10 non-trait import `Symbol` hides the owner path; prefer the qualified path at the use site
+- F312: non_trait_imports src/safety/unbounded_channel.rs:12 non-trait import `LintSuggestion` hides the owner path; prefer the qualified path at the use site
+- F313: non_trait_imports src/safety/unbounded_channel.rs:13 non-trait import `emit_tiger_style_lint` hides the owner path; prefer the qualified path at the use site
+- F314: non_trait_imports src/safety/unbounded_channel.rs:14 non-trait import `emit_tiger_style_lint_with_suggestion` hides the owner path; prefer the qualified path at the use site
+- F315: non_trait_imports src/safety/unbounded_collection_growth.rs:1 non-trait import `HashMap` hides the owner path; prefer the qualified path at the use site
+- F316: non_trait_imports src/safety/unbounded_collection_growth.rs:2 non-trait import `HashSet` hides the owner path; prefer the qualified path at the use site
+- F317: non_trait_imports src/safety/unbounded_collection_growth.rs:4 non-trait import `Applicability` hides the owner path; prefer the qualified path at the use site
+- F318: non_trait_imports src/safety/unbounded_collection_growth.rs:5 non-trait import `rustc_hir as hir` hides the owner path; prefer the qualified path at the use site
+- F319: non_trait_imports src/safety/unbounded_collection_growth.rs:6 non-trait import `ExprKind` hides the owner path; prefer the qualified path at the use site
+- F320: non_trait_imports src/safety/unbounded_collection_growth.rs:7 non-trait import `Res` hides the owner path; prefer the qualified path at the use site
+- F321: non_trait_imports src/safety/unbounded_collection_growth.rs:9 non-trait import `intravisit` hides the owner path; prefer the qualified path at the use site
+- F322: non_trait_imports src/safety/unbounded_collection_growth.rs:10 non-trait import `LateContext` hides the owner path; prefer the qualified path at the use site
+- F323: non_trait_imports src/safety/unbounded_collection_growth.rs:13 non-trait import `Ty` hides the owner path; prefer the qualified path at the use site
+- F324: non_trait_imports src/safety/unbounded_collection_growth.rs:14 non-trait import `ty` hides the owner path; prefer the qualified path at the use site
+- F325: non_trait_imports src/safety/unbounded_collection_growth.rs:15 non-trait import `declare_lint_pass` hides the owner path; prefer the qualified path at the use site
+- F326: non_trait_imports src/safety/unbounded_collection_growth.rs:16 non-trait import `declare_tool_lint` hides the owner path; prefer the qualified path at the use site
+- F327: non_trait_imports src/safety/unbounded_collection_growth.rs:17 non-trait import `Symbol` hides the owner path; prefer the qualified path at the use site
+- F328: non_trait_imports src/safety/unbounded_collection_growth.rs:19 non-trait import `LintSuggestion` hides the owner path; prefer the qualified path at the use site
+- F329: non_trait_imports src/safety/unbounded_collection_growth.rs:20 non-trait import `emit_tiger_style_lint` hides the owner path; prefer the qualified path at the use site
+- F330: non_trait_imports src/safety/unbounded_collection_growth.rs:21 non-trait import `emit_tiger_style_lint_with_suggestion` hides the owner path; prefer the qualified path at the use site
+- F331: non_trait_imports src/safety/unbounded_loop.rs:1 non-trait import `rustc_hir as hir` hides the owner path; prefer the qualified path at the use site
+- F332: non_trait_imports src/safety/unbounded_loop.rs:2 non-trait import `intravisit` hides the owner path; prefer the qualified path at the use site
+- F333: non_trait_imports src/safety/unbounded_loop.rs:4 non-trait import `LateContext` hides the owner path; prefer the qualified path at the use site
+- F334: non_trait_imports src/safety/unbounded_loop.rs:7 non-trait import `ty` hides the owner path; prefer the qualified path at the use site
+- F335: non_trait_imports src/safety/unbounded_loop.rs:8 non-trait import `declare_lint_pass` hides the owner path; prefer the qualified path at the use site
+- F336: non_trait_imports src/safety/unbounded_loop.rs:9 non-trait import `declare_tool_lint` hides the owner path; prefer the qualified path at the use site
+- F337: non_trait_imports src/safety/unbounded_loop.rs:10 non-trait import `Span` hides the owner path; prefer the qualified path at the use site
+- F338: non_trait_imports src/safety/unbounded_loop.rs:11 non-trait import `Symbol` hides the owner path; prefer the qualified path at the use site
+- F339: non_trait_imports src/safety/unbounded_loop.rs:13 non-trait import `emit_tiger_style_lint` hides the owner path; prefer the qualified path at the use site
+- F340: non_trait_imports src/safety/unchecked_division.rs:1 non-trait import `Applicability` hides the owner path; prefer the qualified path at the use site
+- F341: non_trait_imports src/safety/unchecked_division.rs:2 non-trait import `rustc_hir as hir` hides the owner path; prefer the qualified path at the use site
+- F342: non_trait_imports src/safety/unchecked_division.rs:3 non-trait import `BinOpKind` hides the owner path; prefer the qualified path at the use site
+- F343: non_trait_imports src/safety/unchecked_division.rs:4 non-trait import `ExprKind` hides the owner path; prefer the qualified path at the use site
+- F344: non_trait_imports src/safety/unchecked_division.rs:5 non-trait import `LateContext` hides the owner path; prefer the qualified path at the use site
+- F345: non_trait_imports src/safety/unchecked_division.rs:8 non-trait import `ty` hides the owner path; prefer the qualified path at the use site
+- F346: non_trait_imports src/safety/unchecked_division.rs:9 non-trait import `declare_lint_pass` hides the owner path; prefer the qualified path at the use site
+- F347: non_trait_imports src/safety/unchecked_division.rs:10 non-trait import `declare_tool_lint` hides the owner path; prefer the qualified path at the use site
+- F348: non_trait_imports src/safety/unchecked_division.rs:12 non-trait import `LintSuggestion` hides the owner path; prefer the qualified path at the use site
+- F349: non_trait_imports src/safety/unchecked_division.rs:13 non-trait import `emit_tiger_style_lint` hides the owner path; prefer the qualified path at the use site
+- F350: non_trait_imports src/safety/unchecked_division.rs:14 non-trait import `emit_tiger_style_lint_with_suggestion` hides the owner path; prefer the qualified path at the use site
+- F351: non_trait_imports src/safety/unchecked_narrowing.rs:1 non-trait import `Applicability` hides the owner path; prefer the qualified path at the use site
+- F352: non_trait_imports src/safety/unchecked_narrowing.rs:2 non-trait import `rustc_hir as hir` hides the owner path; prefer the qualified path at the use site
+- F353: non_trait_imports src/safety/unchecked_narrowing.rs:3 non-trait import `ExprKind` hides the owner path; prefer the qualified path at the use site
+- F354: non_trait_imports src/safety/unchecked_narrowing.rs:4 non-trait import `LateContext` hides the owner path; prefer the qualified path at the use site
+- F355: non_trait_imports src/safety/unchecked_narrowing.rs:7 non-trait import `Ty` hides the owner path; prefer the qualified path at the use site
+- F356: non_trait_imports src/safety/unchecked_narrowing.rs:8 non-trait import `ty` hides the owner path; prefer the qualified path at the use site
+- F357: non_trait_imports src/safety/unchecked_narrowing.rs:9 non-trait import `declare_lint_pass` hides the owner path; prefer the qualified path at the use site
+- F358: non_trait_imports src/safety/unchecked_narrowing.rs:10 non-trait import `declare_tool_lint` hides the owner path; prefer the qualified path at the use site
+- F359: non_trait_imports src/safety/unchecked_narrowing.rs:12 non-trait import `LintSuggestion` hides the owner path; prefer the qualified path at the use site
+- F360: non_trait_imports src/safety/unchecked_narrowing.rs:13 non-trait import `emit_tiger_style_lint` hides the owner path; prefer the qualified path at the use site
+- F361: non_trait_imports src/safety/unchecked_narrowing.rs:14 non-trait import `emit_tiger_style_lint_with_suggestion` hides the owner path; prefer the qualified path at the use site
+- F362: non_trait_imports src/structure/ambiguous_params.rs:1 non-trait import `rustc_hir as hir` hides the owner path; prefer the qualified path at the use site
+- F363: non_trait_imports src/structure/ambiguous_params.rs:2 non-trait import `ItemKind` hides the owner path; prefer the qualified path at the use site
+- F364: non_trait_imports src/structure/ambiguous_params.rs:3 non-trait import `LateContext` hides the owner path; prefer the qualified path at the use site
+- F365: non_trait_imports src/structure/ambiguous_params.rs:5 non-trait import `ty` hides the owner path; prefer the qualified path at the use site
+- F366: non_trait_imports src/structure/ambiguous_params.rs:6 non-trait import `declare_lint_pass` hides the owner path; prefer the qualified path at the use site
+- F367: non_trait_imports src/structure/ambiguous_params.rs:7 non-trait import `declare_tool_lint` hides the owner path; prefer the qualified path at the use site
+- F368: non_trait_imports src/structure/ambiguous_params.rs:9 non-trait import `emit_tiger_style_lint` hides the owner path; prefer the qualified path at the use site
+- F369: non_trait_imports src/structure/borrowed_argument_types.rs:1 non-trait import `Applicability` hides the owner path; prefer the qualified path at the use site
+- F370: non_trait_imports src/structure/borrowed_argument_types.rs:2 non-trait import `rustc_hir as hir` hides the owner path; prefer the qualified path at the use site
+- F371: non_trait_imports src/structure/borrowed_argument_types.rs:3 non-trait import `LateContext` hides the owner path; prefer the qualified path at the use site
+- F372: non_trait_imports src/structure/borrowed_argument_types.rs:6 non-trait import `declare_lint_pass` hides the owner path; prefer the qualified path at the use site
+- F373: non_trait_imports src/structure/borrowed_argument_types.rs:7 non-trait import `declare_tool_lint` hides the owner path; prefer the qualified path at the use site
+- F374: non_trait_imports src/structure/borrowed_argument_types.rs:8 non-trait import `Symbol` hides the owner path; prefer the qualified path at the use site
+- F375: non_trait_imports src/structure/borrowed_argument_types.rs:10 non-trait import `LintSuggestion` hides the owner path; prefer the qualified path at the use site
+- F376: non_trait_imports src/structure/borrowed_argument_types.rs:11 non-trait import `emit_tiger_style_lint_with_suggestion` hides the owner path; prefer the qualified path at the use site
+- F377: non_trait_imports src/structure/borrowed_argument_types.rs:12 non-trait import `test_context` hides the owner path; prefer the qualified path at the use site
+- F378: non_trait_imports src/structure/compound_condition.rs:1 non-trait import `BinOpKind` hides the owner path; prefer the qualified path at the use site
+- F379: non_trait_imports src/structure/compound_condition.rs:2 non-trait import `Expr` hides the owner path; prefer the qualified path at the use site
+- F380: non_trait_imports src/structure/compound_condition.rs:3 non-trait import `ExprKind` hides the owner path; prefer the qualified path at the use site
+- F381: non_trait_imports src/structure/compound_condition.rs:4 non-trait import `Applicability` hides the owner path; prefer the qualified path at the use site
+- F382: non_trait_imports src/structure/compound_condition.rs:5 non-trait import `EarlyContext` hides the owner path; prefer the qualified path at the use site
+- F383: non_trait_imports src/structure/compound_condition.rs:8 non-trait import `declare_lint_pass` hides the owner path; prefer the qualified path at the use site
+- F384: non_trait_imports src/structure/compound_condition.rs:9 non-trait import `declare_tool_lint` hides the owner path; prefer the qualified path at the use site
+- F385: non_trait_imports src/structure/compound_condition.rs:11 non-trait import `LintSuggestion` hides the owner path; prefer the qualified path at the use site
+- F386: non_trait_imports src/structure/compound_condition.rs:12 non-trait import `emit_tiger_style_lint` hides the owner path; prefer the qualified path at the use site
+- F387: non_trait_imports src/structure/compound_condition.rs:13 non-trait import `emit_tiger_style_lint_with_suggestion` hides the owner path; prefer the qualified path at the use site
+- F388: non_trait_imports src/structure/deref_polymorphism.rs:1 non-trait import `rustc_hir as hir` hides the owner path; prefer the qualified path at the use site
+- F389: non_trait_imports src/structure/deref_polymorphism.rs:2 non-trait import `LateContext` hides the owner path; prefer the qualified path at the use site
+- F390: non_trait_imports src/structure/deref_polymorphism.rs:5 non-trait import `declare_lint_pass` hides the owner path; prefer the qualified path at the use site
+- F391: non_trait_imports src/structure/deref_polymorphism.rs:6 non-trait import `declare_tool_lint` hides the owner path; prefer the qualified path at the use site
+- F392: non_trait_imports src/structure/deref_polymorphism.rs:7 non-trait import `sym` hides the owner path; prefer the qualified path at the use site
+- F393: non_trait_imports src/structure/deref_polymorphism.rs:9 non-trait import `emit_tiger_style_lint` hides the owner path; prefer the qualified path at the use site
+- F394: non_trait_imports src/structure/deref_polymorphism.rs:10 non-trait import `late_hir_id_is_in_test_context` hides the owner path; prefer the qualified path at the use site
+- F395: non_trait_imports src/structure/excessive_file_length.rs:1 non-trait import `Crate` hides the owner path; prefer the qualified path at the use site
+- F396: non_trait_imports src/structure/excessive_file_length.rs:2 non-trait import `EarlyContext` hides the owner path; prefer the qualified path at the use site
+- F397: non_trait_imports src/structure/excessive_file_length.rs:5 non-trait import `declare_tool_lint` hides the owner path; prefer the qualified path at the use site
+- F398: non_trait_imports src/structure/excessive_file_length.rs:6 non-trait import `impl_lint_pass` hides the owner path; prefer the qualified path at the use site
+- F399: non_trait_imports src/structure/excessive_file_length.rs:7 non-trait import `SourceFile` hides the owner path; prefer the qualified path at the use site
+- F400: non_trait_imports src/structure/excessive_file_length.rs:8 non-trait import `Span` hides the owner path; prefer the qualified path at the use site
+- F401: non_trait_imports src/structure/excessive_file_length.rs:9 non-trait import `SyntaxContext` hides the owner path; prefer the qualified path at the use site
+- F402: non_trait_imports src/structure/excessive_file_length.rs:11 non-trait import `emit_tiger_style_lint` hides the owner path; prefer the qualified path at the use site
+- F403: non_trait_imports src/structure/function_length.rs:1 non-trait import `Attribute` hides the owner path; prefer the qualified path at the use site
+- F404: non_trait_imports src/structure/function_length.rs:2 non-trait import `Item` hides the owner path; prefer the qualified path at the use site
+- F405: non_trait_imports src/structure/function_length.rs:3 non-trait import `ItemKind` hides the owner path; prefer the qualified path at the use site
+- F406: non_trait_imports src/structure/function_length.rs:4 non-trait import `EarlyContext` hides the owner path; prefer the qualified path at the use site
+- F407: non_trait_imports src/structure/function_length.rs:7 non-trait import `declare_tool_lint` hides the owner path; prefer the qualified path at the use site
+- F408: non_trait_imports src/structure/function_length.rs:8 non-trait import `impl_lint_pass` hides the owner path; prefer the qualified path at the use site
+- F409: non_trait_imports src/structure/function_length.rs:9 non-trait import `sym` hides the owner path; prefer the qualified path at the use site
+- F410: non_trait_imports src/structure/function_length.rs:11 non-trait import `emit_tiger_style_lint` hides the owner path; prefer the qualified path at the use site
+- F411: non_trait_imports src/structure/magic_number.rs:1 non-trait import `LitKind` hides the owner path; prefer the qualified path at the use site
+- F412: non_trait_imports src/structure/magic_number.rs:2 non-trait import `rustc_hir as hir` hides the owner path; prefer the qualified path at the use site
+- F413: non_trait_imports src/structure/magic_number.rs:3 non-trait import `ExprKind` hides the owner path; prefer the qualified path at the use site
+- F414: non_trait_imports src/structure/magic_number.rs:4 non-trait import `LateContext` hides the owner path; prefer the qualified path at the use site
+- F415: non_trait_imports src/structure/magic_number.rs:6 non-trait import `declare_lint_pass` hides the owner path; prefer the qualified path at the use site
+- F416: non_trait_imports src/structure/magic_number.rs:7 non-trait import `declare_tool_lint` hides the owner path; prefer the qualified path at the use site
+- F417: non_trait_imports src/structure/magic_number.rs:9 non-trait import `emit_tiger_style_lint` hides the owner path; prefer the qualified path at the use site
+- F418: non_trait_imports src/structure/magic_number.rs:10 non-trait import `test_context` hides the owner path; prefer the qualified path at the use site
+- F419: non_trait_imports src/structure/module_file_count.rs:1 non-trait import `BTreeMap` hides the owner path; prefer the qualified path at the use site
+- F420: non_trait_imports src/structure/module_file_count.rs:2 non-trait import `Component` hides the owner path; prefer the qualified path at the use site
+- F421: non_trait_imports src/structure/module_file_count.rs:3 non-trait import `Path` hides the owner path; prefer the qualified path at the use site
+- F422: non_trait_imports src/structure/module_file_count.rs:4 non-trait import `PathBuf` hides the owner path; prefer the qualified path at the use site
+- F423: non_trait_imports src/structure/module_file_count.rs:6 non-trait import `Crate` hides the owner path; prefer the qualified path at the use site
+- F424: non_trait_imports src/structure/module_file_count.rs:7 non-trait import `EarlyContext` hides the owner path; prefer the qualified path at the use site
+- F425: non_trait_imports src/structure/module_file_count.rs:10 non-trait import `declare_tool_lint` hides the owner path; prefer the qualified path at the use site
+- F426: non_trait_imports src/structure/module_file_count.rs:11 non-trait import `impl_lint_pass` hides the owner path; prefer the qualified path at the use site
+- F427: non_trait_imports src/structure/module_file_count.rs:12 non-trait import `SourceFile` hides the owner path; prefer the qualified path at the use site
+- F428: non_trait_imports src/structure/module_file_count.rs:13 non-trait import `Span` hides the owner path; prefer the qualified path at the use site
+- F429: non_trait_imports src/structure/module_file_count.rs:14 non-trait import `SyntaxContext` hides the owner path; prefer the qualified path at the use site
+- F430: non_trait_imports src/structure/module_file_count.rs:16 non-trait import `emit_tiger_style_lint` hides the owner path; prefer the qualified path at the use site
+- F431: non_trait_imports src/structure/nested_conditionals.rs:1 non-trait import `Expr` hides the owner path; prefer the qualified path at the use site
+- F432: non_trait_imports src/structure/nested_conditionals.rs:2 non-trait import `ExprKind` hides the owner path; prefer the qualified path at the use site
+- F433: non_trait_imports src/structure/nested_conditionals.rs:3 non-trait import `Item` hides the owner path; prefer the qualified path at the use site
+- F434: non_trait_imports src/structure/nested_conditionals.rs:4 non-trait import `ItemKind` hides the owner path; prefer the qualified path at the use site
+- F435: non_trait_imports src/structure/nested_conditionals.rs:6 non-trait import `visit` hides the owner path; prefer the qualified path at the use site
+- F436: non_trait_imports src/structure/nested_conditionals.rs:7 non-trait import `EarlyContext` hides the owner path; prefer the qualified path at the use site
+- F437: non_trait_imports src/structure/nested_conditionals.rs:9 non-trait import `declare_tool_lint` hides the owner path; prefer the qualified path at the use site
+- F438: non_trait_imports src/structure/nested_conditionals.rs:10 non-trait import `impl_lint_pass` hides the owner path; prefer the qualified path at the use site
+- F439: non_trait_imports src/structure/nested_conditionals.rs:12 non-trait import `emit_tiger_style_lint` hides the owner path; prefer the qualified path at the use site
+- F440: non_trait_imports src/structure/platform_dependent_cast.rs:1 non-trait import `Applicability` hides the owner path; prefer the qualified path at the use site
+- F441: non_trait_imports src/structure/platform_dependent_cast.rs:2 non-trait import `rustc_hir as hir` hides the owner path; prefer the qualified path at the use site
+- F442: non_trait_imports src/structure/platform_dependent_cast.rs:3 non-trait import `ExprKind` hides the owner path; prefer the qualified path at the use site
+- F443: non_trait_imports src/structure/platform_dependent_cast.rs:4 non-trait import `LateContext` hides the owner path; prefer the qualified path at the use site
+- F444: non_trait_imports src/structure/platform_dependent_cast.rs:7 non-trait import `ty` hides the owner path; prefer the qualified path at the use site
+- F445: non_trait_imports src/structure/platform_dependent_cast.rs:8 non-trait import `declare_lint_pass` hides the owner path; prefer the qualified path at the use site
+- F446: non_trait_imports src/structure/platform_dependent_cast.rs:9 non-trait import `declare_tool_lint` hides the owner path; prefer the qualified path at the use site
+- F447: non_trait_imports src/structure/platform_dependent_cast.rs:11 non-trait import `LintSuggestion` hides the owner path; prefer the qualified path at the use site
+- F448: non_trait_imports src/structure/platform_dependent_cast.rs:12 non-trait import `emit_tiger_style_lint` hides the owner path; prefer the qualified path at the use site
+- F449: non_trait_imports src/structure/platform_dependent_cast.rs:13 non-trait import `emit_tiger_style_lint_with_suggestion` hides the owner path; prefer the qualified path at the use site
+- F450: non_trait_imports src/structure/too_many_parameters.rs:1 non-trait import `rustc_hir as hir` hides the owner path; prefer the qualified path at the use site
+- F451: non_trait_imports src/structure/too_many_parameters.rs:2 non-trait import `LateContext` hides the owner path; prefer the qualified path at the use site
+- F452: non_trait_imports src/structure/too_many_parameters.rs:4 non-trait import `declare_tool_lint` hides the owner path; prefer the qualified path at the use site
+- F453: non_trait_imports src/structure/too_many_parameters.rs:5 non-trait import `impl_lint_pass` hides the owner path; prefer the qualified path at the use site
+- F454: non_trait_imports src/structure/too_many_parameters.rs:7 non-trait import `emit_tiger_style_lint` hides the owner path; prefer the qualified path at the use site
+- F455: non_trait_imports src/structure/too_many_parameters.rs:8 non-trait import `test_context` hides the owner path; prefer the qualified path at the use site
+- F456: non_trait_imports src/structure/unjustified_allow.rs:1 non-trait import `Attribute` hides the owner path; prefer the qualified path at the use site
+- F457: non_trait_imports src/structure/unjustified_allow.rs:2 non-trait import `Item` hides the owner path; prefer the qualified path at the use site
+- F458: non_trait_imports src/structure/unjustified_allow.rs:3 non-trait import `Applicability` hides the owner path; prefer the qualified path at the use site
+- F459: non_trait_imports src/structure/unjustified_allow.rs:4 non-trait import `EarlyContext` hides the owner path; prefer the qualified path at the use site
+- F460: non_trait_imports src/structure/unjustified_allow.rs:7 non-trait import `declare_lint_pass` hides the owner path; prefer the qualified path at the use site
+- F461: non_trait_imports src/structure/unjustified_allow.rs:8 non-trait import `declare_tool_lint` hides the owner path; prefer the qualified path at the use site
+- F462: non_trait_imports src/structure/unjustified_allow.rs:9 non-trait import `sym` hides the owner path; prefer the qualified path at the use site
+- F463: non_trait_imports src/structure/unjustified_allow.rs:11 non-trait import `LintSuggestion` hides the owner path; prefer the qualified path at the use site
+- F464: non_trait_imports src/structure/unjustified_allow.rs:12 non-trait import `emit_tiger_style_lint_with_suggestion` hides the owner path; prefer the qualified path at the use site
+- F465: non_trait_imports src/structure/usize_in_public_api.rs:1 non-trait import `Applicability` hides the owner path; prefer the qualified path at the use site
+- F466: non_trait_imports src/structure/usize_in_public_api.rs:2 non-trait import `rustc_hir as hir` hides the owner path; prefer the qualified path at the use site
+- F467: non_trait_imports src/structure/usize_in_public_api.rs:3 non-trait import `ItemKind` hides the owner path; prefer the qualified path at the use site
+- F468: non_trait_imports src/structure/usize_in_public_api.rs:4 non-trait import `LateContext` hides the owner path; prefer the qualified path at the use site
+- F469: non_trait_imports src/structure/usize_in_public_api.rs:6 non-trait import `ty` hides the owner path; prefer the qualified path at the use site
+- F470: non_trait_imports src/structure/usize_in_public_api.rs:7 non-trait import `declare_lint_pass` hides the owner path; prefer the qualified path at the use site
+- F471: non_trait_imports src/structure/usize_in_public_api.rs:8 non-trait import `declare_tool_lint` hides the owner path; prefer the qualified path at the use site
+- F472: non_trait_imports src/structure/usize_in_public_api.rs:10 non-trait import `LintSuggestion` hides the owner path; prefer the qualified path at the use site
+- F473: non_trait_imports src/structure/usize_in_public_api.rs:11 non-trait import `emit_tiger_style_lint` hides the owner path; prefer the qualified path at the use site
+- F474: non_trait_imports src/structure/usize_in_public_api.rs:12 non-trait import `emit_tiger_style_lint_with_suggestion` hides the owner path; prefer the qualified path at the use site
+- F475: non_trait_imports src/test_context.rs:1 non-trait import `rustc_hir as hir` hides the owner path; prefer the qualified path at the use site
+- F476: non_trait_imports src/test_context.rs:2 non-trait import `LateContext` hides the owner path; prefer the qualified path at the use site
+- F477: non_trait_imports src/test_context.rs:4 non-trait import `Session` hides the owner path; prefer the qualified path at the use site
+- F478: non_trait_imports src/test_context.rs:5 non-trait import `Span` hides the owner path; prefer the qualified path at the use site
+- F479: non_trait_imports src/test_context.rs:6 non-trait import `sym` hides the owner path; prefer the qualified path at the use site
+- F480: path_segment_repetition src/concurrency/multi_lock_ordering.rs:68 item name `lock_ordering_suggestion` repeats `lock` from ancestor path segment `multi_lock_ordering`
+- F481: path_segment_repetition src/config.rs:56 item name `Config` repeats `config` from ancestor path segment `config`
+- F482: path_segment_repetition src/config.rs:170 item name `prefer_octet_or_legacy_config` repeats `config` from ancestor path segment `config`
+- F483: path_segment_repetition src/naming/acronym_style.rs:29 item name `AcronymStyle` repeats `acronym` from ancestor path segment `acronym_style`
+- F484: path_segment_repetition src/naming/acronym_style.rs:43 item name `suggest_acronym_fix` repeats `acronym` from ancestor path segment `acronym_style`
+- F485: path_segment_repetition src/naming/acronym_style.rs:102 item name `extract_acronym` repeats `acronym` from ancestor path segment `acronym_style`
+- F486: path_segment_repetition src/naming/bool_naming.rs:27 item name `suggested_bool_name` repeats `bool` from ancestor path segment `bool_naming`
+- F487: path_segment_repetition src/naming/float_for_currency.rs:32 item name `is_float_ty` repeats `float` from ancestor path segment `float_for_currency`
+- F488: path_segment_repetition src/naming/float_for_currency.rs:36 item name `currency_field_suggestion` repeats `currency` from ancestor path segment `float_for_currency`
+- F489: path_segment_repetition src/naming/non_trait_imports.rs:42 item name `is_trait_res` repeats `trait` from ancestor path segment `non_trait_imports`
+- F490: path_segment_repetition src/naming/non_trait_imports.rs:46 item name `imports_only_trait` repeats `imports` from ancestor path segment `non_trait_imports`
+- F491: path_segment_repetition src/naming/path_segment_repetition.rs:17 item name `Repetition` repeats `repetition` from ancestor path segment `path_segment_repetition`
+- F492: path_segment_repetition src/naming/path_segment_repetition.rs:76 item name `path_word_set` repeats `path` from ancestor path segment `path_segment_repetition`
+- F493: path_segment_repetition src/naming/path_segment_repetition.rs:80 item name `repeated_path_word` repeats `path` from ancestor path segment `path_segment_repetition`
+- F494: path_segment_repetition src/naming/path_segment_repetition.rs:101 item name `item_path_segments` repeats `path` from ancestor path segment `path_segment_repetition`
+- F495: path_segment_repetition src/naming/renamed_imports.rs:51 item name `imports_only_trait` repeats `imports` from ancestor path segment `renamed_imports`
+- F496: path_segment_repetition src/naming/underscore_in_module_filename.rs:36 item name `UnderscoreInModuleFilename` repeats `underscore` from ancestor path segment `underscore_in_module_filename`
+- F497: path_segment_repetition src/naming/use_site_collector.rs:7 item name `UseSiteCollector` repeats `use` from ancestor path segment `use_site_collector`
+- F498: path_segment_repetition src/naming/use_site_collector.rs:36 item name `collect_local_use_sites` repeats `use` from ancestor path segment `use_site_collector`
+- F499: path_segment_repetition src/performance/clone_then_borrow.rs:43 item name `def_path_looks_like_clone` repeats `clone` from ancestor path segment `clone_then_borrow`
+- F500: path_segment_repetition src/performance/clone_then_borrow.rs:52 item name `borrowed_clone_receiver` repeats `clone` from ancestor path segment `clone_then_borrow`
+- F501: path_segment_repetition src/performance/clone_then_borrow.rs:75 item name `borrow_original_replacement` repeats `borrow` from ancestor path segment `clone_then_borrow`
+- F502: path_segment_repetition src/purity/ambient_clock.rs:65 item name `is_clock_now_path` repeats `clock` from ancestor path segment `ambient_clock`
+- F503: path_segment_repetition src/purity/contradictory_time.rs:32 item name `is_time_param_name` repeats `time` from ancestor path segment `contradictory_time`
+- F504: path_segment_repetition src/purity/contradictory_time.rs:38 item name `TimeCallFinder` repeats `time` from ancestor path segment `contradictory_time`
+- F505: path_segment_repetition src/purity/verified_purity.rs:26 item name `is_in_verified_module` repeats `verified` from ancestor path segment `verified_purity`
+- F506: path_segment_repetition src/safety/assertion_density.rs:30 item name `AssertionDensity` repeats `assertion` from ancestor path segment `assertion_density`
+- F507: path_segment_repetition src/safety/compound_assertion.rs:34 item name `TopLevelAssertionSplit` repeats `assertion` from ancestor path segment `compound_assertion`
+- F508: path_segment_repetition src/safety/compound_assertion.rs:45 item name `has_top_level_compound_assertion` repeats `compound` from ancestor path segment `compound_assertion`
+- F509: path_segment_repetition src/safety/compound_assertion.rs:71 item name `top_level_assertion_split` repeats `assertion` from ancestor path segment `compound_assertion`
+- F510: path_segment_repetition src/safety/compound_assertion.rs:173 item name `compound_assertion_suggestion` repeats `compound` from ancestor path segment `compound_assertion`
+- F511: path_segment_repetition src/safety/drop_must_use.rs:27 item name `has_must_use_attr` repeats `must` from ancestor path segment `drop_must_use`
+- F512: path_segment_repetition src/safety/drop_must_use.rs:31 item name `type_is_must_use` repeats `must` from ancestor path segment `drop_must_use`
+- F513: path_segment_repetition src/safety/drop_must_use.rs:42 item name `expr_is_must_use_call` repeats `must` from ancestor path segment `drop_must_use`
+- F514: path_segment_repetition src/safety/drop_must_use.rs:58 item name `is_std_mem_drop` repeats `drop` from ancestor path segment `drop_must_use`
+- F515: path_segment_repetition src/safety/explicit_defaults.rs:93 item name `explicit_default_suggestion` repeats `explicit` from ancestor path segment `explicit_defaults`
+- F516: path_segment_repetition src/safety/fallible_int_fallback.rs:40 item name `is_try_from_int_error` repeats `int` from ancestor path segment `fallible_int_fallback`
+- F517: path_segment_repetition src/safety/fallible_int_fallback.rs:65 item name `fallback_is_sentinel` repeats `fallback` from ancestor path segment `fallible_int_fallback`
+- F518: path_segment_repetition src/safety/ignored_result.rs:30 item name `is_result_type` repeats `result` from ancestor path segment `ignored_result`
+- F519: path_segment_repetition src/safety/ignored_result.rs:180 item name `ignored_result_suggestion` repeats `ignored` from ancestor path segment `ignored_result`
+- F520: path_segment_repetition src/safety/no_panic.rs:30 item name `NoPanic` repeats `no` from ancestor path segment `no_panic`
+- F521: path_segment_repetition src/safety/no_panic.rs:36 item name `panic_macro_name_from_callsite` repeats `panic` from ancestor path segment `no_panic`
+- F522: path_segment_repetition src/safety/no_recursion.rs:25 item name `RecursionFinder` repeats `recursion` from ancestor path segment `no_recursion`
+- F523: path_segment_repetition src/safety/no_todo.rs:34 item name `NoTodo` repeats `no` from ancestor path segment `no_todo`
+- F524: path_segment_repetition src/safety/no_todo.rs:77 item name `attr_matches_supported_no_todo` repeats `no` from ancestor path segment `no_todo`
+- F525: path_segment_repetition src/safety/no_todo.rs:87 item name `NoTodoAllow` repeats `no` from ancestor path segment `no_todo`
+- F526: path_segment_repetition src/safety/no_todo.rs:92 item name `no_todo_allow_attr_span` repeats `no` from ancestor path segment `no_todo`
+- F527: path_segment_repetition src/safety/no_todo.rs:107 item name `no_todo_allow_for_attr_span` repeats `no` from ancestor path segment `no_todo`
+- F528: path_segment_repetition src/safety/no_todo.rs:135 item name `enclosing_no_todo_allows` repeats `no` from ancestor path segment `no_todo`
+- F529: path_segment_repetition src/safety/no_unwrap.rs:208 item name `should_skip_unwrap` repeats `unwrap` from ancestor path segment `no_unwrap`
+- F530: path_segment_repetition src/safety/no_unwrap.rs:257 item name `unwrap_suggestion` repeats `unwrap` from ancestor path segment `no_unwrap`
+- F531: path_segment_repetition src/safety/public_unsafe_api.rs:29 item name `snippet_declares_unsafe_fn` repeats `unsafe` from ancestor path segment `public_unsafe_api`
+- F532: path_segment_repetition src/safety/sentinel_fallback.rs:40 item name `fallback_expr_for_method_call` repeats `fallback` from ancestor path segment `sentinel_fallback`
+- F533: path_segment_repetition src/safety/sentinel_fallback.rs:147 item name `sentinel_suggestion` repeats `sentinel` from ancestor path segment `sentinel_fallback`
+- F534: path_segment_repetition src/safety/unbounded_channel.rs:42 item name `is_unbounded_channel_ctor` repeats `unbounded` from ancestor path segment `unbounded_channel`
+- F535: path_segment_repetition src/safety/unbounded_collection_growth.rs:90 item name `is_supported_collection_ty` repeats `collection` from ancestor path segment `unbounded_collection_growth`
+- F536: path_segment_repetition src/safety/unbounded_collection_growth.rs:111 item name `classify_collection_init` repeats `collection` from ancestor path segment `unbounded_collection_growth`
+- F537: path_segment_repetition src/safety/unbounded_collection_growth.rs:144 item name `is_growth_method` repeats `growth` from ancestor path segment `unbounded_collection_growth`
+- F538: path_segment_repetition src/safety/unbounded_collection_growth.rs:152 item name `collection_growth_local` repeats `collection` from ancestor path segment `unbounded_collection_growth`
+- F539: path_segment_repetition src/safety/unbounded_collection_growth.rs:181 item name `comparison_allows_growth` repeats `growth` from ancestor path segment `unbounded_collection_growth`
+- F540: path_segment_repetition src/safety/unbounded_collection_growth.rs:194 item name `comparison_blocks_growth` repeats `growth` from ancestor path segment `unbounded_collection_growth`
+- F541: path_segment_repetition src/safety/unbounded_collection_growth.rs:213 item name `condition_allows_growth` repeats `growth` from ancestor path segment `unbounded_collection_growth`
+- F542: path_segment_repetition src/safety/unbounded_collection_growth.rs:230 item name `condition_blocks_growth` repeats `growth` from ancestor path segment `unbounded_collection_growth`
+- F543: path_segment_repetition src/safety/unbounded_collection_growth.rs:557 item name `collection_growth_suggestion` repeats `collection` from ancestor path segment `unbounded_collection_growth`
+- F544: path_segment_repetition src/safety/unbounded_loop.rs:42 item name `loop_has_visible_counter` repeats `loop` from ancestor path segment `unbounded_loop`
+- F545: path_segment_repetition src/safety/unbounded_loop.rs:183 item name `lint_unbounded_loop` repeats `unbounded` from ancestor path segment `unbounded_loop`
+- F546: path_segment_repetition src/safety/unchecked_division.rs:63 item name `guarded_division_replacement` repeats `division` from ancestor path segment `unchecked_division`
+- F547: path_segment_repetition src/safety/unchecked_narrowing.rs:48 item name `narrowing_replacement` repeats `narrowing` from ancestor path segment `unchecked_narrowing`
+- F548: path_segment_repetition src/structure/borrowed_argument_types.rs:25 item name `BorrowedArgumentCandidate` repeats `borrowed` from ancestor path segment `borrowed_argument_types`
+- F549: path_segment_repetition src/structure/borrowed_argument_types.rs:39 item name `borrowed_replacement` repeats `borrowed` from ancestor path segment `borrowed_argument_types`
+- F550: path_segment_repetition src/structure/compound_condition.rs:65 item name `collect_condition_leaves` repeats `condition` from ancestor path segment `compound_condition`
+- F551: path_segment_repetition src/structure/compound_condition.rs:76 item name `compound_condition_suggestion` repeats `compound` from ancestor path segment `compound_condition`
+- F552: path_segment_repetition src/structure/deref_polymorphism.rs:25 item name `impl_is_deref` repeats `deref` from ancestor path segment `deref_polymorphism`
+- F553: path_segment_repetition src/structure/excessive_file_length.rs:21 item name `ExcessiveFileLength` repeats `excessive` from ancestor path segment `excessive_file_length`
+- F554: path_segment_repetition src/structure/excessive_file_length.rs:33 item name `source_file_path` repeats `file` from ancestor path segment `excessive_file_length`
+- F555: path_segment_repetition src/structure/function_length.rs:28 item name `FunctionLength` repeats `function` from ancestor path segment `function_length`
+- F556: path_segment_repetition src/structure/function_length.rs:40 item name `is_test_function` repeats `function` from ancestor path segment `function_length`
+- F557: path_segment_repetition src/structure/module_file_count.rs:28 item name `ModuleFileCount` repeats `module` from ancestor path segment `module_file_count`
+- F558: path_segment_repetition src/structure/module_file_count.rs:41 item name `ModuleFile` repeats `module` from ancestor path segment `module_file_count`
+- F559: path_segment_repetition src/structure/module_file_count.rs:46 item name `source_file_path` repeats `file` from ancestor path segment `module_file_count`
+- F560: path_segment_repetition src/structure/nested_conditionals.rs:29 item name `NestedConditionals` repeats `nested` from ancestor path segment `nested_conditionals`
+- F561: path_segment_repetition src/structure/platform_dependent_cast.rs:35 item name `is_platform_sized` repeats `platform` from ancestor path segment `platform_dependent_cast`
+- F562: path_segment_repetition src/structure/platform_dependent_cast.rs:51 item name `platform_cast_replacement` repeats `platform` from ancestor path segment `platform_dependent_cast`
+- F563: path_segment_repetition src/structure/too_many_parameters.rs:19 item name `TooManyParameters` repeats `too` from ancestor path segment `too_many_parameters`
+- F564: path_segment_repetition src/structure/unjustified_allow.rs:26 item name `is_clippy_allow_attr` repeats `allow` from ancestor path segment `unjustified_allow`
+- F565: path_segment_repetition src/structure/usize_in_public_api.rs:71 item name `usize_suggestion` repeats `usize` from ancestor path segment `usize_in_public_api`
+- F566: path_segment_repetition src/test_context.rs:50 item name `hir_attrs_indicate_test` repeats `test` from ancestor path segment `test_context`
+- F567: path_segment_repetition src/test_context.rs:54 item name `late_hir_id_is_in_test_context` repeats `test` from ancestor path segment `test_context`
+- F568: path_segment_repetition src/test_context.rs:67 item name `item_span_indicates_test` repeats `test` from ancestor path segment `test_context`
+- F569: path_segment_repetition src/test_context.rs:99 item name `hir_attr_indicates_test` repeats `test` from ancestor path segment `test_context`
+- F570: path_segment_repetition src/test_context.rs:115 item name `cfg_attr_source_requires_test` repeats `test` from ancestor path segment `test_context`
+- F571: renamed_imports src/naming/bool_naming.rs:2 renamed import `rustc_hir as hir` hides the original searchable name
+- F572: renamed_imports src/naming/float_for_currency.rs:2 renamed import `rustc_hir as hir` hides the original searchable name
+- F573: renamed_imports src/naming/negated_predicate.rs:2 renamed import `rustc_hir as hir` hides the original searchable name
+- F574: renamed_imports src/naming/non_trait_imports.rs:1 renamed import `rustc_hir as hir` hides the original searchable name
+- F575: renamed_imports src/naming/path_segment_repetition.rs:3 renamed import `rustc_hir as hir` hides the original searchable name
+- F576: renamed_imports src/naming/renamed_imports.rs:1 renamed import `rustc_hir as hir` hides the original searchable name
+- F577: renamed_imports src/naming/use_site_collector.rs:1 renamed import `rustc_hir as hir` hides the original searchable name
+- F578: renamed_imports src/performance/clone_then_borrow.rs:2 renamed import `rustc_hir as hir` hides the original searchable name
+- F579: renamed_imports src/purity/ambient_clock.rs:2 renamed import `rustc_hir as hir` hides the original searchable name
+- F580: renamed_imports src/purity/contradictory_time.rs:2 renamed import `rustc_hir as hir` hides the original searchable name
+- F581: renamed_imports src/safety/catch_all_on_enum.rs:2 renamed import `rustc_hir as hir` hides the original searchable name
+- F582: renamed_imports src/safety/drop_must_use.rs:1 renamed import `rustc_hir as hir` hides the original searchable name
+- F583: renamed_imports src/safety/explicit_defaults.rs:2 renamed import `rustc_hir as hir` hides the original searchable name
+- F584: renamed_imports src/safety/fallible_int_fallback.rs:2 renamed import `rustc_hir as hir` hides the original searchable name
+- F585: renamed_imports src/safety/ignored_result.rs:2 renamed import `rustc_hir as hir` hides the original searchable name
+- F586: renamed_imports src/safety/no_panic.rs:3 renamed import `rustc_hir as hir` hides the original searchable name
+- F587: renamed_imports src/safety/no_recursion.rs:1 renamed import `rustc_hir as hir` hides the original searchable name
+- F588: renamed_imports src/safety/no_todo.rs:2 renamed import `rustc_hir as hir` hides the original searchable name
+- F589: renamed_imports src/safety/no_unwrap.rs:2 renamed import `rustc_hir as hir` hides the original searchable name
+- F590: renamed_imports src/safety/public_unsafe_api.rs:1 renamed import `rustc_hir as hir` hides the original searchable name
+- F591: renamed_imports src/safety/raw_arithmetic_overflow.rs:2 renamed import `rustc_hir as hir` hides the original searchable name
+- F592: renamed_imports src/safety/sentinel_fallback.rs:2 renamed import `rustc_hir as hir` hides the original searchable name
+- F593: renamed_imports src/safety/unbounded_channel.rs:2 renamed import `rustc_hir as hir` hides the original searchable name
+- F594: renamed_imports src/safety/unbounded_collection_growth.rs:5 renamed import `rustc_hir as hir` hides the original searchable name
+- F595: renamed_imports src/safety/unbounded_loop.rs:1 renamed import `rustc_hir as hir` hides the original searchable name
+- F596: renamed_imports src/safety/unchecked_division.rs:2 renamed import `rustc_hir as hir` hides the original searchable name
+- F597: renamed_imports src/safety/unchecked_narrowing.rs:2 renamed import `rustc_hir as hir` hides the original searchable name
+- F598: renamed_imports src/structure/ambiguous_params.rs:1 renamed import `rustc_hir as hir` hides the original searchable name
+- F599: renamed_imports src/structure/borrowed_argument_types.rs:2 renamed import `rustc_hir as hir` hides the original searchable name
+- F600: renamed_imports src/structure/deref_polymorphism.rs:1 renamed import `rustc_hir as hir` hides the original searchable name
+- F601: renamed_imports src/structure/magic_number.rs:2 renamed import `rustc_hir as hir` hides the original searchable name
+- F602: renamed_imports src/structure/platform_dependent_cast.rs:2 renamed import `rustc_hir as hir` hides the original searchable name
+- F603: renamed_imports src/structure/too_many_parameters.rs:1 renamed import `rustc_hir as hir` hides the original searchable name
+- F604: renamed_imports src/structure/usize_in_public_api.rs:2 renamed import `rustc_hir as hir` hides the original searchable name
+- F605: renamed_imports src/test_context.rs:1 renamed import `rustc_hir as hir` hides the original searchable name
+- F606: underscore_in_module_filename src/concurrency/multi_lock_ordering.rs:1 module filename `multi_lock_ordering.rs` contains an underscore; prefer `multi/lock/ordering.rs`
+- F607: underscore_in_module_filename src/naming/acronym_style.rs:1 module filename `acronym_style.rs` contains an underscore; prefer `acronym/style.rs`
+- F608: underscore_in_module_filename src/naming/bool_naming.rs:1 module filename `bool_naming.rs` contains an underscore; prefer `bool/naming.rs`
+- F609: underscore_in_module_filename src/naming/float_for_currency.rs:1 module filename `float_for_currency.rs` contains an underscore; prefer `float/for/currency.rs`
+- F610: underscore_in_module_filename src/naming/negated_predicate.rs:1 module filename `negated_predicate.rs` contains an underscore; prefer `negated/predicate.rs`
+- F611: underscore_in_module_filename src/naming/non_trait_imports.rs:1 module filename `non_trait_imports.rs` contains an underscore; prefer `non/trait/imports.rs`
+- F612: underscore_in_module_filename src/naming/numeric_units.rs:1 module filename `numeric_units.rs` contains an underscore; prefer `numeric/units.rs`
+- F613: underscore_in_module_filename src/naming/path_segment_repetition.rs:1 module filename `path_segment_repetition.rs` contains an underscore; prefer `path/segment/repetition.rs`
+- F614: underscore_in_module_filename src/naming/renamed_imports.rs:1 module filename `renamed_imports.rs` contains an underscore; prefer `renamed/imports.rs`
+- F615: underscore_in_module_filename src/naming/underscore_in_module_filename.rs:1 module filename `underscore_in_module_filename.rs` contains an underscore; prefer `underscore/in/module/filename.rs`
+- F616: underscore_in_module_filename src/naming/use_site_collector.rs:1 module filename `use_site_collector.rs` contains an underscore; prefer `use/site/collector.rs`
+- F617: underscore_in_module_filename src/performance/clone_then_borrow.rs:1 module filename `clone_then_borrow.rs` contains an underscore; prefer `clone/then/borrow.rs`
+- F618: underscore_in_module_filename src/purity/ambient_clock.rs:1 module filename `ambient_clock.rs` contains an underscore; prefer `ambient/clock.rs`
+- F619: underscore_in_module_filename src/purity/contradictory_time.rs:1 module filename `contradictory_time.rs` contains an underscore; prefer `contradictory/time.rs`
+- F620: underscore_in_module_filename src/purity/verified_purity.rs:1 module filename `verified_purity.rs` contains an underscore; prefer `verified/purity.rs`
+- F621: underscore_in_module_filename src/safety/assertion_density.rs:1 module filename `assertion_density.rs` contains an underscore; prefer `assertion/density.rs`
+- F622: underscore_in_module_filename src/safety/catch_all_on_enum.rs:1 module filename `catch_all_on_enum.rs` contains an underscore; prefer `catch/all/on/enum.rs`
+- F623: underscore_in_module_filename src/safety/compound_assertion.rs:1 module filename `compound_assertion.rs` contains an underscore; prefer `compound/assertion.rs`
+- F624: underscore_in_module_filename src/safety/drop_must_use.rs:1 module filename `drop_must_use.rs` contains an underscore; prefer `drop/must/use.rs`
+- F625: underscore_in_module_filename src/safety/explicit_defaults.rs:1 module filename `explicit_defaults.rs` contains an underscore; prefer `explicit/defaults.rs`
+- F626: underscore_in_module_filename src/safety/fallible_int_fallback.rs:1 module filename `fallible_int_fallback.rs` contains an underscore; prefer `fallible/int/fallback.rs`
+- F627: underscore_in_module_filename src/safety/ignored_result.rs:1 module filename `ignored_result.rs` contains an underscore; prefer `ignored/result.rs`
+- F628: underscore_in_module_filename src/safety/no_panic.rs:1 module filename `no_panic.rs` contains an underscore; prefer `no/panic.rs`
+- F629: underscore_in_module_filename src/safety/no_recursion.rs:1 module filename `no_recursion.rs` contains an underscore; prefer `no/recursion.rs`
+- F630: underscore_in_module_filename src/safety/no_todo.rs:1 module filename `no_todo.rs` contains an underscore; prefer `no/todo.rs`
+- F631: underscore_in_module_filename src/safety/no_unwrap.rs:1 module filename `no_unwrap.rs` contains an underscore; prefer `no/unwrap.rs`
+- F632: underscore_in_module_filename src/safety/public_unsafe_api.rs:1 module filename `public_unsafe_api.rs` contains an underscore; prefer `public/unsafe/api.rs`
+- F633: underscore_in_module_filename src/safety/raw_arithmetic_overflow.rs:1 module filename `raw_arithmetic_overflow.rs` contains an underscore; prefer `raw/arithmetic/overflow.rs`
+- F634: underscore_in_module_filename src/safety/sentinel_fallback.rs:1 module filename `sentinel_fallback.rs` contains an underscore; prefer `sentinel/fallback.rs`
+- F635: underscore_in_module_filename src/safety/unbounded_channel.rs:1 module filename `unbounded_channel.rs` contains an underscore; prefer `unbounded/channel.rs`
+- F636: underscore_in_module_filename src/safety/unbounded_collection_growth.rs:1 module filename `unbounded_collection_growth.rs` contains an underscore; prefer `unbounded/collection/growth.rs`
+- F637: underscore_in_module_filename src/safety/unbounded_loop.rs:1 module filename `unbounded_loop.rs` contains an underscore; prefer `unbounded/loop.rs`
+- F638: underscore_in_module_filename src/safety/unchecked_division.rs:1 module filename `unchecked_division.rs` contains an underscore; prefer `unchecked/division.rs`
+- F639: underscore_in_module_filename src/safety/unchecked_narrowing.rs:1 module filename `unchecked_narrowing.rs` contains an underscore; prefer `unchecked/narrowing.rs`
+- F640: underscore_in_module_filename src/structure/ambiguous_params.rs:1 module filename `ambiguous_params.rs` contains an underscore; prefer `ambiguous/params.rs`
+- F641: underscore_in_module_filename src/structure/borrowed_argument_types.rs:1 module filename `borrowed_argument_types.rs` contains an underscore; prefer `borrowed/argument/types.rs`
+- F642: underscore_in_module_filename src/structure/compound_condition.rs:1 module filename `compound_condition.rs` contains an underscore; prefer `compound/condition.rs`
+- F643: underscore_in_module_filename src/structure/deref_polymorphism.rs:1 module filename `deref_polymorphism.rs` contains an underscore; prefer `deref/polymorphism.rs`
+- F644: underscore_in_module_filename src/structure/excessive_file_length.rs:1 module filename `excessive_file_length.rs` contains an underscore; prefer `excessive/file/length.rs`
+- F645: underscore_in_module_filename src/structure/function_length.rs:1 module filename `function_length.rs` contains an underscore; prefer `function/length.rs`
+- F646: underscore_in_module_filename src/structure/magic_number.rs:1 module filename `magic_number.rs` contains an underscore; prefer `magic/number.rs`
+- F647: underscore_in_module_filename src/structure/module_file_count.rs:1 module filename `module_file_count.rs` contains an underscore; prefer `module/file/count.rs`
+- F648: underscore_in_module_filename src/structure/nested_conditionals.rs:1 module filename `nested_conditionals.rs` contains an underscore; prefer `nested/conditionals.rs`
+- F649: underscore_in_module_filename src/structure/platform_dependent_cast.rs:1 module filename `platform_dependent_cast.rs` contains an underscore; prefer `platform/dependent/cast.rs`
+- F650: underscore_in_module_filename src/structure/too_many_parameters.rs:1 module filename `too_many_parameters.rs` contains an underscore; prefer `too/many/parameters.rs`
+- F651: underscore_in_module_filename src/structure/unjustified_allow.rs:1 module filename `unjustified_allow.rs` contains an underscore; prefer `unjustified/allow.rs`
+- F652: underscore_in_module_filename src/structure/usize_in_public_api.rs:1 module filename `usize_in_public_api.rs` contains an underscore; prefer `usize/in/public/api.rs`
+- F653: underscore_in_module_filename src/test_context.rs:1 module filename `test_context.rs` contains an underscore; prefer `test/context.rs`
