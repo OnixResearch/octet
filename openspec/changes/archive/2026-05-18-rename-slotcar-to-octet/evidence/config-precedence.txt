@@ -1,0 +1,342 @@
+$ CARGO_TARGET_DIR=$(mktemp -d) nix develop -c bash -c 'cargo test --lib config::tests::octet_config_wins_over_legacy_slotcar_and_tigerstyle_config -- --nocapture'
+warning: /home/brittonr/git/slotcar/cargo-octet/Cargo.toml: file `/home/brittonr/git/slotcar/cargo-octet/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `cargo-octet`
+  * `bin` target `cargo-slotcar`
+  * `bin` target `cargo-tigerstyle`
+warning: /home/brittonr/git/slotcar/crates/slotcar-standards/Cargo.toml: file `/home/brittonr/git/slotcar/crates/slotcar-standards/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `octet-standards`
+  * `bin` target `slotcar-standards`
+  * `bin` target `tigerstyle-standards`
+   Compiling serde_core v1.0.228
+   Compiling proc-macro2 v1.0.106
+   Compiling unicode-ident v1.0.24
+   Compiling quote v1.0.45
+   Compiling memchr v2.8.0
+   Compiling crossbeam-utils v0.8.21
+   Compiling winnow v1.0.3
+   Compiling zmij v1.0.21
+   Compiling toml_writer v1.1.1+spec-1.1.0
+   Compiling serde v1.0.228
+   Compiling serde_json v1.0.149
+   Compiling thiserror v2.0.18
+   Compiling camino v1.2.2
+   Compiling anyhow v1.0.102
+   Compiling regex-syntax v0.8.10
+   Compiling itoa v1.0.18
+   Compiling dylint_internal v5.0.0 (https://github.com/trailofbits/dylint?rev=0e0a71eefe6f01563d11acc6e1d7af1d505934a9#0e0a71ee)
+   Compiling rustversion v1.0.22
+   Compiling paste v1.0.15
+   Compiling log v0.4.29
+   Compiling pin-project-lite v0.2.17
+   Compiling toml_parser v1.1.2+spec-1.1.0
+   Compiling aho-corasick v1.1.4
+   Compiling crossbeam-epoch v0.9.18
+   Compiling crossbeam-queue v0.3.12
+   Compiling crossbeam-channel v0.5.15
+   Compiling crossbeam-deque v0.8.6
+   Compiling syn v2.0.117
+   Compiling crossbeam v0.8.4
+   Compiling serde_spanned v1.1.1
+   Compiling toml_datetime v1.1.1+spec-1.1.0
+   Compiling regex-automata v0.4.14
+   Compiling cargo-platform v0.3.3
+   Compiling semver v1.0.28
+   Compiling toml v1.1.2+spec-1.1.0
+   Compiling thiserror-impl v2.0.18
+   Compiling serde_derive v1.0.228
+   Compiling tokio-macros v2.7.0
+   Compiling dylint_linting v5.0.0 (https://github.com/trailofbits/dylint?rev=0e0a71eefe6f01563d11acc6e1d7af1d505934a9#0e0a71ee)
+   Compiling tokio v1.52.3
+   Compiling regex v1.12.3
+   Compiling cargo_metadata v0.23.1
+   Compiling octet v0.1.0 (/home/brittonr/git/slotcar)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 9.34s
+     Running unittests src/lib.rs (/tmp/tmp.kjw5XB1xpw/debug/deps/octet-06a19db794aff816)
+
+running 1 test
+test config::tests::octet_config_wins_over_legacy_slotcar_and_tigerstyle_config ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 39 filtered out; finished in 0.00s
+exit_code=0
+assert.octet_dylint_direct_precedence: PASS
+$ CARGO_TARGET_DIR=$(mktemp -d) nix develop -c bash -c 'cargo test --lib config::tests::parsed_octet_section_wins_over_legacy_sections -- --nocapture'
+warning: /home/brittonr/git/slotcar/cargo-octet/Cargo.toml: file `/home/brittonr/git/slotcar/cargo-octet/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `cargo-octet`
+  * `bin` target `cargo-slotcar`
+  * `bin` target `cargo-tigerstyle`
+warning: /home/brittonr/git/slotcar/crates/slotcar-standards/Cargo.toml: file `/home/brittonr/git/slotcar/crates/slotcar-standards/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `octet-standards`
+  * `bin` target `slotcar-standards`
+  * `bin` target `tigerstyle-standards`
+   Compiling serde_core v1.0.228
+   Compiling proc-macro2 v1.0.106
+   Compiling unicode-ident v1.0.24
+   Compiling quote v1.0.45
+   Compiling crossbeam-utils v0.8.21
+   Compiling memchr v2.8.0
+   Compiling winnow v1.0.3
+   Compiling zmij v1.0.21
+   Compiling toml_writer v1.1.1+spec-1.1.0
+   Compiling serde v1.0.228
+   Compiling serde_json v1.0.149
+   Compiling camino v1.2.2
+   Compiling thiserror v2.0.18
+   Compiling regex-syntax v0.8.10
+   Compiling anyhow v1.0.102
+   Compiling itoa v1.0.18
+   Compiling rustversion v1.0.22
+   Compiling dylint_internal v5.0.0 (https://github.com/trailofbits/dylint?rev=0e0a71eefe6f01563d11acc6e1d7af1d505934a9#0e0a71ee)
+   Compiling paste v1.0.15
+   Compiling log v0.4.29
+   Compiling pin-project-lite v0.2.17
+   Compiling toml_parser v1.1.2+spec-1.1.0
+   Compiling aho-corasick v1.1.4
+   Compiling crossbeam-epoch v0.9.18
+   Compiling crossbeam-queue v0.3.12
+   Compiling crossbeam-channel v0.5.15
+   Compiling crossbeam-deque v0.8.6
+   Compiling syn v2.0.117
+   Compiling crossbeam v0.8.4
+   Compiling regex-automata v0.4.14
+   Compiling semver v1.0.28
+   Compiling toml_datetime v1.1.1+spec-1.1.0
+   Compiling cargo-platform v0.3.3
+   Compiling serde_spanned v1.1.1
+   Compiling toml v1.1.2+spec-1.1.0
+   Compiling serde_derive v1.0.228
+   Compiling thiserror-impl v2.0.18
+   Compiling tokio-macros v2.7.0
+   Compiling tokio v1.52.3
+   Compiling dylint_linting v5.0.0 (https://github.com/trailofbits/dylint?rev=0e0a71eefe6f01563d11acc6e1d7af1d505934a9#0e0a71ee)
+   Compiling regex v1.12.3
+   Compiling cargo_metadata v0.23.1
+   Compiling octet v0.1.0 (/home/brittonr/git/slotcar)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 9.82s
+     Running unittests src/lib.rs (/tmp/tmp.XCeiXiearF/debug/deps/octet-06a19db794aff816)
+
+running 1 test
+test config::tests::parsed_octet_section_wins_over_legacy_sections ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 39 filtered out; finished in 0.00s
+exit_code=0
+assert.octet_dylint_parsed_precedence: PASS
+$ CARGO_TARGET_DIR=$(mktemp -d) nix develop -c bash -c 'cargo test --lib config::tests::parsed_slotcar_section_wins_over_tigerstyle_fallback -- --nocapture'
+warning: /home/brittonr/git/slotcar/cargo-octet/Cargo.toml: file `/home/brittonr/git/slotcar/cargo-octet/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `cargo-octet`
+  * `bin` target `cargo-slotcar`
+  * `bin` target `cargo-tigerstyle`
+warning: /home/brittonr/git/slotcar/crates/slotcar-standards/Cargo.toml: file `/home/brittonr/git/slotcar/crates/slotcar-standards/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `octet-standards`
+  * `bin` target `slotcar-standards`
+  * `bin` target `tigerstyle-standards`
+   Compiling serde_core v1.0.228
+   Compiling proc-macro2 v1.0.106
+   Compiling quote v1.0.45
+   Compiling unicode-ident v1.0.24
+   Compiling winnow v1.0.3
+   Compiling crossbeam-utils v0.8.21
+   Compiling memchr v2.8.0
+   Compiling zmij v1.0.21
+   Compiling toml_writer v1.1.1+spec-1.1.0
+   Compiling serde_json v1.0.149
+   Compiling serde v1.0.228
+   Compiling camino v1.2.2
+   Compiling thiserror v2.0.18
+   Compiling regex-syntax v0.8.10
+   Compiling anyhow v1.0.102
+   Compiling itoa v1.0.18
+   Compiling paste v1.0.15
+   Compiling dylint_internal v5.0.0 (https://github.com/trailofbits/dylint?rev=0e0a71eefe6f01563d11acc6e1d7af1d505934a9#0e0a71ee)
+   Compiling rustversion v1.0.22
+   Compiling log v0.4.29
+   Compiling pin-project-lite v0.2.17
+   Compiling toml_parser v1.1.2+spec-1.1.0
+   Compiling aho-corasick v1.1.4
+   Compiling crossbeam-epoch v0.9.18
+   Compiling crossbeam-channel v0.5.15
+   Compiling crossbeam-queue v0.3.12
+   Compiling crossbeam-deque v0.8.6
+   Compiling syn v2.0.117
+   Compiling crossbeam v0.8.4
+   Compiling regex-automata v0.4.14
+   Compiling serde_spanned v1.1.1
+   Compiling toml_datetime v1.1.1+spec-1.1.0
+   Compiling cargo-platform v0.3.3
+   Compiling semver v1.0.28
+   Compiling toml v1.1.2+spec-1.1.0
+   Compiling serde_derive v1.0.228
+   Compiling thiserror-impl v2.0.18
+   Compiling tokio-macros v2.7.0
+   Compiling dylint_linting v5.0.0 (https://github.com/trailofbits/dylint?rev=0e0a71eefe6f01563d11acc6e1d7af1d505934a9#0e0a71ee)
+   Compiling tokio v1.52.3
+   Compiling regex v1.12.3
+   Compiling cargo_metadata v0.23.1
+   Compiling octet v0.1.0 (/home/brittonr/git/slotcar)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 9.46s
+     Running unittests src/lib.rs (/tmp/tmp.D0WGn8RUFJ/debug/deps/octet-06a19db794aff816)
+
+running 1 test
+test config::tests::parsed_slotcar_section_wins_over_tigerstyle_fallback ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 39 filtered out; finished in 0.00s
+exit_code=0
+assert.slotcar_over_tigerstyle_fallback: PASS
+$ CARGO_TARGET_DIR=$(mktemp -d) nix develop -c bash -c 'cargo test -p cargo-octet config::tests::octet_metadata_wins_over_legacy_sections -- --nocapture'
+warning: /home/brittonr/git/slotcar/cargo-octet/Cargo.toml: file `/home/brittonr/git/slotcar/cargo-octet/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `cargo-octet`
+  * `bin` target `cargo-slotcar`
+  * `bin` target `cargo-tigerstyle`
+warning: /home/brittonr/git/slotcar/crates/slotcar-standards/Cargo.toml: file `/home/brittonr/git/slotcar/crates/slotcar-standards/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `octet-standards`
+  * `bin` target `slotcar-standards`
+  * `bin` target `tigerstyle-standards`
+   Compiling serde_core v1.0.228
+   Compiling proc-macro2 v1.0.106
+   Compiling shlex v1.3.0
+   Compiling find-msvc-tools v0.1.9
+   Compiling cfg-if v1.0.4
+   Compiling quote v1.0.45
+   Compiling unicode-ident v1.0.24
+   Compiling zmij v1.0.21
+   Compiling arrayref v0.3.9
+   Compiling arrayvec v0.7.6
+   Compiling cpufeatures v0.3.0
+   Compiling constant_time_eq v0.4.2
+   Compiling winnow v1.0.3
+   Compiling serde_json v1.0.149
+   Compiling serde v1.0.228
+   Compiling itoa v1.0.18
+   Compiling memchr v2.8.0
+   Compiling libc v0.2.186
+   Compiling toml_writer v1.1.1+spec-1.1.0
+   Compiling getrandom v0.4.2
+   Compiling rustix v1.1.4
+   Compiling linux-raw-sys v0.12.1
+   Compiling bitflags v2.11.1
+   Compiling once_cell v1.21.4
+   Compiling fastrand v2.4.1
+   Compiling cc v1.2.62
+   Compiling toml_parser v1.1.2+spec-1.1.0
+   Compiling syn v2.0.117
+   Compiling blake3 v1.8.5
+   Compiling toml_datetime v1.1.1+spec-1.1.0
+   Compiling serde_spanned v1.1.1
+   Compiling tempfile v3.27.0
+   Compiling toml v1.1.2+spec-1.1.0
+   Compiling serde_derive v1.0.228
+   Compiling cargo-octet v0.1.0 (/home/brittonr/git/slotcar/cargo-octet)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.74s
+     Running unittests src/main.rs (/tmp/tmp.AemN4xVp2D/debug/deps/cargo_octet-2effaf9a943ebe1f)
+
+running 1 test
+test config::tests::octet_metadata_wins_over_legacy_sections ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 18 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (/tmp/tmp.AemN4xVp2D/debug/deps/cargo_slotcar-48143f7c669aff01)
+
+running 1 test
+test config::tests::octet_metadata_wins_over_legacy_sections ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 18 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (/tmp/tmp.AemN4xVp2D/debug/deps/cargo_tigerstyle-611d3eb647e08459)
+
+running 1 test
+test config::tests::octet_metadata_wins_over_legacy_sections ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 18 filtered out; finished in 0.00s
+
+     Running tests/fingerprint_consumer.rs (/tmp/tmp.AemN4xVp2D/debug/deps/fingerprint_consumer-e64a4f0e00c6cfc9)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 12 filtered out; finished in 0.00s
+
+     Running tests/unison_roadmap.rs (/tmp/tmp.AemN4xVp2D/debug/deps/unison_roadmap-df01f34458c5b59b)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.00s
+exit_code=0
+assert.octet_workspace_metadata_precedence: PASS
+$ CARGO_TARGET_DIR=$(mktemp -d) nix develop -c bash -c 'cargo test -p cargo-octet config::tests::slotcar_metadata_remains_legacy_fallback -- --nocapture'
+warning: /home/brittonr/git/slotcar/cargo-octet/Cargo.toml: file `/home/brittonr/git/slotcar/cargo-octet/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `cargo-octet`
+  * `bin` target `cargo-slotcar`
+  * `bin` target `cargo-tigerstyle`
+warning: /home/brittonr/git/slotcar/crates/slotcar-standards/Cargo.toml: file `/home/brittonr/git/slotcar/crates/slotcar-standards/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `octet-standards`
+  * `bin` target `slotcar-standards`
+  * `bin` target `tigerstyle-standards`
+   Compiling serde_core v1.0.228
+   Compiling shlex v1.3.0
+   Compiling proc-macro2 v1.0.106
+   Compiling find-msvc-tools v0.1.9
+   Compiling quote v1.0.45
+   Compiling unicode-ident v1.0.24
+   Compiling cfg-if v1.0.4
+   Compiling zmij v1.0.21
+   Compiling cpufeatures v0.3.0
+   Compiling arrayvec v0.7.6
+   Compiling arrayref v0.3.9
+   Compiling constant_time_eq v0.4.2
+   Compiling serde v1.0.228
+   Compiling serde_json v1.0.149
+   Compiling winnow v1.0.3
+   Compiling libc v0.2.186
+   Compiling itoa v1.0.18
+   Compiling toml_writer v1.1.1+spec-1.1.0
+   Compiling memchr v2.8.0
+   Compiling getrandom v0.4.2
+   Compiling rustix v1.1.4
+   Compiling bitflags v2.11.1
+   Compiling linux-raw-sys v0.12.1
+   Compiling once_cell v1.21.4
+   Compiling fastrand v2.4.1
+   Compiling toml_parser v1.1.2+spec-1.1.0
+   Compiling cc v1.2.62
+   Compiling syn v2.0.117
+   Compiling blake3 v1.8.5
+   Compiling serde_spanned v1.1.1
+   Compiling toml_datetime v1.1.1+spec-1.1.0
+   Compiling tempfile v3.27.0
+   Compiling toml v1.1.2+spec-1.1.0
+   Compiling serde_derive v1.0.228
+   Compiling cargo-octet v0.1.0 (/home/brittonr/git/slotcar/cargo-octet)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.72s
+     Running unittests src/main.rs (/tmp/tmp.b8I0WbJnQm/debug/deps/cargo_octet-2effaf9a943ebe1f)
+
+running 1 test
+test config::tests::slotcar_metadata_remains_legacy_fallback ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 18 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (/tmp/tmp.b8I0WbJnQm/debug/deps/cargo_slotcar-48143f7c669aff01)
+
+running 1 test
+test config::tests::slotcar_metadata_remains_legacy_fallback ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 18 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (/tmp/tmp.b8I0WbJnQm/debug/deps/cargo_tigerstyle-611d3eb647e08459)
+
+running 1 test
+test config::tests::slotcar_metadata_remains_legacy_fallback ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 18 filtered out; finished in 0.00s
+
+     Running tests/fingerprint_consumer.rs (/tmp/tmp.b8I0WbJnQm/debug/deps/fingerprint_consumer-e64a4f0e00c6cfc9)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 12 filtered out; finished in 0.00s
+
+     Running tests/unison_roadmap.rs (/tmp/tmp.b8I0WbJnQm/debug/deps/unison_roadmap-df01f34458c5b59b)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.00s
+exit_code=0
+assert.legacy_workspace_metadata_fallback: PASS
+assert.octet_config_wins_over_legacy_config: PASS

@@ -1,0 +1,185 @@
+$ CARGO_TARGET_DIR=$(mktemp -d) nix develop -c bash -c 'cargo test --test consumer_integration no_argument_check_uses_workspace_metadata_defaults -- --nocapture'
+warning: /home/brittonr/git/slotcar/crates/slotcar-standards/Cargo.toml: file `/home/brittonr/git/slotcar/crates/slotcar-standards/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `octet-standards`
+  * `bin` target `slotcar-standards`
+  * `bin` target `tigerstyle-standards`
+warning: /home/brittonr/git/slotcar/cargo-octet/Cargo.toml: file `/home/brittonr/git/slotcar/cargo-octet/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `cargo-octet`
+  * `bin` target `cargo-slotcar`
+  * `bin` target `cargo-tigerstyle`
+   Compiling serde_core v1.0.228
+   Compiling proc-macro2 v1.0.106
+   Compiling unicode-ident v1.0.24
+   Compiling quote v1.0.45
+   Compiling memchr v2.8.0
+   Compiling crossbeam-utils v0.8.21
+   Compiling winnow v1.0.3
+   Compiling toml_writer v1.1.1+spec-1.1.0
+   Compiling zmij v1.0.21
+   Compiling thiserror v2.0.18
+   Compiling serde v1.0.228
+   Compiling camino v1.2.2
+   Compiling serde_json v1.0.149
+   Compiling anyhow v1.0.102
+   Compiling regex-syntax v0.8.10
+   Compiling itoa v1.0.18
+   Compiling rustversion v1.0.22
+   Compiling dylint_internal v5.0.0 (https://github.com/trailofbits/dylint?rev=0e0a71eefe6f01563d11acc6e1d7af1d505934a9#0e0a71ee)
+   Compiling paste v1.0.15
+   Compiling log v0.4.29
+   Compiling pin-project-lite v0.2.17
+   Compiling toml_parser v1.1.2+spec-1.1.0
+   Compiling aho-corasick v1.1.4
+   Compiling crossbeam-epoch v0.9.18
+   Compiling crossbeam-channel v0.5.15
+   Compiling crossbeam-queue v0.3.12
+   Compiling crossbeam-deque v0.8.6
+   Compiling syn v2.0.117
+   Compiling crossbeam v0.8.4
+   Compiling regex-automata v0.4.14
+   Compiling serde_spanned v1.1.1
+   Compiling toml_datetime v1.1.1+spec-1.1.0
+   Compiling semver v1.0.28
+   Compiling cargo-platform v0.3.3
+   Compiling toml v1.1.2+spec-1.1.0
+   Compiling serde_derive v1.0.228
+   Compiling thiserror-impl v2.0.18
+   Compiling tokio-macros v2.7.0
+   Compiling dylint_linting v5.0.0 (https://github.com/trailofbits/dylint?rev=0e0a71eefe6f01563d11acc6e1d7af1d505934a9#0e0a71ee)
+   Compiling tokio v1.52.3
+   Compiling regex v1.12.3
+   Compiling cargo_metadata v0.23.1
+   Compiling octet v0.1.0 (/home/brittonr/git/slotcar)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.79s
+     Running tests/consumer_integration.rs (/tmp/tmp.kQX6SxdEQq/debug/deps/consumer_integration-83496b2b6bc9a231)
+
+running 1 test
+test no_argument_check_uses_workspace_metadata_defaults ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 69 filtered out; finished in 4.01s
+exit_code=0
+$ CARGO_TARGET_DIR=$(mktemp -d) nix develop -c bash -c 'cargo test --test consumer_integration no_argument_check_from_nested_workspace_subdirectory_uses_workspace_metadata_defaults -- --nocapture'
+warning: /home/brittonr/git/slotcar/crates/slotcar-standards/Cargo.toml: file `/home/brittonr/git/slotcar/crates/slotcar-standards/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `octet-standards`
+  * `bin` target `slotcar-standards`
+  * `bin` target `tigerstyle-standards`
+warning: /home/brittonr/git/slotcar/cargo-octet/Cargo.toml: file `/home/brittonr/git/slotcar/cargo-octet/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `cargo-octet`
+  * `bin` target `cargo-slotcar`
+  * `bin` target `cargo-tigerstyle`
+   Compiling serde_core v1.0.228
+   Compiling proc-macro2 v1.0.106
+   Compiling unicode-ident v1.0.24
+   Compiling quote v1.0.45
+   Compiling winnow v1.0.3
+   Compiling memchr v2.8.0
+   Compiling crossbeam-utils v0.8.21
+   Compiling zmij v1.0.21
+   Compiling toml_writer v1.1.1+spec-1.1.0
+   Compiling serde_json v1.0.149
+   Compiling camino v1.2.2
+   Compiling thiserror v2.0.18
+   Compiling serde v1.0.228
+   Compiling regex-syntax v0.8.10
+   Compiling anyhow v1.0.102
+   Compiling itoa v1.0.18
+   Compiling dylint_internal v5.0.0 (https://github.com/trailofbits/dylint?rev=0e0a71eefe6f01563d11acc6e1d7af1d505934a9#0e0a71ee)
+   Compiling paste v1.0.15
+   Compiling rustversion v1.0.22
+   Compiling log v0.4.29
+   Compiling pin-project-lite v0.2.17
+   Compiling toml_parser v1.1.2+spec-1.1.0
+   Compiling aho-corasick v1.1.4
+   Compiling crossbeam-epoch v0.9.18
+   Compiling crossbeam-queue v0.3.12
+   Compiling crossbeam-channel v0.5.15
+   Compiling crossbeam-deque v0.8.6
+   Compiling syn v2.0.117
+   Compiling crossbeam v0.8.4
+   Compiling serde_spanned v1.1.1
+   Compiling toml_datetime v1.1.1+spec-1.1.0
+   Compiling cargo-platform v0.3.3
+   Compiling semver v1.0.28
+   Compiling regex-automata v0.4.14
+   Compiling toml v1.1.2+spec-1.1.0
+   Compiling serde_derive v1.0.228
+   Compiling thiserror-impl v2.0.18
+   Compiling tokio-macros v2.7.0
+   Compiling dylint_linting v5.0.0 (https://github.com/trailofbits/dylint?rev=0e0a71eefe6f01563d11acc6e1d7af1d505934a9#0e0a71ee)
+   Compiling tokio v1.52.3
+   Compiling regex v1.12.3
+   Compiling cargo_metadata v0.23.1
+   Compiling octet v0.1.0 (/home/brittonr/git/slotcar)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 7.97s
+     Running tests/consumer_integration.rs (/tmp/tmp.SLHOPKpimD/debug/deps/consumer_integration-83496b2b6bc9a231)
+
+running 1 test
+test no_argument_check_from_nested_workspace_subdirectory_uses_workspace_metadata_defaults ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 69 filtered out; finished in 6.91s
+exit_code=0
+$ CARGO_TARGET_DIR=$(mktemp -d) nix develop -c bash -c 'cargo test --test consumer_integration checked_in_nix_consumer_fixture_is_reviewable -- --nocapture'
+warning: /home/brittonr/git/slotcar/crates/slotcar-standards/Cargo.toml: file `/home/brittonr/git/slotcar/crates/slotcar-standards/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `octet-standards`
+  * `bin` target `slotcar-standards`
+  * `bin` target `tigerstyle-standards`
+warning: /home/brittonr/git/slotcar/cargo-octet/Cargo.toml: file `/home/brittonr/git/slotcar/cargo-octet/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `cargo-octet`
+  * `bin` target `cargo-slotcar`
+  * `bin` target `cargo-tigerstyle`
+   Compiling proc-macro2 v1.0.106
+   Compiling serde_core v1.0.228
+   Compiling quote v1.0.45
+   Compiling unicode-ident v1.0.24
+   Compiling memchr v2.8.0
+   Compiling winnow v1.0.3
+   Compiling crossbeam-utils v0.8.21
+   Compiling zmij v1.0.21
+   Compiling toml_writer v1.1.1+spec-1.1.0
+   Compiling camino v1.2.2
+   Compiling thiserror v2.0.18
+   Compiling serde_json v1.0.149
+   Compiling serde v1.0.228
+   Compiling regex-syntax v0.8.10
+   Compiling itoa v1.0.18
+   Compiling anyhow v1.0.102
+   Compiling rustversion v1.0.22
+   Compiling dylint_internal v5.0.0 (https://github.com/trailofbits/dylint?rev=0e0a71eefe6f01563d11acc6e1d7af1d505934a9#0e0a71ee)
+   Compiling paste v1.0.15
+   Compiling log v0.4.29
+   Compiling pin-project-lite v0.2.17
+   Compiling toml_parser v1.1.2+spec-1.1.0
+   Compiling aho-corasick v1.1.4
+   Compiling crossbeam-epoch v0.9.18
+   Compiling crossbeam-queue v0.3.12
+   Compiling crossbeam-channel v0.5.15
+   Compiling crossbeam-deque v0.8.6
+   Compiling syn v2.0.117
+   Compiling crossbeam v0.8.4
+   Compiling toml_datetime v1.1.1+spec-1.1.0
+   Compiling serde_spanned v1.1.1
+   Compiling regex-automata v0.4.14
+   Compiling cargo-platform v0.3.3
+   Compiling semver v1.0.28
+   Compiling toml v1.1.2+spec-1.1.0
+   Compiling serde_derive v1.0.228
+   Compiling thiserror-impl v2.0.18
+   Compiling tokio-macros v2.7.0
+   Compiling dylint_linting v5.0.0 (https://github.com/trailofbits/dylint?rev=0e0a71eefe6f01563d11acc6e1d7af1d505934a9#0e0a71ee)
+   Compiling tokio v1.52.3
+   Compiling regex v1.12.3
+   Compiling cargo_metadata v0.23.1
+   Compiling octet v0.1.0 (/home/brittonr/git/slotcar)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 24.04s
+     Running tests/consumer_integration.rs (/tmp/tmp.SEcrmAxw8M/debug/deps/consumer_integration-83496b2b6bc9a231)
+
+running 1 test
+test checked_in_nix_consumer_fixture_is_reviewable ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 69 filtered out; finished in 0.00s
+exit_code=0
+$ python3 assert workspace metadata fixture contents
+assert.fixture.uses_workspace_metadata_octet: PASS
+assert.fixture.default_scope_good: PASS
+assert.fixture.cargo_check_args_lib: PASS
+assert.fixture.no_legacy_workspace_metadata_slotcar: PASS
