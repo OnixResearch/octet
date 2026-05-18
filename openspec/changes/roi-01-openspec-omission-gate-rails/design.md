@@ -2,9 +2,9 @@
 
 Prior Octet changes hardened individual OpenSpec template contracts, but review
 metrics still show omission findings as the largest repeated failure class:
-design prompt omissions repeat 79 times, spec prompt omissions 40 times,
+design prompt omissions repeat 80 times, spec prompt omissions 41 times,
 proposal prompt omissions 33 times, and task-level human/auto-fix omission
-findings repeat 22 and 16 times. The repeated examples are not arbitrary prose
+findings repeat 23 and 16 times. The repeated examples are not arbitrary prose
 style issues; they are missing scenario coverage, boundary cases, proof signals,
 verification expectations, and self-verifiable task inputs.
 
@@ -53,7 +53,7 @@ requirement has non-trigger, continued-warning, or continued-blocking behavior.
 **Choice:** extend repo-local proposal/design/tasks rules so gate prompts repeat
 the same promoted omission checks as the templates.
 
-**Covers:** `Scenario: Config guidance includes promoted omission-prevention checks`; `Scenario: Human checkpoint guidance blocks implicit oracle inputs`
+**Covers:** `Scenario: Config guidance includes promoted omission-prevention checks`; `Scenario: Config task guidance includes promoted task omission checks`; `Scenario: Human checkpoint guidance blocks implicit oracle inputs`
 
 **Rationale:** template text alone helps humans, but gate prompts need the same
 criteria so reviewers flag the same gaps consistently.
@@ -74,7 +74,7 @@ blockers unchanged so deterministic tests do not lose their stable messages.
 that extracts the required prompt lines from templates/config and writes stable
 artifacts; then run `openspec validate` and stage gates.
 
-**Covers:** `Scenario: Maintainer sees repeated proposal omission checks before drafting`; `Scenario: Maintainer sees repeated delta-spec omission checks before review`; `Scenario: Maintainer sees repeated design omission checks before implementation`; `Scenario: Config guidance includes promoted omission-prevention checks`; `Scenario: Maintainer sees repeated task omission checks before gate review`; `Scenario: Human checkpoint guidance blocks implicit oracle inputs`
+**Covers:** `Scenario: Maintainer sees repeated proposal omission checks before drafting`; `Scenario: Maintainer sees repeated delta-spec omission checks before review`; `Scenario: Maintainer sees repeated design omission checks before implementation`; `Scenario: Config guidance includes promoted omission-prevention checks`; `Scenario: Config task guidance includes promoted task omission checks`; `Scenario: Maintainer sees repeated task omission checks before gate review`; `Scenario: Human checkpoint guidance blocks implicit oracle inputs`
 
 **Rationale:** reviewers need inspectable proof that the prompts exist and that
 existing OpenSpec contracts still validate.
@@ -83,7 +83,7 @@ existing OpenSpec contracts still validate.
 saved deterministic artifacts for OpenSpec evidence.
 
 **Implementation:** add `evidence/update-omission-artifacts.py` that prints and
-asserts exact snippets for each stage. Save outputs under the active change's
+asserts exact snippets for each stage plus preserved template contracts: proposal/design heading order, spec guidance comments, and task status layout. Save outputs under the active change's
 `evidence/` directory, then archive paths will be rewritten naturally by
 OpenSpec archive if the change is completed later.
 
@@ -134,12 +134,13 @@ the non-oracle proof; do not mark the H-task complete without a gate transcript.
 
 - scenario or requirement:
   - `Scenario: Config guidance includes promoted omission-prevention checks`
+  - `Scenario: Config task guidance includes promoted task omission checks`
 - artifact path:
   - `openspec/changes/roi-01-openspec-omission-gate-rails/evidence/config-omission-guidance.txt`
 - command / helper:
   - `python3 openspec/changes/roi-01-openspec-omission-gate-rails/evidence/update-omission-artifacts.py`
 - exact expected output / acceptance signal:
-  - artifact prints final `openspec/config.yaml` rule lines that mention proposal evidence/artifact expectations, spec boundary/negative cases, design coverage/proof signals, and task oracle replay fields
+  - artifact prints final `openspec/config.yaml` rule lines that mention proposal evidence/artifact expectations, spec boundary/negative cases, design coverage/proof signals, task split/coverage obligations, and task oracle replay fields
 - ordering / prerequisites:
   - patch `openspec/config.yaml` after template wording is final
 - cleanup / postcondition:
@@ -156,6 +157,49 @@ the non-oracle proof; do not mark the H-task complete without a gate transcript.
   - artifact prints task-template lines mentioning split I/V/H units, one scenario per coverage row, and exact H-task `command=`, `input=`, `asserts=`, `evidence=` fields
 - ordering / prerequisites:
   - patch `openspec/templates/tasks.md` first
+- cleanup / postcondition:
+  - no temp files remain
+
+- scenario or requirement:
+  - repeated review-metrics omission source evidence
+- artifact path:
+  - `openspec/changes/roi-01-openspec-omission-gate-rails/evidence/review-metrics-omissions.txt`
+- command / helper:
+  - `review_metrics_promotions --cwd /home/brittonr/git/octet --min 2 --limit 5`
+- exact expected output / acceptance signal:
+  - artifact lists repeated omission classes for proposal/spec/design/tasks with counts that motivate the promoted prompts
+- ordering / prerequisites:
+  - capture after current review metrics are available
+- cleanup / postcondition:
+  - no temp files remain
+
+- scenario or requirement:
+  - active change validity
+- artifact path:
+  - `openspec/changes/roi-01-openspec-omission-gate-rails/evidence/openspec-validate.txt`
+- command / helper:
+  - `openspec validate roi-01-openspec-omission-gate-rails --strict --json`
+- exact expected output / acceptance signal:
+  - artifact shows the active change is valid with zero issues
+- ordering / prerequisites:
+  - run after template, config, task, and spec updates
+- cleanup / postcondition:
+  - no temp files remain
+
+- scenario or requirement:
+  - proposal/design/tasks stage gate oracle review
+- artifact path:
+  - `openspec/changes/roi-01-openspec-omission-gate-rails/evidence/proposal-gate.txt`
+  - `openspec/changes/roi-01-openspec-omission-gate-rails/evidence/design-gate.txt`
+  - `openspec/changes/roi-01-openspec-omission-gate-rails/evidence/tasks-gate.txt`
+- command / helper:
+  - `openspec_gate stage=proposal change=roi-01-openspec-omission-gate-rails`
+  - `openspec_gate stage=design change=roi-01-openspec-omission-gate-rails`
+  - `openspec_gate stage=tasks change=roi-01-openspec-omission-gate-rails`
+- exact expected output / acceptance signal:
+  - each artifact includes a passing verdict or records an explicit blocker transcript that keeps the corresponding H-task open
+- ordering / prerequisites:
+  - run after deterministic artifacts and validation pass
 - cleanup / postcondition:
   - no temp files remain
 
