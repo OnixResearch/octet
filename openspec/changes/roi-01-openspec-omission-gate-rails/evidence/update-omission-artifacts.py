@@ -44,6 +44,7 @@ def main() -> None:
             ),
             require(proposal, "- **Files / artifacts**: <exact repo-relative paths touched by this change>", "proposal files prompt"),
             require(proposal, "- **Verification / evidence**: <saved artifacts or helper/gate runs planned for review>", "proposal evidence prompt"),
+            "preserved heading order: ## Why -> ## What Changes -> ## Non-Goals -> ## Capabilities -> ## Impact",
         ],
     )
 
@@ -58,6 +59,7 @@ def main() -> None:
             ),
             require(spec, "<!-- If acceptance depends on a saved artifact, describe the artifact's exact expected output or schema in the requirement body, not only the path. -->", "spec proof artifact prompt"),
             require(spec, "#### Scenario: <scenario heading>", "spec scenario prompt"),
+            "preserved repo-specific guidance comments: exact proof output/schema and scenario reminder",
         ],
     )
 
@@ -73,6 +75,7 @@ def main() -> None:
             require(design, "**Covers:** <exact delta-spec scenario headings or requirement headings this decision satisfies>", "design coverage prompt"),
             require(design, "**Boundary cases:** <negative controls, continued-warning cases, or intentional gaps reviewers must see>", "design boundary prompt"),
             require(design, "- exact expected output / acceptance signal:", "design proof signal prompt"),
+            "preserved design contract: heading order, **Covers:** labels, boundary labels, deterministic proof-plan labels",
         ],
     )
 
@@ -80,6 +83,8 @@ def main() -> None:
         "    - \"Follow `openspec/templates/proposal.md`; name exact repo-relative files/artifacts, ordering/dependencies, explicit non-goal boundaries, and planned saved evidence or helper/gate runs before drafting specs or tasks\"",
         "    - \"Follow `openspec/templates/spec.md` for delta-spec authoring; keep change-local specs in delta form, start each added or modified requirement with `The system MUST ...`, give every added or modified requirement at least one `#### Scenario:` block, enumerate boundary cases/negative controls/continued-warning or continued-blocking cases when behavior has non-trigger or regression-catching paths, and describe exact proof output/schema when artifacts matter\"",
         "    - \"Follow `openspec/templates/design.md`; every added or modified scenario heading or zero-scenario requirement must appear in a decision's `**Covers:**` field; name boundary cases, continued-warning cases, and intentional gaps reviewers must see; every saved proof artifact must state its exact expected output or acceptance signal\"",
+        "    - \"Keep implementation, deterministic verification, and human/oracle checkpoints in separate checkbox units; an `I<n>` task becomes invalid if it includes markers like `verify`, `save`, `capture`, `evidence=`, or a repo-relative `evidence/` path\"",
+        "    - \"Compare `tasks.md` against the delta-spec scenario headings and keep one `## Verification Coverage` row per added or modified scenario, even when multiple rows share one artifact\"",
         "    - \"`H<n>` tasks are invalid unless they include exact `command=`, pinned `input=` or prerequisite artifact, one `asserts=` claim, and saved `evidence=` path; broad workflows, implicit inputs, bundled assertions, or missing evidence paths are underspecified\"",
     ]
     write_artifact(
@@ -101,6 +106,7 @@ def main() -> None:
             require(tasks, "- Before marking a change ready, read the delta specs and ensure every added or modified `Scenario:` heading appears in `## Verification Coverage` exactly once. Shared artifacts still need separate scenario rows.", "coverage prompt"),
             require(tasks, "- Treat an `H<n>` checkbox as underspecified if `command=` is a broad workflow instead of an exact command/helper, `input=` omits the pinned fixture or prerequisite artifact, `asserts=` bundles multiple human claims, or `evidence=` omits the saved review artifact path.", "oracle underspec prompt"),
             require(tasks, "- [ ] H1 Human/oracle checkpoint: command=`<exact command or helper path>`; input=`<pinned revision, fixture, or prerequisite artifact>`; asserts=`<single human claim>`; evidence=`openspec/changes/<change>/evidence/<artifact>.txt`", "oracle task example"),
+            "preserved status layout: ## Change Status immediately before ## Verification Coverage with required status/open-task lines",
         ],
     )
 

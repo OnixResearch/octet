@@ -1,0 +1,6 @@
+$ review_metrics_promotions --cwd /home/brittonr/git/octet --min 2 --limit 5
+1. count=80 key=omission|design|prompt sources=openspec-gate=80 stages=design=80
+2. count=41 key=omission|spec|prompt sources=openspec-gate=40, done-review=1 stages=proposal=39, auto=1, design=1
+3. count=33 key=omission|proposal|prompt sources=openspec-gate=33 stages=proposal=33
+4. count=23 key=omission|tasks|human sources=openspec-gate=20, done-review=3 stages=tasks=20, auto=3
+5. count=16 key=omission|tasks|auto-fix sources=openspec-gate=16 stages=tasks=16

@@ -38,3 +38,19 @@ implicit input, multi-claim assertion, or missing evidence path.
   helper path
 - AND it tells them to provide the exact pinned input or prerequisite artifact
 - AND it tells them to provide one assertion and one evidence path
+
+### Requirement: Tasks-Stage Config Guidance Names Omission Checks
+
+`openspec/config.yaml` MUST include tasks-stage rules that mention the repeated
+omission-prevention prompts for split implementation/proof tasks, one-row-per-
+scenario coverage, and exact human/oracle replay fields.
+
+#### Scenario: Config task guidance includes promoted task omission checks
+
+- GIVEN repo-local OpenSpec stage guidance reads `openspec/config.yaml`
+- WHEN tasks-stage prompts are prepared for a new change
+- THEN the tasks rules mention split implementation, verification, and
+  human/oracle tasks
+- AND the tasks rules mention one verification coverage row per scenario
+- AND the tasks rules mention exact `H<n>` `command=`, `input=`, `asserts=`,
+  and `evidence=` fields

@@ -1,5 +1,6 @@
 ## Phase 1: Implementation
 
+- [x] I0 [serial] Update delta specs under `openspec/changes/roi-01-openspec-omission-gate-rails/specs/` to capture promoted omission-prevention behavior for stage-authoring and task-governance. ✅ 1m (completed: 2026-05-18T17:44:00Z)
 - [x] I1 [serial] Update `openspec/templates/proposal.md`, `openspec/templates/spec.md`, and `openspec/templates/design.md` with omission-prevention prompts for the promoted proposal/spec/design omission classes. ✅ 4m (completed: 2026-05-18T17:32:05Z)
 - [x] I2 [serial] Update `openspec/templates/tasks.md` with omission-prevention prompts for split implementation/proof tasks, one-row-per-scenario coverage, and exact `H<n>` replay fields. ✅ 3m (completed: 2026-05-18T17:36:03Z)
 - [x] I3 [serial] Update `openspec/config.yaml` stage rules so proposal/spec/design/tasks prompts name the same omission-prevention obligations. ✅ 2m (completed: 2026-05-18T17:37:18Z)
@@ -14,6 +15,8 @@
 - [x] V5 [depends:I2] Verify scenario "Maintainer sees repeated task omission checks before gate review" with `python3 openspec/changes/roi-01-openspec-omission-gate-rails/evidence/update-omission-artifacts.py`; save output at `openspec/changes/roi-01-openspec-omission-gate-rails/evidence/tasks-template-omission-prompts.txt`. ✅ 1m (completed: 2026-05-18T17:40:05Z)
 - [x] V6 [depends:I2] Verify scenario "Human checkpoint guidance blocks implicit oracle inputs" with `python3 openspec/changes/roi-01-openspec-omission-gate-rails/evidence/update-omission-artifacts.py`; save output at `openspec/changes/roi-01-openspec-omission-gate-rails/evidence/tasks-template-omission-prompts.txt`. ✅ 1m (completed: 2026-05-18T17:40:05Z)
 - [x] V7 [depends:I1] Verify active change validity with `openspec validate roi-01-openspec-omission-gate-rails --strict --json`; save output at `openspec/changes/roi-01-openspec-omission-gate-rails/evidence/openspec-validate.txt`. ✅ 1m (completed: 2026-05-18T17:40:05Z)
+- [x] V8 [depends:I3] Verify scenario "Config task guidance includes promoted task omission checks" with `python3 openspec/changes/roi-01-openspec-omission-gate-rails/evidence/update-omission-artifacts.py`; save output at `openspec/changes/roi-01-openspec-omission-gate-rails/evidence/config-omission-guidance.txt`. ✅ 1m (completed: 2026-05-18T17:44:00Z)
+- [x] V9 [depends:I0] Verify repeated omission source metrics with `review_metrics_promotions --cwd /home/brittonr/git/octet --min 2 --limit 5`; save output at `openspec/changes/roi-01-openspec-omission-gate-rails/evidence/review-metrics-omissions.txt`. ✅ 1m (completed: 2026-05-18T17:44:00Z)
 
 ## Phase 3: Human/oracle checkpoints
 
@@ -33,3 +36,4 @@ Use `Open tasks: none` only when every governed `I<n>`, `V<n>`, and `H<n>` task 
 - `Scenario: Config guidance includes promoted omission-prevention checks` -> `V4` -> `openspec/changes/roi-01-openspec-omission-gate-rails/evidence/config-omission-guidance.txt`
 - `Scenario: Maintainer sees repeated task omission checks before gate review` -> `V5` -> `openspec/changes/roi-01-openspec-omission-gate-rails/evidence/tasks-template-omission-prompts.txt`
 - `Scenario: Human checkpoint guidance blocks implicit oracle inputs` -> `V6` -> `openspec/changes/roi-01-openspec-omission-gate-rails/evidence/tasks-template-omission-prompts.txt`
+- `Scenario: Config task guidance includes promoted task omission checks` -> `V8` -> `openspec/changes/roi-01-openspec-omission-gate-rails/evidence/config-omission-guidance.txt`

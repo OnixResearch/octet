@@ -3,3 +3,4 @@
 <!-- Omission-prevention checklist: name planned verification/evidence expectations, exact affected files/artifacts, and explicit non-goal boundaries before writing specs or tasks. -->
 - **Files / artifacts**: <exact repo-relative paths touched by this change>
 - **Verification / evidence**: <saved artifacts or helper/gate runs planned for review>
+preserved heading order: ## Why -> ## What Changes -> ## Non-Goals -> ## Capabilities -> ## Impact

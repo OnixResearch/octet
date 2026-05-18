@@ -4,3 +4,4 @@
 **Covers:** <exact delta-spec scenario headings or requirement headings this decision satisfies>
 **Boundary cases:** <negative controls, continued-warning cases, or intentional gaps reviewers must see>
 - exact expected output / acceptance signal:
+preserved design contract: heading order, **Covers:** labels, boundary labels, deterministic proof-plan labels
