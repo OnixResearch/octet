@@ -11,7 +11,6 @@
     "bool_naming_macro_fallback",
     "borrowed_argument_types",
     "catch_all_on_enum",
-    "deref_polymorphism",
     "clone_then_borrow",
     "compound_assertion",
     "compound_assertion_indented",
@@ -20,7 +19,12 @@
     "compound_assertion_or_guardrail",
     "compound_condition",
     "contradictory_time",
+    "deref_polymorphism",
+    "drop_must_use",
+    "excessive_file_length",
+    "excessive_file_length_within_limit",
     "explicit_defaults/explicit_defaults",
+    "fallible_int_fallback",
     "float_for_currency",
     "function_length",
     "function_length_custom/function_length_custom",
@@ -29,6 +33,7 @@
     "ignored_result",
     "ignored_result_drop",
     "ignored_result_shutdown_send",
+    "magic_number",
     "max_parameters_custom/max_parameters_custom",
     "multi_lock_ordering",
     "negated_predicate",
@@ -87,10 +92,11 @@
     "verified/verified_purity"
   ],
   "expected_failures": [
-    "verified/verified_purity",
-    "no_unwrap_tool_attr",
     "group_deny_naming",
-    "no_unwrap_deny_custom/no_unwrap_deny_custom"
+    "magic_number",
+    "no_unwrap_deny_custom/no_unwrap_deny_custom",
+    "no_unwrap_tool_attr",
+    "verified/verified_purity"
   ],
   "canonical_tool_group_fixtures": [
     "group_allow_safety",

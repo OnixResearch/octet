@@ -238,11 +238,13 @@ fn build_driver(toolchain: &str) -> PathBuf {
 }
 
 fn normalize_stderr(stderr: &str, fixture_path: &Path) -> String {
-    let ui_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("ui_tests");
+    let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let ui_dir = manifest_dir.join("ui_tests");
     let relative = fixture_path.strip_prefix(&ui_dir).expect("fixture under ui_tests").to_string_lossy();
     stderr
         .replace("\r\n", "\n")
         .replace(fixture_path.to_string_lossy().as_ref(), &format!("$DIR/{relative}"))
+        .replace(manifest_dir.to_string_lossy().as_ref(), "$ROOT")
 }
 
 fn extra_rustc_args(name: &str) -> &'static [&'static str] {
@@ -250,6 +252,9 @@ fn extra_rustc_args(name: &str) -> &'static [&'static str] {
         "no_panic"
         | "no_todo"
         | "no_unwrap"
+        | "drop_must_use"
+        | "fallible_int_fallback"
+        | "magic_number"
         | "explicit_defaults/explicit_defaults"
         | "too_many_parameters"
         | "sentinel_fallback" => &["--cfg", "test"],

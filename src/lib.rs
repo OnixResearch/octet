@@ -144,6 +144,13 @@ lint_inventory! {
     "numeric_units", naming::numeric_units::NUMERIC_UNITS => |lint_store, _cfg| {
         lint_store.register_early_pass(|| Box::new(naming::numeric_units::NumericUnits));
     },
+    "magic_number", structure::magic_number::MAGIC_NUMBER => |lint_store, _cfg| {
+        lint_store.register_late_pass(|_| Box::new(structure::magic_number::MagicNumber));
+    },
+    "excessive_file_length", structure::excessive_file_length::EXCESSIVE_FILE_LENGTH => |lint_store, cfg| {
+        let max_lines = cfg.excessive_file_length_max;
+        lint_store.register_early_pass(move || Box::new(structure::excessive_file_length::ExcessiveFileLength::new(max_lines)));
+    },
     "unbounded_loop", safety::unbounded_loop::UNBOUNDED_LOOP => |lint_store, _cfg| {
         lint_store.register_late_pass(|_| Box::new(safety::unbounded_loop::UnboundedLoop));
     },
@@ -206,6 +213,12 @@ lint_inventory! {
     },
     "ignored_result", safety::ignored_result::IGNORED_RESULT => |lint_store, _cfg| {
         lint_store.register_late_pass(|_| Box::new(safety::ignored_result::IgnoredResult));
+    },
+    "drop_must_use", safety::drop_must_use::DROP_MUST_USE => |lint_store, _cfg| {
+        lint_store.register_late_pass(|_| Box::new(safety::drop_must_use::DropMustUse));
+    },
+    "fallible_int_fallback", safety::fallible_int_fallback::FALLIBLE_INT_FALLBACK => |lint_store, _cfg| {
+        lint_store.register_late_pass(|_| Box::new(safety::fallible_int_fallback::FallibleIntFallback));
     },
     "unchecked_narrowing", safety::unchecked_narrowing::UNCHECKED_NARROWING => |lint_store, _cfg| {
         lint_store.register_late_pass(|_| Box::new(safety::unchecked_narrowing::UncheckedNarrowing));
@@ -634,6 +647,9 @@ mod tests {
 
     const AUTOFIX_OUT_OF_SCOPE_LINTS: &[&str] = &[
         "assertion_density",
+        "drop_must_use",
+        "fallible_int_fallback",
+        "magic_number",
         "function_length",
         "ambiguous_params",
         "no_recursion",
@@ -699,6 +715,9 @@ mod tests {
             "unbounded_channel" => "src/safety/unbounded_channel.rs",
             "unbounded_collection_growth" => "src/safety/unbounded_collection_growth.rs",
             "sentinel_fallback" => "src/safety/sentinel_fallback.rs",
+            "magic_number" => "src/structure/magic_number.rs",
+            "drop_must_use" => "src/safety/drop_must_use.rs",
+            "fallible_int_fallback" => "src/safety/fallible_int_fallback.rs",
             "usize_in_public_api" => "src/structure/usize_in_public_api.rs",
             "borrowed_argument_types" => "src/structure/borrowed_argument_types.rs",
             "clone_then_borrow" => "src/performance/clone_then_borrow.rs",

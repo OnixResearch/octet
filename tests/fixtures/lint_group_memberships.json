@@ -10,6 +10,8 @@
       "unbounded_collection_growth",
       "sentinel_fallback",
       "ignored_result",
+      "drop_must_use",
+      "fallible_int_fallback",
       "unchecked_narrowing",
       "unchecked_division",
       "catch_all_on_enum",
@@ -42,6 +44,8 @@
     "group_name": "tigerstyle::structure",
     "lint_names": [
       "function_length",
+      "magic_number",
+      "excessive_file_length",
       "compound_condition",
       "unjustified_allow",
       "nested_conditionals",

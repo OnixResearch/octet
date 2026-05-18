@@ -36,6 +36,24 @@
     "example_text": "timeout_ms"
   },
   {
+    "lint_name": "magic_number",
+    "principle": "Named Constants",
+    "guide_section": "Explicit Defaults / Named Constants",
+    "domain_group": "tigerstyle::structure",
+    "guidance": "extract policy thresholds and domain values into named constants or configuration fields",
+    "example_mode": "required",
+    "example_text": "const RECONNECT_TIMEOUT_MS: u64 = 30_000;"
+  },
+  {
+    "lint_name": "excessive_file_length",
+    "principle": "File Length",
+    "guide_section": "File Length",
+    "domain_group": "tigerstyle::structure",
+    "guidance": "split oversized source files along module or responsibility boundaries",
+    "example_mode": "required",
+    "example_text": "mod parser; mod planner; mod executor;"
+  },
+  {
     "lint_name": "unbounded_loop",
     "principle": "Bounded Control Flow",
     "guide_section": "Bounded Control Flow",
@@ -205,6 +223,24 @@
     "guidance": "handle fallible results explicitly with `?`, `match`, or an intentional logged drop",
     "example_mode": "required",
     "example_text": "tx.send(msg)?;"
+  },
+  {
+    "lint_name": "drop_must_use",
+    "principle": "Error Handling",
+    "guide_section": "Error Handling",
+    "domain_group": "tigerstyle::safety",
+    "guidance": "handle must-use values explicitly instead of hiding them behind `drop(...)`",
+    "example_mode": "required",
+    "example_text": "match result { Ok(value) => value, Err(error) => return Err(error) }"
+  },
+  {
+    "lint_name": "fallible_int_fallback",
+    "principle": "Error Handling",
+    "guide_section": "Error Handling",
+    "domain_group": "tigerstyle::safety",
+    "guidance": "propagate integer conversion failures instead of replacing them with sentinel or default values",
+    "example_mode": "required",
+    "example_text": "let id = u32::try_from(raw)?;"
   },
   {
     "lint_name": "unchecked_narrowing",
