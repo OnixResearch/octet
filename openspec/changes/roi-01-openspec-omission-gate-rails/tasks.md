@@ -7,13 +7,13 @@
 
 ## Phase 2: Deterministic verification
 
-- [ ] V1 [depends:I1] Verify scenario "Maintainer sees repeated proposal omission checks before drafting" with `python3 openspec/changes/roi-01-openspec-omission-gate-rails/evidence/update-omission-artifacts.py`; save output at `openspec/changes/roi-01-openspec-omission-gate-rails/evidence/proposal-template-omission-prompts.txt`.
-- [ ] V2 [depends:I1] Verify scenario "Maintainer sees repeated delta-spec omission checks before review" with `python3 openspec/changes/roi-01-openspec-omission-gate-rails/evidence/update-omission-artifacts.py`; save output at `openspec/changes/roi-01-openspec-omission-gate-rails/evidence/spec-template-omission-prompts.txt`.
-- [ ] V3 [depends:I1] Verify scenario "Maintainer sees repeated design omission checks before implementation" with `python3 openspec/changes/roi-01-openspec-omission-gate-rails/evidence/update-omission-artifacts.py`; save output at `openspec/changes/roi-01-openspec-omission-gate-rails/evidence/design-template-omission-prompts.txt`.
-- [ ] V4 [depends:I3] Verify scenario "Config guidance includes promoted omission-prevention checks" with `python3 openspec/changes/roi-01-openspec-omission-gate-rails/evidence/update-omission-artifacts.py`; save output at `openspec/changes/roi-01-openspec-omission-gate-rails/evidence/config-omission-guidance.txt`.
-- [ ] V5 [depends:I2] Verify scenario "Maintainer sees repeated task omission checks before gate review" with `python3 openspec/changes/roi-01-openspec-omission-gate-rails/evidence/update-omission-artifacts.py`; save output at `openspec/changes/roi-01-openspec-omission-gate-rails/evidence/tasks-template-omission-prompts.txt`.
-- [ ] V6 [depends:I2] Verify scenario "Human checkpoint guidance blocks implicit oracle inputs" with `python3 openspec/changes/roi-01-openspec-omission-gate-rails/evidence/update-omission-artifacts.py`; save output at `openspec/changes/roi-01-openspec-omission-gate-rails/evidence/tasks-template-omission-prompts.txt`.
-- [ ] V7 [depends:I1] Verify active change validity with `openspec validate roi-01-openspec-omission-gate-rails --strict --json`; save output at `openspec/changes/roi-01-openspec-omission-gate-rails/evidence/openspec-validate.txt`.
+- [x] V1 [depends:I1] Verify scenario "Maintainer sees repeated proposal omission checks before drafting" with `python3 openspec/changes/roi-01-openspec-omission-gate-rails/evidence/update-omission-artifacts.py`; save output at `openspec/changes/roi-01-openspec-omission-gate-rails/evidence/proposal-template-omission-prompts.txt`. ✅ 1m (completed: 2026-05-18T17:40:05Z)
+- [x] V2 [depends:I1] Verify scenario "Maintainer sees repeated delta-spec omission checks before review" with `python3 openspec/changes/roi-01-openspec-omission-gate-rails/evidence/update-omission-artifacts.py`; save output at `openspec/changes/roi-01-openspec-omission-gate-rails/evidence/spec-template-omission-prompts.txt`. ✅ 1m (completed: 2026-05-18T17:40:05Z)
+- [x] V3 [depends:I1] Verify scenario "Maintainer sees repeated design omission checks before implementation" with `python3 openspec/changes/roi-01-openspec-omission-gate-rails/evidence/update-omission-artifacts.py`; save output at `openspec/changes/roi-01-openspec-omission-gate-rails/evidence/design-template-omission-prompts.txt`. ✅ 1m (completed: 2026-05-18T17:40:05Z)
+- [x] V4 [depends:I3] Verify scenario "Config guidance includes promoted omission-prevention checks" with `python3 openspec/changes/roi-01-openspec-omission-gate-rails/evidence/update-omission-artifacts.py`; save output at `openspec/changes/roi-01-openspec-omission-gate-rails/evidence/config-omission-guidance.txt`. ✅ 1m (completed: 2026-05-18T17:40:05Z)
+- [x] V5 [depends:I2] Verify scenario "Maintainer sees repeated task omission checks before gate review" with `python3 openspec/changes/roi-01-openspec-omission-gate-rails/evidence/update-omission-artifacts.py`; save output at `openspec/changes/roi-01-openspec-omission-gate-rails/evidence/tasks-template-omission-prompts.txt`. ✅ 1m (completed: 2026-05-18T17:40:05Z)
+- [x] V6 [depends:I2] Verify scenario "Human checkpoint guidance blocks implicit oracle inputs" with `python3 openspec/changes/roi-01-openspec-omission-gate-rails/evidence/update-omission-artifacts.py`; save output at `openspec/changes/roi-01-openspec-omission-gate-rails/evidence/tasks-template-omission-prompts.txt`. ✅ 1m (completed: 2026-05-18T17:40:05Z)
+- [x] V7 [depends:I1] Verify active change validity with `openspec validate roi-01-openspec-omission-gate-rails --strict --json`; save output at `openspec/changes/roi-01-openspec-omission-gate-rails/evidence/openspec-validate.txt`. ✅ 1m (completed: 2026-05-18T17:40:05Z)
 
 ## Phase 3: Human/oracle checkpoints
 
@@ -23,7 +23,7 @@
 
 ## Change Status
 - Status: in-progress
-- Open tasks: V1, V2, V3, V4, V5, V6, V7, H1, H2, H3
+- Open tasks: H1, H2, H3
 Use `Open tasks: none` only when every governed `I<n>`, `V<n>`, and `H<n>` task checkbox is checked.
 ## Verification Coverage
 

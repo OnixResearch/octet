@@ -1,0 +1,27 @@
+$ openspec validate roi-01-openspec-omission-gate-rails --strict --json
+{
+  "items": [
+    {
+      "id": "roi-01-openspec-omission-gate-rails",
+      "type": "change",
+      "valid": true,
+      "issues": [],
+      "durationMs": 1
+    }
+  ],
+  "summary": {
+    "totals": {
+      "items": 1,
+      "passed": 1,
+      "failed": 0
+    },
+    "byType": {
+      "change": {
+        "items": 1,
+        "passed": 1,
+        "failed": 0
+      }
+    }
+  },
+  "version": "1.0"
+}

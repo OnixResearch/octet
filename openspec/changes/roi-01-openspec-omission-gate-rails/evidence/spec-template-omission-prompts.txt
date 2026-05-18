@@ -1,0 +1,5 @@
+# Delta Spec Template Omission Prompts
+
+<!-- Omission-prevention checklist: enumerate boundary cases, negative controls, and continued-warning or continued-blocking scenarios when the requirement has non-trigger or regression-catching behavior. -->
+<!-- If acceptance depends on a saved artifact, describe the artifact's exact expected output or schema in the requirement body, not only the path. -->
+#### Scenario: <scenario heading>
