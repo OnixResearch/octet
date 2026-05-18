@@ -1,5 +1,6 @@
 <!-- Copy this file into openspec/changes/<change>/tasks.md and replace the placeholders. -->
 <!-- Use this template for active changes under openspec/changes/<change>/; archived changes keep their historical task shape. -->
+<!-- Omission-prevention checklist: keep implementation separate from verification/evidence, give every added or modified scenario its own coverage row, and make each H<n> oracle checkpoint self-verifiable with exact command=, input=, asserts=, and evidence= fields. -->
 
 ## Task ID rules
 
@@ -9,6 +10,7 @@
 - Before marking a change ready, read the delta specs and ensure every added or modified `Scenario:` heading appears in `## Verification Coverage` exactly once. Shared artifacts still need separate scenario rows.
 - `H<n>` — one human/oracle checkpoint using the exact field layout shown in `H1` below.
 - Treat an `H<n>` checkbox as invalid if any of `command=`, `input=`, `asserts=`, or `evidence=` is missing.
+- Treat an `H<n>` checkbox as underspecified if `command=` is a broad workflow instead of an exact command/helper, `input=` omits the pinned fixture or prerequisite artifact, `asserts=` bundles multiple human claims, or `evidence=` omits the saved review artifact path.
 
 ## Phase 1: Implementation
 
