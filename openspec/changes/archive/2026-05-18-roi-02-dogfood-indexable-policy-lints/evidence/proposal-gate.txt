@@ -16,7 +16,7 @@ VERDICT: PASS
 - Scope is clear: `proposal.md` limits work to a scoped dogfood helper, saved evidence artifacts, and narrow cleanup tied directly to findings.
 - Non-goals are explicit: no new lint semantics, diagnostics, registration changes, broad style cleanup, or external consumer rollout.
 - Delta spec encodes the proposed capability:
-  - `openspec/changes/roi-02-dogfood-indexable-policy-lints/specs/consumer-integration/spec.md`
+  - `openspec/changes/archive/2026-05-18-roi-02-dogfood-indexable-policy-lints/specs/consumer-integration/spec.md`
   - Requirement `r[indexable-policy-self-dogfood-inventory]`
   - Scenarios `r[indexable-policy-self-dogfood-inventory.scenario.machine-inventory]` and `r[indexable-policy-self-dogfood-inventory.scenario.triage-recorded]`
 - Verification expectations are concrete: `proposal.md` names `dogfood-run.txt`, `dogfood-findings.jsonl`, `dogfood-summary.txt`, `dogfood-triage.txt`, `openspec-validate.txt`, and gate transcripts.

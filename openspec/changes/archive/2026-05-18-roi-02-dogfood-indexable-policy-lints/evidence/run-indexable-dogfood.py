@@ -19,8 +19,8 @@ import tempfile
 from collections import Counter
 from pathlib import Path
 
-CHANGE = "roi-02-dogfood-indexable-policy-lints"
-EVIDENCE_REL = Path("openspec/changes") / CHANGE / "evidence"
+CHANGE = "2026-05-18-roi-02-dogfood-indexable-policy-lints"
+EVIDENCE_REL = Path("openspec/changes/archive") / CHANGE / "evidence"
 RUN_ARTIFACT = "dogfood-run.txt"
 FINDINGS_ARTIFACT = "dogfood-findings.jsonl"
 SUMMARY_ARTIFACT = "dogfood-summary.txt"

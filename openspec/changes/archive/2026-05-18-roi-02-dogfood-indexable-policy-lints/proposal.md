@@ -42,6 +42,6 @@ accepted findings.
 
 ## Impact
 
-- **Files / artifacts**: `openspec/changes/roi-02-dogfood-indexable-policy-lints/`, saved evidence under its `evidence/` directory, and any narrow source/config cleanup directly tied to dogfood findings.
+- **Files / artifacts**: `openspec/changes/archive/2026-05-18-roi-02-dogfood-indexable-policy-lints/`, saved evidence under its `evidence/` directory, and any narrow source/config cleanup directly tied to dogfood findings.
 - **Ordering / dependencies**: reuse archived change `openspec/changes/archive/2026-05-18-add-indexable-policy-lints/`; create evidence helper first, then run inventory, then fix or classify findings.
 - **Verification / evidence**: save `dogfood-run.txt`, `dogfood-findings.jsonl`, `dogfood-summary.txt`, `dogfood-triage.txt`, `openspec-validate.txt`, and proposal/design/tasks gate transcripts.
