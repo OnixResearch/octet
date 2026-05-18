@@ -32,6 +32,6 @@
 
 ## Impact
 
-- **Files / artifacts**: `Cargo.toml`, `cargo-slotcar/` or successor runner path, `crates/slotcar-standards/` or successor standards path, `flake.nix`, `README.md`, `CHANGELOG.md`, `docs/**`, `templates/**`, `tests/**`, `ui_tests/**`, `standards/policies/**`, `openspec/config.yaml`, generated examples and rename evidence under `openspec/changes/rename-slotcar-to-octet/evidence/`.
+- **Files / artifacts**: `Cargo.toml`, `cargo-slotcar/` or successor runner path, `crates/slotcar-standards/` or successor standards path, `flake.nix`, `README.md`, `CHANGELOG.md`, `docs/**`, `templates/**`, `tests/**`, `ui_tests/**`, `standards/policies/**`, `openspec/config.yaml`, generated examples and rename evidence under `openspec/changes/archive/2026-05-18-rename-slotcar-to-octet/evidence/`.
 - **Ordering / dependencies**: settle the canonical naming map before broad mechanical renames; update manifests/Nix outputs before docs and tests; update generated Nickel-derived artifacts after `.ncl` changes; classify remaining legacy strings before claiming completion.
 - **Verification / evidence**: focused cargo metadata/build smoke for renamed manifests, command/help/output checks for `cargo octet`, policy artifact export/validation if Nickel changes, deterministic remaining-name classification, and doc/example checks that prove the Octet stable-shell metaphor and compatibility boundaries are visible.

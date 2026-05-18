@@ -6,7 +6,7 @@ The system MUST present `Octet` / `octet` as the canonical repository, package, 
 
 Documentation MUST explain the Octet metaphor as stable-shell composition: Rust-compatible code is inert by default across APIs, effects, capabilities, proofs, and review surfaces, and interaction occurs only through complete, explicit interfaces. Documentation MAY retain `Tiger Style`, `tigerstyle`, or `slotcar` only when the occurrence is explicitly about source philosophy, historical compatibility, lint namespace compatibility, archived evidence, or a transition alias.
 
-The deterministic proof artifact `openspec/changes/rename-slotcar-to-octet/evidence/name-classification.txt` MUST list every remaining non-archived `slotcar`, `Slotcar`, `tigerstyle`, or `Tiger Style` occurrence after implementation as one of `philosophy`, `compatibility`, `namespace`, `archived`, or `needs-fix`, and the accepted artifact MUST contain zero `needs-fix` rows.
+The deterministic proof artifact `openspec/changes/archive/2026-05-18-rename-slotcar-to-octet/evidence/name-classification.txt` MUST list every remaining non-archived `slotcar`, `Slotcar`, `tigerstyle`, or `Tiger Style` occurrence after implementation as one of `philosophy`, `compatibility`, `namespace`, `archived`, or `needs-fix`, and the accepted artifact MUST contain zero `needs-fix` rows.
 
 #### Scenario: Canonical install and usage docs say Octet
 
