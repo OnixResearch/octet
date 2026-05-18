@@ -38,7 +38,7 @@ those marker changes.
 1. Add fingerprints to selected reviewed functions:
 
    ```bash
-   cargo slotcar fingerprint --write path/to/file.rs
+   cargo octet fingerprint --write path/to/file.rs
    ```
 
    Use this only for initial marker creation. It discovers functions in the target
@@ -47,7 +47,7 @@ those marker changes.
 2. Gate reviewed functions in CI or during review:
 
    ```bash
-   cargo slotcar fingerprint --check path/to/file-or-directory
+   cargo octet fingerprint --check path/to/file-or-directory
    ```
 
    `--check` inspects marked functions only. It exits nonzero when any marked
@@ -57,7 +57,7 @@ those marker changes.
 3. Preview drift without rewriting markers:
 
    ```bash
-   cargo slotcar fingerprint --diff path/to/file-or-directory
+   cargo octet fingerprint --diff path/to/file-or-directory
    ```
 
    `--diff` has the same failure conditions as `--check`, but is intended for
@@ -66,7 +66,7 @@ those marker changes.
 4. Repair accepted drift after re-review:
 
    ```bash
-   cargo slotcar fingerprint --update path/to/file-or-directory
+   cargo octet fingerprint --update path/to/file-or-directory
    ```
 
    `--update` rewrites only stale or missing marker hashes. Treat each `written`
@@ -152,11 +152,11 @@ nix build .#checks.x86_64-linux.fingerprint-warning-summary-docs --no-link -L
 nix build .#checks.x86_64-linux.fingerprint-json-output-docs --no-link -L
 nix build .#checks.x86_64-linux.fingerprint-source-scanner-docs --no-link -L
 nix build .#checks.x86_64-linux.fingerprint-docs-downstream-smoke --no-link -L
-nix develop -c bash -c 'cargo test -p cargo-slotcar --test fingerprint_consumer fingerprint_lifecycle_docs_fixture_matches_transcript -- --nocapture'
-nix develop -c bash -c 'cargo test -p cargo-slotcar --test fingerprint_consumer fingerprint_human_summary_docs_fixture_matches_transcript -- --nocapture'
-nix develop -c bash -c 'cargo test -p cargo-slotcar --test fingerprint_consumer fingerprint_warning_summary_docs_fixture_matches_transcript -- --nocapture'
-nix develop -c bash -c 'cargo test -p cargo-slotcar --test fingerprint_consumer fingerprint_json_output_docs_fixture_matches_transcript -- --nocapture'
-nix develop -c bash -c 'cargo test -p cargo-slotcar --test fingerprint_consumer fingerprint_source_scanner_docs_fixture_matches_transcript -- --nocapture'
+nix develop -c bash -c 'cargo test -p cargo-octet --test fingerprint_consumer fingerprint_lifecycle_docs_fixture_matches_transcript -- --nocapture'
+nix develop -c bash -c 'cargo test -p cargo-octet --test fingerprint_consumer fingerprint_human_summary_docs_fixture_matches_transcript -- --nocapture'
+nix develop -c bash -c 'cargo test -p cargo-octet --test fingerprint_consumer fingerprint_warning_summary_docs_fixture_matches_transcript -- --nocapture'
+nix develop -c bash -c 'cargo test -p cargo-octet --test fingerprint_consumer fingerprint_json_output_docs_fixture_matches_transcript -- --nocapture'
+nix develop -c bash -c 'cargo test -p cargo-octet --test fingerprint_consumer fingerprint_source_scanner_docs_fixture_matches_transcript -- --nocapture'
 ```
 
 ## JSON output
@@ -164,7 +164,7 @@ nix develop -c bash -c 'cargo test -p cargo-slotcar --test fingerprint_consumer 
 Use JSON for scripts that need exact counts or per-record assertions:
 
 ```bash
-cargo slotcar fingerprint --check path/to/file-or-directory --output-format=json
+cargo octet fingerprint --check path/to/file-or-directory --output-format=json
 ```
 
 The JSON report contains the mode and one record per marked function, including the
@@ -173,15 +173,15 @@ metadata, and macro-warning flag. Common script checks are:
 
 ```bash
 # Count mismatched functions.
-cargo slotcar fingerprint --check src --output-format=json \
+cargo octet fingerprint --check src --output-format=json \
   | jq '[.records[] | select(.status == "mismatch")] | length'
 
 # List changed functions by path/name.
-cargo slotcar fingerprint --diff src --output-format=json \
+cargo octet fingerprint --diff src --output-format=json \
   | jq -r '.records[] | select(.status != "match") | "\(.path) \(.name) \(.status)"'
 
 # Assert an update repaired exactly one accepted drift.
-cargo slotcar fingerprint --update src --output-format=json \
+cargo octet fingerprint --update src --output-format=json \
   | jq '[.records[] | select(.status == "written")] | length == 1'
 ```
 
@@ -191,7 +191,7 @@ Use `--review-manifest <path>` when a CI job or human reviewer needs a stable
 review plan alongside normal output:
 
 ```bash
-cargo slotcar fingerprint --check src --review-manifest artifacts/fingerprint-review.json
+cargo octet fingerprint --check src --review-manifest artifacts/fingerprint-review.json
 ```
 
 The manifest records the tool name/version, input paths, mode, a BLAKE3

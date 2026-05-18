@@ -53,14 +53,14 @@ The first Aspen-backed smoke for generated policy artifacts is saved at
 
 What it proves:
 
-- `nix run .#slotcar-policy-artifacts -- <out-dir>` emits the three expected
+- `nix run .#octet-policy-artifacts -- <out-dir>` emits the expected
   generated files.
 - `octet-standards check --policy-artifacts-dir <out-dir>` can run against
   Aspen source without reading the Nickel registry directly.
 - The selected Aspen production roots (`aspen-core`, `aspen-coordination`, and
   `aspen-rpc-handlers`) report zero `embedded` diagnostics while still exposing
   structural policy-evaluation metadata for
-  `slotcar.embedded.bounded-queues`.
+  `octet.embedded.bounded-queues`.
 - The same artifact-backed seam is now packaged for downstream flakes as
   `lib.mkPolicyArtifactConsumerCheck` and regression-covered by
   `checks.x86_64-linux.policy-artifact-consumer-fixture`.
@@ -179,8 +179,8 @@ Minimum assumptions for the template:
 When archive-only wrappers are unnecessary, delete the wrapper section and call
 the supported first-class runner instead:
 
-- `cargo slotcar check`
-- `nix run path:/path/to/slotcar#cargo-slotcar -- check`
+- `cargo octet check`
+- `nix run path:/path/to/slotcar#cargo-octet -- check`
 
 Do not treat plain `cargo dylint` as the rollout surface. The template is a
 recipe, not a policy requirement.
@@ -213,7 +213,7 @@ archived helper still copies the historical shell wrapper plus
 `templates/dylint.toml`, edits `default_scope` to `-p aspen-verus-metrics`, then
 runs the copied script through a slotcar-provided nightly toolchain
 environment. Keep this as replay evidence only; new consumers should use
-`cargo slotcar check` plus `[workspace.metadata.slotcar]`.
+`cargo octet check` plus `[workspace.metadata.octet]`.
 
 ## Aspen phase-1 reconstruction
 

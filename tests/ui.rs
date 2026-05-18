@@ -132,7 +132,7 @@ fn extern_artifact_path(deps_dir: &Path, crate_name: &str) -> PathBuf {
 }
 
 fn build_fixture_support(toolchain: &str, manifest_path: &Path, dependency_names: &[String]) -> FixtureSupport {
-    let target_dir = temp_path("tigerstyle-ui-fixture-deps");
+    let target_dir = temp_path("octet-ui-fixture-deps");
     let status = Command::new("cargo")
         .current_dir(manifest_path.parent().expect("fixture manifest parent"))
         .env("CARGO_TARGET_DIR", &target_dir)
@@ -175,7 +175,7 @@ fn fixture_support_for<'a>(
 }
 
 fn build_library(toolchain: &str) -> PathBuf {
-    if let Some(path) = prebuilt_path("TIGERSTYLE_UI_LIBRARY") {
+    if let Some(path) = prebuilt_path("OCTET_UI_LIBRARY").or_else(|| prebuilt_path("TIGERSTYLE_UI_LIBRARY")) {
         assert!(path.exists(), "missing prebuilt UI library: {}", path.display());
         return path;
     }
@@ -209,13 +209,13 @@ fn build_library(toolchain: &str) -> PathBuf {
 }
 
 fn build_driver(toolchain: &str) -> PathBuf {
-    if let Some(path) = prebuilt_path("TIGERSTYLE_UI_DRIVER") {
+    if let Some(path) = prebuilt_path("OCTET_UI_DRIVER").or_else(|| prebuilt_path("TIGERSTYLE_UI_DRIVER")) {
         assert!(path.exists(), "missing prebuilt UI driver: {}", path.display());
         return path;
     }
 
     let manifest_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/support/ui-driver/Cargo.toml");
-    let driver_target_dir = temp_path("tigerstyle-ui-driver-target");
+    let driver_target_dir = temp_path("octet-ui-driver-target");
     let status = Command::new("cargo")
         .current_dir(env!("CARGO_MANIFEST_DIR"))
         .env("CARGO_TARGET_DIR", &driver_target_dir)
@@ -228,8 +228,8 @@ fn build_driver(toolchain: &str) -> PathBuf {
 
     let debug_dir = driver_target_dir.join("debug");
     let candidates = [
-        debug_dir.join(format!("tigerstyle-ui-driver{}", std::env::consts::EXE_SUFFIX)),
-        debug_dir.join(format!("tigerstyle_ui_driver{}", std::env::consts::EXE_SUFFIX)),
+        debug_dir.join(format!("octet-ui-driver{}", std::env::consts::EXE_SUFFIX)),
+        debug_dir.join(format!("octet_ui_driver{}", std::env::consts::EXE_SUFFIX)),
     ];
     candidates
         .into_iter()
@@ -274,7 +274,7 @@ fn run_fixture(
     let fixture_path = ui_dir.join(format!("{name}.rs"));
     let expected_name = fixture_path.file_stem().expect("fixture file stem").to_string_lossy();
     let expected_path = ui_dir.join(format!("{expected_name}.stderr"));
-    let work_dir = temp_path(&format!("tigerstyle-ui-case-{name}"));
+    let work_dir = temp_path(&format!("octet-ui-case-{name}"));
     let aux_dir = work_dir.join("aux");
     fs::create_dir_all(&aux_dir).expect("create UI aux dir");
 
@@ -380,7 +380,7 @@ fn run_autofix_fixture(driver: &Path, library: &Path, toolchain: &str, name: &st
     };
     let dylint_libs = serde_json::to_string(&vec![library]).expect("encode DYLINT_LIBS for autofix fixture");
 
-    let crate_dir = temp_path(&format!("tigerstyle-autofix-{name}"));
+    let crate_dir = temp_path(&format!("octet-autofix-{name}"));
     let src_dir = crate_dir.join("src");
     fs::create_dir_all(&src_dir).expect("create autofix src dir");
     fs::write(

@@ -1,6 +1,6 @@
 ---
 schema_version: 1
-tool: slotcar
+tool: octet
 tool_hash: b3:<tool-or-version-hash>
 config_hash: b3:<configuration-hash>
 source_hash: b3:<source-or-fixture-hash>

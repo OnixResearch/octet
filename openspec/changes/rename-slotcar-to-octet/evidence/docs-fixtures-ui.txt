@@ -1,0 +1,31 @@
+# I7 Octet docs/fixtures/UI evidence
+
+Completed: 2026-05-18T03:59:34Z
+
+Scope:
+- Updated docs examples, release/checklist text, changelog entries, policy docs, and fingerprint docs to prefer Octet/cargo-octet names.
+- Updated consumer integration temp/baseline names and fingerprint fixtures to use Octet canonical identity.
+- Renamed UI support package/check surfaces to Octet while preserving legacy `TIGERSTYLE_UI_*` env fallbacks for compatibility.
+- Updated Nix docs/UI check derivation names to Octet-preferring names.
+
+Verification commands (all exited 0):
+
+```bash
+nix develop -c cargo fmt --all
+nix develop -c cargo test -p cargo-octet --test fingerprint_consumer -- --nocapture
+nix develop -c cargo test --test consumer_integration -- --nocapture
+nix develop -c cargo test --test ui -- --ignored --nocapture
+nix build .#checks.x86_64-linux.docs-examples .#checks.x86_64-linux.release-candidate-smoke .#checks.x86_64-linux.ui --no-link -L
+git diff --check
+openspec validate rename-slotcar-to-octet --strict
+```
+
+Focused remaining-name grep (targeted current docs/test/fixture/changelog/flake surfaces) returned 0 matches:
+
+```bash
+search_files pattern='cargo slotcar check|cargo slotcar fingerprint|cargo tigerstyle check|cargo tigerstyle fingerprint|slotcar-policy-validate|slotcar-policy-artifacts|slotcar-policies\.json|tigerstyle-fingerprint|slotcar-roadmap|slotcar-ui|tigerstyle-docs-examples'
+```
+
+Notes:
+- `nix develop` reported the known unavailable remote builder at `ssh-ng://root@10.10.10.1`, then built locally and exited successfully.
+- Cargo emitted expected duplicate-bin warnings for retained compatibility binaries (`cargo-slotcar`, `cargo-tigerstyle`, `slotcar-standards`, `tigerstyle-standards`).

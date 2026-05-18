@@ -275,7 +275,7 @@
         };
 
         fingerprintDocsDownstreamSmoke = pkgs.writeShellApplication {
-          name = "tigerstyle-fingerprint-docs-downstream-smoke";
+          name = "octet-fingerprint-docs-downstream-smoke";
           runtimeInputs = [ pkgs.coreutils pkgs.findutils pkgs.gnused pkgs.jq ];
           text = ''
             repo_root="''${1:-${src}}"
@@ -285,7 +285,7 @@
             mkdir -p "$scratch/consumer/src"
             cat > "$scratch/consumer/Cargo.toml" <<'EOF'
             [package]
-            name = "tigerstyle-fingerprint-downstream-smoke"
+            name = "octet-fingerprint-downstream-smoke"
             version = "0.1.0"
             edition = "2024"
             EOF
@@ -412,7 +412,7 @@
         };
 
         uiDriver = pkgs.stdenv.mkDerivation {
-          pname = "tigerstyle-ui-driver";
+          pname = "octet-ui-driver";
           version = "0.1.0";
           src = uiDriverSrc;
           nativeBuildInputs = checkNativeBuildInputs ++ [ rustToolchain ];
@@ -436,10 +436,10 @@
             mkdir -p "$out/bin"
             driver_bin=""
             for candidate in \
-              target/release/tigerstyle-ui-driver \
-              target/release/tigerstyle_ui_driver \
-              ui-driver/target/release/tigerstyle-ui-driver \
-              ui-driver/target/release/tigerstyle_ui_driver
+              target/release/octet-ui-driver \
+              target/release/octet_ui_driver \
+              ui-driver/target/release/octet-ui-driver \
+              ui-driver/target/release/octet_ui_driver
             do
               if [ -f "$candidate" ]; then
                 driver_bin="$candidate"
@@ -447,11 +447,11 @@
               fi
             done
             if [ -z "$driver_bin" ]; then
-              echo "missing slotcar UI driver binary" >&2
-              find . -maxdepth 4 \( -name 'tigerstyle-ui-driver' -o -name 'tigerstyle_ui_driver' \) -print >&2 || true
+              echo "missing Octet UI driver binary" >&2
+              find . -maxdepth 4 \( -name 'octet-ui-driver' -o -name 'octet_ui_driver' \) -print >&2 || true
               exit 1
             fi
-            cp "$driver_bin" "$out/bin/tigerstyle-ui-driver"
+            cp "$driver_bin" "$out/bin/octet-ui-driver"
             runHook postInstall
           '';
         };
@@ -952,7 +952,7 @@ MAIN
 
           fingerprint-docs-downstream-smoke = flake-utils.lib.mkApp {
             drv = fingerprintDocsDownstreamSmoke;
-            exePath = "/bin/tigerstyle-fingerprint-docs-downstream-smoke";
+            exePath = "/bin/octet-fingerprint-docs-downstream-smoke";
           };
 
           octet-standards = flake-utils.lib.mkApp {
@@ -1024,27 +1024,27 @@ MAIN
               '';
             };
           fingerprintLifecycleDocs = mkFingerprintDocsCheck
-            "tigerstyle-fingerprint-lifecycle-docs"
+            "octet-fingerprint-lifecycle-docs"
             "fingerprint_lifecycle_docs_fixture_matches_transcript";
           fingerprintHumanSummaryDocs = mkFingerprintDocsCheck
-            "tigerstyle-fingerprint-human-summary-docs"
+            "octet-fingerprint-human-summary-docs"
             "fingerprint_human_summary_docs_fixture_matches_transcript";
           fingerprintWarningSummaryDocs = mkFingerprintDocsCheck
-            "tigerstyle-fingerprint-warning-summary-docs"
+            "octet-fingerprint-warning-summary-docs"
             "fingerprint_warning_summary_docs_fixture_matches_transcript";
           fingerprintJsonOutputDocs = mkFingerprintDocsCheck
-            "tigerstyle-fingerprint-json-output-docs"
+            "octet-fingerprint-json-output-docs"
             "fingerprint_json_output_docs_fixture_matches_transcript";
           fingerprintSourceScannerDocs = mkFingerprintDocsCheck
-            "tigerstyle-fingerprint-source-scanner-docs"
+            "octet-fingerprint-source-scanner-docs"
             "fingerprint_source_scanner_docs_fixture_matches_transcript";
           releaseOperatorSmokeDocs = mkFingerprintDocsCheck
-            "tigerstyle-release-operator-smoke-docs"
+            "octet-release-operator-smoke-docs"
             "release_operator_smoke_transcript_and_help_cover_operator_surfaces";
           roadmapAgentSurfacesDocs = craneLib.buildPackage {
             inherit src cargoArtifacts buildInputs;
             cargoToml = ./Cargo.toml;
-            pname = "slotcar-roadmap-agent-surfaces-docs";
+            pname = "octet-roadmap-agent-surfaces-docs";
             version = "0.1.0";
             nativeBuildInputs = checkNativeBuildInputs;
             cargoExtraArgs = "-p cargo-octet";
@@ -1061,11 +1061,11 @@ MAIN
               export CARGO_OCTET_BIN="${cargoOctetUnwrapped}/bin/cargo-octet"
             '';
           };
-          fingerprintDocsDownstreamSmokeCheck = pkgs.runCommand "tigerstyle-fingerprint-docs-downstream-smoke-check" { } ''
-            ${fingerprintDocsDownstreamSmoke}/bin/tigerstyle-fingerprint-docs-downstream-smoke
+          fingerprintDocsDownstreamSmokeCheck = pkgs.runCommand "octet-fingerprint-docs-downstream-smoke-check" { } ''
+            ${fingerprintDocsDownstreamSmoke}/bin/octet-fingerprint-docs-downstream-smoke
             mkdir -p "$out"
           '';
-          fingerprintDocsReviewGateDocsCheck = pkgs.runCommand "tigerstyle-fingerprint-docs-review-gate-docs-check" { } ''
+          fingerprintDocsReviewGateDocsCheck = pkgs.runCommand "octet-fingerprint-docs-review-gate-docs-check" { } ''
             cd ${self}
             grep -F "For fingerprint docs/examples, use one review command:" docs/contributor-guide.md
             grep -F "nix build .#checks.x86_64-linux.docs-examples --no-link -L" docs/contributor-guide.md
@@ -1075,12 +1075,12 @@ MAIN
             grep -F "nix build .#checks.x86_64-linux.docs-examples --no-link -L" CHANGELOG.md
             mkdir -p "$out"
           '';
-          releaseCandidateSmokeCheck = pkgs.runCommand "slotcar-release-candidate-smoke" { } ''
+          releaseCandidateSmokeCheck = pkgs.runCommand "octet-release-candidate-smoke" { } ''
             repo=${self}
             grep -F 'Candidate version: `0.1.0`' "$repo/docs/release-candidate.md"
             grep -F 'nix build .#checks.x86_64-linux.release-candidate-smoke -L --no-link' "$repo/docs/release-candidate.md"
             grep -F 'nix flake check -L' "$repo/docs/release-candidate.md"
-            grep -F 'cargo-slotcar' "$repo/docs/release-candidate.md"
+            grep -F 'cargo-octet' "$repo/docs/release-candidate.md"
             grep -F 'cargo-tigerstyle' "$repo/docs/release-candidate.md"
             grep -F 'slotcar' "$repo/docs/release-candidate.md"
             grep -F 'tigerstyle' "$repo/docs/release-candidate.md"
@@ -1119,7 +1119,7 @@ MAIN
           ui = craneLib.buildPackage {
             inherit src cargoArtifacts buildInputs;
             cargoToml = ./Cargo.toml;
-            pname = "slotcar-ui";
+            pname = "octet-ui";
             version = "0.1.0";
             nativeBuildInputs = checkNativeBuildInputs;
             doNotPostBuildInstallCargoBinaries = true;
@@ -1132,8 +1132,10 @@ MAIN
             RUSTUP_TOOLCHAIN = rustupToolchain;
             preCheck = ''
               export PATH="${dylintShimPath}:$PATH"
-              export TIGERSTYLE_UI_DRIVER="${uiDriver}/bin/tigerstyle-ui-driver"
-              export TIGERSTYLE_UI_LIBRARY="${octetUiLibrary}/lib/${octetUiLibraryName}"
+              export OCTET_UI_DRIVER="${uiDriver}/bin/octet-ui-driver"
+              export OCTET_UI_LIBRARY="${octetUiLibrary}/lib/${octetUiLibraryName}"
+              export TIGERSTYLE_UI_DRIVER="$OCTET_UI_DRIVER"
+              export TIGERSTYLE_UI_LIBRARY="$OCTET_UI_LIBRARY"
             '';
           };
 
@@ -1149,7 +1151,7 @@ MAIN
           fingerprint-docs-downstream-smoke = fingerprintDocsDownstreamSmokeCheck;
           fingerprint-docs-review-gate-docs = fingerprintDocsReviewGateDocsCheck;
 
-          docs-examples = pkgs.runCommand "tigerstyle-docs-examples" { } ''
+          docs-examples = pkgs.runCommand "octet-docs-examples" { } ''
             test -d ${fingerprintLifecycleDocs}
             test -d ${fingerprintHumanSummaryDocs}
             test -d ${fingerprintWarningSummaryDocs}
