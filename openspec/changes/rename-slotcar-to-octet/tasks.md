@@ -12,7 +12,7 @@
 ## Phase 2: Deterministic verification
 
 - [x] V1 Verify scenario "Canonical install and usage docs say Octet" with the remaining-name classification helper; save output at `openspec/changes/rename-slotcar-to-octet/evidence/name-classification.txt` ✅ 0m (verified: 2026-05-18T04:11:46Z; evidence: `openspec/changes/rename-slotcar-to-octet/evidence/name-classification.txt`)
-- [ ] V2 Verify scenario "Chemistry metaphor explains stable-shell interfaces" with a focused docs grep/helper; save output at `openspec/changes/rename-slotcar-to-octet/evidence/docs-metaphor.txt`
+- [x] V2 Verify scenario "Chemistry metaphor explains stable-shell interfaces" with a focused docs grep/helper; save output at `openspec/changes/rename-slotcar-to-octet/evidence/docs-metaphor.txt` ✅ 0m (verified: 2026-05-18T04:14:38Z; evidence: `openspec/changes/rename-slotcar-to-octet/evidence/docs-metaphor.txt`)
 - [x] V3 Verify scenario "Legacy names remain distinguishable" with the remaining-name classification helper; save output at `openspec/changes/rename-slotcar-to-octet/evidence/name-classification.txt` ✅ 0m (verified: 2026-05-18T04:11:46Z; evidence: `openspec/changes/rename-slotcar-to-octet/evidence/name-classification.txt`)
 - [ ] V4 Verify scenario "Cargo subcommand uses Octet" with focused cargo runner help/integration checks; save output at `openspec/changes/rename-slotcar-to-octet/evidence/cli-surface.txt`
 - [ ] V5 Verify scenario "Structured outputs name Octet" with focused human/JSON/SARIF output checks; save output at `openspec/changes/rename-slotcar-to-octet/evidence/structured-output.txt`
@@ -25,7 +25,7 @@
 
 ## Change Status
 - Status: in-progress
-- Open tasks: V2, V4, V5, V6, V7, V8, V9, V10
+- Open tasks: V4, V5, V6, V7, V8, V9, V10
 
 ## Verification Coverage
 
