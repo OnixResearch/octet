@@ -121,6 +121,15 @@ pub(crate) const DIAGNOSTIC_METADATA: &[LintDiagnosticMeta] = &[
         example_text: Some("mod parser; mod planner; mod executor;"),
     },
     LintDiagnosticMeta {
+        lint_name: "module_file_count",
+        principle: "Module Size",
+        guide_section: "File Length",
+        domain_group: GROUP_STRUCTURE,
+        guidance: "split crowded module directories into smaller responsibility-based submodules",
+        example_mode: ExampleMode::Required,
+        example_text: Some("mod parser; mod planner; mod executor;"),
+    },
+    LintDiagnosticMeta {
         lint_name: "unbounded_loop",
         principle: "Bounded Control Flow",
         guide_section: "Bounded Control Flow",

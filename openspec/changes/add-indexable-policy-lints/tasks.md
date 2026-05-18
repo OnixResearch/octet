@@ -4,7 +4,7 @@
 - [x] [serial] I2 Implement `fallible_int_fallback` safety lint. Completed 2026-05-18T06:23:53Z; evidence=`openspec/changes/add-indexable-policy-lints/evidence/fallible-int-fallback.txt`
 - [x] [serial] I3 Implement `magic_number` structure lint. Completed 2026-05-18T06:41:47Z; evidence=`openspec/changes/add-indexable-policy-lints/evidence/magic-number.txt`
 - [x] [serial] I4 Implement `excessive_file_length` structure lint. Completed 2026-05-18T08:10:56Z; evidence=`openspec/changes/add-indexable-policy-lints/evidence/excessive-file-length.txt`
-- [ ] [serial] I5 Implement `module_file_count` structure lint.
+- [x] [serial] I5 Implement `module_file_count` structure lint. Completed 2026-05-18T13:32:06Z; evidence=`openspec/changes/add-indexable-policy-lints/evidence/module-file-count.txt`
 - [ ] [serial] I6 Implement `underscore_in_module_filename` naming lint.
 - [ ] [serial] I7 Implement `non_trait_imports` naming/import lint.
 - [ ] [serial] I8 Implement `renamed_imports` naming/import lint.
@@ -21,8 +21,8 @@
 - [x] [depends:I3] V6 Verify scenario "Named constant [r[magic-number-detection.scenario.named-constant]]" with focused UI fixture; save output at `openspec/changes/add-indexable-policy-lints/evidence/magic-number.txt` Verified 2026-05-18T06:41:47Z; evidence=`openspec/changes/add-indexable-policy-lints/evidence/magic-number.txt`
 - [x] [depends:I4] V7 Verify scenario "Oversized source file [r[excessive-file-length-detection.scenario.oversized-source-file]]" with focused UI fixture/helper; save output at `openspec/changes/add-indexable-policy-lints/evidence/excessive-file-length.txt` Verified 2026-05-18T08:10:56Z; evidence=`openspec/changes/add-indexable-policy-lints/evidence/excessive-file-length.txt`
 - [x] [depends:I4] V8 Verify scenario "Source file within limit [r[excessive-file-length-detection.scenario.within-limit]]" with focused UI fixture/helper; save output at `openspec/changes/add-indexable-policy-lints/evidence/excessive-file-length.txt` Verified 2026-05-18T08:10:56Z; evidence=`openspec/changes/add-indexable-policy-lints/evidence/excessive-file-length.txt`
-- [ ] [depends:I5] V9 Verify scenario "Module directory over limit [r[module-file-count-detection.scenario.over-limit]]" with focused UI fixture/helper; save output at `openspec/changes/add-indexable-policy-lints/evidence/module-file-count.txt`
-- [ ] [depends:I5] V10 Verify scenario "Module directory at limit [r[module-file-count-detection.scenario.at-limit]]" with focused UI fixture/helper; save output at `openspec/changes/add-indexable-policy-lints/evidence/module-file-count.txt`
+- [x] [depends:I5] V9 Verify scenario "Module directory over limit [r[module-file-count-detection.scenario.over-limit]]" with focused UI fixture/helper; save output at `openspec/changes/add-indexable-policy-lints/evidence/module-file-count.txt` Verified 2026-05-18T13:32:06Z; evidence=`openspec/changes/add-indexable-policy-lints/evidence/module-file-count.txt`
+- [x] [depends:I5] V10 Verify scenario "Module directory at limit [r[module-file-count-detection.scenario.at-limit]]" with focused UI fixture/helper; save output at `openspec/changes/add-indexable-policy-lints/evidence/module-file-count.txt` Verified 2026-05-18T13:32:06Z; evidence=`openspec/changes/add-indexable-policy-lints/evidence/module-file-count.txt`
 - [ ] [depends:I6] V11 Verify scenario "Compound module filename [r[underscore-module-filename-detection.scenario.compound-module-filename]]" with focused UI fixture/helper; save output at `openspec/changes/add-indexable-policy-lints/evidence/underscore-module-filename.txt`
 - [ ] [depends:I6] V12 Verify scenario "Directory-based module filename [r[underscore-module-filename-detection.scenario.directory-based-module-filename]]" with focused UI fixture/helper; save output at `openspec/changes/add-indexable-policy-lints/evidence/underscore-module-filename.txt`
 - [ ] [depends:I7] V13 Verify scenario "Struct imported into local scope [r[non-trait-import-detection.scenario.struct-imported]]" with focused UI fixture; save output at `openspec/changes/add-indexable-policy-lints/evidence/non-trait-imports.txt`
@@ -51,7 +51,7 @@
 ## Change Status
 
 - Status: in-progress
-- Open tasks: I5, I6, I7, I8, I9, I10, V9, V10, V11, V12, V13, V14, V15, V16, V17, V18, V19, V27, V28, V29, V30, H1
+- Open tasks: I6, I7, I8, I9, I10, V11, V12, V13, V14, V15, V16, V17, V18, V19, V27, V28, V29, V30, H1
 
 ## Verification Coverage
 

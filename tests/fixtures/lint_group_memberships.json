@@ -46,6 +46,7 @@
       "function_length",
       "magic_number",
       "excessive_file_length",
+      "module_file_count",
       "compound_condition",
       "unjustified_allow",
       "nested_conditionals",
