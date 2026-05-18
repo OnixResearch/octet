@@ -21,11 +21,11 @@
 - [ ] V8 Verify scenario "Octet workspace metadata controls runner policy" with a focused consumer integration test; save output at `openspec/changes/rename-slotcar-to-octet/evidence/config-surface.txt`
 - [ ] V9 Verify scenario "Octet config wins over legacy config" with a focused precedence test; save output at `openspec/changes/rename-slotcar-to-octet/evidence/config-precedence.txt`
 - [ ] V10 Verify the rename package/build metadata with `cargo metadata --no-deps`, `git diff --check`, and the smallest maintained Nix/Cargo checks that cover renamed surfaces; save output at `openspec/changes/rename-slotcar-to-octet/evidence/metadata-build.txt`
-- [ ] V11 Verify any Nickel/policy artifact rename effects with policy export/validation checks when `.ncl` files change; save output at `openspec/changes/rename-slotcar-to-octet/evidence/policy-artifacts.txt`
+- [x] V11 Verify any Nickel/policy artifact rename effects with policy export/validation checks when `.ncl` files change. ✅ 20m02s (started: 2026-05-18T03:17:44Z → completed: 2026-05-18T03:37:46Z; evidence: `openspec/changes/rename-slotcar-to-octet/evidence/policy-artifacts.txt`)
 
 ## Change Status
 - Status: in-progress
-- Open tasks: I7, I8, V1, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11
+- Open tasks: I7, I8, V1, V2, V3, V4, V5, V6, V7, V8, V9, V10
 
 ## Verification Coverage
 
