@@ -28,6 +28,10 @@
     "fixture": "module_file_count"
   },
   {
+    "lint_name": "underscore_in_module_filename",
+    "fixture": "underscore_in_module_filename"
+  },
+  {
     "lint_name": "unbounded_loop",
     "fixture": "unbounded_loop"
   },

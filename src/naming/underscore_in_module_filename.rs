@@ -1,0 +1,123 @@
+use std::path::Component;
+use std::path::Path;
+use std::path::PathBuf;
+
+use rustc_ast::Crate;
+use rustc_lint::EarlyContext;
+use rustc_lint::EarlyLintPass;
+use rustc_lint::LintContext;
+use rustc_session::declare_tool_lint;
+use rustc_session::impl_lint_pass;
+use rustc_span::SourceFile;
+use rustc_span::Span;
+use rustc_span::SyntaxContext;
+
+use crate::diagnostics::emit_tiger_style_lint;
+
+const GENERATED_COMPONENTS: &[&str] = &[
+    "target",
+    "ui_tests",
+    "generated",
+    "OUT_DIR",
+    "rustlib",
+    "registry",
+    ".cargo",
+];
+const CRATE_ROOT_STEMS: &[&str] = &["lib", "main", "mod"];
+
+declare_tool_lint! {
+    /// Detects module filenames with underscore-separated compound names.
+    /// Prefer directory structure such as `compute/vm.rs` over `compute_vm.rs`.
+    pub tigerstyle::UNDERSCORE_IN_MODULE_FILENAME,
+    Warn,
+    "module filename contains an underscore"
+}
+
+pub struct UnderscoreInModuleFilename;
+
+impl_lint_pass!(UnderscoreInModuleFilename => [UNDERSCORE_IN_MODULE_FILENAME]);
+
+fn source_file_path(source_file: &SourceFile) -> PathBuf {
+    PathBuf::from(source_file.name.prefer_local_unconditionally().to_string_lossy().into_owned())
+}
+
+fn normalize_path(path: &Path) -> PathBuf {
+    let mut normalized = PathBuf::new();
+    for component in path.components() {
+        match component {
+            Component::CurDir => {}
+            Component::ParentDir => {
+                normalized.pop();
+            }
+            other => normalized.push(other.as_os_str()),
+        }
+    }
+    normalized
+}
+
+fn path_components(path: &Path) -> Vec<String> {
+    path.components().map(|component| component.as_os_str().to_string_lossy().into_owned()).collect()
+}
+
+fn is_generated_or_fixture_path(path: &Path) -> bool {
+    let components = path_components(path);
+    if components.iter().any(|component| component == "policy_inputs")
+        && !components.iter().any(|component| component == "underscore_module_filename")
+    {
+        return true;
+    }
+
+    components.iter().any(|component| GENERATED_COMPONENTS.contains(&component.as_str()))
+        || components.windows(2).any(|window| window[0] == "tests" && window[1] == "fixtures")
+        || path.to_string_lossy().ends_with(".rs.in")
+}
+
+fn file_stem(path: &Path) -> Option<&str> {
+    path.file_stem().and_then(|stem| stem.to_str())
+}
+
+fn replacement_layout(stem: &str) -> String {
+    let mut segments = stem.split('_').filter(|segment| !segment.is_empty()).collect::<Vec<_>>();
+    let Some(file_name) = segments.pop() else {
+        return stem.to_owned();
+    };
+    if segments.is_empty() {
+        return format!("{file_name}.rs");
+    }
+    format!("{}/{}.rs", segments.join("/"), file_name)
+}
+
+fn should_warn(path: &Path) -> Option<(&str, String)> {
+    if path.extension().and_then(|extension| extension.to_str()) != Some("rs") {
+        return None;
+    }
+    if is_generated_or_fixture_path(path) {
+        return None;
+    }
+
+    let stem = file_stem(path)?;
+    if CRATE_ROOT_STEMS.contains(&stem) || !stem.contains('_') {
+        return None;
+    }
+
+    Some((stem, replacement_layout(stem)))
+}
+
+impl EarlyLintPass for UnderscoreInModuleFilename {
+    fn check_crate(&mut self, cx: &EarlyContext<'_>, _krate: &Crate) {
+        for source_file in cx.sess().source_map().files().iter() {
+            let path = normalize_path(&source_file_path(source_file));
+            let Some((stem, replacement)) = should_warn(&path) else {
+                continue;
+            };
+
+            emit_tiger_style_lint(
+                cx,
+                UNDERSCORE_IN_MODULE_FILENAME,
+                Span::new(source_file.start_pos, source_file.end_position(), SyntaxContext::root(), None),
+                format!("module filename `{stem}.rs` contains an underscore; prefer `{replacement}`"),
+                "underscore_in_module_filename",
+            );
+        }
+    }
+}

@@ -155,6 +155,9 @@ lint_inventory! {
         let max_files = cfg.module_file_count_max;
         lint_store.register_early_pass(move || Box::new(structure::module_file_count::ModuleFileCount::new(max_files)));
     },
+    "underscore_in_module_filename", naming::underscore_in_module_filename::UNDERSCORE_IN_MODULE_FILENAME => |lint_store, _cfg| {
+        lint_store.register_early_pass(|| Box::new(naming::underscore_in_module_filename::UnderscoreInModuleFilename));
+    },
     "unbounded_loop", safety::unbounded_loop::UNBOUNDED_LOOP => |lint_store, _cfg| {
         lint_store.register_late_pass(|_| Box::new(safety::unbounded_loop::UnboundedLoop));
     },
@@ -654,6 +657,7 @@ mod tests {
         "drop_must_use",
         "fallible_int_fallback",
         "magic_number",
+        "underscore_in_module_filename",
         "function_length",
         "ambiguous_params",
         "no_recursion",
@@ -708,6 +712,7 @@ mod tests {
             "function_length" => "src/structure/function_length.rs",
             "acronym_style" => "src/naming/acronym_style.rs",
             "numeric_units" => "src/naming/numeric_units.rs",
+            "underscore_in_module_filename" => "src/naming/underscore_in_module_filename.rs",
             "unbounded_loop" => "src/safety/unbounded_loop.rs",
             "compound_condition" => "src/structure/compound_condition.rs",
             "verified_purity" => "src/purity/verified_purity.rs",

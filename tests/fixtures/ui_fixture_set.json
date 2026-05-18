@@ -89,6 +89,8 @@
     "unchecked_narrowing_min",
     "unchecked_narrowing_same_block_assert",
     "unchecked_narrowing_try_from",
+    "underscore_in_module_filename",
+    "underscore_in_module_filename_directory",
     "unjustified_allow",
     "usize_in_public_api",
     "verified/verified_purity"

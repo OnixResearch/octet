@@ -28,6 +28,10 @@
     "canonical_lint_name": "tigerstyle::module_file_count"
   },
   {
+    "alias_name": "underscore_in_module_filename",
+    "canonical_lint_name": "tigerstyle::underscore_in_module_filename"
+  },
+  {
     "alias_name": "unbounded_loop",
     "canonical_lint_name": "tigerstyle::unbounded_loop"
   },

@@ -130,6 +130,15 @@ pub(crate) const DIAGNOSTIC_METADATA: &[LintDiagnosticMeta] = &[
         example_text: Some("mod parser; mod planner; mod executor;"),
     },
     LintDiagnosticMeta {
+        lint_name: "underscore_in_module_filename",
+        principle: "Searchable Module Paths",
+        guide_section: "Naming",
+        domain_group: GROUP_NAMING,
+        guidance: "replace compound module filenames with responsibility-based directory paths",
+        example_mode: ExampleMode::Required,
+        example_text: Some("compute/vm.rs"),
+    },
+    LintDiagnosticMeta {
         lint_name: "unbounded_loop",
         principle: "Bounded Control Flow",
         guide_section: "Bounded Control Flow",
