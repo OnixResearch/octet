@@ -32,6 +32,10 @@
     "canonical_lint_name": "tigerstyle::underscore_in_module_filename"
   },
   {
+    "alias_name": "non_trait_imports",
+    "canonical_lint_name": "tigerstyle::non_trait_imports"
+  },
+  {
     "alias_name": "unbounded_loop",
     "canonical_lint_name": "tigerstyle::unbounded_loop"
   },

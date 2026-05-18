@@ -139,6 +139,15 @@ pub(crate) const DIAGNOSTIC_METADATA: &[LintDiagnosticMeta] = &[
         example_text: Some("compute/vm.rs"),
     },
     LintDiagnosticMeta {
+        lint_name: "non_trait_imports",
+        principle: "Searchable Owner Paths",
+        guide_section: "Naming",
+        domain_group: GROUP_NAMING,
+        guidance: "keep concrete owner types at their qualified use sites; import traits only for method resolution",
+        example_mode: ExampleMode::Required,
+        example_text: Some("crate::addr::Addr"),
+    },
+    LintDiagnosticMeta {
         lint_name: "unbounded_loop",
         principle: "Bounded Control Flow",
         guide_section: "Bounded Control Flow",

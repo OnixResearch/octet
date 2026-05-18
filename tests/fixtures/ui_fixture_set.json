@@ -91,6 +91,9 @@
     "unchecked_narrowing_try_from",
     "underscore_in_module_filename",
     "underscore_in_module_filename_directory",
+    "non_trait_imports",
+    "non_trait_imports_trait",
+    "non_trait_imports_public_reexport",
     "unjustified_allow",
     "usize_in_public_api",
     "verified/verified_purity"
