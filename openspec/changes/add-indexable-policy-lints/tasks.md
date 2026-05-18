@@ -1,0 +1,85 @@
+## Phase 1: Implementation
+
+- [ ] [serial] I1 Implement `drop_must_use` safety lint.
+- [ ] [serial] I2 Implement `fallible_int_fallback` safety lint.
+- [ ] [serial] I3 Implement `magic_number` structure lint.
+- [ ] [serial] I4 Implement `excessive_file_length` structure lint.
+- [ ] [serial] I5 Implement `module_file_count` structure lint.
+- [ ] [serial] I6 Implement `underscore_in_module_filename` naming lint.
+- [ ] [serial] I7 Implement `non_trait_imports` naming/import lint.
+- [ ] [serial] I8 Implement `renamed_imports` naming/import lint.
+- [ ] [serial] I9 Implement `path_segment_repetition` naming lint.
+- [ ] [serial] I10 Register all nine lints in inventory, diagnostics metadata, domain groups, bare compatibility aliases, config validation, and output metadata.
+
+## Phase 2: Deterministic verification
+
+- [ ] [depends:I1] V1 Verify scenario "Dropped Result [r[drop-must-use-detection.scenario.dropped-result]]" with focused UI fixture; save output at `openspec/changes/add-indexable-policy-lints/evidence/drop-must-use.txt`
+- [ ] [depends:I1] V2 Verify scenario "Dropped non-must-use value [r[drop-must-use-detection.scenario.non-must-use]]" with focused UI fixture; save output at `openspec/changes/add-indexable-policy-lints/evidence/drop-must-use.txt`
+- [ ] [depends:I2] V3 Verify scenario "Zero fallback after narrowing [r[fallible-int-fallback-detection.scenario.zero-fallback]]" with focused UI fixture; save output at `openspec/changes/add-indexable-policy-lints/evidence/fallible-int-fallback.txt`
+- [ ] [depends:I2] V4 Verify scenario "Explicit error handling [r[fallible-int-fallback-detection.scenario.explicit-error-handling]]" with focused UI fixture; save output at `openspec/changes/add-indexable-policy-lints/evidence/fallible-int-fallback.txt`
+- [ ] [depends:I3] V5 Verify scenario "Inline timeout threshold [r[magic-number-detection.scenario.inline-timeout-threshold]]" with focused UI fixture; save output at `openspec/changes/add-indexable-policy-lints/evidence/magic-number.txt`
+- [ ] [depends:I3] V6 Verify scenario "Named constant [r[magic-number-detection.scenario.named-constant]]" with focused UI fixture; save output at `openspec/changes/add-indexable-policy-lints/evidence/magic-number.txt`
+- [ ] [depends:I4] V7 Verify scenario "Oversized source file [r[excessive-file-length-detection.scenario.oversized-source-file]]" with focused UI fixture/helper; save output at `openspec/changes/add-indexable-policy-lints/evidence/excessive-file-length.txt`
+- [ ] [depends:I4] V8 Verify scenario "Source file within limit [r[excessive-file-length-detection.scenario.within-limit]]" with focused UI fixture/helper; save output at `openspec/changes/add-indexable-policy-lints/evidence/excessive-file-length.txt`
+- [ ] [depends:I5] V9 Verify scenario "Module directory over limit [r[module-file-count-detection.scenario.over-limit]]" with focused UI fixture/helper; save output at `openspec/changes/add-indexable-policy-lints/evidence/module-file-count.txt`
+- [ ] [depends:I5] V10 Verify scenario "Module directory at limit [r[module-file-count-detection.scenario.at-limit]]" with focused UI fixture/helper; save output at `openspec/changes/add-indexable-policy-lints/evidence/module-file-count.txt`
+- [ ] [depends:I6] V11 Verify scenario "Compound module filename [r[underscore-module-filename-detection.scenario.compound-module-filename]]" with focused UI fixture/helper; save output at `openspec/changes/add-indexable-policy-lints/evidence/underscore-module-filename.txt`
+- [ ] [depends:I6] V12 Verify scenario "Directory-based module filename [r[underscore-module-filename-detection.scenario.directory-based-module-filename]]" with focused UI fixture/helper; save output at `openspec/changes/add-indexable-policy-lints/evidence/underscore-module-filename.txt`
+- [ ] [depends:I7] V13 Verify scenario "Struct imported into local scope [r[non-trait-import-detection.scenario.struct-imported]]" with focused UI fixture; save output at `openspec/changes/add-indexable-policy-lints/evidence/non-trait-imports.txt`
+- [ ] [depends:I7] V14 Verify scenario "Trait import for method resolution [r[non-trait-import-detection.scenario.trait-import]]" with focused UI fixture; save output at `openspec/changes/add-indexable-policy-lints/evidence/non-trait-imports.txt`
+- [ ] [depends:I8] V15 Verify scenario "Renamed private import [r[renamed-import-detection.scenario.renamed-private-import]]" with focused UI fixture; save output at `openspec/changes/add-indexable-policy-lints/evidence/renamed-imports.txt`
+- [ ] [depends:I8] V16 Verify scenario "Trait import as underscore [r[renamed-import-detection.scenario.trait-import-underscore]]" with focused UI fixture; save output at `openspec/changes/add-indexable-policy-lints/evidence/renamed-imports.txt`
+- [ ] [depends:I9] V17 Verify scenario "Function repeats module name [r[path-segment-repetition-detection.scenario.function-repeats-module]]" with focused UI fixture; save output at `openspec/changes/add-indexable-policy-lints/evidence/path-segment-repetition.txt`
+- [ ] [depends:I9] V18 Verify scenario "Non-repeating item name [r[path-segment-repetition-detection.scenario.non-repeating-item]]" with focused UI fixture; save output at `openspec/changes/add-indexable-policy-lints/evidence/path-segment-repetition.txt`
+- [ ] [depends:I10] V19 Verify registration and metadata coverage for all nine new lints with unit/config tests; save output at `openspec/changes/add-indexable-policy-lints/evidence/registration-metadata.txt`
+- [ ] [depends:I1] V20 Verify scenario "Dropped must-use return value [r[drop-must-use-detection.scenario.must-use-return-value]]" with focused UI fixture; save output at `openspec/changes/add-indexable-policy-lints/evidence/drop-must-use.txt`
+- [ ] [depends:I1] V21 Verify scenario "Test-context dropped Result [r[drop-must-use-detection.scenario.test-context-suppressed]]" with focused UI fixture; save output at `openspec/changes/add-indexable-policy-lints/evidence/drop-must-use.txt`
+- [ ] [depends:I2] V22 Verify scenario "Extreme fallback after narrowing [r[fallible-int-fallback-detection.scenario.extreme-fallback]]" with focused UI fixture; save output at `openspec/changes/add-indexable-policy-lints/evidence/fallible-int-fallback.txt`
+- [ ] [depends:I2] V23 Verify scenario "Default fallback after narrowing [r[fallible-int-fallback-detection.scenario.default-fallback]]" with focused UI fixture; save output at `openspec/changes/add-indexable-policy-lints/evidence/fallible-int-fallback.txt`
+- [ ] [depends:I3] V24 Verify scenario "Conventional loop literals [r[magic-number-detection.scenario.conventional-literals]]" with focused UI fixture; save output at `openspec/changes/add-indexable-policy-lints/evidence/magic-number.txt`
+- [ ] [depends:I3] V25 Verify scenario "Unit-bearing binding [r[magic-number-detection.scenario.unit-bearing-binding]]" with focused UI fixture; save output at `openspec/changes/add-indexable-policy-lints/evidence/magic-number.txt`
+- [ ] [depends:I3] V26 Verify scenario "Test-context magic number [r[magic-number-detection.scenario.test-context-suppressed]]" with focused UI fixture; save output at `openspec/changes/add-indexable-policy-lints/evidence/magic-number.txt`
+- [ ] [depends:I7] V27 Verify scenario "Public owner-type re-export [r[non-trait-import-detection.scenario.public-owner-reexport]]" with focused UI fixture; save output at `openspec/changes/add-indexable-policy-lints/evidence/non-trait-imports.txt`
+- [ ] [depends:I8] V28 Verify scenario "Documented compatibility alias [r[renamed-import-detection.scenario.compatibility-alias]]" with focused UI fixture; save output at `openspec/changes/add-indexable-policy-lints/evidence/renamed-imports.txt`
+- [ ] [depends:I9] V29 Verify scenario "Compatibility name repeats path [r[path-segment-repetition-detection.scenario.compatibility-name]]" with focused UI fixture; save output at `openspec/changes/add-indexable-policy-lints/evidence/path-segment-repetition.txt`
+- [ ] [depends:I10] V30 Verify bare compatibility alias registration for all nine new lints; save output at `openspec/changes/add-indexable-policy-lints/evidence/registration-metadata.txt`
+
+## Phase 3: Human/oracle checkpoints
+
+- [ ] [depends:V30] H1 Human/oracle checkpoint: command=`compare Octet lint inventory with indexable-inc/clippy fork-specific lint list`; input=`indexable-inc/clippy c5f8f62 and Octet b42259a7`; asserts=`the change covers the nine fork-specific Indexable lints not already present as Octet lints`; evidence=`openspec/changes/add-indexable-policy-lints/evidence/indexable-comparison.txt`
+
+## Change Status
+
+- Status: in-progress
+- Open tasks: I1, I2, I3, I4, I5, I6, I7, I8, I9, I10, V1, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11, V12, V13, V14, V15, V16, V17, V18, V19, V20, V21, V22, V23, V24, V25, V26, V27, V28, V29, V30, H1
+
+## Verification Coverage
+
+- `Scenario: Dropped Result [r[drop-must-use-detection.scenario.dropped-result]]` -> `V1` -> `openspec/changes/add-indexable-policy-lints/evidence/drop-must-use.txt`
+- `Scenario: Dropped non-must-use value [r[drop-must-use-detection.scenario.non-must-use]]` -> `V2` -> `openspec/changes/add-indexable-policy-lints/evidence/drop-must-use.txt`
+- `Scenario: Zero fallback after narrowing [r[fallible-int-fallback-detection.scenario.zero-fallback]]` -> `V3` -> `openspec/changes/add-indexable-policy-lints/evidence/fallible-int-fallback.txt`
+- `Scenario: Explicit error handling [r[fallible-int-fallback-detection.scenario.explicit-error-handling]]` -> `V4` -> `openspec/changes/add-indexable-policy-lints/evidence/fallible-int-fallback.txt`
+- `Scenario: Inline timeout threshold [r[magic-number-detection.scenario.inline-timeout-threshold]]` -> `V5` -> `openspec/changes/add-indexable-policy-lints/evidence/magic-number.txt`
+- `Scenario: Named constant [r[magic-number-detection.scenario.named-constant]]` -> `V6` -> `openspec/changes/add-indexable-policy-lints/evidence/magic-number.txt`
+- `Scenario: Oversized source file [r[excessive-file-length-detection.scenario.oversized-source-file]]` -> `V7` -> `openspec/changes/add-indexable-policy-lints/evidence/excessive-file-length.txt`
+- `Scenario: Source file within limit [r[excessive-file-length-detection.scenario.within-limit]]` -> `V8` -> `openspec/changes/add-indexable-policy-lints/evidence/excessive-file-length.txt`
+- `Scenario: Module directory over limit [r[module-file-count-detection.scenario.over-limit]]` -> `V9` -> `openspec/changes/add-indexable-policy-lints/evidence/module-file-count.txt`
+- `Scenario: Module directory at limit [r[module-file-count-detection.scenario.at-limit]]` -> `V10` -> `openspec/changes/add-indexable-policy-lints/evidence/module-file-count.txt`
+- `Scenario: Compound module filename [r[underscore-module-filename-detection.scenario.compound-module-filename]]` -> `V11` -> `openspec/changes/add-indexable-policy-lints/evidence/underscore-module-filename.txt`
+- `Scenario: Directory-based module filename [r[underscore-module-filename-detection.scenario.directory-based-module-filename]]` -> `V12` -> `openspec/changes/add-indexable-policy-lints/evidence/underscore-module-filename.txt`
+- `Scenario: Struct imported into local scope [r[non-trait-import-detection.scenario.struct-imported]]` -> `V13` -> `openspec/changes/add-indexable-policy-lints/evidence/non-trait-imports.txt`
+- `Scenario: Trait import for method resolution [r[non-trait-import-detection.scenario.trait-import]]` -> `V14` -> `openspec/changes/add-indexable-policy-lints/evidence/non-trait-imports.txt`
+- `Scenario: Renamed private import [r[renamed-import-detection.scenario.renamed-private-import]]` -> `V15` -> `openspec/changes/add-indexable-policy-lints/evidence/renamed-imports.txt`
+- `Scenario: Trait import as underscore [r[renamed-import-detection.scenario.trait-import-underscore]]` -> `V16` -> `openspec/changes/add-indexable-policy-lints/evidence/renamed-imports.txt`
+- `Scenario: Function repeats module name [r[path-segment-repetition-detection.scenario.function-repeats-module]]` -> `V17` -> `openspec/changes/add-indexable-policy-lints/evidence/path-segment-repetition.txt`
+- `Scenario: Non-repeating item name [r[path-segment-repetition-detection.scenario.non-repeating-item]]` -> `V18` -> `openspec/changes/add-indexable-policy-lints/evidence/path-segment-repetition.txt`
+- `Scenario: Dropped must-use return value [r[drop-must-use-detection.scenario.must-use-return-value]]` -> `V20` -> `openspec/changes/add-indexable-policy-lints/evidence/drop-must-use.txt`
+- `Scenario: Test-context dropped Result [r[drop-must-use-detection.scenario.test-context-suppressed]]` -> `V21` -> `openspec/changes/add-indexable-policy-lints/evidence/drop-must-use.txt`
+- `Scenario: Extreme fallback after narrowing [r[fallible-int-fallback-detection.scenario.extreme-fallback]]` -> `V22` -> `openspec/changes/add-indexable-policy-lints/evidence/fallible-int-fallback.txt`
+- `Scenario: Default fallback after narrowing [r[fallible-int-fallback-detection.scenario.default-fallback]]` -> `V23` -> `openspec/changes/add-indexable-policy-lints/evidence/fallible-int-fallback.txt`
+- `Scenario: Conventional loop literals [r[magic-number-detection.scenario.conventional-literals]]` -> `V24` -> `openspec/changes/add-indexable-policy-lints/evidence/magic-number.txt`
+- `Scenario: Unit-bearing binding [r[magic-number-detection.scenario.unit-bearing-binding]]` -> `V25` -> `openspec/changes/add-indexable-policy-lints/evidence/magic-number.txt`
+- `Scenario: Test-context magic number [r[magic-number-detection.scenario.test-context-suppressed]]` -> `V26` -> `openspec/changes/add-indexable-policy-lints/evidence/magic-number.txt`
+- `Scenario: Public owner-type re-export [r[non-trait-import-detection.scenario.public-owner-reexport]]` -> `V27` -> `openspec/changes/add-indexable-policy-lints/evidence/non-trait-imports.txt`
+- `Scenario: Documented compatibility alias [r[renamed-import-detection.scenario.compatibility-alias]]` -> `V28` -> `openspec/changes/add-indexable-policy-lints/evidence/renamed-imports.txt`
+- `Scenario: Compatibility name repeats path [r[path-segment-repetition-detection.scenario.compatibility-name]]` -> `V29` -> `openspec/changes/add-indexable-policy-lints/evidence/path-segment-repetition.txt`
