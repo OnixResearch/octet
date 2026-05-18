@@ -6,6 +6,7 @@
 //! [octet]
 //! excessive_file_length_max = 300
 //! function_length_max = 100
+//! module_file_count_max = 7
 //! nesting_max_depth = 4
 //! assertion_density_min_lines = 30
 //! assertion_density_min_assertions = 3
@@ -59,6 +60,9 @@ pub struct Config {
     /// Maximum physical lines in a production source file.
     pub excessive_file_length_max: usize,
 
+    /// Maximum Rust source files in one module directory.
+    pub module_file_count_max: usize,
+
     /// Maximum if/match nesting depth before warning.
     pub nesting_max_depth: usize,
 
@@ -92,6 +96,7 @@ impl Default for Config {
         Self {
             function_length_max: 70,
             excessive_file_length_max: 300,
+            module_file_count_max: 7,
             nesting_max_depth: 3,
             assertion_density_min_lines: 20,
             assertion_density_min_assertions: 2,

@@ -151,6 +151,10 @@ lint_inventory! {
         let max_lines = cfg.excessive_file_length_max;
         lint_store.register_early_pass(move || Box::new(structure::excessive_file_length::ExcessiveFileLength::new(max_lines)));
     },
+    "module_file_count", structure::module_file_count::MODULE_FILE_COUNT => |lint_store, cfg| {
+        let max_files = cfg.module_file_count_max;
+        lint_store.register_early_pass(move || Box::new(structure::module_file_count::ModuleFileCount::new(max_files)));
+    },
     "unbounded_loop", safety::unbounded_loop::UNBOUNDED_LOOP => |lint_store, _cfg| {
         lint_store.register_late_pass(|_| Box::new(safety::unbounded_loop::UnboundedLoop));
     },

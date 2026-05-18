@@ -54,6 +54,15 @@
     "example_text": "mod parser; mod planner; mod executor;"
   },
   {
+    "lint_name": "module_file_count",
+    "principle": "Module Size",
+    "guide_section": "File Length",
+    "domain_group": "tigerstyle::structure",
+    "guidance": "split crowded module directories into smaller responsibility-based submodules",
+    "example_mode": "required",
+    "example_text": "mod parser; mod planner; mod executor;"
+  },
+  {
     "lint_name": "unbounded_loop",
     "principle": "Bounded Control Flow",
     "guide_section": "Bounded Control Flow",

@@ -4,6 +4,7 @@ acronym_style
 numeric_units
 magic_number
 excessive_file_length
+module_file_count
 unbounded_loop
 compound_condition
 verified_purity

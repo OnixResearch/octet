@@ -35,6 +35,8 @@
     "ignored_result_shutdown_send",
     "magic_number",
     "max_parameters_custom/max_parameters_custom",
+    "module_file_count",
+    "module_file_count_at_limit",
     "multi_lock_ordering",
     "negated_predicate",
     "negated_predicate_local_rename",

@@ -24,6 +24,10 @@
     "fixture": "excessive_file_length"
   },
   {
+    "lint_name": "module_file_count",
+    "fixture": "module_file_count"
+  },
+  {
     "lint_name": "unbounded_loop",
     "fixture": "unbounded_loop"
   },

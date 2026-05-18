@@ -1,0 +1,300 @@
+# module_file_count evidence
+
+## Inputs
+- over-limit directory: `policy_inputs/module_file_count_over` contains 9 Rust source files.
+- at-limit directory: `policy_inputs/module_file_count_limit` contains 7 Rust source files.
+- default limit: 7 `.rs` files per module directory.
+
+## Assertions
+- Over-limit fixture emits `tigerstyle::module_file_count` with the observed count and configured limit.
+- At-limit fixture is present and its stderr snapshot is empty (0 bytes), proving no warning at exactly 7 files.
+- UI corpus includes both `module_file_count` and `module_file_count_at_limit` fixtures.
+- Unit metadata/inventory tests pass after registering the lint.
+
+## Over-limit snapshot
+```text
+warning: module directory `$ROOT/policy_inputs/module_file_count_over` contains 9 Rust source files (limit: 7)
+  --> $ROOT/ui_tests/../policy_inputs/module_file_count_over/file_01.rs:1:1
+   |
+LL | pub fn module_file_count_module_file_count_over_01() {}
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Module Size): split crowded module directories into smaller responsibility-based submodules Example: mod parser; mod planner; mod executor;
+   = note: see Tiger Style guide: File Length
+   = note: `#[warn(tigerstyle::module_file_count)]` on by default
+
+warning: 1 warning emitted
+
+```
+
+## Command: nix develop -c bash -c 'cargo test --test ui ui -- --ignored --nocapture'
+```text
+warning: /home/brittonr/git/slotcar/cargo-octet/Cargo.toml: file `/home/brittonr/git/slotcar/cargo-octet/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `cargo-octet`
+  * `bin` target `cargo-slotcar`
+  * `bin` target `cargo-tigerstyle`
+warning: /home/brittonr/git/slotcar/crates/slotcar-standards/Cargo.toml: file `/home/brittonr/git/slotcar/crates/slotcar-standards/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `octet-standards`
+  * `bin` target `slotcar-standards`
+  * `bin` target `tigerstyle-standards`
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.12s
+     Running tests/ui.rs (/home/brittonr/.cargo-target/debug/deps/ui-ea71925560980909)
+
+running 1 test
+warning: /home/brittonr/git/slotcar/crates/slotcar-standards/Cargo.toml: file `/home/brittonr/git/slotcar/crates/slotcar-standards/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `octet-standards`
+  * `bin` target `slotcar-standards`
+  * `bin` target `tigerstyle-standards`
+warning: /home/brittonr/git/slotcar/cargo-octet/Cargo.toml: file `/home/brittonr/git/slotcar/cargo-octet/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `cargo-octet`
+  * `bin` target `cargo-slotcar`
+  * `bin` target `cargo-tigerstyle`
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.03s
+[ui fixture] acronym_allowlist_custom/acronym_allowlist_custom
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/acronym_allowlist_custom.stderr
+[ui fixture] acronym_style
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/acronym_style.stderr
+[ui fixture] ambient_clock
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/ambient_clock.stderr
+[ui fixture] ambiguous_params
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/ambiguous_params.stderr
+[ui fixture] assertion_density
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/assertion_density.stderr
+[ui fixture] assertion_density_custom/assertion_density_custom
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/assertion_density_custom.stderr
+[ui fixture] bool_naming
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/bool_naming.stderr
+[ui fixture] bool_naming_local_rename
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/bool_naming_local_rename.stderr
+[ui fixture] bool_naming_macro_fallback
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/bool_naming_macro_fallback.stderr
+[ui fixture] borrowed_argument_types
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/borrowed_argument_types.stderr
+[ui fixture] catch_all_on_enum
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/catch_all_on_enum.stderr
+[ui fixture] clone_then_borrow
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/clone_then_borrow.stderr
+[ui fixture] compound_assertion
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/compound_assertion.stderr
+[ui fixture] compound_assertion_indented
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/compound_assertion_indented.stderr
+[ui fixture] compound_assertion_machine_applicable
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/compound_assertion_machine_applicable.stderr
+[ui fixture] compound_assertion_message_guardrail
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/compound_assertion_message_guardrail.stderr
+[ui fixture] compound_assertion_or_guardrail
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/compound_assertion_or_guardrail.stderr
+[ui fixture] compound_condition
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/compound_condition.stderr
+[ui fixture] contradictory_time
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/contradictory_time.stderr
+[ui fixture] deref_polymorphism
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/deref_polymorphism.stderr
+[ui fixture] drop_must_use
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/drop_must_use.stderr
+[ui fixture] excessive_file_length
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/excessive_file_length.stderr
+[ui fixture] excessive_file_length_within_limit
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/excessive_file_length_within_limit.stderr
+[ui fixture] explicit_defaults/explicit_defaults
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/explicit_defaults.stderr
+[ui fixture] fallible_int_fallback
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/fallible_int_fallback.stderr
+[ui fixture] float_for_currency
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/float_for_currency.stderr
+[ui fixture] function_length
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/function_length.stderr
+[ui fixture] function_length_custom/function_length_custom
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/function_length_custom.stderr
+[ui fixture] group_allow_safety
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/group_allow_safety.stderr
+[ui fixture] group_deny_naming
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/group_deny_naming.stderr
+[ui fixture] ignored_result
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/ignored_result.stderr
+[ui fixture] ignored_result_drop
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/ignored_result_drop.stderr
+[ui fixture] ignored_result_shutdown_send
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/ignored_result_shutdown_send.stderr
+[ui fixture] magic_number
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/magic_number.stderr
+[ui fixture] max_parameters_custom/max_parameters_custom
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/max_parameters_custom.stderr
+[ui fixture] module_file_count
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/module_file_count.stderr
+[ui fixture] module_file_count_at_limit
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/module_file_count_at_limit.stderr
+[ui fixture] multi_lock_ordering
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/multi_lock_ordering.stderr
+[ui fixture] negated_predicate
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/negated_predicate.stderr
+[ui fixture] negated_predicate_local_rename
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/negated_predicate_local_rename.stderr
+[ui fixture] nested_conditionals
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/nested_conditionals.stderr
+[ui fixture] nesting_custom/nesting_custom
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/nesting_custom.stderr
+[ui fixture] no_panic
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/no_panic.stderr
+[ui fixture] no_panic_cfg_not
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/no_panic_cfg_not.stderr
+[ui fixture] no_panic_exhaustive
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/no_panic_exhaustive.stderr
+[ui fixture] no_panic_exhaustive_external
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/no_panic_exhaustive_external.stderr
+[ui fixture] no_panic_exhaustive_indirect
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/no_panic_exhaustive_indirect.stderr
+[ui fixture] no_panic_exhaustive_non_exhaustive
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/no_panic_exhaustive_non_exhaustive.stderr
+[ui fixture] no_recursion
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/no_recursion.stderr
+[ui fixture] no_todo
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/no_todo.stderr
+[ui fixture] no_todo_allow
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/no_todo_allow.stderr
+[ui fixture] no_todo_legacy_no_panic_allow
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/no_todo_legacy_no_panic_allow.stderr
+[ui fixture] no_todo_orphan_allow
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/no_todo_orphan_allow.stderr
+[ui fixture] no_unwrap
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/no_unwrap.stderr
+[ui fixture] no_unwrap_allow_custom/no_unwrap_allow_custom
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/no_unwrap_allow_custom.stderr
+[ui fixture] no_unwrap_cfg_not
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/no_unwrap_cfg_not.stderr
+[ui fixture] no_unwrap_compile_time_known
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/no_unwrap_compile_time_known.stderr
+[ui fixture] no_unwrap_default_custom/no_unwrap_default_custom
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/no_unwrap_default_custom.stderr
+[ui fixture] no_unwrap_deny_custom/no_unwrap_deny_custom
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/no_unwrap_deny_custom.stderr
+[ui fixture] no_unwrap_disabled_custom/no_unwrap_disabled_custom
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/no_unwrap_disabled_custom.stderr
+[ui fixture] no_unwrap_disabled_deny_custom/no_unwrap_disabled_deny_custom
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/no_unwrap_disabled_deny_custom.stderr
+[ui fixture] no_unwrap_disabled_source_attr_custom/no_unwrap_disabled_source_attr_custom
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/no_unwrap_disabled_source_attr_custom.stderr
+[ui fixture] no_unwrap_guarded
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/no_unwrap_guarded.stderr
+[ui fixture] no_unwrap_tool_attr
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/no_unwrap_tool_attr.stderr
+[ui fixture] no_unwrap_warn_custom/no_unwrap_warn_custom
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/no_unwrap_warn_custom.stderr
+[ui fixture] numeric_units
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/numeric_units.stderr
+[ui fixture] platform_dependent_cast
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/platform_dependent_cast.stderr
+[ui fixture] public_unsafe_api
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/public_unsafe_api.stderr
+[ui fixture] raw_arithmetic_overflow
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/raw_arithmetic_overflow.stderr
+[ui fixture] sentinel_fallback
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/sentinel_fallback.stderr
+[ui fixture] tokio_async/ignored_result_shutdown_send_tokio
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/ignored_result_shutdown_send_tokio.stderr
+[ui fixture] tokio_async/ignored_result_try_send_tokio
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/ignored_result_try_send_tokio.stderr
+[ui fixture] tokio_async/unbounded_loop_bare_async
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/unbounded_loop_bare_async.stderr
+[ui fixture] tokio_async/unbounded_loop_bounded_receiver
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/unbounded_loop_bounded_receiver.stderr
+[ui fixture] tokio_async/unbounded_loop_imported_select
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/unbounded_loop_imported_select.stderr
+[ui fixture] tokio_async/unbounded_loop_non_tokio_select
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/unbounded_loop_non_tokio_select.stderr
+[ui fixture] tokio_async/unbounded_loop_plain_await
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/unbounded_loop_plain_await.stderr
+[ui fixture] tokio_async/unbounded_loop_tokio_select
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/unbounded_loop_tokio_select.stderr
+[ui fixture] tokio_async/unbounded_loop_unbounded_receiver
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/unbounded_loop_unbounded_receiver.stderr
+[ui fixture] too_many_parameters
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/too_many_parameters.stderr
+[ui fixture] unbounded_channel/unbounded_channel
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/unbounded_channel.stderr
+[ui fixture] unbounded_collection_growth
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/unbounded_collection_growth.stderr
+[ui fixture] unbounded_loop
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/unbounded_loop.stderr
+[ui fixture] unbounded_loop_iter_next
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/unbounded_loop_iter_next.stderr
+[ui fixture] unchecked_division
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/unchecked_division.stderr
+[ui fixture] unchecked_narrowing
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/unchecked_narrowing.stderr
+[ui fixture] unchecked_narrowing_min
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/unchecked_narrowing_min.stderr
+[ui fixture] unchecked_narrowing_same_block_assert
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/unchecked_narrowing_same_block_assert.stderr
+[ui fixture] unchecked_narrowing_try_from
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/unchecked_narrowing_try_from.stderr
+[ui fixture] unjustified_allow
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/unjustified_allow.stderr
+[ui fixture] usize_in_public_api
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/usize_in_public_api.stderr
+[ui fixture] verified/verified_purity
+[ui snapshot] /home/brittonr/git/slotcar/ui_tests/verified_purity.stderr
+test ui ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 18.25s
+
+```
+
+## Command: nix develop -c bash -c 'cargo test --lib'
+```text
+warning: /home/brittonr/git/slotcar/cargo-octet/Cargo.toml: file `/home/brittonr/git/slotcar/cargo-octet/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `cargo-octet`
+  * `bin` target `cargo-slotcar`
+  * `bin` target `cargo-tigerstyle`
+warning: /home/brittonr/git/slotcar/crates/slotcar-standards/Cargo.toml: file `/home/brittonr/git/slotcar/crates/slotcar-standards/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `octet-standards`
+  * `bin` target `slotcar-standards`
+  * `bin` target `tigerstyle-standards`
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.04s
+     Running unittests src/lib.rs (/home/brittonr/.cargo-target/debug/deps/octet-06a19db794aff816)
+
+running 40 tests
+test config::tests::legacy_slotcar_config_is_used_when_octet_section_is_absent ... ok
+test config::tests::omitted_disabled_lints_and_lint_levels_default_to_empty ... ok
+test config::tests::invalid_lint_level_warns_and_keeps_default_behavior ... ok
+test config::tests::octet_config_wins_over_legacy_slotcar_and_tigerstyle_config ... ok
+test config::tests::mixed_disabled_lints_keeps_valid_entry_while_warning_on_unknown_name ... ok
+test config::tests::explicit_disabled_lints_and_lint_levels_deserialize_successfully ... ok
+test config::tests::mixed_lint_levels_ignores_unknown_name_but_keeps_valid_override ... ok
+test config::tests::mixed_lint_levels_ignore_invalid_value_but_keep_valid_override ... ok
+test config::tests::overlapping_disabled_lints_and_lint_levels_warn_and_keep_lint_disabled ... ok
+test config::tests::parsed_octet_section_wins_over_legacy_sections ... ok
+test config::tests::parsed_slotcar_section_wins_over_tigerstyle_fallback ... ok
+test config::tests::raw_lint_levels_preserve_original_strings ... ok
+test config::tests::unknown_lint_levels_warn_without_failing_validation ... ok
+test safety::compound_assertion::tests::detects_top_level_compound_assertion ... ok
+test config::tests::unknown_disabled_lints_warn_without_failing_validation ... ok
+test naming::acronym_style::tests::test_acronym_fix ... ok
+test safety::compound_assertion::tests::parses_machine_applicable_top_level_conjunction ... ok
+test safety::compound_assertion::tests::parses_top_level_disjunction_without_machine_applicable_fix ... ok
+test safety::compound_assertion::tests::rejects_message_bearing_assertions_for_machine_applicable_fix ... ok
+test safety::no_panic::tests::finds_panic_macro_name ... ok
+test safety::no_todo::tests::finds_panic_family_macro_name ... ok
+test safety::no_todo::tests::matches_supported_no_todo_spellings ... ok
+test test_context::tests::cfg_not_test_can_still_be_true_without_test ... ok
+test test_context::tests::cfg_attr_detection_matches_test_only_forms ... ok
+test tests::config_validation_derives_names_from_lint_inventory ... ok
+test tests::diagnostic_metadata_names_match_lint_inventory ... ok
+test tests::all_lints_register_canonical_and_bare_names ... ok
+test tests::diagnostic_metadata_required_examples_are_concrete ... ok
+test tests::diagnostic_group_snapshot_matches ... ok
+test tests::compatibility_alias_snapshot_matches ... ok
+test tests::disabled_lints_are_omitted_from_groups_and_aliases ... ok
+test tests::domain_groups_register_expected_members ... ok
+test tests::lint_inventory_default_levels_snapshot_matches ... ok
+test tests::lint_inventory_names_are_unique ... ok
+test tests::lint_inventory_snapshot_matches ... ok
+test tests::diagnostic_metadata_snapshot_matches ... ok
+test tests::lint_emitting_fixture_manifest_matches_inventory_and_emits ... ok
+test tests::autofix_rollout_scope_matches_change_contract ... ok
+test tests::ui_fixture_set_artifact_covers_the_full_corpus ... ok
+test tests::lint_modules_route_help_and_note_through_diagnostics_module ... ok
+
+test result: ok. 40 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+```

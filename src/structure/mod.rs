@@ -5,6 +5,7 @@ pub mod deref_polymorphism;
 pub mod excessive_file_length;
 pub mod function_length;
 pub mod magic_number;
+pub mod module_file_count;
 pub mod nested_conditionals;
 pub mod platform_dependent_cast;
 pub mod too_many_parameters;

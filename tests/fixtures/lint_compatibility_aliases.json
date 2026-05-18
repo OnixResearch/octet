@@ -24,6 +24,10 @@
     "canonical_lint_name": "tigerstyle::excessive_file_length"
   },
   {
+    "alias_name": "module_file_count",
+    "canonical_lint_name": "tigerstyle::module_file_count"
+  },
+  {
     "alias_name": "unbounded_loop",
     "canonical_lint_name": "tigerstyle::unbounded_loop"
   },
