@@ -1,0 +1,41 @@
+# path_segment_repetition evidence
+
+Timestamp: 2026-05-18T16:04:48Z
+
+Scope:
+- Implemented warn-by-default naming lint `path_segment_repetition`.
+- The lint compares normalized snake-case/hyphen-separated words in item names with crate and ancestor module path words.
+- It warns when an item repeats a path word, and allows documented compatibility/external API names.
+
+Focused fixtures:
+- `ui_tests/path_segment_repetition.rs`: module `guest` defines `spawn_guest_vm`; emits `tigerstyle::path_segment_repetition` because `guest` is already supplied by the module path.
+- `ui_tests/path_segment_repetition_non_repeating.rs`: module `guest` defines `spawn_vm`; emits no diagnostics.
+- `ui_tests/path_segment_repetition_compat.rs`: module `slotcar` defines documented compatibility API `slotcar_config`; emits no diagnostics.
+
+Expected positive diagnostic snapshot:
+```text
+warning: item name `spawn_guest_vm` repeats `guest` from ancestor path segment `guest`
+  --> $DIR/path_segment_repetition.rs:2:5
+   |
+LL |     pub fn spawn_guest_vm() {}
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Searchable Path Names): do not repeat crate or module path words in item names unless documenting a compatibility API Example: guest::spawn_vm
+   = note: see Tiger Style guide: Naming
+   = note: `#[warn(tigerstyle::path_segment_repetition)]` on by default
+
+warning: 1 warning emitted
+```
+
+Verification run:
+```sh
+nix develop -c bash -c 'cargo test --lib && cargo test --test ui ui -- --ignored --nocapture'
+git diff --check
+git diff --cached --check
+```
+
+Result:
+- `cargo test --lib`: 40 passed, 0 failed.
+- UI harness: `test ui ... ok`, 1 passed, 0 failed.
+- Whitespace checks passed.
+- Nix remote builder warning for `ssh-ng://root@10.10.10.1` was non-blocking; local build/test completed successfully.

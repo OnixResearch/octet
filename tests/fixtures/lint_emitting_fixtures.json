@@ -40,6 +40,10 @@
     "fixture": "renamed_imports"
   },
   {
+    "lint_name": "path_segment_repetition",
+    "fixture": "path_segment_repetition"
+  },
+  {
     "lint_name": "unbounded_loop",
     "fixture": "unbounded_loop"
   },

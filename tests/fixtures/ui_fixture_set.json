@@ -97,6 +97,9 @@
     "renamed_imports_compat",
     "renamed_imports_trait",
     "renamed_imports",
+    "path_segment_repetition_compat",
+    "path_segment_repetition_non_repeating",
+    "path_segment_repetition",
     "unjustified_allow",
     "usize_in_public_api",
     "verified/verified_purity"

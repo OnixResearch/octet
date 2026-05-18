@@ -8,6 +8,7 @@ module_file_count
 underscore_in_module_filename
 non_trait_imports
 renamed_imports
+path_segment_repetition
 unbounded_loop
 compound_condition
 verified_purity

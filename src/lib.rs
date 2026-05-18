@@ -164,6 +164,9 @@ lint_inventory! {
     "renamed_imports", naming::renamed_imports::RENAMED_IMPORTS => |lint_store, _cfg| {
         lint_store.register_late_pass(|_| Box::new(naming::renamed_imports::RenamedImports));
     },
+    "path_segment_repetition", naming::path_segment_repetition::PATH_SEGMENT_REPETITION => |lint_store, _cfg| {
+        lint_store.register_late_pass(|_| Box::new(naming::path_segment_repetition::PathSegmentRepetition));
+    },
     "unbounded_loop", safety::unbounded_loop::UNBOUNDED_LOOP => |lint_store, _cfg| {
         lint_store.register_late_pass(|_| Box::new(safety::unbounded_loop::UnboundedLoop));
     },
