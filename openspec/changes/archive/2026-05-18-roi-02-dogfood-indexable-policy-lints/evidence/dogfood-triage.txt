@@ -4,8 +4,8 @@ final_rerun_clean: no
 final_findings_total: 653
 cleanup_applied: none
 cleanup_decision: no obvious low-risk source/config cleanup was applied; all final findings are accepted debt for this slice.
-final_inventory: openspec/changes/roi-02-dogfood-indexable-policy-lints/evidence/dogfood-findings.jsonl
-final_summary: openspec/changes/roi-02-dogfood-indexable-policy-lints/evidence/dogfood-summary.txt
+final_inventory: openspec/changes/archive/2026-05-18-roi-02-dogfood-indexable-policy-lints/evidence/dogfood-findings.jsonl
+final_summary: openspec/changes/archive/2026-05-18-roi-02-dogfood-indexable-policy-lints/evidence/dogfood-summary.txt
 
 ## Counts by lint
 - excessive_file_length: 5

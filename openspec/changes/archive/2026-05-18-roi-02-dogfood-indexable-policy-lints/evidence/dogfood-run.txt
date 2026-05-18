@@ -664,6 +664,19 @@ exit_code: 0
 {"version":1,"index":"F659","stable_id":"b3:f0258fe4f612a74e","semantic_id":"b3:f0258fe4f612a74e","identity_status":"computed","normalized_snippet_hash":"b3:9b753ed0ef687f5e66fae1f43f9cb5078032d3620ddae828e7f514d8c0693c71","config_hash":"b3:88908ce8e5fe8757147ae956022305a8e087171d5a14be4a0b9c6b1639e34f47","cache_status":"disabled","lint":"path_segment_repetition","group":"unknown","severity":"warning","file":"src/test_context.rs","line":115,"column":1,"message":"item name `cfg_attr_source_requires_test` repeats `test` from ancestor path segment `test_context`","suggestion":null,"applicability":null,"principle":"unknown","effect_family":"unknown","crate_name":"octet"}
 
 ## stderr
+cannot build on 'ssh-ng://root@10.10.10.1': error: failed to start SSH connection to '10.10.10.1'
+building '/nix/store/zi8hs68xr96grskhna9f3vq6gpqbsqc6-octet-standards-0.1.0.drv'...
+building '/nix/store/fy5rpb793ybacr1x4vxhd15fhd1q6n13-nix-shell-env.drv'...
+these 4 derivations will be built:
+  /nix/store/3bvcs7r489wf06ypq46r3grqcrn51gnk-cargo-octet-0.1.0.drv
+  /nix/store/bdlp4an30lgrsnbk02pjrcqr7f2xsc2l-octet-0.1.0.drv
+  /nix/store/7hvi5adzdxvwxqj946v8jg1vlsy826ln-octet-ui-library.drv
+  /nix/store/lw0srcpsgad36qva9r7s56b3lidnh6cq-cargo-octet-0.1.0.drv
+cannot build on 'ssh-ng://root@10.10.10.1': error: failed to start SSH connection to '10.10.10.1'
+building '/nix/store/3bvcs7r489wf06ypq46r3grqcrn51gnk-cargo-octet-0.1.0.drv'...
+building '/nix/store/bdlp4an30lgrsnbk02pjrcqr7f2xsc2l-octet-0.1.0.drv'...
+building '/nix/store/7hvi5adzdxvwxqj946v8jg1vlsy826ln-octet-ui-library.drv'...
+building '/nix/store/lw0srcpsgad36qva9r7s56b3lidnh6cq-cargo-octet-0.1.0.drv'...
 --- octet summary ---
 Status: warning-only
 Findings: 659

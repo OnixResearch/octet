@@ -17,7 +17,7 @@ VERDICT: PASS
 - Implementation/archive not complete; status `in-progress`.
 
 ## Next Actions
-- Save result to `openspec/changes/roi-02-dogfood-indexable-policy-lints/evidence/tasks-gate.txt`.
+- Save result to `openspec/changes/archive/2026-05-18-roi-02-dogfood-indexable-policy-lints/evidence/tasks-gate.txt`.
 - Complete `H1`, `H2`, `H3` before `I1`.
 - Then implement `I1`, run `V1`, then cleanup/triage.
 Extension error (/home/brittonr/.pi/agent/extensions/done-review.ts): This extension ctx is stale after session replacement or reload. Do not use a captured pi or command ctx after ctx.newSession(), ctx.fork(), ctx.switchSession(), or ctx.reload(). For newSession, fork, and switchSession, move post-replacement work into withSession and use the ctx passed to withSession. For reload, do not use the old ctx after await ctx.reload().

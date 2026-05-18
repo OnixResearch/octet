@@ -71,11 +71,11 @@ rationale rather than renamed opportunistically.
 - scenario or requirement:
   - `Scenario: Dogfood run emits machine-readable finding inventory [r[indexable-policy-self-dogfood-inventory.scenario.machine-inventory]]`
 - artifact path:
-  - `openspec/changes/roi-02-dogfood-indexable-policy-lints/evidence/dogfood-run.txt`
-  - `openspec/changes/roi-02-dogfood-indexable-policy-lints/evidence/dogfood-findings.jsonl`
-  - `openspec/changes/roi-02-dogfood-indexable-policy-lints/evidence/dogfood-summary.txt`
+  - `openspec/changes/archive/2026-05-18-roi-02-dogfood-indexable-policy-lints/evidence/dogfood-run.txt`
+  - `openspec/changes/archive/2026-05-18-roi-02-dogfood-indexable-policy-lints/evidence/dogfood-findings.jsonl`
+  - `openspec/changes/archive/2026-05-18-roi-02-dogfood-indexable-policy-lints/evidence/dogfood-summary.txt`
 - command / helper:
-  - `python3 openspec/changes/roi-02-dogfood-indexable-policy-lints/evidence/run-indexable-dogfood.py`
+  - `python3 openspec/changes/archive/2026-05-18-roi-02-dogfood-indexable-policy-lints/evidence/run-indexable-dogfood.py`
 - exact expected output / acceptance signal:
   - run artifact includes the exact command and exit code; findings artifact is valid JSONL when non-empty; summary includes counts grouped by lint and file
 - ordering / prerequisites:
@@ -86,9 +86,9 @@ rationale rather than renamed opportunistically.
 - scenario or requirement:
   - `Scenario: Dogfood triage records fixed or accepted findings [r[indexable-policy-self-dogfood-inventory.scenario.triage-recorded]]`
 - artifact path:
-  - `openspec/changes/roi-02-dogfood-indexable-policy-lints/evidence/dogfood-triage.txt`
+  - `openspec/changes/archive/2026-05-18-roi-02-dogfood-indexable-policy-lints/evidence/dogfood-triage.txt`
 - command / helper:
-  - `python3 openspec/changes/roi-02-dogfood-indexable-policy-lints/evidence/run-indexable-dogfood.py`
+  - `python3 openspec/changes/archive/2026-05-18-roi-02-dogfood-indexable-policy-lints/evidence/run-indexable-dogfood.py`
 - exact expected output / acceptance signal:
   - triage artifact lists every final finding as fixed or accepted with finding index, lint, path, and rationale; if final run is clean it says so explicitly
 - ordering / prerequisites:
