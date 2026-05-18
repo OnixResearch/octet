@@ -1,5 +1,5 @@
 $ nix develop path:/home/brittonr/git/slotcar -c nix run path:/home/brittonr/git/slotcar#cargo-octet -- check -p octet --output-format json -- --lib
-cwd: /tmp/octet-indexable-dogfood-fmbs84h5/source
+cwd: <dogfood-temp>/source
 exit_code: 0
 
 ## stdout

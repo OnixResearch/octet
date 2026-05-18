@@ -283,7 +283,7 @@ def main() -> int:
         write_findings(evidence / FINDINGS_ARTIFACT, findings)
         (evidence / RUN_ARTIFACT).write_text(
             "$ " + " ".join(command) + "\n"
-            + f"cwd: {workspace}\n"
+            + "cwd: <dogfood-temp>/source\n"
             + f"exit_code: {completed.returncode}\n"
             + "\n## stdout\n"
             + completed.stdout
