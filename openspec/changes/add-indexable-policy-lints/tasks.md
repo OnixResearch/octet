@@ -46,12 +46,12 @@
 
 ## Phase 3: Human/oracle checkpoints
 
-- [ ] [depends:V30] H1 Human/oracle checkpoint: command=`compare Octet lint inventory with indexable-inc/clippy fork-specific lint list`; input=`indexable-inc/clippy c5f8f62 and Octet b42259a7`; asserts=`the change covers the nine fork-specific Indexable lints not already present as Octet lints`; evidence=`openspec/changes/add-indexable-policy-lints/evidence/indexable-comparison.txt`
+- [x] [depends:V30] H1 Human/oracle checkpoint: command=`python3 openspec/changes/add-indexable-policy-lints/evidence/compare-indexable.py`; input=`indexable-inc/clippy c5f8f62 and Octet b42259a7`; asserts=`the change covers the nine fork-specific Indexable lints not already present as Octet lints`; evidence=`openspec/changes/add-indexable-policy-lints/evidence/indexable-comparison.txt` Completed 2026-05-18T16:40:26Z; evidence=`openspec/changes/add-indexable-policy-lints/evidence/indexable-comparison.txt`
 
 ## Change Status
 
-- Status: in-progress
-- Open tasks: H1
+- Status: complete
+- Open tasks: none
 
 ## Verification Coverage
 
