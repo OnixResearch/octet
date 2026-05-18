@@ -666,9 +666,12 @@ mod tests {
         "drop_must_use",
         "fallible_int_fallback",
         "magic_number",
+        "excessive_file_length",
+        "module_file_count",
         "underscore_in_module_filename",
         "non_trait_imports",
         "renamed_imports",
+        "path_segment_repetition",
         "function_length",
         "ambiguous_params",
         "no_recursion",
@@ -717,15 +720,30 @@ mod tests {
         }
     }
 
+    const INDEXABLE_POLICY_LINTS: &[&str] = &[
+        "drop_must_use",
+        "fallible_int_fallback",
+        "magic_number",
+        "excessive_file_length",
+        "module_file_count",
+        "underscore_in_module_filename",
+        "non_trait_imports",
+        "renamed_imports",
+        "path_segment_repetition",
+    ];
+
     fn lint_source_path(lint_name: &str) -> &'static str {
         match lint_name {
             "compound_assertion" => "src/safety/compound_assertion.rs",
             "function_length" => "src/structure/function_length.rs",
             "acronym_style" => "src/naming/acronym_style.rs",
             "numeric_units" => "src/naming/numeric_units.rs",
+            "excessive_file_length" => "src/structure/excessive_file_length.rs",
+            "module_file_count" => "src/structure/module_file_count.rs",
             "underscore_in_module_filename" => "src/naming/underscore_in_module_filename.rs",
             "non_trait_imports" => "src/naming/non_trait_imports.rs",
             "renamed_imports" => "src/naming/renamed_imports.rs",
+            "path_segment_repetition" => "src/naming/path_segment_repetition.rs",
             "unbounded_loop" => "src/safety/unbounded_loop.rs",
             "compound_condition" => "src/structure/compound_condition.rs",
             "verified_purity" => "src/purity/verified_purity.rs",
@@ -762,6 +780,39 @@ mod tests {
             "no_todo" | "unjustified_no_todo_allow" => "src/safety/no_todo.rs",
             "no_recursion" => "src/safety/no_recursion.rs",
             other => panic!("missing lint source mapping for `{other}`"),
+        }
+    }
+
+    #[test]
+    fn indexable_policy_lints_have_registration_metadata_aliases_groups_and_sources() {
+        let cfg = Config::default();
+        let store = lint_store_with_groups_and_aliases(&cfg);
+
+        for &lint_name in INDEXABLE_POLICY_LINTS {
+            assert!(
+                inventory_names().contains(&lint_name),
+                "indexable lint `{lint_name}` must be registered in LINT_INVENTORY"
+            );
+            let meta = diagnostics::diagnostic_meta(lint_name);
+            assert_eq!(meta.lint_name, lint_name);
+            assert!(
+                diagnostics::GROUP_NAMES.contains(&meta.domain_group),
+                "indexable lint `{lint_name}` must belong to a registered domain group"
+            );
+            assert!(
+                diagnostics::lint_names_for_group(meta.domain_group).contains(&lint_name),
+                "indexable lint `{lint_name}` must appear in its domain group snapshot"
+            );
+            assert!(
+                store.find_lints(&diagnostics::canonical_lint_name(lint_name)).is_some(),
+                "indexable lint `{lint_name}` must resolve through its canonical tool lint name"
+            );
+            assert!(
+                store.find_lints(lint_name).is_some(),
+                "indexable lint `{lint_name}` must resolve through its bare compatibility alias"
+            );
+            let source_path = Path::new(env!("CARGO_MANIFEST_DIR")).join(lint_source_path(lint_name));
+            assert!(source_path.exists(), "indexable lint `{lint_name}` source path must exist");
         }
     }
 
