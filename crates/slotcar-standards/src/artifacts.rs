@@ -14,21 +14,21 @@ use crate::model::ProofRail;
 use crate::model::SeedManifest;
 
 /// Canonical registry artifact file name.
-pub const POLICIES_JSON_FILE: &str = "tigerstyle-policies.json";
+pub const POLICIES_JSON_FILE: &str = "octet-policies.json";
 /// Checker configuration artifact file name.
-pub const CHECK_CONFIG_TOML_FILE: &str = "tigerstyle-check-config.toml";
+pub const CHECK_CONFIG_TOML_FILE: &str = "octet-check-config.toml";
 /// Seed manifest artifact file name.
-pub const SEED_MANIFESTS_JSON_FILE: &str = "tigerstyle-seed-manifests.json";
+pub const SEED_MANIFESTS_JSON_FILE: &str = "octet-seed-manifests.json";
 /// Proof-bundle artifact file name.
-pub const PROOF_BUNDLES_JSON_FILE: &str = "tigerstyle-proof-bundles.json";
+pub const PROOF_BUNDLES_JSON_FILE: &str = "octet-proof-bundles.json";
 /// Config/receipt source-of-truth family artifact file name.
-pub const CONFIG_RECEIPT_FAMILIES_JSON_FILE: &str = "tigerstyle-config-receipt-families.json";
+pub const CONFIG_RECEIPT_FAMILIES_JSON_FILE: &str = "octet-config-receipt-families.json";
 /// Generated artifact integrity manifest file name.
-pub const ARTIFACT_MANIFEST_JSON_FILE: &str = "tigerstyle-artifact-manifest.json";
+pub const ARTIFACT_MANIFEST_JSON_FILE: &str = "octet-artifact-manifest.json";
 /// Supported proof-bundle artifact schema version.
-pub const PROOF_BUNDLE_SCHEMA_VERSION: &str = "tigerstyle-proof-bundle/v1";
+pub const PROOF_BUNDLE_SCHEMA_VERSION: &str = "octet-proof-bundle/v1";
 /// Supported generated artifact manifest schema version.
-pub const ARTIFACT_MANIFEST_SCHEMA_VERSION: &str = "tigerstyle-artifact-manifest/v1";
+pub const ARTIFACT_MANIFEST_SCHEMA_VERSION: &str = "octet-artifact-manifest/v1";
 
 const GENERATED_ARTIFACT_SCHEMA_VERSION: &str = "1";
 const GENERATED_FROM: &str = "standards/policies/registry.ncl";

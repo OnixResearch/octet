@@ -580,7 +580,7 @@ For type-state protocol policies, structural validation MUST reject configured r
 
 #### Scenario: Downstream mutation fails the policy artifact consumer check [r[structural-mechanism-validation.scenario.bounded-queue-downstream-mutation-fails]]
 
-- GIVEN Aspen pins a Tigerstyle flake exposing `lib.mkPolicyArtifactConsumerCheck` and checks selected embedded roots with `checks.x86_64-linux.tigerstyle-policy-artifacts`
+- GIVEN Aspen pins a Tigerstyle flake exposing `lib.mkPolicyArtifactConsumerCheck` and checks selected embedded roots with `checks.x86_64-linux.octet-policy-artifacts`
 - WHEN a scratch Aspen copy inserts exactly one configured unbounded queue constructor inside a checked root
 - THEN the focused Aspen policy artifact check exits non-zero
 - AND the saved transcript names `tigerstyle.embedded.bounded-queues`, the mutated file, and the single expected mutation diagnostic before the scratch mutation is removed or discarded
@@ -658,21 +658,21 @@ Reports MUST distinguish lint findings, gate failures, structural-contract failu
 
 The system MUST export deterministic generated artifacts from the validated Tiger Style policy registry for consumer checkers and CI review.
 
-The artifact bundle MUST include `tigerstyle-policies.json`, `tigerstyle-check-config.toml`, and `tigerstyle-seed-manifests.json`.
+The artifact bundle MUST include `octet-policies.json`, `octet-check-config.toml`, and `octet-seed-manifests.json`.
 
 #### Scenario: Artifact export writes named files [r[generated-policy-artifacts.scenario.named-files]]
 
 - GIVEN a registry JSON exported from `standards/policies/registry.ncl`
 - WHEN the standards artifact export command writes to an output directory
-- THEN the output directory contains `tigerstyle-policies.json`
-- AND the output directory contains `tigerstyle-check-config.toml`
-- AND the output directory contains `tigerstyle-seed-manifests.json`
+- THEN the output directory contains `octet-policies.json`
+- AND the output directory contains `octet-check-config.toml`
+- AND the output directory contains `octet-seed-manifests.json`
 
 #### Scenario: Artifact-backed checker run [r[generated-policy-artifacts.scenario.checker-consumes-artifacts]]
 
 - GIVEN a generated artifact directory
 - WHEN `tigerstyle-standards check` runs with that directory and a structural fixture
-- THEN the checker loads the policy registry from `tigerstyle-policies.json`
+- THEN the checker loads the policy registry from `octet-policies.json`
 - AND the checker emits the same policy diagnostics and enforcement metadata as the registry-backed path
 
 #### Scenario: Check config summarizes enforcement seams [r[generated-policy-artifacts.scenario.check-config-summary]]
@@ -729,8 +729,8 @@ The proof-bundle artifact MUST include `schema_version`, `generated_from`, `regi
 
 - GIVEN a policy registry with at least one verified proof rail
 - WHEN generated policy artifacts are exported
-- THEN the output directory contains `tigerstyle-proof-bundles.json`
-- AND that artifact declares `schema_version = "tigerstyle-proof-bundle/v1"`
+- THEN the output directory contains `octet-proof-bundles.json`
+- AND that artifact declares `schema_version = "octet-proof-bundle/v1"`
 - AND the verified rail entry preserves receipt binding, provenance, verifier, toolchain, and closure graph obligations for its policy ID
 
 ### Requirement: Proof Bundle Schema Validation [r[proof-bundle-schema-validation]]
@@ -741,14 +741,14 @@ Artifact-backed checks MUST reject missing proof-bundle artifacts, unsupported p
 
 #### Scenario: Artifact-backed check rejects unsupported proof bundle schema [r[proof-bundle-schema-validation.scenario.rejects-unsupported-schema]]
 
-- GIVEN a generated policy artifact directory whose `tigerstyle-proof-bundles.json` declares an unsupported schema version
+- GIVEN a generated policy artifact directory whose `octet-proof-bundles.json` declares an unsupported schema version
 - WHEN `tigerstyle-standards check --policy-artifacts-dir` runs against a verification fixture
 - THEN the command exits non-zero
-- AND the diagnostic names the unsupported proof-bundle schema version and the expected `tigerstyle-proof-bundle/v1` version
+- AND the diagnostic names the unsupported proof-bundle schema version and the expected `octet-proof-bundle/v1` version
 
 #### Scenario: Artifact-backed check accepts complete proof bundle [r[proof-bundle-schema-validation.scenario.accepts-complete-bundle]]
 
-- GIVEN a generated policy artifact directory with a complete `tigerstyle-proof-bundles.json`
+- GIVEN a generated policy artifact directory with a complete `octet-proof-bundles.json`
 - WHEN `tigerstyle-standards check --policy-artifacts-dir` runs against a compliant verification fixture
 - THEN the command exits successfully
 - AND no proof-bundle schema diagnostic is emitted
@@ -761,8 +761,8 @@ The system MUST export a generated artifact integrity manifest for policy artifa
 
 - GIVEN a policy registry exported through `tigerstyle-standards export-artifacts`
 - WHEN the generated artifact directory is written
-- THEN the output directory contains `tigerstyle-artifact-manifest.json`
-- AND the manifest declares schema version `tigerstyle-artifact-manifest/v1`
+- THEN the output directory contains `octet-artifact-manifest.json`
+- AND the manifest declares schema version `octet-artifact-manifest/v1`
 - AND the manifest records the BLAKE3 digest and byte length for every generated artifact file except itself
 
 ### Requirement: Artifact-Backed Integrity Validation [r[artifact-backed-integrity-validation]]

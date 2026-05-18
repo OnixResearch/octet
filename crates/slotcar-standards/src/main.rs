@@ -3,9 +3,8 @@
 #![deny(clippy::pedantic)]
 #![deny(clippy::undocumented_unsafe_blocks)]
 #![allow(clippy::module_name_repetitions)]
-//! CLI shell for `slotcar-standards`.
+//! CLI shell for `octet-standards`.
 
-use std::env;
 use std::fmt::Write as _;
 use std::fs;
 use std::io;
@@ -64,7 +63,7 @@ const EXIT_FAILURE: u8 = 1;
 
 /// Tiger Style policy checker.
 #[derive(Debug, Parser)]
-#[command(name = "slotcar-standards", about = "Run Tiger Style policy checks")]
+#[command(name = "octet-standards", about = "Run Octet policy checks")]
 struct Cli {
     #[command(subcommand)]
     command: Command,
@@ -322,7 +321,7 @@ fn export_receipt(
         run_id: export_run_id(profile, started_at),
         started_at: started_at.to_owned(),
         finished_at,
-        tool: "slotcar-standards".to_owned(),
+        tool: "octet-standards".to_owned(),
         tool_version: env!("CARGO_PKG_VERSION").to_owned(),
         git_revision: git_revision(),
         config_digest: ReceiptDigest {
@@ -398,7 +397,7 @@ fn export_receipt_artifacts(
 
 fn export_verification_commands(args: &ExportArtifactsArgs) -> Vec<ReceiptVerificationCommand> {
     let commands = if args.verification_command.is_empty() {
-        vec!["slotcar-standards export-artifacts receipt emission".to_owned()]
+        vec!["octet-standards export-artifacts receipt emission".to_owned()]
     } else {
         args.verification_command.clone()
     };
@@ -574,7 +573,7 @@ fn artifact_manifest_diagnostic(path: String, message: String) -> Diagnostic {
         line: None,
         severity: Severity::Error,
         message,
-        remediation: "regenerate policy artifacts with slotcar-standards export-artifacts and consume the complete generated directory".to_owned(),
+        remediation: "regenerate policy artifacts with octet-standards export-artifacts and consume the complete generated directory".to_owned(),
     })
 }
 
@@ -608,7 +607,7 @@ fn proof_bundle_diagnostic(path: String, message: String) -> Diagnostic {
         line: None,
         severity: Severity::Error,
         message,
-        remediation: "regenerate policy artifacts with slotcar-standards export-artifacts and keep tigerstyle-proof-bundles.json with the policy bundle".to_owned(),
+        remediation: "regenerate policy artifacts with octet-standards export-artifacts and keep octet-proof-bundles.json with the policy bundle".to_owned(),
     })
 }
 
@@ -789,10 +788,7 @@ fn proof_receipt_verifier(rail: &slotcar_standards::model::ProofRail, sources: &
         lines.push(format!("proof-verifier-binary: {}", verifier.verifier_binary_path));
     }
     if !verifier.verifier_binary_digest.is_empty() {
-        lines.push(format!(
-            "proof-verifier-binary-blake3: {}",
-            current_exe_blake3().unwrap_or_else(|| "unavailable".to_owned())
-        ));
+        lines.push(format!("proof-verifier-binary-blake3: {}", verifier.verifier_binary_digest));
     }
     if !verifier.verifier_build_closure.is_empty() {
         lines.push(format!("proof-verifier-build-closure: {}", verifier.verifier_build_closure));
@@ -836,12 +832,6 @@ fn proof_receipt_verifier(rail: &slotcar_standards::model::ProofRail, sources: &
         ) + "
 "
     }
-}
-
-fn current_exe_blake3() -> Option<String> {
-    let path = env::current_exe().ok()?;
-    let bytes = fs::read(path).ok()?;
-    Some(blake3::hash(&bytes).to_hex().to_string())
 }
 
 fn build_closure_digest(paths: &[String], sources: &[SourceFile]) -> Option<String> {

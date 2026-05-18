@@ -18,8 +18,8 @@ let contracts = import "../../contracts.ncl" in
       ownership = "rust-derived",
       owner_source_path = "crates/slotcar-standards/src/artifacts.rs",
       artifact_path = "example-runtime-receipt.ncl",
-      generation_command = "cargo test -p slotcar-standards receipt_contract_freshness_detects_drift",
-      validation_command = "cargo test -p slotcar-standards receipt_fixtures_validate_shape_not_behavior",
+      generation_command = "cargo test -p octet-standards receipt_contract_freshness_detects_drift",
+      validation_command = "cargo test -p octet-standards receipt_fixtures_validate_shape_not_behavior",
       status = "planned",
     },
     {

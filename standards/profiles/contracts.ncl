@@ -6,7 +6,7 @@ let SecretRef = {
 } in
 {
   RunProfile = {
-    schema_version | std.contract.from_predicate (fun value => value == "tigerstyle-run-profile/v1"),
+    schema_version | std.contract.from_predicate (fun value => value == "octet-run-profile/v1"),
     profile_id | NonEmptyString,
     source_paths | Array NonEmptyString,
     artifact_out_dir | NonEmptyString,

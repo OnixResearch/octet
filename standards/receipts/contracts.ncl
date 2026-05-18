@@ -30,7 +30,7 @@ let ReceiptEvidence = {
 } in
 {
   AcceptanceReceipt = {
-    schema_version | std.contract.from_predicate (fun value => value == "tigerstyle-acceptance-receipt/v1"),
+    schema_version | std.contract.from_predicate (fun value => value == "octet-acceptance-receipt/v1"),
     run_id | NonEmptyString,
     started_at | NonEmptyString,
     finished_at | NonEmptyString,

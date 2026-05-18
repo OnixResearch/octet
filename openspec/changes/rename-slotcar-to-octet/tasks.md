@@ -5,7 +5,7 @@
 - [x] I3 Update Nix packages/apps/check helpers, flake library surfaces, and generated command wrappers to prefer Octet names. ✅ 12m (started: 2026-05-18T02:07:25Z → completed: 2026-05-18T02:19:25Z; evidence: `openspec/changes/rename-slotcar-to-octet/evidence/metadata-build.txt`)
 - [x] I4 Update consumer config parsing/templates/docs for `[octet]`, `[octet.lint_levels]`, and `[workspace.metadata.octet]` with Octet-over-legacy precedence. ✅ 10m (started: 2026-05-18T02:21:32Z → completed: 2026-05-18T02:31:32Z; evidence: `openspec/changes/rename-slotcar-to-octet/evidence/config-surface.txt`)
 - [x] I5 Update structured outputs, SARIF driver metadata, sidecar artifacts, migration manifests, transcript reports, and fingerprint/review records to use Octet canonical identity. ✅ 6m38s (started: 2026-05-18T02:38:42Z → completed: 2026-05-18T02:45:20Z; evidence: `openspec/changes/rename-slotcar-to-octet/evidence/structured-output.txt`)
-- [ ] I6 Update standards registry/policy artifact names and regenerate any Nickel-derived artifacts affected by Octet identity.
+- [x] I6 Update standards registry/policy artifact names and regenerate any Nickel-derived artifacts affected by Octet identity. ✅ 19m39s (started: 2026-05-18T03:17:44Z → completed: 2026-05-18T03:37:23Z; evidence: `openspec/changes/rename-slotcar-to-octet/evidence/policy-artifacts.txt`)
 - [ ] I7 Update tests, UI snapshots, consumer fixtures, docs examples, and changelog entries for the Octet identity.
 - [ ] I8 Add deterministic remaining-name classification support for non-archived `slotcar`, `Slotcar`, `tigerstyle`, and `Tiger Style` occurrences.
 
@@ -25,7 +25,7 @@
 
 ## Change Status
 - Status: in-progress
-- Open tasks: I6, I7, I8, V1, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11
+- Open tasks: I7, I8, V1, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11
 
 ## Verification Coverage
 

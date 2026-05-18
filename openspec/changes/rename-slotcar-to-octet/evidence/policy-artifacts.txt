@@ -1,0 +1,33 @@
+I6/V11 policy artifact rename evidence
+Timestamp: 2026-05-18T03:37:46Z
+
+Changed surfaces:
+- Standards policy artifacts now prefer Octet filenames (`octet-policies.json`, `octet-check-config.toml`, `octet-artifact-manifest.json`, `octet-config-receipt-families.json`, `octet-proof-bundles.json`, `octet-seed-manifests.json`).
+- Nix apps/checks prefer Octet policy export/validation names while keeping explicit legacy wrappers where required.
+- Nickel policy/profile/receipt contracts and fixtures now use Octet canonical artifact names and digests.
+- Verification fixture proof receipts/closure manifests regenerated for Octet verifier/proof artifact identity.
+
+Commands run and passed:
+
+```text
+rm -rf /tmp/octet-policy-artifacts-i6
+nix run .#octet-policy-validate
+nix run .#octet-policy-artifacts -- /tmp/octet-policy-artifacts-i6
+nix run .#octet-standards -- check --policy-artifacts-dir /tmp/octet-policy-artifacts-i6 --source standards/check-fixtures/verification/compliant --family verification --execute-proof-rails --output json >/tmp/check.json
+jq --exit-status '.diagnostics | length == 0' /tmp/check.json >/dev/null
+
+nix run .#octet-standards -- check --policy-artifacts-dir /tmp/octet-policy-artifacts-i6 --source standards/check-fixtures/verification/compliant --family verification --output json >/tmp/check.json
+jq --exit-status '.diagnostics | length == 0' /tmp/check.json >/dev/null
+
+nix build .#checks.x86_64-linux.standards-fixtures --no-link -L
+nix build .#checks.x86_64-linux.slotcar-standards-nix-closure-manifest --no-link -L
+nix develop -c cargo test -p slotcar-standards --test advisory_cli -- --nocapture
+nix develop -c cargo fmt --check
+cargo metadata --no-deps >/tmp/slotcar-cargo-metadata-i6.json
+git diff --check
+openspec validate rename-slotcar-to-octet --strict --json
+```
+
+Notes:
+- Nix printed a transient remote-builder warning for `ssh-ng://root@10.10.10.1`, then built locally and the commands exited 0.
+- `cargo metadata` warned to pass `--format-version`; the command still exited 0.

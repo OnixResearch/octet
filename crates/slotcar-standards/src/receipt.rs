@@ -4,7 +4,7 @@ use serde::Deserialize;
 use serde::Serialize;
 
 /// Acceptance receipt schema emitted by standards CLI commands.
-pub const ACCEPTANCE_RECEIPT_SCHEMA_VERSION: &str = "tigerstyle-acceptance-receipt/v1";
+pub const ACCEPTANCE_RECEIPT_SCHEMA_VERSION: &str = "octet-acceptance-receipt/v1";
 
 /// Runtime status recorded in acceptance receipts.
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
