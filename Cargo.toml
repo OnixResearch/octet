@@ -1,12 +1,12 @@
 [package]
-name = "slotcar"
+name = "octet"
 version = "0.1.0"
 edition = "2024"
 license = "AGPL-3.0-or-later"
-description = "Custom lints enforcing Tiger Style coding principles"
+description = "Custom lints enforcing Tiger Style coding principles under Octet's closed-interface model"
 
 [lib]
-name = "tigerstyle"
+name = "octet"
 crate-type = ["cdylib"]
 
 [dependencies]
@@ -26,4 +26,4 @@ rustc_private = true
 
 [workspace]
 resolver = "2"
-members = ["cargo-slotcar", "crates/slotcar-standards"]
+members = ["cargo-octet", "crates/slotcar-standards"]

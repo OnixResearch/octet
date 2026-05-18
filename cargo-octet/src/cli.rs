@@ -97,7 +97,8 @@ pub fn parse(argv: impl IntoIterator<Item = OsString>) -> Result<CommandArgs, St
     let program = argv.first().cloned().ok_or_else(|| "missing argv[0]".to_owned())?;
     argv.remove(0);
 
-    let invoked_as_cargo_subcommand = argv.first().is_some_and(|arg| matches!(arg.as_str(), "slotcar" | "tigerstyle"));
+    let invoked_as_cargo_subcommand =
+        argv.first().is_some_and(|arg| matches!(arg.as_str(), "octet" | "slotcar" | "tigerstyle"));
     let command_line = if invoked_as_cargo_subcommand {
         format_command_line("cargo", &argv)
     } else {
@@ -145,39 +146,39 @@ pub fn help_text(topic: HelpTopic) -> &'static str {
     }
 }
 
-const ROOT_HELP: &str = "slotcar operator commands
+const ROOT_HELP: &str = "Octet operator commands
 
 Usage:
-  cargo slotcar check [SCOPE] [-- CARGO_CHECK_ARGS]
-  cargo slotcar fingerprint [--check|--update|--diff] [PATHS...]
-  cargo slotcar migrate <start|status|apply-safe> [--manifest PATH]
-  cargo slotcar roadmap <artifact|capsule|ability|pointer|session|pure-cache> ...
-  cargo slotcar transcript <PATH>
-  cargo slotcar --version
+  cargo octet check [SCOPE] [-- CARGO_CHECK_ARGS]
+  cargo octet fingerprint [--check|--update|--diff] [PATHS...]
+  cargo octet migrate <start|status|apply-safe> [--manifest PATH]
+  cargo octet roadmap <artifact|capsule|ability|pointer|session|pure-cache> ...
+  cargo octet transcript <PATH>
+  cargo octet --version
 
 Release smoke surfaces: fingerprint identity review, migrate manifests, check --cache lint-cache status, effect-summary output in summaries/artifacts, and executable transcript validation.
 
-Nix: nix run path:/path/to/slotcar#cargo-tigerstyle -- check
+Nix: nix run path:/path/to/octet#cargo-octet -- check
 ";
 
-const CHECK_HELP: &str = "cargo slotcar check
+const CHECK_HELP: &str = "cargo octet check
 
 Options: --output-format human|json|sarif, --artifact-dir PATH, --baseline PATH, --write-baseline PATH, --cache.
 
 Artifacts include summary.txt effect-summary output, findings JSON/SARIF, and cache_status fields when --cache enables the lint-cache.
 ";
 
-const FINGERPRINT_HELP: &str = "cargo slotcar fingerprint
+const FINGERPRINT_HELP: &str = "cargo octet fingerprint
 
 Modes: --check, --write, --update, --diff. Use --review-manifest PATH to save review records. Fingerprint receipts use stable semantic identity and BLAKE3 hashes.
 ";
 
-const MIGRATE_HELP: &str = "cargo slotcar migrate
+const MIGRATE_HELP: &str = "cargo octet migrate
 
 Subcommands: start, status, apply-safe. Migration manifests are deterministic and safe-reviewable before applying.
 ";
 
-const ROADMAP_HELP: &str = "cargo slotcar roadmap
+const ROADMAP_HELP: &str = "cargo octet roadmap
 
 Unison-inspired agent roadmap fixtures: content-addressed artifacts, ability manifests, name-to-hash pointers, typed session records, structured todos, and pure-result cache receipts.
 
@@ -190,7 +191,7 @@ Actions:
   pure-cache check
 ";
 
-const TRANSCRIPT_HELP: &str = "cargo slotcar transcript <PATH>
+const TRANSCRIPT_HELP: &str = "cargo octet transcript <PATH>
 
 Validates executable transcript command blocks and expected-output assertions for docs-example and release smoke artifacts.
 ";
@@ -344,7 +345,7 @@ fn parse_migrate(args: &[String]) -> Result<MigrateArgs, String> {
     };
     let mut profile = None;
     let mut output_format = OutputFormat::Human;
-    let mut manifest = PathBuf::from(".slotcar/migrations/slotcar-migration.json");
+    let mut manifest = PathBuf::from(".octet/migrations/octet-migration.json");
     let mut index = 1;
     while index < args.len() {
         let arg = &args[index];
@@ -448,8 +449,8 @@ mod tests {
 
     #[test]
     fn fingerprint_parse_accepts_default_check() {
-        let parsed = parse(["cargo", "slotcar", "fingerprint", "src/lib.rs"].map(OsString::from))
-            .expect("parse fingerprint args");
+        let parsed =
+            parse(["cargo", "octet", "fingerprint", "src/lib.rs"].map(OsString::from)).expect("parse fingerprint args");
         match parsed {
             CommandArgs::Fingerprint(args) => {
                 assert_eq!(args.mode, FingerprintMode::Check);
@@ -474,19 +475,19 @@ mod tests {
 
     #[test]
     fn help_parse_accepts_root_and_subcommand_help() {
-        let root = parse(["cargo", "slotcar", "--help"].map(OsString::from)).expect("parse root help");
+        let root = parse(["cargo", "octet", "--help"].map(OsString::from)).expect("parse root help");
         assert!(matches!(root, CommandArgs::Help(HelpTopic::Root)));
 
-        let check = parse(["cargo", "slotcar", "check", "--help"].map(OsString::from)).expect("parse check help");
+        let check = parse(["cargo", "octet", "check", "--help"].map(OsString::from)).expect("parse check help");
         assert!(matches!(check, CommandArgs::Help(HelpTopic::Check)));
     }
 
     #[test]
     fn version_parse_accepts_root_version_aliases() {
         for args in [
-            ["cargo", "slotcar", "--version"],
-            ["cargo", "slotcar", "-V"],
-            ["cargo", "slotcar", "version"],
+            ["cargo", "octet", "--version"],
+            ["cargo", "octet", "-V"],
+            ["cargo", "octet", "version"],
             ["cargo", "tigerstyle", "--version"],
         ] {
             let parsed = parse(args.map(OsString::from)).expect("parse version");
@@ -496,7 +497,7 @@ mod tests {
 
     #[test]
     fn command_line_quoting_matches_contract() {
-        assert_eq!(format_command_line("cargo", &["slotcar".to_owned(), "check".to_owned()]), "cargo slotcar check");
+        assert_eq!(format_command_line("cargo", &["octet".to_owned(), "check".to_owned()]), "cargo octet check");
         assert_eq!(format_command_line("cargo", &["arg with spaces".to_owned()]), "cargo 'arg with spaces'");
         assert_eq!(format_command_line("cargo", &["can't".to_owned()]), "cargo 'can'\"'\"'t'");
         assert_eq!(format_command_line("cargo", &[String::new()]), "cargo ''");

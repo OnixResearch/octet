@@ -23,7 +23,7 @@ pub fn run(args: TranscriptArgs) -> Result<i32, String> {
     match args.output_format {
         OutputFormat::Human => {
             println!(
-                "slotcar transcript {} command_blocks={} expected_output_blocks={} status={}",
+                "octet transcript {} command_blocks={} expected_output_blocks={} status={}",
                 report.path, report.command_blocks, report.expected_output_blocks, report.status,
             );
             for failure in &report.failures {
@@ -54,12 +54,13 @@ fn verify(path: &Path) -> Result<TranscriptReport, String> {
         if let Some(lang) = line.strip_prefix("```") {
             if in_fence {
                 if saw_command_in_current_fence
+                    && fence_lang != "octet-transcript"
                     && fence_lang != "slotcar-transcript"
                     && fence_lang != "console"
                     && fence_lang != "sh"
                 {
                     failures
-                        .push(format!("line {fence_start}: command fence must use slotcar-transcript, console, or sh"));
+                        .push(format!("line {fence_start}: command fence must use octet-transcript, slotcar-transcript, console, or sh"));
                 }
                 in_fence = false;
                 fence_lang.clear();

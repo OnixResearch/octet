@@ -223,7 +223,7 @@ pub fn run(check: CheckArgs) -> Result<i32, String> {
     if !skip_lockfile_guard && lockfile_changed(&lockfile_path, &lockfile_before)? {
         restore_lockfile(&lockfile_path, &lockfile_before)?;
         let lockfile_error =
-            format!("cargo slotcar check modified {}; restored the original lockfile", lockfile_path.display());
+            format!("cargo octet check modified {}; restored the original lockfile", lockfile_path.display());
         return Err(match result {
             Err(error) => format!("{error}; {lockfile_error}"),
             Ok(_) => lockfile_error,
@@ -447,7 +447,7 @@ fn classify_cargo_process_exit(status: std::process::ExitStatus) -> output::Carg
 }
 
 fn update_lint_cache(workspace_root: &Path, findings: &mut [Finding]) -> Result<(), String> {
-    let cache_path = workspace_root.join(".slotcar/cache/findings.json");
+    let cache_path = workspace_root.join(".octet/cache/findings.json");
     let mut cached: std::collections::BTreeSet<String> = match fs::read_to_string(&cache_path) {
         Ok(contents) => {
             serde_json::from_str(&contents).map_err(|error| format!("parse {}: {error}", cache_path.display()))?
@@ -755,27 +755,27 @@ fn build_lint_lib(toolchain: &str) -> Result<ManagedPath, String> {
     let target_dir = tempdir.path().join("target");
     let source_root = materialize_embedded_source()?;
     let manifest_path = source_root.join("Cargo.toml");
-    let built_lib_name = format!("{}tigerstyle.{}", std::env::consts::DLL_PREFIX, std::env::consts::DLL_EXTENSION);
+    let built_lib_name = format!("{}octet.{}", std::env::consts::DLL_PREFIX, std::env::consts::DLL_EXTENSION);
     let dylint_lib_name =
-        format!("{}tigerstyle@{toolchain}.{}", std::env::consts::DLL_PREFIX, std::env::consts::DLL_EXTENSION);
+        format!("{}octet@{toolchain}.{}", std::env::consts::DLL_PREFIX, std::env::consts::DLL_EXTENSION);
 
     let status = Command::new("cargo")
         .arg("build")
         .arg("--manifest-path")
         .arg(&manifest_path)
-        .args(["--release", "--locked", "-p", "slotcar", "--lib"])
+        .args(["--release", "--locked", "-p", "octet", "--lib"])
         .current_dir(&source_root)
         .env("CARGO_TARGET_DIR", &target_dir)
         .env("RUSTUP_TOOLCHAIN", toolchain)
         .status()
-        .map_err(|error| format!("run cargo build for slotcar lint library: {error}"))?;
+        .map_err(|error| format!("run cargo build for Octet lint library: {error}"))?;
     if !status.success() {
-        return Err("slotcar lint library build failed".to_owned());
+        return Err("Octet lint library build failed".to_owned());
     }
 
     let built_lib_path = target_dir.join("release").join(&built_lib_name);
     if !built_lib_path.is_file() {
-        return Err(format!("built slotcar lint library missing at {}", built_lib_path.display()));
+        return Err(format!("built Octet lint library missing at {}", built_lib_path.display()));
     }
 
     let dylint_lib_path = tempdir.path().join(&dylint_lib_name);
@@ -865,11 +865,11 @@ fn sources_cache_root() -> Result<PathBuf, String> {
     if let Some(path) = env::var_os("HOME") {
         candidates.push(PathBuf::from(path).join(".cache"));
     }
-    candidates.push(env::temp_dir().join("slotcar-cache"));
+    candidates.push(env::temp_dir().join("octet-cache"));
 
     let mut failures = Vec::new();
     for candidate in candidates {
-        let sources_root = candidate.join("slotcar").join("sources");
+        let sources_root = candidate.join("octet").join("sources");
         match fs::create_dir_all(&sources_root) {
             Ok(()) => return Ok(sources_root),
             Err(error) => failures.push(format!("create {}: {error}", sources_root.display())),

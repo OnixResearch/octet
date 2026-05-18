@@ -51,7 +51,7 @@ fn start(args: MigrateArgs) -> Result<i32, String> {
     let manifest = MigrationManifest {
         schema_version: MIGRATION_SCHEMA_VERSION,
         profile,
-        tool_name: "cargo-slotcar".to_owned(),
+        tool_name: "cargo-octet".to_owned(),
         tool_version: env!("CARGO_PKG_VERSION").to_owned(),
         config_hash: determinism::full_hash(&format!(
             "Cargo.toml={}\ndylint.toml={}\n",
@@ -76,7 +76,7 @@ fn status(args: MigrateArgs) -> Result<i32, String> {
 
 fn apply_safe(args: MigrateArgs) -> Result<i32, String> {
     let mut manifest = read_manifest(&args.manifest)?;
-    // Slotcar only records safe-apply state here. Actual code edits are delegated to
+    // Octet only records safe-apply state here. Actual code edits are delegated to
     // existing machine-applicable cargo fix rails so manual-review findings cannot be touched.
     manifest.deferred_findings.sort();
     manifest.manual_review_required.sort();
@@ -110,7 +110,7 @@ fn write_manifest(path: &Path, manifest: &MigrationManifest) -> Result<(), Strin
 fn print_manifest(manifest: &MigrationManifest, output_format: OutputFormat) -> Result<i32, String> {
     match output_format {
         OutputFormat::Human => println!(
-            "slotcar migration profile={} unresolved={} manual_review_required={}",
+            "octet migration profile={} unresolved={} manual_review_required={}",
             manifest.profile,
             manifest.unresolved_findings.len(),
             manifest.manual_review_required.len(),
@@ -135,7 +135,7 @@ fn print_status(manifest: &MigrationManifest, output_format: OutputFormat) -> Re
     };
     match output_format {
         OutputFormat::Human => println!(
-            "slotcar migration status profile={} accepted={} fixed={} deferred={} manual_review_required={} unresolved={}",
+            "octet migration status profile={} accepted={} fixed={} deferred={} manual_review_required={} unresolved={}",
             status.profile,
             status.accepted,
             status.fixed,

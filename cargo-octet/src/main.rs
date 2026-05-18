@@ -33,7 +33,7 @@ fn try_main() -> Result<i32, String> {
             Ok(0)
         }
         cli::CommandArgs::Version => {
-            println!("cargo-slotcar {}", env!("CARGO_PKG_VERSION"));
+            println!("cargo-octet {}", env!("CARGO_PKG_VERSION"));
             Ok(0)
         }
     }

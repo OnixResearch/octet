@@ -257,7 +257,7 @@ fn write_review_manifest(path: &Path, report: &FingerprintReport, input_paths: V
     });
     let manifest = FingerprintReviewManifest {
         schema_version: 1,
-        tool_name: "cargo-slotcar",
+        tool_name: "cargo-octet",
         tool_version: env!("CARGO_PKG_VERSION"),
         mode: report.mode,
         input_paths,
@@ -563,7 +563,7 @@ fn mode_name(mode: FingerprintMode) -> &'static str {
 }
 
 fn print_human(report: &FingerprintReport) {
-    println!("slotcar fingerprint {}", report.mode);
+    println!("octet fingerprint {}", report.mode);
     for record in &report.records {
         println!(
             "{} {} {} semantic_id={} stored={} computed=b3:{} normalized_body_hash={} dependency_identity_status={} review={} evidence={} macro_warning={}",

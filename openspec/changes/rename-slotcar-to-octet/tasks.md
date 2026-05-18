@@ -1,8 +1,8 @@
 ## Phase 1: Implementation
 
 - [x] I1 Define the Octet naming map in README/docs and distinguish canonical identity from Tiger Style philosophy and legacy compatibility. ✅ 3m20s (started: 2026-05-18T01:49:52Z → completed: 2026-05-18T01:53:12Z)
-- [ ] I2 Rename Cargo package/binary/runner surfaces to `octet` / `cargo-octet` while retaining explicit compatibility aliases where chosen.
-- [ ] I3 Update Nix packages/apps/check helpers, flake library surfaces, and generated command wrappers to prefer Octet names.
+- [x] I2 Rename Cargo package/binary/runner surfaces to `octet` / `cargo-octet` while retaining explicit compatibility aliases where chosen. ✅ 6m50s (started: 2026-05-18T01:54:05Z → completed: 2026-05-18T02:00:55Z)
+- [x] I3 Update Nix packages/apps/check helpers, flake library surfaces, and generated command wrappers to prefer Octet names. ✅ 12m (started: 2026-05-18T02:07:25Z → completed: 2026-05-18T02:19:25Z; evidence: `openspec/changes/rename-slotcar-to-octet/evidence/metadata-build.txt`)
 - [ ] I4 Update consumer config parsing/templates/docs for `[octet]`, `[octet.lint_levels]`, and `[workspace.metadata.octet]` with Octet-over-legacy precedence.
 - [ ] I5 Update structured outputs, SARIF driver metadata, sidecar artifacts, migration manifests, transcript reports, and fingerprint/review records to use Octet canonical identity.
 - [ ] I6 Update standards registry/policy artifact names and regenerate any Nickel-derived artifacts affected by Octet identity.
@@ -25,7 +25,7 @@
 
 ## Change Status
 - Status: in-progress
-- Open tasks: I2, I3, I4, I5, I6, I7, I8, V1, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11
+- Open tasks: I4, I5, I6, I7, I8, V1, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11
 
 ## Verification Coverage
 
