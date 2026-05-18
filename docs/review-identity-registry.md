@@ -9,13 +9,13 @@ manifest handles are pointers; BLAKE3 content hashes are the review targets.
 Use a mutable label when humans need a memorable handle:
 
 ```sh
-cargo slotcar roadmap pointer set --registry review-registry.json --name done-review --kind prompt --hash b3:<target> --receipt update.json
+cargo octet roadmap pointer set --registry review-registry.json --name done-review --kind prompt --hash b3:<target> --receipt update.json
 ```
 
 Resolve the label when validating a fingerprint review manifest:
 
 ```sh
-cargo slotcar roadmap pointer inspect --registry review-registry.json --name done-review
+cargo octet roadmap pointer inspect --registry review-registry.json --name done-review
 ```
 
 The inspect output preserves both the human label and the immutable target hash.

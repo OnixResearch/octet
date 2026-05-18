@@ -4,7 +4,7 @@
 
 This repo enforces a reusable Rust safety profile through two explicit seams:
 
-- the Dylint lint engine in `src/` and `cargo-slotcar/`
+- the Dylint lint engine in `src/` and `cargo-octet/`
 - the policy registry and standards checker in `standards/` and `crates/slotcar-standards/`
 
 The machine-readable policy index lives in
@@ -22,7 +22,7 @@ evidence.
   in the `slotcar-standards` binary shell.
 - Dylint lint implementation MUST stay in `src/`; standards policy checks MUST
   not be folded into the compiler-plugin crate unless they need rustc HIR.
-- `cargo-slotcar/` MUST remain the lint runner seam for downstream projects.
+- `cargo-octet/` MUST remain the lint runner seam for downstream projects.
 
 ## Policy Registry
 
@@ -109,9 +109,9 @@ Run these inside `nix develop` or through `nix develop path:. -c ...`:
 cargo test -p slotcar-standards
 cargo check --workspace --all-targets
 cargo clippy --workspace --all-targets -- -D warnings
-nix run .#slotcar-policy-validate
+nix run .#octet-policy-validate
 nix run .#slotcar-standards -- --help
 nix build .#checks.x86_64-linux.policy-registry --no-link
 nix build .#checks.x86_64-linux.standards-fixtures --no-link
-nix run .#cargo-slotcar -- check
+nix run .#cargo-octet -- check
 ```

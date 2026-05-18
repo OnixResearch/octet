@@ -42,7 +42,7 @@ For the shipped lint catalog, see `lint-reference.md`.
 | lint inventory and registration | `src/lib.rs` |
 | diagnostic wording, guide sections, domain groups | `src/diagnostics.rs` |
 | config schema and defaults | `src/config.rs` |
-| cargo subcommand parsing and engine behavior | `cargo-slotcar/src/cli.rs`, `cargo-slotcar/src/config.rs`, `cargo-slotcar/src/engine.rs` |
+| cargo subcommand parsing and engine behavior | `cargo-octet/src/cli.rs`, `cargo-octet/src/config.rs`, `cargo-octet/src/engine.rs` |
 | standards registry and checker core | `standards/policies/`, `crates/slotcar-standards/src/` |
 | standards source material | `docs/standards/source/` |
 | published Nix entry points and helpers | `flake.nix` |
@@ -117,8 +117,8 @@ source-shape checks stay in `crates/slotcar-standards` and `standards/`.
 
 Check these source files first:
 
-- `cargo-slotcar/src/cli.rs`
-- `cargo-slotcar/src/engine.rs`
+- `cargo-octet/src/cli.rs`
+- `cargo-octet/src/engine.rs`
 - `flake.nix`
 
 Then update:
@@ -202,14 +202,14 @@ nix develop -c bash -c 'cargo check'
 nix develop -c bash -c 'cargo test --lib'
 nix develop -c bash -c 'cargo test --test ui ui -- --ignored --nocapture'
 nix develop -c bash -c 'cargo test -p slotcar-standards'
-nix run .#slotcar-policy-validate
+nix run .#octet-policy-validate
 ```
 
 Useful doc-facing spot checks:
 
 ```bash
 nix develop -c bash -c 'cargo test --test consumer_integration downstream_rollout_docs_point_to_first_class_cli_path -- --nocapture'
-rg -n "cargo slotcar check|cargo-slotcar|slotcar::|\[slotcar\]|\[workspace.metadata.slotcar\]" README.md docs/*.md
+rg -n "cargo octet check|cargo-octet|octet::|\[octet\]|\[workspace.metadata.octet\]" README.md docs/*.md
 ```
 
 For fingerprint docs/examples, use one review command:
@@ -218,7 +218,7 @@ For fingerprint docs/examples, use one review command:
 nix build .#checks.x86_64-linux.docs-examples --no-link -L
 ```
 
-Run it whenever `cargo slotcar fingerprint` behavior or checked
+Run it whenever `cargo octet fingerprint` behavior or checked
 `docs/examples/function-fingerprint-*` transcripts change. This aggregate check
 is part of `nix flake check` and is the CI/operator gate for executable
 fingerprint docs, including downstream smoke and the docs grep regression. Use

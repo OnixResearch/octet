@@ -27,8 +27,7 @@ struct TempDir {
 impl TempDir {
     fn new(label: &str) -> Self {
         let nanos = SystemTime::now().duration_since(UNIX_EPOCH).expect("time went backwards").as_nanos();
-        let path =
-            env::temp_dir().join(format!("tigerstyle-consumer-integration-{label}-{}-{nanos}", std::process::id()));
+        let path = env::temp_dir().join(format!("octet-consumer-integration-{label}-{}-{nanos}", std::process::id()));
         fs::create_dir_all(&path).expect("create temp dir");
         Self { path }
     }
@@ -114,7 +113,7 @@ edition = "2024"
             ),
         );
         write_file(&repo.join("src/lib.rs"), "pub fn noop() {}\n");
-        write_file(&repo.join("dylint.toml"), "[tigerstyle]\n");
+        write_file(&repo.join("dylint.toml"), "[octet]\n");
         write_file(&repo.join("Cargo.lock"), "# original lockfile\n");
         write_executable(
             &fakebin.join("cargo"),
@@ -524,7 +523,7 @@ fn built_cargo_octet_bin() -> Result<PathBuf, String> {
         .get_or_init(|| {
             let cargo = env::var("CARGO").map_err(|_| "missing `CARGO` env var".to_owned())?;
             let manifest_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("cargo-octet/Cargo.toml");
-            let target_dir = env::temp_dir().join("tigerstyle-consumer-integration-cli-target");
+            let target_dir = env::temp_dir().join("octet-consumer-integration-cli-target");
 
             let status = Command::new(cargo)
                 .arg("build")
@@ -2356,7 +2355,7 @@ fn cache_uses_content_identity_and_bypasses_unsupported_inputs() {
             .expect("json");
     assert_eq!(second_finding["cache_status"], "hit");
 
-    write_file(&fixture.repo.join("dylint.toml"), "[tigerstyle]\n# changed config\n");
+    write_file(&fixture.repo.join("dylint.toml"), "[octet]\n# changed config\n");
     let changed_config = run_with_check_args(
         &fixture,
         &["--output-format", JSON_OUTPUT_FORMAT, "--cache"],
@@ -2392,7 +2391,7 @@ fn cache_uses_content_identity_and_bypasses_unsupported_inputs() {
 #[test]
 fn baseline_matches_semantic_identity_after_rename() {
     let fixture = ConsumerFixture::new("baseline-semantic-rename", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
-    let baseline_path = fixture.repo.join("slotcar-baseline.json");
+    let baseline_path = fixture.repo.join("octet-baseline.json");
     let baseline_path_str = baseline_path.to_str().expect("baseline path utf8");
     let original = vec![
         cargo_compiler_artifact("aspen-core", false),
@@ -2434,7 +2433,7 @@ fn baseline_matches_semantic_identity_after_rename() {
 #[test]
 fn migration_manifest_commands_are_deterministic_and_safe() {
     let fixture = ConsumerFixture::new("migration-manifest", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
-    let manifest = fixture.repo.join(".slotcar/migrations/starter.json");
+    let manifest = fixture.repo.join(".octet/migrations/starter.json");
     let bin = built_cargo_octet_bin().expect("build cargo-octet binary");
 
     let start = Command::new(&bin)
@@ -2551,7 +2550,7 @@ $ cargo octet check --output-format json
 #[test]
 fn baseline_file_accepts_current_findings_and_gates_new_ids() {
     let fixture = ConsumerFixture::new("baseline-file", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
-    let baseline_path = fixture.repo.join("tigerstyle-baseline.json");
+    let baseline_path = fixture.repo.join("octet-baseline.json");
     let baseline_path_str = baseline_path.to_str().expect("baseline path utf8");
 
     let write_output = run_with_check_args(
@@ -2653,7 +2652,7 @@ fn baseline_file_accepts_current_findings_and_gates_new_ids() {
 #[test]
 fn baseline_write_skips_incomplete_cargo_runs() {
     let fixture = ConsumerFixture::new("baseline-write-failed", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
-    let baseline_path = fixture.repo.join("tigerstyle-baseline.json");
+    let baseline_path = fixture.repo.join("octet-baseline.json");
     let baseline_path_str = baseline_path.to_str().expect("baseline path utf8");
     let lines = vec![
         cargo_compiler_message("consumer", "no_unwrap", "use of `.unwrap()`", "src/lib.rs", 10, 5, None),

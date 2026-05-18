@@ -11,7 +11,7 @@ standards checker moved into the `slotcar` repo.
 | `slotcar.devtools.documentation-gates` | rustc | crate-level `#![deny(missing_docs)]` for Rust crate roots |
 | `slotcar.devtools.lint-suppressions` | `octet-standards` | suppression parser validates policy ID, source section, owner, rationale, review trigger, safer default, and narrow scope; flake `standards-fixtures` proves compliant and noncompliant fixture behavior |
 | `slotcar.architecture.fcis-crate-boundary` | `octet-standards` | architecture fixtures prove the FCIS source-shape checker without coupling it to the Dylint crate |
-| `slotcar.idioms.thin-forwarder-verifier` | Tiger Style lints | `.#cargo-slotcar` wrapper supplies `clang`, `mold`, `pkg-config`, and the pinned Rust toolchain |
+| `slotcar.idioms.thin-forwarder-verifier` | Tiger Style lints | `.#cargo-octet` wrapper supplies `clang`, `mold`, `pkg-config`, and the pinned Rust toolchain |
 
 ## Local commands
 
@@ -19,9 +19,9 @@ standards checker moved into the `slotcar` repo.
 nix develop path:. -c cargo fmt --all --check
 nix develop path:. -c cargo clippy --workspace --all-targets -- -D warnings
 nix develop path:. -c cargo test -p slotcar-standards
-nix run .#cargo-slotcar -- check
+nix run .#cargo-octet -- check
 nix build .#checks.x86_64-linux.policy-registry --no-link
 nix build .#checks.x86_64-linux.standards-fixtures --no-link
-nix run .#slotcar-policy-validate
+nix run .#octet-policy-validate
 nix run .#slotcar-standards -- --help
 ```

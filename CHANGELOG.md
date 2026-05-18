@@ -8,13 +8,13 @@ For rollout profiles, see `docs/downstream-rollout.md`.
 
 ## 2026-05-05: Function fingerprint docs and checks
 
-`cargo slotcar fingerprint` now has checked operator docs for the full
+`cargo octet fingerprint` now has checked operator docs for the full
 review lifecycle: human summaries, warning/metadata summaries, script-facing
 JSON output, source-scanner boundaries, downstream scratch-consumer behavior,
 human/JSON `--diff` parity, and deterministic review manifests. `cargo
-slotcar check` outputs now include stable finding IDs plus replay metadata
+octet check` outputs now include stable finding IDs plus replay metadata
 for toolchain, config hash, and profile hash. Check runs can now write and gate
-against `slotcar-baseline.json` acceptance files so existing warning-only debt
+against `octet-baseline.json` acceptance files so existing warning-only debt
 is explicit while new stable IDs fail CI deterministically.
 
 Use one review command for these executable docs:
@@ -61,8 +61,8 @@ Config keys in `dylint.toml` stay bare (`no_unwrap`, not `slotcar::no_unwrap`).
 
 ## 2026-04-14: First-class runner replaces shell wrapper
 
-`cargo slotcar check` and `nix run .#cargo-slotcar -- check` are the
-supported consumer entry points. The historical shell wrapper is retained only
+`cargo octet check` and `nix run .#cargo-octet -- check` are the
+supported consumer entry points. Legacy `cargo slotcar` / `cargo tigerstyle` paths are compatibility aliases. The historical shell wrapper is retained only
 in archived replay evidence.
 
 New consumers should use `[workspace.metadata.octet] for runner policy
@@ -70,7 +70,7 @@ and `dylint.toml` for lint tuning. See `docs/consumer-guide.md`.
 
 ## 2026-04-14: Structured output
 
-`cargo slotcar check` gained `--output-format` (json, sarif) and
+`cargo octet check` gained `--output-format` (json, sarif) and
 `--artifact-dir` for machine-readable output and saved artifact bundles.
 
 Exit codes: `0` clean/warning-only, `1` error-level findings, `2` integration

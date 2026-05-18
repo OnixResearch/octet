@@ -762,7 +762,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "tigerstyle-ui-driver"
+name = "octet-ui-driver"
 version = "0.1.0"
 dependencies = [
  "anyhow",
