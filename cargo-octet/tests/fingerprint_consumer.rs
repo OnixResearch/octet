@@ -1454,3 +1454,95 @@ pub fn alpha(input: u32) -> u32 { input + 1 }
     assert_eq!(json["replay"]["command"], "cargo octet object emit --output-format=json lib.rs");
     assert!(json["replay"]["determinism_note"].as_str().unwrap().contains("not correctness"));
 }
+
+#[test]
+fn object_real_code_corpus_emits_stable_bundled_evidence() {
+    let root = repo_root();
+    let corpus = [
+        "cargo-octet/src/cli.rs",
+        "cargo-octet/src/object.rs",
+        "cargo-octet/src/fingerprint.rs",
+    ];
+    let temp = tempfile::tempdir().expect("create tempdir");
+    let objects_path = temp.path().join("real-code-objects.json");
+    let first_objects = Command::new(cargo_octet())
+        .args(["object", "emit", "--output-format=json"])
+        .args(corpus)
+        .current_dir(&root)
+        .output()
+        .expect("emit real-code objects");
+    assert!(
+        first_objects.status.success(),
+        "real-code emit stderr: {}",
+        String::from_utf8_lossy(&first_objects.stderr)
+    );
+    fs::write(&objects_path, &first_objects.stdout).expect("write real-code objects");
+
+    let second_objects = Command::new(cargo_octet())
+        .args(["object", "emit", "--output-format=json"])
+        .args(corpus)
+        .current_dir(&root)
+        .output()
+        .expect("repeat real-code emit");
+    assert!(
+        second_objects.status.success(),
+        "repeat real-code emit stderr: {}",
+        String::from_utf8_lossy(&second_objects.stderr)
+    );
+    assert_eq!(first_objects.stdout, second_objects.stdout);
+
+    let json: serde_json::Value = serde_json::from_slice(&first_objects.stdout).expect("real-code object json");
+    let objects = json["objects"].as_array().expect("objects array");
+    assert!(objects.len() >= 30, "expected broad real-code corpus coverage, saw {} objects", objects.len());
+    assert!(objects.iter().all(|object| object["correctness_claim"]["claims_correctness"] == false));
+    assert!(objects.iter().all(|object| object["pure_cache_eligibility"]["status"] == "blocked-by-caveats"));
+    assert!(objects.iter().any(|object| {
+        object["macro_caveats"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|caveat| caveat["status"] == "review-required")
+    }));
+    assert!(
+        objects.iter().any(|object| object["effect_caveats"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|caveat| caveat["kind"] == "panic"))
+    );
+    let paths = objects.iter().filter_map(|object| object["source_path"].as_str()).collect::<BTreeSet<_>>();
+    assert_eq!(
+        paths,
+        BTreeSet::from([
+            "cargo-octet/src/cli.rs",
+            "cargo-octet/src/fingerprint.rs",
+            "cargo-octet/src/object.rs",
+        ])
+    );
+
+    let first_bundle = temp.path().join("real-code-bundle-one.json");
+    let second_bundle = temp.path().join("real-code-bundle-two.json");
+    for output_path in [&first_bundle, &second_bundle] {
+        let bundle = Command::new(cargo_octet())
+            .args(["object", "bundle", "export", "--objects"])
+            .arg(&objects_path)
+            .args(["--output"])
+            .arg(output_path)
+            .args([
+                "--replay-command",
+                "cargo octet object emit --output-format=json cargo-octet/src/cli.rs cargo-octet/src/object.rs cargo-octet/src/fingerprint.rs",
+            ])
+            .current_dir(&root)
+            .output()
+            .expect("export real-code bundle");
+        assert!(bundle.status.success(), "real-code bundle stderr: {}", String::from_utf8_lossy(&bundle.stderr));
+    }
+    let first_bundle_text = fs::read_to_string(&first_bundle).expect("read first real-code bundle");
+    let second_bundle_text = fs::read_to_string(&second_bundle).expect("read second real-code bundle");
+    assert_eq!(first_bundle_text, second_bundle_text);
+    let bundle_json: serde_json::Value = serde_json::from_str(&first_bundle_text).expect("bundle json");
+    assert_eq!(bundle_json["object_count"], objects.len());
+    assert_eq!(bundle_json["pointer_count"], 0);
+    assert!(bundle_json["bundle_hash"].as_str().unwrap().starts_with("b3:"));
+    assert!(bundle_json["replay"]["command"].as_str().unwrap().contains("cargo-octet/src/object.rs"));
+}

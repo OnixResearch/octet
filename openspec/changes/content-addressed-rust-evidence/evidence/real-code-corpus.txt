@@ -1,0 +1,32 @@
+$ cargo test -p cargo-octet object_real_code_corpus_emits_stable_bundled_evidence --test fingerprint_consumer -- --nocapture
+warning: /home/brittonr/git/slotcar/crates/slotcar-standards/Cargo.toml: file `/home/brittonr/git/slotcar/crates/slotcar-standards/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `octet-standards`
+  * `bin` target `slotcar-standards`
+  * `bin` target `tigerstyle-standards`
+warning: /home/brittonr/git/slotcar/cargo-octet/Cargo.toml: file `/home/brittonr/git/slotcar/cargo-octet/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `cargo-octet`
+  * `bin` target `cargo-slotcar`
+  * `bin` target `cargo-tigerstyle`
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.08s
+     Running tests/fingerprint_consumer.rs (/home/brittonr/.cargo-target/debug/deps/fingerprint_consumer-e64a4f0e00c6cfc9)
+
+running 1 test
+test object_real_code_corpus_emits_stable_bundled_evidence ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 21 filtered out; finished in 0.08s
+
+$ cargo octet object emit --output-format=json cargo-octet/src/cli.rs cargo-octet/src/object.rs cargo-octet/src/fingerprint.rs
+warning: /home/brittonr/git/slotcar/cargo-octet/Cargo.toml: file `/home/brittonr/git/slotcar/cargo-octet/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `cargo-octet`
+  * `bin` target `cargo-slotcar`
+  * `bin` target `cargo-tigerstyle`
+warning: /home/brittonr/git/slotcar/crates/slotcar-standards/Cargo.toml: file `/home/brittonr/git/slotcar/crates/slotcar-standards/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `octet-standards`
+  * `bin` target `slotcar-standards`
+  * `bin` target `tigerstyle-standards`
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.03s
+     Running `/home/brittonr/.cargo-target/debug/cargo-octet object emit --output-format=json cargo-octet/src/cli.rs cargo-octet/src/object.rs cargo-octet/src/fingerprint.rs`
+assert.real_code_object_count>=30: PASS count=37
+assert.real_code_paths: PASS paths=['cargo-octet/src/cli.rs', 'cargo-octet/src/fingerprint.rs', 'cargo-octet/src/object.rs']
+assert.real_code_caveat_distribution: PASS macro_review_required=32 panic_caveated=6 pure_cache_blocked=37
+assert.correctness_overclaim_absent: PASS
