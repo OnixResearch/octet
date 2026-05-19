@@ -1311,3 +1311,146 @@ fn object_diff_separates_body_signature_caveat_and_pointer_changes() {
     assert_eq!(json["macro_caveats_changed"], false);
     assert_eq!(json["pointer_changes"].as_array().unwrap().len(), 1);
 }
+
+#[test]
+fn object_caveats_keep_dependencies_unresolved_and_block_pure_cache() {
+    let temp = tempfile::tempdir().expect("create tempdir");
+    let fixture = temp.path().join("lib.rs");
+    fs::write(
+        &fixture,
+        r#"pub fn checked_value(input: u32) -> u32 {
+    input.saturating_add(1)
+}
+"#,
+    )
+    .expect("write fixture");
+
+    let output = Command::new(cargo_octet())
+        .args([
+            "object",
+            "emit",
+            "--function",
+            "checked_value",
+            "--output-format=json",
+            "lib.rs",
+        ])
+        .current_dir(temp.path())
+        .output()
+        .expect("emit object");
+    assert!(output.status.success(), "emit stderr: {}", String::from_utf8_lossy(&output.stderr));
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout).expect("object json");
+    let object = &json["objects"][0];
+    assert_eq!(object["dependency_caveats"][0]["status"], "source-scanner-token-set");
+    assert_eq!(object["caveat_summary"]["dependency_identity"], "unresolved-source-scanner");
+    assert_eq!(object["pure_cache_eligibility"]["eligible"], false);
+    assert_eq!(object["pure_cache_eligibility"]["status"], "blocked-by-caveats");
+    let blockers = object["pure_cache_eligibility"]["blockers"].as_array().expect("blockers");
+    assert!(blockers.iter().any(|blocker| blocker == "dependency-identity-unresolved"));
+    assert!(blockers.iter().any(|blocker| blocker == "effect-summary-unresolved"));
+}
+
+#[test]
+fn object_effect_and_macro_caveats_are_structured() {
+    let temp = tempfile::tempdir().expect("create tempdir");
+    let fixture = temp.path().join("lib.rs");
+    fs::write(
+        &fixture,
+        r#"pub fn checked_value(input: Option<u32>) -> u32 {
+    format!("value={}", input.unwrap()).len() as u32
+}
+"#,
+    )
+    .expect("write fixture");
+
+    let output = Command::new(cargo_octet())
+        .args([
+            "object",
+            "emit",
+            "--function",
+            "checked_value",
+            "--output-format=json",
+            "lib.rs",
+        ])
+        .current_dir(temp.path())
+        .output()
+        .expect("emit object");
+    assert!(output.status.success(), "emit stderr: {}", String::from_utf8_lossy(&output.stderr));
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout).expect("object json");
+    let object = &json["objects"][0];
+    assert!(object["effect_caveats"].as_array().unwrap().iter().any(|caveat| caveat["kind"] == "panic"));
+    assert_eq!(object["macro_caveats"][0]["status"], "review-required");
+    assert_eq!(object["caveat_summary"]["macro_expansion"], "macro-expansion-not-modeled");
+    let blockers = object["pure_cache_eligibility"]["blockers"].as_array().expect("blockers");
+    assert!(blockers.iter().any(|blocker| blocker == "macro-expansion-unmodeled"));
+}
+
+#[test]
+fn object_bundle_export_is_deterministic_and_records_replay() {
+    let temp = tempfile::tempdir().expect("create tempdir");
+    let fixture = temp.path().join("lib.rs");
+    fs::write(
+        &fixture,
+        r#"pub fn beta(input: u32) -> u32 { input + 2 }
+pub fn alpha(input: u32) -> u32 { input + 1 }
+"#,
+    )
+    .expect("write fixture");
+    let objects_path = temp.path().join("objects.json");
+    let objects = Command::new(cargo_octet())
+        .args(["object", "emit", "--output-format=json", "lib.rs"])
+        .current_dir(temp.path())
+        .output()
+        .expect("emit objects");
+    assert!(objects.status.success(), "emit stderr: {}", String::from_utf8_lossy(&objects.stderr));
+    fs::write(&objects_path, &objects.stdout).expect("write objects");
+    let objects_json: serde_json::Value = serde_json::from_slice(&objects.stdout).expect("objects json");
+    let alpha_hash = objects_json["objects"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|object| object["name"] == "alpha")
+        .and_then(|object| object["object_hash"].as_str())
+        .unwrap()
+        .to_owned();
+    let pointers = temp.path().join("pointers.json");
+    let receipt = temp.path().join("receipt.json");
+    let pointer_set = Command::new(cargo_octet())
+        .args(["object", "pointer", "set", "--manifest"])
+        .arg(&pointers)
+        .args(["--name", "crate::alpha", "--hash", &alpha_hash, "--objects"])
+        .arg(&objects_path)
+        .args(["--receipt"])
+        .arg(&receipt)
+        .output()
+        .expect("set pointer");
+    assert!(pointer_set.status.success(), "pointer stderr: {}", String::from_utf8_lossy(&pointer_set.stderr));
+
+    let one = temp.path().join("bundle-one.json");
+    let two = temp.path().join("bundle-two.json");
+    for output_path in [&one, &two] {
+        let bundle = Command::new(cargo_octet())
+            .args(["object", "bundle", "export", "--objects"])
+            .arg(&objects_path)
+            .args(["--pointers"])
+            .arg(&pointers)
+            .args(["--output"])
+            .arg(output_path)
+            .args([
+                "--replay-command",
+                "cargo octet object emit --output-format=json lib.rs",
+            ])
+            .output()
+            .expect("export bundle");
+        assert!(bundle.status.success(), "bundle stderr: {}", String::from_utf8_lossy(&bundle.stderr));
+    }
+    let first = fs::read_to_string(&one).expect("read first bundle");
+    let second = fs::read_to_string(&two).expect("read second bundle");
+    assert_eq!(first, second);
+    let json: serde_json::Value = serde_json::from_str(&first).expect("bundle json");
+    assert_eq!(json["schema"], "octet.function-object-bundle.v1");
+    assert_eq!(json["object_count"], 2);
+    assert_eq!(json["pointer_count"], 1);
+    assert!(json["bundle_hash"].as_str().unwrap().starts_with("b3:"));
+    assert_eq!(json["replay"]["command"], "cargo octet object emit --output-format=json lib.rs");
+    assert!(json["replay"]["determinism_note"].as_str().unwrap().contains("not correctness"));
+}

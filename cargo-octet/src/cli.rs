@@ -90,6 +90,12 @@ pub enum ObjectMode {
         manifest: PathBuf,
         objects: PathBuf,
     },
+    BundleExport {
+        objects: PathBuf,
+        pointers: Option<PathBuf>,
+        output: PathBuf,
+        replay_command: String,
+    },
 }
 
 #[derive(Debug)]
@@ -195,6 +201,7 @@ Usage:
   cargo octet object diff --old OLD.json --new NEW.json [--pointer-manifest PATH]
   cargo octet object pointer set --manifest PATH --name NAME --hash HASH --objects OBJECTS.json --receipt PATH
   cargo octet object pointer validate --manifest PATH --objects OBJECTS.json
+  cargo octet object bundle export --objects OBJECTS.json [--pointers POINTERS.json] --output BUNDLE.json --replay-command CMD
   cargo octet roadmap <artifact|capsule|ability|pointer|session|pure-cache> ...
   cargo octet transcript <PATH>
   cargo octet --version
@@ -230,6 +237,7 @@ Subcommands:
   diff --old OLD.json --new NEW.json [--pointer-manifest PATH] --output-format human|json
   pointer set --manifest PATH --name NAME --hash HASH --objects OBJECTS.json --receipt PATH
   pointer validate --manifest PATH --objects OBJECTS.json
+  bundle export --objects OBJECTS.json [--pointers POINTERS.json] --output BUNDLE.json --replay-command CMD
 
 Function objects are source-token review/provenance evidence, not correctness proofs.
 ";
@@ -443,10 +451,14 @@ fn parse_object(args: &[String]) -> Result<ObjectArgs, String> {
         Some("update") => parse_object_scan(ObjectMode::Update, &args[1..]),
         Some("diff") => parse_object_diff(&args[1..]),
         Some("pointer") => parse_object_pointer(&args[1..]),
+        Some("bundle") => parse_object_bundle(&args[1..]),
         Some(other) => Err(format!(
-            "unknown object subcommand `{other}`; expected `emit`, `check`, `update`, `diff`, or `pointer`"
+            "unknown object subcommand `{other}`; expected `emit`, `check`, `update`, `diff`, `pointer`, or `bundle`"
         )),
-        None => Err("missing object subcommand; expected `emit`, `check`, `update`, `diff`, or `pointer`".to_owned()),
+        None => {
+            Err("missing object subcommand; expected `emit`, `check`, `update`, `diff`, `pointer`, or `bundle`"
+                .to_owned())
+        }
     }
 }
 
@@ -587,6 +599,32 @@ fn parse_object_pointer(args: &[String]) -> Result<ObjectArgs, String> {
         Some(other) => Err(format!("unknown object pointer action `{other}`; expected `set` or `validate`")),
         None => Err("missing object pointer action; expected `set` or `validate`".to_owned()),
     }
+}
+
+fn parse_object_bundle(args: &[String]) -> Result<ObjectArgs, String> {
+    match args.first().map(String::as_str) {
+        Some("export") => Ok(ObjectArgs {
+            mode: ObjectMode::BundleExport {
+                objects: PathBuf::from(required_arg(&args[1..], "--objects")?),
+                pointers: optional_arg(&args[1..], "--pointers").map(PathBuf::from),
+                output: PathBuf::from(required_arg(&args[1..], "--output")?),
+                replay_command: required_arg(&args[1..], "--replay-command")?,
+            },
+            paths: Vec::new(),
+            function: None,
+            output_format: OutputFormat::Json,
+        }),
+        Some(other) => Err(format!("unknown object bundle action `{other}`; expected `export`")),
+        None => Err("missing object bundle action; expected `export`".to_owned()),
+    }
+}
+
+fn optional_arg(args: &[String], flag: &str) -> Option<String> {
+    if let Some(value) = args.iter().find_map(|arg| arg.strip_prefix(&format!("{flag}="))) {
+        return Some(value.to_owned());
+    }
+    let index = args.iter().position(|arg| arg == flag)?;
+    args.get(index + 1).cloned()
 }
 
 fn required_arg(args: &[String], flag: &str) -> Result<String, String> {
