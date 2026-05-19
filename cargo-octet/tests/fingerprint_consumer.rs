@@ -1851,6 +1851,88 @@ fn object_corpus_contract_metadata_reports_receipt_and_check_shapes() {
 }
 
 #[test]
+fn object_corpus_contract_metadata_reports_hir_mir_supplements_as_unsupported() {
+    let root = repo_root();
+    let contract = object_corpus_contract(&root);
+    let supplements = contract["supplemental_evidence"].as_array().expect("supplemental evidence list");
+    assert_eq!(supplements.len(), 2, "expected HIR and MIR supplement contracts: {contract:#?}");
+
+    for family in ["hir", "mir"] {
+        let supplement = supplements
+            .iter()
+            .find(|value| value["family"] == family)
+            .unwrap_or_else(|| panic!("missing {family} supplement contract in {contract:#?}"));
+        assert_eq!(supplement["status"], "unsupported-planned");
+        assert!(
+            supplement["relationship_to_v1"].as_str().unwrap().contains("preserves-function-object-v1-identity"),
+            "{family} supplement must preserve v1 identity boundary: {supplement:#?}"
+        );
+        assert!(
+            supplement["toolchain_scope"].as_str().unwrap().contains("rustc-version"),
+            "{family} supplement must be rustc/toolchain scoped: {supplement:#?}"
+        );
+        for field in [
+            "schema",
+            "schema_version",
+            "function_object_hash",
+            "rustc_version",
+            "target_triple",
+            "extraction_caveats",
+            "boundary",
+        ] {
+            assert!(
+                supplement["required_fields"].as_array().unwrap().iter().any(|value| value == field),
+                "missing required {family} supplement field {field}: {supplement:#?}"
+            );
+        }
+        assert!(
+            supplement["unsupported_reason"].as_str().unwrap().contains("has not implemented"),
+            "{family} supplement should fail closed before extractor support: {supplement:#?}"
+        );
+        assert!(
+            supplement["required_evidence_before_support"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|value| { value.as_str().unwrap().contains("fixture") }),
+            "{family} supplement should require deterministic fixture evidence: {supplement:#?}"
+        );
+        assert_eq!(supplement["claims_correctness"], false);
+        assert_eq!(supplement["claims_semantic_equivalence"], false);
+        assert_eq!(supplement["claims_cross_toolchain_stability"], false);
+    }
+}
+
+#[test]
+fn object_corpus_contract_human_reports_hir_mir_fail_closed_boundaries() {
+    let root = repo_root();
+    let output = Command::new(cargo_octet())
+        .args(["object", "corpus", "contract", "--output-format", "human"])
+        .current_dir(&root)
+        .output()
+        .expect("object corpus contract human metadata");
+    assert!(
+        output.status.success(),
+        "contract human stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    for needle in [
+        "supplemental_evidence family=hir",
+        "supplemental_evidence family=mir",
+        "status=unsupported-planned",
+        "optional-supplement-preserves-function-object-v1-identity",
+        "toolchain_scope=rustc-version",
+        "claims_correctness=false",
+        "claims_semantic_equivalence=false",
+        "claims_cross_toolchain_stability=false",
+    ] {
+        assert!(stdout.contains(needle), "human contract output missing {needle}: {stdout}");
+    }
+}
+
+#[test]
 fn object_internal_corpus_fixture_satisfies_contract_metadata() {
     let root = repo_root();
     let contract = object_corpus_contract(&root);

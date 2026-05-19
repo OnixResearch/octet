@@ -265,6 +265,7 @@ struct ObjectCorpusContractReport {
     source_of_truth: &'static str,
     receipt: ObjectCorpusSurfaceContract,
     check_report: ObjectCorpusSurfaceContract,
+    supplemental_evidence: Vec<ObjectSupplementalEvidenceContract>,
     boundaries: ObjectCorpusContractBoundaries,
 }
 
@@ -277,6 +278,22 @@ struct ObjectCorpusSurfaceContract {
     status_values: Vec<&'static str>,
     comparison_fields: Vec<&'static str>,
     error_fields: Vec<&'static str>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct ObjectSupplementalEvidenceContract {
+    family: &'static str,
+    schema: &'static str,
+    schema_version: u32,
+    status: &'static str,
+    relationship_to_v1: &'static str,
+    toolchain_scope: &'static str,
+    required_fields: Vec<&'static str>,
+    unsupported_reason: &'static str,
+    required_evidence_before_support: Vec<&'static str>,
+    claims_correctness: bool,
+    claims_semantic_equivalence: bool,
+    claims_cross_toolchain_stability: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -674,6 +691,7 @@ fn object_corpus_contract_report() -> ObjectCorpusContractReport {
             comparison_fields: CORPUS_CHECK_COMPARISON_FIELDS.to_vec(),
             error_fields: CORPUS_CHECK_ERROR_FIELDS.to_vec(),
         },
+        supplemental_evidence: supplemental_evidence_contracts(),
         boundaries: ObjectCorpusContractBoundaries {
             identity_scope: "review-and-provenance-evidence",
             claims_correctness: false,
@@ -682,6 +700,66 @@ fn object_corpus_contract_report() -> ObjectCorpusContractReport {
             detail: "Contract metadata describes JSON compatibility for object corpus evidence; it does not prove behavioral correctness, semantic equivalence, cross-machine determinism, dependency resolution, macro expansion identity, or pure-cache eligibility.",
         },
     }
+}
+
+fn supplemental_evidence_contracts() -> Vec<ObjectSupplementalEvidenceContract> {
+    vec![
+        ObjectSupplementalEvidenceContract {
+            family: "hir",
+            schema: "octet.function-object-hir-supplement.v1",
+            schema_version: 1,
+            status: "unsupported-planned",
+            relationship_to_v1: "optional-supplement-preserves-function-object-v1-identity",
+            toolchain_scope: "rustc-version-and-target-scoped",
+            required_fields: vec![
+                "schema",
+                "schema_version",
+                "function_object_hash",
+                "rustc_version",
+                "target_triple",
+                "hir_context_hash",
+                "extraction_caveats",
+                "boundary",
+            ],
+            unsupported_reason: "Octet has not implemented a HIR extractor or deterministic HIR supplement fixtures.",
+            required_evidence_before_support: vec![
+                "deterministic-hir-supplement-fixture",
+                "toolchain-scoped-replay-check",
+                "non-proof-boundary-assertions",
+            ],
+            claims_correctness: false,
+            claims_semantic_equivalence: false,
+            claims_cross_toolchain_stability: false,
+        },
+        ObjectSupplementalEvidenceContract {
+            family: "mir",
+            schema: "octet.function-object-mir-supplement.v1",
+            schema_version: 1,
+            status: "unsupported-planned",
+            relationship_to_v1: "optional-supplement-preserves-function-object-v1-identity",
+            toolchain_scope: "rustc-version-target-and-mir-context-scoped",
+            required_fields: vec![
+                "schema",
+                "schema_version",
+                "function_object_hash",
+                "rustc_version",
+                "target_triple",
+                "mir_context",
+                "mir_observation_hash",
+                "extraction_caveats",
+                "boundary",
+            ],
+            unsupported_reason: "Octet has not implemented a MIR extractor or deterministic MIR supplement fixtures.",
+            required_evidence_before_support: vec![
+                "deterministic-mir-supplement-fixture",
+                "toolchain-and-mir-context-scoped-replay-check",
+                "non-proof-boundary-assertions",
+            ],
+            claims_correctness: false,
+            claims_semantic_equivalence: false,
+            claims_cross_toolchain_stability: false,
+        },
+    ]
 }
 
 fn print_corpus_contract_human(report: &ObjectCorpusContractReport) {
@@ -693,6 +771,30 @@ fn print_corpus_contract_human(report: &ObjectCorpusContractReport) {
     println!("check_report schema={} version={}", report.check_report.schema, report.check_report.schema_version);
     println!("check_report required_fields={}", report.check_report.required_fields.join(","));
     println!("check_report status_values={}", report.check_report.status_values.join(","));
+    for supplement in &report.supplemental_evidence {
+        println!(
+            "supplemental_evidence family={} schema={} version={} status={} relationship_to_v1={} toolchain_scope={}",
+            supplement.family,
+            supplement.schema,
+            supplement.schema_version,
+            supplement.status,
+            supplement.relationship_to_v1,
+            supplement.toolchain_scope
+        );
+        println!(
+            "supplemental_evidence {} required_fields={}",
+            supplement.family,
+            supplement.required_fields.join(",")
+        );
+        println!("supplemental_evidence {} unsupported_reason={}", supplement.family, supplement.unsupported_reason);
+        println!(
+            "supplemental_evidence {} claims_correctness={} claims_semantic_equivalence={} claims_cross_toolchain_stability={}",
+            supplement.family,
+            supplement.claims_correctness,
+            supplement.claims_semantic_equivalence,
+            supplement.claims_cross_toolchain_stability
+        );
+    }
     println!("boundary claims_correctness={}", report.boundaries.claims_correctness);
     println!("boundary claims_semantic_equivalence={}", report.boundaries.claims_semantic_equivalence);
 }
