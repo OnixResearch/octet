@@ -1,0 +1,31 @@
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 25 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 25 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 25 filtered out; finished in 0.00s
+
+
+running 7 tests
+test object_corpus_receipt_check_reports_malformed_receipts ... ok
+test object_corpus_receipt_check_rejects_missing_required_fields ... ok
+test object_corpus_receipt_check_replays_cleanly ... ok
+test object_corpus_receipt_check_fails_on_source_drift ... ok
+test object_corpus_receipt_check_fails_on_boundary_tamper ... ok
+test object_corpus_receipt_check_rejects_unsupported_schema_and_future_version ... ok
+test object_corpus_receipt_check_rejects_invalid_source_selection ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 27 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.00s
