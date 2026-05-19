@@ -1,0 +1,148 @@
+these 3 derivations will be built:
+  /nix/store/psf6pi376w3j1x2pgvx5s33rsa1hszrq-cargo-octet-fresh-build-b-0.1.0.drv
+  /nix/store/rraw4yqsbmzp32qm1hk86c7cxbqh0rj8-cargo-octet-fresh-build-a-0.1.0.drv
+  /nix/store/y6qq5pbdha0afg0gvdy19n6nskwmnk8c-octet-fresh-build-object-corpus-determinism.drv
+cannot build on 'ssh-ng://root@10.10.10.1': error: failed to start SSH connection to '10.10.10.1'
+building '/nix/store/rraw4yqsbmzp32qm1hk86c7cxbqh0rj8-cargo-octet-fresh-build-a-0.1.0.drv'...
+building '/nix/store/psf6pi376w3j1x2pgvx5s33rsa1hszrq-cargo-octet-fresh-build-b-0.1.0.drv'...
+cargo-octet-fresh-build-a> Running phase: unpackPhase
+cargo-octet-fresh-build-a> unpacking source archive /nix/store/as2p5v7mqyh50kaapf7hf4q6wkhp385b-source
+cargo-octet-fresh-build-b> Running phase: unpackPhase
+cargo-octet-fresh-build-b> unpacking source archive /nix/store/as2p5v7mqyh50kaapf7hf4q6wkhp385b-source
+cargo-octet-fresh-build-a> source root is source
+cargo-octet-fresh-build-b> source root is source
+cargo-octet-fresh-build-a> Running phase: patchPhase
+cargo-octet-fresh-build-a> Executing configureCargoCommonVars
+cargo-octet-fresh-build-a> decompressing cargo artifacts from /nix/store/hkwyd8ywfwprl0xj71vgbng063238vzs-octet-deps-0.1.0/target.tar.zst to target
+cargo-octet-fresh-build-b> Running phase: patchPhase
+cargo-octet-fresh-build-b> Executing configureCargoCommonVars
+cargo-octet-fresh-build-b> decompressing cargo artifacts from /nix/store/hkwyd8ywfwprl0xj71vgbng063238vzs-octet-deps-0.1.0/target.tar.zst to target
+cargo-octet-fresh-build-a> Running phase: updateAutotoolsGnuConfigScriptsPhase
+cargo-octet-fresh-build-a> Running phase: configurePhase
+cargo-octet-fresh-build-a> will append /build/source/.cargo-home/config.toml with contents of /nix/store/7psin7sq5sx4gs43jj2la6nzl2050sxz-vendor-cargo-deps/config.toml
+cargo-octet-fresh-build-a> default configurePhase, nothing to do
+cargo-octet-fresh-build-a> Running phase: buildPhase
+cargo-octet-fresh-build-a> +++ command cargo --version
+cargo-octet-fresh-build-b> Running phase: updateAutotoolsGnuConfigScriptsPhase
+cargo-octet-fresh-build-a> cargo 1.96.0-nightly (cbb9bb8bd 2026-03-13)
+cargo-octet-fresh-build-a> +++ command cargo build --release --message-format json-render-diagnostics -p cargo-octet
+cargo-octet-fresh-build-a> warning: /build/source/cargo-octet/Cargo.toml: file `/build/source/cargo-octet/src/main.rs` found to be present in multiple build targets:
+cargo-octet-fresh-build-a>   * `bin` target `cargo-octet`
+cargo-octet-fresh-build-a>   * `bin` target `cargo-slotcar`
+cargo-octet-fresh-build-a>   * `bin` target `cargo-tigerstyle`
+cargo-octet-fresh-build-a> warning: /build/source/crates/slotcar-standards/Cargo.toml: file `/build/source/crates/slotcar-standards/src/main.rs` found to be present in multiple build targets:
+cargo-octet-fresh-build-a>   * `bin` target `octet-standards`
+cargo-octet-fresh-build-a>   * `bin` target `slotcar-standards`
+cargo-octet-fresh-build-a>   * `bin` target `tigerstyle-standards`
+cargo-octet-fresh-build-b> Running phase: configurePhase
+cargo-octet-fresh-build-b> will append /build/source/.cargo-home/config.toml with contents of /nix/store/7psin7sq5sx4gs43jj2la6nzl2050sxz-vendor-cargo-deps/config.toml
+cargo-octet-fresh-build-b> default configurePhase, nothing to do
+cargo-octet-fresh-build-b> Running phase: buildPhase
+cargo-octet-fresh-build-b> +++ command cargo --version
+cargo-octet-fresh-build-b> cargo 1.96.0-nightly (cbb9bb8bd 2026-03-13)
+cargo-octet-fresh-build-b> +++ command cargo build --release --message-format json-render-diagnostics -p cargo-octet
+cargo-octet-fresh-build-b> warning: /build/source/cargo-octet/Cargo.toml: file `/build/source/cargo-octet/src/main.rs` found to be present in multiple build targets:
+cargo-octet-fresh-build-b>   * `bin` target `cargo-octet`
+cargo-octet-fresh-build-b>   * `bin` target `cargo-slotcar`
+cargo-octet-fresh-build-b>   * `bin` target `cargo-tigerstyle`
+cargo-octet-fresh-build-b> warning: /build/source/crates/slotcar-standards/Cargo.toml: file `/build/source/crates/slotcar-standards/src/main.rs` found to be present in multiple build targets:
+cargo-octet-fresh-build-b>   * `bin` target `octet-standards`
+cargo-octet-fresh-build-b>   * `bin` target `slotcar-standards`
+cargo-octet-fresh-build-b>   * `bin` target `tigerstyle-standards`
+cargo-octet-fresh-build-a>    Compiling find-msvc-tools v0.1.9
+cargo-octet-fresh-build-a>    Compiling shlex v1.3.0
+cargo-octet-fresh-build-a>    Compiling serde_core v1.0.228
+cargo-octet-fresh-build-a>    Compiling proc-macro2 v1.0.106
+cargo-octet-fresh-build-b>    Compiling shlex v1.3.0
+cargo-octet-fresh-build-b>    Compiling find-msvc-tools v0.1.9
+cargo-octet-fresh-build-b>    Compiling serde_core v1.0.228
+cargo-octet-fresh-build-b>    Compiling proc-macro2 v1.0.106
+cargo-octet-fresh-build-a>    Compiling cc v1.2.62
+cargo-octet-fresh-build-b>    Compiling cc v1.2.62
+cargo-octet-fresh-build-a>    Compiling quote v1.0.45
+cargo-octet-fresh-build-b>    Compiling quote v1.0.45
+cargo-octet-fresh-build-a>    Compiling constant_time_eq v0.4.2
+cargo-octet-fresh-build-b>    Compiling arrayref v0.3.9
+cargo-octet-fresh-build-b>    Compiling cfg-if v1.0.4
+cargo-octet-fresh-build-b>    Compiling constant_time_eq v0.4.2
+cargo-octet-fresh-build-a>    Compiling arrayref v0.3.9
+cargo-octet-fresh-build-a>    Compiling cpufeatures v0.3.0
+cargo-octet-fresh-build-b>    Compiling arrayvec v0.7.6
+cargo-octet-fresh-build-a>    Compiling cfg-if v1.0.4
+cargo-octet-fresh-build-a>    Compiling arrayvec v0.7.6
+cargo-octet-fresh-build-b>    Compiling cpufeatures v0.3.0
+cargo-octet-fresh-build-a>    Compiling serde_json v1.0.149
+cargo-octet-fresh-build-b>    Compiling syn v2.0.117
+cargo-octet-fresh-build-b>    Compiling serde_json v1.0.149
+cargo-octet-fresh-build-a>    Compiling syn v2.0.117
+cargo-octet-fresh-build-b>    Compiling blake3 v1.8.5
+cargo-octet-fresh-build-a>    Compiling blake3 v1.8.5
+cargo-octet-fresh-build-a>    Compiling cargo-octet v0.1.0 (/build/source/cargo-octet)
+cargo-octet-fresh-build-b>    Compiling cargo-octet v0.1.0 (/build/source/cargo-octet)
+cargo-octet-fresh-build-a>    Compiling toml_datetime v1.1.1+spec-1.1.0
+cargo-octet-fresh-build-b>    Compiling serde_spanned v1.1.1
+cargo-octet-fresh-build-b>    Compiling toml_datetime v1.1.1+spec-1.1.0
+cargo-octet-fresh-build-a>    Compiling serde_spanned v1.1.1
+cargo-octet-fresh-build-a>    Compiling toml v1.1.2+spec-1.1.0
+cargo-octet-fresh-build-b>    Compiling toml v1.1.2+spec-1.1.0
+cargo-octet-fresh-build-b>    Compiling serde_derive v1.0.228
+cargo-octet-fresh-build-a>    Compiling serde_derive v1.0.228
+cargo-octet-fresh-build-b>    Compiling serde v1.0.228
+cargo-octet-fresh-build-a>    Compiling serde v1.0.228
+cargo-octet-fresh-build-b>     Finished `release` profile [optimized] target(s) in 18.27s
+cargo-octet-fresh-build-b> searching for bins/libs to install from cargo build log at cargoBuildLogQASb.json
+cargo-octet-fresh-build-b> installing /build/source/target/release/cargo-octet in postBuildInstallFromCargoBuildLogOutTempTb8/bin
+cargo-octet-fresh-build-a>     Finished `release` profile [optimized] target(s) in 18.43s
+cargo-octet-fresh-build-a> searching for bins/libs to install from cargo build log at cargoBuildLogLN1D.json
+cargo-octet-fresh-build-b> installing /build/source/target/release/cargo-tigerstyle in postBuildInstallFromCargoBuildLogOutTempTb8/bin
+cargo-octet-fresh-build-a> installing /build/source/target/release/cargo-slotcar in postBuildInstallFromCargoBuildLogOutTempMvs/bin
+cargo-octet-fresh-build-b> installing /build/source/target/release/cargo-slotcar in postBuildInstallFromCargoBuildLogOutTempTb8/bin
+cargo-octet-fresh-build-a> installing /build/source/target/release/cargo-octet in postBuildInstallFromCargoBuildLogOutTempMvs/bin
+cargo-octet-fresh-build-b> searching for bins/libs complete
+cargo-octet-fresh-build-b> Running phase: installPhase
+cargo-octet-fresh-build-b> actually installing contents of postBuildInstallFromCargoBuildLogOutTempTb8 to /nix/store/9kl3pw7dxami2h1pdb5q7vvm9an8zfaz-cargo-octet-fresh-build-b-0.1.0
+cargo-octet-fresh-build-a> installing /build/source/target/release/cargo-tigerstyle in postBuildInstallFromCargoBuildLogOutTempMvs/bin
+cargo-octet-fresh-build-b> stripping references to Rust toolchain
+cargo-octet-fresh-build-b> Rust toolchain at: /nix/store/1yvh3d6y3fj3xk2dgwczrp1dj5svd92c-rust-default-1.96.0-nightly-2026-03-21
+cargo-octet-fresh-build-a> searching for bins/libs complete
+cargo-octet-fresh-build-a> Running phase: installPhase
+cargo-octet-fresh-build-a> actually installing contents of postBuildInstallFromCargoBuildLogOutTempMvs to /nix/store/gpq33xz5w8s702ysl8mfsqqgzq4k9y1x-cargo-octet-fresh-build-a-0.1.0
+cargo-octet-fresh-build-a> stripping references to Rust toolchain
+cargo-octet-fresh-build-b> stripping Rust toolchain references done
+cargo-octet-fresh-build-b> stripping references to cargoVendorDir from:
+cargo-octet-fresh-build-b> /nix/store/9kl3pw7dxami2h1pdb5q7vvm9an8zfaz-cargo-octet-fresh-build-b-0.1.0/bin/cargo-octet
+cargo-octet-fresh-build-b> /nix/store/9kl3pw7dxami2h1pdb5q7vvm9an8zfaz-cargo-octet-fresh-build-b-0.1.0/bin/cargo-slotcar
+cargo-octet-fresh-build-b> /nix/store/9kl3pw7dxami2h1pdb5q7vvm9an8zfaz-cargo-octet-fresh-build-b-0.1.0/bin/cargo-tigerstyle
+cargo-octet-fresh-build-a> Rust toolchain at: /nix/store/1yvh3d6y3fj3xk2dgwczrp1dj5svd92c-rust-default-1.96.0-nightly-2026-03-21
+cargo-octet-fresh-build-a> stripping Rust toolchain references done
+cargo-octet-fresh-build-a> stripping references to cargoVendorDir from:
+cargo-octet-fresh-build-a> /nix/store/gpq33xz5w8s702ysl8mfsqqgzq4k9y1x-cargo-octet-fresh-build-a-0.1.0/bin/cargo-octet
+cargo-octet-fresh-build-a> /nix/store/gpq33xz5w8s702ysl8mfsqqgzq4k9y1x-cargo-octet-fresh-build-a-0.1.0/bin/cargo-slotcar
+cargo-octet-fresh-build-a> /nix/store/gpq33xz5w8s702ysl8mfsqqgzq4k9y1x-cargo-octet-fresh-build-a-0.1.0/bin/cargo-tigerstyle
+cargo-octet-fresh-build-b> stripping references done
+cargo-octet-fresh-build-b> Running phase: fixupPhase
+cargo-octet-fresh-build-b> shrinking RPATHs of ELF executables and libraries in /nix/store/9kl3pw7dxami2h1pdb5q7vvm9an8zfaz-cargo-octet-fresh-build-b-0.1.0
+cargo-octet-fresh-build-b> shrinking /nix/store/9kl3pw7dxami2h1pdb5q7vvm9an8zfaz-cargo-octet-fresh-build-b-0.1.0/bin/cargo-octet
+cargo-octet-fresh-build-b> shrinking /nix/store/9kl3pw7dxami2h1pdb5q7vvm9an8zfaz-cargo-octet-fresh-build-b-0.1.0/bin/cargo-slotcar
+cargo-octet-fresh-build-b> shrinking /nix/store/9kl3pw7dxami2h1pdb5q7vvm9an8zfaz-cargo-octet-fresh-build-b-0.1.0/bin/cargo-tigerstyle
+cargo-octet-fresh-build-a> stripping references done
+cargo-octet-fresh-build-a> Running phase: fixupPhase
+cargo-octet-fresh-build-b> checking for references to /build/ in /nix/store/9kl3pw7dxami2h1pdb5q7vvm9an8zfaz-cargo-octet-fresh-build-b-0.1.0...
+cargo-octet-fresh-build-a> shrinking RPATHs of ELF executables and libraries in /nix/store/gpq33xz5w8s702ysl8mfsqqgzq4k9y1x-cargo-octet-fresh-build-a-0.1.0
+cargo-octet-fresh-build-a> shrinking /nix/store/gpq33xz5w8s702ysl8mfsqqgzq4k9y1x-cargo-octet-fresh-build-a-0.1.0/bin/cargo-octet
+cargo-octet-fresh-build-a> shrinking /nix/store/gpq33xz5w8s702ysl8mfsqqgzq4k9y1x-cargo-octet-fresh-build-a-0.1.0/bin/cargo-tigerstyle
+cargo-octet-fresh-build-b> patching script interpreter paths in /nix/store/9kl3pw7dxami2h1pdb5q7vvm9an8zfaz-cargo-octet-fresh-build-b-0.1.0
+cargo-octet-fresh-build-a> shrinking /nix/store/gpq33xz5w8s702ysl8mfsqqgzq4k9y1x-cargo-octet-fresh-build-a-0.1.0/bin/cargo-slotcar
+cargo-octet-fresh-build-b> stripping (with command strip and flags -S -p) in  /nix/store/9kl3pw7dxami2h1pdb5q7vvm9an8zfaz-cargo-octet-fresh-build-b-0.1.0/bin
+cargo-octet-fresh-build-a> checking for references to /build/ in /nix/store/gpq33xz5w8s702ysl8mfsqqgzq4k9y1x-cargo-octet-fresh-build-a-0.1.0...
+cargo-octet-fresh-build-a> patching script interpreter paths in /nix/store/gpq33xz5w8s702ysl8mfsqqgzq4k9y1x-cargo-octet-fresh-build-a-0.1.0
+cargo-octet-fresh-build-a> stripping (with command strip and flags -S -p) in  /nix/store/gpq33xz5w8s702ysl8mfsqqgzq4k9y1x-cargo-octet-fresh-build-a-0.1.0/bin
+building '/nix/store/y6qq5pbdha0afg0gvdy19n6nskwmnk8c-octet-fresh-build-object-corpus-determinism.drv'...
+octet-fresh-build-object-corpus-determinism> wrote object corpus receipt: /build/tmp.JOLGn2CHfq/fresh-a.json
+octet-fresh-build-object-corpus-determinism> wrote object corpus receipt: /build/tmp.JOLGn2CHfq/fresh-b.json
+octet-fresh-build-object-corpus-determinism> fresh_build.receipt_producers=2
+octet-fresh-build-object-corpus-determinism> fresh_build.byte_stability: PASS
+octet-fresh-build-object-corpus-determinism> fresh_build.fixture_parity: PASS
+octet-fresh-build-object-corpus-determinism> fresh_build.compared_fields_stable: PASS
+octet-fresh-build-object-corpus-determinism> fresh_build.boundary_claims_false: PASS
+octet-fresh-build-object-corpus-determinism> fresh_build.scope=bounded-local-fresh-build-evidence-replay
