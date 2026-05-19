@@ -1455,94 +1455,224 @@ pub fn alpha(input: u32) -> u32 { input + 1 }
     assert!(json["replay"]["determinism_note"].as_str().unwrap().contains("not correctness"));
 }
 
-#[test]
-fn object_real_code_corpus_emits_stable_bundled_evidence() {
-    let root = repo_root();
-    let corpus = [
-        "cargo-octet/src/cli.rs",
-        "cargo-octet/src/object.rs",
-        "cargo-octet/src/fingerprint.rs",
-    ];
-    let temp = tempfile::tempdir().expect("create tempdir");
-    let objects_path = temp.path().join("real-code-objects.json");
-    let first_objects = Command::new(cargo_octet())
-        .args(["object", "emit", "--output-format=json"])
-        .args(corpus)
-        .current_dir(&root)
-        .output()
-        .expect("emit real-code objects");
-    assert!(
-        first_objects.status.success(),
-        "real-code emit stderr: {}",
-        String::from_utf8_lossy(&first_objects.stderr)
-    );
-    fs::write(&objects_path, &first_objects.stdout).expect("write real-code objects");
+const REAL_CODE_CORPUS: &[&str] = &[
+    "cargo-octet/src/cli.rs",
+    "cargo-octet/src/object.rs",
+    "cargo-octet/src/fingerprint.rs",
+];
 
-    let second_objects = Command::new(cargo_octet())
-        .args(["object", "emit", "--output-format=json"])
-        .args(corpus)
-        .current_dir(&root)
-        .output()
-        .expect("repeat real-code emit");
-    assert!(
-        second_objects.status.success(),
-        "repeat real-code emit stderr: {}",
-        String::from_utf8_lossy(&second_objects.stderr)
-    );
-    assert_eq!(first_objects.stdout, second_objects.stdout);
+const REAL_CODE_REPLAY_COMMAND: &str = "cargo octet object emit --output-format=json cargo-octet/src/cli.rs cargo-octet/src/object.rs cargo-octet/src/fingerprint.rs";
 
-    let json: serde_json::Value = serde_json::from_slice(&first_objects.stdout).expect("real-code object json");
+#[derive(Debug)]
+struct CorpusSummary {
+    object_count: usize,
+    source_paths: BTreeSet<String>,
+    macro_review_required: usize,
+    panic_caveats: usize,
+    pure_cache_blocked: usize,
+}
+
+fn emit_objects_json(root: &Path, paths: &[&str]) -> serde_json::Value {
+    let output = Command::new(cargo_octet())
+        .args(["object", "emit", "--output-format=json"])
+        .args(paths)
+        .current_dir(root)
+        .output()
+        .expect("emit objects");
+    assert!(output.status.success(), "emit stderr: {}", String::from_utf8_lossy(&output.stderr));
+    serde_json::from_slice(&output.stdout).expect("object json")
+}
+
+fn emit_real_code_corpus(root: &Path) -> serde_json::Value {
+    emit_objects_json(root, REAL_CODE_CORPUS)
+}
+
+fn corpus_summary(json: &serde_json::Value) -> CorpusSummary {
     let objects = json["objects"].as_array().expect("objects array");
-    assert!(objects.len() >= 30, "expected broad real-code corpus coverage, saw {} objects", objects.len());
-    assert!(objects.iter().all(|object| object["correctness_claim"]["claims_correctness"] == false));
-    assert!(objects.iter().all(|object| object["pure_cache_eligibility"]["status"] == "blocked-by-caveats"));
-    assert!(objects.iter().any(|object| {
-        object["macro_caveats"]
-            .as_array()
-            .unwrap()
+    CorpusSummary {
+        object_count: objects.len(),
+        source_paths: objects
             .iter()
-            .any(|caveat| caveat["status"] == "review-required")
-    }));
-    assert!(
-        objects.iter().any(|object| object["effect_caveats"]
-            .as_array()
-            .unwrap()
+            .filter_map(|object| object["source_path"].as_str().map(ToOwned::to_owned))
+            .collect(),
+        macro_review_required: objects
             .iter()
-            .any(|caveat| caveat["kind"] == "panic"))
-    );
-    let paths = objects.iter().filter_map(|object| object["source_path"].as_str()).collect::<BTreeSet<_>>();
+            .filter(|object| {
+                object["macro_caveats"]
+                    .as_array()
+                    .expect("macro caveats")
+                    .iter()
+                    .any(|caveat| caveat["status"] == "review-required")
+            })
+            .count(),
+        panic_caveats: objects
+            .iter()
+            .filter(|object| {
+                object["effect_caveats"]
+                    .as_array()
+                    .expect("effect caveats")
+                    .iter()
+                    .any(|caveat| caveat["kind"] == "panic")
+            })
+            .count(),
+        pure_cache_blocked: objects
+            .iter()
+            .filter(|object| object["pure_cache_eligibility"]["status"] == "blocked-by-caveats")
+            .count(),
+    }
+}
+
+fn object_hash(json: &serde_json::Value, name: &str) -> String {
+    json["objects"]
+        .as_array()
+        .expect("objects array")
+        .iter()
+        .find(|object| object["name"] == name)
+        .and_then(|object| object["object_hash"].as_str())
+        .unwrap_or_else(|| panic!("missing object hash for {name}"))
+        .to_owned()
+}
+
+fn write_objects(root: &Path, paths: &[&str], objects_path: &Path) -> serde_json::Value {
+    let output = Command::new(cargo_octet())
+        .args(["object", "emit", "--output-format=json"])
+        .args(paths)
+        .current_dir(root)
+        .output()
+        .expect("emit objects for file");
+    assert!(output.status.success(), "emit stderr: {}", String::from_utf8_lossy(&output.stderr));
+    fs::write(objects_path, &output.stdout).expect("write objects json");
+    serde_json::from_slice(&output.stdout).expect("objects json")
+}
+
+fn export_bundle(
+    root: &Path,
+    objects_path: &Path,
+    pointers_path: Option<&Path>,
+    output_path: &Path,
+) -> std::process::Output {
+    let mut command = Command::new(cargo_octet());
+    command.args(["object", "bundle", "export", "--objects"]).arg(objects_path);
+    if let Some(pointers_path) = pointers_path {
+        command.args(["--pointers"]).arg(pointers_path);
+    }
+    command
+        .args(["--output"])
+        .arg(output_path)
+        .args(["--replay-command", REAL_CODE_REPLAY_COMMAND])
+        .current_dir(root)
+        .output()
+        .expect("export bundle")
+}
+
+#[test]
+fn object_real_code_harness_emits_stable_summary() {
+    let root = repo_root();
+    let first = emit_real_code_corpus(&root);
+    let second = emit_real_code_corpus(&root);
+    assert_eq!(first, second);
+
+    let summary = corpus_summary(&first);
+    assert!(summary.object_count >= 30, "expected broad real-code corpus coverage, saw {summary:?}");
     assert_eq!(
-        paths,
+        summary.source_paths,
         BTreeSet::from([
-            "cargo-octet/src/cli.rs",
-            "cargo-octet/src/fingerprint.rs",
-            "cargo-octet/src/object.rs",
+            "cargo-octet/src/cli.rs".to_owned(),
+            "cargo-octet/src/fingerprint.rs".to_owned(),
+            "cargo-octet/src/object.rs".to_owned(),
         ])
     );
+    assert!(summary.macro_review_required > 0, "expected macro caveats in real corpus: {summary:?}");
+    assert!(summary.panic_caveats > 0, "expected panic caveats in real corpus: {summary:?}");
+    assert_eq!(summary.pure_cache_blocked, summary.object_count);
+    assert!(
+        first["objects"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|object| object["correctness_claim"]["claims_correctness"] == false)
+    );
+}
 
+#[test]
+fn object_harness_negative_cases_are_classified() {
+    let temp = tempfile::tempdir().expect("create tempdir");
+    let fixture = temp.path().join("lib.rs");
+    fs::write(
+        &fixture,
+        r#"pub fn changed_value(input: u32) -> u32 {
+    input + 1
+}
+"#,
+    )
+    .expect("write initial fixture");
+    let initial = emit_objects_json(temp.path(), &["lib.rs"]);
+    let initial_hash = object_hash(&initial, "changed_value");
+
+    fs::write(
+        &fixture,
+        r#"// comment-only entropy should not affect object identity
+pub fn changed_value( input: u32 ) -> u32 { input + 1 }
+"#,
+    )
+    .expect("write formatted fixture");
+    let formatted = emit_objects_json(temp.path(), &["lib.rs"]);
+    assert_eq!(initial_hash, object_hash(&formatted, "changed_value"));
+
+    fs::write(&fixture, "pub fn changed_value(input: u32) -> u32 { input + 2 }\n").expect("write body mutation");
+    let changed = emit_objects_json(temp.path(), &["lib.rs"]);
+    assert_ne!(initial_hash, object_hash(&changed, "changed_value"));
+
+    fs::write(
+        &fixture,
+        r#"pub fn macro_heavy(input: Option<u32>) -> u32 {
+    format!("{}", input.unwrap()).len() as u32
+}
+"#,
+    )
+    .expect("write macro-heavy fixture");
+    let macro_json = emit_objects_json(temp.path(), &["lib.rs"]);
+    let macro_object = &macro_json["objects"][0];
+    assert_eq!(macro_object["macro_caveats"][0]["status"], "review-required");
+    assert!(macro_object["effect_caveats"].as_array().unwrap().iter().any(|caveat| caveat["kind"] == "panic"));
+    assert_eq!(macro_object["pure_cache_eligibility"]["status"], "blocked-by-caveats");
+}
+
+#[test]
+fn object_harness_bundle_determinism_and_pointer_failures() {
+    let root = repo_root();
+    let temp = tempfile::tempdir().expect("create tempdir");
+    let objects_path = temp.path().join("real-code-objects.json");
+    let objects_json = write_objects(&root, REAL_CODE_CORPUS, &objects_path);
     let first_bundle = temp.path().join("real-code-bundle-one.json");
     let second_bundle = temp.path().join("real-code-bundle-two.json");
+
     for output_path in [&first_bundle, &second_bundle] {
-        let bundle = Command::new(cargo_octet())
-            .args(["object", "bundle", "export", "--objects"])
-            .arg(&objects_path)
-            .args(["--output"])
-            .arg(output_path)
-            .args([
-                "--replay-command",
-                "cargo octet object emit --output-format=json cargo-octet/src/cli.rs cargo-octet/src/object.rs cargo-octet/src/fingerprint.rs",
-            ])
-            .current_dir(&root)
-            .output()
-            .expect("export real-code bundle");
+        let bundle = export_bundle(&root, &objects_path, None, output_path);
         assert!(bundle.status.success(), "real-code bundle stderr: {}", String::from_utf8_lossy(&bundle.stderr));
     }
-    let first_bundle_text = fs::read_to_string(&first_bundle).expect("read first real-code bundle");
-    let second_bundle_text = fs::read_to_string(&second_bundle).expect("read second real-code bundle");
+    let first_bundle_text = fs::read_to_string(&first_bundle).expect("read first bundle");
+    let second_bundle_text = fs::read_to_string(&second_bundle).expect("read second bundle");
     assert_eq!(first_bundle_text, second_bundle_text);
     let bundle_json: serde_json::Value = serde_json::from_str(&first_bundle_text).expect("bundle json");
-    assert_eq!(bundle_json["object_count"], objects.len());
+    assert_eq!(bundle_json["object_count"], objects_json["objects"].as_array().unwrap().len());
     assert_eq!(bundle_json["pointer_count"], 0);
     assert!(bundle_json["bundle_hash"].as_str().unwrap().starts_with("b3:"));
     assert!(bundle_json["replay"]["command"].as_str().unwrap().contains("cargo-octet/src/object.rs"));
+
+    let pointers = temp.path().join("missing-pointer.json");
+    fs::write(
+        &pointers,
+        r#"{"schema_version":1,"pointers":{"crate::missing":{"object_hash":"b3:0000000000000000000000000000000000000000000000000000000000000000","semantic_name":"crate::missing"}},"history":{}}"#,
+    )
+    .expect("write missing pointer manifest");
+    let failed_bundle = export_bundle(&root, &objects_path, Some(&pointers), &temp.path().join("bad-bundle.json"));
+    assert!(!failed_bundle.status.success(), "bundle with unresolved pointer unexpectedly passed");
+    assert!(
+        String::from_utf8_lossy(&failed_bundle.stderr).contains("pointer")
+            || String::from_utf8_lossy(&failed_bundle.stdout).contains("missing-object"),
+        "missing pointer failure was not classified: stdout={} stderr={}",
+        String::from_utf8_lossy(&failed_bundle.stdout),
+        String::from_utf8_lossy(&failed_bundle.stderr)
+    );
 }
