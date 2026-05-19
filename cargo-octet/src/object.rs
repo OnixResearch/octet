@@ -15,8 +15,42 @@ use crate::fingerprint;
 
 const FUNCTION_OBJECT_SCHEMA: &str = "octet.function-object.v1";
 const CORPUS_RECEIPT_SCHEMA: &str = "octet.function-object-corpus-receipt.v1";
+const CORPUS_CHECK_REPORT_SCHEMA: &str = "octet.function-object-corpus-check-report.v1";
 const CORPUS_RECEIPT_SCHEMA_VERSION: u32 = 1;
 const NORMALIZATION_ALGORITHM: &str = "octet-source-token-v1";
+const CORPUS_RECEIPT_REQUIRED_FIELDS: &[&str] = &[
+    "schema",
+    "schema_version",
+    "mode",
+    "object_count",
+    "source_paths",
+    "object_set_hash",
+    "caveat_counts",
+    "pure_cache_blocked_count",
+    "replay",
+    "boundary",
+];
+const CORPUS_CHECK_REPORT_REQUIRED_FIELDS: &[&str] = &[
+    "schema",
+    "schema_version",
+    "mode",
+    "status",
+    "receipt_path",
+    "comparisons",
+    "errors",
+];
+const CORPUS_CHECK_COMPARISON_FIELDS: &[&str] = &["field", "status", "expected", "current"];
+const CORPUS_CHECK_ERROR_FIELDS: &[&str] = &["kind", "field", "message"];
+const CORPUS_RECEIPT_COMPARED_FIELDS: &[&str] = &[
+    "schema",
+    "schema_version",
+    "object_count",
+    "source_paths",
+    "object_set_hash",
+    "caveat_counts",
+    "pure_cache_blocked_count",
+    "boundary",
+];
 const DEPENDENCY_STATUS_MACRO_CONTEXT: &str = "unsupported-macro-context";
 const OBJECT_MARKER: &str = "// octet-object:";
 const HASH_PREFIX: &str = "b3:";
@@ -199,6 +233,7 @@ struct CorpusBoundary {
 
 #[derive(Debug, Clone, Serialize)]
 struct ObjectCorpusCheckReport {
+    schema: &'static str,
     schema_version: u32,
     mode: &'static str,
     status: &'static str,
@@ -220,6 +255,37 @@ struct ObjectCorpusCheckError {
     kind: String,
     field: Option<String>,
     message: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct ObjectCorpusContractReport {
+    schema: &'static str,
+    schema_version: u32,
+    mode: &'static str,
+    source_of_truth: &'static str,
+    receipt: ObjectCorpusSurfaceContract,
+    check_report: ObjectCorpusSurfaceContract,
+    boundaries: ObjectCorpusContractBoundaries,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct ObjectCorpusSurfaceContract {
+    schema: &'static str,
+    schema_version: u32,
+    required_fields: Vec<&'static str>,
+    compared_fields: Vec<&'static str>,
+    status_values: Vec<&'static str>,
+    comparison_fields: Vec<&'static str>,
+    error_fields: Vec<&'static str>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct ObjectCorpusContractBoundaries {
+    identity_scope: &'static str,
+    claims_correctness: bool,
+    claims_semantic_equivalence: bool,
+    determinism_scope: &'static str,
+    detail: &'static str,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -280,6 +346,7 @@ pub fn run(args: ObjectArgs) -> Result<i32, String> {
         } => run_bundle_export(&objects, pointers.as_deref(), &output, &replay_command),
         ObjectMode::CorpusReceipt { output } => run_corpus_receipt(&args.paths, &output),
         ObjectMode::CorpusCheck { receipt } => run_corpus_check(&args.paths, &receipt, args.output_format),
+        ObjectMode::CorpusContract => run_corpus_contract(args.output_format),
     }
 }
 
@@ -321,6 +388,19 @@ fn run_corpus_receipt(paths: &[PathBuf], output: &Path) -> Result<i32, String> {
     let json = serde_json::to_string_pretty(&receipt).map_err(|error| format!("serialize corpus receipt: {error}"))?;
     fs::write(output, format!("{json}\n")).map_err(|error| format!("write {}: {error}", output.display()))?;
     println!("wrote object corpus receipt: {}", output.display());
+    Ok(0)
+}
+
+fn run_corpus_contract(output_format: OutputFormat) -> Result<i32, String> {
+    if matches!(output_format, OutputFormat::Sarif) {
+        return Err("object corpus contract does not support SARIF output; use human or json".to_owned());
+    }
+    let report = object_corpus_contract_report();
+    match output_format {
+        OutputFormat::Human => print_corpus_contract_human(&report),
+        OutputFormat::Json => println!("{}", serde_json::to_string_pretty(&report).map_err(|error| error.to_string())?),
+        OutputFormat::Sarif => unreachable!("SARIF rejected above"),
+    }
     Ok(0)
 }
 
@@ -386,18 +466,9 @@ fn run_corpus_check(paths: &[PathBuf], receipt_path: &Path, output_format: Outpu
     }
     let current = serde_json::to_value(corpus_receipt(paths, &objects))
         .map_err(|error| format!("serialize current corpus receipt: {error}"))?;
-    let compared_fields = [
-        "schema",
-        "schema_version",
-        "object_count",
-        "source_paths",
-        "object_set_hash",
-        "caveat_counts",
-        "pure_cache_blocked_count",
-        "boundary",
-    ];
-    let comparisons = compared_fields
-        .into_iter()
+    let comparisons = CORPUS_RECEIPT_COMPARED_FIELDS
+        .iter()
+        .copied()
         .map(|field| {
             let expected_value = expected.get(field).cloned().unwrap_or(serde_json::Value::Null);
             let current_value = current.get(field).cloned().unwrap_or(serde_json::Value::Null);
@@ -419,6 +490,7 @@ fn run_corpus_check(paths: &[PathBuf], receipt_path: &Path, output_format: Outpu
         "mismatch"
     };
     let report = ObjectCorpusCheckReport {
+        schema: CORPUS_CHECK_REPORT_SCHEMA,
         schema_version: CORPUS_RECEIPT_SCHEMA_VERSION,
         mode: "corpus-check",
         status,
@@ -432,6 +504,7 @@ fn run_corpus_check(paths: &[PathBuf], receipt_path: &Path, output_format: Outpu
 
 fn invalid_corpus_check_report(receipt_path: String, errors: Vec<ObjectCorpusCheckError>) -> ObjectCorpusCheckReport {
     ObjectCorpusCheckReport {
+        schema: CORPUS_CHECK_REPORT_SCHEMA,
         schema_version: CORPUS_RECEIPT_SCHEMA_VERSION,
         mode: "corpus-check",
         status: "invalid",
@@ -460,19 +533,8 @@ fn validate_corpus_receipt_shape(receipt: &serde_json::Value) -> Vec<ObjectCorpu
         return errors;
     };
 
-    for field in [
-        "schema",
-        "schema_version",
-        "mode",
-        "object_count",
-        "source_paths",
-        "object_set_hash",
-        "caveat_counts",
-        "pure_cache_blocked_count",
-        "replay",
-        "boundary",
-    ] {
-        if !object.contains_key(field) {
+    for field in CORPUS_RECEIPT_REQUIRED_FIELDS {
+        if !object.contains_key(*field) {
             errors.push(corpus_check_error(
                 "missing-field",
                 Some(field),
@@ -586,6 +648,53 @@ fn validate_corpus_source_selection(paths: &[PathBuf]) -> Vec<ObjectCorpusCheckE
         }
     }
     errors
+}
+
+fn object_corpus_contract_report() -> ObjectCorpusContractReport {
+    ObjectCorpusContractReport {
+        schema: "octet.object-corpus-contract-metadata.v1",
+        schema_version: CORPUS_RECEIPT_SCHEMA_VERSION,
+        mode: "corpus-contract",
+        source_of_truth: "rust-dto-and-constants",
+        receipt: ObjectCorpusSurfaceContract {
+            schema: CORPUS_RECEIPT_SCHEMA,
+            schema_version: CORPUS_RECEIPT_SCHEMA_VERSION,
+            required_fields: CORPUS_RECEIPT_REQUIRED_FIELDS.to_vec(),
+            compared_fields: CORPUS_RECEIPT_COMPARED_FIELDS.to_vec(),
+            status_values: Vec::new(),
+            comparison_fields: Vec::new(),
+            error_fields: Vec::new(),
+        },
+        check_report: ObjectCorpusSurfaceContract {
+            schema: CORPUS_CHECK_REPORT_SCHEMA,
+            schema_version: CORPUS_RECEIPT_SCHEMA_VERSION,
+            required_fields: CORPUS_CHECK_REPORT_REQUIRED_FIELDS.to_vec(),
+            compared_fields: Vec::new(),
+            status_values: vec!["match", "mismatch", "invalid"],
+            comparison_fields: CORPUS_CHECK_COMPARISON_FIELDS.to_vec(),
+            error_fields: CORPUS_CHECK_ERROR_FIELDS.to_vec(),
+        },
+        boundaries: ObjectCorpusContractBoundaries {
+            identity_scope: "review-and-provenance-evidence",
+            claims_correctness: false,
+            claims_semantic_equivalence: false,
+            determinism_scope: "bounded-local-determinism",
+            detail: "Contract metadata describes JSON compatibility for object corpus evidence; it does not prove behavioral correctness, semantic equivalence, cross-machine determinism, dependency resolution, macro expansion identity, or pure-cache eligibility.",
+        },
+    }
+}
+
+fn print_corpus_contract_human(report: &ObjectCorpusContractReport) {
+    println!("object corpus contract schema={} version={}", report.schema, report.schema_version);
+    println!("source_of_truth={}", report.source_of_truth);
+    println!("receipt schema={} version={}", report.receipt.schema, report.receipt.schema_version);
+    println!("receipt required_fields={}", report.receipt.required_fields.join(","));
+    println!("receipt compared_fields={}", report.receipt.compared_fields.join(","));
+    println!("check_report schema={} version={}", report.check_report.schema, report.check_report.schema_version);
+    println!("check_report required_fields={}", report.check_report.required_fields.join(","));
+    println!("check_report status_values={}", report.check_report.status_values.join(","));
+    println!("boundary claims_correctness={}", report.boundaries.claims_correctness);
+    println!("boundary claims_semantic_equivalence={}", report.boundaries.claims_semantic_equivalence);
 }
 
 fn print_corpus_check_report(report: &ObjectCorpusCheckReport, output_format: OutputFormat) -> Result<(), String> {
