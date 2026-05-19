@@ -908,6 +908,62 @@ fn fingerprint_update_check_and_diff_walk_directory_tree() {
     assert_directory_records(&diff.stdout, &expected, "match");
 }
 
+#[test]
+fn object_emit_outputs_function_object_v1_json() {
+    let temp = tempfile::tempdir().expect("create tempdir");
+    write_directory_fixture(temp.path());
+
+    let output = Command::new(cargo_octet())
+        .args(["object", "emit", "--function", "root_plain", "--output-format=json"])
+        .arg(temp.path().join("src/lib.rs"))
+        .output()
+        .expect("run object emit");
+    assert!(output.status.success(), "object stderr: {}", String::from_utf8_lossy(&output.stderr));
+
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout).expect("json output");
+    let objects = json["objects"].as_array().expect("objects array");
+    assert_eq!(objects.len(), 1);
+    let object = &objects[0];
+    assert_eq!(object["schema"], "octet.function-object.v1");
+    assert_eq!(object["name"], "root_plain");
+    assert!(object["object_hash"].as_str().expect("object hash").starts_with("b3:"));
+    assert!(object["body_hash"].as_str().expect("body hash").starts_with("b3:"));
+    assert_eq!(object["correctness_claim"]["claims_correctness"], false);
+    assert_eq!(object["dependency_caveats"][0]["status"], "source-scanner-token-set");
+}
+
+#[test]
+fn object_emit_hash_stable_across_roots() {
+    let one = tempfile::tempdir().expect("create first tempdir");
+    let two = tempfile::tempdir().expect("create second tempdir");
+    write_directory_fixture(one.path());
+    write_directory_fixture(two.path());
+
+    let one_hash = emit_root_plain_hash(one.path());
+    let two_hash = emit_root_plain_hash(two.path());
+    assert_eq!(one_hash, two_hash);
+}
+
+fn emit_root_plain_hash(root: &Path) -> String {
+    let output = Command::new(cargo_octet())
+        .current_dir(root)
+        .args([
+            "object",
+            "emit",
+            "--function",
+            "root_plain",
+            "--output-format=json",
+            "src/lib.rs",
+        ])
+        .output()
+        .expect("run object emit");
+    assert!(output.status.success(), "object stderr: {}", String::from_utf8_lossy(&output.stderr));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(!stdout.contains(root.to_str().expect("utf8 temp path")));
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout).expect("json output");
+    json["objects"][0]["object_hash"].as_str().expect("object hash").to_owned()
+}
+
 fn assert_directory_records(stdout: &[u8], expected: &BTreeSet<&str>, status: &str) {
     let json: serde_json::Value = serde_json::from_slice(stdout).expect("json output");
     let records = json["records"].as_array().expect("records array");

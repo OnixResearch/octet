@@ -83,16 +83,16 @@ struct ReviewManifestRecord {
 }
 
 #[derive(Debug, Clone)]
-struct FunctionSpan {
-    name: String,
-    start: usize,
-    end: usize,
-    marker: Option<Marker>,
-    macro_calls: bool,
+pub(crate) struct FunctionSpan {
+    pub(crate) name: String,
+    pub(crate) start: usize,
+    pub(crate) end: usize,
+    pub(crate) marker: Option<Marker>,
+    pub(crate) macro_calls: bool,
 }
 
 #[derive(Debug, Clone)]
-struct Marker {
+pub(crate) struct Marker {
     start: usize,
     end: usize,
     stored_hash: String,
@@ -274,7 +274,7 @@ fn fingerprint_record_stable_id(record: &FunctionRecord) -> String {
     record.semantic_id.clone()
 }
 
-fn collect_rust_files(path: &Path, files: &mut Vec<PathBuf>) -> Result<(), String> {
+pub(crate) fn collect_rust_files(path: &Path, files: &mut Vec<PathBuf>) -> Result<(), String> {
     if path.is_file() {
         if path.extension().is_some_and(|ext| ext == "rs") {
             files.push(path.to_path_buf());
@@ -294,7 +294,7 @@ fn collect_rust_files(path: &Path, files: &mut Vec<PathBuf>) -> Result<(), Strin
     Ok(())
 }
 
-fn find_functions(source: &str) -> Vec<FunctionSpan> {
+pub(crate) fn find_functions(source: &str) -> Vec<FunctionSpan> {
     let mut spans = Vec::new();
     let bytes = source.as_bytes();
     let macro_rules_ranges = macro_rules_ranges(source);
@@ -485,7 +485,7 @@ fn function_hash(function_source: &str) -> String {
     blake3::hash(normalized.as_bytes()).to_hex().to_string()
 }
 
-fn dependency_set_hash(function_source: &str) -> String {
+pub(crate) fn dependency_set_hash(function_source: &str) -> String {
     let mut calls = Vec::new();
     for token in normalize_tokens(function_source).split_whitespace() {
         if token.chars().next().is_some_and(|ch| ch.is_ascii_alphabetic() || ch == '_') {
@@ -497,7 +497,7 @@ fn dependency_set_hash(function_source: &str) -> String {
     determinism::full_hash(&calls.join("\n"))
 }
 
-fn dependency_identity_status(function_source: &str) -> &'static str {
+pub(crate) fn dependency_identity_status(function_source: &str) -> &'static str {
     if contains_macro_call(function_source) {
         "unsupported-macro-context"
     } else {
@@ -505,7 +505,7 @@ fn dependency_identity_status(function_source: &str) -> &'static str {
     }
 }
 
-fn normalize_tokens(source: &str) -> String {
+pub(crate) fn normalize_tokens(source: &str) -> String {
     let without_comments = strip_comments_and_strings(source);
     let mut tokens = Vec::new();
     let mut current = String::new();
