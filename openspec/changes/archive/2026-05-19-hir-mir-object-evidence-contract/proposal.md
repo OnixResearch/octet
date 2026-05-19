@@ -19,7 +19,7 @@ Octet now has bounded source-token Function Object v1 receipts, replay checks, c
 
 ## Impact
 
-- **Files**: OpenSpec change under `openspec/changes/hir-mir-object-evidence-contract/`.
+- **Files**: OpenSpec change under `openspec/changes/archive/2026-05-19-hir-mir-object-evidence-contract/`.
 - **APIs**: No runtime API change in this scaffold.
 - **Dependencies**: No dependency changes in this scaffold.
 - **Testing**: Validate the OpenSpec change and all specs with strict OpenSpec validation plus `git diff --check`.
