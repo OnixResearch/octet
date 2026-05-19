@@ -21,6 +21,6 @@ Current Octet function fingerprints are useful review gates, but downstream Vale
 
 ## Impact
 
-- **Files**: OpenSpec change under `openspec/changes/content-addressed-rust-evidence/`; later implementation will primarily touch `cargo-octet/src/fingerprint.rs` or adjacent object modules, docs, templates, and fixtures.
+- **Files**: OpenSpec change under `openspec/changes/archive/2026-05-19-content-addressed-rust-evidence/`; later implementation will primarily touch `cargo-octet/src/fingerprint.rs` or adjacent object modules, docs, templates, and fixtures.
 - **APIs**: Future `cargo octet object ...` commands and JSON bundle schemas.
 - **Testing**: OpenSpec validation/gates now; later docs/examples checks plus focused object canonicalization, marker, pointer, diff, and bundle tests.

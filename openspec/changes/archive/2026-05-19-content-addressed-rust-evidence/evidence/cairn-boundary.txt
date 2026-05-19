@@ -1,0 +1,6 @@
+$ grep -n "Cairn owns lifecycle policy\|Cairn consumes Octet receipts without owning\|Octet owns Rust extraction and object emission\|Octet remains the Rust extraction/object authority" docs/content-addressed-rust-evidence-boundaries.md openspec/changes/archive/2026-05-19-content-addressed-rust-evidence/design.md
+docs/content-addressed-rust-evidence-boundaries.md:46:Octet owns Rust extraction and object emission.
+docs/content-addressed-rust-evidence-boundaries.md:50:- Cairn owns lifecycle policy, gate execution, replay receipts, and receipt validation around Octet bundles. Cairn consumes Octet receipts without owning or redefining Rust extraction semantics.
+openspec/changes/archive/2026-05-19-content-addressed-rust-evidence/design.md:67:**Choice:** Octet remains the Rust extraction/object authority; Trellis, Cairn, Crunch/Mantle, and Aspen consume bounded evidence at their own layers.
+assert.cairn_consumes_receipts: PASS
+assert.octet_owns_extraction: PASS
