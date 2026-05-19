@@ -1,0 +1,292 @@
+warning: /home/brittonr/git/slotcar/cargo-octet/Cargo.toml: file `/home/brittonr/git/slotcar/cargo-octet/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `cargo-octet`
+  * `bin` target `cargo-slotcar`
+  * `bin` target `cargo-tigerstyle`
+warning: /home/brittonr/git/slotcar/crates/slotcar-standards/Cargo.toml: file `/home/brittonr/git/slotcar/crates/slotcar-standards/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `octet-standards`
+  * `bin` target `slotcar-standards`
+  * `bin` target `tigerstyle-standards`
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.07s
+     Running unittests src/main.rs (/home/brittonr/.cargo-target/debug/deps/cargo_octet-2effaf9a943ebe1f)
+
+running 26 tests
+test cli::tests::compatibility_alias_command_line_records_octet_canonical_identity ... ok
+test cli::tests::fingerprint_parse_accepts_compatibility_alias ... ok
+test cli::tests::fingerprint_parse_accepts_default_check ... ok
+test cli::tests::command_line_quoting_matches_contract ... ok
+test cli::tests::help_parse_accepts_root_and_subcommand_help ... ok
+test cli::tests::object_parse_accepts_corpus_contract ... ok
+test cli::tests::object_parse_accepts_corpus_check ... ok
+test cli::tests::object_parse_accepts_corpus_receipt ... ok
+test cli::tests::object_parse_accepts_emit_selection ... ok
+test cli::tests::version_parse_accepts_root_version_aliases ... ok
+test fingerprint::tests::insertion_start_includes_visibility_before_fn_keyword ... ok
+test fingerprint::tests::formatting_and_comments_do_not_change_hash ... ok
+test fingerprint::tests::legacy_marker_is_not_part_of_function_span ... ok
+test config::tests::slotcar_metadata_remains_legacy_fallback ... ok
+test fingerprint::tests::macro_generated_functions_are_not_source_fingerprinted ... ok
+test fingerprint::tests::literal_functions_inside_macro_rules_are_not_source_fingerprinted ... ok
+test config::tests::octet_metadata_wins_over_legacy_sections ... ok
+test fingerprint::tests::macro_detection_ignores_unary_not_and_inequality ... ok
+test fingerprint::tests::marker_before_attributes_attaches_to_function ... ok
+test fingerprint::tests::marker_before_multiline_attribute_attaches_to_function ... ok
+test fingerprint::tests::marker_is_not_part_of_function_span ... ok
+test fingerprint::tests::token_changes_update_hash ... ok
+test object::tests::unknown_effects_do_not_claim_purity ... ok
+test fingerprint::tests::trait_declarations_do_not_swallow_later_impl_methods ... ok
+test object::tests::function_object_rejects_correctness_claims ... ok
+test object::tests::function_object_hash_is_stable_for_comments_and_formatting ... ok
+
+test result: ok. 26 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (/home/brittonr/.cargo-target/debug/deps/cargo_slotcar-48143f7c669aff01)
+
+running 26 tests
+test cli::tests::compatibility_alias_command_line_records_octet_canonical_identity ... ok
+test cli::tests::command_line_quoting_matches_contract ... ok
+test cli::tests::fingerprint_parse_accepts_compatibility_alias ... ok
+test cli::tests::fingerprint_parse_accepts_default_check ... ok
+test cli::tests::help_parse_accepts_root_and_subcommand_help ... ok
+test cli::tests::object_parse_accepts_corpus_check ... ok
+test cli::tests::object_parse_accepts_corpus_receipt ... ok
+test cli::tests::object_parse_accepts_corpus_contract ... ok
+test cli::tests::object_parse_accepts_emit_selection ... ok
+test cli::tests::version_parse_accepts_root_version_aliases ... ok
+test fingerprint::tests::formatting_and_comments_do_not_change_hash ... ok
+test fingerprint::tests::insertion_start_includes_visibility_before_fn_keyword ... ok
+test fingerprint::tests::literal_functions_inside_macro_rules_are_not_source_fingerprinted ... ok
+test config::tests::slotcar_metadata_remains_legacy_fallback ... ok
+test config::tests::octet_metadata_wins_over_legacy_sections ... ok
+test fingerprint::tests::legacy_marker_is_not_part_of_function_span ... ok
+test fingerprint::tests::macro_detection_ignores_unary_not_and_inequality ... ok
+test fingerprint::tests::macro_generated_functions_are_not_source_fingerprinted ... ok
+test fingerprint::tests::marker_before_attributes_attaches_to_function ... ok
+test fingerprint::tests::marker_before_multiline_attribute_attaches_to_function ... ok
+test fingerprint::tests::token_changes_update_hash ... ok
+test fingerprint::tests::marker_is_not_part_of_function_span ... ok
+test fingerprint::tests::trait_declarations_do_not_swallow_later_impl_methods ... ok
+test object::tests::unknown_effects_do_not_claim_purity ... ok
+test object::tests::function_object_rejects_correctness_claims ... ok
+test object::tests::function_object_hash_is_stable_for_comments_and_formatting ... ok
+
+test result: ok. 26 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (/home/brittonr/.cargo-target/debug/deps/cargo_tigerstyle-611d3eb647e08459)
+
+running 26 tests
+test cli::tests::compatibility_alias_command_line_records_octet_canonical_identity ... ok
+test cli::tests::command_line_quoting_matches_contract ... ok
+test cli::tests::fingerprint_parse_accepts_compatibility_alias ... ok
+test cli::tests::fingerprint_parse_accepts_default_check ... ok
+test cli::tests::help_parse_accepts_root_and_subcommand_help ... ok
+test cli::tests::object_parse_accepts_corpus_check ... ok
+test cli::tests::object_parse_accepts_corpus_contract ... ok
+test cli::tests::object_parse_accepts_corpus_receipt ... ok
+test cli::tests::object_parse_accepts_emit_selection ... ok
+test cli::tests::version_parse_accepts_root_version_aliases ... ok
+test fingerprint::tests::formatting_and_comments_do_not_change_hash ... ok
+test fingerprint::tests::insertion_start_includes_visibility_before_fn_keyword ... ok
+test fingerprint::tests::legacy_marker_is_not_part_of_function_span ... ok
+test fingerprint::tests::literal_functions_inside_macro_rules_are_not_source_fingerprinted ... ok
+test config::tests::slotcar_metadata_remains_legacy_fallback ... ok
+test config::tests::octet_metadata_wins_over_legacy_sections ... ok
+test fingerprint::tests::macro_detection_ignores_unary_not_and_inequality ... ok
+test fingerprint::tests::macro_generated_functions_are_not_source_fingerprinted ... ok
+test fingerprint::tests::marker_before_attributes_attaches_to_function ... ok
+test fingerprint::tests::marker_before_multiline_attribute_attaches_to_function ... ok
+test fingerprint::tests::marker_is_not_part_of_function_span ... ok
+test fingerprint::tests::token_changes_update_hash ... ok
+test fingerprint::tests::trait_declarations_do_not_swallow_later_impl_methods ... ok
+test object::tests::unknown_effects_do_not_claim_purity ... ok
+test object::tests::function_object_rejects_correctness_claims ... ok
+test object::tests::function_object_hash_is_stable_for_comments_and_formatting ... ok
+
+test result: ok. 26 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/fingerprint_consumer.rs (/home/brittonr/.cargo-target/debug/deps/fingerprint_consumer-e64a4f0e00c6cfc9)
+
+running 42 tests
+test object_corpus_contract_metadata_reports_receipt_and_check_shapes ... ok
+test fingerprint_review_manifest_is_stable_and_sorted ... ok
+test object_caveats_keep_dependencies_unresolved_and_block_pure_cache ... ok
+test object_corpus_compatibility_positive_v1_fixture_replays_cleanly ... ok
+test fingerprint_write_then_check_works_for_external_crate_file ... ok
+test object_corpus_receipt_check_replays_cleanly ... ok
+test object_corpus_receipt_check_fails_on_boundary_tamper ... ok
+test object_emit_hash_stable_across_roots ... ok
+test object_corpus_receipt_check_rejects_invalid_source_selection ... ok
+test fingerprint_lifecycle_docs_fixture_matches_transcript ... ok
+test fingerprint_human_summary_docs_fixture_matches_transcript ... ok
+test object_bundle_export_is_deterministic_and_records_replay ... ok
+test object_marker_check_update_and_drift_detection ... ok
+test object_support_does_not_require_fingerprint_markers ... ok
+test release_operator_smoke_transcript_and_help_cover_operator_surfaces ... ok
+test object_corpus_contract_missing_required_field_fails_closed ... ok
+test fingerprint_write_skips_functions_inside_macro_rules_definitions ... ok
+test object_corpus_receipt_check_reports_malformed_receipts ... ok
+test object_corpus_receipt_check_rejects_missing_required_fields ... ok
+test object_corpus_compatibility_negative_fixtures_fail_closed ... ok
+test object_diff_separates_body_signature_caveat_and_pointer_changes ... ok
+test object_effect_and_macro_caveats_are_structured ... ok
+test object_internal_corpus_fixture_satisfies_contract_metadata ... ok
+test fingerprint_update_then_check_only_tracks_marked_functions ... ok
+test object_emit_outputs_function_object_v1_json ... ok
+test object_corpus_receipt_check_fails_on_source_drift ... ok
+test object_corpus_receipt_check_rejects_unsupported_schema_and_future_version ... ok
+test fingerprint_warning_summary_docs_fixture_matches_transcript ... ok
+test fingerprint_source_scanner_docs_fixture_matches_transcript ... ok
+test fingerprint_update_check_and_diff_walk_directory_tree ... ok
+test object_harness_negative_cases_are_classified ... ok
+test fingerprint_json_output_docs_fixture_matches_transcript ... ok
+test object_pointer_set_records_move_and_validate_fails_closed ... ok
+test fingerprint_check_reports_single_directory_drift ... ok
+test object_harness_bundle_determinism_and_pointer_failures ... ok
+test object_real_code_harness_emits_stable_summary ... ok
+test object_internal_corpus_receipt_preserves_boundary_claims ... ok
+test object_internal_corpus_gate_fixture_replays_cleanly ... ok
+test object_internal_corpus_gate_fixture_matches_fresh_receipt ... ok
+test object_internal_corpus_receipt_is_deterministic_and_bounded ... ok
+test object_internal_corpus_receipt_is_stable_across_fresh_target_dirs ... ok
+test object_strong_local_determinism_receipt_checks_repeatability ... ok
+
+test result: ok. 42 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.78s
+
+     Running tests/unison_roadmap.rs (/home/brittonr/.cargo-target/debug/deps/unison_roadmap-df01f34458c5b59b)
+
+running 11 tests
+test ability_manifest_denies_undeclared_effects ... ok
+test roadmap_docs_transcript_covers_agent_surfaces ... ok
+test replay_capsules_normalize_legacy_slotcar_identity_field ... ok
+test capability_registry_and_summary_report_known_unknown_and_advisory ... ok
+test replay_capsules_accept_expected_failures ... ok
+test pure_cache_hits_only_matching_key_components ... ok
+test session_records_todos_and_migrations_are_typed ... ok
+test roadmap_error_paths_fail_closed_with_operator_context ... ok
+test replay_capsules_capture_inspect_replay_and_drift ... ok
+test artifact_hash_inspect_and_replay_are_content_addressed ... ok
+test name_pointer_updates_are_rollbackable ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+{
+  "items": [
+    {
+      "id": "architecture",
+      "type": "spec",
+      "valid": true,
+      "issues": [],
+      "durationMs": 3
+    },
+    {
+      "id": "autofix",
+      "type": "spec",
+      "valid": true,
+      "issues": [],
+      "durationMs": 2
+    },
+    {
+      "id": "concurrency",
+      "type": "spec",
+      "valid": true,
+      "issues": [],
+      "durationMs": 1
+    },
+    {
+      "id": "consumer-integration",
+      "type": "spec",
+      "valid": true,
+      "issues": [],
+      "durationMs": 1
+    },
+    {
+      "id": "documentation",
+      "type": "spec",
+      "valid": true,
+      "issues": [],
+      "durationMs": 0
+    },
+    {
+      "id": "naming",
+      "type": "spec",
+      "valid": true,
+      "issues": [],
+      "durationMs": 0
+    },
+    {
+      "id": "openspec-stage-authoring",
+      "type": "spec",
+      "valid": true,
+      "issues": [],
+      "durationMs": 2
+    },
+    {
+      "id": "openspec-task-governance",
+      "type": "spec",
+      "valid": true,
+      "issues": [],
+      "durationMs": 1
+    },
+    {
+      "id": "performance",
+      "type": "spec",
+      "valid": true,
+      "issues": [],
+      "durationMs": 1
+    },
+    {
+      "id": "purity",
+      "type": "spec",
+      "valid": true,
+      "issues": [],
+      "durationMs": 1
+    },
+    {
+      "id": "resilience",
+      "type": "spec",
+      "valid": true,
+      "issues": [],
+      "durationMs": 1
+    },
+    {
+      "id": "safety",
+      "type": "spec",
+      "valid": true,
+      "issues": [],
+      "durationMs": 1
+    },
+    {
+      "id": "standards-codification",
+      "type": "spec",
+      "valid": true,
+      "issues": [],
+      "durationMs": 1
+    },
+    {
+      "id": "structure",
+      "type": "spec",
+      "valid": true,
+      "issues": [],
+      "durationMs": 0
+    }
+  ],
+  "summary": {
+    "totals": {
+      "items": 14,
+      "passed": 14,
+      "failed": 0
+    },
+    "byType": {
+      "change": {
+        "items": 0,
+        "passed": 0,
+        "failed": 0
+      },
+      "spec": {
+        "items": 14,
+        "passed": 14,
+        "failed": 0
+      }
+    }
+  },
+  "version": "1.0"
+}

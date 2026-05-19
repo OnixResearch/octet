@@ -1478,6 +1478,11 @@ const INTERNAL_OBJECT_CORPUS: &[&str] = &[
 
 const INTERNAL_OBJECT_CORPUS_RECEIPT_FIXTURE: &str =
     "cargo-octet/tests/fixtures/object-corpus/internal-corpus-receipt.json";
+const OBJECT_CORPUS_COMPATIBILITY_DIR: &str = "cargo-octet/tests/fixtures/object-corpus/compatibility";
+const OBJECT_CORPUS_COMPATIBILITY_SOURCE: &[&str] = &["src/lib.rs"];
+const OBJECT_CORPUS_COMPATIBILITY_POSITIVE_V1: &str = "positive-v1-receipt.json";
+const OBJECT_CORPUS_COMPATIBILITY_NEGATIVE_MISSING_OBJECT_SET_HASH: &str = "negative-missing-object-set-hash.json";
+const OBJECT_CORPUS_COMPATIBILITY_NEGATIVE_FUTURE_SCHEMA_VERSION: &str = "negative-future-schema-version.json";
 
 const REAL_CODE_REPLAY_COMMAND: &str = "cargo octet object emit --output-format=json cargo-octet/src/cli.rs cargo-octet/src/object.rs cargo-octet/src/fingerprint.rs";
 
@@ -1617,6 +1622,14 @@ fn check_corpus_receipt(root: &Path, receipt_path: &Path, paths: &[&str]) -> std
         .current_dir(root)
         .output()
         .expect("check object corpus receipt")
+}
+
+fn check_corpus_receipt_fixture(root: &Path, receipt_name: &str) -> std::process::Output {
+    check_corpus_receipt(
+        &root.join(OBJECT_CORPUS_COMPATIBILITY_DIR),
+        Path::new(receipt_name),
+        OBJECT_CORPUS_COMPATIBILITY_SOURCE,
+    )
 }
 
 fn object_corpus_contract(root: &Path) -> serde_json::Value {
@@ -2033,6 +2046,67 @@ fn object_internal_corpus_gate_fixture_matches_fresh_receipt() {
         fs::read(root.join(INTERNAL_OBJECT_CORPUS_RECEIPT_FIXTURE)).expect("read checked-in receipt fixture");
     let fresh_bytes = fs::read(&fresh_path).expect("read fresh receipt");
     assert_eq!(fresh_bytes, fixture_bytes, "checked-in internal corpus receipt fixture is stale");
+}
+
+#[test]
+fn object_corpus_compatibility_positive_v1_fixture_replays_cleanly() {
+    let root = repo_root();
+    let compatibility_dir = root.join(OBJECT_CORPUS_COMPATIBILITY_DIR);
+    let fixture: serde_json::Value = serde_json::from_slice(
+        &fs::read(compatibility_dir.join(OBJECT_CORPUS_COMPATIBILITY_POSITIVE_V1))
+            .expect("read positive compatibility fixture"),
+    )
+    .expect("positive compatibility fixture json");
+
+    assert_eq!(fixture["schema"], "octet.function-object-corpus-receipt.v1");
+    assert_eq!(fixture["schema_version"], 1);
+    assert_eq!(fixture["source_paths"], serde_json::json!(["src/lib.rs"]));
+    assert_eq!(fixture["boundary"]["claims_correctness"], false);
+    assert_eq!(fixture["boundary"]["claims_semantic_equivalence"], false);
+
+    let check = check_corpus_receipt_fixture(&root, OBJECT_CORPUS_COMPATIBILITY_POSITIVE_V1);
+    assert!(
+        check.status.success(),
+        "positive compatibility fixture stdout={} stderr={}",
+        String::from_utf8_lossy(&check.stdout),
+        String::from_utf8_lossy(&check.stderr)
+    );
+    let report: serde_json::Value = serde_json::from_slice(&check.stdout).expect("positive check report json");
+    assert_eq!(report["status"], "match");
+    assert!(report["errors"].as_array().expect("errors array").is_empty());
+    assert!(
+        report["comparisons"]
+            .as_array()
+            .expect("comparisons array")
+            .iter()
+            .all(|comparison| comparison["status"] == "match"),
+        "positive compatibility comparisons did not all match: {report:#?}"
+    );
+}
+
+#[test]
+fn object_corpus_compatibility_negative_fixtures_fail_closed() {
+    let root = repo_root();
+    for (fixture, expected_kind, expected_field) in [
+        (
+            OBJECT_CORPUS_COMPATIBILITY_NEGATIVE_MISSING_OBJECT_SET_HASH,
+            "missing-field",
+            Some("object_set_hash"),
+        ),
+        (OBJECT_CORPUS_COMPATIBILITY_NEGATIVE_FUTURE_SCHEMA_VERSION, "unsupported-schema-version", None),
+    ] {
+        let report = assert_invalid_check_error(&check_corpus_receipt_fixture(&root, fixture), expected_kind);
+        if let Some(expected_field) = expected_field {
+            assert!(
+                report["errors"]
+                    .as_array()
+                    .expect("errors array")
+                    .iter()
+                    .any(|error| error["field"] == expected_field),
+                "negative fixture {fixture} did not name expected field {expected_field}: {report:#?}"
+            );
+        }
+    }
 }
 
 #[test]
