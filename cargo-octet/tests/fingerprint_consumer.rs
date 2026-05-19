@@ -1591,6 +1591,21 @@ fn check_corpus_receipt(root: &Path, receipt_path: &Path, paths: &[&str]) -> std
         .expect("check object corpus receipt")
 }
 
+fn object_corpus_contract(root: &Path) -> serde_json::Value {
+    let output = Command::new(cargo_octet())
+        .args(["object", "corpus", "contract", "--output-format", "json"])
+        .current_dir(root)
+        .output()
+        .expect("object corpus contract metadata");
+    assert!(
+        output.status.success(),
+        "contract stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    serde_json::from_slice(&output.stdout).expect("contract metadata json")
+}
+
 fn export_bundle(
     root: &Path,
     objects_path: &Path,
@@ -1724,6 +1739,106 @@ fn object_strong_local_determinism_receipt_checks_repeatability() {
     assert_eq!(bundle_hashes.len(), 1, "repeated bundles produced distinct byte hashes: {bundle_hashes:?}");
     println!("receipt.bundle_runs=10");
     println!("receipt.bundle_bytes_b3={}", bundle_hashes.iter().next().expect("bundle hash"));
+}
+
+#[test]
+fn object_corpus_contract_metadata_reports_receipt_and_check_shapes() {
+    let root = repo_root();
+    let contract = object_corpus_contract(&root);
+
+    assert_eq!(contract["schema"], "octet.object-corpus-contract-metadata.v1");
+    assert_eq!(contract["schema_version"], 1);
+    assert_eq!(contract["source_of_truth"], "rust-dto-and-constants");
+    assert_eq!(contract["receipt"]["schema"], "octet.function-object-corpus-receipt.v1");
+    assert_eq!(contract["receipt"]["schema_version"], 1);
+    for field in [
+        "schema",
+        "schema_version",
+        "mode",
+        "object_count",
+        "source_paths",
+        "object_set_hash",
+        "caveat_counts",
+        "pure_cache_blocked_count",
+        "replay",
+        "boundary",
+    ] {
+        assert!(
+            contract["receipt"]["required_fields"].as_array().unwrap().iter().any(|value| value == field),
+            "missing receipt required field {field} in {contract:#?}"
+        );
+    }
+    assert!(contract["receipt"]["compared_fields"].as_array().unwrap().iter().any(|value| value == "boundary"));
+    assert_eq!(contract["check_report"]["schema"], "octet.function-object-corpus-check-report.v1");
+    for field in [
+        "schema",
+        "schema_version",
+        "mode",
+        "status",
+        "receipt_path",
+        "comparisons",
+        "errors",
+    ] {
+        assert!(
+            contract["check_report"]["required_fields"].as_array().unwrap().iter().any(|value| value == field),
+            "missing check-report required field {field} in {contract:#?}"
+        );
+    }
+    for status in ["match", "mismatch", "invalid"] {
+        assert!(contract["check_report"]["status_values"].as_array().unwrap().iter().any(|value| value == status));
+    }
+    assert_eq!(contract["boundaries"]["claims_correctness"], false);
+    assert_eq!(contract["boundaries"]["claims_semantic_equivalence"], false);
+}
+
+#[test]
+fn object_internal_corpus_fixture_satisfies_contract_metadata() {
+    let root = repo_root();
+    let contract = object_corpus_contract(&root);
+    let fixture: serde_json::Value = serde_json::from_slice(
+        &fs::read(root.join(INTERNAL_OBJECT_CORPUS_RECEIPT_FIXTURE)).expect("read checked-in receipt fixture"),
+    )
+    .expect("checked-in receipt fixture json");
+
+    for field in contract["receipt"]["required_fields"].as_array().expect("required fields") {
+        let field = field.as_str().expect("required field string");
+        assert!(fixture.get(field).is_some(), "fixture missing contract-required field {field}: {fixture:#?}");
+    }
+    assert_eq!(fixture["schema"], contract["receipt"]["schema"]);
+    assert_eq!(fixture["schema_version"], contract["receipt"]["schema_version"]);
+    assert_eq!(fixture["boundary"]["identity_scope"], contract["boundaries"]["identity_scope"]);
+    assert_eq!(fixture["boundary"]["claims_correctness"], false);
+    assert_eq!(fixture["boundary"]["claims_semantic_equivalence"], false);
+}
+
+#[test]
+fn object_corpus_contract_missing_required_field_fails_closed() {
+    let temp = tempfile::tempdir().expect("create tempdir");
+    fs::write(temp.path().join("lib.rs"), "pub fn checked_value(input: u32) -> u32 { input + 1 }\n")
+        .expect("write fixture");
+    let receipt_path = temp.path().join("receipt.json");
+    let mut receipt = write_corpus_receipt(temp.path(), &["lib.rs"], &receipt_path);
+    let contract = object_corpus_contract(temp.path());
+    let required = contract["receipt"]["required_fields"]
+        .as_array()
+        .expect("required fields")
+        .iter()
+        .find_map(|value| value.as_str())
+        .expect("at least one required field");
+    receipt.as_object_mut().expect("receipt object").remove(required);
+    fs::write(&receipt_path, format!("{}\n", serde_json::to_string_pretty(&receipt).unwrap()))
+        .expect("write missing contract field receipt");
+
+    let report =
+        assert_invalid_check_error(&check_corpus_receipt(temp.path(), &receipt_path, &["lib.rs"]), "missing-field");
+    assert!(
+        report["errors"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|error| { error["kind"] == "missing-field" && error["field"] == required }),
+        "missing contract field {required} was not named in {report:#?}"
+    );
 }
 
 #[test]

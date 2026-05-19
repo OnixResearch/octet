@@ -102,6 +102,7 @@ pub enum ObjectMode {
     CorpusCheck {
         receipt: PathBuf,
     },
+    CorpusContract,
 }
 
 #[derive(Debug)]
@@ -210,6 +211,7 @@ Usage:
   cargo octet object bundle export --objects OBJECTS.json [--pointers POINTERS.json] --output BUNDLE.json --replay-command CMD
   cargo octet object corpus receipt --output RECEIPT.json [PATHS...]
   cargo octet object corpus check --receipt RECEIPT.json [PATHS...]
+  cargo octet object corpus contract [--output-format human|json]
   cargo octet roadmap <artifact|capsule|ability|pointer|session|pure-cache> ...
   cargo octet transcript <PATH>
   cargo octet --version
@@ -707,8 +709,34 @@ fn parse_object_corpus(args: &[String]) -> Result<ObjectArgs, String> {
                 output_format,
             })
         }
-        Some(other) => Err(format!("unknown object corpus action `{other}`; expected `receipt` or `check`")),
-        None => Err("missing object corpus action; expected `receipt` or `check`".to_owned()),
+        Some("contract") => {
+            let mut output_format = OutputFormat::Human;
+            let mut index = 1;
+            while index < args.len() {
+                let arg = &args[index];
+                if arg == "--output-format" {
+                    output_format = parse_output_format(
+                        args.get(index + 1).ok_or_else(|| "missing value after `--output-format`".to_owned())?,
+                    )?;
+                    index += 2;
+                } else if let Some(value) = arg.strip_prefix("--output-format=") {
+                    output_format = parse_output_format(value)?;
+                    index += 1;
+                } else {
+                    return Err(format!("unsupported object corpus contract argument `{arg}`"));
+                }
+            }
+            Ok(ObjectArgs {
+                mode: ObjectMode::CorpusContract,
+                paths: Vec::new(),
+                function: None,
+                output_format,
+            })
+        }
+        Some(other) => {
+            Err(format!("unknown object corpus action `{other}`; expected `receipt`, `check`, or `contract`"))
+        }
+        None => Err("missing object corpus action; expected `receipt`, `check`, or `contract`".to_owned()),
     }
 }
 
@@ -875,6 +903,31 @@ mod tests {
                     }
                     other => panic!("expected corpus receipt mode, got {other:?}"),
                 }
+            }
+            other => panic!("expected object args, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn object_parse_accepts_corpus_contract() {
+        let parsed = parse(
+            [
+                "cargo",
+                "octet",
+                "object",
+                "corpus",
+                "contract",
+                "--output-format",
+                "json",
+            ]
+            .map(OsString::from),
+        )
+        .expect("parse object corpus contract args");
+        match parsed {
+            CommandArgs::Object(args) => {
+                assert!(matches!(args.mode, super::ObjectMode::CorpusContract));
+                assert_eq!(args.output_format, OutputFormat::Json);
+                assert!(args.paths.is_empty());
             }
             other => panic!("expected object args, got {other:?}"),
         }
