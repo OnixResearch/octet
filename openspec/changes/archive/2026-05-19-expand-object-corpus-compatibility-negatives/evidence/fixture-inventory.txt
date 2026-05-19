@@ -1,0 +1,11 @@
+fixture_present=positive-v1-receipt.json
+fixture_present=negative-missing-object-set-hash.json
+fixture_present=negative-future-schema-version.json
+fixture_present=negative-boundary-tamper.json
+fixture_present=negative-duplicate-source-path.json
+fixture_present=negative-empty-source-selection.json
+fixture_present=negative-malformed-json.json
+fixture_present=notes.txt
+malformed_json_rejected_by_parser=true
+negative_fixture_inventory=PASS
+asserts=malformed JSON, duplicate source path, boundary tamper, empty receipt source path, non-Rust source-selection fixture
