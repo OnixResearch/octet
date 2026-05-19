@@ -14,6 +14,8 @@ use crate::determinism;
 use crate::fingerprint;
 
 const FUNCTION_OBJECT_SCHEMA: &str = "octet.function-object.v1";
+const CORPUS_RECEIPT_SCHEMA: &str = "octet.function-object-corpus-receipt.v1";
+const CORPUS_RECEIPT_SCHEMA_VERSION: u32 = 1;
 const NORMALIZATION_ALGORITHM: &str = "octet-source-token-v1";
 const DEPENDENCY_STATUS_MACRO_CONTEXT: &str = "unsupported-macro-context";
 const OBJECT_MARKER: &str = "// octet-object:";
@@ -202,6 +204,7 @@ struct ObjectCorpusCheckReport {
     status: &'static str,
     receipt_path: String,
     comparisons: Vec<ObjectCorpusCheckComparison>,
+    errors: Vec<ObjectCorpusCheckError>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -210,6 +213,13 @@ struct ObjectCorpusCheckComparison {
     status: &'static str,
     expected: serde_json::Value,
     current: serde_json::Value,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct ObjectCorpusCheckError {
+    kind: String,
+    field: Option<String>,
+    message: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -315,13 +325,64 @@ fn run_corpus_receipt(paths: &[PathBuf], output: &Path) -> Result<i32, String> {
 }
 
 fn run_corpus_check(paths: &[PathBuf], receipt_path: &Path, output_format: OutputFormat) -> Result<i32, String> {
-    let expected_text =
-        fs::read_to_string(receipt_path).map_err(|error| format!("read {}: {error}", receipt_path.display()))?;
-    let expected: serde_json::Value = serde_json::from_str(&expected_text)
-        .map_err(|error| format!("parse {} as corpus receipt JSON: {error}", receipt_path.display()))?;
-    let objects = collect_objects(paths, None)?.into_iter().map(|record| record.object).collect::<Vec<_>>();
+    if matches!(output_format, OutputFormat::Sarif) {
+        return Err("object corpus check does not support SARIF output; use human or json".to_owned());
+    }
+
+    let receipt_path_string = determinism::normalize_path(receipt_path);
+    let expected_text = match fs::read_to_string(receipt_path) {
+        Ok(text) => text,
+        Err(error) => {
+            let report = invalid_corpus_check_report(receipt_path_string, vec![corpus_check_error(
+                "read-receipt",
+                Some("receipt"),
+                format!("read {}: {error}", receipt_path.display()),
+            )]);
+            print_corpus_check_report(&report, output_format)?;
+            return Ok(1);
+        }
+    };
+    let expected: serde_json::Value = match serde_json::from_str(&expected_text) {
+        Ok(value) => value,
+        Err(error) => {
+            let report = invalid_corpus_check_report(receipt_path_string, vec![corpus_check_error(
+                "invalid-json",
+                Some("receipt"),
+                format!("parse {} as corpus receipt JSON: {error}", receipt_path.display()),
+            )]);
+            print_corpus_check_report(&report, output_format)?;
+            return Ok(1);
+        }
+    };
+
+    let mut errors = validate_corpus_receipt_shape(&expected);
+    errors.extend(validate_corpus_source_selection(paths));
+    if !errors.is_empty() {
+        let report = invalid_corpus_check_report(receipt_path_string, errors);
+        print_corpus_check_report(&report, output_format)?;
+        return Ok(1);
+    }
+
+    let objects = match collect_objects(paths, None) {
+        Ok(records) => records.into_iter().map(|record| record.object).collect::<Vec<_>>(),
+        Err(error) => {
+            let report = invalid_corpus_check_report(receipt_path_string, vec![corpus_check_error(
+                "source-selection",
+                Some("paths"),
+                error,
+            )]);
+            print_corpus_check_report(&report, output_format)?;
+            return Ok(1);
+        }
+    };
     if objects.is_empty() {
-        return Err("no functions matched object corpus check selection".to_owned());
+        let report = invalid_corpus_check_report(receipt_path_string, vec![corpus_check_error(
+            "empty-corpus",
+            Some("paths"),
+            "no functions matched object corpus check selection",
+        )]);
+        print_corpus_check_report(&report, output_format)?;
+        return Ok(1);
     }
     let current = serde_json::to_value(corpus_receipt(paths, &objects))
         .map_err(|error| format!("serialize current corpus receipt: {error}"))?;
@@ -358,20 +419,184 @@ fn run_corpus_check(paths: &[PathBuf], receipt_path: &Path, output_format: Outpu
         "mismatch"
     };
     let report = ObjectCorpusCheckReport {
-        schema_version: 1,
+        schema_version: CORPUS_RECEIPT_SCHEMA_VERSION,
         mode: "corpus-check",
         status,
-        receipt_path: determinism::normalize_path(receipt_path),
+        receipt_path: receipt_path_string,
         comparisons,
+        errors: Vec::new(),
     };
+    print_corpus_check_report(&report, output_format)?;
+    Ok(if status == "match" { 0 } else { 1 })
+}
+
+fn invalid_corpus_check_report(receipt_path: String, errors: Vec<ObjectCorpusCheckError>) -> ObjectCorpusCheckReport {
+    ObjectCorpusCheckReport {
+        schema_version: CORPUS_RECEIPT_SCHEMA_VERSION,
+        mode: "corpus-check",
+        status: "invalid",
+        receipt_path,
+        comparisons: Vec::new(),
+        errors,
+    }
+}
+
+fn corpus_check_error(
+    kind: impl Into<String>,
+    field: Option<&str>,
+    message: impl Into<String>,
+) -> ObjectCorpusCheckError {
+    ObjectCorpusCheckError {
+        kind: kind.into(),
+        field: field.map(str::to_owned),
+        message: message.into(),
+    }
+}
+
+fn validate_corpus_receipt_shape(receipt: &serde_json::Value) -> Vec<ObjectCorpusCheckError> {
+    let mut errors = Vec::new();
+    let Some(object) = receipt.as_object() else {
+        errors.push(corpus_check_error("invalid-receipt-shape", Some("receipt"), "receipt root must be a JSON object"));
+        return errors;
+    };
+
+    for field in [
+        "schema",
+        "schema_version",
+        "mode",
+        "object_count",
+        "source_paths",
+        "object_set_hash",
+        "caveat_counts",
+        "pure_cache_blocked_count",
+        "replay",
+        "boundary",
+    ] {
+        if !object.contains_key(field) {
+            errors.push(corpus_check_error(
+                "missing-field",
+                Some(field),
+                format!("required field `{field}` is missing"),
+            ));
+        }
+    }
+
+    if let Some(schema) = receipt.get("schema").and_then(serde_json::Value::as_str)
+        && schema != CORPUS_RECEIPT_SCHEMA
+    {
+        errors.push(corpus_check_error(
+            "unsupported-schema",
+            Some("schema"),
+            format!("unsupported corpus receipt schema `{schema}`; expected `{CORPUS_RECEIPT_SCHEMA}`"),
+        ));
+    } else if receipt.get("schema").is_some_and(|value| !value.is_string()) {
+        errors.push(corpus_check_error("invalid-field-type", Some("schema"), "schema must be a string"));
+    }
+
+    if let Some(version) = receipt.get("schema_version").and_then(serde_json::Value::as_u64)
+        && version != u64::from(CORPUS_RECEIPT_SCHEMA_VERSION)
+    {
+        errors.push(corpus_check_error(
+            "unsupported-schema-version",
+            Some("schema_version"),
+            format!(
+                "unsupported corpus receipt schema_version `{version}`; expected `{CORPUS_RECEIPT_SCHEMA_VERSION}`"
+            ),
+        ));
+    } else if receipt.get("schema_version").is_some_and(|value| !value.is_u64()) {
+        errors.push(corpus_check_error(
+            "invalid-field-type",
+            Some("schema_version"),
+            "schema_version must be an unsigned integer",
+        ));
+    }
+
+    if let Some(paths) = receipt.get("source_paths").and_then(serde_json::Value::as_array) {
+        let mut seen = BTreeSet::new();
+        for path in paths {
+            if let Some(path) = path.as_str() {
+                if !seen.insert(path.to_owned()) {
+                    errors.push(corpus_check_error(
+                        "duplicate-source-path",
+                        Some("source_paths"),
+                        format!("receipt source path `{path}` appears more than once"),
+                    ));
+                }
+            } else {
+                errors.push(corpus_check_error(
+                    "invalid-field-type",
+                    Some("source_paths"),
+                    "source_paths entries must be strings",
+                ));
+            }
+        }
+    } else if receipt.get("source_paths").is_some() {
+        errors.push(corpus_check_error("invalid-field-type", Some("source_paths"), "source_paths must be an array"));
+    }
+
+    for field in ["object_count", "pure_cache_blocked_count"] {
+        if receipt.get(field).is_some_and(|value| !value.is_u64()) {
+            errors.push(corpus_check_error(
+                "invalid-field-type",
+                Some(field),
+                format!("{field} must be an unsigned integer"),
+            ));
+        }
+    }
+    for field in ["object_set_hash", "mode"] {
+        if receipt.get(field).is_some_and(|value| !value.is_string()) {
+            errors.push(corpus_check_error("invalid-field-type", Some(field), format!("{field} must be a string")));
+        }
+    }
+    for field in ["caveat_counts", "replay", "boundary"] {
+        if receipt.get(field).is_some_and(|value| !value.is_object()) {
+            errors.push(corpus_check_error("invalid-field-type", Some(field), format!("{field} must be an object")));
+        }
+    }
+
+    errors
+}
+
+fn validate_corpus_source_selection(paths: &[PathBuf]) -> Vec<ObjectCorpusCheckError> {
+    let mut errors = Vec::new();
+    let mut seen = BTreeSet::new();
+    for path in paths {
+        let normalized = determinism::normalize_path(path);
+        if !seen.insert(normalized.clone()) {
+            errors.push(corpus_check_error(
+                "duplicate-source-path",
+                Some("paths"),
+                format!("source path `{normalized}` appears more than once"),
+            ));
+        }
+        if !path.exists() {
+            errors.push(corpus_check_error(
+                "source-path-missing",
+                Some("paths"),
+                format!("source path `{normalized}` does not exist"),
+            ));
+            continue;
+        }
+        if path.is_file() && path.extension().and_then(|extension| extension.to_str()) != Some("rs") {
+            errors.push(corpus_check_error(
+                "unsupported-source-path",
+                Some("paths"),
+                format!("source path `{normalized}` is not a Rust source file"),
+            ));
+        }
+    }
+    errors
+}
+
+fn print_corpus_check_report(report: &ObjectCorpusCheckReport, output_format: OutputFormat) -> Result<(), String> {
     match output_format {
-        OutputFormat::Human => print_corpus_check_human(&report),
-        OutputFormat::Json => println!("{}", serde_json::to_string_pretty(&report).map_err(|error| error.to_string())?),
+        OutputFormat::Human => print_corpus_check_human(report),
+        OutputFormat::Json => println!("{}", serde_json::to_string_pretty(report).map_err(|error| error.to_string())?),
         OutputFormat::Sarif => {
             return Err("object corpus check does not support SARIF output; use human or json".to_owned());
         }
     }
-    Ok(if status == "match" { 0 } else { 1 })
+    Ok(())
 }
 
 fn corpus_receipt(paths: &[PathBuf], objects: &[FunctionObjectV1]) -> ObjectCorpusReceipt {
@@ -386,8 +611,8 @@ fn corpus_receipt(paths: &[PathBuf], objects: &[FunctionObjectV1]) -> ObjectCorp
     let object_set_hash = determinism::full_hash(&object_hashes.join("\n"));
 
     ObjectCorpusReceipt {
-        schema: "octet.function-object-corpus-receipt.v1",
-        schema_version: 1,
+        schema: CORPUS_RECEIPT_SCHEMA,
+        schema_version: CORPUS_RECEIPT_SCHEMA_VERSION,
         mode: "corpus-receipt",
         object_count: objects.len(),
         source_paths,
@@ -1089,6 +1314,14 @@ fn write_json<T: Serialize + ?Sized>(path: &Path, value: &T) -> Result<(), Strin
 fn print_corpus_check_human(report: &ObjectCorpusCheckReport) {
     println!("octet object corpus check status={}", report.status);
     println!("receipt_path={}", report.receipt_path);
+    for error in &report.errors {
+        println!(
+            "error kind={} field={} message={}",
+            error.kind,
+            error.field.as_deref().unwrap_or("none"),
+            error.message
+        );
+    }
     for comparison in &report.comparisons {
         println!("{}={}", comparison.field, comparison.status);
     }

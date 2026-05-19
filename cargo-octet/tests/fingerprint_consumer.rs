@@ -1858,6 +1858,114 @@ fn object_corpus_receipt_check_fails_on_boundary_tamper() {
     );
 }
 
+fn assert_invalid_check_error(output: &std::process::Output, expected_kind: &str) -> serde_json::Value {
+    assert!(
+        !output.status.success(),
+        "invalid check unexpectedly passed stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let report: serde_json::Value = serde_json::from_slice(&output.stdout).expect("invalid check report json");
+    assert_eq!(report["status"], "invalid", "report={report:#?}");
+    assert!(
+        report["errors"]
+            .as_array()
+            .expect("errors array")
+            .iter()
+            .any(|error| error["kind"] == expected_kind),
+        "expected error kind {expected_kind} in {report:#?}"
+    );
+    assert!(report["comparisons"].as_array().expect("comparisons array").is_empty());
+    report
+}
+
+#[test]
+fn object_corpus_receipt_check_reports_malformed_receipts() {
+    let temp = tempfile::tempdir().expect("create tempdir");
+    fs::write(temp.path().join("lib.rs"), "pub fn checked_value(input: u32) -> u32 { input + 1 }\n")
+        .expect("write fixture");
+    let receipt_path = temp.path().join("bad.json");
+    fs::write(&receipt_path, "{not json\n").expect("write malformed receipt");
+
+    let check = check_corpus_receipt(temp.path(), &receipt_path, &["lib.rs"]);
+    let report = assert_invalid_check_error(&check, "invalid-json");
+    assert!(
+        report["errors"][0]["message"].as_str().unwrap().contains("parse"),
+        "malformed receipt should explain parse failure: {report:#?}"
+    );
+}
+
+#[test]
+fn object_corpus_receipt_check_rejects_unsupported_schema_and_future_version() {
+    let temp = tempfile::tempdir().expect("create tempdir");
+    fs::write(temp.path().join("lib.rs"), "pub fn checked_value(input: u32) -> u32 { input + 1 }\n")
+        .expect("write fixture");
+    let receipt_path = temp.path().join("receipt.json");
+    let mut receipt = write_corpus_receipt(temp.path(), &["lib.rs"], &receipt_path);
+
+    receipt["schema"] = serde_json::Value::String("octet.future-corpus-receipt.v9".to_owned());
+    fs::write(&receipt_path, format!("{}\n", serde_json::to_string_pretty(&receipt).unwrap()))
+        .expect("write wrong schema receipt");
+    assert_invalid_check_error(&check_corpus_receipt(temp.path(), &receipt_path, &["lib.rs"]), "unsupported-schema");
+
+    receipt["schema"] = serde_json::Value::String("octet.function-object-corpus-receipt.v1".to_owned());
+    receipt["schema_version"] = serde_json::Value::Number(serde_json::Number::from(99));
+    fs::write(&receipt_path, format!("{}\n", serde_json::to_string_pretty(&receipt).unwrap()))
+        .expect("write future version receipt");
+    assert_invalid_check_error(
+        &check_corpus_receipt(temp.path(), &receipt_path, &["lib.rs"]),
+        "unsupported-schema-version",
+    );
+}
+
+#[test]
+fn object_corpus_receipt_check_rejects_missing_required_fields() {
+    let temp = tempfile::tempdir().expect("create tempdir");
+    fs::write(temp.path().join("lib.rs"), "pub fn checked_value(input: u32) -> u32 { input + 1 }\n")
+        .expect("write fixture");
+    let receipt_path = temp.path().join("receipt.json");
+    let mut receipt = write_corpus_receipt(temp.path(), &["lib.rs"], &receipt_path);
+    receipt.as_object_mut().expect("receipt object").remove("object_set_hash");
+    fs::write(&receipt_path, format!("{}\n", serde_json::to_string_pretty(&receipt).unwrap()))
+        .expect("write missing field receipt");
+
+    let report =
+        assert_invalid_check_error(&check_corpus_receipt(temp.path(), &receipt_path, &["lib.rs"]), "missing-field");
+    assert!(
+        report["errors"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|error| { error["kind"] == "missing-field" && error["field"] == "object_set_hash" }),
+        "missing object_set_hash field not named in {report:#?}"
+    );
+}
+
+#[test]
+fn object_corpus_receipt_check_rejects_invalid_source_selection() {
+    let temp = tempfile::tempdir().expect("create tempdir");
+    fs::write(temp.path().join("lib.rs"), "pub fn checked_value(input: u32) -> u32 { input + 1 }\n")
+        .expect("write fixture");
+    fs::write(temp.path().join("README.md"), "not rust\n").expect("write non-rust fixture");
+    fs::write(temp.path().join("empty.rs"), "// no functions here\n").expect("write empty rust fixture");
+    let receipt_path = temp.path().join("receipt.json");
+    write_corpus_receipt(temp.path(), &["lib.rs"], &receipt_path);
+
+    assert_invalid_check_error(
+        &check_corpus_receipt(temp.path(), &receipt_path, &["missing.rs"]),
+        "source-path-missing",
+    );
+    assert_invalid_check_error(
+        &check_corpus_receipt(temp.path(), &receipt_path, &["lib.rs", "lib.rs"]),
+        "duplicate-source-path",
+    );
+    assert_invalid_check_error(
+        &check_corpus_receipt(temp.path(), &receipt_path, &["README.md"]),
+        "unsupported-source-path",
+    );
+    assert_invalid_check_error(&check_corpus_receipt(temp.path(), &receipt_path, &["empty.rs"]), "empty-corpus");
+}
+
 #[test]
 fn object_real_code_harness_emits_stable_summary() {
     let root = repo_root();

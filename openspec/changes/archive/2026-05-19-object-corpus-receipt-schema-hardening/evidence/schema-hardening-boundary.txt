@@ -1,0 +1,6 @@
+Human/oracle checkpoint
+command=cargo octet object corpus check --receipt bad.json --output-format json lib.rs
+input=malformed/future/missing-field receipt fixtures in cargo-octet integration tests
+asserts=invalid reports are typed evidence-identity failures, not correctness or semantic-equivalence proofs
+result=PASS
+notes=The hardened checker reports status=invalid with typed error kinds for malformed receipts, unsupported schemas/schema versions, missing critical fields, duplicate/missing/non-Rust source selections, and empty corpora. These reports validate receipt shape and evidence identity only; they do not claim behavioral correctness, semantic equivalence, dependency resolution, macro expansion identity, pure-cache eligibility, cross-machine determinism, or full content-addressed-function runtime support.
