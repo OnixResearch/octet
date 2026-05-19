@@ -1,0 +1,5 @@
+command=cargo-octet object corpus check --receipt cargo-octet/tests/fixtures/object-corpus/internal-corpus-receipt.json --output-format json cargo-octet/src/*.rs
+report.status=match
+report.comparison_count=8
+assert.checked_in_internal_corpus_gate: PASS
+assert.receipt_critical_fields_match: PASS

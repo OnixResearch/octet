@@ -1476,6 +1476,9 @@ const INTERNAL_OBJECT_CORPUS: &[&str] = &[
     "cargo-octet/src/transcript.rs",
 ];
 
+const INTERNAL_OBJECT_CORPUS_RECEIPT_FIXTURE: &str =
+    "cargo-octet/tests/fixtures/object-corpus/internal-corpus-receipt.json";
+
 const REAL_CODE_REPLAY_COMMAND: &str = "cargo octet object emit --output-format=json cargo-octet/src/cli.rs cargo-octet/src/object.rs cargo-octet/src/fingerprint.rs";
 
 #[derive(Debug)]
@@ -1805,6 +1808,45 @@ fn object_corpus_receipt_check_replays_cleanly() {
     let report: serde_json::Value = serde_json::from_slice(&check.stdout).expect("check report json");
     assert_eq!(report["status"], "match");
     assert!(report["comparisons"].as_array().unwrap().iter().all(|comparison| comparison["status"] == "match"));
+}
+
+#[test]
+fn object_internal_corpus_gate_fixture_replays_cleanly() {
+    let root = repo_root();
+    let fixture = root.join(INTERNAL_OBJECT_CORPUS_RECEIPT_FIXTURE);
+    let check = check_corpus_receipt(&root, &fixture, INTERNAL_OBJECT_CORPUS);
+    assert!(
+        check.status.success(),
+        "internal corpus gate stdout={} stderr={}",
+        String::from_utf8_lossy(&check.stdout),
+        String::from_utf8_lossy(&check.stderr)
+    );
+    let report: serde_json::Value = serde_json::from_slice(&check.stdout).expect("internal corpus check report json");
+    assert_eq!(report["status"], "match");
+    let comparisons = report["comparisons"].as_array().expect("comparisons array");
+    assert!(comparisons.iter().all(|comparison| comparison["status"] == "match"), "report={report:#?}");
+    assert!(
+        comparisons.iter().any(|comparison| {
+            comparison["field"] == "boundary"
+                && comparison["expected"]["claims_correctness"] == false
+                && comparison["current"]["claims_correctness"] == false
+                && comparison["expected"]["claims_semantic_equivalence"] == false
+                && comparison["current"]["claims_semantic_equivalence"] == false
+        }),
+        "boundary comparison missing no-correctness/no-semantic-equivalence claims: {report:#?}"
+    );
+}
+
+#[test]
+fn object_internal_corpus_gate_fixture_matches_fresh_receipt() {
+    let root = repo_root();
+    let temp = tempfile::tempdir().expect("create tempdir");
+    let fresh_path = temp.path().join("internal-corpus-receipt.json");
+    write_corpus_receipt(&root, INTERNAL_OBJECT_CORPUS, &fresh_path);
+    let fixture_bytes =
+        fs::read(root.join(INTERNAL_OBJECT_CORPUS_RECEIPT_FIXTURE)).expect("read checked-in receipt fixture");
+    let fresh_bytes = fs::read(&fresh_path).expect("read fresh receipt");
+    assert_eq!(fresh_bytes, fixture_bytes, "checked-in internal corpus receipt fixture is stale");
 }
 
 #[test]
