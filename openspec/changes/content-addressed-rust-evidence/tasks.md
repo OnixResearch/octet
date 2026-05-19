@@ -25,12 +25,12 @@
 
 ## Phase 4: Caveats and bundle export
 
-- [ ] I7 Add structured dependency, macro/generated-code, and effect caveat vocabulary.
-- [ ] I8 Add export bundle writer with deterministic manifests and replay metadata.
-- [ ] V11 Verify scenario "Source-scanned dependencies are not reported as resolved" with function-object metadata fixtures; save output at `openspec/changes/content-addressed-rust-evidence/evidence/dependency-caveats.txt`.
-- [ ] V12 Verify scenario "Unknown effects block pure-cache eligibility" with unresolved effect fixtures; save output at `openspec/changes/content-addressed-rust-evidence/evidence/effect-caveats.txt`.
-- [ ] V13 Verify scenario "Bundle membership is deterministic" with repeated export fixtures; save output at `openspec/changes/content-addressed-rust-evidence/evidence/bundle-membership.txt`.
-- [ ] V14 Verify scenario "Bundle records replay command" with bundle metadata fixtures; save output at `openspec/changes/content-addressed-rust-evidence/evidence/bundle-replay-metadata.txt`.
+- [x] I7 Add structured dependency, macro/generated-code, and effect caveat vocabulary.
+- [x] I8 Add export bundle writer with deterministic manifests and replay metadata.
+- [x] V11 Verify scenario "Source-scanned dependencies are not reported as resolved" with function-object metadata fixtures; save output at `openspec/changes/content-addressed-rust-evidence/evidence/dependency-caveats.txt`.
+- [x] V12 Verify scenario "Unknown effects block pure-cache eligibility" with unresolved effect fixtures; save output at `openspec/changes/content-addressed-rust-evidence/evidence/effect-caveats.txt`.
+- [x] V13 Verify scenario "Bundle membership is deterministic" with repeated export fixtures; save output at `openspec/changes/content-addressed-rust-evidence/evidence/bundle-membership.txt`.
+- [x] V14 Verify scenario "Bundle records replay command" with bundle metadata fixtures; save output at `openspec/changes/content-addressed-rust-evidence/evidence/bundle-replay-metadata.txt`.
 
 ## Phase 5: IR roadmap and downstream boundaries
 
@@ -43,7 +43,7 @@
 ## Change Status
 
 - Status: in-progress
-- Open tasks: I7, I8, V11, V12, V13, V14, I9, V15, V16, V17, V18
+- Open tasks: I9, V15, V16, V17, V18
 
 ## Verification Coverage
 
