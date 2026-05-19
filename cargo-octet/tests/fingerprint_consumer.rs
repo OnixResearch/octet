@@ -1580,6 +1580,34 @@ fn write_corpus_receipt(root: &Path, paths: &[&str], output_path: &Path) -> serd
     serde_json::from_slice(&fs::read(output_path).expect("read corpus receipt")).expect("corpus receipt json")
 }
 
+fn write_corpus_receipt_with_fresh_target(
+    root: &Path,
+    paths: &[&str],
+    output_path: &Path,
+    target_dir: &Path,
+) -> serde_json::Value {
+    let output = Command::new(cargo_octet())
+        .env_clear()
+        .env("TZ", "UTC")
+        .env("LC_ALL", "C")
+        .env("LANG", "C")
+        .env("CARGO_TARGET_DIR", target_dir)
+        .args(["object", "corpus", "receipt", "--output"])
+        .arg(output_path)
+        .args(paths)
+        .current_dir(root)
+        .output()
+        .expect("write object corpus receipt with fresh target");
+    assert!(
+        output.status.success(),
+        "fresh-target corpus receipt stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    serde_json::from_slice(&fs::read(output_path).expect("read fresh-target corpus receipt"))
+        .expect("fresh-target corpus receipt json")
+}
+
 fn check_corpus_receipt(root: &Path, receipt_path: &Path, paths: &[&str]) -> std::process::Output {
     Command::new(cargo_octet())
         .args(["object", "corpus", "check", "--receipt"])
@@ -1866,6 +1894,49 @@ fn object_internal_corpus_receipt_is_deterministic_and_bounded() {
         );
     }
     assert!(first["object_set_hash"].as_str().expect("object set hash").starts_with("b3:"));
+}
+
+#[test]
+fn object_internal_corpus_receipt_is_stable_across_fresh_target_dirs() {
+    let root = repo_root();
+    let temp = tempfile::tempdir().expect("create tempdir");
+    let mut receipt_bytes = BTreeSet::new();
+    let mut receipts = Vec::new();
+
+    for run in 0..4 {
+        let receipt_path = temp.path().join(format!("fresh-target-{run}.json"));
+        let target_dir = temp.path().join(format!("cargo-target-{run}"));
+        let receipt = write_corpus_receipt_with_fresh_target(&root, INTERNAL_OBJECT_CORPUS, &receipt_path, &target_dir);
+        receipt_bytes.insert(fs::read(&receipt_path).expect("read fresh-target receipt bytes"));
+        receipts.push(receipt);
+    }
+
+    assert_eq!(receipt_bytes.len(), 1, "fresh-target receipt bytes drifted across runs");
+    let baseline = &receipts[0];
+    for receipt in receipts.iter().skip(1) {
+        for field in [
+            "schema",
+            "schema_version",
+            "object_count",
+            "source_paths",
+            "object_set_hash",
+            "caveat_counts",
+            "pure_cache_blocked_count",
+            "boundary",
+        ] {
+            assert_eq!(baseline[field], receipt[field], "fresh-target receipt field `{field}` drifted");
+        }
+    }
+
+    println!("fresh_target.receipt_runs=4");
+    println!("fresh_target.receipt_bytes_b3={}", blake3_hex(receipt_bytes.iter().next().unwrap()));
+    println!("fresh_target.object_count={}", baseline["object_count"]);
+    println!("fresh_target.object_set_hash={}", baseline["object_set_hash"].as_str().expect("object set hash"));
+    println!("fresh_target.byte_stability: PASS");
+    println!("fresh_target.compared_fields_stable: PASS");
+    assert_eq!(baseline["boundary"]["claims_correctness"], false);
+    assert_eq!(baseline["boundary"]["claims_semantic_equivalence"], false);
+    println!("fresh_target.boundary_claims_false: PASS");
 }
 
 #[test]
