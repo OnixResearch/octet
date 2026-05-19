@@ -23,6 +23,7 @@ pub enum CommandArgs {
     Check(CheckArgs),
     Fingerprint(FingerprintArgs),
     Migrate(MigrateArgs),
+    Object(ObjectArgs),
     Roadmap(crate::roadmap::RoadmapCommand),
     Transcript(TranscriptArgs),
     Help(HelpTopic),
@@ -35,6 +36,7 @@ pub enum HelpTopic {
     Check,
     Fingerprint,
     Migrate,
+    Object,
     Roadmap,
     Transcript,
 }
@@ -65,6 +67,13 @@ pub struct FingerprintArgs {
     pub paths: Vec<PathBuf>,
     pub output_format: OutputFormat,
     pub review_manifest: Option<PathBuf>,
+}
+
+#[derive(Debug)]
+pub struct ObjectArgs {
+    pub paths: Vec<PathBuf>,
+    pub function: Option<String>,
+    pub output_format: OutputFormat,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -120,16 +129,19 @@ pub fn parse(argv: impl IntoIterator<Item = OsString>) -> Result<CommandArgs, St
         Some("fingerprint") => parse_fingerprint(&argv[1..]).map(CommandArgs::Fingerprint),
         Some("migrate") if wants_help(&argv[1..]) => Ok(CommandArgs::Help(HelpTopic::Migrate)),
         Some("migrate") => parse_migrate(&argv[1..]).map(CommandArgs::Migrate),
+        Some("object") if wants_help(&argv[1..]) => Ok(CommandArgs::Help(HelpTopic::Object)),
+        Some("object") => parse_object(&argv[1..]).map(CommandArgs::Object),
         Some("roadmap") if wants_help(&argv[1..]) => Ok(CommandArgs::Help(HelpTopic::Roadmap)),
         Some("roadmap") => crate::roadmap::parse(&argv[1..]).map(CommandArgs::Roadmap),
         Some("transcript") if wants_help(&argv[1..]) => Ok(CommandArgs::Help(HelpTopic::Transcript)),
         Some("transcript") => parse_transcript(&argv[1..]).map(CommandArgs::Transcript),
         Some(other) => Err(format!(
-            "unknown subcommand `{other}`; expected `check`, `fingerprint`, `migrate`, `roadmap`, or `transcript`"
+            "unknown subcommand `{other}`; expected `check`, `fingerprint`, `migrate`, `object`, `roadmap`, or `transcript`"
         )),
-        None => {
-            Err("missing subcommand; expected `check`, `fingerprint`, `migrate`, `roadmap`, or `transcript`".to_owned())
-        }
+        None => Err(
+            "missing subcommand; expected `check`, `fingerprint`, `migrate`, `object`, `roadmap`, or `transcript`"
+                .to_owned(),
+        ),
     }
 }
 
@@ -143,6 +155,7 @@ pub fn help_text(topic: HelpTopic) -> &'static str {
         HelpTopic::Check => CHECK_HELP,
         HelpTopic::Fingerprint => FINGERPRINT_HELP,
         HelpTopic::Migrate => MIGRATE_HELP,
+        HelpTopic::Object => OBJECT_HELP,
         HelpTopic::Roadmap => ROADMAP_HELP,
         HelpTopic::Transcript => TRANSCRIPT_HELP,
     }
@@ -154,6 +167,7 @@ Usage:
   cargo octet check [SCOPE] [-- CARGO_CHECK_ARGS]
   cargo octet fingerprint [--check|--update|--diff] [PATHS...]
   cargo octet migrate <start|status|apply-safe> [--manifest PATH]
+  cargo octet object emit [--function NAME] [PATHS...]
   cargo octet roadmap <artifact|capsule|ability|pointer|session|pure-cache> ...
   cargo octet transcript <PATH>
   cargo octet --version
@@ -178,6 +192,11 @@ Modes: --check, --write, --update, --diff. Use --review-manifest PATH to save re
 const MIGRATE_HELP: &str = "cargo octet migrate
 
 Subcommands: start, status, apply-safe. Migration manifests are deterministic and safe-reviewable before applying.
+";
+
+const OBJECT_HELP: &str = "cargo octet object emit
+
+Emits source-token function-object v1 evidence objects. Options: --function NAME, --output-format human|json.
 ";
 
 const ROADMAP_HELP: &str = "cargo octet roadmap
@@ -382,6 +401,55 @@ fn parse_migrate(args: &[String]) -> Result<MigrateArgs, String> {
     })
 }
 
+fn parse_object(args: &[String]) -> Result<ObjectArgs, String> {
+    match args.first().map(String::as_str) {
+        Some("emit") => {}
+        Some(other) => return Err(format!("unknown object subcommand `{other}`; expected `emit`")),
+        None => return Err("missing object subcommand; expected `emit`".to_owned()),
+    }
+
+    let mut paths = Vec::new();
+    let mut function = None;
+    let mut output_format = OutputFormat::Human;
+    let mut index = 1;
+    while index < args.len() {
+        let arg = &args[index];
+        match arg.as_str() {
+            "--function" => {
+                function =
+                    Some(args.get(index + 1).ok_or_else(|| "missing value after `--function`".to_owned())?.clone());
+                index += 2;
+            }
+            _ if arg.starts_with("--function=") => {
+                function = Some(arg.trim_start_matches("--function=").to_owned());
+                index += 1;
+            }
+            "--output-format" => {
+                let value = args.get(index + 1).ok_or_else(|| "missing value after `--output-format`".to_owned())?;
+                output_format = parse_output_format(value)?;
+                index += 2;
+            }
+            _ if arg.starts_with("--output-format=") => {
+                output_format = parse_output_format(arg.trim_start_matches("--output-format="))?;
+                index += 1;
+            }
+            _ if arg.starts_with('-') => return Err(format!("unsupported object argument `{arg}`")),
+            _ => {
+                paths.push(PathBuf::from(arg));
+                index += 1;
+            }
+        }
+    }
+    if paths.is_empty() {
+        paths.push(PathBuf::from("."));
+    }
+    Ok(ObjectArgs {
+        paths,
+        function,
+        output_format,
+    })
+}
+
 fn parse_transcript(args: &[String]) -> Result<TranscriptArgs, String> {
     let mut path = None;
     let mut output_format = OutputFormat::Human;
@@ -446,6 +514,7 @@ mod tests {
     use super::CommandArgs;
     use super::FingerprintMode;
     use super::HelpTopic;
+    use super::OutputFormat;
     use super::format_command_line;
     use super::parse;
 
@@ -472,6 +541,33 @@ mod tests {
                 assert_eq!(args.paths.len(), 1);
             }
             other => panic!("expected fingerprint args, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn object_parse_accepts_emit_selection() {
+        let parsed = parse(
+            [
+                "cargo",
+                "octet",
+                "object",
+                "emit",
+                "--function",
+                "checked",
+                "src/lib.rs",
+                "--output-format",
+                "json",
+            ]
+            .map(OsString::from),
+        )
+        .expect("parse object emit args");
+        match parsed {
+            CommandArgs::Object(args) => {
+                assert_eq!(args.paths.len(), 1);
+                assert_eq!(args.function.as_deref(), Some("checked"));
+                assert_eq!(args.output_format, OutputFormat::Json);
+            }
+            other => panic!("expected object args, got {other:?}"),
         }
     }
 

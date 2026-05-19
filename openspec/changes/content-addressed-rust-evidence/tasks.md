@@ -1,16 +1,16 @@
 ## Phase 1: Spec package
 
 - [x] I1 Create Octet-owned OpenSpec proposal, design, delta spec, and tasks for content-addressed Rust evidence.
-- [ ] V1 Validate the OpenSpec package and save gate output at `openspec/changes/content-addressed-rust-evidence/evidence/openspec-gates.txt`.
+- [x] V1 Validate the OpenSpec package and save gate output at `openspec/changes/content-addressed-rust-evidence/evidence/openspec-gates.txt`.
 
 ## Phase 2: Function-object v1
 
-- [ ] I2 Add function-object v1 data model and canonical JSON/hash helpers for selected functions.
-- [ ] I3 Add object emission command surface for selected source-scanned functions.
-- [ ] V2 Verify scenario "Emit source-token function object" with focused cargo-octet tests; save output at `openspec/changes/content-addressed-rust-evidence/evidence/function-object-v1.txt`.
-- [ ] V3 Verify scenario "Reject correctness overclaim" with docs/output fixture checks; save output at `openspec/changes/content-addressed-rust-evidence/evidence/no-correctness-overclaim.txt`.
-- [ ] V4 Verify scenario "Same logical object hashes the same across roots" with cross-root fixture tests; save output at `openspec/changes/content-addressed-rust-evidence/evidence/canonical-cross-root.txt`.
-- [ ] V5 Verify scenario "Entropy-bearing fields are excluded or rejected" with negative canonicalization fixtures; save output at `openspec/changes/content-addressed-rust-evidence/evidence/canonical-entropy.txt`.
+- [x] I2 Add function-object v1 data model and canonical JSON/hash helpers for selected functions.
+- [x] I3 Add object emission command surface for selected source-scanned functions.
+- [x] V2 Verify scenario "Emit source-token function object" with focused cargo-octet tests; save output at `openspec/changes/content-addressed-rust-evidence/evidence/function-object-v1.txt`.
+- [x] V3 Verify scenario "Reject correctness overclaim" with docs/output fixture checks; save output at `openspec/changes/content-addressed-rust-evidence/evidence/no-correctness-overclaim.txt`.
+- [x] V4 Verify scenario "Same logical object hashes the same across roots" with cross-root fixture tests; save output at `openspec/changes/content-addressed-rust-evidence/evidence/canonical-cross-root.txt`.
+- [x] V5 Verify scenario "Entropy-bearing fields are excluded or rejected" with negative canonicalization fixtures; save output at `openspec/changes/content-addressed-rust-evidence/evidence/canonical-entropy.txt`.
 
 ## Phase 3: Markers, pointers, and diffs
 
@@ -43,7 +43,7 @@
 ## Change Status
 
 - Status: in-progress
-- Open tasks: V1, I2, I3, V2, V3, V4, V5, I4, I5, I6, V6, V7, V8, V9, V10, I7, I8, V11, V12, V13, V14, I9, V15, V16, V17, V18
+- Open tasks: I4, I5, I6, V6, V7, V8, V9, V10, I7, I8, V11, V12, V13, V14, I9, V15, V16, V17, V18
 
 ## Verification Coverage
 
