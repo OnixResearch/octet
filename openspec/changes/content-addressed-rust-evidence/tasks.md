@@ -14,14 +14,14 @@
 
 ## Phase 3: Markers, pointers, and diffs
 
-- [ ] I4 Add object marker check/update compatibility while preserving existing fingerprint workflows.
-- [ ] I5 Add name-pointer manifest support and deterministic pointer move output.
-- [ ] I6 Add object-aware diff output separating body, signature, caveat, and pointer changes.
-- [ ] V6 Verify scenario "Object marker check detects drift" with marker drift fixtures; save output at `openspec/changes/content-addressed-rust-evidence/evidence/object-marker-drift.txt`.
-- [ ] V7 Verify scenario "Existing fingerprint workflows remain usable" with existing fingerprint tests; save output at `openspec/changes/content-addressed-rust-evidence/evidence/fingerprint-compat.txt`.
-- [ ] V8 Verify scenario "Pointer move records old and new identity" with pointer manifest fixtures; save output at `openspec/changes/content-addressed-rust-evidence/evidence/name-pointer-move.txt`.
-- [ ] V9 Verify scenario "Pointer references must resolve" with missing-object negative fixtures; save output at `openspec/changes/content-addressed-rust-evidence/evidence/name-pointer-resolution.txt`.
-- [ ] V10 Verify scenario "Diff separates body and caveat changes" with old/new object fixture pairs; save output at `openspec/changes/content-addressed-rust-evidence/evidence/object-diff.txt`.
+- [x] I4 Add object marker check/update compatibility while preserving existing fingerprint workflows.
+- [x] I5 Add name-pointer manifest support and deterministic pointer move output.
+- [x] I6 Add object-aware diff output separating body, signature, caveat, and pointer changes.
+- [x] V6 Verify scenario "Object marker check detects drift" with marker drift fixtures; save output at `openspec/changes/content-addressed-rust-evidence/evidence/object-marker-drift.txt`.
+- [x] V7 Verify scenario "Existing fingerprint workflows remain usable" with existing fingerprint tests; save output at `openspec/changes/content-addressed-rust-evidence/evidence/fingerprint-compat.txt`.
+- [x] V8 Verify scenario "Pointer move records old and new identity" with pointer manifest fixtures; save output at `openspec/changes/content-addressed-rust-evidence/evidence/name-pointer-move.txt`.
+- [x] V9 Verify scenario "Pointer references must resolve" with missing-object negative fixtures; save output at `openspec/changes/content-addressed-rust-evidence/evidence/name-pointer-resolution.txt`.
+- [x] V10 Verify scenario "Diff separates body and caveat changes" with old/new object fixture pairs; save output at `openspec/changes/content-addressed-rust-evidence/evidence/object-diff.txt`.
 
 ## Phase 4: Caveats and bundle export
 
@@ -43,7 +43,7 @@
 ## Change Status
 
 - Status: in-progress
-- Open tasks: I4, I5, I6, V6, V7, V8, V9, V10, I7, I8, V11, V12, V13, V14, I9, V15, V16, V17, V18
+- Open tasks: I7, I8, V11, V12, V13, V14, I9, V15, V16, V17, V18
 
 ## Verification Coverage
 

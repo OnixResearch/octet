@@ -1,10 +1,14 @@
+use std::collections::BTreeMap;
+use std::collections::BTreeSet;
 use std::fs;
 use std::path::Path;
 use std::path::PathBuf;
 
+use serde::Deserialize;
 use serde::Serialize;
 
 use crate::cli::ObjectArgs;
+use crate::cli::ObjectMode;
 use crate::cli::OutputFormat;
 use crate::determinism;
 use crate::fingerprint;
@@ -12,6 +16,8 @@ use crate::fingerprint;
 const FUNCTION_OBJECT_SCHEMA: &str = "octet.function-object.v1";
 const NORMALIZATION_ALGORITHM: &str = "octet-source-token-v1";
 const DEPENDENCY_STATUS_MACRO_CONTEXT: &str = "unsupported-macro-context";
+const OBJECT_MARKER: &str = "// octet-object:";
+const HASH_PREFIX: &str = "b3:";
 
 #[derive(Debug, Clone, Serialize)]
 pub(crate) struct FunctionObjectV1 {
@@ -80,27 +86,97 @@ struct FunctionObjectReport {
     objects: Vec<FunctionObjectV1>,
 }
 
-pub fn run(args: ObjectArgs) -> Result<i32, String> {
-    let mut files = Vec::new();
-    for path in args.paths {
-        fingerprint::collect_rust_files(&path, &mut files)?;
-    }
-    files.sort();
-    files.dedup();
+#[derive(Debug, Clone)]
+struct ObjectRecord {
+    object: FunctionObjectV1,
+}
 
-    let mut objects = Vec::new();
-    for path in files {
-        let source = fs::read_to_string(&path).map_err(|error| format!("read {}: {error}", path.display()))?;
-        for span in fingerprint::find_functions(&source) {
-            if let Some(selected) = args.function.as_deref()
-                && selected != span.name
-            {
-                continue;
-            }
-            let function_source = &source[span.start..span.end];
-            objects.push(function_object_for_source(&path, &source, &span, function_source)?);
-        }
+#[derive(Debug, Clone)]
+struct ObjectMarker {
+    start: usize,
+    end: usize,
+    stored_hash: String,
+    review: Option<String>,
+    evidence: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+struct NamePointerManifest {
+    schema_version: u32,
+    pointers: BTreeMap<String, NamePointer>,
+    #[serde(default)]
+    history: BTreeMap<String, Vec<NamePointerHistory>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct NamePointer {
+    object_hash: String,
+    semantic_name: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct NamePointerHistory {
+    old_hash: String,
+    new_hash: String,
+    semantic_name: String,
+    diff_summary: String,
+    rollback_handle: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct PointerReceipt {
+    schema_version: u32,
+    semantic_name: String,
+    old_hash: Option<String>,
+    new_hash: String,
+    diff_summary: String,
+    rollback_handle: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct ObjectMarkerReport {
+    schema_version: u32,
+    mode: &'static str,
+    records: Vec<ObjectMarkerRecord>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct ObjectMarkerRecord {
+    path: String,
+    name: String,
+    stored_hash: Option<String>,
+    computed_hash: String,
+    status: &'static str,
+    review: Option<String>,
+    evidence: Option<String>,
+}
+
+pub fn run(args: ObjectArgs) -> Result<i32, String> {
+    match args.mode.clone() {
+        ObjectMode::Emit => run_emit(args),
+        ObjectMode::Check => run_marker(args, false),
+        ObjectMode::Update => run_marker(args, true),
+        ObjectMode::Diff {
+            old,
+            new,
+            pointer_manifest,
+        } => run_diff(&old, &new, pointer_manifest.as_deref(), args.output_format),
+        ObjectMode::PointerSet {
+            manifest,
+            name,
+            hash,
+            objects,
+            receipt,
+        } => run_pointer_set(&manifest, &name, &hash, &objects, &receipt),
+        ObjectMode::PointerValidate { manifest, objects } => run_pointer_validate(&manifest, &objects),
     }
+}
+
+fn run_emit(args: ObjectArgs) -> Result<i32, String> {
+    let objects = collect_objects(&args.paths, args.function.as_deref())?
+        .into_iter()
+        .map(|record| record.object)
+        .collect::<Vec<_>>();
 
     if objects.is_empty() {
         return Err("no functions matched object emission selection".to_owned());
@@ -117,6 +193,108 @@ pub fn run(args: ObjectArgs) -> Result<i32, String> {
         OutputFormat::Sarif => return Err("object emit does not support SARIF output; use human or json".to_owned()),
     }
     Ok(0)
+}
+
+fn run_marker(args: ObjectArgs, update: bool) -> Result<i32, String> {
+    let mut files = collect_files(&args.paths)?;
+    let mut records = Vec::new();
+    for path in files.drain(..) {
+        let source = fs::read_to_string(&path).map_err(|error| format!("read {}: {error}", path.display()))?;
+        let mut replacements = Vec::new();
+        for span in fingerprint::find_functions(&source) {
+            if let Some(selected) = args.function.as_deref()
+                && selected != span.name
+            {
+                continue;
+            }
+            let function_source = &source[span.start..span.end];
+            let object = function_object_for_source(&path, &source, &span, function_source)?;
+            let marker = object_marker_before(&source, span.start);
+            let status = match marker.as_ref().map(|marker| marker.stored_hash.as_str()) {
+                Some(stored) if stored == object.object_hash => "match",
+                Some(_) => "mismatch",
+                None => "missing",
+            };
+            if update && status != "match" {
+                let review = marker.as_ref().and_then(|m| m.review.as_deref()).unwrap_or("TODO");
+                let evidence = marker.as_ref().and_then(|m| m.evidence.as_deref()).unwrap_or("TODO");
+                let line = format!("// octet-object: {}; review={review}; evidence={evidence}\n", object.object_hash);
+                if let Some(marker) = marker.as_ref() {
+                    replacements.push((marker.start, marker.end, line));
+                } else {
+                    replacements.push((span.start, span.start, line));
+                }
+            }
+            records.push(ObjectMarkerRecord {
+                path: normalized_source_path(&path),
+                name: object.name,
+                stored_hash: marker.as_ref().map(|marker| marker.stored_hash.clone()),
+                computed_hash: object.object_hash,
+                status: if update && status != "match" { "written" } else { status },
+                review: marker.as_ref().and_then(|marker| marker.review.clone()),
+                evidence: marker.as_ref().and_then(|marker| marker.evidence.clone()),
+            });
+        }
+        if !replacements.is_empty() {
+            let mut updated = source;
+            for (start, end, replacement) in replacements.into_iter().rev() {
+                updated.replace_range(start..end, &replacement);
+            }
+            fs::write(&path, updated).map_err(|error| format!("write {}: {error}", path.display()))?;
+        }
+    }
+    if records.is_empty() {
+        return Err("no functions matched object marker selection".to_owned());
+    }
+    let report = ObjectMarkerReport {
+        schema_version: 1,
+        mode: if update { "update" } else { "check" },
+        records,
+    };
+    match args.output_format {
+        OutputFormat::Human => print_marker_human(&report),
+        OutputFormat::Json => println!("{}", serde_json::to_string_pretty(&report).map_err(|error| error.to_string())?),
+        OutputFormat::Sarif => return Err("object marker does not support SARIF output; use human or json".to_owned()),
+    }
+    let failing = !update
+        && report
+            .records
+            .iter()
+            .any(|record| record.status != "match" || record.review.is_none() || record.evidence.is_none());
+    Ok(if failing { 1 } else { 0 })
+}
+
+fn collect_objects(paths: &[PathBuf], function: Option<&str>) -> Result<Vec<ObjectRecord>, String> {
+    let mut objects = Vec::new();
+    for path in collect_files(paths)? {
+        let source = fs::read_to_string(&path).map_err(|error| format!("read {}: {error}", path.display()))?;
+        for span in fingerprint::find_functions(&source) {
+            if let Some(selected) = function
+                && selected != span.name
+            {
+                continue;
+            }
+            let function_source = &source[span.start..span.end];
+            let object = function_object_for_source(&path, &source, &span, function_source)?;
+            objects.push(ObjectRecord { object });
+        }
+    }
+    Ok(objects)
+}
+
+fn collect_files(paths: &[PathBuf]) -> Result<Vec<PathBuf>, String> {
+    let mut files = Vec::new();
+    let inputs = if paths.is_empty() {
+        vec![PathBuf::from(".")]
+    } else {
+        paths.to_vec()
+    };
+    for path in inputs {
+        fingerprint::collect_rust_files(&path, &mut files)?;
+    }
+    files.sort();
+    files.dedup();
+    Ok(files)
 }
 
 fn function_object_for_source(
@@ -286,6 +464,242 @@ fn normalized_source_path(path: &Path) -> String {
         .and_then(|cwd| path.strip_prefix(cwd).ok().map(PathBuf::from))
         .unwrap_or_else(|| path.to_path_buf());
     determinism::normalize_path(&relative)
+}
+
+fn object_marker_before(source: &str, item_start: usize) -> Option<ObjectMarker> {
+    let prefix = &source[..item_start];
+    let line_start = prefix.rfind('\n').map_or(0, |index| index + 1);
+    let previous_end = line_start.saturating_sub(1);
+    let previous_start = source[..previous_end].rfind('\n').map_or(0, |index| index + 1);
+    let previous = source[previous_start..previous_end].trim();
+    if !previous.starts_with(OBJECT_MARKER) {
+        return None;
+    }
+    let hash_start = previous.find(HASH_PREFIX)? + HASH_PREFIX.len();
+    let stored_hash =
+        format!("b3:{}", previous[hash_start..].chars().take_while(|c| c.is_ascii_hexdigit()).collect::<String>());
+    if stored_hash == "b3:" {
+        return None;
+    }
+    Some(ObjectMarker {
+        start: previous_start,
+        end: if previous_end < source.len() {
+            previous_end + 1
+        } else {
+            previous_end
+        },
+        stored_hash,
+        review: marker_value(previous, "review"),
+        evidence: marker_value(previous, "evidence"),
+    })
+}
+
+fn marker_value(line: &str, key: &str) -> Option<String> {
+    let value_start = line.find(&format!("{key}="))? + key.len() + 1;
+    let value = line[value_start..]
+        .split([';', ',', ')', ']'])
+        .next()
+        .unwrap_or("")
+        .trim()
+        .trim_matches('"')
+        .to_owned();
+    (!value.is_empty() && value != "TODO").then_some(value)
+}
+
+fn run_diff(
+    old_path: &Path,
+    new_path: &Path,
+    pointer_manifest: Option<&Path>,
+    output_format: OutputFormat,
+) -> Result<i32, String> {
+    let old = read_single_object(old_path)?;
+    let new = read_single_object(new_path)?;
+    let pointer_changes = if let Some(path) = pointer_manifest {
+        pointer_changes(path, string_field(&old, "object_hash")?, string_field(&new, "object_hash")?)?
+    } else {
+        Vec::new()
+    };
+    let report = serde_json::json!({
+        "schema_version": 1,
+        "mode": "diff",
+        "semantic_name": string_field(&new, "name").unwrap_or_else(|_| "unknown".to_owned()),
+        "old_object_hash": string_field(&old, "object_hash")?,
+        "new_object_hash": string_field(&new, "object_hash")?,
+        "body_changed": old.get("body_hash") != new.get("body_hash"),
+        "signature_changed": old.get("signature_hash") != new.get("signature_hash"),
+        "dependency_caveats_changed": old.get("dependency_caveats") != new.get("dependency_caveats"),
+        "effect_caveats_changed": old.get("effect_caveats") != new.get("effect_caveats"),
+        "macro_caveats_changed": old.get("macro_caveats") != new.get("macro_caveats"),
+        "pointer_changes": pointer_changes,
+    });
+    match output_format {
+        OutputFormat::Human => {
+            println!("octet object diff");
+            println!("body_changed={}", report["body_changed"]);
+            println!("signature_changed={}", report["signature_changed"]);
+            println!("dependency_caveats_changed={}", report["dependency_caveats_changed"]);
+            println!("effect_caveats_changed={}", report["effect_caveats_changed"]);
+            println!("macro_caveats_changed={}", report["macro_caveats_changed"]);
+            println!("pointer_changes={}", report["pointer_changes"].as_array().map_or(0, Vec::len));
+        }
+        OutputFormat::Json => println!("{}", serde_json::to_string_pretty(&report).map_err(|error| error.to_string())?),
+        OutputFormat::Sarif => return Err("object diff does not support SARIF output; use human or json".to_owned()),
+    }
+    Ok(0)
+}
+
+fn run_pointer_set(
+    manifest_path: &Path,
+    name: &str,
+    hash: &str,
+    objects_path: &Path,
+    receipt_path: &Path,
+) -> Result<i32, String> {
+    let available = object_hashes(objects_path)?;
+    if !available.contains(hash) {
+        return Err(format!("pointer hash `{hash}` does not resolve to an object record"));
+    }
+    let mut manifest = read_pointer_manifest(manifest_path)?;
+    manifest.schema_version = 1;
+    let old_hash = manifest.pointers.get(name).map(|pointer| pointer.object_hash.clone());
+    let diff_summary = match old_hash.as_deref() {
+        Some(old) if old != hash => format!("pointer-moved:{old}->{hash}"),
+        Some(_) => "pointer-unchanged".to_owned(),
+        None => "pointer-created".to_owned(),
+    };
+    let rollback_handle = format!("{}#{}", manifest_path.display(), name);
+    if let Some(old) = old_hash.as_ref()
+        && old != hash
+    {
+        manifest.history.entry(name.to_owned()).or_default().push(NamePointerHistory {
+            old_hash: old.clone(),
+            new_hash: hash.to_owned(),
+            semantic_name: name.to_owned(),
+            diff_summary: diff_summary.clone(),
+            rollback_handle: rollback_handle.clone(),
+        });
+    }
+    manifest.pointers.insert(name.to_owned(), NamePointer {
+        object_hash: hash.to_owned(),
+        semantic_name: name.to_owned(),
+    });
+    write_json(manifest_path, &manifest)?;
+    let receipt = PointerReceipt {
+        schema_version: 1,
+        semantic_name: name.to_owned(),
+        old_hash,
+        new_hash: hash.to_owned(),
+        diff_summary,
+        rollback_handle,
+    };
+    write_json(receipt_path, &receipt)?;
+    println!("{}", serde_json::to_string_pretty(&receipt).map_err(|error| error.to_string())?);
+    Ok(0)
+}
+
+fn run_pointer_validate(manifest_path: &Path, objects_path: &Path) -> Result<i32, String> {
+    let manifest = read_pointer_manifest(manifest_path)?;
+    let available = object_hashes(objects_path)?;
+    let missing = manifest
+        .pointers
+        .iter()
+        .filter_map(|(name, pointer)| (!available.contains(&pointer.object_hash)).then_some(name.clone()))
+        .collect::<Vec<_>>();
+    let report = serde_json::json!({
+        "schema_version": 1,
+        "mode": "pointer-validate",
+        "status": if missing.is_empty() { "resolved" } else { "missing-object" },
+        "pointer_count": manifest.pointers.len(),
+        "missing_pointers": missing,
+    });
+    println!("{}", serde_json::to_string_pretty(&report).map_err(|error| error.to_string())?);
+    Ok(if report["status"] == "resolved" { 0 } else { 1 })
+}
+
+fn read_single_object(path: &Path) -> Result<serde_json::Value, String> {
+    let value = read_json(path)?;
+    if let Some(objects) = value.get("objects").and_then(serde_json::Value::as_array) {
+        return objects.first().cloned().ok_or_else(|| format!("{} has no objects", path.display()));
+    }
+    Ok(value)
+}
+
+fn object_hashes(path: &Path) -> Result<BTreeSet<String>, String> {
+    let value = read_json(path)?;
+    let objects = value.get("objects").and_then(serde_json::Value::as_array).ok_or_else(|| {
+        format!(
+            "{} must contain an `objects` array from `cargo octet object emit --output-format json`",
+            path.display()
+        )
+    })?;
+    Ok(objects
+        .iter()
+        .filter_map(|object| object.get("object_hash").and_then(serde_json::Value::as_str).map(str::to_owned))
+        .collect())
+}
+
+fn pointer_changes(path: &Path, old_hash: String, new_hash: String) -> Result<Vec<serde_json::Value>, String> {
+    let manifest = read_pointer_manifest(path)?;
+    Ok(manifest
+        .pointers
+        .iter()
+        .filter_map(|(name, pointer)| {
+            (pointer.object_hash == old_hash || pointer.object_hash == new_hash).then(|| {
+                serde_json::json!({
+                    "semantic_name": name,
+                    "old_hash": old_hash,
+                    "new_hash": new_hash,
+                    "target_matches_new": pointer.object_hash == new_hash,
+                })
+            })
+        })
+        .collect())
+}
+
+fn string_field(value: &serde_json::Value, field: &str) -> Result<String, String> {
+    value
+        .get(field)
+        .and_then(serde_json::Value::as_str)
+        .map(str::to_owned)
+        .ok_or_else(|| format!("object missing `{field}`"))
+}
+
+fn read_json(path: &Path) -> Result<serde_json::Value, String> {
+    let text = fs::read_to_string(path).map_err(|error| format!("read {}: {error}", path.display()))?;
+    serde_json::from_str(&text).map_err(|error| format!("parse {}: {error}", path.display()))
+}
+
+fn read_pointer_manifest(path: &Path) -> Result<NamePointerManifest, String> {
+    if !path.exists() {
+        return Ok(NamePointerManifest::default());
+    }
+    serde_json::from_value(read_json(path)?).map_err(|error| format!("parse pointer manifest: {error}"))
+}
+
+fn write_json<T: Serialize + ?Sized>(path: &Path, value: &T) -> Result<(), String> {
+    if let Some(parent) = path.parent().filter(|parent| !parent.as_os_str().is_empty()) {
+        fs::create_dir_all(parent).map_err(|error| format!("create {}: {error}", parent.display()))?;
+    }
+    let mut text = serde_json::to_string_pretty(value).map_err(|error| format!("serialize json: {error}"))?;
+    text.push('\n');
+    fs::write(path, text).map_err(|error| format!("write {}: {error}", path.display()))
+}
+
+fn print_marker_human(report: &ObjectMarkerReport) {
+    println!("octet object {}", report.mode);
+    for record in &report.records {
+        println!(
+            "{} {} status={} stored_hash={} computed_hash={} review={} evidence={}",
+            record.path,
+            record.name,
+            record.status,
+            record.stored_hash.as_deref().unwrap_or("none"),
+            record.computed_hash,
+            record.review.as_deref().unwrap_or("missing"),
+            record.evidence.as_deref().unwrap_or("missing"),
+        );
+    }
+    println!("summary total={}", report.records.len());
 }
 
 fn print_human(report: &FunctionObjectReport) {

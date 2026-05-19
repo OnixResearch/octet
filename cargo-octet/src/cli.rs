@@ -69,8 +69,32 @@ pub struct FingerprintArgs {
     pub review_manifest: Option<PathBuf>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ObjectMode {
+    Emit,
+    Check,
+    Update,
+    Diff {
+        old: PathBuf,
+        new: PathBuf,
+        pointer_manifest: Option<PathBuf>,
+    },
+    PointerSet {
+        manifest: PathBuf,
+        name: String,
+        hash: String,
+        objects: PathBuf,
+        receipt: PathBuf,
+    },
+    PointerValidate {
+        manifest: PathBuf,
+        objects: PathBuf,
+    },
+}
+
 #[derive(Debug)]
 pub struct ObjectArgs {
+    pub mode: ObjectMode,
     pub paths: Vec<PathBuf>,
     pub function: Option<String>,
     pub output_format: OutputFormat,
@@ -167,7 +191,10 @@ Usage:
   cargo octet check [SCOPE] [-- CARGO_CHECK_ARGS]
   cargo octet fingerprint [--check|--update|--diff] [PATHS...]
   cargo octet migrate <start|status|apply-safe> [--manifest PATH]
-  cargo octet object emit [--function NAME] [PATHS...]
+  cargo octet object emit|check|update [--function NAME] [PATHS...]
+  cargo octet object diff --old OLD.json --new NEW.json [--pointer-manifest PATH]
+  cargo octet object pointer set --manifest PATH --name NAME --hash HASH --objects OBJECTS.json --receipt PATH
+  cargo octet object pointer validate --manifest PATH --objects OBJECTS.json
   cargo octet roadmap <artifact|capsule|ability|pointer|session|pure-cache> ...
   cargo octet transcript <PATH>
   cargo octet --version
@@ -194,9 +221,17 @@ const MIGRATE_HELP: &str = "cargo octet migrate
 Subcommands: start, status, apply-safe. Migration manifests are deterministic and safe-reviewable before applying.
 ";
 
-const OBJECT_HELP: &str = "cargo octet object emit
+const OBJECT_HELP: &str = "cargo octet object
 
-Emits source-token function-object v1 evidence objects. Options: --function NAME, --output-format human|json.
+Subcommands:
+  emit [--function NAME] [PATHS...] --output-format human|json
+  check [--function NAME] [PATHS...] --output-format human|json
+  update [--function NAME] [PATHS...] --output-format human|json
+  diff --old OLD.json --new NEW.json [--pointer-manifest PATH] --output-format human|json
+  pointer set --manifest PATH --name NAME --hash HASH --objects OBJECTS.json --receipt PATH
+  pointer validate --manifest PATH --objects OBJECTS.json
+
+Function objects are source-token review/provenance evidence, not correctness proofs.
 ";
 
 const ROADMAP_HELP: &str = "cargo octet roadmap
@@ -403,15 +438,23 @@ fn parse_migrate(args: &[String]) -> Result<MigrateArgs, String> {
 
 fn parse_object(args: &[String]) -> Result<ObjectArgs, String> {
     match args.first().map(String::as_str) {
-        Some("emit") => {}
-        Some(other) => return Err(format!("unknown object subcommand `{other}`; expected `emit`")),
-        None => return Err("missing object subcommand; expected `emit`".to_owned()),
+        Some("emit") => parse_object_scan(ObjectMode::Emit, &args[1..]),
+        Some("check") => parse_object_scan(ObjectMode::Check, &args[1..]),
+        Some("update") => parse_object_scan(ObjectMode::Update, &args[1..]),
+        Some("diff") => parse_object_diff(&args[1..]),
+        Some("pointer") => parse_object_pointer(&args[1..]),
+        Some(other) => Err(format!(
+            "unknown object subcommand `{other}`; expected `emit`, `check`, `update`, `diff`, or `pointer`"
+        )),
+        None => Err("missing object subcommand; expected `emit`, `check`, `update`, `diff`, or `pointer`".to_owned()),
     }
+}
 
+fn parse_object_scan(mode: ObjectMode, args: &[String]) -> Result<ObjectArgs, String> {
     let mut paths = Vec::new();
     let mut function = None;
     let mut output_format = OutputFormat::Human;
-    let mut index = 1;
+    let mut index = 0;
     while index < args.len() {
         let arg = &args[index];
         match arg.as_str() {
@@ -444,10 +487,114 @@ fn parse_object(args: &[String]) -> Result<ObjectArgs, String> {
         paths.push(PathBuf::from("."));
     }
     Ok(ObjectArgs {
+        mode,
         paths,
         function,
         output_format,
     })
+}
+
+fn parse_object_diff(args: &[String]) -> Result<ObjectArgs, String> {
+    let mut old = None;
+    let mut new = None;
+    let mut pointer_manifest = None;
+    let mut output_format = OutputFormat::Human;
+    let mut index = 0;
+    while index < args.len() {
+        let arg = &args[index];
+        match arg.as_str() {
+            "--old" => {
+                old = Some(PathBuf::from(args.get(index + 1).ok_or_else(|| "missing value after `--old`".to_owned())?));
+                index += 2;
+            }
+            "--new" => {
+                new = Some(PathBuf::from(args.get(index + 1).ok_or_else(|| "missing value after `--new`".to_owned())?));
+                index += 2;
+            }
+            "--pointer-manifest" => {
+                pointer_manifest = Some(PathBuf::from(
+                    args.get(index + 1).ok_or_else(|| "missing value after `--pointer-manifest`".to_owned())?,
+                ));
+                index += 2;
+            }
+            "--output-format" => {
+                output_format = parse_output_format(
+                    args.get(index + 1).ok_or_else(|| "missing value after `--output-format`".to_owned())?,
+                )?;
+                index += 2;
+            }
+            _ if arg.starts_with("--old=") => {
+                old = Some(PathBuf::from(arg.trim_start_matches("--old=")));
+                index += 1;
+            }
+            _ if arg.starts_with("--new=") => {
+                new = Some(PathBuf::from(arg.trim_start_matches("--new=")));
+                index += 1;
+            }
+            _ if arg.starts_with("--pointer-manifest=") => {
+                pointer_manifest = Some(PathBuf::from(arg.trim_start_matches("--pointer-manifest=")));
+                index += 1;
+            }
+            _ if arg.starts_with("--output-format=") => {
+                output_format = parse_output_format(arg.trim_start_matches("--output-format="))?;
+                index += 1;
+            }
+            _ => return Err(format!("unsupported object diff argument `{arg}`")),
+        }
+    }
+    Ok(ObjectArgs {
+        mode: ObjectMode::Diff {
+            old: old.ok_or_else(|| "missing `--old`".to_owned())?,
+            new: new.ok_or_else(|| "missing `--new`".to_owned())?,
+            pointer_manifest,
+        },
+        paths: Vec::new(),
+        function: None,
+        output_format,
+    })
+}
+
+fn parse_object_pointer(args: &[String]) -> Result<ObjectArgs, String> {
+    match args.first().map(String::as_str) {
+        Some("set") => {
+            let manifest = PathBuf::from(required_arg(&args[1..], "--manifest")?);
+            let name = required_arg(&args[1..], "--name")?;
+            let hash = required_arg(&args[1..], "--hash")?;
+            let objects = PathBuf::from(required_arg(&args[1..], "--objects")?);
+            let receipt = PathBuf::from(required_arg(&args[1..], "--receipt")?);
+            Ok(ObjectArgs {
+                mode: ObjectMode::PointerSet {
+                    manifest,
+                    name,
+                    hash,
+                    objects,
+                    receipt,
+                },
+                paths: Vec::new(),
+                function: None,
+                output_format: OutputFormat::Json,
+            })
+        }
+        Some("validate") => Ok(ObjectArgs {
+            mode: ObjectMode::PointerValidate {
+                manifest: PathBuf::from(required_arg(&args[1..], "--manifest")?),
+                objects: PathBuf::from(required_arg(&args[1..], "--objects")?),
+            },
+            paths: Vec::new(),
+            function: None,
+            output_format: OutputFormat::Json,
+        }),
+        Some(other) => Err(format!("unknown object pointer action `{other}`; expected `set` or `validate`")),
+        None => Err("missing object pointer action; expected `set` or `validate`".to_owned()),
+    }
+}
+
+fn required_arg(args: &[String], flag: &str) -> Result<String, String> {
+    if let Some(value) = args.iter().find_map(|arg| arg.strip_prefix(&format!("{flag}="))) {
+        return Ok(value.to_owned());
+    }
+    let index = args.iter().position(|arg| arg == flag).ok_or_else(|| format!("missing `{flag}`"))?;
+    args.get(index + 1).cloned().ok_or_else(|| format!("missing value after `{flag}`"))
 }
 
 fn parse_transcript(args: &[String]) -> Result<TranscriptArgs, String> {
