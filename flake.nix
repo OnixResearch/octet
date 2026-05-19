@@ -1041,6 +1041,9 @@ MAIN
           releaseOperatorSmokeDocs = mkFingerprintDocsCheck
             "octet-release-operator-smoke-docs"
             "release_operator_smoke_transcript_and_help_cover_operator_surfaces";
+          objectCorpusGate = mkFingerprintDocsCheck
+            "octet-object-corpus-gate"
+            "object_internal_corpus";
           roadmapAgentSurfacesDocs = craneLib.buildPackage {
             inherit src cargoArtifacts buildInputs;
             cargoToml = ./Cargo.toml;
@@ -1145,6 +1148,7 @@ MAIN
           fingerprint-json-output-docs = fingerprintJsonOutputDocs;
           fingerprint-source-scanner-docs = fingerprintSourceScannerDocs;
           release-operator-smoke-docs = releaseOperatorSmokeDocs;
+          object-corpus-gate = objectCorpusGate;
           roadmap-agent-surfaces-docs = roadmapAgentSurfacesDocs;
           release-candidate-smoke = releaseCandidateSmokeCheck;
 
