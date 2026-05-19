@@ -158,6 +158,44 @@ struct ObjectMarkerReport {
 }
 
 #[derive(Debug, Clone, Serialize)]
+struct ObjectCorpusReceipt {
+    schema: &'static str,
+    schema_version: u32,
+    mode: &'static str,
+    object_count: usize,
+    source_paths: Vec<String>,
+    object_set_hash: String,
+    caveat_counts: ObjectCorpusCaveatCounts,
+    pure_cache_blocked_count: usize,
+    replay: CorpusReplay,
+    boundary: CorpusBoundary,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct ObjectCorpusCaveatCounts {
+    dependency_status: BTreeMap<String, usize>,
+    effect_kind: BTreeMap<String, usize>,
+    macro_status: BTreeMap<String, usize>,
+    pure_cache_blocker: BTreeMap<String, usize>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct CorpusReplay {
+    command: String,
+    tool_name: &'static str,
+    tool_version: &'static str,
+    determinism_note: &'static str,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct CorpusBoundary {
+    identity_scope: &'static str,
+    claims_correctness: bool,
+    claims_semantic_equivalence: bool,
+    detail: &'static str,
+}
+
+#[derive(Debug, Clone, Serialize)]
 struct ObjectBundle {
     schema: &'static str,
     schema_version: u32,
@@ -213,6 +251,7 @@ pub fn run(args: ObjectArgs) -> Result<i32, String> {
             output,
             replay_command,
         } => run_bundle_export(&objects, pointers.as_deref(), &output, &replay_command),
+        ObjectMode::CorpusReceipt { output } => run_corpus_receipt(&args.paths, &output),
     }
 }
 
@@ -237,6 +276,101 @@ fn run_emit(args: ObjectArgs) -> Result<i32, String> {
         OutputFormat::Sarif => return Err("object emit does not support SARIF output; use human or json".to_owned()),
     }
     Ok(0)
+}
+
+fn run_corpus_receipt(paths: &[PathBuf], output: &Path) -> Result<i32, String> {
+    let objects = collect_objects(paths, None)?.into_iter().map(|record| record.object).collect::<Vec<_>>();
+    if objects.is_empty() {
+        return Err("no functions matched object corpus receipt selection".to_owned());
+    }
+
+    let receipt = corpus_receipt(paths, &objects);
+    if let Some(parent) = output.parent()
+        && !parent.as_os_str().is_empty()
+    {
+        fs::create_dir_all(parent).map_err(|error| format!("create {}: {error}", parent.display()))?;
+    }
+    let json = serde_json::to_string_pretty(&receipt).map_err(|error| format!("serialize corpus receipt: {error}"))?;
+    fs::write(output, format!("{json}\n")).map_err(|error| format!("write {}: {error}", output.display()))?;
+    println!("wrote object corpus receipt: {}", output.display());
+    Ok(0)
+}
+
+fn corpus_receipt(paths: &[PathBuf], objects: &[FunctionObjectV1]) -> ObjectCorpusReceipt {
+    let source_paths = objects
+        .iter()
+        .map(|object| object.source_path.clone())
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .collect::<Vec<_>>();
+    let mut object_hashes = objects.iter().map(|object| object.object_hash.as_str()).collect::<Vec<_>>();
+    object_hashes.sort_unstable();
+    let object_set_hash = determinism::full_hash(&object_hashes.join("\n"));
+
+    ObjectCorpusReceipt {
+        schema: "octet.function-object-corpus-receipt.v1",
+        schema_version: 1,
+        mode: "corpus-receipt",
+        object_count: objects.len(),
+        source_paths,
+        object_set_hash,
+        caveat_counts: corpus_caveat_counts(objects),
+        pure_cache_blocked_count: objects.iter().filter(|object| !object.pure_cache_eligibility.eligible).count(),
+        replay: CorpusReplay {
+            command: corpus_replay_command(paths),
+            tool_name: "cargo-octet",
+            tool_version: env!("CARGO_PKG_VERSION"),
+            determinism_note: "Receipt bytes are deterministic for the same selected source inputs and cargo-octet version; this is not a correctness proof.",
+        },
+        boundary: CorpusBoundary {
+            identity_scope: "review-and-provenance-evidence",
+            claims_correctness: false,
+            claims_semantic_equivalence: false,
+            detail: "Function object corpus receipts summarize source-token object identity and caveats; they do not prove behavioral correctness, semantic equivalence, dependency resolution, macro expansion identity, or pure-cache eligibility.",
+        },
+    }
+}
+
+fn corpus_caveat_counts(objects: &[FunctionObjectV1]) -> ObjectCorpusCaveatCounts {
+    let mut dependency_status = BTreeMap::new();
+    let mut effect_kind = BTreeMap::new();
+    let mut macro_status = BTreeMap::new();
+    let mut pure_cache_blocker = BTreeMap::new();
+
+    for object in objects {
+        for caveat in &object.dependency_caveats {
+            increment(&mut dependency_status, caveat.status);
+        }
+        for caveat in &object.effect_caveats {
+            increment(&mut effect_kind, caveat.kind);
+        }
+        for caveat in &object.macro_caveats {
+            increment(&mut macro_status, caveat.status);
+        }
+        for blocker in &object.pure_cache_eligibility.blockers {
+            increment(&mut pure_cache_blocker, blocker);
+        }
+    }
+
+    ObjectCorpusCaveatCounts {
+        dependency_status,
+        effect_kind,
+        macro_status,
+        pure_cache_blocker,
+    }
+}
+
+fn increment(counts: &mut BTreeMap<String, usize>, key: &str) {
+    *counts.entry(key.to_owned()).or_insert(0) += 1;
+}
+
+fn corpus_replay_command(paths: &[PathBuf]) -> String {
+    let selected = if paths.is_empty() {
+        vec![".".to_owned()]
+    } else {
+        paths.iter().map(|path| path.to_string_lossy().into_owned()).collect::<Vec<_>>()
+    };
+    format!("cargo octet object corpus receipt --output RECEIPT.json {}", selected.join(" "))
 }
 
 fn run_marker(args: ObjectArgs, update: bool) -> Result<i32, String> {
