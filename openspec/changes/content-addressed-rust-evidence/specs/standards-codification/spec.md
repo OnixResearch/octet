@@ -142,6 +142,12 @@ r[content_addressed_rust_evidence.real_code_harness] Octet MUST provide a repeat
 - WHEN the harness exports bundles repeatedly
 - THEN bundle bytes, object count, pointer count, bundle hash, and replay command are stable, and unresolved pointer manifests fail closed.
 
+#### Scenario: Strong local determinism receipt
+
+- GIVEN a scrubbed local environment, multiple fresh target directories, a copied corpus root, and permuted corpus input order
+- WHEN the harness emits objects and bundles ten times
+- THEN the receipt records binary, toolchain, system, corpus file hashes, stable emit byte hash, stable bundle byte hash, cross-root object-set equivalence, and input-order object-set equivalence.
+
 ### Requirement: Compiler IR evidence roadmap
 
 r[content_addressed_rust_evidence.compiler_ir] Octet MUST treat future HIR, THIR, and MIR evidence as supplemental compiler-version-coupled evidence layers that improve dependency/effect summaries without replacing function-object v1 review identity.
