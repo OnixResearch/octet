@@ -225,6 +225,18 @@ fingerprint docs, including downstream smoke and the docs grep regression. Use
 focused flake checks or direct Cargo filters only after the aggregate gate
 identifies a failing slice.
 
+For the internal function object corpus gate, use the named check:
+
+```bash
+nix build .#checks.x86_64-linux.object-corpus-gate --no-link -L
+```
+
+This runs the selected `cargo-octet/src/*.rs` corpus fixture replay, fixture
+freshness, Rust-derived contract metadata compatibility, and fresh-target
+receipt determinism rails. Treat a pass as bounded local evidence replay for the
+selected corpus, not a correctness proof, semantic-equivalence proof,
+cross-machine determinism proof, or exhaustive Rust coverage claim.
+
 ## OpenSpec touchpoints
 
 When public docs or public runner surfaces change:
