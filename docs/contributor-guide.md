@@ -231,11 +231,23 @@ For the internal function object corpus gate, use the named check:
 nix build .#checks.x86_64-linux.object-corpus-gate --no-link -L
 ```
 
-This runs the selected `cargo-octet/src/*.rs` corpus fixture replay, fixture
-freshness, Rust-derived contract metadata compatibility, and fresh-target
-receipt determinism rails. Treat a pass as bounded local evidence replay for the
-selected corpus, not a correctness proof, semantic-equivalence proof,
-cross-machine determinism proof, or exhaustive Rust coverage claim.
+This runs the selected internal corpus fixture replay, fixture freshness,
+Rust-derived contract metadata compatibility, fresh-target receipt determinism,
+and expanded internal taxonomy rails. Treat a pass as bounded local evidence
+replay for the selected corpus, not a correctness proof, semantic-equivalence
+proof, cross-machine determinism proof, or exhaustive Rust coverage claim.
+
+For the fresh-build object corpus determinism rail, use the named check:
+
+```bash
+nix build .#checks.x86_64-linux.fresh-build-object-corpus-determinism --no-link -L
+```
+
+This builds two fresh `cargo-octet` derivations, regenerates the expanded
+internal object corpus receipt with each binary, and compares both outputs to
+the checked-in fixture. Treat a pass as bounded local fresh-build evidence
+replay only; it is not a cross-machine, cross-toolchain, correctness, or
+semantic-equivalence proof.
 
 ## OpenSpec touchpoints
 

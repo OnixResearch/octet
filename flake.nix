@@ -274,6 +274,22 @@
           doCheck = false;
         };
 
+        cargoOctetFreshBuildA = craneLib.buildPackage {
+          inherit src cargoArtifacts nativeBuildInputs buildInputs;
+          pname = "cargo-octet-fresh-build-a";
+          version = "0.1.0";
+          cargoExtraArgs = "-p cargo-octet";
+          doCheck = false;
+        };
+
+        cargoOctetFreshBuildB = craneLib.buildPackage {
+          inherit src cargoArtifacts nativeBuildInputs buildInputs;
+          pname = "cargo-octet-fresh-build-b";
+          version = "0.1.0";
+          cargoExtraArgs = "-p cargo-octet";
+          doCheck = false;
+        };
+
         fingerprintDocsDownstreamSmoke = pkgs.writeShellApplication {
           name = "octet-fingerprint-docs-downstream-smoke";
           runtimeInputs = [ pkgs.coreutils pkgs.findutils pkgs.gnused pkgs.jq ];
@@ -1044,6 +1060,39 @@ MAIN
           objectCorpusGate = mkFingerprintDocsCheck
             "octet-object-corpus-gate"
             "object_internal_corpus";
+          freshBuildObjectCorpusDeterminism = pkgs.runCommand "octet-fresh-build-object-corpus-determinism" {
+            nativeBuildInputs = [ pkgs.coreutils pkgs.diffutils pkgs.jq ];
+          } ''
+            repo=${src}
+            scratch="$(mktemp -d)"
+            trap 'rm -rf "$scratch"' EXIT
+            fixture="$repo/cargo-octet/tests/fixtures/object-corpus/expanded-internal-corpus-receipt.json"
+            mapfile -t sources < <(jq -r '.source_paths[]' "$fixture")
+
+            cd "$repo"
+            ${cargoOctetFreshBuildA}/bin/cargo-octet object corpus receipt --output "$scratch/fresh-a.json" "''${sources[@]}"
+            ${cargoOctetFreshBuildB}/bin/cargo-octet object corpus receipt --output "$scratch/fresh-b.json" "''${sources[@]}"
+
+            cmp "$scratch/fresh-a.json" "$scratch/fresh-b.json"
+            cmp "$scratch/fresh-a.json" "$fixture"
+            for field in schema schema_version object_count source_paths object_set_hash caveat_counts pure_cache_blocked_count boundary; do
+              jq -S ".$field" "$scratch/fresh-a.json" > "$scratch/a-$field.json"
+              jq -S ".$field" "$scratch/fresh-b.json" > "$scratch/b-$field.json"
+              jq -S ".$field" "$fixture" > "$scratch/fixture-$field.json"
+              cmp "$scratch/a-$field.json" "$scratch/b-$field.json"
+              cmp "$scratch/a-$field.json" "$scratch/fixture-$field.json"
+            done
+            jq -e '.boundary.claims_correctness == false and .boundary.claims_semantic_equivalence == false' "$scratch/fresh-a.json" > /dev/null
+            jq -e '.boundary.detail | contains("do not prove behavioral correctness") and contains("semantic equivalence")' "$scratch/fresh-a.json" > /dev/null
+
+            echo "fresh_build.receipt_producers=2"
+            echo "fresh_build.byte_stability: PASS"
+            echo "fresh_build.fixture_parity: PASS"
+            echo "fresh_build.compared_fields_stable: PASS"
+            echo "fresh_build.boundary_claims_false: PASS"
+            echo "fresh_build.scope=bounded-local-fresh-build-evidence-replay"
+            mkdir -p "$out"
+          '';
           roadmapAgentSurfacesDocs = craneLib.buildPackage {
             inherit src cargoArtifacts buildInputs;
             cargoToml = ./Cargo.toml;
@@ -1149,6 +1198,7 @@ MAIN
           fingerprint-source-scanner-docs = fingerprintSourceScannerDocs;
           release-operator-smoke-docs = releaseOperatorSmokeDocs;
           object-corpus-gate = objectCorpusGate;
+          fresh-build-object-corpus-determinism = freshBuildObjectCorpusDeterminism;
           roadmap-agent-surfaces-docs = roadmapAgentSurfacesDocs;
           release-candidate-smoke = releaseCandidateSmokeCheck;
 
