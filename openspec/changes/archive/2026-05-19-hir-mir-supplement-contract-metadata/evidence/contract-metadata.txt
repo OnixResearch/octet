@@ -1,0 +1,167 @@
+warning: /home/brittonr/git/slotcar/crates/slotcar-standards/Cargo.toml: file `/home/brittonr/git/slotcar/crates/slotcar-standards/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `octet-standards`
+  * `bin` target `slotcar-standards`
+  * `bin` target `tigerstyle-standards`
+warning: /home/brittonr/git/slotcar/cargo-octet/Cargo.toml: file `/home/brittonr/git/slotcar/cargo-octet/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `cargo-octet`
+  * `bin` target `cargo-slotcar`
+  * `bin` target `cargo-tigerstyle`
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.03s
+     Running `/home/brittonr/.cargo-target/debug/cargo-octet object corpus contract --output-format json`
+{
+  "schema": "octet.object-corpus-contract-metadata.v1",
+  "schema_version": 1,
+  "mode": "corpus-contract",
+  "source_of_truth": "rust-dto-and-constants",
+  "receipt": {
+    "schema": "octet.function-object-corpus-receipt.v1",
+    "schema_version": 1,
+    "required_fields": [
+      "schema",
+      "schema_version",
+      "mode",
+      "object_count",
+      "source_paths",
+      "object_set_hash",
+      "caveat_counts",
+      "pure_cache_blocked_count",
+      "replay",
+      "boundary"
+    ],
+    "compared_fields": [
+      "schema",
+      "schema_version",
+      "object_count",
+      "source_paths",
+      "object_set_hash",
+      "caveat_counts",
+      "pure_cache_blocked_count",
+      "boundary"
+    ],
+    "status_values": [],
+    "comparison_fields": [],
+    "error_fields": []
+  },
+  "check_report": {
+    "schema": "octet.function-object-corpus-check-report.v1",
+    "schema_version": 1,
+    "required_fields": [
+      "schema",
+      "schema_version",
+      "mode",
+      "status",
+      "receipt_path",
+      "comparisons",
+      "errors"
+    ],
+    "compared_fields": [],
+    "status_values": [
+      "match",
+      "mismatch",
+      "invalid"
+    ],
+    "comparison_fields": [
+      "field",
+      "status",
+      "expected",
+      "current"
+    ],
+    "error_fields": [
+      "kind",
+      "field",
+      "message"
+    ]
+  },
+  "supplemental_evidence": [
+    {
+      "family": "hir",
+      "schema": "octet.function-object-hir-supplement.v1",
+      "schema_version": 1,
+      "status": "unsupported-planned",
+      "relationship_to_v1": "optional-supplement-preserves-function-object-v1-identity",
+      "toolchain_scope": "rustc-version-and-target-scoped",
+      "required_fields": [
+        "schema",
+        "schema_version",
+        "function_object_hash",
+        "rustc_version",
+        "target_triple",
+        "hir_context_hash",
+        "extraction_caveats",
+        "boundary"
+      ],
+      "unsupported_reason": "Octet has not implemented a HIR extractor or deterministic HIR supplement fixtures.",
+      "required_evidence_before_support": [
+        "deterministic-hir-supplement-fixture",
+        "toolchain-scoped-replay-check",
+        "non-proof-boundary-assertions"
+      ],
+      "claims_correctness": false,
+      "claims_semantic_equivalence": false,
+      "claims_cross_toolchain_stability": false
+    },
+    {
+      "family": "mir",
+      "schema": "octet.function-object-mir-supplement.v1",
+      "schema_version": 1,
+      "status": "unsupported-planned",
+      "relationship_to_v1": "optional-supplement-preserves-function-object-v1-identity",
+      "toolchain_scope": "rustc-version-target-and-mir-context-scoped",
+      "required_fields": [
+        "schema",
+        "schema_version",
+        "function_object_hash",
+        "rustc_version",
+        "target_triple",
+        "mir_context",
+        "mir_observation_hash",
+        "extraction_caveats",
+        "boundary"
+      ],
+      "unsupported_reason": "Octet has not implemented a MIR extractor or deterministic MIR supplement fixtures.",
+      "required_evidence_before_support": [
+        "deterministic-mir-supplement-fixture",
+        "toolchain-and-mir-context-scoped-replay-check",
+        "non-proof-boundary-assertions"
+      ],
+      "claims_correctness": false,
+      "claims_semantic_equivalence": false,
+      "claims_cross_toolchain_stability": false
+    }
+  ],
+  "boundaries": {
+    "identity_scope": "review-and-provenance-evidence",
+    "claims_correctness": false,
+    "claims_semantic_equivalence": false,
+    "determinism_scope": "bounded-local-determinism",
+    "detail": "Contract metadata describes JSON compatibility for object corpus evidence; it does not prove behavioral correctness, semantic equivalence, cross-machine determinism, dependency resolution, macro expansion identity, or pure-cache eligibility."
+  }
+}
+warning: /home/brittonr/git/slotcar/crates/slotcar-standards/Cargo.toml: file `/home/brittonr/git/slotcar/crates/slotcar-standards/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `octet-standards`
+  * `bin` target `slotcar-standards`
+  * `bin` target `tigerstyle-standards`
+warning: /home/brittonr/git/slotcar/cargo-octet/Cargo.toml: file `/home/brittonr/git/slotcar/cargo-octet/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `cargo-octet`
+  * `bin` target `cargo-slotcar`
+  * `bin` target `cargo-tigerstyle`
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.02s
+     Running `/home/brittonr/.cargo-target/debug/cargo-octet object corpus contract --output-format human`
+object corpus contract schema=octet.object-corpus-contract-metadata.v1 version=1
+source_of_truth=rust-dto-and-constants
+receipt schema=octet.function-object-corpus-receipt.v1 version=1
+receipt required_fields=schema,schema_version,mode,object_count,source_paths,object_set_hash,caveat_counts,pure_cache_blocked_count,replay,boundary
+receipt compared_fields=schema,schema_version,object_count,source_paths,object_set_hash,caveat_counts,pure_cache_blocked_count,boundary
+check_report schema=octet.function-object-corpus-check-report.v1 version=1
+check_report required_fields=schema,schema_version,mode,status,receipt_path,comparisons,errors
+check_report status_values=match,mismatch,invalid
+supplemental_evidence family=hir schema=octet.function-object-hir-supplement.v1 version=1 status=unsupported-planned relationship_to_v1=optional-supplement-preserves-function-object-v1-identity toolchain_scope=rustc-version-and-target-scoped
+supplemental_evidence hir required_fields=schema,schema_version,function_object_hash,rustc_version,target_triple,hir_context_hash,extraction_caveats,boundary
+supplemental_evidence hir unsupported_reason=Octet has not implemented a HIR extractor or deterministic HIR supplement fixtures.
+supplemental_evidence hir claims_correctness=false claims_semantic_equivalence=false claims_cross_toolchain_stability=false
+supplemental_evidence family=mir schema=octet.function-object-mir-supplement.v1 version=1 status=unsupported-planned relationship_to_v1=optional-supplement-preserves-function-object-v1-identity toolchain_scope=rustc-version-target-and-mir-context-scoped
+supplemental_evidence mir required_fields=schema,schema_version,function_object_hash,rustc_version,target_triple,mir_context,mir_observation_hash,extraction_caveats,boundary
+supplemental_evidence mir unsupported_reason=Octet has not implemented a MIR extractor or deterministic MIR supplement fixtures.
+supplemental_evidence mir claims_correctness=false claims_semantic_equivalence=false claims_cross_toolchain_stability=false
+boundary claims_correctness=false
+boundary claims_semantic_equivalence=false
