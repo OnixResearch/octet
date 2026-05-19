@@ -10,7 +10,7 @@
 
 ## Phase 3: Human/oracle checkpoints
 
-- [x] H1 Human/oracle checkpoint: command=`openspec validate hir-mir-object-evidence-contract --strict --json && openspec validate --all --strict --json && git diff --check`; input=`openspec/changes/hir-mir-object-evidence-contract/`; asserts=`scaffold is complete, HIR/MIR supplements are optional/toolchain-scoped, and no correctness or semantic-equivalence claim is introduced`; evidence=`terminal validation output`
+- [x] H1 Human/oracle checkpoint: command=`openspec validate hir-mir-object-evidence-contract --strict --json && openspec validate --all --strict --json && git diff --check`; input=`openspec/changes/archive/2026-05-19-hir-mir-object-evidence-contract/`; asserts=`scaffold is complete, HIR/MIR supplements are optional/toolchain-scoped, and no correctness or semantic-equivalence claim is introduced`; evidence=`terminal validation output`
 
 ## Change Status
 
