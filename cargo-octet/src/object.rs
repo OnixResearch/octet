@@ -196,6 +196,23 @@ struct CorpusBoundary {
 }
 
 #[derive(Debug, Clone, Serialize)]
+struct ObjectCorpusCheckReport {
+    schema_version: u32,
+    mode: &'static str,
+    status: &'static str,
+    receipt_path: String,
+    comparisons: Vec<ObjectCorpusCheckComparison>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct ObjectCorpusCheckComparison {
+    field: &'static str,
+    status: &'static str,
+    expected: serde_json::Value,
+    current: serde_json::Value,
+}
+
+#[derive(Debug, Clone, Serialize)]
 struct ObjectBundle {
     schema: &'static str,
     schema_version: u32,
@@ -252,6 +269,7 @@ pub fn run(args: ObjectArgs) -> Result<i32, String> {
             replay_command,
         } => run_bundle_export(&objects, pointers.as_deref(), &output, &replay_command),
         ObjectMode::CorpusReceipt { output } => run_corpus_receipt(&args.paths, &output),
+        ObjectMode::CorpusCheck { receipt } => run_corpus_check(&args.paths, &receipt, args.output_format),
     }
 }
 
@@ -294,6 +312,66 @@ fn run_corpus_receipt(paths: &[PathBuf], output: &Path) -> Result<i32, String> {
     fs::write(output, format!("{json}\n")).map_err(|error| format!("write {}: {error}", output.display()))?;
     println!("wrote object corpus receipt: {}", output.display());
     Ok(0)
+}
+
+fn run_corpus_check(paths: &[PathBuf], receipt_path: &Path, output_format: OutputFormat) -> Result<i32, String> {
+    let expected_text =
+        fs::read_to_string(receipt_path).map_err(|error| format!("read {}: {error}", receipt_path.display()))?;
+    let expected: serde_json::Value = serde_json::from_str(&expected_text)
+        .map_err(|error| format!("parse {} as corpus receipt JSON: {error}", receipt_path.display()))?;
+    let objects = collect_objects(paths, None)?.into_iter().map(|record| record.object).collect::<Vec<_>>();
+    if objects.is_empty() {
+        return Err("no functions matched object corpus check selection".to_owned());
+    }
+    let current = serde_json::to_value(corpus_receipt(paths, &objects))
+        .map_err(|error| format!("serialize current corpus receipt: {error}"))?;
+    let compared_fields = [
+        "schema",
+        "schema_version",
+        "object_count",
+        "source_paths",
+        "object_set_hash",
+        "caveat_counts",
+        "pure_cache_blocked_count",
+        "boundary",
+    ];
+    let comparisons = compared_fields
+        .into_iter()
+        .map(|field| {
+            let expected_value = expected.get(field).cloned().unwrap_or(serde_json::Value::Null);
+            let current_value = current.get(field).cloned().unwrap_or(serde_json::Value::Null);
+            ObjectCorpusCheckComparison {
+                field,
+                status: if expected_value == current_value {
+                    "match"
+                } else {
+                    "mismatch"
+                },
+                expected: expected_value,
+                current: current_value,
+            }
+        })
+        .collect::<Vec<_>>();
+    let status = if comparisons.iter().all(|comparison| comparison.status == "match") {
+        "match"
+    } else {
+        "mismatch"
+    };
+    let report = ObjectCorpusCheckReport {
+        schema_version: 1,
+        mode: "corpus-check",
+        status,
+        receipt_path: determinism::normalize_path(receipt_path),
+        comparisons,
+    };
+    match output_format {
+        OutputFormat::Human => print_corpus_check_human(&report),
+        OutputFormat::Json => println!("{}", serde_json::to_string_pretty(&report).map_err(|error| error.to_string())?),
+        OutputFormat::Sarif => {
+            return Err("object corpus check does not support SARIF output; use human or json".to_owned());
+        }
+    }
+    Ok(if status == "match" { 0 } else { 1 })
 }
 
 fn corpus_receipt(paths: &[PathBuf], objects: &[FunctionObjectV1]) -> ObjectCorpusReceipt {
@@ -1006,6 +1084,14 @@ fn write_json<T: Serialize + ?Sized>(path: &Path, value: &T) -> Result<(), Strin
     let mut text = serde_json::to_string_pretty(value).map_err(|error| format!("serialize json: {error}"))?;
     text.push('\n');
     fs::write(path, text).map_err(|error| format!("write {}: {error}", path.display()))
+}
+
+fn print_corpus_check_human(report: &ObjectCorpusCheckReport) {
+    println!("octet object corpus check status={}", report.status);
+    println!("receipt_path={}", report.receipt_path);
+    for comparison in &report.comparisons {
+        println!("{}={}", comparison.field, comparison.status);
+    }
 }
 
 fn print_marker_human(report: &ObjectMarkerReport) {

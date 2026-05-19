@@ -1577,6 +1577,17 @@ fn write_corpus_receipt(root: &Path, paths: &[&str], output_path: &Path) -> serd
     serde_json::from_slice(&fs::read(output_path).expect("read corpus receipt")).expect("corpus receipt json")
 }
 
+fn check_corpus_receipt(root: &Path, receipt_path: &Path, paths: &[&str]) -> std::process::Output {
+    Command::new(cargo_octet())
+        .args(["object", "corpus", "check", "--receipt"])
+        .arg(receipt_path)
+        .args(["--output-format", "json"])
+        .args(paths)
+        .current_dir(root)
+        .output()
+        .expect("check object corpus receipt")
+}
+
 fn export_bundle(
     root: &Path,
     objects_path: &Path,
@@ -1773,6 +1784,77 @@ fn object_internal_corpus_receipt_preserves_boundary_claims() {
             .as_str()
             .expect("determinism note")
             .contains("not a correctness proof")
+    );
+}
+
+#[test]
+fn object_corpus_receipt_check_replays_cleanly() {
+    let temp = tempfile::tempdir().expect("create tempdir");
+    fs::write(temp.path().join("lib.rs"), "pub fn checked_value(input: u32) -> u32 { input + 1 }\n")
+        .expect("write fixture");
+    let receipt_path = temp.path().join("receipt.json");
+    write_corpus_receipt(temp.path(), &["lib.rs"], &receipt_path);
+
+    let check = check_corpus_receipt(temp.path(), &receipt_path, &["lib.rs"]);
+    assert!(
+        check.status.success(),
+        "check stdout={} stderr={}",
+        String::from_utf8_lossy(&check.stdout),
+        String::from_utf8_lossy(&check.stderr)
+    );
+    let report: serde_json::Value = serde_json::from_slice(&check.stdout).expect("check report json");
+    assert_eq!(report["status"], "match");
+    assert!(report["comparisons"].as_array().unwrap().iter().all(|comparison| comparison["status"] == "match"));
+}
+
+#[test]
+fn object_corpus_receipt_check_fails_on_source_drift() {
+    let temp = tempfile::tempdir().expect("create tempdir");
+    let fixture = temp.path().join("lib.rs");
+    fs::write(&fixture, "pub fn checked_value(input: u32) -> u32 { input + 1 }\n").expect("write fixture");
+    let receipt_path = temp.path().join("receipt.json");
+    write_corpus_receipt(temp.path(), &["lib.rs"], &receipt_path);
+    fs::write(&fixture, "pub fn checked_value(input: u32) -> u32 { input + 2 }\n").expect("mutate fixture");
+
+    let check = check_corpus_receipt(temp.path(), &receipt_path, &["lib.rs"]);
+    assert!(!check.status.success(), "drift check unexpectedly passed");
+    let report: serde_json::Value = serde_json::from_slice(&check.stdout).expect("check report json");
+    assert_eq!(report["status"], "mismatch");
+    assert!(
+        report["comparisons"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|comparison| { comparison["field"] == "object_set_hash" && comparison["status"] == "mismatch" }),
+        "expected object_set_hash mismatch in {report:#?}"
+    );
+}
+
+#[test]
+fn object_corpus_receipt_check_fails_on_boundary_tamper() {
+    let temp = tempfile::tempdir().expect("create tempdir");
+    fs::write(temp.path().join("lib.rs"), "pub fn checked_value(input: u32) -> u32 { input + 1 }\n")
+        .expect("write fixture");
+    let receipt_path = temp.path().join("receipt.json");
+    let mut receipt = write_corpus_receipt(temp.path(), &["lib.rs"], &receipt_path);
+    receipt["boundary"]["claims_correctness"] = serde_json::Value::Bool(true);
+    fs::write(
+        &receipt_path,
+        format!("{}\n", serde_json::to_string_pretty(&receipt).expect("tampered receipt json")),
+    )
+    .expect("write tampered receipt");
+
+    let check = check_corpus_receipt(temp.path(), &receipt_path, &["lib.rs"]);
+    assert!(!check.status.success(), "boundary tamper check unexpectedly passed");
+    let report: serde_json::Value = serde_json::from_slice(&check.stdout).expect("check report json");
+    assert_eq!(report["status"], "mismatch");
+    assert!(
+        report["comparisons"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|comparison| { comparison["field"] == "boundary" && comparison["status"] == "mismatch" }),
+        "expected boundary mismatch in {report:#?}"
     );
 }
 

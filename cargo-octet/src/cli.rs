@@ -99,6 +99,9 @@ pub enum ObjectMode {
     CorpusReceipt {
         output: PathBuf,
     },
+    CorpusCheck {
+        receipt: PathBuf,
+    },
 }
 
 #[derive(Debug)]
@@ -206,6 +209,7 @@ Usage:
   cargo octet object pointer validate --manifest PATH --objects OBJECTS.json
   cargo octet object bundle export --objects OBJECTS.json [--pointers POINTERS.json] --output BUNDLE.json --replay-command CMD
   cargo octet object corpus receipt --output RECEIPT.json [PATHS...]
+  cargo octet object corpus check --receipt RECEIPT.json [PATHS...]
   cargo octet roadmap <artifact|capsule|ability|pointer|session|pure-cache> ...
   cargo octet transcript <PATH>
   cargo octet --version
@@ -243,6 +247,7 @@ Subcommands:
   pointer validate --manifest PATH --objects OBJECTS.json
   bundle export --objects OBJECTS.json [--pointers POINTERS.json] --output BUNDLE.json --replay-command CMD
   corpus receipt --output RECEIPT.json [PATHS...]
+  corpus check --receipt RECEIPT.json [PATHS...] --output-format human|json
 
 Function objects are source-token review/provenance evidence, not correctness proofs.
 ";
@@ -660,8 +665,50 @@ fn parse_object_corpus(args: &[String]) -> Result<ObjectArgs, String> {
                 output_format: OutputFormat::Json,
             })
         }
-        Some(other) => Err(format!("unknown object corpus action `{other}`; expected `receipt`")),
-        None => Err("missing object corpus action; expected `receipt`".to_owned()),
+        Some("check") => {
+            let mut paths = Vec::new();
+            let mut receipt = None;
+            let mut output_format = OutputFormat::Human;
+            let mut index = 1;
+            while index < args.len() {
+                let arg = &args[index];
+                if arg == "--receipt" {
+                    receipt = Some(PathBuf::from(
+                        args.get(index + 1).ok_or_else(|| "missing value after `--receipt`".to_owned())?,
+                    ));
+                    index += 2;
+                } else if let Some(value) = arg.strip_prefix("--receipt=") {
+                    receipt = Some(PathBuf::from(value));
+                    index += 1;
+                } else if arg == "--output-format" {
+                    output_format = parse_output_format(
+                        args.get(index + 1).ok_or_else(|| "missing value after `--output-format`".to_owned())?,
+                    )?;
+                    index += 2;
+                } else if let Some(value) = arg.strip_prefix("--output-format=") {
+                    output_format = parse_output_format(value)?;
+                    index += 1;
+                } else if arg.starts_with('-') {
+                    return Err(format!("unsupported object corpus check argument `{arg}`"));
+                } else {
+                    paths.push(PathBuf::from(arg));
+                    index += 1;
+                }
+            }
+            if paths.is_empty() {
+                paths.push(PathBuf::from("."));
+            }
+            Ok(ObjectArgs {
+                mode: ObjectMode::CorpusCheck {
+                    receipt: receipt.ok_or_else(|| "missing `--receipt`".to_owned())?,
+                },
+                paths,
+                function: None,
+                output_format,
+            })
+        }
+        Some(other) => Err(format!("unknown object corpus action `{other}`; expected `receipt` or `check`")),
+        None => Err("missing object corpus action; expected `receipt` or `check`".to_owned()),
     }
 }
 
@@ -827,6 +874,39 @@ mod tests {
                         assert_eq!(output, std::path::PathBuf::from("receipt.json"))
                     }
                     other => panic!("expected corpus receipt mode, got {other:?}"),
+                }
+            }
+            other => panic!("expected object args, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn object_parse_accepts_corpus_check() {
+        let parsed = parse(
+            [
+                "cargo",
+                "octet",
+                "object",
+                "corpus",
+                "check",
+                "--receipt",
+                "receipt.json",
+                "--output-format",
+                "json",
+                "cargo-octet/src/object.rs",
+            ]
+            .map(OsString::from),
+        )
+        .expect("parse object corpus check args");
+        match parsed {
+            CommandArgs::Object(args) => {
+                assert_eq!(args.paths.len(), 1);
+                assert_eq!(args.output_format, OutputFormat::Json);
+                match args.mode {
+                    super::ObjectMode::CorpusCheck { receipt } => {
+                        assert_eq!(receipt, std::path::PathBuf::from("receipt.json"))
+                    }
+                    other => panic!("expected corpus check mode, got {other:?}"),
                 }
             }
             other => panic!("expected object args, got {other:?}"),
