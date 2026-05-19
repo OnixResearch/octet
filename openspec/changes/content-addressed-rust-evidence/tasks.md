@@ -38,7 +38,14 @@
 - [x] V19 Verify scenario "Real-code corpus emits stable source objects" with cargo-octet/src corpus evidence; save output at `openspec/changes/content-addressed-rust-evidence/evidence/real-code-corpus.txt`.
 - [x] V20 Verify scenario "Real-code corpus bundle is deterministic" with repeated bundle export evidence; save output at `openspec/changes/content-addressed-rust-evidence/evidence/real-code-bundle.txt`.
 
-## Phase 6: IR roadmap and downstream boundaries
+## Phase 6: Harness hardening
+
+- [x] I11 Add a reusable real-code corpus harness with named corpus inputs, stable object emission helpers, caveat summary assertions, and deterministic bundle helpers.
+- [x] V21 Verify scenario "Repeatable real-code harness emits classified summary" with real-code harness evidence; save output at `openspec/changes/content-addressed-rust-evidence/evidence/harness-corpus-summary.txt`.
+- [x] V22 Verify scenario "Negative corpus cases are classified" with body/comment/macro/pointer negative fixtures; save output at `openspec/changes/content-addressed-rust-evidence/evidence/harness-negative-cases.txt`.
+- [x] V23 Verify scenario "Harness bundle export is deterministic" with repeated bundle export and unresolved pointer failure fixtures; save output at `openspec/changes/content-addressed-rust-evidence/evidence/harness-bundle-determinism.txt`.
+
+## Phase 7: IR roadmap and downstream boundaries
 
 - [ ] I9 Document HIR/MIR supplemental evidence contract and downstream ownership boundaries.
 - [ ] V15 Verify scenario "HIR evidence is toolchain scoped" with schema/docs fixtures; save output at `openspec/changes/content-addressed-rust-evidence/evidence/hir-boundary.txt`.
@@ -68,6 +75,9 @@
 - `Scenario: Bundle membership is deterministic` -> `V13` -> `openspec/changes/content-addressed-rust-evidence/evidence/bundle-membership.txt`
 - `Scenario: Bundle records replay command` -> `V14` -> `openspec/changes/content-addressed-rust-evidence/evidence/bundle-replay-metadata.txt`
 - `Scenario: Real-code corpus bundle is deterministic` -> `V20` -> `openspec/changes/content-addressed-rust-evidence/evidence/real-code-bundle.txt`
+- `Scenario: Repeatable real-code harness emits classified summary` -> `V21` -> `openspec/changes/content-addressed-rust-evidence/evidence/harness-corpus-summary.txt`
+- `Scenario: Negative corpus cases are classified` -> `V22` -> `openspec/changes/content-addressed-rust-evidence/evidence/harness-negative-cases.txt`
+- `Scenario: Harness bundle export is deterministic` -> `V23` -> `openspec/changes/content-addressed-rust-evidence/evidence/harness-bundle-determinism.txt`
 - `Scenario: HIR evidence is toolchain scoped` -> `V15` -> `openspec/changes/content-addressed-rust-evidence/evidence/hir-boundary.txt`
 - `Scenario: MIR evidence does not claim cross-version stability` -> `V16` -> `openspec/changes/content-addressed-rust-evidence/evidence/mir-boundary.txt`
 - `Scenario: Cairn consumes Octet receipts without owning extraction` -> `V17` -> `openspec/changes/content-addressed-rust-evidence/evidence/cairn-boundary.txt`

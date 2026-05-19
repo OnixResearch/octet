@@ -1,0 +1,46 @@
+$ cargo run -p cargo-octet --bin cargo-octet -- object emit --output-format=json cargo-octet/src/cli.rs cargo-octet/src/object.rs cargo-octet/src/fingerprint.rs
+warning: /home/brittonr/git/slotcar/cargo-octet/Cargo.toml: file `/home/brittonr/git/slotcar/cargo-octet/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `cargo-octet`
+  * `bin` target `cargo-slotcar`
+  * `bin` target `cargo-tigerstyle`
+warning: /home/brittonr/git/slotcar/crates/slotcar-standards/Cargo.toml: file `/home/brittonr/git/slotcar/crates/slotcar-standards/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `octet-standards`
+  * `bin` target `slotcar-standards`
+  * `bin` target `tigerstyle-standards`
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.03s
+     Running `/home/brittonr/.cargo-target/debug/cargo-octet object emit --output-format=json cargo-octet/src/cli.rs cargo-octet/src/object.rs cargo-octet/src/fingerprint.rs`
+warning: /home/brittonr/git/slotcar/crates/slotcar-standards/Cargo.toml: file `/home/brittonr/git/slotcar/crates/slotcar-standards/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `octet-standards`
+  * `bin` target `slotcar-standards`
+  * `bin` target `tigerstyle-standards`
+warning: /home/brittonr/git/slotcar/cargo-octet/Cargo.toml: file `/home/brittonr/git/slotcar/cargo-octet/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `cargo-octet`
+  * `bin` target `cargo-slotcar`
+  * `bin` target `cargo-tigerstyle`
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.03s
+     Running `/home/brittonr/.cargo-target/debug/cargo-octet object emit --output-format=json cargo-octet/src/cli.rs cargo-octet/src/object.rs cargo-octet/src/fingerprint.rs`
+assert.stable_emit: PASS
+object_count=37
+source_paths=cargo-octet/src/cli.rs,cargo-octet/src/fingerprint.rs,cargo-octet/src/object.rs
+macro_review_required=32
+panic_caveats=6
+pure_cache_blocked=37
+correctness_claims_false=37
+$ cargo test -p cargo-octet object_real_code_harness --test fingerprint_consumer -- --nocapture
+warning: /home/brittonr/git/slotcar/crates/slotcar-standards/Cargo.toml: file `/home/brittonr/git/slotcar/crates/slotcar-standards/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `octet-standards`
+  * `bin` target `slotcar-standards`
+  * `bin` target `tigerstyle-standards`
+warning: /home/brittonr/git/slotcar/cargo-octet/Cargo.toml: file `/home/brittonr/git/slotcar/cargo-octet/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `cargo-octet`
+  * `bin` target `cargo-slotcar`
+  * `bin` target `cargo-tigerstyle`
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.03s
+     Running tests/fingerprint_consumer.rs (/home/brittonr/.cargo-target/debug/deps/fingerprint_consumer-e64a4f0e00c6cfc9)
+
+running 1 test
+test object_real_code_harness_emits_stable_summary ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 23 filtered out; finished in 0.06s
+
+assert.harness_summary_test: PASS

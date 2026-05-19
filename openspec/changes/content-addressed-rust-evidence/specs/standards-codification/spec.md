@@ -120,6 +120,28 @@ r[content_addressed_rust_evidence.export_bundle] Octet MUST export deterministic
 - WHEN Octet exports the corpus bundle repeatedly
 - THEN the bundle bytes, object count, bundle hash, and replay command are stable for the same corpus selection.
 
+### Requirement: Real-code harness hardening
+
+r[content_addressed_rust_evidence.real_code_harness] Octet MUST provide a repeatable real-code harness for function-object emission, caveat summaries, negative case classification, and bundle determinism before adding compiler IR-derived evidence.
+
+#### Scenario: Repeatable real-code harness emits classified summary
+
+- GIVEN a named corpus manifest of Octet implementation source files
+- WHEN the harness emits function-object v1 records repeatedly
+- THEN it compares stable object output, reports object count, source-path coverage, macro/effect caveat distribution, pure-cache blocking, and no-correctness-overclaim status.
+
+#### Scenario: Negative corpus cases are classified
+
+- GIVEN fixture mutations for body changes, comment/formatting-only changes, macro-heavy functions, missing pointers, and unresolved bundle pointers
+- WHEN the harness runs those cases
+- THEN it proves expected hash stability or drift and fails closed with classified caveat or missing-object outcomes.
+
+#### Scenario: Harness bundle export is deterministic
+
+- GIVEN objects emitted from the named real-code corpus
+- WHEN the harness exports bundles repeatedly
+- THEN bundle bytes, object count, pointer count, bundle hash, and replay command are stable, and unresolved pointer manifests fail closed.
+
 ### Requirement: Compiler IR evidence roadmap
 
 r[content_addressed_rust_evidence.compiler_ir] Octet MUST treat future HIR, THIR, and MIR evidence as supplemental compiler-version-coupled evidence layers that improve dependency/effect summaries without replacing function-object v1 review identity.

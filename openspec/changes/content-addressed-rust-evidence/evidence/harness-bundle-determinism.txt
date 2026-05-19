@@ -1,0 +1,20 @@
+$ cargo test -p cargo-octet object_harness_bundle_determinism_and_pointer_failures --test fingerprint_consumer -- --nocapture
+warning: /home/brittonr/git/slotcar/crates/slotcar-standards/Cargo.toml: file `/home/brittonr/git/slotcar/crates/slotcar-standards/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `octet-standards`
+  * `bin` target `slotcar-standards`
+  * `bin` target `tigerstyle-standards`
+warning: /home/brittonr/git/slotcar/cargo-octet/Cargo.toml: file `/home/brittonr/git/slotcar/cargo-octet/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `cargo-octet`
+  * `bin` target `cargo-slotcar`
+  * `bin` target `cargo-tigerstyle`
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.03s
+     Running tests/fingerprint_consumer.rs (/home/brittonr/.cargo-target/debug/deps/fingerprint_consumer-e64a4f0e00c6cfc9)
+
+running 1 test
+test object_harness_bundle_determinism_and_pointer_failures ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 23 filtered out; finished in 0.05s
+
+assert.bundle_bytes_stable: PASS
+assert.bundle_replay_command_stable: PASS
+assert.unresolved_pointer_fails_closed: PASS
