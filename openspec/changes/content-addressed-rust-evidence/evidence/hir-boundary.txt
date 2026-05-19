@@ -1,0 +1,8 @@
+$ grep -n "Future HIR-derived evidence is toolchain scoped\|exact rustc/toolchain identity\|MUST NOT claim cross-toolchain stability\|do not replace the v1 object hash" docs/content-addressed-rust-evidence-boundaries.md
+12:- HIR, THIR, and MIR records MAY supplement a v1 object, but they do not replace the v1 object hash as the v1 review identity.
+16:Future HIR-derived evidence is toolchain scoped.
+21:- exact rustc/toolchain identity;
+27:HIR evidence MAY improve dependency summaries and macro-origin reporting. It MUST NOT claim cross-toolchain stability unless a separate verifier proves that claim for the named toolchains and corpus.
+36:- exact rustc/toolchain identity;
+assert.hir_toolchain_scoped: PASS
+assert.hir_supplements_v1: PASS

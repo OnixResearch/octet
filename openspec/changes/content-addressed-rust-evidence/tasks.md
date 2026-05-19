@@ -48,16 +48,16 @@
 
 ## Phase 7: IR roadmap and downstream boundaries
 
-- [ ] I9 Document HIR/MIR supplemental evidence contract and downstream ownership boundaries.
-- [ ] V15 Verify scenario "HIR evidence is toolchain scoped" with schema/docs fixtures; save output at `openspec/changes/content-addressed-rust-evidence/evidence/hir-boundary.txt`.
-- [ ] V16 Verify scenario "MIR evidence does not claim cross-version stability" with schema/docs fixtures; save output at `openspec/changes/content-addressed-rust-evidence/evidence/mir-boundary.txt`.
-- [ ] V17 Verify scenario "Cairn consumes Octet receipts without owning extraction" with interop docs/schema checks; save output at `openspec/changes/content-addressed-rust-evidence/evidence/cairn-boundary.txt`.
-- [ ] V18 Verify scenario "Crunch and Aspen pilots remain bounded" with interop docs/schema checks; save output at `openspec/changes/content-addressed-rust-evidence/evidence/downstream-boundaries.txt`.
+- [x] I9 Document HIR/MIR supplemental evidence contract and downstream ownership boundaries.
+- [x] V15 Verify scenario "HIR evidence is toolchain scoped" with schema/docs fixtures; save output at `openspec/changes/content-addressed-rust-evidence/evidence/hir-boundary.txt`.
+- [x] V16 Verify scenario "MIR evidence does not claim cross-version stability" with schema/docs fixtures; save output at `openspec/changes/content-addressed-rust-evidence/evidence/mir-boundary.txt`.
+- [x] V17 Verify scenario "Cairn consumes Octet receipts without owning extraction" with interop docs/schema checks; save output at `openspec/changes/content-addressed-rust-evidence/evidence/cairn-boundary.txt`.
+- [x] V18 Verify scenario "Crunch and Aspen pilots remain bounded" with interop docs/schema checks; save output at `openspec/changes/content-addressed-rust-evidence/evidence/downstream-boundaries.txt`.
 
 ## Change Status
 
-- Status: in-progress
-- Open tasks: I9, V15, V16, V17, V18
+- Status: complete pending archive
+- Open tasks: none
 
 ## Verification Coverage
 

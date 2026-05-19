@@ -60,6 +60,16 @@ Valence needs Octet to provide a portable Rust evidence layer: selected function
 
 **Rationale:** Compiler IR is valuable for resolved dependencies, call paths, panic/drop/unsafe/async summaries, and macro expansion boundaries, but it cannot be treated as stable cross-toolchain identity.
 
+**Implementation boundary:** `docs/content-addressed-rust-evidence-boundaries.md` is the Phase 7 contract. Future HIR records must reference the canonical `octet.function-object.v1` hash and name rustc/toolchain, extractor, schema, resolved dependency summaries, and unresolved/macro/generated/cfg caveats. Future MIR records must also name rustc/toolchain, extractor, schema, and explicit call/panic/drop/async/unsafe/allocation/effect summary support or unknown caveats. Neither layer replaces source-token v1 review identity.
+
+### 6. Downstream consumers do not own extraction
+
+**Choice:** Octet remains the Rust extraction/object authority; Trellis, Cairn, Crunch/Mantle, and Aspen consume bounded evidence at their own layers.
+
+**Rationale:** Keeping extraction in Octet prevents downstream lifecycle, proof, build, or distributed-systems consumers from redefining Rust object semantics.
+
+**Implementation boundary:** Cairn consumes Octet bundles for lifecycle/replay policy. Trellis owns abstract admission models. Crunch/Mantle and Aspen pilots may cite Octet object/bundle hashes as evidence identity, but Octet hashes alone do not prove build correctness, binary reproducibility, distributed execution correctness, or live-system safety.
+
 ## Risks / Trade-offs
 
 **Object schema churn** → Include `schema`, `normalization.version`, and extractor/toolchain identity fields.

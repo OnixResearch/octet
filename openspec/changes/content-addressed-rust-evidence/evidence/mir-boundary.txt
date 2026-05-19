@@ -1,0 +1,6 @@
+$ grep -n "Future MIR-derived evidence is compiler-version-coupled\|MUST NOT claim stable identity across compiler versions\|target triples\|optimization modes\|explicit unknown/unsupported caveats" docs/content-addressed-rust-evidence-boundaries.md
+31:Future MIR-derived evidence is compiler-version-coupled.
+40:- explicit unknown/unsupported caveats for every summary family that is absent or incomplete.
+42:MIR evidence MAY support stronger review, cache, or effect decisions. It MUST NOT claim stable identity across compiler versions, target triples, optimization modes, feature flags, or dependency graphs unless those dimensions are explicitly part of the compared evidence and a separate verifier proves equivalence.
+assert.mir_version_caveated: PASS
+assert.mir_no_cross_version_stability_claim: PASS
