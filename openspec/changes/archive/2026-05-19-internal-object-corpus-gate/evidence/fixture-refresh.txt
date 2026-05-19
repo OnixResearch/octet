@@ -1,0 +1,4 @@
+command=cargo-octet object corpus receipt --output /tmp/internal-corpus-receipt-refresh.json cargo-octet/src/*.rs && cmp /tmp/internal-corpus-receipt-refresh.json cargo-octet/tests/fixtures/object-corpus/internal-corpus-receipt.json
+fixture.bytes=2250
+fresh.bytes=2250
+assert.fixture_refresh_matches_checked_in_receipt: PASS
