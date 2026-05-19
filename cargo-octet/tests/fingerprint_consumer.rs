@@ -1565,6 +1565,121 @@ fn export_bundle(
         .expect("export bundle")
 }
 
+fn blake3_hex(bytes: &[u8]) -> String {
+    format!("b3:{}", blake3::hash(bytes).to_hex())
+}
+
+fn emit_objects_bytes_with_env(root: &Path, paths: &[&str], target_dir: &Path) -> Vec<u8> {
+    let output = Command::new(cargo_octet())
+        .env_clear()
+        .env("TZ", "UTC")
+        .env("LC_ALL", "C")
+        .env("LANG", "C")
+        .env("CARGO_TARGET_DIR", target_dir)
+        .args(["object", "emit", "--output-format=json"])
+        .args(paths)
+        .current_dir(root)
+        .output()
+        .expect("emit objects with scrubbed env");
+    assert!(output.status.success(), "scrubbed emit stderr: {}", String::from_utf8_lossy(&output.stderr));
+    output.stdout
+}
+
+fn object_hash_set(json: &serde_json::Value) -> BTreeSet<String> {
+    json["objects"]
+        .as_array()
+        .expect("objects array")
+        .iter()
+        .map(|object| object["object_hash"].as_str().expect("object hash").to_owned())
+        .collect()
+}
+
+fn copy_real_code_corpus(source_root: &Path, target_root: &Path) {
+    for relative in REAL_CODE_CORPUS {
+        let source = source_root.join(relative);
+        let target = target_root.join(relative);
+        fs::create_dir_all(target.parent().expect("corpus file parent")).expect("create corpus parent");
+        fs::copy(&source, &target).unwrap_or_else(|error| panic!("copy {source:?} to {target:?}: {error}"));
+    }
+}
+
+fn command_stdout(root: &Path, program: &str, args: &[&str]) -> String {
+    let output = Command::new(program)
+        .args(args)
+        .current_dir(root)
+        .output()
+        .unwrap_or_else(|error| panic!("run {program} {args:?}: {error}"));
+    assert!(output.status.success(), "{program} stderr: {}", String::from_utf8_lossy(&output.stderr));
+    String::from_utf8_lossy(&output.stdout).trim().to_owned()
+}
+
+#[test]
+fn object_strong_local_determinism_receipt_checks_repeatability() {
+    let root = repo_root();
+    let temp = tempfile::tempdir().expect("create tempdir");
+    let binary_bytes = fs::read(cargo_octet()).expect("read cargo-octet binary");
+    println!("receipt.git_head={}", command_stdout(&root, "git", &["rev-parse", "HEAD"]));
+    println!("receipt.binary_path={}", cargo_octet());
+    println!("receipt.binary_b3={}", blake3_hex(&binary_bytes));
+    println!("receipt.rustc={}", command_stdout(&root, "rustc", &["--version"]));
+    println!("receipt.nix={}", command_stdout(&root, "nix", &["--version"]));
+    println!("receipt.system={}/{}", std::env::consts::OS, std::env::consts::ARCH);
+    for relative in REAL_CODE_CORPUS {
+        let bytes = fs::read(root.join(relative)).expect("read corpus file");
+        println!("receipt.corpus_file_b3.{relative}={}", blake3_hex(&bytes));
+    }
+    let copied_root = temp.path().join("copied-root");
+    copy_real_code_corpus(&root, &copied_root);
+
+    let mut stdout_hashes = BTreeSet::new();
+    let mut object_sets = Vec::new();
+    for run in 0..10 {
+        let target_dir = temp.path().join(format!("target-{run}"));
+        let bytes = emit_objects_bytes_with_env(&root, REAL_CODE_CORPUS, &target_dir);
+        stdout_hashes.insert(blake3_hex(&bytes));
+        let json: serde_json::Value = serde_json::from_slice(&bytes).expect("objects json");
+        object_sets.push(object_hash_set(&json));
+    }
+    assert_eq!(stdout_hashes.len(), 1, "repeated emits produced distinct stdout hashes: {stdout_hashes:?}");
+    println!("receipt.emit_runs=10");
+    println!("receipt.emit_stdout_b3={}", stdout_hashes.iter().next().expect("stdout hash"));
+    assert!(object_sets.windows(2).all(|pair| pair[0] == pair[1]));
+    println!("receipt.object_count={}", object_sets[0].len());
+
+    let copied_bytes = emit_objects_bytes_with_env(&copied_root, REAL_CODE_CORPUS, &temp.path().join("target-copied"));
+    let copied_json: serde_json::Value = serde_json::from_slice(&copied_bytes).expect("copied objects json");
+    assert_eq!(object_sets[0], object_hash_set(&copied_json));
+    println!("receipt.cross_root_object_set: PASS");
+
+    let reversed = [
+        "cargo-octet/src/fingerprint.rs",
+        "cargo-octet/src/object.rs",
+        "cargo-octet/src/cli.rs",
+    ];
+    let reversed_bytes = emit_objects_bytes_with_env(&root, &reversed, &temp.path().join("target-reversed"));
+    let reversed_json: serde_json::Value = serde_json::from_slice(&reversed_bytes).expect("reversed objects json");
+    assert_eq!(object_sets[0], object_hash_set(&reversed_json));
+    println!("receipt.input_order_permutation_object_set: PASS");
+
+    let objects_path = temp.path().join("objects.json");
+    fs::write(
+        &objects_path,
+        emit_objects_bytes_with_env(&root, REAL_CODE_CORPUS, &temp.path().join("target-bundle-objects")),
+    )
+    .expect("write objects json");
+    let mut bundle_hashes = BTreeSet::new();
+    for run in 0..10 {
+        let bundle_path = temp.path().join(format!("bundle-{run}.json"));
+        let bundle = export_bundle(&root, &objects_path, None, &bundle_path);
+        assert!(bundle.status.success(), "bundle stderr: {}", String::from_utf8_lossy(&bundle.stderr));
+        let bytes = fs::read(&bundle_path).expect("read bundle");
+        bundle_hashes.insert(blake3_hex(&bytes));
+    }
+    assert_eq!(bundle_hashes.len(), 1, "repeated bundles produced distinct byte hashes: {bundle_hashes:?}");
+    println!("receipt.bundle_runs=10");
+    println!("receipt.bundle_bytes_b3={}", bundle_hashes.iter().next().expect("bundle hash"));
+}
+
 #[test]
 fn object_real_code_harness_emits_stable_summary() {
     let root = repo_root();

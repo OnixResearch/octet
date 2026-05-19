@@ -44,6 +44,7 @@
 - [x] V21 Verify scenario "Repeatable real-code harness emits classified summary" with real-code harness evidence; save output at `openspec/changes/content-addressed-rust-evidence/evidence/harness-corpus-summary.txt`.
 - [x] V22 Verify scenario "Negative corpus cases are classified" with body/comment/macro/pointer negative fixtures; save output at `openspec/changes/content-addressed-rust-evidence/evidence/harness-negative-cases.txt`.
 - [x] V23 Verify scenario "Harness bundle export is deterministic" with repeated bundle export and unresolved pointer failure fixtures; save output at `openspec/changes/content-addressed-rust-evidence/evidence/harness-bundle-determinism.txt`.
+- [x] V24 Verify scenario "Strong local determinism receipt" with ten-run scrubbed-env emit/bundle checks, fresh target dirs, copied-root equivalence, input-order permutation equivalence, and BLAKE3 receipt hashes; save output at `openspec/changes/content-addressed-rust-evidence/evidence/strong-local-determinism.txt`.
 
 ## Phase 7: IR roadmap and downstream boundaries
 
@@ -78,6 +79,7 @@
 - `Scenario: Repeatable real-code harness emits classified summary` -> `V21` -> `openspec/changes/content-addressed-rust-evidence/evidence/harness-corpus-summary.txt`
 - `Scenario: Negative corpus cases are classified` -> `V22` -> `openspec/changes/content-addressed-rust-evidence/evidence/harness-negative-cases.txt`
 - `Scenario: Harness bundle export is deterministic` -> `V23` -> `openspec/changes/content-addressed-rust-evidence/evidence/harness-bundle-determinism.txt`
+- `Scenario: Strong local determinism receipt` -> `V24` -> `openspec/changes/content-addressed-rust-evidence/evidence/strong-local-determinism.txt`
 - `Scenario: HIR evidence is toolchain scoped` -> `V15` -> `openspec/changes/content-addressed-rust-evidence/evidence/hir-boundary.txt`
 - `Scenario: MIR evidence does not claim cross-version stability` -> `V16` -> `openspec/changes/content-addressed-rust-evidence/evidence/mir-boundary.txt`
 - `Scenario: Cairn consumes Octet receipts without owning extraction` -> `V17` -> `openspec/changes/content-addressed-rust-evidence/evidence/cairn-boundary.txt`

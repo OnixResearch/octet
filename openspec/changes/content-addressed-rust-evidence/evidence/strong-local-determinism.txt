@@ -1,0 +1,35 @@
+$ cargo test -p cargo-octet object_strong_local_determinism_receipt_checks_repeatability --test fingerprint_consumer -- --nocapture
+warning: /home/brittonr/git/slotcar/cargo-octet/Cargo.toml: file `/home/brittonr/git/slotcar/cargo-octet/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `cargo-octet`
+  * `bin` target `cargo-slotcar`
+  * `bin` target `cargo-tigerstyle`
+warning: /home/brittonr/git/slotcar/crates/slotcar-standards/Cargo.toml: file `/home/brittonr/git/slotcar/crates/slotcar-standards/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `octet-standards`
+  * `bin` target `slotcar-standards`
+  * `bin` target `tigerstyle-standards`
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.07s
+     Running tests/fingerprint_consumer.rs (/home/brittonr/.cargo-target/debug/deps/fingerprint_consumer-e64a4f0e00c6cfc9)
+
+running 1 test
+receipt.git_head=383e55acdc94faf926ad0a8b6eb762049db5c546
+receipt.binary_path=/home/brittonr/.cargo-target/debug/cargo-octet
+receipt.binary_b3=b3:143d48d3936f7d83fd9762bc50cd37e909b37b40867cff9286a5fc61f5bfac1c
+receipt.rustc=rustc 1.96.0-nightly (ac7f9ec7d 2026-03-20)
+receipt.nix=nix (Nix) 2.33.3
+receipt.system=linux/x86_64
+receipt.corpus_file_b3.cargo-octet/src/cli.rs=b3:90659d7e1f995620a5130ec241be4da793ba79dacd0aa4aefa37249e3b4d3f74
+receipt.corpus_file_b3.cargo-octet/src/object.rs=b3:1fbaa2be8ba2429780bfa4654cae8b9d7e66a4ea5f137310ff7067e016ec366b
+receipt.corpus_file_b3.cargo-octet/src/fingerprint.rs=b3:e54be06c0b813d836e70e2a0777a58a623b83d520ed3ebc06c863824c85da5db
+receipt.emit_runs=10
+receipt.emit_stdout_b3=b3:3c2bd6a3560f443920928ba25984720de8f3daf648753df6c8054c478d600c59
+receipt.object_count=37
+receipt.cross_root_object_set: PASS
+receipt.input_order_permutation_object_set: PASS
+receipt.bundle_runs=10
+receipt.bundle_bytes_b3=b3:ec25ac9fae10fe5133616264c894f4b7af481e73a4c00fd75df2894dc863a826
+test object_strong_local_determinism_receipt_checks_repeatability ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 24 filtered out; finished in 0.51s
+
+assert.strong_local_determinism_receipt: PASS
+assert.scope: bounded-local-determinism-not-cross-machine-proof
