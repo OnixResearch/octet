@@ -1,0 +1,78 @@
+{
+  "schema": "octet.expanded-internal-object-corpus-taxonomy.v1",
+  "schema_version": 1,
+  "identity_scope": "bounded-internal-review-and-provenance-evidence",
+  "buckets": [
+    {
+      "name": "cargo-octet",
+      "description": "canonical Octet CLI/extractor implementation modules",
+      "source_paths": [
+        "cargo-octet/src/baseline.rs",
+        "cargo-octet/src/cli.rs",
+        "cargo-octet/src/config.rs",
+        "cargo-octet/src/determinism.rs",
+        "cargo-octet/src/engine.rs",
+        "cargo-octet/src/fingerprint.rs",
+        "cargo-octet/src/main.rs",
+        "cargo-octet/src/migrate.rs",
+        "cargo-octet/src/object.rs",
+        "cargo-octet/src/output.rs",
+        "cargo-octet/src/roadmap.rs",
+        "cargo-octet/src/transcript.rs"
+      ]
+    },
+    {
+      "name": "slotcar-standards",
+      "description": "in-repo standards checker modules retained as internal compatibility surface",
+      "source_paths": [
+        "crates/slotcar-standards/src/architecture.rs",
+        "crates/slotcar-standards/src/artifacts.rs",
+        "crates/slotcar-standards/src/diagnostic.rs",
+        "crates/slotcar-standards/src/fixture.rs",
+        "crates/slotcar-standards/src/lib.rs",
+        "crates/slotcar-standards/src/main.rs",
+        "crates/slotcar-standards/src/model.rs",
+        "crates/slotcar-standards/src/proof.rs",
+        "crates/slotcar-standards/src/receipt.rs",
+        "crates/slotcar-standards/src/report.rs",
+        "crates/slotcar-standards/src/resource.rs",
+        "crates/slotcar-standards/src/runner.rs",
+        "crates/slotcar-standards/src/source.rs",
+        "crates/slotcar-standards/src/suppression.rs"
+      ]
+    }
+  ],
+  "source_paths": [
+    "cargo-octet/src/baseline.rs",
+    "cargo-octet/src/cli.rs",
+    "cargo-octet/src/config.rs",
+    "cargo-octet/src/determinism.rs",
+    "cargo-octet/src/engine.rs",
+    "cargo-octet/src/fingerprint.rs",
+    "cargo-octet/src/main.rs",
+    "cargo-octet/src/migrate.rs",
+    "cargo-octet/src/object.rs",
+    "cargo-octet/src/output.rs",
+    "cargo-octet/src/roadmap.rs",
+    "cargo-octet/src/transcript.rs",
+    "crates/slotcar-standards/src/architecture.rs",
+    "crates/slotcar-standards/src/artifacts.rs",
+    "crates/slotcar-standards/src/diagnostic.rs",
+    "crates/slotcar-standards/src/fixture.rs",
+    "crates/slotcar-standards/src/lib.rs",
+    "crates/slotcar-standards/src/main.rs",
+    "crates/slotcar-standards/src/model.rs",
+    "crates/slotcar-standards/src/proof.rs",
+    "crates/slotcar-standards/src/receipt.rs",
+    "crates/slotcar-standards/src/report.rs",
+    "crates/slotcar-standards/src/resource.rs",
+    "crates/slotcar-standards/src/runner.rs",
+    "crates/slotcar-standards/src/source.rs",
+    "crates/slotcar-standards/src/suppression.rs"
+  ],
+  "boundary": {
+    "claims_correctness": false,
+    "claims_semantic_equivalence": false,
+    "detail": "Expanded taxonomy broadens bounded internal evidence replay only; object hashes are review/provenance identities, not correctness or semantic-equivalence proofs."
+  }
+}

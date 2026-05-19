@@ -1478,6 +1478,10 @@ const INTERNAL_OBJECT_CORPUS: &[&str] = &[
 
 const INTERNAL_OBJECT_CORPUS_RECEIPT_FIXTURE: &str =
     "cargo-octet/tests/fixtures/object-corpus/internal-corpus-receipt.json";
+const EXPANDED_INTERNAL_OBJECT_CORPUS_RECEIPT_FIXTURE: &str =
+    "cargo-octet/tests/fixtures/object-corpus/expanded-internal-corpus-receipt.json";
+const EXPANDED_INTERNAL_OBJECT_CORPUS_TAXONOMY_FIXTURE: &str =
+    "cargo-octet/tests/fixtures/object-corpus/expanded-internal-corpus-taxonomy.json";
 const OBJECT_CORPUS_COMPATIBILITY_DIR: &str = "cargo-octet/tests/fixtures/object-corpus/compatibility";
 const OBJECT_CORPUS_COMPATIBILITY_SOURCE: &[&str] = &["src/lib.rs"];
 const OBJECT_CORPUS_COMPATIBILITY_POSITIVE_V1: &str = "positive-v1-receipt.json";
@@ -1630,6 +1634,20 @@ fn check_corpus_receipt_fixture(root: &Path, receipt_name: &str) -> std::process
         Path::new(receipt_name),
         OBJECT_CORPUS_COMPATIBILITY_SOURCE,
     )
+}
+
+fn read_json_fixture(root: &Path, relative: &str) -> serde_json::Value {
+    serde_json::from_slice(&fs::read(root.join(relative)).unwrap_or_else(|error| panic!("read {relative}: {error}")))
+        .unwrap_or_else(|error| panic!("parse {relative}: {error}"))
+}
+
+fn expanded_internal_object_corpus_paths(taxonomy: &serde_json::Value) -> Vec<&str> {
+    taxonomy["source_paths"]
+        .as_array()
+        .expect("taxonomy source paths")
+        .iter()
+        .map(|value| value.as_str().expect("taxonomy source path string"))
+        .collect()
 }
 
 fn object_corpus_contract(root: &Path) -> serde_json::Value {
@@ -2046,6 +2064,76 @@ fn object_internal_corpus_gate_fixture_matches_fresh_receipt() {
         fs::read(root.join(INTERNAL_OBJECT_CORPUS_RECEIPT_FIXTURE)).expect("read checked-in receipt fixture");
     let fresh_bytes = fs::read(&fresh_path).expect("read fresh receipt");
     assert_eq!(fresh_bytes, fixture_bytes, "checked-in internal corpus receipt fixture is stale");
+}
+
+#[test]
+fn object_internal_corpus_expanded_taxonomy_names_selected_source_buckets() {
+    let root = repo_root();
+    let taxonomy = read_json_fixture(&root, EXPANDED_INTERNAL_OBJECT_CORPUS_TAXONOMY_FIXTURE);
+    let receipt = read_json_fixture(&root, EXPANDED_INTERNAL_OBJECT_CORPUS_RECEIPT_FIXTURE);
+    let taxonomy_paths = taxonomy["source_paths"].as_array().expect("taxonomy source paths");
+    let receipt_paths = receipt["source_paths"].as_array().expect("receipt source paths");
+
+    assert_eq!(taxonomy["schema"], "octet.expanded-internal-object-corpus-taxonomy.v1");
+    assert_eq!(taxonomy["schema_version"], 1);
+    assert_eq!(taxonomy_paths, receipt_paths);
+    assert!(taxonomy_paths.len() > INTERNAL_OBJECT_CORPUS.len());
+    for path in INTERNAL_OBJECT_CORPUS {
+        assert!(taxonomy_paths.iter().any(|value| value == path), "missing core path {path}");
+    }
+    for bucket in ["cargo-octet", "slotcar-standards"] {
+        assert!(
+            taxonomy["buckets"]
+                .as_array()
+                .expect("taxonomy buckets")
+                .iter()
+                .any(|entry| entry["name"] == bucket && !entry["source_paths"].as_array().unwrap().is_empty()),
+            "missing non-empty bucket {bucket}: {taxonomy:#?}"
+        );
+    }
+    assert!(
+        taxonomy_paths
+            .iter()
+            .any(|value| value.as_str().unwrap().starts_with("crates/slotcar-standards/src/")),
+        "expanded taxonomy must include standards crate sources: {taxonomy:#?}"
+    );
+}
+
+#[test]
+fn object_internal_corpus_expanded_fixture_replays_cleanly() {
+    let root = repo_root();
+    let taxonomy = read_json_fixture(&root, EXPANDED_INTERNAL_OBJECT_CORPUS_TAXONOMY_FIXTURE);
+    let paths = expanded_internal_object_corpus_paths(&taxonomy);
+    let check = check_corpus_receipt(&root, &root.join(EXPANDED_INTERNAL_OBJECT_CORPUS_RECEIPT_FIXTURE), &paths);
+    assert!(
+        check.status.success(),
+        "expanded internal corpus stdout={} stderr={}",
+        String::from_utf8_lossy(&check.stdout),
+        String::from_utf8_lossy(&check.stderr)
+    );
+    let report: serde_json::Value = serde_json::from_slice(&check.stdout).expect("expanded check report json");
+    assert_eq!(report["status"], "match");
+    assert!(report["comparisons"].as_array().unwrap().iter().all(|comparison| comparison["status"] == "match"));
+}
+
+#[test]
+fn object_internal_corpus_expanded_fixture_matches_fresh_receipt_and_preserves_boundaries() {
+    let root = repo_root();
+    let temp = tempfile::tempdir().expect("create tempdir");
+    let taxonomy = read_json_fixture(&root, EXPANDED_INTERNAL_OBJECT_CORPUS_TAXONOMY_FIXTURE);
+    let paths = expanded_internal_object_corpus_paths(&taxonomy);
+    let fresh_path = temp.path().join("expanded-internal-corpus-receipt.json");
+    let fresh = write_corpus_receipt(&root, &paths, &fresh_path);
+    let fixture_bytes = fs::read(root.join(EXPANDED_INTERNAL_OBJECT_CORPUS_RECEIPT_FIXTURE))
+        .expect("read expanded checked-in receipt fixture");
+    let fresh_bytes = fs::read(&fresh_path).expect("read expanded fresh receipt");
+    assert_eq!(fresh_bytes, fixture_bytes, "checked-in expanded corpus receipt fixture is stale");
+    assert_eq!(fresh["boundary"]["claims_correctness"], false);
+    assert_eq!(fresh["boundary"]["claims_semantic_equivalence"], false);
+    assert!(fresh["object_count"].as_u64().expect("object count") > 400);
+    assert!(fresh["pure_cache_blocked_count"].as_u64().expect("pure cache blocked") > 0);
+    assert_eq!(taxonomy["boundary"]["claims_correctness"], false);
+    assert_eq!(taxonomy["boundary"]["claims_semantic_equivalence"], false);
 }
 
 #[test]
