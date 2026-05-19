@@ -1,0 +1,16 @@
+$ cargo run -p cargo-octet --bin cargo-octet -- object corpus receipt --output /tmp/internal-corpus.json cargo-octet/src/*.rs
+warning: /home/brittonr/git/slotcar/cargo-octet/Cargo.toml: file `/home/brittonr/git/slotcar/cargo-octet/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `cargo-octet`
+  * `bin` target `cargo-slotcar`
+  * `bin` target `cargo-tigerstyle`
+warning: /home/brittonr/git/slotcar/crates/slotcar-standards/Cargo.toml: file `/home/brittonr/git/slotcar/crates/slotcar-standards/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `octet-standards`
+  * `bin` target `slotcar-standards`
+  * `bin` target `tigerstyle-standards`
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.02s
+     Running `/home/brittonr/.cargo-target/debug/cargo-octet object corpus receipt --output /tmp/internal-corpus.json cargo-octet/src/baseline.rs cargo-octet/src/cli.rs cargo-octet/src/config.rs cargo-octet/src/determinism.rs cargo-octet/src/engine.rs cargo-octet/src/fingerprint.rs cargo-octet/src/main.rs cargo-octet/src/migrate.rs cargo-octet/src/object.rs cargo-octet/src/output.rs cargo-octet/src/roadmap.rs cargo-octet/src/transcript.rs`
+wrote object corpus receipt: /tmp/internal-corpus.json
+assert.internal_pilot_receipt: PASS
+assert.not_downstream_caf_support: PASS
+receipt.object_count=182
+receipt.object_set_hash=b3:dd6b66b4ff38b91caea9af16f9a61de1fde2f89b8b8eaed3e14951e102bd32ea

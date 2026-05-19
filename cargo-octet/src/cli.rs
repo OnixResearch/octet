@@ -96,6 +96,9 @@ pub enum ObjectMode {
         output: PathBuf,
         replay_command: String,
     },
+    CorpusReceipt {
+        output: PathBuf,
+    },
 }
 
 #[derive(Debug)]
@@ -202,6 +205,7 @@ Usage:
   cargo octet object pointer set --manifest PATH --name NAME --hash HASH --objects OBJECTS.json --receipt PATH
   cargo octet object pointer validate --manifest PATH --objects OBJECTS.json
   cargo octet object bundle export --objects OBJECTS.json [--pointers POINTERS.json] --output BUNDLE.json --replay-command CMD
+  cargo octet object corpus receipt --output RECEIPT.json [PATHS...]
   cargo octet roadmap <artifact|capsule|ability|pointer|session|pure-cache> ...
   cargo octet transcript <PATH>
   cargo octet --version
@@ -238,6 +242,7 @@ Subcommands:
   pointer set --manifest PATH --name NAME --hash HASH --objects OBJECTS.json --receipt PATH
   pointer validate --manifest PATH --objects OBJECTS.json
   bundle export --objects OBJECTS.json [--pointers POINTERS.json] --output BUNDLE.json --replay-command CMD
+  corpus receipt --output RECEIPT.json [PATHS...]
 
 Function objects are source-token review/provenance evidence, not correctness proofs.
 ";
@@ -452,13 +457,14 @@ fn parse_object(args: &[String]) -> Result<ObjectArgs, String> {
         Some("diff") => parse_object_diff(&args[1..]),
         Some("pointer") => parse_object_pointer(&args[1..]),
         Some("bundle") => parse_object_bundle(&args[1..]),
+        Some("corpus") => parse_object_corpus(&args[1..]),
         Some(other) => Err(format!(
-            "unknown object subcommand `{other}`; expected `emit`, `check`, `update`, `diff`, `pointer`, or `bundle`"
+            "unknown object subcommand `{other}`; expected `emit`, `check`, `update`, `diff`, `pointer`, `bundle`, or `corpus`"
         )),
-        None => {
-            Err("missing object subcommand; expected `emit`, `check`, `update`, `diff`, `pointer`, or `bundle`"
-                .to_owned())
-        }
+        None => Err(
+            "missing object subcommand; expected `emit`, `check`, `update`, `diff`, `pointer`, `bundle`, or `corpus`"
+                .to_owned(),
+        ),
     }
 }
 
@@ -619,6 +625,46 @@ fn parse_object_bundle(args: &[String]) -> Result<ObjectArgs, String> {
     }
 }
 
+fn parse_object_corpus(args: &[String]) -> Result<ObjectArgs, String> {
+    match args.first().map(String::as_str) {
+        Some("receipt") => {
+            let mut paths = Vec::new();
+            let mut output = None;
+            let mut index = 1;
+            while index < args.len() {
+                let arg = &args[index];
+                if arg == "--output" {
+                    output = Some(PathBuf::from(
+                        args.get(index + 1).ok_or_else(|| "missing value after `--output`".to_owned())?,
+                    ));
+                    index += 2;
+                } else if let Some(value) = arg.strip_prefix("--output=") {
+                    output = Some(PathBuf::from(value));
+                    index += 1;
+                } else if arg.starts_with('-') {
+                    return Err(format!("unsupported object corpus receipt argument `{arg}`"));
+                } else {
+                    paths.push(PathBuf::from(arg));
+                    index += 1;
+                }
+            }
+            if paths.is_empty() {
+                paths.push(PathBuf::from("."));
+            }
+            Ok(ObjectArgs {
+                mode: ObjectMode::CorpusReceipt {
+                    output: output.ok_or_else(|| "missing `--output`".to_owned())?,
+                },
+                paths,
+                function: None,
+                output_format: OutputFormat::Json,
+            })
+        }
+        Some(other) => Err(format!("unknown object corpus action `{other}`; expected `receipt`")),
+        None => Err("missing object corpus action; expected `receipt`".to_owned()),
+    }
+}
+
 fn optional_arg(args: &[String], flag: &str) -> Option<String> {
     if let Some(value) = args.iter().find_map(|arg| arg.strip_prefix(&format!("{flag}="))) {
         return Some(value.to_owned());
@@ -751,6 +797,37 @@ mod tests {
                 assert_eq!(args.paths.len(), 1);
                 assert_eq!(args.function.as_deref(), Some("checked"));
                 assert_eq!(args.output_format, OutputFormat::Json);
+            }
+            other => panic!("expected object args, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn object_parse_accepts_corpus_receipt() {
+        let parsed = parse(
+            [
+                "cargo",
+                "octet",
+                "object",
+                "corpus",
+                "receipt",
+                "--output",
+                "receipt.json",
+                "cargo-octet/src/object.rs",
+            ]
+            .map(OsString::from),
+        )
+        .expect("parse object corpus receipt args");
+        match parsed {
+            CommandArgs::Object(args) => {
+                assert_eq!(args.paths.len(), 1);
+                assert_eq!(args.output_format, OutputFormat::Json);
+                match args.mode {
+                    super::ObjectMode::CorpusReceipt { output } => {
+                        assert_eq!(output, std::path::PathBuf::from("receipt.json"))
+                    }
+                    other => panic!("expected corpus receipt mode, got {other:?}"),
+                }
             }
             other => panic!("expected object args, got {other:?}"),
         }

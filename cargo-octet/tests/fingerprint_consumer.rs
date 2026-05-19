@@ -1461,6 +1461,21 @@ const REAL_CODE_CORPUS: &[&str] = &[
     "cargo-octet/src/fingerprint.rs",
 ];
 
+const INTERNAL_OBJECT_CORPUS: &[&str] = &[
+    "cargo-octet/src/baseline.rs",
+    "cargo-octet/src/cli.rs",
+    "cargo-octet/src/config.rs",
+    "cargo-octet/src/determinism.rs",
+    "cargo-octet/src/engine.rs",
+    "cargo-octet/src/fingerprint.rs",
+    "cargo-octet/src/main.rs",
+    "cargo-octet/src/migrate.rs",
+    "cargo-octet/src/object.rs",
+    "cargo-octet/src/output.rs",
+    "cargo-octet/src/roadmap.rs",
+    "cargo-octet/src/transcript.rs",
+];
+
 const REAL_CODE_REPLAY_COMMAND: &str = "cargo octet object emit --output-format=json cargo-octet/src/cli.rs cargo-octet/src/object.rs cargo-octet/src/fingerprint.rs";
 
 #[derive(Debug)]
@@ -1543,6 +1558,23 @@ fn write_objects(root: &Path, paths: &[&str], objects_path: &Path) -> serde_json
     assert!(output.status.success(), "emit stderr: {}", String::from_utf8_lossy(&output.stderr));
     fs::write(objects_path, &output.stdout).expect("write objects json");
     serde_json::from_slice(&output.stdout).expect("objects json")
+}
+
+fn write_corpus_receipt(root: &Path, paths: &[&str], output_path: &Path) -> serde_json::Value {
+    let output = Command::new(cargo_octet())
+        .args(["object", "corpus", "receipt", "--output"])
+        .arg(output_path)
+        .args(paths)
+        .current_dir(root)
+        .output()
+        .expect("write object corpus receipt");
+    assert!(
+        output.status.success(),
+        "corpus receipt stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    serde_json::from_slice(&fs::read(output_path).expect("read corpus receipt")).expect("corpus receipt json")
 }
 
 fn export_bundle(
@@ -1678,6 +1710,70 @@ fn object_strong_local_determinism_receipt_checks_repeatability() {
     assert_eq!(bundle_hashes.len(), 1, "repeated bundles produced distinct byte hashes: {bundle_hashes:?}");
     println!("receipt.bundle_runs=10");
     println!("receipt.bundle_bytes_b3={}", bundle_hashes.iter().next().expect("bundle hash"));
+}
+
+#[test]
+fn object_internal_corpus_receipt_is_deterministic_and_bounded() {
+    let root = repo_root();
+    let temp = tempfile::tempdir().expect("create tempdir");
+    let first_path = temp.path().join("internal-corpus-one.json");
+    let second_path = temp.path().join("internal-corpus-two.json");
+    let first = write_corpus_receipt(&root, INTERNAL_OBJECT_CORPUS, &first_path);
+    let second = write_corpus_receipt(&root, INTERNAL_OBJECT_CORPUS, &second_path);
+    assert_eq!(fs::read(&first_path).expect("first receipt"), fs::read(&second_path).expect("second receipt"));
+    assert_eq!(first, second);
+
+    let original = corpus_summary(&emit_real_code_corpus(&root));
+    let object_count = first["object_count"].as_u64().expect("object count");
+    assert!(
+        object_count > original.object_count as u64,
+        "expanded internal corpus should exceed original three-file corpus: receipt={first:#?} original={original:?}"
+    );
+    assert_eq!(first["source_paths"].as_array().expect("source paths").len(), INTERNAL_OBJECT_CORPUS.len());
+    for path in INTERNAL_OBJECT_CORPUS {
+        assert!(
+            first["source_paths"].as_array().expect("source paths").iter().any(|value| value == path),
+            "missing source path {path} in receipt {first:#?}"
+        );
+    }
+    assert!(first["object_set_hash"].as_str().expect("object set hash").starts_with("b3:"));
+}
+
+#[test]
+fn object_internal_corpus_receipt_preserves_boundary_claims() {
+    let root = repo_root();
+    let temp = tempfile::tempdir().expect("create tempdir");
+    let receipt_path = temp.path().join("internal-corpus.json");
+    let receipt = write_corpus_receipt(&root, INTERNAL_OBJECT_CORPUS, &receipt_path);
+
+    assert_eq!(receipt["schema"], "octet.function-object-corpus-receipt.v1");
+    assert_eq!(receipt["boundary"]["identity_scope"], "review-and-provenance-evidence");
+    assert_eq!(receipt["boundary"]["claims_correctness"], false);
+    assert_eq!(receipt["boundary"]["claims_semantic_equivalence"], false);
+    let boundary = receipt["boundary"]["detail"].as_str().expect("boundary detail");
+    assert!(boundary.contains("do not prove behavioral correctness"));
+    assert!(boundary.contains("semantic equivalence"));
+    assert!(receipt["pure_cache_blocked_count"].as_u64().expect("pure cache blocked") > 0);
+    assert!(
+        receipt["caveat_counts"]["dependency_status"]
+            .as_object()
+            .expect("dependency counts")
+            .values()
+            .any(|value| value.as_u64().unwrap_or(0) > 0)
+    );
+    assert!(
+        receipt["caveat_counts"]["effect_kind"]
+            .as_object()
+            .expect("effect counts")
+            .values()
+            .any(|value| value.as_u64().unwrap_or(0) > 0)
+    );
+    assert!(
+        receipt["replay"]["determinism_note"]
+            .as_str()
+            .expect("determinism note")
+            .contains("not a correctness proof")
+    );
 }
 
 #[test]
