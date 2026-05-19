@@ -17,7 +17,7 @@
     "cargo-octet/src/roadmap.rs",
     "cargo-octet/src/transcript.rs"
   ],
-  "object_set_hash": "b3:939db8d2c09cd7d48b9727289d484cfad718be88926ac2d913b5977f27158d1b",
+  "object_set_hash": "b3:f0aa6dc2ebd1000b5799ef38883749e9c82fe6177ea5ba0a324b3d1027e167e5",
   "caveat_counts": {
     "dependency_status": {
       "source-scanner-token-set": 59,

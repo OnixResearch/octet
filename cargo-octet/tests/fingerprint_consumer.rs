@@ -1487,6 +1487,11 @@ const OBJECT_CORPUS_COMPATIBILITY_SOURCE: &[&str] = &["src/lib.rs"];
 const OBJECT_CORPUS_COMPATIBILITY_POSITIVE_V1: &str = "positive-v1-receipt.json";
 const OBJECT_CORPUS_COMPATIBILITY_NEGATIVE_MISSING_OBJECT_SET_HASH: &str = "negative-missing-object-set-hash.json";
 const OBJECT_CORPUS_COMPATIBILITY_NEGATIVE_FUTURE_SCHEMA_VERSION: &str = "negative-future-schema-version.json";
+const OBJECT_CORPUS_COMPATIBILITY_NEGATIVE_BOUNDARY_TAMPER: &str = "negative-boundary-tamper.json";
+const OBJECT_CORPUS_COMPATIBILITY_NEGATIVE_DUPLICATE_SOURCE_PATH: &str = "negative-duplicate-source-path.json";
+const OBJECT_CORPUS_COMPATIBILITY_NEGATIVE_EMPTY_SOURCE_SELECTION: &str = "negative-empty-source-selection.json";
+const OBJECT_CORPUS_COMPATIBILITY_NEGATIVE_MALFORMED_JSON: &str = "negative-malformed-json.json";
+const OBJECT_CORPUS_COMPATIBILITY_NON_RUST_SOURCE: &str = "notes.txt";
 
 const REAL_CODE_REPLAY_COMMAND: &str = "cargo octet object emit --output-format=json cargo-octet/src/cli.rs cargo-octet/src/object.rs cargo-octet/src/fingerprint.rs";
 
@@ -2263,7 +2268,22 @@ fn object_corpus_compatibility_negative_fixtures_fail_closed() {
             "missing-field",
             Some("object_set_hash"),
         ),
-        (OBJECT_CORPUS_COMPATIBILITY_NEGATIVE_FUTURE_SCHEMA_VERSION, "unsupported-schema-version", None),
+        (
+            OBJECT_CORPUS_COMPATIBILITY_NEGATIVE_FUTURE_SCHEMA_VERSION,
+            "unsupported-schema-version",
+            Some("schema_version"),
+        ),
+        (
+            OBJECT_CORPUS_COMPATIBILITY_NEGATIVE_DUPLICATE_SOURCE_PATH,
+            "duplicate-source-path",
+            Some("source_paths"),
+        ),
+        (
+            OBJECT_CORPUS_COMPATIBILITY_NEGATIVE_EMPTY_SOURCE_SELECTION,
+            "empty-source-selection",
+            Some("source_paths"),
+        ),
+        (OBJECT_CORPUS_COMPATIBILITY_NEGATIVE_MALFORMED_JSON, "invalid-json", Some("receipt")),
     ] {
         let report = assert_invalid_check_error(&check_corpus_receipt_fixture(&root, fixture), expected_kind);
         if let Some(expected_field) = expected_field {
@@ -2277,6 +2297,49 @@ fn object_corpus_compatibility_negative_fixtures_fail_closed() {
             );
         }
     }
+}
+
+#[test]
+fn object_corpus_compatibility_boundary_tamper_fixture_fails_closed() {
+    let root = repo_root();
+    let check = check_corpus_receipt_fixture(&root, OBJECT_CORPUS_COMPATIBILITY_NEGATIVE_BOUNDARY_TAMPER);
+    assert!(
+        !check.status.success(),
+        "boundary tamper compatibility fixture unexpectedly passed stdout={} stderr={}",
+        String::from_utf8_lossy(&check.stdout),
+        String::from_utf8_lossy(&check.stderr)
+    );
+    let report: serde_json::Value = serde_json::from_slice(&check.stdout).expect("boundary tamper report json");
+    assert_eq!(report["status"], "mismatch", "report={report:#?}");
+    assert!(
+        report["comparisons"]
+            .as_array()
+            .expect("comparisons array")
+            .iter()
+            .any(|comparison| comparison["field"] == "boundary" && comparison["status"] == "mismatch"),
+        "expected boundary mismatch for tamper fixture: {report:#?}"
+    );
+    assert!(report["errors"].as_array().expect("errors array").is_empty());
+}
+
+#[test]
+fn object_corpus_compatibility_source_selection_fixtures_fail_closed() {
+    let root = repo_root();
+    let compatibility_dir = root.join(OBJECT_CORPUS_COMPATIBILITY_DIR);
+    let non_rust_report = assert_invalid_check_error(
+        &check_corpus_receipt(&compatibility_dir, Path::new(OBJECT_CORPUS_COMPATIBILITY_POSITIVE_V1), &[
+            OBJECT_CORPUS_COMPATIBILITY_NON_RUST_SOURCE,
+        ]),
+        "unsupported-source-path",
+    );
+    assert!(
+        non_rust_report["errors"]
+            .as_array()
+            .expect("errors array")
+            .iter()
+            .any(|error| error["field"] == "paths"),
+        "non-Rust selection should name paths field: {non_rust_report:#?}"
+    );
 }
 
 #[test]

@@ -591,6 +591,13 @@ fn validate_corpus_receipt_shape(receipt: &serde_json::Value) -> Vec<ObjectCorpu
     }
 
     if let Some(paths) = receipt.get("source_paths").and_then(serde_json::Value::as_array) {
+        if paths.is_empty() {
+            errors.push(corpus_check_error(
+                "empty-source-selection",
+                Some("source_paths"),
+                "source_paths must name at least one Rust source file",
+            ));
+        }
         let mut seen = BTreeSet::new();
         for path in paths {
             if let Some(path) = path.as_str() {
