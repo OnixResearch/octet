@@ -1,0 +1,8 @@
+$ grep -n "Crunch/Mantle\|Aspen\|bounded consumers\|do not prove build correctness\|do not prove distributed execution correctness\|MUST keep correctness claims outside Octet object hashes" docs/content-addressed-rust-evidence-boundaries.md
+51:- Crunch/Mantle may consume Octet object and bundle hashes as build/proof evidence identities. Octet hashes alone do not prove build correctness or binary reproducibility.
+52:- Aspen may consume Octet object and bundle hashes as CI, forge, and runtime evidence identities. Octet hashes alone do not prove distributed execution correctness or live-system safety.
+56:Crunch/Mantle and Aspen pilots are bounded consumers of Octet evidence.
+67:A pilot contract MUST keep correctness claims outside Octet object hashes unless a downstream verifier supplies separate proof evidence.
+79:- rejected: "Octet hashes prove Aspen/Crunch execution correctness".
+assert.crunch_aspen_bounded: PASS
+assert.downstream_correctness_not_from_octet_hashes: PASS
