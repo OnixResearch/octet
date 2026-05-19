@@ -18,6 +18,12 @@ r[content_addressed_rust_evidence.function_object_v1] Octet MUST emit determinis
 - WHEN Octet renders JSON, human output, or review text for that object
 - THEN the output describes the object as review/provenance evidence and not as a proof of behavioral correctness or semantic equivalence.
 
+#### Scenario: Real-code corpus emits stable source objects
+
+- GIVEN a bounded corpus of Octet's real Rust implementation modules
+- WHEN Octet emits function-object v1 records across that corpus twice
+- THEN the emitted object set is deterministic, covers many real functions, preserves per-file source paths, reports caveat distribution, and keeps correctness claims false.
+
 ### Requirement: Canonical object hashing
 
 r[content_addressed_rust_evidence.canonical_hash] Octet MUST compute object hashes with BLAKE3 over deterministic canonical object content that excludes self-referential hash fields and ambient entropy.
@@ -107,6 +113,12 @@ r[content_addressed_rust_evidence.export_bundle] Octet MUST export deterministic
 - GIVEN an exported bundle
 - WHEN a downstream consumer reads its receipt metadata
 - THEN the metadata records the Octet command, relevant config/normalization versions, and input selection needed to reproduce the bundle.
+
+#### Scenario: Real-code corpus bundle is deterministic
+
+- GIVEN function objects emitted from a bounded corpus of Octet's real Rust implementation modules
+- WHEN Octet exports the corpus bundle repeatedly
+- THEN the bundle bytes, object count, bundle hash, and replay command are stable for the same corpus selection.
 
 ### Requirement: Compiler IR evidence roadmap
 

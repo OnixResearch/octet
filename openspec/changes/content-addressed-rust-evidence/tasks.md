@@ -32,7 +32,13 @@
 - [x] V13 Verify scenario "Bundle membership is deterministic" with repeated export fixtures; save output at `openspec/changes/content-addressed-rust-evidence/evidence/bundle-membership.txt`.
 - [x] V14 Verify scenario "Bundle records replay command" with bundle metadata fixtures; save output at `openspec/changes/content-addressed-rust-evidence/evidence/bundle-replay-metadata.txt`.
 
-## Phase 5: IR roadmap and downstream boundaries
+## Phase 5: Real-code corpus rail
+
+- [x] I10 Add a bounded real-code corpus rail for object emission and bundle export against Octet implementation modules.
+- [x] V19 Verify scenario "Real-code corpus emits stable source objects" with cargo-octet/src corpus evidence; save output at `openspec/changes/content-addressed-rust-evidence/evidence/real-code-corpus.txt`.
+- [x] V20 Verify scenario "Real-code corpus bundle is deterministic" with repeated bundle export evidence; save output at `openspec/changes/content-addressed-rust-evidence/evidence/real-code-bundle.txt`.
+
+## Phase 6: IR roadmap and downstream boundaries
 
 - [ ] I9 Document HIR/MIR supplemental evidence contract and downstream ownership boundaries.
 - [ ] V15 Verify scenario "HIR evidence is toolchain scoped" with schema/docs fixtures; save output at `openspec/changes/content-addressed-rust-evidence/evidence/hir-boundary.txt`.
@@ -49,6 +55,7 @@
 
 - `Scenario: Emit source-token function object` -> `V2` -> `openspec/changes/content-addressed-rust-evidence/evidence/function-object-v1.txt`
 - `Scenario: Reject correctness overclaim` -> `V3` -> `openspec/changes/content-addressed-rust-evidence/evidence/no-correctness-overclaim.txt`
+- `Scenario: Real-code corpus emits stable source objects` -> `V19` -> `openspec/changes/content-addressed-rust-evidence/evidence/real-code-corpus.txt`
 - `Scenario: Same logical object hashes the same across roots` -> `V4` -> `openspec/changes/content-addressed-rust-evidence/evidence/canonical-cross-root.txt`
 - `Scenario: Entropy-bearing fields are excluded or rejected` -> `V5` -> `openspec/changes/content-addressed-rust-evidence/evidence/canonical-entropy.txt`
 - `Scenario: Object marker check detects drift` -> `V6` -> `openspec/changes/content-addressed-rust-evidence/evidence/object-marker-drift.txt`
@@ -60,6 +67,7 @@
 - `Scenario: Diff separates body and caveat changes` -> `V10` -> `openspec/changes/content-addressed-rust-evidence/evidence/object-diff.txt`
 - `Scenario: Bundle membership is deterministic` -> `V13` -> `openspec/changes/content-addressed-rust-evidence/evidence/bundle-membership.txt`
 - `Scenario: Bundle records replay command` -> `V14` -> `openspec/changes/content-addressed-rust-evidence/evidence/bundle-replay-metadata.txt`
+- `Scenario: Real-code corpus bundle is deterministic` -> `V20` -> `openspec/changes/content-addressed-rust-evidence/evidence/real-code-bundle.txt`
 - `Scenario: HIR evidence is toolchain scoped` -> `V15` -> `openspec/changes/content-addressed-rust-evidence/evidence/hir-boundary.txt`
 - `Scenario: MIR evidence does not claim cross-version stability` -> `V16` -> `openspec/changes/content-addressed-rust-evidence/evidence/mir-boundary.txt`
 - `Scenario: Cairn consumes Octet receipts without owning extraction` -> `V17` -> `openspec/changes/content-addressed-rust-evidence/evidence/cairn-boundary.txt`
