@@ -1105,3 +1105,209 @@ fn assert_human_contains_record(stdout: &[u8], name: &str, status: &str) {
         "human output did not include {name} as {status}:\n{text}"
     );
 }
+
+#[test]
+fn object_marker_check_update_and_drift_detection() {
+    let temp = tempfile::tempdir().expect("create tempdir");
+    let fixture = temp.path().join("lib.rs");
+    fs::write(
+        &fixture,
+        r#"// octet-object: b3:0000; review=phase3; evidence=evidence/object-marker
+pub fn checked_value(input: u32) -> u32 {
+    input + 1
+}
+"#,
+    )
+    .expect("write object marker fixture");
+
+    let initial = Command::new(cargo_octet())
+        .args(["object", "check", "--output-format=json", "lib.rs"])
+        .current_dir(temp.path())
+        .output()
+        .expect("run initial object check");
+    assert!(!initial.status.success(), "initial check unexpectedly passed");
+    let initial_json: serde_json::Value = serde_json::from_slice(&initial.stdout).expect("initial object check json");
+    assert_eq!(initial_json["records"][0]["status"], "mismatch");
+
+    let update = Command::new(cargo_octet())
+        .args(["object", "update", "--output-format=json", "lib.rs"])
+        .current_dir(temp.path())
+        .output()
+        .expect("run object marker update");
+    assert!(update.status.success(), "update stderr: {}", String::from_utf8_lossy(&update.stderr));
+    let update_json: serde_json::Value = serde_json::from_slice(&update.stdout).expect("update json");
+    assert_eq!(update_json["records"][0]["status"], "written");
+
+    let clean = Command::new(cargo_octet())
+        .args(["object", "check", "--output-format=json", "lib.rs"])
+        .current_dir(temp.path())
+        .output()
+        .expect("run clean object check");
+    assert!(clean.status.success(), "clean check stderr: {}", String::from_utf8_lossy(&clean.stderr));
+    let clean_json: serde_json::Value = serde_json::from_slice(&clean.stdout).expect("clean json");
+    assert_eq!(clean_json["records"][0]["status"], "match");
+
+    let source = fs::read_to_string(&fixture).expect("read fixture");
+    fs::write(&fixture, source.replace("input + 1", "input + 2")).expect("mutate fixture");
+    let drift = Command::new(cargo_octet())
+        .args(["object", "check", "--output-format=json", "lib.rs"])
+        .current_dir(temp.path())
+        .output()
+        .expect("run drift object check");
+    assert!(!drift.status.success(), "drift check unexpectedly passed");
+    let drift_json: serde_json::Value = serde_json::from_slice(&drift.stdout).expect("drift json");
+    assert_eq!(drift_json["records"][0]["status"], "mismatch");
+}
+
+#[test]
+fn object_support_does_not_require_fingerprint_markers() {
+    let temp = tempfile::tempdir().expect("create tempdir");
+    write_consumer_fixture(temp.path());
+    let fingerprint = Command::new(cargo_octet())
+        .args(["fingerprint", "--check", "--output-format=json"])
+        .arg(temp.path())
+        .output()
+        .expect("run fingerprint check");
+    assert!(!fingerprint.status.success(), "zeroed fixture should report fingerprint mismatches");
+    let json: serde_json::Value = serde_json::from_slice(&fingerprint.stdout).expect("fingerprint json");
+    assert_eq!(json["records"].as_array().expect("records").len(), 2);
+    assert!(json["records"].as_array().unwrap().iter().all(|record| record["stored_hash"] == "0"));
+}
+
+#[test]
+fn object_pointer_set_records_move_and_validate_fails_closed() {
+    let temp = tempfile::tempdir().expect("create tempdir");
+    let fixture = temp.path().join("lib.rs");
+    fs::write(&fixture, "pub fn checked_value(input: u32) -> u32 { input + 1 }\n").expect("write old fixture");
+    let old_objects = temp.path().join("old-objects.json");
+    let old_output = Command::new(cargo_octet())
+        .args([
+            "object",
+            "emit",
+            "--function",
+            "checked_value",
+            "--output-format=json",
+            "lib.rs",
+        ])
+        .current_dir(temp.path())
+        .output()
+        .expect("emit old object");
+    assert!(old_output.status.success(), "old emit stderr: {}", String::from_utf8_lossy(&old_output.stderr));
+    fs::write(&old_objects, &old_output.stdout).expect("write old objects");
+    let old_json: serde_json::Value = serde_json::from_slice(&old_output.stdout).expect("old object json");
+    let old_hash = old_json["objects"][0]["object_hash"].as_str().unwrap().to_owned();
+
+    fs::write(&fixture, "pub fn checked_value(input: u32) -> u32 { input + 2 }\n").expect("write new fixture");
+    let new_objects = temp.path().join("new-objects.json");
+    let new_output = Command::new(cargo_octet())
+        .args([
+            "object",
+            "emit",
+            "--function",
+            "checked_value",
+            "--output-format=json",
+            "lib.rs",
+        ])
+        .current_dir(temp.path())
+        .output()
+        .expect("emit new object");
+    assert!(new_output.status.success(), "new emit stderr: {}", String::from_utf8_lossy(&new_output.stderr));
+    fs::write(&new_objects, &new_output.stdout).expect("write new objects");
+    let new_json: serde_json::Value = serde_json::from_slice(&new_output.stdout).expect("new object json");
+    let new_hash = new_json["objects"][0]["object_hash"].as_str().unwrap().to_owned();
+    assert_ne!(old_hash, new_hash);
+
+    let manifest = temp.path().join("pointers.json");
+    let receipt1 = temp.path().join("receipt-old.json");
+    let first_set = Command::new(cargo_octet())
+        .args(["object", "pointer", "set", "--manifest"])
+        .arg(&manifest)
+        .args(["--name", "crate::checked_value", "--hash", &old_hash, "--objects"])
+        .arg(&old_objects)
+        .args(["--receipt"])
+        .arg(&receipt1)
+        .output()
+        .expect("set old pointer");
+    assert!(first_set.status.success(), "first pointer stderr: {}", String::from_utf8_lossy(&first_set.stderr));
+
+    let receipt2 = temp.path().join("receipt-new.json");
+    let second_set = Command::new(cargo_octet())
+        .args(["object", "pointer", "set", "--manifest"])
+        .arg(&manifest)
+        .args(["--name", "crate::checked_value", "--hash", &new_hash, "--objects"])
+        .arg(&new_objects)
+        .args(["--receipt"])
+        .arg(&receipt2)
+        .output()
+        .expect("set new pointer");
+    assert!(
+        second_set.status.success(),
+        "second pointer stderr: {}",
+        String::from_utf8_lossy(&second_set.stderr)
+    );
+    let receipt_json: serde_json::Value = serde_json::from_slice(&second_set.stdout).expect("receipt json");
+    assert_eq!(receipt_json["old_hash"], old_hash);
+    assert_eq!(receipt_json["new_hash"], new_hash);
+    assert!(receipt_json["diff_summary"].as_str().unwrap().contains("pointer-moved"));
+
+    let valid = Command::new(cargo_octet())
+        .args(["object", "pointer", "validate", "--manifest"])
+        .arg(&manifest)
+        .args(["--objects"])
+        .arg(&new_objects)
+        .output()
+        .expect("validate pointer");
+    assert!(valid.status.success(), "valid pointer stderr: {}", String::from_utf8_lossy(&valid.stderr));
+
+    let invalid = Command::new(cargo_octet())
+        .args(["object", "pointer", "validate", "--manifest"])
+        .arg(&manifest)
+        .args(["--objects"])
+        .arg(&old_objects)
+        .output()
+        .expect("validate stale pointer");
+    assert!(!invalid.status.success(), "stale pointer unexpectedly resolved");
+    let invalid_json: serde_json::Value = serde_json::from_slice(&invalid.stdout).expect("invalid validate json");
+    assert_eq!(invalid_json["status"], "missing-object");
+}
+
+#[test]
+fn object_diff_separates_body_signature_caveat_and_pointer_changes() {
+    let temp = tempfile::tempdir().expect("create tempdir");
+    let old_path = temp.path().join("old.json");
+    let new_path = temp.path().join("new.json");
+    fs::write(
+        &old_path,
+        r#"{"object_hash":"old","name":"checked","body_hash":"body-a","signature_hash":"sig","dependency_caveats":["deps"],"effect_caveats":["none"],"macro_caveats":["none"]}"#,
+    )
+    .expect("write old object");
+    fs::write(
+        &new_path,
+        r#"{"object_hash":"new","name":"checked","body_hash":"body-b","signature_hash":"sig","dependency_caveats":["deps"],"effect_caveats":["panic"],"macro_caveats":["none"]}"#,
+    )
+    .expect("write new object");
+    let manifest = temp.path().join("pointers.json");
+    fs::write(
+        &manifest,
+        r#"{"schema_version":1,"pointers":{"crate::checked":{"object_hash":"new","semantic_name":"crate::checked"}},"history":{}}"#,
+    )
+    .expect("write pointer manifest");
+
+    let diff = Command::new(cargo_octet())
+        .args(["object", "diff", "--old"])
+        .arg(&old_path)
+        .args(["--new"])
+        .arg(&new_path)
+        .args(["--pointer-manifest"])
+        .arg(&manifest)
+        .args(["--output-format=json"])
+        .output()
+        .expect("run object diff");
+    assert!(diff.status.success(), "diff stderr: {}", String::from_utf8_lossy(&diff.stderr));
+    let json: serde_json::Value = serde_json::from_slice(&diff.stdout).expect("diff json");
+    assert_eq!(json["body_changed"], true);
+    assert_eq!(json["signature_changed"], false);
+    assert_eq!(json["effect_caveats_changed"], true);
+    assert_eq!(json["macro_caveats_changed"], false);
+    assert_eq!(json["pointer_changes"].as_array().unwrap().len(), 1);
+}
