@@ -1,0 +1,36 @@
+$ cargo test -p cargo-octet supplement_check_comparisons -- --nocapture
+
+running 1 test
+test object::tests::supplement_check_comparisons_fail_closed_on_context_mismatch ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 34 filtered out; finished in 0.00s
+
+
+running 1 test
+test object::tests::supplement_check_comparisons_fail_closed_on_context_mismatch ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 34 filtered out; finished in 0.00s
+
+
+running 1 test
+test object::tests::supplement_check_comparisons_fail_closed_on_context_mismatch ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 34 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 53 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.00s
+
+$ cargo run -p cargo-octet --bin cargo-octet -- object supplement emit --family hir --spike rustc-hir-fixture --output-format json
+assert.schema_version_mismatch_fails_closed: PASS
+assert.source_path_mismatch_fails_closed: PASS
+assert.function_name_mismatch_fails_closed: PASS
+assert.rustc_version_mismatch_fails_closed: PASS
+assert.extractor_mismatch_fails_closed: PASS
+assert.observation_hash_mismatch_fails_closed: PASS

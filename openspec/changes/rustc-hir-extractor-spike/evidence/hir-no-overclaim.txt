@@ -1,0 +1,36 @@
+$ cargo test -p cargo-octet hir_mir_supplement_pilot_docs -- --nocapture
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 35 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 35 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 35 filtered out; finished in 0.00s
+
+
+running 1 test
+test hir_mir_supplement_pilot_docs_name_commands_and_non_proofs ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 52 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.00s
+
+$ cargo run -p cargo-octet --bin cargo-octet -- object supplement emit/check --family hir --spike rustc-hir-fixture --output-format json
+assert.emit_claims_correctness_false: PASS
+assert.emit_claims_semantic_equivalence_false: PASS
+assert.emit_claims_pure_cache_false: PASS
+assert.emit_claims_cross_toolchain_false: PASS
+assert.check_status_pass_but_boundaries_false: PASS
+assert.docs_say_not_correctness_or_semantic_proof: PASS
+assert.docs_say_not_cross_toolchain_or_exhaustive: PASS
+assert.relationship_preserves_v1_identity: PASS
