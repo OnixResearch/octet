@@ -1,6 +1,6 @@
 ## Phase 1: Pilot surface
 
-- [ ] I1 Add bounded HIR/MIR supplement DTOs, closed status values, and canonical serialization helpers for selected fixture functions.
+- [x] I1 Add bounded HIR/MIR supplement DTOs, closed status values, and canonical serialization helpers for selected fixture functions.
 - [ ] I2 Add pilot supplement emit/check command surface while preserving Function Object v1 as the canonical review/provenance identity.
 - [ ] I3 Update object corpus contract metadata so fixture-backed pilot families can report `pilot-supported` and all other HIR/THIR/MIR families remain `unsupported-planned`.
 - [ ] I4 Add contributor/operator documentation for the pilot command, replay boundaries, and non-proof language.
@@ -22,7 +22,7 @@
 ## Change Status
 
 - Status: in-progress
-- Open tasks: I1, I2, I3, I4, V1, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11
+- Open tasks: I2, I3, I4, V1, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11
 
 ## Verification Coverage
 

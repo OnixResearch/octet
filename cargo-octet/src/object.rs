@@ -14,10 +14,18 @@ use crate::determinism;
 use crate::fingerprint;
 
 const FUNCTION_OBJECT_SCHEMA: &str = "octet.function-object.v1";
+#[allow(dead_code)]
+const HIR_SUPPLEMENT_SCHEMA: &str = "octet.function-object-hir-supplement.v1";
+#[allow(dead_code)]
+const MIR_SUPPLEMENT_SCHEMA: &str = "octet.function-object-mir-supplement.v1";
+#[allow(dead_code)]
+const SUPPLEMENT_SCHEMA_VERSION: u32 = 1;
 const CORPUS_RECEIPT_SCHEMA: &str = "octet.function-object-corpus-receipt.v1";
 const CORPUS_CHECK_REPORT_SCHEMA: &str = "octet.function-object-corpus-check-report.v1";
 const CORPUS_RECEIPT_SCHEMA_VERSION: u32 = 1;
 const NORMALIZATION_ALGORITHM: &str = "octet-source-token-v1";
+#[allow(dead_code)]
+const SUPPLEMENT_STATUS_VALUES: &[&str] = &["unsupported-planned", "pilot-supported", "unknown", "unsupported"];
 const CORPUS_RECEIPT_REQUIRED_FIELDS: &[&str] = &[
     "schema",
     "schema_version",
@@ -74,6 +82,111 @@ pub(crate) struct FunctionObjectV1 {
     pub caveat_summary: CaveatSummary,
     pub pure_cache_eligibility: PureCacheEligibility,
     pub correctness_claim: CorrectnessClaim,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(dead_code)]
+enum ObjectSupplementStatus {
+    UnsupportedPlanned,
+    PilotSupported,
+    Unknown,
+    Unsupported,
+}
+
+impl ObjectSupplementStatus {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::UnsupportedPlanned => "unsupported-planned",
+            Self::PilotSupported => "pilot-supported",
+            Self::Unknown => "unknown",
+            Self::Unsupported => "unsupported",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(dead_code)]
+enum ObjectSupplementFamily {
+    Hir,
+    Mir,
+}
+
+impl ObjectSupplementFamily {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Hir => "hir",
+            Self::Mir => "mir",
+        }
+    }
+
+    fn schema(self) -> &'static str {
+        match self {
+            Self::Hir => HIR_SUPPLEMENT_SCHEMA,
+            Self::Mir => MIR_SUPPLEMENT_SCHEMA,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+#[allow(dead_code)]
+struct PilotSupplementContext {
+    rustc_version: String,
+    target_triple: String,
+    extractor_name: &'static str,
+    extractor_version: &'static str,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[allow(dead_code)]
+struct FunctionObjectSupplementV1 {
+    schema: &'static str,
+    schema_version: u32,
+    family: &'static str,
+    status: &'static str,
+    function_object_hash: String,
+    source_path: String,
+    function_name: String,
+    rustc_version: String,
+    target_triple: String,
+    extractor: SupplementExtractorIdentity,
+    observation_hash: String,
+    observations: BTreeMap<String, SupplementObservation>,
+    extraction_caveats: Vec<SupplementCaveat>,
+    boundary: SupplementBoundary,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[allow(dead_code)]
+struct SupplementExtractorIdentity {
+    name: &'static str,
+    version: &'static str,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[allow(dead_code)]
+struct SupplementObservation {
+    status: &'static str,
+    detail: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[allow(dead_code)]
+struct SupplementCaveat {
+    family: &'static str,
+    status: &'static str,
+    detail: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[allow(dead_code)]
+struct SupplementBoundary {
+    relationship_to_v1: &'static str,
+    identity_scope: &'static str,
+    claims_correctness: bool,
+    claims_semantic_equivalence: bool,
+    claims_cross_toolchain_stability: bool,
+    claims_pure_cache_eligibility: bool,
+    detail: &'static str,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -458,6 +571,158 @@ fn run_corpus_contract(output_format: OutputFormat) -> Result<i32, String> {
         OutputFormat::Sarif => unreachable!("SARIF rejected above"),
     }
     Ok(0)
+}
+
+#[allow(dead_code)]
+fn pilot_hir_supplement(object: &FunctionObjectV1, context: &PilotSupplementContext) -> FunctionObjectSupplementV1 {
+    let mut observations = BTreeMap::new();
+    observations.insert("hir_context".to_owned(), SupplementObservation {
+        status: ObjectSupplementStatus::PilotSupported.as_str(),
+        detail: format!("source-token object {} is attached to a bounded HIR pilot context", object.object_hash),
+    });
+    observations.insert("macro_origin".to_owned(), SupplementObservation {
+        status: caveat_status(object.macro_caveats.is_empty()),
+        detail: caveat_detail(
+            object.macro_caveats.is_empty(),
+            "no macro-origin caveats observed by source scanner",
+            "macro-origin detail remains source-scanner bounded",
+        ),
+    });
+    observations.insert("dependency_identity".to_owned(), SupplementObservation {
+        status: ObjectSupplementStatus::Unsupported.as_str(),
+        detail: "resolved HIR dependency identity is outside this bounded pilot".to_owned(),
+    });
+    supplement_for_object(ObjectSupplementFamily::Hir, object, context, observations)
+}
+
+#[allow(dead_code)]
+fn pilot_mir_supplement(object: &FunctionObjectV1, context: &PilotSupplementContext) -> FunctionObjectSupplementV1 {
+    let mut observations = BTreeMap::new();
+    for family in ["call", "panic", "drop", "async", "unsafe", "allocation", "effect"] {
+        observations.insert(family.to_owned(), SupplementObservation {
+            status: ObjectSupplementStatus::Unknown.as_str(),
+            detail: format!("{family} summary is explicit unknown/unsupported in the bounded MIR pilot"),
+        });
+    }
+    observations.insert("mir_context".to_owned(), SupplementObservation {
+        status: ObjectSupplementStatus::PilotSupported.as_str(),
+        detail: "MIR observation context is version-scoped and does not claim semantic equivalence".to_owned(),
+    });
+    supplement_for_object(ObjectSupplementFamily::Mir, object, context, observations)
+}
+
+#[allow(dead_code)]
+fn supplement_for_object(
+    family: ObjectSupplementFamily,
+    object: &FunctionObjectV1,
+    context: &PilotSupplementContext,
+    observations: BTreeMap<String, SupplementObservation>,
+) -> FunctionObjectSupplementV1 {
+    let observation_hash = supplement_observation_hash(family, object, context, &observations);
+    FunctionObjectSupplementV1 {
+        schema: family.schema(),
+        schema_version: SUPPLEMENT_SCHEMA_VERSION,
+        family: family.as_str(),
+        status: ObjectSupplementStatus::PilotSupported.as_str(),
+        function_object_hash: object.object_hash.clone(),
+        source_path: object.source_path.clone(),
+        function_name: object.name.clone(),
+        rustc_version: context.rustc_version.clone(),
+        target_triple: context.target_triple.clone(),
+        extractor: SupplementExtractorIdentity {
+            name: context.extractor_name,
+            version: context.extractor_version,
+        },
+        observation_hash,
+        observations,
+        extraction_caveats: supplement_caveats(family, object),
+        boundary: supplement_boundary(),
+    }
+}
+
+#[allow(dead_code)]
+fn supplement_observation_hash(
+    family: ObjectSupplementFamily,
+    object: &FunctionObjectV1,
+    context: &PilotSupplementContext,
+    observations: &BTreeMap<String, SupplementObservation>,
+) -> String {
+    let mut lines = vec![
+        family.schema().to_owned(),
+        object.object_hash.clone(),
+        object.source_path.clone(),
+        object.name.clone(),
+        context.rustc_version.clone(),
+        context.target_triple.clone(),
+        context.extractor_name.to_owned(),
+        context.extractor_version.to_owned(),
+    ];
+    for (name, observation) in observations {
+        lines.push(format!("{name}:{}:{}", observation.status, observation.detail));
+    }
+    determinism::full_hash(&lines.join("\n"))
+}
+
+#[allow(dead_code)]
+fn supplement_caveats(family: ObjectSupplementFamily, object: &FunctionObjectV1) -> Vec<SupplementCaveat> {
+    let mut caveats = Vec::new();
+    if !object.dependency_caveats.is_empty() {
+        caveats.push(SupplementCaveat {
+            family: family.as_str(),
+            status: ObjectSupplementStatus::Unsupported.as_str(),
+            detail: "resolved dependency identity remains unsupported in supplement pilot".to_owned(),
+        });
+    }
+    if !object.macro_caveats.is_empty() {
+        caveats.push(SupplementCaveat {
+            family: family.as_str(),
+            status: ObjectSupplementStatus::Unsupported.as_str(),
+            detail: "macro-expanded identity remains unsupported in supplement pilot".to_owned(),
+        });
+    }
+    if caveats.is_empty() {
+        caveats.push(SupplementCaveat {
+            family: family.as_str(),
+            status: ObjectSupplementStatus::Unknown.as_str(),
+            detail: "pilot supplement remains source-scanner bounded and is not a proof".to_owned(),
+        });
+    }
+    caveats
+}
+
+#[allow(dead_code)]
+fn supplement_boundary() -> SupplementBoundary {
+    SupplementBoundary {
+        relationship_to_v1: "attached-supplement-preserves-function-object-v1-identity",
+        identity_scope: "review-and-provenance-evidence",
+        claims_correctness: false,
+        claims_semantic_equivalence: false,
+        claims_cross_toolchain_stability: false,
+        claims_pure_cache_eligibility: false,
+        detail: "HIR/MIR pilot supplements add bounded toolchain-scoped observations; Function Object v1 remains the review/provenance identity and no correctness or semantic-equivalence proof is implied.",
+    }
+}
+
+#[allow(dead_code)]
+fn canonical_supplement_json(supplement: &FunctionObjectSupplementV1) -> Result<String, String> {
+    let mut json =
+        serde_json::to_string_pretty(supplement).map_err(|error| format!("serialize supplement: {error}"))?;
+    json.push('\n');
+    Ok(json)
+}
+
+#[allow(dead_code)]
+fn caveat_status(is_supported: bool) -> &'static str {
+    if is_supported {
+        ObjectSupplementStatus::PilotSupported.as_str()
+    } else {
+        ObjectSupplementStatus::Unknown.as_str()
+    }
+}
+
+#[allow(dead_code)]
+fn caveat_detail(is_supported: bool, supported: &'static str, unsupported: &'static str) -> String {
+    if is_supported { supported } else { unsupported }.to_owned()
 }
 
 fn run_corpus_check(paths: &[PathBuf], receipt_path: &Path, output_format: OutputFormat) -> Result<i32, String> {
@@ -1691,8 +1956,14 @@ fn print_human(report: &FunctionObjectReport) {
 mod tests {
     use std::path::Path;
 
+    use super::ObjectSupplementStatus;
+    use super::PilotSupplementContext;
+    use super::SUPPLEMENT_STATUS_VALUES;
+    use super::canonical_supplement_json;
     use super::effect_caveats;
     use super::function_object_for_source;
+    use super::pilot_hir_supplement;
+    use super::pilot_mir_supplement;
     use crate::fingerprint;
 
     #[test]
@@ -1728,6 +1999,63 @@ mod tests {
         .expect("two object");
         assert_eq!(one_object.normalized_body_hash, two_object.normalized_body_hash);
         assert_eq!(one_object.object_hash, two_object.object_hash);
+    }
+
+    #[test]
+    fn pilot_hir_supplement_attaches_to_v1_identity() {
+        let source = "pub fn checked(input: u32) -> u32 { input + 1 }\n";
+        let spans = fingerprint::find_functions(source);
+        let object = function_object_for_source(Path::new("src/lib.rs"), source, &spans[0], source)
+            .expect("build function object");
+        let context = pilot_context();
+        let supplement = pilot_hir_supplement(&object, &context);
+        let json = canonical_supplement_json(&supplement).expect("canonical supplement json");
+
+        assert_eq!(supplement.schema, "octet.function-object-hir-supplement.v1");
+        assert_eq!(supplement.status, ObjectSupplementStatus::PilotSupported.as_str());
+        assert_eq!(supplement.function_object_hash, object.object_hash);
+        assert_eq!(supplement.source_path, "src/lib.rs");
+        assert_eq!(supplement.function_name, "checked");
+        assert_eq!(supplement.rustc_version, "rustc 1.92.0-nightly fixture");
+        assert_eq!(supplement.extractor.name, "octet-hir-pilot-fixture");
+        assert!(supplement.observations.contains_key("hir_context"));
+        assert!(json.contains("attached-supplement-preserves-function-object-v1-identity"));
+        assert!(json.contains("\"claims_correctness\": false"));
+        assert_eq!(json, canonical_supplement_json(&supplement).expect("repeat canonical supplement json"));
+    }
+
+    #[test]
+    fn pilot_mir_supplement_records_closed_unsupported_summary_families() {
+        let source = "pub fn checked(input: u32) -> u32 { input + 1 }\n";
+        let spans = fingerprint::find_functions(source);
+        let object = function_object_for_source(Path::new("src/lib.rs"), source, &spans[0], source)
+            .expect("build function object");
+        let supplement = pilot_mir_supplement(&object, &pilot_context());
+
+        assert_eq!(SUPPLEMENT_STATUS_VALUES, &[
+            ObjectSupplementStatus::UnsupportedPlanned.as_str(),
+            ObjectSupplementStatus::PilotSupported.as_str(),
+            ObjectSupplementStatus::Unknown.as_str(),
+            ObjectSupplementStatus::Unsupported.as_str(),
+        ]);
+        assert_eq!(supplement.schema, "octet.function-object-mir-supplement.v1");
+        assert_eq!(supplement.status, ObjectSupplementStatus::PilotSupported.as_str());
+        for family in ["call", "panic", "drop", "async", "unsafe", "allocation", "effect"] {
+            let observation = supplement.observations.get(family).expect("summary family present");
+            assert_eq!(observation.status, ObjectSupplementStatus::Unknown.as_str());
+            assert!(observation.detail.contains("explicit unknown/unsupported"));
+        }
+        assert!(!supplement.boundary.claims_cross_toolchain_stability);
+        assert!(!supplement.boundary.claims_semantic_equivalence);
+    }
+
+    fn pilot_context() -> PilotSupplementContext {
+        PilotSupplementContext {
+            rustc_version: "rustc 1.92.0-nightly fixture".to_owned(),
+            target_triple: "x86_64-unknown-linux-gnu".to_owned(),
+            extractor_name: "octet-hir-pilot-fixture",
+            extractor_version: "fixture-v1",
+        }
     }
 
     #[test]
