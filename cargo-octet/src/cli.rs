@@ -106,9 +106,11 @@ pub enum ObjectMode {
     CorpusContract,
     SupplementEmit {
         family: SupplementFamilyArg,
+        scope: SupplementScopeArg,
     },
     SupplementCheck {
         family: SupplementFamilyArg,
+        scope: SupplementScopeArg,
         receipt: PathBuf,
     },
 }
@@ -124,6 +126,21 @@ impl SupplementFamilyArg {
         match self {
             Self::Hir => "hir",
             Self::Mir => "mir",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SupplementScopeArg {
+    Pilot,
+    RustcHirFixtureSpike,
+}
+
+impl SupplementScopeArg {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Pilot => "pilot",
+            Self::RustcHirFixtureSpike => "rustc-hir-fixture-spike",
         }
     }
 }
@@ -236,8 +253,8 @@ Usage:
   cargo octet object corpus check --receipt RECEIPT.json [PATHS...]
   cargo octet object corpus caveats [--output-format human|json] [PATHS...]
   cargo octet object corpus contract [--output-format human|json]
-  cargo octet object supplement emit --family hir|mir [--function NAME] [PATHS...]
-  cargo octet object supplement check --family hir|mir --receipt RECEIPT.json [--function NAME] [PATHS...]
+  cargo octet object supplement emit --family hir|mir [--spike rustc-hir-fixture] [--function NAME] [PATHS...]
+  cargo octet object supplement check --family hir|mir [--spike rustc-hir-fixture] --receipt RECEIPT.json [--function NAME] [PATHS...]
   cargo octet roadmap <artifact|capsule|ability|pointer|session|pure-cache> ...
   cargo octet transcript <PATH>
   cargo octet --version
@@ -278,8 +295,8 @@ Subcommands:
   corpus check --receipt RECEIPT.json [PATHS...] --output-format human|json
   corpus caveats [PATHS...] --output-format human|json
   corpus contract --output-format human|json
-  supplement emit --family hir|mir [--function NAME] [PATHS...] --output-format human|json
-  supplement check --family hir|mir --receipt RECEIPT.json [--function NAME] [PATHS...] --output-format human|json
+  supplement emit --family hir|mir [--spike rustc-hir-fixture] [--function NAME] [PATHS...] --output-format human|json
+  supplement check --family hir|mir [--spike rustc-hir-fixture] --receipt RECEIPT.json [--function NAME] [PATHS...] --output-format human|json
 
 Function objects are source-token review/provenance evidence. HIR/MIR supplements attach to v1 identity and are not correctness proofs.
 ";
@@ -815,6 +832,7 @@ fn parse_object_supplement_scan(emit: bool, args: &[String]) -> Result<ObjectArg
     let mut paths = Vec::new();
     let mut function = None;
     let mut family = None;
+    let mut scope = SupplementScopeArg::Pilot;
     let mut receipt = None;
     let mut output_format = OutputFormat::Human;
     let mut index = 0;
@@ -838,6 +856,12 @@ fn parse_object_supplement_scan(emit: bool, args: &[String]) -> Result<ObjectArg
                 ));
                 index += 2;
             }
+            "--spike" => {
+                scope = parse_supplement_spike_scope(
+                    args.get(index + 1).ok_or_else(|| "missing value after `--spike`".to_owned())?,
+                )?;
+                index += 2;
+            }
             "--output-format" => {
                 output_format = parse_output_format(
                     args.get(index + 1).ok_or_else(|| "missing value after `--output-format`".to_owned())?,
@@ -856,6 +880,10 @@ fn parse_object_supplement_scan(emit: bool, args: &[String]) -> Result<ObjectArg
                 receipt = Some(PathBuf::from(arg.trim_start_matches("--receipt=")));
                 index += 1;
             }
+            _ if arg.starts_with("--spike=") => {
+                scope = parse_supplement_spike_scope(arg.trim_start_matches("--spike="))?;
+                index += 1;
+            }
             _ if arg.starts_with("--output-format=") => {
                 output_format = parse_output_format(arg.trim_start_matches("--output-format="))?;
                 index += 1;
@@ -872,10 +900,11 @@ fn parse_object_supplement_scan(emit: bool, args: &[String]) -> Result<ObjectArg
     }
     let family = family.ok_or_else(|| "missing `--family`".to_owned())?;
     let mode = if emit {
-        ObjectMode::SupplementEmit { family }
+        ObjectMode::SupplementEmit { family, scope }
     } else {
         ObjectMode::SupplementCheck {
             family,
+            scope,
             receipt: receipt.ok_or_else(|| "missing `--receipt`".to_owned())?,
         }
     };
@@ -892,6 +921,13 @@ fn parse_supplement_family(value: &str) -> Result<SupplementFamilyArg, String> {
         "hir" => Ok(SupplementFamilyArg::Hir),
         "mir" => Ok(SupplementFamilyArg::Mir),
         other => Err(format!("unsupported supplement family `{other}`; expected `hir` or `mir`")),
+    }
+}
+
+fn parse_supplement_spike_scope(value: &str) -> Result<SupplementScopeArg, String> {
+    match value {
+        "rustc-hir-fixture" | "rustc-hir-fixture-spike" => Ok(SupplementScopeArg::RustcHirFixtureSpike),
+        other => Err(format!("unsupported supplement spike `{other}`; expected `rustc-hir-fixture`")),
     }
 }
 
@@ -1173,7 +1209,8 @@ mod tests {
                 assert_eq!(args.paths.len(), 1);
                 assert_eq!(args.output_format, OutputFormat::Json);
                 assert!(matches!(args.mode, super::ObjectMode::SupplementEmit {
-                    family: super::SupplementFamilyArg::Hir
+                    family: super::SupplementFamilyArg::Hir,
+                    scope: super::SupplementScopeArg::Pilot,
                 }));
             }
             other => panic!("expected object supplement emit args, got {other:?}"),
@@ -1196,13 +1233,39 @@ mod tests {
         .expect("parse supplement check args");
         match check {
             CommandArgs::Object(args) => match args.mode {
-                super::ObjectMode::SupplementCheck { family, receipt } => {
+                super::ObjectMode::SupplementCheck { family, scope, receipt } => {
                     assert_eq!(family, super::SupplementFamilyArg::Mir);
+                    assert_eq!(scope, super::SupplementScopeArg::Pilot);
                     assert_eq!(receipt, std::path::PathBuf::from("supplement.json"));
                 }
                 other => panic!("expected supplement check mode, got {other:?}"),
             },
             other => panic!("expected object supplement check args, got {other:?}"),
+        }
+
+        let spike = parse(
+            [
+                "cargo",
+                "octet",
+                "object",
+                "supplement",
+                "emit",
+                "--family=hir",
+                "--spike=rustc-hir-fixture",
+                "--output-format=json",
+            ]
+            .map(OsString::from),
+        )
+        .expect("parse rustc HIR spike supplement args");
+        match spike {
+            CommandArgs::Object(args) => match args.mode {
+                super::ObjectMode::SupplementEmit { family, scope } => {
+                    assert_eq!(family, super::SupplementFamilyArg::Hir);
+                    assert_eq!(scope, super::SupplementScopeArg::RustcHirFixtureSpike);
+                }
+                other => panic!("expected supplement spike emit mode, got {other:?}"),
+            },
+            other => panic!("expected object supplement spike args, got {other:?}"),
         }
     }
 
