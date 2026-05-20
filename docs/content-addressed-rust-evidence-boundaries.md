@@ -26,6 +26,17 @@ A future HIR evidence record MUST include:
 
 HIR evidence MAY improve dependency summaries and macro-origin reporting. It MUST NOT claim cross-toolchain stability unless a separate verifier proves that claim for the named toolchains and corpus.
 
+The current bounded pilot command is:
+
+```bash
+cargo octet object supplement emit --family hir --function checked src/lib.rs --output-format json
+cargo octet object supplement check --family hir --receipt hir-supplement.json --function checked src/lib.rs --output-format json
+```
+
+The pilot HIR supplement is source-token bounded. It reports contract status
+`pilot-supported` only for the checked pilot emit/check surface and remains an
+attached supplement to `octet.function-object.v1`.
+
 ## MIR supplemental evidence boundary
 
 Future MIR-derived evidence is compiler-version-coupled.
@@ -40,6 +51,18 @@ A future MIR evidence record MUST include:
 - explicit unknown/unsupported caveats for every summary family that is absent or incomplete.
 
 MIR evidence MAY support stronger review, cache, or effect decisions. It MUST NOT claim stable identity across compiler versions, target triples, optimization modes, feature flags, or dependency graphs unless those dimensions are explicitly part of the compared evidence and a separate verifier proves equivalence.
+
+The current bounded pilot command is:
+
+```bash
+cargo octet object supplement emit --family mir --function checked src/lib.rs --output-format json
+cargo octet object supplement check --family mir --receipt mir-supplement.json --function checked src/lib.rs --output-format json
+```
+
+The pilot MIR supplement records explicit unknown/unsupported observations for
+summary families that the source-token pilot cannot prove. It reports contract
+status `pilot-supported` only for the checked pilot emit/check surface, while
+THIR and any unimplemented non-pilot HIR/MIR family remain `unsupported-planned`.
 
 ## Downstream ownership boundary
 
