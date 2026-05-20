@@ -241,11 +241,21 @@ cargo octet object supplement check --family mir --receipt mir-supplement.json -
 cargo octet object corpus contract --output-format json
 ```
 
-The pilot HIR/MIR supplements are source-token-bounded review evidence. They attach to the existing `octet.function-object.v1` `object_hash`; they do not replace it as the review/provenance identity. Treat `hir` and `mir`
+For the fixture-backed rustc HIR spike, keep the explicit spike flag in both
+emit and replay commands:
+
+```bash
+cargo octet object supplement emit --family hir --spike rustc-hir-fixture --output-format json > hir-spike.json
+cargo octet object supplement check --family hir --spike rustc-hir-fixture --receipt hir-spike.json --output-format json
+```
+
+The pilot HIR/MIR supplements are source-token-bounded review evidence. The
+rustc HIR fixture spike is fixture-backed/toolchain-scoped review evidence. They
+attach to the existing `octet.function-object.v1` `object_hash`; they do not replace it as the review/provenance identity. Treat `hir` and `mir`
 `pilot-supported` contract metadata as support for the checked pilot emit/check
-surface only. `thir` remains `unsupported-planned`, and future non-pilot HIR,
-THIR, or MIR families must stay planned/unsupported until deterministic positive
-and negative fixture evidence exists.
+surface plus the explicit `--spike rustc-hir-fixture` fixture path only. `thir` remains `unsupported-planned`, and future non-pilot HIR, THIR, or MIR families
+must stay planned/unsupported until deterministic positive and negative fixture
+evidence exists.
 
 Do not describe a matching HIR/MIR supplement as a correctness proof, semantic-
 equivalence proof, pure-cache eligibility proof, cross-toolchain stability

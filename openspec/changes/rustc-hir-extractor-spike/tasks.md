@@ -2,8 +2,8 @@
 
 - [x] I1 Add a pinned fixture and rustc HIR extractor spike helper that records toolchain, extractor, schema, context, observation hash, and caveats.
 - [x] I2 Wire the spike into a bounded `object supplement` path while preserving Function Object v1 identity and pilot/spike naming.
-- [ ] I3 Add fail-closed replay comparison fields for rustc HIR spike receipts.
-- [ ] I4 Update contract metadata and docs to name fixture-bounded rustc HIR spike support without broad HIR/THIR/MIR overclaims.
+- [x] I3 Add fail-closed replay comparison fields for rustc HIR spike receipts.
+- [x] I4 Update contract metadata and docs to name fixture-bounded rustc HIR spike support without broad HIR/THIR/MIR overclaims.
 
 ## Phase 2: Deterministic verification
 
@@ -16,7 +16,7 @@
 ## Change Status
 
 - Status: in-progress
-- Open tasks: I3, I4, V1, V2, V3, V4, V5
+- Open tasks: V1, V2, V3, V4, V5
 
 ## Verification Coverage
 

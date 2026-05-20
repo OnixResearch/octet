@@ -849,41 +849,46 @@ fn read_supplement_receipt(path: &Path) -> Result<serde_json::Value, String> {
     Ok(value)
 }
 
+const SUPPLEMENT_REPLAY_COMPARED_FIELDS: &[&str] = &[
+    "schema",
+    "schema_version",
+    "family",
+    "status",
+    "function_object_hash",
+    "source_path",
+    "function_name",
+    "rustc_version",
+    "target_triple",
+    "extractor",
+    "observations",
+    "observation_hash",
+    "extraction_caveats",
+    "boundary",
+];
+
 fn supplement_comparisons(
     expected: &serde_json::Value,
     current: &FunctionObjectSupplementV1,
 ) -> Vec<SupplementComparison> {
     let current = serde_json::to_value(current).expect("serialize current supplement");
-    [
-        "schema",
-        "schema_version",
-        "family",
-        "status",
-        "function_object_hash",
-        "source_path",
-        "function_name",
-        "rustc_version",
-        "target_triple",
-        "extractor",
-        "observation_hash",
-        "boundary",
-    ]
-    .into_iter()
-    .map(|field| {
-        let expected_value = expected.get(field).cloned().unwrap_or(serde_json::Value::Null);
-        let current_value = current.get(field).cloned().unwrap_or(serde_json::Value::Null);
-        SupplementComparison {
-            field,
-            status: if expected_value == current_value {
-                "match"
-            } else {
-                "mismatch"
-            },
-            expected: expected_value,
-            current: current_value,
-        }
-    })
-    .collect()
+    SUPPLEMENT_REPLAY_COMPARED_FIELDS
+        .iter()
+        .copied()
+        .map(|field| {
+            let expected_value = expected.get(field).cloned().unwrap_or(serde_json::Value::Null);
+            let current_value = current.get(field).cloned().unwrap_or(serde_json::Value::Null);
+            SupplementComparison {
+                field,
+                status: if expected_value == current_value {
+                    "match"
+                } else {
+                    "mismatch"
+                },
+                expected: expected_value,
+                current: current_value,
+            }
+        })
+        .collect()
 }
 
 fn print_supplement_emit_report(report: &serde_json::Value, output_format: OutputFormat) -> Result<(), String> {
@@ -1385,19 +1390,22 @@ fn supplemental_evidence_contracts() -> Vec<ObjectSupplementalEvidenceContract> 
                 "extraction_caveats",
                 "boundary",
             ],
-            unsupported_reason: "bounded pilot source-token HIR fixture only; non-fixture HIR requests remain unsupported-planned until extractor evidence is added",
+            unsupported_reason: "bounded pilot source-token HIR fixture plus rustc HIR fixture spike only; non-fixture HIR requests remain unsupported-planned until general extractor evidence is added",
             required_evidence_before_support: vec![
                 "positive-cli-supplement-emit-check-smoke",
+                "positive-rustc-hir-fixture-spike-emit-check-smoke",
                 "negative-context-mismatch-check-smoke",
+                "negative-rustc-hir-fixture-spike-replay-mismatch-smoke",
                 "non-proof-boundary-assertions",
             ],
             extractor_identity_expectations: vec![
-                "extractor.name=octet-hir-pilot-source-token",
+                "extractor.name=octet-hir-pilot-source-token for default pilot scope",
+                "extractor.name=octet-rustc-hir-fixture-spike for --spike rustc-hir-fixture",
                 "extractor.version=cargo-octet-package-version",
                 "rustc_version=runtime-rustc-vv",
                 "target_triple=runtime-rustc-host",
             ],
-            fixture_replay_command: "cargo octet object supplement emit --family hir --function checked src/lib.rs --output-format json && cargo octet object supplement check --family hir --receipt RECEIPT.json --function checked src/lib.rs --output-format json",
+            fixture_replay_command: "cargo octet object supplement emit --family hir --spike rustc-hir-fixture --output-format json && cargo octet object supplement check --family hir --spike rustc-hir-fixture --receipt RECEIPT.json --output-format json",
             claims_correctness: false,
             claims_semantic_equivalence: false,
             claims_cross_toolchain_stability: false,
@@ -2533,6 +2541,45 @@ mod tests {
         assert_eq!(boundary.status, "match");
         assert!(!current.boundary.claims_correctness);
         assert!(!current.boundary.claims_semantic_equivalence);
+    }
+
+    #[test]
+    fn rustc_hir_spike_replay_compares_fixture_observations_and_caveats() {
+        let fixture = Path::new(RUSTC_HIR_SPIKE_FIXTURE_RELATIVE_PATH);
+        let current =
+            rustc_hir_spike_supplement(fixture, RUSTC_HIR_SPIKE_FUNCTION).expect("rustc HIR spike supplement");
+        let mut expected = serde_json::to_value(&current).expect("serialize expected supplement");
+        expected["source_path"] = serde_json::json!("different/src.rs");
+        expected["function_name"] = serde_json::json!("different_function");
+        expected["extractor"]["name"] = serde_json::json!("different-extractor");
+        expected["observations"]["rustc_hir_tree_hash"]["detail"] = serde_json::json!("tampered observation");
+        expected["observation_hash"] = serde_json::json!("b3:tampered");
+        expected["extraction_caveats"][0]["detail"] = serde_json::json!("tampered caveat");
+
+        let comparisons = supplement_comparisons(&expected, &current);
+        for field in [
+            "source_path",
+            "function_name",
+            "extractor",
+            "observations",
+            "observation_hash",
+            "extraction_caveats",
+        ] {
+            let comparison = comparisons
+                .iter()
+                .find(|comparison| comparison.field == field)
+                .unwrap_or_else(|| panic!("missing comparison field {field}: {comparisons:#?}"));
+            assert_eq!(comparison.status, "mismatch", "{field} should fail closed");
+        }
+        let boundary = comparisons
+            .iter()
+            .find(|comparison| comparison.field == "boundary")
+            .expect("boundary comparison present");
+        assert_eq!(boundary.status, "match");
+        assert!(!current.boundary.claims_correctness);
+        assert!(!current.boundary.claims_semantic_equivalence);
+        assert!(!current.boundary.claims_pure_cache_eligibility);
+        assert!(!current.boundary.claims_cross_toolchain_stability);
     }
 
     #[test]

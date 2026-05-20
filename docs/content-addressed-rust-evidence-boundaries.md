@@ -37,6 +37,20 @@ The pilot HIR supplement is source-token bounded. It reports contract status
 `pilot-supported` only for the checked pilot emit/check surface and remains an
 attached supplement to `octet.function-object.v1`.
 
+The current rustc-backed HIR spike is narrower than general HIR support and is
+fixture-backed/toolchain-scoped:
+
+```bash
+cargo octet object supplement emit --family hir --spike rustc-hir-fixture --output-format json
+cargo octet object supplement check --family hir --spike rustc-hir-fixture --receipt hir-spike.json --output-format json
+```
+
+The rustc HIR fixture spike records `octet-rustc-hir-fixture-spike` extractor
+identity, exact `rustc -vV`/host identity, fixture path/function context, HIR
+observation hash, extraction caveats, and fail-closed replay comparisons. It is
+not general HIR support; non-fixture HIR remains planned/unsupported until its
+own positive and negative deterministic evidence exists.
+
 ## MIR supplemental evidence boundary
 
 Future MIR-derived evidence is compiler-version-coupled.
