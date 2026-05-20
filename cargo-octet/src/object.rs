@@ -12,6 +12,7 @@ use crate::cli::ObjectArgs;
 use crate::cli::ObjectMode;
 use crate::cli::OutputFormat;
 use crate::cli::SupplementFamilyArg;
+use crate::cli::SupplementScopeArg;
 use crate::determinism;
 use crate::fingerprint;
 
@@ -509,11 +510,11 @@ pub fn run(args: ObjectArgs) -> Result<i32, String> {
         ObjectMode::CorpusCheck { receipt } => run_corpus_check(&args.paths, &receipt, args.output_format),
         ObjectMode::CorpusCaveats => run_corpus_caveats(&args.paths, args.output_format),
         ObjectMode::CorpusContract => run_corpus_contract(args.output_format),
-        ObjectMode::SupplementEmit { family } => {
-            run_supplement_emit(&args.paths, args.function.as_deref(), family, args.output_format)
+        ObjectMode::SupplementEmit { family, scope } => {
+            run_supplement_emit(&args.paths, args.function.as_deref(), family, scope, args.output_format)
         }
-        ObjectMode::SupplementCheck { family, receipt } => {
-            run_supplement_check(&args.paths, args.function.as_deref(), family, &receipt, args.output_format)
+        ObjectMode::SupplementCheck { family, scope, receipt } => {
+            run_supplement_check(&args.paths, args.function.as_deref(), family, scope, &receipt, args.output_format)
         }
     }
 }
@@ -592,12 +593,13 @@ fn run_supplement_emit(
     paths: &[PathBuf],
     function: Option<&str>,
     family: SupplementFamilyArg,
+    scope: SupplementScopeArg,
     output_format: OutputFormat,
 ) -> Result<i32, String> {
     if matches!(output_format, OutputFormat::Sarif) {
         return Err("object supplement emit does not support SARIF output; use human or json".to_owned());
     }
-    let supplements = supplement_records(paths, function, family)?;
+    let supplements = supplement_records(paths, function, family, scope)?;
     if supplements.is_empty() {
         return Err("no functions matched supplement emission selection".to_owned());
     }
@@ -605,6 +607,7 @@ fn run_supplement_emit(
         "schema_version": SUPPLEMENT_SCHEMA_VERSION,
         "mode": "supplement-emit",
         "family": family.as_str(),
+        "scope": scope.as_str(),
         "supplements": supplements,
         "boundary": supplement_boundary(),
     });
@@ -616,6 +619,7 @@ fn run_supplement_check(
     paths: &[PathBuf],
     function: Option<&str>,
     family: SupplementFamilyArg,
+    scope: SupplementScopeArg,
     receipt_path: &Path,
     output_format: OutputFormat,
 ) -> Result<i32, String> {
@@ -623,7 +627,7 @@ fn run_supplement_check(
         return Err("object supplement check does not support SARIF output; use human or json".to_owned());
     }
     let expected = read_supplement_receipt(receipt_path)?;
-    let current = supplement_records(paths, function, family)?;
+    let current = supplement_records(paths, function, family, scope)?;
     let current_first = current.first().ok_or_else(|| "no functions matched supplement check selection".to_owned())?;
     let comparisons = supplement_comparisons(&expected, current_first);
     let status = if comparisons.iter().all(|comparison| comparison.status == "match") {
@@ -635,6 +639,7 @@ fn run_supplement_check(
         schema_version: SUPPLEMENT_SCHEMA_VERSION,
         mode: "supplement-check",
         family: family.as_str(),
+        scope: scope.as_str(),
         status,
         receipt_path: determinism::normalize_path(receipt_path),
         comparisons,
@@ -648,15 +653,38 @@ fn supplement_records(
     paths: &[PathBuf],
     function: Option<&str>,
     family: SupplementFamilyArg,
+    scope: SupplementScopeArg,
 ) -> Result<Vec<FunctionObjectSupplementV1>, String> {
-    let context = runtime_pilot_context(family);
-    collect_objects(paths, function)?
-        .into_iter()
-        .map(|record| match family {
-            SupplementFamilyArg::Hir => Ok(pilot_hir_supplement(&record.object, &context)),
-            SupplementFamilyArg::Mir => Ok(pilot_mir_supplement(&record.object, &context)),
-        })
-        .collect()
+    match scope {
+        SupplementScopeArg::Pilot => {
+            let context = runtime_pilot_context(family);
+            collect_objects(paths, function)?
+                .into_iter()
+                .map(|record| match family {
+                    SupplementFamilyArg::Hir => Ok(pilot_hir_supplement(&record.object, &context)),
+                    SupplementFamilyArg::Mir => Ok(pilot_mir_supplement(&record.object, &context)),
+                })
+                .collect()
+        }
+        SupplementScopeArg::RustcHirFixtureSpike => {
+            if family != SupplementFamilyArg::Hir {
+                return Err("rustc HIR fixture spike only supports `--family hir`".to_owned());
+            }
+            let function = function.unwrap_or(RUSTC_HIR_SPIKE_FUNCTION);
+            let fixture_path = rustc_hir_spike_cli_fixture_path(paths)?;
+            Ok(vec![rustc_hir_spike_supplement(&fixture_path, function)?])
+        }
+    }
+}
+
+fn rustc_hir_spike_cli_fixture_path(paths: &[PathBuf]) -> Result<PathBuf, String> {
+    if paths.is_empty() || paths == [PathBuf::from(".")] {
+        return Ok(PathBuf::from(RUSTC_HIR_SPIKE_FIXTURE_RELATIVE_PATH));
+    }
+    if paths.len() != 1 {
+        return Err("rustc HIR fixture spike accepts exactly one fixture path".to_owned());
+    }
+    Ok(paths[0].clone())
 }
 
 fn runtime_pilot_context(family: SupplementFamilyArg) -> PilotSupplementContext {
@@ -798,6 +826,7 @@ struct SupplementCheckReport {
     schema_version: u32,
     mode: &'static str,
     family: &'static str,
+    scope: &'static str,
     status: &'static str,
     receipt_path: String,
     comparisons: Vec<SupplementComparison>,
@@ -861,6 +890,7 @@ fn print_supplement_emit_report(report: &serde_json::Value, output_format: Outpu
     match output_format {
         OutputFormat::Human => {
             println!("octet object supplement emit family={}", report["family"].as_str().unwrap_or("unknown"));
+            println!("scope={}", report["scope"].as_str().unwrap_or("unknown"));
             let count = report["supplements"].as_array().map_or(0, Vec::len);
             println!("summary total={count}");
             println!("claims_correctness=false");
@@ -875,7 +905,10 @@ fn print_supplement_emit_report(report: &serde_json::Value, output_format: Outpu
 fn print_supplement_check_report(report: &SupplementCheckReport, output_format: OutputFormat) -> Result<(), String> {
     match output_format {
         OutputFormat::Human => {
-            println!("octet object supplement check status={} family={}", report.status, report.family);
+            println!(
+                "octet object supplement check status={} family={} scope={}",
+                report.status, report.family, report.scope
+            );
             println!("receipt_path={}", report.receipt_path);
             for comparison in &report.comparisons {
                 println!("{}={}", comparison.field, comparison.status);
