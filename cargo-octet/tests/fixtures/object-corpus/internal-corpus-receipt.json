@@ -2,7 +2,7 @@
   "schema": "octet.function-object-corpus-receipt.v1",
   "schema_version": 1,
   "mode": "corpus-receipt",
-  "object_count": 195,
+  "object_count": 199,
   "source_paths": [
     "cargo-octet/src/baseline.rs",
     "cargo-octet/src/cli.rs",
@@ -17,31 +17,31 @@
     "cargo-octet/src/roadmap.rs",
     "cargo-octet/src/transcript.rs"
   ],
-  "object_set_hash": "b3:f0aa6dc2ebd1000b5799ef38883749e9c82fe6177ea5ba0a324b3d1027e167e5",
+  "object_set_hash": "b3:a043fb50626035fdb0a7a404bf0177e55a19ca6b65f6697fbc8b9be1638d21fe",
   "caveat_counts": {
     "dependency_status": {
-      "source-scanner-token-set": 59,
-      "unsupported-macro-context": 136
+      "source-scanner-token-set": 60,
+      "unsupported-macro-context": 139
     },
     "effect_kind": {
-      "effect_summary": 140,
+      "effect_summary": 143,
       "filesystem": 35,
-      "panic": 25,
+      "panic": 27,
       "process": 5,
       "time": 2,
       "unsafe": 1
     },
     "macro_status": {
-      "none-detected": 59,
-      "review-required": 136
+      "none-detected": 60,
+      "review-required": 139
     },
     "pure_cache_blocker": {
-      "dependency-identity-unresolved": 195,
-      "effect-summary-unresolved": 195,
-      "macro-expansion-unmodeled": 136
+      "dependency-identity-unresolved": 199,
+      "effect-summary-unresolved": 199,
+      "macro-expansion-unmodeled": 139
     }
   },
-  "pure_cache_blocked_count": 195,
+  "pure_cache_blocked_count": 199,
   "replay": {
     "command": "cargo octet object corpus receipt --output RECEIPT.json cargo-octet/src/baseline.rs cargo-octet/src/cli.rs cargo-octet/src/config.rs cargo-octet/src/determinism.rs cargo-octet/src/engine.rs cargo-octet/src/fingerprint.rs cargo-octet/src/main.rs cargo-octet/src/migrate.rs cargo-octet/src/object.rs cargo-octet/src/output.rs cargo-octet/src/roadmap.rs cargo-octet/src/transcript.rs",
     "tool_name": "cargo-octet",

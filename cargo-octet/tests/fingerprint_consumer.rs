@@ -1482,6 +1482,8 @@ const EXPANDED_INTERNAL_OBJECT_CORPUS_RECEIPT_FIXTURE: &str =
     "cargo-octet/tests/fixtures/object-corpus/expanded-internal-corpus-receipt.json";
 const EXPANDED_INTERNAL_OBJECT_CORPUS_TAXONOMY_FIXTURE: &str =
     "cargo-octet/tests/fixtures/object-corpus/expanded-internal-corpus-taxonomy.json";
+const EXPANDED_INTERNAL_OBJECT_CORPUS_CAVEAT_TAXONOMY_FIXTURE: &str =
+    "cargo-octet/tests/fixtures/object-corpus/expanded-internal-corpus-caveat-taxonomy.json";
 const OBJECT_CORPUS_COMPATIBILITY_DIR: &str = "cargo-octet/tests/fixtures/object-corpus/compatibility";
 const OBJECT_CORPUS_COMPATIBILITY_SOURCE: &[&str] = &["src/lib.rs"];
 const OBJECT_CORPUS_COMPATIBILITY_POSITIVE_V1: &str = "positive-v1-receipt.json";
@@ -1668,6 +1670,22 @@ fn object_corpus_contract(root: &Path) -> serde_json::Value {
         String::from_utf8_lossy(&output.stderr)
     );
     serde_json::from_slice(&output.stdout).expect("contract metadata json")
+}
+
+fn object_corpus_caveat_taxonomy(root: &Path, paths: &[&str]) -> Vec<u8> {
+    let output = Command::new(cargo_octet())
+        .args(["object", "corpus", "caveats", "--output-format", "json"])
+        .args(paths)
+        .current_dir(root)
+        .output()
+        .expect("object corpus caveat taxonomy");
+    assert!(
+        output.status.success(),
+        "caveat taxonomy stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    output.stdout
 }
 
 fn export_bundle(
@@ -2221,6 +2239,73 @@ fn object_internal_corpus_expanded_fixture_matches_fresh_receipt_and_preserves_b
     assert!(fresh["pure_cache_blocked_count"].as_u64().expect("pure cache blocked") > 0);
     assert_eq!(taxonomy["boundary"]["claims_correctness"], false);
     assert_eq!(taxonomy["boundary"]["claims_semantic_equivalence"], false);
+}
+
+#[test]
+fn object_internal_corpus_expanded_caveat_taxonomy_fixture_matches_fresh_report() {
+    let root = repo_root();
+    let taxonomy = read_json_fixture(&root, EXPANDED_INTERNAL_OBJECT_CORPUS_TAXONOMY_FIXTURE);
+    let paths = expanded_internal_object_corpus_paths(&taxonomy);
+    let fresh_bytes = object_corpus_caveat_taxonomy(&root, &paths);
+    let fixture_bytes = fs::read(root.join(EXPANDED_INTERNAL_OBJECT_CORPUS_CAVEAT_TAXONOMY_FIXTURE))
+        .expect("read expanded caveat taxonomy fixture");
+    assert_eq!(fresh_bytes, fixture_bytes, "checked-in caveat taxonomy fixture is stale");
+}
+
+#[test]
+fn object_internal_corpus_caveat_taxonomy_names_per_source_blockers() {
+    let root = repo_root();
+    let report = read_json_fixture(&root, EXPANDED_INTERNAL_OBJECT_CORPUS_CAVEAT_TAXONOMY_FIXTURE);
+    assert_eq!(report["schema"], "octet.function-object-corpus-caveat-taxonomy.v1");
+    assert_eq!(report["schema_version"], 1);
+    let source_paths = report["source_paths"].as_array().expect("source paths");
+    let source_buckets = report["source_buckets"].as_array().expect("source buckets");
+    assert_eq!(source_paths.len(), source_buckets.len());
+    let mut previous = "";
+    for bucket in source_buckets {
+        let source_path = bucket["source_path"].as_str().expect("bucket source path");
+        assert!(source_path >= previous, "source buckets must be sorted");
+        previous = source_path;
+        assert!(bucket["object_count"].as_u64().expect("bucket object count") > 0);
+        assert!(bucket["caveat_counts"].is_object(), "missing caveat counts for {source_path}");
+        assert!(bucket["pure_cache_blocked_count"].as_u64().is_some());
+        assert!(bucket["blocker_names"].is_array(), "missing blocker names for {source_path}");
+    }
+    assert!(
+        source_buckets.iter().any(|bucket| {
+            bucket["blocker_names"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|name| name == "dependency-identity-unresolved")
+        }),
+        "expected dependency blocker in caveat taxonomy: {report:#?}"
+    );
+    assert!(
+        source_buckets.iter().any(|bucket| {
+            bucket["blocker_names"].as_array().unwrap().iter().any(|name| name == "effect-summary-unresolved")
+        }),
+        "expected effect blocker in caveat taxonomy: {report:#?}"
+    );
+}
+
+#[test]
+fn object_internal_corpus_caveat_taxonomy_preserves_non_proof_boundaries() {
+    let root = repo_root();
+    let report = read_json_fixture(&root, EXPANDED_INTERNAL_OBJECT_CORPUS_CAVEAT_TAXONOMY_FIXTURE);
+    assert_eq!(report["boundary"]["identity_scope"], "review-and-provenance-evidence");
+    assert_eq!(report["boundary"]["claims_correctness"], false);
+    assert_eq!(report["boundary"]["claims_semantic_equivalence"], false);
+    assert!(
+        report["boundary"]["detail"]
+            .as_str()
+            .expect("boundary detail")
+            .contains("do not prove behavioral correctness")
+    );
+    assert!(
+        report["pure_cache_blocked_count"].as_u64().expect("pure cache blocked") > 0,
+        "taxonomy should explain blockers, not promote pure-cache eligibility"
+    );
 }
 
 #[test]

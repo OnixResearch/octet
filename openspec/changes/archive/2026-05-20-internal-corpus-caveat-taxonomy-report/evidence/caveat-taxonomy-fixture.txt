@@ -1,0 +1,18 @@
+schema=octet.function-object-corpus-caveat-taxonomy.v1
+schema_version=1
+source_bucket_count=26
+object_count=435
+pure_cache_blocked_count=435
+claims_correctness=False
+claims_semantic_equivalence=False
+sorted_source_buckets=True
+bucket=cargo-octet/src/baseline.rs objects=4 blockers=dependency-identity-unresolved,effect-summary-unresolved,macro-expansion-unmodeled
+bucket=cargo-octet/src/cli.rs objects=31 blockers=dependency-identity-unresolved,effect-summary-unresolved,macro-expansion-unmodeled
+bucket=cargo-octet/src/config.rs objects=8 blockers=dependency-identity-unresolved,effect-summary-unresolved,macro-expansion-unmodeled
+bucket=cargo-octet/src/determinism.rs objects=13 blockers=dependency-identity-unresolved,effect-summary-unresolved,macro-expansion-unmodeled
+bucket=cargo-octet/src/engine.rs objects=45 blockers=dependency-identity-unresolved,effect-summary-unresolved,macro-expansion-unmodeled
+bucket=cargo-octet/src/fingerprint.rs objects=4 blockers=dependency-identity-unresolved,effect-summary-unresolved,macro-expansion-unmodeled
+bucket=cargo-octet/src/main.rs objects=2 blockers=dependency-identity-unresolved,effect-summary-unresolved,macro-expansion-unmodeled
+bucket=cargo-octet/src/migrate.rs objects=9 blockers=dependency-identity-unresolved,effect-summary-unresolved,macro-expansion-unmodeled
+bucket=cargo-octet/src/object.rs objects=25 blockers=dependency-identity-unresolved,effect-summary-unresolved,macro-expansion-unmodeled
+bucket=cargo-octet/src/output.rs objects=22 blockers=dependency-identity-unresolved,effect-summary-unresolved,macro-expansion-unmodeled
