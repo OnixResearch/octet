@@ -1,0 +1,10 @@
+$ cargo octet object corpus contract --output-format json # unsupported family remains planned
+{
+  "thir_status": "unsupported-planned",
+  "required_evidence_before_support": [
+    "deterministic-thir-supplement-fixture",
+    "toolchain-and-thir-context-scoped-replay-check",
+    "non-proof-boundary-assertions"
+  ]
+}
+assert.unsupported_remains_planned: PASS

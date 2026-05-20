@@ -1,0 +1,7 @@
+$ cargo octet object supplement emit --family hir ... && docs boundary assertions
+{
+  "schema": "octet.function-object-hir-supplement.v1",
+  "relationship_to_v1": "attached-supplement-preserves-function-object-v1-identity",
+  "claims_correctness": false
+}
+assert.hir_boundary: PASS

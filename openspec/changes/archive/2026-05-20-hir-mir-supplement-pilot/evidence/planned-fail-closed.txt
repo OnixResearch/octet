@@ -1,0 +1,7 @@
+$ cargo octet object corpus contract --output-format json # planned supplements fail closed
+{
+  "family": "thir",
+  "status": "unsupported-planned",
+  "unsupported_reason": "Octet has not implemented a THIR extractor or deterministic THIR supplement fixtures."
+}
+assert.planned_fail_closed: PASS
