@@ -104,6 +104,28 @@ pub enum ObjectMode {
     },
     CorpusCaveats,
     CorpusContract,
+    SupplementEmit {
+        family: SupplementFamilyArg,
+    },
+    SupplementCheck {
+        family: SupplementFamilyArg,
+        receipt: PathBuf,
+    },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SupplementFamilyArg {
+    Hir,
+    Mir,
+}
+
+impl SupplementFamilyArg {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Hir => "hir",
+            Self::Mir => "mir",
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -214,6 +236,8 @@ Usage:
   cargo octet object corpus check --receipt RECEIPT.json [PATHS...]
   cargo octet object corpus caveats [--output-format human|json] [PATHS...]
   cargo octet object corpus contract [--output-format human|json]
+  cargo octet object supplement emit --family hir|mir [--function NAME] [PATHS...]
+  cargo octet object supplement check --family hir|mir --receipt RECEIPT.json [--function NAME] [PATHS...]
   cargo octet roadmap <artifact|capsule|ability|pointer|session|pure-cache> ...
   cargo octet transcript <PATH>
   cargo octet --version
@@ -254,8 +278,10 @@ Subcommands:
   corpus check --receipt RECEIPT.json [PATHS...] --output-format human|json
   corpus caveats [PATHS...] --output-format human|json
   corpus contract --output-format human|json
+  supplement emit --family hir|mir [--function NAME] [PATHS...] --output-format human|json
+  supplement check --family hir|mir --receipt RECEIPT.json [--function NAME] [PATHS...] --output-format human|json
 
-Function objects are source-token review/provenance evidence, not correctness proofs.
+Function objects are source-token review/provenance evidence. HIR/MIR supplements attach to v1 identity and are not correctness proofs.
 ";
 
 const ROADMAP_HELP: &str = "cargo octet roadmap
@@ -469,11 +495,12 @@ fn parse_object(args: &[String]) -> Result<ObjectArgs, String> {
         Some("pointer") => parse_object_pointer(&args[1..]),
         Some("bundle") => parse_object_bundle(&args[1..]),
         Some("corpus") => parse_object_corpus(&args[1..]),
+        Some("supplement") => parse_object_supplement(&args[1..]),
         Some(other) => Err(format!(
-            "unknown object subcommand `{other}`; expected `emit`, `check`, `update`, `diff`, `pointer`, `bundle`, or `corpus`"
+            "unknown object subcommand `{other}`; expected `emit`, `check`, `update`, `diff`, `pointer`, `bundle`, `corpus`, or `supplement`"
         )),
         None => Err(
-            "missing object subcommand; expected `emit`, `check`, `update`, `diff`, `pointer`, `bundle`, or `corpus`"
+            "missing object subcommand; expected `emit`, `check`, `update`, `diff`, `pointer`, `bundle`, `corpus`, or `supplement`"
                 .to_owned(),
         ),
     }
@@ -775,6 +802,99 @@ fn parse_object_corpus(args: &[String]) -> Result<ObjectArgs, String> {
     }
 }
 
+fn parse_object_supplement(args: &[String]) -> Result<ObjectArgs, String> {
+    match args.first().map(String::as_str) {
+        Some("emit") => parse_object_supplement_scan(true, &args[1..]),
+        Some("check") => parse_object_supplement_scan(false, &args[1..]),
+        Some(other) => Err(format!("unknown object supplement action `{other}`; expected `emit` or `check`")),
+        None => Err("missing object supplement action; expected `emit` or `check`".to_owned()),
+    }
+}
+
+fn parse_object_supplement_scan(emit: bool, args: &[String]) -> Result<ObjectArgs, String> {
+    let mut paths = Vec::new();
+    let mut function = None;
+    let mut family = None;
+    let mut receipt = None;
+    let mut output_format = OutputFormat::Human;
+    let mut index = 0;
+    while index < args.len() {
+        let arg = &args[index];
+        match arg.as_str() {
+            "--family" => {
+                family = Some(parse_supplement_family(
+                    args.get(index + 1).ok_or_else(|| "missing value after `--family`".to_owned())?,
+                )?);
+                index += 2;
+            }
+            "--function" => {
+                function =
+                    Some(args.get(index + 1).ok_or_else(|| "missing value after `--function`".to_owned())?.clone());
+                index += 2;
+            }
+            "--receipt" => {
+                receipt = Some(PathBuf::from(
+                    args.get(index + 1).ok_or_else(|| "missing value after `--receipt`".to_owned())?,
+                ));
+                index += 2;
+            }
+            "--output-format" => {
+                output_format = parse_output_format(
+                    args.get(index + 1).ok_or_else(|| "missing value after `--output-format`".to_owned())?,
+                )?;
+                index += 2;
+            }
+            _ if arg.starts_with("--family=") => {
+                family = Some(parse_supplement_family(arg.trim_start_matches("--family="))?);
+                index += 1;
+            }
+            _ if arg.starts_with("--function=") => {
+                function = Some(arg.trim_start_matches("--function=").to_owned());
+                index += 1;
+            }
+            _ if arg.starts_with("--receipt=") => {
+                receipt = Some(PathBuf::from(arg.trim_start_matches("--receipt=")));
+                index += 1;
+            }
+            _ if arg.starts_with("--output-format=") => {
+                output_format = parse_output_format(arg.trim_start_matches("--output-format="))?;
+                index += 1;
+            }
+            _ if arg.starts_with('-') => return Err(format!("unsupported object supplement argument `{arg}`")),
+            _ => {
+                paths.push(PathBuf::from(arg));
+                index += 1;
+            }
+        }
+    }
+    if paths.is_empty() {
+        paths.push(PathBuf::from("."));
+    }
+    let family = family.ok_or_else(|| "missing `--family`".to_owned())?;
+    let mode = if emit {
+        ObjectMode::SupplementEmit { family }
+    } else {
+        ObjectMode::SupplementCheck {
+            family,
+            receipt: receipt.ok_or_else(|| "missing `--receipt`".to_owned())?,
+        }
+    };
+    Ok(ObjectArgs {
+        mode,
+        paths,
+        function,
+        output_format,
+    })
+}
+
+fn parse_supplement_family(value: &str) -> Result<SupplementFamilyArg, String> {
+    match value {
+        "hir" => Ok(SupplementFamilyArg::Hir),
+        "mir" => Ok(SupplementFamilyArg::Mir),
+        other => Err(format!("unsupported supplement family `{other}`; expected `hir` or `mir`")),
+    }
+}
+
 fn optional_arg(args: &[String], flag: &str) -> Option<String> {
     if let Some(value) = args.iter().find_map(|arg| arg.strip_prefix(&format!("{flag}="))) {
         return Some(value.to_owned());
@@ -1024,6 +1144,65 @@ mod tests {
                 }
             }
             other => panic!("expected object args, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn object_parse_accepts_supplement_emit_and_check() {
+        let emit = parse(
+            [
+                "cargo",
+                "octet",
+                "object",
+                "supplement",
+                "emit",
+                "--family",
+                "hir",
+                "--function",
+                "checked",
+                "src/lib.rs",
+                "--output-format",
+                "json",
+            ]
+            .map(OsString::from),
+        )
+        .expect("parse supplement emit args");
+        match emit {
+            CommandArgs::Object(args) => {
+                assert_eq!(args.function.as_deref(), Some("checked"));
+                assert_eq!(args.paths.len(), 1);
+                assert_eq!(args.output_format, OutputFormat::Json);
+                assert!(matches!(args.mode, super::ObjectMode::SupplementEmit {
+                    family: super::SupplementFamilyArg::Hir
+                }));
+            }
+            other => panic!("expected object supplement emit args, got {other:?}"),
+        }
+
+        let check = parse(
+            [
+                "cargo",
+                "octet",
+                "object",
+                "supplement",
+                "check",
+                "--family=mir",
+                "--receipt",
+                "supplement.json",
+                "src/lib.rs",
+            ]
+            .map(OsString::from),
+        )
+        .expect("parse supplement check args");
+        match check {
+            CommandArgs::Object(args) => match args.mode {
+                super::ObjectMode::SupplementCheck { family, receipt } => {
+                    assert_eq!(family, super::SupplementFamilyArg::Mir);
+                    assert_eq!(receipt, std::path::PathBuf::from("supplement.json"));
+                }
+                other => panic!("expected supplement check mode, got {other:?}"),
+            },
+            other => panic!("expected object supplement check args, got {other:?}"),
         }
     }
 

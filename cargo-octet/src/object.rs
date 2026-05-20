@@ -10,6 +10,7 @@ use serde::Serialize;
 use crate::cli::ObjectArgs;
 use crate::cli::ObjectMode;
 use crate::cli::OutputFormat;
+use crate::cli::SupplementFamilyArg;
 use crate::determinism;
 use crate::fingerprint;
 
@@ -500,6 +501,12 @@ pub fn run(args: ObjectArgs) -> Result<i32, String> {
         ObjectMode::CorpusCheck { receipt } => run_corpus_check(&args.paths, &receipt, args.output_format),
         ObjectMode::CorpusCaveats => run_corpus_caveats(&args.paths, args.output_format),
         ObjectMode::CorpusContract => run_corpus_contract(args.output_format),
+        ObjectMode::SupplementEmit { family } => {
+            run_supplement_emit(&args.paths, args.function.as_deref(), family, args.output_format)
+        }
+        ObjectMode::SupplementCheck { family, receipt } => {
+            run_supplement_check(&args.paths, args.function.as_deref(), family, &receipt, args.output_format)
+        }
     }
 }
 
@@ -571,6 +578,190 @@ fn run_corpus_contract(output_format: OutputFormat) -> Result<i32, String> {
         OutputFormat::Sarif => unreachable!("SARIF rejected above"),
     }
     Ok(0)
+}
+
+fn run_supplement_emit(
+    paths: &[PathBuf],
+    function: Option<&str>,
+    family: SupplementFamilyArg,
+    output_format: OutputFormat,
+) -> Result<i32, String> {
+    if matches!(output_format, OutputFormat::Sarif) {
+        return Err("object supplement emit does not support SARIF output; use human or json".to_owned());
+    }
+    let supplements = supplement_records(paths, function, family)?;
+    if supplements.is_empty() {
+        return Err("no functions matched supplement emission selection".to_owned());
+    }
+    let report = serde_json::json!({
+        "schema_version": SUPPLEMENT_SCHEMA_VERSION,
+        "mode": "supplement-emit",
+        "family": family.as_str(),
+        "supplements": supplements,
+        "boundary": supplement_boundary(),
+    });
+    print_supplement_emit_report(&report, output_format)?;
+    Ok(0)
+}
+
+fn run_supplement_check(
+    paths: &[PathBuf],
+    function: Option<&str>,
+    family: SupplementFamilyArg,
+    receipt_path: &Path,
+    output_format: OutputFormat,
+) -> Result<i32, String> {
+    if matches!(output_format, OutputFormat::Sarif) {
+        return Err("object supplement check does not support SARIF output; use human or json".to_owned());
+    }
+    let expected = read_supplement_receipt(receipt_path)?;
+    let current = supplement_records(paths, function, family)?;
+    let current_first = current.first().ok_or_else(|| "no functions matched supplement check selection".to_owned())?;
+    let comparisons = supplement_comparisons(&expected, current_first);
+    let status = if comparisons.iter().all(|comparison| comparison.status == "match") {
+        "pass"
+    } else {
+        "fail"
+    };
+    let report = SupplementCheckReport {
+        schema_version: SUPPLEMENT_SCHEMA_VERSION,
+        mode: "supplement-check",
+        family: family.as_str(),
+        status,
+        receipt_path: determinism::normalize_path(receipt_path),
+        comparisons,
+        boundary: supplement_boundary(),
+    };
+    print_supplement_check_report(&report, output_format)?;
+    Ok(if status == "pass" { 0 } else { 1 })
+}
+
+fn supplement_records(
+    paths: &[PathBuf],
+    function: Option<&str>,
+    family: SupplementFamilyArg,
+) -> Result<Vec<FunctionObjectSupplementV1>, String> {
+    let context = runtime_pilot_context(family);
+    collect_objects(paths, function)?
+        .into_iter()
+        .map(|record| match family {
+            SupplementFamilyArg::Hir => Ok(pilot_hir_supplement(&record.object, &context)),
+            SupplementFamilyArg::Mir => Ok(pilot_mir_supplement(&record.object, &context)),
+        })
+        .collect()
+}
+
+fn runtime_pilot_context(family: SupplementFamilyArg) -> PilotSupplementContext {
+    let rustc_version = std::env::var("RUSTUP_TOOLCHAIN").unwrap_or_else(|_| "unknown-rustc-toolchain".to_owned());
+    let target_triple = std::env::var("TARGET")
+        .or_else(|_| std::env::var("HOST"))
+        .unwrap_or_else(|_| format!("{}-{}", std::env::consts::ARCH, std::env::consts::OS));
+    let extractor_name = match family {
+        SupplementFamilyArg::Hir => "octet-hir-pilot-source-token",
+        SupplementFamilyArg::Mir => "octet-mir-pilot-source-token",
+    };
+    PilotSupplementContext {
+        rustc_version,
+        target_triple,
+        extractor_name,
+        extractor_version: env!("CARGO_PKG_VERSION"),
+    }
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct SupplementCheckReport {
+    schema_version: u32,
+    mode: &'static str,
+    family: &'static str,
+    status: &'static str,
+    receipt_path: String,
+    comparisons: Vec<SupplementComparison>,
+    boundary: SupplementBoundary,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct SupplementComparison {
+    field: &'static str,
+    status: &'static str,
+    expected: serde_json::Value,
+    current: serde_json::Value,
+}
+
+fn read_supplement_receipt(path: &Path) -> Result<serde_json::Value, String> {
+    let value = read_json(path)?;
+    if let Some(supplements) = value.get("supplements").and_then(serde_json::Value::as_array) {
+        return supplements.first().cloned().ok_or_else(|| format!("{} has no supplements", path.display()));
+    }
+    Ok(value)
+}
+
+fn supplement_comparisons(
+    expected: &serde_json::Value,
+    current: &FunctionObjectSupplementV1,
+) -> Vec<SupplementComparison> {
+    let current = serde_json::to_value(current).expect("serialize current supplement");
+    [
+        "schema",
+        "schema_version",
+        "family",
+        "status",
+        "function_object_hash",
+        "source_path",
+        "function_name",
+        "rustc_version",
+        "target_triple",
+        "extractor",
+        "observation_hash",
+        "boundary",
+    ]
+    .into_iter()
+    .map(|field| {
+        let expected_value = expected.get(field).cloned().unwrap_or(serde_json::Value::Null);
+        let current_value = current.get(field).cloned().unwrap_or(serde_json::Value::Null);
+        SupplementComparison {
+            field,
+            status: if expected_value == current_value {
+                "match"
+            } else {
+                "mismatch"
+            },
+            expected: expected_value,
+            current: current_value,
+        }
+    })
+    .collect()
+}
+
+fn print_supplement_emit_report(report: &serde_json::Value, output_format: OutputFormat) -> Result<(), String> {
+    match output_format {
+        OutputFormat::Human => {
+            println!("octet object supplement emit family={}", report["family"].as_str().unwrap_or("unknown"));
+            let count = report["supplements"].as_array().map_or(0, Vec::len);
+            println!("summary total={count}");
+            println!("claims_correctness=false");
+            println!("claims_semantic_equivalence=false");
+        }
+        OutputFormat::Json => println!("{}", serde_json::to_string_pretty(report).map_err(|error| error.to_string())?),
+        OutputFormat::Sarif => unreachable!("SARIF rejected before supplement emit output"),
+    }
+    Ok(())
+}
+
+fn print_supplement_check_report(report: &SupplementCheckReport, output_format: OutputFormat) -> Result<(), String> {
+    match output_format {
+        OutputFormat::Human => {
+            println!("octet object supplement check status={} family={}", report.status, report.family);
+            println!("receipt_path={}", report.receipt_path);
+            for comparison in &report.comparisons {
+                println!("{}={}", comparison.field, comparison.status);
+            }
+            println!("claims_correctness={}", report.boundary.claims_correctness);
+            println!("claims_semantic_equivalence={}", report.boundary.claims_semantic_equivalence);
+        }
+        OutputFormat::Json => println!("{}", serde_json::to_string_pretty(report).map_err(|error| error.to_string())?),
+        OutputFormat::Sarif => unreachable!("SARIF rejected before supplement check output"),
+    }
+    Ok(())
 }
 
 #[allow(dead_code)]
@@ -1959,11 +2150,13 @@ mod tests {
     use super::ObjectSupplementStatus;
     use super::PilotSupplementContext;
     use super::SUPPLEMENT_STATUS_VALUES;
+    use super::SupplementFamilyArg;
     use super::canonical_supplement_json;
     use super::effect_caveats;
     use super::function_object_for_source;
     use super::pilot_hir_supplement;
     use super::pilot_mir_supplement;
+    use super::supplement_comparisons;
     use crate::fingerprint;
 
     #[test]
@@ -2056,6 +2249,41 @@ mod tests {
             extractor_name: "octet-hir-pilot-fixture",
             extractor_version: "fixture-v1",
         }
+    }
+
+    #[test]
+    fn supplement_check_comparisons_fail_closed_on_context_mismatch() {
+        let source = "pub fn checked(input: u32) -> u32 { input + 1 }\n";
+        let spans = fingerprint::find_functions(source);
+        let object = function_object_for_source(Path::new("src/lib.rs"), source, &spans[0], source)
+            .expect("build function object");
+        let current = pilot_hir_supplement(&object, &pilot_context());
+        let mut expected = serde_json::to_value(&current).expect("serialize expected supplement");
+        expected["rustc_version"] = serde_json::json!("different-rustc");
+
+        let comparisons = supplement_comparisons(&expected, &current);
+        let rustc = comparisons
+            .iter()
+            .find(|comparison| comparison.field == "rustc_version")
+            .expect("rustc comparison present");
+        let boundary = comparisons
+            .iter()
+            .find(|comparison| comparison.field == "boundary")
+            .expect("boundary comparison present");
+
+        assert_eq!(rustc.status, "mismatch");
+        assert_eq!(boundary.status, "match");
+        assert!(!current.boundary.claims_correctness);
+        assert!(!current.boundary.claims_semantic_equivalence);
+    }
+
+    #[test]
+    fn runtime_supplement_family_context_names_extractor() {
+        let hir = super::runtime_pilot_context(SupplementFamilyArg::Hir);
+        let mir = super::runtime_pilot_context(SupplementFamilyArg::Mir);
+        assert_eq!(hir.extractor_name, "octet-hir-pilot-source-token");
+        assert_eq!(mir.extractor_name, "octet-mir-pilot-source-token");
+        assert!(!hir.extractor_version.is_empty());
     }
 
     #[test]
