@@ -7,16 +7,16 @@
 
 ## Phase 2: Deterministic verification
 
-- [ ] V1 Verify scenario "Fixture HIR extraction attaches to Function Object v1" with focused cargo-octet fixture tests; save output at `openspec/changes/rustc-hir-extractor-spike/evidence/hir-fixture-attachment.txt`
-- [ ] V2 Verify scenario "HIR replay fails closed on context mismatch" with negative receipt fixtures; save output at `openspec/changes/rustc-hir-extractor-spike/evidence/hir-replay-negative.txt`
-- [ ] V3 Verify scenario "HIR spike support remains fixture bounded" with contract metadata and docs checks; save output at `openspec/changes/rustc-hir-extractor-spike/evidence/hir-fixture-bounded.txt`
-- [ ] V4 Verify scenario "HIR evidence has no correctness overclaim" with docs/output boundary checks; save output at `openspec/changes/rustc-hir-extractor-spike/evidence/hir-no-overclaim.txt`
-- [ ] V5 Verify aggregate Valence object evidence after the spike with `nix build .#checks.x86_64-linux.valence-object-evidence --no-link -L`; save output at `openspec/changes/rustc-hir-extractor-spike/evidence/valence-object-evidence.txt`
+- [x] V1 Verify scenario "Fixture HIR extraction attaches to Function Object v1" with focused cargo-octet fixture tests; save output at `openspec/changes/rustc-hir-extractor-spike/evidence/hir-fixture-attachment.txt`
+- [x] V2 Verify scenario "HIR replay fails closed on context mismatch" with negative receipt fixtures; save output at `openspec/changes/rustc-hir-extractor-spike/evidence/hir-replay-negative.txt`
+- [x] V3 Verify scenario "HIR spike support remains fixture bounded" with contract metadata and docs checks; save output at `openspec/changes/rustc-hir-extractor-spike/evidence/hir-fixture-bounded.txt`
+- [x] V4 Verify scenario "HIR evidence has no correctness overclaim" with docs/output boundary checks; save output at `openspec/changes/rustc-hir-extractor-spike/evidence/hir-no-overclaim.txt`
+- [x] V5 Verify aggregate Valence object evidence after the spike with `nix build .#checks.x86_64-linux.valence-object-evidence --no-link -L`; save output at `openspec/changes/rustc-hir-extractor-spike/evidence/valence-object-evidence.txt`
 
 ## Change Status
 
-- Status: in-progress
-- Open tasks: V1, V2, V3, V4, V5
+- Status: complete
+- Open tasks: none
 
 ## Verification Coverage
 

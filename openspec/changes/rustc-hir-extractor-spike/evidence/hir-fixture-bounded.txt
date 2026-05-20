@@ -1,0 +1,36 @@
+$ cargo test -p cargo-octet object_corpus_contract_metadata_reports_pilot -- --nocapture
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 35 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 35 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 35 filtered out; finished in 0.00s
+
+
+running 1 test
+test object_corpus_contract_metadata_reports_pilot_and_planned_supplement_statuses ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 52 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.00s
+
+$ cargo run -p cargo-octet --bin cargo-octet -- object corpus contract --output-format json
+assert.hir_status_pilot_supported: PASS
+assert.hir_reason_names_fixture_bounded: PASS
+assert.hir_replay_command_requires_spike_flag: PASS
+assert.hir_extractor_identity_names_fixture_spike: PASS
+assert.thir_remains_unsupported_planned: PASS
+assert.mir_remains_pilot_not_general: PASS
+assert.docs_name_fixture_backed_toolchain_scoped: PASS
+assert.docs_warn_future_nonpilot_requires_evidence: PASS
