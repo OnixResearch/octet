@@ -1,0 +1,103 @@
+command=review second-rustc-hir-fixture-shape fixture HIR observation and non-proof wording
+input=cargo-octet/tests/fixtures/hir-spike/clamp.rs plus generated rustc HIR observation evidence
+asserts=the added fixture shape broadens bounded observation evidence without implying general HIR support
+
+$ rustc -Z unpretty=hir-tree --crate-type lib cargo-octet/tests/fixtures/hir-spike/clamp.rs > GENERATED_HIR
+generated_hir_bytes=27309
+generated_hir_sha256=1793fb87a5ef3870d590980c4e355ee7d4c799ccd9f428a530dec527ef35ecc8
+
+$ cargo run -q -p cargo-octet --bin cargo-octet -- object supplement emit --family hir --spike rustc-hir-fixture --fixture-shape branch-control-flow --output-format json > BRANCH_RECEIPT
+receipt.scope=rustc-hir-fixture-spike
+receipt.family=hir
+receipt.mode=supplement-emit
+supplement.schema=octet.function-object-hir-supplement.v1
+supplement.status=pilot-supported
+supplement.source_path=cargo-octet/tests/fixtures/hir-spike/clamp.rs
+supplement.function_name=clamp_to_limit
+supplement.function_object_hash=b3:283d538fc9ade07b2d4cbcc82f9879bace9c088507eb9582d7781cb43904b2c6
+supplement.observation_hash=b3:0dcaf5455d6fab9b5793105a12032cd185c694c1b6be59e050034f31fdef895a
+supplement.rustc_version=rustc 1.96.0-nightly (ac7f9ec7d 2026-03-20)
+supplement.target_triple=x86_64-unknown-linux-gnu
+boundary.relationship_to_v1=attached-supplement-preserves-function-object-v1-identity
+boundary.identity_scope=review-and-provenance-evidence
+boundary.claims_correctness=false
+boundary.claims_semantic_equivalence=false
+boundary.claims_cross_toolchain_stability=false
+boundary.claims_pure_cache_eligibility=false
+fixture_context.status=pilot-supported
+fixture_context.detail=fixture=cargo-octet/tests/fixtures/hir-spike/clamp.rs; function=clamp_to_limit; fixture_shape=branch-control-flow; object_hash=b3:283d538fc9ade07b2d4cbcc82f9879bace9c088507eb9582d7781cb43904b2c6
+fixture_context.closed_selector=true
+
+fixture_source_review:
+pub fn clamp_to_limit(input: u32, limit: u32) -> u32 {
+    if input > limit {
+        limit
+    } else {
+        input
+    }
+}
+
+hir_observation_review_excerpt:
+18:                        owner_id: DefId(0:3 ~ clamp[6260]::clamp_to_limit),
+138:DefId(0:3 ~ clamp[6260]::clamp_to_limit) => OwnerNodes {
+143:                owner_id: DefId(0:3 ~ clamp[6260]::clamp_to_limit),
+155:                            inputs: [
+157:                                    hir_id: HirId(DefId(0:3 ~ clamp[6260]::clamp_to_limit).21),
+172:                                                        hir_id: HirId(DefId(0:3 ~ clamp[6260]::clamp_to_limit).22),
+187:                                    hir_id: HirId(DefId(0:3 ~ clamp[6260]::clamp_to_limit).23),
+202:                                                        hir_id: HirId(DefId(0:3 ~ clamp[6260]::clamp_to_limit).24),
+219:                                    hir_id: HirId(DefId(0:3 ~ clamp[6260]::clamp_to_limit).25),
+234:                                                        hir_id: HirId(DefId(0:3 ~ clamp[6260]::clamp_to_limit).26),
+251:                            lifetime_elision_allowed: false,
+255:                    ident: clamp_to_limit#0,
+264:                        hir_id: HirId(DefId(0:3 ~ clamp[6260]::clamp_to_limit).20),
+308:                    hir_id: HirId(DefId(0:3 ~ clamp[6260]::clamp_to_limit).1),
+310:                        hir_id: HirId(DefId(0:3 ~ clamp[6260]::clamp_to_limit).2),
+316:                            HirId(DefId(0:3 ~ clamp[6260]::clamp_to_limit).2),
+317:                            input#0,
+327:                    hir_id: HirId(DefId(0:3 ~ clamp[6260]::clamp_to_limit).3),
+329:                        hir_id: HirId(DefId(0:3 ~ clamp[6260]::clamp_to_limit).4),
+335:                            HirId(DefId(0:3 ~ clamp[6260]::clamp_to_limit).4),
+336:                            limit#0,
+347:                hir_id: HirId(DefId(0:3 ~ clamp[6260]::clamp_to_limit).20),
+353:                                hir_id: HirId(DefId(0:3 ~ clamp[6260]::clamp_to_limit).6),
+356:                                        hir_id: HirId(DefId(0:3 ~ clamp[6260]::clamp_to_limit).7),
+363:                                                hir_id: HirId(DefId(0:3 ~ clamp[6260]::clamp_to_limit).8),
+370:                                                                HirId(DefId(0:3 ~ clamp[6260]::clamp_to_limit).2),
+374:                                                                    ident: input#0,
+375:                                                                    hir_id: HirId(DefId(0:3 ~ clamp[6260]::clamp_to_limit).9),
+377:                                                                        HirId(DefId(0:3 ~ clamp[6260]::clamp_to_limit).2),
+389:                                                hir_id: HirId(DefId(0:3 ~ clamp[6260]::clamp_to_limit).10),
+396:                                                                HirId(DefId(0:3 ~ clamp[6260]::clamp_to_limit).4),
+400:                                                                    ident: limit#0,
+401:                                                                    hir_id: HirId(DefId(0:3 ~ clamp[6260]::clamp_to_limit).11),
+403:                                                                        HirId(DefId(0:3 ~ clamp[6260]::clamp_to_limit).4),
+418:                                        hir_id: HirId(DefId(0:3 ~ clamp[6260]::clamp_to_limit).15),
+424:                                                        hir_id: HirId(DefId(0:3 ~ clamp[6260]::clamp_to_limit).13),
+431:                                                                        HirId(DefId(0:3 ~ clamp[6260]::clamp_to_limit).4),
+435:                                                                            ident: limit#0,
+436:                                                                            hir_id: HirId(DefId(0:3 ~ clamp[6260]::clamp_to_limit).14),
+438:                                                                                HirId(DefId(0:3 ~ clamp[6260]::clamp_to_limit).4),
+
+non_proof_wording_checks:
+docs/content-addressed-rust-evidence-boundaries.md:11:- The v1 object hash is not a proof of behavioral correctness, semantic equivalence, build correctness, or distributed execution correctness.
+docs/content-addressed-rust-evidence-boundaries.md:27:HIR evidence MAY improve dependency summaries and macro-origin reporting. It MUST NOT claim cross-toolchain stability unless a separate verifier proves that claim for the named toolchains and corpus.
+docs/content-addressed-rust-evidence-boundaries.md:41:selected-fixture-backed/toolchain-scoped. Omit `--fixture-shape` to use the
+docs/contributor-guide.md:229:replay for the selected corpus; it is not a correctness proof, semantic
+docs/contributor-guide.md:256:rustc HIR fixture spike is selected-fixture-backed/toolchain-scoped review
+docs/contributor-guide.md:268:equivalence proof, pure-cache eligibility proof, cross-toolchain stability
+docs/contributor-guide.md:290:replay for the selected corpus, not a correctness proof, semantic-equivalence
+docs/contributor-guide.md:302:replay only; it is not a cross-machine, cross-toolchain, correctness, or
+cargo-octet/src/object.rs:789:            "rustc HIR spike is limited to selected checked-in fixture shapes and does not claim general HIR support"
+cargo-octet/src/object.rs:997:        detail: "MIR observation context is version-scoped and does not claim semantic equivalence".to_owned(),
+cargo-octet/src/object.rs:1399:            detail: "Contract metadata describes JSON compatibility for object corpus evidence; it does not prove behavioral correctness, semantic equivalence, cross-machine determinism, dependency resolution, macro expansion identity, or pure-cache eligibility.",
+cargo-octet/src/object.rs:1616:            determinism_note: "Receipt bytes are deterministic for the same selected source inputs and cargo-octet version; this is not a correctness proof.",
+cargo-octet/src/object.rs:1622:            detail: "Function object corpus receipts summarize source-token object identity and caveats; they do not prove behavioral correctness, semantic equivalence, dependency resolution, macro expansion identity, or pure-cache eligibility.",
+cargo-octet/src/object.rs:1669:            detail: "Function object corpus caveat taxonomy reports explain source-token caveat and pure-cache blocker distribution; they do not prove behavioral correctness, semantic equivalence, dependency resolution, macro expansion identity, or pure-cache eligibility.",
+cargo-octet/src/object.rs:1886:            detail: "Function object hashes identify reviewed source evidence and caveats; they do not prove behavioral correctness.",
+
+assert.added_fixture_shape_broadens_bounded_observation_evidence: PASS
+assert.branch_control_flow_is_named_selected_fixture_shape: PASS
+assert.function_object_v1_identity_is_attached_not_replaced: PASS
+assert.non_proof_wording_avoids_general_hir_support: PASS
+assert.no_correctness_semantic_equivalence_cross_toolchain_or_pure_cache_claim: PASS
