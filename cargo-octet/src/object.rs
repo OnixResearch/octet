@@ -3,6 +3,7 @@ use std::collections::BTreeSet;
 use std::fs;
 use std::path::Path;
 use std::path::PathBuf;
+use std::process::Command;
 
 use serde::Deserialize;
 use serde::Serialize;
@@ -20,6 +21,10 @@ const HIR_SUPPLEMENT_SCHEMA: &str = "octet.function-object-hir-supplement.v1";
 #[allow(dead_code)]
 const MIR_SUPPLEMENT_SCHEMA: &str = "octet.function-object-mir-supplement.v1";
 const THIR_SUPPLEMENT_SCHEMA: &str = "octet.function-object-thir-supplement.v1";
+const RUSTC_HIR_SPIKE_EXTRACTOR_NAME: &str = "octet-rustc-hir-fixture-spike";
+const RUSTC_HIR_SPIKE_EXTRACTOR_VERSION: &str = env!("CARGO_PKG_VERSION");
+const RUSTC_HIR_SPIKE_FIXTURE_RELATIVE_PATH: &str = "cargo-octet/tests/fixtures/hir-spike/checked.rs";
+const RUSTC_HIR_SPIKE_FUNCTION: &str = "checked";
 #[allow(dead_code)]
 const SUPPLEMENT_SCHEMA_VERSION: u32 = 1;
 const CORPUS_RECEIPT_SCHEMA: &str = "octet.function-object-corpus-receipt.v1";
@@ -669,6 +674,123 @@ fn runtime_pilot_context(family: SupplementFamilyArg) -> PilotSupplementContext 
         extractor_name,
         extractor_version: env!("CARGO_PKG_VERSION"),
     }
+}
+
+#[allow(dead_code)]
+fn rustc_hir_spike_supplement(fixture_path: &Path, function: &str) -> Result<FunctionObjectSupplementV1, String> {
+    if function != RUSTC_HIR_SPIKE_FUNCTION {
+        return Err(format!(
+            "rustc HIR spike is fixture-bounded to function `{RUSTC_HIR_SPIKE_FUNCTION}`, got `{function}`"
+        ));
+    }
+    if determinism::normalize_path(fixture_path) != RUSTC_HIR_SPIKE_FIXTURE_RELATIVE_PATH {
+        return Err(format!(
+            "rustc HIR spike is fixture-bounded to `{RUSTC_HIR_SPIKE_FIXTURE_RELATIVE_PATH}`, got `{}`",
+            determinism::normalize_path(fixture_path)
+        ));
+    }
+
+    let read_path = rustc_hir_spike_read_path(fixture_path);
+    let source = fs::read_to_string(&read_path).map_err(|error| format!("read {}: {error}", read_path.display()))?;
+    let span = fingerprint::find_functions(&source)
+        .into_iter()
+        .find(|span| span.name == function)
+        .ok_or_else(|| format!("fixture {} does not contain function `{function}`", read_path.display()))?;
+    let object = function_object_for_source(fixture_path, &source, &span, &source[span.start..span.end])?;
+    let hir_tree = rustc_hir_tree(&read_path)?;
+    let context = runtime_rustc_hir_spike_context()?;
+    let hir_tree_hash = determinism::full_hash(&hir_tree);
+    let function_owner_marker = format!("::{function}");
+
+    let mut observations = BTreeMap::new();
+    observations.insert("fixture_context".to_owned(), SupplementObservation {
+        status: ObjectSupplementStatus::PilotSupported.as_str(),
+        detail: format!(
+            "fixture={}; function={function}; object_hash={}",
+            determinism::normalize_path(fixture_path),
+            object.object_hash
+        ),
+    });
+    observations.insert("rustc_hir_tree_hash".to_owned(), SupplementObservation {
+        status: ObjectSupplementStatus::PilotSupported.as_str(),
+        detail: format!("rustc -Z unpretty=hir-tree output hash={hir_tree_hash}"),
+    });
+    observations.insert("function_owner_marker".to_owned(), SupplementObservation {
+        status: if hir_tree.contains(&function_owner_marker) {
+            ObjectSupplementStatus::PilotSupported.as_str()
+        } else {
+            ObjectSupplementStatus::Unsupported.as_str()
+        },
+        detail: format!("HIR tree contains selected owner marker `{function_owner_marker}`"),
+    });
+    observations.insert("support_boundary".to_owned(), SupplementObservation {
+        status: ObjectSupplementStatus::Unsupported.as_str(),
+        detail: "rustc HIR spike is limited to the checked fixture and does not claim general HIR support".to_owned(),
+    });
+
+    let mut supplement = supplement_for_object(ObjectSupplementFamily::Hir, &object, &context, observations);
+    supplement.extraction_caveats.push(SupplementCaveat {
+        family: ObjectSupplementFamily::Hir.as_str(),
+        status: ObjectSupplementStatus::Unsupported.as_str(),
+        detail: "rustc-backed HIR observation is fixture-bounded and derived from rustc -Z unpretty=hir-tree; it is not a correctness or semantic-equivalence proof".to_owned(),
+    });
+    Ok(supplement)
+}
+
+#[allow(dead_code)]
+fn runtime_rustc_hir_spike_context() -> Result<PilotSupplementContext, String> {
+    let version_output = Command::new(rustc_command())
+        .arg("-vV")
+        .output()
+        .map_err(|error| format!("run rustc -vV: {error}"))?;
+    if !version_output.status.success() {
+        return Err(format!("rustc -vV failed: {}", String::from_utf8_lossy(&version_output.stderr).trim()));
+    }
+    let version_text = String::from_utf8_lossy(&version_output.stdout).trim().to_owned();
+    let target_triple = version_text
+        .lines()
+        .find_map(|line| line.strip_prefix("host: "))
+        .unwrap_or("unknown-rustc-host")
+        .to_owned();
+    Ok(PilotSupplementContext {
+        rustc_version: version_text,
+        target_triple,
+        extractor_name: RUSTC_HIR_SPIKE_EXTRACTOR_NAME,
+        extractor_version: RUSTC_HIR_SPIKE_EXTRACTOR_VERSION,
+    })
+}
+
+#[allow(dead_code)]
+fn rustc_hir_spike_read_path(fixture_path: &Path) -> PathBuf {
+    if fixture_path.exists() {
+        return fixture_path.to_path_buf();
+    }
+    fixture_path
+        .strip_prefix("cargo-octet")
+        .map(Path::to_path_buf)
+        .unwrap_or_else(|_| fixture_path.to_path_buf())
+}
+
+#[allow(dead_code)]
+fn rustc_hir_tree(fixture_path: &Path) -> Result<String, String> {
+    let output = Command::new(rustc_command())
+        .args(["-Z", "unpretty=hir-tree", "--crate-type", "lib"])
+        .arg(fixture_path)
+        .output()
+        .map_err(|error| format!("run rustc HIR tree extractor for {}: {error}", fixture_path.display()))?;
+    if !output.status.success() {
+        return Err(format!(
+            "rustc HIR tree extractor failed for {}: {}",
+            fixture_path.display(),
+            String::from_utf8_lossy(&output.stderr).trim()
+        ));
+    }
+    String::from_utf8(output.stdout).map_err(|error| format!("rustc HIR output was not UTF-8: {error}"))
+}
+
+#[allow(dead_code)]
+fn rustc_command() -> String {
+    std::env::var("RUSTC").unwrap_or_else(|_| "rustc".to_owned())
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -2217,6 +2339,10 @@ mod tests {
 
     use super::ObjectSupplementStatus;
     use super::PilotSupplementContext;
+    use super::RUSTC_HIR_SPIKE_EXTRACTOR_NAME;
+    use super::RUSTC_HIR_SPIKE_EXTRACTOR_VERSION;
+    use super::RUSTC_HIR_SPIKE_FIXTURE_RELATIVE_PATH;
+    use super::RUSTC_HIR_SPIKE_FUNCTION;
     use super::SUPPLEMENT_STATUS_VALUES;
     use super::SupplementFamilyArg;
     use super::canonical_supplement_json;
@@ -2224,6 +2350,7 @@ mod tests {
     use super::function_object_for_source;
     use super::pilot_hir_supplement;
     use super::pilot_mir_supplement;
+    use super::rustc_hir_spike_supplement;
     use super::supplement_comparisons;
     use crate::fingerprint;
 
@@ -2308,6 +2435,36 @@ mod tests {
         }
         assert!(!supplement.boundary.claims_cross_toolchain_stability);
         assert!(!supplement.boundary.claims_semantic_equivalence);
+    }
+
+    #[test]
+    fn rustc_hir_spike_helper_records_fixture_context_and_hashes() {
+        let fixture = Path::new(RUSTC_HIR_SPIKE_FIXTURE_RELATIVE_PATH);
+        let supplement =
+            rustc_hir_spike_supplement(fixture, RUSTC_HIR_SPIKE_FUNCTION).expect("rustc HIR spike supplement");
+        let json = canonical_supplement_json(&supplement).expect("canonical rustc HIR supplement json");
+
+        assert_eq!(supplement.schema, "octet.function-object-hir-supplement.v1");
+        assert_eq!(supplement.family, "hir");
+        assert_eq!(supplement.source_path, RUSTC_HIR_SPIKE_FIXTURE_RELATIVE_PATH);
+        assert_eq!(supplement.function_name, RUSTC_HIR_SPIKE_FUNCTION);
+        assert_eq!(supplement.extractor.name, RUSTC_HIR_SPIKE_EXTRACTOR_NAME);
+        assert_eq!(supplement.extractor.version, RUSTC_HIR_SPIKE_EXTRACTOR_VERSION);
+        assert!(supplement.rustc_version.contains("rustc "));
+        assert!(!supplement.target_triple.is_empty());
+        assert!(supplement.observations.contains_key("rustc_hir_tree_hash"));
+        assert!(supplement.observations.contains_key("fixture_context"));
+        assert!(supplement.observation_hash.starts_with("b3:"));
+        assert!(json.contains("fixture-bounded"));
+        assert!(json.contains("\"claims_correctness\": false"));
+        assert!(json.contains("\"claims_semantic_equivalence\": false"));
+    }
+
+    #[test]
+    fn rustc_hir_spike_helper_rejects_non_fixture_context() {
+        let error = rustc_hir_spike_supplement(Path::new("src/lib.rs"), RUSTC_HIR_SPIKE_FUNCTION)
+            .expect_err("non-fixture path should fail closed");
+        assert!(error.contains("fixture-bounded"));
     }
 
     fn pilot_context() -> PilotSupplementContext {
