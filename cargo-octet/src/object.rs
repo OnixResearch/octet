@@ -519,6 +519,9 @@ pub fn run(args: ObjectArgs) -> Result<i32, String> {
         ObjectMode::SupplementCheck { family, scope, receipt } => {
             run_supplement_check(&args.paths, args.function.as_deref(), family, scope, &receipt, args.output_format)
         }
+        ObjectMode::SupplementFixtures { .. } => {
+            Err("object supplement fixtures inventory is parsed but not implemented yet".to_owned())
+        }
     }
 }
 
