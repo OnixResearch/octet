@@ -206,7 +206,7 @@ pub fn parse(argv: impl IntoIterator<Item = OsString>) -> Result<CommandArgs, St
         Some("fingerprint") => parse_fingerprint(&argv[1..]).map(CommandArgs::Fingerprint),
         Some("migrate") if wants_help(&argv[1..]) => Ok(CommandArgs::Help(HelpTopic::Migrate)),
         Some("migrate") => parse_migrate(&argv[1..]).map(CommandArgs::Migrate),
-        Some("object") if wants_help(&argv[1..]) => Ok(CommandArgs::Help(HelpTopic::Object)),
+        Some("object") if object_wants_help(&argv[1..]) => Ok(CommandArgs::Help(HelpTopic::Object)),
         Some("object") => parse_object(&argv[1..]).map(CommandArgs::Object),
         Some("roadmap") if wants_help(&argv[1..]) => Ok(CommandArgs::Help(HelpTopic::Roadmap)),
         Some("roadmap") => crate::roadmap::parse(&argv[1..]).map(CommandArgs::Roadmap),
@@ -224,6 +224,10 @@ pub fn parse(argv: impl IntoIterator<Item = OsString>) -> Result<CommandArgs, St
 
 fn wants_help(args: &[String]) -> bool {
     matches!(args.first().map(String::as_str), Some("--help" | "-h" | "help"))
+}
+
+fn object_wants_help(args: &[String]) -> bool {
+    wants_help(args) || args.iter().any(|arg| matches!(arg.as_str(), "--help" | "-h"))
 }
 
 pub fn help_text(topic: HelpTopic) -> &'static str {
@@ -1276,6 +1280,15 @@ mod tests {
 
         let check = parse(["cargo", "octet", "check", "--help"].map(OsString::from)).expect("parse check help");
         assert!(matches!(check, CommandArgs::Help(HelpTopic::Check)));
+
+        for args in [
+            &["cargo", "octet", "object", "--help"][..],
+            &["cargo", "octet", "object", "supplement", "emit", "--help"][..],
+            &["cargo", "octet", "object", "supplement", "check", "--help"][..],
+        ] {
+            let parsed = parse(args.iter().map(OsString::from)).expect("parse object help");
+            assert!(matches!(parsed, CommandArgs::Help(HelpTopic::Object)));
+        }
     }
 
     #[test]
