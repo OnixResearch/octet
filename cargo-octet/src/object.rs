@@ -437,6 +437,7 @@ struct ObjectSupplementalEvidenceContract {
     unsupported_reason: &'static str,
     required_evidence_before_support: Vec<&'static str>,
     extractor_identity_expectations: Vec<&'static str>,
+    selected_fixture_shapes: Vec<&'static str>,
     fixture_replay_command: &'static str,
     claims_correctness: bool,
     claims_semantic_equivalence: bool,
@@ -784,7 +785,9 @@ fn rustc_hir_spike_supplement(fixture_path: &Path, function: &str) -> Result<Fun
     });
     observations.insert("support_boundary".to_owned(), SupplementObservation {
         status: ObjectSupplementStatus::Unsupported.as_str(),
-        detail: "rustc HIR spike is limited to the checked fixture and does not claim general HIR support".to_owned(),
+        detail:
+            "rustc HIR spike is limited to selected checked-in fixture shapes and does not claim general HIR support"
+                .to_owned(),
     });
 
     let mut supplement = supplement_for_object(ObjectSupplementFamily::Hir, &object, &context, observations);
@@ -1421,22 +1424,27 @@ fn supplemental_evidence_contracts() -> Vec<ObjectSupplementalEvidenceContract> 
                 "extraction_caveats",
                 "boundary",
             ],
-            unsupported_reason: "bounded pilot source-token HIR fixture plus rustc HIR fixture spike only; non-fixture HIR requests remain unsupported-planned until general extractor evidence is added",
+            unsupported_reason: "bounded pilot source-token HIR fixture plus selected rustc HIR fixture shapes [checked-arithmetic, branch-control-flow] only; non-fixture HIR requests remain unsupported-planned until general extractor evidence is added",
             required_evidence_before_support: vec![
                 "positive-cli-supplement-emit-check-smoke",
                 "positive-rustc-hir-fixture-spike-emit-check-smoke",
+                "positive-rustc-hir-selected-fixture-shape-smoke",
                 "negative-context-mismatch-check-smoke",
                 "negative-rustc-hir-fixture-spike-replay-mismatch-smoke",
+                "negative-rustc-hir-selected-fixture-shape-mismatch-smoke",
                 "non-proof-boundary-assertions",
             ],
             extractor_identity_expectations: vec![
                 "extractor.name=octet-hir-pilot-source-token for default pilot scope",
                 "extractor.name=octet-rustc-hir-fixture-spike for --spike rustc-hir-fixture",
+                "fixture_shape=checked-arithmetic maps to checked.rs::checked",
+                "fixture_shape=branch-control-flow maps to clamp.rs::clamp_to_limit",
                 "extractor.version=cargo-octet-package-version",
                 "rustc_version=runtime-rustc-vv",
                 "target_triple=runtime-rustc-host",
             ],
-            fixture_replay_command: "cargo octet object supplement emit --family hir --spike rustc-hir-fixture --output-format json && cargo octet object supplement check --family hir --spike rustc-hir-fixture --receipt RECEIPT.json --output-format json",
+            selected_fixture_shapes: vec!["checked-arithmetic", "branch-control-flow"],
+            fixture_replay_command: "cargo octet object supplement emit --family hir --spike rustc-hir-fixture --fixture-shape checked-arithmetic --output-format json && cargo octet object supplement check --family hir --spike rustc-hir-fixture --fixture-shape checked-arithmetic --receipt RECEIPT.json --output-format json; repeat with --fixture-shape branch-control-flow",
             claims_correctness: false,
             claims_semantic_equivalence: false,
             claims_cross_toolchain_stability: false,
@@ -1471,6 +1479,7 @@ fn supplemental_evidence_contracts() -> Vec<ObjectSupplementalEvidenceContract> 
                 "rustc_version=exact-toolchain",
                 "target_triple=exact-target",
             ],
+            selected_fixture_shapes: Vec::new(),
             fixture_replay_command: "unsupported-planned: add deterministic THIR fixture emit/check evidence before enabling",
             claims_correctness: false,
             claims_semantic_equivalence: false,
@@ -1509,6 +1518,7 @@ fn supplemental_evidence_contracts() -> Vec<ObjectSupplementalEvidenceContract> 
                 "rustc_version=runtime-rustc-vv",
                 "target_triple=runtime-rustc-host",
             ],
+            selected_fixture_shapes: Vec::new(),
             fixture_replay_command: "cargo octet object supplement emit --family mir --function checked src/lib.rs --output-format json && cargo octet object supplement check --family mir --receipt RECEIPT.json --function checked src/lib.rs --output-format json",
             claims_correctness: false,
             claims_semantic_equivalence: false,
@@ -1546,6 +1556,11 @@ fn print_corpus_contract_human(report: &ObjectCorpusContractReport) {
             "supplemental_evidence {} extractor_identity_expectations={}",
             supplement.family,
             supplement.extractor_identity_expectations.join(",")
+        );
+        println!(
+            "supplemental_evidence {} selected_fixture_shapes={}",
+            supplement.family,
+            supplement.selected_fixture_shapes.join(",")
         );
         println!(
             "supplemental_evidence {} fixture_replay_command={}",
