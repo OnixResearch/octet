@@ -1875,6 +1875,72 @@ fn hir_mir_supplement_pilot_docs_name_commands_and_non_proofs() {
 }
 
 #[test]
+fn object_supplement_runtime_smoke_covers_nested_help_and_inventory() {
+    let root = repo_root();
+
+    for args in [
+        &["object", "supplement", "emit", "--help"][..],
+        &["object", "supplement", "check", "--help"][..],
+        &["object", "supplement", "fixtures", "--help"][..],
+    ] {
+        let output = Command::new(cargo_octet())
+            .args(args)
+            .current_dir(&root)
+            .output()
+            .unwrap_or_else(|error| panic!("run nested supplement help {args:?}: {error}"));
+        assert!(
+            output.status.success(),
+            "nested supplement help {args:?} failed stdout={} stderr={}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(stdout.contains("cargo octet object"), "help missing object usage for {args:?}: {stdout}");
+        assert!(
+            stdout.contains("supplement fixtures --family hir --spike rustc-hir-fixture"),
+            "help missing scoped fixture inventory command for {args:?}: {stdout}"
+        );
+    }
+
+    let inventory = Command::new(cargo_octet())
+        .args([
+            "object",
+            "supplement",
+            "fixtures",
+            "--family",
+            "hir",
+            "--spike",
+            "rustc-hir-fixture",
+            "--output-format",
+            "json",
+        ])
+        .current_dir(&root)
+        .output()
+        .expect("run HIR fixture inventory json smoke");
+    assert!(
+        inventory.status.success(),
+        "inventory smoke failed stdout={} stderr={}",
+        String::from_utf8_lossy(&inventory.stdout),
+        String::from_utf8_lossy(&inventory.stderr)
+    );
+    let json: serde_json::Value = serde_json::from_slice(&inventory.stdout).expect("inventory smoke json");
+    assert_eq!(json["schema"], "octet.hir-fixture-inventory.v1");
+    assert_eq!(json["scope"], "rustc-hir-fixture-spike");
+    assert_eq!(json["default_shape"], "checked-arithmetic");
+    let shapes = json["shapes"].as_array().expect("fixture inventory shapes array");
+    assert_eq!(shapes.len(), 2, "inventory should remain a closed two-shape fixture set: {json:#?}");
+    for selector in ["checked-arithmetic", "branch-control-flow"] {
+        let fixture = shapes
+            .iter()
+            .find(|fixture| fixture["shape"] == selector)
+            .unwrap_or_else(|| panic!("missing fixture selector {selector}: {json:#?}"));
+        assert_eq!(fixture["support_status"], "pilot-supported");
+        assert!(fixture["emit_command"].as_str().unwrap().contains(selector));
+        assert!(fixture["check_command"].as_str().unwrap().contains(selector));
+    }
+}
+
+#[test]
 fn object_corpus_contract_metadata_reports_receipt_and_check_shapes() {
     let root = repo_root();
     let contract = object_corpus_contract(&root);
