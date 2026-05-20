@@ -242,20 +242,27 @@ cargo octet object corpus contract --output-format json
 ```
 
 For the fixture-backed rustc HIR spike, keep the explicit spike flag in both
-emit and replay commands:
+emit and replay commands. Omit `--fixture-shape` to use the default checked
+arithmetic fixture, or name one of the closed checked-in fixture shapes:
 
 ```bash
-cargo octet object supplement emit --family hir --spike rustc-hir-fixture --output-format json > hir-spike.json
-cargo octet object supplement check --family hir --spike rustc-hir-fixture --receipt hir-spike.json --output-format json
+cargo octet object supplement emit --family hir --spike rustc-hir-fixture --fixture-shape checked-arithmetic --output-format json > hir-spike-checked.json
+cargo octet object supplement check --family hir --spike rustc-hir-fixture --fixture-shape checked-arithmetic --receipt hir-spike-checked.json --output-format json
+cargo octet object supplement emit --family hir --spike rustc-hir-fixture --fixture-shape branch-control-flow --output-format json > hir-spike-branch.json
+cargo octet object supplement check --family hir --spike rustc-hir-fixture --fixture-shape branch-control-flow --receipt hir-spike-branch.json --output-format json
 ```
 
 The pilot HIR/MIR supplements are source-token-bounded review evidence. The
-rustc HIR fixture spike is fixture-backed/toolchain-scoped review evidence. They
-attach to the existing `octet.function-object.v1` `object_hash`; they do not replace it as the review/provenance identity. Treat `hir` and `mir`
-`pilot-supported` contract metadata as support for the checked pilot emit/check
-surface plus the explicit `--spike rustc-hir-fixture` fixture path only. `thir` remains `unsupported-planned`, and future non-pilot HIR, THIR, or MIR families
-must stay planned/unsupported until deterministic positive and negative fixture
-evidence exists.
+rustc HIR fixture spike is selected-fixture-backed/toolchain-scoped review
+evidence for exactly `checked-arithmetic` (`checked.rs::checked`) and
+`branch-control-flow` (`clamp.rs::clamp_to_limit`). They attach to the existing
+`octet.function-object.v1` `object_hash`; they do not replace it as the
+review/provenance identity. Treat `hir` and `mir` `pilot-supported` contract
+metadata as support for the checked pilot emit/check surface plus the explicit
+`--spike rustc-hir-fixture` selected fixture shapes only. `thir` remains
+`unsupported-planned`, and future non-pilot HIR, THIR, or MIR families must stay
+planned/unsupported until deterministic positive and negative fixture evidence
+exists.
 
 Do not describe a matching HIR/MIR supplement as a correctness proof, semantic-
 equivalence proof, pure-cache eligibility proof, cross-toolchain stability

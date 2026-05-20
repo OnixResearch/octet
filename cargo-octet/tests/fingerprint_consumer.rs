@@ -1838,10 +1838,15 @@ fn hir_mir_supplement_pilot_docs_name_commands_and_non_proofs() {
         "cargo octet object corpus contract --output-format json",
         "cargo octet object supplement emit --family hir --spike rustc-hir-fixture",
         "cargo octet object supplement check --family hir --spike rustc-hir-fixture",
+        "--fixture-shape checked-arithmetic",
+        "--fixture-shape branch-control-flow",
+        "selected-fixture-backed/toolchain-scoped review",
+        "checked.rs::checked",
+        "clamp.rs::clamp_to_limit",
         "source-token-bounded review evidence",
-        "fixture-backed/toolchain-scoped review evidence",
-        "they do not replace it as the review/provenance identity",
-        "thir` remains `unsupported-planned`",
+        "selected-fixture-backed/toolchain-scoped review",
+        "do not replace it as the",
+        "`thir` remains",
         "correctness proof",
         "semantic-equivalence proof",
         "pure-cache eligibility proof",
@@ -1857,8 +1862,11 @@ fn hir_mir_supplement_pilot_docs_name_commands_and_non_proofs() {
         "cargo octet object supplement check --family mir",
         "cargo octet object supplement emit --family hir --spike rustc-hir-fixture",
         "cargo octet object supplement check --family hir --spike rustc-hir-fixture",
+        "--fixture-shape checked-arithmetic",
+        "--fixture-shape branch-control-flow",
         "attached supplement to `octet.function-object.v1`",
-        "fixture-backed/toolchain-scoped",
+        "selected-fixture-backed/toolchain-scoped",
+        "arbitrary-path and non-fixture HIR remain",
         "THIR and any unimplemented non-pilot HIR/MIR family remain `unsupported-planned`",
         "MUST NOT claim stable identity across compiler versions",
     ] {
@@ -1927,6 +1935,28 @@ fn object_corpus_contract_metadata_reports_pilot_and_planned_supplement_statuses
     assert!(
         hir["fixture_replay_command"].as_str().unwrap().contains("--spike rustc-hir-fixture"),
         "HIR replay command should name fixture spike scope: {hir:#?}"
+    );
+    for fixture_shape in ["checked-arithmetic", "branch-control-flow"] {
+        assert!(
+            hir["selected_fixture_shapes"].as_array().unwrap().iter().any(|value| value == fixture_shape),
+            "HIR contract should name selected fixture shape {fixture_shape}: {hir:#?}"
+        );
+        assert!(
+            hir["fixture_replay_command"].as_str().unwrap().contains(fixture_shape)
+                || hir["extractor_identity_expectations"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .any(|value| { value.as_str().unwrap().contains(fixture_shape) }),
+            "HIR contract should bind selected fixture shape {fixture_shape} to replay or extractor expectations: {hir:#?}"
+        );
+    }
+    assert!(
+        hir["unsupported_reason"]
+            .as_str()
+            .unwrap()
+            .contains("non-fixture HIR requests remain unsupported-planned"),
+        "HIR contract should reject broad/non-fixture HIR support claims: {hir:#?}"
     );
     assert!(
         hir["extractor_identity_expectations"]
@@ -2021,6 +2051,7 @@ fn object_corpus_contract_human_reports_hir_mir_fail_closed_boundaries() {
         "optional-supplement-preserves-function-object-v1-identity",
         "toolchain_scope=rustc-version",
         "extractor_identity_expectations=",
+        "selected_fixture_shapes=checked-arithmetic,branch-control-flow",
         "fixture_replay_command=",
         "claims_correctness=false",
         "claims_semantic_equivalence=false",

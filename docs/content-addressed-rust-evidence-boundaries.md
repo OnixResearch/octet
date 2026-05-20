@@ -38,18 +38,23 @@ The pilot HIR supplement is source-token bounded. It reports contract status
 attached supplement to `octet.function-object.v1`.
 
 The current rustc-backed HIR spike is narrower than general HIR support and is
-fixture-backed/toolchain-scoped:
+selected-fixture-backed/toolchain-scoped. Omit `--fixture-shape` to use the
+default checked arithmetic fixture, or select one of the closed fixture shapes:
 
 ```bash
-cargo octet object supplement emit --family hir --spike rustc-hir-fixture --output-format json
-cargo octet object supplement check --family hir --spike rustc-hir-fixture --receipt hir-spike.json --output-format json
+cargo octet object supplement emit --family hir --spike rustc-hir-fixture --fixture-shape checked-arithmetic --output-format json
+cargo octet object supplement check --family hir --spike rustc-hir-fixture --fixture-shape checked-arithmetic --receipt hir-spike.json --output-format json
+cargo octet object supplement emit --family hir --spike rustc-hir-fixture --fixture-shape branch-control-flow --output-format json
+cargo octet object supplement check --family hir --spike rustc-hir-fixture --fixture-shape branch-control-flow --receipt hir-spike.json --output-format json
 ```
 
 The rustc HIR fixture spike records `octet-rustc-hir-fixture-spike` extractor
-identity, exact `rustc -vV`/host identity, fixture path/function context, HIR
-observation hash, extraction caveats, and fail-closed replay comparisons. It is
-not general HIR support; non-fixture HIR remains planned/unsupported until its
-own positive and negative deterministic evidence exists.
+identity, exact `rustc -vV`/host identity, selected fixture shape
+(`checked-arithmetic` or `branch-control-flow`), fixture path/function context,
+HIR observation hash, extraction caveats, and fail-closed replay comparisons. It
+is not general HIR support; arbitrary-path and non-fixture HIR remain
+planned/unsupported until their own positive and negative deterministic evidence
+exists.
 
 ## MIR supplemental evidence boundary
 
