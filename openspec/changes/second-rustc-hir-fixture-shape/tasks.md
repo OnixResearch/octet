@@ -1,6 +1,6 @@
 ## Phase 1: Implementation
 
-- [ ] I1 Add one checked-in second rustc HIR fixture shape and closed fixture selector.
+- [x] I1 Add one checked-in second rustc HIR fixture shape and closed fixture selector.
 - [ ] I2 Wire rustc HIR supplement emit/check to select the second fixture shape while preserving default first-fixture behavior.
 - [ ] I3 Update contract metadata and operator docs to name selected-fixture bounded support without broad HIR claims.
 
@@ -18,7 +18,7 @@
 ## Change Status
 
 - Status: in-progress
-- Open tasks: I1, I2, I3, V1, V2, V3, V4, H1
+- Open tasks: I2, I3, V1, V2, V3, V4, H1
 
 ## Verification Coverage
 

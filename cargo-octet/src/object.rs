@@ -26,6 +26,8 @@ const RUSTC_HIR_SPIKE_EXTRACTOR_NAME: &str = "octet-rustc-hir-fixture-spike";
 const RUSTC_HIR_SPIKE_EXTRACTOR_VERSION: &str = env!("CARGO_PKG_VERSION");
 const RUSTC_HIR_SPIKE_FIXTURE_RELATIVE_PATH: &str = "cargo-octet/tests/fixtures/hir-spike/checked.rs";
 const RUSTC_HIR_SPIKE_FUNCTION: &str = "checked";
+const RUSTC_HIR_SPIKE_BRANCH_FIXTURE_RELATIVE_PATH: &str = "cargo-octet/tests/fixtures/hir-spike/clamp.rs";
+const RUSTC_HIR_SPIKE_BRANCH_FUNCTION: &str = "clamp_to_limit";
 #[allow(dead_code)]
 const SUPPLEMENT_SCHEMA_VERSION: u32 = 1;
 const CORPUS_RECEIPT_SCHEMA: &str = "octet.function-object-corpus-receipt.v1";
@@ -704,19 +706,47 @@ fn runtime_pilot_context(family: SupplementFamilyArg) -> PilotSupplementContext 
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct RustcHirSpikeFixture {
+    relative_path: &'static str,
+    function: &'static str,
+    shape: &'static str,
+}
+
+const RUSTC_HIR_SPIKE_FIXTURES: &[RustcHirSpikeFixture] = &[
+    RustcHirSpikeFixture {
+        relative_path: RUSTC_HIR_SPIKE_FIXTURE_RELATIVE_PATH,
+        function: RUSTC_HIR_SPIKE_FUNCTION,
+        shape: "checked-arithmetic",
+    },
+    RustcHirSpikeFixture {
+        relative_path: RUSTC_HIR_SPIKE_BRANCH_FIXTURE_RELATIVE_PATH,
+        function: RUSTC_HIR_SPIKE_BRANCH_FUNCTION,
+        shape: "branch-control-flow",
+    },
+];
+
+fn rustc_hir_spike_fixture_for(fixture_path: &Path, function: &str) -> Result<RustcHirSpikeFixture, String> {
+    let normalized_path = determinism::normalize_path(fixture_path);
+    RUSTC_HIR_SPIKE_FIXTURES
+        .iter()
+        .copied()
+        .find(|fixture| fixture.relative_path == normalized_path && fixture.function == function)
+        .ok_or_else(|| {
+            let allowed = RUSTC_HIR_SPIKE_FIXTURES
+                .iter()
+                .map(|fixture| format!("{}::{}", fixture.relative_path, fixture.function))
+                .collect::<Vec<_>>()
+                .join(", ");
+            format!(
+                "rustc HIR spike is fixture-bounded to checked-in fixture/function pairs [{allowed}], got {normalized_path}::{function}"
+            )
+        })
+}
+
 #[allow(dead_code)]
 fn rustc_hir_spike_supplement(fixture_path: &Path, function: &str) -> Result<FunctionObjectSupplementV1, String> {
-    if function != RUSTC_HIR_SPIKE_FUNCTION {
-        return Err(format!(
-            "rustc HIR spike is fixture-bounded to function `{RUSTC_HIR_SPIKE_FUNCTION}`, got `{function}`"
-        ));
-    }
-    if determinism::normalize_path(fixture_path) != RUSTC_HIR_SPIKE_FIXTURE_RELATIVE_PATH {
-        return Err(format!(
-            "rustc HIR spike is fixture-bounded to `{RUSTC_HIR_SPIKE_FIXTURE_RELATIVE_PATH}`, got `{}`",
-            determinism::normalize_path(fixture_path)
-        ));
-    }
+    let fixture = rustc_hir_spike_fixture_for(fixture_path, function)?;
 
     let read_path = rustc_hir_spike_read_path(fixture_path);
     let source = fs::read_to_string(&read_path).map_err(|error| format!("read {}: {error}", read_path.display()))?;
@@ -734,8 +764,9 @@ fn rustc_hir_spike_supplement(fixture_path: &Path, function: &str) -> Result<Fun
     observations.insert("fixture_context".to_owned(), SupplementObservation {
         status: ObjectSupplementStatus::PilotSupported.as_str(),
         detail: format!(
-            "fixture={}; function={function}; object_hash={}",
+            "fixture={}; function={function}; fixture_shape={}; object_hash={}",
             determinism::normalize_path(fixture_path),
+            fixture.shape,
             object.object_hash
         ),
     });
@@ -2380,6 +2411,8 @@ mod tests {
 
     use super::ObjectSupplementStatus;
     use super::PilotSupplementContext;
+    use super::RUSTC_HIR_SPIKE_BRANCH_FIXTURE_RELATIVE_PATH;
+    use super::RUSTC_HIR_SPIKE_BRANCH_FUNCTION;
     use super::RUSTC_HIR_SPIKE_EXTRACTOR_NAME;
     use super::RUSTC_HIR_SPIKE_EXTRACTOR_VERSION;
     use super::RUSTC_HIR_SPIKE_FIXTURE_RELATIVE_PATH;
@@ -2499,6 +2532,33 @@ mod tests {
         assert!(json.contains("fixture-bounded"));
         assert!(json.contains("\"claims_correctness\": false"));
         assert!(json.contains("\"claims_semantic_equivalence\": false"));
+    }
+
+    #[test]
+    fn rustc_hir_spike_helper_accepts_second_branch_fixture_shape() {
+        let fixture = Path::new(RUSTC_HIR_SPIKE_BRANCH_FIXTURE_RELATIVE_PATH);
+        let supplement = rustc_hir_spike_supplement(fixture, RUSTC_HIR_SPIKE_BRANCH_FUNCTION)
+            .expect("branch rustc HIR spike supplement");
+        let fixture_context = supplement.observations.get("fixture_context").expect("fixture context observation");
+
+        assert_eq!(supplement.source_path, RUSTC_HIR_SPIKE_BRANCH_FIXTURE_RELATIVE_PATH);
+        assert_eq!(supplement.function_name, RUSTC_HIR_SPIKE_BRANCH_FUNCTION);
+        assert!(fixture_context.detail.contains("fixture_shape=branch-control-flow"));
+        assert!(supplement.observations.contains_key("rustc_hir_tree_hash"));
+        assert!(supplement.observation_hash.starts_with("b3:"));
+        assert!(!supplement.boundary.claims_correctness);
+        assert!(!supplement.boundary.claims_semantic_equivalence);
+    }
+
+    #[test]
+    fn rustc_hir_spike_helper_rejects_cross_fixture_function_pair() {
+        let error = rustc_hir_spike_supplement(
+            Path::new(RUSTC_HIR_SPIKE_BRANCH_FIXTURE_RELATIVE_PATH),
+            RUSTC_HIR_SPIKE_FUNCTION,
+        )
+        .expect_err("wrong function for branch fixture should fail closed");
+        assert!(error.contains("fixture-bounded"));
+        assert!(error.contains(RUSTC_HIR_SPIKE_BRANCH_FUNCTION));
     }
 
     #[test]
