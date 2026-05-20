@@ -1,0 +1,99 @@
+$ cargo test -p cargo-octet hir_fixture_inventory_lists_closed_selectors_and_boundaries -- --nocapture
+
+running 1 test
+test object::tests::hir_fixture_inventory_lists_closed_selectors_and_boundaries ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 38 filtered out; finished in 0.00s
+
+
+running 1 test
+test object::tests::hir_fixture_inventory_lists_closed_selectors_and_boundaries ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 38 filtered out; finished in 0.00s
+
+
+running 1 test
+test object::tests::hir_fixture_inventory_lists_closed_selectors_and_boundaries ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 38 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 53 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.00s
+
+$ cargo test -p cargo-octet object_parse_accepts_supplement_fixture_inventory -- --nocapture
+
+running 1 test
+test cli::tests::object_parse_accepts_supplement_fixture_inventory ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 38 filtered out; finished in 0.00s
+
+
+running 1 test
+test cli::tests::object_parse_accepts_supplement_fixture_inventory ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 38 filtered out; finished in 0.00s
+
+
+running 1 test
+test cli::tests::object_parse_accepts_supplement_fixture_inventory ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 38 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 53 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.00s
+
+$ cargo run -q -p cargo-octet --bin cargo-octet -- object supplement fixtures --family hir --spike rustc-hir-fixture --output-format json
+{
+  "schema": "octet.hir-fixture-inventory.v1",
+  "schema_version": 1,
+  "mode": "supplement-fixture-inventory",
+  "family": "hir",
+  "scope": "rustc-hir-fixture-spike",
+  "default_shape": "checked-arithmetic",
+  "shapes": [
+    {
+      "shape": "checked-arithmetic",
+      "fixture_path": "cargo-octet/tests/fixtures/hir-spike/checked.rs",
+      "function": "checked",
+      "is_default": true,
+      "support_status": "pilot-supported",
+      "support_boundary": "selected checked-in rustc HIR fixture only; no general HIR, correctness, semantic-equivalence, cross-toolchain, or pure-cache claim",
+      "emit_command": "cargo octet object supplement emit --family hir --spike rustc-hir-fixture --fixture-shape checked-arithmetic --output-format json",
+      "check_command": "cargo octet object supplement check --family hir --spike rustc-hir-fixture --fixture-shape checked-arithmetic --receipt RECEIPT.json --output-format json"
+    },
+    {
+      "shape": "branch-control-flow",
+      "fixture_path": "cargo-octet/tests/fixtures/hir-spike/clamp.rs",
+      "function": "clamp_to_limit",
+      "is_default": false,
+      "support_status": "pilot-supported",
+      "support_boundary": "selected checked-in rustc HIR fixture only; no general HIR, correctness, semantic-equivalence, cross-toolchain, or pure-cache claim",
+      "emit_command": "cargo octet object supplement emit --family hir --spike rustc-hir-fixture --fixture-shape branch-control-flow --output-format json",
+      "check_command": "cargo octet object supplement check --family hir --spike rustc-hir-fixture --fixture-shape branch-control-flow --receipt RECEIPT.json --output-format json"
+    }
+  ],
+  "boundary": {
+    "relationship_to_v1": "attached-supplement-preserves-function-object-v1-identity",
+    "identity_scope": "review-and-provenance-evidence",
+    "claims_correctness": false,
+    "claims_semantic_equivalence": false,
+    "claims_cross_toolchain_stability": false,
+    "claims_pure_cache_eligibility": false,
+    "detail": "HIR/MIR pilot supplements add bounded toolchain-scoped observations; Function Object v1 remains the review/provenance identity and no correctness or semantic-equivalence proof is implied."
+  }
+}
+PASS V1 closed selectors listed

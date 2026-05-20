@@ -445,6 +445,30 @@ struct ObjectSupplementalEvidenceContract {
 }
 
 #[derive(Debug, Clone, Serialize)]
+struct HirFixtureInventoryReport {
+    schema: &'static str,
+    schema_version: u32,
+    mode: &'static str,
+    family: &'static str,
+    scope: &'static str,
+    default_shape: &'static str,
+    shapes: Vec<HirFixtureInventoryEntry>,
+    boundary: SupplementBoundary,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct HirFixtureInventoryEntry {
+    shape: &'static str,
+    fixture_path: &'static str,
+    function: &'static str,
+    is_default: bool,
+    support_status: &'static str,
+    support_boundary: &'static str,
+    emit_command: String,
+    check_command: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
 struct ObjectCorpusContractBoundaries {
     identity_scope: &'static str,
     claims_correctness: bool,
@@ -519,9 +543,7 @@ pub fn run(args: ObjectArgs) -> Result<i32, String> {
         ObjectMode::SupplementCheck { family, scope, receipt } => {
             run_supplement_check(&args.paths, args.function.as_deref(), family, scope, &receipt, args.output_format)
         }
-        ObjectMode::SupplementFixtures { .. } => {
-            Err("object supplement fixtures inventory is parsed but not implemented yet".to_owned())
-        }
+        ObjectMode::SupplementFixtures { family, scope } => run_supplement_fixtures(family, scope, args.output_format),
     }
 }
 
@@ -593,6 +615,63 @@ fn run_corpus_contract(output_format: OutputFormat) -> Result<i32, String> {
         OutputFormat::Sarif => unreachable!("SARIF rejected above"),
     }
     Ok(0)
+}
+
+fn run_supplement_fixtures(
+    family: SupplementFamilyArg,
+    scope: SupplementScopeArg,
+    output_format: OutputFormat,
+) -> Result<i32, String> {
+    if matches!(output_format, OutputFormat::Sarif) {
+        return Err("object supplement fixtures does not support SARIF output; use human or json".to_owned());
+    }
+    if family != SupplementFamilyArg::Hir {
+        return Err("object supplement fixtures only supports `--family hir`".to_owned());
+    }
+    if scope != SupplementScopeArg::RustcHirFixtureSpike {
+        return Err("object supplement fixtures requires `--spike rustc-hir-fixture`".to_owned());
+    }
+    let report = hir_fixture_inventory_report(family, scope);
+    match output_format {
+        OutputFormat::Human => print_hir_fixture_inventory_human(&report),
+        OutputFormat::Json => println!("{}", serde_json::to_string_pretty(&report).map_err(|error| error.to_string())?),
+        OutputFormat::Sarif => unreachable!("SARIF rejected above"),
+    }
+    Ok(0)
+}
+
+fn hir_fixture_inventory_report(family: SupplementFamilyArg, scope: SupplementScopeArg) -> HirFixtureInventoryReport {
+    let default_shape = RUSTC_HIR_SPIKE_FIXTURES.first().map(|fixture| fixture.shape).unwrap_or("unknown");
+    let shapes = RUSTC_HIR_SPIKE_FIXTURES
+        .iter()
+        .map(|fixture| HirFixtureInventoryEntry {
+            shape: fixture.shape,
+            fixture_path: fixture.relative_path,
+            function: fixture.function,
+            is_default: fixture.shape == default_shape,
+            support_status: ObjectSupplementStatus::PilotSupported.as_str(),
+            support_boundary:
+                "selected checked-in rustc HIR fixture only; no general HIR, correctness, semantic-equivalence, cross-toolchain, or pure-cache claim",
+            emit_command: format!(
+                "cargo octet object supplement emit --family hir --spike rustc-hir-fixture --fixture-shape {} --output-format json",
+                fixture.shape
+            ),
+            check_command: format!(
+                "cargo octet object supplement check --family hir --spike rustc-hir-fixture --fixture-shape {} --receipt RECEIPT.json --output-format json",
+                fixture.shape
+            ),
+        })
+        .collect();
+    HirFixtureInventoryReport {
+        schema: "octet.hir-fixture-inventory.v1",
+        schema_version: 1,
+        mode: "supplement-fixture-inventory",
+        family: family.as_str(),
+        scope: scope.as_str(),
+        default_shape,
+        shapes,
+        boundary: supplement_boundary(),
+    }
 }
 
 fn run_supplement_emit(
@@ -926,6 +1005,28 @@ fn supplement_comparisons(
             }
         })
         .collect()
+}
+
+fn print_hir_fixture_inventory_human(report: &HirFixtureInventoryReport) {
+    println!("octet object supplement fixtures family={} scope={}", report.family, report.scope);
+    println!("schema={} schema_version={}", report.schema, report.schema_version);
+    println!("default_shape={}", report.default_shape);
+    for shape in &report.shapes {
+        println!(
+            "shape={} default={} fixture_path={} function={} support_status={} boundary={}",
+            shape.shape,
+            shape.is_default,
+            shape.fixture_path,
+            shape.function,
+            shape.support_status,
+            shape.support_boundary,
+        );
+    }
+    println!("summary total={}", report.shapes.len());
+    println!("claims_correctness={}", report.boundary.claims_correctness);
+    println!("claims_semantic_equivalence={}", report.boundary.claims_semantic_equivalence);
+    println!("claims_cross_toolchain_stability={}", report.boundary.claims_cross_toolchain_stability);
+    println!("claims_pure_cache_eligibility={}", report.boundary.claims_pure_cache_eligibility);
 }
 
 fn print_supplement_emit_report(report: &serde_json::Value, output_format: OutputFormat) -> Result<(), String> {
@@ -2437,9 +2538,11 @@ mod tests {
     use super::RUSTC_HIR_SPIKE_FUNCTION;
     use super::SUPPLEMENT_STATUS_VALUES;
     use super::SupplementFamilyArg;
+    use super::SupplementScopeArg;
     use super::canonical_supplement_json;
     use super::effect_caveats;
     use super::function_object_for_source;
+    use super::hir_fixture_inventory_report;
     use super::pilot_hir_supplement;
     use super::pilot_mir_supplement;
     use super::rustc_hir_spike_supplement;
@@ -2584,6 +2687,40 @@ mod tests {
         let error = rustc_hir_spike_supplement(Path::new("src/lib.rs"), RUSTC_HIR_SPIKE_FUNCTION)
             .expect_err("non-fixture path should fail closed");
         assert!(error.contains("fixture-bounded"));
+    }
+
+    #[test]
+    fn hir_fixture_inventory_lists_closed_selectors_and_boundaries() {
+        let report = hir_fixture_inventory_report(SupplementFamilyArg::Hir, SupplementScopeArg::RustcHirFixtureSpike);
+        let json = serde_json::to_string_pretty(&report).expect("serialize fixture inventory");
+
+        assert_eq!(report.schema, "octet.hir-fixture-inventory.v1");
+        assert_eq!(report.mode, "supplement-fixture-inventory");
+        assert_eq!(report.family, "hir");
+        assert_eq!(report.scope, "rustc-hir-fixture-spike");
+        assert_eq!(report.default_shape, "checked-arithmetic");
+        assert_eq!(report.shapes.len(), 2);
+
+        let checked = report.shapes.iter().find(|shape| shape.shape == "checked-arithmetic").unwrap();
+        assert_eq!(checked.fixture_path, RUSTC_HIR_SPIKE_FIXTURE_RELATIVE_PATH);
+        assert_eq!(checked.function, RUSTC_HIR_SPIKE_FUNCTION);
+        assert!(checked.is_default);
+
+        let branch = report.shapes.iter().find(|shape| shape.shape == "branch-control-flow").unwrap();
+        assert_eq!(branch.fixture_path, RUSTC_HIR_SPIKE_BRANCH_FIXTURE_RELATIVE_PATH);
+        assert_eq!(branch.function, RUSTC_HIR_SPIKE_BRANCH_FUNCTION);
+        assert!(!branch.is_default);
+
+        for shape in &report.shapes {
+            assert_eq!(shape.support_status, ObjectSupplementStatus::PilotSupported.as_str());
+            assert!(shape.support_boundary.contains("selected checked-in rustc HIR fixture only"));
+            assert!(shape.emit_command.contains(shape.shape));
+            assert!(shape.check_command.contains(shape.shape));
+        }
+        assert!(json.contains("\"claims_correctness\": false"));
+        assert!(json.contains("\"claims_semantic_equivalence\": false"));
+        assert!(json.contains("\"claims_cross_toolchain_stability\": false"));
+        assert!(json.contains("\"claims_pure_cache_eligibility\": false"));
     }
 
     fn pilot_context() -> PilotSupplementContext {

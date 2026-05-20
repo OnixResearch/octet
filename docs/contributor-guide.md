@@ -242,8 +242,17 @@ cargo octet object corpus contract --output-format json
 ```
 
 For the fixture-backed rustc HIR spike, keep the explicit spike flag in both
-emit and replay commands. Omit `--fixture-shape` to use the default checked
-arithmetic fixture, or name one of the closed checked-in fixture shapes:
+emit and replay commands. List the closed selector inventory before choosing a
+shape:
+
+```bash
+cargo octet object supplement fixtures --family hir --spike rustc-hir-fixture --output-format json
+```
+
+The inventory reports each selected checked-in fixture shape, source path,
+function name, default marker, replay commands, and explicit non-proof boundary
+flags. Omit `--fixture-shape` to use the default checked arithmetic fixture, or
+name one of the closed checked-in fixture shapes:
 
 ```bash
 cargo octet object supplement emit --family hir --spike rustc-hir-fixture --fixture-shape checked-arithmetic --output-format json > hir-spike-checked.json
