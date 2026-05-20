@@ -7,7 +7,7 @@
 
 ## Phase 2: Deterministic verification
 
-- [ ] V1 Verify scenario "Pilot HIR supplement attaches to v1 object identity" with focused cargo-octet fixture tests; save output at `openspec/changes/hir-mir-supplement-pilot/evidence/hir-pilot-attachment.txt`.
+- [x] V1 Verify scenario "Pilot HIR supplement attaches to v1 object identity" with focused cargo-octet fixture tests; save output at `openspec/changes/hir-mir-supplement-pilot/evidence/hir-pilot-attachment.txt`.
 - [ ] V2 Verify scenario "Pilot MIR supplement records unsupported summary families" with focused cargo-octet fixture tests; save output at `openspec/changes/hir-mir-supplement-pilot/evidence/mir-pilot-caveats.txt`.
 - [ ] V3 Verify scenario "Supplement check fails closed on mismatched context" with negative receipt fixtures; save output at `openspec/changes/hir-mir-supplement-pilot/evidence/supplement-check-negative.txt`.
 - [ ] V4 Verify scenario "Unsupported supplement family remains planned" with contract metadata fixture checks; save output at `openspec/changes/hir-mir-supplement-pilot/evidence/unsupported-remains-planned.txt`.
@@ -22,7 +22,7 @@
 ## Change Status
 
 - Status: in-progress
-- Open tasks: V1, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11
+- Open tasks: V2, V3, V4, V5, V6, V7, V8, V9, V10, V11
 
 ## Verification Coverage
 
