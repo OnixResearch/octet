@@ -1,6 +1,6 @@
 ## Phase 1: Implementation
 
-- [ ] I1 Add read-only HIR fixture inventory CLI parsing and help surface.
+- [x] I1 Add read-only HIR fixture inventory CLI parsing and help surface.
 - [ ] I2 Generate fixture inventory data from the closed rustc HIR spike fixture registry.
 - [ ] I3 Update operator docs or contract text to reference inventory without broad HIR claims.
 
@@ -18,7 +18,7 @@
 ## Change Status
 
 - Status: in-progress
-- Open tasks: I1, I2, I3, V1, V2, V3, V4, H1
+- Open tasks: I2, I3, V1, V2, V3, V4, H1
 
 ## Verification Coverage
 

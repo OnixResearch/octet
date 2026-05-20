@@ -113,6 +113,10 @@ pub enum ObjectMode {
         scope: SupplementScopeArg,
         receipt: PathBuf,
     },
+    SupplementFixtures {
+        family: SupplementFamilyArg,
+        scope: SupplementScopeArg,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -257,6 +261,7 @@ Usage:
   cargo octet object corpus check --receipt RECEIPT.json [PATHS...]
   cargo octet object corpus caveats [--output-format human|json] [PATHS...]
   cargo octet object corpus contract [--output-format human|json]
+  cargo octet object supplement fixtures --family hir --spike rustc-hir-fixture [--output-format human|json]
   cargo octet object supplement emit --family hir|mir [--spike rustc-hir-fixture] [--fixture-shape checked-arithmetic|branch-control-flow] [--function NAME] [PATHS...]
   cargo octet object supplement check --family hir|mir [--spike rustc-hir-fixture] [--fixture-shape checked-arithmetic|branch-control-flow] --receipt RECEIPT.json [--function NAME] [PATHS...]
   cargo octet roadmap <artifact|capsule|ability|pointer|session|pure-cache> ...
@@ -299,6 +304,7 @@ Subcommands:
   corpus check --receipt RECEIPT.json [PATHS...] --output-format human|json
   corpus caveats [PATHS...] --output-format human|json
   corpus contract --output-format human|json
+  supplement fixtures --family hir --spike rustc-hir-fixture --output-format human|json
   supplement emit --family hir|mir [--spike rustc-hir-fixture] [--fixture-shape checked-arithmetic|branch-control-flow] [--function NAME] [PATHS...] --output-format human|json
   supplement check --family hir|mir [--spike rustc-hir-fixture] [--fixture-shape checked-arithmetic|branch-control-flow] --receipt RECEIPT.json [--function NAME] [PATHS...] --output-format human|json
 
@@ -825,11 +831,74 @@ fn parse_object_corpus(args: &[String]) -> Result<ObjectArgs, String> {
 
 fn parse_object_supplement(args: &[String]) -> Result<ObjectArgs, String> {
     match args.first().map(String::as_str) {
+        Some("fixtures") => parse_object_supplement_fixtures(&args[1..]),
         Some("emit") => parse_object_supplement_scan(true, &args[1..]),
         Some("check") => parse_object_supplement_scan(false, &args[1..]),
-        Some(other) => Err(format!("unknown object supplement action `{other}`; expected `emit` or `check`")),
-        None => Err("missing object supplement action; expected `emit` or `check`".to_owned()),
+        Some(other) => {
+            Err(format!("unknown object supplement action `{other}`; expected `fixtures`, `emit`, or `check`"))
+        }
+        None => Err("missing object supplement action; expected `fixtures`, `emit`, or `check`".to_owned()),
     }
+}
+
+fn parse_object_supplement_fixtures(args: &[String]) -> Result<ObjectArgs, String> {
+    let mut family = None;
+    let mut scope = None;
+    let mut output_format = OutputFormat::Human;
+    let mut index = 0;
+    while index < args.len() {
+        let arg = &args[index];
+        match arg.as_str() {
+            "--family" => {
+                family = Some(parse_supplement_family(
+                    args.get(index + 1).ok_or_else(|| "missing value after `--family`".to_owned())?,
+                )?);
+                index += 2;
+            }
+            "--spike" => {
+                scope = Some(parse_supplement_spike_scope(
+                    args.get(index + 1).ok_or_else(|| "missing value after `--spike`".to_owned())?,
+                )?);
+                index += 2;
+            }
+            "--output-format" => {
+                output_format = parse_output_format(
+                    args.get(index + 1).ok_or_else(|| "missing value after `--output-format`".to_owned())?,
+                )?;
+                index += 2;
+            }
+            _ if arg.starts_with("--family=") => {
+                family = Some(parse_supplement_family(arg.trim_start_matches("--family="))?);
+                index += 1;
+            }
+            _ if arg.starts_with("--spike=") => {
+                scope = Some(parse_supplement_spike_scope(arg.trim_start_matches("--spike="))?);
+                index += 1;
+            }
+            _ if arg.starts_with("--output-format=") => {
+                output_format = parse_output_format(arg.trim_start_matches("--output-format="))?;
+                index += 1;
+            }
+            _ if arg.starts_with('-') => {
+                return Err(format!("unsupported object supplement fixtures argument `{arg}`"));
+            }
+            _ => return Err(format!("unexpected object supplement fixtures path `{arg}`")),
+        }
+    }
+    let family = family.ok_or_else(|| "object supplement fixtures requires `--family hir`".to_owned())?;
+    if family != SupplementFamilyArg::Hir {
+        return Err("object supplement fixtures only supports `--family hir`".to_owned());
+    }
+    let scope = scope.ok_or_else(|| "object supplement fixtures requires `--spike rustc-hir-fixture`".to_owned())?;
+    if scope != SupplementScopeArg::RustcHirFixtureSpike {
+        return Err("object supplement fixtures requires `--spike rustc-hir-fixture`".to_owned());
+    }
+    Ok(ObjectArgs {
+        mode: ObjectMode::SupplementFixtures { family, scope },
+        paths: Vec::new(),
+        function: None,
+        output_format,
+    })
 }
 
 fn parse_object_supplement_scan(emit: bool, args: &[String]) -> Result<ObjectArgs, String> {
@@ -1361,6 +1430,56 @@ mod tests {
     }
 
     #[test]
+    fn object_parse_accepts_supplement_fixture_inventory() {
+        let inventory = parse(
+            [
+                "cargo",
+                "octet",
+                "object",
+                "supplement",
+                "fixtures",
+                "--family=hir",
+                "--spike=rustc-hir-fixture",
+                "--output-format=json",
+            ]
+            .map(OsString::from),
+        )
+        .expect("parse supplement fixture inventory args");
+        match inventory {
+            CommandArgs::Object(args) => {
+                assert_eq!(args.paths, Vec::<std::path::PathBuf>::new());
+                assert_eq!(args.function, None);
+                assert_eq!(args.output_format, OutputFormat::Json);
+                assert!(matches!(args.mode, super::ObjectMode::SupplementFixtures {
+                    family: super::SupplementFamilyArg::Hir,
+                    scope: super::SupplementScopeArg::RustcHirFixtureSpike,
+                }));
+            }
+            other => panic!("expected object supplement fixtures args, got {other:?}"),
+        }
+
+        let missing_scope =
+            parse(["cargo", "octet", "object", "supplement", "fixtures", "--family=hir"].map(OsString::from))
+                .expect_err("fixture inventory requires rustc spike scope");
+        assert!(missing_scope.contains("requires `--spike rustc-hir-fixture`"));
+
+        let mir_inventory = parse(
+            [
+                "cargo",
+                "octet",
+                "object",
+                "supplement",
+                "fixtures",
+                "--family=mir",
+                "--spike=rustc-hir-fixture",
+            ]
+            .map(OsString::from),
+        )
+        .expect_err("fixture inventory is HIR-only");
+        assert!(mir_inventory.contains("only supports `--family hir`"));
+    }
+
+    #[test]
     fn help_parse_accepts_root_and_subcommand_help() {
         let root = parse(["cargo", "octet", "--help"].map(OsString::from)).expect("parse root help");
         assert!(matches!(root, CommandArgs::Help(HelpTopic::Root)));
@@ -1370,6 +1489,7 @@ mod tests {
 
         for args in [
             &["cargo", "octet", "object", "--help"][..],
+            &["cargo", "octet", "object", "supplement", "fixtures", "--help"][..],
             &["cargo", "octet", "object", "supplement", "emit", "--help"][..],
             &["cargo", "octet", "object", "supplement", "check", "--help"][..],
         ] {
