@@ -52,6 +52,12 @@ fn command_stdout(command: &mut Command, context: &str) -> String {
     String::from_utf8(output.stdout).expect("utf8 stdout")
 }
 
+fn cargo_command() -> Command {
+    let mut command = Command::new("cargo");
+    command.env("CARGO_BUILD_RUSTC_WRAPPER", "");
+    command
+}
+
 fn rustup_toolchain() -> String {
     if let Some(toolchain) = env::var_os("RUSTUP_TOOLCHAIN") {
         return toolchain.into_string().expect("utf8 RUSTUP_TOOLCHAIN for UI tests");
@@ -133,7 +139,7 @@ fn extern_artifact_path(deps_dir: &Path, crate_name: &str) -> PathBuf {
 
 fn build_fixture_support(toolchain: &str, manifest_path: &Path, dependency_names: &[String]) -> FixtureSupport {
     let target_dir = temp_path("octet-ui-fixture-deps");
-    let status = Command::new("cargo")
+    let status = cargo_command()
         .current_dir(manifest_path.parent().expect("fixture manifest parent"))
         .env("CARGO_TARGET_DIR", &target_dir)
         .env("RUSTUP_TOOLCHAIN", toolchain)
@@ -180,7 +186,7 @@ fn build_library(toolchain: &str) -> PathBuf {
         return path;
     }
 
-    let status = Command::new("cargo")
+    let status = cargo_command()
         .env("RUSTUP_TOOLCHAIN", toolchain)
         .args(["build", "--lib"])
         .status()
@@ -216,7 +222,7 @@ fn build_driver(toolchain: &str) -> PathBuf {
 
     let manifest_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/support/ui-driver/Cargo.toml");
     let driver_target_dir = temp_path("octet-ui-driver-target");
-    let status = Command::new("cargo")
+    let status = cargo_command()
         .current_dir(env!("CARGO_MANIFEST_DIR"))
         .env("CARGO_TARGET_DIR", &driver_target_dir)
         .env("RUSTUP_TOOLCHAIN", toolchain)
@@ -396,7 +402,7 @@ fn run_autofix_fixture(driver: &Path, library: &Path, toolchain: &str, name: &st
     let main_rs = src_dir.join("main.rs");
     fs::write(&main_rs, source).expect("write autofix main.rs");
 
-    let mut fix = Command::new("cargo");
+    let mut fix = cargo_command();
     fix.current_dir(&crate_dir)
         .env("CLIPPY_DISABLE_DOCS_LINKS", "true")
         .env("DYLINT_LIBS", &dylint_libs)
@@ -439,7 +445,7 @@ fn run_autofix_fixture(driver: &Path, library: &Path, toolchain: &str, name: &st
         "[autofix post-check command] (cd {} && cargo check --quiet --bin autofix_fixture)",
         crate_dir.display()
     );
-    let mut check = Command::new("cargo");
+    let mut check = cargo_command();
     check
         .current_dir(&crate_dir)
         .env("CLIPPY_DISABLE_DOCS_LINKS", "true")
