@@ -1,0 +1,20 @@
+$ cargo run -q -p cargo-octet --bin cargo-octet -- object supplement fixtures --family hir --spike rustc-hir-fixture --output-format json
+PASS H1 inventory JSON exposes closed selectors, default, fixture paths, commands, and non-proof boundary
+$ cargo run -q -p cargo-octet --bin cargo-octet -- object supplement fixtures --family hir --spike rustc-hir-fixture --output-format human
+octet object supplement fixtures family=hir scope=rustc-hir-fixture-spike
+schema=octet.hir-fixture-inventory.v1 schema_version=1
+default_shape=checked-arithmetic
+shape=checked-arithmetic default=true fixture_path=cargo-octet/tests/fixtures/hir-spike/checked.rs function=checked support_status=pilot-supported boundary=selected checked-in rustc HIR fixture only; no general HIR, correctness, semantic-equivalence, cross-toolchain, or pure-cache claim
+shape=branch-control-flow default=false fixture_path=cargo-octet/tests/fixtures/hir-spike/clamp.rs function=clamp_to_limit support_status=pilot-supported boundary=selected checked-in rustc HIR fixture only; no general HIR, correctness, semantic-equivalence, cross-toolchain, or pure-cache claim
+summary total=2
+claims_correctness=false
+claims_semantic_equivalence=false
+claims_cross_toolchain_stability=false
+claims_pure_cache_eligibility=false
+$ grep docs for inventory-first/non-general-HIR guidance
+docs/contributor-guide.md:245:emit and replay commands. List the closed selector inventory before choosing a
+docs/content-addressed-rust-evidence-boundaries.md:41:selected-fixture-backed/toolchain-scoped. List the closed selector inventory
+docs/contributor-guide.md:265:rustc HIR fixture spike is selected-fixture-backed/toolchain-scoped review
+docs/content-addressed-rust-evidence-boundaries.md:40:The current rustc-backed HIR spike is narrower than general HIR support and is
+64:is not general HIR support; arbitrary-path and non-fixture HIR remain
+PASS H1 human/oracle checkpoint: selector discoverability improved without general-HIR overclaim

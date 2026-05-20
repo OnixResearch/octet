@@ -1,0 +1,19 @@
+$ cargo run -q -p cargo-octet --bin cargo-octet -- object supplement fixtures --family hir --spike rustc-hir-fixture --output-format human
+octet object supplement fixtures family=hir scope=rustc-hir-fixture-spike
+schema=octet.hir-fixture-inventory.v1 schema_version=1
+default_shape=checked-arithmetic
+shape=checked-arithmetic default=true fixture_path=cargo-octet/tests/fixtures/hir-spike/checked.rs function=checked support_status=pilot-supported boundary=selected checked-in rustc HIR fixture only; no general HIR, correctness, semantic-equivalence, cross-toolchain, or pure-cache claim
+shape=branch-control-flow default=false fixture_path=cargo-octet/tests/fixtures/hir-spike/clamp.rs function=clamp_to_limit support_status=pilot-supported boundary=selected checked-in rustc HIR fixture only; no general HIR, correctness, semantic-equivalence, cross-toolchain, or pure-cache claim
+summary total=2
+claims_correctness=false
+claims_semantic_equivalence=false
+claims_cross_toolchain_stability=false
+claims_pure_cache_eligibility=false
+$ cargo run -q -p cargo-octet --bin cargo-octet -- object supplement fixtures --family hir --spike rustc-hir-fixture --output-format json
+PASS V2 bounded support claims preserved
+$ grep docs inventory wording
+docs/contributor-guide.md:249:cargo octet object supplement fixtures --family hir --spike rustc-hir-fixture --output-format json
+docs/content-addressed-rust-evidence-boundaries.md:45:cargo octet object supplement fixtures --family hir --spike rustc-hir-fixture --output-format json
+docs/contributor-guide.md:253:function name, default marker, replay commands, and explicit non-proof boundary
+docs/content-addressed-rust-evidence-boundaries.md:49:function name, default marker, replay commands, and explicit non-proof boundary
+PASS V2 docs reference inventory without broad HIR claims

@@ -38,8 +38,17 @@ The pilot HIR supplement is source-token bounded. It reports contract status
 attached supplement to `octet.function-object.v1`.
 
 The current rustc-backed HIR spike is narrower than general HIR support and is
-selected-fixture-backed/toolchain-scoped. Omit `--fixture-shape` to use the
-default checked arithmetic fixture, or select one of the closed fixture shapes:
+selected-fixture-backed/toolchain-scoped. List the closed selector inventory
+before choosing a shape:
+
+```bash
+cargo octet object supplement fixtures --family hir --spike rustc-hir-fixture --output-format json
+```
+
+The inventory reports each selected checked-in fixture shape, source path,
+function name, default marker, replay commands, and explicit non-proof boundary
+flags. Omit `--fixture-shape` to use the default checked arithmetic fixture, or
+select one of the closed fixture shapes:
 
 ```bash
 cargo octet object supplement emit --family hir --spike rustc-hir-fixture --fixture-shape checked-arithmetic --output-format json
