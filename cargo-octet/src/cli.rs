@@ -102,6 +102,7 @@ pub enum ObjectMode {
     CorpusCheck {
         receipt: PathBuf,
     },
+    CorpusCaveats,
     CorpusContract,
 }
 
@@ -211,6 +212,7 @@ Usage:
   cargo octet object bundle export --objects OBJECTS.json [--pointers POINTERS.json] --output BUNDLE.json --replay-command CMD
   cargo octet object corpus receipt --output RECEIPT.json [PATHS...]
   cargo octet object corpus check --receipt RECEIPT.json [PATHS...]
+  cargo octet object corpus caveats [--output-format human|json] [PATHS...]
   cargo octet object corpus contract [--output-format human|json]
   cargo octet roadmap <artifact|capsule|ability|pointer|session|pure-cache> ...
   cargo octet transcript <PATH>
@@ -250,6 +252,8 @@ Subcommands:
   bundle export --objects OBJECTS.json [--pointers POINTERS.json] --output BUNDLE.json --replay-command CMD
   corpus receipt --output RECEIPT.json [PATHS...]
   corpus check --receipt RECEIPT.json [PATHS...] --output-format human|json
+  corpus caveats [PATHS...] --output-format human|json
+  corpus contract --output-format human|json
 
 Function objects are source-token review/provenance evidence, not correctness proofs.
 ";
@@ -709,6 +713,37 @@ fn parse_object_corpus(args: &[String]) -> Result<ObjectArgs, String> {
                 output_format,
             })
         }
+        Some("caveats") => {
+            let mut paths = Vec::new();
+            let mut output_format = OutputFormat::Human;
+            let mut index = 1;
+            while index < args.len() {
+                let arg = &args[index];
+                if arg == "--output-format" {
+                    output_format = parse_output_format(
+                        args.get(index + 1).ok_or_else(|| "missing value after `--output-format`".to_owned())?,
+                    )?;
+                    index += 2;
+                } else if let Some(value) = arg.strip_prefix("--output-format=") {
+                    output_format = parse_output_format(value)?;
+                    index += 1;
+                } else if arg.starts_with('-') {
+                    return Err(format!("unsupported object corpus caveats argument `{arg}`"));
+                } else {
+                    paths.push(PathBuf::from(arg));
+                    index += 1;
+                }
+            }
+            if paths.is_empty() {
+                paths.push(PathBuf::from("."));
+            }
+            Ok(ObjectArgs {
+                mode: ObjectMode::CorpusCaveats,
+                paths,
+                function: None,
+                output_format,
+            })
+        }
         Some("contract") => {
             let mut output_format = OutputFormat::Human;
             let mut index = 1;
@@ -733,10 +768,10 @@ fn parse_object_corpus(args: &[String]) -> Result<ObjectArgs, String> {
                 output_format,
             })
         }
-        Some(other) => {
-            Err(format!("unknown object corpus action `{other}`; expected `receipt`, `check`, or `contract`"))
-        }
-        None => Err("missing object corpus action; expected `receipt`, `check`, or `contract`".to_owned()),
+        Some(other) => Err(format!(
+            "unknown object corpus action `{other}`; expected `receipt`, `check`, `caveats`, or `contract`"
+        )),
+        None => Err("missing object corpus action; expected `receipt`, `check`, `caveats`, or `contract`".to_owned()),
     }
 }
 
@@ -928,6 +963,32 @@ mod tests {
                 assert!(matches!(args.mode, super::ObjectMode::CorpusContract));
                 assert_eq!(args.output_format, OutputFormat::Json);
                 assert!(args.paths.is_empty());
+            }
+            other => panic!("expected object args, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn object_parse_accepts_corpus_caveats() {
+        let parsed = parse(
+            [
+                "cargo",
+                "octet",
+                "object",
+                "corpus",
+                "caveats",
+                "--output-format",
+                "json",
+                "cargo-octet/src/object.rs",
+            ]
+            .map(OsString::from),
+        )
+        .expect("parse object corpus caveats args");
+        match parsed {
+            CommandArgs::Object(args) => {
+                assert!(matches!(args.mode, super::ObjectMode::CorpusCaveats));
+                assert_eq!(args.output_format, OutputFormat::Json);
+                assert_eq!(args.paths.len(), 1);
             }
             other => panic!("expected object args, got {other:?}"),
         }

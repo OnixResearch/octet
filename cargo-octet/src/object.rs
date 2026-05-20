@@ -216,6 +216,28 @@ struct ObjectCorpusCaveatCounts {
 }
 
 #[derive(Debug, Clone, Serialize)]
+struct ObjectCorpusCaveatTaxonomyReport {
+    schema: &'static str,
+    schema_version: u32,
+    mode: &'static str,
+    object_count: usize,
+    source_paths: Vec<String>,
+    source_buckets: Vec<ObjectCorpusCaveatSourceBucket>,
+    caveat_counts: ObjectCorpusCaveatCounts,
+    pure_cache_blocked_count: usize,
+    boundary: CorpusBoundary,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct ObjectCorpusCaveatSourceBucket {
+    source_path: String,
+    object_count: usize,
+    caveat_counts: ObjectCorpusCaveatCounts,
+    pure_cache_blocked_count: usize,
+    blocker_names: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
 struct CorpusReplay {
     command: String,
     tool_name: &'static str,
@@ -363,6 +385,7 @@ pub fn run(args: ObjectArgs) -> Result<i32, String> {
         } => run_bundle_export(&objects, pointers.as_deref(), &output, &replay_command),
         ObjectMode::CorpusReceipt { output } => run_corpus_receipt(&args.paths, &output),
         ObjectMode::CorpusCheck { receipt } => run_corpus_check(&args.paths, &receipt, args.output_format),
+        ObjectMode::CorpusCaveats => run_corpus_caveats(&args.paths, args.output_format),
         ObjectMode::CorpusContract => run_corpus_contract(args.output_format),
     }
 }
@@ -405,6 +428,22 @@ fn run_corpus_receipt(paths: &[PathBuf], output: &Path) -> Result<i32, String> {
     let json = serde_json::to_string_pretty(&receipt).map_err(|error| format!("serialize corpus receipt: {error}"))?;
     fs::write(output, format!("{json}\n")).map_err(|error| format!("write {}: {error}", output.display()))?;
     println!("wrote object corpus receipt: {}", output.display());
+    Ok(0)
+}
+
+fn run_corpus_caveats(paths: &[PathBuf], output_format: OutputFormat) -> Result<i32, String> {
+    let objects = collect_objects(paths, None)?.into_iter().map(|record| record.object).collect::<Vec<_>>();
+    if objects.is_empty() {
+        return Err("no functions matched object corpus caveat taxonomy selection".to_owned());
+    }
+    let report = corpus_caveat_taxonomy_report(&objects);
+    match output_format {
+        OutputFormat::Human => print_corpus_caveat_taxonomy_human(&report),
+        OutputFormat::Json => println!("{}", serde_json::to_string_pretty(&report).map_err(|error| error.to_string())?),
+        OutputFormat::Sarif => {
+            return Err("object corpus caveats does not support SARIF output; use human or json".to_owned());
+        }
+    }
     Ok(0)
 }
 
@@ -850,6 +889,74 @@ fn corpus_receipt(paths: &[PathBuf], objects: &[FunctionObjectV1]) -> ObjectCorp
             detail: "Function object corpus receipts summarize source-token object identity and caveats; they do not prove behavioral correctness, semantic equivalence, dependency resolution, macro expansion identity, or pure-cache eligibility.",
         },
     }
+}
+
+fn corpus_caveat_taxonomy_report(objects: &[FunctionObjectV1]) -> ObjectCorpusCaveatTaxonomyReport {
+    let source_paths = objects
+        .iter()
+        .map(|object| object.source_path.clone())
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .collect::<Vec<_>>();
+    let mut source_buckets = Vec::new();
+    for source_path in &source_paths {
+        let bucket_objects =
+            objects.iter().filter(|object| &object.source_path == source_path).cloned().collect::<Vec<_>>();
+        let blocker_names = bucket_objects
+            .iter()
+            .flat_map(|object| object.pure_cache_eligibility.blockers.iter().map(|blocker| (*blocker).to_owned()))
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .collect::<Vec<_>>();
+        source_buckets.push(ObjectCorpusCaveatSourceBucket {
+            source_path: source_path.clone(),
+            object_count: bucket_objects.len(),
+            caveat_counts: corpus_caveat_counts(&bucket_objects),
+            pure_cache_blocked_count: bucket_objects
+                .iter()
+                .filter(|object| !object.pure_cache_eligibility.eligible)
+                .count(),
+            blocker_names,
+        });
+    }
+
+    ObjectCorpusCaveatTaxonomyReport {
+        schema: "octet.function-object-corpus-caveat-taxonomy.v1",
+        schema_version: CORPUS_RECEIPT_SCHEMA_VERSION,
+        mode: "corpus-caveat-taxonomy",
+        object_count: objects.len(),
+        source_paths,
+        source_buckets,
+        caveat_counts: corpus_caveat_counts(objects),
+        pure_cache_blocked_count: objects.iter().filter(|object| !object.pure_cache_eligibility.eligible).count(),
+        boundary: CorpusBoundary {
+            identity_scope: "review-and-provenance-evidence",
+            claims_correctness: false,
+            claims_semantic_equivalence: false,
+            detail: "Function object corpus caveat taxonomy reports explain source-token caveat and pure-cache blocker distribution; they do not prove behavioral correctness, semantic equivalence, dependency resolution, macro expansion identity, or pure-cache eligibility.",
+        },
+    }
+}
+
+fn print_corpus_caveat_taxonomy_human(report: &ObjectCorpusCaveatTaxonomyReport) {
+    println!("object corpus caveat taxonomy: {}", report.schema);
+    println!("object_count={}", report.object_count);
+    println!("pure_cache_blocked_count={}", report.pure_cache_blocked_count);
+    for bucket in &report.source_buckets {
+        println!(
+            "source_bucket path={} objects={} pure_cache_blocked={} blockers={}",
+            bucket.source_path,
+            bucket.object_count,
+            bucket.pure_cache_blocked_count,
+            if bucket.blocker_names.is_empty() {
+                "none".to_owned()
+            } else {
+                bucket.blocker_names.join(",")
+            }
+        );
+    }
+    println!("boundary claims_correctness={}", report.boundary.claims_correctness);
+    println!("boundary claims_semantic_equivalence={}", report.boundary.claims_semantic_equivalence);
 }
 
 fn corpus_caveat_counts(objects: &[FunctionObjectV1]) -> ObjectCorpusCaveatCounts {

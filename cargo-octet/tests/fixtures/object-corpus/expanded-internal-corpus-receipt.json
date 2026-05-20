@@ -2,7 +2,7 @@
   "schema": "octet.function-object-corpus-receipt.v1",
   "schema_version": 1,
   "mode": "corpus-receipt",
-  "object_count": 431,
+  "object_count": 435,
   "source_paths": [
     "cargo-octet/src/baseline.rs",
     "cargo-octet/src/cli.rs",
@@ -31,31 +31,31 @@
     "crates/slotcar-standards/src/source.rs",
     "crates/slotcar-standards/src/suppression.rs"
   ],
-  "object_set_hash": "b3:4259f21b5bec9060051212ff617f9bb0ffa61bf889e697a871fd97e427277985",
+  "object_set_hash": "b3:6a94b1ad96d98fb57a272dc4608c4ffc8f0b84328072927cb38bbd3f17b40fef",
   "caveat_counts": {
     "dependency_status": {
-      "source-scanner-token-set": 213,
-      "unsupported-macro-context": 218
+      "source-scanner-token-set": 214,
+      "unsupported-macro-context": 221
     },
     "effect_kind": {
-      "effect_summary": 353,
+      "effect_summary": 356,
       "filesystem": 44,
-      "panic": 38,
+      "panic": 40,
       "process": 6,
       "time": 5,
       "unsafe": 1
     },
     "macro_status": {
-      "none-detected": 213,
-      "review-required": 218
+      "none-detected": 214,
+      "review-required": 221
     },
     "pure_cache_blocker": {
-      "dependency-identity-unresolved": 431,
-      "effect-summary-unresolved": 431,
-      "macro-expansion-unmodeled": 218
+      "dependency-identity-unresolved": 435,
+      "effect-summary-unresolved": 435,
+      "macro-expansion-unmodeled": 221
     }
   },
-  "pure_cache_blocked_count": 431,
+  "pure_cache_blocked_count": 435,
   "replay": {
     "command": "cargo octet object corpus receipt --output RECEIPT.json cargo-octet/src/baseline.rs cargo-octet/src/cli.rs cargo-octet/src/config.rs cargo-octet/src/determinism.rs cargo-octet/src/engine.rs cargo-octet/src/fingerprint.rs cargo-octet/src/main.rs cargo-octet/src/migrate.rs cargo-octet/src/object.rs cargo-octet/src/output.rs cargo-octet/src/roadmap.rs cargo-octet/src/transcript.rs crates/slotcar-standards/src/architecture.rs crates/slotcar-standards/src/artifacts.rs crates/slotcar-standards/src/diagnostic.rs crates/slotcar-standards/src/fixture.rs crates/slotcar-standards/src/lib.rs crates/slotcar-standards/src/main.rs crates/slotcar-standards/src/model.rs crates/slotcar-standards/src/proof.rs crates/slotcar-standards/src/receipt.rs crates/slotcar-standards/src/report.rs crates/slotcar-standards/src/resource.rs crates/slotcar-standards/src/runner.rs crates/slotcar-standards/src/source.rs crates/slotcar-standards/src/suppression.rs",
     "tool_name": "cargo-octet",
