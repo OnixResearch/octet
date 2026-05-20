@@ -230,6 +230,30 @@ replay for the selected corpus; it is not a correctness proof, semantic
 equivalence proof, exhaustive Rust coverage proof, or cross-machine/toolchain
 determinism proof.
 
+For bounded HIR/MIR supplement pilots, emit and replay toolchain-scoped
+supplement receipts alongside the canonical Function Object v1 identity:
+
+```bash
+cargo octet object supplement emit --family hir --function checked src/lib.rs --output-format json > hir-supplement.json
+cargo octet object supplement check --family hir --receipt hir-supplement.json --function checked src/lib.rs --output-format json
+cargo octet object supplement emit --family mir --function checked src/lib.rs --output-format json > mir-supplement.json
+cargo octet object supplement check --family mir --receipt mir-supplement.json --function checked src/lib.rs --output-format json
+cargo octet object corpus contract --output-format json
+```
+
+The pilot HIR/MIR supplements are source-token-bounded review evidence. They attach to the existing `octet.function-object.v1` `object_hash`; they do not replace it as the review/provenance identity. Treat `hir` and `mir`
+`pilot-supported` contract metadata as support for the checked pilot emit/check
+surface only. `thir` remains `unsupported-planned`, and future non-pilot HIR,
+THIR, or MIR families must stay planned/unsupported until deterministic positive
+and negative fixture evidence exists.
+
+Do not describe a matching HIR/MIR supplement as a correctness proof, semantic-
+equivalence proof, pure-cache eligibility proof, cross-toolchain stability
+claim, or exhaustive Rust coverage claim. The check command intentionally fails
+closed on schema/version, Function Object v1 hash, source path, function name,
+rustc/toolchain identity, extractor identity, observation hash, and boundary
+drift.
+
 Run it whenever `cargo octet fingerprint` behavior or checked
 `docs/examples/function-fingerprint-*` transcripts change. This aggregate check
 is part of `nix flake check` and is the CI/operator gate for executable

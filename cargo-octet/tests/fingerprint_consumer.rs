@@ -1824,6 +1824,43 @@ fn object_strong_local_determinism_receipt_checks_repeatability() {
 }
 
 #[test]
+fn hir_mir_supplement_pilot_docs_name_commands_and_non_proofs() {
+    let root = repo_root();
+    let contributor = fs::read_to_string(root.join("docs/contributor-guide.md")).expect("read contributor guide");
+    let boundaries = fs::read_to_string(root.join("docs/content-addressed-rust-evidence-boundaries.md"))
+        .expect("read content-addressed boundaries doc");
+
+    for needle in [
+        "cargo octet object supplement emit --family hir",
+        "cargo octet object supplement check --family hir",
+        "cargo octet object supplement emit --family mir",
+        "cargo octet object supplement check --family mir",
+        "cargo octet object corpus contract --output-format json",
+        "source-token-bounded review evidence",
+        "they do not replace it as the review/provenance identity",
+        "thir` remains `unsupported-planned`",
+        "correctness proof",
+        "semantic-equivalence proof",
+        "pure-cache eligibility proof",
+        "cross-toolchain stability",
+    ] {
+        assert!(contributor.contains(needle), "contributor guide missing {needle}: {contributor}");
+    }
+
+    for needle in [
+        "cargo octet object supplement emit --family hir",
+        "cargo octet object supplement check --family hir",
+        "cargo octet object supplement emit --family mir",
+        "cargo octet object supplement check --family mir",
+        "attached supplement to `octet.function-object.v1`",
+        "THIR and any unimplemented non-pilot HIR/MIR family remain `unsupported-planned`",
+        "MUST NOT claim stable identity across compiler versions",
+    ] {
+        assert!(boundaries.contains(needle), "boundary doc missing {needle}: {boundaries}");
+    }
+}
+
+#[test]
 fn object_corpus_contract_metadata_reports_receipt_and_check_shapes() {
     let root = repo_root();
     let contract = object_corpus_contract(&root);
