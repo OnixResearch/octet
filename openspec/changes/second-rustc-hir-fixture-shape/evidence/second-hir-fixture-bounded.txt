@@ -1,0 +1,62 @@
+$ cargo test -p cargo-octet --test fingerprint_consumer supplement_pilot_docs -- --nocapture
+warning: /home/brittonr/git/slotcar/cargo-octet/Cargo.toml: file `/home/brittonr/git/slotcar/cargo-octet/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `cargo-octet`
+  * `bin` target `cargo-slotcar`
+  * `bin` target `cargo-tigerstyle`
+warning: /home/brittonr/git/slotcar/crates/slotcar-standards/Cargo.toml: file `/home/brittonr/git/slotcar/crates/slotcar-standards/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `octet-standards`
+  * `bin` target `slotcar-standards`
+  * `bin` target `tigerstyle-standards`
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.03s
+     Running tests/fingerprint_consumer.rs (/home/brittonr/.cargo-target/debug/deps/fingerprint_consumer-e64a4f0e00c6cfc9)
+
+running 1 test
+test hir_mir_supplement_pilot_docs_name_commands_and_non_proofs ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 52 filtered out; finished in 0.00s
+
+
+$ cargo test -p cargo-octet --test fingerprint_consumer object_corpus_contract_metadata_reports_pilot -- --nocapture
+warning: /home/brittonr/git/slotcar/cargo-octet/Cargo.toml: file `/home/brittonr/git/slotcar/cargo-octet/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `cargo-octet`
+  * `bin` target `cargo-slotcar`
+  * `bin` target `cargo-tigerstyle`
+warning: /home/brittonr/git/slotcar/crates/slotcar-standards/Cargo.toml: file `/home/brittonr/git/slotcar/crates/slotcar-standards/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `octet-standards`
+  * `bin` target `slotcar-standards`
+  * `bin` target `tigerstyle-standards`
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.02s
+     Running tests/fingerprint_consumer.rs (/home/brittonr/.cargo-target/debug/deps/fingerprint_consumer-e64a4f0e00c6cfc9)
+
+running 1 test
+test object_corpus_contract_metadata_reports_pilot_and_planned_supplement_statuses ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 52 filtered out; finished in 0.00s
+
+
+$ cargo test -p cargo-octet --test fingerprint_consumer object_corpus_contract_human_reports_hir_mir -- --nocapture
+warning: /home/brittonr/git/slotcar/cargo-octet/Cargo.toml: file `/home/brittonr/git/slotcar/cargo-octet/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `cargo-octet`
+  * `bin` target `cargo-slotcar`
+  * `bin` target `cargo-tigerstyle`
+warning: /home/brittonr/git/slotcar/crates/slotcar-standards/Cargo.toml: file `/home/brittonr/git/slotcar/crates/slotcar-standards/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `octet-standards`
+  * `bin` target `slotcar-standards`
+  * `bin` target `tigerstyle-standards`
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.02s
+     Running tests/fingerprint_consumer.rs (/home/brittonr/.cargo-target/debug/deps/fingerprint_consumer-e64a4f0e00c6cfc9)
+
+running 1 test
+test object_corpus_contract_human_reports_hir_mir_fail_closed_boundaries ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 52 filtered out; finished in 0.00s
+
+
+$ cargo run -q -p cargo-octet --bin cargo-octet -- object corpus contract --output-format json > /tmp/octet-contract.VcnpkZ.json
+$ cargo run -q -p cargo-octet --bin cargo-octet -- object corpus contract --output-format human > /tmp/octet-contract-human.MLh1KO.txt
+assert.multi_shape_hir_spike_remains_fixture_bounded: PASS
+hir_status=pilot-supported
+selected_fixture_shapes=checked-arithmetic,branch-control-flow
+thir_status=unsupported-planned
+non_claims=correctness,semantic_equivalence,cross_toolchain_stability
+unsupported_reason=bounded pilot source-token HIR fixture plus selected rustc HIR fixture shapes [checked-arithmetic, branch-control-flow] only; non-fixture HIR requests remain unsupported-planned until general extractor evidence is added

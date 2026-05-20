@@ -6,9 +6,9 @@
 
 ## Phase 2: Deterministic verification
 
-- [ ] V1 Verify scenario "Second HIR fixture shape attaches to Function Object v1" with focused rustc HIR spike tests and CLI smoke; save output at `openspec/changes/second-rustc-hir-fixture-shape/evidence/second-hir-fixture-attachment.txt`.
-- [ ] V2 Verify scenario "Second HIR fixture replay fails closed on shape mismatch" with focused negative replay test/smoke; save output at `openspec/changes/second-rustc-hir-fixture-shape/evidence/second-hir-fixture-negative.txt`.
-- [ ] V3 Verify scenario "Multi-shape HIR spike support remains fixture bounded" with metadata/docs assertions; save output at `openspec/changes/second-rustc-hir-fixture-shape/evidence/second-hir-fixture-bounded.txt`.
+- [x] V1 Verify scenario "Second HIR fixture shape attaches to Function Object v1" with focused rustc HIR spike tests and CLI smoke; save output at `openspec/changes/second-rustc-hir-fixture-shape/evidence/second-hir-fixture-attachment.txt`.
+- [x] V2 Verify scenario "Second HIR fixture replay fails closed on shape mismatch" with focused negative replay test/smoke; save output at `openspec/changes/second-rustc-hir-fixture-shape/evidence/second-hir-fixture-negative.txt`.
+- [x] V3 Verify scenario "Multi-shape HIR spike support remains fixture bounded" with metadata/docs assertions; save output at `openspec/changes/second-rustc-hir-fixture-shape/evidence/second-hir-fixture-bounded.txt`.
 - [ ] V4 Run aggregate Valence object-evidence gate after fixture-shape changes; save output at `openspec/changes/second-rustc-hir-fixture-shape/evidence/valence-object-evidence.txt`.
 
 ## Phase 3: Human/oracle checkpoints
@@ -18,7 +18,7 @@
 ## Change Status
 
 - Status: in-progress
-- Open tasks: V1, V2, V3, V4, H1
+- Open tasks: V4, H1
 
 ## Verification Coverage
 
