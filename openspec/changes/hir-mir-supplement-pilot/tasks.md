@@ -1,0 +1,38 @@
+## Phase 1: Pilot surface
+
+- [ ] I1 Add bounded HIR/MIR supplement DTOs, closed status values, and canonical serialization helpers for selected fixture functions.
+- [ ] I2 Add pilot supplement emit/check command surface while preserving Function Object v1 as the canonical review/provenance identity.
+- [ ] I3 Update object corpus contract metadata so fixture-backed pilot families can report `pilot-supported` and all other HIR/THIR/MIR families remain `unsupported-planned`.
+- [ ] I4 Add contributor/operator documentation for the pilot command, replay boundaries, and non-proof language.
+
+## Phase 2: Deterministic verification
+
+- [ ] V1 Verify scenario "Pilot HIR supplement attaches to v1 object identity" with focused cargo-octet fixture tests; save output at `openspec/changes/hir-mir-supplement-pilot/evidence/hir-pilot-attachment.txt`.
+- [ ] V2 Verify scenario "Pilot MIR supplement records unsupported summary families" with focused cargo-octet fixture tests; save output at `openspec/changes/hir-mir-supplement-pilot/evidence/mir-pilot-caveats.txt`.
+- [ ] V3 Verify scenario "Supplement check fails closed on mismatched context" with negative receipt fixtures; save output at `openspec/changes/hir-mir-supplement-pilot/evidence/supplement-check-negative.txt`.
+- [ ] V4 Verify scenario "Unsupported supplement family remains planned" with contract metadata fixture checks; save output at `openspec/changes/hir-mir-supplement-pilot/evidence/unsupported-remains-planned.txt`.
+- [ ] V5 Verify scenario "HIR supplement preserves v1 identity boundary" with docs/output boundary checks; save output at `openspec/changes/hir-mir-supplement-pilot/evidence/hir-boundary.txt`.
+- [ ] V6 Verify scenario "MIR supplement is version and context scoped" with docs/output boundary checks; save output at `openspec/changes/hir-mir-supplement-pilot/evidence/mir-boundary.txt`.
+- [ ] V7 Verify scenario "Supplement metadata fails closed before implementation claims" with contract metadata fixture checks; save output at `openspec/changes/hir-mir-supplement-pilot/evidence/fail-closed-metadata.txt`.
+- [ ] V8 Verify scenario "Contract metadata names planned HIR/MIR supplements" with `cargo octet object corpus contract --output-format json`; save output at `openspec/changes/hir-mir-supplement-pilot/evidence/contract-metadata-planned.txt`.
+- [ ] V9 Verify scenario "Planned supplements fail closed before extractor implementation" with unsupported-family negative metadata checks; save output at `openspec/changes/hir-mir-supplement-pilot/evidence/planned-fail-closed.txt`.
+- [ ] V10 Verify scenario "Pilot-supported metadata remains bounded" with contract metadata and contributor docs checks; save output at `openspec/changes/hir-mir-supplement-pilot/evidence/pilot-supported-bounded.txt`.
+- [ ] V11 Verify aggregate Valence object evidence with `nix build .#checks.x86_64-linux.valence-object-evidence --no-link -L`; save output at `openspec/changes/hir-mir-supplement-pilot/evidence/valence-object-evidence.txt`.
+
+## Change Status
+
+- Status: in-progress
+- Open tasks: I1, I2, I3, I4, V1, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11
+
+## Verification Coverage
+
+- `Scenario: Pilot HIR supplement attaches to v1 object identity` -> `V1` -> `openspec/changes/hir-mir-supplement-pilot/evidence/hir-pilot-attachment.txt`
+- `Scenario: Pilot MIR supplement records unsupported summary families` -> `V2` -> `openspec/changes/hir-mir-supplement-pilot/evidence/mir-pilot-caveats.txt`
+- `Scenario: Supplement check fails closed on mismatched context` -> `V3` -> `openspec/changes/hir-mir-supplement-pilot/evidence/supplement-check-negative.txt`
+- `Scenario: Unsupported supplement family remains planned` -> `V4` -> `openspec/changes/hir-mir-supplement-pilot/evidence/unsupported-remains-planned.txt`
+- `Scenario: HIR supplement preserves v1 identity boundary` -> `V5` -> `openspec/changes/hir-mir-supplement-pilot/evidence/hir-boundary.txt`
+- `Scenario: MIR supplement is version and context scoped` -> `V6` -> `openspec/changes/hir-mir-supplement-pilot/evidence/mir-boundary.txt`
+- `Scenario: Supplement metadata fails closed before implementation claims` -> `V7` -> `openspec/changes/hir-mir-supplement-pilot/evidence/fail-closed-metadata.txt`
+- `Scenario: Contract metadata names planned HIR/MIR supplements` -> `V8` -> `openspec/changes/hir-mir-supplement-pilot/evidence/contract-metadata-planned.txt`
+- `Scenario: Planned supplements fail closed before extractor implementation` -> `V9` -> `openspec/changes/hir-mir-supplement-pilot/evidence/planned-fail-closed.txt`
+- `Scenario: Pilot-supported metadata remains bounded` -> `V10` -> `openspec/changes/hir-mir-supplement-pilot/evidence/pilot-supported-bounded.txt`
