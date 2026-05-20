@@ -1874,18 +1874,22 @@ fn object_corpus_contract_metadata_reports_receipt_and_check_shapes() {
 }
 
 #[test]
-fn object_corpus_contract_metadata_reports_hir_mir_supplements_as_unsupported() {
+fn object_corpus_contract_metadata_reports_pilot_and_planned_supplement_statuses() {
     let root = repo_root();
     let contract = object_corpus_contract(&root);
     let supplements = contract["supplemental_evidence"].as_array().expect("supplemental evidence list");
-    assert_eq!(supplements.len(), 2, "expected HIR and MIR supplement contracts: {contract:#?}");
+    assert_eq!(supplements.len(), 3, "expected HIR, THIR, and MIR supplement contracts: {contract:#?}");
 
-    for family in ["hir", "mir"] {
+    for (family, status) in [
+        ("hir", "pilot-supported"),
+        ("thir", "unsupported-planned"),
+        ("mir", "pilot-supported"),
+    ] {
         let supplement = supplements
             .iter()
             .find(|value| value["family"] == family)
             .unwrap_or_else(|| panic!("missing {family} supplement contract in {contract:#?}"));
-        assert_eq!(supplement["status"], "unsupported-planned");
+        assert_eq!(supplement["status"], status);
         assert!(
             supplement["relationship_to_v1"].as_str().unwrap().contains("preserves-function-object-v1-identity"),
             "{family} supplement must preserve v1 identity boundary: {supplement:#?}"
@@ -1909,16 +1913,26 @@ fn object_corpus_contract_metadata_reports_hir_mir_supplements_as_unsupported() 
             );
         }
         assert!(
-            supplement["unsupported_reason"].as_str().unwrap().contains("has not implemented"),
-            "{family} supplement should fail closed before extractor support: {supplement:#?}"
+            supplement["unsupported_reason"].as_str().unwrap().contains("unsupported")
+                || supplement["unsupported_reason"].as_str().unwrap().contains("not implemented"),
+            "{family} supplement should document unsupported/bounded scope: {supplement:#?}"
         );
         assert!(
-            supplement["required_evidence_before_support"]
-                .as_array()
-                .unwrap()
-                .iter()
-                .any(|value| { value.as_str().unwrap().contains("fixture") }),
-            "{family} supplement should require deterministic fixture evidence: {supplement:#?}"
+            supplement["required_evidence_before_support"].as_array().unwrap().iter().any(|value| {
+                value.as_str().unwrap().contains("fixture") || value.as_str().unwrap().contains("smoke")
+            }),
+            "{family} supplement should require deterministic fixture or smoke evidence: {supplement:#?}"
+        );
+        assert!(
+            supplement["extractor_identity_expectations"].as_array().unwrap().iter().any(|value| {
+                value.as_str().unwrap().contains("extractor") || value.as_str().unwrap().contains("rustc_version")
+            }),
+            "{family} supplement should name extractor/toolchain identity expectations: {supplement:#?}"
+        );
+        assert!(
+            supplement["fixture_replay_command"].as_str().unwrap().contains("supplement")
+                || supplement["fixture_replay_command"].as_str().unwrap().contains("unsupported-planned"),
+            "{family} supplement should name fixture replay or unsupported-plan command: {supplement:#?}"
         );
         assert_eq!(supplement["claims_correctness"], false);
         assert_eq!(supplement["claims_semantic_equivalence"], false);
@@ -1943,10 +1957,14 @@ fn object_corpus_contract_human_reports_hir_mir_fail_closed_boundaries() {
     let stdout = String::from_utf8_lossy(&output.stdout);
     for needle in [
         "supplemental_evidence family=hir",
+        "supplemental_evidence family=thir",
         "supplemental_evidence family=mir",
+        "status=pilot-supported",
         "status=unsupported-planned",
         "optional-supplement-preserves-function-object-v1-identity",
         "toolchain_scope=rustc-version",
+        "extractor_identity_expectations=",
+        "fixture_replay_command=",
         "claims_correctness=false",
         "claims_semantic_equivalence=false",
         "claims_cross_toolchain_stability=false",

@@ -19,6 +19,7 @@ const FUNCTION_OBJECT_SCHEMA: &str = "octet.function-object.v1";
 const HIR_SUPPLEMENT_SCHEMA: &str = "octet.function-object-hir-supplement.v1";
 #[allow(dead_code)]
 const MIR_SUPPLEMENT_SCHEMA: &str = "octet.function-object-mir-supplement.v1";
+const THIR_SUPPLEMENT_SCHEMA: &str = "octet.function-object-thir-supplement.v1";
 #[allow(dead_code)]
 const SUPPLEMENT_SCHEMA_VERSION: u32 = 1;
 const CORPUS_RECEIPT_SCHEMA: &str = "octet.function-object-corpus-receipt.v1";
@@ -427,6 +428,8 @@ struct ObjectSupplementalEvidenceContract {
     required_fields: Vec<&'static str>,
     unsupported_reason: &'static str,
     required_evidence_before_support: Vec<&'static str>,
+    extractor_identity_expectations: Vec<&'static str>,
+    fixture_replay_command: &'static str,
     claims_correctness: bool,
     claims_semantic_equivalence: bool,
     claims_cross_toolchain_stability: bool,
@@ -1208,55 +1211,111 @@ fn supplemental_evidence_contracts() -> Vec<ObjectSupplementalEvidenceContract> 
     vec![
         ObjectSupplementalEvidenceContract {
             family: "hir",
-            schema: "octet.function-object-hir-supplement.v1",
-            schema_version: 1,
-            status: "unsupported-planned",
+            schema: HIR_SUPPLEMENT_SCHEMA,
+            schema_version: SUPPLEMENT_SCHEMA_VERSION,
+            status: ObjectSupplementStatus::PilotSupported.as_str(),
             relationship_to_v1: "optional-supplement-preserves-function-object-v1-identity",
             toolchain_scope: "rustc-version-and-target-scoped",
             required_fields: vec![
                 "schema",
                 "schema_version",
                 "function_object_hash",
+                "source_path",
+                "function_name",
                 "rustc_version",
                 "target_triple",
-                "hir_context_hash",
+                "extractor",
+                "observations",
+                "observation_hash",
                 "extraction_caveats",
                 "boundary",
             ],
-            unsupported_reason: "Octet has not implemented a HIR extractor or deterministic HIR supplement fixtures.",
+            unsupported_reason: "bounded pilot source-token HIR fixture only; non-fixture HIR requests remain unsupported-planned until extractor evidence is added",
             required_evidence_before_support: vec![
-                "deterministic-hir-supplement-fixture",
-                "toolchain-scoped-replay-check",
+                "positive-cli-supplement-emit-check-smoke",
+                "negative-context-mismatch-check-smoke",
                 "non-proof-boundary-assertions",
             ],
+            extractor_identity_expectations: vec![
+                "extractor.name=octet-hir-pilot-source-token",
+                "extractor.version=cargo-octet-package-version",
+                "rustc_version=runtime-rustc-vv",
+                "target_triple=runtime-rustc-host",
+            ],
+            fixture_replay_command: "cargo octet object supplement emit --family hir --function checked src/lib.rs --output-format json && cargo octet object supplement check --family hir --receipt RECEIPT.json --function checked src/lib.rs --output-format json",
             claims_correctness: false,
             claims_semantic_equivalence: false,
             claims_cross_toolchain_stability: false,
         },
         ObjectSupplementalEvidenceContract {
-            family: "mir",
-            schema: "octet.function-object-mir-supplement.v1",
-            schema_version: 1,
-            status: "unsupported-planned",
+            family: "thir",
+            schema: THIR_SUPPLEMENT_SCHEMA,
+            schema_version: SUPPLEMENT_SCHEMA_VERSION,
+            status: ObjectSupplementStatus::UnsupportedPlanned.as_str(),
             relationship_to_v1: "optional-supplement-preserves-function-object-v1-identity",
-            toolchain_scope: "rustc-version-target-and-mir-context-scoped",
+            toolchain_scope: "rustc-version-target-and-thir-context-scoped",
             required_fields: vec![
                 "schema",
                 "schema_version",
                 "function_object_hash",
                 "rustc_version",
                 "target_triple",
-                "mir_context",
-                "mir_observation_hash",
+                "thir_context",
+                "thir_observation_hash",
                 "extraction_caveats",
                 "boundary",
             ],
-            unsupported_reason: "Octet has not implemented a MIR extractor or deterministic MIR supplement fixtures.",
+            unsupported_reason: "Octet has not implemented a THIR extractor or deterministic THIR supplement fixtures.",
             required_evidence_before_support: vec![
-                "deterministic-mir-supplement-fixture",
-                "toolchain-and-mir-context-scoped-replay-check",
+                "deterministic-thir-supplement-fixture",
+                "toolchain-and-thir-context-scoped-replay-check",
                 "non-proof-boundary-assertions",
             ],
+            extractor_identity_expectations: vec![
+                "deterministic-thir-extractor-name",
+                "deterministic-thir-extractor-version",
+                "rustc_version=exact-toolchain",
+                "target_triple=exact-target",
+            ],
+            fixture_replay_command: "unsupported-planned: add deterministic THIR fixture emit/check evidence before enabling",
+            claims_correctness: false,
+            claims_semantic_equivalence: false,
+            claims_cross_toolchain_stability: false,
+        },
+        ObjectSupplementalEvidenceContract {
+            family: "mir",
+            schema: MIR_SUPPLEMENT_SCHEMA,
+            schema_version: SUPPLEMENT_SCHEMA_VERSION,
+            status: ObjectSupplementStatus::PilotSupported.as_str(),
+            relationship_to_v1: "optional-supplement-preserves-function-object-v1-identity",
+            toolchain_scope: "rustc-version-target-and-mir-context-scoped",
+            required_fields: vec![
+                "schema",
+                "schema_version",
+                "function_object_hash",
+                "source_path",
+                "function_name",
+                "rustc_version",
+                "target_triple",
+                "extractor",
+                "observations",
+                "observation_hash",
+                "extraction_caveats",
+                "boundary",
+            ],
+            unsupported_reason: "bounded pilot source-token MIR summary fixture only; non-fixture MIR requests remain unsupported-planned until extractor evidence is added",
+            required_evidence_before_support: vec![
+                "positive-cli-supplement-emit-check-smoke",
+                "negative-context-mismatch-check-smoke",
+                "non-proof-boundary-assertions",
+            ],
+            extractor_identity_expectations: vec![
+                "extractor.name=octet-mir-pilot-source-token",
+                "extractor.version=cargo-octet-package-version",
+                "rustc_version=runtime-rustc-vv",
+                "target_triple=runtime-rustc-host",
+            ],
+            fixture_replay_command: "cargo octet object supplement emit --family mir --function checked src/lib.rs --output-format json && cargo octet object supplement check --family mir --receipt RECEIPT.json --function checked src/lib.rs --output-format json",
             claims_correctness: false,
             claims_semantic_equivalence: false,
             claims_cross_toolchain_stability: false,
@@ -1289,6 +1348,15 @@ fn print_corpus_contract_human(report: &ObjectCorpusContractReport) {
             supplement.required_fields.join(",")
         );
         println!("supplemental_evidence {} unsupported_reason={}", supplement.family, supplement.unsupported_reason);
+        println!(
+            "supplemental_evidence {} extractor_identity_expectations={}",
+            supplement.family,
+            supplement.extractor_identity_expectations.join(",")
+        );
+        println!(
+            "supplemental_evidence {} fixture_replay_command={}",
+            supplement.family, supplement.fixture_replay_command
+        );
         println!(
             "supplemental_evidence {} claims_correctness={} claims_semantic_equivalence={} claims_cross_toolchain_stability={}",
             supplement.family,
