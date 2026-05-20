@@ -1836,7 +1836,10 @@ fn hir_mir_supplement_pilot_docs_name_commands_and_non_proofs() {
         "cargo octet object supplement emit --family mir",
         "cargo octet object supplement check --family mir",
         "cargo octet object corpus contract --output-format json",
+        "cargo octet object supplement emit --family hir --spike rustc-hir-fixture",
+        "cargo octet object supplement check --family hir --spike rustc-hir-fixture",
         "source-token-bounded review evidence",
+        "fixture-backed/toolchain-scoped review evidence",
         "they do not replace it as the review/provenance identity",
         "thir` remains `unsupported-planned`",
         "correctness proof",
@@ -1852,7 +1855,10 @@ fn hir_mir_supplement_pilot_docs_name_commands_and_non_proofs() {
         "cargo octet object supplement check --family hir",
         "cargo octet object supplement emit --family mir",
         "cargo octet object supplement check --family mir",
+        "cargo octet object supplement emit --family hir --spike rustc-hir-fixture",
+        "cargo octet object supplement check --family hir --spike rustc-hir-fixture",
         "attached supplement to `octet.function-object.v1`",
+        "fixture-backed/toolchain-scoped",
         "THIR and any unimplemented non-pilot HIR/MIR family remain `unsupported-planned`",
         "MUST NOT claim stable identity across compiler versions",
     ] {
@@ -1916,6 +1922,20 @@ fn object_corpus_contract_metadata_reports_pilot_and_planned_supplement_statuses
     let contract = object_corpus_contract(&root);
     let supplements = contract["supplemental_evidence"].as_array().expect("supplemental evidence list");
     assert_eq!(supplements.len(), 3, "expected HIR, THIR, and MIR supplement contracts: {contract:#?}");
+
+    let hir = supplements.iter().find(|value| value["family"] == "hir").expect("missing HIR supplement contract");
+    assert!(
+        hir["fixture_replay_command"].as_str().unwrap().contains("--spike rustc-hir-fixture"),
+        "HIR replay command should name fixture spike scope: {hir:#?}"
+    );
+    assert!(
+        hir["extractor_identity_expectations"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|value| value.as_str().unwrap().contains("octet-rustc-hir-fixture-spike")),
+        "HIR contract should name rustc HIR fixture spike extractor: {hir:#?}"
+    );
 
     for (family, status) in [
         ("hir", "pilot-supported"),
