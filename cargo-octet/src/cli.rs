@@ -257,8 +257,8 @@ Usage:
   cargo octet object corpus check --receipt RECEIPT.json [PATHS...]
   cargo octet object corpus caveats [--output-format human|json] [PATHS...]
   cargo octet object corpus contract [--output-format human|json]
-  cargo octet object supplement emit --family hir|mir [--spike rustc-hir-fixture] [--function NAME] [PATHS...]
-  cargo octet object supplement check --family hir|mir [--spike rustc-hir-fixture] --receipt RECEIPT.json [--function NAME] [PATHS...]
+  cargo octet object supplement emit --family hir|mir [--spike rustc-hir-fixture] [--fixture-shape checked-arithmetic|branch-control-flow] [--function NAME] [PATHS...]
+  cargo octet object supplement check --family hir|mir [--spike rustc-hir-fixture] [--fixture-shape checked-arithmetic|branch-control-flow] --receipt RECEIPT.json [--function NAME] [PATHS...]
   cargo octet roadmap <artifact|capsule|ability|pointer|session|pure-cache> ...
   cargo octet transcript <PATH>
   cargo octet --version
@@ -299,8 +299,8 @@ Subcommands:
   corpus check --receipt RECEIPT.json [PATHS...] --output-format human|json
   corpus caveats [PATHS...] --output-format human|json
   corpus contract --output-format human|json
-  supplement emit --family hir|mir [--spike rustc-hir-fixture] [--function NAME] [PATHS...] --output-format human|json
-  supplement check --family hir|mir [--spike rustc-hir-fixture] --receipt RECEIPT.json [--function NAME] [PATHS...] --output-format human|json
+  supplement emit --family hir|mir [--spike rustc-hir-fixture] [--fixture-shape checked-arithmetic|branch-control-flow] [--function NAME] [PATHS...] --output-format human|json
+  supplement check --family hir|mir [--spike rustc-hir-fixture] [--fixture-shape checked-arithmetic|branch-control-flow] --receipt RECEIPT.json [--function NAME] [PATHS...] --output-format human|json
 
 Function objects are source-token review/provenance evidence. HIR/MIR supplements attach to v1 identity and are not correctness proofs.
 ";
@@ -839,6 +839,7 @@ fn parse_object_supplement_scan(emit: bool, args: &[String]) -> Result<ObjectArg
     let mut scope = SupplementScopeArg::Pilot;
     let mut receipt = None;
     let mut output_format = OutputFormat::Human;
+    let mut fixture_shape = None;
     let mut index = 0;
     while index < args.len() {
         let arg = &args[index];
@@ -866,6 +867,12 @@ fn parse_object_supplement_scan(emit: bool, args: &[String]) -> Result<ObjectArg
                 )?;
                 index += 2;
             }
+            "--fixture-shape" => {
+                fixture_shape = Some(
+                    args.get(index + 1).ok_or_else(|| "missing value after `--fixture-shape`".to_owned())?.clone(),
+                );
+                index += 2;
+            }
             "--output-format" => {
                 output_format = parse_output_format(
                     args.get(index + 1).ok_or_else(|| "missing value after `--output-format`".to_owned())?,
@@ -888,6 +895,10 @@ fn parse_object_supplement_scan(emit: bool, args: &[String]) -> Result<ObjectArg
                 scope = parse_supplement_spike_scope(arg.trim_start_matches("--spike="))?;
                 index += 1;
             }
+            _ if arg.starts_with("--fixture-shape=") => {
+                fixture_shape = Some(arg.trim_start_matches("--fixture-shape=").to_owned());
+                index += 1;
+            }
             _ if arg.starts_with("--output-format=") => {
                 output_format = parse_output_format(arg.trim_start_matches("--output-format="))?;
                 index += 1;
@@ -898,6 +909,17 @@ fn parse_object_supplement_scan(emit: bool, args: &[String]) -> Result<ObjectArg
                 index += 1;
             }
         }
+    }
+    if let Some(shape) = fixture_shape {
+        if scope != SupplementScopeArg::RustcHirFixtureSpike {
+            return Err("`--fixture-shape` requires `--spike rustc-hir-fixture`".to_owned());
+        }
+        if !paths.is_empty() || function.is_some() {
+            return Err("`--fixture-shape` cannot be combined with explicit fixture paths or `--function`".to_owned());
+        }
+        let selected = parse_supplement_fixture_shape(&shape)?;
+        paths.push(selected.path);
+        function = Some(selected.function);
     }
     if paths.is_empty() {
         paths.push(PathBuf::from("."));
@@ -932,6 +954,27 @@ fn parse_supplement_spike_scope(value: &str) -> Result<SupplementScopeArg, Strin
     match value {
         "rustc-hir-fixture" | "rustc-hir-fixture-spike" => Ok(SupplementScopeArg::RustcHirFixtureSpike),
         other => Err(format!("unsupported supplement spike `{other}`; expected `rustc-hir-fixture`")),
+    }
+}
+
+struct SupplementFixtureSelection {
+    path: PathBuf,
+    function: String,
+}
+
+fn parse_supplement_fixture_shape(value: &str) -> Result<SupplementFixtureSelection, String> {
+    match value {
+        "checked" | "checked-arithmetic" => Ok(SupplementFixtureSelection {
+            path: PathBuf::from("cargo-octet/tests/fixtures/hir-spike/checked.rs"),
+            function: "checked".to_owned(),
+        }),
+        "branch" | "branch-control-flow" | "clamp" => Ok(SupplementFixtureSelection {
+            path: PathBuf::from("cargo-octet/tests/fixtures/hir-spike/clamp.rs"),
+            function: "clamp_to_limit".to_owned(),
+        }),
+        other => Err(format!(
+            "unsupported supplement fixture shape `{other}`; expected `checked-arithmetic` or `branch-control-flow`"
+        )),
     }
 }
 
@@ -1271,6 +1314,50 @@ mod tests {
             },
             other => panic!("expected object supplement spike args, got {other:?}"),
         }
+
+        let branch_shape = parse(
+            [
+                "cargo",
+                "octet",
+                "object",
+                "supplement",
+                "emit",
+                "--family=hir",
+                "--spike=rustc-hir-fixture",
+                "--fixture-shape=branch-control-flow",
+                "--output-format=json",
+            ]
+            .map(OsString::from),
+        )
+        .expect("parse branch fixture shape supplement args");
+        match branch_shape {
+            CommandArgs::Object(args) => {
+                assert_eq!(args.function.as_deref(), Some("clamp_to_limit"));
+                assert_eq!(args.paths, vec![std::path::PathBuf::from(
+                    "cargo-octet/tests/fixtures/hir-spike/clamp.rs"
+                )]);
+                assert!(matches!(args.mode, super::ObjectMode::SupplementEmit {
+                    family: super::SupplementFamilyArg::Hir,
+                    scope: super::SupplementScopeArg::RustcHirFixtureSpike,
+                }));
+            }
+            other => panic!("expected branch fixture shape args, got {other:?}"),
+        }
+
+        let shape_without_spike = parse(
+            [
+                "cargo",
+                "octet",
+                "object",
+                "supplement",
+                "emit",
+                "--family=hir",
+                "--fixture-shape=branch-control-flow",
+            ]
+            .map(OsString::from),
+        )
+        .expect_err("fixture shape requires rustc spike scope");
+        assert!(shape_without_spike.contains("requires `--spike rustc-hir-fixture`"));
     }
 
     #[test]
