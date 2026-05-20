@@ -218,6 +218,18 @@ For fingerprint docs/examples, use one review command:
 nix build .#checks.x86_64-linux.docs-examples --no-link -L
 ```
 
+For Valence object-evidence changes, use one aggregate operator command:
+
+```bash
+nix build .#checks.x86_64-linux.valence-object-evidence --no-link -L
+```
+
+That aggregate gate composes selected local object corpus replay, compatibility,
+caveat taxonomy, and fresh-build determinism rails. It is bounded evidence
+replay for the selected corpus; it is not a correctness proof, semantic
+equivalence proof, exhaustive Rust coverage proof, or cross-machine/toolchain
+determinism proof.
+
 Run it whenever `cargo octet fingerprint` behavior or checked
 `docs/examples/function-fingerprint-*` transcripts change. This aggregate check
 is part of `nix flake check` and is the CI/operator gate for executable

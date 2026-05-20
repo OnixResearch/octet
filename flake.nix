@@ -1060,6 +1060,12 @@ MAIN
           objectCorpusGate = mkFingerprintDocsCheck
             "octet-object-corpus-gate"
             "object_internal_corpus";
+          objectCorpusCompatibilityGate = mkFingerprintDocsCheck
+            "octet-object-corpus-compatibility-gate"
+            "object_corpus_compatibility";
+          objectCorpusCaveatTaxonomyGate = mkFingerprintDocsCheck
+            "octet-object-corpus-caveat-taxonomy-gate"
+            "caveat_taxonomy";
           freshBuildObjectCorpusDeterminism = pkgs.runCommand "octet-fresh-build-object-corpus-determinism" {
             nativeBuildInputs = [ pkgs.coreutils pkgs.diffutils pkgs.jq ];
           } ''
@@ -1091,6 +1097,20 @@ MAIN
             echo "fresh_build.compared_fields_stable: PASS"
             echo "fresh_build.boundary_claims_false: PASS"
             echo "fresh_build.scope=bounded-local-fresh-build-evidence-replay"
+            mkdir -p "$out"
+          '';
+          valenceObjectEvidenceGate = pkgs.runCommand "octet-valence-object-evidence" { } ''
+            test -d ${objectCorpusGate}
+            test -d ${objectCorpusCompatibilityGate}
+            test -d ${objectCorpusCaveatTaxonomyGate}
+            test -d ${freshBuildObjectCorpusDeterminism}
+
+            echo "valence_object_evidence.object_corpus_gate: PASS"
+            echo "valence_object_evidence.compatibility_gate: PASS"
+            echo "valence_object_evidence.caveat_taxonomy_gate: PASS"
+            echo "valence_object_evidence.fresh_build_determinism_gate: PASS"
+            echo "valence_object_evidence.scope=bounded-local-selected-corpus-evidence-replay"
+            echo "valence_object_evidence.non_claims=correctness,semantic_equivalence,exhaustive_rust_coverage,cross_machine_determinism,cross_toolchain_determinism"
             mkdir -p "$out"
           '';
           roadmapAgentSurfacesDocs = craneLib.buildPackage {
@@ -1198,7 +1218,10 @@ MAIN
           fingerprint-source-scanner-docs = fingerprintSourceScannerDocs;
           release-operator-smoke-docs = releaseOperatorSmokeDocs;
           object-corpus-gate = objectCorpusGate;
+          object-corpus-compatibility-gate = objectCorpusCompatibilityGate;
+          object-corpus-caveat-taxonomy-gate = objectCorpusCaveatTaxonomyGate;
           fresh-build-object-corpus-determinism = freshBuildObjectCorpusDeterminism;
+          valence-object-evidence = valenceObjectEvidenceGate;
           roadmap-agent-surfaces-docs = roadmapAgentSurfacesDocs;
           release-candidate-smoke = releaseCandidateSmokeCheck;
 
