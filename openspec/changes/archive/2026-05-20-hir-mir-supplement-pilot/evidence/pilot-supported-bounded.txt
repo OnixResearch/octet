@@ -1,0 +1,14 @@
+$ cargo octet object corpus contract --output-format json && contributor docs bounded pilot assertions
+{
+  "hir": {
+    "status": "pilot-supported",
+    "fixture_replay_command": "cargo octet object supplement emit --family hir --function checked src/lib.rs --output-format json && cargo octet object supplement check --family hir --receipt RECEIPT.json --function checked src/lib.rs --output-format json",
+    "claims_correctness": false
+  },
+  "mir": {
+    "status": "pilot-supported",
+    "fixture_replay_command": "cargo octet object supplement emit --family mir --function checked src/lib.rs --output-format json && cargo octet object supplement check --family mir --receipt RECEIPT.json --function checked src/lib.rs --output-format json",
+    "claims_correctness": false
+  }
+}
+assert.pilot_supported_bounded: PASS

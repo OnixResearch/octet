@@ -1,0 +1,114 @@
+$ cargo octet object supplement emit/check negative context mismatch
+{
+  "schema_version": 1,
+  "mode": "supplement-check",
+  "family": "hir",
+  "status": "fail",
+  "receipt_path": "/tmp/octet-supp-neg.iuexlG/tampered.json",
+  "comparisons": [
+    {
+      "field": "schema",
+      "status": "match",
+      "expected": "octet.function-object-hir-supplement.v1",
+      "current": "octet.function-object-hir-supplement.v1"
+    },
+    {
+      "field": "schema_version",
+      "status": "match",
+      "expected": 1,
+      "current": 1
+    },
+    {
+      "field": "family",
+      "status": "match",
+      "expected": "hir",
+      "current": "hir"
+    },
+    {
+      "field": "status",
+      "status": "match",
+      "expected": "pilot-supported",
+      "current": "pilot-supported"
+    },
+    {
+      "field": "function_object_hash",
+      "status": "match",
+      "expected": "b3:acacdedf594cf8a79a0d96a514d614b38afabc6039b527840606277f2549f698",
+      "current": "b3:acacdedf594cf8a79a0d96a514d614b38afabc6039b527840606277f2549f698"
+    },
+    {
+      "field": "source_path",
+      "status": "mismatch",
+      "expected": "different.rs",
+      "current": "/tmp/octet-supp-neg.iuexlG/lib.rs"
+    },
+    {
+      "field": "function_name",
+      "status": "match",
+      "expected": "checked",
+      "current": "checked"
+    },
+    {
+      "field": "rustc_version",
+      "status": "match",
+      "expected": "nightly-2026-03-21-x86_64-unknown-linux-gnu",
+      "current": "nightly-2026-03-21-x86_64-unknown-linux-gnu"
+    },
+    {
+      "field": "target_triple",
+      "status": "match",
+      "expected": "x86_64-linux",
+      "current": "x86_64-linux"
+    },
+    {
+      "field": "extractor",
+      "status": "match",
+      "expected": {
+        "name": "octet-hir-pilot-source-token",
+        "version": "0.1.0"
+      },
+      "current": {
+        "name": "octet-hir-pilot-source-token",
+        "version": "0.1.0"
+      }
+    },
+    {
+      "field": "observation_hash",
+      "status": "match",
+      "expected": "b3:a3c33e50ecbd7796e9d7791fab9cbde2174f13f8e618c4c5e0de0cd73f22bdb2",
+      "current": "b3:a3c33e50ecbd7796e9d7791fab9cbde2174f13f8e618c4c5e0de0cd73f22bdb2"
+    },
+    {
+      "field": "boundary",
+      "status": "match",
+      "expected": {
+        "claims_correctness": false,
+        "claims_cross_toolchain_stability": false,
+        "claims_pure_cache_eligibility": false,
+        "claims_semantic_equivalence": false,
+        "detail": "HIR/MIR pilot supplements add bounded toolchain-scoped observations; Function Object v1 remains the review/provenance identity and no correctness or semantic-equivalence proof is implied.",
+        "identity_scope": "review-and-provenance-evidence",
+        "relationship_to_v1": "attached-supplement-preserves-function-object-v1-identity"
+      },
+      "current": {
+        "claims_correctness": false,
+        "claims_cross_toolchain_stability": false,
+        "claims_pure_cache_eligibility": false,
+        "claims_semantic_equivalence": false,
+        "detail": "HIR/MIR pilot supplements add bounded toolchain-scoped observations; Function Object v1 remains the review/provenance identity and no correctness or semantic-equivalence proof is implied.",
+        "identity_scope": "review-and-provenance-evidence",
+        "relationship_to_v1": "attached-supplement-preserves-function-object-v1-identity"
+      }
+    }
+  ],
+  "boundary": {
+    "relationship_to_v1": "attached-supplement-preserves-function-object-v1-identity",
+    "identity_scope": "review-and-provenance-evidence",
+    "claims_correctness": false,
+    "claims_semantic_equivalence": false,
+    "claims_cross_toolchain_stability": false,
+    "claims_pure_cache_eligibility": false,
+    "detail": "HIR/MIR pilot supplements add bounded toolchain-scoped observations; Function Object v1 remains the review/provenance identity and no correctness or semantic-equivalence proof is implied."
+  }
+}
+assert.supplement_check_negative: PASS

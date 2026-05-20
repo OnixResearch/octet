@@ -1,0 +1,16 @@
+$ cargo octet object corpus contract --output-format json # fail-closed metadata
+{
+  "hir": {
+    "status": "pilot-supported",
+    "claims_correctness": false
+  },
+  "thir": {
+    "status": "unsupported-planned",
+    "claims_correctness": false
+  },
+  "mir": {
+    "status": "pilot-supported",
+    "claims_correctness": false
+  }
+}
+assert.fail_closed_metadata: PASS

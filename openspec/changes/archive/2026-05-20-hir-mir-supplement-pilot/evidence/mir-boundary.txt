@@ -1,0 +1,14 @@
+$ cargo octet object supplement emit --family mir ... && version/context assertions
+{
+  "schema": "octet.function-object-mir-supplement.v1",
+  "rustc_version": "nightly-2026-03-21-x86_64-unknown-linux-gnu",
+  "extractor": {
+    "name": "octet-mir-pilot-source-token",
+    "version": "0.1.0"
+  },
+  "mir_context": {
+    "detail": "MIR observation context is version-scoped and does not claim semantic equivalence",
+    "status": "pilot-supported"
+  }
+}
+assert.mir_boundary: PASS

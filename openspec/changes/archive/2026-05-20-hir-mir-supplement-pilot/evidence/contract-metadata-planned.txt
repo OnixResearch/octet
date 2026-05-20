@@ -1,0 +1,19 @@
+$ cargo octet object corpus contract --output-format json # contract metadata names HIR/THIR/MIR
+{
+  "hir": {
+    "schema": "octet.function-object-hir-supplement.v1",
+    "status": "pilot-supported",
+    "schema_version": 1
+  },
+  "thir": {
+    "schema": "octet.function-object-thir-supplement.v1",
+    "status": "unsupported-planned",
+    "schema_version": 1
+  },
+  "mir": {
+    "schema": "octet.function-object-mir-supplement.v1",
+    "status": "pilot-supported",
+    "schema_version": 1
+  }
+}
+assert.contract_metadata_planned: PASS
