@@ -1,0 +1,6 @@
+$ pi --no-session --thinking minimal -e ~/.pi/agent/extensions/openspec-gates.ts -p "Call the openspec_gate tool with stage=design and change=harden-proposal-obligation-gate. Print the full result."
+OpenSpec design gate result:
+
+VERDICT: PASS
+
+Findings: None

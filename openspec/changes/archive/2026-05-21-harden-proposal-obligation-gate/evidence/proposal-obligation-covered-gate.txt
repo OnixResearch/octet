@@ -1,0 +1,9 @@
+$ tests/fixtures/openspec-proposal-governance/run-proposal-fixture-gate.sh proposal-obligation-covered-pass
+OpenSpec proposal gate (proposal-obligation-covered-pass)
+
+VERDICT: PASS
+
+## Findings
+- None.
+
+PASS expected passing fixture: proposal-obligation-covered-pass

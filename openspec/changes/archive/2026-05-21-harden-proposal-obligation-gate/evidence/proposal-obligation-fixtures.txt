@@ -1,0 +1,1 @@
+PASS proposal-obligation fixtures encode missing and covered obligations

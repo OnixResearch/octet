@@ -1,0 +1,14 @@
+$ pi --no-session --thinking minimal -e ~/.pi/agent/extensions/openspec-gates.ts -p "Call the openspec_gate tool with stage=tasks and change=harden-proposal-obligation-gate. Print the full result."
+OpenSpec tasks gate (harden-proposal-obligation-gate)
+
+VERDICT: PASS
+
+## Findings
+- None
+
+## Stage Check
+- Tasks trace to proposal/design/spec obligations.
+- Tasks are small, verifiable, and ordered sensibly.
+- Parallelization markers are present on every checkbox task: 0 unmarked out of 17 checkbox tasks.
+- Verification and archive/sync work are included.
+- Stage is ready for implementation.
