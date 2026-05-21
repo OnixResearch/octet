@@ -1,0 +1,27 @@
+OpenSpec proposal gate result:
+
+```text
+OpenSpec proposal gate (add-thir-supplement-fail-closed)
+
+Strategy: same-family
+
+VERDICT: PASS
+
+## Findings
+- None.
+
+## Stage Check
+- Proposal states rationale, scope, non-goals, impact, dependencies, and verification expectations.
+  - Evidence: `openspec/changes/add-thir-supplement-fail-closed/proposal.md` sections `## Why`, `## What Changes`, `## Out of Scope`, `## Impact`, `## Obligation cross-check`.
+- Delta spec encodes the proposal’s implied THIR fail-closed behavior.
+  - Evidence: `openspec/changes/add-thir-supplement-fail-closed/specs/standards-codification/spec.md` modifies `HIR/MIR Supplement Pilot [r[hir-mir-supplement-pilot]]`.
+  - Evidence: scenario `THIR supplement emits unsupported-planned evidence [r[hir-mir-supplement-pilot.scenario.thir-unsupported-planned]]` requires schema `octet.function-object-thir-supplement.v1`, status `unsupported-planned`, unsupported observations/caveats, and preserved no-correctness/no-semantic-equivalence/no-pure-cache/no-cross-toolchain-stability boundaries.
+  - Evidence: scenario `THIR supplement check replays fail-closed receipt [r[hir-mir-supplement-pilot.scenario.thir-check-replay]]` requires `pass` only when receipt-critical fields match and continued unsupported-planned wording.
+- Non-goals are explicit enough to prevent extractor or fixture-scope creep before design.
+  - Evidence: `proposal.md` `## Out of Scope`: “No THIR extractor, rustc THIR capture, semantic equivalence claim, pure-cache claim, cross-toolchain stability claim, or general HIR/MIR support expansion” and “No change to fixture inventory.”
+- Stage is ready for design.
+
+## Next Actions
+- Proceed to design.
+- In design, define exact receipt fields, comparison fields, emitted wording, and focused test commands.
+```

@@ -122,6 +122,7 @@ pub enum ObjectMode {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SupplementFamilyArg {
     Hir,
+    Thir,
     Mir,
 }
 
@@ -129,6 +130,7 @@ impl SupplementFamilyArg {
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Hir => "hir",
+            Self::Thir => "thir",
             Self::Mir => "mir",
         }
     }
@@ -262,8 +264,8 @@ Usage:
   cargo octet object corpus caveats [--output-format human|json] [PATHS...]
   cargo octet object corpus contract [--output-format human|json]
   cargo octet object supplement fixtures --family hir --spike rustc-hir-fixture [--output-format human|json]
-  cargo octet object supplement emit --family hir|mir [--spike rustc-hir-fixture] [--fixture-shape checked-arithmetic|branch-control-flow] [--function NAME] [PATHS...]
-  cargo octet object supplement check --family hir|mir [--spike rustc-hir-fixture] [--fixture-shape checked-arithmetic|branch-control-flow] --receipt RECEIPT.json [--function NAME] [PATHS...]
+  cargo octet object supplement emit --family hir|thir|mir [--spike rustc-hir-fixture] [--fixture-shape checked-arithmetic|branch-control-flow] [--function NAME] [PATHS...]
+  cargo octet object supplement check --family hir|thir|mir [--spike rustc-hir-fixture] [--fixture-shape checked-arithmetic|branch-control-flow] --receipt RECEIPT.json [--function NAME] [PATHS...]
   cargo octet roadmap <artifact|capsule|ability|pointer|session|pure-cache> ...
   cargo octet transcript <PATH>
   cargo octet --version
@@ -305,10 +307,10 @@ Subcommands:
   corpus caveats [PATHS...] --output-format human|json
   corpus contract --output-format human|json
   supplement fixtures --family hir --spike rustc-hir-fixture --output-format human|json
-  supplement emit --family hir|mir [--spike rustc-hir-fixture] [--fixture-shape checked-arithmetic|branch-control-flow] [--function NAME] [PATHS...] --output-format human|json
-  supplement check --family hir|mir [--spike rustc-hir-fixture] [--fixture-shape checked-arithmetic|branch-control-flow] --receipt RECEIPT.json [--function NAME] [PATHS...] --output-format human|json
+  supplement emit --family hir|thir|mir [--spike rustc-hir-fixture] [--fixture-shape checked-arithmetic|branch-control-flow] [--function NAME] [PATHS...] --output-format human|json
+  supplement check --family hir|thir|mir [--spike rustc-hir-fixture] [--fixture-shape checked-arithmetic|branch-control-flow] --receipt RECEIPT.json [--function NAME] [PATHS...] --output-format human|json
 
-Function objects are source-token review/provenance evidence. HIR/MIR supplements attach to v1 identity and are not correctness proofs.
+Function objects are source-token review/provenance evidence. HIR/MIR supplements attach to v1 identity; THIR supplements are fail-closed unsupported-planned evidence. Supplements are not correctness proofs.
 ";
 
 const ROADMAP_HELP: &str = "cargo octet roadmap
@@ -1014,8 +1016,9 @@ fn parse_object_supplement_scan(emit: bool, args: &[String]) -> Result<ObjectArg
 fn parse_supplement_family(value: &str) -> Result<SupplementFamilyArg, String> {
     match value {
         "hir" => Ok(SupplementFamilyArg::Hir),
+        "thir" => Ok(SupplementFamilyArg::Thir),
         "mir" => Ok(SupplementFamilyArg::Mir),
-        other => Err(format!("unsupported supplement family `{other}`; expected `hir` or `mir`")),
+        other => Err(format!("unsupported supplement family `{other}`; expected `hir`, `thir`, or `mir`")),
     }
 }
 
@@ -1357,6 +1360,32 @@ mod tests {
                 other => panic!("expected supplement check mode, got {other:?}"),
             },
             other => panic!("expected object supplement check args, got {other:?}"),
+        }
+
+        let thir = parse(
+            [
+                "cargo",
+                "octet",
+                "object",
+                "supplement",
+                "emit",
+                "--family=thir",
+                "--function",
+                "checked",
+                "src/lib.rs",
+            ]
+            .map(OsString::from),
+        )
+        .expect("parse THIR supplement emit args");
+        match thir {
+            CommandArgs::Object(args) => match args.mode {
+                super::ObjectMode::SupplementEmit { family, scope } => {
+                    assert_eq!(family, super::SupplementFamilyArg::Thir);
+                    assert_eq!(scope, super::SupplementScopeArg::Pilot);
+                }
+                other => panic!("expected THIR supplement emit mode, got {other:?}"),
+            },
+            other => panic!("expected object THIR supplement args, got {other:?}"),
         }
 
         let spike = parse(

@@ -118,6 +118,7 @@ impl ObjectSupplementStatus {
 #[allow(dead_code)]
 enum ObjectSupplementFamily {
     Hir,
+    Thir,
     Mir,
 }
 
@@ -125,6 +126,7 @@ impl ObjectSupplementFamily {
     fn as_str(self) -> &'static str {
         match self {
             Self::Hir => "hir",
+            Self::Thir => "thir",
             Self::Mir => "mir",
         }
     }
@@ -132,6 +134,7 @@ impl ObjectSupplementFamily {
     fn schema(self) -> &'static str {
         match self {
             Self::Hir => HIR_SUPPLEMENT_SCHEMA,
+            Self::Thir => THIR_SUPPLEMENT_SCHEMA,
             Self::Mir => MIR_SUPPLEMENT_SCHEMA,
         }
     }
@@ -747,6 +750,7 @@ fn supplement_records(
                 .into_iter()
                 .map(|record| match family {
                     SupplementFamilyArg::Hir => Ok(pilot_hir_supplement(&record.object, &context)),
+                    SupplementFamilyArg::Thir => Ok(pilot_thir_supplement(&record.object, &context)),
                     SupplementFamilyArg::Mir => Ok(pilot_mir_supplement(&record.object, &context)),
                 })
                 .collect()
@@ -779,6 +783,7 @@ fn runtime_pilot_context(family: SupplementFamilyArg) -> PilotSupplementContext 
         .unwrap_or_else(|_| format!("{}-{}", std::env::consts::ARCH, std::env::consts::OS));
     let extractor_name = match family {
         SupplementFamilyArg::Hir => "octet-hir-pilot-source-token",
+        SupplementFamilyArg::Thir => "octet-thir-pilot-unsupported-planned",
         SupplementFamilyArg::Mir => "octet-mir-pilot-source-token",
     };
     PilotSupplementContext {
@@ -1104,8 +1109,54 @@ fn pilot_mir_supplement(object: &FunctionObjectV1, context: &PilotSupplementCont
 }
 
 #[allow(dead_code)]
+fn pilot_thir_supplement(object: &FunctionObjectV1, context: &PilotSupplementContext) -> FunctionObjectSupplementV1 {
+    let mut observations = BTreeMap::new();
+    observations.insert("thir_context".to_owned(), SupplementObservation {
+        status: ObjectSupplementStatus::UnsupportedPlanned.as_str(),
+        detail: "THIR extraction is not implemented; this record preserves a fail-closed runtime family seam"
+            .to_owned(),
+    });
+    observations.insert("typed_hir_lowering".to_owned(), SupplementObservation {
+        status: ObjectSupplementStatus::UnsupportedPlanned.as_str(),
+        detail: "typed HIR/THIR lowering observations require future extractor evidence before support".to_owned(),
+    });
+    observations.insert("support_boundary".to_owned(), SupplementObservation {
+        status: ObjectSupplementStatus::UnsupportedPlanned.as_str(),
+        detail: format!(
+            "THIR supplement for object {} is unsupported-planned evidence only; no correctness, semantic-equivalence, pure-cache, or cross-toolchain claim",
+            object.object_hash
+        ),
+    });
+    let mut supplement = supplement_for_object_with_status(
+        ObjectSupplementFamily::Thir,
+        ObjectSupplementStatus::UnsupportedPlanned,
+        object,
+        context,
+        observations,
+    );
+    supplement.extraction_caveats.push(SupplementCaveat {
+        family: ObjectSupplementFamily::Thir.as_str(),
+        status: ObjectSupplementStatus::UnsupportedPlanned.as_str(),
+        detail: "Octet has not implemented a THIR extractor; matching fail-closed receipts do not imply THIR support"
+            .to_owned(),
+    });
+    supplement
+}
+
+#[allow(dead_code)]
 fn supplement_for_object(
     family: ObjectSupplementFamily,
+    object: &FunctionObjectV1,
+    context: &PilotSupplementContext,
+    observations: BTreeMap<String, SupplementObservation>,
+) -> FunctionObjectSupplementV1 {
+    supplement_for_object_with_status(family, ObjectSupplementStatus::PilotSupported, object, context, observations)
+}
+
+#[allow(dead_code)]
+fn supplement_for_object_with_status(
+    family: ObjectSupplementFamily,
+    status: ObjectSupplementStatus,
     object: &FunctionObjectV1,
     context: &PilotSupplementContext,
     observations: BTreeMap<String, SupplementObservation>,
@@ -1115,7 +1166,7 @@ fn supplement_for_object(
         schema: family.schema(),
         schema_version: SUPPLEMENT_SCHEMA_VERSION,
         family: family.as_str(),
-        status: ObjectSupplementStatus::PilotSupported.as_str(),
+        status: status.as_str(),
         function_object_hash: object.object_hash.clone(),
         source_path: object.source_path.clone(),
         function_name: object.name.clone(),

@@ -1,0 +1,39 @@
+OpenSpec tasks gate result:
+
+```text
+OpenSpec tasks gate (add-thir-supplement-fail-closed)
+
+Strategy: same-family
+
+VERDICT: PASS
+
+## Findings
+- None
+
+## Stage Check
+- Tasks trace to proposal/design/spec work:
+  - I1 covers proposal “THIR family parsing” and design Decision 1 runtime DTO/parser support.
+  - I2, V1, and V2 cover delta scenarios `r[hir-mir-supplement-pilot.scenario.thir-unsupported-planned]` and `r[hir-mir-supplement-pilot.scenario.thir-check-replay]`.
+  - V3, V4, and V5 cover strict OpenSpec validation, all-spec validation, and whitespace closeout from design Risks / Trade-offs.
+  - I3 covers required spec sync/archive closeout.
+- Tasks are ordered coherently:
+  - Implementation `I1` precedes tests `I2`.
+  - Verification tasks depend on implementation/test tasks.
+  - Archive/sync `I3` waits for focused validation `V3`.
+  - Final validation/whitespace checks depend on archive/sync.
+- Parallelization markers are complete:
+  - `tasks.md` has 8 checkbox tasks.
+  - All 8 declare `[serial]` or `[depends:<id>]`.
+  - No missing markers, no dependency cycles, and no incoherent `[parallel]` claims.
+- Verification coverage is present:
+  - `V1` verifies THIR emit fail-closed behavior.
+  - `V2` verifies THIR check replay behavior.
+  - `V3`, `V4`, and `V5` cover OpenSpec and whitespace closeout.
+- Stage is ready to move past tasks into implementation.
+
+## Next Actions
+- Start with `I1`.
+- Keep evidence transcripts at the paths named in `V1`–`V5`.
+- After implementation and verification, complete `I3` before final `V4`/`V5`.
+[18:17:31]
+```

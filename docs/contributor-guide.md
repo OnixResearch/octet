@@ -238,6 +238,8 @@ cargo octet object supplement emit --family hir --function checked src/lib.rs --
 cargo octet object supplement check --family hir --receipt hir-supplement.json --function checked src/lib.rs --output-format json
 cargo octet object supplement emit --family mir --function checked src/lib.rs --output-format json > mir-supplement.json
 cargo octet object supplement check --family mir --receipt mir-supplement.json --function checked src/lib.rs --output-format json
+cargo octet object supplement emit --family thir --function checked src/lib.rs --output-format json > thir-supplement.json
+cargo octet object supplement check --family thir --receipt thir-supplement.json --function checked src/lib.rs --output-format json
 cargo octet object corpus contract --output-format json
 ```
 
@@ -268,12 +270,13 @@ evidence for exactly `checked-arithmetic` (`checked.rs::checked`) and
 `octet.function-object.v1` `object_hash`; they do not replace it as the
 review/provenance identity. Treat `hir` and `mir` `pilot-supported` contract
 metadata as support for the checked pilot emit/check surface plus the explicit
-`--spike rustc-hir-fixture` selected fixture shapes only. `thir` remains
-`unsupported-planned`, and future non-pilot HIR, THIR, or MIR families must stay
-planned/unsupported until deterministic positive and negative fixture evidence
-exists.
+`--spike rustc-hir-fixture` selected fixture shapes only. Treat `thir` as a
+fail-closed runtime family: emit/check may replay `unsupported-planned` THIR
+records, but they are not extractor support. Future non-pilot HIR, THIR, or MIR
+families must stay planned/unsupported until deterministic positive and negative
+fixture evidence exists.
 
-Do not describe a matching HIR/MIR supplement as a correctness proof, semantic-
+Do not describe a matching HIR/MIR/THIR supplement as a correctness proof, semantic-
 equivalence proof, pure-cache eligibility proof, cross-toolchain stability
 claim, or exhaustive Rust coverage claim. The check command intentionally fails
 closed on schema/version, Function Object v1 hash, source path, function name,
