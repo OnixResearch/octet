@@ -1,0 +1,3 @@
+Archive closeout complete.
+Archived path: openspec/changes/archive/2026-05-21-harden-proposal-obligation-gate
+Former active path references remaining in openspec/: 0

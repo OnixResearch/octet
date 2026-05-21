@@ -1,0 +1,4 @@
+Rewritten active path references to archive path.
+Files updated:
+openspec/changes/archive/2026-05-21-harden-proposal-obligation-gate/tasks.md
+openspec/changes/archive/2026-05-21-harden-proposal-obligation-gate/design.md

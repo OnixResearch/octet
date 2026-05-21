@@ -1,0 +1,15 @@
+$ pi --no-session --thinking minimal -e ~/.pi/agent/extensions/openspec-gates.ts -p "Call the openspec_gate tool with stage=proposal and change=harden-proposal-obligation-gate. Print the full result."
+OpenSpec proposal gate (harden-proposal-obligation-gate)
+
+VERDICT: PASS
+
+## Findings
+- None
+
+## Stage Check
+- Proposal states problem and why.
+- Scope bounded to proposal-stage obligation hardening.
+- Affected artifacts named.
+- Verification expectations explicit.
+- Delta spec encodes capability changes.
+- Proposal-stage readiness: ready for design/spec refinement.

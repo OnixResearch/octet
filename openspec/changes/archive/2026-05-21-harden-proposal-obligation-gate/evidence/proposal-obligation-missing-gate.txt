@@ -1,0 +1,8 @@
+$ tests/fixtures/openspec-proposal-governance/run-proposal-fixture-gate.sh proposal-obligation-missing-blocked
+PASS expected blocked fixture: proposal-obligation-missing-blocked
+
+Gate output included target finding:
+- VERDICT: FAIL
+- [class=omission] [scope=proposal] [route=prompt]
+- Proposal scope is too broad and does not name exact affected artifacts or downstream validation boundaries.
+- Proposal verification expectations are underspecified.

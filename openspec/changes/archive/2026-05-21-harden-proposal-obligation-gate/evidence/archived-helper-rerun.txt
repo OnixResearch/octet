@@ -1,0 +1,6 @@
+$ python openspec/changes/archive/2026-05-21-harden-proposal-obligation-gate/evidence/check-proposal-obligation-fixtures.py template
+PASS proposal template includes obligation fields
+$ python openspec/changes/archive/2026-05-21-harden-proposal-obligation-gate/evidence/check-proposal-obligation-fixtures.py config
+PASS config includes proposal-stage obligation guidance
+$ python openspec/changes/archive/2026-05-21-harden-proposal-obligation-gate/evidence/check-proposal-obligation-fixtures.py fixtures
+PASS proposal-obligation fixtures encode missing and covered obligations
