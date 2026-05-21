@@ -1941,6 +1941,112 @@ fn object_supplement_runtime_smoke_covers_nested_help_and_inventory() {
 }
 
 #[test]
+fn object_supplement_inventory_commands_roundtrip_for_every_shape() {
+    let root = repo_root();
+    let temp = tempfile::tempdir().expect("create supplement roundtrip tempdir");
+    let inventory = Command::new(cargo_octet())
+        .args([
+            "object",
+            "supplement",
+            "fixtures",
+            "--family",
+            "hir",
+            "--spike",
+            "rustc-hir-fixture",
+            "--output-format",
+            "json",
+        ])
+        .current_dir(&root)
+        .output()
+        .expect("run HIR fixture inventory json roundtrip source");
+    assert!(
+        inventory.status.success(),
+        "inventory roundtrip source failed stdout={} stderr={}",
+        String::from_utf8_lossy(&inventory.stdout),
+        String::from_utf8_lossy(&inventory.stderr)
+    );
+    let json: serde_json::Value = serde_json::from_slice(&inventory.stdout).expect("inventory roundtrip json");
+    let shapes = json["shapes"].as_array().expect("fixture inventory shapes array");
+    let mut visited = BTreeSet::new();
+
+    for fixture in shapes {
+        let shape = fixture["shape"].as_str().expect("fixture shape");
+        visited.insert(shape.to_owned());
+        let emit_command = fixture["emit_command"].as_str().expect("emit command");
+        let emit_args: Vec<&str> = emit_command
+            .strip_prefix("cargo octet ")
+            .unwrap_or_else(|| panic!("emit command should start with cargo octet: {emit_command}"))
+            .split_whitespace()
+            .collect();
+        let emit = Command::new(cargo_octet())
+            .args(&emit_args)
+            .current_dir(&root)
+            .output()
+            .unwrap_or_else(|error| panic!("run inventory emit command for {shape}: {error}"));
+        assert!(
+            emit.status.success(),
+            "inventory emit command for {shape} failed stdout={} stderr={}",
+            String::from_utf8_lossy(&emit.stdout),
+            String::from_utf8_lossy(&emit.stderr)
+        );
+        let receipt: serde_json::Value = serde_json::from_slice(&emit.stdout).expect("emit receipt json");
+        assert_eq!(receipt["family"], "hir");
+        let supplement = receipt["supplements"]
+            .as_array()
+            .expect("supplement array")
+            .first()
+            .unwrap_or_else(|| panic!("missing emitted supplement: {receipt:#?}"));
+        assert_eq!(supplement["status"], "pilot-supported");
+        assert!(
+            supplement["observations"]["fixture_context"]["detail"]
+                .as_str()
+                .expect("fixture context detail")
+                .contains(&format!("fixture_shape={shape}")),
+            "receipt should name inventory shape {shape}: {receipt:#?}"
+        );
+
+        let receipt_path = temp.path().join(format!("{shape}.json"));
+        fs::write(&receipt_path, &emit.stdout).expect("write emitted supplement receipt");
+        let check_command = fixture["check_command"].as_str().expect("check command");
+        let check_args: Vec<String> = check_command
+            .strip_prefix("cargo octet ")
+            .unwrap_or_else(|| panic!("check command should start with cargo octet: {check_command}"))
+            .split_whitespace()
+            .map(|arg| {
+                if arg == "RECEIPT.json" {
+                    receipt_path.to_string_lossy().into_owned()
+                } else {
+                    arg.to_owned()
+                }
+            })
+            .collect();
+        let check = Command::new(cargo_octet())
+            .args(&check_args)
+            .current_dir(&root)
+            .output()
+            .unwrap_or_else(|error| panic!("run inventory check command for {shape}: {error}"));
+        assert!(
+            check.status.success(),
+            "inventory check command for {shape} failed stdout={} stderr={}",
+            String::from_utf8_lossy(&check.stdout),
+            String::from_utf8_lossy(&check.stderr)
+        );
+        let report: serde_json::Value = serde_json::from_slice(&check.stdout).expect("check report json");
+        assert_eq!(report["status"], "pass");
+        assert!(
+            report["comparisons"]
+                .as_array()
+                .expect("comparison array")
+                .iter()
+                .all(|comparison| comparison["status"] == "match"),
+            "inventory check command for {shape} should match all compared fields: {report:#?}"
+        );
+    }
+
+    assert_eq!(visited, BTreeSet::from(["branch-control-flow".to_owned(), "checked-arithmetic".to_owned()]));
+}
+
+#[test]
 fn object_corpus_contract_metadata_reports_receipt_and_check_shapes() {
     let root = repo_root();
     let contract = object_corpus_contract(&root);
