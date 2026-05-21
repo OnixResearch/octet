@@ -1,0 +1,31 @@
+$ tests/fixtures/openspec-design-governance/run-design-fixture-gate.sh design-obligation-covered-pass
+tests/fixtures/openspec-design-governance/run-design-fixture-gate.sh design-obligation-covered-pass
+OpenSpec design gate (design-obligation-covered-pass)
+
+Strategy: same-family
+
+VERDICT: PASS
+
+## Findings
+- None
+
+## Stage Check
+- Design concretely covers proposal obligations:
+  - Proposal requires same-branch guard suppression and continued warnings for unguarded/disjunctive unwraps.
+  - Evidence: `proposal.md` “What Changes” bullets; `design.md` Decision 1 “Covers: Scenario: Same-branch guard suppression; Scenario: Disjunctive guard still warns”
+- Design covers delta-spec scenarios:
+  - Evidence: `openspec/changes/design-obligation-covered-pass/specs/openspec-stage-authoring/spec.md` requirement “Guarded unwraps remain precise” and scenarios “Same-branch guard suppression” / “Disjunctive guard still warns”
+  - Evidence: `design.md` “Obligation cross-check” maps proposal testing promise, delta-spec same-branch scenario, and disjunctive boundary.
+- Key design choices and trade-offs are explicit:
+  - Evidence: `design.md` Decision 1 chooses structural matching, rejects whole-condition text search, and defines `&&` / `||` handling.
+  - Evidence: `design.md` “Risks / Trade-offs” names over-suppression and the disjunctive negative fixture.
+- Verification strategy is explicit and deterministic:
+  - Evidence: `design.md` “Deterministic Proof Plan” lists artifact paths `openspec/changes/design-obligation-covered-pass/evidence/no-unwrap-same-branch.txt` and `openspec/changes/design-obligation-covered-pass/evidence/no-unwrap-disjunction.txt`, command `cargo test --test ui no_unwrap_guarded -- --ignored --nocapture`, and exact acceptance signals.
+- Napkin anti-pattern is avoided:
+  - Evidence: `design.md` rejects searching condition text for `value.is_some()` and uses structural condition matching.
+
+Design stage is ready.
+
+## Next Actions
+- Proceed to tasks.
+- Ensure implementation tasks preserve the two proof artifacts and acceptance signals named in `design.md`.

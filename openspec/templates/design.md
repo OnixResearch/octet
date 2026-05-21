@@ -1,6 +1,6 @@
 <!-- Copy this file into openspec/changes/<change>/design.md and replace the placeholders. -->
 <!-- Keep decisions, proof planning, and trade-offs explicit before implementation. -->
-<!-- Omission-prevention checklist: check every added/modified scenario heading and every zero-scenario requirement against decision coverage, boundary cases, continued-warning cases, and exact proof acceptance signals before implementation starts. -->
+<!-- Omission-prevention checklist: check every added/modified scenario heading, every zero-scenario requirement, every proposal verification/evidence promise, and every delta-spec boundary or negative-control obligation against decision coverage, obligation cross-checks, boundary cases, continued-warning cases, and exact proof acceptance signals before implementation starts. -->
 
 ## Context
 
@@ -23,6 +23,8 @@
 **Choice:** <what was decided>
 
 **Covers:** <exact delta-spec scenario headings or requirement headings this decision satisfies>
+
+**Obligation cross-check:** <proposal promises, delta-spec boundary cases, negative controls, continued-warning cases, and proof obligations carried forward by this decision>
 
 **Rationale:** <why this choice wins>
 

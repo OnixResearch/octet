@@ -1,0 +1,4 @@
+$ python3 openspec/changes/archive/2026-05-21-harden-design-obligation-gate/evidence/check-design-obligation-fixtures.py --fixtures
+fixture obligation contrast: PASS
+missing fixture: same-branch guard suppression absent from design decisions/proof plan
+pass fixture: same-branch guard suppression present in Covers, Obligation cross-check, Boundary cases, and proof plan

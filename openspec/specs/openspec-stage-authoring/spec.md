@@ -31,12 +31,14 @@ out-of-scope boundaries before writing specs or tasks.
 
 The system MUST continue to ship a copyable OpenSpec design template at
 `openspec/templates/design.md` with the existing required heading order,
-decision-block labels, and deterministic proof-plan labels.
+decision-block labels, deterministic proof-plan labels, and an explicit
+obligation cross-check prompt.
 
-The template MUST also include an omission-prevention prompt that tells authors
-to check every added or modified scenario heading and every zero-scenario
-requirement against design decisions, boundary cases, and proof acceptance
-signals before implementation starts.
+The template MUST also include omission-prevention prompts that tell authors to
+check every added or modified scenario heading, every zero-scenario requirement,
+every proposal verification/evidence expectation, every boundary or
+negative-control obligation, and every planned saved proof artifact against
+design decisions and proof acceptance signals before implementation starts.
 
 #### Scenario: Maintainer sees repeated design omission checks before implementation
 
@@ -45,7 +47,20 @@ signals before implementation starts.
 - THEN the template reminds them to cover every added or modified scenario
   heading or zero-scenario requirement
 - AND it reminds them to name boundary cases and continued-warning cases
+- AND it reminds them to map proposal promises and delta-spec obligations into
+  design decisions or proof-plan entries
 - AND it reminds them to state exact proof acceptance signals for saved artifacts
+
+#### Scenario: Design author cross-checks proposal and spec obligations
+
+- GIVEN a proposal names verification expectations, affected artifacts, or
+  non-goal boundaries
+- AND a delta spec names scenarios, boundary cases, negative controls, or
+  continued-warning expectations
+- WHEN the design is prepared for gate review
+- THEN the design includes an obligation cross-check that maps each such
+  proposal or spec obligation to a decision, boundary case, or deterministic
+  proof-plan entry
 
 ### Requirement: Delta-Spec Template Captures Normative Delta Shape
 
@@ -114,5 +129,5 @@ omission-prevention prompts for proposal, delta-spec, and design stages.
   affected artifacts
 - AND the delta-spec rules mention boundary cases, negative controls, and exact
   proof output expectations
-- AND the design rules mention scenario coverage, boundary cases, and exact
-  proof acceptance signals
+- AND the design rules mention scenario coverage, proposal/spec obligation
+  cross-checks, boundary cases, and exact proof acceptance signals

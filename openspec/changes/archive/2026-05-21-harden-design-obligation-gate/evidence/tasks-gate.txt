@@ -1,0 +1,31 @@
+$ pi --no-session --thinking minimal -e ~/.pi/agent/extensions/openspec-gates.ts -p "Call the openspec_gate tool with stage=tasks and change=harden-design-obligation-gate. Print the full result."
+OpenSpec tasks gate (harden-design-obligation-gate)
+
+Strategy: same-family
+
+VERDICT: PASS
+
+## Findings
+- None
+
+## Stage Check
+- Tasks trace to proposal/design/spec work:
+  - `I1` maps to `openspec/templates/design.md` obligation prompt.
+  - `I2` maps to `openspec/config.yaml` design-stage guidance.
+  - `I3`, `H1`, `H2` map to fixture requirements in `design.md`.
+  - `I5` maps to syncing `openspec/specs/openspec-stage-authoring/spec.md`.
+  - `V1`–`V5` cover deterministic fixture checks, OpenSpec validation, and `git diff --check`.
+- Checkbox concurrency is present and coherent:
+  - 13 checkbox tasks total.
+  - 1 `[serial]`, 12 `[depends:...]`, 0 unmarked.
+  - Dependencies follow phase ordering and no dependency cycle is visible.
+- Verification coverage is explicit in `tasks.md`:
+  - Scenario coverage maps to `V1`, `V2`, `V3`.
+  - Change validation and hygiene map to `V4`, `V5`.
+  - Human/oracle design-gate checkpoints are planned as `H1`, `H2`, `H3`.
+- Stage is ready to proceed to implementation. Open tasks are expected at tasks stage and are not a blocker.
+
+## Next Actions
+- Begin with `I1`.
+- Preserve dependency order before running `V*` and `H*` tasks.
+- Save evidence at paths listed in `tasks.md`.
