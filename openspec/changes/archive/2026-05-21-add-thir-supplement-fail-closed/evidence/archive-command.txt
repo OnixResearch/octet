@@ -1,0 +1,10 @@
+Task status: 5/8 tasks
+Warning: 3 incomplete task(s) found. Continuing due to --yes flag.
+
+Specs to update:
+  standards-codification: update
+Applying changes to openspec/specs/standards-codification/spec.md:
+  ~ 1 modified
+Totals: + 0, ~ 1, - 0, → 0
+Specs updated successfully.
+Change 'add-thir-supplement-fail-closed' archived as '2026-05-21-add-thir-supplement-fail-closed'.

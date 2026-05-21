@@ -1835,6 +1835,8 @@ fn hir_mir_supplement_pilot_docs_name_commands_and_non_proofs() {
         "cargo octet object supplement check --family hir",
         "cargo octet object supplement emit --family mir",
         "cargo octet object supplement check --family mir",
+        "cargo octet object supplement emit --family thir",
+        "cargo octet object supplement check --family thir",
         "cargo octet object corpus contract --output-format json",
         "cargo octet object supplement emit --family hir --spike rustc-hir-fixture",
         "cargo octet object supplement check --family hir --spike rustc-hir-fixture",
@@ -1846,7 +1848,7 @@ fn hir_mir_supplement_pilot_docs_name_commands_and_non_proofs() {
         "source-token-bounded review evidence",
         "selected-fixture-backed/toolchain-scoped review",
         "do not replace it as the",
-        "`thir` remains",
+        "fail-closed runtime family",
         "correctness proof",
         "semantic-equivalence proof",
         "pure-cache eligibility proof",
@@ -1860,6 +1862,8 @@ fn hir_mir_supplement_pilot_docs_name_commands_and_non_proofs() {
         "cargo octet object supplement check --family hir",
         "cargo octet object supplement emit --family mir",
         "cargo octet object supplement check --family mir",
+        "cargo octet object supplement emit --family thir",
+        "cargo octet object supplement check --family thir",
         "cargo octet object supplement emit --family hir --spike rustc-hir-fixture",
         "cargo octet object supplement check --family hir --spike rustc-hir-fixture",
         "--fixture-shape checked-arithmetic",
@@ -1867,11 +1871,118 @@ fn hir_mir_supplement_pilot_docs_name_commands_and_non_proofs() {
         "attached supplement to `octet.function-object.v1`",
         "selected-fixture-backed/toolchain-scoped",
         "arbitrary-path and non-fixture HIR remain",
-        "THIR and any unimplemented non-pilot HIR/MIR family remain `unsupported-planned`",
+        "THIR runtime receipts MUST keep status `unsupported-planned`",
+        "does not prove THIR extraction support",
         "MUST NOT claim stable identity across compiler versions",
     ] {
         assert!(boundaries.contains(needle), "boundary doc missing {needle}: {boundaries}");
     }
+}
+
+#[test]
+fn thir_supplement_emit_and_check_remain_fail_closed() {
+    let root = repo_root();
+    let temp = tempfile::tempdir().expect("create thir supplement tempdir");
+    let emit = Command::new(cargo_octet())
+        .args([
+            "object",
+            "supplement",
+            "emit",
+            "--family",
+            "thir",
+            "--function",
+            "checked",
+            "cargo-octet/tests/fixtures/hir-spike/checked.rs",
+            "--output-format",
+            "json",
+        ])
+        .current_dir(&root)
+        .output()
+        .expect("run THIR supplement emit");
+    assert!(
+        emit.status.success(),
+        "THIR emit failed stdout={} stderr={}",
+        String::from_utf8_lossy(&emit.stdout),
+        String::from_utf8_lossy(&emit.stderr)
+    );
+    let receipt: serde_json::Value = serde_json::from_slice(&emit.stdout).expect("THIR emit json");
+    assert_eq!(receipt["family"], "thir");
+    assert_eq!(receipt["boundary"]["claims_correctness"], false);
+    assert_eq!(receipt["boundary"]["claims_semantic_equivalence"], false);
+    assert_eq!(receipt["boundary"]["claims_pure_cache_eligibility"], false);
+    assert_eq!(receipt["boundary"]["claims_cross_toolchain_stability"], false);
+    let supplement =
+        receipt["supplements"].as_array().expect("THIR supplement array").first().expect("THIR supplement");
+    assert_eq!(supplement["schema"], "octet.function-object-thir-supplement.v1");
+    assert_eq!(supplement["family"], "thir");
+    assert_eq!(supplement["status"], "unsupported-planned");
+    assert_eq!(supplement["boundary"]["claims_correctness"], false);
+    assert_eq!(supplement["boundary"]["claims_semantic_equivalence"], false);
+    assert_eq!(supplement["observations"]["thir_context"]["status"], "unsupported-planned");
+    assert_eq!(
+        supplement["observations"]["thir_context"]["detail"],
+        "THIR extraction is not implemented; this record preserves a fail-closed runtime family seam"
+    );
+    assert_eq!(supplement["observations"]["typed_hir_lowering"]["status"], "unsupported-planned");
+    assert_eq!(
+        supplement["observations"]["typed_hir_lowering"]["detail"],
+        "typed HIR/THIR lowering observations require future extractor evidence before support"
+    );
+    assert!(
+        supplement["observations"]["support_boundary"]["detail"]
+            .as_str()
+            .expect("THIR support boundary detail")
+            .contains("unsupported-planned evidence only; no correctness"),
+        "THIR support boundary must pin non-proof wording: {supplement:#?}"
+    );
+    assert!(
+        supplement["extraction_caveats"]
+            .as_array()
+            .expect("THIR caveats")
+            .iter()
+            .any(|caveat| caveat["status"] == "unsupported-planned"),
+        "THIR caveats must stay unsupported-planned: {supplement:#?}"
+    );
+
+    let receipt_path = temp.path().join("thir-supplement.json");
+    fs::write(&receipt_path, &emit.stdout).expect("write THIR receipt");
+    let check = Command::new(cargo_octet())
+        .args([
+            "object",
+            "supplement",
+            "check",
+            "--family",
+            "thir",
+            "--receipt",
+            receipt_path.to_str().expect("receipt path utf8"),
+            "--function",
+            "checked",
+            "cargo-octet/tests/fixtures/hir-spike/checked.rs",
+            "--output-format",
+            "json",
+        ])
+        .current_dir(&root)
+        .output()
+        .expect("run THIR supplement check");
+    assert!(
+        check.status.success(),
+        "THIR check failed stdout={} stderr={}",
+        String::from_utf8_lossy(&check.stdout),
+        String::from_utf8_lossy(&check.stderr)
+    );
+    let report: serde_json::Value = serde_json::from_slice(&check.stdout).expect("THIR check json");
+    assert_eq!(report["family"], "thir");
+    assert_eq!(report["status"], "pass");
+    assert_eq!(report["boundary"]["claims_correctness"], false);
+    assert_eq!(report["boundary"]["claims_semantic_equivalence"], false);
+    assert!(
+        report["comparisons"]
+            .as_array()
+            .expect("THIR check comparisons")
+            .iter()
+            .all(|comparison| comparison["status"] == "match"),
+        "THIR check should only pass with matching fail-closed fields: {report:#?}"
+    );
 }
 
 #[test]
@@ -1899,6 +2010,10 @@ fn object_supplement_runtime_smoke_covers_nested_help_and_inventory() {
         assert!(
             stdout.contains("supplement fixtures --family hir --spike rustc-hir-fixture"),
             "help missing scoped fixture inventory command for {args:?}: {stdout}"
+        );
+        assert!(
+            stdout.contains("--family hir|thir|mir"),
+            "help missing THIR fail-closed supplement family for {args:?}: {stdout}"
         );
     }
 

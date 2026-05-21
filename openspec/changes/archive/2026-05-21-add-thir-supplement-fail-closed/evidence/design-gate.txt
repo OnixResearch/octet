@@ -1,0 +1,3 @@
+OpenSpec design gate PASS.
+
+Full result printed above.

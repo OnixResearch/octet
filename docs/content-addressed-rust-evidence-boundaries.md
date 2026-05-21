@@ -89,8 +89,21 @@ cargo octet object supplement check --family mir --receipt mir-supplement.json -
 
 The pilot MIR supplement records explicit unknown/unsupported observations for
 summary families that the source-token pilot cannot prove. It reports contract
-status `pilot-supported` only for the checked pilot emit/check surface, while
-THIR and any unimplemented non-pilot HIR/MIR family remain `unsupported-planned`.
+status `pilot-supported` only for the checked pilot emit/check surface.
+
+The current fail-closed THIR runtime seam is:
+
+```bash
+cargo octet object supplement emit --family thir --function checked src/lib.rs --output-format json
+cargo octet object supplement check --family thir --receipt thir-supplement.json --function checked src/lib.rs --output-format json
+```
+
+THIR runtime receipts MUST keep status `unsupported-planned` and name missing
+extractor support. A matching THIR check proves only that the same fail-closed
+receipt-critical fields replayed; it does not prove THIR extraction support,
+correctness, semantic equivalence, pure-cache eligibility, or cross-toolchain
+stability. Any unimplemented non-pilot HIR/MIR/THIR family remains
+`unsupported-planned`.
 
 ## Downstream ownership boundary
 
