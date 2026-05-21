@@ -1,0 +1,10 @@
+Task status: 24/27 tasks
+Warning: 3 incomplete task(s) found. Continuing due to --yes flag.
+
+Specs to update:
+  openspec-task-governance: update
+Applying changes to openspec/specs/openspec-task-governance/spec.md:
+  ~ 4 modified
+Totals: + 0, ~ 4, - 0, → 0
+Specs updated successfully.
+Change 'harden-tasks-obligation-gate' archived as '2026-05-21-harden-tasks-obligation-gate'.

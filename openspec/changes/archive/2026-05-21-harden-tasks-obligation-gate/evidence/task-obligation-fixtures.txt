@@ -1,0 +1,1 @@
+PASS task-obligation fixtures encode missing and covered obligations

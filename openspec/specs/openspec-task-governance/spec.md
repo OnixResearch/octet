@@ -27,7 +27,9 @@ Those IDs MUST be unique within the file.
 verification or evidence capture in the same checkbox.
 
 `V<n>` tasks MUST verify exactly one named scenario or one requirement-level
-invariant that has no scenario heading.
+invariant that has no scenario heading, and each `V<n>` task MUST name the
+exact command/helper, required input or artifact, evidence path, and acceptance
+signal needed to prove that scenario.
 
 `H<n>` tasks MUST confirm exactly one human/oracle claim.
 
@@ -44,6 +46,16 @@ invariant that has no scenario heading.
 - WHEN the maintainer adds verification tasks
 - THEN one `V<n>` task names that scenario directly
 - AND the same checkbox does not also claim unrelated scenario coverage
+
+#### Scenario: Task obligations map scenarios to exact proof
+
+- GIVEN a delta spec scenario requires an omitted-field default, explicit
+  override, required artifact, negative control, or continued-warning behavior
+- WHEN the maintainer writes a `V<n>` verification task for that scenario
+- THEN the task names the exact scenario, command or helper, input or fixture,
+  saved evidence path, and expected acceptance signal
+- AND the task cannot be satisfied by a broader check that omits that
+  scenario-specific behavior
 
 ### Requirement: Verification Coverage Matrix
 
@@ -101,8 +113,10 @@ implicit input, multi-claim assertion, or missing evidence path.
 ### Requirement: Tasks-Stage Gate Flags Missing Governance
 
 The system MUST make tigerstyle's tasks-stage gate report the existing
-canonical `openspec-task-governance` blocking findings plus these additional
-change-status blocking findings:
+canonical `openspec-task-governance` blocking findings, repeated task-obligation
+omissions where a required scenario, artifact, exact acceptance signal, negative
+control, or continued-warning case is not represented by an explicit
+`V<n>`/coverage mapping, plus these additional change-status blocking findings:
 
 - `tasks.md is missing ## Change Status`
 - `Change status section is malformed or misplaced`
@@ -145,16 +159,32 @@ change-status blocking findings:
 - WHEN the tasks-stage gate runs
 - THEN it reports `Change status open-task list does not match unchecked tasks`
 
+#### Scenario: Task obligation fixtures prove blocked and covered tasks
+
+- GIVEN the fixture `tests/fixtures/openspec-task-governance/task-obligation-missing-blocked`
+- AND the fixture `tests/fixtures/openspec-task-governance/task-obligation-covered-pass`
+- WHEN `tests/fixtures/openspec-task-governance/run-obligation-fixture-gate.sh`
+  runs each fixture through the tasks gate
+- THEN the missing fixture is accepted only when the gate blocks the omitted
+  task obligation
+- AND the covered fixture is accepted only when the gate passes explicit
+  task/evidence mappings
+- AND saved evidence for this change is written only under this change's
+  evidence directory and eventual archive copy, not by editing historical
+  archives
+
 ### Requirement: Task Template Shows Change-Status Fields
 
 Tigerstyle's repo-local task template at `openspec/templates/tasks.md` MUST
 continue to include a `## Change Status` section immediately before
 `## Verification Coverage` with the existing required example lines and note.
 
-The template MUST also include an omission-prevention prompt that tells authors
-to split implementation from verification, give every scenario its own coverage
-row, and make `H<n>` oracle tasks self-verifiable with exact `command=`,
-`input=`, `asserts=`, and `evidence=` fields.
+The template MUST also include omission-prevention prompts that tell authors to
+split implementation from verification, give every scenario its own coverage
+row, make `H<n>` oracle tasks self-verifiable with exact `command=`, `input=`,
+`asserts=`, and `evidence=` fields, and make each `V<n>` task name the exact
+scenario, command/helper, required artifact or fixture, evidence path, and
+acceptance signal.
 
 #### Scenario: Maintainer sees repeated task omission checks before gate review
 
@@ -165,6 +195,17 @@ row, and make `H<n>` oracle tasks self-verifiable with exact `command=`,
 - AND it reminds them that every added or modified scenario needs its own
   verification coverage row
 - AND it reminds them that each `H<n>` task needs exact replay fields
+
+#### Scenario: Task obligations map scenarios to exact proof
+
+- GIVEN a delta spec scenario requires an omitted-field default, explicit
+  override, required artifact, negative control, or continued-warning behavior
+- WHEN the maintainer writes `V<n>` tasks from the template
+- THEN the template tells them to name that exact scenario, command/helper,
+  input or fixture, evidence path, and expected PASS output or diagnostic
+- AND it warns that broad tasks such as `test config parsing` are insufficient
+  when the scenario requires a specific absent-field default, explicit override,
+  or continued-warning case
 
 ### Requirement: Change Status Mirrors Task State
 
@@ -266,7 +307,8 @@ run finishes.
 
 `openspec/config.yaml` MUST include tasks-stage rules that mention the repeated
 omission-prevention prompts for split implementation/proof tasks, one-row-per-
-scenario coverage, and exact human/oracle replay fields.
+scenario coverage, exact per-scenario verification acceptance signals, required
+artifacts/fixtures, and exact human/oracle replay fields.
 
 #### Scenario: Config task guidance includes promoted task omission checks
 
@@ -275,5 +317,7 @@ scenario coverage, and exact human/oracle replay fields.
 - THEN the tasks rules mention split implementation, verification, and
   human/oracle tasks
 - AND the tasks rules mention one verification coverage row per scenario
+- AND the tasks rules mention exact `V<n>` scenario commands, required artifacts
+  or fixtures, evidence paths, and acceptance signals
 - AND the tasks rules mention exact `H<n>` `command=`, `input=`, `asserts=`,
   and `evidence=` fields

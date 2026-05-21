@@ -1,12 +1,13 @@
 <!-- Copy this file into openspec/changes/<change>/tasks.md and replace the placeholders. -->
 <!-- Use this template for active changes under openspec/changes/<change>/; archived changes keep their historical task shape. -->
-<!-- Omission-prevention checklist: keep implementation separate from verification/evidence, give every added or modified scenario its own coverage row, and make each H<n> oracle checkpoint self-verifiable with exact command=, input=, asserts=, and evidence= fields. -->
+<!-- Omission-prevention checklist: keep implementation separate from verification/evidence, give every added or modified scenario its own coverage row, make each V<n> task name the exact scenario, command/helper, required input/artifact, evidence path, and acceptance signal, and make each H<n> oracle checkpoint self-verifiable with exact command=, input=, asserts=, and evidence= fields. -->
 
 ## Task ID rules
 
 - `I<n>` — one implementation claim only. Do not combine code changes with verification runs, saved evidence, or transcript capture in the same checkbox. Split that work into a separate `V<n>` or `H<n>` task.
 - Treat an `I<n>` checkbox as invalid if its text includes verification/evidence markers such as `verify`, `save`, `capture`, `evidence=`, or a repo-relative `evidence/` path.
-- `V<n>` — one deterministic verification claim for exactly one delta-spec scenario or one requirement-level invariant that has no scenario heading.
+- `V<n>` — one deterministic verification claim for exactly one delta-spec scenario or one requirement-level invariant that has no scenario heading. Name the exact scenario, command/helper, required input or artifact, saved evidence path, and expected PASS output, diagnostic, schema field, or other acceptance signal.
+- Treat a `V<n>` checkbox as underspecified if it can be satisfied by a broader check that omits the scenario-specific behavior, required artifact, negative control, or continued-warning case.
 - Before marking a change ready, read the delta specs and ensure every added or modified `Scenario:` heading appears in `## Verification Coverage` exactly once. Shared artifacts still need separate scenario rows.
 - `H<n>` — one human/oracle checkpoint using the exact field layout shown in `H1` below.
 - Treat an `H<n>` checkbox as invalid if any of `command=`, `input=`, `asserts=`, or `evidence=` is missing.
@@ -22,8 +23,8 @@ Good: `- [ ] I3 update parser` plus `- [ ] V4 save cargo-test-lib.txt`
 
 ## Phase 2: Deterministic verification
 
-- [ ] V1 Verify scenario "<Scenario heading>" with <test/helper>; save output at `openspec/changes/<change>/evidence/<artifact>.txt`
-- [ ] V2 Verify requirement "<Requirement heading>" with <test/helper>; save output at `openspec/changes/<change>/evidence/<artifact>.txt`
+- [ ] V1 Verify scenario "<Scenario heading>" with command=`<exact test/helper>`; input=`<fixture, artifact, or source path>`; expect=`<PASS output, diagnostic, schema field, or acceptance signal>`; evidence=`openspec/changes/<change>/evidence/<artifact>.txt`
+- [ ] V2 Verify requirement "<Requirement heading>" with command=`<exact test/helper>`; input=`<fixture, artifact, or source path>`; expect=`<PASS output, diagnostic, schema field, or acceptance signal>`; evidence=`openspec/changes/<change>/evidence/<artifact>.txt`
 
 ## Phase 3: Human/oracle checkpoints
 
@@ -47,3 +48,6 @@ Bad: `Scenario: A and B` -> `V3` -> `openspec/changes/<change>/evidence/shared.t
 Good:
 - `Scenario: A` -> `V3` -> `openspec/changes/<change>/evidence/shared.txt`
 - `Scenario: B` -> `V4` -> `openspec/changes/<change>/evidence/shared.txt`
+
+Bad: `- [ ] V5 Unit tests for config parsing with new fields` when the spec requires absent-field defaults.
+Good: `- [ ] V5 Verify scenario "Absent disabled_lints defaults to empty" with command=`cargo test -p cargo-octet config_absent_defaults`; input=`ui_tests/no_unwrap_default/`; expect=`PASS absent disabled_lints and lint_levels default empty`; evidence=`openspec/changes/<change>/evidence/config-absent-defaults.txt``

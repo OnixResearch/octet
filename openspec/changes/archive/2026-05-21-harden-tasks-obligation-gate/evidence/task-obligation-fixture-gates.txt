@@ -1,0 +1,60 @@
+tests/fixtures/openspec-task-governance/run-obligation-fixture-gate.sh task-obligation-missing-blocked
+OpenSpec tasks gate (task-obligation-missing-blocked)
+
+Strategy: same-family
+
+VERDICT: FAIL
+
+## Findings
+- [blocking] [class=omission] [scope=tasks] [route=spec-rule] [promoted=yes] Missing task coverage for covered/pass fixture behavior.
+  - Evidence: `openspec/changes/task-obligation-missing-blocked/specs/openspec-task-governance/spec.md` / `Scenario: Task obligation fixtures prove blocked and covered tasks` says “missing task obligations are blocked and covered task obligations pass”; `tasks.md` H1 only asserts `fixture should be blocked`; proposal says “fixture runner must print expected blocked/pass outputs.”
+
+- [blocking] [class=omission] [scope=tasks] [route=spec-rule] [promoted=yes] Verification task V1 does not name the exact scenario, command/helper, input/fixture, or acceptance signal required by the delta spec.
+  - Evidence: delta spec `Scenario: Task obligations map scenarios to exact proof` requires the task to name “the exact scenario, command or helper, input or fixture, saved evidence path, and expected acceptance signal”; `tasks.md` V1 says only “Unit tests for config parsing with new fields; save output at `openspec/changes/task-obligation-missing-blocked/evidence/config-tests.txt`.”
+
+- [blocking] [class=omission] [scope=tasks] [route=prompt] [promoted=yes] Task plan omits implementation work for all proposal-scoped artifacts.
+  - Evidence: proposal `Impact` lists `openspec/templates/tasks.md`, `openspec/config.yaml`, and fixture tasks; `tasks.md` I1 only says “Add config fields.”
+
+## Stage Check
+- Concurrency markers are present and coherent: I1 `[serial]`, V1 `[depends:I1]`, H1 `[depends:V1]`.
+- `## Change Status` says complete with no open tasks, matching checked boxes.
+- Verification coverage rows exist for both modified scenarios.
+- However, task contents do not satisfy scenario-specific obligation contract and miss covered/pass fixture verification. Tasks stage not ready.
+
+## Next Actions
+- Add or revise tasks to cover both blocked and covered/pass fixture outputs.
+- Rewrite V tasks to name exact scenario, command/helper, input/fixture, evidence path, and acceptance signal.
+- Add implementation tasks for template guidance and fixture task updates, not only config fields.
+Extension error (/home/brittonr/.pi/agent/extensions/done-review.ts): This extension ctx is stale after session replacement or reload. Do not use a captured pi or command ctx after ctx.newSession(), ctx.fork(), ctx.switchSession(), or ctx.reload(). For newSession, fork, and switchSession, move post-replacement work into withSession and use the ctx passed to withSession. For reload, do not use the old ctx after await ctx.reload().
+Extension error (/home/brittonr/.pi/agent/extensions/git-dirty.ts): This extension ctx is stale after session replacement or reload. Do not use a captured pi or command ctx after ctx.newSession(), ctx.fork(), ctx.switchSession(), or ctx.reload(). For newSession, fork, and switchSession, move post-replacement work into withSession and use the ctx passed to withSession. For reload, do not use the old ctx after await ctx.reload().
+Extension error (/home/brittonr/.pi/agent/extensions/prefer-rust-scripts.ts): This extension ctx is stale after session replacement or reload. Do not use a captured pi or command ctx after ctx.newSession(), ctx.fork(), ctx.switchSession(), or ctx.reload(). For newSession, fork, and switchSession, move post-replacement work into withSession and use the ctx passed to withSession. For reload, do not use the old ctx after await ctx.reload().
+Extension error (/home/brittonr/.pi/agent/extensions/swarm.ts): This extension ctx is stale after session replacement or reload. Do not use a captured pi or command ctx after ctx.newSession(), ctx.fork(), ctx.switchSession(), or ctx.reload(). For newSession, fork, and switchSession, move post-replacement work into withSession and use the ctx passed to withSession. For reload, do not use the old ctx after await ctx.reload().
+Extension error (/home/brittonr/.pi/agent/git/github.com/davebcn87/pi-autoresearch/extensions/pi-autoresearch/index.ts): This extension ctx is stale after session replacement or reload. Do not use a captured pi or command ctx after ctx.newSession(), ctx.fork(), ctx.switchSession(), or ctx.reload(). For newSession, fork, and switchSession, move post-replacement work into withSession and use the ctx passed to withSession. For reload, do not use the old ctx after await ctx.reload().
+PASS expected blocked fixture: task-obligation-missing-blocked
+tests/fixtures/openspec-task-governance/run-obligation-fixture-gate.sh task-obligation-covered-pass
+OpenSpec tasks gate (task-obligation-covered-pass)
+
+Strategy: same-family
+
+VERDICT: PASS
+
+## Findings
+- None
+
+## Stage Check
+- Tasks trace proposal/design/spec scope.
+- Verification covers both delta spec scenarios.
+- Concurrency markers coherent.
+- No dependency cycles.
+- Status complete; open tasks none.
+- Human/oracle checkpoint exists.
+- Stage ready to move past tasks.
+
+## Next Actions
+- Proceed to implementation/evidence review or archive/sync flow.
+Extension error (/home/brittonr/.pi/agent/extensions/done-review.ts): This extension ctx is stale after session replacement or reload. Do not use a captured pi or command ctx after ctx.newSession(), ctx.fork(), ctx.switchSession(), or ctx.reload(). For newSession, fork, and switchSession, move post-replacement work into withSession and use the ctx passed to withSession. For reload, do not use the old ctx after await ctx.reload().
+Extension error (/home/brittonr/.pi/agent/extensions/git-dirty.ts): This extension ctx is stale after session replacement or reload. Do not use a captured pi or command ctx after ctx.newSession(), ctx.fork(), ctx.switchSession(), or ctx.reload(). For newSession, fork, and switchSession, move post-replacement work into withSession and use the ctx passed to withSession. For reload, do not use the old ctx after await ctx.reload().
+Extension error (/home/brittonr/.pi/agent/extensions/prefer-rust-scripts.ts): This extension ctx is stale after session replacement or reload. Do not use a captured pi or command ctx after ctx.newSession(), ctx.fork(), ctx.switchSession(), or ctx.reload(). For newSession, fork, and switchSession, move post-replacement work into withSession and use the ctx passed to withSession. For reload, do not use the old ctx after await ctx.reload().
+Extension error (/home/brittonr/.pi/agent/extensions/swarm.ts): This extension ctx is stale after session replacement or reload. Do not use a captured pi or command ctx after ctx.newSession(), ctx.fork(), ctx.switchSession(), or ctx.reload(). For newSession, fork, and switchSession, move post-replacement work into withSession and use the ctx passed to withSession. For reload, do not use the old ctx after await ctx.reload().
+Extension error (/home/brittonr/.pi/agent/git/github.com/davebcn87/pi-autoresearch/extensions/pi-autoresearch/index.ts): This extension ctx is stale after session replacement or reload. Do not use a captured pi or command ctx after ctx.newSession(), ctx.fork(), ctx.switchSession(), or ctx.reload(). For newSession, fork, and switchSession, move post-replacement work into withSession and use the ctx passed to withSession. For reload, do not use the old ctx after await ctx.reload().
+PASS expected passing fixture: task-obligation-covered-pass

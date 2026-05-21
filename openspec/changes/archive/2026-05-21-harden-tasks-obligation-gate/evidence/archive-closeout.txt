@@ -1,0 +1,4 @@
+PASS tasks template includes task obligation fields
+PASS config includes tasks-stage obligation guidance
+PASS task-obligation fixtures encode missing and covered obligations
+PASS no active change path references outside archived tasks/closeout evidence
