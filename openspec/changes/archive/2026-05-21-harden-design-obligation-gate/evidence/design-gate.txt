@@ -1,0 +1,22 @@
+$ pi --no-session --thinking minimal -e ~/.pi/agent/extensions/openspec-gates.ts -p "Call the openspec_gate tool with stage=design and change=harden-design-obligation-gate. Print the full result."
+OpenSpec design gate (harden-design-obligation-gate)
+
+Strategy: same-family
+
+VERDICT: PASS
+
+## Findings
+- None
+
+## Stage Check
+- The design concretely maps proposal and delta-spec obligations into decisions:
+  - Template/config guidance covered by `design.md` Decision 1.
+  - Fixture preservation covered by `design.md` Decision 2.
+  - Verification expectations covered by the deterministic proof plan entries.
+- Key trade-offs, risks, boundary cases, and proof acceptance signals are explicit.
+- The design reflects the napkin guidance to make design-stage contracts and deterministic proof artifacts explicit.
+- No unresolved human-oracle decision is required before moving past design; oracle-dependent fixture gate checks are explicitly planned as implementation evidence.
+
+## Next Actions
+- Proceed to tasks/implementation.
+- Ensure task checkboxes include `[parallel]`, `[serial]`, or `[depends:<id>]` markers at task stage.
