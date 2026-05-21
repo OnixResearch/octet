@@ -1,0 +1,2 @@
+$ python <former-active-path-reference-check>
+PASS no former active-change path references remain in openspec/

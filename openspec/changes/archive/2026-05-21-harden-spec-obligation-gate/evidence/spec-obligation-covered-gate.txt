@@ -1,0 +1,26 @@
+$ tests/fixtures/openspec-spec-governance/run-spec-fixture-gate.sh spec-obligation-covered-pass
+tests/fixtures/openspec-spec-governance/run-spec-fixture-gate.sh spec-obligation-covered-pass
+OpenSpec proposal gate (spec-obligation-covered-pass)
+
+Strategy: same-family
+
+VERDICT: PASS
+
+## Findings
+- None
+
+## Stage Check
+- Proposal is ready for design work.
+- Matches:
+  - Why stated in `proposal.md`
+  - Scope stated under `## What Changes`, `## Capabilities`, `## Impact`
+  - Non-goal explicit: `historical archived examples are not normalized`
+  - Verification expectation explicit: saved evidence shows archive-local references remain untouched
+  - Delta spec encodes obligations in `specs/openspec-stage-authoring/spec.md`
+- Main spec support exists in `openspec/specs/openspec-stage-authoring/spec.md`
+- No proposal-stage blocker found.
+
+## Next Actions
+- Proceed to design stage.
+- Preserve exact evidence acceptance signal: `PASS archive untouched`
+PASS expected passing fixture: spec-obligation-covered-pass

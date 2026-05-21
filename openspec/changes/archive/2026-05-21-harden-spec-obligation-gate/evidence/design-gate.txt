@@ -1,0 +1,23 @@
+$ pi --no-session --thinking minimal -e ~/.pi/agent/extensions/openspec-gates.ts -p "Call the openspec_gate tool with stage=design and change=harden-spec-obligation-gate. Print the full result."
+OpenSpec design gate (harden-spec-obligation-gate)
+
+Strategy: same-family
+
+VERDICT: PASS
+
+## Findings
+- None
+
+## Stage Check
+- Design covers proposal scope: template prompt, config guidance, failing/passing fixtures, evidence paths, and no archive-history edits are all addressed in `design.md`.
+- Design covers delta-spec requirements:
+  - `Delta-Spec Template Carries Repo-Specific Guardrails` is mapped to Decision 1 and proof artifacts.
+  - `Repo Guidance Points Authors At Stage Templates` is mapped to config guidance and proof artifact `spec-stage-guidance.txt`.
+- Verification strategy is concrete: commands, helper paths, expected PASS strings, fixture runner behavior, cleanup, and evidence locations are listed in `design.md`.
+- Risks/trade-offs are explicit, including reviewer-model-sensitive gate wording and noisy findings.
+- No unresolved human-oracle choice is apparent from supplied artifacts.
+- Stage ready to proceed past design.
+
+## Next Actions
+- Proceed to tasks.
+- Ensure tasks preserve exact evidence paths and expected output strings from design proof plan.

@@ -1,0 +1,24 @@
+$ pi --no-session --thinking minimal -e ~/.pi/agent/extensions/openspec-gates.ts -p "Call the openspec_gate tool with stage=proposal and change=harden-spec-obligation-gate. Print the full result."
+OpenSpec proposal gate (harden-spec-obligation-gate)
+
+Strategy: same-family
+
+VERDICT: PASS
+
+## Findings
+- None
+
+## Stage Check
+- Proposal states motivation, scope, affected artifacts, non-goals, and verification expectations in `openspec/changes/archive/2026-05-21-harden-spec-obligation-gate/proposal.md`.
+- Delta spec encodes proposed capability under `openspec/changes/archive/2026-05-21-harden-spec-obligation-gate/specs/openspec-stage-authoring/spec.md`.
+- Proposal obligations traceable to requirements/scenarios:
+  - Template obligation cross-check: `Requirement: Delta-Spec Template Carries Repo-Specific Guardrails`
+  - Config guidance: `Requirement: Repo Guidance Points Authors At Stage Templates`
+  - Fixture coverage: `Scenario: Spec governance fixtures prove blocked and covered obligations`
+  - Evidence/archive boundary: same fixture scenario plus proposal non-goals.
+- Napkin entries about saved evidence and archive hygiene addressed by proposal text: “saved evidence means new evidence under this change's evidence directory and its eventual archive copy, not edits to historical archives.”
+- Stage ready to proceed past proposal.
+
+## Next Actions
+- Proceed to design stage.
+- In design, specify exact fixture commands, expected pass/fail signals, and saved evidence paths.

@@ -1,0 +1,6 @@
+$ python openspec/changes/archive/2026-05-21-harden-spec-obligation-gate/evidence/check-spec-obligation-fixtures.py --check template
+PASS template includes spec obligation cross-check fields
+$ python openspec/changes/archive/2026-05-21-harden-spec-obligation-gate/evidence/check-spec-obligation-fixtures.py --check config
+PASS config includes spec-stage proposal/design obligation guidance
+$ python openspec/changes/archive/2026-05-21-harden-spec-obligation-gate/evidence/check-spec-obligation-fixtures.py --check fixtures
+PASS spec-obligation fixtures include missing and covered cases

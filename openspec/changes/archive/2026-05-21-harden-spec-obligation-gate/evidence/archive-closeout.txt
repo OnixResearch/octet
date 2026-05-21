@@ -1,0 +1,11 @@
+$ openspec archive harden-spec-obligation-gate -y
+Task status: 15/18 tasks
+Warning: 3 incomplete task(s) found. Continuing due to --yes flag.
+
+Specs to update:
+  openspec-stage-authoring: update
+Applying changes to openspec/specs/openspec-stage-authoring/spec.md:
+  ~ 2 modified
+Totals: + 0, ~ 2, - 0, → 0
+Specs updated successfully.
+Change 'harden-spec-obligation-gate' archived as '2026-05-21-harden-spec-obligation-gate'.
