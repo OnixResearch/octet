@@ -1,0 +1,16 @@
+$ openspec archive add-thir-fixture-contract -y
+Task status: 7/9 tasks
+Warning: 2 incomplete task(s) found. Continuing due to --yes flag.
+
+Specs to update:
+  standards-codification: update
+Applying changes to openspec/specs/standards-codification/spec.md:
+  ~ 1 modified
+Totals: + 0, ~ 1, - 0, → 0
+Specs updated successfully.
+Change 'add-thir-fixture-contract' archived as '2026-05-21-add-thir-fixture-contract'.
+
+Post-archive closeout note:
+- H1/H2 were completed after archive creation.
+- Archived tasks.md was updated to mark closeout complete and rewrite evidence paths.
+- openspec validate --all --strict --json and git diff --check were rerun with evidence saved in the archived evidence directory.

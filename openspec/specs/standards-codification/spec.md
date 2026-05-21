@@ -1543,7 +1543,7 @@ The aggregate gate MUST compose the checked-in internal object corpus replay rai
 
 ### Requirement: HIR/MIR supplement pilot [r[hir-mir-supplement-pilot]]
 
-Octet MUST support bounded, fail-closed supplemental evidence families for selected Function Object v1 records. Pilot supplement records MUST reference the canonical `octet.function-object.v1` object hash, record exact toolchain and extractor identity when available, emit closed schema/status values, and preserve no-correctness/no-semantic-equivalence boundaries.
+Octet MUST support bounded, fail-closed supplemental evidence families for selected Function Object v1 records. Pilot supplement records MUST reference the canonical `octet.function-object.v1` object hash, record exact toolchain and extractor identity when available, emit closed schema/status values, and preserve no-correctness/no-semantic-equivalence boundaries. Fixture-backed families MAY report `pilot-supported` only for closed, deterministic fixture selectors with positive and negative replay evidence; families or request shapes without deterministic fixture evidence MUST remain `unsupported-planned`.
 
 #### Scenario: Pilot HIR supplement attaches to v1 object identity [r[hir-mir-supplement-pilot.scenario.hir-attaches-v1]]
 
@@ -1589,6 +1589,28 @@ Octet MUST support bounded, fail-closed supplemental evidence families for selec
 - WHEN Octet checks that receipt against the same selected function with `--family thir`
 - THEN the report status is `pass` only when compared receipt-critical fields match
 - AND the report continues to describe the THIR family as unsupported-planned evidence rather than correctness, semantic-equivalence, or extractor support
+
+#### Scenario: THIR fixture emits pilot-supported evidence [r[hir-mir-supplement-pilot.scenario.thir-fixture-pilot-supported]]
+
+- GIVEN checked-in THIR fixture selector `checked-arithmetic` bound to exactly `cargo-octet/tests/fixtures/thir-spike/checked.rs::checked`
+- WHEN Octet emits a supplement with `--family thir --spike rustc-thir-fixture --fixture-shape checked-arithmetic`
+- THEN the supplement uses schema `octet.function-object-thir-supplement.v1` and status `pilot-supported`
+- AND its observations name selected fixture shape `checked-arithmetic`, fixture path `cargo-octet/tests/fixtures/thir-spike/checked.rs`, function `checked`, and Function Object v1 hash
+- AND its boundary fields continue to reject correctness, semantic-equivalence, pure-cache, and cross-toolchain claims
+
+#### Scenario: THIR fixture check rejects mismatched receipts [r[hir-mir-supplement-pilot.scenario.thir-fixture-mismatch-fails]]
+
+- GIVEN a saved THIR fixture-backed supplement receipt for the selected fixture/function pair
+- WHEN Octet checks that receipt against a different function, path, family, scope, or tampered observation data
+- THEN the check fails closed with at least one mismatched receipt-critical field
+- AND it does not silently downgrade the selected fixture to general THIR support
+
+#### Scenario: THIR default runtime remains unsupported-planned [r[hir-mir-supplement-pilot.scenario.thir-default-remains-planned]]
+
+- GIVEN a non-fixture THIR supplement request using the default pilot scope
+- WHEN Octet emits or checks the supplement
+- THEN its status remains `unsupported-planned`
+- AND docs, contract metadata, and tests distinguish that default behavior from selected fixture support
 
 ### Requirement: Rustc-backed HIR extractor spike [r[rustc-hir-extractor-spike]]
 

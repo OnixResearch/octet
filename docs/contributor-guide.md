@@ -243,12 +243,13 @@ cargo octet object supplement check --family thir --receipt thir-supplement.json
 cargo octet object corpus contract --output-format json
 ```
 
-For the fixture-backed rustc HIR spike, keep the explicit spike flag in both
+For fixture-backed rustc HIR/THIR spikes, keep the explicit spike flag in both
 emit and replay commands. List the closed selector inventory before choosing a
 shape:
 
 ```bash
 cargo octet object supplement fixtures --family hir --spike rustc-hir-fixture --output-format json
+cargo octet object supplement fixtures --family thir --spike rustc-thir-fixture --output-format json
 ```
 
 The inventory reports each selected checked-in fixture shape, source path,
@@ -261,20 +262,28 @@ cargo octet object supplement emit --family hir --spike rustc-hir-fixture --fixt
 cargo octet object supplement check --family hir --spike rustc-hir-fixture --fixture-shape checked-arithmetic --receipt hir-spike-checked.json --output-format json
 cargo octet object supplement emit --family hir --spike rustc-hir-fixture --fixture-shape branch-control-flow --output-format json > hir-spike-branch.json
 cargo octet object supplement check --family hir --spike rustc-hir-fixture --fixture-shape branch-control-flow --receipt hir-spike-branch.json --output-format json
+cargo octet object supplement emit --family thir --spike rustc-thir-fixture --fixture-shape checked-arithmetic --output-format json > thir-spike-checked.json
+cargo octet object supplement check --family thir --spike rustc-thir-fixture --fixture-shape checked-arithmetic --receipt thir-spike-checked.json --output-format json
 ```
 
 The pilot HIR/MIR supplements are source-token-bounded review evidence. The
 rustc HIR fixture spike is selected-fixture-backed/toolchain-scoped review
 evidence for exactly `checked-arithmetic` (`checked.rs::checked`) and
-`branch-control-flow` (`clamp.rs::clamp_to_limit`). They attach to the existing
-`octet.function-object.v1` `object_hash`; they do not replace it as the
-review/provenance identity. Treat `hir` and `mir` `pilot-supported` contract
-metadata as support for the checked pilot emit/check surface plus the explicit
-`--spike rustc-hir-fixture` selected fixture shapes only. Treat `thir` as a
-fail-closed runtime family: emit/check may replay `unsupported-planned` THIR
-records, but they are not extractor support. Future non-pilot HIR, THIR, or MIR
-families must stay planned/unsupported until deterministic positive and negative
-fixture evidence exists.
+`branch-control-flow` (`clamp.rs::clamp_to_limit`). The rustc THIR fixture
+contract is selected-fixture-backed/toolchain-scoped review evidence for exactly
+`checked-arithmetic` (`thir-spike/checked.rs::checked`). They attach to the
+existing `octet.function-object.v1` `object_hash`; they do not replace it as the
+review/provenance identity. Treat HIR/MIR `pilot-supported` contract metadata as
+support for the checked pilot emit/check surface plus the explicit selected HIR
+fixture shapes only. Treat THIR contract metadata as `unsupported-planned` until
+general extractor evidence exists; only the explicit `rustc-thir-fixture` /
+`checked-arithmetic` runtime path may emit `pilot-supported`. The default THIR
+runtime seam remains fail-closed:
+non-fixture/default THIR emit/check may still replay `unsupported-planned` THIR
+records, but those records are not extractor support.
+Future non-pilot HIR, THIR, or MIR families must stay
+planned/unsupported until deterministic positive and negative fixture evidence
+exists.
 
 Do not describe a matching HIR/MIR/THIR supplement as a correctness proof, semantic-
 equivalence proof, pure-cache eligibility proof, cross-toolchain stability
