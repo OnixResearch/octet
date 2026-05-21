@@ -1,0 +1,31 @@
+$ pi --no-session --thinking minimal -e ~/.pi/agent/extensions/openspec-gates.ts -p "Call the openspec_gate tool with stage=tasks and change=harden-spec-obligation-gate. Print the full result."
+OpenSpec tasks gate (harden-spec-obligation-gate)
+
+Strategy: same-family
+
+VERDICT: PASS
+
+## Findings
+- None
+
+## Stage Check
+- Tasks trace to proposal/design/spec work:
+  - Implementation tasks cover proposed files: `openspec/templates/spec.md`, `openspec/config.yaml`, `openspec/specs/openspec-stage-authoring/spec.md`, and `tests/fixtures/openspec-spec-governance/**` via `I1`–`I5`.
+  - Verification tasks cover design proof artifacts: `V1`–`V5` map to `spec-template-obligation-fields.txt`, `spec-stage-guidance.txt`, `spec-obligation-fixtures.txt`, `spec-obligation-missing-gate.txt`, and `spec-obligation-covered-gate.txt`.
+  - Validation/cleanup are covered by `V6` (`openspec validate`) and `V7` (`git diff --check`).
+  - Archive/sync closeout is explicitly planned in `H4`, `V8`, and `V9`.
+- Task ordering is coherent:
+  - Implementation precedes verification.
+  - Human/oracle checkpoints depend on deterministic evidence.
+  - Archive closeout depends on tasks-gate checkpoint.
+- Concurrency markers are present on all 18 checkbox tasks:
+  - Summary reports `1 parallel, 1 serial, 16 dependency-bound, 0 unmarked`.
+  - No dependency cycle is evident from `I1 → I2/I3/I5 → V* → H* → archive`.
+  - `[parallel] I4` is coherent because fixture creation can proceed independently of template/config edits, while gate verification `V4`/`V5` correctly depends on `I2,I4`.
+- The stage is ready for implementation. Open tasks are expected at tasks stage and do not block task-plan readiness.
+
+## Next Actions
+- Proceed with `I1`–`I5`.
+- Save verification outputs at the task-listed evidence paths.
+- Run planned proposal/design/tasks oracle checkpoints before archive.
+- Complete `H4`, `V8`, and `V9` only after implementation and pre-archive verification pass.

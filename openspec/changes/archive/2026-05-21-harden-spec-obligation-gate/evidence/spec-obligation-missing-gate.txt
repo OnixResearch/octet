@@ -1,0 +1,20 @@
+$ tests/fixtures/openspec-spec-governance/run-spec-fixture-gate.sh spec-obligation-missing-blocked
+tests/fixtures/openspec-spec-governance/run-spec-fixture-gate.sh spec-obligation-missing-blocked
+OpenSpec proposal gate (spec-obligation-missing-blocked)
+
+Strategy: same-family
+
+VERDICT: FAIL
+
+## Findings
+- [error] [class=omission] [scope=spec] [route=spec-rule] [promoted=no] Delta spec omits proposal archive-boundary and verification obligations.
+  - Proposal requires preserving non-goal boundary: historical archived examples not normalized.
+  - Proposal requires saved artifact proving archive-local references left untouched.
+  - Delta spec only requires adding spec authoring prompt with “Maintainer sees prompt.”
+  - Main spec requires mapping every proposal evidence promise, affected artifact, non-goal boundary, design decision obligation into explicit delta-spec requirement/scenario.
+
+## Next Actions
+- Add delta-spec requirement/scenario for archive-local references remaining untouched.
+- Add delta-spec requirement/scenario for saved evidence under change evidence/archive path.
+- Re-run proposal gate.
+PASS expected blocked fixture: spec-obligation-missing-blocked
