@@ -140,6 +140,7 @@ impl SupplementFamilyArg {
 pub enum SupplementScopeArg {
     Pilot,
     RustcHirFixtureSpike,
+    RustcThirFixtureSpike,
 }
 
 impl SupplementScopeArg {
@@ -147,6 +148,7 @@ impl SupplementScopeArg {
         match self {
             Self::Pilot => "pilot",
             Self::RustcHirFixtureSpike => "rustc-hir-fixture-spike",
+            Self::RustcThirFixtureSpike => "rustc-thir-fixture-spike",
         }
     }
 }
@@ -264,8 +266,9 @@ Usage:
   cargo octet object corpus caveats [--output-format human|json] [PATHS...]
   cargo octet object corpus contract [--output-format human|json]
   cargo octet object supplement fixtures --family hir --spike rustc-hir-fixture [--output-format human|json]
-  cargo octet object supplement emit --family hir|thir|mir [--spike rustc-hir-fixture] [--fixture-shape checked-arithmetic|branch-control-flow] [--function NAME] [PATHS...]
-  cargo octet object supplement check --family hir|thir|mir [--spike rustc-hir-fixture] [--fixture-shape checked-arithmetic|branch-control-flow] --receipt RECEIPT.json [--function NAME] [PATHS...]
+  cargo octet object supplement fixtures --family thir --spike rustc-thir-fixture [--output-format human|json]
+  cargo octet object supplement emit --family hir|thir|mir [--spike rustc-hir-fixture|rustc-thir-fixture] [--fixture-shape checked-arithmetic|branch-control-flow] [--function NAME] [PATHS...]
+  cargo octet object supplement check --family hir|thir|mir [--spike rustc-hir-fixture|rustc-thir-fixture] [--fixture-shape checked-arithmetic|branch-control-flow] --receipt RECEIPT.json [--function NAME] [PATHS...]
   cargo octet roadmap <artifact|capsule|ability|pointer|session|pure-cache> ...
   cargo octet transcript <PATH>
   cargo octet --version
@@ -307,10 +310,11 @@ Subcommands:
   corpus caveats [PATHS...] --output-format human|json
   corpus contract --output-format human|json
   supplement fixtures --family hir --spike rustc-hir-fixture --output-format human|json
-  supplement emit --family hir|thir|mir [--spike rustc-hir-fixture] [--fixture-shape checked-arithmetic|branch-control-flow] [--function NAME] [PATHS...] --output-format human|json
-  supplement check --family hir|thir|mir [--spike rustc-hir-fixture] [--fixture-shape checked-arithmetic|branch-control-flow] --receipt RECEIPT.json [--function NAME] [PATHS...] --output-format human|json
+  supplement fixtures --family thir --spike rustc-thir-fixture --output-format human|json
+  supplement emit --family hir|thir|mir [--spike rustc-hir-fixture|rustc-thir-fixture] [--fixture-shape checked-arithmetic|branch-control-flow] [--function NAME] [PATHS...] --output-format human|json
+  supplement check --family hir|thir|mir [--spike rustc-hir-fixture|rustc-thir-fixture] [--fixture-shape checked-arithmetic|branch-control-flow] --receipt RECEIPT.json [--function NAME] [PATHS...] --output-format human|json
 
-Function objects are source-token review/provenance evidence. HIR/MIR supplements attach to v1 identity; THIR supplements are fail-closed unsupported-planned evidence. Supplements are not correctness proofs.
+Function objects are source-token review/provenance evidence. HIR/MIR supplements attach to v1 identity; THIR default supplements are fail-closed unsupported-planned evidence, with only selected rustc-thir-fixture cases reporting pilot-supported. Supplements are not correctness proofs.
 ";
 
 const ROADMAP_HELP: &str = "cargo octet roadmap
@@ -887,13 +891,25 @@ fn parse_object_supplement_fixtures(args: &[String]) -> Result<ObjectArgs, Strin
             _ => return Err(format!("unexpected object supplement fixtures path `{arg}`")),
         }
     }
-    let family = family.ok_or_else(|| "object supplement fixtures requires `--family hir`".to_owned())?;
-    if family != SupplementFamilyArg::Hir {
-        return Err("object supplement fixtures only supports `--family hir`".to_owned());
-    }
-    let scope = scope.ok_or_else(|| "object supplement fixtures requires `--spike rustc-hir-fixture`".to_owned())?;
-    if scope != SupplementScopeArg::RustcHirFixtureSpike {
-        return Err("object supplement fixtures requires `--spike rustc-hir-fixture`".to_owned());
+    let family =
+        family.ok_or_else(|| "object supplement fixtures requires `--family hir` or `--family thir`".to_owned())?;
+    let scope = scope.ok_or_else(|| {
+        "object supplement fixtures requires `--spike rustc-hir-fixture` or `--spike rustc-thir-fixture`".to_owned()
+    })?;
+    match (family, scope) {
+        (SupplementFamilyArg::Hir, SupplementScopeArg::RustcHirFixtureSpike)
+        | (SupplementFamilyArg::Thir, SupplementScopeArg::RustcThirFixtureSpike) => {}
+        (SupplementFamilyArg::Hir, _) => {
+            return Err("object supplement fixtures for `--family hir` requires `--spike rustc-hir-fixture`".to_owned());
+        }
+        (SupplementFamilyArg::Thir, _) => {
+            return Err(
+                "object supplement fixtures for `--family thir` requires `--spike rustc-thir-fixture`".to_owned()
+            );
+        }
+        (SupplementFamilyArg::Mir, _) => {
+            return Err("object supplement fixtures only supports `--family hir` or `--family thir`".to_owned());
+        }
     }
     Ok(ObjectArgs {
         mode: ObjectMode::SupplementFixtures { family, scope },
@@ -981,21 +997,32 @@ fn parse_object_supplement_scan(emit: bool, args: &[String]) -> Result<ObjectArg
             }
         }
     }
+    let fixture_shape_was_provided = fixture_shape.is_some();
     if let Some(shape) = fixture_shape {
-        if scope != SupplementScopeArg::RustcHirFixtureSpike {
-            return Err("`--fixture-shape` requires `--spike rustc-hir-fixture`".to_owned());
+        if !matches!(scope, SupplementScopeArg::RustcHirFixtureSpike | SupplementScopeArg::RustcThirFixtureSpike) {
+            return Err(
+                "`--fixture-shape` requires `--spike rustc-hir-fixture` or `--spike rustc-thir-fixture`".to_owned()
+            );
         }
         if !paths.is_empty() || function.is_some() {
             return Err("`--fixture-shape` cannot be combined with explicit fixture paths or `--function`".to_owned());
         }
-        let selected = parse_supplement_fixture_shape(&shape)?;
+        let selected = parse_supplement_fixture_shape(scope, &shape)?;
         paths.push(selected.path);
         function = Some(selected.function);
+    }
+    let family = family.ok_or_else(|| "missing `--family`".to_owned())?;
+    if matches!((family, scope), (SupplementFamilyArg::Thir, SupplementScopeArg::RustcThirFixtureSpike))
+        && !fixture_shape_was_provided
+    {
+        return Err(
+            "`--family thir --spike rustc-thir-fixture` requires explicit `--fixture-shape checked-arithmetic`"
+                .to_owned(),
+        );
     }
     if paths.is_empty() {
         paths.push(PathBuf::from("."));
     }
-    let family = family.ok_or_else(|| "missing `--family`".to_owned())?;
     let mode = if emit {
         ObjectMode::SupplementEmit { family, scope }
     } else {
@@ -1025,7 +1052,10 @@ fn parse_supplement_family(value: &str) -> Result<SupplementFamilyArg, String> {
 fn parse_supplement_spike_scope(value: &str) -> Result<SupplementScopeArg, String> {
     match value {
         "rustc-hir-fixture" | "rustc-hir-fixture-spike" => Ok(SupplementScopeArg::RustcHirFixtureSpike),
-        other => Err(format!("unsupported supplement spike `{other}`; expected `rustc-hir-fixture`")),
+        "rustc-thir-fixture" | "rustc-thir-fixture-spike" => Ok(SupplementScopeArg::RustcThirFixtureSpike),
+        other => Err(format!(
+            "unsupported supplement spike `{other}`; expected `rustc-hir-fixture` or `rustc-thir-fixture`"
+        )),
     }
 }
 
@@ -1034,17 +1064,33 @@ struct SupplementFixtureSelection {
     function: String,
 }
 
-fn parse_supplement_fixture_shape(value: &str) -> Result<SupplementFixtureSelection, String> {
-    match value {
-        "checked" | "checked-arithmetic" => Ok(SupplementFixtureSelection {
-            path: PathBuf::from("cargo-octet/tests/fixtures/hir-spike/checked.rs"),
-            function: "checked".to_owned(),
-        }),
-        "branch" | "branch-control-flow" | "clamp" => Ok(SupplementFixtureSelection {
-            path: PathBuf::from("cargo-octet/tests/fixtures/hir-spike/clamp.rs"),
-            function: "clamp_to_limit".to_owned(),
-        }),
-        other => Err(format!(
+fn parse_supplement_fixture_shape(
+    scope: SupplementScopeArg,
+    value: &str,
+) -> Result<SupplementFixtureSelection, String> {
+    match (scope, value) {
+        (SupplementScopeArg::RustcHirFixtureSpike, "checked" | "checked-arithmetic") => {
+            Ok(SupplementFixtureSelection {
+                path: PathBuf::from("cargo-octet/tests/fixtures/hir-spike/checked.rs"),
+                function: "checked".to_owned(),
+            })
+        }
+        (SupplementScopeArg::RustcHirFixtureSpike, "branch" | "branch-control-flow" | "clamp") => {
+            Ok(SupplementFixtureSelection {
+                path: PathBuf::from("cargo-octet/tests/fixtures/hir-spike/clamp.rs"),
+                function: "clamp_to_limit".to_owned(),
+            })
+        }
+        (SupplementScopeArg::RustcThirFixtureSpike, "checked" | "checked-arithmetic") => {
+            Ok(SupplementFixtureSelection {
+                path: PathBuf::from("cargo-octet/tests/fixtures/thir-spike/checked.rs"),
+                function: "checked".to_owned(),
+            })
+        }
+        (SupplementScopeArg::RustcThirFixtureSpike, other) => {
+            Err(format!("unsupported THIR supplement fixture shape `{other}`; expected `checked-arithmetic`"))
+        }
+        (_, other) => Err(format!(
             "unsupported supplement fixture shape `{other}`; expected `checked-arithmetic` or `branch-control-flow`"
         )),
     }
@@ -1455,7 +1501,74 @@ mod tests {
             .map(OsString::from),
         )
         .expect_err("fixture shape requires rustc spike scope");
-        assert!(shape_without_spike.contains("requires `--spike rustc-hir-fixture`"));
+        assert!(shape_without_spike.contains("requires `--spike rustc-hir-fixture` or `--spike rustc-thir-fixture`"));
+
+        let thir_without_shape = parse(
+            [
+                "cargo",
+                "octet",
+                "object",
+                "supplement",
+                "emit",
+                "--family=thir",
+                "--spike=rustc-thir-fixture",
+                "--output-format=json",
+            ]
+            .map(OsString::from),
+        )
+        .expect_err("THIR fixture spike requires explicit fixture shape");
+        assert!(thir_without_shape.contains("requires explicit `--fixture-shape checked-arithmetic`"));
+
+        let thir_branch_shape = parse(
+            [
+                "cargo",
+                "octet",
+                "object",
+                "supplement",
+                "emit",
+                "--family=thir",
+                "--spike=rustc-thir-fixture",
+                "--fixture-shape=branch-control-flow",
+                "--output-format=json",
+            ]
+            .map(OsString::from),
+        )
+        .expect_err("THIR fixture spike rejects HIR-only branch fixture shape");
+        assert!(
+            thir_branch_shape.contains(
+                "unsupported THIR supplement fixture shape `branch-control-flow`; expected `checked-arithmetic`"
+            ),
+            "unexpected THIR branch fixture shape error: {thir_branch_shape}"
+        );
+
+        let thir_shape = parse(
+            [
+                "cargo",
+                "octet",
+                "object",
+                "supplement",
+                "emit",
+                "--family=thir",
+                "--spike=rustc-thir-fixture",
+                "--fixture-shape=checked-arithmetic",
+                "--output-format=json",
+            ]
+            .map(OsString::from),
+        )
+        .expect("parse THIR fixture shape supplement args");
+        match thir_shape {
+            CommandArgs::Object(args) => {
+                assert_eq!(args.function.as_deref(), Some("checked"));
+                assert_eq!(args.paths, vec![std::path::PathBuf::from(
+                    "cargo-octet/tests/fixtures/thir-spike/checked.rs"
+                )]);
+                assert!(matches!(args.mode, super::ObjectMode::SupplementEmit {
+                    family: super::SupplementFamilyArg::Thir,
+                    scope: super::SupplementScopeArg::RustcThirFixtureSpike,
+                }));
+            }
+            other => panic!("expected THIR fixture shape args, got {other:?}"),
+        }
     }
 
     #[test]
@@ -1492,6 +1605,31 @@ mod tests {
                 .expect_err("fixture inventory requires rustc spike scope");
         assert!(missing_scope.contains("requires `--spike rustc-hir-fixture`"));
 
+        let thir_inventory = parse(
+            [
+                "cargo",
+                "octet",
+                "object",
+                "supplement",
+                "fixtures",
+                "--family=thir",
+                "--spike=rustc-thir-fixture",
+                "--output-format=json",
+            ]
+            .map(OsString::from),
+        )
+        .expect("parse THIR supplement fixture inventory args");
+        match thir_inventory {
+            CommandArgs::Object(args) => {
+                assert_eq!(args.output_format, OutputFormat::Json);
+                assert!(matches!(args.mode, super::ObjectMode::SupplementFixtures {
+                    family: super::SupplementFamilyArg::Thir,
+                    scope: super::SupplementScopeArg::RustcThirFixtureSpike,
+                }));
+            }
+            other => panic!("expected THIR object supplement fixtures args, got {other:?}"),
+        }
+
         let mir_inventory = parse(
             [
                 "cargo",
@@ -1504,8 +1642,8 @@ mod tests {
             ]
             .map(OsString::from),
         )
-        .expect_err("fixture inventory is HIR-only");
-        assert!(mir_inventory.contains("only supports `--family hir`"));
+        .expect_err("fixture inventory is HIR/THIR-only");
+        assert!(mir_inventory.contains("only supports `--family hir` or `--family thir`"));
     }
 
     #[test]

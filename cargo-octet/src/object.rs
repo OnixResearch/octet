@@ -28,6 +28,9 @@ const RUSTC_HIR_SPIKE_FIXTURE_RELATIVE_PATH: &str = "cargo-octet/tests/fixtures/
 const RUSTC_HIR_SPIKE_FUNCTION: &str = "checked";
 const RUSTC_HIR_SPIKE_BRANCH_FIXTURE_RELATIVE_PATH: &str = "cargo-octet/tests/fixtures/hir-spike/clamp.rs";
 const RUSTC_HIR_SPIKE_BRANCH_FUNCTION: &str = "clamp_to_limit";
+const RUSTC_THIR_SPIKE_EXTRACTOR_NAME: &str = "octet-rustc-thir-fixture-contract";
+const RUSTC_THIR_SPIKE_FIXTURE_RELATIVE_PATH: &str = "cargo-octet/tests/fixtures/thir-spike/checked.rs";
+const RUSTC_THIR_SPIKE_FUNCTION: &str = "checked";
 #[allow(dead_code)]
 const SUPPLEMENT_SCHEMA_VERSION: u32 = 1;
 const CORPUS_RECEIPT_SCHEMA: &str = "octet.function-object-corpus-receipt.v1";
@@ -628,13 +631,22 @@ fn run_supplement_fixtures(
     if matches!(output_format, OutputFormat::Sarif) {
         return Err("object supplement fixtures does not support SARIF output; use human or json".to_owned());
     }
-    if family != SupplementFamilyArg::Hir {
-        return Err("object supplement fixtures only supports `--family hir`".to_owned());
+    match (family, scope) {
+        (SupplementFamilyArg::Hir, SupplementScopeArg::RustcHirFixtureSpike)
+        | (SupplementFamilyArg::Thir, SupplementScopeArg::RustcThirFixtureSpike) => {}
+        (SupplementFamilyArg::Hir, _) => {
+            return Err("object supplement fixtures for `--family hir` requires `--spike rustc-hir-fixture`".to_owned());
+        }
+        (SupplementFamilyArg::Thir, _) => {
+            return Err(
+                "object supplement fixtures for `--family thir` requires `--spike rustc-thir-fixture`".to_owned()
+            );
+        }
+        (SupplementFamilyArg::Mir, _) => {
+            return Err("object supplement fixtures only supports `--family hir` or `--family thir`".to_owned());
+        }
     }
-    if scope != SupplementScopeArg::RustcHirFixtureSpike {
-        return Err("object supplement fixtures requires `--spike rustc-hir-fixture`".to_owned());
-    }
-    let report = hir_fixture_inventory_report(family, scope);
+    let report = supplement_fixture_inventory_report(family, scope);
     match output_format {
         OutputFormat::Human => print_hir_fixture_inventory_human(&report),
         OutputFormat::Json => println!("{}", serde_json::to_string_pretty(&report).map_err(|error| error.to_string())?),
@@ -643,30 +655,53 @@ fn run_supplement_fixtures(
     Ok(0)
 }
 
-fn hir_fixture_inventory_report(family: SupplementFamilyArg, scope: SupplementScopeArg) -> HirFixtureInventoryReport {
-    let default_shape = RUSTC_HIR_SPIKE_FIXTURES.first().map(|fixture| fixture.shape).unwrap_or("unknown");
-    let shapes = RUSTC_HIR_SPIKE_FIXTURES
+fn supplement_fixture_inventory_report(
+    family: SupplementFamilyArg,
+    scope: SupplementScopeArg,
+) -> HirFixtureInventoryReport {
+    let fixtures = match (family, scope) {
+        (SupplementFamilyArg::Hir, SupplementScopeArg::RustcHirFixtureSpike) => RUSTC_HIR_SPIKE_FIXTURES,
+        (SupplementFamilyArg::Thir, SupplementScopeArg::RustcThirFixtureSpike) => RUSTC_THIR_SPIKE_FIXTURES,
+        _ => &[],
+    };
+    let default_shape = fixtures.first().map(|fixture| fixture.shape).unwrap_or("unknown");
+    let shapes = fixtures
         .iter()
-        .map(|fixture| HirFixtureInventoryEntry {
-            shape: fixture.shape,
-            fixture_path: fixture.relative_path,
-            function: fixture.function,
-            is_default: fixture.shape == default_shape,
-            support_status: ObjectSupplementStatus::PilotSupported.as_str(),
-            support_boundary:
-                "selected checked-in rustc HIR fixture only; no general HIR, correctness, semantic-equivalence, cross-toolchain, or pure-cache claim",
-            emit_command: format!(
-                "cargo octet object supplement emit --family hir --spike rustc-hir-fixture --fixture-shape {} --output-format json",
-                fixture.shape
-            ),
-            check_command: format!(
-                "cargo octet object supplement check --family hir --spike rustc-hir-fixture --fixture-shape {} --receipt RECEIPT.json --output-format json",
-                fixture.shape
-            ),
+        .map(|fixture| {
+            let family_name = family.as_str();
+            let spike_name = match scope {
+                SupplementScopeArg::Pilot => "pilot",
+                SupplementScopeArg::RustcHirFixtureSpike => "rustc-hir-fixture",
+                SupplementScopeArg::RustcThirFixtureSpike => "rustc-thir-fixture",
+            };
+            HirFixtureInventoryEntry {
+                shape: fixture.shape,
+                fixture_path: fixture.relative_path,
+                function: fixture.function,
+                is_default: fixture.shape == default_shape,
+                support_status: ObjectSupplementStatus::PilotSupported.as_str(),
+                support_boundary: match family {
+                    SupplementFamilyArg::Hir => "selected checked-in rustc HIR fixture only; no general HIR, correctness, semantic-equivalence, cross-toolchain, or pure-cache claim",
+                    SupplementFamilyArg::Thir => "selected checked-in rustc THIR fixture contract only; no general THIR extraction, correctness, semantic-equivalence, cross-toolchain, or pure-cache claim",
+                    SupplementFamilyArg::Mir => "unsupported fixture family",
+                },
+                emit_command: format!(
+                    "cargo octet object supplement emit --family {family_name} --spike {spike_name} --fixture-shape {} --output-format json",
+                    fixture.shape,
+                ),
+                check_command: format!(
+                    "cargo octet object supplement check --family {family_name} --spike {spike_name} --fixture-shape {} --receipt RECEIPT.json --output-format json",
+                    fixture.shape,
+                ),
+            }
         })
         .collect();
     HirFixtureInventoryReport {
-        schema: "octet.hir-fixture-inventory.v1",
+        schema: match family {
+            SupplementFamilyArg::Hir => "octet.hir-fixture-inventory.v1",
+            SupplementFamilyArg::Thir => "octet.thir-fixture-inventory.v1",
+            SupplementFamilyArg::Mir => "octet.unsupported-fixture-inventory.v1",
+        },
         schema_version: 1,
         mode: "supplement-fixture-inventory",
         family: family.as_str(),
@@ -763,6 +798,17 @@ fn supplement_records(
             let fixture_path = rustc_hir_spike_cli_fixture_path(paths)?;
             Ok(vec![rustc_hir_spike_supplement(&fixture_path, function)?])
         }
+        SupplementScopeArg::RustcThirFixtureSpike => {
+            if family != SupplementFamilyArg::Thir {
+                return Err("rustc THIR fixture spike only supports `--family thir`".to_owned());
+            }
+            let function = function.ok_or_else(|| {
+                "rustc THIR fixture spike requires explicit fixture selector `--fixture-shape checked-arithmetic`"
+                    .to_owned()
+            })?;
+            let fixture_path = rustc_thir_spike_cli_fixture_path(paths)?;
+            Ok(vec![rustc_thir_spike_supplement(&fixture_path, function)?])
+        }
     }
 }
 
@@ -772,6 +818,17 @@ fn rustc_hir_spike_cli_fixture_path(paths: &[PathBuf]) -> Result<PathBuf, String
     }
     if paths.len() != 1 {
         return Err("rustc HIR fixture spike accepts exactly one fixture path".to_owned());
+    }
+    Ok(paths[0].clone())
+}
+
+fn rustc_thir_spike_cli_fixture_path(paths: &[PathBuf]) -> Result<PathBuf, String> {
+    if paths.is_empty() || paths == [PathBuf::from(".")] {
+        return Err("rustc THIR fixture spike requires explicit fixture selector `--fixture-shape checked-arithmetic`"
+            .to_owned());
+    }
+    if paths.len() != 1 {
+        return Err("rustc THIR fixture spike accepts exactly one fixture path".to_owned());
     }
     Ok(paths[0].clone())
 }
@@ -814,6 +871,12 @@ const RUSTC_HIR_SPIKE_FIXTURES: &[RustcHirSpikeFixture] = &[
     },
 ];
 
+const RUSTC_THIR_SPIKE_FIXTURES: &[RustcHirSpikeFixture] = &[RustcHirSpikeFixture {
+    relative_path: RUSTC_THIR_SPIKE_FIXTURE_RELATIVE_PATH,
+    function: RUSTC_THIR_SPIKE_FUNCTION,
+    shape: "checked-arithmetic",
+}];
+
 fn rustc_hir_spike_fixture_for(fixture_path: &Path, function: &str) -> Result<RustcHirSpikeFixture, String> {
     let normalized_path = determinism::normalize_path(fixture_path);
     RUSTC_HIR_SPIKE_FIXTURES
@@ -828,6 +891,24 @@ fn rustc_hir_spike_fixture_for(fixture_path: &Path, function: &str) -> Result<Ru
                 .join(", ");
             format!(
                 "rustc HIR spike is fixture-bounded to checked-in fixture/function pairs [{allowed}], got {normalized_path}::{function}"
+            )
+        })
+}
+
+fn rustc_thir_spike_fixture_for(fixture_path: &Path, function: &str) -> Result<RustcHirSpikeFixture, String> {
+    let normalized_path = determinism::normalize_path(fixture_path);
+    RUSTC_THIR_SPIKE_FIXTURES
+        .iter()
+        .copied()
+        .find(|fixture| fixture.relative_path == normalized_path && fixture.function == function)
+        .ok_or_else(|| {
+            let allowed = RUSTC_THIR_SPIKE_FIXTURES
+                .iter()
+                .map(|fixture| format!("{}::{}", fixture.relative_path, fixture.function))
+                .collect::<Vec<_>>()
+                .join(", ");
+            format!(
+                "rustc THIR fixture contract is bounded to checked-in fixture/function pairs [{allowed}], got {normalized_path}::{function}"
             )
         })
 }
@@ -887,7 +968,65 @@ fn rustc_hir_spike_supplement(fixture_path: &Path, function: &str) -> Result<Fun
 }
 
 #[allow(dead_code)]
+fn rustc_thir_spike_supplement(fixture_path: &Path, function: &str) -> Result<FunctionObjectSupplementV1, String> {
+    let fixture = rustc_thir_spike_fixture_for(fixture_path, function)?;
+    let read_path = rustc_hir_spike_read_path(fixture_path);
+    let source = fs::read_to_string(&read_path).map_err(|error| format!("read {}: {error}", read_path.display()))?;
+    let span = fingerprint::find_functions(&source)
+        .into_iter()
+        .find(|span| span.name == function)
+        .ok_or_else(|| format!("fixture {} does not contain function `{function}`", read_path.display()))?;
+    let function_source = &source[span.start..span.end];
+    let object = function_object_for_source(fixture_path, &source, &span, function_source)?;
+    let context = runtime_rustc_thir_spike_context()?;
+    let fixture_contract_hash = determinism::full_hash(&format!(
+        "{}\n{}\n{}\n{}",
+        fixture.relative_path, fixture.function, fixture.shape, function_source
+    ));
+
+    let mut observations = BTreeMap::new();
+    observations.insert("fixture_context".to_owned(), SupplementObservation {
+        status: ObjectSupplementStatus::PilotSupported.as_str(),
+        detail: format!(
+            "fixture={}; function={function}; fixture_shape={}; object_hash={}",
+            determinism::normalize_path(fixture_path),
+            fixture.shape,
+            object.object_hash
+        ),
+    });
+    observations.insert("thir_fixture_contract_hash".to_owned(), SupplementObservation {
+        status: ObjectSupplementStatus::PilotSupported.as_str(),
+        detail: format!("selected THIR fixture contract hash={fixture_contract_hash}"),
+    });
+    observations.insert("typed_expression_shape".to_owned(), SupplementObservation {
+        status: ObjectSupplementStatus::PilotSupported.as_str(),
+        detail: "fixture contract covers one checked-arithmetic typed expression shape only".to_owned(),
+    });
+    observations.insert("support_boundary".to_owned(), SupplementObservation {
+        status: ObjectSupplementStatus::Unsupported.as_str(),
+        detail: "rustc THIR fixture contract is selected-fixture-only; it does not claim general THIR extraction, correctness, semantic equivalence, pure-cache eligibility, or cross-toolchain stability".to_owned(),
+    });
+
+    let mut supplement = supplement_for_object(ObjectSupplementFamily::Thir, &object, &context, observations);
+    supplement.extraction_caveats.push(SupplementCaveat {
+        family: ObjectSupplementFamily::Thir.as_str(),
+        status: ObjectSupplementStatus::Unsupported.as_str(),
+        detail: "THIR fixture support is a deterministic contract for one checked-in fixture shape; non-fixture THIR remains unsupported-planned".to_owned(),
+    });
+    Ok(supplement)
+}
+
+#[allow(dead_code)]
 fn runtime_rustc_hir_spike_context() -> Result<PilotSupplementContext, String> {
+    runtime_rustc_fixture_context(RUSTC_HIR_SPIKE_EXTRACTOR_NAME)
+}
+
+#[allow(dead_code)]
+fn runtime_rustc_thir_spike_context() -> Result<PilotSupplementContext, String> {
+    runtime_rustc_fixture_context(RUSTC_THIR_SPIKE_EXTRACTOR_NAME)
+}
+
+fn runtime_rustc_fixture_context(extractor_name: &'static str) -> Result<PilotSupplementContext, String> {
     let version_output = Command::new(rustc_command())
         .arg("-vV")
         .output()
@@ -904,7 +1043,7 @@ fn runtime_rustc_hir_spike_context() -> Result<PilotSupplementContext, String> {
     Ok(PilotSupplementContext {
         rustc_version: version_text,
         target_triple,
-        extractor_name: RUSTC_HIR_SPIKE_EXTRACTOR_NAME,
+        extractor_name,
         extractor_version: RUSTC_HIR_SPIKE_EXTRACTOR_VERSION,
     })
 }
@@ -1242,7 +1381,7 @@ fn supplement_boundary() -> SupplementBoundary {
         claims_semantic_equivalence: false,
         claims_cross_toolchain_stability: false,
         claims_pure_cache_eligibility: false,
-        detail: "HIR/MIR pilot supplements add bounded toolchain-scoped observations; Function Object v1 remains the review/provenance identity and no correctness or semantic-equivalence proof is implied.",
+        detail: "HIR/MIR/THIR pilot supplements add bounded toolchain-scoped observations; Function Object v1 remains the review/provenance identity and no correctness or semantic-equivalence proof is implied.",
     }
 }
 
@@ -1610,32 +1749,37 @@ fn supplemental_evidence_contracts() -> Vec<ObjectSupplementalEvidenceContract> 
             schema_version: SUPPLEMENT_SCHEMA_VERSION,
             status: ObjectSupplementStatus::UnsupportedPlanned.as_str(),
             relationship_to_v1: "optional-supplement-preserves-function-object-v1-identity",
-            toolchain_scope: "rustc-version-target-and-thir-context-scoped",
+            toolchain_scope: "rustc-version-target-and-thir-fixture-contract-scoped",
             required_fields: vec![
                 "schema",
                 "schema_version",
                 "function_object_hash",
+                "source_path",
+                "function_name",
                 "rustc_version",
                 "target_triple",
-                "thir_context",
-                "thir_observation_hash",
+                "extractor",
+                "observations",
+                "observation_hash",
                 "extraction_caveats",
                 "boundary",
             ],
-            unsupported_reason: "Octet has not implemented a THIR extractor or deterministic THIR supplement fixtures.",
+            unsupported_reason: "selected rustc THIR fixture contract [checked-arithmetic] only; default and non-fixture THIR requests remain unsupported-planned until general extractor evidence is added",
             required_evidence_before_support: vec![
-                "deterministic-thir-supplement-fixture",
-                "toolchain-and-thir-context-scoped-replay-check",
+                "positive-rustc-thir-selected-fixture-shape-smoke",
+                "negative-rustc-thir-selected-fixture-shape-mismatch-smoke",
+                "default-thir-unsupported-planned-smoke",
                 "non-proof-boundary-assertions",
             ],
             extractor_identity_expectations: vec![
-                "deterministic-thir-extractor-name",
-                "deterministic-thir-extractor-version",
-                "rustc_version=exact-toolchain",
-                "target_triple=exact-target",
+                "extractor.name=octet-rustc-thir-fixture-contract for --spike rustc-thir-fixture",
+                "fixture_shape=checked-arithmetic maps to thir-spike/checked.rs::checked",
+                "extractor.version=cargo-octet-package-version",
+                "rustc_version=runtime-rustc-vv",
+                "target_triple=runtime-rustc-host",
             ],
-            selected_fixture_shapes: Vec::new(),
-            fixture_replay_command: "unsupported-planned: add deterministic THIR fixture emit/check evidence before enabling",
+            selected_fixture_shapes: vec!["checked-arithmetic"],
+            fixture_replay_command: "cargo octet object supplement emit --family thir --spike rustc-thir-fixture --fixture-shape checked-arithmetic --output-format json && cargo octet object supplement check --family thir --spike rustc-thir-fixture --fixture-shape checked-arithmetic --receipt RECEIPT.json --output-format json",
             claims_correctness: false,
             claims_semantic_equivalence: false,
             claims_cross_toolchain_stability: false,
@@ -2593,11 +2737,11 @@ mod tests {
     use super::canonical_supplement_json;
     use super::effect_caveats;
     use super::function_object_for_source;
-    use super::hir_fixture_inventory_report;
     use super::pilot_hir_supplement;
     use super::pilot_mir_supplement;
     use super::rustc_hir_spike_supplement;
     use super::supplement_comparisons;
+    use super::supplement_fixture_inventory_report;
     use crate::fingerprint;
 
     #[test]
@@ -2742,7 +2886,8 @@ mod tests {
 
     #[test]
     fn hir_fixture_inventory_lists_closed_selectors_and_boundaries() {
-        let report = hir_fixture_inventory_report(SupplementFamilyArg::Hir, SupplementScopeArg::RustcHirFixtureSpike);
+        let report =
+            supplement_fixture_inventory_report(SupplementFamilyArg::Hir, SupplementScopeArg::RustcHirFixtureSpike);
         let json = serde_json::to_string_pretty(&report).expect("serialize fixture inventory");
 
         assert_eq!(report.schema, "octet.hir-fixture-inventory.v1");

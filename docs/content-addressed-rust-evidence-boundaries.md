@@ -91,19 +91,33 @@ The pilot MIR supplement records explicit unknown/unsupported observations for
 summary families that the source-token pilot cannot prove. It reports contract
 status `pilot-supported` only for the checked pilot emit/check surface.
 
-The current fail-closed THIR runtime seam is:
+The default THIR runtime seam remains fail-closed:
 
 ```bash
 cargo octet object supplement emit --family thir --function checked src/lib.rs --output-format json
 cargo octet object supplement check --family thir --receipt thir-supplement.json --function checked src/lib.rs --output-format json
 ```
 
-THIR runtime receipts MUST keep status `unsupported-planned` and name missing
-extractor support. A matching THIR check proves only that the same fail-closed
-receipt-critical fields replayed; it does not prove THIR extraction support,
-correctness, semantic equivalence, pure-cache eligibility, or cross-toolchain
-stability. Any unimplemented non-pilot HIR/MIR/THIR family remains
-`unsupported-planned`.
+Default THIR runtime receipts MUST keep status `unsupported-planned` and name
+missing extractor support. A matching default THIR check proves only that the
+same fail-closed receipt-critical fields replayed; it does not prove THIR
+extraction support, correctness, semantic equivalence, pure-cache eligibility,
+or cross-toolchain stability.
+
+The selected THIR fixture contract is narrower than general THIR support:
+
+```bash
+cargo octet object supplement fixtures --family thir --spike rustc-thir-fixture --output-format json
+cargo octet object supplement emit --family thir --spike rustc-thir-fixture --fixture-shape checked-arithmetic --output-format json
+cargo octet object supplement check --family thir --spike rustc-thir-fixture --fixture-shape checked-arithmetic --receipt thir-spike.json --output-format json
+```
+
+That fixture-backed path MAY report `pilot-supported` only for
+`checked-arithmetic` (`cargo-octet/tests/fixtures/thir-spike/checked.rs::checked`).
+It records `octet-rustc-thir-fixture-contract` extractor identity, exact
+`rustc -vV`/host identity, fixture path/function context, observation hash,
+extraction caveats, and fail-closed replay comparisons. Arbitrary-path THIR and
+any unimplemented non-pilot HIR/MIR/THIR family remain `unsupported-planned`.
 
 ## Downstream ownership boundary
 
