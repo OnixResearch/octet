@@ -1,0 +1,23 @@
+OpenSpec design gate full result:
+
+```text
+OpenSpec design gate (add-mir-fixture-contract)
+
+Strategy: same-family
+
+VERDICT: PASS
+
+## Findings
+- None
+
+## Stage Check
+- Design covers proposal scope: `openspec/changes/add-mir-fixture-contract/proposal.md` limits MIR to `rustc-mir-fixture`, selector `checked-arithmetic`, and fail-closed `unsupported-planned` behavior; `openspec/changes/add-mir-fixture-contract/design.md` repeats those boundaries in Goals, Non-Goals, Decisions 1-4, and Exact Contracts.
+- Design traces to delta spec: `openspec/changes/add-mir-fixture-contract/specs/standards-codification/spec.md` requirement `r[hir-mir-supplement-pilot]` and scenarios for inventory, emit, unsupported shapes, non-MIR pairings, and default unsupported-planned metadata are covered by `design.md` Exact Contracts and Verification Strategy.
+- Key design details are explicit: selector set, fixture path/function, schema/status, runtime observation keys, diagnostics, docs expectations, aggregate gate, and non-proof boundary fields are specified in `design.md`.
+- Oracle coverage exists: `design.md` includes Oracle Checkpoints plus a Design-Critical Choice Record with question, inspected evidence, decision, owner, and next action.
+- Stage is ready to proceed to tasks.
+
+## Next Actions
+- Convert each spec scenario into task rows with exact command/input/expected/evidence mapping.
+- At tasks stage, ensure every checkbox task has `[parallel]`, `[serial]`, or `[depends:<task-or-id>]`.
+```
