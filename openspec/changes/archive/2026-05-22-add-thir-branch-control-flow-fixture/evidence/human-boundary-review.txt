@@ -1,0 +1,22 @@
+# Human/oracle boundary review: THIR branch-control-flow fixture
+
+Reviewed surfaces:
+- cargo-octet/src/cli.rs
+- cargo-octet/src/object.rs
+- cargo-octet/tests/fingerprint_consumer.rs
+- cargo-octet/tests/fixtures/thir-spike/branch_control_flow.rs
+- docs/contributor-guide.md
+- docs/current-head-valence-evidence.md
+- openspec/changes/archive/2026-05-22-add-thir-branch-control-flow-fixture/evidence/*.txt
+
+Assertions:
+- THIR branch-control-flow is added only as a selected fixture shape.
+- THIR selected fixture inventory is bounded to checked-arithmetic, call-return, and branch-control-flow.
+- Default/non-fixture THIR behavior remains unsupported-planned.
+- The change does not claim general THIR extraction, full THIR support, semantic equivalence, behavioral correctness, or proof.
+- MIR selected fixture inventory remains checked-arithmetic and call-return.
+- MIR branch-control-flow remains unsupported/not selected and is covered by a fail-closed negative test.
+- Aggregate evidence exposes the THIR supplement inventory gate while preserving MIR fixture and MIR inventory PASS lines.
+- Documentation preserves the boundary phrase: does not imply general THIR or MIR extraction.
+
+Result: PASS
