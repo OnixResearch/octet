@@ -1,0 +1,25 @@
+OpenSpec proposal gate (add-thir-fixture-inventory-rail)
+
+Strategy: same-family
+
+VERDICT: PASS
+
+## Findings
+- None
+
+## Stage Check
+- Proposal states the motivation and scope: `proposal.md` “Why” targets THIR fixture selector discoverability through `cargo octet object supplement fixtures`.
+- Scope and non-goals are clear: `proposal.md` “Out of Scope” excludes third THIR shape, general THIR extraction, correctness proof, dependency resolution, pure-cache eligibility, cross-toolchain equivalence, and default THIR status changes.
+- Delta spec encodes the implied capability:
+  - `openspec/changes/archive/2026-05-22-add-thir-fixture-inventory-rail/specs/standards-codification/spec.md`
+  - Requirement `r[hir-mir-supplement-pilot]`
+  - Scenario `r[hir-mir-supplement-pilot.scenario.thir-fixture-inventory-selected-shapes]`
+  - Scenario `r[hir-mir-supplement-pilot.scenario.thir-inventory-command-roundtrip]`
+  - Scenario `r[hir-mir-supplement-pilot.scenario.thir-fixture-inventory-default-boundary]`
+- Verification expectations are present at proposal level: `proposal.md` “Testing” names focused unit/integration tests, OpenSpec validation, diff hygiene, and done-review.
+- Stage is ready to proceed past proposal.
+
+## Next Actions
+- Proceed to design or implementation planning.
+- Keep THIR default/non-fixture status `unsupported-planned`.
+- Ensure later tasks include concrete command/evidence capture for inventory and roundtrip scenarios.

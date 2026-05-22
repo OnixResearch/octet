@@ -2741,6 +2741,10 @@ mod tests {
     use super::RUSTC_HIR_SPIKE_EXTRACTOR_VERSION;
     use super::RUSTC_HIR_SPIKE_FIXTURE_RELATIVE_PATH;
     use super::RUSTC_HIR_SPIKE_FUNCTION;
+    use super::RUSTC_THIR_SPIKE_CALL_FIXTURE_RELATIVE_PATH;
+    use super::RUSTC_THIR_SPIKE_CALL_FUNCTION;
+    use super::RUSTC_THIR_SPIKE_FIXTURE_RELATIVE_PATH;
+    use super::RUSTC_THIR_SPIKE_FUNCTION;
     use super::SUPPLEMENT_STATUS_VALUES;
     use super::SupplementFamilyArg;
     use super::SupplementScopeArg;
@@ -2921,6 +2925,46 @@ mod tests {
             assert_eq!(shape.support_status, ObjectSupplementStatus::PilotSupported.as_str());
             assert!(shape.support_boundary.contains("selected checked-in rustc HIR fixture only"));
             assert!(shape.emit_command.contains(shape.shape));
+            assert!(shape.check_command.contains(shape.shape));
+        }
+        assert!(json.contains("\"claims_correctness\": false"));
+        assert!(json.contains("\"claims_semantic_equivalence\": false"));
+        assert!(json.contains("\"claims_cross_toolchain_stability\": false"));
+        assert!(json.contains("\"claims_pure_cache_eligibility\": false"));
+    }
+
+    #[test]
+    fn thir_fixture_inventory_lists_selected_shapes_and_boundaries() {
+        let report =
+            supplement_fixture_inventory_report(SupplementFamilyArg::Thir, SupplementScopeArg::RustcThirFixtureSpike);
+        let json = serde_json::to_string_pretty(&report).expect("serialize THIR fixture inventory");
+
+        assert_eq!(report.schema, "octet.thir-fixture-inventory.v1");
+        assert_eq!(report.mode, "supplement-fixture-inventory");
+        assert_eq!(report.family, "thir");
+        assert_eq!(report.scope, "rustc-thir-fixture-spike");
+        assert_eq!(report.default_shape, "checked-arithmetic");
+        assert_eq!(report.shapes.len(), 2);
+        assert!(report.shapes.iter().all(|shape| shape.shape != "branch-control-flow"));
+
+        let checked = report.shapes.iter().find(|shape| shape.shape == "checked-arithmetic").unwrap();
+        assert_eq!(checked.fixture_path, RUSTC_THIR_SPIKE_FIXTURE_RELATIVE_PATH);
+        assert_eq!(checked.function, RUSTC_THIR_SPIKE_FUNCTION);
+        assert!(checked.is_default);
+
+        let call_return = report.shapes.iter().find(|shape| shape.shape == "call-return").unwrap();
+        assert_eq!(call_return.fixture_path, RUSTC_THIR_SPIKE_CALL_FIXTURE_RELATIVE_PATH);
+        assert_eq!(call_return.function, RUSTC_THIR_SPIKE_CALL_FUNCTION);
+        assert!(!call_return.is_default);
+
+        for shape in &report.shapes {
+            assert_eq!(shape.support_status, ObjectSupplementStatus::PilotSupported.as_str());
+            assert!(shape.support_boundary.contains("selected checked-in rustc THIR fixture contract only"));
+            assert!(shape.emit_command.contains("--family thir"));
+            assert!(shape.emit_command.contains("--spike rustc-thir-fixture"));
+            assert!(shape.emit_command.contains(shape.shape));
+            assert!(shape.check_command.contains("--family thir"));
+            assert!(shape.check_command.contains("--spike rustc-thir-fixture"));
             assert!(shape.check_command.contains(shape.shape));
         }
         assert!(json.contains("\"claims_correctness\": false"));

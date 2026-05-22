@@ -1,0 +1,37 @@
+OpenSpec tasks gate (add-thir-fixture-inventory-rail)
+
+Strategy: same-family
+
+VERDICT: PASS
+
+## Findings
+- [info] [class=omission] [scope=review] [route=guidance] [promoted=no] No task-readiness blockers found.
+  - Evidence: `openspec/changes/archive/2026-05-22-add-thir-fixture-inventory-rail/tasks.md`; tasks `I1`, `I2`, `V1`-`V5`, `H1`, `H2`
+
+## Stage Check
+- Tasks trace to the proposal/design/spec scope:
+  - THIR inventory exact selector coverage is covered by `I1` and verified by `V1`, tracing to `r[hir-mir-supplement-pilot.scenario.thir-fixture-inventory-selected-shapes]`.
+  - THIR emitted command roundtrip coverage is covered by `I2` and verified by `V2`, tracing to `r[hir-mir-supplement-pilot.scenario.thir-inventory-command-roundtrip]`.
+  - Unsupported-planned THIR family boundary is verified by `V3`, tracing to `r[hir-mir-supplement-pilot.scenario.thir-fixture-inventory-default-boundary]`.
+  - OpenSpec validation and diff hygiene are covered by `V4` and `V5`.
+- Checkbox task concurrency markers are present on all 9 checkbox tasks:
+  - `[serial]`: `I1`, `I2`
+  - `[depends:...]`: `V1`-`V5`, `H1`, `H2`
+  - No unmarked checkbox tasks, no visible dependency cycle, and no incoherent `[parallel]` claim.
+- Human/oracle checkpoints are present:
+  - `H1` evidence path: `openspec/changes/archive/2026-05-22-add-thir-fixture-inventory-rail/evidence/tasks-gate.txt`
+  - `H2` evidence path: `openspec/changes/archive/2026-05-22-add-thir-fixture-inventory-rail/evidence/done-review.txt`
+- The tasks file reports `Status: complete` and `Open tasks: none`.
+
+Stage is ready to move past tasks. Because all tasks are complete, the remaining work is archive/spec sync rather than implementation planning.
+
+## Next Actions
+- Archive the change.
+- Ensure archived spec merge preserves `r[hir-mir-supplement-pilot]` scenarios.
+- Save/archive final validation evidence from the archived path if required by local process.
+
+## Promotion Hints
+- repeated 4x [class=omission] [scope=review] [route=guidance]
+  suggestion: Repeated soft finding: tighten prompt guidance now, then promote into a spec rule or deterministic check if repeats continue.
+  task: Tighten reviewer/prompt guidance for repeated omission findings, then promote to a spec rule or deterministic check if it persists. Example trigger: If the Aspen evidence/task drift is fixed, the change should be synced/archived instead of left active. `openspec/changes/per-lint-configuration/tasks.md` now reports `Summary: 44 done, 0 in progress, 0 todo`, but the change remains under `openspec/changes/per-lint-configuration/` and no sync/archive step is in the supplied evidence.
+  sources: openspec-gate=3, done-review=1
