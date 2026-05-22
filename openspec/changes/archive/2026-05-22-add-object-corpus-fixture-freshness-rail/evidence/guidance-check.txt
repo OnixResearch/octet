@@ -1,0 +1,4 @@
+guidance: PASS
+assert.named_freshness_check_documented: PASS
+assert.aggregate_pass_line_documented: PASS
+assert_touch_surfaces_require_freshness_vtask: PASS

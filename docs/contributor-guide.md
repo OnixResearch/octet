@@ -226,8 +226,15 @@ nix build .#checks.x86_64-linux.valence-object-evidence --no-link -L
 ```
 
 That aggregate gate composes selected local object corpus replay, compatibility,
-caveat taxonomy, selected THIR fixture inventory, selected MIR fixture replay,
-and fresh-build determinism rails. It includes a named MIR inventory check,
+caveat taxonomy, named object-corpus fixture freshness, selected THIR fixture
+inventory, selected MIR fixture replay, and fresh-build determinism rails. Run
+`nix build .#checks.x86_64-linux.object-corpus-fixture-freshness --no-link -L`
+whenever a change touches object-corpus inputs such as `cargo-octet/src/object.rs`,
+`cargo-octet/src/cli.rs`, `cargo-octet/tests/fingerprint_consumer.rs`,
+`THIR/MIR fixture inventories`, or `cargo-octet/tests/fixtures/object-corpus/*`; regenerate
+stale object-corpus fixtures before closeout. The aggregate includes a named
+freshness PASS line,
+`valence_object_evidence.object_corpus_fixture_freshness_gate: PASS`. It also includes a named MIR inventory check,
 `nix build .#checks.x86_64-linux.mir-supplement-inventory-gate --no-link -L`,
 which is composed into the aggregate as
 `valence_object_evidence.mir_supplement_inventory_gate: PASS`. The THIR and MIR
@@ -329,11 +336,22 @@ For the internal function object corpus gate, use the named check:
 nix build .#checks.x86_64-linux.object-corpus-gate --no-link -L
 ```
 
-This runs the selected internal corpus fixture replay, fixture freshness,
-Rust-derived contract metadata compatibility, fresh-target receipt determinism,
-and expanded internal taxonomy rails. Treat a pass as bounded local evidence
-replay for the selected corpus, not a correctness proof, semantic-equivalence
-proof, cross-machine determinism proof, or exhaustive Rust coverage claim.
+This runs the selected internal corpus fixture replay. For a freshness-only
+operator rail, use the named check:
+
+```bash
+nix build .#checks.x86_64-linux.object-corpus-fixture-freshness --no-link -L
+```
+
+That focused rail compares checked-in internal, expanded, and caveat-taxonomy
+object-corpus fixtures against fresh outputs. Run it before closeout whenever a
+change touches object-corpus inputs such as `cargo-octet/src/object.rs`,
+`cargo-octet/src/cli.rs`, `cargo-octet/tests/fingerprint_consumer.rs`,
+`THIR/MIR fixture inventories`, or `cargo-octet/tests/fixtures/object-corpus/*`.
+Regenerate stale fixtures before relying on the aggregate gate. Treat any pass
+as bounded local evidence replay for the selected corpus, not a correctness
+proof, semantic-equivalence proof, cross-machine determinism proof, or exhaustive
+Rust coverage claim.
 
 For the fresh-build object corpus determinism rail, use the named check:
 

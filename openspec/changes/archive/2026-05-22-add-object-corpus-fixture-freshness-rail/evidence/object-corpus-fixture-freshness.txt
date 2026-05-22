@@ -1,0 +1,143 @@
+these 2 derivations will be built:
+  /nix/store/pxycwlbyffksqgci9j7km5812529yp6n-cargo-octet-0.1.0.drv
+  /nix/store/pl9rr1pmzh899aqphqpr5p47wivdw2pg-octet-object-corpus-fixture-freshness-0.1.0.drv
+cannot build on 'ssh-ng://root@[REDACTED]': error: failed to start SSH connection to '[REDACTED]'
+building '/nix/store/pxycwlbyffksqgci9j7km5812529yp6n-cargo-octet-0.1.0.drv'...
+cargo-octet> Running phase: unpackPhase
+cargo-octet> unpacking source archive /nix/store/d7xagj87fghrl58jsj2ihg3dg8s9ff76-source
+cargo-octet> source root is source
+cargo-octet> Running phase: patchPhase
+cargo-octet> Executing configureCargoCommonVars
+cargo-octet> decompressing cargo artifacts from /nix/store/hkwyd8ywfwprl0xj71vgbng063238vzs-octet-deps-0.1.0/target.tar.zst to target
+cargo-octet> Running phase: updateAutotoolsGnuConfigScriptsPhase
+cargo-octet> Running phase: configurePhase
+cargo-octet> will append /build/source/.cargo-home/config.toml with contents of /nix/store/7psin7sq5sx4gs43jj2la6nzl2050sxz-vendor-cargo-deps/config.toml
+cargo-octet> default configurePhase, nothing to do
+cargo-octet> Running phase: buildPhase
+cargo-octet> +++ command cargo --version
+cargo-octet> cargo 1.96.0-nightly (cbb9bb8bd 2026-03-13)
+cargo-octet> +++ command cargo build --release --message-format json-render-diagnostics -p cargo-octet
+cargo-octet> warning: /build/source/crates/slotcar-standards/Cargo.toml: file `/build/source/crates/slotcar-standards/src/main.rs` found to be present in multiple build targets:
+cargo-octet>   * `bin` target `octet-standards`
+cargo-octet>   * `bin` target `slotcar-standards`
+cargo-octet>   * `bin` target `tigerstyle-standards`
+cargo-octet> warning: /build/source/cargo-octet/Cargo.toml: file `/build/source/cargo-octet/src/main.rs` found to be present in multiple build targets:
+cargo-octet>   * `bin` target `cargo-octet`
+cargo-octet>   * `bin` target `cargo-slotcar`
+cargo-octet>   * `bin` target `cargo-tigerstyle`
+cargo-octet>    Compiling find-msvc-tools v0.1.9
+cargo-octet>    Compiling shlex v1.3.0
+cargo-octet>    Compiling serde_core v1.0.228
+cargo-octet>    Compiling proc-macro2 v1.0.106
+cargo-octet>    Compiling cc v1.2.62
+cargo-octet>    Compiling quote v1.0.45
+cargo-octet>    Compiling cfg-if v1.0.4
+cargo-octet>    Compiling cpufeatures v0.3.0
+cargo-octet>    Compiling constant_time_eq v0.4.2
+cargo-octet>    Compiling arrayref v0.3.9
+cargo-octet>    Compiling arrayvec v0.7.6
+cargo-octet>    Compiling serde_json v1.0.149
+cargo-octet>    Compiling syn v2.0.117
+cargo-octet>    Compiling blake3 v1.8.5
+cargo-octet>    Compiling cargo-octet v0.1.0 (/build/source/cargo-octet)
+cargo-octet>    Compiling serde_spanned v1.1.1
+cargo-octet>    Compiling toml_datetime v1.1.1+spec-1.1.0
+cargo-octet>    Compiling toml v1.1.2+spec-1.1.0
+cargo-octet>    Compiling serde_derive v1.0.228
+cargo-octet>    Compiling serde v1.0.228
+cargo-octet>     Finished `release` profile [optimized] target(s) in 11.98s
+cargo-octet> searching for bins/libs to install from cargo build log at cargoBuildLoggbSN.json
+cargo-octet> installing /build/source/target/release/cargo-slotcar in postBuildInstallFromCargoBuildLogOutTempvnn/bin
+cargo-octet> installing /build/source/target/release/cargo-octet in postBuildInstallFromCargoBuildLogOutTempvnn/bin
+cargo-octet> installing /build/source/target/release/cargo-tigerstyle in postBuildInstallFromCargoBuildLogOutTempvnn/bin
+cargo-octet> searching for bins/libs complete
+cargo-octet> Running phase: installPhase
+cargo-octet> actually installing contents of postBuildInstallFromCargoBuildLogOutTempvnn to /nix/store/vs0dm9vabq5n2za5n94llsk62h2ayj02-cargo-octet-0.1.0
+cargo-octet> stripping references to Rust toolchain
+cargo-octet> Rust toolchain at: /nix/store/1yvh3d6y3fj3xk2dgwczrp1dj5svd92c-rust-default-1.96.0-nightly-2026-03-21
+cargo-octet> stripping Rust toolchain references done
+cargo-octet> stripping references to cargoVendorDir from:
+cargo-octet> /nix/store/vs0dm9vabq5n2za5n94llsk62h2ayj02-cargo-octet-0.1.0/bin/cargo-octet
+cargo-octet> /nix/store/vs0dm9vabq5n2za5n94llsk62h2ayj02-cargo-octet-0.1.0/bin/cargo-slotcar
+cargo-octet> /nix/store/vs0dm9vabq5n2za5n94llsk62h2ayj02-cargo-octet-0.1.0/bin/cargo-tigerstyle
+cargo-octet> stripping references done
+cargo-octet> Running phase: fixupPhase
+cargo-octet> shrinking RPATHs of ELF executables and libraries in /nix/store/vs0dm9vabq5n2za5n94llsk62h2ayj02-cargo-octet-0.1.0
+cargo-octet> shrinking /nix/store/vs0dm9vabq5n2za5n94llsk62h2ayj02-cargo-octet-0.1.0/bin/cargo-octet
+cargo-octet> shrinking /nix/store/vs0dm9vabq5n2za5n94llsk62h2ayj02-cargo-octet-0.1.0/bin/cargo-tigerstyle
+cargo-octet> shrinking /nix/store/vs0dm9vabq5n2za5n94llsk62h2ayj02-cargo-octet-0.1.0/bin/cargo-slotcar
+cargo-octet> checking for references to /build/ in /nix/store/vs0dm9vabq5n2za5n94llsk62h2ayj02-cargo-octet-0.1.0...
+cargo-octet> patching script interpreter paths in /nix/store/vs0dm9vabq5n2za5n94llsk62h2ayj02-cargo-octet-0.1.0
+cargo-octet> stripping (with command strip and flags -S -p) in  /nix/store/vs0dm9vabq5n2za5n94llsk62h2ayj02-cargo-octet-0.1.0/bin
+building '/nix/store/pl9rr1pmzh899aqphqpr5p47wivdw2pg-octet-object-corpus-fixture-freshness-0.1.0.drv'...
+octet-object-corpus-fixture-freshness> Running phase: unpackPhase
+octet-object-corpus-fixture-freshness> unpacking source archive /nix/store/d7xagj87fghrl58jsj2ihg3dg8s9ff76-source
+octet-object-corpus-fixture-freshness> source root is source
+octet-object-corpus-fixture-freshness> Running phase: patchPhase
+octet-object-corpus-fixture-freshness> Executing configureCargoCommonVars
+octet-object-corpus-fixture-freshness> decompressing cargo artifacts from /nix/store/hkwyd8ywfwprl0xj71vgbng063238vzs-octet-deps-0.1.0/target.tar.zst to target
+octet-object-corpus-fixture-freshness> Running phase: updateAutotoolsGnuConfigScriptsPhase
+octet-object-corpus-fixture-freshness> Running phase: configurePhase
+octet-object-corpus-fixture-freshness> will append /build/source/.cargo-home/config.toml with contents of /nix/store/7psin7sq5sx4gs43jj2la6nzl2050sxz-vendor-cargo-deps/config.toml
+octet-object-corpus-fixture-freshness> default configurePhase, nothing to do
+octet-object-corpus-fixture-freshness> Running phase: buildPhase
+octet-object-corpus-fixture-freshness> +++ command cargo --version
+octet-object-corpus-fixture-freshness> cargo 1.96.0-nightly (cbb9bb8bd 2026-03-13)
+octet-object-corpus-fixture-freshness> Running phase: checkPhase
+octet-object-corpus-fixture-freshness> +++ command cargo test --release -p cargo-octet --test fingerprint_consumer matches_fresh -- --nocapture
+octet-object-corpus-fixture-freshness> warning: /build/source/crates/slotcar-standards/Cargo.toml: file `/build/source/crates/slotcar-standards/src/main.rs` found to be present in multiple build targets:
+octet-object-corpus-fixture-freshness>   * `bin` target `octet-standards`
+octet-object-corpus-fixture-freshness>   * `bin` target `slotcar-standards`
+octet-object-corpus-fixture-freshness>   * `bin` target `tigerstyle-standards`
+octet-object-corpus-fixture-freshness> warning: /build/source/cargo-octet/Cargo.toml: file `/build/source/cargo-octet/src/main.rs` found to be present in multiple build targets:
+octet-object-corpus-fixture-freshness>   * `bin` target `cargo-octet`
+octet-object-corpus-fixture-freshness>   * `bin` target `cargo-slotcar`
+octet-object-corpus-fixture-freshness>   * `bin` target `cargo-tigerstyle`
+octet-object-corpus-fixture-freshness>    Compiling find-msvc-tools v0.1.9
+octet-object-corpus-fixture-freshness>    Compiling shlex v1.3.0
+octet-object-corpus-fixture-freshness>    Compiling serde_core v1.0.228
+octet-object-corpus-fixture-freshness>    Compiling proc-macro2 v1.0.106
+octet-object-corpus-fixture-freshness>    Compiling cc v1.2.62
+octet-object-corpus-fixture-freshness>    Compiling quote v1.0.45
+octet-object-corpus-fixture-freshness>    Compiling cfg-if v1.0.4
+octet-object-corpus-fixture-freshness>    Compiling arrayref v0.3.9
+octet-object-corpus-fixture-freshness>    Compiling arrayvec v0.7.6
+octet-object-corpus-fixture-freshness>    Compiling constant_time_eq v0.4.2
+octet-object-corpus-fixture-freshness>    Compiling cpufeatures v0.3.0
+octet-object-corpus-fixture-freshness>    Compiling serde_json v1.0.149
+octet-object-corpus-fixture-freshness>    Compiling syn v2.0.117
+octet-object-corpus-fixture-freshness>    Compiling libc v0.2.186
+octet-object-corpus-fixture-freshness>    Compiling blake3 v1.8.5
+octet-object-corpus-fixture-freshness>    Compiling cargo-octet v0.1.0 (/build/source/cargo-octet)
+octet-object-corpus-fixture-freshness>    Compiling serde_spanned v1.1.1
+octet-object-corpus-fixture-freshness>    Compiling toml_datetime v1.1.1+spec-1.1.0
+octet-object-corpus-fixture-freshness>    Compiling toml v1.1.2+spec-1.1.0
+octet-object-corpus-fixture-freshness>    Compiling rustix v1.1.4
+octet-object-corpus-fixture-freshness>    Compiling serde_derive v1.0.228
+octet-object-corpus-fixture-freshness>    Compiling getrandom v0.4.2
+octet-object-corpus-fixture-freshness>    Compiling linux-raw-sys v0.12.1
+octet-object-corpus-fixture-freshness>    Compiling bitflags v2.11.1
+octet-object-corpus-fixture-freshness>    Compiling once_cell v1.21.4
+octet-object-corpus-fixture-freshness>    Compiling fastrand v2.4.1
+octet-object-corpus-fixture-freshness>    Compiling serde v1.0.228
+octet-object-corpus-fixture-freshness>    Compiling tempfile v3.27.0
+octet-object-corpus-fixture-freshness>     Finished `release` profile [optimized] target(s) in 14.28s
+octet-object-corpus-fixture-freshness>      Running tests/fingerprint_consumer.rs (target/release/deps/fingerprint_consumer-a0688eab409d177f)
+octet-object-corpus-fixture-freshness>
+octet-object-corpus-fixture-freshness> running 3 tests
+octet-object-corpus-fixture-freshness> test object_internal_corpus_gate_fixture_matches_fresh_receipt ... ok
+octet-object-corpus-fixture-freshness> test object_internal_corpus_expanded_caveat_taxonomy_fixture_matches_fresh_report ... ok
+octet-object-corpus-fixture-freshness> test object_internal_corpus_expanded_fixture_matches_fresh_receipt_and_preserves_boundaries ... ok
+octet-object-corpus-fixture-freshness>
+octet-object-corpus-fixture-freshness> test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 60 filtered out; finished in 0.04s
+octet-object-corpus-fixture-freshness>
+octet-object-corpus-fixture-freshness> Running phase: installPhase
+octet-object-corpus-fixture-freshness> stripping references to Rust toolchain
+octet-object-corpus-fixture-freshness> Rust toolchain at: /nix/store/1yvh3d6y3fj3xk2dgwczrp1dj5svd92c-rust-default-1.96.0-nightly-2026-03-21
+octet-object-corpus-fixture-freshness> stripping Rust toolchain references done
+octet-object-corpus-fixture-freshness> stripping references to cargoVendorDir from:
+octet-object-corpus-fixture-freshness> stripping references done
+octet-object-corpus-fixture-freshness> Running phase: fixupPhase
+octet-object-corpus-fixture-freshness> shrinking RPATHs of ELF executables and libraries in /nix/store/y0q8q3c1g471g4phl3d8jlqw29zdz468-octet-object-corpus-fixture-freshness-0.1.0
+octet-object-corpus-fixture-freshness> checking for references to /build/ in /nix/store/y0q8q3c1g471g4phl3d8jlqw29zdz468-octet-object-corpus-fixture-freshness-0.1.0...
+octet-object-corpus-fixture-freshness> patching script interpreter paths in /nix/store/y0q8q3c1g471g4phl3d8jlqw29zdz468-octet-object-corpus-fixture-freshness-0.1.0
