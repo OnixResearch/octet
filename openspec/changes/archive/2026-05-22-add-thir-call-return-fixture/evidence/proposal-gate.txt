@@ -1,0 +1,20 @@
+OpenSpec proposal gate (add-thir-call-return-fixture)
+
+Strategy: same-family
+
+VERDICT: PASS
+
+## Findings
+- None.
+
+## Stage Check
+- Proposal states rationale, scope, non-goals, affected capability, impact, API surface, and verification expectations in `openspec/changes/add-thir-call-return-fixture/proposal.md`.
+- Delta spec encodes the proposed scope under `openspec/changes/add-thir-call-return-fixture/specs/standards-codification/spec.md` by modifying `r[hir-mir-supplement-pilot]`.
+- Delta scenarios cover inventory, positive `call-return` supplement emission, unsupported THIR selector rejection, and preservation of default `unsupported-planned` THIR status.
+- Non-goals explicitly preserve fail-closed THIR boundaries and reject general THIR extraction, arbitrary fixture paths, semantic/correctness claims, and HIR-only `branch-control-flow` for THIR.
+- Stage is ready to proceed past proposal.
+
+## Next Actions
+- Continue to design stage.
+- In design, make fixture path/function binding and positive/negative replay evidence explicit.
+- Ensure docs and contract metadata preserve default THIR `unsupported-planned` outside selected fixture runtime paths.

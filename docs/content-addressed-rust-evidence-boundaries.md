@@ -110,10 +110,13 @@ The selected THIR fixture contract is narrower than general THIR support:
 cargo octet object supplement fixtures --family thir --spike rustc-thir-fixture --output-format json
 cargo octet object supplement emit --family thir --spike rustc-thir-fixture --fixture-shape checked-arithmetic --output-format json
 cargo octet object supplement check --family thir --spike rustc-thir-fixture --fixture-shape checked-arithmetic --receipt thir-spike.json --output-format json
+cargo octet object supplement emit --family thir --spike rustc-thir-fixture --fixture-shape call-return --output-format json
+cargo octet object supplement check --family thir --spike rustc-thir-fixture --fixture-shape call-return --receipt thir-spike.json --output-format json
 ```
 
 That fixture-backed path MAY report `pilot-supported` only for
-`checked-arithmetic` (`cargo-octet/tests/fixtures/thir-spike/checked.rs::checked`).
+`checked-arithmetic` (`cargo-octet/tests/fixtures/thir-spike/checked.rs::checked`)
+and `call-return` (`cargo-octet/tests/fixtures/thir-spike/call_return.rs::call_then_return`).
 It records `octet-rustc-thir-fixture-contract` extractor identity, exact
 `rustc -vV`/host identity, fixture path/function context, observation hash,
 extraction caveats, and fail-closed replay comparisons. Arbitrary-path THIR and

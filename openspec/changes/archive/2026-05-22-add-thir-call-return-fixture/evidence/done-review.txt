@@ -1,0 +1,18 @@
+VERDICT: WARN (addressed before commit)
+
+## Findings
+- [material] [class=evidence-hygiene] [scope=review/tasks] [route=deterministic-check] [promoted=no] Archived task H4 named `evidence/done-review.txt`, but that file was missing; proposal/design/tasks gate evidence also contained unrelated `Extension error ... ctx is stale` trailer lines after PASS output.
+  - Evidence: final delegated done-review reported the missing done-review artifact and noisy gate trailers.
+
+## Resolution
+- Added this done-review evidence artifact at `openspec/changes/archive/2026-05-22-add-thir-call-return-fixture/evidence/done-review.txt`.
+- Cleaned proposal/design/tasks gate transcripts to retain the OpenSpec gate PASS/WARN content and remove unrelated stale-extension trailer noise.
+- Re-run required before commit: `git add -A && git diff --cached --check && openspec validate --all --strict --json`.
+
+## OpenSpec Check
+- The archived change adds exactly one THIR fixture selector, `call-return`, bound to `cargo-octet/tests/fixtures/thir-spike/call_return.rs::call_then_return`.
+- Canonical spec preservation was checked and repaired after archive so prior HIR/MIR/THIR scenarios remain present alongside the new call-return scenarios.
+- Default/non-fixture THIR remains `unsupported-planned`; only explicit selected `rustc-thir-fixture` selectors may report `pilot-supported`; `branch-control-flow` remains HIR-only for THIR.
+
+## Gaps
+- None blocking after the artifact/trailer cleanup and final staged checks.

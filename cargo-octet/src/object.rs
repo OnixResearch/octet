@@ -31,6 +31,8 @@ const RUSTC_HIR_SPIKE_BRANCH_FUNCTION: &str = "clamp_to_limit";
 const RUSTC_THIR_SPIKE_EXTRACTOR_NAME: &str = "octet-rustc-thir-fixture-contract";
 const RUSTC_THIR_SPIKE_FIXTURE_RELATIVE_PATH: &str = "cargo-octet/tests/fixtures/thir-spike/checked.rs";
 const RUSTC_THIR_SPIKE_FUNCTION: &str = "checked";
+const RUSTC_THIR_SPIKE_CALL_FIXTURE_RELATIVE_PATH: &str = "cargo-octet/tests/fixtures/thir-spike/call_return.rs";
+const RUSTC_THIR_SPIKE_CALL_FUNCTION: &str = "call_then_return";
 #[allow(dead_code)]
 const SUPPLEMENT_SCHEMA_VERSION: u32 = 1;
 const CORPUS_RECEIPT_SCHEMA: &str = "octet.function-object-corpus-receipt.v1";
@@ -803,7 +805,7 @@ fn supplement_records(
                 return Err("rustc THIR fixture spike only supports `--family thir`".to_owned());
             }
             let function = function.ok_or_else(|| {
-                "rustc THIR fixture spike requires explicit fixture selector `--fixture-shape checked-arithmetic`"
+                "rustc THIR fixture spike requires explicit fixture selector `--fixture-shape checked-arithmetic` or `--fixture-shape call-return`"
                     .to_owned()
             })?;
             let fixture_path = rustc_thir_spike_cli_fixture_path(paths)?;
@@ -824,7 +826,7 @@ fn rustc_hir_spike_cli_fixture_path(paths: &[PathBuf]) -> Result<PathBuf, String
 
 fn rustc_thir_spike_cli_fixture_path(paths: &[PathBuf]) -> Result<PathBuf, String> {
     if paths.is_empty() || paths == [PathBuf::from(".")] {
-        return Err("rustc THIR fixture spike requires explicit fixture selector `--fixture-shape checked-arithmetic`"
+        return Err("rustc THIR fixture spike requires explicit fixture selector `--fixture-shape checked-arithmetic` or `--fixture-shape call-return`"
             .to_owned());
     }
     if paths.len() != 1 {
@@ -871,11 +873,18 @@ const RUSTC_HIR_SPIKE_FIXTURES: &[RustcHirSpikeFixture] = &[
     },
 ];
 
-const RUSTC_THIR_SPIKE_FIXTURES: &[RustcHirSpikeFixture] = &[RustcHirSpikeFixture {
-    relative_path: RUSTC_THIR_SPIKE_FIXTURE_RELATIVE_PATH,
-    function: RUSTC_THIR_SPIKE_FUNCTION,
-    shape: "checked-arithmetic",
-}];
+const RUSTC_THIR_SPIKE_FIXTURES: &[RustcHirSpikeFixture] = &[
+    RustcHirSpikeFixture {
+        relative_path: RUSTC_THIR_SPIKE_FIXTURE_RELATIVE_PATH,
+        function: RUSTC_THIR_SPIKE_FUNCTION,
+        shape: "checked-arithmetic",
+    },
+    RustcHirSpikeFixture {
+        relative_path: RUSTC_THIR_SPIKE_CALL_FIXTURE_RELATIVE_PATH,
+        function: RUSTC_THIR_SPIKE_CALL_FUNCTION,
+        shape: "call-return",
+    },
+];
 
 fn rustc_hir_spike_fixture_for(fixture_path: &Path, function: &str) -> Result<RustcHirSpikeFixture, String> {
     let normalized_path = determinism::normalize_path(fixture_path);
@@ -1000,7 +1009,7 @@ fn rustc_thir_spike_supplement(fixture_path: &Path, function: &str) -> Result<Fu
     });
     observations.insert("typed_expression_shape".to_owned(), SupplementObservation {
         status: ObjectSupplementStatus::PilotSupported.as_str(),
-        detail: "fixture contract covers one checked-arithmetic typed expression shape only".to_owned(),
+        detail: format!("fixture contract covers selected THIR fixture shape={} only", fixture.shape),
     });
     observations.insert("support_boundary".to_owned(), SupplementObservation {
         status: ObjectSupplementStatus::Unsupported.as_str(),
@@ -1011,7 +1020,7 @@ fn rustc_thir_spike_supplement(fixture_path: &Path, function: &str) -> Result<Fu
     supplement.extraction_caveats.push(SupplementCaveat {
         family: ObjectSupplementFamily::Thir.as_str(),
         status: ObjectSupplementStatus::Unsupported.as_str(),
-        detail: "THIR fixture support is a deterministic contract for one checked-in fixture shape; non-fixture THIR remains unsupported-planned".to_owned(),
+        detail: "THIR fixture support is a deterministic contract for selected checked-in fixture shapes; non-fixture THIR remains unsupported-planned".to_owned(),
     });
     Ok(supplement)
 }
@@ -1764,7 +1773,7 @@ fn supplemental_evidence_contracts() -> Vec<ObjectSupplementalEvidenceContract> 
                 "extraction_caveats",
                 "boundary",
             ],
-            unsupported_reason: "selected rustc THIR fixture contract [checked-arithmetic] only; default and non-fixture THIR requests remain unsupported-planned until general extractor evidence is added",
+            unsupported_reason: "selected rustc THIR fixture contract [checked-arithmetic, call-return] only; default and non-fixture THIR requests remain unsupported-planned until general extractor evidence is added",
             required_evidence_before_support: vec![
                 "positive-rustc-thir-selected-fixture-shape-smoke",
                 "negative-rustc-thir-selected-fixture-shape-mismatch-smoke",
@@ -1774,12 +1783,13 @@ fn supplemental_evidence_contracts() -> Vec<ObjectSupplementalEvidenceContract> 
             extractor_identity_expectations: vec![
                 "extractor.name=octet-rustc-thir-fixture-contract for --spike rustc-thir-fixture",
                 "fixture_shape=checked-arithmetic maps to thir-spike/checked.rs::checked",
+                "fixture_shape=call-return maps to thir-spike/call_return.rs::call_then_return",
                 "extractor.version=cargo-octet-package-version",
                 "rustc_version=runtime-rustc-vv",
                 "target_triple=runtime-rustc-host",
             ],
-            selected_fixture_shapes: vec!["checked-arithmetic"],
-            fixture_replay_command: "cargo octet object supplement emit --family thir --spike rustc-thir-fixture --fixture-shape checked-arithmetic --output-format json && cargo octet object supplement check --family thir --spike rustc-thir-fixture --fixture-shape checked-arithmetic --receipt RECEIPT.json --output-format json",
+            selected_fixture_shapes: vec!["checked-arithmetic", "call-return"],
+            fixture_replay_command: "cargo octet object supplement emit --family thir --spike rustc-thir-fixture --fixture-shape checked-arithmetic --output-format json && cargo octet object supplement check --family thir --spike rustc-thir-fixture --fixture-shape checked-arithmetic --receipt RECEIPT.json --output-format json; repeat with --fixture-shape call-return",
             claims_correctness: false,
             claims_semantic_equivalence: false,
             claims_cross_toolchain_stability: false,
