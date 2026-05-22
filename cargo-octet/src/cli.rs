@@ -1019,10 +1019,10 @@ fn parse_object_supplement_scan(emit: bool, args: &[String]) -> Result<ObjectArg
             return Err("`--fixture-shape` cannot be combined with explicit fixture paths or `--function`".to_owned());
         }
         if matches!(scope, SupplementScopeArg::RustcMirFixtureSpike)
-            && !matches!(shape.trim(), "checked-arithmetic" | "call-return")
+            && !matches!(shape.trim(), "checked-arithmetic" | "call-return" | "branch-control-flow")
         {
             return Err(
-                "`--spike rustc-mir-fixture` currently supports only `--fixture-shape checked-arithmetic` or `--fixture-shape call-return`".to_owned()
+                "`--spike rustc-mir-fixture` currently supports only `--fixture-shape checked-arithmetic`, `--fixture-shape call-return`, or `--fixture-shape branch-control-flow`".to_owned()
             );
         }
         let selected = parse_supplement_fixture_shape(scope, &shape)?;
@@ -1056,7 +1056,7 @@ fn parse_object_supplement_scan(emit: bool, args: &[String]) -> Result<ObjectArg
     if matches!((family, scope), (SupplementFamilyArg::Mir, SupplementScopeArg::RustcMirFixtureSpike))
         && !fixture_shape_was_provided
     {
-        return Err("`--family mir --spike rustc-mir-fixture` requires explicit `--fixture-shape checked-arithmetic` or `--fixture-shape call-return`"
+        return Err("`--family mir --spike rustc-mir-fixture` requires explicit `--fixture-shape checked-arithmetic`, `--fixture-shape call-return`, or `--fixture-shape branch-control-flow`"
             .to_owned());
     }
     if paths.is_empty() {
@@ -1148,8 +1148,14 @@ fn parse_supplement_fixture_shape(
             path: PathBuf::from("cargo-octet/tests/fixtures/mir-spike/call_return.rs"),
             function: "call_then_return".to_owned(),
         }),
+        (SupplementScopeArg::RustcMirFixtureSpike, "branch" | "branch-control-flow" | "clamp") => {
+            Ok(SupplementFixtureSelection {
+                path: PathBuf::from("cargo-octet/tests/fixtures/mir-spike/branch_control_flow.rs"),
+                function: "choose_branch".to_owned(),
+            })
+        }
         (SupplementScopeArg::RustcMirFixtureSpike, other) => Err(format!(
-            "unsupported MIR supplement fixture shape `{other}`; expected `checked-arithmetic` or `call-return`"
+            "unsupported MIR supplement fixture shape `{other}`; expected `checked-arithmetic`, `call-return`, or `branch-control-flow`"
         )),
         (_, other) => Err(format!(
             "unsupported supplement fixture shape `{other}`; expected `checked-arithmetic` or `branch-control-flow`"
@@ -1738,7 +1744,7 @@ mod tests {
         .expect_err("MIR fixture spike requires explicit fixture shape");
         assert!(
             mir_without_shape
-                .contains("requires explicit `--fixture-shape checked-arithmetic` or `--fixture-shape call-return`")
+                .contains("requires explicit `--fixture-shape checked-arithmetic`, `--fixture-shape call-return`, or `--fixture-shape branch-control-flow`")
         );
 
         let mir_checked_alias = parse(
@@ -1758,7 +1764,7 @@ mod tests {
         .expect_err("MIR fixture spike rejects aliases outside inventory selector");
         assert!(
             mir_checked_alias
-                .contains("supports only `--fixture-shape checked-arithmetic` or `--fixture-shape call-return`"),
+                .contains("supports only `--fixture-shape checked-arithmetic`, `--fixture-shape call-return`, or `--fixture-shape branch-control-flow`"),
             "unexpected MIR checked alias fixture shape error: {mir_checked_alias}"
         );
 
@@ -1789,6 +1795,35 @@ mod tests {
                 }));
             }
             other => panic!("expected MIR call-return fixture shape args, got {other:?}"),
+        }
+
+        let mir_branch_shape = parse(
+            [
+                "cargo",
+                "octet",
+                "object",
+                "supplement",
+                "emit",
+                "--family=mir",
+                "--spike=rustc-mir-fixture",
+                "--fixture-shape=branch-control-flow",
+                "--output-format=json",
+            ]
+            .map(OsString::from),
+        )
+        .expect("parse MIR branch-control-flow fixture shape supplement args");
+        match mir_branch_shape {
+            CommandArgs::Object(args) => {
+                assert_eq!(args.function.as_deref(), Some("choose_branch"));
+                assert_eq!(args.paths, vec![std::path::PathBuf::from(
+                    "cargo-octet/tests/fixtures/mir-spike/branch_control_flow.rs"
+                )]);
+                assert!(matches!(args.mode, super::ObjectMode::SupplementEmit {
+                    family: super::SupplementFamilyArg::Mir,
+                    scope: super::SupplementScopeArg::RustcMirFixtureSpike,
+                }));
+            }
+            other => panic!("expected MIR branch-control-flow fixture shape args, got {other:?}"),
         }
     }
 

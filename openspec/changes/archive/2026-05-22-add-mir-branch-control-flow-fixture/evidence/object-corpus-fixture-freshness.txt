@@ -1,0 +1,2 @@
+$ TMPDIR=/tmp nix build .#checks.x86_64-linux.object-corpus-fixture-freshness --no-link -L
+exit=0

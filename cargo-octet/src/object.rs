@@ -41,6 +41,9 @@ const RUSTC_MIR_SPIKE_FIXTURE_RELATIVE_PATH: &str = "cargo-octet/tests/fixtures/
 const RUSTC_MIR_SPIKE_FUNCTION: &str = "checked";
 const RUSTC_MIR_SPIKE_CALL_FIXTURE_RELATIVE_PATH: &str = "cargo-octet/tests/fixtures/mir-spike/call_return.rs";
 const RUSTC_MIR_SPIKE_CALL_FUNCTION: &str = "call_then_return";
+const RUSTC_MIR_SPIKE_BRANCH_FIXTURE_RELATIVE_PATH: &str =
+    "cargo-octet/tests/fixtures/mir-spike/branch_control_flow.rs";
+const RUSTC_MIR_SPIKE_BRANCH_FUNCTION: &str = "choose_branch";
 #[allow(dead_code)]
 const SUPPLEMENT_SCHEMA_VERSION: u32 = 1;
 const CORPUS_RECEIPT_SCHEMA: &str = "octet.function-object-corpus-receipt.v1";
@@ -827,7 +830,7 @@ fn supplement_records(
                 return Err("rustc MIR fixture spike only supports `--family mir`".to_owned());
             }
             let function = function.ok_or_else(|| {
-                "rustc MIR fixture spike requires explicit fixture selector `--fixture-shape checked-arithmetic`"
+                "rustc MIR fixture spike requires explicit fixture selector `--fixture-shape checked-arithmetic`, `--fixture-shape call-return`, or `--fixture-shape branch-control-flow`"
                     .to_owned()
             })?;
             let fixture_path = rustc_mir_spike_cli_fixture_path(paths)?;
@@ -859,7 +862,7 @@ fn rustc_thir_spike_cli_fixture_path(paths: &[PathBuf]) -> Result<PathBuf, Strin
 
 fn rustc_mir_spike_cli_fixture_path(paths: &[PathBuf]) -> Result<PathBuf, String> {
     if paths.is_empty() || paths == [PathBuf::from(".")] {
-        return Err("rustc MIR fixture spike requires explicit fixture selector `--fixture-shape checked-arithmetic`"
+        return Err("rustc MIR fixture spike requires explicit fixture selector `--fixture-shape checked-arithmetic`, `--fixture-shape call-return`, or `--fixture-shape branch-control-flow`"
             .to_owned());
     }
     if paths.len() != 1 {
@@ -934,6 +937,11 @@ const RUSTC_MIR_SPIKE_FIXTURES: &[RustcHirSpikeFixture] = &[
         relative_path: RUSTC_MIR_SPIKE_CALL_FIXTURE_RELATIVE_PATH,
         function: RUSTC_MIR_SPIKE_CALL_FUNCTION,
         shape: "call-return",
+    },
+    RustcHirSpikeFixture {
+        relative_path: RUSTC_MIR_SPIKE_BRANCH_FIXTURE_RELATIVE_PATH,
+        function: RUSTC_MIR_SPIKE_BRANCH_FUNCTION,
+        shape: "branch-control-flow",
     },
 ];
 
@@ -1373,7 +1381,7 @@ fn pilot_mir_supplement(object: &FunctionObjectV1, context: &PilotSupplementCont
     }
     observations.insert("mir_context".to_owned(), SupplementObservation {
         status: ObjectSupplementStatus::UnsupportedPlanned.as_str(),
-        detail: "default MIR requests remain unsupported-planned; only the explicit rustc-mir-fixture checked-arithmetic path is pilot-supported".to_owned(),
+        detail: "default MIR requests remain unsupported-planned; only explicit rustc-mir-fixture selected fixture shapes are pilot-supported".to_owned(),
     });
     let mut supplement = supplement_for_object(ObjectSupplementFamily::Mir, object, context, observations);
     supplement.status = ObjectSupplementStatus::UnsupportedPlanned.as_str();
@@ -1945,7 +1953,7 @@ fn supplemental_evidence_contracts() -> Vec<ObjectSupplementalEvidenceContract> 
                 "extraction_caveats",
                 "boundary",
             ],
-            unsupported_reason: "selected rustc MIR fixture contract [checked-arithmetic, call-return] only; default and non-fixture MIR requests remain unsupported-planned until general extractor evidence is added",
+            unsupported_reason: "selected rustc MIR fixture contract [checked-arithmetic, call-return, branch-control-flow] only; default and non-fixture MIR requests remain unsupported-planned until general extractor evidence is added",
             required_evidence_before_support: vec![
                 "positive-rustc-mir-selected-fixture-shape-smoke",
                 "negative-rustc-mir-selected-fixture-shape-mismatch-smoke",
@@ -1956,12 +1964,13 @@ fn supplemental_evidence_contracts() -> Vec<ObjectSupplementalEvidenceContract> 
                 "extractor.name=octet-rustc-mir-fixture-contract for --spike rustc-mir-fixture",
                 "fixture_shape=checked-arithmetic maps to mir-spike/checked.rs::checked",
                 "fixture_shape=call-return maps to mir-spike/call_return.rs::call_then_return",
+                "fixture_shape=branch-control-flow maps to mir-spike/branch_control_flow.rs::choose_branch",
                 "extractor.version=cargo-octet-package-version",
                 "rustc_version=runtime-rustc-vv",
                 "target_triple=runtime-rustc-host",
             ],
-            selected_fixture_shapes: vec!["checked-arithmetic", "call-return"],
-            fixture_replay_command: "cargo octet object supplement emit --family mir --spike rustc-mir-fixture --fixture-shape checked-arithmetic --output-format json && cargo octet object supplement check --family mir --spike rustc-mir-fixture --fixture-shape checked-arithmetic --receipt RECEIPT.json --output-format json; repeat with --fixture-shape call-return",
+            selected_fixture_shapes: vec!["checked-arithmetic", "call-return", "branch-control-flow"],
+            fixture_replay_command: "cargo octet object supplement emit --family mir --spike rustc-mir-fixture --fixture-shape checked-arithmetic --output-format json && cargo octet object supplement check --family mir --spike rustc-mir-fixture --fixture-shape checked-arithmetic --receipt RECEIPT.json --output-format json; repeat with --fixture-shape call-return and --fixture-shape branch-control-flow",
             claims_correctness: false,
             claims_semantic_equivalence: false,
             claims_cross_toolchain_stability: false,

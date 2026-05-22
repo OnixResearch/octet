@@ -1571,17 +1571,23 @@ Octet MUST support bounded, fail-closed supplemental evidence families for selec
 
 #### Scenario: MIR fixture inventory lists selected shapes [r[hir-mir-supplement-pilot.scenario.mir-fixture-inventory-selected-shapes]]
 
-- GIVEN the rustc MIR fixture contract supports checked-in selector values `checked-arithmetic` and `call-return`
+- GIVEN the rustc MIR fixture contract supports checked-in selector values `checked-arithmetic`, `call-return`, and `branch-control-flow`
 - WHEN an operator requests fixture inventory for `--family mir --spike rustc-mir-fixture`
-- THEN Octet lists exactly the selected MIR fixture shapes `checked-arithmetic` and `call-return` in deterministic order
+- THEN Octet lists exactly the selected MIR fixture shapes `checked-arithmetic`, `call-return`, and `branch-control-flow` in deterministic order
 - AND each entry names its fixture path, function, support status, replay commands, and selected-fixture-only boundary
 
 #### Scenario: MIR fixture inventory commands roundtrip selected fixture evidence [r[hir-mir-supplement-pilot.scenario.mir-inventory-commands-roundtrip]]
 
 - GIVEN the MIR fixture inventory emits replay commands for each selected MIR fixture shape
 - WHEN the emitted command pair for each inventory row is executed
-- THEN `checked-arithmetic` and `call-return` each emit `pilot-supported` MIR supplement evidence and replay successfully
+- THEN `checked-arithmetic`, `call-return`, and `branch-control-flow` each emit `pilot-supported` MIR supplement evidence and replay successfully
 - AND no inventory output accepts or implies non-selected MIR fixture shapes
+
+#### Scenario: MIR branch-control-flow selected fixture is replayable [r[hir-mir-supplement-pilot.scenario.mir-branch-control-flow-roundtrip]]
+
+- GIVEN the operator invokes `cargo octet object supplement emit --family mir --spike rustc-mir-fixture --fixture-shape branch-control-flow`
+- WHEN the generated receipt is checked with the matching MIR fixture selector
+- THEN the check passes, the receipt names `mir-spike/branch_control_flow.rs::choose_branch`, and the boundary fields keep all correctness, semantic-equivalence, pure-cache, and cross-toolchain claims false.
 
 #### Scenario: THIR fixture inventory lists selected branch-control-flow shape [r[hir-mir-supplement-pilot.scenario.thir-branch-control-flow-inventory]]
 
@@ -1597,12 +1603,11 @@ Octet MUST support bounded, fail-closed supplemental evidence families for selec
 - THEN it emits `pilot-supported` THIR supplement evidence and replays successfully
 - AND the emitted supplement names `fixture_shape=branch-control-flow` while preserving no-correctness, no-semantic-equivalence, no-pure-cache, and no-cross-toolchain boundary fields
 
-#### Scenario: MIR fixture inventory remains branch-control-flow closed [r[hir-mir-supplement-pilot.scenario.mir-branch-control-flow-remains-closed]]
+#### Scenario: Default MIR remains unsupported planned [r[hir-mir-supplement-pilot.scenario.default-mir-remains-unsupported-planned]]
 
-- GIVEN this change adds only THIR branch-control-flow selected fixture evidence
-- WHEN an operator requests MIR fixture inventory or attempts `--family mir --spike rustc-mir-fixture --fixture-shape branch-control-flow`
-- THEN MIR inventory still lists exactly `checked-arithmetic` and `call-return`
-- AND MIR branch-control-flow selection fails closed with a deterministic unsupported-shape diagnostic
+- GIVEN the MIR supplemental evidence contract is emitted
+- WHEN the contract is inspected
+- THEN MIR remains `unsupported-planned` for default and non-fixture requests and does not claim general MIR extraction.
 
 ### Requirement: Rustc-backed HIR extractor spike [r[rustc-hir-extractor-spike]]
 

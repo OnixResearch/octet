@@ -2022,7 +2022,7 @@ fn thir_fixture_supplement_emit_check_and_negative_replay_are_bounded() {
     assert_eq!(inventory_json["scope"], "rustc-thir-fixture-spike");
     assert_eq!(inventory_json["default_shape"], "checked-arithmetic");
     let shapes = inventory_json["shapes"].as_array().expect("THIR inventory shapes");
-    assert_eq!(shapes.len(), 2, "THIR fixture support must stay closed to selected selectors: {inventory_json:#?}");
+    assert_eq!(shapes.len(), 3, "THIR fixture support must stay closed to selected selectors: {inventory_json:#?}");
     let mut seen_shapes = BTreeSet::new();
     for shape in shapes {
         seen_shapes.insert(shape["shape"].as_str().unwrap().to_owned());
@@ -2032,7 +2032,14 @@ fn thir_fixture_supplement_emit_check_and_negative_replay_are_bounded() {
             "THIR inventory must not overclaim: {inventory_json:#?}"
         );
     }
-    assert_eq!(seen_shapes, BTreeSet::from(["call-return".to_owned(), "checked-arithmetic".to_owned()]));
+    assert_eq!(
+        seen_shapes,
+        BTreeSet::from([
+            "branch-control-flow".to_owned(),
+            "call-return".to_owned(),
+            "checked-arithmetic".to_owned()
+        ])
+    );
     assert!(shapes.iter().any(|shape| {
         shape["shape"] == "checked-arithmetic"
             && shape["fixture_path"] == "cargo-octet/tests/fixtures/thir-spike/checked.rs"
@@ -2043,8 +2050,13 @@ fn thir_fixture_supplement_emit_check_and_negative_replay_are_bounded() {
             && shape["fixture_path"] == "cargo-octet/tests/fixtures/thir-spike/call_return.rs"
             && shape["function"] == "call_then_return"
     }));
+    assert!(shapes.iter().any(|shape| {
+        shape["shape"] == "branch-control-flow"
+            && shape["fixture_path"] == "cargo-octet/tests/fixtures/thir-spike/branch_control_flow.rs"
+            && shape["function"] == "choose_branch"
+    }));
 
-    for fixture_shape in ["checked-arithmetic", "call-return"] {
+    for fixture_shape in ["checked-arithmetic", "call-return", "branch-control-flow"] {
         let emit = Command::new(cargo_octet())
             .args([
                 "object",
@@ -2211,7 +2223,7 @@ fn mir_fixture_supplement_emit_check_and_negative_replay_are_bounded() {
     assert_eq!(inventory_json["scope"], "rustc-mir-fixture-spike");
     assert_eq!(inventory_json["default_shape"], "checked-arithmetic");
     let shapes = inventory_json["shapes"].as_array().expect("MIR inventory shapes");
-    assert_eq!(shapes.len(), 2, "MIR fixture support must stay closed to selected selectors: {inventory_json:#?}");
+    assert_eq!(shapes.len(), 3, "MIR fixture support must stay closed to selected selectors: {inventory_json:#?}");
     assert_eq!(shapes[0]["shape"], "checked-arithmetic");
     assert_eq!(shapes[0]["fixture_path"], "cargo-octet/tests/fixtures/mir-spike/checked.rs");
     assert_eq!(shapes[0]["function"], "checked");
@@ -2220,14 +2232,16 @@ fn mir_fixture_supplement_emit_check_and_negative_replay_are_bounded() {
     assert_eq!(shapes[1]["fixture_path"], "cargo-octet/tests/fixtures/mir-spike/call_return.rs");
     assert_eq!(shapes[1]["function"], "call_then_return");
     assert_eq!(shapes[1]["support_status"], "pilot-supported");
-    assert!(
-        shapes[0]["support_boundary"].as_str().unwrap().contains("selected-fixture-only"),
-        "MIR inventory must not overclaim: {inventory_json:#?}"
-    );
-    assert!(
-        shapes[1]["support_boundary"].as_str().unwrap().contains("selected-fixture-only"),
-        "MIR call-return inventory must not overclaim: {inventory_json:#?}"
-    );
+    assert_eq!(shapes[2]["shape"], "branch-control-flow");
+    assert_eq!(shapes[2]["fixture_path"], "cargo-octet/tests/fixtures/mir-spike/branch_control_flow.rs");
+    assert_eq!(shapes[2]["function"], "choose_branch");
+    assert_eq!(shapes[2]["support_status"], "pilot-supported");
+    for shape in shapes {
+        assert!(
+            shape["support_boundary"].as_str().unwrap().contains("selected-fixture-only"),
+            "MIR inventory must not overclaim: {inventory_json:#?}"
+        );
+    }
 
     let emit = Command::new(cargo_octet())
         .args([
@@ -2886,10 +2900,6 @@ fn mir_fixture_inventory_commands_roundtrip_selected_fixture_evidence() {
     for fixture in shapes {
         let shape = fixture["shape"].as_str().expect("MIR fixture shape");
         visited.insert(shape.to_owned());
-        assert_ne!(
-            shape, "branch-control-flow",
-            "branch-control-flow is HIR-only and must not appear in MIR inventory"
-        );
         assert_eq!(fixture["support_status"], "pilot-supported");
         assert!(
             fixture["support_boundary"].as_str().expect("support boundary").contains("selected-fixture-only"),
@@ -2973,7 +2983,14 @@ fn mir_fixture_inventory_commands_roundtrip_selected_fixture_evidence() {
         );
     }
 
-    assert_eq!(visited, BTreeSet::from(["call-return".to_owned(), "checked-arithmetic".to_owned()]));
+    assert_eq!(
+        visited,
+        BTreeSet::from([
+            "branch-control-flow".to_owned(),
+            "call-return".to_owned(),
+            "checked-arithmetic".to_owned()
+        ])
+    );
 }
 
 #[test]
@@ -3006,12 +3023,12 @@ fn mir_fixture_inventory_aggregate_gate_preserves_selected_fixture_boundaries() 
         shapes.iter().map(|fixture| fixture["shape"].as_str().expect("fixture shape").to_owned()).collect();
     assert_eq!(
         listed,
-        BTreeSet::from(["call-return".to_owned(), "checked-arithmetic".to_owned()]),
+        BTreeSet::from([
+            "branch-control-flow".to_owned(),
+            "call-return".to_owned(),
+            "checked-arithmetic".to_owned()
+        ]),
         "aggregate MIR inventory gate must stay closed over selected fixture shapes: {json:#?}"
-    );
-    assert!(
-        shapes.iter().all(|fixture| fixture["shape"] != "branch-control-flow"),
-        "branch-control-flow is HIR-only and must not be promoted into aggregate MIR inventory: {json:#?}"
     );
     for fixture in shapes {
         assert_eq!(fixture["support_status"], "pilot-supported");
@@ -3048,9 +3065,11 @@ fn mir_fixture_inventory_aggregate_gate_preserves_selected_fixture_boundaries() 
     );
 }
 #[test]
-fn mir_fixture_branch_control_flow_selector_fails_closed() {
+fn mir_fixture_branch_control_flow_selector_emits_and_checks_bounded_receipt() {
     let root = repo_root();
-    let output = Command::new(cargo_octet())
+    let temp = tempfile::tempdir().expect("create MIR branch tempdir");
+    let receipt_path = temp.path().join("mir-branch-control-flow.json");
+    let emit = Command::new(cargo_octet())
         .args([
             "object",
             "supplement",
@@ -3066,17 +3085,64 @@ fn mir_fixture_branch_control_flow_selector_fails_closed() {
         ])
         .current_dir(&root)
         .output()
-        .expect("run MIR branch-control-flow negative selector");
+        .expect("run MIR branch-control-flow emit");
     assert!(
-        !output.status.success(),
-        "MIR branch-control-flow must fail closed stdout={} stderr={}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        emit.status.success(),
+        "MIR branch-control-flow emit failed stdout={} stderr={}",
+        String::from_utf8_lossy(&emit.stdout),
+        String::from_utf8_lossy(&emit.stderr)
     );
-    let stderr = String::from_utf8_lossy(&output.stderr);
+    let receipt: serde_json::Value = serde_json::from_slice(&emit.stdout).expect("MIR branch receipt json");
+    assert_eq!(receipt["family"], "mir");
+    let supplement = receipt["supplements"].as_array().expect("supplements")[0].clone();
+    assert_eq!(supplement["source_path"], "cargo-octet/tests/fixtures/mir-spike/branch_control_flow.rs");
+    assert_eq!(supplement["function_name"], "choose_branch");
     assert!(
-        stderr.contains("supports only `--fixture-shape checked-arithmetic` or `--fixture-shape call-return`"),
-        "unexpected MIR branch-control-flow diagnostic: {stderr}"
+        supplement["observations"]["fixture_context"]["detail"]
+            .as_str()
+            .expect("fixture context")
+            .contains("fixture_shape=branch-control-flow")
+    );
+    assert_eq!(supplement["boundary"]["claims_correctness"], false);
+    assert_eq!(supplement["boundary"]["claims_semantic_equivalence"], false);
+    assert_eq!(supplement["boundary"]["claims_pure_cache_eligibility"], false);
+    assert_eq!(supplement["boundary"]["claims_cross_toolchain_stability"], false);
+
+    fs::write(&receipt_path, &emit.stdout).expect("write MIR branch receipt");
+    let check = Command::new(cargo_octet())
+        .args([
+            "object",
+            "supplement",
+            "check",
+            "--family",
+            "mir",
+            "--spike",
+            "rustc-mir-fixture",
+            "--fixture-shape",
+            "branch-control-flow",
+            "--receipt",
+            &receipt_path.to_string_lossy(),
+            "--output-format",
+            "json",
+        ])
+        .current_dir(&root)
+        .output()
+        .expect("run MIR branch-control-flow check");
+    assert!(
+        check.status.success(),
+        "MIR branch-control-flow check failed stdout={} stderr={}",
+        String::from_utf8_lossy(&check.stdout),
+        String::from_utf8_lossy(&check.stderr)
+    );
+    let report: serde_json::Value = serde_json::from_slice(&check.stdout).expect("MIR branch check json");
+    assert_eq!(report["status"], "pass");
+    assert!(
+        report["comparisons"]
+            .as_array()
+            .expect("comparisons")
+            .iter()
+            .all(|comparison| comparison["status"] == "match"),
+        "MIR branch-control-flow check should match all compared fields: {report:#?}"
     );
 }
 

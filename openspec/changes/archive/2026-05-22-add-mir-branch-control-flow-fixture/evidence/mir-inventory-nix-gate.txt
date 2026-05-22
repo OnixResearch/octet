@@ -1,0 +1,2 @@
+$ TMPDIR=/tmp nix build .#checks.x86_64-linux.mir-supplement-inventory-gate --no-link -L
+exit=0

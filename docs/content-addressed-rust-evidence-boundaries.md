@@ -90,11 +90,14 @@ cargo octet object supplement emit --family mir --spike rustc-mir-fixture --fixt
 cargo octet object supplement check --family mir --spike rustc-mir-fixture --fixture-shape checked-arithmetic --receipt mir-spike.json --output-format json
 cargo octet object supplement emit --family mir --spike rustc-mir-fixture --fixture-shape call-return --output-format json
 cargo octet object supplement check --family mir --spike rustc-mir-fixture --fixture-shape call-return --receipt mir-spike.json --output-format json
+cargo octet object supplement emit --family mir --spike rustc-mir-fixture --fixture-shape branch-control-flow --output-format json
+cargo octet object supplement check --family mir --spike rustc-mir-fixture --fixture-shape branch-control-flow --receipt mir-spike.json --output-format json
 ```
 
 That fixture-backed path MAY report `pilot-supported` only for
-`checked-arithmetic` (`cargo-octet/tests/fixtures/mir-spike/checked.rs::checked`)
-and `call-return` (`cargo-octet/tests/fixtures/mir-spike/call_return.rs::call_then_return`).
+`checked-arithmetic` (`cargo-octet/tests/fixtures/mir-spike/checked.rs::checked`),
+`call-return` (`cargo-octet/tests/fixtures/mir-spike/call_return.rs::call_then_return`),
+and `branch-control-flow` (`cargo-octet/tests/fixtures/mir-spike/branch_control_flow.rs::choose_branch`).
 It records `octet-rustc-mir-fixture-contract` extractor identity, exact
 `rustc -vV`/host identity, fixture path/function/shape context, object-hash
 linkage, `mir_fixture_contract_hash`, extraction caveats, and fail-closed replay
