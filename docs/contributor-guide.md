@@ -226,12 +226,12 @@ nix build .#checks.x86_64-linux.valence-object-evidence --no-link -L
 ```
 
 That aggregate gate composes selected local object corpus replay, compatibility,
-caveat taxonomy, selected THIR fixture inventory, and fresh-build determinism
-rails. The THIR inventory coverage is selected-fixture-only (`checked-arithmetic`
-and `call-return`) and does not imply general THIR extraction. The aggregate is
-bounded evidence replay for the selected corpus; it is not a correctness proof,
-semantic equivalence proof, exhaustive Rust coverage proof, or cross-machine/toolchain
-determinism proof.
+caveat taxonomy, selected THIR fixture inventory, selected MIR fixture replay,
+and fresh-build determinism rails. The THIR and MIR fixture coverage is
+selected-fixture-only (`checked-arithmetic` and `call-return`) and does not imply
+general THIR or MIR extraction. The aggregate is bounded evidence replay for the
+selected corpus; it is not a correctness proof, semantic equivalence proof,
+exhaustive Rust coverage proof, or cross-machine/toolchain determinism proof.
 
 For bounded HIR/MIR supplement pilots, emit and replay toolchain-scoped
 supplement receipts alongside the canonical Function Object v1 identity:
