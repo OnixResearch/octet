@@ -2211,14 +2211,22 @@ fn mir_fixture_supplement_emit_check_and_negative_replay_are_bounded() {
     assert_eq!(inventory_json["scope"], "rustc-mir-fixture-spike");
     assert_eq!(inventory_json["default_shape"], "checked-arithmetic");
     let shapes = inventory_json["shapes"].as_array().expect("MIR inventory shapes");
-    assert_eq!(shapes.len(), 1, "MIR fixture support must stay closed to selected selector: {inventory_json:#?}");
+    assert_eq!(shapes.len(), 2, "MIR fixture support must stay closed to selected selectors: {inventory_json:#?}");
     assert_eq!(shapes[0]["shape"], "checked-arithmetic");
     assert_eq!(shapes[0]["fixture_path"], "cargo-octet/tests/fixtures/mir-spike/checked.rs");
     assert_eq!(shapes[0]["function"], "checked");
     assert_eq!(shapes[0]["support_status"], "pilot-supported");
+    assert_eq!(shapes[1]["shape"], "call-return");
+    assert_eq!(shapes[1]["fixture_path"], "cargo-octet/tests/fixtures/mir-spike/call_return.rs");
+    assert_eq!(shapes[1]["function"], "call_then_return");
+    assert_eq!(shapes[1]["support_status"], "pilot-supported");
     assert!(
         shapes[0]["support_boundary"].as_str().unwrap().contains("selected-fixture-only"),
         "MIR inventory must not overclaim: {inventory_json:#?}"
+    );
+    assert!(
+        shapes[1]["support_boundary"].as_str().unwrap().contains("selected-fixture-only"),
+        "MIR call-return inventory must not overclaim: {inventory_json:#?}"
     );
 
     let emit = Command::new(cargo_octet())
@@ -2347,6 +2355,94 @@ fn mir_fixture_supplement_emit_check_and_negative_replay_are_bounded() {
             .iter()
             .any(|comparison| comparison["status"] == "mismatch"),
         "tampered MIR fixture receipt should report mismatch: {tampered_report:#?}"
+    );
+
+    let call_emit = Command::new(cargo_octet())
+        .args([
+            "object",
+            "supplement",
+            "emit",
+            "--family",
+            "mir",
+            "--spike",
+            "rustc-mir-fixture",
+            "--fixture-shape",
+            "call-return",
+            "--output-format",
+            "json",
+        ])
+        .current_dir(&root)
+        .output()
+        .expect("run MIR call-return fixture emit");
+    assert!(
+        call_emit.status.success(),
+        "MIR call-return fixture emit failed stdout={} stderr={}",
+        String::from_utf8_lossy(&call_emit.stdout),
+        String::from_utf8_lossy(&call_emit.stderr)
+    );
+    let call_receipt: serde_json::Value =
+        serde_json::from_slice(&call_emit.stdout).expect("MIR call-return fixture emit json");
+    let call_supplement = call_receipt["supplements"].as_array().unwrap().first().expect("MIR call-return supplement");
+    assert_eq!(call_supplement["schema"], "octet.function-object-mir-supplement.v1");
+    assert_eq!(call_supplement["family"], "mir");
+    assert_eq!(call_supplement["status"], "pilot-supported");
+    assert_eq!(call_supplement["source_path"], "cargo-octet/tests/fixtures/mir-spike/call_return.rs");
+    assert_eq!(call_supplement["function_name"], "call_then_return");
+    assert!(
+        call_supplement["observations"]["fixture_context"]["detail"]
+            .as_str()
+            .unwrap()
+            .contains("fixture_shape=call-return"),
+        "MIR call-return fixture observation should bind selector: {call_supplement:#?}"
+    );
+    assert!(
+        call_supplement["observations"]["mir_fixture_contract_hash"]["detail"]
+            .as_str()
+            .unwrap()
+            .contains("fixture_shape=call-return"),
+        "MIR call-return fixture contract hash should bind selector: {call_supplement:#?}"
+    );
+    assert_eq!(call_supplement["boundary"]["claims_correctness"], false);
+    assert_eq!(call_supplement["boundary"]["claims_semantic_equivalence"], false);
+    assert_eq!(call_supplement["boundary"]["claims_pure_cache_eligibility"], false);
+    assert_eq!(call_supplement["boundary"]["claims_cross_toolchain_stability"], false);
+
+    let call_receipt_path = temp.path().join("mir-fixture-call-return.json");
+    fs::write(&call_receipt_path, &call_emit.stdout).expect("write MIR call-return receipt");
+    let call_check = Command::new(cargo_octet())
+        .args([
+            "object",
+            "supplement",
+            "check",
+            "--family",
+            "mir",
+            "--spike",
+            "rustc-mir-fixture",
+            "--fixture-shape",
+            "call-return",
+            "--receipt",
+            call_receipt_path.to_str().unwrap(),
+            "--output-format",
+            "json",
+        ])
+        .current_dir(&root)
+        .output()
+        .expect("run MIR call-return fixture check");
+    assert!(
+        call_check.status.success(),
+        "MIR call-return fixture check failed stdout={} stderr={}",
+        String::from_utf8_lossy(&call_check.stdout),
+        String::from_utf8_lossy(&call_check.stderr)
+    );
+    let call_report: serde_json::Value =
+        serde_json::from_slice(&call_check.stdout).expect("MIR call-return fixture check json");
+    assert_eq!(call_report["status"], "pass");
+    assert!(
+        call_report["comparisons"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|comparison| comparison["status"] == "match")
     );
 }
 

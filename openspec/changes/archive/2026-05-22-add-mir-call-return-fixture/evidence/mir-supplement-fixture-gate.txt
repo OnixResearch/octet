@@ -1,0 +1,141 @@
+these 2 derivations will be built:
+  /nix/store/y39zzn17grnmfsyb5b0g4v3shh54bg8l-cargo-octet-0.1.0.drv
+  /nix/store/nby6196iqdss035miibw01cxhn5m90iw-octet-mir-supplement-fixture-gate-0.1.0.drv
+cannot build on 'ssh-ng://root@10.10.10.1': error: failed to start SSH connection to '10.10.10.1'
+building '/nix/store/y39zzn17grnmfsyb5b0g4v3shh54bg8l-cargo-octet-0.1.0.drv'...
+cargo-octet> Running phase: unpackPhase
+cargo-octet> unpacking source archive /nix/store/l893vn216fkkf0mllaf5b1sa4s687jcy-source
+cargo-octet> source root is source
+cargo-octet> Running phase: patchPhase
+cargo-octet> Executing configureCargoCommonVars
+cargo-octet> decompressing cargo artifacts from /nix/store/hkwyd8ywfwprl0xj71vgbng063238vzs-octet-deps-0.1.0/target.tar.zst to target
+cargo-octet> Running phase: updateAutotoolsGnuConfigScriptsPhase
+cargo-octet> Running phase: configurePhase
+cargo-octet> will append /build/source/.cargo-home/config.toml with contents of /nix/store/7psin7sq5sx4gs43jj2la6nzl2050sxz-vendor-cargo-deps/config.toml
+cargo-octet> default configurePhase, nothing to do
+cargo-octet> Running phase: buildPhase
+cargo-octet> +++ command cargo --version
+cargo-octet> cargo 1.96.0-nightly (cbb9bb8bd 2026-03-13)
+cargo-octet> +++ command cargo build --release --message-format json-render-diagnostics -p cargo-octet
+cargo-octet> warning: /build/source/cargo-octet/Cargo.toml: file `/build/source/cargo-octet/src/main.rs` found to be present in multiple build targets:
+cargo-octet>   * `bin` target `cargo-octet`
+cargo-octet>   * `bin` target `cargo-slotcar`
+cargo-octet>   * `bin` target `cargo-tigerstyle`
+cargo-octet> warning: /build/source/crates/slotcar-standards/Cargo.toml: file `/build/source/crates/slotcar-standards/src/main.rs` found to be present in multiple build targets:
+cargo-octet>   * `bin` target `octet-standards`
+cargo-octet>   * `bin` target `slotcar-standards`
+cargo-octet>   * `bin` target `tigerstyle-standards`
+cargo-octet>    Compiling find-msvc-tools v0.1.9
+cargo-octet>    Compiling shlex v1.3.0
+cargo-octet>    Compiling serde_core v1.0.228
+cargo-octet>    Compiling proc-macro2 v1.0.106
+cargo-octet>    Compiling cc v1.2.62
+cargo-octet>    Compiling quote v1.0.45
+cargo-octet>    Compiling arrayvec v0.7.6
+cargo-octet>    Compiling cfg-if v1.0.4
+cargo-octet>    Compiling constant_time_eq v0.4.2
+cargo-octet>    Compiling arrayref v0.3.9
+cargo-octet>    Compiling cpufeatures v0.3.0
+cargo-octet>    Compiling syn v2.0.117
+cargo-octet>    Compiling serde_json v1.0.149
+cargo-octet>    Compiling blake3 v1.8.5
+cargo-octet>    Compiling cargo-octet v0.1.0 (/build/source/cargo-octet)
+cargo-octet>    Compiling toml_datetime v1.1.1+spec-1.1.0
+cargo-octet>    Compiling serde_spanned v1.1.1
+cargo-octet>    Compiling toml v1.1.2+spec-1.1.0
+cargo-octet>    Compiling serde_derive v1.0.228
+cargo-octet>    Compiling serde v1.0.228
+cargo-octet>     Finished `release` profile [optimized] target(s) in 10.96s
+cargo-octet> searching for bins/libs to install from cargo build log at cargoBuildLogJDRS.json
+cargo-octet> installing /build/source/target/release/cargo-octet in postBuildInstallFromCargoBuildLogOutTempj2J/bin
+cargo-octet> installing /build/source/target/release/cargo-slotcar in postBuildInstallFromCargoBuildLogOutTempj2J/bin
+cargo-octet> installing /build/source/target/release/cargo-tigerstyle in postBuildInstallFromCargoBuildLogOutTempj2J/bin
+cargo-octet> searching for bins/libs complete
+cargo-octet> Running phase: installPhase
+cargo-octet> actually installing contents of postBuildInstallFromCargoBuildLogOutTempj2J to /nix/store/mipd01j53bvldxg34mdrb9qnlrbgardz-cargo-octet-0.1.0
+cargo-octet> stripping references to Rust toolchain
+cargo-octet> Rust toolchain at: /nix/store/1yvh3d6y3fj3xk2dgwczrp1dj5svd92c-rust-default-1.96.0-nightly-2026-03-21
+cargo-octet> stripping Rust toolchain references done
+cargo-octet> stripping references to cargoVendorDir from:
+cargo-octet> /nix/store/mipd01j53bvldxg34mdrb9qnlrbgardz-cargo-octet-0.1.0/bin/cargo-octet
+cargo-octet> /nix/store/mipd01j53bvldxg34mdrb9qnlrbgardz-cargo-octet-0.1.0/bin/cargo-slotcar
+cargo-octet> /nix/store/mipd01j53bvldxg34mdrb9qnlrbgardz-cargo-octet-0.1.0/bin/cargo-tigerstyle
+cargo-octet> stripping references done
+cargo-octet> Running phase: fixupPhase
+cargo-octet> shrinking RPATHs of ELF executables and libraries in /nix/store/mipd01j53bvldxg34mdrb9qnlrbgardz-cargo-octet-0.1.0
+cargo-octet> shrinking /nix/store/mipd01j53bvldxg34mdrb9qnlrbgardz-cargo-octet-0.1.0/bin/cargo-tigerstyle
+cargo-octet> shrinking /nix/store/mipd01j53bvldxg34mdrb9qnlrbgardz-cargo-octet-0.1.0/bin/cargo-octet
+cargo-octet> shrinking /nix/store/mipd01j53bvldxg34mdrb9qnlrbgardz-cargo-octet-0.1.0/bin/cargo-slotcar
+cargo-octet> checking for references to /build/ in /nix/store/mipd01j53bvldxg34mdrb9qnlrbgardz-cargo-octet-0.1.0...
+cargo-octet> patching script interpreter paths in /nix/store/mipd01j53bvldxg34mdrb9qnlrbgardz-cargo-octet-0.1.0
+cargo-octet> stripping (with command strip and flags -S -p) in  /nix/store/mipd01j53bvldxg34mdrb9qnlrbgardz-cargo-octet-0.1.0/bin
+building '/nix/store/nby6196iqdss035miibw01cxhn5m90iw-octet-mir-supplement-fixture-gate-0.1.0.drv'...
+octet-mir-supplement-fixture-gate> Running phase: unpackPhase
+octet-mir-supplement-fixture-gate> unpacking source archive /nix/store/l893vn216fkkf0mllaf5b1sa4s687jcy-source
+octet-mir-supplement-fixture-gate> source root is source
+octet-mir-supplement-fixture-gate> Running phase: patchPhase
+octet-mir-supplement-fixture-gate> Executing configureCargoCommonVars
+octet-mir-supplement-fixture-gate> decompressing cargo artifacts from /nix/store/hkwyd8ywfwprl0xj71vgbng063238vzs-octet-deps-0.1.0/target.tar.zst to target
+octet-mir-supplement-fixture-gate> Running phase: updateAutotoolsGnuConfigScriptsPhase
+octet-mir-supplement-fixture-gate> Running phase: configurePhase
+octet-mir-supplement-fixture-gate> will append /build/source/.cargo-home/config.toml with contents of /nix/store/7psin7sq5sx4gs43jj2la6nzl2050sxz-vendor-cargo-deps/config.toml
+octet-mir-supplement-fixture-gate> default configurePhase, nothing to do
+octet-mir-supplement-fixture-gate> Running phase: buildPhase
+octet-mir-supplement-fixture-gate> +++ command cargo --version
+octet-mir-supplement-fixture-gate> cargo 1.96.0-nightly (cbb9bb8bd 2026-03-13)
+octet-mir-supplement-fixture-gate> Running phase: checkPhase
+octet-mir-supplement-fixture-gate> +++ command cargo test --release -p cargo-octet --test fingerprint_consumer mir_fixture -- --nocapture
+octet-mir-supplement-fixture-gate> warning: /build/source/cargo-octet/Cargo.toml: file `/build/source/cargo-octet/src/main.rs` found to be present in multiple build targets:
+octet-mir-supplement-fixture-gate>   * `bin` target `cargo-octet`
+octet-mir-supplement-fixture-gate>   * `bin` target `cargo-slotcar`
+octet-mir-supplement-fixture-gate>   * `bin` target `cargo-tigerstyle`
+octet-mir-supplement-fixture-gate> warning: /build/source/crates/slotcar-standards/Cargo.toml: file `/build/source/crates/slotcar-standards/src/main.rs` found to be present in multiple build targets:
+octet-mir-supplement-fixture-gate>   * `bin` target `octet-standards`
+octet-mir-supplement-fixture-gate>   * `bin` target `slotcar-standards`
+octet-mir-supplement-fixture-gate>   * `bin` target `tigerstyle-standards`
+octet-mir-supplement-fixture-gate>    Compiling shlex v1.3.0
+octet-mir-supplement-fixture-gate>    Compiling find-msvc-tools v0.1.9
+octet-mir-supplement-fixture-gate>    Compiling serde_core v1.0.228
+octet-mir-supplement-fixture-gate>    Compiling proc-macro2 v1.0.106
+octet-mir-supplement-fixture-gate>    Compiling cc v1.2.62
+octet-mir-supplement-fixture-gate>    Compiling quote v1.0.45
+octet-mir-supplement-fixture-gate>    Compiling cfg-if v1.0.4
+octet-mir-supplement-fixture-gate>    Compiling constant_time_eq v0.4.2
+octet-mir-supplement-fixture-gate>    Compiling arrayref v0.3.9
+octet-mir-supplement-fixture-gate>    Compiling cpufeatures v0.3.0
+octet-mir-supplement-fixture-gate>    Compiling arrayvec v0.7.6
+octet-mir-supplement-fixture-gate>    Compiling serde_json v1.0.149
+octet-mir-supplement-fixture-gate>    Compiling syn v2.0.117
+octet-mir-supplement-fixture-gate>    Compiling libc v0.2.186
+octet-mir-supplement-fixture-gate>    Compiling blake3 v1.8.5
+octet-mir-supplement-fixture-gate>    Compiling cargo-octet v0.1.0 (/build/source/cargo-octet)
+octet-mir-supplement-fixture-gate>    Compiling toml_datetime v1.1.1+spec-1.1.0
+octet-mir-supplement-fixture-gate>    Compiling serde_spanned v1.1.1
+octet-mir-supplement-fixture-gate>    Compiling toml v1.1.2+spec-1.1.0
+octet-mir-supplement-fixture-gate>    Compiling getrandom v0.4.2
+octet-mir-supplement-fixture-gate>    Compiling serde_derive v1.0.228
+octet-mir-supplement-fixture-gate>    Compiling rustix v1.1.4
+octet-mir-supplement-fixture-gate>    Compiling linux-raw-sys v0.12.1
+octet-mir-supplement-fixture-gate>    Compiling bitflags v2.11.1
+octet-mir-supplement-fixture-gate>    Compiling serde v1.0.228
+octet-mir-supplement-fixture-gate>    Compiling once_cell v1.21.4
+octet-mir-supplement-fixture-gate>    Compiling fastrand v2.4.1
+octet-mir-supplement-fixture-gate>    Compiling tempfile v3.27.0
+octet-mir-supplement-fixture-gate>     Finished `release` profile [optimized] target(s) in 12.14s
+octet-mir-supplement-fixture-gate>      Running tests/fingerprint_consumer.rs (target/release/deps/fingerprint_consumer-a0688eab409d177f)
+octet-mir-supplement-fixture-gate>
+octet-mir-supplement-fixture-gate> running 1 test
+octet-mir-supplement-fixture-gate> test mir_fixture_supplement_emit_check_and_negative_replay_are_bounded ... ok
+octet-mir-supplement-fixture-gate>
+octet-mir-supplement-fixture-gate> test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 59 filtered out; finished in 0.03s
+octet-mir-supplement-fixture-gate>
+octet-mir-supplement-fixture-gate> Running phase: installPhase
+octet-mir-supplement-fixture-gate> stripping references to Rust toolchain
+octet-mir-supplement-fixture-gate> Rust toolchain at: /nix/store/1yvh3d6y3fj3xk2dgwczrp1dj5svd92c-rust-default-1.96.0-nightly-2026-03-21
+octet-mir-supplement-fixture-gate> stripping Rust toolchain references done
+octet-mir-supplement-fixture-gate> stripping references to cargoVendorDir from:
+octet-mir-supplement-fixture-gate> stripping references done
+octet-mir-supplement-fixture-gate> Running phase: fixupPhase
+octet-mir-supplement-fixture-gate> shrinking RPATHs of ELF executables and libraries in /nix/store/lv1s2pyh7nsckrna9lm0jgfmcjwamdm1-octet-mir-supplement-fixture-gate-0.1.0
+octet-mir-supplement-fixture-gate> checking for references to /build/ in /nix/store/lv1s2pyh7nsckrna9lm0jgfmcjwamdm1-octet-mir-supplement-fixture-gate-0.1.0...
+octet-mir-supplement-fixture-gate> patching script interpreter paths in /nix/store/lv1s2pyh7nsckrna9lm0jgfmcjwamdm1-octet-mir-supplement-fixture-gate-0.1.0

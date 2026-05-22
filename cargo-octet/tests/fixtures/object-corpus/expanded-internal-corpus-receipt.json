@@ -31,7 +31,7 @@
     "crates/slotcar-standards/src/source.rs",
     "crates/slotcar-standards/src/suppression.rs"
   ],
-  "object_set_hash": "b3:bf30173592e224bc12b676eded95e0c271af7a146d5355e3f67d1a55b9a8a456",
+  "object_set_hash": "b3:b6daf9301da1a81c7704c189a2f99e36a89d7c49b5e80195e420556fc87bd091",
   "caveat_counts": {
     "dependency_status": {
       "source-scanner-token-set": 234,

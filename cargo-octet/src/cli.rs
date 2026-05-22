@@ -1018,9 +1018,11 @@ fn parse_object_supplement_scan(emit: bool, args: &[String]) -> Result<ObjectArg
         if !paths.is_empty() || function.is_some() {
             return Err("`--fixture-shape` cannot be combined with explicit fixture paths or `--function`".to_owned());
         }
-        if matches!(scope, SupplementScopeArg::RustcMirFixtureSpike) && shape.trim() != "checked-arithmetic" {
+        if matches!(scope, SupplementScopeArg::RustcMirFixtureSpike)
+            && !matches!(shape.trim(), "checked-arithmetic" | "call-return")
+        {
             return Err(
-                "`--spike rustc-mir-fixture` currently supports only `--fixture-shape checked-arithmetic`".to_owned()
+                "`--spike rustc-mir-fixture` currently supports only `--fixture-shape checked-arithmetic` or `--fixture-shape call-return`".to_owned()
             );
         }
         let selected = parse_supplement_fixture_shape(scope, &shape)?;
@@ -1054,7 +1056,7 @@ fn parse_object_supplement_scan(emit: bool, args: &[String]) -> Result<ObjectArg
     if matches!((family, scope), (SupplementFamilyArg::Mir, SupplementScopeArg::RustcMirFixtureSpike))
         && !fixture_shape_was_provided
     {
-        return Err("`--family mir --spike rustc-mir-fixture` requires explicit `--fixture-shape checked-arithmetic`"
+        return Err("`--family mir --spike rustc-mir-fixture` requires explicit `--fixture-shape checked-arithmetic` or `--fixture-shape call-return`"
             .to_owned());
     }
     if paths.is_empty() {
@@ -1132,15 +1134,17 @@ fn parse_supplement_fixture_shape(
         (SupplementScopeArg::RustcThirFixtureSpike, other) => Err(format!(
             "unsupported THIR supplement fixture shape `{other}`; expected `checked-arithmetic` or `call-return`"
         )),
-        (SupplementScopeArg::RustcMirFixtureSpike, "checked" | "checked-arithmetic") => {
-            Ok(SupplementFixtureSelection {
-                path: PathBuf::from("cargo-octet/tests/fixtures/mir-spike/checked.rs"),
-                function: "checked".to_owned(),
-            })
-        }
-        (SupplementScopeArg::RustcMirFixtureSpike, other) => {
-            Err(format!("unsupported MIR supplement fixture shape `{other}`; expected `checked-arithmetic`"))
-        }
+        (SupplementScopeArg::RustcMirFixtureSpike, "checked-arithmetic") => Ok(SupplementFixtureSelection {
+            path: PathBuf::from("cargo-octet/tests/fixtures/mir-spike/checked.rs"),
+            function: "checked".to_owned(),
+        }),
+        (SupplementScopeArg::RustcMirFixtureSpike, "call-return") => Ok(SupplementFixtureSelection {
+            path: PathBuf::from("cargo-octet/tests/fixtures/mir-spike/call_return.rs"),
+            function: "call_then_return".to_owned(),
+        }),
+        (SupplementScopeArg::RustcMirFixtureSpike, other) => Err(format!(
+            "unsupported MIR supplement fixture shape `{other}`; expected `checked-arithmetic` or `call-return`"
+        )),
         (_, other) => Err(format!(
             "unsupported supplement fixture shape `{other}`; expected `checked-arithmetic` or `branch-control-flow`"
         )),
@@ -1698,7 +1702,10 @@ mod tests {
             .map(OsString::from),
         )
         .expect_err("MIR fixture spike requires explicit fixture shape");
-        assert!(mir_without_shape.contains("requires explicit `--fixture-shape checked-arithmetic`"));
+        assert!(
+            mir_without_shape
+                .contains("requires explicit `--fixture-shape checked-arithmetic` or `--fixture-shape call-return`")
+        );
 
         let mir_checked_alias = parse(
             [
@@ -1716,7 +1723,8 @@ mod tests {
         )
         .expect_err("MIR fixture spike rejects aliases outside inventory selector");
         assert!(
-            mir_checked_alias.contains("supports only `--fixture-shape checked-arithmetic`"),
+            mir_checked_alias
+                .contains("supports only `--fixture-shape checked-arithmetic` or `--fixture-shape call-return`"),
             "unexpected MIR checked alias fixture shape error: {mir_checked_alias}"
         );
 
@@ -1734,11 +1742,20 @@ mod tests {
             ]
             .map(OsString::from),
         )
-        .expect_err("MIR fixture spike rejects THIR-only call-return fixture shape");
-        assert!(
-            mir_call_shape.contains("supports only `--fixture-shape checked-arithmetic`"),
-            "unexpected MIR call-return fixture shape error: {mir_call_shape}"
-        );
+        .expect("parse MIR call-return fixture shape supplement args");
+        match mir_call_shape {
+            CommandArgs::Object(args) => {
+                assert_eq!(args.function.as_deref(), Some("call_then_return"));
+                assert_eq!(args.paths, vec![std::path::PathBuf::from(
+                    "cargo-octet/tests/fixtures/mir-spike/call_return.rs"
+                )]);
+                assert!(matches!(args.mode, super::ObjectMode::SupplementEmit {
+                    family: super::SupplementFamilyArg::Mir,
+                    scope: super::SupplementScopeArg::RustcMirFixtureSpike,
+                }));
+            }
+            other => panic!("expected MIR call-return fixture shape args, got {other:?}"),
+        }
     }
 
     #[test]
