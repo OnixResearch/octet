@@ -1,0 +1,8 @@
+$ python3 openspec/changes/archive/2026-05-22-add-mir-branch-control-flow-fixture/evidence/check-boundary.py
+boundary: PASS
+assert.selected_fixture_only: PASS
+assert.default_non_fixture_unsupported_planned: PASS
+assert.no_general_mir_or_thir_extraction_claim: PASS
+assert.no_correctness_or_semantic_equivalence_claim: PASS
+assert.thir_inventory_preserved: PASS
+exit=0

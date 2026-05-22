@@ -1,0 +1,544 @@
+$ TMPDIR=/tmp nix build .#checks.x86_64-linux.valence-object-evidence --no-link -L
+these 9 derivations will be built:
+  /nix/store/1an5krb2pzypsscccxx0vm9vprpnjwrr-cargo-octet-fresh-build-a-0.1.0.drv
+  /nix/store/3gggpflachrmnzz7lfpwr9h9hrgslbmn-cargo-octet-fresh-build-b-0.1.0.drv
+  /nix/store/10vpibdh09kryrxymjrch9n6kdy12diz-octet-fresh-build-object-corpus-determinism.drv
+  /nix/store/2aimph8w8jgm2jpp1lnshhgjk4ccma2c-octet-object-corpus-compatibility-gate-0.1.0.drv
+  /nix/store/6bc7ilfvfd0xpsw6alic2556pxd2yja1-octet-thir-supplement-inventory-gate-0.1.0.drv
+  /nix/store/axcykzayn2jn80vm2nrmhkvcw70v0b0z-octet-object-corpus-caveat-taxonomy-gate-0.1.0.drv
+  /nix/store/dm04nzyliqs9a0dn138qr0nq8094f4c5-octet-mir-supplement-fixture-gate-0.1.0.drv
+  /nix/store/ifv73k3h0wnb09zwz5pg44404yvzyizq-octet-object-corpus-gate-0.1.0.drv
+  /nix/store/mlv0cvwk7x0qynj1ah5cn1nzqkilkiy5-octet-valence-object-evidence.drv
+cannot build on 'ssh-ng://root@[REDACTED]': error: failed to start SSH connection to '[REDACTED]'
+building '/nix/store/dm04nzyliqs9a0dn138qr0nq8094f4c5-octet-mir-supplement-fixture-gate-0.1.0.drv'...
+building '/nix/store/axcykzayn2jn80vm2nrmhkvcw70v0b0z-octet-object-corpus-caveat-taxonomy-gate-0.1.0.drv'...
+building '/nix/store/2aimph8w8jgm2jpp1lnshhgjk4ccma2c-octet-object-corpus-compatibility-gate-0.1.0.drv'...
+building '/nix/store/ifv73k3h0wnb09zwz5pg44404yvzyizq-octet-object-corpus-gate-0.1.0.drv'...
+octet-mir-supplement-fixture-gate> Running phase: unpackPhase
+octet-mir-supplement-fixture-gate> unpacking source archive /nix/store/mb82d4b032g69623vys6f119wf7bhvmz-source
+octet-object-corpus-caveat-taxonomy-gate> Running phase: unpackPhase
+octet-object-corpus-caveat-taxonomy-gate> unpacking source archive /nix/store/mb82d4b032g69623vys6f119wf7bhvmz-source
+octet-mir-supplement-fixture-gate> source root is source
+octet-object-corpus-compatibility-gate> Running phase: unpackPhase
+octet-object-corpus-compatibility-gate> unpacking source archive /nix/store/mb82d4b032g69623vys6f119wf7bhvmz-source
+octet-mir-supplement-fixture-gate> Running phase: patchPhase
+octet-mir-supplement-fixture-gate> Executing configureCargoCommonVars
+octet-mir-supplement-fixture-gate> decompressing cargo artifacts from /nix/store/hkwyd8ywfwprl0xj71vgbng063238vzs-octet-deps-0.1.0/target.tar.zst to target
+octet-object-corpus-gate> Running phase: unpackPhase
+octet-object-corpus-gate> unpacking source archive /nix/store/mb82d4b032g69623vys6f119wf7bhvmz-source
+octet-object-corpus-caveat-taxonomy-gate> source root is source
+octet-object-corpus-compatibility-gate> source root is source
+octet-object-corpus-caveat-taxonomy-gate> Running phase: patchPhase
+octet-object-corpus-caveat-taxonomy-gate> Executing configureCargoCommonVars
+octet-object-corpus-caveat-taxonomy-gate> decompressing cargo artifacts from /nix/store/hkwyd8ywfwprl0xj71vgbng063238vzs-octet-deps-0.1.0/target.tar.zst to target
+octet-object-corpus-compatibility-gate> Running phase: patchPhase
+octet-object-corpus-compatibility-gate> Executing configureCargoCommonVars
+octet-object-corpus-gate> source root is source
+octet-object-corpus-compatibility-gate> decompressing cargo artifacts from /nix/store/hkwyd8ywfwprl0xj71vgbng063238vzs-octet-deps-0.1.0/target.tar.zst to target
+octet-object-corpus-gate> Running phase: patchPhase
+octet-object-corpus-gate> Executing configureCargoCommonVars
+octet-object-corpus-gate> decompressing cargo artifacts from /nix/store/hkwyd8ywfwprl0xj71vgbng063238vzs-octet-deps-0.1.0/target.tar.zst to target
+octet-mir-supplement-fixture-gate> Running phase: updateAutotoolsGnuConfigScriptsPhase
+octet-mir-supplement-fixture-gate> Running phase: configurePhase
+octet-mir-supplement-fixture-gate> will append /build/source/.cargo-home/config.toml with contents of /nix/store/7psin7sq5sx4gs43jj2la6nzl2050sxz-vendor-cargo-deps/config.toml
+octet-mir-supplement-fixture-gate> default configurePhase, nothing to do
+octet-mir-supplement-fixture-gate> Running phase: buildPhase
+octet-mir-supplement-fixture-gate> +++ command cargo --version
+octet-mir-supplement-fixture-gate> cargo 1.96.0-nightly (cbb9bb8bd 2026-03-13)
+octet-mir-supplement-fixture-gate> Running phase: checkPhase
+octet-mir-supplement-fixture-gate> +++ command cargo test --release -p cargo-octet --test fingerprint_consumer mir_fixture -- --nocapture
+octet-mir-supplement-fixture-gate> warning: /build/source/cargo-octet/Cargo.toml: file `/build/source/cargo-octet/src/main.rs` found to be present in multiple build targets:
+octet-mir-supplement-fixture-gate>   * `bin` target `cargo-octet`
+octet-mir-supplement-fixture-gate>   * `bin` target `cargo-slotcar`
+octet-mir-supplement-fixture-gate>   * `bin` target `cargo-tigerstyle`
+octet-mir-supplement-fixture-gate> warning: /build/source/crates/slotcar-standards/Cargo.toml: file `/build/source/crates/slotcar-standards/src/main.rs` found to be present in multiple build targets:
+octet-mir-supplement-fixture-gate>   * `bin` target `octet-standards`
+octet-mir-supplement-fixture-gate>   * `bin` target `slotcar-standards`
+octet-mir-supplement-fixture-gate>   * `bin` target `tigerstyle-standards`
+octet-object-corpus-caveat-taxonomy-gate> Running phase: updateAutotoolsGnuConfigScriptsPhase
+octet-object-corpus-caveat-taxonomy-gate> Running phase: configurePhase
+octet-object-corpus-caveat-taxonomy-gate> will append /build/source/.cargo-home/config.toml with contents of /nix/store/7psin7sq5sx4gs43jj2la6nzl2050sxz-vendor-cargo-deps/config.toml
+octet-object-corpus-caveat-taxonomy-gate> default configurePhase, nothing to do
+octet-object-corpus-caveat-taxonomy-gate> Running phase: buildPhase
+octet-object-corpus-compatibility-gate> Running phase: updateAutotoolsGnuConfigScriptsPhase
+octet-object-corpus-caveat-taxonomy-gate> +++ command cargo --version
+octet-object-corpus-caveat-taxonomy-gate> cargo 1.96.0-nightly (cbb9bb8bd 2026-03-13)
+octet-object-corpus-caveat-taxonomy-gate> Running phase: checkPhase
+octet-object-corpus-caveat-taxonomy-gate> +++ command cargo test --release -p cargo-octet --test fingerprint_consumer caveat_taxonomy -- --nocapture
+octet-object-corpus-caveat-taxonomy-gate> warning: /build/source/cargo-octet/Cargo.toml: file `/build/source/cargo-octet/src/main.rs` found to be present in multiple build targets:
+octet-object-corpus-caveat-taxonomy-gate>   * `bin` target `cargo-octet`
+octet-object-corpus-caveat-taxonomy-gate>   * `bin` target `cargo-slotcar`
+octet-object-corpus-caveat-taxonomy-gate>   * `bin` target `cargo-tigerstyle`
+octet-object-corpus-caveat-taxonomy-gate> warning: /build/source/crates/slotcar-standards/Cargo.toml: file `/build/source/crates/slotcar-standards/src/main.rs` found to be present in multiple build targets:
+octet-object-corpus-caveat-taxonomy-gate>   * `bin` target `octet-standards`
+octet-object-corpus-caveat-taxonomy-gate>   * `bin` target `slotcar-standards`
+octet-object-corpus-caveat-taxonomy-gate>   * `bin` target `tigerstyle-standards`
+octet-mir-supplement-fixture-gate>    Compiling shlex v1.3.0
+octet-mir-supplement-fixture-gate>    Compiling find-msvc-tools v0.1.9
+octet-mir-supplement-fixture-gate>    Compiling serde_core v1.0.228
+octet-mir-supplement-fixture-gate>    Compiling proc-macro2 v1.0.106
+octet-object-corpus-compatibility-gate> Running phase: configurePhase
+octet-object-corpus-compatibility-gate> will append /build/source/.cargo-home/config.toml with contents of /nix/store/7psin7sq5sx4gs43jj2la6nzl2050sxz-vendor-cargo-deps/config.toml
+octet-object-corpus-compatibility-gate> default configurePhase, nothing to do
+octet-object-corpus-compatibility-gate> Running phase: buildPhase
+octet-object-corpus-compatibility-gate> +++ command cargo --version
+octet-object-corpus-compatibility-gate> cargo 1.96.0-nightly (cbb9bb8bd 2026-03-13)
+octet-object-corpus-compatibility-gate> Running phase: checkPhase
+octet-object-corpus-compatibility-gate> +++ command cargo test --release -p cargo-octet --test fingerprint_consumer object_corpus_compatibility -- --nocapture
+octet-object-corpus-caveat-taxonomy-gate>    Compiling find-msvc-tools v0.1.9
+octet-object-corpus-compatibility-gate> warning: /build/source/cargo-octet/Cargo.toml: file `/build/source/cargo-octet/src/main.rs` found to be present in multiple build targets:
+octet-object-corpus-compatibility-gate>   * `bin` target `cargo-octet`
+octet-object-corpus-compatibility-gate>   * `bin` target `cargo-slotcar`
+octet-object-corpus-compatibility-gate>   * `bin` target `cargo-tigerstyle`
+octet-object-corpus-compatibility-gate> warning: /build/source/crates/slotcar-standards/Cargo.toml: file `/build/source/crates/slotcar-standards/src/main.rs` found to be present in multiple build targets:
+octet-object-corpus-compatibility-gate>   * `bin` target `octet-standards`
+octet-object-corpus-compatibility-gate>   * `bin` target `slotcar-standards`
+octet-object-corpus-compatibility-gate>   * `bin` target `tigerstyle-standards`
+octet-object-corpus-caveat-taxonomy-gate>    Compiling shlex v1.3.0
+octet-object-corpus-caveat-taxonomy-gate>    Compiling serde_core v1.0.228
+octet-object-corpus-caveat-taxonomy-gate>    Compiling proc-macro2 v1.0.106
+octet-object-corpus-gate> Running phase: updateAutotoolsGnuConfigScriptsPhase
+octet-object-corpus-compatibility-gate>    Compiling find-msvc-tools v0.1.9
+octet-object-corpus-compatibility-gate>    Compiling shlex v1.3.0
+octet-object-corpus-compatibility-gate>    Compiling serde_core v1.0.228
+octet-object-corpus-compatibility-gate>    Compiling proc-macro2 v1.0.106
+octet-object-corpus-gate> Running phase: configurePhase
+octet-mir-supplement-fixture-gate>    Compiling cc v1.2.62
+octet-object-corpus-gate> will append /build/source/.cargo-home/config.toml with contents of /nix/store/7psin7sq5sx4gs43jj2la6nzl2050sxz-vendor-cargo-deps/config.toml
+octet-object-corpus-gate> default configurePhase, nothing to do
+octet-object-corpus-gate> Running phase: buildPhase
+octet-object-corpus-gate> +++ command cargo --version
+octet-object-corpus-gate> cargo 1.96.0-nightly (cbb9bb8bd 2026-03-13)
+octet-object-corpus-gate> Running phase: checkPhase
+octet-object-corpus-gate> +++ command cargo test --release -p cargo-octet --test fingerprint_consumer object_internal_corpus -- --nocapture
+octet-object-corpus-gate> warning: /build/source/cargo-octet/Cargo.toml: file `/build/source/cargo-octet/src/main.rs` found to be present in multiple build targets:
+octet-object-corpus-gate>   * `bin` target `cargo-octet`
+octet-object-corpus-gate>   * `bin` target `cargo-slotcar`
+octet-object-corpus-gate>   * `bin` target `cargo-tigerstyle`
+octet-object-corpus-gate> warning: /build/source/crates/slotcar-standards/Cargo.toml: file `/build/source/crates/slotcar-standards/src/main.rs` found to be present in multiple build targets:
+octet-object-corpus-gate>   * `bin` target `octet-standards`
+octet-object-corpus-gate>   * `bin` target `slotcar-standards`
+octet-object-corpus-gate>   * `bin` target `tigerstyle-standards`
+octet-object-corpus-caveat-taxonomy-gate>    Compiling cc v1.2.62
+octet-mir-supplement-fixture-gate>    Compiling quote v1.0.45
+octet-object-corpus-compatibility-gate>    Compiling cc v1.2.62
+octet-object-corpus-gate>    Compiling find-msvc-tools v0.1.9
+octet-object-corpus-gate>    Compiling shlex v1.3.0
+octet-object-corpus-gate>    Compiling serde_core v1.0.228
+octet-object-corpus-gate>    Compiling proc-macro2 v1.0.106
+octet-object-corpus-caveat-taxonomy-gate>    Compiling quote v1.0.45
+octet-object-corpus-compatibility-gate>    Compiling quote v1.0.45
+octet-object-corpus-gate>    Compiling cc v1.2.62
+octet-object-corpus-gate>    Compiling quote v1.0.45
+octet-mir-supplement-fixture-gate>    Compiling cfg-if v1.0.4
+octet-mir-supplement-fixture-gate>    Compiling arrayvec v0.7.6
+octet-object-corpus-caveat-taxonomy-gate>    Compiling cpufeatures v0.3.0
+octet-object-corpus-caveat-taxonomy-gate>    Compiling cfg-if v1.0.4
+octet-object-corpus-compatibility-gate>    Compiling cfg-if v1.0.4
+octet-object-corpus-caveat-taxonomy-gate>    Compiling arrayref v0.3.9
+octet-object-corpus-compatibility-gate>    Compiling arrayref v0.3.9
+octet-object-corpus-caveat-taxonomy-gate>    Compiling arrayvec v0.7.6
+octet-object-corpus-compatibility-gate>    Compiling arrayvec v0.7.6
+octet-mir-supplement-fixture-gate>    Compiling constant_time_eq v0.4.2
+octet-object-corpus-gate>    Compiling cfg-if v1.0.4
+octet-object-corpus-gate>    Compiling arrayref v0.3.9
+octet-object-corpus-gate>    Compiling arrayvec v0.7.6
+octet-object-corpus-caveat-taxonomy-gate>    Compiling constant_time_eq v0.4.2
+octet-mir-supplement-fixture-gate>    Compiling arrayref v0.3.9
+octet-object-corpus-compatibility-gate>    Compiling cpufeatures v0.3.0
+octet-mir-supplement-fixture-gate>    Compiling cpufeatures v0.3.0
+octet-object-corpus-compatibility-gate>    Compiling constant_time_eq v0.4.2
+octet-mir-supplement-fixture-gate>    Compiling serde_json v1.0.149
+octet-object-corpus-gate>    Compiling constant_time_eq v0.4.2
+octet-object-corpus-caveat-taxonomy-gate>    Compiling serde_json v1.0.149
+octet-object-corpus-gate>    Compiling cpufeatures v0.3.0
+octet-object-corpus-caveat-taxonomy-gate>    Compiling syn v2.0.117
+octet-object-corpus-compatibility-gate>    Compiling serde_json v1.0.149
+octet-object-corpus-compatibility-gate>    Compiling syn v2.0.117
+octet-mir-supplement-fixture-gate>    Compiling syn v2.0.117
+octet-object-corpus-gate>    Compiling syn v2.0.117
+octet-object-corpus-gate>    Compiling serde_json v1.0.149
+octet-object-corpus-caveat-taxonomy-gate>    Compiling libc v0.2.186
+octet-mir-supplement-fixture-gate>    Compiling libc v0.2.186
+octet-mir-supplement-fixture-gate>    Compiling blake3 v1.8.5
+octet-object-corpus-compatibility-gate>    Compiling libc v0.2.186
+octet-object-corpus-caveat-taxonomy-gate>    Compiling blake3 v1.8.5
+octet-object-corpus-compatibility-gate>    Compiling blake3 v1.8.5
+octet-object-corpus-gate>    Compiling libc v0.2.186
+octet-mir-supplement-fixture-gate>    Compiling rustix v1.1.4
+octet-object-corpus-gate>    Compiling blake3 v1.8.5
+octet-object-corpus-compatibility-gate>    Compiling rustix v1.1.4
+octet-object-corpus-gate>    Compiling rustix v1.1.4
+octet-object-corpus-caveat-taxonomy-gate>    Compiling cargo-octet v0.1.0 (/build/source/cargo-octet)
+octet-mir-supplement-fixture-gate>    Compiling cargo-octet v0.1.0 (/build/source/cargo-octet)
+octet-object-corpus-compatibility-gate>    Compiling cargo-octet v0.1.0 (/build/source/cargo-octet)
+octet-object-corpus-gate>    Compiling cargo-octet v0.1.0 (/build/source/cargo-octet)
+octet-object-corpus-caveat-taxonomy-gate>    Compiling rustix v1.1.4
+octet-mir-supplement-fixture-gate>    Compiling getrandom v0.4.2
+octet-object-corpus-compatibility-gate>    Compiling getrandom v0.4.2
+octet-object-corpus-caveat-taxonomy-gate>    Compiling getrandom v0.4.2
+octet-object-corpus-gate>    Compiling getrandom v0.4.2
+octet-object-corpus-compatibility-gate>    Compiling toml_datetime v1.1.1+spec-1.1.0
+octet-mir-supplement-fixture-gate>    Compiling toml_datetime v1.1.1+spec-1.1.0
+octet-object-corpus-caveat-taxonomy-gate>    Compiling toml_datetime v1.1.1+spec-1.1.0
+octet-mir-supplement-fixture-gate>    Compiling serde_spanned v1.1.1
+octet-object-corpus-caveat-taxonomy-gate>    Compiling serde_spanned v1.1.1
+octet-object-corpus-compatibility-gate>    Compiling serde_spanned v1.1.1
+octet-object-corpus-gate>    Compiling toml_datetime v1.1.1+spec-1.1.0
+octet-object-corpus-gate>    Compiling serde_spanned v1.1.1
+octet-object-corpus-caveat-taxonomy-gate>    Compiling serde_derive v1.0.228
+octet-object-corpus-compatibility-gate>    Compiling toml v1.1.2+spec-1.1.0
+octet-mir-supplement-fixture-gate>    Compiling serde_derive v1.0.228
+octet-object-corpus-gate>    Compiling toml v1.1.2+spec-1.1.0
+octet-object-corpus-compatibility-gate>    Compiling serde_derive v1.0.228
+octet-object-corpus-caveat-taxonomy-gate>    Compiling toml v1.1.2+spec-1.1.0
+octet-mir-supplement-fixture-gate>    Compiling toml v1.1.2+spec-1.1.0
+octet-object-corpus-gate>    Compiling serde_derive v1.0.228
+octet-mir-supplement-fixture-gate>    Compiling linux-raw-sys v0.12.1
+octet-object-corpus-caveat-taxonomy-gate>    Compiling bitflags v2.11.1
+octet-mir-supplement-fixture-gate>    Compiling bitflags v2.11.1
+octet-object-corpus-compatibility-gate>    Compiling linux-raw-sys v0.12.1
+octet-object-corpus-caveat-taxonomy-gate>    Compiling linux-raw-sys v0.12.1
+octet-object-corpus-gate>    Compiling linux-raw-sys v0.12.1
+octet-object-corpus-compatibility-gate>    Compiling bitflags v2.11.1
+octet-object-corpus-gate>    Compiling bitflags v2.11.1
+octet-mir-supplement-fixture-gate>    Compiling once_cell v1.21.4
+octet-object-corpus-caveat-taxonomy-gate>    Compiling once_cell v1.21.4
+octet-object-corpus-compatibility-gate>    Compiling once_cell v1.21.4
+octet-mir-supplement-fixture-gate>    Compiling fastrand v2.4.1
+octet-object-corpus-caveat-taxonomy-gate>    Compiling fastrand v2.4.1
+octet-object-corpus-gate>    Compiling fastrand v2.4.1
+octet-object-corpus-compatibility-gate>    Compiling fastrand v2.4.1
+octet-object-corpus-caveat-taxonomy-gate>    Compiling serde v1.0.228
+octet-object-corpus-compatibility-gate>    Compiling serde v1.0.228
+octet-object-corpus-gate>    Compiling serde v1.0.228
+octet-mir-supplement-fixture-gate>    Compiling serde v1.0.228
+octet-object-corpus-gate>    Compiling once_cell v1.21.4
+octet-object-corpus-caveat-taxonomy-gate>    Compiling tempfile v3.27.0
+octet-object-corpus-compatibility-gate>    Compiling tempfile v3.27.0
+octet-mir-supplement-fixture-gate>    Compiling tempfile v3.27.0
+octet-object-corpus-gate>    Compiling tempfile v3.27.0
+octet-object-corpus-caveat-taxonomy-gate>     Finished `release` profile [optimized] target(s) in 24.29s
+octet-object-corpus-caveat-taxonomy-gate>      Running tests/fingerprint_consumer.rs (target/release/deps/fingerprint_consumer-a0688eab409d177f)
+octet-object-corpus-caveat-taxonomy-gate>
+octet-object-corpus-caveat-taxonomy-gate> running 3 tests
+octet-object-corpus-caveat-taxonomy-gate> test object_internal_corpus_caveat_taxonomy_names_per_source_blockers ... ok
+octet-object-corpus-caveat-taxonomy-gate> test object_internal_corpus_caveat_taxonomy_preserves_non_proof_boundaries ... ok
+octet-object-corpus-compatibility-gate>     Finished `release` profile [optimized] target(s) in 24.23s
+octet-mir-supplement-fixture-gate>     Finished `release` profile [optimized] target(s) in 24.39s
+octet-object-corpus-compatibility-gate>      Running tests/fingerprint_consumer.rs (target/release/deps/fingerprint_consumer-a0688eab409d177f)
+octet-object-corpus-caveat-taxonomy-gate> test object_internal_corpus_expanded_caveat_taxonomy_fixture_matches_fresh_report ... ok
+octet-object-corpus-caveat-taxonomy-gate>
+octet-object-corpus-caveat-taxonomy-gate> test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 60 filtered out; finished in 0.04s
+octet-object-corpus-caveat-taxonomy-gate>
+octet-object-corpus-compatibility-gate>
+octet-object-corpus-compatibility-gate> running 4 tests
+octet-object-corpus-compatibility-gate> test object_corpus_compatibility_source_selection_fixtures_fail_closed ... ok
+octet-object-corpus-compatibility-gate> test object_corpus_compatibility_boundary_tamper_fixture_fails_closed ... ok
+octet-object-corpus-compatibility-gate> test object_corpus_compatibility_positive_v1_fixture_replays_cleanly ... ok
+octet-mir-supplement-fixture-gate>      Running tests/fingerprint_consumer.rs (target/release/deps/fingerprint_consumer-a0688eab409d177f)
+octet-mir-supplement-fixture-gate>
+octet-mir-supplement-fixture-gate> running 4 tests
+octet-object-corpus-caveat-taxonomy-gate> Running phase: installPhase
+octet-object-corpus-compatibility-gate> test object_corpus_compatibility_negative_fixtures_fail_closed ... ok
+octet-object-corpus-compatibility-gate>
+octet-object-corpus-compatibility-gate> test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 59 filtered out; finished in 0.00s
+octet-object-corpus-compatibility-gate>
+octet-mir-supplement-fixture-gate> test mir_fixture_inventory_aggregate_gate_preserves_selected_fixture_boundaries ... ok
+octet-object-corpus-caveat-taxonomy-gate> stripping references to Rust toolchain
+octet-object-corpus-compatibility-gate> Running phase: installPhase
+octet-object-corpus-compatibility-gate> stripping references to Rust toolchain
+octet-object-corpus-caveat-taxonomy-gate> Rust toolchain at: /nix/store/1yvh3d6y3fj3xk2dgwczrp1dj5svd92c-rust-default-1.96.0-nightly-2026-03-21
+octet-mir-supplement-fixture-gate> test mir_fixture_branch_control_flow_selector_emits_and_checks_bounded_receipt ... ok
+octet-object-corpus-compatibility-gate> Rust toolchain at: /nix/store/1yvh3d6y3fj3xk2dgwczrp1dj5svd92c-rust-default-1.96.0-nightly-2026-03-21
+octet-object-corpus-caveat-taxonomy-gate> stripping Rust toolchain references done
+octet-object-corpus-caveat-taxonomy-gate> stripping references to cargoVendorDir from:
+octet-object-corpus-caveat-taxonomy-gate> stripping references done
+octet-object-corpus-compatibility-gate> stripping Rust toolchain references done
+octet-object-corpus-compatibility-gate> stripping references to cargoVendorDir from:
+octet-object-corpus-caveat-taxonomy-gate> Running phase: fixupPhase
+octet-object-corpus-compatibility-gate> stripping references done
+octet-object-corpus-compatibility-gate> Running phase: fixupPhase
+octet-object-corpus-caveat-taxonomy-gate> shrinking RPATHs of ELF executables and libraries in /nix/store/lhgxv77lrz6xljhp7rk8r06310r50j0p-octet-object-corpus-caveat-taxonomy-gate-0.1.0
+octet-object-corpus-caveat-taxonomy-gate> checking for references to /build/ in /nix/store/lhgxv77lrz6xljhp7rk8r06310r50j0p-octet-object-corpus-caveat-taxonomy-gate-0.1.0...
+octet-object-corpus-compatibility-gate> shrinking RPATHs of ELF executables and libraries in /nix/store/qls9cw317g1x4gx9m5qn89rkv34hr8r3-octet-object-corpus-compatibility-gate-0.1.0
+octet-object-corpus-compatibility-gate> checking for references to /build/ in /nix/store/qls9cw317g1x4gx9m5qn89rkv34hr8r3-octet-object-corpus-compatibility-gate-0.1.0...
+octet-object-corpus-caveat-taxonomy-gate> patching script interpreter paths in /nix/store/lhgxv77lrz6xljhp7rk8r06310r50j0p-octet-object-corpus-caveat-taxonomy-gate-0.1.0
+octet-object-corpus-compatibility-gate> patching script interpreter paths in /nix/store/qls9cw317g1x4gx9m5qn89rkv34hr8r3-octet-object-corpus-compatibility-gate-0.1.0
+octet-mir-supplement-fixture-gate> test mir_fixture_supplement_emit_check_and_negative_replay_are_bounded ... ok
+building '/nix/store/1an5krb2pzypsscccxx0vm9vprpnjwrr-cargo-octet-fresh-build-a-0.1.0.drv'...
+octet-mir-supplement-fixture-gate> test mir_fixture_inventory_commands_roundtrip_selected_fixture_evidence ... ok
+octet-mir-supplement-fixture-gate>
+octet-mir-supplement-fixture-gate> test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 59 filtered out; finished in 0.04s
+octet-mir-supplement-fixture-gate>
+octet-mir-supplement-fixture-gate> Running phase: installPhase
+octet-mir-supplement-fixture-gate> stripping references to Rust toolchain
+octet-mir-supplement-fixture-gate> Rust toolchain at: /nix/store/1yvh3d6y3fj3xk2dgwczrp1dj5svd92c-rust-default-1.96.0-nightly-2026-03-21
+octet-mir-supplement-fixture-gate> stripping Rust toolchain references done
+octet-mir-supplement-fixture-gate> stripping references to cargoVendorDir from:
+octet-mir-supplement-fixture-gate> stripping references done
+octet-mir-supplement-fixture-gate> Running phase: fixupPhase
+octet-mir-supplement-fixture-gate> shrinking RPATHs of ELF executables and libraries in /nix/store/mlqnaklqycxzg3s027lnwlm2r1h684lp-octet-mir-supplement-fixture-gate-0.1.0
+octet-mir-supplement-fixture-gate> checking for references to /build/ in /nix/store/mlqnaklqycxzg3s027lnwlm2r1h684lp-octet-mir-supplement-fixture-gate-0.1.0...
+octet-mir-supplement-fixture-gate> patching script interpreter paths in /nix/store/mlqnaklqycxzg3s027lnwlm2r1h684lp-octet-mir-supplement-fixture-gate-0.1.0
+building '/nix/store/3gggpflachrmnzz7lfpwr9h9hrgslbmn-cargo-octet-fresh-build-b-0.1.0.drv'...
+octet-object-corpus-gate>     Finished `release` profile [optimized] target(s) in 24.31s
+octet-object-corpus-gate>      Running tests/fingerprint_consumer.rs (target/release/deps/fingerprint_consumer-a0688eab409d177f)
+octet-object-corpus-gate>
+octet-object-corpus-gate> running 12 tests
+octet-object-corpus-gate> test object_internal_corpus_caveat_taxonomy_names_per_source_blockers ... ok
+octet-object-corpus-gate> test object_internal_corpus_caveat_taxonomy_preserves_non_proof_boundaries ... ok
+octet-object-corpus-gate> test object_internal_corpus_expanded_taxonomy_names_selected_source_buckets ... ok
+octet-object-corpus-gate> test object_internal_corpus_fixture_satisfies_contract_metadata ... ok
+octet-object-corpus-gate> test object_internal_corpus_gate_fixture_matches_fresh_receipt ... ok
+octet-object-corpus-gate> test object_internal_corpus_expanded_fixture_matches_fresh_receipt_and_preserves_boundaries ... ok
+octet-object-corpus-gate> test object_internal_corpus_expanded_fixture_replays_cleanly ... ok
+octet-object-corpus-gate> test object_internal_corpus_expanded_caveat_taxonomy_fixture_matches_fresh_report ... ok
+octet-object-corpus-gate> test object_internal_corpus_gate_fixture_replays_cleanly ... ok
+octet-object-corpus-gate> test object_internal_corpus_receipt_preserves_boundary_claims ... ok
+cargo-octet-fresh-build-a> Running phase: unpackPhase
+cargo-octet-fresh-build-a> unpacking source archive /nix/store/mb82d4b032g69623vys6f119wf7bhvmz-source
+building '/nix/store/6bc7ilfvfd0xpsw6alic2556pxd2yja1-octet-thir-supplement-inventory-gate-0.1.0.drv'...
+octet-object-corpus-gate> test object_internal_corpus_receipt_is_deterministic_and_bounded ... ok
+octet-object-corpus-gate> fresh_target.receipt_runs=4
+octet-object-corpus-gate> fresh_target.receipt_bytes_b3=b3:1cd5480989fdff1158448118b1a06482a4a1145d1982dadb64ff44d280f102c6
+octet-object-corpus-gate> fresh_target.object_count=251
+octet-object-corpus-gate> fresh_target.object_set_hash=b3:1c64855cb36ac9c49cb9a19ff3bcccfbd14b1e6031f384729e37b85b830b96f0
+octet-object-corpus-gate> fresh_target.byte_stability: PASS
+octet-object-corpus-gate> fresh_target.compared_fields_stable: PASS
+octet-object-corpus-gate> fresh_target.boundary_claims_false: PASS
+octet-object-corpus-gate> test object_internal_corpus_receipt_is_stable_across_fresh_target_dirs ... ok
+octet-object-corpus-gate>
+octet-object-corpus-gate> test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 51 filtered out; finished in 0.12s
+octet-object-corpus-gate>
+octet-object-corpus-gate> Running phase: installPhase
+octet-object-corpus-gate> stripping references to Rust toolchain
+octet-object-corpus-gate> Rust toolchain at: /nix/store/1yvh3d6y3fj3xk2dgwczrp1dj5svd92c-rust-default-1.96.0-nightly-2026-03-21
+octet-object-corpus-gate> stripping Rust toolchain references done
+octet-object-corpus-gate> stripping references to cargoVendorDir from:
+octet-object-corpus-gate> stripping references done
+octet-object-corpus-gate> Running phase: fixupPhase
+octet-object-corpus-gate> shrinking RPATHs of ELF executables and libraries in /nix/store/rkpwa9k54p0x8nxa7sj029zgy4vs1pbl-octet-object-corpus-gate-0.1.0
+octet-object-corpus-gate> checking for references to /build/ in /nix/store/rkpwa9k54p0x8nxa7sj029zgy4vs1pbl-octet-object-corpus-gate-0.1.0...
+octet-object-corpus-gate> patching script interpreter paths in /nix/store/rkpwa9k54p0x8nxa7sj029zgy4vs1pbl-octet-object-corpus-gate-0.1.0
+cargo-octet-fresh-build-a> source root is source
+cargo-octet-fresh-build-a> Running phase: patchPhase
+cargo-octet-fresh-build-a> Executing configureCargoCommonVars
+cargo-octet-fresh-build-a> decompressing cargo artifacts from /nix/store/hkwyd8ywfwprl0xj71vgbng063238vzs-octet-deps-0.1.0/target.tar.zst to target
+cargo-octet-fresh-build-b> Running phase: unpackPhase
+cargo-octet-fresh-build-b> unpacking source archive /nix/store/mb82d4b032g69623vys6f119wf7bhvmz-source
+cargo-octet-fresh-build-a> Running phase: updateAutotoolsGnuConfigScriptsPhase
+cargo-octet-fresh-build-b> source root is source
+cargo-octet-fresh-build-b> Running phase: patchPhase
+cargo-octet-fresh-build-b> Executing configureCargoCommonVars
+cargo-octet-fresh-build-b> decompressing cargo artifacts from /nix/store/hkwyd8ywfwprl0xj71vgbng063238vzs-octet-deps-0.1.0/target.tar.zst to target
+octet-thir-supplement-inventory-gate> Running phase: unpackPhase
+octet-thir-supplement-inventory-gate> unpacking source archive /nix/store/mb82d4b032g69623vys6f119wf7bhvmz-source
+cargo-octet-fresh-build-a> Running phase: configurePhase
+cargo-octet-fresh-build-a> will append /build/source/.cargo-home/config.toml with contents of /nix/store/7psin7sq5sx4gs43jj2la6nzl2050sxz-vendor-cargo-deps/config.toml
+cargo-octet-fresh-build-a> default configurePhase, nothing to do
+cargo-octet-fresh-build-a> Running phase: buildPhase
+cargo-octet-fresh-build-a> +++ command cargo --version
+cargo-octet-fresh-build-a> cargo 1.96.0-nightly (cbb9bb8bd 2026-03-13)
+cargo-octet-fresh-build-a> +++ command cargo build --release --message-format json-render-diagnostics -p cargo-octet
+cargo-octet-fresh-build-a> warning: /build/source/crates/slotcar-standards/Cargo.toml: file `/build/source/crates/slotcar-standards/src/main.rs` found to be present in multiple build targets:
+cargo-octet-fresh-build-a>   * `bin` target `octet-standards`
+cargo-octet-fresh-build-a>   * `bin` target `slotcar-standards`
+cargo-octet-fresh-build-a>   * `bin` target `tigerstyle-standards`
+cargo-octet-fresh-build-a> warning: /build/source/cargo-octet/Cargo.toml: file `/build/source/cargo-octet/src/main.rs` found to be present in multiple build targets:
+cargo-octet-fresh-build-a>   * `bin` target `cargo-octet`
+cargo-octet-fresh-build-a>   * `bin` target `cargo-slotcar`
+cargo-octet-fresh-build-a>   * `bin` target `cargo-tigerstyle`
+cargo-octet-fresh-build-a>    Compiling shlex v1.3.0
+cargo-octet-fresh-build-a>    Compiling find-msvc-tools v0.1.9
+cargo-octet-fresh-build-a>    Compiling serde_core v1.0.228
+cargo-octet-fresh-build-a>    Compiling proc-macro2 v1.0.106
+octet-thir-supplement-inventory-gate> source root is source
+octet-thir-supplement-inventory-gate> Running phase: patchPhase
+octet-thir-supplement-inventory-gate> Executing configureCargoCommonVars
+octet-thir-supplement-inventory-gate> decompressing cargo artifacts from /nix/store/hkwyd8ywfwprl0xj71vgbng063238vzs-octet-deps-0.1.0/target.tar.zst to target
+cargo-octet-fresh-build-b> Running phase: updateAutotoolsGnuConfigScriptsPhase
+cargo-octet-fresh-build-a>    Compiling cc v1.2.62
+cargo-octet-fresh-build-b> Running phase: configurePhase
+cargo-octet-fresh-build-b> will append /build/source/.cargo-home/config.toml with contents of /nix/store/7psin7sq5sx4gs43jj2la6nzl2050sxz-vendor-cargo-deps/config.toml
+cargo-octet-fresh-build-b> default configurePhase, nothing to do
+cargo-octet-fresh-build-b> Running phase: buildPhase
+cargo-octet-fresh-build-b> +++ command cargo --version
+cargo-octet-fresh-build-a>    Compiling quote v1.0.45
+cargo-octet-fresh-build-b> cargo 1.96.0-nightly (cbb9bb8bd 2026-03-13)
+cargo-octet-fresh-build-b> +++ command cargo build --release --message-format json-render-diagnostics -p cargo-octet
+cargo-octet-fresh-build-b> warning: /build/source/crates/slotcar-standards/Cargo.toml: file `/build/source/crates/slotcar-standards/src/main.rs` found to be present in multiple build targets:
+cargo-octet-fresh-build-b>   * `bin` target `octet-standards`
+cargo-octet-fresh-build-b>   * `bin` target `slotcar-standards`
+cargo-octet-fresh-build-b>   * `bin` target `tigerstyle-standards`
+cargo-octet-fresh-build-b> warning: /build/source/cargo-octet/Cargo.toml: file `/build/source/cargo-octet/src/main.rs` found to be present in multiple build targets:
+cargo-octet-fresh-build-b>   * `bin` target `cargo-octet`
+cargo-octet-fresh-build-b>   * `bin` target `cargo-slotcar`
+cargo-octet-fresh-build-b>   * `bin` target `cargo-tigerstyle`
+cargo-octet-fresh-build-b>    Compiling find-msvc-tools v0.1.9
+cargo-octet-fresh-build-b>    Compiling shlex v1.3.0
+cargo-octet-fresh-build-b>    Compiling serde_core v1.0.228
+cargo-octet-fresh-build-b>    Compiling proc-macro2 v1.0.106
+cargo-octet-fresh-build-b>    Compiling quote v1.0.45
+octet-thir-supplement-inventory-gate> Running phase: updateAutotoolsGnuConfigScriptsPhase
+octet-thir-supplement-inventory-gate> Running phase: configurePhase
+octet-thir-supplement-inventory-gate> will append /build/source/.cargo-home/config.toml with contents of /nix/store/7psin7sq5sx4gs43jj2la6nzl2050sxz-vendor-cargo-deps/config.toml
+octet-thir-supplement-inventory-gate> default configurePhase, nothing to do
+octet-thir-supplement-inventory-gate> Running phase: buildPhase
+octet-thir-supplement-inventory-gate> +++ command cargo --version
+octet-thir-supplement-inventory-gate> cargo 1.96.0-nightly (cbb9bb8bd 2026-03-13)
+octet-thir-supplement-inventory-gate> Running phase: checkPhase
+cargo-octet-fresh-build-b>    Compiling cc v1.2.62
+octet-thir-supplement-inventory-gate> +++ command cargo test --release -p cargo-octet --test fingerprint_consumer thir_inventory -- --nocapture
+octet-thir-supplement-inventory-gate> warning: /build/source/crates/slotcar-standards/Cargo.toml: file `/build/source/crates/slotcar-standards/src/main.rs` found to be present in multiple build targets:
+octet-thir-supplement-inventory-gate>   * `bin` target `octet-standards`
+octet-thir-supplement-inventory-gate>   * `bin` target `slotcar-standards`
+octet-thir-supplement-inventory-gate>   * `bin` target `tigerstyle-standards`
+octet-thir-supplement-inventory-gate> warning: /build/source/cargo-octet/Cargo.toml: file `/build/source/cargo-octet/src/main.rs` found to be present in multiple build targets:
+octet-thir-supplement-inventory-gate>   * `bin` target `cargo-octet`
+octet-thir-supplement-inventory-gate>   * `bin` target `cargo-slotcar`
+octet-thir-supplement-inventory-gate>   * `bin` target `cargo-tigerstyle`
+cargo-octet-fresh-build-a>    Compiling cpufeatures v0.3.0
+cargo-octet-fresh-build-a>    Compiling arrayvec v0.7.6
+octet-thir-supplement-inventory-gate>    Compiling shlex v1.3.0
+octet-thir-supplement-inventory-gate>    Compiling find-msvc-tools v0.1.9
+octet-thir-supplement-inventory-gate>    Compiling serde_core v1.0.228
+octet-thir-supplement-inventory-gate>    Compiling proc-macro2 v1.0.106
+cargo-octet-fresh-build-b>    Compiling cfg-if v1.0.4
+cargo-octet-fresh-build-a>    Compiling constant_time_eq v0.4.2
+octet-thir-supplement-inventory-gate>    Compiling cc v1.2.62
+cargo-octet-fresh-build-b>    Compiling arrayvec v0.7.6
+octet-thir-supplement-inventory-gate>    Compiling quote v1.0.45
+cargo-octet-fresh-build-a>    Compiling arrayref v0.3.9
+cargo-octet-fresh-build-a>    Compiling cfg-if v1.0.4
+cargo-octet-fresh-build-b>    Compiling arrayref v0.3.9
+cargo-octet-fresh-build-b>    Compiling cpufeatures v0.3.0
+cargo-octet-fresh-build-b>    Compiling constant_time_eq v0.4.2
+cargo-octet-fresh-build-a>    Compiling syn v2.0.117
+cargo-octet-fresh-build-a>    Compiling serde_json v1.0.149
+octet-thir-supplement-inventory-gate>    Compiling cfg-if v1.0.4
+octet-thir-supplement-inventory-gate>    Compiling arrayvec v0.7.6
+cargo-octet-fresh-build-b>    Compiling syn v2.0.117
+cargo-octet-fresh-build-b>    Compiling serde_json v1.0.149
+octet-thir-supplement-inventory-gate>    Compiling constant_time_eq v0.4.2
+octet-thir-supplement-inventory-gate>    Compiling arrayref v0.3.9
+octet-thir-supplement-inventory-gate>    Compiling cpufeatures v0.3.0
+octet-thir-supplement-inventory-gate>    Compiling syn v2.0.117
+cargo-octet-fresh-build-a>    Compiling blake3 v1.8.5
+octet-thir-supplement-inventory-gate>    Compiling serde_json v1.0.149
+octet-thir-supplement-inventory-gate>    Compiling libc v0.2.186
+cargo-octet-fresh-build-b>    Compiling blake3 v1.8.5
+octet-thir-supplement-inventory-gate>    Compiling blake3 v1.8.5
+cargo-octet-fresh-build-a>    Compiling cargo-octet v0.1.0 (/build/source/cargo-octet)
+cargo-octet-fresh-build-b>    Compiling cargo-octet v0.1.0 (/build/source/cargo-octet)
+cargo-octet-fresh-build-a>    Compiling serde_spanned v1.1.1
+cargo-octet-fresh-build-a>    Compiling toml_datetime v1.1.1+spec-1.1.0
+octet-thir-supplement-inventory-gate>    Compiling cargo-octet v0.1.0 (/build/source/cargo-octet)
+cargo-octet-fresh-build-a>    Compiling toml v1.1.2+spec-1.1.0
+cargo-octet-fresh-build-b>    Compiling toml_datetime v1.1.1+spec-1.1.0
+cargo-octet-fresh-build-a>    Compiling serde_derive v1.0.228
+cargo-octet-fresh-build-b>    Compiling serde_spanned v1.1.1
+octet-thir-supplement-inventory-gate>    Compiling rustix v1.1.4
+cargo-octet-fresh-build-b>    Compiling toml v1.1.2+spec-1.1.0
+cargo-octet-fresh-build-b>    Compiling serde_derive v1.0.228
+octet-thir-supplement-inventory-gate>    Compiling serde_spanned v1.1.1
+octet-thir-supplement-inventory-gate>    Compiling toml_datetime v1.1.1+spec-1.1.0
+octet-thir-supplement-inventory-gate>    Compiling getrandom v0.4.2
+octet-thir-supplement-inventory-gate>    Compiling serde_derive v1.0.228
+octet-thir-supplement-inventory-gate>    Compiling toml v1.1.2+spec-1.1.0
+octet-thir-supplement-inventory-gate>    Compiling linux-raw-sys v0.12.1
+octet-thir-supplement-inventory-gate>    Compiling bitflags v2.11.1
+cargo-octet-fresh-build-a>    Compiling serde v1.0.228
+cargo-octet-fresh-build-b>    Compiling serde v1.0.228
+octet-thir-supplement-inventory-gate>    Compiling fastrand v2.4.1
+octet-thir-supplement-inventory-gate>    Compiling once_cell v1.21.4
+octet-thir-supplement-inventory-gate>    Compiling serde v1.0.228
+octet-thir-supplement-inventory-gate>    Compiling tempfile v3.27.0
+cargo-octet-fresh-build-a>     Finished `release` profile [optimized] target(s) in 16.82s
+cargo-octet-fresh-build-a> searching for bins/libs to install from cargo build log at cargoBuildLog5ueU.json
+cargo-octet-fresh-build-a> installing /build/source/target/release/cargo-octet in postBuildInstallFromCargoBuildLogOutTempbPq/bin
+cargo-octet-fresh-build-a> installing /build/source/target/release/cargo-tigerstyle in postBuildInstallFromCargoBuildLogOutTempbPq/bin
+cargo-octet-fresh-build-a> installing /build/source/target/release/cargo-slotcar in postBuildInstallFromCargoBuildLogOutTempbPq/bin
+cargo-octet-fresh-build-a> searching for bins/libs complete
+cargo-octet-fresh-build-a> Running phase: installPhase
+cargo-octet-fresh-build-a> actually installing contents of postBuildInstallFromCargoBuildLogOutTempbPq to /nix/store/cy2khwkx56ak2isdwnigz2rpj3p58gww-cargo-octet-fresh-build-a-0.1.0
+cargo-octet-fresh-build-a> stripping references to Rust toolchain
+cargo-octet-fresh-build-a> Rust toolchain at: /nix/store/1yvh3d6y3fj3xk2dgwczrp1dj5svd92c-rust-default-1.96.0-nightly-2026-03-21
+cargo-octet-fresh-build-a> stripping Rust toolchain references done
+cargo-octet-fresh-build-a> stripping references to cargoVendorDir from:
+cargo-octet-fresh-build-a> /nix/store/cy2khwkx56ak2isdwnigz2rpj3p58gww-cargo-octet-fresh-build-a-0.1.0/bin/cargo-octet
+cargo-octet-fresh-build-a> /nix/store/cy2khwkx56ak2isdwnigz2rpj3p58gww-cargo-octet-fresh-build-a-0.1.0/bin/cargo-slotcar
+cargo-octet-fresh-build-a> /nix/store/cy2khwkx56ak2isdwnigz2rpj3p58gww-cargo-octet-fresh-build-a-0.1.0/bin/cargo-tigerstyle
+cargo-octet-fresh-build-a> stripping references done
+cargo-octet-fresh-build-a> Running phase: fixupPhase
+cargo-octet-fresh-build-a> shrinking RPATHs of ELF executables and libraries in /nix/store/cy2khwkx56ak2isdwnigz2rpj3p58gww-cargo-octet-fresh-build-a-0.1.0
+cargo-octet-fresh-build-a> shrinking /nix/store/cy2khwkx56ak2isdwnigz2rpj3p58gww-cargo-octet-fresh-build-a-0.1.0/bin/cargo-tigerstyle
+cargo-octet-fresh-build-b>     Finished `release` profile [optimized] target(s) in 16.91s
+cargo-octet-fresh-build-a> shrinking /nix/store/cy2khwkx56ak2isdwnigz2rpj3p58gww-cargo-octet-fresh-build-a-0.1.0/bin/cargo-slotcar
+cargo-octet-fresh-build-a> shrinking /nix/store/cy2khwkx56ak2isdwnigz2rpj3p58gww-cargo-octet-fresh-build-a-0.1.0/bin/cargo-octet
+cargo-octet-fresh-build-a> checking for references to /build/ in /nix/store/cy2khwkx56ak2isdwnigz2rpj3p58gww-cargo-octet-fresh-build-a-0.1.0...
+cargo-octet-fresh-build-b> searching for bins/libs to install from cargo build log at cargoBuildLogLLOI.json
+cargo-octet-fresh-build-a> patching script interpreter paths in /nix/store/cy2khwkx56ak2isdwnigz2rpj3p58gww-cargo-octet-fresh-build-a-0.1.0
+cargo-octet-fresh-build-a> stripping (with command strip and flags -S -p) in  /nix/store/cy2khwkx56ak2isdwnigz2rpj3p58gww-cargo-octet-fresh-build-a-0.1.0/bin
+cargo-octet-fresh-build-b> installing /build/source/target/release/cargo-tigerstyle in postBuildInstallFromCargoBuildLogOutTempBCh/bin
+cargo-octet-fresh-build-b> installing /build/source/target/release/cargo-slotcar in postBuildInstallFromCargoBuildLogOutTempBCh/bin
+cargo-octet-fresh-build-b> installing /build/source/target/release/cargo-octet in postBuildInstallFromCargoBuildLogOutTempBCh/bin
+cargo-octet-fresh-build-b> searching for bins/libs complete
+cargo-octet-fresh-build-b> Running phase: installPhase
+cargo-octet-fresh-build-b> actually installing contents of postBuildInstallFromCargoBuildLogOutTempBCh to /nix/store/1wian343gxakc80fiijj9sc0ys9lc6p7-cargo-octet-fresh-build-b-0.1.0
+cargo-octet-fresh-build-b> stripping references to Rust toolchain
+cargo-octet-fresh-build-b> Rust toolchain at: /nix/store/1yvh3d6y3fj3xk2dgwczrp1dj5svd92c-rust-default-1.96.0-nightly-2026-03-21
+cargo-octet-fresh-build-b> stripping Rust toolchain references done
+cargo-octet-fresh-build-b> stripping references to cargoVendorDir from:
+cargo-octet-fresh-build-b> /nix/store/1wian343gxakc80fiijj9sc0ys9lc6p7-cargo-octet-fresh-build-b-0.1.0/bin/cargo-octet
+cargo-octet-fresh-build-b> /nix/store/1wian343gxakc80fiijj9sc0ys9lc6p7-cargo-octet-fresh-build-b-0.1.0/bin/cargo-slotcar
+cargo-octet-fresh-build-b> /nix/store/1wian343gxakc80fiijj9sc0ys9lc6p7-cargo-octet-fresh-build-b-0.1.0/bin/cargo-tigerstyle
+cargo-octet-fresh-build-b> stripping references done
+cargo-octet-fresh-build-b> Running phase: fixupPhase
+cargo-octet-fresh-build-b> shrinking RPATHs of ELF executables and libraries in /nix/store/1wian343gxakc80fiijj9sc0ys9lc6p7-cargo-octet-fresh-build-b-0.1.0
+cargo-octet-fresh-build-b> shrinking /nix/store/1wian343gxakc80fiijj9sc0ys9lc6p7-cargo-octet-fresh-build-b-0.1.0/bin/cargo-tigerstyle
+cargo-octet-fresh-build-b> shrinking /nix/store/1wian343gxakc80fiijj9sc0ys9lc6p7-cargo-octet-fresh-build-b-0.1.0/bin/cargo-slotcar
+cargo-octet-fresh-build-b> shrinking /nix/store/1wian343gxakc80fiijj9sc0ys9lc6p7-cargo-octet-fresh-build-b-0.1.0/bin/cargo-octet
+cargo-octet-fresh-build-b> checking for references to /build/ in /nix/store/1wian343gxakc80fiijj9sc0ys9lc6p7-cargo-octet-fresh-build-b-0.1.0...
+cargo-octet-fresh-build-b> patching script interpreter paths in /nix/store/1wian343gxakc80fiijj9sc0ys9lc6p7-cargo-octet-fresh-build-b-0.1.0
+cargo-octet-fresh-build-b> stripping (with command strip and flags -S -p) in  /nix/store/1wian343gxakc80fiijj9sc0ys9lc6p7-cargo-octet-fresh-build-b-0.1.0/bin
+building '/nix/store/10vpibdh09kryrxymjrch9n6kdy12diz-octet-fresh-build-object-corpus-determinism.drv'...
+octet-fresh-build-object-corpus-determinism> wrote object corpus receipt: /build/tmp.zYEhWhsKtT/fresh-a.json
+octet-fresh-build-object-corpus-determinism> wrote object corpus receipt: /build/tmp.zYEhWhsKtT/fresh-b.json
+octet-fresh-build-object-corpus-determinism> fresh_build.receipt_producers=2
+octet-fresh-build-object-corpus-determinism> fresh_build.byte_stability: PASS
+octet-fresh-build-object-corpus-determinism> fresh_build.fixture_parity: PASS
+octet-fresh-build-object-corpus-determinism> fresh_build.compared_fields_stable: PASS
+octet-fresh-build-object-corpus-determinism> fresh_build.boundary_claims_false: PASS
+octet-fresh-build-object-corpus-determinism> fresh_build.scope=bounded-local-fresh-build-evidence-replay
+octet-thir-supplement-inventory-gate>     Finished `release` profile [optimized] target(s) in 18.12s
+octet-thir-supplement-inventory-gate>      Running tests/fingerprint_consumer.rs (target/release/deps/fingerprint_consumer-a0688eab409d177f)
+octet-thir-supplement-inventory-gate>
+octet-thir-supplement-inventory-gate> running 2 tests
+octet-thir-supplement-inventory-gate> test thir_inventory_aggregate_gate_preserves_selected_fixture_boundaries ... ok
+octet-thir-supplement-inventory-gate> test thir_inventory_commands_roundtrip_selected_fixture_evidence ... ok
+octet-thir-supplement-inventory-gate>
+octet-thir-supplement-inventory-gate> test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 61 filtered out; finished in 0.04s
+octet-thir-supplement-inventory-gate>
+octet-thir-supplement-inventory-gate> Running phase: installPhase
+octet-thir-supplement-inventory-gate> stripping references to Rust toolchain
+octet-thir-supplement-inventory-gate> Rust toolchain at: /nix/store/1yvh3d6y3fj3xk2dgwczrp1dj5svd92c-rust-default-1.96.0-nightly-2026-03-21
+octet-thir-supplement-inventory-gate> stripping Rust toolchain references done
+octet-thir-supplement-inventory-gate> stripping references to cargoVendorDir from:
+octet-thir-supplement-inventory-gate> stripping references done
+octet-thir-supplement-inventory-gate> Running phase: fixupPhase
+octet-thir-supplement-inventory-gate> shrinking RPATHs of ELF executables and libraries in /nix/store/9dy1ciz3k1lasigvqw5lkl5blbamcz13-octet-thir-supplement-inventory-gate-0.1.0
+octet-thir-supplement-inventory-gate> checking for references to /build/ in /nix/store/9dy1ciz3k1lasigvqw5lkl5blbamcz13-octet-thir-supplement-inventory-gate-0.1.0...
+octet-thir-supplement-inventory-gate> patching script interpreter paths in /nix/store/9dy1ciz3k1lasigvqw5lkl5blbamcz13-octet-thir-supplement-inventory-gate-0.1.0
+building '/nix/store/mlv0cvwk7x0qynj1ah5cn1nzqkilkiy5-octet-valence-object-evidence.drv'...
+octet-valence-object-evidence> valence_object_evidence.object_corpus_gate: PASS
+octet-valence-object-evidence> valence_object_evidence.compatibility_gate: PASS
+octet-valence-object-evidence> valence_object_evidence.caveat_taxonomy_gate: PASS
+octet-valence-object-evidence> valence_object_evidence.object_corpus_fixture_freshness_gate: PASS
+octet-valence-object-evidence> valence_object_evidence.thir_supplement_inventory_gate: PASS
+octet-valence-object-evidence> valence_object_evidence.mir_supplement_fixture_gate: PASS
+octet-valence-object-evidence> valence_object_evidence.mir_supplement_inventory_gate: PASS
+octet-valence-object-evidence> valence_object_evidence.fresh_build_determinism_gate: PASS
+octet-valence-object-evidence> valence_object_evidence.scope=bounded-local-selected-corpus-evidence-replay
+octet-valence-object-evidence> valence_object_evidence.non_claims=correctness,semantic_equivalence,exhaustive_rust_coverage,cross_machine_determinism,cross_toolchain_determinism
+exit=0

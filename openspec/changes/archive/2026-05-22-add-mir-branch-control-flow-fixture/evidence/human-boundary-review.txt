@@ -1,0 +1,15 @@
+# Human boundary review
+
+command=manual review
+input=changed MIR fixture, CLI/object metadata, docs, OpenSpec spec delta, and test/evidence surfaces for `add-mir-branch-control-flow-fixture`
+asserts=selected-fixture-only/no general MIR extraction/no THIR inventory expansion/no correctness proof/no semantic-equivalence proof/default non-fixture MIR and THIR remain unsupported-planned
+evidence=evidence/human-boundary-review.txt
+
+Review result: PASS
+
+- MIR selected fixture inventory is intentionally expanded to exactly `checked-arithmetic`, `call-return`, and `branch-control-flow`.
+- THIR selected fixture inventory remains unchanged at exactly `checked-arithmetic`, `call-return`, and `branch-control-flow`.
+- Default/non-fixture MIR remains `unsupported-planned`.
+- Default/non-fixture THIR remains `unsupported-planned`.
+- The change stays selected-fixture-only and does not imply general THIR or MIR extraction.
+- No behavioral correctness, proof, semantic-equivalence, dependency-resolution, macro-expansion-identity, or pure-cache eligibility claim is added.
