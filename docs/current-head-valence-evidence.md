@@ -1,10 +1,10 @@
 # Current verified Valence object evidence
 
-Capture time: 2026-05-22T19:39:12Z
+Capture time: 2026-05-22T21:09:44Z
 
-Verified implementation baseline: `2e680c918db89d9ad946d65ea192de08b1fb8e21` (`2e680c91`)
+Verified implementation baseline: `b4ef0ac757fd9724fa85b82c43fb6dce2c27eafb` (`b4ef0ac7`)
 
-This page indexes the focused evidence sweep run after the MIR `call-return` selected fixture landed. It records command surfaces and observed pass signals; it does not embed generated receipts, move any readiness tag, or claim broader MIR support.
+This page indexes the focused evidence sweep run after the MIR inventory aggregate rail landed. It records command surfaces and observed pass signals; it does not embed generated receipts, move any readiness tag, or claim broader MIR support.
 
 ## Scope
 
@@ -30,7 +30,7 @@ $ git status --short --branch
 
 ```text
 $ git rev-parse HEAD
-2e680c918db89d9ad946d65ea192de08b1fb8e21
+b4ef0ac757fd9724fa85b82c43fb6dce2c27eafb
 ```
 
 ```text
@@ -94,4 +94,4 @@ git diff --check
 openspec validate --all --strict --json
 ```
 
-and a focused read/search that confirms this page names the verified implementation baseline, MIR `call-return` fixture coverage, aggregate gate, pass signals, and non-claim boundaries.
+and a focused read/search that confirms this page names the verified implementation baseline, MIR `call-return` fixture coverage, MIR inventory aggregate rail, aggregate gate, pass signals, and non-claim boundaries.
