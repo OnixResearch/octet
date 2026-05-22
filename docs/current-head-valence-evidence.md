@@ -14,8 +14,9 @@ The sweep covers selected local Octet/Valence review-evidence rails:
 - Bounded fresh-target receipt determinism.
 - Selected rustc HIR fixture spike replay/inventory coverage.
 - Selected rustc THIR fixture inventory and roundtrip coverage for `checked-arithmetic` and `call-return`.
-- Selected rustc MIR fixture runtime coverage for exact `checked-arithmetic` and `call-return` selectors.
-- Aggregate Valence object evidence composition, including the MIR supplement fixture gate.
+- Selected rustc MIR fixture runtime and inventory coverage for exact `checked-arithmetic` and `call-return` selectors.
+- Named MIR inventory rail: `nix build .#checks.x86_64-linux.mir-supplement-inventory-gate --no-link -L`.
+- Aggregate Valence object evidence composition, including the MIR supplement fixture gate and MIR supplement inventory gate.
 - Canonical OpenSpec validation.
 
 This is bounded local evidence replay. It is not a correctness proof, semantic-equivalence proof, exhaustive Rust coverage proof, pure-cache eligibility proof, public unattended production-readiness claim, cross-machine determinism proof, or cross-toolchain determinism proof.
@@ -65,7 +66,7 @@ Observed pass signals:
   - `fresh_target.object_count=251`
   - `fresh_target.object_set_hash=b3:a6e4578d3734d2f72031ec61a3683df569ee4d572cd90dea792679484b2cd0b3`
 - `cargo test -p cargo-octet thir_inventory -- --nocapture`: `2 passed; 0 failed`.
-- `cargo test -p cargo-octet mir_fixture -- --nocapture`: `1 passed; 0 failed`; the focused MIR fixture test covers the exact selected MIR fixture inventory (`checked-arithmetic`, `call-return`), positive emit/check replay, unsupported selector rejection, and default `unsupported-planned` boundaries.
+- `cargo test -p cargo-octet mir_fixture -- --nocapture`: passes; the focused MIR fixture tests cover the exact selected MIR fixture inventory (`checked-arithmetic`, `call-return`), inventory-emitted emit/check command roundtrips, positive emit/check replay, unsupported selector rejection, and default `unsupported-planned` boundaries.
 - `cargo test -p cargo-octet rustc_hir_spike -- --nocapture`: `5 passed; 0 failed` for each alias binary target (`cargo-octet`, `cargo-slotcar`, `cargo-tigerstyle`).
 - `cargo test -p cargo-octet hir_fixture_inventory_lists_closed_selectors_and_boundaries -- --nocapture`: `1 passed; 0 failed` for each alias binary target.
 - `nix build .#checks.x86_64-linux.valence-object-evidence --no-link -L`: passed and printed:
@@ -74,6 +75,7 @@ Observed pass signals:
   - `valence_object_evidence.caveat_taxonomy_gate: PASS`
   - `valence_object_evidence.thir_supplement_inventory_gate: PASS`
   - `valence_object_evidence.mir_supplement_fixture_gate: PASS`
+  - `valence_object_evidence.mir_supplement_inventory_gate: PASS`
   - `valence_object_evidence.fresh_build_determinism_gate: PASS`
   - `valence_object_evidence.scope=bounded-local-selected-corpus-evidence-replay`
   - `valence_object_evidence.non_claims=correctness,semantic_equivalence,exhaustive_rust_coverage,cross_machine_determinism,cross_toolchain_determinism`

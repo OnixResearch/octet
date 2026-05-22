@@ -1,0 +1,84 @@
+$ nix build .#checks.x86_64-linux.mir-supplement-inventory-gate --no-link -L --rebuild
+checking outputs of '/nix/store/nmfg8rfw98n6gkzwiy6jkq459kg3sbxi-octet-mir-supplement-inventory-gate-0.1.0.drv'...
+octet-mir-supplement-inventory-gate> Running phase: unpackPhase
+octet-mir-supplement-inventory-gate> unpacking source archive /nix/store/b0c0v4dpqgsv15986abdwlw4ggki1lxk-source
+octet-mir-supplement-inventory-gate> source root is source
+octet-mir-supplement-inventory-gate> Running phase: patchPhase
+octet-mir-supplement-inventory-gate> Executing configureCargoCommonVars
+octet-mir-supplement-inventory-gate> decompressing cargo artifacts from /nix/store/hkwyd8ywfwprl0xj71vgbng063238vzs-octet-deps-0.1.0/target.tar.zst to target
+octet-mir-supplement-inventory-gate> Running phase: updateAutotoolsGnuConfigScriptsPhase
+octet-mir-supplement-inventory-gate> Running phase: configurePhase
+octet-mir-supplement-inventory-gate> will append /build/source/.cargo-home/config.toml with contents of /nix/store/7psin7sq5sx4gs43jj2la6nzl2050sxz-vendor-cargo-deps/config.toml
+octet-mir-supplement-inventory-gate> default configurePhase, nothing to do
+octet-mir-supplement-inventory-gate> Running phase: buildPhase
+octet-mir-supplement-inventory-gate> +++ command cargo --version
+octet-mir-supplement-inventory-gate> cargo 1.96.0-nightly (cbb9bb8bd 2026-03-13)
+octet-mir-supplement-inventory-gate> Running phase: checkPhase
+octet-mir-supplement-inventory-gate> +++ command cargo test --release -p cargo-octet --test fingerprint_consumer mir_fixture -- --nocapture
+octet-mir-supplement-inventory-gate> warning: /build/source/cargo-octet/Cargo.toml: file `/build/source/cargo-octet/src/main.rs` found to be present in multiple build targets:
+octet-mir-supplement-inventory-gate>   * `bin` target `cargo-octet`
+octet-mir-supplement-inventory-gate>   * `bin` target `cargo-slotcar`
+octet-mir-supplement-inventory-gate>   * `bin` target `cargo-tigerstyle`
+octet-mir-supplement-inventory-gate> warning: /build/source/crates/slotcar-standards/Cargo.toml: file `/build/source/crates/slotcar-standards/src/main.rs` found to be present in multiple build targets:
+octet-mir-supplement-inventory-gate>   * `bin` target `octet-standards`
+octet-mir-supplement-inventory-gate>   * `bin` target `slotcar-standards`
+octet-mir-supplement-inventory-gate>   * `bin` target `tigerstyle-standards`
+octet-mir-supplement-inventory-gate>    Compiling find-msvc-tools v0.1.9
+octet-mir-supplement-inventory-gate>    Compiling shlex v1.3.0
+octet-mir-supplement-inventory-gate>    Compiling serde_core v1.0.228
+octet-mir-supplement-inventory-gate>    Compiling proc-macro2 v1.0.106
+octet-mir-supplement-inventory-gate>    Compiling cc v1.2.62
+octet-mir-supplement-inventory-gate>    Compiling quote v1.0.45
+octet-mir-supplement-inventory-gate>    Compiling arrayref v0.3.9
+octet-mir-supplement-inventory-gate>    Compiling cfg-if v1.0.4
+octet-mir-supplement-inventory-gate>    Compiling arrayvec v0.7.6
+octet-mir-supplement-inventory-gate>    Compiling cpufeatures v0.3.0
+octet-mir-supplement-inventory-gate>    Compiling constant_time_eq v0.4.2
+octet-mir-supplement-inventory-gate>    Compiling serde_json v1.0.149
+octet-mir-supplement-inventory-gate>    Compiling syn v2.0.117
+octet-mir-supplement-inventory-gate>    Compiling libc v0.2.186
+octet-mir-supplement-inventory-gate>    Compiling blake3 v1.8.5
+octet-mir-supplement-inventory-gate>    Compiling cargo-octet v0.1.0 (/build/source/cargo-octet)
+octet-mir-supplement-inventory-gate>    Compiling toml_datetime v1.1.1+spec-1.1.0
+octet-mir-supplement-inventory-gate>    Compiling serde_spanned v1.1.1
+octet-mir-supplement-inventory-gate>    Compiling toml v1.1.2+spec-1.1.0
+octet-mir-supplement-inventory-gate>    Compiling rustix v1.1.4
+octet-mir-supplement-inventory-gate>    Compiling serde_derive v1.0.228
+octet-mir-supplement-inventory-gate>    Compiling getrandom v0.4.2
+octet-mir-supplement-inventory-gate>    Compiling bitflags v2.11.1
+octet-mir-supplement-inventory-gate>    Compiling linux-raw-sys v0.12.1
+octet-mir-supplement-inventory-gate>    Compiling serde v1.0.228
+octet-mir-supplement-inventory-gate>    Compiling once_cell v1.21.4
+octet-mir-supplement-inventory-gate>    Compiling fastrand v2.4.1
+octet-mir-supplement-inventory-gate>    Compiling tempfile v3.27.0
+octet-mir-supplement-inventory-gate>     Finished `release` profile [optimized] target(s) in 11.39s
+octet-mir-supplement-inventory-gate>      Running tests/fingerprint_consumer.rs (target/release/deps/fingerprint_consumer-a0688eab409d177f)
+octet-mir-supplement-inventory-gate>
+octet-mir-supplement-inventory-gate> running 3 tests
+octet-mir-supplement-inventory-gate> test mir_fixture_inventory_aggregate_gate_preserves_selected_fixture_boundaries ... ok
+octet-mir-supplement-inventory-gate> test mir_fixture_inventory_commands_roundtrip_selected_fixture_evidence ... ok
+octet-mir-supplement-inventory-gate> test mir_fixture_supplement_emit_check_and_negative_replay_are_bounded ... ok
+octet-mir-supplement-inventory-gate>
+octet-mir-supplement-inventory-gate> test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 59 filtered out; finished in 0.02s
+octet-mir-supplement-inventory-gate>
+octet-mir-supplement-inventory-gate> Running phase: installPhase
+octet-mir-supplement-inventory-gate> stripping references to Rust toolchain
+octet-mir-supplement-inventory-gate> Rust toolchain at: /nix/store/1yvh3d6y3fj3xk2dgwczrp1dj5svd92c-rust-default-1.96.0-nightly-2026-03-21
+octet-mir-supplement-inventory-gate> stripping Rust toolchain references done
+octet-mir-supplement-inventory-gate> stripping references to cargoVendorDir from:
+octet-mir-supplement-inventory-gate> stripping references done
+octet-mir-supplement-inventory-gate> Running phase: fixupPhase
+octet-mir-supplement-inventory-gate> shrinking RPATHs of ELF executables and libraries in /nix/store/fihvrnrjxvxd41z1grna8df98b8x0kwa-octet-mir-supplement-inventory-gate-0.1.0
+octet-mir-supplement-inventory-gate> checking for references to /build/ in /nix/store/fihvrnrjxvxd41z1grna8df98b8x0kwa-octet-mir-supplement-inventory-gate-0.1.0...
+octet-mir-supplement-inventory-gate> patching script interpreter paths in /nix/store/fihvrnrjxvxd41z1grna8df98b8x0kwa-octet-mir-supplement-inventory-gate-0.1.0
+$ nix build .#checks.x86_64-linux.valence-object-evidence --no-link -L --rebuild
+checking outputs of '/nix/store/nw5rqlwasi5pvsh1ndk48l1p4zwj4l6b-octet-valence-object-evidence.drv'...
+octet-valence-object-evidence> valence_object_evidence.object_corpus_gate: PASS
+octet-valence-object-evidence> valence_object_evidence.compatibility_gate: PASS
+octet-valence-object-evidence> valence_object_evidence.caveat_taxonomy_gate: PASS
+octet-valence-object-evidence> valence_object_evidence.thir_supplement_inventory_gate: PASS
+octet-valence-object-evidence> valence_object_evidence.mir_supplement_fixture_gate: PASS
+octet-valence-object-evidence> valence_object_evidence.mir_supplement_inventory_gate: PASS
+octet-valence-object-evidence> valence_object_evidence.fresh_build_determinism_gate: PASS
+octet-valence-object-evidence> valence_object_evidence.scope=bounded-local-selected-corpus-evidence-replay
+octet-valence-object-evidence> valence_object_evidence.non_claims=correctness,semantic_equivalence,exhaustive_rust_coverage,cross_machine_determinism,cross_toolchain_determinism

@@ -2826,6 +2826,203 @@ fn thir_inventory_aggregate_gate_preserves_selected_fixture_boundaries() {
 }
 
 #[test]
+fn mir_fixture_inventory_commands_roundtrip_selected_fixture_evidence() {
+    let root = repo_root();
+    let temp = tempfile::tempdir().expect("create MIR supplement roundtrip tempdir");
+    let inventory = Command::new(cargo_octet())
+        .args([
+            "object",
+            "supplement",
+            "fixtures",
+            "--family",
+            "mir",
+            "--spike",
+            "rustc-mir-fixture",
+            "--output-format",
+            "json",
+        ])
+        .current_dir(&root)
+        .output()
+        .expect("run MIR fixture inventory json roundtrip source");
+    assert!(
+        inventory.status.success(),
+        "MIR inventory roundtrip source failed stdout={} stderr={}",
+        String::from_utf8_lossy(&inventory.stdout),
+        String::from_utf8_lossy(&inventory.stderr)
+    );
+    let json: serde_json::Value = serde_json::from_slice(&inventory.stdout).expect("MIR inventory roundtrip json");
+    assert_eq!(json["schema"], "octet.mir-fixture-inventory.v1");
+    assert_eq!(json["family"], "mir");
+    assert_eq!(json["scope"], "rustc-mir-fixture-spike");
+    assert_eq!(json["default_shape"], "checked-arithmetic");
+    let shapes = json["shapes"].as_array().expect("MIR fixture inventory shapes array");
+    let mut visited = BTreeSet::new();
+
+    for fixture in shapes {
+        let shape = fixture["shape"].as_str().expect("MIR fixture shape");
+        visited.insert(shape.to_owned());
+        assert_ne!(
+            shape, "branch-control-flow",
+            "branch-control-flow is HIR-only and must not appear in MIR inventory"
+        );
+        assert_eq!(fixture["support_status"], "pilot-supported");
+        assert!(
+            fixture["support_boundary"].as_str().expect("support boundary").contains("selected-fixture-only"),
+            "MIR inventory should stay selected-fixture-only: {fixture:#?}"
+        );
+        let emit_command = fixture["emit_command"].as_str().expect("emit command");
+        let emit_args: Vec<&str> = emit_command
+            .strip_prefix("cargo octet ")
+            .unwrap_or_else(|| panic!("emit command should start with cargo octet: {emit_command}"))
+            .split_whitespace()
+            .collect();
+        assert!(emit_args.windows(2).any(|window| window == ["--family", "mir"]));
+        assert!(emit_args.windows(2).any(|window| window == ["--spike", "rustc-mir-fixture"]));
+        assert!(emit_args.windows(2).any(|window| window == ["--fixture-shape", shape]));
+        let emit = Command::new(cargo_octet())
+            .args(&emit_args)
+            .current_dir(&root)
+            .output()
+            .unwrap_or_else(|error| panic!("run MIR inventory emit command for {shape}: {error}"));
+        assert!(
+            emit.status.success(),
+            "MIR inventory emit command for {shape} failed stdout={} stderr={}",
+            String::from_utf8_lossy(&emit.stdout),
+            String::from_utf8_lossy(&emit.stderr)
+        );
+        let receipt: serde_json::Value = serde_json::from_slice(&emit.stdout).expect("MIR emit receipt json");
+        assert_eq!(receipt["family"], "mir");
+        let supplement = receipt["supplements"]
+            .as_array()
+            .expect("MIR supplement array")
+            .first()
+            .unwrap_or_else(|| panic!("missing emitted MIR supplement: {receipt:#?}"));
+        assert_eq!(supplement["status"], "pilot-supported");
+        assert!(
+            supplement["observations"]["fixture_context"]["detail"]
+                .as_str()
+                .expect("fixture context detail")
+                .contains(&format!("fixture_shape={shape}")),
+            "MIR receipt should name inventory shape {shape}: {receipt:#?}"
+        );
+        assert_eq!(supplement["boundary"]["claims_correctness"], false);
+        assert_eq!(supplement["boundary"]["claims_semantic_equivalence"], false);
+        assert_eq!(supplement["boundary"]["claims_pure_cache_eligibility"], false);
+        assert_eq!(supplement["boundary"]["claims_cross_toolchain_stability"], false);
+
+        let receipt_path = temp.path().join(format!("{shape}.json"));
+        fs::write(&receipt_path, &emit.stdout).expect("write emitted MIR supplement receipt");
+        let check_command = fixture["check_command"].as_str().expect("check command");
+        let check_args: Vec<String> = check_command
+            .strip_prefix("cargo octet ")
+            .unwrap_or_else(|| panic!("check command should start with cargo octet: {check_command}"))
+            .split_whitespace()
+            .map(|arg| {
+                if arg == "RECEIPT.json" {
+                    receipt_path.to_string_lossy().into_owned()
+                } else {
+                    arg.to_owned()
+                }
+            })
+            .collect();
+        let check = Command::new(cargo_octet())
+            .args(&check_args)
+            .current_dir(&root)
+            .output()
+            .unwrap_or_else(|error| panic!("run MIR inventory check command for {shape}: {error}"));
+        assert!(
+            check.status.success(),
+            "MIR inventory check command for {shape} failed stdout={} stderr={}",
+            String::from_utf8_lossy(&check.stdout),
+            String::from_utf8_lossy(&check.stderr)
+        );
+        let report: serde_json::Value = serde_json::from_slice(&check.stdout).expect("MIR check report json");
+        assert_eq!(report["status"], "pass");
+        assert!(
+            report["comparisons"]
+                .as_array()
+                .expect("comparison array")
+                .iter()
+                .all(|comparison| comparison["status"] == "match"),
+            "MIR inventory check command for {shape} should match all compared fields: {report:#?}"
+        );
+    }
+
+    assert_eq!(visited, BTreeSet::from(["call-return".to_owned(), "checked-arithmetic".to_owned()]));
+}
+
+#[test]
+fn mir_fixture_inventory_aggregate_gate_preserves_selected_fixture_boundaries() {
+    let root = repo_root();
+    let inventory = Command::new(cargo_octet())
+        .args([
+            "object",
+            "supplement",
+            "fixtures",
+            "--family",
+            "mir",
+            "--spike",
+            "rustc-mir-fixture",
+            "--output-format",
+            "json",
+        ])
+        .current_dir(&root)
+        .output()
+        .expect("run aggregate MIR fixture inventory source");
+    assert!(
+        inventory.status.success(),
+        "aggregate MIR inventory source failed stdout={} stderr={}",
+        String::from_utf8_lossy(&inventory.stdout),
+        String::from_utf8_lossy(&inventory.stderr)
+    );
+    let json: serde_json::Value = serde_json::from_slice(&inventory.stdout).expect("aggregate MIR inventory json");
+    let shapes = json["shapes"].as_array().expect("aggregate MIR fixture inventory shapes array");
+    let listed: BTreeSet<_> =
+        shapes.iter().map(|fixture| fixture["shape"].as_str().expect("fixture shape").to_owned()).collect();
+    assert_eq!(
+        listed,
+        BTreeSet::from(["call-return".to_owned(), "checked-arithmetic".to_owned()]),
+        "aggregate MIR inventory gate must stay closed over selected fixture shapes: {json:#?}"
+    );
+    assert!(
+        shapes.iter().all(|fixture| fixture["shape"] != "branch-control-flow"),
+        "branch-control-flow is HIR-only and must not be promoted into aggregate MIR inventory: {json:#?}"
+    );
+    for fixture in shapes {
+        assert_eq!(fixture["support_status"], "pilot-supported");
+        assert!(
+            fixture["emit_command"].as_str().expect("emit command").contains("--spike rustc-mir-fixture"),
+            "aggregate MIR inventory must expose replayable emit commands: {fixture:#?}"
+        );
+        assert!(
+            fixture["check_command"].as_str().expect("check command").contains("--spike rustc-mir-fixture"),
+            "aggregate MIR inventory must expose replayable check commands: {fixture:#?}"
+        );
+        assert!(
+            fixture["support_boundary"].as_str().expect("support boundary").contains("selected-fixture-only"),
+            "aggregate MIR inventory must remain selected-fixture-only: {fixture:#?}"
+        );
+    }
+
+    let contract = object_corpus_contract(&root);
+    let supplements = contract["supplemental_evidence"].as_array().expect("supplemental evidence list");
+    let mir = supplements
+        .iter()
+        .find(|value| value["family"] == "mir")
+        .unwrap_or_else(|| panic!("missing MIR supplement contract in {contract:#?}"));
+    assert_eq!(mir["status"], "unsupported-planned");
+    assert_eq!(mir["claims_correctness"], false);
+    assert_eq!(mir["claims_semantic_equivalence"], false);
+    assert_eq!(mir["claims_cross_toolchain_stability"], false);
+    assert!(
+        mir["unsupported_reason"]
+            .as_str()
+            .expect("MIR unsupported reason")
+            .contains("default and non-fixture MIR requests remain unsupported-planned"),
+        "aggregate MIR inventory must not broaden default/non-fixture MIR status: {mir:#?}"
+    );
+}
+#[test]
 fn object_corpus_contract_metadata_reports_receipt_and_check_shapes() {
     let root = repo_root();
     let contract = object_corpus_contract(&root);

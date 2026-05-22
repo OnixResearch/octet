@@ -1,0 +1,19 @@
+$ human boundary review for add-mir-inventory-aggregate-rail
+
+Reviewed surfaces:
+- cargo-octet/tests/fingerprint_consumer.rs
+- flake.nix
+- docs/contributor-guide.md
+- docs/current-head-valence-evidence.md
+- openspec/changes/archive/2026-05-22-add-mir-inventory-aggregate-rail/evidence/*.txt
+
+Assertions:
+- assert.selected_mir_inventory_exact: PASS (checked-arithmetic, call-return)
+- assert.default_mir_remains_unsupported_planned: PASS
+- assert_non_fixture_mir_overclaim_absent: PASS
+- assert.aggregate_preserves_existing_fixture_gate: PASS (valence_object_evidence.mir_supplement_fixture_gate: PASS)
+- assert.aggregate_adds_inventory_gate: PASS (valence_object_evidence.mir_supplement_inventory_gate: PASS)
+- assert.no_correctness_or_semantic_equivalence_claim: PASS
+- assert.no_exhaustive_rust_or_broader_mir_support_claim: PASS
+
+Conclusion: the new rail is bounded selected-fixture inventory/replay evidence only. It does not claim general MIR extraction, correctness, semantic equivalence, exhaustive Rust coverage, cross-machine determinism, or cross-toolchain determinism.
