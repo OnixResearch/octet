@@ -1,0 +1,26 @@
+OpenSpec design gate (add-thir-fixture-inventory-rail)
+
+Strategy: same-family
+
+VERDICT: PASS
+
+## Findings
+- None
+
+## Stage Check
+- Proposal scope is covered by `design.md`: THIR inventory remains on `cargo octet object supplement fixtures --family thir --spike rustc-thir-fixture`, with selected fixtures `checked-arithmetic` and `call-return`.
+- Delta spec traceability is concrete in `openspec/changes/archive/2026-05-22-add-thir-fixture-inventory-rail/specs/standards-codification/spec.md`:
+  - `r[hir-mir-supplement-pilot.scenario.thir-fixture-inventory-selected-shapes]`
+  - `r[hir-mir-supplement-pilot.scenario.thir-inventory-command-roundtrip]`
+  - `r[hir-mir-supplement-pilot.scenario.thir-fixture-inventory-default-boundary]`
+- Design decisions cover support boundaries: `design.md` Decision 2 keeps THIR selected-fixture-only and preserves default/non-fixture `unsupported-planned`.
+- Negative control is explicit: `design.md` Decision 3 and proposal require excluding HIR-only `branch-control-flow`.
+- Verification strategy is explicit and reviewable, with named commands and evidence paths under `openspec/changes/archive/2026-05-22-add-thir-fixture-inventory-rail/evidence/`.
+- No unresolved human-oracle choice is apparent before tasks or implementation.
+
+Stage is ready to proceed past design.
+
+## Next Actions
+- Create tasks that map directly to the three delta scenarios.
+- Include task concurrency markers when entering task stage.
+- Preserve the planned evidence transcript paths from `design.md`.

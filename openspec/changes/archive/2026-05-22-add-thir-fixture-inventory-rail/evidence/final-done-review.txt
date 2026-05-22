@@ -1,0 +1,11 @@
+VERDICT: PASS
+
+## Findings
+- No blockers.
+- Final post-archive review confirmed THIR inventory remains bounded to exactly `checked-arithmetic` and `call-return`.
+- `branch-control-flow` remains HIR-only and is excluded from THIR inventory.
+- JSON inventory entries cover selector, fixture path, function, `pilot-supported` status, replay commands, and selected-fixture-only boundaries.
+- Inventory `emit_command`/`check_command` roundtrip evidence passes for both selected THIR shapes.
+- Default/non-fixture THIR metadata remains `unsupported-planned`.
+- Canonical supplement scenarios were preserved after archive; the spec diff only strengthens/adds THIR inventory scenarios.
+- `openspec validate --all --strict --json` and `git diff --check` pass.
