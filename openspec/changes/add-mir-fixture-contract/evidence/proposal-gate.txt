@@ -1,0 +1,29 @@
+OpenSpec proposal gate (add-mir-fixture-contract)
+
+Strategy: same-family
+
+VERDICT: PASS
+
+## Findings
+- None
+
+## Stage Check
+- Proposal states why and scope: MIR is currently only `unsupported-planned`, and the change adds a closed `rustc-mir-fixture` spike scope for selected MIR fixture evidence.
+  - Evidence: `openspec/changes/add-mir-fixture-contract/proposal.md` sections `## Why`, `## What Changes`
+- Non-goals and fail-closed boundaries are explicit.
+  - Evidence: `proposal.md` `## Out of Scope`; `## Obligation cross-check`
+- Delta spec encodes the proposed capability and selected-fixture boundary.
+  - Evidence: `openspec/changes/add-mir-fixture-contract/specs/standards-codification/spec.md`, requirement `r[hir-mir-supplement-pilot]`
+  - Evidence: scenarios:
+    - `r[hir-mir-supplement-pilot.scenario.mir-fixture-inventory-selected-shapes]`
+    - `r[hir-mir-supplement-pilot.scenario.mir-checked-arithmetic-fixture-pilot-supported]`
+    - `r[hir-mir-supplement-pilot.scenario.mir-unsupported-fixture-shape-rejected]`
+    - `r[hir-mir-supplement-pilot.scenario.mir-fixture-scope-rejects-non-mir-family-pairings]`
+    - `r[hir-mir-supplement-pilot.scenario.mir-default-contract-remains-planned-after-expansion]`
+- Verification expectations are present at proposal level.
+  - Evidence: `proposal.md` `## Impact` → `Testing`; `## Obligation cross-check`
+- No proposal-stage blocker found. Stage is ready to proceed to design.
+
+## Next Actions
+- Proceed to design.
+- In design, specify exact CLI diagnostics, fixture inventory output fields, evidence artifact paths, and aggregate gate command coverage.

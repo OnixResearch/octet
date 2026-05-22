@@ -1,0 +1,19 @@
+OpenSpec tasks gate (add-mir-fixture-contract)
+
+Strategy: same-family
+
+VERDICT: PASS
+
+## Findings
+- None.
+
+## Stage Check
+- Tasks trace to proposal/design/spec scope: MIR fixture scope, checked-arithmetic selector, fail-closed boundaries, parser/runtime/docs/aggregate verification.
+- Verification coverage maps every delta spec scenario to V1–V5 evidence rows in `openspec/changes/add-mir-fixture-contract/tasks.md`.
+- All 19 checkbox tasks include concurrency markers: `[serial]` or `[depends:<...>]`; no unmarked tasks or dependency cycles are evident.
+- Ordering is coherent: H1→H2→H3 gates before I1 implementation, I1–I4 serial implementation, V1–V5 focused checks before V6 aggregate, then OpenSpec/whitespace/archive checks.
+- Archive/sync work is included: `I5` and `V10`.
+
+## Next Actions
+- Save this tasks-gate result to `openspec/changes/add-mir-fixture-contract/evidence/tasks-gate.txt`.
+- Proceed with `I1` only after H1, H2, and H3 evidence rows are completed.
