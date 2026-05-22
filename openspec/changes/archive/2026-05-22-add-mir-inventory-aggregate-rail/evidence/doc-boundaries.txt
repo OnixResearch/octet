@@ -1,0 +1,5 @@
+doc_boundaries.aggregate_command: PASS
+doc_boundaries.mir_inventory_gate: PASS
+doc_boundaries.selected_mir_inventory: PASS
+doc_boundaries.unsupported_planned_boundary: PASS
+doc_boundaries.non_proof_boundaries: PASS
