@@ -1,0 +1,18 @@
+VERDICT: WARN
+
+## Findings
+- [warn] [class=omission] [scope=tasks] [route=auto-fix] [promoted=no] OpenSpec task bookkeeping was still unchecked while implementation and evidence were complete.
+  - Evidence: pre-review `openspec/changes/archive/2026-05-22-add-mir-call-return-fixture/tasks.md` listed I1/I2/V1-V7/H1 unchecked; evidence files showed focused and aggregate checks passed.
+- [warn] [class=omission] [scope=review] [route=auto-fix] [promoted=no] H1 evidence path expected `done-review.txt`, while initial evidence collection wrote only `done-review-evidence.md`.
+  - Evidence: `tasks.md` H1 path; fixed by recording this review at `openspec/changes/archive/2026-05-22-add-mir-call-return-fixture/evidence/done-review.txt`.
+
+## OpenSpec Check
+- `openspec/changes/archive/2026-05-22-add-mir-call-return-fixture/specs/standards-codification/spec.md` contains scenarios for exact MIR selected shapes, call-return pilot evidence, unsupported-shape rejection, and default MIR `unsupported-planned`.
+- Implementation matches the plan: `cargo-octet/src/cli.rs` accepts exact MIR selectors `checked-arithmetic` and `call-return`; `cargo-octet/src/object.rs` adds only the bounded call-return fixture entry; `cargo-octet/tests/fixtures/mir-spike/call_return.rs` provides the selected source.
+- Verification evidence reviewed: `mir-fixture-tests.txt`, `parser-tests.txt`, `object-corpus-contract-tests.txt`, `object-internal-corpus-refresh-tests.txt`, `mir-supplement-fixture-gate.txt`, `valence-object-evidence.txt`, and `final-validation.txt` all show PASS.
+
+## Gaps
+- Review warnings were task/evidence bookkeeping only and were fixed before closeout.
+
+## Next Steps
+- Archive the completed OpenSpec change after marking tasks complete.
