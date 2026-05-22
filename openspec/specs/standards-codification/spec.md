@@ -1551,7 +1551,7 @@ The aggregate gate MUST compose the checked-in internal object corpus replay rai
 
 ### Requirement: HIR/MIR supplement pilot [r[hir-mir-supplement-pilot]]
 
-Octet MUST support bounded, fail-closed supplemental evidence families for selected Function Object v1 records. Pilot supplement records MUST reference the canonical `octet.function-object.v1` object hash, record exact toolchain and extractor identity when available, emit closed schema/status values, and preserve no-correctness/no-semantic-equivalence boundaries. Fixture-backed families MAY report `pilot-supported` only for closed, deterministic fixture selectors with positive and negative replay evidence; families or request shapes without deterministic fixture evidence MUST remain `unsupported-planned`. MIR fixture support MUST stay selector-bounded: default/non-fixture MIR requests and object corpus contract metadata remain `unsupported-planned`, while explicit selected MIR fixture runtime selectors MAY report `pilot-supported` only for their checked-in fixture/function pairs.
+Octet MUST support bounded, fail-closed supplemental evidence families for selected Function Object v1 records. Pilot records MUST preserve object-hash linkage, closed schemas/statuses, toolchain/extractor identity when available, and no-correctness/no-semantic-equivalence boundaries. Fixture-backed families MAY report `pilot-supported` only for closed selectors with positive and negative replay evidence; all other families or request shapes MUST remain `unsupported-planned`.
 
 #### Scenario: MIR fixture inventory lists selected shapes [r[hir-mir-supplement-pilot.scenario.mir-fixture-inventory-selected-shapes]]
 
