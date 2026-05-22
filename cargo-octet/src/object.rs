@@ -33,6 +33,9 @@ const RUSTC_THIR_SPIKE_FIXTURE_RELATIVE_PATH: &str = "cargo-octet/tests/fixtures
 const RUSTC_THIR_SPIKE_FUNCTION: &str = "checked";
 const RUSTC_THIR_SPIKE_CALL_FIXTURE_RELATIVE_PATH: &str = "cargo-octet/tests/fixtures/thir-spike/call_return.rs";
 const RUSTC_THIR_SPIKE_CALL_FUNCTION: &str = "call_then_return";
+const RUSTC_THIR_SPIKE_BRANCH_FIXTURE_RELATIVE_PATH: &str =
+    "cargo-octet/tests/fixtures/thir-spike/branch_control_flow.rs";
+const RUSTC_THIR_SPIKE_BRANCH_FUNCTION: &str = "choose_branch";
 const RUSTC_MIR_SPIKE_EXTRACTOR_NAME: &str = "octet-rustc-mir-fixture-contract";
 const RUSTC_MIR_SPIKE_FIXTURE_RELATIVE_PATH: &str = "cargo-octet/tests/fixtures/mir-spike/checked.rs";
 const RUSTC_MIR_SPIKE_FUNCTION: &str = "checked";
@@ -913,6 +916,11 @@ const RUSTC_THIR_SPIKE_FIXTURES: &[RustcHirSpikeFixture] = &[
         relative_path: RUSTC_THIR_SPIKE_CALL_FIXTURE_RELATIVE_PATH,
         function: RUSTC_THIR_SPIKE_CALL_FUNCTION,
         shape: "call-return",
+    },
+    RustcHirSpikeFixture {
+        relative_path: RUSTC_THIR_SPIKE_BRANCH_FIXTURE_RELATIVE_PATH,
+        function: RUSTC_THIR_SPIKE_BRANCH_FUNCTION,
+        shape: "branch-control-flow",
     },
 ];
 
@@ -1894,7 +1902,7 @@ fn supplemental_evidence_contracts() -> Vec<ObjectSupplementalEvidenceContract> 
                 "extraction_caveats",
                 "boundary",
             ],
-            unsupported_reason: "selected rustc THIR fixture contract [checked-arithmetic, call-return] only; default and non-fixture THIR requests remain unsupported-planned until general extractor evidence is added",
+            unsupported_reason: "selected rustc THIR fixture contract [checked-arithmetic, call-return, branch-control-flow] only; default and non-fixture THIR requests remain unsupported-planned until general extractor evidence is added",
             required_evidence_before_support: vec![
                 "positive-rustc-thir-selected-fixture-shape-smoke",
                 "negative-rustc-thir-selected-fixture-shape-mismatch-smoke",
@@ -1905,12 +1913,13 @@ fn supplemental_evidence_contracts() -> Vec<ObjectSupplementalEvidenceContract> 
                 "extractor.name=octet-rustc-thir-fixture-contract for --spike rustc-thir-fixture",
                 "fixture_shape=checked-arithmetic maps to thir-spike/checked.rs::checked",
                 "fixture_shape=call-return maps to thir-spike/call_return.rs::call_then_return",
+                "fixture_shape=branch-control-flow maps to thir-spike/branch_control_flow.rs::choose_branch",
                 "extractor.version=cargo-octet-package-version",
                 "rustc_version=runtime-rustc-vv",
                 "target_triple=runtime-rustc-host",
             ],
-            selected_fixture_shapes: vec!["checked-arithmetic", "call-return"],
-            fixture_replay_command: "cargo octet object supplement emit --family thir --spike rustc-thir-fixture --fixture-shape checked-arithmetic --output-format json && cargo octet object supplement check --family thir --spike rustc-thir-fixture --fixture-shape checked-arithmetic --receipt RECEIPT.json --output-format json; repeat with --fixture-shape call-return",
+            selected_fixture_shapes: vec!["checked-arithmetic", "call-return", "branch-control-flow"],
+            fixture_replay_command: "cargo octet object supplement emit --family thir --spike rustc-thir-fixture --fixture-shape checked-arithmetic --output-format json && cargo octet object supplement check --family thir --spike rustc-thir-fixture --fixture-shape checked-arithmetic --receipt RECEIPT.json --output-format json; repeat with --fixture-shape call-return and --fixture-shape branch-control-flow",
             claims_correctness: false,
             claims_semantic_equivalence: false,
             claims_cross_toolchain_stability: false,
@@ -2865,6 +2874,8 @@ mod tests {
     use super::RUSTC_HIR_SPIKE_EXTRACTOR_VERSION;
     use super::RUSTC_HIR_SPIKE_FIXTURE_RELATIVE_PATH;
     use super::RUSTC_HIR_SPIKE_FUNCTION;
+    use super::RUSTC_THIR_SPIKE_BRANCH_FIXTURE_RELATIVE_PATH;
+    use super::RUSTC_THIR_SPIKE_BRANCH_FUNCTION;
     use super::RUSTC_THIR_SPIKE_CALL_FIXTURE_RELATIVE_PATH;
     use super::RUSTC_THIR_SPIKE_CALL_FUNCTION;
     use super::RUSTC_THIR_SPIKE_FIXTURE_RELATIVE_PATH;
@@ -3072,8 +3083,7 @@ mod tests {
         assert_eq!(report.family, "thir");
         assert_eq!(report.scope, "rustc-thir-fixture-spike");
         assert_eq!(report.default_shape, "checked-arithmetic");
-        assert_eq!(report.shapes.len(), 2);
-        assert!(report.shapes.iter().all(|shape| shape.shape != "branch-control-flow"));
+        assert_eq!(report.shapes.len(), 3);
 
         let checked = report.shapes.iter().find(|shape| shape.shape == "checked-arithmetic").unwrap();
         assert_eq!(checked.fixture_path, RUSTC_THIR_SPIKE_FIXTURE_RELATIVE_PATH);
@@ -3084,6 +3094,11 @@ mod tests {
         assert_eq!(call_return.fixture_path, RUSTC_THIR_SPIKE_CALL_FIXTURE_RELATIVE_PATH);
         assert_eq!(call_return.function, RUSTC_THIR_SPIKE_CALL_FUNCTION);
         assert!(!call_return.is_default);
+
+        let branch = report.shapes.iter().find(|shape| shape.shape == "branch-control-flow").unwrap();
+        assert_eq!(branch.fixture_path, RUSTC_THIR_SPIKE_BRANCH_FIXTURE_RELATIVE_PATH);
+        assert_eq!(branch.function, RUSTC_THIR_SPIKE_BRANCH_FUNCTION);
+        assert!(!branch.is_default);
 
         for shape in &report.shapes {
             assert_eq!(shape.support_status, ObjectSupplementStatus::PilotSupported.as_str());

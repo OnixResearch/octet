@@ -2658,10 +2658,16 @@ fn thir_inventory_commands_roundtrip_selected_fixture_evidence() {
     for fixture in shapes {
         let shape = fixture["shape"].as_str().expect("THIR fixture shape");
         visited.insert(shape.to_owned());
-        assert_ne!(
-            shape, "branch-control-flow",
-            "branch-control-flow is HIR-only and must not appear in THIR inventory"
-        );
+        if shape == "branch-control-flow" {
+            assert!(
+                fixture["fixture_path"]
+                    .as_str()
+                    .expect("THIR branch fixture path")
+                    .ends_with("thir-spike/branch_control_flow.rs"),
+                "branch-control-flow must use the THIR-specific fixture path: {fixture:#?}"
+            );
+            assert_eq!(fixture["function"], "choose_branch");
+        }
         assert_eq!(fixture["support_status"], "pilot-supported");
         assert!(
             fixture["support_boundary"]
@@ -2747,7 +2753,14 @@ fn thir_inventory_commands_roundtrip_selected_fixture_evidence() {
         );
     }
 
-    assert_eq!(visited, BTreeSet::from(["call-return".to_owned(), "checked-arithmetic".to_owned()]));
+    assert_eq!(
+        visited,
+        BTreeSet::from([
+            "branch-control-flow".to_owned(),
+            "call-return".to_owned(),
+            "checked-arithmetic".to_owned(),
+        ])
+    );
 }
 
 #[test]
@@ -2780,12 +2793,24 @@ fn thir_inventory_aggregate_gate_preserves_selected_fixture_boundaries() {
         shapes.iter().map(|fixture| fixture["shape"].as_str().expect("fixture shape").to_owned()).collect();
     assert_eq!(
         listed,
-        BTreeSet::from(["call-return".to_owned(), "checked-arithmetic".to_owned()]),
+        BTreeSet::from([
+            "branch-control-flow".to_owned(),
+            "call-return".to_owned(),
+            "checked-arithmetic".to_owned(),
+        ]),
         "aggregate THIR inventory gate must stay closed over selected fixture shapes: {json:#?}"
     );
+    let branch = shapes
+        .iter()
+        .find(|fixture| fixture["shape"] == "branch-control-flow")
+        .expect("aggregate THIR branch-control-flow fixture entry");
+    assert_eq!(branch["function"], "choose_branch");
     assert!(
-        shapes.iter().all(|fixture| fixture["shape"] != "branch-control-flow"),
-        "branch-control-flow is HIR-only and must not be promoted into aggregate THIR inventory: {json:#?}"
+        branch["fixture_path"]
+            .as_str()
+            .expect("branch fixture path")
+            .ends_with("thir-spike/branch_control_flow.rs"),
+        "branch-control-flow must be a THIR-specific selected fixture: {branch:#?}"
     );
     for fixture in shapes {
         assert_eq!(fixture["support_status"], "pilot-supported");
@@ -3022,6 +3047,39 @@ fn mir_fixture_inventory_aggregate_gate_preserves_selected_fixture_boundaries() 
         "aggregate MIR inventory must not broaden default/non-fixture MIR status: {mir:#?}"
     );
 }
+#[test]
+fn mir_fixture_branch_control_flow_selector_fails_closed() {
+    let root = repo_root();
+    let output = Command::new(cargo_octet())
+        .args([
+            "object",
+            "supplement",
+            "emit",
+            "--family",
+            "mir",
+            "--spike",
+            "rustc-mir-fixture",
+            "--fixture-shape",
+            "branch-control-flow",
+            "--output-format",
+            "json",
+        ])
+        .current_dir(&root)
+        .output()
+        .expect("run MIR branch-control-flow negative selector");
+    assert!(
+        !output.status.success(),
+        "MIR branch-control-flow must fail closed stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("supports only `--fixture-shape checked-arithmetic` or `--fixture-shape call-return`"),
+        "unexpected MIR branch-control-flow diagnostic: {stderr}"
+    );
+}
+
 #[test]
 fn object_corpus_contract_metadata_reports_receipt_and_check_shapes() {
     let root = repo_root();

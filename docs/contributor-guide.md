@@ -231,7 +231,7 @@ and fresh-build determinism rails. It includes a named MIR inventory check,
 `nix build .#checks.x86_64-linux.mir-supplement-inventory-gate --no-link -L`,
 which is composed into the aggregate as
 `valence_object_evidence.mir_supplement_inventory_gate: PASS`. The THIR and MIR
-fixture coverage is selected-fixture-only (`checked-arithmetic` and `call-return`) and does not imply general THIR or MIR extraction. The aggregate is bounded evidence replay for the
+fixture coverage is selected-fixture-only (THIR: `checked-arithmetic`, `call-return`, and `branch-control-flow`; MIR: `checked-arithmetic` and `call-return`) and does not imply general THIR or MIR extraction. The aggregate is bounded evidence replay for the
 selected corpus; it is not a correctness proof, semantic equivalence proof,
 exhaustive Rust coverage proof, or cross-machine/toolchain determinism proof.
 
@@ -274,6 +274,8 @@ cargo octet object supplement emit --family thir --spike rustc-thir-fixture --fi
 cargo octet object supplement check --family thir --spike rustc-thir-fixture --fixture-shape checked-arithmetic --receipt thir-spike-checked.json --output-format json
 cargo octet object supplement emit --family thir --spike rustc-thir-fixture --fixture-shape call-return --output-format json > thir-spike-call-return.json
 cargo octet object supplement check --family thir --spike rustc-thir-fixture --fixture-shape call-return --receipt thir-spike-call-return.json --output-format json
+cargo octet object supplement emit --family thir --spike rustc-thir-fixture --fixture-shape branch-control-flow --output-format json > thir-spike-branch.json
+cargo octet object supplement check --family thir --spike rustc-thir-fixture --fixture-shape branch-control-flow --receipt thir-spike-branch.json --output-format json
 cargo octet object supplement emit --family mir --spike rustc-mir-fixture --fixture-shape checked-arithmetic --output-format json > mir-spike-checked.json
 cargo octet object supplement check --family mir --spike rustc-mir-fixture --fixture-shape checked-arithmetic --receipt mir-spike-checked.json --output-format json
 cargo octet object supplement emit --family mir --spike rustc-mir-fixture --fixture-shape call-return --output-format json > mir-spike-call-return.json
@@ -286,8 +288,9 @@ rustc HIR fixture spike is selected-fixture-backed/toolchain-scoped review
 evidence for exactly `checked-arithmetic` (`checked.rs::checked`) and
 `branch-control-flow` (`clamp.rs::clamp_to_limit`). The rustc THIR fixture
 contract is selected-fixture-backed/toolchain-scoped review evidence for exactly
-`checked-arithmetic` (`thir-spike/checked.rs::checked`) and `call-return`
-(`thir-spike/call_return.rs::call_then_return`). The rustc MIR fixture contract
+`checked-arithmetic` (`thir-spike/checked.rs::checked`), `call-return`
+(`thir-spike/call_return.rs::call_then_return`), and `branch-control-flow`
+(`thir-spike/branch_control_flow.rs::choose_branch`). THIR branch-control-flow does not imply general THIR extraction, correctness, semantic equivalence, or MIR branch-control-flow support. The rustc MIR fixture contract
 is selected-fixture-backed/toolchain-scoped review evidence for exactly
 `checked-arithmetic` (`mir-spike/checked.rs::checked`) and `call-return`
 (`mir-spike/call_return.rs::call_then_return`). They attach to the
@@ -297,8 +300,8 @@ support for the checked pilot emit/check surface plus the explicit selected HIR
 fixture shapes only. Treat MIR/THIR contract metadata as `unsupported-planned`
 until general extractor evidence exists; only explicit selected runtime paths
 (`rustc-mir-fixture --fixture-shape checked-arithmetic`, `rustc-thir-fixture
---fixture-shape checked-arithmetic`, or `rustc-thir-fixture --fixture-shape
-call-return`, or `rustc-mir-fixture --fixture-shape call-return`) may emit
+--fixture-shape checked-arithmetic`, `rustc-thir-fixture --fixture-shape
+call-return`, `rustc-thir-fixture --fixture-shape branch-control-flow`, or `rustc-mir-fixture --fixture-shape call-return`) may emit
 `pilot-supported`. The default MIR and THIR runtime seams
 remain fail-closed: non-fixture/default MIR/THIR emit/check may still replay
 `unsupported-planned` records, but those records are not extractor support.

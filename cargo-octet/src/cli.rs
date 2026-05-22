@@ -1049,7 +1049,7 @@ fn parse_object_supplement_scan(emit: bool, args: &[String]) -> Result<ObjectArg
         && !fixture_shape_was_provided
     {
         return Err(
-            "`--family thir --spike rustc-thir-fixture` requires explicit `--fixture-shape checked-arithmetic` or `--fixture-shape call-return`"
+            "`--family thir --spike rustc-thir-fixture` requires explicit `--fixture-shape checked-arithmetic`, `--fixture-shape call-return`, or `--fixture-shape branch-control-flow`"
                 .to_owned(),
         );
     }
@@ -1131,8 +1131,14 @@ fn parse_supplement_fixture_shape(
             path: PathBuf::from("cargo-octet/tests/fixtures/thir-spike/call_return.rs"),
             function: "call_then_return".to_owned(),
         }),
+        (SupplementScopeArg::RustcThirFixtureSpike, "branch" | "branch-control-flow" | "clamp") => {
+            Ok(SupplementFixtureSelection {
+                path: PathBuf::from("cargo-octet/tests/fixtures/thir-spike/branch_control_flow.rs"),
+                function: "choose_branch".to_owned(),
+            })
+        }
         (SupplementScopeArg::RustcThirFixtureSpike, other) => Err(format!(
-            "unsupported THIR supplement fixture shape `{other}`; expected `checked-arithmetic` or `call-return`"
+            "unsupported THIR supplement fixture shape `{other}`; expected `checked-arithmetic`, `call-return`, or `branch-control-flow`"
         )),
         (SupplementScopeArg::RustcMirFixtureSpike, "checked-arithmetic") => Ok(SupplementFixtureSelection {
             path: PathBuf::from("cargo-octet/tests/fixtures/mir-spike/checked.rs"),
@@ -1576,10 +1582,10 @@ mod tests {
         .expect_err("THIR fixture spike requires explicit fixture shape");
         assert!(
             thir_without_shape
-                .contains("requires explicit `--fixture-shape checked-arithmetic` or `--fixture-shape call-return`")
+                .contains("requires explicit `--fixture-shape checked-arithmetic`, `--fixture-shape call-return`, or `--fixture-shape branch-control-flow`")
         );
 
-        let thir_branch_shape = parse(
+        let thir_unknown_shape = parse(
             [
                 "cargo",
                 "octet",
@@ -1588,17 +1594,17 @@ mod tests {
                 "emit",
                 "--family=thir",
                 "--spike=rustc-thir-fixture",
-                "--fixture-shape=branch-control-flow",
+                "--fixture-shape=not-selected",
                 "--output-format=json",
             ]
             .map(OsString::from),
         )
-        .expect_err("THIR fixture spike rejects HIR-only branch fixture shape");
+        .expect_err("THIR fixture spike rejects non-selected fixture shape");
         assert!(
-            thir_branch_shape.contains(
-                "unsupported THIR supplement fixture shape `branch-control-flow`; expected `checked-arithmetic` or `call-return`"
+            thir_unknown_shape.contains(
+                "unsupported THIR supplement fixture shape `not-selected`; expected `checked-arithmetic`, `call-return`, or `branch-control-flow`"
             ),
-            "unexpected THIR branch fixture shape error: {thir_branch_shape}"
+            "unexpected THIR unknown fixture shape error: {thir_unknown_shape}"
         );
 
         let thir_shape = parse(
@@ -1659,6 +1665,34 @@ mod tests {
             other => panic!("expected THIR call-return fixture shape args, got {other:?}"),
         }
 
+        let thir_branch_shape = parse(
+            [
+                "cargo",
+                "octet",
+                "object",
+                "supplement",
+                "emit",
+                "--family=thir",
+                "--spike=rustc-thir-fixture",
+                "--fixture-shape=branch-control-flow",
+                "--output-format=json",
+            ]
+            .map(OsString::from),
+        )
+        .expect("parse THIR branch-control-flow fixture shape supplement args");
+        match thir_branch_shape {
+            CommandArgs::Object(args) => {
+                assert_eq!(args.function.as_deref(), Some("choose_branch"));
+                assert_eq!(args.paths, vec![std::path::PathBuf::from(
+                    "cargo-octet/tests/fixtures/thir-spike/branch_control_flow.rs"
+                )]);
+                assert!(matches!(args.mode, super::ObjectMode::SupplementEmit {
+                    family: super::SupplementFamilyArg::Thir,
+                    scope: super::SupplementScopeArg::RustcThirFixtureSpike,
+                }));
+            }
+            other => panic!("expected THIR branch-control-flow fixture shape args, got {other:?}"),
+        }
         let mir_shape = parse(
             [
                 "cargo",

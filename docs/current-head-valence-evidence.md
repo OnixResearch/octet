@@ -1,10 +1,10 @@
 # Current verified Valence object evidence
 
-Capture time: 2026-05-22T21:09:44Z
+Capture time: 2026-05-22T21:48:45Z
 
-Verified implementation baseline: `b4ef0ac757fd9724fa85b82c43fb6dce2c27eafb` (`b4ef0ac7`)
+Pre-change committed baseline: `95372692bac2f7908957f3ccc162ada2d49c18a9` (`95372692`)
 
-This page indexes the focused evidence sweep run after the MIR inventory aggregate rail landed. It records command surfaces and observed pass signals; it does not embed generated receipts, move any readiness tag, or claim broader MIR support.
+This page indexes the focused evidence sweep run after the MIR inventory aggregate rail landed, plus the archived THIR branch-control-flow selected-fixture evidence slice. It records command surfaces and observed pass signals; it does not embed generated receipts, move any readiness tag, or claim broader THIR or MIR support. After this slice lands, refresh this page in a separate documentation-only commit if it needs to name the new committed baseline.
 
 ## Scope
 
@@ -13,8 +13,8 @@ The sweep covers selected local Octet/Valence review-evidence rails:
 - Function Object v1 internal corpus replay and fixture freshness.
 - Bounded fresh-target receipt determinism.
 - Selected rustc HIR fixture spike replay/inventory coverage.
-- Selected rustc THIR fixture inventory and roundtrip coverage for `checked-arithmetic` and `call-return`.
-- Selected rustc MIR fixture runtime and inventory coverage for exact `checked-arithmetic` and `call-return` selectors.
+- Selected rustc THIR fixture inventory and roundtrip coverage for `checked-arithmetic`, `call-return`, and `branch-control-flow`.
+- Selected rustc MIR fixture runtime and inventory coverage for exact `checked-arithmetic` and `call-return` selectors; MIR `branch-control-flow` remains unsupported.
 - Named MIR inventory rail: `nix build .#checks.x86_64-linux.mir-supplement-inventory-gate --no-link -L`.
 - Aggregate Valence object evidence composition, including the MIR supplement fixture gate and MIR supplement inventory gate.
 - Canonical OpenSpec validation.
@@ -30,7 +30,7 @@ $ git status --short --branch
 
 ```text
 $ git rev-parse HEAD
-b4ef0ac757fd9724fa85b82c43fb6dce2c27eafb
+95372692bac2f7908957f3ccc162ada2d49c18a9
 ```
 
 ```text
@@ -64,8 +64,8 @@ Observed pass signals:
   - `fresh_target.compared_fields_stable: PASS`
   - `fresh_target.boundary_claims_false: PASS`
   - `fresh_target.object_count=251`
-  - `fresh_target.object_set_hash=b3:a6e4578d3734d2f72031ec61a3683df569ee4d572cd90dea792679484b2cd0b3`
-- `cargo test -p cargo-octet thir_inventory -- --nocapture`: `2 passed; 0 failed`.
+  - `fresh_target.object_set_hash=b3:1dd1e8e1cd07bbe16391c8ebe7fbf9818153f7d5fc3e8901ab57e07d8e7ec62e`
+- `cargo test -p cargo-octet thir_inventory -- --nocapture`: passes; the focused THIR fixture tests cover the exact selected THIR fixture inventory (`checked-arithmetic`, `call-return`, `branch-control-flow`), inventory-emitted emit/check command roundtrips, positive branch-control-flow replay, default `unsupported-planned` boundaries, and non-proof boundary fields.
 - `cargo test -p cargo-octet mir_fixture -- --nocapture`: passes; the focused MIR fixture tests cover the exact selected MIR fixture inventory (`checked-arithmetic`, `call-return`), inventory-emitted emit/check command roundtrips, positive emit/check replay, unsupported selector rejection, and default `unsupported-planned` boundaries.
 - `cargo test -p cargo-octet rustc_hir_spike -- --nocapture`: `5 passed; 0 failed` for each alias binary target (`cargo-octet`, `cargo-slotcar`, `cargo-tigerstyle`).
 - `cargo test -p cargo-octet hir_fixture_inventory_lists_closed_selectors_and_boundaries -- --nocapture`: `1 passed; 0 failed` for each alias binary target.
@@ -94,4 +94,4 @@ git diff --check
 openspec validate --all --strict --json
 ```
 
-and a focused read/search that confirms this page names the verified implementation baseline, MIR `call-return` fixture coverage, MIR inventory aggregate rail, aggregate gate, pass signals, and non-claim boundaries.
+and a focused read/search that confirms this page names the verified implementation baseline, THIR `branch-control-flow` fixture coverage, MIR `call-return` fixture coverage, MIR inventory aggregate rail, aggregate gate, pass signals, and non-claim boundaries.

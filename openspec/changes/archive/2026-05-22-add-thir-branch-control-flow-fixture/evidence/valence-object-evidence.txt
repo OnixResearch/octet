@@ -1,0 +1,11 @@
+$ nix build .#checks.x86_64-linux.valence-object-evidence --no-link -L --rebuild
+checking outputs of '/nix/store/7vksvwhcbah2gc0p0hpjb5mridybycqx-octet-valence-object-evidence.drv'...
+octet-valence-object-evidence> valence_object_evidence.object_corpus_gate: PASS
+octet-valence-object-evidence> valence_object_evidence.compatibility_gate: PASS
+octet-valence-object-evidence> valence_object_evidence.caveat_taxonomy_gate: PASS
+octet-valence-object-evidence> valence_object_evidence.thir_supplement_inventory_gate: PASS
+octet-valence-object-evidence> valence_object_evidence.mir_supplement_fixture_gate: PASS
+octet-valence-object-evidence> valence_object_evidence.mir_supplement_inventory_gate: PASS
+octet-valence-object-evidence> valence_object_evidence.fresh_build_determinism_gate: PASS
+octet-valence-object-evidence> valence_object_evidence.scope=bounded-local-selected-corpus-evidence-replay
+octet-valence-object-evidence> valence_object_evidence.non_claims=correctness,semantic_equivalence,exhaustive_rust_coverage,cross_machine_determinism,cross_toolchain_determinism
