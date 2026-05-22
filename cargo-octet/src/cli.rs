@@ -267,8 +267,8 @@ Usage:
   cargo octet object corpus contract [--output-format human|json]
   cargo octet object supplement fixtures --family hir --spike rustc-hir-fixture [--output-format human|json]
   cargo octet object supplement fixtures --family thir --spike rustc-thir-fixture [--output-format human|json]
-  cargo octet object supplement emit --family hir|thir|mir [--spike rustc-hir-fixture|rustc-thir-fixture] [--fixture-shape checked-arithmetic|branch-control-flow] [--function NAME] [PATHS...]
-  cargo octet object supplement check --family hir|thir|mir [--spike rustc-hir-fixture|rustc-thir-fixture] [--fixture-shape checked-arithmetic|branch-control-flow] --receipt RECEIPT.json [--function NAME] [PATHS...]
+  cargo octet object supplement emit --family hir|thir|mir [--spike rustc-hir-fixture|rustc-thir-fixture] [--fixture-shape checked-arithmetic|branch-control-flow|call-return] [--function NAME] [PATHS...]
+  cargo octet object supplement check --family hir|thir|mir [--spike rustc-hir-fixture|rustc-thir-fixture] [--fixture-shape checked-arithmetic|branch-control-flow|call-return] --receipt RECEIPT.json [--function NAME] [PATHS...]
   cargo octet roadmap <artifact|capsule|ability|pointer|session|pure-cache> ...
   cargo octet transcript <PATH>
   cargo octet --version
@@ -311,8 +311,8 @@ Subcommands:
   corpus contract --output-format human|json
   supplement fixtures --family hir --spike rustc-hir-fixture --output-format human|json
   supplement fixtures --family thir --spike rustc-thir-fixture --output-format human|json
-  supplement emit --family hir|thir|mir [--spike rustc-hir-fixture|rustc-thir-fixture] [--fixture-shape checked-arithmetic|branch-control-flow] [--function NAME] [PATHS...] --output-format human|json
-  supplement check --family hir|thir|mir [--spike rustc-hir-fixture|rustc-thir-fixture] [--fixture-shape checked-arithmetic|branch-control-flow] --receipt RECEIPT.json [--function NAME] [PATHS...] --output-format human|json
+  supplement emit --family hir|thir|mir [--spike rustc-hir-fixture|rustc-thir-fixture] [--fixture-shape checked-arithmetic|branch-control-flow|call-return] [--function NAME] [PATHS...] --output-format human|json
+  supplement check --family hir|thir|mir [--spike rustc-hir-fixture|rustc-thir-fixture] [--fixture-shape checked-arithmetic|branch-control-flow|call-return] --receipt RECEIPT.json [--function NAME] [PATHS...] --output-format human|json
 
 Function objects are source-token review/provenance evidence. HIR/MIR supplements attach to v1 identity; THIR default supplements are fail-closed unsupported-planned evidence, with only selected rustc-thir-fixture cases reporting pilot-supported. Supplements are not correctness proofs.
 ";
@@ -1016,7 +1016,7 @@ fn parse_object_supplement_scan(emit: bool, args: &[String]) -> Result<ObjectArg
         && !fixture_shape_was_provided
     {
         return Err(
-            "`--family thir --spike rustc-thir-fixture` requires explicit `--fixture-shape checked-arithmetic`"
+            "`--family thir --spike rustc-thir-fixture` requires explicit `--fixture-shape checked-arithmetic` or `--fixture-shape call-return`"
                 .to_owned(),
         );
     }
@@ -1087,9 +1087,13 @@ fn parse_supplement_fixture_shape(
                 function: "checked".to_owned(),
             })
         }
-        (SupplementScopeArg::RustcThirFixtureSpike, other) => {
-            Err(format!("unsupported THIR supplement fixture shape `{other}`; expected `checked-arithmetic`"))
-        }
+        (SupplementScopeArg::RustcThirFixtureSpike, "call-return") => Ok(SupplementFixtureSelection {
+            path: PathBuf::from("cargo-octet/tests/fixtures/thir-spike/call_return.rs"),
+            function: "call_then_return".to_owned(),
+        }),
+        (SupplementScopeArg::RustcThirFixtureSpike, other) => Err(format!(
+            "unsupported THIR supplement fixture shape `{other}`; expected `checked-arithmetic` or `call-return`"
+        )),
         (_, other) => Err(format!(
             "unsupported supplement fixture shape `{other}`; expected `checked-arithmetic` or `branch-control-flow`"
         )),
@@ -1517,7 +1521,10 @@ mod tests {
             .map(OsString::from),
         )
         .expect_err("THIR fixture spike requires explicit fixture shape");
-        assert!(thir_without_shape.contains("requires explicit `--fixture-shape checked-arithmetic`"));
+        assert!(
+            thir_without_shape
+                .contains("requires explicit `--fixture-shape checked-arithmetic` or `--fixture-shape call-return`")
+        );
 
         let thir_branch_shape = parse(
             [
@@ -1536,7 +1543,7 @@ mod tests {
         .expect_err("THIR fixture spike rejects HIR-only branch fixture shape");
         assert!(
             thir_branch_shape.contains(
-                "unsupported THIR supplement fixture shape `branch-control-flow`; expected `checked-arithmetic`"
+                "unsupported THIR supplement fixture shape `branch-control-flow`; expected `checked-arithmetic` or `call-return`"
             ),
             "unexpected THIR branch fixture shape error: {thir_branch_shape}"
         );
@@ -1568,6 +1575,35 @@ mod tests {
                 }));
             }
             other => panic!("expected THIR fixture shape args, got {other:?}"),
+        }
+
+        let thir_call_shape = parse(
+            [
+                "cargo",
+                "octet",
+                "object",
+                "supplement",
+                "emit",
+                "--family=thir",
+                "--spike=rustc-thir-fixture",
+                "--fixture-shape=call-return",
+                "--output-format=json",
+            ]
+            .map(OsString::from),
+        )
+        .expect("parse THIR call-return fixture shape supplement args");
+        match thir_call_shape {
+            CommandArgs::Object(args) => {
+                assert_eq!(args.function.as_deref(), Some("call_then_return"));
+                assert_eq!(args.paths, vec![std::path::PathBuf::from(
+                    "cargo-octet/tests/fixtures/thir-spike/call_return.rs"
+                )]);
+                assert!(matches!(args.mode, super::ObjectMode::SupplementEmit {
+                    family: super::SupplementFamilyArg::Thir,
+                    scope: super::SupplementScopeArg::RustcThirFixtureSpike,
+                }));
+            }
+            other => panic!("expected THIR call-return fixture shape args, got {other:?}"),
         }
     }
 

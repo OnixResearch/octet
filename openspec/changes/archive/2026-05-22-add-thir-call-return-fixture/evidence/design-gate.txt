@@ -1,0 +1,24 @@
+OpenSpec design gate (add-thir-call-return-fixture)
+
+Strategy: same-family
+
+VERDICT: PASS
+
+## Findings
+- None.
+
+## Stage Check
+- Design covers the proposal scope: `openspec/changes/add-thir-call-return-fixture/proposal.md` adds one closed THIR selector, `call-return`, while preserving default THIR as `unsupported-planned`.
+- Design concretely synchronizes parser, inventory, runtime metadata, docs, corpus contract, and tests in `openspec/changes/add-thir-call-return-fixture/design.md` under “Exact Contracts”.
+- Delta spec scenarios are traceable to design decisions:
+  - `r[hir-mir-supplement-pilot.scenario.thir-fixture-inventory-selected-shapes]`
+  - `r[hir-mir-supplement-pilot.scenario.thir-call-return-fixture-pilot-supported]`
+  - `r[hir-mir-supplement-pilot.scenario.thir-unsupported-fixture-shape-rejected]`
+  - `r[hir-mir-supplement-pilot.scenario.thir-default-contract-remains-planned-after-expansion]`
+- Key decisions, rejected alternatives, risks, and verification strategy are explicit in `design.md`.
+- No unresolved design choice requires a human oracle checkpoint before tasks.
+
+## Next Actions
+- Proceed to tasks stage.
+- Ensure task checkboxes map each scenario to exact implementation/test/doc commands.
+- At tasks stage, mark each checkbox with `[parallel]`, `[serial]`, or `[depends:<task-or-id>]`.

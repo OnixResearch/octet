@@ -264,6 +264,8 @@ cargo octet object supplement emit --family hir --spike rustc-hir-fixture --fixt
 cargo octet object supplement check --family hir --spike rustc-hir-fixture --fixture-shape branch-control-flow --receipt hir-spike-branch.json --output-format json
 cargo octet object supplement emit --family thir --spike rustc-thir-fixture --fixture-shape checked-arithmetic --output-format json > thir-spike-checked.json
 cargo octet object supplement check --family thir --spike rustc-thir-fixture --fixture-shape checked-arithmetic --receipt thir-spike-checked.json --output-format json
+cargo octet object supplement emit --family thir --spike rustc-thir-fixture --fixture-shape call-return --output-format json > thir-spike-call-return.json
+cargo octet object supplement check --family thir --spike rustc-thir-fixture --fixture-shape call-return --receipt thir-spike-call-return.json --output-format json
 ```
 
 The pilot HIR/MIR supplements are source-token-bounded review evidence. The
@@ -271,14 +273,15 @@ rustc HIR fixture spike is selected-fixture-backed/toolchain-scoped review
 evidence for exactly `checked-arithmetic` (`checked.rs::checked`) and
 `branch-control-flow` (`clamp.rs::clamp_to_limit`). The rustc THIR fixture
 contract is selected-fixture-backed/toolchain-scoped review evidence for exactly
-`checked-arithmetic` (`thir-spike/checked.rs::checked`). They attach to the
+`checked-arithmetic` (`thir-spike/checked.rs::checked`) and `call-return`
+(`thir-spike/call_return.rs::call_then_return`). They attach to the
 existing `octet.function-object.v1` `object_hash`; they do not replace it as the
 review/provenance identity. Treat HIR/MIR `pilot-supported` contract metadata as
 support for the checked pilot emit/check surface plus the explicit selected HIR
 fixture shapes only. Treat THIR contract metadata as `unsupported-planned` until
-general extractor evidence exists; only the explicit `rustc-thir-fixture` /
-`checked-arithmetic` runtime path may emit `pilot-supported`. The default THIR
-runtime seam remains fail-closed:
+general extractor evidence exists; only explicit selected `rustc-thir-fixture`
+runtime paths (`checked-arithmetic` or `call-return`) may emit `pilot-supported`.
+The default THIR runtime seam remains fail-closed:
 non-fixture/default THIR emit/check may still replay `unsupported-planned` THIR
 records, but those records are not extractor support.
 Future non-pilot HIR, THIR, or MIR families must stay

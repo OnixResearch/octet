@@ -1845,6 +1845,7 @@ fn hir_mir_supplement_pilot_docs_name_commands_and_non_proofs() {
         "selected-fixture-backed/toolchain-scoped review",
         "checked.rs::checked",
         "clamp.rs::clamp_to_limit",
+        "call_return.rs::call_then_return",
         "source-token-bounded review evidence",
         "selected-fixture-backed/toolchain-scoped review",
         "do not replace it as the",
@@ -2017,139 +2018,161 @@ fn thir_fixture_supplement_emit_check_and_negative_replay_are_bounded() {
     assert_eq!(inventory_json["scope"], "rustc-thir-fixture-spike");
     assert_eq!(inventory_json["default_shape"], "checked-arithmetic");
     let shapes = inventory_json["shapes"].as_array().expect("THIR inventory shapes");
-    assert_eq!(shapes.len(), 1, "THIR fixture support must stay closed to one selector: {inventory_json:#?}");
-    assert_eq!(shapes[0]["shape"], "checked-arithmetic");
-    assert_eq!(shapes[0]["fixture_path"], "cargo-octet/tests/fixtures/thir-spike/checked.rs");
-    assert_eq!(shapes[0]["support_status"], "pilot-supported");
-    assert!(
-        shapes[0]["support_boundary"].as_str().unwrap().contains("no general THIR extraction"),
-        "THIR inventory must not overclaim: {inventory_json:#?}"
-    );
+    assert_eq!(shapes.len(), 2, "THIR fixture support must stay closed to selected selectors: {inventory_json:#?}");
+    let mut seen_shapes = BTreeSet::new();
+    for shape in shapes {
+        seen_shapes.insert(shape["shape"].as_str().unwrap().to_owned());
+        assert_eq!(shape["support_status"], "pilot-supported");
+        assert!(
+            shape["support_boundary"].as_str().unwrap().contains("no general THIR extraction"),
+            "THIR inventory must not overclaim: {inventory_json:#?}"
+        );
+    }
+    assert_eq!(seen_shapes, BTreeSet::from(["call-return".to_owned(), "checked-arithmetic".to_owned()]));
+    assert!(shapes.iter().any(|shape| {
+        shape["shape"] == "checked-arithmetic"
+            && shape["fixture_path"] == "cargo-octet/tests/fixtures/thir-spike/checked.rs"
+            && shape["function"] == "checked"
+    }));
+    assert!(shapes.iter().any(|shape| {
+        shape["shape"] == "call-return"
+            && shape["fixture_path"] == "cargo-octet/tests/fixtures/thir-spike/call_return.rs"
+            && shape["function"] == "call_then_return"
+    }));
 
-    let emit = Command::new(cargo_octet())
-        .args([
-            "object",
-            "supplement",
-            "emit",
-            "--family",
-            "thir",
-            "--spike",
-            "rustc-thir-fixture",
-            "--fixture-shape",
-            "checked-arithmetic",
-            "--output-format",
-            "json",
-        ])
-        .current_dir(&root)
-        .output()
-        .expect("run THIR fixture emit");
-    assert!(
-        emit.status.success(),
-        "THIR fixture emit failed stdout={} stderr={}",
-        String::from_utf8_lossy(&emit.stdout),
-        String::from_utf8_lossy(&emit.stderr)
-    );
-    let receipt: serde_json::Value = serde_json::from_slice(&emit.stdout).expect("THIR fixture emit json");
-    assert_eq!(receipt["family"], "thir");
-    assert_eq!(receipt["scope"], "rustc-thir-fixture-spike");
-    let supplement = receipt["supplements"].as_array().unwrap().first().expect("THIR fixture supplement");
-    assert_eq!(supplement["schema"], "octet.function-object-thir-supplement.v1");
-    assert_eq!(supplement["family"], "thir");
-    assert_eq!(supplement["status"], "pilot-supported");
-    assert_eq!(supplement["extractor"]["name"], "octet-rustc-thir-fixture-contract");
-    assert_eq!(supplement["observations"]["fixture_context"]["status"], "pilot-supported");
-    assert!(
-        supplement["observations"]["fixture_context"]["detail"]
-            .as_str()
-            .unwrap()
-            .contains("fixture_shape=checked-arithmetic"),
-        "THIR fixture observation should bind selector: {supplement:#?}"
-    );
-    assert_eq!(supplement["observations"]["typed_expression_shape"]["status"], "pilot-supported");
-    assert!(
-        supplement["observations"]["support_boundary"]["detail"]
-            .as_str()
-            .unwrap()
-            .contains("selected-fixture-only"),
-        "THIR fixture support boundary must be selected-only: {supplement:#?}"
-    );
-    assert_eq!(supplement["boundary"]["claims_correctness"], false);
-    assert_eq!(supplement["boundary"]["claims_semantic_equivalence"], false);
-    assert_eq!(supplement["boundary"]["claims_pure_cache_eligibility"], false);
-    assert_eq!(supplement["boundary"]["claims_cross_toolchain_stability"], false);
+    for fixture_shape in ["checked-arithmetic", "call-return"] {
+        let emit = Command::new(cargo_octet())
+            .args([
+                "object",
+                "supplement",
+                "emit",
+                "--family",
+                "thir",
+                "--spike",
+                "rustc-thir-fixture",
+                "--fixture-shape",
+                fixture_shape,
+                "--output-format",
+                "json",
+            ])
+            .current_dir(&root)
+            .output()
+            .unwrap_or_else(|error| panic!("run THIR fixture emit {fixture_shape}: {error}"));
+        assert!(
+            emit.status.success(),
+            "THIR fixture emit {fixture_shape} failed stdout={} stderr={}",
+            String::from_utf8_lossy(&emit.stdout),
+            String::from_utf8_lossy(&emit.stderr)
+        );
+        let receipt: serde_json::Value = serde_json::from_slice(&emit.stdout).expect("THIR fixture emit json");
+        assert_eq!(receipt["family"], "thir");
+        assert_eq!(receipt["scope"], "rustc-thir-fixture-spike");
+        let supplement = receipt["supplements"].as_array().unwrap().first().expect("THIR fixture supplement");
+        assert_eq!(supplement["schema"], "octet.function-object-thir-supplement.v1");
+        assert_eq!(supplement["family"], "thir");
+        assert_eq!(supplement["status"], "pilot-supported");
+        assert_eq!(supplement["extractor"]["name"], "octet-rustc-thir-fixture-contract");
+        assert_eq!(supplement["observations"]["fixture_context"]["status"], "pilot-supported");
+        assert!(
+            supplement["observations"]["fixture_context"]["detail"]
+                .as_str()
+                .unwrap()
+                .contains(&format!("fixture_shape={fixture_shape}")),
+            "THIR fixture observation should bind selector: {supplement:#?}"
+        );
+        assert_eq!(supplement["observations"]["typed_expression_shape"]["status"], "pilot-supported");
+        assert!(
+            supplement["observations"]["typed_expression_shape"]["detail"]
+                .as_str()
+                .unwrap()
+                .contains(fixture_shape),
+            "THIR typed expression observation should name selector: {supplement:#?}"
+        );
+        assert!(
+            supplement["observations"]["support_boundary"]["detail"]
+                .as_str()
+                .unwrap()
+                .contains("selected-fixture-only"),
+            "THIR fixture support boundary must be selected-only: {supplement:#?}"
+        );
+        assert_eq!(supplement["boundary"]["claims_correctness"], false);
+        assert_eq!(supplement["boundary"]["claims_semantic_equivalence"], false);
+        assert_eq!(supplement["boundary"]["claims_pure_cache_eligibility"], false);
+        assert_eq!(supplement["boundary"]["claims_cross_toolchain_stability"], false);
 
-    let receipt_path = temp.path().join("thir-fixture.json");
-    fs::write(&receipt_path, &emit.stdout).expect("write THIR fixture receipt");
-    let check = Command::new(cargo_octet())
-        .args([
-            "object",
-            "supplement",
-            "check",
-            "--family",
-            "thir",
-            "--spike",
-            "rustc-thir-fixture",
-            "--fixture-shape",
-            "checked-arithmetic",
-            "--receipt",
-            receipt_path.to_str().unwrap(),
-            "--output-format",
-            "json",
-        ])
-        .current_dir(&root)
-        .output()
-        .expect("run THIR fixture check");
-    assert!(
-        check.status.success(),
-        "THIR fixture check failed stdout={} stderr={}",
-        String::from_utf8_lossy(&check.stdout),
-        String::from_utf8_lossy(&check.stderr)
-    );
-    let report: serde_json::Value = serde_json::from_slice(&check.stdout).expect("THIR fixture check json");
-    assert_eq!(report["status"], "pass");
-    assert!(report["comparisons"].as_array().unwrap().iter().all(|comparison| comparison["status"] == "match"));
+        let receipt_path = temp.path().join(format!("thir-fixture-{fixture_shape}.json"));
+        fs::write(&receipt_path, &emit.stdout).expect("write THIR fixture receipt");
+        let check = Command::new(cargo_octet())
+            .args([
+                "object",
+                "supplement",
+                "check",
+                "--family",
+                "thir",
+                "--spike",
+                "rustc-thir-fixture",
+                "--fixture-shape",
+                fixture_shape,
+                "--receipt",
+                receipt_path.to_str().unwrap(),
+                "--output-format",
+                "json",
+            ])
+            .current_dir(&root)
+            .output()
+            .unwrap_or_else(|error| panic!("run THIR fixture check {fixture_shape}: {error}"));
+        assert!(
+            check.status.success(),
+            "THIR fixture check {fixture_shape} failed stdout={} stderr={}",
+            String::from_utf8_lossy(&check.stdout),
+            String::from_utf8_lossy(&check.stderr)
+        );
+        let report: serde_json::Value = serde_json::from_slice(&check.stdout).expect("THIR fixture check json");
+        assert_eq!(report["status"], "pass");
+        assert!(report["comparisons"].as_array().unwrap().iter().all(|comparison| comparison["status"] == "match"));
 
-    let mut tampered = receipt.clone();
-    tampered["supplements"][0]["observations"]["typed_expression_shape"]["detail"] =
-        serde_json::Value::String("tampered selected fixture shape".to_owned());
-    let tampered_path = temp.path().join("thir-fixture-tampered.json");
-    fs::write(&tampered_path, serde_json::to_vec_pretty(&tampered).unwrap()).expect("write tampered receipt");
-    let tampered_check = Command::new(cargo_octet())
-        .args([
-            "object",
-            "supplement",
-            "check",
-            "--family",
-            "thir",
-            "--spike",
-            "rustc-thir-fixture",
-            "--fixture-shape",
-            "checked-arithmetic",
-            "--receipt",
-            tampered_path.to_str().unwrap(),
-            "--output-format",
-            "json",
-        ])
-        .current_dir(&root)
-        .output()
-        .expect("run tampered THIR fixture check");
-    assert!(
-        !tampered_check.status.success(),
-        "tampered THIR fixture receipt must fail stdout={} stderr={}",
-        String::from_utf8_lossy(&tampered_check.stdout),
-        String::from_utf8_lossy(&tampered_check.stderr)
-    );
-    let tampered_report: serde_json::Value =
-        serde_json::from_slice(&tampered_check.stdout).expect("tampered THIR fixture report json");
-    assert_eq!(tampered_report["status"], "fail");
-    assert!(
-        tampered_report["comparisons"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|comparison| comparison["status"] == "mismatch"),
-        "tampered THIR fixture receipt should report mismatch: {tampered_report:#?}"
-    );
+        let mut tampered = receipt.clone();
+        tampered["supplements"][0]["observations"]["typed_expression_shape"]["detail"] =
+            serde_json::Value::String("tampered selected fixture shape".to_owned());
+        let tampered_path = temp.path().join(format!("thir-fixture-{fixture_shape}-tampered.json"));
+        fs::write(&tampered_path, serde_json::to_vec_pretty(&tampered).unwrap()).expect("write tampered receipt");
+        let tampered_check = Command::new(cargo_octet())
+            .args([
+                "object",
+                "supplement",
+                "check",
+                "--family",
+                "thir",
+                "--spike",
+                "rustc-thir-fixture",
+                "--fixture-shape",
+                fixture_shape,
+                "--receipt",
+                tampered_path.to_str().unwrap(),
+                "--output-format",
+                "json",
+            ])
+            .current_dir(&root)
+            .output()
+            .unwrap_or_else(|error| panic!("run tampered THIR fixture check {fixture_shape}: {error}"));
+        assert!(
+            !tampered_check.status.success(),
+            "tampered THIR fixture receipt {fixture_shape} must fail stdout={} stderr={}",
+            String::from_utf8_lossy(&tampered_check.stdout),
+            String::from_utf8_lossy(&tampered_check.stderr)
+        );
+        let tampered_report: serde_json::Value =
+            serde_json::from_slice(&tampered_check.stdout).expect("tampered THIR fixture report json");
+        assert_eq!(tampered_report["status"], "fail");
+        assert!(
+            tampered_report["comparisons"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|comparison| comparison["status"] == "mismatch"),
+            "tampered THIR fixture receipt should report mismatch: {tampered_report:#?}"
+        );
+    }
 }
 
 #[test]
@@ -2506,6 +2529,7 @@ fn object_corpus_contract_human_reports_hir_mir_fail_closed_boundaries() {
         "toolchain_scope=rustc-version",
         "extractor_identity_expectations=",
         "selected_fixture_shapes=checked-arithmetic,branch-control-flow",
+        "selected_fixture_shapes=checked-arithmetic,call-return",
         "fixture_replay_command=",
         "claims_correctness=false",
         "claims_semantic_equivalence=false",

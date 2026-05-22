@@ -1,0 +1,21 @@
+OpenSpec tasks gate (add-thir-call-return-fixture)
+
+Strategy: same-family
+
+VERDICT: PASS
+
+## Findings
+- None
+
+## Stage Check
+- Tasks are ready for implementation.
+- Traceability is present: the four delta-spec scenarios map to V1, V2, V3, and V4 under `openspec/changes/add-thir-call-return-fixture/tasks.md` “Verification Coverage”.
+- Verification tasks include command, input, expected result, and evidence path: V1–V5.
+- Closeout/archive work is included: A1, V6, V7, H4.
+- Concurrency markers are present on all checkbox tasks: `[serial]` or `[depends:<...>]`; no unmarked tasks are shown.
+- Dependency ordering is coherent: H1 → H2 → H3 → I1 → I2 → V1–V5 → A1/V6/H4, with V7 after V5.
+
+## Next Actions
+- Proceed with I1 and I2 implementation tasks.
+- Save verification transcripts to the evidence paths named in V1–V7.
+- Archive only after implementation and verification tasks complete.
