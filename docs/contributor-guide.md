@@ -34,6 +34,7 @@ For the shipped lint catalog, see `lint-reference.md`.
 [Functional API boundary guidance](functional-api-boundaries.md)
 [Unison-inspired Rust patterns](unison-inspired-rust-patterns.md)
 [Function fingerprint guide](function-fingerprints.md)
+[Current verified Valence object evidence](current-head-valence-evidence.md)
 
 ## Source-of-truth map
 
