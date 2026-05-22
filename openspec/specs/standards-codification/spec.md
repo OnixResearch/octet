@@ -1525,14 +1525,21 @@ Octet MUST provide a deterministic object corpus caveat taxonomy report for sele
 
 The system MUST provide a named Nix check that aggregates Octet's selected Valence object-evidence rails for operator and CI use.
 
-The aggregate gate MUST compose the checked-in internal object corpus replay rail, object corpus compatibility fixture rail, object corpus caveat taxonomy rail, and bounded local fresh-build object corpus determinism rail. It MUST preserve the existing non-proof boundaries: object evidence identifies reviewed evidence/provenance bytes and replay inputs, not behavioral correctness, semantic equivalence, pure-cache eligibility, exhaustive Rust coverage, or cross-machine/cross-toolchain determinism.
+The aggregate gate MUST compose the checked-in internal object corpus replay rail, object corpus compatibility fixture rail, object corpus caveat taxonomy rail, bounded local fresh-build object corpus determinism rail, and THIR supplement fixture inventory rail. It MUST preserve the existing non-proof boundaries: object evidence identifies reviewed evidence/provenance bytes and replay inputs, not behavioral correctness, semantic equivalence, pure-cache eligibility, exhaustive Rust coverage, or cross-machine/cross-toolchain determinism. The THIR inventory rail MUST remain selected-fixture-only and MUST NOT imply general THIR extraction.
 
 #### Scenario: Aggregate gate composes object evidence rails
 
 - GIVEN a maintainer invokes the aggregate Valence object evidence Nix check
 - WHEN the check evaluates and builds
-- THEN it depends on the object corpus replay, compatibility, caveat taxonomy, and fresh-build determinism rails
+- THEN it depends on the object corpus replay, compatibility, caveat taxonomy, fresh-build determinism, and THIR supplement fixture inventory rails
 - AND it exits successfully only when all composed rails succeed
+
+#### Scenario: Aggregate gate composes THIR inventory rail
+
+- GIVEN the focused THIR supplement inventory rail checks the selected THIR fixture inventory
+- WHEN the aggregate Valence object evidence check builds
+- THEN it depends on that THIR inventory rail
+- AND its output reports `valence_object_evidence.thir_supplement_inventory_gate: PASS`
 
 #### Scenario: Contributor docs name the aggregate command and boundaries
 
@@ -1540,6 +1547,7 @@ The aggregate gate MUST compose the checked-in internal object corpus replay rai
 - WHEN they look for Valence object-evidence verification
 - THEN the guide names the aggregate Nix check command
 - AND it states the aggregate gate is bounded evidence replay rather than a correctness, semantic-equivalence, exhaustive-coverage, or cross-machine determinism proof
+- AND it states the aggregate includes selected THIR fixture inventory coverage without implying general THIR extraction
 
 ### Requirement: HIR/MIR supplement pilot [r[hir-mir-supplement-pilot]]
 
@@ -1612,7 +1620,6 @@ Octet MUST support bounded, fail-closed supplemental evidence families for selec
 - THEN its status remains `unsupported-planned`
 - AND docs, contract metadata, and tests distinguish that default behavior from selected fixture support
 
-
 #### Scenario: THIR fixture inventory lists selected shapes [r[hir-mir-supplement-pilot.scenario.thir-fixture-inventory-selected-shapes]]
 
 - GIVEN the rustc THIR fixture contract supports checked-in selector values `checked-arithmetic` and `call-return`
@@ -1627,7 +1634,6 @@ Octet MUST support bounded, fail-closed supplemental evidence families for selec
 - WHEN the emitted `emit_command` and `check_command` are executed for each listed THIR selector
 - THEN each emitted supplement reports status `pilot-supported` and fixture context for the same selector
 - AND each corresponding check report returns `pass` with all compared fields matching
-
 
 #### Scenario: THIR call-return fixture emits pilot-supported evidence [r[hir-mir-supplement-pilot.scenario.thir-call-return-fixture-pilot-supported]]
 

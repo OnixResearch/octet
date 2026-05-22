@@ -2,7 +2,7 @@
   "schema": "octet.function-object-corpus-caveat-taxonomy.v1",
   "schema_version": 1,
   "mode": "corpus-caveat-taxonomy",
-  "object_count": 476,
+  "object_count": 483,
   "source_paths": [
     "cargo-octet/src/baseline.rs",
     "cargo-octet/src/cli.rs",
@@ -268,30 +268,30 @@
     },
     {
       "source_path": "cargo-octet/src/object.rs",
-      "object_count": 55,
+      "object_count": 62,
       "caveat_counts": {
         "dependency_status": {
-          "source-scanner-token-set": 18,
-          "unsupported-macro-context": 37
+          "source-scanner-token-set": 22,
+          "unsupported-macro-context": 40
         },
         "effect_kind": {
-          "effect_summary": 46,
-          "filesystem": 5,
+          "effect_summary": 52,
+          "filesystem": 6,
           "panic": 2,
           "process": 2,
           "unsafe": 1
         },
         "macro_status": {
-          "none-detected": 18,
-          "review-required": 37
+          "none-detected": 22,
+          "review-required": 40
         },
         "pure_cache_blocker": {
-          "dependency-identity-unresolved": 55,
-          "effect-summary-unresolved": 55,
-          "macro-expansion-unmodeled": 37
+          "dependency-identity-unresolved": 62,
+          "effect-summary-unresolved": 62,
+          "macro-expansion-unmodeled": 40
         }
       },
-      "pure_cache_blocked_count": 55,
+      "pure_cache_blocked_count": 62,
       "blocker_names": [
         "dependency-identity-unresolved",
         "effect-summary-unresolved",
@@ -764,28 +764,28 @@
   ],
   "caveat_counts": {
     "dependency_status": {
-      "source-scanner-token-set": 228,
-      "unsupported-macro-context": 248
+      "source-scanner-token-set": 232,
+      "unsupported-macro-context": 251
     },
     "effect_kind": {
-      "effect_summary": 390,
-      "filesystem": 45,
+      "effect_summary": 396,
+      "filesystem": 46,
       "panic": 46,
       "process": 8,
       "time": 5,
       "unsafe": 2
     },
     "macro_status": {
-      "none-detected": 228,
-      "review-required": 248
+      "none-detected": 232,
+      "review-required": 251
     },
     "pure_cache_blocker": {
-      "dependency-identity-unresolved": 476,
-      "effect-summary-unresolved": 476,
-      "macro-expansion-unmodeled": 248
+      "dependency-identity-unresolved": 483,
+      "effect-summary-unresolved": 483,
+      "macro-expansion-unmodeled": 251
     }
   },
-  "pure_cache_blocked_count": 476,
+  "pure_cache_blocked_count": 483,
   "boundary": {
     "identity_scope": "review-and-provenance-evidence",
     "claims_correctness": false,

@@ -1,0 +1,37 @@
+$ pi --no-session -e ~/.pi/agent/extensions/openspec-gates.ts -p "Call the openspec_gate tool for change add-thir-inventory-aggregate-gate at tasks stage. Print the full result."
+```text
+OpenSpec tasks gate (add-thir-inventory-aggregate-gate)
+
+Strategy: same-family
+
+VERDICT: PASS
+
+## Findings
+- [info] [class=omission] [scope=tasks] [route=guidance] [promoted=no] Diff hygiene verification is late-stage in intent but only depends on OpenSpec validation; consider making it depend on all implementation/verification tasks if strict final-diff ordering is desired.
+  - Evidence: `openspec/changes/add-thir-inventory-aggregate-gate/tasks.md` task `V5`: `[depends:V4] Verify diff hygiene with command=`git diff --check``
+
+## Stage Check
+- Tasks trace to the proposal/design/spec scope:
+  - `I1`, `V2`, `V3` cover the focused Nix rail and aggregate dependency from `design.md` Decision 1 and spec scenario `Aggregate gate composes THIR inventory rail`.
+  - `I2`, `V1` cover selected fixtures, `branch-control-flow` exclusion, replay commands, and `unsupported-planned` boundaries from `design.md` Decision 2.
+  - `I3`, `V4` cover contributor docs and OpenSpec delta updates from `proposal.md` Impact and spec scenario `Contributor docs name the aggregate command and boundaries`.
+- Checkbox task concurrency markers are present on all 10 tasks: 3 `[serial]`, 7 `[depends:...]`, 0 unmarked.
+- Dependency flow is coherent enough to proceed: implementation tasks precede focused verification, aggregate verification follows the focused Nix rail, OpenSpec validation follows spec/docs work, and human checkpoints depend on verification.
+- Verification coverage is explicit and evidence paths are named under `openspec/changes/add-thir-inventory-aggregate-gate/evidence/`.
+- Stage is ready for implementation.
+
+## Next Actions
+- Proceed with `I1`, `I2`, and `I3`.
+- Optionally tighten `V5` dependencies to run after all implementation and focused verification tasks.
+
+## Promotion Hints
+- repeated 8x [class=omission] [scope=tasks] [route=guidance]
+  suggestion: Promote into OpenSpec rule/template/stage-gate check.
+  task: Strengthen OpenSpec tasks gate/template to block repeated omission findings. Example trigger: No task for explicit false-positive boundary fixtures, despite proposal and design calling them out
+  sources: openspec-gate=7, done-review=1
+```
+Extension error (/home/brittonr/.pi/agent/extensions/done-review.ts): This extension ctx is stale after session replacement or reload. Do not use a captured pi or command ctx after ctx.newSession(), ctx.fork(), ctx.switchSession(), or ctx.reload(). For newSession, fork, and switchSession, move post-replacement work into withSession and use the ctx passed to withSession. For reload, do not use the old ctx after await ctx.reload().
+Extension error (/home/brittonr/.pi/agent/extensions/git-dirty.ts): This extension ctx is stale after session replacement or reload. Do not use a captured pi or command ctx after ctx.newSession(), ctx.fork(), ctx.switchSession(), or ctx.reload(). For newSession, fork, and switchSession, move post-replacement work into withSession and use the ctx passed to withSession. For reload, do not use the old ctx after await ctx.reload().
+Extension error (/home/brittonr/.pi/agent/extensions/prefer-rust-scripts.ts): This extension ctx is stale after session replacement or reload. Do not use a captured pi or command ctx after ctx.newSession(), ctx.fork(), ctx.switchSession(), or ctx.reload(). For newSession, fork, and switchSession, move post-replacement work into withSession and use the ctx passed to withSession. For reload, do not use the old ctx after await ctx.reload().
+Extension error (/home/brittonr/.pi/agent/extensions/swarm.ts): This extension ctx is stale after session replacement or reload. Do not use a captured pi or command ctx after ctx.newSession(), ctx.fork(), ctx.switchSession(), or ctx.reload(). For newSession, fork, and switchSession, move post-replacement work into withSession and use the ctx passed to withSession. For reload, do not use the old ctx after await ctx.reload().
+Extension error (/home/brittonr/.pi/agent/git/github.com/davebcn87/pi-autoresearch/extensions/pi-autoresearch/index.ts): This extension ctx is stale after session replacement or reload. Do not use a captured pi or command ctx after ctx.newSession(), ctx.fork(), ctx.switchSession(), or ctx.reload(). For newSession, fork, and switchSession, move post-replacement work into withSession and use the ctx passed to withSession. For reload, do not use the old ctx after await ctx.reload().

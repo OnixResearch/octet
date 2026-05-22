@@ -2480,6 +2480,81 @@ fn thir_inventory_commands_roundtrip_selected_fixture_evidence() {
 }
 
 #[test]
+fn thir_inventory_aggregate_gate_preserves_selected_fixture_boundaries() {
+    let root = repo_root();
+    let inventory = Command::new(cargo_octet())
+        .args([
+            "object",
+            "supplement",
+            "fixtures",
+            "--family",
+            "thir",
+            "--spike",
+            "rustc-thir-fixture",
+            "--output-format",
+            "json",
+        ])
+        .current_dir(&root)
+        .output()
+        .expect("run aggregate THIR fixture inventory source");
+    assert!(
+        inventory.status.success(),
+        "aggregate THIR inventory source failed stdout={} stderr={}",
+        String::from_utf8_lossy(&inventory.stdout),
+        String::from_utf8_lossy(&inventory.stderr)
+    );
+    let json: serde_json::Value = serde_json::from_slice(&inventory.stdout).expect("aggregate THIR inventory json");
+    let shapes = json["shapes"].as_array().expect("aggregate THIR fixture inventory shapes array");
+    let listed: BTreeSet<_> =
+        shapes.iter().map(|fixture| fixture["shape"].as_str().expect("fixture shape").to_owned()).collect();
+    assert_eq!(
+        listed,
+        BTreeSet::from(["call-return".to_owned(), "checked-arithmetic".to_owned()]),
+        "aggregate THIR inventory gate must stay closed over selected fixture shapes: {json:#?}"
+    );
+    assert!(
+        shapes.iter().all(|fixture| fixture["shape"] != "branch-control-flow"),
+        "branch-control-flow is HIR-only and must not be promoted into aggregate THIR inventory: {json:#?}"
+    );
+    for fixture in shapes {
+        assert_eq!(fixture["support_status"], "pilot-supported");
+        assert!(
+            fixture["emit_command"].as_str().expect("emit command").contains("--spike rustc-thir-fixture"),
+            "aggregate THIR inventory must expose replayable emit commands: {fixture:#?}"
+        );
+        assert!(
+            fixture["check_command"].as_str().expect("check command").contains("--spike rustc-thir-fixture"),
+            "aggregate THIR inventory must expose replayable check commands: {fixture:#?}"
+        );
+        assert!(
+            fixture["support_boundary"]
+                .as_str()
+                .expect("support boundary")
+                .contains("selected checked-in rustc THIR fixture contract only"),
+            "aggregate THIR inventory must remain selected-fixture-only: {fixture:#?}"
+        );
+    }
+
+    let contract = object_corpus_contract(&root);
+    let supplements = contract["supplemental_evidence"].as_array().expect("supplemental evidence list");
+    let thir = supplements
+        .iter()
+        .find(|value| value["family"] == "thir")
+        .unwrap_or_else(|| panic!("missing THIR supplement contract in {contract:#?}"));
+    assert_eq!(thir["status"], "unsupported-planned");
+    assert_eq!(thir["claims_correctness"], false);
+    assert_eq!(thir["claims_semantic_equivalence"], false);
+    assert_eq!(thir["claims_cross_toolchain_stability"], false);
+    assert!(
+        thir["unsupported_reason"]
+            .as_str()
+            .expect("THIR unsupported reason")
+            .contains("default and non-fixture THIR requests remain unsupported-planned"),
+        "aggregate THIR inventory must not broaden default/non-fixture THIR status: {thir:#?}"
+    );
+}
+
+#[test]
 fn object_corpus_contract_metadata_reports_receipt_and_check_shapes() {
     let root = repo_root();
     let contract = object_corpus_contract(&root);
