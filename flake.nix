@@ -1069,6 +1069,9 @@ MAIN
           thirSupplementInventoryGate = mkFingerprintDocsCheck
             "octet-thir-supplement-inventory-gate"
             "thir_inventory";
+          mirSupplementFixtureGate = mkFingerprintDocsCheck
+            "octet-mir-supplement-fixture-gate"
+            "mir_fixture";
           freshBuildObjectCorpusDeterminism = pkgs.runCommand "octet-fresh-build-object-corpus-determinism" {
             nativeBuildInputs = [ pkgs.coreutils pkgs.diffutils pkgs.jq ];
           } ''
@@ -1107,12 +1110,14 @@ MAIN
             test -d ${objectCorpusCompatibilityGate}
             test -d ${objectCorpusCaveatTaxonomyGate}
             test -d ${thirSupplementInventoryGate}
+            test -d ${mirSupplementFixtureGate}
             test -d ${freshBuildObjectCorpusDeterminism}
 
             echo "valence_object_evidence.object_corpus_gate: PASS"
             echo "valence_object_evidence.compatibility_gate: PASS"
             echo "valence_object_evidence.caveat_taxonomy_gate: PASS"
             echo "valence_object_evidence.thir_supplement_inventory_gate: PASS"
+            echo "valence_object_evidence.mir_supplement_fixture_gate: PASS"
             echo "valence_object_evidence.fresh_build_determinism_gate: PASS"
             echo "valence_object_evidence.scope=bounded-local-selected-corpus-evidence-replay"
             echo "valence_object_evidence.non_claims=correctness,semantic_equivalence,exhaustive_rust_coverage,cross_machine_determinism,cross_toolchain_determinism"
@@ -1226,6 +1231,7 @@ MAIN
           object-corpus-compatibility-gate = objectCorpusCompatibilityGate;
           object-corpus-caveat-taxonomy-gate = objectCorpusCaveatTaxonomyGate;
           thir-supplement-inventory-gate = thirSupplementInventoryGate;
+          mir-supplement-fixture-gate = mirSupplementFixtureGate;
           fresh-build-object-corpus-determinism = freshBuildObjectCorpusDeterminism;
           valence-object-evidence = valenceObjectEvidenceGate;
           roadmap-agent-surfaces-docs = roadmapAgentSurfacesDocs;

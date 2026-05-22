@@ -33,6 +33,9 @@ const RUSTC_THIR_SPIKE_FIXTURE_RELATIVE_PATH: &str = "cargo-octet/tests/fixtures
 const RUSTC_THIR_SPIKE_FUNCTION: &str = "checked";
 const RUSTC_THIR_SPIKE_CALL_FIXTURE_RELATIVE_PATH: &str = "cargo-octet/tests/fixtures/thir-spike/call_return.rs";
 const RUSTC_THIR_SPIKE_CALL_FUNCTION: &str = "call_then_return";
+const RUSTC_MIR_SPIKE_EXTRACTOR_NAME: &str = "octet-rustc-mir-fixture-contract";
+const RUSTC_MIR_SPIKE_FIXTURE_RELATIVE_PATH: &str = "cargo-octet/tests/fixtures/mir-spike/checked.rs";
+const RUSTC_MIR_SPIKE_FUNCTION: &str = "checked";
 #[allow(dead_code)]
 const SUPPLEMENT_SCHEMA_VERSION: u32 = 1;
 const CORPUS_RECEIPT_SCHEMA: &str = "octet.function-object-corpus-receipt.v1";
@@ -635,7 +638,8 @@ fn run_supplement_fixtures(
     }
     match (family, scope) {
         (SupplementFamilyArg::Hir, SupplementScopeArg::RustcHirFixtureSpike)
-        | (SupplementFamilyArg::Thir, SupplementScopeArg::RustcThirFixtureSpike) => {}
+        | (SupplementFamilyArg::Thir, SupplementScopeArg::RustcThirFixtureSpike)
+        | (SupplementFamilyArg::Mir, SupplementScopeArg::RustcMirFixtureSpike) => {}
         (SupplementFamilyArg::Hir, _) => {
             return Err("object supplement fixtures for `--family hir` requires `--spike rustc-hir-fixture`".to_owned());
         }
@@ -645,7 +649,7 @@ fn run_supplement_fixtures(
             );
         }
         (SupplementFamilyArg::Mir, _) => {
-            return Err("object supplement fixtures only supports `--family hir` or `--family thir`".to_owned());
+            return Err("object supplement fixtures for `--family mir` requires `--spike rustc-mir-fixture`".to_owned());
         }
     }
     let report = supplement_fixture_inventory_report(family, scope);
@@ -664,6 +668,7 @@ fn supplement_fixture_inventory_report(
     let fixtures = match (family, scope) {
         (SupplementFamilyArg::Hir, SupplementScopeArg::RustcHirFixtureSpike) => RUSTC_HIR_SPIKE_FIXTURES,
         (SupplementFamilyArg::Thir, SupplementScopeArg::RustcThirFixtureSpike) => RUSTC_THIR_SPIKE_FIXTURES,
+        (SupplementFamilyArg::Mir, SupplementScopeArg::RustcMirFixtureSpike) => RUSTC_MIR_SPIKE_FIXTURES,
         _ => &[],
     };
     let default_shape = fixtures.first().map(|fixture| fixture.shape).unwrap_or("unknown");
@@ -675,6 +680,7 @@ fn supplement_fixture_inventory_report(
                 SupplementScopeArg::Pilot => "pilot",
                 SupplementScopeArg::RustcHirFixtureSpike => "rustc-hir-fixture",
                 SupplementScopeArg::RustcThirFixtureSpike => "rustc-thir-fixture",
+                SupplementScopeArg::RustcMirFixtureSpike => "rustc-mir-fixture",
             };
             HirFixtureInventoryEntry {
                 shape: fixture.shape,
@@ -685,7 +691,7 @@ fn supplement_fixture_inventory_report(
                 support_boundary: match family {
                     SupplementFamilyArg::Hir => "selected checked-in rustc HIR fixture only; no general HIR, correctness, semantic-equivalence, cross-toolchain, or pure-cache claim",
                     SupplementFamilyArg::Thir => "selected checked-in rustc THIR fixture contract only; no general THIR extraction, correctness, semantic-equivalence, cross-toolchain, or pure-cache claim",
-                    SupplementFamilyArg::Mir => "unsupported fixture family",
+                    SupplementFamilyArg::Mir => "selected checked-in rustc MIR fixture contract only; selected-fixture-only; no general MIR extraction, correctness, semantic-equivalence, cross-toolchain, or pure-cache claim",
                 },
                 emit_command: format!(
                     "cargo octet object supplement emit --family {family_name} --spike {spike_name} --fixture-shape {} --output-format json",
@@ -702,7 +708,7 @@ fn supplement_fixture_inventory_report(
         schema: match family {
             SupplementFamilyArg::Hir => "octet.hir-fixture-inventory.v1",
             SupplementFamilyArg::Thir => "octet.thir-fixture-inventory.v1",
-            SupplementFamilyArg::Mir => "octet.unsupported-fixture-inventory.v1",
+            SupplementFamilyArg::Mir => "octet.mir-fixture-inventory.v1",
         },
         schema_version: 1,
         mode: "supplement-fixture-inventory",
@@ -811,6 +817,17 @@ fn supplement_records(
             let fixture_path = rustc_thir_spike_cli_fixture_path(paths)?;
             Ok(vec![rustc_thir_spike_supplement(&fixture_path, function)?])
         }
+        SupplementScopeArg::RustcMirFixtureSpike => {
+            if family != SupplementFamilyArg::Mir {
+                return Err("rustc MIR fixture spike only supports `--family mir`".to_owned());
+            }
+            let function = function.ok_or_else(|| {
+                "rustc MIR fixture spike requires explicit fixture selector `--fixture-shape checked-arithmetic`"
+                    .to_owned()
+            })?;
+            let fixture_path = rustc_mir_spike_cli_fixture_path(paths)?;
+            Ok(vec![rustc_mir_spike_supplement(&fixture_path, function)?])
+        }
     }
 }
 
@@ -831,6 +848,17 @@ fn rustc_thir_spike_cli_fixture_path(paths: &[PathBuf]) -> Result<PathBuf, Strin
     }
     if paths.len() != 1 {
         return Err("rustc THIR fixture spike accepts exactly one fixture path".to_owned());
+    }
+    Ok(paths[0].clone())
+}
+
+fn rustc_mir_spike_cli_fixture_path(paths: &[PathBuf]) -> Result<PathBuf, String> {
+    if paths.is_empty() || paths == [PathBuf::from(".")] {
+        return Err("rustc MIR fixture spike requires explicit fixture selector `--fixture-shape checked-arithmetic`"
+            .to_owned());
+    }
+    if paths.len() != 1 {
+        return Err("rustc MIR fixture spike accepts exactly one fixture path".to_owned());
     }
     Ok(paths[0].clone())
 }
@@ -886,6 +914,12 @@ const RUSTC_THIR_SPIKE_FIXTURES: &[RustcHirSpikeFixture] = &[
     },
 ];
 
+const RUSTC_MIR_SPIKE_FIXTURES: &[RustcHirSpikeFixture] = &[RustcHirSpikeFixture {
+    relative_path: RUSTC_MIR_SPIKE_FIXTURE_RELATIVE_PATH,
+    function: RUSTC_MIR_SPIKE_FUNCTION,
+    shape: "checked-arithmetic",
+}];
+
 fn rustc_hir_spike_fixture_for(fixture_path: &Path, function: &str) -> Result<RustcHirSpikeFixture, String> {
     let normalized_path = determinism::normalize_path(fixture_path);
     RUSTC_HIR_SPIKE_FIXTURES
@@ -918,6 +952,24 @@ fn rustc_thir_spike_fixture_for(fixture_path: &Path, function: &str) -> Result<R
                 .join(", ");
             format!(
                 "rustc THIR fixture contract is bounded to checked-in fixture/function pairs [{allowed}], got {normalized_path}::{function}"
+            )
+        })
+}
+
+fn rustc_mir_spike_fixture_for(fixture_path: &Path, function: &str) -> Result<RustcHirSpikeFixture, String> {
+    let normalized_path = determinism::normalize_path(fixture_path);
+    RUSTC_MIR_SPIKE_FIXTURES
+        .iter()
+        .copied()
+        .find(|fixture| fixture.relative_path == normalized_path && fixture.function == function)
+        .ok_or_else(|| {
+            let allowed = RUSTC_MIR_SPIKE_FIXTURES
+                .iter()
+                .map(|fixture| format!("{}::{}", fixture.relative_path, fixture.function))
+                .collect::<Vec<_>>()
+                .join(", ");
+            format!(
+                "rustc MIR fixture contract is bounded to checked-in fixture/function pairs [{allowed}], got {normalized_path}::{function}"
             )
         })
 }
@@ -1026,6 +1078,54 @@ fn rustc_thir_spike_supplement(fixture_path: &Path, function: &str) -> Result<Fu
 }
 
 #[allow(dead_code)]
+fn rustc_mir_spike_supplement(fixture_path: &Path, function: &str) -> Result<FunctionObjectSupplementV1, String> {
+    let fixture = rustc_mir_spike_fixture_for(fixture_path, function)?;
+    let read_path = rustc_hir_spike_read_path(fixture_path);
+    let source = fs::read_to_string(&read_path).map_err(|error| format!("read {}: {error}", read_path.display()))?;
+    let span = fingerprint::find_functions(&source)
+        .into_iter()
+        .find(|span| span.name == function)
+        .ok_or_else(|| format!("fixture {} does not contain function `{function}`", read_path.display()))?;
+    let function_source = &source[span.start..span.end];
+    let object = function_object_for_source(fixture_path, &source, &span, function_source)?;
+    let context = runtime_rustc_mir_spike_context()?;
+    let fixture_contract_hash = determinism::full_hash(&format!(
+        "{}
+{}
+{}
+{}",
+        fixture.relative_path, fixture.function, fixture.shape, function_source
+    ));
+
+    let mut observations = BTreeMap::new();
+    observations.insert("fixture_context".to_owned(), SupplementObservation {
+        status: ObjectSupplementStatus::PilotSupported.as_str(),
+        detail: format!(
+            "fixture={}; function={function}; fixture_shape={}; object_hash={}",
+            determinism::normalize_path(fixture_path),
+            fixture.shape,
+            object.object_hash
+        ),
+    });
+    observations.insert("mir_fixture_contract_hash".to_owned(), SupplementObservation {
+        status: ObjectSupplementStatus::PilotSupported.as_str(),
+        detail: format!("selected MIR fixture contract fixture_shape={} hash={fixture_contract_hash}", fixture.shape),
+    });
+    observations.insert("support_boundary".to_owned(), SupplementObservation {
+        status: ObjectSupplementStatus::Unsupported.as_str(),
+        detail: "rustc MIR fixture contract is selected-fixture-only; it does not claim general MIR extraction, correctness, semantic equivalence, pure-cache eligibility, or cross-toolchain stability".to_owned(),
+    });
+
+    let mut supplement = supplement_for_object(ObjectSupplementFamily::Mir, &object, &context, observations);
+    supplement.extraction_caveats.push(SupplementCaveat {
+        family: ObjectSupplementFamily::Mir.as_str(),
+        status: ObjectSupplementStatus::Unsupported.as_str(),
+        detail: "MIR fixture support is a deterministic contract for selected checked-in fixture shapes; non-fixture MIR remains unsupported-planned".to_owned(),
+    });
+    Ok(supplement)
+}
+
+#[allow(dead_code)]
 fn runtime_rustc_hir_spike_context() -> Result<PilotSupplementContext, String> {
     runtime_rustc_fixture_context(RUSTC_HIR_SPIKE_EXTRACTOR_NAME)
 }
@@ -1033,6 +1133,11 @@ fn runtime_rustc_hir_spike_context() -> Result<PilotSupplementContext, String> {
 #[allow(dead_code)]
 fn runtime_rustc_thir_spike_context() -> Result<PilotSupplementContext, String> {
     runtime_rustc_fixture_context(RUSTC_THIR_SPIKE_EXTRACTOR_NAME)
+}
+
+#[allow(dead_code)]
+fn runtime_rustc_mir_spike_context() -> Result<PilotSupplementContext, String> {
+    runtime_rustc_fixture_context(RUSTC_MIR_SPIKE_EXTRACTOR_NAME)
 }
 
 fn runtime_rustc_fixture_context(extractor_name: &'static str) -> Result<PilotSupplementContext, String> {
@@ -1250,10 +1355,17 @@ fn pilot_mir_supplement(object: &FunctionObjectV1, context: &PilotSupplementCont
         });
     }
     observations.insert("mir_context".to_owned(), SupplementObservation {
-        status: ObjectSupplementStatus::PilotSupported.as_str(),
-        detail: "MIR observation context is version-scoped and does not claim semantic equivalence".to_owned(),
+        status: ObjectSupplementStatus::UnsupportedPlanned.as_str(),
+        detail: "default MIR requests remain unsupported-planned; only the explicit rustc-mir-fixture checked-arithmetic path is pilot-supported".to_owned(),
     });
-    supplement_for_object(ObjectSupplementFamily::Mir, object, context, observations)
+    let mut supplement = supplement_for_object(ObjectSupplementFamily::Mir, object, context, observations);
+    supplement.status = ObjectSupplementStatus::UnsupportedPlanned.as_str();
+    supplement.extraction_caveats.push(SupplementCaveat {
+        family: ObjectSupplementFamily::Mir.as_str(),
+        status: ObjectSupplementStatus::UnsupportedPlanned.as_str(),
+        detail: "default MIR extraction is unsupported-planned outside explicit selected fixtures; do not treat it as semantic, exhaustive, or proof evidence".to_owned(),
+    });
+    supplement
 }
 
 #[allow(dead_code)]
@@ -1798,9 +1910,9 @@ fn supplemental_evidence_contracts() -> Vec<ObjectSupplementalEvidenceContract> 
             family: "mir",
             schema: MIR_SUPPLEMENT_SCHEMA,
             schema_version: SUPPLEMENT_SCHEMA_VERSION,
-            status: ObjectSupplementStatus::PilotSupported.as_str(),
+            status: ObjectSupplementStatus::UnsupportedPlanned.as_str(),
             relationship_to_v1: "optional-supplement-preserves-function-object-v1-identity",
-            toolchain_scope: "rustc-version-target-and-mir-context-scoped",
+            toolchain_scope: "rustc-version-target-and-mir-fixture-contract-scoped",
             required_fields: vec![
                 "schema",
                 "schema_version",
@@ -1815,20 +1927,22 @@ fn supplemental_evidence_contracts() -> Vec<ObjectSupplementalEvidenceContract> 
                 "extraction_caveats",
                 "boundary",
             ],
-            unsupported_reason: "bounded pilot source-token MIR summary fixture only; non-fixture MIR requests remain unsupported-planned until extractor evidence is added",
+            unsupported_reason: "selected rustc MIR fixture contract [checked-arithmetic] only; default and non-fixture MIR requests remain unsupported-planned until general extractor evidence is added",
             required_evidence_before_support: vec![
-                "positive-cli-supplement-emit-check-smoke",
-                "negative-context-mismatch-check-smoke",
+                "positive-rustc-mir-selected-fixture-shape-smoke",
+                "negative-rustc-mir-selected-fixture-shape-mismatch-smoke",
+                "default-mir-unsupported-planned-contract-smoke",
                 "non-proof-boundary-assertions",
             ],
             extractor_identity_expectations: vec![
-                "extractor.name=octet-mir-pilot-source-token",
+                "extractor.name=octet-rustc-mir-fixture-contract for --spike rustc-mir-fixture",
+                "fixture_shape=checked-arithmetic maps to mir-spike/checked.rs::checked",
                 "extractor.version=cargo-octet-package-version",
                 "rustc_version=runtime-rustc-vv",
                 "target_triple=runtime-rustc-host",
             ],
-            selected_fixture_shapes: Vec::new(),
-            fixture_replay_command: "cargo octet object supplement emit --family mir --function checked src/lib.rs --output-format json && cargo octet object supplement check --family mir --receipt RECEIPT.json --function checked src/lib.rs --output-format json",
+            selected_fixture_shapes: vec!["checked-arithmetic"],
+            fixture_replay_command: "cargo octet object supplement emit --family mir --spike rustc-mir-fixture --fixture-shape checked-arithmetic --output-format json && cargo octet object supplement check --family mir --spike rustc-mir-fixture --fixture-shape checked-arithmetic --receipt RECEIPT.json --output-format json",
             claims_correctness: false,
             claims_semantic_equivalence: false,
             claims_cross_toolchain_stability: false,
@@ -2831,7 +2945,11 @@ mod tests {
             ObjectSupplementStatus::Unsupported.as_str(),
         ]);
         assert_eq!(supplement.schema, "octet.function-object-mir-supplement.v1");
-        assert_eq!(supplement.status, ObjectSupplementStatus::PilotSupported.as_str());
+        assert_eq!(supplement.status, ObjectSupplementStatus::UnsupportedPlanned.as_str());
+        assert_eq!(
+            supplement.observations.get("mir_context").expect("mir context").status,
+            ObjectSupplementStatus::UnsupportedPlanned.as_str()
+        );
         for family in ["call", "panic", "drop", "async", "unsafe", "allocation", "effect"] {
             let observation = supplement.observations.get(family).expect("summary family present");
             assert_eq!(observation.status, ObjectSupplementStatus::Unknown.as_str());

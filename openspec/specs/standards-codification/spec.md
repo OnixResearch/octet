@@ -1551,118 +1551,43 @@ The aggregate gate MUST compose the checked-in internal object corpus replay rai
 
 ### Requirement: HIR/MIR supplement pilot [r[hir-mir-supplement-pilot]]
 
-Octet MUST support bounded, fail-closed supplemental evidence families for selected Function Object v1 records. Pilot records MUST reference the canonical v1 object hash, record toolchain/extractor identity when available, emit closed schema/status values, and preserve no-correctness/no-semantic-equivalence boundaries. Fixture-backed families MAY report `pilot-supported` only for closed, deterministic selectors with replay evidence; all other request shapes MUST remain `unsupported-planned`.
+Octet MUST support bounded, fail-closed supplemental evidence families for selected Function Object v1 records. Pilot supplement records MUST reference the canonical `octet.function-object.v1` object hash, record exact toolchain and extractor identity when available, emit closed schema/status values, and preserve no-correctness/no-semantic-equivalence boundaries. Fixture-backed families MAY report `pilot-supported` only for closed, deterministic fixture selectors with positive and negative replay evidence; families or request shapes without deterministic fixture evidence MUST remain `unsupported-planned`. MIR fixture support MUST stay selector-bounded: default/non-fixture MIR requests and object corpus contract metadata remain `unsupported-planned`, while explicit selected MIR fixture runtime selectors MAY report `pilot-supported` only for their checked-in fixture/function pairs.
 
-#### Scenario: Pilot HIR supplement attaches to v1 object identity [r[hir-mir-supplement-pilot.scenario.hir-attaches-v1]]
+#### Scenario: MIR fixture inventory lists selected shapes [r[hir-mir-supplement-pilot.scenario.mir-fixture-inventory-selected-shapes]]
 
-- GIVEN a selected fixture function with an emitted Function Object v1 record
-- WHEN Octet emits a pilot HIR supplement for that function
-- THEN the supplement references the v1 `object_hash`, source path, and function name
-- AND it records rustc/toolchain identity, extractor name/version, HIR supplement schema version, and unresolved dependency or macro-origin caveats
-- AND it does not replace the v1 object hash as review/provenance identity
+- GIVEN the rustc MIR fixture contract supports checked-in selector value `checked-arithmetic`
+- WHEN an operator requests fixture inventory for `--family mir --spike rustc-mir-fixture`
+- THEN Octet lists exactly the selected MIR fixture shape `checked-arithmetic`
+- AND the entry names its fixture path, function, support status, and selected-fixture-only boundary
 
-#### Scenario: Pilot MIR supplement records unsupported summary families [r[hir-mir-supplement-pilot.scenario.mir-unsupported-families]]
+#### Scenario: MIR checked-arithmetic fixture emits pilot-supported evidence [r[hir-mir-supplement-pilot.scenario.mir-checked-arithmetic-fixture-pilot-supported]]
 
-- GIVEN a selected fixture function where only some MIR summary families are supported by the pilot extractor
-- WHEN Octet emits a pilot MIR supplement
-- THEN the supplement records rustc/toolchain identity, extractor name/version, MIR supplement schema version, and supported call/panic/drop/async/unsafe/allocation/effect summaries where available
-- AND every absent or incomplete summary family is represented by an explicit unknown or unsupported caveat
-- AND the output does not claim cross-toolchain stability, behavioral correctness, semantic equivalence, or pure-cache eligibility
-
-#### Scenario: Supplement check fails closed on mismatched context [r[hir-mir-supplement-pilot.scenario.check-fails-closed]]
-
-- GIVEN a saved pilot supplement receipt whose object hash, source path, toolchain identity, extractor version, or schema version differs from the current extraction context
-- WHEN Octet checks the receipt against the current fixture input
-- THEN the check fails with a deterministic mismatch report naming the compared field
-- AND the report preserves the no-correctness and no-semantic-equivalence boundary fields
-
-#### Scenario: Unsupported supplement family remains planned [r[hir-mir-supplement-pilot.scenario.unsupported-remains-planned]]
-
-- GIVEN a HIR, THIR, or MIR supplement family without deterministic checked-in fixture evidence
-- WHEN contract metadata or operator documentation describes that family
-- THEN its status remains `unsupported-planned`
-- AND the metadata names the required fixture evidence before support can be claimed
-
-#### Scenario: THIR supplement emits unsupported-planned evidence [r[hir-mir-supplement-pilot.scenario.thir-unsupported-planned]]
-
-- GIVEN a selected Rust function that can emit a Function Object v1 record
-- WHEN Octet emits a pilot THIR supplement for that function with `--family thir`
-- THEN the supplement uses schema `octet.function-object-thir-supplement.v1` and status `unsupported-planned`
-- AND it records observations or caveats explaining that THIR extraction is not implemented
-- AND it preserves no-correctness, no-semantic-equivalence, no-pure-cache, and no-cross-toolchain-stability boundaries
-
-#### Scenario: THIR supplement check replays fail-closed receipt [r[hir-mir-supplement-pilot.scenario.thir-check-replay]]
-
-- GIVEN a saved THIR supplement receipt emitted by the fail-closed pilot path
-- WHEN Octet checks that receipt against the same selected function with `--family thir`
-- THEN the report status is `pass` only when compared receipt-critical fields match
-- AND the report continues to describe the THIR family as unsupported-planned evidence rather than correctness, semantic-equivalence, or extractor support
-
-#### Scenario: THIR fixture emits pilot-supported evidence [r[hir-mir-supplement-pilot.scenario.thir-fixture-pilot-supported]]
-
-- GIVEN checked-in THIR fixture selector `checked-arithmetic` bound to exactly `cargo-octet/tests/fixtures/thir-spike/checked.rs::checked`
-- WHEN Octet emits a supplement with `--family thir --spike rustc-thir-fixture --fixture-shape checked-arithmetic`
-- THEN the supplement uses schema `octet.function-object-thir-supplement.v1` and status `pilot-supported`
-- AND its observations name selected fixture shape `checked-arithmetic`, fixture path `cargo-octet/tests/fixtures/thir-spike/checked.rs`, function `checked`, and Function Object v1 hash
+- GIVEN checked-in MIR fixture selector `checked-arithmetic` bound to exactly `cargo-octet/tests/fixtures/mir-spike/checked.rs::checked`
+- WHEN Octet emits a supplement with `--family mir --spike rustc-mir-fixture --fixture-shape checked-arithmetic`
+- THEN the supplement uses schema `octet.function-object-mir-supplement.v1` and status `pilot-supported`
+- AND its observations name selected fixture shape `checked-arithmetic`, fixture path `cargo-octet/tests/fixtures/mir-spike/checked.rs`, function `checked`, and Function Object v1 hash
 - AND its boundary fields continue to reject correctness, semantic-equivalence, pure-cache, and cross-toolchain claims
 
-#### Scenario: THIR fixture check rejects mismatched receipts [r[hir-mir-supplement-pilot.scenario.thir-fixture-mismatch-fails]]
+#### Scenario: MIR rejects unsupported fixture shapes [r[hir-mir-supplement-pilot.scenario.mir-unsupported-fixture-shape-rejected]]
 
-- GIVEN a saved THIR fixture-backed supplement receipt for the selected fixture/function pair
-- WHEN Octet checks that receipt against a different function, path, family, scope, or tampered observation data
-- THEN the check fails closed with at least one mismatched receipt-critical field
-- AND it does not silently downgrade the selected fixture to general THIR support
-
-#### Scenario: THIR default runtime remains unsupported-planned [r[hir-mir-supplement-pilot.scenario.thir-default-remains-planned]]
-
-- GIVEN a non-fixture THIR supplement request using the default pilot scope
-- WHEN Octet emits or checks the supplement
-- THEN its status remains `unsupported-planned`
-- AND docs, contract metadata, and tests distinguish that default behavior from selected fixture support
-
-#### Scenario: THIR fixture inventory lists selected shapes [r[hir-mir-supplement-pilot.scenario.thir-fixture-inventory-selected-shapes]]
-
-- GIVEN the rustc THIR fixture contract supports checked-in selector values `checked-arithmetic` and `call-return`
-- WHEN an operator requests fixture inventory for `--family thir --spike rustc-thir-fixture --output-format json`
-- THEN Octet lists exactly those selected THIR fixture shapes
-- AND each entry names its fixture path, function, support status `pilot-supported`, emitted replay commands, and selected-fixture-only boundary
-- AND the THIR inventory does not list HIR-only selector `branch-control-flow`
-
-#### Scenario: THIR inventory commands roundtrip selected fixture evidence [r[hir-mir-supplement-pilot.scenario.thir-inventory-command-roundtrip]]
-
-- GIVEN the THIR fixture inventory emits replay commands for every listed shape
-- WHEN the emitted `emit_command` and `check_command` are executed for each listed THIR selector
-- THEN each emitted supplement reports status `pilot-supported` and fixture context for the same selector
-- AND each corresponding check report returns `pass` with all compared fields matching
-
-#### Scenario: THIR call-return fixture emits pilot-supported evidence [r[hir-mir-supplement-pilot.scenario.thir-call-return-fixture-pilot-supported]]
-
-- GIVEN checked-in THIR fixture selector `call-return` bound to exactly `cargo-octet/tests/fixtures/thir-spike/call_return.rs::call_then_return`
-- WHEN Octet emits a supplement with `--family thir --spike rustc-thir-fixture --fixture-shape call-return`
-- THEN the supplement uses schema `octet.function-object-thir-supplement.v1` and status `pilot-supported`
-- AND its observations name selected fixture shape `call-return`, fixture path `cargo-octet/tests/fixtures/thir-spike/call_return.rs`, function `call_then_return`, and Function Object v1 hash
-- AND its boundary fields continue to reject correctness, semantic-equivalence, pure-cache, and cross-toolchain claims
-
-#### Scenario: THIR rejects unsupported fixture shapes [r[hir-mir-supplement-pilot.scenario.thir-unsupported-fixture-shape-rejected]]
-
-- GIVEN `branch-control-flow` remains a HIR-only fixture selector
-- WHEN an operator requests `--family thir --spike rustc-thir-fixture --fixture-shape branch-control-flow`
+- GIVEN `branch-control-flow` and `call-return` are not MIR fixture selectors
+- WHEN an operator requests `--family mir --spike rustc-mir-fixture --fixture-shape branch-control-flow` or `--fixture-shape call-return`
 - THEN Octet rejects the selector with a deterministic usage error
-- AND no emitted THIR supplement or inventory output implies arbitrary THIR fixture support
+- AND no emitted MIR supplement or inventory output implies arbitrary MIR fixture support
 
-#### Scenario: THIR default contract remains unsupported-planned after fixture expansion [r[hir-mir-supplement-pilot.scenario.thir-default-contract-remains-planned-after-expansion]]
+#### Scenario: MIR fixture scope rejects non-MIR family pairings [r[hir-mir-supplement-pilot.scenario.mir-fixture-scope-rejects-non-mir-family-pairings]]
 
-- GIVEN selected THIR fixture shapes `checked-arithmetic` and `call-return` have runtime fixture evidence
-- WHEN contract metadata or operator documentation describes the THIR family outside an explicit selected fixture runtime path
+- GIVEN `rustc-mir-fixture` is the MIR-only selected fixture scope
+- WHEN an operator pairs `--spike rustc-mir-fixture` with `--family hir` or `--family thir`
+- THEN Octet rejects the command with a deterministic usage error
+- AND the diagnostic states the MIR fixture scope only supports `--family mir`
+
+#### Scenario: MIR default contract remains unsupported-planned after fixture expansion [r[hir-mir-supplement-pilot.scenario.mir-default-contract-remains-planned-after-expansion]]
+
+- GIVEN selected MIR fixture shape `checked-arithmetic` has runtime fixture evidence
+- WHEN contract metadata or operator documentation describes the MIR family outside an explicit selected fixture runtime path
 - THEN its status remains `unsupported-planned`
-- AND the metadata names selected fixture shapes without claiming general THIR extraction support
-
-#### Scenario: THIR fixture inventory preserves unsupported-planned family boundary [r[hir-mir-supplement-pilot.scenario.thir-fixture-inventory-default-boundary]]
-
-- GIVEN selected THIR fixture shapes are discoverable through the fixture inventory
-- WHEN contract metadata or operator documentation describes the THIR family outside an explicit selected fixture runtime path
-- THEN its status remains `unsupported-planned`
-- AND the metadata names selected fixture shapes without claiming general THIR extraction, correctness, semantic-equivalence, pure-cache, or cross-toolchain support
+- AND the metadata names selected fixture shapes without claiming general MIR extraction support
 
 ### Requirement: Rustc-backed HIR extractor spike [r[rustc-hir-extractor-spike]]
 

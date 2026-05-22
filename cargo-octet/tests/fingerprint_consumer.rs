@@ -1840,6 +1840,8 @@ fn hir_mir_supplement_pilot_docs_name_commands_and_non_proofs() {
         "cargo octet object corpus contract --output-format json",
         "cargo octet object supplement emit --family hir --spike rustc-hir-fixture",
         "cargo octet object supplement check --family hir --spike rustc-hir-fixture",
+        "cargo octet object supplement emit --family mir --spike rustc-mir-fixture",
+        "cargo octet object supplement check --family mir --spike rustc-mir-fixture",
         "--fixture-shape checked-arithmetic",
         "--fixture-shape branch-control-flow",
         "selected-fixture-backed/toolchain-scoped review",
@@ -1849,7 +1851,7 @@ fn hir_mir_supplement_pilot_docs_name_commands_and_non_proofs() {
         "source-token-bounded review evidence",
         "selected-fixture-backed/toolchain-scoped review",
         "do not replace it as the",
-        "The default THIR runtime seam remains fail-closed",
+        "The default MIR and THIR runtime seams",
         "correctness proof",
         "semantic-equivalence proof",
         "pure-cache eligibility proof",
@@ -1867,6 +1869,8 @@ fn hir_mir_supplement_pilot_docs_name_commands_and_non_proofs() {
         "cargo octet object supplement check --family thir",
         "cargo octet object supplement emit --family hir --spike rustc-hir-fixture",
         "cargo octet object supplement check --family hir --spike rustc-hir-fixture",
+        "cargo octet object supplement emit --family mir --spike rustc-mir-fixture",
+        "cargo octet object supplement check --family mir --spike rustc-mir-fixture",
         "--fixture-shape checked-arithmetic",
         "--fixture-shape branch-control-flow",
         "attached supplement to `octet.function-object.v1`",
@@ -2176,6 +2180,177 @@ fn thir_fixture_supplement_emit_check_and_negative_replay_are_bounded() {
 }
 
 #[test]
+fn mir_fixture_supplement_emit_check_and_negative_replay_are_bounded() {
+    let root = repo_root();
+    let temp = tempfile::tempdir().expect("create MIR fixture tempdir");
+
+    let inventory = Command::new(cargo_octet())
+        .args([
+            "object",
+            "supplement",
+            "fixtures",
+            "--family",
+            "mir",
+            "--spike",
+            "rustc-mir-fixture",
+            "--output-format",
+            "json",
+        ])
+        .current_dir(&root)
+        .output()
+        .expect("run MIR fixture inventory");
+    assert!(
+        inventory.status.success(),
+        "MIR inventory failed stdout={} stderr={}",
+        String::from_utf8_lossy(&inventory.stdout),
+        String::from_utf8_lossy(&inventory.stderr)
+    );
+    let inventory_json: serde_json::Value = serde_json::from_slice(&inventory.stdout).expect("MIR inventory json");
+    assert_eq!(inventory_json["schema"], "octet.mir-fixture-inventory.v1");
+    assert_eq!(inventory_json["family"], "mir");
+    assert_eq!(inventory_json["scope"], "rustc-mir-fixture-spike");
+    assert_eq!(inventory_json["default_shape"], "checked-arithmetic");
+    let shapes = inventory_json["shapes"].as_array().expect("MIR inventory shapes");
+    assert_eq!(shapes.len(), 1, "MIR fixture support must stay closed to selected selector: {inventory_json:#?}");
+    assert_eq!(shapes[0]["shape"], "checked-arithmetic");
+    assert_eq!(shapes[0]["fixture_path"], "cargo-octet/tests/fixtures/mir-spike/checked.rs");
+    assert_eq!(shapes[0]["function"], "checked");
+    assert_eq!(shapes[0]["support_status"], "pilot-supported");
+    assert!(
+        shapes[0]["support_boundary"].as_str().unwrap().contains("selected-fixture-only"),
+        "MIR inventory must not overclaim: {inventory_json:#?}"
+    );
+
+    let emit = Command::new(cargo_octet())
+        .args([
+            "object",
+            "supplement",
+            "emit",
+            "--family",
+            "mir",
+            "--spike",
+            "rustc-mir-fixture",
+            "--fixture-shape",
+            "checked-arithmetic",
+            "--output-format",
+            "json",
+        ])
+        .current_dir(&root)
+        .output()
+        .expect("run MIR fixture emit");
+    assert!(
+        emit.status.success(),
+        "MIR fixture emit failed stdout={} stderr={}",
+        String::from_utf8_lossy(&emit.stdout),
+        String::from_utf8_lossy(&emit.stderr)
+    );
+    let receipt: serde_json::Value = serde_json::from_slice(&emit.stdout).expect("MIR fixture emit json");
+    assert_eq!(receipt["family"], "mir");
+    assert_eq!(receipt["scope"], "rustc-mir-fixture-spike");
+    let supplement = receipt["supplements"].as_array().unwrap().first().expect("MIR fixture supplement");
+    assert_eq!(supplement["schema"], "octet.function-object-mir-supplement.v1");
+    assert_eq!(supplement["family"], "mir");
+    assert_eq!(supplement["status"], "pilot-supported");
+    assert_eq!(supplement["extractor"]["name"], "octet-rustc-mir-fixture-contract");
+    assert_eq!(supplement["observations"]["fixture_context"]["status"], "pilot-supported");
+    assert!(
+        supplement["observations"]["fixture_context"]["detail"]
+            .as_str()
+            .unwrap()
+            .contains("fixture_shape=checked-arithmetic"),
+        "MIR fixture observation should bind selector: {supplement:#?}"
+    );
+    assert!(
+        supplement["observations"]["mir_fixture_contract_hash"]["detail"].as_str().unwrap().contains("b3:"),
+        "MIR fixture contract hash should be BLAKE3-addressed: {supplement:#?}"
+    );
+    assert!(
+        supplement["observations"]["support_boundary"]["detail"]
+            .as_str()
+            .unwrap()
+            .contains("selected-fixture-only"),
+        "MIR fixture support boundary must be selected-only: {supplement:#?}"
+    );
+    assert_eq!(supplement["boundary"]["claims_correctness"], false);
+    assert_eq!(supplement["boundary"]["claims_semantic_equivalence"], false);
+    assert_eq!(supplement["boundary"]["claims_pure_cache_eligibility"], false);
+    assert_eq!(supplement["boundary"]["claims_cross_toolchain_stability"], false);
+
+    let receipt_path = temp.path().join("mir-fixture-checked-arithmetic.json");
+    fs::write(&receipt_path, &emit.stdout).expect("write MIR fixture receipt");
+    let check = Command::new(cargo_octet())
+        .args([
+            "object",
+            "supplement",
+            "check",
+            "--family",
+            "mir",
+            "--spike",
+            "rustc-mir-fixture",
+            "--fixture-shape",
+            "checked-arithmetic",
+            "--receipt",
+            receipt_path.to_str().unwrap(),
+            "--output-format",
+            "json",
+        ])
+        .current_dir(&root)
+        .output()
+        .expect("run MIR fixture check");
+    assert!(
+        check.status.success(),
+        "MIR fixture check failed stdout={} stderr={}",
+        String::from_utf8_lossy(&check.stdout),
+        String::from_utf8_lossy(&check.stderr)
+    );
+    let report: serde_json::Value = serde_json::from_slice(&check.stdout).expect("MIR fixture check json");
+    assert_eq!(report["status"], "pass");
+    assert!(report["comparisons"].as_array().unwrap().iter().all(|comparison| comparison["status"] == "match"));
+
+    let mut tampered = receipt.clone();
+    tampered["supplements"][0]["observations"]["mir_fixture_contract_hash"]["detail"] =
+        serde_json::Value::String("tampered selected MIR fixture hash".to_owned());
+    let tampered_path = temp.path().join("mir-fixture-checked-arithmetic-tampered.json");
+    fs::write(&tampered_path, serde_json::to_vec_pretty(&tampered).unwrap()).expect("write tampered MIR receipt");
+    let tampered_check = Command::new(cargo_octet())
+        .args([
+            "object",
+            "supplement",
+            "check",
+            "--family",
+            "mir",
+            "--spike",
+            "rustc-mir-fixture",
+            "--fixture-shape",
+            "checked-arithmetic",
+            "--receipt",
+            tampered_path.to_str().unwrap(),
+            "--output-format",
+            "json",
+        ])
+        .current_dir(&root)
+        .output()
+        .expect("run tampered MIR fixture check");
+    assert!(
+        !tampered_check.status.success(),
+        "tampered MIR fixture receipt must fail stdout={} stderr={}",
+        String::from_utf8_lossy(&tampered_check.stdout),
+        String::from_utf8_lossy(&tampered_check.stderr)
+    );
+    let tampered_report: serde_json::Value =
+        serde_json::from_slice(&tampered_check.stdout).expect("tampered MIR fixture report json");
+    assert_eq!(tampered_report["status"], "fail");
+    assert!(
+        tampered_report["comparisons"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|comparison| comparison["status"] == "mismatch"),
+        "tampered MIR fixture receipt should report mismatch: {tampered_report:#?}"
+    );
+}
+
+#[test]
 fn object_supplement_runtime_smoke_covers_nested_help_and_inventory() {
     let root = repo_root();
 
@@ -2198,7 +2373,7 @@ fn object_supplement_runtime_smoke_covers_nested_help_and_inventory() {
         let stdout = String::from_utf8_lossy(&output.stdout);
         assert!(stdout.contains("cargo octet object"), "help missing object usage for {args:?}: {stdout}");
         assert!(
-            stdout.contains("supplement fixtures --family hir --spike rustc-hir-fixture"),
+            stdout.contains("supplement fixtures --family mir --spike rustc-mir-fixture"),
             "help missing scoped fixture inventory command for {args:?}: {stdout}"
         );
         assert!(
@@ -2650,7 +2825,7 @@ fn object_corpus_contract_metadata_reports_pilot_and_planned_supplement_statuses
     for (family, status) in [
         ("hir", "pilot-supported"),
         ("thir", "unsupported-planned"),
-        ("mir", "pilot-supported"),
+        ("mir", "unsupported-planned"),
     ] {
         let supplement = supplements
             .iter()
