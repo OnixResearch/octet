@@ -1,0 +1,26 @@
+VERDICT: WARN
+
+## Findings
+- [info] [class=evidence-noise] [scope=tasks-gate] [route=openspec/changes/archive/2026-05-22-add-thir-inventory-aggregate-gate/evidence/tasks-gate.txt] [promoted=no] Tasks gate evidence contains a clear OpenSpec gate PASS, but also unrelated Pi extension stale-context errors after the PASS output.
+  - Evidence: `openspec/changes/archive/2026-05-22-add-thir-inventory-aggregate-gate/evidence/tasks-gate.txt:7`, `openspec/changes/archive/2026-05-22-add-thir-inventory-aggregate-gate/evidence/tasks-gate.txt:33-37`
+
+## OpenSpec Check
+- The implementation matches the plan:
+  - Focused Nix check `thir-supplement-inventory-gate` is exposed and uses the `thir_inventory` test filter: `flake.nix:1069-1071`, `flake.nix:1228`.
+  - Aggregate `valence-object-evidence` composes the THIR inventory gate and reports `valence_object_evidence.thir_supplement_inventory_gate: PASS`: `flake.nix:1105-1119`.
+  - Integration coverage asserts selected THIR fixture boundaries, excludes `branch-control-flow`, checks replay command shape, and preserves default/non-fixture `unsupported-planned` metadata: `cargo-octet/tests/fingerprint_consumer.rs:2482-2555`.
+  - Contributor guide documents aggregate command, selected THIR fixture inventory scope, and non-proof boundaries: `docs/contributor-guide.md:221-233`.
+  - OpenSpec delta updates the aggregate requirement/scenarios for THIR rail composition and docs boundaries: `openspec/changes/archive/2026-05-22-add-thir-inventory-aggregate-gate/specs/standards-codification/spec.md:3-29`.
+- Task completion claims are justified by saved evidence:
+  - THIR inventory Cargo tests pass: `openspec/changes/archive/2026-05-22-add-thir-inventory-aggregate-gate/evidence/thir-inventory-tests.txt:32-38`.
+  - Focused Nix gate passes and runs both THIR inventory tests: `openspec/changes/archive/2026-05-22-add-thir-inventory-aggregate-gate/evidence/thir-inventory-nix-gate.txt:87-132`.
+  - Aggregate Nix gate emits the required THIR PASS line: `openspec/changes/archive/2026-05-22-add-thir-inventory-aggregate-gate/evidence/valence-object-evidence.txt:387-394`.
+  - OpenSpec validation passes for the change and all specs: `openspec/changes/archive/2026-05-22-add-thir-inventory-aggregate-gate/evidence/openspec-validate.txt:1-27`, `openspec/changes/archive/2026-05-22-add-thir-inventory-aggregate-gate/evidence/openspec-validate.txt:28-168`.
+  - Diff hygiene verified locally with `git diff --check` exit 0, matching the saved evidence command: `openspec/changes/archive/2026-05-22-add-thir-inventory-aggregate-gate/evidence/git-diff-check.txt:1`.
+
+## Gaps
+- No blocking code/spec drift found.
+- Minor evidence hygiene gap: `tasks-gate.txt` includes unrelated extension errors after the PASS result; the gate result itself is still present and concrete.
+
+## Next Steps
+- Optional: recapture `tasks-gate.txt` without unrelated Pi extension stale-context errors for cleaner archival evidence.
