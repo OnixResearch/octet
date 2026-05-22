@@ -1,0 +1,14 @@
+human_boundary_review: PASS
+
+Reviewed surfaces:
+- flake.nix
+- docs/contributor-guide.md
+- openspec/templates/tasks.md
+- openspec/changes/archive/2026-05-22-add-object-corpus-fixture-freshness-rail/specs/standards-codification/spec.md
+
+Assertions:
+- The change names object-corpus fixture freshness as its own operator-visible Nix rail.
+- The aggregate Valence object-evidence gate requires the named freshness rail before printing its PASS line.
+- Guidance requires fixture regeneration/freshness verification for object-corpus input and THIR/MIR inventory changes.
+- The change does not alter Function Object v1 semantics, receipt schemas, selected THIR/MIR fixture inventories, or default unsupported-planned boundaries.
+- The change makes no correctness, semantic-equivalence, exhaustive Rust coverage, cross-machine determinism, cross-toolchain determinism, or general THIR/MIR extraction claims.
