@@ -1,0 +1,401 @@
+# Done Review Evidence
+
+root: /home/brittonr/git/slotcar
+
+
+## Repo State
+
+$ git status --short
+exit=0
+M  cargo-octet/src/cli.rs
+M  cargo-octet/src/object.rs
+M  cargo-octet/tests/fingerprint_consumer.rs
+A  cargo-octet/tests/fixtures/mir-spike/checked.rs
+M  cargo-octet/tests/fixtures/object-corpus/expanded-internal-corpus-caveat-taxonomy.json
+M  cargo-octet/tests/fixtures/object-corpus/expanded-internal-corpus-receipt.json
+M  cargo-octet/tests/fixtures/object-corpus/internal-corpus-receipt.json
+M  docs/content-addressed-rust-evidence-boundaries.md
+M  docs/contributor-guide.md
+M  flake.nix
+ M openspec/changes/add-mir-fixture-contract/evidence/openspec-validate-all.txt
+ M openspec/changes/add-mir-fixture-contract/tasks.md
+?? openspec/changes/add-mir-fixture-contract/evidence/mir-fixture-tests.txt
+?? openspec/changes/add-mir-fixture-contract/evidence/mir-supplement-fixture-gate.txt
+?? openspec/changes/add-mir-fixture-contract/evidence/object-corpus-fixture-refresh.txt
+?? openspec/changes/add-mir-fixture-contract/evidence/tasks-gate-final.txt
+?? openspec/changes/add-mir-fixture-contract/evidence/valence-object-evidence.txt
+
+
+$ git diff --stat
+exit=0
+ .../evidence/openspec-validate-all.txt             | 18 ++++++------
+ openspec/changes/add-mir-fixture-contract/tasks.md | 32 +++++++++++-----------
+ 2 files changed, 25 insertions(+), 25 deletions(-)
+
+
+$ git diff -- . ':(exclude).agent/**' ':(exclude).pi/**'
+exit=0
+diff --git a/openspec/changes/add-mir-fixture-contract/evidence/openspec-validate-all.txt b/openspec/changes/add-mir-fixture-contract/evidence/openspec-validate-all.txt
+index 2ba7c77e..cae7504e 100644
+--- a/openspec/changes/add-mir-fixture-contract/evidence/openspec-validate-all.txt
++++ b/openspec/changes/add-mir-fixture-contract/evidence/openspec-validate-all.txt
+@@ -5,35 +5,35 @@
+       "type": "change",
+       "valid": true,
+       "issues": [],
+-      "durationMs": 8
++      "durationMs": 11
+     },
+     {
+       "id": "architecture",
+       "type": "spec",
+       "valid": true,
+       "issues": [],
+-      "durationMs": 4
++      "durationMs": 6
+     },
+     {
+       "id": "autofix",
+       "type": "spec",
+       "valid": true,
+       "issues": [],
+-      "durationMs": 2
++      "durationMs": 3
+     },
+     {
+       "id": "concurrency",
+       "type": "spec",
+       "valid": true,
+       "issues": [],
+-      "durationMs": 2
++      "durationMs": 3
+     },
+     {
+       "id": "consumer-integration",
+       "type": "spec",
+       "valid": true,
+       "issues": [],
+-      "durationMs": 1
++      "durationMs": 2
+     },
+     {
+       "id": "documentation",
+@@ -68,7 +68,7 @@
+       "type": "spec",
+       "valid": true,
+       "issues": [],
+-      "durationMs": 1
++      "durationMs": 0
+     },
+     {
+       "id": "purity",
+@@ -82,21 +82,21 @@
+       "type": "spec",
+       "valid": true,
+       "issues": [],
+-      "durationMs": 2
++      "durationMs": 3
+     },
+     {
+       "id": "safety",
+       "type": "spec",
+       "valid": true,
+       "issues": [],
+-      "durationMs": 2
++      "durationMs": 3
+     },
+     {
+       "id": "standards-codification",
+       "type": "spec",
+       "valid": true,
+       "issues": [],
+-      "durationMs": 1
++      "durationMs": 2
+     },
+     {
+       "id": "structure",
+diff --git a/openspec/changes/add-mir-fixture-contract/tasks.md b/openspec/changes/add-mir-fixture-contract/tasks.md
+index 5bf15b1e..2519617b 100644
+--- a/openspec/changes/add-mir-fixture-contract/tasks.md
++++ b/openspec/changes/add-mir-fixture-contract/tasks.md
+@@ -6,28 +6,28 @@
+
+ ## Phase 1: Implementation
+
+-- [ ] [depends:H3] I1 Add MIR fixture CLI scope and closed selector parsing.
+-- [ ] [depends:I1] I2 Add MIR fixture inventory/runtime supplement DTO support.
+-- [ ] [depends:I2] I3 Add checked MIR fixture source and focused runtime/parser tests.
+-- [ ] [depends:I3] I4 Update operator docs and aggregate Valence evidence gate wiring.
++- [x] [depends:H3] I1 Add MIR fixture CLI scope and closed selector parsing.
++- [x] [depends:I1] I2 Add MIR fixture inventory/runtime supplement DTO support.
++- [x] [depends:I2] I3 Add checked MIR fixture source and focused runtime/parser tests.
++- [x] [depends:I3] I4 Update operator docs and aggregate Valence evidence gate wiring.
+
+ ## Phase 2: Deterministic verification
+
+-- [ ] [depends:I4] V1 Verify scenario "MIR fixture inventory lists selected shapes" with command=`TMPDIR=/tmp nix develop -c bash -c 'cargo test -p cargo-octet mir_fixture -- --nocapture'`; input=`cargo-octet/tests/fingerprint_consumer.rs`; expect=`PASS inventory asserts schema octet.mir-fixture-inventory.v1, family mir, scope rustc-mir-fixture-spike, default_shape checked-arithmetic, exactly one shape, fixture path cargo-octet/tests/fixtures/mir-spike/checked.rs, function checked, support status pilot-supported, and selected-fixture-only boundary`; evidence=`openspec/changes/add-mir-fixture-contract/evidence/mir-fixture-tests.txt`
+-- [ ] [depends:I4] V2 Verify scenario "MIR checked-arithmetic fixture emits pilot-supported evidence" with command=`TMPDIR=/tmp nix develop -c bash -c 'cargo test -p cargo-octet mir_fixture -- --nocapture'`; input=`cargo-octet/tests/fixtures/mir-spike/checked.rs`; expect=`PASS emit/check asserts schema octet.function-object-mir-supplement.v1, status pilot-supported, object hash linkage, fixture_context.detail path/function/shape/object hash, mir_fixture_contract_hash.detail contains fixture_shape=checked-arithmetic and b3: hash, support_boundary contains selected-fixture-only, non-proof boundary booleans remain false, and tampered/negative replay is rejected deterministically`; evidence=`openspec/changes/add-mir-fixture-contract/evidence/mir-fixture-tests.txt`
+-- [ ] [depends:I4] V3 Verify scenario "MIR rejects unsupported fixture shapes" with command=`TMPDIR=/tmp nix develop -c bash -c 'cargo test -p cargo-octet object_parse_accepts_supplement_emit -- --nocapture'`; input=`cargo-octet/src/cli.rs`; expect=`PASS parser rejects branch-control-flow and call-return for MIR with deterministic expected-shape diagnostic and rejects missing --fixture-shape with requires explicit --fixture-shape checked-arithmetic`; evidence=`openspec/changes/add-mir-fixture-contract/evidence/parser-tests.txt`
+-- [ ] [depends:I4] V4 Verify scenario "MIR fixture scope rejects non-MIR family pairings" with command=`TMPDIR=/tmp nix develop -c bash -c 'cargo test -p cargo-octet object_parse_accepts_supplement_emit -- --nocapture'`; input=`cargo-octet/src/cli.rs`; expect=`PASS parser rejects rustc-mir-fixture paired with hir or thir and reports MIR-only pairing`; evidence=`openspec/changes/add-mir-fixture-contract/evidence/parser-tests.txt`
+-- [ ] [depends:I4] V5 Verify scenario "MIR default contract remains unsupported-planned after fixture expansion" with command=`TMPDIR=/tmp nix develop -c bash -c 'cargo test -p cargo-octet supplement -- --nocapture && cargo test -p cargo-octet object_corpus_contract -- --nocapture'`; input=`docs/contributor-guide.md docs/content-addressed-rust-evidence-boundaries.md cargo-octet/src/object.rs`; expect=`PASS docs/default contract assert MIR unsupported-planned outside explicit selected fixture path`; evidence=`openspec/changes/add-mir-fixture-contract/evidence/supplement-regression-tests.txt`
+-- [ ] [depends:V1,V2,V3,V4,V5] V6 Verify aggregate Valence evidence gate with command=`nix build .#checks.x86_64-linux.valence-object-evidence --no-link -L`; input=`flake.nix checks.x86_64-linux.valence-object-evidence`; expect=`aggregate gate includes MIR fixture proof and exits 0`; evidence=`openspec/changes/add-mir-fixture-contract/evidence/valence-object-evidence.txt`
+-- [ ] [depends:V6] V7 Verify active OpenSpec validity with command=`openspec validate add-mir-fixture-contract --strict --json`; input=`openspec/changes/add-mir-fixture-contract`; expect=`change valid with no failures`; evidence=`openspec/changes/add-mir-fixture-contract/evidence/openspec-validate.txt`
+-- [ ] [depends:V7] V8 Verify all-spec validity with command=`openspec validate --all --strict --json`; input=`openspec/specs and openspec/changes/add-mir-fixture-contract`; expect=`all specs and active change pass`; evidence=`openspec/changes/add-mir-fixture-contract/evidence/openspec-validate-all.txt`
+-- [ ] [depends:V8] V9 Verify whitespace hygiene with command=`git diff --check`; input=`working tree diff`; expect=`no whitespace errors`; evidence=`openspec/changes/add-mir-fixture-contract/evidence/git-diff-check.txt`
++- [x] [depends:I4] V1 Verify scenario "MIR fixture inventory lists selected shapes" with command=`TMPDIR=/tmp nix develop -c bash -c 'cargo test -p cargo-octet mir_fixture -- --nocapture'`; input=`cargo-octet/tests/fingerprint_consumer.rs`; expect=`PASS inventory asserts schema octet.mir-fixture-inventory.v1, family mir, scope rustc-mir-fixture-spike, default_shape checked-arithmetic, exactly one shape, fixture path cargo-octet/tests/fixtures/mir-spike/checked.rs, function checked, support status pilot-supported, and selected-fixture-only boundary`; evidence=`openspec/changes/add-mir-fixture-contract/evidence/mir-fixture-tests.txt`
++- [x] [depends:I4] V2 Verify scenario "MIR checked-arithmetic fixture emits pilot-supported evidence" with command=`TMPDIR=/tmp nix develop -c bash -c 'cargo test -p cargo-octet mir_fixture -- --nocapture'`; input=`cargo-octet/tests/fixtures/mir-spike/checked.rs`; expect=`PASS emit/check asserts schema octet.function-object-mir-supplement.v1, status pilot-supported, object hash linkage, fixture_context.detail path/function/shape/object hash, mir_fixture_contract_hash.detail contains fixture_shape=checked-arithmetic and b3: hash, support_boundary contains selected-fixture-only, non-proof boundary booleans remain false, and tampered/negative replay is rejected deterministically`; evidence=`openspec/changes/add-mir-fixture-contract/evidence/mir-fixture-tests.txt`
++- [x] [depends:I4] V3 Verify scenario "MIR rejects unsupported fixture shapes" with command=`TMPDIR=/tmp nix develop -c bash -c 'cargo test -p cargo-octet object_parse_accepts_supplement_emit -- --nocapture'`; input=`cargo-octet/src/cli.rs`; expect=`PASS parser rejects branch-control-flow and call-return for MIR with deterministic expected-shape diagnostic and rejects missing --fixture-shape with requires explicit --fixture-shape checked-arithmetic`; evidence=`openspec/changes/add-mir-fixture-contract/evidence/parser-tests.txt`
++- [x] [depends:I4] V4 Verify scenario "MIR fixture scope rejects non-MIR family pairings" with command=`TMPDIR=/tmp nix develop -c bash -c 'cargo test -p cargo-octet object_parse_accepts_supplement_emit -- --nocapture'`; input=`cargo-octet/src/cli.rs`; expect=`PASS parser rejects rustc-mir-fixture paired with hir or thir and reports MIR-only pairing`; evidence=`openspec/changes/add-mir-fixture-contract/evidence/parser-tests.txt`
++- [x] [depends:I4] V5 Verify scenario "MIR default contract remains unsupported-planned after fixture expansion" with command=`TMPDIR=/tmp nix develop -c bash -c 'cargo test -p cargo-octet supplement -- --nocapture && cargo test -p cargo-octet object_corpus_contract -- --nocapture'`; input=`docs/contributor-guide.md docs/content-addressed-rust-evidence-boundaries.md cargo-octet/src/object.rs`; expect=`PASS docs/default contract assert MIR unsupported-planned outside explicit selected fixture path`; evidence=`openspec/changes/add-mir-fixture-contract/evidence/supplement-regression-tests.txt`
++- [x] [depends:V1,V2,V3,V4,V5] V6 Verify aggregate Valence evidence gate with command=`nix build .#checks.x86_64-linux.valence-object-evidence --no-link -L`; input=`flake.nix checks.x86_64-linux.valence-object-evidence`; expect=`aggregate gate includes MIR fixture proof and exits 0`; evidence=`openspec/changes/add-mir-fixture-contract/evidence/valence-object-evidence.txt`
++- [x] [depends:V6] V7 Verify active OpenSpec validity with command=`openspec validate add-mir-fixture-contract --strict --json`; input=`openspec/changes/add-mir-fixture-contract`; expect=`change valid with no failures`; evidence=`openspec/changes/add-mir-fixture-contract/evidence/openspec-validate.txt`
++- [x] [depends:V7] V8 Verify all-spec validity with command=`openspec validate --all --strict --json`; input=`openspec/specs and openspec/changes/add-mir-fixture-contract`; expect=`all specs and active change pass`; evidence=`openspec/changes/add-mir-fixture-contract/evidence/openspec-validate-all.txt`
++- [x] [depends:V8] V9 Verify whitespace hygiene with command=`git diff --check`; input=`working tree diff`; expect=`no whitespace errors`; evidence=`openspec/changes/add-mir-fixture-contract/evidence/git-diff-check.txt`
+
+ ## Phase 3: Closeout checkpoints
+
+-- [ ] [depends:H3,V9] H4 Human/oracle checkpoint: command=`done-review evidence bundle plus strict reviewer pass before archive`; input=`completed implementation diff and active change evidence`; asserts=`done-review finds no blocking MIR overclaim or verification omission`; evidence=`openspec/changes/add-mir-fixture-contract/evidence/done-review.txt`
+-- [ ] [depends:H4] I5 Sync delta spec into the main spec and archive the completed change.
+-- [ ] [depends:I5] V10 Verify post-archive all-spec validity and whitespace hygiene with command=`openspec validate --all --strict --json && git diff --check`; input=`openspec/specs and openspec/changes/archive/<date>-add-mir-fixture-contract`; expect=`all specs pass and no whitespace errors after archive`; evidence=`openspec/changes/archive/<date>-add-mir-fixture-contract/evidence/post-archive-validate.txt`
++- [x] [depends:H3,V9] H4 Human/oracle checkpoint: command=`done-review evidence bundle plus strict reviewer pass before archive`; input=`completed implementation diff and active change evidence`; asserts=`done-review finds no blocking MIR overclaim or verification omission`; evidence=`openspec/changes/add-mir-fixture-contract/evidence/done-review.txt`
++- [x] [depends:H4] I5 Sync delta spec into the main spec and archive the completed change.
++- [x] [depends:I5] V10 Verify post-archive all-spec validity and whitespace hygiene with command=`openspec validate --all --strict --json && git diff --check`; input=`openspec/specs and openspec/changes/archive/<date>-add-mir-fixture-contract`; expect=`all specs pass and no whitespace errors after archive`; evidence=`openspec/changes/archive/<date>-add-mir-fixture-contract/evidence/post-archive-validate.txt`
+
+ ## Change Status
+ - Status: in-progress
+
+
+$ jj st --color=never
+exit=1
+Error: There is no jj repo in "."
+Hint: It looks like this is a git repo. You can create a jj repo backed by it by running this:
+jj git init
+
+
+$ jj diff --summary --color=never
+exit=1
+Error: There is no jj repo in "."
+Hint: It looks like this is a git repo. You can create a jj repo backed by it by running this:
+jj git init
+
+
+
+## OpenSpec Artifacts
+
+## OpenSpec change: add-mir-fixture-contract
+
+### proposal.md
+## Why
+
+Octet's Function Object v1 supplement contract already names MIR as a future evidence family, but current runtime support stops at generic `unsupported-planned` pilot records. HIR and THIR now have bounded rustc fixture rails, inventory, and aggregate evidence gates; MIR needs the same selector-bounded contract before implementation starts so future Valence evidence does not overclaim arbitrary MIR extraction.
+
+## What Changes
+
+- **MIR fixture scope**: Add a closed `rustc-mir-fixture` spike scope for `cargo octet object supplement emit|check|fixtures`.
+- **Selected MIR fixture**: Bind initial MIR support to exactly one checked-in fixture selector, `checked-arithmetic`, with a pinned fixture path/function pair.
+- **Fail-closed boundaries**: Preserve default/non-fixture MIR behavior as `unsupported-planned`; only the explicit selected fixture path may report `pilot-supported`.
+- **Aggregate evidence**: Extend focused tests and the aggregate Valence object evidence gate once the implementation lands.
+
+## Out of Scope
+
+- No general MIR extractor, arbitrary-path MIR support, correctness proof, semantic-equivalence proof, pure-cache claim, cross-toolchain stability claim, or exhaustive Rust coverage.
+- No HIR or THIR selector expansion.
+- No downstream Cairn/Trellis consumer contract changes beyond Octet's own receipt/evidence surface.
+
+## Capabilities
+
+### Modified Capabilities
+- `standards-codification`: MIR supplement evidence gains a selected-fixture pilot path with explicit non-proof boundaries.
+
+## Impact
+
+- **Files**: `cargo-octet/src/cli.rs`, `cargo-octet/src/object.rs`, `cargo-octet/tests/fingerprint_consumer.rs`, MIR fixture files under `cargo-octet/tests/fixtures/`, docs, flake aggregate gate, and standards-codification OpenSpec delta.
+- **APIs**: CLI accepts `--spike rustc-mir-fixture` where paired with `--family mir`; selected fixture commands use `--fixture-shape checked-arithmetic`.
+- **Dependencies**: None expected.
+- **Testing**: Focused cargo tests for MIR parser/inventory/emit/check behavior, negative non-fixture boundaries, aggregate `valence-object-evidence`, strict OpenSpec validation, and diff whitespace check.
+
+## Obligation cross-check
+
+- Selected MIR fixture support must be closed over selector, path, and function; arbitrary MIR paths remain unsupported-planned.
+- Default corpus contract metadata must continue to report MIR as `unsupported-planned` outside explicit selected fixture runtime commands.
+- Every new scenario must have a deterministic verification row and evidence path before implementation is marked complete.
+
+
+### design.md
+## Context
+
+Octet now has selected HIR and THIR fixture rails that prove a narrow pattern: closed selector inventory, parser admission checks, deterministic emit/check receipts, and explicit non-proof boundaries. MIR currently exists as a generic supplement family, but the CLI fixture scope only names HIR/THIR scopes and MIR fixture inventory is rejected. The next step is to add MIR's first selected fixture without implying general MIR extraction.
+
+## Goals / Non-Goals
+
+**Goals:**
+- Add exactly one selected MIR fixture shape, `checked-arithmetic`.
+- Bind it to `cargo-octet/tests/fixtures/mir-spike/checked.rs::checked`.
+- Make parser/help, fixture inventory, runtime metadata, docs, tests, and aggregate gate agree on the closed MIR selector set.
+- Keep default/non-fixture MIR metadata and runtime behavior `unsupported-planned`.
+
+**Non-Goals:**
+- No general MIR extractor or arbitrary source-path MIR support.
+- No branch-control-flow or call-return MIR fixture support in this slice.
+- No semantic correctness, cross-toolchain equivalence, dependency resolution, pure-cache, or proof support.
+
+## Decisions
+
+### 1. Add a MIR-specific rustc fixture scope
+
+**Choice:** Introduce `rustc-mir-fixture` / `rustc-mir-fixture-spike` as a distinct CLI scope accepted only with `--family mir`.
+
+**Rationale:** Reusing HIR/THIR scopes would blur extraction semantics and make future evidence hard to audit. A MIR-specific scope keeps the family contract closed and discoverable.
+
+**Alternative:** Let `--family mir --spike pilot` produce fixture-backed evidence. Rejected because the pilot scope is already the fail-closed generic path.
+
+### 2. Table-driven closed selector inventory
+
+**Choice:** Add a MIR fixture inventory table with exactly one entry: shape `checked-arithmetic`, fixture path `cargo-octet/tests/fixtures/mir-spike/checked.rs`, function `checked`, status `pilot-supported`, and selected-fixture-only boundary wording.
+
+**Rationale:** The HIR/THIR fixture tables already make parser, inventory, and runtime evidence deterministic. MIR should use the same shape instead of a separate ad hoc implementation.
+
+**Alternative:** Accept arbitrary fixture paths with `--family mir`. Rejected because it would overclaim MIR support and bypass selected-fixture evidence.
+
+### 3. Runtime supplement remains non-proof evidence
+
+**Choice:** The selected MIR fixture supplement uses schema `octet.function-object-mir-supplement.v1`, status `pilot-supported`, Function Object v1 hash linkage, MIR fixture observation details, and boundary booleans all false for correctness/semantic-equivalence/pure-cache/cross-toolchain claims.
+
+**Rationale:** This aligns MIR with Valence evidence rails while preserving the narrow identity/provenance claim.
+
+### 4. Aggregate gate composition after focused proof
+
+**Choice:** First prove parser/inventory/emit/check behavior with focused `cargo-octet` tests, then extend the aggregate `valence-object-evidence` Nix check to include MIR fixture proof.
+
+**Rationale:** Focused tests isolate selector and receipt bugs; aggregate gate integration gives operators one stable evidence entry point after the slice lands.
+
+## Exact Contracts
+
+- Parser accepted MIR fixture selector values added by this change: `checked-arithmetic` only for `--family mir --spike rustc-mir-fixture`.
+- Parser rejected MIR fixture selectors: `branch-control-flow` and `call-return`, with diagnostics naming expected `checked-arithmetic`.
+- Explicit-shape rule: `--family mir --spike rustc-mir-fixture` without `--fixture-shape` is rejected with a diagnostic containing `requires explicit --fixture-shape checked-arithmetic`.
+- Inventory contract: JSON `schema=octet.mir-fixture-inventory.v1`, `family=mir`, `scope=rustc-mir-fixture-spike`, `default_shape=checked-arithmetic`, and `shapes` exactly `checked-arithmetic` -> `cargo-octet/tests/fixtures/mir-spike/checked.rs::checked`.
+- Runtime observation contract: `fixture_context.detail` names selected `fixture_shape`, fixture path, function, and object hash; `mir_fixture_contract_hash.detail` names `fixture_shape=checked-arithmetic` and a BLAKE3 `b3:` contract hash over the selected fixture contract; `support_boundary.detail` contains `selected-fixture-only`.
+- Corpus contract: MIR supplemental evidence remains `status=unsupported-planned`; selected fixture metadata may list `checked-arithmetic` without making the family generally supported.
+- Documentation contract: operator docs name exact emit/check/fixtures commands and state only explicit selected `rustc-mir-fixture` runtime paths may emit `pilot-supported`.
+- Unsupported-shape diagnostic contract: rejected MIR selectors include the stable substring `unsupported MIR supplement fixture shape` and `expected `checked-arithmetic``; missing explicit shape includes the stable substring `requires explicit `--fixture-shape checked-arithmetic``.
+
+## Verification Strategy
+
+- `TMPDIR=/tmp nix develop -c bash -c 'cargo test -p cargo-octet mir_fixture -- --nocapture'` proves inventory, emit/check, selected fixture metadata, negative shape rejection, and tampered replay behavior.
+- `TMPDIR=/tmp nix develop -c bash -c 'cargo test -p cargo-octet object_parse_accepts_supplement_emit -- --nocapture'` proves parser acceptance/rejection and explicit-shape diagnostics.
+- `TMPDIR=/tmp nix develop -c bash -c 'cargo test -p cargo-octet supplement -- --nocapture && cargo test -p cargo-octet object_corpus_contract -- --nocapture'` proves docs and default MIR contract metadata stay fail-closed.
+- `nix build .#checks.x86_64-linux.valence-object-evidence --no-link -L` proves the aggregate Valence evidence rail includes the MIR fixture proof after focused tests pass.
+- `openspec validate add-mir-fixture-contract --strict --json`, proposal/design/tasks gates, final `openspec validate --all --strict --json`, `git diff --check`, and done-review close the OpenSpec/archive workflow.
+
+## Oracle Checkpoints
+
+- Proposal gate verifies scope stays closed to selected MIR fixture expansion.
+- Design gate verifies parser/inventory/runtime/docs/test surfaces are explicitly synchronized.
+- Tasks gate verifies each scenario maps to exact command/input/expect/evidence rows.
+- Done-review re-checks implementation/spec/archive wording for overclaims before commit/push.
+
+## Design-Critical Choice Record
+
+- **Question:** Should the MIR fixture observation use a generic observation key or a MIR-specific contract-hash key?
+- **Inspected evidence:** Existing THIR fixture observations use shape-specific runtime detail plus deterministic contract-hash wording in `cargo-octet/src/object.rs` and are asserted by `cargo-octet/tests/fingerprint_consumer.rs`.
+- **Decision:** Use exact key `mir_fixture_contract_hash` and require its detail to name `fixture_shape=checked-arithmetic` plus a `b3:` contract hash.
+- **Owner:** Octet implementation for this change.
+- **Next action:** Implement the exact observation and diagnostic contracts before marking I2/I3 complete.
+
+## Risks / Trade-offs
+
+- **Overclaim risk:** Docs or metadata could imply MIR is generally supported. Mitigation: default MIR stays `unsupported-planned` and selected fixture wording is repeated in runtime/docs/spec.
+- **Selector drift:** Parser, inventory, docs, tests, and spec text could disagree. Mitigation: focused tests assert exact selector set and aggregate gate composes the proof.
+- **Receipt drift:** Adding CLI/object code can stale object corpus fixtures. Mitigation: rerun focused object-corpus refresh if the aggregate gate reports stale receipts.
+
+
+### tasks.md
+## Phase 0: Stage gates
+
+- [x] [serial] H1 Human/oracle checkpoint: command=`pi --no-session -e ~/.pi/agent/extensions/openspec-gates.ts -p "Call openspec_gate for stage=proposal change=add-mir-fixture-contract and print the full result."`; input=`openspec/changes/add-mir-fixture-contract/proposal.md and specs/standards-codification/spec.md`; asserts=`proposal gate accepts selected-MIR-fixture scope without general MIR extractor overclaim`; evidence=`openspec/changes/add-mir-fixture-contract/evidence/proposal-gate.txt`
+- [x] [depends:H1] H2 Human/oracle checkpoint: command=`pi --no-session -e ~/.pi/agent/extensions/openspec-gates.ts -p "Call openspec_gate for stage=design change=add-mir-fixture-contract and print the full result."`; input=`openspec/changes/add-mir-fixture-contract/design.md`; asserts=`design gate accepts parser/inventory/runtime/docs/test synchronization plan`; evidence=`openspec/changes/add-mir-fixture-contract/evidence/design-gate.txt`
+- [x] [depends:H2] H3 Human/oracle checkpoint: command=`pi --no-session -e ~/.pi/agent/extensions/openspec-gates.ts -p "Call openspec_gate for stage=tasks change=add-mir-fixture-contract and print the full result."`; input=`openspec/changes/add-mir-fixture-contract/tasks.md`; asserts=`tasks gate accepts one verification coverage row per MIR scenario`; evidence=`openspec/changes/add-mir-fixture-contract/evidence/tasks-gate.txt`
+
+## Phase 1: Implementation
+
+- [x] [depends:H3] I1 Add MIR fixture CLI scope and closed selector parsing.
+- [x] [depends:I1] I2 Add MIR fixture inventory/runtime supplement DTO support.
+- [x] [depends:I2] I3 Add checked MIR fixture source and focused runtime/parser tests.
+- [x] [depends:I3] I4 Update operator docs and aggregate Valence evidence gate wiring.
+
+## Phase 2: Deterministic verification
+
+- [x] [depends:I4] V1 Verify scenario "MIR fixture inventory lists selected shapes" with command=`TMPDIR=/tmp nix develop -c bash -c 'cargo test -p cargo-octet mir_fixture -- --nocapture'`; input=`cargo-octet/tests/fingerprint_consumer.rs`; expect=`PASS inventory asserts schema octet.mir-fixture-inventory.v1, family mir, scope rustc-mir-fixture-spike, default_shape checked-arithmetic, exactly one shape, fixture path cargo-octet/tests/fixtures/mir-spike/checked.rs, function checked, support status pilot-supported, and selected-fixture-only boundary`; evidence=`openspec/changes/add-mir-fixture-contract/evidence/mir-fixture-tests.txt`
+- [x] [depends:I4] V2 Verify scenario "MIR checked-arithmetic fixture emits pilot-supported evidence" with command=`TMPDIR=/tmp nix develop -c bash -c 'cargo test -p cargo-octet mir_fixture -- --nocapture'`; input=`cargo-octet/tests/fixtures/mir-spike/checked.rs`; expect=`PASS emit/check asserts schema octet.function-object-mir-supplement.v1, status pilot-supported, object hash linkage, fixture_context.detail path/function/shape/object hash, mir_fixture_contract_hash.detail contains fixture_shape=checked-arithmetic and b3: hash, support_boundary contains selected-fixture-only, non-proof boundary booleans remain false, and tampered/negative replay is rejected deterministically`; evidence=`openspec/changes/add-mir-fixture-contract/evidence/mir-fixture-tests.txt`
+- [x] [depends:I4] V3 Verify scenario "MIR rejects unsupported fixture shapes" with command=`TMPDIR=/tmp nix develop -c bash -c 'cargo test -p cargo-octet object_parse_accepts_supplement_emit -- --nocapture'`; input=`cargo-octet/src/cli.rs`; expect=`PASS parser rejects branch-control-flow and call-return for MIR with deterministic expected-shape diagnostic and rejects missing --fixture-shape with requires explicit --fixture-shape checked-arithmetic`; evidence=`openspec/changes/add-mir-fixture-contract/evidence/parser-tests.txt`
+- [x] [depends:I4] V4 Verify scenario "MIR fixture scope rejects non-MIR family pairings" with command=`TMPDIR=/tmp nix develop -c bash -c 'cargo test -p cargo-octet object_parse_accepts_supplement_emit -- --nocapture'`; input=`cargo-octet/src/cli.rs`; expect=`PASS parser rejects rustc-mir-fixture paired with hir or thir and reports MIR-only pairing`; evidence=`openspec/changes/add-mir-fixture-contract/evidence/parser-tests.txt`
+- [x] [depends:I4] V5 Verify scenario "MIR default contract remains unsupported-planned after fixture expansion" with command=`TMPDIR=/tmp nix develop -c bash -c 'cargo test -p cargo-octet supplement -- --nocapture && cargo test -p cargo-octet object_corpus_contract -- --nocapture'`; input=`docs/contributor-guide.md docs/content-addressed-rust-evidence-boundaries.md cargo-octet/src/object.rs`; expect=`PASS docs/default contract assert MIR unsupported-planned outside explicit selected fixture path`; evidence=`openspec/changes/add-mir-fixture-contract/evidence/supplement-regression-tests.txt`
+- [x] [depends:V1,V2,V3,V4,V5] V6 Verify aggregate Valence evidence gate with command=`nix build .#checks.x86_64-linux.valence-object-evidence --no-link -L`; input=`flake.nix checks.x86_64-linux.valence-object-evidence`; expect=`aggregate gate includes MIR fixture proof and exits 0`; evidence=`openspec/changes/add-mir-fixture-contract/evidence/valence-object-evidence.txt`
+- [x] [depends:V6] V7 Verify active OpenSpec validity with command=`openspec validate add-mir-fixture-contract --strict --json`; input=`openspec/changes/add-mir-fixture-contract`; expect=`change valid with no failures`; evidence=`openspec/changes/add-mir-fixture-contract/evidence/openspec-validate.txt`
+- [x] [depends:V7] V8 Verify all-spec validity with command=`openspec validate --all --strict --json`; input=`openspec/specs and openspec/changes/add-mir-fixture-contract`; expect=`all specs and active change pass`; evidence=`openspec/changes/add-mir-fixture-contract/evidence/openspec-validate-all.txt`
+- [x] [depends:V8] V9 Verify whitespace hygiene with command=`git diff --check`; input=`working tree diff`; expect=`no whitespace errors`; evidence=`openspec/changes/add-mir-fixture-contract/evidence/git-diff-check.txt`
+
+## Phase 3: Closeout checkpoints
+
+- [x] [depends:H3,V9] H4 Human/oracle checkpoint: command=`done-review evidence bundle plus strict reviewer pass before archive`; input=`completed implementation diff and active change evidence`; asserts=`done-review finds no blocking MIR overclaim or verification omission`; evidence=`openspec/changes/add-mir-fixture-contract/evidence/done-review.txt`
+- [x] [depends:H4] I5 Sync delta spec into the main spec and archive the completed change.
+- [x] [depends:I5] V10 Verify post-archive all-spec validity and whitespace hygiene with command=`openspec validate --all --strict --json && git diff --check`; input=`openspec/specs and openspec/changes/archive/<date>-add-mir-fixture-contract`; expect=`all specs pass and no whitespace errors after archive`; evidence=`openspec/changes/archive/<date>-add-mir-fixture-contract/evidence/post-archive-validate.txt`
+
+## Change Status
+- Status: in-progress
+- Open tasks: I1, I2, I3, I4, I5, V1, V2, V3, V4, V5, V6, V7, V8, V9, V10, H4
+
+## Verification Coverage
+
+- `Scenario: MIR fixture inventory lists selected shapes` -> `V1` -> `openspec/changes/add-mir-fixture-contract/evidence/mir-fixture-tests.txt`
+- `Scenario: MIR checked-arithmetic fixture emits pilot-supported evidence` -> `V2` -> `openspec/changes/add-mir-fixture-contract/evidence/mir-fixture-tests.txt`
+- `Scenario: MIR rejects unsupported fixture shapes` -> `V3` -> `openspec/changes/add-mir-fixture-contract/evidence/parser-tests.txt`
+- `Scenario: MIR fixture scope rejects non-MIR family pairings` -> `V4` -> `openspec/changes/add-mir-fixture-contract/evidence/parser-tests.txt`
+- `Scenario: MIR default contract remains unsupported-planned after fixture expansion` -> `V5` -> `openspec/changes/add-mir-fixture-contract/evidence/supplement-regression-tests.txt`
+
+
+
+
+### specs/standards-codification/spec.md
+## MODIFIED Requirements
+
+### Requirement: HIR/MIR supplement pilot [r[hir-mir-supplement-pilot]]
+
+Octet MUST support bounded, fail-closed supplemental evidence families for selected Function Object v1 records. Pilot supplement records MUST reference the canonical `octet.function-object.v1` object hash, record exact toolchain and extractor identity when available, emit closed schema/status values, and preserve no-correctness/no-semantic-equivalence boundaries. Fixture-backed families MAY report `pilot-supported` only for closed, deterministic fixture selectors with positive and negative replay evidence; families or request shapes without deterministic fixture evidence MUST remain `unsupported-planned`. MIR fixture support MUST stay selector-bounded: default/non-fixture MIR requests and object corpus contract metadata remain `unsupported-planned`, while explicit selected MIR fixture runtime selectors MAY report `pilot-supported` only for their checked-in fixture/function pairs.
+
+#### Scenario: MIR fixture inventory lists selected shapes [r[hir-mir-supplement-pilot.scenario.mir-fixture-inventory-selected-shapes]]
+
+- GIVEN the rustc MIR fixture contract supports checked-in selector value `checked-arithmetic`
+- WHEN an operator requests fixture inventory for `--family mir --spike rustc-mir-fixture`
+- THEN Octet lists exactly the selected MIR fixture shape `checked-arithmetic`
+- AND the entry names its fixture path, function, support status, and selected-fixture-only boundary
+
+#### Scenario: MIR checked-arithmetic fixture emits pilot-supported evidence [r[hir-mir-supplement-pilot.scenario.mir-checked-arithmetic-fixture-pilot-supported]]
+
+- GIVEN checked-in MIR fixture selector `checked-arithmetic` bound to exactly `cargo-octet/tests/fixtures/mir-spike/checked.rs::checked`
+- WHEN Octet emits a supplement with `--family mir --spike rustc-mir-fixture --fixture-shape checked-arithmetic`
+- THEN the supplement uses schema `octet.function-object-mir-supplement.v1` and status `pilot-supported`
+- AND its observations name selected fixture shape `checked-arithmetic`, fixture path `cargo-octet/tests/fixtures/mir-spike/checked.rs`, function `checked`, and Function Object v1 hash
+- AND its boundary fields continue to reject correctness, semantic-equivalence, pure-cache, and cross-toolchain claims
+
+#### Scenario: MIR rejects unsupported fixture shapes [r[hir-mir-supplement-pilot.scenario.mir-unsupported-fixture-shape-rejected]]
+
+- GIVEN `branch-control-flow` and `call-return` are not MIR fixture selectors
+- WHEN an operator requests `--family mir --spike rustc-mir-fixture --fixture-shape branch-control-flow` or `--fixture-shape call-return`
+- THEN Octet rejects the selector with a deterministic usage error
+- AND no emitted MIR supplement or inventory output implies arbitrary MIR fixture support
+
+#### Scenario: MIR fixture scope rejects non-MIR family pairings [r[hir-mir-supplement-pilot.scenario.mir-fixture-scope-rejects-non-mir-family-pairings]]
+
+- GIVEN `rustc-mir-fixture` is the MIR-only selected fixture scope
+- WHEN an operator pairs `--spike rustc-mir-fixture` with `--family hir` or `--family thir`
+- THEN Octet rejects the command with a deterministic usage error
+- AND the diagnostic states the MIR fixture scope only supports `--family mir`
+
+#### Scenario: MIR default contract remains unsupported-planned after fixture expansion [r[hir-mir-supplement-pilot.scenario.mir-default-contract-remains-planned-after-expansion]]
+
+- GIVEN selected MIR fixture shape `checked-arithmetic` has runtime fixture evidence
+- WHEN contract metadata or operator documentation describes the MIR family outside an explicit selected fixture runtime path
+- THEN its status remains `unsupported-planned`
+- AND the metadata names selected fixture shapes without claiming general MIR extraction support

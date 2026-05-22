@@ -80,16 +80,23 @@ A future MIR evidence record MUST include:
 
 MIR evidence MAY support stronger review, cache, or effect decisions. It MUST NOT claim stable identity across compiler versions, target triples, optimization modes, feature flags, or dependency graphs unless those dimensions are explicitly part of the compared evidence and a separate verifier proves equivalence.
 
-The current bounded pilot command is:
+The default MIR runtime seam remains fail-closed/non-fixture bounded until a
+general extractor has positive evidence. The selected rustc MIR fixture contract
+is narrower than general MIR support:
 
 ```bash
-cargo octet object supplement emit --family mir --function checked src/lib.rs --output-format json
-cargo octet object supplement check --family mir --receipt mir-supplement.json --function checked src/lib.rs --output-format json
+cargo octet object supplement fixtures --family mir --spike rustc-mir-fixture --output-format json
+cargo octet object supplement emit --family mir --spike rustc-mir-fixture --fixture-shape checked-arithmetic --output-format json
+cargo octet object supplement check --family mir --spike rustc-mir-fixture --fixture-shape checked-arithmetic --receipt mir-spike.json --output-format json
 ```
 
-The pilot MIR supplement records explicit unknown/unsupported observations for
-summary families that the source-token pilot cannot prove. It reports contract
-status `pilot-supported` only for the checked pilot emit/check surface.
+That fixture-backed path MAY report `pilot-supported` only for
+`checked-arithmetic` (`cargo-octet/tests/fixtures/mir-spike/checked.rs::checked`).
+It records `octet-rustc-mir-fixture-contract` extractor identity, exact
+`rustc -vV`/host identity, fixture path/function/shape context, object-hash
+linkage, `mir_fixture_contract_hash`, extraction caveats, and fail-closed replay
+comparisons. Arbitrary-path MIR and other fixture selectors remain
+`unsupported-planned`.
 
 The default THIR runtime seam remains fail-closed:
 

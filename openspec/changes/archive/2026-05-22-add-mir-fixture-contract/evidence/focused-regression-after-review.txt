@@ -1,0 +1,229 @@
+warning: /home/brittonr/git/slotcar/crates/slotcar-standards/Cargo.toml: file `/home/brittonr/git/slotcar/crates/slotcar-standards/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `octet-standards`
+  * `bin` target `slotcar-standards`
+  * `bin` target `tigerstyle-standards`
+warning: /home/brittonr/git/slotcar/cargo-octet/Cargo.toml: file `/home/brittonr/git/slotcar/cargo-octet/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `cargo-octet`
+  * `bin` target `cargo-slotcar`
+  * `bin` target `cargo-tigerstyle`
+   Compiling cargo-octet v0.1.0 (/home/brittonr/git/slotcar/cargo-octet)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.51s
+     Running unittests src/main.rs (/home/brittonr/.cargo-target/debug/deps/cargo_octet-2effaf9a943ebe1f)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 40 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (/home/brittonr/.cargo-target/debug/deps/cargo_slotcar-48143f7c669aff01)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 40 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (/home/brittonr/.cargo-target/debug/deps/cargo_tigerstyle-611d3eb647e08459)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 40 filtered out; finished in 0.00s
+
+     Running tests/fingerprint_consumer.rs (/home/brittonr/.cargo-target/debug/deps/fingerprint_consumer-e64a4f0e00c6cfc9)
+
+running 1 test
+test mir_fixture_supplement_emit_check_and_negative_replay_are_bounded ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 59 filtered out; finished in 0.03s
+
+     Running tests/unison_roadmap.rs (/home/brittonr/.cargo-target/debug/deps/unison_roadmap-df01f34458c5b59b)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.00s
+
+warning: /home/brittonr/git/slotcar/crates/slotcar-standards/Cargo.toml: file `/home/brittonr/git/slotcar/crates/slotcar-standards/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `octet-standards`
+  * `bin` target `slotcar-standards`
+  * `bin` target `tigerstyle-standards`
+warning: /home/brittonr/git/slotcar/cargo-octet/Cargo.toml: file `/home/brittonr/git/slotcar/cargo-octet/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `cargo-octet`
+  * `bin` target `cargo-slotcar`
+  * `bin` target `cargo-tigerstyle`
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.04s
+     Running unittests src/main.rs (/home/brittonr/.cargo-target/debug/deps/cargo_octet-2effaf9a943ebe1f)
+
+running 1 test
+test cli::tests::object_parse_accepts_supplement_emit_and_check ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 39 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (/home/brittonr/.cargo-target/debug/deps/cargo_slotcar-48143f7c669aff01)
+
+running 1 test
+test cli::tests::object_parse_accepts_supplement_emit_and_check ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 39 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (/home/brittonr/.cargo-target/debug/deps/cargo_tigerstyle-611d3eb647e08459)
+
+running 1 test
+test cli::tests::object_parse_accepts_supplement_emit_and_check ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 39 filtered out; finished in 0.00s
+
+     Running tests/fingerprint_consumer.rs (/home/brittonr/.cargo-target/debug/deps/fingerprint_consumer-e64a4f0e00c6cfc9)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 60 filtered out; finished in 0.00s
+
+     Running tests/unison_roadmap.rs (/home/brittonr/.cargo-target/debug/deps/unison_roadmap-df01f34458c5b59b)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.00s
+
+warning: /home/brittonr/git/slotcar/crates/slotcar-standards/Cargo.toml: file `/home/brittonr/git/slotcar/crates/slotcar-standards/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `octet-standards`
+  * `bin` target `slotcar-standards`
+  * `bin` target `tigerstyle-standards`
+warning: /home/brittonr/git/slotcar/cargo-octet/Cargo.toml: file `/home/brittonr/git/slotcar/cargo-octet/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `cargo-octet`
+  * `bin` target `cargo-slotcar`
+  * `bin` target `cargo-tigerstyle`
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.04s
+     Running unittests src/main.rs (/home/brittonr/.cargo-target/debug/deps/cargo_octet-2effaf9a943ebe1f)
+
+running 6 tests
+test cli::tests::object_parse_accepts_supplement_fixture_inventory ... ok
+test cli::tests::object_parse_accepts_supplement_emit_and_check ... ok
+test object::tests::runtime_supplement_family_context_names_extractor ... ok
+test object::tests::pilot_mir_supplement_records_closed_unsupported_summary_families ... ok
+test object::tests::pilot_hir_supplement_attaches_to_v1_identity ... ok
+test object::tests::supplement_check_comparisons_fail_closed_on_context_mismatch ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 34 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (/home/brittonr/.cargo-target/debug/deps/cargo_slotcar-48143f7c669aff01)
+
+running 6 tests
+test cli::tests::object_parse_accepts_supplement_fixture_inventory ... ok
+test object::tests::runtime_supplement_family_context_names_extractor ... ok
+test cli::tests::object_parse_accepts_supplement_emit_and_check ... ok
+test object::tests::pilot_mir_supplement_records_closed_unsupported_summary_families ... ok
+test object::tests::pilot_hir_supplement_attaches_to_v1_identity ... ok
+test object::tests::supplement_check_comparisons_fail_closed_on_context_mismatch ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 34 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (/home/brittonr/.cargo-target/debug/deps/cargo_tigerstyle-611d3eb647e08459)
+
+running 6 tests
+test cli::tests::object_parse_accepts_supplement_emit_and_check ... ok
+test cli::tests::object_parse_accepts_supplement_fixture_inventory ... ok
+test object::tests::runtime_supplement_family_context_names_extractor ... ok
+test object::tests::pilot_mir_supplement_records_closed_unsupported_summary_families ... ok
+test object::tests::pilot_hir_supplement_attaches_to_v1_identity ... ok
+test object::tests::supplement_check_comparisons_fail_closed_on_context_mismatch ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 34 filtered out; finished in 0.00s
+
+     Running tests/fingerprint_consumer.rs (/home/brittonr/.cargo-target/debug/deps/fingerprint_consumer-e64a4f0e00c6cfc9)
+
+running 7 tests
+test hir_mir_supplement_pilot_docs_name_commands_and_non_proofs ... ok
+test object_corpus_contract_metadata_reports_pilot_and_planned_supplement_statuses ... ok
+test thir_supplement_emit_and_check_remain_fail_closed ... ok
+test object_supplement_runtime_smoke_covers_nested_help_and_inventory ... ok
+test mir_fixture_supplement_emit_check_and_negative_replay_are_bounded ... ok
+test thir_fixture_supplement_emit_check_and_negative_replay_are_bounded ... ok
+test object_supplement_inventory_commands_roundtrip_for_every_shape ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 53 filtered out; finished in 0.27s
+
+     Running tests/unison_roadmap.rs (/home/brittonr/.cargo-target/debug/deps/unison_roadmap-df01f34458c5b59b)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.00s
+
+warning: /home/brittonr/git/slotcar/cargo-octet/Cargo.toml: file `/home/brittonr/git/slotcar/cargo-octet/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `cargo-octet`
+  * `bin` target `cargo-slotcar`
+  * `bin` target `cargo-tigerstyle`
+warning: /home/brittonr/git/slotcar/crates/slotcar-standards/Cargo.toml: file `/home/brittonr/git/slotcar/crates/slotcar-standards/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `octet-standards`
+  * `bin` target `slotcar-standards`
+  * `bin` target `tigerstyle-standards`
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.06s
+     Running unittests src/main.rs (/home/brittonr/.cargo-target/debug/deps/cargo_octet-2effaf9a943ebe1f)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 40 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (/home/brittonr/.cargo-target/debug/deps/cargo_slotcar-48143f7c669aff01)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 40 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (/home/brittonr/.cargo-target/debug/deps/cargo_tigerstyle-611d3eb647e08459)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 40 filtered out; finished in 0.00s
+
+     Running tests/fingerprint_consumer.rs (/home/brittonr/.cargo-target/debug/deps/fingerprint_consumer-e64a4f0e00c6cfc9)
+
+running 4 tests
+test object_corpus_contract_human_reports_hir_mir_fail_closed_boundaries ... ok
+test object_corpus_contract_metadata_reports_receipt_and_check_shapes ... ok
+test object_corpus_contract_metadata_reports_pilot_and_planned_supplement_statuses ... ok
+test object_corpus_contract_missing_required_field_fails_closed ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 56 filtered out; finished in 0.01s
+
+     Running tests/unison_roadmap.rs (/home/brittonr/.cargo-target/debug/deps/unison_roadmap-df01f34458c5b59b)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.00s
+
+warning: /home/brittonr/git/slotcar/cargo-octet/Cargo.toml: file `/home/brittonr/git/slotcar/cargo-octet/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `cargo-octet`
+  * `bin` target `cargo-slotcar`
+  * `bin` target `cargo-tigerstyle`
+warning: /home/brittonr/git/slotcar/crates/slotcar-standards/Cargo.toml: file `/home/brittonr/git/slotcar/crates/slotcar-standards/src/main.rs` found to be present in multiple build targets:
+  * `bin` target `octet-standards`
+  * `bin` target `slotcar-standards`
+  * `bin` target `tigerstyle-standards`
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.13s
+     Running unittests src/main.rs (/home/brittonr/.cargo-target/debug/deps/cargo_octet-2effaf9a943ebe1f)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 40 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (/home/brittonr/.cargo-target/debug/deps/cargo_slotcar-48143f7c669aff01)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 40 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (/home/brittonr/.cargo-target/debug/deps/cargo_tigerstyle-611d3eb647e08459)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 40 filtered out; finished in 0.00s
+
+     Running tests/fingerprint_consumer.rs (/home/brittonr/.cargo-target/debug/deps/fingerprint_consumer-e64a4f0e00c6cfc9)
+
+running 1 test
+test hir_mir_supplement_pilot_docs_name_commands_and_non_proofs ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 59 filtered out; finished in 0.00s
+
+     Running tests/unison_roadmap.rs (/home/brittonr/.cargo-target/debug/deps/unison_roadmap-df01f34458c5b59b)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.00s
