@@ -1551,7 +1551,7 @@ The aggregate gate MUST compose the checked-in internal object corpus replay rai
 
 ### Requirement: HIR/MIR supplement pilot [r[hir-mir-supplement-pilot]]
 
-Octet MUST support bounded, fail-closed supplemental evidence families for selected Function Object v1 records. Pilot supplement records MUST reference the canonical `octet.function-object.v1` object hash, record exact toolchain and extractor identity when available, emit closed schema/status values, and preserve no-correctness/no-semantic-equivalence boundaries. Fixture-backed families MAY report `pilot-supported` only for closed, deterministic fixture selectors with positive and negative replay evidence; families or request shapes without deterministic fixture evidence MUST remain `unsupported-planned`. THIR fixture support MUST stay selector-bounded: default/non-fixture THIR requests and object corpus contract metadata remain `unsupported-planned`, while explicit selected THIR fixture runtime selectors MAY report `pilot-supported` only for their checked-in fixture/function pairs.
+Octet MUST support bounded, fail-closed supplemental evidence families for selected Function Object v1 records. Pilot records MUST reference the canonical v1 object hash, record toolchain/extractor identity when available, emit closed schema/status values, and preserve no-correctness/no-semantic-equivalence boundaries. Fixture-backed families MAY report `pilot-supported` only for closed, deterministic selectors with replay evidence; all other request shapes MUST remain `unsupported-planned`.
 
 #### Scenario: Pilot HIR supplement attaches to v1 object identity [r[hir-mir-supplement-pilot.scenario.hir-attaches-v1]]
 
@@ -1666,7 +1666,7 @@ Octet MUST support bounded, fail-closed supplemental evidence families for selec
 
 ### Requirement: Rustc-backed HIR extractor spike [r[rustc-hir-extractor-spike]]
 
-Octet MUST provide bounded, fixture-backed rustc HIR extractor spike evidence for selected Function Object v1 records while preserving the v1 object hash as the canonical review/provenance identity. Each supported HIR spike fixture shape MUST be a checked-in, explicitly selected fixture with exact rustc/toolchain identity, extractor identity, schema version, fixture context, observation hash, and explicit non-proof boundaries. Octet MUST expose the closed rustc HIR fixture-shape inventory through a deterministic operator surface so valid selectors and their bounded meanings are discoverable without accepting arbitrary HIR inputs.
+Octet MUST provide bounded, fixture-backed rustc HIR extractor spike evidence for selected Function Object v1 records while preserving the v1 object hash as the canonical review/provenance identity. Each supported HIR spike fixture shape MUST be checked in and explicitly selected with rustc/toolchain identity, extractor identity, schema version, fixture context, observation hash, and non-proof boundaries. Octet MUST expose closed fixture-shape inventory without accepting arbitrary HIR inputs.
 
 #### Scenario: HIR fixture inventory lists closed selectors
 
