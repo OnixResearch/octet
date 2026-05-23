@@ -6,3 +6,6 @@ license = "AGPL-3.0-or-later"
 description = "Pure Valence evidence core extracted from Octet CLI surfaces"
 
 [dependencies]
+blake3 = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

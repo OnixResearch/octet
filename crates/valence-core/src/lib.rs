@@ -4,3 +4,4 @@
 //! filesystem reads, and process orchestration remain in `cargo-octet`.
 
 pub mod evidence_index;
+pub mod function_object;
