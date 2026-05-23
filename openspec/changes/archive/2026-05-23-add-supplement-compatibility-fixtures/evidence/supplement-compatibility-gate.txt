@@ -1,0 +1,70 @@
+checking outputs of '/nix/store/n61b2fpa3yyd4w7hysny0y2fd2av5pa8-octet-supplement-compatibility-gate-0.1.0.drv'...
+octet-supplement-compatibility-gate> Running phase: unpackPhase
+octet-supplement-compatibility-gate> unpacking source archive /nix/store/0nsjis1ijpnvd2k775wava81abc7qnqz-source
+octet-supplement-compatibility-gate> source root is source
+octet-supplement-compatibility-gate> Running phase: patchPhase
+octet-supplement-compatibility-gate> Executing configureCargoCommonVars
+octet-supplement-compatibility-gate> decompressing cargo artifacts from /nix/store/hkwyd8ywfwprl0xj71vgbng063238vzs-octet-deps-0.1.0/target.tar.zst to target
+octet-supplement-compatibility-gate> Running phase: updateAutotoolsGnuConfigScriptsPhase
+octet-supplement-compatibility-gate> Running phase: configurePhase
+octet-supplement-compatibility-gate> will append /build/source/.cargo-home/config.toml with contents of /nix/store/7psin7sq5sx4gs43jj2la6nzl2050sxz-vendor-cargo-deps/config.toml
+octet-supplement-compatibility-gate> default configurePhase, nothing to do
+octet-supplement-compatibility-gate> Running phase: buildPhase
+octet-supplement-compatibility-gate> +++ command cargo --version
+octet-supplement-compatibility-gate> cargo 1.96.0-nightly (cbb9bb8bd 2026-03-13)
+octet-supplement-compatibility-gate> Running phase: checkPhase
+octet-supplement-compatibility-gate> +++ command cargo test --release -p cargo-octet --test fingerprint_consumer supplement_compatibility -- --nocapture
+octet-supplement-compatibility-gate> warning: /build/source/cargo-octet/Cargo.toml: file `/build/source/cargo-octet/src/main.rs` found to be present in multiple build targets:
+octet-supplement-compatibility-gate>   * `bin` target `cargo-octet`
+octet-supplement-compatibility-gate>   * `bin` target `cargo-slotcar`
+octet-supplement-compatibility-gate>   * `bin` target `cargo-tigerstyle`
+octet-supplement-compatibility-gate> warning: /build/source/crates/slotcar-standards/Cargo.toml: file `/build/source/crates/slotcar-standards/src/main.rs` found to be present in multiple build targets:
+octet-supplement-compatibility-gate>   * `bin` target `octet-standards`
+octet-supplement-compatibility-gate>   * `bin` target `slotcar-standards`
+octet-supplement-compatibility-gate>   * `bin` target `tigerstyle-standards`
+octet-supplement-compatibility-gate>    Compiling shlex v1.3.0
+octet-supplement-compatibility-gate>    Compiling find-msvc-tools v0.1.9
+octet-supplement-compatibility-gate>    Compiling serde_core v1.0.228
+octet-supplement-compatibility-gate>    Compiling proc-macro2 v1.0.106
+octet-supplement-compatibility-gate>    Compiling cc v1.2.62
+octet-supplement-compatibility-gate>    Compiling quote v1.0.45
+octet-supplement-compatibility-gate>    Compiling arrayvec v0.7.6
+octet-supplement-compatibility-gate>    Compiling constant_time_eq v0.4.2
+octet-supplement-compatibility-gate>    Compiling cfg-if v1.0.4
+octet-supplement-compatibility-gate>    Compiling arrayref v0.3.9
+octet-supplement-compatibility-gate>    Compiling cpufeatures v0.3.0
+octet-supplement-compatibility-gate>    Compiling syn v2.0.117
+octet-supplement-compatibility-gate>    Compiling serde_json v1.0.149
+octet-supplement-compatibility-gate>    Compiling libc v0.2.186
+octet-supplement-compatibility-gate>    Compiling blake3 v1.8.5
+octet-supplement-compatibility-gate>    Compiling cargo-octet v0.1.0 (/build/source/cargo-octet)
+octet-supplement-compatibility-gate>    Compiling serde_spanned v1.1.1
+octet-supplement-compatibility-gate>    Compiling toml_datetime v1.1.1+spec-1.1.0
+octet-supplement-compatibility-gate>    Compiling serde_derive v1.0.228
+octet-supplement-compatibility-gate>    Compiling toml v1.1.2+spec-1.1.0
+octet-supplement-compatibility-gate>    Compiling getrandom v0.4.2
+octet-supplement-compatibility-gate>    Compiling rustix v1.1.4
+octet-supplement-compatibility-gate>    Compiling linux-raw-sys v0.12.1
+octet-supplement-compatibility-gate>    Compiling bitflags v2.11.1
+octet-supplement-compatibility-gate>    Compiling serde v1.0.228
+octet-supplement-compatibility-gate>    Compiling fastrand v2.4.1
+octet-supplement-compatibility-gate>    Compiling once_cell v1.21.4
+octet-supplement-compatibility-gate>    Compiling tempfile v3.27.0
+octet-supplement-compatibility-gate>     Finished `release` profile [optimized] target(s) in 11.35s
+octet-supplement-compatibility-gate>      Running tests/fingerprint_consumer.rs (target/release/deps/fingerprint_consumer-a0688eab409d177f)
+octet-supplement-compatibility-gate> 
+octet-supplement-compatibility-gate> running 1 test
+octet-supplement-compatibility-gate> test supplement_compatibility_receipts_fail_closed ... ok
+octet-supplement-compatibility-gate> 
+octet-supplement-compatibility-gate> test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 63 filtered out; finished in 0.02s
+octet-supplement-compatibility-gate> 
+octet-supplement-compatibility-gate> Running phase: installPhase
+octet-supplement-compatibility-gate> stripping references to Rust toolchain
+octet-supplement-compatibility-gate> Rust toolchain at: /nix/store/1yvh3d6y3fj3xk2dgwczrp1dj5svd92c-rust-default-1.96.0-nightly-2026-03-21
+octet-supplement-compatibility-gate> stripping Rust toolchain references done
+octet-supplement-compatibility-gate> stripping references to cargoVendorDir from:
+octet-supplement-compatibility-gate> stripping references done
+octet-supplement-compatibility-gate> Running phase: fixupPhase
+octet-supplement-compatibility-gate> shrinking RPATHs of ELF executables and libraries in /nix/store/hzilzhs433dhlv8mn4l8v2zdaiw7w5l4-octet-supplement-compatibility-gate-0.1.0
+octet-supplement-compatibility-gate> checking for references to /build/ in /nix/store/hzilzhs433dhlv8mn4l8v2zdaiw7w5l4-octet-supplement-compatibility-gate-0.1.0...
+octet-supplement-compatibility-gate> patching script interpreter paths in /nix/store/hzilzhs433dhlv8mn4l8v2zdaiw7w5l4-octet-supplement-compatibility-gate-0.1.0
