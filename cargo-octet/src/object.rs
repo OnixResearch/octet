@@ -7,6 +7,10 @@ use std::process::Command;
 
 use serde::Deserialize;
 use serde::Serialize;
+use valence_core::function_object;
+use valence_core::function_object::FunctionObjectInput;
+use valence_core::function_object::FunctionObjectV1;
+use valence_core::function_object::SourceSpan;
 
 use crate::cli::ObjectArgs;
 use crate::cli::ObjectMode;
@@ -16,7 +20,6 @@ use crate::cli::SupplementScopeArg;
 use crate::determinism;
 use crate::fingerprint;
 
-const FUNCTION_OBJECT_SCHEMA: &str = "octet.function-object.v1";
 #[allow(dead_code)]
 const HIR_SUPPLEMENT_SCHEMA: &str = "octet.function-object-hir-supplement.v1";
 #[allow(dead_code)]
@@ -49,7 +52,6 @@ const SUPPLEMENT_SCHEMA_VERSION: u32 = 1;
 const CORPUS_RECEIPT_SCHEMA: &str = "octet.function-object-corpus-receipt.v1";
 const CORPUS_CHECK_REPORT_SCHEMA: &str = "octet.function-object-corpus-check-report.v1";
 const CORPUS_RECEIPT_SCHEMA_VERSION: u32 = 1;
-const NORMALIZATION_ALGORITHM: &str = "octet-source-token-v1";
 #[allow(dead_code)]
 const SUPPLEMENT_STATUS_VALUES: &[&str] = &["unsupported-planned", "pilot-supported", "unknown", "unsupported"];
 const CORPUS_RECEIPT_REQUIRED_FIELDS: &[&str] = &[
@@ -85,30 +87,8 @@ const CORPUS_RECEIPT_COMPARED_FIELDS: &[&str] = &[
     "pure_cache_blocked_count",
     "boundary",
 ];
-const DEPENDENCY_STATUS_MACRO_CONTEXT: &str = "unsupported-macro-context";
 const OBJECT_MARKER: &str = "// octet-object:";
 const HASH_PREFIX: &str = "b3:";
-
-#[derive(Debug, Clone, Serialize)]
-pub(crate) struct FunctionObjectV1 {
-    pub schema: &'static str,
-    pub object_hash: String,
-    pub semantic_id: String,
-    pub name: String,
-    pub source_path: String,
-    pub source_span: SourceSpan,
-    pub body_hash: String,
-    pub normalized_body_hash: String,
-    pub signature_hash: String,
-    pub dependency_set_hash: String,
-    pub dependency_caveats: Vec<DependencyCaveat>,
-    pub effect_caveats: Vec<EffectCaveat>,
-    pub macro_caveats: Vec<MacroCaveat>,
-    pub normalization: NormalizationMetadata,
-    pub caveat_summary: CaveatSummary,
-    pub pure_cache_eligibility: PureCacheEligibility,
-    pub correctness_claim: CorrectnessClaim,
-}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[allow(dead_code)]
@@ -216,62 +196,6 @@ struct SupplementBoundary {
     claims_cross_toolchain_stability: bool,
     claims_pure_cache_eligibility: bool,
     detail: &'static str,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub(crate) struct SourceSpan {
-    pub start_line: u32,
-    pub end_line: u32,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub(crate) struct DependencyCaveat {
-    pub kind: &'static str,
-    pub status: &'static str,
-    pub detail: &'static str,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub(crate) struct EffectCaveat {
-    pub kind: &'static str,
-    pub status: &'static str,
-    pub detail: &'static str,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub(crate) struct MacroCaveat {
-    pub kind: &'static str,
-    pub status: &'static str,
-    pub detail: &'static str,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub(crate) struct NormalizationMetadata {
-    pub algorithm: &'static str,
-    pub tool_name: &'static str,
-    pub tool_version: &'static str,
-    pub hash_algorithm: &'static str,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub(crate) struct CorrectnessClaim {
-    pub claims_correctness: bool,
-    pub detail: &'static str,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub(crate) struct CaveatSummary {
-    pub dependency_identity: &'static str,
-    pub macro_expansion: &'static str,
-    pub effect_summary: &'static str,
-    pub cache_policy: &'static str,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub(crate) struct PureCacheEligibility {
-    pub eligible: bool,
-    pub status: &'static str,
-    pub blockers: Vec<&'static str>,
 }
 
 #[derive(Debug, Serialize)]
@@ -2417,205 +2341,23 @@ fn function_object_for_source(
     span: &fingerprint::FunctionSpan,
     function_source: &str,
 ) -> Result<FunctionObjectV1, String> {
-    let normalized = fingerprint::normalize_tokens(function_source);
-    let normalized_body_hash = determinism::full_hash(&normalized);
-    let body_hash = normalized_body_hash.clone();
-    let signature_hash = signature_hash(function_source);
-    let dependency_set_hash = fingerprint::dependency_set_hash(function_source);
-    let dependency_status = fingerprint::dependency_identity_status(function_source);
-    let dependency_caveats = dependency_caveats(dependency_status);
-    let effect_caveats = effect_caveats(function_source);
-    let macro_caveats = macro_caveats(span.macro_calls);
-    let caveat_summary = caveat_summary(&dependency_caveats, &effect_caveats, &macro_caveats);
-    let pure_cache_eligibility = pure_cache_eligibility(&dependency_caveats, &effect_caveats, &macro_caveats);
-    let semantic_id = determinism::short_hash(&format!(
-        "schema={FUNCTION_OBJECT_SCHEMA}\nname={}\nbody={normalized_body_hash}\nsignature={signature_hash}\ndeps={dependency_set_hash}\ndep_status={dependency_status}\nnormalization={NORMALIZATION_ALGORITHM}\ntool={}\n",
-        span.name,
-        env!("CARGO_PKG_VERSION"),
-    ));
-    let source_span = source_span(full_source, span.start, span.end)?;
-    let mut object = FunctionObjectV1 {
-        schema: FUNCTION_OBJECT_SCHEMA,
-        object_hash: String::new(),
-        semantic_id,
-        name: span.name.clone(),
+    function_object::build_function_object(FunctionObjectInput {
+        tool_name: "cargo-octet",
+        tool_version: env!("CARGO_PKG_VERSION"),
+        name: &span.name,
         source_path: normalized_source_path(path),
-        source_span,
-        body_hash,
-        normalized_body_hash,
-        signature_hash,
-        dependency_set_hash,
-        dependency_caveats,
-        effect_caveats,
-        macro_caveats,
-        normalization: NormalizationMetadata {
-            algorithm: NORMALIZATION_ALGORITHM,
-            tool_name: "cargo-octet",
-            tool_version: env!("CARGO_PKG_VERSION"),
-            hash_algorithm: "BLAKE3",
-        },
-        caveat_summary,
-        pure_cache_eligibility,
-        correctness_claim: CorrectnessClaim {
-            claims_correctness: false,
-            detail: "Function object hashes identify reviewed source evidence and caveats; they do not prove behavioral correctness.",
-        },
-    };
-    object.object_hash = object_hash(&object)?;
-    Ok(object)
+        source_span: source_span(full_source, span.start, span.end)?,
+        function_source,
+        normalized_function_source: fingerprint::normalize_tokens(function_source),
+        dependency_set_hash: fingerprint::dependency_set_hash(function_source),
+        dependency_identity_status: fingerprint::dependency_identity_status(function_source),
+        macro_calls: span.macro_calls,
+    })
 }
 
-fn object_hash(object: &FunctionObjectV1) -> Result<String, String> {
-    let payload = serde_json::json!({
-        "schema": object.schema,
-        "semantic_id": object.semantic_id,
-        "name": object.name,
-        "body_hash": object.body_hash,
-        "normalized_body_hash": object.normalized_body_hash,
-        "signature_hash": object.signature_hash,
-        "dependency_set_hash": object.dependency_set_hash,
-        "dependency_caveats": object.dependency_caveats,
-        "effect_caveats": object.effect_caveats,
-        "macro_caveats": object.macro_caveats,
-        "normalization": object.normalization,
-        "caveat_summary": object.caveat_summary,
-        "pure_cache_eligibility": object.pure_cache_eligibility,
-        "correctness_claim": object.correctness_claim,
-    });
-    let bytes = serde_json::to_string(&payload).map_err(|error| format!("canonicalize function object: {error}"))?;
-    Ok(determinism::full_hash(&bytes))
-}
-
-fn signature_hash(function_source: &str) -> String {
-    let signature = function_source.split('{').next().unwrap_or(function_source);
-    determinism::full_hash(&fingerprint::normalize_tokens(signature))
-}
-
-fn dependency_caveats(status: &'static str) -> Vec<DependencyCaveat> {
-    let detail = match status {
-        DEPENDENCY_STATUS_MACRO_CONTEXT => {
-            "Dependency identity is token-derived and the function contains macro calls; dependencies are not resolved through rustc/HIR."
-        }
-        _ => "Dependency identity is a source-scanner token set, not a resolved dependency graph.",
-    };
-    vec![DependencyCaveat {
-        kind: "dependency_identity",
-        status,
-        detail,
-    }]
-}
-
-fn effect_caveats(function_source: &str) -> Vec<EffectCaveat> {
-    let mut caveats = Vec::new();
-    let normalized = fingerprint::normalize_tokens(function_source);
-    for (needle, kind, detail) in [
-        ("unsafe", "unsafe", "Source tokens contain unsafe; effect summary remains caveated."),
-        ("panic", "panic", "Source tokens contain panic-like spelling; effect summary remains caveated."),
-        ("unwrap", "panic", "Source tokens contain unwrap-like spelling; effect summary remains caveated."),
-        ("expect", "panic", "Source tokens contain expect-like spelling; effect summary remains caveated."),
-        (
-            "fs",
-            "filesystem",
-            "Source tokens contain filesystem-like spelling; effect summary remains caveated.",
-        ),
-        ("net", "network", "Source tokens contain network-like spelling; effect summary remains caveated."),
-        (
-            "Command",
-            "process",
-            "Source tokens contain process-spawn-like spelling; effect summary remains caveated.",
-        ),
-        (
-            "SystemTime",
-            "time",
-            "Source tokens contain wall-clock-like spelling; effect summary remains caveated.",
-        ),
-    ] {
-        if normalized.split_whitespace().any(|token| token == needle) {
-            caveats.push(EffectCaveat {
-                kind,
-                status: "source-token-caveat",
-                detail,
-            });
-        }
-    }
-    if caveats.is_empty() {
-        caveats.push(EffectCaveat {
-            kind: "effect_summary",
-            status: "unknown-source-scanner-only",
-            detail: "No coarse ambient effect token was found, but v1 source scanning does not prove purity.",
-        });
-    }
-    caveats
-}
-
-fn macro_caveats(macro_calls: bool) -> Vec<MacroCaveat> {
-    if macro_calls {
-        vec![MacroCaveat {
-            kind: "macro_call",
-            status: "review-required",
-            detail: "Function body contains a macro call; v1 object identity is based on source tokens, not expanded macro output.",
-        }]
-    } else {
-        vec![MacroCaveat {
-            kind: "macro_call",
-            status: "none-detected",
-            detail: "No macro call was detected by the v1 source scanner.",
-        }]
-    }
-}
-
-fn caveat_summary(
-    dependency_caveats: &[DependencyCaveat],
-    effect_caveats: &[EffectCaveat],
-    macro_caveats: &[MacroCaveat],
-) -> CaveatSummary {
-    let dependency_identity = if dependency_caveats.iter().any(|caveat| caveat.status == "resolved") {
-        "resolved"
-    } else {
-        "unresolved-source-scanner"
-    };
-    let macro_expansion = if macro_caveats.iter().any(|caveat| caveat.status == "review-required") {
-        "macro-expansion-not-modeled"
-    } else {
-        "none-detected"
-    };
-    let effect_summary = if effect_caveats.iter().any(|caveat| caveat.status == "source-token-caveat") {
-        "effect-caveated"
-    } else {
-        "unknown-not-pure-proof"
-    };
-    CaveatSummary {
-        dependency_identity,
-        macro_expansion,
-        effect_summary,
-        cache_policy: "pure-cache-blocked-unless-external-policy-accepts-caveats",
-    }
-}
-
-fn pure_cache_eligibility(
-    dependency_caveats: &[DependencyCaveat],
-    effect_caveats: &[EffectCaveat],
-    macro_caveats: &[MacroCaveat],
-) -> PureCacheEligibility {
-    let mut blockers = Vec::new();
-    if dependency_caveats.iter().any(|caveat| caveat.status != "resolved") {
-        blockers.push("dependency-identity-unresolved");
-    }
-    if effect_caveats.iter().any(|caveat| caveat.status != "resolved-pure") {
-        blockers.push("effect-summary-unresolved");
-    }
-    if macro_caveats.iter().any(|caveat| caveat.status == "review-required") {
-        blockers.push("macro-expansion-unmodeled");
-    }
-    PureCacheEligibility {
-        eligible: blockers.is_empty(),
-        status: if blockers.is_empty() {
-            "eligible"
-        } else {
-            "blocked-by-caveats"
-        },
-        blockers,
-    }
+#[allow(dead_code)]
+fn effect_caveats(function_source: &str) -> Vec<function_object::EffectCaveat> {
+    function_object::effect_caveats(function_source)
 }
 
 fn source_span(source: &str, start: usize, end: usize) -> Result<SourceSpan, String> {
