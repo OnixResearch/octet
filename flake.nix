@@ -10,7 +10,7 @@
     };
     flake-utils.url = "github:numtide/flake-utils";
     cairn = {
-      url = "github:OnixResearch/cairn";
+      url = "github:onixresearch/cairn";
       inputs.nixpkgs.follows = "nixpkgs";
     };
     dylint-src = {

@@ -1,6 +1,6 @@
 ## Context
 
-Octet now has repo-local Cairn tooling via `github:OnixResearch/cairn`, and the Valence evidence ladder includes object-corpus, THIR, MIR, fresh-build determinism, and supplement compatibility rails. The current head evidence page was refreshed manually after the supplement compatibility gate landed. That proved the page format is useful, but the process remains fragile: a future commit can change the aggregate rail set or payload commit without updating the page.
+Octet now has repo-local Cairn tooling via `github:onixresearch/cairn`, and the Valence evidence ladder includes object-corpus, THIR, MIR, fresh-build determinism, and supplement compatibility rails. The current head evidence page was refreshed manually after the supplement compatibility gate landed. That proved the page format is useful, but the process remains fragile: a future commit can change the aggregate rail set or payload commit without updating the page.
 
 ## Decisions
 
