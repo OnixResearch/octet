@@ -1,0 +1,8 @@
+[package]
+name = "valence-core"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Pure Valence evidence core extracted from Octet CLI surfaces"
+
+[dependencies]
