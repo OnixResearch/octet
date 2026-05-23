@@ -1082,6 +1082,11 @@ MAIN
           supplementCompatibilityGate = mkFingerprintDocsCheck
             "octet-supplement-compatibility-gate"
             "supplement_compatibility";
+          valenceEvidenceIndexGate = pkgs.runCommand "octet-valence-evidence-index" { } ''
+            cd ${src}
+            ${cargoOctetUnwrapped}/bin/cargo-octet evidence-index check --page docs/current-head-valence-evidence.md
+            mkdir -p "$out"
+          '';
           thirSupplementInventoryGate = mkFingerprintDocsCheck
             "octet-thir-supplement-inventory-gate"
             "thir_inventory";
@@ -1130,6 +1135,7 @@ MAIN
             test -d ${objectCorpusCaveatTaxonomyGate}
             test -d ${objectCorpusFixtureFreshnessGate}
             test -d ${supplementCompatibilityGate}
+            test -d ${valenceEvidenceIndexGate}
             test -d ${thirSupplementInventoryGate}
             test -d ${mirSupplementFixtureGate}
             test -d ${mirSupplementInventoryGate}
@@ -1140,6 +1146,7 @@ MAIN
             echo "valence_object_evidence.caveat_taxonomy_gate: PASS"
             echo "valence_object_evidence.object_corpus_fixture_freshness_gate: PASS"
             echo "valence_object_evidence.supplement_compatibility_gate: PASS"
+            echo "valence_object_evidence.evidence_index_gate: PASS"
             echo "valence_object_evidence.thir_supplement_inventory_gate: PASS"
             echo "valence_object_evidence.mir_supplement_fixture_gate: PASS"
             echo "valence_object_evidence.mir_supplement_inventory_gate: PASS"
@@ -1257,6 +1264,7 @@ MAIN
           object-corpus-caveat-taxonomy-gate = objectCorpusCaveatTaxonomyGate;
           object-corpus-fixture-freshness = objectCorpusFixtureFreshnessGate;
           supplement-compatibility-gate = supplementCompatibilityGate;
+          valence-evidence-index = valenceEvidenceIndexGate;
           thir-supplement-inventory-gate = thirSupplementInventoryGate;
           mir-supplement-fixture-gate = mirSupplementFixtureGate;
           mir-supplement-inventory-gate = mirSupplementInventoryGate;
