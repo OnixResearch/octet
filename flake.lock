@@ -10,13 +10,13 @@
       "locked": {
         "lastModified": 1779500840,
         "narHash": "sha256-tnsP7kS55Druw+k+/ZD+4hd5f0JsLgW8komD6LSCWJ4=",
-        "owner": "OnixResearch",
+        "owner": "onixresearch",
         "repo": "cairn",
         "rev": "3c470b9478072fed00234000d5abee07c20eda1c",
         "type": "github"
       },
       "original": {
-        "owner": "OnixResearch",
+        "owner": "onixresearch",
         "repo": "cairn",
         "type": "github"
       }
@@ -216,13 +216,13 @@
       "locked": {
         "lastModified": 1778903772,
         "narHash": "sha256-8F7g650MFMXm5zyOBadWg0pOHxXccDgwbOVUZYLwwkQ=",
-        "owner": "OnixResearch",
+        "owner": "onixresearch",
         "repo": "slotcar",
         "rev": "b18a547801dfebaa5ee3e748e3ebefed1a66cb17",
         "type": "github"
       },
       "original": {
-        "owner": "OnixResearch",
+        "owner": "onixresearch",
         "repo": "slotcar",
         "type": "github"
       }
