@@ -21,6 +21,7 @@ impl OutputFormat {
 #[derive(Debug)]
 pub enum CommandArgs {
     Check(CheckArgs),
+    EvidenceIndex(EvidenceIndexArgs),
     Fingerprint(FingerprintArgs),
     Migrate(MigrateArgs),
     Object(ObjectArgs),
@@ -34,6 +35,7 @@ pub enum CommandArgs {
 pub enum HelpTopic {
     Root,
     Check,
+    EvidenceIndex,
     Fingerprint,
     Migrate,
     Object,
@@ -51,6 +53,20 @@ pub struct CheckArgs {
     pub write_baseline: Option<PathBuf>,
     pub cache: bool,
     pub command_line: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EvidenceIndexMode {
+    Render,
+    Check,
+}
+
+#[derive(Debug)]
+pub struct EvidenceIndexArgs {
+    pub mode: EvidenceIndexMode,
+    pub page: Option<PathBuf>,
+    pub payload_commit: Option<String>,
+    pub capture_time: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -212,6 +228,8 @@ pub fn parse(argv: impl IntoIterator<Item = OsString>) -> Result<CommandArgs, St
         Some("--version" | "-V" | "version") => Ok(CommandArgs::Version),
         Some("check") if wants_help(&argv[1..]) => Ok(CommandArgs::Help(HelpTopic::Check)),
         Some("check") => parse_check(&argv[1..], command_line).map(CommandArgs::Check),
+        Some("evidence-index") if wants_help(&argv[1..]) => Ok(CommandArgs::Help(HelpTopic::EvidenceIndex)),
+        Some("evidence-index") => parse_evidence_index(&argv[1..]).map(CommandArgs::EvidenceIndex),
         Some("fingerprint") if wants_help(&argv[1..]) => Ok(CommandArgs::Help(HelpTopic::Fingerprint)),
         Some("fingerprint") => parse_fingerprint(&argv[1..]).map(CommandArgs::Fingerprint),
         Some("migrate") if wants_help(&argv[1..]) => Ok(CommandArgs::Help(HelpTopic::Migrate)),
@@ -223,10 +241,10 @@ pub fn parse(argv: impl IntoIterator<Item = OsString>) -> Result<CommandArgs, St
         Some("transcript") if wants_help(&argv[1..]) => Ok(CommandArgs::Help(HelpTopic::Transcript)),
         Some("transcript") => parse_transcript(&argv[1..]).map(CommandArgs::Transcript),
         Some(other) => Err(format!(
-            "unknown subcommand `{other}`; expected `check`, `fingerprint`, `migrate`, `object`, `roadmap`, or `transcript`"
+            "unknown subcommand `{other}`; expected `check`, `evidence-index`, `fingerprint`, `migrate`, `object`, `roadmap`, or `transcript`"
         )),
         None => Err(
-            "missing subcommand; expected `check`, `fingerprint`, `migrate`, `object`, `roadmap`, or `transcript`"
+            "missing subcommand; expected `check`, `evidence-index`, `fingerprint`, `migrate`, `object`, `roadmap`, or `transcript`"
                 .to_owned(),
         ),
     }
@@ -244,6 +262,7 @@ pub fn help_text(topic: HelpTopic) -> &'static str {
     match topic {
         HelpTopic::Root => ROOT_HELP,
         HelpTopic::Check => CHECK_HELP,
+        HelpTopic::EvidenceIndex => EVIDENCE_INDEX_HELP,
         HelpTopic::Fingerprint => FINGERPRINT_HELP,
         HelpTopic::Migrate => MIGRATE_HELP,
         HelpTopic::Object => OBJECT_HELP,
@@ -256,6 +275,8 @@ const ROOT_HELP: &str = "Octet operator commands
 
 Usage:
   cargo octet check [SCOPE] [-- CARGO_CHECK_ARGS]
+  cargo octet evidence-index render --payload-commit HASH --capture-time RFC3339
+  cargo octet evidence-index check [--page PATH]
   cargo octet fingerprint [--check|--update|--diff] [PATHS...]
   cargo octet migrate <start|status|apply-safe> [--manifest PATH]
   cargo octet object emit|check|update [--function NAME] [PATHS...]
@@ -286,6 +307,15 @@ const CHECK_HELP: &str = "cargo octet check
 Options: --output-format human|json|sarif, --artifact-dir PATH, --baseline PATH, --write-baseline PATH, --cache.
 
 Artifacts include summary.txt effect-summary output, findings JSON/SARIF, and cache_status fields when --cache enables the lint-cache.
+";
+
+const EVIDENCE_INDEX_HELP: &str = "cargo octet evidence-index
+
+Subcommands:
+  render --payload-commit HASH --capture-time RFC3339
+  check [--page docs/current-head-valence-evidence.md]
+
+Renders or checks the generated current-head Valence evidence Markdown index. Check mode fails closed on stale payload, missing rail/pass signal, or weakened non-claim boundaries.
 ";
 
 const FINGERPRINT_HELP: &str = "cargo octet fingerprint
@@ -413,6 +443,63 @@ fn parse_check(args: &[String], command_line: String) -> Result<CheckArgs, Strin
         write_baseline,
         cache,
         command_line,
+    })
+}
+
+fn parse_evidence_index(args: &[String]) -> Result<EvidenceIndexArgs, String> {
+    let mode = match args.first().map(String::as_str) {
+        Some("render") => EvidenceIndexMode::Render,
+        Some("check") => EvidenceIndexMode::Check,
+        Some(other) => {
+            return Err(format!("unknown evidence-index subcommand `{other}`; expected `render` or `check`"));
+        }
+        None => return Err("missing evidence-index subcommand; expected `render` or `check`".to_owned()),
+    };
+
+    let mut page = None;
+    let mut payload_commit = None;
+    let mut capture_time = None;
+    let mut index = 1;
+
+    while index < args.len() {
+        let arg = &args[index];
+        match arg.as_str() {
+            "--page" => {
+                let value = args.get(index + 1).ok_or_else(|| "missing value after `--page`".to_owned())?;
+                page = Some(PathBuf::from(value));
+                index += 2;
+            }
+            "--payload-commit" => {
+                let value = args.get(index + 1).ok_or_else(|| "missing value after `--payload-commit`".to_owned())?;
+                payload_commit = Some(value.clone());
+                index += 2;
+            }
+            "--capture-time" => {
+                let value = args.get(index + 1).ok_or_else(|| "missing value after `--capture-time`".to_owned())?;
+                capture_time = Some(value.clone());
+                index += 2;
+            }
+            _ if arg.starts_with("--page=") => {
+                page = Some(PathBuf::from(arg.trim_start_matches("--page=")));
+                index += 1;
+            }
+            _ if arg.starts_with("--payload-commit=") => {
+                payload_commit = Some(arg.trim_start_matches("--payload-commit=").to_owned());
+                index += 1;
+            }
+            _ if arg.starts_with("--capture-time=") => {
+                capture_time = Some(arg.trim_start_matches("--capture-time=").to_owned());
+                index += 1;
+            }
+            _ => return Err(format!("unsupported evidence-index argument `{arg}`")),
+        }
+    }
+
+    Ok(EvidenceIndexArgs {
+        mode,
+        page,
+        payload_commit,
+        capture_time,
     })
 }
 

@@ -3,6 +3,7 @@ mod cli;
 mod config;
 mod determinism;
 mod engine;
+mod evidence_index;
 mod fingerprint;
 mod migrate;
 mod object;
@@ -25,6 +26,7 @@ fn main() -> ExitCode {
 fn try_main() -> Result<i32, String> {
     match cli::parse(std::env::args_os())? {
         cli::CommandArgs::Check(check) => engine::run(check),
+        cli::CommandArgs::EvidenceIndex(args) => evidence_index::run(args),
         cli::CommandArgs::Fingerprint(args) => fingerprint::run(args),
         cli::CommandArgs::Migrate(args) => migrate::run(args),
         cli::CommandArgs::Object(args) => object::run(args),
