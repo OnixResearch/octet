@@ -1136,6 +1136,7 @@ MAIN
             test -d ${objectCorpusFixtureFreshnessGate}
             test -d ${supplementCompatibilityGate}
             test -d ${valenceEvidenceIndexGate}
+            test -d ${valenceEvidenceReleaseGate}
             test -d ${thirSupplementInventoryGate}
             test -d ${mirSupplementFixtureGate}
             test -d ${mirSupplementInventoryGate}
@@ -1147,6 +1148,7 @@ MAIN
             echo "valence_object_evidence.object_corpus_fixture_freshness_gate: PASS"
             echo "valence_object_evidence.supplement_compatibility_gate: PASS"
             echo "valence_object_evidence.evidence_index_gate: PASS"
+            echo "valence_object_evidence.evidence_release_gate: PASS"
             echo "valence_object_evidence.thir_supplement_inventory_gate: PASS"
             echo "valence_object_evidence.mir_supplement_fixture_gate: PASS"
             echo "valence_object_evidence.mir_supplement_inventory_gate: PASS"
@@ -1154,6 +1156,75 @@ MAIN
             echo "valence_object_evidence.scope=bounded-local-selected-corpus-evidence-replay"
             echo "valence_object_evidence.non_claims=correctness,semantic_equivalence,exhaustive_rust_coverage,cross_machine_determinism,cross_toolchain_determinism"
             mkdir -p "$out"
+          '';
+          valenceEvidenceReleaseGate = pkgs.runCommand "octet-valence-evidence-release" {
+            nativeBuildInputs = [ pkgs.b3sum pkgs.coreutils pkgs.jq ];
+          } ''
+            repo=${src}
+            bundle="$out/bundle"
+            mkdir -p "$bundle"
+
+            test -d ${valenceEvidenceIndexGate}
+            cd "$repo"
+            ${cargoOctetUnwrapped}/bin/cargo-octet evidence-index check --page docs/current-head-valence-evidence.md \
+              | tee "$bundle/evidence-index-check.txt"
+            grep -F "valence_evidence_index.valid: PASS" "$bundle/evidence-index-check.txt" >/dev/null
+            grep -F "valence_evidence_index.issue_count=0" "$bundle/evidence-index-check.txt" >/dev/null
+            cp docs/current-head-valence-evidence.md "$bundle/current-head-valence-evidence.md"
+
+            page_hash="$(b3sum "$bundle/current-head-valence-evidence.md" | cut -d ' ' -f1)"
+            check_hash="$(b3sum "$bundle/evidence-index-check.txt" | cut -d ' ' -f1)"
+            cat > "$bundle/valence-evidence-release-index.json" <<EOF
+            {
+              "schema": "octet.valence-evidence-release.v1",
+              "scope": "bounded-local-selected-corpus-evidence-replay",
+              "artifacts": [
+                {
+                  "path": "current-head-valence-evidence.md",
+                  "role": "valence_current_head_evidence",
+                  "blake3": "$page_hash"
+                },
+                {
+                  "path": "evidence-index-check.txt",
+                  "role": "valence_evidence_index_check",
+                  "blake3": "$check_hash"
+                }
+              ],
+              "required_gates": [
+                "valence-object-evidence",
+                "valence-evidence-index"
+              ],
+              "non_claims": [
+                "correctness",
+                "semantic_equivalence",
+                "exhaustive_rust_coverage",
+                "cross_machine_determinism",
+                "cross_toolchain_determinism",
+                "general_hir_thir_mir_extraction"
+              ]
+            }
+            EOF
+
+            jq --exit-status '.schema == "octet.valence-evidence-release.v1"' \
+              "$bundle/valence-evidence-release-index.json" >/dev/null
+            jq --exit-status '.scope == "bounded-local-selected-corpus-evidence-replay"' \
+              "$bundle/valence-evidence-release-index.json" >/dev/null
+            jq --exit-status '.artifacts | length == 2' \
+              "$bundle/valence-evidence-release-index.json" >/dev/null
+            jq --exit-status '(.non_claims | index("correctness")) and (.non_claims | index("semantic_equivalence")) and (.non_claims | index("general_hir_thir_mir_extraction"))' \
+              "$bundle/valence-evidence-release-index.json" >/dev/null
+            jq -r '.artifacts[] | [.path, .blake3] | @tsv' \
+              "$bundle/valence-evidence-release-index.json" \
+              | while IFS=$'\t' read -r artifact_path expected_hash; do
+                  actual_hash="$(b3sum "$bundle/$artifact_path" | cut -d ' ' -f1)"
+                  test "$actual_hash" = "$expected_hash"
+                done
+
+            echo "valence_evidence_release.bundle_index: PASS"
+            echo "valence_evidence_release.artifact_hashes: PASS"
+            echo "valence_evidence_release.evidence_index_check: PASS"
+            echo "valence_evidence_release.scope=bounded-local-selected-corpus-evidence-replay"
+            echo "valence_evidence_release.non_claims=correctness,semantic_equivalence,exhaustive_rust_coverage,cross_machine_determinism,cross_toolchain_determinism,general_hir_thir_mir_extraction"
           '';
           roadmapAgentSurfacesDocs = craneLib.buildPackage {
             inherit src cargoArtifacts buildInputs;
@@ -1265,6 +1336,7 @@ MAIN
           object-corpus-fixture-freshness = objectCorpusFixtureFreshnessGate;
           supplement-compatibility-gate = supplementCompatibilityGate;
           valence-evidence-index = valenceEvidenceIndexGate;
+          valence-evidence-release = valenceEvidenceReleaseGate;
           thir-supplement-inventory-gate = thirSupplementInventoryGate;
           mir-supplement-fixture-gate = mirSupplementFixtureGate;
           mir-supplement-inventory-gate = mirSupplementInventoryGate;
