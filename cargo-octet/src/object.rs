@@ -765,7 +765,42 @@ fn run_supplement_check(
     if matches!(output_format, OutputFormat::Sarif) {
         return Err("object supplement check does not support SARIF output; use human or json".to_owned());
     }
-    let expected = read_supplement_receipt(receipt_path)?;
+
+    let receipt_path_string = determinism::normalize_path(receipt_path);
+    let expected_text = match fs::read_to_string(receipt_path) {
+        Ok(text) => text,
+        Err(error) => {
+            let report =
+                invalid_supplement_check_report(receipt_path_string, family, scope, vec![supplement_check_error(
+                    "read-receipt",
+                    Some("receipt"),
+                    format!("read {}: {error}", receipt_path.display()),
+                )]);
+            print_supplement_check_report(&report, output_format)?;
+            return Ok(1);
+        }
+    };
+    let expected_value: serde_json::Value = match serde_json::from_str(&expected_text) {
+        Ok(value) => value,
+        Err(error) => {
+            let report =
+                invalid_supplement_check_report(receipt_path_string, family, scope, vec![supplement_check_error(
+                    "invalid-json",
+                    Some("receipt"),
+                    format!("parse {} as supplement receipt JSON: {error}", receipt_path.display()),
+                )]);
+            print_supplement_check_report(&report, output_format)?;
+            return Ok(1);
+        }
+    };
+    let expected = select_supplement_receipt(expected_value, receipt_path)?;
+    let errors = validate_supplement_receipt_shape(&expected, family);
+    if !errors.is_empty() {
+        let report = invalid_supplement_check_report(receipt_path_string, family, scope, errors);
+        print_supplement_check_report(&report, output_format)?;
+        return Ok(1);
+    }
+
     let current = supplement_records(paths, function, family, scope)?;
     let current_first = current.first().ok_or_else(|| "no functions matched supplement check selection".to_owned())?;
     let comparisons = supplement_comparisons(&expected, current_first);
@@ -780,8 +815,9 @@ fn run_supplement_check(
         family: family.as_str(),
         scope: scope.as_str(),
         status,
-        receipt_path: determinism::normalize_path(receipt_path),
+        receipt_path: receipt_path_string,
         comparisons,
+        errors: Vec::new(),
         boundary: supplement_boundary(),
     };
     print_supplement_check_report(&report, output_format)?;
@@ -1229,6 +1265,7 @@ struct SupplementCheckReport {
     status: &'static str,
     receipt_path: String,
     comparisons: Vec<SupplementComparison>,
+    errors: Vec<SupplementCheckError>,
     boundary: SupplementBoundary,
 }
 
@@ -1240,8 +1277,14 @@ struct SupplementComparison {
     current: serde_json::Value,
 }
 
-fn read_supplement_receipt(path: &Path) -> Result<serde_json::Value, String> {
-    let value = read_json(path)?;
+#[derive(Debug, Clone, Serialize)]
+struct SupplementCheckError {
+    kind: &'static str,
+    field: Option<&'static str>,
+    message: String,
+}
+
+fn select_supplement_receipt(value: serde_json::Value, path: &Path) -> Result<serde_json::Value, String> {
     if let Some(supplements) = value.get("supplements").and_then(serde_json::Value::as_array) {
         return supplements.first().cloned().ok_or_else(|| format!("{} has no supplements", path.display()));
     }
@@ -1264,6 +1307,87 @@ const SUPPLEMENT_REPLAY_COMPARED_FIELDS: &[&str] = &[
     "extraction_caveats",
     "boundary",
 ];
+
+fn invalid_supplement_check_report(
+    receipt_path: String,
+    family: SupplementFamilyArg,
+    scope: SupplementScopeArg,
+    errors: Vec<SupplementCheckError>,
+) -> SupplementCheckReport {
+    SupplementCheckReport {
+        schema_version: SUPPLEMENT_SCHEMA_VERSION,
+        mode: "supplement-check",
+        family: family.as_str(),
+        scope: scope.as_str(),
+        status: "invalid",
+        receipt_path,
+        comparisons: Vec::new(),
+        errors,
+        boundary: supplement_boundary(),
+    }
+}
+
+fn supplement_check_error(
+    kind: &'static str,
+    field: Option<&'static str>,
+    message: impl Into<String>,
+) -> SupplementCheckError {
+    SupplementCheckError {
+        kind,
+        field,
+        message: message.into(),
+    }
+}
+
+fn supplement_family_schema(family: SupplementFamilyArg) -> &'static str {
+    match family {
+        SupplementFamilyArg::Hir => HIR_SUPPLEMENT_SCHEMA,
+        SupplementFamilyArg::Thir => THIR_SUPPLEMENT_SCHEMA,
+        SupplementFamilyArg::Mir => MIR_SUPPLEMENT_SCHEMA,
+    }
+}
+
+fn validate_supplement_receipt_shape(
+    expected: &serde_json::Value,
+    family: SupplementFamilyArg,
+) -> Vec<SupplementCheckError> {
+    let mut errors = Vec::new();
+    for field in SUPPLEMENT_REPLAY_COMPARED_FIELDS {
+        if expected.get(*field).is_none() {
+            errors.push(supplement_check_error(
+                "missing-field",
+                Some(field),
+                format!("supplement receipt is missing required field `{field}`"),
+            ));
+        }
+    }
+    if expected.get("schema").and_then(serde_json::Value::as_str) != Some(supplement_family_schema(family)) {
+        errors.push(supplement_check_error(
+            "unsupported-schema",
+            Some("schema"),
+            format!(
+                "supplement receipt schema must be `{}` for family `{}`",
+                supplement_family_schema(family),
+                family.as_str()
+            ),
+        ));
+    }
+    if expected.get("schema_version").and_then(serde_json::Value::as_u64) != Some(SUPPLEMENT_SCHEMA_VERSION as u64) {
+        errors.push(supplement_check_error(
+            "unsupported-schema-version",
+            Some("schema_version"),
+            format!("supplement receipt schema_version must be `{SUPPLEMENT_SCHEMA_VERSION}`"),
+        ));
+    }
+    if expected.get("family").and_then(serde_json::Value::as_str) != Some(family.as_str()) {
+        errors.push(supplement_check_error(
+            "family-mismatch",
+            Some("family"),
+            format!("supplement receipt family must be `{}`", family.as_str()),
+        ));
+    }
+    errors
+}
 
 fn supplement_comparisons(
     expected: &serde_json::Value,

@@ -2192,6 +2192,172 @@ fn thir_fixture_supplement_emit_check_and_negative_replay_are_bounded() {
 }
 
 #[test]
+fn supplement_compatibility_receipts_fail_closed() {
+    let root = repo_root();
+    let temp = tempfile::tempdir().expect("create supplement compatibility tempdir");
+
+    let emit = Command::new(cargo_octet())
+        .args([
+            "object",
+            "supplement",
+            "emit",
+            "--family",
+            "mir",
+            "--spike",
+            "rustc-mir-fixture",
+            "--fixture-shape",
+            "checked-arithmetic",
+            "--output-format",
+            "json",
+        ])
+        .current_dir(&root)
+        .output()
+        .expect("run MIR supplement compatibility emit");
+    assert!(
+        emit.status.success(),
+        "MIR compatibility emit failed stdout={} stderr={}",
+        String::from_utf8_lossy(&emit.stdout),
+        String::from_utf8_lossy(&emit.stderr)
+    );
+    let receipt: serde_json::Value = serde_json::from_slice(&emit.stdout).expect("MIR compatibility receipt json");
+    let positive_path = temp.path().join("positive-mir-v1.json");
+    fs::write(&positive_path, &emit.stdout).expect("write positive supplement receipt");
+    let positive = supplement_check_fixture(&root, "mir", "rustc-mir-fixture", "checked-arithmetic", &positive_path);
+    assert!(
+        positive.status.success(),
+        "positive supplement receipt should pass stdout={} stderr={}",
+        String::from_utf8_lossy(&positive.stdout),
+        String::from_utf8_lossy(&positive.stderr)
+    );
+    let positive_report: serde_json::Value = serde_json::from_slice(&positive.stdout).expect("positive report json");
+    assert_eq!(positive_report["status"], "pass");
+    assert_eq!(positive_report["errors"].as_array().unwrap().len(), 0);
+
+    let mut missing_field = receipt.clone();
+    missing_field["supplements"][0].as_object_mut().unwrap().remove("function_object_hash");
+    assert_invalid_supplement_fixture(
+        &root,
+        temp.path(),
+        "missing-function-object-hash.json",
+        &missing_field,
+        "missing-field",
+        "function_object_hash",
+    );
+
+    let mut future_version = receipt.clone();
+    future_version["supplements"][0]["schema_version"] = serde_json::Value::from(99);
+    assert_invalid_supplement_fixture(
+        &root,
+        temp.path(),
+        "future-schema-version.json",
+        &future_version,
+        "unsupported-schema-version",
+        "schema_version",
+    );
+
+    let mut wrong_family = receipt.clone();
+    wrong_family["supplements"][0]["family"] = serde_json::Value::String("thir".to_owned());
+    assert_invalid_supplement_fixture(
+        &root,
+        temp.path(),
+        "wrong-family.json",
+        &wrong_family,
+        "family-mismatch",
+        "family",
+    );
+
+    let mut boundary_tamper = receipt.clone();
+    boundary_tamper["supplements"][0]["boundary"]["claims_correctness"] = serde_json::Value::Bool(true);
+    let boundary_path = temp.path().join("boundary-tamper.json");
+    fs::write(&boundary_path, serde_json::to_vec_pretty(&boundary_tamper).unwrap()).expect("write boundary tamper");
+    let boundary_check =
+        supplement_check_fixture(&root, "mir", "rustc-mir-fixture", "checked-arithmetic", &boundary_path);
+    assert!(!boundary_check.status.success(), "boundary tamper should fail closed");
+    let boundary_report: serde_json::Value =
+        serde_json::from_slice(&boundary_check.stdout).expect("boundary tamper report json");
+    assert_eq!(boundary_report["status"], "fail");
+    assert!(
+        boundary_report["comparisons"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|comparison| { comparison["field"] == "boundary" && comparison["status"] == "mismatch" })
+    );
+
+    let malformed_path = temp.path().join("malformed.json");
+    fs::write(&malformed_path, b"{ not json").expect("write malformed supplement receipt");
+    let malformed = supplement_check_fixture(&root, "mir", "rustc-mir-fixture", "checked-arithmetic", &malformed_path);
+    assert!(!malformed.status.success(), "malformed supplement receipt should fail closed");
+    let malformed_report: serde_json::Value = serde_json::from_slice(&malformed.stdout).expect("malformed report json");
+    assert_eq!(malformed_report["status"], "invalid");
+    assert_supplement_error(&malformed_report, "invalid-json", "receipt");
+}
+
+fn supplement_check_fixture(
+    root: &Path,
+    family: &str,
+    spike: &str,
+    fixture_shape: &str,
+    receipt_path: &Path,
+) -> std::process::Output {
+    Command::new(cargo_octet())
+        .args([
+            "object",
+            "supplement",
+            "check",
+            "--family",
+            family,
+            "--spike",
+            spike,
+            "--fixture-shape",
+            fixture_shape,
+            "--receipt",
+            receipt_path.to_str().unwrap(),
+            "--output-format",
+            "json",
+        ])
+        .current_dir(root)
+        .output()
+        .expect("run supplement compatibility check")
+}
+
+fn assert_invalid_supplement_fixture(
+    root: &Path,
+    temp: &Path,
+    name: &str,
+    receipt: &serde_json::Value,
+    expected_kind: &str,
+    expected_field: &str,
+) {
+    let path = temp.join(name);
+    fs::write(&path, serde_json::to_vec_pretty(receipt).unwrap()).expect("write invalid supplement receipt");
+    let check = supplement_check_fixture(root, "mir", "rustc-mir-fixture", "checked-arithmetic", &path);
+    assert!(
+        !check.status.success(),
+        "invalid supplement receipt {name} should fail stdout={} stderr={}",
+        String::from_utf8_lossy(&check.stdout),
+        String::from_utf8_lossy(&check.stderr)
+    );
+    let report: serde_json::Value = serde_json::from_slice(&check.stdout).expect("invalid supplement report json");
+    assert_eq!(report["status"], "invalid");
+    assert_eq!(report["comparisons"].as_array().unwrap().len(), 0);
+    assert_supplement_error(&report, expected_kind, expected_field);
+}
+
+fn assert_supplement_error(report: &serde_json::Value, expected_kind: &str, expected_field: &str) {
+    assert!(
+        report["errors"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|error| { error["kind"] == expected_kind && error["field"] == expected_field }),
+        "missing supplement error {expected_kind}/{expected_field}: {report:#?}"
+    );
+    assert_eq!(report["boundary"]["claims_correctness"], false);
+    assert_eq!(report["boundary"]["claims_semantic_equivalence"], false);
+}
+
+#[test]
 fn mir_fixture_supplement_emit_check_and_negative_replay_are_bounded() {
     let root = repo_root();
     let temp = tempfile::tempdir().expect("create MIR fixture tempdir");
