@@ -205,7 +205,8 @@
               inDocs = pkgs.lib.hasSuffix "/docs" path || pkgs.lib.hasInfix "/docs/" path;
               inStandards = pkgs.lib.hasSuffix "/standards" path || pkgs.lib.hasInfix "/standards/" path;
               inTemplates = pkgs.lib.hasSuffix "/templates" path || pkgs.lib.hasInfix "/templates/" path;
-            in (craneLib.filterCargoSources path type) || inUiTests || inTestFixtures || inDocs || inStandards || inTemplates;
+              isValenceCoreReadme = pkgs.lib.hasSuffix "/crates/valence-core/README.md" path;
+            in (craneLib.filterCargoSources path type) || inUiTests || inTestFixtures || inDocs || inStandards || inTemplates || isValenceCoreReadme;
         };
         fmtSrc = pkgs.lib.cleanSourceWith {
           src = ./.;
@@ -275,6 +276,14 @@
           pname = "cargo-octet";
           version = "0.1.0";
           cargoExtraArgs = "-p cargo-octet";
+          doCheck = false;
+        };
+
+        valenceCore = craneLib.buildPackage {
+          inherit src cargoArtifacts nativeBuildInputs buildInputs;
+          pname = "valence-core";
+          version = "0.1.0";
+          cargoExtraArgs = "-p valence-core";
           doCheck = false;
         };
 
@@ -938,6 +947,7 @@ MAIN
           slotcar = octet;
           tigerstyle = octet;
           cargo-octet = cargoOctet;
+          valence-core = valenceCore;
           cargo-slotcar = cargoOctet;
           cargo-tigerstyle = cargoOctet;
           fingerprint-docs-downstream-smoke = fingerprintDocsDownstreamSmoke;
@@ -1137,6 +1147,7 @@ MAIN
             test -d ${supplementCompatibilityGate}
             test -d ${valenceEvidenceIndexGate}
             test -d ${valenceEvidenceReleaseGate}
+            test -d ${valenceCorePackageReadiness}
             test -d ${thirSupplementInventoryGate}
             test -d ${mirSupplementFixtureGate}
             test -d ${mirSupplementInventoryGate}
@@ -1149,6 +1160,7 @@ MAIN
             echo "valence_object_evidence.supplement_compatibility_gate: PASS"
             echo "valence_object_evidence.evidence_index_gate: PASS"
             echo "valence_object_evidence.evidence_release_gate: PASS"
+            echo "valence_object_evidence.valence_core_package_readiness: PASS"
             echo "valence_object_evidence.thir_supplement_inventory_gate: PASS"
             echo "valence_object_evidence.mir_supplement_fixture_gate: PASS"
             echo "valence_object_evidence.mir_supplement_inventory_gate: PASS"
@@ -1225,6 +1237,34 @@ MAIN
             echo "valence_evidence_release.evidence_index_check: PASS"
             echo "valence_evidence_release.scope=bounded-local-selected-corpus-evidence-replay"
             echo "valence_evidence_release.non_claims=correctness,semantic_equivalence,exhaustive_rust_coverage,cross_machine_determinism,cross_toolchain_determinism,general_hir_thir_mir_extraction"
+          '';
+          valenceCorePackageReadiness = pkgs.runCommand "octet-valence-core-package-readiness" {
+            nativeBuildInputs = [ pkgs.coreutils pkgs.jq ];
+          } ''
+            repo=${src}
+            manifest="$repo/crates/valence-core/Cargo.toml"
+            readme="$repo/crates/valence-core/README.md"
+            lib_rs="$repo/crates/valence-core/src/lib.rs"
+
+            test -d ${valenceCore}
+            test -s "$readme"
+            grep -F 'name = "valence-core"' "$manifest" >/dev/null
+            grep -F 'readme = "README.md"' "$manifest" >/dev/null
+            grep -F 'repository = "https://github.com/onixresearch/octet"' "$manifest" >/dev/null
+            grep -F 'documentation = "https://github.com/onixresearch/octet/tree/main/crates/valence-core"' "$manifest" >/dev/null
+            grep -F 'keywords = ["valence", "evidence", "octet", "blake3"]' "$manifest" >/dev/null
+            grep -F 'categories = ["development-tools"]' "$manifest" >/dev/null
+            grep -F 'pub mod evidence_index;' "$lib_rs" >/dev/null
+            grep -F 'pub mod function_object;' "$lib_rs" >/dev/null
+            grep -F 'not a standalone release cutover' "$readme" >/dev/null
+            grep -F 'does not claim behavioral correctness' "$readme" >/dev/null
+
+            echo "valence_core_package_readiness.build: PASS"
+            echo "valence_core_package_readiness.metadata: PASS"
+            echo "valence_core_package_readiness.public_modules: PASS"
+            echo "valence_core_package_readiness.boundary_non_claims: PASS"
+            echo "valence_core_package_readiness.scope=in-repository-package-readiness-no-publication"
+            mkdir -p "$out"
           '';
           roadmapAgentSurfacesDocs = craneLib.buildPackage {
             inherit src cargoArtifacts buildInputs;
@@ -1337,6 +1377,7 @@ MAIN
           supplement-compatibility-gate = supplementCompatibilityGate;
           valence-evidence-index = valenceEvidenceIndexGate;
           valence-evidence-release = valenceEvidenceReleaseGate;
+          valence-core-package-readiness = valenceCorePackageReadiness;
           thir-supplement-inventory-gate = thirSupplementInventoryGate;
           mir-supplement-fixture-gate = mirSupplementFixtureGate;
           mir-supplement-inventory-gate = mirSupplementInventoryGate;
