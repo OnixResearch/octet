@@ -9,13 +9,17 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
     flake-utils.url = "github:numtide/flake-utils";
+    cairn = {
+      url = "github:OnixResearch/cairn";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
     dylint-src = {
       url = "github:trailofbits/dylint/0e0a71eefe6f01563d11acc6e1d7af1d505934a9";
       flake = false;
     };
   };
 
-  outputs = { self, nixpkgs, crane, rust-overlay, flake-utils, dylint-src, ... }:
+  outputs = { self, nixpkgs, crane, rust-overlay, flake-utils, cairn, dylint-src, ... }:
     let
       # Consumer-check helper — usable from any downstream flake.
       # Runs Octet lints against consumer code via nix flake check.
@@ -937,6 +941,7 @@ MAIN
           cargo-slotcar = cargoOctet;
           cargo-tigerstyle = cargoOctet;
           fingerprint-docs-downstream-smoke = fingerprintDocsDownstreamSmoke;
+          cairn = cairn.packages.${system}.cairn;
           dylint-driver = dylintDriver;
           octet-standards = slotcarStandards;
           slotcar-standards = slotcarStandards;
@@ -969,6 +974,11 @@ MAIN
           fingerprint-docs-downstream-smoke = flake-utils.lib.mkApp {
             drv = fingerprintDocsDownstreamSmoke;
             exePath = "/bin/octet-fingerprint-docs-downstream-smoke";
+          };
+
+          cairn = flake-utils.lib.mkApp {
+            drv = cairn.packages.${system}.cairn;
+            exePath = "/bin/cairn";
           };
 
           octet-standards = flake-utils.lib.mkApp {
@@ -1306,6 +1316,7 @@ MAIN
             rustup-shim
             pkgs.cargo-nextest
             pkgs.cargo-watch
+            cairn.packages.${system}.cairn
             pkgs.jq
             pkgs.nickel
             pkgs.rust-analyzer
