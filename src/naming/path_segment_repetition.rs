@@ -11,7 +11,15 @@ use rustc_span::Ident;
 use crate::diagnostics::emit_tiger_style_lint;
 
 const COMPATIBILITY_WORDS: &[&str] = &["compat", "compatibility", "external", "mandated", "api"];
-const GENERATED_SEGMENTS: &[&str] = &["target", "generated", "OUT_DIR", "rustlib", "registry", ".cargo"];
+const GENERATED_SEGMENTS: &[&str] = &[
+    "target",
+    "generated",
+    "OUT_DIR",
+    "rustlib",
+    "registry",
+    ".cargo",
+    "vendor-cargo-deps",
+];
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct Repetition {

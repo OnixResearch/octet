@@ -14,7 +14,7 @@ use rustc_span::SyntaxContext;
 
 use crate::diagnostics::emit_tiger_style_lint;
 
-const GENERATED_COMPONENTS: &[&str] = &[
+const IGNORED_SOURCE_COMPONENTS: &[&str] = &[
     "target",
     "ui_tests",
     "generated",
@@ -23,6 +23,7 @@ const GENERATED_COMPONENTS: &[&str] = &[
     "registry",
     ".cargo",
 ];
+const VENDOR_CARGO_DEPS_MARKER: &str = "vendor-cargo-deps";
 const CRATE_ROOT_STEMS: &[&str] = &["lib", "main", "mod"];
 
 declare_tool_lint! {
@@ -59,6 +60,11 @@ fn path_components(path: &Path) -> Vec<String> {
     path.components().map(|component| component.as_os_str().to_string_lossy().into_owned()).collect()
 }
 
+fn is_ignored_source_component(component: &str) -> bool {
+    IGNORED_SOURCE_COMPONENTS.iter().any(|ignored| component == *ignored)
+        || component.contains(VENDOR_CARGO_DEPS_MARKER)
+}
+
 fn is_generated_or_fixture_path(path: &Path) -> bool {
     let components = path_components(path);
     if components.iter().any(|component| component == "policy_inputs")
@@ -67,7 +73,7 @@ fn is_generated_or_fixture_path(path: &Path) -> bool {
         return true;
     }
 
-    components.iter().any(|component| GENERATED_COMPONENTS.contains(&component.as_str()))
+    components.iter().any(|component| is_ignored_source_component(component))
         || components.windows(2).any(|window| window[0] == "tests" && window[1] == "fixtures")
         || path.to_string_lossy().ends_with(".rs.in")
 }
@@ -119,5 +125,24 @@ impl EarlyLintPass for UnderscoreInModuleFilename {
                 "underscore_in_module_filename",
             );
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::Path;
+
+    use super::should_warn;
+
+    #[test]
+    fn warns_for_workspace_underscore_module_filename() {
+        assert!(should_warn(Path::new("src/compute_vm.rs")).is_some());
+    }
+
+    #[test]
+    fn skips_vendored_dependency_underscore_filename() {
+        assert!(
+            should_warn(Path::new("/nix/store/hash-vendor-cargo-deps/serde_core-1.0.228/src/crate_root.rs")).is_none()
+        );
     }
 }

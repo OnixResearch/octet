@@ -10,6 +10,17 @@ use rustc_span::SyntaxContext;
 
 use crate::diagnostics::emit_tiger_style_lint;
 
+const IGNORED_SOURCE_COMPONENTS: &[&str] = &[
+    "target",
+    "ui_tests",
+    "generated",
+    "OUT_DIR",
+    "rustlib",
+    "registry",
+    ".cargo",
+];
+const VENDOR_CARGO_DEPS_MARKER: &str = "vendor-cargo-deps";
+
 declare_tool_lint! {
     /// Detects production source files whose whole-file physical line count
     /// exceeds a configurable project limit (default: 300).
@@ -48,11 +59,14 @@ fn normalized_components(path: &str) -> Vec<String> {
     components
 }
 
+fn is_ignored_source_component(component: &str) -> bool {
+    IGNORED_SOURCE_COMPONENTS.iter().any(|ignored| component == *ignored)
+        || component.contains(VENDOR_CARGO_DEPS_MARKER)
+}
+
 fn is_generated_or_fixture_path(path: &str) -> bool {
     let components = normalized_components(path);
-    components
-        .iter()
-        .any(|component| matches!(component.as_str(), "target" | "ui_tests" | "generated" | "OUT_DIR"))
+    components.iter().any(|component| is_ignored_source_component(component))
         || components.windows(2).any(|window| window[0] == "tests" && window[1] == "fixtures")
         || path.ends_with(".rs.in")
 }
@@ -85,5 +99,22 @@ impl EarlyLintPass for ExcessiveFileLength {
                 "excessive_file_length",
             );
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::is_generated_or_fixture_path;
+
+    #[test]
+    fn accepts_workspace_source_files() {
+        assert!(!is_generated_or_fixture_path("crates/example/src/lib.rs"));
+    }
+
+    #[test]
+    fn skips_vendored_dependency_source_files() {
+        assert!(is_generated_or_fixture_path(
+            "/nix/store/hash-vendor-cargo-deps/serde_core-1.0.228/src/crate_root.rs"
+        ));
     }
 }
