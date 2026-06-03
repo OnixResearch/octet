@@ -10,7 +10,15 @@ use rustc_span::Ident;
 
 use crate::diagnostics::emit_tiger_style_lint;
 
-const GENERATED_SEGMENTS: &[&str] = &["target", "generated", "OUT_DIR", "rustlib", "registry", ".cargo"];
+const GENERATED_SEGMENTS: &[&str] = &[
+    "target",
+    "generated",
+    "OUT_DIR",
+    "rustlib",
+    "registry",
+    ".cargo",
+    "vendor-cargo-deps",
+];
 
 const PRELUDE_SEGMENT: &str = "prelude";
 

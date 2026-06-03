@@ -15,7 +15,8 @@ use rustc_span::SyntaxContext;
 
 use crate::diagnostics::emit_tiger_style_lint;
 
-const GENERATED_COMPONENTS: &[&str] = &["target", "generated", "OUT_DIR"];
+const IGNORED_SOURCE_COMPONENTS: &[&str] = &["target", "generated", "OUT_DIR", "rustlib", "registry", ".cargo"];
+const VENDOR_CARGO_DEPS_MARKER: &str = "vendor-cargo-deps";
 
 declare_tool_lint! {
     /// Detects module directories with too many Rust source files
@@ -61,15 +62,20 @@ fn normalize_path(path: &Path) -> PathBuf {
     normalized
 }
 
-fn has_generated_component(path: &Path) -> bool {
+fn is_ignored_source_component(component: &str) -> bool {
+    IGNORED_SOURCE_COMPONENTS.iter().any(|ignored| component == *ignored)
+        || component.contains(VENDOR_CARGO_DEPS_MARKER)
+}
+
+fn has_ignored_source_component(path: &Path) -> bool {
     path.components().any(|component| {
         let value = component.as_os_str().to_string_lossy();
-        GENERATED_COMPONENTS.iter().any(|generated| value == *generated)
+        is_ignored_source_component(&value)
     })
 }
 
 fn is_countable_rust_source(path: &Path) -> bool {
-    path.extension().is_some_and(|extension| extension == "rs") && !has_generated_component(path)
+    path.extension().is_some_and(|extension| extension == "rs") && !has_ignored_source_component(path)
 }
 
 fn directory_display(path: &Path) -> String {
@@ -114,5 +120,24 @@ impl EarlyLintPass for ModuleFileCount {
                 "module_file_count",
             );
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::Path;
+
+    use super::is_countable_rust_source;
+
+    #[test]
+    fn counts_workspace_rust_sources() {
+        assert!(is_countable_rust_source(Path::new("crates/example/src/lib.rs")));
+    }
+
+    #[test]
+    fn skips_vendored_dependency_sources() {
+        assert!(!is_countable_rust_source(Path::new(
+            "/nix/store/hash-vendor-cargo-deps/serde_core-1.0.228/src/crate_root.rs"
+        )));
     }
 }
