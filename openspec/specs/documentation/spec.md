@@ -306,7 +306,7 @@ That naming contract MUST distinguish at least these layers:
 
 - public site: `tigerstyle.dev`
 - project name: `tigerstyle`
-- GitHub repo slug: `tigerstyle-rs`
+- GitHub repo reference: `github:OnixResearch/octet`
 - crate/package name: `tigerstyle`
 - binary name: `cargo-tigerstyle`
 - cargo subcommand: `cargo tigerstyle check`

@@ -34,7 +34,13 @@ Installed cargo subcommand:
 cargo octet check
 ```
 
-Nix, without installing into the consumer toolchain:
+Nix, from the canonical repo flake without installing into the consumer toolchain:
+
+```bash
+nix run github:OnixResearch/octet#cargo-octet -- check
+```
+
+Local checkout alternative:
 
 ```bash
 nix run path:/path/to/octet#cargo-octet -- check
@@ -108,7 +114,7 @@ preferred product identity for new docs, commands, config, or generated output.
 | --- | --- | --- |
 | public site | `octet.dev` | `slotcar.dev` is historical until a site decision lands |
 | project name | `Octet` / `octet` | `slotcar` is legacy product identity |
-| GitHub repo slug | `octet` | current remote may remain `slotcar` until repo migration |
+| GitHub repo reference | `github:OnixResearch/octet` | legacy repo slugs are obsolete |
 | crate and lint package | `octet` | `slotcar`/`tigerstyle` package aliases are compatibility only |
 | lint runner binary | `cargo-octet` | `cargo-slotcar` and `cargo-tigerstyle` route to the same engine as aliases |
 | lint runner command | `cargo octet check` | `cargo slotcar check` and `cargo tigerstyle check` are transition aliases |

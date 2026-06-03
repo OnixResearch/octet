@@ -1250,8 +1250,8 @@ MAIN
             test -s "$readme"
             grep -F 'name = "valence-core"' "$manifest" >/dev/null
             grep -F 'readme = "README.md"' "$manifest" >/dev/null
-            grep -F 'repository = "https://github.com/onixresearch/octet"' "$manifest" >/dev/null
-            grep -F 'documentation = "https://github.com/onixresearch/octet/tree/main/crates/valence-core"' "$manifest" >/dev/null
+            grep -F 'repository = "https://github.com/OnixResearch/octet"' "$manifest" >/dev/null
+            grep -F 'documentation = "https://github.com/OnixResearch/octet/tree/main/crates/valence-core"' "$manifest" >/dev/null
             grep -F 'keywords = ["valence", "evidence", "octet", "blake3"]' "$manifest" >/dev/null
             grep -F 'categories = ["development-tools"]' "$manifest" >/dev/null
             grep -F 'pub mod evidence_index;' "$lib_rs" >/dev/null
