@@ -1909,6 +1909,134 @@ fn downstream_rollout_docs_point_to_first_class_cli_path() {
 }
 
 #[test]
+fn pre_commit_deny_all_hook_metadata_and_template_are_reviewable() {
+    let repo_root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let metadata_path = repo_root.join(".pre-commit-hooks.yaml");
+    let hook_path = repo_root.join("hooks/octet-deny-all.sh");
+    let template_path = repo_root.join("templates/pre-commit-config.yaml");
+    let inventory_path = repo_root.join("tests/fixtures/lint_inventory_names.txt");
+
+    let metadata = fs::read_to_string(&metadata_path)
+        .unwrap_or_else(|error| panic!("read pre-commit hook metadata {}: {error}", metadata_path.display()));
+    let hook = fs::read_to_string(&hook_path)
+        .unwrap_or_else(|error| panic!("read pre-commit hook script {}: {error}", hook_path.display()));
+    let template = fs::read_to_string(&template_path)
+        .unwrap_or_else(|error| panic!("read pre-commit config template {}: {error}", template_path.display()));
+    let inventory = fs::read_to_string(&inventory_path)
+        .unwrap_or_else(|error| panic!("read lint inventory {}: {error}", inventory_path.display()));
+
+    for required in [
+        "id: octet-deny-all",
+        "id: tigerstyle-deny-all",
+        "entry: hooks/octet-deny-all.sh",
+        "language: script",
+        "pass_filenames: false",
+        "always_run: true",
+    ] {
+        assert!(
+            metadata.contains(required),
+            "pre-commit hook metadata must include `{required}` in {}",
+            metadata_path.display()
+        );
+    }
+
+    for lint_name in inventory.lines().filter(|line| !line.trim().is_empty()) {
+        let expected_flag = format!("-D {lint_name}");
+        assert!(
+            hook.contains(&expected_flag),
+            "deny-all pre-commit hook must promote `{lint_name}` with `{expected_flag}` in {}",
+            hook_path.display()
+        );
+    }
+
+    for required in [
+        "#!/bin/sh",
+        "-D unknown_lints",
+        "OCTET_PRECOMMIT_USE_INSTALLED",
+        "nix run \"${flake_ref}#cargo-octet\" -- check",
+    ] {
+        assert!(
+            hook.contains(required),
+            "deny-all pre-commit hook must include `{required}` in {}",
+            hook_path.display()
+        );
+    }
+    assert!(
+        !hook.contains("/usr/bin/env bash"),
+        "deny-all pre-commit hook must avoid /usr/bin/env for pure Nix compatibility: {}",
+        hook_path.display()
+    );
+    assert!(
+        !hook.contains("-D warnings"),
+        "deny-all pre-commit hook should deny Octet lints without promoting unrelated rustc warnings: {}",
+        hook_path.display()
+    );
+
+    for required in [
+        "repo: https://github.com/OnixResearch/octet",
+        "rev: 0123456789abcdef0123456789abcdef01234567",
+        "id: octet-deny-all",
+        "args: [\"--workspace\", \"--\", \"--all-targets\"]",
+    ] {
+        assert!(
+            template.contains(required),
+            "pre-commit config template must include `{required}` in {}",
+            template_path.display()
+        );
+    }
+}
+
+#[test]
+fn pre_commit_deny_all_hook_launches_pinned_runner_with_deny_flags() {
+    let fixture = ConsumerFixture::new("pre-commit-deny-all", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
+    let shell = bash_path().expect("find bash");
+    write_executable(
+        &fixture.fakebin.join("nix"),
+        &format!(
+            r#"#!{shell}
+set -euo pipefail
+printf 'NIX_ARGS:%s\n' "$*" >> "$TS_LOG"
+printf 'DYLINT_RUSTFLAGS:%s\n' "${{DYLINT_RUSTFLAGS:-}}" >> "$TS_LOG"
+"#,
+            shell = shell.display(),
+        ),
+    );
+
+    let repo_root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let hook_path = repo_root.join("hooks/octet-deny-all.sh");
+    let path = format!("{}:{}", fixture.fakebin.display(), env::var("PATH").expect("PATH"));
+    let output = Command::new(&hook_path)
+        .arg("--workspace")
+        .current_dir(&fixture.repo)
+        .env("PATH", path)
+        .env("TS_LOG", &fixture.log_path)
+        .output()
+        .expect("run deny-all pre-commit hook");
+
+    assert!(
+        output.status.success(),
+        "deny-all pre-commit hook should delegate successfully to fake nix: stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let log = fixture.log();
+    assert!(log.contains("NIX_ARGS:run path:"), "hook should use the pinned flake path: {log}");
+    assert!(
+        log.contains("#cargo-octet -- check --workspace"),
+        "hook should run cargo-octet check and preserve explicit args: {log}"
+    );
+    for required in [
+        "-D unknown_lints",
+        "-D numeric_units",
+        "-D raw_arithmetic_overflow",
+        "-D no_recursion",
+    ] {
+        assert!(log.contains(required), "hook should inject deny flag `{required}` through DYLINT_RUSTFLAGS: {log}");
+    }
+}
+
+#[test]
 fn thin_wrapper_fixture_delegates_without_policy_logic() {
     let fixture_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/consumer-integration/justfile");
     let source = fs::read_to_string(&fixture_path)

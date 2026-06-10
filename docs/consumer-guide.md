@@ -130,7 +130,50 @@ Exit codes are stable for automation:
 
 When `--artifact-dir` is set, the runner writes `command.txt`, `status.json`, `summary.txt`, and the selected structured-output mirror (`results.jsonl` or `results.sarif`). JSON findings carry `stable_id`, `semantic_id`, `identity_status`, `normalized_snippet_hash`, `effect_family`, and `cache_status`; `status.json`, SARIF run properties, baseline evaluations, and stderr summaries include replay metadata such as the toolchain plus config/profile hashes. Downstream tools can compare runs without scraping ambient stderr.
 
-### 3a. Plan structured migrations
+### 3a. Add the deny-all pre-commit hook
+
+Copy `templates/pre-commit-config.yaml` to the consumer workspace as
+`.pre-commit-config.yaml`, pin `rev` to a reviewed Octet release tag or commit,
+and install pre-commit normally:
+
+```bash
+pre-commit install
+pre-commit run octet-deny-all --all-files
+```
+
+The hook is published from this repository through `.pre-commit-hooks.yaml`.
+It runs once from the consumer repository root, ignores pre-commit's per-file
+argument list, and delegates to `cargo octet check` using the consumer's
+`[workspace.metadata.octet]` scope defaults. By default it uses Nix to run the
+same pinned hook checkout:
+
+```yaml
+repos:
+  - repo: https://github.com/OnixResearch/octet
+    # Replace with a reviewed release tag or commit SHA.
+    rev: 0123456789abcdef0123456789abcdef01234567
+    hooks:
+      - id: octet-deny-all
+```
+
+The deny-all behavior comes from `DYLINT_RUSTFLAGS`: the hook appends
+`-D unknown_lints` plus `-D <lint-name>` for every current Octet/Tiger Style
+lint. This activates allow-by-default Octet lints and promotes warning lints to
+hard errors without promoting unrelated rustc warnings. Do not use
+`disabled_lints` with this strict hook; disabled Octet lints are intentionally
+fail-closed because their command-line deny name is no longer registered.
+Prefer narrow source `allow` attributes with reasons for reviewable exceptions.
+
+If a consumer cannot use Nix but already installed `cargo-octet`, set
+`OCTET_PRECOMMIT_USE_INSTALLED=true` in that environment. Use hook `args` only
+for runner scope or cargo-check tail overrides, for example:
+
+```yaml
+      - id: octet-deny-all
+        args: ["--workspace", "--", "--all-targets"]
+```
+
+### 3b. Plan structured migrations
 
 Use the migration manifest commands when rolling out a new profile or policy set:
 
@@ -145,7 +188,7 @@ cargo octet migrate apply-safe --manifest .octet/migrations/starter.json
 only records safe-apply state and preserves manual-review buckets; code edits
 still flow through the existing machine-applicable cargo-fix rails.
 
-### 3b. Verify executable documentation transcripts
+### 3c. Verify executable documentation transcripts
 
 Markdown examples can carry fenced transcript blocks with `$ ` command lines and
 `=> ` expected-output assertions:
