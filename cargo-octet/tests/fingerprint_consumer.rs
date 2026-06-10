@@ -1472,6 +1472,7 @@ const INTERNAL_OBJECT_CORPUS: &[&str] = &[
     "cargo-octet/src/migrate.rs",
     "cargo-octet/src/object.rs",
     "cargo-octet/src/output.rs",
+    "cargo-octet/src/provider_manifest.rs",
     "cargo-octet/src/roadmap.rs",
     "cargo-octet/src/transcript.rs",
 ];
