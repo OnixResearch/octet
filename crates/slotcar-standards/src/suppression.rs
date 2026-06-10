@@ -13,7 +13,7 @@ use crate::model::PolicyRegistry;
 use crate::model::Severity;
 use crate::source::SourceFile;
 
-const SUPPRESSION_MARKER: &str = "tigerstyle-allow:";
+const SUPPRESSION_MARKERS: &[&str] = &["octet-allow:", "slotcar-allow:", "tigerstyle-allow:"];
 const POLICY_FIELD: &str = "policy";
 const SOURCE_FIELD: &str = "source";
 const OWNER_FIELD: &str = "owner";
@@ -85,13 +85,25 @@ fn validate_source_suppressions(
     report: &mut SuppressionReport,
 ) {
     for (line_index, line_text) in source.text.lines().enumerate() {
-        let Some(marker_index) = line_text.find(SUPPRESSION_MARKER) else {
+        let Some(raw_metadata) = suppression_metadata(line_text) else {
             continue;
         };
         let line = line_number_from_index(line_index);
-        let raw_metadata = &line_text[marker_index + SUPPRESSION_MARKER.len()..];
         validate_suppression_line(registry, source, line, raw_metadata, selection, report);
     }
+}
+
+fn suppression_metadata(line_text: &str) -> Option<&str> {
+    let mut selected: Option<(usize, &str)> = None;
+    for marker in SUPPRESSION_MARKERS {
+        let Some(marker_index) = line_text.find(marker) else {
+            continue;
+        };
+        if selected.is_none_or(|(selected_index, _)| marker_index < selected_index) {
+            selected = Some((marker_index, marker));
+        }
+    }
+    selected.map(|(marker_index, marker)| &line_text[marker_index + marker.len()..])
 }
 
 fn validate_suppression_line(
@@ -238,4 +250,109 @@ fn has_suppression_diagnostic(diagnostics: &[Diagnostic], path: &str, line: u32)
 
 fn line_number_from_index(index: usize) -> u32 {
     u32::try_from(index.saturating_add(FIRST_LINE_NUMBER_OFFSET)).unwrap_or(u32::MAX)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::model::Classification;
+    use crate::model::EnforcementLevel;
+    use crate::model::EnforcementMode;
+    use crate::model::FixtureCoverage;
+    use crate::model::FixtureStatus;
+    use crate::model::Mechanism;
+    use crate::model::PolicyEntry;
+    use crate::model::SuppressionRequirements;
+
+    const TEST_POLICY_ID: &str = "octet.test.required";
+    const TEST_PILLAR: &str = "test-pillar";
+    const TEST_PATH: &str = "src/lib.rs";
+
+    fn registry() -> PolicyRegistry {
+        PolicyRegistry {
+            schema_version: "test".to_owned(),
+            checker_ids: vec!["test-checker".to_owned()],
+            policies: vec![PolicyEntry {
+                policy_id: TEST_POLICY_ID.to_owned(),
+                pillar: TEST_PILLAR.to_owned(),
+                source_path: "docs/test.adoc".to_owned(),
+                source_heading: "Test".to_owned(),
+                source_anchor: "docs/test.adoc#test".to_owned(),
+                summary: "test policy".to_owned(),
+                classification: Classification::Hard,
+                enforcement_level: EnforcementLevel::Hard,
+                current_enforcement_mode: EnforcementMode::Gate,
+                target_enforcement_mode: EnforcementMode::Gate,
+                escalation_criteria: String::new(),
+                mechanisms: Vec::<Mechanism>::new(),
+                deterministic_checker: Default::default(),
+                proof_rails: Vec::new(),
+                checker_owner: "octet".to_owned(),
+                checker_id: "test-checker".to_owned(),
+                default_severity: Severity::Error,
+                suppression_requirements: SuppressionRequirements {
+                    requires_policy_id: true,
+                    requires_source_section: true,
+                    requires_owner: true,
+                    requires_rationale: true,
+                    requires_review_trigger: true,
+                    requires_safer_default: true,
+                },
+                fixture_coverage: FixtureCoverage {
+                    status: FixtureStatus::NotApplicable,
+                    compliant: Vec::new(),
+                    noncompliant: Vec::new(),
+                },
+                verification_evidence_requirements: Vec::new(),
+                classification_rationale: "test".to_owned(),
+                false_positive_risk: "test".to_owned(),
+                existing_enforcement: Vec::new(),
+                custom_checker_justification: "test".to_owned(),
+            }],
+            seed_manifests: Vec::new(),
+            config_receipt_families: Vec::new(),
+        }
+    }
+
+    fn complete_suppression(marker: &str) -> String {
+        format!(
+            "// {marker} policy={TEST_POLICY_ID}; source=docs/test; owner=team; rationale=fixture; review=expiry; safer_default=remove; scope=next-line\nfn main() {{}}"
+        )
+    }
+
+    fn report_for(text: String) -> SuppressionReport {
+        validate_suppressions(&registry(), &[SourceFile::new(TEST_PATH, text)], &FamilySelection::all())
+    }
+
+    #[test]
+    fn advertised_waiver_markers_validate_with_complete_metadata() {
+        for marker in SUPPRESSION_MARKERS {
+            let report = report_for(complete_suppression(marker));
+            assert!(report.diagnostics.is_empty(), "{marker} diagnostics: {report:#?}");
+            assert_eq!(report.active_suppressions.len(), 1);
+            assert_eq!(report.active_suppressions[0].policy_id, TEST_POLICY_ID);
+            assert_eq!(report.active_suppressions[0].scope, NEXT_LINE_SCOPE);
+        }
+    }
+
+    #[test]
+    fn missing_structured_waiver_fields_fail_closed() {
+        let report = report_for(format!("// octet-allow: policy={TEST_POLICY_ID}\nfn main() {{}}"));
+        assert!(report.active_suppressions.is_empty());
+        assert!(report.diagnostics.iter().any(|diagnostic| diagnostic.message.contains("`owner`")));
+        assert!(report.diagnostics.iter().any(|diagnostic| diagnostic.message.contains("`rationale`")));
+    }
+
+    #[test]
+    fn blanket_waiver_scope_fails_closed() {
+        let text = complete_suppression("slotcar-allow:").replace("scope=next-line", "scope=module");
+        let report = report_for(text);
+        assert!(report.active_suppressions.is_empty());
+        assert!(
+            report
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.message.contains("blanket suppression scope `module`"))
+        );
+    }
 }

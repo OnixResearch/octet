@@ -8,6 +8,7 @@ mod fingerprint;
 mod migrate;
 mod object;
 mod output;
+mod provider_manifest;
 mod roadmap;
 mod transcript;
 
@@ -30,6 +31,7 @@ fn try_main() -> Result<i32, String> {
         cli::CommandArgs::Fingerprint(args) => fingerprint::run(args),
         cli::CommandArgs::Migrate(args) => migrate::run(args),
         cli::CommandArgs::Object(args) => object::run(args),
+        cli::CommandArgs::ProviderManifest(args) => provider_manifest::run(args),
         cli::CommandArgs::Roadmap(args) => roadmap::run(args),
         cli::CommandArgs::Transcript(args) => transcript::run(args),
         cli::CommandArgs::Help(topic) => {

@@ -25,6 +25,7 @@ pub enum CommandArgs {
     Fingerprint(FingerprintArgs),
     Migrate(MigrateArgs),
     Object(ObjectArgs),
+    ProviderManifest(ProviderManifestArgs),
     Roadmap(crate::roadmap::RoadmapCommand),
     Transcript(TranscriptArgs),
     Help(HelpTopic),
@@ -39,6 +40,7 @@ pub enum HelpTopic {
     Fingerprint,
     Migrate,
     Object,
+    ProviderManifest,
     Roadmap,
     Transcript,
 }
@@ -200,6 +202,27 @@ pub struct TranscriptArgs {
     pub output_format: OutputFormat,
 }
 
+#[derive(Debug)]
+pub struct ProviderManifestArgs {
+    pub mode: ProviderManifestMode,
+}
+
+#[derive(Debug)]
+pub enum ProviderManifestMode {
+    Export {
+        driver: PathBuf,
+        lint_library: PathBuf,
+        config: PathBuf,
+        standards_policy: Option<PathBuf>,
+        rustc: Option<PathBuf>,
+        profile: Option<String>,
+        required_lints: Vec<String>,
+    },
+    Validate {
+        manifest: PathBuf,
+    },
+}
+
 pub fn parse(argv: impl IntoIterator<Item = OsString>) -> Result<CommandArgs, String> {
     let mut argv = argv
         .into_iter()
@@ -236,15 +259,17 @@ pub fn parse(argv: impl IntoIterator<Item = OsString>) -> Result<CommandArgs, St
         Some("migrate") => parse_migrate(&argv[1..]).map(CommandArgs::Migrate),
         Some("object") if object_wants_help(&argv[1..]) => Ok(CommandArgs::Help(HelpTopic::Object)),
         Some("object") => parse_object(&argv[1..]).map(CommandArgs::Object),
+        Some("provider-manifest") if wants_help(&argv[1..]) => Ok(CommandArgs::Help(HelpTopic::ProviderManifest)),
+        Some("provider-manifest") => parse_provider_manifest(&argv[1..]).map(CommandArgs::ProviderManifest),
         Some("roadmap") if wants_help(&argv[1..]) => Ok(CommandArgs::Help(HelpTopic::Roadmap)),
         Some("roadmap") => crate::roadmap::parse(&argv[1..]).map(CommandArgs::Roadmap),
         Some("transcript") if wants_help(&argv[1..]) => Ok(CommandArgs::Help(HelpTopic::Transcript)),
         Some("transcript") => parse_transcript(&argv[1..]).map(CommandArgs::Transcript),
         Some(other) => Err(format!(
-            "unknown subcommand `{other}`; expected `check`, `evidence-index`, `fingerprint`, `migrate`, `object`, `roadmap`, or `transcript`"
+            "unknown subcommand `{other}`; expected `check`, `evidence-index`, `fingerprint`, `migrate`, `object`, `provider-manifest`, `roadmap`, or `transcript`"
         )),
         None => Err(
-            "missing subcommand; expected `check`, `evidence-index`, `fingerprint`, `migrate`, `object`, `roadmap`, or `transcript`"
+            "missing subcommand; expected `check`, `evidence-index`, `fingerprint`, `migrate`, `object`, `provider-manifest`, `roadmap`, or `transcript`"
                 .to_owned(),
         ),
     }
@@ -266,6 +291,7 @@ pub fn help_text(topic: HelpTopic) -> &'static str {
         HelpTopic::Fingerprint => FINGERPRINT_HELP,
         HelpTopic::Migrate => MIGRATE_HELP,
         HelpTopic::Object => OBJECT_HELP,
+        HelpTopic::ProviderManifest => PROVIDER_MANIFEST_HELP,
         HelpTopic::Roadmap => ROADMAP_HELP,
         HelpTopic::Transcript => TRANSCRIPT_HELP,
     }
@@ -293,6 +319,8 @@ Usage:
   cargo octet object supplement fixtures --family mir --spike rustc-mir-fixture [--output-format human|json]
   cargo octet object supplement emit --family hir|thir|mir [--spike rustc-hir-fixture|rustc-thir-fixture|rustc-mir-fixture] [--fixture-shape checked-arithmetic|branch-control-flow|call-return] [--function NAME] [PATHS...]
   cargo octet object supplement check --family hir|thir|mir [--spike rustc-hir-fixture|rustc-thir-fixture|rustc-mir-fixture] [--fixture-shape checked-arithmetic|branch-control-flow|call-return] --receipt RECEIPT.json [--function NAME] [PATHS...]
+  cargo octet provider-manifest export --driver PATH --lint-library PATH --config PATH [--standards-policy PATH]
+  cargo octet provider-manifest validate --manifest PATH
   cargo octet roadmap <artifact|capsule|ability|pointer|session|pure-cache> ...
   cargo octet transcript <PATH>
   cargo octet --version
@@ -349,6 +377,15 @@ Subcommands:
   supplement check --family hir|thir|mir [--spike rustc-hir-fixture|rustc-thir-fixture|rustc-mir-fixture] [--fixture-shape checked-arithmetic|branch-control-flow|call-return] --receipt RECEIPT.json [--function NAME] [PATHS...] --output-format human|json
 
 Function objects are source-token review/provenance evidence. HIR/MIR supplements attach to v1 identity; THIR default supplements are fail-closed unsupported-planned evidence, with only selected rustc-thir-fixture and rustc-mir-fixture cases reporting pilot-supported. Supplements are not correctness proofs.
+";
+
+const PROVIDER_MANIFEST_HELP: &str = "cargo octet provider-manifest
+
+Subcommands:
+  export --driver PATH --lint-library PATH --config PATH [--standards-policy PATH] [--rustc PATH] [--profile NAME] [--required-lint NAME]
+  validate --manifest PATH
+
+Exports or validates the deterministic Octet compiler-policy provider manifest consumed by downstream build systems such as Mantle. The manifest identifies the Dylint driver, Octet lint library, lint config, optional standards policy artifact, compatible rustc identity, required environment, waiver contract, and bounded non-claims.
 ";
 
 const ROADMAP_HELP: &str = "cargo octet roadmap
@@ -1266,6 +1303,126 @@ fn required_arg(args: &[String], flag: &str) -> Result<String, String> {
     args.get(index + 1).cloned().ok_or_else(|| format!("missing value after `{flag}`"))
 }
 
+fn required_arg_at(args: &[String], index: usize, flag: &str) -> Result<String, String> {
+    let value_index = index.checked_add(1).ok_or_else(|| format!("argument index overflow while parsing `{flag}`"))?;
+    args.get(value_index).cloned().ok_or_else(|| format!("missing value after `{flag}`"))
+}
+
+fn parse_provider_manifest(args: &[String]) -> Result<ProviderManifestArgs, String> {
+    match args.first().map(String::as_str) {
+        Some("export") => parse_provider_manifest_export(&args[1..]),
+        Some("validate") => parse_provider_manifest_validate(&args[1..]),
+        Some(other) => Err(format!("unsupported provider-manifest subcommand `{other}`")),
+        None => Err("missing provider-manifest subcommand".to_owned()),
+    }
+}
+
+fn parse_provider_manifest_export(args: &[String]) -> Result<ProviderManifestArgs, String> {
+    let mut driver = None;
+    let mut lint_library = None;
+    let mut config = None;
+    let mut standards_policy = None;
+    let mut rustc = None;
+    let mut profile = None;
+    let mut required_lints = Vec::new();
+    let mut index = 0;
+    while index < args.len() {
+        let arg = &args[index];
+        match arg.as_str() {
+            "--driver" => {
+                driver = Some(PathBuf::from(required_arg_at(args, index, "--driver")?));
+                index += 2;
+            }
+            "--lint-library" => {
+                lint_library = Some(PathBuf::from(required_arg_at(args, index, "--lint-library")?));
+                index += 2;
+            }
+            "--config" => {
+                config = Some(PathBuf::from(required_arg_at(args, index, "--config")?));
+                index += 2;
+            }
+            "--standards-policy" => {
+                standards_policy = Some(PathBuf::from(required_arg_at(args, index, "--standards-policy")?));
+                index += 2;
+            }
+            "--rustc" => {
+                rustc = Some(PathBuf::from(required_arg_at(args, index, "--rustc")?));
+                index += 2;
+            }
+            "--profile" => {
+                profile = Some(required_arg_at(args, index, "--profile")?);
+                index += 2;
+            }
+            "--required-lint" => {
+                required_lints.push(required_arg_at(args, index, "--required-lint")?);
+                index += 2;
+            }
+            _ if arg.starts_with("--driver=") => {
+                driver = Some(PathBuf::from(arg.trim_start_matches("--driver=")));
+                index += 1;
+            }
+            _ if arg.starts_with("--lint-library=") => {
+                lint_library = Some(PathBuf::from(arg.trim_start_matches("--lint-library=")));
+                index += 1;
+            }
+            _ if arg.starts_with("--config=") => {
+                config = Some(PathBuf::from(arg.trim_start_matches("--config=")));
+                index += 1;
+            }
+            _ if arg.starts_with("--standards-policy=") => {
+                standards_policy = Some(PathBuf::from(arg.trim_start_matches("--standards-policy=")));
+                index += 1;
+            }
+            _ if arg.starts_with("--rustc=") => {
+                rustc = Some(PathBuf::from(arg.trim_start_matches("--rustc=")));
+                index += 1;
+            }
+            _ if arg.starts_with("--profile=") => {
+                profile = Some(arg.trim_start_matches("--profile=").to_owned());
+                index += 1;
+            }
+            _ if arg.starts_with("--required-lint=") => {
+                required_lints.push(arg.trim_start_matches("--required-lint=").to_owned());
+                index += 1;
+            }
+            _ => return Err(format!("unsupported provider-manifest export argument `{arg}`")),
+        }
+    }
+    Ok(ProviderManifestArgs {
+        mode: ProviderManifestMode::Export {
+            driver: driver.ok_or_else(|| "missing `--driver`".to_owned())?,
+            lint_library: lint_library.ok_or_else(|| "missing `--lint-library`".to_owned())?,
+            config: config.ok_or_else(|| "missing `--config`".to_owned())?,
+            standards_policy,
+            rustc,
+            profile,
+            required_lints,
+        },
+    })
+}
+
+fn parse_provider_manifest_validate(args: &[String]) -> Result<ProviderManifestArgs, String> {
+    let mut manifest = None;
+    let mut index = 0;
+    while index < args.len() {
+        let arg = &args[index];
+        if arg == "--manifest" {
+            manifest = Some(PathBuf::from(required_arg_at(args, index, "--manifest")?));
+            index += 2;
+        } else if let Some(value) = arg.strip_prefix("--manifest=") {
+            manifest = Some(PathBuf::from(value));
+            index += 1;
+        } else {
+            return Err(format!("unsupported provider-manifest validate argument `{arg}`"));
+        }
+    }
+    Ok(ProviderManifestArgs {
+        mode: ProviderManifestMode::Validate {
+            manifest: manifest.ok_or_else(|| "missing `--manifest`".to_owned())?,
+        },
+    })
+}
+
 fn parse_transcript(args: &[String]) -> Result<TranscriptArgs, String> {
     let mut path = None;
     let mut output_format = OutputFormat::Human;
@@ -1385,6 +1542,68 @@ mod tests {
             }
             other => panic!("expected object args, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn provider_manifest_parse_accepts_export() {
+        let parsed = parse(
+            [
+                "cargo",
+                "octet",
+                "provider-manifest",
+                "export",
+                "--driver",
+                "driver",
+                "--lint-library=liboctet.so",
+                "--config",
+                "dylint.toml",
+                "--standards-policy",
+                "octet-policies.json",
+                "--required-lint",
+                "no_unwrap",
+            ]
+            .map(OsString::from),
+        )
+        .expect("parse provider manifest export args");
+        match parsed {
+            CommandArgs::ProviderManifest(args) => match args.mode {
+                super::ProviderManifestMode::Export {
+                    driver,
+                    lint_library,
+                    config,
+                    standards_policy,
+                    required_lints,
+                    ..
+                } => {
+                    assert_eq!(driver, std::path::PathBuf::from("driver"));
+                    assert_eq!(lint_library, std::path::PathBuf::from("liboctet.so"));
+                    assert_eq!(config, std::path::PathBuf::from("dylint.toml"));
+                    assert_eq!(standards_policy, Some(std::path::PathBuf::from("octet-policies.json")));
+                    assert_eq!(required_lints, vec!["no_unwrap".to_owned()]);
+                }
+                other => panic!("expected provider manifest export mode, got {other:?}"),
+            },
+            other => panic!("expected provider manifest args, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn provider_manifest_parse_rejects_missing_driver() {
+        let error = parse(
+            [
+                "cargo",
+                "octet",
+                "provider-manifest",
+                "export",
+                "--lint-library",
+                "liboctet.so",
+                "--config",
+                "dylint.toml",
+            ]
+            .map(OsString::from),
+        )
+        .expect_err("missing driver should fail");
+        assert_eq!(error, "missing `--driver`");
     }
 
     #[test]

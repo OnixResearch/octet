@@ -2,7 +2,7 @@
   "schema": "octet.function-object-corpus-receipt.v1",
   "schema_version": 1,
   "mode": "corpus-receipt",
-  "object_count": 291,
+  "object_count": 336,
   "source_paths": [
     "cargo-octet/src/baseline.rs",
     "cargo-octet/src/cli.rs",
@@ -14,36 +14,37 @@
     "cargo-octet/src/migrate.rs",
     "cargo-octet/src/object.rs",
     "cargo-octet/src/output.rs",
+    "cargo-octet/src/provider_manifest.rs",
     "cargo-octet/src/roadmap.rs",
     "cargo-octet/src/transcript.rs"
   ],
-  "object_set_hash": "b3:0708501ca5a5286dd707015b6e4b32948e8954cd6fb6f1e8d2e35bbcb5fd6be0",
+  "object_set_hash": "b3:868f5e27a16489b3ce246e331718291ac75787516f11af58e9a5946cc91e2fe1",
   "caveat_counts": {
     "dependency_status": {
-      "source-scanner-token-set": 89,
-      "unsupported-macro-context": 202
+      "source-scanner-token-set": 97,
+      "unsupported-macro-context": 239
     },
     "effect_kind": {
-      "effect_summary": 213,
-      "filesystem": 41,
-      "panic": 47,
-      "process": 7,
+      "effect_summary": 247,
+      "filesystem": 48,
+      "panic": 55,
+      "process": 8,
       "time": 2,
       "unsafe": 3
     },
     "macro_status": {
-      "none-detected": 89,
-      "review-required": 202
+      "none-detected": 97,
+      "review-required": 239
     },
     "pure_cache_blocker": {
-      "dependency-identity-unresolved": 291,
-      "effect-summary-unresolved": 291,
-      "macro-expansion-unmodeled": 202
+      "dependency-identity-unresolved": 336,
+      "effect-summary-unresolved": 336,
+      "macro-expansion-unmodeled": 239
     }
   },
-  "pure_cache_blocked_count": 291,
+  "pure_cache_blocked_count": 336,
   "replay": {
-    "command": "cargo octet object corpus receipt --output RECEIPT.json cargo-octet/src/baseline.rs cargo-octet/src/cli.rs cargo-octet/src/config.rs cargo-octet/src/determinism.rs cargo-octet/src/engine.rs cargo-octet/src/fingerprint.rs cargo-octet/src/main.rs cargo-octet/src/migrate.rs cargo-octet/src/object.rs cargo-octet/src/output.rs cargo-octet/src/roadmap.rs cargo-octet/src/transcript.rs",
+    "command": "cargo octet object corpus receipt --output RECEIPT.json cargo-octet/src/baseline.rs cargo-octet/src/cli.rs cargo-octet/src/config.rs cargo-octet/src/determinism.rs cargo-octet/src/engine.rs cargo-octet/src/fingerprint.rs cargo-octet/src/main.rs cargo-octet/src/migrate.rs cargo-octet/src/object.rs cargo-octet/src/output.rs cargo-octet/src/provider_manifest.rs cargo-octet/src/roadmap.rs cargo-octet/src/transcript.rs",
     "tool_name": "cargo-octet",
     "tool_version": "0.1.0",
     "determinism_note": "Receipt bytes are deterministic for the same selected source inputs and cargo-octet version; this is not a correctness proof."
