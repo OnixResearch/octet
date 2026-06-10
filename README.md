@@ -52,6 +52,10 @@ Structured output and reviewable sidecars are first-class too:
 cargo octet check --output-format sarif --artifact-dir artifacts/octet
 ```
 
+For a strict local gate, copy `templates/pre-commit-config.yaml` to a consumer
+repo and pin this repository as a pre-commit hook source. The `octet-deny-all`
+hook runs the same runner with every Octet/Tiger Style lint promoted to `deny`.
+
 Exit codes stay stable for automation:
 
 - `0` clean or warning-only runs
@@ -151,7 +155,8 @@ and config keys.
 - [Performance review guide](docs/performance-review.md) and [sketch template](templates/performance-sketch.md)
 - [Concurrency and distributed-state review guide](docs/concurrency-state-review.md) and [checklist template](templates/concurrency-state-checklist.md)
 - [System comprehension guide](docs/system-comprehension.md) and [walkthrough template](templates/system-walkthrough.md)
-- `docs/consumer-guide.md` — first run, config split, Nix integration, output modes, artifact bundles, migration notes
+- `docs/consumer-guide.md` — first run, config split, Nix integration, pre-commit hook, output modes, artifact bundles, migration notes
+- `templates/pre-commit-config.yaml` — copyable deny-all pre-commit hook configuration
 - `docs/lint-reference.md` — full lint catalog, default levels, suppression paths, config reference
 - `docs/contributor-guide.md` — source-of-truth map, doc-update crosswalk, verification rails
 - `docs/downstream-rollout.md` — rollout profiles, promotion playbooks, and boundary guidance
