@@ -480,29 +480,28 @@ The system MUST replay a captured Octet capsule against the current workspace or
 
 ### Requirement: Octet Consumer Command Surface
 
-The system MUST provide `cargo octet` / `cargo-octet` as the canonical consumer command surface for check, fingerprint, migrate, roadmap, and transcript workflows. User-facing help, structured outputs, SARIF tool metadata, artifact sidecars, summaries, migration manifests, transcript reports, and fingerprints MUST identify the canonical tool as Octet / `cargo-octet` unless they are explicitly documenting a transition alias.
+The system MUST provide `cargo octet` / `cargo-octet` as the canonical consumer command surface for check, fingerprint, migrate, roadmap, and transcript workflows. User-facing help, structured outputs, SARIF tool metadata, artifact sidecars, summaries, migration manifests, transcript reports, fingerprints, package outputs, config examples, and Nix apps MUST identify the canonical tool as Octet / `cargo-octet`.
 
-The existing `cargo slotcar` and `cargo tigerstyle` command paths MAY remain during the migration, but only as deliberate compatibility aliases. Compatibility aliases MUST route to the same implementation as `cargo octet`, MUST be covered by focused tests or deterministic evidence, and MUST be documented as transition-only rather than canonical.
+For this mechanical sweep, active command, package, config, environment, receipt, and fixture surfaces MUST contain no unapproved `slotcar` product identity after the Steel apply pass. Retained `slotcar` aliases, fallback parsers, fixture fields, or Nix outputs MUST be listed in the Steel report as `allowed-compatibility` with a rationale and focused test coverage; otherwise they MUST be retired or renamed to Octet in the same change.
 
-#### Scenario: Cargo subcommand uses Octet
+#### Scenario: Steel sweep handles command and package surfaces
 
-- GIVEN a consumer has installed the renamed runner
-- WHEN they run `cargo octet check --help`
-- THEN help text names the canonical command as `cargo octet check`
-- AND it does not instruct new users to prefer legacy `cargo slotcar` or `cargo tigerstyle`
+- GIVEN active Cargo, Nix, runner, standards, and fixture files contain `slotcar` command or package names
+- WHEN the Steel sweep applies approved replacements
+- THEN canonical command, binary, package, Nix app, and structured-output identity strings use `octet` / `cargo-octet`
+- AND any path or crate rename required by those references is updated consistently
 
-#### Scenario: Structured outputs name Octet
+#### Scenario: Compatibility retirement or allowlist is explicit
 
-- GIVEN a consumer runs the check command with human, JSON, or SARIF output plus an artifact directory
-- WHEN the output and sidecar files are inspected
-- THEN tool names, command records, status fields, and SARIF driver metadata use Octet / `cargo-octet` for the canonical tool identity
+- GIVEN a `cargo slotcar`, `[slotcar]`, `workspace.metadata.slotcar`, `slotcar::`, `slotcar-allow`, or `slotcar_binary_identity` surface remains after the sweep
+- WHEN deterministic verification inspects the Steel report and focused tests
+- THEN the occurrence is either covered by an `allowed-compatibility` rationale plus a passing test or has been retired from code, docs, templates, fixtures, and Nix outputs
 
-#### Scenario: Compatibility aliases are explicit
+#### Scenario: Octet config and command paths stay functional
 
-- GIVEN a consumer invokes a retained `cargo slotcar` or `cargo tigerstyle` alias
-- WHEN the command succeeds
-- THEN the alias is documented or reported as compatibility behavior
-- AND the resulting lint semantics and structured output schema match the canonical `cargo octet` path
+- GIVEN the mechanical sweep updated active command and config surfaces
+- WHEN focused CLI, config, and standards checks run
+- THEN `cargo octet` help/config behavior and Octet standards outputs still pass without requiring a `slotcar` spelling for new consumers
 
 ### Requirement: Octet Consumer Configuration Surface
 
