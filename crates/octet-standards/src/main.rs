@@ -18,45 +18,45 @@ use std::time::UNIX_EPOCH;
 use clap::Parser;
 use clap::Subcommand;
 use clap::ValueEnum;
-use slotcar_standards::artifacts::ARTIFACT_MANIFEST_JSON_FILE;
-use slotcar_standards::artifacts::ArtifactManifest;
-use slotcar_standards::artifacts::CHECK_CONFIG_TOML_FILE;
-use slotcar_standards::artifacts::CONFIG_RECEIPT_FAMILIES_JSON_FILE;
-use slotcar_standards::artifacts::POLICIES_JSON_FILE;
-use slotcar_standards::artifacts::PROOF_BUNDLES_JSON_FILE;
-use slotcar_standards::artifacts::ProofBundleArtifact;
-use slotcar_standards::artifacts::SEED_MANIFESTS_JSON_FILE;
-use slotcar_standards::artifacts::artifact_manifest;
-use slotcar_standards::artifacts::config_receipt_family_artifact;
-use slotcar_standards::artifacts::proof_bundle_artifact;
-use slotcar_standards::artifacts::registry_has_verified_proof_rails;
-use slotcar_standards::artifacts::render_check_config_toml;
-use slotcar_standards::artifacts::seed_manifest_artifact;
-use slotcar_standards::artifacts::validate_artifact_manifest;
-use slotcar_standards::artifacts::validate_artifact_manifest_texts;
-use slotcar_standards::artifacts::validate_proof_bundle_artifact;
-use slotcar_standards::diagnostic::Diagnostic;
-use slotcar_standards::diagnostic::DiagnosticInput;
-use slotcar_standards::fixture::FixtureManifest;
-use slotcar_standards::fixture::validate_hard_policy_fixture_coverage;
-use slotcar_standards::model::FamilySelection;
-use slotcar_standards::model::PolicyRegistry;
-use slotcar_standards::model::Severity;
-use slotcar_standards::receipt::AcceptanceReceipt;
-use slotcar_standards::receipt::AcceptanceStatus;
-use slotcar_standards::receipt::ExportReceiptInput;
-use slotcar_standards::receipt::ReceiptArtifact;
-use slotcar_standards::receipt::ReceiptDigest;
-use slotcar_standards::receipt::ReceiptEvidence;
-use slotcar_standards::receipt::ReceiptInput;
-use slotcar_standards::receipt::ReceiptVerificationCommand;
-use slotcar_standards::receipt::RunProfile;
-use slotcar_standards::report::CheckReport;
-use slotcar_standards::report::render_json;
-use slotcar_standards::report::render_markdown;
-use slotcar_standards::runner::CheckInput;
-use slotcar_standards::runner::run_checks;
-use slotcar_standards::source::SourceFile;
+use octet_standards::artifacts::ARTIFACT_MANIFEST_JSON_FILE;
+use octet_standards::artifacts::ArtifactManifest;
+use octet_standards::artifacts::CHECK_CONFIG_TOML_FILE;
+use octet_standards::artifacts::CONFIG_RECEIPT_FAMILIES_JSON_FILE;
+use octet_standards::artifacts::POLICIES_JSON_FILE;
+use octet_standards::artifacts::PROOF_BUNDLES_JSON_FILE;
+use octet_standards::artifacts::ProofBundleArtifact;
+use octet_standards::artifacts::SEED_MANIFESTS_JSON_FILE;
+use octet_standards::artifacts::artifact_manifest;
+use octet_standards::artifacts::config_receipt_family_artifact;
+use octet_standards::artifacts::proof_bundle_artifact;
+use octet_standards::artifacts::registry_has_verified_proof_rails;
+use octet_standards::artifacts::render_check_config_toml;
+use octet_standards::artifacts::seed_manifest_artifact;
+use octet_standards::artifacts::validate_artifact_manifest;
+use octet_standards::artifacts::validate_artifact_manifest_texts;
+use octet_standards::artifacts::validate_proof_bundle_artifact;
+use octet_standards::diagnostic::Diagnostic;
+use octet_standards::diagnostic::DiagnosticInput;
+use octet_standards::fixture::FixtureManifest;
+use octet_standards::fixture::validate_hard_policy_fixture_coverage;
+use octet_standards::model::FamilySelection;
+use octet_standards::model::PolicyRegistry;
+use octet_standards::model::Severity;
+use octet_standards::receipt::AcceptanceReceipt;
+use octet_standards::receipt::AcceptanceStatus;
+use octet_standards::receipt::ExportReceiptInput;
+use octet_standards::receipt::ReceiptArtifact;
+use octet_standards::receipt::ReceiptDigest;
+use octet_standards::receipt::ReceiptEvidence;
+use octet_standards::receipt::ReceiptInput;
+use octet_standards::receipt::ReceiptVerificationCommand;
+use octet_standards::receipt::RunProfile;
+use octet_standards::report::CheckReport;
+use octet_standards::report::render_json;
+use octet_standards::report::render_markdown;
+use octet_standards::runner::CheckInput;
+use octet_standards::runner::run_checks;
+use octet_standards::source::SourceFile;
 
 const EXIT_SUCCESS: u8 = 0;
 const EXIT_FAILURE: u8 = 1;
@@ -672,12 +672,12 @@ fn execute_relevant_proof_rails(
     }
 }
 
-fn policy_is_verified(policy: &slotcar_standards::model::PolicyEntry) -> bool {
-    policy.current_enforcement_mode == slotcar_standards::model::EnforcementMode::Verified
-        || policy.target_enforcement_mode == slotcar_standards::model::EnforcementMode::Verified
+fn policy_is_verified(policy: &octet_standards::model::PolicyEntry) -> bool {
+    policy.current_enforcement_mode == octet_standards::model::EnforcementMode::Verified
+        || policy.target_enforcement_mode == octet_standards::model::EnforcementMode::Verified
 }
 
-fn proof_rail_is_relevant(rail: &slotcar_standards::model::ProofRail, sources: &[SourceFile]) -> bool {
+fn proof_rail_is_relevant(rail: &octet_standards::model::ProofRail, sources: &[SourceFile]) -> bool {
     rail.source_paths
         .iter()
         .chain(&rail.proof_paths)
@@ -685,7 +685,7 @@ fn proof_rail_is_relevant(rail: &slotcar_standards::model::ProofRail, sources: &
 }
 
 fn execute_proof_rail(
-    rail: &slotcar_standards::model::ProofRail,
+    rail: &octet_standards::model::ProofRail,
     sources: &[SourceFile],
     source_paths: &[PathBuf],
 ) -> SourceFile {
@@ -709,12 +709,12 @@ fn proof_command_working_dir(source_paths: &[PathBuf]) -> PathBuf {
     )
 }
 
-fn first_proof_path(rail: &slotcar_standards::model::ProofRail) -> &str {
+fn first_proof_path(rail: &octet_standards::model::ProofRail) -> &str {
     rail.proof_paths.first().map_or("proof-receipt.txt", String::as_str)
 }
 
 fn proof_command_receipt(
-    rail: &slotcar_standards::model::ProofRail,
+    rail: &octet_standards::model::ProofRail,
     sources: &[SourceFile],
     working_dir: &Path,
     output: Result<std::process::Output, io::Error>,
@@ -746,7 +746,7 @@ fn proof_command_receipt(
     }
 }
 
-fn proof_receipt_provenance(rail: &slotcar_standards::model::ProofRail) -> String {
+fn proof_receipt_provenance(rail: &octet_standards::model::ProofRail) -> String {
     let provenance = &rail.receipt_provenance;
     let mut lines = Vec::new();
     if !provenance.schema_version.is_empty() {
@@ -775,7 +775,7 @@ fn proof_receipt_provenance(rail: &slotcar_standards::model::ProofRail) -> Strin
     }
 }
 
-fn proof_receipt_verifier(rail: &slotcar_standards::model::ProofRail, sources: &[SourceFile]) -> String {
+fn proof_receipt_verifier(rail: &octet_standards::model::ProofRail, sources: &[SourceFile]) -> String {
     let verifier = &rail.receipt_verifier;
     let mut lines = Vec::new();
     if !verifier.verifier_id.is_empty() {
@@ -923,7 +923,7 @@ fn canonical_nix_closure_graph(text: &str) -> Option<String> {
     Some(canonical)
 }
 
-fn proof_receipt_binding(rail: &slotcar_standards::model::ProofRail, sources: &[SourceFile]) -> String {
+fn proof_receipt_binding(rail: &octet_standards::model::ProofRail, sources: &[SourceFile]) -> String {
     if rail.receipt_binding != "blake3-command-and-source" {
         return String::new();
     }

@@ -30,11 +30,11 @@ cargo_check_args = ["--lib"]
 
 Use the published flake app or helper instead of copying bash glue:
 
-- `nix run path:/path/to/slotcar#cargo-octet -- check`
+- `nix run path:/path/to/octet#cargo-octet -- check`
 - consumer flake checks should call the same `cargo-octet` engine through
   `lib.mkConsumerCheck`
 
-Repo-local helpers like `just slotcar` should stay thin and delegate to the
+Repo-local helpers like `just octet` should stay thin and delegate to the
 same command surface rather than reimplementing toolchain, lockfile, or Dylint
 policy.
 
@@ -114,15 +114,15 @@ Per-lint config rules to preserve in every consumer example:
 
 ### breaking-change: migrate `todo!()` escapes from `no_panic` to `no_todo`
 
-Current slotcar contract:
+Current octet contract:
 
 - `no_todo` owns `todo!()` in production code
 - `no_panic` now owns only `panic!()`, `unimplemented!()`, and
   `unreachable!()`
 - old escape-hatch spellings `#[allow(no_panic)]` and
-  `#[allow(slotcar::no_panic)]` no longer justify `todo!()`
+  `#[allow(octet::no_panic)]` no longer justify `todo!()`
 - migrate justified stubs to `#[allow(no_todo)]` or
-  `#[allow(slotcar::no_todo)]`
+  `#[allow(octet::no_todo)]`
 
 Live Aspen code still carries bare `#![allow(no_panic)]` crate attrs, so keep
 that bare-source migration note in rollout checklists until consumers finish the
@@ -244,7 +244,7 @@ Add a new crate or package to the default path only when all of these hold:
    cleanup trigger
 4. deferred noisy families stay inventory-only until their own promotion review
    is done
-5. no crate- or module-wide `#![allow(slotcar::...)]` is hiding unresolved
+5. no crate- or module-wide `#![allow(octet::...)]` is hiding unresolved
    rollout debt
 6. one targeted rerun proves the candidate scope still produces actionable
    signal
@@ -280,7 +280,7 @@ The template separates four things that should stay consumer-owned:
 - threshold overrides such as `function_length_max` or `nesting_max_depth`
 - allowlists such as `acronym_allowlist`
 - per-lint rollout controls (`disabled_lints`, `lint_levels`)
-- rationale comments that explain why the workspace differs from slotcar's
+- rationale comments that explain why the workspace differs from octet's
   defaults and what cleanup would remove the override
 
 Rules for the per-lint controls:
@@ -289,7 +289,7 @@ Rules for the per-lint controls:
 - unknown lint names and invalid level values warn and are ignored
 - `disabled_lints` and `[octet.lint_levels]` keep bare lint-name keys such
   as `no_unwrap`; source attrs and group attrs use canonical tool names such as
-  `slotcar::no_unwrap` and `slotcar::safety`
+  `octet::no_unwrap` and `octet::safety`
 - `disabled_lints` takes precedence over `lint_levels` and source-level attrs
   because disabled lints never register
 
@@ -297,16 +297,16 @@ For Aspen-specific example values, see `downstream-rollout-evidence.md`.
 
 ## Standalone raw-rustc tool attrs
 
-If a consumer writes tool-scoped slotcar attrs in standalone raw-rustc code
+If a consumer writes tool-scoped octet attrs in standalone raw-rustc code
 or repo-local UI fixtures, use the supported nightly toolchain plus:
 
 ```rust
 #![feature(register_tool)]
-#![register_tool(slotcar)]
+#![register_tool(octet)]
 ```
 
 Without that prelude, rustc rejects canonical attrs such as
-`#[allow(slotcar::ambient_clock)]` before the lint can run.
+`#[allow(octet::ambient_clock)]` before the lint can run.
 
 ## `ambient_clock` boundary playbook
 
@@ -321,7 +321,7 @@ fn deadline_from(now: Instant, timeout: Duration) -> Instant {
     now + timeout
 }
 
-#[allow(slotcar::ambient_clock, reason = "RPC boundary owns deadline capture")]
+#[allow(octet::ambient_clock, reason = "RPC boundary owns deadline capture")]
 fn rpc_deadline(timeout: Duration) -> Instant {
     deadline_from(Instant::now(), timeout)
 }
@@ -352,7 +352,7 @@ or polling boundary and the allow stays on that one function.
 Good shape:
 
 ```rust
-#[allow(slotcar::ambient_clock, reason = "poll loop owns wall-clock timeout")]
+#[allow(octet::ambient_clock, reason = "poll loop owns wall-clock timeout")]
 fn wait_until_ready(...) -> Result<()> {
     let started_at = Instant::now();
     loop {
@@ -367,7 +367,7 @@ fn wait_until_ready(...) -> Result<()> {
 Bad shape:
 
 - helper modules full of repeated `Instant::now()` calls with no single owner
-- crate-wide `#![allow(slotcar::ambient_clock)]`
+- crate-wide `#![allow(octet::ambient_clock)]`
 - functions that already accept time input but still read the wall clock again
 
 ### Relationship to `contradictory_time`
@@ -403,7 +403,7 @@ reviewable baseline:
 
 ### Narrow allow rules
 
-A narrow item-scoped `#[allow(slotcar::... , reason = "...")]` is acceptable
+A narrow item-scoped `#[allow(octet::... , reason = "...")]` is acceptable
 only when all of these are true:
 
 - the item owns the shell boundary or the local proof obligation

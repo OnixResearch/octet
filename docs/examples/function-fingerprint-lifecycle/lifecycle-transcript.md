@@ -9,7 +9,7 @@ copied into `reviewed.rs`. Commands were run from the scratch directory with the
 repo-local binary:
 
 ```bash
-TOOL='cargo run -q --manifest-path /home/brittonr/git/slotcar/cargo-octet/Cargo.toml --'
+TOOL='cargo run -q --manifest-path /home/brittonr/git/octet/cargo-octet/Cargo.toml --'
 ```
 
 ## Initial fixture

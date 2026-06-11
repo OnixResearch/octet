@@ -120,7 +120,7 @@
 
       # Generated-policy-artifact consumer helper — usable from downstream
       # flakes when they want the Nickel-authored policy bundle exported by this
-      # flake, then consumed by slotcar-standards in one reproducible check.
+      # flake, then consumed by octet-standards in one reproducible check.
       mkPolicyArtifactConsumerCheck = {
         system,
         src,
@@ -149,7 +149,7 @@
               "$report_json" >/dev/null
           '') requiredPolicyIds);
         in
-        pkgs.runCommand "slotcar-policy-artifact-consumer-check" {
+        pkgs.runCommand "octet-policy-artifact-consumer-check" {
           nativeBuildInputs = nativeBuildInputs ++ [ pkgs.jq self.packages.${system}.octet-standards ];
           inherit buildInputs;
         } ''
@@ -380,17 +380,17 @@
           '';
         };
 
-        slotcarStandards = craneLib.buildPackage {
+        octetStandards = craneLib.buildPackage {
           inherit src cargoArtifacts nativeBuildInputs buildInputs;
           pname = "octet-standards";
           version = "0.1.0";
-          cargoExtraArgs = "-p slotcar-standards";
+          cargoExtraArgs = "-p octet-standards";
           doCheck = false;
         };
 
-        slotcarStandardsNixClosureManifest = pkgs.runCommand "octet-standards-nix-closure-manifest" {
+        octetStandardsNixClosureManifest = pkgs.runCommand "octet-standards-nix-closure-manifest" {
           nativeBuildInputs = [ pkgs.b3sum pkgs.python3 ];
-          exportReferencesGraph = [ "octet-standards-closure" slotcarStandards ];
+          exportReferencesGraph = [ "octet-standards-closure" octetStandards ];
         } ''
           mkdir -p "$out"
           cp octet-standards-closure "$out/octet-standards-closure.graph"
@@ -428,8 +428,8 @@
           graph_digest=$(b3sum "$out/octet-standards-closure.graph.canonical" | cut -d' ' -f1)
           printf '%s\n' "$graph_digest" > "$out/octet-standards-closure.graph.blake3"
           cat > "$out/proof-nix-closure.txt" <<EOF
-          proof-verifier-nix-derivation: ${slotcarStandards.drvPath}
-          proof-verifier-nix-output: ${slotcarStandards}
+          proof-verifier-nix-derivation: ${octetStandards.drvPath}
+          proof-verifier-nix-output: ${octetStandards}
           proof-verifier-nix-closure: exportReferencesGraph:octet-standards-closure
           proof-verifier-nix-closure-graph-blake3: $graph_digest
           EOF
@@ -586,7 +586,7 @@ MAIN
 
         policyArtifacts = pkgs.writeShellApplication {
           name = "octet-policy-artifacts";
-          runtimeInputs = with pkgs; [ nickel slotcarStandards ];
+          runtimeInputs = with pkgs; [ nickel octetStandards ];
           text = ''
             if [ "$#" -ne 1 ]; then
               echo "usage: octet-policy-artifacts OUT_DIR" >&2
@@ -699,7 +699,7 @@ MAIN
 
         standardsFixtureCheck = pkgs.runCommand "octet-standards-fixtures"
           {
-            nativeBuildInputs = with pkgs; [ jq nickel slotcarStandards ];
+            nativeBuildInputs = with pkgs; [ jq nickel octetStandards ];
           } ''
           cd ${./.}
           artifact_dir=$(mktemp -d)
@@ -953,11 +953,11 @@ MAIN
           fingerprint-docs-downstream-smoke = fingerprintDocsDownstreamSmoke;
           cairn = cairn.packages.${system}.cairn;
           dylint-driver = dylintDriver;
-          octet-standards = slotcarStandards;
-          slotcar-standards = slotcarStandards;
-          tigerstyle-standards = slotcarStandards;
-          octet-standards-nix-closure-manifest = slotcarStandardsNixClosureManifest;
-          slotcar-standards-nix-closure-manifest = slotcarStandardsNixClosureManifest;
+          octet-standards = octetStandards;
+          slotcar-standards = octetStandards;
+          tigerstyle-standards = octetStandards;
+          octet-standards-nix-closure-manifest = octetStandardsNixClosureManifest;
+          slotcar-standards-nix-closure-manifest = octetStandardsNixClosureManifest;
           octet-policy-export = policyExport;
           tigerstyle-policy-export = policyExport;
           octet-policy-artifacts = policyArtifacts;
@@ -992,17 +992,17 @@ MAIN
           };
 
           octet-standards = flake-utils.lib.mkApp {
-            drv = slotcarStandards;
+            drv = octetStandards;
             exePath = "/bin/octet-standards";
           };
 
           slotcar-standards = flake-utils.lib.mkApp {
-            drv = slotcarStandards;
+            drv = octetStandards;
             exePath = "/bin/slotcar-standards";
           };
 
           tigerstyle-standards = flake-utils.lib.mkApp {
-            drv = slotcarStandards;
+            drv = octetStandards;
             exePath = "/bin/tigerstyle-standards";
           };
 
@@ -1414,15 +1414,15 @@ MAIN
           policy-registry = policyRegistryCheck;
           standards-fixtures = standardsFixtureCheck;
           octet-standards-nix-closure-manifest = pkgs.runCommand "octet-standards-nix-closure-manifest-check" { } ''
-            test -s ${slotcarStandardsNixClosureManifest}/proof-nix-closure.txt
-            test -s ${slotcarStandardsNixClosureManifest}/octet-standards-closure.graph
-            test -s ${slotcarStandardsNixClosureManifest}/octet-standards-closure.graph.canonical
-            test -s ${slotcarStandardsNixClosureManifest}/octet-standards-closure.graph.blake3
-            grep -F "proof-verifier-nix-derivation:" ${slotcarStandardsNixClosureManifest}/proof-nix-closure.txt >/dev/null
-            grep -F "proof-verifier-nix-output: ${slotcarStandards}" ${slotcarStandardsNixClosureManifest}/proof-nix-closure.txt >/dev/null
-            grep -F "proof-verifier-nix-closure: exportReferencesGraph:octet-standards-closure" ${slotcarStandardsNixClosureManifest}/proof-nix-closure.txt >/dev/null
-            graph_digest=$(cat ${slotcarStandardsNixClosureManifest}/octet-standards-closure.graph.blake3)
-            grep -F "proof-verifier-nix-closure-graph-blake3: $graph_digest" ${slotcarStandardsNixClosureManifest}/proof-nix-closure.txt >/dev/null
+            test -s ${octetStandardsNixClosureManifest}/proof-nix-closure.txt
+            test -s ${octetStandardsNixClosureManifest}/octet-standards-closure.graph
+            test -s ${octetStandardsNixClosureManifest}/octet-standards-closure.graph.canonical
+            test -s ${octetStandardsNixClosureManifest}/octet-standards-closure.graph.blake3
+            grep -F "proof-verifier-nix-derivation:" ${octetStandardsNixClosureManifest}/proof-nix-closure.txt >/dev/null
+            grep -F "proof-verifier-nix-output: ${octetStandards}" ${octetStandardsNixClosureManifest}/proof-nix-closure.txt >/dev/null
+            grep -F "proof-verifier-nix-closure: exportReferencesGraph:octet-standards-closure" ${octetStandardsNixClosureManifest}/proof-nix-closure.txt >/dev/null
+            graph_digest=$(cat ${octetStandardsNixClosureManifest}/octet-standards-closure.graph.blake3)
+            grep -F "proof-verifier-nix-closure-graph-blake3: $graph_digest" ${octetStandardsNixClosureManifest}/proof-nix-closure.txt >/dev/null
             mkdir -p "$out"
           '';
           slotcar-standards-nix-closure-manifest = self.checks.${system}.octet-standards-nix-closure-manifest;
@@ -1441,7 +1441,7 @@ MAIN
             pkgs.jq
             pkgs.nickel
             pkgs.rust-analyzer
-            slotcarStandards
+            octetStandards
           ];
 
           inputsFrom = [ octet ];

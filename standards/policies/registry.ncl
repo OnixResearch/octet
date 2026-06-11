@@ -167,7 +167,7 @@ in
     {
       family_id = "tigerstyle.proof-bundle-receipt",
       ownership = "rust-derived",
-      owner_source_path = "crates/slotcar-standards/src/artifacts.rs",
+      owner_source_path = "crates/octet-standards/src/artifacts.rs",
       artifact_path = "octet-proof-bundles.json",
       generation_command = "cargo test -p octet-standards exported_proof_bundle_preserves_verified_rail_schema",
       validation_command = "cargo test -p octet-standards artifact_backed_proof_bundle_rejects_unsupported_schema_version",
@@ -178,7 +178,7 @@ in
     {
       family_id = "tigerstyle.acceptance-receipt",
       ownership = "rust-derived",
-      owner_source_path = "crates/slotcar-standards/src/artifacts.rs",
+      owner_source_path = "crates/octet-standards/src/artifacts.rs",
       artifact_path = "octet-acceptance-receipt.json",
       generation_command = "nix develop -c bash -c 'nickel export --format json standards/receipts/fixtures/valid/acceptance_receipt.ncl'",
       validation_command = "nix develop -c bash -c 'nickel export --format json standards/receipts/fixtures/invalid/missing_config_digest.ncl' # expected failure",
@@ -199,7 +199,7 @@ in
     {
       family_id = "tigerstyle.runtime-behavior-and-wire-discriminants",
       ownership = "non-candidate",
-      owner_source_path = "crates/slotcar-standards/src/runner.rs",
+      owner_source_path = "crates/octet-standards/src/runner.rs",
       generation_command = "review registry exclusion rationale",
       validation_command = "nix run .#octet-policy-validate",
       status = "non-candidate",

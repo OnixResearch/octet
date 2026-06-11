@@ -5,7 +5,7 @@
 This repo enforces a reusable Rust safety profile through two explicit seams:
 
 - the Dylint lint engine in `src/` and `cargo-octet/`
-- the policy registry and standards checker in `standards/` and `crates/slotcar-standards/`
+- the policy registry and standards checker in `standards/` and `crates/octet-standards/`
 
 The machine-readable policy index lives in
 [`standards/policies/registry.ncl`](../../standards/policies/registry.ncl). It
@@ -16,18 +16,18 @@ evidence.
 
 ## Functional Core / Imperative Shell
 
-- Standards policy logic MUST live in `crates/slotcar-standards/src/` as pure
+- Standards policy logic MUST live in `crates/octet-standards/src/` as pure
   rule functions over plain inputs.
 - Filesystem walking, JSON loading, CLI parsing, and exit-code mapping MUST stay
-  in the `slotcar-standards` binary shell.
+  in the `octet-standards` binary shell.
 - Dylint lint implementation MUST stay in `src/`; standards policy checks MUST
   not be folded into the compiler-plugin crate unless they need rustc HIR.
 - `cargo-octet/` MUST remain the lint runner seam for downstream projects.
 
 ## Policy Registry
 
-- Policy IDs use the `slotcar.<pillar>.<rule>` namespace.
-- Suppressions use `slotcar-allow:` comments and MUST cite policy ID, source
+- Policy IDs use the `octet.<pillar>.<rule>` namespace.
+- Suppressions use `octet-allow:` comments and MUST cite policy ID, source
   section, owner, rationale, review trigger, and safer default for hard rules.
 - Hard policies need positive and negative fixtures before becoming blocking.
 - Policies that target `structural` MUST export at least one mechanism contract
@@ -68,7 +68,7 @@ evidence.
   state. If `verifier_nix_closure_graph_paths` are configured, the graph digest
   is derived from canonicalized generated Nix `exportReferencesGraph` artifacts
   so fixture receipts bind to recursive closure graph evidence, not just a
-  declared closure label. A local Nix package exports the `slotcar-standards`
+  declared closure label. A local Nix package exports the `octet-standards`
   references graph and digest sidecar so fixture Nix closure receipts have a
   first-class regeneration seam. When
   `octet-standards check --execute-proof-rails` is enabled, the checker runs
@@ -106,11 +106,11 @@ evidence.
 Run these inside `nix develop` or through `nix develop path:. -c ...`:
 
 ```bash
-cargo test -p slotcar-standards
+cargo test -p octet-standards
 cargo check --workspace --all-targets
 cargo clippy --workspace --all-targets -- -D warnings
 nix run .#octet-policy-validate
-nix run .#slotcar-standards -- --help
+nix run .#octet-standards -- --help
 nix build .#checks.x86_64-linux.policy-registry --no-link
 nix build .#checks.x86_64-linux.standards-fixtures --no-link
 nix run .#cargo-octet -- check

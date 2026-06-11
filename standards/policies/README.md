@@ -1,6 +1,6 @@
 # Tiger Style Policy Registry
 
-`registry.ncl` is the typed index from Tiger Style prose to executable policy. The narrative source remains `docs/standards/source/slotcar-standards.adoc` and `docs/standards/source/*.adoc`; this registry gives checkers stable IDs, source anchors, current/target enforcement modes, structural mechanisms, proof rails, suppression requirements, seed manifests, and planned evidence.
+`registry.ncl` is the typed index from Tiger Style prose to executable policy. The narrative source remains `docs/standards/source/octet-standards.adoc` and `docs/standards/source/*.adoc`; this registry gives checkers stable IDs, source anchors, current/target enforcement modes, structural mechanisms, proof rails, suppression requirements, seed manifests, and planned evidence.
 
 The first checker foundation uses the existing Rust/Serde JSON stack and consumes exported registry JSON. No new parser dependency is introduced; custom source checks must record why existing rustc, Clippy, rustfmt, Tiger Style, cargo-deny, Tracey, Verus, or flake rails are insufficient before they grow bespoke parsing.
 

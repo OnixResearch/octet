@@ -633,7 +633,7 @@ impl TempDir {
             .duration_since(std::time::UNIX_EPOCH)
             .map_err(|error| format!("system clock error: {error}"))?
             .as_nanos();
-        let path = env::temp_dir().join(format!("slotcar-{label}-{}-{nanos}", std::process::id()));
+        let path = env::temp_dir().join(format!("octet-{label}-{}-{nanos}", std::process::id()));
         fs::create_dir_all(&path).map_err(|error| format!("create {}: {error}", path.display()))?;
         Ok(Self { path })
     }

@@ -4,20 +4,20 @@ use std::process::Command;
 use std::process::Output;
 
 use pretty_assertions::assert_eq;
-use slotcar_standards::model::Classification;
-use slotcar_standards::model::EnforcementLevel;
-use slotcar_standards::model::EnforcementMode;
-use slotcar_standards::model::EvidenceCommand;
-use slotcar_standards::model::FixtureCoverage;
-use slotcar_standards::model::FixtureStatus;
-use slotcar_standards::model::PolicyEntry;
-use slotcar_standards::model::PolicyRegistry;
-use slotcar_standards::model::ProofRail;
-use slotcar_standards::model::ReceiptProvenance;
-use slotcar_standards::model::ReceiptVerifier;
-use slotcar_standards::model::Severity;
-use slotcar_standards::model::SuppressionRequirements;
-use slotcar_standards::report::CheckReport;
+use octet_standards::model::Classification;
+use octet_standards::model::EnforcementLevel;
+use octet_standards::model::EnforcementMode;
+use octet_standards::model::EvidenceCommand;
+use octet_standards::model::FixtureCoverage;
+use octet_standards::model::FixtureStatus;
+use octet_standards::model::PolicyEntry;
+use octet_standards::model::PolicyRegistry;
+use octet_standards::model::ProofRail;
+use octet_standards::model::ReceiptProvenance;
+use octet_standards::model::ReceiptVerifier;
+use octet_standards::model::Severity;
+use octet_standards::model::SuppressionRequirements;
+use octet_standards::report::CheckReport;
 use tempfile::TempDir;
 
 const FCIS_POLICY_ID: &str = "tigerstyle.architecture.fcis-crate-boundary";
@@ -38,6 +38,38 @@ const PROOF_BUNDLE_SCHEMA_VERSION: &str = "octet-proof-bundle/v1";
 const ARTIFACT_MANIFEST_SCHEMA_VERSION: &str = "octet-artifact-manifest/v1";
 const ADVISORY_FIXTURE: &str = "standards/check-fixtures/architecture/advisory/public-api-budget";
 const HARD_FAILURE_FIXTURE: &str = "standards/check-fixtures/architecture/noncompliant/missing-no-std";
+const EXPECTED_BINARY_DECLARATION_COUNT: usize = 1;
+
+#[test]
+fn octet_identity_surfaces() {
+    let manifest_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("Cargo.toml");
+    let manifest = std::fs::read_to_string(&manifest_path)
+        .unwrap_or_else(|error| panic!("read {}: {error}", manifest_path.display()));
+
+    assert!(manifest.contains("[package]\nname = \"octet-standards\""));
+    assert!(manifest.contains("[lib]\nname = \"octet_standards\""));
+    assert_eq!(
+        manifest.matches("[[bin]]\nname = \"octet-standards\"\npath = \"src/main.rs\"").count(),
+        EXPECTED_BINARY_DECLARATION_COUNT,
+        "canonical standards binary must be declared exactly once"
+    );
+    assert_eq!(
+        manifest.matches("[[bin]]\nname = \"slotcar-standards\"\npath = \"src/main.rs\"").count(),
+        EXPECTED_BINARY_DECLARATION_COUNT,
+        "legacy Slotcar standards binary remains one explicit compatibility alias"
+    );
+    assert_eq!(
+        manifest.matches("[[bin]]\nname = \"tigerstyle-standards\"\npath = \"src/main.rs\"").count(),
+        EXPECTED_BINARY_DECLARATION_COUNT,
+        "Tiger Style standards binary remains one explicit compatibility alias"
+    );
+    assert!(!manifest.contains("[package]\nname = \"slotcar-standards\""));
+    assert!(!manifest.contains("[lib]\nname = \"slotcar_standards\""));
+
+    assert!(env!("CARGO_BIN_EXE_octet-standards").ends_with("octet-standards"));
+    assert!(env!("CARGO_BIN_EXE_slotcar-standards").ends_with("slotcar-standards"));
+    assert!(env!("CARGO_BIN_EXE_tigerstyle-standards").ends_with("tigerstyle-standards"));
+}
 
 #[test]
 fn advisory_only_cli_report_exits_successfully() {
@@ -920,7 +952,7 @@ fn parse_report(output: &Output) -> CheckReport {
 }
 
 fn binary_path() -> &'static str {
-    env!("CARGO_BIN_EXE_slotcar-standards")
+    env!("CARGO_BIN_EXE_octet-standards")
 }
 
 fn blake3_hex(text: &str) -> String {

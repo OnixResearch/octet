@@ -1,8 +1,8 @@
-mod slotcar {
+mod octet {
     /// Compatibility API retained for downstream Slotcar callers.
-    pub fn slotcar_config() {}
+    pub fn octet_config() {}
 }
 
 fn main() {
-    slotcar::slotcar_config();
+    octet::octet_config();
 }

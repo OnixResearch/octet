@@ -12,21 +12,21 @@ For the landing-page naming map, see `../README.md`.
 
 | Domain | Group | Count |
 | --- | --- | ---: |
-| safety | `slotcar::safety` | 18 |
-| naming | `slotcar::naming` | 5 |
-| performance | `slotcar::performance` | 1 |
-| structure | `slotcar::structure` | 10 |
-| purity | `slotcar::purity` | 3 |
-| concurrency | `slotcar::concurrency` | 1 |
+| safety | `octet::safety` | 18 |
+| naming | `octet::naming` | 5 |
+| performance | `octet::performance` | 1 |
+| structure | `octet::structure` | 10 |
+| purity | `octet::purity` | 3 |
+| concurrency | `octet::concurrency` | 1 |
 
 ## Suppression and level controls
 
 Source attrs and group attrs use canonical tool names:
 
 ```rust
-#[allow(slotcar::unchecked_narrowing)]
-#![deny(slotcar::naming)]
-#![warn(slotcar::numeric_units)]
+#[allow(octet::unchecked_narrowing)]
+#![deny(octet::naming)]
+#![warn(octet::numeric_units)]
 ```
 
 Keep config keys bare in `dylint.toml`:
@@ -42,7 +42,7 @@ no_unwrap = "deny"
 
 Rules to keep straight:
 
-- source attrs and domain groups use `slotcar::...`
+- source attrs and domain groups use `octet::...`
 - `disabled_lints` and `[octet.lint_levels]` use bare lint names
 - `disabled_lints` wins over `lint_levels`
 - allow-by-default lints can be turned on with `#![warn(...)]` or a lint-level override
@@ -50,7 +50,7 @@ Rules to keep straight:
 
 ```rust
 #![feature(register_tool)]
-#![register_tool(slotcar)]
+#![register_tool(octet)]
 ```
 
 ## Config keys
@@ -68,7 +68,7 @@ Rules to keep straight:
 
 Unknown lint names and invalid level values warn and are ignored.
 
-## Safety lints (`slotcar::safety`)
+## Safety lints (`octet::safety`)
 
 | Lint | Default | Summary |
 | --- | --- | --- |
@@ -77,7 +77,7 @@ Unknown lint names and invalid level values warn and are ignored.
 | `no_unwrap` | `warn` | ban `.unwrap()` and `.expect()` in production code |
 | `no_panic` | `warn` | ban `panic!()`, `unimplemented!()`, and `unreachable!()` in production code |
 | `no_todo` | `warn` | ban `todo!()` in production code |
-| `unjustified_no_todo_allow` | `warn` | require a local `//` justification for `allow(no_todo)` / `allow(slotcar::no_todo)` |
+| `unjustified_no_todo_allow` | `warn` | require a local `//` justification for `allow(no_todo)` / `allow(octet::no_todo)` |
 | `no_recursion` | `warn` | flag direct self-recursion |
 | `unchecked_narrowing` | `warn` | flag `as u32`-style narrowing without a checked bound |
 | `unchecked_division` | `warn` | require a zero guard before dividing by a variable |
@@ -91,7 +91,7 @@ Unknown lint names and invalid level values warn and are ignored.
 | `sentinel_fallback` | `warn` | flag `<int>::MAX` / `<int>::MIN` sentinel fallbacks instead of explicit branching or tagged fallback text |
 | `public_unsafe_api` | `warn` | flag public Rust `unsafe fn` APIs that leak unsafe obligations to callers |
 
-## Naming lints (`slotcar::naming`)
+## Naming lints (`octet::naming`)
 
 | Lint | Default | Summary |
 | --- | --- | --- |
@@ -101,13 +101,13 @@ Unknown lint names and invalid level values warn and are ignored.
 | `numeric_units` | `allow` | require unit suffixes such as `_ms`, `_secs`, or `_bytes` |
 | `float_for_currency` | `allow` | avoid `f64` in price, cost, or budget fields |
 
-## Performance lints (`slotcar::performance`)
+## Performance lints (`octet::performance`)
 
 | Lint | Default | Summary |
 | --- | --- | --- |
 | `clone_then_borrow` | `warn` | flag cloning a value only to immediately take a shared borrow |
 
-## Structure lints (`slotcar::structure`)
+## Structure lints (`octet::structure`)
 
 | Lint | Default | Summary |
 | --- | --- | --- |
@@ -122,7 +122,7 @@ Unknown lint names and invalid level values warn and are ignored.
 | `unjustified_allow` | `allow` | require local justification for `#[allow(clippy::...)]` |
 | `ambiguous_params` | `allow` | flag consecutive same-type primitive parameters |
 
-## Purity lints (`slotcar::purity`)
+## Purity lints (`octet::purity`)
 
 | Lint | Default | Summary |
 | --- | --- | --- |
@@ -130,7 +130,7 @@ Unknown lint names and invalid level values warn and are ignored.
 | `verified_purity` | `deny` | ban async, IO, and wall-clock usage in `verified/` modules |
 | `contradictory_time` | `warn` | avoid taking time as input and then reading the clock again |
 
-## Concurrency lints (`slotcar::concurrency`)
+## Concurrency lints (`octet::concurrency`)
 
 | Lint | Default | Summary |
 | --- | --- | --- |

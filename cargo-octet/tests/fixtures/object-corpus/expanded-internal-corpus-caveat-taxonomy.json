@@ -17,20 +17,20 @@
     "cargo-octet/src/provider_manifest.rs",
     "cargo-octet/src/roadmap.rs",
     "cargo-octet/src/transcript.rs",
-    "crates/slotcar-standards/src/architecture.rs",
-    "crates/slotcar-standards/src/artifacts.rs",
-    "crates/slotcar-standards/src/diagnostic.rs",
-    "crates/slotcar-standards/src/fixture.rs",
-    "crates/slotcar-standards/src/lib.rs",
-    "crates/slotcar-standards/src/main.rs",
-    "crates/slotcar-standards/src/model.rs",
-    "crates/slotcar-standards/src/proof.rs",
-    "crates/slotcar-standards/src/receipt.rs",
-    "crates/slotcar-standards/src/report.rs",
-    "crates/slotcar-standards/src/resource.rs",
-    "crates/slotcar-standards/src/runner.rs",
-    "crates/slotcar-standards/src/source.rs",
-    "crates/slotcar-standards/src/suppression.rs"
+    "crates/octet-standards/src/architecture.rs",
+    "crates/octet-standards/src/artifacts.rs",
+    "crates/octet-standards/src/diagnostic.rs",
+    "crates/octet-standards/src/fixture.rs",
+    "crates/octet-standards/src/lib.rs",
+    "crates/octet-standards/src/main.rs",
+    "crates/octet-standards/src/model.rs",
+    "crates/octet-standards/src/proof.rs",
+    "crates/octet-standards/src/receipt.rs",
+    "crates/octet-standards/src/report.rs",
+    "crates/octet-standards/src/resource.rs",
+    "crates/octet-standards/src/runner.rs",
+    "crates/octet-standards/src/source.rs",
+    "crates/octet-standards/src/suppression.rs"
   ],
   "source_buckets": [
     {
@@ -418,7 +418,7 @@
       ]
     },
     {
-      "source_path": "crates/slotcar-standards/src/architecture.rs",
+      "source_path": "crates/octet-standards/src/architecture.rs",
       "object_count": 37,
       "caveat_counts": {
         "dependency_status": {
@@ -446,7 +446,7 @@
       ]
     },
     {
-      "source_path": "crates/slotcar-standards/src/artifacts.rs",
+      "source_path": "crates/octet-standards/src/artifacts.rs",
       "object_count": 29,
       "caveat_counts": {
         "dependency_status": {
@@ -475,7 +475,7 @@
       ]
     },
     {
-      "source_path": "crates/slotcar-standards/src/diagnostic.rs",
+      "source_path": "crates/octet-standards/src/diagnostic.rs",
       "object_count": 2,
       "caveat_counts": {
         "dependency_status": {
@@ -499,7 +499,7 @@
       ]
     },
     {
-      "source_path": "crates/slotcar-standards/src/fixture.rs",
+      "source_path": "crates/octet-standards/src/fixture.rs",
       "object_count": 7,
       "caveat_counts": {
         "dependency_status": {
@@ -527,7 +527,7 @@
       ]
     },
     {
-      "source_path": "crates/slotcar-standards/src/lib.rs",
+      "source_path": "crates/octet-standards/src/lib.rs",
       "object_count": 38,
       "caveat_counts": {
         "dependency_status": {
@@ -557,7 +557,7 @@
       ]
     },
     {
-      "source_path": "crates/slotcar-standards/src/main.rs",
+      "source_path": "crates/octet-standards/src/main.rs",
       "object_count": 53,
       "caveat_counts": {
         "dependency_status": {
@@ -589,7 +589,7 @@
       ]
     },
     {
-      "source_path": "crates/slotcar-standards/src/model.rs",
+      "source_path": "crates/octet-standards/src/model.rs",
       "object_count": 7,
       "caveat_counts": {
         "dependency_status": {
@@ -613,7 +613,7 @@
       ]
     },
     {
-      "source_path": "crates/slotcar-standards/src/proof.rs",
+      "source_path": "crates/octet-standards/src/proof.rs",
       "object_count": 22,
       "caveat_counts": {
         "dependency_status": {
@@ -642,7 +642,7 @@
       ]
     },
     {
-      "source_path": "crates/slotcar-standards/src/receipt.rs",
+      "source_path": "crates/octet-standards/src/receipt.rs",
       "object_count": 2,
       "caveat_counts": {
         "dependency_status": {
@@ -666,7 +666,7 @@
       ]
     },
     {
-      "source_path": "crates/slotcar-standards/src/report.rs",
+      "source_path": "crates/octet-standards/src/report.rs",
       "object_count": 9,
       "caveat_counts": {
         "dependency_status": {
@@ -690,7 +690,7 @@
       ]
     },
     {
-      "source_path": "crates/slotcar-standards/src/resource.rs",
+      "source_path": "crates/octet-standards/src/resource.rs",
       "object_count": 13,
       "caveat_counts": {
         "dependency_status": {
@@ -718,7 +718,7 @@
       ]
     },
     {
-      "source_path": "crates/slotcar-standards/src/runner.rs",
+      "source_path": "crates/octet-standards/src/runner.rs",
       "object_count": 4,
       "caveat_counts": {
         "dependency_status": {
@@ -742,7 +742,7 @@
       ]
     },
     {
-      "source_path": "crates/slotcar-standards/src/source.rs",
+      "source_path": "crates/octet-standards/src/source.rs",
       "object_count": 1,
       "caveat_counts": {
         "dependency_status": {
@@ -766,7 +766,7 @@
       ]
     },
     {
-      "source_path": "crates/slotcar-standards/src/suppression.rs",
+      "source_path": "crates/octet-standards/src/suppression.rs",
       "object_count": 19,
       "caveat_counts": {
         "dependency_status": {

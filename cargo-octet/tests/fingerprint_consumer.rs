@@ -3732,7 +3732,7 @@ fn object_internal_corpus_expanded_taxonomy_names_selected_source_buckets() {
     for path in INTERNAL_OBJECT_CORPUS {
         assert!(taxonomy_paths.iter().any(|value| value == path), "missing core path {path}");
     }
-    for bucket in ["cargo-octet", "slotcar-standards"] {
+    for bucket in ["cargo-octet", "octet-standards"] {
         assert!(
             taxonomy["buckets"]
                 .as_array()
@@ -3745,7 +3745,7 @@ fn object_internal_corpus_expanded_taxonomy_names_selected_source_buckets() {
     assert!(
         taxonomy_paths
             .iter()
-            .any(|value| value.as_str().unwrap().starts_with("crates/slotcar-standards/src/")),
+            .any(|value| value.as_str().unwrap().starts_with("crates/octet-standards/src/")),
         "expanded taxonomy must include standards crate sources: {taxonomy:#?}"
     );
 }
