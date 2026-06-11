@@ -1,18 +1,3 @@
-warning: module directory `/nix/store/1yvh3d6y3fj3xk2dgwczrp1dj5svd92c-rust-default-1.96.0-nightly-2026-03-21/lib/rustlib/src/rust/library/core/src` contains 8 Rust source files (limit: 7)
-  --> /nix/store/1yvh3d6y3fj3xk2dgwczrp1dj5svd92c-rust-default-1.96.0-nightly-2026-03-21/lib/rustlib/src/rust/library/core/src/cmp.rs:1:1
-   |
-LL | / //! Utilities for comparing and ordering values.
-LL | | //!
-LL | | //! This module contains various tools for comparing and ordering values. In
-LL | | //! summary:
-...  |
-LL | | }
-   | |__^
-   |
-   = help: Tiger Style (Module Size): split crowded module directories into smaller responsibility-based submodules Example: mod parser; mod planner; mod executor;
-   = note: see Tiger Style guide: File Length
-   = note: `#[warn(tigerstyle::module_file_count)]` on by default
-
 warning: `unreachable!` will abort the process on execution
   --> $DIR/no_panic_exhaustive_external.rs:10:14
    |
@@ -23,5 +8,5 @@ LL |         _ => unreachable!("external enum should still warn"),
    = note: see Tiger Style guide: Error Handling / Panics
    = note: `#[warn(tigerstyle::no_panic)]` on by default
 
-warning: 2 warnings emitted
+warning: 1 warning emitted
 
