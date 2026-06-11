@@ -78,7 +78,7 @@ Human output is the default and is designed for terminals, PR comments, and simp
 CI logs:
 
 ```text
-slotcar fingerprint check
+octet fingerprint check
 src/lib.rs checked_transition mismatch stored=b3:old computed=b3:new review=safety-critical evidence=openspec/.../evidence/check.txt macro_warning=false
 summary total=6 match=5 mismatch=1 missing=0 written=0 macro_warnings=0 metadata_missing=0
 ```

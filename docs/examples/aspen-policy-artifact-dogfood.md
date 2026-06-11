@@ -7,7 +7,7 @@ Nickel registry directly.
 
 ## Scope
 
-- Octet checkout: `/home/brittonr/git/slotcar`
+- Octet checkout: `/home/brittonr/git/octet`
 - Aspen checkout: `/home/brittonr/git/aspen`
 - Aspen HEAD during capture: `10bb6fb38` (`Document operator receipt evidence`)
 - Aspen source roots checked:

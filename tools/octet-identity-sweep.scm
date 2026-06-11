@@ -38,7 +38,7 @@
 (define COMPATIBILITY-TEST-LOCK "nix flake lock --no-update-lock-file")
 
 (define SKIP-PARTS
-  (list ".git" ".jj" ".direnv" ".pi" "target" "node_modules" "result" "result-bin"))
+  (list ".git" ".jj" ".direnv" ".pi" ".agent" "target" "node_modules" "result" "result-bin"))
 
 (define BINARY-SUFFIXES
   (list ".a" ".bin" ".bmp" ".bz2" ".dylib" ".gif" ".gz" ".ico" ".jpeg" ".jpg"
@@ -49,14 +49,22 @@
 (define ACTIVE-CHANGE-SCRIPT "tools/octet-identity-sweep.scm")
 (define LEGACY-PYTHON-CLASSIFIER "tools/classify-slotcar-rename.py")
 (define CHANGELOG-PATH "CHANGELOG.md")
+(define FLAKE-NIX-PATH "flake.nix")
 (define FLAKE-LOCK-PATH "flake.lock")
 (define AGENTS-PATH "AGENTS.md")
+(define CARGO-OCTET-MANIFEST-PATH "cargo-octet/Cargo.toml")
+(define OCTET-STANDARDS-MANIFEST-PATH "crates/octet-standards/Cargo.toml")
+(define RELEASE-CANDIDATE-DOC-PATH "docs/release-candidate.md")
 
 (define COMPATIBILITY-PATHS
   (list
    ".agents/skills/slotcar-repo/SKILL.md"
    ACTIVE-CHANGE-SCRIPT
    LEGACY-PYTHON-CLASSIFIER
+   FLAKE-NIX-PATH
+   CARGO-OCTET-MANIFEST-PATH
+   OCTET-STANDARDS-MANIFEST-PATH
+   RELEASE-CANDIDATE-DOC-PATH
    "cargo-octet/src/cli.rs"
    "cargo-octet/src/config.rs"
    "cargo-octet/src/fingerprint.rs"
@@ -73,6 +81,8 @@
   (list
    "alias"
    "aliases"
+   "archive"
+   "archived"
    "bootstrap compatibility"
    "compatibility"
    "compatibility alias"
@@ -179,7 +189,7 @@
   (string-starts-with? ACTIVE-CHANGE-PREFIX rel))
 
 (define (standards-crate-path? rel)
-  (string-starts-with? "crates/slotcar-standards/" rel))
+  (string-starts-with? "crates/octet-standards/" rel))
 
 (define (standards-compatibility-path? rel)
   (and (standards-crate-path? rel)
@@ -247,8 +257,9 @@
            "reason" "path is an explicit compatibility, local-instruction, lock, changelog, or active-change boundary"
            "focused_test" (focused-test-for rel line))]
     [(or (line-has-compatibility-language? line)
-         (line-has-code-compatibility-token? line)
-         (line-has-path-compatibility-token? line))
+         (and (compatibility-path? rel)
+              (or (line-has-code-compatibility-token? line)
+                  (line-has-path-compatibility-token? line))))
      (hash "category" CATEGORY-ALLOWED-COMPATIBILITY
            "replacement" EMPTY
            "reason" "line explicitly describes retained legacy compatibility or a literal compatibility token"
@@ -443,6 +454,10 @@
               (+ line-number 1)
               (cons (rewrite-line rel line-number (car lines)) out)))))
 
+(define (pi-write-file/truncate path text)
+  (delete-file! path)
+  (pi-write-file path text))
+
 (define (apply-rewrites paths)
   (let loop ([remaining paths] [modified '()])
     (if (null? remaining)
@@ -453,7 +468,7 @@
           (if (string=? old-text new-text)
               (loop (cdr remaining) modified)
               (begin
-                (pi-write-file rel new-text)
+                (pi-write-file/truncate rel new-text)
                 (loop (cdr remaining) (cons rel modified))))))))
 
 (define (path-action-row rel)
@@ -472,7 +487,8 @@
        (filter (lambda (rel)
                  (and (string-contains? rel "slotcar")
                       (not (archive-path? rel))
-                      (not (evidence-path? rel))))
+                      (not (evidence-path? rel))
+                      (not (compatibility-path? rel))))
                paths)))
 
 (define (report-summary mode paths rows modified-paths)

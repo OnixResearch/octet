@@ -26,4 +26,4 @@ rustc_private = true
 
 [workspace]
 resolver = "2"
-members = ["cargo-octet", "crates/slotcar-standards", "crates/valence-core"]
+members = ["cargo-octet", "crates/octet-standards", "crates/valence-core"]

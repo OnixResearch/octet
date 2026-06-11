@@ -617,17 +617,17 @@ The system MUST provide or document a local-first command that validates example
 - WHEN live example verification runs
 - THEN the command fails and names the stale example entry
 
-### Requirement: Slotcar Public Documentation Identity
+### Requirement: Octet Public Documentation Identity Baseline
 
-The system MUST present `slotcar` as the canonical repository, package, binary, cargo subcommand, Nix output, and documentation identity anywhere the text describes the product or tool that users install or invoke. Documentation MAY retain `Tiger Style` / `tigerstyle` only when the occurrence is explicitly about the coding philosophy, historical compatibility, lint namespace compatibility, or archived evidence.
+The system MUST present `Octet` / `octet` as the canonical repository, package, binary, cargo subcommand, Nix output, and documentation identity anywhere the text describes the product or tool that users install or invoke. Documentation MAY retain `Tiger Style`, `tigerstyle`, or `slotcar` only when the occurrence is explicitly about the coding philosophy, historical compatibility, lint namespace compatibility, a transition alias, or archived evidence.
 
-The deterministic proof artifact `openspec/changes/archive/2026-05-15-rename-to-slotcar/evidence/name-classification.txt` MUST list every remaining non-archived `tigerstyle` occurrence after implementation as one of `philosophy`, `compatibility`, `namespace`, `archived`, or `needs-fix`, and the accepted artifact MUST contain zero `needs-fix` rows.
+The deterministic proof artifact `openspec/changes/archive/2026-05-18-rename-slotcar-to-octet/evidence/name-classification.txt` MUST list every remaining non-archived `slotcar`, `Slotcar`, `tigerstyle`, or `Tiger Style` occurrence after implementation as one of `philosophy`, `compatibility`, `namespace`, `archived`, or `needs-fix`, and the accepted artifact MUST contain zero `needs-fix` rows.
 
-#### Scenario: Canonical install and usage docs say slotcar
+#### Scenario: Canonical install and usage docs say octet
 
 - GIVEN a user reads current non-archived README, guides, templates, and generated examples
 - WHEN the text tells them what to install, build, run, or configure as this repository's tool
-- THEN the canonical name shown to the user is `slotcar`, `cargo-slotcar`, or `cargo slotcar`
+- THEN the canonical name shown to the user is `octet`, `cargo-octet`, or `cargo octet`
 
 #### Scenario: Philosophy references remain distinguishable
 
@@ -637,12 +637,12 @@ The deterministic proof artifact `openspec/changes/archive/2026-05-15-rename-to-
 
 ### Requirement: Executable Documentation Transcripts [r[executable-documentation-transcripts]]
 
-The system MUST support executable documentation transcripts for Slotcar examples. A transcript MUST be a Markdown document containing Slotcar command blocks, fixture setup references, and expected-output assertions. Running a transcript MUST produce deterministic output artifacts suitable for tests and OpenSpec evidence.
+The system MUST support executable documentation transcripts for Octet examples. A transcript MUST be a Markdown document containing Octet command blocks, fixture setup references, and expected-output assertions. Running a transcript MUST produce deterministic output artifacts suitable for tests and OpenSpec evidence.
 
 #### Scenario: Transcript executes command blocks [r[executable-documentation-transcripts.scenario.transcript-executes-command-blocks]]
 
-- GIVEN a docs example contains a `slotcar-check` command block and fixture reference
-- WHEN `cargo slotcar transcript <path>` runs
+- GIVEN a docs example contains an `octet-check` command block and fixture reference
+- WHEN `cargo octet transcript <path>` runs
 - THEN the command executes in an isolated fixture workspace and records exit status plus bounded output
 
 #### Scenario: Expected output assertion fails closed [r[executable-documentation-transcripts.scenario.expected-output-assertion-fails-closed]]
@@ -671,9 +671,9 @@ The readiness path MUST identify the candidate version, the package/app outputs 
 
 #### Scenario: Maintainer verifies package outputs before tagging [r[release-candidate-readiness.scenario.maintainer-verifies-package-outputs-before-tagging]]
 
-- GIVEN a maintainer is preparing a Slotcar release candidate
+- GIVEN a maintainer is preparing an Octet release candidate
 - WHEN they run the release candidate smoke check
-- THEN the check builds or references the `cargo-slotcar`, `cargo-tigerstyle`, and `tigerstyle`/`slotcar` package outputs from the current flake
+- THEN the check builds or references the canonical `cargo-octet` plus compatibility `cargo-slotcar`, `cargo-tigerstyle`, and `octet`/`slotcar`/`tigerstyle` package outputs from the current flake
 - AND the saved receipt names the candidate version and release notes checklist
 
 #### Scenario: Installed binary reports candidate version [r[release-candidate-readiness.scenario.installed-binary-reports-candidate-version]]
@@ -708,14 +708,14 @@ The project MUST document and expose structured session todo states for pending 
 
 ### Requirement: Replay Capsule Operator Guidance [r[replay-capsule-operator-guidance]]
 
-The system MUST document how operators capture, inspect, and replay Slotcar replay capsules for lint and fingerprint evidence. The guidance MUST name exact commands, required inputs, redaction guarantees, and evidence paths suitable for OpenSpec review.
+The system MUST document how operators capture, inspect, and replay Octet replay capsules for lint and fingerprint evidence. The guidance MUST name exact commands, required inputs, redaction guarantees, and evidence paths suitable for OpenSpec review.
 
 #### Scenario: Operator guide names capture and replay commands [r[replay-capsule-operator-guidance.scenario.commands-named]]
 
-- GIVEN an operator needs to preserve a release, review, or bug-reproduction Slotcar run
+- GIVEN an operator needs to preserve a release, review, or bug-reproduction Octet run
 - WHEN they read the replay-capsule documentation
 - THEN the guide names the capture, inspect, and replay commands
-- AND it states which capsule fields are required for `cargo slotcar check` and `cargo slotcar fingerprint` evidence
+- AND it states which capsule fields are required for `cargo octet check` and `cargo octet fingerprint` evidence
 
 #### Scenario: Operator guide states replay limits [r[replay-capsule-operator-guidance.scenario.limits-stated]]
 
@@ -726,7 +726,7 @@ The system MUST document how operators capture, inspect, and replay Slotcar repl
 
 ### Requirement: Review Identity Operator Guidance [r[review-identity-operator-guidance]]
 
-The system MUST document how operators create, inspect, update, and roll back Slotcar review identity registry entries. The guidance MUST explain the distinction between mutable labels and immutable target hashes.
+The system MUST document how operators create, inspect, update, and roll back Octet review identity registry entries. The guidance MUST explain the distinction between mutable labels and immutable target hashes.
 
 #### Scenario: Guidance explains name and hash roles [r[review-identity-operator-guidance.scenario.name-hash-roles]]
 
@@ -764,6 +764,6 @@ The deterministic proof artifact `openspec/changes/archive/2026-05-18-rename-slo
 
 #### Scenario: Legacy names remain distinguishable
 
-- GIVEN current docs still contain `Tiger Style`, `tigerstyle`, `slotcar`, or `Slotcar`
+- GIVEN current docs still contain legacy `Tiger Style`, `tigerstyle`, `slotcar`, or `Slotcar`
 - WHEN deterministic name classification runs
 - THEN every remaining occurrence is classified as philosophy, compatibility, namespace, or archived evidence rather than an unreviewed product-name leak

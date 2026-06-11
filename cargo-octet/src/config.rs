@@ -105,6 +105,30 @@ mod tests {
     }
 
     #[test]
+    fn octet_config_and_command_paths() {
+        let metadata = metadata_table(
+            r#"
+[workspace.metadata.octet]
+default_scope = ["-p", "octet"]
+cargo_check_args = ["--lib"]
+
+[workspace.metadata.slotcar]
+default_scope = ["-p", "slotcar"]
+cargo_check_args = ["--tests"]
+"#,
+        );
+
+        let selected =
+            workspace_metadata_table(&metadata, std::path::Path::new("Cargo.toml")).expect("select Octet metadata");
+        assert_eq!(selected["default_scope"].as_array().unwrap()[1].as_str(), Some("octet"));
+
+        let missing = toml::Table::new();
+        let error = workspace_metadata_table(&missing, std::path::Path::new("Cargo.toml"))
+            .expect_err("missing current and compatibility config should fail");
+        assert!(error.contains("missing `[workspace.metadata.octet]`"));
+    }
+
+    #[test]
     fn octet_metadata_wins_over_legacy_sections() {
         let metadata = metadata_table(
             r#"

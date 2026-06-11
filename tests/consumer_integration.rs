@@ -563,7 +563,7 @@ fn build_standalone_cargo_octet() -> StandaloneCargoOctet {
         "rust-toolchain.toml",
         "src",
         "cargo-octet",
-        "crates/slotcar-standards",
+        "crates/octet-standards",
     ] {
         copy_path(&repo_root.join(relative), &source_root.join(relative));
     }

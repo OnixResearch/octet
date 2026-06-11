@@ -1483,6 +1483,7 @@ fn is_shell_safe(character: char) -> bool {
 #[cfg(test)]
 mod tests {
     use std::ffi::OsString;
+    use std::path::Path;
 
     use super::CommandArgs;
     use super::FingerprintMode;
@@ -1490,6 +1491,61 @@ mod tests {
     use super::OutputFormat;
     use super::format_command_line;
     use super::parse;
+
+    const EXPECTED_BINARY_DECLARATION_COUNT: usize = 1;
+
+    #[test]
+    fn octet_identity_surfaces() {
+        let manifest_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("Cargo.toml");
+        let manifest = std::fs::read_to_string(&manifest_path)
+            .unwrap_or_else(|error| panic!("read {}: {error}", manifest_path.display()));
+
+        assert!(manifest.contains("[package]\nname = \"cargo-octet\""));
+        assert_eq!(
+            manifest.matches("[[bin]]\nname = \"cargo-octet\"\npath = \"src/main.rs\"").count(),
+            EXPECTED_BINARY_DECLARATION_COUNT,
+            "canonical cargo-octet binary must be declared exactly once"
+        );
+        assert_eq!(
+            manifest.matches("[[bin]]\nname = \"cargo-slotcar\"\npath = \"src/main.rs\"").count(),
+            EXPECTED_BINARY_DECLARATION_COUNT,
+            "legacy cargo-slotcar binary remains one explicit compatibility alias"
+        );
+        assert_eq!(
+            manifest.matches("[[bin]]\nname = \"cargo-tigerstyle\"\npath = \"src/main.rs\"").count(),
+            EXPECTED_BINARY_DECLARATION_COUNT,
+            "Tiger Style binary remains one explicit compatibility alias"
+        );
+        assert!(!manifest.contains("[package]\nname = \"cargo-slotcar\""));
+
+        let canonical = parse(["cargo", "octet", "check", "--output-format", "json"].map(OsString::from))
+            .expect("parse canonical check args");
+        let alias = parse(["cargo", "slotcar", "check", "--output-format", "json"].map(OsString::from))
+            .expect("parse compatibility check args");
+        match (canonical, alias) {
+            (CommandArgs::Check(canonical_args), CommandArgs::Check(alias_args)) => {
+                assert_eq!(canonical_args.command_line, "cargo octet check --output-format json");
+                assert_eq!(alias_args.command_line, canonical_args.command_line);
+            }
+            other => panic!("expected check args, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn octet_config_and_command_paths() {
+        let parsed = parse(["cargo", "octet", "check", "--", "--all-targets"].map(OsString::from))
+            .expect("parse canonical check command");
+        match parsed {
+            CommandArgs::Check(args) => {
+                assert_eq!(args.command_line, "cargo octet check -- --all-targets");
+                assert_eq!(args.cargo_check_args.as_deref(), Some(["--all-targets".to_owned()].as_slice()));
+            }
+            other => panic!("expected check args, got {other:?}"),
+        }
+
+        let error = parse(["cargo", "octet", "unknown"].map(OsString::from)).expect_err("unknown command should fail");
+        assert!(error.contains("unknown subcommand"));
+    }
 
     #[test]
     fn fingerprint_parse_accepts_default_check() {

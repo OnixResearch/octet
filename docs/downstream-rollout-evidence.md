@@ -12,7 +12,7 @@ decisions.
 
 Phase-1 reference state lives in the archived OpenSpec change:
 
-- Aspen rollout commit: `909e5e9fa` (`slotcar: add phase-1 rollout path and follow-up changes`)
+- Aspen rollout commit: `909e5e9fa` (`octet: add phase-1 rollout path and follow-up changes`)
 - `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/`
 - rollout notes: `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/rollout-notes.md`
 - default-run transcript: `openspec/changes/archive/2026-04-13-aspen-consumer-rollout/evidence/aspen-default-run.txt`
@@ -127,7 +127,7 @@ Aspen phase-1 example values were:
 - `acronym_allowlist = ["IO"]`
 
 Those values belong in Aspen's rollout notes and `dylint.toml`, not in
-`slotcar` defaults.
+`octet` defaults.
 
 Evidence:
 
@@ -145,7 +145,7 @@ of copying a live repo wrapper.
 
 That historical wrapper owned these responsibilities:
 
-- derives a full nightly toolchain triple from `slotcar/rust-toolchain.toml`
+- derives a full nightly toolchain triple from `octet/rust-toolchain.toml`
   and the host triple
 - wraps `rustup show active-toolchain` and `rustup which rustc` when the local
   toolchain manager reports something nonstandard like `nix-managed`
@@ -155,14 +155,14 @@ That historical wrapper owned these responsibilities:
   so the consumer workspace `Cargo.lock` stays untouched
 - restores the original `Cargo.lock` and fails if the check path still mutates
   the consumer lockfile
-- points Dylint at a local `slotcar` checkout through `TIGERSTYLE_PATH` or a
+- points Dylint at a local `octet` checkout through `TIGERSTYLE_PATH` or a
   sibling checkout
 - owns the documented starter profile, default scope, and default cargo-check
   args in one reviewable script
 
 The starter-profile lint list in the template is documentation and review
 scoping, not a hard per-lint CLI filter. External Dylint runs still use the
-consumer's enabled warn-by-default slotcar lints unless the consumer changes
+consumer's enabled warn-by-default octet lints unless the consumer changes
 source-level lint configuration.
 
 Minimum assumptions for the template:
@@ -172,7 +172,7 @@ Minimum assumptions for the template:
 - standard Unix userland is available for `awk`, `basename`, `chmod`, `cmp`,
   `cp`, `ln`, `mkdir`, `mktemp`, and `sed`
 - the consumer repo has its own `dylint.toml`
-- a local `slotcar` checkout exists next to the consumer repo, or
+- a local `octet` checkout exists next to the consumer repo, or
   `TIGERSTYLE_PATH` is set
 - the maintainer edits `default_scope` before landing the script
 
@@ -180,7 +180,7 @@ When archive-only wrappers are unnecessary, delete the wrapper section and call
 the supported first-class runner instead:
 
 - `cargo octet check`
-- `nix run path:/path/to/slotcar#cargo-octet -- check`
+- `nix run path:/path/to/octet#cargo-octet -- check`
 
 Do not treat plain `cargo dylint` as the rollout surface. The template is a
 recipe, not a policy requirement.
@@ -197,7 +197,7 @@ Aspen phase 1 needed three wrapper behaviors:
    crate before touching the consumer workspace
 
 That third point is exactly why the template exposes `TIGERSTYLE_DYLINT_REV`
-instead of baking Aspen's patch revision into `slotcar` itself.
+instead of baking Aspen's patch revision into `octet` itself.
 
 ## Second consumer proof
 
@@ -211,7 +211,7 @@ Archived non-Aspen replay proof in this repo:
 Current saved proof uses `aspen-verus-metrics` from a disposable sandbox. That
 archived helper still copies the historical shell wrapper plus
 `templates/dylint.toml`, edits `default_scope` to `-p aspen-verus-metrics`, then
-runs the copied script through a slotcar-provided nightly toolchain
+runs the copied script through a octet-provided nightly toolchain
 environment. Keep this as replay evidence only; new consumers should use
 `cargo octet check` plus `[workspace.metadata.octet]`.
 

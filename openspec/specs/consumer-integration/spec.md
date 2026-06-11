@@ -255,38 +255,38 @@ The system MUST provide deterministic machine-readable refactor evidence that om
 - WHEN refactor evidence is emitted twice
 - THEN the output is identical except for intentionally changed records
 
-### Requirement: Slotcar Canonical CLI Surface
+### Requirement: Octet Canonical CLI Surface
 
-The system MUST expose `cargo slotcar` / `cargo-slotcar` as the canonical downstream command surface for check runs, structured output, summaries, SARIF tool metadata, Nix package/app outputs, and consumer templates. If the old `cargo tigerstyle` / `cargo-tigerstyle` path remains available during transition, it MUST be documented as a compatibility alias and MUST delegate to the same implementation and output schema as `slotcar`.
+The system MUST expose `cargo octet` / `cargo-octet` as the canonical downstream command surface for check runs, structured output, summaries, SARIF tool metadata, Nix package/app outputs, and consumer templates. If legacy `cargo slotcar` / `cargo-slotcar` or `cargo tigerstyle` / `cargo-tigerstyle` paths remain available during transition, they MUST be documented as compatibility aliases and MUST delegate to the same implementation and output schema as `cargo octet`.
 
-The deterministic proof artifact `openspec/changes/archive/2026-05-15-rename-to-slotcar/evidence/cli-surface.txt` MUST show the canonical binary/package surfaces include `slotcar` and that any supported compatibility alias exits successfully with equivalent behavior for a minimal fixture.
+The deterministic proof artifact `openspec/changes/archive/2026-05-18-rename-slotcar-to-octet/evidence/cli-surface.txt` MUST show the canonical binary/package surfaces include Octet and that any supported compatibility alias exits successfully with equivalent behavior for a minimal fixture.
 
-#### Scenario: Cargo subcommand uses slotcar
+#### Scenario: Cargo subcommand uses octet
 
 - GIVEN a consumer workspace with the repo-provided tool installed from this checkout
-- WHEN the consumer runs `cargo slotcar check`
-- THEN the command executes the same lint pipeline as the prior first-class cargo wrapper and reports the tool identity as `slotcar`
+- WHEN the consumer runs `cargo octet check`
+- THEN the command executes the same lint pipeline as the prior first-class cargo wrapper and reports the tool identity as `octet`
 
-#### Scenario: Structured outputs name slotcar
+#### Scenario: Structured outputs name octet
 
 - GIVEN a check run emits human summary, JSON, or SARIF output
 - WHEN a consumer inspects tool-name fields, delimiters, or headings in the output
-- THEN product/tool identity fields use `slotcar` instead of `tigerstyle`, except for explicitly documented compatibility or lint-namespace fields
+- THEN product/tool identity fields use `octet` instead of legacy names, except for explicitly documented compatibility or lint-namespace fields
 
 #### Scenario: Compatibility alias is explicit
 
-- GIVEN the implementation keeps `cargo tigerstyle` available during the rename transition
-- WHEN a consumer invokes that old command path
-- THEN it is documented and tested as a compatibility alias to the canonical `cargo slotcar` behavior rather than a second independent tool surface
+- GIVEN the implementation keeps `cargo slotcar` or `cargo tigerstyle` available during the rename transition
+- WHEN a consumer invokes that legacy command path
+- THEN it is documented and tested as a compatibility alias to the canonical `cargo octet` behavior rather than a second independent tool surface
 
 ### Requirement: Effect Surface Reporting [r[effect-surface-reporting]]
 
-The system MUST classify Slotcar findings into reviewable effect families such as `time`, `failure`, `resource`, `concurrency`, `io`, `remote`, `randomness`, `unsafe`, or `unknown`. Machine outputs MUST include the effect family, and human summaries MUST aggregate findings by effect family.
+The system MUST classify Octet findings into reviewable effect families such as `time`, `failure`, `resource`, `concurrency`, `io`, `remote`, `randomness`, `unsafe`, or `unknown`. Machine outputs MUST include the effect family, and human summaries MUST aggregate findings by effect family.
 
 #### Scenario: JSON findings include effect family [r[effect-surface-reporting.scenario.json-findings-include-effect-family]]
 
 - GIVEN JSON output is requested for findings from safety, purity, and concurrency lints
-- WHEN `cargo slotcar check --output-format json` emits findings
+- WHEN `cargo octet check --output-format json` emits findings
 - THEN each finding includes an `effect_family` field resolved from static diagnostic metadata
 
 #### Scenario: Human summary aggregates effects [r[effect-surface-reporting.scenario.human-summary-aggregates-effects]]
@@ -303,12 +303,12 @@ The system MUST classify Slotcar findings into reviewable effect families such a
 
 ### Requirement: Semantic Review Identity [r[semantic-review-identity]]
 
-The system MUST provide a semantic review identity for fingerprinted Rust items and lint findings that treats names, file paths, and line numbers as metadata rather than the sole identity source. The identity MUST include deterministic hashes for normalized item shape, lint/config context, Slotcar tool version, and dependency identity where available. It MUST NOT include absolute paths, usernames, timestamps, or secrets.
+The system MUST provide a semantic review identity for fingerprinted Rust items and lint findings that treats names, file paths, and line numbers as metadata rather than the sole identity source. The identity MUST include deterministic hashes for normalized item shape, lint/config context, Octet tool version, and dependency identity where available. It MUST NOT include absolute paths, usernames, timestamps, or secrets.
 
 #### Scenario: Normalized item identity survives rename [r[semantic-review-identity.scenario.normalized-item-identity-survives-rename]]
 
 - GIVEN a fingerprinted function is renamed without changing its normalized body shape or dependency identity
-- WHEN `cargo slotcar fingerprint --check --output-format json` emits the record
+- WHEN `cargo octet fingerprint --check --output-format json` emits the record
 - THEN the semantic identity stays stable while name metadata changes
 
 #### Scenario: Baseline matching uses semantic identity first [r[semantic-review-identity.scenario.baseline-matching-uses-semantic-identity-first]]
@@ -330,19 +330,19 @@ The system MUST support structured rollout migration sessions that record lint r
 #### Scenario: Migration start writes deterministic manifest [r[structured-rollout-migration-sessions.scenario.migration-start-writes-deterministic-manifest]]
 
 - GIVEN a consumer workspace requests a starter-profile migration
-- WHEN `cargo slotcar migrate start --profile starter` runs
+- WHEN `cargo octet migrate start --profile starter` runs
 - THEN a migration manifest is written with profile, tool revision, config hash, and initial finding identities
 
 #### Scenario: Migration status reports remaining work [r[structured-rollout-migration-sessions.scenario.migration-status-reports-remaining-work]]
 
 - GIVEN a migration manifest contains accepted, fixed, deferred, and unresolved findings
-- WHEN `cargo slotcar migrate status --format json` runs
+- WHEN `cargo octet migrate status --format json` runs
 - THEN the output reports deterministic counts and unresolved work without reclassifying accepted findings
 
 #### Scenario: Safe apply does not modify manual-review findings [r[structured-rollout-migration-sessions.scenario.safe-apply-does-not-modify-manual-review-findings]]
 
 - GIVEN a migration has both machine-applicable findings and findings marked manual-review
-- WHEN `cargo slotcar migrate apply-safe` runs
+- WHEN `cargo octet migrate apply-safe` runs
 - THEN only machine-applicable changes are applied and manual-review findings remain pending
 
 ### Requirement: Content Addressed Artifact Store [r[content-addressed-artifact-store]]
@@ -419,11 +419,11 @@ The system MUST persist session blocks, model requests, tool calls, tool outputs
 
 ### Requirement: Consumer Effect Capability Summary [r[consumer-effect-capability-summary]]
 
-The system MUST expose Slotcar effect capability summaries in consumer-facing outputs so downstream teams can triage ambient authority by capability family.
+The system MUST expose Octet effect capability summaries in consumer-facing outputs so downstream teams can triage ambient authority by capability family.
 
 #### Scenario: Consumer output groups findings by capability [r[consumer-effect-capability-summary.scenario.groups-findings]]
 
-- GIVEN a downstream consumer runs Slotcar with JSON or human output
+- GIVEN a downstream consumer runs Octet with JSON or human output
 - WHEN findings include mapped effect capability families
 - THEN the summary groups counts by capability family
 - AND each grouped family can be traced back to the contributing lint names
@@ -489,7 +489,7 @@ The existing `cargo slotcar` and `cargo tigerstyle` command paths MAY remain dur
 - GIVEN a consumer has installed the renamed runner
 - WHEN they run `cargo octet check --help`
 - THEN help text names the canonical command as `cargo octet check`
-- AND it does not instruct new users to prefer `cargo slotcar` or `cargo tigerstyle`
+- AND it does not instruct new users to prefer legacy `cargo slotcar` or `cargo tigerstyle`
 
 #### Scenario: Structured outputs name Octet
 

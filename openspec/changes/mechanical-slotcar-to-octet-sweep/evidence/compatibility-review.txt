@@ -1,0 +1,9 @@
+$ pi steel file=tools/octet-identity-sweep.scm args='["compatibility-report","--format","text"]'
+
+Reviewed artifact: openspec/changes/mechanical-slotcar-to-octet-sweep/evidence/compatibility-decisions.txt
+
+asserts: retained or retired slotcar compatibility surfaces match the intended breaking-change boundary.
+
+Retained compatibility rows are intentional for transition-only command/config/source surfaces: cargo-slotcar and cargo slotcar aliases, [slotcar] and workspace.metadata.slotcar config fallbacks, slotcar:: source-attribute examples, slotcar-allow suppression markers, slotcar-standards compatibility binary/app aliases, repo-local slotcar-repo agent skill naming, the legacy Python classifier, active change text, and archived evidence references.
+
+Retired canonical surfaces now use Octet names: crates/octet-standards, package octet-standards, library octet_standards, cargo-octet/cargo octet, Octet docs/templates/spec text, and Octet policy/checker artifact paths. The final Steel verify report records blocked: 0, rewrite_occurrences_planned: 0, and unapproved_active_slotcar: 0.

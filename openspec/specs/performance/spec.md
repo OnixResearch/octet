@@ -219,18 +219,18 @@ The lint MUST NOT warn on clones that are moved into ownership-consuming APIs, s
 
 ### Requirement: Content Identity Lint Cache [r[content-identity-lint-cache]]
 
-The system MUST support an optional deterministic lint-result cache keyed by Slotcar version, rustc/toolchain identity, lint config hash, crate graph hash, lint ID, and semantic item identity. The cache MUST be disabled or bypassed for findings that cannot prove deterministic inputs.
+The system MUST support an optional deterministic lint-result cache keyed by Octet version, rustc/toolchain identity, lint config hash, crate graph hash, lint ID, and semantic item identity. The cache MUST be disabled or bypassed for findings that cannot prove deterministic inputs.
 
 #### Scenario: Unchanged item uses cached finding [r[content-identity-lint-cache.scenario.unchanged-item-uses-cached-finding]]
 
 - GIVEN an item identity, config hash, crate graph hash, and toolchain identity are unchanged between runs
-- WHEN `cargo slotcar check --cache` runs again
+- WHEN `cargo octet check --cache` runs again
 - THEN deterministic findings for that item are loaded from cache and reported with cache-hit metadata
 
 #### Scenario: Config change invalidates cache [r[content-identity-lint-cache.scenario.config-change-invalidates-cache]]
 
 - GIVEN the lint config hash changes between two runs
-- WHEN `cargo slotcar check --cache` runs
+- WHEN `cargo octet check --cache` runs
 - THEN previous cached findings are not reused for affected lint IDs
 
 #### Scenario: Non-deterministic input bypasses cache [r[content-identity-lint-cache.scenario.non-deterministic-input-bypasses-cache]]

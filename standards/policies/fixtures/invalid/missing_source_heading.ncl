@@ -7,8 +7,8 @@ let PolicyRegistry = contracts.PolicyRegistry in
     {
       policy_id = "tigerstyle.fixture.missing-source-heading",
       pillar = "fixture",
-      source_path = "docs/standards/source/slotcar-standards.adoc",
-      source_anchor = "docs/standards/source/slotcar-standards.adoc#tiger-style-standards",
+      source_path = "docs/standards/source/octet-standards.adoc",
+      source_anchor = "docs/standards/source/octet-standards.adoc#tiger-style-standards",
       summary = "Invalid fixture without source_heading.",
       classification = "hard",
       enforcement_level = "hard",

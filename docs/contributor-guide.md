@@ -44,7 +44,7 @@ For the shipped lint catalog, see `lint-reference.md`.
 | diagnostic wording, guide sections, domain groups | `src/diagnostics.rs` |
 | config schema and defaults | `src/config.rs` |
 | cargo subcommand parsing and engine behavior | `cargo-octet/src/cli.rs`, `cargo-octet/src/config.rs`, `cargo-octet/src/engine.rs` |
-| standards registry and checker core | `standards/policies/`, `crates/slotcar-standards/src/` |
+| standards registry and checker core | `standards/policies/`, `crates/octet-standards/src/` |
 | standards source material | `docs/standards/source/` |
 | published Nix entry points and helpers | `flake.nix` |
 | consumer-owned template | `templates/dylint.toml` |
@@ -92,7 +92,7 @@ Then update:
 Remember:
 
 - `dylint.toml` keys stay bare (`no_unwrap`)
-- source attrs and group attrs stay canonical (`slotcar::no_unwrap`, `slotcar::safety`)
+- source attrs and group attrs stay canonical (`octet::no_unwrap`, `octet::safety`)
 
 ## If you add or change standards policy
 
@@ -100,7 +100,7 @@ Check these source files first:
 
 - `standards/policies/registry.ncl`
 - `standards/policies/contracts.ncl`
-- `crates/slotcar-standards/src/`
+- `crates/octet-standards/src/`
 - `standards/check-fixtures/`
 - `docs/standards/source/`
 
@@ -112,7 +112,7 @@ Then update:
 - `flake.nix` checks/apps when verification changes
 
 Keep the seam intact: Dylint lints stay in `src/`; policy registry and
-source-shape checks stay in `crates/slotcar-standards` and `standards/`.
+source-shape checks stay in `crates/octet-standards` and `standards/`.
 
 ## If you add or change a published entry point
 
@@ -164,18 +164,18 @@ The shared `~/.cargo-target` directory can block on unrelated repo builds. Use a
 temporary target directory when this happens:
 
 ```bash
-tmp_target="$(mktemp -d /tmp/slotcar-target.XXXXXX)"
+tmp_target="$(mktemp -d /tmp/octet-target.XXXXXX)"
 trap 'rm -rf "$tmp_target"' EXIT
 CARGO_TARGET_DIR="$tmp_target" nix develop -c bash -c 'cargo test --lib'
 ```
 
 ### Tool-scoped attrs in standalone fixtures
 
-Standalone UI fixtures that use canonical `slotcar::` attrs need:
+Standalone UI fixtures that use canonical `octet::` attrs need:
 
 ```rust
 #![feature(register_tool)]
-#![register_tool(slotcar)]
+#![register_tool(octet)]
 ```
 
 Without this, rustc rejects the attrs before the lint can run. Bare lint names
@@ -202,7 +202,7 @@ Common checks:
 nix develop -c bash -c 'cargo check'
 nix develop -c bash -c 'cargo test --lib'
 nix develop -c bash -c 'cargo test --test ui ui -- --ignored --nocapture'
-nix develop -c bash -c 'cargo test -p slotcar-standards'
+nix develop -c bash -c 'cargo test -p octet-standards'
 nix run .#octet-policy-validate
 ```
 

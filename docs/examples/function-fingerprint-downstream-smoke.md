@@ -19,7 +19,7 @@ The check creates a temporary Cargo crate, copies every checked
 runs the real `cargo-octet fingerprint` binary over the consumer `src/`
 directory. It asserts that:
 
-- all seven documented records are discovered outside the Slotcar checkout;
+- all seven documented records are discovered outside the Octet checkout;
 - `macro_rules!` generated functions are still absent from the record set;
 - warning and missing-metadata examples keep their nonzero operator-warning status;
 - JSON drift, human `--diff`, JSON `--diff`, update, and repaired-check behavior work on a copied downstream file;

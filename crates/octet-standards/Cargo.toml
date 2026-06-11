@@ -1,5 +1,5 @@
 [package]
-name = "slotcar-standards"
+name = "octet-standards"
 version = "0.1.0"
 edition = "2024"
 license = "AGPL-3.0-or-later"
@@ -7,7 +7,7 @@ publish = false
 description = "Policy registry and standards checks for Octet"
 
 [lib]
-name = "slotcar_standards"
+name = "octet_standards"
 path = "src/lib.rs"
 
 [[bin]]
