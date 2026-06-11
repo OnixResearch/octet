@@ -1,6 +1,6 @@
-# Tigerstyle Repo Quick Reference
+# Octet Repo Quick Reference
 
-Compact map for common work in `/home/brittonr/git/tigerstyle` (slotcar repo checkout).
+Compact map for common work in `/home/brittonr/git/octet` (Octet repo checkout).
 
 ## Always-start commands
 
@@ -13,7 +13,7 @@ nix develop -c bash -c 'cargo check'
 When shared target-dir lock contention appears:
 
 ```bash
-tmp_target="$(mktemp -d /tmp/slotcar-target.XXXXXX)"
+tmp_target="$(mktemp -d /tmp/octet-target.XXXXXX)"
 trap 'rm -rf "$tmp_target"' EXIT
 CARGO_TARGET_DIR="$tmp_target" nix develop -c bash -c 'cargo test --lib'
 ```
@@ -36,12 +36,12 @@ nix develop -c bash -c 'BLESS=1 cargo test --test ui ui -- --ignored --nocapture
 nix develop -c bash -c 'cargo test --test ui autofix_machine_applicable -- --ignored --nocapture'
 ```
 
-### cargo-slotcar engine
+### cargo-octet engine
 
 ```bash
-nix develop -c bash -c 'cargo check -p cargo-slotcar'
-nix develop -c bash -c 'cargo test -p cargo-slotcar'
-nix build .#cargo-slotcar
+nix develop -c bash -c 'cargo check -p cargo-octet'
+nix develop -c bash -c 'cargo test -p cargo-octet'
+nix build .#cargo-octet
 ```
 
 ## Area -> first files to read
@@ -83,7 +83,7 @@ Read:
 - `README.md`
 
 Config contract:
-- Rust attrs use canonical tool names like `tigerstyle::no_unwrap` (legacy Dylint namespace during transition)
+- Rust attrs use canonical tool names like `octet::no_unwrap`
 - `dylint.toml` uses bare keys like `no_unwrap`
 - `disabled_lints` wins over `lint_levels`
 
@@ -115,8 +115,8 @@ Read:
 
 Current consumer path:
 - consumer `dylint.toml`
-- consumer `[workspace.metadata.slotcar]`
-- `cargo slotcar check` or `nix run .#cargo-slotcar -- check`
+- consumer `[workspace.metadata.octet]`
+- `cargo octet check` or `nix run .#cargo-octet -- check`
 
 Historical wrapper path is replay-only.
 
@@ -194,10 +194,10 @@ Rules:
 
 ### Runner / integration
 
-- `cargo-slotcar/src/main.rs`
-- `cargo-slotcar/src/cli.rs`
-- `cargo-slotcar/src/engine.rs`
-- `cargo-slotcar/src/config.rs`
+- `cargo-octet/src/main.rs`
+- `cargo-octet/src/cli.rs`
+- `cargo-octet/src/engine.rs`
+- `cargo-octet/src/config.rs`
 
 ### UI harness / snapshots
 
@@ -217,7 +217,7 @@ Rules:
 ## Gotchas
 
 - Repo ignores `/.pi`; tracked repo-local skills belong under `.agents/skills/`
-- Global skill names can collide; repo-local skill uses distinct name `slotcar-repo`
+- Global skill names can collide; repo-local skill uses distinct name `octet-repo`
 - `todo!()` escape hatches belong to `no_todo`, not `no_panic`
 - If diagnostic examples/help text change, expect `.stderr` snapshot churn
 - If you add a lint but skip fixture manifests, repo ends up half-registered
