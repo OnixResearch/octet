@@ -1,7 +1,7 @@
 ## Phase 1: Implementation
 
-- [ ] I1 Add `tools/octet-identity-sweep.scm` with a pure occurrence scanner, replacement planner, report renderer, and apply planner.
-- [ ] I2 Encode active-path, archive-path, replacement, allow-category, and blocked-category rules for `slotcar` / `Slotcar` identity strings.
+- [x] I1 Add `tools/octet-identity-sweep.scm` with a pure occurrence scanner, replacement planner, report renderer, and apply planner.
+- [x] I2 Encode active-path, archive-path, replacement, allow-category, and blocked-category rules for `slotcar` / `Slotcar` identity strings.
 - [ ] I3 Apply the Steel-planned replacements to current docs, templates, main OpenSpec specs, Cargo/Nix surfaces, standards code, tests, UI fixtures, and generated examples.
 - [ ] I4 Rename standards path, package, binary, and Rust module surfaces that still carry `slotcar` identity.
 - [ ] I5 Remove retired `slotcar` compatibility paths or isolate retained paths behind explicit compatibility categories.
@@ -9,7 +9,7 @@
 
 ## Phase 2: Deterministic verification
 
-- [ ] V1 Verify scenario "Steel dry-run inventories active slotcar references" with command=`pi steel file=tools/octet-identity-sweep.scm args='["dry-run","--format","text"]'`; input=`current repository before apply`; expect=`mode: dry-run, files_modified: 0, and every active occurrence lists path, line, match, category, replacement or reason`; evidence=`openspec/changes/mechanical-slotcar-to-octet-sweep/evidence/steel-dry-run.txt`
+- [x] V1 Verify scenario "Steel dry-run inventories active slotcar references" with command=`pi steel file=tools/octet-identity-sweep.scm args='["dry-run","--format","text"]'`; input=`current repository before apply`; expect=`mode: dry-run, files_modified: 0, and every active occurrence lists path, line, match, category, replacement or reason`; evidence=`openspec/changes/mechanical-slotcar-to-octet-sweep/evidence/steel-dry-run.txt`
 - [ ] V2 Verify scenario "Steel apply rewrites active documentation identity" with command=`pi steel file=tools/octet-identity-sweep.scm args='["apply","--format","text"]'`; input=`steel dry-run replacement plan`; expect=`mode: apply, positive rewritten file and occurrence counts, and no archive rewrites`; evidence=`openspec/changes/mechanical-slotcar-to-octet-sweep/evidence/steel-apply.txt`
 - [ ] V3 Verify scenario "Remaining slotcar terms are explicitly allowed" with command=`pi steel file=tools/octet-identity-sweep.scm args='["verify","--format","text"]'`; input=`repository after apply and generated-artifact refresh`; expect=`blocked: 0 and unapproved_active_slotcar: 0`; evidence=`openspec/changes/mechanical-slotcar-to-octet-sweep/evidence/steel-final-verify.txt`
 - [ ] V4 Verify scenario "Archived evidence remains historical" with command=`pi steel file=tools/octet-identity-sweep.scm args='["verify","--format","text"]'`; input=`openspec/changes/archive/** and cairn/archive/** scan rows`; expect=`archive rows are classified allowed-archive and apply report names no archived rewrites`; evidence=`openspec/changes/mechanical-slotcar-to-octet-sweep/evidence/steel-final-verify.txt`
@@ -23,7 +23,7 @@
 
 ## Change Status
 - Status: in-progress
-- Open tasks: I1, I2, I3, I4, I5, I6, V1, V2, V3, V4, V5, V6, V7, H1
+- Open tasks: I3, I4, I5, I6, V2, V3, V4, V5, V6, V7, H1
 
 ## Verification Coverage
 
