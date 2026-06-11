@@ -124,6 +124,20 @@
    "path:/path/to/slotcar"
    "github:OnixResearch/slotcar"))
 
+(define SWEEP-CONTRACT-PATHS
+  (list
+   "openspec/specs/consumer-integration/spec.md"
+   "openspec/specs/documentation/spec.md"))
+
+(define SWEEP-CONTRACT-TOKENS
+  (list
+   "Steel dry-run inventories active"
+   "Remaining slotcar terms are explicitly allowed"
+   "contain `slotcar` command or package names"
+   "surface remains after the sweep"
+   "without requiring a `slotcar` spelling"
+   "repository contains active files with `slotcar`"))
+
 (define (string-contains-from? text needle start)
   (let* ([needle-len (string-length needle)]
          [text-len (string-length text)])
@@ -217,6 +231,12 @@
 (define (line-has-path-compatibility-token? line)
   (string-contains-any? line PATH-COMPATIBILITY-TOKENS))
 
+(define (sweep-contract-path? rel)
+  (pi-member? rel SWEEP-CONTRACT-PATHS))
+
+(define (line-has-sweep-contract-token? line)
+  (string-contains-any? line SWEEP-CONTRACT-TOKENS))
+
 (define (replacement-for term)
   (if (string=? term "Slotcar") "Octet" "octet"))
 
@@ -264,6 +284,12 @@
            "replacement" EMPTY
            "reason" "line explicitly describes retained legacy compatibility or a literal compatibility token"
            "focused_test" (focused-test-for rel line))]
+    [(and (sweep-contract-path? rel)
+          (line-has-sweep-contract-token? line))
+     (hash "category" CATEGORY-ALLOWED-COMPATIBILITY
+           "replacement" EMPTY
+           "reason" "main spec defines legacy input terms for the Octet identity sweep"
+           "focused_test" COMPATIBILITY-TEST-DOCS)]
     [else
      (hash "category" CATEGORY-REWRITTEN
            "replacement" (replacement-for term)

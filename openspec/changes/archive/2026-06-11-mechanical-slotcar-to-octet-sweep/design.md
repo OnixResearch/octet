@@ -86,7 +86,7 @@ The archived `2026-05-18-rename-slotcar-to-octet` change established Octet as ca
 - scenario or requirement:
   - `Scenario: Steel dry-run inventories active slotcar references`
 - artifact path:
-  - `openspec/changes/mechanical-slotcar-to-octet-sweep/evidence/steel-dry-run.txt`
+  - `openspec/changes/archive/2026-06-11-mechanical-slotcar-to-octet-sweep/evidence/steel-dry-run.txt`
 - command / helper:
   - `pi steel file=tools/octet-identity-sweep.scm args='["dry-run","--format","text"]'`
 - exact expected output / acceptance signal:
@@ -100,7 +100,7 @@ The archived `2026-05-18-rename-slotcar-to-octet` change established Octet as ca
   - `Scenario: Steel apply rewrites active documentation identity`
   - `Scenario: Steel sweep handles command and package surfaces`
 - artifact path:
-  - `openspec/changes/mechanical-slotcar-to-octet-sweep/evidence/steel-apply.txt`
+  - `openspec/changes/archive/2026-06-11-mechanical-slotcar-to-octet-sweep/evidence/steel-apply.txt`
 - command / helper:
   - `pi steel file=tools/octet-identity-sweep.scm args='["apply","--format","text"]'`
 - exact expected output / acceptance signal:
@@ -114,7 +114,7 @@ The archived `2026-05-18-rename-slotcar-to-octet` change established Octet as ca
   - `Scenario: Remaining slotcar terms are explicitly allowed`
   - `Scenario: Archived evidence remains historical`
 - artifact path:
-  - `openspec/changes/mechanical-slotcar-to-octet-sweep/evidence/steel-final-verify.txt`
+  - `openspec/changes/archive/2026-06-11-mechanical-slotcar-to-octet-sweep/evidence/steel-final-verify.txt`
 - command / helper:
   - `pi steel file=tools/octet-identity-sweep.scm args='["verify","--format","text"]'`
 - exact expected output / acceptance signal:
@@ -127,7 +127,7 @@ The archived `2026-05-18-rename-slotcar-to-octet` change established Octet as ca
 - scenario or requirement:
   - `Scenario: Compatibility retirement or allowlist is explicit`
 - artifact path:
-  - `openspec/changes/mechanical-slotcar-to-octet-sweep/evidence/compatibility-decisions.txt`
+  - `openspec/changes/archive/2026-06-11-mechanical-slotcar-to-octet-sweep/evidence/compatibility-decisions.txt`
 - command / helper:
   - `pi steel file=tools/octet-identity-sweep.scm args='["compatibility-report","--format","text"]'`
 - exact expected output / acceptance signal:
@@ -140,7 +140,7 @@ The archived `2026-05-18-rename-slotcar-to-octet` change established Octet as ca
 - scenario or requirement:
   - `Scenario: Octet config and command paths stay functional`
 - artifact path:
-  - `openspec/changes/mechanical-slotcar-to-octet-sweep/evidence/focused-checks.txt`
+  - `openspec/changes/archive/2026-06-11-mechanical-slotcar-to-octet-sweep/evidence/focused-checks.txt`
 - command / helper:
   - `nix develop -c bash -c 'cargo test -p cargo-octet octet_identity_surfaces -- --nocapture && cargo test -p octet-standards octet_identity_surfaces -- --nocapture && git diff --check'`
 - exact expected output / acceptance signal:

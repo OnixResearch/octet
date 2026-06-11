@@ -29,7 +29,7 @@ The May rename made Octet canonical, but active files still carry `slotcar` name
 
 ## Impact
 
-- **Files / artifacts**: `tools/octet-identity-sweep.scm`, `README.md`, `CHANGELOG.md`, `docs/**`, `templates/**`, `openspec/config.yaml`, `openspec/specs/**`, `Cargo.toml`, `Cargo.lock`, `flake.nix`, `cargo-octet/**`, `crates/slotcar-standards/**` or renamed successor paths, `tests/**`, `ui_tests/**`, `standards/policies/**`, and `openspec/changes/mechanical-slotcar-to-octet-sweep/evidence/**`.
+- **Files / artifacts**: `tools/octet-identity-sweep.scm`, `README.md`, `CHANGELOG.md`, `docs/**`, `templates/**`, `openspec/config.yaml`, `openspec/specs/**`, `Cargo.toml`, `Cargo.lock`, `flake.nix`, `cargo-octet/**`, `crates/slotcar-standards/**` or renamed successor paths, `tests/**`, `ui_tests/**`, `standards/policies/**`, and `openspec/changes/archive/2026-06-11-mechanical-slotcar-to-octet-sweep/evidence/**`.
 - **Concrete scope**: current non-archived repository surfaces and generated fixtures; archived evidence is scanned and classified but not rewritten.
 - **Downstream validation boundaries**: no live downstream repo migration; retained external examples must point at Octet paths or be labeled archive/history.
 - **Ordering / dependencies**: implement Steel dry-run first, review replacement/allowlist report, apply file/path renames, refresh generated artifacts, then run focused checks.
