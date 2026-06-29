@@ -243,6 +243,33 @@
     "example_text": "fn connect(opts: ConnectOptions) -> ..."
   },
   {
+    "lint_name": "fat_trait",
+    "principle": "Interface Segregation",
+    "guide_section": "Explicit Interfaces / Role Interfaces",
+    "domain_group": "tigerstyle::structure",
+    "guidance": "split broad traits into cohesive role interfaces instead of forcing implementors to satisfy unrelated methods",
+    "example_mode": "required",
+    "example_text": "trait Clock { fn now_ms(&self) -> u64; }"
+  },
+  {
+    "lint_name": "concrete_construction_in_core",
+    "principle": "Dependency Inversion",
+    "guide_section": "Architecture / Ports and Capabilities",
+    "domain_group": "tigerstyle::structure",
+    "guidance": "inject infrastructure dependencies through ports or capabilities instead of constructing concrete types in core",
+    "example_mode": "required",
+    "example_text": "fn run(clock: impl Clock) -> Output"
+  },
+  {
+    "lint_name": "type_accumulation",
+    "principle": "Single Responsibility",
+    "guide_section": "Structure / Cohesion",
+    "domain_group": "tigerstyle::structure",
+    "guidance": "split types and modules that accumulate unrelated responsibilities behind focused interfaces",
+    "example_mode": "required",
+    "example_text": "mod billing_commands; mod billing_queries;"
+  },
+  {
     "lint_name": "negated_predicate",
     "principle": "Positive Predicates",
     "guide_section": "Positive Predicates",
@@ -394,6 +421,15 @@
     "guidance": "keep public APIs safe when possible; move unsafe operations into small private helpers with audited invariants",
     "example_mode": "required",
     "example_text": "pub fn read(ptr: NonNull<u8>) -> u8 { unsafe { read_raw(ptr) } }"
+  },
+  {
+    "lint_name": "defaulting_trait_method",
+    "principle": "Substitution Safety",
+    "guide_section": "Safety / Trait Contracts",
+    "domain_group": "tigerstyle::safety",
+    "guidance": "make trait methods required or document why a default implementation preserves all implementor contracts",
+    "example_mode": "required",
+    "example_text": "trait Writer { fn flush(&mut self); }"
   },
   {
     "lint_name": "no_todo",

@@ -26,6 +26,12 @@
 # assertion_density_min_lines = 30
 # assertion_density_min_assertions = 2
 
+# Tune SOLID structure signals only with a cleanup plan.
+# trait_method_max = 7
+# impl_blocks_max = 4
+# module_pub_items_max = 12
+# core_source_scopes = ["crates/domain-core/src/"]
+
 # Narrow allowlists
 # Keep these explicit and domain-specific. Avoid catch-all naming exceptions.
 
@@ -67,6 +73,9 @@
 #   "unbounded_collection_growth",
 #   "sentinel_fallback",
 #   "too_many_parameters",
+#   "fat_trait",
+#   "concrete_construction_in_core",
+#   "type_accumulation",
 #   "bool_naming",
 #   "ignored_result",
 #   "unchecked_narrowing",
@@ -82,6 +91,7 @@
 #   "no_unwrap",
 #   "no_panic",
 #   "public_unsafe_api",
+#   "defaulting_trait_method",
 #   "no_todo",
 #   "unjustified_no_todo_allow",
 #   "no_recursion",

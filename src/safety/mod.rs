@@ -1,6 +1,7 @@
 pub mod assertion_density;
 pub mod catch_all_on_enum;
 pub mod compound_assertion;
+pub mod defaulting_trait_method;
 pub mod drop_must_use;
 pub mod explicit_defaults;
 pub mod fallible_int_fallback;

@@ -25,6 +25,9 @@ borrowed_argument_types
 deref_polymorphism
 clone_then_borrow
 too_many_parameters
+fat_trait
+concrete_construction_in_core
+type_accumulation
 negated_predicate
 bool_naming
 ignored_result
@@ -42,6 +45,7 @@ raw_arithmetic_overflow
 no_unwrap
 no_panic
 public_unsafe_api
+defaulting_trait_method
 no_todo
 unjustified_no_todo_allow
 no_recursion

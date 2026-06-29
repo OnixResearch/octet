@@ -108,6 +108,18 @@
     "fixture": "too_many_parameters"
   },
   {
+    "lint_name": "fat_trait",
+    "fixture": "fat_trait"
+  },
+  {
+    "lint_name": "concrete_construction_in_core",
+    "fixture": "concrete_construction_in_core/concrete_construction_in_core"
+  },
+  {
+    "lint_name": "type_accumulation",
+    "fixture": "type_accumulation"
+  },
+  {
     "lint_name": "negated_predicate",
     "fixture": "negated_predicate"
   },
@@ -174,6 +186,10 @@
   {
     "lint_name": "public_unsafe_api",
     "fixture": "public_unsafe_api"
+  },
+  {
+    "lint_name": "defaulting_trait_method",
+    "fixture": "defaulting_trait_method"
   },
   {
     "lint_name": "no_todo",
