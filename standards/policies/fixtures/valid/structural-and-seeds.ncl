@@ -33,6 +33,8 @@ let PolicyRegistryRules = contracts.PolicyRegistryRules in
       description = "fixture crate boundary",
       exported_obligations = ["core no_std", "shell depends on core"],
       crate_boundary = ["crates/core", "crates/std"],
+      core_crates = ["crates/core/src/lib.rs"],
+      shell_crates = ["crates/std/Cargo.toml"],
     }],
     checker_owner = "fixture",
     checker_id = "octet-standards",

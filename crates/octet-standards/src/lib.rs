@@ -57,6 +57,7 @@ mod tests {
     const ROOT_THINNESS_POLICY_ID: &str = "tigerstyle.architecture.root-crate-thinness";
     const PUBLIC_API_BUDGET_POLICY_ID: &str = "tigerstyle.architecture.public-api-budget";
     const EFFECT_CAPABILITY_POLICY_ID: &str = "tigerstyle.architecture.effect-capability-boundaries";
+    const HEXAGONAL_PORT_POLICY_ID: &str = "tigerstyle.architecture.hexagonal-ports";
     const TYPE_STATE_POLICY_ID: &str = "tigerstyle.idioms.nominal-type-boundaries";
     const VERIFIED_POLICY_ID: &str = "tigerstyle.verification.deterministic-effect-handlers";
     const SOURCE_PATH: &str = "src/lib.rs";
@@ -207,15 +208,15 @@ mod tests {
 
         assert_eq!(diagnostics.len(), 1);
         assert_eq!(diagnostics[0].policy_id, FCIS_POLICY_ID);
-        assert!(diagnostics[0].message.contains("forbidden dependency `tokio`") || diagnostics[0].message.contains("runtime crate `tokio`"));
+        assert!(
+            diagnostics[0].message.contains("forbidden dependency `tokio`")
+                || diagnostics[0].message.contains("runtime crate `tokio`")
+        );
     }
 
     #[test]
     fn custom_boundary_checks_reject_core_no_std_with_domain_layout() {
-        let sources = vec![SourceFile::new(
-            "domain-core/src/lib.rs",
-            "pub fn core() {}\n",
-        )];
+        let sources = vec![SourceFile::new("domain-core/src/lib.rs", "pub fn core() {}\n")];
         let diagnostics = check_architecture(
             &sample_custom_boundary_registry(),
             &sources,
@@ -267,7 +268,10 @@ mod tests {
         let sources = vec![
             SourceFile::new("domain-core/src/lib.rs", "#![no_std]\n"),
             SourceFile::new("domain-core/Cargo.toml", "[dependencies]\nsnafu = \"0.8\"\n"),
-            SourceFile::new("infrastructure-shell/Cargo.toml", "[dependencies]\ndomain-core = { path = \"../domain-core\" }\n"),
+            SourceFile::new(
+                "infrastructure-shell/Cargo.toml",
+                "[dependencies]\ndomain-core = { path = \"../domain-core\" }\n",
+            ),
             SourceFile::new("infrastructure-shell/src/lib.rs", "pub fn shell() {}\n"),
         ];
         let diagnostics = check_architecture(
@@ -365,6 +369,125 @@ mod tests {
             check_architecture(&sample_registry(), &sources, &FamilySelection::from_families(["architecture"]));
 
         assert!(diagnostics.is_empty());
+    }
+
+    #[test]
+    fn architecture_port_mechanism_noops_without_declared_ports() {
+        let sources = vec![SourceFile::new(
+            "domain/src/lib.rs",
+            "pub trait Clock { fn now_ms(&self) -> u64; }\n",
+        )];
+        let diagnostics =
+            check_architecture(&sample_registry(), &sources, &FamilySelection::from_families(["architecture"]));
+
+        assert!(diagnostics.is_empty());
+    }
+
+    #[test]
+    fn architecture_port_mechanism_rejects_missing_core_port_trait() {
+        let sources = vec![SourceFile::new(
+            "adapters/std/src/lib.rs",
+            "impl Clock for AdapterClock { fn now_ms(&self) -> u64 { 0 } }\n",
+        )];
+        let diagnostics = check_architecture(
+            &sample_port_registry(false),
+            &sources,
+            &FamilySelection::from_families(["architecture"]),
+        );
+
+        assert_eq!(diagnostics.len(), 1);
+        assert_eq!(diagnostics[0].policy_id, HEXAGONAL_PORT_POLICY_ID);
+        assert!(diagnostics[0].message.contains("must be defined as a trait in core"));
+    }
+
+    #[test]
+    fn architecture_port_mechanism_rejects_missing_adapter_impl() {
+        let sources = vec![SourceFile::new(
+            "domain/src/lib.rs",
+            "pub trait Clock { fn now_ms(&self) -> u64; }\n",
+        )];
+        let diagnostics = check_architecture(
+            &sample_port_registry(false),
+            &sources,
+            &FamilySelection::from_families(["architecture"]),
+        );
+
+        assert_eq!(diagnostics.len(), 1);
+        assert_eq!(diagnostics[0].policy_id, HEXAGONAL_PORT_POLICY_ID);
+        assert!(diagnostics[0].message.contains("no implementation"));
+    }
+
+    #[test]
+    fn architecture_port_mechanism_accepts_adapter_impl() {
+        let sources = vec![
+            SourceFile::new("domain/src/lib.rs", "pub trait Clock { fn now_ms(&self) -> u64; }\n"),
+            SourceFile::new(
+                "adapters/std/src/lib.rs",
+                "impl Clock for SystemClock { fn now_ms(&self) -> u64 { 0 } }\n",
+            ),
+        ];
+        let diagnostics = check_architecture(
+            &sample_port_registry(false),
+            &sources,
+            &FamilySelection::from_families(["architecture"]),
+        );
+
+        assert!(diagnostics.is_empty());
+    }
+
+    #[test]
+    fn architecture_port_mechanism_rejects_core_concrete_impl() {
+        let sources = vec![
+            SourceFile::new(
+                "domain/src/lib.rs",
+                "pub trait Clock { fn now_ms(&self) -> u64; }\nimpl Clock for SystemClock { fn now_ms(&self) -> u64 { 0 } }\n",
+            ),
+            SourceFile::new(
+                "adapters/std/src/lib.rs",
+                "impl Clock for AdapterClock { fn now_ms(&self) -> u64 { 0 } }\n",
+            ),
+        ];
+        let diagnostics = check_architecture(
+            &sample_port_registry(false),
+            &sources,
+            &FamilySelection::from_families(["architecture"]),
+        );
+
+        assert_eq!(diagnostics.len(), 1);
+        assert_eq!(diagnostics[0].policy_id, HEXAGONAL_PORT_POLICY_ID);
+        assert!(diagnostics[0].message.contains("SystemClock"));
+    }
+
+    #[test]
+    fn architecture_port_mechanism_reserved_suppresses_missing_impl() {
+        let sources = vec![SourceFile::new(
+            "domain/src/lib.rs",
+            "pub trait Clock { fn now_ms(&self) -> u64; }\n",
+        )];
+        let diagnostics = check_architecture(
+            &sample_port_registry(true),
+            &sources,
+            &FamilySelection::from_families(["architecture"]),
+        );
+
+        assert!(diagnostics.is_empty());
+    }
+
+    #[test]
+    fn architecture_port_mechanism_reserved_keeps_core_purity_check() {
+        let sources = vec![SourceFile::new(
+            "domain/src/lib.rs",
+            "pub trait Clock { fn now_ms(&self) -> u64; }\nimpl Clock for SystemClock { fn now_ms(&self) -> u64 { 0 } }\n",
+        )];
+        let diagnostics = check_architecture(
+            &sample_port_registry(true),
+            &sources,
+            &FamilySelection::from_families(["architecture"]),
+        );
+
+        assert_eq!(diagnostics.len(), 1);
+        assert_eq!(diagnostics[0].policy_id, HEXAGONAL_PORT_POLICY_ID);
+        assert!(diagnostics[0].message.contains("SystemClock"));
     }
 
     #[test]
@@ -602,6 +725,38 @@ impl Session<Authenticated> { pub fn send(self) {} }
             ],
             seed_manifests: Vec::new(),
             config_receipt_families: Vec::new(),
+        }
+    }
+
+    fn sample_port_registry(reserved: bool) -> PolicyRegistry {
+        PolicyRegistry {
+            schema_version: "test".to_owned(),
+            checker_ids: vec!["octet-standards".to_owned()],
+            policies: vec![sample_port_policy(reserved)],
+            seed_manifests: Vec::new(),
+            config_receipt_families: Vec::new(),
+        }
+    }
+
+    fn sample_port_policy(reserved: bool) -> PolicyEntry {
+        PolicyEntry {
+            mechanisms: vec![Mechanism {
+                kind: MechanismKind::Port,
+                description: "test port mechanism".to_owned(),
+                port_traits: vec!["Clock".to_owned()],
+                core_owner_scope: "domain/src/".to_owned(),
+                permitted_adapter_scopes: vec!["adapters/std/src/".to_owned()],
+                forbidden_concrete_types: vec!["SystemClock".to_owned()],
+                reserved,
+                ..Mechanism::default()
+            }],
+            current_enforcement_mode: EnforcementMode::Gate,
+            target_enforcement_mode: EnforcementMode::Structural,
+            ..sample_policy(
+                HEXAGONAL_PORT_POLICY_ID,
+                "architecture",
+                "docs/standards/source/architecture.adoc#boundaries-as-architecture",
+            )
         }
     }
 
