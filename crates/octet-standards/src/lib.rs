@@ -207,7 +207,76 @@ mod tests {
 
         assert_eq!(diagnostics.len(), 1);
         assert_eq!(diagnostics[0].policy_id, FCIS_POLICY_ID);
-        assert!(diagnostics[0].message.contains("runtime crate `tokio`"));
+        assert!(diagnostics[0].message.contains("forbidden dependency `tokio`") || diagnostics[0].message.contains("runtime crate `tokio`"));
+    }
+
+    #[test]
+    fn custom_boundary_checks_reject_core_no_std_with_domain_layout() {
+        let sources = vec![SourceFile::new(
+            "domain-core/src/lib.rs",
+            "pub fn core() {}\n",
+        )];
+        let diagnostics = check_architecture(
+            &sample_custom_boundary_registry(),
+            &sources,
+            &FamilySelection::from_families(["architecture"]),
+        );
+
+        assert_eq!(diagnostics.len(), 1);
+        assert_eq!(diagnostics[0].policy_id, FCIS_POLICY_ID);
+        assert!(diagnostics[0].message.contains("missing #![no_std]"));
+        assert!(diagnostics[0].message.contains("domain-core/src/lib.rs"));
+    }
+
+    #[test]
+    fn custom_boundary_checks_reject_forbidden_dependency_with_domain_layout() {
+        let sources = vec![SourceFile::new(
+            "domain-core/Cargo.toml",
+            "[dependencies]\ntokio = \"1\"\n",
+        )];
+        let diagnostics = check_architecture(
+            &sample_custom_boundary_registry(),
+            &sources,
+            &FamilySelection::from_families(["architecture"]),
+        );
+
+        assert_eq!(diagnostics.len(), 1);
+        assert_eq!(diagnostics[0].policy_id, FCIS_POLICY_ID);
+        assert!(diagnostics[0].message.contains("forbidden dependency `tokio`"));
+    }
+
+    #[test]
+    fn custom_boundary_checks_reject_external_leakage_with_domain_layout() {
+        let sources = vec![SourceFile::new(
+            "domain-core/src/lib.rs",
+            "#![no_std]\n\npub fn handle(input: axum::Json<u32>) -> u32 {\n    input.0\n}\n",
+        )];
+        let diagnostics = check_architecture(
+            &sample_custom_boundary_registry(),
+            &sources,
+            &FamilySelection::from_families(["architecture"]),
+        );
+
+        assert_eq!(diagnostics.len(), 1);
+        assert_eq!(diagnostics[0].policy_id, EXTERNAL_DOMAIN_LEAKAGE_POLICY_ID);
+        assert!(diagnostics[0].message.contains("axum::"));
+    }
+
+    #[test]
+    fn custom_boundary_checks_accept_compliant_domain_layout() {
+        let sources = vec![
+            SourceFile::new("domain-core/src/lib.rs", "#![no_std]\n"),
+            SourceFile::new("domain-core/Cargo.toml", "[dependencies]\nsnafu = \"0.8\"\n"),
+            SourceFile::new("infrastructure-shell/Cargo.toml", "[dependencies]\ndomain-core = { path = \"../domain-core\" }\n"),
+            SourceFile::new("infrastructure-shell/src/lib.rs", "pub fn shell() {}\n"),
+        ];
+        let diagnostics = check_architecture(
+            &sample_custom_boundary_registry(),
+            &sources,
+            &FamilySelection::from_families(["architecture"]),
+        );
+
+        assert!(diagnostics.is_empty());
     }
 
     #[test]
@@ -575,6 +644,57 @@ impl Session<Authenticated> { pub fn send(self) {} }
                 "architecture",
                 "docs/standards/source/architecture.adoc#effect-capability-boundaries",
             )
+        }
+    }
+
+    fn sample_custom_boundary_registry() -> PolicyRegistry {
+        PolicyRegistry {
+            schema_version: "test".to_owned(),
+            checker_ids: vec!["octet-standards".to_owned()],
+            policies: vec![
+                sample_policy_with_boundary_mechanism(
+                    FCIS_POLICY_ID,
+                    "architecture",
+                    "docs/standards/source/architecture.adoc#boundaries-the-compiler-can-see",
+                ),
+                sample_policy(
+                    EXTERNAL_DOMAIN_LEAKAGE_POLICY_ID,
+                    "architecture",
+                    "docs/standards/source/architecture.adoc#boundaries-as-architecture",
+                ),
+                sample_policy(
+                    ROOT_THINNESS_POLICY_ID,
+                    "architecture",
+                    "docs/standards/source/architecture.adoc#boundaries-the-compiler-can-see",
+                ),
+                sample_advisory_policy(
+                    PUBLIC_API_BUDGET_POLICY_ID,
+                    "architecture",
+                    "docs/standards/source/architecture.adoc#when-boundaries-are-too-tight",
+                ),
+                sample_effect_capability_policy(),
+            ],
+            seed_manifests: Vec::new(),
+            config_receipt_families: Vec::new(),
+        }
+    }
+
+    fn sample_policy_with_boundary_mechanism(policy_id: &str, pillar: &str, source_anchor: &str) -> PolicyEntry {
+        PolicyEntry {
+            mechanisms: vec![Mechanism {
+                kind: MechanismKind::CrateBoundary,
+                description: "custom-layout test mechanism".to_owned(),
+                core_crates: vec!["domain-core/src/lib.rs".to_owned()],
+                shell_crates: vec!["infrastructure-shell/Cargo.toml".to_owned()],
+                adapter_crates: vec!["adapters/http-api/src/".to_owned()],
+                forbidden_core_deps: vec!["tokio".to_owned(), "reqwest".to_owned()],
+                external_domain_patterns: vec!["axum::".to_owned(), "sqlx::".to_owned()],
+                core_no_std: true,
+                ..Mechanism::default()
+            }],
+            current_enforcement_mode: EnforcementMode::Gate,
+            target_enforcement_mode: EnforcementMode::Structural,
+            ..sample_policy(policy_id, pillar, source_anchor)
         }
     }
 

@@ -355,6 +355,20 @@ pub fn render_check_config_toml(registry: &PolicyRegistry) -> String {
         type_state_mechanism_field(type_state_policy, |mechanism| &mechanism.required_state_markers);
     let type_state_required_transition_methods =
         type_state_mechanism_field(type_state_policy, |mechanism| &mechanism.required_transition_methods);
+
+    // Crate-boundary config fields (policy-driven-crate-boundaries)
+    let crate_boundary_policy = crate_boundary_config_policy(registry);
+    let crate_core_crates =
+        crate_boundary_mechanism_field(crate_boundary_policy, |mechanism| &mechanism.core_crates);
+    let crate_shell_crates =
+        crate_boundary_mechanism_field(crate_boundary_policy, |mechanism| &mechanism.shell_crates);
+    let crate_adapter_crates =
+        crate_boundary_mechanism_field(crate_boundary_policy, |mechanism| &mechanism.adapter_crates);
+    let crate_forbidden_core_deps =
+        crate_boundary_mechanism_field(crate_boundary_policy, |mechanism| &mechanism.forbidden_core_deps);
+    let crate_external_domain_patterns =
+        crate_boundary_mechanism_field(crate_boundary_policy, |mechanism| &mechanism.external_domain_patterns);
+
     let mut toml = String::new();
     toml.push_str("schema_version = \"");
     toml.push_str(GENERATED_ARTIFACT_SCHEMA_VERSION);
@@ -384,6 +398,11 @@ pub fn render_check_config_toml(registry: &PolicyRegistry) -> String {
     append_toml_array(&mut toml, "type_state_raw_transition_patterns", &type_state_raw_transition_patterns);
     append_toml_array(&mut toml, "type_state_required_state_markers", &type_state_required_state_markers);
     append_toml_array(&mut toml, "type_state_required_transition_methods", &type_state_required_transition_methods);
+    append_toml_array(&mut toml, "crate_core_crates", &crate_core_crates);
+    append_toml_array(&mut toml, "crate_shell_crates", &crate_shell_crates);
+    append_toml_array(&mut toml, "crate_adapter_crates", &crate_adapter_crates);
+    append_toml_array(&mut toml, "crate_forbidden_core_deps", &crate_forbidden_core_deps);
+    append_toml_array(&mut toml, "crate_external_domain_patterns", &crate_external_domain_patterns);
     append_proof_rail_config(&mut toml, registry);
     toml
 }
@@ -544,8 +563,26 @@ fn effect_capability_policy(registry: &PolicyRegistry) -> Option<&PolicyEntry> {
     registry.policy_by_id("tigerstyle.architecture.effect-capability-boundaries")
 }
 
+fn crate_boundary_config_policy(registry: &PolicyRegistry) -> Option<&PolicyEntry> {
+    registry.policy_by_id("tigerstyle.architecture.fcis-crate-boundary")
+}
+
 fn nominal_type_boundary_policy(registry: &PolicyRegistry) -> Option<&PolicyEntry> {
     registry.policy_by_id("tigerstyle.idioms.nominal-type-boundaries")
+}
+
+fn crate_boundary_mechanism_field(
+    policy: Option<&PolicyEntry>,
+    field: impl Fn(&crate::model::Mechanism) -> &Vec<String>,
+) -> Vec<String> {
+    policy
+        .and_then(|policy| {
+            policy
+                .mechanisms
+                .iter()
+                .find(|mechanism| mechanism.kind == crate::model::MechanismKind::CrateBoundary)
+        })
+        .map_or_else(Vec::new, |mechanism| field(mechanism).clone())
 }
 
 fn type_state_mechanism_field(

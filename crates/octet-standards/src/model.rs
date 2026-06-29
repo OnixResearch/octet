@@ -63,6 +63,8 @@ pub enum MechanismKind {
     BoundedPrimitive,
     /// Type-state protocol API.
     TypeState,
+    /// Hexagonal port mechanism.
+    Port,
 }
 
 /// Structural mechanism metadata exported from Nickel.
@@ -108,7 +110,7 @@ pub struct Mechanism {
     /// Shell source path scopes where ambient authority constructors are allowed.
     #[serde(default)]
     pub shell_constructor_scopes: Vec<String>,
-    /// Approved capability trait, token, or effect-data names for capability-api mechanisms.
+    /// Approved capability trait, name, or effect-data names for capability-api mechanisms.
     #[serde(default)]
     pub approved_capability_names: Vec<String>,
     /// Source path scopes where type-state protocol obligations apply.
@@ -126,6 +128,43 @@ pub struct Mechanism {
     /// Required transition method names accepted as type-state evidence.
     #[serde(default)]
     pub required_transition_methods: Vec<String>,
+
+    // Crate-boundary mechanism fields (policy-driven-crate-boundaries)
+    /// Declared core crate manifest path suffixes.
+    #[serde(default)]
+    pub core_crates: Vec<String>,
+    /// Declared shell crate manifest path suffixes.
+    #[serde(default)]
+    pub shell_crates: Vec<String>,
+    /// Declared adapter crate manifest path suffixes.
+    #[serde(default)]
+    pub adapter_crates: Vec<String>,
+    /// Forbidden dependency crate names for core crates.
+    #[serde(default)]
+    pub forbidden_core_deps: Vec<String>,
+    /// External domain type patterns for core leakage detection.
+    #[serde(default)]
+    pub external_domain_patterns: Vec<String>,
+    /// Core crate must be no_std.
+    #[serde(default)]
+    pub core_no_std: bool,
+
+    // Port mechanism fields (hexagonal-port-mechanism)
+    /// Declared port trait qualified names.
+    #[serde(default)]
+    pub port_traits: Vec<String>,
+    /// Core owner source scope for port traits.
+    #[serde(default)]
+    pub core_owner_scope: String,
+    /// Permitted adapter source scopes that may impl ports.
+    #[serde(default)]
+    pub permitted_adapter_scopes: Vec<String>,
+    /// Forbidden concrete infrastructure type patterns.
+    #[serde(default)]
+    pub forbidden_concrete_types: Vec<String>,
+    /// True when a port is reserved and does not need an adapter impl.
+    #[serde(default)]
+    pub reserved: bool,
 }
 
 /// Deterministic evidence command metadata.

@@ -47,6 +47,7 @@ let MechanismKindContract =
     "capability-api",
     "bounded-primitive",
     "type-state",
+    "port",
   ]
 in
 
@@ -204,6 +205,21 @@ let MechanismContract = {
   raw_transition_patterns | Array NonEmptyString | default = [],
   required_state_markers | Array NonEmptyString | default = [],
   required_transition_methods | Array NonEmptyString | default = [],
+
+  # Crate-boundary mechanism fields (policy-driven-crate-boundaries)
+  core_crates | Array NonEmptyString | default = [],
+  shell_crates | Array NonEmptyString | default = [],
+  adapter_crates | Array NonEmptyString | default = [],
+  forbidden_core_deps | Array NonEmptyString | default = [],
+  external_domain_patterns | Array NonEmptyString | default = [],
+  core_no_std | Bool | default = false,
+
+  # Port mechanism fields (hexagonal-port-mechanism)
+  port_traits | Array NonEmptyString | default = [],
+  core_owner_scope | NonEmptyString | default = "",
+  permitted_adapter_scopes | Array NonEmptyString | default = [],
+  forbidden_concrete_types | Array NonEmptyString | default = [],
+  reserved | Bool | default = false,
 }
 in
 

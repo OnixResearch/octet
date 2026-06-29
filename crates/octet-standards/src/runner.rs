@@ -77,6 +77,7 @@ fn policy_failure_type(policy: &crate::model::PolicyEntry) -> String {
             crate::model::MechanismKind::CapabilityApi => "capability-api".to_owned(),
             crate::model::MechanismKind::BoundedPrimitive => "bounded-primitive".to_owned(),
             crate::model::MechanismKind::TypeState => "type-state".to_owned(),
+            crate::model::MechanismKind::Port => "port".to_owned(),
         },
     )
 }
