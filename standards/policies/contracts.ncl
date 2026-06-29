@@ -51,6 +51,13 @@ let MechanismKindContract =
   ]
 in
 
+let DependencyEdgeKindContract =
+  OneOf [
+    "normal",
+    "build",
+    "dev",
+  ]
+in
 let SeedRoleContract =
   OneOf [
     "architecture-reference",
@@ -212,6 +219,7 @@ let MechanismContract = {
   adapter_crates | Array NonEmptyString | default = [],
   forbidden_core_deps | Array NonEmptyString | default = [],
   external_domain_patterns | Array NonEmptyString | default = [],
+  dependency_edge_kinds | Array DependencyEdgeKindContract | default = [],
   core_no_std | Bool | default = false,
 
   # Port mechanism fields (hexagonal-port-mechanism)

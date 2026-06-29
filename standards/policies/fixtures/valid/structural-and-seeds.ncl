@@ -35,6 +35,7 @@ let PolicyRegistryRules = contracts.PolicyRegistryRules in
       crate_boundary = ["crates/core", "crates/std"],
       core_crates = ["crates/core/src/lib.rs"],
       shell_crates = ["crates/std/Cargo.toml"],
+      dependency_edge_kinds = ["normal", "build"],
     }],
     checker_owner = "fixture",
     checker_id = "octet-standards",

@@ -229,6 +229,7 @@ in
         adapter_crates = [],
         forbidden_core_deps = ["tokio", "tracing", "tracing-subscriber", "clap", "parking_lot", "url", "tigerstyle-std"],
         external_domain_patterns = ["axum::", "hyper::", "prost::", "reqwest::", "serde_json::", "sqlx::", "tonic::"],
+        dependency_edge_kinds = ["normal", "build"],
         core_no_std = true,
       }],
       checker_owner = "architecture",

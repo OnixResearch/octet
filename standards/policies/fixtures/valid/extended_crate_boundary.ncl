@@ -26,6 +26,7 @@ let PolicyRegistryRules = contracts.PolicyRegistryRules in
       adapter_crates = ["adapters/http-api/src/"],
       forbidden_core_deps = ["tokio", "reqwest", "tracing"],
       external_domain_patterns = ["axum::", "sqlx::"],
+      dependency_edge_kinds = ["normal", "build"],
       core_no_std = true,
     }],
     checker_owner = "fixture",

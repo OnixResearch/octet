@@ -1,5 +1,15 @@
 //! Architecture and FCIS boundary checks.
 
+use std::collections::BTreeSet;
+
+use crate::dependency_direction::CargoMetadata;
+use crate::dependency_direction::DependencyDirectionViolation;
+use crate::dependency_direction::DependencyDirectionViolationKind;
+use crate::dependency_direction::DependencyEdgeClassification;
+use crate::dependency_direction::DependencyEdgeKind;
+use crate::dependency_direction::default_dependency_edge_kinds;
+use crate::dependency_direction::dependency_direction;
+use crate::dependency_direction::dependency_input_from_metadata;
 use crate::diagnostic::Diagnostic;
 use crate::diagnostic::DiagnosticInput;
 use crate::model::FamilySelection;
@@ -26,6 +36,10 @@ const ROOT_MAIN_PATH_SUFFIX: &str = "src/main.rs";
 const NO_STD_ATTRIBUTE: &str = "#![no_std]";
 const CORE_DEPENDENCIES_SECTION: &str = "[dependencies]";
 const DEV_DEPENDENCIES_SECTION: &str = "[dev-dependencies]";
+const DEFAULT_DEPENDENCY_EDGE_KIND_NAMES: &[&str] = &["normal", "build"];
+
+/// Synthetic source path used by the CLI shell for `cargo metadata --format-version 1` output.
+pub const CARGO_METADATA_SOURCE_PATH: &str = "__octet/cargo-metadata.json";
 
 // Octet-layout default fallback constants (policy-driven-crate-boundaries)
 const FALLBACK_CORE_LIB_PATH_SUFFIX: &str = "crates/tigerstyle-core/src/lib.rs";
@@ -132,9 +146,13 @@ struct CrateBoundaryObligations {
     std_manifest_path_suffix: String,
     std_lib_path_suffix: String,
     core_rust_path_segment: String,
+    core_crates: Vec<String>,
+    shell_crates: Vec<String>,
+    adapter_crates: Vec<String>,
     core_forbidden_dependencies: Vec<String>,
     core_crate_dependency: String,
     external_domain_patterns: Vec<String>,
+    dependency_edge_kinds: Vec<String>,
     #[allow(dead_code)]
     core_no_std: bool,
 }
@@ -150,7 +168,17 @@ impl CrateBoundaryObligations {
         let fallback_core_rust = || FALLBACK_CORE_RUST_PATH_SEGMENT.to_owned();
 
         // Derive manifest path from core lib path: replace /src/lib.rs with /Cargo.toml
-        let core_suffix = crate_boundary_mechanism.and_then(|m| m.core_crates.first()).cloned();
+        let core_crates = mechanism_field_or_fallback(crate_boundary_mechanism, |mechanism| &mechanism.core_crates, &[
+            FALLBACK_CORE_LIB_PATH_SUFFIX,
+        ]);
+        let shell_crates =
+            mechanism_field_or_fallback(crate_boundary_mechanism, |mechanism| &mechanism.shell_crates, &[
+                FALLBACK_STD_MANIFEST_PATH_SUFFIX,
+            ]);
+        let adapter_crates =
+            crate_boundary_mechanism.map_or_else(Vec::new, |mechanism| mechanism.adapter_crates.clone());
+
+        let core_suffix = core_crates.first().cloned();
         let core_manifest = core_suffix.as_ref().map(|path| {
             if let Some(crate_root) = path.strip_suffix("/src/lib.rs") {
                 format!("{crate_root}/Cargo.toml")
@@ -160,7 +188,7 @@ impl CrateBoundaryObligations {
         });
 
         // Derive lib path from shell manifest: replace /Cargo.toml with /src/lib.rs
-        let shell_suffix = crate_boundary_mechanism.and_then(|m| m.shell_crates.first()).cloned();
+        let shell_suffix = shell_crates.first().cloned();
         let shell_lib = shell_suffix.as_ref().map(|path| {
             if let Some(crate_root) = path.strip_suffix("/Cargo.toml") {
                 format!("{crate_root}/src/lib.rs")
@@ -190,6 +218,9 @@ impl CrateBoundaryObligations {
                     }
                 })
                 .unwrap_or_else(fallback_core_rust),
+            core_crates,
+            shell_crates,
+            adapter_crates,
             core_forbidden_dependencies: mechanism_field_or_fallback(
                 crate_boundary_mechanism,
                 |mechanism| &mechanism.forbidden_core_deps,
@@ -200,6 +231,11 @@ impl CrateBoundaryObligations {
                 crate_boundary_mechanism,
                 |mechanism| &mechanism.external_domain_patterns,
                 FALLBACK_EXTERNAL_DOMAIN_TYPE_PATTERNS,
+            ),
+            dependency_edge_kinds: mechanism_field_or_fallback(
+                crate_boundary_mechanism,
+                |mechanism| &mechanism.dependency_edge_kinds,
+                DEFAULT_DEPENDENCY_EDGE_KIND_NAMES,
             ),
             core_no_std: crate_boundary_mechanism.map(|m| m.core_no_std).unwrap_or(true),
         }
@@ -336,6 +372,7 @@ pub fn check_architecture(
         check_core_forbidden_dependencies(registry, sources, boundary_obligations.as_ref(), &mut diagnostics);
         check_std_shell_owns_std(registry, sources, boundary_obligations.as_ref(), &mut diagnostics);
         check_shell_depends_on_core(registry, sources, boundary_obligations.as_ref(), &mut diagnostics);
+        check_dependency_direction(registry, sources, boundary_obligations.as_ref(), &mut diagnostics);
         check_core_capability_constructors(registry, sources, &mut diagnostics);
         check_hexagonal_ports(registry, sources, &mut diagnostics);
         check_external_domain_leakage(registry, sources, boundary_obligations.as_ref(), &mut diagnostics);
@@ -460,6 +497,130 @@ fn check_shell_depends_on_core(
             &format!("shell crate must depend on core crate `{core_dep}`"),
             "make shell crates depend inward on the core crate and keep the reverse dependency forbidden",
         ));
+    }
+}
+
+fn check_dependency_direction(
+    registry: &PolicyRegistry,
+    sources: &[SourceFile],
+    boundary: Option<&CrateBoundaryObligations>,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let Some(policy) = registry.policy_by_id(FCIS_POLICY_ID) else {
+        return;
+    };
+    let Some(boundary) = boundary else {
+        return;
+    };
+    let Some(metadata_source) = sources.iter().find(|source| source.path.ends_with(CARGO_METADATA_SOURCE_PATH)) else {
+        return;
+    };
+    let metadata = match serde_json::from_str::<CargoMetadata>(&metadata_source.text) {
+        Ok(metadata) => metadata,
+        Err(error) => {
+            diagnostics.push(policy_diagnostic(
+                policy,
+                metadata_source,
+                None,
+                &format!("cargo metadata fixture could not be parsed: {error}"),
+                "regenerate cargo metadata with `cargo metadata --format-version 1`",
+            ));
+            return;
+        }
+    };
+    let input = dependency_input_from_metadata(
+        &metadata,
+        &boundary.core_crates,
+        &boundary.shell_crates,
+        &boundary.adapter_crates,
+        dependency_edge_kind_set(&boundary.dependency_edge_kinds),
+    );
+    diagnostics.extend(
+        dependency_direction(&input)
+            .into_iter()
+            .map(|violation| dependency_direction_diagnostic(policy, metadata_source, &violation)),
+    );
+}
+
+fn dependency_edge_kind_set(configured: &[String]) -> BTreeSet<DependencyEdgeKind> {
+    let kinds = configured
+        .iter()
+        .filter_map(|kind| DependencyEdgeKind::from_config_value(kind))
+        .collect::<BTreeSet<_>>();
+    if kinds.is_empty() {
+        default_dependency_edge_kinds()
+    } else {
+        kinds
+    }
+}
+
+fn dependency_direction_diagnostic(
+    policy: &PolicyEntry,
+    source: &SourceFile,
+    violation: &DependencyDirectionViolation,
+) -> Diagnostic {
+    let (message, remediation) = dependency_direction_message(violation);
+    policy_diagnostic(policy, source, None, &message, &remediation)
+}
+
+fn dependency_direction_message(violation: &DependencyDirectionViolation) -> (String, String) {
+    match violation.kind {
+        DependencyDirectionViolationKind::CoreToAdapter => core_to_adapter_message(violation),
+        DependencyDirectionViolationKind::CoreToExternalInfrastructure => {
+            let dependency = violation.dependency.as_deref().unwrap_or("unknown");
+            (
+                format!(
+                    "core crate `{}` depends on external infrastructure crate `{dependency}` via {} dependency edge",
+                    violation.dependent,
+                    edge_label(violation.edge),
+                ),
+                "move infrastructure dependencies out of core or inject a port owned by core".to_owned(),
+            )
+        }
+        DependencyDirectionViolationKind::AdapterMissingCore => (
+            format!("adapter crate `{}` must depend inward on a declared core crate", violation.dependent),
+            "make adapter crates depend on core traits/types and keep core independent of adapters".to_owned(),
+        ),
+        DependencyDirectionViolationKind::ShellOutwardToAdapter => {
+            let dependency = violation.dependency.as_deref().unwrap_or("unknown");
+            (
+                format!(
+                    "shell crate `{}` depends outward on adapter crate `{dependency}` via {} dependency edge",
+                    violation.dependent,
+                    edge_label(violation.edge),
+                ),
+                "keep the shell thin and route adapter details behind core-owned ports".to_owned(),
+            )
+        }
+    }
+}
+
+fn core_to_adapter_message(violation: &DependencyDirectionViolation) -> (String, String) {
+    let dependency = violation.dependency.as_deref().unwrap_or("unknown");
+    if violation.edge == Some(DependencyEdgeClassification::Transitive) {
+        let intermediate = violation.intermediate.as_deref().unwrap_or("unknown");
+        return (
+            format!(
+                "core crate `{}` reaches adapter crate `{dependency}` through `{intermediate}` via transitive dependency leakage",
+                violation.dependent
+            ),
+            "move the dependency to an adapter or inject a core-owned port instead of leaking through an intermediate crate"
+                .to_owned(),
+        );
+    }
+    (
+        format!(
+            "core crate `{}` depends on adapter crate `{dependency}` via direct dependency edge",
+            violation.dependent
+        ),
+        "move the dependency to an adapter or inject a core-owned port".to_owned(),
+    )
+}
+
+fn edge_label(edge: Option<DependencyEdgeClassification>) -> &'static str {
+    match edge {
+        Some(DependencyEdgeClassification::Transitive) => "transitive",
+        Some(DependencyEdgeClassification::Direct) | None => "direct",
     }
 }
 

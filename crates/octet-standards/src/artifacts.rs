@@ -358,16 +358,16 @@ pub fn render_check_config_toml(registry: &PolicyRegistry) -> String {
 
     // Crate-boundary config fields (policy-driven-crate-boundaries)
     let crate_boundary_policy = crate_boundary_config_policy(registry);
-    let crate_core_crates =
-        crate_boundary_mechanism_field(crate_boundary_policy, |mechanism| &mechanism.core_crates);
-    let crate_shell_crates =
-        crate_boundary_mechanism_field(crate_boundary_policy, |mechanism| &mechanism.shell_crates);
+    let crate_core_crates = crate_boundary_mechanism_field(crate_boundary_policy, |mechanism| &mechanism.core_crates);
+    let crate_shell_crates = crate_boundary_mechanism_field(crate_boundary_policy, |mechanism| &mechanism.shell_crates);
     let crate_adapter_crates =
         crate_boundary_mechanism_field(crate_boundary_policy, |mechanism| &mechanism.adapter_crates);
     let crate_forbidden_core_deps =
         crate_boundary_mechanism_field(crate_boundary_policy, |mechanism| &mechanism.forbidden_core_deps);
     let crate_external_domain_patterns =
         crate_boundary_mechanism_field(crate_boundary_policy, |mechanism| &mechanism.external_domain_patterns);
+    let crate_dependency_edge_kinds =
+        crate_boundary_mechanism_field(crate_boundary_policy, |mechanism| &mechanism.dependency_edge_kinds);
 
     let mut toml = String::new();
     toml.push_str("schema_version = \"");
@@ -403,6 +403,7 @@ pub fn render_check_config_toml(registry: &PolicyRegistry) -> String {
     append_toml_array(&mut toml, "crate_adapter_crates", &crate_adapter_crates);
     append_toml_array(&mut toml, "crate_forbidden_core_deps", &crate_forbidden_core_deps);
     append_toml_array(&mut toml, "crate_external_domain_patterns", &crate_external_domain_patterns);
+    append_toml_array(&mut toml, "crate_dependency_edge_kinds", &crate_dependency_edge_kinds);
     append_proof_rail_config(&mut toml, registry);
     toml
 }
