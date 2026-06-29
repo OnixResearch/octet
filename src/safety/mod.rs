@@ -5,6 +5,8 @@ pub mod defaulting_trait_method;
 pub mod drop_must_use;
 pub mod explicit_defaults;
 pub mod fallible_int_fallback;
+pub mod foreign_enum_catch_all;
+pub mod fragile_exhaustive_enum_match;
 pub mod ignored_result;
 pub mod no_panic;
 pub mod no_recursion;

@@ -8,11 +8,11 @@ For the landing-page naming map, see `../README.md`.
 
 ## Catalog summary
 
-`octet` ships 42 lints across 6 domains.
+`octet` ships 44 lints across 6 domains.
 
 | Domain | Group | Count |
 | --- | --- | ---: |
-| safety | `octet::safety` | 19 |
+| safety | `octet::safety` | 21 |
 | naming | `octet::naming` | 5 |
 | performance | `octet::performance` | 1 |
 | structure | `octet::structure` | 13 |
@@ -66,6 +66,7 @@ Rules to keep straight:
 | `impl_blocks_max` | `4` | `type_accumulation` | maximum inherent impl blocks per type before advisory |
 | `module_pub_items_max` | `12` | `type_accumulation` | maximum public items per module before advisory |
 | `core_source_scopes` | `[]` | `concrete_construction_in_core` | source path scopes where concrete construction is checked |
+| `sealed_enum_marker` | `"octet::sealed_enum"` | `fragile_exhaustive_enum_match` | attribute marker that suppresses fragile local exhaustive enum-match diagnostics |
 | `acronym_allowlist` | `[]` | `acronym_style` | case-sensitive allowlist such as `IO` or `ID` |
 | `disabled_lints` | `[]` | all lints | bare lint names only; disabled lints do not register |
 | `[octet.lint_levels]` | `{}` | all lints | bare lint names mapped to `allow`, `warn`, or `deny` |
@@ -87,6 +88,8 @@ Unknown lint names and invalid level values warn and are ignored.
 | `unchecked_division` | `warn` | require a zero guard before dividing by a variable |
 | `unbounded_loop` | `warn` | flag `loop {}` without an explicit bound or exit condition |
 | `catch_all_on_enum` | `warn` | flag `_` match arms that hide future enum variants |
+| `foreign_enum_catch_all` | `allow` | flag `_` match arms over enums defined in another crate |
+| `fragile_exhaustive_enum_match` | `allow` | flag exhaustive matches over same-crate enums without a fallback |
 | `explicit_defaults` | `warn` | avoid foreign `Default` shorthands such as `..Default::default()` |
 | `unbounded_channel` | `warn` | flag known unbounded channel constructors |
 | `unbounded_collection_growth` | `warn` | flag loop-driven collection growth without reservation or a local bound |

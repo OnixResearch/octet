@@ -160,6 +160,14 @@
     "fixture": "catch_all_on_enum"
   },
   {
+    "lint_name": "foreign_enum_catch_all",
+    "fixture": "foreign_enum_catch_all"
+  },
+  {
+    "lint_name": "fragile_exhaustive_enum_match",
+    "fixture": "fragile_exhaustive_enum_match"
+  },
+  {
     "lint_name": "platform_dependent_cast",
     "fixture": "platform_dependent_cast"
   },

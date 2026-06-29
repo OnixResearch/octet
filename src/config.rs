@@ -15,6 +15,7 @@
 //! impl_blocks_max = 4
 //! module_pub_items_max = 12
 //! core_source_scopes = ["crates/domain-core/src/"]
+//! sealed_enum_marker = "octet::sealed_enum"
 //! acronym_allowlist = ["IO", "ID"]
 //! disabled_lints = ["no_unwrap", "no_panic"]
 //!
@@ -91,6 +92,9 @@ pub struct Config {
     /// Source path scopes where concrete construction in core is checked.
     pub core_source_scopes: Vec<String>,
 
+    /// Attribute marker that suppresses fragile same-crate exhaustive enum match diagnostics.
+    pub sealed_enum_marker: String,
+
     /// Acronyms that should not trigger the acronym_style lint.
     /// Entries are case-sensitive and matched against the uppercase run
     /// (e.g., `"IO"` allows `IOError`).
@@ -121,6 +125,7 @@ impl Default for Config {
             impl_blocks_max: 4,
             module_pub_items_max: 12,
             core_source_scopes: Vec::new(),
+            sealed_enum_marker: "octet::sealed_enum".to_owned(),
             acronym_allowlist: Vec::new(),
             disabled_lints: Vec::new(),
             lint_levels: HashMap::new(),

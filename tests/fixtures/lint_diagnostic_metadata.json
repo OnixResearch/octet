@@ -360,6 +360,24 @@
     "example_text": "match state { State::Open => ..., State::Closed => ... }"
   },
   {
+    "lint_name": "foreign_enum_catch_all",
+    "principle": "Open/Closed Boundaries",
+    "guide_section": "Enum Matches / Foreign Extension",
+    "domain_group": "tigerstyle::safety",
+    "guidance": "handle foreign enum variants explicitly or document catch-all fallback behavior",
+    "example_mode": "required",
+    "example_text": "ExternalState::Ready => run()"
+  },
+  {
+    "lint_name": "fragile_exhaustive_enum_match",
+    "principle": "Open/Closed Boundaries",
+    "guide_section": "Enum Matches / Local Evolution",
+    "domain_group": "tigerstyle::safety",
+    "guidance": "avoid fragile same-crate exhaustive enum matches unless the enum is deliberately sealed",
+    "example_mode": "required",
+    "example_text": "#[octet::sealed_enum] enum State { Ready, Closed }"
+  },
+  {
     "lint_name": "platform_dependent_cast",
     "principle": "Explicit Types",
     "guide_section": "Explicit Types",
