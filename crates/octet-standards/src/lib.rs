@@ -7,6 +7,7 @@
 
 pub mod architecture;
 pub mod artifacts;
+pub mod dependency_direction;
 pub mod diagnostic;
 pub mod fixture;
 pub mod model;
@@ -22,6 +23,7 @@ pub mod suppression;
 mod tests {
     use pretty_assertions::assert_eq;
 
+    use crate::architecture::CARGO_METADATA_SOURCE_PATH;
     use crate::architecture::check_architecture;
     use crate::fixture::FixtureManifest;
     use crate::fixture::PolicyFixtureCoverage;
@@ -75,6 +77,18 @@ mod tests {
         "standards/check-fixtures/architecture/advisory/public-api-budget/src/lib.rs";
     const PUBLIC_API_BUDGET_FIXTURE_SOURCE: &str =
         include_str!("../../../standards/check-fixtures/architecture/advisory/public-api-budget/src/lib.rs");
+    const DEPENDENCY_DIRECTION_CLEAN_METADATA: &str =
+        include_str!("../../../standards/check-fixtures/architecture/dependency-direction/clean.json");
+    const DEPENDENCY_DIRECTION_CORE_TO_ADAPTER_METADATA: &str =
+        include_str!("../../../standards/check-fixtures/architecture/dependency-direction/core-to-adapter.json");
+    const DEPENDENCY_DIRECTION_CORE_TO_EXTERNAL_METADATA: &str =
+        include_str!("../../../standards/check-fixtures/architecture/dependency-direction/core-to-external.json");
+    const DEPENDENCY_DIRECTION_SHELL_OUTWARD_METADATA: &str =
+        include_str!("../../../standards/check-fixtures/architecture/dependency-direction/shell-outward.json");
+    const DEPENDENCY_DIRECTION_ADAPTER_MISSING_CORE_METADATA: &str =
+        include_str!("../../../standards/check-fixtures/architecture/dependency-direction/adapter-missing-core.json");
+    const DEPENDENCY_DIRECTION_TRANSITIVE_METADATA: &str =
+        include_str!("../../../standards/check-fixtures/architecture/dependency-direction/transitive-leakage.json");
 
     #[test]
     fn valid_suppression_is_reported_as_active() {
@@ -491,6 +505,116 @@ mod tests {
     }
 
     #[test]
+    fn architecture_dependency_direction_accepts_clean_metadata_fixture() {
+        let diagnostics = check_architecture(
+            &sample_dependency_direction_registry(vec!["normal", "build"]),
+            &[metadata_source(DEPENDENCY_DIRECTION_CLEAN_METADATA)],
+            &FamilySelection::from_families(["architecture"]),
+        );
+
+        assert!(diagnostics.is_empty());
+    }
+
+    #[test]
+    fn architecture_dependency_direction_rejects_core_to_adapter() {
+        let diagnostics = check_architecture(
+            &sample_dependency_direction_registry(vec!["normal", "build"]),
+            &[metadata_source(DEPENDENCY_DIRECTION_CORE_TO_ADAPTER_METADATA)],
+            &FamilySelection::from_families(["architecture"]),
+        );
+
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic.policy_id == FCIS_POLICY_ID
+                && diagnostic.message.contains("core crate `domain-core` depends on adapter crate `http-adapter`")
+                && diagnostic.message.contains("direct")
+        }));
+    }
+
+    #[test]
+    fn architecture_dependency_direction_rejects_core_to_external_infrastructure() {
+        let diagnostics = check_architecture(
+            &sample_dependency_direction_registry(vec!["normal", "build"]),
+            &[metadata_source(DEPENDENCY_DIRECTION_CORE_TO_EXTERNAL_METADATA)],
+            &FamilySelection::from_families(["architecture"]),
+        );
+
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic.policy_id == FCIS_POLICY_ID
+                && diagnostic.message.contains("external infrastructure crate `sqlx`")
+        }));
+    }
+
+    #[test]
+    fn architecture_dependency_direction_rejects_shell_outward_edge() {
+        let diagnostics = check_architecture(
+            &sample_dependency_direction_registry(vec!["normal", "build"]),
+            &[metadata_source(DEPENDENCY_DIRECTION_SHELL_OUTWARD_METADATA)],
+            &FamilySelection::from_families(["architecture"]),
+        );
+
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic.policy_id == FCIS_POLICY_ID
+                && diagnostic
+                    .message
+                    .contains("shell crate `app-shell` depends outward on adapter crate `http-adapter`")
+        }));
+    }
+
+    #[test]
+    fn architecture_dependency_direction_rejects_adapter_missing_core_edge() {
+        let diagnostics = check_architecture(
+            &sample_dependency_direction_registry(vec!["normal", "build"]),
+            &[metadata_source(DEPENDENCY_DIRECTION_ADAPTER_MISSING_CORE_METADATA)],
+            &FamilySelection::from_families(["architecture"]),
+        );
+
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic.policy_id == FCIS_POLICY_ID
+                && diagnostic.message.contains("adapter crate `http-adapter` must depend inward")
+        }));
+    }
+
+    #[test]
+    fn architecture_dependency_direction_reports_transitive_leakage_distinctly() {
+        let diagnostics = check_architecture(
+            &sample_dependency_direction_registry(vec!["normal", "build"]),
+            &[metadata_source(DEPENDENCY_DIRECTION_TRANSITIVE_METADATA)],
+            &FamilySelection::from_families(["architecture"]),
+        );
+
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic.policy_id == FCIS_POLICY_ID
+                && diagnostic.message.contains("transitive dependency leakage")
+                && diagnostic.message.contains("domain-helper")
+        }));
+    }
+
+    #[test]
+    fn architecture_dependency_direction_excludes_dev_dependencies_by_default() {
+        let diagnostics = check_architecture(
+            &sample_dependency_direction_registry(Vec::new()),
+            &[metadata_source(dev_dependency_metadata())],
+            &FamilySelection::from_families(["architecture"]),
+        );
+
+        assert!(diagnostics.is_empty());
+    }
+
+    #[test]
+    fn architecture_dependency_direction_includes_configured_dev_dependencies() {
+        let diagnostics = check_architecture(
+            &sample_dependency_direction_registry(vec!["normal", "build", "dev"]),
+            &[metadata_source(dev_dependency_metadata())],
+            &FamilySelection::from_families(["architecture"]),
+        );
+
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic.policy_id == FCIS_POLICY_ID
+                && diagnostic.message.contains("core crate `domain-core` depends on adapter crate `http-adapter`")
+        }));
+    }
+
+    #[test]
     fn idioms_selection_skips_architecture_family_diagnostics() {
         let sources = vec![SourceFile::new(
             "crates/tigerstyle-core/src/lib.rs",
@@ -726,6 +850,57 @@ impl Session<Authenticated> { pub fn send(self) {} }
             seed_manifests: Vec::new(),
             config_receipt_families: Vec::new(),
         }
+    }
+
+    fn sample_dependency_direction_registry(edge_kinds: Vec<&str>) -> PolicyRegistry {
+        PolicyRegistry {
+            schema_version: "test".to_owned(),
+            checker_ids: vec!["octet-standards".to_owned()],
+            policies: vec![sample_dependency_direction_policy(edge_kinds)],
+            seed_manifests: Vec::new(),
+            config_receipt_families: Vec::new(),
+        }
+    }
+
+    fn sample_dependency_direction_policy(edge_kinds: Vec<&str>) -> PolicyEntry {
+        PolicyEntry {
+            mechanisms: vec![Mechanism {
+                kind: MechanismKind::CrateBoundary,
+                description: "test dependency direction mechanism".to_owned(),
+                core_crates: vec!["crates/domain-core/src/lib.rs".to_owned()],
+                shell_crates: vec!["crates/app-shell/Cargo.toml".to_owned()],
+                adapter_crates: vec!["crates/http-adapter/Cargo.toml".to_owned()],
+                dependency_edge_kinds: edge_kinds.into_iter().map(str::to_owned).collect(),
+                ..Mechanism::default()
+            }],
+            current_enforcement_mode: EnforcementMode::Gate,
+            target_enforcement_mode: EnforcementMode::Structural,
+            ..sample_policy(
+                FCIS_POLICY_ID,
+                "architecture",
+                "docs/standards/source/architecture.adoc#boundaries-the-compiler-can-see",
+            )
+        }
+    }
+
+    fn metadata_source(text: &str) -> SourceFile {
+        SourceFile::new(CARGO_METADATA_SOURCE_PATH, text)
+    }
+
+    fn dev_dependency_metadata() -> &'static str {
+        r#"{
+  "packages": [
+    { "id": "core", "name": "domain-core", "manifest_path": "/workspace/crates/domain-core/Cargo.toml" },
+    { "id": "adapter", "name": "http-adapter", "manifest_path": "/workspace/crates/http-adapter/Cargo.toml" }
+  ],
+  "resolve": {
+    "nodes": [
+      { "id": "core", "deps": [{ "pkg": "adapter", "dep_kinds": [{ "kind": "dev" }] }] },
+      { "id": "adapter", "deps": [{ "pkg": "core", "dep_kinds": [{ "kind": null }] }] }
+    ]
+  },
+  "workspace_members": ["core", "adapter"]
+}"#
     }
 
     fn sample_port_registry(reserved: bool) -> PolicyRegistry {

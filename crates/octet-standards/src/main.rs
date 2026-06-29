@@ -18,6 +18,7 @@ use std::time::UNIX_EPOCH;
 use clap::Parser;
 use clap::Subcommand;
 use clap::ValueEnum;
+use octet_standards::architecture::CARGO_METADATA_SOURCE_PATH;
 use octet_standards::artifacts::ARTIFACT_MANIFEST_JSON_FILE;
 use octet_standards::artifacts::ArtifactManifest;
 use octet_standards::artifacts::CHECK_CONFIG_TOML_FILE;
@@ -60,6 +61,9 @@ use octet_standards::source::SourceFile;
 
 const EXIT_SUCCESS: u8 = 0;
 const EXIT_FAILURE: u8 = 1;
+const ARCHITECTURE_FAMILY: &str = "architecture";
+const FCIS_POLICY_ID: &str = "tigerstyle.architecture.fcis-crate-boundary";
+const CARGO_MANIFEST_FILE: &str = "Cargo.toml";
 
 /// Tiger Style policy checker.
 #[derive(Debug, Parser)]
@@ -227,6 +231,7 @@ fn run_check_command(args: CheckArgs) -> Result<bool, CliError> {
         });
     };
     let mut sources = load_sources(&args.source)?;
+    append_cargo_metadata_source(&registry, &selection, &args.source, &mut sources);
     if args.execute_proof_rails {
         let executed = execute_relevant_proof_rails(&registry, &sources, &selection, &args.source);
         sources.retain(|source| !executed.proof_path_patterns.iter().any(|pattern| source.path.contains(pattern)));
@@ -943,6 +948,59 @@ fn proof_receipt_binding(rail: &octet_standards::model::ProofRail, sources: &[So
 
 fn blake3_hex(text: &str) -> String {
     blake3::hash(text.as_bytes()).to_hex().to_string()
+}
+
+fn append_cargo_metadata_source(
+    registry: &PolicyRegistry,
+    selection: &FamilySelection,
+    source_paths: &[PathBuf],
+    sources: &mut Vec<SourceFile>,
+) {
+    if !selection.includes(ARCHITECTURE_FAMILY) || registry.policy_by_id(FCIS_POLICY_ID).is_none() {
+        return;
+    }
+    if sources.iter().any(|source| source.path.ends_with(CARGO_METADATA_SOURCE_PATH)) {
+        return;
+    }
+    let Some(working_dir) = cargo_metadata_working_dir(source_paths) else {
+        return;
+    };
+    let Ok(output) = ProcessCommand::new("cargo")
+        .args(["metadata", "--format-version", "1"])
+        .current_dir(&working_dir)
+        .output()
+    else {
+        return;
+    };
+    if !output.status.success() {
+        return;
+    }
+    let Ok(metadata) = String::from_utf8(output.stdout) else {
+        return;
+    };
+    sources.push(SourceFile::new(CARGO_METADATA_SOURCE_PATH, metadata));
+}
+
+fn cargo_metadata_working_dir(source_paths: &[PathBuf]) -> Option<PathBuf> {
+    source_paths.iter().find_map(|source_path| {
+        let start = if source_path.is_dir() {
+            source_path.as_path()
+        } else {
+            source_path.parent()?
+        };
+        nearest_manifest_directory(start)
+    })
+}
+
+fn nearest_manifest_directory(start: &Path) -> Option<PathBuf> {
+    let mut current = Some(start);
+    while let Some(directory) = current {
+        if directory.join(CARGO_MANIFEST_FILE).is_file() {
+            return Some(directory.to_path_buf());
+        }
+        current = directory.parent();
+    }
+    None
 }
 
 fn load_sources(paths: &[PathBuf]) -> Result<Vec<SourceFile>, CliError> {
