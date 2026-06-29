@@ -15,6 +15,8 @@
       "unchecked_narrowing",
       "unchecked_division",
       "catch_all_on_enum",
+      "foreign_enum_catch_all",
+      "fragile_exhaustive_enum_match",
       "raw_arithmetic_overflow",
       "no_unwrap",
       "no_panic",

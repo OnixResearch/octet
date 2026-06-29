@@ -160,6 +160,14 @@
     "canonical_lint_name": "tigerstyle::catch_all_on_enum"
   },
   {
+    "alias_name": "foreign_enum_catch_all",
+    "canonical_lint_name": "tigerstyle::foreign_enum_catch_all"
+  },
+  {
+    "alias_name": "fragile_exhaustive_enum_match",
+    "canonical_lint_name": "tigerstyle::fragile_exhaustive_enum_match"
+  },
+  {
     "alias_name": "platform_dependent_cast",
     "canonical_lint_name": "tigerstyle::platform_dependent_cast"
   },

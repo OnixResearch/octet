@@ -38,6 +38,8 @@ unchecked_division
 contradictory_time
 ambient_clock
 catch_all_on_enum
+foreign_enum_catch_all
+fragile_exhaustive_enum_match
 platform_dependent_cast
 float_for_currency
 ambiguous_params

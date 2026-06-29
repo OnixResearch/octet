@@ -31,6 +31,7 @@
 # impl_blocks_max = 4
 # module_pub_items_max = 12
 # core_source_scopes = ["crates/domain-core/src/"]
+# sealed_enum_marker = "octet::sealed_enum"
 
 # Narrow allowlists
 # Keep these explicit and domain-specific. Avoid catch-all naming exceptions.
@@ -81,6 +82,8 @@
 #   "unchecked_narrowing",
 #   "unchecked_division",
 #   "catch_all_on_enum",
+#   "foreign_enum_catch_all",
+#   "fragile_exhaustive_enum_match",
 #   "platform_dependent_cast",
 #   "borrowed_argument_types",
 #   "deref_polymorphism",

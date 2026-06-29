@@ -264,6 +264,13 @@ lint_inventory! {
     "catch_all_on_enum", safety::catch_all_on_enum::CATCH_ALL_ON_ENUM => |lint_store, _cfg| {
         lint_store.register_late_pass(|_| Box::new(safety::catch_all_on_enum::CatchAllOnEnum));
     },
+    "foreign_enum_catch_all", safety::foreign_enum_catch_all::FOREIGN_ENUM_CATCH_ALL => |lint_store, _cfg| {
+        lint_store.register_late_pass(|_| Box::new(safety::foreign_enum_catch_all::ForeignEnumCatchAll));
+    },
+    "fragile_exhaustive_enum_match", safety::fragile_exhaustive_enum_match::FRAGILE_EXHAUSTIVE_ENUM_MATCH => |lint_store, cfg| {
+        let sealed_enum_marker = cfg.sealed_enum_marker.clone();
+        lint_store.register_late_pass(move |_| Box::new(safety::fragile_exhaustive_enum_match::FragileExhaustiveEnumMatch::new(sealed_enum_marker.clone())));
+    },
     "platform_dependent_cast", structure::platform_dependent_cast::PLATFORM_DEPENDENT_CAST => |lint_store, _cfg| {
         lint_store.register_late_pass(|_| Box::new(structure::platform_dependent_cast::PlatformDependentCast));
     },
@@ -701,6 +708,8 @@ mod tests {
         "unjustified_no_todo_allow",
         "public_unsafe_api",
         "defaulting_trait_method",
+        "foreign_enum_catch_all",
+        "fragile_exhaustive_enum_match",
         "verified_purity",
     ];
 
@@ -793,6 +802,8 @@ mod tests {
             "contradictory_time" => "src/purity/contradictory_time.rs",
             "ambient_clock" => "src/purity/ambient_clock.rs",
             "catch_all_on_enum" => "src/safety/catch_all_on_enum.rs",
+            "foreign_enum_catch_all" => "src/safety/foreign_enum_catch_all.rs",
+            "fragile_exhaustive_enum_match" => "src/safety/fragile_exhaustive_enum_match.rs",
             "platform_dependent_cast" => "src/structure/platform_dependent_cast.rs",
             "float_for_currency" => "src/naming/float_for_currency.rs",
             "ambiguous_params" => "src/structure/ambiguous_params.rs",
