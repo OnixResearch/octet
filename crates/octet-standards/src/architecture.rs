@@ -16,6 +16,7 @@ const EXTERNAL_DOMAIN_LEAKAGE_POLICY_ID: &str = "tigerstyle.architecture.externa
 const ROOT_THINNESS_POLICY_ID: &str = "tigerstyle.architecture.root-crate-thinness";
 const PUBLIC_API_BUDGET_POLICY_ID: &str = "tigerstyle.architecture.public-api-budget";
 const EFFECT_CAPABILITY_POLICY_ID: &str = "tigerstyle.architecture.effect-capability-boundaries";
+const HEXAGONAL_PORT_POLICY_ID: &str = "tigerstyle.architecture.hexagonal-ports";
 const TYPE_STATE_POLICY_ID: &str = "tigerstyle.idioms.nominal-type-boundaries";
 const FORBIDDEN_RUNTIME_POLICY_ID: &str = "tigerstyle.architecture.fcis-crate-boundary";
 const STD_SHELL_POLICY_ID: &str = "tigerstyle.architecture.fcis-crate-boundary";
@@ -116,6 +117,15 @@ struct TypeStateObligations {
 }
 
 #[derive(Debug)]
+struct PortObligations {
+    port_traits: Vec<String>,
+    core_owner_scope: String,
+    permitted_adapter_scopes: Vec<String>,
+    forbidden_concrete_types: Vec<String>,
+    reserved: bool,
+}
+
+#[derive(Debug)]
 struct CrateBoundaryObligations {
     core_lib_path_suffix: String,
     core_manifest_path_suffix: String,
@@ -140,9 +150,7 @@ impl CrateBoundaryObligations {
         let fallback_core_rust = || FALLBACK_CORE_RUST_PATH_SEGMENT.to_owned();
 
         // Derive manifest path from core lib path: replace /src/lib.rs with /Cargo.toml
-        let core_suffix = crate_boundary_mechanism
-            .and_then(|m| m.core_crates.first())
-            .cloned();
+        let core_suffix = crate_boundary_mechanism.and_then(|m| m.core_crates.first()).cloned();
         let core_manifest = core_suffix.as_ref().map(|path| {
             if let Some(crate_root) = path.strip_suffix("/src/lib.rs") {
                 format!("{crate_root}/Cargo.toml")
@@ -152,9 +160,7 @@ impl CrateBoundaryObligations {
         });
 
         // Derive lib path from shell manifest: replace /Cargo.toml with /src/lib.rs
-        let shell_suffix = crate_boundary_mechanism
-            .and_then(|m| m.shell_crates.first())
-            .cloned();
+        let shell_suffix = crate_boundary_mechanism.and_then(|m| m.shell_crates.first()).cloned();
         let shell_lib = shell_suffix.as_ref().map(|path| {
             if let Some(crate_root) = path.strip_suffix("/Cargo.toml") {
                 format!("{crate_root}/src/lib.rs")
@@ -165,9 +171,9 @@ impl CrateBoundaryObligations {
 
         // Derive core crate dep name from manifest path
         let core_dep_name = core_manifest.as_ref().and_then(|manifest| {
-            manifest.strip_suffix("/Cargo.toml").map(|crate_root| {
-                crate_root.rsplit('/').next().unwrap_or(crate_root).to_owned()
-            })
+            manifest
+                .strip_suffix("/Cargo.toml")
+                .map(|crate_root| crate_root.rsplit('/').next().unwrap_or(crate_root).to_owned())
         });
 
         Self {
@@ -189,17 +195,31 @@ impl CrateBoundaryObligations {
                 |mechanism| &mechanism.forbidden_core_deps,
                 FALLBACK_CORE_FORBIDDEN_DEPENDENCIES,
             ),
-            core_crate_dependency: core_dep_name
-                .unwrap_or_else(|| FALLBACK_CORE_CRATE_DEPENDENCY.to_owned()),
+            core_crate_dependency: core_dep_name.unwrap_or_else(|| FALLBACK_CORE_CRATE_DEPENDENCY.to_owned()),
             external_domain_patterns: mechanism_field_or_fallback(
                 crate_boundary_mechanism,
                 |mechanism| &mechanism.external_domain_patterns,
                 FALLBACK_EXTERNAL_DOMAIN_TYPE_PATTERNS,
             ),
-            core_no_std: crate_boundary_mechanism
-                .map(|m| m.core_no_std)
-                .unwrap_or(true),
+            core_no_std: crate_boundary_mechanism.map(|m| m.core_no_std).unwrap_or(true),
         }
+    }
+}
+
+impl PortObligations {
+    fn from_policy(policy: &PolicyEntry) -> Option<Self> {
+        let mechanism = policy.mechanisms.iter().find(|mechanism| mechanism.kind == MechanismKind::Port)?;
+        Some(Self {
+            port_traits: mechanism.port_traits.clone(),
+            core_owner_scope: mechanism.core_owner_scope.clone(),
+            permitted_adapter_scopes: mechanism.permitted_adapter_scopes.clone(),
+            forbidden_concrete_types: mechanism.forbidden_concrete_types.clone(),
+            reserved: mechanism.reserved,
+        })
+    }
+
+    fn enabled(&self) -> bool {
+        !self.port_traits.is_empty() && !self.core_owner_scope.is_empty()
     }
 }
 
@@ -308,9 +328,7 @@ pub fn check_architecture(
         return Vec::new();
     }
 
-    let boundary_obligations = registry
-        .policy_by_id(FCIS_POLICY_ID)
-        .map(CrateBoundaryObligations::from_policy);
+    let boundary_obligations = registry.policy_by_id(FCIS_POLICY_ID).map(CrateBoundaryObligations::from_policy);
 
     let mut diagnostics = Vec::new();
     if includes_architecture {
@@ -319,6 +337,7 @@ pub fn check_architecture(
         check_std_shell_owns_std(registry, sources, boundary_obligations.as_ref(), &mut diagnostics);
         check_shell_depends_on_core(registry, sources, boundary_obligations.as_ref(), &mut diagnostics);
         check_core_capability_constructors(registry, sources, &mut diagnostics);
+        check_hexagonal_ports(registry, sources, &mut diagnostics);
         check_external_domain_leakage(registry, sources, boundary_obligations.as_ref(), &mut diagnostics);
         check_root_thinness(registry, sources, &mut diagnostics);
         check_public_api_budget(registry, sources, &mut diagnostics);
@@ -476,6 +495,130 @@ fn check_core_capability_constructors(
             ));
         }
     }
+}
+
+fn check_hexagonal_ports(registry: &PolicyRegistry, sources: &[SourceFile], diagnostics: &mut Vec<Diagnostic>) {
+    let Some(policy) = registry.policy_by_id(HEXAGONAL_PORT_POLICY_ID) else {
+        return;
+    };
+    let Some(obligations) = PortObligations::from_policy(policy) else {
+        return;
+    };
+    if !obligations.enabled() || sources.is_empty() {
+        return;
+    }
+
+    for port_trait in &obligations.port_traits {
+        append_port_defined_in_core_diagnostic(policy, sources, &obligations, port_trait, diagnostics);
+        append_port_adapter_impl_diagnostic(policy, sources, &obligations, port_trait, diagnostics);
+        append_core_concrete_port_impl_diagnostics(policy, sources, &obligations, port_trait, diagnostics);
+    }
+}
+
+fn append_port_defined_in_core_diagnostic(
+    policy: &PolicyEntry,
+    sources: &[SourceFile],
+    obligations: &PortObligations,
+    port_trait: &str,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let trait_name = short_type_name(port_trait);
+    if scoped_sources(sources, std::slice::from_ref(&obligations.core_owner_scope))
+        .any(|source| source.text.contains(&format!("trait {trait_name}")))
+    {
+        return;
+    }
+    diagnostics.push(policy_diagnostic(
+        policy,
+        fallback_source(sources),
+        None,
+        &format!(
+            "declared port `{port_trait}` must be defined as a trait in core scope `{}`",
+            obligations.core_owner_scope
+        ),
+        "declare the port trait in core or update the port mechanism core_owner_scope",
+    ));
+}
+
+fn append_port_adapter_impl_diagnostic(
+    policy: &PolicyEntry,
+    sources: &[SourceFile],
+    obligations: &PortObligations,
+    port_trait: &str,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    if obligations.reserved {
+        return;
+    }
+    let trait_name = short_type_name(port_trait);
+    if scoped_sources(sources, &obligations.permitted_adapter_scopes).any(|source| {
+        source.text.contains(&format!("impl {trait_name} for"))
+            || source.text.contains(&format!("impl {port_trait} for"))
+    }) {
+        return;
+    }
+    diagnostics.push(policy_diagnostic(
+        policy,
+        fallback_source(sources),
+        None,
+        &format!(
+            "declared port `{port_trait}` has no implementation in permitted adapter scopes [{}]",
+            obligations.permitted_adapter_scopes.join(", ")
+        ),
+        "implement the port in an adapter scope or mark it reserved while the adapter is intentionally absent",
+    ));
+}
+
+fn append_core_concrete_port_impl_diagnostics(
+    policy: &PolicyEntry,
+    sources: &[SourceFile],
+    obligations: &PortObligations,
+    port_trait: &str,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let trait_name = short_type_name(port_trait);
+    for source in scoped_sources(sources, std::slice::from_ref(&obligations.core_owner_scope)) {
+        for (line_index, line) in source.text.lines().enumerate() {
+            let Some(concrete_type) = concrete_port_impl_type(line, trait_name, &obligations.forbidden_concrete_types)
+            else {
+                continue;
+            };
+            diagnostics.push(policy_diagnostic(
+                policy,
+                source,
+                Some(line_number_from_index(line_index)),
+                &format!("core implements port `{port_trait}` for concrete infrastructure type `{concrete_type}`"),
+                "keep port traits abstract in core and move concrete implementations to permitted adapter scopes",
+            ));
+        }
+    }
+}
+
+fn concrete_port_impl_type(line: &str, trait_name: &str, forbidden_patterns: &[String]) -> Option<String> {
+    let trimmed = line.trim();
+    let after_impl = trimmed.strip_prefix("impl ")?;
+    let (implemented_trait, concrete) = after_impl.split_once(" for ")?;
+    if implemented_trait.trim().rsplit("::").next()? != trait_name {
+        return None;
+    }
+    let concrete = concrete.trim().trim_end_matches('{').trim().to_owned();
+    if forbidden_patterns.is_empty() || forbidden_patterns.iter().any(|pattern| concrete.contains(pattern)) {
+        Some(concrete)
+    } else {
+        None
+    }
+}
+
+fn short_type_name(path: &str) -> &str {
+    path.rsplit("::").next().unwrap_or(path)
+}
+
+fn scoped_sources<'a>(sources: &'a [SourceFile], scopes: &'a [String]) -> impl Iterator<Item = &'a SourceFile> {
+    sources.iter().filter(move |source| scopes.iter().any(|scope| source.path.contains(scope)))
+}
+
+fn fallback_source(sources: &[SourceFile]) -> &SourceFile {
+    sources.first().expect("architecture checks require at least one source file")
 }
 
 fn check_raw_type_state_operations(
@@ -730,8 +873,6 @@ fn sources_by_suffix<'a>(sources: &'a [SourceFile], suffix: &'a str) -> impl Ite
 fn root_sources_by_suffix<'a>(sources: &'a [SourceFile], suffix: &'a str) -> impl Iterator<Item = &'a SourceFile> {
     sources_by_suffix(sources, suffix).filter(|source| !source.path.contains("/crates/"))
 }
-
-
 
 fn capability_core_sources<'a>(
     sources: &'a [SourceFile],

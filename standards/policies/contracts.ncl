@@ -216,7 +216,7 @@ let MechanismContract = {
 
   # Port mechanism fields (hexagonal-port-mechanism)
   port_traits | Array NonEmptyString | default = [],
-  core_owner_scope | NonEmptyString | default = "",
+  core_owner_scope | String | default = "",
   permitted_adapter_scopes | Array NonEmptyString | default = [],
   forbidden_concrete_types | Array NonEmptyString | default = [],
   reserved | Bool | default = false,
@@ -302,6 +302,25 @@ let has_mechanism = fun policy kind =>
   std.array.any (fun mechanism => mechanism.kind == kind) policy.mechanisms
 in
 
+let crate_boundary_mechanism_valid = fun mechanism =>
+  mechanism.kind != "crate-boundary"
+  || std.array.length mechanism.core_crates > 0
+in
+
+let port_mechanism_valid = fun mechanism =>
+  mechanism.kind != "port"
+  || std.array.length mechanism.port_traits == 0
+  || (
+    std.string.length mechanism.core_owner_scope > 0
+    && (mechanism.reserved || std.array.length mechanism.permitted_adapter_scopes > 0)
+  )
+in
+
+let mechanism_cross_fields_valid = fun mechanism =>
+  crate_boundary_mechanism_valid mechanism
+  && port_mechanism_valid mechanism
+in
+
 let policy_cross_fields_valid = fun policy =>
   (mode_rank policy.target_enforcement_mode >= mode_rank policy.current_enforcement_mode)
   && (policy.target_enforcement_mode == policy.current_enforcement_mode || std.string.length policy.escalation_criteria > 0)
@@ -309,6 +328,7 @@ let policy_cross_fields_valid = fun policy =>
   && (policy.target_enforcement_mode != "verified" || std.array.length policy.proof_rails > 0)
   && (policy.default_severity != "error" || std.array.length policy.verification_evidence_requirements > 0)
   && (policy.default_severity != "error" || std.string.length policy.deterministic_checker.command > 0)
+  && std.array.all mechanism_cross_fields_valid policy.mechanisms
 in
 
 let seed_cross_fields_valid = fun seed =>
