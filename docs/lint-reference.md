@@ -8,14 +8,14 @@ For the landing-page naming map, see `../README.md`.
 
 ## Catalog summary
 
-`octet` ships 38 lints across 6 domains.
+`octet` ships 42 lints across 6 domains.
 
 | Domain | Group | Count |
 | --- | --- | ---: |
-| safety | `octet::safety` | 18 |
+| safety | `octet::safety` | 19 |
 | naming | `octet::naming` | 5 |
 | performance | `octet::performance` | 1 |
-| structure | `octet::structure` | 10 |
+| structure | `octet::structure` | 13 |
 | purity | `octet::purity` | 3 |
 | concurrency | `octet::concurrency` | 1 |
 
@@ -62,6 +62,10 @@ Rules to keep straight:
 | `assertion_density_min_lines` | `20` | `assertion_density` | minimum function size before assertion-density checks apply |
 | `assertion_density_min_assertions` | `2` | `assertion_density` | minimum assertion count once the line threshold is crossed |
 | `max_parameters` | `5` | `too_many_parameters` | maximum counted parameters before warning |
+| `trait_method_max` | `7` | `fat_trait` | maximum trait methods before warning |
+| `impl_blocks_max` | `4` | `type_accumulation` | maximum inherent impl blocks per type before advisory |
+| `module_pub_items_max` | `12` | `type_accumulation` | maximum public items per module before advisory |
+| `core_source_scopes` | `[]` | `concrete_construction_in_core` | source path scopes where concrete construction is checked |
 | `acronym_allowlist` | `[]` | `acronym_style` | case-sensitive allowlist such as `IO` or `ID` |
 | `disabled_lints` | `[]` | all lints | bare lint names only; disabled lints do not register |
 | `[octet.lint_levels]` | `{}` | all lints | bare lint names mapped to `allow`, `warn`, or `deny` |
@@ -90,6 +94,7 @@ Unknown lint names and invalid level values warn and are ignored.
 | `raw_arithmetic_overflow` | `allow` | flag unchecked `+`, `-`, or `*` on unsigned integers |
 | `sentinel_fallback` | `warn` | flag `<int>::MAX` / `<int>::MIN` sentinel fallbacks instead of explicit branching or tagged fallback text |
 | `public_unsafe_api` | `warn` | flag public Rust `unsafe fn` APIs that leak unsafe obligations to callers |
+| `defaulting_trait_method` | `allow` | flag trait methods with default bodies that can weaken substitution contracts |
 
 ## Naming lints (`octet::naming`)
 
@@ -118,6 +123,9 @@ Unknown lint names and invalid level values warn and are ignored.
 | `borrowed_argument_types` | `warn` | prefer `&str`, `&[T]`, and `&Path` over borrowed owned containers |
 | `deref_polymorphism` | `warn` | flag public `Deref` impls to nominal target types that hide API boundaries |
 | `too_many_parameters` | `warn` | flag signatures that exceed the configured parameter limit |
+| `fat_trait` | `warn` | flag traits exceeding the configured method budget |
+| `concrete_construction_in_core` | `warn` | flag concrete construction calls in declared core source scopes |
+| `type_accumulation` | `allow` | flag excessive inherent impl blocks or module public surface |
 | `compound_condition` | `allow` | flag conditions with 3 or more boolean operators |
 | `unjustified_allow` | `allow` | require local justification for `#[allow(clippy::...)]` |
 | `ambiguous_params` | `allow` | flag consecutive same-type primitive parameters |

@@ -108,6 +108,18 @@
     "canonical_lint_name": "tigerstyle::too_many_parameters"
   },
   {
+    "alias_name": "fat_trait",
+    "canonical_lint_name": "tigerstyle::fat_trait"
+  },
+  {
+    "alias_name": "concrete_construction_in_core",
+    "canonical_lint_name": "tigerstyle::concrete_construction_in_core"
+  },
+  {
+    "alias_name": "type_accumulation",
+    "canonical_lint_name": "tigerstyle::type_accumulation"
+  },
+  {
     "alias_name": "negated_predicate",
     "canonical_lint_name": "tigerstyle::negated_predicate"
   },
@@ -174,6 +186,10 @@
   {
     "alias_name": "public_unsafe_api",
     "canonical_lint_name": "tigerstyle::public_unsafe_api"
+  },
+  {
+    "alias_name": "defaulting_trait_method",
+    "canonical_lint_name": "tigerstyle::defaulting_trait_method"
   },
   {
     "alias_name": "no_todo",

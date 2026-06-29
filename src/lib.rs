@@ -221,6 +221,19 @@ lint_inventory! {
         let max_parameters = cfg.max_parameters;
         lint_store.register_late_pass(move |_| Box::new(structure::too_many_parameters::TooManyParameters::new(max_parameters)));
     },
+    "fat_trait", structure::fat_trait::FAT_TRAIT => |lint_store, cfg| {
+        let max_methods = cfg.trait_method_max;
+        lint_store.register_late_pass(move |_| Box::new(structure::fat_trait::FatTrait::new(max_methods)));
+    },
+    "concrete_construction_in_core", structure::concrete_construction_in_core::CONCRETE_CONSTRUCTION_IN_CORE => |lint_store, cfg| {
+        let core_source_scopes = cfg.core_source_scopes.clone();
+        lint_store.register_late_pass(move |_| Box::new(structure::concrete_construction_in_core::ConcreteConstructionInCore::new(core_source_scopes.clone())));
+    },
+    "type_accumulation", structure::type_accumulation::TYPE_ACCUMULATION => |lint_store, cfg| {
+        let impl_blocks_max = cfg.impl_blocks_max;
+        let module_pub_items_max = cfg.module_pub_items_max;
+        lint_store.register_late_pass(move |_| Box::new(structure::type_accumulation::TypeAccumulation::new(impl_blocks_max, module_pub_items_max)));
+    },
     "negated_predicate", naming::negated_predicate::NEGATED_PREDICATE => |lint_store, _cfg| {
         lint_store.register_late_pass(|_| Box::new(naming::negated_predicate::NegatedPredicate));
     },
@@ -271,6 +284,9 @@ lint_inventory! {
     },
     "public_unsafe_api", safety::public_unsafe_api::PUBLIC_UNSAFE_API => |lint_store, _cfg| {
         lint_store.register_late_pass(|_| Box::new(safety::public_unsafe_api::PublicUnsafeApi));
+    },
+    "defaulting_trait_method", safety::defaulting_trait_method::DEFAULTING_TRAIT_METHOD => |lint_store, _cfg| {
+        lint_store.register_late_pass(|_| Box::new(safety::defaulting_trait_method::DefaultingTraitMethod));
     },
     "no_todo", safety::no_todo::NO_TODO => |_lint_store, _cfg| {
     },
@@ -678,9 +694,13 @@ mod tests {
         "nested_conditionals",
         "no_panic",
         "too_many_parameters",
+        "fat_trait",
+        "concrete_construction_in_core",
+        "type_accumulation",
         "unbounded_loop",
         "unjustified_no_todo_allow",
         "public_unsafe_api",
+        "defaulting_trait_method",
         "verified_purity",
     ];
 
@@ -762,6 +782,9 @@ mod tests {
             "borrowed_argument_types" => "src/structure/borrowed_argument_types.rs",
             "clone_then_borrow" => "src/performance/clone_then_borrow.rs",
             "too_many_parameters" => "src/structure/too_many_parameters.rs",
+            "fat_trait" => "src/structure/fat_trait.rs",
+            "concrete_construction_in_core" => "src/structure/concrete_construction_in_core.rs",
+            "type_accumulation" => "src/structure/type_accumulation.rs",
             "negated_predicate" => "src/naming/negated_predicate.rs",
             "bool_naming" => "src/naming/bool_naming.rs",
             "ignored_result" => "src/safety/ignored_result.rs",
@@ -777,6 +800,7 @@ mod tests {
             "no_unwrap" => "src/safety/no_unwrap.rs",
             "no_panic" => "src/safety/no_panic.rs",
             "public_unsafe_api" => "src/safety/public_unsafe_api.rs",
+            "defaulting_trait_method" => "src/safety/defaulting_trait_method.rs",
             "no_todo" | "unjustified_no_todo_allow" => "src/safety/no_todo.rs",
             "no_recursion" => "src/safety/no_recursion.rs",
             other => panic!("missing lint source mapping for `{other}`"),

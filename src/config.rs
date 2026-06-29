@@ -11,6 +11,10 @@
 //! assertion_density_min_lines = 30
 //! assertion_density_min_assertions = 3
 //! max_parameters = 7
+//! trait_method_max = 7
+//! impl_blocks_max = 4
+//! module_pub_items_max = 12
+//! core_source_scopes = ["crates/domain-core/src/"]
 //! acronym_allowlist = ["IO", "ID"]
 //! disabled_lints = ["no_unwrap", "no_panic"]
 //!
@@ -75,6 +79,18 @@ pub struct Config {
     /// Maximum counted parameters before warning.
     pub max_parameters: usize,
 
+    /// Maximum methods permitted in one trait before fat_trait warns.
+    pub trait_method_max: usize,
+
+    /// Maximum inherent impl blocks permitted per type before type_accumulation warns.
+    pub impl_blocks_max: usize,
+
+    /// Maximum public items permitted in one module before type_accumulation warns.
+    pub module_pub_items_max: usize,
+
+    /// Source path scopes where concrete construction in core is checked.
+    pub core_source_scopes: Vec<String>,
+
     /// Acronyms that should not trigger the acronym_style lint.
     /// Entries are case-sensitive and matched against the uppercase run
     /// (e.g., `"IO"` allows `IOError`).
@@ -101,6 +117,10 @@ impl Default for Config {
             assertion_density_min_lines: 20,
             assertion_density_min_assertions: 2,
             max_parameters: 5,
+            trait_method_max: 7,
+            impl_blocks_max: 4,
+            module_pub_items_max: 12,
+            core_source_scopes: Vec::new(),
             acronym_allowlist: Vec::new(),
             disabled_lints: Vec::new(),
             lint_levels: HashMap::new(),

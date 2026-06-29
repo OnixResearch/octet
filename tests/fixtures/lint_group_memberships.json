@@ -19,6 +19,7 @@
       "no_unwrap",
       "no_panic",
       "public_unsafe_api",
+      "defaulting_trait_method",
       "no_todo",
       "unjustified_no_todo_allow",
       "no_recursion"
@@ -58,6 +59,9 @@
       "borrowed_argument_types",
       "deref_polymorphism",
       "too_many_parameters",
+      "fat_trait",
+      "concrete_construction_in_core",
+      "type_accumulation",
       "platform_dependent_cast",
       "ambiguous_params"
     ]
