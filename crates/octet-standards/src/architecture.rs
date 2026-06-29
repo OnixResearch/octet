@@ -19,18 +19,20 @@ const EFFECT_CAPABILITY_POLICY_ID: &str = "tigerstyle.architecture.effect-capabi
 const TYPE_STATE_POLICY_ID: &str = "tigerstyle.idioms.nominal-type-boundaries";
 const FORBIDDEN_RUNTIME_POLICY_ID: &str = "tigerstyle.architecture.fcis-crate-boundary";
 const STD_SHELL_POLICY_ID: &str = "tigerstyle.architecture.fcis-crate-boundary";
-const CORE_LIB_PATH_SUFFIX: &str = "crates/tigerstyle-core/src/lib.rs";
-const CORE_MANIFEST_PATH_SUFFIX: &str = "crates/tigerstyle-core/Cargo.toml";
-const STD_MANIFEST_PATH_SUFFIX: &str = "crates/tigerstyle-std/Cargo.toml";
-const CORE_RUST_PATH_SEGMENT: &str = "crates/tigerstyle-core/src/";
 const RUST_SOURCE_EXTENSION: &str = ".rs";
-const STD_LIB_PATH_SUFFIX: &str = "crates/tigerstyle-std/src/lib.rs";
 const ROOT_LIB_PATH_SUFFIX: &str = "src/lib.rs";
 const ROOT_MAIN_PATH_SUFFIX: &str = "src/main.rs";
 const NO_STD_ATTRIBUTE: &str = "#![no_std]";
 const CORE_DEPENDENCIES_SECTION: &str = "[dependencies]";
 const DEV_DEPENDENCIES_SECTION: &str = "[dev-dependencies]";
-const CORE_FORBIDDEN_DEPENDENCIES: &[&str] = &[
+
+// Octet-layout default fallback constants (policy-driven-crate-boundaries)
+const FALLBACK_CORE_LIB_PATH_SUFFIX: &str = "crates/tigerstyle-core/src/lib.rs";
+const FALLBACK_CORE_MANIFEST_PATH_SUFFIX: &str = "crates/tigerstyle-core/Cargo.toml";
+const FALLBACK_STD_MANIFEST_PATH_SUFFIX: &str = "crates/tigerstyle-std/Cargo.toml";
+const FALLBACK_CORE_RUST_PATH_SEGMENT: &str = "crates/tigerstyle-core/src/";
+const FALLBACK_STD_LIB_PATH_SUFFIX: &str = "crates/tigerstyle-std/src/lib.rs";
+const FALLBACK_CORE_FORBIDDEN_DEPENDENCIES: &[&str] = &[
     "tokio",
     "tracing",
     "tracing-subscriber",
@@ -39,7 +41,16 @@ const CORE_FORBIDDEN_DEPENDENCIES: &[&str] = &[
     "url",
     "tigerstyle-std",
 ];
-const CORE_CRATE_DEPENDENCY: &str = "tigerstyle-core";
+const FALLBACK_CORE_CRATE_DEPENDENCY: &str = "tigerstyle-core";
+const FALLBACK_EXTERNAL_DOMAIN_TYPE_PATTERNS: &[&str] = &[
+    "axum::",
+    "hyper::",
+    "prost::",
+    "reqwest::",
+    "serde_json::",
+    "sqlx::",
+    "tonic::",
+];
 const FALLBACK_AMBIENT_CAPABILITY_PATTERNS: &[&str] = &[
     "std::env::",
     "std::fs::",
@@ -49,21 +60,12 @@ const FALLBACK_AMBIENT_CAPABILITY_PATTERNS: &[&str] = &[
     "Instant::now(",
     "File::open(",
 ];
-const FALLBACK_CORE_SOURCE_SCOPES: &[&str] = &[CORE_RUST_PATH_SEGMENT];
+const FALLBACK_CORE_SOURCE_SCOPES: &[&str] = &[FALLBACK_CORE_RUST_PATH_SEGMENT];
 const FALLBACK_TYPE_STATE_SOURCE_SCOPES: &[&str] = &["typestate-raw/src/", "typestate-protocol/src/"];
 const FALLBACK_RAW_STATE_ALIAS_PATTERNS: &[&str] = &["type ConnectionState = bool"];
 const FALLBACK_RAW_TRANSITION_PATTERNS: &[&str] = &["send_raw(", "raw_send(", "open_raw("];
 const FALLBACK_REQUIRED_STATE_MARKERS: &[&str] = &["Disconnected", "Connected"];
 const FALLBACK_REQUIRED_TRANSITION_METHODS: &[&str] = &["connect(", "send("];
-const EXTERNAL_DOMAIN_TYPE_PATTERNS: &[&str] = &[
-    "axum::",
-    "hyper::",
-    "prost::",
-    "reqwest::",
-    "serde_json::",
-    "sqlx::",
-    "tonic::",
-];
 const PUBLIC_API_CHUNK_TERMINATORS: &[char] = &['{', ';'];
 const PUBLIC_API_ITEM_KEYWORDS: &[&str] = &[
     "async fn ",
@@ -111,6 +113,94 @@ struct TypeStateObligations {
     raw_transition_patterns: Vec<String>,
     required_state_markers: Vec<String>,
     required_transition_methods: Vec<String>,
+}
+
+#[derive(Debug)]
+struct CrateBoundaryObligations {
+    core_lib_path_suffix: String,
+    core_manifest_path_suffix: String,
+    std_manifest_path_suffix: String,
+    std_lib_path_suffix: String,
+    core_rust_path_segment: String,
+    core_forbidden_dependencies: Vec<String>,
+    core_crate_dependency: String,
+    external_domain_patterns: Vec<String>,
+    #[allow(dead_code)]
+    core_no_std: bool,
+}
+
+impl CrateBoundaryObligations {
+    fn from_policy(policy: &PolicyEntry) -> Self {
+        let crate_boundary_mechanism =
+            policy.mechanisms.iter().find(|mechanism| mechanism.kind == MechanismKind::CrateBoundary);
+        let fallback_core = || FALLBACK_CORE_LIB_PATH_SUFFIX.to_owned();
+        let fallback_core_manifest = || FALLBACK_CORE_MANIFEST_PATH_SUFFIX.to_owned();
+        let fallback_std_manifest = || FALLBACK_STD_MANIFEST_PATH_SUFFIX.to_owned();
+        let fallback_std_lib = || FALLBACK_STD_LIB_PATH_SUFFIX.to_owned();
+        let fallback_core_rust = || FALLBACK_CORE_RUST_PATH_SEGMENT.to_owned();
+
+        // Derive manifest path from core lib path: replace /src/lib.rs with /Cargo.toml
+        let core_suffix = crate_boundary_mechanism
+            .and_then(|m| m.core_crates.first())
+            .cloned();
+        let core_manifest = core_suffix.as_ref().map(|path| {
+            if let Some(crate_root) = path.strip_suffix("/src/lib.rs") {
+                format!("{crate_root}/Cargo.toml")
+            } else {
+                path.clone()
+            }
+        });
+
+        // Derive lib path from shell manifest: replace /Cargo.toml with /src/lib.rs
+        let shell_suffix = crate_boundary_mechanism
+            .and_then(|m| m.shell_crates.first())
+            .cloned();
+        let shell_lib = shell_suffix.as_ref().map(|path| {
+            if let Some(crate_root) = path.strip_suffix("/Cargo.toml") {
+                format!("{crate_root}/src/lib.rs")
+            } else {
+                path.clone()
+            }
+        });
+
+        // Derive core crate dep name from manifest path
+        let core_dep_name = core_manifest.as_ref().and_then(|manifest| {
+            manifest.strip_suffix("/Cargo.toml").map(|crate_root| {
+                crate_root.rsplit('/').next().unwrap_or(crate_root).to_owned()
+            })
+        });
+
+        Self {
+            core_lib_path_suffix: core_suffix.clone().unwrap_or_else(fallback_core),
+            core_manifest_path_suffix: core_manifest.unwrap_or_else(fallback_core_manifest),
+            std_manifest_path_suffix: shell_suffix.clone().unwrap_or_else(fallback_std_manifest),
+            std_lib_path_suffix: shell_lib.unwrap_or_else(fallback_std_lib),
+            core_rust_path_segment: core_suffix
+                .map(|path| {
+                    if let Some(crate_root) = path.strip_suffix("/src/lib.rs") {
+                        format!("{crate_root}/src/")
+                    } else {
+                        path
+                    }
+                })
+                .unwrap_or_else(fallback_core_rust),
+            core_forbidden_dependencies: mechanism_field_or_fallback(
+                crate_boundary_mechanism,
+                |mechanism| &mechanism.forbidden_core_deps,
+                FALLBACK_CORE_FORBIDDEN_DEPENDENCIES,
+            ),
+            core_crate_dependency: core_dep_name
+                .unwrap_or_else(|| FALLBACK_CORE_CRATE_DEPENDENCY.to_owned()),
+            external_domain_patterns: mechanism_field_or_fallback(
+                crate_boundary_mechanism,
+                |mechanism| &mechanism.external_domain_patterns,
+                FALLBACK_EXTERNAL_DOMAIN_TYPE_PATTERNS,
+            ),
+            core_no_std: crate_boundary_mechanism
+                .map(|m| m.core_no_std)
+                .unwrap_or(true),
+        }
+    }
 }
 
 impl TypeStateObligations {
@@ -218,14 +308,18 @@ pub fn check_architecture(
         return Vec::new();
     }
 
+    let boundary_obligations = registry
+        .policy_by_id(FCIS_POLICY_ID)
+        .map(CrateBoundaryObligations::from_policy);
+
     let mut diagnostics = Vec::new();
     if includes_architecture {
-        check_core_no_std(registry, sources, &mut diagnostics);
-        check_core_forbidden_dependencies(registry, sources, &mut diagnostics);
-        check_std_shell_owns_std(registry, sources, &mut diagnostics);
-        check_shell_depends_on_core(registry, sources, &mut diagnostics);
+        check_core_no_std(registry, sources, boundary_obligations.as_ref(), &mut diagnostics);
+        check_core_forbidden_dependencies(registry, sources, boundary_obligations.as_ref(), &mut diagnostics);
+        check_std_shell_owns_std(registry, sources, boundary_obligations.as_ref(), &mut diagnostics);
+        check_shell_depends_on_core(registry, sources, boundary_obligations.as_ref(), &mut diagnostics);
         check_core_capability_constructors(registry, sources, &mut diagnostics);
-        check_external_domain_leakage(registry, sources, &mut diagnostics);
+        check_external_domain_leakage(registry, sources, boundary_obligations.as_ref(), &mut diagnostics);
         check_root_thinness(registry, sources, &mut diagnostics);
         check_public_api_budget(registry, sources, &mut diagnostics);
     }
@@ -235,11 +329,17 @@ pub fn check_architecture(
     diagnostics
 }
 
-fn check_core_no_std(registry: &PolicyRegistry, sources: &[SourceFile], diagnostics: &mut Vec<Diagnostic>) {
+fn check_core_no_std(
+    registry: &PolicyRegistry,
+    sources: &[SourceFile],
+    boundary: Option<&CrateBoundaryObligations>,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
     let Some(policy) = registry.policy_by_id(FCIS_POLICY_ID) else {
         return;
     };
-    for source in sources_by_suffix(sources, CORE_LIB_PATH_SUFFIX) {
+    let lib_suffix = boundary.map_or(FALLBACK_CORE_LIB_PATH_SUFFIX, |b| b.core_lib_path_suffix.as_str());
+    for source in sources_by_suffix(sources, lib_suffix) {
         if source.text.contains(NO_STD_ATTRIBUTE) {
             continue;
         }
@@ -247,8 +347,8 @@ fn check_core_no_std(registry: &PolicyRegistry, sources: &[SourceFile], diagnost
             policy,
             source,
             Some(FIRST_LINE),
-            "tigerstyle-core is missing #![no_std]",
-            "add #![no_std] to the core crate root or move std-dependent code to tigerstyle-std",
+            &format!("core crate `{}` is missing #![no_std]", lib_suffix),
+            "add #![no_std] to the core crate root or move std-dependent code to the shell",
         ));
     }
 }
@@ -256,32 +356,55 @@ fn check_core_no_std(registry: &PolicyRegistry, sources: &[SourceFile], diagnost
 fn check_core_forbidden_dependencies(
     registry: &PolicyRegistry,
     sources: &[SourceFile],
+    boundary: Option<&CrateBoundaryObligations>,
     diagnostics: &mut Vec<Diagnostic>,
 ) {
     let Some(policy) = registry.policy_by_id(FORBIDDEN_RUNTIME_POLICY_ID) else {
         return;
     };
-    for source in sources_by_suffix(sources, CORE_MANIFEST_PATH_SUFFIX) {
+    let manifest_suffix = boundary.map_or(FALLBACK_CORE_MANIFEST_PATH_SUFFIX, |b| b.core_manifest_path_suffix.as_str());
+    let forbidden_deps: &[String] = boundary.map_or(&[], |b| &b.core_forbidden_dependencies);
+    for source in sources_by_suffix(sources, manifest_suffix) {
         let dependency_section = dependency_section(&source.text);
-        for forbidden_dependency in CORE_FORBIDDEN_DEPENDENCIES {
-            if dependency_section_contains(dependency_section, forbidden_dependency) {
-                diagnostics.push(policy_diagnostic(
-                    policy,
-                    source,
-                    line_for_text(&source.text, forbidden_dependency),
-                    &format!("tigerstyle-core depends on runtime crate `{forbidden_dependency}`"),
-                    "move runtime, async, logging, CLI, or I/O dependencies to tigerstyle-std",
-                ));
+        if forbidden_deps.is_empty() {
+            for dep in FALLBACK_CORE_FORBIDDEN_DEPENDENCIES {
+                if dependency_section_contains(dependency_section, dep) {
+                    diagnostics.push(policy_diagnostic(
+                        policy,
+                        source,
+                        line_for_text(&source.text, dep),
+                        &format!("core crate depends on runtime crate `{dep}`"),
+                        "move runtime, async, logging, CLI, or I/O dependencies to the shell crate",
+                    ));
+                }
+            }
+        } else {
+            for dep in forbidden_deps {
+                if dependency_section_contains(dependency_section, dep) {
+                    diagnostics.push(policy_diagnostic(
+                        policy,
+                        source,
+                        line_for_text(&source.text, dep),
+                        &format!("core crate depends on forbidden dependency `{dep}`"),
+                        "move runtime, async, logging, CLI, or I/O dependencies to the shell crate",
+                    ));
+                }
             }
         }
     }
 }
 
-fn check_std_shell_owns_std(registry: &PolicyRegistry, sources: &[SourceFile], diagnostics: &mut Vec<Diagnostic>) {
+fn check_std_shell_owns_std(
+    registry: &PolicyRegistry,
+    sources: &[SourceFile],
+    boundary: Option<&CrateBoundaryObligations>,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
     let Some(policy) = registry.policy_by_id(STD_SHELL_POLICY_ID) else {
         return;
     };
-    for source in sources_by_suffix(sources, STD_LIB_PATH_SUFFIX) {
+    let lib_suffix = boundary.map_or(FALLBACK_STD_LIB_PATH_SUFFIX, |b| b.std_lib_path_suffix.as_str());
+    for source in sources_by_suffix(sources, lib_suffix) {
         if !source.text.contains(NO_STD_ATTRIBUTE) {
             continue;
         }
@@ -289,26 +412,33 @@ fn check_std_shell_owns_std(registry: &PolicyRegistry, sources: &[SourceFile], d
             policy,
             source,
             Some(FIRST_LINE),
-            "tigerstyle-std must not declare #![no_std]",
-            "keep std/runtime shell code in tigerstyle-std and no_std code in tigerstyle-core",
+            &format!("shell crate `{}` must not declare #![no_std]", lib_suffix),
+            "keep std/runtime shell code in the shell crate and no_std code in core",
         ));
     }
 }
 
-fn check_shell_depends_on_core(registry: &PolicyRegistry, sources: &[SourceFile], diagnostics: &mut Vec<Diagnostic>) {
+fn check_shell_depends_on_core(
+    registry: &PolicyRegistry,
+    sources: &[SourceFile],
+    boundary: Option<&CrateBoundaryObligations>,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
     let Some(policy) = registry.policy_by_id(FCIS_POLICY_ID) else {
         return;
     };
-    for source in sources_by_suffix(sources, STD_MANIFEST_PATH_SUFFIX) {
+    let manifest_suffix = boundary.map_or(FALLBACK_STD_MANIFEST_PATH_SUFFIX, |b| b.std_manifest_path_suffix.as_str());
+    let core_dep = boundary.map_or(FALLBACK_CORE_CRATE_DEPENDENCY, |b| b.core_crate_dependency.as_str());
+    for source in sources_by_suffix(sources, manifest_suffix) {
         let dependency_section = dependency_section(&source.text);
-        if dependency_section_contains(dependency_section, CORE_CRATE_DEPENDENCY) {
+        if dependency_section_contains(dependency_section, core_dep) {
             continue;
         }
         diagnostics.push(policy_diagnostic(
             policy,
             source,
             None,
-            "tigerstyle-std must depend on tigerstyle-core",
+            &format!("shell crate must depend on core crate `{core_dep}`"),
             "make shell crates depend inward on the core crate and keep the reverse dependency forbidden",
         ));
     }
@@ -426,22 +556,33 @@ fn append_missing_type_state_evidence_diagnostics(
     ));
 }
 
-fn check_external_domain_leakage(registry: &PolicyRegistry, sources: &[SourceFile], diagnostics: &mut Vec<Diagnostic>) {
+fn check_external_domain_leakage(
+    registry: &PolicyRegistry,
+    sources: &[SourceFile],
+    boundary: Option<&CrateBoundaryObligations>,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
     let Some(policy) = registry.policy_by_id(EXTERNAL_DOMAIN_LEAKAGE_POLICY_ID) else {
         return;
     };
-    for source in core_rust_sources(sources) {
-        append_external_domain_leakage_diagnostics(policy, source, diagnostics);
+    let core_segment = boundary.map_or(FALLBACK_CORE_RUST_PATH_SEGMENT, |b| b.core_rust_path_segment.as_str());
+    let patterns: Vec<String> = boundary.map_or_else(
+        || FALLBACK_EXTERNAL_DOMAIN_TYPE_PATTERNS.iter().map(|s| (*s).to_owned()).collect(),
+        |b| b.external_domain_patterns.clone(),
+    );
+    for source in sources.iter().filter(|s| s.path.contains(core_segment) && s.path.ends_with(RUST_SOURCE_EXTENSION)) {
+        append_external_domain_leakage_diagnostics(policy, source, &patterns, diagnostics);
     }
 }
 
 fn append_external_domain_leakage_diagnostics(
     policy: &PolicyEntry,
     source: &SourceFile,
+    patterns: &[String],
     diagnostics: &mut Vec<Diagnostic>,
 ) {
     for chunk in public_api_chunks(&source.text) {
-        let Some(pattern) = external_domain_pattern(&chunk.text) else {
+        let Some(pattern) = external_domain_pattern(&chunk.text, patterns) else {
             continue;
         };
         diagnostics.push(policy_diagnostic(
@@ -578,8 +719,8 @@ fn text_after_public_visibility(trimmed: &str) -> Option<&str> {
     Some(after_scope.trim_start())
 }
 
-fn external_domain_pattern(text: &str) -> Option<&'static str> {
-    EXTERNAL_DOMAIN_TYPE_PATTERNS.iter().copied().find(|pattern| text.contains(pattern))
+fn external_domain_pattern<'a>(text: &str, patterns: &'a [String]) -> Option<&'a str> {
+    patterns.iter().find(|pattern| text.contains(pattern.as_str())).map(String::as_str)
 }
 
 fn sources_by_suffix<'a>(sources: &'a [SourceFile], suffix: &'a str) -> impl Iterator<Item = &'a SourceFile> {
@@ -590,11 +731,7 @@ fn root_sources_by_suffix<'a>(sources: &'a [SourceFile], suffix: &'a str) -> imp
     sources_by_suffix(sources, suffix).filter(|source| !source.path.contains("/crates/"))
 }
 
-fn core_rust_sources(sources: &[SourceFile]) -> impl Iterator<Item = &SourceFile> {
-    sources
-        .iter()
-        .filter(|source| source.path.contains(CORE_RUST_PATH_SEGMENT) && source.path.ends_with(RUST_SOURCE_EXTENSION))
-}
+
 
 fn capability_core_sources<'a>(
     sources: &'a [SourceFile],
