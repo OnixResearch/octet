@@ -33,10 +33,7 @@ impl FatTrait {
 impl_lint_pass!(FatTrait => [FAT_TRAIT]);
 
 fn trait_method_count(cx: &LateContext<'_>, span: rustc_span::Span) -> usize {
-    cx.sess()
-        .source_map()
-        .span_to_snippet(span)
-        .map_or(0, |snippet| snippet.matches(FN_TOKEN).count())
+    cx.sess().source_map().span_to_snippet(span).map_or(0, |snippet| snippet.matches(FN_TOKEN).count())
 }
 
 impl<'tcx> LateLintPass<'tcx> for FatTrait {

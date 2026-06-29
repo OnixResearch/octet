@@ -148,7 +148,7 @@ pub struct Mechanism {
     /// Dependency edge kinds inspected by dependency-direction checks.
     #[serde(default)]
     pub dependency_edge_kinds: Vec<String>,
-    /// Core crate must be no_std.
+    /// Core crate must be `no_std`.
     #[serde(default)]
     pub core_no_std: bool,
 

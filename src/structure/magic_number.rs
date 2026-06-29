@@ -68,10 +68,10 @@ fn literal_is_documented_by_parent(cx: &LateContext<'_>, expr: &hir::Expr<'_>) -
             }
             hir::Node::Expr(parent) => match parent.kind {
                 ExprKind::Call(_, args) if args.iter().any(|arg| arg.hir_id == expr.hir_id) => return true,
-                ExprKind::MethodCall(_, receiver, args, _) => {
-                    if receiver.hir_id == expr.hir_id || args.iter().any(|arg| arg.hir_id == expr.hir_id) {
-                        return true;
-                    }
+                ExprKind::MethodCall(_, receiver, args, _)
+                    if receiver.hir_id == expr.hir_id || args.iter().any(|arg| arg.hir_id == expr.hir_id) =>
+                {
+                    return true;
                 }
                 ExprKind::Unary(hir::UnOp::Neg, _) => {}
                 _ => {}

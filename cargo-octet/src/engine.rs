@@ -148,10 +148,10 @@ pub fn run(check: CheckArgs) -> Result<i32, String> {
                 "compiler-message" => {
                     let message = &json["message"];
 
-                    if check.output_format == OutputFormat::Human {
-                        if let Some(rendered) = message["rendered"].as_str() {
-                            let _ = write!(stderr_lock, "{rendered}");
-                        }
+                    if check.output_format == OutputFormat::Human
+                        && let Some(rendered) = message["rendered"].as_str()
+                    {
+                        let _ = write!(stderr_lock, "{rendered}");
                     }
 
                     let code = message["code"]["code"].as_str().unwrap_or("");
@@ -195,10 +195,10 @@ pub fn run(check: CheckArgs) -> Result<i32, String> {
             Some(path) => Some(baseline::evaluate_baseline(path, &findings)?),
             None => None,
         };
-        if let Some(path) = check.write_baseline.as_deref() {
-            if cargo_process_succeeded {
-                baseline::write_baseline(path, &findings, &run_metadata)?;
-            }
+        if let Some(path) = check.write_baseline.as_deref()
+            && cargo_process_succeeded
+        {
+            baseline::write_baseline(path, &findings, &run_metadata)?;
         }
         let base_outcome = apply_baseline_gate(base_outcome, baseline_evaluation.as_ref());
         let finalized_run =

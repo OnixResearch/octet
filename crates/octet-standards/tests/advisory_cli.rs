@@ -3,7 +3,6 @@ use std::path::PathBuf;
 use std::process::Command;
 use std::process::Output;
 
-use pretty_assertions::assert_eq;
 use octet_standards::model::Classification;
 use octet_standards::model::EnforcementLevel;
 use octet_standards::model::EnforcementMode;
@@ -18,6 +17,7 @@ use octet_standards::model::ReceiptVerifier;
 use octet_standards::model::Severity;
 use octet_standards::model::SuppressionRequirements;
 use octet_standards::report::CheckReport;
+use pretty_assertions::assert_eq;
 use tempfile::TempDir;
 
 const FCIS_POLICY_ID: &str = "tigerstyle.architecture.fcis-crate-boundary";

@@ -395,7 +395,7 @@ fn export_receipt_artifacts(
 ) -> Vec<ReceiptArtifact> {
     generated_artifacts
         .iter()
-        .map(|(file_name, text)| text_artifact(args.out_dir.join(file_name), text))
+        .map(|(file_name, text)| text_artifact(&args.out_dir.join(file_name), text))
         .chain(std::iter::once(file_artifact(manifest_path)))
         .collect()
 }
@@ -422,20 +422,21 @@ fn export_verification_evidence(manifest_path: &Path) -> Vec<ReceiptEvidence> {
     }]
 }
 
+#[derive(Clone, Copy)]
 enum ArtifactBytes<'a> {
     Text(&'a str),
     File(&'a Path),
 }
 
-fn text_artifact(path: PathBuf, text: &str) -> ReceiptArtifact {
+fn text_artifact(path: &Path, text: &str) -> ReceiptArtifact {
     artifact_from_bytes(path, ArtifactBytes::Text(text))
 }
 
 fn file_artifact(path: &Path) -> ReceiptArtifact {
-    artifact_from_bytes(path.to_path_buf(), ArtifactBytes::File(path))
+    artifact_from_bytes(path, ArtifactBytes::File(path))
 }
 
-fn artifact_from_bytes(path: PathBuf, bytes: ArtifactBytes<'_>) -> ReceiptArtifact {
+fn artifact_from_bytes(path: &Path, bytes: ArtifactBytes<'_>) -> ReceiptArtifact {
     let (blake3, bytes) = match bytes {
         ArtifactBytes::Text(text) => (blake3_text(text), text.len()),
         ArtifactBytes::File(path) => {

@@ -47,6 +47,9 @@ deny_lint_flags='
 -D deref_polymorphism
 -D clone_then_borrow
 -D too_many_parameters
+-D fat_trait
+-D concrete_construction_in_core
+-D type_accumulation
 -D negated_predicate
 -D bool_naming
 -D ignored_result
@@ -57,6 +60,8 @@ deny_lint_flags='
 -D contradictory_time
 -D ambient_clock
 -D catch_all_on_enum
+-D foreign_enum_catch_all
+-D fragile_exhaustive_enum_match
 -D platform_dependent_cast
 -D float_for_currency
 -D ambiguous_params
@@ -64,6 +69,7 @@ deny_lint_flags='
 -D no_unwrap
 -D no_panic
 -D public_unsafe_api
+-D defaulting_trait_method
 -D no_todo
 -D unjustified_no_todo_allow
 -D no_recursion

@@ -258,6 +258,7 @@ mod tests {
     use crate::model::Classification;
     use crate::model::EnforcementLevel;
     use crate::model::EnforcementMode;
+    use crate::model::EvidenceCommand;
     use crate::model::FixtureCoverage;
     use crate::model::FixtureStatus;
     use crate::model::Mechanism;
@@ -285,7 +286,7 @@ mod tests {
                 target_enforcement_mode: EnforcementMode::Gate,
                 escalation_criteria: String::new(),
                 mechanisms: Vec::<Mechanism>::new(),
-                deterministic_checker: Default::default(),
+                deterministic_checker: EvidenceCommand::default(),
                 proof_rails: Vec::new(),
                 checker_owner: "octet".to_owned(),
                 checker_id: "test-checker".to_owned(),

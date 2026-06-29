@@ -2,7 +2,7 @@
   "schema": "octet.function-object-corpus-receipt.v1",
   "schema_version": 1,
   "mode": "corpus-receipt",
-  "object_count": 579,
+  "object_count": 600,
   "source_paths": [
     "cargo-octet/src/baseline.rs",
     "cargo-octet/src/cli.rs",
@@ -32,31 +32,31 @@
     "crates/octet-standards/src/source.rs",
     "crates/octet-standards/src/suppression.rs"
   ],
-  "object_set_hash": "b3:fa6e23eb531d1603b7d33d84aed8d66b399265e0c7cd1e3c6ac093c7c1fa3997",
+  "object_set_hash": "b3:ae755e84fbbf62d104ee08de47e109edb3cf5001e8b71fce68410d59098f4505",
   "caveat_counts": {
     "dependency_status": {
-      "source-scanner-token-set": 253,
-      "unsupported-macro-context": 326
+      "source-scanner-token-set": 242,
+      "unsupported-macro-context": 358
     },
     "effect_kind": {
-      "effect_summary": 467,
-      "filesystem": 57,
-      "panic": 68,
+      "effect_summary": 485,
+      "filesystem": 58,
+      "panic": 74,
       "process": 9,
       "time": 5,
       "unsafe": 3
     },
     "macro_status": {
-      "none-detected": 253,
-      "review-required": 326
+      "none-detected": 242,
+      "review-required": 358
     },
     "pure_cache_blocker": {
-      "dependency-identity-unresolved": 579,
-      "effect-summary-unresolved": 579,
-      "macro-expansion-unmodeled": 326
+      "dependency-identity-unresolved": 600,
+      "effect-summary-unresolved": 600,
+      "macro-expansion-unmodeled": 358
     }
   },
-  "pure_cache_blocked_count": 579,
+  "pure_cache_blocked_count": 600,
   "replay": {
     "command": "cargo octet object corpus receipt --output RECEIPT.json cargo-octet/src/baseline.rs cargo-octet/src/cli.rs cargo-octet/src/config.rs cargo-octet/src/determinism.rs cargo-octet/src/engine.rs cargo-octet/src/fingerprint.rs cargo-octet/src/main.rs cargo-octet/src/migrate.rs cargo-octet/src/object.rs cargo-octet/src/output.rs cargo-octet/src/provider_manifest.rs cargo-octet/src/roadmap.rs cargo-octet/src/transcript.rs crates/octet-standards/src/architecture.rs crates/octet-standards/src/artifacts.rs crates/octet-standards/src/diagnostic.rs crates/octet-standards/src/fixture.rs crates/octet-standards/src/lib.rs crates/octet-standards/src/main.rs crates/octet-standards/src/model.rs crates/octet-standards/src/proof.rs crates/octet-standards/src/receipt.rs crates/octet-standards/src/report.rs crates/octet-standards/src/resource.rs crates/octet-standards/src/runner.rs crates/octet-standards/src/source.rs crates/octet-standards/src/suppression.rs",
     "tool_name": "cargo-octet",

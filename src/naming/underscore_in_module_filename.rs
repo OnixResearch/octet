@@ -61,8 +61,7 @@ fn path_components(path: &Path) -> Vec<String> {
 }
 
 fn is_ignored_source_component(component: &str) -> bool {
-    IGNORED_SOURCE_COMPONENTS.iter().any(|ignored| component == *ignored)
-        || component.contains(VENDOR_CARGO_DEPS_MARKER)
+    IGNORED_SOURCE_COMPONENTS.contains(&component) || component.contains(VENDOR_CARGO_DEPS_MARKER)
 }
 
 fn is_generated_or_fixture_path(path: &Path) -> bool {

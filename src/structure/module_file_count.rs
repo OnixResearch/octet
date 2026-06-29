@@ -63,8 +63,7 @@ fn normalize_path(path: &Path) -> PathBuf {
 }
 
 fn is_ignored_source_component(component: &str) -> bool {
-    IGNORED_SOURCE_COMPONENTS.iter().any(|ignored| component == *ignored)
-        || component.contains(VENDOR_CARGO_DEPS_MARKER)
+    IGNORED_SOURCE_COMPONENTS.contains(&component) || component.contains(VENDOR_CARGO_DEPS_MARKER)
 }
 
 fn has_ignored_source_component(path: &Path) -> bool {

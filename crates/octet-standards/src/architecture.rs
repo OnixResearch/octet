@@ -209,15 +209,13 @@ impl CrateBoundaryObligations {
             core_manifest_path_suffix: core_manifest.unwrap_or_else(fallback_core_manifest),
             std_manifest_path_suffix: shell_suffix.clone().unwrap_or_else(fallback_std_manifest),
             std_lib_path_suffix: shell_lib.unwrap_or_else(fallback_std_lib),
-            core_rust_path_segment: core_suffix
-                .map(|path| {
-                    if let Some(crate_root) = path.strip_suffix("/src/lib.rs") {
-                        format!("{crate_root}/src/")
-                    } else {
-                        path
-                    }
-                })
-                .unwrap_or_else(fallback_core_rust),
+            core_rust_path_segment: core_suffix.map_or_else(fallback_core_rust, |path| {
+                if let Some(crate_root) = path.strip_suffix("/src/lib.rs") {
+                    format!("{crate_root}/src/")
+                } else {
+                    path
+                }
+            }),
             core_crates,
             shell_crates,
             adapter_crates,
@@ -237,7 +235,7 @@ impl CrateBoundaryObligations {
                 |mechanism| &mechanism.dependency_edge_kinds,
                 DEFAULT_DEPENDENCY_EDGE_KIND_NAMES,
             ),
-            core_no_std: crate_boundary_mechanism.map(|m| m.core_no_std).unwrap_or(true),
+            core_no_std: crate_boundary_mechanism.is_none_or(|m| m.core_no_std),
         }
     }
 }
@@ -403,7 +401,7 @@ fn check_core_no_std(
             policy,
             source,
             Some(FIRST_LINE),
-            &format!("core crate `{}` is missing #![no_std]", lib_suffix),
+            &format!("core crate `{lib_suffix}` is missing #![no_std]"),
             "add #![no_std] to the core crate root or move std-dependent code to the shell",
         ));
     }
@@ -468,7 +466,7 @@ fn check_std_shell_owns_std(
             policy,
             source,
             Some(FIRST_LINE),
-            &format!("shell crate `{}` must not declare #![no_std]", lib_suffix),
+            &format!("shell crate `{lib_suffix}` must not declare #![no_std]"),
             "keep std/runtime shell code in the shell crate and no_std code in core",
         ));
     }
