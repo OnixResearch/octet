@@ -364,10 +364,10 @@ fn capsule_inspect(capsule_path: &Path) -> Result<i32, String> {
 fn capsule_replay(capsule_path: &Path, observed_path: &Path) -> Result<i32, String> {
     let capsule = read_json(capsule_path)?;
     let mut observed = normalize_value(read_json(observed_path)?);
-    if observed.get("octet_binary_identity").is_none() {
-        if let Some(legacy_identity) = observed.get("slotcar_binary_identity").cloned() {
-            observed["octet_binary_identity"] = legacy_identity;
-        }
+    if observed.get("octet_binary_identity").is_none()
+        && let Some(legacy_identity) = observed.get("slotcar_binary_identity").cloned()
+    {
+        observed["octet_binary_identity"] = legacy_identity;
     }
     if let Some(object) = observed.as_object_mut() {
         object.remove("slotcar_binary_identity");

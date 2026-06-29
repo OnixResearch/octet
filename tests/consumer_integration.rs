@@ -564,6 +564,7 @@ fn build_standalone_cargo_octet() -> StandaloneCargoOctet {
         "src",
         "cargo-octet",
         "crates/octet-standards",
+        "crates/valence-core",
     ] {
         copy_path(&repo_root.join(relative), &source_root.join(relative));
     }

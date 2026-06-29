@@ -36,8 +36,7 @@ impl DependencyEdgeKind {
 
     fn from_metadata_kind(kind: Option<&str>) -> Option<Self> {
         match kind {
-            None => Some(Self::Normal),
-            Some(NORMAL_DEPENDENCY_KIND) => Some(Self::Normal),
+            None | Some(NORMAL_DEPENDENCY_KIND) => Some(Self::Normal),
             Some(BUILD_DEPENDENCY_KIND) => Some(Self::Build),
             Some(DEV_DEPENDENCY_KIND) => Some(Self::Dev),
             Some(_) => None,

@@ -2640,14 +2640,13 @@ fn pointer_changes(path: &Path, old_hash: String, new_hash: String) -> Result<Ve
     Ok(manifest
         .pointers
         .iter()
-        .filter_map(|(name, pointer)| {
-            (pointer.object_hash == old_hash || pointer.object_hash == new_hash).then(|| {
-                serde_json::json!({
-                    "semantic_name": name,
-                    "old_hash": old_hash,
-                    "new_hash": new_hash,
-                    "target_matches_new": pointer.object_hash == new_hash,
-                })
+        .filter(|(_, pointer)| pointer.object_hash == old_hash || pointer.object_hash == new_hash)
+        .map(|(name, pointer)| {
+            serde_json::json!({
+                "semantic_name": name,
+                "old_hash": old_hash,
+                "new_hash": new_hash,
+                "target_matches_new": pointer.object_hash == new_hash,
             })
         })
         .collect())

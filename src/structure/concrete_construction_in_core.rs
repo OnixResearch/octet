@@ -64,7 +64,12 @@ fn external_construction_name(snippet: &str) -> Option<String> {
     } else {
         return None;
     };
-    snippet.split(separator).next().map(str::trim).filter(|value| !value.is_empty()).map(ToOwned::to_owned)
+    snippet
+        .split(separator)
+        .next()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned)
 }
 
 impl<'tcx> LateLintPass<'tcx> for ConcreteConstructionInCore {

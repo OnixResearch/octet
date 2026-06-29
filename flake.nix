@@ -205,8 +205,10 @@
               inDocs = pkgs.lib.hasSuffix "/docs" path || pkgs.lib.hasInfix "/docs/" path;
               inStandards = pkgs.lib.hasSuffix "/standards" path || pkgs.lib.hasInfix "/standards/" path;
               inTemplates = pkgs.lib.hasSuffix "/templates" path || pkgs.lib.hasInfix "/templates/" path;
+              inHooks = pkgs.lib.hasSuffix "/hooks" path || pkgs.lib.hasInfix "/hooks/" path;
+              isPreCommitHooks = pkgs.lib.hasSuffix "/.pre-commit-hooks.yaml" path;
               isValenceCoreReadme = pkgs.lib.hasSuffix "/crates/valence-core/README.md" path;
-            in (craneLib.filterCargoSources path type) || inUiTests || inTestFixtures || inDocs || inStandards || inTemplates || isValenceCoreReadme;
+            in (craneLib.filterCargoSources path type) || inUiTests || inTestFixtures || inDocs || inStandards || inTemplates || inHooks || isPreCommitHooks || isValenceCoreReadme;
         };
         fmtSrc = pkgs.lib.cleanSourceWith {
           src = ./.;
@@ -867,7 +869,7 @@ MAIN
           jq --exit-status '.diagnostics | length >= 4' "$noncompliant_json" >/dev/null
           jq --exit-status 'any(.diagnostics[]; .policy_id == "tigerstyle.architecture.external-domain-leakage")' "$noncompliant_json" >/dev/null
           jq --exit-status 'any(.diagnostics[]; .policy_id == "tigerstyle.architecture.root-crate-thinness" and (.path | contains("thick-root")))' "$noncompliant_json" >/dev/null
-          jq --exit-status 'any(.diagnostics[]; .policy_id == "tigerstyle.architecture.fcis-crate-boundary" and (.message | contains("must depend on tigerstyle-core")))' "$noncompliant_json" >/dev/null
+          jq --exit-status 'any(.diagnostics[]; .policy_id == "tigerstyle.architecture.fcis-crate-boundary" and (.message | contains("must depend on core crate `tigerstyle-core`")))' "$noncompliant_json" >/dev/null
           jq --exit-status 'any(.diagnostics[]; .policy_id == "tigerstyle.architecture.effect-capability-boundaries")' "$noncompliant_json" >/dev/null
           jq --exit-status 'all(.diagnostics[]; .policy_id != "tigerstyle.idioms.nominal-type-boundaries")' "$noncompliant_json" >/dev/null
           jq --exit-status 'any(.policy_evaluations[]; .target_enforcement_mode == "structural")' "$noncompliant_json" >/dev/null
