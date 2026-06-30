@@ -1,29 +1,21 @@
-# Verus Specifications
+# Verus Proof Rails
 
-**Status: experimental.** This directory is a placeholder for future
-[Verus](https://verus-lang.github.io/verus/guide/) formal verification specs.
-No verified properties are enforced by CI yet.
+Verus is an opt-in formal-proof evidence rail in Octet. It is not part of the
+ordinary `cargo octet check` starter path, and it is not a Dylint lint.
 
-The `verified_purity` lint (see `docs/lint-reference.md`) bans async, IO, and
-wall-clock usage in `verified/` modules, but Verus proof obligations are not
-yet wired into the build.
+The repository-owned fixture rail is intentionally small:
 
-## Contents
+- source scope: `src/verified/addition.rs`
+- proof target: `verus/proofs/addition_bound.rs`
+- verifier surface: `nix run .#octet-verus -- --identity`
+- proof command: `nix run .#octet-verus -- verus/proofs/addition_bound.rs`
+- pass signal: `proof-result: pass octet-addition-bound`
 
-- `example_spec.rs` — skeleton showing `requires`/`ensures` clause structure
+`cargo octet prove` persists proof receipts under the selected artifact
+directory and emits `formal_proof` provenance only after the receipt validates
+its pass signal, source binding, verifier identity, trust-boundary lines, and
+proof artifact identity.
 
-## Running verification
-
-```bash
-verus verus/example_spec.rs
-```
-
-## Relationship to Tiger Style
-
-Tiger Style lints enforce coding discipline at the Rust compiler level. Verus
-goes further by machine-checking preconditions and postconditions against
-function bodies. The two are complementary: lints catch structural patterns,
-Verus proves functional correctness for selected properties.
-
-See the global `tigerstyle` skill for guidance on when to use combined vs split
-spec patterns.
+Passing this rail is scoped evidence for the declared fixture property only. It
+does not claim whole-program correctness, certification, business-domain
+validation, semantic equivalence, or full safety.

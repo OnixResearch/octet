@@ -27,6 +27,10 @@ const CHECKED_SCOPE_PREFIX: &str = "profile:";
 const FIELD_CHECKED_SCOPE: &str = "checked_scope";
 const FIELD_EVIDENCE_TIER: &str = "evidence_tier";
 const FIELD_RECORD: &str = "record";
+const STATUS_BUNDLE_KIND_PROVE: &str = "prove";
+const PROOF_ARTIFACT_PREFIX: &str = "proofs/";
+const PROOF_SOURCE_ID: &str = "octet.standards.formal-proof";
+const CHECKER_OCTET_STANDARDS: &str = "octet-standards";
 
 #[derive(Debug, Clone)]
 pub struct BundleFile {
@@ -65,8 +69,15 @@ pub struct ArtifactVerificationReport {
 #[derive(Debug, Clone, Eq, PartialEq)]
 struct BundleStatus {
     output_format: Option<OutputFormat>,
+    bundle_kind: BundleKind,
     checked_scope: Option<String>,
     diagnostics: Vec<String>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum BundleKind {
+    Check,
+    Prove,
 }
 
 #[derive(Clone, Copy)]
@@ -108,14 +119,19 @@ pub fn verify_bundle(input: ArtifactBundleInput) -> ArtifactVerificationReport {
     let file_map = collect_file_map(input.files);
     let status = inspect_status(&file_map);
     let output_format = status.output_format.unwrap_or_else(|| infer_output_format(&file_map));
-    let expected_files = expected_artifact_files(output_format);
-    let expected_non_provenance =
-        expected_files.iter().copied().filter(|name| *name != PROVENANCE_ARTIFACT_NAME).collect::<Vec<_>>();
+    let base_expected_files = expected_artifact_files(output_format, status.bundle_kind);
     let mut diagnostics = status.diagnostics;
+
+    let provenance_records = parse_provenance_records(&file_map, &mut diagnostics);
+    let expected_files = expected_files_with_proofs(&base_expected_files, &provenance_records, status.bundle_kind);
+    let expected_non_provenance = expected_files
+        .iter()
+        .map(String::as_str)
+        .filter(|name| *name != PROVENANCE_ARTIFACT_NAME)
+        .collect::<Vec<_>>();
 
     validate_file_set(&file_map, &expected_files, &mut diagnostics);
 
-    let provenance_records = parse_provenance_records(&file_map, &mut diagnostics);
     let expected_hashes = expected_artifact_hashes(&file_map, &expected_non_provenance);
     validate_provenance_records(
         &provenance_records,
@@ -123,6 +139,7 @@ pub fn verify_bundle(input: ArtifactBundleInput) -> ArtifactVerificationReport {
         &expected_non_provenance,
         status.checked_scope.as_deref(),
         output_format,
+        status.bundle_kind,
         &mut diagnostics,
     );
 
@@ -145,23 +162,28 @@ pub fn verify_bundle(input: ArtifactBundleInput) -> ArtifactVerificationReport {
 }
 
 fn read_bundle_files(artifact_dir: &Path) -> Result<Vec<BundleFile>, String> {
-    let mut entries = fs::read_dir(artifact_dir)
-        .map_err(|error| format!("read artifact directory {}: {error}", artifact_dir.display()))?
+    read_bundle_files_from_directory(artifact_dir, artifact_dir)
+}
+
+fn read_bundle_files_from_directory(root: &Path, directory: &Path) -> Result<Vec<BundleFile>, String> {
+    let mut entries = fs::read_dir(directory)
+        .map_err(|error| format!("read artifact directory {}: {error}", directory.display()))?
         .collect::<Result<Vec<_>, _>>()
-        .map_err(|error| format!("read artifact directory {} entry: {error}", artifact_dir.display()))?;
-    entries.sort_by_key(|entry| entry.file_name());
+        .map_err(|error| format!("read artifact directory {} entry: {error}", directory.display()))?;
+    entries.sort_by_key(std::fs::DirEntry::path);
 
     let mut files = Vec::new();
     for entry in entries {
         let path = entry.path();
-        let name = entry.file_name().to_string_lossy().into_owned();
         if path.is_dir() {
-            files.push(BundleFile {
-                name,
-                contents: Vec::new(),
-            });
+            files.extend(read_bundle_files_from_directory(root, &path)?);
             continue;
         }
+        let name = path
+            .strip_prefix(root)
+            .map_err(|error| format!("derive relative artifact path for {}: {error}", path.display()))?
+            .to_string_lossy()
+            .into_owned();
         let contents = fs::read(&path).map_err(|error| format!("read artifact {}: {error}", path.display()))?;
         files.push(BundleFile { name, contents });
     }
@@ -203,6 +225,7 @@ fn inspect_status(file_map: &BTreeMap<String, Vec<u8>>) -> BundleStatus {
     let Some(status_bytes) = file_map.get(STATUS_ARTIFACT_NAME) else {
         return BundleStatus {
             output_format: None,
+            bundle_kind: BundleKind::Check,
             checked_scope: None,
             diagnostics: vec![format!("missing expected artifact `{STATUS_ARTIFACT_NAME}`")],
         };
@@ -213,6 +236,7 @@ fn inspect_status(file_map: &BTreeMap<String, Vec<u8>>) -> BundleStatus {
         Err(error) => {
             return BundleStatus {
                 output_format: None,
+                bundle_kind: BundleKind::Check,
                 checked_scope: None,
                 diagnostics: vec![format!("malformed {STATUS_ARTIFACT_NAME}: {error}")],
             };
@@ -226,6 +250,7 @@ fn inspect_status(file_map: &BTreeMap<String, Vec<u8>>) -> BundleStatus {
         Some(other) => {
             return BundleStatus {
                 output_format: None,
+                bundle_kind: BundleKind::Check,
                 checked_scope: None,
                 diagnostics: vec![format!("unsupported {STATUS_ARTIFACT_NAME} output_format `{other}`")],
             };
@@ -233,10 +258,16 @@ fn inspect_status(file_map: &BTreeMap<String, Vec<u8>>) -> BundleStatus {
         None => {
             return BundleStatus {
                 output_format: None,
+                bundle_kind: BundleKind::Check,
                 checked_scope: None,
                 diagnostics: vec![format!("missing {STATUS_ARTIFACT_NAME} output_format")],
             };
         }
+    };
+
+    let bundle_kind = match status_json.get("bundle_kind").and_then(serde_json::Value::as_str) {
+        Some(STATUS_BUNDLE_KIND_PROVE) => BundleKind::Prove,
+        Some(_) | None => BundleKind::Check,
     };
 
     let checked_scope = status_json
@@ -254,6 +285,7 @@ fn inspect_status(file_map: &BTreeMap<String, Vec<u8>>) -> BundleStatus {
 
     BundleStatus {
         output_format,
+        bundle_kind,
         checked_scope,
         diagnostics,
     }
@@ -269,38 +301,46 @@ fn infer_output_format(file_map: &BTreeMap<String, Vec<u8>>) -> OutputFormat {
     }
 }
 
-fn expected_artifact_files(output_format: OutputFormat) -> Vec<&'static str> {
-    match output_format {
-        OutputFormat::Human => vec![
-            COMMAND_ARTIFACT_NAME,
-            PROVENANCE_ARTIFACT_NAME,
-            STATUS_ARTIFACT_NAME,
-            SUMMARY_ARTIFACT_NAME,
-        ],
-        OutputFormat::Json => vec![
-            COMMAND_ARTIFACT_NAME,
-            PROVENANCE_ARTIFACT_NAME,
-            JSON_RESULTS_ARTIFACT_NAME,
-            STATUS_ARTIFACT_NAME,
-            SUMMARY_ARTIFACT_NAME,
-        ],
-        OutputFormat::Sarif => vec![
-            COMMAND_ARTIFACT_NAME,
-            PROVENANCE_ARTIFACT_NAME,
-            SARIF_RESULTS_ARTIFACT_NAME,
-            STATUS_ARTIFACT_NAME,
-            SUMMARY_ARTIFACT_NAME,
-        ],
+fn expected_artifact_files(output_format: OutputFormat, bundle_kind: BundleKind) -> Vec<String> {
+    let mut files = vec![
+        COMMAND_ARTIFACT_NAME.to_owned(),
+        PROVENANCE_ARTIFACT_NAME.to_owned(),
+        STATUS_ARTIFACT_NAME.to_owned(),
+        SUMMARY_ARTIFACT_NAME.to_owned(),
+    ];
+    if bundle_kind == BundleKind::Check {
+        match output_format {
+            OutputFormat::Human => {}
+            OutputFormat::Json => files.push(JSON_RESULTS_ARTIFACT_NAME.to_owned()),
+            OutputFormat::Sarif => files.push(SARIF_RESULTS_ARTIFACT_NAME.to_owned()),
+        }
     }
+    files.sort();
+    files
 }
 
-fn validate_file_set(
-    file_map: &BTreeMap<String, Vec<u8>>,
-    expected_files: &[&'static str],
-    diagnostics: &mut Vec<String>,
-) {
+fn expected_files_with_proofs(
+    base_expected_files: &[String],
+    records: &[ProvenanceRecord],
+    bundle_kind: BundleKind,
+) -> Vec<String> {
+    let mut files = base_expected_files.to_vec();
+    if bundle_kind == BundleKind::Prove {
+        files.extend(records.iter().filter_map(expected_proof_artifact));
+    }
+    files.sort();
+    files.dedup();
+    files
+}
+
+fn expected_proof_artifact(record: &ProvenanceRecord) -> Option<String> {
+    (record.evidence_tier == EvidenceTier::FormalProof && record.artifact_locator.starts_with(PROOF_ARTIFACT_PREFIX))
+        .then(|| record.artifact_locator.clone())
+}
+
+fn validate_file_set(file_map: &BTreeMap<String, Vec<u8>>, expected_files: &[String], diagnostics: &mut Vec<String>) {
     for expected in expected_files {
-        if !file_map.contains_key(*expected) {
+        if !file_map.contains_key(expected) {
             diagnostics.push(format!("missing expected artifact `{expected}`"));
         }
     }
@@ -344,7 +384,7 @@ fn malformed_provenance_field(line: &str) -> &'static str {
 
 fn expected_artifact_hashes(
     file_map: &BTreeMap<String, Vec<u8>>,
-    expected_non_provenance: &[&'static str],
+    expected_non_provenance: &[&str],
 ) -> BTreeMap<String, String> {
     let mut hashes = BTreeMap::new();
     for artifact in expected_non_provenance {
@@ -358,14 +398,15 @@ fn expected_artifact_hashes(
 fn validate_provenance_records(
     records: &[ProvenanceRecord],
     expected_hashes: &BTreeMap<String, String>,
-    expected_non_provenance: &[&'static str],
+    expected_non_provenance: &[&str],
     expected_checked_scope: Option<&str>,
     output_format: OutputFormat,
+    bundle_kind: BundleKind,
     diagnostics: &mut Vec<String>,
 ) {
     diagnostics.extend(crate::evidence::validate_provenance_chain(records, expected_hashes));
     for record in records {
-        validate_expected_record_shape(record, output_format, expected_checked_scope, diagnostics);
+        validate_expected_record_shape(record, output_format, bundle_kind, expected_checked_scope, diagnostics);
     }
     validate_exact_provenance_coverage(records, expected_non_provenance, diagnostics);
 }
@@ -373,10 +414,11 @@ fn validate_provenance_records(
 fn validate_expected_record_shape(
     record: &ProvenanceRecord,
     output_format: OutputFormat,
+    bundle_kind: BundleKind,
     expected_checked_scope: Option<&str>,
     diagnostics: &mut Vec<String>,
 ) {
-    let Some(expected) = expected_shape_for_artifact(&record.artifact_locator, output_format) else {
+    let Some(expected) = expected_shape_for_artifact(&record.artifact_locator, output_format, bundle_kind) else {
         diagnostics.push(format!("unmatched provenance record for artifact `{}`", record.artifact_locator));
         return;
     };
@@ -402,6 +444,13 @@ fn validate_expected_record_shape(
         ));
     }
 
+    if bundle_kind == BundleKind::Prove && record.evidence_tier == EvidenceTier::FormalProof {
+        if record.checked_scope.trim().is_empty() {
+            diagnostics.push(format!("missing required provenance field `{FIELD_CHECKED_SCOPE}`"));
+        }
+        return;
+    }
+
     match expected_checked_scope {
         Some(scope) if record.checked_scope == scope => {}
         Some(scope) => diagnostics.push(format!(
@@ -413,7 +462,11 @@ fn validate_expected_record_shape(
     }
 }
 
-fn expected_shape_for_artifact(artifact: &str, output_format: OutputFormat) -> Option<ExpectedRecordShape> {
+fn expected_shape_for_artifact(
+    artifact: &str,
+    output_format: OutputFormat,
+    bundle_kind: BundleKind,
+) -> Option<ExpectedRecordShape> {
     let manual_review_shape = ExpectedRecordShape {
         source_id: RUNNER_PROVENANCE_SOURCE_ID,
         checker_id: RUNNER_CHECKER_ID,
@@ -431,13 +484,20 @@ fn expected_shape_for_artifact(artifact: &str, output_format: OutputFormat) -> O
             checker_id: RUNNER_CHECKER_ID,
             evidence_tier: EvidenceTier::StaticLint,
         }),
+        _ if bundle_kind == BundleKind::Prove && artifact.starts_with(PROOF_ARTIFACT_PREFIX) => {
+            Some(ExpectedRecordShape {
+                source_id: PROOF_SOURCE_ID,
+                checker_id: CHECKER_OCTET_STANDARDS,
+                evidence_tier: EvidenceTier::FormalProof,
+            })
+        }
         _ => None,
     }
 }
 
 fn validate_exact_provenance_coverage(
     records: &[ProvenanceRecord],
-    expected_non_provenance: &[&'static str],
+    expected_non_provenance: &[&str],
     diagnostics: &mut Vec<String>,
 ) {
     let mut counts = BTreeMap::<String, usize>::new();
@@ -454,10 +514,7 @@ fn validate_exact_provenance_coverage(
     }
 }
 
-fn verified_artifact_rows(
-    records: &[ProvenanceRecord],
-    expected_non_provenance: &[&'static str],
-) -> Vec<VerifiedArtifactRow> {
+fn verified_artifact_rows(records: &[ProvenanceRecord], expected_non_provenance: &[&str]) -> Vec<VerifiedArtifactRow> {
     let mut rows = Vec::new();
     for artifact in expected_non_provenance {
         if let Some(record) = records.iter().find(|record| record.artifact_locator == *artifact) {

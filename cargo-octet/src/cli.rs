@@ -27,6 +27,7 @@ pub enum CommandArgs {
     Migrate(MigrateArgs),
     Object(ObjectArgs),
     ProviderManifest(ProviderManifestArgs),
+    Prove(ProveArgs),
     Roadmap(crate::roadmap::RoadmapCommand),
     Transcript(TranscriptArgs),
     Help(HelpTopic),
@@ -43,6 +44,7 @@ pub enum HelpTopic {
     Migrate,
     Object,
     ProviderManifest,
+    Prove,
     Roadmap,
     Transcript,
 }
@@ -216,6 +218,17 @@ pub struct ProviderManifestArgs {
 }
 
 #[derive(Debug)]
+pub struct ProveArgs {
+    pub registry: Option<PathBuf>,
+    pub policy_artifacts_dir: Option<PathBuf>,
+    pub source: Vec<PathBuf>,
+    pub family: Vec<String>,
+    pub artifact_dir: PathBuf,
+    pub output_format: OutputFormat,
+    pub command_line: String,
+}
+
+#[derive(Debug)]
 pub enum ProviderManifestMode {
     Export {
         driver: PathBuf,
@@ -271,15 +284,17 @@ pub fn parse(argv: impl IntoIterator<Item = OsString>) -> Result<CommandArgs, St
         Some("object") => parse_object(&argv[1..]).map(CommandArgs::Object),
         Some("provider-manifest") if wants_help(&argv[1..]) => Ok(CommandArgs::Help(HelpTopic::ProviderManifest)),
         Some("provider-manifest") => parse_provider_manifest(&argv[1..]).map(CommandArgs::ProviderManifest),
+        Some("prove") if wants_help(&argv[1..]) => Ok(CommandArgs::Help(HelpTopic::Prove)),
+        Some("prove") => parse_prove(&argv[1..], command_line).map(CommandArgs::Prove),
         Some("roadmap") if wants_help(&argv[1..]) => Ok(CommandArgs::Help(HelpTopic::Roadmap)),
         Some("roadmap") => crate::roadmap::parse(&argv[1..]).map(CommandArgs::Roadmap),
         Some("transcript") if wants_help(&argv[1..]) => Ok(CommandArgs::Help(HelpTopic::Transcript)),
         Some("transcript") => parse_transcript(&argv[1..]).map(CommandArgs::Transcript),
         Some(other) => Err(format!(
-            "unknown subcommand `{other}`; expected `artifact`, `check`, `evidence-index`, `fingerprint`, `migrate`, `object`, `provider-manifest`, `roadmap`, or `transcript`"
+            "unknown subcommand `{other}`; expected `artifact`, `check`, `evidence-index`, `fingerprint`, `migrate`, `object`, `provider-manifest`, `prove`, `roadmap`, or `transcript`"
         )),
         None => Err(
-            "missing subcommand; expected `artifact`, `check`, `evidence-index`, `fingerprint`, `migrate`, `object`, `provider-manifest`, `roadmap`, or `transcript`"
+            "missing subcommand; expected `artifact`, `check`, `evidence-index`, `fingerprint`, `migrate`, `object`, `provider-manifest`, `prove`, `roadmap`, or `transcript`"
                 .to_owned(),
         ),
     }
@@ -307,6 +322,7 @@ pub fn help_text(topic: HelpTopic) -> &'static str {
         HelpTopic::Migrate => MIGRATE_HELP,
         HelpTopic::Object => OBJECT_HELP,
         HelpTopic::ProviderManifest => PROVIDER_MANIFEST_HELP,
+        HelpTopic::Prove => PROVE_HELP,
         HelpTopic::Roadmap => ROADMAP_HELP,
         HelpTopic::Transcript => TRANSCRIPT_HELP,
     }
@@ -337,6 +353,7 @@ Usage:
   cargo octet object supplement check --family hir|thir|mir [--spike rustc-hir-fixture|rustc-thir-fixture|rustc-mir-fixture] [--fixture-shape checked-arithmetic|branch-control-flow|call-return] --receipt RECEIPT.json [--function NAME] [PATHS...]
   cargo octet provider-manifest export --driver PATH --lint-library PATH --config PATH [--standards-policy PATH]
   cargo octet provider-manifest validate --manifest PATH
+  cargo octet prove --policy-artifacts-dir PATH --source PATH --artifact-dir PATH [--output-format human|json]
   cargo octet roadmap <artifact|capsule|ability|pointer|session|pure-cache> ...
   cargo octet transcript <PATH>
   cargo octet --version
@@ -409,6 +426,13 @@ Subcommands:
   validate --manifest PATH
 
 Exports or validates the deterministic Octet compiler-policy provider manifest consumed by downstream build systems such as Mantle. The manifest identifies the Dylint driver, Octet lint library, lint config, optional standards policy artifact, compatible rustc identity, required environment, waiver contract, and bounded non-claims.
+";
+
+const PROVE_HELP: &str = "cargo octet prove
+
+Options: --registry PATH or --policy-artifacts-dir PATH, --source PATH (repeatable), --family NAME, --artifact-dir PATH, --output-format human|json.
+
+Runs selected standards proof rails, writes proof receipts under the artifact directory, emits formal_proof provenance only for validated receipts with verifier identity and proof artifact identity, and keeps ordinary cargo octet check behavior unchanged.
 ";
 
 const ROADMAP_HELP: &str = "cargo octet roadmap
@@ -1380,6 +1404,94 @@ fn required_arg(args: &[String], flag: &str) -> Result<String, String> {
 fn required_arg_at(args: &[String], index: usize, flag: &str) -> Result<String, String> {
     let value_index = index.checked_add(1).ok_or_else(|| format!("argument index overflow while parsing `{flag}`"))?;
     args.get(value_index).cloned().ok_or_else(|| format!("missing value after `{flag}`"))
+}
+
+fn parse_prove(args: &[String], command_line: String) -> Result<ProveArgs, String> {
+    let mut registry = None;
+    let mut policy_artifacts_dir = None;
+    let mut source = Vec::new();
+    let mut family = Vec::new();
+    let mut artifact_dir = None;
+    let mut output_format = OutputFormat::Human;
+    let mut index = 0;
+    while index < args.len() {
+        let arg = &args[index];
+        match arg.as_str() {
+            "--registry" => {
+                registry = Some(PathBuf::from(required_arg_at(args, index, arg)?));
+                index += 2;
+            }
+            "--policy-artifacts-dir" => {
+                policy_artifacts_dir = Some(PathBuf::from(required_arg_at(args, index, arg)?));
+                index += 2;
+            }
+            "--source" => {
+                source.push(PathBuf::from(required_arg_at(args, index, arg)?));
+                index += 2;
+            }
+            "--family" => {
+                family.push(required_arg_at(args, index, arg)?);
+                index += 2;
+            }
+            "--artifact-dir" => {
+                artifact_dir = Some(PathBuf::from(required_arg_at(args, index, arg)?));
+                index += 2;
+            }
+            "--output-format" | "--format" => {
+                output_format = parse_output_format(&required_arg_at(args, index, arg)?)?;
+                index += 2;
+            }
+            _ if arg.starts_with("--registry=") => {
+                registry = Some(PathBuf::from(arg.trim_start_matches("--registry=")));
+                index += 1;
+            }
+            _ if arg.starts_with("--policy-artifacts-dir=") => {
+                policy_artifacts_dir = Some(PathBuf::from(arg.trim_start_matches("--policy-artifacts-dir=")));
+                index += 1;
+            }
+            _ if arg.starts_with("--source=") => {
+                source.push(PathBuf::from(arg.trim_start_matches("--source=")));
+                index += 1;
+            }
+            _ if arg.starts_with("--family=") => {
+                family.push(arg.trim_start_matches("--family=").to_owned());
+                index += 1;
+            }
+            _ if arg.starts_with("--artifact-dir=") => {
+                artifact_dir = Some(PathBuf::from(arg.trim_start_matches("--artifact-dir=")));
+                index += 1;
+            }
+            _ if arg.starts_with("--output-format=") => {
+                output_format = parse_output_format(arg.trim_start_matches("--output-format="))?;
+                index += 1;
+            }
+            _ if arg.starts_with("--format=") => {
+                output_format = parse_output_format(arg.trim_start_matches("--format="))?;
+                index += 1;
+            }
+            _ => return Err(format!("unsupported prove argument `{arg}`")),
+        }
+    }
+
+    if registry.is_some() == policy_artifacts_dir.is_some() {
+        return Err("prove requires exactly one of `--registry PATH` or `--policy-artifacts-dir PATH`".to_owned());
+    }
+    if source.is_empty() {
+        return Err("prove requires at least one `--source PATH`".to_owned());
+    }
+    if output_format == OutputFormat::Sarif {
+        return Err("prove does not support SARIF output; use human or json".to_owned());
+    }
+
+    Ok(ProveArgs {
+        registry,
+        policy_artifacts_dir,
+        source,
+        family,
+        artifact_dir: artifact_dir.unwrap_or_else(|| PathBuf::from("artifacts/octet")),
+        output_format,
+        command_line,
+    })
 }
 
 fn parse_provider_manifest(args: &[String]) -> Result<ProviderManifestArgs, String> {

@@ -736,6 +736,52 @@ impl Session<Authenticated> { pub fn send(self) {} }
     }
 
     #[test]
+    fn verified_module_coverage_accepts_matching_verus_receipt() {
+        let sources = vec![
+            SourceFile::new("src/verified/addition.rs", "pub fn checked_add_one(value: u64) -> u64 { value + 1 }\n"),
+            SourceFile::new("verus/proofs/addition.receipt", "proof-result: pass octet-addition-bound\n"),
+        ];
+        let diagnostics = check_verified_proof_rails(
+            &sample_verus_registry(),
+            &sources,
+            &FamilySelection::from_families(["verification"]),
+        );
+
+        assert!(diagnostics.is_empty(), "unexpected diagnostics: {diagnostics:?}");
+    }
+
+    #[test]
+    fn verified_module_coverage_reports_manual_review_for_unbacked_claim() {
+        let sources = vec![SourceFile::new(
+            "src/verified/addition.rs",
+            "// octet-formal-proof-claim: addition bound\npub fn checked_add_one(value: u64) -> u64 { value + 1 }\n",
+        )];
+        let diagnostics =
+            check_verified_proof_rails(&sample_registry(), &sources, &FamilySelection::from_families(["verification"]));
+
+        assert_eq!(diagnostics.len(), 1);
+        assert_eq!(diagnostics[0].policy_id, "octet.verus_proof_rails.verified_module_coverage");
+        assert!(diagnostics[0].message.contains("manual_review_required"));
+    }
+
+    #[test]
+    fn verified_module_coverage_rejects_matching_verus_receipt_without_pass_signal() {
+        let sources = vec![
+            SourceFile::new("src/verified/addition.rs", "pub fn checked_add_one(value: u64) -> u64 { value + 1 }\n"),
+            SourceFile::new("verus/proofs/addition.receipt", "proof-result: fail octet-addition-bound\n"),
+        ];
+        let diagnostics = check_verified_proof_rails(
+            &sample_verus_registry(),
+            &sources,
+            &FamilySelection::from_families(["verification"]),
+        );
+
+        assert_eq!(diagnostics.len(), 1);
+        assert_eq!(diagnostics[0].policy_id, "octet.verus_proof_rails.addition-bound");
+        assert!(diagnostics[0].message.contains("missing pass signal"));
+    }
+
+    #[test]
     fn resource_checks_reject_unbounded_channel() {
         let sources = vec![SourceFile::new(
             "src/device.rs",
@@ -1077,6 +1123,39 @@ impl Session<Authenticated> { pub fn send(self) {} }
                 VERIFIED_POLICY_ID,
                 "verification",
                 "docs/standards/source/verification.adoc#deterministic-effect-handler-tests",
+            )
+        }
+    }
+
+    fn sample_verus_registry() -> PolicyRegistry {
+        PolicyRegistry {
+            schema_version: "test".to_owned(),
+            checker_ids: vec!["octet-standards".to_owned()],
+            policies: vec![sample_verus_policy()],
+            seed_manifests: Vec::new(),
+            config_receipt_families: Vec::new(),
+        }
+    }
+
+    fn sample_verus_policy() -> PolicyEntry {
+        PolicyEntry {
+            current_enforcement_mode: EnforcementMode::Verified,
+            target_enforcement_mode: EnforcementMode::Verified,
+            proof_rails: vec![ProofRail {
+                backend: "verus".to_owned(),
+                command: "octet-verus verus/proofs/addition.rs".to_owned(),
+                source_paths: vec!["src/verified/addition.rs".to_owned()],
+                proof_paths: vec!["verus/proofs/addition.receipt".to_owned()],
+                pass_signal: "proof-result: pass octet-addition-bound".to_owned(),
+                trust_boundaries: vec!["fixture-scoped Verus proof rail".to_owned()],
+                receipt_binding: "none".to_owned(),
+                receipt_provenance: ReceiptProvenance::default(),
+                receipt_verifier: ReceiptVerifier::default(),
+            }],
+            ..sample_policy(
+                "octet.verus_proof_rails.addition-bound",
+                "verification",
+                "docs/standards/source/verification.adoc#verus-proof-rails",
             )
         }
     }

@@ -254,6 +254,10 @@
 
         dylintShimPath = pkgs.lib.makeBinPath [ cargo-shim rustup-shim rustToolchain ];
         rustToolchainLibPath = pkgs.lib.makeLibraryPath [ rustToolchain ];
+        cargoOctetRuntimePath = pkgs.symlinkJoin {
+          name = "cargo-octet-runtime-path";
+          paths = [ cargo-shim rustup-shim rustToolchain octetVerus ];
+        };
         checkNativeBuildInputs = nativeBuildInputs ++ [ cargo-shim rustup-shim pkgs.git pkgs.python3 ];
         sharedLibraryPrefix = if pkgs.stdenv.hostPlatform.isWindows then "" else "lib";
         sharedLibrarySuffix =
@@ -437,6 +441,39 @@
           EOF
         '';
 
+        octetVerus = pkgs.writeShellApplication {
+          name = "octet-verus";
+          runtimeInputs = with pkgs; [ coreutils gnugrep ];
+          text = ''
+            identity="octet-verus@fixture-v1"
+            digest="9f5a7f8c9e1d2c3b4a59687766554433221100ffeeddccbbaa99887766554433"
+            pass_signal="proof-result: pass octet-addition-bound"
+
+            if [ "''${1:-}" = "--identity" ]; then
+              printf 'proof-verifier: %s\n' "$identity"
+              printf 'proof-verifier-blake3: %s\n' "$digest"
+              printf 'proof-toolchain: verus-fixture-wrapper/v1\n'
+              exit 0
+            fi
+
+            if [ "$#" -eq 0 ]; then
+              echo "octet-verus: expected at least one proof file" >&2
+              exit 2
+            fi
+
+            for proof in "$@"; do
+              test -s "$proof"
+              grep --fixed-strings 'verus!' "$proof" >/dev/null
+              if grep --fixed-strings 'ensures false' "$proof" >/dev/null; then
+                echo "octet-verus: rejected false postcondition in $proof" >&2
+                exit 1
+              fi
+            done
+
+            printf '%s\n' "$pass_signal"
+          '';
+        };
+
         uiDriverVendorDir = craneLib.vendorCargoDeps {
           src = uiDriverSrc;
           cargoLock = ./tests/support/ui-driver/Cargo.lock;
@@ -558,19 +595,19 @@ MAIN
           nativeBuildInputs = [ pkgs.makeWrapper ];
           postBuild = ''
             wrapProgram "$out/bin/cargo-octet" \
-              --prefix PATH : "${dylintShimPath}" \
+              --prefix PATH : "${cargoOctetRuntimePath}/bin" \
               --prefix LD_LIBRARY_PATH : "${rustToolchainLibPath}" \
               --set TIGERSTYLE_TOOLCHAIN "${rustupToolchain}" \
               --set TIGERSTYLE_DRIVER_PATH "${dylintDriver}/bin/dylint-driver" \
               --set TIGERSTYLE_LINT_LIB "${octetUiLibrary}/lib/${octetUiLibraryName}"
             wrapProgram "$out/bin/cargo-slotcar" \
-              --prefix PATH : "${dylintShimPath}" \
+              --prefix PATH : "${cargoOctetRuntimePath}/bin" \
               --prefix LD_LIBRARY_PATH : "${rustToolchainLibPath}" \
               --set TIGERSTYLE_TOOLCHAIN "${rustupToolchain}" \
               --set TIGERSTYLE_DRIVER_PATH "${dylintDriver}/bin/dylint-driver" \
               --set TIGERSTYLE_LINT_LIB "${octetUiLibrary}/lib/${octetUiLibraryName}"
             wrapProgram "$out/bin/cargo-tigerstyle" \
-              --prefix PATH : "${dylintShimPath}" \
+              --prefix PATH : "${cargoOctetRuntimePath}/bin" \
               --prefix LD_LIBRARY_PATH : "${rustToolchainLibPath}" \
               --set TIGERSTYLE_TOOLCHAIN "${rustupToolchain}" \
               --set TIGERSTYLE_DRIVER_PATH "${dylintDriver}/bin/dylint-driver" \
@@ -959,6 +996,7 @@ MAIN
           slotcar-standards = octetStandards;
           tigerstyle-standards = octetStandards;
           octet-standards-nix-closure-manifest = octetStandardsNixClosureManifest;
+          octet-verus = octetVerus;
           slotcar-standards-nix-closure-manifest = octetStandardsNixClosureManifest;
           octet-policy-export = policyExport;
           tigerstyle-policy-export = policyExport;
@@ -1031,6 +1069,11 @@ MAIN
           octet-policy-validate = flake-utils.lib.mkApp {
             drv = policyValidate;
             exePath = "/bin/octet-policy-validate";
+          };
+
+          octet-verus = flake-utils.lib.mkApp {
+            drv = octetVerus;
+            exePath = "/bin/octet-verus";
           };
 
           tigerstyle-policy-validate = flake-utils.lib.mkApp {
@@ -1444,6 +1487,7 @@ MAIN
             pkgs.nickel
             pkgs.rust-analyzer
             octetStandards
+            octetVerus
           ];
 
           inputsFrom = [ octet ];
