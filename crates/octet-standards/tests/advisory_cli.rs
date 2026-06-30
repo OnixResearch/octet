@@ -197,6 +197,15 @@ fn export_artifacts_emits_profile_bound_acceptance_receipt() {
             .expect("command should be a string")
             .contains("nickel export")
     );
+    let provenance_records = receipt["provenance_records"].as_array().expect("provenance records array");
+    assert!(!provenance_records.is_empty(), "receipt should carry generated-artifact provenance records");
+    assert!(provenance_records.iter().any(|record| {
+        record["checker_id"] == "octet-policy-export"
+            && record["source_id"] == "octet.policy.generated-artifact"
+            && record["evidence_tier"] == "policy_check"
+            && record["artifact_locator"].as_str().unwrap_or_default().ends_with(ARTIFACT_MANIFEST_JSON_FILE)
+            && !record["parent_artifacts"].as_array().expect("parent artifacts").is_empty()
+    }));
 }
 
 #[test]

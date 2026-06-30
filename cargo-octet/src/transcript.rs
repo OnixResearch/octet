@@ -6,6 +6,7 @@ use serde::Serialize;
 use crate::cli::OutputFormat;
 use crate::cli::TranscriptArgs;
 use crate::determinism;
+use crate::evidence;
 
 #[derive(Debug, Serialize)]
 struct TranscriptReport {
@@ -16,6 +17,7 @@ struct TranscriptReport {
     expected_output_blocks: usize,
     status: &'static str,
     failures: Vec<String>,
+    provenance: evidence::ProvenanceRecord,
 }
 
 pub fn run(args: TranscriptArgs) -> Result<i32, String> {
@@ -94,13 +96,32 @@ fn verify(path: &Path) -> Result<TranscriptReport, String> {
         failures.push("transcript contains no `=> ` expected-output lines".to_owned());
     }
 
+    let transcript_hash = determinism::full_hash(&text);
+    let path_display = path.display().to_string();
     Ok(TranscriptReport {
         schema_version: 1,
-        path: path.display().to_string(),
-        transcript_hash: determinism::full_hash(&text),
+        path: path_display.clone(),
+        transcript_hash,
         command_blocks,
         expected_output_blocks,
         status: if failures.is_empty() { "passed" } else { "failed" },
         failures,
+        provenance: transcript_provenance_record(&path_display, text.as_bytes()),
     })
+}
+
+fn transcript_provenance_record(path: &str, contents: &[u8]) -> evidence::ProvenanceRecord {
+    evidence::ProvenanceRecord {
+        schema_version: evidence::PROVENANCE_SCHEMA_VERSION.to_owned(),
+        source_id: "octet.transcript.assertion".to_owned(),
+        checker_id: evidence::CHECKER_OCTET_TRANSCRIPT.to_owned(),
+        evidence_tier: evidence::EvidenceTier::TranscriptAssertion,
+        artifact_locator: path.to_owned(),
+        blake3: evidence::artifact_blake3_hex(contents),
+        checked_scope: format!("transcript:{path}"),
+        verifier_identity: None,
+        proof_artifact_identity: None,
+        human_action: None,
+        parent_artifacts: Vec::new(),
+    }
 }

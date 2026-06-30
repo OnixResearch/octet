@@ -50,6 +50,7 @@ use octet_standards::receipt::ReceiptArtifact;
 use octet_standards::receipt::ReceiptDigest;
 use octet_standards::receipt::ReceiptEvidence;
 use octet_standards::receipt::ReceiptInput;
+use octet_standards::receipt::ReceiptProvenanceRecord;
 use octet_standards::receipt::ReceiptVerificationCommand;
 use octet_standards::receipt::RunProfile;
 use octet_standards::report::CheckReport;
@@ -64,6 +65,10 @@ const EXIT_FAILURE: u8 = 1;
 const ARCHITECTURE_FAMILY: &str = "architecture";
 const FCIS_POLICY_ID: &str = "tigerstyle.architecture.fcis-crate-boundary";
 const CARGO_MANIFEST_FILE: &str = "Cargo.toml";
+const PROVENANCE_SCHEMA_VERSION: &str = "octet-provenance-record/v1";
+const POLICY_EXPORT_CHECKER_ID: &str = "octet-policy-export";
+const POLICY_EXPORT_SOURCE_ID: &str = "octet.policy.generated-artifact";
+const POLICY_CHECK_TIER: &str = "policy_check";
 
 /// Tiger Style policy checker.
 #[derive(Debug, Parser)]
@@ -337,6 +342,7 @@ fn export_receipt(
         artifacts: export_receipt_artifacts(args, generated_artifacts, manifest_path),
         verification_commands: export_verification_commands(args),
         verification_evidence: export_verification_evidence(manifest_path),
+        provenance_records: export_provenance_records(args, generated_artifacts, manifest_path, profile),
     })
 }
 
@@ -398,6 +404,55 @@ fn export_receipt_artifacts(
         .map(|(file_name, text)| text_artifact(&args.out_dir.join(file_name), text))
         .chain(std::iter::once(file_artifact(manifest_path)))
         .collect()
+}
+
+fn export_provenance_records(
+    args: &ExportArtifactsArgs,
+    generated_artifacts: &[(String, String)],
+    manifest_path: &Path,
+    profile: &RunProfile,
+) -> Vec<ReceiptProvenanceRecord> {
+    generated_artifacts
+        .iter()
+        .map(|(file_name, text)| {
+            policy_provenance_record(
+                args.out_dir.join(file_name).display().to_string(),
+                blake3_text(text),
+                profile.profile_id.clone(),
+                Vec::new(),
+            )
+        })
+        .chain(std::iter::once(policy_provenance_record(
+            manifest_path.display().to_string(),
+            blake3_file(manifest_path),
+            profile.profile_id.clone(),
+            generated_artifacts
+                .iter()
+                .map(|(file_name, _)| args.out_dir.join(file_name).display().to_string())
+                .collect(),
+        )))
+        .collect()
+}
+
+fn policy_provenance_record(
+    artifact_locator: String,
+    blake3: String,
+    profile_id: String,
+    parent_artifacts: Vec<String>,
+) -> ReceiptProvenanceRecord {
+    ReceiptProvenanceRecord {
+        schema_version: PROVENANCE_SCHEMA_VERSION.to_owned(),
+        source_id: POLICY_EXPORT_SOURCE_ID.to_owned(),
+        checker_id: POLICY_EXPORT_CHECKER_ID.to_owned(),
+        evidence_tier: POLICY_CHECK_TIER.to_owned(),
+        artifact_locator,
+        blake3,
+        checked_scope: format!("policy-profile:{profile_id}"),
+        verifier_identity: None,
+        proof_artifact_identity: None,
+        human_action: None,
+        parent_artifacts,
+    }
 }
 
 fn export_verification_commands(args: &ExportArtifactsArgs) -> Vec<ReceiptVerificationCommand> {

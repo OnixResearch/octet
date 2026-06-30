@@ -2702,6 +2702,10 @@ $ cargo octet check --output-format json
     let good_json: serde_json::Value = serde_json::from_slice(&good_output.stdout).expect("good transcript json");
     assert_eq!(good_json["status"], "passed");
     assert!(good_json["transcript_hash"].as_str().expect("transcript hash").starts_with("b3:"));
+    assert_eq!(good_json["provenance"]["checker_id"], "octet-transcript");
+    assert_eq!(good_json["provenance"]["source_id"], "octet.transcript.assertion");
+    assert_eq!(good_json["provenance"]["evidence_tier"], "transcript_assertion");
+    assert_eq!(good_json["provenance"]["artifact_locator"], good.display().to_string());
 
     let bad_output = Command::new(&bin)
         .args([

@@ -68,6 +68,16 @@ Release operators inspect the chain from requirement or policy ID to artifact,
 then verify that the artifact hash, checker identity, tier, and scope match the
 claim being made.
 
+The initial deterministic producer registry covers `cargo-octet`,
+`octet-standards`, `octet-policy-validate`, `octet-policy-export`,
+`octet-fingerprint`, and `octet-transcript`. Source IDs stay in their producer
+families (`octet.runner.*`, `octet.artifact.*`, `octet.standards.*`,
+`octet.policy.*`, `octet.fingerprint.*`, and `octet.transcript.*`), and parent
+artifacts link derived evidence back to the runner, policy, fingerprint, or
+transcript artifact it summarizes. Missing parents and parent cycles are
+rejected; validation and review artifacts remain `policy_check`,
+`transcript_assertion`, or `manual_review_required`, not `formal_proof`.
+
 ## What Octet does not claim
 
 Octet is useful because its boundaries are explicit:
