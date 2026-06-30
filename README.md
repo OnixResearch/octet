@@ -1,10 +1,17 @@
 # Octet
 
-Octet is a Rust-compatible toolchain and lint distribution for systems code that
-should be stable through closed interfaces. It applies
+Octet is the evidence-backed checked path for agent-written and human-written
+Rust systems code. It is a Rust-compatible toolchain and lint distribution for
+systems code that should be stable through closed interfaces. It applies
 [Tiger Style](https://github.com/tigerbeetle/tigerbeetle/blob/main/docs/TIGER_STYLE.md)
 rules: explicit shell/core boundaries, bounded resource use, positive naming,
 compact functions, and reviewable suppressions.
+
+The checked path is concrete: Rust source flows through `cargo octet check` and
+`octet-standards` checks, checked-in policy/config, reviewable evidence
+artifacts, then consumer CI or release gates. See
+`docs/trust-boundary-evidence.md` for the evidence stack, evidence tiers,
+provenance chain, scope boundary, and controlled-deployment map.
 
 The chemistry metaphor is intentional: an octet is a stable full valence shell.
 Octet treats Rust-compatible code as inert by default across APIs, effects,
@@ -89,8 +96,8 @@ For release readiness, operators should be able to find the critical surfaces fr
 this README plus command help, without reading archived OpenSpec changes:
 
 - `cargo octet check --cache --artifact-dir artifacts/octet` records
-  effect-summary output in `summary.txt`, sidecar findings, and lint-cache
-  `cache_status` fields.
+  effect-summary output in `summary.txt`, sidecar findings, `provenance.jsonl`,
+  and lint-cache `cache_status` fields.
 - `cargo octet fingerprint --check --review-manifest artifacts/fingerprint-review.json src/lib.rs`
   verifies semantic identity fingerprints with BLAKE3-backed review records.
 - `cargo octet migrate start --manifest artifacts/octet-migration.json`
@@ -156,6 +163,7 @@ and config keys.
 - [Concurrency and distributed-state review guide](docs/concurrency-state-review.md) and [checklist template](templates/concurrency-state-checklist.md)
 - [System comprehension guide](docs/system-comprehension.md) and [walkthrough template](templates/system-walkthrough.md)
 - `docs/consumer-guide.md` — first run, config split, Nix integration, pre-commit hook, output modes, artifact bundles, migration notes
+- `docs/trust-boundary-evidence.md` — checked-path framing, evidence stack, evidence tiers, provenance, scope boundary, and controlled-deployment map
 - `templates/pre-commit-config.yaml` — copyable deny-all pre-commit hook configuration
 - `docs/lint-reference.md` — full lint catalog, default levels, suppression paths, config reference
 - `docs/contributor-guide.md` — source-of-truth map, doc-update crosswalk, verification rails

@@ -3,6 +3,7 @@ mod cli;
 mod config;
 mod determinism;
 mod engine;
+pub mod evidence;
 mod evidence_index;
 mod fingerprint;
 mod migrate;

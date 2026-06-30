@@ -6,6 +6,8 @@ staged adoption and promotion decisions.
 
 For Aspen-backed evidence, historical replay data, and archived wrapper
 documentation, see `downstream-rollout-evidence.md`.
+For controlled-deployment posture, source-to-gate framing, and the regulated
+consumer checklist, see `trust-boundary-evidence.md#controlled-deployment-posture`.
 
 ## Active path: first-class consumer integration
 
@@ -37,6 +39,10 @@ Use the published flake app or helper instead of copying bash glue:
 Repo-local helpers like `just octet` should stay thin and delegate to the
 same command surface rather than reimplementing toolchain, lockfile, or Dylint
 policy.
+
+The same active path applies to agent-written and human-written Rust: source
+enters Octet checks, checked-in policy/config, local evidence artifacts, then the
+consumer's CI or release gate.
 
 ## Starter rollout profiles
 

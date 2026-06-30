@@ -2,7 +2,8 @@
 
 Tiger Style helps teams make assumptions explicit, keep failure modes
 reviewable, and demand named evidence for high-consequence work. Use this page
-to keep safety-sensitive wording accurate.
+to keep safety-sensitive wording accurate. For Octet's product-level
+scope-boundary and evidence path, see `trust-boundary-evidence.md#what-octet-does-not-claim`.
 
 ## What Tiger Style can claim
 
