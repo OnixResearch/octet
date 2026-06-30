@@ -98,7 +98,9 @@ Octet is designed for local or consumer-CI execution:
 - source-visible toolchain: this repository contains the runner, lint library,
   standards checker, policy registry, and generated artifact seam;
 - local artifact directory: `cargo octet check --artifact-dir artifacts/octet`
-  writes review files plus `provenance.jsonl` to a configured local path.
+  writes review files plus `provenance.jsonl` to a configured local path, and
+  `cargo octet artifact verify --artifact-dir artifacts/octet` checks the saved
+  bundle without mutating it.
 
 Boundary caveat: Octet itself does not require uploading source, logs, or
 artifacts. Consumers still own what their CI provider, log collector, artifact
@@ -111,7 +113,7 @@ store, or downstream integrations do after Octet writes local files.
 - Check in consumer-owned `dylint.toml` and `[workspace.metadata.octet]` runner
   scope.
 - Configure a deterministic artifact directory such as `artifacts/octet` for
-  `command.txt`, `status.json`, `summary.txt`, `provenance.jsonl`, and structured output.
+  `command.txt`, `status.json`, `summary.txt`, `provenance.jsonl`, and structured output, then run the artifact verifier before promotion.
 - Optionally add `templates/pre-commit-config.yaml` as a deny-all pre-commit
   gate after the starter profile is understood.
 - Save or reference the release/operator smoke command when promoting the gate.
@@ -123,6 +125,6 @@ store, or downstream integrations do after Octet writes local files.
 | checked-path framing | [README quick start](../README.md#quick-start) and [consumer guide](consumer-guide.md) | `cargo octet check`, `octet-standards check`, source-to-gate flow |
 | evidence stack | [Evidence stack](#evidence-stack) | discipline, static edge, policy layer, evidence chain |
 | evidence tiers | [Evidence tiers](#evidence-tiers) | `evidence_tier` fields in JSONL/SARIF sidecars and provenance DTOs |
-| provenance chain | [Provenance chain](#provenance-chain) | `provenance.jsonl` records source ID, checker ID, tier, artifact locator, BLAKE3 hash, and checked scope |
+| provenance chain | [Provenance chain](#provenance-chain) | `provenance.jsonl` records source ID, checker ID, tier, artifact locator, BLAKE3 hash, and checked scope; `cargo octet artifact verify` recomputes and checks saved bundles |
 | scope-boundary | [What Octet does not claim](#what-octet-does-not-claim) and [safety-critical guide](safety-critical.md) | unsupported claims paired with supported capabilities |
 | controlled-deployment | [Controlled deployment posture](#controlled-deployment-posture) and [downstream rollout kit](downstream-rollout.md) | local/CI execution, pinned runner, source-visible toolchain, local artifacts |

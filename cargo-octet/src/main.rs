@@ -1,3 +1,4 @@
+mod artifact;
 mod baseline;
 mod cli;
 mod config;
@@ -27,6 +28,7 @@ fn main() -> ExitCode {
 
 fn try_main() -> Result<i32, String> {
     match cli::parse(std::env::args_os())? {
+        cli::CommandArgs::Artifact(args) => artifact::run(args),
         cli::CommandArgs::Check(check) => engine::run(check),
         cli::CommandArgs::EvidenceIndex(args) => evidence_index::run(args),
         cli::CommandArgs::Fingerprint(args) => fingerprint::run(args),
