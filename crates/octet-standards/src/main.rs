@@ -114,6 +114,10 @@ struct CheckArgs {
     /// Execute relevant verified proof rail commands and use their output as proof receipts.
     #[arg(long)]
     execute_proof_rails: bool,
+
+    /// Directory where executed proof-rail receipts are persisted for later promotion evidence.
+    #[arg(long)]
+    proof_artifact_dir: Option<PathBuf>,
 }
 
 /// Generated-artifact export arguments.
@@ -239,6 +243,9 @@ fn run_check_command(args: CheckArgs) -> Result<bool, CliError> {
     append_cargo_metadata_source(&registry, &selection, &args.source, &mut sources);
     if args.execute_proof_rails {
         let executed = execute_relevant_proof_rails(&registry, &sources, &selection, &args.source);
+        if let Some(proof_artifact_dir) = &args.proof_artifact_dir {
+            persist_proof_receipts(proof_artifact_dir, &executed.receipts)?;
+        }
         sources.retain(|source| !executed.proof_path_patterns.iter().any(|pattern| source.path.contains(pattern)));
         sources.extend(executed.receipts);
     }
@@ -701,6 +708,27 @@ fn write_text(path: &Path, text: &str) -> Result<(), CliError> {
         path: path.to_path_buf(),
         source,
     })
+}
+
+fn persist_proof_receipts(directory: &Path, receipts: &[SourceFile]) -> Result<(), CliError> {
+    fs::create_dir_all(directory).map_err(|source| CliError::CreateDir {
+        path: directory.to_path_buf(),
+        source,
+    })?;
+    for receipt in receipts {
+        let path = directory.join(sanitized_receipt_file_name(&receipt.path));
+        write_text(&path, &receipt.text)?;
+    }
+    Ok(())
+}
+
+fn sanitized_receipt_file_name(path: &str) -> String {
+    path.chars()
+        .map(|character| match character {
+            '/' | '\\' | ':' => '_',
+            other => other,
+        })
+        .collect()
 }
 
 struct ExecutedProofRails {

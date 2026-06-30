@@ -86,6 +86,16 @@ nix run .#octet-policy-validate
 nix run .#octet-standards -- --help
 ```
 
+Formal proof rails are opt-in. `cargo octet prove` runs selected standards proof
+rails, writes receipts under an artifact directory, and emits `formal_proof`
+provenance only for scoped receipts with verifier and proof artifact identity.
+Starter `cargo octet check` usage does not require Verus.
+
+```bash
+cargo octet prove --policy-artifacts-dir artifacts/policy --source src/verified --artifact-dir artifacts/octet
+cargo octet artifact verify --artifact-dir artifacts/octet
+```
+
 Start with `docs/consumer-guide.md` for the full consumer setup and rollout
 path. Legacy `cargo slotcar` / `cargo tigerstyle` command names remain
 compatibility aliases only.

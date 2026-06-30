@@ -14,8 +14,16 @@ use crate::model::ReceiptVerifier;
 use crate::source::SourceFile;
 
 const RECEIPT_BINDING_BLAKE3_COMMAND_AND_SOURCE: &str = "blake3-command-and-source";
+const VERUS_BACKEND: &str = "verus";
+const VERIFIED_PATH_COMPONENT: &str = "/verified/";
+const VERIFIED_PATH_PREFIX: &str = "verified/";
+const FORMAL_PROOF_CLAIM_MARKER: &str = "octet-formal-proof-claim:";
+const VERIFIED_MODULE_COVERAGE_POLICY_ID: &str = "octet.verus_proof_rails.verified_module_coverage";
+const VERIFIED_MODULE_COVERAGE_SOURCE: &str = "cairn/specs/verus-proof-rails/spec.md#verified-module-proof-coverage";
 const VERIFIED_PROOF_REMEDIATION: &str =
     "rerun the configured proof command and save a passing proof receipt under the declared proof path";
+const VERIFIED_MODULE_REMEDIATION: &str =
+    "declare a matching Verus proof rail and persist a validated receipt, or record manual_review_required provenance";
 
 /// Checks artifact-backed proof-rail evidence for verified-mode policies.
 #[must_use]
@@ -28,13 +36,50 @@ pub fn check_verified_proof_rails(
         return Vec::new();
     }
 
-    registry
+    let mut diagnostics = registry
         .policies
         .iter()
         .filter(|policy| selection.includes(&policy.pillar))
         .filter(|policy| policy_is_verified(policy))
         .flat_map(|policy| check_policy_proof_rails(policy, sources))
-        .collect()
+        .collect::<Vec<_>>();
+    diagnostics.extend(check_verified_module_coverage(registry, sources, selection));
+    diagnostics
+}
+
+/// Validates one persisted proof receipt against a declared rail and in-memory source set.
+#[must_use]
+pub fn validate_proof_receipt(rail: &ProofRail, sources: &[SourceFile], proof_source: &SourceFile) -> Vec<String> {
+    let mut diagnostics = Vec::new();
+    if !proof_source.text.contains(&rail.pass_signal) {
+        diagnostics.push(format!("proof receipt field `pass_signal` missing pass signal `{}`", rail.pass_signal));
+    }
+    if receipt_binding_enabled(rail) && !receipt_binding_matches(rail, sources, proof_source) {
+        diagnostics.push(format!(
+            "mismatched receipt binding `{}` in proof receipt field `receipt_binding`",
+            rail.receipt_binding
+        ));
+    }
+    if receipt_provenance_enabled(rail) && !receipt_provenance_matches(rail, proof_source) {
+        diagnostics.push(
+            "mismatched receipt provenance in proof receipt field `receipt_provenance` required lines".to_owned(),
+        );
+    }
+    if receipt_verifier_enabled(rail) && !receipt_verifier_matches(rail, sources, proof_source) {
+        diagnostics.push("mismatched receipt verifier metadata in proof receipt field `verifier_identity`".to_owned());
+    }
+    diagnostics
+}
+
+/// Renders deterministic receipt metadata lines that the pure proof checker validates.
+#[must_use]
+pub fn proof_receipt_metadata(rail: &ProofRail, sources: &[SourceFile]) -> String {
+    let mut lines = expected_receipt_provenance_lines(rail);
+    lines.extend(expected_receipt_verifier_lines(rail, sources));
+    if receipt_binding_enabled(rail) {
+        lines.extend(expected_receipt_binding_lines(rail, sources));
+    }
+    receipt_lines(&lines)
 }
 
 fn policy_is_verified(policy: &PolicyEntry) -> bool {
@@ -86,57 +131,68 @@ fn check_proof_rail(policy: &PolicyEntry, rail: &ProofRail, sources: &[SourceFil
                 rail.proof_paths.join(", ")
             ),
         ));
-    } else {
-        let passing_proof_sources = proof_sources
-            .iter()
-            .copied()
-            .filter(|source| source.text.contains(&rail.pass_signal))
-            .collect::<Vec<_>>();
-        if passing_proof_sources.is_empty() {
-            diagnostics.push(proof_diagnostic(
-                policy,
-                &proof_sources[0].path,
-                None,
-                format!("verified proof rail `{}` is missing pass signal `{}`", rail.backend, rail.pass_signal),
-            ));
-        } else if receipt_binding_enabled(rail)
-            && !passing_proof_sources
-                .iter()
-                .any(|proof_source| receipt_binding_matches(rail, sources, proof_source))
-        {
-            diagnostics.push(proof_diagnostic(
-                policy,
-                &passing_proof_sources[0].path,
-                None,
-                format!(
-                    "verified proof rail `{}` has mismatched receipt binding `{}`",
-                    rail.backend, rail.receipt_binding
-                ),
-            ));
-        } else if receipt_provenance_enabled(rail)
-            && !passing_proof_sources.iter().any(|proof_source| receipt_provenance_matches(rail, proof_source))
-        {
-            diagnostics.push(proof_diagnostic(
-                policy,
-                &passing_proof_sources[0].path,
-                None,
-                format!("verified proof rail `{}` has mismatched receipt provenance", rail.backend),
-            ));
-        } else if receipt_verifier_enabled(rail)
-            && !passing_proof_sources
-                .iter()
-                .any(|proof_source| receipt_verifier_matches(rail, sources, proof_source))
-        {
-            diagnostics.push(proof_diagnostic(
-                policy,
-                &passing_proof_sources[0].path,
-                None,
-                format!("verified proof rail `{}` has mismatched receipt verifier metadata", rail.backend),
-            ));
-        }
+        return diagnostics;
     }
 
+    if proof_sources
+        .iter()
+        .any(|proof_source| validate_proof_receipt(rail, sources, proof_source).is_empty())
+    {
+        return diagnostics;
+    }
+
+    let first_failure = validate_proof_receipt(rail, sources, proof_sources[0]);
+    diagnostics.push(proof_diagnostic(
+        policy,
+        &proof_sources[0].path,
+        None,
+        format!("verified proof rail `{}` failed receipt validation: {}", rail.backend, first_failure.join("; ")),
+    ));
     diagnostics
+}
+
+fn check_verified_module_coverage(
+    registry: &PolicyRegistry,
+    sources: &[SourceFile],
+    selection: &FamilySelection,
+) -> Vec<Diagnostic> {
+    sources
+        .iter()
+        .filter(|source| source_has_verified_claim(source))
+        .filter(|source| !matching_verus_rail_exists(registry, selection, source))
+        .map(verified_module_coverage_diagnostic)
+        .collect()
+}
+
+fn source_has_verified_claim(source: &SourceFile) -> bool {
+    let normalized_path = source.path.replace('\\', "/");
+    normalized_path.starts_with(VERIFIED_PATH_PREFIX)
+        || normalized_path.contains(VERIFIED_PATH_COMPONENT)
+        || source.text.contains(FORMAL_PROOF_CLAIM_MARKER)
+}
+
+fn matching_verus_rail_exists(registry: &PolicyRegistry, selection: &FamilySelection, source: &SourceFile) -> bool {
+    registry
+        .policies
+        .iter()
+        .filter(|policy| selection.includes(&policy.pillar))
+        .filter(|policy| policy_is_verified(policy))
+        .flat_map(|policy| policy.proof_rails.iter())
+        .filter(|rail| rail.backend == VERUS_BACKEND)
+        .any(|rail| rail.source_paths.iter().any(|pattern| source.path.contains(pattern)))
+}
+
+fn verified_module_coverage_diagnostic(source: &SourceFile) -> Diagnostic {
+    Diagnostic::new(DiagnosticInput {
+        policy_id: VERIFIED_MODULE_COVERAGE_POLICY_ID.to_owned(),
+        source_section: VERIFIED_MODULE_COVERAGE_SOURCE.to_owned(),
+        path: source.path.clone(),
+        line: None,
+        severity: crate::model::Severity::Error,
+        message: "manual_review_required: verified module or formal-proof claim has no matching Verus proof rail"
+            .to_owned(),
+        remediation: VERIFIED_MODULE_REMEDIATION.to_owned(),
+    })
 }
 
 fn rail_is_relevant(rail: &ProofRail, sources: &[SourceFile]) -> bool {
@@ -403,6 +459,14 @@ fn expected_receipt_binding_lines(rail: &ProofRail, sources: &[SourceFile]) -> V
             .map(|source| format!("proof-source-blake3: {}:{}", source.path, blake3_hex(&source.text))),
     );
     lines
+}
+
+fn receipt_lines(lines: &[String]) -> String {
+    if lines.is_empty() {
+        String::new()
+    } else {
+        format!("{}\n", lines.join("\n"))
+    }
 }
 
 fn blake3_hex(text: &str) -> String {

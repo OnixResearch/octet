@@ -78,3 +78,9 @@ ____
 == Deterministic effect handler tests
 
 Effect handlers earn trust only when tests can replay them without ambient state. A deterministic handler records requested effects, returns scripted responses, fixes time and randomness, and proves cleanup after invalid paths. Network, filesystem, clock, and environment interactions in unit tests should pass through such handlers instead of using process globals.
+
+== Verus proof rails
+
+Verus-backed evidence is opt-in and scoped. A proof rail names the verifier identity, command, source paths, proof paths, pass signal, trust boundary, receipt binding, and property label before it can support `formal_proof` provenance. Passing a rail does not claim whole-program correctness, certification, business-domain validation, semantic equivalence, or full safety beyond the declared source scope and property.
+
+Ordinary `cargo octet check` adoption does not require Verus. Operators select formal proof rails with `cargo octet prove` or a verification profile, persist receipts under an artifact directory, and then verify those artifacts before promotion. A `verified/` module or `octet-formal-proof-claim:` marker without a matching declared Verus rail must fail the selected verification gate or produce `manual_review_required` provenance instead of being treated as proved by purity lints alone.

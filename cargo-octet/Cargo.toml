@@ -18,6 +18,7 @@ name = "cargo-tigerstyle"
 path = "src/main.rs"
 
 [dependencies]
+octet-standards = { path = "../crates/octet-standards" }
 valence-core = { path = "../crates/valence-core" }
 blake3 = "1"
 serde = { version = "1", features = ["derive"] }

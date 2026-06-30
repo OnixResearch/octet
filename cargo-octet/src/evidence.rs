@@ -123,8 +123,12 @@ fn provenance_producers() -> &'static [ProvenanceProducer] {
         ProvenanceProducer {
             checker_id: CHECKER_OCTET_STANDARDS,
             source_prefixes: &[SOURCE_STANDARDS_PREFIX, SOURCE_POLICY_PREFIX],
-            allowed_tiers: &[EvidenceTier::PolicyCheck, EvidenceTier::ManualReviewRequired],
-            allows_formal_proof: false,
+            allowed_tiers: &[
+                EvidenceTier::PolicyCheck,
+                EvidenceTier::ManualReviewRequired,
+                EvidenceTier::FormalProof,
+            ],
+            allows_formal_proof: true,
         },
         ProvenanceProducer {
             checker_id: CHECKER_OCTET_POLICY_VALIDATE,
@@ -430,9 +434,9 @@ mod tests {
         records[FINGERPRINT_RECORD_INDEX].parent_artifacts = vec![TRANSCRIPT_ARTIFACT.to_owned()];
         records[TRANSCRIPT_RECORD_INDEX].parent_artifacts = vec![FINGERPRINT_ARTIFACT.to_owned()];
         records[TRANSCRIPT_RECORD_INDEX].evidence_tier = EvidenceTier::PolicyCheck;
-        records[POLICY_RECORD_INDEX].evidence_tier = EvidenceTier::FormalProof;
-        records[POLICY_RECORD_INDEX].verifier_identity = Some("verus@fixture".to_owned());
-        records[POLICY_RECORD_INDEX].proof_artifact_identity = Some("proofs/policy.receipt".to_owned());
+        records[FINGERPRINT_RECORD_INDEX].evidence_tier = EvidenceTier::FormalProof;
+        records[FINGERPRINT_RECORD_INDEX].verifier_identity = Some("verus@fixture".to_owned());
+        records[FINGERPRINT_RECORD_INDEX].proof_artifact_identity = Some("proofs/fingerprint.receipt".to_owned());
         expected_hashes.insert(RUNNER_ARTIFACT.to_owned(), artifact_blake3_hex(b"different"));
 
         let diagnostics = validate_provenance_chain(&records, &expected_hashes);
@@ -451,7 +455,7 @@ mod tests {
         assert!(
             diagnostics
                 .iter()
-                .any(|diagnostic| diagnostic.contains("formal_proof overclaim by checker_id `octet-standards`"))
+                .any(|diagnostic| diagnostic.contains("formal_proof overclaim by checker_id `octet-fingerprint`"))
         );
     }
 
