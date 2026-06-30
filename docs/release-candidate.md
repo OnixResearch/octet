@@ -20,6 +20,7 @@ Run these from the repository root before tagging:
 ```bash
 nix build .#checks.x86_64-linux.release-candidate-smoke -L --no-link
 nix flake check -L
+cargo octet artifact verify --artifact-dir artifacts/octet
 ```
 
 ## Install smoke commands
@@ -45,7 +46,7 @@ Before tagging, update release notes or the GitHub release body with:
 
 - the candidate version (`0.1.0` for this candidate),
 - the package outputs that shipped (`cargo-octet`, `cargo-slotcar`, `cargo-tigerstyle`, `octet`, `slotcar`, `tigerstyle`),
-- the successful `release-candidate-smoke` and `nix flake check -L` receipts,
+- the successful `release-candidate-smoke`, `nix flake check -L`, and local artifact verifier receipts,
 - any known compatibility aliases or non-goals,
 - the controlled-deployment and scope-boundary caveats for source/artifact locality and evidence claims.
 

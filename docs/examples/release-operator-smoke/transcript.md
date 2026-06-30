@@ -7,6 +7,9 @@ $ cargo octet check --cache --artifact-dir artifacts/octet --output-format json
 => effect-summary output is written in artifacts/octet/summary.txt
 => lint-cache status is recorded per finding as cache_status=miss|hit|bypassed
 
+$ cargo octet artifact verify --artifact-dir artifacts/octet --output-format json
+=> artifact verifier checks saved sidecar hashes, provenance coverage, and manual-review actions without mutating artifacts
+
 $ cargo octet fingerprint --check --review-manifest artifacts/fingerprint-review.json src/lib.rs
 => fingerprint records stable semantic identity and BLAKE3 review hashes
 

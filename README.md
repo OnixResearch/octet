@@ -98,6 +98,9 @@ this README plus command help, without reading archived OpenSpec changes:
 - `cargo octet check --cache --artifact-dir artifacts/octet` records
   effect-summary output in `summary.txt`, sidecar findings, `provenance.jsonl`,
   and lint-cache `cache_status` fields.
+- `cargo octet artifact verify --artifact-dir artifacts/octet` recomputes sidecar
+  BLAKE3 hashes and fails closed on missing, stale, malformed, or inconsistent
+  provenance before the directory is treated as release evidence.
 - `cargo octet fingerprint --check --review-manifest artifacts/fingerprint-review.json src/lib.rs`
   verifies semantic identity fingerprints with BLAKE3-backed review records.
 - `cargo octet migrate start --manifest artifacts/octet-migration.json`

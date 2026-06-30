@@ -20,6 +20,7 @@ impl OutputFormat {
 
 #[derive(Debug)]
 pub enum CommandArgs {
+    Artifact(ArtifactArgs),
     Check(CheckArgs),
     EvidenceIndex(EvidenceIndexArgs),
     Fingerprint(FingerprintArgs),
@@ -35,6 +36,7 @@ pub enum CommandArgs {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum HelpTopic {
     Root,
+    Artifact,
     Check,
     EvidenceIndex,
     Fingerprint,
@@ -43,6 +45,12 @@ pub enum HelpTopic {
     ProviderManifest,
     Roadmap,
     Transcript,
+}
+
+#[derive(Debug)]
+pub struct ArtifactArgs {
+    pub artifact_dir: PathBuf,
+    pub output_format: OutputFormat,
 }
 
 #[derive(Debug)]
@@ -249,6 +257,8 @@ pub fn parse(argv: impl IntoIterator<Item = OsString>) -> Result<CommandArgs, St
     match argv.first().map(String::as_str) {
         Some("--help" | "-h" | "help") => Ok(CommandArgs::Help(HelpTopic::Root)),
         Some("--version" | "-V" | "version") => Ok(CommandArgs::Version),
+        Some("artifact") if artifact_wants_help(&argv[1..]) => Ok(CommandArgs::Help(HelpTopic::Artifact)),
+        Some("artifact") => parse_artifact(&argv[1..]).map(CommandArgs::Artifact),
         Some("check") if wants_help(&argv[1..]) => Ok(CommandArgs::Help(HelpTopic::Check)),
         Some("check") => parse_check(&argv[1..], command_line).map(CommandArgs::Check),
         Some("evidence-index") if wants_help(&argv[1..]) => Ok(CommandArgs::Help(HelpTopic::EvidenceIndex)),
@@ -266,10 +276,10 @@ pub fn parse(argv: impl IntoIterator<Item = OsString>) -> Result<CommandArgs, St
         Some("transcript") if wants_help(&argv[1..]) => Ok(CommandArgs::Help(HelpTopic::Transcript)),
         Some("transcript") => parse_transcript(&argv[1..]).map(CommandArgs::Transcript),
         Some(other) => Err(format!(
-            "unknown subcommand `{other}`; expected `check`, `evidence-index`, `fingerprint`, `migrate`, `object`, `provider-manifest`, `roadmap`, or `transcript`"
+            "unknown subcommand `{other}`; expected `artifact`, `check`, `evidence-index`, `fingerprint`, `migrate`, `object`, `provider-manifest`, `roadmap`, or `transcript`"
         )),
         None => Err(
-            "missing subcommand; expected `check`, `evidence-index`, `fingerprint`, `migrate`, `object`, `provider-manifest`, `roadmap`, or `transcript`"
+            "missing subcommand; expected `artifact`, `check`, `evidence-index`, `fingerprint`, `migrate`, `object`, `provider-manifest`, `roadmap`, or `transcript`"
                 .to_owned(),
         ),
     }
@@ -279,6 +289,10 @@ fn wants_help(args: &[String]) -> bool {
     matches!(args.first().map(String::as_str), Some("--help" | "-h" | "help"))
 }
 
+fn artifact_wants_help(args: &[String]) -> bool {
+    wants_help(args) || args.iter().any(|arg| matches!(arg.as_str(), "--help" | "-h"))
+}
+
 fn object_wants_help(args: &[String]) -> bool {
     wants_help(args) || args.iter().any(|arg| matches!(arg.as_str(), "--help" | "-h"))
 }
@@ -286,6 +300,7 @@ fn object_wants_help(args: &[String]) -> bool {
 pub fn help_text(topic: HelpTopic) -> &'static str {
     match topic {
         HelpTopic::Root => ROOT_HELP,
+        HelpTopic::Artifact => ARTIFACT_HELP,
         HelpTopic::Check => CHECK_HELP,
         HelpTopic::EvidenceIndex => EVIDENCE_INDEX_HELP,
         HelpTopic::Fingerprint => FINGERPRINT_HELP,
@@ -300,6 +315,7 @@ pub fn help_text(topic: HelpTopic) -> &'static str {
 const ROOT_HELP: &str = "Octet operator commands
 
 Usage:
+  cargo octet artifact verify --artifact-dir PATH [--output-format human|json]
   cargo octet check [SCOPE] [-- CARGO_CHECK_ARGS]
   cargo octet evidence-index render --payload-commit HASH --capture-time RFC3339
   cargo octet evidence-index check [--page PATH]
@@ -328,6 +344,13 @@ Usage:
 Release smoke surfaces: fingerprint identity review, migrate manifests, check --cache lint-cache status, effect-summary output in summaries/artifacts, and executable transcript validation.
 
 Nix: nix run path:/path/to/octet#cargo-octet -- check
+";
+
+const ARTIFACT_HELP: &str = "cargo octet artifact verify
+
+Options: --artifact-dir PATH, --output-format human|json.
+
+Verifies a saved cargo octet check artifact directory without mutating it. The verifier recomputes BLAKE3 hashes, validates provenance coverage, rejects stale sidecars, and reports deterministic human or JSON output.
 ";
 
 const CHECK_HELP: &str = "cargo octet check
@@ -405,6 +428,57 @@ const TRANSCRIPT_HELP: &str = "cargo octet transcript <PATH>
 
 Validates executable transcript command blocks and expected-output assertions for docs-example and release smoke artifacts.
 ";
+
+fn parse_artifact(args: &[String]) -> Result<ArtifactArgs, String> {
+    match args.first().map(String::as_str) {
+        Some("verify") => parse_artifact_verify(&args[1..]),
+        Some(other) => Err(format!("unknown artifact subcommand `{other}`; expected `verify`")),
+        None => Err("missing artifact subcommand; expected `verify`".to_owned()),
+    }
+}
+
+fn parse_artifact_verify(args: &[String]) -> Result<ArtifactArgs, String> {
+    const FLAG_AND_VALUE_ARGS: usize = 2;
+
+    let mut artifact_dir = None;
+    let mut output_format = OutputFormat::Human;
+    let mut index = 0;
+
+    while index < args.len() {
+        let arg = &args[index];
+        match arg.as_str() {
+            "--artifact-dir" => {
+                let value = args.get(index + 1).ok_or_else(|| "missing value after `--artifact-dir`".to_owned())?;
+                artifact_dir = Some(PathBuf::from(value));
+                index += FLAG_AND_VALUE_ARGS;
+            }
+            "--output-format" | "--format" => {
+                let value = args.get(index + 1).ok_or_else(|| format!("missing value after `{arg}`"))?;
+                output_format = parse_output_format(value)?;
+                index += FLAG_AND_VALUE_ARGS;
+            }
+            _ if arg.starts_with("--artifact-dir=") => {
+                artifact_dir = Some(PathBuf::from(arg.trim_start_matches("--artifact-dir=")));
+                index += 1;
+            }
+            _ if arg.starts_with("--output-format=") => {
+                output_format = parse_output_format(arg.trim_start_matches("--output-format="))?;
+                index += 1;
+            }
+            _ if arg.starts_with("--format=") => {
+                output_format = parse_output_format(arg.trim_start_matches("--format="))?;
+                index += 1;
+            }
+            _ if arg.starts_with('-') => return Err(format!("unsupported artifact verify argument `{arg}`")),
+            _ => return Err(format!("unexpected artifact verify path `{arg}`; use `--artifact-dir`")),
+        }
+    }
+
+    Ok(ArtifactArgs {
+        artifact_dir: artifact_dir.ok_or_else(|| "artifact verify requires `--artifact-dir PATH`".to_owned())?,
+        output_format,
+    })
+}
 
 fn parse_check(args: &[String], command_line: String) -> Result<CheckArgs, String> {
     let mut scope_args = Vec::new();
@@ -1548,6 +1622,36 @@ mod tests {
     }
 
     #[test]
+    fn artifact_verify_parse_accepts_dir_and_json_report() {
+        let parsed = parse(
+            [
+                "cargo",
+                "octet",
+                "artifact",
+                "verify",
+                "--artifact-dir",
+                "artifacts/octet",
+                "--output-format",
+                "json",
+            ]
+            .map(OsString::from),
+        )
+        .expect("parse artifact verify args");
+
+        match parsed {
+            CommandArgs::Artifact(args) => {
+                assert_eq!(args.artifact_dir, Path::new("artifacts/octet"));
+                assert_eq!(args.output_format, OutputFormat::Json);
+            }
+            other => panic!("expected artifact args, got {other:?}"),
+        }
+
+        let missing_dir = parse(["cargo", "octet", "artifact", "verify"].map(OsString::from))
+            .expect_err("artifact verify requires artifact dir");
+        assert!(missing_dir.contains("artifact verify requires `--artifact-dir PATH`"));
+    }
+
+    #[test]
     fn fingerprint_parse_accepts_default_check() {
         let parsed =
             parse(["cargo", "octet", "fingerprint", "src/lib.rs"].map(OsString::from)).expect("parse fingerprint args");
@@ -2293,6 +2397,10 @@ mod tests {
     fn help_parse_accepts_root_and_subcommand_help() {
         let root = parse(["cargo", "octet", "--help"].map(OsString::from)).expect("parse root help");
         assert!(matches!(root, CommandArgs::Help(HelpTopic::Root)));
+
+        let artifact =
+            parse(["cargo", "octet", "artifact", "verify", "--help"].map(OsString::from)).expect("parse artifact help");
+        assert!(matches!(artifact, CommandArgs::Help(HelpTopic::Artifact)));
 
         let check = parse(["cargo", "octet", "check", "--help"].map(OsString::from)).expect("parse check help");
         assert!(matches!(check, CommandArgs::Help(HelpTopic::Check)));

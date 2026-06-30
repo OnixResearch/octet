@@ -3353,6 +3353,84 @@ fn artifact_directory_captures_human_run() {
 }
 
 #[test]
+fn artifact_verifier_accepts_real_bundle_and_rejects_tamper_without_mutation() {
+    let fixture = ConsumerFixture::new("artifact-verifier", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
+    let dir = artifact_dir(&fixture, "verifier-json-run");
+    let output = run_with_check_args(
+        &fixture,
+        &[
+            "--output-format",
+            JSON_OUTPUT_FORMAT,
+            "--artifact-dir",
+            dir.to_str().expect("artifact dir utf8"),
+        ],
+        &three_finding_json_lines(),
+        EXIT_CODE_SUCCESS,
+    );
+    assert_eq!(output.status.code(), Some(EXIT_CODE_SUCCESS));
+
+    let bin = built_cargo_octet_bin().expect("build cargo-octet binary");
+    let verify = Command::new(&bin)
+        .args([
+            "artifact",
+            "verify",
+            "--artifact-dir",
+            dir.to_str().expect("artifact dir utf8"),
+            "--output-format",
+            JSON_OUTPUT_FORMAT,
+        ])
+        .current_dir(&fixture.repo)
+        .output()
+        .expect("run artifact verifier");
+    assert_eq!(
+        verify.status.code(),
+        Some(EXIT_CODE_SUCCESS),
+        "complete bundle should verify: stdout={} stderr={}",
+        String::from_utf8_lossy(&verify.stdout),
+        String::from_utf8_lossy(&verify.stderr)
+    );
+    let report: serde_json::Value = serde_json::from_slice(&verify.stdout).expect("artifact verifier json");
+    assert_eq!(report["status"], "valid");
+    assert_eq!(report["output_format"], JSON_OUTPUT_FORMAT);
+    assert!(report["diagnostics"].as_array().expect("diagnostics").is_empty());
+
+    let files_before_tamper = artifact_file_names(&dir);
+    let tampered_path = dir.join(RESULTS_JSONL_FILE);
+    let tampered_contents = format!("{}tamper\n", read_artifact(&tampered_path));
+    write_file(&tampered_path, &tampered_contents);
+    let tampered_before_verify = fs::read(&tampered_path).expect("read tampered artifact before verify");
+
+    let tampered = Command::new(&bin)
+        .args([
+            "artifact",
+            "verify",
+            "--artifact-dir",
+            dir.to_str().expect("artifact dir utf8"),
+        ])
+        .current_dir(&fixture.repo)
+        .output()
+        .expect("run artifact verifier on tampered bundle");
+    assert_eq!(
+        tampered.status.code(),
+        Some(EXIT_CODE_LINT_FAILURE),
+        "tampered bundle should fail verification: stdout={} stderr={}",
+        String::from_utf8_lossy(&tampered.stdout),
+        String::from_utf8_lossy(&tampered.stderr)
+    );
+    let tampered_stdout = String::from_utf8_lossy(&tampered.stdout);
+    assert!(
+        tampered_stdout.contains("hash mismatch for artifact locator `results.jsonl`"),
+        "tampered verifier output should name hash mismatch: {tampered_stdout}"
+    );
+    assert_eq!(artifact_file_names(&dir), files_before_tamper, "verifier must not mutate file set");
+    assert_eq!(
+        fs::read(&tampered_path).expect("read tampered artifact after verify"),
+        tampered_before_verify,
+        "verifier must not rewrite artifact contents"
+    );
+}
+
+#[test]
 fn partial_artifact_bundle_is_invalid() {
     let tmp = TempDir::new("partial-artifact-bundle");
 

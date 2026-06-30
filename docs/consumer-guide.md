@@ -105,11 +105,13 @@ cargo octet check -p crate-a
 cargo octet check -p crate-a -- --all-targets
 ```
 
-You can also choose machine-readable output and a saved artifact bundle:
+You can also choose machine-readable output, save an artifact bundle, and verify
+that saved bundle before promoting it:
 
 ```bash
 cargo octet check --output-format json
 cargo octet check --output-format sarif --artifact-dir artifacts/octet
+cargo octet artifact verify --artifact-dir artifacts/octet --output-format json
 ```
 
 Once a rollout has known debt, capture it as an explicit acceptance baseline:
@@ -135,7 +137,7 @@ Exit codes are stable for automation:
 - `1` error-level lint findings
 - `2` integration/configuration failures, including underlying `cargo check` failures
 
-When `--artifact-dir` is set, the runner writes `command.txt`, `status.json`, `summary.txt`, `provenance.jsonl`, and the selected structured-output mirror (`results.jsonl` or `results.sarif`). JSON findings carry `stable_id`, `semantic_id`, `identity_status`, `normalized_snippet_hash`, `effect_family`, `evidence_tier`, and `cache_status`; `provenance.jsonl` records source IDs, checker IDs, evidence tiers, artifact locators, BLAKE3 content hashes, and checked scopes for the saved sidecars. `status.json`, SARIF run properties, baseline evaluations, and stderr summaries include replay metadata such as the toolchain plus config/profile hashes. Downstream tools can compare runs without scraping ambient stderr.
+When `--artifact-dir` is set, the runner writes `command.txt`, `status.json`, `summary.txt`, `provenance.jsonl`, and the selected structured-output mirror (`results.jsonl` or `results.sarif`). JSON findings carry `stable_id`, `semantic_id`, `identity_status`, `normalized_snippet_hash`, `effect_family`, `evidence_tier`, and `cache_status`; `provenance.jsonl` records source IDs, checker IDs, evidence tiers, artifact locators, BLAKE3 content hashes, and checked scopes for the saved sidecars. `cargo octet artifact verify --artifact-dir artifacts/octet` is non-mutating and fails closed when the bundle is partial, stale, malformed, hash-mismatched, uses an unknown checker ID, uses an invalid evidence tier, or lacks required manual-review action text. `status.json`, SARIF run properties, baseline evaluations, and stderr summaries include replay metadata such as the toolchain plus config/profile hashes. Downstream tools can compare runs without scraping ambient stderr.
 
 ### 3a. Controlled deployment quick check
 
@@ -145,7 +147,7 @@ Octet's controlled-deployment posture is local-first and consumer-owned:
 - no required hosted service or Octet-operated upload path;
 - pin-capable runner path using a reviewed release tag, commit, or local `path:` flake reference;
 - source-visible toolchain in this repository: runner, lint library, standards checker, policy registry, and generated artifact seam;
-- local artifact directory with `cargo octet check --artifact-dir artifacts/octet`.
+- local artifact directory with `cargo octet check --artifact-dir artifacts/octet`, followed by `cargo octet artifact verify --artifact-dir artifacts/octet` before release promotion.
 
 Octet itself does not require uploading source or artifacts. Consumers still own
 what their CI storage, logs, artifact retention, and integrations do after Octet
