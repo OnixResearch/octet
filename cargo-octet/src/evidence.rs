@@ -5,6 +5,12 @@ use serde::Deserialize;
 use serde::Serialize;
 
 pub const PROVENANCE_SCHEMA_VERSION: &str = "octet-provenance-record/v1";
+pub const CHECKER_CARGO_OCTET: &str = "cargo-octet";
+pub const CHECKER_OCTET_STANDARDS: &str = "octet-standards";
+pub const CHECKER_OCTET_POLICY_VALIDATE: &str = "octet-policy-validate";
+pub const CHECKER_OCTET_POLICY_EXPORT: &str = "octet-policy-export";
+pub const CHECKER_OCTET_FINGERPRINT: &str = "octet-fingerprint";
+pub const CHECKER_OCTET_TRANSCRIPT: &str = "octet-transcript";
 const FIELD_SCHEMA_VERSION: &str = "schema_version";
 const FIELD_SOURCE_ID: &str = "source_id";
 const FIELD_ARTIFACT_LOCATOR: &str = "artifact_locator";
@@ -13,6 +19,12 @@ const FIELD_PROOF_ARTIFACT_IDENTITY: &str = "proof_artifact_identity";
 const FIELD_HUMAN_ACTION: &str = "human_action";
 const UNKNOWN_CHECKER_PREFIX: &str = "unknown checker_id";
 const HASH_MISMATCH_PREFIX: &str = "hash mismatch for artifact locator";
+const SOURCE_RUNNER_PREFIX: &str = "octet.runner.";
+const SOURCE_ARTIFACT_PREFIX: &str = "octet.artifact.";
+const SOURCE_STANDARDS_PREFIX: &str = "octet.standards.";
+const SOURCE_POLICY_PREFIX: &str = "octet.policy.";
+const SOURCE_FINGERPRINT_PREFIX: &str = "octet.fingerprint.";
+const SOURCE_TRANSCRIPT_PREFIX: &str = "octet.transcript.";
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -64,8 +76,151 @@ pub struct ProvenanceValidationInput<'a> {
     pub expected_artifact_hashes: &'a BTreeMap<String, String>,
 }
 
+#[derive(Clone, Copy)]
+struct ProvenanceProducer {
+    checker_id: &'static str,
+    source_prefixes: &'static [&'static str],
+    allowed_tiers: &'static [EvidenceTier],
+    allows_formal_proof: bool,
+}
+
 pub fn artifact_blake3_hex(bytes: &[u8]) -> String {
     blake3::hash(bytes).to_hex().to_string()
+}
+
+pub fn known_provenance_checker_ids() -> BTreeSet<String> {
+    provenance_producers().iter().map(|producer| producer.checker_id.to_owned()).collect()
+}
+
+pub fn validate_provenance_chain(
+    records: &[ProvenanceRecord],
+    expected_artifact_hashes: &BTreeMap<String, String>,
+) -> Vec<String> {
+    let known_checker_ids = known_provenance_checker_ids();
+    let input = ProvenanceValidationInput {
+        known_checker_ids: &known_checker_ids,
+        expected_artifact_hashes,
+    };
+    let mut diagnostics = Vec::new();
+    for record in records {
+        diagnostics.extend(validate_provenance_record(record, &input));
+        diagnostics.extend(validate_producer_registry(record));
+    }
+    diagnostics.extend(validate_parent_artifact_chains(records));
+    diagnostics.sort();
+    diagnostics.dedup();
+    diagnostics
+}
+
+fn provenance_producers() -> &'static [ProvenanceProducer] {
+    &[
+        ProvenanceProducer {
+            checker_id: CHECKER_CARGO_OCTET,
+            source_prefixes: &[SOURCE_RUNNER_PREFIX, SOURCE_ARTIFACT_PREFIX],
+            allowed_tiers: &[EvidenceTier::StaticLint, EvidenceTier::ManualReviewRequired],
+            allows_formal_proof: false,
+        },
+        ProvenanceProducer {
+            checker_id: CHECKER_OCTET_STANDARDS,
+            source_prefixes: &[SOURCE_STANDARDS_PREFIX, SOURCE_POLICY_PREFIX],
+            allowed_tiers: &[EvidenceTier::PolicyCheck, EvidenceTier::ManualReviewRequired],
+            allows_formal_proof: false,
+        },
+        ProvenanceProducer {
+            checker_id: CHECKER_OCTET_POLICY_VALIDATE,
+            source_prefixes: &[SOURCE_POLICY_PREFIX],
+            allowed_tiers: &[EvidenceTier::PolicyCheck],
+            allows_formal_proof: false,
+        },
+        ProvenanceProducer {
+            checker_id: CHECKER_OCTET_POLICY_EXPORT,
+            source_prefixes: &[SOURCE_POLICY_PREFIX],
+            allowed_tiers: &[EvidenceTier::PolicyCheck],
+            allows_formal_proof: false,
+        },
+        ProvenanceProducer {
+            checker_id: CHECKER_OCTET_FINGERPRINT,
+            source_prefixes: &[SOURCE_FINGERPRINT_PREFIX],
+            allowed_tiers: &[EvidenceTier::ManualReviewRequired],
+            allows_formal_proof: false,
+        },
+        ProvenanceProducer {
+            checker_id: CHECKER_OCTET_TRANSCRIPT,
+            source_prefixes: &[SOURCE_TRANSCRIPT_PREFIX],
+            allowed_tiers: &[EvidenceTier::TranscriptAssertion],
+            allows_formal_proof: false,
+        },
+    ]
+}
+
+fn validate_producer_registry(record: &ProvenanceRecord) -> Vec<String> {
+    let Some(producer) = provenance_producers().iter().find(|producer| producer.checker_id == record.checker_id) else {
+        return Vec::new();
+    };
+
+    let mut diagnostics = Vec::new();
+    if !producer.source_prefixes.iter().any(|prefix| record.source_id.starts_with(prefix)) {
+        diagnostics.push(format!(
+            "unsupported source_id family `{}` for checker_id `{}`",
+            record.source_id, record.checker_id
+        ));
+    }
+    if !producer.allowed_tiers.contains(&record.evidence_tier) {
+        diagnostics.push(format!(
+            "invalid evidence_tier `{}` for checker_id `{}`",
+            record.evidence_tier.as_str(),
+            record.checker_id
+        ));
+    }
+    if record.evidence_tier == EvidenceTier::FormalProof && !producer.allows_formal_proof {
+        diagnostics.push(format!(
+            "formal_proof overclaim by checker_id `{}` for artifact `{}`",
+            record.checker_id, record.artifact_locator
+        ));
+    }
+    diagnostics
+}
+
+fn validate_parent_artifact_chains(records: &[ProvenanceRecord]) -> Vec<String> {
+    let mut diagnostics = Vec::new();
+    let mut graph = BTreeMap::<String, BTreeSet<String>>::new();
+    for record in records {
+        graph.entry(record.artifact_locator.clone()).or_default();
+    }
+    for record in records {
+        for parent in &record.parent_artifacts {
+            if !graph.contains_key(parent) {
+                diagnostics
+                    .push(format!("missing parent artifact `{parent}` referenced by `{}`", record.artifact_locator));
+                continue;
+            }
+            graph.entry(record.artifact_locator.clone()).or_default().insert(parent.clone());
+        }
+    }
+    diagnostics.extend(parent_cycle_diagnostics(graph));
+    diagnostics
+}
+
+fn parent_cycle_diagnostics(mut graph: BTreeMap<String, BTreeSet<String>>) -> Vec<String> {
+    loop {
+        let removable = graph
+            .iter()
+            .filter(|(_, parents)| parents.iter().all(|parent| !graph.contains_key(parent)))
+            .map(|(artifact, _)| artifact.clone())
+            .collect::<Vec<_>>();
+        if removable.is_empty() {
+            break;
+        }
+        for artifact in removable {
+            graph.remove(&artifact);
+        }
+    }
+
+    graph
+        .keys()
+        .next()
+        .map(|artifact| vec![format!("parent artifact cycle includes `{artifact}`")])
+        .unwrap_or_default()
 }
 
 pub fn validate_provenance_record(record: &ProvenanceRecord, input: &ProvenanceValidationInput<'_>) -> Vec<String> {
@@ -252,6 +407,55 @@ mod tests {
     }
 
     #[test]
+    fn cross_gate_provenance_chain_accepts_registered_producers_and_parents() {
+        let records = release_chain_records();
+        let expected_hashes = release_chain_hashes(&records);
+
+        let diagnostics = validate_provenance_chain(&records, &expected_hashes);
+
+        assert!(diagnostics.is_empty(), "unexpected diagnostics: {diagnostics:?}");
+    }
+
+    #[test]
+    fn cross_gate_provenance_chain_rejects_unknowns_missing_parents_cycles_hash_mismatch_and_overclaims() {
+        const RUNNER_RECORD_INDEX: usize = 0;
+        const POLICY_RECORD_INDEX: usize = 1;
+        const FINGERPRINT_RECORD_INDEX: usize = 2;
+        const TRANSCRIPT_RECORD_INDEX: usize = 3;
+
+        let mut records = release_chain_records();
+        let mut expected_hashes = release_chain_hashes(&records);
+        records[RUNNER_RECORD_INDEX].checker_id = "unknown-checker".to_owned();
+        records[POLICY_RECORD_INDEX].parent_artifacts = vec!["missing-parent.json".to_owned()];
+        records[FINGERPRINT_RECORD_INDEX].parent_artifacts = vec![TRANSCRIPT_ARTIFACT.to_owned()];
+        records[TRANSCRIPT_RECORD_INDEX].parent_artifacts = vec![FINGERPRINT_ARTIFACT.to_owned()];
+        records[TRANSCRIPT_RECORD_INDEX].evidence_tier = EvidenceTier::PolicyCheck;
+        records[POLICY_RECORD_INDEX].evidence_tier = EvidenceTier::FormalProof;
+        records[POLICY_RECORD_INDEX].verifier_identity = Some("verus@fixture".to_owned());
+        records[POLICY_RECORD_INDEX].proof_artifact_identity = Some("proofs/policy.receipt".to_owned());
+        expected_hashes.insert(RUNNER_ARTIFACT.to_owned(), artifact_blake3_hex(b"different"));
+
+        let diagnostics = validate_provenance_chain(&records, &expected_hashes);
+
+        assert!(diagnostics.iter().any(|diagnostic| diagnostic.contains("unknown checker_id `unknown-checker`")));
+        assert!(
+            diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.contains("missing parent artifact `missing-parent.json`"))
+        );
+        assert!(diagnostics.iter().any(|diagnostic| diagnostic.contains("parent artifact cycle includes")));
+        assert!(diagnostics.iter().any(|diagnostic| diagnostic.contains("hash mismatch for artifact locator")));
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic.contains("invalid evidence_tier `policy_check` for checker_id `octet-transcript`")
+        }));
+        assert!(
+            diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.contains("formal_proof overclaim by checker_id `octet-standards`"))
+        );
+    }
+
+    #[test]
     fn provenance_validation_rejects_hash_mismatch() {
         let record = ProvenanceRecord {
             blake3: artifact_blake3_hex(b"different artifact bytes"),
@@ -265,6 +469,75 @@ mod tests {
             artifact_blake3_hex(ARTIFACT_BYTES),
             artifact_blake3_hex(b"different artifact bytes")
         )]);
+    }
+
+    const RUNNER_ARTIFACT: &str = "artifacts/octet/status.json";
+    const POLICY_ARTIFACT: &str = "artifacts/policy/report.json";
+    const FINGERPRINT_ARTIFACT: &str = "artifacts/fingerprint-review.json";
+    const TRANSCRIPT_ARTIFACT: &str = "docs/examples/release-operator-smoke/transcript.md";
+
+    fn release_chain_records() -> Vec<ProvenanceRecord> {
+        vec![
+            chain_record(
+                RUNNER_ARTIFACT,
+                b"runner-status",
+                CHECKER_CARGO_OCTET,
+                "octet.runner.artifact-bundle",
+                EvidenceTier::ManualReviewRequired,
+                Vec::new(),
+            ),
+            chain_record(
+                POLICY_ARTIFACT,
+                b"policy-report",
+                CHECKER_OCTET_STANDARDS,
+                "octet.standards.policy-check",
+                EvidenceTier::PolicyCheck,
+                vec![RUNNER_ARTIFACT.to_owned()],
+            ),
+            chain_record(
+                FINGERPRINT_ARTIFACT,
+                b"fingerprint-review",
+                CHECKER_OCTET_FINGERPRINT,
+                "octet.fingerprint.review-manifest",
+                EvidenceTier::ManualReviewRequired,
+                vec![POLICY_ARTIFACT.to_owned()],
+            ),
+            chain_record(
+                TRANSCRIPT_ARTIFACT,
+                b"transcript-smoke",
+                CHECKER_OCTET_TRANSCRIPT,
+                "octet.transcript.assertion",
+                EvidenceTier::TranscriptAssertion,
+                vec![RUNNER_ARTIFACT.to_owned()],
+            ),
+        ]
+    }
+
+    fn release_chain_hashes(records: &[ProvenanceRecord]) -> BTreeMap<String, String> {
+        records.iter().map(|record| (record.artifact_locator.clone(), record.blake3.clone())).collect()
+    }
+
+    fn chain_record(
+        artifact_locator: &str,
+        artifact_bytes: &[u8],
+        checker_id: &str,
+        source_id: &str,
+        evidence_tier: EvidenceTier,
+        parent_artifacts: Vec<String>,
+    ) -> ProvenanceRecord {
+        ProvenanceRecord {
+            schema_version: PROVENANCE_SCHEMA_VERSION.to_owned(),
+            source_id: source_id.to_owned(),
+            checker_id: checker_id.to_owned(),
+            evidence_tier,
+            artifact_locator: artifact_locator.to_owned(),
+            blake3: artifact_blake3_hex(artifact_bytes),
+            checked_scope: "release smoke fixture".to_owned(),
+            verifier_identity: None,
+            proof_artifact_identity: None,
+            human_action: (evidence_tier == EvidenceTier::ManualReviewRequired).then(|| HUMAN_ACTION.to_owned()),
+            parent_artifacts,
+        }
     }
 
     fn valid_record(evidence_tier: EvidenceTier) -> ProvenanceRecord {

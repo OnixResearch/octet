@@ -1,5 +1,4 @@
 use std::collections::BTreeMap;
-use std::collections::BTreeSet;
 use std::fs;
 use std::path::Path;
 
@@ -9,7 +8,6 @@ use crate::cli::ArtifactArgs;
 use crate::cli::OutputFormat;
 use crate::evidence::EvidenceTier;
 use crate::evidence::ProvenanceRecord;
-use crate::evidence::ProvenanceValidationInput;
 
 const REPORT_SCHEMA_VERSION: u32 = 1;
 const EXIT_VALID: i32 = 0;
@@ -119,15 +117,9 @@ pub fn verify_bundle(input: ArtifactBundleInput) -> ArtifactVerificationReport {
 
     let provenance_records = parse_provenance_records(&file_map, &mut diagnostics);
     let expected_hashes = expected_artifact_hashes(&file_map, &expected_non_provenance);
-    let known_checker_ids = known_checker_ids();
-    let validation_input = ProvenanceValidationInput {
-        known_checker_ids: &known_checker_ids,
-        expected_artifact_hashes: &expected_hashes,
-    };
-
     validate_provenance_records(
         &provenance_records,
-        &validation_input,
+        &expected_hashes,
         &expected_non_provenance,
         status.checked_scope.as_deref(),
         output_format,
@@ -363,20 +355,16 @@ fn expected_artifact_hashes(
     hashes
 }
 
-fn known_checker_ids() -> BTreeSet<String> {
-    BTreeSet::from([RUNNER_CHECKER_ID.to_owned()])
-}
-
 fn validate_provenance_records(
     records: &[ProvenanceRecord],
-    validation_input: &ProvenanceValidationInput<'_>,
+    expected_hashes: &BTreeMap<String, String>,
     expected_non_provenance: &[&'static str],
     expected_checked_scope: Option<&str>,
     output_format: OutputFormat,
     diagnostics: &mut Vec<String>,
 ) {
+    diagnostics.extend(crate::evidence::validate_provenance_chain(records, expected_hashes));
     for record in records {
-        diagnostics.extend(crate::evidence::validate_provenance_record(record, validation_input));
         validate_expected_record_shape(record, output_format, expected_checked_scope, diagnostics);
     }
     validate_exact_provenance_coverage(records, expected_non_provenance, diagnostics);

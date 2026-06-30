@@ -386,6 +386,15 @@ fn fingerprint_review_manifest_is_stable_and_sorted() {
         assert!(record["stable_id"].as_str().expect("stable id").starts_with("b3:"));
         assert_eq!(record["requires_review"], true);
     }
+
+    let provenance_path = manifest.with_extension("provenance.jsonl");
+    let provenance_line = fs::read_to_string(&provenance_path).expect("read fingerprint provenance sidecar");
+    let provenance: serde_json::Value = serde_json::from_str(provenance_line.trim()).expect("parse provenance sidecar");
+    assert_eq!(provenance["checker_id"], "octet-fingerprint");
+    assert_eq!(provenance["source_id"], "octet.fingerprint.review-manifest");
+    assert_eq!(provenance["evidence_tier"], "manual_review_required");
+    assert_eq!(provenance["artifact_locator"], manifest.display().to_string());
+    assert!(provenance["human_action"].as_str().expect("human action").contains("review fingerprint manifest"));
 }
 
 #[test]

@@ -8,6 +8,7 @@ use crate::cli::FingerprintArgs;
 use crate::cli::FingerprintMode;
 use crate::cli::OutputFormat;
 use crate::determinism;
+use crate::evidence;
 
 const HASH_PREFIX: &str = "b3:";
 const COMMENT_MARKER: &str = "// octet-fingerprint:";
@@ -17,6 +18,8 @@ const ATTR_MARKER: &str = "#[fingerprint(";
 const REVIEW_KEY: &str = "review=";
 const EVIDENCE_KEY: &str = "evidence=";
 const MACRO_ALLOW_KEY: &str = "macro=allow";
+const FINGERPRINT_PROVENANCE_SOURCE_ID: &str = "octet.fingerprint.review-manifest";
+const FINGERPRINT_REVIEW_ACTION: &str = "review fingerprint manifest records before using them as release evidence";
 
 #[derive(Debug, Clone, Serialize)]
 struct FunctionRecord {
@@ -267,7 +270,29 @@ fn write_review_manifest(path: &Path, report: &FingerprintReport, input_paths: V
     };
     let contents =
         serde_json::to_string_pretty(&manifest).map_err(|error| format!("write review manifest JSON: {error}"))?;
-    fs::write(path, format!("{contents}\n")).map_err(|error| format!("write {}: {error}", path.display()))
+    let rendered = format!("{contents}\n");
+    fs::write(path, &rendered).map_err(|error| format!("write {}: {error}", path.display()))?;
+    write_review_manifest_provenance(path, rendered.as_bytes(), &manifest.input_paths)
+}
+
+fn write_review_manifest_provenance(path: &Path, contents: &[u8], input_paths: &[String]) -> Result<(), String> {
+    let provenance_path = path.with_extension("provenance.jsonl");
+    let record = evidence::ProvenanceRecord {
+        schema_version: evidence::PROVENANCE_SCHEMA_VERSION.to_owned(),
+        source_id: FINGERPRINT_PROVENANCE_SOURCE_ID.to_owned(),
+        checker_id: evidence::CHECKER_OCTET_FINGERPRINT.to_owned(),
+        evidence_tier: evidence::EvidenceTier::ManualReviewRequired,
+        artifact_locator: path.display().to_string(),
+        blake3: evidence::artifact_blake3_hex(contents),
+        checked_scope: format!("fingerprint:{}", input_paths.join(",")),
+        verifier_identity: None,
+        proof_artifact_identity: None,
+        human_action: Some(FINGERPRINT_REVIEW_ACTION.to_owned()),
+        parent_artifacts: Vec::new(),
+    };
+    let line = serde_json::to_string(&record).map_err(|error| format!("write fingerprint provenance JSON: {error}"))?;
+    fs::write(&provenance_path, format!("{line}\n"))
+        .map_err(|error| format!("write {}: {error}", provenance_path.display()))
 }
 
 fn fingerprint_record_stable_id(record: &FunctionRecord) -> String {
