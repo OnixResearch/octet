@@ -11,6 +11,10 @@ This document is the pre-tag release candidate receipt for Octet. It is intentio
 
 ## Required pre-tag gates
 
+Release operators should also review `docs/trust-boundary-evidence.md` for the
+controlled-deployment posture, provenance fields, evidence tiers, and explicit
+scope boundary behind release evidence claims.
+
 Run these from the repository root before tagging:
 
 ```bash
@@ -42,7 +46,8 @@ Before tagging, update release notes or the GitHub release body with:
 - the candidate version (`0.1.0` for this candidate),
 - the package outputs that shipped (`cargo-octet`, `cargo-slotcar`, `cargo-tigerstyle`, `octet`, `slotcar`, `tigerstyle`),
 - the successful `release-candidate-smoke` and `nix flake check -L` receipts,
-- any known compatibility aliases or non-goals.
+- any known compatibility aliases or non-goals,
+- the controlled-deployment and scope-boundary caveats for source/artifact locality and evidence claims.
 
 ## Acceptance signal
 

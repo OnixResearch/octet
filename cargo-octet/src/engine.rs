@@ -33,6 +33,12 @@ const STATUS_ARTIFACT_NAME: &str = "status.json";
 const SUMMARY_ARTIFACT_NAME: &str = "summary.txt";
 const JSON_RESULTS_ARTIFACT_NAME: &str = "results.jsonl";
 const SARIF_RESULTS_ARTIFACT_NAME: &str = "results.sarif";
+const PROVENANCE_ARTIFACT_NAME: &str = "provenance.jsonl";
+const RUNNER_PROVENANCE_SOURCE_ID: &str = "octet.runner.artifact-bundle";
+const RUNNER_STATIC_FINDINGS_SOURCE_ID: &str = "octet.runner.static-findings";
+const RUNNER_CHECKER_ID: &str = "cargo-octet";
+const RUNNER_MANUAL_REVIEW_ACTION: &str =
+    "review runner status, command, and summary before using this artifact as release evidence";
 const TERMINATED_WITHOUT_EXIT_CODE_ERROR: &str = "cargo check terminated without an exit code";
 
 #[derive(Debug, Clone)]
@@ -45,6 +51,7 @@ struct StructuredArtifact {
 struct RunArtifacts {
     summary: String,
     status_json: String,
+    provenance_jsonl: String,
     structured_output: Option<StructuredArtifact>,
 }
 
@@ -245,10 +252,13 @@ fn build_run_artifacts(
     let status_json = output::render_status_json(outcome, check.output_format.as_str(), metadata, baseline_evaluation)?;
     let structured_output =
         render_structured_output(check, findings, meta_map, outcome, metadata, baseline_evaluation)?;
+    let provenance_jsonl =
+        render_run_provenance_jsonl(&check.command_line, &summary, &status_json, structured_output.as_ref(), metadata)?;
 
     Ok(RunArtifacts {
         summary,
         status_json,
+        provenance_jsonl,
         structured_output,
     })
 }
@@ -360,6 +370,81 @@ fn render_structured_output(
     }
 }
 
+fn render_run_provenance_jsonl(
+    command_line: &str,
+    summary: &str,
+    status_json: &str,
+    structured_output: Option<&StructuredArtifact>,
+    metadata: &RunMetadata,
+) -> Result<String, String> {
+    let command_contents = format!("{command_line}\n");
+    let checked_scope = format!("profile:{}", metadata.profile_name);
+    let mut records = vec![
+        artifact_provenance_record(
+            COMMAND_ARTIFACT_NAME,
+            &command_contents,
+            crate::evidence::EvidenceTier::ManualReviewRequired,
+            RUNNER_PROVENANCE_SOURCE_ID,
+            &checked_scope,
+        ),
+        artifact_provenance_record(
+            STATUS_ARTIFACT_NAME,
+            status_json,
+            crate::evidence::EvidenceTier::ManualReviewRequired,
+            RUNNER_PROVENANCE_SOURCE_ID,
+            &checked_scope,
+        ),
+        artifact_provenance_record(
+            SUMMARY_ARTIFACT_NAME,
+            summary,
+            crate::evidence::EvidenceTier::ManualReviewRequired,
+            RUNNER_PROVENANCE_SOURCE_ID,
+            &checked_scope,
+        ),
+    ];
+
+    if let Some(structured_output) = structured_output {
+        records.push(artifact_provenance_record(
+            structured_output.file_name,
+            &structured_output.contents,
+            crate::evidence::EvidenceTier::StaticLint,
+            RUNNER_STATIC_FINDINGS_SOURCE_ID,
+            &checked_scope,
+        ));
+    }
+
+    let mut rendered = String::new();
+    for record in records {
+        let line = serde_json::to_string(&record).map_err(|error| format!("write provenance JSON: {error}"))?;
+        rendered.push_str(&line);
+        rendered.push('\n');
+    }
+    Ok(rendered)
+}
+
+fn artifact_provenance_record(
+    file_name: &str,
+    contents: &str,
+    evidence_tier: crate::evidence::EvidenceTier,
+    source_id: &str,
+    checked_scope: &str,
+) -> crate::evidence::ProvenanceRecord {
+    crate::evidence::ProvenanceRecord {
+        schema_version: crate::evidence::PROVENANCE_SCHEMA_VERSION.to_owned(),
+        source_id: source_id.to_owned(),
+        checker_id: RUNNER_CHECKER_ID.to_owned(),
+        evidence_tier,
+        artifact_locator: file_name.to_owned(),
+        blake3: crate::evidence::artifact_blake3_hex(contents.as_bytes()),
+        checked_scope: checked_scope.to_owned(),
+        verifier_identity: None,
+        proof_artifact_identity: None,
+        human_action: (evidence_tier == crate::evidence::EvidenceTier::ManualReviewRequired)
+            .then(|| RUNNER_MANUAL_REVIEW_ACTION.to_owned()),
+        parent_artifacts: Vec::new(),
+    }
+}
+
 fn write_run_artifacts(artifact_dir: &Path, command_line: &str, run_artifacts: &RunArtifacts) -> Result<(), String> {
     let expected_files =
         expected_artifact_files(run_artifacts.structured_output.as_ref().map(|artifact| artifact.file_name));
@@ -382,10 +467,12 @@ fn write_status_sidecars(artifact_dir: &Path, command_line: &str, run_artifacts:
     let command_path = artifact_dir.join(COMMAND_ARTIFACT_NAME);
     let status_path = artifact_dir.join(STATUS_ARTIFACT_NAME);
     let summary_path = artifact_dir.join(SUMMARY_ARTIFACT_NAME);
+    let provenance_path = artifact_dir.join(PROVENANCE_ARTIFACT_NAME);
 
     write_bytes(&command_path, format!("{command_line}\n").as_bytes())?;
     write_bytes(&status_path, run_artifacts.status_json.as_bytes())?;
     write_bytes(&summary_path, run_artifacts.summary.as_bytes())?;
+    write_bytes(&provenance_path, run_artifacts.provenance_jsonl.as_bytes())?;
     Ok(())
 }
 
@@ -406,7 +493,12 @@ fn remove_artifact_path_best_effort(path: &Path) {
 }
 
 fn expected_artifact_files(selected_structured_artifact: Option<&'static str>) -> Vec<&'static str> {
-    let mut files = vec![COMMAND_ARTIFACT_NAME, STATUS_ARTIFACT_NAME, SUMMARY_ARTIFACT_NAME];
+    let mut files = vec![
+        COMMAND_ARTIFACT_NAME,
+        PROVENANCE_ARTIFACT_NAME,
+        STATUS_ARTIFACT_NAME,
+        SUMMARY_ARTIFACT_NAME,
+    ];
     if let Some(structured_artifact) = selected_structured_artifact {
         files.push(structured_artifact);
     }
@@ -567,6 +659,7 @@ fn build_finding(
         applicability,
         principle: meta.principle.to_owned(),
         effect_family: meta.effect_family.to_owned(),
+        evidence_tier: crate::evidence::EvidenceTier::StaticLint,
         crate_name,
     }
 }

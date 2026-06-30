@@ -9,6 +9,13 @@ deeper docs to read next.
 For the landing page and naming map, see `../README.md`.
 For the full lint catalog, see `lint-reference.md`.
 For rollout profiles, see `downstream-rollout.md`.
+For the checked-path, evidence-stack, provenance, scope-boundary, and
+controlled-deployment map, see `trust-boundary-evidence.md`.
+
+Octet is the evidence-backed checked path for agent-written and human-written
+Rust systems code: Rust source flows through Octet checks, checked-in
+policy/config, reviewable evidence artifacts, and then consumer CI or release
+gates.
 
 ## Supported entry points
 
@@ -128,9 +135,25 @@ Exit codes are stable for automation:
 - `1` error-level lint findings
 - `2` integration/configuration failures, including underlying `cargo check` failures
 
-When `--artifact-dir` is set, the runner writes `command.txt`, `status.json`, `summary.txt`, and the selected structured-output mirror (`results.jsonl` or `results.sarif`). JSON findings carry `stable_id`, `semantic_id`, `identity_status`, `normalized_snippet_hash`, `effect_family`, and `cache_status`; `status.json`, SARIF run properties, baseline evaluations, and stderr summaries include replay metadata such as the toolchain plus config/profile hashes. Downstream tools can compare runs without scraping ambient stderr.
+When `--artifact-dir` is set, the runner writes `command.txt`, `status.json`, `summary.txt`, `provenance.jsonl`, and the selected structured-output mirror (`results.jsonl` or `results.sarif`). JSON findings carry `stable_id`, `semantic_id`, `identity_status`, `normalized_snippet_hash`, `effect_family`, `evidence_tier`, and `cache_status`; `provenance.jsonl` records source IDs, checker IDs, evidence tiers, artifact locators, BLAKE3 content hashes, and checked scopes for the saved sidecars. `status.json`, SARIF run properties, baseline evaluations, and stderr summaries include replay metadata such as the toolchain plus config/profile hashes. Downstream tools can compare runs without scraping ambient stderr.
 
-### 3a. Add the deny-all pre-commit hook
+### 3a. Controlled deployment quick check
+
+Octet's controlled-deployment posture is local-first and consumer-owned:
+
+- local or consumer-CI execution through `cargo octet check`, `nix run ...#cargo-octet -- check`, or `lib.mkConsumerCheck`;
+- no required hosted service or Octet-operated upload path;
+- pin-capable runner path using a reviewed release tag, commit, or local `path:` flake reference;
+- source-visible toolchain in this repository: runner, lint library, standards checker, policy registry, and generated artifact seam;
+- local artifact directory with `cargo octet check --artifact-dir artifacts/octet`.
+
+Octet itself does not require uploading source or artifacts. Consumers still own
+what their CI storage, logs, artifact retention, and integrations do after Octet
+writes local files. Regulated consumers should pin the Octet revision, check in
+`dylint.toml` and `[workspace.metadata.octet]`, choose a deterministic artifact
+directory, and optionally add the deny-all pre-commit gate below.
+
+### 3b. Add the deny-all pre-commit hook
 
 Copy `templates/pre-commit-config.yaml` to the consumer workspace as
 `.pre-commit-config.yaml`, pin `rev` to a reviewed Octet release tag or commit,
@@ -173,7 +196,7 @@ for runner scope or cargo-check tail overrides, for example:
         args: ["--workspace", "--", "--all-targets"]
 ```
 
-### 3b. Plan structured migrations
+### 3c. Plan structured migrations
 
 Use the migration manifest commands when rolling out a new profile or policy set:
 
@@ -188,7 +211,7 @@ cargo octet migrate apply-safe --manifest .octet/migrations/starter.json
 only records safe-apply state and preserves manual-review buckets; code edits
 still flow through the existing machine-applicable cargo-fix rails.
 
-### 3c. Verify executable documentation transcripts
+### 3d. Verify executable documentation transcripts
 
 Markdown examples can carry fenced transcript blocks with `$ ` command lines and
 `=> ` expected-output assertions:

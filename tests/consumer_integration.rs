@@ -2082,6 +2082,7 @@ const COMMAND_TXT_FILE: &str = "command.txt";
 const SUMMARY_TXT_FILE: &str = "summary.txt";
 const RESULTS_JSONL_FILE: &str = "results.jsonl";
 const RESULTS_SARIF_FILE: &str = "results.sarif";
+const PROVENANCE_JSONL_FILE: &str = "provenance.jsonl";
 
 fn cargo_compiler_message(
     target_name: &str,
@@ -2233,17 +2234,20 @@ fn expected_artifact_files(output_format: &str) -> Vec<String> {
     let mut names = match output_format {
         "human" => vec![
             COMMAND_TXT_FILE.to_owned(),
+            PROVENANCE_JSONL_FILE.to_owned(),
             STATUS_JSON_FILE.to_owned(),
             SUMMARY_TXT_FILE.to_owned(),
         ],
         JSON_OUTPUT_FORMAT => vec![
             COMMAND_TXT_FILE.to_owned(),
+            PROVENANCE_JSONL_FILE.to_owned(),
             RESULTS_JSONL_FILE.to_owned(),
             STATUS_JSON_FILE.to_owned(),
             SUMMARY_TXT_FILE.to_owned(),
         ],
         SARIF_OUTPUT_FORMAT => vec![
             COMMAND_TXT_FILE.to_owned(),
+            PROVENANCE_JSONL_FILE.to_owned(),
             RESULTS_SARIF_FILE.to_owned(),
             STATUS_JSON_FILE.to_owned(),
             SUMMARY_TXT_FILE.to_owned(),
@@ -2265,6 +2269,51 @@ fn artifact_bundle_is_valid(dir: &Path, output_format: &str) -> bool {
     }
 
     expected.iter().all(|name| dir.join(name).is_file())
+}
+
+fn assert_provenance_matches_artifacts(dir: &Path, output_format: &str) {
+    let records = read_provenance_records(dir);
+    let artifact_names = expected_artifact_files(output_format)
+        .into_iter()
+        .filter(|name| name != PROVENANCE_JSONL_FILE)
+        .collect::<Vec<_>>();
+
+    assert_eq!(
+        records.len(),
+        artifact_names.len(),
+        "one provenance record should cover each non-provenance artifact"
+    );
+
+    for artifact_name in artifact_names {
+        let record = records
+            .iter()
+            .find(|candidate| candidate["artifact_locator"] == artifact_name)
+            .unwrap_or_else(|| panic!("missing provenance record for {artifact_name}: {records:#?}"));
+        let artifact_bytes = fs::read(dir.join(&artifact_name)).expect("read provenanced artifact");
+        let artifact_hash = blake3::hash(&artifact_bytes).to_hex().to_string();
+        assert_eq!(record["schema_version"], "octet-provenance-record/v1");
+        assert_eq!(record["checker_id"], "cargo-octet");
+        assert_eq!(record["blake3"], artifact_hash);
+        assert_eq!(record["checked_scope"], "profile:workspace-metadata");
+        if artifact_name == RESULTS_JSONL_FILE || artifact_name == RESULTS_SARIF_FILE {
+            assert_eq!(record["source_id"], "octet.runner.static-findings");
+            assert_eq!(record["evidence_tier"], "static_lint");
+        } else {
+            assert_eq!(record["source_id"], "octet.runner.artifact-bundle");
+            assert_eq!(record["evidence_tier"], "manual_review_required");
+            assert!(
+                record["human_action"].as_str().expect("manual review action").contains("review runner status"),
+                "manual review provenance should carry a human action: {record:#?}"
+            );
+        }
+    }
+}
+
+fn read_provenance_records(dir: &Path) -> Vec<serde_json::Value> {
+    read_artifact(&dir.join(PROVENANCE_JSONL_FILE))
+        .lines()
+        .map(|line| serde_json::from_str(line).unwrap_or_else(|error| panic!("parse provenance line: {error}: {line}")))
+        .collect()
 }
 
 fn launcher_path_from_log(log: &str) -> &str {
@@ -3033,14 +3082,10 @@ fn artifact_directory_captures_structured_run() {
     );
     assert_eq!(
         artifact_file_names(&dir),
-        vec![
-            COMMAND_TXT_FILE.to_owned(),
-            RESULTS_SARIF_FILE.to_owned(),
-            STATUS_JSON_FILE.to_owned(),
-            SUMMARY_TXT_FILE.to_owned(),
-        ],
+        expected_artifact_files(SARIF_OUTPUT_FORMAT),
         "artifact directory should contain exactly the expected files"
     );
+    assert_provenance_matches_artifacts(&dir, SARIF_OUTPUT_FORMAT);
 
     let status = read_json_artifact(&dir.join(STATUS_JSON_FILE));
     assert_eq!(
@@ -3133,14 +3178,10 @@ fn artifact_directory_captures_json_run() {
     );
     assert_eq!(
         artifact_file_names(&dir),
-        vec![
-            COMMAND_TXT_FILE.to_owned(),
-            RESULTS_JSONL_FILE.to_owned(),
-            STATUS_JSON_FILE.to_owned(),
-            SUMMARY_TXT_FILE.to_owned(),
-        ],
+        expected_artifact_files(JSON_OUTPUT_FORMAT),
         "json artifact directory should contain exactly the expected files"
     );
+    assert_provenance_matches_artifacts(&dir, JSON_OUTPUT_FORMAT);
     assert!(
         !stale_extra_file.exists(),
         "runner should remove stale extra sidecars before writing the final bundle"
@@ -3216,14 +3257,10 @@ fn artifact_directory_records_integration_failure_cleanly() {
     );
     assert_eq!(
         artifact_file_names(&dir),
-        vec![
-            COMMAND_TXT_FILE.to_owned(),
-            RESULTS_JSONL_FILE.to_owned(),
-            STATUS_JSON_FILE.to_owned(),
-            SUMMARY_TXT_FILE.to_owned(),
-        ],
+        expected_artifact_files(JSON_OUTPUT_FORMAT),
         "integration-failure artifact directory should contain exactly the expected files"
     );
+    assert_provenance_matches_artifacts(&dir, JSON_OUTPUT_FORMAT);
 
     let status = read_json_artifact(&dir.join(STATUS_JSON_FILE));
     assert_eq!(
@@ -3296,13 +3333,10 @@ fn artifact_directory_captures_human_run() {
     );
     assert_eq!(
         artifact_file_names(&dir),
-        vec![
-            COMMAND_TXT_FILE.to_owned(),
-            STATUS_JSON_FILE.to_owned(),
-            SUMMARY_TXT_FILE.to_owned()
-        ],
+        expected_artifact_files("human"),
         "human artifact directory should omit structured-output sidecars"
     );
+    assert_provenance_matches_artifacts(&dir, "human");
     assert!(output.stdout.is_empty(), "human artifact run should not emit stdout: {:?}", output.stdout);
 
     let status = read_json_artifact(&dir.join(STATUS_JSON_FILE));
@@ -3328,6 +3362,8 @@ fn partial_artifact_bundle_is_invalid() {
     write_file(&human_dir.join(STATUS_JSON_FILE), "{}\n");
     assert!(!artifact_bundle_is_valid(&human_dir, "human"), "human bundle missing summary must be invalid");
     write_file(&human_dir.join(SUMMARY_TXT_FILE), "summary\n");
+    assert!(!artifact_bundle_is_valid(&human_dir, "human"), "human bundle missing provenance must be invalid");
+    write_file(&human_dir.join(PROVENANCE_JSONL_FILE), "{}\n");
     assert!(artifact_bundle_is_valid(&human_dir, "human"), "complete human bundle should be valid");
     write_file(&human_dir.join("extra.txt"), "extra\n");
     assert!(!artifact_bundle_is_valid(&human_dir, "human"), "human bundle with extra sidecar must be invalid");
@@ -3337,6 +3373,7 @@ fn partial_artifact_bundle_is_invalid() {
     write_file(&json_dir.join(COMMAND_TXT_FILE), "cmd\n");
     write_file(&json_dir.join(STATUS_JSON_FILE), "{}\n");
     write_file(&json_dir.join(SUMMARY_TXT_FILE), "summary\n");
+    write_file(&json_dir.join(PROVENANCE_JSONL_FILE), "{}\n");
     assert!(
         !artifact_bundle_is_valid(&json_dir, JSON_OUTPUT_FORMAT),
         "json bundle missing results.jsonl must be invalid"
@@ -3354,6 +3391,7 @@ fn partial_artifact_bundle_is_invalid() {
     write_file(&sarif_dir.join(COMMAND_TXT_FILE), "cmd\n");
     write_file(&sarif_dir.join(STATUS_JSON_FILE), "{}\n");
     write_file(&sarif_dir.join(SUMMARY_TXT_FILE), "summary\n");
+    write_file(&sarif_dir.join(PROVENANCE_JSONL_FILE), "{}\n");
     assert!(
         !artifact_bundle_is_valid(&sarif_dir, SARIF_OUTPUT_FORMAT),
         "sarif bundle missing results.sarif must be invalid"

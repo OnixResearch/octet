@@ -6,8 +6,9 @@ use serde::Serialize;
 
 use crate::baseline::BaselineEvaluation;
 use crate::determinism::RunMetadata;
+use crate::evidence::EvidenceTier;
 
-const FINDING_SCHEMA_VERSION: u32 = 1;
+const FINDING_SCHEMA_VERSION: u32 = 2;
 const EXIT_SUCCESS: i32 = 0;
 const EXIT_LINT_FAILURE: i32 = 1;
 const EXIT_INTEGRATION_FAILURE: i32 = 2;
@@ -57,6 +58,7 @@ pub struct Finding {
     pub applicability: Option<String>,
     pub principle: String,
     pub effect_family: String,
+    pub evidence_tier: EvidenceTier,
     pub crate_name: String,
 }
 
@@ -529,7 +531,14 @@ pub fn render_sarif(
                         }
                     }
                 }],
-                "properties": { "findingIndex": finding.index, "stableId": finding.stable_id, "semanticId": finding.semantic_id, "effectFamily": finding.effect_family, "cacheStatus": finding.cache_status }
+                "properties": {
+                    "findingIndex": finding.index,
+                    "stableId": finding.stable_id,
+                    "semanticId": finding.semantic_id,
+                    "effectFamily": finding.effect_family,
+                    "evidenceTier": finding.evidence_tier.as_str(),
+                    "cacheStatus": finding.cache_status
+                }
             })
         })
         .collect();
@@ -710,4 +719,83 @@ pub fn render_summary(
 
     writeln!(&mut summary, "{SUMMARY_FOOTER}").map_err(|error| format!("write summary: {error}"))?;
     Ok(summary)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const TEST_FINDING_INDEX: &str = "F1";
+    const TEST_STABLE_ID: &str = "stable-id";
+    const TEST_CONFIG_HASH: &str = "config-hash";
+    const TEST_CACHE_STATUS: &str = "disabled";
+    const TEST_LINT: &str = "ambient_clock";
+    const TEST_GROUP: &str = "tigerstyle::purity";
+    const TEST_SEVERITY: &str = "warning";
+    const TEST_FILE: &str = "src/lib.rs";
+    const TEST_MESSAGE: &str = "clock read belongs at the shell boundary";
+    const TEST_PRINCIPLE: &str = "Functional Core";
+    const TEST_EFFECT_FAMILY: &str = "time";
+    const TEST_CRATE_NAME: &str = "example";
+
+    #[test]
+    fn json_lines_include_static_lint_evidence_tier() {
+        let rendered = render_json_lines(&[test_finding()]).expect("finding JSON should render");
+
+        assert!(rendered.contains("\"version\":2"));
+        assert!(rendered.contains("\"evidence_tier\":\"static_lint\""));
+    }
+
+    #[test]
+    fn sarif_results_include_static_lint_evidence_tier() {
+        let finding = test_finding();
+        let outcome = RunOutcome::classify(&[finding.clone()], CargoProcessExit::success());
+        let metadata = RunMetadata {
+            tool_name: "cargo-octet",
+            tool_version: "0.1.0",
+            rustc_version: "rustc-test".to_owned(),
+            toolchain: "nightly".to_owned(),
+            profile_name: "default".to_owned(),
+            profile_hash: "profile-hash".to_owned(),
+            config_hash: TEST_CONFIG_HASH.to_owned(),
+        };
+
+        let rendered = render_sarif(
+            &[finding],
+            &lint_meta_map(),
+            &outcome,
+            "cargo octet check --output-format sarif",
+            &metadata,
+            None,
+        )
+        .expect("SARIF should render");
+
+        assert!(rendered.contains("\"evidenceTier\": \"static_lint\""));
+    }
+
+    fn test_finding() -> Finding {
+        Finding {
+            version: finding_version(),
+            index: TEST_FINDING_INDEX.to_owned(),
+            stable_id: TEST_STABLE_ID.to_owned(),
+            semantic_id: TEST_STABLE_ID.to_owned(),
+            identity_status: "computed".to_owned(),
+            normalized_snippet_hash: "snippet-hash".to_owned(),
+            config_hash: TEST_CONFIG_HASH.to_owned(),
+            cache_status: TEST_CACHE_STATUS.to_owned(),
+            lint: TEST_LINT.to_owned(),
+            group: TEST_GROUP.to_owned(),
+            severity: TEST_SEVERITY.to_owned(),
+            file: TEST_FILE.to_owned(),
+            line: 1,
+            column: 1,
+            message: TEST_MESSAGE.to_owned(),
+            suggestion: None,
+            applicability: None,
+            principle: TEST_PRINCIPLE.to_owned(),
+            effect_family: TEST_EFFECT_FAMILY.to_owned(),
+            evidence_tier: EvidenceTier::StaticLint,
+            crate_name: TEST_CRATE_NAME.to_owned(),
+        }
+    }
 }
