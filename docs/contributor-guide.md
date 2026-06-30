@@ -45,6 +45,7 @@ For the shipped lint catalog, see `lint-reference.md`.
 | config schema and defaults | `src/config.rs` |
 | cargo subcommand parsing and engine behavior | `cargo-octet/src/cli.rs`, `cargo-octet/src/config.rs`, `cargo-octet/src/engine.rs` |
 | standards registry and checker core | `standards/policies/`, `crates/octet-standards/src/` |
+| Rust-emitted evidence DTO contracts | Rust field tables in `cargo-octet/src/evidence_contracts.rs`, generated Nickel in `standards/evidence/contracts/`, and fixtures in `standards/evidence/fixtures/` |
 | standards source material | `docs/standards/source/` |
 | published Nix entry points and helpers | `flake.nix` |
 | consumer-owned template | `templates/dylint.toml` |
@@ -112,7 +113,10 @@ Then update:
 - `flake.nix` checks/apps when verification changes
 
 Keep the seam intact: Dylint lints stay in `src/`; policy registry and
-source-shape checks stay in `crates/octet-standards` and `standards/`.
+source-shape checks stay in `crates/octet-standards` and `standards/`. If a
+Rust type emits persisted evidence or receipts, update the Rust-owned field
+source first, regenerate or refresh the Nickel contract, and keep both positive
+and negative Nickel fixtures registered in `standards/policies/registry.ncl`.
 
 ## If you add or change a published entry point
 

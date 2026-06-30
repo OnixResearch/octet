@@ -28,6 +28,8 @@ The artifact export writes five consumer-facing files:
 - `octet-proof-bundles.json` — `octet-proof-bundle/v1` schema for verified proof rails and receipt obligations.
 - `octet-config-receipt-families.json` — config/receipt source-of-truth registry for freshness checks.
 
+Rust-emitted evidence DTOs are Rust-derived receipt families: keep the Rust field table as the source of truth, check in the generated Nickel contract under `standards/evidence/contracts/`, register it in `registry.ncl`, and include both positive and negative Nickel fixtures. Freshness is enforced by `cargo test -p cargo-octet evidence_contracts::tests::generated_contracts_are_fresh`; fixture behavior is enforced by `cargo test -p cargo-octet evidence_contracts::tests::evidence_contract_fixtures_accept_valid_and_reject_invalid_records`.
+
 Invalid fixtures should fail export:
 
 ```bash
