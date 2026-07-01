@@ -82,12 +82,35 @@ Reviewers use the existing commands at the matching stage:
 - `cargo octet artifact verify` recomputes artifact identities and checks saved
   receipts plus provenance before an artifact directory is treated as evidence.
 
+Imported Trellis references take a separate content-addressed branch:
+
+```text
+Trellis repository revision
+  -> BLAKE3 source artifact identity
+  -> BLAKE3 proof artifact identity
+  -> bounded log identity when present
+  -> receipt identity when present
+  -> imported proof bundle
+  -> proof card / manual review
+  -> optional Octet rerun with pinned verifier identity
+```
+
+The current imported bundle manifest is Nickel-authored at
+`standards/proof-imports/trellis.ncl` and exported to the deterministic runtime
+JSON artifact `standards/proof-imports/generated/trellis-proof-imports.json`.
+For that branch, BLAKE3 identifies exact artifact bytes and does not by itself
+prove proof correctness. Imported Trellis bundles remain external or
+`manual_review_required` until Octet reruns the referenced proof with pinned
+verifier identity, validates an Octet-owned receipt, and then emits scoped
+Octet provenance for that receipt only.
+
 The Verus lane preserves evidence-tier boundaries. Validated Verus proof receipts
 may support `formal_proof`; lint findings remain `static_lint`, policy checks
-remain `policy_check`, transcript assertions remain `transcript_assertion`, and
-unresolved human obligations remain `manual_review_required`. Validation
-evidence stays validation evidence unless a selected verifier-backed receipt
-supports the stronger tier.
+remain `policy_check`, transcript assertions remain `transcript_assertion`,
+imported Trellis bundles remain external or `manual_review_required` until
+rerun, and unresolved human obligations remain `manual_review_required`.
+Validation evidence stays validation evidence unless a selected verifier-backed
+receipt supports the stronger tier.
 
 The claim remains scoped to the declared property, checked source binding, proof
 binding, verifier identity, receipt, and artifact identity. This lane does not

@@ -87,10 +87,11 @@ nix run .#octet-standards -- --help
 ```
 
 Formal proof rails are opt-in. `cargo octet prove` lists or runs selected
-standards proof rails, writes structured verifier receipts under an artifact
-directory, and emits `formal_proof` provenance only for scoped receipts with
-verifier, solver/toolchain, command argv, source/proof path, receipt path, and
-bounded log identity. Starter `cargo octet check` usage does not require Verus.
+standards proof rails, writes structured verifier receipts plus `proof-cards.json`
+under an artifact directory, and emits `formal_proof` provenance only for scoped
+receipts with verifier, solver/toolchain, command argv, source/proof path,
+receipt path, and bounded log identity. Starter `cargo octet check` usage does
+not require Verus.
 Octet keeps the fixture `octet-verus` rail for plumbing tests and also ships
 multiple tiny production-mode pilots through `octet-production-verus`, pinned to
 the real Verus binary release, solver, Rust toolchain, and Nix closure graph
@@ -98,8 +99,10 @@ identity. Each pilot proves only its declared property and makes no
 whole-program correctness claim. The canonical route is documented in
 [`docs/trust-boundary-evidence.md#verus-proof-path-lane`](docs/trust-boundary-evidence.md#verus-proof-path-lane):
 requirement or policy ID to Verus proof rail, checked Rust source scope, proof
-target, verifier identity, structured receipt, `formal_proof` provenance, and
-artifact verification.
+target, verifier identity, structured receipt, proof-card review,
+`formal_proof` provenance, and artifact verification. Imported Trellis references
+are BLAKE3 byte-identity/manual-review inputs until Octet reruns the proof and
+validates its own receipt.
 
 ```bash
 cargo octet prove --list --policy-artifacts-dir artifacts/policy
@@ -203,3 +206,7 @@ and config keys.
 ## License
 
 AGPL-3.0-or-later
+
+## References
+
+- `../trellis/` — reference Verus proof corpus and BLAKE3 proof-artifact identity patterns for Octet proof-path, proof-card, and imported proof-bundle work.

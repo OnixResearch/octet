@@ -794,6 +794,14 @@ MAIN
           '';
         };
 
+        trellisProofImportsExport = pkgs.writeShellApplication {
+          name = "octet-trellis-proof-imports-export";
+          runtimeInputs = with pkgs; [ nickel ];
+          text = ''
+            exec nickel export --format json standards/proof-imports/trellis.ncl
+          '';
+        };
+
         policyArtifacts = pkgs.writeShellApplication {
           name = "octet-policy-artifacts";
           runtimeInputs = with pkgs; [ nickel octetStandards ];
@@ -913,6 +921,7 @@ MAIN
           } ''
           cd ${./.}
           manifest_json=$(mktemp)
+          trellis_import_json=$(mktemp)
           nickel export --format json standards/proof-rails/manifest.ncl > "$manifest_json"
           jq --exit-status '.schema_version == "octet-proof-rail-manifest/v1"' "$manifest_json" >/dev/null
           jq --exit-status '.rails.addition_bound.command_argv[0] == "octet-verus"' "$manifest_json" >/dev/null
@@ -937,6 +946,13 @@ MAIN
           jq --exit-status --arg digest "$production_graph_digest" \
             '.rails.addition_bound_production_negative.receipt_verifier.verifier_nix_closure_graph_digest == $digest' \
             "$manifest_json" >/dev/null
+
+          nickel export --format json standards/proof-imports/trellis.ncl > "$trellis_import_json"
+          cmp "$trellis_import_json" standards/proof-imports/generated/trellis-proof-imports.json
+          jq --exit-status '.schema_version == "octet-imported-proof-bundles/v1"' "$trellis_import_json" >/dev/null
+          jq --exit-status '.bundles[0].repository_label == "../trellis"' "$trellis_import_json" >/dev/null
+          jq --exit-status '.bundles[0].hash_algorithm == "blake3"' "$trellis_import_json" >/dev/null
+          jq --exit-status '.bundles[0].intended_evidence_tier == "manual_review_required"' "$trellis_import_json" >/dev/null
 
           for file in standards/proof-rails/fixtures/valid/*.ncl; do
             nickel export --format json "$file" >/dev/null
@@ -1316,6 +1332,7 @@ MAIN
           octet-policy-export = policyExport;
           tigerstyle-policy-export = policyExport;
           octet-proof-rail-manifest-export = proofRailManifestExport;
+          octet-trellis-proof-imports-export = trellisProofImportsExport;
           octet-policy-artifacts = policyArtifacts;
           tigerstyle-policy-artifacts = policyArtifacts;
           octet-policy-validate = policyValidate;
@@ -1375,6 +1392,11 @@ MAIN
           octet-proof-rail-manifest-export = flake-utils.lib.mkApp {
             drv = proofRailManifestExport;
             exePath = "/bin/octet-proof-rail-manifest-export";
+          };
+
+          octet-trellis-proof-imports-export = flake-utils.lib.mkApp {
+            drv = trellisProofImportsExport;
+            exePath = "/bin/octet-trellis-proof-imports-export";
           };
 
           octet-policy-artifacts = flake-utils.lib.mkApp {

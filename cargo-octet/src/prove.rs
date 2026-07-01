@@ -22,18 +22,26 @@ use octet_standards::proof::PROOF_STATUS_PASSED;
 use octet_standards::proof::VERIFIER_MODE_FIXTURE;
 use octet_standards::proof::VERIFIER_MODE_PRODUCTION;
 use octet_standards::proof::VerusLogArtifact;
+use octet_standards::proof::VerusProofReceipt;
 use octet_standards::proof::VerusProofReceiptInput;
 use octet_standards::proof::build_verus_proof_receipt;
 use octet_standards::proof::matching_sources;
 use octet_standards::proof::path_pattern_diagnostics;
 use octet_standards::proof::validate_proof_receipt_with_identity;
 use octet_standards::source::SourceFile;
+use serde::Deserialize;
 use serde::Serialize;
 
 use crate::cli::OutputFormat;
 use crate::cli::ProveArgs;
 use crate::evidence::EvidenceTier;
 use crate::evidence::ProvenanceRecord;
+use crate::imported_proof::EVIDENCE_ORIGIN_EXTERNAL_TRELLIS;
+use crate::imported_proof::HASH_ALGORITHM_BLAKE3;
+use crate::imported_proof::ImportedProofBundle;
+use crate::imported_proof::ImportedProofBundleManifest;
+use crate::imported_proof::bundle_artifacts;
+use crate::imported_proof::validate_imported_proof_manifest_shape;
 
 const REPORT_SCHEMA_VERSION: u32 = 1;
 const EXIT_PROOF_VALID: i32 = 0;
@@ -42,10 +50,13 @@ const COMMAND_ARTIFACT_NAME: &str = "command.txt";
 const STATUS_ARTIFACT_NAME: &str = "status.json";
 const SUMMARY_ARTIFACT_NAME: &str = "summary.txt";
 const PROVENANCE_ARTIFACT_NAME: &str = "provenance.jsonl";
+const PROOF_CARDS_ARTIFACT_NAME: &str = "proof-cards.json";
 const PROOF_ARTIFACT_DIR_NAME: &str = "proofs";
 const STATUS_PASSED: &str = "passed";
 const STATUS_FAILED: &str = "failed";
+const STATUS_MANUAL_REVIEW_REQUIRED: &str = "manual_review_required";
 const STATUS_SCHEMA_VERSION: &str = "octet-prove-status/v1";
+const PROOF_CARDS_SCHEMA_VERSION: &str = "octet-proof-cards/v1";
 const BUNDLE_KIND_PROVE: &str = "prove";
 const PROVE_PROFILE_NAME: &str = "prove-verification";
 const PROOF_SOURCE_ID: &str = "octet.standards.formal-proof";
@@ -53,6 +64,39 @@ const RUNNER_SOURCE_ID: &str = "octet.runner.artifact-bundle";
 const CHECKER_OCTET_STANDARDS: &str = "octet-standards";
 const CHECKER_CARGO_OCTET: &str = "cargo-octet";
 const MANUAL_ACTION: &str = "review cargo octet prove command, status, and scoped proof receipt before release";
+const PROOF_CARD_MANUAL_ACTION: &str =
+    "review proof cards with matching receipt, provenance, and cargo octet artifact verify output before release";
+const ARTIFACT_VERIFY_COMMAND: &str = "cargo octet artifact verify --artifact-dir <artifact-dir>";
+const TRELLIS_IMPORT_PROVENANCE_ARTIFACT: &str = "standards/proof-imports/generated/trellis-proof-imports.json";
+const TRELLIS_IMPORTS_JSON: &str = include_str!("../../standards/proof-imports/generated/trellis-proof-imports.json");
+const EVIDENCE_ORIGIN_OCTET_RERUN: &str = "octet_rerun";
+const VERIFIER_MODE_EXTERNAL: &str = "external";
+const NON_CLAIM_WHOLE_PROGRAM: &str = "not whole-program correctness";
+const NON_CLAIM_CERTIFICATION: &str = "not certification";
+const NON_CLAIM_BUSINESS_DOMAIN: &str = "not business-domain validation";
+const NON_CLAIM_SEMANTIC_EQUIVALENCE: &str = "not semantic equivalence";
+const NON_CLAIM_FULL_SAFETY: &str = "not full safety";
+const NON_CLAIM_BLAKE3_IDENTITY: &str =
+    "BLAKE3 identifies exact artifact bytes and does not by itself prove proof correctness";
+const FIELD_PROOF_OR_PROPERTY_ID: &str = "proof_or_property_id";
+const FIELD_SOURCE_REQUIREMENT_OR_POLICY_ID: &str = "source_requirement_or_policy_id";
+const FIELD_CHECKED_RUST_SOURCE_SCOPE: &str = "checked_rust_source_scope";
+const FIELD_SOURCE_PATHS: &str = "source_paths";
+const FIELD_PROOF_TARGET_PATHS: &str = "proof_target_paths";
+const FIELD_VERIFIER_MODE: &str = "verifier_mode";
+const FIELD_VERIFIER_IDENTITY_SUMMARY: &str = "verifier_identity_summary";
+const FIELD_SOLVER_IDENTITY_SUMMARY: &str = "solver_identity_summary";
+const FIELD_TOOLCHAIN_IDENTITY_SUMMARY: &str = "toolchain_identity_summary";
+const FIELD_RECEIPT_PATH: &str = "receipt_path";
+const FIELD_ARTIFACT_BLAKE3_IDENTITIES: &str = "artifact_blake3_identities";
+const FIELD_EVIDENCE_TIER: &str = "evidence_tier";
+const FIELD_EVIDENCE_ORIGIN: &str = "evidence_origin";
+const FIELD_STATUS: &str = "status";
+const FIELD_TRUST_BOUNDARIES: &str = "trust_boundaries";
+const FIELD_NON_CLAIMS: &str = "non_claims";
+const FIELD_ARTIFACT_VERIFIER_COMMAND: &str = "artifact_verifier_command";
+const FIELD_PROVENANCE_ARTIFACT: &str = "provenance_artifact";
+const FIELD_EXTERNAL_REFERENCE: &str = "external_reference";
 const SAFE_SEPARATOR: char = '-';
 const CARGO_MANIFEST_FILE: &str = "Cargo.toml";
 const DEFAULT_PROOF_TIMEOUT_MS: u64 = 30_000;
@@ -89,6 +133,52 @@ struct ProofReportRow {
 struct RailListReport {
     schema_version: u32,
     selected_rails: Vec<RailListRow>,
+    diagnostics: Vec<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct ProofCardDeck {
+    schema_version: String,
+    cards: Vec<ProofCard>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct ProofCardArtifactIdentity {
+    artifact: String,
+    blake3: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct ProofCardExternalReference {
+    repository_label: String,
+    repository_revision: String,
+    hash_algorithm: String,
+    promotion_command_argv: Vec<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct ProofCard {
+    proof_or_property_id: String,
+    source_requirement_or_policy_id: String,
+    policy_id: String,
+    rail_index: usize,
+    checked_rust_source_scope: String,
+    source_paths: Vec<String>,
+    proof_target_paths: Vec<String>,
+    verifier_mode: String,
+    verifier_identity_summary: String,
+    solver_identity_summary: String,
+    toolchain_identity_summary: String,
+    receipt_path: String,
+    artifact_blake3_identities: Vec<ProofCardArtifactIdentity>,
+    evidence_tier: String,
+    evidence_origin: String,
+    status: String,
+    trust_boundaries: Vec<String>,
+    non_claims: Vec<String>,
+    artifact_verifier_command: String,
+    provenance_artifact: String,
+    external_reference: Option<ProofCardExternalReference>,
     diagnostics: Vec<String>,
 }
 
@@ -715,11 +805,13 @@ fn write_artifacts(args: &ProveArgs, report: &ProveReport, executions: &[Execute
     let command_text = format!("{}\n", args.command_line);
     let status_text = status_text(args.output_format, report)?;
     let summary_text = summary_text(report);
-    let provenance_text = provenance_text(&command_text, &status_text, &summary_text, executions)?;
+    let proof_cards_text = proof_cards_text(executions)?;
+    let provenance_text = provenance_text(&command_text, &status_text, &summary_text, &proof_cards_text, executions)?;
 
     write_text(&args.artifact_dir.join(COMMAND_ARTIFACT_NAME), &command_text)?;
     write_text(&args.artifact_dir.join(STATUS_ARTIFACT_NAME), &status_text)?;
     write_text(&args.artifact_dir.join(SUMMARY_ARTIFACT_NAME), &summary_text)?;
+    write_text(&args.artifact_dir.join(PROOF_CARDS_ARTIFACT_NAME), &proof_cards_text)?;
     write_text(&args.artifact_dir.join(PROVENANCE_ARTIFACT_NAME), &provenance_text)?;
     for execution in executions {
         write_text(&args.artifact_dir.join(&execution.row.receipt), &execution.receipt_text)?;
@@ -770,12 +862,14 @@ fn provenance_text(
     command_text: &str,
     status_text: &str,
     summary_text: &str,
+    proof_cards_text: &str,
     executions: &[ExecutedProof],
 ) -> Result<String, String> {
     let mut records = vec![
         runner_provenance_record(COMMAND_ARTIFACT_NAME, command_text.as_bytes()),
         runner_provenance_record(STATUS_ARTIFACT_NAME, status_text.as_bytes()),
         runner_provenance_record(SUMMARY_ARTIFACT_NAME, summary_text.as_bytes()),
+        proof_card_provenance_record(proof_cards_text.as_bytes()),
     ];
     records.extend(executions.iter().filter_map(|execution| execution.formal_provenance.clone()));
     let mut text = String::new();
@@ -802,6 +896,456 @@ fn runner_provenance_record(artifact_locator: &str, contents: &[u8]) -> Provenan
         human_action: Some(MANUAL_ACTION.to_owned()),
         parent_artifacts: Vec::new(),
     }
+}
+
+fn proof_card_provenance_record(contents: &[u8]) -> ProvenanceRecord {
+    ProvenanceRecord {
+        schema_version: crate::evidence::PROVENANCE_SCHEMA_VERSION.to_owned(),
+        source_id: RUNNER_SOURCE_ID.to_owned(),
+        checker_id: CHECKER_CARGO_OCTET.to_owned(),
+        evidence_tier: EvidenceTier::ManualReviewRequired,
+        artifact_locator: PROOF_CARDS_ARTIFACT_NAME.to_owned(),
+        blake3: crate::evidence::artifact_blake3_hex(contents),
+        checked_scope: format!("profile:{PROVE_PROFILE_NAME}"),
+        verifier_identity: None,
+        proof_artifact_identity: None,
+        human_action: Some(PROOF_CARD_MANUAL_ACTION.to_owned()),
+        parent_artifacts: Vec::new(),
+    }
+}
+
+fn proof_cards_text(executions: &[ExecutedProof]) -> Result<String, String> {
+    let imported = imported_trellis_manifest()?;
+    let mut cards = executions.iter().map(proof_card_for_execution).collect::<Vec<_>>();
+    cards.extend(imported.bundles.iter().map(proof_card_for_imported_bundle));
+    let deck = ProofCardDeck {
+        schema_version: PROOF_CARDS_SCHEMA_VERSION.to_owned(),
+        cards,
+    };
+    json_text(&deck)
+}
+
+fn imported_trellis_manifest() -> Result<ImportedProofBundleManifest, String> {
+    let manifest = serde_json::from_str::<ImportedProofBundleManifest>(TRELLIS_IMPORTS_JSON)
+        .map_err(|error| format!("parse {TRELLIS_IMPORT_PROVENANCE_ARTIFACT}: {error}"))?;
+    let diagnostics = validate_imported_proof_manifest_shape(&manifest);
+    if diagnostics.is_empty() {
+        Ok(manifest)
+    } else {
+        Err(format!("invalid {TRELLIS_IMPORT_PROVENANCE_ARTIFACT}: {}", diagnostics.join("; ")))
+    }
+}
+
+fn proof_card_for_execution(execution: &ExecutedProof) -> ProofCard {
+    let receipt = parse_verus_receipt(&execution.receipt_text).ok();
+    let mut card = initial_proof_card(execution, receipt.as_ref(), execution.formal_provenance.as_ref());
+    if execution.formal_provenance.is_some() && receipt.is_some() {
+        card.evidence_tier = EvidenceTier::FormalProof.as_str().to_owned();
+    }
+    let diagnostics = proof_card_validation_diagnostics(&card, receipt.as_ref(), execution.formal_provenance.as_ref());
+    if diagnostics.is_empty() {
+        card
+    } else {
+        card.evidence_tier = EvidenceTier::ManualReviewRequired.as_str().to_owned();
+        card.diagnostics.extend(diagnostics);
+        card
+    }
+}
+
+fn initial_proof_card(
+    execution: &ExecutedProof,
+    receipt: Option<&VerusProofReceipt>,
+    provenance: Option<&ProvenanceRecord>,
+) -> ProofCard {
+    let row = &execution.row;
+    let source_paths = receipt
+        .map(|receipt| receipt.source_bindings.iter().map(|binding| binding.path.clone()).collect())
+        .unwrap_or_default();
+    let proof_target_paths = receipt
+        .map(|receipt| receipt.proof_bindings.iter().map(|binding| binding.path.clone()).collect())
+        .unwrap_or_default();
+    let trust_boundaries = receipt.map(|receipt| receipt.trust_boundaries.clone()).unwrap_or_default();
+    let artifact_blake3_identities =
+        receipt.map(|receipt| receipt_artifact_identities(receipt, provenance)).unwrap_or_default();
+    let non_claims = receipt.map_or_else(default_card_non_claims, |receipt| card_non_claims(&receipt.non_claims));
+    ProofCard {
+        proof_or_property_id: proof_or_property_id(&row.policy_id, row.rail_index),
+        source_requirement_or_policy_id: row.policy_id.clone(),
+        policy_id: row.policy_id.clone(),
+        rail_index: row.rail_index,
+        checked_rust_source_scope: row.checked_scope.clone(),
+        source_paths,
+        proof_target_paths,
+        verifier_mode: row.verifier_mode.clone(),
+        verifier_identity_summary: receipt
+            .map(|receipt| {
+                identity_summary(&receipt.verifier_identity.verifier_id, &receipt.verifier_identity.verifier_digest)
+            })
+            .unwrap_or_default(),
+        solver_identity_summary: receipt
+            .map(|receipt| identity_summary(&receipt.solver_identity.solver_id, &receipt.solver_identity.solver_digest))
+            .unwrap_or_default(),
+        toolchain_identity_summary: receipt
+            .map(|receipt| {
+                identity_summary(&receipt.toolchain_identity.toolchain_id, &receipt.toolchain_identity.toolchain_digest)
+            })
+            .unwrap_or_default(),
+        receipt_path: row.receipt.clone(),
+        artifact_blake3_identities,
+        evidence_tier: EvidenceTier::ManualReviewRequired.as_str().to_owned(),
+        evidence_origin: EVIDENCE_ORIGIN_OCTET_RERUN.to_owned(),
+        status: row.status.to_owned(),
+        trust_boundaries,
+        non_claims,
+        artifact_verifier_command: ARTIFACT_VERIFY_COMMAND.to_owned(),
+        provenance_artifact: PROVENANCE_ARTIFACT_NAME.to_owned(),
+        external_reference: None,
+        diagnostics: row.diagnostics.clone(),
+    }
+}
+
+fn proof_card_for_imported_bundle(bundle: &ImportedProofBundle) -> ProofCard {
+    let manifest = ImportedProofBundleManifest {
+        schema_version: crate::imported_proof::IMPORTED_PROOF_BUNDLE_SCHEMA_VERSION.to_owned(),
+        generated_from: TRELLIS_IMPORT_PROVENANCE_ARTIFACT.to_owned(),
+        bundles: vec![bundle.clone()],
+    };
+    let diagnostics = validate_imported_proof_manifest_shape(&manifest);
+    let artifact_blake3_identities = bundle_artifacts(bundle)
+        .into_iter()
+        .map(|artifact| ProofCardArtifactIdentity {
+            artifact: artifact.path.clone(),
+            blake3: artifact.blake3.clone(),
+        })
+        .collect::<Vec<_>>();
+    let mut non_claims = default_card_non_claims();
+    non_claims.push(NON_CLAIM_BLAKE3_IDENTITY.to_owned());
+    let mut card = ProofCard {
+        proof_or_property_id: bundle.bundle_id.clone(),
+        source_requirement_or_policy_id: "octet.verus_proof_rails.trellis_blake3_import".to_owned(),
+        policy_id: "octet.verus_proof_rails.trellis_blake3_import".to_owned(),
+        rail_index: 0,
+        checked_rust_source_scope: format!("imported-proof:external-trellis:{}", bundle.bundle_id),
+        source_paths: vec![bundle.source_path.clone()],
+        proof_target_paths: vec![bundle.proof_path.clone()],
+        verifier_mode: VERIFIER_MODE_EXTERNAL.to_owned(),
+        verifier_identity_summary: bundle.verifier_identity.clone(),
+        solver_identity_summary: String::new(),
+        toolchain_identity_summary: bundle.verifier_command_argv.join(" "),
+        receipt_path: bundle
+            .receipt_artifacts
+            .first()
+            .map_or_else(|| "not-rerun-by-octet".to_owned(), |artifact| artifact.path.clone()),
+        artifact_blake3_identities,
+        evidence_tier: bundle.intended_evidence_tier.clone(),
+        evidence_origin: EVIDENCE_ORIGIN_EXTERNAL_TRELLIS.to_owned(),
+        status: STATUS_MANUAL_REVIEW_REQUIRED.to_owned(),
+        trust_boundaries: bundle.trust_boundary_notes.clone(),
+        non_claims,
+        artifact_verifier_command: ARTIFACT_VERIFY_COMMAND.to_owned(),
+        provenance_artifact: TRELLIS_IMPORT_PROVENANCE_ARTIFACT.to_owned(),
+        external_reference: Some(ProofCardExternalReference {
+            repository_label: bundle.repository_label.clone(),
+            repository_revision: bundle.repository_revision.clone(),
+            hash_algorithm: bundle.hash_algorithm.clone(),
+            promotion_command_argv: bundle.promotion_command_argv.clone(),
+        }),
+        diagnostics,
+    };
+    let card_diagnostics = proof_card_validation_diagnostics(&card, None, None);
+    card.diagnostics.extend(card_diagnostics);
+    card.diagnostics.sort();
+    card.diagnostics.dedup();
+    card
+}
+
+fn receipt_artifact_identities(
+    receipt: &VerusProofReceipt,
+    provenance: Option<&ProvenanceRecord>,
+) -> Vec<ProofCardArtifactIdentity> {
+    let mut identities = Vec::new();
+    identities.extend(receipt.source_bindings.iter().map(binding_identity));
+    identities.extend(receipt.proof_bindings.iter().map(binding_identity));
+    identities.push(log_identity(&receipt.stdout_artifact));
+    identities.push(log_identity(&receipt.stderr_artifact));
+    if let Some(provenance) = provenance {
+        identities.push(ProofCardArtifactIdentity {
+            artifact: receipt.proof_artifact_identity.clone(),
+            blake3: provenance.blake3.clone(),
+        });
+    }
+    identities
+}
+
+fn binding_identity(binding: &octet_standards::proof::VerusProofBinding) -> ProofCardArtifactIdentity {
+    ProofCardArtifactIdentity {
+        artifact: binding.path.clone(),
+        blake3: binding.blake3.clone(),
+    }
+}
+
+fn log_identity(artifact: &VerusLogArtifact) -> ProofCardArtifactIdentity {
+    ProofCardArtifactIdentity {
+        artifact: artifact.locator.clone(),
+        blake3: artifact.blake3.clone(),
+    }
+}
+
+fn proof_card_validation_diagnostics(
+    card: &ProofCard,
+    receipt: Option<&VerusProofReceipt>,
+    provenance: Option<&ProvenanceRecord>,
+) -> Vec<String> {
+    let mut diagnostics = proof_card_required_field_diagnostics(card);
+    diagnostics.extend(proof_card_mode_diagnostics(card));
+    diagnostics.extend(proof_card_non_claim_diagnostics(card));
+    diagnostics.extend(proof_card_imported_reference_diagnostics(card));
+    diagnostics.extend(proof_card_linkage_diagnostics(card, receipt, provenance));
+    diagnostics.sort();
+    diagnostics.dedup();
+    diagnostics
+}
+
+fn proof_card_required_field_diagnostics(card: &ProofCard) -> Vec<String> {
+    let mut diagnostics = Vec::new();
+    push_missing_field(&mut diagnostics, FIELD_PROOF_OR_PROPERTY_ID, &card.proof_or_property_id);
+    push_missing_field(&mut diagnostics, FIELD_SOURCE_REQUIREMENT_OR_POLICY_ID, &card.source_requirement_or_policy_id);
+    push_missing_field(&mut diagnostics, FIELD_CHECKED_RUST_SOURCE_SCOPE, &card.checked_rust_source_scope);
+    push_missing_collection(&mut diagnostics, FIELD_SOURCE_PATHS, &card.source_paths);
+    push_missing_collection(&mut diagnostics, FIELD_PROOF_TARGET_PATHS, &card.proof_target_paths);
+    push_missing_field(&mut diagnostics, FIELD_VERIFIER_MODE, &card.verifier_mode);
+    push_missing_field(&mut diagnostics, FIELD_VERIFIER_IDENTITY_SUMMARY, &card.verifier_identity_summary);
+    if card.verifier_mode == VERIFIER_MODE_PRODUCTION {
+        push_missing_field(&mut diagnostics, FIELD_SOLVER_IDENTITY_SUMMARY, &card.solver_identity_summary);
+    }
+    push_missing_field(&mut diagnostics, FIELD_TOOLCHAIN_IDENTITY_SUMMARY, &card.toolchain_identity_summary);
+    push_missing_field(&mut diagnostics, FIELD_RECEIPT_PATH, &card.receipt_path);
+    push_missing_identity_collection(
+        &mut diagnostics,
+        FIELD_ARTIFACT_BLAKE3_IDENTITIES,
+        &card.artifact_blake3_identities,
+    );
+    push_missing_field(&mut diagnostics, FIELD_EVIDENCE_TIER, &card.evidence_tier);
+    push_missing_field(&mut diagnostics, FIELD_EVIDENCE_ORIGIN, &card.evidence_origin);
+    push_missing_field(&mut diagnostics, FIELD_STATUS, &card.status);
+    push_missing_collection(&mut diagnostics, FIELD_TRUST_BOUNDARIES, &card.trust_boundaries);
+    push_missing_collection(&mut diagnostics, FIELD_NON_CLAIMS, &card.non_claims);
+    push_missing_field(&mut diagnostics, FIELD_ARTIFACT_VERIFIER_COMMAND, &card.artifact_verifier_command);
+    push_missing_field(&mut diagnostics, FIELD_PROVENANCE_ARTIFACT, &card.provenance_artifact);
+    diagnostics
+}
+
+fn proof_card_mode_diagnostics(card: &ProofCard) -> Vec<String> {
+    if card.verifier_mode == VERIFIER_MODE_FIXTURE && !card.checked_rust_source_scope.contains("fixture-only") {
+        return vec!["proof card fixture verifier mode missing fixture-only checked scope".to_owned()];
+    }
+    if card.verifier_mode == VERIFIER_MODE_PRODUCTION && !card.checked_rust_source_scope.contains("production") {
+        return vec!["proof card production verifier mode missing production checked scope".to_owned()];
+    }
+    if card.verifier_mode == VERIFIER_MODE_EXTERNAL && !card.checked_rust_source_scope.contains("external-trellis") {
+        return vec!["proof card external verifier mode missing external-trellis checked scope".to_owned()];
+    }
+    Vec::new()
+}
+
+fn proof_card_non_claim_diagnostics(card: &ProofCard) -> Vec<String> {
+    let mut diagnostics = Vec::new();
+    for required in default_card_non_claims() {
+        if !card.non_claims.iter().any(|claim| claim == &required) {
+            diagnostics.push(format!("proof card field `{FIELD_NON_CLAIMS}` missing `{required}`"));
+        }
+    }
+    let joined = card.non_claims.join(" ").to_lowercase();
+    push_overclaim(&mut diagnostics, &joined, "proves whole-program correctness", "whole-program correctness");
+    push_overclaim(&mut diagnostics, &joined, "provides certification", "certification");
+    push_overclaim(&mut diagnostics, &joined, "provides business-domain validation", "business-domain validation");
+    push_overclaim(&mut diagnostics, &joined, "proves semantic equivalence", "semantic equivalence");
+    push_overclaim(&mut diagnostics, &joined, "guarantees full safety", "full safety");
+    diagnostics
+}
+
+fn proof_card_imported_reference_diagnostics(card: &ProofCard) -> Vec<String> {
+    if card.evidence_origin != EVIDENCE_ORIGIN_EXTERNAL_TRELLIS {
+        return Vec::new();
+    }
+    let mut diagnostics = Vec::new();
+    if card.evidence_tier == EvidenceTier::FormalProof.as_str() {
+        diagnostics.push(
+            "imported Trellis proof card must not report formal_proof without an Octet-owned rerun receipt".to_owned(),
+        );
+    }
+    let Some(reference) = card.external_reference.as_ref() else {
+        diagnostics.push(format!("proof card missing required field `{FIELD_EXTERNAL_REFERENCE}`"));
+        return diagnostics;
+    };
+    push_missing_field(&mut diagnostics, "external_reference.repository_label", &reference.repository_label);
+    push_missing_field(&mut diagnostics, "external_reference.repository_revision", &reference.repository_revision);
+    push_missing_field(&mut diagnostics, "external_reference.hash_algorithm", &reference.hash_algorithm);
+    push_missing_collection(
+        &mut diagnostics,
+        "external_reference.promotion_command_argv",
+        &reference.promotion_command_argv,
+    );
+    if reference.hash_algorithm != HASH_ALGORITHM_BLAKE3 {
+        diagnostics.push(format!(
+            "proof card external_reference.hash_algorithm must be `{HASH_ALGORITHM_BLAKE3}`, got `{}`",
+            reference.hash_algorithm
+        ));
+    }
+    if !card.non_claims.iter().any(|claim| claim == NON_CLAIM_BLAKE3_IDENTITY) {
+        diagnostics.push(format!("proof card field `{FIELD_NON_CLAIMS}` missing `{NON_CLAIM_BLAKE3_IDENTITY}`"));
+    }
+    diagnostics
+}
+
+fn proof_card_linkage_diagnostics(
+    card: &ProofCard,
+    receipt: Option<&VerusProofReceipt>,
+    provenance: Option<&ProvenanceRecord>,
+) -> Vec<String> {
+    if card.evidence_tier != EvidenceTier::FormalProof.as_str() {
+        return Vec::new();
+    }
+    let mut diagnostics = Vec::new();
+    let Some(receipt) = receipt else {
+        return vec!["formal proof card missing parsed structured receipt".to_owned()];
+    };
+    let Some(provenance) = provenance else {
+        return vec!["formal proof card missing matching formal_proof provenance".to_owned()];
+    };
+
+    if card.receipt_path != receipt.proof_artifact_identity {
+        diagnostics.push(format!(
+            "proof card receipt_path `{}` does not match receipt proof_artifact_identity `{}`",
+            card.receipt_path, receipt.proof_artifact_identity
+        ));
+    }
+    if card.receipt_path != provenance.artifact_locator {
+        diagnostics.push(format!(
+            "proof card receipt_path `{}` does not match provenance artifact `{}`",
+            card.receipt_path, provenance.artifact_locator
+        ));
+    }
+    if !card_has_identity(card, &provenance.artifact_locator, &provenance.blake3) {
+        diagnostics.push("proof card formal_proof status missing receipt BLAKE3 artifact identity".to_owned());
+    }
+    for binding in &receipt.source_bindings {
+        if !card_has_identity(card, &binding.path, &binding.blake3) {
+            diagnostics.push(format!("proof card missing source BLAKE3 artifact identity `{}`", binding.path));
+        }
+    }
+    for binding in &receipt.proof_bindings {
+        if !card_has_identity(card, &binding.path, &binding.blake3) {
+            diagnostics.push(format!("proof card missing proof BLAKE3 artifact identity `{}`", binding.path));
+        }
+    }
+    if provenance.evidence_tier != EvidenceTier::FormalProof {
+        diagnostics.push("proof card formal_proof status missing formal_proof provenance tier".to_owned());
+    }
+    if provenance.proof_artifact_identity.as_deref() != Some(card.receipt_path.as_str()) {
+        diagnostics
+            .push("proof card formal_proof status missing matching provenance proof artifact identity".to_owned());
+    }
+    if provenance.verifier_identity.as_deref() != Some(receipt.verifier_identity.verifier_id.as_str()) {
+        diagnostics.push("proof card formal_proof status missing matching provenance verifier identity".to_owned());
+    }
+    if card.source_paths != receipt_paths(&receipt.source_bindings) {
+        diagnostics.push("proof card source_paths do not match receipt source bindings".to_owned());
+    }
+    if card.proof_target_paths != receipt_paths(&receipt.proof_bindings) {
+        diagnostics.push("proof card proof_target_paths do not match receipt proof bindings".to_owned());
+    }
+    if card.policy_id != receipt.policy_id || card.rail_index != receipt.rail_index {
+        diagnostics.push("proof card policy identity does not match receipt identity".to_owned());
+    }
+    if card.checked_rust_source_scope != receipt.checked_scope
+        || card.checked_rust_source_scope != provenance.checked_scope
+    {
+        diagnostics.push("proof card checked scope does not match receipt and provenance".to_owned());
+    }
+    if card.status != PROOF_STATUS_PASSED || receipt.status != PROOF_STATUS_PASSED {
+        diagnostics.push("proof card formal_proof status requires passed receipt status".to_owned());
+    }
+    diagnostics
+}
+
+fn card_has_identity(card: &ProofCard, artifact: &str, blake3: &str) -> bool {
+    card.artifact_blake3_identities
+        .iter()
+        .any(|identity| identity.artifact == artifact && identity.blake3 == blake3)
+}
+
+fn push_missing_field(diagnostics: &mut Vec<String>, field_name: &str, value: &str) {
+    if value.trim().is_empty() {
+        diagnostics.push(format!("proof card missing required field `{field_name}`"));
+    }
+}
+
+fn push_missing_collection(diagnostics: &mut Vec<String>, field_name: &str, values: &[String]) {
+    if values.is_empty() || values.iter().any(|value| value.trim().is_empty()) {
+        diagnostics.push(format!("proof card missing required field `{field_name}`"));
+    }
+}
+
+fn push_missing_identity_collection(
+    diagnostics: &mut Vec<String>,
+    field_name: &str,
+    values: &[ProofCardArtifactIdentity],
+) {
+    if values.is_empty()
+        || values.iter().any(|value| value.artifact.trim().is_empty() || value.blake3.trim().is_empty())
+    {
+        diagnostics.push(format!("proof card missing required field `{field_name}`"));
+    }
+}
+
+fn push_overclaim(diagnostics: &mut Vec<String>, text: &str, needle: &str, claim: &str) {
+    if text.contains(needle) {
+        diagnostics.push(format!("proof card contains unscoped {claim} claim"));
+    }
+}
+
+fn proof_or_property_id(policy_id: &str, rail_index: usize) -> String {
+    format!("{policy_id}#rail-{rail_index}")
+}
+
+fn identity_summary(label: &str, digest: &str) -> String {
+    if digest.trim().is_empty() {
+        label.to_owned()
+    } else {
+        format!("{label} ({digest})")
+    }
+}
+
+fn card_non_claims(receipt_claims: &[String]) -> Vec<String> {
+    let mut claims = receipt_claims.to_vec();
+    for claim in default_card_non_claims() {
+        if !claims.iter().any(|existing| existing == &claim) {
+            claims.push(claim);
+        }
+    }
+    claims
+}
+
+fn default_card_non_claims() -> Vec<String> {
+    [
+        NON_CLAIM_WHOLE_PROGRAM,
+        NON_CLAIM_CERTIFICATION,
+        NON_CLAIM_BUSINESS_DOMAIN,
+        NON_CLAIM_SEMANTIC_EQUIVALENCE,
+        NON_CLAIM_FULL_SAFETY,
+    ]
+    .into_iter()
+    .map(str::to_owned)
+    .collect()
+}
+
+fn receipt_paths(bindings: &[octet_standards::proof::VerusProofBinding]) -> Vec<String> {
+    bindings.iter().map(|binding| binding.path.clone()).collect()
+}
+
+fn parse_verus_receipt(text: &str) -> Result<VerusProofReceipt, String> {
+    serde_json::from_str(text).map_err(|error| format!("parse proof receipt for card: {error}"))
 }
 
 fn write_text(path: &Path, text: &str) -> Result<(), String> {
@@ -986,9 +1530,183 @@ mod tests {
         assert!(receipt_text.contains("source_bindings"));
         assert!(receipt_text.contains("proof_bindings"));
         assert!(receipt_text.contains("stdout_artifact"));
+        let cards_text = fs::read_to_string(artifact_dir.join(PROOF_CARDS_ARTIFACT_NAME)).expect("read proof cards");
+        let cards: ProofCardDeck = serde_json::from_str(&cards_text).expect("parse proof cards");
+        assert_eq!(cards.schema_version, PROOF_CARDS_SCHEMA_VERSION);
+        let card = cards.cards.first().expect("proof card");
+        assert_eq!(card.proof_or_property_id, proof_or_property_id(POLICY_ID, 0));
+        assert_eq!(card.source_requirement_or_policy_id, POLICY_ID);
+        assert_eq!(card.checked_rust_source_scope, format!("formal-proof:fixture-only:{POLICY_ID}#rail-0"));
+        assert_eq!(card.source_paths, vec![SOURCE_RELATIVE_PATH.to_owned()]);
+        assert_eq!(card.proof_target_paths, vec![PROOF_RELATIVE_PATH.to_owned()]);
+        assert_eq!(card.verifier_mode, VERIFIER_MODE_FIXTURE);
+        assert!(card.verifier_identity_summary.contains(VERIFIER_ID));
+        assert!(card.toolchain_identity_summary.contains("verus-fixture-wrapper/v1"));
+        assert_eq!(
+            card.receipt_path,
+            proof_artifact_locator(&fixture_policy(temp.path(), PASS_SIGNAL, command_argv(PASS_SIGNAL)), 0)
+        );
+        assert!(card.artifact_blake3_identities.iter().any(|identity| identity.artifact == SOURCE_RELATIVE_PATH));
+        assert!(card.artifact_blake3_identities.iter().any(|identity| identity.artifact == PROOF_RELATIVE_PATH));
+        assert!(card.artifact_blake3_identities.iter().any(|identity| identity.artifact == card.receipt_path));
+        assert_eq!(card.evidence_tier, EvidenceTier::FormalProof.as_str());
+        assert_eq!(card.evidence_origin, EVIDENCE_ORIGIN_OCTET_RERUN);
+        assert_eq!(card.status, STATUS_PASSED);
+        assert!(card.trust_boundaries.iter().any(|boundary| boundary.contains(TRUST_BOUNDARY)));
+        assert!(card.non_claims.iter().any(|claim| claim == NON_CLAIM_FULL_SAFETY));
+        assert_eq!(card.artifact_verifier_command, ARTIFACT_VERIFY_COMMAND);
+        assert_eq!(card.provenance_artifact, PROVENANCE_ARTIFACT_NAME);
+        assert!(card.diagnostics.is_empty(), "unexpected proof card diagnostics: {:?}", card.diagnostics);
+        let imported_card = cards
+            .cards
+            .iter()
+            .find(|candidate| candidate.proof_or_property_id == "trellis.ucan-proof-reference.digest-admission")
+            .expect("imported Trellis proof card");
+        assert_eq!(imported_card.evidence_origin, EVIDENCE_ORIGIN_EXTERNAL_TRELLIS);
+        assert_eq!(imported_card.evidence_tier, EvidenceTier::ManualReviewRequired.as_str());
+        assert_eq!(imported_card.status, STATUS_MANUAL_REVIEW_REQUIRED);
+        assert_eq!(imported_card.provenance_artifact, TRELLIS_IMPORT_PROVENANCE_ARTIFACT);
+        assert!(imported_card.external_reference.is_some());
+        assert!(
+            imported_card
+                .artifact_blake3_identities
+                .iter()
+                .any(|identity| identity.artifact.contains("ucan_proof_reference_source.rs"))
+        );
+        assert!(imported_card.non_claims.iter().any(|claim| claim == NON_CLAIM_BLAKE3_IDENTITY));
+        assert!(
+            imported_card.diagnostics.is_empty(),
+            "unexpected imported proof card diagnostics: {:?}",
+            imported_card.diagnostics
+        );
+
+        let provenance = fs::read_to_string(artifact_dir.join(PROVENANCE_ARTIFACT_NAME)).expect("read provenance");
+        let records = provenance_records(&provenance);
+        let formal_record = records
+            .iter()
+            .find(|record| record.evidence_tier == EvidenceTier::FormalProof)
+            .expect("formal proof provenance");
+        let parsed_receipt = parse_verus_receipt(&receipt_text).expect("parse receipt");
+        let card_diagnostics = proof_card_validation_diagnostics(card, Some(&parsed_receipt), Some(formal_record));
+        assert!(card_diagnostics.is_empty(), "unexpected card linkage diagnostics: {card_diagnostics:?}");
+        assert!(records.iter().any(|record| {
+            record.artifact_locator == PROOF_CARDS_ARTIFACT_NAME
+                && record.evidence_tier == EvidenceTier::ManualReviewRequired
+        }));
+
         let report = verify_bundle(bundle_input(&artifact_dir));
         assert_eq!(report.status, "valid", "unexpected diagnostics: {:?}", report.diagnostics);
         assert!(report.artifacts.iter().any(|artifact| artifact.evidence_tier == "formal_proof"));
+        assert!(report.artifacts.iter().any(|artifact| artifact.artifact == PROOF_CARDS_ARTIFACT_NAME));
+    }
+
+    #[test]
+    fn proof_card_validation_rejects_missing_fields_fixture_mode_and_overclaims() {
+        let mut card = valid_card_fixture();
+        card.evidence_tier = EvidenceTier::FormalProof.as_str().to_owned();
+        card.receipt_path.clear();
+        card.proof_target_paths.clear();
+        card.artifact_blake3_identities.clear();
+        card.checked_rust_source_scope = format!("formal-proof:production:{POLICY_ID}#rail-0");
+        card.non_claims = vec!["proves whole-program correctness".to_owned()];
+
+        let diagnostics = proof_card_validation_diagnostics(&card, None, None);
+
+        assert!(diagnostics.iter().any(|diagnostic| diagnostic.contains(FIELD_RECEIPT_PATH)));
+        assert!(diagnostics.iter().any(|diagnostic| diagnostic.contains(FIELD_PROOF_TARGET_PATHS)));
+        assert!(diagnostics.iter().any(|diagnostic| diagnostic.contains(FIELD_ARTIFACT_BLAKE3_IDENTITIES)));
+        assert!(diagnostics.iter().any(|diagnostic| diagnostic.contains("fixture-only checked scope")));
+        assert!(diagnostics.iter().any(|diagnostic| diagnostic.contains("whole-program correctness")));
+        assert!(
+            diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.contains("formal proof card missing parsed structured receipt"))
+        );
+    }
+
+    #[test]
+    fn proof_card_linkage_rejects_stale_receipt_and_provenance_links() {
+        let rail = fixture_rail(Path::new("."), PASS_SIGNAL, command_argv(PASS_SIGNAL));
+        let sources = source_files_for_cli_tests();
+        let proof_sources = proof_files_for_cli_tests();
+        let receipt = build_verus_proof_receipt(&VerusProofReceiptInput {
+            policy_id: POLICY_ID,
+            rail_index: 0,
+            rail: &rail,
+            sources: &sources,
+            proof_sources: &proof_sources,
+            checked_scope: &format!("formal-proof:fixture-only:{POLICY_ID}#rail-0"),
+            status: PROOF_STATUS_PASSED,
+            command_blake3: "command-digest",
+            proof_artifact_identity: &proof_artifact_locator(
+                &fixture_policy(Path::new("."), PASS_SIGNAL, command_argv(PASS_SIGNAL)),
+                0,
+            ),
+            stdout_artifact: log_artifact("proofs/test.stdout", PASS_SIGNAL, PASS_SIGNAL.len(), false),
+            stderr_artifact: log_artifact("proofs/test.stderr", "", 0, false),
+        })
+        .expect("valid receipt");
+        let receipt_text = serde_json::to_string_pretty(&receipt).expect("receipt text");
+        let provenance = proof_provenance_record(
+            &receipt.proof_artifact_identity,
+            receipt_text.as_bytes(),
+            &receipt.checked_scope,
+            &receipt.verifier_identity.verifier_id,
+        );
+        let mut card = valid_card_fixture();
+        card.evidence_tier = EvidenceTier::FormalProof.as_str().to_owned();
+        card.receipt_path = "proofs/stale.receipt".to_owned();
+        card.source_paths = receipt_paths(&receipt.source_bindings);
+        card.proof_target_paths = receipt_paths(&receipt.proof_bindings);
+        card.checked_rust_source_scope = receipt.checked_scope.clone();
+        card.verifier_identity_summary =
+            identity_summary(&receipt.verifier_identity.verifier_id, &receipt.verifier_identity.verifier_digest);
+        card.toolchain_identity_summary =
+            identity_summary(&receipt.toolchain_identity.toolchain_id, &receipt.toolchain_identity.toolchain_digest);
+        card.artifact_blake3_identities = receipt_artifact_identities(&receipt, Some(&provenance));
+
+        let diagnostics = proof_card_validation_diagnostics(&card, Some(&receipt), Some(&provenance));
+
+        assert!(
+            diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.contains("does not match receipt proof_artifact_identity"))
+        );
+        assert!(diagnostics.iter().any(|diagnostic| diagnostic.contains("does not match provenance artifact")));
+        assert!(diagnostics.iter().any(|diagnostic| diagnostic.contains("provenance proof artifact identity")));
+    }
+
+    #[test]
+    fn proof_card_for_imported_trellis_bundle_stays_manual_review() {
+        let bundle = imported_trellis_bundle();
+
+        let card = proof_card_for_imported_bundle(&bundle);
+
+        assert_eq!(card.proof_or_property_id, bundle.bundle_id);
+        assert_eq!(card.verifier_mode, VERIFIER_MODE_EXTERNAL);
+        assert_eq!(card.evidence_origin, EVIDENCE_ORIGIN_EXTERNAL_TRELLIS);
+        assert_eq!(card.evidence_tier, EvidenceTier::ManualReviewRequired.as_str());
+        assert_eq!(card.status, STATUS_MANUAL_REVIEW_REQUIRED);
+        assert!(card.external_reference.is_some());
+        assert!(
+            card.artifact_blake3_identities
+                .iter()
+                .any(|identity| identity.artifact == "src/ucan_proof_reference.rs")
+        );
+        assert!(card.non_claims.iter().any(|claim| claim == NON_CLAIM_BLAKE3_IDENTITY));
+        assert!(card.diagnostics.is_empty(), "unexpected imported card diagnostics: {:?}", card.diagnostics);
+    }
+
+    #[test]
+    fn proof_card_validation_rejects_imported_trellis_formal_proof_overclaim() {
+        let bundle = imported_trellis_bundle();
+        let mut card = proof_card_for_imported_bundle(&bundle);
+        card.evidence_tier = EvidenceTier::FormalProof.as_str().to_owned();
+
+        let diagnostics = proof_card_validation_diagnostics(&card, None, None);
+
+        assert!(diagnostics.iter().any(|diagnostic| diagnostic.contains("imported Trellis proof card")));
+        assert!(diagnostics.iter().any(|diagnostic| diagnostic.contains("missing parsed structured receipt")));
     }
 
     #[test]
@@ -1371,6 +2089,107 @@ mod tests {
             false_positive_risk: "low".to_owned(),
             existing_enforcement: Vec::new(),
             custom_checker_justification: "fixture".to_owned(),
+        }
+    }
+
+    fn source_files_for_cli_tests() -> Vec<SourceFile> {
+        vec![SourceFile::new(
+            SOURCE_RELATIVE_PATH,
+            "pub fn checked_add_one(value: u64) -> u64 { value + 1 }\n",
+        )]
+    }
+
+    fn proof_files_for_cli_tests() -> Vec<SourceFile> {
+        vec![SourceFile::new(
+            PROOF_RELATIVE_PATH,
+            "verus! { proof fn addition_bound() ensures true {} }\n",
+        )]
+    }
+
+    fn provenance_records(text: &str) -> Vec<ProvenanceRecord> {
+        text.lines()
+            .map(|line| serde_json::from_str::<ProvenanceRecord>(line).expect("provenance record"))
+            .collect()
+    }
+
+    fn valid_card_fixture() -> ProofCard {
+        ProofCard {
+            proof_or_property_id: proof_or_property_id(POLICY_ID, 0),
+            source_requirement_or_policy_id: POLICY_ID.to_owned(),
+            policy_id: POLICY_ID.to_owned(),
+            rail_index: 0,
+            checked_rust_source_scope: format!("formal-proof:fixture-only:{POLICY_ID}#rail-0"),
+            source_paths: vec![SOURCE_RELATIVE_PATH.to_owned()],
+            proof_target_paths: vec![PROOF_RELATIVE_PATH.to_owned()],
+            verifier_mode: VERIFIER_MODE_FIXTURE.to_owned(),
+            verifier_identity_summary: VERIFIER_ID.to_owned(),
+            solver_identity_summary: String::new(),
+            toolchain_identity_summary: "verus-fixture-wrapper/v1".to_owned(),
+            receipt_path: proof_artifact_locator(&fixture_policy_stub(), 0),
+            artifact_blake3_identities: vec![
+                ProofCardArtifactIdentity {
+                    artifact: SOURCE_RELATIVE_PATH.to_owned(),
+                    blake3: crate::evidence::artifact_blake3_hex(b"source"),
+                },
+                ProofCardArtifactIdentity {
+                    artifact: PROOF_RELATIVE_PATH.to_owned(),
+                    blake3: crate::evidence::artifact_blake3_hex(b"proof"),
+                },
+            ],
+            evidence_tier: EvidenceTier::ManualReviewRequired.as_str().to_owned(),
+            evidence_origin: EVIDENCE_ORIGIN_OCTET_RERUN.to_owned(),
+            status: STATUS_PASSED.to_owned(),
+            trust_boundaries: vec![TRUST_BOUNDARY.to_owned()],
+            non_claims: default_card_non_claims(),
+            artifact_verifier_command: ARTIFACT_VERIFY_COMMAND.to_owned(),
+            provenance_artifact: PROVENANCE_ARTIFACT_NAME.to_owned(),
+            external_reference: None,
+            diagnostics: Vec::new(),
+        }
+    }
+
+    fn imported_trellis_bundle() -> crate::imported_proof::ImportedProofBundle {
+        crate::imported_proof::ImportedProofBundle {
+            bundle_id: "trellis.ucan-proof-reference.digest-admission".to_owned(),
+            repository_label: "trellis".to_owned(),
+            repository_revision: "fb232e0e213d3e96878bbf86a10b26e53245a72c".to_owned(),
+            source_path: "src/ucan_proof_reference.rs".to_owned(),
+            proof_path: "src/ucan_proof_reference.rs".to_owned(),
+            verifier_command_argv: vec!["./scripts/verus.sh".to_owned(), "src/ucan_proof_reference.rs".to_owned()],
+            verifier_identity: "trellis scripts/verus.sh pinned Verus wrapper".to_owned(),
+            hash_algorithm: HASH_ALGORITHM_BLAKE3.to_owned(),
+            source_artifact: imported_artifact_identity(
+                "src/ucan_proof_reference.rs",
+                "018f0f79e0ef7253a153db0b3fa780beb5df1926e0140144580cc9330e87d72f",
+                3805,
+            ),
+            proof_artifact: imported_artifact_identity(
+                "src/ucan_proof_reference.rs",
+                "018f0f79e0ef7253a153db0b3fa780beb5df1926e0140144580cc9330e87d72f",
+                3805,
+            ),
+            stdout_artifacts: Vec::new(),
+            stderr_artifacts: Vec::new(),
+            receipt_artifacts: Vec::new(),
+            evidence_origin: EVIDENCE_ORIGIN_EXTERNAL_TRELLIS.to_owned(),
+            intended_evidence_tier: EvidenceTier::ManualReviewRequired.as_str().to_owned(),
+            trust_boundary_notes: vec![
+                "BLAKE3 identifies exact artifact bytes and does not by itself prove proof correctness, solver soundness, model adequacy, or Octet receipt validity".to_owned(),
+                "Octet formal_proof requires rerunning with an Octet pinned verifier and validating an Octet-owned receipt".to_owned(),
+            ],
+            promotion_command_argv: vec!["cargo".to_owned(), "octet".to_owned(), "prove".to_owned()],
+        }
+    }
+
+    fn imported_artifact_identity(
+        path: &str,
+        blake3: &str,
+        bytes: u64,
+    ) -> crate::imported_proof::ImportedArtifactIdentity {
+        crate::imported_proof::ImportedArtifactIdentity {
+            path: path.to_owned(),
+            blake3: blake3.to_owned(),
+            bytes,
         }
     }
 

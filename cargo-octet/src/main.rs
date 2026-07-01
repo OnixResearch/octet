@@ -8,6 +8,7 @@ pub mod evidence;
 mod evidence_contracts;
 mod evidence_index;
 mod fingerprint;
+mod imported_proof;
 mod migrate;
 mod object;
 mod output;

@@ -163,9 +163,23 @@ fn verus_proof_path_explainer_names_required_stages_and_commands() {
         "cargo octet artifact verify",
     ]);
     assert_required_terms(&trust_boundary, &[
+        "Trellis repository revision",
+        "BLAKE3 source artifact identity",
+        "BLAKE3 proof artifact identity",
+        "bounded log identity when present",
+        "receipt identity when present",
+        "imported proof bundle",
+        "proof card / manual review",
+        "optional Octet rerun with pinned verifier identity",
+        "standards/proof-imports/trellis.ncl",
+        "standards/proof-imports/generated/trellis-proof-imports.json",
+        "BLAKE3 identifies exact artifact bytes and does not by itself prove proof correctness",
+    ]);
+    assert_required_terms(&trust_boundary, &[
         "lint findings remain `static_lint`",
         "policy checks remain `policy_check`",
         "transcript assertions remain `transcript_assertion`",
+        "imported Trellis bundles remain external or `manual_review_required` until rerun",
         "unresolved human obligations remain `manual_review_required`",
         "claim remains scoped to the declared property",
         "does not claim whole-program correctness",
