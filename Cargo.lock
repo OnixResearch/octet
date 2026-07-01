@@ -113,6 +113,7 @@ name = "cargo-octet"
 version = "0.1.0"
 dependencies = [
  "blake3",
+ "octet-lint-metadata",
  "octet-standards",
  "serde",
  "serde_json",
@@ -416,10 +417,18 @@ dependencies = [
  "blake3",
  "crossbeam",
  "dylint_linting",
+ "octet-lint-metadata",
  "serde",
  "serde_json",
  "tokio",
  "toml",
+]
+
+[[package]]
+name = "octet-lint-metadata"
+version = "0.1.0"
+dependencies = [
+ "serde",
 ]
 
 [[package]]

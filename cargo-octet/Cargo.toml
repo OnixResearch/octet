@@ -18,6 +18,7 @@ name = "cargo-tigerstyle"
 path = "src/bin/cargo-tigerstyle.rs"
 
 [dependencies]
+octet-lint-metadata = { path = "../crates/octet-lint-metadata" }
 octet-standards = { path = "../crates/octet-standards" }
 valence-core = { path = "../crates/valence-core" }
 blake3 = "1"

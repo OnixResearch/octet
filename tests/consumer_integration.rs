@@ -563,6 +563,7 @@ fn build_standalone_cargo_octet() -> StandaloneCargoOctet {
         "rust-toolchain.toml",
         "src",
         "cargo-octet",
+        "crates/octet-lint-metadata",
         "crates/octet-standards",
         "crates/valence-core",
         "standards/proof-imports/generated",

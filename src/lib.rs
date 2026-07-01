@@ -448,6 +448,7 @@ mod tests {
         name: String,
         domain: String,
         default_level: String,
+        summary: String,
     }
 
     #[derive(Debug)]
@@ -461,6 +462,7 @@ mod tests {
     struct DocumentedLintRow {
         domain: String,
         default_level: String,
+        summary: String,
     }
 
     #[derive(Debug)]
@@ -479,14 +481,19 @@ mod tests {
     const NAMESPACE_PROBE_DOMAIN: &str = "safety";
     const STALE_LINT_TOTAL: &str = "999";
     const STALE_NAMESPACE: &str = "stale_namespace";
+    const UNKNOWN_CATALOG_LINT: &str = "not_a_registered_lint";
 
     fn expected_lint_docs() -> Vec<ExpectedLintDoc> {
         LINT_INVENTORY
             .iter()
-            .map(|lint| ExpectedLintDoc {
-                name: lint.name.to_owned(),
-                domain: domain_label(diagnostics::diagnostic_meta(lint.name).domain_group),
-                default_level: default_level_name(lint.lint.default_level).to_owned(),
+            .map(|lint| {
+                let meta = diagnostics::diagnostic_meta(lint.name);
+                ExpectedLintDoc {
+                    name: lint.name.to_owned(),
+                    domain: domain_label(meta.domain_group),
+                    default_level: meta.default_level.to_owned(),
+                    summary: meta.docs_summary.to_owned(),
+                }
             })
             .collect()
     }
@@ -501,6 +508,52 @@ mod tests {
             *counts.entry(entry.domain.clone()).or_default() += 1;
         }
         counts
+    }
+
+    fn metadata_coverage_diagnostics(
+        registered_names: &[&str],
+        catalog: &[diagnostics::LintDiagnosticMeta],
+    ) -> Vec<String> {
+        let mut diagnostics = Vec::new();
+        let mut catalog_counts = BTreeMap::new();
+        for entry in catalog {
+            *catalog_counts.entry(entry.lint_name).or_insert(0usize) += 1;
+            for (field, value) in [
+                ("default_level", entry.default_level),
+                ("domain_group", entry.domain_group),
+                ("principle", entry.principle),
+                ("guidance", entry.guidance),
+                ("docs_summary", entry.docs_summary),
+                ("effect_family", entry.effect_family),
+            ] {
+                if value.trim().is_empty() {
+                    diagnostics.push(format!("catalog entry `{}` has blank `{field}`", entry.lint_name));
+                }
+            }
+        }
+
+        for registered_name in registered_names {
+            match catalog_counts.get(registered_name).copied().unwrap_or_default() {
+                1 => {}
+                0 => diagnostics.push(format!("registered lint `{registered_name}` has no catalog metadata")),
+                count => diagnostics
+                    .push(format!("registered lint `{registered_name}` has {count} catalog metadata entries")),
+            }
+        }
+
+        for catalog_name in catalog_counts.keys() {
+            if !registered_names.iter().any(|registered_name| registered_name == catalog_name) {
+                diagnostics.push(format!("catalog has stale entry for unknown lint `{catalog_name}`"));
+            }
+        }
+
+        diagnostics
+    }
+
+    fn fake_catalog_entry(lint_name: &'static str) -> diagnostics::LintDiagnosticMeta {
+        let mut entry = *diagnostics::all_metadata().first().expect("catalog has fixture entry");
+        entry.lint_name = lint_name;
+        entry
     }
 
     fn catalog_freshness_diagnostics(docs: CatalogDocs<'_>, expected: &[ExpectedLintDoc]) -> Vec<String> {
@@ -548,6 +601,12 @@ mod tests {
                         diagnostics.push(format!(
                             "lint-reference row for `{}` has default `{}`, expected `{}`",
                             entry.name, row.default_level, entry.default_level
+                        ));
+                    }
+                    if row.summary != entry.summary {
+                        diagnostics.push(format!(
+                            "lint-reference row for `{}` has summary `{}`, expected `{}`",
+                            entry.name, row.summary, entry.summary
                         ));
                     }
                 }
@@ -655,7 +714,7 @@ mod tests {
             };
             let cells = markdown_table_cells(line);
             match cells.as_slice() {
-                [lint_cell, default_cell, ..] => {
+                [lint_cell, default_cell, summary_cell, ..] => {
                     let Some(lint_name) = backticked_value(lint_cell) else {
                         continue;
                     };
@@ -665,6 +724,7 @@ mod tests {
                     rows.entry(lint_name).or_default().push(DocumentedLintRow {
                         domain: domain.clone(),
                         default_level,
+                        summary: summary_cell.clone(),
                     });
                 }
                 _ => {}
@@ -699,6 +759,47 @@ mod tests {
     fn repo_text(relative_path: &str) -> String {
         let path = Path::new(env!("CARGO_MANIFEST_DIR")).join(relative_path);
         fs::read_to_string(&path).unwrap_or_else(|error| panic!("read {}: {error}", path.display()))
+    }
+
+    #[test]
+    fn lint_metadata_catalog_covers_registered_inventory() {
+        let diagnostics = metadata_coverage_diagnostics(&inventory_names(), diagnostics::all_metadata());
+
+        assert!(diagnostics.is_empty(), "metadata catalog drifted: {diagnostics:#?}");
+    }
+
+    #[test]
+    fn lint_metadata_default_levels_match_registered_lints() {
+        for lint in LINT_INVENTORY {
+            let meta = diagnostics::diagnostic_meta(lint.name);
+            assert_eq!(
+                meta.default_level,
+                default_level_name(lint.lint.default_level),
+                "catalog default level drifted for `{}`",
+                lint.name
+            );
+        }
+    }
+
+    #[test]
+    fn lint_metadata_rejects_unknown_catalog_entries() {
+        let mut catalog = diagnostics::all_metadata().to_vec();
+        catalog.push(fake_catalog_entry(UNKNOWN_CATALOG_LINT));
+        let diagnostics = metadata_coverage_diagnostics(&inventory_names(), &catalog);
+
+        assert!(diagnostics.iter().any(|diagnostic| diagnostic.contains("catalog has stale entry for unknown lint")));
+    }
+
+    #[test]
+    fn lint_metadata_rejects_missing_catalog_entries() {
+        let catalog = diagnostics::all_metadata()[1..].to_vec();
+        let diagnostics = metadata_coverage_diagnostics(&inventory_names(), &catalog);
+
+        assert!(
+            diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.contains("registered lint `compound_assertion` has no catalog metadata"))
+        );
     }
 
     #[test]
@@ -779,6 +880,28 @@ mod tests {
 
         assert!(diagnostics.iter().any(|diagnostic| {
             diagnostic.contains("lint-reference row for `compound_assertion` has default `allow`, expected `warn`")
+        }));
+    }
+
+    #[test]
+    fn catalog_freshness_rejects_mismatched_summary() {
+        let readme = repo_text("README.md");
+        let lint_reference = repo_text("docs/lint-reference.md").replace(
+            "| `compound_assertion` | `warn` | split `assert!(a && b)` into separate assertions |",
+            "| `compound_assertion` | `warn` | stale summary text |",
+        );
+        let template = repo_text("templates/dylint.toml");
+        let diagnostics = catalog_freshness_diagnostics(
+            CatalogDocs {
+                readme: &readme,
+                lint_reference: &lint_reference,
+                template: &template,
+            },
+            &expected_lint_docs(),
+        );
+
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic.contains("lint-reference row for `compound_assertion` has summary `stale summary text`")
         }));
     }
 
