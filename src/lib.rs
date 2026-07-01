@@ -317,6 +317,7 @@ pub extern "Rust" fn register_lints(sess: &rustc_session::Session, lint_store: &
 
 #[cfg(test)]
 mod tests {
+    use std::collections::BTreeMap;
     use std::fs;
     use std::path::Path;
     use std::path::PathBuf;
@@ -440,6 +441,364 @@ mod tests {
         let fixture_path = ui_dir.join(format!("{fixture}.rs"));
         let stem = fixture_path.file_stem().expect("fixture file stem");
         ui_dir.join(format!("{}.stderr", stem.to_string_lossy()))
+    }
+
+    #[derive(Debug)]
+    struct ExpectedLintDoc {
+        name: String,
+        domain: String,
+        default_level: String,
+    }
+
+    #[derive(Debug)]
+    struct CatalogDocs<'a> {
+        readme: &'a str,
+        lint_reference: &'a str,
+        template: &'a str,
+    }
+
+    #[derive(Debug)]
+    struct DocumentedLintRow {
+        domain: String,
+        default_level: String,
+    }
+
+    #[derive(Debug)]
+    struct NamespaceContract {
+        namespace: String,
+        lint_attr: String,
+        group_attr: String,
+        example_attr: String,
+        register_tool_attr: String,
+    }
+
+    const README_TOTAL_MARKER: &str = "Dylint lints";
+    const LINT_REFERENCE_TOTAL_MARKER: &str = "ships";
+    const NAMESPACE_PROBE_LINT: &str = "no_unwrap";
+    const NAMESPACE_EXAMPLE_LINT: &str = "unchecked_narrowing";
+    const NAMESPACE_PROBE_DOMAIN: &str = "safety";
+    const STALE_LINT_TOTAL: &str = "999";
+    const STALE_NAMESPACE: &str = "stale_namespace";
+
+    fn expected_lint_docs() -> Vec<ExpectedLintDoc> {
+        LINT_INVENTORY
+            .iter()
+            .map(|lint| ExpectedLintDoc {
+                name: lint.name.to_owned(),
+                domain: domain_label(diagnostics::diagnostic_meta(lint.name).domain_group),
+                default_level: default_level_name(lint.lint.default_level).to_owned(),
+            })
+            .collect()
+    }
+
+    fn domain_label(group_name: &str) -> String {
+        group_name.rsplit("::").next().expect("domain group should include a label").to_owned()
+    }
+
+    fn expected_domain_counts(expected: &[ExpectedLintDoc]) -> BTreeMap<String, usize> {
+        let mut counts = BTreeMap::new();
+        for entry in expected {
+            *counts.entry(entry.domain.clone()).or_default() += 1;
+        }
+        counts
+    }
+
+    fn catalog_freshness_diagnostics(docs: CatalogDocs<'_>, expected: &[ExpectedLintDoc]) -> Vec<String> {
+        let mut diagnostics = Vec::new();
+        let expected_total = expected.len();
+        check_documented_total("README", docs.readme, README_TOTAL_MARKER, expected_total, &mut diagnostics);
+        check_documented_total(
+            "lint-reference",
+            docs.lint_reference,
+            LINT_REFERENCE_TOTAL_MARKER,
+            expected_total,
+            &mut diagnostics,
+        );
+
+        let expected_counts = expected_domain_counts(expected);
+        for (domain, expected_count) in &expected_counts {
+            check_documented_domain_count("README", docs.readme, domain, *expected_count, &mut diagnostics);
+            check_documented_domain_count(
+                "lint-reference",
+                docs.lint_reference,
+                domain,
+                *expected_count,
+                &mut diagnostics,
+            );
+        }
+
+        let documented_rows = documented_lint_rows(docs.lint_reference);
+        for entry in expected {
+            match documented_rows.get(&entry.name) {
+                Some(rows) if rows.is_empty() => {
+                    diagnostics.push(format!("lint-reference missing row for `{}`", entry.name))
+                }
+                Some(rows) => {
+                    if rows.len() != 1 {
+                        diagnostics.push(format!("lint-reference has duplicate rows for `{}`", entry.name));
+                    }
+                    let row = rows.first().expect("non-empty rows were checked");
+                    if row.domain != entry.domain {
+                        diagnostics.push(format!(
+                            "lint-reference row for `{}` has domain `{}`, expected `{}`",
+                            entry.name, row.domain, entry.domain
+                        ));
+                    }
+                    if row.default_level != entry.default_level {
+                        diagnostics.push(format!(
+                            "lint-reference row for `{}` has default `{}`, expected `{}`",
+                            entry.name, row.default_level, entry.default_level
+                        ));
+                    }
+                }
+                None => diagnostics.push(format!("lint-reference missing row for `{}`", entry.name)),
+            }
+        }
+
+        for lint_name in documented_rows.keys() {
+            if !expected.iter().any(|entry| entry.name == *lint_name) {
+                diagnostics.push(format!("lint-reference has stale row for unknown lint `{lint_name}`"));
+            }
+        }
+
+        check_namespace_prose(docs, &namespace_contract(), &mut diagnostics);
+
+        diagnostics
+    }
+
+    fn namespace_contract() -> NamespaceContract {
+        let lint_attr = diagnostics::canonical_lint_name(NAMESPACE_PROBE_LINT);
+        let namespace = lint_attr.split("::").next().expect("canonical lint names include a namespace").to_owned();
+        NamespaceContract {
+            group_attr: format!("{namespace}::{NAMESPACE_PROBE_DOMAIN}"),
+            example_attr: diagnostics::canonical_lint_name(NAMESPACE_EXAMPLE_LINT),
+            register_tool_attr: format!("#![register_tool({namespace})]"),
+            namespace,
+            lint_attr,
+        }
+    }
+
+    fn check_namespace_prose(docs: CatalogDocs<'_>, contract: &NamespaceContract, diagnostics: &mut Vec<String>) {
+        let readme_lint_fragment = format!("`{}::<lint>`", contract.namespace);
+        let readme_group_fragment = format!("`{}::<domain>`", contract.namespace);
+        check_required_fragment("README", docs.readme, &readme_lint_fragment, diagnostics);
+        check_required_fragment("README", docs.readme, &readme_group_fragment, diagnostics);
+        check_required_fragment("lint-reference", docs.lint_reference, &contract.group_attr, diagnostics);
+        check_required_fragment("lint-reference", docs.lint_reference, &contract.example_attr, diagnostics);
+        check_required_fragment("lint-reference", docs.lint_reference, &contract.register_tool_attr, diagnostics);
+        check_required_fragment("template", docs.template, &contract.lint_attr, diagnostics);
+        check_required_fragment("template", docs.template, &contract.group_attr, diagnostics);
+    }
+
+    fn check_required_fragment(surface: &str, document: &str, expected_fragment: &str, diagnostics: &mut Vec<String>) {
+        if !document.contains(expected_fragment) {
+            diagnostics.push(format!("{surface} namespace prose missing `{expected_fragment}`"));
+        }
+    }
+
+    fn check_documented_total(
+        surface: &str,
+        document: &str,
+        marker: &str,
+        expected_total: usize,
+        diagnostics: &mut Vec<String>,
+    ) {
+        match documented_total(document, marker) {
+            Some(total) if total == expected_total => {}
+            Some(total) => diagnostics.push(format!("{surface} has stale total {total}, expected {expected_total}")),
+            None => diagnostics.push(format!("{surface} is missing lint total marker `{marker}`")),
+        }
+    }
+
+    fn check_documented_domain_count(
+        surface: &str,
+        document: &str,
+        domain: &str,
+        expected_count: usize,
+        diagnostics: &mut Vec<String>,
+    ) {
+        match documented_domain_count(document, domain) {
+            Some(count) if count == expected_count => {}
+            Some(count) => diagnostics
+                .push(format!("{surface} domain `{domain}` has stale count {count}, expected {expected_count}")),
+            None => diagnostics.push(format!("{surface} is missing domain `{domain}`")),
+        }
+    }
+
+    fn documented_total(document: &str, marker: &str) -> Option<usize> {
+        document.lines().find(|line| line.contains(marker))?.split_whitespace().find_map(parse_usize_cell)
+    }
+
+    fn documented_domain_count(document: &str, domain: &str) -> Option<usize> {
+        document.lines().find_map(|line| {
+            let cells = markdown_table_cells(line);
+            match cells.as_slice() {
+                [documented_domain, ..] if documented_domain == domain => {
+                    cells.iter().find_map(|cell| parse_usize_cell(cell))
+                }
+                _ => None,
+            }
+        })
+    }
+
+    fn documented_lint_rows(lint_reference: &str) -> BTreeMap<String, Vec<DocumentedLintRow>> {
+        let mut current_domain = None;
+        let mut rows: BTreeMap<String, Vec<DocumentedLintRow>> = BTreeMap::new();
+        for line in lint_reference.lines() {
+            if let Some(domain) = lint_section_domain(line) {
+                current_domain = Some(domain);
+                continue;
+            }
+
+            let Some(domain) = current_domain.clone() else {
+                continue;
+            };
+            let cells = markdown_table_cells(line);
+            match cells.as_slice() {
+                [lint_cell, default_cell, ..] => {
+                    let Some(lint_name) = backticked_value(lint_cell) else {
+                        continue;
+                    };
+                    let Some(default_level) = backticked_value(default_cell) else {
+                        continue;
+                    };
+                    rows.entry(lint_name).or_default().push(DocumentedLintRow {
+                        domain: domain.clone(),
+                        default_level,
+                    });
+                }
+                _ => {}
+            }
+        }
+        rows
+    }
+
+    fn lint_section_domain(line: &str) -> Option<String> {
+        let title = line.strip_prefix("## ")?;
+        let domain = title.split(" lints").next()?;
+        (domain != title).then(|| domain.to_ascii_lowercase())
+    }
+
+    fn markdown_table_cells(line: &str) -> Vec<String> {
+        let trimmed = line.trim();
+        if !trimmed.starts_with('|') || !trimmed.ends_with('|') {
+            return Vec::new();
+        }
+        trimmed.trim_matches('|').split('|').map(str::trim).map(str::to_owned).collect()
+    }
+
+    fn backticked_value(cell: &str) -> Option<String> {
+        let value = cell.strip_prefix('`')?.strip_suffix('`')?;
+        Some(value.to_owned())
+    }
+
+    fn parse_usize_cell(cell: &str) -> Option<usize> {
+        cell.trim_matches('`').parse::<usize>().ok()
+    }
+
+    fn repo_text(relative_path: &str) -> String {
+        let path = Path::new(env!("CARGO_MANIFEST_DIR")).join(relative_path);
+        fs::read_to_string(&path).unwrap_or_else(|error| panic!("read {}: {error}", path.display()))
+    }
+
+    #[test]
+    fn catalog_docs_match_inventory_counts_defaults_and_rows() {
+        let readme = repo_text("README.md");
+        let lint_reference = repo_text("docs/lint-reference.md");
+        let template = repo_text("templates/dylint.toml");
+        let diagnostics = catalog_freshness_diagnostics(
+            CatalogDocs {
+                readme: &readme,
+                lint_reference: &lint_reference,
+                template: &template,
+            },
+            &expected_lint_docs(),
+        );
+
+        assert!(diagnostics.is_empty(), "catalog docs drifted: {diagnostics:#?}");
+    }
+
+    #[test]
+    fn catalog_freshness_rejects_stale_total() {
+        let expected = expected_lint_docs();
+        let readme = repo_text("README.md")
+            .replace(&format!("{} Dylint lints", expected.len()), &format!("{STALE_LINT_TOTAL} Dylint lints"));
+        let lint_reference = repo_text("docs/lint-reference.md");
+        let template = repo_text("templates/dylint.toml");
+        let diagnostics = catalog_freshness_diagnostics(
+            CatalogDocs {
+                readme: &readme,
+                lint_reference: &lint_reference,
+                template: &template,
+            },
+            &expected,
+        );
+
+        assert!(diagnostics.iter().any(|diagnostic| diagnostic.contains("README has stale total")));
+    }
+
+    #[test]
+    fn catalog_freshness_rejects_missing_lint_row() {
+        let readme = repo_text("README.md");
+        let lint_reference = repo_text("docs/lint-reference.md")
+            .lines()
+            .filter(|line| !line.starts_with("| `compound_assertion` |"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        let template = repo_text("templates/dylint.toml");
+        let diagnostics = catalog_freshness_diagnostics(
+            CatalogDocs {
+                readme: &readme,
+                lint_reference: &lint_reference,
+                template: &template,
+            },
+            &expected_lint_docs(),
+        );
+
+        assert!(
+            diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.contains("lint-reference missing row for `compound_assertion`"))
+        );
+    }
+
+    #[test]
+    fn catalog_freshness_rejects_mismatched_default_level() {
+        let readme = repo_text("README.md");
+        let lint_reference = repo_text("docs/lint-reference.md")
+            .replace("| `compound_assertion` | `warn` |", "| `compound_assertion` | `allow` |");
+        let template = repo_text("templates/dylint.toml");
+        let diagnostics = catalog_freshness_diagnostics(
+            CatalogDocs {
+                readme: &readme,
+                lint_reference: &lint_reference,
+                template: &template,
+            },
+            &expected_lint_docs(),
+        );
+
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic.contains("lint-reference row for `compound_assertion` has default `allow`, expected `warn`")
+        }));
+    }
+
+    #[test]
+    fn catalog_freshness_rejects_stale_namespace_prose() {
+        let contract = namespace_contract();
+        let readme = repo_text("README.md")
+            .replace(&format!("`{}::<lint>`", contract.namespace), &format!("`{STALE_NAMESPACE}::<lint>`"));
+        let lint_reference = repo_text("docs/lint-reference.md");
+        let template = repo_text("templates/dylint.toml");
+        let diagnostics = catalog_freshness_diagnostics(
+            CatalogDocs {
+                readme: &readme,
+                lint_reference: &lint_reference,
+                template: &template,
+            },
+            &expected_lint_docs(),
+        );
+
+        assert!(diagnostics.iter().any(|diagnostic| diagnostic.contains("README namespace prose missing")));
     }
 
     #[test]

@@ -8,25 +8,25 @@ For the landing-page naming map, see `../README.md`.
 
 ## Catalog summary
 
-`octet` ships 44 lints across 6 domains.
+`octet` ships 53 lints across 6 domains.
 
 | Domain | Group | Count |
 | --- | --- | ---: |
-| safety | `octet::safety` | 21 |
-| naming | `octet::naming` | 5 |
-| performance | `octet::performance` | 1 |
-| structure | `octet::structure` | 13 |
-| purity | `octet::purity` | 3 |
-| concurrency | `octet::concurrency` | 1 |
+| safety | `tigerstyle::safety` | 23 |
+| naming | `tigerstyle::naming` | 9 |
+| performance | `tigerstyle::performance` | 1 |
+| structure | `tigerstyle::structure` | 16 |
+| purity | `tigerstyle::purity` | 3 |
+| concurrency | `tigerstyle::concurrency` | 1 |
 
 ## Suppression and level controls
 
-Source attrs and group attrs use canonical tool names:
+Source attrs and group attrs use the current live tool namespace:
 
 ```rust
-#[allow(octet::unchecked_narrowing)]
-#![deny(octet::naming)]
-#![warn(octet::numeric_units)]
+#[allow(tigerstyle::unchecked_narrowing)]
+#![deny(tigerstyle::naming)]
+#![warn(tigerstyle::numeric_units)]
 ```
 
 Keep config keys bare in `dylint.toml`:
@@ -42,7 +42,7 @@ no_unwrap = "deny"
 
 Rules to keep straight:
 
-- source attrs and domain groups use `octet::...`
+- source attrs and domain groups currently use `tigerstyle::...` until the namespace migration lands
 - `disabled_lints` and `[octet.lint_levels]` use bare lint names
 - `disabled_lints` wins over `lint_levels`
 - allow-by-default lints can be turned on with `#![warn(...)]` or a lint-level override
@@ -50,7 +50,7 @@ Rules to keep straight:
 
 ```rust
 #![feature(register_tool)]
-#![register_tool(octet)]
+#![register_tool(tigerstyle)]
 ```
 
 ## Config keys
@@ -79,6 +79,8 @@ Unknown lint names and invalid level values warn and are ignored.
 | --- | --- | --- |
 | `compound_assertion` | `warn` | split `assert!(a && b)` into separate assertions |
 | `ignored_result` | `warn` | avoid silent `let _ = expr` drops for fallible results |
+| `drop_must_use` | `warn` | handle must-use values explicitly instead of hiding them behind `drop(...)` |
+| `fallible_int_fallback` | `warn` | propagate integer conversion failures instead of replacing them with sentinels or defaults |
 | `no_unwrap` | `warn` | ban `.unwrap()` and `.expect()` in production code |
 | `no_panic` | `warn` | ban `panic!()`, `unimplemented!()`, and `unreachable!()` in production code |
 | `no_todo` | `warn` | ban `todo!()` in production code |
@@ -107,6 +109,10 @@ Unknown lint names and invalid level values warn and are ignored.
 | `bool_naming` | `warn` | require predicate-style boolean names like `is_ready` |
 | `negated_predicate` | `warn` | avoid names like `is_not_ready` or `no_capacity` |
 | `numeric_units` | `allow` | require unit suffixes such as `_ms`, `_secs`, or `_bytes` |
+| `underscore_in_module_filename` | `warn` | prefer responsibility-based module directories over compound filenames |
+| `non_trait_imports` | `warn` | keep concrete owner types qualified at use sites; import traits only for method resolution |
+| `renamed_imports` | `warn` | avoid `use ... as ...` aliases that hide searchable item names |
+| `path_segment_repetition` | `warn` | avoid repeating crate or module path words in item names |
 | `float_for_currency` | `allow` | avoid `f64` in price, cost, or budget fields |
 
 ## Performance lints (`octet::performance`)
@@ -120,6 +126,9 @@ Unknown lint names and invalid level values warn and are ignored.
 | Lint | Default | Summary |
 | --- | --- | --- |
 | `function_length` | `warn` | flag functions longer than the configured line budget |
+| `magic_number` | `warn` | require named constants or config fields for policy thresholds and domain values |
+| `excessive_file_length` | `warn` | split oversized source files along module or responsibility boundaries |
+| `module_file_count` | `warn` | split crowded module directories into smaller responsibility-based submodules |
 | `nested_conditionals` | `warn` | flag deep `if` / `match` nesting |
 | `platform_dependent_cast` | `warn` | flag casts like `as usize` from fixed-width integers |
 | `usize_in_public_api` | `warn` | avoid `usize` / `isize` at inherent public API boundaries |
