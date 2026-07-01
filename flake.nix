@@ -254,9 +254,16 @@
 
         dylintShimPath = pkgs.lib.makeBinPath [ cargo-shim rustup-shim rustToolchain ];
         rustToolchainLibPath = pkgs.lib.makeLibraryPath [ rustToolchain ];
+        productionVerusVersion = "0.2026.04.03.21dfcd2";
+        productionVerusReleaseSha256 = "sha256-JGqLytgA8C9xUJg0RpuqAB95pu+2hTxschfvi+Op2MY=";
+        productionVerusReleaseSha256Hex = "246a8bcad800f02f71509834469baa001f79a6efb6853c6c7217ef8be3a9d8c6";
+        productionVerusRustVersion = "1.94.0";
+        productionVerusToolchainLabel = "${productionVerusRustVersion}-${hostTriple}";
+        productionVerusRustToolchain = pkgs.rust-bin.stable.${productionVerusRustVersion}.default;
+        productionVerusRustcLibPath = "${productionVerusRustToolchain}/lib";
         cargoOctetRuntimePath = pkgs.symlinkJoin {
           name = "cargo-octet-runtime-path";
-          paths = [ cargo-shim rustup-shim rustToolchain octetVerus ];
+          paths = [ cargo-shim rustup-shim rustToolchain octetVerus octetProductionVerus ];
         };
         checkNativeBuildInputs = nativeBuildInputs ++ [ cargo-shim rustup-shim pkgs.git pkgs.python3 ];
         sharedLibraryPrefix = if pkgs.stdenv.hostPlatform.isWindows then "" else "lib";
@@ -478,6 +485,157 @@
             printf '%s\n' "$pass_signal"
           '';
         };
+
+        octetProductionVerus = pkgs.stdenvNoCC.mkDerivation {
+          pname = "octet-production-verus";
+          version = productionVerusVersion;
+          src = pkgs.fetchurl {
+            url = "https://github.com/verus-lang/verus/releases/download/release/${productionVerusVersion}/verus-${productionVerusVersion}-x86-linux.zip";
+            hash = productionVerusReleaseSha256;
+          };
+          nativeBuildInputs = with pkgs; [ autoPatchelfHook b3sum makeWrapper unzip ];
+          buildInputs = with pkgs; [ stdenv.cc.cc.lib zlib productionVerusRustToolchain ];
+          unpackPhase = ''
+            unzip "$src"
+          '';
+          installPhase = ''
+            runHook preInstall
+            mkdir -p "$out/libexec/verus" "$out/bin" "$out/share"
+            cp -R verus-x86-linux/. "$out/libexec/verus/"
+            chmod -R u+w "$out/libexec/verus"
+            find "$out/libexec/verus" -type f \( -name verus -o -name rust_verify -o -name z3 \) -exec chmod +x {} +
+
+            rustup_shim="$out/libexec/verus/rustup"
+            cat > "$rustup_shim" <<'EOF'
+            #!${pkgs.runtimeShell}
+            set -eu
+            case "''${1:-}" in
+              --version|-V)
+                printf 'rustup 1.28.2 (octet shim)\n'
+                ;;
+              toolchain)
+                if [ "''${2:-}" = "list" ]; then
+                  printf '${productionVerusToolchainLabel} (default)\n'
+                else
+                  echo "octet rustup shim: unsupported toolchain ''${2:-}" >&2
+                  exit 1
+                fi
+                ;;
+              run)
+                requested="''${2:-}"
+                shift 2
+                if [ "''${1:-}" = "--" ]; then
+                  shift
+                fi
+                case "$requested" in
+                  ${productionVerusToolchainLabel}|${productionVerusRustVersion}) ;;
+                  *) echo "octet rustup shim: unsupported toolchain $requested" >&2; exit 1 ;;
+                esac
+                export LD_LIBRARY_PATH="${productionVerusRustcLibPath}:''${LD_LIBRARY_PATH:-}"
+                exec "$@"
+                ;;
+              which)
+                case "''${2:-}" in
+                  rustc) printf '%s/bin/rustc\n' "${productionVerusRustToolchain}" ;;
+                  cargo) printf '%s/bin/cargo\n' "${productionVerusRustToolchain}" ;;
+                  *) echo "octet rustup shim: unsupported which ''${2:-}" >&2; exit 1 ;;
+                esac
+                ;;
+              show)
+                if [ "''${2:-}" = "active-toolchain" ]; then
+                  printf '${productionVerusToolchainLabel} (default)\n'
+                else
+                  printf '${productionVerusToolchainLabel}\n'
+                fi
+                ;;
+              *) echo "octet rustup shim: unsupported: $*" >&2; exit 1 ;;
+            esac
+            EOF
+            chmod +x "$rustup_shim"
+
+            makeWrapper "$out/libexec/verus/verus" "$out/bin/verus" \
+              --prefix PATH : "$out/libexec/verus" \
+              --prefix LD_LIBRARY_PATH : "${productionVerusRustcLibPath}"
+
+            verus_binary_blake3="$(b3sum "$out/libexec/verus/verus")"
+            verus_binary_blake3="''${verus_binary_blake3%% *}"
+            solver_blake3="$(b3sum "$out/libexec/verus/z3")"
+            solver_blake3="''${solver_blake3%% *}"
+            toolchain_blake3="$(b3sum "${productionVerusRustToolchain}/bin/rustc")"
+            toolchain_blake3="''${toolchain_blake3%% *}"
+
+            cat > "$out/share/identity.txt" <<EOF
+            proof-verifier-mode: production
+            proof-verifier: verus@${productionVerusVersion}
+            proof-verifier-release-sha256: ${productionVerusReleaseSha256Hex}
+            proof-verifier-binary: verus
+            proof-verifier-binary-blake3: $verus_binary_blake3
+            proof-toolchain: ${productionVerusToolchainLabel}
+            proof-toolchain-blake3: $toolchain_blake3
+            proof-solver: z3@verus-${productionVerusVersion}
+            proof-solver-blake3: $solver_blake3
+            trust-boundary: production Verus binary release verifies the declared proof target only
+            EOF
+
+            production_wrapper="$out/bin/octet-production-verus"
+            cat > "$production_wrapper" <<EOF
+            #!${pkgs.runtimeShell}
+            set -eu
+            if [ "\''${1:-}" = "--identity" ]; then
+              cat "$out/share/identity.txt"
+              exit 0
+            fi
+            exec "$out/bin/verus" "\$@"
+            EOF
+            chmod +x "$production_wrapper"
+            runHook postInstall
+          '';
+          passthru = {
+            inherit productionVerusReleaseSha256Hex productionVerusToolchainLabel productionVerusVersion;
+          };
+        };
+
+        octetProductionVerusNixClosureManifest = pkgs.runCommand "octet-production-verus-nix-closure-manifest" {
+          nativeBuildInputs = [ pkgs.b3sum pkgs.python3 ];
+          exportReferencesGraph = [ "octet-production-verus-closure" octetProductionVerus ];
+        } ''
+          mkdir -p "$out"
+          cp octet-production-verus-closure "$out/octet-production-verus-closure.graph"
+          python3 - "$out/octet-production-verus-closure.graph" "$out/octet-production-verus-closure.graph.canonical" <<'PY'
+          import json
+          import sys
+
+          source, dest = sys.argv[1:]
+          records = []
+          with open(source, "r", encoding="utf-8") as handle:
+              lines = [line.rstrip("\n") for line in handle]
+          index = 0
+          while index < len(lines):
+              path = lines[index]
+              index += 1
+              if not path:
+                  continue
+              deriver = lines[index]
+              index += 1
+              refs_count = int(lines[index])
+              index += 1
+              refs = sorted(lines[index:index + refs_count])
+              index += refs_count
+              records.append({"path": path, "deriver": deriver, "refs": refs})
+          records.sort(key=lambda record: record["path"])
+          with open(dest, "w", encoding="utf-8") as handle:
+              for record in records:
+                  handle.write(json.dumps(record, sort_keys=True, separators=(",", ":")))
+                  handle.write("\n")
+          PY
+          graph_digest=$(b3sum "$out/octet-production-verus-closure.graph.canonical" | cut -d' ' -f1)
+          printf '%s\n' "$graph_digest" > "$out/octet-production-verus-closure.graph.blake3"
+          cat > "$out/proof-nix-closure.txt" <<EOF
+          proof-verifier-nix-output: ${octetProductionVerus}
+          proof-verifier-nix-closure: exportReferencesGraph:octet-production-verus-closure
+          proof-verifier-nix-closure-graph-blake3: $graph_digest
+          EOF
+        '';
 
         uiDriverVendorDir = craneLib.vendorCargoDeps {
           src = uiDriverSrc;
@@ -760,6 +918,13 @@ MAIN
           jq --exit-status '.rails.addition_bound.command_argv[0] == "octet-verus"' "$manifest_json" >/dev/null
           jq --exit-status '.rails.addition_bound.verifier_mode == "fixture"' "$manifest_json" >/dev/null
           jq --exit-status '.rails.addition_bound.receipt_paths | length > 0' "$manifest_json" >/dev/null
+          jq --exit-status '.rails.addition_bound_production.command_argv[0] == "octet-production-verus"' "$manifest_json" >/dev/null
+          jq --exit-status '.rails.addition_bound_production.verifier_mode == "production"' "$manifest_json" >/dev/null
+          jq --exit-status '.rails.addition_bound_production.pass_signal == "verification results:: 1 verified, 0 errors"' "$manifest_json" >/dev/null
+          production_graph_digest=$(cat ${octetProductionVerusNixClosureManifest}/octet-production-verus-closure.graph.blake3)
+          jq --exit-status --arg digest "$production_graph_digest" \
+            '.rails.addition_bound_production.receipt_verifier.verifier_nix_closure_graph_digest == $digest' \
+            "$manifest_json" >/dev/null
 
           for file in standards/proof-rails/fixtures/valid/*.ncl; do
             nickel export --format json "$file" >/dev/null
@@ -1041,6 +1206,8 @@ MAIN
           tigerstyle-standards = octetStandards;
           octet-standards-nix-closure-manifest = octetStandardsNixClosureManifest;
           octet-verus = octetVerus;
+          octet-production-verus = octetProductionVerus;
+          octet-production-verus-nix-closure-manifest = octetProductionVerusNixClosureManifest;
           slotcar-standards-nix-closure-manifest = octetStandardsNixClosureManifest;
           octet-policy-export = policyExport;
           tigerstyle-policy-export = policyExport;
@@ -1124,6 +1291,11 @@ MAIN
           octet-verus = flake-utils.lib.mkApp {
             drv = octetVerus;
             exePath = "/bin/octet-verus";
+          };
+
+          octet-production-verus = flake-utils.lib.mkApp {
+            drv = octetProductionVerus;
+            exePath = "/bin/octet-production-verus";
           };
 
           tigerstyle-policy-validate = flake-utils.lib.mkApp {
@@ -1521,6 +1693,17 @@ MAIN
             grep -F "proof-verifier-nix-closure-graph-blake3: $graph_digest" ${octetStandardsNixClosureManifest}/proof-nix-closure.txt >/dev/null
             mkdir -p "$out"
           '';
+          octet-production-verus-nix-closure-manifest = pkgs.runCommand "octet-production-verus-nix-closure-manifest-check" { } ''
+            test -s ${octetProductionVerusNixClosureManifest}/proof-nix-closure.txt
+            test -s ${octetProductionVerusNixClosureManifest}/octet-production-verus-closure.graph
+            test -s ${octetProductionVerusNixClosureManifest}/octet-production-verus-closure.graph.canonical
+            test -s ${octetProductionVerusNixClosureManifest}/octet-production-verus-closure.graph.blake3
+            grep -F "proof-verifier-nix-output: ${octetProductionVerus}" ${octetProductionVerusNixClosureManifest}/proof-nix-closure.txt >/dev/null
+            grep -F "proof-verifier-nix-closure: exportReferencesGraph:octet-production-verus-closure" ${octetProductionVerusNixClosureManifest}/proof-nix-closure.txt >/dev/null
+            graph_digest=$(cat ${octetProductionVerusNixClosureManifest}/octet-production-verus-closure.graph.blake3)
+            grep -F "proof-verifier-nix-closure-graph-blake3: $graph_digest" ${octetProductionVerusNixClosureManifest}/proof-nix-closure.txt >/dev/null
+            mkdir -p "$out"
+          '';
           slotcar-standards-nix-closure-manifest = self.checks.${system}.octet-standards-nix-closure-manifest;
           policy-artifact-consumer-fixture = policyArtifactConsumerFixtureCheck;
         };
@@ -1539,6 +1722,7 @@ MAIN
             pkgs.rust-analyzer
             octetStandards
             octetVerus
+            octetProductionVerus
           ];
 
           inputsFrom = [ octet ];
