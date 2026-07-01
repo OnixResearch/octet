@@ -2,11 +2,11 @@
 
 Octet is the canonical product identity, but source-attribute namespaces and emitted group metadata still show mixed state. Consumer docs and templates describe `octet::...` attrs, while current code and fixtures still use `tigerstyle::...` groups in several places. That mismatch can confuse consumers, break suppressions, and make runner output look inconsistent with product positioning.
 
-The project needs a deliberate namespace contract: either finish the Octet namespace migration with compatibility aliases or explicitly defer it while docs state the live behavior.
+The project needs a deliberate namespace contract. For this release line, the safe contract is to explicitly defer source-attribute migration and make docs state the live `tigerstyle::` behavior.
 
 ## What Changes
 
-- Decide the canonical source-attribute namespace and emitted group namespace for current releases.
+- Record `tigerstyle::` as the canonical source-attribute namespace and emitted group namespace for current releases.
 - Implement code, UI fixtures, docs, templates, runner metadata, and snapshots consistently with that decision.
 - Preserve tested compatibility aliases for supported legacy namespaces or document their deprecation boundary.
 - Add migration guidance for consumers using legacy `tigerstyle::...` or `slotcar::...` attrs/config names.

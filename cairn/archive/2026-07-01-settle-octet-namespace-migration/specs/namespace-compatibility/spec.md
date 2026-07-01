@@ -2,7 +2,7 @@
 
 ### Requirement: Canonical namespace consistency
 
-r[octet.namespace_compatibility.canonical] Octet MUST document and implement one canonical namespace for source attributes, domain group attributes, and emitted lint group metadata for the current release line.
+r[octet.namespace_compatibility.canonical] Octet MUST document and implement `tigerstyle::` as the canonical namespace for source attributes, domain group attributes, and emitted lint group metadata for the current release line while preserving Octet product, command, and config naming.
 
 #### Scenario: Docs match live namespace
 
@@ -10,7 +10,7 @@ r[octet.namespace_compatibility.canonical.docs]
 
 - GIVEN README, lint reference, templates, and consumer guide describe lint source attrs or domain groups
 - WHEN namespace freshness validation runs
-- THEN those docs MUST match the namespace accepted by live lint declarations and UI fixtures.
+- THEN those docs MUST match the `tigerstyle::` namespace accepted by live lint declarations and UI fixtures.
 
 #### Scenario: Runner output uses canonical group names
 
@@ -18,17 +18,17 @@ r[octet.namespace_compatibility.canonical.runner]
 
 - GIVEN `cargo-octet` emits JSONL or SARIF findings
 - WHEN a finding includes a group name
-- THEN the group name MUST use the documented canonical namespace unless the output explicitly labels a compatibility alias.
+- THEN the group name MUST use the documented `tigerstyle::` namespace unless the output explicitly labels a compatibility alias.
 
 ### Requirement: Compatibility aliases
 
-r[octet.namespace_compatibility.aliases] Octet SHOULD retain tested compatibility aliases for supported legacy lint namespaces and config sections until a documented removal boundary is reached.
+r[octet.namespace_compatibility.aliases] Octet SHOULD retain tested bare lint-name compatibility aliases and legacy config sections until a documented removal boundary is reached.
 
-#### Scenario: Legacy attr remains supported
+#### Scenario: Bare lint attr remains supported
 
 r[octet.namespace_compatibility.aliases.legacy_attr]
 
-- GIVEN a consumer uses a documented supported legacy source attribute namespace
+- GIVEN a consumer uses a documented supported bare lint-name source attribute
 - WHEN Octet lints the consumer crate
 - THEN the attribute SHOULD behave like the canonical namespace or emit a documented deprecation diagnostic.
 
