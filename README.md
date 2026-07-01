@@ -91,9 +91,9 @@ standards proof rails, writes structured verifier receipts under an artifact
 directory, and emits `formal_proof` provenance only for scoped receipts with
 verifier, solver/toolchain, command argv, source/proof path, receipt path, and
 bounded log identity. Starter `cargo octet check` usage does not require Verus.
-The built-in `octet-verus` rail is a fixture verifier for plumbing tests; a
-production Verus rail must mark `verifier_mode = "production"` and pin the real
-verifier/solver/toolchain identity in its receipt.
+Octet keeps the fixture `octet-verus` rail for plumbing tests and also ships a
+small production-mode pilot through `octet-production-verus`, pinned to the real
+Verus binary release, solver, Rust toolchain, and Nix closure graph identity.
 
 ```bash
 cargo octet prove --list --policy-artifacts-dir artifacts/policy

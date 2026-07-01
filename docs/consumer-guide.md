@@ -154,8 +154,11 @@ bounded stdout/stderr artifacts, writes a structured JSON receipt per rail, and
 records `formal_proof` provenance only when the checked source/proof paths and
 receipt paths match the rail scope. Fixture rails must say
 `verifier_mode = "fixture"`; production Verus rails must say
-`verifier_mode = "production"` and pin verifier, solver, toolchain, command,
-source/proof, receipt, and trust-boundary identity in the receipt.
+`verifier_mode = "production"` and pin verifier, solver, toolchain, Nix closure,
+command, source/proof, receipt, and trust-boundary identity in the receipt.
+Octet's built-in production pilot is intentionally tiny and runs
+`octet-production-verus` only when a selected proof rail matches the requested
+source scope.
 
 ```bash
 cargo octet prove --policy-artifacts-dir artifacts/policy --source src/verified --artifact-dir artifacts/octet
