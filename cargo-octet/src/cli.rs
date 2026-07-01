@@ -226,6 +226,8 @@ pub struct ProveArgs {
     pub artifact_dir: PathBuf,
     pub output_format: OutputFormat,
     pub command_line: String,
+    pub list: bool,
+    pub explain: bool,
 }
 
 #[derive(Debug)]
@@ -353,7 +355,7 @@ Usage:
   cargo octet object supplement check --family hir|thir|mir [--spike rustc-hir-fixture|rustc-thir-fixture|rustc-mir-fixture] [--fixture-shape checked-arithmetic|branch-control-flow|call-return] --receipt RECEIPT.json [--function NAME] [PATHS...]
   cargo octet provider-manifest export --driver PATH --lint-library PATH --config PATH [--standards-policy PATH]
   cargo octet provider-manifest validate --manifest PATH
-  cargo octet prove --policy-artifacts-dir PATH --source PATH --artifact-dir PATH [--output-format human|json]
+  cargo octet prove --policy-artifacts-dir PATH --source PATH --artifact-dir PATH [--list] [--explain] [--output-format human|json]
   cargo octet roadmap <artifact|capsule|ability|pointer|session|pure-cache> ...
   cargo octet transcript <PATH>
   cargo octet --version
@@ -430,9 +432,9 @@ Exports or validates the deterministic Octet compiler-policy provider manifest c
 
 const PROVE_HELP: &str = "cargo octet prove
 
-Options: --registry PATH or --policy-artifacts-dir PATH, --source PATH (repeatable), --family NAME, --artifact-dir PATH, --output-format human|json.
+Options: --registry PATH or --policy-artifacts-dir PATH, --source PATH (repeatable), --family NAME, --artifact-dir PATH, --list, --explain, --output-format human|json.
 
-Runs selected standards proof rails, writes proof receipts under the artifact directory, emits formal_proof provenance only for validated receipts with verifier identity and proof artifact identity, and keeps ordinary cargo octet check behavior unchanged.
+Runs selected standards proof rails through argv-based commands, writes structured proof receipts under the artifact directory, emits formal_proof provenance only for validated receipts with verifier identity and proof artifact identity, and keeps ordinary cargo octet check behavior unchanged. Use --list to show selected rails without executing them and --explain to prefix failure diagnostics with remediation context.
 ";
 
 const ROADMAP_HELP: &str = "cargo octet roadmap
@@ -1413,6 +1415,8 @@ fn parse_prove(args: &[String], command_line: String) -> Result<ProveArgs, Strin
     let mut family = Vec::new();
     let mut artifact_dir = None;
     let mut output_format = OutputFormat::Human;
+    let mut list = false;
+    let mut explain = false;
     let mut index = 0;
     while index < args.len() {
         let arg = &args[index];
@@ -1440,6 +1444,14 @@ fn parse_prove(args: &[String], command_line: String) -> Result<ProveArgs, Strin
             "--output-format" | "--format" => {
                 output_format = parse_output_format(&required_arg_at(args, index, arg)?)?;
                 index += 2;
+            }
+            "--list" => {
+                list = true;
+                index += 1;
+            }
+            "--explain" => {
+                explain = true;
+                index += 1;
             }
             _ if arg.starts_with("--registry=") => {
                 registry = Some(PathBuf::from(arg.trim_start_matches("--registry=")));
@@ -1491,6 +1503,8 @@ fn parse_prove(args: &[String], command_line: String) -> Result<ProveArgs, Strin
         artifact_dir: artifact_dir.unwrap_or_else(|| PathBuf::from("artifacts/octet")),
         output_format,
         command_line,
+        list,
+        explain,
     })
 }
 

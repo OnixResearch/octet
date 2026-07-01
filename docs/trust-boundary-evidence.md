@@ -47,7 +47,7 @@ format carries tier data:
 - `ui_fixture` — a checked UI fixture or diagnostic snapshot.
 - `autofix_verified` — an autofix replay that rechecks cleanly.
 - `transcript_assertion` — an executable transcript assertion with expected output.
-- `formal_proof` — a proof result with verifier identity and proof artifact identity.
+- `formal_proof` — a scoped proof result with verifier, solver/toolchain, command argv, checked source/proof paths, receipt path, and proof artifact identity.
 - `manual_review_required` — a boundary where a named human action is still required.
 
 Validation is validation, review is review, and proof is proof for a stated model

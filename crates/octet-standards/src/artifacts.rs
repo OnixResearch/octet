@@ -411,8 +411,10 @@ pub fn render_check_config_toml(registry: &PolicyRegistry) -> String {
 fn append_proof_rail_config(toml: &mut String, registry: &PolicyRegistry) {
     let proof_rail_backends = proof_rail_field(registry, |rail| &rail.backend);
     let proof_rail_commands = proof_rail_field(registry, |rail| &rail.command);
+    let proof_rail_command_argv = proof_rail_fields(registry, |rail| &rail.command_argv);
     let proof_rail_source_paths = proof_rail_fields(registry, |rail| &rail.source_paths);
     let proof_rail_proof_paths = proof_rail_fields(registry, |rail| &rail.proof_paths);
+    let proof_rail_receipt_paths = proof_rail_fields(registry, |rail| &rail.receipt_paths);
     let proof_rail_pass_signals = proof_rail_field(registry, |rail| &rail.pass_signal);
     let proof_rail_trust_boundaries = proof_rail_fields(registry, |rail| &rail.trust_boundaries);
     let proof_rail_receipt_bindings = proof_rail_field(registry, |rail| &rail.receipt_binding);
@@ -449,11 +451,18 @@ fn append_proof_rail_config(toml: &mut String, registry: &PolicyRegistry) {
     let proof_rail_receipt_toolchains = proof_rail_field(registry, |rail| &rail.receipt_verifier.toolchain_id);
     let proof_rail_receipt_toolchain_digests =
         proof_rail_field(registry, |rail| &rail.receipt_verifier.toolchain_digest);
+    let proof_rail_receipt_solvers = proof_rail_field(registry, |rail| &rail.receipt_verifier.solver_id);
+    let proof_rail_receipt_solver_digests = proof_rail_field(registry, |rail| &rail.receipt_verifier.solver_digest);
+    let proof_rail_verifier_modes = proof_rail_field(registry, |rail| &rail.verifier_mode);
+    let proof_rail_checked_scopes = proof_rail_field(registry, |rail| &rail.checked_scope);
+    let proof_rail_environment_allowlist = proof_rail_fields(registry, |rail| &rail.environment_allowlist);
 
     append_toml_array(toml, "proof_rail_backends", &proof_rail_backends);
     append_toml_array(toml, "proof_rail_commands", &proof_rail_commands);
+    append_toml_array(toml, "proof_rail_command_argv", &proof_rail_command_argv);
     append_toml_array(toml, "proof_rail_source_paths", &proof_rail_source_paths);
     append_toml_array(toml, "proof_rail_proof_paths", &proof_rail_proof_paths);
+    append_toml_array(toml, "proof_rail_receipt_paths", &proof_rail_receipt_paths);
     append_toml_array(toml, "proof_rail_pass_signals", &proof_rail_pass_signals);
     append_toml_array(toml, "proof_rail_trust_boundaries", &proof_rail_trust_boundaries);
     append_toml_array(toml, "proof_rail_receipt_bindings", &proof_rail_receipt_bindings);
@@ -509,6 +518,11 @@ fn append_proof_rail_config(toml: &mut String, registry: &PolicyRegistry) {
     );
     append_toml_array(toml, "proof_rail_receipt_toolchains", &proof_rail_receipt_toolchains);
     append_toml_array(toml, "proof_rail_receipt_toolchain_digests", &proof_rail_receipt_toolchain_digests);
+    append_toml_array(toml, "proof_rail_receipt_solvers", &proof_rail_receipt_solvers);
+    append_toml_array(toml, "proof_rail_receipt_solver_digests", &proof_rail_receipt_solver_digests);
+    append_toml_array(toml, "proof_rail_verifier_modes", &proof_rail_verifier_modes);
+    append_toml_array(toml, "proof_rail_checked_scopes", &proof_rail_checked_scopes);
+    append_toml_array(toml, "proof_rail_environment_allowlist", &proof_rail_environment_allowlist);
 }
 
 fn proof_rail_field(registry: &PolicyRegistry, field: impl Fn(&crate::model::ProofRail) -> &String) -> Vec<String> {

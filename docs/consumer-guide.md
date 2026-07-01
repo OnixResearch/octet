@@ -139,7 +139,32 @@ Exit codes are stable for automation:
 
 When `--artifact-dir` is set, the runner writes `command.txt`, `status.json`, `summary.txt`, `provenance.jsonl`, and the selected structured-output mirror (`results.jsonl` or `results.sarif`). JSON findings carry `stable_id`, `semantic_id`, `identity_status`, `normalized_snippet_hash`, `effect_family`, `evidence_tier`, and `cache_status`; `provenance.jsonl` records source IDs, checker IDs, evidence tiers, artifact locators, BLAKE3 content hashes, and checked scopes for the saved sidecars. `cargo octet artifact verify --artifact-dir artifacts/octet` is non-mutating and fails closed when the bundle is partial, stale, malformed, hash-mismatched, uses an unknown checker ID, uses an invalid evidence tier, or lacks required manual-review action text. `status.json`, SARIF run properties, baseline evaluations, and stderr summaries include replay metadata such as the toolchain plus config/profile hashes. Fingerprint review manifests also emit a sibling `.provenance.jsonl` sidecar, and transcript JSON output carries an `octet-transcript` provenance record. Downstream tools can compare runs without scraping ambient stderr.
 
-### 3a. Controlled deployment quick check
+### 3a. Optional formal proof rails
+
+Formal proof rails are separate from the starter lint path. Consumers can inspect
+available rails without a verifier installation:
+
+```bash
+cargo octet prove --list --policy-artifacts-dir artifacts/policy
+cargo octet prove --explain --policy-artifacts-dir artifacts/policy
+```
+
+A proof run executes only configured rail `command_argv` entries, captures
+bounded stdout/stderr artifacts, writes a structured JSON receipt per rail, and
+records `formal_proof` provenance only when the checked source/proof paths and
+receipt paths match the rail scope. Fixture rails must say
+`verifier_mode = "fixture"`; production Verus rails must say
+`verifier_mode = "production"` and pin verifier, solver, toolchain, command,
+source/proof, receipt, and trust-boundary identity in the receipt.
+
+```bash
+cargo octet prove --policy-artifacts-dir artifacts/policy --source src/verified --artifact-dir artifacts/octet
+cargo octet artifact verify --artifact-dir artifacts/octet
+```
+
+Starter `cargo octet check` usage does not require Verus.
+
+### 3b. Controlled deployment quick check
 
 Octet's controlled-deployment posture is local-first and consumer-owned:
 
@@ -155,7 +180,7 @@ writes local files. Regulated consumers should pin the Octet revision, check in
 `dylint.toml` and `[workspace.metadata.octet]`, choose a deterministic artifact
 directory, and optionally add the deny-all pre-commit gate below.
 
-### 3b. Add the deny-all pre-commit hook
+### 3c. Add the deny-all pre-commit hook
 
 Copy `templates/pre-commit-config.yaml` to the consumer workspace as
 `.pre-commit-config.yaml`, pin `rev` to a reviewed Octet release tag or commit,
@@ -198,7 +223,7 @@ for runner scope or cargo-check tail overrides, for example:
         args: ["--workspace", "--", "--all-targets"]
 ```
 
-### 3c. Plan structured migrations
+### 3d. Plan structured migrations
 
 Use the migration manifest commands when rolling out a new profile or policy set:
 
@@ -213,7 +238,7 @@ cargo octet migrate apply-safe --manifest .octet/migrations/starter.json
 only records safe-apply state and preserves manual-review buckets; code edits
 still flow through the existing machine-applicable cargo-fix rails.
 
-### 3d. Verify executable documentation transcripts
+### 3e. Verify executable documentation transcripts
 
 Markdown examples can carry fenced transcript blocks with `$ ` command lines and
 `=> ` expected-output assertions:

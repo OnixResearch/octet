@@ -240,6 +240,12 @@ pub struct ReceiptVerifier {
     /// Deterministic toolchain digest expected in proof receipts.
     #[serde(default)]
     pub toolchain_digest: String,
+    /// Solver identity expected in production Verus proof receipts.
+    #[serde(default)]
+    pub solver_id: String,
+    /// Deterministic solver digest expected in production Verus proof receipts.
+    #[serde(default)]
+    pub solver_digest: String,
 }
 
 /// Receipt provenance metadata required from verified proof receipts.
@@ -267,14 +273,20 @@ pub struct ReceiptProvenance {
 pub struct ProofRail {
     /// Proof backend identifier.
     pub backend: String,
-    /// Proof command.
+    /// Human-readable proof command kept for reports and compatibility.
     pub command: String,
+    /// Shell-free executable-plus-args command. The first element is the executable.
+    #[serde(default)]
+    pub command_argv: Vec<String>,
     /// Source files covered by this rail.
     #[serde(default)]
     pub source_paths: Vec<String>,
-    /// Proof or fixture paths.
+    /// Proof or fixture input paths covered by this rail.
     #[serde(default)]
     pub proof_paths: Vec<String>,
+    /// Persisted receipt paths accepted for this rail. Defaults to `proof_paths` for legacy rails.
+    #[serde(default)]
+    pub receipt_paths: Vec<String>,
     /// Expected success signal.
     pub pass_signal: String,
     /// Trust-boundary notes.
@@ -289,6 +301,24 @@ pub struct ProofRail {
     /// Receipt verifier/toolchain obligations required from proof receipts.
     #[serde(default)]
     pub receipt_verifier: ReceiptVerifier,
+    /// Verifier mode, usually `fixture` or `production`.
+    #[serde(default)]
+    pub verifier_mode: String,
+    /// Explicit checked-scope label used to prevent fixture evidence overclaiming.
+    #[serde(default)]
+    pub checked_scope: String,
+    /// Configured proof command timeout in milliseconds.
+    #[serde(default)]
+    pub timeout_ms: u64,
+    /// Maximum stdout bytes captured into structured receipts.
+    #[serde(default)]
+    pub stdout_max_bytes: usize,
+    /// Maximum stderr bytes captured into structured receipts.
+    #[serde(default)]
+    pub stderr_max_bytes: usize,
+    /// Additional environment variable names allowed during command execution.
+    #[serde(default)]
+    pub environment_allowlist: Vec<String>,
 }
 
 /// Seed role exported from Nickel.

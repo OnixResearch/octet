@@ -170,6 +170,8 @@ let ReceiptVerifierContract = {
   verifier_nix_closure_graph_paths | Array NonEmptyString | default = [],
   toolchain_id | String | default = "",
   toolchain_digest | String | default = "",
+  solver_id | String | default = "",
+  solver_digest | String | default = "",
 }
 in
 
@@ -236,16 +238,31 @@ let MechanismContract = {
 }
 in
 
+let ProofVerifierModeContract =
+  OneOf [
+    "",
+    "fixture",
+    "production",
+  ]
+in
 let ProofRailContract = {
   backend | NonEmptyString,
   command | NonEmptyString,
+  command_argv | Array NonEmptyString | default = [],
   source_paths | Array NonEmptyString,
   proof_paths | Array NonEmptyString,
+  receipt_paths | Array NonEmptyString | default = [],
   pass_signal | NonEmptyString,
   trust_boundaries | Array NonEmptyString,
   receipt_binding | ReceiptBindingContract | default = "none",
   receipt_provenance | ReceiptProvenanceContract | default = {},
   receipt_verifier | ReceiptVerifierContract | default = {},
+  verifier_mode | ProofVerifierModeContract | default = "",
+  checked_scope | String | default = "",
+  timeout_ms | Number | default = 0,
+  stdout_max_bytes | Number | default = 0,
+  stderr_max_bytes | Number | default = 0,
+  environment_allowlist | Array NonEmptyString | default = [],
 }
 in
 
