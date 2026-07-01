@@ -18,7 +18,7 @@ Octet treats Rust-compatible code as inert by default across APIs, effects,
 capabilities, proofs, and review surfaces; interaction happens only through
 complete, explicit interfaces.
 
-Octet currently ships 44 Dylint lints across 6 domains. The repo also owns a
+Octet currently ships 53 Dylint lints across 6 domains. The repo also owns a
 separate standards registry/checker seam for policy traceability and
 non-Dylint source-shape rules.
 
@@ -144,10 +144,10 @@ The smoke transcript lives at
 
 ## Naming map
 
-Octet is the canonical current identity. `Tiger Style` remains the source
-philosophy. `slotcar` and `tigerstyle` names are legacy compatibility surfaces
-until the migration tasks below retire or reclassify them; they are not the
-preferred product identity for new docs, commands, config, or generated output.
+Octet is the canonical current product identity. `Tiger Style` remains the
+source philosophy. Current release lint source attrs, domain groups, and emitted
+lint group metadata still use `tigerstyle::...` until the namespace migration
+lands; Octet command and config names are the preferred product surfaces.
 
 | Surface | Canonical Octet name | Legacy / compatibility classification |
 | --- | --- | --- |
@@ -159,22 +159,24 @@ preferred product identity for new docs, commands, config, or generated output.
 | lint runner command | `cargo octet check` | `cargo slotcar check` and `cargo tigerstyle check` are transition aliases |
 | standards checker binary | `octet-standards` | `slotcar-standards` / `tigerstyle-standards` are compatibility aliases |
 | standards policy commands | `octet-policy-export`, `octet-policy-validate` | old policy command names are compatibility aliases |
-| lint attrs and domain groups | `octet::<lint>` and `octet::<domain>` | `slotcar::<...>` remains source compatibility during migration |
+| lint attrs and domain groups | `tigerstyle::<lint>` and `tigerstyle::<domain>` | bare lint names remain compatibility aliases during migration |
 | workspace runner config | `[workspace.metadata.octet]` | `[workspace.metadata.slotcar]` is legacy and lower precedence |
 | lint tuning config | `[octet]` and `[octet.lint_levels]` | `[slotcar]` is legacy and lower precedence |
 | support env prefix | `OCTET_*` | `TIGERSTYLE_*` is bootstrap compatibility while Dylint wiring migrates |
 
 When both Octet and legacy config are present, Octet names win. Remaining
-`Tiger Style` references are valid only when they describe the coding philosophy,
-not the product/tool identity.
+`Tiger Style` references are valid when they describe the coding philosophy or
+the current release's live lint namespace; `settle-octet-namespace-migration`
+tracks the source-attribute namespace decision.
 
 ## Lint domains at a glance
 
 | Domain | Count | Focus |
 | --- | ---: | --- |
-| safety | 21 | panics, bounds, defaults, loops, queues, unsafe boundaries, explicit failure paths, enum evolution |
-| naming | 5 | predicate names, acronym casing, units, currency |
-| structure | 13 | function size, nesting, parameters, casts, public APIs, interface cohesion |
+| safety | 23 | panics, bounds, defaults, loops, queues, unsafe boundaries, explicit failure paths, enum evolution |
+| naming | 9 | predicate names, acronym casing, units, currency, searchable paths and imports |
+| performance | 1 | clone avoidance and ownership clarity |
+| structure | 16 | function size, nesting, parameters, casts, public APIs, interface cohesion |
 | purity | 3 | wall-clock boundaries and verified-module purity |
 | concurrency | 1 | lock ordering |
 

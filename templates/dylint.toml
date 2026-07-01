@@ -45,8 +45,8 @@
 # If the same lint appears in both places, `disabled_lints` wins and the level
 # override is ignored.
 # Keep keys here bare (`no_unwrap`), even though source attrs and group attrs in
-# Rust code currently uses source-attribute tool names like `octet::no_unwrap`
-# and `octet::safety`; keep config keys bare here.
+# Rust code currently uses source-attribute tool names like `tigerstyle::no_unwrap`
+# and `tigerstyle::safety`; keep config keys bare here.
 #
 # See `docs/downstream-rollout.md` for full smoke / boundary-first /
 # inventory-only profile examples.
@@ -57,8 +57,8 @@
 # and high-noise families disabled.
 #
 # breaking-change: justified `todo!()` stubs must migrate from `allow(no_panic)`
-# / `allow(octet::no_panic)` to `allow(no_todo)` /
-# `allow(octet::no_todo)`. `no_panic` now covers only `panic!()`,
+# / `allow(tigerstyle::no_panic)` to `allow(no_todo)` /
+# `allow(tigerstyle::no_todo)`. `no_panic` now covers only `panic!()`,
 # `unimplemented!()`, and `unreachable!()`.
 # disabled_lints = [
 #   "function_length",
