@@ -44,6 +44,10 @@ mod tests {
     use crate::model::ReceiptVerifier;
     use crate::model::Severity;
     use crate::model::SuppressionRequirements;
+    use crate::proof::PROOF_STATUS_PASSED;
+    use crate::proof::VerusLogArtifact;
+    use crate::proof::VerusProofReceiptInput;
+    use crate::proof::build_verus_proof_receipt;
     use crate::proof::check_verified_proof_rails;
     use crate::report::render_json;
     use crate::report::render_markdown;
@@ -737,10 +741,7 @@ impl Session<Authenticated> { pub fn send(self) {} }
 
     #[test]
     fn verified_module_coverage_accepts_matching_verus_receipt() {
-        let sources = vec![
-            SourceFile::new("src/verified/addition.rs", "pub fn checked_add_one(value: u64) -> u64 { value + 1 }\n"),
-            SourceFile::new("verus/proofs/addition.receipt", "proof-result: pass octet-addition-bound\n"),
-        ];
+        let sources = sample_verus_sources(PROOF_STATUS_PASSED);
         let diagnostics = check_verified_proof_rails(
             &sample_verus_registry(),
             &sources,
@@ -766,10 +767,7 @@ impl Session<Authenticated> { pub fn send(self) {} }
 
     #[test]
     fn verified_module_coverage_rejects_matching_verus_receipt_without_pass_signal() {
-        let sources = vec![
-            SourceFile::new("src/verified/addition.rs", "pub fn checked_add_one(value: u64) -> u64 { value + 1 }\n"),
-            SourceFile::new("verus/proofs/addition.receipt", "proof-result: fail octet-addition-bound\n"),
-        ];
+        let sources = sample_verus_sources(crate::proof::PROOF_STATUS_FAILED);
         let diagnostics = check_verified_proof_rails(
             &sample_verus_registry(),
             &sources,
@@ -778,7 +776,7 @@ impl Session<Authenticated> { pub fn send(self) {} }
 
         assert_eq!(diagnostics.len(), 1);
         assert_eq!(diagnostics[0].policy_id, "octet.verus_proof_rails.addition-bound");
-        assert!(diagnostics[0].message.contains("missing pass signal"));
+        assert!(diagnostics[0].message.contains("field `status`"));
     }
 
     #[test]
@@ -1111,13 +1109,15 @@ impl Session<Authenticated> { pub fn send(self) {} }
             proof_rails: vec![ProofRail {
                 backend: "local-receipt".to_owned(),
                 command: "cargo test proof_rail".to_owned(),
-                source_paths: vec!["standards/check-fixtures/verification/".to_owned()],
-                proof_paths: vec!["proof-receipt.txt".to_owned()],
+                command_argv: vec!["cargo".to_owned(), "test".to_owned(), "proof_rail".to_owned()],
+                source_paths: vec!["standards/check-fixtures/verification/*/src/lib.rs".to_owned()],
+                proof_paths: vec!["standards/check-fixtures/verification/*/proof-receipt.txt".to_owned()],
                 pass_signal: "proof-result: pass deterministic-effect-handlers".to_owned(),
                 trust_boundaries: vec!["fixture receipt only".to_owned()],
                 receipt_binding: "none".to_owned(),
                 receipt_provenance: ReceiptProvenance::default(),
                 receipt_verifier: ReceiptVerifier::default(),
+                ..ProofRail::default()
             }],
             ..sample_policy(
                 VERIFIED_POLICY_ID,
@@ -1137,20 +1137,89 @@ impl Session<Authenticated> { pub fn send(self) {} }
         }
     }
 
+    fn sample_verus_sources(status: &str) -> Vec<SourceFile> {
+        let registry = sample_verus_registry();
+        let rail = &registry.policies[0].proof_rails[0];
+        let sources = vec![SourceFile::new(
+            "src/verified/addition.rs",
+            "pub fn checked_add_one(value: u64) -> u64 { value + 1 }\n",
+        )];
+        let proof_sources = vec![SourceFile::new(
+            "verus/proofs/addition_bound.rs",
+            "verus! { proof fn addition_bound() ensures true {} }\n",
+        )];
+        let receipt = build_verus_proof_receipt(&VerusProofReceiptInput {
+            policy_id: "octet.verus_proof_rails.addition-bound",
+            rail_index: 0,
+            rail,
+            sources: &sources,
+            proof_sources: &proof_sources,
+            checked_scope: "formal-proof:fixture-only:octet.verus_proof_rails.addition-bound#rail-0",
+            status,
+            command_blake3: "fixture-command-digest",
+            proof_artifact_identity: "verus/proofs/addition.receipt",
+            stdout_artifact: sample_log_artifact(
+                "verus/proofs/addition.stdout",
+                "proof-result: pass octet-addition-bound",
+            ),
+            stderr_artifact: sample_log_artifact("verus/proofs/addition.stderr", ""),
+        })
+        .expect("fixture receipt");
+        let receipt_text = serde_json::to_string_pretty(&receipt).expect("receipt json");
+        sources
+            .into_iter()
+            .chain(proof_sources)
+            .chain([SourceFile::new("verus/proofs/addition.receipt", receipt_text)])
+            .collect()
+    }
+
+    fn sample_log_artifact(locator: &str, text: &str) -> VerusLogArtifact {
+        VerusLogArtifact {
+            locator: locator.to_owned(),
+            blake3: blake3::hash(text.as_bytes()).to_hex().to_string(),
+            bytes: text.len(),
+            truncated: false,
+        }
+    }
+
     fn sample_verus_policy() -> PolicyEntry {
         PolicyEntry {
             current_enforcement_mode: EnforcementMode::Verified,
             target_enforcement_mode: EnforcementMode::Verified,
             proof_rails: vec![ProofRail {
                 backend: "verus".to_owned(),
-                command: "octet-verus verus/proofs/addition.rs".to_owned(),
+                command: "octet-verus verus/proofs/addition_bound.rs".to_owned(),
+                command_argv: vec!["octet-verus".to_owned(), "verus/proofs/addition_bound.rs".to_owned()],
                 source_paths: vec!["src/verified/addition.rs".to_owned()],
-                proof_paths: vec!["verus/proofs/addition.receipt".to_owned()],
+                proof_paths: vec!["verus/proofs/addition_bound.rs".to_owned()],
+                receipt_paths: vec!["verus/proofs/addition.receipt".to_owned()],
                 pass_signal: "proof-result: pass octet-addition-bound".to_owned(),
                 trust_boundaries: vec!["fixture-scoped Verus proof rail".to_owned()],
-                receipt_binding: "none".to_owned(),
-                receipt_provenance: ReceiptProvenance::default(),
-                receipt_verifier: ReceiptVerifier::default(),
+                receipt_binding: "blake3-command-and-source".to_owned(),
+                receipt_provenance: ReceiptProvenance {
+                    schema_version: crate::proof::VERUS_PROOF_RECEIPT_SCHEMA_VERSION.to_owned(),
+                    runner: "octet-standards".to_owned(),
+                    environment: "cargo-octet-prove".to_owned(),
+                    requires_backend: true,
+                    requires_trust_boundary: true,
+                },
+                receipt_verifier: ReceiptVerifier {
+                    verifier_id: "octet-verus@fixture-v1".to_owned(),
+                    verifier_digest: "fixture-digest".to_owned(),
+                    verifier_binary_path: "octet-verus".to_owned(),
+                    verifier_binary_digest: "fixture-binary-digest".to_owned(),
+                    verifier_nix_closure: "fixture-closure".to_owned(),
+                    verifier_nix_closure_digest: "fixture-closure-digest".to_owned(),
+                    toolchain_id: "verus-fixture-wrapper/v1".to_owned(),
+                    toolchain_digest: "fixture-toolchain-digest".to_owned(),
+                    ..ReceiptVerifier::default()
+                },
+                verifier_mode: crate::proof::VERIFIER_MODE_FIXTURE.to_owned(),
+                checked_scope: "formal-proof:fixture-only:octet.verus_proof_rails.addition-bound#rail-0".to_owned(),
+                timeout_ms: 1_000,
+                stdout_max_bytes: 1_000,
+                stderr_max_bytes: 1_000,
+                environment_allowlist: vec!["PATH".to_owned()],
             }],
             ..sample_policy(
                 "octet.verus_proof_rails.addition-bound",

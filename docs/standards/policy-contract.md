@@ -38,48 +38,32 @@ evidence.
   policy artifacts.
 - Bounded-primitive mechanisms export forbidden unbounded APIs, approved bounded
   constructors/wrappers, capacity witnesses, and backpressure/overflow witnesses.
-- Policies that target `verified` MUST export a proof rail with command, source
-  mapping, proof artifact path, pass signal, trust-boundary accounting, a
-  receipt-binding mode, and receipt provenance obligations. Verification-family
-  checks treat source mappings and proof artifact pass signals as hard artifact
-  obligations: by default, a selected verified policy fails unless the declared
-  source and proof files are present in the checked source tree and the proof
-  artifact contains the exact configured pass signal. Rails with
-  `receipt_binding = "blake3-command-and-source"` also require
-  `proof-command-blake3: <hex>` and `proof-source-blake3: <path>:<hex>` receipt
-  lines matching the configured command and checked source contents. Rails with
-  `receipt_provenance` configured also require matching `proof-receipt-schema:`,
-  `proof-backend:`, `proof-runner:`, `proof-environment:`, and configured
-  `trust-boundary:` lines. Rails with `receipt_verifier` configured also require
-  exact verifier/toolchain accounting lines:
-  `proof-verifier: <id>`, `proof-verifier-blake3: <hex>`,
-  `proof-verifier-binary: <path-or-label>`,
-  `proof-verifier-binary-blake3: <hex>`,
-  `proof-verifier-build-closure: <id>`,
-  `proof-verifier-build-closure-blake3: <hex>`,
-  `proof-verifier-nix-derivation: <drv-id>`,
-  `proof-verifier-nix-derivation-blake3: <hex>`,
-  `proof-verifier-nix-closure: <closure-id>`,
-  `proof-verifier-nix-closure-blake3: <hex>`,
-  `proof-verifier-nix-closure-graph-blake3: <hex>`, `proof-toolchain: <id>`, and
-  `proof-toolchain-blake3: <hex>`. If `verifier_build_closure_paths` or
-  `verifier_nix_closure_paths` are configured, the corresponding digest is
-  derived from checked manifest file contents instead of trusting ambient build
-  state. If `verifier_nix_closure_graph_paths` are configured, the graph digest
-  is derived from canonicalized generated Nix `exportReferencesGraph` artifacts
-  so fixture receipts bind to recursive closure graph evidence, not just a
-  declared closure label. A local Nix package exports the `octet-standards`
-  references graph and digest sidecar so fixture Nix closure receipts have a
-  first-class regeneration seam. When
-  `octet-standards check --execute-proof-rails` is enabled, the checker runs
-  each relevant declared proof command from the checked source root, captures
-  deterministic provenance, verifier/toolchain, verifier-binary, build-closure,
-  and Nix derivation/closure metadata, command/source BLAKE3 bindings, command,
-  working directory, exit status, stdout, and stderr as an in-memory proof
-  receipt at the configured proof path, and then applies the same
-  pass-signal, binding, provenance, verifier/toolchain, binary, and closure gates. Command
-  execution is explicit opt-in; read-only receipt checking remains the default
-  for consumer safety.
+- Policies that target `verified` MUST export a proof rail with a command argv,
+  exact or globbed source/proof/receipt path mappings, pass signal,
+  trust-boundary accounting, verifier mode, receipt-binding mode, and receipt
+  provenance obligations. Verification-family checks treat source mappings,
+  proof artifact pass signals, and receipt paths as hard artifact obligations:
+  by default, a selected verified policy fails unless the declared source, proof,
+  and receipt files are present in the checked source tree and the proof artifact
+  contains the exact configured pass signal. Rails with
+  `receipt_binding = "blake3-command-and-source"` also require command and source
+  BLAKE3 bindings matching the configured argv and checked source contents.
+  Rails with `receipt_provenance` configured also require matching
+  `proof-receipt-schema`, `proof-backend`, `proof-runner`, `proof-environment`,
+  and configured `trust-boundary` entries. Rails with `receipt_verifier`
+  configured also require exact verifier/toolchain accounting for verifier,
+  solver, binary, build closure, Nix derivation, Nix closure, Nix closure graph,
+  and toolchain identity. Fixture rails MUST mark `verifier_mode = "fixture"`;
+  production Verus rails MUST mark `verifier_mode = "production"` and pin real
+  verifier, solver, and toolchain identity. If verifier build-closure, Nix
+  closure, or Nix closure graph paths are configured, the corresponding digest is
+  derived from checked manifest or graph file contents instead of trusting
+  ambient build state. `cargo octet prove` executes only configured rail argv,
+  captures bounded stdout/stderr artifacts, writes structured JSON receipts at
+  configured receipt paths, and then emits `formal_proof` provenance only after
+  the same pass-signal, binding, provenance, verifier/toolchain, binary, and
+  closure gates pass. Command execution is explicit opt-in; read-only receipt
+  checking remains the default for consumer safety.
 - Proof-relevant seed manifests MUST remain untrusted until a local acceptance
   command or human/oracle review records provenance and re-verification.
 - Advisory and human-process-only policies stay visible without pretending static

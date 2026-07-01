@@ -86,12 +86,18 @@ nix run .#octet-policy-validate
 nix run .#octet-standards -- --help
 ```
 
-Formal proof rails are opt-in. `cargo octet prove` runs selected standards proof
-rails, writes receipts under an artifact directory, and emits `formal_proof`
-provenance only for scoped receipts with verifier and proof artifact identity.
-Starter `cargo octet check` usage does not require Verus.
+Formal proof rails are opt-in. `cargo octet prove` lists or runs selected
+standards proof rails, writes structured verifier receipts under an artifact
+directory, and emits `formal_proof` provenance only for scoped receipts with
+verifier, solver/toolchain, command argv, source/proof path, receipt path, and
+bounded log identity. Starter `cargo octet check` usage does not require Verus.
+The built-in `octet-verus` rail is a fixture verifier for plumbing tests; a
+production Verus rail must mark `verifier_mode = "production"` and pin the real
+verifier/solver/toolchain identity in its receipt.
 
 ```bash
+cargo octet prove --list --policy-artifacts-dir artifacts/policy
+cargo octet prove --explain --policy-artifacts-dir artifacts/policy
 cargo octet prove --policy-artifacts-dir artifacts/policy --source src/verified --artifact-dir artifacts/octet
 cargo octet artifact verify --artifact-dir artifacts/octet
 ```

@@ -339,7 +339,7 @@ fn exported_proof_bundle_preserves_verified_rail_schema() {
     assert_eq!(value["proof_bundles"][0]["proof_rail"]["receipt_binding"], "blake3-command-and-source");
     assert_eq!(
         value["proof_bundles"][0]["proof_rail"]["receipt_verifier"]["verifier_nix_closure_graph_paths"][0],
-        "proof-nix-closure.graph"
+        "*/proof-nix-closure.graph"
     );
 }
 
@@ -945,7 +945,12 @@ fn run_architecture_artifact_check(policy_artifacts_dir: &Path, source: &Path) -
 }
 
 fn assert_success(output: &Output) {
-    assert!(output.status.success(), "expected success, stderr was: {}", String::from_utf8_lossy(&output.stderr));
+    assert!(
+        output.status.success(),
+        "expected success, stdout was: {}\nstderr was: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
 }
 
 fn assert_failure(output: &Output) {
@@ -1059,8 +1064,10 @@ fn verified_policy(current: EnforcementMode, target: EnforcementMode) -> PolicyE
         proof_rails: vec![ProofRail {
             backend: "local-command-receipt".to_owned(),
             command: "bash proof-command.sh".to_owned(),
-            source_paths: vec!["src/lib.rs".to_owned()],
+            command_argv: vec!["bash".to_owned(), "proof-command.sh".to_owned()],
+            source_paths: vec!["*/src/lib.rs".to_owned()],
             proof_paths: vec!["proof-receipt.txt".to_owned()],
+            receipt_paths: vec!["*/proof-receipt.txt".to_owned()],
             pass_signal: "proof-result: pass deterministic-effect-handlers".to_owned(),
             trust_boundaries: vec!["test command receipt".to_owned()],
             receipt_binding: "blake3-command-and-source".to_owned(),
@@ -1078,17 +1085,20 @@ fn verified_policy(current: EnforcementMode, target: EnforcementMode) -> PolicyE
                 verifier_binary_digest: blake3_file_hex(binary_path()),
                 verifier_build_closure: "nix-octet-standards-build-closure/v1".to_owned(),
                 verifier_build_closure_digest: "fixture-build-closure-digest".to_owned(),
-                verifier_build_closure_paths: vec!["proof-build-closure.txt".to_owned()],
+                verifier_build_closure_paths: vec!["*/proof-build-closure.txt".to_owned()],
                 verifier_nix_derivation: "octet-standards.drv".to_owned(),
                 verifier_nix_derivation_digest: blake3_hex("octet-standards.drv"),
                 verifier_nix_closure: "nix-store-recursive-closure/v1".to_owned(),
                 verifier_nix_closure_digest: "fixture-nix-closure-digest".to_owned(),
-                verifier_nix_closure_paths: vec!["proof-nix-closure.txt".to_owned()],
+                verifier_nix_closure_paths: vec!["*/proof-nix-closure.txt".to_owned()],
                 verifier_nix_closure_graph_digest: nix_closure_graph_digest_line(Path::new("proof-nix-closure.graph")),
-                verifier_nix_closure_graph_paths: vec!["proof-nix-closure.graph".to_owned()],
+                verifier_nix_closure_graph_paths: vec!["*/proof-nix-closure.graph".to_owned()],
                 toolchain_id: "rust-toolchain.toml".to_owned(),
                 toolchain_digest: "50692525e10589e3a1060a0ed0adc77f695ad5617121b572e549ef9855ceb7a8".to_owned(),
+                solver_id: String::new(),
+                solver_digest: String::new(),
             },
+            ..ProofRail::default()
         }],
         checker_owner: VERIFICATION_FAMILY.to_owned(),
         checker_id: CHECKER_ID.to_owned(),

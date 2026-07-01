@@ -450,9 +450,14 @@
             pass_signal="proof-result: pass octet-addition-bound"
 
             if [ "''${1:-}" = "--identity" ]; then
+              printf 'proof-verifier-mode: fixture\n'
               printf 'proof-verifier: %s\n' "$identity"
               printf 'proof-verifier-blake3: %s\n' "$digest"
+              printf 'proof-verifier-binary: octet-verus\n'
+              printf 'proof-verifier-binary-blake3: %s\n' "$digest"
               printf 'proof-toolchain: verus-fixture-wrapper/v1\n'
+              printf 'proof-toolchain-blake3: %s\n' "$digest"
+              printf 'trust-boundary: fixture verifier validates proof plumbing only\n'
               exit 0
             fi
 
@@ -623,6 +628,14 @@ MAIN
           '';
         };
 
+        proofRailManifestExport = pkgs.writeShellApplication {
+          name = "octet-proof-rail-manifest-export";
+          runtimeInputs = with pkgs; [ nickel ];
+          text = ''
+            exec nickel export --format json standards/proof-rails/manifest.ncl
+          '';
+        };
+
         policyArtifacts = pkgs.writeShellApplication {
           name = "octet-policy-artifacts";
           runtimeInputs = with pkgs; [ nickel octetStandards ];
@@ -736,6 +749,31 @@ MAIN
           touch "$out"
         '';
 
+        proofRailManifestCheck = pkgs.runCommand "octet-proof-rail-manifest-check"
+          {
+            nativeBuildInputs = with pkgs; [ jq nickel ];
+          } ''
+          cd ${./.}
+          manifest_json=$(mktemp)
+          nickel export --format json standards/proof-rails/manifest.ncl > "$manifest_json"
+          jq --exit-status '.schema_version == "octet-proof-rail-manifest/v1"' "$manifest_json" >/dev/null
+          jq --exit-status '.rails.addition_bound.command_argv[0] == "octet-verus"' "$manifest_json" >/dev/null
+          jq --exit-status '.rails.addition_bound.verifier_mode == "fixture"' "$manifest_json" >/dev/null
+          jq --exit-status '.rails.addition_bound.receipt_paths | length > 0' "$manifest_json" >/dev/null
+
+          for file in standards/proof-rails/fixtures/valid/*.ncl; do
+            nickel export --format json "$file" >/dev/null
+          done
+          for file in standards/proof-rails/fixtures/invalid/*.ncl; do
+            if nickel export --format json "$file" >/dev/null 2>&1; then
+              echo "invalid proof-rail manifest fixture passed: $file" >&2
+              exit 1
+            fi
+          done
+
+          touch "$out"
+        '';
+
         standardsFixtureCheck = pkgs.runCommand "octet-standards-fixtures"
           {
             nativeBuildInputs = with pkgs; [ jq nickel octetStandards ];
@@ -784,6 +822,12 @@ MAIN
           grep --fixed-strings "local-command-receipt" "$artifact_dir/octet-check-config.toml" >/dev/null
           grep --fixed-strings "proof_rail_commands" "$artifact_dir/octet-check-config.toml" >/dev/null
           grep --fixed-strings "bash proof-command.sh" "$artifact_dir/octet-check-config.toml" >/dev/null
+          grep --fixed-strings "proof_rail_command_argv" "$artifact_dir/octet-check-config.toml" >/dev/null
+          grep --fixed-strings "octet-verus" "$artifact_dir/octet-check-config.toml" >/dev/null
+          grep --fixed-strings "proof_rail_receipt_paths" "$artifact_dir/octet-check-config.toml" >/dev/null
+          grep --fixed-strings "proofs/octet.verus_proof_rails.addition-bound-rail-0.receipt" "$artifact_dir/octet-check-config.toml" >/dev/null
+          grep --fixed-strings "proof_rail_verifier_modes" "$artifact_dir/octet-check-config.toml" >/dev/null
+          grep --fixed-strings "fixture" "$artifact_dir/octet-check-config.toml" >/dev/null
           grep --fixed-strings "proof_rail_pass_signals" "$artifact_dir/octet-check-config.toml" >/dev/null
           grep --fixed-strings "proof-result: pass deterministic-effect-handlers" "$artifact_dir/octet-check-config.toml" >/dev/null
           grep --fixed-strings "proof_rail_receipt_bindings" "$artifact_dir/octet-check-config.toml" >/dev/null
@@ -1000,6 +1044,7 @@ MAIN
           slotcar-standards-nix-closure-manifest = octetStandardsNixClosureManifest;
           octet-policy-export = policyExport;
           tigerstyle-policy-export = policyExport;
+          octet-proof-rail-manifest-export = proofRailManifestExport;
           octet-policy-artifacts = policyArtifacts;
           tigerstyle-policy-artifacts = policyArtifacts;
           octet-policy-validate = policyValidate;
@@ -1054,6 +1099,11 @@ MAIN
           tigerstyle-policy-export = flake-utils.lib.mkApp {
             drv = policyExport;
             exePath = "/bin/octet-policy-export";
+          };
+
+          octet-proof-rail-manifest-export = flake-utils.lib.mkApp {
+            drv = proofRailManifestExport;
+            exePath = "/bin/octet-proof-rail-manifest-export";
           };
 
           octet-policy-artifacts = flake-utils.lib.mkApp {
@@ -1457,6 +1507,7 @@ MAIN
           };
 
           policy-registry = policyRegistryCheck;
+          proof-rail-manifest = proofRailManifestCheck;
           standards-fixtures = standardsFixtureCheck;
           octet-standards-nix-closure-manifest = pkgs.runCommand "octet-standards-nix-closure-manifest-check" { } ''
             test -s ${octetStandardsNixClosureManifest}/proof-nix-closure.txt

@@ -43,6 +43,7 @@ use octet_standards::fixture::validate_hard_policy_fixture_coverage;
 use octet_standards::model::FamilySelection;
 use octet_standards::model::PolicyRegistry;
 use octet_standards::model::Severity;
+use octet_standards::proof::matching_sources;
 use octet_standards::receipt::AcceptanceReceipt;
 use octet_standards::receipt::AcceptanceStatus;
 use octet_standards::receipt::ExportReceiptInput;
@@ -767,10 +768,8 @@ fn policy_is_verified(policy: &octet_standards::model::PolicyEntry) -> bool {
 }
 
 fn proof_rail_is_relevant(rail: &octet_standards::model::ProofRail, sources: &[SourceFile]) -> bool {
-    rail.source_paths
-        .iter()
-        .chain(&rail.proof_paths)
-        .any(|pattern| sources.iter().any(|source| source.path.contains(pattern)))
+    !matching_sources(&rail.source_paths, sources).is_empty()
+        || !matching_sources(&rail.proof_paths, sources).is_empty()
 }
 
 fn execute_proof_rail(
@@ -779,7 +778,7 @@ fn execute_proof_rail(
     source_paths: &[PathBuf],
 ) -> SourceFile {
     let working_dir = proof_command_working_dir(source_paths);
-    let output = ProcessCommand::new("sh").arg("-c").arg(&rail.command).current_dir(&working_dir).output();
+    let output = execute_proof_command_argv(rail, &working_dir);
     let receipt = proof_command_receipt(rail, sources, &working_dir, output);
     let receipt_path = working_dir.join(first_proof_path(rail));
     SourceFile::new(receipt_path.display().to_string(), receipt)
@@ -800,6 +799,22 @@ fn proof_command_working_dir(source_paths: &[PathBuf]) -> PathBuf {
 
 fn first_proof_path(rail: &octet_standards::model::ProofRail) -> &str {
     rail.proof_paths.first().map_or("proof-receipt.txt", String::as_str)
+}
+
+fn execute_proof_command_argv(
+    rail: &octet_standards::model::ProofRail,
+    working_dir: &Path,
+) -> Result<std::process::Output, io::Error> {
+    let Some(executable) = rail.command_argv.first() else {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "proof rail field `command_argv` is required; shell command strings are not executed",
+        ));
+    };
+    ProcessCommand::new(executable)
+        .args(rail.command_argv.iter().skip(1))
+        .current_dir(working_dir)
+        .output()
 }
 
 fn proof_command_receipt(
@@ -927,10 +942,7 @@ fn build_closure_digest(paths: &[String], sources: &[SourceFile]) -> Option<Stri
     if paths.is_empty() {
         return None;
     }
-    let mut matched_sources = sources
-        .iter()
-        .filter(|source| paths.iter().any(|pattern| source.path.contains(pattern)))
-        .collect::<Vec<_>>();
+    let mut matched_sources = matching_sources(paths, sources);
     if matched_sources.is_empty() {
         return None;
     }
@@ -946,10 +958,7 @@ fn nix_closure_graph_digest(paths: &[String], sources: &[SourceFile]) -> Option<
     if paths.is_empty() {
         return None;
     }
-    let mut matched_sources = sources
-        .iter()
-        .filter(|source| paths.iter().any(|pattern| source.path.contains(pattern)))
-        .collect::<Vec<_>>();
+    let mut matched_sources = matching_sources(paths, sources);
     if matched_sources.is_empty() {
         return None;
     }
@@ -1017,10 +1026,7 @@ fn proof_receipt_binding(rail: &octet_standards::model::ProofRail, sources: &[So
         return String::new();
     }
     let mut lines = vec![format!("proof-command-blake3: {}", blake3_hex(&rail.command))];
-    let mut matched_sources = sources
-        .iter()
-        .filter(|source| rail.source_paths.iter().any(|pattern| source.path.contains(pattern)))
-        .collect::<Vec<_>>();
+    let mut matched_sources = matching_sources(&rail.source_paths, sources);
     matched_sources.sort_by(|left, right| left.path.cmp(&right.path));
     lines.extend(
         matched_sources

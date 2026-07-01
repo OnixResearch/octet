@@ -1,4 +1,5 @@
 let contracts = import "contracts.ncl" in
+let proof_rail_manifest = import "../proof-rails/manifest.ncl" in
 let PolicyRegistry = contracts.PolicyRegistry in
 let PolicyRegistryRules = contracts.PolicyRegistryRules in
 
@@ -183,13 +184,30 @@ in
     {
       family_id = "octet.verus-proof-receipt",
       ownership = "rust-derived",
-      owner_source_path = "cargo-octet/src/prove.rs",
-      artifact_path = "artifacts/octet/proofs/*.receipt",
-      generation_command = "nix develop -c cargo test -p cargo-octet prove::tests::prove_writes_valid_formal_proof_artifact_bundle",
-      validation_command = "nix develop -c cargo test -p cargo-octet prove::tests::prove_fails_without_pass_signal_and_does_not_emit_formal_proof",
+      owner_source_path = "crates/octet-standards/src/proof.rs",
+      artifact_path = "standards/proof-rails/contracts/verus-proof-receipt.generated.ncl",
+      generation_command = "nix develop -c cargo test -p octet-standards proof::tests::verus_proof_receipt_contract_is_fresh",
+      validation_command = "nix develop -c cargo test -p octet-standards proof::tests::structured_verus_receipt_rejects_malformed_json",
       status = "existing",
-      positive_fixtures = ["cargo-octet/src/prove.rs::prove_writes_valid_formal_proof_artifact_bundle"],
-      negative_fixtures = ["cargo-octet/src/prove.rs::prove_fails_without_pass_signal_and_does_not_emit_formal_proof"],
+      positive_fixtures = ["crates/octet-standards/src/proof.rs::structured_verus_receipt_accepts_matching_fields"],
+      negative_fixtures = ["crates/octet-standards/src/proof.rs::structured_verus_receipt_rejects_malformed_json"],
+    },
+    {
+      family_id = "octet.verus-proof-rail-manifest",
+      ownership = "nickel-authored",
+      owner_source_path = "standards/proof-rails/manifest.ncl",
+      artifact_path = "octet-verus-proof-rails.json",
+      generation_command = "nix run .#octet-proof-rail-manifest-export",
+      validation_command = "nix build .#checks.x86_64-linux.proof-rail-manifest --no-link -L",
+      status = "existing",
+      config_digest_required = true,
+      positive_fixtures = ["standards/proof-rails/fixtures/valid/addition_bound.ncl"],
+      negative_fixtures = [
+        "standards/proof-rails/fixtures/invalid/missing_verifier_identity.ncl",
+        "standards/proof-rails/fixtures/invalid/invalid_backend.ncl",
+        "standards/proof-rails/fixtures/invalid/empty_source_paths.ncl",
+        "standards/proof-rails/fixtures/invalid/malformed_trust_boundaries.ncl",
+      ],
     },
     {
       family_id = "octet.verus-verifier-identity",
@@ -1335,8 +1353,9 @@ in
       proof_rails = [{
         backend = "local-command-receipt",
         command = "bash proof-command.sh",
-        source_paths = ["src/lib.rs"],
-        proof_paths = ["proof-receipt.txt"],
+        command_argv = ["bash", "proof-command.sh"],
+        source_paths = ["standards/check-fixtures/verification/*/src/lib.rs"],
+        proof_paths = ["standards/check-fixtures/verification/*/proof-receipt.txt"],
         pass_signal = "proof-result: pass deterministic-effect-handlers",
         trust_boundaries = ["opt-in command execution proves local fixture proof command evidence shape, not arbitrary downstream semantic correctness"],
         receipt_binding = "blake3-command-and-source",
@@ -1384,30 +1403,7 @@ in
       current_enforcement_mode = "verified",
       target_enforcement_mode = "verified",
       escalation_criteria = "formal_proof evidence requires a persisted receipt with pass signal, source binding, verifier identity, proof artifact identity, and scoped non-claim wording",
-      proof_rails = [{
-        backend = "verus",
-        command = "octet-verus verus/proofs/addition_bound.rs",
-        source_paths = ["src/verified/addition.rs"],
-        proof_paths = ["verus/proofs/addition_bound.receipt", "proofs/octet.verus_proof_rails.addition-bound-rail-0.receipt"],
-        pass_signal = "proof-result: pass octet-addition-bound",
-        trust_boundaries = ["fixture-scoped proof rail validates Octet proof plumbing and the declared addition-bound property only; it does not prove whole-program correctness"],
-        receipt_binding = "blake3-command-and-source",
-        receipt_provenance = {
-          schema_version = "octet-verus-proof-receipt/v1",
-          runner = "octet-standards",
-          environment = "cargo-octet-prove",
-          requires_backend = true,
-          requires_trust_boundary = true,
-        },
-        receipt_verifier = {
-          verifier_id = "octet-verus@fixture-v1",
-          verifier_digest = "9f5a7f8c9e1d2c3b4a59687766554433221100ffeeddccbbaa99887766554433",
-          verifier_binary_path = "octet-verus",
-          verifier_binary_digest = "9f5a7f8c9e1d2c3b4a59687766554433221100ffeeddccbbaa99887766554433",
-          toolchain_id = "verus-fixture-wrapper/v1",
-          toolchain_digest = "9f5a7f8c9e1d2c3b4a59687766554433221100ffeeddccbbaa99887766554433",
-        },
-      }],
+      proof_rails = [proof_rail_manifest.rails.addition_bound],
       checker_owner = "verification",
       checker_id = "octet-standards",
       default_severity = "error",
