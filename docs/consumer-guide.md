@@ -156,12 +156,13 @@ receipt paths match the rail scope. Fixture rails must say
 `verifier_mode = "fixture"`; production Verus rails must say
 `verifier_mode = "production"` and pin verifier, solver, toolchain, Nix closure,
 command, source/proof, receipt, and trust-boundary identity in the receipt.
-Octet's built-in production pilot is intentionally tiny and runs
-`octet-production-verus` only when a selected proof rail matches the requested
-source scope. The repository also has an opt-in invalid production fixture that
-runs only from its failure-fixture source selector; it demonstrates non-zero
-Verus rejection, `verifier-failure` diagnostics, bounded receipt/log identities,
-and no `formal_proof` provenance.
+Octet's built-in production pilots are intentionally tiny and run
+`octet-production-verus` only when selected proof rails match the requested
+source scope. Each pilot has its own source path, proof path, receipt path,
+checked scope, and property-specific non-claim wording. The repository also has
+an opt-in invalid production fixture that runs only from its failure-fixture
+source selector; it demonstrates non-zero Verus rejection, `verifier-failure`
+diagnostics, bounded receipt/log identities, and no `formal_proof` provenance.
 
 ```bash
 cargo octet prove --policy-artifacts-dir artifacts/policy --source src/verified --artifact-dir artifacts/octet
