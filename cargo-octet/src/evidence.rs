@@ -39,6 +39,7 @@ pub enum EvidenceTier {
 }
 
 impl EvidenceTier {
+    #[must_use]
     pub fn as_str(self) -> &'static str {
         match self {
             Self::StaticLint => "static_lint",
@@ -84,14 +85,17 @@ struct ProvenanceProducer {
     allows_formal_proof: bool,
 }
 
+#[must_use]
 pub fn artifact_blake3_hex(bytes: &[u8]) -> String {
     blake3::hash(bytes).to_hex().to_string()
 }
 
+#[must_use]
 pub fn known_provenance_checker_ids() -> BTreeSet<String> {
     provenance_producers().iter().map(|producer| producer.checker_id.to_owned()).collect()
 }
 
+#[must_use]
 pub fn validate_provenance_chain(
     records: &[ProvenanceRecord],
     expected_artifact_hashes: &BTreeMap<String, String>,
@@ -227,6 +231,7 @@ fn parent_cycle_diagnostics(mut graph: BTreeMap<String, BTreeSet<String>>) -> Ve
         .unwrap_or_default()
 }
 
+#[must_use]
 pub fn validate_provenance_record(record: &ProvenanceRecord, input: &ProvenanceValidationInput<'_>) -> Vec<String> {
     let mut diagnostics = Vec::new();
 

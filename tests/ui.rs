@@ -100,8 +100,19 @@ fn fixture_dependency_names(manifest_path: &Path) -> Vec<String> {
         .unwrap_or_default()
 }
 
+const RMETA_ARTIFACT_RANK: u8 = 0;
+const RLIB_ARTIFACT_RANK: u8 = 1;
+const DYNAMIC_LIBRARY_ARTIFACT_RANK: u8 = 2;
+
+fn path_extension_matches(path: &Path, extension: &str) -> bool {
+    path.extension()
+        .and_then(|candidate| candidate.to_str())
+        .is_some_and(|candidate| candidate.eq_ignore_ascii_case(extension))
+}
+
 fn extern_artifact_path(deps_dir: &Path, crate_name: &str) -> PathBuf {
     let prefix = format!("{}{}-", std::env::consts::DLL_PREFIX, crate_name);
+    let dynamic_library_extension = std::env::consts::DLL_SUFFIX.trim_start_matches('.');
     let mut candidates = fs::read_dir(deps_dir)
         .unwrap_or_else(|error| panic!("read dependency dir {}: {error}", deps_dir.display()))
         .filter_map(Result::ok)
@@ -112,12 +123,12 @@ fn extern_artifact_path(deps_dir: &Path, crate_name: &str) -> PathBuf {
                 return None;
             }
 
-            let rank = if file_name.ends_with(".rmeta") {
-                0
-            } else if file_name.ends_with(".rlib") {
-                1
-            } else if file_name.ends_with(std::env::consts::DLL_SUFFIX) {
-                2
+            let rank = if path_extension_matches(&path, "rmeta") {
+                RMETA_ARTIFACT_RANK
+            } else if path_extension_matches(&path, "rlib") {
+                RLIB_ARTIFACT_RANK
+            } else if path_extension_matches(&path, dynamic_library_extension) {
+                DYNAMIC_LIBRARY_ARTIFACT_RANK
             } else {
                 return None;
             };
@@ -130,11 +141,10 @@ fn extern_artifact_path(deps_dir: &Path, crate_name: &str) -> PathBuf {
         left_rank.cmp(right_rank).then_with(|| left_path.file_name().cmp(&right_path.file_name()))
     });
 
-    candidates
-        .into_iter()
-        .next()
-        .map(|(_, path)| path)
-        .unwrap_or_else(|| panic!("missing extern artifact for crate `{crate_name}` under {}", deps_dir.display()))
+    candidates.into_iter().next().map_or_else(
+        || panic!("missing extern artifact for crate `{crate_name}` under {}", deps_dir.display()),
+        |(_, path)| path,
+    )
 }
 
 fn build_fixture_support(toolchain: &str, manifest_path: &Path, dependency_names: &[String]) -> FixtureSupport {
@@ -194,8 +204,7 @@ fn build_library(toolchain: &str) -> PathBuf {
     assert!(status.success(), "cargo build --lib failed for UI tests");
 
     let target_dir = env::var_os("CARGO_TARGET_DIR")
-        .map(PathBuf::from)
-        .unwrap_or_else(|| Path::new(env!("CARGO_MANIFEST_DIR")).join("target"));
+        .map_or_else(|| Path::new(env!("CARGO_MANIFEST_DIR")).join("target"), PathBuf::from);
     let debug_dir = target_dir.join("debug");
     let lib_name = env!("CARGO_PKG_NAME").replace('-', "_");
     let plain = debug_dir.join(format!("{}{}{}", std::env::consts::DLL_PREFIX, lib_name, std::env::consts::DLL_SUFFIX));

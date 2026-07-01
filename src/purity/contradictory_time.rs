@@ -42,7 +42,7 @@ struct TimeCallFinder {
 fn qpath_calls_now(qpath: &hir::QPath<'_>) -> bool {
     match qpath {
         hir::QPath::Resolved(_, path) => {
-            path.segments.last().map(|segment| segment.ident.name.as_str() == "now").unwrap_or(false)
+            path.segments.last().is_some_and(|segment| segment.ident.name.as_str() == "now")
         }
         hir::QPath::TypeRelative(_, segment) => segment.ident.name.as_str() == "now",
     }

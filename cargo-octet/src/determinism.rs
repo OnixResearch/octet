@@ -1,6 +1,5 @@
 use std::fs;
 use std::path::Path;
-use std::path::PathBuf;
 use std::process::Command;
 
 use serde::Serialize;
@@ -25,7 +24,7 @@ pub struct MetadataInput<'a> {
     pub output_format: &'a str,
 }
 
-pub fn build_run_metadata(input: MetadataInput<'_>) -> RunMetadata {
+pub fn build_run_metadata(input: &MetadataInput<'_>) -> RunMetadata {
     let config_hash = config_hash(input.workspace_root, input.scope_args, input.cargo_check_args);
     let profile_hash = profile_hash(input.scope_args, input.cargo_check_args, input.output_format, &config_hash);
 
@@ -64,8 +63,8 @@ pub fn normalized_snippet_hash(snippet: &str) -> String {
 
 pub fn crate_graph_hash(workspace_root: &Path) -> String {
     let payload = serde_json::json!({
-        "cargo_toml": file_hash(workspace_root.join("Cargo.toml")),
-        "cargo_lock": file_hash(workspace_root.join("Cargo.lock")),
+        "cargo_toml": file_hash(&workspace_root.join("Cargo.toml")),
+        "cargo_lock": file_hash(&workspace_root.join("Cargo.lock")),
     });
     full_hash(&payload.to_string())
 }
@@ -99,8 +98,8 @@ fn profile_hash(scope_args: &[String], cargo_check_args: &[String], output_forma
 
 fn config_hash(workspace_root: &Path, scope_args: &[String], cargo_check_args: &[String]) -> String {
     let mut files = Vec::new();
-    push_file_hash(workspace_root.join("Cargo.toml"), &mut files);
-    push_file_hash(workspace_root.join("dylint.toml"), &mut files);
+    push_file_hash(&workspace_root.join("Cargo.toml"), &mut files);
+    push_file_hash(&workspace_root.join("dylint.toml"), &mut files);
     let payload = serde_json::json!({
         "files": files,
         "effective_scope_args": scope_args,
@@ -109,7 +108,7 @@ fn config_hash(workspace_root: &Path, scope_args: &[String], cargo_check_args: &
     full_hash(&payload.to_string())
 }
 
-fn push_file_hash(path: PathBuf, files: &mut Vec<serde_json::Value>) {
+fn push_file_hash(path: &Path, files: &mut Vec<serde_json::Value>) {
     let relative = path.file_name().and_then(|name| name.to_str()).unwrap_or("unknown");
     files.push(serde_json::json!({
         "path": relative,
@@ -117,8 +116,8 @@ fn push_file_hash(path: PathBuf, files: &mut Vec<serde_json::Value>) {
     }));
 }
 
-fn file_hash(path: PathBuf) -> Option<String> {
-    fs::read(&path).ok().map(|bytes| format!("b3:{}", blake3::hash(&bytes).to_hex()))
+fn file_hash(path: &Path) -> Option<String> {
+    fs::read(path).ok().map(|bytes| format!("b3:{}", blake3::hash(&bytes).to_hex()))
 }
 
 fn rustc_version(toolchain: &str) -> String {
@@ -129,6 +128,5 @@ fn rustc_version(toolchain: &str) -> String {
         .ok()
         .filter(|output| output.status.success())
         .and_then(|output| String::from_utf8(output.stdout).ok())
-        .map(|text| text.lines().next().unwrap_or("unknown").to_owned())
-        .unwrap_or_else(|| "unknown".to_owned())
+        .map_or_else(|| "unknown".to_owned(), |text| text.lines().next().unwrap_or("unknown").to_owned())
 }

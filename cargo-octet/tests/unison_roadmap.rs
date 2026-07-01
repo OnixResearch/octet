@@ -6,6 +6,7 @@ fn cargo_octet() -> &'static str {
     env!("CARGO_BIN_EXE_cargo-octet")
 }
 
+#[allow(clippy::needless_pass_by_value)]
 fn write_json(path: &Path, value: serde_json::Value) {
     fs::write(path, serde_json::to_string_pretty(&value).unwrap()).unwrap();
 }

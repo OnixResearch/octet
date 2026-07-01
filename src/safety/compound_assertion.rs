@@ -163,7 +163,7 @@ fn parse_top_level_boolean_clauses(body: &str) -> Option<(TopLevelBooleanOp, Vec
 
     let op = op?;
     clauses.push(body[start..].trim().to_owned());
-    if clauses.iter().any(|clause| clause.is_empty()) {
+    if clauses.iter().any(String::is_empty) {
         return None;
     }
 

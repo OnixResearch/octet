@@ -1847,7 +1847,7 @@ MAIN
 
           clippy = craneLib.cargoClippy {
             inherit src cargoArtifacts nativeBuildInputs buildInputs;
-            cargoClippyExtraArgs = "--all-targets -- -D warnings";
+            cargoClippyExtraArgs = "--all-targets -- -D warnings -W clippy::pedantic";
           };
 
           fmt = craneLib.cargoFmt {

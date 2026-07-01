@@ -247,7 +247,7 @@ esac
             .env("TS_CONSUMER_LOCKFILE", self.repo.join("Cargo.lock"))
             .env("CARGO_TARGET_DIR", &self.target_dir);
 
-        fs::write(&self.log_path, format!("LAUNCHER:{}\nPATH:{}\n", command.get_program().to_string_lossy(), path,))
+        fs::write(&self.log_path, format!("LAUNCHER:{}\nPATH:{}\n", command.get_program().to_string_lossy(), path))
             .expect("seed cargo log");
 
         match lint_lib_env {
@@ -438,7 +438,7 @@ esac
             .env("TS_CONSUMER_LOCKFILE", self.repo.join("Cargo.lock"))
             .env("CARGO_TARGET_DIR", &self.target_dir);
 
-        fs::write(&self.log_path, format!("LAUNCHER:{}\nPATH:{}\n", command.get_program().to_string_lossy(), path,))
+        fs::write(&self.log_path, format!("LAUNCHER:{}\nPATH:{}\n", command.get_program().to_string_lossy(), path))
             .expect("seed cargo log");
 
         match lint_lib_env {
@@ -495,10 +495,10 @@ esac
 
 fn metadata(default_scope: &str, cargo_check_args: &str) -> String {
     format!(
-        r#"[workspace.metadata.octet]
+        r"[workspace.metadata.octet]
 default_scope = {default_scope}
 cargo_check_args = {cargo_check_args}
-"#
+"
     )
 }
 
@@ -1150,6 +1150,8 @@ fn non_utf8_cli_arguments_exit_with_integration_failure_code_and_preserve_diagno
 
 #[test]
 fn missing_and_unknown_subcommands_preserve_diagnostics_and_skip_cargo() {
+    const EXPECTED_SUBCOMMANDS: &str = "expected `artifact`, `check`, `evidence-index`, `fingerprint`, `migrate`, `object`, `provider-manifest`, `prove`, `roadmap`, or `transcript`";
+
     let assert_subcommand_failure = |label: &str, args: Vec<OsString>, expected_stderr: &str| {
         let fixture = ConsumerFixture::new(label, &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
         let output = fixture.run_raw_os(
@@ -1179,7 +1181,6 @@ fn missing_and_unknown_subcommands_preserve_diagnostics_and_skip_cargo() {
         assert!(!log.contains("ARGS:"), "{label} should fail before invoking cargo: {log}");
     };
 
-    const EXPECTED_SUBCOMMANDS: &str = "expected `artifact`, `check`, `evidence-index`, `fingerprint`, `migrate`, `object`, `provider-manifest`, `prove`, `roadmap`, or `transcript`";
     assert_subcommand_failure(
         "missing-subcommand",
         vec![],
@@ -3734,7 +3735,7 @@ fn finding_indices_are_unique_and_monotonic() {
 
     // Check uniqueness
     let mut unique = indices.clone();
-    unique.sort();
+    unique.sort_unstable();
     unique.dedup();
     assert_eq!(unique.len(), indices.len(), "all indices must be unique");
 }

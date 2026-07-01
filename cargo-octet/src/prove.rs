@@ -1,5 +1,6 @@
 use std::collections::BTreeSet;
 use std::ffi::OsString;
+use std::fmt::Write as _;
 use std::fs;
 use std::io;
 use std::path::Path;
@@ -229,6 +230,7 @@ struct CommandSpec {
     argv: Vec<String>,
 }
 
+#[allow(clippy::struct_excessive_bools)]
 struct CommandOutcome {
     command_succeeded: bool,
     timed_out: bool,
@@ -242,8 +244,8 @@ struct CommandOutcome {
     diagnostics: Vec<String>,
 }
 
-pub fn run(args: ProveArgs) -> Result<i32, String> {
-    let registry = load_registry(&args)?;
+pub fn run(args: &ProveArgs) -> Result<i32, String> {
+    let registry = load_registry(args)?;
     let working_dir = proof_command_working_dir(&args.source);
     let sources = load_sources(&args.source, &working_dir)?;
     let selection = prove_selection(&args.family);
@@ -259,7 +261,7 @@ pub fn run(args: ProveArgs) -> Result<i32, String> {
         diagnostics.push("no selected proof rails matched the provided sources".to_owned());
     }
     let executions = selected_rails
-        .into_iter()
+        .iter()
         .map(|selected| execute_proof(selected, &sources, &working_dir, args.explain))
         .collect::<Vec<_>>();
     diagnostics.extend(executions.iter().flat_map(|execution| execution.row.diagnostics.clone()));
@@ -275,7 +277,7 @@ pub fn run(args: ProveArgs) -> Result<i32, String> {
         proofs: executions.iter().map(|execution| execution.row.clone()).collect(),
         diagnostics,
     };
-    write_artifacts(&args, &report, &executions)?;
+    write_artifacts(args, &report, &executions)?;
     print_report(args.output_format, &report)?;
 
     Ok(if report.diagnostics.is_empty() {
@@ -384,7 +386,7 @@ fn rail_matches_sources(rail: &ProofRail, sources: &[SourceFile]) -> bool {
 }
 
 fn execute_proof(
-    selected: SelectedRail<'_>,
+    selected: &SelectedRail<'_>,
     sources: &[SourceFile],
     working_dir: &Path,
     explain: bool,
@@ -423,9 +425,10 @@ fn execute_proof(
         stderr_artifact,
     });
     let receipt_text = match receipt_result {
-        Ok(receipt) => serde_json::to_string_pretty(&receipt).map(|text| format!("{text}\n")).unwrap_or_else(|error| {
-            format!("{{\"schema_version\":\"receipt-serialization-error\",\"error\":{error:?}}}\n")
-        }),
+        Ok(receipt) => serde_json::to_string_pretty(&receipt).map_or_else(
+            |error| format!("{{\"schema_version\":\"receipt-serialization-error\",\"error\":{error:?}}}\n"),
+            |text| format!("{text}\n"),
+        ),
         Err(errors) => {
             diagnostics.extend(errors);
             failed_receipt_text(&selected.policy.policy_id, selected.rail_index, &diagnostics)
@@ -841,8 +844,9 @@ fn summary_text(report: &ProveReport) -> String {
         report.diagnostics.len()
     );
     for proof in &report.proofs {
-        text.push_str(&format!(
-            "proof policy_id={} rail_index={} backend={} verifier_mode={} status={} receipt={} checked_scope={}\n",
+        writeln!(
+            &mut text,
+            "proof policy_id={} rail_index={} backend={} verifier_mode={} status={} receipt={} checked_scope={}",
             proof.policy_id,
             proof.rail_index,
             proof.backend,
@@ -850,10 +854,11 @@ fn summary_text(report: &ProveReport) -> String {
             proof.status,
             proof.receipt,
             proof.checked_scope
-        ));
+        )
+        .expect("write proof summary to string");
     }
     for diagnostic in &report.diagnostics {
-        text.push_str(&format!("diagnostic: {diagnostic}\n"));
+        writeln!(&mut text, "diagnostic: {diagnostic}").expect("write diagnostic summary to string");
     }
     text
 }
@@ -940,13 +945,15 @@ fn proof_card_for_execution(execution: &ExecutedProof) -> ProofCard {
     let receipt = parse_verus_receipt(&execution.receipt_text).ok();
     let mut card = initial_proof_card(execution, receipt.as_ref(), execution.formal_provenance.as_ref());
     if execution.formal_provenance.is_some() && receipt.is_some() {
-        card.evidence_tier = EvidenceTier::FormalProof.as_str().to_owned();
+        card.evidence_tier.clear();
+        card.evidence_tier.push_str(EvidenceTier::FormalProof.as_str());
     }
     let diagnostics = proof_card_validation_diagnostics(&card, receipt.as_ref(), execution.formal_provenance.as_ref());
     if diagnostics.is_empty() {
         card
     } else {
-        card.evidence_tier = EvidenceTier::ManualReviewRequired.as_str().to_owned();
+        card.evidence_tier.clear();
+        card.evidence_tier.push_str(EvidenceTier::ManualReviewRequired.as_str());
         card.diagnostics.extend(diagnostics);
         card
     }
@@ -1508,7 +1515,7 @@ mod tests {
         let registry = write_fixture_registry(temp.path(), PASS_SIGNAL, command_argv(PASS_SIGNAL));
         let artifact_dir = temp.path().join("artifacts");
 
-        let code = run(ProveArgs {
+        let code = run(&ProveArgs {
             registry: Some(registry),
             policy_artifacts_dir: None,
             source: vec![source],
@@ -1717,7 +1724,7 @@ mod tests {
         let registry = write_fixture_registry(temp.path(), WRONG_PASS_SIGNAL, command_argv(PASS_SIGNAL));
         let artifact_dir = temp.path().join("artifacts");
 
-        let code = run(ProveArgs {
+        let code = run(&ProveArgs {
             registry: Some(registry),
             policy_artifacts_dir: None,
             source: vec![source],
@@ -1748,7 +1755,7 @@ mod tests {
         let registry = write_production_negative_registry(temp.path(), vec!["false".to_owned()]);
         let artifact_dir = temp.path().join("artifacts-production-negative");
 
-        let code = run(ProveArgs {
+        let code = run(&ProveArgs {
             registry: Some(registry),
             policy_artifacts_dir: None,
             source: vec![source],
@@ -1786,7 +1793,7 @@ mod tests {
         let registry = write_fixture_registry(temp.path(), PASS_SIGNAL, Vec::new());
         let artifact_dir = temp.path().join("artifacts");
 
-        let code = run(ProveArgs {
+        let code = run(&ProveArgs {
             registry: Some(registry),
             policy_artifacts_dir: None,
             source: vec![source],
@@ -1826,7 +1833,7 @@ mod tests {
         let registry = write_fixture_registry(temp.path(), PASS_SIGNAL, command_argv(PASS_SIGNAL));
         let artifact_dir = temp.path().join("artifacts");
 
-        let code = run(ProveArgs {
+        let code = run(&ProveArgs {
             registry: Some(registry),
             policy_artifacts_dir: None,
             source: vec![source],
@@ -1847,7 +1854,7 @@ mod tests {
         let registry = write_fixture_registry(root, PASS_SIGNAL, argv);
         let artifact_dir =
             root.join(format!("artifacts-{}", safe_artifact_stem(&format!("{:?}", std::time::Instant::now()))));
-        let code = run(ProveArgs {
+        let code = run(&ProveArgs {
             registry: Some(registry),
             policy_artifacts_dir: None,
             source: vec![source.to_path_buf()],
@@ -1870,7 +1877,7 @@ mod tests {
         fs::write(&registry_path, serde_json::to_string_pretty(&registry).expect("registry json"))
             .expect("write registry");
         let artifact_dir = root.join("artifacts-timeout");
-        let code = run(ProveArgs {
+        let code = run(&ProveArgs {
             registry: Some(registry_path),
             policy_artifacts_dir: None,
             source: vec![source.to_path_buf()],

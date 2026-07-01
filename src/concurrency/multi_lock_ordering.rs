@@ -66,13 +66,16 @@ impl EarlyLintPass for MultiLockOrdering {
 }
 
 fn lock_ordering_suggestion(snippet: &str, item_span: rustc_span::Span, lock_count: usize) -> Option<LintSuggestion> {
+    const OPENING_BRACE_WIDTH_BYTES: usize = 1;
+
     let brace_pos = snippet.find('{')?;
 
     // Build insertion point: just after the opening brace
-    let insert_offset = rustc_span::BytePos((brace_pos + 1) as u32);
+    let insert_offset_bytes = u32::try_from(brace_pos + OPENING_BRACE_WIDTH_BYTES).ok()?;
+    let insert_offset = rustc_span::BytePos(insert_offset_bytes);
     let insert_span = item_span.with_lo(item_span.lo() + insert_offset).with_hi(item_span.lo() + insert_offset);
 
-    let replacement = format!("\n    // Lock order: <document acquisition order for {} locks>", lock_count);
+    let replacement = format!("\n    // Lock order: <document acquisition order for {lock_count} locks>");
 
     Some(LintSuggestion::Single {
         span: insert_span,

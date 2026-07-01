@@ -55,6 +55,7 @@ pub struct ArtifactArgs {
     pub output_format: OutputFormat,
 }
 
+#[allow(clippy::struct_field_names)]
 #[derive(Debug)]
 pub struct CheckArgs {
     pub scope_args: Vec<String>,
@@ -259,7 +260,8 @@ pub fn parse(argv: impl IntoIterator<Item = OsString>) -> Result<CommandArgs, St
         argv.first().is_some_and(|arg| matches!(arg.as_str(), "octet" | "slotcar" | "tigerstyle"));
     let command_line = if invoked_as_cargo_subcommand {
         let mut canonical_argv = argv.clone();
-        canonical_argv[0] = "octet".to_owned();
+        canonical_argv[0].clear();
+        canonical_argv[0].push_str("octet");
         format_command_line("cargo", &canonical_argv)
     } else {
         format_command_line(&program, &argv)
@@ -924,6 +926,7 @@ fn parse_object_bundle(args: &[String]) -> Result<ObjectArgs, String> {
     }
 }
 
+#[allow(clippy::too_many_lines)]
 fn parse_object_corpus(args: &[String]) -> Result<ObjectArgs, String> {
     match args.first().map(String::as_str) {
         Some("receipt") => {
@@ -1149,6 +1152,7 @@ fn parse_object_supplement_fixtures(args: &[String]) -> Result<ObjectArgs, Strin
     })
 }
 
+#[allow(clippy::too_many_lines)]
 fn parse_object_supplement_scan(emit: bool, args: &[String]) -> Result<ObjectArgs, String> {
     let mut paths = Vec::new();
     let mut function = None;
@@ -1255,16 +1259,13 @@ fn parse_object_supplement_scan(emit: bool, args: &[String]) -> Result<ObjectArg
     }
     let family = family.ok_or_else(|| "missing `--family`".to_owned())?;
     match (family, scope) {
-        (SupplementFamilyArg::Hir, SupplementScopeArg::RustcThirFixtureSpike)
-        | (SupplementFamilyArg::Mir, SupplementScopeArg::RustcThirFixtureSpike) => {
+        (SupplementFamilyArg::Hir | SupplementFamilyArg::Mir, SupplementScopeArg::RustcThirFixtureSpike) => {
             return Err("rustc THIR fixture spike only supports `--family thir`".to_owned());
         }
-        (SupplementFamilyArg::Thir, SupplementScopeArg::RustcHirFixtureSpike)
-        | (SupplementFamilyArg::Mir, SupplementScopeArg::RustcHirFixtureSpike) => {
+        (SupplementFamilyArg::Thir | SupplementFamilyArg::Mir, SupplementScopeArg::RustcHirFixtureSpike) => {
             return Err("rustc HIR fixture spike only supports `--family hir`".to_owned());
         }
-        (SupplementFamilyArg::Hir, SupplementScopeArg::RustcMirFixtureSpike)
-        | (SupplementFamilyArg::Thir, SupplementScopeArg::RustcMirFixtureSpike) => {
+        (SupplementFamilyArg::Hir | SupplementFamilyArg::Thir, SupplementScopeArg::RustcMirFixtureSpike) => {
             return Err("rustc MIR fixture spike only supports `--family mir`".to_owned());
         }
         _ => {}
@@ -1867,7 +1868,9 @@ mod tests {
                     assert_eq!(standards_policy, Some(std::path::PathBuf::from("octet-policies.json")));
                     assert_eq!(required_lints, vec!["no_unwrap".to_owned()]);
                 }
-                other => panic!("expected provider manifest export mode, got {other:?}"),
+                super::ProviderManifestMode::Validate { .. } => {
+                    panic!("expected provider manifest export mode")
+                }
             },
             other => panic!("expected provider manifest args, got {other:?}"),
         }
@@ -1914,7 +1917,7 @@ mod tests {
                 assert_eq!(args.output_format, OutputFormat::Json);
                 match args.mode {
                     super::ObjectMode::CorpusReceipt { output } => {
-                        assert_eq!(output, std::path::PathBuf::from("receipt.json"))
+                        assert_eq!(output, std::path::PathBuf::from("receipt.json"));
                     }
                     other => panic!("expected corpus receipt mode, got {other:?}"),
                 }
@@ -1998,7 +2001,7 @@ mod tests {
                 assert_eq!(args.output_format, OutputFormat::Json);
                 match args.mode {
                     super::ObjectMode::CorpusCheck { receipt } => {
-                        assert_eq!(receipt, std::path::PathBuf::from("receipt.json"))
+                        assert_eq!(receipt, std::path::PathBuf::from("receipt.json"));
                     }
                     other => panic!("expected corpus check mode, got {other:?}"),
                 }
@@ -2008,6 +2011,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::too_many_lines)]
     fn object_parse_accepts_supplement_emit_and_check() {
         let emit = parse(
             [

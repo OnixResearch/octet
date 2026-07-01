@@ -210,16 +210,19 @@ nix develop -c bash -c 'cargo test -p octet-standards'
 nix run .#octet-policy-validate
 ```
 
-Warning-clean release-readiness check:
+Warning-clean release-readiness checks:
 
 ```bash
 nix build .#checks.x86_64-linux.warning-clean --no-link -L
+nix build .#checks.x86_64-linux.clippy --no-link -L
 ```
 
-That rail runs the owned workspace with Rust warnings denied and covers the
-`cargo-octet`, `cargo-slotcar`, and `cargo-tigerstyle` binary targets. The
-paired `warning-clean-regression` check is a negative control proving a new dead
-helper fails under the same warning-deny policy.
+The `warning-clean` rail runs the owned workspace with Rust compiler warnings
+denied and covers the `cargo-octet`, `cargo-slotcar`, and `cargo-tigerstyle`
+binary targets. The paired `warning-clean-regression` check is a negative
+control proving a new dead helper fails under the same warning-deny policy. The
+`clippy` rail runs Clippy with `-D warnings -W clippy::pedantic` so pedantic
+findings are release-readiness regressions too.
 
 Useful doc-facing spot checks:
 

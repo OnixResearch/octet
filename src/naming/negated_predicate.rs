@@ -143,7 +143,14 @@ impl<'tcx> LateLintPass<'tcx> for NegatedPredicate {
         }
 
         let suggested = positive_name(name);
-        let suggestion = if !ident.span.from_expansion() {
+        let suggestion = if ident.span.from_expansion() {
+            LintSuggestion::Single {
+                span: ident.span,
+                message: format!("rename to `{suggested}`"),
+                replacement: suggested.clone(),
+                applicability: Applicability::MaybeIncorrect,
+            }
+        } else {
             let body = use_site_collector::enclosing_body(cx, local.hir_id);
             if let Some(use_sites) = use_site_collector::collect_local_use_sites(cx, body, binding_hir_id) {
                 let mut parts = vec![(ident.span, suggested.clone())];
@@ -160,13 +167,6 @@ impl<'tcx> LateLintPass<'tcx> for NegatedPredicate {
                     replacement: suggested.clone(),
                     applicability: Applicability::MaybeIncorrect,
                 }
-            }
-        } else {
-            LintSuggestion::Single {
-                span: ident.span,
-                message: format!("rename to `{suggested}`"),
-                replacement: suggested.clone(),
-                applicability: Applicability::MaybeIncorrect,
             }
         };
 

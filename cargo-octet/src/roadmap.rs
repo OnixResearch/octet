@@ -395,7 +395,7 @@ fn capsule_replay(capsule_path: &Path, observed_path: &Path) -> Result<i32, Stri
         "mismatches": mismatches,
         "drift_behavior": "fail-closed",
     }))?;
-    Ok(if status == "drifted" { 1 } else { 0 })
+    Ok(i32::from(status == "drifted"))
 }
 
 fn capsule_mismatches(manifest: &Value, observed: &Value) -> Vec<String> {
@@ -505,7 +505,7 @@ fn ability_enforce(manifest_path: &Path, trace_path: &Path) -> Result<i32, Strin
         "redaction_status": "no-secret-values-or-absolute-paths",
     });
     print_json(&report)?;
-    Ok(if status == "allowed" { 0 } else { 1 })
+    Ok(i32::from(status != "allowed"))
 }
 
 #[derive(Debug, Clone, Serialize, serde::Deserialize, Default)]

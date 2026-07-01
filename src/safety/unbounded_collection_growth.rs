@@ -462,8 +462,8 @@ impl<'tcx> Visitor<'tcx> for LoopBodyAnalyzer<'_, 'tcx> {
         let mut current_reserved = saved_reserved.clone();
 
         for stmt in block.stmts {
-            self.guarded = current_guarded.clone();
-            self.reserved = current_reserved.clone();
+            self.guarded.clone_from(&current_guarded);
+            self.reserved.clone_from(&current_reserved);
             intravisit::walk_stmt(self, stmt);
 
             if let Some(expr) = stmt_expr(stmt) {
@@ -473,8 +473,8 @@ impl<'tcx> Visitor<'tcx> for LoopBodyAnalyzer<'_, 'tcx> {
         }
 
         if let Some(expr) = block.expr {
-            self.guarded = current_guarded.clone();
-            self.reserved = current_reserved.clone();
+            self.guarded.clone_from(&current_guarded);
+            self.reserved.clone_from(&current_reserved);
             self.visit_expr(expr);
         }
 

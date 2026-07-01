@@ -13,10 +13,12 @@ pub struct EvidenceIndexCheckReport {
     pub issue_codes: Vec<&'static str>,
 }
 
+#[must_use]
 pub fn check_page_text(text: &str) -> EvidenceIndexCheckReport {
     check_page_text_with_expected(text, None, None)
 }
 
+#[must_use]
 pub fn check_page_text_with_expected(
     text: &str,
     expected_payload_commit: Option<String>,
@@ -59,6 +61,7 @@ pub fn check_page_text_with_expected(
     }
 }
 
+#[must_use]
 pub fn render_valence_evidence_index(input: &EvidenceIndexInput) -> String {
     let short_commit = input.payload_commit.chars().take(8).collect::<String>();
     format!(

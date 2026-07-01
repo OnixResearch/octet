@@ -20,28 +20,30 @@ mod transcript;
 
 use std::process::ExitCode;
 
+const CLI_ERROR_EXIT: u8 = 2;
+
 fn main() -> ExitCode {
     match try_main() {
-        Ok(code) => ExitCode::from(code as u8),
+        Ok(code) => ExitCode::from(u8::try_from(code).unwrap_or(CLI_ERROR_EXIT)),
         Err(error) => {
             eprintln!("error: {error}");
-            ExitCode::from(2)
+            ExitCode::from(CLI_ERROR_EXIT)
         }
     }
 }
 
 fn try_main() -> Result<i32, String> {
     match cli::parse(std::env::args_os())? {
-        cli::CommandArgs::Artifact(args) => artifact::run(args),
-        cli::CommandArgs::Check(check) => engine::run(check),
+        cli::CommandArgs::Artifact(args) => artifact::run(&args),
+        cli::CommandArgs::Check(check) => engine::run(&check),
         cli::CommandArgs::EvidenceIndex(args) => evidence_index::run(args),
-        cli::CommandArgs::Fingerprint(args) => fingerprint::run(args),
+        cli::CommandArgs::Fingerprint(args) => fingerprint::run(&args),
         cli::CommandArgs::Migrate(args) => migrate::run(args),
-        cli::CommandArgs::Object(args) => object::run(args),
+        cli::CommandArgs::Object(args) => object::run(&args),
         cli::CommandArgs::ProviderManifest(args) => provider_manifest::run(args),
-        cli::CommandArgs::Prove(args) => prove::run(args),
+        cli::CommandArgs::Prove(args) => prove::run(&args),
         cli::CommandArgs::Roadmap(args) => roadmap::run(args),
-        cli::CommandArgs::Transcript(args) => transcript::run(args),
+        cli::CommandArgs::Transcript(args) => transcript::run(&args),
         cli::CommandArgs::Help(topic) => {
             println!("{}", cli::help_text(topic));
             Ok(0)

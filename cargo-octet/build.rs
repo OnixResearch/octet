@@ -1,7 +1,11 @@
 use std::env;
+use std::fmt::Write as _;
 use std::fs;
 use std::path::Path;
 use std::path::PathBuf;
+
+const HASH_INPUT_SEPARATOR: u8 = 0;
+const FILE_INPUT_SEPARATOR: u8 = 0xff;
 
 fn main() {
     let manifest_dir = PathBuf::from(env::var_os("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR"));
@@ -19,22 +23,20 @@ fn main() {
     for (relative, absolute) in &files {
         let bytes = fs::read(absolute).unwrap_or_else(|error| panic!("read {}: {error}", absolute.display()));
         hasher.update(relative.as_bytes());
-        hasher.update(&[0]);
+        hasher.update(&[HASH_INPUT_SEPARATOR]);
         hasher.update(&bytes);
-        hasher.update(&[0xff]);
+        hasher.update(&[FILE_INPUT_SEPARATOR]);
     }
     let hash = hasher.finalize().to_hex().to_string();
 
     let out_path = PathBuf::from(env::var_os("OUT_DIR").expect("OUT_DIR")).join("embedded_source.rs");
     let mut generated = String::new();
-    generated.push_str(&format!("pub const EMBEDDED_SOURCE_HASH: &str = {:?};\n", hash));
+    writeln!(&mut generated, "pub const EMBEDDED_SOURCE_HASH: &str = {hash:?};").expect("write embedded source hash");
     generated.push_str("pub const EMBEDDED_SOURCE_FILES: &[(&str, &[u8])] = &[\n");
     for (relative, absolute) in &files {
-        generated.push_str(&format!(
-            "    ({:?}, include_bytes!({:?}) as &[u8]),\n",
-            relative,
-            absolute.display().to_string()
-        ));
+        let absolute_display = absolute.display().to_string();
+        writeln!(&mut generated, "    ({relative:?}, include_bytes!({absolute_display:?}) as &[u8]),")
+            .expect("write embedded source entry");
     }
     generated.push_str("];\n");
     fs::write(&out_path, generated).unwrap_or_else(|error| panic!("write {}: {error}", out_path.display()));

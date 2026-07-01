@@ -76,6 +76,7 @@ impl Finding {
     }
 }
 
+#[allow(clippy::struct_field_names)]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FindingCounts {
     pub total_findings: usize,
@@ -239,6 +240,7 @@ fn classify_status(counts: &FindingCounts, cargo_process_exit: &CargoProcessExit
     RunStatus::Clean
 }
 
+#[allow(clippy::too_many_lines)]
 pub fn lint_meta_map() -> HashMap<&'static str, LintMeta> {
     let entries: &[(&str, &str, &str, &str)] = &[
         (
@@ -466,7 +468,6 @@ fn effect_family_for_group(group: &str) -> &'static str {
         "tigerstyle::concurrency" => "concurrency",
         "tigerstyle::safety" => "failure",
         "tigerstyle::structure" => "resource",
-        "tigerstyle::naming" => "unknown",
         _ => "unknown",
     }
 }
@@ -505,12 +506,14 @@ pub fn render_sarif(
     let rules: Vec<serde_json::Value> = seen_rules
         .iter()
         .map(|lint_name| {
-            let guidance = meta_map.get(lint_name).map(|meta| meta.guidance).unwrap_or("unknown");
-            let group = meta_map.get(lint_name).map(|meta| meta.group).unwrap_or("tigerstyle::unknown");
+            let meta = meta_map.get(lint_name);
+            let guidance = meta.map_or("unknown", |meta| meta.guidance);
+            let group = meta.map_or("tigerstyle::unknown", |meta| meta.group);
+            let effect_family = meta.map_or("unknown", |meta| meta.effect_family);
             serde_json::json!({
                 "id": lint_name,
                 "shortDescription": { "text": guidance },
-                "properties": { "group": group, "effectFamily": meta_map.get(lint_name).map(|meta| meta.effect_family).unwrap_or("unknown") }
+                "properties": { "group": group, "effectFamily": effect_family }
             })
         })
         .collect();
@@ -749,7 +752,7 @@ mod tests {
     #[test]
     fn sarif_results_include_static_lint_evidence_tier() {
         let finding = test_finding();
-        let outcome = RunOutcome::classify(&[finding.clone()], CargoProcessExit::success());
+        let outcome = RunOutcome::classify(std::slice::from_ref(&finding), CargoProcessExit::success());
         let metadata = RunMetadata {
             tool_name: "cargo-octet",
             tool_version: "0.1.0",

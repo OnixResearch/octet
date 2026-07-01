@@ -40,8 +40,8 @@ struct MigrationStatus<'a> {
 pub fn run(args: MigrateArgs) -> Result<i32, String> {
     match args.mode {
         MigrateMode::Start => start(args),
-        MigrateMode::Status => status(args),
-        MigrateMode::ApplySafe => apply_safe(args),
+        MigrateMode::Status => status(&args),
+        MigrateMode::ApplySafe => apply_safe(&args),
     }
 }
 
@@ -69,12 +69,12 @@ fn start(args: MigrateArgs) -> Result<i32, String> {
     print_manifest(&manifest, args.output_format)
 }
 
-fn status(args: MigrateArgs) -> Result<i32, String> {
+fn status(args: &MigrateArgs) -> Result<i32, String> {
     let manifest = read_manifest(&args.manifest)?;
     print_status(&manifest, args.output_format)
 }
 
-fn apply_safe(args: MigrateArgs) -> Result<i32, String> {
+fn apply_safe(args: &MigrateArgs) -> Result<i32, String> {
     let mut manifest = read_manifest(&args.manifest)?;
     // Octet only records safe-apply state here. Actual code edits are delegated to
     // existing machine-applicable cargo fix rails so manual-review findings cannot be touched.
@@ -116,7 +116,7 @@ fn print_manifest(manifest: &MigrationManifest, output_format: OutputFormat) -> 
             manifest.manual_review_required.len(),
         ),
         OutputFormat::Json => {
-            println!("{}", serde_json::to_string_pretty(manifest).map_err(|error| error.to_string())?)
+            println!("{}", serde_json::to_string_pretty(manifest).map_err(|error| error.to_string())?);
         }
         OutputFormat::Sarif => return Err("migrate does not support SARIF output; use human or json".to_owned()),
     }
@@ -150,7 +150,8 @@ fn print_status(manifest: &MigrationManifest, output_format: OutputFormat) -> Re
 }
 
 fn file_hash_text(path: &Path) -> String {
-    fs::read(path)
-        .map(|bytes| determinism::full_hash(std::str::from_utf8(&bytes).unwrap_or("<binary>")))
-        .unwrap_or_else(|_| "missing".to_owned())
+    fs::read(path).map_or_else(
+        |_| "missing".to_owned(),
+        |bytes| determinism::full_hash(std::str::from_utf8(&bytes).unwrap_or("<binary>")),
+    )
 }

@@ -74,7 +74,8 @@ fn apply_baseline_gate(
     outcome
 }
 
-pub fn run(check: CheckArgs) -> Result<i32, String> {
+#[allow(clippy::too_many_lines)]
+pub fn run(check: &CheckArgs) -> Result<i32, String> {
     let cwd = env::current_dir().map_err(|error| format!("current_dir: {error}"))?;
     let cfg = config::load(&cwd)?;
     let scope_args = if check.scope_args.is_empty() {
@@ -89,9 +90,8 @@ pub fn run(check: CheckArgs) -> Result<i32, String> {
     }
 
     let lockfile_path = cfg.workspace_root.join("Cargo.lock");
-    let skip_lockfile_guard = env::var("TIGERSTYLE_SKIP_LOCKFILE_CHECK")
-        .map(|value| !value.is_empty() && value != "0")
-        .unwrap_or(false);
+    let skip_lockfile_guard =
+        env::var("TIGERSTYLE_SKIP_LOCKFILE_CHECK").is_ok_and(|value| !value.is_empty() && value != "0");
     let lockfile_before = if skip_lockfile_guard {
         LockfileSnapshot::Missing
     } else {
@@ -100,7 +100,7 @@ pub fn run(check: CheckArgs) -> Result<i32, String> {
 
     let result = (|| {
         let toolchain = resolve_toolchain()?;
-        let run_metadata = determinism::build_run_metadata(determinism::MetadataInput {
+        let run_metadata = determinism::build_run_metadata(&determinism::MetadataInput {
             workspace_root: &cfg.workspace_root,
             toolchain: &toolchain,
             scope_args: &scope_args,
@@ -209,7 +209,7 @@ pub fn run(check: CheckArgs) -> Result<i32, String> {
         }
         let base_outcome = apply_baseline_gate(base_outcome, baseline_evaluation.as_ref());
         let finalized_run =
-            finalize_run(&check, &findings, &meta_map, base_outcome, &run_metadata, baseline_evaluation.as_ref())?;
+            finalize_run(check, &findings, &meta_map, base_outcome, &run_metadata, baseline_evaluation.as_ref())?;
 
         if let Some(structured_output) = finalized_run.run_artifacts.structured_output.as_ref() {
             stdout_lock
@@ -551,14 +551,17 @@ fn update_lint_cache(workspace_root: &Path, findings: &mut [Finding]) -> Result<
     let mut changed = false;
     for finding in findings {
         if finding.identity_status != "computed" {
-            finding.cache_status = "bypassed".to_owned();
+            finding.cache_status.clear();
+            finding.cache_status.push_str("bypassed");
             continue;
         }
         if cached.contains(&finding.semantic_id) {
-            finding.cache_status = "hit".to_owned();
+            finding.cache_status.clear();
+            finding.cache_status.push_str("hit");
         } else {
             cached.insert(finding.semantic_id.clone());
-            finding.cache_status = "miss".to_owned();
+            finding.cache_status.clear();
+            finding.cache_status.push_str("miss");
             changed = true;
         }
     }
@@ -596,6 +599,10 @@ fn normalize_lint_name(code: &str) -> String {
     code.strip_prefix("tigerstyle::").unwrap_or(code).to_owned()
 }
 
+fn json_u64_to_u32(value: Option<u64>) -> u32 {
+    value.and_then(|line| u32::try_from(line).ok()).unwrap_or_default()
+}
+
 fn build_finding(
     index: usize,
     cargo_msg: &serde_json::Value,
@@ -612,8 +619,8 @@ fn build_finding(
         .or_else(|| message["spans"].as_array().and_then(|s| s.first()));
 
     let file = primary_span.and_then(|s| s["file_name"].as_str()).unwrap_or("unknown").to_owned();
-    let line = primary_span.and_then(|s| s["line_start"].as_u64()).unwrap_or(0) as u32;
-    let column = primary_span.and_then(|s| s["column_start"].as_u64()).unwrap_or(0) as u32;
+    let line = json_u64_to_u32(primary_span.and_then(|s| s["line_start"].as_u64()));
+    let column = json_u64_to_u32(primary_span.and_then(|s| s["column_start"].as_u64()));
 
     let msg_text = message["message"].as_str().unwrap_or("").to_owned();
     let severity = message["level"].as_str().unwrap_or("warning").to_owned();
@@ -623,8 +630,7 @@ fn build_finding(
     let normalized_snippet_hash = primary_span
         .map(snippet_from_span)
         .filter(|snippet| !snippet.trim().is_empty())
-        .map(|snippet| determinism::normalized_snippet_hash(&snippet))
-        .unwrap_or_else(|| "unsupported".to_owned());
+        .map_or_else(|| "unsupported".to_owned(), |snippet| determinism::normalized_snippet_hash(&snippet));
     let identity_status = if normalized_snippet_hash == "unsupported" {
         "unsupported"
     } else {
@@ -672,9 +678,8 @@ fn snippet_from_span(span: &serde_json::Value) -> String {
 }
 
 fn extract_suggestion(message: &serde_json::Value) -> (Option<String>, Option<String>) {
-    let children = match message["children"].as_array() {
-        Some(c) => c,
-        None => return (None, None),
+    let Some(children) = message["children"].as_array() else {
+        return (None, None);
     };
 
     for child in children {

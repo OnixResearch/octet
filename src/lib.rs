@@ -305,7 +305,7 @@ lint_inventory! {
 }
 
 #[unsafe(no_mangle)]
-pub fn register_lints(sess: &rustc_session::Session, lint_store: &mut rustc_lint::LintStore) {
+pub extern "Rust" fn register_lints(sess: &rustc_session::Session, lint_store: &mut rustc_lint::LintStore) {
     dylint_linting::init_config(sess);
     let cfg = config::load(sess);
     apply_lint_level_overrides(sess, &cfg);
@@ -411,7 +411,7 @@ mod tests {
                 .unwrap_or_else(|error| panic!("read UI fixture dir {}: {error}", dir.display()))
                 .collect::<Result<Vec<_>, _>>()
                 .unwrap_or_else(|error| panic!("collect UI fixture dir {}: {error}", dir.display()));
-            entries.sort_by_key(|entry| entry.path());
+            entries.sort_by_key(std::fs::DirEntry::path);
 
             for entry in entries {
                 let path = entry.path();
@@ -465,10 +465,10 @@ mod tests {
         for meta in diagnostics::all_metadata() {
             match meta.example_mode {
                 ExampleMode::Required => {
-                    assert!(meta.example_text.is_some(), "missing required example text for {}", meta.lint_name)
+                    assert!(meta.example_text.is_some(), "missing required example text for {}", meta.lint_name);
                 }
                 ExampleMode::None => {
-                    assert!(meta.example_text.is_none(), "unexpected example text for {}", meta.lint_name)
+                    assert!(meta.example_text.is_none(), "unexpected example text for {}", meta.lint_name);
                 }
             }
         }
@@ -714,7 +714,7 @@ mod tests {
     ];
 
     /// Lints that share a source file with a rollout lint and therefore
-    /// cannot satisfy the "source must not contain emit_tiger_style_lint_with_suggestion"
+    /// cannot satisfy the "source must not contain `emit_tiger_style_lint_with_suggestion`"
     /// assertion for out-of-scope lints.
     const SHARED_SOURCE_EXEMPTIONS: &[&str] = &["unjustified_no_todo_allow"];
 

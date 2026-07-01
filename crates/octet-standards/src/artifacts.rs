@@ -409,120 +409,113 @@ pub fn render_check_config_toml(registry: &PolicyRegistry) -> String {
 }
 
 fn append_proof_rail_config(toml: &mut String, registry: &PolicyRegistry) {
-    let proof_rail_backends = proof_rail_field(registry, |rail| &rail.backend);
-    let proof_rail_commands = proof_rail_field(registry, |rail| &rail.command);
-    let proof_rail_command_argv = proof_rail_fields(registry, |rail| &rail.command_argv);
-    let proof_rail_source_paths = proof_rail_fields(registry, |rail| &rail.source_paths);
-    let proof_rail_proof_paths = proof_rail_fields(registry, |rail| &rail.proof_paths);
-    let proof_rail_receipt_paths = proof_rail_fields(registry, |rail| &rail.receipt_paths);
-    let proof_rail_pass_signals = proof_rail_field(registry, |rail| &rail.pass_signal);
-    let proof_rail_trust_boundaries = proof_rail_fields(registry, |rail| &rail.trust_boundaries);
-    let proof_rail_receipt_bindings = proof_rail_field(registry, |rail| &rail.receipt_binding);
-    let proof_rail_receipt_schemas = proof_rail_field(registry, |rail| &rail.receipt_provenance.schema_version);
-    let proof_rail_receipt_runners = proof_rail_field(registry, |rail| &rail.receipt_provenance.runner);
-    let proof_rail_receipt_environments = proof_rail_field(registry, |rail| &rail.receipt_provenance.environment);
-    let proof_rail_receipt_requires = proof_rail_receipt_requirements(registry);
-    let proof_rail_receipt_verifiers = proof_rail_field(registry, |rail| &rail.receipt_verifier.verifier_id);
-    let proof_rail_receipt_verifier_digests = proof_rail_field(registry, |rail| &rail.receipt_verifier.verifier_digest);
-    let proof_rail_receipt_verifier_binaries =
-        proof_rail_field(registry, |rail| &rail.receipt_verifier.verifier_binary_path);
-    let proof_rail_receipt_verifier_binary_digests =
-        proof_rail_field(registry, |rail| &rail.receipt_verifier.verifier_binary_digest);
-    let proof_rail_receipt_verifier_build_closures =
-        proof_rail_field(registry, |rail| &rail.receipt_verifier.verifier_build_closure);
-    let proof_rail_receipt_verifier_build_closure_digests =
-        proof_rail_field(registry, |rail| &rail.receipt_verifier.verifier_build_closure_digest);
-    let proof_rail_receipt_verifier_build_closure_paths =
-        proof_rail_fields(registry, |rail| &rail.receipt_verifier.verifier_build_closure_paths);
-    let proof_rail_receipt_verifier_nix_derivations =
-        proof_rail_field(registry, |rail| &rail.receipt_verifier.verifier_nix_derivation);
-    let proof_rail_receipt_verifier_nix_derivation_digests =
-        proof_rail_field(registry, |rail| &rail.receipt_verifier.verifier_nix_derivation_digest);
-    let proof_rail_receipt_verifier_nix_closures =
-        proof_rail_field(registry, |rail| &rail.receipt_verifier.verifier_nix_closure);
-    let proof_rail_receipt_verifier_nix_closure_digests =
-        proof_rail_field(registry, |rail| &rail.receipt_verifier.verifier_nix_closure_digest);
-    let proof_rail_receipt_verifier_nix_closure_paths =
-        proof_rail_fields(registry, |rail| &rail.receipt_verifier.verifier_nix_closure_paths);
-    let proof_rail_receipt_verifier_nix_closure_graph_digests =
-        proof_rail_field(registry, |rail| &rail.receipt_verifier.verifier_nix_closure_graph_digest);
-    let proof_rail_receipt_verifier_nix_closure_graph_paths =
-        proof_rail_fields(registry, |rail| &rail.receipt_verifier.verifier_nix_closure_graph_paths);
-    let proof_rail_receipt_toolchains = proof_rail_field(registry, |rail| &rail.receipt_verifier.toolchain_id);
-    let proof_rail_receipt_toolchain_digests =
-        proof_rail_field(registry, |rail| &rail.receipt_verifier.toolchain_digest);
-    let proof_rail_receipt_solvers = proof_rail_field(registry, |rail| &rail.receipt_verifier.solver_id);
-    let proof_rail_receipt_solver_digests = proof_rail_field(registry, |rail| &rail.receipt_verifier.solver_digest);
-    let proof_rail_verifier_modes = proof_rail_field(registry, |rail| &rail.verifier_mode);
-    let proof_rail_checked_scopes = proof_rail_field(registry, |rail| &rail.checked_scope);
-    let proof_rail_environment_allowlist = proof_rail_fields(registry, |rail| &rail.environment_allowlist);
+    append_proof_rail_command_config(toml, registry);
+    append_proof_rail_receipt_config(toml, registry);
+    append_proof_rail_verifier_config(toml, registry);
+    append_proof_rail_runtime_config(toml, registry);
+}
 
-    append_toml_array(toml, "proof_rail_backends", &proof_rail_backends);
-    append_toml_array(toml, "proof_rail_commands", &proof_rail_commands);
-    append_toml_array(toml, "proof_rail_command_argv", &proof_rail_command_argv);
-    append_toml_array(toml, "proof_rail_source_paths", &proof_rail_source_paths);
-    append_toml_array(toml, "proof_rail_proof_paths", &proof_rail_proof_paths);
-    append_toml_array(toml, "proof_rail_receipt_paths", &proof_rail_receipt_paths);
-    append_toml_array(toml, "proof_rail_pass_signals", &proof_rail_pass_signals);
-    append_toml_array(toml, "proof_rail_trust_boundaries", &proof_rail_trust_boundaries);
-    append_toml_array(toml, "proof_rail_receipt_bindings", &proof_rail_receipt_bindings);
-    append_toml_array(toml, "proof_rail_receipt_schemas", &proof_rail_receipt_schemas);
-    append_toml_array(toml, "proof_rail_receipt_runners", &proof_rail_receipt_runners);
-    append_toml_array(toml, "proof_rail_receipt_environments", &proof_rail_receipt_environments);
-    append_toml_array(toml, "proof_rail_receipt_requires", &proof_rail_receipt_requires);
-    append_toml_array(toml, "proof_rail_receipt_verifiers", &proof_rail_receipt_verifiers);
-    append_toml_array(toml, "proof_rail_receipt_verifier_digests", &proof_rail_receipt_verifier_digests);
-    append_toml_array(toml, "proof_rail_receipt_verifier_binaries", &proof_rail_receipt_verifier_binaries);
-    append_toml_array(toml, "proof_rail_receipt_verifier_binary_digests", &proof_rail_receipt_verifier_binary_digests);
-    append_toml_array(toml, "proof_rail_receipt_verifier_build_closures", &proof_rail_receipt_verifier_build_closures);
-    append_toml_array(
-        toml,
-        "proof_rail_receipt_verifier_build_closure_digests",
-        &proof_rail_receipt_verifier_build_closure_digests,
-    );
-    append_toml_array(
-        toml,
-        "proof_rail_receipt_verifier_build_closure_paths",
-        &proof_rail_receipt_verifier_build_closure_paths,
-    );
-    append_toml_array(
-        toml,
-        "proof_rail_receipt_verifier_nix_derivations",
-        &proof_rail_receipt_verifier_nix_derivations,
-    );
-    append_toml_array(
-        toml,
-        "proof_rail_receipt_verifier_nix_derivation_digests",
-        &proof_rail_receipt_verifier_nix_derivation_digests,
-    );
-    append_toml_array(toml, "proof_rail_receipt_verifier_nix_closures", &proof_rail_receipt_verifier_nix_closures);
-    append_toml_array(
-        toml,
-        "proof_rail_receipt_verifier_nix_closure_digests",
-        &proof_rail_receipt_verifier_nix_closure_digests,
-    );
-    append_toml_array(
-        toml,
-        "proof_rail_receipt_verifier_nix_closure_paths",
-        &proof_rail_receipt_verifier_nix_closure_paths,
-    );
-    append_toml_array(
-        toml,
-        "proof_rail_receipt_verifier_nix_closure_graph_digests",
-        &proof_rail_receipt_verifier_nix_closure_graph_digests,
-    );
-    append_toml_array(
-        toml,
-        "proof_rail_receipt_verifier_nix_closure_graph_paths",
-        &proof_rail_receipt_verifier_nix_closure_graph_paths,
-    );
-    append_toml_array(toml, "proof_rail_receipt_toolchains", &proof_rail_receipt_toolchains);
-    append_toml_array(toml, "proof_rail_receipt_toolchain_digests", &proof_rail_receipt_toolchain_digests);
-    append_toml_array(toml, "proof_rail_receipt_solvers", &proof_rail_receipt_solvers);
-    append_toml_array(toml, "proof_rail_receipt_solver_digests", &proof_rail_receipt_solver_digests);
-    append_toml_array(toml, "proof_rail_verifier_modes", &proof_rail_verifier_modes);
-    append_toml_array(toml, "proof_rail_checked_scopes", &proof_rail_checked_scopes);
-    append_toml_array(toml, "proof_rail_environment_allowlist", &proof_rail_environment_allowlist);
+fn append_proof_rail_command_config(toml: &mut String, registry: &PolicyRegistry) {
+    append_proof_rail_field(toml, "proof_rail_backends", registry, |rail| &rail.backend);
+    append_proof_rail_field(toml, "proof_rail_commands", registry, |rail| &rail.command);
+    append_proof_rail_fields(toml, "proof_rail_command_argv", registry, |rail| &rail.command_argv);
+    append_proof_rail_fields(toml, "proof_rail_source_paths", registry, |rail| &rail.source_paths);
+    append_proof_rail_fields(toml, "proof_rail_proof_paths", registry, |rail| &rail.proof_paths);
+    append_proof_rail_fields(toml, "proof_rail_receipt_paths", registry, |rail| &rail.receipt_paths);
+    append_proof_rail_field(toml, "proof_rail_pass_signals", registry, |rail| &rail.pass_signal);
+    append_proof_rail_fields(toml, "proof_rail_trust_boundaries", registry, |rail| &rail.trust_boundaries);
+    append_proof_rail_field(toml, "proof_rail_receipt_bindings", registry, |rail| &rail.receipt_binding);
+}
+
+fn append_proof_rail_receipt_config(toml: &mut String, registry: &PolicyRegistry) {
+    append_proof_rail_field(toml, "proof_rail_receipt_schemas", registry, |rail| {
+        &rail.receipt_provenance.schema_version
+    });
+    append_proof_rail_field(toml, "proof_rail_receipt_runners", registry, |rail| &rail.receipt_provenance.runner);
+    append_proof_rail_field(toml, "proof_rail_receipt_environments", registry, |rail| {
+        &rail.receipt_provenance.environment
+    });
+    let requirements = proof_rail_receipt_requirements(registry);
+    append_toml_array(toml, "proof_rail_receipt_requires", &requirements);
+}
+
+fn append_proof_rail_verifier_config(toml: &mut String, registry: &PolicyRegistry) {
+    append_proof_rail_field(toml, "proof_rail_receipt_verifiers", registry, |rail| &rail.receipt_verifier.verifier_id);
+    append_proof_rail_field(toml, "proof_rail_receipt_verifier_digests", registry, |rail| {
+        &rail.receipt_verifier.verifier_digest
+    });
+    append_proof_rail_field(toml, "proof_rail_receipt_verifier_binaries", registry, |rail| {
+        &rail.receipt_verifier.verifier_binary_path
+    });
+    append_proof_rail_field(toml, "proof_rail_receipt_verifier_binary_digests", registry, |rail| {
+        &rail.receipt_verifier.verifier_binary_digest
+    });
+    append_proof_rail_field(toml, "proof_rail_receipt_verifier_build_closures", registry, |rail| {
+        &rail.receipt_verifier.verifier_build_closure
+    });
+    append_proof_rail_field(toml, "proof_rail_receipt_verifier_build_closure_digests", registry, |rail| {
+        &rail.receipt_verifier.verifier_build_closure_digest
+    });
+    append_proof_rail_fields(toml, "proof_rail_receipt_verifier_build_closure_paths", registry, |rail| {
+        &rail.receipt_verifier.verifier_build_closure_paths
+    });
+    append_proof_rail_field(toml, "proof_rail_receipt_verifier_nix_derivations", registry, |rail| {
+        &rail.receipt_verifier.verifier_nix_derivation
+    });
+    append_proof_rail_field(toml, "proof_rail_receipt_verifier_nix_derivation_digests", registry, |rail| {
+        &rail.receipt_verifier.verifier_nix_derivation_digest
+    });
+    append_proof_rail_field(toml, "proof_rail_receipt_verifier_nix_closures", registry, |rail| {
+        &rail.receipt_verifier.verifier_nix_closure
+    });
+    append_proof_rail_field(toml, "proof_rail_receipt_verifier_nix_closure_digests", registry, |rail| {
+        &rail.receipt_verifier.verifier_nix_closure_digest
+    });
+    append_proof_rail_fields(toml, "proof_rail_receipt_verifier_nix_closure_paths", registry, |rail| {
+        &rail.receipt_verifier.verifier_nix_closure_paths
+    });
+    append_proof_rail_field(toml, "proof_rail_receipt_verifier_nix_closure_graph_digests", registry, |rail| {
+        &rail.receipt_verifier.verifier_nix_closure_graph_digest
+    });
+    append_proof_rail_fields(toml, "proof_rail_receipt_verifier_nix_closure_graph_paths", registry, |rail| {
+        &rail.receipt_verifier.verifier_nix_closure_graph_paths
+    });
+    append_proof_rail_field(toml, "proof_rail_receipt_toolchains", registry, |rail| {
+        &rail.receipt_verifier.toolchain_id
+    });
+    append_proof_rail_field(toml, "proof_rail_receipt_toolchain_digests", registry, |rail| {
+        &rail.receipt_verifier.toolchain_digest
+    });
+    append_proof_rail_field(toml, "proof_rail_receipt_solvers", registry, |rail| &rail.receipt_verifier.solver_id);
+    append_proof_rail_field(toml, "proof_rail_receipt_solver_digests", registry, |rail| {
+        &rail.receipt_verifier.solver_digest
+    });
+}
+
+fn append_proof_rail_runtime_config(toml: &mut String, registry: &PolicyRegistry) {
+    append_proof_rail_field(toml, "proof_rail_verifier_modes", registry, |rail| &rail.verifier_mode);
+    append_proof_rail_field(toml, "proof_rail_checked_scopes", registry, |rail| &rail.checked_scope);
+    append_proof_rail_fields(toml, "proof_rail_environment_allowlist", registry, |rail| &rail.environment_allowlist);
+}
+
+fn append_proof_rail_field(
+    toml: &mut String,
+    name: &str,
+    registry: &PolicyRegistry,
+    field: impl Fn(&crate::model::ProofRail) -> &String,
+) {
+    let values = proof_rail_field(registry, field);
+    append_toml_array(toml, name, &values);
+}
+
+fn append_proof_rail_fields(
+    toml: &mut String,
+    name: &str,
+    registry: &PolicyRegistry,
+    field: impl Fn(&crate::model::ProofRail) -> &Vec<String>,
+) {
+    let values = proof_rail_fields(registry, field);
+    append_toml_array(toml, name, &values);
 }
 
 fn proof_rail_field(registry: &PolicyRegistry, field: impl Fn(&crate::model::ProofRail) -> &String) -> Vec<String> {

@@ -186,6 +186,7 @@ struct SupplementCaveat {
     detail: String,
 }
 
+#[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Clone, Serialize)]
 #[allow(dead_code)]
 struct SupplementBoundary {
@@ -452,7 +453,7 @@ struct ObjectMarkerRecord {
     evidence: Option<String>,
 }
 
-pub fn run(args: ObjectArgs) -> Result<i32, String> {
+pub fn run(args: &ObjectArgs) -> Result<i32, String> {
     match args.mode.clone() {
         ObjectMode::Emit => run_emit(args),
         ObjectMode::Check => run_marker(args, false),
@@ -490,7 +491,7 @@ pub fn run(args: ObjectArgs) -> Result<i32, String> {
     }
 }
 
-fn run_emit(args: ObjectArgs) -> Result<i32, String> {
+fn run_emit(args: &ObjectArgs) -> Result<i32, String> {
     let objects = collect_objects(&args.paths, args.function.as_deref())?
         .into_iter()
         .map(|record| record.object)
@@ -603,7 +604,7 @@ fn supplement_fixture_inventory_report(
         (SupplementFamilyArg::Mir, SupplementScopeArg::RustcMirFixtureSpike) => RUSTC_MIR_SPIKE_FIXTURES,
         _ => &[],
     };
-    let default_shape = fixtures.first().map(|fixture| fixture.shape).unwrap_or("unknown");
+    let default_shape = fixtures.first().map_or("unknown", |fixture| fixture.shape);
     let shapes = fixtures
         .iter()
         .map(|fixture| {
@@ -745,7 +746,7 @@ fn run_supplement_check(
         boundary: supplement_boundary(),
     };
     print_supplement_check_report(&report, output_format)?;
-    Ok(if status == "pass" { 0 } else { 1 })
+    Ok(i32::from(status != "pass"))
 }
 
 fn supplement_records(
@@ -1154,8 +1155,7 @@ fn rustc_hir_spike_read_path(fixture_path: &Path) -> PathBuf {
     }
     fixture_path
         .strip_prefix("cargo-octet")
-        .map(Path::to_path_buf)
-        .unwrap_or_else(|_| fixture_path.to_path_buf())
+        .map_or_else(|_| fixture_path.to_path_buf(), Path::to_path_buf)
 }
 
 #[allow(dead_code)]
@@ -1296,7 +1296,8 @@ fn validate_supplement_receipt_shape(
             ),
         ));
     }
-    if expected.get("schema_version").and_then(serde_json::Value::as_u64) != Some(SUPPLEMENT_SCHEMA_VERSION as u64) {
+    if expected.get("schema_version").and_then(serde_json::Value::as_u64) != Some(u64::from(SUPPLEMENT_SCHEMA_VERSION))
+    {
         errors.push(supplement_check_error(
             "unsupported-schema-version",
             Some("schema_version"),
@@ -1696,7 +1697,7 @@ fn run_corpus_check(paths: &[PathBuf], receipt_path: &Path, output_format: Outpu
         errors: Vec::new(),
     };
     print_corpus_check_report(&report, output_format)?;
-    Ok(if status == "match" { 0 } else { 1 })
+    Ok(i32::from(status != "match"))
 }
 
 fn invalid_corpus_check_report(receipt_path: String, errors: Vec<ObjectCorpusCheckError>) -> ObjectCorpusCheckReport {
@@ -1889,6 +1890,7 @@ fn object_corpus_contract_report() -> ObjectCorpusContractReport {
     }
 }
 
+#[allow(clippy::too_many_lines)]
 fn supplemental_evidence_contracts() -> Vec<ObjectSupplementalEvidenceContract> {
     vec![
         ObjectSupplementalEvidenceContract {
@@ -2233,7 +2235,7 @@ fn corpus_replay_command(paths: &[PathBuf]) -> String {
     format!("cargo octet object corpus receipt --output RECEIPT.json {}", selected.join(" "))
 }
 
-fn run_marker(args: ObjectArgs, update: bool) -> Result<i32, String> {
+fn run_marker(args: &ObjectArgs, update: bool) -> Result<i32, String> {
     let mut files = collect_files(&args.paths)?;
     let mut records = Vec::new();
     for path in files.drain(..) {
@@ -2299,7 +2301,7 @@ fn run_marker(args: ObjectArgs, update: bool) -> Result<i32, String> {
             .records
             .iter()
             .any(|record| record.status != "match" || record.review.is_none() || record.evidence.is_none());
-    Ok(if failing { 1 } else { 0 })
+    Ok(i32::from(failing))
 }
 
 fn collect_objects(paths: &[PathBuf], function: Option<&str>) -> Result<Vec<ObjectRecord>, String> {
@@ -2393,7 +2395,7 @@ fn object_marker_before(source: &str, item_start: usize) -> Option<ObjectMarker>
     }
     let hash_start = previous.find(HASH_PREFIX)? + HASH_PREFIX.len();
     let stored_hash =
-        format!("b3:{}", previous[hash_start..].chars().take_while(|c| c.is_ascii_hexdigit()).collect::<String>());
+        format!("b3:{}", previous[hash_start..].chars().take_while(char::is_ascii_hexdigit).collect::<String>());
     if stored_hash == "b3:" {
         return None;
     }
@@ -2431,7 +2433,9 @@ fn run_diff(
     let old = read_single_object(old_path)?;
     let new = read_single_object(new_path)?;
     let pointer_changes = if let Some(path) = pointer_manifest {
-        pointer_changes(path, string_field(&old, "object_hash")?, string_field(&new, "object_hash")?)?
+        let old_hash = string_field(&old, "object_hash")?;
+        let new_hash = string_field(&new, "object_hash")?;
+        pointer_changes(path, &old_hash, &new_hash)?
     } else {
         Vec::new()
     };
@@ -2529,7 +2533,7 @@ fn run_pointer_validate(manifest_path: &Path, objects_path: &Path) -> Result<i32
         "missing_pointers": missing,
     });
     println!("{}", serde_json::to_string_pretty(&report).map_err(|error| error.to_string())?);
-    Ok(if report["status"] == "resolved" { 0 } else { 1 })
+    Ok(i32::from(report["status"] != "resolved"))
 }
 
 fn run_bundle_export(
@@ -2635,7 +2639,7 @@ fn object_hashes(path: &Path) -> Result<BTreeSet<String>, String> {
         .collect())
 }
 
-fn pointer_changes(path: &Path, old_hash: String, new_hash: String) -> Result<Vec<serde_json::Value>, String> {
+fn pointer_changes(path: &Path, old_hash: &str, new_hash: &str) -> Result<Vec<serde_json::Value>, String> {
     let manifest = read_pointer_manifest(path)?;
     Ok(manifest
         .pointers
