@@ -62,6 +62,7 @@ const COMMAND_STDOUT_SUFFIX: &str = "stdout";
 const COMMAND_STDERR_SUFFIX: &str = "stderr";
 const COMMAND_ARGV_FIELD: &str = "command_argv";
 const DEFAULT_ENV_ALLOWLIST: &[&str] = &["PATH", "TMPDIR"];
+const DIAGNOSTIC_VERIFIER_FAILURE: &str = "verifier-failure";
 
 #[derive(Debug, Serialize)]
 struct ProveReport {
@@ -307,15 +308,7 @@ fn execute_proof(
     diagnostics.extend(proof_source_diagnostics);
     let outcome = run_proof_command(selected.rail, working_dir);
     diagnostics.extend(outcome.diagnostics.clone());
-    if outcome.timed_out {
-        diagnostics.push(format!("proof command `{}` timed out", command_display(selected.rail)));
-    }
-    if !outcome.command_succeeded {
-        diagnostics.push(format!("proof command `{}` exited without success", command_display(selected.rail)));
-    }
-    if !outcome.stdout_text.contains(&selected.rail.pass_signal) {
-        diagnostics.push(format!("proof command stdout missing pass signal `{}`", selected.rail.pass_signal));
-    }
+    diagnostics.extend(proof_failure_diagnostics(selected.rail, &outcome));
 
     let command_status = if diagnostics.is_empty() {
         PROOF_STATUS_PASSED
@@ -391,6 +384,23 @@ fn execute_proof(
         receipt_text,
         formal_provenance,
     }
+}
+
+fn proof_failure_diagnostics(rail: &ProofRail, outcome: &CommandOutcome) -> Vec<String> {
+    let mut diagnostics = Vec::new();
+    if outcome.timed_out {
+        diagnostics.push(format!("{DIAGNOSTIC_VERIFIER_FAILURE}: proof command `{}` timed out", command_display(rail)));
+    }
+    if !outcome.command_succeeded {
+        diagnostics.push(format!(
+            "{DIAGNOSTIC_VERIFIER_FAILURE}: proof command `{}` exited without success",
+            command_display(rail)
+        ));
+    }
+    if !outcome.stdout_text.contains(&rail.pass_signal) {
+        diagnostics.push(format!("proof command stdout missing pass signal `{}`", rail.pass_signal));
+    }
+    diagnostics
 }
 
 fn load_proof_sources(rail: &ProofRail, working_dir: &Path) -> (Vec<SourceFile>, Vec<String>) {
@@ -934,6 +944,8 @@ mod tests {
     use crate::artifact::verify_bundle;
 
     const POLICY_ID: &str = "octet.verus_proof_rails.fixture";
+    const PRODUCTION_NEGATIVE_POLICY_ID: &str = "octet.verus_proof_rails.fixture-production-negative";
+    const PRODUCTION_VERIFIER_ID: &str = "verus@production-fixture";
     const SOURCE_RELATIVE_PATH: &str = "src/verified/addition.rs";
     const PROOF_RELATIVE_PATH: &str = "verus/proofs/addition_bound.rs";
     const PASS_SIGNAL: &str = "proof-result: pass fixture-verus";
@@ -1008,6 +1020,44 @@ mod tests {
         let report = verify_bundle(bundle_input(&artifact_dir));
         assert_eq!(report.status, "invalid");
         assert!(report.diagnostics.iter().any(|diagnostic| diagnostic.contains("unexpected artifact")));
+    }
+
+    #[test]
+    fn prove_production_verifier_failure_is_fail_closed() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let source = write_fixture_source(temp.path());
+        write_fixture_proof(temp.path());
+        let registry = write_production_negative_registry(temp.path(), vec!["false".to_owned()]);
+        let artifact_dir = temp.path().join("artifacts-production-negative");
+
+        let code = run(ProveArgs {
+            registry: Some(registry),
+            policy_artifacts_dir: None,
+            source: vec![source],
+            family: Vec::new(),
+            artifact_dir: artifact_dir.clone(),
+            output_format: OutputFormat::Human,
+            command_line: "cargo octet prove fixture-production-negative".to_owned(),
+            list: false,
+            explain: false,
+        })
+        .expect("prove run");
+
+        assert_eq!(code, EXIT_PROOF_INVALID);
+        let summary = fs::read_to_string(artifact_dir.join(SUMMARY_ARTIFACT_NAME)).expect("read summary");
+        assert!(summary.contains("verifier-failure: proof command `false` exited without success"));
+        let status = fs::read_to_string(artifact_dir.join(STATUS_ARTIFACT_NAME)).expect("read status");
+        assert!(status.contains("\"status\": \"failed\""));
+        let provenance = fs::read_to_string(artifact_dir.join(PROVENANCE_ARTIFACT_NAME)).expect("read provenance");
+        assert!(!provenance.contains("formal_proof"));
+        let receipt_path = artifact_dir.join(format!(
+            "{PROOF_ARTIFACT_DIR_NAME}/{}-rail-0.receipt",
+            safe_artifact_stem(PRODUCTION_NEGATIVE_POLICY_ID)
+        ));
+        let receipt = fs::read_to_string(receipt_path).expect("read receipt");
+        assert!(receipt.contains("\"status\": \"failed\""));
+        assert!(receipt.contains("\"stdout_artifact\""));
+        assert!(receipt.contains("\"stderr_artifact\""));
     }
 
     #[test]
@@ -1145,11 +1195,28 @@ mod tests {
         path
     }
 
+    fn write_production_negative_registry(root: &Path, argv: Vec<String>) -> PathBuf {
+        let path = root.join("registry-production-negative.json");
+        let registry = production_negative_registry(argv);
+        fs::write(&path, serde_json::to_string_pretty(&registry).expect("registry json")).expect("write registry");
+        path
+    }
+
     fn fixture_registry(root: &Path, pass_signal: &str, argv: Vec<String>) -> PolicyRegistry {
         PolicyRegistry {
             schema_version: "test".to_owned(),
             checker_ids: vec![CHECKER_OCTET_STANDARDS.to_owned()],
             policies: vec![fixture_policy(root, pass_signal, argv)],
+            seed_manifests: Vec::new(),
+            config_receipt_families: Vec::new(),
+        }
+    }
+
+    fn production_negative_registry(argv: Vec<String>) -> PolicyRegistry {
+        PolicyRegistry {
+            schema_version: "test".to_owned(),
+            checker_ids: vec![CHECKER_OCTET_STANDARDS.to_owned()],
+            policies: vec![production_negative_policy(argv)],
             seed_manifests: Vec::new(),
             config_receipt_families: Vec::new(),
         }
@@ -1193,6 +1260,40 @@ mod tests {
             existing_enforcement: Vec::new(),
             custom_checker_justification: "fixture".to_owned(),
         }
+    }
+
+    fn production_negative_policy(argv: Vec<String>) -> PolicyEntry {
+        let mut policy = fixture_policy(Path::new("."), PASS_SIGNAL, argv.clone());
+        policy.policy_id = PRODUCTION_NEGATIVE_POLICY_ID.to_owned();
+        policy.summary = "production negative fixture policy".to_owned();
+        policy.escalation_criteria = "production verifier failures must be fail-closed".to_owned();
+        policy.proof_rails = vec![production_negative_rail(argv)];
+        policy
+    }
+
+    fn production_negative_rail(argv: Vec<String>) -> ProofRail {
+        let mut rail = fixture_rail(Path::new("."), PASS_SIGNAL, argv);
+        rail.receipt_paths = vec![format!(
+            "{PROOF_ARTIFACT_DIR_NAME}/{}-rail-0.receipt",
+            safe_artifact_stem(PRODUCTION_NEGATIVE_POLICY_ID)
+        )];
+        rail.trust_boundaries = vec!["production negative fixture verifies fail-closed behavior only".to_owned()];
+        rail.receipt_verifier = ReceiptVerifier {
+            verifier_id: PRODUCTION_VERIFIER_ID.to_owned(),
+            verifier_digest: "production-fixture-verifier-digest".to_owned(),
+            verifier_binary_path: "octet-production-verus".to_owned(),
+            verifier_binary_digest: "production-fixture-binary-digest".to_owned(),
+            verifier_nix_closure: "production-fixture-closure".to_owned(),
+            verifier_nix_closure_graph_digest: "production-fixture-closure-graph-digest".to_owned(),
+            toolchain_id: "production-fixture-toolchain".to_owned(),
+            toolchain_digest: "production-fixture-toolchain-digest".to_owned(),
+            solver_id: "z3@production-fixture".to_owned(),
+            solver_digest: "production-fixture-solver-digest".to_owned(),
+            ..ReceiptVerifier::default()
+        };
+        rail.verifier_mode = VERIFIER_MODE_PRODUCTION.to_owned();
+        rail.checked_scope = format!("formal-proof:production:{PRODUCTION_NEGATIVE_POLICY_ID}#rail-0");
+        rail
     }
 
     fn fixture_rail(_root: &Path, pass_signal: &str, argv: Vec<String>) -> ProofRail {

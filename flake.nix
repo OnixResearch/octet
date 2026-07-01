@@ -921,9 +921,15 @@ MAIN
           jq --exit-status '.rails.addition_bound_production.command_argv[0] == "octet-production-verus"' "$manifest_json" >/dev/null
           jq --exit-status '.rails.addition_bound_production.verifier_mode == "production"' "$manifest_json" >/dev/null
           jq --exit-status '.rails.addition_bound_production.pass_signal == "verification results:: 1 verified, 0 errors"' "$manifest_json" >/dev/null
+          jq --exit-status '.rails.addition_bound_production_negative.command_argv == ["octet-production-verus", "verus/proofs/addition_bound_invalid.rs"]' "$manifest_json" >/dev/null
+          jq --exit-status '.rails.addition_bound_production_negative.source_paths == ["verus/failure-fixtures/addition_bound_invalid_source.rs"]' "$manifest_json" >/dev/null
+          jq --exit-status '.rails.addition_bound_production_negative.verifier_mode == "production"' "$manifest_json" >/dev/null
           production_graph_digest=$(cat ${octetProductionVerusNixClosureManifest}/octet-production-verus-closure.graph.blake3)
           jq --exit-status --arg digest "$production_graph_digest" \
             '.rails.addition_bound_production.receipt_verifier.verifier_nix_closure_graph_digest == $digest' \
+            "$manifest_json" >/dev/null
+          jq --exit-status --arg digest "$production_graph_digest" \
+            '.rails.addition_bound_production_negative.receipt_verifier.verifier_nix_closure_graph_digest == $digest' \
             "$manifest_json" >/dev/null
 
           for file in standards/proof-rails/fixtures/valid/*.ncl; do
@@ -937,6 +943,61 @@ MAIN
           done
 
           touch "$out"
+        '';
+
+        productionVerusNegativeProofCheck = pkgs.runCommand "octet-production-verus-negative-proof" { } ''
+          set +e
+          ${octetProductionVerus}/bin/octet-production-verus ${./verus/proofs/addition_bound_invalid.rs} > stdout.txt 2> stderr.txt
+          proof_status="$?"
+          set -e
+          if [ "$proof_status" -eq 0 ]; then
+            echo "invalid production Verus proof unexpectedly passed" >&2
+            exit 1
+          fi
+          if grep -F "verification results:: 1 verified, 0 errors" stdout.txt >/dev/null; then
+            echo "invalid production Verus proof printed the success pass signal" >&2
+            exit 1
+          fi
+          mkdir -p "$out"
+          cp stdout.txt stderr.txt "$out/"
+        '';
+
+        productionVerusNegativeProveCheck = pkgs.runCommand "octet-production-verus-negative-prove"
+          {
+            nativeBuildInputs = with pkgs; [ gnugrep jq ];
+          } ''
+          artifact_dir=$(mktemp -d)
+          policy_dir=$(mktemp -d)
+          repo="$TMPDIR/source"
+          cp -r ${src} "$repo"
+          chmod -R u+w "$repo"
+          ${policyArtifacts}/bin/octet-policy-artifacts "$policy_dir"
+          cd "$repo"
+          set +e
+          ${cargoOctet}/bin/cargo-octet prove \
+            --policy-artifacts-dir "$policy_dir" \
+            --source verus/failure-fixtures/addition_bound_invalid_source.rs \
+            --artifact-dir "$artifact_dir" \
+            --output-format json > prove.json 2> prove.err
+          prove_status="$?"
+          set -e
+          if [ "$prove_status" -ne 1 ]; then
+            echo "expected cargo octet prove to exit 1 for the negative production rail, got $prove_status" >&2
+            exit 1
+          fi
+          jq --exit-status '.status == "failed"' "$artifact_dir/status.json" >/dev/null
+          grep -F 'verifier-failure: proof command `octet-production-verus verus/proofs/addition_bound_invalid.rs` exited without success' "$artifact_dir/summary.txt" >/dev/null
+          receipt="$artifact_dir/proofs/octet.verus_proof_rails.addition-bound-production-negative-rail-0.receipt"
+          grep -F '"status": "failed"' "$receipt" >/dev/null
+          grep -F '"stdout_artifact"' "$receipt" >/dev/null
+          grep -F '"stderr_artifact"' "$receipt" >/dev/null
+          if grep -F '"evidence_tier":"formal_proof"' "$artifact_dir/provenance.jsonl" >/dev/null; then
+            echo "failed production Verus rail emitted formal_proof provenance" >&2
+            exit 1
+          fi
+          mkdir -p "$out"
+          cp -r "$artifact_dir" "$out/artifacts"
+          cp prove.json prove.err "$out/"
         '';
 
         standardsFixtureCheck = pkgs.runCommand "octet-standards-fixtures"
@@ -1680,6 +1741,8 @@ MAIN
 
           policy-registry = policyRegistryCheck;
           proof-rail-manifest = proofRailManifestCheck;
+          production-verus-negative-proof = productionVerusNegativeProofCheck;
+          production-verus-negative-prove = productionVerusNegativeProveCheck;
           standards-fixtures = standardsFixtureCheck;
           octet-standards-nix-closure-manifest = pkgs.runCommand "octet-standards-nix-closure-manifest-check" { } ''
             test -s ${octetStandardsNixClosureManifest}/proof-nix-closure.txt
