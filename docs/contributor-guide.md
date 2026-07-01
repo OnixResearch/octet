@@ -210,6 +210,17 @@ nix develop -c bash -c 'cargo test -p octet-standards'
 nix run .#octet-policy-validate
 ```
 
+Warning-clean release-readiness check:
+
+```bash
+nix build .#checks.x86_64-linux.warning-clean --no-link -L
+```
+
+That rail runs the owned workspace with Rust warnings denied and covers the
+`cargo-octet`, `cargo-slotcar`, and `cargo-tigerstyle` binary targets. The
+paired `warning-clean-regression` check is a negative control proving a new dead
+helper fails under the same warning-deny policy.
+
 Useful doc-facing spot checks:
 
 ```bash
