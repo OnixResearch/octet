@@ -1,5 +1,7 @@
 use std::collections::BTreeSet;
+#[cfg(test)]
 use std::fs;
+#[cfg(test)]
 use std::path::Path;
 
 use serde::Deserialize;
@@ -47,6 +49,7 @@ pub struct ImportedArtifactIdentity {
     pub path: String,
 }
 
+#[cfg(test)]
 pub struct ImportedProofArtifactBytes<'a> {
     pub source: &'a [u8],
     pub proof: &'a [u8],
@@ -55,6 +58,7 @@ pub struct ImportedProofArtifactBytes<'a> {
     pub receipts: Vec<&'a [u8]>,
 }
 
+#[cfg(test)]
 pub struct OwnedImportedProofArtifactBytes {
     pub source: Vec<u8>,
     pub proof: Vec<u8>,
@@ -63,6 +67,7 @@ pub struct OwnedImportedProofArtifactBytes {
     pub receipts: Vec<Vec<u8>>,
 }
 
+#[cfg(test)]
 impl OwnedImportedProofArtifactBytes {
     #[must_use]
     pub fn as_borrowed(&self) -> ImportedProofArtifactBytes<'_> {
@@ -151,6 +156,7 @@ pub fn validate_imported_proof_bundle_shape(bundle: &ImportedProofBundle) -> Vec
 }
 
 #[must_use]
+#[cfg(test)]
 pub fn validate_imported_proof_bundle_artifacts(
     bundle: &ImportedProofBundle,
     artifacts: &ImportedProofArtifactBytes<'_>,
@@ -170,6 +176,7 @@ pub fn validate_imported_proof_bundle_artifacts(
     diagnostics
 }
 
+#[cfg(test)]
 pub fn validate_imported_proof_manifest_files(
     root: &Path,
     manifest: &ImportedProofBundleManifest,
@@ -189,6 +196,7 @@ pub fn validate_imported_proof_manifest_files(
 }
 
 #[must_use]
+#[cfg(test)]
 pub fn validate_imported_proof_manifest_artifacts(
     manifest: &ImportedProofBundleManifest,
     artifacts: &[ImportedProofArtifactBytes<'_>],
@@ -209,6 +217,7 @@ pub fn validate_imported_proof_manifest_artifacts(
     diagnostics
 }
 
+#[cfg(test)]
 fn read_imported_proof_bundle_artifacts(
     root: &Path,
     bundle: &ImportedProofBundle,
@@ -222,10 +231,12 @@ fn read_imported_proof_bundle_artifacts(
     })
 }
 
+#[cfg(test)]
 fn read_artifact_bytes_list(root: &Path, artifacts: &[ImportedArtifactIdentity]) -> Result<Vec<Vec<u8>>, String> {
     artifacts.iter().map(|artifact| read_artifact_bytes(root, artifact)).collect::<Result<Vec<_>, _>>()
 }
 
+#[cfg(test)]
 fn read_artifact_bytes(root: &Path, artifact: &ImportedArtifactIdentity) -> Result<Vec<u8>, String> {
     let path = root.join(&artifact.path);
     fs::read(&path).map_err(|error| format!("read imported proof artifact `{}`: {error}", artifact.path))
@@ -261,6 +272,7 @@ fn duplicate_bundle_diagnostics(bundles: &[ImportedProofBundle]) -> Vec<String> 
     diagnostics
 }
 
+#[cfg(test)]
 fn validate_artifact_byte_list(
     label: &str,
     identities: &[ImportedArtifactIdentity],
@@ -280,6 +292,7 @@ fn validate_artifact_byte_list(
     diagnostics
 }
 
+#[cfg(test)]
 fn validate_artifact_bytes(label: &str, identity: &ImportedArtifactIdentity, bytes: &[u8]) -> Vec<String> {
     let mut diagnostics = validate_imported_artifact_identity(label, identity);
     let actual_bytes = u64::try_from(bytes.len()).expect("artifact bytes length should fit u64");
