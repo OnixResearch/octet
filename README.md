@@ -95,7 +95,11 @@ Octet keeps the fixture `octet-verus` rail for plumbing tests and also ships
 multiple tiny production-mode pilots through `octet-production-verus`, pinned to
 the real Verus binary release, solver, Rust toolchain, and Nix closure graph
 identity. Each pilot proves only its declared property and makes no
-whole-program correctness claim.
+whole-program correctness claim. The canonical route is documented in
+[`docs/trust-boundary-evidence.md#verus-proof-path-lane`](docs/trust-boundary-evidence.md#verus-proof-path-lane):
+requirement or policy ID to Verus proof rail, checked Rust source scope, proof
+target, verifier identity, structured receipt, `formal_proof` provenance, and
+artifact verification.
 
 ```bash
 cargo octet prove --list --policy-artifacts-dir artifacts/policy

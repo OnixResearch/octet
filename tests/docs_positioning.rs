@@ -8,6 +8,8 @@ const DOWNSTREAM_ROLLOUT_DOC: &str = "docs/downstream-rollout.md";
 const SAFETY_CRITICAL_DOC: &str = "docs/safety-critical.md";
 const RELEASE_CANDIDATE_DOC: &str = "docs/release-candidate.md";
 const README_DOC: &str = "README.md";
+const VERUS_README_DOC: &str = "verus/README.md";
+const VERUS_PROOF_PATH_ANCHOR: &str = "docs/trust-boundary-evidence.md#verus-proof-path-lane";
 
 #[test]
 fn checked_path_positioning_is_visible_in_primary_docs() {
@@ -140,15 +142,71 @@ fn evidence_tier_and_provenance_docs_name_machine_readable_fields() {
 }
 
 #[test]
+fn verus_proof_path_explainer_names_required_stages_and_commands() {
+    let trust_boundary = read_repo_text(TRUST_BOUNDARY_DOC);
+    let readme = read_repo_text(README_DOC);
+    let verus_readme = read_repo_text(VERUS_README_DOC);
+
+    assert_required_terms(&trust_boundary, &[
+        "Verus proof-path lane",
+        "requirement or policy ID",
+        "Verus proof rail",
+        "checked Rust source scope",
+        "proof target",
+        "verifier/solver/toolchain identity",
+        "structured proof receipt",
+        "`formal_proof` provenance",
+        "artifact verifier",
+        "cargo octet prove --list",
+        "cargo octet prove --explain",
+        "cargo octet prove",
+        "cargo octet artifact verify",
+    ]);
+    assert_required_terms(&trust_boundary, &[
+        "lint findings remain `static_lint`",
+        "policy checks remain `policy_check`",
+        "transcript assertions remain `transcript_assertion`",
+        "unresolved human obligations remain `manual_review_required`",
+        "claim remains scoped to the declared property",
+        "does not claim whole-program correctness",
+        "certification",
+        "business-domain validation",
+        "semantic equivalence",
+        "full safety",
+        "verified runtime",
+    ]);
+    assert_required_terms(&readme, &[VERUS_PROOF_PATH_ANCHOR, "requirement or policy ID to Verus proof rail"]);
+    assert_required_terms(&verus_readme, &[VERUS_PROOF_PATH_ANCHOR, "requirement or policy ID to Verus proof rail"]);
+}
+
+#[test]
+fn verus_proof_path_checker_rejects_unscoped_overclaim_text() {
+    let bad_text = "The Verus proof path proves whole-program correctness. It provides certification and provides business-domain validation. It proves semantic equivalence and guarantees full safety for Octet. Octet is a verified runtime.";
+
+    let diagnostics = proof_path_overclaim_diagnostics(bad_text);
+
+    assert_eq!(diagnostics, vec![
+        "unscoped whole-program-correctness claim".to_owned(),
+        "unscoped certification claim".to_owned(),
+        "unscoped business-domain-validation claim".to_owned(),
+        "unscoped semantic-equivalence claim".to_owned(),
+        "unscoped full-safety claim".to_owned(),
+        "unscoped verified-runtime claim".to_owned(),
+    ]);
+}
+
+#[test]
 fn docs_do_not_contain_unscoped_overclaim_phrases() {
     for path in [
         README_DOC,
         CONSUMER_GUIDE_DOC,
         TRUST_BOUNDARY_DOC,
         DOWNSTREAM_ROLLOUT_DOC,
+        VERUS_README_DOC,
     ] {
         let text = read_repo_text(path);
-        let diagnostics = overclaim_diagnostics(&text);
+        let mut diagnostics = overclaim_diagnostics(&text);
+        diagnostics.extend(proof_path_overclaim_diagnostics(&text));
         assert!(diagnostics.is_empty(), "{path} overclaim diagnostics: {diagnostics:?}");
     }
 }
@@ -208,6 +266,56 @@ fn overclaim_diagnostics(text: &str) -> Vec<String> {
     }
 
     diagnostics
+}
+
+fn proof_path_overclaim_diagnostics(text: &str) -> Vec<String> {
+    let lower = text.to_lowercase();
+    let mut diagnostics = Vec::new();
+
+    push_if_contains(
+        &mut diagnostics,
+        &lower,
+        &["proves whole-program correctness", "proof of whole-program correctness"],
+        "unscoped whole-program-correctness claim",
+    );
+    push_if_contains(
+        &mut diagnostics,
+        &lower,
+        &["provides certification", "claims certification"],
+        "unscoped certification claim",
+    );
+    push_if_contains(
+        &mut diagnostics,
+        &lower,
+        &["provides business-domain validation", "validates business-domain"],
+        "unscoped business-domain-validation claim",
+    );
+    push_if_contains(
+        &mut diagnostics,
+        &lower,
+        &["proves semantic equivalence", "guarantees semantic equivalence"],
+        "unscoped semantic-equivalence claim",
+    );
+    push_if_contains(
+        &mut diagnostics,
+        &lower,
+        &["proves full safety", "guarantees full safety"],
+        "unscoped full-safety claim",
+    );
+    push_if_contains(
+        &mut diagnostics,
+        &lower,
+        &["octet is a verified runtime", "octet is the verified runtime"],
+        "unscoped verified-runtime claim",
+    );
+
+    diagnostics
+}
+
+fn push_if_contains(diagnostics: &mut Vec<String>, text: &str, needles: &[&str], diagnostic: &str) {
+    if needles.iter().any(|needle| text.contains(needle)) {
+        diagnostics.push(diagnostic.to_owned());
+    }
 }
 
 fn read_repo_text(path: &str) -> String {
