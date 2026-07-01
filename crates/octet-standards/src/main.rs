@@ -426,14 +426,14 @@ fn export_provenance_records(
             policy_provenance_record(
                 args.out_dir.join(file_name).display().to_string(),
                 blake3_text(text),
-                profile.profile_id.clone(),
+                &profile.profile_id,
                 Vec::new(),
             )
         })
         .chain(std::iter::once(policy_provenance_record(
             manifest_path.display().to_string(),
             blake3_file(manifest_path),
-            profile.profile_id.clone(),
+            &profile.profile_id,
             generated_artifacts
                 .iter()
                 .map(|(file_name, _)| args.out_dir.join(file_name).display().to_string())
@@ -445,7 +445,7 @@ fn export_provenance_records(
 fn policy_provenance_record(
     artifact_locator: String,
     blake3: String,
-    profile_id: String,
+    profile_id: &str,
     parent_artifacts: Vec<String>,
 ) -> ReceiptProvenanceRecord {
     ReceiptProvenanceRecord {

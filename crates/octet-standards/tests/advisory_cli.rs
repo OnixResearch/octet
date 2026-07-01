@@ -318,7 +318,7 @@ fn artifact_backed_manifest_rejects_missing_manifest_before_policy_json_parse() 
 #[test]
 fn exported_proof_bundle_preserves_verified_rail_schema() {
     let temp = TempDir::new().expect("temp dir should be created");
-    let registry = write_registry_value(&temp, proof_registry());
+    let registry = write_registry_value(&temp, &proof_registry());
     let artifact_dir = temp.path().join("generated-proof-bundle");
 
     let export = Command::new(binary_path())
@@ -346,7 +346,7 @@ fn exported_proof_bundle_preserves_verified_rail_schema() {
 #[test]
 fn artifact_backed_proof_bundle_rejects_unsupported_schema_version() {
     let temp = TempDir::new().expect("temp dir should be created");
-    let registry = write_registry_value(&temp, proof_registry());
+    let registry = write_registry_value(&temp, &proof_registry());
     let artifact_dir = temp.path().join("generated-proof-bundle");
     export_artifacts(&registry, &artifact_dir);
     let proof_bundle_path = artifact_dir.join(PROOF_BUNDLES_JSON_FILE);
@@ -381,7 +381,7 @@ fn artifact_backed_proof_bundle_rejects_unsupported_schema_version() {
 #[test]
 fn artifact_backed_proof_bundle_rejects_missing_bundle_file() {
     let temp = TempDir::new().expect("temp dir should be created");
-    let registry = write_registry_value(&temp, proof_registry());
+    let registry = write_registry_value(&temp, &proof_registry());
     let artifact_dir = temp.path().join("generated-proof-bundle");
     export_artifacts(&registry, &artifact_dir);
     std::fs::remove_file(artifact_dir.join(PROOF_BUNDLES_JSON_FILE)).expect("proof bundle should be removed");
@@ -412,7 +412,7 @@ fn artifact_backed_proof_bundle_rejects_missing_bundle_file() {
 #[test]
 fn artifact_backed_proof_bundle_accepts_complete_bundle() {
     let temp = TempDir::new().expect("temp dir should be created");
-    let registry = write_registry_value(&temp, proof_registry());
+    let registry = write_registry_value(&temp, &proof_registry());
     let artifact_dir = temp.path().join("generated-proof-bundle");
     export_artifacts(&registry, &artifact_dir);
     let fixture = write_executable_proof_fixture(&temp, "complete-bundle-proof-fixture");
@@ -439,7 +439,7 @@ fn artifact_backed_proof_bundle_accepts_complete_bundle() {
 #[test]
 fn execute_proof_rails_uses_command_output_as_receipt() {
     let temp = TempDir::new().expect("temp dir should be created");
-    let registry = write_registry_value(&temp, proof_registry());
+    let registry = write_registry_value(&temp, &proof_registry());
     let fixture = temp.path().join("proof-fixture");
     std::fs::create_dir_all(fixture.join("src")).expect("proof fixture dirs should be created");
     std::fs::write(fixture.join("src/lib.rs"), "pub fn proof_witness() {}\n").expect("proof source should be written");
@@ -481,7 +481,7 @@ fn execute_proof_rails_uses_command_output_as_receipt() {
 #[test]
 fn receipt_only_proof_rail_rejects_unbound_stale_receipt() {
     let temp = TempDir::new().expect("temp dir should be created");
-    let registry = write_registry_value(&temp, proof_registry());
+    let registry = write_registry_value(&temp, &proof_registry());
     let fixture = temp.path().join("unbound-proof-fixture");
     std::fs::create_dir_all(fixture.join("src")).expect("proof fixture dirs should be created");
     std::fs::write(fixture.join("src/lib.rs"), "pub fn proof_witness() {}\n").expect("proof source should be written");
@@ -510,7 +510,7 @@ fn receipt_only_proof_rail_rejects_unbound_stale_receipt() {
 #[test]
 fn receipt_only_proof_rail_rejects_hash_bound_receipt_without_provenance() {
     let temp = TempDir::new().expect("temp dir should be created");
-    let registry = write_registry_value(&temp, proof_registry());
+    let registry = write_registry_value(&temp, &proof_registry());
     let fixture = temp.path().join("hash-bound-proof-fixture");
     std::fs::create_dir_all(fixture.join("src")).expect("proof fixture dirs should be created");
     let source = "pub fn proof_witness() {}\n";
@@ -548,7 +548,7 @@ fn receipt_only_proof_rail_rejects_hash_bound_receipt_without_provenance() {
 #[test]
 fn receipt_only_proof_rail_rejects_provenance_receipt_without_verifier_digest() {
     let temp = TempDir::new().expect("temp dir should be created");
-    let registry = write_registry_value(&temp, proof_registry());
+    let registry = write_registry_value(&temp, &proof_registry());
     let fixture = temp.path().join("provenance-bound-proof-fixture");
     std::fs::create_dir_all(fixture.join("src")).expect("proof fixture dirs should be created");
     let source = "pub fn proof_witness() {}
@@ -595,7 +595,7 @@ proof-result: pass deterministic-effect-handlers
 #[test]
 fn receipt_only_proof_rail_rejects_verifier_receipt_without_binary_digest() {
     let temp = TempDir::new().expect("temp dir should be created");
-    let registry = write_registry_value(&temp, proof_registry());
+    let registry = write_registry_value(&temp, &proof_registry());
     let fixture = temp.path().join("verifier-bound-proof-fixture");
     std::fs::create_dir_all(fixture.join("src")).expect("proof fixture dirs should be created");
     let source = "pub fn proof_witness() {}
@@ -646,7 +646,7 @@ proof-result: pass deterministic-effect-handlers
 #[test]
 fn receipt_only_proof_rail_rejects_verifier_receipt_without_build_closure_digest() {
     let temp = TempDir::new().expect("temp dir should be created");
-    let registry = write_registry_value(&temp, proof_registry());
+    let registry = write_registry_value(&temp, &proof_registry());
     let fixture = temp.path().join("build-closure-bound-proof-fixture");
     std::fs::create_dir_all(fixture.join("src")).expect("proof fixture dirs should be created");
     let source = "pub fn proof_witness() {}\n";
@@ -685,7 +685,7 @@ fn receipt_only_proof_rail_rejects_verifier_receipt_without_build_closure_digest
 #[test]
 fn receipt_only_proof_rail_rejects_verifier_receipt_without_nix_closure_digest() {
     let temp = TempDir::new().expect("temp dir should be created");
-    let registry = write_registry_value(&temp, proof_registry());
+    let registry = write_registry_value(&temp, &proof_registry());
     let fixture = temp.path().join("nix-closure-bound-proof-fixture");
     std::fs::create_dir_all(fixture.join("src")).expect("proof fixture dirs should be created");
     let source = "pub fn proof_witness() {}\n";
@@ -728,7 +728,7 @@ fn receipt_only_proof_rail_rejects_verifier_receipt_without_nix_closure_digest()
 #[test]
 fn receipt_only_proof_rail_rejects_verifier_receipt_without_nix_closure_graph_digest() {
     let temp = TempDir::new().expect("temp dir should be created");
-    let registry = write_registry_value(&temp, proof_registry());
+    let registry = write_registry_value(&temp, &proof_registry());
     let fixture = temp.path().join("nix-closure-graph-bound-proof-fixture");
     std::fs::create_dir_all(fixture.join("src")).expect("proof fixture dirs should be created");
     let source = "pub fn proof_witness() {}
@@ -803,7 +803,7 @@ proof-result: pass deterministic-effect-handlers
 fn execute_proof_rails_replaces_stale_committed_receipt() {
     let temp = TempDir::new().expect("temp dir should be created");
     let registry =
-        write_registry_value(&temp, proof_registry_with_modes(EnforcementMode::Verified, EnforcementMode::Gate));
+        write_registry_value(&temp, &proof_registry_with_modes(EnforcementMode::Verified, EnforcementMode::Gate));
     let fixture = temp.path().join("stale-proof-fixture");
     std::fs::create_dir_all(fixture.join("src")).expect("proof fixture dirs should be created");
     std::fs::write(fixture.join("src/lib.rs"), "pub fn proof_witness() {}\n").expect("proof source should be written");
@@ -1002,10 +1002,10 @@ fn repo_path(relative_path: &str) -> PathBuf {
 }
 
 fn write_registry(temp: &TempDir) -> PathBuf {
-    write_registry_value(temp, test_registry())
+    write_registry_value(temp, &test_registry())
 }
 
-fn write_registry_value(temp: &TempDir, registry: PolicyRegistry) -> PathBuf {
+fn write_registry_value(temp: &TempDir, registry: &PolicyRegistry) -> PathBuf {
     let registry_path = temp.path().join(REGISTRY_FILE_NAME);
     let registry_json = serde_json::to_string(&registry).expect("registry should serialize");
     std::fs::write(&registry_path, registry_json).expect("registry file should be written");

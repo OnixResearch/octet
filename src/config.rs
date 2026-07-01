@@ -46,6 +46,7 @@ impl LintLevel {
         }
     }
 
+    #[must_use]
     pub fn rustc_level(self) -> rustc_lint::Level {
         match self {
             Self::Allow => rustc_lint::Level::Allow,
@@ -80,13 +81,13 @@ pub struct Config {
     /// Maximum counted parameters before warning.
     pub max_parameters: usize,
 
-    /// Maximum methods permitted in one trait before fat_trait warns.
+    /// Maximum methods permitted in one trait before `fat_trait` warns.
     pub trait_method_max: usize,
 
-    /// Maximum inherent impl blocks permitted per type before type_accumulation warns.
+    /// Maximum inherent impl blocks permitted per type before `type_accumulation` warns.
     pub impl_blocks_max: usize,
 
-    /// Maximum public items permitted in one module before type_accumulation warns.
+    /// Maximum public items permitted in one module before `type_accumulation` warns.
     pub module_pub_items_max: usize,
 
     /// Source path scopes where concrete construction in core is checked.
@@ -95,7 +96,7 @@ pub struct Config {
     /// Attribute marker that suppresses fragile same-crate exhaustive enum match diagnostics.
     pub sealed_enum_marker: String,
 
-    /// Acronyms that should not trigger the acronym_style lint.
+    /// Acronyms that should not trigger the `acronym_style` lint.
     /// Entries are case-sensitive and matched against the uppercase run
     /// (e.g., `"IO"` allows `IOError`).
     pub acronym_allowlist: Vec<String>,
@@ -139,10 +140,12 @@ pub(crate) fn canonical_lint_names() -> Vec<&'static str> {
 }
 
 impl Config {
+    #[must_use]
     pub fn lint_is_disabled(&self, lint_name: &str) -> bool {
         self.disabled_lints.iter().any(|disabled| disabled == lint_name)
     }
 
+    #[must_use]
     pub fn lint_level(&self, lint_name: &str) -> Option<LintLevel> {
         self.validated_lint_levels.get(lint_name).copied()
     }
@@ -197,6 +200,12 @@ fn prefer_octet_or_legacy_config(octet: Option<Config>, slotcar: Option<Config>,
 }
 
 /// Load the project config from `dylint.toml`, falling back to defaults.
+///
+/// # Panics
+///
+/// Panics when Dylint returns malformed TOML for the Octet, Slotcar, or
+/// Tigerstyle config sections; invalid lint names and levels are reported as
+/// warnings instead of panics after parsing succeeds.
 pub fn load(sess: &rustc_session::Session) -> Config {
     let mut cfg = prefer_octet_or_legacy_config(
         dylint_linting::config::<Config>(env!("CARGO_PKG_NAME")).unwrap_or_else(|error| {
@@ -470,7 +479,7 @@ no_unwrap = "deny"
     #[test]
     fn parsed_octet_section_wins_over_legacy_sections() {
         let cfg = parse_config(
-            r#"
+            r"
 [octet]
 max_parameters = 7
 
@@ -479,7 +488,7 @@ max_parameters = 8
 
 [tigerstyle]
 max_parameters = 9
-"#,
+",
         );
 
         assert_eq!(cfg.max_parameters, 7);
@@ -488,13 +497,13 @@ max_parameters = 9
     #[test]
     fn parsed_slotcar_section_wins_over_tigerstyle_fallback() {
         let cfg = parse_config(
-            r#"
+            r"
 [slotcar]
 max_parameters = 8
 
 [tigerstyle]
 max_parameters = 9
-"#,
+",
         );
 
         assert_eq!(cfg.max_parameters, 8);

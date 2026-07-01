@@ -69,7 +69,7 @@ fn write_macro_generated_fixture(root: &Path) {
     .expect("write Cargo.toml");
     fs::write(
         src_dir.join("lib.rs"),
-        r#"macro_rules! define_parametric {
+        r"macro_rules! define_parametric {
     ($name:ident) => {
         pub fn $name(input: u32) -> u32 {
             input + 1
@@ -92,7 +92,7 @@ define_literal!();
 pub fn explicit_wrapper(input: u32) -> u32 {
     generated_checked(input)
 }
-"#,
+",
     )
     .expect("write lib.rs");
 }
@@ -110,7 +110,7 @@ fn write_directory_fixture(root: &Path) {
     .expect("write Cargo.toml");
     fs::write(
         src_dir.join("lib.rs"),
-        r#"pub mod nested;
+        r"pub mod nested;
 
 macro_rules! define_generated {
     ($name:ident) => {
@@ -133,7 +133,7 @@ pub fn root_with_macro(input: u32) -> u32 {
     assert!(input < 10);
     input + 2
 }
-"#,
+",
     )
     .expect("write lib.rs");
     fs::write(
@@ -173,7 +173,7 @@ mod tests {
     .expect("write nested mod.rs");
     fs::write(
         tests_dir.join("integration.rs"),
-        r#"macro_rules! literal_test_fn {
+        r"macro_rules! literal_test_fn {
     () => {
         fn generated_test_literal() -> u32 {
             99
@@ -187,7 +187,7 @@ literal_test_fn!();
 fn explicit_test_helper(input: u32) -> u32 {
     input + 3
 }
-"#,
+",
     )
     .expect("write integration fixture");
 }
@@ -222,13 +222,13 @@ fn fingerprint_lifecycle_docs_fixture_matches_transcript() {
     let fixture = temp.path().join("reviewed.rs");
     fs::write(
         &fixture,
-        r#"#[rustfmt::skip]
+        r"#[rustfmt::skip]
 // tigerstyle-fingerprint: b3:0; review=safety-critical; evidence=docs/examples/function-fingerprint-lifecycle/lifecycle-transcript.md; macro=allow
 pub fn bounded_retry_delay_ms(attempt: u32) -> u32 {
     assert!(attempt <= 5);
     50_u32.saturating_mul(attempt.saturating_add(1))
 }
-"#,
+",
     )
     .expect("write docs lifecycle initial fixture");
 
@@ -627,11 +627,11 @@ fn fingerprint_json_output_docs_fixture_matches_transcript() {
     let fixture = temp.path().join("reviewed.rs");
     fs::write(
         &fixture,
-        r#"// tigerstyle-fingerprint: b3:0; review=json-script-example; evidence=docs/examples/function-fingerprint-json-output/transcript.md; macro=allow
+        r"// tigerstyle-fingerprint: b3:0; review=json-script-example; evidence=docs/examples/function-fingerprint-json-output/transcript.md; macro=allow
 pub fn capped_retries(requested: u32) -> u32 {
     requested.min(3)
 }
-"#,
+",
     )
     .expect("write json output initial fixture");
 
@@ -738,7 +738,7 @@ fn fingerprint_source_scanner_docs_fixture_matches_transcript() {
     let fixture = temp.path().join("reviewed.rs");
     fs::write(
         &fixture,
-        r#"macro_rules! define_generated_boundary {
+        r"macro_rules! define_generated_boundary {
     ($name:ident) => {
         pub fn $name(input: u32) -> u32 {
             input.saturating_add(1)
@@ -752,7 +752,7 @@ define_generated_boundary!(generated_boundary);
 pub fn explicit_generated_boundary(input: u32) -> u32 {
     generated_boundary(input).min(64)
 }
-"#,
+",
     )
     .expect("write source scanner initial fixture");
 
@@ -1123,11 +1123,11 @@ fn object_marker_check_update_and_drift_detection() {
     let fixture = temp.path().join("lib.rs");
     fs::write(
         &fixture,
-        r#"// octet-object: b3:0000; review=phase3; evidence=evidence/object-marker
+        r"// octet-object: b3:0000; review=phase3; evidence=evidence/object-marker
 pub fn checked_value(input: u32) -> u32 {
     input + 1
 }
-"#,
+",
     )
     .expect("write object marker fixture");
 
@@ -1329,10 +1329,10 @@ fn object_caveats_keep_dependencies_unresolved_and_block_pure_cache() {
     let fixture = temp.path().join("lib.rs");
     fs::write(
         &fixture,
-        r#"pub fn checked_value(input: u32) -> u32 {
+        r"pub fn checked_value(input: u32) -> u32 {
     input.saturating_add(1)
 }
-"#,
+",
     )
     .expect("write fixture");
 
@@ -1401,9 +1401,9 @@ fn object_bundle_export_is_deterministic_and_records_replay() {
     let fixture = temp.path().join("lib.rs");
     fs::write(
         &fixture,
-        r#"pub fn beta(input: u32) -> u32 { input + 2 }
+        r"pub fn beta(input: u32) -> u32 { input + 2 }
 pub fn alpha(input: u32) -> u32 { input + 1 }
-"#,
+",
     )
     .expect("write fixture");
     let objects_path = temp.path().join("objects.json");
@@ -1755,7 +1755,8 @@ fn copy_real_code_corpus(source_root: &Path, target_root: &Path) {
         let source = source_root.join(relative);
         let target = target_root.join(relative);
         fs::create_dir_all(target.parent().expect("corpus file parent")).expect("create corpus parent");
-        fs::copy(&source, &target).unwrap_or_else(|error| panic!("copy {source:?} to {target:?}: {error}"));
+        fs::copy(&source, &target)
+            .unwrap_or_else(|error| panic!("copy {} to {}: {error}", source.display(), target.display()));
     }
 }
 
@@ -1897,6 +1898,7 @@ fn hir_mir_supplement_pilot_docs_name_commands_and_non_proofs() {
     }
 }
 
+#[allow(clippy::too_many_lines)]
 #[test]
 fn thir_supplement_emit_and_check_remain_fail_closed() {
     let root = repo_root();
@@ -2003,6 +2005,7 @@ fn thir_supplement_emit_and_check_remain_fail_closed() {
     );
 }
 
+#[allow(clippy::too_many_lines)]
 #[test]
 fn thir_fixture_supplement_emit_check_and_negative_replay_are_bounded() {
     let root = repo_root();
@@ -2370,6 +2373,7 @@ fn assert_supplement_error(report: &serde_json::Value, expected_kind: &str, expe
     assert_eq!(report["boundary"]["claims_semantic_equivalence"], false);
 }
 
+#[allow(clippy::too_many_lines)]
 #[test]
 fn mir_fixture_supplement_emit_check_and_negative_replay_are_bounded() {
     let root = repo_root();
@@ -2815,6 +2819,7 @@ fn object_supplement_inventory_commands_roundtrip_for_every_shape() {
     assert_eq!(visited, BTreeSet::from(["branch-control-flow".to_owned(), "checked-arithmetic".to_owned()]));
 }
 
+#[allow(clippy::too_many_lines)]
 #[test]
 fn thir_inventory_commands_roundtrip_selected_fixture_evidence() {
     let root = repo_root();
@@ -3043,6 +3048,7 @@ fn thir_inventory_aggregate_gate_preserves_selected_fixture_boundaries() {
     );
 }
 
+#[allow(clippy::too_many_lines)]
 #[test]
 fn mir_fixture_inventory_commands_roundtrip_selected_fixture_evidence() {
     let root = repo_root();
@@ -4179,10 +4185,10 @@ fn object_harness_negative_cases_are_classified() {
     let fixture = temp.path().join("lib.rs");
     fs::write(
         &fixture,
-        r#"pub fn changed_value(input: u32) -> u32 {
+        r"pub fn changed_value(input: u32) -> u32 {
     input + 1
 }
-"#,
+",
     )
     .expect("write initial fixture");
     let initial = emit_objects_json(temp.path(), &["lib.rs"]);
@@ -4190,9 +4196,9 @@ fn object_harness_negative_cases_are_classified() {
 
     fs::write(
         &fixture,
-        r#"// comment-only entropy should not affect object identity
+        r"// comment-only entropy should not affect object identity
 pub fn changed_value( input: u32 ) -> u32 { input + 1 }
-"#,
+",
     )
     .expect("write formatted fixture");
     let formatted = emit_objects_json(temp.path(), &["lib.rs"]);

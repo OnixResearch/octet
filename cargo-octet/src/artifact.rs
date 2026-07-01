@@ -88,7 +88,7 @@ struct ExpectedRecordShape {
     evidence_tier: EvidenceTier,
 }
 
-pub fn run(args: ArtifactArgs) -> Result<i32, String> {
+pub fn run(args: &ArtifactArgs) -> Result<i32, String> {
     if args.output_format == OutputFormat::Sarif {
         return Err("artifact verification does not support SARIF output; use human or json".to_owned());
     }
@@ -545,7 +545,6 @@ mod tests {
     const STATUS_JSON: &str = "json";
     const STATUS_SARIF: &str = "sarif";
     const CHECKED_SCOPE: &str = "profile:workspace-metadata";
-    const PROFILE_NAME: &str = "workspace-metadata";
     const COMMAND_CONTENTS: &[u8] = b"cargo octet check\n";
     const STATUS_CONTENTS: &[u8] = br#"{
   "output_format": "human",
@@ -724,10 +723,10 @@ mod tests {
         match output_format {
             OutputFormat::Human => {}
             OutputFormat::Json => {
-                records.push(record(JSON_RESULTS_ARTIFACT_NAME, JSON_CONTENTS, EvidenceTier::StaticLint))
+                records.push(record(JSON_RESULTS_ARTIFACT_NAME, JSON_CONTENTS, EvidenceTier::StaticLint));
             }
             OutputFormat::Sarif => {
-                records.push(record(SARIF_RESULTS_ARTIFACT_NAME, SARIF_CONTENTS, EvidenceTier::StaticLint))
+                records.push(record(SARIF_RESULTS_ARTIFACT_NAME, SARIF_CONTENTS, EvidenceTier::StaticLint));
             }
         }
         records
@@ -762,7 +761,6 @@ mod tests {
         String::from_utf8(STATUS_CONTENTS.to_vec())
             .expect("status fixture utf8")
             .replace(STATUS_HUMAN, name)
-            .replace(PROFILE_NAME, PROFILE_NAME)
     }
 
     fn render_records(records: &[ProvenanceRecord]) -> String {

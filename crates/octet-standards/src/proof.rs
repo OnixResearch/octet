@@ -243,7 +243,11 @@ pub fn validate_proof_receipt_with_identity(
 }
 
 /// Builds a deterministic structured Verus receipt from in-memory rail and command data.
-#[must_use]
+///
+/// # Errors
+///
+/// Returns sorted diagnostics when declared source/proof path bindings are missing
+/// or verifier identity fields required for structured receipts are incomplete.
 pub fn build_verus_proof_receipt(input: &VerusProofReceiptInput<'_>) -> Result<VerusProofReceipt, Vec<String>> {
     let mut diagnostics = Vec::new();
     let source_bindings = match expected_path_bindings(&input.rail.source_paths, input.sources, FIELD_SOURCE_PATHS) {
@@ -329,7 +333,7 @@ pub fn matching_sources<'a>(patterns: &[String], sources: &'a [SourceFile]) -> V
             }
         }
     }
-    matched_sources.sort_by(|left, right| normalize_path(&left.path).cmp(&normalize_path(&right.path)));
+    matched_sources.sort_by_key(|source| normalize_path(&source.path));
     matched_sources
 }
 
@@ -1588,6 +1592,22 @@ mod tests {
         .expect("valid receipt")
     }
 
+    fn fixture_solver_id(mode: &str) -> &'static str {
+        if mode == VERIFIER_MODE_PRODUCTION {
+            "z3-fixture"
+        } else {
+            ""
+        }
+    }
+
+    fn fixture_solver_digest(mode: &str) -> &'static str {
+        if mode == VERIFIER_MODE_PRODUCTION {
+            "z3-fixture-digest"
+        } else {
+            ""
+        }
+    }
+
     fn verus_rail(mode: &str) -> ProofRail {
         ProofRail {
             backend: VERUS_BACKEND.to_owned(),
@@ -1618,11 +1638,8 @@ mod tests {
                 verifier_nix_closure_digest: "fixture-closure-digest".to_owned(),
                 toolchain_id: "verus-fixture-wrapper/v1".to_owned(),
                 toolchain_digest: "fixture-toolchain-digest".to_owned(),
-                solver_id: (mode == VERIFIER_MODE_PRODUCTION).then_some("z3-fixture").unwrap_or_default().to_owned(),
-                solver_digest: (mode == VERIFIER_MODE_PRODUCTION)
-                    .then_some("z3-fixture-digest")
-                    .unwrap_or_default()
-                    .to_owned(),
+                solver_id: fixture_solver_id(mode).to_owned(),
+                solver_digest: fixture_solver_digest(mode).to_owned(),
                 ..ReceiptVerifier::default()
             },
             verifier_mode: mode.to_owned(),

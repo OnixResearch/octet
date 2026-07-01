@@ -20,7 +20,7 @@ struct TranscriptReport {
     provenance: evidence::ProvenanceRecord,
 }
 
-pub fn run(args: TranscriptArgs) -> Result<i32, String> {
+pub fn run(args: &TranscriptArgs) -> Result<i32, String> {
     let report = verify(&args.path)?;
     match args.output_format {
         OutputFormat::Human => {
@@ -38,7 +38,7 @@ pub fn run(args: TranscriptArgs) -> Result<i32, String> {
         ),
         OutputFormat::Sarif => return Err("transcript does not support SARIF output; use human or json".to_owned()),
     }
-    Ok(if report.failures.is_empty() { 0 } else { 1 })
+    Ok(i32::from(!report.failures.is_empty()))
 }
 
 fn verify(path: &Path) -> Result<TranscriptReport, String> {
@@ -69,7 +69,8 @@ fn verify(path: &Path) -> Result<TranscriptReport, String> {
                 saw_command_in_current_fence = false;
             } else {
                 in_fence = true;
-                fence_lang = lang.trim().to_owned();
+                fence_lang.clear();
+                fence_lang.push_str(lang.trim());
                 fence_start = line_no;
             }
             continue;

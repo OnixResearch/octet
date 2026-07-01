@@ -45,7 +45,7 @@ fn is_known_constructor_call(receiver: &hir::Expr<'_>) -> bool {
         return false;
     };
 
-    matches!(path.segments.last().map(|segment| segment.ident.name.as_str()), Some("Some") | Some("Ok"))
+    matches!(path.segments.last().map(|segment| segment.ident.name.as_str()), Some("Some" | "Ok"))
 }
 
 fn match_def_path(cx: &LateContext<'_>, did: rustc_hir::def_id::DefId, path: &[&str]) -> bool {
@@ -101,10 +101,9 @@ fn literal_parse_succeeds_for_target(cx: &LateContext<'_>, literal: &str, target
             ty::UintTy::U128 => literal.parse::<u128>().is_ok(),
         },
         ty::Float(float_ty) => match float_ty {
-            ty::FloatTy::F16 => false,
             ty::FloatTy::F32 => literal.parse::<f32>().is_ok(),
             ty::FloatTy::F64 => literal.parse::<f64>().is_ok(),
-            ty::FloatTy::F128 => false,
+            ty::FloatTy::F16 | ty::FloatTy::F128 => false,
         },
         ty::Adt(adt, _) => {
             match_def_path(cx, adt.did(), &["alloc", "string", "String"])

@@ -32,7 +32,7 @@ declare_tool_lint! {
 }
 
 pub struct NoTodo {
-    emit_no_todo: bool,
+    emit_todo_lint: bool,
     emit_unjustified_allow: bool,
     seen_unjustified_allow_spans: Vec<Span>,
     candidate_allow_spans: Vec<Span>,
@@ -42,7 +42,7 @@ pub struct NoTodo {
 impl NoTodo {
     pub fn new(emit_no_todo: bool, emit_unjustified_allow: bool) -> Self {
         Self {
-            emit_no_todo,
+            emit_todo_lint: emit_no_todo,
             emit_unjustified_allow,
             seen_unjustified_allow_spans: Vec::new(),
             candidate_allow_spans: Vec::new(),
@@ -96,10 +96,10 @@ fn no_todo_allow_attr_span(cx: &LateContext<'_>, hir_id: hir::HirId) -> Option<S
             return None;
         }
 
-        let has_no_todo = source_map
-            .span_to_snippet(attr.span())
-            .map(|snippet| attr_matches_supported_no_todo(&snippet))
-            .unwrap_or_else(|_| attr_matches_supported_no_todo(&format!("{attr:?}")));
+        let has_no_todo = source_map.span_to_snippet(attr.span()).map_or_else(
+            |_| attr_matches_supported_no_todo(&format!("{attr:?}")),
+            |snippet| attr_matches_supported_no_todo(&snippet),
+        );
         has_no_todo.then_some(attr.span())
     })
 }
@@ -191,12 +191,12 @@ impl NoTodo {
     }
 
     fn emit_unjustified_allow_once(&mut self, cx: &LateContext<'_>, attr_span: Span, name: &str, justified: bool) {
-        let message = if !justified {
-            "`#[allow(tigerstyle::no_todo)]` / `#[allow(no_todo)]` needs an adjacent `//` justification comment and may only wrap temporary `todo!()` stubs".to_owned()
-        } else {
+        let message = if justified {
             format!(
                 "`#[allow(tigerstyle::no_todo)]` / `#[allow(no_todo)]` is reserved for temporary `todo!()` stubs, not `{name}`"
             )
+        } else {
+            "`#[allow(tigerstyle::no_todo)]` / `#[allow(no_todo)]` needs an adjacent `//` justification comment and may only wrap temporary `todo!()` stubs".to_owned()
         };
 
         self.emit_unjustified_allow_message_once(cx, attr_span, message);
@@ -273,7 +273,7 @@ impl<'tcx> LateLintPass<'tcx> for NoTodo {
             return;
         }
 
-        if name != "todo!" || !self.emit_no_todo {
+        if name != "todo!" || !self.emit_todo_lint {
             return;
         }
 

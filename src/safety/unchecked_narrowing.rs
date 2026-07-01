@@ -133,9 +133,8 @@ fn is_assert_bounds_condition<'tcx>(
     source_ty: Ty<'tcx>,
     target_ty: Ty<'tcx>,
 ) -> bool {
-    let checked = match &cond.kind {
-        ExprKind::Unary(hir::UnOp::Not, checked) => checked,
-        _ => return false,
+    let ExprKind::Unary(hir::UnOp::Not, checked) = &cond.kind else {
+        return false;
     };
 
     let ExprKind::Binary(op, lhs, rhs) = &checked.kind else {

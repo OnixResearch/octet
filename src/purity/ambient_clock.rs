@@ -81,8 +81,8 @@ fn is_clock_now_path(qpath: &hir::QPath<'_>) -> bool {
             // Check if the type is one of our clock types
             if let hir::TyKind::Path(ref ty_qpath) = ty.kind {
                 let type_name = match ty_qpath {
-                    hir::QPath::Resolved(_, path) => path.segments.last().map(|s| s.ident.name.as_str()),
-                    _ => None,
+                    hir::QPath::Resolved(_, path) => path.segments.last().map(|segment| segment.ident.name.as_str()),
+                    hir::QPath::TypeRelative(..) => None,
                 };
                 if let Some(name) = type_name {
                     return CLOCK_TYPES.contains(&name);

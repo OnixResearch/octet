@@ -26,9 +26,7 @@ fn platform_sized_int_name(ty: ty::Ty<'_>) -> Option<&'static str> {
     match ty.kind() {
         ty::Uint(ty::UintTy::Usize) => Some("usize"),
         ty::Int(ty::IntTy::Isize) => Some("isize"),
-        ty::Ref(_, inner, _) => platform_sized_int_name(*inner),
-        ty::Slice(inner) => platform_sized_int_name(*inner),
-        ty::Array(inner, _) => platform_sized_int_name(*inner),
+        ty::Ref(_, inner, _) | ty::Slice(inner) | ty::Array(inner, _) => platform_sized_int_name(*inner),
         ty::Tuple(items) => items.iter().find_map(platform_sized_int_name),
         ty::Adt(_, args) => args.types().find_map(platform_sized_int_name),
         _ => None,
@@ -61,8 +59,7 @@ fn collect_platform_int_ty(ty: &hir::Ty<'_>, out: &mut Vec<(rustc_span::Span, &'
             }
         }
         hir::TyKind::Ref(_, mut_ty) => collect_platform_int_ty(mut_ty.ty, out),
-        hir::TyKind::Slice(inner) => collect_platform_int_ty(inner, out),
-        hir::TyKind::Array(inner, _) => collect_platform_int_ty(inner, out),
+        hir::TyKind::Slice(inner) | hir::TyKind::Array(inner, _) => collect_platform_int_ty(inner, out),
         hir::TyKind::Tup(items) => items.iter().for_each(|t| collect_platform_int_ty(t, out)),
         _ => {}
     }

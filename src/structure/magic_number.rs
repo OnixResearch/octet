@@ -73,7 +73,6 @@ fn literal_is_documented_by_parent(cx: &LateContext<'_>, expr: &hir::Expr<'_>) -
                 {
                     return true;
                 }
-                ExprKind::Unary(hir::UnOp::Neg, _) => {}
                 _ => {}
             },
             hir::Node::Item(item) => {

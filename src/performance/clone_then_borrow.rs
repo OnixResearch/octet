@@ -27,14 +27,13 @@ declare_lint_pass!(CloneThenBorrow => [CLONE_THEN_BORROW]);
 fn peel_transparent_expr<'tcx>(mut expr: &'tcx hir::Expr<'tcx>) -> &'tcx hir::Expr<'tcx> {
     loop {
         match &expr.kind {
-            hir::ExprKind::DropTemps(inner) => expr = inner,
+            hir::ExprKind::DropTemps(inner) | hir::ExprKind::AddrOf(_, _, inner) => expr = inner,
             hir::ExprKind::Block(block, _) if block.stmts.is_empty() => {
                 let Some(inner) = block.expr else {
                     break expr;
                 };
                 expr = inner;
             }
-            hir::ExprKind::AddrOf(_, _, inner) => expr = inner,
             _ => break expr,
         }
     }

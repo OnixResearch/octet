@@ -104,7 +104,8 @@ pub(crate) struct Marker {
     macro_allowed: bool,
 }
 
-pub fn run(args: FingerprintArgs) -> Result<i32, String> {
+#[allow(clippy::too_many_lines)]
+pub fn run(args: &FingerprintArgs) -> Result<i32, String> {
     let paths = if args.paths.is_empty() {
         vec![PathBuf::from(".")]
     } else {
@@ -178,8 +179,7 @@ pub fn run(args: FingerprintArgs) -> Result<i32, String> {
                     ""
                 };
                 let line = format!(
-                    "// octet-fingerprint: b3:{}; review={review}; evidence={evidence}{macro_suffix}\n",
-                    computed_hash,
+                    "// octet-fingerprint: b3:{computed_hash}; review={review}; evidence={evidence}{macro_suffix}\n"
                 );
                 if let Some(marker) = marker {
                     replacements.push((marker.start, marker.end, line));
@@ -219,7 +219,7 @@ pub fn run(args: FingerprintArgs) -> Result<i32, String> {
                 || record.review.is_none()
                 || record.evidence.is_none())
     });
-    Ok(if failing { 1 } else { 0 })
+    Ok(i32::from(failing))
 }
 
 fn write_review_manifest(path: &Path, report: &FingerprintReport, input_paths: Vec<String>) -> Result<(), String> {
@@ -460,7 +460,7 @@ fn preceding_marker(source: &str, item_start: usize) -> Option<Marker> {
 
 fn parse_marker(line: &str, start: usize, end: usize) -> Option<Marker> {
     let hash_start = line.find(HASH_PREFIX)? + HASH_PREFIX.len();
-    let hash = line[hash_start..].chars().take_while(|c| c.is_ascii_hexdigit()).collect::<String>();
+    let hash = line[hash_start..].chars().take_while(char::is_ascii_hexdigit).collect::<String>();
     if hash.is_empty() {
         return None;
     }

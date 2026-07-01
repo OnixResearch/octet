@@ -95,6 +95,12 @@ pub struct PureCacheEligibility {
     pub blockers: Vec<&'static str>,
 }
 
+/// Builds a deterministic Function Object v1 receipt from normalized source inputs.
+///
+/// # Errors
+///
+/// Returns an error if the resulting object cannot be serialized into the
+/// canonical JSON payload used for BLAKE3 object identity.
 pub fn build_function_object(input: FunctionObjectInput<'_>) -> Result<FunctionObjectV1, String> {
     let normalized_body_hash = full_hash(&input.normalized_function_source);
     let body_hash = normalized_body_hash.clone();
@@ -139,6 +145,12 @@ pub fn build_function_object(input: FunctionObjectInput<'_>) -> Result<FunctionO
     Ok(object)
 }
 
+/// Computes the canonical BLAKE3 identity for a Function Object v1 receipt.
+///
+/// # Errors
+///
+/// Returns an error if the object cannot be serialized into the canonical JSON
+/// payload used for hashing.
 pub fn object_hash(object: &FunctionObjectV1) -> Result<String, String> {
     let payload = serde_json::json!({
         "schema": object.schema,
@@ -160,6 +172,7 @@ pub fn object_hash(object: &FunctionObjectV1) -> Result<String, String> {
     Ok(full_hash(&bytes))
 }
 
+#[must_use]
 pub fn effect_caveats(function_source: &str) -> Vec<EffectCaveat> {
     let normalized = normalize_tokens(function_source);
     effect_caveats_from_normalized(&normalized)
@@ -313,7 +326,7 @@ fn full_hash(input: &str) -> String {
 mod tests {
     use super::*;
 
-    fn input<'a>(function_source: &'a str) -> FunctionObjectInput<'a> {
+    fn input(function_source: &str) -> FunctionObjectInput<'_> {
         FunctionObjectInput {
             tool_name: "cargo-octet",
             tool_version: "0.1.0",

@@ -122,7 +122,7 @@ fn has_zero_guard(cx: &LateContext<'_>, expr: &hir::Expr<'_>, divisor_name: &str
 
 impl<'tcx> LateLintPass<'tcx> for UncheckedDivision {
     fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx hir::Expr<'tcx>) {
-        let ExprKind::Binary(op, _lhs, rhs) = &expr.kind else {
+        let ExprKind::Binary(op, lhs, rhs) = &expr.kind else {
             return;
         };
 
@@ -147,7 +147,7 @@ impl<'tcx> LateLintPass<'tcx> for UncheckedDivision {
         }
 
         let message = format!("division by `{name}` without zero check");
-        if let Some(replacement) = guarded_division_replacement(cx, _lhs, rhs, op.node) {
+        if let Some(replacement) = guarded_division_replacement(cx, lhs, rhs, op.node) {
             emit_tiger_style_lint_with_suggestion(
                 cx,
                 UNCHECKED_DIVISION,

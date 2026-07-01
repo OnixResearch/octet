@@ -4,14 +4,14 @@ use rustc_hir::intravisit::{self};
 use rustc_lint::LateContext;
 use rustc_span::Span;
 
-struct UseSiteCollector<'a, 'tcx> {
-    cx: &'a LateContext<'tcx>,
+struct UseSiteCollector<'cx, 'tcx> {
+    cx: &'cx LateContext<'tcx>,
     target: hir::HirId,
     use_sites: Vec<Span>,
     has_expansion: bool,
 }
 
-impl<'a, 'tcx> Visitor<'tcx> for UseSiteCollector<'a, 'tcx> {
+impl<'tcx> Visitor<'tcx> for UseSiteCollector<'_, 'tcx> {
     fn visit_expr(&mut self, expr: &'tcx hir::Expr<'tcx>) {
         if let hir::ExprKind::Path(ref qpath) = expr.kind {
             let res = self.cx.typeck_results().qpath_res(qpath, expr.hir_id);

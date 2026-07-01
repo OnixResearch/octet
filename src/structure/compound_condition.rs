@@ -94,11 +94,7 @@ fn compound_condition_suggestion(cx: &EarlyContext<'_>, cond: &Expr, if_expr: &E
 
     // Determine the operator used (all top-level ops should be the same)
     let op = if let ExprKind::Binary(op, _, _) = &cond.kind {
-        match op.node {
-            BinOpKind::And => "&&",
-            BinOpKind::Or => "||",
-            _ => "&&",
-        }
+        if matches!(op.node, BinOpKind::Or) { "||" } else { "&&" }
     } else {
         "&&"
     };

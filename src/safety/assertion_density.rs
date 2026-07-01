@@ -171,7 +171,7 @@ impl EarlyLintPass for AssertionDensity {
             cx,
             ASSERTION_DENSITY,
             body.span,
-            format!("function `{}` has {assertions} assertion(s) in {lines} lines (need {min_a}+)", func.ident.name,),
+            format!("function `{}` has {assertions} assertion(s) in {lines} lines (need {min_a}+)", func.ident.name),
             "assertion_density",
         );
     }

@@ -79,14 +79,13 @@ fn is_deny_value(expr: &hir::Expr<'_>) -> bool {
                 || matches!(lit.node, rustc_ast::LitKind::Int(v, _) if v.get() == 0)
         }
         ExprKind::Path(hir::QPath::Resolved(_, path)) => {
-            let name = path.segments.last().map(|s| s.ident.name.as_str()).unwrap_or("");
+            let name = path.segments.last().map_or("", |segment| segment.ident.name.as_str());
             name == "None"
         }
-        ExprKind::Path(_) => false,
         ExprKind::Call(func, _) => {
             // Check for Err(...)
             if let ExprKind::Path(hir::QPath::Resolved(_, path)) = &func.kind {
-                path.segments.last().map(|s| s.ident.name.as_str() == "Err").unwrap_or(false)
+                path.segments.last().is_some_and(|segment| segment.ident.name.as_str() == "Err")
             } else {
                 false
             }
