@@ -1708,12 +1708,14 @@ mod tests {
             "canonical cargo-octet binary must be declared exactly once"
         );
         assert_eq!(
-            manifest.matches("[[bin]]\nname = \"cargo-slotcar\"\npath = \"src/main.rs\"").count(),
+            manifest.matches("[[bin]]\nname = \"cargo-slotcar\"\npath = \"src/bin/cargo-slotcar.rs\"").count(),
             EXPECTED_BINARY_DECLARATION_COUNT,
             "legacy cargo-slotcar binary remains one explicit compatibility alias"
         );
         assert_eq!(
-            manifest.matches("[[bin]]\nname = \"cargo-tigerstyle\"\npath = \"src/main.rs\"").count(),
+            manifest
+                .matches("[[bin]]\nname = \"cargo-tigerstyle\"\npath = \"src/bin/cargo-tigerstyle.rs\"")
+                .count(),
             EXPECTED_BINARY_DECLARATION_COUNT,
             "Tiger Style binary remains one explicit compatibility alias"
         );

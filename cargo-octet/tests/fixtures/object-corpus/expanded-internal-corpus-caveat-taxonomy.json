@@ -2,15 +2,18 @@
   "schema": "octet.function-object-corpus-caveat-taxonomy.v1",
   "schema_version": 1,
   "mode": "corpus-caveat-taxonomy",
-  "object_count": 721,
+  "object_count": 727,
   "source_paths": [
     "cargo-octet/src/baseline.rs",
+    "cargo-octet/src/bin/cargo-slotcar.rs",
+    "cargo-octet/src/bin/cargo-tigerstyle.rs",
     "cargo-octet/src/cli.rs",
     "cargo-octet/src/config.rs",
     "cargo-octet/src/determinism.rs",
     "cargo-octet/src/engine.rs",
     "cargo-octet/src/evidence.rs",
     "cargo-octet/src/fingerprint.rs",
+    "cargo-octet/src/lib.rs",
     "cargo-octet/src/main.rs",
     "cargo-octet/src/migrate.rs",
     "cargo-octet/src/object.rs",
@@ -20,6 +23,9 @@
     "cargo-octet/src/transcript.rs",
     "crates/octet-standards/src/architecture.rs",
     "crates/octet-standards/src/artifacts.rs",
+    "crates/octet-standards/src/bin/slotcar-standards.rs",
+    "crates/octet-standards/src/bin/tigerstyle-standards.rs",
+    "crates/octet-standards/src/cli_shell.rs",
     "crates/octet-standards/src/diagnostic.rs",
     "crates/octet-standards/src/fixture.rs",
     "crates/octet-standards/src/lib.rs",
@@ -61,6 +67,54 @@
         "dependency-identity-unresolved",
         "effect-summary-unresolved",
         "macro-expansion-unmodeled"
+      ]
+    },
+    {
+      "source_path": "cargo-octet/src/bin/cargo-slotcar.rs",
+      "object_count": 1,
+      "caveat_counts": {
+        "dependency_status": {
+          "source-scanner-token-set": 1
+        },
+        "effect_kind": {
+          "effect_summary": 1
+        },
+        "macro_status": {
+          "none-detected": 1
+        },
+        "pure_cache_blocker": {
+          "dependency-identity-unresolved": 1,
+          "effect-summary-unresolved": 1
+        }
+      },
+      "pure_cache_blocked_count": 1,
+      "blocker_names": [
+        "dependency-identity-unresolved",
+        "effect-summary-unresolved"
+      ]
+    },
+    {
+      "source_path": "cargo-octet/src/bin/cargo-tigerstyle.rs",
+      "object_count": 1,
+      "caveat_counts": {
+        "dependency_status": {
+          "source-scanner-token-set": 1
+        },
+        "effect_kind": {
+          "effect_summary": 1
+        },
+        "macro_status": {
+          "none-detected": 1
+        },
+        "pure_cache_blocker": {
+          "dependency-identity-unresolved": 1,
+          "effect-summary-unresolved": 1
+        }
+      },
+      "pure_cache_blocked_count": 1,
+      "blocker_names": [
+        "dependency-identity-unresolved",
+        "effect-summary-unresolved"
       ]
     },
     {
@@ -244,7 +298,7 @@
       ]
     },
     {
-      "source_path": "cargo-octet/src/main.rs",
+      "source_path": "cargo-octet/src/lib.rs",
       "object_count": 2,
       "caveat_counts": {
         "dependency_status": {
@@ -267,6 +321,30 @@
         "dependency-identity-unresolved",
         "effect-summary-unresolved",
         "macro-expansion-unmodeled"
+      ]
+    },
+    {
+      "source_path": "cargo-octet/src/main.rs",
+      "object_count": 1,
+      "caveat_counts": {
+        "dependency_status": {
+          "source-scanner-token-set": 1
+        },
+        "effect_kind": {
+          "effect_summary": 1
+        },
+        "macro_status": {
+          "none-detected": 1
+        },
+        "pure_cache_blocker": {
+          "dependency-identity-unresolved": 1,
+          "effect-summary-unresolved": 1
+        }
+      },
+      "pure_cache_blocked_count": 1,
+      "blocker_names": [
+        "dependency-identity-unresolved",
+        "effect-summary-unresolved"
       ]
     },
     {
@@ -506,6 +584,86 @@
       ]
     },
     {
+      "source_path": "crates/octet-standards/src/bin/slotcar-standards.rs",
+      "object_count": 1,
+      "caveat_counts": {
+        "dependency_status": {
+          "source-scanner-token-set": 1
+        },
+        "effect_kind": {
+          "effect_summary": 1
+        },
+        "macro_status": {
+          "none-detected": 1
+        },
+        "pure_cache_blocker": {
+          "dependency-identity-unresolved": 1,
+          "effect-summary-unresolved": 1
+        }
+      },
+      "pure_cache_blocked_count": 1,
+      "blocker_names": [
+        "dependency-identity-unresolved",
+        "effect-summary-unresolved"
+      ]
+    },
+    {
+      "source_path": "crates/octet-standards/src/bin/tigerstyle-standards.rs",
+      "object_count": 1,
+      "caveat_counts": {
+        "dependency_status": {
+          "source-scanner-token-set": 1
+        },
+        "effect_kind": {
+          "effect_summary": 1
+        },
+        "macro_status": {
+          "none-detected": 1
+        },
+        "pure_cache_blocker": {
+          "dependency-identity-unresolved": 1,
+          "effect-summary-unresolved": 1
+        }
+      },
+      "pure_cache_blocked_count": 1,
+      "blocker_names": [
+        "dependency-identity-unresolved",
+        "effect-summary-unresolved"
+      ]
+    },
+    {
+      "source_path": "crates/octet-standards/src/cli_shell.rs",
+      "object_count": 61,
+      "caveat_counts": {
+        "dependency_status": {
+          "source-scanner-token-set": 41,
+          "unsupported-macro-context": 20
+        },
+        "effect_kind": {
+          "effect_summary": 45,
+          "filesystem": 10,
+          "panic": 7,
+          "process": 1,
+          "time": 1
+        },
+        "macro_status": {
+          "none-detected": 41,
+          "review-required": 20
+        },
+        "pure_cache_blocker": {
+          "dependency-identity-unresolved": 61,
+          "effect-summary-unresolved": 61,
+          "macro-expansion-unmodeled": 20
+        }
+      },
+      "pure_cache_blocked_count": 61,
+      "blocker_names": [
+        "dependency-identity-unresolved",
+        "effect-summary-unresolved",
+        "macro-expansion-unmodeled"
+      ]
+    },
+    {
       "source_path": "crates/octet-standards/src/diagnostic.rs",
       "object_count": 2,
       "caveat_counts": {
@@ -589,34 +747,26 @@
     },
     {
       "source_path": "crates/octet-standards/src/main.rs",
-      "object_count": 61,
+      "object_count": 1,
       "caveat_counts": {
         "dependency_status": {
-          "source-scanner-token-set": 41,
-          "unsupported-macro-context": 20
+          "source-scanner-token-set": 1
         },
         "effect_kind": {
-          "effect_summary": 45,
-          "filesystem": 10,
-          "panic": 7,
-          "process": 1,
-          "time": 1
+          "effect_summary": 1
         },
         "macro_status": {
-          "none-detected": 41,
-          "review-required": 20
+          "none-detected": 1
         },
         "pure_cache_blocker": {
-          "dependency-identity-unresolved": 61,
-          "effect-summary-unresolved": 61,
-          "macro-expansion-unmodeled": 20
+          "dependency-identity-unresolved": 1,
+          "effect-summary-unresolved": 1
         }
       },
-      "pure_cache_blocked_count": 61,
+      "pure_cache_blocked_count": 1,
       "blocker_names": [
         "dependency-identity-unresolved",
-        "effect-summary-unresolved",
-        "macro-expansion-unmodeled"
+        "effect-summary-unresolved"
       ]
     },
     {
@@ -828,11 +978,11 @@
   ],
   "caveat_counts": {
     "dependency_status": {
-      "source-scanner-token-set": 297,
+      "source-scanner-token-set": 303,
       "unsupported-macro-context": 424
     },
     "effect_kind": {
-      "effect_summary": 590,
+      "effect_summary": 596,
       "filesystem": 61,
       "panic": 90,
       "process": 9,
@@ -840,16 +990,16 @@
       "unsafe": 3
     },
     "macro_status": {
-      "none-detected": 297,
+      "none-detected": 303,
       "review-required": 424
     },
     "pure_cache_blocker": {
-      "dependency-identity-unresolved": 721,
-      "effect-summary-unresolved": 721,
+      "dependency-identity-unresolved": 727,
+      "effect-summary-unresolved": 727,
       "macro-expansion-unmodeled": 424
     }
   },
-  "pure_cache_blocked_count": 721,
+  "pure_cache_blocked_count": 727,
   "boundary": {
     "identity_scope": "review-and-provenance-evidence",
     "claims_correctness": false,
