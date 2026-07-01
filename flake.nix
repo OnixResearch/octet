@@ -207,8 +207,8 @@
               inTemplates = pkgs.lib.hasSuffix "/templates" path || pkgs.lib.hasInfix "/templates/" path;
               inHooks = pkgs.lib.hasSuffix "/hooks" path || pkgs.lib.hasInfix "/hooks/" path;
               isPreCommitHooks = pkgs.lib.hasSuffix "/.pre-commit-hooks.yaml" path;
-              isValenceCoreReadme = pkgs.lib.hasSuffix "/crates/valence-core/README.md" path;
-            in (craneLib.filterCargoSources path type) || inUiTests || inTestFixtures || inDocs || inStandards || inTemplates || inHooks || isPreCommitHooks || isValenceCoreReadme;
+              isReadme = builtins.baseNameOf path == "README.md";
+            in (craneLib.filterCargoSources path type) || inUiTests || inTestFixtures || inDocs || inStandards || inTemplates || inHooks || isPreCommitHooks || isReadme;
         };
         fmtSrc = pkgs.lib.cleanSourceWith {
           src = ./.;

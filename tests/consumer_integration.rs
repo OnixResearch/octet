@@ -565,6 +565,7 @@ fn build_standalone_cargo_octet() -> StandaloneCargoOctet {
         "cargo-octet",
         "crates/octet-standards",
         "crates/valence-core",
+        "standards/proof-imports/generated",
     ] {
         copy_path(&repo_root.join(relative), &source_root.join(relative));
     }
@@ -1178,11 +1179,16 @@ fn missing_and_unknown_subcommands_preserve_diagnostics_and_skip_cargo() {
         assert!(!log.contains("ARGS:"), "{label} should fail before invoking cargo: {log}");
     };
 
-    assert_subcommand_failure("missing-subcommand", vec![], "error: missing subcommand; expected `check`");
+    const EXPECTED_SUBCOMMANDS: &str = "expected `artifact`, `check`, `evidence-index`, `fingerprint`, `migrate`, `object`, `provider-manifest`, `prove`, `roadmap`, or `transcript`";
+    assert_subcommand_failure(
+        "missing-subcommand",
+        vec![],
+        &format!("error: missing subcommand; {EXPECTED_SUBCOMMANDS}"),
+    );
     assert_subcommand_failure(
         "unknown-subcommand",
         vec![OsString::from("lint")],
-        "error: unknown subcommand `lint`; expected `check`",
+        &format!("error: unknown subcommand `lint`; {EXPECTED_SUBCOMMANDS}"),
     );
 }
 
@@ -2077,6 +2083,8 @@ const STATUS_CLEAN: &str = "clean";
 const STATUS_WARNING_ONLY: &str = "warning-only";
 const STATUS_LINT_FAILURE: &str = "lint-failure";
 const STATUS_INTEGRATION_FAILURE: &str = "integration-failure";
+const BASELINE_SCHEMA_VERSION: u64 = 1;
+const FINDING_SCHEMA_VERSION: u64 = 2;
 const STATUS_JSON_FILE: &str = "status.json";
 const COMMAND_TXT_FILE: &str = "command.txt";
 const SUMMARY_TXT_FILE: &str = "summary.txt";
@@ -2399,7 +2407,7 @@ fn structured_json_output_contains_all_required_fields() {
     assert_eq!(findings.len(), 3, "expected 3 findings, got: {stdout}");
 
     for (i, f) in findings.iter().enumerate() {
-        assert_eq!(f["version"], 1, "finding {i} missing version");
+        assert_eq!(f["version"], FINDING_SCHEMA_VERSION, "finding {i} missing version");
         assert!(f["index"].as_str().is_some(), "finding {i} missing index");
         assert!(f["stable_id"].as_str().is_some(), "finding {i} missing stable_id");
         assert!(f["lint"].as_str().is_some(), "finding {i} missing lint");
@@ -2754,8 +2762,8 @@ fn baseline_file_accepts_current_findings_and_gates_new_ids() {
     );
 
     let baseline = read_json_artifact(&baseline_path);
-    assert_eq!(baseline["schema_version"], 1);
-    assert_eq!(baseline["finding_schema_version"], 1);
+    assert_eq!(baseline["schema_version"], BASELINE_SCHEMA_VERSION);
+    assert_eq!(baseline["finding_schema_version"], FINDING_SCHEMA_VERSION);
     assert!(baseline["baseline_hash"].as_str().is_some(), "baseline should carry a deterministic hash");
     assert_metadata_shape(&baseline["metadata"]);
     assert_eq!(baseline["findings"].as_array().expect("baseline findings array").len(), 3);
