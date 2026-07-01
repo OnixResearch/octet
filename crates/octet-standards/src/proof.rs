@@ -1,8 +1,5 @@
 //! Verified proof-rail checks.
 
-use std::collections::BTreeSet;
-use std::fmt::Write as _;
-
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -30,7 +27,6 @@ pub const PROOF_STATUS_PASSED: &str = "passed";
 /// Failed proof receipt status.
 pub const PROOF_STATUS_FAILED: &str = "failed";
 
-const RECEIPT_BINDING_BLAKE3_COMMAND_AND_SOURCE: &str = "blake3-command-and-source";
 const VERUS_BACKEND: &str = "verus";
 const VERIFIED_PATH_COMPONENT: &str = "/verified/";
 const VERIFIED_PATH_PREFIX: &str = "verified/";
@@ -323,24 +319,13 @@ pub fn proof_receipt_metadata(rail: &ProofRail, sources: &[SourceFile]) -> Strin
 /// Returns normalized, sorted matches for exact/glob rail path patterns.
 #[must_use]
 pub fn matching_sources<'a>(patterns: &[String], sources: &'a [SourceFile]) -> Vec<&'a SourceFile> {
-    let mut matched_paths = BTreeSet::new();
-    let mut matched_sources = Vec::new();
-    for pattern in patterns {
-        for source in sources.iter().filter(|source| path_matches_pattern(pattern, &source.path)) {
-            let normalized = normalize_path(&source.path);
-            if matched_paths.insert(normalized) {
-                matched_sources.push(source);
-            }
-        }
-    }
-    matched_sources.sort_by_key(|source| normalize_path(&source.path));
-    matched_sources
+    crate::proof_artifact::matching_sources(patterns, sources)
 }
 
 /// Returns deterministic pattern diagnostics for exact/glob rail path patterns.
 #[must_use]
 pub fn path_pattern_diagnostics(patterns: &[String], sources: &[SourceFile], field_name: &str) -> Vec<String> {
-    path_pattern_diagnostics_inner(patterns, sources, field_name)
+    crate::proof_artifact::path_pattern_diagnostics(patterns, sources, field_name)
 }
 
 /// Renders the generated Nickel contract for structured Verus proof receipts.
@@ -755,7 +740,7 @@ fn check_proof_rail(
             .map(|message| proof_diagnostic(policy, first_path_or_policy(&rail.source_paths), None, message)),
     );
 
-    if !patterns_match_any_source(&rail.source_paths, sources) {
+    if matching_sources(&rail.source_paths, sources).is_empty() {
         diagnostics.push(proof_diagnostic(
             policy,
             first_path_or_policy(&rail.source_paths),
@@ -857,19 +842,11 @@ fn verified_module_coverage_diagnostic(source: &SourceFile) -> Diagnostic {
 }
 
 fn rail_is_relevant(rail: &ProofRail, sources: &[SourceFile]) -> bool {
-    patterns_match_any_source(&rail.source_paths, sources) || patterns_match_any_source(&receipt_paths(rail), sources)
-}
-
-fn patterns_match_any_source(patterns: &[String], sources: &[SourceFile]) -> bool {
-    !patterns.is_empty() && !matching_sources(patterns, sources).is_empty()
+    crate::proof_artifact::proof_rail_is_relevant(rail, sources)
 }
 
 fn receipt_paths(rail: &ProofRail) -> Vec<String> {
-    if rail.receipt_paths.is_empty() {
-        rail.proof_paths.clone()
-    } else {
-        rail.receipt_paths.clone()
-    }
+    crate::proof_artifact::receipt_paths(rail)
 }
 
 fn first_path_or_policy(paths: &[String]) -> &str {
@@ -893,122 +870,30 @@ fn expected_path_bindings(
     sources: &[SourceFile],
     field_name: &str,
 ) -> Result<Vec<VerusProofBinding>, Vec<String>> {
-    let diagnostics = path_pattern_diagnostics_inner(patterns, sources, field_name);
-    if !diagnostics.is_empty() {
-        return Err(diagnostics);
-    }
-    let bindings = matching_sources(patterns, sources)
+    let identities = crate::proof_artifact::source_identities_for_patterns(patterns, sources, field_name)?;
+    Ok(identities
         .into_iter()
-        .map(|source| VerusProofBinding {
-            path: normalize_path(&source.path),
-            blake3: blake3_hex(&source.text),
+        .map(|identity| VerusProofBinding {
+            path: identity.path,
+            blake3: identity.blake3,
         })
-        .collect::<Vec<_>>();
-    Ok(bindings)
+        .collect())
 }
 
 fn path_pattern_diagnostics_inner(patterns: &[String], sources: &[SourceFile], field_name: &str) -> Vec<String> {
-    if patterns.is_empty() {
-        return vec![format!("proof rail field `{field_name}` is empty")];
-    }
-
-    let mut diagnostics = Vec::new();
-    for pattern in patterns {
-        let normalized_pattern = normalize_path(pattern);
-        if normalized_pattern.is_empty() {
-            diagnostics.push(format!("proof rail field `{field_name}` contains an empty path pattern"));
-            continue;
-        }
-        let matched = sources
-            .iter()
-            .filter(|source| path_matches_normalized_pattern(&normalized_pattern, &source.path))
-            .map(|source| normalize_path(&source.path))
-            .collect::<BTreeSet<_>>();
-        if matched.is_empty() {
-            diagnostics.push(format!(
-                "proof rail field `{field_name}` pattern `{normalized_pattern}` matches no checked path"
-            ));
-        }
-        if !is_glob_pattern(&normalized_pattern) && matched.len() > 1 {
-            diagnostics.push(format!(
-                "proof rail field `{field_name}` exact pattern `{normalized_pattern}` matched multiple paths"
-            ));
-        }
-    }
-    diagnostics
+    crate::proof_artifact::path_pattern_diagnostics(patterns, sources, field_name)
 }
 
 fn path_matches_pattern(pattern: &str, path: &str) -> bool {
-    let normalized_pattern = normalize_path(pattern);
-    path_matches_normalized_pattern(&normalized_pattern, path)
-}
-
-fn path_matches_normalized_pattern(normalized_pattern: &str, path: &str) -> bool {
-    if normalized_pattern.is_empty() {
-        return false;
-    }
-    let normalized_path = normalize_path(path);
-    if is_glob_pattern(normalized_pattern) {
-        glob_matches(normalized_pattern, &normalized_path)
-    } else {
-        normalized_pattern == normalized_path
-    }
+    crate::proof_artifact::path_matches_pattern(pattern, path)
 }
 
 fn normalize_path(path: &str) -> String {
-    let replaced = path.replace('\\', "/");
-    let mut parts = Vec::new();
-    for part in replaced.split('/') {
-        match part {
-            "" | "." => {}
-            ".." => {
-                parts.pop();
-            }
-            other => parts.push(other),
-        }
-    }
-    parts.join("/")
-}
-
-fn is_glob_pattern(pattern: &str) -> bool {
-    pattern.contains('*') || pattern.contains('?')
-}
-
-fn glob_matches(pattern: &str, candidate: &str) -> bool {
-    let pattern_chars = pattern.chars().collect::<Vec<_>>();
-    let candidate_chars = candidate.chars().collect::<Vec<_>>();
-    let mut pattern_index = 0;
-    let mut candidate_index = 0;
-    let mut star_index = None;
-    let mut retry_candidate_index = 0;
-
-    while candidate_index < candidate_chars.len() {
-        if pattern_index < pattern_chars.len()
-            && (pattern_chars[pattern_index] == '?' || pattern_chars[pattern_index] == candidate_chars[candidate_index])
-        {
-            pattern_index += 1;
-            candidate_index += 1;
-        } else if pattern_index < pattern_chars.len() && pattern_chars[pattern_index] == '*' {
-            star_index = Some(pattern_index);
-            pattern_index += 1;
-            retry_candidate_index = candidate_index;
-        } else if let Some(star) = star_index {
-            pattern_index = star + 1;
-            retry_candidate_index += 1;
-            candidate_index = retry_candidate_index;
-        } else {
-            return false;
-        }
-    }
-
-    while pattern_index < pattern_chars.len() && pattern_chars[pattern_index] == '*' {
-        pattern_index += 1;
-    }
-    pattern_index == pattern_chars.len()
+    crate::proof_artifact::normalize_path(path)
 }
 
 fn receipt_binding_enabled(rail: &ProofRail) -> bool {
-    rail.receipt_binding == RECEIPT_BINDING_BLAKE3_COMMAND_AND_SOURCE
+    rail.receipt_binding == crate::proof_artifact::RECEIPT_BINDING_BLAKE3_COMMAND_AND_SOURCE
 }
 
 fn receipt_binding_matches(rail: &ProofRail, sources: &[SourceFile], proof_source: &SourceFile) -> bool {
@@ -1137,86 +1022,11 @@ fn expected_receipt_verifier_lines(rail: &ProofRail, sources: &[SourceFile]) -> 
 }
 
 fn build_closure_digest(paths: &[String], sources: &[SourceFile]) -> Option<String> {
-    if paths.is_empty() {
-        return None;
-    }
-    let mut matched_sources = matching_sources(paths, sources);
-    if matched_sources.is_empty() {
-        return None;
-    }
-    matched_sources.sort_by(|left, right| left.path.cmp(&right.path));
-    let mut manifest = String::new();
-    for source in matched_sources {
-        writeln!(manifest, "{}:{}", source.path, blake3_hex(&source.text)).expect("writing to string should not fail");
-    }
-    Some(blake3_hex(&manifest))
+    crate::proof_artifact::build_closure_digest(paths, sources)
 }
 
 fn nix_closure_graph_digest(paths: &[String], sources: &[SourceFile]) -> Option<String> {
-    if paths.is_empty() {
-        return None;
-    }
-    let mut matched_sources = matching_sources(paths, sources);
-    if matched_sources.is_empty() {
-        return None;
-    }
-    matched_sources.sort_by(|left, right| left.path.cmp(&right.path));
-    let mut canonical_graphs = String::new();
-    for source in matched_sources {
-        let canonical = canonical_nix_closure_graph(&source.text)?;
-        canonical_graphs.push_str(&canonical);
-    }
-    Some(blake3_hex(&canonical_graphs))
-}
-
-fn canonical_nix_closure_graph(text: &str) -> Option<String> {
-    let lines = text.lines().collect::<Vec<_>>();
-    let mut index = 0;
-    let mut records = Vec::new();
-    while index < lines.len() {
-        while index < lines.len() && lines[index].trim().is_empty() {
-            index += 1;
-        }
-        if index >= lines.len() {
-            break;
-        }
-        let path = lines[index].trim().to_owned();
-        index += 1;
-        while index < lines.len() && lines[index].trim().is_empty() {
-            index += 1;
-        }
-        if index >= lines.len() {
-            return None;
-        }
-        let reference_count = lines[index].trim().parse::<usize>().ok()?;
-        index += 1;
-        let mut references = Vec::with_capacity(reference_count);
-        for _ in 0..reference_count {
-            while index < lines.len() && lines[index].trim().is_empty() {
-                index += 1;
-            }
-            if index >= lines.len() {
-                return None;
-            }
-            references.push(lines[index].trim().to_owned());
-            index += 1;
-        }
-        references.sort();
-        records.push((path, references));
-    }
-    if records.is_empty() {
-        return None;
-    }
-    records.sort_by(|left, right| left.0.cmp(&right.0));
-    let mut canonical = String::new();
-    for (path, references) in records {
-        writeln!(canonical, "{path}").expect("writing to string should not fail");
-        writeln!(canonical, "{}", references.len()).expect("writing to string should not fail");
-        for reference in references {
-            writeln!(canonical, "{reference}").expect("writing to string should not fail");
-        }
-    }
-    Some(canonical)
+    crate::proof_artifact::nix_closure_graph_digest(paths, sources).ok().flatten()
 }
 
 fn expected_receipt_provenance_lines(rail: &ProofRail) -> Vec<String> {
@@ -1247,15 +1057,7 @@ fn expected_receipt_provenance_lines(rail: &ProofRail) -> Vec<String> {
 }
 
 fn expected_receipt_binding_lines(rail: &ProofRail, sources: &[SourceFile]) -> Vec<String> {
-    let mut lines = vec![format!("proof-command-blake3: {}", blake3_hex(&rail.command))];
-    let mut matched_sources = matching_sources(&rail.source_paths, sources);
-    matched_sources.sort_by(|left, right| left.path.cmp(&right.path));
-    lines.extend(
-        matched_sources
-            .into_iter()
-            .map(|source| format!("proof-source-blake3: {}:{}", source.path, blake3_hex(&source.text))),
-    );
-    lines
+    crate::proof_artifact::receipt_binding_lines(rail, sources)
 }
 
 fn receipt_lines(lines: &[String]) -> String {
@@ -1264,10 +1066,6 @@ fn receipt_lines(lines: &[String]) -> String {
     } else {
         format!("{}\n", lines.join("\n"))
     }
-}
-
-fn blake3_hex(text: &str) -> String {
-    blake3::hash(text.as_bytes()).to_hex().to_string()
 }
 
 fn proof_diagnostic(policy: &PolicyEntry, path: &str, line: Option<u32>, message: String) -> Diagnostic {
@@ -1621,7 +1419,7 @@ mod tests {
                 "fixture-scoped proof rail validates Octet proof plumbing and the declared addition-bound property only; it does not prove whole-program correctness"
                     .to_owned(),
             ],
-            receipt_binding: RECEIPT_BINDING_BLAKE3_COMMAND_AND_SOURCE.to_owned(),
+            receipt_binding: crate::proof_artifact::RECEIPT_BINDING_BLAKE3_COMMAND_AND_SOURCE.to_owned(),
             receipt_provenance: ReceiptProvenance {
                 schema_version: VERUS_PROOF_RECEIPT_SCHEMA_VERSION.to_owned(),
                 runner: "octet-standards".to_owned(),
@@ -1709,7 +1507,7 @@ mod tests {
     fn log_artifact(locator: &str, text: &str) -> VerusLogArtifact {
         VerusLogArtifact {
             locator: locator.to_owned(),
-            blake3: blake3_hex(text),
+            blake3: crate::proof_artifact::blake3_hex_text(text),
             bytes: text.len(),
             truncated: false,
         }

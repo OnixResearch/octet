@@ -12,6 +12,7 @@ use crate::model::PolicyEntry;
 use crate::model::PolicyRegistry;
 use crate::model::ProofRail;
 use crate::model::SeedManifest;
+use crate::proof_artifact::artifact_text_identity;
 
 /// Canonical registry artifact file name.
 pub const POLICIES_JSON_FILE: &str = "octet-policies.json";
@@ -120,11 +121,11 @@ pub fn artifact_manifest(
     let mut entries = artifacts
         .iter()
         .map(|(path, text)| {
-            let text = text.as_ref();
+            let identity = artifact_text_identity(path.as_ref(), text.as_ref());
             ArtifactManifestEntry {
-                path: path.as_ref().to_owned(),
-                blake3: blake3::hash(text.as_bytes()).to_hex().to_string(),
-                bytes: u64::try_from(text.len()).expect("artifact text length should fit u64"),
+                path: identity.path,
+                blake3: identity.blake3,
+                bytes: identity.bytes,
             }
         })
         .collect::<Vec<_>>();
@@ -158,11 +159,11 @@ pub fn validate_artifact_manifest_texts(
     let mut expected_entries = artifacts
         .iter()
         .map(|(path, text)| {
-            let text = text.as_ref();
+            let identity = artifact_text_identity(path.as_ref(), text.as_ref());
             ArtifactManifestEntry {
-                path: path.as_ref().to_owned(),
-                blake3: blake3::hash(text.as_bytes()).to_hex().to_string(),
-                bytes: u64::try_from(text.len()).expect("artifact text length should fit u64"),
+                path: identity.path,
+                blake3: identity.blake3,
+                bytes: identity.bytes,
             }
         })
         .collect::<Vec<_>>();
