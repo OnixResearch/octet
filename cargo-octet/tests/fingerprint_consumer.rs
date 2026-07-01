@@ -1474,12 +1474,15 @@ const REAL_CODE_CORPUS: &[&str] = &[
 
 const INTERNAL_OBJECT_CORPUS: &[&str] = &[
     "cargo-octet/src/baseline.rs",
+    "cargo-octet/src/bin/cargo-slotcar.rs",
+    "cargo-octet/src/bin/cargo-tigerstyle.rs",
     "cargo-octet/src/cli.rs",
     "cargo-octet/src/config.rs",
     "cargo-octet/src/determinism.rs",
     "cargo-octet/src/engine.rs",
     "cargo-octet/src/evidence.rs",
     "cargo-octet/src/fingerprint.rs",
+    "cargo-octet/src/lib.rs",
     "cargo-octet/src/main.rs",
     "cargo-octet/src/migrate.rs",
     "cargo-octet/src/object.rs",

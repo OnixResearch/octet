@@ -39,6 +39,9 @@ const ARTIFACT_MANIFEST_SCHEMA_VERSION: &str = "octet-artifact-manifest/v1";
 const ADVISORY_FIXTURE: &str = "standards/check-fixtures/architecture/advisory/public-api-budget";
 const HARD_FAILURE_FIXTURE: &str = "standards/check-fixtures/architecture/noncompliant/missing-no-std";
 const EXPECTED_BINARY_DECLARATION_COUNT: usize = 1;
+const STANDARDS_ALIAS_BINARY_COUNT: usize = 3;
+const EXPECTED_STANDARDS_VERSION_PREFIX: &str = "octet-standards ";
+const STANDARDS_HELP_NEEDLE: &str = "Run Octet policy checks";
 
 #[test]
 fn octet_identity_surfaces() {
@@ -54,12 +57,16 @@ fn octet_identity_surfaces() {
         "canonical standards binary must be declared exactly once"
     );
     assert_eq!(
-        manifest.matches("[[bin]]\nname = \"slotcar-standards\"\npath = \"src/main.rs\"").count(),
+        manifest
+            .matches("[[bin]]\nname = \"slotcar-standards\"\npath = \"src/bin/slotcar-standards.rs\"")
+            .count(),
         EXPECTED_BINARY_DECLARATION_COUNT,
         "legacy Slotcar standards binary remains one explicit compatibility alias"
     );
     assert_eq!(
-        manifest.matches("[[bin]]\nname = \"tigerstyle-standards\"\npath = \"src/main.rs\"").count(),
+        manifest
+            .matches("[[bin]]\nname = \"tigerstyle-standards\"\npath = \"src/bin/tigerstyle-standards.rs\"")
+            .count(),
         EXPECTED_BINARY_DECLARATION_COUNT,
         "Tiger Style standards binary remains one explicit compatibility alias"
     );
@@ -69,6 +76,23 @@ fn octet_identity_surfaces() {
     assert!(env!("CARGO_BIN_EXE_octet-standards").ends_with("octet-standards"));
     assert!(env!("CARGO_BIN_EXE_slotcar-standards").ends_with("slotcar-standards"));
     assert!(env!("CARGO_BIN_EXE_tigerstyle-standards").ends_with("tigerstyle-standards"));
+}
+
+#[test]
+fn standards_alias_bins_preserve_help_and_version() {
+    for (name, binary) in standards_alias_bins() {
+        let version = Command::new(binary).arg("--version").output().expect("version command should run");
+        assert_success(&version);
+        let version_stdout = String::from_utf8_lossy(&version.stdout);
+        assert!(
+            version_stdout.starts_with(EXPECTED_STANDARDS_VERSION_PREFIX),
+            "{name} version output changed: {version_stdout}"
+        );
+
+        let help = Command::new(binary).arg("--help").output().expect("help command should run");
+        assert_success(&help);
+        assert!(String::from_utf8_lossy(&help.stdout).contains(STANDARDS_HELP_NEEDLE));
+    }
 }
 
 #[test]
@@ -967,6 +991,14 @@ fn parse_report(output: &Output) -> CheckReport {
 
 fn binary_path() -> &'static str {
     env!("CARGO_BIN_EXE_octet-standards")
+}
+
+fn standards_alias_bins() -> [(&'static str, &'static str); STANDARDS_ALIAS_BINARY_COUNT] {
+    [
+        ("octet-standards", env!("CARGO_BIN_EXE_octet-standards")),
+        ("slotcar-standards", env!("CARGO_BIN_EXE_slotcar-standards")),
+        ("tigerstyle-standards", env!("CARGO_BIN_EXE_tigerstyle-standards")),
+    ]
 }
 
 fn blake3_hex(text: &str) -> String {
