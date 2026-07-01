@@ -22,6 +22,14 @@ The production pilot rail uses the same tiny proof target but runs real Verus:
 - verifier mode: `production`
 - pinned release: Verus `0.2026.04.03.21dfcd2`, Rust `1.94.0-x86_64-unknown-linux-gnu`, bundled Z3, and an Octet-generated Nix closure graph digest
 
+The production negative fixture is failure-path evidence only:
+
+- source selector: `verus/failure-fixtures/addition_bound_invalid_source.rs`
+- invalid proof target: `verus/proofs/addition_bound_invalid.rs`
+- proof command argv: `octet-production-verus verus/proofs/addition_bound_invalid.rs`
+- expected result: real Verus exits non-zero, `cargo octet prove` reports `verifier-failure`, and no `formal_proof` provenance is emitted
+- isolation: ordinary positive proof runs over `src/verified` do not select the invalid fixture
+
 `cargo octet prove --list` shows selected rails without writing artifacts.
 `cargo octet prove --explain` adds deterministic remediation details for stale
 bindings, verifier mismatches, unmatched rails, and unbacked proof claims.
@@ -34,7 +42,9 @@ trust-boundary entries, checked scope, and proof artifact identity.
 
 Passing the fixture rail is scoped evidence for the declared proof-plumbing
 fixture only. Passing the production pilot is scoped evidence for the declared
-addition-bound proof target only. Neither rail claims whole-program correctness,
-certification, business-domain validation, semantic equivalence, or full safety.
-Every production rail must declare `verifier_mode = "production"` and pin the real
-Verus verifier, solver, Rust toolchain, and Nix closure or closure-graph digest.
+addition-bound proof target only. The negative fixture is not a proof; it exists
+only to show production Verus failures fail closed. No rail claims whole-program
+correctness, certification, business-domain validation, semantic equivalence, or
+full safety. Every production rail must declare `verifier_mode = "production"`
+and pin the real Verus verifier, solver, Rust toolchain, and Nix closure or
+closure-graph digest.

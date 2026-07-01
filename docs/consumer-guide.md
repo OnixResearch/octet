@@ -158,7 +158,10 @@ receipt paths match the rail scope. Fixture rails must say
 command, source/proof, receipt, and trust-boundary identity in the receipt.
 Octet's built-in production pilot is intentionally tiny and runs
 `octet-production-verus` only when a selected proof rail matches the requested
-source scope.
+source scope. The repository also has an opt-in invalid production fixture that
+runs only from its failure-fixture source selector; it demonstrates non-zero
+Verus rejection, `verifier-failure` diagnostics, bounded receipt/log identities,
+and no `formal_proof` provenance.
 
 ```bash
 cargo octet prove --policy-artifacts-dir artifacts/policy --source src/verified --artifact-dir artifacts/octet
