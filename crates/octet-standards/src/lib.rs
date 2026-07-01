@@ -12,6 +12,7 @@ pub mod diagnostic;
 pub mod fixture;
 pub mod model;
 pub mod proof;
+pub mod proof_artifact;
 pub mod receipt;
 pub mod report;
 pub mod resource;
