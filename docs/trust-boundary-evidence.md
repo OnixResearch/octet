@@ -53,6 +53,48 @@ format carries tier data:
 Validation is validation, review is review, and proof is proof for a stated model
 and property. No tier may be silently promoted to a stronger claim.
 
+## Verus proof-path lane
+
+Verus is an opt-in evidence lane inside this chain, not a replacement for the
+other tiers. The canonical review route is:
+
+```text
+requirement or policy ID
+  -> Verus proof rail
+  -> checked Rust source scope
+  -> proof target
+  -> verifier/solver/toolchain identity
+  -> structured proof receipt
+  -> `formal_proof` provenance
+  -> artifact verifier
+```
+
+Reviewers use the existing commands at the matching stage:
+
+- `cargo octet prove --list` lists selected Verus proof rails without writing
+  artifacts.
+- `cargo octet prove --explain` explains selected rails and deterministic
+  remediation for stale bindings, verifier mismatches, unmatched rails, or
+  unbacked proof claims.
+- `cargo octet prove` runs the configured verifier command, writes bounded logs
+  and structured receipts, and emits `formal_proof` provenance only for a
+  validated scoped receipt.
+- `cargo octet artifact verify` recomputes artifact identities and checks saved
+  receipts plus provenance before an artifact directory is treated as evidence.
+
+The Verus lane preserves evidence-tier boundaries. Validated Verus proof receipts
+may support `formal_proof`; lint findings remain `static_lint`, policy checks
+remain `policy_check`, transcript assertions remain `transcript_assertion`, and
+unresolved human obligations remain `manual_review_required`. Validation
+evidence stays validation evidence unless a selected verifier-backed receipt
+supports the stronger tier.
+
+The claim remains scoped to the declared property, checked source binding, proof
+binding, verifier identity, receipt, and artifact identity. This lane does not
+claim whole-program correctness, certification, business-domain validation,
+semantic equivalence, full safety, or a verified runtime without separate
+evidence.
+
 ## Provenance chain
 
 A provenance record connects a claim to its source and artifact:
