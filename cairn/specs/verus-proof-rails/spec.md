@@ -342,25 +342,35 @@ r[octet.verus_proof_rails.production_pilot_expansion.non_claiming]
 
 ### Requirement: Verus proof-path explainer
 
-r[octet.verus_proof_rails.proof_path_explainer] Octet SHOULD document the Verus formal-proof path as a scoped evidence lane from requirement or policy ID to artifact verification, while preserving proof-vs-validation tier boundaries.
+r[octet.verus_proof_rails.proof_path_explainer] Octet SHOULD document the Verus formal-proof path as a scoped evidence lane from requirement or policy ID to artifact verification, while preserving proof-vs-validation and imported-vs-formal-proof tier boundaries.
 
-#### Scenario: Proof path names every stage
+#### Scenario: Proof path names every direct stage
 
 r[octet.verus_proof_rails.proof_path_explainer.stages]
 
 - GIVEN Octet documentation describes Verus proof rails for operators or reviewers
-- WHEN a reader follows the Verus proof path
+- WHEN a reader follows the direct Octet Verus proof path
 - THEN the documentation SHOULD name the requirement or policy ID, Verus proof rail, checked Rust source scope, proof target, verifier/solver/toolchain identity, structured proof receipt, `formal_proof` provenance, and artifact-verifier stage.
 - AND the documentation SHOULD link the stages to existing proof commands or artifact commands where those commands are the review surface.
+
+#### Scenario: Imported Trellis branch stays content-addressed
+
+r[octet.verus_proof_rails.proof_path_explainer.trellis_branch]
+
+- GIVEN Octet documentation describes using Trellis proof artifacts as references
+- WHEN a reader follows the imported proof branch
+- THEN the documentation SHOULD name the Trellis repository revision, source artifact hash, proof artifact hash, bounded log hash, receipt hash when present, hash algorithm, imported bundle status, and optional Octet rerun stage.
+- AND the documentation MUST state that BLAKE3 identifies exact artifact bytes and does not by itself prove proof correctness.
+- AND the imported branch MUST remain external or `manual_review_required` unless Octet reruns the proof with pinned verifier identity and validates an Octet-owned receipt.
 
 #### Scenario: Proof path preserves evidence tiers
 
 r[octet.verus_proof_rails.proof_path_explainer.tiers]
 
-- GIVEN the Verus proof-path explainer mentions proof, validation, lint, policy, transcript, or manual review evidence
+- GIVEN the Verus proof-path explainer mentions proof, validation, lint, policy, transcript, imported Trellis bundle, or manual review evidence
 - WHEN the wording assigns an evidence tier
-- THEN validated Verus proof receipts MAY be described as supporting `formal_proof` provenance.
-- AND lint findings MUST remain `static_lint`, policy checks MUST remain `policy_check`, transcript checks MUST remain `transcript_assertion`, unresolved human obligations MUST remain `manual_review_required`, and validation evidence MUST NOT be relabeled as formal proof.
+- THEN validated Octet-owned Verus proof receipts MAY be described as supporting `formal_proof` provenance.
+- AND lint findings MUST remain `static_lint`, policy checks MUST remain `policy_check`, transcript checks MUST remain `transcript_assertion`, imported Trellis bundles MUST remain external or `manual_review_required` until rerun, unresolved human obligations MUST remain `manual_review_required`, and validation evidence MUST NOT be relabeled as formal proof.
 
 #### Scenario: Proof path stays non-claiming
 
@@ -370,3 +380,107 @@ r[octet.verus_proof_rails.proof_path_explainer.non_claiming]
 - WHEN documentation validation scans proof and correctness language
 - THEN the proof claim MUST be scoped to the declared property, source binding, proof binding, verifier identity, receipt, and artifact identity.
 - AND the documentation MUST NOT claim whole-program correctness, certification, business-domain validation, semantic equivalence, full safety, or a verified runtime without separate evidence.
+
+### Requirement: Verus proof cards
+
+r[octet.verus_proof_rails.proof_cards] Octet SHOULD provide receipt-backed proof cards for selected Verus proof rails and BLAKE3-identified imported proof references so reviewers can inspect each scoped proof claim without treating the card as a standalone proof artifact.
+
+#### Scenario: Proof card contains required fields
+
+r[octet.verus_proof_rails.proof_cards.fields]
+
+- GIVEN Octet emits or documents a proof card for a Verus proof rail
+- WHEN a reviewer inspects the card
+- THEN the card SHOULD name the proof or property ID, source requirement or policy ID, checked Rust source scope, proof target path, verifier mode, verifier identity summary, solver/toolchain summary, receipt path, artifact BLAKE3 identities, evidence tier, status, trust-boundary notes, and non-claims.
+- AND the card SHOULD link to the artifact-verifier command or receipt/provenance artifact that supports the status.
+
+#### Scenario: Formal-proof card is receipt backed
+
+r[octet.verus_proof_rails.proof_cards.receipt_backed]
+
+- GIVEN a proof card reports `evidence_tier = formal_proof` or equivalent formal-proof status
+- WHEN card validation runs
+- THEN validation MUST confirm that the card is generated from, or matches, a validated structured proof receipt and matching provenance record for the same source scope, proof target, verifier mode, and artifact identity.
+- AND a card without a matching validated receipt MUST NOT report `formal_proof` status.
+
+#### Scenario: Fixture, production, and external modes stay distinct
+
+r[octet.verus_proof_rails.proof_cards.mode_distinct]
+
+- GIVEN proof cards exist for fixture-only, production, and imported external Verus evidence
+- WHEN a reviewer compares the cards
+- THEN each card MUST display its verifier mode and evidence origin.
+- AND fixture-only cards MUST NOT be presented as production formal-proof evidence unless the checked scope explicitly declares fixture-only proof plumbing.
+- AND imported Trellis cards MUST NOT be presented as Octet `formal_proof` evidence unless Octet reruns the proof with a pinned verifier and validates an Octet-owned receipt.
+
+#### Scenario: Overclaiming card fails validation
+
+r[octet.verus_proof_rails.proof_cards.no_overclaim]
+
+- GIVEN a proof card mentions proof, safety, verification, correctness, certification, business-domain validation, or semantic equivalence
+- WHEN card validation scans the claim language
+- THEN the claim MUST be scoped to the declared property, source binding, proof binding, verifier identity, receipt, and artifact identity.
+- AND cards MUST NOT claim whole-program correctness, certification, business-domain validation, semantic equivalence, full safety, or a verified runtime without separate evidence.
+
+#### Scenario: Imported Trellis card preserves BLAKE3 scope
+
+r[octet.verus_proof_rails.proof_cards.trellis_blake3]
+
+- GIVEN a proof card references a Trellis proof bundle by BLAKE3 identity
+- WHEN card validation runs
+- THEN validation MUST require the Trellis repository revision, source artifact hash, proof artifact hash, bounded log hash, receipt hash when present, hash algorithm, and evidence-origin fields.
+- AND the card MUST state that BLAKE3 identifies exact artifact bytes and does not by itself prove proof correctness.
+- AND the card MUST remain non-`formal_proof` unless the referenced proof is rerun and receipt-validated by Octet.
+
+### Requirement: Trellis BLAKE3 proof-bundle import
+
+r[octet.verus_proof_rails.trellis_blake3_import] Octet SHOULD support imported Trellis proof-bundle references that bind external proof artifacts by BLAKE3 identity while keeping imported references separate from Octet-owned `formal_proof` provenance until rerun and receipt validation succeed.
+
+#### Scenario: Imported bundle declares required identity fields
+
+r[octet.verus_proof_rails.trellis_blake3_import.fields]
+
+- GIVEN a maintainer declares an imported Trellis proof bundle
+- WHEN import validation runs
+- THEN the bundle MUST name the repository label, repository revision, source path, proof path or proof module, verifier command when known, hash algorithm, source artifact hash, proof artifact hash, bounded stdout/stderr hashes when logs are present, receipt hash when a receipt is present, evidence origin, intended evidence tier, and trust-boundary notes.
+- AND paths MUST be normalized before hash comparison and diagnostics.
+
+#### Scenario: BLAKE3 identity is not proof correctness
+
+r[octet.verus_proof_rails.trellis_blake3_import.identity_boundary]
+
+- GIVEN an imported Trellis bundle has matching BLAKE3 source, proof, log, or receipt hashes
+- WHEN Octet renders a proof card, proof-path explainer, provenance summary, or artifact-verifier output for that bundle
+- THEN the output MUST state or encode that the hashes identify exact artifact bytes.
+- AND the output MUST NOT claim those hashes prove Verus success, solver soundness, model adequacy, Octet receipt validity, whole-program correctness, certification, semantic equivalence, business-domain validation, full safety, or a verified runtime.
+
+#### Scenario: Imported bundle stays external until Octet rerun
+
+r[octet.verus_proof_rails.trellis_blake3_import.promotion]
+
+- GIVEN an imported Trellis bundle has not been rerun by Octet
+- WHEN evidence-tier assignment runs
+- THEN the bundle MUST remain external evidence or `manual_review_required`.
+- AND Octet MUST NOT emit `formal_proof` provenance for the imported bundle.
+- WHEN Octet reruns the referenced proof with pinned verifier, solver, toolchain, command argv, source/proof bindings, and validates an Octet-owned structured receipt
+- THEN Octet MAY emit scoped `formal_proof` provenance for the Octet-owned receipt only.
+
+#### Scenario: Malformed or stale import fails closed
+
+r[octet.verus_proof_rails.trellis_blake3_import.fail_closed]
+
+- GIVEN an imported Trellis bundle omits a required field, declares an unsupported hash algorithm, has a malformed digest, has a stale source/proof/log/receipt hash, duplicates an artifact identity where uniqueness is required, omits trust-boundary notes, or requests `formal_proof` without an Octet-owned validated receipt
+- WHEN import validation runs
+- THEN validation MUST fail closed with a deterministic diagnostic naming the rejected field or artifact.
+- AND Octet MUST NOT render the bundle as valid proof-card evidence.
+
+#### Scenario: Import manifest ownership is registered
+
+r[octet.verus_proof_rails.trellis_blake3_import.registry]
+
+- GIVEN Octet maintains human-authored Trellis imported-proof bundle declarations
+- WHEN policy freshness and registry validation run
+- THEN the import manifest MUST be typed Nickel and registered as Nickel-authored.
+- AND generated JSON imports MUST be covered by freshness checks.
+- AND Rust-derived import validation receipts, if emitted, MUST be registered as Rust-derived receipt families.
+- AND raw Trellis logs, verifier internals, environment state, and secrets MUST remain non-candidate surfaces except as bounded hashes, paths, labels, allowlists, or explicit rationale.

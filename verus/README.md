@@ -43,9 +43,43 @@ bindings, verifier mismatches, unmatched rails, and unbacked proof claims.
 
 `cargo octet prove` executes configured argv only, captures bounded stdout/stderr
 artifacts, writes structured JSON receipts under the selected artifact directory,
-and emits `formal_proof` provenance only after the receipt validates its pass
-signal, source binding, proof binding, verifier/solver/toolchain identity,
-trust-boundary entries, checked scope, and proof artifact identity.
+emits `proof-cards.json` as a human review index, and emits `formal_proof`
+provenance only after the receipt validates its pass signal, source binding,
+proof binding, verifier/solver/toolchain identity, trust-boundary entries,
+checked scope, and proof artifact identity.
+
+## Proof cards
+
+`proof-cards.json` contains one generated card per selected rail. A card names
+the proof or property ID, source requirement or policy ID, checked Rust source
+scope, proof target path, verifier mode, verifier identity summary,
+solver/toolchain summary, receipt path, artifact BLAKE3 identities, evidence
+origin, evidence tier, status, trust-boundary notes, non-claims, and
+`cargo octet artifact verify` command. The card is an index into
+receipt/provenance evidence, not standalone evidence.
+
+Current selected positive rails produce cards with these stable identities when
+run through `cargo octet prove --source src/verified --artifact-dir artifacts/octet`:
+
+| Proof/property ID | Mode | Source scope | Proof target | Receipt path |
+| --- | --- | --- | --- | --- |
+| `octet.verus_proof_rails.addition-bound#rail-0` | `fixture` | `src/verified/addition.rs` | `verus/proofs/addition_bound.rs` | `proofs/octet.verus_proof_rails.addition-bound-rail-0.receipt` |
+| `octet.verus_proof_rails.addition-bound-production#rail-0` | `production` | `src/verified/addition.rs` | `verus/proofs/addition_bound.rs` | `proofs/octet.verus_proof_rails.addition-bound-production-rail-0.receipt` |
+| `octet.verus_proof_rails.ordering-reflexive-production#rail-0` | `production` | `src/verified/ordering.rs` | `verus/proofs/ordering_reflexive.rs` | `proofs/octet.verus_proof_rails.ordering-reflexive-production-rail-0.receipt` |
+
+A generated card may report `evidence_tier = formal_proof` only when it matches a
+validated structured receipt and matching provenance record for the same source
+scope, proof target, verifier mode, and artifact BLAKE3 identity. Imported
+Trellis cards use `evidence_origin = external_trellis_import`, name the Trellis
+repository revision plus source/proof/log/receipt BLAKE3 identities when present,
+and stay `manual_review_required` unless Octet reruns the proof and validates an
+Octet-owned receipt. BLAKE3 identifies exact artifact bytes and does not by
+itself prove proof correctness. If the receipt is missing, stale, failed, fixture
+evidence is presented as production evidence, external evidence is presented as
+Octet formal proof, or wording broadens the claim, card validation downgrades the
+card to `manual_review_required` and records diagnostics. Ordinary
+`cargo octet check` does not require proof cards, imported bundles, or Verus
+artifacts.
 
 Passing the fixture rail is scoped evidence for the declared proof-plumbing
 fixture only. Passing a production pilot is scoped evidence for that pilot's

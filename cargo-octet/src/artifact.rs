@@ -18,6 +18,7 @@ const SUMMARY_ARTIFACT_NAME: &str = "summary.txt";
 const JSON_RESULTS_ARTIFACT_NAME: &str = "results.jsonl";
 const SARIF_RESULTS_ARTIFACT_NAME: &str = "results.sarif";
 const PROVENANCE_ARTIFACT_NAME: &str = "provenance.jsonl";
+const PROOF_CARDS_ARTIFACT_NAME: &str = "proof-cards.json";
 const RUNNER_PROVENANCE_SOURCE_ID: &str = "octet.runner.artifact-bundle";
 const RUNNER_STATIC_FINDINGS_SOURCE_ID: &str = "octet.runner.static-findings";
 const RUNNER_CHECKER_ID: &str = "cargo-octet";
@@ -314,6 +315,8 @@ fn expected_artifact_files(output_format: OutputFormat, bundle_kind: BundleKind)
             OutputFormat::Json => files.push(JSON_RESULTS_ARTIFACT_NAME.to_owned()),
             OutputFormat::Sarif => files.push(SARIF_RESULTS_ARTIFACT_NAME.to_owned()),
         }
+    } else {
+        files.push(PROOF_CARDS_ARTIFACT_NAME.to_owned());
     }
     files.sort();
     files
@@ -474,6 +477,7 @@ fn expected_shape_for_artifact(
     };
     match artifact {
         COMMAND_ARTIFACT_NAME | STATUS_ARTIFACT_NAME | SUMMARY_ARTIFACT_NAME => Some(manual_review_shape),
+        PROOF_CARDS_ARTIFACT_NAME if bundle_kind == BundleKind::Prove => Some(manual_review_shape),
         JSON_RESULTS_ARTIFACT_NAME if output_format == OutputFormat::Json => Some(ExpectedRecordShape {
             source_id: RUNNER_STATIC_FINDINGS_SOURCE_ID,
             checker_id: RUNNER_CHECKER_ID,
