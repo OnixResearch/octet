@@ -1715,6 +1715,54 @@ MAIN
             test -d ${cargoOctetUnwrapped}
             mkdir -p "$out"
           '';
+          warningClean = craneLib.buildPackage {
+            inherit src cargoArtifacts buildInputs;
+            cargoToml = ./Cargo.toml;
+            pname = "octet-warning-clean";
+            version = "0.1.0";
+            nativeBuildInputs = checkNativeBuildInputs;
+            doCheck = false;
+            doNotPostBuildInstallCargoBinaries = true;
+            buildPhaseCargoCommand = "cargo check --workspace --all-targets";
+            installPhaseCommand = ''
+              mkdir -p "$out"
+            '';
+            RUSTFLAGS = "-D warnings";
+            LD_LIBRARY_PATH = rustToolchainLibPath;
+            RUSTUP_TOOLCHAIN = rustupToolchain;
+            preBuild = ''
+              export PATH="${dylintShimPath}:$PATH"
+            '';
+          };
+          warningCleanRegression = pkgs.runCommand "octet-warning-clean-regression" {
+            nativeBuildInputs = [ cargo-shim rustup-shim rustToolchain ];
+            LD_LIBRARY_PATH = rustToolchainLibPath;
+            RUSTUP_TOOLCHAIN = rustupToolchain;
+          } ''
+            fixture_version="0.1.0"
+            fixture_edition="2024"
+            scratch="$(mktemp -d)"
+            trap 'rm -rf "$scratch"' EXIT
+            mkdir -p "$scratch/src"
+            cat > "$scratch/Cargo.toml" <<EOF
+            [package]
+            name = "octet-warning-clean-negative-control"
+            version = "$fixture_version"
+            edition = "$fixture_edition"
+            EOF
+            cat > "$scratch/src/lib.rs" <<'EOF'
+            fn warning_clean_negative_control_dead_helper() {}
+            EOF
+
+            set +e
+            RUSTFLAGS="-D warnings" cargo check --manifest-path "$scratch/Cargo.toml" > "$scratch/stdout" 2> "$scratch/stderr"
+            status="$?"
+            set -e
+            test "$status" -ne 0
+            grep -F 'function `warning_clean_negative_control_dead_helper` is never used' "$scratch/stderr"
+            echo "warning_clean.regression_dead_code: PASS"
+            mkdir -p "$out"
+          '';
         in {
           octet = octet;
           slotcar = octet;
@@ -1778,6 +1826,8 @@ MAIN
           valence-object-evidence = valenceObjectEvidenceGate;
           roadmap-agent-surfaces-docs = roadmapAgentSurfacesDocs;
           release-candidate-smoke = releaseCandidateSmokeCheck;
+          warning-clean = warningClean;
+          warning-clean-regression = warningCleanRegression;
 
           fingerprint-docs-downstream-smoke = fingerprintDocsDownstreamSmokeCheck;
           fingerprint-docs-review-gate-docs = fingerprintDocsReviewGateDocsCheck;

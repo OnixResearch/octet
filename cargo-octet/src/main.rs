@@ -5,6 +5,7 @@ mod config;
 mod determinism;
 mod engine;
 pub mod evidence;
+#[cfg(test)]
 mod evidence_contracts;
 mod evidence_index;
 mod fingerprint;
