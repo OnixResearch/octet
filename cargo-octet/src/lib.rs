@@ -8,6 +8,7 @@ pub mod evidence;
 #[cfg(test)]
 mod evidence_contracts;
 mod evidence_index;
+mod evidence_log;
 mod fingerprint;
 mod imported_proof;
 mod migrate;

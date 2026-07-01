@@ -1,0 +1,14 @@
+{
+  "schema_version": "octet-evidence-log-manifest/v1",
+  "logs": [
+    {
+      "artifact_locator": "dogfood-run.txt.gz",
+      "blake3": "20cb2a1e50dd6fbc162a25ff372e8a362335154482798ecd5164bef9cc3a5322",
+      "bytes": 34891,
+      "replay_command": "nix develop path:/home/brittonr/git/slotcar -c nix run path:/home/brittonr/git/slotcar#cargo-octet -- check -p octet --output-format json -- --lib",
+      "checked_scope": "dogfood:indexable-policy-lints:octet-package-lib-json-check",
+      "capture_source": "openspec.archive.2026-05-18-roi-02-dogfood-indexable-policy-lints.dogfood-run",
+      "retention": "compressed_content_addressed_raw"
+    }
+  ]
+}

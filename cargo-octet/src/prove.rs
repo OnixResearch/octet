@@ -108,6 +108,10 @@ const COMMAND_STDERR_SUFFIX: &str = "stderr";
 const COMMAND_ARGV_FIELD: &str = "command_argv";
 const DEFAULT_ENV_ALLOWLIST: &[&str] = &["PATH", "TMPDIR"];
 const DIAGNOSTIC_VERIFIER_FAILURE: &str = "verifier-failure";
+const EVIDENCE_LOG_CAPTURE_STDOUT: &str = "octet.prove.stdout";
+const EVIDENCE_LOG_CAPTURE_STDERR: &str = "octet.prove.stderr";
+const EVIDENCE_LOG_CLAIM_BOUNDARY: &str =
+    "scoped proof rail output only; not whole-program correctness, certification, semantic equivalence, or full safety";
 
 #[derive(Debug, Serialize)]
 struct ProveReport {
@@ -222,6 +226,14 @@ struct ExecutedProof {
     row: ProofReportRow,
     receipt_text: String,
     formal_provenance: Option<ProvenanceRecord>,
+    logs: Vec<CapturedProofLog>,
+}
+
+struct CapturedProofLog {
+    locator: String,
+    text: String,
+    checked_scope: String,
+    capture_source: &'static str,
 }
 
 struct CommandSpec {
@@ -411,6 +423,10 @@ fn execute_proof(
         log_artifact(&stdout_locator, &outcome.stdout_text, outcome.stdout_original_bytes, outcome.stdout_truncated);
     let stderr_artifact =
         log_artifact(&stderr_locator, &outcome.stderr_text, outcome.stderr_original_bytes, outcome.stderr_truncated);
+    let logs = vec![
+        captured_proof_log(&stdout_locator, &outcome.stdout_text, &checked_scope, EVIDENCE_LOG_CAPTURE_STDOUT),
+        captured_proof_log(&stderr_locator, &outcome.stderr_text, &checked_scope, EVIDENCE_LOG_CAPTURE_STDERR),
+    ];
     let receipt_result = build_verus_proof_receipt(&VerusProofReceiptInput {
         policy_id: &selected.policy.policy_id,
         rail_index: selected.rail_index,
@@ -476,6 +492,7 @@ fn execute_proof(
         },
         receipt_text,
         formal_provenance,
+        logs,
     }
 }
 
@@ -724,6 +741,20 @@ fn log_artifact(locator: &str, text: &str, original_bytes: usize, truncated: boo
     }
 }
 
+fn captured_proof_log(
+    locator: &str,
+    text: &str,
+    checked_scope: &str,
+    capture_source: &'static str,
+) -> CapturedProofLog {
+    CapturedProofLog {
+        locator: locator.to_owned(),
+        text: text.to_owned(),
+        checked_scope: checked_scope.to_owned(),
+        capture_source,
+    }
+}
+
 fn checked_scope(policy: &PolicyEntry, rail_index: usize, rail: &ProofRail) -> String {
     if !rail.checked_scope.trim().is_empty() {
         rail.checked_scope.clone()
@@ -807,17 +838,24 @@ fn write_artifacts(args: &ProveArgs, report: &ProveReport, executions: &[Execute
 
     let command_text = format!("{}\n", args.command_line);
     let status_text = status_text(args.output_format, report)?;
-    let summary_text = summary_text(report);
+    let summary_text = summary_text(report, &args.command_line, executions);
     let proof_cards_text = proof_cards_text(executions)?;
     let provenance_text = provenance_text(&command_text, &status_text, &summary_text, &proof_cards_text, executions)?;
+    let evidence_log_manifest_text = evidence_log_manifest_text(&args.command_line, executions)?;
 
     write_text(&args.artifact_dir.join(COMMAND_ARTIFACT_NAME), &command_text)?;
     write_text(&args.artifact_dir.join(STATUS_ARTIFACT_NAME), &status_text)?;
     write_text(&args.artifact_dir.join(SUMMARY_ARTIFACT_NAME), &summary_text)?;
     write_text(&args.artifact_dir.join(PROOF_CARDS_ARTIFACT_NAME), &proof_cards_text)?;
     write_text(&args.artifact_dir.join(PROVENANCE_ARTIFACT_NAME), &provenance_text)?;
+    if let Some(manifest_text) = evidence_log_manifest_text {
+        write_text(&args.artifact_dir.join(crate::evidence_log::EVIDENCE_LOG_MANIFEST_ARTIFACT), &manifest_text)?;
+    }
     for execution in executions {
         write_text(&args.artifact_dir.join(&execution.row.receipt), &execution.receipt_text)?;
+        for log in &execution.logs {
+            write_text(&args.artifact_dir.join(&log.locator), &log.text)?;
+        }
     }
     Ok(())
 }
@@ -836,13 +874,16 @@ fn status_text(output_format: OutputFormat, report: &ProveReport) -> Result<Stri
     json_text(&artifact)
 }
 
-fn summary_text(report: &ProveReport) -> String {
+fn summary_text(report: &ProveReport, replay_command: &str, executions: &[ExecutedProof]) -> String {
     let mut text = format!(
         "octet prove status={} proofs={} diagnostics={}\n",
         report.status,
         report.proofs.len(),
         report.diagnostics.len()
     );
+    writeln!(&mut text, "replay_command: {replay_command}").expect("write replay command summary to string");
+    writeln!(&mut text, "claim_boundary: {EVIDENCE_LOG_CLAIM_BOUNDARY}")
+        .expect("write claim boundary summary to string");
     for proof in &report.proofs {
         writeln!(
             &mut text,
@@ -857,10 +898,56 @@ fn summary_text(report: &ProveReport) -> String {
         )
         .expect("write proof summary to string");
     }
+    for entry in evidence_log_entries(replay_command, executions) {
+        writeln!(
+            &mut text,
+            "evidence_log artifact={} blake3={} bytes={} checked_scope={} capture_source={} retention={} claim_boundary={}",
+            entry.artifact_locator,
+            entry.blake3,
+            entry.bytes,
+            entry.checked_scope,
+            entry.capture_source,
+            entry.retention,
+            EVIDENCE_LOG_CLAIM_BOUNDARY
+        )
+        .expect("write evidence log summary to string");
+        writeln!(&mut text, "evidence_log replay_command: {}", entry.replay_command)
+            .expect("write evidence log replay command to string");
+    }
     for diagnostic in &report.diagnostics {
         writeln!(&mut text, "diagnostic: {diagnostic}").expect("write diagnostic summary to string");
     }
     text
+}
+
+fn evidence_log_manifest_text(replay_command: &str, executions: &[ExecutedProof]) -> Result<Option<String>, String> {
+    let entries = evidence_log_entries(replay_command, executions);
+    if entries.is_empty() {
+        return Ok(None);
+    }
+    let manifest = crate::evidence_log::manifest_from_entries(entries);
+    json_text(&manifest).map(Some)
+}
+
+fn evidence_log_entries(
+    replay_command: &str,
+    executions: &[ExecutedProof],
+) -> Vec<crate::evidence_log::EvidenceLogEntry> {
+    executions
+        .iter()
+        .flat_map(|execution| {
+            execution.logs.iter().map(|log| {
+                crate::evidence_log::EvidenceLogEntry::from_bytes(
+                    &log.locator,
+                    log.text.as_bytes(),
+                    replay_command,
+                    &log.checked_scope,
+                    log.capture_source,
+                    crate::evidence_log::RETENTION_CONTENT_ADDRESSED_RAW,
+                )
+            })
+        })
+        .collect()
 }
 
 fn provenance_text(
@@ -1600,6 +1687,26 @@ mod tests {
             record.artifact_locator == PROOF_CARDS_ARTIFACT_NAME
                 && record.evidence_tier == EvidenceTier::ManualReviewRequired
         }));
+        let manifest_text = fs::read_to_string(artifact_dir.join(crate::evidence_log::EVIDENCE_LOG_MANIFEST_ARTIFACT))
+            .expect("read evidence log manifest");
+        let manifest: crate::evidence_log::EvidenceLogManifest =
+            serde_json::from_str(&manifest_text).expect("parse evidence log manifest");
+        assert_eq!(manifest.schema_version, crate::evidence_log::EVIDENCE_LOG_MANIFEST_SCHEMA_VERSION);
+        let stdout_entry = manifest
+            .logs
+            .iter()
+            .find(|entry| entry.artifact_locator.ends_with(".stdout"))
+            .expect("stdout log manifest entry");
+        assert_eq!(stdout_entry.replay_command, "cargo octet prove fixture");
+        assert_eq!(stdout_entry.checked_scope, format!("formal-proof:fixture-only:{POLICY_ID}#rail-0"));
+        let stdout_bytes =
+            fs::read(artifact_dir.join(&stdout_entry.artifact_locator)).expect("read stdout log artifact");
+        assert_eq!(stdout_entry.bytes, stdout_bytes.len());
+        assert_eq!(stdout_entry.blake3, crate::evidence::artifact_blake3_hex(&stdout_bytes));
+        let summary = fs::read_to_string(artifact_dir.join(SUMMARY_ARTIFACT_NAME)).expect("read prove summary");
+        assert!(summary.contains("replay_command: cargo octet prove fixture"));
+        assert!(summary.contains(EVIDENCE_LOG_CLAIM_BOUNDARY));
+        assert!(summary.contains(&stdout_entry.blake3));
 
         let report = verify_bundle(bundle_input(&artifact_dir));
         assert_eq!(report.status, "valid", "unexpected diagnostics: {:?}", report.diagnostics);
