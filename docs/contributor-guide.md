@@ -93,7 +93,7 @@ Then update:
 Remember:
 
 - `dylint.toml` keys stay bare (`no_unwrap`)
-- source attrs and group attrs stay canonical (`octet::no_unwrap`, `octet::safety`)
+- source attrs and group attrs stay on the current live namespace (`tigerstyle::no_unwrap`, `tigerstyle::safety`)
 
 ## If you add or change standards policy
 
@@ -175,11 +175,11 @@ CARGO_TARGET_DIR="$tmp_target" nix develop -c bash -c 'cargo test --lib'
 
 ### Tool-scoped attrs in standalone fixtures
 
-Standalone UI fixtures that use canonical `octet::` attrs need:
+Standalone UI fixtures that use current live `tigerstyle::` attrs need:
 
 ```rust
 #![feature(register_tool)]
-#![register_tool(octet)]
+#![register_tool(tigerstyle)]
 ```
 
 Without this, rustc rejects the attrs before the lint can run. Bare lint names
@@ -228,7 +228,7 @@ Useful doc-facing spot checks:
 
 ```bash
 nix develop -c bash -c 'cargo test --test consumer_integration downstream_rollout_docs_point_to_first_class_cli_path -- --nocapture'
-rg -n "cargo octet check|cargo-octet|octet::|\[octet\]|\[workspace.metadata.octet\]" README.md docs/*.md
+rg -n "cargo octet check|cargo-octet|tigerstyle::|\[octet\]|\[workspace.metadata.octet\]" README.md docs/*.md
 ```
 
 For fingerprint docs/examples, use one review command:

@@ -279,8 +279,8 @@ numeric_units = "warn"
 Source attrs and group attrs stay canonical in Rust code:
 
 ```rust
-#[allow(octet::unchecked_narrowing)]
-#![deny(octet::naming)]
+#[allow(tigerstyle::unchecked_narrowing)]
+#![deny(tigerstyle::naming)]
 ```
 
 ## Nix integration
@@ -353,13 +353,11 @@ replay flows, not the current recommended onboarding path.
 
 ## Migration note: `todo!()` escapes moved to `no_todo`
 
-If a workspace still uses justified `todo!()` stubs under `allow(no_panic)`,
-`allow(octet::no_panic)`, or legacy `allow(slotcar::no_panic)`, migrate them to
-`no_todo`:
+If a workspace still uses justified `todo!()` stubs under `allow(no_panic)` or
+`allow(tigerstyle::no_panic)`, migrate them to `no_todo`:
 
 - `#[allow(no_todo)]`
-- `#[allow(octet::no_todo)]`
-- `#[allow(slotcar::no_todo)]` as a source-compatibility alias during migration
+- `#[allow(tigerstyle::no_todo)]`
 
 `no_panic` now covers only:
 

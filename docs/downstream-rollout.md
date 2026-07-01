@@ -126,9 +126,9 @@ Current octet contract:
 - `no_panic` now owns only `panic!()`, `unimplemented!()`, and
   `unreachable!()`
 - old escape-hatch spellings `#[allow(no_panic)]` and
-  `#[allow(octet::no_panic)]` no longer justify `todo!()`
+  `#[allow(tigerstyle::no_panic)]` no longer justify `todo!()`
 - migrate justified stubs to `#[allow(no_todo)]` or
-  `#[allow(octet::no_todo)]`
+  `#[allow(tigerstyle::no_todo)]`
 
 Live Aspen code still carries bare `#![allow(no_panic)]` crate attrs, so keep
 that bare-source migration note in rollout checklists until consumers finish the
@@ -250,7 +250,7 @@ Add a new crate or package to the default path only when all of these hold:
    cleanup trigger
 4. deferred noisy families stay inventory-only until their own promotion review
    is done
-5. no crate- or module-wide `#![allow(octet::...)]` is hiding unresolved
+5. no crate- or module-wide `#![allow(tigerstyle::...)]` is hiding unresolved
    rollout debt
 6. one targeted rerun proves the candidate scope still produces actionable
    signal
@@ -294,8 +294,8 @@ Rules for the per-lint controls:
 - omitted `disabled_lints` and `lint_levels` default to empty collections
 - unknown lint names and invalid level values warn and are ignored
 - `disabled_lints` and `[octet.lint_levels]` keep bare lint-name keys such
-  as `no_unwrap`; source attrs and group attrs use canonical tool names such as
-  `octet::no_unwrap` and `octet::safety`
+  as `no_unwrap`; source attrs and group attrs use current live tool names such as
+  `tigerstyle::no_unwrap` and `tigerstyle::safety`
 - `disabled_lints` takes precedence over `lint_levels` and source-level attrs
   because disabled lints never register
 
@@ -308,11 +308,11 @@ or repo-local UI fixtures, use the supported nightly toolchain plus:
 
 ```rust
 #![feature(register_tool)]
-#![register_tool(octet)]
+#![register_tool(tigerstyle)]
 ```
 
-Without that prelude, rustc rejects canonical attrs such as
-`#[allow(octet::ambient_clock)]` before the lint can run.
+Without that prelude, rustc rejects current live tool attrs such as
+`#[allow(tigerstyle::ambient_clock)]` before the lint can run.
 
 ## `ambient_clock` boundary playbook
 
@@ -327,7 +327,7 @@ fn deadline_from(now: Instant, timeout: Duration) -> Instant {
     now + timeout
 }
 
-#[allow(octet::ambient_clock, reason = "RPC boundary owns deadline capture")]
+#[allow(tigerstyle::ambient_clock, reason = "RPC boundary owns deadline capture")]
 fn rpc_deadline(timeout: Duration) -> Instant {
     deadline_from(Instant::now(), timeout)
 }
@@ -358,7 +358,7 @@ or polling boundary and the allow stays on that one function.
 Good shape:
 
 ```rust
-#[allow(octet::ambient_clock, reason = "poll loop owns wall-clock timeout")]
+#[allow(tigerstyle::ambient_clock, reason = "poll loop owns wall-clock timeout")]
 fn wait_until_ready(...) -> Result<()> {
     let started_at = Instant::now();
     loop {
@@ -373,7 +373,7 @@ fn wait_until_ready(...) -> Result<()> {
 Bad shape:
 
 - helper modules full of repeated `Instant::now()` calls with no single owner
-- crate-wide `#![allow(octet::ambient_clock)]`
+- crate-wide `#![allow(tigerstyle::ambient_clock)]`
 - functions that already accept time input but still read the wall clock again
 
 ### Relationship to `contradictory_time`
@@ -409,7 +409,7 @@ reviewable baseline:
 
 ### Narrow allow rules
 
-A narrow item-scoped `#[allow(octet::... , reason = "...")]` is acceptable
+A narrow item-scoped `#[allow(tigerstyle::... , reason = "...")]` is acceptable
 only when all of these are true:
 
 - the item owns the shell boundary or the local proof obligation

@@ -54,6 +54,10 @@
     "negated_predicate_local_rename",
     "nested_conditionals",
     "nesting_custom/nesting_custom",
+    "namespace_bare_lint_deny",
+    "namespace_canonical_group_allow",
+    "namespace_canonical_lint_allow",
+    "namespace_unsupported_octet_attr",
     "no_panic",
     "no_panic_cfg_not",
     "no_panic_exhaustive",
@@ -121,13 +125,17 @@
   "expected_failures": [
     "group_deny_naming",
     "magic_number",
+    "namespace_bare_lint_deny",
+    "namespace_unsupported_octet_attr",
     "no_unwrap_deny_custom/no_unwrap_deny_custom",
     "no_unwrap_tool_attr",
     "verified/verified_purity"
   ],
   "canonical_tool_group_fixtures": [
     "group_allow_safety",
-    "group_deny_naming"
+    "group_deny_naming",
+    "namespace_canonical_group_allow",
+    "namespace_canonical_lint_allow"
   ],
   "compatibility_fixtures": [
     "assertion_density",
@@ -137,7 +145,8 @@
     "float_for_currency",
     "ambiguous_params",
     "unjustified_allow",
-    "multi_lock_ordering"
+    "multi_lock_ordering",
+    "namespace_bare_lint_deny"
   ],
   "config_fixtures": [
     "function_length_custom/function_length_custom",

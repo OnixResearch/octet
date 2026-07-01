@@ -740,6 +740,7 @@ mod tests {
     const TEST_PRINCIPLE: &str = "Functional Core";
     const TEST_EFFECT_FAMILY: &str = "time";
     const TEST_CRATE_NAME: &str = "example";
+    const CANONICAL_GROUP_NAMESPACE: &str = "tigerstyle::";
 
     #[test]
     fn json_lines_include_static_lint_evidence_tier() {
@@ -747,6 +748,19 @@ mod tests {
 
         assert!(rendered.contains("\"version\":2"));
         assert!(rendered.contains("\"evidence_tier\":\"static_lint\""));
+    }
+
+    #[test]
+    fn lint_metadata_groups_use_current_namespace() {
+        let metadata = lint_meta_map();
+
+        for (lint_name, meta) in metadata {
+            assert!(
+                meta.group.starts_with(CANONICAL_GROUP_NAMESPACE),
+                "lint `{lint_name}` group `{}` should use the current namespace",
+                meta.group
+            );
+        }
     }
 
     #[test]

@@ -6,13 +6,13 @@ The README names Octet as the canonical product and says Rust source attrs and d
 
 ### 1. Make one namespace decision explicit
 
-**Choice:** Record a release-scoped decision for the canonical source-attribute namespace, emitted group namespace, and compatibility aliases before code churn.
+**Choice:** For the current release line, keep `tigerstyle::` as the canonical source-attribute namespace and emitted group namespace while retaining Octet command/config product names.
 
-**Rationale:** Consumers need a clear answer even if the final migration is phased. Documentation must reflect live behavior rather than aspirational state.
+**Rationale:** Live lint declarations, snapshots, UI fixtures, and runner metadata already agree on `tigerstyle::`. Documenting that behavior avoids aspirational `octet::` guidance until a safe tool-lint migration can preserve custom escape hatches.
 
 ### 2. Preserve compatibility with tests
 
-**Choice:** Keep legacy namespaces and bare config keys working for a defined compatibility window unless the migration explicitly removes them.
+**Choice:** Keep bare lint-name attrs and legacy config sections working for a defined compatibility window unless a future migration explicitly removes them.
 
 **Rationale:** Existing downstream consumers use legacy attrs. Breaking them requires evidence, migration docs, and UI fixtures.
 
