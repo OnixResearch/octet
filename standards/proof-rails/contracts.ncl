@@ -47,6 +47,7 @@ let ManifestRules =
   std.contract.from_predicate (fun manifest =>
     rail_rules manifest.rails.addition_bound
     && rail_rules manifest.rails.addition_bound_production
+    && rail_rules manifest.rails.ordering_reflexive_production
     && rail_rules manifest.rails.addition_bound_production_negative
   )
 in
@@ -56,6 +57,7 @@ in
     rails | {
       addition_bound | policy_contracts.ProofRail,
       addition_bound_production | policy_contracts.ProofRail,
+      ordering_reflexive_production | policy_contracts.ProofRail,
       addition_bound_production_negative | policy_contracts.ProofRail,
     },
   },

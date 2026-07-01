@@ -921,12 +921,18 @@ MAIN
           jq --exit-status '.rails.addition_bound_production.command_argv[0] == "octet-production-verus"' "$manifest_json" >/dev/null
           jq --exit-status '.rails.addition_bound_production.verifier_mode == "production"' "$manifest_json" >/dev/null
           jq --exit-status '.rails.addition_bound_production.pass_signal == "verification results:: 1 verified, 0 errors"' "$manifest_json" >/dev/null
+          jq --exit-status '.rails.ordering_reflexive_production.command_argv == ["octet-production-verus", "verus/proofs/ordering_reflexive.rs"]' "$manifest_json" >/dev/null
+          jq --exit-status '.rails.ordering_reflexive_production.source_paths == ["src/verified/ordering.rs"]' "$manifest_json" >/dev/null
+          jq --exit-status '.rails.ordering_reflexive_production.verifier_mode == "production"' "$manifest_json" >/dev/null
           jq --exit-status '.rails.addition_bound_production_negative.command_argv == ["octet-production-verus", "verus/proofs/addition_bound_invalid.rs"]' "$manifest_json" >/dev/null
           jq --exit-status '.rails.addition_bound_production_negative.source_paths == ["verus/failure-fixtures/addition_bound_invalid_source.rs"]' "$manifest_json" >/dev/null
           jq --exit-status '.rails.addition_bound_production_negative.verifier_mode == "production"' "$manifest_json" >/dev/null
           production_graph_digest=$(cat ${octetProductionVerusNixClosureManifest}/octet-production-verus-closure.graph.blake3)
           jq --exit-status --arg digest "$production_graph_digest" \
             '.rails.addition_bound_production.receipt_verifier.verifier_nix_closure_graph_digest == $digest' \
+            "$manifest_json" >/dev/null
+          jq --exit-status --arg digest "$production_graph_digest" \
+            '.rails.ordering_reflexive_production.receipt_verifier.verifier_nix_closure_graph_digest == $digest' \
             "$manifest_json" >/dev/null
           jq --exit-status --arg digest "$production_graph_digest" \
             '.rails.addition_bound_production_negative.receipt_verifier.verifier_nix_closure_graph_digest == $digest' \
@@ -998,6 +1004,43 @@ MAIN
           mkdir -p "$out"
           cp -r "$artifact_dir" "$out/artifacts"
           cp prove.json prove.err "$out/"
+        '';
+
+        productionVerusMultiRailProveCheck = pkgs.runCommand "octet-production-verus-multi-rail-prove"
+          {
+            nativeBuildInputs = with pkgs; [ jq ];
+          } ''
+          expected_total_proof_count=3
+          expected_production_proof_count=2
+          artifact_dir=$(mktemp -d)
+          policy_dir=$(mktemp -d)
+          repo="$TMPDIR/source"
+          cp -r ${src} "$repo"
+          chmod -R u+w "$repo"
+          ${policyArtifacts}/bin/octet-policy-artifacts "$policy_dir"
+          cd "$repo"
+          ${cargoOctet}/bin/cargo-octet prove \
+            --policy-artifacts-dir "$policy_dir" \
+            --source src/verified \
+            --artifact-dir "$artifact_dir" \
+            --output-format json > prove.json
+          jq --exit-status --argjson expected "$expected_total_proof_count" \
+            '.status == "passed" and (.proofs | length) == $expected' prove.json >/dev/null
+          jq --exit-status --argjson expected "$expected_production_proof_count" '
+            ([.proofs[] | select(.verifier_mode == "production" and .status == "passed")] | length) == $expected
+          ' prove.json >/dev/null
+          jq --exit-status '
+            any(.proofs[]; .policy_id == "octet.verus_proof_rails.addition-bound-production" and .receipt == "proofs/octet.verus_proof_rails.addition-bound-production-rail-0.receipt")
+            and any(.proofs[]; .policy_id == "octet.verus_proof_rails.ordering-reflexive-production" and .receipt == "proofs/octet.verus_proof_rails.ordering-reflexive-production-rail-0.receipt")
+          ' prove.json >/dev/null
+          jq --slurp --exit-status --argjson expected "$expected_production_proof_count" '
+            ([.[] | select(.evidence_tier == "formal_proof" and (.artifact_locator | test("addition-bound-production|ordering-reflexive-production")))] | length) == $expected
+          ' "$artifact_dir/provenance.jsonl" >/dev/null
+          ${cargoOctet}/bin/cargo-octet artifact verify --artifact-dir "$artifact_dir" --output-format json > verify.json
+          jq --exit-status '.status == "valid" and (.diagnostics | length) == 0' verify.json >/dev/null
+          mkdir -p "$out"
+          cp -r "$artifact_dir" "$out/artifacts"
+          cp prove.json verify.json "$out/"
         '';
 
         standardsFixtureCheck = pkgs.runCommand "octet-standards-fixtures"
@@ -1743,6 +1786,7 @@ MAIN
           proof-rail-manifest = proofRailManifestCheck;
           production-verus-negative-proof = productionVerusNegativeProofCheck;
           production-verus-negative-prove = productionVerusNegativeProveCheck;
+          production-verus-multi-rail-prove = productionVerusMultiRailProveCheck;
           standards-fixtures = standardsFixtureCheck;
           octet-standards-nix-closure-manifest = pkgs.runCommand "octet-standards-nix-closure-manifest-check" { } ''
             test -s ${octetStandardsNixClosureManifest}/proof-nix-closure.txt

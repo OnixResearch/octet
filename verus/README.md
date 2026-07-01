@@ -13,13 +13,15 @@ The repository-owned fixture rail is intentionally small:
 - receipt path: `proofs/octet.verus_proof_rails.addition-bound-rail-0.receipt`
 - verifier mode: `fixture`
 
-The production pilot rail uses the same tiny proof target but runs real Verus:
+The production pilot rails run tiny proof targets with real Verus:
 
 - verifier surface: `nix run .#octet-production-verus -- --identity`
-- proof command argv: `octet-production-verus verus/proofs/addition_bound.rs`
-- pass signal: `verification results:: 1 verified, 0 errors`
-- receipt path: `proofs/octet.verus_proof_rails.addition-bound-production-rail-0.receipt`
-- verifier mode: `production`
+- addition proof command argv: `octet-production-verus verus/proofs/addition_bound.rs`
+- addition receipt path: `proofs/octet.verus_proof_rails.addition-bound-production-rail-0.receipt`
+- reflexive-order proof command argv: `octet-production-verus verus/proofs/ordering_reflexive.rs`
+- reflexive-order receipt path: `proofs/octet.verus_proof_rails.ordering-reflexive-production-rail-0.receipt`
+- pass signal for each production pilot: `verification results:: 1 verified, 0 errors`
+- verifier mode for each production pilot: `production`
 - pinned release: Verus `0.2026.04.03.21dfcd2`, Rust `1.94.0-x86_64-unknown-linux-gnu`, bundled Z3, and an Octet-generated Nix closure graph digest
 
 The production negative fixture is failure-path evidence only:
@@ -41,10 +43,10 @@ signal, source binding, proof binding, verifier/solver/toolchain identity,
 trust-boundary entries, checked scope, and proof artifact identity.
 
 Passing the fixture rail is scoped evidence for the declared proof-plumbing
-fixture only. Passing the production pilot is scoped evidence for the declared
-addition-bound proof target only. The negative fixture is not a proof; it exists
-only to show production Verus failures fail closed. No rail claims whole-program
-correctness, certification, business-domain validation, semantic equivalence, or
-full safety. Every production rail must declare `verifier_mode = "production"`
-and pin the real Verus verifier, solver, Rust toolchain, and Nix closure or
-closure-graph digest.
+fixture only. Passing a production pilot is scoped evidence for that pilot's
+declared property only: the addition-bound target or the reflexive-order target.
+The negative fixture is not a proof; it exists only to show production Verus
+failures fail closed. No rail claims whole-program correctness, certification,
+business-domain validation, semantic equivalence, or full safety. Every
+production rail must declare `verifier_mode = "production"` and pin the real
+Verus verifier, solver, Rust toolchain, and Nix closure or closure-graph digest.

@@ -1288,13 +1288,19 @@ mod tests {
     use crate::model::ReceiptVerifier;
 
     const POLICY_ID: &str = "octet.verus_proof_rails.addition-bound";
+    const SECOND_POLICY_ID: &str = "octet.verus_proof_rails.ordering-reflexive-production";
     const SOURCE_PATH: &str = "src/verified/addition.rs";
+    const SECOND_SOURCE_PATH: &str = "src/verified/ordering.rs";
     const PROOF_PATH: &str = "verus/proofs/addition_bound.rs";
+    const SECOND_PROOF_PATH: &str = "verus/proofs/ordering_reflexive.rs";
     const PASS_SIGNAL: &str = "proof-result: pass octet-addition-bound";
     const COMMAND_BLAKE3: &str = "command-digest";
     const PROOF_ARTIFACT: &str = "proofs/octet.verus_proof_rails.addition-bound-rail-0.receipt";
+    const SECOND_PROOF_ARTIFACT: &str = "proofs/octet.verus_proof_rails.ordering-reflexive-production-rail-0.receipt";
     const STDOUT_LOCATOR: &str = "proofs/octet.verus_proof_rails.addition-bound-rail-0.stdout";
     const STDERR_LOCATOR: &str = "proofs/octet.verus_proof_rails.addition-bound-rail-0.stderr";
+    const SECOND_STDOUT_LOCATOR: &str = "proofs/octet.verus_proof_rails.ordering-reflexive-production-rail-0.stdout";
+    const SECOND_STDERR_LOCATOR: &str = "proofs/octet.verus_proof_rails.ordering-reflexive-production-rail-0.stderr";
 
     #[test]
     fn structured_verus_receipt_accepts_matching_fields() {
@@ -1364,6 +1370,61 @@ mod tests {
         );
 
         assert!(diagnostics.iter().any(|diagnostic| diagnostic.contains(FIELD_PROOF_BINDINGS)));
+    }
+
+    #[test]
+    fn second_production_pilot_rejects_swapped_proof_binding_without_first_rail_noise() {
+        let first_rail = verus_rail(VERIFIER_MODE_PRODUCTION);
+        let first_sources = source_files();
+        let first_proof_sources = proof_files();
+        let first_receipt = valid_receipt_for(&ReceiptFixture {
+            policy_id: POLICY_ID,
+            rail: &first_rail,
+            sources: &first_sources,
+            proof_sources: &first_proof_sources,
+            checked_scope: "formal-proof:production:octet.verus_proof_rails.addition-bound-production#rail-0",
+            proof_artifact: PROOF_ARTIFACT,
+            stdout_locator: STDOUT_LOCATOR,
+            stderr_locator: STDERR_LOCATOR,
+        });
+        let first_proof_source =
+            SourceFile::new(PROOF_ARTIFACT, serde_json::to_string(&first_receipt).expect("receipt json"));
+        let first_diagnostics = validate_proof_receipt_with_identity(
+            &first_rail,
+            Some(POLICY_ID),
+            Some(0),
+            &first_validation_sources(),
+            &first_proof_source,
+        );
+        assert!(first_diagnostics.is_empty(), "unexpected first rail diagnostics: {first_diagnostics:?}");
+
+        let second_rail = second_verus_rail();
+        let second_sources = second_source_files();
+        let second_proof_sources = second_proof_files();
+        let mut second_receipt = valid_receipt_for(&ReceiptFixture {
+            policy_id: SECOND_POLICY_ID,
+            rail: &second_rail,
+            sources: &second_sources,
+            proof_sources: &second_proof_sources,
+            checked_scope: "formal-proof:production:octet.verus_proof_rails.ordering-reflexive-production#rail-0",
+            proof_artifact: SECOND_PROOF_ARTIFACT,
+            stdout_locator: SECOND_STDOUT_LOCATOR,
+            stderr_locator: SECOND_STDERR_LOCATOR,
+        });
+        second_receipt.proof_bindings = first_receipt.proof_bindings.clone();
+        let second_proof_source =
+            SourceFile::new(SECOND_PROOF_ARTIFACT, serde_json::to_string(&second_receipt).expect("receipt json"));
+
+        let diagnostics = validate_proof_receipt_with_identity(
+            &second_rail,
+            Some(SECOND_POLICY_ID),
+            Some(0),
+            &second_validation_sources(),
+            &second_proof_source,
+        );
+
+        assert!(diagnostics.iter().any(|diagnostic| diagnostic.contains(FIELD_PROOF_BINDINGS)));
+        assert!(diagnostics.iter().all(|diagnostic| !diagnostic.contains(POLICY_ID)));
     }
 
     #[test]
@@ -1486,19 +1547,43 @@ mod tests {
         assert_eq!(expected, render_verus_proof_receipt_contract());
     }
 
+    struct ReceiptFixture<'a> {
+        policy_id: &'a str,
+        rail: &'a ProofRail,
+        sources: &'a [SourceFile],
+        proof_sources: &'a [SourceFile],
+        checked_scope: &'a str,
+        proof_artifact: &'a str,
+        stdout_locator: &'a str,
+        stderr_locator: &'a str,
+    }
+
     fn valid_receipt(rail: &ProofRail, sources: &[SourceFile], proof_sources: &[SourceFile]) -> VerusProofReceipt {
-        build_verus_proof_receipt(&VerusProofReceiptInput {
+        valid_receipt_for(&ReceiptFixture {
             policy_id: POLICY_ID,
-            rail_index: 0,
             rail,
             sources,
             proof_sources,
             checked_scope: "formal-proof:fixture-only:octet.verus_proof_rails.addition-bound#rail-0",
+            proof_artifact: PROOF_ARTIFACT,
+            stdout_locator: STDOUT_LOCATOR,
+            stderr_locator: STDERR_LOCATOR,
+        })
+    }
+
+    fn valid_receipt_for(fixture: &ReceiptFixture<'_>) -> VerusProofReceipt {
+        build_verus_proof_receipt(&VerusProofReceiptInput {
+            policy_id: fixture.policy_id,
+            rail_index: 0,
+            rail: fixture.rail,
+            sources: fixture.sources,
+            proof_sources: fixture.proof_sources,
+            checked_scope: fixture.checked_scope,
             status: PROOF_STATUS_PASSED,
             command_blake3: COMMAND_BLAKE3,
-            proof_artifact_identity: PROOF_ARTIFACT,
-            stdout_artifact: log_artifact(STDOUT_LOCATOR, PASS_SIGNAL),
-            stderr_artifact: log_artifact(STDERR_LOCATOR, ""),
+            proof_artifact_identity: fixture.proof_artifact,
+            stdout_artifact: log_artifact(fixture.stdout_locator, PASS_SIGNAL),
+            stderr_artifact: log_artifact(fixture.stderr_locator, ""),
         })
         .expect("valid receipt")
     }
@@ -1549,10 +1634,32 @@ mod tests {
         }
     }
 
+    fn second_verus_rail() -> ProofRail {
+        let mut rail = verus_rail(VERIFIER_MODE_PRODUCTION);
+        rail.command = "octet-production-verus verus/proofs/ordering_reflexive.rs".to_owned();
+        rail.command_argv = vec!["octet-production-verus".to_owned(), SECOND_PROOF_PATH.to_owned()];
+        rail.source_paths = vec![SECOND_SOURCE_PATH.to_owned()];
+        rail.proof_paths = vec![SECOND_PROOF_PATH.to_owned()];
+        rail.receipt_paths = vec![SECOND_PROOF_ARTIFACT.to_owned()];
+        rail.trust_boundaries = vec![
+            "production Verus binary release verifies only the declared reflexive-order proof target; it does not prove whole-program correctness"
+                .to_owned(),
+        ];
+        rail.checked_scope = format!("formal-proof:production:{SECOND_POLICY_ID}#rail-0");
+        rail
+    }
+
     fn source_files() -> Vec<SourceFile> {
         vec![SourceFile::new(
             SOURCE_PATH,
             "pub fn checked_add_one(value: u64) -> u64 { value + 1 }\n",
+        )]
+    }
+
+    fn second_source_files() -> Vec<SourceFile> {
+        vec![SourceFile::new(
+            SECOND_SOURCE_PATH,
+            "pub fn reflexive_order_marker(value: u64) -> u64 { value }\n",
         )]
     }
 
@@ -1563,8 +1670,23 @@ mod tests {
         )]
     }
 
+    fn second_proof_files() -> Vec<SourceFile> {
+        vec![SourceFile::new(
+            SECOND_PROOF_PATH,
+            "verus! { proof fn reflexive_order_holds(value: nat) ensures value <= value {} }\n",
+        )]
+    }
+
     fn all_validation_sources() -> Vec<SourceFile> {
+        first_validation_sources()
+    }
+
+    fn first_validation_sources() -> Vec<SourceFile> {
         source_files().into_iter().chain(proof_files()).collect()
+    }
+
+    fn second_validation_sources() -> Vec<SourceFile> {
+        second_source_files().into_iter().chain(second_proof_files()).collect()
     }
 
     fn log_artifact(locator: &str, text: &str) -> VerusLogArtifact {
