@@ -32,6 +32,10 @@ const STATUS_BUNDLE_KIND_PROVE: &str = "prove";
 const PROOF_ARTIFACT_PREFIX: &str = "proofs/";
 const PROOF_SOURCE_ID: &str = "octet.standards.formal-proof";
 const CHECKER_OCTET_STANDARDS: &str = "octet-standards";
+const EVIDENCE_LOG_OUTPUT_FORMAT: &str = "evidence-log";
+const EVIDENCE_LOG_SOURCE_ID: &str = "octet.evidence_log.manifest";
+const EVIDENCE_LOG_MANUAL_ACTION: &str =
+    "review the in-tree summary, exact replay command, checked scope, and claim boundary before relying on the raw log";
 
 #[derive(Debug, Clone)]
 pub struct BundleFile {
@@ -118,18 +122,26 @@ pub fn run(args: &ArtifactArgs) -> Result<i32, String> {
 
 pub fn verify_bundle(input: ArtifactBundleInput) -> ArtifactVerificationReport {
     let file_map = collect_file_map(input.files);
+    if !file_map.contains_key(STATUS_ARTIFACT_NAME)
+        && file_map.contains_key(crate::evidence_log::EVIDENCE_LOG_MANIFEST_ARTIFACT)
+    {
+        return verify_evidence_log_bundle(input.artifact_dir, &file_map);
+    }
     let status = inspect_status(&file_map);
     let output_format = status.output_format.unwrap_or_else(|| infer_output_format(&file_map));
     let base_expected_files = expected_artifact_files(output_format, status.bundle_kind);
     let mut diagnostics = status.diagnostics;
 
     let provenance_records = parse_provenance_records(&file_map, &mut diagnostics);
-    let expected_files = expected_files_with_proofs(&base_expected_files, &provenance_records, status.bundle_kind);
-    let expected_non_provenance = expected_files
+    let provenance_expected_files =
+        expected_files_with_proofs(&base_expected_files, &provenance_records, status.bundle_kind);
+    let expected_non_provenance = provenance_expected_files
         .iter()
         .map(String::as_str)
         .filter(|name| *name != PROVENANCE_ARTIFACT_NAME)
         .collect::<Vec<_>>();
+    let mut expected_files = provenance_expected_files.clone();
+    extend_expected_evidence_log_files(&file_map, &mut expected_files, &mut diagnostics);
 
     validate_file_set(&file_map, &expected_files, &mut diagnostics);
 
@@ -220,6 +232,56 @@ fn collect_file_map(files: Vec<BundleFile>) -> BTreeMap<String, Vec<u8>> {
         file_map.insert(file.name, file.contents);
     }
     file_map
+}
+
+fn verify_evidence_log_bundle(
+    artifact_dir: String,
+    file_map: &BTreeMap<String, Vec<u8>>,
+) -> ArtifactVerificationReport {
+    let mut diagnostics = Vec::new();
+    let manifest = parse_evidence_log_manifest(file_map, &mut diagnostics);
+    let mut expected_files = vec![crate::evidence_log::EVIDENCE_LOG_MANIFEST_ARTIFACT.to_owned()];
+    let artifacts = if let Some(manifest) = manifest {
+        diagnostics.extend(crate::evidence_log::validate_evidence_log_manifest(&manifest, file_map));
+        expected_files.extend(crate::evidence_log::manifest_artifact_locators(&manifest));
+        evidence_log_artifact_rows(&manifest)
+    } else {
+        Vec::new()
+    };
+    expected_files.sort();
+    expected_files.dedup();
+    validate_file_set(file_map, &expected_files, &mut diagnostics);
+    diagnostics.sort();
+    diagnostics.dedup();
+
+    ArtifactVerificationReport {
+        schema_version: REPORT_SCHEMA_VERSION,
+        artifact_dir,
+        output_format: EVIDENCE_LOG_OUTPUT_FORMAT.to_owned(),
+        status: if diagnostics.is_empty() {
+            STATUS_VALID
+        } else {
+            STATUS_INVALID
+        },
+        artifacts,
+        diagnostics,
+    }
+}
+
+fn evidence_log_artifact_rows(manifest: &crate::evidence_log::EvidenceLogManifest) -> Vec<VerifiedArtifactRow> {
+    manifest
+        .logs
+        .iter()
+        .map(|entry| VerifiedArtifactRow {
+            artifact: entry.artifact_locator.clone(),
+            source_id: EVIDENCE_LOG_SOURCE_ID.to_owned(),
+            checker_id: RUNNER_CHECKER_ID.to_owned(),
+            evidence_tier: EvidenceTier::TranscriptAssertion.as_str().to_owned(),
+            blake3: entry.blake3.clone(),
+            checked_scope: entry.checked_scope.clone(),
+            manual_action: Some(EVIDENCE_LOG_MANUAL_ACTION.to_owned()),
+        })
+        .collect()
 }
 
 fn inspect_status(file_map: &BTreeMap<String, Vec<u8>>) -> BundleStatus {
@@ -351,6 +413,40 @@ fn validate_file_set(file_map: &BTreeMap<String, Vec<u8>>, expected_files: &[Str
     for actual in file_map.keys() {
         if !expected_files.iter().any(|expected| expected == actual) {
             diagnostics.push(format!("unexpected artifact `{actual}`"));
+        }
+    }
+}
+
+fn extend_expected_evidence_log_files(
+    file_map: &BTreeMap<String, Vec<u8>>,
+    expected_files: &mut Vec<String>,
+    diagnostics: &mut Vec<String>,
+) {
+    if !file_map.contains_key(crate::evidence_log::EVIDENCE_LOG_MANIFEST_ARTIFACT) {
+        return;
+    }
+    expected_files.push(crate::evidence_log::EVIDENCE_LOG_MANIFEST_ARTIFACT.to_owned());
+    let Some(manifest) = parse_evidence_log_manifest(file_map, diagnostics) else {
+        return;
+    };
+    diagnostics.extend(crate::evidence_log::validate_evidence_log_manifest(&manifest, file_map));
+    expected_files.extend(crate::evidence_log::manifest_artifact_locators(&manifest));
+    expected_files.sort();
+    expected_files.dedup();
+}
+
+fn parse_evidence_log_manifest(
+    file_map: &BTreeMap<String, Vec<u8>>,
+    diagnostics: &mut Vec<String>,
+) -> Option<crate::evidence_log::EvidenceLogManifest> {
+    let Some(bytes) = file_map.get(crate::evidence_log::EVIDENCE_LOG_MANIFEST_ARTIFACT) else {
+        return None;
+    };
+    match serde_json::from_slice(bytes) {
+        Ok(manifest) => Some(manifest),
+        Err(error) => {
+            diagnostics.push(format!("malformed {}: {error}", crate::evidence_log::EVIDENCE_LOG_MANIFEST_ARTIFACT));
+            None
         }
     }
 }
@@ -556,6 +652,10 @@ mod tests {
     const SARIF_CONTENTS: &[u8] = br#"{"version":"2.1.0"}
 "#;
     const HUMAN_ACTION: &str = "review runner status before release";
+    const EVIDENCE_LOG_ARTIFACT_NAME: &str = "proofs/sample-rail-0.stdout";
+    const EVIDENCE_LOG_CONTENTS: &[u8] = b"proof-result: pass sample\n";
+    const EVIDENCE_LOG_REPLAY_COMMAND: &str = "cargo octet prove --registry policies.json --source src/lib.rs";
+    const EVIDENCE_LOG_CAPTURE_SOURCE: &str = "octet.prove.stdout";
     const COMMAND_RECORD_INDEX: usize = 0;
     const STATUS_RECORD_INDEX: usize = 1;
     const SUMMARY_RECORD_INDEX: usize = 2;
@@ -610,6 +710,56 @@ mod tests {
 
         assert_eq!(report.status, STATUS_INVALID);
         assert!(report.diagnostics.iter().any(|diagnostic| diagnostic.contains("malformed provenance line")));
+    }
+
+    #[test]
+    fn evidence_log_manifest_extends_artifact_verification() {
+        let mut input = valid_input(OutputFormat::Human);
+        append_valid_evidence_log_manifest(&mut input);
+
+        let report = verify_bundle(input);
+
+        assert_eq!(report.status, STATUS_VALID, "unexpected diagnostics: {:?}", report.diagnostics);
+        assert!(report.diagnostics.is_empty());
+    }
+
+    #[test]
+    fn evidence_log_manifest_tampering_fails_closed() {
+        let mut input = valid_input(OutputFormat::Human);
+        append_valid_evidence_log_manifest(&mut input);
+        replace_file(&mut input, EVIDENCE_LOG_ARTIFACT_NAME, b"tampered proof log\n".to_vec());
+
+        let report = verify_bundle(input);
+
+        assert_eq!(report.status, STATUS_INVALID);
+        assert!(report.diagnostics.iter().any(|diagnostic| diagnostic.contains("field `blake3` mismatch")));
+    }
+
+    #[test]
+    fn evidence_log_only_manifest_directory_passes() {
+        let input = valid_evidence_log_only_input();
+
+        let report = verify_bundle(input);
+
+        assert_eq!(report.status, STATUS_VALID, "unexpected diagnostics: {:?}", report.diagnostics);
+        assert_eq!(report.output_format, EVIDENCE_LOG_OUTPUT_FORMAT);
+        assert_eq!(report.artifacts.len(), 1);
+        assert_eq!(report.artifacts[0].artifact, EVIDENCE_LOG_ARTIFACT_NAME);
+        assert_eq!(report.artifacts[0].evidence_tier, EvidenceTier::TranscriptAssertion.as_str());
+    }
+
+    #[test]
+    fn evidence_log_only_manifest_directory_rejects_stale_sidecar() {
+        let mut input = valid_evidence_log_only_input();
+        input.files.push(BundleFile {
+            name: "stale-sidecar.txt".to_owned(),
+            contents: b"stale\n".to_vec(),
+        });
+
+        let report = verify_bundle(input);
+
+        assert_eq!(report.status, STATUS_INVALID);
+        assert!(report.diagnostics.iter().any(|diagnostic| diagnostic.contains("unexpected artifact")));
     }
 
     #[test]
@@ -770,6 +920,38 @@ mod tests {
             rendered.push('\n');
         }
         rendered
+    }
+
+    fn append_valid_evidence_log_manifest(input: &mut ArtifactBundleInput) {
+        let manifest = valid_evidence_log_manifest();
+        input.files.push(BundleFile {
+            name: crate::evidence_log::EVIDENCE_LOG_MANIFEST_ARTIFACT.to_owned(),
+            contents: serde_json::to_vec_pretty(&manifest).expect("serialize evidence log manifest"),
+        });
+        input.files.push(BundleFile {
+            name: EVIDENCE_LOG_ARTIFACT_NAME.to_owned(),
+            contents: EVIDENCE_LOG_CONTENTS.to_vec(),
+        });
+    }
+
+    fn valid_evidence_log_only_input() -> ArtifactBundleInput {
+        let mut input = ArtifactBundleInput {
+            artifact_dir: "archive-evidence/dogfood-run".to_owned(),
+            files: Vec::new(),
+        };
+        append_valid_evidence_log_manifest(&mut input);
+        input
+    }
+
+    fn valid_evidence_log_manifest() -> crate::evidence_log::EvidenceLogManifest {
+        crate::evidence_log::manifest_from_entries(vec![crate::evidence_log::EvidenceLogEntry::from_bytes(
+            EVIDENCE_LOG_ARTIFACT_NAME,
+            EVIDENCE_LOG_CONTENTS,
+            EVIDENCE_LOG_REPLAY_COMMAND,
+            CHECKED_SCOPE,
+            EVIDENCE_LOG_CAPTURE_SOURCE,
+            crate::evidence_log::RETENTION_CONTENT_ADDRESSED_RAW,
+        )])
     }
 
     fn replace_file(input: &mut ArtifactBundleInput, file_name: &str, contents: Vec<u8>) {
