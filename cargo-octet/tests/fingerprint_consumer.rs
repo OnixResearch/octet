@@ -1481,6 +1481,7 @@ const INTERNAL_OBJECT_CORPUS: &[&str] = &[
     "cargo-octet/src/determinism.rs",
     "cargo-octet/src/engine.rs",
     "cargo-octet/src/evidence.rs",
+    "cargo-octet/src/evidence_rails.rs",
     "cargo-octet/src/fingerprint.rs",
     "cargo-octet/src/lib.rs",
     "cargo-octet/src/main.rs",

@@ -94,13 +94,13 @@ r[octet.evidence_provenance.producer_registry.unknown]
 
 ### Requirement: Parent artifact chains
 
-r[octet.evidence_provenance.parent_chain] Provenance records for derived evidence SHOULD identify parent artifacts when the derived artifact summarizes, bundles, or gates earlier Octet artifacts.
+r[octet.evidence_provenance.parent_chain] Provenance records for derived evidence SHOULD identify parent artifacts when the derived artifact summarizes, bundles, scans, attests to, or gates earlier Octet artifacts.
 
 #### Scenario: Derived artifact links parents
 
 r[octet.evidence_provenance.parent_chain.links]
 
-- GIVEN a policy bundle, release smoke receipt, or evidence summary is derived from earlier Octet artifacts
+- GIVEN a policy bundle, release smoke receipt, SBOM scan receipt, release supply-chain receipt, or evidence summary is derived from earlier Octet artifacts
 - WHEN its provenance record is emitted
 - THEN the record SHOULD list parent artifact locators or identities for the artifacts it summarizes.
 

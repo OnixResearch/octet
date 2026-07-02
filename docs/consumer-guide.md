@@ -173,7 +173,23 @@ cargo octet artifact verify --artifact-dir artifacts/octet
 
 Starter `cargo octet check` usage does not require Verus.
 
-### 3b. Controlled deployment quick check
+### 3b. Optional external evidence rails
+
+External tool rails are opt-in evidence, not starter checks. `cargo octet evidence collect` imports saved tool output or runs a selected tool command, then writes `evidence-rail-receipt.json`, `summary.txt`, and `provenance.jsonl` under the chosen artifact directory.
+
+```bash
+cargo octet evidence collect --rail dependency-audit --input target/deny.json --config deny.toml --locked --artifact-dir artifacts/dependency-audit
+cargo octet evidence collect --rail clippy-co-reporting --input target/clippy.jsonl --artifact-dir artifacts/clippy
+cargo octet evidence collect --rail dependency-trust --input target/vet.json --artifact-dir artifacts/dependency-trust
+cargo octet evidence collect --rail api-stability --input target/semver.json --baseline baselines/public-api --artifact-dir artifacts/api-stability
+cargo octet evidence collect --rail dynamic-evidence --input target/miri-profile.json --profile miri-unsafe-boundary --artifact-dir artifacts/dynamic/miri
+cargo octet evidence collect --rail release-supply-chain --input target/release-supply-chain.json --parent-artifact artifacts/octet/status.json --artifact-dir artifacts/release-supply-chain
+cargo octet artifact verify --artifact-dir artifacts/dependency-audit
+```
+
+The dependency-audit rail uses tool-native `deny.toml`; `templates/deny.toml` is a starter copy. Dynamic evidence profile configuration is Nickel-authored at `templates/dynamic-evidence-profiles.ncl`. These receipts preserve checker identity (`cargo-deny`, Clippy, `cargo-vet`, `cargo-semver-checks`, dynamic profile runner, or release supply-chain collector), source severity, selected scope, BLAKE3 input identity, parent artifacts when supplied, and explicit non-claims. Clippy co-reporting remains external `static_lint` evidence with checker ID `clippy`; the other rails remain `policy_check` or `transcript_assertion` evidence. They do not replace Octet source lints, cargo-vet human review, legal review, vulnerability triage, or formal proof.
+
+### 3c. Controlled deployment quick check
 
 Octet's controlled-deployment posture is local-first and consumer-owned:
 
@@ -189,7 +205,7 @@ writes local files. Regulated consumers should pin the Octet revision, check in
 `dylint.toml` and `[workspace.metadata.octet]`, choose a deterministic artifact
 directory, and optionally add the deny-all pre-commit gate below.
 
-### 3c. Add the deny-all pre-commit hook
+### 3d. Add the deny-all pre-commit hook
 
 Copy `templates/pre-commit-config.yaml` to the consumer workspace as
 `.pre-commit-config.yaml`, pin `rev` to a reviewed Octet release tag or commit,
@@ -232,7 +248,7 @@ for runner scope or cargo-check tail overrides, for example:
         args: ["--workspace", "--", "--all-targets"]
 ```
 
-### 3d. Plan structured migrations
+### 3e. Plan structured migrations
 
 Use the migration manifest commands when rolling out a new profile or policy set:
 
@@ -247,7 +263,7 @@ cargo octet migrate apply-safe --manifest .octet/migrations/starter.json
 only records safe-apply state and preserves manual-review buckets; code edits
 still flow through the existing machine-applicable cargo-fix rails.
 
-### 3e. Verify executable documentation transcripts
+### 3f. Verify executable documentation transcripts
 
 Markdown examples can carry fenced transcript blocks with `$ ` command lines and
 `=> ` expected-output assertions:

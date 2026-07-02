@@ -99,7 +99,12 @@ pub fn path_pattern_diagnostics(patterns: &[String], sources: &[SourceFile], fie
 }
 
 /// Build BLAKE3 identities for matched sources, or deterministic diagnostics for bad patterns.
-#[must_use]
+///
+/// # Errors
+///
+/// Returns diagnostics when a pattern is empty, absolute, parent-traversing,
+/// unmatched, or otherwise ambiguous for the checked source set.
+#[must_use = "source identity diagnostics must be handled before accepting proof artifacts"]
 pub fn source_identities_for_patterns(
     patterns: &[String],
     sources: &[SourceFile],

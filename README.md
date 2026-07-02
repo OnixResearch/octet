@@ -59,6 +59,13 @@ Structured output and reviewable sidecars are first-class too:
 cargo octet check --output-format sarif --artifact-dir artifacts/octet
 ```
 
+Optional external evidence rails collect selected non-starter tool output into separate receipt bundles:
+
+```bash
+cargo octet evidence collect --rail dependency-audit --input target/deny.json --config deny.toml --locked --artifact-dir artifacts/dependency-audit
+cargo octet artifact verify --artifact-dir artifacts/dependency-audit
+```
+
 For a strict local gate, copy `templates/pre-commit-config.yaml` to a consumer
 repo and pin this repository as a pre-commit hook source. The `octet-deny-all`
 hook runs the same runner with every Octet/Tiger Style lint promoted to `deny`.
@@ -126,6 +133,9 @@ this README plus command help, without reading archived OpenSpec changes:
 - `cargo octet artifact verify --artifact-dir artifacts/octet` recomputes sidecar
   BLAKE3 hashes and fails closed on missing, stale, malformed, or inconsistent
   provenance before the directory is treated as release evidence.
+- `cargo octet evidence collect --rail dependency-audit|clippy-co-reporting|dependency-trust|api-stability|dynamic-evidence|release-supply-chain`
+  writes optional external evidence receipts with checker identity, source severity,
+  selected scope, parent links, and explicit non-claims.
 - `cargo octet fingerprint --check --review-manifest artifacts/fingerprint-review.json src/lib.rs`
   verifies semantic identity fingerprints with BLAKE3-backed review records.
 - `cargo octet migrate start --manifest artifacts/octet-migration.json`

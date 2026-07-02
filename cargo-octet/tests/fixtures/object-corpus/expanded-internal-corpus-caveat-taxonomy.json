@@ -2,7 +2,7 @@
   "schema": "octet.function-object-corpus-caveat-taxonomy.v1",
   "schema_version": 1,
   "mode": "corpus-caveat-taxonomy",
-  "object_count": 750,
+  "object_count": 825,
   "source_paths": [
     "cargo-octet/src/baseline.rs",
     "cargo-octet/src/bin/cargo-slotcar.rs",
@@ -12,6 +12,7 @@
     "cargo-octet/src/determinism.rs",
     "cargo-octet/src/engine.rs",
     "cargo-octet/src/evidence.rs",
+    "cargo-octet/src/evidence_rails.rs",
     "cargo-octet/src/fingerprint.rs",
     "cargo-octet/src/lib.rs",
     "cargo-octet/src/main.rs",
@@ -120,28 +121,28 @@
     },
     {
       "source_path": "cargo-octet/src/cli.rs",
-      "object_count": 60,
+      "object_count": 64,
       "caveat_counts": {
         "dependency_status": {
           "source-scanner-token-set": 6,
-          "unsupported-macro-context": 54
+          "unsupported-macro-context": 58
         },
         "effect_kind": {
-          "effect_summary": 42,
+          "effect_summary": 44,
           "filesystem": 1,
-          "panic": 33
+          "panic": 37
         },
         "macro_status": {
           "none-detected": 6,
-          "review-required": 54
+          "review-required": 58
         },
         "pure_cache_blocker": {
-          "dependency-identity-unresolved": 60,
-          "effect-summary-unresolved": 60,
-          "macro-expansion-unmodeled": 54
+          "dependency-identity-unresolved": 64,
+          "effect-summary-unresolved": 64,
+          "macro-expansion-unmodeled": 58
         }
       },
-      "pure_cache_blocked_count": 60,
+      "pure_cache_blocked_count": 64,
       "blocker_names": [
         "dependency-identity-unresolved",
         "effect-summary-unresolved",
@@ -263,6 +264,37 @@
         }
       },
       "pure_cache_blocked_count": 29,
+      "blocker_names": [
+        "dependency-identity-unresolved",
+        "effect-summary-unresolved",
+        "macro-expansion-unmodeled"
+      ]
+    },
+    {
+      "source_path": "cargo-octet/src/evidence_rails.rs",
+      "object_count": 71,
+      "caveat_counts": {
+        "dependency_status": {
+          "source-scanner-token-set": 35,
+          "unsupported-macro-context": 36
+        },
+        "effect_kind": {
+          "effect_summary": 63,
+          "filesystem": 5,
+          "panic": 2,
+          "process": 1
+        },
+        "macro_status": {
+          "none-detected": 35,
+          "review-required": 36
+        },
+        "pure_cache_blocker": {
+          "dependency-identity-unresolved": 71,
+          "effect-summary-unresolved": 71,
+          "macro-expansion-unmodeled": 36
+        }
+      },
+      "pure_cache_blocked_count": 71,
       "blocker_names": [
         "dependency-identity-unresolved",
         "effect-summary-unresolved",
@@ -1008,28 +1040,28 @@
   ],
   "caveat_counts": {
     "dependency_status": {
-      "source-scanner-token-set": 309,
-      "unsupported-macro-context": 441
+      "source-scanner-token-set": 344,
+      "unsupported-macro-context": 481
     },
     "effect_kind": {
-      "effect_summary": 620,
-      "filesystem": 62,
-      "panic": 88,
-      "process": 9,
+      "effect_summary": 685,
+      "filesystem": 67,
+      "panic": 94,
+      "process": 10,
       "time": 5,
       "unsafe": 3
     },
     "macro_status": {
-      "none-detected": 309,
-      "review-required": 441
+      "none-detected": 344,
+      "review-required": 481
     },
     "pure_cache_blocker": {
-      "dependency-identity-unresolved": 750,
-      "effect-summary-unresolved": 750,
-      "macro-expansion-unmodeled": 441
+      "dependency-identity-unresolved": 825,
+      "effect-summary-unresolved": 825,
+      "macro-expansion-unmodeled": 481
     }
   },
-  "pure_cache_blocked_count": 750,
+  "pure_cache_blocked_count": 825,
   "boundary": {
     "identity_scope": "review-and-provenance-evidence",
     "claims_correctness": false,
