@@ -115,6 +115,7 @@ validates its own receipt.
 cargo octet prove --list --policy-artifacts-dir artifacts/policy
 cargo octet prove --explain --policy-artifacts-dir artifacts/policy
 cargo octet prove --policy-artifacts-dir artifacts/policy --source src/verified --artifact-dir artifacts/octet
+cargo octet proof-ref validate --proof-cards artifacts/octet/proof-cards.json --ref proof-ref.json
 cargo octet artifact verify --artifact-dir artifacts/octet
 ```
 

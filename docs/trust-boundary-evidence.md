@@ -95,9 +95,12 @@ policy ID to `policy_check` evidence. Optional external evidence rails bind
 `cargo-llvm-cov`, dynamic profile, and release supply-chain output to Rust-owned
 receipts without making them starter checks. A Verus proof rail can bind a proof
 card, receipt, provenance record, and artifact verifier command to a scoped
-`formal_proof` claim. Release evidence can
-bind artifact verification and a smoke transcript to a reviewer action without
-upgrading every lower stage to proof.
+`formal_proof` claim. A `ProofEvidenceRef` can link a source comment, document,
+or future suppression to that proof card by checking the referenced source file's
+BLAKE3 identity and exact anchor text; it remains linkage evidence and does not
+rerun Verus or emit `formal_proof`. Release evidence can bind artifact
+verification and a smoke transcript to a reviewer action without upgrading every
+lower stage to proof.
 
 High-confidence diagnostic examples should name the deterministic failure shape
 when Octet has it. Examples include the invalid state behind an unchecked

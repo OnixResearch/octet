@@ -30,6 +30,13 @@ The production pilot rails run tiny proof targets with real Verus:
 - verifier mode for each production pilot: `production`
 - pinned release: Verus `0.2026.04.03.21dfcd2`, Rust `1.94.0-x86_64-unknown-linux-gnu`, bundled Z3, and an Octet-generated Nix closure graph digest
 
+The proof-rail manifest is a typed Nickel map, so teams can add additional
+repo-local rails under `standards/proof-rails/manifest.ncl` or a consumer-owned
+imported manifest without changing the contract every time a new rail ID is
+introduced. Each rail entry is still validated for backend, explicit argv,
+source/proof/receipt paths, verifier identity, trust boundaries, and production
+solver/toolchain/closure identity when `verifier_mode = "production"`.
+
 The production negative fixture is failure-path evidence only:
 
 - source selector: `verus/failure-fixtures/addition_bound_invalid_source.rs`
@@ -95,6 +102,9 @@ Verus, does not emit `formal_proof` provenance, and cannot upgrade a
   "schema_version": "octet-proof-evidence-ref/v1",
   "reference_id": "unchecked-narrowing-range-proof",
   "consumer_context": "allow tigerstyle::unchecked_narrowing at src/codec.rs:42",
+  "consumer_source_path": "src/codec.rs",
+  "consumer_source_blake3": "<BLAKE3 of src/codec.rs at review time>",
+  "consumer_source_anchor": "octet-proof-ref: unchecked-narrowing-range-proof -> octet.verus_proof_rails.addition-bound-production#rail-0",
   "proof_or_property_id": "octet.verus_proof_rails.addition-bound-production#rail-0",
   "source_requirement_or_policy_id": "octet.verus_proof_rails.addition-bound-production",
   "checked_rust_source_scope": "formal-proof:production:octet.verus_proof_rails.addition-bound-production#rail-0",
@@ -121,6 +131,13 @@ cargo octet proof-ref validate \
   --proof-cards artifacts/octet/proof-cards.json \
   --ref proof-ref.json
 ```
+
+When `consumer_source_path`, `consumer_source_blake3`, and
+`consumer_source_anchor` are present, validation also reads the named source or
+documentation file, recomputes its BLAKE3 identity, and requires the exact anchor
+text to be present. This links a comment, doc reference, or future suppression to
+the proof card without rerunning Verus or emitting new `formal_proof`
+provenance.
 
 Passing the fixture rail is scoped evidence for the declared proof-plumbing
 fixture only. Passing a production pilot is scoped evidence for that pilot's

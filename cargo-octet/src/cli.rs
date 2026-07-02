@@ -487,7 +487,7 @@ const PROOF_REF_HELP: &str = "cargo octet proof-ref validate
 
 Options: --proof-cards PATH, --ref PATH, --output-format human|json.
 
-Validates a Rust-owned ProofEvidenceRef JSON record against a saved proof-cards.json deck. This command is read-only: it does not rerun Verus, does not mutate proof artifacts, does not emit formal_proof provenance, and does not introduce a consumer-implementable Verified trait.
+Validates a Rust-owned ProofEvidenceRef JSON record against a saved proof-cards.json deck and, when the reference names consumer_source_path/consumer_source_blake3/consumer_source_anchor fields, checks that source/comment anchor too. This command is read-only: it does not rerun Verus, does not mutate proof artifacts, does not emit formal_proof provenance, and does not introduce a consumer-implementable Verified trait.
 ";
 
 const ROADMAP_HELP: &str = "cargo octet roadmap

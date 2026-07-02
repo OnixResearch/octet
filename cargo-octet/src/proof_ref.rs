@@ -14,6 +14,9 @@ const EXIT_INVALID: i32 = 1;
 const FIELD_SCHEMA_VERSION: &str = "schema_version";
 const FIELD_REFERENCE_ID: &str = "reference_id";
 const FIELD_CONSUMER_CONTEXT: &str = "consumer_context";
+const FIELD_CONSUMER_SOURCE_PATH: &str = "consumer_source_path";
+const FIELD_CONSUMER_SOURCE_BLAKE3: &str = "consumer_source_blake3";
+const FIELD_CONSUMER_SOURCE_ANCHOR: &str = "consumer_source_anchor";
 const FIELD_PROOF_OR_PROPERTY_ID: &str = "proof_or_property_id";
 const FIELD_SOURCE_REQUIREMENT_OR_POLICY_ID: &str = "source_requirement_or_policy_id";
 const FIELD_CHECKED_RUST_SOURCE_SCOPE: &str = "checked_rust_source_scope";
@@ -36,6 +39,12 @@ pub struct ProofEvidenceRef {
     pub schema_version: String,
     pub reference_id: String,
     pub consumer_context: String,
+    #[serde(default)]
+    pub consumer_source_path: String,
+    #[serde(default)]
+    pub consumer_source_blake3: String,
+    #[serde(default)]
+    pub consumer_source_anchor: String,
     pub proof_or_property_id: String,
     pub source_requirement_or_policy_id: String,
     pub checked_rust_source_scope: String,
@@ -75,19 +84,38 @@ struct ProofRefReport {
     reference_id: String,
     proof_or_property_id: String,
     matched_card: bool,
+    consumer_source_matched: bool,
     diagnostics: Vec<String>,
+}
+
+#[derive(Debug)]
+struct ConsumerSourceArtifact {
+    path: String,
+    blake3: String,
+    text: String,
 }
 
 pub fn run(args: &ProofRefArgs) -> Result<i32, String> {
     let reference = read_json::<ProofEvidenceRef>(&args.reference)?;
     let deck = read_json::<ProofCardDeck>(&args.proof_cards)?;
-    let diagnostics = validate_proof_evidence_ref(&reference, &deck);
+    let consumer_source = read_consumer_source_artifact(&reference);
+    let consumer_source_ref = match &consumer_source {
+        Ok(Some(source)) => Some(source),
+        Ok(None) | Err(_) => None,
+    };
+    let mut diagnostics = validate_proof_evidence_ref(&reference, &deck, consumer_source_ref);
+    if let Err(diagnostic) = &consumer_source {
+        diagnostics.push(diagnostic.clone());
+        diagnostics.sort();
+        diagnostics.dedup();
+    }
     let report = ProofRefReport {
         schema_version: PROOF_EVIDENCE_REF_SCHEMA_VERSION,
         valid: diagnostics.is_empty(),
         reference_id: reference.reference_id.clone(),
         proof_or_property_id: reference.proof_or_property_id.clone(),
         matched_card: matching_card(&reference, &deck).is_some(),
+        consumer_source_matched: consumer_source_matches(&reference, consumer_source_ref, &diagnostics),
         diagnostics,
     };
     print_report(args.output_format, &report)?;
@@ -99,12 +127,35 @@ fn read_json<T: for<'de> Deserialize<'de>>(path: &PathBuf) -> Result<T, String> 
     serde_json::from_str(&text).map_err(|error| format!("parse {} as JSON: {error}", path.display()))
 }
 
-fn validate_proof_evidence_ref(reference: &ProofEvidenceRef, deck: &ProofCardDeck) -> Vec<String> {
+fn read_consumer_source_artifact(reference: &ProofEvidenceRef) -> Result<Option<ConsumerSourceArtifact>, String> {
+    if reference.consumer_source_path.trim().is_empty() {
+        return Ok(None);
+    }
+    let path = PathBuf::from(&reference.consumer_source_path);
+    let text = fs::read_to_string(&path).map_err(|error| {
+        format!(
+            "proof evidence ref field `{FIELD_CONSUMER_SOURCE_PATH}` cannot read `{}`: {error}",
+            reference.consumer_source_path
+        )
+    })?;
+    Ok(Some(ConsumerSourceArtifact {
+        path: reference.consumer_source_path.clone(),
+        blake3: blake3::hash(text.as_bytes()).to_hex().to_string(),
+        text,
+    }))
+}
+
+fn validate_proof_evidence_ref(
+    reference: &ProofEvidenceRef,
+    deck: &ProofCardDeck,
+    consumer_source: Option<&ConsumerSourceArtifact>,
+) -> Vec<String> {
     let mut diagnostics = proof_ref_shape_diagnostics(reference);
     diagnostics.extend(proof_card_deck_shape_diagnostics(deck));
     diagnostics.extend(proof_ref_overclaim_diagnostics(reference));
     if diagnostics.is_empty() {
         diagnostics.extend(proof_ref_linkage_diagnostics(reference, deck));
+        diagnostics.extend(consumer_source_linkage_diagnostics(reference, consumer_source));
     }
     diagnostics.sort();
     diagnostics.dedup();
@@ -121,6 +172,7 @@ fn proof_ref_shape_diagnostics(reference: &ProofEvidenceRef) -> Vec<String> {
     }
     push_missing_field(&mut diagnostics, FIELD_REFERENCE_ID, &reference.reference_id);
     push_missing_field(&mut diagnostics, FIELD_CONSUMER_CONTEXT, &reference.consumer_context);
+    diagnostics.extend(consumer_source_shape_diagnostics(reference));
     push_missing_field(&mut diagnostics, FIELD_PROOF_OR_PROPERTY_ID, &reference.proof_or_property_id);
     push_missing_field(
         &mut diagnostics,
@@ -155,6 +207,37 @@ fn proof_ref_shape_diagnostics(reference: &ProofEvidenceRef) -> Vec<String> {
     diagnostics
 }
 
+fn consumer_source_shape_diagnostics(reference: &ProofEvidenceRef) -> Vec<String> {
+    let source_fields_present = [
+        reference.consumer_source_path.as_str(),
+        reference.consumer_source_blake3.as_str(),
+        reference.consumer_source_anchor.as_str(),
+    ]
+    .iter()
+    .any(|value| !value.trim().is_empty());
+    if !source_fields_present {
+        return Vec::new();
+    }
+
+    let mut diagnostics = Vec::new();
+    push_missing_field(&mut diagnostics, FIELD_CONSUMER_SOURCE_PATH, &reference.consumer_source_path);
+    push_missing_field(&mut diagnostics, FIELD_CONSUMER_SOURCE_BLAKE3, &reference.consumer_source_blake3);
+    push_missing_field(&mut diagnostics, FIELD_CONSUMER_SOURCE_ANCHOR, &reference.consumer_source_anchor);
+    if !reference.consumer_source_anchor.contains(&reference.reference_id) {
+        diagnostics.push(format!(
+            "proof evidence ref field `{FIELD_CONSUMER_SOURCE_ANCHOR}` must contain reference ID `{}`",
+            reference.reference_id
+        ));
+    }
+    if !reference.consumer_source_anchor.contains(&reference.proof_or_property_id) {
+        diagnostics.push(format!(
+            "proof evidence ref field `{FIELD_CONSUMER_SOURCE_ANCHOR}` must contain proof or property ID `{}`",
+            reference.proof_or_property_id
+        ));
+    }
+    diagnostics
+}
+
 fn proof_card_deck_shape_diagnostics(deck: &ProofCardDeck) -> Vec<String> {
     if deck.schema_version == PROOF_CARDS_SCHEMA_VERSION {
         Vec::new()
@@ -167,7 +250,13 @@ fn proof_card_deck_shape_diagnostics(deck: &ProofCardDeck) -> Vec<String> {
 }
 
 fn proof_ref_overclaim_diagnostics(reference: &ProofEvidenceRef) -> Vec<String> {
-    let text = format!("{} {}", reference.consumer_context, reference.non_claims.join(" ")).to_lowercase();
+    let text = format!(
+        "{} {} {}",
+        reference.consumer_context,
+        reference.consumer_source_anchor,
+        reference.non_claims.join(" ")
+    )
+    .to_lowercase();
     let mut diagnostics = Vec::new();
     push_overclaim(&mut diagnostics, &text, "proves whole-program correctness", "whole-program correctness");
     push_overclaim(&mut diagnostics, &text, "provides certification", "certification");
@@ -222,6 +311,51 @@ fn proof_ref_linkage_diagnostics(reference: &ProofEvidenceRef, deck: &ProofCardD
     diagnostics
 }
 
+fn consumer_source_linkage_diagnostics(
+    reference: &ProofEvidenceRef,
+    consumer_source: Option<&ConsumerSourceArtifact>,
+) -> Vec<String> {
+    if reference.consumer_source_path.trim().is_empty() {
+        return Vec::new();
+    }
+    let Some(source) = consumer_source else {
+        return vec![format!(
+            "proof evidence ref field `{FIELD_CONSUMER_SOURCE_PATH}` has no readable source artifact `{}`",
+            reference.consumer_source_path
+        )];
+    };
+    let mut diagnostics = Vec::new();
+    push_consumer_source_mismatch(
+        &mut diagnostics,
+        FIELD_CONSUMER_SOURCE_PATH,
+        &reference.consumer_source_path,
+        &source.path,
+    );
+    push_consumer_source_mismatch(
+        &mut diagnostics,
+        FIELD_CONSUMER_SOURCE_BLAKE3,
+        &reference.consumer_source_blake3,
+        &source.blake3,
+    );
+    if !source.text.contains(&reference.consumer_source_anchor) {
+        diagnostics.push(format!(
+            "proof evidence ref field `{FIELD_CONSUMER_SOURCE_ANCHOR}` anchor not found in `{}`",
+            reference.consumer_source_path
+        ));
+    }
+    diagnostics
+}
+
+fn consumer_source_matches(
+    reference: &ProofEvidenceRef,
+    consumer_source: Option<&ConsumerSourceArtifact>,
+    diagnostics: &[String],
+) -> bool {
+    !reference.consumer_source_path.trim().is_empty()
+        && consumer_source.is_some()
+        && !diagnostics.iter().any(|diagnostic| diagnostic.contains("consumer_source"))
+}
+
 fn matching_card<'a>(reference: &ProofEvidenceRef, deck: &'a ProofCardDeck) -> Option<&'a ProofCard> {
     deck.cards.iter().find(|card| card.proof_or_property_id == reference.proof_or_property_id)
 }
@@ -246,6 +380,14 @@ fn push_mismatch(diagnostics: &mut Vec<String>, field_name: &str, expected: &str
     }
 }
 
+fn push_consumer_source_mismatch(diagnostics: &mut Vec<String>, field_name: &str, expected: &str, actual: &str) {
+    if expected != actual {
+        diagnostics.push(format!(
+            "proof evidence ref field `{field_name}` expected `{expected}` but consumer source has `{actual}`"
+        ));
+    }
+}
+
 fn push_overclaim(diagnostics: &mut Vec<String>, text: &str, needle: &str, claim: &str) {
     if text.contains(needle) {
         diagnostics.push(format!("proof evidence ref contains unsupported {claim} claim"));
@@ -266,10 +408,12 @@ fn print_report(output_format: OutputFormat, report: &ProofRefReport) -> Result<
     match output_format {
         OutputFormat::Human => {
             println!(
-                "octet proof-ref reference_id={} proof_or_property_id={} valid={} diagnostics={}",
+                "octet proof-ref reference_id={} proof_or_property_id={} valid={} matched_card={} consumer_source_matched={} diagnostics={}",
                 report.reference_id,
                 report.proof_or_property_id,
                 report.valid,
+                report.matched_card,
+                report.consumer_source_matched,
                 report.diagnostics.len()
             );
             for diagnostic in &report.diagnostics {
@@ -301,9 +445,21 @@ mod tests {
         let reference = matching_reference();
         let deck = deck_with(card());
 
-        let diagnostics = validate_proof_evidence_ref(&reference, &deck);
+        let diagnostics = validate_proof_evidence_ref(&reference, &deck, None);
 
         assert!(diagnostics.is_empty(), "unexpected diagnostics: {diagnostics:?}");
+    }
+
+    #[test]
+    fn proof_ref_accepts_matching_consumer_source_anchor() {
+        let mut reference = matching_reference();
+        let source = source_artifact_for(&mut reference);
+        let deck = deck_with(card());
+
+        let diagnostics = validate_proof_evidence_ref(&reference, &deck, Some(&source));
+
+        assert!(diagnostics.is_empty(), "unexpected diagnostics: {diagnostics:?}");
+        assert!(consumer_source_matches(&reference, Some(&source), &diagnostics));
     }
 
     #[test]
@@ -312,7 +468,7 @@ mod tests {
         reference.proof_or_property_id = "missing#rail-0".to_owned();
         let deck = deck_with(card());
 
-        let diagnostics = validate_proof_evidence_ref(&reference, &deck);
+        let diagnostics = validate_proof_evidence_ref(&reference, &deck, None);
 
         assert!(diagnostics.iter().any(|diagnostic| diagnostic.contains("references missing proof card")));
     }
@@ -327,7 +483,7 @@ mod tests {
         reference.non_claims.push("not theorem prover completeness".to_owned());
         let deck = deck_with(card());
 
-        let diagnostics = validate_proof_evidence_ref(&reference, &deck);
+        let diagnostics = validate_proof_evidence_ref(&reference, &deck, None);
 
         assert!(diagnostics.iter().any(|diagnostic| diagnostic.contains(FIELD_CHECKED_RUST_SOURCE_SCOPE)));
         assert!(diagnostics.iter().any(|diagnostic| diagnostic.contains(FIELD_EXPECTED_EVIDENCE_TIER)));
@@ -337,12 +493,39 @@ mod tests {
     }
 
     #[test]
-    fn proof_ref_rejects_overbroad_claim_wording() {
+    fn proof_ref_rejects_stale_consumer_source_identity_and_missing_anchor() {
         let mut reference = matching_reference();
-        reference.consumer_context = "allow claims this proves whole-program correctness".to_owned();
+        let mut source = source_artifact_for(&mut reference);
+        reference.consumer_source_blake3 = "stale-digest".to_owned();
+        source.text = "pub fn codec() {}\n".to_owned();
         let deck = deck_with(card());
 
-        let diagnostics = validate_proof_evidence_ref(&reference, &deck);
+        let diagnostics = validate_proof_evidence_ref(&reference, &deck, Some(&source));
+
+        assert!(diagnostics.iter().any(|diagnostic| diagnostic.contains(FIELD_CONSUMER_SOURCE_BLAKE3)));
+        assert!(diagnostics.iter().any(|diagnostic| diagnostic.contains("anchor not found")));
+    }
+
+    #[test]
+    fn proof_ref_rejects_partial_consumer_source_fields() {
+        let mut reference = matching_reference();
+        reference.consumer_source_path = "src/codec.rs".to_owned();
+        let deck = deck_with(card());
+
+        let diagnostics = validate_proof_evidence_ref(&reference, &deck, None);
+
+        assert!(diagnostics.iter().any(|diagnostic| diagnostic.contains(FIELD_CONSUMER_SOURCE_BLAKE3)));
+        assert!(diagnostics.iter().any(|diagnostic| diagnostic.contains(FIELD_CONSUMER_SOURCE_ANCHOR)));
+    }
+
+    #[test]
+    fn proof_ref_rejects_overbroad_claim_wording() {
+        let mut reference = matching_reference();
+        reference.consumer_context = "allow linked proof evidence at src/codec.rs:42".to_owned();
+        reference.consumer_source_anchor = "octet-proof-ref claims this proves whole-program correctness".to_owned();
+        let deck = deck_with(card());
+
+        let diagnostics = validate_proof_evidence_ref(&reference, &deck, None);
 
         assert!(diagnostics.iter().any(|diagnostic| diagnostic.contains("whole-program correctness")));
     }
@@ -355,7 +538,7 @@ mod tests {
         let mut deck = deck_with(card());
         deck.schema_version = "wrong".to_owned();
 
-        let diagnostics = validate_proof_evidence_ref(&reference, &deck);
+        let diagnostics = validate_proof_evidence_ref(&reference, &deck, None);
 
         assert!(diagnostics.iter().any(|diagnostic| diagnostic.contains(PROOF_EVIDENCE_REF_SCHEMA_VERSION)));
         assert!(diagnostics.iter().any(|diagnostic| diagnostic.contains(PROOF_CARDS_SCHEMA_VERSION)));
@@ -367,6 +550,9 @@ mod tests {
             schema_version: PROOF_EVIDENCE_REF_SCHEMA_VERSION.to_owned(),
             reference_id: "unchecked-narrowing-range-proof".to_owned(),
             consumer_context: "allow tigerstyle::unchecked_narrowing at src/codec.rs:42".to_owned(),
+            consumer_source_path: String::new(),
+            consumer_source_blake3: String::new(),
+            consumer_source_anchor: String::new(),
             proof_or_property_id: PROPERTY_ID.to_owned(),
             source_requirement_or_policy_id: POLICY_ID.to_owned(),
             checked_rust_source_scope: CHECKED_SCOPE.to_owned(),
@@ -374,6 +560,19 @@ mod tests {
             required_status: STATUS_PASSED.to_owned(),
             required_artifacts: vec![RECEIPT_ARTIFACT.to_owned(), "verus/proofs/addition_bound.rs".to_owned()],
             non_claims: required_non_claims().iter().map(|claim| (*claim).to_owned()).collect(),
+        }
+    }
+
+    fn source_artifact_for(reference: &mut ProofEvidenceRef) -> ConsumerSourceArtifact {
+        reference.consumer_source_path = "src/codec.rs".to_owned();
+        reference.consumer_source_anchor =
+            format!("octet-proof-ref: {} -> {}", reference.reference_id, reference.proof_or_property_id);
+        let text = format!("// {}\npub fn codec() {{}}\n", reference.consumer_source_anchor);
+        reference.consumer_source_blake3 = blake3::hash(text.as_bytes()).to_hex().to_string();
+        ConsumerSourceArtifact {
+            path: reference.consumer_source_path.clone(),
+            blake3: reference.consumer_source_blake3.clone(),
+            text,
         }
     }
 

@@ -234,22 +234,23 @@ r[octet.verus_proof_rails.path_matching.ambiguous]
 
 ### Requirement: Nickel proof rail manifest
 
-r[octet.verus_proof_rails.rail_manifest] Human-authored Verus proof rail declarations SHOULD be maintained as typed Nickel and exported as deterministic JSON for runtime Rust consumers.
+r[octet.verus_proof_rails.rail_manifest] Human-authored Verus proof rail declarations SHOULD be maintained as typed Nickel maps keyed by rail ID and exported as deterministic JSON for runtime Rust consumers.
 
 #### Scenario: Valid Nickel manifest exports deterministic rails
 
 r[octet.verus_proof_rails.rail_manifest.valid]
 
-- GIVEN a maintainer declares Verus proof rails in the Nickel manifest
+- GIVEN a maintainer declares Verus proof rails in the Nickel manifest under built-in or consumer-owned rail IDs
 - WHEN the manifest export command runs
-- THEN the exported JSON MUST include backend, command argv, source paths, proof paths, verifier identity requirements, pass signal, trust boundaries, and receipt binding policy.
+- THEN every exported rail MUST include backend, command argv, source paths, proof paths, verifier identity requirements, pass signal, trust boundaries, and receipt binding policy.
+- AND the manifest contract MUST allow additional rail IDs without changing the contract for each new proof target.
 - AND repeated exports from the same manifest MUST produce byte-identical JSON.
 
 #### Scenario: Invalid Nickel manifest fails before execution
 
 r[octet.verus_proof_rails.rail_manifest.invalid]
 
-- GIVEN a manifest omits required rail fields, declares an unsupported backend, uses empty source paths, or provides malformed trust boundaries
+- GIVEN a manifest omits required rail fields, declares an unsupported backend, declares no rails, uses empty source paths, or provides malformed trust boundaries
 - WHEN manifest validation runs
 - THEN validation MUST fail before `cargo octet prove` executes any verifier.
 - AND the diagnostic MUST name the rejected manifest field.
@@ -496,6 +497,7 @@ r[octet.verus_proof_rails.proof_evidence_ref.fields]
 - GIVEN a `ProofEvidenceRef` JSON record is authored
 - WHEN Octet validates the record shape
 - THEN the record SHOULD include schema version, reference ID, consumer context, proof or property ID, source requirement or policy ID, checked Rust source scope, expected evidence tier, required status, required artifacts, and explicit non-claims.
+- AND when the reference links a source comment, documentation line, or suppression, it SHOULD include consumer source path, consumer source BLAKE3 identity, and exact consumer source anchor text.
 - AND the record MUST NOT be represented as a Rust trait or marker that consumer code can implement to assert proof status.
 
 #### Scenario: Reference is linkage not proof
@@ -516,9 +518,10 @@ r[octet.verus_proof_rails.proof_evidence_ref.cli] Octet SHOULD expose a read-onl
 r[octet.verus_proof_rails.proof_evidence_ref.cli.matching]
 
 - GIVEN a proof-card deck contains a card with the referenced proof or property ID, policy ID, checked scope, evidence tier, status, artifacts, and non-claims
+- AND the reference either omits consumer-source fields or names a readable source file whose BLAKE3 identity and exact anchor text match
 - WHEN the operator runs `cargo octet proof-ref validate --proof-cards proof-cards.json --ref proof-ref.json`
 - THEN the command SHOULD exit successfully.
-- AND the human or JSON report SHOULD name the reference ID, proof or property ID, status, and zero diagnostics.
+- AND the human or JSON report SHOULD name the reference ID, proof or property ID, card match, optional consumer-source match, status, and zero diagnostics.
 
 #### Scenario: Validation is read-only
 
@@ -537,7 +540,7 @@ r[octet.verus_proof_rails.proof_evidence_ref.diagnostics] Proof evidence referen
 
 r[octet.verus_proof_rails.proof_evidence_ref.diagnostics.fail_closed]
 
-- GIVEN a `ProofEvidenceRef` names a proof or property ID absent from the proof-card deck, or mismatches source requirement, checked scope, expected evidence tier, required status, required artifacts, or non-claims
+- GIVEN a `ProofEvidenceRef` names a proof or property ID absent from the proof-card deck, mismatches source requirement, checked scope, expected evidence tier, required status, required artifacts, or non-claims, or names a stale/missing consumer source identity or anchor
 - WHEN proof-ref validation runs
 - THEN validation MUST fail closed with diagnostics naming the rejected field.
 - AND validation MUST NOT upgrade manual-review or external proof-card evidence to `formal_proof`.
