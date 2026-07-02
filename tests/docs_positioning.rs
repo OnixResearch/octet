@@ -3,6 +3,7 @@ use std::path::Path;
 const CANONICAL_CHECKED_PATH: &str =
     "Octet is the evidence-backed checked path for agent-written and human-written Rust systems code";
 const TRUST_BOUNDARY_DOC: &str = "docs/trust-boundary-evidence.md";
+const ADOPTION_STORY_DOC: &str = "docs/adoption-story.md";
 const CONSUMER_GUIDE_DOC: &str = "docs/consumer-guide.md";
 const DOWNSTREAM_ROLLOUT_DOC: &str = "docs/downstream-rollout.md";
 const LINT_REFERENCE_DOC: &str = "docs/lint-reference.md";
@@ -258,6 +259,62 @@ fn checked_contract_ladder_docs_inventory_records_and_boundaries() {
 }
 
 #[test]
+fn adoption_story_docs_define_case_study_methodology_and_boundaries() {
+    let adoption = read_repo_text(ADOPTION_STORY_DOC);
+    let readme = read_repo_text(README_DOC);
+    let consumer = read_repo_text(CONSUMER_GUIDE_DOC);
+
+    assert_required_terms(&adoption, &[
+        "Rust-compatible, evidence-backed checked path",
+        "cargo octet check",
+        "checked-in config or policy",
+        "evidence artifacts",
+        "CI or release gate",
+        "artifact verification before promotion",
+    ]);
+    assert_required_terms(&adoption, &[
+        "Built with Octet case-study format",
+        "consumer or archive source",
+        "checked scope",
+        "command or gate",
+        "configuration source",
+        "evidence artifact or archive path",
+        "outcome summary",
+        "scope boundary",
+    ]);
+    assert_required_terms(&adoption, &[
+        "openspec/changes/archive/2026-04-13-aspen-consumer-rollout/",
+        "aspen-time",
+        "aspen-hlc",
+        "aspen-core",
+        "evidence/aspen-default-run.txt",
+        "evidence/validation-counts.txt",
+        "six findings",
+        "historical rollout evidence for the archived starter scope",
+    ]);
+    assert_required_terms(&adoption, &[
+        "Methodology before public metrics",
+        "command or gate that produced the measurement",
+        "input scope and configuration",
+        "environment or platform",
+        "raw artifact, transcript, or reproducible evidence path",
+        "interpretation boundary for the metric",
+        "held back until the raw command and artifact path exist",
+    ]);
+    assert_required_terms(&adoption, &[
+        "not a new programming language",
+        "not a Rust replacement",
+        "does not claim mathematical certainty",
+        "whole-program correctness",
+        "certification",
+        "a verified runtime",
+        "language-level contract syntax",
+    ]);
+    assert_required_terms(&readme, &[ADOPTION_STORY_DOC]);
+    assert_required_terms(&consumer, &["adoption-story.md"]);
+}
+
+#[test]
 fn verus_proof_path_checker_rejects_unscoped_overclaim_text() {
     let bad_text = "The Verus proof path proves whole-program correctness. It provides certification and provides business-domain validation. It proves semantic equivalence and guarantees full safety for Octet. Octet is a verified runtime.";
 
@@ -279,6 +336,7 @@ fn docs_do_not_contain_unscoped_overclaim_phrases() {
         README_DOC,
         CONSUMER_GUIDE_DOC,
         TRUST_BOUNDARY_DOC,
+        ADOPTION_STORY_DOC,
         DOWNSTREAM_ROLLOUT_DOC,
         LINT_REFERENCE_DOC,
         VERUS_README_DOC,
@@ -287,6 +345,7 @@ fn docs_do_not_contain_unscoped_overclaim_phrases() {
         let mut diagnostics = overclaim_diagnostics(&text);
         diagnostics.extend(proof_path_overclaim_diagnostics(&text));
         diagnostics.extend(checked_contract_overclaim_diagnostics(&text));
+        diagnostics.extend(adoption_story_overclaim_diagnostics(&text));
         assert!(diagnostics.is_empty(), "{path} overclaim diagnostics: {diagnostics:?}");
     }
 }
@@ -315,6 +374,22 @@ fn checked_contract_overclaim_checker_rejects_bad_ladder_text() {
         "unsupported solver-completeness claim".to_owned(),
         "unsupported runtime-fallback claim".to_owned(),
         "unsupported all-stages-formal-proof claim".to_owned(),
+    ]);
+}
+
+#[test]
+fn adoption_story_overclaim_checker_rejects_bad_positioning_text() {
+    let bad_text = "Octet is a new programming language. Octet replaces Rust. Octet guarantees mathematical certainty. Octet proves whole-program correctness. Octet certifies systems. Octet has a verified runtime.";
+
+    let diagnostics = adoption_story_overclaim_diagnostics(bad_text);
+
+    assert_eq!(diagnostics, vec![
+        "unsupported new-language claim".to_owned(),
+        "unsupported rust-replacement claim".to_owned(),
+        "unsupported mathematical-certainty claim".to_owned(),
+        "unsupported whole-program-correctness claim".to_owned(),
+        "unsupported certification claim".to_owned(),
+        "unsupported verified-runtime claim".to_owned(),
     ]);
 }
 
@@ -446,6 +521,56 @@ fn checked_contract_overclaim_diagnostics(text: &str) -> Vec<String> {
             "all ladder stages are formal proof",
         ],
         "unsupported all-stages-formal-proof claim",
+    );
+
+    diagnostics
+}
+
+fn adoption_story_overclaim_diagnostics(text: &str) -> Vec<String> {
+    let lower = text.to_lowercase();
+    let mut diagnostics = Vec::new();
+
+    push_if_contains(
+        &mut diagnostics,
+        &lower,
+        &["octet is a new programming language", "octet is a new language"],
+        "unsupported new-language claim",
+    );
+    push_if_contains(
+        &mut diagnostics,
+        &lower,
+        &["octet replaces rust", "octet is a rust replacement"],
+        "unsupported rust-replacement claim",
+    );
+    push_if_contains(
+        &mut diagnostics,
+        &lower,
+        &[
+            "octet guarantees mathematical certainty",
+            "octet provides mathematical certainty",
+        ],
+        "unsupported mathematical-certainty claim",
+    );
+    push_if_contains(
+        &mut diagnostics,
+        &lower,
+        &[
+            "octet proves whole-program correctness",
+            "octet proves all code correct",
+        ],
+        "unsupported whole-program-correctness claim",
+    );
+    push_if_contains(
+        &mut diagnostics,
+        &lower,
+        &["octet certifies systems", "octet provides certification"],
+        "unsupported certification claim",
+    );
+    push_if_contains(
+        &mut diagnostics,
+        &lower,
+        &["octet has a verified runtime", "octet ships a verified runtime"],
+        "unsupported verified-runtime claim",
     );
 
     diagnostics
