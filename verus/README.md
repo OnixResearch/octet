@@ -6,7 +6,8 @@ The canonical review route lives in
 [`docs/trust-boundary-evidence.md#verus-proof-path-lane`](../docs/trust-boundary-evidence.md#verus-proof-path-lane):
 requirement or policy ID to Verus proof rail, checked Rust source scope, proof
 target, verifier identity, structured receipt, `formal_proof` provenance, and
-artifact verification.
+artifact verification. The broader checked-contract ladder is documented at
+[`docs/trust-boundary-evidence.md#checked-contract-ladder`](../docs/trust-boundary-evidence.md#checked-contract-ladder), where Verus receipts occupy only the scoped formal-proof stage.
 
 The repository-owned fixture rail is intentionally small:
 
