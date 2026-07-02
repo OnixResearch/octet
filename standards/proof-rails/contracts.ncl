@@ -43,23 +43,18 @@ let rail_rules = fun rail =>
   && rail_has_production_identity rail
 in
 
+let manifest_rails = fun manifest => std.record.values manifest.rails in
+
 let ManifestRules =
   std.contract.from_predicate (fun manifest =>
-    rail_rules manifest.rails.addition_bound
-    && rail_rules manifest.rails.addition_bound_production
-    && rail_rules manifest.rails.ordering_reflexive_production
-    && rail_rules manifest.rails.addition_bound_production_negative
+    std.array.length (manifest_rails manifest) > 0
+    && std.array.all rail_rules (manifest_rails manifest)
   )
 in
 {
   ProofRailManifest = {
     schema_version | SchemaVersion,
-    rails | {
-      addition_bound | policy_contracts.ProofRail,
-      addition_bound_production | policy_contracts.ProofRail,
-      ordering_reflexive_production | policy_contracts.ProofRail,
-      addition_bound_production_negative | policy_contracts.ProofRail,
-    },
+    rails | { _ | policy_contracts.ProofRail },
   },
   ProofRailManifestRules = ManifestRules,
 }

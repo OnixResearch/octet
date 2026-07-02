@@ -216,12 +216,16 @@ in
       validation_command = "nix build .#checks.x86_64-linux.proof-rail-manifest --no-link -L",
       status = "existing",
       config_digest_required = true,
-      positive_fixtures = ["standards/proof-rails/fixtures/valid/addition_bound.ncl"],
+      positive_fixtures = [
+        "standards/proof-rails/fixtures/valid/addition_bound.ncl",
+        "standards/proof-rails/fixtures/valid/consumer_extra_rail.ncl",
+      ],
       negative_fixtures = [
         "standards/proof-rails/fixtures/invalid/missing_verifier_identity.ncl",
         "standards/proof-rails/fixtures/invalid/invalid_backend.ncl",
         "standards/proof-rails/fixtures/invalid/empty_source_paths.ncl",
         "standards/proof-rails/fixtures/invalid/malformed_trust_boundaries.ncl",
+        "standards/proof-rails/fixtures/invalid/empty_rails.ncl",
       ],
     },
     {
@@ -255,8 +259,14 @@ in
       generation_command = "nix run .#octet-production-verus -- --identity && nix build .#octet-production-verus-nix-closure-manifest --no-link -L",
       validation_command = "nix build .#checks.x86_64-linux.octet-production-verus-nix-closure-manifest --no-link -L",
       status = "existing",
-      positive_fixtures = ["standards/proof-rails/fixtures/valid/addition_bound.ncl"],
-      negative_fixtures = ["standards/proof-rails/fixtures/invalid/missing_verifier_identity.ncl"],
+      positive_fixtures = [
+        "standards/proof-rails/fixtures/valid/addition_bound.ncl",
+        "standards/proof-rails/fixtures/valid/consumer_extra_rail.ncl",
+      ],
+      negative_fixtures = [
+        "standards/proof-rails/fixtures/invalid/missing_verifier_identity.ncl",
+        "standards/proof-rails/fixtures/invalid/empty_rails.ncl",
+      ],
     },
     {
       family_id = "octet.verus-raw-verifier-internals",
