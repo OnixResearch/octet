@@ -310,8 +310,85 @@ fn adoption_story_docs_define_case_study_methodology_and_boundaries() {
         "a verified runtime",
         "language-level contract syntax",
     ]);
-    assert_required_terms(&readme, &[ADOPTION_STORY_DOC]);
-    assert_required_terms(&consumer, &["adoption-story.md"]);
+    assert_required_terms(&readme, &[ADOPTION_STORY_DOC, "card-oriented public story"]);
+    assert_required_terms(&consumer, &["adoption-story.md", "public story cards"]);
+}
+
+#[test]
+fn adoption_story_public_card_inventory_names_required_cards_and_surfaces() {
+    let adoption = read_repo_text(ADOPTION_STORY_DOC);
+
+    assert_required_terms(&adoption, &[
+        "Public story cards",
+        "Checked path card",
+        "How it works cards",
+        "Built with Octet evidence card",
+        "Before/after examples card",
+        "Quickstart card",
+        "FAQ card",
+    ]);
+    assert_required_terms(&adoption, &[
+        "static lint edge",
+        "Nickel policy layer",
+        "evidence chain",
+        "optional scoped proof lane",
+        "artifact verification",
+        "controlled deployment",
+    ]);
+}
+
+#[test]
+fn adoption_story_before_after_examples_name_lints_remediation_and_boundaries() {
+    let adoption = read_repo_text(ADOPTION_STORY_DOC);
+
+    assert_required_terms(&adoption, &[
+        "Before and after examples",
+        "`unchecked_division`: zero guard before division",
+        "`unchecked_narrowing`: checked conversion at an API edge",
+        "`unbounded_channel` and `unbounded_collection_growth`: resource boundary",
+        "`ambient_clock`: shell/core split",
+        "`public_unsafe_api`: safe wrapper or documented exception",
+        "`ignored_result`: explicit error propagation",
+    ]);
+    assert_required_terms(&adoption, &[
+        "deterministic failure shape",
+        "bounded remediation path",
+        "not SMT models",
+        "not solver models",
+        "not formal counterexamples",
+        "explicit guard",
+        "checked conversion",
+        "capacity bound",
+        "deterministic core function",
+        "safe wrapper",
+        "propagate the error",
+    ]);
+}
+
+#[test]
+fn adoption_story_quickstart_outputs_and_faq_topics_are_visible() {
+    let adoption = read_repo_text(ADOPTION_STORY_DOC);
+
+    assert_required_terms(&adoption, &[
+        "Terminal-first quickstart",
+        "cargo octet check --artifact-dir artifacts/octet --output-format sarif",
+        "cargo octet artifact verify --artifact-dir artifacts/octet",
+        "artifacts/octet/command.txt",
+        "artifacts/octet/status.json",
+        "artifacts/octet/summary.txt",
+        "artifacts/octet/results.sarif",
+        "artifacts/octet/results.jsonl",
+        "artifacts/octet/provenance.jsonl",
+    ]);
+    assert_required_terms(&adoption, &[
+        "Why not just Clippy?",
+        "What does Octet prove?",
+        "What does Octet not prove?",
+        "Why Dylint or nightly?",
+        "What data leaves my repository?",
+        "How do we handle starter-profile noise?",
+        "When should we use `cargo octet prove`?",
+    ]);
 }
 
 #[test]
@@ -390,6 +467,20 @@ fn adoption_story_overclaim_checker_rejects_bad_positioning_text() {
         "unsupported whole-program-correctness claim".to_owned(),
         "unsupported certification claim".to_owned(),
         "unsupported verified-runtime claim".to_owned(),
+    ]);
+}
+
+#[test]
+fn adoption_story_overclaim_checker_rejects_salt_style_claims() {
+    let bad_text = "Octet supports `requires` syntax. Octet supports `ensures` syntax. Octet provides `@trusted`. Octet matches C performance. Octet has C performance parity.";
+
+    let diagnostics = adoption_story_overclaim_diagnostics(bad_text);
+
+    assert_eq!(diagnostics, vec![
+        "unsupported requires-syntax claim".to_owned(),
+        "unsupported ensures-syntax claim".to_owned(),
+        "unsupported trusted-syntax claim".to_owned(),
+        "unsupported c-performance claim".to_owned(),
     ]);
 }
 
@@ -571,6 +662,46 @@ fn adoption_story_overclaim_diagnostics(text: &str) -> Vec<String> {
         &lower,
         &["octet has a verified runtime", "octet ships a verified runtime"],
         "unsupported verified-runtime claim",
+    );
+    push_if_contains(
+        &mut diagnostics,
+        &lower,
+        &[
+            "octet supports `requires` syntax",
+            "octet supports requires syntax",
+            "octet has built-in requires syntax",
+        ],
+        "unsupported requires-syntax claim",
+    );
+    push_if_contains(
+        &mut diagnostics,
+        &lower,
+        &[
+            "octet supports `ensures` syntax",
+            "octet supports ensures syntax",
+            "octet has built-in ensures syntax",
+        ],
+        "unsupported ensures-syntax claim",
+    );
+    push_if_contains(
+        &mut diagnostics,
+        &lower,
+        &[
+            "octet provides `@trusted`",
+            "octet provides @trusted",
+            "octet has @trusted",
+        ],
+        "unsupported trusted-syntax claim",
+    );
+    push_if_contains(
+        &mut diagnostics,
+        &lower,
+        &[
+            "octet matches c performance",
+            "octet provides c performance parity",
+            "octet has c performance parity",
+        ],
+        "unsupported c-performance claim",
     );
 
     diagnostics

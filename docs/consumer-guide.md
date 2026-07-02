@@ -8,8 +8,8 @@ deeper docs to read next.
 
 For the landing page and naming map, see `../README.md`.
 For the full lint catalog, see `lint-reference.md`.
-For the Rust-compatible adoption story and case-study format, see
-`adoption-story.md`.
+For the Rust-compatible public story cards, examples, quickstart, FAQ, and
+case-study format, see `adoption-story.md`.
 For rollout profiles, see `downstream-rollout.md`.
 For the checked-path, evidence-stack, provenance, scope-boundary, and
 controlled-deployment map, see `trust-boundary-evidence.md`.
@@ -372,7 +372,7 @@ Use `unjustified_no_todo_allow` to keep stub escapes documented and local.
 ## Next docs
 
 - `lint-reference.md` for the full lint catalog, defaults, and config keys
-- `adoption-story.md` for the Rust-compatible adoption promise, case-study fields, and methodology boundaries
+- `adoption-story.md` for the Rust-compatible public story cards, examples, quickstart, FAQ, case-study fields, and methodology boundaries
 - `downstream-rollout.md` for smoke, boundary-first, and inventory-only rollout profiles
 - `downstream-rollout-evidence.md` for Aspen-backed evidence and historical replay paths
 - `contributor-guide.md` if you are changing lints, config keys, or published runner surfaces
