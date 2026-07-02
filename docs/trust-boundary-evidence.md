@@ -91,10 +91,11 @@ Every checked-contract record should include these fields:
 Existing Octet surfaces already map to this shape. A lint diagnostic can bind a
 requirement or lint ID to `static_lint` evidence. A standards policy can bind a
 policy ID to `policy_check` evidence. Optional external evidence rails bind
-`cargo-deny`, Clippy, `cargo-vet`, `cargo-semver-checks`, dynamic profile, and
-release supply-chain output to Rust-owned receipts without making them starter
-checks. A Verus proof rail can bind a proof card, receipt, provenance record, and
-artifact verifier command to a scoped `formal_proof` claim. Release evidence can
+`cargo-deny`, Clippy, `cargo-vet`, `cargo-semver-checks`, `cargo-mutants`,
+`cargo-llvm-cov`, dynamic profile, and release supply-chain output to Rust-owned
+receipts without making them starter checks. A Verus proof rail can bind a proof
+card, receipt, provenance record, and artifact verifier command to a scoped
+`formal_proof` claim. Release evidence can
 bind artifact verification and a smoke transcript to a reviewer action without
 upgrading every lower stage to proof.
 
@@ -194,10 +195,12 @@ claim being made.
 The initial deterministic producer registry covers `cargo-octet`,
 `octet-standards`, `octet-policy-validate`, `octet-policy-export`,
 `octet-fingerprint`, `octet-transcript`, `cargo-deny`, Clippy, `cargo-vet`,
-`cargo-semver-checks`, `octet-dynamic-evidence`, and
-`octet-release-supply-chain`. Source IDs stay in their producer families
-(`octet.runner.*`, `octet.artifact.*`, `octet.standards.*`, `octet.policy.*`,
-`octet.external_lint.*`, `octet.dependency_trust.*`, `octet.api_stability.*`,
+`cargo-semver-checks`, `cargo-mutants`, `cargo-llvm-cov`,
+`octet-dynamic-evidence`, and `octet-release-supply-chain`. Source IDs stay in
+their producer families (`octet.runner.*`, `octet.artifact.*`,
+`octet.standards.*`, `octet.policy.*`, `octet.external_lint.*`,
+`octet.dependency_trust.*`, `octet.api_stability.*`,
+`octet.mutation_testing.*`, `octet.coverage_baseline.*`,
 `octet.dynamic_evidence.*`, `octet.release_supply_chain.*`,
 `octet.fingerprint.*`, and `octet.transcript.*`), and parent artifacts link
 derived evidence back to the runner, policy, fingerprint, transcript, or release

@@ -16,6 +16,8 @@ pub const CHECKER_CARGO_DENY: &str = "cargo-deny";
 pub const CHECKER_CLIPPY: &str = "clippy";
 pub const CHECKER_CARGO_VET: &str = "cargo-vet";
 pub const CHECKER_CARGO_SEMVER_CHECKS: &str = "cargo-semver-checks";
+pub const CHECKER_CARGO_MUTANTS: &str = "cargo-mutants";
+pub const CHECKER_CARGO_LLVM_COV: &str = "cargo-llvm-cov";
 pub const CHECKER_OCTET_DYNAMIC_EVIDENCE: &str = "octet-dynamic-evidence";
 pub const CHECKER_OCTET_RELEASE_SUPPLY_CHAIN: &str = "octet-release-supply-chain";
 const FIELD_SCHEMA_VERSION: &str = "schema_version";
@@ -35,6 +37,8 @@ const SOURCE_TRANSCRIPT_PREFIX: &str = "octet.transcript.";
 const SOURCE_EXTERNAL_LINT_PREFIX: &str = "octet.external_lint.";
 const SOURCE_DEPENDENCY_TRUST_PREFIX: &str = "octet.dependency_trust.";
 const SOURCE_API_STABILITY_PREFIX: &str = "octet.api_stability.";
+const SOURCE_MUTATION_TESTING_PREFIX: &str = "octet.mutation_testing.";
+const SOURCE_COVERAGE_BASELINE_PREFIX: &str = "octet.coverage_baseline.";
 const SOURCE_DYNAMIC_EVIDENCE_PREFIX: &str = "octet.dynamic_evidence.";
 const SOURCE_RELEASE_SUPPLY_CHAIN_PREFIX: &str = "octet.release_supply_chain.";
 
@@ -192,6 +196,18 @@ fn provenance_producers() -> &'static [ProvenanceProducer] {
             checker_id: CHECKER_CARGO_SEMVER_CHECKS,
             source_prefixes: &[SOURCE_API_STABILITY_PREFIX],
             allowed_tiers: &[EvidenceTier::PolicyCheck],
+            allows_formal_proof: false,
+        },
+        ProvenanceProducer {
+            checker_id: CHECKER_CARGO_MUTANTS,
+            source_prefixes: &[SOURCE_MUTATION_TESTING_PREFIX],
+            allowed_tiers: &[EvidenceTier::TranscriptAssertion],
+            allows_formal_proof: false,
+        },
+        ProvenanceProducer {
+            checker_id: CHECKER_CARGO_LLVM_COV,
+            source_prefixes: &[SOURCE_COVERAGE_BASELINE_PREFIX],
+            allowed_tiers: &[EvidenceTier::TranscriptAssertion],
             allows_formal_proof: false,
         },
         ProvenanceProducer {

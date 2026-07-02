@@ -429,7 +429,7 @@ Renders or checks the generated current-head Valence evidence Markdown index. Ch
 
 const EVIDENCE_RAIL_HELP: &str = "cargo octet evidence collect
 
-Options: --rail dependency-audit|clippy-co-reporting|dependency-trust|api-stability|dynamic-evidence|release-supply-chain, --input PATH or --run, --artifact-dir PATH, --workspace-root PATH, --config PATH, --baseline PATH, --profile NAME, --command COMMAND, --parent-artifact PATH, --locked, --update-advisory-database, --output-format human|json.
+Options: --rail dependency-audit|clippy-co-reporting|dependency-trust|api-stability|dynamic-evidence|release-supply-chain|mutation-testing|coverage-baseline, --input PATH or --run, --artifact-dir PATH, --workspace-root PATH, --config PATH, --baseline PATH, --profile NAME, --command COMMAND, --parent-artifact PATH, --locked, --update-advisory-database, --output-format human|json.
 
 Collects optional non-starter evidence from external tools or saved tool output into a Rust-owned evidence-rail receipt, summary, and provenance bundle. These rails are complementary to cargo octet check; they do not upgrade validation evidence into formal proof.
 ";

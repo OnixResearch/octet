@@ -36,6 +36,9 @@ const DYNAMIC_COMMAND_MIRI_TEST: &str = "cargo miri test";
 const DYNAMIC_PROFILE_LOOM_CONCURRENCY: &str = "loom-concurrency";
 const DYNAMIC_PROFILE_LOOM_SHORT: &str = "loom";
 const DYNAMIC_COMMAND_LOOM_TEST: &str = "cargo test --cfg loom";
+const SUPPORTED_EVIDENCE_RAILS: &str = "dependency-audit, clippy-co-reporting, dependency-trust, api-stability, dynamic-evidence, release-supply-chain, mutation-testing, or coverage-baseline";
+const COVERAGE_PERCENT_MIN: f64 = 0.0;
+const COVERAGE_PERCENT_MAX: f64 = 100.0;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum EvidenceRailKind {
@@ -45,6 +48,8 @@ pub enum EvidenceRailKind {
     ApiStability,
     DynamicEvidence,
     ReleaseSupplyChain,
+    MutationTesting,
+    CoverageBaseline,
 }
 
 impl EvidenceRailKind {
@@ -56,9 +61,9 @@ impl EvidenceRailKind {
             "api-stability" | "semver" | "cargo-semver-checks" => Ok(Self::ApiStability),
             "dynamic-evidence" => Ok(Self::DynamicEvidence),
             "release-supply-chain" => Ok(Self::ReleaseSupplyChain),
-            other => Err(format!(
-                "unsupported evidence rail `{other}`; expected dependency-audit, clippy-co-reporting, dependency-trust, api-stability, dynamic-evidence, or release-supply-chain"
-            )),
+            "mutation-testing" | "cargo-mutants" | "mutants" => Ok(Self::MutationTesting),
+            "coverage-baseline" | "coverage" | "cargo-llvm-cov" => Ok(Self::CoverageBaseline),
+            other => Err(format!("unsupported evidence rail `{other}`; expected {SUPPORTED_EVIDENCE_RAILS}")),
         }
     }
 
@@ -70,6 +75,8 @@ impl EvidenceRailKind {
             Self::ApiStability => "api-stability",
             Self::DynamicEvidence => "dynamic-evidence",
             Self::ReleaseSupplyChain => "release-supply-chain",
+            Self::MutationTesting => "mutation-testing",
+            Self::CoverageBaseline => "coverage-baseline",
         }
     }
 
@@ -81,6 +88,8 @@ impl EvidenceRailKind {
             Self::ApiStability => crate::evidence::CHECKER_CARGO_SEMVER_CHECKS,
             Self::DynamicEvidence => crate::evidence::CHECKER_OCTET_DYNAMIC_EVIDENCE,
             Self::ReleaseSupplyChain => crate::evidence::CHECKER_OCTET_RELEASE_SUPPLY_CHAIN,
+            Self::MutationTesting => crate::evidence::CHECKER_CARGO_MUTANTS,
+            Self::CoverageBaseline => crate::evidence::CHECKER_CARGO_LLVM_COV,
         }
     }
 
@@ -92,13 +101,15 @@ impl EvidenceRailKind {
             Self::ApiStability => "octet.api_stability.semver-rail",
             Self::DynamicEvidence => "octet.dynamic_evidence.profile-runner",
             Self::ReleaseSupplyChain => "octet.release_supply_chain.local-receipt",
+            Self::MutationTesting => "octet.mutation_testing.cargo-mutants",
+            Self::CoverageBaseline => "octet.coverage_baseline.cargo-llvm-cov",
         }
     }
 
     pub fn evidence_tier(self) -> EvidenceTier {
         match self {
             Self::ClippyCoReporting => EvidenceTier::StaticLint,
-            Self::DynamicEvidence => EvidenceTier::TranscriptAssertion,
+            Self::DynamicEvidence | Self::MutationTesting | Self::CoverageBaseline => EvidenceTier::TranscriptAssertion,
             _ => EvidenceTier::PolicyCheck,
         }
     }
@@ -115,6 +126,19 @@ impl EvidenceRailKind {
                 "sbom",
                 "vulnerability-scan",
                 "attestation-compatibility",
+            ]),
+            Self::MutationTesting => string_vec(&[
+                "mutant-generation",
+                "caught-mutants",
+                "survived-mutants",
+                "timeout-mutants",
+                "test-suite-kill-signal",
+            ]),
+            Self::CoverageBaseline => string_vec(&[
+                "coverage-summary",
+                "accepted-baseline",
+                "regression-detection",
+                "threshold-failures",
             ]),
         }
     }
@@ -146,6 +170,16 @@ impl EvidenceRailKind {
                 "local release receipts are SLSA/in-toto compatible shapes, not hosted-service attestations",
                 "SBOM and vulnerability scan evidence does not prove the binary is vulnerability-free",
                 "auditable dependency metadata does not prove source correctness",
+            ]),
+            Self::MutationTesting => string_vec(&[
+                "mutation testing evidence samples the test suite sensitivity and does not prove the tests are complete",
+                "survived or timed-out mutants require review before promotion rather than formal-proof treatment",
+                "cargo-mutants evidence is optional and not part of starter cargo octet check",
+            ]),
+            Self::CoverageBaseline => string_vec(&[
+                "coverage evidence measures executed code regions and does not prove behavioral correctness",
+                "coverage baseline evidence is optional and not part of starter cargo octet check",
+                "passing coverage thresholds does not replace review of uncovered critical paths",
             ]),
         }
     }
@@ -446,6 +480,8 @@ fn parse_rail_input(input: &EvaluationInput<'_>) -> RailParseOutput {
         EvidenceRailKind::ApiStability => parse_api_stability(input),
         EvidenceRailKind::DynamicEvidence => parse_dynamic_evidence(input),
         EvidenceRailKind::ReleaseSupplyChain => parse_release_supply_chain(input),
+        EvidenceRailKind::MutationTesting => parse_mutation_testing(input),
+        EvidenceRailKind::CoverageBaseline => parse_coverage_baseline(input),
     }
 }
 
@@ -734,6 +770,113 @@ fn parse_release_supply_chain(input: &EvaluationInput<'_>) -> RailParseOutput {
     }
 }
 
+fn parse_mutation_testing(input: &EvaluationInput<'_>) -> RailParseOutput {
+    let mut diagnostics = Vec::new();
+    let mut findings = Vec::new();
+    let value = parse_json_value(input.import_text, &mut diagnostics);
+    if let Some(value) = value {
+        push_mutant_findings(
+            &value,
+            "survived_mutants",
+            "survived-mutant",
+            "manual_review",
+            "survived mutant",
+            &mut findings,
+        );
+        push_mutant_findings(&value, "survivors", "survived-mutant", "manual_review", "survived mutant", &mut findings);
+        push_mutant_findings(
+            &value,
+            "timeout_mutants",
+            "timeout-mutant",
+            "manual_review",
+            "timed-out mutant",
+            &mut findings,
+        );
+        push_mutant_findings(&value, "timeouts", "timeout-mutant", "manual_review", "timed-out mutant", &mut findings);
+        push_outcome_mutant_findings(&value, &mut findings);
+        push_aggregate_mutation_finding(
+            &value,
+            "survived",
+            "survived-mutant",
+            "manual_review",
+            "survived mutant",
+            &mut findings,
+        );
+        push_aggregate_mutation_finding(
+            &value,
+            "timeout",
+            "timeout-mutant",
+            "manual_review",
+            "timed-out mutant",
+            &mut findings,
+        );
+        push_aggregate_mutation_finding(
+            &value,
+            "timed_out",
+            "timeout-mutant",
+            "manual_review",
+            "timed-out mutant",
+            &mut findings,
+        );
+    }
+    let finding_counts = counts_by_family(&findings);
+    let status = if findings.is_empty() {
+        STATUS_PASSED.to_owned()
+    } else {
+        STATUS_MANUAL_REVIEW_REQUIRED.to_owned()
+    };
+    RailParseOutput {
+        findings,
+        finding_counts,
+        diagnostics,
+        status,
+        profile: None,
+    }
+}
+
+fn parse_coverage_baseline(input: &EvaluationInput<'_>) -> RailParseOutput {
+    let mut diagnostics = Vec::new();
+    if input.baseline_identity.is_none() {
+        diagnostics.push("coverage-baseline rail requires an accepted baseline path or identity".to_owned());
+    }
+    let mut findings = Vec::new();
+    let value = parse_json_value(input.import_text, &mut diagnostics);
+    if let Some(value) = value {
+        validate_coverage_summary(&value, &mut diagnostics);
+        push_coverage_findings(&value, "regressions", "coverage-regression", "coverage regression", &mut findings);
+        push_coverage_findings(
+            &value,
+            "threshold_failures",
+            "coverage-threshold",
+            "coverage threshold failure",
+            &mut findings,
+        );
+        push_aggregate_coverage_finding(
+            &value,
+            "regression_count",
+            "coverage-regression",
+            "coverage regression",
+            &mut findings,
+        );
+        push_aggregate_coverage_finding(
+            &value,
+            "threshold_failure_count",
+            "coverage-threshold",
+            "coverage threshold failure",
+            &mut findings,
+        );
+    }
+    let finding_counts = counts_by_family(&findings);
+    let status = status_from_error_findings(&findings);
+    RailParseOutput {
+        findings,
+        finding_counts,
+        diagnostics,
+        status,
+        profile: None,
+    }
+}
+
 fn evidence_input_text(args: &EvidenceRailArgs) -> Result<(&'static str, String, Option<i32>), String> {
     match (&args.input, args.run) {
         (Some(input), false) => {
@@ -813,6 +956,8 @@ fn command_argv(
         }
         EvidenceRailKind::DynamicEvidence => requested_command.map(split_command).unwrap_or_default(),
         EvidenceRailKind::ReleaseSupplyChain => string_vec(&["cargo", "auditable", "build"]),
+        EvidenceRailKind::MutationTesting => string_vec(&["cargo", "mutants", "--json"]),
+        EvidenceRailKind::CoverageBaseline => string_vec(&["cargo", "llvm-cov", "--json", "--summary-only"]),
     }
 }
 
@@ -965,6 +1110,166 @@ fn string_array_field(value: &serde_json::Value, field: &str) -> Vec<String> {
 
 fn string_field<'a>(value: &'a serde_json::Value, field: &str) -> Option<&'a str> {
     value.get(field).and_then(serde_json::Value::as_str)
+}
+
+fn u64_field(value: &serde_json::Value, field: &str) -> Option<u64> {
+    value.get(field).and_then(serde_json::Value::as_u64)
+}
+
+fn f64_field(value: &serde_json::Value, field: &str) -> Option<f64> {
+    value.get(field).and_then(serde_json::Value::as_f64)
+}
+
+fn summary_u64_field(value: &serde_json::Value, field: &str) -> Option<u64> {
+    value
+        .get("summary")
+        .and_then(|summary| u64_field(summary, field))
+        .or_else(|| u64_field(value, field))
+}
+
+fn push_mutant_findings(
+    value: &serde_json::Value,
+    field: &str,
+    family: &str,
+    severity: &str,
+    label: &str,
+    findings: &mut Vec<EvidenceRailFinding>,
+) {
+    for mutant in array_field(value, field) {
+        findings.push(mutant_finding(mutant, family, severity, label));
+    }
+}
+
+fn push_outcome_mutant_findings(value: &serde_json::Value, findings: &mut Vec<EvidenceRailFinding>) {
+    for outcome in array_field(value, "outcomes") {
+        let status = string_field(outcome, "status").or_else(|| string_field(outcome, "outcome"));
+        match status {
+            Some("survived" | "missed") => {
+                findings.push(mutant_finding(outcome, "survived-mutant", "manual_review", "survived mutant"))
+            }
+            Some("timeout" | "timed-out" | "timed_out") => {
+                findings.push(mutant_finding(outcome, "timeout-mutant", "manual_review", "timed-out mutant"))
+            }
+            _ => {}
+        }
+    }
+}
+
+fn push_aggregate_mutation_finding(
+    value: &serde_json::Value,
+    count_field: &str,
+    family: &str,
+    severity: &str,
+    label: &str,
+    findings: &mut Vec<EvidenceRailFinding>,
+) {
+    if findings.iter().any(|finding| finding.family == family) {
+        return;
+    }
+    let Some(count) = summary_u64_field(value, count_field) else {
+        return;
+    };
+    if count == 0 {
+        return;
+    }
+    findings.push(EvidenceRailFinding {
+        family: family.to_owned(),
+        severity: severity.to_owned(),
+        message: format!("{label} count: {count}"),
+        source_severity: None,
+        file: None,
+        line: None,
+        column: None,
+    });
+}
+
+fn mutant_finding(mutant: &serde_json::Value, family: &str, severity: &str, label: &str) -> EvidenceRailFinding {
+    let name = string_field(mutant, "name")
+        .or_else(|| string_field(mutant, "id"))
+        .or_else(|| string_field(mutant, "description"))
+        .unwrap_or("unnamed mutant");
+    EvidenceRailFinding {
+        family: family.to_owned(),
+        severity: severity.to_owned(),
+        message: format!("{label}: {name}"),
+        source_severity: None,
+        file: string_field(mutant, "file").map(ToOwned::to_owned),
+        line: u64_field(mutant, "line"),
+        column: u64_field(mutant, "column"),
+    }
+}
+
+fn validate_coverage_summary(value: &serde_json::Value, diagnostics: &mut Vec<String>) {
+    let summary = value.get("summary").unwrap_or(value);
+    let percent_fields = [
+        ("line_percent", "line coverage"),
+        ("branch_percent", "branch coverage"),
+        ("function_percent", "function coverage"),
+    ];
+    let mut saw_percentage = false;
+    for (field, label) in percent_fields {
+        let Some(percent) = f64_field(summary, field) else {
+            continue;
+        };
+        saw_percentage = true;
+        if !(COVERAGE_PERCENT_MIN..=COVERAGE_PERCENT_MAX).contains(&percent) {
+            diagnostics.push(format!(
+                "coverage-baseline rail {label} percentage `{percent}` must be between {COVERAGE_PERCENT_MIN} and {COVERAGE_PERCENT_MAX}"
+            ));
+        }
+    }
+    if !saw_percentage {
+        diagnostics.push("coverage-baseline rail requires line, branch, or function percentage summary".to_owned());
+    }
+}
+
+fn push_coverage_findings(
+    value: &serde_json::Value,
+    field: &str,
+    family: &str,
+    label: &str,
+    findings: &mut Vec<EvidenceRailFinding>,
+) {
+    for item in array_field(value, field) {
+        let metric = string_field(item, "metric").unwrap_or("coverage metric");
+        let message = string_field(item, "message").map_or_else(|| format!("{label}: {metric}"), ToOwned::to_owned);
+        findings.push(EvidenceRailFinding {
+            family: family.to_owned(),
+            severity: "error".to_owned(),
+            message,
+            source_severity: None,
+            file: None,
+            line: None,
+            column: None,
+        });
+    }
+}
+
+fn push_aggregate_coverage_finding(
+    value: &serde_json::Value,
+    count_field: &str,
+    family: &str,
+    label: &str,
+    findings: &mut Vec<EvidenceRailFinding>,
+) {
+    if findings.iter().any(|finding| finding.family == family) {
+        return;
+    }
+    let Some(count) = u64_field(value, count_field) else {
+        return;
+    };
+    if count == 0 {
+        return;
+    }
+    findings.push(EvidenceRailFinding {
+        family: family.to_owned(),
+        severity: "error".to_owned(),
+        message: format!("{label} count: {count}"),
+        source_severity: None,
+        file: None,
+        line: None,
+        column: None,
+    });
 }
 
 fn primary_span(message: &serde_json::Value) -> Option<&serde_json::Value> {
@@ -1269,6 +1574,43 @@ mod tests {
     }
 
     #[test]
+    fn mutation_testing_records_clean_and_survived_mutants() {
+        const SURVIVED_MUTANT_LINE: u64 = 42;
+
+        let clean = mutation_receipt(r#"{"summary":{"total":2,"caught":2,"survived":0,"timeout":0},"outcomes":[]}"#);
+        assert_eq!(clean.status, STATUS_PASSED);
+        assert_eq!(clean.checker_id, crate::evidence::CHECKER_CARGO_MUTANTS);
+        assert!(clean.non_claims.iter().any(|claim| claim.contains("does not prove the tests are complete")));
+
+        let survived = mutation_receipt(
+            r#"{"summary":{"total":2,"caught":1,"survived":1,"timeout":0},"survived_mutants":[{"name":"replace + with -","file":"src/lib.rs","line":42}]}"#,
+        );
+        assert_eq!(survived.status, STATUS_MANUAL_REVIEW_REQUIRED);
+        assert_eq!(survived.finding_counts.get("survived-mutant"), Some(&1));
+        assert_eq!(survived.findings[0].line, Some(SURVIVED_MUTANT_LINE));
+    }
+
+    #[test]
+    fn coverage_baseline_requires_baseline_and_reports_regression() {
+        let clean = coverage_receipt(
+            r#"{"summary":{"line_percent":92.5,"branch_percent":81.0,"function_percent":100.0},"regressions":[],"threshold_failures":[]}"#,
+            Some(BASELINE_IDENTITY.to_owned()),
+        );
+        assert_eq!(clean.status, STATUS_PASSED);
+        assert_eq!(clean.checker_id, crate::evidence::CHECKER_CARGO_LLVM_COV);
+        assert_eq!(clean.baseline_identity.as_deref(), Some(BASELINE_IDENTITY));
+        assert!(clean.non_claims.iter().any(|claim| claim.contains("does not prove behavioral correctness")));
+
+        let regressed = coverage_receipt(
+            r#"{"summary":{"line_percent":88.0},"regressions":[{"metric":"line_percent","message":"line coverage fell below accepted baseline"}]}"#,
+            None,
+        );
+        assert_eq!(regressed.status, STATUS_FAILED);
+        assert!(regressed.diagnostics.iter().any(|diagnostic| diagnostic.contains("accepted baseline")));
+        assert_eq!(regressed.finding_counts.get("coverage-regression"), Some(&1));
+    }
+
+    #[test]
     fn checked_in_fixture_matrix_covers_positive_and_negative_rails() {
         let clean_deny = include_str!("../tests/fixtures/evidence-rails/dependency-audit-clean.json");
         let denied = include_str!("../tests/fixtures/evidence-rails/dependency-audit-denied.json");
@@ -1277,6 +1619,8 @@ mod tests {
         let semver_removed = include_str!("../tests/fixtures/evidence-rails/api-stability-removed.json");
         let dynamic_mismatch = include_str!("../tests/fixtures/evidence-rails/dynamic-profile-mismatch.json");
         let release_clean = include_str!("../tests/fixtures/evidence-rails/release-supply-chain-clean.json");
+        let mutation_clean = include_str!("../tests/fixtures/evidence-rails/mutation-testing-clean.json");
+        let coverage_regression = include_str!("../tests/fixtures/evidence-rails/coverage-baseline-regression.json");
 
         assert_eq!(dependency_audit_receipt(clean_deny, Some(DENY_CONFIG)).status, STATUS_PASSED);
         assert_eq!(dependency_audit_receipt(denied, Some(DENY_CONFIG)).finding_counts.get("licenses"), Some(&1));
@@ -1285,6 +1629,8 @@ mod tests {
         assert_eq!(api_removed_receipt(semver_removed).finding_counts.get("removed-public-item"), Some(&1));
         assert!(!dynamic_mismatch_receipt(dynamic_mismatch).diagnostics.is_empty());
         assert_eq!(release_receipt(release_clean).status, STATUS_PASSED);
+        assert_eq!(mutation_receipt(mutation_clean).status, STATUS_PASSED);
+        assert_eq!(coverage_receipt(coverage_regression, Some(BASELINE_IDENTITY.to_owned())).status, STATUS_FAILED);
     }
 
     #[test]
@@ -1320,6 +1666,15 @@ mod tests {
             "cargo",
             "auditable",
             "build"
+        ]);
+        assert_eq!(command_argv(EvidenceRailKind::MutationTesting, None, None, None), vec![
+            "cargo", "mutants", "--json"
+        ]);
+        assert_eq!(command_argv(EvidenceRailKind::CoverageBaseline, None, None, None), vec![
+            "cargo",
+            "llvm-cov",
+            "--json",
+            "--summary-only"
         ]);
     }
 
@@ -1441,6 +1796,21 @@ mod tests {
         })
     }
 
+    fn mutation_receipt(import_text: &str) -> EvidenceRailReceipt {
+        evaluate(EvaluationInput {
+            import_text,
+            ..mutation_input()
+        })
+    }
+
+    fn coverage_receipt(import_text: &str, baseline_identity: Option<String>) -> EvidenceRailReceipt {
+        evaluate(EvaluationInput {
+            import_text,
+            baseline_identity,
+            ..coverage_input()
+        })
+    }
+
     fn api_stability_input() -> EvaluationInput<'static> {
         EvaluationInput {
             rail: EvidenceRailKind::ApiStability,
@@ -1485,6 +1855,42 @@ mod tests {
             workspace_scope: WORKSPACE_SCOPE,
             config_path: None,
             baseline_identity: None,
+            lockfile_identity: None,
+            locked: false,
+            advisory_updated_by_prior_step: false,
+            profile: None,
+            requested_command: None,
+            parent_artifacts: Vec::new(),
+            tool_exit_code: None,
+        }
+    }
+
+    fn mutation_input() -> EvaluationInput<'static> {
+        EvaluationInput {
+            rail: EvidenceRailKind::MutationTesting,
+            mode: MODE_IMPORT,
+            import_text: "{}",
+            workspace_scope: WORKSPACE_SCOPE,
+            config_path: None,
+            baseline_identity: None,
+            lockfile_identity: None,
+            locked: false,
+            advisory_updated_by_prior_step: false,
+            profile: None,
+            requested_command: None,
+            parent_artifacts: Vec::new(),
+            tool_exit_code: None,
+        }
+    }
+
+    fn coverage_input() -> EvaluationInput<'static> {
+        EvaluationInput {
+            rail: EvidenceRailKind::CoverageBaseline,
+            mode: MODE_IMPORT,
+            import_text: "{}",
+            workspace_scope: WORKSPACE_SCOPE,
+            config_path: None,
+            baseline_identity: Some(BASELINE_IDENTITY.to_owned()),
             lockfile_identity: None,
             locked: false,
             advisory_updated_by_prior_step: false,
