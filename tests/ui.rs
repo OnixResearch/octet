@@ -384,6 +384,27 @@ fn fixed_fixture_names() -> Vec<String> {
     fixtures
 }
 
+fn cargo_fix_autofix_fixture_command(crate_dir: &Path, driver: &Path, dylint_libs: &str, toolchain: &str) -> Command {
+    let mut command = cargo_command();
+    command
+        .current_dir(crate_dir)
+        .env("CLIPPY_DISABLE_DOCS_LINKS", "true")
+        .env("DYLINT_LIBS", dylint_libs)
+        .env("DYLINT_NO_DEPS", "1")
+        .env("RUSTC_WORKSPACE_WRAPPER", driver)
+        .env("RUSTUP_TOOLCHAIN", toolchain)
+        .env("CARGO_TARGET_DIR", crate_dir.join("target"))
+        .args([
+            "fix",
+            "--allow-dirty",
+            "--allow-staged",
+            "--allow-no-vcs",
+            "--bin",
+            "autofix_fixture",
+        ]);
+    command
+}
+
 fn run_autofix_fixture(driver: &Path, library: &Path, toolchain: &str, name: &str) {
     let ui_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("ui_tests");
     let fixture_path = ui_dir.join(format!("{name}.rs"));
@@ -411,22 +432,7 @@ fn run_autofix_fixture(driver: &Path, library: &Path, toolchain: &str, name: &st
     let main_rs = src_dir.join("main.rs");
     fs::write(&main_rs, source).expect("write autofix main.rs");
 
-    let mut fix = cargo_command();
-    fix.current_dir(&crate_dir)
-        .env("CLIPPY_DISABLE_DOCS_LINKS", "true")
-        .env("DYLINT_LIBS", &dylint_libs)
-        .env("DYLINT_NO_DEPS", "1")
-        .env("RUSTC_WORKSPACE_WRAPPER", driver)
-        .env("RUSTUP_TOOLCHAIN", toolchain)
-        .env("CARGO_TARGET_DIR", crate_dir.join("target"))
-        .args([
-            "fix",
-            "--allow-dirty",
-            "--allow-staged",
-            "--allow-no-vcs",
-            "--bin",
-            "autofix_fixture",
-        ]);
+    let mut fix = cargo_fix_autofix_fixture_command(&crate_dir, driver, &dylint_libs, toolchain);
 
     eprintln!("[autofix fixture] {name}");
     eprintln!(
@@ -449,6 +455,27 @@ fn run_autofix_fixture(driver: &Path, library: &Path, toolchain: &str, name: &st
 
     let actual = fs::read_to_string(&main_rs).expect("read autofixed main.rs");
     assert_eq!(expected, actual, "autofix output mismatch for fixture {name}");
+
+    eprintln!(
+        "[autofix idempotence command] (cd {} && cargo fix --allow-dirty --allow-staged --allow-no-vcs --bin autofix_fixture)",
+        crate_dir.display()
+    );
+    let mut second_fix = cargo_fix_autofix_fixture_command(&crate_dir, driver, &dylint_libs, toolchain);
+    let second_fix_output = second_fix.output().expect("rerun cargo fix for autofix fixture");
+    let second_fix_stdout = String::from_utf8(second_fix_output.stdout).expect("utf8 second cargo fix stdout");
+    let second_fix_stderr = String::from_utf8(second_fix_output.stderr).expect("utf8 second cargo fix stderr");
+    if !second_fix_stdout.is_empty() {
+        eprintln!("[autofix idempotence stdout]\n{second_fix_stdout}");
+    }
+    if !second_fix_stderr.is_empty() {
+        eprintln!("[autofix idempotence stderr]\n{second_fix_stderr}");
+    }
+    assert!(
+        second_fix_output.status.success(),
+        "second cargo fix failed for fixture {name}:\nstdout:\n{second_fix_stdout}\nstderr:\n{second_fix_stderr}"
+    );
+    let second_actual = fs::read_to_string(&main_rs).expect("read twice-autofixed main.rs");
+    assert_eq!(actual, second_actual, "autofix fixture {name} changed on second cargo fix run");
 
     eprintln!(
         "[autofix post-check command] (cd {} && cargo check --quiet --bin autofix_fixture)",

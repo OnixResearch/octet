@@ -55,7 +55,7 @@
 - Fixture-local support manifests may depend on sibling path crates, but those nested path crates must NOT declare their own `[workspace]` table or Cargo reports multiple workspace roots under `ui_tests/...`.
 - Nix `checks.ui` only vendors dependencies present in the repo root `Cargo.lock`; if a fixture-local support crate depends on `tokio`, add matching root `dev-dependencies` so the vendored sandbox can resolve it.
 - The custom `tests/ui.rs` harness now supports snapshot refresh via `BLESS=1 cargo test --test ui -- --ignored --nocapture`; use it inside `nix develop` when updating `.stderr` files.
-- `tests/ui.rs` now also has ignored rail `autofix_machine_applicable`; it discovers every checked-in `ui_tests/*.fixed`, runs `cargo fix` in a temporary Cargo crate with the built tigerstyle Dylint wrapper, compares the result to the `.fixed` file, then reruns `cargo check` and asserts zero warnings remain.
+- `tests/ui.rs` now also has ignored rail `autofix_machine_applicable`; it discovers every checked-in `ui_tests/*.fixed`, runs `cargo fix` in a temporary Cargo crate with the built tigerstyle Dylint wrapper, compares the result to the `.fixed` file, reruns `cargo fix` to prove idempotence, then reruns `cargo check` and asserts zero warnings remain.
 
 ## OpenSpec workflow
 - Repo-local OpenSpec task guidance now lives at `openspec/templates/tasks.md`; active changes should dogfood that `I<n>` / `V<n>` / `H<n>` shape and end with `## Verification Coverage`.

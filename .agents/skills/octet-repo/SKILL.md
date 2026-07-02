@@ -186,7 +186,7 @@ Read first:
 
 Repo-specific UI rules:
 - canonical ignored UI rail is `cargo test --test ui ui -- --ignored --nocapture`
-- autofix rail is `cargo test --test ui autofix_machine_applicable -- --ignored --nocapture`
+- autofix rail is `cargo test --test ui autofix_machine_applicable -- --ignored --nocapture`; it compares `.fixed`, reruns `cargo fix` for idempotence, and checks the fixed crate warning-free
 - fixture selection happens inside `tests/ui.rs`; do not tack on a random extra libtest filter expecting one fixture to run
 - tool-scoped fixture attrs need `#![feature(register_tool)]` and `#![register_tool(tigerstyle)]`
 - fixture subdirs like `ui_tests/foo/foo.rs` still snapshot to `ui_tests/foo.stderr`

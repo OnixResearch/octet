@@ -37,6 +37,7 @@ second required acceptance path.
 - WHEN a maintainer validates that case through the saved nix-devshell
   `cargo fix` proof path
 - THEN the emitted replacement is eligible for automatic application
+- AND rerunning the same automatic fix leaves the validated post-fix fixture unchanged
 - AND the validated post-fix fixture still compiles without manual edits
 
 #### Scenario: Review-required suggestion stays manual
@@ -245,8 +246,9 @@ without the matching `.fixed` proof for that pattern.
 - WHEN they inspect the saved autofix validation artifacts
 - THEN they find a `.fixed` fixture showing the post-fix code with declaration
   and all use sites renamed
-- AND the `.fixed` fixture compiles cleanly through the `autofix_machine_applicable`
-  test rail
+- AND the `.fixed` fixture remains unchanged on a second `cargo fix` pass through
+  the `autofix_machine_applicable` test rail
+- AND the `.fixed` fixture compiles cleanly through the same test rail
 
 #### Scenario: Review checks manual-only suggestion proof
 
