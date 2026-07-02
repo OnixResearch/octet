@@ -13,7 +13,6 @@ use std::time::Duration;
 use std::time::Instant;
 
 use octet_standards::artifacts::POLICIES_JSON_FILE;
-use octet_standards::model::EnforcementMode;
 use octet_standards::model::FamilySelection;
 use octet_standards::model::PolicyEntry;
 use octet_standards::model::PolicyRegistry;
@@ -27,9 +26,7 @@ use octet_standards::proof::VerusProofReceipt;
 use octet_standards::proof::VerusProofReceiptInput;
 use octet_standards::proof::build_verus_proof_receipt;
 use octet_standards::proof::validate_proof_receipt_with_identity;
-use octet_standards::proof_artifact::matching_sources;
 use octet_standards::proof_artifact::path_pattern_diagnostics;
-use octet_standards::proof_artifact::proof_rail_is_relevant;
 use octet_standards::proof_artifact::receipt_paths as proof_artifact_receipt_paths;
 use octet_standards::source::SourceFile;
 use serde::Deserialize;
@@ -45,6 +42,7 @@ use crate::imported_proof::ImportedProofBundle;
 use crate::imported_proof::ImportedProofBundleManifest;
 use crate::imported_proof::bundle_artifacts;
 use crate::imported_proof::validate_imported_proof_manifest_shape;
+use crate::prove_core;
 
 const REPORT_SCHEMA_VERSION: u32 = 1;
 const EXIT_PROOF_VALID: i32 = 0;
@@ -373,30 +371,17 @@ fn selected_rails<'a>(
     sources: &[SourceFile],
     selection: &FamilySelection,
 ) -> Vec<SelectedRail<'a>> {
-    registry
-        .policies
-        .iter()
-        .filter(|policy| selection.includes(&policy.pillar))
-        .filter(|policy| policy_is_verified(policy))
-        .flat_map(|policy| {
-            policy.proof_rails.iter().enumerate().filter(|(_, rail)| rail_matches_sources(rail, sources)).map(
-                move |(rail_index, rail)| SelectedRail {
-                    policy,
-                    rail_index,
-                    rail,
-                },
-            )
+    prove_core::selected_rail_indices(registry, sources, selection)
+        .into_iter()
+        .map(|selected| {
+            let policy = &registry.policies[selected.policy_index];
+            SelectedRail {
+                policy,
+                rail_index: selected.rail_index,
+                rail: &policy.proof_rails[selected.rail_index],
+            }
         })
         .collect()
-}
-
-fn policy_is_verified(policy: &PolicyEntry) -> bool {
-    policy.current_enforcement_mode == EnforcementMode::Verified
-        || policy.target_enforcement_mode == EnforcementMode::Verified
-}
-
-fn rail_matches_sources(rail: &ProofRail, sources: &[SourceFile]) -> bool {
-    proof_rail_is_relevant(rail, sources)
 }
 
 fn execute_proof(
@@ -1567,6 +1552,7 @@ fn command_display(rail: &ProofRail) -> String {
 mod tests {
     use octet_standards::model::Classification;
     use octet_standards::model::EnforcementLevel;
+    use octet_standards::model::EnforcementMode;
     use octet_standards::model::FixtureCoverage;
     use octet_standards::model::FixtureStatus;
     use octet_standards::model::ReceiptProvenance;

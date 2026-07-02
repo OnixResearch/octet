@@ -1324,68 +1324,11 @@ fn parse_supplement_spike_scope(value: &str) -> Result<SupplementScopeArg, Strin
     }
 }
 
-struct SupplementFixtureSelection {
-    path: PathBuf,
-    function: String,
-}
-
 fn parse_supplement_fixture_shape(
     scope: SupplementScopeArg,
     value: &str,
-) -> Result<SupplementFixtureSelection, String> {
-    match (scope, value) {
-        (SupplementScopeArg::RustcHirFixtureSpike, "checked" | "checked-arithmetic") => {
-            Ok(SupplementFixtureSelection {
-                path: PathBuf::from("cargo-octet/tests/fixtures/hir-spike/checked.rs"),
-                function: "checked".to_owned(),
-            })
-        }
-        (SupplementScopeArg::RustcHirFixtureSpike, "branch" | "branch-control-flow" | "clamp") => {
-            Ok(SupplementFixtureSelection {
-                path: PathBuf::from("cargo-octet/tests/fixtures/hir-spike/clamp.rs"),
-                function: "clamp_to_limit".to_owned(),
-            })
-        }
-        (SupplementScopeArg::RustcThirFixtureSpike, "checked" | "checked-arithmetic") => {
-            Ok(SupplementFixtureSelection {
-                path: PathBuf::from("cargo-octet/tests/fixtures/thir-spike/checked.rs"),
-                function: "checked".to_owned(),
-            })
-        }
-        (SupplementScopeArg::RustcThirFixtureSpike, "call-return") => Ok(SupplementFixtureSelection {
-            path: PathBuf::from("cargo-octet/tests/fixtures/thir-spike/call_return.rs"),
-            function: "call_then_return".to_owned(),
-        }),
-        (SupplementScopeArg::RustcThirFixtureSpike, "branch" | "branch-control-flow" | "clamp") => {
-            Ok(SupplementFixtureSelection {
-                path: PathBuf::from("cargo-octet/tests/fixtures/thir-spike/branch_control_flow.rs"),
-                function: "choose_branch".to_owned(),
-            })
-        }
-        (SupplementScopeArg::RustcThirFixtureSpike, other) => Err(format!(
-            "unsupported THIR supplement fixture shape `{other}`; expected `checked-arithmetic`, `call-return`, or `branch-control-flow`"
-        )),
-        (SupplementScopeArg::RustcMirFixtureSpike, "checked-arithmetic") => Ok(SupplementFixtureSelection {
-            path: PathBuf::from("cargo-octet/tests/fixtures/mir-spike/checked.rs"),
-            function: "checked".to_owned(),
-        }),
-        (SupplementScopeArg::RustcMirFixtureSpike, "call-return") => Ok(SupplementFixtureSelection {
-            path: PathBuf::from("cargo-octet/tests/fixtures/mir-spike/call_return.rs"),
-            function: "call_then_return".to_owned(),
-        }),
-        (SupplementScopeArg::RustcMirFixtureSpike, "branch" | "branch-control-flow" | "clamp") => {
-            Ok(SupplementFixtureSelection {
-                path: PathBuf::from("cargo-octet/tests/fixtures/mir-spike/branch_control_flow.rs"),
-                function: "choose_branch".to_owned(),
-            })
-        }
-        (SupplementScopeArg::RustcMirFixtureSpike, other) => Err(format!(
-            "unsupported MIR supplement fixture shape `{other}`; expected `checked-arithmetic`, `call-return`, or `branch-control-flow`"
-        )),
-        (_, other) => Err(format!(
-            "unsupported supplement fixture shape `{other}`; expected `checked-arithmetic` or `branch-control-flow`"
-        )),
-    }
+) -> Result<crate::object_core::SupplementFixtureSelection, String> {
+    crate::object_core::parse_supplement_fixture_shape(scope, value)
 }
 
 fn optional_arg(args: &[String], flag: &str) -> Option<String> {
