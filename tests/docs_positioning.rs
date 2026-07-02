@@ -7,6 +7,9 @@ const ADOPTION_STORY_DOC: &str = "docs/adoption-story.md";
 const CONSUMER_GUIDE_DOC: &str = "docs/consumer-guide.md";
 const DOWNSTREAM_ROLLOUT_DOC: &str = "docs/downstream-rollout.md";
 const LINT_REFERENCE_DOC: &str = "docs/lint-reference.md";
+const RUST_IDIOM_DOC: &str = "docs/rust-idiom-guidance.md";
+const CONCURRENCY_REVIEW_DOC: &str = "docs/concurrency-state-review.md";
+const DYNAMIC_EVIDENCE_DOC: &str = "docs/dynamic-evidence-profiles.md";
 const SAFETY_CRITICAL_DOC: &str = "docs/safety-critical.md";
 const RELEASE_CANDIDATE_DOC: &str = "docs/release-candidate.md";
 const README_DOC: &str = "README.md";
@@ -392,6 +395,100 @@ fn adoption_story_quickstart_outputs_and_faq_topics_are_visible() {
 }
 
 #[test]
+fn unsafe_boundary_record_docs_define_fields_examples_and_boundaries() {
+    let rust_idiom = read_repo_text(RUST_IDIOM_DOC);
+
+    assert_required_terms(&rust_idiom, &[
+        "Unsafe/trusted-boundary records",
+        "UNSAFE-TRUST-BOUNDARY:",
+        "review evidence, not proof",
+        "boundary name",
+        "public entry point",
+        "unsafe operation",
+        "protected invariant",
+        "caller obligation",
+        "safe wrapper or exception rationale",
+        "evidence tier",
+        "dynamic evidence selection",
+        "reviewer action",
+        "explicit non-claim",
+    ]);
+    assert_required_terms(&rust_idiom, &[
+        "Safe-wrapper example",
+        "Documented-exception example",
+        "safe public wrapper",
+        "private or narrowly scoped",
+        "documented exception",
+        "inherited caller obligations",
+        "manual_review_required plus selected unsafe/FFI dynamic evidence",
+    ]);
+    assert_required_terms(&rust_idiom, &[
+        "does not verify unsafe internals",
+        "Salt-style `@trusted` semantics",
+        "make unsafe safe by documentation alone",
+        "declared property",
+        "verifier identity",
+        "source and proof binding",
+        "receipt",
+        "artifact identity",
+    ]);
+}
+
+#[test]
+fn unsafe_boundary_docs_cover_ffi_dynamic_evidence_and_existing_links() {
+    let rust_idiom = read_repo_text(RUST_IDIOM_DOC);
+    let concurrency = read_repo_text(CONCURRENCY_REVIEW_DOC);
+    let dynamic_evidence = read_repo_text(DYNAMIC_EVIDENCE_DOC);
+    let lint_reference = read_repo_text(LINT_REFERENCE_DOC);
+    let safety_critical = read_repo_text(SAFETY_CRITICAL_DOC);
+
+    assert_required_terms(&rust_idiom, &[
+        "How do handles remain stable across the boundary?",
+        "How do foreign error codes map into Rust errors?",
+        "Who owns allocation and deallocation on each side?",
+        "Which lifetimes or aliasing assumptions are erased or reconstructed?",
+        "selected unsafe/FFI dynamic evidence",
+        "exact command or fixture",
+        "transcript or artifact",
+        "acceptance signal",
+        "starter static check path must not require Miri",
+    ]);
+    for text in [&concurrency, &dynamic_evidence, &lint_reference, &safety_critical] {
+        assert_required_terms(text, &["rust-idiom-guidance.md#unsafe-trusted-boundary-records"]);
+    }
+    assert_required_terms(&lint_reference, &["public_unsafe_api", "safe wrapper", "document the exception"]);
+    assert_required_terms(&dynamic_evidence, &["Unsafe or FFI boundary", "UNSAFE-TRUST-BOUNDARY:"]);
+}
+
+#[test]
+fn unsafe_boundary_docs_do_not_contain_unscoped_overclaim_phrases() {
+    for path in [
+        RUST_IDIOM_DOC,
+        CONCURRENCY_REVIEW_DOC,
+        DYNAMIC_EVIDENCE_DOC,
+        LINT_REFERENCE_DOC,
+        SAFETY_CRITICAL_DOC,
+    ] {
+        let text = read_repo_text(path);
+        let diagnostics = unsafe_boundary_overclaim_diagnostics(&text);
+        assert!(diagnostics.is_empty(), "{path} unsafe-boundary overclaim diagnostics: {diagnostics:?}");
+    }
+}
+
+#[test]
+fn unsafe_boundary_overclaim_checker_rejects_bad_positioning_text() {
+    let bad_text = "Octet verifies unsafe internals. Octet provides Salt-style @trusted semantics. Documentation makes unsafe safe.";
+
+    let diagnostics = unsafe_boundary_overclaim_diagnostics(bad_text);
+
+    assert_eq!(diagnostics, vec![
+        "unsupported verified-unsafe claim".to_owned(),
+        "unsupported trusted-semantics claim".to_owned(),
+        "unsupported documentation-makes-safe claim".to_owned(),
+    ]);
+}
+
+#[test]
 fn verus_proof_path_checker_rejects_unscoped_overclaim_text() {
     let bad_text = "The Verus proof path proves whole-program correctness. It provides certification and provides business-domain validation. It proves semantic equivalence and guarantees full safety for Octet. Octet is a verified runtime.";
 
@@ -702,6 +799,44 @@ fn adoption_story_overclaim_diagnostics(text: &str) -> Vec<String> {
             "octet has c performance parity",
         ],
         "unsupported c-performance claim",
+    );
+
+    diagnostics
+}
+
+fn unsafe_boundary_overclaim_diagnostics(text: &str) -> Vec<String> {
+    let lower = text.to_lowercase();
+    let mut diagnostics = Vec::new();
+
+    push_if_contains(
+        &mut diagnostics,
+        &lower,
+        &[
+            "octet verifies unsafe internals",
+            "octet verifies unsafe code",
+            "octet proves unsafe internals correct",
+        ],
+        "unsupported verified-unsafe claim",
+    );
+    push_if_contains(
+        &mut diagnostics,
+        &lower,
+        &[
+            "octet provides salt-style @trusted semantics",
+            "octet provides salt-style `@trusted` semantics",
+            "octet provides @trusted semantics",
+        ],
+        "unsupported trusted-semantics claim",
+    );
+    push_if_contains(
+        &mut diagnostics,
+        &lower,
+        &[
+            "documentation makes unsafe safe",
+            "docs make unsafe safe",
+            "review records make unsafe safe",
+        ],
+        "unsupported documentation-makes-safe claim",
     );
 
     diagnostics

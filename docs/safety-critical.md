@@ -66,6 +66,15 @@ that claim.
 - Wording rule: Green automation is useful input, not a substitute for human
   review.
 
+## Unsafe and FFI boundary evidence
+
+For new or changed unsafe, raw-pointer, FFI, lifetime-erasing, foreign
+allocation, or external ownership seams, use the
+[unsafe/trusted-boundary record](rust-idiom-guidance.md#unsafe-trusted-boundary-records).
+The record names the boundary, invariant, caller obligation, safe wrapper or
+exception rationale, evidence tier, dynamic evidence selection, reviewer action,
+and explicit non-claim. It is review evidence, not proof by itself.
+
 ## Responsible wording in docs and reviews
 
 Prefer wording that names scope, evidence, and limits. Avoid wording that
