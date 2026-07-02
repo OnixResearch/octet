@@ -77,6 +77,18 @@ fn is_countable_rust_source(path: &Path) -> bool {
     path.extension().is_some_and(|extension| extension == "rs") && !has_ignored_source_component(path)
 }
 
+fn is_workspace_source_path(path: &Path, workspace_root: &Path) -> bool {
+    if path.is_absolute() {
+        return path.starts_with(workspace_root);
+    }
+
+    workspace_root.join(path).is_file()
+}
+
+fn is_countable_workspace_rust_source(path: &Path, workspace_root: &Path) -> bool {
+    is_countable_rust_source(path) && is_workspace_source_path(path, workspace_root)
+}
+
 fn directory_display(path: &Path) -> String {
     path.to_string_lossy().into_owned()
 }
@@ -84,10 +96,11 @@ fn directory_display(path: &Path) -> String {
 impl EarlyLintPass for ModuleFileCount {
     fn check_crate(&mut self, cx: &EarlyContext<'_>, _krate: &Crate) {
         let mut by_directory: BTreeMap<PathBuf, Vec<ModuleFile>> = BTreeMap::new();
+        let workspace_root = std::env::current_dir().map(|path| normalize_path(&path)).unwrap_or_default();
 
         for source_file in cx.sess().source_map().files().iter() {
             let path = normalize_path(&source_file_path(source_file));
-            if !is_countable_rust_source(&path) {
+            if !is_countable_workspace_rust_source(&path, &workspace_root) {
                 continue;
             }
             let Some(parent) = path.parent() else {
@@ -127,10 +140,27 @@ mod tests {
     use std::path::Path;
 
     use super::is_countable_rust_source;
+    use super::is_countable_workspace_rust_source;
+    use super::is_workspace_source_path;
+
+    fn workspace_root() -> &'static Path {
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+    }
 
     #[test]
     fn counts_workspace_rust_sources() {
         assert!(is_countable_rust_source(Path::new("crates/example/src/lib.rs")));
+    }
+
+    #[test]
+    fn counts_existing_workspace_source_paths() {
+        assert!(is_countable_workspace_rust_source(Path::new("src/lib.rs"), workspace_root()));
+        assert!(is_countable_workspace_rust_source(&workspace_root().join("src/lib.rs"), workspace_root()));
+    }
+
+    #[test]
+    fn skips_remapped_dependency_paths_absent_from_workspace() {
+        assert!(!is_workspace_source_path(Path::new("<WORKSPACE>/src/address_lookup.rs"), workspace_root()));
     }
 
     #[test]

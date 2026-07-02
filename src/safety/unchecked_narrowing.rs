@@ -8,6 +8,7 @@ use rustc_middle::ty::Ty;
 use rustc_middle::ty::{self};
 use rustc_session::declare_lint_pass;
 use rustc_session::declare_tool_lint;
+use rustc_span::Span;
 
 use crate::diagnostics::LintSuggestion;
 use crate::diagnostics::emit_tiger_style_lint;
@@ -77,6 +78,176 @@ fn same_checked_expr(lhs: &hir::Expr<'_>, rhs: &hir::Expr<'_>) -> bool {
     }
 }
 
+fn span_contains(outer: Span, inner: Span) -> bool {
+    let outer = outer.source_callsite();
+    let inner = inner.source_callsite();
+    outer.lo() <= inner.lo() && inner.hi() <= outer.hi()
+}
+
+fn is_target_max_cast_to_source<'tcx>(
+    cx: &LateContext<'tcx>,
+    expr: &'tcx hir::Expr<'tcx>,
+    source_ty: Ty<'tcx>,
+    target_ty: Ty<'tcx>,
+) -> bool {
+    matches!(&expr.kind, ExprKind::Cast(max_expr, _) if cx.typeck_results().expr_ty(expr) == source_ty
+        && cx.typeck_results().expr_ty(max_expr) == target_ty
+        && is_target_max_expr(cx, max_expr, target_ty))
+}
+
+fn comparison_true_implies_safe_narrowing<'tcx>(
+    cx: &LateContext<'tcx>,
+    op: hir::BinOpKind,
+    lhs: &'tcx hir::Expr<'tcx>,
+    rhs: &'tcx hir::Expr<'tcx>,
+    inner: &'tcx hir::Expr<'tcx>,
+    source_ty: Ty<'tcx>,
+    target_ty: Ty<'tcx>,
+) -> bool {
+    let inner_on_left_is_bounded = same_checked_expr(lhs, inner)
+        && is_target_max_cast_to_source(cx, rhs, source_ty, target_ty)
+        && matches!(op, hir::BinOpKind::Le | hir::BinOpKind::Lt);
+    let inner_on_right_is_bounded = is_target_max_cast_to_source(cx, lhs, source_ty, target_ty)
+        && same_checked_expr(rhs, inner)
+        && matches!(op, hir::BinOpKind::Ge | hir::BinOpKind::Gt);
+
+    inner_on_left_is_bounded || inner_on_right_is_bounded
+}
+
+fn comparison_false_implies_safe_narrowing<'tcx>(
+    cx: &LateContext<'tcx>,
+    op: hir::BinOpKind,
+    lhs: &'tcx hir::Expr<'tcx>,
+    rhs: &'tcx hir::Expr<'tcx>,
+    inner: &'tcx hir::Expr<'tcx>,
+    source_ty: Ty<'tcx>,
+    target_ty: Ty<'tcx>,
+) -> bool {
+    let inner_on_left_is_bounded = same_checked_expr(lhs, inner)
+        && is_target_max_cast_to_source(cx, rhs, source_ty, target_ty)
+        && matches!(op, hir::BinOpKind::Ge | hir::BinOpKind::Gt);
+    let inner_on_right_is_bounded = is_target_max_cast_to_source(cx, lhs, source_ty, target_ty)
+        && same_checked_expr(rhs, inner)
+        && matches!(op, hir::BinOpKind::Le | hir::BinOpKind::Lt);
+
+    inner_on_left_is_bounded || inner_on_right_is_bounded
+}
+
+fn is_result_with_ok_type<'tcx>(cx: &LateContext<'tcx>, expr: &'tcx hir::Expr<'tcx>, ok_ty: Ty<'tcx>) -> bool {
+    let ty::Adt(adt, args) = cx.typeck_results().expr_ty(expr).kind() else {
+        return false;
+    };
+    cx.tcx.is_diagnostic_item(rustc_span::sym::Result, adt.did()) && args[0].expect_ty() == ok_ty
+}
+
+fn path_last_segment_name_is(expr: &hir::Expr<'_>, expected: &str) -> bool {
+    let ExprKind::Path(path) = &expr.kind else {
+        return false;
+    };
+
+    match path {
+        hir::QPath::Resolved(_, path) => {
+            path.segments.last().is_some_and(|segment| segment.ident.name.as_str() == expected)
+        }
+        hir::QPath::TypeRelative(_, segment) => segment.ident.name.as_str() == expected,
+    }
+}
+
+fn exact_try_conversion_guard<'tcx>(
+    cx: &LateContext<'tcx>,
+    expr: &'tcx hir::Expr<'tcx>,
+    inner: &'tcx hir::Expr<'tcx>,
+    source_ty: Ty<'tcx>,
+    target_ty: Ty<'tcx>,
+) -> bool {
+    if !is_result_with_ok_type(cx, expr, target_ty) {
+        return false;
+    }
+
+    match &expr.kind {
+        ExprKind::Call(callee, [arg]) => {
+            path_last_segment_name_is(callee, "try_from")
+                && cx.typeck_results().expr_ty(arg) == source_ty
+                && same_checked_expr(arg, inner)
+        }
+        ExprKind::MethodCall(segment, receiver, args, _) => {
+            segment.ident.name.as_str() == "try_into"
+                && args.is_empty()
+                && cx.typeck_results().expr_ty(receiver) == source_ty
+                && same_checked_expr(receiver, inner)
+        }
+        _ => false,
+    }
+}
+
+fn condition_true_implies_safe_narrowing<'tcx>(
+    cx: &LateContext<'tcx>,
+    cond: &'tcx hir::Expr<'tcx>,
+    inner: &'tcx hir::Expr<'tcx>,
+    source_ty: Ty<'tcx>,
+    target_ty: Ty<'tcx>,
+) -> bool {
+    match &cond.kind {
+        ExprKind::Binary(op, lhs, rhs) => match op.node {
+            hir::BinOpKind::And => {
+                condition_true_implies_safe_narrowing(cx, lhs, inner, source_ty, target_ty)
+                    || condition_true_implies_safe_narrowing(cx, rhs, inner, source_ty, target_ty)
+            }
+            hir::BinOpKind::Or => {
+                condition_true_implies_safe_narrowing(cx, lhs, inner, source_ty, target_ty)
+                    && condition_true_implies_safe_narrowing(cx, rhs, inner, source_ty, target_ty)
+            }
+            _ => comparison_true_implies_safe_narrowing(cx, op.node, lhs, rhs, inner, source_ty, target_ty),
+        },
+        ExprKind::MethodCall(segment, receiver, args, _) => {
+            args.is_empty()
+                && segment.ident.name.as_str() == "is_ok"
+                && exact_try_conversion_guard(cx, receiver, inner, source_ty, target_ty)
+        }
+        ExprKind::Unary(hir::UnOp::Not, nested) => {
+            condition_false_implies_safe_narrowing(cx, nested, inner, source_ty, target_ty)
+        }
+        ExprKind::Block(block, _) => block
+            .expr
+            .is_some_and(|tail| condition_true_implies_safe_narrowing(cx, tail, inner, source_ty, target_ty)),
+        _ => false,
+    }
+}
+
+fn condition_false_implies_safe_narrowing<'tcx>(
+    cx: &LateContext<'tcx>,
+    cond: &'tcx hir::Expr<'tcx>,
+    inner: &'tcx hir::Expr<'tcx>,
+    source_ty: Ty<'tcx>,
+    target_ty: Ty<'tcx>,
+) -> bool {
+    match &cond.kind {
+        ExprKind::Binary(op, lhs, rhs) => match op.node {
+            hir::BinOpKind::And => {
+                condition_false_implies_safe_narrowing(cx, lhs, inner, source_ty, target_ty)
+                    && condition_false_implies_safe_narrowing(cx, rhs, inner, source_ty, target_ty)
+            }
+            hir::BinOpKind::Or => {
+                condition_false_implies_safe_narrowing(cx, lhs, inner, source_ty, target_ty)
+                    || condition_false_implies_safe_narrowing(cx, rhs, inner, source_ty, target_ty)
+            }
+            _ => comparison_false_implies_safe_narrowing(cx, op.node, lhs, rhs, inner, source_ty, target_ty),
+        },
+        ExprKind::MethodCall(segment, receiver, args, _) => {
+            args.is_empty()
+                && segment.ident.name.as_str() == "is_err"
+                && exact_try_conversion_guard(cx, receiver, inner, source_ty, target_ty)
+        }
+        ExprKind::Unary(hir::UnOp::Not, nested) => {
+            condition_true_implies_safe_narrowing(cx, nested, inner, source_ty, target_ty)
+        }
+        ExprKind::Block(block, _) => block
+            .expr
+            .is_some_and(|tail| condition_false_implies_safe_narrowing(cx, tail, inner, source_ty, target_ty)),
+        _ => false,
+    }
+}
+
 fn is_min_bounded_cast<'tcx>(
     cx: &LateContext<'tcx>,
     inner: &'tcx hir::Expr<'tcx>,
@@ -101,24 +272,32 @@ fn is_min_bounded_cast<'tcx>(
         && is_target_max_expr(cx, max_expr, target_ty)
 }
 
-/// Check if this cast is inside an `if` guard that looks like a bounds check
-/// (condition mentions MAX, max, or compares against the target type's range).
-fn has_bounds_guard(cx: &LateContext<'_>, expr: &hir::Expr<'_>) -> bool {
+fn has_bounds_guard<'tcx>(
+    cx: &LateContext<'tcx>,
+    expr: &'tcx hir::Expr<'tcx>,
+    inner: &'tcx hir::Expr<'tcx>,
+    source_ty: Ty<'tcx>,
+    target_ty: Ty<'tcx>,
+) -> bool {
     for (_, node) in cx.tcx.hir_parent_iter(expr.hir_id) {
         match node {
             hir::Node::Expr(parent) => {
-                if let ExprKind::If(cond, _, _) = &parent.kind {
-                    let source_map = cx.sess().source_map();
-                    if let Ok(snippet) = source_map.span_to_snippet(cond.span) {
-                        let s = snippet.to_ascii_lowercase();
-                        // Recognizes: if val <= u32::MAX, if val < MAX_VAL, etc.
-                        if s.contains("max") || s.contains("try_into") || s.contains("try_from") {
-                            return true;
-                        }
-                    }
+                let ExprKind::If(cond, then_expr, else_expr) = &parent.kind else {
+                    continue;
+                };
+
+                if span_contains(then_expr.span, expr.span)
+                    && condition_true_implies_safe_narrowing(cx, cond, inner, source_ty, target_ty)
+                {
+                    return true;
+                }
+
+                if else_expr.is_some_and(|branch| span_contains(branch.span, expr.span))
+                    && condition_false_implies_safe_narrowing(cx, cond, inner, source_ty, target_ty)
+                {
+                    return true;
                 }
             }
-            // Stop at function boundaries
             hir::Node::Item(_) | hir::Node::ImplItem(_) | hir::Node::TraitItem(_) => break,
             _ => {}
         }
@@ -141,11 +320,7 @@ fn is_assert_bounds_condition<'tcx>(
         return false;
     };
 
-    matches!(op.node, hir::BinOpKind::Le)
-        && same_checked_expr(lhs, inner)
-        && matches!(&rhs.kind, ExprKind::Cast(max_expr, _) if cx.typeck_results().expr_ty(rhs) == source_ty
-            && cx.typeck_results().expr_ty(max_expr) == target_ty
-            && is_target_max_expr(cx, max_expr, target_ty))
+    comparison_true_implies_safe_narrowing(cx, op.node, lhs, rhs, inner, source_ty, target_ty)
 }
 
 fn has_prior_same_block_assert<'tcx>(
@@ -255,7 +430,9 @@ impl<'tcx> LateLintPass<'tcx> for UncheckedNarrowing {
         }
 
         // Skip if inside a bounds-checking guard
-        if has_bounds_guard(cx, expr) || has_prior_same_block_assert(cx, expr, inner, source_ty, target_ty) {
+        if has_bounds_guard(cx, expr, inner, source_ty, target_ty)
+            || has_prior_same_block_assert(cx, expr, inner, source_ty, target_ty)
+        {
             return;
         }
 

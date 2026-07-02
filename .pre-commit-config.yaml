@@ -38,7 +38,8 @@ repos:
     hooks:
       - id: cargo-fmt
         name: cargo fmt --all -- --check (nix devshell)
-        entry: nix develop -c cargo fmt --all -- --check
+        entry: >-
+          bash -c 'mkdir -p target/pre-commit-nix-tmp && TMPDIR="$PWD/target/pre-commit-nix-tmp" nix develop -c cargo fmt --all -- --check'
         language: system
         pass_filenames: false
         files: >-
@@ -46,7 +47,8 @@ repos:
 
       - id: cargo-metadata-locked
         name: cargo metadata --locked (nix devshell)
-        entry: nix develop -c cargo metadata --locked --format-version 1 --no-deps
+        entry: >-
+          bash -c 'mkdir -p target/pre-commit-nix-tmp && TMPDIR="$PWD/target/pre-commit-nix-tmp" nix develop -c cargo metadata --locked --format-version 1 --no-deps'
         language: system
         pass_filenames: false
         files: >-
@@ -54,7 +56,8 @@ repos:
 
       - id: octet-policy-validate
         name: octet-policy-validate
-        entry: nix run .#octet-policy-validate
+        entry: >-
+          bash -c 'mkdir -p target/pre-commit-nix-tmp && TMPDIR="$PWD/target/pre-commit-nix-tmp" nix run .#octet-policy-validate'
         language: system
         pass_filenames: false
         files: >-
@@ -62,7 +65,8 @@ repos:
 
       - id: pre-commit-hook-surface
         name: pre-commit hook surface regression test
-        entry: nix develop -c cargo test --test consumer_integration pre_commit -- --nocapture
+        entry: >-
+          bash -c 'mkdir -p target/pre-commit-nix-tmp && TMPDIR="$PWD/target/pre-commit-nix-tmp" nix develop -c cargo test --test consumer_integration pre_commit -- --nocapture'
         language: system
         pass_filenames: false
         files: >-
