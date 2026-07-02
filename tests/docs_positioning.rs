@@ -4,6 +4,7 @@ const CANONICAL_CHECKED_PATH: &str =
     "Octet is the evidence-backed checked path for agent-written and human-written Rust systems code";
 const TRUST_BOUNDARY_DOC: &str = "docs/trust-boundary-evidence.md";
 const ADOPTION_STORY_DOC: &str = "docs/adoption-story.md";
+const FIRST_CHECKED_PATCH_DOC: &str = "docs/examples/first-checked-rust-patch/README.md";
 const CONSUMER_GUIDE_DOC: &str = "docs/consumer-guide.md";
 const DOWNSTREAM_ROLLOUT_DOC: &str = "docs/downstream-rollout.md";
 const LINT_REFERENCE_DOC: &str = "docs/lint-reference.md";
@@ -395,6 +396,54 @@ fn adoption_story_quickstart_outputs_and_faq_topics_are_visible() {
 }
 
 #[test]
+fn first_checked_patch_walkthrough_names_lint_commands_artifacts_and_boundaries() {
+    let walkthrough = read_repo_text(FIRST_CHECKED_PATCH_DOC);
+    let adoption = read_repo_text(ADOPTION_STORY_DOC);
+    let readme = read_repo_text(README_DOC);
+
+    assert_required_terms(&walkthrough, &[
+        "First checked Rust patch",
+        "Before patch",
+        "average_bytes",
+        "total_bytes / completed_operations",
+        "`unchecked_division`",
+        "deterministic finding shape",
+        "missing explicit zero guard",
+        "Fixed patch",
+        "Result<u64, AverageBytesError>",
+        "if completed_operations == 0",
+        "bounded remediation rationale",
+        "static lint evidence and artifact verification",
+        "not a solver model",
+        "not a solver counterexample",
+        "not a formal counterexample",
+        "not mathematical proof",
+        "not whole-program correctness",
+        "not certification",
+        "not C performance parity",
+        "not a verified runtime",
+        "not a Rust replacement",
+        "does not introduce `requires` or `ensures` syntax",
+        "docs/consumer-guide.md",
+    ]);
+    assert_required_terms(&walkthrough, &[
+        "cargo octet check --artifact-dir artifacts/octet --output-format sarif",
+        "cargo octet artifact verify --artifact-dir artifacts/octet",
+        "artifacts/octet/command.txt",
+        "artifacts/octet/status.json",
+        "artifacts/octet/summary.txt",
+        "artifacts/octet/results.sarif",
+        "artifacts/octet/results.jsonl",
+        "artifacts/octet/provenance.jsonl",
+    ]);
+    assert_required_terms(&adoption, &[FIRST_CHECKED_PATCH_DOC, "first checked Rust patch walkthrough"]);
+    assert_required_terms(&readme, &[FIRST_CHECKED_PATCH_DOC, "first checked Rust patch walkthrough"]);
+
+    let diagnostics = first_checked_patch_overclaim_diagnostics(&walkthrough);
+    assert!(diagnostics.is_empty(), "walkthrough overclaim diagnostics: {diagnostics:?}");
+}
+
+#[test]
 fn unsafe_boundary_record_docs_define_fields_examples_and_boundaries() {
     let rust_idiom = read_repo_text(RUST_IDIOM_DOC);
 
@@ -511,6 +560,7 @@ fn docs_do_not_contain_unscoped_overclaim_phrases() {
         CONSUMER_GUIDE_DOC,
         TRUST_BOUNDARY_DOC,
         ADOPTION_STORY_DOC,
+        FIRST_CHECKED_PATCH_DOC,
         DOWNSTREAM_ROLLOUT_DOC,
         LINT_REFERENCE_DOC,
         VERUS_README_DOC,
@@ -578,6 +628,20 @@ fn adoption_story_overclaim_checker_rejects_salt_style_claims() {
         "unsupported ensures-syntax claim".to_owned(),
         "unsupported trusted-syntax claim".to_owned(),
         "unsupported c-performance claim".to_owned(),
+    ]);
+}
+
+#[test]
+fn first_checked_patch_overclaim_checker_rejects_bad_walkthrough_text() {
+    let bad_text = "Octet turns the lint finding into a solver counterexample. The walkthrough provides mathematical proof. Octet proves whole-program correctness. Octet supports `requires` syntax.";
+
+    let diagnostics = first_checked_patch_overclaim_diagnostics(bad_text);
+
+    assert_eq!(diagnostics, vec![
+        "unsupported whole-program-correctness claim".to_owned(),
+        "unsupported requires-syntax claim".to_owned(),
+        "unsupported solver-counterexample claim".to_owned(),
+        "unsupported mathematical-proof claim".to_owned(),
     ]);
 }
 
@@ -799,6 +863,35 @@ fn adoption_story_overclaim_diagnostics(text: &str) -> Vec<String> {
             "octet has c performance parity",
         ],
         "unsupported c-performance claim",
+    );
+
+    diagnostics
+}
+
+fn first_checked_patch_overclaim_diagnostics(text: &str) -> Vec<String> {
+    let lower = text.to_lowercase();
+    let mut diagnostics = adoption_story_overclaim_diagnostics(text);
+
+    push_if_contains(
+        &mut diagnostics,
+        &lower,
+        &[
+            "octet produces solver counterexamples",
+            "octet emits solver counterexamples",
+            "octet turns the lint finding into a solver counterexample",
+            "lint finding is a solver counterexample",
+        ],
+        "unsupported solver-counterexample claim",
+    );
+    push_if_contains(
+        &mut diagnostics,
+        &lower,
+        &[
+            "octet provides mathematical proof",
+            "walkthrough provides mathematical proof",
+            "finding is mathematical proof",
+        ],
+        "unsupported mathematical-proof claim",
     );
 
     diagnostics
