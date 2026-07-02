@@ -193,6 +193,17 @@ in
       negative_fixtures = ["crates/octet-standards/src/proof.rs::structured_verus_receipt_rejects_malformed_json"],
     },
     {
+      family_id = "octet.proof-evidence-ref",
+      ownership = "rust-derived",
+      owner_source_path = "cargo-octet/src/proof_ref.rs",
+      artifact_path = "octet-proof-evidence-ref.json",
+      generation_command = "nix develop -c cargo test -p cargo-octet --lib proof_ref::tests::proof_ref_accepts_matching_formal_proof_card",
+      validation_command = "nix develop -c cargo test -p cargo-octet --lib proof_ref::tests::proof_ref_rejects_mismatched_scope_tier_status_artifact_and_non_claim",
+      status = "existing",
+      positive_fixtures = ["cargo-octet/src/proof_ref.rs::proof_ref_accepts_matching_formal_proof_card"],
+      negative_fixtures = ["cargo-octet/src/proof_ref.rs::proof_ref_rejects_mismatched_scope_tier_status_artifact_and_non_claim"],
+    },
+    {
       family_id = "octet.verus-proof-rail-manifest",
       ownership = "nickel-authored",
       owner_source_path = "standards/proof-rails/manifest.ncl",

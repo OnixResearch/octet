@@ -28,6 +28,7 @@ pub enum CommandArgs {
     Object(ObjectArgs),
     ProviderManifest(ProviderManifestArgs),
     Prove(ProveArgs),
+    ProofRef(ProofRefArgs),
     Roadmap(crate::roadmap::RoadmapCommand),
     Transcript(TranscriptArgs),
     Help(HelpTopic),
@@ -45,6 +46,7 @@ pub enum HelpTopic {
     Object,
     ProviderManifest,
     Prove,
+    ProofRef,
     Roadmap,
     Transcript,
 }
@@ -232,6 +234,13 @@ pub struct ProveArgs {
 }
 
 #[derive(Debug)]
+pub struct ProofRefArgs {
+    pub proof_cards: PathBuf,
+    pub reference: PathBuf,
+    pub output_format: OutputFormat,
+}
+
+#[derive(Debug)]
 pub enum ProviderManifestMode {
     Export {
         driver: PathBuf,
@@ -290,15 +299,17 @@ pub fn parse(argv: impl IntoIterator<Item = OsString>) -> Result<CommandArgs, St
         Some("provider-manifest") => parse_provider_manifest(&argv[1..]).map(CommandArgs::ProviderManifest),
         Some("prove") if wants_help(&argv[1..]) => Ok(CommandArgs::Help(HelpTopic::Prove)),
         Some("prove") => parse_prove(&argv[1..], command_line).map(CommandArgs::Prove),
+        Some("proof-ref") if wants_help(&argv[1..]) => Ok(CommandArgs::Help(HelpTopic::ProofRef)),
+        Some("proof-ref") => parse_proof_ref(&argv[1..]).map(CommandArgs::ProofRef),
         Some("roadmap") if wants_help(&argv[1..]) => Ok(CommandArgs::Help(HelpTopic::Roadmap)),
         Some("roadmap") => crate::roadmap::parse(&argv[1..]).map(CommandArgs::Roadmap),
         Some("transcript") if wants_help(&argv[1..]) => Ok(CommandArgs::Help(HelpTopic::Transcript)),
         Some("transcript") => parse_transcript(&argv[1..]).map(CommandArgs::Transcript),
         Some(other) => Err(format!(
-            "unknown subcommand `{other}`; expected `artifact`, `check`, `evidence-index`, `fingerprint`, `migrate`, `object`, `provider-manifest`, `prove`, `roadmap`, or `transcript`"
+            "unknown subcommand `{other}`; expected `artifact`, `check`, `evidence-index`, `fingerprint`, `migrate`, `object`, `provider-manifest`, `prove`, `proof-ref`, `roadmap`, or `transcript`"
         )),
         None => Err(
-            "missing subcommand; expected `artifact`, `check`, `evidence-index`, `fingerprint`, `migrate`, `object`, `provider-manifest`, `prove`, `roadmap`, or `transcript`"
+            "missing subcommand; expected `artifact`, `check`, `evidence-index`, `fingerprint`, `migrate`, `object`, `provider-manifest`, `prove`, `proof-ref`, `roadmap`, or `transcript`"
                 .to_owned(),
         ),
     }
@@ -327,6 +338,7 @@ pub fn help_text(topic: HelpTopic) -> &'static str {
         HelpTopic::Object => OBJECT_HELP,
         HelpTopic::ProviderManifest => PROVIDER_MANIFEST_HELP,
         HelpTopic::Prove => PROVE_HELP,
+        HelpTopic::ProofRef => PROOF_REF_HELP,
         HelpTopic::Roadmap => ROADMAP_HELP,
         HelpTopic::Transcript => TRANSCRIPT_HELP,
     }
@@ -358,6 +370,7 @@ Usage:
   cargo octet provider-manifest export --driver PATH --lint-library PATH --config PATH [--standards-policy PATH]
   cargo octet provider-manifest validate --manifest PATH
   cargo octet prove --policy-artifacts-dir PATH --source PATH --artifact-dir PATH [--list] [--explain] [--output-format human|json]
+  cargo octet proof-ref validate --proof-cards PATH --ref PATH [--output-format human|json]
   cargo octet roadmap <artifact|capsule|ability|pointer|session|pure-cache> ...
   cargo octet transcript <PATH>
   cargo octet --version
@@ -437,6 +450,13 @@ const PROVE_HELP: &str = "cargo octet prove
 Options: --registry PATH or --policy-artifacts-dir PATH, --source PATH (repeatable), --family NAME, --artifact-dir PATH, --list, --explain, --output-format human|json.
 
 Runs selected standards proof rails through argv-based commands, writes structured proof receipts under the artifact directory, emits formal_proof provenance only for validated receipts with verifier identity and proof artifact identity, and keeps ordinary cargo octet check behavior unchanged. Use --list to show selected rails without executing them and --explain to prefix failure diagnostics with remediation context.
+";
+
+const PROOF_REF_HELP: &str = "cargo octet proof-ref validate
+
+Options: --proof-cards PATH, --ref PATH, --output-format human|json.
+
+Validates a Rust-owned ProofEvidenceRef JSON record against a saved proof-cards.json deck. This command is read-only: it does not rerun Verus, does not mutate proof artifacts, does not emit formal_proof provenance, and does not introduce a consumer-implementable Verified trait.
 ";
 
 const ROADMAP_HELP: &str = "cargo octet roadmap
@@ -1452,6 +1472,63 @@ fn parse_prove(args: &[String], command_line: String) -> Result<ProveArgs, Strin
     })
 }
 
+fn parse_proof_ref(args: &[String]) -> Result<ProofRefArgs, String> {
+    match args.first().map(String::as_str) {
+        Some("validate") => parse_proof_ref_validate(&args[1..]),
+        Some(other) => Err(format!("unsupported proof-ref subcommand `{other}`; expected `validate`")),
+        None => Err("missing proof-ref subcommand; expected `validate`".to_owned()),
+    }
+}
+
+fn parse_proof_ref_validate(args: &[String]) -> Result<ProofRefArgs, String> {
+    let mut proof_cards = None;
+    let mut reference = None;
+    let mut output_format = OutputFormat::Human;
+    let mut index = 0;
+    while index < args.len() {
+        let arg = &args[index];
+        match arg.as_str() {
+            "--proof-cards" => {
+                proof_cards = Some(PathBuf::from(required_arg_at(args, index, arg)?));
+                index += 2;
+            }
+            "--ref" => {
+                reference = Some(PathBuf::from(required_arg_at(args, index, arg)?));
+                index += 2;
+            }
+            "--output-format" | "--format" => {
+                output_format = parse_output_format(&required_arg_at(args, index, arg)?)?;
+                index += 2;
+            }
+            _ if arg.starts_with("--proof-cards=") => {
+                proof_cards = Some(PathBuf::from(arg.trim_start_matches("--proof-cards=")));
+                index += 1;
+            }
+            _ if arg.starts_with("--ref=") => {
+                reference = Some(PathBuf::from(arg.trim_start_matches("--ref=")));
+                index += 1;
+            }
+            _ if arg.starts_with("--output-format=") => {
+                output_format = parse_output_format(arg.trim_start_matches("--output-format="))?;
+                index += 1;
+            }
+            _ if arg.starts_with("--format=") => {
+                output_format = parse_output_format(arg.trim_start_matches("--format="))?;
+                index += 1;
+            }
+            _ => return Err(format!("unsupported proof-ref validate argument `{arg}`")),
+        }
+    }
+    if output_format == OutputFormat::Sarif {
+        return Err("proof-ref does not support SARIF output; use human or json".to_owned());
+    }
+    Ok(ProofRefArgs {
+        proof_cards: proof_cards.ok_or_else(|| "proof-ref validate requires `--proof-cards PATH`".to_owned())?,
+        reference: reference.ok_or_else(|| "proof-ref validate requires `--ref PATH`".to_owned())?,
+        output_format,
+    })
+}
+
 fn parse_provider_manifest(args: &[String]) -> Result<ProviderManifestArgs, String> {
     match args.first().map(String::as_str) {
         Some("export") => parse_provider_manifest_export(&args[1..]),
@@ -1838,6 +1915,62 @@ mod tests {
         )
         .expect_err("missing driver should fail");
         assert_eq!(error, "missing `--driver`");
+    }
+
+    #[test]
+    fn proof_ref_parse_accepts_validate_paths_and_json_output() {
+        let parsed = parse(
+            [
+                "cargo",
+                "octet",
+                "proof-ref",
+                "validate",
+                "--proof-cards",
+                "artifacts/octet/proof-cards.json",
+                "--ref=proof-ref.json",
+                "--output-format",
+                "json",
+            ]
+            .map(OsString::from),
+        )
+        .expect("parse proof-ref validate args");
+
+        match parsed {
+            CommandArgs::ProofRef(args) => {
+                assert_eq!(args.proof_cards, std::path::PathBuf::from("artifacts/octet/proof-cards.json"));
+                assert_eq!(args.reference, std::path::PathBuf::from("proof-ref.json"));
+                assert_eq!(args.output_format, OutputFormat::Json);
+            }
+            other => panic!("expected proof-ref args, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn proof_ref_parse_rejects_sarif_and_help_is_bounded() {
+        let error = parse(
+            [
+                "cargo",
+                "octet",
+                "proof-ref",
+                "validate",
+                "--proof-cards",
+                "proof-cards.json",
+                "--ref",
+                "proof-ref.json",
+                "--output-format",
+                "sarif",
+            ]
+            .map(OsString::from),
+        )
+        .expect_err("proof-ref rejects sarif");
+        assert!(error.contains("proof-ref does not support SARIF"));
+
+        let help = parse(["cargo", "octet", "proof-ref", "--help"].map(OsString::from)).expect("parse proof-ref help");
+        assert!(matches!(help, CommandArgs::Help(HelpTopic::ProofRef)));
+        assert!(
+            super::help_text(HelpTopic::ProofRef)
+                .contains("does not introduce a consumer-implementable Verified trait")
+        );
     }
 
     #[test]

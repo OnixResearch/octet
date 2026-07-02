@@ -82,6 +82,46 @@ card to `manual_review_required` and records diagnostics. Ordinary
 `cargo octet check` does not require proof cards, imported bundles, or Verus
 artifacts.
 
+## Proof evidence references
+
+Use `ProofEvidenceRef` JSON records when source comments, docs, or future lint
+suppressions need to point at a proof card without adding a consumer-implemented
+`Verified` trait. The reference is linkage evidence only: it does not rerun
+Verus, does not emit `formal_proof` provenance, and cannot upgrade a
+`manual_review_required` card.
+
+```json
+{
+  "schema_version": "octet-proof-evidence-ref/v1",
+  "reference_id": "unchecked-narrowing-range-proof",
+  "consumer_context": "allow tigerstyle::unchecked_narrowing at src/codec.rs:42",
+  "proof_or_property_id": "octet.verus_proof_rails.addition-bound-production#rail-0",
+  "source_requirement_or_policy_id": "octet.verus_proof_rails.addition-bound-production",
+  "checked_rust_source_scope": "formal-proof:production:octet.verus_proof_rails.addition-bound-production#rail-0",
+  "expected_evidence_tier": "formal_proof",
+  "required_status": "passed",
+  "required_artifacts": [
+    "proofs/octet.verus_proof_rails.addition-bound-production-rail-0.receipt",
+    "verus/proofs/addition_bound.rs"
+  ],
+  "non_claims": [
+    "not whole-program correctness",
+    "not certification",
+    "not business-domain validation",
+    "not semantic equivalence",
+    "not full safety"
+  ]
+}
+```
+
+Validate a reference against a saved proof-card deck:
+
+```bash
+cargo octet proof-ref validate \
+  --proof-cards artifacts/octet/proof-cards.json \
+  --ref proof-ref.json
+```
+
 Passing the fixture rail is scoped evidence for the declared proof-plumbing
 fixture only. Passing a production pilot is scoped evidence for that pilot's
 declared property only: the addition-bound target or the reflexive-order target.
