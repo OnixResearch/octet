@@ -26,9 +26,11 @@ use octet_standards::proof::VerusLogArtifact;
 use octet_standards::proof::VerusProofReceipt;
 use octet_standards::proof::VerusProofReceiptInput;
 use octet_standards::proof::build_verus_proof_receipt;
-use octet_standards::proof::matching_sources;
-use octet_standards::proof::path_pattern_diagnostics;
 use octet_standards::proof::validate_proof_receipt_with_identity;
+use octet_standards::proof_artifact::matching_sources;
+use octet_standards::proof_artifact::path_pattern_diagnostics;
+use octet_standards::proof_artifact::proof_rail_is_relevant;
+use octet_standards::proof_artifact::receipt_paths as proof_artifact_receipt_paths;
 use octet_standards::source::SourceFile;
 use serde::Deserialize;
 use serde::Serialize;
@@ -394,7 +396,7 @@ fn policy_is_verified(policy: &PolicyEntry) -> bool {
 }
 
 fn rail_matches_sources(rail: &ProofRail, sources: &[SourceFile]) -> bool {
-    !matching_sources(&rail.source_paths, sources).is_empty()
+    proof_rail_is_relevant(rail, sources)
 }
 
 fn execute_proof(
@@ -1501,11 +1503,7 @@ fn rail_list_row(selected: &SelectedRail<'_>) -> RailListRow {
         backend: selected.rail.backend.clone(),
         source_paths: selected.rail.source_paths.clone(),
         proof_paths: selected.rail.proof_paths.clone(),
-        receipt_paths: if selected.rail.receipt_paths.is_empty() {
-            selected.rail.proof_paths.clone()
-        } else {
-            selected.rail.receipt_paths.clone()
-        },
+        receipt_paths: proof_artifact_receipt_paths(selected.rail),
         verifier_label: selected.rail.receipt_verifier.verifier_id.clone(),
         verifier_mode: verifier_mode(selected.rail).to_owned(),
         checked_scope: checked_scope(selected.policy, selected.rail_index, selected.rail),
@@ -1930,6 +1928,31 @@ mod tests {
 
         let timeout = run_fixture_with_timeout(temp.path(), &source, vec!["sleep".to_owned(), "1".to_owned()]);
         assert!(timeout.contains("timed out"));
+    }
+
+    #[test]
+    fn selected_rails_use_shared_receipt_path_relevance() {
+        let mut policy = fixture_policy_stub();
+        let receipt_path = proof_artifact_locator(&policy, 0);
+        policy.proof_rails = vec![ProofRail {
+            source_paths: vec!["src/verified/missing.rs".to_owned()],
+            proof_paths: vec![receipt_path.clone()],
+            receipt_paths: Vec::new(),
+            ..ProofRail::default()
+        }];
+        let registry = PolicyRegistry {
+            schema_version: "test".to_owned(),
+            checker_ids: vec![CHECKER_OCTET_STANDARDS.to_owned()],
+            policies: vec![policy],
+            seed_manifests: Vec::new(),
+            config_receipt_families: Vec::new(),
+        };
+        let sources = vec![SourceFile::new(receipt_path, "proof-result: pass\n")];
+
+        let rails = selected_rails(&registry, &sources, &FamilySelection::from_families(["verification"]));
+
+        assert_eq!(rails.len(), 1);
+        assert_eq!(rail_list_row(&rails[0]).receipt_paths, vec![rails[0].rail.proof_paths[0].clone()]);
     }
 
     #[test]

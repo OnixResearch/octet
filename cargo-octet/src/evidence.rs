@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
 use std::collections::BTreeSet;
 
+use octet_standards::proof_artifact;
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -87,7 +88,7 @@ struct ProvenanceProducer {
 
 #[must_use]
 pub fn artifact_blake3_hex(bytes: &[u8]) -> String {
-    blake3::hash(bytes).to_hex().to_string()
+    proof_artifact::blake3_hex_bytes(bytes)
 }
 
 #[must_use]
