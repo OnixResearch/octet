@@ -194,6 +194,7 @@ and config keys.
 - [System comprehension guide](docs/system-comprehension.md) and [walkthrough template](templates/system-walkthrough.md)
 - `docs/consumer-guide.md` — first run, config split, Nix integration, pre-commit hook, output modes, artifact bundles, migration notes
 - `docs/adoption-story.md` — card-oriented public story, terminal-first quickstart, examples, Built with Octet case-study format, methodology requirements, and claim boundaries
+- `docs/examples/first-checked-rust-patch/README.md` — first checked Rust patch walkthrough from `unchecked_division` finding to fixed code and verified artifacts
 - `docs/trust-boundary-evidence.md` — checked-path framing, evidence stack, evidence tiers, the [checked-contract ladder](docs/trust-boundary-evidence.md#checked-contract-ladder), provenance, scope boundary, and controlled-deployment map
 - `templates/pre-commit-config.yaml` — copyable deny-all pre-commit hook configuration
 - `docs/lint-reference.md` — full lint catalog, default levels, suppression paths, config reference

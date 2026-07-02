@@ -93,7 +93,9 @@ but they are not the source for the starter case study.
 
 These examples are story cards, not a replacement for the full lint catalog. Each
 one names the lint or policy surface, the deterministic failure shape, and the
-bounded remediation path. They are lint and policy examples, not SMT models, not solver models, not formal
+bounded remediation path. For a complete first checked Rust patch walkthrough,
+see [`docs/examples/first-checked-rust-patch/README.md`](examples/first-checked-rust-patch/README.md).
+They are lint and policy examples, not SMT models, not solver models, not formal
 counterexamples, not mathematical proof, and not solver results.
 
 ### `unchecked_division`: zero guard before division
