@@ -33,6 +33,7 @@ const PROOF_ARTIFACT_PREFIX: &str = "proofs/";
 const PROOF_SOURCE_ID: &str = "octet.standards.formal-proof";
 const CHECKER_OCTET_STANDARDS: &str = "octet-standards";
 const EVIDENCE_LOG_OUTPUT_FORMAT: &str = "evidence-log";
+const EVIDENCE_RAIL_OUTPUT_FORMAT: &str = "evidence-rail";
 const EVIDENCE_LOG_SOURCE_ID: &str = "octet.evidence_log.manifest";
 const EVIDENCE_LOG_MANUAL_ACTION: &str =
     "review the in-tree summary, exact replay command, checked scope, and claim boundary before relying on the raw log";
@@ -126,6 +127,11 @@ pub fn verify_bundle(input: ArtifactBundleInput) -> ArtifactVerificationReport {
         && file_map.contains_key(crate::evidence_log::EVIDENCE_LOG_MANIFEST_ARTIFACT)
     {
         return verify_evidence_log_bundle(input.artifact_dir, &file_map);
+    }
+    if !file_map.contains_key(STATUS_ARTIFACT_NAME)
+        && file_map.contains_key(crate::evidence_rails::RECEIPT_ARTIFACT_NAME)
+    {
+        return verify_evidence_rail_bundle(input.artifact_dir, &file_map);
     }
     let status = inspect_status(&file_map);
     let output_format = status.output_format.unwrap_or_else(|| infer_output_format(&file_map));
@@ -284,6 +290,104 @@ fn evidence_log_artifact_rows(manifest: &crate::evidence_log::EvidenceLogManifes
         .collect()
 }
 
+fn verify_evidence_rail_bundle(
+    artifact_dir: String,
+    file_map: &BTreeMap<String, Vec<u8>>,
+) -> ArtifactVerificationReport {
+    let mut diagnostics = Vec::new();
+    let expected_files = crate::evidence_rails::expected_bundle_files();
+    validate_file_set(file_map, &expected_files, &mut diagnostics);
+    let expected_non_provenance = expected_files
+        .iter()
+        .map(String::as_str)
+        .filter(|name| *name != crate::evidence_rails::PROVENANCE_ARTIFACT_NAME)
+        .collect::<Vec<_>>();
+    let expected_hashes = expected_artifact_hashes(file_map, &expected_non_provenance);
+    let receipt = parse_evidence_rail_receipt(file_map, &mut diagnostics);
+    let provenance_records = parse_provenance_records(file_map, &mut diagnostics);
+    diagnostics.extend(crate::evidence::validate_provenance_chain(&provenance_records, &expected_hashes));
+    validate_evidence_rail_record_shapes(receipt.as_ref(), &provenance_records, &mut diagnostics);
+    validate_exact_provenance_coverage(&provenance_records, &expected_non_provenance, &mut diagnostics);
+    let artifacts = verified_artifact_rows(&provenance_records, &expected_non_provenance);
+    diagnostics.sort();
+    diagnostics.dedup();
+
+    ArtifactVerificationReport {
+        schema_version: REPORT_SCHEMA_VERSION,
+        artifact_dir,
+        output_format: EVIDENCE_RAIL_OUTPUT_FORMAT.to_owned(),
+        status: if diagnostics.is_empty() {
+            STATUS_VALID
+        } else {
+            STATUS_INVALID
+        },
+        artifacts,
+        diagnostics,
+    }
+}
+
+fn parse_evidence_rail_receipt(
+    file_map: &BTreeMap<String, Vec<u8>>,
+    diagnostics: &mut Vec<String>,
+) -> Option<crate::evidence_rails::EvidenceRailReceipt> {
+    let Some(bytes) = file_map.get(crate::evidence_rails::RECEIPT_ARTIFACT_NAME) else {
+        diagnostics.push(format!("missing expected artifact `{}`", crate::evidence_rails::RECEIPT_ARTIFACT_NAME));
+        return None;
+    };
+    match serde_json::from_slice::<crate::evidence_rails::EvidenceRailReceipt>(bytes) {
+        Ok(receipt) => {
+            diagnostics.extend(crate::evidence_rails::validate_receipt(&receipt));
+            Some(receipt)
+        }
+        Err(error) => {
+            diagnostics.push(format!("malformed {}: {error}", crate::evidence_rails::RECEIPT_ARTIFACT_NAME));
+            None
+        }
+    }
+}
+
+fn validate_evidence_rail_record_shapes(
+    receipt: Option<&crate::evidence_rails::EvidenceRailReceipt>,
+    records: &[ProvenanceRecord],
+    diagnostics: &mut Vec<String>,
+) {
+    let Some(receipt) = receipt else {
+        return;
+    };
+    for record in records {
+        if record.artifact_locator == crate::evidence_rails::RECEIPT_ARTIFACT_NAME {
+            if record.checker_id != receipt.checker_id {
+                diagnostics.push(format!(
+                    "unexpected checker_id for evidence rail receipt; expected `{}`, got `{}`",
+                    receipt.checker_id, record.checker_id
+                ));
+            }
+            let expected_tier = crate::evidence_rails::receipt_tier_from_rail_id(&receipt.rail_id);
+            if record.evidence_tier != expected_tier {
+                diagnostics.push(format!(
+                    "unexpected evidence_tier for evidence rail receipt; expected `{}`, got `{}`",
+                    expected_tier.as_str(),
+                    record.evidence_tier.as_str()
+                ));
+            }
+        }
+        if record.artifact_locator == crate::evidence_rails::SUMMARY_ARTIFACT_NAME {
+            if record.checker_id != RUNNER_CHECKER_ID {
+                diagnostics.push(format!(
+                    "unexpected checker_id for evidence rail summary; expected `{RUNNER_CHECKER_ID}`, got `{}`",
+                    record.checker_id
+                ));
+            }
+            if record.evidence_tier != EvidenceTier::ManualReviewRequired {
+                diagnostics.push(format!(
+                    "unexpected evidence_tier for evidence rail summary; expected `manual_review_required`, got `{}`",
+                    record.evidence_tier.as_str()
+                ));
+            }
+        }
+    }
+}
+
 fn inspect_status(file_map: &BTreeMap<String, Vec<u8>>) -> BundleStatus {
     let Some(status_bytes) = file_map.get(STATUS_ARTIFACT_NAME) else {
         return BundleStatus {
@@ -439,9 +543,7 @@ fn parse_evidence_log_manifest(
     file_map: &BTreeMap<String, Vec<u8>>,
     diagnostics: &mut Vec<String>,
 ) -> Option<crate::evidence_log::EvidenceLogManifest> {
-    let Some(bytes) = file_map.get(crate::evidence_log::EVIDENCE_LOG_MANIFEST_ARTIFACT) else {
-        return None;
-    };
+    let bytes = file_map.get(crate::evidence_log::EVIDENCE_LOG_MANIFEST_ARTIFACT)?;
     match serde_json::from_slice(bytes) {
         Ok(manifest) => Some(manifest),
         Err(error) => {
@@ -763,6 +865,32 @@ mod tests {
     }
 
     #[test]
+    fn evidence_rail_bundle_passes_and_rejects_tampering_missing_parent_and_stale_sidecar() {
+        let valid = verify_bundle(valid_evidence_rail_input(Vec::new()));
+        assert_eq!(valid.status, STATUS_VALID, "unexpected diagnostics: {:?}", valid.diagnostics);
+        assert_eq!(valid.output_format, EVIDENCE_RAIL_OUTPUT_FORMAT);
+
+        let mut tampered = valid_evidence_rail_input(Vec::new());
+        replace_file(&mut tampered, crate::evidence_rails::SUMMARY_ARTIFACT_NAME, b"tampered\n".to_vec());
+        let tampered_report = verify_bundle(tampered);
+        assert_eq!(tampered_report.status, STATUS_INVALID);
+        assert!(tampered_report.diagnostics.iter().any(|diagnostic| diagnostic.contains("hash mismatch")));
+
+        let missing_parent = verify_bundle(valid_evidence_rail_input(vec!["artifacts/octet/status.json".to_owned()]));
+        assert_eq!(missing_parent.status, STATUS_INVALID);
+        assert!(missing_parent.diagnostics.iter().any(|diagnostic| diagnostic.contains("missing parent artifact")));
+
+        let mut stale = valid_evidence_rail_input(Vec::new());
+        stale.files.push(BundleFile {
+            name: "stale.txt".to_owned(),
+            contents: b"stale\n".to_vec(),
+        });
+        let stale_report = verify_bundle(stale);
+        assert_eq!(stale_report.status, STATUS_INVALID);
+        assert!(stale_report.diagnostics.iter().any(|diagnostic| diagnostic.contains("unexpected artifact")));
+    }
+
+    #[test]
     fn hash_mismatch_unknown_checker_invalid_tier_and_missing_manual_action_fail_closed() {
         let mut records = valid_records(OutputFormat::Json);
         records[COMMAND_RECORD_INDEX].blake3 = crate::evidence::artifact_blake3_hex(b"different bytes");
@@ -952,6 +1080,45 @@ mod tests {
             EVIDENCE_LOG_CAPTURE_SOURCE,
             crate::evidence_log::RETENTION_CONTENT_ADDRESSED_RAW,
         )])
+    }
+
+    fn valid_evidence_rail_input(parent_artifacts: Vec<String>) -> ArtifactBundleInput {
+        let receipt = crate::evidence_rails::evaluate(crate::evidence_rails::EvaluationInput {
+            rail: crate::evidence_rails::EvidenceRailKind::DependencyAudit,
+            mode: "import",
+            import_text: r#"{"diagnostics":[]}"#,
+            workspace_scope: CHECKED_SCOPE,
+            config_path: Some("deny.toml"),
+            baseline_identity: None,
+            lockfile_identity: None,
+            locked: true,
+            advisory_updated_by_prior_step: false,
+            profile: None,
+            requested_command: None,
+            parent_artifacts,
+            tool_exit_code: None,
+        });
+        let receipt_json = crate::evidence_rails::render_receipt_json(&receipt).expect("render evidence rail receipt");
+        let summary = crate::evidence_rails::render_summary(&receipt);
+        let provenance = crate::evidence_rails::render_provenance_jsonl(&receipt, &receipt_json, &summary)
+            .expect("render evidence rail provenance");
+        ArtifactBundleInput {
+            artifact_dir: "artifacts/dependency-audit".to_owned(),
+            files: vec![
+                BundleFile {
+                    name: crate::evidence_rails::RECEIPT_ARTIFACT_NAME.to_owned(),
+                    contents: receipt_json.into_bytes(),
+                },
+                BundleFile {
+                    name: crate::evidence_rails::SUMMARY_ARTIFACT_NAME.to_owned(),
+                    contents: summary.into_bytes(),
+                },
+                BundleFile {
+                    name: crate::evidence_rails::PROVENANCE_ARTIFACT_NAME.to_owned(),
+                    contents: provenance.into_bytes(),
+                },
+            ],
+        }
     }
 
     fn replace_file(input: &mut ArtifactBundleInput, file_name: &str, contents: Vec<u8>) {

@@ -9,6 +9,7 @@ pub mod evidence;
 mod evidence_contracts;
 mod evidence_index;
 mod evidence_log;
+mod evidence_rails;
 mod fingerprint;
 mod imported_proof;
 mod migrate;
@@ -41,6 +42,7 @@ fn try_main() -> Result<i32, String> {
         cli::CommandArgs::Artifact(args) => artifact::run(&args),
         cli::CommandArgs::Check(check) => engine::run(&check),
         cli::CommandArgs::EvidenceIndex(args) => evidence_index::run(args),
+        cli::CommandArgs::EvidenceRail(args) => evidence_rails::run(&args),
         cli::CommandArgs::Fingerprint(args) => fingerprint::run(&args),
         cli::CommandArgs::Migrate(args) => migrate::run(args),
         cli::CommandArgs::Object(args) => object::run(&args),

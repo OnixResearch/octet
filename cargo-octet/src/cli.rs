@@ -23,6 +23,7 @@ pub enum CommandArgs {
     Artifact(ArtifactArgs),
     Check(CheckArgs),
     EvidenceIndex(EvidenceIndexArgs),
+    EvidenceRail(EvidenceRailArgs),
     Fingerprint(FingerprintArgs),
     Migrate(MigrateArgs),
     Object(ObjectArgs),
@@ -41,6 +42,7 @@ pub enum HelpTopic {
     Artifact,
     Check,
     EvidenceIndex,
+    EvidenceRail,
     Fingerprint,
     Migrate,
     Object,
@@ -67,6 +69,24 @@ pub struct CheckArgs {
     pub baseline: Option<PathBuf>,
     pub write_baseline: Option<PathBuf>,
     pub cache: bool,
+    pub command_line: String,
+}
+
+#[derive(Debug)]
+pub struct EvidenceRailArgs {
+    pub rail: crate::evidence_rails::EvidenceRailKind,
+    pub input: Option<PathBuf>,
+    pub artifact_dir: PathBuf,
+    pub workspace_root: Option<PathBuf>,
+    pub config: Option<PathBuf>,
+    pub baseline: Option<PathBuf>,
+    pub profile: Option<String>,
+    pub command: Option<String>,
+    pub parent_artifacts: Vec<String>,
+    pub output_format: OutputFormat,
+    pub locked: bool,
+    pub update_advisory_database: bool,
+    pub run: bool,
     pub command_line: String,
 }
 
@@ -289,6 +309,8 @@ pub fn parse(argv: impl IntoIterator<Item = OsString>) -> Result<CommandArgs, St
         Some("check") => parse_check(&argv[1..], command_line).map(CommandArgs::Check),
         Some("evidence-index") if wants_help(&argv[1..]) => Ok(CommandArgs::Help(HelpTopic::EvidenceIndex)),
         Some("evidence-index") => parse_evidence_index(&argv[1..]).map(CommandArgs::EvidenceIndex),
+        Some("evidence") if wants_help(&argv[1..]) => Ok(CommandArgs::Help(HelpTopic::EvidenceRail)),
+        Some("evidence") => parse_evidence_rail(&argv[1..], command_line).map(CommandArgs::EvidenceRail),
         Some("fingerprint") if wants_help(&argv[1..]) => Ok(CommandArgs::Help(HelpTopic::Fingerprint)),
         Some("fingerprint") => parse_fingerprint(&argv[1..]).map(CommandArgs::Fingerprint),
         Some("migrate") if wants_help(&argv[1..]) => Ok(CommandArgs::Help(HelpTopic::Migrate)),
@@ -306,10 +328,10 @@ pub fn parse(argv: impl IntoIterator<Item = OsString>) -> Result<CommandArgs, St
         Some("transcript") if wants_help(&argv[1..]) => Ok(CommandArgs::Help(HelpTopic::Transcript)),
         Some("transcript") => parse_transcript(&argv[1..]).map(CommandArgs::Transcript),
         Some(other) => Err(format!(
-            "unknown subcommand `{other}`; expected `artifact`, `check`, `evidence-index`, `fingerprint`, `migrate`, `object`, `provider-manifest`, `prove`, `proof-ref`, `roadmap`, or `transcript`"
+            "unknown subcommand `{other}`; expected `artifact`, `check`, `evidence`, `evidence-index`, `fingerprint`, `migrate`, `object`, `provider-manifest`, `prove`, `proof-ref`, `roadmap`, or `transcript`"
         )),
         None => Err(
-            "missing subcommand; expected `artifact`, `check`, `evidence-index`, `fingerprint`, `migrate`, `object`, `provider-manifest`, `prove`, `proof-ref`, `roadmap`, or `transcript`"
+            "missing subcommand; expected `artifact`, `check`, `evidence`, `evidence-index`, `fingerprint`, `migrate`, `object`, `provider-manifest`, `prove`, `proof-ref`, `roadmap`, or `transcript`"
                 .to_owned(),
         ),
     }
@@ -333,6 +355,7 @@ pub fn help_text(topic: HelpTopic) -> &'static str {
         HelpTopic::Artifact => ARTIFACT_HELP,
         HelpTopic::Check => CHECK_HELP,
         HelpTopic::EvidenceIndex => EVIDENCE_INDEX_HELP,
+        HelpTopic::EvidenceRail => EVIDENCE_RAIL_HELP,
         HelpTopic::Fingerprint => FINGERPRINT_HELP,
         HelpTopic::Migrate => MIGRATE_HELP,
         HelpTopic::Object => OBJECT_HELP,
@@ -349,6 +372,7 @@ const ROOT_HELP: &str = "Octet operator commands
 Usage:
   cargo octet artifact verify --artifact-dir PATH [--output-format human|json]
   cargo octet check [SCOPE] [-- CARGO_CHECK_ARGS]
+  cargo octet evidence collect --rail RAIL --input PATH --artifact-dir PATH [--output-format human|json]
   cargo octet evidence-index render --payload-commit HASH --capture-time RFC3339
   cargo octet evidence-index check [--page PATH]
   cargo octet fingerprint [--check|--update|--diff] [PATHS...]
@@ -401,6 +425,13 @@ Subcommands:
   check [--page docs/current-head-valence-evidence.md]
 
 Renders or checks the generated current-head Valence evidence Markdown index. Check mode fails closed on stale payload, missing rail/pass signal, or weakened non-claim boundaries.
+";
+
+const EVIDENCE_RAIL_HELP: &str = "cargo octet evidence collect
+
+Options: --rail dependency-audit|clippy-co-reporting|dependency-trust|api-stability|dynamic-evidence|release-supply-chain, --input PATH or --run, --artifact-dir PATH, --workspace-root PATH, --config PATH, --baseline PATH, --profile NAME, --command COMMAND, --parent-artifact PATH, --locked, --update-advisory-database, --output-format human|json.
+
+Collects optional non-starter evidence from external tools or saved tool output into a Rust-owned evidence-rail receipt, summary, and provenance bundle. These rails are complementary to cargo octet check; they do not upgrade validation evidence into formal proof.
 ";
 
 const FINGERPRINT_HELP: &str = "cargo octet fingerprint
@@ -659,6 +690,158 @@ fn parse_evidence_index(args: &[String]) -> Result<EvidenceIndexArgs, String> {
         page,
         payload_commit,
         capture_time,
+    })
+}
+
+fn parse_evidence_rail(args: &[String], command_line: String) -> Result<EvidenceRailArgs, String> {
+    match args.first().map(String::as_str) {
+        Some("collect") => parse_evidence_collect(&args[1..], command_line),
+        Some(other) => Err(format!("unknown evidence subcommand `{other}`; expected `collect`")),
+        None => Err("missing evidence subcommand; expected `collect`".to_owned()),
+    }
+}
+
+fn parse_evidence_collect(args: &[String], command_line: String) -> Result<EvidenceRailArgs, String> {
+    const FLAG_AND_VALUE_ARGS: usize = 2;
+
+    let mut rail = None;
+    let mut input = None;
+    let mut artifact_dir = None;
+    let mut workspace_root = None;
+    let mut config = None;
+    let mut baseline = None;
+    let mut profile = None;
+    let mut command = None;
+    let mut parent_artifacts = Vec::new();
+    let mut output_format = OutputFormat::Human;
+    let mut locked = false;
+    let mut update_advisory_database = false;
+    let mut run = false;
+    let mut index = 0;
+
+    while index < args.len() {
+        let arg = &args[index];
+        match arg.as_str() {
+            "--rail" => {
+                rail =
+                    Some(crate::evidence_rails::EvidenceRailKind::parse(required_arg_at(args, index, arg)?.as_str())?);
+                index += FLAG_AND_VALUE_ARGS;
+            }
+            "--input" => {
+                input = Some(PathBuf::from(required_arg_at(args, index, arg)?));
+                index += FLAG_AND_VALUE_ARGS;
+            }
+            "--artifact-dir" => {
+                artifact_dir = Some(PathBuf::from(required_arg_at(args, index, arg)?));
+                index += FLAG_AND_VALUE_ARGS;
+            }
+            "--workspace-root" => {
+                workspace_root = Some(PathBuf::from(required_arg_at(args, index, arg)?));
+                index += FLAG_AND_VALUE_ARGS;
+            }
+            "--config" => {
+                config = Some(PathBuf::from(required_arg_at(args, index, arg)?));
+                index += FLAG_AND_VALUE_ARGS;
+            }
+            "--baseline" => {
+                baseline = Some(PathBuf::from(required_arg_at(args, index, arg)?));
+                index += FLAG_AND_VALUE_ARGS;
+            }
+            "--profile" => {
+                profile = Some(required_arg_at(args, index, arg)?);
+                index += FLAG_AND_VALUE_ARGS;
+            }
+            "--command" => {
+                command = Some(required_arg_at(args, index, arg)?);
+                index += FLAG_AND_VALUE_ARGS;
+            }
+            "--parent-artifact" => {
+                parent_artifacts.push(required_arg_at(args, index, arg)?);
+                index += FLAG_AND_VALUE_ARGS;
+            }
+            "--output-format" | "--format" => {
+                output_format = parse_output_format(&required_arg_at(args, index, arg)?)?;
+                index += FLAG_AND_VALUE_ARGS;
+            }
+            "--locked" => {
+                locked = true;
+                index += 1;
+            }
+            "--update-advisory-database" => {
+                update_advisory_database = true;
+                index += 1;
+            }
+            "--run" => {
+                run = true;
+                index += 1;
+            }
+            _ if arg.starts_with("--rail=") => {
+                rail = Some(crate::evidence_rails::EvidenceRailKind::parse(arg.trim_start_matches("--rail="))?);
+                index += 1;
+            }
+            _ if arg.starts_with("--input=") => {
+                input = Some(PathBuf::from(arg.trim_start_matches("--input=")));
+                index += 1;
+            }
+            _ if arg.starts_with("--artifact-dir=") => {
+                artifact_dir = Some(PathBuf::from(arg.trim_start_matches("--artifact-dir=")));
+                index += 1;
+            }
+            _ if arg.starts_with("--workspace-root=") => {
+                workspace_root = Some(PathBuf::from(arg.trim_start_matches("--workspace-root=")));
+                index += 1;
+            }
+            _ if arg.starts_with("--config=") => {
+                config = Some(PathBuf::from(arg.trim_start_matches("--config=")));
+                index += 1;
+            }
+            _ if arg.starts_with("--baseline=") => {
+                baseline = Some(PathBuf::from(arg.trim_start_matches("--baseline=")));
+                index += 1;
+            }
+            _ if arg.starts_with("--profile=") => {
+                profile = Some(arg.trim_start_matches("--profile=").to_owned());
+                index += 1;
+            }
+            _ if arg.starts_with("--command=") => {
+                command = Some(arg.trim_start_matches("--command=").to_owned());
+                index += 1;
+            }
+            _ if arg.starts_with("--parent-artifact=") => {
+                parent_artifacts.push(arg.trim_start_matches("--parent-artifact=").to_owned());
+                index += 1;
+            }
+            _ if arg.starts_with("--output-format=") => {
+                output_format = parse_output_format(arg.trim_start_matches("--output-format="))?;
+                index += 1;
+            }
+            _ if arg.starts_with("--format=") => {
+                output_format = parse_output_format(arg.trim_start_matches("--format="))?;
+                index += 1;
+            }
+            _ => return Err(format!("unsupported evidence collect argument `{arg}`")),
+        }
+    }
+
+    if output_format == OutputFormat::Sarif {
+        return Err("evidence collect does not support SARIF output; use human or json".to_owned());
+    }
+
+    Ok(EvidenceRailArgs {
+        rail: rail.ok_or_else(|| "evidence collect requires `--rail RAIL`".to_owned())?,
+        input,
+        artifact_dir: artifact_dir.unwrap_or_else(|| PathBuf::from("artifacts/octet-evidence")),
+        workspace_root,
+        config,
+        baseline,
+        profile,
+        command,
+        parent_artifacts,
+        output_format,
+        locked,
+        update_advisory_database,
+        run,
+        command_line,
     })
 }
 
@@ -1798,6 +1981,76 @@ mod tests {
         let missing_dir = parse(["cargo", "octet", "artifact", "verify"].map(OsString::from))
             .expect_err("artifact verify requires artifact dir");
         assert!(missing_dir.contains("artifact verify requires `--artifact-dir PATH`"));
+    }
+
+    #[test]
+    fn starter_check_parse_stays_separate_from_dynamic_evidence() {
+        let parsed = parse(["cargo", "octet", "check"].map(OsString::from)).expect("parse starter check");
+        match parsed {
+            CommandArgs::Check(args) => {
+                assert!(args.scope_args.is_empty());
+                assert_eq!(args.output_format, OutputFormat::Human);
+                assert_eq!(args.command_line, "cargo octet check");
+            }
+            other => panic!("expected starter check args, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn evidence_collect_parse_accepts_import_bundle_options_and_rejects_sarif() {
+        let parsed = parse(
+            [
+                "cargo",
+                "octet",
+                "evidence",
+                "collect",
+                "--rail",
+                "dependency-audit",
+                "--input",
+                "deny.json",
+                "--artifact-dir=artifacts/dependency-audit",
+                "--workspace-root",
+                ".",
+                "--config",
+                "deny.toml",
+                "--locked",
+                "--parent-artifact",
+                "artifacts/octet/status.json",
+                "--output-format",
+                "json",
+            ]
+            .map(OsString::from),
+        )
+        .expect("parse evidence collect args");
+
+        match parsed {
+            CommandArgs::EvidenceRail(args) => {
+                assert_eq!(args.rail, crate::evidence_rails::EvidenceRailKind::DependencyAudit);
+                assert_eq!(args.input, Some(std::path::PathBuf::from("deny.json")));
+                assert_eq!(args.artifact_dir, std::path::PathBuf::from("artifacts/dependency-audit"));
+                assert_eq!(args.workspace_root, Some(std::path::PathBuf::from(".")));
+                assert_eq!(args.config, Some(std::path::PathBuf::from("deny.toml")));
+                assert_eq!(args.parent_artifacts, vec!["artifacts/octet/status.json".to_owned()]);
+                assert_eq!(args.output_format, OutputFormat::Json);
+                assert!(args.locked);
+            }
+            other => panic!("expected evidence rail args, got {other:?}"),
+        }
+
+        let sarif = parse(
+            [
+                "cargo",
+                "octet",
+                "evidence",
+                "collect",
+                "--rail=clippy",
+                "--input=clippy.jsonl",
+                "--output-format=sarif",
+            ]
+            .map(OsString::from),
+        )
+        .expect_err("evidence collect rejects SARIF");
+        assert!(sarif.contains("does not support SARIF"));
     }
 
     #[test]

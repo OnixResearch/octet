@@ -12,6 +12,12 @@ pub const CHECKER_OCTET_POLICY_VALIDATE: &str = "octet-policy-validate";
 pub const CHECKER_OCTET_POLICY_EXPORT: &str = "octet-policy-export";
 pub const CHECKER_OCTET_FINGERPRINT: &str = "octet-fingerprint";
 pub const CHECKER_OCTET_TRANSCRIPT: &str = "octet-transcript";
+pub const CHECKER_CARGO_DENY: &str = "cargo-deny";
+pub const CHECKER_CLIPPY: &str = "clippy";
+pub const CHECKER_CARGO_VET: &str = "cargo-vet";
+pub const CHECKER_CARGO_SEMVER_CHECKS: &str = "cargo-semver-checks";
+pub const CHECKER_OCTET_DYNAMIC_EVIDENCE: &str = "octet-dynamic-evidence";
+pub const CHECKER_OCTET_RELEASE_SUPPLY_CHAIN: &str = "octet-release-supply-chain";
 const FIELD_SCHEMA_VERSION: &str = "schema_version";
 const FIELD_SOURCE_ID: &str = "source_id";
 const FIELD_ARTIFACT_LOCATOR: &str = "artifact_locator";
@@ -26,6 +32,11 @@ const SOURCE_STANDARDS_PREFIX: &str = "octet.standards.";
 const SOURCE_POLICY_PREFIX: &str = "octet.policy.";
 const SOURCE_FINGERPRINT_PREFIX: &str = "octet.fingerprint.";
 const SOURCE_TRANSCRIPT_PREFIX: &str = "octet.transcript.";
+const SOURCE_EXTERNAL_LINT_PREFIX: &str = "octet.external_lint.";
+const SOURCE_DEPENDENCY_TRUST_PREFIX: &str = "octet.dependency_trust.";
+const SOURCE_API_STABILITY_PREFIX: &str = "octet.api_stability.";
+const SOURCE_DYNAMIC_EVIDENCE_PREFIX: &str = "octet.dynamic_evidence.";
+const SOURCE_RELEASE_SUPPLY_CHAIN_PREFIX: &str = "octet.release_supply_chain.";
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -157,6 +168,42 @@ fn provenance_producers() -> &'static [ProvenanceProducer] {
             checker_id: CHECKER_OCTET_TRANSCRIPT,
             source_prefixes: &[SOURCE_TRANSCRIPT_PREFIX],
             allowed_tiers: &[EvidenceTier::TranscriptAssertion],
+            allows_formal_proof: false,
+        },
+        ProvenanceProducer {
+            checker_id: CHECKER_CARGO_DENY,
+            source_prefixes: &[SOURCE_POLICY_PREFIX],
+            allowed_tiers: &[EvidenceTier::PolicyCheck],
+            allows_formal_proof: false,
+        },
+        ProvenanceProducer {
+            checker_id: CHECKER_CLIPPY,
+            source_prefixes: &[SOURCE_EXTERNAL_LINT_PREFIX],
+            allowed_tiers: &[EvidenceTier::StaticLint],
+            allows_formal_proof: false,
+        },
+        ProvenanceProducer {
+            checker_id: CHECKER_CARGO_VET,
+            source_prefixes: &[SOURCE_DEPENDENCY_TRUST_PREFIX],
+            allowed_tiers: &[EvidenceTier::PolicyCheck],
+            allows_formal_proof: false,
+        },
+        ProvenanceProducer {
+            checker_id: CHECKER_CARGO_SEMVER_CHECKS,
+            source_prefixes: &[SOURCE_API_STABILITY_PREFIX],
+            allowed_tiers: &[EvidenceTier::PolicyCheck],
+            allows_formal_proof: false,
+        },
+        ProvenanceProducer {
+            checker_id: CHECKER_OCTET_DYNAMIC_EVIDENCE,
+            source_prefixes: &[SOURCE_DYNAMIC_EVIDENCE_PREFIX],
+            allowed_tiers: &[EvidenceTier::TranscriptAssertion],
+            allows_formal_proof: false,
+        },
+        ProvenanceProducer {
+            checker_id: CHECKER_OCTET_RELEASE_SUPPLY_CHAIN,
+            source_prefixes: &[SOURCE_RELEASE_SUPPLY_CHAIN_PREFIX],
+            allowed_tiers: &[EvidenceTier::PolicyCheck],
             allows_formal_proof: false,
         },
     ]

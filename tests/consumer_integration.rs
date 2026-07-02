@@ -548,7 +548,7 @@ fn non_utf8_cli_arguments_exit_with_integration_failure_code_and_preserve_diagno
 
 #[test]
 fn missing_and_unknown_subcommands_preserve_diagnostics_and_skip_cargo() {
-    const EXPECTED_SUBCOMMANDS: &str = "expected `artifact`, `check`, `evidence-index`, `fingerprint`, `migrate`, `object`, `provider-manifest`, `prove`, `roadmap`, or `transcript`";
+    const EXPECTED_SUBCOMMANDS: &str = "expected `artifact`, `check`, `evidence`, `evidence-index`, `fingerprint`, `migrate`, `object`, `provider-manifest`, `prove`, `proof-ref`, `roadmap`, or `transcript`";
 
     let assert_subcommand_failure = |label: &str, args: Vec<OsString>, expected_stderr: &str| {
         let fixture = ConsumerFixture::new(label, &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));

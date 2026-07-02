@@ -13,7 +13,7 @@ creating new claims.
 Rust source
   -> cargo octet check / octet-standards checks
   -> checked-in policy and config (`dylint.toml`, `[workspace.metadata.octet]`, Nickel registry exports)
-  -> evidence artifacts (`status.json`, SARIF, JSONL findings, transcripts, fingerprints, policy bundles)
+  -> evidence artifacts (`status.json`, SARIF, JSONL findings, external evidence receipts, transcripts, fingerprints, policy bundles)
   -> consumer CI or release gate
 ```
 
@@ -67,8 +67,8 @@ The progressive assurance ladder keeps each stage explicit:
 | advisory lint findings | `static_lint` evidence for known source shapes | `cargo octet check` under the starter profile | stderr, SARIF, JSONL finding sidecars, and remediation text |
 | warning gates | operational gating rather than formal proof; warning-level `static_lint` findings become review inputs | `cargo octet check` in CI or pre-commit with warning policy | `summary.txt`, `status.json`, SARIF, JSONL, and review notes |
 | deny gates | operational gating rather than formal proof; denied lint findings block promotion | `cargo octet check` with deny profile or `templates/pre-commit-config.yaml` | non-zero runner status, sidecars, and suppression review |
-| policy requirements | `policy_check` evidence tied to Nickel-authored policy IDs | `octet-policy-validate` and `octet-standards check` | generated policy bundles, standards diagnostics, and policy artifact manifests |
-| receipt-backed validation | `transcript_assertion`, `autofix_verified`, `ui_fixture`, or policy receipt evidence | transcript, autofix, UI, artifact, and standards validation gates | transcripts, refreshed snapshots, verifier sidecars, and provenance records |
+| policy requirements | `policy_check` evidence tied to Nickel-authored policy IDs or selected external checker receipts | `octet-policy-validate`, `octet-standards check`, and `cargo octet evidence collect --rail ...` | generated policy bundles, standards diagnostics, dependency-audit, cargo-vet, semver, and release supply-chain receipts |
+| receipt-backed validation | `static_lint`, `transcript_assertion`, `autofix_verified`, `ui_fixture`, dynamic profile, or policy receipt evidence | Clippy co-reporting, transcript, dynamic evidence, autofix, UI, artifact, and standards validation gates | Clippy receipts, transcripts, dynamic profile receipts, refreshed snapshots, verifier sidecars, and provenance records |
 | scoped formal-proof receipts | `formal_proof` only for validated verifier-backed receipts | `cargo octet prove` followed by `cargo octet artifact verify` | structured proof receipt, proof card, bounded log identity, verifier identity, and provenance |
 | verified release artifacts | release-gate evidence assembled from the lower tiers; artifact verification is not itself whole-program proof | `cargo octet artifact verify` and release/operator smoke transcripts | deterministic artifact directory, `provenance.jsonl`, smoke transcript, and reviewer signoff |
 
@@ -90,10 +90,13 @@ Every checked-contract record should include these fields:
 
 Existing Octet surfaces already map to this shape. A lint diagnostic can bind a
 requirement or lint ID to `static_lint` evidence. A standards policy can bind a
-policy ID to `policy_check` evidence. A Verus proof rail can bind a proof card,
-receipt, provenance record, and artifact verifier command to a scoped
-`formal_proof` claim. Release evidence can bind artifact verification and a smoke
-transcript to a reviewer action without upgrading every lower stage to proof.
+policy ID to `policy_check` evidence. Optional external evidence rails bind
+`cargo-deny`, Clippy, `cargo-vet`, `cargo-semver-checks`, dynamic profile, and
+release supply-chain output to Rust-owned receipts without making them starter
+checks. A Verus proof rail can bind a proof card, receipt, provenance record, and
+artifact verifier command to a scoped `formal_proof` claim. Release evidence can
+bind artifact verification and a smoke transcript to a reviewer action without
+upgrading every lower stage to proof.
 
 High-confidence diagnostic examples should name the deterministic failure shape
 when Octet has it. Examples include the invalid state behind an unchecked
@@ -190,12 +193,16 @@ claim being made.
 
 The initial deterministic producer registry covers `cargo-octet`,
 `octet-standards`, `octet-policy-validate`, `octet-policy-export`,
-`octet-fingerprint`, and `octet-transcript`. Source IDs stay in their producer
-families (`octet.runner.*`, `octet.artifact.*`, `octet.standards.*`,
-`octet.policy.*`, `octet.fingerprint.*`, and `octet.transcript.*`), and parent
-artifacts link derived evidence back to the runner, policy, fingerprint, or
-transcript artifact it summarizes. Missing parents and parent cycles are
-rejected; validation and review artifacts remain `policy_check`,
+`octet-fingerprint`, `octet-transcript`, `cargo-deny`, Clippy, `cargo-vet`,
+`cargo-semver-checks`, `octet-dynamic-evidence`, and
+`octet-release-supply-chain`. Source IDs stay in their producer families
+(`octet.runner.*`, `octet.artifact.*`, `octet.standards.*`, `octet.policy.*`,
+`octet.external_lint.*`, `octet.dependency_trust.*`, `octet.api_stability.*`,
+`octet.dynamic_evidence.*`, `octet.release_supply_chain.*`,
+`octet.fingerprint.*`, and `octet.transcript.*`), and parent artifacts link
+derived evidence back to the runner, policy, fingerprint, transcript, or release
+artifact it summarizes. Missing parents and parent cycles are rejected;
+validation and review artifacts remain `static_lint`, `policy_check`,
 `transcript_assertion`, or `manual_review_required`, not `formal_proof`.
 
 ## What Octet does not claim
@@ -244,6 +251,7 @@ store, or downstream integrations do after Octet writes local files.
   scope.
 - Configure a deterministic artifact directory such as `artifacts/octet` for
   `command.txt`, `status.json`, `summary.txt`, `provenance.jsonl`, and structured output, then run the artifact verifier before promotion.
+- Add optional external evidence directories only when selected, for example `artifacts/dependency-audit` or `artifacts/release-supply-chain`, and verify each receipt bundle separately.
 - Optionally add `templates/pre-commit-config.yaml` as a deny-all pre-commit
   gate after the starter profile is understood.
 - Save or reference the release/operator smoke command when promoting the gate.

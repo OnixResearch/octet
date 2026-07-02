@@ -313,8 +313,9 @@ mod tests {
         assert_eq!(default_path, PathBuf::from(RUSTC_HIR_SPIKE_FIXTURE_RELATIVE_PATH));
 
         let explicit_path = PathBuf::from(RUSTC_MIR_SPIKE_BRANCH_FIXTURE_RELATIVE_PATH);
-        let selected = selected_fixture_path(SupplementScopeArg::RustcMirFixtureSpike, &[explicit_path.clone()])
-            .expect("MIR explicit fixture path");
+        let selected =
+            selected_fixture_path(SupplementScopeArg::RustcMirFixtureSpike, std::slice::from_ref(&explicit_path))
+                .expect("MIR explicit fixture path");
         assert_eq!(selected, explicit_path);
     }
 
