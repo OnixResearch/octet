@@ -99,7 +99,7 @@ Unknown lint names and invalid level values warn and are ignored.
 | `assertion_density` | `allow` | flag large functions with too few assertions |
 | `raw_arithmetic_overflow` | `allow` | flag unchecked `+`, `-`, or `*` on unsigned integers |
 | `sentinel_fallback` | `warn` | flag `<int>::MAX` / `<int>::MIN` sentinel fallbacks instead of explicit branching or tagged fallback text |
-| `public_unsafe_api` | `warn` | flag public Rust `unsafe fn` APIs that leak unsafe obligations to callers |
+| `public_unsafe_api` | `warn` | flag public Rust `unsafe fn` APIs that leak unsafe obligations to callers; prefer a safe wrapper or document the exception with an `UNSAFE-TRUST-BOUNDARY:` record |
 | `defaulting_trait_method` | `allow` | flag trait methods with default bodies that can weaken substitution contracts |
 
 ## Naming lints (`tigerstyle::naming`)
@@ -161,5 +161,6 @@ Unknown lint names and invalid level values warn and are ignored.
 
 - `consumer-guide.md` — setup and rollout entry points
 - `trust-boundary-evidence.md#checked-contract-ladder` — how lint findings become checked-contract ladder stages without becoming formal proof
+- `rust-idiom-guidance.md#unsafe-trusted-boundary-records` — safe-wrapper and documented-exception paths for `public_unsafe_api`, FFI, raw-pointer, and lifetime-erasing boundaries
 - `downstream-rollout.md` — rollout profiles and Aspen-backed evidence
 - `../templates/dylint.toml` — copyable consumer template with rollout comments

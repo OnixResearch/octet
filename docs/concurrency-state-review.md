@@ -36,11 +36,12 @@ This section matters because distributed systems see duplication, reordering, lo
 
 ## Unsafe quarantine and escape hatches
 
-This section matters because low-level synchronization sometimes needs `unsafe`, but the blast radius must stay narrow and auditable. Keep the safe wrapper small, state the invariant it protects, and name any dangerous bypass so reviewers can grep for it later.
+This section matters because low-level synchronization sometimes needs `unsafe`, but the blast radius must stay narrow and auditable. Keep the safe wrapper small, state the invariant it protects, and name any dangerous bypass so reviewers can grep for it later. For new or changed unsafe, raw-pointer, FFI, or lifetime-erasing seams, use the [unsafe/trusted-boundary record](rust-idiom-guidance.md#unsafe-trusted-boundary-records).
 
 - Reviewer prompt: Where does unsafe appear, and what safe wrapper or invariant fences it in?
 - Reviewer prompt: Which escape hatch bypasses the normal guardrails, and is its name explicit enough to grep during audit?
 - Checklist: Send work back when unsafe leaks into ordinary call sites or when the exceptional path reads like normal API usage.
+- Checklist: Require an `UNSAFE-TRUST-BOUNDARY:` record when unsafe concurrency paths expose public caller obligations, bypass normal guards, or need selected dynamic evidence.
 
 ## Reviewer prompts and failure handling
 
