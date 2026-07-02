@@ -77,6 +77,14 @@ fn is_generated_or_fixture_path(path: &Path) -> bool {
         || path.to_string_lossy().ends_with(".rs.in")
 }
 
+fn is_workspace_source_path(path: &Path, workspace_root: &Path) -> bool {
+    if path.is_absolute() {
+        return path.starts_with(workspace_root);
+    }
+
+    workspace_root.join(path).is_file()
+}
+
 fn file_stem(path: &Path) -> Option<&str> {
     path.file_stem().and_then(|stem| stem.to_str())
 }
@@ -92,11 +100,11 @@ fn replacement_layout(stem: &str) -> String {
     format!("{}/{}.rs", segments.join("/"), file_name)
 }
 
-fn should_warn(path: &Path) -> Option<(&str, String)> {
+fn should_warn(path: &Path, workspace_root: &Path) -> Option<(String, String)> {
     if path.extension().and_then(|extension| extension.to_str()) != Some("rs") {
         return None;
     }
-    if is_generated_or_fixture_path(path) {
+    if !is_workspace_source_path(path, workspace_root) || is_generated_or_fixture_path(path) {
         return None;
     }
 
@@ -105,14 +113,16 @@ fn should_warn(path: &Path) -> Option<(&str, String)> {
         return None;
     }
 
-    Some((stem, replacement_layout(stem)))
+    Some((stem.to_owned(), replacement_layout(stem)))
 }
 
 impl EarlyLintPass for UnderscoreInModuleFilename {
     fn check_crate(&mut self, cx: &EarlyContext<'_>, _krate: &Crate) {
+        let workspace_root = std::env::current_dir().map(|path| normalize_path(&path)).unwrap_or_default();
+
         for source_file in cx.sess().source_map().files().iter() {
             let path = normalize_path(&source_file_path(source_file));
-            let Some((stem, replacement)) = should_warn(&path) else {
+            let Some((stem, replacement)) = should_warn(&path, &workspace_root) else {
                 continue;
             };
 
@@ -131,17 +141,32 @@ impl EarlyLintPass for UnderscoreInModuleFilename {
 mod tests {
     use std::path::Path;
 
+    use super::is_workspace_source_path;
     use super::should_warn;
+
+    fn workspace_root() -> &'static Path {
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+    }
 
     #[test]
     fn warns_for_workspace_underscore_module_filename() {
-        assert!(should_warn(Path::new("src/compute_vm.rs")).is_some());
+        assert!(should_warn(Path::new("src/naming/acronym_style.rs"), workspace_root()).is_some());
+    }
+
+    #[test]
+    fn skips_remapped_dependency_paths_absent_from_workspace() {
+        assert!(!is_workspace_source_path(Path::new("<WORKSPACE>/src/address_lookup.rs"), workspace_root()));
+        assert!(should_warn(Path::new("<WORKSPACE>/src/address_lookup.rs"), workspace_root()).is_none());
     }
 
     #[test]
     fn skips_vendored_dependency_underscore_filename() {
         assert!(
-            should_warn(Path::new("/nix/store/hash-vendor-cargo-deps/serde_core-1.0.228/src/crate_root.rs")).is_none()
+            should_warn(
+                Path::new("/nix/store/hash-vendor-cargo-deps/serde_core-1.0.228/src/crate_root.rs"),
+                workspace_root()
+            )
+            .is_none()
         );
     }
 }

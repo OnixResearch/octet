@@ -99,7 +99,7 @@ Unknown lint names and invalid level values warn and are ignored.
 | `assertion_density` | `allow` | flag large functions with too few assertions |
 | `raw_arithmetic_overflow` | `allow` | flag unchecked `+`, `-`, or `*` on unsigned integers |
 | `sentinel_fallback` | `warn` | flag `<int>::MAX` / `<int>::MIN` sentinel fallbacks instead of explicit branching or tagged fallback text |
-| `public_unsafe_api` | `warn` | flag public Rust `unsafe fn` APIs that leak unsafe obligations to callers; prefer a safe wrapper or document the exception with an `UNSAFE-TRUST-BOUNDARY:` record |
+| `public_unsafe_api` | `warn` | flag public Rust `unsafe fn` APIs that leak unsafe obligations to callers |
 | `defaulting_trait_method` | `allow` | flag trait methods with default bodies that can weaken substitution contracts |
 
 ## Naming lints (`tigerstyle::naming`)
