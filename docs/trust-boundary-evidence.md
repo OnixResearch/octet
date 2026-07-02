@@ -53,6 +53,61 @@ format carries tier data:
 Validation is validation, review is review, and proof is proof for a stated model
 and property. No tier may be silently promoted to a stronger claim.
 
+## Checked-contract ladder
+
+A checked contract in Octet is an evidence record, not a Rust syntax extension.
+It is a scoped requirement, invariant, or review obligation that names what was
+checked, how it was checked, where the artifact lives, and which claim remains
+outside the evidence boundary.
+
+The progressive assurance ladder keeps each stage explicit:
+
+| Stage | Evidence tier or boundary | Command or gate | Artifact, receipt, or review surface |
+| --- | --- | --- | --- |
+| advisory lint findings | `static_lint` evidence for known source shapes | `cargo octet check` under the starter profile | stderr, SARIF, JSONL finding sidecars, and remediation text |
+| warning gates | operational gating rather than formal proof; warning-level `static_lint` findings become review inputs | `cargo octet check` in CI or pre-commit with warning policy | `summary.txt`, `status.json`, SARIF, JSONL, and review notes |
+| deny gates | operational gating rather than formal proof; denied lint findings block promotion | `cargo octet check` with deny profile or `templates/pre-commit-config.yaml` | non-zero runner status, sidecars, and suppression review |
+| policy requirements | `policy_check` evidence tied to Nickel-authored policy IDs | `octet-policy-validate` and `octet-standards check` | generated policy bundles, standards diagnostics, and policy artifact manifests |
+| receipt-backed validation | `transcript_assertion`, `autofix_verified`, `ui_fixture`, or policy receipt evidence | transcript, autofix, UI, artifact, and standards validation gates | transcripts, refreshed snapshots, verifier sidecars, and provenance records |
+| scoped formal-proof receipts | `formal_proof` only for validated verifier-backed receipts | `cargo octet prove` followed by `cargo octet artifact verify` | structured proof receipt, proof card, bounded log identity, verifier identity, and provenance |
+| verified release artifacts | release-gate evidence assembled from the lower tiers; artifact verification is not itself whole-program proof | `cargo octet artifact verify` and release/operator smoke transcripts | deterministic artifact directory, `provenance.jsonl`, smoke transcript, and reviewer signoff |
+
+Every checked-contract record should include these fields:
+
+- requirement or policy ID: the source ID for the obligation;
+- source scope: crate, path, policy family, proof rail, or transcript section;
+- invariant or failure shape: the invalid state, branch, missing guard, resource
+  boundary, or remediation path the check can name deterministically;
+- evidence tier: one of the bounded tiers above, or an explicit operational gate
+  boundary when the stage is not formal proof;
+- command or gate: the exact Octet command, CI gate, transcript, or release gate
+  that produced the evidence;
+- artifact or receipt path: the local artifact, receipt, proof card, manifest,
+  transcript, or archive path a reviewer inspects;
+- reviewer action: the human decision still required, such as suppression review,
+  policy review, proof-card review, or release signoff;
+- explicit non-claim: the unsupported conclusion the evidence does not prove.
+
+Existing Octet surfaces already map to this shape. A lint diagnostic can bind a
+requirement or lint ID to `static_lint` evidence. A standards policy can bind a
+policy ID to `policy_check` evidence. A Verus proof rail can bind a proof card,
+receipt, provenance record, and artifact verifier command to a scoped
+`formal_proof` claim. Release evidence can bind artifact verification and a smoke
+transcript to a reviewer action without upgrading every lower stage to proof.
+
+High-confidence diagnostic examples should name the deterministic failure shape
+when Octet has it. Examples include the invalid state behind an unchecked
+narrowing, the branch where an unwrap lacks an adjacent guard, the missing guard
+before division, the resource boundary for an unbounded channel, or the
+remediation path for moving an ambient clock read into a shell. These examples
+are not solver models and are not formal counterexamples unless the evidence
+comes from a scoped verifier receipt that says so.
+
+Checked-contract documentation does not introduce Rust `requires` or `ensures`
+syntax, does not provide complete solver-backed verification for arbitrary Rust,
+does not add runtime fallback checks for unproved contracts, and does not make
+every ladder stage formal proof.
+
 ## Verus proof-path lane
 
 Verus is an opt-in evidence lane inside this chain, not a replacement for the
@@ -200,6 +255,7 @@ store, or downstream integrations do after Octet writes local files.
 | checked-path framing | [README quick start](../README.md#quick-start) and [consumer guide](consumer-guide.md) | `cargo octet check`, `octet-standards check`, source-to-gate flow |
 | evidence stack | [Evidence stack](#evidence-stack) | discipline, static edge, policy layer, evidence chain |
 | evidence tiers | [Evidence tiers](#evidence-tiers) | `evidence_tier` fields in JSONL/SARIF sidecars and provenance DTOs |
+| checked-contract ladder | [Checked-contract ladder](#checked-contract-ladder) | advisory lint findings, warning gates, deny gates, policy requirements, receipt-backed validation, scoped formal-proof receipts, and verified release artifacts |
 | provenance chain | [Provenance chain](#provenance-chain) | `provenance.jsonl` records source ID, checker ID, tier, artifact locator, BLAKE3 hash, and checked scope; `cargo octet artifact verify` recomputes and checks saved bundles |
 | scope-boundary | [What Octet does not claim](#what-octet-does-not-claim) and [safety-critical guide](safety-critical.md) | unsupported claims paired with supported capabilities |
 | controlled-deployment | [Controlled deployment posture](#controlled-deployment-posture) and [downstream rollout kit](downstream-rollout.md) | local/CI execution, pinned runner, source-visible toolchain, local artifacts |

@@ -4,6 +4,7 @@ This page lists the shipped Octet lints, their default levels, and the
 supported suppression and config paths.
 
 For consumer setup, see `consumer-guide.md`.
+For checked-contract ladder context, see `trust-boundary-evidence.md#checked-contract-ladder`.
 For the landing-page naming map, see `../README.md`.
 
 ## Catalog summary
@@ -159,5 +160,6 @@ Unknown lint names and invalid level values warn and are ignored.
 ## Related docs
 
 - `consumer-guide.md` — setup and rollout entry points
+- `trust-boundary-evidence.md#checked-contract-ladder` — how lint findings become checked-contract ladder stages without becoming formal proof
 - `downstream-rollout.md` — rollout profiles and Aspen-backed evidence
 - `../templates/dylint.toml` — copyable consumer template with rollout comments

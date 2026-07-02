@@ -5,10 +5,12 @@ const CANONICAL_CHECKED_PATH: &str =
 const TRUST_BOUNDARY_DOC: &str = "docs/trust-boundary-evidence.md";
 const CONSUMER_GUIDE_DOC: &str = "docs/consumer-guide.md";
 const DOWNSTREAM_ROLLOUT_DOC: &str = "docs/downstream-rollout.md";
+const LINT_REFERENCE_DOC: &str = "docs/lint-reference.md";
 const SAFETY_CRITICAL_DOC: &str = "docs/safety-critical.md";
 const RELEASE_CANDIDATE_DOC: &str = "docs/release-candidate.md";
 const README_DOC: &str = "README.md";
 const VERUS_README_DOC: &str = "verus/README.md";
+const CHECKED_CONTRACT_ANCHOR: &str = "docs/trust-boundary-evidence.md#checked-contract-ladder";
 const VERUS_PROOF_PATH_ANCHOR: &str = "docs/trust-boundary-evidence.md#verus-proof-path-lane";
 
 #[test]
@@ -194,6 +196,68 @@ fn verus_proof_path_explainer_names_required_stages_and_commands() {
 }
 
 #[test]
+fn checked_contract_ladder_docs_inventory_records_and_boundaries() {
+    let trust_boundary = read_repo_text(TRUST_BOUNDARY_DOC);
+    let readme = read_repo_text(README_DOC);
+    let lint_reference = read_repo_text(LINT_REFERENCE_DOC);
+    let verus_readme = read_repo_text(VERUS_README_DOC);
+
+    assert_required_terms(&trust_boundary, &[
+        "Checked-contract ladder",
+        "advisory lint findings",
+        "warning gates",
+        "deny gates",
+        "policy requirements",
+        "receipt-backed validation",
+        "scoped formal-proof receipts",
+        "verified release artifacts",
+        "Evidence tier or boundary",
+        "operational gating rather than formal proof",
+        "`static_lint`",
+        "`policy_check`",
+        "`formal_proof`",
+        "cargo octet check",
+        "octet-standards check",
+        "cargo octet prove",
+        "cargo octet artifact verify",
+    ]);
+    assert_required_terms(&trust_boundary, &[
+        "requirement or policy ID",
+        "source scope",
+        "invariant or failure shape",
+        "evidence tier",
+        "command or gate",
+        "artifact or receipt path",
+        "reviewer action",
+        "explicit non-claim",
+        "lint diagnostic",
+        "standards policy",
+        "proof card",
+        "provenance record",
+        "artifact verifier",
+    ]);
+    assert_required_terms(&trust_boundary, &[
+        "deterministic failure shape",
+        "invalid state",
+        "branch",
+        "missing guard",
+        "resource boundary",
+        "remediation path",
+        "not solver models",
+        "not formal counterexamples",
+    ]);
+    assert_required_terms(&trust_boundary, &[
+        "does not introduce Rust `requires` or `ensures` syntax",
+        "does not provide complete solver-backed verification for arbitrary Rust",
+        "does not add runtime fallback checks for unproved contracts",
+        "does not make every ladder stage formal proof",
+    ]);
+    assert_required_terms(&readme, &[CHECKED_CONTRACT_ANCHOR]);
+    assert_required_terms(&lint_reference, &["trust-boundary-evidence.md#checked-contract-ladder"]);
+    assert_required_terms(&verus_readme, &["docs/trust-boundary-evidence.md#checked-contract-ladder"]);
+}
+
+#[test]
 fn verus_proof_path_checker_rejects_unscoped_overclaim_text() {
     let bad_text = "The Verus proof path proves whole-program correctness. It provides certification and provides business-domain validation. It proves semantic equivalence and guarantees full safety for Octet. Octet is a verified runtime.";
 
@@ -216,11 +280,13 @@ fn docs_do_not_contain_unscoped_overclaim_phrases() {
         CONSUMER_GUIDE_DOC,
         TRUST_BOUNDARY_DOC,
         DOWNSTREAM_ROLLOUT_DOC,
+        LINT_REFERENCE_DOC,
         VERUS_README_DOC,
     ] {
         let text = read_repo_text(path);
         let mut diagnostics = overclaim_diagnostics(&text);
         diagnostics.extend(proof_path_overclaim_diagnostics(&text));
+        diagnostics.extend(checked_contract_overclaim_diagnostics(&text));
         assert!(diagnostics.is_empty(), "{path} overclaim diagnostics: {diagnostics:?}");
     }
 }
@@ -235,6 +301,20 @@ fn overclaim_checker_rejects_bad_positioning_text() {
         "unscoped verified-runtime claim".to_owned(),
         "unscoped correctness-proof claim".to_owned(),
         "absolute source-locality claim".to_owned(),
+    ]);
+}
+
+#[test]
+fn checked_contract_overclaim_checker_rejects_bad_ladder_text() {
+    let bad_text = "Octet has built-in `requires` syntax. Octet provides complete solver-backed verification for arbitrary Rust. Octet emits runtime fallback checks for unproved contracts. Every ladder stage is formal proof.";
+
+    let diagnostics = checked_contract_overclaim_diagnostics(bad_text);
+
+    assert_eq!(diagnostics, vec![
+        "unsupported language-level contract syntax claim".to_owned(),
+        "unsupported solver-completeness claim".to_owned(),
+        "unsupported runtime-fallback claim".to_owned(),
+        "unsupported all-stages-formal-proof claim".to_owned(),
     ]);
 }
 
@@ -321,6 +401,51 @@ fn proof_path_overclaim_diagnostics(text: &str) -> Vec<String> {
         &lower,
         &["octet is a verified runtime", "octet is the verified runtime"],
         "unscoped verified-runtime claim",
+    );
+
+    diagnostics
+}
+
+fn checked_contract_overclaim_diagnostics(text: &str) -> Vec<String> {
+    let lower = text.to_lowercase();
+    let mut diagnostics = Vec::new();
+
+    push_if_contains(
+        &mut diagnostics,
+        &lower,
+        &[
+            "built-in `requires` syntax",
+            "built-in requires syntax",
+            "built-in `ensures` syntax",
+        ],
+        "unsupported language-level contract syntax claim",
+    );
+    push_if_contains(
+        &mut diagnostics,
+        &lower,
+        &[
+            "octet provides complete solver-backed verification",
+            "octet provides solver-complete verification",
+        ],
+        "unsupported solver-completeness claim",
+    );
+    push_if_contains(
+        &mut diagnostics,
+        &lower,
+        &[
+            "octet emits runtime fallback checks",
+            "octet adds runtime fallback checks",
+        ],
+        "unsupported runtime-fallback claim",
+    );
+    push_if_contains(
+        &mut diagnostics,
+        &lower,
+        &[
+            "every ladder stage is formal proof",
+            "all ladder stages are formal proof",
+        ],
+        "unsupported all-stages-formal-proof claim",
     );
 
     diagnostics
