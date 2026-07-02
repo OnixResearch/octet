@@ -19,6 +19,8 @@ use crate::cli::SupplementFamilyArg;
 use crate::cli::SupplementScopeArg;
 use crate::determinism;
 use crate::fingerprint;
+use crate::object_core;
+use crate::object_core::SupplementFixtureSpec;
 
 #[allow(dead_code)]
 const HIR_SUPPLEMENT_SCHEMA: &str = "octet.function-object-hir-supplement.v1";
@@ -27,26 +29,8 @@ const MIR_SUPPLEMENT_SCHEMA: &str = "octet.function-object-mir-supplement.v1";
 const THIR_SUPPLEMENT_SCHEMA: &str = "octet.function-object-thir-supplement.v1";
 const RUSTC_HIR_SPIKE_EXTRACTOR_NAME: &str = "octet-rustc-hir-fixture-spike";
 const RUSTC_HIR_SPIKE_EXTRACTOR_VERSION: &str = env!("CARGO_PKG_VERSION");
-const RUSTC_HIR_SPIKE_FIXTURE_RELATIVE_PATH: &str = "cargo-octet/tests/fixtures/hir-spike/checked.rs";
-const RUSTC_HIR_SPIKE_FUNCTION: &str = "checked";
-const RUSTC_HIR_SPIKE_BRANCH_FIXTURE_RELATIVE_PATH: &str = "cargo-octet/tests/fixtures/hir-spike/clamp.rs";
-const RUSTC_HIR_SPIKE_BRANCH_FUNCTION: &str = "clamp_to_limit";
 const RUSTC_THIR_SPIKE_EXTRACTOR_NAME: &str = "octet-rustc-thir-fixture-contract";
-const RUSTC_THIR_SPIKE_FIXTURE_RELATIVE_PATH: &str = "cargo-octet/tests/fixtures/thir-spike/checked.rs";
-const RUSTC_THIR_SPIKE_FUNCTION: &str = "checked";
-const RUSTC_THIR_SPIKE_CALL_FIXTURE_RELATIVE_PATH: &str = "cargo-octet/tests/fixtures/thir-spike/call_return.rs";
-const RUSTC_THIR_SPIKE_CALL_FUNCTION: &str = "call_then_return";
-const RUSTC_THIR_SPIKE_BRANCH_FIXTURE_RELATIVE_PATH: &str =
-    "cargo-octet/tests/fixtures/thir-spike/branch_control_flow.rs";
-const RUSTC_THIR_SPIKE_BRANCH_FUNCTION: &str = "choose_branch";
 const RUSTC_MIR_SPIKE_EXTRACTOR_NAME: &str = "octet-rustc-mir-fixture-contract";
-const RUSTC_MIR_SPIKE_FIXTURE_RELATIVE_PATH: &str = "cargo-octet/tests/fixtures/mir-spike/checked.rs";
-const RUSTC_MIR_SPIKE_FUNCTION: &str = "checked";
-const RUSTC_MIR_SPIKE_CALL_FIXTURE_RELATIVE_PATH: &str = "cargo-octet/tests/fixtures/mir-spike/call_return.rs";
-const RUSTC_MIR_SPIKE_CALL_FUNCTION: &str = "call_then_return";
-const RUSTC_MIR_SPIKE_BRANCH_FIXTURE_RELATIVE_PATH: &str =
-    "cargo-octet/tests/fixtures/mir-spike/branch_control_flow.rs";
-const RUSTC_MIR_SPIKE_BRANCH_FUNCTION: &str = "choose_branch";
 #[allow(dead_code)]
 const SUPPLEMENT_SCHEMA_VERSION: u32 = 1;
 const CORPUS_RECEIPT_SCHEMA: &str = "octet.function-object-corpus-receipt.v1";
@@ -569,22 +553,7 @@ fn run_supplement_fixtures(
     if matches!(output_format, OutputFormat::Sarif) {
         return Err("object supplement fixtures does not support SARIF output; use human or json".to_owned());
     }
-    match (family, scope) {
-        (SupplementFamilyArg::Hir, SupplementScopeArg::RustcHirFixtureSpike)
-        | (SupplementFamilyArg::Thir, SupplementScopeArg::RustcThirFixtureSpike)
-        | (SupplementFamilyArg::Mir, SupplementScopeArg::RustcMirFixtureSpike) => {}
-        (SupplementFamilyArg::Hir, _) => {
-            return Err("object supplement fixtures for `--family hir` requires `--spike rustc-hir-fixture`".to_owned());
-        }
-        (SupplementFamilyArg::Thir, _) => {
-            return Err(
-                "object supplement fixtures for `--family thir` requires `--spike rustc-thir-fixture`".to_owned()
-            );
-        }
-        (SupplementFamilyArg::Mir, _) => {
-            return Err("object supplement fixtures for `--family mir` requires `--spike rustc-mir-fixture`".to_owned());
-        }
-    }
+    object_core::validate_fixture_inventory_scope(family, scope)?;
     let report = supplement_fixture_inventory_report(family, scope);
     match output_format {
         OutputFormat::Human => print_hir_fixture_inventory_human(&report),
@@ -598,12 +567,7 @@ fn supplement_fixture_inventory_report(
     family: SupplementFamilyArg,
     scope: SupplementScopeArg,
 ) -> HirFixtureInventoryReport {
-    let fixtures = match (family, scope) {
-        (SupplementFamilyArg::Hir, SupplementScopeArg::RustcHirFixtureSpike) => RUSTC_HIR_SPIKE_FIXTURES,
-        (SupplementFamilyArg::Thir, SupplementScopeArg::RustcThirFixtureSpike) => RUSTC_THIR_SPIKE_FIXTURES,
-        (SupplementFamilyArg::Mir, SupplementScopeArg::RustcMirFixtureSpike) => RUSTC_MIR_SPIKE_FIXTURES,
-        _ => &[],
-    };
+    let fixtures = object_core::fixture_inventory_specs(family, scope).unwrap_or(&[]);
     let default_shape = fixtures.first().map_or("unknown", |fixture| fixture.shape);
     let shapes = fixtures
         .iter()
@@ -771,7 +735,7 @@ fn supplement_records(
             if family != SupplementFamilyArg::Hir {
                 return Err("rustc HIR fixture spike only supports `--family hir`".to_owned());
             }
-            let function = function.unwrap_or(RUSTC_HIR_SPIKE_FUNCTION);
+            let function = function.unwrap_or(object_core::RUSTC_HIR_SPIKE_FUNCTION);
             let fixture_path = rustc_hir_spike_cli_fixture_path(paths)?;
             Ok(vec![rustc_hir_spike_supplement(&fixture_path, function)?])
         }
@@ -801,35 +765,15 @@ fn supplement_records(
 }
 
 fn rustc_hir_spike_cli_fixture_path(paths: &[PathBuf]) -> Result<PathBuf, String> {
-    if paths.is_empty() || paths == [PathBuf::from(".")] {
-        return Ok(PathBuf::from(RUSTC_HIR_SPIKE_FIXTURE_RELATIVE_PATH));
-    }
-    if paths.len() != 1 {
-        return Err("rustc HIR fixture spike accepts exactly one fixture path".to_owned());
-    }
-    Ok(paths[0].clone())
+    object_core::selected_fixture_path(SupplementScopeArg::RustcHirFixtureSpike, paths)
 }
 
 fn rustc_thir_spike_cli_fixture_path(paths: &[PathBuf]) -> Result<PathBuf, String> {
-    if paths.is_empty() || paths == [PathBuf::from(".")] {
-        return Err("rustc THIR fixture spike requires explicit fixture selector `--fixture-shape checked-arithmetic` or `--fixture-shape call-return`"
-            .to_owned());
-    }
-    if paths.len() != 1 {
-        return Err("rustc THIR fixture spike accepts exactly one fixture path".to_owned());
-    }
-    Ok(paths[0].clone())
+    object_core::selected_fixture_path(SupplementScopeArg::RustcThirFixtureSpike, paths)
 }
 
 fn rustc_mir_spike_cli_fixture_path(paths: &[PathBuf]) -> Result<PathBuf, String> {
-    if paths.is_empty() || paths == [PathBuf::from(".")] {
-        return Err("rustc MIR fixture spike requires explicit fixture selector `--fixture-shape checked-arithmetic`, `--fixture-shape call-return`, or `--fixture-shape branch-control-flow`"
-            .to_owned());
-    }
-    if paths.len() != 1 {
-        return Err("rustc MIR fixture spike accepts exactly one fixture path".to_owned());
-    }
-    Ok(paths[0].clone())
+    object_core::selected_fixture_path(SupplementScopeArg::RustcMirFixtureSpike, paths)
 }
 
 fn runtime_pilot_context(family: SupplementFamilyArg) -> PilotSupplementContext {
@@ -850,114 +794,18 @@ fn runtime_pilot_context(family: SupplementFamilyArg) -> PilotSupplementContext 
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-struct RustcHirSpikeFixture {
-    relative_path: &'static str,
-    function: &'static str,
-    shape: &'static str,
-}
-
-const RUSTC_HIR_SPIKE_FIXTURES: &[RustcHirSpikeFixture] = &[
-    RustcHirSpikeFixture {
-        relative_path: RUSTC_HIR_SPIKE_FIXTURE_RELATIVE_PATH,
-        function: RUSTC_HIR_SPIKE_FUNCTION,
-        shape: "checked-arithmetic",
-    },
-    RustcHirSpikeFixture {
-        relative_path: RUSTC_HIR_SPIKE_BRANCH_FIXTURE_RELATIVE_PATH,
-        function: RUSTC_HIR_SPIKE_BRANCH_FUNCTION,
-        shape: "branch-control-flow",
-    },
-];
-
-const RUSTC_THIR_SPIKE_FIXTURES: &[RustcHirSpikeFixture] = &[
-    RustcHirSpikeFixture {
-        relative_path: RUSTC_THIR_SPIKE_FIXTURE_RELATIVE_PATH,
-        function: RUSTC_THIR_SPIKE_FUNCTION,
-        shape: "checked-arithmetic",
-    },
-    RustcHirSpikeFixture {
-        relative_path: RUSTC_THIR_SPIKE_CALL_FIXTURE_RELATIVE_PATH,
-        function: RUSTC_THIR_SPIKE_CALL_FUNCTION,
-        shape: "call-return",
-    },
-    RustcHirSpikeFixture {
-        relative_path: RUSTC_THIR_SPIKE_BRANCH_FIXTURE_RELATIVE_PATH,
-        function: RUSTC_THIR_SPIKE_BRANCH_FUNCTION,
-        shape: "branch-control-flow",
-    },
-];
-
-const RUSTC_MIR_SPIKE_FIXTURES: &[RustcHirSpikeFixture] = &[
-    RustcHirSpikeFixture {
-        relative_path: RUSTC_MIR_SPIKE_FIXTURE_RELATIVE_PATH,
-        function: RUSTC_MIR_SPIKE_FUNCTION,
-        shape: "checked-arithmetic",
-    },
-    RustcHirSpikeFixture {
-        relative_path: RUSTC_MIR_SPIKE_CALL_FIXTURE_RELATIVE_PATH,
-        function: RUSTC_MIR_SPIKE_CALL_FUNCTION,
-        shape: "call-return",
-    },
-    RustcHirSpikeFixture {
-        relative_path: RUSTC_MIR_SPIKE_BRANCH_FIXTURE_RELATIVE_PATH,
-        function: RUSTC_MIR_SPIKE_BRANCH_FUNCTION,
-        shape: "branch-control-flow",
-    },
-];
+type RustcHirSpikeFixture = SupplementFixtureSpec;
 
 fn rustc_hir_spike_fixture_for(fixture_path: &Path, function: &str) -> Result<RustcHirSpikeFixture, String> {
-    let normalized_path = determinism::normalize_path(fixture_path);
-    RUSTC_HIR_SPIKE_FIXTURES
-        .iter()
-        .copied()
-        .find(|fixture| fixture.relative_path == normalized_path && fixture.function == function)
-        .ok_or_else(|| {
-            let allowed = RUSTC_HIR_SPIKE_FIXTURES
-                .iter()
-                .map(|fixture| format!("{}::{}", fixture.relative_path, fixture.function))
-                .collect::<Vec<_>>()
-                .join(", ");
-            format!(
-                "rustc HIR spike is fixture-bounded to checked-in fixture/function pairs [{allowed}], got {normalized_path}::{function}"
-            )
-        })
+    object_core::fixture_for(SupplementScopeArg::RustcHirFixtureSpike, fixture_path, function)
 }
 
 fn rustc_thir_spike_fixture_for(fixture_path: &Path, function: &str) -> Result<RustcHirSpikeFixture, String> {
-    let normalized_path = determinism::normalize_path(fixture_path);
-    RUSTC_THIR_SPIKE_FIXTURES
-        .iter()
-        .copied()
-        .find(|fixture| fixture.relative_path == normalized_path && fixture.function == function)
-        .ok_or_else(|| {
-            let allowed = RUSTC_THIR_SPIKE_FIXTURES
-                .iter()
-                .map(|fixture| format!("{}::{}", fixture.relative_path, fixture.function))
-                .collect::<Vec<_>>()
-                .join(", ");
-            format!(
-                "rustc THIR fixture contract is bounded to checked-in fixture/function pairs [{allowed}], got {normalized_path}::{function}"
-            )
-        })
+    object_core::fixture_for(SupplementScopeArg::RustcThirFixtureSpike, fixture_path, function)
 }
 
 fn rustc_mir_spike_fixture_for(fixture_path: &Path, function: &str) -> Result<RustcHirSpikeFixture, String> {
-    let normalized_path = determinism::normalize_path(fixture_path);
-    RUSTC_MIR_SPIKE_FIXTURES
-        .iter()
-        .copied()
-        .find(|fixture| fixture.relative_path == normalized_path && fixture.function == function)
-        .ok_or_else(|| {
-            let allowed = RUSTC_MIR_SPIKE_FIXTURES
-                .iter()
-                .map(|fixture| format!("{}::{}", fixture.relative_path, fixture.function))
-                .collect::<Vec<_>>()
-                .join(", ");
-            format!(
-                "rustc MIR fixture contract is bounded to checked-in fixture/function pairs [{allowed}], got {normalized_path}::{function}"
-            )
-        })
+    object_core::fixture_for(SupplementScopeArg::RustcMirFixtureSpike, fixture_path, function)
 }
 
 #[allow(dead_code)]
@@ -2746,18 +2594,8 @@ mod tests {
 
     use super::ObjectSupplementStatus;
     use super::PilotSupplementContext;
-    use super::RUSTC_HIR_SPIKE_BRANCH_FIXTURE_RELATIVE_PATH;
-    use super::RUSTC_HIR_SPIKE_BRANCH_FUNCTION;
     use super::RUSTC_HIR_SPIKE_EXTRACTOR_NAME;
     use super::RUSTC_HIR_SPIKE_EXTRACTOR_VERSION;
-    use super::RUSTC_HIR_SPIKE_FIXTURE_RELATIVE_PATH;
-    use super::RUSTC_HIR_SPIKE_FUNCTION;
-    use super::RUSTC_THIR_SPIKE_BRANCH_FIXTURE_RELATIVE_PATH;
-    use super::RUSTC_THIR_SPIKE_BRANCH_FUNCTION;
-    use super::RUSTC_THIR_SPIKE_CALL_FIXTURE_RELATIVE_PATH;
-    use super::RUSTC_THIR_SPIKE_CALL_FUNCTION;
-    use super::RUSTC_THIR_SPIKE_FIXTURE_RELATIVE_PATH;
-    use super::RUSTC_THIR_SPIKE_FUNCTION;
     use super::SUPPLEMENT_STATUS_VALUES;
     use super::SupplementFamilyArg;
     use super::SupplementScopeArg;
@@ -2770,6 +2608,16 @@ mod tests {
     use super::supplement_comparisons;
     use super::supplement_fixture_inventory_report;
     use crate::fingerprint;
+    use crate::object_core::RUSTC_HIR_SPIKE_BRANCH_FIXTURE_RELATIVE_PATH;
+    use crate::object_core::RUSTC_HIR_SPIKE_BRANCH_FUNCTION;
+    use crate::object_core::RUSTC_HIR_SPIKE_FIXTURE_RELATIVE_PATH;
+    use crate::object_core::RUSTC_HIR_SPIKE_FUNCTION;
+    use crate::object_core::RUSTC_THIR_SPIKE_BRANCH_FIXTURE_RELATIVE_PATH;
+    use crate::object_core::RUSTC_THIR_SPIKE_BRANCH_FUNCTION;
+    use crate::object_core::RUSTC_THIR_SPIKE_CALL_FIXTURE_RELATIVE_PATH;
+    use crate::object_core::RUSTC_THIR_SPIKE_CALL_FUNCTION;
+    use crate::object_core::RUSTC_THIR_SPIKE_FIXTURE_RELATIVE_PATH;
+    use crate::object_core::RUSTC_THIR_SPIKE_FUNCTION;
 
     #[test]
     fn function_object_rejects_correctness_claims() {
