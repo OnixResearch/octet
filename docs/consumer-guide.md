@@ -184,10 +184,12 @@ cargo octet evidence collect --rail dependency-trust --input target/vet.json --a
 cargo octet evidence collect --rail api-stability --input target/semver.json --baseline baselines/public-api --artifact-dir artifacts/api-stability
 cargo octet evidence collect --rail dynamic-evidence --input target/miri-profile.json --profile miri-unsafe-boundary --artifact-dir artifacts/dynamic/miri
 cargo octet evidence collect --rail release-supply-chain --input target/release-supply-chain.json --parent-artifact artifacts/octet/status.json --artifact-dir artifacts/release-supply-chain
+cargo octet evidence collect --rail mutation-testing --input target/mutants.json --artifact-dir artifacts/mutation-testing
+cargo octet evidence collect --rail coverage-baseline --input target/coverage.json --baseline baselines/coverage.json --artifact-dir artifacts/coverage-baseline
 cargo octet artifact verify --artifact-dir artifacts/dependency-audit
 ```
 
-The dependency-audit rail uses tool-native `deny.toml`; `templates/deny.toml` is a starter copy. Dynamic evidence profile configuration is Nickel-authored at `templates/dynamic-evidence-profiles.ncl`. These receipts preserve checker identity (`cargo-deny`, Clippy, `cargo-vet`, `cargo-semver-checks`, dynamic profile runner, or release supply-chain collector), source severity, selected scope, BLAKE3 input identity, parent artifacts when supplied, and explicit non-claims. Clippy co-reporting remains external `static_lint` evidence with checker ID `clippy`; the other rails remain `policy_check` or `transcript_assertion` evidence. They do not replace Octet source lints, cargo-vet human review, legal review, vulnerability triage, or formal proof.
+The dependency-audit rail uses tool-native `deny.toml`; `templates/deny.toml` is a starter copy. Dynamic evidence profile configuration is Nickel-authored at `templates/dynamic-evidence-profiles.ncl`. These receipts preserve checker identity (`cargo-deny`, Clippy, `cargo-vet`, `cargo-semver-checks`, `cargo-mutants`, `cargo-llvm-cov`, dynamic profile runner, or release supply-chain collector), source severity, selected scope, BLAKE3 input identity, parent artifacts when supplied, and explicit non-claims. Clippy co-reporting remains external `static_lint` evidence with checker ID `clippy`; mutation, coverage, and dynamic rails remain `transcript_assertion` evidence; the other rails remain `policy_check` evidence. They do not replace Octet source lints, cargo-vet human review, legal review, vulnerability triage, test review, uncovered-critical-path review, or formal proof.
 
 ### 3c. Controlled deployment quick check
 

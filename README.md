@@ -133,7 +133,7 @@ this README plus command help, without reading archived OpenSpec changes:
 - `cargo octet artifact verify --artifact-dir artifacts/octet` recomputes sidecar
   BLAKE3 hashes and fails closed on missing, stale, malformed, or inconsistent
   provenance before the directory is treated as release evidence.
-- `cargo octet evidence collect --rail dependency-audit|clippy-co-reporting|dependency-trust|api-stability|dynamic-evidence|release-supply-chain`
+- `cargo octet evidence collect --rail dependency-audit|clippy-co-reporting|dependency-trust|api-stability|dynamic-evidence|release-supply-chain|mutation-testing|coverage-baseline`
   writes optional external evidence receipts with checker identity, source severity,
   selected scope, parent links, and explicit non-claims.
 - `cargo octet fingerprint --check --review-manifest artifacts/fingerprint-review.json src/lib.rs`
