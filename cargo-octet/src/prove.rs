@@ -261,21 +261,27 @@ pub fn run(args: &ProveArgs) -> Result<i32, String> {
     let working_dir = proof_command_working_dir(&args.source);
     let sources = load_sources(&args.source, &working_dir)?;
     let selection = prove_selection(&args.family);
-    let selected_rails = selected_rails(&registry, &sources, &selection);
+    let rail_selection = prove_core::selected_rail_indices(&registry, &sources, &selection, &args.rail);
+    let selected_rails = selected_rails(&registry, &rail_selection.selected);
     if args.list {
-        let diagnostics = list_diagnostics(&selected_rails, &sources);
+        let mut diagnostics = rail_selection.diagnostics;
+        diagnostics.extend(list_diagnostics(&selected_rails, &sources));
         print_rail_list(args.output_format, &rail_list_report(&selected_rails, diagnostics))?;
         return Ok(EXIT_PROOF_VALID);
     }
 
-    let mut diagnostics = Vec::new();
+    let mut diagnostics = rail_selection.diagnostics;
     if selected_rails.is_empty() {
         diagnostics.push("no selected proof rails matched the provided sources".to_owned());
     }
-    let executions = selected_rails
-        .iter()
-        .map(|selected| execute_proof(selected, &sources, &working_dir, args.explain))
-        .collect::<Vec<_>>();
+    let executions = if diagnostics.is_empty() {
+        selected_rails
+            .iter()
+            .map(|selected| execute_proof(selected, &sources, &working_dir, args.explain))
+            .collect::<Vec<_>>()
+    } else {
+        Vec::new()
+    };
     diagnostics.extend(executions.iter().flat_map(|execution| execution.row.diagnostics.clone()));
 
     let report = ProveReport {
@@ -368,11 +374,10 @@ fn prove_selection(families: &[String]) -> FamilySelection {
 
 fn selected_rails<'a>(
     registry: &'a PolicyRegistry,
-    sources: &[SourceFile],
-    selection: &FamilySelection,
+    selected: &[prove_core::SelectedRailIndex],
 ) -> Vec<SelectedRail<'a>> {
-    prove_core::selected_rail_indices(registry, sources, selection)
-        .into_iter()
+    selected
+        .iter()
         .map(|selected| {
             let policy = &registry.policies[selected.policy_index];
             SelectedRail {
@@ -1591,6 +1596,7 @@ mod tests {
             policy_artifacts_dir: None,
             source: vec![source],
             family: Vec::new(),
+            rail: Vec::new(),
             artifact_dir: artifact_dir.clone(),
             output_format: OutputFormat::Json,
             command_line: "cargo octet prove fixture".to_owned(),
@@ -1820,6 +1826,7 @@ mod tests {
             policy_artifacts_dir: None,
             source: vec![source],
             family: Vec::new(),
+            rail: Vec::new(),
             artifact_dir: artifact_dir.clone(),
             output_format: OutputFormat::Human,
             command_line: "cargo octet prove fixture".to_owned(),
@@ -1851,6 +1858,7 @@ mod tests {
             policy_artifacts_dir: None,
             source: vec![source],
             family: Vec::new(),
+            rail: Vec::new(),
             artifact_dir: artifact_dir.clone(),
             output_format: OutputFormat::Human,
             command_line: "cargo octet prove fixture-production-negative".to_owned(),
@@ -1889,6 +1897,7 @@ mod tests {
             policy_artifacts_dir: None,
             source: vec![source],
             family: Vec::new(),
+            rail: Vec::new(),
             artifact_dir,
             output_format: OutputFormat::Human,
             command_line: "cargo octet prove fixture".to_owned(),
@@ -1935,10 +1944,102 @@ mod tests {
         };
         let sources = vec![SourceFile::new(receipt_path, "proof-result: pass\n")];
 
-        let rails = selected_rails(&registry, &sources, &FamilySelection::from_families(["verification"]));
+        let rail_selection = prove_core::selected_rail_indices(
+            &registry,
+            &sources,
+            &FamilySelection::from_families(["verification"]),
+            &[],
+        );
+        let rails = selected_rails(&registry, &rail_selection.selected);
 
+        assert!(rail_selection.diagnostics.is_empty(), "unexpected diagnostics: {:?}", rail_selection.diagnostics);
         assert_eq!(rails.len(), 1);
         assert_eq!(rail_list_row(&rails[0]).receipt_paths, vec![rails[0].rail.proof_paths[0].clone()]);
+    }
+
+    #[test]
+    fn prove_rail_selector_runs_matching_policy_rail() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let source = write_fixture_source(temp.path());
+        write_fixture_proof(temp.path());
+        let registry = write_fixture_registry(temp.path(), PASS_SIGNAL, command_argv(PASS_SIGNAL));
+        let artifact_dir = temp.path().join("artifacts-rail-selector");
+
+        let code = run(&ProveArgs {
+            registry: Some(registry),
+            policy_artifacts_dir: None,
+            source: vec![source],
+            family: Vec::new(),
+            rail: vec![format!("{POLICY_ID}#rail-0")],
+            artifact_dir: artifact_dir.clone(),
+            output_format: OutputFormat::Human,
+            command_line: "cargo octet prove --rail fixture".to_owned(),
+            list: false,
+            explain: false,
+        })
+        .expect("prove run");
+
+        assert_eq!(code, EXIT_PROOF_VALID);
+        let summary = fs::read_to_string(artifact_dir.join(SUMMARY_ARTIFACT_NAME)).expect("read summary");
+        assert!(summary.contains("status=passed"));
+        assert!(summary.contains(&format!("policy_id={POLICY_ID} rail_index=0")));
+    }
+
+    #[test]
+    fn prove_rail_selector_missing_fails_without_verifier_execution() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let source = write_fixture_source(temp.path());
+        write_fixture_proof(temp.path());
+        let registry = write_fixture_registry(temp.path(), PASS_SIGNAL, vec!["false".to_owned()]);
+        let artifact_dir = temp.path().join("artifacts-missing-rail-selector");
+
+        let code = run(&ProveArgs {
+            registry: Some(registry),
+            policy_artifacts_dir: None,
+            source: vec![source],
+            family: Vec::new(),
+            rail: vec!["missing.policy#rail-0".to_owned()],
+            artifact_dir: artifact_dir.clone(),
+            output_format: OutputFormat::Human,
+            command_line: "cargo octet prove --rail missing".to_owned(),
+            list: false,
+            explain: false,
+        })
+        .expect("prove run");
+
+        assert_eq!(code, EXIT_PROOF_INVALID);
+        let summary = fs::read_to_string(artifact_dir.join(SUMMARY_ARTIFACT_NAME)).expect("read summary");
+        assert!(summary.contains("matched no selected proof rail"));
+        assert!(!summary.contains(DIAGNOSTIC_VERIFIER_FAILURE));
+    }
+
+    #[test]
+    fn prove_rail_selector_partial_miss_fails_before_any_verifier_execution() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let source = write_fixture_source(temp.path());
+        write_fixture_proof(temp.path());
+        let registry = write_fixture_registry(temp.path(), PASS_SIGNAL, vec!["false".to_owned()]);
+        let artifact_dir = temp.path().join("artifacts-partial-rail-selector");
+
+        let code = run(&ProveArgs {
+            registry: Some(registry),
+            policy_artifacts_dir: None,
+            source: vec![source],
+            family: Vec::new(),
+            rail: vec![format!("{POLICY_ID}#rail-0"), "missing.policy#rail-0".to_owned()],
+            artifact_dir: artifact_dir.clone(),
+            output_format: OutputFormat::Human,
+            command_line: "cargo octet prove --rail fixture --rail missing".to_owned(),
+            list: false,
+            explain: false,
+        })
+        .expect("prove run");
+
+        assert_eq!(code, EXIT_PROOF_INVALID);
+        let summary = fs::read_to_string(artifact_dir.join(SUMMARY_ARTIFACT_NAME)).expect("read summary");
+        assert!(summary.contains("proofs=0"));
+        assert!(summary.contains("matched no selected proof rail"));
+        assert!(!summary.contains(DIAGNOSTIC_VERIFIER_FAILURE));
     }
 
     #[test]
@@ -1954,6 +2055,7 @@ mod tests {
             policy_artifacts_dir: None,
             source: vec![source],
             family: Vec::new(),
+            rail: Vec::new(),
             artifact_dir: artifact_dir.clone(),
             output_format: OutputFormat::Json,
             command_line: "cargo octet prove --list fixture".to_owned(),
@@ -1975,6 +2077,7 @@ mod tests {
             policy_artifacts_dir: None,
             source: vec![source.to_path_buf()],
             family: Vec::new(),
+            rail: Vec::new(),
             artifact_dir: artifact_dir.clone(),
             output_format: OutputFormat::Human,
             command_line: "cargo octet prove fixture".to_owned(),
@@ -1998,6 +2101,7 @@ mod tests {
             policy_artifacts_dir: None,
             source: vec![source.to_path_buf()],
             family: Vec::new(),
+            rail: Vec::new(),
             artifact_dir: artifact_dir.clone(),
             output_format: OutputFormat::Human,
             command_line: "cargo octet prove fixture".to_owned(),

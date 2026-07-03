@@ -46,8 +46,12 @@ The production negative fixture is failure-path evidence only:
 - isolation: ordinary positive proof runs over `src/verified` do not select the invalid fixture
 
 `cargo octet prove --list` shows selected rails without writing artifacts.
-`cargo octet prove --explain` adds deterministic remediation details for stale
-bindings, verifier mismatches, unmatched rails, and unbacked proof claims.
+`cargo octet prove --rail <policy-id[#rail-N]>` narrows execution to a named
+policy rail after the ordinary family/source selection gate, so a typo, wrong
+family, or missing source binding reports a deterministic diagnostic instead of
+running an unintended verifier. `cargo octet prove --explain` adds deterministic
+remediation details for stale bindings, verifier mismatches, unmatched rails, and
+unbacked proof claims.
 
 `cargo octet prove` executes configured argv only, captures bounded stdout/stderr
 artifacts, writes structured JSON receipts under the selected artifact directory,
@@ -124,20 +128,28 @@ Verus, does not emit `formal_proof` provenance, and cannot upgrade a
 }
 ```
 
-Validate a reference against a saved proof-card deck:
+Scaffold and validate a reference against a saved proof-card deck:
 
 ```bash
+cargo octet proof-ref scaffold \
+  --proof-cards artifacts/octet/proof-cards.json \
+  --proof-or-property-id octet.verus_proof_rails.addition-bound-production#rail-0 \
+  --reference-id unchecked-narrowing-range-proof \
+  --consumer-context 'allow tigerstyle::unchecked_narrowing at src/codec.rs:42' \
+  --consumer-source src/codec.rs \
+  --anchor 'octet-proof-ref: unchecked-narrowing-range-proof -> octet.verus_proof_rails.addition-bound-production#rail-0' \
+  --output proof-ref.json
+
 cargo octet proof-ref validate \
   --proof-cards artifacts/octet/proof-cards.json \
   --ref proof-ref.json
 ```
 
-When `consumer_source_path`, `consumer_source_blake3`, and
-`consumer_source_anchor` are present, validation also reads the named source or
-documentation file, recomputes its BLAKE3 identity, and requires the exact anchor
-text to be present. This links a comment, doc reference, or future suppression to
-the proof card without rerunning Verus or emitting new `formal_proof`
-provenance.
+Scaffold computes the consumer source BLAKE3 and copies proof-card fields into
+valid JSON; validation still checks the saved card, required artifacts, exact
+source identity, and exact anchor. This links a comment, doc reference, or future
+suppression to the proof card without rerunning Verus or emitting new
+`formal_proof` provenance.
 
 Passing the fixture rail is scoped evidence for the declared proof-plumbing
 fixture only. Passing a production pilot is scoped evidence for that pilot's

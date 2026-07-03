@@ -268,6 +268,15 @@ r[octet.verus_proof_rails.operator_feedback.list]
 - THEN Octet SHOULD show each selected rail's policy ID, backend, source scope, proof path, verifier label, and fixture-or-production mode.
 - AND the output MUST include scoped non-claim wording for formal proof evidence.
 
+#### Scenario: Explicit rail selectors narrow execution
+
+r[octet.verus_proof_rails.operator_feedback.rail_selector]
+
+- GIVEN a workspace has multiple selected Verus proof rails
+- WHEN an operator passes `cargo octet prove --rail <policy-id[#rail-N]>`
+- THEN Octet SHOULD execute, list, or explain only rails matching the explicit policy selector after ordinary family and source selection.
+- AND unmatched, malformed, wrong-family, or wrong-source selectors MUST produce deterministic diagnostics and MUST NOT execute a different verifier rail.
+
 #### Scenario: Unbacked claims can be explained
 
 r[octet.verus_proof_rails.operator_feedback.explain]
@@ -511,7 +520,7 @@ r[octet.verus_proof_rails.proof_evidence_ref.boundary]
 
 ### Requirement: Proof-ref validation CLI
 
-r[octet.verus_proof_rails.proof_evidence_ref.cli] Octet SHOULD expose a read-only `cargo octet proof-ref validate --proof-cards PATH --ref PATH` command that validates a proof evidence reference against a saved `proof-cards.json` deck.
+r[octet.verus_proof_rails.proof_evidence_ref.cli] Octet SHOULD expose `cargo octet proof-ref scaffold` and read-only `cargo octet proof-ref validate --proof-cards PATH --ref PATH` commands that create or validate a proof evidence reference against a saved `proof-cards.json` deck without rerunning Verus.
 
 #### Scenario: Matching reference validates
 
@@ -522,6 +531,16 @@ r[octet.verus_proof_rails.proof_evidence_ref.cli.matching]
 - WHEN the operator runs `cargo octet proof-ref validate --proof-cards proof-cards.json --ref proof-ref.json`
 - THEN the command SHOULD exit successfully.
 - AND the human or JSON report SHOULD name the reference ID, proof or property ID, card match, optional consumer-source match, status, and zero diagnostics.
+
+#### Scenario: Reference scaffold computes source identity
+
+r[octet.verus_proof_rails.proof_evidence_ref.cli.scaffold]
+
+- GIVEN a proof-card deck contains the requested proof or property ID and the consumer source file contains the requested exact anchor text
+- WHEN the operator runs `cargo octet proof-ref scaffold --proof-cards proof-cards.json --proof-or-property-id ID --reference-id REF --consumer-context TEXT --consumer-source PATH --anchor TEXT`
+- THEN the command SHOULD emit a `ProofEvidenceRef` JSON record populated from the matching proof card and consumer source BLAKE3 identity.
+- AND missing proof cards or missing anchors MUST fail closed with deterministic diagnostics.
+- AND scaffold MUST NOT rerun Verus, mutate the proof-card deck, emit `formal_proof` provenance, or claim more than linkage to the matched card.
 
 #### Scenario: Validation is read-only
 

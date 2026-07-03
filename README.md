@@ -112,10 +112,29 @@ are BLAKE3 byte-identity/manual-review inputs until Octet reruns the proof and
 validates its own receipt.
 
 ```bash
-cargo octet prove --list --policy-artifacts-dir artifacts/policy
-cargo octet prove --explain --policy-artifacts-dir artifacts/policy
-cargo octet prove --policy-artifacts-dir artifacts/policy --source src/verified --artifact-dir artifacts/octet
-cargo octet proof-ref validate --proof-cards artifacts/octet/proof-cards.json --ref proof-ref.json
+cargo octet prove --list \
+  --policy-artifacts-dir artifacts/policy \
+  --source src/verified
+cargo octet prove --explain \
+  --policy-artifacts-dir artifacts/policy \
+  --source src/verified \
+  --rail octet.verus_proof_rails.addition-bound-production#rail-0
+cargo octet prove \
+  --policy-artifacts-dir artifacts/policy \
+  --source src/verified \
+  --rail octet.verus_proof_rails.addition-bound-production#rail-0 \
+  --artifact-dir artifacts/octet
+cargo octet proof-ref scaffold \
+  --proof-cards artifacts/octet/proof-cards.json \
+  --proof-or-property-id octet.verus_proof_rails.addition-bound-production#rail-0 \
+  --reference-id unchecked-narrowing-range-proof \
+  --consumer-context 'allow tigerstyle::unchecked_narrowing at src/codec.rs:42' \
+  --consumer-source src/codec.rs \
+  --anchor 'octet-proof-ref: unchecked-narrowing-range-proof -> octet.verus_proof_rails.addition-bound-production#rail-0' \
+  --output proof-ref.json
+cargo octet proof-ref validate \
+  --proof-cards artifacts/octet/proof-cards.json \
+  --ref proof-ref.json
 cargo octet artifact verify --artifact-dir artifacts/octet
 ```
 

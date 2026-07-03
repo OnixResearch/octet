@@ -135,12 +135,19 @@ Reviewers use the existing commands at the matching stage:
 
 - `cargo octet prove --list` lists selected Verus proof rails without writing
   artifacts.
+- `cargo octet prove --rail <policy-id[#rail-N]>` narrows a list, explain, or
+  execution run to explicit rails after family/source matching; unmatched
+  selectors fail closed with deterministic diagnostics.
 - `cargo octet prove --explain` explains selected rails and deterministic
   remediation for stale bindings, verifier mismatches, unmatched rails, or
   unbacked proof claims.
 - `cargo octet prove` runs the configured verifier command, writes bounded logs
   and structured receipts, and emits `formal_proof` provenance only for a
   validated scoped receipt.
+- `cargo octet proof-ref scaffold` computes a consumer source BLAKE3 identity and
+  emits linkage JSON copied from a saved proof card; `cargo octet proof-ref
+  validate` checks that saved linkage without rerunning Verus or emitting new
+  `formal_proof` provenance.
 - `cargo octet artifact verify` recomputes artifact identities and checks saved
   receipts plus provenance before an artifact directory is treated as evidence.
 
