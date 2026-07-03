@@ -246,6 +246,7 @@ pub struct ProveArgs {
     pub policy_artifacts_dir: Option<PathBuf>,
     pub source: Vec<PathBuf>,
     pub family: Vec<String>,
+    pub rail: Vec<String>,
     pub artifact_dir: PathBuf,
     pub output_format: OutputFormat,
     pub command_line: String,
@@ -255,9 +256,31 @@ pub struct ProveArgs {
 
 #[derive(Debug)]
 pub struct ProofRefArgs {
+    pub mode: ProofRefMode,
+}
+
+#[derive(Debug)]
+pub enum ProofRefMode {
+    Validate(ProofRefValidateArgs),
+    Scaffold(ProofRefScaffoldArgs),
+}
+
+#[derive(Debug)]
+pub struct ProofRefValidateArgs {
     pub proof_cards: PathBuf,
     pub reference: PathBuf,
     pub output_format: OutputFormat,
+}
+
+#[derive(Debug)]
+pub struct ProofRefScaffoldArgs {
+    pub proof_cards: PathBuf,
+    pub proof_or_property_id: String,
+    pub reference_id: String,
+    pub consumer_context: String,
+    pub consumer_source: PathBuf,
+    pub anchor: String,
+    pub output: Option<PathBuf>,
 }
 
 #[derive(Debug)]
@@ -393,8 +416,9 @@ Usage:
   cargo octet object supplement check --family hir|thir|mir [--spike rustc-hir-fixture|rustc-thir-fixture|rustc-mir-fixture] [--fixture-shape checked-arithmetic|branch-control-flow|call-return] --receipt RECEIPT.json [--function NAME] [PATHS...]
   cargo octet provider-manifest export --driver PATH --lint-library PATH --config PATH [--standards-policy PATH]
   cargo octet provider-manifest validate --manifest PATH
-  cargo octet prove --policy-artifacts-dir PATH --source PATH --artifact-dir PATH [--list] [--explain] [--output-format human|json]
+  cargo octet prove --policy-artifacts-dir PATH --source PATH --artifact-dir PATH [--rail POLICY[#rail-N]] [--list] [--explain] [--output-format human|json]
   cargo octet proof-ref validate --proof-cards PATH --ref PATH [--output-format human|json]
+  cargo octet proof-ref scaffold --proof-cards PATH --proof-or-property-id ID --reference-id ID --consumer-context TEXT --consumer-source PATH --anchor TEXT [--output PATH]
   cargo octet roadmap <artifact|capsule|ability|pointer|session|pure-cache> ...
   cargo octet transcript <PATH>
   cargo octet --version
@@ -478,16 +502,18 @@ Exports or validates the deterministic Octet compiler-policy provider manifest c
 
 const PROVE_HELP: &str = "cargo octet prove
 
-Options: --registry PATH or --policy-artifacts-dir PATH, --source PATH (repeatable), --family NAME, --artifact-dir PATH, --list, --explain, --output-format human|json.
+Options: --registry PATH or --policy-artifacts-dir PATH, --source PATH (repeatable), --family NAME, --rail POLICY[#rail-N], --artifact-dir PATH, --list, --explain, --output-format human|json.
 
-Runs selected standards proof rails through argv-based commands, writes structured proof receipts under the artifact directory, emits formal_proof provenance only for validated receipts with verifier identity and proof artifact identity, and keeps ordinary cargo octet check behavior unchanged. Use --list to show selected rails without executing them and --explain to prefix failure diagnostics with remediation context.
+Runs selected standards proof rails through argv-based commands, writes structured proof receipts under the artifact directory, emits formal_proof provenance only for validated receipts with verifier identity and proof artifact identity, and keeps ordinary cargo octet check behavior unchanged. Use --rail to narrow selection to one policy or property ID, --list to show selected rails without executing them, and --explain to prefix failure diagnostics with remediation context.
 ";
 
-const PROOF_REF_HELP: &str = "cargo octet proof-ref validate
+const PROOF_REF_HELP: &str = "cargo octet proof-ref
 
-Options: --proof-cards PATH, --ref PATH, --output-format human|json.
+Commands:
+  validate --proof-cards PATH --ref PATH [--output-format human|json]
+  scaffold --proof-cards PATH --proof-or-property-id ID --reference-id ID --consumer-context TEXT --consumer-source PATH --anchor TEXT [--output PATH]
 
-Validates a Rust-owned ProofEvidenceRef JSON record against a saved proof-cards.json deck and, when the reference names consumer_source_path/consumer_source_blake3/consumer_source_anchor fields, checks that source/comment anchor too. This command is read-only: it does not rerun Verus, does not mutate proof artifacts, does not emit formal_proof provenance, and does not introduce a consumer-implementable Verified trait.
+Validates a Rust-owned ProofEvidenceRef JSON record against a saved proof-cards.json deck and, when the reference names consumer_source_path/consumer_source_blake3/consumer_source_anchor fields, checks that source/comment anchor too. Scaffold reads a proof card and anchored consumer source to emit ready JSON without rerunning Verus. This command set does not emit formal_proof provenance and does not introduce a consumer-implementable Verified trait.
 ";
 
 const ROADMAP_HELP: &str = "cargo octet roadmap
@@ -1560,6 +1586,7 @@ fn parse_prove(args: &[String], command_line: String) -> Result<ProveArgs, Strin
     let mut policy_artifacts_dir = None;
     let mut source = Vec::new();
     let mut family = Vec::new();
+    let mut rail = Vec::new();
     let mut artifact_dir = None;
     let mut output_format = OutputFormat::Human;
     let mut list = false;
@@ -1582,6 +1609,10 @@ fn parse_prove(args: &[String], command_line: String) -> Result<ProveArgs, Strin
             }
             "--family" => {
                 family.push(required_arg_at(args, index, arg)?);
+                index += 2;
+            }
+            "--rail" => {
+                rail.push(required_arg_at(args, index, arg)?);
                 index += 2;
             }
             "--artifact-dir" => {
@@ -1616,6 +1647,10 @@ fn parse_prove(args: &[String], command_line: String) -> Result<ProveArgs, Strin
                 family.push(arg.trim_start_matches("--family=").to_owned());
                 index += 1;
             }
+            _ if arg.starts_with("--rail=") => {
+                rail.push(arg.trim_start_matches("--rail=").to_owned());
+                index += 1;
+            }
             _ if arg.starts_with("--artifact-dir=") => {
                 artifact_dir = Some(PathBuf::from(arg.trim_start_matches("--artifact-dir=")));
                 index += 1;
@@ -1647,6 +1682,7 @@ fn parse_prove(args: &[String], command_line: String) -> Result<ProveArgs, Strin
         policy_artifacts_dir,
         source,
         family,
+        rail,
         artifact_dir: artifact_dir.unwrap_or_else(|| PathBuf::from("artifacts/octet")),
         output_format,
         command_line,
@@ -1658,8 +1694,9 @@ fn parse_prove(args: &[String], command_line: String) -> Result<ProveArgs, Strin
 fn parse_proof_ref(args: &[String]) -> Result<ProofRefArgs, String> {
     match args.first().map(String::as_str) {
         Some("validate") => parse_proof_ref_validate(&args[1..]),
-        Some(other) => Err(format!("unsupported proof-ref subcommand `{other}`; expected `validate`")),
-        None => Err("missing proof-ref subcommand; expected `validate`".to_owned()),
+        Some("scaffold") => parse_proof_ref_scaffold(&args[1..]),
+        Some(other) => Err(format!("unsupported proof-ref subcommand `{other}`; expected `validate` or `scaffold`")),
+        None => Err("missing proof-ref subcommand; expected `validate` or `scaffold`".to_owned()),
     }
 }
 
@@ -1706,9 +1743,98 @@ fn parse_proof_ref_validate(args: &[String]) -> Result<ProofRefArgs, String> {
         return Err("proof-ref does not support SARIF output; use human or json".to_owned());
     }
     Ok(ProofRefArgs {
-        proof_cards: proof_cards.ok_or_else(|| "proof-ref validate requires `--proof-cards PATH`".to_owned())?,
-        reference: reference.ok_or_else(|| "proof-ref validate requires `--ref PATH`".to_owned())?,
-        output_format,
+        mode: ProofRefMode::Validate(ProofRefValidateArgs {
+            proof_cards: proof_cards.ok_or_else(|| "proof-ref validate requires `--proof-cards PATH`".to_owned())?,
+            reference: reference.ok_or_else(|| "proof-ref validate requires `--ref PATH`".to_owned())?,
+            output_format,
+        }),
+    })
+}
+
+fn parse_proof_ref_scaffold(args: &[String]) -> Result<ProofRefArgs, String> {
+    let mut proof_cards = None;
+    let mut proof_or_property_id = None;
+    let mut reference_id = None;
+    let mut consumer_context = None;
+    let mut consumer_source = None;
+    let mut anchor = None;
+    let mut output = None;
+    let mut index = 0;
+    while index < args.len() {
+        let arg = &args[index];
+        match arg.as_str() {
+            "--proof-cards" => {
+                proof_cards = Some(PathBuf::from(required_arg_at(args, index, arg)?));
+                index += 2;
+            }
+            "--proof-or-property-id" => {
+                proof_or_property_id = Some(required_arg_at(args, index, arg)?);
+                index += 2;
+            }
+            "--reference-id" => {
+                reference_id = Some(required_arg_at(args, index, arg)?);
+                index += 2;
+            }
+            "--consumer-context" => {
+                consumer_context = Some(required_arg_at(args, index, arg)?);
+                index += 2;
+            }
+            "--consumer-source" => {
+                consumer_source = Some(PathBuf::from(required_arg_at(args, index, arg)?));
+                index += 2;
+            }
+            "--anchor" => {
+                anchor = Some(required_arg_at(args, index, arg)?);
+                index += 2;
+            }
+            "--output" => {
+                output = Some(PathBuf::from(required_arg_at(args, index, arg)?));
+                index += 2;
+            }
+            _ if arg.starts_with("--proof-cards=") => {
+                proof_cards = Some(PathBuf::from(arg.trim_start_matches("--proof-cards=")));
+                index += 1;
+            }
+            _ if arg.starts_with("--proof-or-property-id=") => {
+                proof_or_property_id = Some(arg.trim_start_matches("--proof-or-property-id=").to_owned());
+                index += 1;
+            }
+            _ if arg.starts_with("--reference-id=") => {
+                reference_id = Some(arg.trim_start_matches("--reference-id=").to_owned());
+                index += 1;
+            }
+            _ if arg.starts_with("--consumer-context=") => {
+                consumer_context = Some(arg.trim_start_matches("--consumer-context=").to_owned());
+                index += 1;
+            }
+            _ if arg.starts_with("--consumer-source=") => {
+                consumer_source = Some(PathBuf::from(arg.trim_start_matches("--consumer-source=")));
+                index += 1;
+            }
+            _ if arg.starts_with("--anchor=") => {
+                anchor = Some(arg.trim_start_matches("--anchor=").to_owned());
+                index += 1;
+            }
+            _ if arg.starts_with("--output=") => {
+                output = Some(PathBuf::from(arg.trim_start_matches("--output=")));
+                index += 1;
+            }
+            _ => return Err(format!("unsupported proof-ref scaffold argument `{arg}`")),
+        }
+    }
+    Ok(ProofRefArgs {
+        mode: ProofRefMode::Scaffold(ProofRefScaffoldArgs {
+            proof_cards: proof_cards.ok_or_else(|| "proof-ref scaffold requires `--proof-cards PATH`".to_owned())?,
+            proof_or_property_id: proof_or_property_id
+                .ok_or_else(|| "proof-ref scaffold requires `--proof-or-property-id ID`".to_owned())?,
+            reference_id: reference_id.ok_or_else(|| "proof-ref scaffold requires `--reference-id ID`".to_owned())?,
+            consumer_context: consumer_context
+                .ok_or_else(|| "proof-ref scaffold requires `--consumer-context TEXT`".to_owned())?,
+            consumer_source: consumer_source
+                .ok_or_else(|| "proof-ref scaffold requires `--consumer-source PATH`".to_owned())?,
+            anchor: anchor.ok_or_else(|| "proof-ref scaffold requires `--anchor TEXT`".to_owned())?,
+            output,
+        }),
     })
 }
 
@@ -1893,6 +2019,7 @@ mod tests {
     use super::FingerprintMode;
     use super::HelpTopic;
     use super::OutputFormat;
+    use super::ProofRefMode;
     use super::format_command_line;
     use super::parse;
 
@@ -2171,6 +2298,41 @@ mod tests {
     }
 
     #[test]
+    fn prove_parse_accepts_rail_selector() {
+        let parsed = parse(
+            [
+                "cargo",
+                "octet",
+                "prove",
+                "--registry",
+                "octet-policies.json",
+                "--source",
+                "src/verified",
+                "--rail",
+                "octet.verus_proof_rails.addition-bound#rail-0",
+                "--rail=octet.verus_proof_rails.ordering-reflexive-production",
+                "--output-format",
+                "json",
+            ]
+            .map(OsString::from),
+        )
+        .expect("parse prove rail selector args");
+
+        match parsed {
+            CommandArgs::Prove(args) => {
+                assert_eq!(args.registry, Some(std::path::PathBuf::from("octet-policies.json")));
+                assert_eq!(args.source, vec![std::path::PathBuf::from("src/verified")]);
+                assert_eq!(args.rail, vec![
+                    "octet.verus_proof_rails.addition-bound#rail-0".to_owned(),
+                    "octet.verus_proof_rails.ordering-reflexive-production".to_owned(),
+                ]);
+                assert_eq!(args.output_format, OutputFormat::Json);
+            }
+            other => panic!("expected prove args, got {other:?}"),
+        }
+    }
+
+    #[test]
     fn proof_ref_parse_accepts_validate_paths_and_json_output() {
         let parsed = parse(
             [
@@ -2189,11 +2351,54 @@ mod tests {
         .expect("parse proof-ref validate args");
 
         match parsed {
-            CommandArgs::ProofRef(args) => {
-                assert_eq!(args.proof_cards, std::path::PathBuf::from("artifacts/octet/proof-cards.json"));
-                assert_eq!(args.reference, std::path::PathBuf::from("proof-ref.json"));
-                assert_eq!(args.output_format, OutputFormat::Json);
-            }
+            CommandArgs::ProofRef(args) => match args.mode {
+                ProofRefMode::Validate(validate_args) => {
+                    assert_eq!(validate_args.proof_cards, std::path::PathBuf::from("artifacts/octet/proof-cards.json"));
+                    assert_eq!(validate_args.reference, std::path::PathBuf::from("proof-ref.json"));
+                    assert_eq!(validate_args.output_format, OutputFormat::Json);
+                }
+                ProofRefMode::Scaffold(_) => panic!("expected proof-ref validate mode"),
+            },
+            other => panic!("expected proof-ref args, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn proof_ref_parse_accepts_scaffold_args() {
+        let parsed = parse(
+            [
+                "cargo",
+                "octet",
+                "proof-ref",
+                "scaffold",
+                "--proof-cards",
+                "artifacts/octet/proof-cards.json",
+                "--proof-or-property-id=octet.verus#rail-0",
+                "--reference-id",
+                "unchecked-narrowing-range-proof",
+                "--consumer-context",
+                "allow tigerstyle::unchecked_narrowing at src/codec.rs:42",
+                "--consumer-source=src/codec.rs",
+                "--anchor",
+                "octet-proof-ref: unchecked-narrowing-range-proof -> octet.verus#rail-0",
+                "--output",
+                "proof-ref.json",
+            ]
+            .map(OsString::from),
+        )
+        .expect("parse proof-ref scaffold args");
+
+        match parsed {
+            CommandArgs::ProofRef(args) => match args.mode {
+                ProofRefMode::Scaffold(scaffold_args) => {
+                    assert_eq!(scaffold_args.proof_cards, std::path::PathBuf::from("artifacts/octet/proof-cards.json"));
+                    assert_eq!(scaffold_args.proof_or_property_id, "octet.verus#rail-0");
+                    assert_eq!(scaffold_args.reference_id, "unchecked-narrowing-range-proof");
+                    assert_eq!(scaffold_args.consumer_source, std::path::PathBuf::from("src/codec.rs"));
+                    assert_eq!(scaffold_args.output, Some(std::path::PathBuf::from("proof-ref.json")));
+                }
+                ProofRefMode::Validate(_) => panic!("expected proof-ref scaffold mode"),
+            },
             other => panic!("expected proof-ref args, got {other:?}"),
         }
     }

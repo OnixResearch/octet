@@ -6,6 +6,9 @@ use serde::Serialize;
 
 use crate::cli::OutputFormat;
 use crate::cli::ProofRefArgs;
+use crate::cli::ProofRefMode;
+use crate::cli::ProofRefScaffoldArgs;
+use crate::cli::ProofRefValidateArgs;
 
 const PROOF_EVIDENCE_REF_SCHEMA_VERSION: &str = "octet-proof-evidence-ref/v1";
 const PROOF_CARDS_SCHEMA_VERSION: &str = "octet-proof-cards/v1";
@@ -96,6 +99,13 @@ struct ConsumerSourceArtifact {
 }
 
 pub fn run(args: &ProofRefArgs) -> Result<i32, String> {
+    match &args.mode {
+        ProofRefMode::Validate(validate_args) => run_validate(validate_args),
+        ProofRefMode::Scaffold(scaffold_args) => run_scaffold(scaffold_args),
+    }
+}
+
+fn run_validate(args: &ProofRefValidateArgs) -> Result<i32, String> {
     let reference = read_json::<ProofEvidenceRef>(&args.reference)?;
     let deck = read_json::<ProofCardDeck>(&args.proof_cards)?;
     let consumer_source = read_consumer_source_artifact(&reference);
@@ -122,9 +132,45 @@ pub fn run(args: &ProofRefArgs) -> Result<i32, String> {
     Ok(if report.valid { EXIT_VALID } else { EXIT_INVALID })
 }
 
+fn run_scaffold(args: &ProofRefScaffoldArgs) -> Result<i32, String> {
+    let deck = read_json::<ProofCardDeck>(&args.proof_cards)?;
+    let source = read_scaffold_source_artifact(&args.consumer_source)?;
+    let reference = scaffold_proof_evidence_ref(
+        &deck,
+        &args.proof_or_property_id,
+        &args.reference_id,
+        &args.consumer_context,
+        &source,
+        &args.anchor,
+    )
+    .map_err(|diagnostics| format!("proof-ref scaffold failed: {}", diagnostics.join("; ")))?;
+    let text =
+        serde_json::to_string_pretty(&reference).map_err(|error| format!("serialize proof evidence ref: {error}"))?;
+    let text = format!("{text}\n");
+    if let Some(output) = &args.output {
+        fs::write(output, text).map_err(|error| format!("write {}: {error}", output.display()))?;
+    } else {
+        print!("{text}");
+    }
+    Ok(EXIT_VALID)
+}
+
 fn read_json<T: for<'de> Deserialize<'de>>(path: &PathBuf) -> Result<T, String> {
     let text = fs::read_to_string(path).map_err(|error| format!("read {}: {error}", path.display()))?;
     serde_json::from_str(&text).map_err(|error| format!("parse {} as JSON: {error}", path.display()))
+}
+
+fn read_scaffold_source_artifact(path: &PathBuf) -> Result<ConsumerSourceArtifact, String> {
+    let text = fs::read_to_string(path).map_err(|error| format!("read consumer source {}: {error}", path.display()))?;
+    Ok(ConsumerSourceArtifact {
+        path: normalized_display(path),
+        blake3: blake3::hash(text.as_bytes()).to_hex().to_string(),
+        text,
+    })
+}
+
+fn normalized_display(path: &PathBuf) -> String {
+    path.display().to_string().replace('\\', "/")
 }
 
 fn read_consumer_source_artifact(reference: &ProofEvidenceRef) -> Result<Option<ConsumerSourceArtifact>, String> {
@@ -143,6 +189,54 @@ fn read_consumer_source_artifact(reference: &ProofEvidenceRef) -> Result<Option<
         blake3: blake3::hash(text.as_bytes()).to_hex().to_string(),
         text,
     }))
+}
+
+fn scaffold_proof_evidence_ref(
+    deck: &ProofCardDeck,
+    proof_or_property_id: &str,
+    reference_id: &str,
+    consumer_context: &str,
+    consumer_source: &ConsumerSourceArtifact,
+    anchor: &str,
+) -> Result<ProofEvidenceRef, Vec<String>> {
+    let mut diagnostics = proof_card_deck_shape_diagnostics(deck);
+    let Some(card) = deck.cards.iter().find(|card| card.proof_or_property_id == proof_or_property_id) else {
+        diagnostics.push(format!(
+            "proof evidence ref field `{FIELD_PROOF_OR_PROPERTY_ID}` references missing proof card `{proof_or_property_id}`"
+        ));
+        diagnostics.sort();
+        diagnostics.dedup();
+        return Err(diagnostics);
+    };
+    if !consumer_source.text.contains(anchor) {
+        diagnostics.push(format!(
+            "proof evidence ref field `{FIELD_CONSUMER_SOURCE_ANCHOR}` anchor not found in `{}`",
+            consumer_source.path
+        ));
+    }
+    let reference = ProofEvidenceRef {
+        schema_version: PROOF_EVIDENCE_REF_SCHEMA_VERSION.to_owned(),
+        reference_id: reference_id.to_owned(),
+        consumer_context: consumer_context.to_owned(),
+        consumer_source_path: consumer_source.path.clone(),
+        consumer_source_blake3: consumer_source.blake3.clone(),
+        consumer_source_anchor: anchor.to_owned(),
+        proof_or_property_id: card.proof_or_property_id.clone(),
+        source_requirement_or_policy_id: card.source_requirement_or_policy_id.clone(),
+        checked_rust_source_scope: card.checked_rust_source_scope.clone(),
+        expected_evidence_tier: card.evidence_tier.clone(),
+        required_status: card.status.clone(),
+        required_artifacts: card.artifact_blake3_identities.iter().map(|identity| identity.artifact.clone()).collect(),
+        non_claims: card.non_claims.clone(),
+    };
+    diagnostics.extend(validate_proof_evidence_ref(&reference, deck, Some(consumer_source)));
+    diagnostics.sort();
+    diagnostics.dedup();
+    if diagnostics.is_empty() {
+        Ok(reference)
+    } else {
+        Err(diagnostics)
+    }
 }
 
 fn validate_proof_evidence_ref(
@@ -460,6 +554,92 @@ mod tests {
 
         assert!(diagnostics.is_empty(), "unexpected diagnostics: {diagnostics:?}");
         assert!(consumer_source_matches(&reference, Some(&source), &diagnostics));
+    }
+
+    #[test]
+    fn proof_ref_scaffold_builds_valid_reference_from_card_and_source_anchor() {
+        let mut anchor_reference = matching_reference();
+        let source = source_artifact_for(&mut anchor_reference);
+        let deck = deck_with(card());
+
+        let scaffolded = scaffold_proof_evidence_ref(
+            &deck,
+            PROPERTY_ID,
+            &anchor_reference.reference_id,
+            &anchor_reference.consumer_context,
+            &source,
+            &anchor_reference.consumer_source_anchor,
+        )
+        .expect("scaffold reference");
+        let diagnostics = validate_proof_evidence_ref(&scaffolded, &deck, Some(&source));
+
+        assert!(diagnostics.is_empty(), "unexpected diagnostics: {diagnostics:?}");
+        assert_eq!(scaffolded.consumer_source_blake3, source.blake3);
+        assert!(scaffolded.required_artifacts.iter().any(|artifact| artifact == RECEIPT_ARTIFACT));
+    }
+
+    #[test]
+    fn proof_ref_scaffold_command_writes_reference_json() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let deck_path = temp.path().join("proof-cards.json");
+        fs::write(&deck_path, serde_json::to_string_pretty(&deck_with(card())).expect("deck json"))
+            .expect("write deck");
+        let source_path = temp.path().join("src/codec.rs");
+        fs::create_dir_all(source_path.parent().expect("source parent")).expect("create source parent");
+        let anchor = format!("octet-proof-ref: {} -> {PROPERTY_ID}", matching_reference().reference_id);
+        let source_text = format!("// {anchor}\npub fn codec() {{}}\n");
+        fs::write(&source_path, &source_text).expect("write source");
+        let output = temp.path().join("proof-ref.json");
+
+        let code = run(&ProofRefArgs {
+            mode: ProofRefMode::Scaffold(ProofRefScaffoldArgs {
+                proof_cards: deck_path,
+                proof_or_property_id: PROPERTY_ID.to_owned(),
+                reference_id: "unchecked-narrowing-range-proof".to_owned(),
+                consumer_context: "allow tigerstyle::unchecked_narrowing at src/codec.rs:42".to_owned(),
+                consumer_source: source_path.clone(),
+                anchor: anchor.clone(),
+                output: Some(output.clone()),
+            }),
+        })
+        .expect("scaffold command");
+        let reference = read_json::<ProofEvidenceRef>(&output).expect("read generated reference");
+
+        assert_eq!(code, EXIT_VALID);
+        assert_eq!(reference.consumer_source_path, source_path.display().to_string().replace('\\', "/"));
+        assert_eq!(reference.consumer_source_blake3, blake3::hash(source_text.as_bytes()).to_hex().to_string());
+        assert_eq!(reference.consumer_source_anchor, anchor);
+        assert_eq!(reference.proof_or_property_id, PROPERTY_ID);
+    }
+
+    #[test]
+    fn proof_ref_scaffold_rejects_missing_card_or_missing_anchor() {
+        let mut anchor_reference = matching_reference();
+        let mut source = source_artifact_for(&mut anchor_reference);
+        let deck = deck_with(card());
+
+        let missing_card = scaffold_proof_evidence_ref(
+            &deck,
+            "missing#rail-0",
+            &anchor_reference.reference_id,
+            &anchor_reference.consumer_context,
+            &source,
+            &anchor_reference.consumer_source_anchor,
+        )
+        .expect_err("missing proof card should fail");
+        assert!(missing_card.iter().any(|diagnostic| diagnostic.contains("references missing proof card")));
+
+        source.text = "pub fn codec() {}\n".to_owned();
+        let missing_anchor = scaffold_proof_evidence_ref(
+            &deck,
+            PROPERTY_ID,
+            &anchor_reference.reference_id,
+            &anchor_reference.consumer_context,
+            &source,
+            &anchor_reference.consumer_source_anchor,
+        )
+        .expect_err("missing anchor should fail");
+        assert!(missing_anchor.iter().any(|diagnostic| diagnostic.contains("anchor not found")));
     }
 
     #[test]
