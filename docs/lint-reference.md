@@ -9,7 +9,7 @@ For the landing-page naming map, see `../README.md`.
 
 ## Catalog summary
 
-`octet` ships 55 lints across 6 domains.
+`octet` ships 67 lints across 6 domains.
 
 | Domain | Group | Count |
 | --- | --- | ---: |
@@ -17,7 +17,7 @@ For the landing-page naming map, see `../README.md`.
 | naming | `tigerstyle::naming` | 9 |
 | performance | `tigerstyle::performance` | 2 |
 | structure | `tigerstyle::structure` | 16 |
-| purity | `tigerstyle::purity` | 3 |
+| purity | `tigerstyle::purity` | 15 |
 | concurrency | `tigerstyle::concurrency` | 2 |
 
 ## Suppression and level controls
@@ -66,7 +66,7 @@ Rules to keep straight:
 | `trait_method_max` | `7` | `fat_trait` | maximum trait methods before warning |
 | `impl_blocks_max` | `4` | `type_accumulation` | maximum inherent impl blocks per type before advisory |
 | `module_pub_items_max` | `12` | `type_accumulation` | maximum public items per module before advisory |
-| `core_source_scopes` | `[]` | `concrete_construction_in_core` | source path scopes where concrete construction is checked |
+| `core_source_scopes` | `[]` | `concrete_construction_in_core`, `global_state_in_core`, `impure_call_in_core`, `interior_mutability_in_core`, `logging_in_core`, `mutating_input_in_pure`, `resource_return_from_core`, `spawn_in_core` | source path scopes where core-boundary checks run |
 | `sealed_enum_marker` | `"octet::sealed_enum"` | `fragile_exhaustive_enum_match` | attribute marker that suppresses fragile local exhaustive enum-match diagnostics |
 | `indexable_lint_exceptions` | `["rustc_private_aliases", "lint_identity_names", "generated_searchable_names"]` | naming/indexable lints | named exception classes for rustc-private aliases, lint-identity-preserving names, and generated/searchable paths |
 | `acronym_allowlist` | `[]` | `acronym_style` | case-sensitive allowlist such as `IO` or `ID` |
@@ -150,6 +150,18 @@ Unknown lint names and invalid level values warn and are ignored.
 | Lint | Default | Summary |
 | --- | --- | --- |
 | `ambient_clock` | `warn` | keep wall-clock reads at explicit shell boundaries |
+| `ambient_env` | `warn` | keep process environment access at explicit shell boundaries |
+| `ambient_random` | `warn` | keep randomness and generated IDs explicit or shell-owned |
+| `global_state_in_core` | `warn` | flag global mutable or lazy state in configured core scopes |
+| `impure_call_in_core` | `warn` | flag direct platform-effect calls in configured core scopes |
+| `interior_mutability_in_core` | `warn` | flag cells, locks, atomics, and unsafe cells in configured core scopes |
+| `logging_in_core` | `warn` | flag logging and console output in configured core scopes |
+| `missing_const_fn` | `allow` | identify private helpers that appear eligible for `const fn` |
+| `mutating_input_in_pure` | `warn` | flag mutating input capabilities in declared pure contexts |
+| `nondeterministic_output` | `allow` | flag unordered hash iteration collected into ordered output |
+| `pure_attr_contract` | `warn` | enforce direct-effect checks on marked pure functions |
+| `resource_return_from_core` | `warn` | flag concrete resource-handle return types in configured core scopes |
+| `spawn_in_core` | `warn` | flag direct thread or task spawning in configured core scopes |
 | `verified_purity` | `deny` | ban async, IO, and wall-clock usage in `verified/` modules |
 | `contradictory_time` | `warn` | avoid taking time as input and then reading the clock again |
 

@@ -74,7 +74,19 @@
     "lint_names": [
       "verified_purity",
       "contradictory_time",
-      "ambient_clock"
+      "ambient_clock",
+      "ambient_env",
+      "ambient_random",
+      "global_state_in_core",
+      "impure_call_in_core",
+      "interior_mutability_in_core",
+      "logging_in_core",
+      "missing_const_fn",
+      "mutating_input_in_pure",
+      "nondeterministic_output",
+      "pure_attr_contract",
+      "resource_return_from_core",
+      "spawn_in_core"
     ]
   },
   {

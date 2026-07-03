@@ -164,6 +164,54 @@
     "canonical_lint_name": "tigerstyle::ambient_clock"
   },
   {
+    "alias_name": "ambient_env",
+    "canonical_lint_name": "tigerstyle::ambient_env"
+  },
+  {
+    "alias_name": "ambient_random",
+    "canonical_lint_name": "tigerstyle::ambient_random"
+  },
+  {
+    "alias_name": "global_state_in_core",
+    "canonical_lint_name": "tigerstyle::global_state_in_core"
+  },
+  {
+    "alias_name": "impure_call_in_core",
+    "canonical_lint_name": "tigerstyle::impure_call_in_core"
+  },
+  {
+    "alias_name": "interior_mutability_in_core",
+    "canonical_lint_name": "tigerstyle::interior_mutability_in_core"
+  },
+  {
+    "alias_name": "logging_in_core",
+    "canonical_lint_name": "tigerstyle::logging_in_core"
+  },
+  {
+    "alias_name": "missing_const_fn",
+    "canonical_lint_name": "tigerstyle::missing_const_fn"
+  },
+  {
+    "alias_name": "mutating_input_in_pure",
+    "canonical_lint_name": "tigerstyle::mutating_input_in_pure"
+  },
+  {
+    "alias_name": "nondeterministic_output",
+    "canonical_lint_name": "tigerstyle::nondeterministic_output"
+  },
+  {
+    "alias_name": "pure_attr_contract",
+    "canonical_lint_name": "tigerstyle::pure_attr_contract"
+  },
+  {
+    "alias_name": "resource_return_from_core",
+    "canonical_lint_name": "tigerstyle::resource_return_from_core"
+  },
+  {
+    "alias_name": "spawn_in_core",
+    "canonical_lint_name": "tigerstyle::spawn_in_core"
+  },
+  {
     "alias_name": "catch_all_on_enum",
     "canonical_lint_name": "tigerstyle::catch_all_on_enum"
   },
