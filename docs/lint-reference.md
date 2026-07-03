@@ -9,16 +9,16 @@ For the landing-page naming map, see `../README.md`.
 
 ## Catalog summary
 
-`octet` ships 53 lints across 6 domains.
+`octet` ships 55 lints across 6 domains.
 
 | Domain | Group | Count |
 | --- | --- | ---: |
 | safety | `tigerstyle::safety` | 23 |
 | naming | `tigerstyle::naming` | 9 |
-| performance | `tigerstyle::performance` | 1 |
+| performance | `tigerstyle::performance` | 2 |
 | structure | `tigerstyle::structure` | 16 |
 | purity | `tigerstyle::purity` | 3 |
-| concurrency | `tigerstyle::concurrency` | 1 |
+| concurrency | `tigerstyle::concurrency` | 2 |
 
 ## Suppression and level controls
 
@@ -121,6 +121,7 @@ Unknown lint names and invalid level values warn and are ignored.
 | Lint | Default | Summary |
 | --- | --- | --- |
 | `clone_then_borrow` | `warn` | flag cloning a value only to immediately take a shared borrow |
+| `allocation_in_loop` | `allow` | flag obvious allocation constructors inside loop bodies |
 
 ## Structure lints (`tigerstyle::structure`)
 
@@ -156,6 +157,7 @@ Unknown lint names and invalid level values warn and are ignored.
 | Lint | Default | Summary |
 | --- | --- | --- |
 | `multi_lock_ordering` | `allow` | require an ordering comment when a struct owns multiple locks |
+| `ignored_join_handle` | `warn` | flag discarded task or thread join handles |
 
 ## Related docs
 

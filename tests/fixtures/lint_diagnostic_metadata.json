@@ -216,6 +216,18 @@
     "example_text": "// Lock order: state -> peer -> metrics"
   },
   {
+    "lint_name": "ignored_join_handle",
+    "default_level": "warn",
+    "principle": "Task Lifecycle",
+    "guide_section": "Concurrency / Task Lifecycle",
+    "domain_group": "tigerstyle::concurrency",
+    "guidance": "store, await, join, or explicitly abort spawned work instead of discarding its handle",
+    "docs_summary": "flag discarded task or thread join handles",
+    "effect_family": "concurrency",
+    "example_mode": "required",
+    "example_text": "let handle = tokio::spawn(work); handle.await?;"
+  },
+  {
     "lint_name": "explicit_defaults",
     "default_level": "warn",
     "principle": "Explicit Defaults",
@@ -310,6 +322,18 @@
     "effect_family": "unknown",
     "example_mode": "required",
     "example_text": "emit(&name);"
+  },
+  {
+    "lint_name": "allocation_in_loop",
+    "default_level": "allow",
+    "principle": "Hot Path Allocation",
+    "guide_section": "Performance / Hot Paths",
+    "domain_group": "tigerstyle::performance",
+    "guidance": "move allocation setup outside loops or reserve capacity before iterating",
+    "docs_summary": "flag obvious allocation constructors inside loop bodies",
+    "effect_family": "resource",
+    "example_mode": "required",
+    "example_text": "let mut buf = Vec::with_capacity(limit); for item in items { buf.clear(); }"
   },
   {
     "lint_name": "too_many_parameters",
