@@ -1,10 +1,9 @@
 warning: loop without visible iteration bound
-  --> $DIR/unbounded_loop.rs:3:5
+  --> $DIR/unbounded_loop.rs:13:5
    |
 LL | /     loop {
-LL | |         if true {
-LL | |             break;
-LL | |         }
+LL | |         attempt += 1;
+LL | |         std::hint::black_box(attempt);
 LL | |     }
    | |_____^
    |

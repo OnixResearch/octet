@@ -9,3 +9,4 @@ LL |     pub fn spawn_guest_vm() {}
    = note: `#[warn(tigerstyle::path_segment_repetition)]` on by default
 
 warning: 1 warning emitted
+

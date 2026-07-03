@@ -1,5 +1,6 @@
 #![feature(rustc_private)]
 
+extern crate rustc_abi;
 extern crate rustc_ast;
 extern crate rustc_errors;
 extern crate rustc_hir;
@@ -189,7 +190,7 @@ lint_inventory! {
         lint_store.register_early_pass(move || Box::new(safety::assertion_density::AssertionDensity::new(ad_lines, ad_asserts)));
     },
     "multi_lock_ordering", concurrency::multi_lock_ordering::MULTI_LOCK_ORDERING => |lint_store, _cfg| {
-        lint_store.register_early_pass(|| Box::new(concurrency::multi_lock_ordering::MultiLockOrdering));
+        lint_store.register_late_pass(|_| Box::new(concurrency::multi_lock_ordering::MultiLockOrdering));
     },
 
     // Late passes (post-type-resolution, need type info).

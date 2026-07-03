@@ -9,3 +9,4 @@ LL | use crate::addr::Addr;
    = note: `#[warn(tigerstyle::non_trait_imports)]` on by default
 
 warning: 1 warning emitted
+

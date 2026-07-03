@@ -23,6 +23,18 @@ declare_tool_lint! {
 
 declare_lint_pass!(DropMustUse => [DROP_MUST_USE]);
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct DropMustUseFacts {
+    is_std_mem_drop: bool,
+    type_is_must_use: bool,
+    producer_is_must_use: bool,
+    is_in_test_context: bool,
+}
+
+fn classify_drop_must_use(facts: DropMustUseFacts) -> bool {
+    facts.is_std_mem_drop && (facts.type_is_must_use || facts.producer_is_must_use) && !facts.is_in_test_context
+}
+
 #[allow(deprecated)]
 fn has_must_use_attr(cx: &LateContext<'_>, def_id: rustc_hir::def_id::DefId) -> bool {
     find_attr!(cx.tcx.get_all_attrs(def_id), AttributeKind::MustUse { .. })
@@ -72,16 +84,13 @@ impl<'tcx> LateLintPass<'tcx> for DropMustUse {
             return;
         };
 
-        if !is_std_mem_drop(cx, callee) {
-            return;
-        }
-
-        if test_context::late_hir_id_is_in_test_context(cx, expr.hir_id, expr.span) {
-            return;
-        }
-
-        let arg_ty = cx.typeck_results().expr_ty(arg);
-        if !type_is_must_use(cx, arg_ty) && !expr_is_must_use_call(cx, arg) {
+        let facts = DropMustUseFacts {
+            is_std_mem_drop: is_std_mem_drop(cx, callee),
+            type_is_must_use: type_is_must_use(cx, cx.typeck_results().expr_ty(arg)),
+            producer_is_must_use: expr_is_must_use_call(cx, arg),
+            is_in_test_context: test_context::late_hir_id_is_in_test_context(cx, expr.hir_id, expr.span),
+        };
+        if !classify_drop_must_use(facts) {
             return;
         }
 
@@ -92,5 +101,48 @@ impl<'tcx> LateLintPass<'tcx> for DropMustUse {
             "explicitly dropping a must-use value hides the required handling",
             "drop_must_use",
         );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::DropMustUseFacts;
+    use super::classify_drop_must_use;
+
+    fn explicit_drop_of_must_use_type() -> DropMustUseFacts {
+        DropMustUseFacts {
+            is_std_mem_drop: true,
+            type_is_must_use: true,
+            producer_is_must_use: false,
+            is_in_test_context: false,
+        }
+    }
+
+    #[test]
+    fn classifies_explicit_drop_of_must_use_type_or_producer() {
+        let producer = DropMustUseFacts {
+            type_is_must_use: false,
+            producer_is_must_use: true,
+            ..explicit_drop_of_must_use_type()
+        };
+
+        assert!(classify_drop_must_use(explicit_drop_of_must_use_type()));
+        assert!(classify_drop_must_use(producer));
+    }
+
+    #[test]
+    fn skips_plain_drop_and_test_contexts() {
+        let plain_value = DropMustUseFacts {
+            type_is_must_use: false,
+            producer_is_must_use: false,
+            ..explicit_drop_of_must_use_type()
+        };
+        let test_context = DropMustUseFacts {
+            is_in_test_context: true,
+            ..explicit_drop_of_must_use_type()
+        };
+
+        assert!(!classify_drop_must_use(plain_value));
+        assert!(!classify_drop_must_use(test_context));
     }
 }
