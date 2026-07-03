@@ -17,6 +17,7 @@
 //! core_source_scopes = ["crates/domain-core/src/"]
 //! sealed_enum_marker = "octet::sealed_enum"
 //! acronym_allowlist = ["IO", "ID"]
+//! indexable_lint_exceptions = ["rustc_private_aliases", "lint_identity_names"]
 //! disabled_lints = ["no_unwrap", "no_panic"]
 //!
 //! [octet.lint_levels]
@@ -27,6 +28,22 @@ use std::collections::BTreeSet;
 use std::collections::HashMap;
 
 use serde::Deserialize;
+
+pub(crate) const INDEXABLE_EXCEPTION_RUSTC_PRIVATE_ALIASES: &str = "rustc_private_aliases";
+pub(crate) const INDEXABLE_EXCEPTION_LINT_IDENTITY_NAMES: &str = "lint_identity_names";
+pub(crate) const INDEXABLE_EXCEPTION_GENERATED_SEARCHABLE_NAMES: &str = "generated_searchable_names";
+const DEFAULT_INDEXABLE_EXCEPTIONS: &[&str] = &[
+    INDEXABLE_EXCEPTION_RUSTC_PRIVATE_ALIASES,
+    INDEXABLE_EXCEPTION_LINT_IDENTITY_NAMES,
+    INDEXABLE_EXCEPTION_GENERATED_SEARCHABLE_NAMES,
+];
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) struct IndexableLintExceptions {
+    pub rustc_private_aliases: bool,
+    pub lint_identity_names: bool,
+    pub generated_searchable_names: bool,
+}
 
 /// All supported per-lint severity overrides.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -104,6 +121,9 @@ pub struct Config {
     /// Lint names that should not register for this workspace.
     pub disabled_lints: Vec<String>,
 
+    /// Scoped exception classes for high-volume naming/indexable lints.
+    pub indexable_lint_exceptions: Vec<String>,
+
     /// Raw per-lint severity overrides loaded from `dylint.toml`.
     pub lint_levels: HashMap<String, String>,
 
@@ -129,6 +149,7 @@ impl Default for Config {
             sealed_enum_marker: "octet::sealed_enum".to_owned(),
             acronym_allowlist: Vec::new(),
             disabled_lints: Vec::new(),
+            indexable_lint_exceptions: DEFAULT_INDEXABLE_EXCEPTIONS.iter().map(|class| (*class).to_owned()).collect(),
             lint_levels: HashMap::new(),
             validated_lint_levels: HashMap::new(),
         }
@@ -150,6 +171,15 @@ impl Config {
         self.validated_lint_levels.get(lint_name).copied()
     }
 
+    pub(crate) fn indexable_lint_exceptions(&self) -> IndexableLintExceptions {
+        let enabled = |class: &str| self.indexable_lint_exceptions.iter().any(|configured| configured == class);
+        IndexableLintExceptions {
+            rustc_private_aliases: enabled(INDEXABLE_EXCEPTION_RUSTC_PRIVATE_ALIASES),
+            lint_identity_names: enabled(INDEXABLE_EXCEPTION_LINT_IDENTITY_NAMES),
+            generated_searchable_names: enabled(INDEXABLE_EXCEPTION_GENERATED_SEARCHABLE_NAMES),
+        }
+    }
+
     fn validate(&mut self) -> Vec<String> {
         let known_lints = canonical_lint_names();
         let disabled_lints = self.disabled_lints.iter().map(String::as_str).collect::<BTreeSet<_>>();
@@ -161,6 +191,14 @@ impl Config {
                 && unknown_disabled_lints.insert(lint_name.as_str())
             {
                 warnings.push(format!("unknown octet lint in `dylint.toml` disabled_lints: `{lint_name}`"));
+            }
+        }
+
+        let known_exception_classes = DEFAULT_INDEXABLE_EXCEPTIONS.iter().copied().collect::<BTreeSet<_>>();
+        let mut unknown_exception_classes = BTreeSet::new();
+        for class in &self.indexable_lint_exceptions {
+            if !known_exception_classes.contains(class.as_str()) && unknown_exception_classes.insert(class.as_str()) {
+                warnings.push(format!("unknown octet indexable_lint_exceptions class in `dylint.toml`: `{class}`"));
             }
         }
 
@@ -294,6 +332,34 @@ mod tests {
         assert!(cfg.disabled_lints.is_empty());
         assert!(cfg.lint_levels.is_empty());
         assert_eq!(cfg.lint_level("no_unwrap"), None);
+    }
+
+    #[test]
+    fn indexable_exception_classes_default_to_scoped_allowlist() {
+        let cfg = parse_config("[octet]\n");
+        let exceptions = cfg.indexable_lint_exceptions();
+
+        assert!(exceptions.rustc_private_aliases);
+        assert!(exceptions.lint_identity_names);
+        assert!(exceptions.generated_searchable_names);
+    }
+
+    #[test]
+    fn indexable_exception_classes_can_be_narrowed_and_validate_unknowns() {
+        let (cfg, warnings) = parse_and_validate(
+            r#"
+[octet]
+indexable_lint_exceptions = ["rustc_private_aliases", "not_a_real_exception"]
+"#,
+        );
+        let exceptions = cfg.indexable_lint_exceptions();
+
+        assert!(exceptions.rustc_private_aliases);
+        assert!(!exceptions.lint_identity_names);
+        assert!(!exceptions.generated_searchable_names);
+        assert_eq!(warnings, vec![
+            "unknown octet indexable_lint_exceptions class in `dylint.toml`: `not_a_real_exception`"
+        ]);
     }
 
     #[test]

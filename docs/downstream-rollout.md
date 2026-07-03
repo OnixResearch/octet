@@ -414,6 +414,15 @@ Because none are `ready`, this playbook does not change default levels,
 
 ## High-noise lint promotion playbook
 
+Scoped indexable-lint exceptions are allowed only as named classes in
+`indexable_lint_exceptions`; do not replace them with broad lint disables. Any
+consumer config that changes the default classes must include a cleanup note
+naming the excepted finding class, why searchability is preserved, and what
+would let the workspace remove that exception later.
+
+Dogfood summaries for these families must report raw, excepted, accepted, fixed,
+and residual counts per lint before any promotion decision.
+
 These families stay inventory-first until the consumer has a classified,
 reviewable baseline:
 

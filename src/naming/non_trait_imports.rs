@@ -4,11 +4,13 @@ use rustc_hir::def::Res;
 use rustc_lint::LateContext;
 use rustc_lint::LateLintPass;
 use rustc_lint::LintContext;
-use rustc_session::declare_lint_pass;
 use rustc_session::declare_tool_lint;
+use rustc_session::impl_lint_pass;
 use rustc_span::Ident;
 
+use crate::config::IndexableLintExceptions;
 use crate::diagnostics::emit_tiger_style_lint;
+use crate::naming::indexable_exceptions::is_canonical_rustc_private_alias;
 
 const GENERATED_SEGMENTS: &[&str] = &[
     "target",
@@ -31,7 +33,17 @@ declare_tool_lint! {
     "non-trait item imported into local scope"
 }
 
-declare_lint_pass!(NonTraitImports => [NON_TRAIT_IMPORTS]);
+pub struct NonTraitImports {
+    exceptions: IndexableLintExceptions,
+}
+
+impl NonTraitImports {
+    pub fn new(exceptions: IndexableLintExceptions) -> Self {
+        Self { exceptions }
+    }
+}
+
+impl_lint_pass!(NonTraitImports => [NON_TRAIT_IMPORTS]);
 
 fn path_segments(path: &hir::UsePath<'_>) -> Vec<String> {
     path.segments
@@ -82,6 +94,7 @@ impl<'tcx> LateLintPass<'tcx> for NonTraitImports {
             || is_unrelated_ui_fixture(cx, item)
             || cx.tcx.visibility(item.owner_id.def_id).is_public()
             || imports_only_trait(path)
+            || is_canonical_rustc_private_alias(&path_segments(path), ident.name.as_str(), self.exceptions)
         {
             return;
         }

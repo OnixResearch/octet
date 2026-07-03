@@ -4,11 +4,13 @@ use rustc_hir as hir;
 use rustc_lint::LateContext;
 use rustc_lint::LateLintPass;
 use rustc_lint::LintContext;
-use rustc_session::declare_lint_pass;
 use rustc_session::declare_tool_lint;
+use rustc_session::impl_lint_pass;
 use rustc_span::Ident;
 
+use crate::config::IndexableLintExceptions;
 use crate::diagnostics::emit_tiger_style_lint;
+use crate::naming::indexable_exceptions::is_lint_identity_name;
 
 const COMPATIBILITY_WORDS: &[&str] = &["compat", "compatibility", "external", "mandated", "api"];
 const GENERATED_SEGMENTS: &[&str] = &[
@@ -36,7 +38,17 @@ declare_tool_lint! {
     "item name repeats an ancestor path segment"
 }
 
-declare_lint_pass!(PathSegmentRepetition => [PATH_SEGMENT_REPETITION]);
+pub struct PathSegmentRepetition {
+    exceptions: IndexableLintExceptions,
+}
+
+impl PathSegmentRepetition {
+    pub fn new(exceptions: IndexableLintExceptions) -> Self {
+        Self { exceptions }
+    }
+}
+
+impl_lint_pass!(PathSegmentRepetition => [PATH_SEGMENT_REPETITION]);
 
 fn identifier_for_item(item: &hir::Item<'_>) -> Option<Ident> {
     match item.kind {
@@ -162,6 +174,9 @@ impl<'tcx> LateLintPass<'tcx> for PathSegmentRepetition {
 
         let segments = item_path_segments(cx, item);
         if segments.is_empty() {
+            return;
+        }
+        if is_lint_identity_name(ident.name.as_str(), &segments, self.exceptions) {
             return;
         }
         let segment_refs = segments.iter().map(String::as_str).collect::<Vec<_>>();

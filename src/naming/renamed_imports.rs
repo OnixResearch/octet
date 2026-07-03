@@ -4,11 +4,13 @@ use rustc_hir::def::Res;
 use rustc_lint::LateContext;
 use rustc_lint::LateLintPass;
 use rustc_lint::LintContext;
-use rustc_session::declare_lint_pass;
 use rustc_session::declare_tool_lint;
+use rustc_session::impl_lint_pass;
 use rustc_span::Ident;
 
+use crate::config::IndexableLintExceptions;
 use crate::diagnostics::emit_tiger_style_lint;
+use crate::naming::indexable_exceptions::is_canonical_rustc_private_alias;
 
 const GENERATED_SEGMENTS: &[&str] = &[
     "target",
@@ -32,7 +34,17 @@ declare_tool_lint! {
     "renamed import hides the original searchable name"
 }
 
-declare_lint_pass!(RenamedImports => [RENAMED_IMPORTS]);
+pub struct RenamedImports {
+    exceptions: IndexableLintExceptions,
+}
+
+impl RenamedImports {
+    pub fn new(exceptions: IndexableLintExceptions) -> Self {
+        Self { exceptions }
+    }
+}
+
+impl_lint_pass!(RenamedImports => [RENAMED_IMPORTS]);
 
 fn path_segments(path: &hir::UsePath<'_>) -> Vec<String> {
     path.segments
@@ -107,6 +119,10 @@ impl<'tcx> LateLintPass<'tcx> for RenamedImports {
         }
 
         if alias == UNDERSCORE_IMPORT && imports_only_trait(path) {
+            return;
+        }
+
+        if is_canonical_rustc_private_alias(&path_segments(path), alias, self.exceptions) {
             return;
         }
 

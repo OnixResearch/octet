@@ -1,5 +1,5 @@
 warning: renamed import `Config as TransportConfig` hides the original searchable name
-  --> $DIR/renamed_imports.rs:5:1
+  --> $DIR/renamed_imports.rs:14:1
    |
 LL | use crate::transport::Config as TransportConfig;
    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

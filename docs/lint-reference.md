@@ -68,6 +68,7 @@ Rules to keep straight:
 | `module_pub_items_max` | `12` | `type_accumulation` | maximum public items per module before advisory |
 | `core_source_scopes` | `[]` | `concrete_construction_in_core` | source path scopes where concrete construction is checked |
 | `sealed_enum_marker` | `"octet::sealed_enum"` | `fragile_exhaustive_enum_match` | attribute marker that suppresses fragile local exhaustive enum-match diagnostics |
+| `indexable_lint_exceptions` | `["rustc_private_aliases", "lint_identity_names", "generated_searchable_names"]` | naming/indexable lints | named exception classes for rustc-private aliases, lint-identity-preserving names, and generated/searchable paths |
 | `acronym_allowlist` | `[]` | `acronym_style` | case-sensitive allowlist such as `IO` or `ID` |
 | `disabled_lints` | `[]` | all lints | bare lint names only; disabled lints do not register |
 | `[octet.lint_levels]` | `{}` | all lints | bare lint names mapped to `allow`, `warn`, or `deny` |
