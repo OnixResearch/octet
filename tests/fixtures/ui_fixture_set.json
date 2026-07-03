@@ -2,6 +2,7 @@
   "all_fixtures": [
     "acronym_allowlist_custom/acronym_allowlist_custom",
     "acronym_style",
+    "allocation_in_loop",
     "ambient_clock",
     "ambiguous_params",
     "assertion_density",
@@ -42,6 +43,7 @@
     "function_length_custom/function_length_custom",
     "group_allow_safety",
     "group_deny_naming",
+    "ignored_join_handle",
     "ignored_result",
     "ignored_result_drop",
     "ignored_result_shutdown_send",

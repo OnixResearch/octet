@@ -192,6 +192,9 @@ lint_inventory! {
     "multi_lock_ordering", concurrency::multi_lock_ordering::MULTI_LOCK_ORDERING => |lint_store, _cfg| {
         lint_store.register_late_pass(|_| Box::new(concurrency::multi_lock_ordering::MultiLockOrdering));
     },
+    "ignored_join_handle", concurrency::ignored_join_handle::IGNORED_JOIN_HANDLE => |lint_store, _cfg| {
+        lint_store.register_late_pass(|_| Box::new(concurrency::ignored_join_handle::IgnoredJoinHandle));
+    },
 
     // Late passes (post-type-resolution, need type info).
     "explicit_defaults", safety::explicit_defaults::EXPLICIT_DEFAULTS => |lint_store, _cfg| {
@@ -217,6 +220,9 @@ lint_inventory! {
     },
     "clone_then_borrow", performance::clone_then_borrow::CLONE_THEN_BORROW => |lint_store, _cfg| {
         lint_store.register_late_pass(|_| Box::new(performance::clone_then_borrow::CloneThenBorrow));
+    },
+    "allocation_in_loop", performance::allocation_in_loop::ALLOCATION_IN_LOOP => |lint_store, _cfg| {
+        lint_store.register_late_pass(|_| Box::new(performance::allocation_in_loop::AllocationInLoop));
     },
     "too_many_parameters", structure::too_many_parameters::TOO_MANY_PARAMETERS => |lint_store, cfg| {
         let max_parameters = cfg.max_parameters;

@@ -16,6 +16,7 @@ unjustified_allow
 nested_conditionals
 assertion_density
 multi_lock_ordering
+ignored_join_handle
 explicit_defaults
 unbounded_channel
 unbounded_collection_growth
@@ -24,6 +25,7 @@ usize_in_public_api
 borrowed_argument_types
 deref_polymorphism
 clone_then_borrow
+allocation_in_loop
 too_many_parameters
 fat_trait
 concrete_construction_in_core

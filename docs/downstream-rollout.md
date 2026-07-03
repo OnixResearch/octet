@@ -153,6 +153,7 @@ disabled_lints = [
   "nested_conditionals",
   "assertion_density",
   "multi_lock_ordering",
+  "ignored_join_handle",
   "unbounded_collection_growth",
   "sentinel_fallback",
   "too_many_parameters",
@@ -165,6 +166,7 @@ disabled_lints = [
   "borrowed_argument_types",
   "deref_polymorphism",
   "clone_then_borrow",
+  "allocation_in_loop",
   "float_for_currency",
   "ambiguous_params",
   "raw_arithmetic_overflow",
@@ -204,6 +206,7 @@ disabled_lints = [
   "nested_conditionals",
   "assertion_density",
   "multi_lock_ordering",
+  "ignored_join_handle",
   "explicit_defaults",
   "unbounded_channel",
   "unbounded_collection_growth",
@@ -222,6 +225,7 @@ disabled_lints = [
   "borrowed_argument_types",
   "deref_polymorphism",
   "clone_then_borrow",
+  "allocation_in_loop",
   "float_for_currency",
   "ambiguous_params",
   "raw_arithmetic_overflow",
@@ -400,6 +404,8 @@ Octet self-dogfood run saved at
 | `raw_arithmetic_overflow` | 27 | 27 | 0 | 27 | blocked |
 | `ambiguous_params` | 1 | 1 | 0 | 1 | deferred |
 | `multi_lock_ordering` | 0 | 0 | 0 | 0 | deferred pending downstream sample |
+| `ignored_join_handle` | 0 | 0 | 0 | 0 | deferred pending downstream sample |
+| `allocation_in_loop` | 0 | 0 | 0 | 0 | deferred pending hot-path sample |
 | `defaulting_trait_method` | 0 | 0 | 0 | 0 | deferred pending downstream sample |
 | `numeric_units` | 2 | 2 | 0 | 2 | deferred |
 

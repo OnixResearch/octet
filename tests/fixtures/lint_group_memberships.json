@@ -44,7 +44,8 @@
   {
     "group_name": "tigerstyle::performance",
     "lint_names": [
-      "clone_then_borrow"
+      "clone_then_borrow",
+      "allocation_in_loop"
     ]
   },
   {
@@ -79,7 +80,8 @@
   {
     "group_name": "tigerstyle::concurrency",
     "lint_names": [
-      "multi_lock_ordering"
+      "multi_lock_ordering",
+      "ignored_join_handle"
     ]
   }
 ]

@@ -18,7 +18,7 @@ Octet treats Rust-compatible code as inert by default across APIs, effects,
 capabilities, proofs, and review surfaces; interaction happens only through
 complete, explicit interfaces.
 
-Octet currently ships 53 Dylint lints across 6 domains. The repo also owns a
+Octet currently ships 55 Dylint lints across 6 domains. The repo also owns a
 separate standards registry/checker seam for policy traceability and
 non-Dylint source-shape rules.
 
@@ -205,10 +205,10 @@ tracks the source-attribute namespace decision.
 | --- | ---: | --- |
 | safety | 23 | panics, bounds, defaults, loops, queues, unsafe boundaries, explicit failure paths, enum evolution |
 | naming | 9 | predicate names, acronym casing, units, currency, searchable paths and imports |
-| performance | 1 | clone avoidance and ownership clarity |
+| performance | 2 | clone avoidance, hot-loop allocation, and ownership clarity |
 | structure | 16 | function size, nesting, parameters, casts, public APIs, interface cohesion |
 | purity | 3 | wall-clock boundaries and verified-module purity |
-| concurrency | 1 | lock ordering |
+| concurrency | 2 | lock ordering and task lifecycle |
 
 See `docs/lint-reference.md` for the full catalog, defaults, suppression rules,
 and config keys.
@@ -228,6 +228,7 @@ and config keys.
 - `docs/trust-boundary-evidence.md` — checked-path framing, evidence stack, evidence tiers, the [checked-contract ladder](docs/trust-boundary-evidence.md#checked-contract-ladder), provenance, scope boundary, and controlled-deployment map
 - `templates/pre-commit-config.yaml` — copyable deny-all pre-commit hook configuration
 - `docs/lint-reference.md` — full lint catalog, default levels, suppression paths, config reference
+- `docs/concurrency-performance-lint-candidates.md` — first-wave concurrency/performance lint candidate matrix
 - `docs/contributor-guide.md` — source-of-truth map, doc-update crosswalk, verification rails
 - `docs/downstream-rollout.md` — rollout profiles, promotion playbooks, and boundary guidance
 - `docs/downstream-rollout-evidence.md` — Aspen-backed rollout evidence and historical replay paths

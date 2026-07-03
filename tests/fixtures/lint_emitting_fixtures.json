@@ -72,6 +72,10 @@
     "fixture": "multi_lock_ordering"
   },
   {
+    "lint_name": "ignored_join_handle",
+    "fixture": "ignored_join_handle"
+  },
+  {
     "lint_name": "explicit_defaults",
     "fixture": "explicit_defaults/explicit_defaults"
   },
@@ -102,6 +106,10 @@
   {
     "lint_name": "clone_then_borrow",
     "fixture": "clone_then_borrow"
+  },
+  {
+    "lint_name": "allocation_in_loop",
+    "fixture": "allocation_in_loop"
   },
   {
     "lint_name": "too_many_parameters",

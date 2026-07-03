@@ -72,6 +72,10 @@
     "canonical_lint_name": "tigerstyle::multi_lock_ordering"
   },
   {
+    "alias_name": "ignored_join_handle",
+    "canonical_lint_name": "tigerstyle::ignored_join_handle"
+  },
+  {
     "alias_name": "explicit_defaults",
     "canonical_lint_name": "tigerstyle::explicit_defaults"
   },
@@ -102,6 +106,10 @@
   {
     "alias_name": "clone_then_borrow",
     "canonical_lint_name": "tigerstyle::clone_then_borrow"
+  },
+  {
+    "alias_name": "allocation_in_loop",
+    "canonical_lint_name": "tigerstyle::allocation_in_loop"
   },
   {
     "alias_name": "too_many_parameters",

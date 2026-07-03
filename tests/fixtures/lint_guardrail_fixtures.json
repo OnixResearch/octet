@@ -90,6 +90,11 @@
     "category": "safe_shape"
   },
   {
+    "lint_name": "ignored_join_handle",
+    "fixture": "lint_guardrail_common",
+    "category": "safe_shape"
+  },
+  {
     "lint_name": "explicit_defaults",
     "fixture": "lint_guardrail_common",
     "category": "safe_shape"
@@ -126,6 +131,11 @@
   },
   {
     "lint_name": "clone_then_borrow",
+    "fixture": "lint_guardrail_common",
+    "category": "safe_shape"
+  },
+  {
+    "lint_name": "allocation_in_loop",
     "fixture": "lint_guardrail_common",
     "category": "safe_shape"
   },
