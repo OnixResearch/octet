@@ -1296,6 +1296,10 @@ mod tests {
         "unbounded_collection_growth",
     ];
 
+    const MACHINE_APPLICABLE_AUTOFIX_LINTS: &[&str] = &["compound_assertion", "bool_naming", "negated_predicate"];
+
+    const MACHINE_APPLICABLE_AUTOFIX_OUT_OF_SCOPE: &[AutofixOutOfScopeRationale] = &[];
+
     const AUTOFIX_OUT_OF_SCOPE_LINTS: &[&str] = &[
         "assertion_density",
         "drop_must_use",
@@ -1329,6 +1333,12 @@ mod tests {
     /// cannot satisfy the "source must not contain `emit_tiger_style_lint_with_suggestion`"
     /// assertion for out-of-scope lints.
     const SHARED_SOURCE_EXEMPTIONS: &[&str] = &["unjustified_no_todo_allow"];
+
+    #[derive(Debug)]
+    struct AutofixOutOfScopeRationale {
+        lint_name: &'static str,
+        rationale: &'static str,
+    }
 
     fn expected_autofix_tier(lint_name: &str) -> &'static str {
         match lint_name {
@@ -1372,6 +1382,41 @@ mod tests {
         "renamed_imports",
         "path_segment_repetition",
     ];
+
+    fn autofix_machine_proof_diagnostics(
+        machine_lints: &[&str],
+        fixed_fixtures: &[String],
+        out_of_scope: &[AutofixOutOfScopeRationale],
+    ) -> Vec<String> {
+        let mut diagnostics = Vec::new();
+        for &lint_name in machine_lints {
+            if let Some(rationale) = out_of_scope.iter().find(|entry| entry.lint_name == lint_name) {
+                if rationale.rationale.trim().is_empty() {
+                    diagnostics.push(format!(
+                        "machine-applicable lint `{lint_name}` has a blank autofix out-of-scope rationale"
+                    ));
+                }
+                continue;
+            }
+
+            if !fixed_fixtures.iter().any(|fixture| fixture.contains(lint_name)) {
+                diagnostics.push(format!(
+                    "machine-applicable lint `{lint_name}` has no checked `.fixed` artifact or out-of-scope rationale"
+                ));
+            }
+        }
+
+        for rationale in out_of_scope {
+            if !machine_lints.contains(&rationale.lint_name) {
+                diagnostics.push(format!(
+                    "autofix out-of-scope rationale references non-machine lint `{}`",
+                    rationale.lint_name
+                ));
+            }
+        }
+
+        diagnostics
+    }
 
     fn lint_source_path(lint_name: &str) -> &'static str {
         match lint_name {
@@ -1431,6 +1476,30 @@ mod tests {
     }
 
     #[test]
+    fn autofix_machine_proof_covers_current_machine_lints() {
+        let fixed_fixtures = fixed_fixture_names_for_library_tests();
+        let diagnostics = autofix_machine_proof_diagnostics(
+            MACHINE_APPLICABLE_AUTOFIX_LINTS,
+            &fixed_fixtures,
+            MACHINE_APPLICABLE_AUTOFIX_OUT_OF_SCOPE,
+        );
+
+        assert!(diagnostics.is_empty(), "autofix proof drifted: {diagnostics:#?}");
+    }
+
+    #[test]
+    fn autofix_machine_proof_rejects_missing_fixed_artifact() {
+        let fixed_fixtures = vec!["compound_assertion_machine_applicable".to_owned()];
+        let diagnostics = autofix_machine_proof_diagnostics(
+            &["compound_assertion", "bool_naming"],
+            &fixed_fixtures,
+            MACHINE_APPLICABLE_AUTOFIX_OUT_OF_SCOPE,
+        );
+
+        assert!(diagnostics.iter().any(|diagnostic| diagnostic.contains("`bool_naming`")));
+    }
+
+    #[test]
     fn indexable_policy_lints_have_registration_metadata_aliases_groups_and_sources() {
         let cfg = Config::default();
         let store = lint_store_with_groups_and_aliases(&cfg);
@@ -1463,11 +1532,9 @@ mod tests {
         }
     }
 
-    #[test]
-    fn autofix_rollout_scope_matches_change_contract() {
-        let coverage = lint_fixture_coverage();
+    fn fixed_fixture_names_for_library_tests() -> Vec<String> {
         let ui_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("ui_tests");
-        let fixed_fixtures = fs::read_dir(&ui_dir)
+        let mut fixed_fixtures = fs::read_dir(&ui_dir)
             .unwrap_or_else(|error| panic!("read autofix fixture dir {}: {error}", ui_dir.display()))
             .collect::<Result<Vec<_>, _>>()
             .unwrap_or_else(|error| panic!("collect autofix fixture dir {}: {error}", ui_dir.display()))
@@ -1478,6 +1545,20 @@ mod tests {
                     .then(|| path.file_stem().expect("fixed fixture file stem").to_string_lossy().into_owned())
             })
             .collect::<Vec<_>>();
+        fixed_fixtures.sort();
+        fixed_fixtures
+    }
+
+    #[test]
+    fn autofix_rollout_scope_matches_change_contract() {
+        let coverage = lint_fixture_coverage();
+        let fixed_fixtures = fixed_fixture_names_for_library_tests();
+        let proof_diagnostics = autofix_machine_proof_diagnostics(
+            MACHINE_APPLICABLE_AUTOFIX_LINTS,
+            &fixed_fixtures,
+            MACHINE_APPLICABLE_AUTOFIX_OUT_OF_SCOPE,
+        );
+        assert!(proof_diagnostics.is_empty(), "autofix proof drifted: {proof_diagnostics:#?}");
 
         for &lint_name in AUTOFIX_ROLLOUT_LINTS {
             let source_path = Path::new(env!("CARGO_MANIFEST_DIR")).join(lint_source_path(lint_name));
