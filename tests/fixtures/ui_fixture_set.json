@@ -45,6 +45,7 @@
     "ignored_result",
     "ignored_result_drop",
     "ignored_result_shutdown_send",
+    "lint_guardrail_common",
     "magic_number",
     "max_parameters_custom/max_parameters_custom",
     "module_file_count",

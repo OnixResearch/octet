@@ -387,6 +387,13 @@ mod tests {
         fixture: String,
     }
 
+    #[derive(Clone, Debug, Deserialize)]
+    struct LintGuardrailFixture {
+        lint_name: String,
+        fixture: String,
+        category: String,
+    }
+
     fn read_fixture_json<T: for<'de> Deserialize<'de>>(name: &str) -> T {
         let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures").join(name);
         let raw = fs::read_to_string(&path)
@@ -400,6 +407,10 @@ mod tests {
 
     fn lint_fixture_coverage() -> Vec<LintFixtureCoverage> {
         read_fixture_json("lint_emitting_fixtures.json")
+    }
+
+    fn lint_guardrail_coverage() -> Vec<LintGuardrailFixture> {
+        read_fixture_json("lint_guardrail_fixtures.json")
     }
 
     fn discovered_ui_fixtures() -> Vec<String> {
@@ -1229,6 +1240,110 @@ mod tests {
                 "ui_fixture_set.json category entry `{fixture}` must appear in all_fixtures"
             );
         }
+    }
+
+    const GUARDRAIL_FIXTURE_CATEGORIES: &[&str] = &[
+        "safe_shape",
+        "configured_off",
+        "within_limit",
+        "test_context",
+        "macro_guardrail",
+        "known_exception",
+    ];
+
+    fn guardrail_fixture_diagnostics(
+        registered_names: &[&str],
+        fixture_set: &UiFixtureSet,
+        guardrails: &[LintGuardrailFixture],
+    ) -> Vec<String> {
+        let mut diagnostics = Vec::new();
+        for entry in guardrails {
+            if !registered_names.contains(&entry.lint_name.as_str()) {
+                diagnostics.push(format!("guardrail manifest references unknown lint `{}`", entry.lint_name));
+            }
+            if !fixture_set.all_fixtures.contains(&entry.fixture) {
+                diagnostics.push(format!(
+                    "guardrail fixture `{}` for `{}` is not listed in ui_fixture_set.json",
+                    entry.fixture, entry.lint_name
+                ));
+            }
+            if !GUARDRAIL_FIXTURE_CATEGORIES.contains(&entry.category.as_str()) {
+                diagnostics.push(format!(
+                    "guardrail fixture `{}` for `{}` uses unknown category `{}`",
+                    entry.fixture, entry.lint_name, entry.category
+                ));
+            }
+        }
+
+        for &lint_name in registered_names {
+            if !guardrails.iter().any(|entry| entry.lint_name == lint_name) {
+                diagnostics.push(format!("registered lint `{lint_name}` has no guardrail fixture"));
+            }
+        }
+
+        diagnostics
+    }
+
+    #[test]
+    fn lint_guardrail_fixture_manifest_covers_inventory_and_names_valid_fixtures() {
+        let guardrails = lint_guardrail_coverage();
+        let fixture_set = ui_fixture_set();
+        let diagnostics = guardrail_fixture_diagnostics(&inventory_names(), &fixture_set, &guardrails);
+
+        assert!(diagnostics.is_empty(), "guardrail fixture manifest drifted: {diagnostics:#?}");
+
+        for entry in guardrails {
+            let stderr_path = fixture_stderr_path(&entry.fixture);
+            let stderr = fs::read_to_string(&stderr_path)
+                .unwrap_or_else(|error| panic!("read guardrail stderr {}: {error}", stderr_path.display()));
+            let canonical_name = diagnostics::canonical_lint_name(&entry.lint_name);
+            assert!(
+                !stderr.contains(&canonical_name),
+                "guardrail fixture `{}` must not emit `{canonical_name}` in {}",
+                entry.fixture,
+                stderr_path.display()
+            );
+        }
+    }
+
+    #[test]
+    fn lint_guardrail_fixture_manifest_rejects_unknown_lint() {
+        let fixture_set = ui_fixture_set();
+        let guardrails = vec![LintGuardrailFixture {
+            lint_name: UNKNOWN_CATALOG_LINT.to_owned(),
+            fixture: "lint_guardrail_common".to_owned(),
+            category: "safe_shape".to_owned(),
+        }];
+        let diagnostics = guardrail_fixture_diagnostics(&inventory_names(), &fixture_set, &guardrails);
+
+        assert!(diagnostics.iter().any(|diagnostic| diagnostic.contains(UNKNOWN_CATALOG_LINT)));
+    }
+
+    #[test]
+    fn lint_guardrail_fixture_manifest_rejects_missing_guardrail() {
+        let fixture_set = ui_fixture_set();
+        let mut guardrails = lint_guardrail_coverage();
+        guardrails.retain(|entry| entry.lint_name != "compound_assertion");
+        let diagnostics = guardrail_fixture_diagnostics(&inventory_names(), &fixture_set, &guardrails);
+
+        assert!(
+            diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.contains("registered lint `compound_assertion` has no guardrail fixture"))
+        );
+    }
+
+    #[test]
+    fn lint_guardrail_fixture_manifest_rejects_unknown_category() {
+        let fixture_set = ui_fixture_set();
+        let guardrails = vec![LintGuardrailFixture {
+            lint_name: "compound_assertion".to_owned(),
+            fixture: "lint_guardrail_common".to_owned(),
+            category: "stale_category".to_owned(),
+        }];
+        let diagnostics = guardrail_fixture_diagnostics(&inventory_names(), &fixture_set, &guardrails);
+
+        assert!(diagnostics.iter().any(|diagnostic| diagnostic.contains("stale_category")));
     }
 
     #[test]
