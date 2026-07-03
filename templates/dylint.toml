@@ -39,6 +39,16 @@
 # Transport or storage code may use a small set of established acronyms.
 # acronym_allowlist = ["IO"]
 
+# Scoped indexable-lint exceptions
+# Keep these as named classes, not broad disables. If you narrow or extend them,
+# record which finding class is excepted, why it preserves searchability, and
+# what cleanup would remove the exception.
+# indexable_lint_exceptions = [
+#   "rustc_private_aliases",
+#   "lint_identity_names",
+#   "generated_searchable_names",
+# ]
+
 # Per-lint rollout controls
 # Omitted `disabled_lints` / `lint_levels` default to empty collections.
 # Unknown lint names and invalid level values warn and are ignored.

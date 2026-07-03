@@ -231,6 +231,7 @@ and config keys.
 - `docs/concurrency-performance-lint-candidates.md` — first-wave concurrency/performance lint candidate matrix
 - `docs/contributor-guide.md` — source-of-truth map, doc-update crosswalk, verification rails
 - `docs/downstream-rollout.md` — rollout profiles, promotion playbooks, and boundary guidance
+- `docs/indexable-lint-signal-summary.md` — high-volume indexable lint signal-quality status and promotion blockers
 - `docs/downstream-rollout-evidence.md` — Aspen-backed rollout evidence and historical replay paths
 - `standards/policies/README.md` — typed policy registry and traceability contract
 - `docs/standards/policy-contract.md` — standards rules mapped to verification rails

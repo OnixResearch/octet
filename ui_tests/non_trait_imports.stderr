@@ -1,5 +1,5 @@
 warning: non-trait import `Addr` hides the owner path; prefer the qualified path at the use site
-  --> $DIR/non_trait_imports.rs:5:1
+  --> $DIR/non_trait_imports.rs:14:1
    |
 LL | use crate::addr::Addr;
    | ^^^^^^^^^^^^^^^^^^^^^^

@@ -156,17 +156,21 @@ lint_inventory! {
         let max_files = cfg.module_file_count_max;
         lint_store.register_early_pass(move || Box::new(structure::module_file_count::ModuleFileCount::new(max_files)));
     },
-    "underscore_in_module_filename", naming::underscore_in_module_filename::UNDERSCORE_IN_MODULE_FILENAME => |lint_store, _cfg| {
-        lint_store.register_early_pass(|| Box::new(naming::underscore_in_module_filename::UnderscoreInModuleFilename));
+    "underscore_in_module_filename", naming::underscore_in_module_filename::UNDERSCORE_IN_MODULE_FILENAME => |lint_store, cfg| {
+        let exceptions = cfg.indexable_lint_exceptions();
+        lint_store.register_early_pass(move || Box::new(naming::underscore_in_module_filename::UnderscoreInModuleFilename::new(exceptions)));
     },
-    "non_trait_imports", naming::non_trait_imports::NON_TRAIT_IMPORTS => |lint_store, _cfg| {
-        lint_store.register_late_pass(|_| Box::new(naming::non_trait_imports::NonTraitImports));
+    "non_trait_imports", naming::non_trait_imports::NON_TRAIT_IMPORTS => |lint_store, cfg| {
+        let exceptions = cfg.indexable_lint_exceptions();
+        lint_store.register_late_pass(move |_| Box::new(naming::non_trait_imports::NonTraitImports::new(exceptions)));
     },
-    "renamed_imports", naming::renamed_imports::RENAMED_IMPORTS => |lint_store, _cfg| {
-        lint_store.register_late_pass(|_| Box::new(naming::renamed_imports::RenamedImports));
+    "renamed_imports", naming::renamed_imports::RENAMED_IMPORTS => |lint_store, cfg| {
+        let exceptions = cfg.indexable_lint_exceptions();
+        lint_store.register_late_pass(move |_| Box::new(naming::renamed_imports::RenamedImports::new(exceptions)));
     },
-    "path_segment_repetition", naming::path_segment_repetition::PATH_SEGMENT_REPETITION => |lint_store, _cfg| {
-        lint_store.register_late_pass(|_| Box::new(naming::path_segment_repetition::PathSegmentRepetition));
+    "path_segment_repetition", naming::path_segment_repetition::PATH_SEGMENT_REPETITION => |lint_store, cfg| {
+        let exceptions = cfg.indexable_lint_exceptions();
+        lint_store.register_late_pass(move |_| Box::new(naming::path_segment_repetition::PathSegmentRepetition::new(exceptions)));
     },
     "unbounded_loop", safety::unbounded_loop::UNBOUNDED_LOOP => |lint_store, _cfg| {
         lint_store.register_late_pass(|_| Box::new(safety::unbounded_loop::UnboundedLoop));

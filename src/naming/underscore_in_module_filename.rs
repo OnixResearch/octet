@@ -12,7 +12,9 @@ use rustc_span::SourceFile;
 use rustc_span::Span;
 use rustc_span::SyntaxContext;
 
+use crate::config::IndexableLintExceptions;
 use crate::diagnostics::emit_tiger_style_lint;
+use crate::naming::indexable_exceptions::is_lint_identity_file_stem;
 
 const IGNORED_SOURCE_COMPONENTS: &[&str] = &[
     "target",
@@ -34,7 +36,15 @@ declare_tool_lint! {
     "module filename contains an underscore"
 }
 
-pub struct UnderscoreInModuleFilename;
+pub struct UnderscoreInModuleFilename {
+    exceptions: IndexableLintExceptions,
+}
+
+impl UnderscoreInModuleFilename {
+    pub fn new(exceptions: IndexableLintExceptions) -> Self {
+        Self { exceptions }
+    }
+}
 
 impl_lint_pass!(UnderscoreInModuleFilename => [UNDERSCORE_IN_MODULE_FILENAME]);
 
@@ -100,7 +110,7 @@ fn replacement_layout(stem: &str) -> String {
     format!("{}/{}.rs", segments.join("/"), file_name)
 }
 
-fn should_warn(path: &Path, workspace_root: &Path) -> Option<(String, String)> {
+fn should_warn(path: &Path, workspace_root: &Path, exceptions: IndexableLintExceptions) -> Option<(String, String)> {
     if path.extension().and_then(|extension| extension.to_str()) != Some("rs") {
         return None;
     }
@@ -109,7 +119,7 @@ fn should_warn(path: &Path, workspace_root: &Path) -> Option<(String, String)> {
     }
 
     let stem = file_stem(path)?;
-    if CRATE_ROOT_STEMS.contains(&stem) || !stem.contains('_') {
+    if CRATE_ROOT_STEMS.contains(&stem) || !stem.contains('_') || is_lint_identity_file_stem(stem, exceptions) {
         return None;
     }
 
@@ -122,7 +132,7 @@ impl EarlyLintPass for UnderscoreInModuleFilename {
 
         for source_file in cx.sess().source_map().files().iter() {
             let path = normalize_path(&source_file_path(source_file));
-            let Some((stem, replacement)) = should_warn(&path, &workspace_root) else {
+            let Some((stem, replacement)) = should_warn(&path, &workspace_root, self.exceptions) else {
                 continue;
             };
 
@@ -143,20 +153,36 @@ mod tests {
 
     use super::is_workspace_source_path;
     use super::should_warn;
+    use crate::config::IndexableLintExceptions;
 
     fn workspace_root() -> &'static Path {
         Path::new(env!("CARGO_MANIFEST_DIR"))
     }
 
+    fn all_exceptions() -> IndexableLintExceptions {
+        IndexableLintExceptions {
+            rustc_private_aliases: true,
+            lint_identity_names: true,
+            generated_searchable_names: true,
+        }
+    }
+
     #[test]
     fn warns_for_workspace_underscore_module_filename() {
-        assert!(should_warn(Path::new("src/naming/acronym_style.rs"), workspace_root()).is_some());
+        assert!(should_warn(Path::new("src/test_context.rs"), workspace_root(), all_exceptions()).is_some());
+    }
+
+    #[test]
+    fn skips_lint_identity_module_filename() {
+        assert!(should_warn(Path::new("src/naming/acronym_style.rs"), workspace_root(), all_exceptions()).is_none());
     }
 
     #[test]
     fn skips_remapped_dependency_paths_absent_from_workspace() {
         assert!(!is_workspace_source_path(Path::new("<WORKSPACE>/src/address_lookup.rs"), workspace_root()));
-        assert!(should_warn(Path::new("<WORKSPACE>/src/address_lookup.rs"), workspace_root()).is_none());
+        assert!(
+            should_warn(Path::new("<WORKSPACE>/src/address_lookup.rs"), workspace_root(), all_exceptions()).is_none()
+        );
     }
 
     #[test]
@@ -164,7 +190,8 @@ mod tests {
         assert!(
             should_warn(
                 Path::new("/nix/store/hash-vendor-cargo-deps/serde_core-1.0.228/src/crate_root.rs"),
-                workspace_root()
+                workspace_root(),
+                all_exceptions()
             )
             .is_none()
         );
