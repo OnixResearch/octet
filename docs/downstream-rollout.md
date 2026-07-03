@@ -382,6 +382,30 @@ If a function already accepts `now`, `timestamp`, `deadline`, `elapsed`, or a
 unit-suffixed time input, fix the `contradictory_time` problem first. The right
 move is almost always to use the parameter you already have.
 
+## Advisory lint promotion evidence gate
+
+Allow-by-default lints move into a starter profile, boundary profile, or global
+`warn` default only after a saved promotion row proves the change is low-noise.
+A complete row names the dogfood or downstream command, raw findings, accepted
+debt, fixed findings, residual findings, suppression compatibility proof,
+representative remediation, rollback path, and final `ready`, `deferred`, or
+`blocked` recommendation.
+
+Current first-wave advisory candidates remain unpromoted after the focused
+Octet self-dogfood run saved at
+`cairn/changes/archive/2026-07-03-promote-advisory-lints-with-evidence/evidence/advisory-candidate-summary.md`:
+
+| Candidate | Raw | Accepted | Fixed | Residual | Status |
+| --- | ---: | ---: | ---: | ---: | --- |
+| `raw_arithmetic_overflow` | 27 | 27 | 0 | 27 | blocked |
+| `ambiguous_params` | 1 | 1 | 0 | 1 | deferred |
+| `multi_lock_ordering` | 0 | 0 | 0 | 0 | deferred pending downstream sample |
+| `defaulting_trait_method` | 0 | 0 | 0 | 0 | deferred pending downstream sample |
+| `numeric_units` | 2 | 2 | 0 | 2 | deferred |
+
+Because none are `ready`, this playbook does not change default levels,
+`templates/dylint.toml`, or copied starter profiles for those lints.
+
 ## High-noise lint promotion playbook
 
 These families stay inventory-first until the consumer has a classified,

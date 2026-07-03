@@ -1,0 +1,58 @@
+[octet]
+disabled_lints = [
+  "compound_assertion",
+  "function_length",
+  "acronym_style",
+  "magic_number",
+  "excessive_file_length",
+  "module_file_count",
+  "underscore_in_module_filename",
+  "non_trait_imports",
+  "renamed_imports",
+  "path_segment_repetition",
+  "unbounded_loop",
+  "compound_condition",
+  "verified_purity",
+  "unjustified_allow",
+  "nested_conditionals",
+  "assertion_density",
+  "explicit_defaults",
+  "unbounded_channel",
+  "unbounded_collection_growth",
+  "sentinel_fallback",
+  "usize_in_public_api",
+  "borrowed_argument_types",
+  "deref_polymorphism",
+  "clone_then_borrow",
+  "too_many_parameters",
+  "fat_trait",
+  "concrete_construction_in_core",
+  "type_accumulation",
+  "negated_predicate",
+  "bool_naming",
+  "ignored_result",
+  "drop_must_use",
+  "fallible_int_fallback",
+  "unchecked_narrowing",
+  "unchecked_division",
+  "contradictory_time",
+  "ambient_clock",
+  "catch_all_on_enum",
+  "foreign_enum_catch_all",
+  "fragile_exhaustive_enum_match",
+  "platform_dependent_cast",
+  "float_for_currency",
+  "no_unwrap",
+  "no_panic",
+  "public_unsafe_api",
+  "no_todo",
+  "unjustified_no_todo_allow",
+  "no_recursion",
+]
+
+[octet.lint_levels]
+raw_arithmetic_overflow = "warn"
+ambiguous_params = "warn"
+multi_lock_ordering = "warn"
+defaulting_trait_method = "warn"
+numeric_units = "warn"

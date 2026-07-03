@@ -49,7 +49,9 @@
 # and `tigerstyle::safety`; keep config keys bare here.
 #
 # See `docs/downstream-rollout.md` for full smoke / boundary-first /
-# inventory-only profile examples.
+# inventory-only profile examples. Do not remove an allow-by-default lint from
+# this disabled starter list unless a saved promotion row marks it `ready` with
+# raw, accepted, fixed, and residual counts plus rollback guidance.
 
 # Example starter profile: enable `ambient_clock`, `compound_assertion`,
 # `contradictory_time`, `explicit_defaults`, `unbounded_channel`,
