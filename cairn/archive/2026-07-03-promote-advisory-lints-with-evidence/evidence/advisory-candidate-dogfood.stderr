@@ -1,0 +1,68 @@
+these 4 derivations will be built:
+  /nix/store/hkfv496h3sd86k3ndq0g1wlxpz9ck27s-octet-0.1.0.drv
+  /nix/store/1a5hgx9ljqjq82srkvm9bk1x124581gk-octet-ui-library.drv
+  /nix/store/ybhpavwcbpjzxfkkdiv01sg2wy4rlf4z-cargo-octet-0.1.0.drv
+  /nix/store/mkz5yylhrxp16m4caksk7kqlx7aa1b6q-cargo-octet-0.1.0.drv
+cannot build on 'ssh-ng://root@10.10.10.1': error: failed to start SSH connection to '10.10.10.1'
+building '/nix/store/ybhpavwcbpjzxfkkdiv01sg2wy4rlf4z-cargo-octet-0.1.0.drv'...
+building '/nix/store/hkfv496h3sd86k3ndq0g1wlxpz9ck27s-octet-0.1.0.drv'...
+building '/nix/store/1a5hgx9ljqjq82srkvm9bk1x124581gk-octet-ui-library.drv'...
+building '/nix/store/mkz5yylhrxp16m4caksk7kqlx7aa1b6q-cargo-octet-0.1.0.drv'...
+--- octet summary ---
+Status: warning-only
+Findings: 31
+Warnings: 31
+Errors: 0
+Autofixable: 1
+Tool: cargo-octet 0.1.0
+Toolchain: nightly-2026-03-21-x86_64-unknown-linux-gnu
+Config hash: b3:f0c7c676ed559189b3d7f77b468c29e4ad75b86b0bd71254b730ce7b0caeeee9
+Profile hash: b3:e545d3ba6d4bf5a3c99a0fa2861fdfb3abc485c264b3eb79220361e16c53baa2
+
+By crate:
+  octet        31
+
+By effect:
+  failure         27
+  unknown         3
+  resource        1
+
+By lint:
+  raw_arithmetic_overflow        27
+  numeric_units                  2
+  ambiguous_params               1
+  unused_imports                 1
+
+Index:
+  F1   raw_arithmetic_overflow octet  src/concurrency/multi_lock_ordering.rs:74
+  F2   numeric_units           octet  src/concurrency/multi_lock_ordering.rs:75
+  F3   unused_imports          octet  src/diagnostics.rs:3
+  F4   raw_arithmetic_overflow octet  src/naming/acronym_style.rs:55
+  F5   raw_arithmetic_overflow octet  src/naming/acronym_style.rs:78
+  F6   raw_arithmetic_overflow octet  src/naming/acronym_style.rs:84
+  F7   raw_arithmetic_overflow octet  src/naming/acronym_style.rs:84
+  F8   raw_arithmetic_overflow octet  src/naming/acronym_style.rs:87
+  F9   raw_arithmetic_overflow octet  src/naming/acronym_style.rs:111
+  F10  raw_arithmetic_overflow octet  src/naming/acronym_style.rs:113
+  F11  raw_arithmetic_overflow octet  src/naming/path_segment_repetition.rs:133
+  F12  raw_arithmetic_overflow octet  src/naming/renamed_imports.rs:86
+  F13  raw_arithmetic_overflow octet  src/safety/catch_all_on_enum.rs:174
+  F14  raw_arithmetic_overflow octet  src/safety/compound_assertion.rs:77
+  F15  raw_arithmetic_overflow octet  src/safety/compound_assertion.rs:142
+  F16  raw_arithmetic_overflow octet  src/safety/compound_assertion.rs:153
+  F17  raw_arithmetic_overflow octet  src/safety/compound_assertion.rs:188
+  F18  raw_arithmetic_overflow octet  src/safety/no_todo.rs:130
+  F19  raw_arithmetic_overflow octet  src/safety/unbounded_collection_growth.rs:53
+  F20  numeric_units           octet  src/safety/unbounded_collection_growth.rs:532
+  F21  raw_arithmetic_overflow octet  src/structure/ambiguous_params.rs:60
+  F22  raw_arithmetic_overflow octet  src/structure/ambiguous_params.rs:61
+  F23  raw_arithmetic_overflow octet  src/structure/borrowed_argument_types.rs:33
+  F24  raw_arithmetic_overflow octet  src/structure/borrowed_argument_types.rs:60
+  F25  raw_arithmetic_overflow octet  src/structure/compound_condition.rs:29
+  F26  raw_arithmetic_overflow octet  src/structure/compound_condition.rs:29
+  F27  raw_arithmetic_overflow octet  src/structure/compound_condition.rs:90
+  F28  raw_arithmetic_overflow octet  src/structure/function_length.rs:54
+  F29  raw_arithmetic_overflow octet  src/structure/unjustified_allow.rs:64
+  F30  ambiguous_params        octet  src/test_context.rs:163
+  F31  raw_arithmetic_overflow octet  src/test_context.rs:196
+---
