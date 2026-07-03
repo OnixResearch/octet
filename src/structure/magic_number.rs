@@ -37,6 +37,25 @@ const DOMAIN_WORDS: &[&str] = &[
     "port",
 ];
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct MagicNumberFacts {
+    is_numeric_literal: bool,
+    is_conventional_literal: bool,
+    is_documented_by_parent: bool,
+    is_policy_threshold_comparison: bool,
+    is_in_test_context: bool,
+    is_from_expansion: bool,
+}
+
+fn classify_magic_number(facts: MagicNumberFacts) -> bool {
+    facts.is_numeric_literal
+        && !facts.is_conventional_literal
+        && !facts.is_documented_by_parent
+        && facts.is_policy_threshold_comparison
+        && !facts.is_in_test_context
+        && !facts.is_from_expansion
+}
+
 fn has_unit_suffix(name: &str) -> bool {
     let lower = name.to_ascii_lowercase();
     UNIT_SUFFIXES.iter().any(|suffix| lower.ends_with(suffix))
@@ -100,7 +119,9 @@ fn other_expr_has_domain_name(expr: &hir::Expr<'_>) -> bool {
 }
 
 fn literal_is_policy_threshold_comparison(cx: &LateContext<'_>, expr: &hir::Expr<'_>) -> bool {
-    for (_, node) in cx.tcx.hir_parent_iter(expr.hir_id).take(3) {
+    const COMPARISON_PARENT_SCAN_LIMIT: usize = 3;
+
+    for (_, node) in cx.tcx.hir_parent_iter(expr.hir_id).take(COMPARISON_PARENT_SCAN_LIMIT) {
         let hir::Node::Expr(parent) = node else {
             continue;
         };
@@ -134,16 +155,15 @@ impl LateLintPass<'_> for MagicNumber {
             return;
         };
 
-        if expr.span.from_expansion()
-            || test_context::late_hir_id_is_in_test_context(cx, expr.hir_id, expr.span)
-            || is_conventional_literal(&lit)
-            || literal_is_documented_by_parent(cx, expr)
-            || !literal_is_policy_threshold_comparison(cx, expr)
-        {
-            return;
-        }
-
-        if !matches!(lit.node, LitKind::Int(..) | LitKind::Float(..)) {
+        let facts = MagicNumberFacts {
+            is_numeric_literal: matches!(lit.node, LitKind::Int(..) | LitKind::Float(..)),
+            is_conventional_literal: is_conventional_literal(&lit),
+            is_documented_by_parent: literal_is_documented_by_parent(cx, expr),
+            is_policy_threshold_comparison: literal_is_policy_threshold_comparison(cx, expr),
+            is_in_test_context: test_context::late_hir_id_is_in_test_context(cx, expr.hir_id, expr.span),
+            is_from_expansion: expr.span.from_expansion(),
+        };
+        if !classify_magic_number(facts) {
             return;
         }
 
@@ -154,5 +174,67 @@ impl LateLintPass<'_> for MagicNumber {
             "inline numeric literal should be extracted into a named constant or configuration field",
             "magic_number",
         );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::MagicNumberFacts;
+    use super::classify_magic_number;
+    use super::has_domain_word;
+    use super::has_unit_suffix;
+
+    fn policy_threshold_literal() -> MagicNumberFacts {
+        MagicNumberFacts {
+            is_numeric_literal: true,
+            is_conventional_literal: false,
+            is_documented_by_parent: false,
+            is_policy_threshold_comparison: true,
+            is_in_test_context: false,
+            is_from_expansion: false,
+        }
+    }
+
+    #[test]
+    fn classifies_inline_policy_threshold() {
+        assert!(classify_magic_number(policy_threshold_literal()));
+    }
+
+    #[test]
+    fn skips_documented_or_conventional_literals() {
+        let documented = MagicNumberFacts {
+            is_documented_by_parent: true,
+            ..policy_threshold_literal()
+        };
+        let conventional = MagicNumberFacts {
+            is_conventional_literal: true,
+            ..policy_threshold_literal()
+        };
+
+        assert!(!classify_magic_number(documented));
+        assert!(!classify_magic_number(conventional));
+    }
+
+    #[test]
+    fn skips_non_threshold_literals_and_test_contexts() {
+        let non_threshold = MagicNumberFacts {
+            is_policy_threshold_comparison: false,
+            ..policy_threshold_literal()
+        };
+        let test_context = MagicNumberFacts {
+            is_in_test_context: true,
+            ..policy_threshold_literal()
+        };
+
+        assert!(!classify_magic_number(non_threshold));
+        assert!(!classify_magic_number(test_context));
+    }
+
+    #[test]
+    fn recognizes_policy_names_and_unit_suffixes() {
+        assert!(has_unit_suffix("retry_delay_ms"));
+        assert!(has_domain_word("connection_threshold"));
+        assert!(!has_unit_suffix("attempt"));
+        assert!(!has_domain_word("value"));
     }
 }

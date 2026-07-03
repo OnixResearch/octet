@@ -25,10 +25,56 @@ declare_lint_pass!(UnboundedLoop => [UNBOUNDED_LOOP]);
 
 const COUNTER_MARKERS: &[&str] = &["MAX_RETRIES", "max_retries", "max_attempts", "attempt", "remaining"];
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum TokioReceiverKind {
     Bounded,
     Unbounded,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum LoopSourceKind {
+    ExplicitLoop,
+    While,
+    For,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct LoopBoundsFacts {
+    source_kind: LoopSourceKind,
+    is_from_expansion: bool,
+    has_explicit_exit: bool,
+    has_structural_counter_bound: bool,
+    has_cancellation_path: bool,
+    is_bounded_receiver_loop: bool,
+    is_unbounded_receiver_loop: bool,
+    is_iter_next_loop: bool,
+}
+
+fn classify_unbounded_loop(facts: LoopBoundsFacts) -> bool {
+    if facts.is_from_expansion {
+        return false;
+    }
+
+    match facts.source_kind {
+        LoopSourceKind::For => false,
+        LoopSourceKind::ExplicitLoop => {
+            !(facts.has_explicit_exit || facts.has_structural_counter_bound || facts.has_cancellation_path)
+        }
+        LoopSourceKind::While => {
+            if facts.has_explicit_exit || facts.has_structural_counter_bound || facts.is_bounded_receiver_loop {
+                return false;
+            }
+            facts.is_unbounded_receiver_loop || facts.is_iter_next_loop
+        }
+    }
+}
+
+fn loop_source_kind(loop_source: hir::LoopSource) -> LoopSourceKind {
+    match loop_source {
+        hir::LoopSource::Loop => LoopSourceKind::ExplicitLoop,
+        hir::LoopSource::While => LoopSourceKind::While,
+        hir::LoopSource::ForLoop => LoopSourceKind::For,
+    }
 }
 
 fn match_def_path(cx: &LateContext<'_>, did: rustc_hir::def_id::DefId, path: &[&str]) -> bool {
@@ -39,12 +85,43 @@ fn normalized_without_whitespace(snippet: &str) -> String {
     snippet.chars().filter(|ch| !ch.is_whitespace()).collect()
 }
 
-fn loop_has_visible_counter(cx: &LateContext<'_>, expr: &hir::Expr<'_>) -> bool {
+fn loop_has_counter_marker(cx: &LateContext<'_>, expr: &hir::Expr<'_>) -> bool {
     let Ok(snippet) = cx.sess().source_map().span_to_snippet(expr.span.source_callsite()) else {
         return false;
     };
 
     COUNTER_MARKERS.iter().any(|marker| snippet.contains(marker))
+}
+
+struct ExplicitExitVisitor {
+    found: bool,
+}
+
+impl<'tcx> Visitor<'tcx> for ExplicitExitVisitor {
+    fn visit_expr(&mut self, expr: &'tcx hir::Expr<'tcx>) {
+        if self.found {
+            return;
+        }
+
+        match expr.kind {
+            hir::ExprKind::Break(..) | hir::ExprKind::Ret(..) if !expr.span.from_expansion() => {
+                self.found = true;
+            }
+            hir::ExprKind::Break(..) | hir::ExprKind::Ret(..) => {}
+            hir::ExprKind::Closure(_) | hir::ExprKind::Loop(..) => {}
+            _ => intravisit::walk_expr(self, expr),
+        }
+    }
+}
+
+fn block_has_explicit_exit<'tcx>(block: &'tcx hir::Block<'tcx>) -> bool {
+    let mut visitor = ExplicitExitVisitor { found: false };
+    visitor.visit_block(block);
+    visitor.found
+}
+
+fn loop_has_structural_counter_bound(cx: &LateContext<'_>, expr: &hir::Expr<'_>, block: &hir::Block<'_>) -> bool {
+    block_has_explicit_exit(block) && loop_has_counter_marker(cx, expr)
 }
 
 fn span_comes_from_tokio_select(cx: &LateContext<'_>, span: Span) -> bool {
@@ -180,44 +257,134 @@ fn tokio_receiver_kind(cx: &LateContext<'_>, expr: &hir::Expr<'_>) -> Option<Tok
     }
 }
 
+fn generated_explicit_loop(expr: &hir::Expr<'_>, source_kind: LoopSourceKind) -> bool {
+    // Compiler-generated `.await` polling loops arrive as expanded explicit loops;
+    // user-written `while let` and `for` loops can also carry desugaring spans, so
+    // expansion alone cannot suppress every loop source.
+    source_kind == LoopSourceKind::ExplicitLoop && expr.span.from_expansion()
+}
+
+fn loop_bounds_facts<'tcx>(
+    cx: &LateContext<'tcx>,
+    expr: &'tcx hir::Expr<'tcx>,
+    body: &'tcx hir::Block<'tcx>,
+    loop_source: hir::LoopSource,
+    header_span: Span,
+) -> LoopBoundsFacts {
+    let source_kind = loop_source_kind(loop_source);
+    let receiver_kind = if header_is_recv_while_let(cx, header_span) {
+        while_let_recv_receiver(expr).and_then(|receiver| tokio_receiver_kind(cx, receiver))
+    } else {
+        None
+    };
+
+    LoopBoundsFacts {
+        source_kind,
+        is_from_expansion: generated_explicit_loop(expr, source_kind),
+        has_explicit_exit: block_has_explicit_exit(body),
+        has_structural_counter_bound: loop_has_structural_counter_bound(cx, expr, body),
+        has_cancellation_path: block_contains_tokio_select(cx, body),
+        is_bounded_receiver_loop: receiver_kind == Some(TokioReceiverKind::Bounded),
+        is_unbounded_receiver_loop: receiver_kind == Some(TokioReceiverKind::Unbounded),
+        is_iter_next_loop: header_is_iter_next_while_let(cx, header_span),
+    }
+}
+
 fn lint_unbounded_loop(cx: &LateContext<'_>, span: Span) {
     emit_tiger_style_lint(cx, UNBOUNDED_LOOP, span, "loop without visible iteration bound", "unbounded_loop");
 }
 
 impl<'tcx> LateLintPass<'tcx> for UnboundedLoop {
     fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx hir::Expr<'tcx>) {
-        if expr.span.from_expansion() {
-            return;
-        }
-
         let hir::ExprKind::Loop(body, _, loop_source, header_span) = &expr.kind else {
             return;
         };
 
-        match loop_source {
-            hir::LoopSource::Loop => {
-                if block_contains_tokio_select(cx, body) || loop_has_visible_counter(cx, expr) {
-                    return;
-                }
-            }
-            hir::LoopSource::While => {
-                if header_is_recv_while_let(cx, *header_span) {
-                    if while_let_recv_receiver(expr).and_then(|receiver| tokio_receiver_kind(cx, receiver))
-                        == Some(TokioReceiverKind::Bounded)
-                    {
-                        return;
-                    }
-                } else if header_is_iter_next_while_let(cx, *header_span) {
-                    if loop_has_visible_counter(cx, expr) {
-                        return;
-                    }
-                } else {
-                    return;
-                }
-            }
-            hir::LoopSource::ForLoop => return,
+        let facts = loop_bounds_facts(cx, expr, body, *loop_source, *header_span);
+        if classify_unbounded_loop(facts) {
+            lint_unbounded_loop(cx, expr.span.source_callsite());
         }
+    }
+}
 
-        lint_unbounded_loop(cx, expr.span.source_callsite());
+#[cfg(test)]
+mod tests {
+    use super::LoopBoundsFacts;
+    use super::LoopSourceKind;
+    use super::classify_unbounded_loop;
+
+    fn explicit_loop() -> LoopBoundsFacts {
+        LoopBoundsFacts {
+            source_kind: LoopSourceKind::ExplicitLoop,
+            is_from_expansion: false,
+            has_explicit_exit: false,
+            has_structural_counter_bound: false,
+            has_cancellation_path: false,
+            is_bounded_receiver_loop: false,
+            is_unbounded_receiver_loop: false,
+            is_iter_next_loop: false,
+        }
+    }
+
+    #[test]
+    fn classifies_explicit_loop_without_exit() {
+        assert!(classify_unbounded_loop(explicit_loop()));
+    }
+
+    #[test]
+    fn skips_explicit_exit_or_cancellation_path() {
+        let with_exit = LoopBoundsFacts {
+            has_explicit_exit: true,
+            ..explicit_loop()
+        };
+        let with_cancellation = LoopBoundsFacts {
+            has_cancellation_path: true,
+            ..explicit_loop()
+        };
+
+        assert!(!classify_unbounded_loop(with_exit));
+        assert!(!classify_unbounded_loop(with_cancellation));
+    }
+
+    #[test]
+    fn marker_name_without_structural_bound_still_warns() {
+        let marker_only = LoopBoundsFacts {
+            has_structural_counter_bound: false,
+            ..explicit_loop()
+        };
+
+        assert!(classify_unbounded_loop(marker_only));
+    }
+
+    #[test]
+    fn bounded_receiver_is_clean_and_unbounded_receiver_warns() {
+        let bounded = LoopBoundsFacts {
+            source_kind: LoopSourceKind::While,
+            is_bounded_receiver_loop: true,
+            ..explicit_loop()
+        };
+        let unbounded = LoopBoundsFacts {
+            source_kind: LoopSourceKind::While,
+            is_unbounded_receiver_loop: true,
+            ..explicit_loop()
+        };
+
+        assert!(!classify_unbounded_loop(bounded));
+        assert!(classify_unbounded_loop(unbounded));
+    }
+
+    #[test]
+    fn for_loops_and_expansion_loops_are_clean() {
+        let for_loop = LoopBoundsFacts {
+            source_kind: LoopSourceKind::For,
+            ..explicit_loop()
+        };
+        let expansion_loop = LoopBoundsFacts {
+            is_from_expansion: true,
+            ..explicit_loop()
+        };
+
+        assert!(!classify_unbounded_loop(for_loop));
+        assert!(!classify_unbounded_loop(expansion_loop));
     }
 }

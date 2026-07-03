@@ -6,6 +6,12 @@ fn ignore_result() {
     let _ = buf.write_all(b"hello");
 }
 
+fn ignore_result_statement_position() {
+    let mut buf = Vec::new();
+    // Should warn: Result discarded as a statement.
+    buf.write_all(b"hello");
+}
+
 fn ignore_non_result() {
     // Should NOT warn: not a Result type
     let _ = 42;
@@ -20,5 +26,6 @@ fn handle_result() -> std::io::Result<()> {
 
 fn main() {
     ignore_result();
+    ignore_result_statement_position();
     ignore_non_result();
 }

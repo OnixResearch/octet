@@ -1,5 +1,5 @@
 warning: struct `Tracker` has 2 lock fields without documented ordering
-  --> $DIR/multi_lock_ordering.rs:6:1
+  --> $DIR/multi_lock_ordering.rs:7:1
    |
 LL | / struct Tracker {
 LL | |     count: Mutex<u64>,
@@ -22,5 +22,42 @@ LL ~ struct Tracker {
 LL +     // Lock order: <document acquisition order for 2 locks>
    |
 
-warning: 1 warning emitted
+warning: struct `AliasedTracker` has 2 lock fields without documented ordering
+  --> $DIR/multi_lock_ordering.rs:20:1
+   |
+LL | / struct AliasedTracker {
+LL | |     count: Guard<u64>,
+LL | |     state: Guard<u32>,
+LL | | }
+   | |_^
+   |
+   = help: Tiger Style (Lock Ordering): document and preserve one lock acquisition order across the codebase Example: // Lock order: state -> peer -> metrics
+   = note: structured suggestion applicability: HasPlaceholders
+   = note: see Tiger Style guide: Lock Ordering
+help: add lock ordering documentation
+   |
+LL ~ struct AliasedTracker {
+LL +     // Lock order: <document acquisition order for 2 locks>
+   |
+
+warning: struct `AtomicsAndLocks` has 2 lock fields without documented ordering
+  --> $DIR/multi_lock_ordering.rs:26:1
+   |
+LL | / struct AtomicsAndLocks {
+LL | |     // Memory ordering is handled by a separate atomic flag.
+LL | |     count: Mutex<u64>,
+LL | |     state: Mutex<u32>,
+LL | | }
+   | |_^
+   |
+   = help: Tiger Style (Lock Ordering): document and preserve one lock acquisition order across the codebase Example: // Lock order: state -> peer -> metrics
+   = note: structured suggestion applicability: HasPlaceholders
+   = note: see Tiger Style guide: Lock Ordering
+help: add lock ordering documentation
+   |
+LL ~ struct AtomicsAndLocks {
+LL +     // Lock order: <document acquisition order for 2 locks>
+   |
+
+warning: 3 warnings emitted
 

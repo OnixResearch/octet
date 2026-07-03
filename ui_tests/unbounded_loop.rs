@@ -1,9 +1,18 @@
-fn bare_loop() {
-    // Should warn: no bound
+fn explicit_break_loop() {
+    // Should NOT warn: structural exit is visible.
     loop {
         if true {
             break;
         }
+    }
+}
+
+fn marker_only_runaway_loop() {
+    // Should warn: marker names alone are not a bound.
+    let mut attempt = 0;
+    loop {
+        attempt += 1;
+        std::hint::black_box(attempt);
     }
 }
 
@@ -31,7 +40,8 @@ fn max_retries_loop() {
 }
 
 fn main() {
-    bare_loop();
+    explicit_break_loop();
+    marker_only_runaway_loop();
     counter_loop();
     max_retries_loop();
 }

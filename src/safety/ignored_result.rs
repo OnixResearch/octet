@@ -2,6 +2,7 @@ use rustc_errors::Applicability;
 use rustc_hir as hir;
 use rustc_hir::ItemKind;
 use rustc_hir::PatKind;
+use rustc_hir::StmtKind;
 use rustc_lint::LateContext;
 use rustc_lint::LateLintPass;
 use rustc_lint::LintContext;
@@ -15,6 +16,13 @@ use crate::diagnostics::LintSuggestion;
 use crate::diagnostics::emit_tiger_style_lint;
 use crate::diagnostics::emit_tiger_style_lint_with_suggestion;
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct IgnoredResultFacts {
+    is_result_type: bool,
+    is_drop_impl_context: bool,
+    is_fire_and_forget_shutdown_send: bool,
+}
+
 declare_tool_lint! {
     /// Detects `let _ = expr` where `expr` returns `Result<_, _>`. Silently
     /// discarding a Result hides errors that could propagate or be logged.
@@ -27,12 +35,20 @@ declare_tool_lint! {
 
 declare_lint_pass!(IgnoredResult => [IGNORED_RESULT]);
 
+fn classify_ignored_result(facts: IgnoredResultFacts) -> bool {
+    facts.is_result_type && !facts.is_drop_impl_context && !facts.is_fire_and_forget_shutdown_send
+}
+
 fn is_result_type(cx: &LateContext<'_>, t: ty::Ty<'_>) -> bool {
     if let ty::Adt(adt, _) = t.kind() {
         cx.tcx.is_diagnostic_item(sym::Result, adt.did())
     } else {
         false
     }
+}
+
+fn expr_is_result_type(cx: &LateContext<'_>, expr: &hir::Expr<'_>) -> bool {
+    is_result_type(cx, cx.typeck_results().expr_ty(expr))
 }
 
 fn match_def_path(cx: &LateContext<'_>, did: rustc_hir::def_id::DefId, path: &[&str]) -> bool {
@@ -141,9 +157,16 @@ fn is_fire_and_forget_shutdown_send(cx: &LateContext<'_>, hir_id: hir::HirId, in
         && send_receiver_from_expr(init).is_some_and(|receiver| supported_sender_type(cx, receiver))
 }
 
+fn ignored_result_facts(cx: &LateContext<'_>, hir_id: hir::HirId, expr: &hir::Expr<'_>) -> IgnoredResultFacts {
+    IgnoredResultFacts {
+        is_result_type: expr_is_result_type(cx, expr),
+        is_drop_impl_context: is_drop_impl_context(cx, hir_id),
+        is_fire_and_forget_shutdown_send: is_fire_and_forget_shutdown_send(cx, hir_id, expr),
+    }
+}
+
 impl<'tcx> LateLintPass<'tcx> for IgnoredResult {
     fn check_local(&mut self, cx: &LateContext<'tcx>, local: &'tcx hir::LetStmt<'tcx>) {
-        // Only fire on wildcard pattern: `let _ = ...`
         if !matches!(local.pat.kind, PatKind::Wild) {
             return;
         }
@@ -152,12 +175,8 @@ impl<'tcx> LateLintPass<'tcx> for IgnoredResult {
             return;
         };
 
-        let ty = cx.typeck_results().expr_ty(init);
-        if !is_result_type(cx, ty) {
-            return;
-        }
-
-        if is_drop_impl_context(cx, local.hir_id) || is_fire_and_forget_shutdown_send(cx, local.hir_id, init) {
+        let facts = ignored_result_facts(cx, local.hir_id, init);
+        if !classify_ignored_result(facts) {
             return;
         }
 
@@ -175,6 +194,37 @@ impl<'tcx> LateLintPass<'tcx> for IgnoredResult {
             emit_tiger_style_lint(cx, IGNORED_RESULT, local.span, message, "ignored_result");
         }
     }
+
+    fn check_stmt(&mut self, cx: &LateContext<'tcx>, stmt: &'tcx hir::Stmt<'tcx>) {
+        let StmtKind::Semi(expr) = stmt.kind else {
+            return;
+        };
+
+        let facts = ignored_result_facts(cx, stmt.hir_id, expr);
+        if !classify_ignored_result(facts) {
+            return;
+        }
+
+        let message = "`Result` value silently discarded in statement position";
+        if let Some(suggestion) = ignored_result_expr_suggestion(cx, expr) {
+            emit_tiger_style_lint_with_suggestion(cx, IGNORED_RESULT, expr.span, message, "ignored_result", suggestion);
+        } else {
+            emit_tiger_style_lint(cx, IGNORED_RESULT, expr.span, message, "ignored_result");
+        }
+    }
+}
+
+fn ignored_result_expr_suggestion(cx: &LateContext<'_>, expr: &hir::Expr<'_>) -> Option<LintSuggestion> {
+    let sm = cx.sess().source_map();
+    let expr_snippet = sm.span_to_snippet(expr.span).ok()?;
+    let replacement = format!("{expr_snippet}?");
+
+    Some(LintSuggestion::Single {
+        span: expr.span,
+        message: "propagate the error with `?` instead of discarding".to_owned(),
+        replacement,
+        applicability: Applicability::MaybeIncorrect,
+    })
 }
 
 fn ignored_result_suggestion(cx: &LateContext<'_>, local: &hir::LetStmt<'_>) -> Option<LintSuggestion> {
@@ -189,4 +239,48 @@ fn ignored_result_suggestion(cx: &LateContext<'_>, local: &hir::LetStmt<'_>) -> 
         replacement,
         applicability: Applicability::MaybeIncorrect,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::IgnoredResultFacts;
+    use super::classify_ignored_result;
+
+    fn result_discard() -> IgnoredResultFacts {
+        IgnoredResultFacts {
+            is_result_type: true,
+            is_drop_impl_context: false,
+            is_fire_and_forget_shutdown_send: false,
+        }
+    }
+
+    #[test]
+    fn classifies_result_discard() {
+        assert!(classify_ignored_result(result_discard()));
+    }
+
+    #[test]
+    fn skips_non_result_values() {
+        let facts = IgnoredResultFacts {
+            is_result_type: false,
+            ..result_discard()
+        };
+
+        assert!(!classify_ignored_result(facts));
+    }
+
+    #[test]
+    fn preserves_drop_and_shutdown_exceptions() {
+        let drop_context = IgnoredResultFacts {
+            is_drop_impl_context: true,
+            ..result_discard()
+        };
+        let shutdown_send = IgnoredResultFacts {
+            is_fire_and_forget_shutdown_send: true,
+            ..result_discard()
+        };
+
+        assert!(!classify_ignored_result(drop_context));
+        assert!(!classify_ignored_result(shutdown_send));
+    }
 }

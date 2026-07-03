@@ -9,3 +9,4 @@ LL | use crate::transport::Config as TransportConfig;
    = note: `#[warn(tigerstyle::renamed_imports)]` on by default
 
 warning: 1 warning emitted
+

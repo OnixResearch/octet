@@ -9,3 +9,4 @@ LL | pub fn boot_compute_vm() {}
    = note: `#[warn(tigerstyle::underscore_in_module_filename)]` on by default
 
 warning: 1 warning emitted
+
