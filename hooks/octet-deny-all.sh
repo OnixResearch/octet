@@ -38,6 +38,7 @@ deny_lint_flags='
 -D nested_conditionals
 -D assertion_density
 -D multi_lock_ordering
+-D ignored_join_handle
 -D explicit_defaults
 -D unbounded_channel
 -D unbounded_collection_growth
@@ -46,6 +47,7 @@ deny_lint_flags='
 -D borrowed_argument_types
 -D deref_polymorphism
 -D clone_then_borrow
+-D allocation_in_loop
 -D too_many_parameters
 -D fat_trait
 -D concrete_construction_in_core
