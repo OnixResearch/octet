@@ -474,11 +474,26 @@ mod tests {
         register_tool_attr: String,
     }
 
+    #[derive(Debug)]
+    struct GuidanceLintContract {
+        concept: &'static str,
+        lint_name: &'static str,
+        default_level: &'static str,
+        stale_phrases: &'static [&'static str],
+        required_fragments: &'static [&'static str],
+    }
+
     const README_TOTAL_MARKER: &str = "Dylint lints";
     const LINT_REFERENCE_TOTAL_MARKER: &str = "ships";
     const NAMESPACE_PROBE_LINT: &str = "no_unwrap";
     const NAMESPACE_EXAMPLE_LINT: &str = "unchecked_narrowing";
     const NAMESPACE_PROBE_DOMAIN: &str = "safety";
+    const RUST_IDIOM_GUIDANCE_PATH: &str = "docs/rust-idiom-guidance.md";
+    const BORROWED_ARGUMENT_CONCEPT: &str = "Borrowed argument type";
+    const BORROWED_ARGUMENT_LINT: &str = "borrowed_argument_types";
+    const WARN_DEFAULT_LEVEL: &str = "warn";
+    const WARNING_LINT_PHRASE: &str = "warning lint";
+    const FUTURE_LINT_CANDIDATE_PHRASE: &str = "future lint candidate";
     const STALE_LINT_TOTAL: &str = "999";
     const STALE_NAMESPACE: &str = "stale_namespace";
     const UNKNOWN_CATALOG_LINT: &str = "not_a_registered_lint";
@@ -655,6 +670,91 @@ mod tests {
         }
     }
 
+    fn borrowed_argument_guidance_contract() -> GuidanceLintContract {
+        GuidanceLintContract {
+            concept: BORROWED_ARGUMENT_CONCEPT,
+            lint_name: BORROWED_ARGUMENT_LINT,
+            default_level: WARN_DEFAULT_LEVEL,
+            stale_phrases: &[FUTURE_LINT_CANDIDATE_PHRASE],
+            required_fragments: &[BORROWED_ARGUMENT_LINT, WARNING_LINT_PHRASE],
+        }
+    }
+
+    fn guidance_freshness_diagnostics(
+        document_name: &str,
+        document: &str,
+        contracts: &[GuidanceLintContract],
+        expected: &[ExpectedLintDoc],
+    ) -> Vec<String> {
+        let mut diagnostics = Vec::new();
+        for contract in contracts {
+            check_guidance_contract(document_name, document, contract, expected, &mut diagnostics);
+        }
+        diagnostics
+    }
+
+    fn check_guidance_contract(
+        document_name: &str,
+        document: &str,
+        contract: &GuidanceLintContract,
+        expected: &[ExpectedLintDoc],
+        diagnostics: &mut Vec<String>,
+    ) {
+        let Some(lint_doc) = expected.iter().find(|entry| entry.name == contract.lint_name) else {
+            diagnostics
+                .push(format!("{document_name} guidance contract references unknown lint `{}`", contract.lint_name));
+            return;
+        };
+
+        if lint_doc.default_level != contract.default_level {
+            diagnostics.push(format!(
+                "{document_name} guidance contract for `{}` expected default `{}`, found `{}`",
+                contract.lint_name, contract.default_level, lint_doc.default_level
+            ));
+        }
+
+        let Some(row) = guidance_row_for_concept(document, contract.concept) else {
+            diagnostics.push(format!(
+                "{document_name} guidance missing `{}` row for `{}`",
+                contract.concept, contract.lint_name
+            ));
+            return;
+        };
+
+        let lower_row = row.to_ascii_lowercase();
+        for stale_phrase in contract.stale_phrases {
+            if lower_row.contains(&stale_phrase.to_ascii_lowercase()) {
+                diagnostics.push(format!(
+                    "{document_name} guidance `{}` describes `{}` with stale phrase `{stale_phrase}`",
+                    contract.concept, contract.lint_name
+                ));
+            }
+        }
+
+        for required_fragment in contract.required_fragments {
+            if !lower_row.contains(&required_fragment.to_ascii_lowercase()) {
+                diagnostics.push(format!(
+                    "{document_name} guidance `{}` for `{}` missing `{required_fragment}`",
+                    contract.concept, contract.lint_name
+                ));
+            }
+        }
+    }
+
+    fn guidance_row_for_concept(document: &str, concept: &str) -> Option<String> {
+        for line in document.lines() {
+            let cells = markdown_table_cells(line);
+            match cells.as_slice() {
+                [concept_cell, _outcome_cell, tier_cell] if concept_cell == concept => return Some(tier_cell.clone()),
+                [concept_cell, _outcome_cell, tier_cell, ..] if concept_cell == concept => {
+                    return Some(tier_cell.clone());
+                }
+                _ => {}
+            }
+        }
+        None
+    }
+
     fn check_documented_total(
         surface: &str,
         document: &str,
@@ -817,6 +917,36 @@ mod tests {
         );
 
         assert!(diagnostics.is_empty(), "catalog docs drifted: {diagnostics:#?}");
+    }
+
+    #[test]
+    fn guidance_freshness_accepts_current_borrowed_argument_row() {
+        let guidance = repo_text(RUST_IDIOM_GUIDANCE_PATH);
+        let contract = borrowed_argument_guidance_contract();
+        let diagnostics =
+            guidance_freshness_diagnostics(RUST_IDIOM_GUIDANCE_PATH, &guidance, &[contract], &expected_lint_docs());
+
+        assert!(diagnostics.is_empty(), "guidance docs drifted: {diagnostics:#?}");
+    }
+
+    #[test]
+    fn guidance_freshness_rejects_stale_future_lint_candidate() {
+        let stale_guidance = format!(
+            "# Rust idiom guidance\n\n| Concept | Tiger Style outcome | First enforcement tier |\n| --- | --- | --- |\n| {BORROWED_ARGUMENT_CONCEPT} | APIs accept borrowed forms when ownership is unnecessary | Future lint candidate with positive and negative fixtures |\n"
+        );
+        let contract = borrowed_argument_guidance_contract();
+        let diagnostics = guidance_freshness_diagnostics(
+            RUST_IDIOM_GUIDANCE_PATH,
+            &stale_guidance,
+            &[contract],
+            &expected_lint_docs(),
+        );
+
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic.contains(BORROWED_ARGUMENT_CONCEPT)
+                && diagnostic.contains(BORROWED_ARGUMENT_LINT)
+                && diagnostic.contains(FUTURE_LINT_CANDIDATE_PHRASE)
+        }));
     }
 
     #[test]

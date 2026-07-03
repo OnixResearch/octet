@@ -9,7 +9,7 @@ Octet imports Rust idioms only when they make safety, explicitness, boundedness,
 | Newtype | Units, IDs, capabilities, and secrets stop being interchangeable primitives | Advisory until a domain-specific hard gate has fixtures |
 | RAII guard | Resource access is mediated by a type that releases or rolls back on scope exit | Human checklist; lint only for narrow known guard shapes |
 | Contained unsafe module | Unsafe invariants stay in the smallest auditable boundary with a safe outer API | Advisory/hard depending on configured module allowlist and fixtures |
-| Borrowed argument type | APIs accept `&str`, `&[T]`, `Path`, or other borrowed forms when ownership is unnecessary | Future lint candidate with positive and negative fixtures |
+| Borrowed argument type | APIs accept `&str`, `&[T]`, `Path`, or other borrowed forms when ownership is unnecessary | Shipped warning lint `borrowed_argument_types` with positive and negative fixtures |
 | Temporary mutability | Mutable setup ends before read-only use starts | Advisory; avoid hard gating without precise lifetime/use analysis |
 | Clone-avoidance | `mem::take`, `mem::replace`, `Option::take`, and narrower borrows replace clone-to-appease-borrow-checker patterns | Advisory until local false-positive rate is known |
 | Recoverable consumed argument errors | Fallible APIs that consume expensive/stateful input return it in the error for retry/recovery | Human API review; future lint only for named API families |
