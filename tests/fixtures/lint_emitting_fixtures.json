@@ -164,6 +164,54 @@
     "fixture": "ambient_clock"
   },
   {
+    "lint_name": "ambient_env",
+    "fixture": "ambient_env"
+  },
+  {
+    "lint_name": "ambient_random",
+    "fixture": "ambient_random"
+  },
+  {
+    "lint_name": "global_state_in_core",
+    "fixture": "global_state_in_core/global_state_in_core"
+  },
+  {
+    "lint_name": "impure_call_in_core",
+    "fixture": "impure_call_in_core/impure_call_in_core"
+  },
+  {
+    "lint_name": "interior_mutability_in_core",
+    "fixture": "interior_mutability_in_core/interior_mutability_in_core"
+  },
+  {
+    "lint_name": "logging_in_core",
+    "fixture": "logging_in_core/logging_in_core"
+  },
+  {
+    "lint_name": "missing_const_fn",
+    "fixture": "missing_const_fn"
+  },
+  {
+    "lint_name": "mutating_input_in_pure",
+    "fixture": "mutating_input_in_pure"
+  },
+  {
+    "lint_name": "nondeterministic_output",
+    "fixture": "nondeterministic_output"
+  },
+  {
+    "lint_name": "pure_attr_contract",
+    "fixture": "pure_attr_contract/pure_attr_contract"
+  },
+  {
+    "lint_name": "resource_return_from_core",
+    "fixture": "resource_return_from_core/resource_return_from_core"
+  },
+  {
+    "lint_name": "spawn_in_core",
+    "fixture": "spawn_in_core/spawn_in_core"
+  },
+  {
     "lint_name": "catch_all_on_enum",
     "fixture": "catch_all_on_enum"
   },

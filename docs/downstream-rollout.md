@@ -64,6 +64,9 @@ Why this works:
   Aspen's starter scope and <= 5 findings on `aspen-coordination`
 - it still avoids the noisy inventory-first families that need a separate
   cleanup owner first
+- new purity-effect families such as `ambient_env`, `ambient_random`,
+  `impure_call_in_core`, and `pure_attr_contract` start inventory-only until a
+  saved consumer baseline proves they are low-noise
 
 ### Boundary-first profile
 
@@ -94,7 +97,9 @@ Use this before promoting any noisy lint family into a default path.
 - scope: one lint family at a time, one crate or package slice at a time
 - goal: build an inventory, not enforce a workspace-wide default yet
 - default families: `ignored_result`, `no_unwrap`, `no_panic`, `no_todo`,
-  `unchecked_narrowing`, `unbounded_loop`
+  `unchecked_narrowing`, `unbounded_loop`, and one new purity-effect family at
+  a time (`ambient_env`, `ambient_random`, `impure_call_in_core`,
+  `pure_attr_contract`, or another new core-boundary lint)
 
 Why this works:
 
@@ -149,6 +154,18 @@ disabled_lints = [
   "unbounded_loop",
   "compound_condition",
   "verified_purity",
+  "ambient_env",
+  "ambient_random",
+  "global_state_in_core",
+  "impure_call_in_core",
+  "interior_mutability_in_core",
+  "logging_in_core",
+  "missing_const_fn",
+  "mutating_input_in_pure",
+  "nondeterministic_output",
+  "pure_attr_contract",
+  "resource_return_from_core",
+  "spawn_in_core",
   "unjustified_allow",
   "nested_conditionals",
   "assertion_density",
@@ -202,6 +219,18 @@ disabled_lints = [
   "unbounded_loop",
   "compound_condition",
   "verified_purity",
+  "ambient_env",
+  "ambient_random",
+  "global_state_in_core",
+  "impure_call_in_core",
+  "interior_mutability_in_core",
+  "logging_in_core",
+  "missing_const_fn",
+  "mutating_input_in_pure",
+  "nondeterministic_output",
+  "pure_attr_contract",
+  "resource_return_from_core",
+  "spawn_in_core",
   "unjustified_allow",
   "nested_conditionals",
   "assertion_density",

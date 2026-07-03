@@ -1,5 +1,6 @@
 pub(crate) use octet_lint_metadata::ExampleMode;
 pub(crate) use octet_lint_metadata::GROUP_NAMES;
+#[cfg(test)]
 pub(crate) use octet_lint_metadata::GROUP_SAFETY;
 use rustc_errors::Applicability;
 use rustc_errors::DiagDecorator;

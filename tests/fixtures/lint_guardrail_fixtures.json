@@ -205,6 +205,66 @@
     "category": "safe_shape"
   },
   {
+    "lint_name": "ambient_env",
+    "fixture": "purity_effect_lints_guardrails",
+    "category": "safe_shape"
+  },
+  {
+    "lint_name": "ambient_random",
+    "fixture": "purity_effect_lints_guardrails",
+    "category": "safe_shape"
+  },
+  {
+    "lint_name": "global_state_in_core",
+    "fixture": "purity_effect_lints_guardrails",
+    "category": "safe_shape"
+  },
+  {
+    "lint_name": "impure_call_in_core",
+    "fixture": "purity_effect_lints_guardrails",
+    "category": "safe_shape"
+  },
+  {
+    "lint_name": "interior_mutability_in_core",
+    "fixture": "purity_effect_lints_guardrails",
+    "category": "safe_shape"
+  },
+  {
+    "lint_name": "logging_in_core",
+    "fixture": "purity_effect_lints_guardrails",
+    "category": "safe_shape"
+  },
+  {
+    "lint_name": "missing_const_fn",
+    "fixture": "purity_effect_lints_guardrails",
+    "category": "safe_shape"
+  },
+  {
+    "lint_name": "mutating_input_in_pure",
+    "fixture": "purity_effect_lints_guardrails",
+    "category": "safe_shape"
+  },
+  {
+    "lint_name": "nondeterministic_output",
+    "fixture": "purity_effect_lints_guardrails",
+    "category": "safe_shape"
+  },
+  {
+    "lint_name": "pure_attr_contract",
+    "fixture": "purity_effect_lints_guardrails",
+    "category": "safe_shape"
+  },
+  {
+    "lint_name": "resource_return_from_core",
+    "fixture": "purity_effect_lints_guardrails",
+    "category": "safe_shape"
+  },
+  {
+    "lint_name": "spawn_in_core",
+    "fixture": "purity_effect_lints_guardrails",
+    "category": "safe_shape"
+  },
+  {
     "lint_name": "catch_all_on_enum",
     "fixture": "lint_guardrail_common",
     "category": "safe_shape"

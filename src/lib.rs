@@ -272,6 +272,49 @@ lint_inventory! {
     "ambient_clock", purity::ambient_clock::AMBIENT_CLOCK => |lint_store, _cfg| {
         lint_store.register_late_pass(|_| Box::new(purity::ambient_clock::AmbientClock));
     },
+    "ambient_env", purity::effect_lints::AMBIENT_ENV => |lint_store, _cfg| {
+        lint_store.register_late_pass(|_| Box::new(purity::effect_lints::AmbientEnv));
+    },
+    "ambient_random", purity::effect_lints::AMBIENT_RANDOM => |lint_store, _cfg| {
+        lint_store.register_late_pass(|_| Box::new(purity::effect_lints::AmbientRandom));
+    },
+    "global_state_in_core", purity::effect_lints::GLOBAL_STATE_IN_CORE => |lint_store, cfg| {
+        let core_source_scopes = cfg.core_source_scopes.clone();
+        lint_store.register_late_pass(move |_| Box::new(purity::effect_lints::GlobalStateInCore::new(core_source_scopes.clone())));
+    },
+    "impure_call_in_core", purity::effect_lints::IMPURE_CALL_IN_CORE => |lint_store, cfg| {
+        let core_source_scopes = cfg.core_source_scopes.clone();
+        lint_store.register_late_pass(move |_| Box::new(purity::effect_lints::ImpureCallInCore::new(core_source_scopes.clone())));
+    },
+    "interior_mutability_in_core", purity::effect_lints::INTERIOR_MUTABILITY_IN_CORE => |lint_store, cfg| {
+        let core_source_scopes = cfg.core_source_scopes.clone();
+        lint_store.register_late_pass(move |_| Box::new(purity::effect_lints::InteriorMutabilityInCore::new(core_source_scopes.clone())));
+    },
+    "logging_in_core", purity::effect_lints::LOGGING_IN_CORE => |lint_store, cfg| {
+        let core_source_scopes = cfg.core_source_scopes.clone();
+        lint_store.register_late_pass(move |_| Box::new(purity::effect_lints::LoggingInCore::new(core_source_scopes.clone())));
+    },
+    "missing_const_fn", purity::effect_lints::MISSING_CONST_FN => |lint_store, _cfg| {
+        lint_store.register_late_pass(|_| Box::new(purity::effect_lints::MissingConstFn));
+    },
+    "mutating_input_in_pure", purity::effect_lints::MUTATING_INPUT_IN_PURE => |lint_store, cfg| {
+        let core_source_scopes = cfg.core_source_scopes.clone();
+        lint_store.register_late_pass(move |_| Box::new(purity::effect_lints::MutatingInputInPure::new(core_source_scopes.clone())));
+    },
+    "nondeterministic_output", purity::effect_lints::NONDETERMINISTIC_OUTPUT => |lint_store, _cfg| {
+        lint_store.register_late_pass(|_| Box::new(purity::effect_lints::NondeterministicOutput));
+    },
+    "pure_attr_contract", purity::effect_lints::PURE_ATTR_CONTRACT => |lint_store, _cfg| {
+        lint_store.register_late_pass(|_| Box::new(purity::effect_lints::PureAttrContract));
+    },
+    "resource_return_from_core", purity::effect_lints::RESOURCE_RETURN_FROM_CORE => |lint_store, cfg| {
+        let core_source_scopes = cfg.core_source_scopes.clone();
+        lint_store.register_late_pass(move |_| Box::new(purity::effect_lints::ResourceReturnFromCore::new(core_source_scopes.clone())));
+    },
+    "spawn_in_core", purity::effect_lints::SPAWN_IN_CORE => |lint_store, cfg| {
+        let core_source_scopes = cfg.core_source_scopes.clone();
+        lint_store.register_late_pass(move |_| Box::new(purity::effect_lints::SpawnInCore::new(core_source_scopes.clone())));
+    },
     "catch_all_on_enum", safety::catch_all_on_enum::CATCH_ALL_ON_ENUM => |lint_store, _cfg| {
         lint_store.register_late_pass(|_| Box::new(safety::catch_all_on_enum::CatchAllOnEnum));
     },
