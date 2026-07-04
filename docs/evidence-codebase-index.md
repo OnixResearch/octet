@@ -1,6 +1,8 @@
 # Evidence codebase index
 
-`cargo octet evidence-index codebase` builds a local, deterministic review index over existing Octet evidence artifacts. It is a map for reviewers and scripts: finding, lint, policy, requirement, fingerprint, provenance, proof-card, replay-capsule, transcript, and evidence-log identities link back to concrete artifact files and replay commands.
+`cargo octet evidence-index codebase` builds a local, deterministic Octet-owned review index over existing Octet evidence artifacts. It is a map for reviewers and scripts: finding, lint, policy, requirement, fingerprint, provenance, proof-card, replay-capsule, transcript, and evidence-log identities link back to concrete artifact files and replay commands.
+
+The pure indexing core is currently hosted in `valence-core::evidence_codebase_index` as an in-repository deterministic helper. Octet retains CLI parsing, filesystem traversal, artifact discovery, output writing, Nix gate ownership, release bundle ownership, and non-claim boundary enforcement; hosting the pure core in `valence-core` does not imply package publication, standalone Valence repository cutover, or transfer of Octet evidence release responsibilities.
 
 ## Build
 
@@ -49,4 +51,4 @@ The first implementation ingests current Octet surfaces without replacing their 
 
 ## Boundary
 
-Every generated index and HTML page states the same non-claim boundary: the evidence codebase index proves artifact identity and linkage only. It does not claim whole-program correctness, semantic equivalence, complete dependency closure, distributed execution correctness, remote code mobility, or formal proof unless a linked formal-proof receipt scopes that stronger claim.
+Every generated index and HTML page states the same non-claim boundary: the Octet evidence codebase index proves artifact identity and linkage only. It does not claim whole-program correctness, semantic equivalence, complete dependency closure, distributed execution correctness, remote code mobility, standalone Valence release ownership, or formal proof unless a linked formal-proof receipt scopes that stronger claim.
