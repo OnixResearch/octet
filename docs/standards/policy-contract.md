@@ -33,9 +33,13 @@ evidence.
 - Policies that target `structural` MUST export at least one mechanism contract
   such as crate-boundary, capability-api, bounded-primitive, or type-state.
 - Capability-api mechanisms export forbidden ambient authority APIs, declared
-  core scopes, shell constructor scopes, and approved capability names so the
-  architecture checker can reject core-side ambient effects from generated
-  policy artifacts.
+  scope classes, capability families, core scopes, shell constructor scopes,
+  approved capability names, injected traits/tokens, shell interpreters, and
+  deterministic handler evidence so the architecture checker can reject
+  core-side ambient effects and emit capability reports from generated policy
+  artifacts. The report validates declared policy and observed source shapes
+  only; it is not a Rust effect system, transitive purity proof, or
+  whole-program runtime-effect absence claim.
 - Bounded-primitive mechanisms export forbidden unbounded APIs, approved bounded
   constructors/wrappers, capacity witnesses, and backpressure/overflow witnesses.
 - Policies that target `verified` MUST export a proof rail with a command argv,

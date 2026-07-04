@@ -113,6 +113,45 @@ pub struct Mechanism {
     /// Approved capability trait, name, or effect-data names for capability-api mechanisms.
     #[serde(default)]
     pub approved_capability_names: Vec<String>,
+    /// Capability manifest enforcement mode, usually `strict` or `advisory`.
+    #[serde(default)]
+    pub capability_enforcement_mode: String,
+    /// Declared capability scope classes.
+    #[serde(default)]
+    pub capability_scope_classes: Vec<String>,
+    /// Declared capability families from Octet's vocabulary.
+    #[serde(default)]
+    pub capability_families: Vec<String>,
+    /// Declared injected capability trait names.
+    #[serde(default)]
+    pub capability_injected_traits: Vec<String>,
+    /// Declared authority token names.
+    #[serde(default)]
+    pub capability_tokens: Vec<String>,
+    /// Declared shell interpreter names.
+    #[serde(default)]
+    pub capability_shell_interpreters: Vec<String>,
+    /// Adapter source path scopes for capability manifests.
+    #[serde(default)]
+    pub capability_adapter_scopes: Vec<String>,
+    /// Test source path scopes for capability manifests.
+    #[serde(default)]
+    pub capability_test_scopes: Vec<String>,
+    /// Generated source path scopes for capability manifests.
+    #[serde(default)]
+    pub capability_generated_scopes: Vec<String>,
+    /// Remote-execution source path scopes for capability manifests.
+    #[serde(default)]
+    pub capability_remote_execution_scopes: Vec<String>,
+    /// Deterministic handler names required by capability manifests.
+    #[serde(default)]
+    pub capability_deterministic_handlers: Vec<String>,
+    /// Replay commands for deterministic handler evidence.
+    #[serde(default)]
+    pub capability_handler_replay_commands: Vec<String>,
+    /// Artifact paths for deterministic handler evidence.
+    #[serde(default)]
+    pub capability_handler_artifacts: Vec<String>,
     /// Source path scopes where type-state protocol obligations apply.
     #[serde(default)]
     pub type_state_source_scopes: Vec<String>,

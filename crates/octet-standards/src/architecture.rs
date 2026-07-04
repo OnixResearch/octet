@@ -648,7 +648,8 @@ fn check_core_capability_constructors(
                 source,
                 Some(line_number_from_index(line_index)),
                 &format!(
-                    "core performs ambient authority operation `{pattern}` instead of accepting an injected capability"
+                    "core scope performs undeclared direct {} capability operation `{pattern}` instead of accepting an injected capability",
+                    capability_family_for_pattern(pattern),
                 ),
                 &remediation,
             ));
@@ -1042,6 +1043,46 @@ fn capability_core_sources<'a>(
             && obligations.core_source_scopes.iter().any(|scope| source.path.contains(scope))
             && !obligations.shell_constructor_scopes.iter().any(|scope| source.path.contains(scope))
     })
+}
+
+fn capability_family_for_pattern(pattern: &str) -> &'static str {
+    if pattern.contains("SystemTime::now(") || pattern.contains("Instant::now(") || pattern.contains("std::time::") {
+        return "time";
+    }
+    if pattern.contains("rand::") || pattern.contains("getrandom::") {
+        return "randomness";
+    }
+    if pattern.contains("std::fs::") || pattern.contains("File::open(") {
+        return "filesystem";
+    }
+    if pattern.contains("std::net::") || pattern.contains("reqwest::") {
+        return "network";
+    }
+    if pattern.contains("std::process::") {
+        return "process";
+    }
+    if pattern.contains("std::env::") {
+        return "environment";
+    }
+    if pattern.contains("Secret") {
+        return "secrets";
+    }
+    if pattern.contains("remote_exec") {
+        return "remote-execution";
+    }
+    if pattern.contains("unsafe {") {
+        return "unsafe-code";
+    }
+    if pattern.contains("static mut") {
+        return "global-state";
+    }
+    if pattern.contains("thread::spawn") || pattern.contains("tokio::spawn") {
+        return "concurrency";
+    }
+    if pattern.contains("tracing::") || pattern.contains("log::") {
+        return "observability";
+    }
+    "unknown"
 }
 
 fn type_state_sources<'a>(

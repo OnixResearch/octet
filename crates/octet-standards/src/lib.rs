@@ -7,6 +7,7 @@
 
 pub mod architecture;
 pub mod artifacts;
+pub mod capability_manifest;
 pub mod customs;
 pub mod dependency_direction;
 pub mod diagnostic;
@@ -28,6 +29,7 @@ mod tests {
 
     use crate::architecture::CARGO_METADATA_SOURCE_PATH;
     use crate::architecture::check_architecture;
+    use crate::capability_manifest::check_capability_manifest;
     use crate::fixture::FixtureManifest;
     use crate::fixture::PolicyFixtureCoverage;
     use crate::fixture::validate_hard_policy_fixture_coverage;
@@ -371,7 +373,39 @@ mod tests {
         assert_eq!(diagnostics.len(), 1);
         assert_eq!(diagnostics[0].policy_id, EFFECT_CAPABILITY_POLICY_ID);
         assert!(diagnostics[0].message.contains("std::process::"));
+        assert!(diagnostics[0].message.contains("process capability"));
         assert!(diagnostics[0].remediation.contains("Clock"));
+    }
+
+    #[test]
+    fn architecture_checks_name_direct_effect_capability_families() {
+        let source = "#![allow(dead_code)]\n\
+fn filesystem() { let _ = std::fs::read(\"config\"); }\n\
+fn network() { let _ = std::net::TcpStream::connect(\"127.0.0.1:1\"); }\n\
+fn time() { let _ = SystemTime::now(); }\n\
+fn randomness() { let _ = rand::random::<u64>(); }\n\
+fn process() { let _ = std::process::id(); }\n\
+fn environment() { let _ = std::env::var(\"HOME\"); }\n\
+fn secrets() { let _ = Secret::load(); }\n\
+static mut VALUE: u8 = 0;\n\
+fn concurrency() { let _ = std::thread::spawn(|| ()); }\n";
+        let sources = vec![SourceFile::new("crates/tigerstyle-core/src/lib.rs", source)];
+        let diagnostics = check_architecture(
+            &sample_all_effect_capability_registry(),
+            &sources,
+            &FamilySelection::from_families(["architecture"]),
+        );
+        let messages = diagnostics.iter().map(|diagnostic| diagnostic.message.as_str()).collect::<Vec<_>>().join("\n");
+
+        assert!(messages.contains("filesystem capability"));
+        assert!(messages.contains("network capability"));
+        assert!(messages.contains("time capability"));
+        assert!(messages.contains("randomness capability"));
+        assert!(messages.contains("process capability"));
+        assert!(messages.contains("environment capability"));
+        assert!(messages.contains("secrets capability"));
+        assert!(messages.contains("global-state capability"));
+        assert!(messages.contains("concurrency capability"));
     }
 
     #[test]
@@ -390,6 +424,97 @@ mod tests {
             check_architecture(&sample_registry(), &sources, &FamilySelection::from_families(["architecture"]));
 
         assert!(diagnostics.is_empty());
+    }
+
+    #[test]
+    fn capability_manifest_report_records_direct_and_injected_observations() {
+        let sources = vec![
+            SourceFile::new(
+                "crates/tigerstyle-core/src/lib.rs",
+                "#![no_std]\n\npub trait Clock { fn now_ms(&self) -> u64; }\npub fn process_id() -> u32 { std::process::id() }\n",
+            ),
+            SourceFile::new(
+                "standards/check-fixtures/capability/clock-handler.txt",
+                "success path: fake clock returns deterministic millis\nfailure path: fake clock returns configured error\n",
+            ),
+        ];
+        let check = check_capability_manifest(
+            &sample_capability_handler_registry(),
+            &sources,
+            &FamilySelection::from_families(["architecture"]),
+        );
+
+        assert!(check.diagnostics.is_empty(), "unexpected diagnostics: {:?}", check.diagnostics);
+        assert_eq!(check.reports.len(), 1);
+        let report = &check.reports[0];
+        assert!(report.observations.iter().any(|observation| {
+            observation.observation_kind == "direct-platform-effect"
+                && observation.capability_family == "process"
+                && observation.status == "diagnostic"
+        }));
+        assert!(report.observations.iter().any(|observation| {
+            observation.observation_kind == "injected-capability"
+                && observation.matched == "Clock"
+                && observation.status == "accepted"
+        }));
+        assert!(report.handler_evidence.iter().any(|evidence| {
+            evidence.handler == "FakeClock"
+                && evidence.success_path_coverage
+                && evidence.failure_path_coverage
+                && !evidence.blake3.is_empty()
+        }));
+    }
+
+    #[test]
+    fn capability_manifest_rejects_missing_handler_failure_coverage() {
+        let sources = vec![SourceFile::new(
+            "standards/check-fixtures/capability/clock-handler.txt",
+            "success path: fake clock returns deterministic millis\n",
+        )];
+        let check = check_capability_manifest(
+            &sample_capability_handler_registry(),
+            &sources,
+            &FamilySelection::from_families(["architecture"]),
+        );
+
+        assert!(
+            check
+                .diagnostics
+                .iter()
+                .any(|diagnostic| { diagnostic.message.contains("must cover success and failure paths") })
+        );
+    }
+
+    #[test]
+    fn capability_manifest_rejects_ambiguous_strict_scope_resolution() {
+        let sources = vec![SourceFile::new(
+            "crates/tigerstyle-core/src/generated/model.rs",
+            "pub trait Clock { fn now_ms(&self) -> u64; }\n",
+        )];
+        let check = check_capability_manifest(
+            &sample_ambiguous_capability_registry(),
+            &sources,
+            &FamilySelection::from_families(["architecture"]),
+        );
+
+        assert!(
+            check
+                .diagnostics
+                .iter()
+                .any(|diagnostic| { diagnostic.message.contains("capability scope resolution is ambiguous") })
+        );
+    }
+
+    #[test]
+    fn capability_manifest_report_preserves_non_claim_boundaries() {
+        let check =
+            check_capability_manifest(&sample_registry(), &[], &FamilySelection::from_families(["architecture"]));
+        let report = &check.reports[0];
+        let joined = report.non_claims.join("\n");
+
+        assert!(joined.contains("observed source shapes only"));
+        assert!(joined.contains("does not add Rust effect types"));
+        assert!(joined.contains("does not prove transitive effect inference"));
     }
 
     #[test]
@@ -1005,15 +1130,7 @@ impl Session<Authenticated> { pub fn send(self) {} }
 
     fn sample_effect_capability_policy() -> PolicyEntry {
         PolicyEntry {
-            mechanisms: vec![Mechanism {
-                kind: MechanismKind::CapabilityApi,
-                description: "test capability mechanism".to_owned(),
-                forbidden_ambient_apis: vec!["std::process::".to_owned(), "SystemTime::now(".to_owned()],
-                core_source_scopes: vec!["crates/tigerstyle-core/src/".to_owned()],
-                shell_constructor_scopes: vec!["crates/tigerstyle-std/src/".to_owned()],
-                approved_capability_names: vec!["Clock".to_owned()],
-                ..Mechanism::default()
-            }],
+            mechanisms: vec![sample_effect_capability_mechanism()],
             current_enforcement_mode: EnforcementMode::Gate,
             target_enforcement_mode: EnforcementMode::Structural,
             ..sample_policy(
@@ -1021,6 +1138,111 @@ impl Session<Authenticated> { pub fn send(self) {} }
                 "architecture",
                 "docs/standards/source/architecture.adoc#effect-capability-boundaries",
             )
+        }
+    }
+
+    fn sample_effect_capability_mechanism() -> Mechanism {
+        Mechanism {
+            kind: MechanismKind::CapabilityApi,
+            description: "test capability mechanism".to_owned(),
+            forbidden_ambient_apis: vec!["std::process::".to_owned(), "SystemTime::now(".to_owned()],
+            core_source_scopes: vec!["crates/tigerstyle-core/src/".to_owned()],
+            shell_constructor_scopes: vec!["crates/tigerstyle-std/src/".to_owned()],
+            approved_capability_names: vec!["Clock".to_owned()],
+            capability_enforcement_mode: "strict".to_owned(),
+            capability_scope_classes: vec!["core".to_owned(), "shell".to_owned(), "test".to_owned()],
+            capability_families: vec!["time".to_owned(), "process".to_owned()],
+            capability_injected_traits: vec!["Clock".to_owned()],
+            capability_tokens: vec!["ClockToken".to_owned()],
+            capability_shell_interpreters: vec!["SystemClock".to_owned()],
+            ..Mechanism::default()
+        }
+    }
+
+    fn sample_all_effect_capability_registry() -> PolicyRegistry {
+        let mut mechanism = sample_effect_capability_mechanism();
+        mechanism.forbidden_ambient_apis = vec![
+            "std::fs::".to_owned(),
+            "std::net::".to_owned(),
+            "SystemTime::now(".to_owned(),
+            "rand::".to_owned(),
+            "std::process::".to_owned(),
+            "std::env::".to_owned(),
+            "Secret".to_owned(),
+            "static mut".to_owned(),
+            "thread::spawn".to_owned(),
+        ];
+        mechanism.capability_families = vec![
+            "filesystem".to_owned(),
+            "network".to_owned(),
+            "time".to_owned(),
+            "randomness".to_owned(),
+            "process".to_owned(),
+            "environment".to_owned(),
+            "secrets".to_owned(),
+            "global-state".to_owned(),
+            "concurrency".to_owned(),
+        ];
+        PolicyRegistry {
+            schema_version: "test".to_owned(),
+            checker_ids: vec!["octet-standards".to_owned()],
+            policies: vec![PolicyEntry {
+                mechanisms: vec![mechanism],
+                current_enforcement_mode: EnforcementMode::Gate,
+                target_enforcement_mode: EnforcementMode::Structural,
+                ..sample_policy(
+                    EFFECT_CAPABILITY_POLICY_ID,
+                    "architecture",
+                    "docs/standards/source/architecture.adoc#effect-capability-boundaries",
+                )
+            }],
+            seed_manifests: Vec::new(),
+            config_receipt_families: Vec::new(),
+        }
+    }
+
+    fn sample_capability_handler_registry() -> PolicyRegistry {
+        let mut mechanism = sample_effect_capability_mechanism();
+        mechanism.capability_deterministic_handlers = vec!["FakeClock".to_owned()];
+        mechanism.capability_handler_replay_commands = vec!["cargo test fake_clock_handler".to_owned()];
+        mechanism.capability_handler_artifacts =
+            vec!["standards/check-fixtures/capability/clock-handler.txt".to_owned()];
+        PolicyRegistry {
+            schema_version: "test".to_owned(),
+            checker_ids: vec!["octet-standards".to_owned()],
+            policies: vec![PolicyEntry {
+                mechanisms: vec![mechanism],
+                current_enforcement_mode: EnforcementMode::Gate,
+                target_enforcement_mode: EnforcementMode::Structural,
+                ..sample_policy(
+                    EFFECT_CAPABILITY_POLICY_ID,
+                    "architecture",
+                    "docs/standards/source/architecture.adoc#effect-capability-boundaries",
+                )
+            }],
+            seed_manifests: Vec::new(),
+            config_receipt_families: Vec::new(),
+        }
+    }
+
+    fn sample_ambiguous_capability_registry() -> PolicyRegistry {
+        let mut mechanism = sample_effect_capability_mechanism();
+        mechanism.capability_generated_scopes = vec!["generated/".to_owned()];
+        PolicyRegistry {
+            schema_version: "test".to_owned(),
+            checker_ids: vec!["octet-standards".to_owned()],
+            policies: vec![PolicyEntry {
+                mechanisms: vec![mechanism],
+                current_enforcement_mode: EnforcementMode::Gate,
+                target_enforcement_mode: EnforcementMode::Structural,
+                ..sample_policy(
+                    EFFECT_CAPABILITY_POLICY_ID,
+                    "architecture",
+                    "docs/standards/source/architecture.adoc#effect-capability-boundaries",
+                )
+            }],
+            seed_manifests: Vec::new(),
+            config_receipt_families: Vec::new(),
         }
     }
 
