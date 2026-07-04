@@ -209,6 +209,17 @@ in
       negative_fixtures = ["crates/octet-standards/src/proof.rs::structured_verus_receipt_rejects_malformed_json"],
     },
     {
+      family_id = "octet.verus-proof-package-lock",
+      ownership = "rust-derived",
+      owner_source_path = "crates/octet-standards/src/proof.rs",
+      artifact_path = "standards/proof-rails/contracts/verus-proof-receipt.generated.ncl",
+      generation_command = "nix develop -c cargo test -p octet-standards proof::tests::verus_proof_receipt_contract_is_fresh",
+      validation_command = "nix develop -c cargo test -p octet-standards proof::tests::verus_proof_package_lock_rejects_stale_material_and_invalid_shape",
+      status = "existing",
+      positive_fixtures = ["crates/octet-standards/src/proof.rs::verus_proof_package_lock_validates_exact_material"],
+      negative_fixtures = ["crates/octet-standards/src/proof.rs::verus_proof_package_lock_rejects_stale_material_and_invalid_shape"],
+    },
+    {
       family_id = "octet.proof-evidence-ref",
       ownership = "rust-derived",
       owner_source_path = "cargo-octet/src/proof_ref.rs",
