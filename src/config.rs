@@ -356,6 +356,21 @@ mod tests {
         tigerstyle: Option<Config>,
     }
 
+    const CONFIG_VALID_LEVEL_LAW: &str = "config valid lint-level overrides normalize deterministically";
+    const CONFIG_DISABLED_PRECEDENCE_LAW: &str = "config disabled_lints wins over lint_levels";
+    const CONFIG_NEGATIVE_LEVEL_LAW: &str = "config invalid generated lint levels fail closed";
+    const CONFIG_LAW_REPLAY_COMMAND: &str = "nix develop -c bash -c 'cargo test --lib config_law -- --nocapture'";
+    const GENERATED_LINT_NAMES: &[&str] = &["no_unwrap", "no_panic"];
+    const GENERATED_LINT_LEVELS: &[(&str, LintLevel)] = &[
+        ("allow", LintLevel::Allow),
+        ("warn", LintLevel::Warn),
+        ("deny", LintLevel::Deny),
+    ];
+    const GENERATED_INVALID_LINT_LEVELS: &[&str] = &["fatal", "Deny", " warn "];
+    const CONFIG_VALID_LEVEL_CASE_BUDGET: usize = 6;
+    const CONFIG_DISABLED_PRECEDENCE_CASE_BUDGET: usize = 6;
+    const CONFIG_NEGATIVE_LEVEL_CASE_BUDGET: usize = 6;
+
     fn parse_config(doc: &str) -> Config {
         let wrapper = toml::from_str::<Wrapper>(doc).expect("parse test dylint.toml");
         prefer_octet_or_legacy_config(wrapper.octet, wrapper.slotcar, wrapper.tigerstyle)
@@ -371,6 +386,93 @@ mod tests {
         let mut cfg = parse_config(doc);
         let diagnostics = cfg.validate_diagnostics();
         (cfg, diagnostics)
+    }
+
+    fn generated_lint_level_config(lint_name: &str, raw_level: &str) -> String {
+        format!("[octet.lint_levels]\n{lint_name} = \"{raw_level}\"\n")
+    }
+
+    fn generated_disabled_and_lint_level_config(lint_name: &str, raw_level: &str) -> String {
+        format!("[octet]\ndisabled_lints = [\"{lint_name}\"]\n\n[octet.lint_levels]\n{lint_name} = \"{raw_level}\"\n")
+    }
+
+    #[test]
+    fn config_law_valid_lint_levels_are_bounded_and_replayable() {
+        assert!(CONFIG_LAW_REPLAY_COMMAND.contains("config_law"));
+
+        let mut case_count = 0;
+        for (raw_level, expected_level) in GENERATED_LINT_LEVELS {
+            for lint_name in GENERATED_LINT_NAMES {
+                let (cfg, diagnostics) =
+                    parse_and_validate_diagnostics(&generated_lint_level_config(lint_name, raw_level));
+
+                assert!(
+                    diagnostics.is_empty(),
+                    "{CONFIG_VALID_LEVEL_LAW} emitted diagnostics for {lint_name}={raw_level}: {diagnostics:?}"
+                );
+                assert_eq!(
+                    cfg.lint_level(lint_name),
+                    Some(*expected_level),
+                    "{CONFIG_VALID_LEVEL_LAW} failed for {lint_name}={raw_level}"
+                );
+                case_count += 1;
+            }
+        }
+
+        assert_eq!(case_count, CONFIG_VALID_LEVEL_CASE_BUDGET, "{CONFIG_VALID_LEVEL_LAW}");
+    }
+
+    #[test]
+    fn config_law_disabled_lints_win_over_generated_level_overrides() {
+        let mut case_count = 0;
+        for (raw_level, _expected_level) in GENERATED_LINT_LEVELS {
+            for lint_name in GENERATED_LINT_NAMES {
+                let (cfg, diagnostics) =
+                    parse_and_validate_diagnostics(&generated_disabled_and_lint_level_config(lint_name, raw_level));
+
+                assert!(
+                    cfg.lint_is_disabled(lint_name),
+                    "{CONFIG_DISABLED_PRECEDENCE_LAW} did not disable {lint_name}"
+                );
+                assert_eq!(cfg.lint_level(lint_name), None, "{CONFIG_DISABLED_PRECEDENCE_LAW} kept {lint_name} level");
+                assert_eq!(diagnostics.len(), 1, "{CONFIG_DISABLED_PRECEDENCE_LAW} diagnostic count for {lint_name}");
+                assert_eq!(diagnostics[0].kind, ConfigDiagnosticKind::ConflictingDisabledLintLevel);
+                assert_eq!(diagnostics[0].field, "octet.lint_levels");
+                assert_eq!(diagnostics[0].item, *lint_name);
+                case_count += 1;
+            }
+        }
+
+        assert_eq!(case_count, CONFIG_DISABLED_PRECEDENCE_CASE_BUDGET, "{CONFIG_DISABLED_PRECEDENCE_LAW}");
+    }
+
+    #[test]
+    fn config_law_invalid_generated_levels_fail_closed_with_stable_diagnostics() {
+        let mut case_count = 0;
+        for raw_level in GENERATED_INVALID_LINT_LEVELS {
+            for lint_name in GENERATED_LINT_NAMES {
+                let (cfg, diagnostics) =
+                    parse_and_validate_diagnostics(&generated_lint_level_config(lint_name, raw_level));
+
+                assert_eq!(
+                    cfg.lint_level(lint_name),
+                    None,
+                    "{CONFIG_NEGATIVE_LEVEL_LAW} accepted {lint_name}={raw_level}"
+                );
+                assert_eq!(diagnostics.len(), 1, "{CONFIG_NEGATIVE_LEVEL_LAW} diagnostic count for {lint_name}");
+                assert_eq!(diagnostics[0].kind, ConfigDiagnosticKind::InvalidLintLevel);
+                assert_eq!(diagnostics[0].source, "dylint.toml");
+                assert_eq!(diagnostics[0].field, "octet.lint_levels");
+                assert_eq!(diagnostics[0].item, *lint_name);
+                assert!(
+                    diagnostics[0].message.contains(raw_level),
+                    "{CONFIG_NEGATIVE_LEVEL_LAW} diagnostic should replay failing level {raw_level}"
+                );
+                case_count += 1;
+            }
+        }
+
+        assert_eq!(case_count, CONFIG_NEGATIVE_LEVEL_CASE_BUDGET, "{CONFIG_NEGATIVE_LEVEL_LAW}");
     }
 
     #[test]
