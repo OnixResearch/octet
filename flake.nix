@@ -1527,6 +1527,64 @@ MAIN
             ${cargoOctetUnwrapped}/bin/cargo-octet evidence-index check --page docs/current-head-valence-evidence.md
             mkdir -p "$out"
           '';
+          evidenceCodebaseIndexGate = pkgs.runCommand "octet-evidence-codebase-index" {
+            nativeBuildInputs = with pkgs; [ coreutils diffutils gnugrep jq ];
+          } ''
+            scratch="$(mktemp -d)"
+            fixture="$scratch/fixture"
+            mkdir -p "$fixture"
+
+            cat > "$fixture/findings.jsonl" <<'EOF'
+            {"version":2,"index":"F1","stable_id":"finding-stable-id","semantic_id":"semantic-fixture","identity_status":"computed","normalized_snippet_hash":"snippet-fixture","config_hash":"config-fixture","cache_status":"disabled","lint":"ambient_clock","group":"tigerstyle::purity","severity":"warning","file":"src/lib.rs","line":1,"column":1,"message":"r[octet.evidence_codebase_index.query.lookup]","principle":"Functional Core","effect_family":"time","evidence_tier":"static_lint","crate_name":"fixture"}
+            EOF
+            cat > "$fixture/proof-cards.json" <<'EOF'
+            {"schema_version":"octet-proof-cards/v1","cards":[{"proof_or_property_id":"octet.policy.capability-boundary#rail-0","source_requirement_or_policy_id":"r[octet.evidence_codebase_index.query.lookup]","policy_id":"octet.policy.capability-boundary","rail_index":0,"checked_rust_source_scope":"src/lib.rs","source_paths":["src/lib.rs"],"proof_target_paths":["proof.rs"],"verifier_mode":"fixture","verifier_identity_summary":"fixture","solver_identity_summary":"fixture","toolchain_identity_summary":"fixture","receipt_path":"proofs/policy.receipt","artifact_blake3_identities":[{"artifact":"proofs/policy.receipt","blake3":"proof-hash"}],"evidence_tier":"formal_proof","evidence_origin":"octet-rerun","status":"passed","trust_boundaries":[],"non_claims":["not whole-program correctness"],"artifact_verifier_command":"cargo octet artifact verify --artifact-dir artifacts/octet","provenance_artifact":"provenance.jsonl","diagnostics":[]}]}
+            EOF
+            cat > "$fixture/capsule.json" <<'EOF'
+            {"schema_version":1,"capsule_hash":"capsule-hash-fixture","capsule_kind":"octet-replay-capsule","manifest":{"command_argv":["cargo","octet","check"],"run_kind":"check","octet_binary_identity":"cargo-octet","config_hash":"config-fixture","input_hashes":["input-hash"],"output_hashes":["finding-stable-id"],"expected_exit_code":0},"replay_contract":{},"redaction_status":"normalized"}
+            EOF
+            cat > "$fixture/transcript.md" <<'EOF'
+            $ cargo octet check
+            => pass
+            EOF
+            cat > "$fixture/provenance.jsonl" <<'EOF'
+            {"schema_version":"octet-provenance-record/v1","source_id":"octet.transcript.assertion","checker_id":"octet-transcript","evidence_tier":"transcript_assertion","artifact_locator":"missing-transcript.md","blake3":"missing-hash","checked_scope":"transcript","parent_artifacts":["capsule-hash-fixture"]}
+            EOF
+            cat > "$fixture/fingerprint-review.json" <<'EOF'
+            {"schema_version":1,"tool_name":"cargo-octet","tool_version":"0.1.0","mode":"check","input_paths":["src/lib.rs"],"manifest_hash":"manifest-fixture","records":[{"stable_id":"fingerprint-stable-id","path":"src/lib.rs","name":"checked","status":"match","computed_hash":"fingerprint-hash","normalized_body_hash":"body-hash","semantic_id":"semantic-fixture","dependency_set_hash":"dependency-hash","dependency_identity_status":"source-scanner-token-set","tool_version":"0.1.0","review":"r[octet.evidence_codebase_index.query.lookup]","evidence":"octet.policy.capability-boundary","requires_review":false,"macro_warning":false}]}
+            EOF
+            cat > "$fixture/evidence-log-manifest.json" <<'EOF'
+            {"schema_version":"octet-evidence-log-manifest/v1","logs":[{"artifact_locator":"run.txt.gz","blake3":"log-hash","bytes":10,"replay_command":"cargo octet check","checked_scope":"fixture","capture_source":"test","retention":"compressed"}]}
+            EOF
+            cat > "$fixture/evidence-rail-receipt.json" <<'EOF'
+            {"schema_version":"octet-evidence-rail-receipt/v1","rail_id":"octet.policy.capability-boundary","checker_id":"cargo-deny","mode":"import","command_argv":["cargo","deny","check"],"workspace_scope":".","checked_rule_families":["licenses"],"status":"passed","finding_counts":{},"bounded_log_identity":"rail-log-hash","imported_input_identity":"rail-input-hash","non_claims":["not correctness"],"diagnostics":[],"findings":[{"family":"ambient_clock","severity":"warning","message":"fixture","file":"src/lib.rs"}],"parent_artifacts":["capsule-hash-fixture"]}
+            EOF
+
+            ${cargoOctetUnwrapped}/bin/cargo-octet evidence-index codebase build --artifact-dir "$fixture" --output "$scratch/index-a.json"
+            ${cargoOctetUnwrapped}/bin/cargo-octet evidence-index codebase build --artifact-dir "$fixture" --output "$scratch/index-b.json"
+            cmp "$scratch/index-a.json" "$scratch/index-b.json"
+            jq --exit-status '.schema_version == "octet-evidence-codebase-index/v1" and .record_count >= 8' "$scratch/index-a.json" >/dev/null
+            jq --exit-status 'all(.issues[]?; .severity == "caveat")' "$scratch/index-a.json" >/dev/null
+            ${cargoOctetUnwrapped}/bin/cargo-octet evidence-index codebase query --index "$scratch/index-a.json" --identity 'r[octet.evidence_codebase_index.query.lookup]' > "$scratch/query.json"
+            jq --exit-status '.match_count >= 4 and any(.records[]; .lint_ids | index("ambient_clock")) and any(.records[]; .policy_ids | index("octet.policy.capability-boundary")) and any(.records[]; .stable_id == "capsule-hash-fixture")' "$scratch/query.json" >/dev/null
+            ${cargoOctetUnwrapped}/bin/cargo-octet evidence-index codebase html --index "$scratch/index-a.json" --output "$scratch/index.html"
+            grep -F 'Evidence codebase index proves artifact identity and linkage only' "$scratch/index.html" >/dev/null
+            grep -F 'href="#octet-finding-' "$scratch/index.html" >/dev/null
+            if grep -F 'proves whole-program correctness' "$scratch/index.html" >/dev/null; then
+              echo "evidence codebase index HTML overclaimed correctness" >&2
+              exit 1
+            fi
+
+            printf '{' > "$scratch/malformed.json"
+            set +e
+            ${cargoOctetUnwrapped}/bin/cargo-octet evidence-index codebase build --artifact "$scratch/malformed.json" --output "$scratch/malformed-index.json"
+            malformed_status="$?"
+            set -e
+            test "$malformed_status" -eq 1
+            jq --exit-status 'any(.issues[]; .severity == "error" and .code == "malformed_json")' "$scratch/malformed-index.json" >/dev/null
+
+            mkdir -p "$out"
+          '';
           thirSupplementInventoryGate = mkFingerprintDocsCheck
             "octet-thir-supplement-inventory-gate"
             "thir_inventory";
@@ -1684,6 +1742,7 @@ MAIN
             grep -F 'documentation = "https://github.com/OnixResearch/octet/tree/main/crates/valence-core"' "$manifest" >/dev/null
             grep -F 'keywords = ["valence", "evidence", "octet", "blake3"]' "$manifest" >/dev/null
             grep -F 'categories = ["development-tools"]' "$manifest" >/dev/null
+            grep -F 'pub mod evidence_codebase_index;' "$lib_rs" >/dev/null
             grep -F 'pub mod evidence_index;' "$lib_rs" >/dev/null
             grep -F 'pub mod function_object;' "$lib_rs" >/dev/null
             grep -F 'not a standalone release cutover' "$readme" >/dev/null
@@ -1854,6 +1913,7 @@ MAIN
           object-corpus-fixture-freshness = objectCorpusFixtureFreshnessGate;
           supplement-compatibility-gate = supplementCompatibilityGate;
           valence-evidence-index = valenceEvidenceIndexGate;
+          evidence-codebase-index = evidenceCodebaseIndexGate;
           valence-evidence-release = valenceEvidenceReleaseGate;
           valence-core-package-readiness = valenceCorePackageReadiness;
           thir-supplement-inventory-gate = thirSupplementInventoryGate;

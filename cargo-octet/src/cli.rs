@@ -94,6 +94,9 @@ pub struct EvidenceRailArgs {
 pub enum EvidenceIndexMode {
     Render,
     Check,
+    CodebaseBuild,
+    CodebaseQuery,
+    CodebaseHtml,
 }
 
 #[derive(Debug)]
@@ -102,6 +105,12 @@ pub struct EvidenceIndexArgs {
     pub page: Option<PathBuf>,
     pub payload_commit: Option<String>,
     pub capture_time: Option<String>,
+    pub index: Option<PathBuf>,
+    pub identity: Option<String>,
+    pub artifacts: Vec<PathBuf>,
+    pub artifact_dirs: Vec<PathBuf>,
+    pub output: Option<PathBuf>,
+    pub advisory: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -398,6 +407,9 @@ Usage:
   cargo octet evidence collect --rail RAIL --input PATH --artifact-dir PATH [--output-format human|json]
   cargo octet evidence-index render --payload-commit HASH --capture-time RFC3339
   cargo octet evidence-index check [--page PATH]
+  cargo octet evidence-index codebase build --artifact PATH [--artifact-dir DIR] [--output PATH] [--advisory]
+  cargo octet evidence-index codebase query --index PATH --identity ID
+  cargo octet evidence-index codebase html --index PATH [--output PATH]
   cargo octet fingerprint [--check|--update|--diff] [PATHS...]
   cargo octet migrate <start|status|apply-safe> [--manifest PATH]
   cargo octet object emit|check|update [--function NAME] [PATHS...]
@@ -447,8 +459,13 @@ const EVIDENCE_INDEX_HELP: &str = "cargo octet evidence-index
 Subcommands:
   render --payload-commit HASH --capture-time RFC3339
   check [--page docs/current-head-valence-evidence.md]
+  codebase build --artifact PATH [--artifact-dir DIR] [--output PATH] [--advisory]
+  codebase query --index PATH --identity ID
+  codebase html --index PATH [--output PATH]
 
 Renders or checks the generated current-head Valence evidence Markdown index. Check mode fails closed on stale payload, missing rail/pass signal, or weakened non-claim boundaries.
+
+The codebase subcommands build a deterministic, content-addressed review index over existing Octet evidence artifacts, query it by stable identity, and render static local HTML. The generated index proves artifact identity and linkage only; it is not a correctness, semantic-equivalence, complete-dependency-closure, distributed-execution, or remote-code-mobility proof.
 ";
 
 const EVIDENCE_RAIL_HELP: &str = "cargo octet evidence collect
@@ -663,37 +680,39 @@ fn parse_check(args: &[String], command_line: String) -> Result<CheckArgs, Strin
 }
 
 fn parse_evidence_index(args: &[String]) -> Result<EvidenceIndexArgs, String> {
-    let mode = match args.first().map(String::as_str) {
-        Some("render") => EvidenceIndexMode::Render,
-        Some("check") => EvidenceIndexMode::Check,
+    match args.first().map(String::as_str) {
+        Some("render") => parse_valence_evidence_index(EvidenceIndexMode::Render, &args[1..]),
+        Some("check") => parse_valence_evidence_index(EvidenceIndexMode::Check, &args[1..]),
+        Some("codebase") => parse_codebase_evidence_index(&args[1..]),
         Some(other) => {
-            return Err(format!("unknown evidence-index subcommand `{other}`; expected `render` or `check`"));
+            Err(format!("unknown evidence-index subcommand `{other}`; expected `render`, `check`, or `codebase`"))
         }
-        None => return Err("missing evidence-index subcommand; expected `render` or `check`".to_owned()),
-    };
+        None => Err("missing evidence-index subcommand; expected `render`, `check`, or `codebase`".to_owned()),
+    }
+}
+
+fn parse_valence_evidence_index(mode: EvidenceIndexMode, args: &[String]) -> Result<EvidenceIndexArgs, String> {
+    const FLAG_AND_VALUE_ARGS: usize = 2;
 
     let mut page = None;
     let mut payload_commit = None;
     let mut capture_time = None;
-    let mut index = 1;
+    let mut index = 0;
 
     while index < args.len() {
         let arg = &args[index];
         match arg.as_str() {
             "--page" => {
-                let value = args.get(index + 1).ok_or_else(|| "missing value after `--page`".to_owned())?;
-                page = Some(PathBuf::from(value));
-                index += 2;
+                page = Some(PathBuf::from(required_arg_at(args, index, arg)?));
+                index += FLAG_AND_VALUE_ARGS;
             }
             "--payload-commit" => {
-                let value = args.get(index + 1).ok_or_else(|| "missing value after `--payload-commit`".to_owned())?;
-                payload_commit = Some(value.clone());
-                index += 2;
+                payload_commit = Some(required_arg_at(args, index, arg)?);
+                index += FLAG_AND_VALUE_ARGS;
             }
             "--capture-time" => {
-                let value = args.get(index + 1).ok_or_else(|| "missing value after `--capture-time`".to_owned())?;
-                capture_time = Some(value.clone());
-                index += 2;
+                capture_time = Some(required_arg_at(args, index, arg)?);
+                index += FLAG_AND_VALUE_ARGS;
             }
             _ if arg.starts_with("--page=") => {
                 page = Some(PathBuf::from(arg.trim_start_matches("--page=")));
@@ -716,6 +735,114 @@ fn parse_evidence_index(args: &[String]) -> Result<EvidenceIndexArgs, String> {
         page,
         payload_commit,
         capture_time,
+        index: None,
+        identity: None,
+        artifacts: Vec::new(),
+        artifact_dirs: Vec::new(),
+        output: None,
+        advisory: false,
+    })
+}
+
+fn parse_codebase_evidence_index(args: &[String]) -> Result<EvidenceIndexArgs, String> {
+    let mode = match args.first().map(String::as_str) {
+        Some("build") => EvidenceIndexMode::CodebaseBuild,
+        Some("query") => EvidenceIndexMode::CodebaseQuery,
+        Some("html") => EvidenceIndexMode::CodebaseHtml,
+        Some(other) => {
+            return Err(format!(
+                "unknown evidence-index codebase action `{other}`; expected `build`, `query`, or `html`"
+            ));
+        }
+        None => return Err("missing evidence-index codebase action; expected `build`, `query`, or `html`".to_owned()),
+    };
+
+    const FLAG_AND_VALUE_ARGS: usize = 2;
+    let mut index_path = None;
+    let mut identity = None;
+    let mut artifacts = Vec::new();
+    let mut artifact_dirs = Vec::new();
+    let mut output = None;
+    let mut advisory = false;
+    let mut cursor = 1;
+
+    while cursor < args.len() {
+        let arg = &args[cursor];
+        match arg.as_str() {
+            "--index" => {
+                index_path = Some(PathBuf::from(required_arg_at(args, cursor, arg)?));
+                cursor += FLAG_AND_VALUE_ARGS;
+            }
+            "--identity" => {
+                identity = Some(required_arg_at(args, cursor, arg)?);
+                cursor += FLAG_AND_VALUE_ARGS;
+            }
+            "--artifact" => {
+                artifacts.push(PathBuf::from(required_arg_at(args, cursor, arg)?));
+                cursor += FLAG_AND_VALUE_ARGS;
+            }
+            "--artifact-dir" => {
+                artifact_dirs.push(PathBuf::from(required_arg_at(args, cursor, arg)?));
+                cursor += FLAG_AND_VALUE_ARGS;
+            }
+            "--output" => {
+                output = Some(PathBuf::from(required_arg_at(args, cursor, arg)?));
+                cursor += FLAG_AND_VALUE_ARGS;
+            }
+            "--advisory" => {
+                advisory = true;
+                cursor += 1;
+            }
+            _ if arg.starts_with("--index=") => {
+                index_path = Some(PathBuf::from(arg.trim_start_matches("--index=")));
+                cursor += 1;
+            }
+            _ if arg.starts_with("--identity=") => {
+                identity = Some(arg.trim_start_matches("--identity=").to_owned());
+                cursor += 1;
+            }
+            _ if arg.starts_with("--artifact=") => {
+                artifacts.push(PathBuf::from(arg.trim_start_matches("--artifact=")));
+                cursor += 1;
+            }
+            _ if arg.starts_with("--artifact-dir=") => {
+                artifact_dirs.push(PathBuf::from(arg.trim_start_matches("--artifact-dir=")));
+                cursor += 1;
+            }
+            _ if arg.starts_with("--output=") => {
+                output = Some(PathBuf::from(arg.trim_start_matches("--output=")));
+                cursor += 1;
+            }
+            _ => return Err(format!("unsupported evidence-index codebase argument `{arg}`")),
+        }
+    }
+
+    match mode {
+        EvidenceIndexMode::CodebaseBuild if artifacts.is_empty() && artifact_dirs.is_empty() => {
+            return Err(
+                "evidence-index codebase build requires at least one `--artifact` or `--artifact-dir`".to_owned()
+            );
+        }
+        EvidenceIndexMode::CodebaseQuery if index_path.is_none() || identity.is_none() => {
+            return Err("evidence-index codebase query requires `--index PATH --identity ID`".to_owned());
+        }
+        EvidenceIndexMode::CodebaseHtml if index_path.is_none() => {
+            return Err("evidence-index codebase html requires `--index PATH`".to_owned());
+        }
+        _ => {}
+    }
+
+    Ok(EvidenceIndexArgs {
+        mode,
+        page: None,
+        payload_commit: None,
+        capture_time: None,
+        index: index_path,
+        identity,
+        artifacts,
+        artifact_dirs,
+        output,
+        advisory,
     })
 }
 
@@ -2016,6 +2143,7 @@ mod tests {
     use std::path::Path;
 
     use super::CommandArgs;
+    use super::EvidenceIndexMode;
     use super::FingerprintMode;
     use super::HelpTopic;
     use super::OutputFormat;
@@ -2121,6 +2249,104 @@ mod tests {
             }
             other => panic!("expected starter check args, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn evidence_index_codebase_parse_accepts_build_query_and_html() {
+        let build = parse(
+            [
+                "cargo",
+                "octet",
+                "evidence-index",
+                "codebase",
+                "build",
+                "--artifact",
+                "artifacts/octet/findings.jsonl",
+                "--artifact-dir=artifacts/proofs",
+                "--output",
+                "artifacts/octet/evidence-index.json",
+                "--advisory",
+            ]
+            .map(OsString::from),
+        )
+        .expect("parse evidence codebase build");
+        match build {
+            CommandArgs::EvidenceIndex(args) => {
+                assert_eq!(args.mode, EvidenceIndexMode::CodebaseBuild);
+                assert_eq!(args.artifacts, vec![std::path::PathBuf::from("artifacts/octet/findings.jsonl")]);
+                assert_eq!(args.artifact_dirs, vec![std::path::PathBuf::from("artifacts/proofs")]);
+                assert_eq!(args.output, Some(std::path::PathBuf::from("artifacts/octet/evidence-index.json")));
+                assert!(args.advisory);
+            }
+            other => panic!("expected evidence index build args, got {other:?}"),
+        }
+
+        let query = parse(
+            [
+                "cargo",
+                "octet",
+                "evidence-index",
+                "codebase",
+                "query",
+                "--index",
+                "artifacts/octet/evidence-index.json",
+                "--identity=r[octet.example]",
+            ]
+            .map(OsString::from),
+        )
+        .expect("parse evidence codebase query");
+        match query {
+            CommandArgs::EvidenceIndex(args) => {
+                assert_eq!(args.mode, EvidenceIndexMode::CodebaseQuery);
+                assert_eq!(args.index, Some(std::path::PathBuf::from("artifacts/octet/evidence-index.json")));
+                assert_eq!(args.identity.as_deref(), Some("r[octet.example]"));
+            }
+            other => panic!("expected evidence index query args, got {other:?}"),
+        }
+
+        let html = parse(
+            [
+                "cargo",
+                "octet",
+                "evidence-index",
+                "codebase",
+                "html",
+                "--index=artifacts/octet/evidence-index.json",
+                "--output=site/index.html",
+            ]
+            .map(OsString::from),
+        )
+        .expect("parse evidence codebase html");
+        match html {
+            CommandArgs::EvidenceIndex(args) => {
+                assert_eq!(args.mode, EvidenceIndexMode::CodebaseHtml);
+                assert_eq!(args.index, Some(std::path::PathBuf::from("artifacts/octet/evidence-index.json")));
+                assert_eq!(args.output, Some(std::path::PathBuf::from("site/index.html")));
+            }
+            other => panic!("expected evidence index html args, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn evidence_index_codebase_parse_rejects_missing_inputs() {
+        let build_error = parse(["cargo", "octet", "evidence-index", "codebase", "build"].map(OsString::from))
+            .expect_err("build requires inputs");
+        assert!(build_error.contains("requires at least one `--artifact` or `--artifact-dir`"));
+
+        let query_error = parse(
+            [
+                "cargo",
+                "octet",
+                "evidence-index",
+                "codebase",
+                "query",
+                "--index",
+                "index.json",
+            ]
+            .map(OsString::from),
+        )
+        .expect_err("query requires identity");
+        assert!(query_error.contains("requires `--index PATH --identity ID`"));
     }
 
     #[test]
