@@ -34,6 +34,8 @@ use serde::Serialize;
 
 use crate::cli::OutputFormat;
 use crate::cli::ProveArgs;
+use crate::effect_ports::ProcessCommandPlanInput;
+use crate::effect_ports::build_process_command_plan;
 use crate::evidence::EvidenceTier;
 use crate::evidence::ProvenanceRecord;
 use crate::imported_proof::EVIDENCE_ORIGIN_EXTERNAL_TRELLIS;
@@ -245,6 +247,8 @@ struct CommandSpec {
     executable: String,
     args: Vec<String>,
     argv: Vec<String>,
+    timeout_ms: u64,
+    environment_allowlist: Vec<String>,
 }
 
 #[allow(clippy::struct_excessive_bools)]
@@ -580,7 +584,7 @@ fn run_proof_command(rail: &ProofRail, working_dir: &Path) -> CommandOutcome {
             };
         }
     };
-    let output = spawn_and_wait(&spec, rail, working_dir);
+    let output = spawn_and_wait(&spec, working_dir);
     let command_blake3 = command_blake3(&spec.argv);
     match output {
         Ok(output) => {
@@ -617,14 +621,24 @@ fn run_proof_command(rail: &ProofRail, working_dir: &Path) -> CommandOutcome {
 }
 
 fn proof_command_spec(rail: &ProofRail) -> Result<CommandSpec, String> {
-    let executable = rail.command_argv.first().cloned().ok_or_else(|| {
-        format!("proof rail field `{COMMAND_ARGV_FIELD}` is required; refusing to execute shell command string")
+    let plan = build_process_command_plan(ProcessCommandPlanInput {
+        command_argv: rail.command_argv.clone(),
+        timeout_ms: configured_timeout_ms(rail),
+        environment_allowlist: proof_environment_allowlist(rail),
+    })
+    .map_err(|diagnostics| {
+        if diagnostics.iter().any(|diagnostic| diagnostic.contains(COMMAND_ARGV_FIELD)) {
+            format!("proof rail field `{COMMAND_ARGV_FIELD}` is required; refusing to execute shell command string")
+        } else {
+            diagnostics.join("; ")
+        }
     })?;
-    let args = rail.command_argv.iter().skip(1).cloned().collect::<Vec<_>>();
     Ok(CommandSpec {
-        executable,
-        args,
-        argv: rail.command_argv.clone(),
+        executable: plan.executable,
+        args: plan.args,
+        argv: plan.argv,
+        timeout_ms: plan.timeout_ms,
+        environment_allowlist: plan.environment_allowlist,
     })
 }
 
@@ -636,7 +650,7 @@ struct CommandOutput {
     diagnostics: Vec<String>,
 }
 
-fn spawn_and_wait(spec: &CommandSpec, rail: &ProofRail, working_dir: &Path) -> Result<CommandOutput, String> {
+fn spawn_and_wait(spec: &CommandSpec, working_dir: &Path) -> Result<CommandOutput, String> {
     let mut command = Command::new(&spec.executable);
     command
         .args(&spec.args)
@@ -645,12 +659,12 @@ fn spawn_and_wait(spec: &CommandSpec, rail: &ProofRail, working_dir: &Path) -> R
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
-    for (name, value) in allowed_environment(rail) {
+    for (name, value) in allowed_environment(&spec.environment_allowlist) {
         command.env(name, value);
     }
     let mut child =
         command.spawn().map_err(|error| format!("spawn proof command `{}`: {error}", spec.argv.join(" ")))?;
-    let timeout = Duration::from_millis(configured_timeout_ms(rail));
+    let timeout = Duration::from_millis(spec.timeout_ms);
     let poll_interval = Duration::from_millis(PROCESS_POLL_INTERVAL_MS);
     let started = Instant::now();
     loop {
@@ -689,12 +703,16 @@ fn spawn_and_wait(spec: &CommandSpec, rail: &ProofRail, working_dir: &Path) -> R
     }
 }
 
-fn allowed_environment(rail: &ProofRail) -> Vec<(String, OsString)> {
+fn proof_environment_allowlist(rail: &ProofRail) -> Vec<String> {
     let mut names = DEFAULT_ENV_ALLOWLIST.iter().map(|name| (*name).to_owned()).collect::<Vec<_>>();
     names.extend(rail.environment_allowlist.iter().cloned());
     names.sort();
     names.dedup();
-    names.into_iter().filter_map(|name| std::env::var_os(&name).map(|value| (name, value))).collect()
+    names
+}
+
+fn allowed_environment(names: &[String]) -> Vec<(String, OsString)> {
+    names.iter().filter_map(|name| std::env::var_os(name).map(|value| (name.clone(), value))).collect()
 }
 
 struct BoundedText {
