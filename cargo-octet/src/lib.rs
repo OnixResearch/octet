@@ -4,6 +4,7 @@ mod cli;
 mod config;
 mod determinism;
 mod domain_types;
+mod effect_ports;
 mod engine;
 pub mod evidence;
 #[cfg(test)]
