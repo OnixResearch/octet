@@ -49,6 +49,8 @@ const FIELD_SCHEMA_VERSION: &str = "schema_version";
 const FIELD_POLICY_ID: &str = "policy_id";
 const FIELD_RAIL_INDEX: &str = "rail_index";
 const FIELD_BACKEND: &str = "backend";
+const FIELD_PRODUCER_ID: &str = "producer_id";
+const FIELD_CHECKER_ID: &str = "checker_id";
 const FIELD_COMMAND_BLAKE3: &str = "command_blake3";
 const FIELD_SOURCE_BINDINGS: &str = "source_bindings";
 const FIELD_PROOF_BINDINGS: &str = "proof_bindings";
@@ -79,6 +81,10 @@ pub struct VerusProofReceipt {
     pub backend: String,
     /// Verifier mode, such as `fixture` or `production`.
     pub verifier_mode: String,
+    /// Producer that emitted the proof-result material consumed by the checker.
+    pub producer_id: String,
+    /// Small deterministic checker that accepted this receipt contract.
+    pub checker_id: String,
     /// Verifier binary and closure identity.
     pub verifier_identity: VerusVerifierIdentity,
     /// Rust/Verus toolchain identity.
@@ -210,7 +216,7 @@ pub fn check_verified_proof_rails(
         .iter()
         .filter(|policy| selection.includes(&policy.pillar))
         .filter(|policy| policy_is_verified(policy))
-        .flat_map(|policy| check_policy_proof_rails(policy, sources))
+        .flat_map(|policy| check_policy_proof_rails(registry, policy, sources))
         .collect::<Vec<_>>();
     diagnostics.extend(check_verified_module_coverage(registry, sources, selection));
     diagnostics
@@ -261,6 +267,7 @@ pub fn build_verus_proof_receipt(input: &VerusProofReceiptInput<'_>) -> Result<V
         }
     };
     diagnostics.extend(verifier_identity_completeness_diagnostics(input.rail));
+    diagnostics.extend(checker_identity_completeness_diagnostics(input.rail));
     if !diagnostics.is_empty() {
         diagnostics.sort();
         diagnostics.dedup();
@@ -274,6 +281,8 @@ pub fn build_verus_proof_receipt(input: &VerusProofReceiptInput<'_>) -> Result<V
         rail_index: input.rail_index,
         backend: input.rail.backend.clone(),
         verifier_mode: verifier_mode(input.rail).to_owned(),
+        producer_id: expected_producer_id(input.rail).to_owned(),
+        checker_id: expected_checker_id(input.rail).to_owned(),
         verifier_identity: VerusVerifierIdentity {
             verifier_id: verifier.verifier_id.clone(),
             verifier_digest: verifier.verifier_digest.clone(),
@@ -358,6 +367,8 @@ pub fn render_verus_proof_receipt_contract() -> String {
     rendered.push_str("    rail_index | Number,\n");
     rendered.push_str("    backend | std.contract.from_predicate (fun value => value == \"verus\"),\n");
     rendered.push_str("    verifier_mode | VerifierMode,\n");
+    rendered.push_str("    producer_id | NonEmptyString,\n");
+    rendered.push_str("    checker_id | NonEmptyString,\n");
     rendered.push_str("    verifier_identity | {\n");
     rendered.push_str("      verifier_id | NonEmptyString,\n");
     rendered.push_str("      verifier_digest | String | default = \"\",\n");
@@ -416,6 +427,7 @@ fn validate_verus_proof_receipt(
     push_mismatch(&mut diagnostics, FIELD_BACKEND, &rail.backend, &receipt.backend);
     push_mismatch(&mut diagnostics, FIELD_PASS_SIGNAL, &rail.pass_signal, &receipt.pass_signal);
     push_mismatch(&mut diagnostics, FIELD_VERIFIER_MODE, verifier_mode(rail), &receipt.verifier_mode);
+    diagnostics.extend(validate_producer_checker_identity(rail, &receipt));
     if !matches!(receipt.status.as_str(), PROOF_STATUS_PASSED | PROOF_STATUS_FAILED) {
         diagnostics.push(format!("proof receipt field `{FIELD_STATUS}` has unsupported status `{}`", receipt.status));
     }
@@ -475,6 +487,19 @@ fn validate_legacy_proof_receipt(rail: &ProofRail, sources: &[SourceFile], proof
     if receipt_verifier_enabled(rail) && !receipt_verifier_matches(rail, sources, proof_source) {
         diagnostics
             .push(format!("mismatched receipt verifier metadata in proof receipt field `{FIELD_VERIFIER_IDENTITY}`"));
+    }
+    diagnostics
+}
+
+fn validate_producer_checker_identity(rail: &ProofRail, receipt: &VerusProofReceipt) -> Vec<String> {
+    let mut diagnostics = Vec::new();
+    push_mismatch(&mut diagnostics, FIELD_PRODUCER_ID, expected_producer_id(rail), &receipt.producer_id);
+    push_mismatch(&mut diagnostics, FIELD_CHECKER_ID, expected_checker_id(rail), &receipt.checker_id);
+    if !receipt.producer_id.trim().is_empty() && receipt.producer_id == receipt.checker_id {
+        diagnostics.push(format!(
+            "proof receipt field `{FIELD_CHECKER_ID}` must name an independent checker instead of self-asserted producer `{}`",
+            receipt.producer_id
+        ));
     }
     diagnostics
 }
@@ -636,6 +661,18 @@ fn push_optional_mismatch(diagnostics: &mut Vec<String>, field_name: &str, expec
     }
 }
 
+fn checker_identity_completeness_diagnostics(rail: &ProofRail) -> Vec<String> {
+    let mut diagnostics = Vec::new();
+    push_required_config(&mut diagnostics, FIELD_RECEIPT_PROVENANCE, "runner", expected_checker_id(rail));
+    if expected_producer_id(rail) == expected_checker_id(rail) && !expected_producer_id(rail).trim().is_empty() {
+        diagnostics.push(format!(
+            "proof rail configured `{FIELD_RECEIPT_PROVENANCE}.runner` must differ from producer `{}`",
+            expected_producer_id(rail)
+        ));
+    }
+    diagnostics
+}
+
 fn verifier_identity_completeness_diagnostics(rail: &ProofRail) -> Vec<String> {
     let verifier = &rail.receipt_verifier;
     let mut diagnostics = Vec::new();
@@ -689,6 +726,14 @@ fn push_required_config(diagnostics: &mut Vec<String>, parent_field: &str, field
     }
 }
 
+fn expected_producer_id(rail: &ProofRail) -> &str {
+    rail.receipt_verifier.verifier_id.as_str()
+}
+
+fn expected_checker_id(rail: &ProofRail) -> &str {
+    rail.receipt_provenance.runner.as_str()
+}
+
 fn default_non_claims() -> Vec<String> {
     [
         NON_CLAIM_WHOLE_PROGRAM,
@@ -705,7 +750,11 @@ fn policy_is_verified(policy: &PolicyEntry) -> bool {
         || policy.target_enforcement_mode == EnforcementMode::Verified
 }
 
-fn check_policy_proof_rails(policy: &PolicyEntry, sources: &[SourceFile]) -> Vec<Diagnostic> {
+fn check_policy_proof_rails(
+    registry: &PolicyRegistry,
+    policy: &PolicyEntry,
+    sources: &[SourceFile],
+) -> Vec<Diagnostic> {
     if policy.proof_rails.is_empty() {
         return vec![proof_diagnostic(
             policy,
@@ -719,11 +768,12 @@ fn check_policy_proof_rails(policy: &PolicyEntry, sources: &[SourceFile]) -> Vec
         .proof_rails
         .iter()
         .enumerate()
-        .flat_map(|(rail_index, rail)| check_proof_rail(policy, rail_index, rail, sources))
+        .flat_map(|(rail_index, rail)| check_proof_rail(registry, policy, rail_index, rail, sources))
         .collect()
 }
 
 fn check_proof_rail(
+    registry: &PolicyRegistry,
     policy: &PolicyEntry,
     rail_index: usize,
     rail: &ProofRail,
@@ -733,7 +783,10 @@ fn check_proof_rail(
         return Vec::new();
     }
 
-    let mut diagnostics = Vec::new();
+    let mut diagnostics = checker_registry_diagnostics(registry, rail)
+        .into_iter()
+        .map(|message| proof_diagnostic(policy, "policy", None, message))
+        .collect::<Vec<_>>();
     diagnostics.extend(
         path_pattern_diagnostics_inner(&rail.source_paths, sources, FIELD_SOURCE_PATHS)
             .into_iter()
@@ -795,6 +848,25 @@ fn check_proof_rail(
         format!("verified proof rail `{}` failed receipt validation: {}", rail.backend, first_failure.join("; ")),
     ));
     diagnostics
+}
+
+fn checker_registry_diagnostics(registry: &PolicyRegistry, rail: &ProofRail) -> Vec<String> {
+    if !rail_requires_structured_verus_receipt(rail) {
+        return Vec::new();
+    }
+    let checker_id = expected_checker_id(rail);
+    if checker_id.trim().is_empty() {
+        return vec![format!(
+            "proof rail is missing `{FIELD_RECEIPT_PROVENANCE}.runner` checker identity"
+        )];
+    }
+    if registry.has_checker_id(checker_id) {
+        Vec::new()
+    } else {
+        vec![format!(
+            "proof rail checker `{checker_id}` is not registered in checker_ids"
+        )]
+    }
 }
 
 fn check_verified_module_coverage(
@@ -1110,6 +1182,8 @@ mod tests {
         let sources = source_files();
         let proof_sources = proof_files();
         let receipt = valid_receipt(&rail, &sources, &proof_sources);
+        assert_eq!(receipt.producer_id, rail.receipt_verifier.verifier_id);
+        assert_eq!(receipt.checker_id, rail.receipt_provenance.runner);
         let proof_source = SourceFile::new(PROOF_ARTIFACT, serde_json::to_string(&receipt).expect("receipt json"));
 
         let diagnostics = validate_proof_receipt_with_identity(
@@ -1227,6 +1301,66 @@ mod tests {
 
         assert!(diagnostics.iter().any(|diagnostic| diagnostic.contains(FIELD_PROOF_BINDINGS)));
         assert!(diagnostics.iter().all(|diagnostic| !diagnostic.contains(POLICY_ID)));
+    }
+
+    #[test]
+    fn structured_verus_receipt_rejects_self_asserted_producer_only_promotion() {
+        let rail = verus_rail(VERIFIER_MODE_FIXTURE);
+        let sources = source_files();
+        let proof_sources = proof_files();
+        let mut receipt = valid_receipt(&rail, &sources, &proof_sources);
+        receipt.checker_id.clone_from(&receipt.producer_id);
+        let proof_source = SourceFile::new(PROOF_ARTIFACT, serde_json::to_string(&receipt).expect("receipt json"));
+
+        let diagnostics = validate_proof_receipt_with_identity(
+            &rail,
+            Some(POLICY_ID),
+            Some(0),
+            &all_validation_sources(),
+            &proof_source,
+        );
+
+        assert!(diagnostics.iter().any(|diagnostic| diagnostic.contains(FIELD_CHECKER_ID)));
+        assert!(diagnostics.iter().any(|diagnostic| diagnostic.contains("self-asserted producer")));
+    }
+
+    #[test]
+    fn verus_proof_receipt_builder_rejects_missing_checker_identity() {
+        let mut rail = verus_rail(VERIFIER_MODE_FIXTURE);
+        rail.receipt_provenance.runner.clear();
+        let errors = build_verus_proof_receipt(&VerusProofReceiptInput {
+            policy_id: POLICY_ID,
+            rail_index: 0,
+            rail: &rail,
+            sources: &source_files(),
+            proof_sources: &proof_files(),
+            checked_scope: "formal-proof:fixture-only:octet.verus_proof_rails.addition-bound#rail-0",
+            status: PROOF_STATUS_PASSED,
+            command_blake3: COMMAND_BLAKE3,
+            proof_artifact_identity: PROOF_ARTIFACT,
+            stdout_artifact: log_artifact(STDOUT_LOCATOR, PASS_SIGNAL),
+            stderr_artifact: log_artifact(STDERR_LOCATOR, ""),
+        })
+        .expect_err("missing checker identity should not build a promotion-grade receipt");
+
+        assert!(errors.iter().any(|error| error.contains("receipt_provenance.runner")));
+    }
+
+    #[test]
+    fn checker_registry_rejects_unknown_checker_id() {
+        let mut rail = verus_rail(VERIFIER_MODE_FIXTURE);
+        rail.receipt_provenance.runner = "unregistered-checker".to_owned();
+        let registry = PolicyRegistry {
+            schema_version: "test".to_owned(),
+            checker_ids: vec!["octet-standards".to_owned()],
+            policies: Vec::new(),
+            seed_manifests: Vec::new(),
+            config_receipt_families: Vec::new(),
+        };
+
+        let diagnostics = checker_registry_diagnostics(&registry, &rail);
+
+        assert_eq!(diagnostics, vec!["proof rail checker `unregistered-checker` is not registered in checker_ids"]);
     }
 
     #[test]
