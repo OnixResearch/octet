@@ -1,4 +1,5 @@
 use std::fs;
+use std::path::Path;
 use std::path::PathBuf;
 
 use serde::Deserialize;
@@ -155,12 +156,12 @@ fn run_scaffold(args: &ProofRefScaffoldArgs) -> Result<i32, String> {
     Ok(EXIT_VALID)
 }
 
-fn read_json<T: for<'de> Deserialize<'de>>(path: &PathBuf) -> Result<T, String> {
+fn read_json<T: for<'de> Deserialize<'de>>(path: &Path) -> Result<T, String> {
     let text = fs::read_to_string(path).map_err(|error| format!("read {}: {error}", path.display()))?;
     serde_json::from_str(&text).map_err(|error| format!("parse {} as JSON: {error}", path.display()))
 }
 
-fn read_scaffold_source_artifact(path: &PathBuf) -> Result<ConsumerSourceArtifact, String> {
+fn read_scaffold_source_artifact(path: &Path) -> Result<ConsumerSourceArtifact, String> {
     let text = fs::read_to_string(path).map_err(|error| format!("read consumer source {}: {error}", path.display()))?;
     Ok(ConsumerSourceArtifact {
         path: normalized_display(path),
@@ -169,7 +170,7 @@ fn read_scaffold_source_artifact(path: &PathBuf) -> Result<ConsumerSourceArtifac
     })
 }
 
-fn normalized_display(path: &PathBuf) -> String {
+fn normalized_display(path: &Path) -> String {
     path.display().to_string().replace('\\', "/")
 }
 

@@ -7,10 +7,12 @@
 
 pub mod architecture;
 pub mod artifacts;
+pub mod customs;
 pub mod dependency_direction;
 pub mod diagnostic;
 pub mod fixture;
 pub mod model;
+pub mod nickel_export;
 pub mod proof;
 pub mod proof_artifact;
 pub mod receipt;

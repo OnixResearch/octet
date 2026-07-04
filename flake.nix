@@ -862,6 +862,23 @@ MAIN
                 exit 1
               fi
             done
+
+            for file in \
+              standards/nickel-exports/fixtures/valid/*.ncl \
+              standards/policy-packages/fixtures/valid/*.ncl \
+              standards/external-schemas/fixtures/valid/*.ncl; do
+              nickel export --format json "$file" >/dev/null
+            done
+
+            for file in \
+              standards/nickel-exports/fixtures/invalid/*.ncl \
+              standards/policy-packages/fixtures/invalid/*.ncl \
+              standards/external-schemas/fixtures/invalid/*.ncl; do
+              if nickel export --format json "$file" >/dev/null 2>&1; then
+                echo "invalid generated-contract/package fixture passed: $file" >&2
+                exit 1
+              fi
+            done
           '';
         };
 
@@ -908,6 +925,23 @@ MAIN
           for file in standards/policies/fixtures/invalid/*.ncl; do
             if nickel export --format json "$file" >/dev/null 2>&1; then
               echo "invalid policy fixture passed: $file" >&2
+              exit 1
+            fi
+          done
+
+          for file in \
+            standards/nickel-exports/fixtures/valid/*.ncl \
+            standards/policy-packages/fixtures/valid/*.ncl \
+            standards/external-schemas/fixtures/valid/*.ncl; do
+            nickel export --format json "$file" >/dev/null
+          done
+
+          for file in \
+            standards/nickel-exports/fixtures/invalid/*.ncl \
+            standards/policy-packages/fixtures/invalid/*.ncl \
+            standards/external-schemas/fixtures/invalid/*.ncl; do
+            if nickel export --format json "$file" >/dev/null 2>&1; then
+              echo "invalid generated-contract/package fixture passed: $file" >&2
               exit 1
             fi
           done

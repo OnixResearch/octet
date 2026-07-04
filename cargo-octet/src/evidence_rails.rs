@@ -39,6 +39,9 @@ const DYNAMIC_COMMAND_LOOM_TEST: &str = "cargo test --cfg loom";
 const SUPPORTED_EVIDENCE_RAILS: &str = "dependency-audit, clippy-co-reporting, dependency-trust, api-stability, dynamic-evidence, release-supply-chain, mutation-testing, or coverage-baseline";
 const COVERAGE_PERCENT_MIN: f64 = 0.0;
 const COVERAGE_PERCENT_MAX: f64 = 100.0;
+const SCHEMA_VERSION_FIELD: &str = "schema_version";
+const DEPENDENCY_AUDIT_SCHEMA_VERSION: &str = "cargo-deny-diagnostics/v1";
+const COVERAGE_BASELINE_SCHEMA_VERSION: &str = "cargo-llvm-cov-summary/v1";
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum EvidenceRailKind {
@@ -498,6 +501,7 @@ fn parse_dependency_audit(input: &EvaluationInput<'_>) -> RailParseOutput {
     let value = parse_json_value(input.import_text, &mut diagnostics);
     let mut findings = Vec::new();
     if let Some(value) = value {
+        validate_dependency_audit_report_shape(&value, &mut diagnostics);
         for item in array_field(&value, "diagnostics") {
             let family = string_field(item, "category").unwrap_or("unknown").to_owned();
             let severity = string_field(item, "severity").unwrap_or("warning").to_owned();
@@ -842,6 +846,7 @@ fn parse_coverage_baseline(input: &EvaluationInput<'_>) -> RailParseOutput {
     let mut findings = Vec::new();
     let value = parse_json_value(input.import_text, &mut diagnostics);
     if let Some(value) = value {
+        validate_coverage_report_shape(&value, &mut diagnostics);
         validate_coverage_summary(&value, &mut diagnostics);
         push_coverage_findings(&value, "regressions", "coverage-regression", "coverage regression", &mut findings);
         push_coverage_findings(
@@ -1077,6 +1082,85 @@ fn advisory_database_update(
         Some(LOCKED_REUSED.to_owned())
     } else {
         Some(LOCKED_UNAVAILABLE.to_owned())
+    }
+}
+
+fn validate_dependency_audit_report_shape(value: &serde_json::Value, diagnostics: &mut Vec<String>) {
+    validate_optional_schema_version(value, DEPENDENCY_AUDIT_SCHEMA_VERSION, "dependency-audit", diagnostics);
+    validate_array_records(
+        value,
+        "diagnostics",
+        "dependency-audit diagnostic",
+        &["category", "severity", "message"],
+        diagnostics,
+    );
+}
+
+fn validate_coverage_report_shape(value: &serde_json::Value, diagnostics: &mut Vec<String>) {
+    validate_optional_schema_version(value, COVERAGE_BASELINE_SCHEMA_VERSION, "coverage-baseline", diagnostics);
+    let Some(summary) = value.get("summary") else {
+        diagnostics.push("coverage-baseline external schema requires `summary` object".to_owned());
+        return;
+    };
+    let Some(summary_object) = summary.as_object() else {
+        diagnostics.push("coverage-baseline external schema field `summary` must be an object".to_owned());
+        return;
+    };
+    for field in ["line_percent", "branch_percent", "function_percent"] {
+        if let Some(percent) = summary_object.get(field)
+            && !percent.is_number()
+        {
+            diagnostics.push(format!("coverage-baseline external schema field `summary.{field}` must be a number"));
+        }
+    }
+    validate_array_records(value, "regressions", "coverage regression", &["metric"], diagnostics);
+    validate_array_records(value, "threshold_failures", "coverage threshold failure", &["metric"], diagnostics);
+}
+
+fn validate_optional_schema_version(
+    value: &serde_json::Value,
+    expected: &str,
+    label: &str,
+    diagnostics: &mut Vec<String>,
+) {
+    let Some(schema_version) = value.get(SCHEMA_VERSION_FIELD) else {
+        return;
+    };
+    match schema_version.as_str() {
+        Some(actual) if actual == expected => {}
+        Some(actual) => diagnostics
+            .push(format!("{label} external schema version `{actual}` is unsupported; expected `{expected}`")),
+        None => diagnostics.push(format!("{label} external schema field `{SCHEMA_VERSION_FIELD}` must be a string")),
+    }
+}
+
+fn validate_array_records(
+    value: &serde_json::Value,
+    field: &str,
+    label: &str,
+    required_strings: &[&str],
+    diagnostics: &mut Vec<String>,
+) {
+    let Some(items) = value.get(field) else {
+        return;
+    };
+    let Some(items) = items.as_array() else {
+        diagnostics.push(format!("{label} external schema field `{field}` must be an array"));
+        return;
+    };
+    for (index, item) in items.iter().enumerate() {
+        let Some(record) = item.as_object() else {
+            diagnostics.push(format!("{label} external schema item `{field}[{index}]` must be an object"));
+            continue;
+        };
+        for required in required_strings {
+            match record.get(*required).and_then(serde_json::Value::as_str) {
+                Some(value) if !value.trim().is_empty() => {}
+                _ => diagnostics.push(format!(
+                    "{label} external schema item `{field}[{index}]` missing non-empty string `{required}`"
+                )),
+            }
+        }
     }
 }
 
@@ -1358,6 +1442,29 @@ mod tests {
     }
 
     #[test]
+    fn dependency_audit_external_schema_rejects_malformed_report_shape() {
+        let receipt = dependency_audit_receipt(
+            r#"{"schema_version":"cargo-deny-diagnostics/v0","diagnostics":[{"category":"licenses","severity":7}]}"#,
+            Some(DENY_CONFIG),
+        );
+
+        assert_eq!(receipt.status, STATUS_FAILED);
+        assert!(receipt.diagnostics.iter().any(|diagnostic| diagnostic.contains("unsupported")));
+        assert!(
+            receipt
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.contains("missing non-empty string `severity`"))
+        );
+        assert!(
+            receipt
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.contains("missing non-empty string `message`"))
+        );
+    }
+
+    #[test]
     fn dependency_audit_rejects_missing_config_and_preserves_denied_category() {
         let receipt = evaluate(EvaluationInput {
             rail: EvidenceRailKind::DependencyAudit,
@@ -1588,6 +1695,24 @@ mod tests {
         assert_eq!(survived.status, STATUS_MANUAL_REVIEW_REQUIRED);
         assert_eq!(survived.finding_counts.get("survived-mutant"), Some(&1));
         assert_eq!(survived.findings[0].line, Some(SURVIVED_MUTANT_LINE));
+    }
+
+    #[test]
+    fn coverage_baseline_external_schema_rejects_bad_summary_shape() {
+        let bad_version = coverage_receipt(
+            r#"{"schema_version":"cargo-llvm-cov-summary/v0","summary":{"line_percent":"many"},"regressions":[{}],"threshold_failures":[]}"#,
+            Some(BASELINE_IDENTITY.to_owned()),
+        );
+
+        assert_eq!(bad_version.status, STATUS_FAILED);
+        assert!(bad_version.diagnostics.iter().any(|diagnostic| diagnostic.contains("unsupported")));
+        assert!(bad_version.diagnostics.iter().any(|diagnostic| diagnostic.contains("summary.line_percent")));
+        assert!(
+            bad_version
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.contains("missing non-empty string `metric`"))
+        );
     }
 
     #[test]
