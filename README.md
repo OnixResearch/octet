@@ -246,3 +246,7 @@ AGPL-3.0-or-later
 ## References
 
 - `../trellis/` — reference Verus proof corpus and BLAKE3 proof-artifact identity patterns for Octet proof-path, proof-card, and imported proof-bundle work.
+- `github:nickel-lang/json-schema-to-nickel` — reference pattern for generating Nickel contracts from JSON Schema inputs while preserving generator capability caveats.
+- `github:nickel-lang/nickel-schemastore` — reference pattern for packaging many generated Nickel contracts behind a discoverable indexed library.
+- `github:nickel-lang/rules_nickel` — reference pattern for a small declarative Nickel export surface with source, dependencies, format, and output.
+- `github:nickel-lang/nickel-customs` — reference pattern for local sanity checks over contributed Nickel package metadata before promotion.
