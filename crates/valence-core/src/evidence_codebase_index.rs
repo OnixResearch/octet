@@ -42,6 +42,13 @@ mod tests {
     const FINDING_STABLE_ID: &str = "finding-stable-id";
     const FINGERPRINT_STABLE_ID: &str = "fingerprint-stable-id";
     const CAPSULE_HASH: &str = "capsule-hash-fixture";
+    const EVIDENCE_IDENTITY_LAW: &str = "evidence index equivalent inputs have byte-stable identity";
+    const EVIDENCE_ORDERING_LAW: &str = "evidence index records and diagnostics are deterministically ordered";
+    const EVIDENCE_NEGATIVE_DUPLICATE_LAW: &str = "evidence index conflicting duplicate locators fail closed";
+    const EVIDENCE_INDEX_LAW_REPLAY_COMMAND: &str =
+        "nix develop -c bash -c 'cargo test -p valence-core evidence_index_law -- --nocapture'";
+    const EVIDENCE_EQUIVALENCE_CASE_BUDGET: usize = 3;
+    const ORDERED_PAIR_WINDOW: usize = 2;
 
     #[test]
     fn deterministic_build_has_stable_records_and_hash() {
@@ -56,6 +63,74 @@ mod tests {
         assert!(first.records.iter().any(|record| record.artifact_family == "octet-replay-capsule"));
         assert!(first.records.iter().any(|record| record.artifact_family == "octet-transcript-markdown"));
         assert!(first.index_hash.len() > INDEX_SCHEMA_VERSION.len());
+    }
+
+    #[test]
+    fn evidence_index_law_equivalent_inputs_have_byte_stable_identity() {
+        assert!(EVIDENCE_INDEX_LAW_REPLAY_COMMAND.contains("evidence_index_law"));
+
+        let baseline = build_evidence_codebase_index(&fixture_inputs(), EvidenceIndexBuildMode::Strict);
+        let baseline_bytes = serde_json::to_vec(&baseline).expect("serialize baseline evidence index");
+        let variants = vec![
+            ("reversed", reversed_inputs(fixture_inputs())),
+            ("absolute-root", absolute_root_inputs(fixture_inputs(), "/tmp/octet-review-a")),
+            (
+                "absolute-root-reversed",
+                reversed_inputs(absolute_root_inputs(fixture_inputs(), "/var/tmp/octet-review-b")),
+            ),
+        ];
+        let mut case_count = 0;
+
+        for (case_name, inputs) in variants {
+            let index = build_evidence_codebase_index(&inputs, EvidenceIndexBuildMode::Strict);
+            let rendered = serde_json::to_vec(&index).expect("serialize generated evidence index case");
+
+            assert_eq!(index.index_hash, baseline.index_hash, "{EVIDENCE_IDENTITY_LAW} failed for {case_name}");
+            assert_eq!(rendered, baseline_bytes, "{EVIDENCE_IDENTITY_LAW} bytes changed for {case_name}");
+            assert_index_ordered(&index);
+            case_count += 1;
+        }
+
+        assert_eq!(case_count, EVIDENCE_EQUIVALENCE_CASE_BUDGET, "{EVIDENCE_IDENTITY_LAW}");
+    }
+
+    #[test]
+    fn evidence_index_law_duplicate_advisory_inputs_preserve_identity() {
+        let baseline = build_evidence_codebase_index(&fixture_inputs(), EvidenceIndexBuildMode::Advisory);
+        let mut duplicate_inputs = fixture_inputs();
+        duplicate_inputs.push(duplicate_inputs[0].clone());
+
+        let index = build_evidence_codebase_index(&duplicate_inputs, EvidenceIndexBuildMode::Advisory);
+
+        assert_eq!(index.source_artifact_count, baseline.source_artifact_count, "{EVIDENCE_IDENTITY_LAW}");
+        assert_eq!(index.record_count, baseline.record_count, "{EVIDENCE_IDENTITY_LAW}");
+        assert_eq!(index.index_hash, baseline.index_hash, "{EVIDENCE_IDENTITY_LAW}");
+        assert_eq!(index.records, baseline.records, "{EVIDENCE_IDENTITY_LAW}");
+        assert_eq!(index.issues, baseline.issues, "{EVIDENCE_IDENTITY_LAW}");
+        assert_index_ordered(&index);
+    }
+
+    #[test]
+    fn evidence_index_law_conflicting_duplicate_locator_fails_closed_stably() {
+        let mut inputs = fixture_inputs();
+        inputs.push(EvidenceArtifactInput {
+            locator: FINDING_LOCATOR.to_owned(),
+            bytes: b"{".to_vec(),
+        });
+
+        let first = build_evidence_codebase_index(&inputs, EvidenceIndexBuildMode::Strict);
+        let second = build_evidence_codebase_index(&reversed_inputs(inputs), EvidenceIndexBuildMode::Strict);
+
+        assert_eq!(first, second, "{EVIDENCE_NEGATIVE_DUPLICATE_LAW} should be order-stable");
+        assert!(
+            first.issues.iter().any(|issue| issue.code == MALFORMED_JSON_CODE),
+            "{EVIDENCE_NEGATIVE_DUPLICATE_LAW} should report malformed duplicate input"
+        );
+        assert!(
+            first.issues.iter().any(|issue| issue.severity == EvidenceIndexIssueSeverity::Error),
+            "{EVIDENCE_NEGATIVE_DUPLICATE_LAW} should keep strict-mode errors"
+        );
+        assert_index_ordered(&first);
     }
 
     #[test]
@@ -214,6 +289,43 @@ mod tests {
         EvidenceArtifactInput {
             locator: locator.to_owned(),
             bytes: text.into_bytes(),
+        }
+    }
+
+    fn reversed_inputs(mut inputs: Vec<EvidenceArtifactInput>) -> Vec<EvidenceArtifactInput> {
+        inputs.reverse();
+        inputs
+    }
+
+    fn absolute_root_inputs(mut inputs: Vec<EvidenceArtifactInput>, root: &str) -> Vec<EvidenceArtifactInput> {
+        for input in &mut inputs {
+            input.locator = format!("{root}/{}", input.locator);
+        }
+        inputs
+    }
+
+    fn assert_index_ordered(index: &EvidenceCodebaseIndex) {
+        for pair in index.records.windows(ORDERED_PAIR_WINDOW) {
+            let left = &pair[0];
+            let right = &pair[1];
+            let ordered = left
+                .artifact_family
+                .cmp(&right.artifact_family)
+                .then(left.stable_id.cmp(&right.stable_id))
+                .then(left.artifact_locator.cmp(&right.artifact_locator))
+                .then(left.record_id.cmp(&right.record_id));
+            assert!(ordered.is_le(), "{EVIDENCE_ORDERING_LAW}: records are not sorted");
+        }
+        for pair in index.issues.windows(ORDERED_PAIR_WINDOW) {
+            let left = &pair[0];
+            let right = &pair[1];
+            let ordered = left
+                .severity
+                .cmp(&right.severity)
+                .then(left.code.cmp(&right.code))
+                .then(left.artifact_locator.cmp(&right.artifact_locator))
+                .then(left.detail.cmp(&right.detail));
+            assert!(ordered.is_le(), "{EVIDENCE_ORDERING_LAW}: issues are not sorted");
         }
     }
 }
