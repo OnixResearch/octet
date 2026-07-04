@@ -15,6 +15,7 @@ mod external_schema_contracts;
 mod fingerprint;
 mod imported_proof;
 mod migrate;
+mod migration_sessions;
 mod object;
 mod object_core;
 mod output;
