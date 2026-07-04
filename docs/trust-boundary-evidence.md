@@ -151,6 +151,13 @@ Reviewers use the existing commands at the matching stage:
 - `cargo octet artifact verify` recomputes artifact identities and checks saved
   receipts plus provenance before an artifact directory is treated as evidence.
 
+The proof claim catalog at `standards/proof-claims/catalog.ncl` names stable
+cross-surface proof/evidence claims, their source policy or requirement, checked
+scope, expected evidence tier, allowed proof-card IDs, required artifacts,
+documentation anchors, lifecycle status, aliases, owners, and scoped non-claims.
+Catalog validation is a reference check: a catalog entry is not proof, and aliases
+must be explicit before old names continue to resolve.
+
 Structured Verus proof package locks bind the selected rail manifest identity,
 source/proof BLAKE3 bindings, command argv, environment allowlist, pass signal,
 trust boundaries, verifier/solver/toolchain identity, closure graph identity when
