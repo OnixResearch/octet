@@ -151,11 +151,20 @@ Reviewers use the existing commands at the matching stage:
 - `cargo octet artifact verify` recomputes artifact identities and checks saved
   receipts plus provenance before an artifact directory is treated as evidence.
 
+Structured Verus proof package locks bind the selected rail manifest identity,
+source/proof BLAKE3 bindings, command argv, environment allowlist, pass signal,
+trust boundaries, verifier/solver/toolchain identity, closure graph identity when
+available, and scoped non-claims before replay or promotion. Lock validation is
+offline over checked-in/local artifacts; it does not fetch packages, schemas, or
+network tool metadata and it does not prove verifier success by itself.
+
 Structured Verus receipts name both the proof-result producer (`producer_id`, the
 configured verifier identity) and the small deterministic checker (`checker_id`,
-registered through policy `checker_ids`). A producer-only assertion, missing
-checker identity, unregistered checker, stale binding, or overbroad non-claim
-cannot promote evidence to `formal_proof`.
+registered through policy `checker_ids`). Receipts also bind the proof package
+lock BLAKE3 identity. A producer-only assertion, missing checker identity,
+unregistered checker, stale lock, stale binding, or overbroad non-claim cannot
+promote evidence to `formal_proof`. Starter `cargo octet check` remains
+independent from proof package locks unless a proof rail is explicitly selected.
 
 Imported Trellis references take a separate content-addressed branch:
 

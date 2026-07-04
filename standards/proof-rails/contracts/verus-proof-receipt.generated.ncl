@@ -11,7 +11,38 @@ let VerifierMode = std.contract.from_predicate (fun value => std.is_string value
 ]) in
 let Binding = { path | NonEmptyString, blake3 | NonEmptyString } in
 let LogArtifact = { locator | NonEmptyString, blake3 | NonEmptyString, bytes | Number, truncated | Bool } in
+let VerifierIdentity = {
+  verifier_id | NonEmptyString,
+  verifier_digest | String | default = "",
+  verifier_binary_path | NonEmptyString,
+  verifier_binary_digest | NonEmptyString,
+  verifier_nix_closure | String | default = "",
+  verifier_nix_closure_digest | String | default = "",
+  verifier_nix_closure_graph_digest | String | default = "",
+} in
+let ToolchainIdentity = { toolchain_id | NonEmptyString, toolchain_digest | NonEmptyString } in
+let SolverIdentity = { solver_id | String | default = "", solver_digest | String | default = "" } in
 {
+  VerusProofPackageLockV1 = {
+    schema_version | std.contract.from_predicate (fun value => value == "octet-verus-proof-package-lock/v1"),
+    rail_manifest_blake3 | NonEmptyString,
+    policy_id | NonEmptyString,
+    rail_index | Number,
+    backend | std.contract.from_predicate (fun value => value == "verus"),
+    verifier_mode | VerifierMode,
+    producer_id | NonEmptyString,
+    checker_id | NonEmptyString,
+    command_argv | Array NonEmptyString,
+    environment_allowlist | Array NonEmptyString,
+    pass_signal | NonEmptyString,
+    trust_boundaries | Array NonEmptyString,
+    source_bindings | Array Binding,
+    proof_bindings | Array Binding,
+    verifier_identity | VerifierIdentity,
+    toolchain_identity | ToolchainIdentity,
+    solver_identity | SolverIdentity,
+    non_claims | Array NonEmptyString,
+  },
   VerusProofReceiptV1 = {
     schema_version | SchemaVersion,
     policy_id | NonEmptyString,
@@ -20,17 +51,10 @@ let LogArtifact = { locator | NonEmptyString, blake3 | NonEmptyString, bytes | N
     verifier_mode | VerifierMode,
     producer_id | NonEmptyString,
     checker_id | NonEmptyString,
-    verifier_identity | {
-      verifier_id | NonEmptyString,
-      verifier_digest | String | default = "",
-      verifier_binary_path | NonEmptyString,
-      verifier_binary_digest | NonEmptyString,
-      verifier_nix_closure | String | default = "",
-      verifier_nix_closure_digest | String | default = "",
-      verifier_nix_closure_graph_digest | String | default = "",
-    },
-    toolchain_identity | { toolchain_id | NonEmptyString, toolchain_digest | NonEmptyString },
-    solver_identity | { solver_id | String | default = "", solver_digest | String | default = "" },
+    package_lock_blake3 | NonEmptyString,
+    verifier_identity | VerifierIdentity,
+    toolchain_identity | ToolchainIdentity,
+    solver_identity | SolverIdentity,
     command_blake3 | NonEmptyString,
     source_bindings | Array Binding,
     proof_bindings | Array Binding,

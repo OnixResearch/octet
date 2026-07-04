@@ -14,6 +14,8 @@ use crate::model::ReceiptProvenance;
 use crate::model::ReceiptVerifier;
 use crate::source::SourceFile;
 
+/// Structured Verus proof package lock schema version.
+pub const VERUS_PROOF_PACKAGE_LOCK_SCHEMA_VERSION: &str = "octet-verus-proof-package-lock/v1";
 /// Structured Verus proof receipt schema version.
 pub const VERUS_PROOF_RECEIPT_SCHEMA_VERSION: &str = "octet-verus-proof-receipt/v1";
 /// Repository path for the generated Verus proof receipt Nickel contract.
@@ -51,6 +53,7 @@ const FIELD_RAIL_INDEX: &str = "rail_index";
 const FIELD_BACKEND: &str = "backend";
 const FIELD_PRODUCER_ID: &str = "producer_id";
 const FIELD_CHECKER_ID: &str = "checker_id";
+const FIELD_PACKAGE_LOCK_BLAKE3: &str = "package_lock_blake3";
 const FIELD_COMMAND_BLAKE3: &str = "command_blake3";
 const FIELD_SOURCE_BINDINGS: &str = "source_bindings";
 const FIELD_PROOF_BINDINGS: &str = "proof_bindings";
@@ -67,6 +70,47 @@ const PRODUCTION_SCOPE_MARKER: &str = "production";
 const NON_CLAIM_WHOLE_PROGRAM: &str = "not whole-program correctness";
 const NON_CLAIM_CERTIFICATION: &str = "not certification";
 const NON_CLAIM_BUSINESS_DOMAIN: &str = "not business-domain validation";
+
+/// Deterministic lock record for the proof material a Verus rail intends to check.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct VerusProofPackageLock {
+    /// Lock schema version.
+    pub schema_version: String,
+    /// BLAKE3 identity over the declared rail manifest material.
+    pub rail_manifest_blake3: String,
+    /// Owning policy ID.
+    pub policy_id: String,
+    /// Zero-based proof rail index within the owning policy.
+    pub rail_index: usize,
+    /// Proof backend identifier.
+    pub backend: String,
+    /// Verifier mode, such as `fixture` or `production`.
+    pub verifier_mode: String,
+    /// Producer expected to emit proof-result material.
+    pub producer_id: String,
+    /// Small deterministic checker expected to accept the lock/receipt contract.
+    pub checker_id: String,
+    /// Shell-free verifier command model.
+    pub command_argv: Vec<String>,
+    /// Environment variable names allowed during proof execution.
+    pub environment_allowlist: Vec<String>,
+    /// Configured pass signal.
+    pub pass_signal: String,
+    /// Scoped trust-boundary statements.
+    pub trust_boundaries: Vec<String>,
+    /// Source file bindings covered by the proof rail.
+    pub source_bindings: Vec<VerusProofBinding>,
+    /// Proof file bindings covered by the proof rail.
+    pub proof_bindings: Vec<VerusProofBinding>,
+    /// Verifier binary and closure identity.
+    pub verifier_identity: VerusVerifierIdentity,
+    /// Rust/Verus toolchain identity.
+    pub toolchain_identity: VerusToolchainIdentity,
+    /// Solver identity for production proof receipts.
+    pub solver_identity: VerusSolverIdentity,
+    /// Non-claim statements preventing overbroad proof interpretation.
+    pub non_claims: Vec<String>,
+}
 
 /// Structured Verus proof receipt emitted by `cargo octet prove`.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -85,6 +129,8 @@ pub struct VerusProofReceipt {
     pub producer_id: String,
     /// Small deterministic checker that accepted this receipt contract.
     pub checker_id: String,
+    /// BLAKE3 identity of the proof package lock that this receipt claims to execute.
+    pub package_lock_blake3: String,
     /// Verifier binary and closure identity.
     pub verifier_identity: VerusVerifierIdentity,
     /// Rust/Verus toolchain identity.
@@ -174,6 +220,20 @@ pub struct VerusLogArtifact {
     pub truncated: bool,
 }
 
+/// Pure input used to construct a Verus proof package lock.
+pub struct VerusProofPackageLockInput<'a> {
+    /// Owning policy ID.
+    pub policy_id: &'a str,
+    /// Zero-based proof rail index.
+    pub rail_index: usize,
+    /// Declared proof rail.
+    pub rail: &'a ProofRail,
+    /// In-memory source files.
+    pub sources: &'a [SourceFile],
+    /// In-memory proof files.
+    pub proof_sources: &'a [SourceFile],
+}
+
 /// Pure input used to construct a structured Verus proof receipt.
 pub struct VerusProofReceiptInput<'a> {
     /// Owning policy ID.
@@ -244,6 +304,179 @@ pub fn validate_proof_receipt_with_identity(
     }
 }
 
+/// Builds a deterministic Verus proof package lock from in-memory rail material.
+///
+/// # Errors
+///
+/// Returns sorted diagnostics when local material is missing, malformed, or incomplete.
+pub fn build_verus_proof_package_lock(
+    input: &VerusProofPackageLockInput<'_>,
+) -> Result<VerusProofPackageLock, Vec<String>> {
+    let mut diagnostics = Vec::new();
+    let source_bindings = match expected_path_bindings(&input.rail.source_paths, input.sources, FIELD_SOURCE_PATHS) {
+        Ok(bindings) => bindings,
+        Err(errors) => {
+            diagnostics.extend(errors);
+            Vec::new()
+        }
+    };
+    let proof_bindings = match expected_path_bindings(&input.rail.proof_paths, input.proof_sources, FIELD_PROOF_PATHS) {
+        Ok(bindings) => bindings,
+        Err(errors) => {
+            diagnostics.extend(errors);
+            Vec::new()
+        }
+    };
+    diagnostics.extend(verifier_identity_completeness_diagnostics(input.rail));
+    diagnostics.extend(checker_identity_completeness_diagnostics(input.rail));
+    diagnostics.extend(command_model_diagnostics(input.rail));
+    diagnostics.extend(trust_boundary_diagnostics(input.rail));
+    let verifier_identity =
+        resolved_verifier_identity(input.rail, &[input.sources, input.proof_sources].concat(), &mut diagnostics);
+    if !diagnostics.is_empty() {
+        diagnostics.sort();
+        diagnostics.dedup();
+        return Err(diagnostics);
+    }
+
+    let verifier = &input.rail.receipt_verifier;
+    Ok(VerusProofPackageLock {
+        schema_version: VERUS_PROOF_PACKAGE_LOCK_SCHEMA_VERSION.to_owned(),
+        rail_manifest_blake3: rail_manifest_blake3(input.rail),
+        policy_id: input.policy_id.to_owned(),
+        rail_index: input.rail_index,
+        backend: input.rail.backend.clone(),
+        verifier_mode: verifier_mode(input.rail).to_owned(),
+        producer_id: expected_producer_id(input.rail).to_owned(),
+        checker_id: expected_checker_id(input.rail).to_owned(),
+        command_argv: input.rail.command_argv.clone(),
+        environment_allowlist: input.rail.environment_allowlist.clone(),
+        pass_signal: input.rail.pass_signal.clone(),
+        trust_boundaries: input.rail.trust_boundaries.clone(),
+        source_bindings,
+        proof_bindings,
+        verifier_identity,
+        toolchain_identity: VerusToolchainIdentity {
+            toolchain_id: verifier.toolchain_id.clone(),
+            toolchain_digest: verifier.toolchain_digest.clone(),
+        },
+        solver_identity: VerusSolverIdentity {
+            solver_id: verifier.solver_id.clone(),
+            solver_digest: verifier.solver_digest.clone(),
+        },
+        non_claims: default_non_claims(),
+    })
+}
+
+/// Returns the BLAKE3 identity of a rendered proof package lock.
+#[must_use]
+pub fn proof_package_lock_blake3(lock: &VerusProofPackageLock) -> String {
+    let rendered = serde_json::to_string(lock).unwrap_or_else(|error| format!("serialization-error:{error}"));
+    crate::proof_artifact::blake3_hex_text(&rendered)
+}
+
+/// Validates a Verus proof package lock against local rail material.
+#[must_use]
+pub fn validate_verus_proof_package_lock(
+    input: &VerusProofPackageLockInput<'_>,
+    lock: &VerusProofPackageLock,
+) -> Vec<String> {
+    let expected = match build_verus_proof_package_lock(input) {
+        Ok(expected) => expected,
+        Err(errors) => return errors,
+    };
+    let mut diagnostics = lock_shape_diagnostics(lock);
+    push_mismatch(
+        &mut diagnostics,
+        "proof_package_lock.schema_version",
+        VERUS_PROOF_PACKAGE_LOCK_SCHEMA_VERSION,
+        &lock.schema_version,
+    );
+    push_mismatch(
+        &mut diagnostics,
+        "proof_package_lock.rail_manifest_blake3",
+        &expected.rail_manifest_blake3,
+        &lock.rail_manifest_blake3,
+    );
+    push_mismatch(&mut diagnostics, "proof_package_lock.policy_id", &expected.policy_id, &lock.policy_id);
+    if lock.rail_index != expected.rail_index {
+        diagnostics.push(format!(
+            "proof package lock field `rail_index` expected `{}` but got `{}`",
+            expected.rail_index, lock.rail_index
+        ));
+    }
+    push_mismatch(&mut diagnostics, "proof_package_lock.backend", &expected.backend, &lock.backend);
+    push_mismatch(&mut diagnostics, "proof_package_lock.verifier_mode", &expected.verifier_mode, &lock.verifier_mode);
+    push_mismatch(&mut diagnostics, "proof_package_lock.producer_id", &expected.producer_id, &lock.producer_id);
+    push_mismatch(&mut diagnostics, "proof_package_lock.checker_id", &expected.checker_id, &lock.checker_id);
+    push_vec_mismatch(&mut diagnostics, "proof_package_lock.command_argv", &expected.command_argv, &lock.command_argv);
+    push_vec_mismatch(
+        &mut diagnostics,
+        "proof_package_lock.environment_allowlist",
+        &expected.environment_allowlist,
+        &lock.environment_allowlist,
+    );
+    push_mismatch(&mut diagnostics, "proof_package_lock.pass_signal", &expected.pass_signal, &lock.pass_signal);
+    push_vec_mismatch(
+        &mut diagnostics,
+        "proof_package_lock.trust_boundaries",
+        &expected.trust_boundaries,
+        &lock.trust_boundaries,
+    );
+    push_bindings_mismatch(
+        &mut diagnostics,
+        "proof_package_lock.source_bindings",
+        &expected.source_bindings,
+        &lock.source_bindings,
+    );
+    push_bindings_mismatch(
+        &mut diagnostics,
+        "proof_package_lock.proof_bindings",
+        &expected.proof_bindings,
+        &lock.proof_bindings,
+    );
+    push_mismatch(
+        &mut diagnostics,
+        "proof_package_lock.verifier_identity.verifier_id",
+        &expected.verifier_identity.verifier_id,
+        &lock.verifier_identity.verifier_id,
+    );
+    push_optional_mismatch(
+        &mut diagnostics,
+        "proof_package_lock.verifier_identity.verifier_digest",
+        &expected.verifier_identity.verifier_digest,
+        &lock.verifier_identity.verifier_digest,
+    );
+    push_mismatch(
+        &mut diagnostics,
+        "proof_package_lock.verifier_identity.verifier_binary_digest",
+        &expected.verifier_identity.verifier_binary_digest,
+        &lock.verifier_identity.verifier_binary_digest,
+    );
+    push_optional_mismatch(
+        &mut diagnostics,
+        "proof_package_lock.verifier_identity.verifier_nix_closure_graph_digest",
+        &expected.verifier_identity.verifier_nix_closure_graph_digest,
+        &lock.verifier_identity.verifier_nix_closure_graph_digest,
+    );
+    push_mismatch(
+        &mut diagnostics,
+        "proof_package_lock.toolchain_identity.toolchain_id",
+        &expected.toolchain_identity.toolchain_id,
+        &lock.toolchain_identity.toolchain_id,
+    );
+    push_optional_mismatch(
+        &mut diagnostics,
+        "proof_package_lock.solver_identity.solver_id",
+        &expected.solver_identity.solver_id,
+        &lock.solver_identity.solver_id,
+    );
+    push_vec_mismatch(&mut diagnostics, "proof_package_lock.non_claims", &expected.non_claims, &lock.non_claims);
+    diagnostics.sort();
+    diagnostics.dedup();
+    diagnostics
+}
+
 /// Builds a deterministic structured Verus receipt from in-memory rail and command data.
 ///
 /// # Errors
@@ -268,6 +501,19 @@ pub fn build_verus_proof_receipt(input: &VerusProofReceiptInput<'_>) -> Result<V
     };
     diagnostics.extend(verifier_identity_completeness_diagnostics(input.rail));
     diagnostics.extend(checker_identity_completeness_diagnostics(input.rail));
+    let package_lock = match build_verus_proof_package_lock(&VerusProofPackageLockInput {
+        policy_id: input.policy_id,
+        rail_index: input.rail_index,
+        rail: input.rail,
+        sources: input.sources,
+        proof_sources: input.proof_sources,
+    }) {
+        Ok(lock) => Some(lock),
+        Err(errors) => {
+            diagnostics.extend(errors);
+            None
+        }
+    };
     if !diagnostics.is_empty() {
         diagnostics.sort();
         diagnostics.dedup();
@@ -275,6 +521,7 @@ pub fn build_verus_proof_receipt(input: &VerusProofReceiptInput<'_>) -> Result<V
     }
 
     let verifier = &input.rail.receipt_verifier;
+    let package_lock = package_lock.expect("package lock should be present after diagnostic check");
     Ok(VerusProofReceipt {
         schema_version: VERUS_PROOF_RECEIPT_SCHEMA_VERSION.to_owned(),
         policy_id: input.policy_id.to_owned(),
@@ -283,6 +530,7 @@ pub fn build_verus_proof_receipt(input: &VerusProofReceiptInput<'_>) -> Result<V
         verifier_mode: verifier_mode(input.rail).to_owned(),
         producer_id: expected_producer_id(input.rail).to_owned(),
         checker_id: expected_checker_id(input.rail).to_owned(),
+        package_lock_blake3: proof_package_lock_blake3(&package_lock),
         verifier_identity: VerusVerifierIdentity {
             verifier_id: verifier.verifier_id.clone(),
             verifier_digest: verifier.verifier_digest.clone(),
@@ -360,7 +608,43 @@ pub fn render_verus_proof_receipt_contract() -> String {
     rendered.push_str(
         "let LogArtifact = { locator | NonEmptyString, blake3 | NonEmptyString, bytes | Number, truncated | Bool } in\n",
     );
+    rendered.push_str("let VerifierIdentity = {\n");
+    rendered.push_str("  verifier_id | NonEmptyString,\n");
+    rendered.push_str("  verifier_digest | String | default = \"\",\n");
+    rendered.push_str("  verifier_binary_path | NonEmptyString,\n");
+    rendered.push_str("  verifier_binary_digest | NonEmptyString,\n");
+    rendered.push_str("  verifier_nix_closure | String | default = \"\",\n");
+    rendered.push_str("  verifier_nix_closure_digest | String | default = \"\",\n");
+    rendered.push_str("  verifier_nix_closure_graph_digest | String | default = \"\",\n");
+    rendered.push_str("} in\n");
+    rendered
+        .push_str("let ToolchainIdentity = { toolchain_id | NonEmptyString, toolchain_digest | NonEmptyString } in\n");
+    rendered.push_str(
+        "let SolverIdentity = { solver_id | String | default = \"\", solver_digest | String | default = \"\" } in\n",
+    );
     rendered.push_str("{\n");
+    rendered.push_str("  VerusProofPackageLockV1 = {\n");
+    rendered.push_str("    schema_version | std.contract.from_predicate (fun value => value == \"");
+    rendered.push_str(VERUS_PROOF_PACKAGE_LOCK_SCHEMA_VERSION);
+    rendered.push_str("\"),\n");
+    rendered.push_str("    rail_manifest_blake3 | NonEmptyString,\n");
+    rendered.push_str("    policy_id | NonEmptyString,\n");
+    rendered.push_str("    rail_index | Number,\n");
+    rendered.push_str("    backend | std.contract.from_predicate (fun value => value == \"verus\"),\n");
+    rendered.push_str("    verifier_mode | VerifierMode,\n");
+    rendered.push_str("    producer_id | NonEmptyString,\n");
+    rendered.push_str("    checker_id | NonEmptyString,\n");
+    rendered.push_str("    command_argv | Array NonEmptyString,\n");
+    rendered.push_str("    environment_allowlist | Array NonEmptyString,\n");
+    rendered.push_str("    pass_signal | NonEmptyString,\n");
+    rendered.push_str("    trust_boundaries | Array NonEmptyString,\n");
+    rendered.push_str("    source_bindings | Array Binding,\n");
+    rendered.push_str("    proof_bindings | Array Binding,\n");
+    rendered.push_str("    verifier_identity | VerifierIdentity,\n");
+    rendered.push_str("    toolchain_identity | ToolchainIdentity,\n");
+    rendered.push_str("    solver_identity | SolverIdentity,\n");
+    rendered.push_str("    non_claims | Array NonEmptyString,\n");
+    rendered.push_str("  },\n");
     rendered.push_str("  VerusProofReceiptV1 = {\n");
     rendered.push_str("    schema_version | SchemaVersion,\n");
     rendered.push_str("    policy_id | NonEmptyString,\n");
@@ -369,20 +653,10 @@ pub fn render_verus_proof_receipt_contract() -> String {
     rendered.push_str("    verifier_mode | VerifierMode,\n");
     rendered.push_str("    producer_id | NonEmptyString,\n");
     rendered.push_str("    checker_id | NonEmptyString,\n");
-    rendered.push_str("    verifier_identity | {\n");
-    rendered.push_str("      verifier_id | NonEmptyString,\n");
-    rendered.push_str("      verifier_digest | String | default = \"\",\n");
-    rendered.push_str("      verifier_binary_path | NonEmptyString,\n");
-    rendered.push_str("      verifier_binary_digest | NonEmptyString,\n");
-    rendered.push_str("      verifier_nix_closure | String | default = \"\",\n");
-    rendered.push_str("      verifier_nix_closure_digest | String | default = \"\",\n");
-    rendered.push_str("      verifier_nix_closure_graph_digest | String | default = \"\",\n");
-    rendered.push_str("    },\n");
-    rendered
-        .push_str("    toolchain_identity | { toolchain_id | NonEmptyString, toolchain_digest | NonEmptyString },\n");
-    rendered.push_str(
-        "    solver_identity | { solver_id | String | default = \"\", solver_digest | String | default = \"\" },\n",
-    );
+    rendered.push_str("    package_lock_blake3 | NonEmptyString,\n");
+    rendered.push_str("    verifier_identity | VerifierIdentity,\n");
+    rendered.push_str("    toolchain_identity | ToolchainIdentity,\n");
+    rendered.push_str("    solver_identity | SolverIdentity,\n");
     rendered.push_str("    command_blake3 | NonEmptyString,\n");
     rendered.push_str("    source_bindings | Array Binding,\n");
     rendered.push_str("    proof_bindings | Array Binding,\n");
@@ -428,6 +702,7 @@ fn validate_verus_proof_receipt(
     push_mismatch(&mut diagnostics, FIELD_PASS_SIGNAL, &rail.pass_signal, &receipt.pass_signal);
     push_mismatch(&mut diagnostics, FIELD_VERIFIER_MODE, verifier_mode(rail), &receipt.verifier_mode);
     diagnostics.extend(validate_producer_checker_identity(rail, &receipt));
+    diagnostics.extend(validate_receipt_package_lock(rail, policy_id, rail_index, sources, &receipt));
     if !matches!(receipt.status.as_str(), PROOF_STATUS_PASSED | PROOF_STATUS_FAILED) {
         diagnostics.push(format!("proof receipt field `{FIELD_STATUS}` has unsupported status `{}`", receipt.status));
     }
@@ -489,6 +764,36 @@ fn validate_legacy_proof_receipt(rail: &ProofRail, sources: &[SourceFile], proof
             .push(format!("mismatched receipt verifier metadata in proof receipt field `{FIELD_VERIFIER_IDENTITY}`"));
     }
     diagnostics
+}
+
+fn validate_receipt_package_lock(
+    rail: &ProofRail,
+    policy_id: Option<&str>,
+    rail_index: Option<usize>,
+    sources: &[SourceFile],
+    receipt: &VerusProofReceipt,
+) -> Vec<String> {
+    let lock_policy_id = policy_id.unwrap_or(&receipt.policy_id);
+    let lock_rail_index = rail_index.unwrap_or(receipt.rail_index);
+    let lock = match build_verus_proof_package_lock(&VerusProofPackageLockInput {
+        policy_id: lock_policy_id,
+        rail_index: lock_rail_index,
+        rail,
+        sources,
+        proof_sources: sources,
+    }) {
+        Ok(lock) => lock,
+        Err(errors) => return errors,
+    };
+    let expected = proof_package_lock_blake3(&lock);
+    if receipt.package_lock_blake3 == expected {
+        Vec::new()
+    } else {
+        vec![format!(
+            "proof receipt field `{FIELD_PACKAGE_LOCK_BLAKE3}` expected `{expected}` but got `{}`",
+            receipt.package_lock_blake3
+        )]
+    }
 }
 
 fn validate_producer_checker_identity(rail: &ProofRail, receipt: &VerusProofReceipt) -> Vec<String> {
@@ -644,6 +949,112 @@ fn validate_non_claims(receipt: &VerusProofReceipt) -> Vec<String> {
             "proof receipt field `non_claims` missing scoped non-claims: {}",
             missing.join(", ")
         )]
+    }
+}
+
+fn lock_shape_diagnostics(lock: &VerusProofPackageLock) -> Vec<String> {
+    let mut diagnostics = Vec::new();
+    if lock.command_argv.is_empty() {
+        diagnostics.push("proof package lock field `command_argv` is empty".to_owned());
+    }
+    for argument in &lock.command_argv {
+        if argument.trim().is_empty() {
+            diagnostics.push("proof package lock field `command_argv` contains an empty argument".to_owned());
+        }
+    }
+    for variable in &lock.environment_allowlist {
+        if variable.trim().is_empty() {
+            diagnostics.push("proof package lock field `environment_allowlist` contains an empty variable".to_owned());
+        }
+    }
+    if lock.trust_boundaries.is_empty() {
+        diagnostics.push("proof package lock field `trust_boundaries` is empty".to_owned());
+    }
+    if lock.non_claims.is_empty() {
+        diagnostics.push("proof package lock field `non_claims` is empty".to_owned());
+    }
+    diagnostics
+}
+
+fn command_model_diagnostics(rail: &ProofRail) -> Vec<String> {
+    let mut diagnostics = Vec::new();
+    if rail.command_argv.is_empty() {
+        diagnostics.push("proof rail is missing `command_argv`".to_owned());
+    }
+    for argument in &rail.command_argv {
+        if argument.trim().is_empty() {
+            diagnostics.push("proof rail field `command_argv` contains an empty argument".to_owned());
+        }
+    }
+    for variable in &rail.environment_allowlist {
+        if variable.trim().is_empty() {
+            diagnostics.push("proof rail field `environment_allowlist` contains an empty variable".to_owned());
+        }
+    }
+    if rail.pass_signal.trim().is_empty() {
+        diagnostics.push("proof rail is missing `pass_signal`".to_owned());
+    }
+    diagnostics
+}
+
+fn trust_boundary_diagnostics(rail: &ProofRail) -> Vec<String> {
+    if rail.trust_boundaries.is_empty() {
+        vec!["proof rail is missing `trust_boundaries`".to_owned()]
+    } else {
+        Vec::new()
+    }
+}
+
+fn resolved_verifier_identity(
+    rail: &ProofRail,
+    sources: &[SourceFile],
+    diagnostics: &mut Vec<String>,
+) -> VerusVerifierIdentity {
+    let verifier = &rail.receipt_verifier;
+    let verifier_nix_closure_graph_digest = if verifier.verifier_nix_closure_graph_paths.is_empty() {
+        verifier.verifier_nix_closure_graph_digest.clone()
+    } else {
+        match crate::proof_artifact::nix_closure_graph_digest(&verifier.verifier_nix_closure_graph_paths, sources) {
+            Ok(Some(digest)) => digest,
+            Ok(None) => verifier.verifier_nix_closure_graph_digest.clone(),
+            Err(error) => {
+                diagnostics.push(format!(
+                    "proof package lock field `verifier_identity.verifier_nix_closure_graph_digest` rejected malformed closure graph: {error}"
+                ));
+                verifier.verifier_nix_closure_graph_digest.clone()
+            }
+        }
+    };
+    VerusVerifierIdentity {
+        verifier_id: verifier.verifier_id.clone(),
+        verifier_digest: verifier.verifier_digest.clone(),
+        verifier_binary_path: verifier.verifier_binary_path.clone(),
+        verifier_binary_digest: verifier.verifier_binary_digest.clone(),
+        verifier_nix_closure: verifier.verifier_nix_closure.clone(),
+        verifier_nix_closure_digest: verifier.verifier_nix_closure_digest.clone(),
+        verifier_nix_closure_graph_digest,
+    }
+}
+
+fn rail_manifest_blake3(rail: &ProofRail) -> String {
+    let rendered = serde_json::to_string(rail).unwrap_or_else(|error| format!("serialization-error:{error}"));
+    crate::proof_artifact::blake3_hex_text(&rendered)
+}
+
+fn push_vec_mismatch(diagnostics: &mut Vec<String>, field_name: &str, expected: &[String], actual: &[String]) {
+    if expected != actual {
+        diagnostics.push(format!("proof package lock field `{field_name}` does not match declared rail material"));
+    }
+}
+
+fn push_bindings_mismatch(
+    diagnostics: &mut Vec<String>,
+    field_name: &str,
+    expected: &[VerusProofBinding],
+    actual: &[VerusProofBinding],
+) {
+    if expected != actual {
+        diagnostics.push(format!("proof package lock field `{field_name}` has stale or mismatched path bindings"));
     }
 }
 
@@ -1182,8 +1593,10 @@ mod tests {
         let sources = source_files();
         let proof_sources = proof_files();
         let receipt = valid_receipt(&rail, &sources, &proof_sources);
+        let lock = valid_lock(&rail, &sources, &proof_sources);
         assert_eq!(receipt.producer_id, rail.receipt_verifier.verifier_id);
         assert_eq!(receipt.checker_id, rail.receipt_provenance.runner);
+        assert_eq!(receipt.package_lock_blake3, proof_package_lock_blake3(&lock));
         let proof_source = SourceFile::new(PROOF_ARTIFACT, serde_json::to_string(&receipt).expect("receipt json"));
 
         let diagnostics = validate_proof_receipt_with_identity(
@@ -1195,6 +1608,84 @@ mod tests {
         );
 
         assert!(diagnostics.is_empty(), "unexpected diagnostics: {diagnostics:?}");
+    }
+
+    #[test]
+    fn verus_proof_package_lock_validates_exact_material() {
+        let rail = verus_rail(VERIFIER_MODE_PRODUCTION);
+        let sources = source_files();
+        let proof_sources = proof_files();
+        let lock = valid_lock(&rail, &sources, &proof_sources);
+
+        let diagnostics = validate_verus_proof_package_lock(&lock_input(&rail, &sources, &proof_sources), &lock);
+
+        assert!(diagnostics.is_empty(), "unexpected lock diagnostics: {diagnostics:?}");
+        assert_eq!(lock.schema_version, VERUS_PROOF_PACKAGE_LOCK_SCHEMA_VERSION);
+        assert_eq!(lock.producer_id, rail.receipt_verifier.verifier_id);
+        assert_eq!(lock.checker_id, rail.receipt_provenance.runner);
+        assert_eq!(lock.command_argv, rail.command_argv);
+        assert_eq!(lock.environment_allowlist, rail.environment_allowlist);
+        assert!(!proof_package_lock_blake3(&lock).is_empty());
+    }
+
+    #[test]
+    fn verus_proof_package_lock_rejects_stale_material_and_invalid_shape() {
+        let rail = verus_rail(VERIFIER_MODE_PRODUCTION);
+        let sources = source_files();
+        let proof_sources = proof_files();
+        let mut lock = valid_lock(&rail, &sources, &proof_sources);
+        lock.source_bindings[0].blake3 = "stale-source".to_owned();
+        lock.proof_bindings[0].blake3 = "stale-proof".to_owned();
+        lock.verifier_identity.verifier_id = "wrong-verifier".to_owned();
+        lock.solver_identity.solver_id = "wrong-solver".to_owned();
+        lock.command_argv = vec!["octet-verus".to_owned(), "wrong-proof.rs".to_owned()];
+        lock.environment_allowlist.push(String::new());
+        lock.trust_boundaries.clear();
+
+        let diagnostics = validate_verus_proof_package_lock(&lock_input(&rail, &sources, &proof_sources), &lock);
+
+        assert!(diagnostics.iter().any(|diagnostic| diagnostic.contains("source_bindings")));
+        assert!(diagnostics.iter().any(|diagnostic| diagnostic.contains("proof_bindings")));
+        assert!(diagnostics.iter().any(|diagnostic| diagnostic.contains("verifier_identity.verifier_id")));
+        assert!(diagnostics.iter().any(|diagnostic| diagnostic.contains("solver_identity.solver_id")));
+        assert!(diagnostics.iter().any(|diagnostic| diagnostic.contains("command_argv")));
+        assert!(diagnostics.iter().any(|diagnostic| diagnostic.contains("environment_allowlist")));
+        assert!(diagnostics.iter().any(|diagnostic| diagnostic.contains("trust_boundaries")));
+    }
+
+    #[test]
+    fn verus_proof_package_lock_rejects_malformed_closure_graph_offline() {
+        let mut rail = verus_rail(VERIFIER_MODE_PRODUCTION);
+        rail.receipt_verifier.verifier_nix_closure_graph_digest = "configured-graph-digest".to_owned();
+        rail.receipt_verifier.verifier_nix_closure_graph_paths = vec!["artifacts/proof/closure.graph".to_owned()];
+        let sources = source_files();
+        let mut proof_sources = proof_files();
+        proof_sources.push(SourceFile::new("artifacts/proof/closure.graph", "/nix/store/verus\nnot-a-count\n"));
+
+        let errors = build_verus_proof_package_lock(&lock_input(&rail, &sources, &proof_sources))
+            .expect_err("malformed closure graph should fail before proof execution");
+
+        assert!(errors.iter().any(|error| error.contains("malformed closure graph")));
+    }
+
+    #[test]
+    fn structured_verus_receipt_rejects_package_lock_hash_drift() {
+        let rail = verus_rail(VERIFIER_MODE_FIXTURE);
+        let sources = source_files();
+        let proof_sources = proof_files();
+        let mut receipt = valid_receipt(&rail, &sources, &proof_sources);
+        receipt.package_lock_blake3 = "stale-lock".to_owned();
+        let proof_source = SourceFile::new(PROOF_ARTIFACT, serde_json::to_string(&receipt).expect("receipt json"));
+
+        let diagnostics = validate_proof_receipt_with_identity(
+            &rail,
+            Some(POLICY_ID),
+            Some(0),
+            &all_validation_sources(),
+            &proof_source,
+        );
+
+        assert!(diagnostics.iter().any(|diagnostic| diagnostic.contains(FIELD_PACKAGE_LOCK_BLAKE3)));
     }
 
     #[test]
@@ -1492,6 +1983,24 @@ mod tests {
         proof_artifact: &'a str,
         stdout_locator: &'a str,
         stderr_locator: &'a str,
+    }
+
+    fn valid_lock(rail: &ProofRail, sources: &[SourceFile], proof_sources: &[SourceFile]) -> VerusProofPackageLock {
+        build_verus_proof_package_lock(&lock_input(rail, sources, proof_sources)).expect("valid proof package lock")
+    }
+
+    fn lock_input<'a>(
+        rail: &'a ProofRail,
+        sources: &'a [SourceFile],
+        proof_sources: &'a [SourceFile],
+    ) -> VerusProofPackageLockInput<'a> {
+        VerusProofPackageLockInput {
+            policy_id: POLICY_ID,
+            rail_index: 0,
+            rail,
+            sources,
+            proof_sources,
+        }
     }
 
     fn valid_receipt(rail: &ProofRail, sources: &[SourceFile], proof_sources: &[SourceFile]) -> VerusProofReceipt {
