@@ -12,5 +12,6 @@
 //! equivalence, exhaustive Rust coverage, pure-cache eligibility, cross-machine
 //! determinism, cross-toolchain determinism, or general HIR/THIR/MIR extraction.
 
+pub mod evidence_codebase_index;
 pub mod evidence_index;
 pub mod function_object;
