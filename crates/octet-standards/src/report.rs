@@ -3,6 +3,7 @@
 use serde::Deserialize;
 use serde::Serialize;
 
+use crate::capability_manifest::CapabilityReport;
 use crate::diagnostic::Diagnostic;
 use crate::model::EnforcementMode;
 use crate::model::Severity;
@@ -12,6 +13,7 @@ const EMPTY_REPORT_MARKDOWN: &str = "# Tiger Style Standards Report\n\nNo findin
 const REPORT_HEADING: &str = "# Tiger Style Standards Report";
 const FINDINGS_HEADING: &str = "## Findings";
 const SUPPRESSIONS_HEADING: &str = "## Active Suppressions";
+const CAPABILITY_REPORTS_HEADING: &str = "## Capability Manifest Reports";
 const NO_SUPPRESSIONS_LINE: &str = "No active suppressions.";
 
 /// Stable report from a Tiger Style standards checker run.
@@ -26,6 +28,9 @@ pub struct CheckReport {
     /// Enforcement-mode metadata for evaluated policies.
     #[serde(default)]
     pub policy_evaluations: Vec<PolicyEvaluation>,
+    /// Capability manifest reports emitted by architecture checks.
+    #[serde(default)]
+    pub capability_reports: Vec<CapabilityReport>,
 }
 
 /// Enforcement metadata emitted in machine-readable reports.
@@ -67,7 +72,7 @@ pub fn render_json(report: &CheckReport) -> Result<String, serde_json::Error> {
 /// Renders a report as deterministic markdown.
 #[must_use]
 pub fn render_markdown(report: &CheckReport) -> String {
-    if report.diagnostics.is_empty() && report.active_suppressions.is_empty() {
+    if report.diagnostics.is_empty() && report.active_suppressions.is_empty() && report.capability_reports.is_empty() {
         return EMPTY_REPORT_MARKDOWN.to_owned();
     }
 
@@ -75,6 +80,7 @@ pub fn render_markdown(report: &CheckReport) -> String {
     append_heading(&mut markdown);
     append_diagnostics(&mut markdown, &report.diagnostics);
     append_suppressions(&mut markdown, &report.active_suppressions);
+    append_capability_reports(&mut markdown, &report.capability_reports);
     markdown
 }
 
@@ -138,6 +144,84 @@ fn append_suppressions(markdown: &mut String, suppressions: &[Suppression]) {
         markdown.push_str(&suppression.scope);
         markdown.push('\n');
     }
+}
+
+fn append_capability_reports(markdown: &mut String, reports: &[CapabilityReport]) {
+    if reports.is_empty() {
+        return;
+    }
+    markdown.push('\n');
+    markdown.push_str(CAPABILITY_REPORTS_HEADING);
+    markdown.push_str("\n\n");
+    for report in reports {
+        append_capability_report(markdown, report);
+    }
+}
+
+fn append_capability_report(markdown: &mut String, report: &CapabilityReport) {
+    markdown.push_str("- `");
+    markdown.push_str(&report.policy_id);
+    markdown.push_str("` mode=");
+    markdown.push_str(&report.enforcement_mode);
+    markdown.push('\n');
+    markdown.push_str("  - Scope classes: ");
+    markdown.push_str(&report.declared_scope_classes.join(", "));
+    markdown.push('\n');
+    markdown.push_str("  - Capability families: ");
+    markdown.push_str(&report.declared_capability_families.join(", "));
+    markdown.push('\n');
+    markdown.push_str("  - Observations: ");
+    markdown.push_str(&report.observations.len().to_string());
+    markdown.push('\n');
+    for observation in &report.observations {
+        append_capability_observation(markdown, observation);
+    }
+    markdown.push_str("  - Handler evidence: ");
+    markdown.push_str(&report.handler_evidence.len().to_string());
+    markdown.push('\n');
+    for evidence in &report.handler_evidence {
+        markdown.push_str("    - `");
+        markdown.push_str(&evidence.handler);
+        markdown.push_str("` artifact=`");
+        markdown.push_str(&evidence.artifact);
+        markdown.push_str("` replay=`");
+        markdown.push_str(&evidence.replay_command);
+        markdown.push_str("` blake3=");
+        markdown.push_str(&evidence.blake3);
+        markdown.push_str(" success=");
+        markdown.push_str(&evidence.success_path_coverage.to_string());
+        markdown.push_str(" failure=");
+        markdown.push_str(&evidence.failure_path_coverage.to_string());
+        markdown.push('\n');
+    }
+    markdown.push_str("  - Non-claims:\n");
+    for non_claim in &report.non_claims {
+        markdown.push_str("    - ");
+        markdown.push_str(non_claim);
+        markdown.push('\n');
+    }
+}
+
+fn append_capability_observation(
+    markdown: &mut String,
+    observation: &crate::capability_manifest::CapabilityObservation,
+) {
+    let line = observation.line.map_or_else(|| String::from("unknown"), |line| line.to_string());
+    markdown.push_str("    - ");
+    markdown.push_str(&observation.status);
+    markdown.push_str(" `");
+    markdown.push_str(&observation.observation_kind);
+    markdown.push_str("` ");
+    markdown.push_str(&observation.capability_family);
+    markdown.push_str(" at `");
+    markdown.push_str(&observation.path);
+    markdown.push(':');
+    markdown.push_str(&line);
+    markdown.push_str("` matched `");
+    markdown.push_str(&observation.matched);
+    markdown.push_str("` lint_ids=[");
+    markdown.push_str(&observation.linked_lint_ids.join(", "));
+    markdown.push_str("]\n");
 }
 
 fn severity_label(severity: Severity) -> &'static str {

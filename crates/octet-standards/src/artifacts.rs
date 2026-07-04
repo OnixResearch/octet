@@ -336,15 +336,6 @@ pub fn render_check_config_toml(registry: &PolicyRegistry) -> String {
         bounded_queue_mechanism_field(bounded_queue, |mechanism| &mechanism.capacity_witnesses);
     let bounded_queue_backpressure_behaviors =
         bounded_queue_mechanism_field(bounded_queue, |mechanism| &mechanism.backpressure_behaviors);
-    let capability_policy = effect_capability_policy(registry);
-    let capability_forbidden_ambient_apis =
-        capability_mechanism_field(capability_policy, |mechanism| &mechanism.forbidden_ambient_apis);
-    let capability_core_source_scopes =
-        capability_mechanism_field(capability_policy, |mechanism| &mechanism.core_source_scopes);
-    let capability_shell_constructor_scopes =
-        capability_mechanism_field(capability_policy, |mechanism| &mechanism.shell_constructor_scopes);
-    let capability_approved_names =
-        capability_mechanism_field(capability_policy, |mechanism| &mechanism.approved_capability_names);
     let type_state_policy = nominal_type_boundary_policy(registry);
     let type_state_source_scopes =
         type_state_mechanism_field(type_state_policy, |mechanism| &mechanism.type_state_source_scopes);
@@ -390,10 +381,7 @@ pub fn render_check_config_toml(registry: &PolicyRegistry) -> String {
     append_toml_array(&mut toml, "bounded_queue_wrapper_scopes", &bounded_queue_wrapper_scopes);
     append_toml_array(&mut toml, "bounded_queue_capacity_witnesses", &bounded_queue_capacity_witnesses);
     append_toml_array(&mut toml, "bounded_queue_backpressure_behaviors", &bounded_queue_backpressure_behaviors);
-    append_toml_array(&mut toml, "capability_forbidden_ambient_apis", &capability_forbidden_ambient_apis);
-    append_toml_array(&mut toml, "capability_core_source_scopes", &capability_core_source_scopes);
-    append_toml_array(&mut toml, "capability_shell_constructor_scopes", &capability_shell_constructor_scopes);
-    append_toml_array(&mut toml, "capability_approved_names", &capability_approved_names);
+    append_capability_config(&mut toml, registry);
     append_toml_array(&mut toml, "type_state_source_scopes", &type_state_source_scopes);
     append_toml_array(&mut toml, "type_state_raw_alias_patterns", &type_state_raw_alias_patterns);
     append_toml_array(&mut toml, "type_state_raw_transition_patterns", &type_state_raw_transition_patterns);
@@ -407,6 +395,107 @@ pub fn render_check_config_toml(registry: &PolicyRegistry) -> String {
     append_toml_array(&mut toml, "crate_dependency_edge_kinds", &crate_dependency_edge_kinds);
     append_proof_rail_config(&mut toml, registry);
     toml
+}
+
+fn append_capability_config(toml: &mut String, registry: &PolicyRegistry) {
+    let capability_policy = effect_capability_policy(registry);
+    append_toml_array(
+        toml,
+        "capability_forbidden_ambient_apis",
+        &capability_mechanism_field(capability_policy, |mechanism| &mechanism.forbidden_ambient_apis),
+    );
+    append_toml_array(
+        toml,
+        "capability_core_source_scopes",
+        &capability_mechanism_field(capability_policy, |mechanism| &mechanism.core_source_scopes),
+    );
+    append_toml_array(
+        toml,
+        "capability_shell_constructor_scopes",
+        &capability_mechanism_field(capability_policy, |mechanism| &mechanism.shell_constructor_scopes),
+    );
+    append_toml_array(
+        toml,
+        "capability_approved_names",
+        &capability_mechanism_field(capability_policy, |mechanism| &mechanism.approved_capability_names),
+    );
+    append_capability_manifest_config(toml, capability_policy);
+}
+
+fn append_capability_manifest_config(toml: &mut String, policy: Option<&PolicyEntry>) {
+    append_toml_array(
+        toml,
+        "capability_enforcement_modes",
+        &capability_mechanism_string_field(policy, |mechanism| &mechanism.capability_enforcement_mode),
+    );
+    append_toml_array(
+        toml,
+        "capability_scope_classes",
+        &capability_mechanism_field(policy, |mechanism| &mechanism.capability_scope_classes),
+    );
+    append_toml_array(
+        toml,
+        "capability_families",
+        &capability_mechanism_field(policy, |mechanism| &mechanism.capability_families),
+    );
+    append_toml_array(
+        toml,
+        "capability_injected_traits",
+        &capability_mechanism_field(policy, |mechanism| &mechanism.capability_injected_traits),
+    );
+    append_toml_array(
+        toml,
+        "capability_tokens",
+        &capability_mechanism_field(policy, |mechanism| &mechanism.capability_tokens),
+    );
+    append_capability_manifest_scope_config(toml, policy);
+    append_capability_manifest_handler_config(toml, policy);
+}
+
+fn append_capability_manifest_scope_config(toml: &mut String, policy: Option<&PolicyEntry>) {
+    append_toml_array(
+        toml,
+        "capability_shell_interpreters",
+        &capability_mechanism_field(policy, |mechanism| &mechanism.capability_shell_interpreters),
+    );
+    append_toml_array(
+        toml,
+        "capability_adapter_scopes",
+        &capability_mechanism_field(policy, |mechanism| &mechanism.capability_adapter_scopes),
+    );
+    append_toml_array(
+        toml,
+        "capability_test_scopes",
+        &capability_mechanism_field(policy, |mechanism| &mechanism.capability_test_scopes),
+    );
+    append_toml_array(
+        toml,
+        "capability_generated_scopes",
+        &capability_mechanism_field(policy, |mechanism| &mechanism.capability_generated_scopes),
+    );
+    append_toml_array(
+        toml,
+        "capability_remote_execution_scopes",
+        &capability_mechanism_field(policy, |mechanism| &mechanism.capability_remote_execution_scopes),
+    );
+}
+
+fn append_capability_manifest_handler_config(toml: &mut String, policy: Option<&PolicyEntry>) {
+    append_toml_array(
+        toml,
+        "capability_deterministic_handlers",
+        &capability_mechanism_field(policy, |mechanism| &mechanism.capability_deterministic_handlers),
+    );
+    append_toml_array(
+        toml,
+        "capability_handler_replay_commands",
+        &capability_mechanism_field(policy, |mechanism| &mechanism.capability_handler_replay_commands),
+    );
+    append_toml_array(
+        toml,
+        "capability_handler_artifacts",
+        &capability_mechanism_field(policy, |mechanism| &mechanism.capability_handler_artifacts),
+    );
 }
 
 fn append_proof_rail_config(toml: &mut String, registry: &PolicyRegistry) {
@@ -609,14 +698,34 @@ fn capability_mechanism_field(
     policy: Option<&PolicyEntry>,
     field: impl Fn(&crate::model::Mechanism) -> &Vec<String>,
 ) -> Vec<String> {
-    policy
-        .and_then(|policy| {
-            policy
-                .mechanisms
-                .iter()
-                .find(|mechanism| mechanism.kind == crate::model::MechanismKind::CapabilityApi)
-        })
-        .map_or_else(Vec::new, |mechanism| field(mechanism).clone())
+    match capability_mechanism(policy) {
+        Some(mechanism) => field(mechanism).clone(),
+        None => Vec::new(),
+    }
+}
+
+fn capability_mechanism_string_field(
+    policy: Option<&PolicyEntry>,
+    field: impl Fn(&crate::model::Mechanism) -> &String,
+) -> Vec<String> {
+    let Some(mechanism) = capability_mechanism(policy) else {
+        return Vec::new();
+    };
+    let value = field(mechanism);
+    if value.is_empty() {
+        Vec::new()
+    } else {
+        vec![value.clone()]
+    }
+}
+
+fn capability_mechanism(policy: Option<&PolicyEntry>) -> Option<&crate::model::Mechanism> {
+    policy.and_then(|policy| {
+        policy
+            .mechanisms
+            .iter()
+            .find(|mechanism| mechanism.kind == crate::model::MechanismKind::CapabilityApi)
+    })
 }
 
 fn bounded_queue_mechanism_field(

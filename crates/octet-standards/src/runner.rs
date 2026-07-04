@@ -1,6 +1,7 @@
 //! Pure checker runner.
 
 use crate::architecture::check_architecture;
+use crate::capability_manifest::check_capability_manifest;
 use crate::model::FamilySelection;
 use crate::model::PolicyRegistry;
 use crate::proof::check_verified_proof_rails;
@@ -27,6 +28,8 @@ pub fn run_checks(input: &CheckInput) -> CheckReport {
     let suppression_report = validate_suppressions(&input.registry, &input.sources, &input.selection);
     let mut diagnostics = suppression_report.diagnostics;
     diagnostics.extend(check_architecture(&input.registry, &input.sources, &input.selection));
+    let capability_manifest = check_capability_manifest(&input.registry, &input.sources, &input.selection);
+    diagnostics.extend(capability_manifest.diagnostics);
     diagnostics.extend(check_resources(&input.registry, &input.sources, &input.selection));
     diagnostics.extend(check_verified_proof_rails(&input.registry, &input.sources, &input.selection));
     let evaluated_policy_ids = evaluated_policy_ids(&input.registry, &input.selection);
@@ -37,6 +40,7 @@ pub fn run_checks(input: &CheckInput) -> CheckReport {
         active_suppressions: suppression_report.active_suppressions,
         evaluated_policy_ids,
         policy_evaluations,
+        capability_reports: capability_manifest.reports,
     }
 }
 

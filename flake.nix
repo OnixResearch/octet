@@ -1202,6 +1202,7 @@ MAIN
           octet-standards check \
             --policy-artifacts-dir "$artifact_dir" \
             --source standards/check-fixtures/architecture/compliant \
+            --source standards/check-fixtures/capability/clock-handler.txt \
             --family architecture \
             --output json > "$compliant_json"
           jq --exit-status '.diagnostics | length == 0' "$compliant_json" >/dev/null
@@ -1242,6 +1243,7 @@ MAIN
           octet-standards check \
             --policy-artifacts-dir "$artifact_dir" \
             --source standards/check-fixtures/architecture/advisory \
+            --source standards/check-fixtures/capability/clock-handler.txt \
             --family architecture \
             --output json > "$advisory_json"
           jq --exit-status '.diagnostics | length == 1' "$advisory_json" >/dev/null
@@ -1261,6 +1263,7 @@ MAIN
           if octet-standards check \
             --policy-artifacts-dir "$artifact_dir" \
             --source standards/check-fixtures/architecture/noncompliant \
+            --source standards/check-fixtures/capability/clock-handler.txt \
             --family architecture \
             --output json > "$noncompliant_json"; then
             echo "noncompliant architecture fixtures unexpectedly passed" >&2

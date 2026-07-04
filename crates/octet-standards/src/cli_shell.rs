@@ -263,8 +263,8 @@ fn run_cli(cli: Cli) -> Result<bool, CliError> {
     match cli.command {
         Command::Check(args) => run_check_command(args),
         Command::ExportArtifacts(args) => run_export_artifacts_command(&args),
-        Command::NickelExportManifest(args) => run_nickel_export_manifest_command(args),
-        Command::CustomsGate(args) => run_customs_gate_command(args),
+        Command::NickelExportManifest(args) => run_nickel_export_manifest_command(&args),
+        Command::CustomsGate(args) => run_customs_gate_command(&args),
         Command::FixtureCoverage(args) => run_fixture_coverage_command(args),
     }
 }
@@ -286,6 +286,7 @@ fn run_check_command(args: CheckArgs) -> Result<bool, CliError> {
                     active_suppressions: Vec::new(),
                     evaluated_policy_ids: Vec::new(),
                     policy_evaluations: Vec::new(),
+                    capability_reports: Vec::new(),
                 };
                 emit_report(args.output, &report)?;
                 return Ok(report.has_blocking_diagnostics());
@@ -344,7 +345,7 @@ fn run_export_artifacts_command(args: &ExportArtifactsArgs) -> Result<bool, CliE
     Ok(false)
 }
 
-fn run_nickel_export_manifest_command(args: NickelExportManifestArgs) -> Result<bool, CliError> {
+fn run_nickel_export_manifest_command(args: &NickelExportManifestArgs) -> Result<bool, CliError> {
     let spec = load_json::<NickelExportSpec>(&args.spec)?;
     let source_text = read_text(Path::new(&spec.source))?;
     let dependency_texts = spec
@@ -387,7 +388,7 @@ fn run_nickel_export_manifest_command(args: NickelExportManifestArgs) -> Result<
     Ok(false)
 }
 
-fn run_customs_gate_command(args: CustomsGateArgs) -> Result<bool, CliError> {
+fn run_customs_gate_command(args: &CustomsGateArgs) -> Result<bool, CliError> {
     let registry = load_json::<PolicyRegistry>(&args.registry)?;
     let package = load_json::<PolicyPackageManifest>(&args.manifest)?;
     let artifact_manifest =
@@ -435,6 +436,7 @@ fn run_fixture_coverage_command(args: FixtureCoverageArgs) -> Result<bool, CliEr
         active_suppressions: Vec::new(),
         evaluated_policy_ids: Vec::new(),
         policy_evaluations: Vec::new(),
+        capability_reports: Vec::new(),
     };
     emit_report(output, &report)?;
     Ok(report.has_blocking_diagnostics())

@@ -58,6 +58,39 @@ let DependencyEdgeKindContract =
     "dev",
   ]
 in
+let CapabilityScopeClassContract =
+  OneOf [
+    "core",
+    "shell",
+    "adapter",
+    "test",
+    "generated",
+    "remote-execution",
+  ]
+in
+let CapabilityFamilyContract =
+  OneOf [
+    "time",
+    "randomness",
+    "filesystem",
+    "network",
+    "process",
+    "environment",
+    "secrets",
+    "remote-execution",
+    "unsafe-code",
+    "global-state",
+    "concurrency",
+    "observability",
+    "unknown",
+  ]
+in
+let CapabilityManifestEnforcementContract =
+  OneOf [
+    "advisory",
+    "strict",
+  ]
+in
 let SeedRoleContract =
   OneOf [
     "architecture-reference",
@@ -218,6 +251,19 @@ let MechanismContract = {
   core_source_scopes | Array NonEmptyString | default = [],
   shell_constructor_scopes | Array NonEmptyString | default = [],
   approved_capability_names | Array NonEmptyString | default = [],
+  capability_enforcement_mode | CapabilityManifestEnforcementContract | default = "advisory",
+  capability_scope_classes | Array CapabilityScopeClassContract | default = [],
+  capability_families | Array CapabilityFamilyContract | default = [],
+  capability_injected_traits | Array NonEmptyString | default = [],
+  capability_tokens | Array NonEmptyString | default = [],
+  capability_shell_interpreters | Array NonEmptyString | default = [],
+  capability_adapter_scopes | Array NonEmptyString | default = [],
+  capability_test_scopes | Array NonEmptyString | default = [],
+  capability_generated_scopes | Array NonEmptyString | default = [],
+  capability_remote_execution_scopes | Array NonEmptyString | default = [],
+  capability_deterministic_handlers | Array NonEmptyString | default = [],
+  capability_handler_replay_commands | Array NonEmptyString | default = [],
+  capability_handler_artifacts | Array NonEmptyString | default = [],
   type_state_source_scopes | Array NonEmptyString | default = [],
   raw_state_alias_patterns | Array NonEmptyString | default = [],
   raw_transition_patterns | Array NonEmptyString | default = [],
@@ -350,9 +396,26 @@ let port_mechanism_valid = fun mechanism =>
   )
 in
 
+let capability_mechanism_valid = fun mechanism =>
+  mechanism.kind != "capability-api"
+  || mechanism.capability_enforcement_mode != "strict"
+  || (
+    std.array.length mechanism.capability_scope_classes > 0
+    && std.array.length mechanism.capability_families > 0
+    && std.array.length mechanism.core_source_scopes > 0
+    && (
+      std.array.length mechanism.capability_deterministic_handlers == 0
+      || (
+        std.array.length mechanism.capability_handler_artifacts > 0
+        && std.array.length mechanism.capability_handler_replay_commands > 0
+      )
+    )
+  )
+in
 let mechanism_cross_fields_valid = fun mechanism =>
   crate_boundary_mechanism_valid mechanism
   && port_mechanism_valid mechanism
+  && capability_mechanism_valid mechanism
 in
 
 let policy_cross_fields_valid = fun policy =>
@@ -435,6 +498,9 @@ in
   Severity = SeverityContract,
   EnforcementMode = EnforcementModeContract,
   Mechanism = MechanismContract,
+  CapabilityScopeClass = CapabilityScopeClassContract,
+  CapabilityFamily = CapabilityFamilyContract,
+  CapabilityManifestEnforcement = CapabilityManifestEnforcementContract,
   ProofRail = ProofRailContract,
   SeedManifest = SeedManifestContract,
   ConfigReceiptFamily = ConfigReceiptFamilyContract,
