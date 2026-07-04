@@ -21,6 +21,7 @@ mod object;
 mod object_core;
 mod output;
 mod proof_claim_catalog;
+mod proof_goal_state;
 mod proof_ref;
 mod prove;
 mod prove_core;

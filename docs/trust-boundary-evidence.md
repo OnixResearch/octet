@@ -154,6 +154,9 @@ Reviewers use the existing commands at the matching stage:
   `formal_proof` provenance.
 - `cargo octet artifact verify` recomputes artifact identities and checks saved
   receipts plus provenance before an artifact directory is treated as evidence.
+- Proof goal-state feedback summarizes the selected claim, assumptions,
+  satisfied evidence, missing obligations, blockers, remediation commands, and
+  non-claims without requiring Lean execution or broadening proof claims.
 
 The proof claim catalog at `standards/proof-claims/catalog.ncl` names stable
 cross-surface proof/evidence claims, their source policy or requirement, checked
@@ -305,5 +308,6 @@ store, or downstream integrations do after Octet writes local files.
 | checked-contract ladder | [Checked-contract ladder](#checked-contract-ladder) | advisory lint findings, warning gates, deny gates, policy requirements, receipt-backed validation, scoped formal-proof receipts, and verified release artifacts |
 | provenance chain | [Provenance chain](#provenance-chain) | `provenance.jsonl` records source ID, checker ID, tier, artifact locator, BLAKE3 hash, and checked scope; `cargo octet artifact verify` recomputes and checks saved bundles |
 | bounded transforms | [Bounded evidence transforms](bounded-evidence-transforms.md) | named rule-set-scoped transforms with budgets, parent identities, output identities, diagnostics, and explicit non-claims |
+| proof goal-state feedback | [Proof goal-state feedback](proof-goal-state-feedback.md) | deterministic obligation view for claims, assumptions, satisfied evidence, missing obligations, blockers, remediation commands, and non-claims |
 | scope-boundary | [What Octet does not claim](#what-octet-does-not-claim) and [safety-critical guide](safety-critical.md) | unsupported claims paired with supported capabilities |
 | controlled-deployment | [Controlled deployment posture](#controlled-deployment-posture) and [downstream rollout kit](downstream-rollout.md) | local/CI execution, pinned runner, source-visible toolchain, local artifacts |

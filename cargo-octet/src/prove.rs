@@ -42,6 +42,11 @@ use crate::imported_proof::ImportedProofBundle;
 use crate::imported_proof::ImportedProofBundleManifest;
 use crate::imported_proof::bundle_artifacts;
 use crate::imported_proof::validate_imported_proof_manifest_shape;
+use crate::proof_goal_state::GoalArtifactRequirement;
+use crate::proof_goal_state::GoalEvidence;
+use crate::proof_goal_state::ProofGoalInput;
+use crate::proof_goal_state::ProofGoalState;
+use crate::proof_goal_state::build_proof_goal_state;
 use crate::prove_core;
 
 const REPORT_SCHEMA_VERSION: u32 = 1;
@@ -890,6 +895,32 @@ fn summary_text(report: &ProveReport, replay_command: &str, executions: &[Execut
         )
         .expect("write proof summary to string");
     }
+    for goal_state in executions.iter().map(proof_goal_state_for_execution) {
+        writeln!(
+            &mut text,
+            "proof_goal_state schema_version={} goal_id={} claim_id={} satisfied_evidence={} missing_obligations={} blockers={} emits_formal_proof={}",
+            goal_state.schema_version,
+            goal_state.goal_id,
+            goal_state.claim_id,
+            goal_state.satisfied_evidence.len(),
+            goal_state.missing_obligations.len(),
+            goal_state.blockers.len(),
+            goal_state.emits_formal_proof
+        )
+        .expect("write proof goal-state summary to string");
+        for missing in &goal_state.missing_obligations {
+            writeln!(&mut text, "proof_goal_state missing_obligation: {missing}")
+                .expect("write proof goal-state missing obligation to string");
+        }
+        for blocker in &goal_state.blockers {
+            writeln!(&mut text, "proof_goal_state blocker: {blocker}")
+                .expect("write proof goal-state blocker to string");
+        }
+        for remediation in &goal_state.remediation_commands {
+            writeln!(&mut text, "proof_goal_state remediation: {remediation}")
+                .expect("write proof goal-state remediation to string");
+        }
+    }
     for entry in evidence_log_entries(replay_command, executions) {
         writeln!(
             &mut text,
@@ -910,6 +941,63 @@ fn summary_text(report: &ProveReport, replay_command: &str, executions: &[Execut
         writeln!(&mut text, "diagnostic: {diagnostic}").expect("write diagnostic summary to string");
     }
     text
+}
+
+fn proof_goal_state_for_execution(execution: &ExecutedProof) -> ProofGoalState {
+    let row = &execution.row;
+    let expected_receipt_blake3 = execution.formal_provenance.as_ref().map_or_else(
+        || crate::evidence::artifact_blake3_hex(execution.receipt_text.as_bytes()),
+        |provenance| provenance.blake3.clone(),
+    );
+    let evidence = execution
+        .formal_provenance
+        .as_ref()
+        .map(|provenance| {
+            vec![GoalEvidence {
+                artifact: row.receipt.clone(),
+                actual_blake3: provenance.blake3.clone(),
+                evidence_tier: EvidenceTier::FormalProof,
+                status: row.status.to_owned(),
+            }]
+        })
+        .unwrap_or_default();
+    let non_claims = proof_goal_non_claims();
+    let boundary_wording = non_claims.join("; ");
+
+    build_proof_goal_state(ProofGoalInput {
+        goal_id: proof_or_property_id(&row.policy_id, row.rail_index),
+        claim_id: row.policy_id.clone(),
+        checked_scope: row.checked_scope.clone(),
+        assumptions: proof_goal_assumptions(row),
+        required_artifacts: vec![GoalArtifactRequirement {
+            artifact: row.receipt.clone(),
+            expected_blake3: expected_receipt_blake3,
+        }],
+        evidence,
+        expected_evidence_tier: EvidenceTier::FormalProof,
+        diagnostics: row.diagnostics.clone(),
+        non_claims,
+        boundary_wording,
+        remediation_commands: vec![ARTIFACT_VERIFY_COMMAND.to_owned()],
+    })
+}
+
+fn proof_goal_assumptions(row: &ProofReportRow) -> Vec<String> {
+    vec![
+        format!("policy `{}` selected rail `{}`", row.policy_id, row.rail_index),
+        format!("checked scope `{}`", row.checked_scope),
+        format!("verifier mode `{}`", row.verifier_mode),
+    ]
+}
+
+fn proof_goal_non_claims() -> Vec<String> {
+    let mut non_claims = default_card_non_claims();
+    non_claims.extend([
+        "not Lean execution".to_owned(),
+        "not solver completeness".to_owned(),
+        "not verified runtime".to_owned(),
+    ]);
+    non_claims
 }
 
 fn evidence_log_manifest_text(replay_command: &str, executions: &[ExecutedProof]) -> Result<Option<String>, String> {
