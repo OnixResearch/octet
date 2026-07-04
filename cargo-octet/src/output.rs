@@ -6,6 +6,8 @@ use serde::Serialize;
 
 use crate::baseline::BaselineEvaluation;
 use crate::determinism::RunMetadata;
+use crate::domain_types::FindingDomainView;
+use crate::domain_types::validate_finding_domain;
 use crate::evidence::EvidenceTier;
 
 const FINDING_SCHEMA_VERSION: u32 = 2;
@@ -60,6 +62,40 @@ pub struct Finding {
     pub effect_family: String,
     pub evidence_tier: EvidenceTier,
     pub crate_name: String,
+}
+
+impl FindingDomainView for Finding {
+    fn lint_name(&self) -> &str {
+        &self.lint
+    }
+
+    fn group_name(&self) -> &str {
+        &self.group
+    }
+
+    fn stable_id(&self) -> &str {
+        &self.stable_id
+    }
+
+    fn semantic_id(&self) -> &str {
+        &self.semantic_id
+    }
+
+    fn artifact_locator(&self) -> &str {
+        &self.file
+    }
+
+    fn severity(&self) -> &str {
+        &self.severity
+    }
+
+    fn line(&self) -> u32 {
+        self.line
+    }
+
+    fn column(&self) -> u32 {
+        self.column
+    }
 }
 
 impl Finding {
@@ -258,7 +294,24 @@ pub fn finding_version() -> u32 {
     FINDING_SCHEMA_VERSION
 }
 
+fn validate_finding_domains(findings: &[Finding]) -> Result<(), String> {
+    let mut diagnostics = Vec::new();
+    for finding in findings {
+        if let Err(mut finding_diagnostics) = validate_finding_domain(finding) {
+            diagnostics.append(&mut finding_diagnostics);
+        }
+    }
+    diagnostics.sort();
+    diagnostics.dedup();
+    if diagnostics.is_empty() {
+        Ok(())
+    } else {
+        Err(format!("invalid finding domain values: {}", diagnostics.join("; ")))
+    }
+}
+
 pub fn render_json_lines(findings: &[Finding]) -> Result<String, String> {
+    validate_finding_domains(findings)?;
     let mut rendered = String::new();
 
     for finding in findings {
@@ -278,6 +331,7 @@ pub fn render_sarif(
     metadata: &RunMetadata,
     baseline: Option<&BaselineEvaluation>,
 ) -> Result<String, String> {
+    validate_finding_domains(findings)?;
     let mut seen_rules: Vec<&str> = Vec::new();
     for finding in findings {
         if !seen_rules.contains(&finding.lint.as_str()) {
@@ -530,6 +584,27 @@ mod tests {
 
         assert!(rendered.contains("\"version\":2"));
         assert!(rendered.contains("\"evidence_tier\":\"static_lint\""));
+    }
+
+    #[test]
+    fn renderers_reject_malformed_domain_values_before_output() {
+        let mut finding = test_finding();
+        finding.lint = "ambient clock".to_owned();
+        finding.group = "safety".to_owned();
+        finding.file = "../src/lib.rs".to_owned();
+        finding.severity = "fatal".to_owned();
+        finding.line = 0;
+        finding.column = 0;
+
+        let error = render_json_lines(&[finding]).expect_err("malformed finding should fail before rendering");
+
+        assert!(error.contains("invalid finding domain values"));
+        assert!(error.contains("domain field `lint`"));
+        assert!(error.contains("domain field `group`"));
+        assert!(error.contains("domain field `file`"));
+        assert!(error.contains("domain field `severity`"));
+        assert!(error.contains("domain field `line`"));
+        assert!(error.contains("domain field `column`"));
     }
 
     fn runner_metadata_coverage_diagnostics(

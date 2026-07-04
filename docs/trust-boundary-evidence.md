@@ -309,5 +309,6 @@ store, or downstream integrations do after Octet writes local files.
 | provenance chain | [Provenance chain](#provenance-chain) | `provenance.jsonl` records source ID, checker ID, tier, artifact locator, BLAKE3 hash, and checked scope; `cargo octet artifact verify` recomputes and checks saved bundles |
 | bounded transforms | [Bounded evidence transforms](bounded-evidence-transforms.md) | named rule-set-scoped transforms with budgets, parent identities, output identities, diagnostics, and explicit non-claims |
 | proof goal-state feedback | [Proof goal-state feedback](proof-goal-state-feedback.md) | deterministic obligation view for claims, assumptions, satisfied evidence, missing obligations, blockers, remediation commands, and non-claims |
+| type-driven domain modeling | [Type-driven domain modeling](type-driven-domain-modeling.md) | small Rust domain identities, enums, and refined constructors protecting core/adapters while preserving wire fields |
 | scope-boundary | [What Octet does not claim](#what-octet-does-not-claim) and [safety-critical guide](safety-critical.md) | unsupported claims paired with supported capabilities |
 | controlled-deployment | [Controlled deployment posture](#controlled-deployment-posture) and [downstream rollout kit](downstream-rollout.md) | local/CI execution, pinned runner, source-visible toolchain, local artifacts |

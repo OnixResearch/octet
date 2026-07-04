@@ -3,6 +3,7 @@ mod baseline;
 mod cli;
 mod config;
 mod determinism;
+mod domain_types;
 mod engine;
 pub mod evidence;
 #[cfg(test)]
