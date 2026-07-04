@@ -350,6 +350,11 @@
           cargo package -p valence-core --allow-dirty --locked --offline --no-verify --list > "$TMPDIR/package-list.txt"
           grep -Fx 'README.md' "$TMPDIR/package-list.txt" >/dev/null
           grep -Fx 'src/evidence_codebase_index.rs' "$TMPDIR/package-list.txt" >/dev/null
+          grep -Fx 'src/evidence_codebase_index/boundary.rs' "$TMPDIR/package-list.txt" >/dev/null
+          grep -Fx 'src/evidence_codebase_index/html.rs' "$TMPDIR/package-list.txt" >/dev/null
+          grep -Fx 'src/evidence_codebase_index/ingest.rs' "$TMPDIR/package-list.txt" >/dev/null
+          grep -Fx 'src/evidence_codebase_index/model.rs' "$TMPDIR/package-list.txt" >/dev/null
+          grep -Fx 'src/evidence_codebase_index/query.rs' "$TMPDIR/package-list.txt" >/dev/null
           grep -Fx 'src/evidence_index.rs' "$TMPDIR/package-list.txt" >/dev/null
           grep -Fx 'src/function_object.rs' "$TMPDIR/package-list.txt" >/dev/null
           grep -Fx 'src/lib.rs' "$TMPDIR/package-list.txt" >/dev/null
@@ -1589,7 +1594,14 @@ MAIN
           } ''
             scratch="$(mktemp -d)"
             fixture="$scratch/fixture"
+            repo=${src}
             mkdir -p "$fixture"
+
+            grep -F 'Octet-owned review index' "$repo/docs/evidence-codebase-index.md" >/dev/null
+            grep -F 'does not imply package publication, standalone Valence repository cutover, or transfer of Octet evidence release responsibilities' "$repo/docs/evidence-codebase-index.md" >/dev/null
+            grep -F 'Octet-owned evidence-codebase indexes' "$repo/crates/valence-core/README.md" >/dev/null
+            grep -F 'Nix gate ownership, release bundle ownership, and non-claim boundary enforcement' "$repo/crates/valence-core/README.md" >/dev/null
+            grep -F 'Nix gate ownership, release bundle ownership,' "$repo/crates/valence-core/src/lib.rs" >/dev/null
 
             cat > "$fixture/findings.jsonl" <<'EOF'
             {"version":2,"index":"F1","stable_id":"finding-stable-id","semantic_id":"semantic-fixture","identity_status":"computed","normalized_snippet_hash":"snippet-fixture","config_hash":"config-fixture","cache_status":"disabled","lint":"ambient_clock","group":"tigerstyle::purity","severity":"warning","file":"src/lib.rs","line":1,"column":1,"message":"r[octet.evidence_codebase_index.query.lookup]","principle":"Functional Core","effect_family":"time","evidence_tier":"static_lint","crate_name":"fixture"}
@@ -1621,16 +1633,28 @@ MAIN
             ${cargoOctetUnwrapped}/bin/cargo-octet evidence-index codebase build --artifact-dir "$fixture" --output "$scratch/index-b.json"
             cmp "$scratch/index-a.json" "$scratch/index-b.json"
             jq --exit-status '.schema_version == "octet-evidence-codebase-index/v1" and .record_count >= 8' "$scratch/index-a.json" >/dev/null
+            jq --exit-status '.boundary | contains("Octet evidence codebase index proves artifact identity and linkage only") and contains("standalone Valence release ownership")' "$scratch/index-a.json" >/dev/null
             jq --exit-status 'all(.issues[]?; .severity == "caveat")' "$scratch/index-a.json" >/dev/null
             ${cargoOctetUnwrapped}/bin/cargo-octet evidence-index codebase query --index "$scratch/index-a.json" --identity 'r[octet.evidence_codebase_index.query.lookup]' > "$scratch/query.json"
             jq --exit-status '.match_count >= 4 and any(.records[]; .lint_ids | index("ambient_clock")) and any(.records[]; .policy_ids | index("octet.policy.capability-boundary")) and any(.records[]; .stable_id == "capsule-hash-fixture")' "$scratch/query.json" >/dev/null
+            jq --exit-status '.boundary | contains("Octet evidence codebase index proves artifact identity and linkage only")' "$scratch/query.json" >/dev/null
             ${cargoOctetUnwrapped}/bin/cargo-octet evidence-index codebase html --index "$scratch/index-a.json" --output "$scratch/index.html"
-            grep -F 'Evidence codebase index proves artifact identity and linkage only' "$scratch/index.html" >/dev/null
+            grep -F 'Octet evidence codebase index proves artifact identity and linkage only' "$scratch/index.html" >/dev/null
             grep -F 'href="#octet-finding-' "$scratch/index.html" >/dev/null
-            if grep -F 'proves whole-program correctness' "$scratch/index.html" >/dev/null; then
-              echo "evidence codebase index HTML overclaimed correctness" >&2
-              exit 1
-            fi
+            for overclaim in \
+              'proves whole-program correctness' \
+              'proves semantic equivalence' \
+              'complete dependency closure proof' \
+              'distributed execution correctness guarantee' \
+              'remote code mobility guarantee' \
+              'formal proof for non-proof tiers' \
+              'claims standalone Valence release ownership' \
+              'Valence owns the evidence codebase index release'; do
+              if grep -F "$overclaim" "$scratch/index.html" >/dev/null; then
+                echo "evidence codebase index HTML overclaimed: $overclaim" >&2
+                exit 1
+              fi
+            done
 
             printf '{' > "$scratch/malformed.json"
             set +e

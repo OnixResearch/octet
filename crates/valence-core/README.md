@@ -4,7 +4,7 @@
 
 Current in-repository public modules:
 
-- `evidence_codebase_index`: builds, queries, renders, and boundary-checks Octet-owned evidence-codebase indexes from in-memory artifacts; Octet retains artifact discovery, filesystem reads, CLI output, and release evidence orchestration.
+- `evidence_codebase_index`: builds, queries, renders, and boundary-checks Octet-owned evidence-codebase indexes from in-memory artifacts; Octet retains CLI parsing, filesystem traversal, artifact discovery, output writing, Nix gate ownership, release bundle ownership, and non-claim boundary enforcement.
 - `evidence_index`: renders and checks the current-head Valence evidence page from typed inputs; Octet retains command execution, repository-state capture, freshness orchestration, and publication decisions.
 - `function_object`: constructs Function Object v1 DTOs, canonical hash payloads, caveat summaries, and pure-cache eligibility from source facts; Octet retains scanning, source-marker mutation, corpus orchestration, and CLI/status reporting.
 

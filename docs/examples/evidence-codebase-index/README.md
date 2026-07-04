@@ -1,6 +1,6 @@
 # Evidence codebase index example
 
-Build a deterministic local index over existing artifacts:
+Build a deterministic local Octet-owned index over existing artifacts:
 
 ```sh
 cargo octet evidence-index codebase build --artifact-dir artifacts/octet --output artifacts/octet/evidence-codebase-index.json
@@ -18,4 +18,4 @@ Render a static review page from the same model:
 cargo octet evidence-index codebase html --index artifacts/octet/evidence-codebase-index.json --output artifacts/octet/evidence-codebase-index.html
 ```
 
-The generated index is review/provenance infrastructure only: it proves artifact identity and linkage, not correctness or semantic equivalence.
+The generated index is Octet review/provenance infrastructure only: it proves artifact identity and linkage, not correctness, semantic equivalence, or standalone Valence release ownership.
