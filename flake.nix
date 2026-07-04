@@ -279,6 +279,11 @@
           RUSTUP_TOOLCHAIN = rustupToolchain;
         };
 
+        workspaceVendorDir = craneLib.vendorCargoDeps {
+          inherit src;
+          cargoLock = ./Cargo.lock;
+        };
+
         octet = craneLib.buildPackage {
           inherit src cargoArtifacts nativeBuildInputs buildInputs;
           doCheck = false;
@@ -299,6 +304,58 @@
           cargoExtraArgs = "-p valence-core";
           doCheck = false;
         };
+
+        valenceCoreFocusedTests = craneLib.buildPackage {
+          inherit src cargoArtifacts nativeBuildInputs buildInputs;
+          pname = "valence-core-focused-tests";
+          version = "0.1.0";
+          cargoExtraArgs = "-p valence-core";
+          doNotPostBuildInstallCargoBinaries = true;
+          buildPhaseCargoCommand = ":";
+          installPhaseCommand = ''
+            mkdir -p "$out"
+          '';
+          LD_LIBRARY_PATH = rustToolchainLibPath;
+          RUSTUP_TOOLCHAIN = rustupToolchain;
+        };
+
+        valenceCoreDocs = craneLib.buildPackage {
+          inherit src cargoArtifacts nativeBuildInputs buildInputs;
+          pname = "valence-core-docs";
+          version = "0.1.0";
+          doCheck = false;
+          doNotPostBuildInstallCargoBinaries = true;
+          buildPhaseCargoCommand = "cargo doc -p valence-core --no-deps";
+          installPhaseCommand = ''
+            mkdir -p "$out"
+            cp -r target/doc "$out/doc"
+          '';
+          LD_LIBRARY_PATH = rustToolchainLibPath;
+          RUSTUP_TOOLCHAIN = rustupToolchain;
+        };
+
+        valenceCorePackageList = pkgs.runCommand "octet-valence-core-package-list" {
+          nativeBuildInputs = checkNativeBuildInputs;
+          inherit buildInputs;
+          LD_LIBRARY_PATH = rustToolchainLibPath;
+          RUSTUP_TOOLCHAIN = rustupToolchain;
+        } ''
+          export HOME="$PWD/home"
+          export CARGO_HOME="$PWD/.cargo-home"
+          mkdir -p "$HOME" "$CARGO_HOME"
+          cp "${workspaceVendorDir}/config.toml" "$CARGO_HOME/config.toml"
+          cp -r ${src} source
+          chmod -R u+w source
+          cd source
+          cargo package -p valence-core --allow-dirty --locked --offline --no-verify --list > "$TMPDIR/package-list.txt"
+          grep -Fx 'README.md' "$TMPDIR/package-list.txt" >/dev/null
+          grep -Fx 'src/evidence_codebase_index.rs' "$TMPDIR/package-list.txt" >/dev/null
+          grep -Fx 'src/evidence_index.rs' "$TMPDIR/package-list.txt" >/dev/null
+          grep -Fx 'src/function_object.rs' "$TMPDIR/package-list.txt" >/dev/null
+          grep -Fx 'src/lib.rs' "$TMPDIR/package-list.txt" >/dev/null
+          mkdir -p "$out"
+          cp "$TMPDIR/package-list.txt" "$out/package-list.txt"
+        '';
 
         cargoOctetFreshBuildA = craneLib.buildPackage {
           inherit src cargoArtifacts nativeBuildInputs buildInputs;
@@ -1767,14 +1824,74 @@ MAIN
             echo "valence_evidence_release.non_claims=correctness,semantic_equivalence,exhaustive_rust_coverage,cross_machine_determinism,cross_toolchain_determinism,general_hir_thir_mir_extraction"
           '';
           valenceCorePackageReadiness = pkgs.runCommand "octet-valence-core-package-readiness" {
-            nativeBuildInputs = [ pkgs.coreutils pkgs.jq ];
+            nativeBuildInputs = [ pkgs.coreutils pkgs.gnugrep pkgs.gnused ];
           } ''
+            export LC_ALL=C
+
             repo=${src}
             manifest="$repo/crates/valence-core/Cargo.toml"
             readme="$repo/crates/valence-core/README.md"
             lib_rs="$repo/crates/valence-core/src/lib.rs"
 
+            exported_modules() {
+              grep -E '^pub mod [a-z0-9_]+;' "$1" \
+                | sed -E 's/^pub mod ([a-z0-9_]+);$/\1/' \
+                | sort
+            }
+
+            readme_modules() {
+              grep -E '^- `[a-z0-9_]+`:' "$1" \
+                | sed -E 's/^- `([a-z0-9_]+)`:.*$/\1/' \
+                | sort
+            }
+
+            crate_doc_has_module() {
+              module="$1"
+              grep -F "//! - \`$module\`:" "$lib_rs" >/dev/null
+            }
+
+            require_text() {
+              file="$1"
+              text="$2"
+              label="$3"
+              if ! grep -F "$text" "$file" >/dev/null; then
+                echo "missing $label: $text" >&2
+                return 1
+              fi
+            }
+
+            assert_inventory() {
+              checked_readme="$1"
+              exported="$TMPDIR/exported-modules.txt"
+              readme_inventory="$TMPDIR/readme-modules.txt"
+              exported_modules "$lib_rs" > "$exported"
+              readme_modules "$checked_readme" > "$readme_inventory"
+
+              while IFS= read -r module; do
+                if ! grep -F -- "- \`$module\`:" "$checked_readme" >/dev/null; then
+                  echo "missing README module inventory: $module" >&2
+                  return 1
+                fi
+                if ! crate_doc_has_module "$module"; then
+                  echo "missing crate-doc module inventory: $module" >&2
+                  return 1
+                fi
+              done < "$exported"
+
+              while IFS= read -r module; do
+                if ! grep -Fx "$module" "$exported" >/dev/null; then
+                  echo "stale README module inventory: $module" >&2
+                  return 1
+                fi
+              done < "$readme_inventory"
+            }
+
             test -d ${valenceCore}
+            test -d ${valenceCoreFocusedTests}
+            test -s ${valenceCoreDocs}/share/doc/valence_core/index.html
+            test -s ${valenceCorePackageList}/package-list.txt
+            grep -Fx 'README.md' ${valenceCorePackageList}/package-list.txt >/dev/null
+            grep -Fx 'src/lib.rs' ${valenceCorePackageList}/package-list.txt >/dev/null
             test -s "$readme"
             grep -F 'name = "valence-core"' "$manifest" >/dev/null
             grep -F 'readme = "README.md"' "$manifest" >/dev/null
@@ -1782,17 +1899,42 @@ MAIN
             grep -F 'documentation = "https://github.com/OnixResearch/octet/tree/main/crates/valence-core"' "$manifest" >/dev/null
             grep -F 'keywords = ["valence", "evidence", "octet", "blake3"]' "$manifest" >/dev/null
             grep -F 'categories = ["development-tools"]' "$manifest" >/dev/null
-            grep -F 'pub mod evidence_codebase_index;' "$lib_rs" >/dev/null
-            grep -F 'pub mod evidence_index;' "$lib_rs" >/dev/null
-            grep -F 'pub mod function_object;' "$lib_rs" >/dev/null
-            grep -F 'not a standalone release cutover' "$readme" >/dev/null
-            grep -F 'does not claim behavioral correctness' "$readme" >/dev/null
+            assert_inventory "$readme"
+            require_text "$readme" 'not a standalone release cutover or standalone repository cutover' 'README no-cutover boundary'
+            require_text "$readme" 'package publication, or release ownership' 'README release ownership boundary'
+            require_text "$readme" 'does not claim behavioral correctness' 'README behavioral non-claim'
+            require_text "$readme" 'external consumer compatibility' 'README external-consumer non-claim'
+            require_text "$lib_rs" 'standalone repository cutover, and release ownership' 'crate-doc cutover boundary'
+            require_text "$lib_rs" 'does not claim behavioral correctness' 'crate-doc behavioral non-claim'
+
+            missing_readme="$TMPDIR/missing-module-readme.md"
+            grep -Fv -- '- `evidence_codebase_index`:' "$readme" > "$missing_readme"
+            if assert_inventory "$missing_readme" 2>"$TMPDIR/missing-module.err"; then
+              echo 'negative fixture unexpectedly accepted missing README module inventory' >&2
+              exit 1
+            fi
+            grep -F 'missing README module inventory: evidence_codebase_index' "$TMPDIR/missing-module.err" >/dev/null
+
+            stale_readme="$TMPDIR/stale-module-readme.md"
+            cat "$readme" > "$stale_readme"
+            printf '\n- `removed_module`: stale module fixture.\n' >> "$stale_readme"
+            if assert_inventory "$stale_readme" 2>"$TMPDIR/stale-module.err"; then
+              echo 'negative fixture unexpectedly accepted stale README module inventory' >&2
+              exit 1
+            fi
+            grep -F 'stale README module inventory: removed_module' "$TMPDIR/stale-module.err" >/dev/null
 
             echo "valence_core_package_readiness.build: PASS"
+            echo "valence_core_package_readiness.focused_tests: PASS"
+            echo "valence_core_package_readiness.api_docs: PASS"
+            echo "valence_core_package_readiness.package_listing: PASS"
             echo "valence_core_package_readiness.metadata: PASS"
             echo "valence_core_package_readiness.public_modules: PASS"
+            echo "valence_core_package_readiness.inventory_sync: PASS"
+            echo "valence_core_package_readiness.inventory_negative_fixtures: PASS"
             echo "valence_core_package_readiness.boundary_non_claims: PASS"
-            echo "valence_core_package_readiness.scope=in-repository-package-readiness-no-publication"
+            echo "valence_core_package_readiness.scope=in-repository-package-readiness-no-publication-no-standalone-repository-cutover"
+            echo "valence_core_package_readiness.non_claims=behavioral_correctness,semantic_equivalence,exhaustive_rust_coverage,pure_cache_eligibility,cross_machine_determinism,cross_toolchain_determinism,external_consumer_compatibility,general_hir_thir_mir_extraction"
             mkdir -p "$out"
           '';
           roadmapAgentSurfacesDocs = craneLib.buildPackage {
