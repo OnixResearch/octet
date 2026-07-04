@@ -86,6 +86,8 @@ cargo install --path /path/to/octet/cargo-octet
 
 4. Tune thresholds, disabled lints, and per-lint levels in `dylint.toml`.
 
+After TOML syntax parses, Octet accumulates independent semantic config diagnostics (for example unknown lint names, invalid levels, and conflicting disabled/level entries) in deterministic order while still ignoring invalid entries and failing closed before dependent evidence promotion.
+
 Standards registry checks live behind a separate command surface:
 
 ```bash
