@@ -243,6 +243,18 @@ in
       negative_fixtures = ["cargo-octet/src/proof_claim_catalog.rs::proof_claim_catalog_rejects_duplicate_ids_and_missing_anchor"],
     },
     {
+      family_id = "octet.bounded-evidence-transform-report",
+      ownership = "rust-derived",
+      owner_source_path = "cargo-octet/src/evidence_transform.rs",
+      artifact_path = "standards/evidence-transforms/contracts/bounded-evidence-transform.generated.ncl",
+      generation_command = "nix develop -c cargo test -p cargo-octet --lib evidence_transform::tests::evidence_transform_contract_is_fresh",
+      validation_command = "nix develop -c cargo test -p cargo-octet --lib evidence_transform",
+      status = "existing",
+      config_digest_required = true,
+      positive_fixtures = ["cargo-octet/src/evidence_transform.rs::bounded_transform_valid_input_is_deterministic_and_records_provenance"],
+      negative_fixtures = ["cargo-octet/src/evidence_transform.rs::transform_rejects_budget_exhaustion_stale_parent_formal_tier_and_overclaim", "cargo-octet/src/evidence_transform.rs::transform_rejects_unknown_hidden_rules_and_missing_non_claims"],
+    },
+    {
       family_id = "octet.verus-proof-rail-manifest",
       ownership = "nickel-authored",
       owner_source_path = "standards/proof-rails/manifest.ncl",
