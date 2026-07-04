@@ -231,6 +231,18 @@ in
       negative_fixtures = ["cargo-octet/src/proof_ref.rs::proof_ref_rejects_mismatched_scope_tier_status_artifact_and_non_claim"],
     },
     {
+      family_id = "octet.proof-claim-catalog",
+      ownership = "nickel-authored",
+      owner_source_path = "standards/proof-claims/catalog.ncl",
+      artifact_path = "standards/proof-claims/generated/catalog.json",
+      generation_command = "nickel export --format json standards/proof-claims/catalog.ncl > standards/proof-claims/generated/catalog.json",
+      validation_command = "nix develop -c cargo test -p cargo-octet --lib proof_claim_catalog",
+      status = "existing",
+      config_digest_required = true,
+      positive_fixtures = ["standards/proof-claims/catalog.ncl", "cargo-octet/src/proof_claim_catalog.rs::proof_claim_reference_links_matching_card_receipt_and_docs"],
+      negative_fixtures = ["cargo-octet/src/proof_claim_catalog.rs::proof_claim_catalog_rejects_duplicate_ids_and_missing_anchor"],
+    },
+    {
       family_id = "octet.verus-proof-rail-manifest",
       ownership = "nickel-authored",
       owner_source_path = "standards/proof-rails/manifest.ncl",
