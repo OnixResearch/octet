@@ -34,6 +34,7 @@ const SOURCE_STANDARDS_PREFIX: &str = "octet.standards.";
 const SOURCE_POLICY_PREFIX: &str = "octet.policy.";
 const SOURCE_FINGERPRINT_PREFIX: &str = "octet.fingerprint.";
 const SOURCE_TRANSCRIPT_PREFIX: &str = "octet.transcript.";
+const SOURCE_TRANSFORM_PREFIX: &str = "octet.transform.";
 const SOURCE_EXTERNAL_LINT_PREFIX: &str = "octet.external_lint.";
 const SOURCE_DEPENDENCY_TRUST_PREFIX: &str = "octet.dependency_trust.";
 const SOURCE_API_STABILITY_PREFIX: &str = "octet.api_stability.";
@@ -136,8 +137,13 @@ fn provenance_producers() -> &'static [ProvenanceProducer] {
     &[
         ProvenanceProducer {
             checker_id: CHECKER_CARGO_OCTET,
-            source_prefixes: &[SOURCE_RUNNER_PREFIX, SOURCE_ARTIFACT_PREFIX],
-            allowed_tiers: &[EvidenceTier::StaticLint, EvidenceTier::ManualReviewRequired],
+            source_prefixes: &[SOURCE_RUNNER_PREFIX, SOURCE_ARTIFACT_PREFIX, SOURCE_TRANSFORM_PREFIX],
+            allowed_tiers: &[
+                EvidenceTier::StaticLint,
+                EvidenceTier::PolicyCheck,
+                EvidenceTier::TranscriptAssertion,
+                EvidenceTier::ManualReviewRequired,
+            ],
             allows_formal_proof: false,
         },
         ProvenanceProducer {

@@ -98,9 +98,13 @@ card, receipt, provenance record, and artifact verifier command to a scoped
 `formal_proof` claim. A `ProofEvidenceRef` can link a source comment, document,
 or future suppression to that proof card by checking the referenced source file's
 BLAKE3 identity and exact anchor text; it remains linkage evidence and does not
-rerun Verus or emit `formal_proof`. Release evidence can bind artifact
-verification and a smoke transcript to a reviewer action without upgrading every
-lower stage to proof.
+rerun Verus or emit `formal_proof`. Bounded evidence transforms are named,
+rule-set-scoped normalization helpers with budgets, parent identities, and
+non-claims; `octet.transform.claim-boundary-normalize.v1` and
+`octet.rewrite.claim-boundary.v1` normalize claim-boundary text without becoming
+unbounded tactics, solver completeness, semantic equivalence, or verified runtime
+proof. Release evidence can bind artifact verification and a smoke transcript to
+a reviewer action without upgrading every lower stage to proof.
 
 High-confidence diagnostic examples should name the deterministic failure shape
 when Octet has it. Examples include the invalid state behind an unchecked
@@ -300,5 +304,6 @@ store, or downstream integrations do after Octet writes local files.
 | evidence tiers | [Evidence tiers](#evidence-tiers) | `evidence_tier` fields in JSONL/SARIF sidecars and provenance DTOs |
 | checked-contract ladder | [Checked-contract ladder](#checked-contract-ladder) | advisory lint findings, warning gates, deny gates, policy requirements, receipt-backed validation, scoped formal-proof receipts, and verified release artifacts |
 | provenance chain | [Provenance chain](#provenance-chain) | `provenance.jsonl` records source ID, checker ID, tier, artifact locator, BLAKE3 hash, and checked scope; `cargo octet artifact verify` recomputes and checks saved bundles |
+| bounded transforms | [Bounded evidence transforms](bounded-evidence-transforms.md) | named rule-set-scoped transforms with budgets, parent identities, output identities, diagnostics, and explicit non-claims |
 | scope-boundary | [What Octet does not claim](#what-octet-does-not-claim) and [safety-critical guide](safety-critical.md) | unsupported claims paired with supported capabilities |
 | controlled-deployment | [Controlled deployment posture](#controlled-deployment-posture) and [downstream rollout kit](downstream-rollout.md) | local/CI execution, pinned runner, source-visible toolchain, local artifacts |
