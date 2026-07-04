@@ -54,15 +54,6 @@ pub enum LintLevel {
 }
 
 impl LintLevel {
-    fn parse(raw: &str) -> Option<Self> {
-        match raw {
-            "allow" => Some(Self::Allow),
-            "warn" => Some(Self::Warn),
-            "deny" => Some(Self::Deny),
-            _ => None,
-        }
-    }
-
     #[must_use]
     pub fn rustc_level(self) -> rustc_lint::Level {
         match self {
@@ -71,6 +62,62 @@ impl LintLevel {
             Self::Deny => rustc_lint::Level::Deny,
         }
     }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ConfigDiagnosticKind {
+    UnknownDisabledLint,
+    UnknownIndexableExceptionClass,
+    UnknownLintLevel,
+    ConflictingDisabledLintLevel,
+    InvalidLintLevel,
+}
+
+impl ConfigDiagnosticKind {
+    #[must_use]
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::UnknownDisabledLint => "unknown_disabled_lint",
+            Self::UnknownIndexableExceptionClass => "unknown_indexable_exception_class",
+            Self::UnknownLintLevel => "unknown_lint_level",
+            Self::ConflictingDisabledLintLevel => "conflicting_disabled_lint_level",
+            Self::InvalidLintLevel => "invalid_lint_level",
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ConfigDiagnostic {
+    pub kind: ConfigDiagnosticKind,
+    pub source: &'static str,
+    pub field: &'static str,
+    pub item: String,
+    pub message: String,
+}
+
+impl ConfigDiagnostic {
+    fn new(kind: ConfigDiagnosticKind, field: &'static str, item: impl Into<String>, message: String) -> Self {
+        Self {
+            kind,
+            source: "dylint.toml",
+            field,
+            item: item.into(),
+            message,
+        }
+    }
+}
+
+fn parse_lint_level(raw: &str) -> Option<LintLevel> {
+    match raw {
+        "allow" => Some(LintLevel::Allow),
+        "warn" => Some(LintLevel::Warn),
+        "deny" => Some(LintLevel::Deny),
+        _ => None,
+    }
+}
+
+fn parse_indexable_exception_class(class: &str) -> Option<&'static str> {
+    DEFAULT_INDEXABLE_EXCEPTIONS.iter().copied().find(|known| *known == class)
 }
 
 /// All configurable thresholds and allowlists. Missing fields use defaults.
@@ -181,24 +228,37 @@ impl Config {
     }
 
     fn validate(&mut self) -> Vec<String> {
+        self.validate_diagnostics().into_iter().map(|diagnostic| diagnostic.message).collect()
+    }
+
+    fn validate_diagnostics(&mut self) -> Vec<ConfigDiagnostic> {
         let known_lints = canonical_lint_names();
         let disabled_lints = self.disabled_lints.iter().map(String::as_str).collect::<BTreeSet<_>>();
-        let mut warnings = Vec::new();
+        let mut diagnostics = Vec::new();
         let mut unknown_disabled_lints = BTreeSet::new();
 
         for lint_name in &self.disabled_lints {
             if !known_lints.iter().any(|known| known == &lint_name.as_str())
                 && unknown_disabled_lints.insert(lint_name.as_str())
             {
-                warnings.push(format!("unknown octet lint in `dylint.toml` disabled_lints: `{lint_name}`"));
+                diagnostics.push(ConfigDiagnostic::new(
+                    ConfigDiagnosticKind::UnknownDisabledLint,
+                    "octet.disabled_lints",
+                    lint_name,
+                    format!("unknown octet lint in `dylint.toml` disabled_lints: `{lint_name}`"),
+                ));
             }
         }
 
-        let known_exception_classes = DEFAULT_INDEXABLE_EXCEPTIONS.iter().copied().collect::<BTreeSet<_>>();
         let mut unknown_exception_classes = BTreeSet::new();
         for class in &self.indexable_lint_exceptions {
-            if !known_exception_classes.contains(class.as_str()) && unknown_exception_classes.insert(class.as_str()) {
-                warnings.push(format!("unknown octet indexable_lint_exceptions class in `dylint.toml`: `{class}`"));
+            if parse_indexable_exception_class(class).is_none() && unknown_exception_classes.insert(class.as_str()) {
+                diagnostics.push(ConfigDiagnostic::new(
+                    ConfigDiagnosticKind::UnknownIndexableExceptionClass,
+                    "octet.indexable_lint_exceptions",
+                    class,
+                    format!("unknown octet indexable_lint_exceptions class in `dylint.toml`: `{class}`"),
+                ));
             }
         }
 
@@ -208,20 +268,35 @@ impl Config {
 
         for (lint_name, raw_level) in lint_levels {
             if !known_lints.iter().any(|known| known == &lint_name.as_str()) {
-                warnings.push(format!("unknown octet lint in `dylint.toml` lint_levels: `{lint_name}`"));
-                continue;
-            }
-
-            if disabled_lints.contains(lint_name.as_str()) {
-                warnings.push(format!(
-                    "conflicting octet config in `dylint.toml`: `{lint_name}` appears in both `disabled_lints` and `lint_levels`; ignoring level override"
+                diagnostics.push(ConfigDiagnostic::new(
+                    ConfigDiagnosticKind::UnknownLintLevel,
+                    "octet.lint_levels",
+                    lint_name,
+                    format!("unknown octet lint in `dylint.toml` lint_levels: `{lint_name}`"),
                 ));
                 continue;
             }
 
-            let Some(level) = LintLevel::parse(raw_level) else {
-                warnings.push(format!(
-                    "invalid octet lint level in `dylint.toml` lint_levels for `{lint_name}`: `{raw_level}` (expected `allow`, `warn`, or `deny`)"
+            if disabled_lints.contains(lint_name.as_str()) {
+                diagnostics.push(ConfigDiagnostic::new(
+                    ConfigDiagnosticKind::ConflictingDisabledLintLevel,
+                    "octet.lint_levels",
+                    lint_name,
+                    format!(
+                        "conflicting octet config in `dylint.toml`: `{lint_name}` appears in both `disabled_lints` and `lint_levels`; ignoring level override"
+                    ),
+                ));
+                continue;
+            }
+
+            let Some(level) = parse_lint_level(raw_level) else {
+                diagnostics.push(ConfigDiagnostic::new(
+                    ConfigDiagnosticKind::InvalidLintLevel,
+                    "octet.lint_levels",
+                    lint_name,
+                    format!(
+                        "invalid octet lint level in `dylint.toml` lint_levels for `{lint_name}`: `{raw_level}` (expected `allow`, `warn`, or `deny`)"
+                    ),
                 ));
                 continue;
             };
@@ -229,7 +304,7 @@ impl Config {
             self.validated_lint_levels.insert(lint_name.clone(), level);
         }
 
-        warnings
+        diagnostics
     }
 }
 
@@ -269,6 +344,8 @@ mod tests {
     use serde::Deserialize;
 
     use super::Config;
+    use super::ConfigDiagnostic;
+    use super::ConfigDiagnosticKind;
     use super::LintLevel;
     use super::prefer_octet_or_legacy_config;
 
@@ -288,6 +365,12 @@ mod tests {
         let mut cfg = parse_config(doc);
         let warnings = cfg.validate();
         (cfg, warnings)
+    }
+
+    fn parse_and_validate_diagnostics(doc: &str) -> (Config, Vec<ConfigDiagnostic>) {
+        let mut cfg = parse_config(doc);
+        let diagnostics = cfg.validate_diagnostics();
+        (cfg, diagnostics)
     }
 
     #[test]
@@ -464,6 +547,43 @@ no_panic = "deny"
             "invalid octet lint level in `dylint.toml` lint_levels for `no_unwrap`: `fatal` (expected `allow`, `warn`, or `deny`)"
         ]);
         assert_eq!(cfg.lint_level("no_panic"), Some(LintLevel::Deny));
+    }
+
+    #[test]
+    fn multiple_independent_config_errors_accumulate_with_typed_context() {
+        let (cfg, diagnostics) = parse_and_validate_diagnostics(
+            r#"
+[octet]
+disabled_lints = ["not_a_real_lint", "no_unwrap"]
+indexable_lint_exceptions = ["bad_exception"]
+
+[octet.lint_levels]
+no_panic = "fatal"
+no_unwrap = "deny"
+not_a_real_level_lint = "warn"
+"#,
+        );
+
+        let diagnostic_shape = diagnostics
+            .iter()
+            .map(|diagnostic| (diagnostic.kind, diagnostic.source, diagnostic.field, diagnostic.item.as_str()))
+            .collect::<Vec<_>>();
+        assert_eq!(diagnostic_shape, vec![
+            (ConfigDiagnosticKind::UnknownDisabledLint, "dylint.toml", "octet.disabled_lints", "not_a_real_lint",),
+            (
+                ConfigDiagnosticKind::UnknownIndexableExceptionClass,
+                "dylint.toml",
+                "octet.indexable_lint_exceptions",
+                "bad_exception",
+            ),
+            (ConfigDiagnosticKind::InvalidLintLevel, "dylint.toml", "octet.lint_levels", "no_panic"),
+            (ConfigDiagnosticKind::ConflictingDisabledLintLevel, "dylint.toml", "octet.lint_levels", "no_unwrap",),
+            (ConfigDiagnosticKind::UnknownLintLevel, "dylint.toml", "octet.lint_levels", "not_a_real_level_lint",),
+        ]);
+        assert_eq!(diagnostics[2].kind.as_str(), "invalid_lint_level");
+        assert!(cfg.lint_is_disabled("no_unwrap"));
+        assert_eq!(cfg.lint_level("no_panic"), None);
+        assert_eq!(cfg.lint_level("no_unwrap"), None);
     }
 
     #[test]
