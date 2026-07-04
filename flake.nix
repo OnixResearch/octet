@@ -1585,6 +1585,46 @@ MAIN
 
             mkdir -p "$out"
           '';
+          structuredMigrationSessionsGate = pkgs.runCommand "octet-structured-migration-sessions" {
+            nativeBuildInputs = with pkgs; [ coreutils diffutils gnugrep jq ];
+          } ''
+            scratch="$(mktemp -d)"
+            session="$scratch/session.json"
+            cp ${src}/templates/structured-migration-session.json "$session"
+
+            ${cargoOctetUnwrapped}/bin/cargo-octet migrate session plan --session "$session" --output-format json > "$scratch/plan-a.json"
+            ${cargoOctetUnwrapped}/bin/cargo-octet migrate session plan --session "$session" --output-format json > "$scratch/plan-b.json"
+            cmp "$scratch/plan-a.json" "$scratch/plan-b.json"
+            jq --exit-status '.schema_version == "octet-migration-plan-report/v1" and .session_id == "rename-cargo-slotcar" and (.compatibility_aliases | length == 1) and (.archive_surfaces | length == 1)' "$scratch/plan-a.json" >/dev/null
+            jq --exit-status '.non_claim_boundary | contains("do not prove behavioral correctness") and contains("semantic equivalence")' "$scratch/plan-a.json" >/dev/null
+
+            ${cargoOctetUnwrapped}/bin/cargo-octet migrate session status --session "$session" --output-format json > "$scratch/status.json"
+            jq --exit-status '.schema_version == "octet-migration-status-report/v1" and .compatibility_alias_count == 1 and .unresolved_todo_count == 1' "$scratch/status.json" >/dev/null
+            ${cargoOctetUnwrapped}/bin/cargo-octet migrate session verify --session "$session" --output-format json > "$scratch/verify.json"
+            jq --exit-status '.valid == true and (.checked_archive_surfaces | index("cairn/archive/2026-01-01-legacy/tasks.md"))' "$scratch/verify.json" >/dev/null
+
+            ${cargoOctetUnwrapped}/bin/cargo-octet migrate session apply --session "$session" --operation-manifest "$scratch/dry-run-manifest.json" --dry-run --output-format json > "$scratch/dry-run.json"
+            ${cargoOctetUnwrapped}/bin/cargo-octet migrate session apply --session "$session" --operation-manifest "$scratch/apply-manifest-a.json" --output-format json > "$scratch/apply-a.json"
+            ${cargoOctetUnwrapped}/bin/cargo-octet migrate session apply --session "$session" --operation-manifest "$scratch/apply-manifest-b.json" --output-format json > "$scratch/apply-b.json"
+            cmp "$scratch/apply-manifest-a.json" "$scratch/apply-manifest-b.json"
+            jq --exit-status '.pre_write_manifest == true and .dry_run == false and (.operations | length == 1) and (.diagnostics | length == 0)' "$scratch/apply-manifest-a.json" >/dev/null
+            jq --exit-status --slurp '.[0].operations == .[1].operations' "$scratch/dry-run-manifest.json" "$scratch/apply-manifest-a.json" >/dev/null
+
+            jq '.compatibility[1].coverage = [] | .compatibility[1] |= del(.removal_boundary)' "$session" > "$scratch/missing-alias.json"
+            set +e
+            ${cargoOctetUnwrapped}/bin/cargo-octet migrate session verify --session "$scratch/missing-alias.json" --output-format json > "$scratch/missing-alias-verify.json"
+            missing_alias_status="$?"
+            set -e
+            test "$missing_alias_status" -eq 1
+            jq --exit-status 'any(.diagnostics[]; contains("compatibility.coverage missing")) and any(.diagnostics[]; contains("compatibility.removal_boundary missing"))' "$scratch/missing-alias-verify.json" >/dev/null
+
+            grep -F 'Structured migration sessions prove reviewed name-pointer and artifact linkage only' ${src}/docs/structured-migration-sessions.md >/dev/null
+            if grep -F 'proves semantic equivalence' ${src}/docs/structured-migration-sessions.md >/dev/null; then
+              echo "structured migration sessions doc overclaimed semantic equivalence" >&2
+              exit 1
+            fi
+            mkdir -p "$out"
+          '';
           thirSupplementInventoryGate = mkFingerprintDocsCheck
             "octet-thir-supplement-inventory-gate"
             "thir_inventory";
@@ -1914,6 +1954,7 @@ MAIN
           supplement-compatibility-gate = supplementCompatibilityGate;
           valence-evidence-index = valenceEvidenceIndexGate;
           evidence-codebase-index = evidenceCodebaseIndexGate;
+          structured-migration-sessions = structuredMigrationSessionsGate;
           valence-evidence-release = valenceEvidenceReleaseGate;
           valence-core-package-readiness = valenceCorePackageReadiness;
           thir-supplement-inventory-gate = thirSupplementInventoryGate;

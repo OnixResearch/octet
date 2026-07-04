@@ -228,6 +228,10 @@ pub enum MigrateMode {
     Start,
     Status,
     ApplySafe,
+    SessionPlan,
+    SessionStatus,
+    SessionVerify,
+    SessionApply,
 }
 
 #[derive(Debug)]
@@ -236,6 +240,9 @@ pub struct MigrateArgs {
     pub profile: Option<String>,
     pub output_format: OutputFormat,
     pub manifest: PathBuf,
+    pub session: Option<PathBuf>,
+    pub operation_manifest: Option<PathBuf>,
+    pub dry_run: bool,
 }
 
 #[derive(Debug)]
@@ -412,6 +419,8 @@ Usage:
   cargo octet evidence-index codebase html --index PATH [--output PATH]
   cargo octet fingerprint [--check|--update|--diff] [PATHS...]
   cargo octet migrate <start|status|apply-safe> [--manifest PATH]
+  cargo octet migrate session plan|status|verify --session PATH [--output-format human|json]
+  cargo octet migrate session apply --session PATH --operation-manifest PATH [--dry-run]
   cargo octet object emit|check|update [--function NAME] [PATHS...]
   cargo octet object diff --old OLD.json --new NEW.json [--pointer-manifest PATH]
   cargo octet object pointer set --manifest PATH --name NAME --hash HASH --objects OBJECTS.json --receipt PATH
@@ -482,7 +491,9 @@ Modes: --check, --write, --update, --diff. Use --review-manifest PATH to save re
 
 const MIGRATE_HELP: &str = "cargo octet migrate
 
-Subcommands: start, status, apply-safe. Migration manifests are deterministic and safe-reviewable before applying.
+Subcommands: start, status, apply-safe, session plan, session status, session verify, session apply.
+
+Migration manifests and structured migration sessions are deterministic and safe-reviewable before applying. Session plan/status/verify are non-mutating; session apply writes a pre-write operation manifest for selected safe record-only operations and preserves non-claims about semantic equivalence and correctness.
 ";
 
 const OBJECT_HELP: &str = "cargo octet object
@@ -1059,49 +1070,122 @@ fn parse_fingerprint(args: &[String]) -> Result<FingerprintArgs, String> {
 }
 
 fn parse_migrate(args: &[String]) -> Result<MigrateArgs, String> {
+    match args.first().map(String::as_str) {
+        Some("start") => parse_legacy_migrate(MigrateMode::Start, &args[1..]),
+        Some("status") => parse_legacy_migrate(MigrateMode::Status, &args[1..]),
+        Some("apply-safe") => parse_legacy_migrate(MigrateMode::ApplySafe, &args[1..]),
+        Some("session") => parse_migrate_session(&args[1..]),
+        Some(other) => Err(format!(
+            "unknown migrate subcommand `{other}`; expected `start`, `status`, `apply-safe`, or `session`"
+        )),
+        None => Err("missing migrate subcommand; expected `start`, `status`, `apply-safe`, or `session`".to_owned()),
+    }
+}
+
+fn parse_legacy_migrate(mode: MigrateMode, args: &[String]) -> Result<MigrateArgs, String> {
+    let mut parsed = parse_migrate_common(args)?;
+    parsed.mode = mode;
+    Ok(parsed)
+}
+
+fn parse_migrate_session(args: &[String]) -> Result<MigrateArgs, String> {
     let mode = match args.first().map(String::as_str) {
-        Some("start") => MigrateMode::Start,
-        Some("status") => MigrateMode::Status,
-        Some("apply-safe") => MigrateMode::ApplySafe,
+        Some("plan") => MigrateMode::SessionPlan,
+        Some("status") => MigrateMode::SessionStatus,
+        Some("verify") => MigrateMode::SessionVerify,
+        Some("apply") => MigrateMode::SessionApply,
         Some(other) => {
-            return Err(format!("unknown migrate subcommand `{other}`; expected `start`, `status`, or `apply-safe`"));
+            return Err(format!(
+                "unknown migrate session action `{other}`; expected `plan`, `status`, `verify`, or `apply`"
+            ));
         }
-        None => return Err("missing migrate subcommand; expected `start`, `status`, or `apply-safe`".to_owned()),
+        None => {
+            return Err("missing migrate session action; expected `plan`, `status`, `verify`, or `apply`".to_owned());
+        }
     };
+    let mut parsed = parse_migrate_common(&args[1..])?;
+    parsed.mode = mode;
+    if parsed.session.is_none() {
+        return Err("migrate session requires `--session PATH`".to_owned());
+    }
+    if mode == MigrateMode::SessionApply && parsed.operation_manifest.is_none() {
+        return Err("migrate session apply requires `--operation-manifest PATH`".to_owned());
+    }
+    Ok(parsed)
+}
+
+fn parse_migrate_common(args: &[String]) -> Result<MigrateArgs, String> {
+    const FLAG_AND_VALUE_ARGS: usize = 2;
+
     let mut profile = None;
     let mut output_format = OutputFormat::Human;
     let mut manifest = PathBuf::from(".octet/migrations/octet-migration.json");
-    let mut index = 1;
+    let mut session = None;
+    let mut operation_manifest = None;
+    let mut dry_run = false;
+    let mut index = 0;
     while index < args.len() {
         let arg = &args[index];
-        if arg == "--profile" {
-            profile = Some(args.get(index + 1).ok_or_else(|| "missing value after `--profile`".to_owned())?.clone());
-            index += 2;
-        } else if let Some(value) = arg.strip_prefix("--profile=") {
-            profile = Some(value.to_owned());
-            index += 1;
-        } else if arg == "--format" || arg == "--output-format" {
-            output_format =
-                parse_output_format(args.get(index + 1).ok_or_else(|| format!("missing value after `{arg}`"))?)?;
-            index += 2;
-        } else if let Some(value) = arg.strip_prefix("--format=").or_else(|| arg.strip_prefix("--output-format=")) {
-            output_format = parse_output_format(value)?;
-            index += 1;
-        } else if arg == "--manifest" {
-            manifest = PathBuf::from(args.get(index + 1).ok_or_else(|| "missing value after `--manifest`".to_owned())?);
-            index += 2;
-        } else if let Some(value) = arg.strip_prefix("--manifest=") {
-            manifest = PathBuf::from(value);
-            index += 1;
-        } else {
-            return Err(format!("unsupported migrate argument `{arg}`"));
+        match arg.as_str() {
+            "--profile" => {
+                profile = Some(required_arg_at(args, index, arg)?);
+                index += FLAG_AND_VALUE_ARGS;
+            }
+            "--format" | "--output-format" => {
+                output_format = parse_output_format(&required_arg_at(args, index, arg)?)?;
+                index += FLAG_AND_VALUE_ARGS;
+            }
+            "--manifest" => {
+                manifest = PathBuf::from(required_arg_at(args, index, arg)?);
+                index += FLAG_AND_VALUE_ARGS;
+            }
+            "--session" => {
+                session = Some(PathBuf::from(required_arg_at(args, index, arg)?));
+                index += FLAG_AND_VALUE_ARGS;
+            }
+            "--operation-manifest" => {
+                operation_manifest = Some(PathBuf::from(required_arg_at(args, index, arg)?));
+                index += FLAG_AND_VALUE_ARGS;
+            }
+            "--dry-run" => {
+                dry_run = true;
+                index += 1;
+            }
+            _ if arg.starts_with("--profile=") => {
+                profile = Some(arg.trim_start_matches("--profile=").to_owned());
+                index += 1;
+            }
+            _ if arg.starts_with("--format=") => {
+                output_format = parse_output_format(arg.trim_start_matches("--format="))?;
+                index += 1;
+            }
+            _ if arg.starts_with("--output-format=") => {
+                output_format = parse_output_format(arg.trim_start_matches("--output-format="))?;
+                index += 1;
+            }
+            _ if arg.starts_with("--manifest=") => {
+                manifest = PathBuf::from(arg.trim_start_matches("--manifest="));
+                index += 1;
+            }
+            _ if arg.starts_with("--session=") => {
+                session = Some(PathBuf::from(arg.trim_start_matches("--session=")));
+                index += 1;
+            }
+            _ if arg.starts_with("--operation-manifest=") => {
+                operation_manifest = Some(PathBuf::from(arg.trim_start_matches("--operation-manifest=")));
+                index += 1;
+            }
+            _ => return Err(format!("unsupported migrate argument `{arg}`")),
         }
     }
     Ok(MigrateArgs {
-        mode,
+        mode: MigrateMode::Start,
         profile,
         output_format,
         manifest,
+        session,
+        operation_manifest,
+        dry_run,
     })
 }
 
@@ -2146,6 +2230,7 @@ mod tests {
     use super::EvidenceIndexMode;
     use super::FingerprintMode;
     use super::HelpTopic;
+    use super::MigrateMode;
     use super::OutputFormat;
     use super::ProofRefMode;
     use super::format_command_line;
@@ -2404,6 +2489,60 @@ mod tests {
         )
         .expect_err("evidence collect rejects SARIF");
         assert!(sarif.contains("does not support SARIF"));
+    }
+
+    #[test]
+    fn migrate_session_parse_accepts_apply_manifest_and_dry_run() {
+        let parsed = parse(
+            [
+                "cargo",
+                "octet",
+                "migrate",
+                "session",
+                "apply",
+                "--session",
+                "migration-session.json",
+                "--operation-manifest=operation-manifest.json",
+                "--output-format",
+                "json",
+                "--dry-run",
+            ]
+            .map(OsString::from),
+        )
+        .expect("parse migrate session apply");
+
+        match parsed {
+            CommandArgs::Migrate(args) => {
+                assert_eq!(args.mode, MigrateMode::SessionApply);
+                assert_eq!(args.session, Some(std::path::PathBuf::from("migration-session.json")));
+                assert_eq!(args.operation_manifest, Some(std::path::PathBuf::from("operation-manifest.json")));
+                assert_eq!(args.output_format, OutputFormat::Json);
+                assert!(args.dry_run);
+            }
+            other => panic!("expected migrate session apply args, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn migrate_session_parse_rejects_missing_session_or_manifest() {
+        let missing_session = parse(["cargo", "octet", "migrate", "session", "verify"].map(OsString::from))
+            .expect_err("session commands require session path");
+        assert!(missing_session.contains("migrate session requires `--session PATH`"));
+
+        let missing_manifest = parse(
+            [
+                "cargo",
+                "octet",
+                "migrate",
+                "session",
+                "apply",
+                "--session",
+                "migration-session.json",
+            ]
+            .map(OsString::from),
+        )
+        .expect_err("apply requires operation manifest");
+        assert!(missing_manifest.contains("migrate session apply requires `--operation-manifest PATH`"));
     }
 
     #[test]
