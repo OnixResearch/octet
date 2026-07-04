@@ -18,6 +18,8 @@ let LogArtifact = { locator | NonEmptyString, blake3 | NonEmptyString, bytes | N
     rail_index | Number,
     backend | std.contract.from_predicate (fun value => value == "verus"),
     verifier_mode | VerifierMode,
+    producer_id | NonEmptyString,
+    checker_id | NonEmptyString,
     verifier_identity | {
       verifier_id | NonEmptyString,
       verifier_digest | String | default = "",

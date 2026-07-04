@@ -151,6 +151,12 @@ Reviewers use the existing commands at the matching stage:
 - `cargo octet artifact verify` recomputes artifact identities and checks saved
   receipts plus provenance before an artifact directory is treated as evidence.
 
+Structured Verus receipts name both the proof-result producer (`producer_id`, the
+configured verifier identity) and the small deterministic checker (`checker_id`,
+registered through policy `checker_ids`). A producer-only assertion, missing
+checker identity, unregistered checker, stale binding, or overbroad non-claim
+cannot promote evidence to `formal_proof`.
+
 Imported Trellis references take a separate content-addressed branch:
 
 ```text
