@@ -10,6 +10,8 @@ mod evidence_contracts;
 mod evidence_index;
 mod evidence_log;
 mod evidence_rails;
+#[cfg(test)]
+mod external_schema_contracts;
 mod fingerprint;
 mod imported_proof;
 mod migrate;

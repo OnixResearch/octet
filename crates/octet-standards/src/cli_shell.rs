@@ -31,6 +31,10 @@ use octet_standards::artifacts::seed_manifest_artifact;
 use octet_standards::artifacts::validate_artifact_manifest;
 use octet_standards::artifacts::validate_artifact_manifest_texts;
 use octet_standards::artifacts::validate_proof_bundle_artifact;
+use octet_standards::customs::CustomsInput;
+use octet_standards::customs::CustomsReport;
+use octet_standards::customs::PolicyPackageManifest;
+use octet_standards::customs::validate_policy_package;
 use octet_standards::diagnostic::Diagnostic;
 use octet_standards::diagnostic::DiagnosticInput;
 use octet_standards::fixture::FixtureManifest;
@@ -38,6 +42,11 @@ use octet_standards::fixture::validate_hard_policy_fixture_coverage;
 use octet_standards::model::FamilySelection;
 use octet_standards::model::PolicyRegistry;
 use octet_standards::model::Severity;
+use octet_standards::nickel_export::NamedText;
+use octet_standards::nickel_export::NickelExportInput;
+use octet_standards::nickel_export::NickelExportSpec;
+use octet_standards::nickel_export::manifest_for_exports;
+use octet_standards::nickel_export::validate_export_acceptance;
 use octet_standards::proof::matching_sources;
 use octet_standards::receipt::AcceptanceReceipt;
 use octet_standards::receipt::AcceptanceStatus;
@@ -80,6 +89,10 @@ enum Command {
     Check(CheckArgs),
     /// Export deterministic policy artifacts for consumer checkers.
     ExportArtifacts(ExportArtifactsArgs),
+    /// Emit a BLAKE3 manifest for one helper-produced Nickel export.
+    NickelExportManifest(NickelExportManifestArgs),
+    /// Validate a local policy/config package before promotion.
+    CustomsGate(CustomsGateArgs),
     /// Validate hard-policy fixture coverage from a manifest.
     FixtureCoverage(FixtureCoverageArgs),
 }
@@ -138,6 +151,54 @@ struct ExportArtifactsArgs {
     /// Verification or replay command to record in the receipt.
     #[arg(long)]
     verification_command: Vec<String>,
+}
+
+/// Nickel export manifest arguments.
+#[derive(Debug, Parser)]
+struct NickelExportManifestArgs {
+    /// JSON export spec.
+    #[arg(long)]
+    spec: PathBuf,
+
+    /// Generated output artifact path.
+    #[arg(long)]
+    output: PathBuf,
+
+    /// Output path for the generated manifest JSON.
+    #[arg(long)]
+    manifest_out: PathBuf,
+
+    /// Nickel binary or derivation identity.
+    #[arg(long)]
+    nickel_identity: Option<String>,
+}
+
+/// Customs gate arguments.
+#[derive(Debug, Parser)]
+struct CustomsGateArgs {
+    /// JSON registry exported from `standards/policies/registry.ncl`.
+    #[arg(long)]
+    registry: PathBuf,
+
+    /// JSON package manifest.
+    #[arg(long)]
+    manifest: PathBuf,
+
+    /// Optional generated artifact integrity manifest.
+    #[arg(long)]
+    artifact_manifest: Option<PathBuf>,
+
+    /// Checked-in source or fixture path. Repeatable; directories are read recursively.
+    #[arg(long)]
+    source: Vec<PathBuf>,
+
+    /// Generated artifact path. Repeatable.
+    #[arg(long)]
+    artifact: Vec<PathBuf>,
+
+    /// Output format.
+    #[arg(long, value_enum, default_value_t = OutputFormat::Human)]
+    output: OutputFormat,
 }
 
 /// Fixture-coverage arguments.
@@ -202,6 +263,8 @@ fn run_cli(cli: Cli) -> Result<bool, CliError> {
     match cli.command {
         Command::Check(args) => run_check_command(args),
         Command::ExportArtifacts(args) => run_export_artifacts_command(&args),
+        Command::NickelExportManifest(args) => run_nickel_export_manifest_command(args),
+        Command::CustomsGate(args) => run_customs_gate_command(args),
         Command::FixtureCoverage(args) => run_fixture_coverage_command(args),
     }
 }
@@ -279,6 +342,83 @@ fn run_export_artifacts_command(args: &ExportArtifactsArgs) -> Result<bool, CliE
         write_export_receipt(args, &generated_artifacts, &manifest_path, receipt_out, &started_at)?;
     }
     Ok(false)
+}
+
+fn run_nickel_export_manifest_command(args: NickelExportManifestArgs) -> Result<bool, CliError> {
+    let spec = load_json::<NickelExportSpec>(&args.spec)?;
+    let source_text = read_text(Path::new(&spec.source))?;
+    let dependency_texts = spec
+        .dependencies
+        .iter()
+        .map(|dependency| read_text(Path::new(dependency)).map(|text| (dependency.clone(), text)))
+        .collect::<Result<Vec<_>, _>>()?;
+    let output_text = read_text(&args.output)?;
+    let dependencies = dependency_texts
+        .iter()
+        .map(|(path, text)| NamedText {
+            path: path.as_str(),
+            text: text.as_str(),
+        })
+        .collect::<Vec<_>>();
+    let nickel_identity = args.nickel_identity.as_deref().unwrap_or("nickel:unspecified");
+    let input = NickelExportInput {
+        spec: &spec,
+        source_text: &source_text,
+        dependencies,
+        output_text: &output_text,
+        nickel_identity,
+        contract_diagnostics: Vec::new(),
+    };
+    let diagnostics = validate_export_acceptance(&input);
+    if !diagnostics.is_empty() {
+        return Err(CliError::Config {
+            message: diagnostics.join("; "),
+        });
+    }
+
+    if let Some(parent) = args.manifest_out.parent() {
+        fs::create_dir_all(parent).map_err(|source| CliError::CreateDir {
+            path: parent.to_path_buf(),
+            source,
+        })?;
+    }
+    let manifest = manifest_for_exports(&[input]);
+    write_text(&args.manifest_out, &json_text(&manifest)?)?;
+    Ok(false)
+}
+
+fn run_customs_gate_command(args: CustomsGateArgs) -> Result<bool, CliError> {
+    let registry = load_json::<PolicyRegistry>(&args.registry)?;
+    let package = load_json::<PolicyPackageManifest>(&args.manifest)?;
+    let artifact_manifest =
+        args.artifact_manifest.as_ref().map(|path| load_json::<ArtifactManifest>(path)).transpose()?;
+    let source_paths = if args.source.is_empty() {
+        package
+            .source_paths
+            .iter()
+            .chain(&package.positive_fixtures)
+            .chain(&package.negative_fixtures)
+            .map(PathBuf::from)
+            .collect::<Vec<_>>()
+    } else {
+        args.source.clone()
+    };
+    let artifact_paths = if args.artifact.is_empty() {
+        package.generated_artifacts.iter().map(|artifact| PathBuf::from(&artifact.path)).collect::<Vec<_>>()
+    } else {
+        args.artifact.clone()
+    };
+    let sources = load_sources(&source_paths)?;
+    let artifact_texts = load_sources(&artifact_paths)?;
+    let report = validate_policy_package(&CustomsInput {
+        package: &package,
+        registry: &registry,
+        artifact_manifest: artifact_manifest.as_ref(),
+        sources: &sources,
+        artifact_texts: &artifact_texts,
+    });
+    emit_customs_report(args.output, &report)?;
+    Ok(!report.diagnostics.is_empty())
 }
 
 fn run_fixture_coverage_command(args: FixtureCoverageArgs) -> Result<bool, CliError> {
@@ -1143,6 +1283,57 @@ fn emit_report(output: OutputFormat, report: &CheckReport) -> Result<(), CliErro
             Ok(())
         }
     }
+}
+
+fn emit_customs_report(output: OutputFormat, report: &CustomsReport) -> Result<(), CliError> {
+    match output {
+        OutputFormat::Json => {
+            println!("{}", json_text(report)?.trim_end());
+            Ok(())
+        }
+        OutputFormat::Human | OutputFormat::Markdown => {
+            println!("{}", render_customs_markdown(report));
+            Ok(())
+        }
+    }
+}
+
+fn render_customs_markdown(report: &CustomsReport) -> String {
+    let mut markdown = String::new();
+    writeln!(&mut markdown, "# Octet Policy Package Customs Report").expect("write markdown title");
+    writeln!(&mut markdown).expect("write markdown spacer");
+    writeln!(&mut markdown, "- Package: `{}`", report.package_id).expect("write package");
+    writeln!(&mut markdown, "- Status: `{}`", report.status).expect("write status");
+    writeln!(&mut markdown).expect("write markdown spacer");
+    writeln!(&mut markdown, "## Diagnostics").expect("write diagnostics header");
+    if report.diagnostics.is_empty() {
+        writeln!(&mut markdown, "No blocking diagnostics.").expect("write empty diagnostics");
+    } else {
+        for diagnostic in &report.diagnostics {
+            writeln!(
+                &mut markdown,
+                "- `{}`: {} Remediation: {}",
+                diagnostic.field, diagnostic.message, diagnostic.remediation
+            )
+            .expect("write diagnostic");
+        }
+    }
+    writeln!(&mut markdown).expect("write markdown spacer");
+    writeln!(&mut markdown, "## Accepted Artifacts").expect("write artifacts header");
+    for artifact in &report.accepted_artifacts {
+        writeln!(&mut markdown, "- `{artifact}`").expect("write artifact");
+    }
+    writeln!(&mut markdown).expect("write markdown spacer");
+    writeln!(&mut markdown, "## Non-claims").expect("write nonclaims header");
+    for non_claim in &report.non_claims {
+        writeln!(&mut markdown, "- {non_claim}").expect("write nonclaim");
+    }
+    writeln!(&mut markdown).expect("write markdown spacer");
+    writeln!(&mut markdown, "## Manual Review Actions").expect("write actions header");
+    for action in &report.manual_review_actions {
+        writeln!(&mut markdown, "- {action}").expect("write action");
+    }
+    markdown
 }
 
 fn exit_code_for_blocking(blocking: bool) -> ExitCode {
