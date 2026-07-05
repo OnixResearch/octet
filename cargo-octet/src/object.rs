@@ -4,12 +4,15 @@ use std::fs;
 use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
+use std::str::FromStr;
 
 use serde::Deserialize;
 use serde::Serialize;
 use valence_core::function_object;
+use valence_core::function_object::DependencyIdentityStatus;
 use valence_core::function_object::FunctionObjectInput;
 use valence_core::function_object::FunctionObjectV1;
+use valence_core::function_object::NormalizedFunctionSource;
 use valence_core::function_object::SourceSpan;
 
 use crate::cli::ObjectArgs;
@@ -2191,6 +2194,14 @@ fn function_object_for_source(
     span: &fingerprint::FunctionSpan,
     function_source: &str,
 ) -> Result<FunctionObjectV1, String> {
+    let normalized_function_source = NormalizedFunctionSource::new(
+        function_object::NORMALIZATION_ALGORITHM,
+        fingerprint::normalize_tokens(function_source),
+    )
+    .map_err(|error| error.to_string())?;
+    let dependency_identity_status =
+        DependencyIdentityStatus::from_str(fingerprint::dependency_identity_status(function_source))
+            .map_err(|error| error.to_string())?;
     function_object::build_function_object(FunctionObjectInput {
         tool_name: "cargo-octet",
         tool_version: env!("CARGO_PKG_VERSION"),
@@ -2198,11 +2209,12 @@ fn function_object_for_source(
         source_path: normalized_source_path(path),
         source_span: source_span(full_source, span.start, span.end)?,
         function_source,
-        normalized_function_source: fingerprint::normalize_tokens(function_source),
+        normalized_function_source,
         dependency_set_hash: fingerprint::dependency_set_hash(function_source),
-        dependency_identity_status: fingerprint::dependency_identity_status(function_source),
+        dependency_identity_status,
         macro_calls: span.macro_calls,
     })
+    .map_err(|error| error.to_string())
 }
 
 #[allow(dead_code)]
