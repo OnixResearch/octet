@@ -134,6 +134,9 @@
     "purity_effect_lints_guardrails",
     "resource_return_from_core/resource_return_from_core",
     "spawn_in_core/spawn_in_core",
+    "zero_alloc_attr_contract/zero_alloc_attr_contract",
+    "zero_alloc_attr_contract_allow",
+    "zero_alloc_attr_contract_silent_allow",
     "unjustified_allow",
     "usize_in_public_api",
     "verified/verified_purity"

@@ -212,6 +212,10 @@
     "canonical_lint_name": "tigerstyle::spawn_in_core"
   },
   {
+    "alias_name": "zero_alloc_attr_contract",
+    "canonical_lint_name": "tigerstyle::zero_alloc_attr_contract"
+  },
+  {
     "alias_name": "catch_all_on_enum",
     "canonical_lint_name": "tigerstyle::catch_all_on_enum"
   },

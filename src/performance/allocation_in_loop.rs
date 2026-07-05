@@ -9,8 +9,8 @@ use crate::diagnostics::emit_tiger_style_lint;
 use crate::test_context;
 
 const CONSTRUCTOR_NEW: &str = "new";
-const SUPPORTED_ALLOCATING_CRATES: &[&str] = &["alloc", "std"];
-const SUPPORTED_ALLOCATING_TYPES: &[&str] = &["Vec", "String", "HashMap", "BTreeMap"];
+pub(crate) const SUPPORTED_ALLOCATING_CRATES: &[&str] = &["alloc", "std"];
+pub(crate) const SUPPORTED_ALLOCATING_TYPES: &[&str] = &["Vec", "String", "Box", "HashMap", "BTreeMap"];
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 struct AllocationInLoopFacts {
@@ -38,30 +38,7 @@ declare_tool_lint! {
 
 declare_lint_pass!(AllocationInLoop => [ALLOCATION_IN_LOOP]);
 
-fn qpath_names_constructor_new(qpath: &hir::QPath<'_>) -> bool {
-    match qpath {
-        hir::QPath::Resolved(_, path) => {
-            path.segments.last().is_some_and(|segment| segment.ident.name.as_str() == CONSTRUCTOR_NEW)
-        }
-        hir::QPath::TypeRelative(_, segment) => segment.ident.name.as_str() == CONSTRUCTOR_NEW,
-    }
-}
-
-fn expr_is_zero_arg_new_call(expr: &hir::Expr<'_>) -> bool {
-    let hir::ExprKind::Call(callee, args) = &expr.kind else {
-        return false;
-    };
-    if !args.is_empty() {
-        return false;
-    }
-    let hir::ExprKind::Path(qpath) = &callee.kind else {
-        return false;
-    };
-
-    qpath_names_constructor_new(qpath)
-}
-
-fn supported_allocating_type(cx: &LateContext<'_>, ty: ty::Ty<'_>) -> Option<String> {
+pub(crate) fn supported_allocating_type(cx: &LateContext<'_>, ty: ty::Ty<'_>) -> Option<String> {
     let ty::Adt(adt, _) = ty.peel_refs().kind() else {
         return None;
     };
@@ -77,8 +54,73 @@ fn supported_allocating_type(cx: &LateContext<'_>, ty: ty::Ty<'_>) -> Option<Str
     }
 }
 
-fn expr_supported_allocation_type(cx: &LateContext<'_>, expr: &hir::Expr<'_>) -> Option<String> {
+pub(crate) fn expr_supported_allocation_type(cx: &LateContext<'_>, expr: &hir::Expr<'_>) -> Option<String> {
     supported_allocating_type(cx, cx.typeck_results().expr_ty(expr))
+}
+
+pub(crate) fn qpath_names_constructor_new(qpath: &hir::QPath<'_>) -> bool {
+    match qpath {
+        hir::QPath::Resolved(_, path) => {
+            path.segments.last().is_some_and(|segment| segment.ident.name.as_str() == CONSTRUCTOR_NEW)
+        }
+        hir::QPath::TypeRelative(_, segment) => segment.ident.name.as_str() == CONSTRUCTOR_NEW,
+    }
+}
+
+pub(crate) fn expr_is_zero_arg_new_call(expr: &hir::Expr<'_>) -> bool {
+    let hir::ExprKind::Call(callee, args) = &expr.kind else {
+        return false;
+    };
+    if !args.is_empty() {
+        return false;
+    }
+    let hir::ExprKind::Path(qpath) = &callee.kind else {
+        return false;
+    };
+
+    qpath_names_constructor_new(qpath)
+}
+
+/// Returns the allocating type name if `expr` is an obvious allocation call
+/// (constructor call, method call, or macro expansion that produces a known
+/// heap-allocating type such as `Vec`, `String`, `Box`, `HashMap`, `BTreeMap`).
+pub(crate) fn expr_is_allocation(cx: &LateContext<'_>, expr: &hir::Expr<'_>) -> Option<String> {
+    match &expr.kind {
+        hir::ExprKind::Call(callee, _) => {
+            let ty = cx.typeck_results().expr_ty(expr);
+            if let Some(type_name) = supported_allocating_type(cx, ty) {
+                if let hir::ExprKind::Path(qpath) = &callee.kind {
+                    if qpath_names_constructor_new(qpath) {
+                        return Some(type_name);
+                    }
+                    if let Some(ref method) = qpath_names_method_name(qpath) {
+                        if method.as_str() == "from" || method.as_str() == "from_str" {
+                            return Some(type_name);
+                        }
+                    }
+                }
+            }
+        }
+        hir::ExprKind::MethodCall(method, ..) => {
+            let method_name = method.ident.name.as_str();
+            if method_name == "to_string" || method_name == "to_owned" {
+                let ty = cx.typeck_results().expr_ty(expr);
+                if let Some(type_name) = supported_allocating_type(cx, ty) {
+                    return Some(type_name);
+                }
+            }
+        }
+        _ => {}
+    }
+    None
+}
+
+fn qpath_names_method_name(qpath: &hir::QPath<'_>) -> Option<String> {
+    let segment_name = match qpath {
+        hir::QPath::Resolved(_, path) => path.segments.last()?.ident.name.as_str(),
+        hir::QPath::TypeRelative(_, segment) => segment.ident.name.as_str(),
+    };
+    Some(segment_name.to_owned())
 }
 
 fn hir_id_has_loop_parent(cx: &LateContext<'_>, hir_id: hir::HirId) -> bool {

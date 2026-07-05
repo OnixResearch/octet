@@ -265,6 +265,11 @@
     "category": "safe_shape"
   },
   {
+    "lint_name": "zero_alloc_attr_contract",
+    "fixture": "purity_effect_lints_guardrails",
+    "category": "safe_shape"
+  },
+  {
     "lint_name": "catch_all_on_enum",
     "fixture": "lint_guardrail_common",
     "category": "safe_shape"

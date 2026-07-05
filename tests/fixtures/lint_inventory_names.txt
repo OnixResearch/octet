@@ -51,6 +51,7 @@ nondeterministic_output
 pure_attr_contract
 resource_return_from_core
 spawn_in_core
+zero_alloc_attr_contract
 catch_all_on_enum
 foreign_enum_catch_all
 fragile_exhaustive_enum_match
