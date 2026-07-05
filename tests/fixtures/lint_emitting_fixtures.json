@@ -212,6 +212,10 @@
     "fixture": "spawn_in_core/spawn_in_core"
   },
   {
+    "lint_name": "zero_alloc_attr_contract",
+    "fixture": "zero_alloc_attr_contract/zero_alloc_attr_contract"
+  },
+  {
     "lint_name": "catch_all_on_enum",
     "fixture": "catch_all_on_enum"
   },

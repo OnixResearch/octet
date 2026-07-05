@@ -636,6 +636,18 @@
     "example_text": "fn schedule(input: Input) -> WorkCommand"
   },
   {
+    "lint_name": "zero_alloc_attr_contract",
+    "default_level": "warn",
+    "principle": "Functional Core",
+    "guide_section": "Functional Core / Imperative Shell",
+    "domain_group": "tigerstyle::purity",
+    "guidance": "keep functions marked zero-alloc free of heap allocation; use stack-local construction, pre-allocated buffers, or shell-owned allocation",
+    "docs_summary": "enforce direct allocation-site checks on marked zero-alloc functions",
+    "effect_family": "resource",
+    "example_mode": "required",
+    "example_text": "#[tigerstyle::zero_alloc] fn compute(input: Input) -> Output"
+  },
+  {
     "lint_name": "catch_all_on_enum",
     "default_level": "warn",
     "principle": "Exhaustive Matching",

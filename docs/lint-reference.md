@@ -9,7 +9,7 @@ For the landing-page naming map, see `../README.md`.
 
 ## Catalog summary
 
-`octet` ships 67 lints across 6 domains.
+`octet` ships 68 lints across 6 domains.
 
 | Domain | Group | Count |
 | --- | --- | ---: |
@@ -17,7 +17,7 @@ For the landing-page naming map, see `../README.md`.
 | naming | `tigerstyle::naming` | 9 |
 | performance | `tigerstyle::performance` | 2 |
 | structure | `tigerstyle::structure` | 16 |
-| purity | `tigerstyle::purity` | 15 |
+| purity | `tigerstyle::purity` | 16 |
 | concurrency | `tigerstyle::concurrency` | 2 |
 
 ## Suppression and level controls
@@ -162,6 +162,7 @@ Unknown lint names and invalid level values warn and are ignored.
 | `pure_attr_contract` | `warn` | enforce direct-effect checks on marked pure functions |
 | `resource_return_from_core` | `warn` | flag concrete resource-handle return types in configured core scopes |
 | `spawn_in_core` | `warn` | flag direct thread or task spawning in configured core scopes |
+| `zero_alloc_attr_contract` | `warn` | enforce direct allocation-site checks on marked zero-alloc functions |
 | `verified_purity` | `deny` | ban async, IO, and wall-clock usage in `verified/` modules |
 | `contradictory_time` | `warn` | avoid taking time as input and then reading the clock again |
 

@@ -51,6 +51,7 @@ nondeterministic_output=allow
 pure_attr_contract=warn
 resource_return_from_core=warn
 spawn_in_core=warn
+zero_alloc_attr_contract=warn
 catch_all_on_enum=warn
 foreign_enum_catch_all=allow
 fragile_exhaustive_enum_match=allow

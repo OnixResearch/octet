@@ -1,13 +1,16 @@
 use rustc_hir as hir;
 use rustc_hir::intravisit::FnKind;
+use rustc_hir::intravisit::Visitor;
 use rustc_lint::LateContext;
 use rustc_lint::LateLintPass;
 use rustc_lint::LintContext;
+use rustc_middle::hir::nested_filter::All;
 use rustc_session::declare_tool_lint;
 use rustc_session::impl_lint_pass;
 use rustc_span::Span;
 
 use crate::diagnostics::emit_tiger_style_lint;
+use crate::performance::allocation_in_loop;
 use crate::test_context;
 
 const AMBIENT_ENV_LINT: &str = "ambient_env";
@@ -20,6 +23,7 @@ const MISSING_CONST_FN_LINT: &str = "missing_const_fn";
 const MUTATING_INPUT_IN_PURE_LINT: &str = "mutating_input_in_pure";
 const NONDETERMINISTIC_OUTPUT_LINT: &str = "nondeterministic_output";
 const PURE_ATTR_CONTRACT_LINT: &str = "pure_attr_contract";
+const ZERO_ALLOC_ATTR_CONTRACT_LINT: &str = "zero_alloc_attr_contract";
 const RESOURCE_RETURN_FROM_CORE_LINT: &str = "resource_return_from_core";
 const SPAWN_IN_CORE_LINT: &str = "spawn_in_core";
 
@@ -215,6 +219,7 @@ enum EffectClass {
     Runtime,
     Spawn,
     Time,
+    Allocation,
 }
 
 impl EffectClass {
@@ -230,6 +235,7 @@ impl EffectClass {
             Self::Runtime => "runtime construction",
             Self::Spawn => "task spawning",
             Self::Time => "time",
+            Self::Allocation => "allocation",
         }
     }
 }
@@ -242,6 +248,7 @@ enum PureViolation {
     MutatingInput,
     Panic,
     ResourceReturn,
+    Allocation,
 }
 
 impl PureViolation {
@@ -253,6 +260,7 @@ impl PureViolation {
             Self::MutatingInput => "mutating input",
             Self::Panic => "panic",
             Self::ResourceReturn => "resource return",
+            Self::Allocation => "allocation",
         }
     }
 }
@@ -341,6 +349,17 @@ declare_tool_lint! {
     "task or thread spawn in configured core scope"
 }
 
+declare_tool_lint! {
+    /// Enforces direct-effect allocation checks for functions marked with the
+    /// zero-allocation marker. Flags direct heap-allocation constructors in the
+    /// annotated body and guides maintainers toward stack-local construction or
+    /// pre-allocated buffers. This lint checks direct source shapes only, not
+    /// transitive whole-program non-allocation proof.
+    pub tigerstyle::ZERO_ALLOC_ATTR_CONTRACT,
+    Warn,
+    "marked zero-alloc function contains direct allocation"
+}
+
 pub struct AmbientEnv;
 pub struct AmbientRandom;
 pub struct GlobalStateInCore {
@@ -367,6 +386,7 @@ pub struct ResourceReturnFromCore {
 pub struct SpawnInCore {
     core_source_scopes: Vec<String>,
 }
+pub struct ZeroAllocAttrContract;
 
 impl GlobalStateInCore {
     pub fn new(core_source_scopes: Vec<String>) -> Self {
@@ -422,6 +442,7 @@ impl_lint_pass!(NondeterministicOutput => [NONDETERMINISTIC_OUTPUT]);
 impl_lint_pass!(PureAttrContract => [PURE_ATTR_CONTRACT]);
 impl_lint_pass!(ResourceReturnFromCore => [RESOURCE_RETURN_FROM_CORE]);
 impl_lint_pass!(SpawnInCore => [SPAWN_IN_CORE]);
+impl_lint_pass!(ZeroAllocAttrContract => [ZERO_ALLOC_ATTR_CONTRACT]);
 
 fn compact(source: &str) -> String {
     source.chars().filter(|ch| !ch.is_whitespace()).collect()
@@ -532,6 +553,13 @@ fn source_has_pure_marker(source: &str) -> bool {
         || compact_source.contains("#[pure]")
 }
 
+fn source_has_zero_alloc_marker(source: &str) -> bool {
+    let compact_source = compact(source);
+    compact_source.contains("#[tigerstyle::zero_alloc]")
+        || compact_source.contains("#[octet::zero_alloc]")
+        || compact_source.contains("#[zero_alloc]")
+}
+
 fn preceding_attrs_have_pure_marker(cx: &LateContext<'_>, span: Span) -> bool {
     let source_map = cx.sess().source_map();
     let Ok(lines) = source_map.span_to_lines(span) else {
@@ -560,9 +588,46 @@ fn preceding_attrs_have_pure_marker(cx: &LateContext<'_>, span: Span) -> bool {
     false
 }
 
+fn preceding_attrs_have_zero_alloc_marker(cx: &LateContext<'_>, span: Span) -> bool {
+    let source_map = cx.sess().source_map();
+    let Ok(lines) = source_map.span_to_lines(span) else {
+        return false;
+    };
+    let Some(first_line_idx) = lines.lines.first().map(|line| line.line_index) else {
+        return false;
+    };
+
+    for idx in (0..first_line_idx).rev() {
+        let Some(line) = lines.file.get_line(idx) else {
+            continue;
+        };
+        let trimmed = line.trim();
+        if trimmed.is_empty() || trimmed.starts_with("//") {
+            continue;
+        }
+        if trimmed.starts_with("#[") || trimmed.starts_with("#![") {
+            if source_has_zero_alloc_marker(trimmed) {
+                return true;
+            }
+            continue;
+        }
+        break;
+    }
+    false
+}
+
 fn fn_source_is_declared_pure(cx: &LateContext<'_>, _def_id: rustc_hir::def_id::LocalDefId, span: Span) -> bool {
     preceding_attrs_have_pure_marker(cx, span)
         || cx.sess().source_map().span_to_snippet(span).is_ok_and(|source| source_has_pure_marker(&source))
+}
+
+fn fn_source_is_declared_zero_alloc(cx: &LateContext<'_>, _def_id: rustc_hir::def_id::LocalDefId, span: Span) -> bool {
+    preceding_attrs_have_zero_alloc_marker(cx, span)
+        || cx
+            .sess()
+            .source_map()
+            .span_to_snippet(span)
+            .is_ok_and(|source| source_has_zero_alloc_marker(&source))
 }
 
 fn source_is_in_core_scope(cx: &LateContext<'_>, span: Span, scopes: &[String]) -> bool {
@@ -968,6 +1033,55 @@ impl<'tcx> LateLintPass<'tcx> for PureAttrContract {
             ),
             PURE_ATTR_CONTRACT_LINT,
         );
+    }
+}
+
+impl<'tcx> LateLintPass<'tcx> for ZeroAllocAttrContract {
+    fn check_fn(
+        &mut self,
+        cx: &LateContext<'tcx>,
+        _kind: FnKind<'tcx>,
+        _decl: &'tcx hir::FnDecl<'tcx>,
+        body: &'tcx hir::Body<'tcx>,
+        span: Span,
+        def_id: rustc_hir::def_id::LocalDefId,
+    ) {
+        if test_context::late_hir_id_is_in_test_context(cx, body.value.hir_id, span)
+            || !fn_source_is_declared_zero_alloc(cx, def_id, span)
+        {
+            return;
+        }
+        check_marked_zero_alloc_body(cx, body, span);
+    }
+}
+
+fn check_marked_zero_alloc_body<'tcx>(cx: &LateContext<'tcx>, body: &'tcx hir::Body<'tcx>, _fn_span: Span) {
+    // Walk all expressions in the function body
+    let mut finder = AllocExprFinder { cx, fn_span: _fn_span };
+    finder.visit_expr(body.value);
+}
+
+#[allow(dead_code)]
+struct AllocExprFinder<'a, 'tcx> {
+    cx: &'a LateContext<'tcx>,
+    fn_span: Span,
+}
+
+impl<'a, 'tcx> rustc_hir::intravisit::Visitor<'tcx> for AllocExprFinder<'a, 'tcx> {
+    type NestedFilter = All;
+
+    fn visit_expr(&mut self, expr: &'tcx hir::Expr<'tcx>) {
+        if let hir::ExprKind::Closure(_) = expr.kind {
+            // Skip closures - they're separate functions
+            return;
+        }
+        if let Some(type_name) = allocation_in_loop::expr_is_allocation(self.cx, expr) {
+            let message = format!(
+                "marked zero-alloc function constructs `{type_name}` which allocates on the heap; this lint checks direct allocation sites only, not transitive proof"
+            );
+            emit(self.cx, ZERO_ALLOC_ATTR_CONTRACT, expr.span, message, ZERO_ALLOC_ATTR_CONTRACT_LINT);
+        }
+        rustc_hir::intravisit::walk_expr(self, expr);
     }
 }
 

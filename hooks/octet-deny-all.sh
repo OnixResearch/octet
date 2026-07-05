@@ -71,6 +71,7 @@ deny_lint_flags='
 -D mutating_input_in_pure
 -D nondeterministic_output
 -D pure_attr_contract
+-D zero_alloc_attr_contract
 -D resource_return_from_core
 -D spawn_in_core
 -D catch_all_on_enum

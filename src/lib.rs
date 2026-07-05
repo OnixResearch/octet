@@ -315,6 +315,9 @@ lint_inventory! {
         let core_source_scopes = cfg.core_source_scopes.clone();
         lint_store.register_late_pass(move |_| Box::new(purity::effect_lints::SpawnInCore::new(core_source_scopes.clone())));
     },
+    "zero_alloc_attr_contract", purity::effect_lints::ZERO_ALLOC_ATTR_CONTRACT => |lint_store, _cfg| {
+        lint_store.register_late_pass(|_| Box::new(purity::effect_lints::ZeroAllocAttrContract));
+    },
     "catch_all_on_enum", safety::catch_all_on_enum::CATCH_ALL_ON_ENUM => |lint_store, _cfg| {
         lint_store.register_late_pass(|_| Box::new(safety::catch_all_on_enum::CatchAllOnEnum));
     },

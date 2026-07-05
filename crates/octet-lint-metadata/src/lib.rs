@@ -691,6 +691,18 @@ pub const LINT_METADATA: &[LintMetadata] = &[
         example_text: Some("fn schedule(input: Input) -> WorkCommand"),
     },
     LintMetadata {
+        lint_name: "zero_alloc_attr_contract",
+        default_level: DEFAULT_WARN,
+        principle: "Functional Core",
+        guide_section: "Functional Core / Imperative Shell",
+        domain_group: GROUP_PURITY,
+        guidance: "keep functions marked zero-alloc free of heap allocation; use stack-local construction, pre-allocated buffers, or shell-owned allocation",
+        docs_summary: "enforce direct allocation-site checks on marked zero-alloc functions",
+        effect_family: EFFECT_RESOURCE,
+        example_mode: ExampleMode::Required,
+        example_text: Some("#[tigerstyle::zero_alloc] fn compute(input: Input) -> Output"),
+    },
+    LintMetadata {
         lint_name: "catch_all_on_enum",
         default_level: DEFAULT_WARN,
         principle: "Exhaustive Matching",
