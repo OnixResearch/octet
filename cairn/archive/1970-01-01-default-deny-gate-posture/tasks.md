@@ -6,7 +6,7 @@
 
 ## Phase 2: Archive
 
-- [ ] [serial] r[octet.default_deny_gate] Verify and archive the change.
+- [x] [serial] r[octet.default_deny_gate] Verify and archive the change.
 
 ## Verification Coverage
 

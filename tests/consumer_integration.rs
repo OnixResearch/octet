@@ -2781,6 +2781,7 @@ fn artifact_verifier_accepts_real_bundle_and_rejects_tamper_without_mutation() {
     assert_eq!(output.status.code(), Some(EXIT_CODE_SUCCESS));
 
     let bin = built_cargo_octet_bin().expect("build cargo-octet binary");
+    let valence_export = fixture.repo.join("valence-provenance.json");
     let verify = Command::new(&bin)
         .args([
             "artifact",
@@ -2789,6 +2790,8 @@ fn artifact_verifier_accepts_real_bundle_and_rejects_tamper_without_mutation() {
             dir.to_str().expect("artifact dir utf8"),
             "--output-format",
             JSON_OUTPUT_FORMAT,
+            "--emit-valence-provenance",
+            valence_export.to_str().expect("valence export path utf8"),
         ])
         .current_dir(&fixture.repo)
         .output()
@@ -2804,6 +2807,16 @@ fn artifact_verifier_accepts_real_bundle_and_rejects_tamper_without_mutation() {
     assert_eq!(report["status"], "valid");
     assert_eq!(report["output_format"], JSON_OUTPUT_FORMAT);
     assert!(report["diagnostics"].as_array().expect("diagnostics").is_empty());
+    let export_json: serde_json::Value =
+        serde_json::from_slice(&fs::read(&valence_export).expect("read Valence export")).expect("Valence export json");
+    assert_eq!(export_json["schema_version"], "octet-valence-provenance-export/v1");
+    assert!(
+        export_json["provenance_records"]
+            .as_array()
+            .expect("provenance records")
+            .iter()
+            .any(|record| { record["artifact"] == RESULTS_JSONL_FILE && record["evidence_tier"] == "static_lint" })
+    );
 
     let files_before_tamper = artifact_file_names(&dir);
     let tampered_path = dir.join(RESULTS_JSONL_FILE);

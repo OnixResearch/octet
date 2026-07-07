@@ -154,6 +154,11 @@ Reviewers use the existing commands at the matching stage:
   `formal_proof` provenance.
 - `cargo octet artifact verify` recomputes artifact identities and checks saved
   receipts plus provenance before an artifact directory is treated as evidence.
+  With `--emit-valence-provenance <path>`, it writes a Valence-ready export only
+  after verification succeeds. The export preserves Octet artifact identities,
+  provenance records, proof-card summaries, parent links, diagnostics, evidence
+  tiers, and non-claims; it does not upgrade manual-review, lint, policy, or
+  imported Trellis evidence into formal proof.
 - Proof goal-state feedback summarizes the selected claim, assumptions,
   satisfied evidence, missing obligations, blockers, remediation commands, and
   non-claims without requiring Lean execution or broadening proof claims.
