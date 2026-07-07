@@ -2,7 +2,9 @@ use std::collections::BTreeMap;
 use std::fs;
 use std::path::Path;
 
+use serde::Deserialize;
 use serde::Serialize;
+use serde_json::Value;
 
 use crate::cli::ArtifactArgs;
 use crate::cli::OutputFormat;
@@ -37,6 +39,11 @@ const EVIDENCE_RAIL_OUTPUT_FORMAT: &str = "evidence-rail";
 const EVIDENCE_LOG_SOURCE_ID: &str = "octet.evidence_log.manifest";
 const EVIDENCE_LOG_MANUAL_ACTION: &str =
     "review the in-tree summary, exact replay command, checked scope, and claim boundary before relying on the raw log";
+const VALENCE_EXPORT_SCHEMA_VERSION: &str = "octet-valence-provenance-export/v1";
+const VALENCE_EXPORT_NON_CLAIM_CORRECTNESS: &str = "Octet export preserves artifact identity, provenance linkage, and evidence tiers; it does not prove whole-program correctness";
+const VALENCE_EXPORT_NON_CLAIM_SEMANTICS: &str =
+    "Valence consumes this export for stack traceability; Mantle bundles only the final sidecar opaquely";
+const FORMAL_PROOF_TIER: &str = "formal_proof";
 
 #[derive(Debug, Clone)]
 pub struct BundleFile {
@@ -72,6 +79,65 @@ pub struct ArtifactVerificationReport {
     pub diagnostics: Vec<String>,
 }
 
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+pub struct ValenceProvenanceExport {
+    pub schema_version: String,
+    pub artifact_dir: String,
+    pub verification_status: String,
+    pub artifacts: Vec<ValenceArtifactIdentity>,
+    pub provenance_records: Vec<ValenceProvenanceRecord>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub proof_cards: Vec<ValenceProofCard>,
+    pub diagnostics: Vec<String>,
+    pub non_claims: Vec<String>,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+pub struct ValenceArtifactIdentity {
+    pub artifact: String,
+    pub blake3: String,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+pub struct ValenceProvenanceRecord {
+    pub source_id: String,
+    pub checker_id: String,
+    pub evidence_tier: String,
+    pub artifact: String,
+    pub blake3: String,
+    pub checked_scope: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub verifier_identity: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub proof_artifact_identity: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub human_action: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub parent_artifacts: Vec<String>,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+pub struct ValenceProofCard {
+    pub proof_or_property_id: String,
+    pub source_requirement_or_policy_id: String,
+    pub policy_id: String,
+    pub rail_index: u32,
+    pub receipt_path: String,
+    pub artifact_blake3_identities: Vec<ValenceArtifactIdentity>,
+    pub evidence_tier: String,
+    pub evidence_origin: String,
+    pub status: String,
+    pub non_claims: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub external_reference: Option<Value>,
+    pub diagnostics: Vec<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct RawProofCardDeck {
+    cards: Vec<ValenceProofCard>,
+}
+
 #[derive(Debug, Clone, Eq, PartialEq)]
 struct BundleStatus {
     output_format: Option<OutputFormat>,
@@ -99,10 +165,14 @@ pub fn run(args: &ArtifactArgs) -> Result<i32, String> {
     }
 
     let files = read_bundle_files(&args.artifact_dir)?;
-    let report = verify_bundle(ArtifactBundleInput {
+    let input = ArtifactBundleInput {
         artifact_dir: args.artifact_dir.display().to_string(),
         files,
-    });
+    };
+    let report = verify_bundle(input.clone());
+    if let Some(output_path) = &args.emit_valence_provenance {
+        write_valence_provenance_export(output_path, &report, input.clone())?;
+    }
 
     match args.output_format {
         OutputFormat::Human => print_human_report(&report),
@@ -119,6 +189,127 @@ pub fn run(args: &ArtifactArgs) -> Result<i32, String> {
     } else {
         EXIT_INVALID
     })
+}
+
+fn write_valence_provenance_export(
+    output_path: &Path,
+    report: &ArtifactVerificationReport,
+    input: ArtifactBundleInput,
+) -> Result<(), String> {
+    if !report.diagnostics.is_empty() {
+        return Ok(());
+    }
+    let export = build_valence_provenance_export(input)
+        .map_err(|diagnostics| format!("refusing Valence provenance export:\n- {}", diagnostics.join("\n- ")))?;
+    let bytes =
+        serde_json::to_vec_pretty(&export).map_err(|error| format!("serialize Valence provenance export: {error}"))?;
+    fs::write(output_path, bytes).map_err(|error| format!("write {}: {error}", output_path.display()))
+}
+
+pub fn build_valence_provenance_export(input: ArtifactBundleInput) -> Result<ValenceProvenanceExport, Vec<String>> {
+    let report = verify_bundle(input.clone());
+    if !report.diagnostics.is_empty() {
+        return Err(report.diagnostics);
+    }
+    let file_map = collect_file_map(input.files);
+    let mut diagnostics = Vec::new();
+    let provenance_records = parse_provenance_records(&file_map, &mut diagnostics)
+        .into_iter()
+        .map(valence_provenance_record)
+        .collect::<Vec<_>>();
+    let proof_cards = parse_valence_proof_cards(&file_map, &mut diagnostics);
+    diagnostics.extend(validate_valence_proof_cards(&proof_cards, &file_map));
+    diagnostics.sort();
+    diagnostics.dedup();
+    if !diagnostics.is_empty() {
+        return Err(diagnostics);
+    }
+
+    Ok(ValenceProvenanceExport {
+        schema_version: VALENCE_EXPORT_SCHEMA_VERSION.to_owned(),
+        artifact_dir: input.artifact_dir,
+        verification_status: report.status.to_owned(),
+        artifacts: report
+            .artifacts
+            .into_iter()
+            .map(|artifact| ValenceArtifactIdentity {
+                artifact: artifact.artifact,
+                blake3: artifact.blake3,
+            })
+            .collect(),
+        provenance_records,
+        proof_cards,
+        diagnostics: Vec::new(),
+        non_claims: vec![
+            VALENCE_EXPORT_NON_CLAIM_CORRECTNESS.to_owned(),
+            VALENCE_EXPORT_NON_CLAIM_SEMANTICS.to_owned(),
+        ],
+    })
+}
+
+fn valence_provenance_record(record: ProvenanceRecord) -> ValenceProvenanceRecord {
+    ValenceProvenanceRecord {
+        source_id: record.source_id,
+        checker_id: record.checker_id,
+        evidence_tier: record.evidence_tier.as_str().to_owned(),
+        artifact: record.artifact_locator,
+        blake3: record.blake3,
+        checked_scope: record.checked_scope,
+        verifier_identity: record.verifier_identity,
+        proof_artifact_identity: record.proof_artifact_identity,
+        human_action: record.human_action,
+        parent_artifacts: record.parent_artifacts,
+    }
+}
+
+fn parse_valence_proof_cards(
+    file_map: &BTreeMap<String, Vec<u8>>,
+    diagnostics: &mut Vec<String>,
+) -> Vec<ValenceProofCard> {
+    let Some(bytes) = file_map.get(PROOF_CARDS_ARTIFACT_NAME) else {
+        return Vec::new();
+    };
+    match serde_json::from_slice::<RawProofCardDeck>(bytes) {
+        Ok(deck) => deck.cards,
+        Err(error) => {
+            diagnostics.push(format!("malformed {PROOF_CARDS_ARTIFACT_NAME}: {error}"));
+            Vec::new()
+        }
+    }
+}
+
+fn validate_valence_proof_cards(proof_cards: &[ValenceProofCard], file_map: &BTreeMap<String, Vec<u8>>) -> Vec<String> {
+    let mut diagnostics = Vec::new();
+    for card in proof_cards {
+        if !card.diagnostics.is_empty() {
+            diagnostics.push(format!(
+                "proof card `{}` has diagnostics: {}",
+                card.proof_or_property_id,
+                card.diagnostics.join("; ")
+            ));
+        }
+        if card.evidence_origin == crate::imported_proof::EVIDENCE_ORIGIN_EXTERNAL_TRELLIS
+            && card.evidence_tier == FORMAL_PROOF_TIER
+        {
+            diagnostics.push(format!(
+                "proof card `{}` promotes imported Trellis evidence to formal_proof",
+                card.proof_or_property_id
+            ));
+        }
+        if card.receipt_path.trim().is_empty() {
+            diagnostics.push(format!("proof card `{}` is missing receipt_path", card.proof_or_property_id));
+            continue;
+        }
+        if card.evidence_origin != crate::imported_proof::EVIDENCE_ORIGIN_EXTERNAL_TRELLIS
+            && !file_map.contains_key(&card.receipt_path)
+        {
+            diagnostics.push(format!(
+                "proof card `{}` references missing proof receipt `{}`",
+                card.proof_or_property_id, card.receipt_path
+            ));
+        }
+    }
+    diagnostics
 }
 
 pub fn verify_bundle(input: ArtifactBundleInput) -> ArtifactVerificationReport {
@@ -774,6 +965,53 @@ mod tests {
     }
 
     #[test]
+    fn valence_export_preserves_static_lint_and_manual_review_tiers() {
+        let export = build_valence_provenance_export(valid_input(OutputFormat::Json)).expect("valid export");
+
+        assert_eq!(export.schema_version, VALENCE_EXPORT_SCHEMA_VERSION);
+        assert_eq!(export.verification_status, STATUS_VALID);
+        assert!(export.non_claims.iter().any(|claim| claim.contains("does not prove whole-program correctness")));
+        assert!(export.artifacts.iter().any(|artifact| artifact.artifact == JSON_RESULTS_ARTIFACT_NAME));
+        assert!(export.provenance_records.iter().any(|record| {
+            record.artifact == JSON_RESULTS_ARTIFACT_NAME && record.evidence_tier == EvidenceTier::StaticLint.as_str()
+        }));
+        assert!(export.provenance_records.iter().any(|record| {
+            record.artifact == SUMMARY_ARTIFACT_NAME
+                && record.evidence_tier == EvidenceTier::ManualReviewRequired.as_str()
+                && record.human_action.as_deref() == Some(HUMAN_ACTION)
+        }));
+    }
+
+    #[test]
+    fn valence_export_rejects_stale_hash_missing_parent_and_tier_promotion() {
+        let mut records = valid_records(OutputFormat::Json);
+        records[COMMAND_RECORD_INDEX].blake3 = crate::evidence::artifact_blake3_hex(b"different bytes");
+        let mut stale_hash = valid_input(OutputFormat::Json);
+        replace_file(&mut stale_hash, PROVENANCE_ARTIFACT_NAME, render_records(&records).into_bytes());
+
+        let stale_diagnostics = build_valence_provenance_export(stale_hash).expect_err("stale hash rejected");
+        assert!(stale_diagnostics.iter().any(|diagnostic| diagnostic.contains("hash mismatch")));
+
+        let missing_parent =
+            build_valence_provenance_export(valid_evidence_rail_input(vec!["artifacts/octet/status.json".to_owned()]))
+                .expect_err("missing parent rejected");
+        assert!(missing_parent.iter().any(|diagnostic| diagnostic.contains("missing parent artifact")));
+
+        let promoted = sample_valence_proof_card(
+            crate::imported_proof::EVIDENCE_ORIGIN_EXTERNAL_TRELLIS,
+            EvidenceTier::FormalProof.as_str(),
+            "not-rerun-by-octet",
+        );
+        let promotion_diagnostics = validate_valence_proof_cards(&[promoted], &BTreeMap::new());
+        assert!(promotion_diagnostics.iter().any(|diagnostic| diagnostic.contains("promotes imported Trellis")));
+
+        let missing_receipt =
+            sample_valence_proof_card("octet_rerun", EvidenceTier::ManualReviewRequired.as_str(), "missing.receipt");
+        let receipt_diagnostics = validate_valence_proof_cards(&[missing_receipt], &BTreeMap::new());
+        assert!(receipt_diagnostics.iter().any(|diagnostic| diagnostic.contains("missing proof receipt")));
+    }
+
+    #[test]
     fn missing_expected_artifact_fails_closed() {
         let mut input = valid_input(OutputFormat::Json);
         input.files.retain(|file| file.name != JSON_RESULTS_ARTIFACT_NAME);
@@ -1128,5 +1366,25 @@ mod tests {
             .find(|file| file.name == file_name)
             .unwrap_or_else(|| panic!("missing fixture file {file_name}"));
         file.contents = contents;
+    }
+
+    fn sample_valence_proof_card(evidence_origin: &str, evidence_tier: &str, receipt_path: &str) -> ValenceProofCard {
+        ValenceProofCard {
+            proof_or_property_id: "proof.fixture".to_owned(),
+            source_requirement_or_policy_id: "r[fixture]".to_owned(),
+            policy_id: "r[fixture]".to_owned(),
+            rail_index: 0,
+            receipt_path: receipt_path.to_owned(),
+            artifact_blake3_identities: vec![ValenceArtifactIdentity {
+                artifact: receipt_path.to_owned(),
+                blake3: crate::evidence::artifact_blake3_hex(b"receipt"),
+            }],
+            evidence_tier: evidence_tier.to_owned(),
+            evidence_origin: evidence_origin.to_owned(),
+            status: "manual_review_required".to_owned(),
+            non_claims: vec![VALENCE_EXPORT_NON_CLAIM_CORRECTNESS.to_owned()],
+            external_reference: None,
+            diagnostics: Vec::new(),
+        }
     }
 }

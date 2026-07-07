@@ -57,6 +57,7 @@ pub enum HelpTopic {
 pub struct ArtifactArgs {
     pub artifact_dir: PathBuf,
     pub output_format: OutputFormat,
+    pub emit_valence_provenance: Option<PathBuf>,
 }
 
 #[allow(clippy::struct_field_names)]
@@ -409,7 +410,7 @@ pub fn help_text(topic: HelpTopic) -> &'static str {
 const ROOT_HELP: &str = "Octet operator commands
 
 Usage:
-  cargo octet artifact verify --artifact-dir PATH [--output-format human|json]
+  cargo octet artifact verify --artifact-dir PATH [--output-format human|json] [--emit-valence-provenance PATH]
   cargo octet check [SCOPE] [-- CARGO_CHECK_ARGS]
   cargo octet evidence collect --rail RAIL --input PATH --artifact-dir PATH [--output-format human|json]
   cargo octet evidence-index render --payload-commit HASH --capture-time RFC3339
@@ -451,9 +452,9 @@ Nix: nix run path:/path/to/octet#cargo-octet -- check
 
 const ARTIFACT_HELP: &str = "cargo octet artifact verify
 
-Options: --artifact-dir PATH, --output-format human|json.
+Options: --artifact-dir PATH, --output-format human|json, --emit-valence-provenance PATH.
 
-Verifies a saved cargo octet check/prove artifact directory or a log-only evidence-log-manifest.json directory without mutating it. The verifier recomputes BLAKE3 hashes, validates provenance coverage, verifies raw log artifacts, rejects stale sidecars, and reports deterministic human or JSON output.
+Verifies a saved cargo octet check/prove artifact directory or a log-only evidence-log-manifest.json directory without mutating it. The verifier recomputes BLAKE3 hashes, validates provenance coverage, verifies raw log artifacts, rejects stale sidecars, and reports deterministic human or JSON output. The optional Valence provenance export is written only after verification succeeds.
 ";
 
 const CHECK_HELP: &str = "cargo octet check
@@ -575,6 +576,7 @@ fn parse_artifact_verify(args: &[String]) -> Result<ArtifactArgs, String> {
 
     let mut artifact_dir = None;
     let mut output_format = OutputFormat::Human;
+    let mut emit_valence_provenance = None;
     let mut index = 0;
 
     while index < args.len() {
@@ -590,6 +592,12 @@ fn parse_artifact_verify(args: &[String]) -> Result<ArtifactArgs, String> {
                 output_format = parse_output_format(value)?;
                 index += FLAG_AND_VALUE_ARGS;
             }
+            "--emit-valence-provenance" => {
+                let value =
+                    args.get(index + 1).ok_or_else(|| "missing value after `--emit-valence-provenance`".to_owned())?;
+                emit_valence_provenance = Some(PathBuf::from(value));
+                index += FLAG_AND_VALUE_ARGS;
+            }
             _ if arg.starts_with("--artifact-dir=") => {
                 artifact_dir = Some(PathBuf::from(arg.trim_start_matches("--artifact-dir=")));
                 index += 1;
@@ -602,6 +610,10 @@ fn parse_artifact_verify(args: &[String]) -> Result<ArtifactArgs, String> {
                 output_format = parse_output_format(arg.trim_start_matches("--format="))?;
                 index += 1;
             }
+            _ if arg.starts_with("--emit-valence-provenance=") => {
+                emit_valence_provenance = Some(PathBuf::from(arg.trim_start_matches("--emit-valence-provenance=")));
+                index += 1;
+            }
             _ if arg.starts_with('-') => return Err(format!("unsupported artifact verify argument `{arg}`")),
             _ => return Err(format!("unexpected artifact verify path `{arg}`; use `--artifact-dir`")),
         }
@@ -610,6 +622,7 @@ fn parse_artifact_verify(args: &[String]) -> Result<ArtifactArgs, String> {
     Ok(ArtifactArgs {
         artifact_dir: artifact_dir.ok_or_else(|| "artifact verify requires `--artifact-dir PATH`".to_owned())?,
         output_format,
+        emit_valence_provenance,
     })
 }
 
@@ -2294,7 +2307,7 @@ mod tests {
     }
 
     #[test]
-    fn artifact_verify_parse_accepts_dir_and_json_report() {
+    fn artifact_verify_parse_accepts_dir_json_report_and_valence_export() {
         let parsed = parse(
             [
                 "cargo",
@@ -2305,6 +2318,8 @@ mod tests {
                 "artifacts/octet",
                 "--output-format",
                 "json",
+                "--emit-valence-provenance",
+                "artifacts/octet/valence-provenance.json",
             ]
             .map(OsString::from),
         )
@@ -2314,6 +2329,10 @@ mod tests {
             CommandArgs::Artifact(args) => {
                 assert_eq!(args.artifact_dir, Path::new("artifacts/octet"));
                 assert_eq!(args.output_format, OutputFormat::Json);
+                assert_eq!(
+                    args.emit_valence_provenance.as_deref(),
+                    Some(Path::new("artifacts/octet/valence-provenance.json"))
+                );
             }
             other => panic!("expected artifact args, got {other:?}"),
         }
@@ -2321,6 +2340,21 @@ mod tests {
         let missing_dir = parse(["cargo", "octet", "artifact", "verify"].map(OsString::from))
             .expect_err("artifact verify requires artifact dir");
         assert!(missing_dir.contains("artifact verify requires `--artifact-dir PATH`"));
+
+        let missing_emit_path = parse(
+            [
+                "cargo",
+                "octet",
+                "artifact",
+                "verify",
+                "--artifact-dir",
+                "artifacts/octet",
+                "--emit-valence-provenance",
+            ]
+            .map(OsString::from),
+        )
+        .expect_err("artifact verify emit requires output path");
+        assert!(missing_emit_path.contains("missing value after `--emit-valence-provenance`"));
     }
 
     #[test]
