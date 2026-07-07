@@ -17,12 +17,14 @@ makes `cargo octet-check` run the Octet gate followed by `cargo check`:
 
 ```toml
 [alias]
-octet-check = "octet check -- && cargo check"
+octet-check = "!cargo octet check -- && cargo check"
 ```
 
 Consumers who want the default-on posture copy this into their
 `.cargo/config.toml` and use `cargo octet-check` as their primary build
-command. The gate runs first; if it fails, the build does not proceed.
+command. The leading `!` is required because Cargo shell aliases are the alias
+form that can short-circuit with `&&`. The gate runs first; if it fails, the
+build does not proceed.
 
 ### 2. Posture documentation
 

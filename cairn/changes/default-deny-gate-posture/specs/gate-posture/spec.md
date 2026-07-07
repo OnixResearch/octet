@@ -16,7 +16,7 @@ r[octet.default_deny_gate.alias] Octet MUST provide a copyable cargo alias templ
 r[octet.default_deny_gate.alias.exists]
 - GIVEN the Octet templates directory
 - WHEN a consumer looks for the cargo alias template
-- THEN `templates/cargo-alias.toml` exists and defines `octet-check` as `octet check -- && cargo check`
+- THEN `templates/cargo-alias.toml` exists and defines `octet-check` as `!cargo octet check -- && cargo check`
 
 ### Requirement: CI gate template
 r[octet.default_deny_gate.ci] Octet MUST provide a copyable CI step template that runs the gate with SARIF output and artifact verification.
