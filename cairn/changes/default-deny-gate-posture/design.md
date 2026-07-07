@@ -5,7 +5,7 @@
 A `build.rs` that runs the gate on every `cargo build` would add latency to
 every incremental build and would couple the gate to the Rust build graph in a
 way that breaks the functional-core / imperative-shell boundary. The cargo
-alias (`cargo octet-check = "octet check -- && cargo check"`) is the
+alias (`cargo octet-check = "!cargo octet check -- && cargo check"`) is the
 lighter-weight alternative: it runs the gate first, and if it fails, the build
 does not proceed. Consumers who want the default-on posture use
 `cargo octet-check` as their primary build command.

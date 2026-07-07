@@ -9,4 +9,6 @@
 # failure), the build does not proceed. CI must not pass --allow-style-violations.
 
 [alias]
-octet-check = "octet check -- && cargo check"
+# Leading `!` is required: Cargo shell aliases are the only alias form that can
+# short-circuit with `&&` before running `cargo check`.
+octet-check = "!cargo octet check -- && cargo check"
