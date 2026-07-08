@@ -20,6 +20,7 @@
   "properties": [
     {
       "name": "token-budget",
+      "property_class": "unknown-class",
       "status": "failed"
     }
   ],

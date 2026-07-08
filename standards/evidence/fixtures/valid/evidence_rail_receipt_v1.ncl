@@ -11,4 +11,5 @@ let contracts = import "../../contracts/generated.ncl" in
   bounded_log_identity = "b3:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
   imported_input_identity = "b3:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
   non_claims = ["Kani evidence is scoped to named harnesses"],
+  property_classes = ["encode-decode"],
 } | contracts.EvidenceRailReceiptV1

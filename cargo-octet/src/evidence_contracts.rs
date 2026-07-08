@@ -93,6 +93,11 @@ static EVIDENCE_RAIL_RECEIPT_FIELDS: &[ContractField] = &[
         kind: FieldKind::StringArray,
         default: Some(EMPTY_ARRAY_DEFAULT),
     },
+    ContractField {
+        name: "property_classes",
+        kind: FieldKind::StringArray,
+        default: Some(EMPTY_ARRAY_DEFAULT),
+    },
 ];
 
 #[derive(Clone, Copy)]

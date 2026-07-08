@@ -47,6 +47,13 @@ const KANI_STUB_KIND_VERIFIED: &str = "verified";
 const KANI_STUB_KIND_PLAIN: &str = "plain";
 const KANI_STUB_KIND_ENVIRONMENT: &str = "environment";
 const KANI_COVERAGE_UNBOUNDED: &str = "unbounded";
+const KANI_PROPERTY_CLASS_NORMALIZATION: &str = "normalization";
+const KANI_PROPERTY_CLASS_ALGEBRAIC_LAW: &str = "algebraic-law";
+const KANI_PROPERTY_CLASS_ENCODE_DECODE: &str = "encode-decode";
+const KANI_PROPERTY_CLASS_VALIDITY_RANGE: &str = "validity-range";
+const KANI_PROPERTY_CLASS_LOOP_TERMINATION: &str = "loop-termination";
+const KANI_PROPERTY_CLASS_TRAIT_CONSISTENCY: &str = "trait-consistency";
+const KANI_PROPERTY_CLASS_BOUNDARY_PANIC: &str = "boundary-panic";
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum EvidenceRailKind {
@@ -259,6 +266,8 @@ pub struct EvidenceRailReceipt {
     pub diagnostics: Vec<String>,
     pub findings: Vec<EvidenceRailFinding>,
     pub parent_artifacts: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub property_classes: Vec<String>,
 }
 
 pub struct EvaluationInput<'a> {
@@ -283,6 +292,7 @@ struct RailParseOutput {
     diagnostics: Vec<String>,
     status: String,
     profile: Option<String>,
+    property_classes: Vec<String>,
 }
 
 pub fn run(args: &EvidenceRailArgs) -> Result<i32, String> {
@@ -366,6 +376,7 @@ pub fn evaluate(input: EvaluationInput<'_>) -> EvidenceRailReceipt {
         diagnostics: parsed.diagnostics,
         findings: parsed.findings,
         parent_artifacts: input.parent_artifacts,
+        property_classes: parsed.property_classes,
     }
 }
 
@@ -553,6 +564,7 @@ fn parse_dependency_audit(input: &EvaluationInput<'_>) -> RailParseOutput {
         diagnostics,
         status,
         profile: None,
+        property_classes: Vec::new(),
     }
 }
 
@@ -609,6 +621,7 @@ fn parse_clippy(input: &EvaluationInput<'_>) -> RailParseOutput {
         diagnostics,
         status,
         profile: None,
+        property_classes: Vec::new(),
     }
 }
 
@@ -664,6 +677,7 @@ fn parse_dependency_trust(input: &EvaluationInput<'_>) -> RailParseOutput {
         diagnostics,
         status,
         profile: None,
+        property_classes: Vec::new(),
     }
 }
 
@@ -697,6 +711,7 @@ fn parse_api_stability(input: &EvaluationInput<'_>) -> RailParseOutput {
         diagnostics,
         status,
         profile: None,
+        property_classes: Vec::new(),
     }
 }
 
@@ -757,6 +772,7 @@ fn parse_dynamic_evidence(input: &EvaluationInput<'_>) -> RailParseOutput {
         diagnostics,
         status,
         profile,
+        property_classes: Vec::new(),
     }
 }
 
@@ -799,6 +815,7 @@ fn parse_release_supply_chain(input: &EvaluationInput<'_>) -> RailParseOutput {
         diagnostics,
         status,
         profile: None,
+        property_classes: Vec::new(),
     }
 }
 
@@ -863,6 +880,7 @@ fn parse_mutation_testing(input: &EvaluationInput<'_>) -> RailParseOutput {
         diagnostics,
         status,
         profile: None,
+        property_classes: Vec::new(),
     }
 }
 
@@ -907,12 +925,14 @@ fn parse_coverage_baseline(input: &EvaluationInput<'_>) -> RailParseOutput {
         diagnostics,
         status,
         profile: None,
+        property_classes: Vec::new(),
     }
 }
 
 fn parse_kani_model_check(input: &EvaluationInput<'_>) -> RailParseOutput {
     let mut diagnostics = Vec::new();
     let mut findings = Vec::new();
+    let mut property_classes = Vec::new();
     let value = parse_json_value(input.import_text, &mut diagnostics);
     if let Some(value) = value {
         validate_optional_schema_version(&value, KANI_MODEL_CHECK_SCHEMA_VERSION, "kani-model-check", &mut diagnostics);
@@ -936,7 +956,7 @@ fn parse_kani_model_check(input: &EvaluationInput<'_>) -> RailParseOutput {
         }
 
         push_kani_verdict_finding(&value, &mut findings, &mut diagnostics);
-        push_kani_property_findings(&value, &mut findings, &mut diagnostics);
+        push_kani_property_findings(&value, &mut findings, &mut property_classes, &mut diagnostics);
         let unwind_passed = push_kani_unwind_findings(&value, &mut findings, &mut diagnostics);
         let contract_passed = push_kani_contract_findings(&value, &mut findings, &mut diagnostics);
         let boundary_stub_seen = push_kani_stub_findings(&value, &mut findings, &mut diagnostics);
@@ -950,6 +970,7 @@ fn parse_kani_model_check(input: &EvaluationInput<'_>) -> RailParseOutput {
         diagnostics,
         status,
         profile: input.profile.map(ToOwned::to_owned),
+        property_classes,
     }
 }
 
@@ -1001,10 +1022,14 @@ fn push_kani_verdict_finding(
 fn push_kani_property_findings(
     value: &serde_json::Value,
     findings: &mut Vec<EvidenceRailFinding>,
+    property_classes: &mut Vec<String>,
     diagnostics: &mut Vec<String>,
 ) {
     for property in array_field(value, "properties") {
         let name = string_field(property, "name").unwrap_or("unnamed property");
+        if let Some(property_class) = string_field(property, "property_class") {
+            push_kani_property_class(property_class, property_classes, diagnostics);
+        }
         match string_field(property, "status") {
             Some(STATUS_PASSED) => {}
             Some(STATUS_FAILED) => {
@@ -1014,6 +1039,28 @@ fn push_kani_property_findings(
             None => diagnostics.push(format!("Kani property `{name}` missing status")),
         }
     }
+}
+
+fn push_kani_property_class(property_class: &str, property_classes: &mut Vec<String>, diagnostics: &mut Vec<String>) {
+    if !known_kani_property_classes().contains(&property_class) {
+        diagnostics.push(format!("unsupported Kani property class `{property_class}`"));
+        return;
+    }
+    if !property_classes.iter().any(|known| known == property_class) {
+        property_classes.push(property_class.to_owned());
+    }
+}
+
+fn known_kani_property_classes() -> &'static [&'static str] {
+    &[
+        KANI_PROPERTY_CLASS_NORMALIZATION,
+        KANI_PROPERTY_CLASS_ALGEBRAIC_LAW,
+        KANI_PROPERTY_CLASS_ENCODE_DECODE,
+        KANI_PROPERTY_CLASS_VALIDITY_RANGE,
+        KANI_PROPERTY_CLASS_LOOP_TERMINATION,
+        KANI_PROPERTY_CLASS_TRAIT_CONSISTENCY,
+        KANI_PROPERTY_CLASS_BOUNDARY_PANIC,
+    ]
 }
 
 fn push_kani_unwind_findings(
@@ -2007,6 +2054,7 @@ mod tests {
         assert_eq!(valid.status, STATUS_PASSED);
         assert_eq!(valid.checker_id, crate::evidence::CHECKER_CARGO_KANI);
         assert!(valid.checked_rule_families.iter().any(|family| family == "contract-status"));
+        assert_eq!(valid.property_classes, vec![KANI_PROPERTY_CLASS_ENCODE_DECODE.to_owned()]);
         assert!(valid.non_claims.iter().any(|claim| claim.contains("whole-program correctness")));
         assert!(valid_provenance.contains("\"source_id\":\"octet.kani_model_check.cargo-kani\""));
         assert!(valid_provenance.contains("\"evidence_tier\":\"transcript_assertion\""));
@@ -2018,6 +2066,7 @@ mod tests {
         assert_eq!(invalid.finding_counts.get("stub-boundary"), Some(&1));
         assert!(invalid.diagnostics.iter().any(|diagnostic| diagnostic.contains("source identity")));
         assert!(invalid.diagnostics.iter().any(|diagnostic| diagnostic.contains("stale")));
+        assert!(invalid.diagnostics.iter().any(|diagnostic| diagnostic.contains("unsupported Kani property class")));
         assert!(invalid.diagnostics.iter().any(|diagnostic| diagnostic.contains("unbounded claim")));
         assert!(invalid.diagnostics.iter().any(|diagnostic| diagnostic.contains("cannot be promoted")));
     }

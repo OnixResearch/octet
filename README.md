@@ -155,9 +155,11 @@ this README plus command help, without reading archived OpenSpec changes:
 - `cargo octet artifact verify --artifact-dir artifacts/octet` recomputes sidecar
   BLAKE3 hashes and fails closed on missing, stale, malformed, or inconsistent
   provenance before the directory is treated as release evidence.
-- `cargo octet evidence collect --rail dependency-audit|clippy-co-reporting|dependency-trust|api-stability|dynamic-evidence|release-supply-chain|mutation-testing|coverage-baseline`
+- `cargo octet evidence collect --rail dependency-audit|clippy-co-reporting|dependency-trust|api-stability|dynamic-evidence|release-supply-chain|mutation-testing|coverage-baseline|kani-model-check`
   writes optional external evidence receipts with checker identity, source severity,
-  selected scope, parent links, and explicit non-claims.
+  selected scope, parent links, and explicit non-claims. Kani receipts are scoped
+  model-check evidence for named harnesses/contracts/stubs, not whole-program or
+  verifier-soundness proof.
 - `cargo octet fingerprint --check --review-manifest artifacts/fingerprint-review.json src/lib.rs`
   verifies semantic identity fingerprints with BLAKE3-backed review records.
 - `cargo octet migrate start --manifest artifacts/octet-migration.json`
@@ -223,6 +225,7 @@ and config keys.
 - [Resilience review guide](docs/resilience-review.md) and [five-whys template](templates/five-whys-architecture.md)
 - [Performance review guide](docs/performance-review.md) and [sketch template](templates/performance-sketch.md)
 - [Concurrency and distributed-state review guide](docs/concurrency-state-review.md) and [checklist template](templates/concurrency-state-checklist.md)
+- [Kani property checklist](docs/kani-property-checklist.md) and [checklist template](templates/kani-property-checklist.md)
 - [System comprehension guide](docs/system-comprehension.md) and [walkthrough template](templates/system-walkthrough.md)
 - `docs/consumer-guide.md` — first run, config split, Nix integration, pre-commit hook, output modes, artifact bundles, migration notes
 - `docs/adoption-story.md` — card-oriented public story, terminal-first quickstart, examples, Built with Octet case-study format, methodology requirements, and claim boundaries
