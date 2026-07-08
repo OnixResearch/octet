@@ -154,7 +154,11 @@ this README plus command help, without reading archived OpenSpec changes:
   and lint-cache `cache_status` fields.
 - `cargo octet artifact verify --artifact-dir artifacts/octet` recomputes sidecar
   BLAKE3 hashes and fails closed on missing, stale, malformed, or inconsistent
-  provenance before the directory is treated as release evidence.
+  provenance before the directory is treated as release evidence. With
+  `--emit-valence-provenance PATH`, it writes a replayable, typed Valence adapter
+  input only after verification succeeds; r[verify octet.evidence_provenance.valence_export.boundary_hardened.visible]
+  the export is not release eligibility, Mantle bundle inclusion, whole-program
+  correctness, or verifier-soundness proof.
 - `cargo octet evidence collect --rail dependency-audit|clippy-co-reporting|dependency-trust|api-stability|dynamic-evidence|release-supply-chain|mutation-testing|coverage-baseline|kani-model-check`
   writes optional external evidence receipts with checker identity, source severity,
   selected scope, parent links, and explicit non-claims. Kani receipts are scoped

@@ -103,6 +103,8 @@ Unknown lint names and invalid level values warn and are ignored.
 | `public_unsafe_api` | `warn` | flag public Rust `unsafe fn` APIs that leak unsafe obligations to callers |
 | `defaulting_trait_method` | `allow` | flag trait methods with default bodies that can weaken substitution contracts |
 
+For `public_unsafe_api`, either add a safe wrapper or document the exception with an unsafe-boundary record.
+
 ## Naming lints (`tigerstyle::naming`)
 
 | Lint | Default | Summary |

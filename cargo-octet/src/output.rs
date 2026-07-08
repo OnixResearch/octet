@@ -33,7 +33,7 @@ pub struct LintMeta {
 }
 
 pub const UNKNOWN_LINT_META: LintMeta = LintMeta {
-    group: "unknown",
+    group: "tigerstyle::unknown",
     principle: "unknown",
     guidance: "Review this diagnostic manually; Octet has no registered Tiger Style metadata for it.",
     effect_family: "unknown",

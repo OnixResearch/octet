@@ -72,6 +72,7 @@ impl EvidenceTier {
     }
 }
 
+// r[impl octet.evidence_provenance.record]
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct ProvenanceRecord {
     pub schema_version: String,
@@ -114,6 +115,9 @@ pub fn known_provenance_checker_ids() -> BTreeSet<String> {
     provenance_producers().iter().map(|producer| producer.checker_id.to_owned()).collect()
 }
 
+// r[impl octet.evidence_provenance.registry]
+// r[impl octet.evidence_provenance.cross_gate_coverage]
+// r[impl octet.evidence_provenance.fail_closed]
 #[must_use]
 pub fn validate_provenance_chain(
     records: &[ProvenanceRecord],
@@ -135,6 +139,7 @@ pub fn validate_provenance_chain(
     diagnostics
 }
 
+// r[impl octet.evidence_provenance.producer_registry]
 fn provenance_producers() -> &'static [ProvenanceProducer] {
     &[
         ProvenanceProducer {
@@ -267,6 +272,7 @@ fn validate_producer_registry(record: &ProvenanceRecord) -> Vec<String> {
     diagnostics
 }
 
+// r[impl octet.evidence_provenance.parent_chain]
 fn validate_parent_artifact_chains(records: &[ProvenanceRecord]) -> Vec<String> {
     let mut diagnostics = Vec::new();
     let mut graph = BTreeMap::<String, BTreeSet<String>>::new();
@@ -414,6 +420,7 @@ mod tests {
         assert!(parsed.is_err());
     }
 
+    // r[verify octet.evidence_provenance.record.links]
     #[test]
     fn valid_static_lint_provenance_record_passes() {
         let record = valid_record(EvidenceTier::StaticLint);
@@ -469,6 +476,7 @@ mod tests {
         assert!(diagnostics.is_empty(), "unexpected diagnostics: {diagnostics:?}");
     }
 
+    // r[verify octet.evidence_provenance.fail_closed.missing_source]
     #[test]
     fn provenance_validation_rejects_missing_source_id() {
         let record = ProvenanceRecord {
@@ -481,6 +489,8 @@ mod tests {
         assert_eq!(diagnostics, vec!["missing required provenance field `source_id`".to_owned()]);
     }
 
+    // r[verify octet.evidence_provenance.producer_registry.unknown]
+    // r[verify octet.evidence_provenance.fail_closed.unknown_checker]
     #[test]
     fn provenance_validation_rejects_unknown_checker_id() {
         let record = ProvenanceRecord {
@@ -493,6 +503,10 @@ mod tests {
         assert_eq!(diagnostics, vec!["unknown checker_id `unknown-checker`".to_owned()]);
     }
 
+    // r[verify octet.evidence_provenance.cross_gate_coverage.release_chain]
+    // r[verify octet.evidence_provenance.registry.covered]
+    // r[verify octet.evidence_provenance.producer_registry.known]
+    // r[verify octet.evidence_provenance.parent_chain.links]
     #[test]
     fn cross_gate_provenance_chain_accepts_registered_producers_and_parents() {
         let records = release_chain_records();
@@ -503,6 +517,7 @@ mod tests {
         assert!(diagnostics.is_empty(), "unexpected diagnostics: {diagnostics:?}");
     }
 
+    // r[verify octet.evidence_provenance.parent_chain.invalid]
     #[test]
     fn cross_gate_provenance_chain_rejects_unknowns_missing_parents_cycles_hash_mismatch_and_overclaims() {
         const RUNNER_RECORD_INDEX: usize = 0;
@@ -542,6 +557,7 @@ mod tests {
         );
     }
 
+    // r[verify octet.evidence_provenance.fail_closed.hash_mismatch]
     #[test]
     fn provenance_validation_rejects_hash_mismatch() {
         let record = ProvenanceRecord {

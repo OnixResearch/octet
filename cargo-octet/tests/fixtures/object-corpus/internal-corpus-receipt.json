@@ -2,7 +2,7 @@
   "schema": "octet.function-object-corpus-receipt.v1",
   "schema_version": 1,
   "mode": "corpus-receipt",
-  "object_count": 524,
+  "object_count": 542,
   "source_paths": [
     "cargo-octet/src/baseline.rs",
     "cargo-octet/src/bin/cargo-slotcar.rs",
@@ -23,31 +23,31 @@
     "cargo-octet/src/roadmap.rs",
     "cargo-octet/src/transcript.rs"
   ],
-  "object_set_hash": "b3:82bfbd1242834f102cb3d29c1912ebde012f34e7b4b0452f2bf19d081481aa1e",
+  "object_set_hash": "b3:86fdbb3c657144b2daf56be6d597b8fbdc785e7fa8acb8cfa9602ce154a7dbfd",
   "caveat_counts": {
     "dependency_status": {
-      "source-scanner-token-set": 180,
-      "unsupported-macro-context": 344
+      "source-scanner-token-set": 188,
+      "unsupported-macro-context": 354
     },
     "effect_kind": {
-      "effect_summary": 410,
+      "effect_summary": 425,
       "filesystem": 56,
-      "panic": 82,
+      "panic": 85,
       "process": 9,
       "time": 2,
       "unsafe": 3
     },
     "macro_status": {
-      "none-detected": 180,
-      "review-required": 344
+      "none-detected": 188,
+      "review-required": 354
     },
     "pure_cache_blocker": {
-      "dependency-identity-unresolved": 524,
-      "effect-summary-unresolved": 524,
-      "macro-expansion-unmodeled": 344
+      "dependency-identity-unresolved": 542,
+      "effect-summary-unresolved": 542,
+      "macro-expansion-unmodeled": 354
     }
   },
-  "pure_cache_blocked_count": 524,
+  "pure_cache_blocked_count": 542,
   "replay": {
     "command": "cargo octet object corpus receipt --output RECEIPT.json cargo-octet/src/baseline.rs cargo-octet/src/bin/cargo-slotcar.rs cargo-octet/src/bin/cargo-tigerstyle.rs cargo-octet/src/cli.rs cargo-octet/src/config.rs cargo-octet/src/determinism.rs cargo-octet/src/engine.rs cargo-octet/src/evidence.rs cargo-octet/src/evidence_rails.rs cargo-octet/src/fingerprint.rs cargo-octet/src/lib.rs cargo-octet/src/main.rs cargo-octet/src/migrate.rs cargo-octet/src/object.rs cargo-octet/src/output.rs cargo-octet/src/provider_manifest.rs cargo-octet/src/roadmap.rs cargo-octet/src/transcript.rs",
     "tool_name": "cargo-octet",

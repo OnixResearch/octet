@@ -1875,14 +1875,20 @@ fn json_findings_report_effect_family_cache_status_and_unknown_lints() {
     ];
     let output =
         run_with_check_args(&fixture, &["--output-format", JSON_OUTPUT_FORMAT, "--cache"], &lines, EXIT_CODE_SUCCESS);
-    assert_eq!(output.status.code(), Some(EXIT_CODE_SUCCESS));
+    assert_eq!(
+        output.status.code(),
+        Some(EXIT_CODE_SUCCESS),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
     let stdout = String::from_utf8_lossy(&output.stdout);
     let findings: Vec<serde_json::Value> =
         stdout.lines().map(|line| serde_json::from_str(line).expect("parse JSON finding")).collect();
     assert_eq!(findings[0]["effect_family"], "failure");
     assert_eq!(findings[0]["cache_status"], "bypassed");
     assert_eq!(findings[1]["lint"], "mystery_lint");
-    assert_eq!(findings[1]["group"], "unknown");
+    assert_eq!(findings[1]["group"], "tigerstyle::unknown");
     assert_eq!(findings[1]["effect_family"], "unknown");
 }
 
