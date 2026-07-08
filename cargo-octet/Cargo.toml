@@ -30,4 +30,5 @@ toml = "1"
 blake3 = "1"
 
 [dev-dependencies]
+hegeltest = { version = "0.14.12", features = ["native"] }
 tempfile = "3"

@@ -46,6 +46,16 @@ let EvidenceTier = std.contract.from_predicate (fun value => std.is_string value
     human_action | String | default = "",
     parent_artifacts | Array String | default = [],
   },
+  HegelPropertyReceiptDetailsV1 = {
+    property_id | NonEmptyString,
+    linked_ids | Array String | default = [],
+    source_scope | NonEmptyString,
+    runner | Dyn,
+    settings | Dyn,
+    generator | Dyn,
+    source_hashes | Array String,
+    counterexample | Dyn | default = {},
+  },
   EvidenceRailReceiptV1 = {
     schema_version | std.contract.from_predicate (fun value => value == "octet-evidence-rail-receipt/v1"),
     rail_id | NonEmptyString,
@@ -66,5 +76,6 @@ let EvidenceTier = std.contract.from_predicate (fun value => std.is_string value
     diagnostics | Array String | default = [],
     parent_artifacts | Array String | default = [],
     property_classes | Array String | default = [],
+    hegel_property | Dyn | default = {},
   },
 }

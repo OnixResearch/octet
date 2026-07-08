@@ -2,7 +2,7 @@
   "schema": "octet.function-object-corpus-receipt.v1",
   "schema_version": 1,
   "mode": "corpus-receipt",
-  "object_count": 965,
+  "object_count": 984,
   "source_paths": [
     "cargo-octet/src/baseline.rs",
     "cargo-octet/src/bin/cargo-slotcar.rs",
@@ -41,32 +41,32 @@
     "crates/octet-standards/src/source.rs",
     "crates/octet-standards/src/suppression.rs"
   ],
-  "object_set_hash": "b3:b4466caecd04277da672a5f7e65c6ef9a44bf8cf3caeaaebda97f8a463f76e41",
+  "object_set_hash": "b3:449c53fa4f8c68019d4bf04288af8cede7d704489c0e787f278b0d83e69871a2",
   "caveat_counts": {
     "dependency_status": {
-      "source-scanner-token-set": 399,
-      "unsupported-macro-context": 566
+      "source-scanner-token-set": 407,
+      "unsupported-macro-context": 577
     },
     "effect_kind": {
-      "effect_summary": 804,
+      "effect_summary": 821,
       "filesystem": 75,
       "network": 2,
-      "panic": 112,
+      "panic": 114,
       "process": 10,
       "time": 7,
       "unsafe": 3
     },
     "macro_status": {
-      "none-detected": 399,
-      "review-required": 566
+      "none-detected": 407,
+      "review-required": 577
     },
     "pure_cache_blocker": {
-      "dependency-identity-unresolved": 965,
-      "effect-summary-unresolved": 965,
-      "macro-expansion-unmodeled": 566
+      "dependency-identity-unresolved": 984,
+      "effect-summary-unresolved": 984,
+      "macro-expansion-unmodeled": 577
     }
   },
-  "pure_cache_blocked_count": 965,
+  "pure_cache_blocked_count": 984,
   "replay": {
     "command": "cargo octet object corpus receipt --output RECEIPT.json cargo-octet/src/baseline.rs cargo-octet/src/bin/cargo-slotcar.rs cargo-octet/src/bin/cargo-tigerstyle.rs cargo-octet/src/cli.rs cargo-octet/src/config.rs cargo-octet/src/determinism.rs cargo-octet/src/engine.rs cargo-octet/src/evidence.rs cargo-octet/src/evidence_rails.rs cargo-octet/src/fingerprint.rs cargo-octet/src/lib.rs cargo-octet/src/main.rs cargo-octet/src/migrate.rs cargo-octet/src/object.rs cargo-octet/src/output.rs cargo-octet/src/proof_ref.rs cargo-octet/src/provider_manifest.rs cargo-octet/src/roadmap.rs cargo-octet/src/transcript.rs crates/octet-standards/src/architecture.rs crates/octet-standards/src/artifacts.rs crates/octet-standards/src/bin/slotcar-standards.rs crates/octet-standards/src/bin/tigerstyle-standards.rs crates/octet-standards/src/cli_shell.rs crates/octet-standards/src/diagnostic.rs crates/octet-standards/src/fixture.rs crates/octet-standards/src/lib.rs crates/octet-standards/src/main.rs crates/octet-standards/src/model.rs crates/octet-standards/src/proof.rs crates/octet-standards/src/receipt.rs crates/octet-standards/src/report.rs crates/octet-standards/src/resource.rs crates/octet-standards/src/runner.rs crates/octet-standards/src/source.rs crates/octet-standards/src/suppression.rs",
     "tool_name": "cargo-octet",

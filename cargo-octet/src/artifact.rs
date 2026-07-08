@@ -46,6 +46,8 @@ const VALENCE_EXPORT_NON_CLAIM_SEMANTICS: &str =
     "Valence consumes this export for stack traceability; Mantle bundles only the final sidecar opaquely";
 const VALENCE_EXPORT_NON_CLAIM_RELEASE: &str = "Octet Valence exports are adapter inputs, not release eligibility, Mantle bundle inclusion, or verifier soundness claims";
 const FORMAL_PROOF_TIER: &str = "formal_proof";
+const TRANSCRIPT_ASSERTION_TIER: &str = "transcript_assertion";
+const HEGEL_BOUNDARY_MARKER: &str = "bounded generated inputs";
 const STATUS_PASSED: &str = "passed";
 const STATUS_FAILED: &str = "failed";
 const STATUS_MANUAL_REVIEW_REQUIRED: &str = "manual_review_required";
@@ -146,6 +148,8 @@ pub struct ValenceReceiptEnvelope {
     pub status: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub failure_reason: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hegel_property: Option<crate::evidence_rails::HegelPropertyReceiptDetails>,
     pub non_claims: Vec<String>,
 }
 
@@ -405,6 +409,7 @@ fn valence_receipt_envelope(
         parent_artifacts: record.parent_artifacts.clone(),
         status: status.clone(),
         failure_reason: failure_reason_for_status(&status, matching_evidence_rail_receipt),
+        hegel_property: matching_evidence_rail_receipt.and_then(|receipt| receipt.hegel_property.clone()),
         non_claims: non_claims_for_record(matching_evidence_rail_receipt),
     }
 }
@@ -580,6 +585,27 @@ fn validate_valence_receipt(record: &ValenceProvenanceRecord, diagnostics: &mut 
     }
     if receipt.non_claims.is_empty() {
         diagnostics.push(format!("artifact `{}` receipt must carry at least one explicit non-claim", record.artifact));
+    }
+    if record.checker_id == crate::evidence::CHECKER_HEGEL_RS {
+        validate_hegel_valence_receipt(record, diagnostics);
+    }
+}
+
+fn validate_hegel_valence_receipt(record: &ValenceProvenanceRecord, diagnostics: &mut Vec<String>) {
+    if record.evidence_tier == FORMAL_PROOF_TIER {
+        diagnostics.push("Hegel Valence export must not use formal_proof tier".to_owned());
+    }
+    if record.evidence_tier != TRANSCRIPT_ASSERTION_TIER {
+        diagnostics.push(format!(
+            "Hegel Valence export must remain `{TRANSCRIPT_ASSERTION_TIER}` evidence, got `{}`",
+            record.evidence_tier
+        ));
+    }
+    if record.receipt.hegel_property.is_none() {
+        diagnostics.push("Hegel Valence export missing hegel_property receipt details".to_owned());
+    }
+    if !record.receipt.non_claims.iter().any(|claim| claim.contains(HEGEL_BOUNDARY_MARKER)) {
+        diagnostics.push("Hegel Valence export missing bounded generated-testing non-claim".to_owned());
     }
 }
 
@@ -1399,6 +1425,27 @@ mod tests {
 
     // r[verify octet.evidence_provenance.valence_export.replayable_receipts.failed]
     #[test]
+    fn valence_export_preserves_hegel_property_receipt_boundary() {
+        let export = build_valence_provenance_export(valid_hegel_evidence_rail_input()).expect("valid Hegel export");
+        let receipt_record = export
+            .provenance_records
+            .iter()
+            .find(|record| record.artifact == crate::evidence_rails::RECEIPT_ARTIFACT_NAME)
+            .expect("Hegel receipt record exported");
+        let hegel_details = receipt_record.receipt.hegel_property.as_ref().expect("Hegel details exported");
+
+        assert_eq!(receipt_record.checker_id, crate::evidence::CHECKER_HEGEL_RS);
+        assert_eq!(receipt_record.evidence_tier, TRANSCRIPT_ASSERTION_TIER);
+        assert_eq!(hegel_details.property_id, "valence.evidence-ir.canonical-identity-order");
+        assert!(receipt_record.receipt.non_claims.iter().any(|claim| claim.contains(HEGEL_BOUNDARY_MARKER)));
+        assert!(!receipt_record.typed_edges.iter().any(|edge| edge.edge_kind == EDGE_RECORDS_FORMAL_PROOF_RECEIPT));
+
+        let blocked = build_valence_provenance_export(hegel_missing_details_input())
+            .expect_err("Hegel receipt missing details blocks export");
+        assert!(blocked.iter().any(|diagnostic| diagnostic.contains("hegel_property details")));
+    }
+
+    #[test]
     fn valence_export_preserves_failed_receipt_reason_without_passing_claim() {
         let export = build_valence_provenance_export(failed_evidence_rail_input()).expect("failed receipt export");
         let receipt_record = export
@@ -1899,6 +1946,16 @@ mod tests {
         evidence_rail_input(r#"{"diagnostics":[]}"#, Some("deny.toml"), parent_artifacts)
     }
 
+    fn valid_hegel_evidence_rail_input() -> ArtifactBundleInput {
+        hegel_evidence_rail_input(|_receipt| {})
+    }
+
+    fn hegel_missing_details_input() -> ArtifactBundleInput {
+        hegel_evidence_rail_input(|receipt| {
+            receipt.hegel_property = None;
+        })
+    }
+
     fn failed_evidence_rail_input() -> ArtifactBundleInput {
         evidence_rail_input(r#"{"diagnostics":[]}"#, None, Vec::new())
     }
@@ -1927,8 +1984,43 @@ mod tests {
         let summary = crate::evidence_rails::render_summary(&receipt);
         let provenance = crate::evidence_rails::render_provenance_jsonl(&receipt, &receipt_json, &summary)
             .expect("render evidence rail provenance");
+        evidence_rail_bundle("artifacts/dependency-audit", receipt_json, summary, provenance)
+    }
+
+    fn hegel_evidence_rail_input(
+        mutate: impl FnOnce(&mut crate::evidence_rails::EvidenceRailReceipt),
+    ) -> ArtifactBundleInput {
+        let mut receipt = crate::evidence_rails::evaluate(crate::evidence_rails::EvaluationInput {
+            rail: crate::evidence_rails::EvidenceRailKind::HegelProperty,
+            mode: "import",
+            import_text: include_str!("../tests/fixtures/evidence-rails/hegel-property-passed.json"),
+            workspace_scope: CHECKED_SCOPE,
+            config_path: None,
+            baseline_identity: None,
+            lockfile_identity: None,
+            locked: false,
+            advisory_updated_by_prior_step: false,
+            profile: Some("fast"),
+            requested_command: Some("cargo test -p cargo-octet hegel_receipt"),
+            parent_artifacts: Vec::new(),
+            tool_exit_code: None,
+        });
+        mutate(&mut receipt);
+        let receipt_json = crate::evidence_rails::render_receipt_json(&receipt).expect("render Hegel rail receipt");
+        let summary = crate::evidence_rails::render_summary(&receipt);
+        let provenance = crate::evidence_rails::render_provenance_jsonl(&receipt, &receipt_json, &summary)
+            .expect("render Hegel rail provenance");
+        evidence_rail_bundle("artifacts/hegel-property", receipt_json, summary, provenance)
+    }
+
+    fn evidence_rail_bundle(
+        artifact_dir: &str,
+        receipt_json: String,
+        summary: String,
+        provenance: String,
+    ) -> ArtifactBundleInput {
         ArtifactBundleInput {
-            artifact_dir: "artifacts/dependency-audit".to_owned(),
+            artifact_dir: artifact_dir.to_owned(),
             files: vec![
                 BundleFile {
                     name: crate::evidence_rails::RECEIPT_ARTIFACT_NAME.to_owned(),
