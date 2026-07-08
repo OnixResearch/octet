@@ -36,12 +36,17 @@ const DYNAMIC_COMMAND_MIRI_TEST: &str = "cargo miri test";
 const DYNAMIC_PROFILE_LOOM_CONCURRENCY: &str = "loom-concurrency";
 const DYNAMIC_PROFILE_LOOM_SHORT: &str = "loom";
 const DYNAMIC_COMMAND_LOOM_TEST: &str = "cargo test --cfg loom";
-const SUPPORTED_EVIDENCE_RAILS: &str = "dependency-audit, clippy-co-reporting, dependency-trust, api-stability, dynamic-evidence, release-supply-chain, mutation-testing, or coverage-baseline";
+const SUPPORTED_EVIDENCE_RAILS: &str = "dependency-audit, clippy-co-reporting, dependency-trust, api-stability, dynamic-evidence, release-supply-chain, mutation-testing, coverage-baseline, or kani-model-check";
 const COVERAGE_PERCENT_MIN: f64 = 0.0;
 const COVERAGE_PERCENT_MAX: f64 = 100.0;
 const SCHEMA_VERSION_FIELD: &str = "schema_version";
 const DEPENDENCY_AUDIT_SCHEMA_VERSION: &str = "cargo-deny-diagnostics/v1";
 const COVERAGE_BASELINE_SCHEMA_VERSION: &str = "cargo-llvm-cov-summary/v1";
+const KANI_MODEL_CHECK_SCHEMA_VERSION: &str = "cargo-kani-summary/v1";
+const KANI_STUB_KIND_VERIFIED: &str = "verified";
+const KANI_STUB_KIND_PLAIN: &str = "plain";
+const KANI_STUB_KIND_ENVIRONMENT: &str = "environment";
+const KANI_COVERAGE_UNBOUNDED: &str = "unbounded";
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum EvidenceRailKind {
@@ -53,6 +58,7 @@ pub enum EvidenceRailKind {
     ReleaseSupplyChain,
     MutationTesting,
     CoverageBaseline,
+    KaniModelCheck,
 }
 
 impl EvidenceRailKind {
@@ -66,6 +72,7 @@ impl EvidenceRailKind {
             "release-supply-chain" => Ok(Self::ReleaseSupplyChain),
             "mutation-testing" | "cargo-mutants" | "mutants" => Ok(Self::MutationTesting),
             "coverage-baseline" | "coverage" | "cargo-llvm-cov" => Ok(Self::CoverageBaseline),
+            "kani-model-check" | "kani" | "cargo-kani" => Ok(Self::KaniModelCheck),
             other => Err(format!("unsupported evidence rail `{other}`; expected {SUPPORTED_EVIDENCE_RAILS}")),
         }
     }
@@ -80,6 +87,7 @@ impl EvidenceRailKind {
             Self::ReleaseSupplyChain => "release-supply-chain",
             Self::MutationTesting => "mutation-testing",
             Self::CoverageBaseline => "coverage-baseline",
+            Self::KaniModelCheck => "kani-model-check",
         }
     }
 
@@ -93,6 +101,7 @@ impl EvidenceRailKind {
             Self::ReleaseSupplyChain => crate::evidence::CHECKER_OCTET_RELEASE_SUPPLY_CHAIN,
             Self::MutationTesting => crate::evidence::CHECKER_CARGO_MUTANTS,
             Self::CoverageBaseline => crate::evidence::CHECKER_CARGO_LLVM_COV,
+            Self::KaniModelCheck => crate::evidence::CHECKER_CARGO_KANI,
         }
     }
 
@@ -106,13 +115,16 @@ impl EvidenceRailKind {
             Self::ReleaseSupplyChain => "octet.release_supply_chain.local-receipt",
             Self::MutationTesting => "octet.mutation_testing.cargo-mutants",
             Self::CoverageBaseline => "octet.coverage_baseline.cargo-llvm-cov",
+            Self::KaniModelCheck => "octet.kani_model_check.cargo-kani",
         }
     }
 
     pub fn evidence_tier(self) -> EvidenceTier {
         match self {
             Self::ClippyCoReporting => EvidenceTier::StaticLint,
-            Self::DynamicEvidence | Self::MutationTesting | Self::CoverageBaseline => EvidenceTier::TranscriptAssertion,
+            Self::DynamicEvidence | Self::MutationTesting | Self::CoverageBaseline | Self::KaniModelCheck => {
+                EvidenceTier::TranscriptAssertion
+            }
             _ => EvidenceTier::PolicyCheck,
         }
     }
@@ -142,6 +154,15 @@ impl EvidenceRailKind {
                 "accepted-baseline",
                 "regression-detection",
                 "threshold-failures",
+            ]),
+            Self::KaniModelCheck => string_vec(&[
+                "harness-identity",
+                "toolchain-identity",
+                "solver-identity",
+                "unwind-status",
+                "contract-status",
+                "stub-classification",
+                "bounded-model-check-non-claims",
             ]),
         }
     }
@@ -183,6 +204,12 @@ impl EvidenceRailKind {
                 "coverage evidence measures executed code regions and does not prove behavioral correctness",
                 "coverage baseline evidence is optional and not part of starter cargo octet check",
                 "passing coverage thresholds does not replace review of uncovered critical paths",
+            ]),
+            Self::KaniModelCheck => string_vec(&[
+                "Kani model-check evidence is optional and not part of starter cargo octet check",
+                "Kani receipts are scoped to named harnesses, source hashes, solver identity, and declared unwind or contract status",
+                "Kani evidence does not prove whole-program correctness, verifier soundness, concurrency correctness, unmodeled aliasing, or unmodeled FFI behavior",
+                "plain Kani stubs are boundary assumptions unless linked to a passing verified contract receipt",
             ]),
         }
     }
@@ -485,6 +512,7 @@ fn parse_rail_input(input: &EvaluationInput<'_>) -> RailParseOutput {
         EvidenceRailKind::ReleaseSupplyChain => parse_release_supply_chain(input),
         EvidenceRailKind::MutationTesting => parse_mutation_testing(input),
         EvidenceRailKind::CoverageBaseline => parse_coverage_baseline(input),
+        EvidenceRailKind::KaniModelCheck => parse_kani_model_check(input),
     }
 }
 
@@ -882,6 +910,238 @@ fn parse_coverage_baseline(input: &EvaluationInput<'_>) -> RailParseOutput {
     }
 }
 
+fn parse_kani_model_check(input: &EvaluationInput<'_>) -> RailParseOutput {
+    let mut diagnostics = Vec::new();
+    let mut findings = Vec::new();
+    let value = parse_json_value(input.import_text, &mut diagnostics);
+    if let Some(value) = value {
+        validate_optional_schema_version(&value, KANI_MODEL_CHECK_SCHEMA_VERSION, "kani-model-check", &mut diagnostics);
+        validate_required_object_strings(
+            &value,
+            "harness",
+            "Kani harness identity",
+            &["package", "target", "path", "name"],
+            &mut diagnostics,
+        );
+        validate_required_object_strings(
+            &value,
+            "toolchain",
+            "Kani toolchain identity",
+            &["kani", "rustc", "cbmc", "solver"],
+            &mut diagnostics,
+        );
+        validate_required_string_field(&value, "source_identity", "Kani source identity", &mut diagnostics);
+        if string_field(&value, "source_identity_status") == Some("stale") {
+            diagnostics.push("Kani source identity is marked stale".to_owned());
+        }
+
+        push_kani_verdict_finding(&value, &mut findings, &mut diagnostics);
+        push_kani_property_findings(&value, &mut findings, &mut diagnostics);
+        let unwind_passed = push_kani_unwind_findings(&value, &mut findings, &mut diagnostics);
+        let contract_passed = push_kani_contract_findings(&value, &mut findings, &mut diagnostics);
+        let boundary_stub_seen = push_kani_stub_findings(&value, &mut findings, &mut diagnostics);
+        validate_kani_claims(&value, unwind_passed, contract_passed, boundary_stub_seen, &mut diagnostics);
+    }
+    let finding_counts = counts_by_family(&findings);
+    let status = status_from_kani_findings(&findings);
+    RailParseOutput {
+        findings,
+        finding_counts,
+        diagnostics,
+        status,
+        profile: input.profile.map(ToOwned::to_owned),
+    }
+}
+
+fn validate_required_object_strings(
+    value: &serde_json::Value,
+    field: &str,
+    label: &str,
+    required_strings: &[&str],
+    diagnostics: &mut Vec<String>,
+) {
+    let Some(object) = value.get(field) else {
+        diagnostics.push(format!("{label} requires `{field}` object"));
+        return;
+    };
+    let Some(object) = object.as_object() else {
+        diagnostics.push(format!("{label} field `{field}` must be an object"));
+        return;
+    };
+    for required in required_strings {
+        match object.get(*required).and_then(serde_json::Value::as_str) {
+            Some(value) if !value.trim().is_empty() => {}
+            _ => diagnostics.push(format!("{label} field `{field}.{required}` must be a non-empty string")),
+        }
+    }
+}
+
+fn validate_required_string_field(value: &serde_json::Value, field: &str, label: &str, diagnostics: &mut Vec<String>) {
+    match value.get(field).and_then(serde_json::Value::as_str) {
+        Some(value) if !value.trim().is_empty() => {}
+        _ => diagnostics.push(format!("{label} field `{field}` must be a non-empty string")),
+    }
+}
+
+fn push_kani_verdict_finding(
+    value: &serde_json::Value,
+    findings: &mut Vec<EvidenceRailFinding>,
+    diagnostics: &mut Vec<String>,
+) {
+    match string_field(value, "verdict") {
+        Some(STATUS_PASSED) => {}
+        Some(STATUS_FAILED) => {
+            findings.push(kani_finding("kani-check-failure", "error", "Kani reported a failing verification verdict"))
+        }
+        Some(other) => diagnostics.push(format!("Kani verdict `{other}` is unsupported; expected passed or failed")),
+        None => diagnostics.push("Kani report requires verdict `passed` or `failed`".to_owned()),
+    }
+}
+
+fn push_kani_property_findings(
+    value: &serde_json::Value,
+    findings: &mut Vec<EvidenceRailFinding>,
+    diagnostics: &mut Vec<String>,
+) {
+    for property in array_field(value, "properties") {
+        let name = string_field(property, "name").unwrap_or("unnamed property");
+        match string_field(property, "status") {
+            Some(STATUS_PASSED) => {}
+            Some(STATUS_FAILED) => {
+                findings.push(kani_finding("kani-property-failure", "error", &format!("Kani property failed: {name}")))
+            }
+            Some(other) => diagnostics.push(format!("Kani property `{name}` has unsupported status `{other}`")),
+            None => diagnostics.push(format!("Kani property `{name}` missing status")),
+        }
+    }
+}
+
+fn push_kani_unwind_findings(
+    value: &serde_json::Value,
+    findings: &mut Vec<EvidenceRailFinding>,
+    diagnostics: &mut Vec<String>,
+) -> bool {
+    let Some(unwind) = value.get("unwind") else {
+        return false;
+    };
+    let Some(unwind) = unwind.as_object() else {
+        diagnostics.push("Kani unwind field must be an object".to_owned());
+        return false;
+    };
+    match unwind.get("status").and_then(serde_json::Value::as_str) {
+        Some(STATUS_PASSED) => true,
+        Some(STATUS_FAILED) => {
+            findings.push(kani_finding(
+                "unwind-assertion-failure",
+                "error",
+                "Kani reported failed unwinding assertions",
+            ));
+            false
+        }
+        Some("not_applicable" | "bounded_only") => false,
+        Some(other) => {
+            diagnostics.push(format!("Kani unwind status `{other}` is unsupported"));
+            false
+        }
+        None => {
+            diagnostics.push("Kani unwind object missing status".to_owned());
+            false
+        }
+    }
+}
+
+fn push_kani_contract_findings(
+    value: &serde_json::Value,
+    findings: &mut Vec<EvidenceRailFinding>,
+    diagnostics: &mut Vec<String>,
+) -> bool {
+    let mut contract_passed = false;
+    for contract in array_field(value, "contracts") {
+        let name = string_field(contract, "name").unwrap_or("unnamed contract");
+        match string_field(contract, "status") {
+            Some(STATUS_PASSED) => contract_passed = true,
+            Some(STATUS_FAILED) => {
+                findings.push(kani_finding("contract-failure", "error", &format!("Kani contract failed: {name}")))
+            }
+            Some(other) => diagnostics.push(format!("Kani contract `{name}` has unsupported status `{other}`")),
+            None => diagnostics.push(format!("Kani contract `{name}` missing status")),
+        }
+    }
+    contract_passed
+}
+
+fn push_kani_stub_findings(
+    value: &serde_json::Value,
+    findings: &mut Vec<EvidenceRailFinding>,
+    diagnostics: &mut Vec<String>,
+) -> bool {
+    let mut boundary_stub_seen = false;
+    for stub in array_field(value, "stubs") {
+        let target = string_field(stub, "target").unwrap_or("unknown target");
+        match string_field(stub, "kind") {
+            Some(KANI_STUB_KIND_VERIFIED) => {
+                validate_required_string_field(stub, "contract_receipt", "Kani verified stub", diagnostics);
+            }
+            Some(KANI_STUB_KIND_PLAIN | KANI_STUB_KIND_ENVIRONMENT) => {
+                boundary_stub_seen = true;
+                findings.push(kani_finding(
+                    "stub-boundary",
+                    "manual_review",
+                    &format!("Kani stub boundary requires review: {target}"),
+                ));
+            }
+            Some(other) => diagnostics.push(format!("Kani stub `{target}` has unsupported kind `{other}`")),
+            None => diagnostics.push(format!("Kani stub `{target}` missing kind")),
+        }
+    }
+    boundary_stub_seen
+}
+
+fn validate_kani_claims(
+    value: &serde_json::Value,
+    unwind_passed: bool,
+    contract_passed: bool,
+    boundary_stub_seen: bool,
+    diagnostics: &mut Vec<String>,
+) {
+    let Some(claims) = value.get("claims") else {
+        return;
+    };
+    let unbounded_claim = string_field(claims, "coverage") == Some(KANI_COVERAGE_UNBOUNDED)
+        || claims.get("unbounded").and_then(serde_json::Value::as_bool) == Some(true);
+    if unbounded_claim && !unwind_passed && !contract_passed {
+        diagnostics.push(
+            "Kani unbounded claim requires passing unwinding assertions or a passing contract receipt".to_owned(),
+        );
+    }
+    let property_claim = claims.get("property_evidence").and_then(serde_json::Value::as_bool) == Some(true);
+    if property_claim && boundary_stub_seen {
+        diagnostics.push("plain or environmental Kani stubs cannot be promoted to property evidence".to_owned());
+    }
+}
+
+fn kani_finding(family: &str, severity: &str, message: &str) -> EvidenceRailFinding {
+    EvidenceRailFinding {
+        family: family.to_owned(),
+        severity: severity.to_owned(),
+        message: message.to_owned(),
+        source_severity: None,
+        file: None,
+        line: None,
+        column: None,
+    }
+}
+
+fn status_from_kani_findings(findings: &[EvidenceRailFinding]) -> String {
+    if findings.iter().any(|finding| finding.severity == "error") {
+        STATUS_FAILED.to_owned()
+    } else if findings.iter().any(|finding| finding.severity == "manual_review") {
+        STATUS_MANUAL_REVIEW_REQUIRED.to_owned()
+    } else {
+        STATUS_PASSED.to_owned()
+    }
+}
+
 fn evidence_input_text(args: &EvidenceRailArgs) -> Result<(&'static str, String, Option<i32>), String> {
     match (&args.input, args.run) {
         (Some(input), false) => {
@@ -963,6 +1223,7 @@ fn command_argv(
         EvidenceRailKind::ReleaseSupplyChain => string_vec(&["cargo", "auditable", "build"]),
         EvidenceRailKind::MutationTesting => string_vec(&["cargo", "mutants", "--json"]),
         EvidenceRailKind::CoverageBaseline => string_vec(&["cargo", "llvm-cov", "--json", "--summary-only"]),
+        EvidenceRailKind::KaniModelCheck => string_vec(&["cargo", "kani"]),
     }
 }
 
@@ -1736,6 +1997,32 @@ mod tests {
     }
 
     #[test]
+    fn kani_model_check_records_contracts_stubs_and_failure_modes() {
+        let valid = kani_receipt(include_str!("../tests/fixtures/evidence-rails/kani-model-check-contract.json"));
+        let valid_json = render_receipt_json(&valid).expect("receipt renders");
+        let valid_summary = render_summary(&valid);
+        let valid_provenance =
+            render_provenance_jsonl(&valid, &valid_json, &valid_summary).expect("provenance renders");
+
+        assert_eq!(valid.status, STATUS_PASSED);
+        assert_eq!(valid.checker_id, crate::evidence::CHECKER_CARGO_KANI);
+        assert!(valid.checked_rule_families.iter().any(|family| family == "contract-status"));
+        assert!(valid.non_claims.iter().any(|claim| claim.contains("whole-program correctness")));
+        assert!(valid_provenance.contains("\"source_id\":\"octet.kani_model_check.cargo-kani\""));
+        assert!(valid_provenance.contains("\"evidence_tier\":\"transcript_assertion\""));
+
+        let invalid = kani_receipt(include_str!("../tests/fixtures/evidence-rails/kani-model-check-invalid.json"));
+        assert_eq!(invalid.status, STATUS_FAILED);
+        assert_eq!(invalid.finding_counts.get("kani-check-failure"), Some(&1));
+        assert_eq!(invalid.finding_counts.get("unwind-assertion-failure"), Some(&1));
+        assert_eq!(invalid.finding_counts.get("stub-boundary"), Some(&1));
+        assert!(invalid.diagnostics.iter().any(|diagnostic| diagnostic.contains("source identity")));
+        assert!(invalid.diagnostics.iter().any(|diagnostic| diagnostic.contains("stale")));
+        assert!(invalid.diagnostics.iter().any(|diagnostic| diagnostic.contains("unbounded claim")));
+        assert!(invalid.diagnostics.iter().any(|diagnostic| diagnostic.contains("cannot be promoted")));
+    }
+
+    #[test]
     fn checked_in_fixture_matrix_covers_positive_and_negative_rails() {
         let clean_deny = include_str!("../tests/fixtures/evidence-rails/dependency-audit-clean.json");
         let denied = include_str!("../tests/fixtures/evidence-rails/dependency-audit-denied.json");
@@ -1746,6 +2033,8 @@ mod tests {
         let release_clean = include_str!("../tests/fixtures/evidence-rails/release-supply-chain-clean.json");
         let mutation_clean = include_str!("../tests/fixtures/evidence-rails/mutation-testing-clean.json");
         let coverage_regression = include_str!("../tests/fixtures/evidence-rails/coverage-baseline-regression.json");
+        let kani_contract = include_str!("../tests/fixtures/evidence-rails/kani-model-check-contract.json");
+        let kani_invalid = include_str!("../tests/fixtures/evidence-rails/kani-model-check-invalid.json");
 
         assert_eq!(dependency_audit_receipt(clean_deny, Some(DENY_CONFIG)).status, STATUS_PASSED);
         assert_eq!(dependency_audit_receipt(denied, Some(DENY_CONFIG)).finding_counts.get("licenses"), Some(&1));
@@ -1756,6 +2045,8 @@ mod tests {
         assert_eq!(release_receipt(release_clean).status, STATUS_PASSED);
         assert_eq!(mutation_receipt(mutation_clean).status, STATUS_PASSED);
         assert_eq!(coverage_receipt(coverage_regression, Some(BASELINE_IDENTITY.to_owned())).status, STATUS_FAILED);
+        assert_eq!(kani_receipt(kani_contract).status, STATUS_PASSED);
+        assert_eq!(kani_receipt(kani_invalid).status, STATUS_FAILED);
     }
 
     #[test]
@@ -1801,6 +2092,7 @@ mod tests {
             "--json",
             "--summary-only"
         ]);
+        assert_eq!(command_argv(EvidenceRailKind::KaniModelCheck, None, None, None), vec!["cargo", "kani"]);
     }
 
     #[test]
@@ -1936,6 +2228,13 @@ mod tests {
         })
     }
 
+    fn kani_receipt(import_text: &str) -> EvidenceRailReceipt {
+        evaluate(EvaluationInput {
+            import_text,
+            ..kani_input()
+        })
+    }
+
     fn api_stability_input() -> EvaluationInput<'static> {
         EvaluationInput {
             rail: EvidenceRailKind::ApiStability,
@@ -2016,6 +2315,24 @@ mod tests {
             workspace_scope: WORKSPACE_SCOPE,
             config_path: None,
             baseline_identity: Some(BASELINE_IDENTITY.to_owned()),
+            lockfile_identity: None,
+            locked: false,
+            advisory_updated_by_prior_step: false,
+            profile: None,
+            requested_command: None,
+            parent_artifacts: Vec::new(),
+            tool_exit_code: None,
+        }
+    }
+
+    fn kani_input() -> EvaluationInput<'static> {
+        EvaluationInput {
+            rail: EvidenceRailKind::KaniModelCheck,
+            mode: MODE_IMPORT,
+            import_text: "{}",
+            workspace_scope: WORKSPACE_SCOPE,
+            config_path: None,
+            baseline_identity: None,
             lockfile_identity: None,
             locked: false,
             advisory_updated_by_prior_step: false,
