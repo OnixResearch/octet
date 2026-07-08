@@ -881,21 +881,18 @@ mod tests {
                 continue;
             };
             let cells = markdown_table_cells(line);
-            match cells.as_slice() {
-                [lint_cell, default_cell, summary_cell, ..] => {
-                    let Some(lint_name) = backticked_value(lint_cell) else {
-                        continue;
-                    };
-                    let Some(default_level) = backticked_value(default_cell) else {
-                        continue;
-                    };
-                    rows.entry(lint_name).or_default().push(DocumentedLintRow {
-                        domain: domain.clone(),
-                        default_level,
-                        summary: summary_cell.clone(),
-                    });
-                }
-                _ => {}
+            if let [lint_cell, default_cell, summary_cell, ..] = cells.as_slice() {
+                let Some(lint_name) = backticked_value(lint_cell) else {
+                    continue;
+                };
+                let Some(default_level) = backticked_value(default_cell) else {
+                    continue;
+                };
+                rows.entry(lint_name).or_default().push(DocumentedLintRow {
+                    domain: domain.clone(),
+                    default_level,
+                    summary: summary_cell.clone(),
+                });
             }
         }
         rows

@@ -538,16 +538,17 @@ fn output_identity(
     normalized_text: &str,
     non_claims: &[String],
 ) -> String {
-    let mut payload = Vec::new();
-    payload.push(payload_line("payload_version", OUTPUT_IDENTITY_PAYLOAD_VERSION));
-    payload.push(payload_line(FIELD_TRANSFORM_ID, &input.transform_id));
-    payload.push(payload_line(FIELD_TRANSFORM_FAMILY, &input.transform_family));
-    payload.push(payload_line(FIELD_INPUT_CONTRACT, &input.input_contract));
-    payload.push(payload_line(FIELD_OUTPUT_CONTRACT, &input.output_contract));
-    payload.push(payload_line(FIELD_RULE_SET_ID, &input.rule_set_id));
-    payload.push(payload_line(FIELD_CHECKED_SCOPE, &input.checked_scope));
-    payload.push(payload_line("evidence_tier", input.evidence_tier.as_str()));
-    payload.push(payload_line("normalized_text", normalized_text));
+    let mut payload = vec![
+        payload_line("payload_version", OUTPUT_IDENTITY_PAYLOAD_VERSION),
+        payload_line(FIELD_TRANSFORM_ID, &input.transform_id),
+        payload_line(FIELD_TRANSFORM_FAMILY, &input.transform_family),
+        payload_line(FIELD_INPUT_CONTRACT, &input.input_contract),
+        payload_line(FIELD_OUTPUT_CONTRACT, &input.output_contract),
+        payload_line(FIELD_RULE_SET_ID, &input.rule_set_id),
+        payload_line(FIELD_CHECKED_SCOPE, &input.checked_scope),
+        payload_line("evidence_tier", input.evidence_tier.as_str()),
+        payload_line("normalized_text", normalized_text),
+    ];
     for rule in &input.requested_rules {
         payload.push(payload_line("rule", rule));
     }

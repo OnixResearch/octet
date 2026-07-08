@@ -1205,10 +1205,10 @@ fn parse_hegel_counterexample(
 
 fn validate_hegel_generator_hash(value: &serde_json::Value, diagnostics: &mut Vec<String>) {
     let content_hash = value.get("generator").and_then(|generator| string_field(generator, "content_hash"));
-    if let Some(content_hash) = content_hash {
-        if !is_b3_identity(content_hash) {
-            diagnostics.push("Hegel generator content_hash must be a BLAKE3 identity".to_owned());
-        }
+    if let Some(content_hash) = content_hash
+        && !is_b3_identity(content_hash)
+    {
+        diagnostics.push("Hegel generator content_hash must be a BLAKE3 identity".to_owned());
     }
 }
 

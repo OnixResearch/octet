@@ -15,6 +15,7 @@ const PATH_SEPARATOR: char = '/';
 const WINDOWS_PATH_SEPARATOR: char = '\\';
 const CURRENT_DIRECTORY_SEGMENT: &str = ".";
 const PARENT_DIRECTORY_SEGMENT: &str = "..";
+#[cfg(test)]
 const THRESHOLD_PERCENT_MAX: u8 = 100;
 
 pub trait FindingDomainView {
@@ -43,6 +44,7 @@ pub struct ArtifactLocator(String);
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct OneBasedPosition(u32);
 
+#[cfg(test)]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct ThresholdPercent(u8);
 
@@ -58,6 +60,7 @@ pub enum FindingGateState {
     BlocksPromotion,
 }
 
+#[cfg(test)]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct NonEmptyVec<T> {
     items: Vec<T>,
@@ -81,6 +84,7 @@ impl LintName {
         parse_identifier(value, LINT_NAME_FIELD).map(Self)
     }
 
+    #[cfg(test)]
     #[must_use]
     pub fn as_str(&self) -> &str {
         &self.0
@@ -96,6 +100,7 @@ impl GroupName {
         Ok(Self(parsed))
     }
 
+    #[cfg(test)]
     #[must_use]
     pub fn as_str(&self) -> &str {
         &self.0
@@ -127,6 +132,7 @@ impl ArtifactLocator {
         Ok(Self(parsed))
     }
 
+    #[cfg(test)]
     #[must_use]
     pub fn as_str(&self) -> &str {
         &self.0
@@ -141,12 +147,14 @@ impl OneBasedPosition {
         Ok(Self(value))
     }
 
+    #[cfg(test)]
     #[must_use]
     pub fn get(self) -> u32 {
         self.0
     }
 }
 
+#[cfg(test)]
 impl ThresholdPercent {
     pub fn new(value: u8) -> Result<Self, String> {
         if value > THRESHOLD_PERCENT_MAX {
@@ -195,6 +203,7 @@ impl fmt::Display for DiagnosticSeverity {
     }
 }
 
+#[cfg(test)]
 impl<T> NonEmptyVec<T> {
     pub fn new(field: &str, items: Vec<T>) -> Result<Self, String> {
         if items.is_empty() {

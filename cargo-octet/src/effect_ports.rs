@@ -5,12 +5,18 @@ const FIELD_COMMAND_ARGV: &str = "command_argv";
 const FIELD_TIMEOUT_MS: &str = "timeout_ms";
 const FIELD_ENV_ALLOWLIST: &str = "environment_allowlist";
 const SHELL_METACHARACTERS: &[char] = &['|', '&', ';', '<', '>', '$', '`'];
+#[cfg(test)]
 const PROCESS_EFFECT_FAMILY: &str = "process";
+#[cfg(test)]
 const STATUS_PASSED: &str = "passed";
+#[cfg(test)]
 const STATUS_FAILED: &str = "failed";
+#[cfg(test)]
 const STATUS_TIMED_OUT: &str = "timed_out";
+#[cfg(test)]
 const STATUS_MISSING: &str = "missing";
 const FIRST_ENV_CHAR_INDEX: usize = 0;
+#[cfg(test)]
 const DEFAULT_REMEDIATION: &str = "rerun the shell-owned command with explicit argv, timeout, and captured output";
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -20,6 +26,7 @@ pub enum EffectFamily {
 }
 
 impl EffectFamily {
+    #[cfg(test)]
     #[must_use]
     pub fn as_str(self) -> &'static str {
         match self {
@@ -59,6 +66,7 @@ pub struct ProcessCommandPlan {
     pub environment_allowlist: Vec<String>,
 }
 
+#[cfg(test)]
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct CapturedProcessResult {
     pub exit_code: Option<i32>,
@@ -67,6 +75,7 @@ pub struct CapturedProcessResult {
     pub stderr: String,
 }
 
+#[cfg(test)]
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct ProcessEffectOutcome {
     pub status: String,
@@ -119,6 +128,7 @@ pub fn build_process_command_plan(input: ProcessCommandPlanInput) -> Result<Proc
     })
 }
 
+#[cfg(test)]
 #[must_use]
 pub fn classify_captured_process_result(
     plan: &ProcessCommandPlan,

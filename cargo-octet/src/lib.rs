@@ -12,6 +12,7 @@ mod evidence_contracts;
 mod evidence_index;
 mod evidence_log;
 mod evidence_rails;
+#[cfg(test)]
 mod evidence_transform;
 #[cfg(test)]
 mod external_schema_contracts;
@@ -22,6 +23,7 @@ mod migration_sessions;
 mod object;
 mod object_core;
 mod output;
+#[cfg(test)]
 mod proof_claim_catalog;
 mod proof_goal_state;
 mod proof_ref;
