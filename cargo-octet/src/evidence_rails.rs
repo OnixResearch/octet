@@ -36,13 +36,19 @@ const DYNAMIC_COMMAND_MIRI_TEST: &str = "cargo miri test";
 const DYNAMIC_PROFILE_LOOM_CONCURRENCY: &str = "loom-concurrency";
 const DYNAMIC_PROFILE_LOOM_SHORT: &str = "loom";
 const DYNAMIC_COMMAND_LOOM_TEST: &str = "cargo test --cfg loom";
-const SUPPORTED_EVIDENCE_RAILS: &str = "dependency-audit, clippy-co-reporting, dependency-trust, api-stability, dynamic-evidence, release-supply-chain, mutation-testing, coverage-baseline, or kani-model-check";
+const SUPPORTED_EVIDENCE_RAILS: &str = "dependency-audit, clippy-co-reporting, dependency-trust, api-stability, dynamic-evidence, release-supply-chain, mutation-testing, coverage-baseline, kani-model-check, or hegel-property";
 const COVERAGE_PERCENT_MIN: f64 = 0.0;
 const COVERAGE_PERCENT_MAX: f64 = 100.0;
 const SCHEMA_VERSION_FIELD: &str = "schema_version";
 const DEPENDENCY_AUDIT_SCHEMA_VERSION: &str = "cargo-deny-diagnostics/v1";
 const COVERAGE_BASELINE_SCHEMA_VERSION: &str = "cargo-llvm-cov-summary/v1";
 const KANI_MODEL_CHECK_SCHEMA_VERSION: &str = "cargo-kani-summary/v1";
+const HEGEL_PROPERTY_SCHEMA_VERSION: &str = "hegel-property-summary/v1";
+const HEGEL_GENERATED_TESTING_NON_CLAIM: &str = "Hegel checks bounded generated inputs only and does not prove correctness, semantic equivalence, verifier soundness, requirement satisfaction, release eligibility, or whole-program safety";
+const HEGEL_FAST_CASE_BUDGET: u64 = 16;
+const FORMAL_PROOF_TIER: &str = "formal_proof";
+const BLAKE3_IDENTITY_PREFIX: &str = "b3:";
+const BLAKE3_HEX_LENGTH: usize = 64;
 const KANI_STUB_KIND_VERIFIED: &str = "verified";
 const KANI_STUB_KIND_PLAIN: &str = "plain";
 const KANI_STUB_KIND_ENVIRONMENT: &str = "environment";
@@ -66,6 +72,7 @@ pub enum EvidenceRailKind {
     MutationTesting,
     CoverageBaseline,
     KaniModelCheck,
+    HegelProperty,
 }
 
 impl EvidenceRailKind {
@@ -80,6 +87,7 @@ impl EvidenceRailKind {
             "mutation-testing" | "cargo-mutants" | "mutants" => Ok(Self::MutationTesting),
             "coverage-baseline" | "coverage" | "cargo-llvm-cov" => Ok(Self::CoverageBaseline),
             "kani-model-check" | "kani" | "cargo-kani" => Ok(Self::KaniModelCheck),
+            "hegel-property" | "hegel" | "hegel-rs" => Ok(Self::HegelProperty),
             other => Err(format!("unsupported evidence rail `{other}`; expected {SUPPORTED_EVIDENCE_RAILS}")),
         }
     }
@@ -95,6 +103,7 @@ impl EvidenceRailKind {
             Self::MutationTesting => "mutation-testing",
             Self::CoverageBaseline => "coverage-baseline",
             Self::KaniModelCheck => "kani-model-check",
+            Self::HegelProperty => "hegel-property",
         }
     }
 
@@ -109,6 +118,7 @@ impl EvidenceRailKind {
             Self::MutationTesting => crate::evidence::CHECKER_CARGO_MUTANTS,
             Self::CoverageBaseline => crate::evidence::CHECKER_CARGO_LLVM_COV,
             Self::KaniModelCheck => crate::evidence::CHECKER_CARGO_KANI,
+            Self::HegelProperty => crate::evidence::CHECKER_HEGEL_RS,
         }
     }
 
@@ -123,15 +133,18 @@ impl EvidenceRailKind {
             Self::MutationTesting => "octet.mutation_testing.cargo-mutants",
             Self::CoverageBaseline => "octet.coverage_baseline.cargo-llvm-cov",
             Self::KaniModelCheck => "octet.kani_model_check.cargo-kani",
+            Self::HegelProperty => "octet.dynamic_evidence.hegel-property",
         }
     }
 
     pub fn evidence_tier(self) -> EvidenceTier {
         match self {
             Self::ClippyCoReporting => EvidenceTier::StaticLint,
-            Self::DynamicEvidence | Self::MutationTesting | Self::CoverageBaseline | Self::KaniModelCheck => {
-                EvidenceTier::TranscriptAssertion
-            }
+            Self::DynamicEvidence
+            | Self::MutationTesting
+            | Self::CoverageBaseline
+            | Self::KaniModelCheck
+            | Self::HegelProperty => EvidenceTier::TranscriptAssertion,
             _ => EvidenceTier::PolicyCheck,
         }
     }
@@ -170,6 +183,15 @@ impl EvidenceRailKind {
                 "contract-status",
                 "stub-classification",
                 "bounded-model-check-non-claims",
+            ]),
+            Self::HegelProperty => string_vec(&[
+                "property-identity",
+                "linked-requirement-ids",
+                "source-scope",
+                "runner-settings",
+                "generator-identity",
+                "counterexample-identity",
+                "generated-testing-non-claims",
             ]),
         }
     }
@@ -218,6 +240,11 @@ impl EvidenceRailKind {
                 "Kani evidence does not prove whole-program correctness, verifier soundness, concurrency correctness, unmodeled aliasing, or unmodeled FFI behavior",
                 "plain Kani stubs are boundary assumptions unless linked to a passing verified contract receipt",
             ]),
+            Self::HegelProperty => string_vec(&[
+                "Hegel property evidence is optional and not part of starter cargo octet check",
+                "Hegel receipts are scoped to named properties, source hashes, runner settings, generator identity, and case budgets",
+                HEGEL_GENERATED_TESTING_NON_CLAIM,
+            ]),
         }
     }
 }
@@ -235,6 +262,45 @@ pub struct EvidenceRailFinding {
     pub line: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub column: Option<u64>,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+pub struct HegelRunnerSummary {
+    pub crate_version: String,
+    pub backend: String,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+pub struct HegelSettingsSummary {
+    pub case_budget: u64,
+    pub phases: Vec<String>,
+    pub seed: Option<u64>,
+    pub derandomized: bool,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+pub struct HegelGeneratorSummary {
+    pub family: String,
+    pub content_hash: String,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+pub struct HegelCounterexampleSummary {
+    pub summary_hash: String,
+    pub issue_codes: Vec<String>,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+pub struct HegelPropertyReceiptDetails {
+    pub property_id: String,
+    pub linked_ids: Vec<String>,
+    pub source_scope: String,
+    pub runner: HegelRunnerSummary,
+    pub settings: HegelSettingsSummary,
+    pub generator: HegelGeneratorSummary,
+    pub source_hashes: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub counterexample: Option<HegelCounterexampleSummary>,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
@@ -268,6 +334,8 @@ pub struct EvidenceRailReceipt {
     pub parent_artifacts: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub property_classes: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hegel_property: Option<HegelPropertyReceiptDetails>,
 }
 
 pub struct EvaluationInput<'a> {
@@ -293,6 +361,7 @@ struct RailParseOutput {
     status: String,
     profile: Option<String>,
     property_classes: Vec<String>,
+    hegel_property: Option<HegelPropertyReceiptDetails>,
 }
 
 pub fn run(args: &EvidenceRailArgs) -> Result<i32, String> {
@@ -377,6 +446,7 @@ pub fn evaluate(input: EvaluationInput<'_>) -> EvidenceRailReceipt {
         findings: parsed.findings,
         parent_artifacts: input.parent_artifacts,
         property_classes: parsed.property_classes,
+        hegel_property: parsed.hegel_property,
     }
 }
 
@@ -498,6 +568,23 @@ pub fn validate_receipt(receipt: &EvidenceRailReceipt) -> Vec<String> {
     if receipt.non_claims.is_empty() {
         diagnostics.push("evidence rail receipt must carry at least one explicit non-claim".to_owned());
     }
+    match (rail, receipt.hegel_property.as_ref()) {
+        (EvidenceRailKind::HegelProperty, Some(details)) => {
+            if details.property_id.trim().is_empty() {
+                diagnostics.push("hegel-property receipt missing property_id".to_owned());
+            }
+            if !receipt.non_claims.iter().any(|claim| claim == HEGEL_GENERATED_TESTING_NON_CLAIM) {
+                diagnostics.push("hegel-property receipt missing generated-testing non-claim".to_owned());
+            }
+        }
+        (EvidenceRailKind::HegelProperty, None) => {
+            diagnostics.push("hegel-property receipt missing hegel_property details".to_owned());
+        }
+        (_, Some(_)) => {
+            diagnostics.push("hegel_property details are only valid on hegel-property rail receipts".to_owned())
+        }
+        (_, None) => {}
+    }
     diagnostics
 }
 
@@ -524,6 +611,7 @@ fn parse_rail_input(input: &EvaluationInput<'_>) -> RailParseOutput {
         EvidenceRailKind::MutationTesting => parse_mutation_testing(input),
         EvidenceRailKind::CoverageBaseline => parse_coverage_baseline(input),
         EvidenceRailKind::KaniModelCheck => parse_kani_model_check(input),
+        EvidenceRailKind::HegelProperty => parse_hegel_property(input),
     }
 }
 
@@ -565,6 +653,7 @@ fn parse_dependency_audit(input: &EvaluationInput<'_>) -> RailParseOutput {
         status,
         profile: None,
         property_classes: Vec::new(),
+        hegel_property: None,
     }
 }
 
@@ -622,6 +711,7 @@ fn parse_clippy(input: &EvaluationInput<'_>) -> RailParseOutput {
         status,
         profile: None,
         property_classes: Vec::new(),
+        hegel_property: None,
     }
 }
 
@@ -678,6 +768,7 @@ fn parse_dependency_trust(input: &EvaluationInput<'_>) -> RailParseOutput {
         status,
         profile: None,
         property_classes: Vec::new(),
+        hegel_property: None,
     }
 }
 
@@ -712,6 +803,7 @@ fn parse_api_stability(input: &EvaluationInput<'_>) -> RailParseOutput {
         status,
         profile: None,
         property_classes: Vec::new(),
+        hegel_property: None,
     }
 }
 
@@ -773,6 +865,7 @@ fn parse_dynamic_evidence(input: &EvaluationInput<'_>) -> RailParseOutput {
         status,
         profile,
         property_classes: Vec::new(),
+        hegel_property: None,
     }
 }
 
@@ -816,6 +909,7 @@ fn parse_release_supply_chain(input: &EvaluationInput<'_>) -> RailParseOutput {
         status,
         profile: None,
         property_classes: Vec::new(),
+        hegel_property: None,
     }
 }
 
@@ -881,6 +975,7 @@ fn parse_mutation_testing(input: &EvaluationInput<'_>) -> RailParseOutput {
         status,
         profile: None,
         property_classes: Vec::new(),
+        hegel_property: None,
     }
 }
 
@@ -926,6 +1021,7 @@ fn parse_coverage_baseline(input: &EvaluationInput<'_>) -> RailParseOutput {
         status,
         profile: None,
         property_classes: Vec::new(),
+        hegel_property: None,
     }
 }
 
@@ -972,7 +1068,237 @@ fn parse_kani_model_check(input: &EvaluationInput<'_>) -> RailParseOutput {
         status,
         profile: input.profile.map(ToOwned::to_owned),
         property_classes,
+        hegel_property: None,
     }
+}
+
+fn parse_hegel_property(input: &EvaluationInput<'_>) -> RailParseOutput {
+    let mut diagnostics = Vec::new();
+    let mut findings = Vec::new();
+    let value = parse_json_value(input.import_text, &mut diagnostics);
+    let hegel_property =
+        value.as_ref().map(|value| parse_hegel_property_details(value, &mut findings, &mut diagnostics));
+    let finding_counts = counts_by_family(&findings);
+    let status = status_from_error_findings(&findings);
+    RailParseOutput {
+        findings,
+        finding_counts,
+        diagnostics,
+        status,
+        profile: input.profile.map(ToOwned::to_owned),
+        property_classes: Vec::new(),
+        hegel_property,
+    }
+}
+
+fn parse_hegel_property_details(
+    value: &serde_json::Value,
+    findings: &mut Vec<EvidenceRailFinding>,
+    diagnostics: &mut Vec<String>,
+) -> HegelPropertyReceiptDetails {
+    validate_optional_schema_version(value, HEGEL_PROPERTY_SCHEMA_VERSION, "hegel-property", diagnostics);
+    validate_required_string_field(value, "property_id", "Hegel property identity", diagnostics);
+    validate_required_string_field(value, "source_scope", "Hegel source scope", diagnostics);
+    validate_required_object_strings(
+        value,
+        "runner",
+        "Hegel runner identity",
+        &["crate_version", "backend"],
+        diagnostics,
+    );
+    validate_required_object_strings(
+        value,
+        "generator",
+        "Hegel generator identity",
+        &["family", "content_hash"],
+        diagnostics,
+    );
+    validate_hegel_generator_hash(value, diagnostics);
+    validate_hegel_settings(value, diagnostics);
+    validate_b3_array(value, "source_hashes", "Hegel source hash", diagnostics);
+    validate_hegel_boundary(value, diagnostics);
+
+    let status = string_field(value, "status");
+    let counterexample = value
+        .get("counterexample")
+        .and_then(|counterexample| parse_hegel_counterexample(counterexample, diagnostics));
+    match status {
+        Some(STATUS_PASSED) if counterexample.is_some() => {
+            diagnostics.push("Hegel passed receipt must not include a counterexample".to_owned());
+        }
+        Some(STATUS_PASSED) => {}
+        Some(STATUS_FAILED) => {
+            findings.push(hegel_finding(value));
+            if counterexample.is_none() {
+                diagnostics.push("Hegel failed receipt requires counterexample identity".to_owned());
+            }
+        }
+        Some(other) => diagnostics.push(format!("Hegel status `{other}` is unsupported; expected passed or failed")),
+        None => diagnostics.push("Hegel receipt requires status `passed` or `failed`".to_owned()),
+    }
+
+    HegelPropertyReceiptDetails {
+        property_id: string_field(value, "property_id").unwrap_or_default().to_owned(),
+        linked_ids: sorted_strings(string_array_field(value, "linked_ids")),
+        source_scope: string_field(value, "source_scope").unwrap_or_default().to_owned(),
+        runner: HegelRunnerSummary {
+            crate_version: value
+                .get("runner")
+                .and_then(|runner| string_field(runner, "crate_version"))
+                .unwrap_or_default()
+                .to_owned(),
+            backend: value
+                .get("runner")
+                .and_then(|runner| string_field(runner, "backend"))
+                .unwrap_or_default()
+                .to_owned(),
+        },
+        settings: HegelSettingsSummary {
+            case_budget: value
+                .get("settings")
+                .and_then(|settings| u64_field(settings, "case_budget"))
+                .unwrap_or_default(),
+            phases: value
+                .get("settings")
+                .map(|settings| sorted_strings(string_array_field(settings, "phases")))
+                .unwrap_or_default(),
+            seed: value.get("settings").and_then(|settings| u64_field(settings, "seed")),
+            derandomized: value
+                .get("settings")
+                .and_then(|settings| settings.get("derandomized"))
+                .and_then(serde_json::Value::as_bool)
+                .unwrap_or(false),
+        },
+        generator: HegelGeneratorSummary {
+            family: value
+                .get("generator")
+                .and_then(|generator| string_field(generator, "family"))
+                .unwrap_or_default()
+                .to_owned(),
+            content_hash: value
+                .get("generator")
+                .and_then(|generator| string_field(generator, "content_hash"))
+                .unwrap_or_default()
+                .to_owned(),
+        },
+        source_hashes: sorted_strings(string_array_field(value, "source_hashes")),
+        counterexample,
+    }
+}
+
+fn parse_hegel_counterexample(
+    counterexample: &serde_json::Value,
+    diagnostics: &mut Vec<String>,
+) -> Option<HegelCounterexampleSummary> {
+    let Some(summary_hash) = string_field(counterexample, "summary_hash") else {
+        diagnostics.push("Hegel counterexample requires summary_hash".to_owned());
+        return None;
+    };
+    if !is_b3_identity(summary_hash) {
+        diagnostics.push("Hegel counterexample summary_hash must be a BLAKE3 identity".to_owned());
+    }
+    Some(HegelCounterexampleSummary {
+        summary_hash: summary_hash.to_owned(),
+        issue_codes: sorted_strings(string_array_field(counterexample, "issue_codes")),
+    })
+}
+
+fn validate_hegel_generator_hash(value: &serde_json::Value, diagnostics: &mut Vec<String>) {
+    let content_hash = value.get("generator").and_then(|generator| string_field(generator, "content_hash"));
+    if let Some(content_hash) = content_hash {
+        if !is_b3_identity(content_hash) {
+            diagnostics.push("Hegel generator content_hash must be a BLAKE3 identity".to_owned());
+        }
+    }
+}
+
+fn validate_hegel_settings(value: &serde_json::Value, diagnostics: &mut Vec<String>) {
+    let Some(settings) = value.get("settings") else {
+        diagnostics.push("Hegel receipt requires settings object".to_owned());
+        return;
+    };
+    let Some(settings) = settings.as_object() else {
+        diagnostics.push("Hegel settings field must be an object".to_owned());
+        return;
+    };
+    match settings.get("case_budget").and_then(serde_json::Value::as_u64) {
+        Some(budget) if budget >= HEGEL_FAST_CASE_BUDGET => {}
+        Some(_) => diagnostics
+            .push(format!("Hegel settings case_budget must be at least named fast budget {HEGEL_FAST_CASE_BUDGET}")),
+        None => diagnostics.push("Hegel settings requires case_budget".to_owned()),
+    }
+    let phases = settings.get("phases").and_then(serde_json::Value::as_array);
+    if phases.is_none_or(|phases| phases.is_empty()) {
+        diagnostics.push("Hegel settings requires at least one phase".to_owned());
+    }
+    if !settings.contains_key("derandomized") {
+        diagnostics.push("Hegel settings requires derandomized flag".to_owned());
+    }
+}
+
+fn validate_b3_array(value: &serde_json::Value, field: &str, label: &str, diagnostics: &mut Vec<String>) {
+    let hashes = string_array_field(value, field);
+    if hashes.is_empty() {
+        diagnostics.push(format!("{label} field `{field}` must contain at least one BLAKE3 identity"));
+        return;
+    }
+    for hash in hashes {
+        if !is_b3_identity(&hash) {
+            diagnostics.push(format!("{label} `{hash}` must be a BLAKE3 identity"));
+        }
+    }
+}
+
+fn validate_hegel_boundary(value: &serde_json::Value, diagnostics: &mut Vec<String>) {
+    let non_claims = string_array_field(value, "non_claims");
+    if !non_claims.iter().any(|claim| claim == HEGEL_GENERATED_TESTING_NON_CLAIM) {
+        diagnostics.push("Hegel receipt missing generated-testing non-claim".to_owned());
+    }
+    let claim_text = non_claims.join(" ");
+    for marker in [
+        "formal proof",
+        "exhaustive correctness",
+        "proves correctness",
+        "proves semantic equivalence",
+        "proves verifier soundness",
+        "proves requirement satisfaction",
+        "proves release eligibility",
+        "whole-program correctness",
+    ] {
+        if claim_text.contains(marker) {
+            diagnostics.push("Hegel receipt contains unsupported proof or correctness overclaim".to_owned());
+            break;
+        }
+    }
+    if string_field(value, "evidence_tier") == Some(FORMAL_PROOF_TIER) {
+        diagnostics.push("Hegel property receipts cannot be promoted to formal_proof".to_owned());
+    }
+}
+
+fn hegel_finding(value: &serde_json::Value) -> EvidenceRailFinding {
+    let property_id = string_field(value, "property_id").unwrap_or("unknown property");
+    EvidenceRailFinding {
+        family: "hegel-counterexample".to_owned(),
+        severity: "error".to_owned(),
+        message: format!("Hegel found a counterexample for {property_id}"),
+        source_severity: None,
+        file: None,
+        line: None,
+        column: None,
+    }
+}
+
+fn is_b3_identity(value: &str) -> bool {
+    let Some(hex) = value.strip_prefix(BLAKE3_IDENTITY_PREFIX) else {
+        return false;
+    };
+    hex.len() == BLAKE3_HEX_LENGTH && hex.chars().all(|character| character.is_ascii_hexdigit())
+}
+
+fn sorted_strings(mut values: Vec<String>) -> Vec<String> {
+    values.sort();
+    values.dedup();
+    values
 }
 
 fn validate_required_object_strings(
@@ -1248,6 +1574,11 @@ fn run_mode_command_argv(args: &EvidenceRailArgs) -> Result<Vec<String>, String>
     if args.rail == EvidenceRailKind::DynamicEvidence {
         return dynamic_run_command_argv(args.profile.as_deref(), args.command.as_deref());
     }
+    if args.rail == EvidenceRailKind::HegelProperty && args.command.as_deref().is_none_or(str::is_empty) {
+        return Err(
+            "hegel-property run requires an explicit --command and never bootstraps Hegel automatically".to_owned()
+        );
+    }
     Ok(command_argv(
         args.rail,
         config_path.as_deref(),
@@ -1286,6 +1617,7 @@ fn command_argv(
         EvidenceRailKind::MutationTesting => string_vec(&["cargo", "mutants", "--json"]),
         EvidenceRailKind::CoverageBaseline => string_vec(&["cargo", "llvm-cov", "--json", "--summary-only"]),
         EvidenceRailKind::KaniModelCheck => string_vec(&["cargo", "kani"]),
+        EvidenceRailKind::HegelProperty => requested_command.map(split_command).unwrap_or_default(),
     }
 }
 
@@ -1732,13 +2064,39 @@ fn string_vec(values: &[&str]) -> Vec<String> {
 
 #[cfg(test)]
 mod tests {
+    use hegel::TestCase;
+    use hegel::generators as gs;
+
     use super::*;
 
     const WORKSPACE_SCOPE: &str = "fixture-workspace";
     const DENY_CONFIG: &str = "deny.toml";
     const BASELINE_IDENTITY: &str = "b3:baseline";
+    const HEGEL_PROPERTY_CASES: u64 = HEGEL_FAST_CASE_BUDGET;
+    const PROPERTY_MIN_SALT: u64 = 0;
+    const PROPERTY_MAX_SALT: u64 = 1_000;
     const CLIPPY_JSON: &str = r#"{"reason":"compiler-message","message":{"code":{"code":"clippy::unwrap_used"},"level":"warning","message":"used unwrap","spans":[{"is_primary":true,"file_name":"src/lib.rs","line_start":10,"column_start":5}]}}
 "#;
+
+    #[hegel::test(test_cases = HEGEL_PROPERTY_CASES)]
+    fn hegel_receipt_normalizes_replay_sets_and_rejects_bad_hashes(tc: TestCase) {
+        let salt = draw_hegel_salt(&tc);
+        let first = hegel_receipt(&hegel_passed_json(salt, false));
+        let second = hegel_receipt(&hegel_passed_json(salt, true));
+        let first_details = first.hegel_property.as_ref().expect("first Hegel receipt details");
+        let second_details = second.hegel_property.as_ref().expect("second Hegel receipt details");
+
+        assert_eq!(first.status, STATUS_PASSED);
+        assert_eq!(second.status, STATUS_PASSED);
+        assert_eq!(first_details.linked_ids, second_details.linked_ids);
+        assert_eq!(first_details.source_hashes, second_details.source_hashes);
+        assert!(first_details.settings.derandomized);
+
+        let invalid = hegel_receipt(&hegel_bad_hash_json(salt));
+        assert_eq!(invalid.status, STATUS_FAILED);
+        assert!(invalid.diagnostics.iter().any(|diagnostic| diagnostic.contains("BLAKE3")));
+        assert!(invalid.diagnostics.iter().any(|diagnostic| diagnostic.contains("generated-testing non-claim")));
+    }
 
     #[test]
     fn dependency_audit_clean_fixture_passes_with_locked_boundary() {
@@ -2087,6 +2445,43 @@ mod tests {
     }
 
     #[test]
+    fn hegel_property_receipts_preserve_bounded_generated_testing_boundary() {
+        let valid = hegel_receipt(include_str!("../tests/fixtures/evidence-rails/hegel-property-passed.json"));
+        let valid_json = render_receipt_json(&valid).expect("receipt renders");
+        let valid_summary = render_summary(&valid);
+        let valid_provenance =
+            render_provenance_jsonl(&valid, &valid_json, &valid_summary).expect("provenance renders");
+        let details = valid.hegel_property.as_ref().expect("hegel details are present");
+
+        assert_eq!(valid.status, STATUS_PASSED);
+        assert!(validate_receipt(&valid).is_empty());
+        assert_eq!(valid.checker_id, crate::evidence::CHECKER_HEGEL_RS);
+        assert!(valid.checked_rule_families.iter().any(|family| family == "generator-identity"));
+        assert_eq!(details.property_id, "valence.evidence-ir.canonical-identity-order");
+        assert!(details.settings.case_budget >= HEGEL_FAST_CASE_BUDGET);
+        assert!(details.counterexample.is_none());
+        assert!(valid.non_claims.iter().any(|claim| claim == HEGEL_GENERATED_TESTING_NON_CLAIM));
+        assert!(valid_provenance.contains("\"source_id\":\"octet.dynamic_evidence.hegel-property\""));
+        assert!(valid_provenance.contains("\"evidence_tier\":\"transcript_assertion\""));
+
+        let invalid = hegel_receipt(include_str!("../tests/fixtures/evidence-rails/hegel-property-invalid.json"));
+        assert_eq!(invalid.status, STATUS_FAILED);
+        assert_eq!(invalid.finding_counts.get("hegel-counterexample"), Some(&1));
+        assert!(invalid.diagnostics.iter().any(|diagnostic| diagnostic.contains("unsupported")));
+        assert!(invalid.diagnostics.iter().any(|diagnostic| diagnostic.contains("case_budget")));
+        assert!(invalid.diagnostics.iter().any(|diagnostic| diagnostic.contains("derandomized")));
+        assert!(invalid.diagnostics.iter().any(|diagnostic| diagnostic.contains("BLAKE3")));
+        assert!(invalid.diagnostics.iter().any(|diagnostic| diagnostic.contains("generated-testing non-claim")));
+        assert!(invalid.diagnostics.iter().any(|diagnostic| diagnostic.contains("overclaim")));
+        assert!(invalid.diagnostics.iter().any(|diagnostic| diagnostic.contains("formal_proof")));
+        assert!(invalid.diagnostics.iter().any(|diagnostic| diagnostic.contains("counterexample")));
+
+        let mut drifted = valid.clone();
+        drifted.rail_id = EvidenceRailKind::DependencyAudit.as_str().to_owned();
+        assert!(validate_receipt(&drifted).iter().any(|diagnostic| diagnostic.contains("only valid")));
+    }
+
+    #[test]
     fn kani_panic_pilot_fixtures_and_templates_capture_assumption_review() {
         let passed = kani_receipt(include_str!("../tests/fixtures/evidence-rails/kani-panic-pilot-passed.json"));
         assert_eq!(passed.status, STATUS_PASSED);
@@ -2122,6 +2517,8 @@ mod tests {
         let kani_panic_passed = include_str!("../tests/fixtures/evidence-rails/kani-panic-pilot-passed.json");
         let kani_panic_invalid =
             include_str!("../tests/fixtures/evidence-rails/kani-panic-pilot-invalid-assumption.json");
+        let hegel_passed = include_str!("../tests/fixtures/evidence-rails/hegel-property-passed.json");
+        let hegel_invalid = include_str!("../tests/fixtures/evidence-rails/hegel-property-invalid.json");
 
         assert_eq!(dependency_audit_receipt(clean_deny, Some(DENY_CONFIG)).status, STATUS_PASSED);
         assert_eq!(dependency_audit_receipt(denied, Some(DENY_CONFIG)).finding_counts.get("licenses"), Some(&1));
@@ -2136,6 +2533,8 @@ mod tests {
         assert_eq!(kani_receipt(kani_invalid).status, STATUS_FAILED);
         assert_eq!(kani_receipt(kani_panic_passed).status, STATUS_PASSED);
         assert_eq!(kani_receipt(kani_panic_invalid).status, STATUS_FAILED);
+        assert_eq!(hegel_receipt(hegel_passed).status, STATUS_PASSED);
+        assert_eq!(hegel_receipt(hegel_invalid).status, STATUS_FAILED);
     }
 
     #[test]
@@ -2182,6 +2581,15 @@ mod tests {
             "--summary-only"
         ]);
         assert_eq!(command_argv(EvidenceRailKind::KaniModelCheck, None, None, None), vec!["cargo", "kani"]);
+        assert_eq!(
+            command_argv(
+                EvidenceRailKind::HegelProperty,
+                None,
+                None,
+                Some("cargo test -p valence-core hegel_property")
+            ),
+            vec!["cargo", "test", "-p", "valence-core", "hegel_property"]
+        );
     }
 
     #[test]
@@ -2211,6 +2619,41 @@ mod tests {
             ..args
         };
         assert_eq!(run_mode_command_argv(&allowed).expect("allowed dynamic command"), vec!["cargo", "miri", "test"]);
+    }
+
+    #[test]
+    fn hegel_run_mode_requires_explicit_command_before_spawn() {
+        let args = crate::cli::EvidenceRailArgs {
+            rail: EvidenceRailKind::HegelProperty,
+            input: None,
+            artifact_dir: std::path::PathBuf::from("artifacts/octet-evidence"),
+            workspace_root: None,
+            config: None,
+            baseline: None,
+            profile: None,
+            command: None,
+            parent_artifacts: Vec::new(),
+            output_format: OutputFormat::Human,
+            locked: false,
+            update_advisory_database: false,
+            run: true,
+            command_line: "cargo octet evidence collect --rail hegel-property --run".to_owned(),
+        };
+
+        let error = run_mode_command_argv(&args).expect_err("implicit Hegel command is rejected before spawn");
+        assert!(error.contains("explicit --command"));
+
+        let allowed = crate::cli::EvidenceRailArgs {
+            command: Some("cargo test -p valence-core hegel_property".to_owned()),
+            ..args
+        };
+        assert_eq!(run_mode_command_argv(&allowed).expect("allowed Hegel command"), vec![
+            "cargo",
+            "test",
+            "-p",
+            "valence-core",
+            "hegel_property"
+        ]);
     }
 
     #[test]
@@ -2324,6 +2767,83 @@ mod tests {
         })
     }
 
+    fn hegel_receipt(import_text: &str) -> EvidenceRailReceipt {
+        evaluate(EvaluationInput {
+            import_text,
+            ..hegel_input()
+        })
+    }
+
+    fn draw_hegel_salt(tc: &TestCase) -> u64 {
+        tc.draw(gs::integers::<u64>().min_value(PROPERTY_MIN_SALT).max_value(PROPERTY_MAX_SALT))
+    }
+
+    fn hegel_passed_json(salt: u64, reversed: bool) -> String {
+        let mut linked_ids = vec![format!("r[octet.hegel.{salt}.b]"), format!("r[octet.hegel.{salt}.a]")];
+        let mut source_hashes = vec![hegel_identity("source-b", salt), hegel_identity("source-a", salt)];
+        if reversed {
+            linked_ids.reverse();
+            source_hashes.reverse();
+        }
+        serde_json::json!({
+            "schema_version": HEGEL_PROPERTY_SCHEMA_VERSION,
+            "property_id": format!("octet.evidence-rails.hegel.{salt}"),
+            "linked_ids": linked_ids,
+            "source_scope": "cargo-octet/src/evidence_rails.rs::evaluate",
+            "runner": {
+                "crate_version": "0.14.12",
+                "backend": "native"
+            },
+            "settings": {
+                "case_budget": HEGEL_FAST_CASE_BUDGET,
+                "phases": ["generate", "shrink"],
+                "seed": salt,
+                "derandomized": true
+            },
+            "generator": {
+                "family": "octet-evidence-rail-arbitrary",
+                "content_hash": hegel_identity("generator", salt)
+            },
+            "source_hashes": source_hashes,
+            "status": STATUS_PASSED,
+            "evidence_tier": "transcript_assertion",
+            "non_claims": [HEGEL_GENERATED_TESTING_NON_CLAIM]
+        })
+        .to_string()
+    }
+
+    fn hegel_bad_hash_json(salt: u64) -> String {
+        serde_json::json!({
+            "schema_version": HEGEL_PROPERTY_SCHEMA_VERSION,
+            "property_id": format!("octet.evidence-rails.hegel.bad-hash.{salt}"),
+            "linked_ids": [format!("r[octet.hegel.{salt}.bad]")],
+            "source_scope": "cargo-octet/src/evidence_rails.rs::evaluate",
+            "runner": {
+                "crate_version": "0.14.12",
+                "backend": "native"
+            },
+            "settings": {
+                "case_budget": HEGEL_FAST_CASE_BUDGET,
+                "phases": ["generate"],
+                "seed": salt,
+                "derandomized": true
+            },
+            "generator": {
+                "family": "octet-evidence-rail-arbitrary",
+                "content_hash": hegel_identity("generator", salt)
+            },
+            "source_hashes": ["not-a-b3-identity"],
+            "status": STATUS_PASSED,
+            "evidence_tier": "transcript_assertion",
+            "non_claims": []
+        })
+        .to_string()
+    }
+
+    fn hegel_identity(prefix: &str, salt: u64) -> String {
+        prefixed_identity(format!("{prefix}:{salt}").as_bytes())
+    }
+
     fn api_stability_input() -> EvaluationInput<'static> {
         EvaluationInput {
             rail: EvidenceRailKind::ApiStability,
@@ -2427,6 +2947,24 @@ mod tests {
             advisory_updated_by_prior_step: false,
             profile: None,
             requested_command: None,
+            parent_artifacts: Vec::new(),
+            tool_exit_code: None,
+        }
+    }
+
+    fn hegel_input() -> EvaluationInput<'static> {
+        EvaluationInput {
+            rail: EvidenceRailKind::HegelProperty,
+            mode: MODE_IMPORT,
+            import_text: "{}",
+            workspace_scope: WORKSPACE_SCOPE,
+            config_path: None,
+            baseline_identity: None,
+            lockfile_identity: None,
+            locked: false,
+            advisory_updated_by_prior_step: false,
+            profile: Some("fast"),
+            requested_command: Some("cargo test hegel_property"),
             parent_artifacts: Vec::new(),
             tool_exit_code: None,
         }

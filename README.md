@@ -63,6 +63,7 @@ Optional external evidence rails collect selected non-starter tool output into s
 
 ```bash
 cargo octet evidence collect --rail dependency-audit --input target/deny.json --config deny.toml --locked --artifact-dir artifacts/dependency-audit
+cargo octet evidence collect --rail hegel-property --input target/hegel-property.json --artifact-dir artifacts/hegel-property
 cargo octet artifact verify --artifact-dir artifacts/dependency-audit
 ```
 
@@ -159,11 +160,13 @@ this README plus command help, without reading archived OpenSpec changes:
   input only after verification succeeds; r[verify octet.evidence_provenance.valence_export.boundary_hardened.visible]
   the export is not release eligibility, Mantle bundle inclusion, whole-program
   correctness, or verifier-soundness proof.
-- `cargo octet evidence collect --rail dependency-audit|clippy-co-reporting|dependency-trust|api-stability|dynamic-evidence|release-supply-chain|mutation-testing|coverage-baseline|kani-model-check`
+- `cargo octet evidence collect --rail dependency-audit|clippy-co-reporting|dependency-trust|api-stability|dynamic-evidence|release-supply-chain|mutation-testing|coverage-baseline|kani-model-check|hegel-property`
   writes optional external evidence receipts with checker identity, source severity,
   selected scope, parent links, and explicit non-claims. Kani receipts are scoped
-  model-check evidence for named harnesses/contracts/stubs, not whole-program or
-  verifier-soundness proof.
+  model-check evidence for named harnesses/contracts/stubs; Hegel receipts are
+  bounded generated-input property evidence for named pure-core laws. Neither rail
+  is evidence of whole-program correctness, release eligibility, semantic
+  equivalence, or verifier soundness.
 - `cargo octet fingerprint --check --review-manifest artifacts/fingerprint-review.json src/lib.rs`
   verifies semantic identity fingerprints with BLAKE3-backed review records.
 - `cargo octet migrate start --manifest artifacts/octet-migration.json`

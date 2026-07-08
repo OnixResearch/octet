@@ -68,7 +68,7 @@ The progressive assurance ladder keeps each stage explicit:
 | warning gates | operational gating rather than formal proof; warning-level `static_lint` findings become review inputs | `cargo octet check` in CI or pre-commit with warning policy | `summary.txt`, `status.json`, SARIF, JSONL, and review notes |
 | deny gates | operational gating rather than formal proof; denied lint findings block promotion | `cargo octet check` with deny profile or `templates/pre-commit-config.yaml` | non-zero runner status, sidecars, and suppression review |
 | policy requirements | `policy_check` evidence tied to Nickel-authored policy IDs or selected external checker receipts | `octet-policy-validate`, `octet-standards check`, and `cargo octet evidence collect --rail ...` | generated policy bundles, standards diagnostics, dependency-audit, cargo-vet, semver, and release supply-chain receipts |
-| receipt-backed validation | `static_lint`, `transcript_assertion`, `autofix_verified`, `ui_fixture`, dynamic profile, Kani model-check, or policy receipt evidence | Clippy co-reporting, transcript, dynamic evidence, Kani evidence, autofix, UI, artifact, and standards validation gates | Clippy receipts, transcripts, dynamic profile receipts, Kani harness/contract/stub receipts, refreshed snapshots, verifier sidecars, and provenance records |
+| receipt-backed validation | `static_lint`, `transcript_assertion`, `autofix_verified`, `ui_fixture`, dynamic profile, Kani model-check, Hegel property, or policy receipt evidence | Clippy co-reporting, transcript, dynamic evidence, Kani evidence, Hegel property evidence, autofix, UI, artifact, and standards validation gates | Clippy receipts, transcripts, dynamic profile receipts, Kani harness/contract/stub receipts, Hegel property receipts with bounded generated-testing non-claims, refreshed snapshots, verifier sidecars, and provenance records |
 | scoped formal-proof receipts | `formal_proof` only for validated verifier-backed receipts | `cargo octet prove` followed by `cargo octet artifact verify` | structured proof receipt, proof card, bounded log identity, verifier identity, and provenance |
 | verified release artifacts | release-gate evidence assembled from the lower tiers; artifact verification is not itself whole-program proof | `cargo octet artifact verify` and release/operator smoke transcripts | deterministic artifact directory, `provenance.jsonl`, smoke transcript, and reviewer signoff |
 
@@ -162,10 +162,14 @@ Reviewers use the existing commands at the matching stage:
   kinds for checks, receipts, imported Trellis references, parent artifacts, and
   Valence adapter feeds, plus explicit non-claims. It preserves Octet artifact
   identities, provenance records, proof-card summaries, parent links,
-  diagnostics, evidence tiers, and non-claims; r[verify octet.evidence_provenance.valence_export.not_release_claim]
+  diagnostics, evidence tiers, and non-claims. Hegel property receipts export as
+  scoped generated-testing facts with property IDs, linked requirement IDs,
+  source scope, source hashes, parent links, and non-claim boundaries;
+  r[verify octet.evidence_provenance.valence_export.not_release_claim]
   r[verify octet.evidence_provenance.valence_export.boundary.dependency_direction]
-  it does not prove release eligibility, Mantle bundle inclusion, whole-program
-  correctness, verifier soundness, or upgrade manual-review, lint, policy, or
+  the export does not prove release eligibility, Mantle bundle inclusion,
+  whole-program correctness, verifier soundness, semantic equivalence,
+  requirement satisfaction, or upgrade manual-review, lint, policy, Hegel, or
   imported Trellis evidence into formal proof.
 - Proof goal-state feedback summarizes the selected claim, assumptions,
   satisfied evidence, missing obligations, blockers, remediation commands, and
@@ -247,12 +251,13 @@ claim being made.
 The initial deterministic producer registry covers `cargo-octet`,
 `octet-standards`, `octet-policy-validate`, `octet-policy-export`,
 `octet-fingerprint`, `octet-transcript`, `cargo-deny`, Clippy, `cargo-vet`,
-`cargo-semver-checks`, `cargo-mutants`, `cargo-llvm-cov`,
-`octet-dynamic-evidence`, and `octet-release-supply-chain`. Source IDs stay in
-their producer families (`octet.runner.*`, `octet.artifact.*`,
+`cargo-semver-checks`, `cargo-mutants`, `cargo-llvm-cov`, `cargo-kani`,
+`hegel-rs`, `octet-dynamic-evidence`, and `octet-release-supply-chain`. Source
+IDs stay in their producer families (`octet.runner.*`, `octet.artifact.*`,
 `octet.standards.*`, `octet.policy.*`, `octet.external_lint.*`,
 `octet.dependency_trust.*`, `octet.api_stability.*`,
 `octet.mutation_testing.*`, `octet.coverage_baseline.*`,
+`octet.kani_model_check.*`, `octet.dynamic_evidence.hegel-property`,
 `octet.dynamic_evidence.*`, `octet.release_supply_chain.*`,
 `octet.fingerprint.*`, and `octet.transcript.*`), and parent artifacts link
 derived evidence back to the runner, policy, fingerprint, transcript, or release

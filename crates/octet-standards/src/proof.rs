@@ -521,7 +521,9 @@ pub fn build_verus_proof_receipt(input: &VerusProofReceiptInput<'_>) -> Result<V
     }
 
     let verifier = &input.rail.receipt_verifier;
-    let package_lock = package_lock.expect("package lock should be present after diagnostic check");
+    let Some(package_lock) = package_lock else {
+        return Err(vec!["package lock missing after diagnostic check".to_owned()]);
+    };
     Ok(VerusProofReceipt {
         schema_version: VERUS_PROOF_RECEIPT_SCHEMA_VERSION.to_owned(),
         policy_id: input.policy_id.to_owned(),
