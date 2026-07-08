@@ -65,5 +65,6 @@ let EvidenceTier = std.contract.from_predicate (fun value => std.is_string value
     non_claims | Array String,
     diagnostics | Array String | default = [],
     parent_artifacts | Array String | default = [],
+    property_classes | Array String | default = [],
   },
 }
