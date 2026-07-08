@@ -155,9 +155,17 @@ Reviewers use the existing commands at the matching stage:
 - `cargo octet artifact verify` recomputes artifact identities and checks saved
   receipts plus provenance before an artifact directory is treated as evidence.
   With `--emit-valence-provenance <path>`, it writes a Valence-ready export only
-  after verification succeeds. The export preserves Octet artifact identities,
-  provenance records, proof-card summaries, parent links, diagnostics, evidence
-  tiers, and non-claims; it does not upgrade manual-review, lint, policy, or
+  after verification succeeds. r[impl octet.evidence_provenance.valence_export.boundary]
+  r[impl octet.evidence_provenance.valence_export.boundary_hardened]
+  The export is a Valence adapter input: every record carries a replayable
+  receipt envelope, canonical BLAKE3 input/output artifact identities, typed edge
+  kinds for checks, receipts, imported Trellis references, parent artifacts, and
+  Valence adapter feeds, plus explicit non-claims. It preserves Octet artifact
+  identities, provenance records, proof-card summaries, parent links,
+  diagnostics, evidence tiers, and non-claims; r[verify octet.evidence_provenance.valence_export.not_release_claim]
+  r[verify octet.evidence_provenance.valence_export.boundary.dependency_direction]
+  it does not prove release eligibility, Mantle bundle inclusion, whole-program
+  correctness, verifier soundness, or upgrade manual-review, lint, policy, or
   imported Trellis evidence into formal proof.
 - Proof goal-state feedback summarizes the selected claim, assumptions,
   satisfied evidence, missing obligations, blockers, remediation commands, and

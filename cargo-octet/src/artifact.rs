@@ -40,10 +40,35 @@ const EVIDENCE_LOG_SOURCE_ID: &str = "octet.evidence_log.manifest";
 const EVIDENCE_LOG_MANUAL_ACTION: &str =
     "review the in-tree summary, exact replay command, checked scope, and claim boundary before relying on the raw log";
 const VALENCE_EXPORT_SCHEMA_VERSION: &str = "octet-valence-provenance-export/v1";
+const VALENCE_EXPORT_RECEIPT_SCHEMA_VERSION: &str = "octet-valence-replayable-receipt/v1";
 const VALENCE_EXPORT_NON_CLAIM_CORRECTNESS: &str = "Octet export preserves artifact identity, provenance linkage, and evidence tiers; it does not prove whole-program correctness";
 const VALENCE_EXPORT_NON_CLAIM_SEMANTICS: &str =
     "Valence consumes this export for stack traceability; Mantle bundles only the final sidecar opaquely";
+const VALENCE_EXPORT_NON_CLAIM_RELEASE: &str = "Octet Valence exports are adapter inputs, not release eligibility, Mantle bundle inclusion, or verifier soundness claims";
 const FORMAL_PROOF_TIER: &str = "formal_proof";
+const STATUS_PASSED: &str = "passed";
+const STATUS_FAILED: &str = "failed";
+const STATUS_MANUAL_REVIEW_REQUIRED: &str = "manual_review_required";
+const VALENCE_ADAPTER_TARGET: &str = "valence.stack-provenance.adapter-input";
+const TOOL_IDENTITY_NAME: &str = "cargo-octet";
+const FAILURE_REASON_SEPARATOR: &str = "; ";
+// r[impl octet.evidence_provenance.valence_export.typed_edges]
+const EDGE_CHECKS_SOURCE_SHAPE: &str = "checks_source_shape";
+const EDGE_RECORDS_LINT_RECEIPT: &str = "records_lint_receipt";
+const EDGE_RECORDS_POLICY_RECEIPT: &str = "records_policy_receipt";
+const EDGE_RECORDS_FORMAL_PROOF_RECEIPT: &str = "records_formal_proof_receipt";
+const EDGE_IMPORTS_TRELLIS_REFERENCE: &str = "imports_trellis_reference";
+const EDGE_DERIVES_FROM_PARENT_ARTIFACT: &str = "derives_from_parent_artifact";
+const EDGE_FEEDS_VALENCE_ADAPTER: &str = "feeds_valence_adapter";
+const SUPPORTED_VALENCE_EDGE_KINDS: &[&str] = &[
+    EDGE_CHECKS_SOURCE_SHAPE,
+    EDGE_RECORDS_LINT_RECEIPT,
+    EDGE_RECORDS_POLICY_RECEIPT,
+    EDGE_RECORDS_FORMAL_PROOF_RECEIPT,
+    EDGE_IMPORTS_TRELLIS_REFERENCE,
+    EDGE_DERIVES_FROM_PARENT_ARTIFACT,
+    EDGE_FEEDS_VALENCE_ADAPTER,
+];
 
 #[derive(Debug, Clone)]
 pub struct BundleFile {
@@ -79,6 +104,7 @@ pub struct ArtifactVerificationReport {
     pub diagnostics: Vec<String>,
 }
 
+// r[impl octet.evidence_provenance.valence_export.replayable_receipts]
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct ValenceProvenanceExport {
     pub schema_version: String,
@@ -86,6 +112,7 @@ pub struct ValenceProvenanceExport {
     pub verification_status: String,
     pub artifacts: Vec<ValenceArtifactIdentity>,
     pub provenance_records: Vec<ValenceProvenanceRecord>,
+    pub typed_edges: Vec<ValenceProvenanceEdge>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub proof_cards: Vec<ValenceProofCard>,
     pub diagnostics: Vec<String>,
@@ -99,6 +126,30 @@ pub struct ValenceArtifactIdentity {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+pub struct ValenceProvenanceEdge {
+    pub edge_kind: String,
+    pub source_artifact: String,
+    pub target_artifact: String,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+pub struct ValenceReceiptEnvelope {
+    pub schema_version: String,
+    pub producer_id: String,
+    pub checker_id: String,
+    pub tool_identity: String,
+    pub policy_or_checker_version: String,
+    pub normalized_invocation: Vec<String>,
+    pub input_artifacts: Vec<ValenceArtifactIdentity>,
+    pub output_artifacts: Vec<ValenceArtifactIdentity>,
+    pub parent_artifacts: Vec<String>,
+    pub status: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub failure_reason: Option<String>,
+    pub non_claims: Vec<String>,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct ValenceProvenanceRecord {
     pub source_id: String,
     pub checker_id: String,
@@ -106,6 +157,8 @@ pub struct ValenceProvenanceRecord {
     pub artifact: String,
     pub blake3: String,
     pub checked_scope: String,
+    pub receipt: ValenceReceiptEnvelope,
+    pub typed_edges: Vec<ValenceProvenanceEdge>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub verifier_identity: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -191,6 +244,8 @@ pub fn run(args: &ArtifactArgs) -> Result<i32, String> {
     })
 }
 
+// r[impl octet.evidence_provenance.valence_export.cli]
+// r[impl octet.evidence_provenance.valence_export.after_verify]
 fn write_valence_provenance_export(
     output_path: &Path,
     report: &ArtifactVerificationReport,
@@ -206,6 +261,7 @@ fn write_valence_provenance_export(
     fs::write(output_path, bytes).map_err(|error| format!("write {}: {error}", output_path.display()))
 }
 
+// r[impl octet.evidence_provenance.valence_export]
 pub fn build_valence_provenance_export(input: ArtifactBundleInput) -> Result<ValenceProvenanceExport, Vec<String>> {
     let report = verify_bundle(input.clone());
     if !report.diagnostics.is_empty() {
@@ -213,9 +269,10 @@ pub fn build_valence_provenance_export(input: ArtifactBundleInput) -> Result<Val
     }
     let file_map = collect_file_map(input.files);
     let mut diagnostics = Vec::new();
+    let evidence_rail_receipt = parse_optional_evidence_rail_receipt(&file_map, &mut diagnostics);
     let provenance_records = parse_provenance_records(&file_map, &mut diagnostics)
         .into_iter()
-        .map(valence_provenance_record)
+        .map(|record| valence_provenance_record(record, &file_map, evidence_rail_receipt.as_ref()))
         .collect::<Vec<_>>();
     let proof_cards = parse_valence_proof_cards(&file_map, &mut diagnostics);
     diagnostics.extend(validate_valence_proof_cards(&proof_cards, &file_map));
@@ -225,7 +282,7 @@ pub fn build_valence_provenance_export(input: ArtifactBundleInput) -> Result<Val
         return Err(diagnostics);
     }
 
-    Ok(ValenceProvenanceExport {
+    let mut export = ValenceProvenanceExport {
         schema_version: VALENCE_EXPORT_SCHEMA_VERSION.to_owned(),
         artifact_dir: input.artifact_dir,
         verification_status: report.status.to_owned(),
@@ -237,17 +294,58 @@ pub fn build_valence_provenance_export(input: ArtifactBundleInput) -> Result<Val
                 blake3: artifact.blake3,
             })
             .collect(),
+        typed_edges: Vec::new(),
         provenance_records,
         proof_cards,
         diagnostics: Vec::new(),
         non_claims: vec![
             VALENCE_EXPORT_NON_CLAIM_CORRECTNESS.to_owned(),
             VALENCE_EXPORT_NON_CLAIM_SEMANTICS.to_owned(),
+            VALENCE_EXPORT_NON_CLAIM_RELEASE.to_owned(),
         ],
-    })
+    };
+    export.typed_edges = valence_export_edges(&export.provenance_records, &export.proof_cards);
+    let export_diagnostics = validate_valence_provenance_export(&export);
+    if !export_diagnostics.is_empty() {
+        return Err(export_diagnostics);
+    }
+    Ok(export)
 }
 
-fn valence_provenance_record(record: ProvenanceRecord) -> ValenceProvenanceRecord {
+// r[impl octet.evidence_provenance.valence_export.fail_closed]
+// r[impl octet.evidence_provenance.valence_export.replayable_receipts.blocked]
+// r[impl octet.evidence_provenance.valence_export.typed_edges.unknown]
+pub fn validate_valence_provenance_export(export: &ValenceProvenanceExport) -> Vec<String> {
+    let mut diagnostics = Vec::new();
+    if export.non_claims.is_empty() {
+        diagnostics.push("Valence provenance export must carry at least one explicit non-claim".to_owned());
+    }
+    for record in &export.provenance_records {
+        validate_valence_receipt(record, &mut diagnostics);
+        validate_valence_edges(&record.typed_edges, &mut diagnostics);
+        validate_edge_tier_boundaries(record, &mut diagnostics);
+    }
+    validate_valence_edges(&export.typed_edges, &mut diagnostics);
+    for proof_card in &export.proof_cards {
+        if proof_card.non_claims.is_empty() {
+            diagnostics.push(format!(
+                "proof card `{}` must carry at least one explicit non-claim",
+                proof_card.proof_or_property_id
+            ));
+        }
+    }
+    diagnostics.sort();
+    diagnostics.dedup();
+    diagnostics
+}
+
+fn valence_provenance_record(
+    record: ProvenanceRecord,
+    file_map: &BTreeMap<String, Vec<u8>>,
+    evidence_rail_receipt: Option<&crate::evidence_rails::EvidenceRailReceipt>,
+) -> ValenceProvenanceRecord {
+    let receipt = valence_receipt_envelope(&record, file_map, evidence_rail_receipt);
+    let typed_edges = valence_record_edges(&record);
     ValenceProvenanceRecord {
         source_id: record.source_id,
         checker_id: record.checker_id,
@@ -255,10 +353,263 @@ fn valence_provenance_record(record: ProvenanceRecord) -> ValenceProvenanceRecor
         artifact: record.artifact_locator,
         blake3: record.blake3,
         checked_scope: record.checked_scope,
+        receipt,
+        typed_edges,
         verifier_identity: record.verifier_identity,
         proof_artifact_identity: record.proof_artifact_identity,
         human_action: record.human_action,
         parent_artifacts: record.parent_artifacts,
+    }
+}
+
+fn parse_optional_evidence_rail_receipt(
+    file_map: &BTreeMap<String, Vec<u8>>,
+    diagnostics: &mut Vec<String>,
+) -> Option<crate::evidence_rails::EvidenceRailReceipt> {
+    let bytes = file_map.get(crate::evidence_rails::RECEIPT_ARTIFACT_NAME)?;
+    match serde_json::from_slice(bytes) {
+        Ok(receipt) => Some(receipt),
+        Err(error) => {
+            diagnostics.push(format!("malformed {}: {error}", crate::evidence_rails::RECEIPT_ARTIFACT_NAME));
+            None
+        }
+    }
+}
+
+fn valence_receipt_envelope(
+    record: &ProvenanceRecord,
+    file_map: &BTreeMap<String, Vec<u8>>,
+    evidence_rail_receipt: Option<&crate::evidence_rails::EvidenceRailReceipt>,
+) -> ValenceReceiptEnvelope {
+    let input_artifacts = record
+        .parent_artifacts
+        .iter()
+        .filter_map(|artifact| valence_artifact_identity(file_map, artifact))
+        .collect::<Vec<_>>();
+    let output_artifacts =
+        valence_artifact_identity(file_map, &record.artifact_locator).into_iter().collect::<Vec<_>>();
+    let matching_evidence_rail_receipt =
+        evidence_rail_receipt.filter(|_| record.artifact_locator == crate::evidence_rails::RECEIPT_ARTIFACT_NAME);
+    let status = matching_evidence_rail_receipt
+        .map(|receipt| receipt.status.clone())
+        .unwrap_or_else(|| status_for_provenance_record(record));
+    ValenceReceiptEnvelope {
+        schema_version: VALENCE_EXPORT_RECEIPT_SCHEMA_VERSION.to_owned(),
+        producer_id: record.source_id.clone(),
+        checker_id: record.checker_id.clone(),
+        tool_identity: tool_identity_for_record(record),
+        policy_or_checker_version: policy_or_checker_version(record),
+        normalized_invocation: normalized_invocation(record, file_map, matching_evidence_rail_receipt),
+        input_artifacts,
+        output_artifacts,
+        parent_artifacts: record.parent_artifacts.clone(),
+        status: status.clone(),
+        failure_reason: failure_reason_for_status(&status, matching_evidence_rail_receipt),
+        non_claims: non_claims_for_record(matching_evidence_rail_receipt),
+    }
+}
+
+fn valence_artifact_identity(file_map: &BTreeMap<String, Vec<u8>>, artifact: &str) -> Option<ValenceArtifactIdentity> {
+    file_map.get(artifact).map(|bytes| ValenceArtifactIdentity {
+        artifact: artifact.to_owned(),
+        blake3: crate::evidence::artifact_blake3_hex(bytes),
+    })
+}
+
+fn status_for_provenance_record(record: &ProvenanceRecord) -> String {
+    if record.evidence_tier == EvidenceTier::ManualReviewRequired {
+        STATUS_MANUAL_REVIEW_REQUIRED.to_owned()
+    } else {
+        STATUS_VALID.to_owned()
+    }
+}
+
+fn tool_identity_for_record(record: &ProvenanceRecord) -> String {
+    if record.checker_id == RUNNER_CHECKER_ID {
+        format!("{TOOL_IDENTITY_NAME}@{}", env!("CARGO_PKG_VERSION"))
+    } else {
+        record.checker_id.clone()
+    }
+}
+
+fn policy_or_checker_version(record: &ProvenanceRecord) -> String {
+    format!("{}@{}", record.checker_id, env!("CARGO_PKG_VERSION"))
+}
+
+fn normalized_invocation(
+    record: &ProvenanceRecord,
+    file_map: &BTreeMap<String, Vec<u8>>,
+    evidence_rail_receipt: Option<&crate::evidence_rails::EvidenceRailReceipt>,
+) -> Vec<String> {
+    if let Some(receipt) = evidence_rail_receipt {
+        return receipt.command_argv.clone();
+    }
+    file_map
+        .get(COMMAND_ARTIFACT_NAME)
+        .map(|bytes| String::from_utf8_lossy(bytes).split_whitespace().map(str::to_owned).collect::<Vec<_>>())
+        .filter(|argv| !argv.is_empty())
+        .unwrap_or_else(|| vec![record.checker_id.clone()])
+}
+
+fn failure_reason_for_status(
+    status: &str,
+    evidence_rail_receipt: Option<&crate::evidence_rails::EvidenceRailReceipt>,
+) -> Option<String> {
+    if !status_requires_failure_reason(status) {
+        return None;
+    }
+    let Some(receipt) = evidence_rail_receipt else {
+        return Some(format!("receipt status `{status}`"));
+    };
+    if !receipt.diagnostics.is_empty() {
+        return Some(receipt.diagnostics.join(FAILURE_REASON_SEPARATOR));
+    }
+    if !receipt.findings.is_empty() {
+        return Some(format!("receipt recorded {} finding(s)", receipt.findings.len()));
+    }
+    Some(format!("receipt status `{status}`"))
+}
+
+fn status_requires_failure_reason(status: &str) -> bool {
+    status == STATUS_FAILED || status == STATUS_INVALID
+}
+
+fn non_claims_for_record(evidence_rail_receipt: Option<&crate::evidence_rails::EvidenceRailReceipt>) -> Vec<String> {
+    evidence_rail_receipt.map_or_else(
+        || {
+            vec![
+                VALENCE_EXPORT_NON_CLAIM_CORRECTNESS.to_owned(),
+                VALENCE_EXPORT_NON_CLAIM_SEMANTICS.to_owned(),
+                VALENCE_EXPORT_NON_CLAIM_RELEASE.to_owned(),
+            ]
+        },
+        |receipt| receipt.non_claims.clone(),
+    )
+}
+
+fn valence_record_edges(record: &ProvenanceRecord) -> Vec<ValenceProvenanceEdge> {
+    let mut edges = Vec::new();
+    if record.evidence_tier == EvidenceTier::StaticLint {
+        edges.push(edge(EDGE_CHECKS_SOURCE_SHAPE, &record.artifact_locator, &record.checked_scope));
+        edges.push(edge(EDGE_RECORDS_LINT_RECEIPT, &record.artifact_locator, &record.source_id));
+    } else if record.evidence_tier == EvidenceTier::FormalProof {
+        edges.push(edge(EDGE_RECORDS_FORMAL_PROOF_RECEIPT, &record.artifact_locator, &record.source_id));
+    } else if record.evidence_tier == EvidenceTier::PolicyCheck {
+        edges.push(edge(EDGE_RECORDS_POLICY_RECEIPT, &record.artifact_locator, &record.source_id));
+    }
+    for parent in &record.parent_artifacts {
+        edges.push(edge(EDGE_DERIVES_FROM_PARENT_ARTIFACT, &record.artifact_locator, parent));
+    }
+    edges.push(edge(EDGE_FEEDS_VALENCE_ADAPTER, &record.artifact_locator, VALENCE_ADAPTER_TARGET));
+    edges
+}
+
+fn valence_export_edges(
+    records: &[ValenceProvenanceRecord],
+    proof_cards: &[ValenceProofCard],
+) -> Vec<ValenceProvenanceEdge> {
+    let mut edges = records.iter().flat_map(|record| record.typed_edges.iter().cloned()).collect::<Vec<_>>();
+    edges.extend(proof_cards.iter().filter_map(trellis_reference_edge));
+    edges.sort_by(|left, right| {
+        left.edge_kind
+            .cmp(&right.edge_kind)
+            .then(left.source_artifact.cmp(&right.source_artifact))
+            .then(left.target_artifact.cmp(&right.target_artifact))
+    });
+    edges.dedup();
+    edges
+}
+
+fn trellis_reference_edge(card: &ValenceProofCard) -> Option<ValenceProvenanceEdge> {
+    (card.evidence_origin == crate::imported_proof::EVIDENCE_ORIGIN_EXTERNAL_TRELLIS).then(|| {
+        edge(
+            EDGE_IMPORTS_TRELLIS_REFERENCE,
+            &card.receipt_path,
+            card.external_reference
+                .as_ref()
+                .and_then(|value| value.get("source"))
+                .and_then(Value::as_str)
+                .unwrap_or("trellis.external-reference"),
+        )
+    })
+}
+
+fn edge(edge_kind: &str, source_artifact: &str, target_artifact: &str) -> ValenceProvenanceEdge {
+    ValenceProvenanceEdge {
+        edge_kind: edge_kind.to_owned(),
+        source_artifact: source_artifact.to_owned(),
+        target_artifact: target_artifact.to_owned(),
+    }
+}
+
+fn validate_valence_receipt(record: &ValenceProvenanceRecord, diagnostics: &mut Vec<String>) {
+    let receipt = &record.receipt;
+    if receipt.schema_version != VALENCE_EXPORT_RECEIPT_SCHEMA_VERSION {
+        diagnostics.push(format!(
+            "unsupported Valence receipt schema_version `{}` for artifact `{}`",
+            receipt.schema_version, record.artifact
+        ));
+    }
+    push_missing_if_blank(diagnostics, &record.artifact, "receipt.producer_id", &receipt.producer_id);
+    push_missing_if_blank(diagnostics, &record.artifact, "receipt.checker_id", &receipt.checker_id);
+    push_missing_if_blank(diagnostics, &record.artifact, "receipt.tool_identity", &receipt.tool_identity);
+    push_missing_if_blank(
+        diagnostics,
+        &record.artifact,
+        "receipt.policy_or_checker_version",
+        &receipt.policy_or_checker_version,
+    );
+    if receipt.normalized_invocation.is_empty() {
+        diagnostics.push(format!("artifact `{}` receipt missing normalized_invocation", record.artifact));
+    }
+    if receipt.output_artifacts.is_empty() {
+        diagnostics.push(format!("artifact `{}` receipt missing output_artifacts", record.artifact));
+    }
+    if !receipt
+        .output_artifacts
+        .iter()
+        .any(|artifact| artifact.artifact == record.artifact && artifact.blake3 == record.blake3)
+    {
+        diagnostics.push(format!(
+            "artifact `{}` receipt output_artifacts do not bind exported BLAKE3 identity",
+            record.artifact
+        ));
+    }
+    if status_requires_failure_reason(&receipt.status) && receipt.failure_reason.as_deref().is_none_or(str::is_empty) {
+        diagnostics.push(format!("artifact `{}` failed receipt missing failure_reason", record.artifact));
+    }
+    if receipt.non_claims.is_empty() {
+        diagnostics.push(format!("artifact `{}` receipt must carry at least one explicit non-claim", record.artifact));
+    }
+}
+
+fn push_missing_if_blank(diagnostics: &mut Vec<String>, artifact: &str, field: &str, value: &str) {
+    if value.trim().is_empty() {
+        diagnostics.push(format!("artifact `{artifact}` receipt missing {field}"));
+    }
+}
+
+fn validate_valence_edges(edges: &[ValenceProvenanceEdge], diagnostics: &mut Vec<String>) {
+    for edge in edges {
+        if !SUPPORTED_VALENCE_EDGE_KINDS.contains(&edge.edge_kind.as_str()) {
+            diagnostics.push(format!("unsupported Valence provenance edge kind `{}`", edge.edge_kind));
+        }
+        if edge.source_artifact.trim().is_empty() || edge.target_artifact.trim().is_empty() {
+            diagnostics.push(format!("Valence provenance edge `{}` has an empty endpoint", edge.edge_kind));
+        }
+    }
+}
+
+// r[impl octet.evidence_provenance.valence_export.typed_edges.no_promotion]
+fn validate_edge_tier_boundaries(record: &ValenceProvenanceRecord, diagnostics: &mut Vec<String>) {
+    if record.evidence_tier == FORMAL_PROOF_TIER {
+        return;
+    }
+    if record.typed_edges.iter().any(|edge| edge.edge_kind == EDGE_RECORDS_FORMAL_PROOF_RECEIPT) {
+        diagnostics.push(format!(
+            "artifact `{}` has formal-proof edge with non-formal evidence tier `{}`",
+            record.artifact, record.evidence_tier
+        ));
     }
 }
 
@@ -278,6 +629,8 @@ fn parse_valence_proof_cards(
     }
 }
 
+// r[impl octet.evidence_provenance.valence_export.tier_preservation]
+// r[impl octet.evidence_provenance.valence_export.tier_preservation_hardened]
 fn validate_valence_proof_cards(proof_cards: &[ValenceProofCard], file_map: &BTreeMap<String, Vec<u8>>) -> Vec<String> {
     let mut diagnostics = Vec::new();
     for card in proof_cards {
@@ -287,6 +640,10 @@ fn validate_valence_proof_cards(proof_cards: &[ValenceProofCard], file_map: &BTr
                 card.proof_or_property_id,
                 card.diagnostics.join("; ")
             ));
+        }
+        if card.non_claims.is_empty() {
+            diagnostics
+                .push(format!("proof card `{}` must carry at least one explicit non-claim", card.proof_or_property_id));
         }
         if card.evidence_origin == crate::imported_proof::EVIDENCE_ORIGIN_EXTERNAL_TRELLIS
             && card.evidence_tier == FORMAL_PROOF_TIER
@@ -949,6 +1306,9 @@ mod tests {
     const EVIDENCE_LOG_CONTENTS: &[u8] = b"proof-result: pass sample\n";
     const EVIDENCE_LOG_REPLAY_COMMAND: &str = "cargo octet prove --registry policies.json --source src/lib.rs";
     const EVIDENCE_LOG_CAPTURE_SOURCE: &str = "octet.prove.stdout";
+    const PROOF_RECEIPT_ARTIFACT_NAME: &str = "proofs/sample.receipt";
+    const PROOF_RECEIPT_CONTENTS: &[u8] = b"proof-result: pass sample\n";
+    const PROOF_VERIFIER_IDENTITY: &str = "verus@fixture";
     const COMMAND_RECORD_INDEX: usize = 0;
     const STATUS_RECORD_INDEX: usize = 1;
     const SUMMARY_RECORD_INDEX: usize = 2;
@@ -982,6 +1342,136 @@ mod tests {
         }));
     }
 
+    // r[verify octet.evidence_provenance.valence_export.cli.write]
+    // r[verify octet.evidence_provenance.valence_export.replayable_receipts.valid]
+    // r[verify octet.evidence_provenance.valence_export.typed_edges.known]
+    #[test]
+    fn valence_export_emits_replayable_receipts_and_typed_edges() {
+        let export = build_valence_provenance_export(valid_input(OutputFormat::Json)).expect("valid export");
+        let lint_record = export
+            .provenance_records
+            .iter()
+            .find(|record| record.artifact == JSON_RESULTS_ARTIFACT_NAME)
+            .expect("lint record exported");
+
+        assert_eq!(lint_record.receipt.schema_version, VALENCE_EXPORT_RECEIPT_SCHEMA_VERSION);
+        assert_eq!(lint_record.receipt.producer_id, RUNNER_STATIC_FINDINGS_SOURCE_ID);
+        assert_eq!(lint_record.receipt.status, STATUS_VALID);
+        assert!(lint_record.receipt.failure_reason.is_none());
+        assert!(lint_record.receipt.normalized_invocation.iter().any(|arg| arg == "cargo"));
+        assert!(lint_record.receipt.output_artifacts.iter().any(|artifact| {
+            artifact.artifact == JSON_RESULTS_ARTIFACT_NAME && artifact.blake3 == lint_record.blake3
+        }));
+        assert!(lint_record.typed_edges.iter().any(|edge| edge.edge_kind == EDGE_CHECKS_SOURCE_SHAPE));
+        assert!(lint_record.typed_edges.iter().any(|edge| edge.edge_kind == EDGE_RECORDS_LINT_RECEIPT));
+        assert!(export.typed_edges.iter().any(|edge| edge.edge_kind == EDGE_FEEDS_VALENCE_ADAPTER));
+    }
+
+    // r[verify octet.evidence_provenance.valence_export.tier_preservation.formal_proof]
+    // r[verify octet.evidence_provenance.valence_export.negative_fixtures]
+    // r[verify octet.evidence_provenance.valence_export.negative_fixtures.positive]
+    // r[verify octet.evidence_provenance.valence_export.tier_preservation_hardened.octet_receipt]
+    #[test]
+    fn valence_export_positive_fixtures_cover_lint_policy_and_formal_proof() {
+        let lint_export = build_valence_provenance_export(valid_input(OutputFormat::Json)).expect("valid lint export");
+        assert!(lint_export.provenance_records.iter().any(|record| {
+            record.artifact == JSON_RESULTS_ARTIFACT_NAME
+                && record.typed_edges.iter().any(|edge| edge.edge_kind == EDGE_RECORDS_LINT_RECEIPT)
+        }));
+
+        let policy_export =
+            build_valence_provenance_export(valid_evidence_rail_input(Vec::new())).expect("valid policy export");
+        assert!(policy_export.provenance_records.iter().any(|record| {
+            record.artifact == crate::evidence_rails::RECEIPT_ARTIFACT_NAME
+                && record.typed_edges.iter().any(|edge| edge.edge_kind == EDGE_RECORDS_POLICY_RECEIPT)
+        }));
+
+        let proof_export = build_valence_provenance_export(valid_prove_input()).expect("valid proof export");
+        let proof_record = proof_export
+            .provenance_records
+            .iter()
+            .find(|record| record.artifact == PROOF_RECEIPT_ARTIFACT_NAME)
+            .expect("formal proof record exported");
+        assert_eq!(proof_record.evidence_tier, EvidenceTier::FormalProof.as_str());
+        assert!(proof_record.typed_edges.iter().any(|edge| edge.edge_kind == EDGE_RECORDS_FORMAL_PROOF_RECEIPT));
+        assert_eq!(proof_record.verifier_identity.as_deref(), Some(PROOF_VERIFIER_IDENTITY));
+    }
+
+    // r[verify octet.evidence_provenance.valence_export.replayable_receipts.failed]
+    #[test]
+    fn valence_export_preserves_failed_receipt_reason_without_passing_claim() {
+        let export = build_valence_provenance_export(failed_evidence_rail_input()).expect("failed receipt export");
+        let receipt_record = export
+            .provenance_records
+            .iter()
+            .find(|record| record.artifact == crate::evidence_rails::RECEIPT_ARTIFACT_NAME)
+            .expect("receipt record exported");
+
+        assert_eq!(receipt_record.receipt.status, STATUS_FAILED);
+        assert_ne!(receipt_record.receipt.status, STATUS_PASSED);
+        assert!(receipt_record.receipt.failure_reason.as_deref().is_some_and(|reason| reason.contains("deny.toml")));
+        assert!(receipt_record.receipt.non_claims.iter().any(|claim| claim.contains("legal advice")));
+    }
+
+    // r[verify octet.evidence_provenance.valence_export.cli.diagnostics]
+    // r[verify octet.evidence_provenance.valence_export.typed_edges.unknown]
+    // r[verify octet.evidence_provenance.valence_export.typed_edges.no_promotion]
+    // r[verify octet.evidence_provenance.valence_export.negative_fixtures.negative]
+    #[test]
+    fn valence_export_validation_rejects_bad_edges_missing_non_claims_and_failed_receipts() {
+        let mut unsupported_edge =
+            build_valence_provenance_export(valid_input(OutputFormat::Json)).expect("valid export");
+        unsupported_edge.provenance_records[COMMAND_RECORD_INDEX].typed_edges.push(edge(
+            "unsupported_fixture_edge",
+            COMMAND_ARTIFACT_NAME,
+            VALENCE_ADAPTER_TARGET,
+        ));
+        let unsupported_diagnostics = validate_valence_provenance_export(&unsupported_edge);
+        assert!(
+            unsupported_diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.contains("unsupported Valence provenance edge kind"))
+        );
+
+        let mut missing_non_claim =
+            build_valence_provenance_export(valid_input(OutputFormat::Json)).expect("valid export");
+        missing_non_claim.non_claims.clear();
+        missing_non_claim.provenance_records[COMMAND_RECORD_INDEX].receipt.non_claims.clear();
+        let non_claim_diagnostics = validate_valence_provenance_export(&missing_non_claim);
+        assert!(non_claim_diagnostics.iter().any(|diagnostic| diagnostic.contains("explicit non-claim")));
+
+        let mut promoted_edge = build_valence_provenance_export(valid_input(OutputFormat::Json)).expect("valid export");
+        promoted_edge.provenance_records[COMMAND_RECORD_INDEX].typed_edges.push(edge(
+            EDGE_RECORDS_FORMAL_PROOF_RECEIPT,
+            COMMAND_ARTIFACT_NAME,
+            RUNNER_PROVENANCE_SOURCE_ID,
+        ));
+        let promoted_diagnostics = validate_valence_provenance_export(&promoted_edge);
+        assert!(promoted_diagnostics.iter().any(|diagnostic| diagnostic.contains("formal-proof edge")));
+
+        let mut failed_without_reason =
+            build_valence_provenance_export(failed_evidence_rail_input()).expect("failed receipt export");
+        let receipt_record = failed_without_reason
+            .provenance_records
+            .iter_mut()
+            .find(|record| record.artifact == crate::evidence_rails::RECEIPT_ARTIFACT_NAME)
+            .expect("receipt record exported");
+        receipt_record.receipt.failure_reason = None;
+        let failed_diagnostics = validate_valence_provenance_export(&failed_without_reason);
+        assert!(
+            failed_diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.contains("failed receipt missing failure_reason"))
+        );
+    }
+
+    // r[verify octet.evidence_provenance.valence_export.fail_closed.stale_hash]
+    // r[verify octet.evidence_provenance.valence_export.fail_closed.missing_parent]
+    // r[verify octet.evidence_provenance.valence_export.fail_closed.unknown_checker]
+    // r[verify octet.evidence_provenance.valence_export.replayable_receipts.blocked]
+    // r[verify octet.evidence_provenance.valence_export.tier_preservation.trellis_import]
+    // r[verify octet.evidence_provenance.valence_export.tier_preservation_hardened.trellis_manual]
+    // r[verify octet.evidence_provenance.valence_export.tier_preservation_hardened.promotion_failure]
     #[test]
     fn valence_export_rejects_stale_hash_missing_parent_and_tier_promotion() {
         let mut records = valid_records(OutputFormat::Json);
@@ -996,6 +1486,22 @@ mod tests {
             build_valence_provenance_export(valid_evidence_rail_input(vec!["artifacts/octet/status.json".to_owned()]))
                 .expect_err("missing parent rejected");
         assert!(missing_parent.iter().any(|diagnostic| diagnostic.contains("missing parent artifact")));
+
+        let mut unknown_records = valid_records(OutputFormat::Json);
+        unknown_records[STATUS_RECORD_INDEX].checker_id = "mystery-checker".to_owned();
+        let mut unknown_checker = valid_input(OutputFormat::Json);
+        replace_file(&mut unknown_checker, PROVENANCE_ARTIFACT_NAME, render_records(&unknown_records).into_bytes());
+        let unknown_diagnostics =
+            build_valence_provenance_export(unknown_checker).expect_err("unknown checker rejected");
+        assert!(unknown_diagnostics.iter().any(|diagnostic| diagnostic.contains("unknown checker_id")));
+
+        let trellis_reference = sample_valence_proof_card(
+            crate::imported_proof::EVIDENCE_ORIGIN_EXTERNAL_TRELLIS,
+            EvidenceTier::ManualReviewRequired.as_str(),
+            "trellis-reference.json",
+        );
+        let trellis_edge = trellis_reference_edge(&trellis_reference).expect("Trellis edge emitted");
+        assert_eq!(trellis_edge.edge_kind, EDGE_IMPORTS_TRELLIS_REFERENCE);
 
         let promoted = sample_valence_proof_card(
             crate::imported_proof::EVIDENCE_ORIGIN_EXTERNAL_TRELLIS,
@@ -1248,6 +1754,75 @@ mod tests {
         records
     }
 
+    fn valid_prove_input() -> ArtifactBundleInput {
+        let proof_card =
+            sample_valence_proof_card("octet-rerun", EvidenceTier::FormalProof.as_str(), PROOF_RECEIPT_ARTIFACT_NAME);
+        let proof_cards = serde_json::json!({
+            "schema_version": "octet-proof-cards/v1",
+            "cards": [proof_card],
+        });
+        let proof_cards_bytes = serde_json::to_vec_pretty(&proof_cards).expect("serialize proof cards");
+        let mut records = vec![
+            record(COMMAND_ARTIFACT_NAME, COMMAND_CONTENTS, EvidenceTier::ManualReviewRequired),
+            record(STATUS_ARTIFACT_NAME, prove_status_contents().as_bytes(), EvidenceTier::ManualReviewRequired),
+            record(SUMMARY_ARTIFACT_NAME, SUMMARY_CONTENTS, EvidenceTier::ManualReviewRequired),
+            record(PROOF_CARDS_ARTIFACT_NAME, &proof_cards_bytes, EvidenceTier::ManualReviewRequired),
+            formal_proof_record(),
+        ];
+        records.sort_by(|left, right| left.artifact_locator.cmp(&right.artifact_locator));
+        ArtifactBundleInput {
+            artifact_dir: ARTIFACT_DIR.to_owned(),
+            files: vec![
+                BundleFile {
+                    name: COMMAND_ARTIFACT_NAME.to_owned(),
+                    contents: COMMAND_CONTENTS.to_vec(),
+                },
+                BundleFile {
+                    name: STATUS_ARTIFACT_NAME.to_owned(),
+                    contents: prove_status_contents().into_bytes(),
+                },
+                BundleFile {
+                    name: SUMMARY_ARTIFACT_NAME.to_owned(),
+                    contents: SUMMARY_CONTENTS.to_vec(),
+                },
+                BundleFile {
+                    name: PROOF_CARDS_ARTIFACT_NAME.to_owned(),
+                    contents: proof_cards_bytes,
+                },
+                BundleFile {
+                    name: PROOF_RECEIPT_ARTIFACT_NAME.to_owned(),
+                    contents: PROOF_RECEIPT_CONTENTS.to_vec(),
+                },
+                BundleFile {
+                    name: PROVENANCE_ARTIFACT_NAME.to_owned(),
+                    contents: render_records(&records).into_bytes(),
+                },
+            ],
+        }
+    }
+
+    fn prove_status_contents() -> String {
+        String::from_utf8(STATUS_CONTENTS.to_vec())
+            .expect("status fixture utf8")
+            .replace("\n  \"metadata\"", "\n  \"bundle_kind\": \"prove\",\n  \"metadata\"")
+    }
+
+    fn formal_proof_record() -> ProvenanceRecord {
+        ProvenanceRecord {
+            schema_version: crate::evidence::PROVENANCE_SCHEMA_VERSION.to_owned(),
+            source_id: PROOF_SOURCE_ID.to_owned(),
+            checker_id: CHECKER_OCTET_STANDARDS.to_owned(),
+            evidence_tier: EvidenceTier::FormalProof,
+            artifact_locator: PROOF_RECEIPT_ARTIFACT_NAME.to_owned(),
+            blake3: crate::evidence::artifact_blake3_hex(PROOF_RECEIPT_CONTENTS),
+            checked_scope: CHECKED_SCOPE.to_owned(),
+            verifier_identity: Some(PROOF_VERIFIER_IDENTITY.to_owned()),
+            proof_artifact_identity: Some(crate::evidence::artifact_blake3_hex(PROOF_RECEIPT_CONTENTS)),
+            human_action: None,
+            parent_artifacts: vec![PROOF_CARDS_ARTIFACT_NAME.to_owned()],
+        }
+    }
+
     fn record(artifact: &str, contents: &[u8], evidence_tier: EvidenceTier) -> ProvenanceRecord {
         ProvenanceRecord {
             schema_version: crate::evidence::PROVENANCE_SCHEMA_VERSION.to_owned(),
@@ -1321,12 +1896,24 @@ mod tests {
     }
 
     fn valid_evidence_rail_input(parent_artifacts: Vec<String>) -> ArtifactBundleInput {
+        evidence_rail_input(r#"{"diagnostics":[]}"#, Some("deny.toml"), parent_artifacts)
+    }
+
+    fn failed_evidence_rail_input() -> ArtifactBundleInput {
+        evidence_rail_input(r#"{"diagnostics":[]}"#, None, Vec::new())
+    }
+
+    fn evidence_rail_input(
+        import_text: &str,
+        config_path: Option<&str>,
+        parent_artifacts: Vec<String>,
+    ) -> ArtifactBundleInput {
         let receipt = crate::evidence_rails::evaluate(crate::evidence_rails::EvaluationInput {
             rail: crate::evidence_rails::EvidenceRailKind::DependencyAudit,
             mode: "import",
-            import_text: r#"{"diagnostics":[]}"#,
+            import_text,
             workspace_scope: CHECKED_SCOPE,
-            config_path: Some("deny.toml"),
+            config_path,
             baseline_identity: None,
             lockfile_identity: None,
             locked: true,
@@ -1381,7 +1968,11 @@ mod tests {
             }],
             evidence_tier: evidence_tier.to_owned(),
             evidence_origin: evidence_origin.to_owned(),
-            status: "manual_review_required".to_owned(),
+            status: if evidence_tier == FORMAL_PROOF_TIER {
+                STATUS_PASSED.to_owned()
+            } else {
+                STATUS_MANUAL_REVIEW_REQUIRED.to_owned()
+            },
             non_claims: vec![VALENCE_EXPORT_NON_CLAIM_CORRECTNESS.to_owned()],
             external_reference: None,
             diagnostics: Vec::new(),
