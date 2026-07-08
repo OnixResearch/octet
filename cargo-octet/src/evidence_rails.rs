@@ -956,6 +956,7 @@ fn parse_kani_model_check(input: &EvaluationInput<'_>) -> RailParseOutput {
         }
 
         push_kani_verdict_finding(&value, &mut findings, &mut diagnostics);
+        validate_kani_assumptions(&value, &mut diagnostics);
         push_kani_property_findings(&value, &mut findings, &mut property_classes, &mut diagnostics);
         let unwind_passed = push_kani_unwind_findings(&value, &mut findings, &mut diagnostics);
         let contract_passed = push_kani_contract_findings(&value, &mut findings, &mut diagnostics);
@@ -1016,6 +1017,20 @@ fn push_kani_verdict_finding(
         }
         Some(other) => diagnostics.push(format!("Kani verdict `{other}` is unsupported; expected passed or failed")),
         None => diagnostics.push("Kani report requires verdict `passed` or `failed`".to_owned()),
+    }
+}
+
+fn validate_kani_assumptions(value: &serde_json::Value, diagnostics: &mut Vec<String>) {
+    if string_field(value, "assumption_status") == Some("vacuous") {
+        diagnostics.push("Kani assumptions are marked vacuous".to_owned());
+    }
+    let property_claim = value
+        .get("claims")
+        .and_then(|claims| claims.get("property_evidence"))
+        .and_then(serde_json::Value::as_bool)
+        == Some(true);
+    if property_claim && value.get("assumptions_reviewed").and_then(serde_json::Value::as_bool) == Some(false) {
+        diagnostics.push("Kani property evidence requires reviewed assumptions".to_owned());
     }
 }
 
@@ -2072,6 +2087,26 @@ mod tests {
     }
 
     #[test]
+    fn kani_panic_pilot_fixtures_and_templates_capture_assumption_review() {
+        let passed = kani_receipt(include_str!("../tests/fixtures/evidence-rails/kani-panic-pilot-passed.json"));
+        assert_eq!(passed.status, STATUS_PASSED);
+        assert_eq!(passed.property_classes, vec![KANI_PROPERTY_CLASS_BOUNDARY_PANIC.to_owned()]);
+
+        let rejected =
+            kani_receipt(include_str!("../tests/fixtures/evidence-rails/kani-panic-pilot-invalid-assumption.json"));
+        assert_eq!(rejected.status, STATUS_FAILED);
+        assert!(rejected.diagnostics.iter().any(|diagnostic| diagnostic.contains("vacuous")));
+        assert!(rejected.diagnostics.iter().any(|diagnostic| diagnostic.contains("reviewed assumptions")));
+
+        let guide = include_str!("../../docs/kani-panic-freedom-pilots.md");
+        let template = include_str!("../../templates/kani-panic-harness.rs");
+        assert!(guide.contains("Positive and negative evidence"));
+        assert!(guide.contains("cargo octet evidence collect --rail kani-model-check"));
+        assert!(template.contains("kani::assume"));
+        assert!(template.contains("check_invalid_index_is_rejected"));
+    }
+
+    #[test]
     fn checked_in_fixture_matrix_covers_positive_and_negative_rails() {
         let clean_deny = include_str!("../tests/fixtures/evidence-rails/dependency-audit-clean.json");
         let denied = include_str!("../tests/fixtures/evidence-rails/dependency-audit-denied.json");
@@ -2084,6 +2119,9 @@ mod tests {
         let coverage_regression = include_str!("../tests/fixtures/evidence-rails/coverage-baseline-regression.json");
         let kani_contract = include_str!("../tests/fixtures/evidence-rails/kani-model-check-contract.json");
         let kani_invalid = include_str!("../tests/fixtures/evidence-rails/kani-model-check-invalid.json");
+        let kani_panic_passed = include_str!("../tests/fixtures/evidence-rails/kani-panic-pilot-passed.json");
+        let kani_panic_invalid =
+            include_str!("../tests/fixtures/evidence-rails/kani-panic-pilot-invalid-assumption.json");
 
         assert_eq!(dependency_audit_receipt(clean_deny, Some(DENY_CONFIG)).status, STATUS_PASSED);
         assert_eq!(dependency_audit_receipt(denied, Some(DENY_CONFIG)).finding_counts.get("licenses"), Some(&1));
@@ -2096,6 +2134,8 @@ mod tests {
         assert_eq!(coverage_receipt(coverage_regression, Some(BASELINE_IDENTITY.to_owned())).status, STATUS_FAILED);
         assert_eq!(kani_receipt(kani_contract).status, STATUS_PASSED);
         assert_eq!(kani_receipt(kani_invalid).status, STATUS_FAILED);
+        assert_eq!(kani_receipt(kani_panic_passed).status, STATUS_PASSED);
+        assert_eq!(kani_receipt(kani_panic_invalid).status, STATUS_FAILED);
     }
 
     #[test]

@@ -225,6 +225,7 @@ and config keys.
 - [Resilience review guide](docs/resilience-review.md) and [five-whys template](templates/five-whys-architecture.md)
 - [Performance review guide](docs/performance-review.md) and [sketch template](templates/performance-sketch.md)
 - [Concurrency and distributed-state review guide](docs/concurrency-state-review.md) and [checklist template](templates/concurrency-state-checklist.md)
+- [Kani panic-freedom pilot guide](docs/kani-panic-freedom-pilots.md) and [harness template](templates/kani-panic-harness.rs)
 - [Kani property checklist](docs/kani-property-checklist.md) and [checklist template](templates/kani-property-checklist.md)
 - [System comprehension guide](docs/system-comprehension.md) and [walkthrough template](templates/system-walkthrough.md)
 - `docs/consumer-guide.md` — first run, config split, Nix integration, pre-commit hook, output modes, artifact bundles, migration notes
