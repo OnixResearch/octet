@@ -219,7 +219,6 @@ enum EffectClass {
     Runtime,
     Spawn,
     Time,
-    Allocation,
 }
 
 impl EffectClass {
@@ -235,7 +234,6 @@ impl EffectClass {
             Self::Runtime => "runtime construction",
             Self::Spawn => "task spawning",
             Self::Time => "time",
-            Self::Allocation => "allocation",
         }
     }
 }
@@ -248,7 +246,6 @@ enum PureViolation {
     MutatingInput,
     Panic,
     ResourceReturn,
-    Allocation,
 }
 
 impl PureViolation {
@@ -260,7 +257,6 @@ impl PureViolation {
             Self::MutatingInput => "mutating input",
             Self::Panic => "panic",
             Self::ResourceReturn => "resource return",
-            Self::Allocation => "allocation",
         }
     }
 }

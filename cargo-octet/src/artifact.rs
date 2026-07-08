@@ -48,6 +48,7 @@ const VALENCE_EXPORT_NON_CLAIM_RELEASE: &str = "Octet Valence exports are adapte
 const FORMAL_PROOF_TIER: &str = "formal_proof";
 const TRANSCRIPT_ASSERTION_TIER: &str = "transcript_assertion";
 const HEGEL_BOUNDARY_MARKER: &str = "bounded generated inputs";
+#[cfg(test)]
 const STATUS_PASSED: &str = "passed";
 const STATUS_FAILED: &str = "failed";
 const STATUS_MANUAL_REVIEW_REQUIRED: &str = "manual_review_required";

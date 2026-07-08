@@ -88,16 +88,16 @@ pub(crate) fn expr_is_allocation(cx: &LateContext<'_>, expr: &hir::Expr<'_>) -> 
     match &expr.kind {
         hir::ExprKind::Call(callee, _) => {
             let ty = cx.typeck_results().expr_ty(expr);
-            if let Some(type_name) = supported_allocating_type(cx, ty) {
-                if let hir::ExprKind::Path(qpath) = &callee.kind {
-                    if qpath_names_constructor_new(qpath) {
-                        return Some(type_name);
-                    }
-                    if let Some(ref method) = qpath_names_method_name(qpath) {
-                        if method.as_str() == "from" || method.as_str() == "from_str" {
-                            return Some(type_name);
-                        }
-                    }
+            if let Some(type_name) = supported_allocating_type(cx, ty)
+                && let hir::ExprKind::Path(qpath) = &callee.kind
+            {
+                if qpath_names_constructor_new(qpath) {
+                    return Some(type_name);
+                }
+                if let Some(ref method) = qpath_names_method_name(qpath)
+                    && (method.as_str() == "from" || method.as_str() == "from_str")
+                {
+                    return Some(type_name);
                 }
             }
         }
