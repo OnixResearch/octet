@@ -68,6 +68,10 @@ Rules to keep straight:
 | `module_pub_items_max` | `12` | `type_accumulation` | maximum public items per module before advisory |
 | `core_source_scopes` | `[]` | `concrete_construction_in_core`, `global_state_in_core`, `impure_call_in_core`, `interior_mutability_in_core`, `logging_in_core`, `mutating_input_in_pure`, `resource_return_from_core`, `spawn_in_core` | source path scopes where core-boundary checks run |
 | `sealed_enum_marker` | `"octet::sealed_enum"` | `fragile_exhaustive_enum_match` | attribute marker that suppresses fragile local exhaustive enum-match diagnostics |
+| `state_machine_core_marker` | `"octet::state_machine_core"` | `state_machine_exhaustiveness` | attribute marker that opts transition functions into explicit state/event matrix checks |
+| `state_machine_enum_marker` | `"octet::state_machine_enum"` | `fragile_exhaustive_enum_match`, `state_machine_exhaustiveness` | required marker for deliberately closed FSM state/event enums; missing markers fail closed in FSM transition cores |
+| `state_machine_core_scopes` | `[]` | `state_machine_exhaustiveness` | source path scopes that opt transition functions into the FSM exhaustive-default profile |
+| `state_machine_generated_adapter_scopes` | `[]` | `state_machine_exhaustiveness` | generated adapter/source scopes excluded from the pure transition-core FSM profile |
 | `indexable_lint_exceptions` | `["rustc_private_aliases", "lint_identity_names", "generated_searchable_names"]` | naming/indexable lints | named exception classes for rustc-private aliases, lint-identity-preserving names, and generated/searchable paths |
 | `acronym_allowlist` | `[]` | `acronym_style` | case-sensitive allowlist such as `IO` or `ID` |
 | `disabled_lints` | `[]` | all lints | bare lint names only; disabled lints do not register |
@@ -94,6 +98,7 @@ Unknown lint names and invalid level values warn and are ignored.
 | `catch_all_on_enum` | `warn` | flag `_` match arms that hide future enum variants |
 | `foreign_enum_catch_all` | `allow` | flag `_` match arms over enums defined in another crate |
 | `fragile_exhaustive_enum_match` | `allow` | flag exhaustive matches over same-crate enums without a fallback |
+| `state_machine_exhaustiveness` | `warn` | check marked state-machine transition cores for closed enum markers, explicit state/event handling, explicit invalid-transition denials, and no wildcard/default fallbacks |
 | `explicit_defaults` | `warn` | avoid foreign `Default` shorthands such as `..Default::default()` |
 | `unbounded_channel` | `warn` | flag known unbounded channel constructors |
 | `unbounded_collection_growth` | `warn` | flag loop-driven collection growth without reservation or a local bound |

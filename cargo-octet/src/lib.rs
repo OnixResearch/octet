@@ -44,6 +44,8 @@ mod roadmap;
 mod source_acquisition_receipts;
 #[cfg(test)]
 mod source_boundary_core;
+#[cfg(test)]
+mod state_machine_exhaustiveness;
 mod transcript;
 mod valence_core_shim;
 #[cfg(test)]

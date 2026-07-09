@@ -199,6 +199,18 @@ in
       negative_fixtures = ["cargo-octet/src/valence_cutover.rs::valence_cutover_rejects_wrong_source_missing_fixtures_and_overclaims", "cargo-octet/src/valence_cutover.rs::valence_cutover_rejects_stale_hosted_drift_without_owned_exception"],
     },
     {
+      family_id = "octet.state-machine-exhaustiveness-receipt",
+      ownership = "rust-derived",
+      owner_source_path = "cargo-octet/src/state_machine_exhaustiveness.rs",
+      artifact_path = "octet-state-machine-exhaustiveness.json",
+      generation_command = "nix develop -c cargo test -p cargo-octet state_machine_exhaustiveness -- --nocapture",
+      validation_command = "nix develop -c cargo test -p cargo-octet state_machine_exhaustiveness -- --nocapture",
+      status = "existing",
+      config_digest_required = true,
+      positive_fixtures = ["cargo-octet/src/state_machine_exhaustiveness.rs::state_machine_receipt_binds_identity_and_exports_valence_row"],
+      negative_fixtures = ["cargo-octet/src/state_machine_exhaustiveness.rs::state_machine_receipt_rejects_overclaims_missing_non_claims_and_bad_status", "cargo-octet/src/state_machine_exhaustiveness.rs::state_machine_receipt_rejects_stale_coverage_identity"],
+    },
+    {
       family_id = "tigerstyle.proof-bundle-receipt",
       ownership = "rust-derived",
       owner_source_path = "crates/octet-standards/src/artifacts.rs",

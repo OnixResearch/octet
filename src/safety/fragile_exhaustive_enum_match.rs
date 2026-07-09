@@ -23,11 +23,15 @@ declare_tool_lint! {
 
 pub struct FragileExhaustiveEnumMatch {
     sealed_enum_marker: String,
+    state_machine_enum_marker: String,
 }
 
 impl FragileExhaustiveEnumMatch {
-    pub fn new(sealed_enum_marker: String) -> Self {
-        Self { sealed_enum_marker }
+    pub fn new(sealed_enum_marker: String, state_machine_enum_marker: String) -> Self {
+        Self {
+            sealed_enum_marker,
+            state_machine_enum_marker,
+        }
     }
 }
 
@@ -47,10 +51,8 @@ fn enum_has_marker(cx: &LateContext<'_>, adt: rustc_middle::ty::AdtDef<'_>, mark
     let hir_id = cx.tcx.local_def_id_to_hir_id(local_def_id);
     let marker_tail = marker.rsplit("::").next().unwrap_or(marker);
     cx.tcx.hir_attrs(hir_id).iter().any(|attr| {
-        cx.sess()
-            .source_map()
-            .span_to_snippet(attr.span())
-            .is_ok_and(|snippet| snippet.contains(marker) || snippet.contains(marker_tail))
+        let rendered = format!("{attr:?}");
+        rendered.contains(marker) || rendered.contains(marker_tail)
     })
 }
 
@@ -81,7 +83,10 @@ impl<'tcx> LateLintPass<'tcx> for FragileExhaustiveEnumMatch {
         let Some(adt) = enum_type(cx, scrutinee) else {
             return;
         };
-        if !adt.did().is_local() || enum_has_marker(cx, adt, &self.sealed_enum_marker) {
+        if !adt.did().is_local()
+            || enum_has_marker(cx, adt, &self.sealed_enum_marker)
+            || enum_has_marker(cx, adt, &self.state_machine_enum_marker)
+        {
             return;
         }
         if !arms_cover_all_variants(cx, arms, adt) {

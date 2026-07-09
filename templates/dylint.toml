@@ -32,6 +32,10 @@
 # module_pub_items_max = 12
 # core_source_scopes = ["crates/domain-core/src/"]
 # sealed_enum_marker = "octet::sealed_enum"
+# state_machine_core_marker = "octet::state_machine_core"
+# state_machine_enum_marker = "octet::state_machine_enum" # required on closed state/event enums for FSM profile evidence
+# state_machine_core_scopes = ["crates/domain-core/src/fsm/"]
+# state_machine_generated_adapter_scopes = ["crates/domain-core/src/generated/"]
 
 # Narrow allowlists
 # Keep these explicit and domain-specific. Avoid catch-all naming exceptions.

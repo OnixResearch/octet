@@ -739,6 +739,20 @@ pub const LINT_METADATA: &[LintMetadata] = &[
         example_text: Some("#[octet::sealed_enum] enum State { Ready, Closed }"),
     },
     LintMetadata {
+        lint_name: "state_machine_exhaustiveness",
+        default_level: DEFAULT_WARN,
+        principle: "State Machine Exhaustiveness",
+        guide_section: "Enum Matches / State Machines",
+        domain_group: GROUP_SAFETY,
+        guidance: "mark transition cores and handle every state/event pair explicitly without wildcard fallback or mutation-coupled decisions",
+        docs_summary: "check marked state-machine transition cores for explicit state/event handling",
+        effect_family: EFFECT_FAILURE,
+        example_mode: ExampleMode::Required,
+        example_text: Some(
+            "#[octet::state_machine_core] fn transition(state: State, event: Event) -> Result<State, InvalidTransition>",
+        ),
+    },
+    LintMetadata {
         lint_name: "platform_dependent_cast",
         default_level: DEFAULT_WARN,
         principle: "Explicit Types",

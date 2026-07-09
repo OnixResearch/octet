@@ -16,6 +16,10 @@
 //! module_pub_items_max = 12
 //! core_source_scopes = ["crates/domain-core/src/"]
 //! sealed_enum_marker = "octet::sealed_enum"
+//! state_machine_core_marker = "octet::state_machine_core"
+//! state_machine_enum_marker = "octet::state_machine_enum"
+//! state_machine_core_scopes = ["crates/domain-core/src/fsm/"]
+//! state_machine_generated_adapter_scopes = ["crates/domain-core/src/generated/"]
 //! acronym_allowlist = ["IO", "ID"]
 //! indexable_lint_exceptions = ["rustc_private_aliases", "lint_identity_names"]
 //! disabled_lints = ["no_unwrap", "no_panic"]
@@ -160,6 +164,19 @@ pub struct Config {
     /// Attribute marker that suppresses fragile same-crate exhaustive enum match diagnostics.
     pub sealed_enum_marker: String,
 
+    /// Attribute marker that opts a transition function into state-machine exhaustiveness checks.
+    pub state_machine_core_marker: String,
+
+    /// Attribute marker that documents state/event enums as deliberately closed FSM domains.
+    pub state_machine_enum_marker: String,
+
+    /// Source path scopes where transition functions enter the FSM profile without an attribute
+    /// marker.
+    pub state_machine_core_scopes: Vec<String>,
+
+    /// Source path scopes excluded as generated FSM adapters outside the pure transition core.
+    pub state_machine_generated_adapter_scopes: Vec<String>,
+
     /// Acronyms that should not trigger the `acronym_style` lint.
     /// Entries are case-sensitive and matched against the uppercase run
     /// (e.g., `"IO"` allows `IOError`).
@@ -194,6 +211,10 @@ impl Default for Config {
             module_pub_items_max: 12,
             core_source_scopes: Vec::new(),
             sealed_enum_marker: "octet::sealed_enum".to_owned(),
+            state_machine_core_marker: "octet::state_machine_core".to_owned(),
+            state_machine_enum_marker: "octet::state_machine_enum".to_owned(),
+            state_machine_core_scopes: Vec::new(),
+            state_machine_generated_adapter_scopes: Vec::new(),
             acronym_allowlist: Vec::new(),
             disabled_lints: Vec::new(),
             indexable_lint_exceptions: DEFAULT_INDEXABLE_EXCEPTIONS.iter().map(|class| (*class).to_owned()).collect(),
