@@ -18,6 +18,8 @@ mod evidence_rails;
 mod evidence_transform;
 #[cfg(test)]
 mod external_schema_contracts;
+#[cfg(test)]
+mod formal_proof_valence_export_fixture;
 mod fingerprint;
 mod imported_proof;
 #[cfg(test)]
