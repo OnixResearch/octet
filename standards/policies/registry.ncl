@@ -187,6 +187,18 @@ in
       negative_fixtures = ["standards/policies/fixtures/invalid/capability_manifest_unknown_family.ncl", "standards/policies/fixtures/invalid/capability_manifest_unknown_scope.ncl", "standards/policies/fixtures/invalid/capability_manifest_empty_core.ncl"],
     },
     {
+      family_id = "octet.valence-core-cutover-manifest",
+      ownership = "nickel-authored",
+      owner_source_path = "standards/valence-core-cutover/manifest.ncl",
+      artifact_path = "docs/valence-core-cutover.md",
+      generation_command = "nickel export --format json standards/valence-core-cutover/manifest.ncl",
+      validation_command = "nix develop -c cargo test -p cargo-octet valence_cutover -- --nocapture",
+      status = "existing",
+      config_digest_required = true,
+      positive_fixtures = ["cargo-octet/src/valence_cutover.rs::valence_cutover_accepts_compatible_shim_manifest_and_matching_drift"],
+      negative_fixtures = ["cargo-octet/src/valence_cutover.rs::valence_cutover_rejects_wrong_source_missing_fixtures_and_overclaims", "cargo-octet/src/valence_cutover.rs::valence_cutover_rejects_stale_hosted_drift_without_owned_exception"],
+    },
+    {
       family_id = "tigerstyle.proof-bundle-receipt",
       ownership = "rust-derived",
       owner_source_path = "crates/octet-standards/src/artifacts.rs",

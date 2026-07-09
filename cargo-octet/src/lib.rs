@@ -19,9 +19,9 @@ mod evidence_rails;
 mod evidence_transform;
 #[cfg(test)]
 mod external_schema_contracts;
+mod fingerprint;
 #[cfg(test)]
 mod formal_proof_valence_export_fixture;
-mod fingerprint;
 mod imported_proof;
 #[cfg(test)]
 mod legacy_alias_contracts;
@@ -31,9 +31,9 @@ mod object;
 mod object_core;
 mod output;
 #[cfg(test)]
-mod proof_claim_catalog;
-#[cfg(test)]
 mod preserves_receipt_export;
+#[cfg(test)]
+mod proof_claim_catalog;
 mod proof_goal_state;
 mod proof_ref;
 mod prove;
@@ -45,6 +45,9 @@ mod source_acquisition_receipts;
 #[cfg(test)]
 mod source_boundary_core;
 mod transcript;
+mod valence_core_shim;
+#[cfg(test)]
+mod valence_cutover;
 
 use std::process::ExitCode;
 

@@ -8,12 +8,6 @@ use std::str::FromStr;
 
 use serde::Deserialize;
 use serde::Serialize;
-use valence_core::function_object;
-use valence_core::function_object::DependencyIdentityStatus;
-use valence_core::function_object::FunctionObjectInput;
-use valence_core::function_object::FunctionObjectV1;
-use valence_core::function_object::NormalizedFunctionSource;
-use valence_core::function_object::SourceSpan;
 
 use crate::cli::ObjectArgs;
 use crate::cli::ObjectMode;
@@ -24,6 +18,12 @@ use crate::determinism;
 use crate::fingerprint;
 use crate::object_core;
 use crate::object_core::SupplementFixtureSpec;
+use crate::valence_core_shim::function_object;
+use crate::valence_core_shim::function_object::DependencyIdentityStatus;
+use crate::valence_core_shim::function_object::FunctionObjectInput;
+use crate::valence_core_shim::function_object::FunctionObjectV1;
+use crate::valence_core_shim::function_object::NormalizedFunctionSource;
+use crate::valence_core_shim::function_object::SourceSpan;
 
 #[allow(dead_code)]
 const HIR_SUPPLEMENT_SCHEMA: &str = "octet.function-object-hir-supplement.v1";
