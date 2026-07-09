@@ -36,6 +36,8 @@ mod prove_core;
 mod provider_manifest;
 mod roadmap;
 #[cfg(test)]
+mod source_acquisition_receipts;
+#[cfg(test)]
 mod source_boundary_core;
 mod transcript;
 
