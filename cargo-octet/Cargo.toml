@@ -21,6 +21,7 @@ path = "src/bin/cargo-tigerstyle.rs"
 octet-lint-metadata = { path = "../crates/octet-lint-metadata" }
 octet-standards = { path = "../crates/octet-standards" }
 valence-core = { path = "../crates/valence-core" }
+cap-std = "3"
 blake3 = "1"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

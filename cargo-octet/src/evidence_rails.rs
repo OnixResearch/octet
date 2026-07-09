@@ -7,6 +7,8 @@ use std::process::Stdio;
 use serde::Deserialize;
 use serde::Serialize;
 
+use crate::cap_fs::ArtifactRoot;
+use crate::cap_fs::RootRelativePath;
 use crate::cli::EvidenceRailArgs;
 use crate::cli::OutputFormat;
 use crate::evidence::EvidenceTier;
@@ -1673,31 +1675,22 @@ fn write_artifacts(
     summary: &str,
     provenance_jsonl: &str,
 ) -> Result<(), String> {
-    fs::create_dir_all(artifact_dir).map_err(|error| format!("create {}: {error}", artifact_dir.display()))?;
-    remove_stale_artifacts(artifact_dir)?;
-    fs::write(artifact_dir.join(RECEIPT_ARTIFACT_NAME), receipt_json)
-        .map_err(|error| format!("write {}: {error}", artifact_dir.join(RECEIPT_ARTIFACT_NAME).display()))?;
-    fs::write(artifact_dir.join(SUMMARY_ARTIFACT_NAME), summary)
-        .map_err(|error| format!("write {}: {error}", artifact_dir.join(SUMMARY_ARTIFACT_NAME).display()))?;
-    fs::write(artifact_dir.join(PROVENANCE_ARTIFACT_NAME), provenance_jsonl)
-        .map_err(|error| format!("write {}: {error}", artifact_dir.join(PROVENANCE_ARTIFACT_NAME).display()))?;
+    let root = ArtifactRoot::open_or_create(artifact_dir)?;
+    remove_stale_artifacts(&root)?;
+    root.write(&RootRelativePath::new(RECEIPT_ARTIFACT_NAME)?, receipt_json.as_bytes())?;
+    root.write(&RootRelativePath::new(SUMMARY_ARTIFACT_NAME)?, summary.as_bytes())?;
+    root.write(&RootRelativePath::new(PROVENANCE_ARTIFACT_NAME)?, provenance_jsonl.as_bytes())?;
     Ok(())
 }
 
-fn remove_stale_artifacts(artifact_dir: &Path) -> Result<(), String> {
+fn remove_stale_artifacts(root: &ArtifactRoot) -> Result<(), String> {
     let expected = expected_bundle_files();
-    for entry in fs::read_dir(artifact_dir).map_err(|error| format!("read {}: {error}", artifact_dir.display()))? {
-        let entry = entry.map_err(|error| format!("read {} entry: {error}", artifact_dir.display()))?;
-        let file_name = entry.file_name().to_string_lossy().to_string();
+    for file_name in root.read_entry_names()? {
         if expected.iter().any(|expected| expected == &file_name) {
             continue;
         }
-        let path = entry.path();
-        if path.is_dir() {
-            fs::remove_dir_all(&path).map_err(|error| format!("remove {}: {error}", path.display()))?;
-        } else {
-            fs::remove_file(&path).map_err(|error| format!("remove {}: {error}", path.display()))?;
-        }
+        let relative = RootRelativePath::new(file_name.as_str())?;
+        root.remove_file_or_dir_all(&relative)?;
     }
     Ok(())
 }

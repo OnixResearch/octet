@@ -11,6 +11,9 @@ use std::process::Stdio;
 
 use crate::baseline;
 use crate::baseline::BaselineEvaluation;
+use crate::cap_fs::ArtifactRoot;
+use crate::cap_fs::CacheRoot;
+use crate::cap_fs::RootRelativePath;
 use crate::cli::CheckArgs;
 use crate::cli::OutputFormat;
 use crate::config;
@@ -40,6 +43,8 @@ const RUNNER_CHECKER_ID: &str = "cargo-octet";
 const RUNNER_MANUAL_REVIEW_ACTION: &str =
     "review runner status, command, and summary before using this artifact as release evidence";
 const TERMINATED_WITHOUT_EXIT_CODE_ERROR: &str = "cargo check terminated without an exit code";
+const LINT_CACHE_DIR: &str = ".octet/cache";
+const LINT_CACHE_FILE: &str = "findings.json";
 
 #[derive(Debug, Clone)]
 struct StructuredArtifact {
@@ -288,25 +293,28 @@ fn finalize_run(
         });
     };
 
-    if let Err(error) = prepare_artifact_dir(artifact_dir) {
-        let final_outcome = base_outcome.force_integration_failure();
-        return Ok(FinalizedRun {
-            outcome: final_outcome.clone(),
-            run_artifacts: build_run_artifacts(
-                check,
-                findings,
-                meta_map,
-                &final_outcome,
-                metadata,
-                baseline_evaluation,
-            )?,
-            error: Some(combine_errors(error, terminated_error)),
-        });
-    }
+    let artifact_root = match prepare_artifact_dir(artifact_dir) {
+        Ok(root) => root,
+        Err(error) => {
+            let final_outcome = base_outcome.force_integration_failure();
+            return Ok(FinalizedRun {
+                outcome: final_outcome.clone(),
+                run_artifacts: build_run_artifacts(
+                    check,
+                    findings,
+                    meta_map,
+                    &final_outcome,
+                    metadata,
+                    baseline_evaluation,
+                )?,
+                error: Some(combine_errors(error, terminated_error)),
+            });
+        }
+    };
 
     let initial_artifacts =
         build_run_artifacts(check, findings, meta_map, &base_outcome, metadata, baseline_evaluation)?;
-    match write_run_artifacts(artifact_dir, &check.command_line, &initial_artifacts) {
+    match write_run_artifacts(&artifact_root, &check.command_line, &initial_artifacts) {
         Ok(()) => Ok(FinalizedRun {
             outcome: base_outcome,
             run_artifacts: initial_artifacts,
@@ -316,8 +324,8 @@ fn finalize_run(
             let final_outcome = base_outcome.force_integration_failure();
             let final_artifacts =
                 build_run_artifacts(check, findings, meta_map, &final_outcome, metadata, baseline_evaluation)?;
-            invalidate_failed_bundle_best_effort(artifact_dir, &final_artifacts);
-            rewrite_status_sidecars_best_effort(artifact_dir, &check.command_line, &final_artifacts);
+            invalidate_failed_bundle_best_effort(&artifact_root, &final_artifacts);
+            rewrite_status_sidecars_best_effort(&artifact_root, &check.command_line, &final_artifacts);
             Ok(FinalizedRun {
                 outcome: final_outcome,
                 run_artifacts: final_artifacts,
@@ -445,51 +453,54 @@ fn artifact_provenance_record(
     }
 }
 
-fn write_run_artifacts(artifact_dir: &Path, command_line: &str, run_artifacts: &RunArtifacts) -> Result<(), String> {
+fn write_run_artifacts(
+    artifact_root: &ArtifactRoot,
+    command_line: &str,
+    run_artifacts: &RunArtifacts,
+) -> Result<(), String> {
     let expected_files =
         expected_artifact_files(run_artifacts.structured_output.as_ref().map(|artifact| artifact.file_name));
-    remove_extra_artifact_paths(artifact_dir, &expected_files)?;
-    write_status_sidecars(artifact_dir, command_line, run_artifacts)?;
+    remove_extra_artifact_paths(artifact_root, &expected_files)?;
+    write_status_sidecars(artifact_root, command_line, run_artifacts)?;
 
     if let Some(structured_output) = run_artifacts.structured_output.as_ref() {
-        let structured_path = artifact_dir.join(structured_output.file_name);
-        write_bytes(&structured_path, structured_output.contents.as_bytes())?;
+        let structured_path = RootRelativePath::new(structured_output.file_name)?;
+        artifact_root.write(&structured_path, structured_output.contents.as_bytes())?;
     }
 
     Ok(())
 }
 
-fn prepare_artifact_dir(artifact_dir: &Path) -> Result<(), String> {
-    fs::create_dir_all(artifact_dir).map_err(|error| format!("create {}: {error}", artifact_dir.display()))
+fn prepare_artifact_dir(artifact_dir: &Path) -> Result<ArtifactRoot, String> {
+    ArtifactRoot::open_or_create(artifact_dir)
 }
 
-fn write_status_sidecars(artifact_dir: &Path, command_line: &str, run_artifacts: &RunArtifacts) -> Result<(), String> {
-    let command_path = artifact_dir.join(COMMAND_ARTIFACT_NAME);
-    let status_path = artifact_dir.join(STATUS_ARTIFACT_NAME);
-    let summary_path = artifact_dir.join(SUMMARY_ARTIFACT_NAME);
-    let provenance_path = artifact_dir.join(PROVENANCE_ARTIFACT_NAME);
-
-    write_bytes(&command_path, format!("{command_line}\n").as_bytes())?;
-    write_bytes(&status_path, run_artifacts.status_json.as_bytes())?;
-    write_bytes(&summary_path, run_artifacts.summary.as_bytes())?;
-    write_bytes(&provenance_path, run_artifacts.provenance_jsonl.as_bytes())?;
+fn write_status_sidecars(
+    artifact_root: &ArtifactRoot,
+    command_line: &str,
+    run_artifacts: &RunArtifacts,
+) -> Result<(), String> {
+    artifact_root.write(&RootRelativePath::new(COMMAND_ARTIFACT_NAME)?, format!("{command_line}\n").as_bytes())?;
+    artifact_root.write(&RootRelativePath::new(STATUS_ARTIFACT_NAME)?, run_artifacts.status_json.as_bytes())?;
+    artifact_root.write(&RootRelativePath::new(SUMMARY_ARTIFACT_NAME)?, run_artifacts.summary.as_bytes())?;
+    artifact_root
+        .write(&RootRelativePath::new(PROVENANCE_ARTIFACT_NAME)?, run_artifacts.provenance_jsonl.as_bytes())?;
     Ok(())
 }
 
-fn rewrite_status_sidecars_best_effort(artifact_dir: &Path, command_line: &str, run_artifacts: &RunArtifacts) {
-    let _ = write_status_sidecars(artifact_dir, command_line, run_artifacts);
+fn rewrite_status_sidecars_best_effort(artifact_root: &ArtifactRoot, command_line: &str, run_artifacts: &RunArtifacts) {
+    let _ = write_status_sidecars(artifact_root, command_line, run_artifacts);
 }
 
-fn invalidate_failed_bundle_best_effort(artifact_dir: &Path, run_artifacts: &RunArtifacts) {
+fn invalidate_failed_bundle_best_effort(artifact_root: &ArtifactRoot, run_artifacts: &RunArtifacts) {
     let Some(structured_output) = run_artifacts.structured_output.as_ref() else {
         return;
     };
+    let Ok(relative) = RootRelativePath::new(structured_output.file_name) else {
+        return;
+    };
 
-    remove_artifact_path_best_effort(&artifact_dir.join(structured_output.file_name));
-}
-
-fn remove_artifact_path_best_effort(path: &Path) {
-    let _ = remove_artifact_path(path);
+    let _ = artifact_root.remove_file_or_dir_all(&relative);
 }
 
 fn expected_artifact_files(selected_structured_artifact: Option<&'static str>) -> Vec<&'static str> {
@@ -505,30 +516,17 @@ fn expected_artifact_files(selected_structured_artifact: Option<&'static str>) -
     files
 }
 
-fn remove_extra_artifact_paths(artifact_dir: &Path, expected_files: &[&'static str]) -> Result<(), String> {
-    for entry in fs::read_dir(artifact_dir).map_err(|error| format!("read {}: {error}", artifact_dir.display()))? {
-        let entry = entry.map_err(|error| format!("read {} entry: {error}", artifact_dir.display()))?;
-        let file_name = entry.file_name();
-        let file_name = file_name.to_string_lossy();
+fn remove_extra_artifact_paths(artifact_root: &ArtifactRoot, expected_files: &[&'static str]) -> Result<(), String> {
+    for file_name in artifact_root.read_entry_names()? {
         if expected_files.iter().any(|expected| *expected == file_name) {
             continue;
         }
 
-        remove_artifact_path(&entry.path())?;
+        let relative = RootRelativePath::new(file_name.as_str())?;
+        artifact_root.remove_file_or_dir_all(&relative)?;
     }
 
     Ok(())
-}
-
-fn remove_artifact_path(path: &Path) -> Result<(), String> {
-    match fs::remove_file(path) {
-        Ok(()) => Ok(()),
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
-        Err(error) if error.kind() == std::io::ErrorKind::IsADirectory => {
-            fs::remove_dir_all(path).map_err(|dir_error| format!("remove {}: {dir_error}", path.display()))
-        }
-        Err(error) => Err(format!("remove {}: {error}", path.display())),
-    }
 }
 
 fn classify_cargo_process_exit(status: std::process::ExitStatus) -> output::CargoProcessExit {
@@ -539,13 +537,13 @@ fn classify_cargo_process_exit(status: std::process::ExitStatus) -> output::Carg
 }
 
 fn update_lint_cache(workspace_root: &Path, findings: &mut [Finding]) -> Result<(), String> {
-    let cache_path = workspace_root.join(".octet/cache/findings.json");
-    let mut cached: std::collections::BTreeSet<String> = match fs::read_to_string(&cache_path) {
-        Ok(contents) => {
-            serde_json::from_str(&contents).map_err(|error| format!("parse {}: {error}", cache_path.display()))?
+    let cache_root = CacheRoot::open_or_create(&workspace_root.join(LINT_CACHE_DIR))?;
+    let cache_locator = RootRelativePath::new(LINT_CACHE_FILE)?;
+    let mut cached: std::collections::BTreeSet<String> = match cache_root.read_to_string_optional(&cache_locator)? {
+        Some(contents) => {
+            serde_json::from_str(&contents).map_err(|error| format!("parse cache path `{LINT_CACHE_FILE}`: {error}"))?
         }
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => std::collections::BTreeSet::new(),
-        Err(error) => return Err(format!("read {}: {error}", cache_path.display())),
+        None => std::collections::BTreeSet::new(),
     };
 
     let mut changed = false;
@@ -567,13 +565,10 @@ fn update_lint_cache(workspace_root: &Path, findings: &mut [Finding]) -> Result<
     }
 
     if changed {
-        if let Some(parent) = cache_path.parent() {
-            fs::create_dir_all(parent).map_err(|error| format!("create {}: {error}", parent.display()))?;
-        }
         let mut rendered =
             serde_json::to_string_pretty(&cached).map_err(|error| format!("serialize lint cache: {error}"))?;
         rendered.push('\n');
-        fs::write(&cache_path, rendered).map_err(|error| format!("write {}: {error}", cache_path.display()))?;
+        cache_root.write(&cache_locator, rendered.as_bytes())?;
     }
 
     Ok(())

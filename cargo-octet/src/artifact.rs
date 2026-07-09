@@ -1,11 +1,12 @@
 use std::collections::BTreeMap;
-use std::fs;
 use std::path::Path;
 
 use serde::Deserialize;
 use serde::Serialize;
 use serde_json::Value;
 
+use crate::cap_fs::ArtifactRoot;
+use crate::cap_fs::RootRelativePath;
 use crate::cli::ArtifactArgs;
 use crate::cli::OutputFormat;
 use crate::evidence::EvidenceTier;
@@ -263,7 +264,7 @@ fn write_valence_provenance_export(
         .map_err(|diagnostics| format!("refusing Valence provenance export:\n- {}", diagnostics.join("\n- ")))?;
     let bytes =
         serde_json::to_vec_pretty(&export).map_err(|error| format!("serialize Valence provenance export: {error}"))?;
-    fs::write(output_path, bytes).map_err(|error| format!("write {}: {error}", output_path.display()))
+    write_valence_provenance_export_bytes(output_path, &bytes)
 }
 
 // r[impl octet.evidence_provenance.valence_export]
@@ -756,32 +757,29 @@ pub fn verify_bundle(input: ArtifactBundleInput) -> ArtifactVerificationReport {
 }
 
 fn read_bundle_files(artifact_dir: &Path) -> Result<Vec<BundleFile>, String> {
-    read_bundle_files_from_directory(artifact_dir, artifact_dir)
+    let root = ArtifactRoot::open_existing(artifact_dir)?;
+    root.read_files_recursive().map(|files| {
+        files
+            .into_iter()
+            .map(|file| BundleFile {
+                name: file.locator,
+                contents: file.contents,
+            })
+            .collect()
+    })
 }
 
-fn read_bundle_files_from_directory(root: &Path, directory: &Path) -> Result<Vec<BundleFile>, String> {
-    let mut entries = fs::read_dir(directory)
-        .map_err(|error| format!("read artifact directory {}: {error}", directory.display()))?
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(|error| format!("read artifact directory {} entry: {error}", directory.display()))?;
-    entries.sort_by_key(std::fs::DirEntry::path);
-
-    let mut files = Vec::new();
-    for entry in entries {
-        let path = entry.path();
-        if path.is_dir() {
-            files.extend(read_bundle_files_from_directory(root, &path)?);
-            continue;
-        }
-        let name = path
-            .strip_prefix(root)
-            .map_err(|error| format!("derive relative artifact path for {}: {error}", path.display()))?
-            .to_string_lossy()
-            .into_owned();
-        let contents = fs::read(&path).map_err(|error| format!("read artifact {}: {error}", path.display()))?;
-        files.push(BundleFile { name, contents });
-    }
-    Ok(files)
+fn write_valence_provenance_export_bytes(output_path: &Path, bytes: &[u8]) -> Result<(), String> {
+    let parent = output_path
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+        .unwrap_or_else(|| Path::new("."));
+    let file_name = output_path
+        .file_name()
+        .ok_or_else(|| format!("write {}: output path must name a file", output_path.display()))?;
+    let root = ArtifactRoot::open_or_create(parent)?;
+    let relative = RootRelativePath::new(Path::new(file_name))?;
+    root.write(&relative, bytes)
 }
 
 fn print_human_report(report: &ArtifactVerificationReport) {

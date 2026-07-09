@@ -1,8 +1,8 @@
 use std::collections::BTreeSet;
 use std::ffi::OsString;
 use std::fmt::Write as _;
+#[cfg(test)]
 use std::fs;
-use std::io;
 use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
@@ -32,6 +32,12 @@ use octet_standards::source::SourceFile;
 use serde::Deserialize;
 use serde::Serialize;
 
+use crate::cap_fs::ArtifactRoot;
+use crate::cap_fs::ProofRoot;
+use crate::cap_fs::RootFile;
+use crate::cap_fs::RootRelativePath;
+use crate::cap_fs::SourceRoot;
+use crate::cap_fs::WorkspaceRoot;
 use crate::cli::OutputFormat;
 use crate::cli::ProveArgs;
 use crate::effect_ports::ProcessCommandPlanInput;
@@ -323,54 +329,79 @@ fn load_registry(args: &ProveArgs) -> Result<PolicyRegistry, String> {
             .expect("parser requires a registry source")
             .join(POLICIES_JSON_FILE)
     };
-    let text =
-        fs::read_to_string(&registry_path).map_err(|error| format!("read {}: {error}", registry_path.display()))?;
+    let text = read_workspace_file(&registry_path)?;
     serde_json::from_str(&text)
         .map_err(|error| format!("parse {} as policy registry JSON: {error}", registry_path.display()))
 }
 
 fn load_sources(paths: &[PathBuf], root: &Path) -> Result<Vec<SourceFile>, String> {
+    let source_root = SourceRoot::open_existing(root)?;
     let mut sources = Vec::new();
     for path in paths {
-        append_sources(path, root, &mut sources)?;
+        append_sources(path, root, &source_root, &mut sources)?;
     }
     Ok(sources)
 }
 
-fn append_sources(path: &Path, root: &Path, sources: &mut Vec<SourceFile>) -> Result<(), String> {
-    if path.is_dir() {
-        append_directory_sources(path, root, sources)
+fn append_sources(
+    path: &Path,
+    root: &Path,
+    source_root: &SourceRoot,
+    sources: &mut Vec<SourceFile>,
+) -> Result<(), String> {
+    let relative = source_relative_path(path, root)?;
+    if source_root.is_dir(&relative)? {
+        append_directory_sources(source_root, &relative, sources)
     } else {
-        append_file_source(path, root, sources)
+        append_file_source(source_root, &relative, sources)
     }
 }
 
-fn append_directory_sources(directory: &Path, root: &Path, sources: &mut Vec<SourceFile>) -> Result<(), String> {
-    let mut entries = fs::read_dir(directory)
-        .map_err(|error| format!("read source directory {}: {error}", directory.display()))?
-        .collect::<Result<Vec<_>, io::Error>>()
-        .map_err(|error| format!("read source directory {} entry: {error}", directory.display()))?;
-    entries.sort_by_key(std::fs::DirEntry::path);
-    for entry in entries {
-        append_sources(&entry.path(), root, sources)?;
+fn append_directory_sources(
+    source_root: &SourceRoot,
+    relative: &RootRelativePath,
+    sources: &mut Vec<SourceFile>,
+) -> Result<(), String> {
+    for file in source_root.read_files_recursive_from(relative)? {
+        sources.push(source_file_from_root_file(file)?);
     }
     Ok(())
 }
 
-fn append_file_source(path: &Path, root: &Path, sources: &mut Vec<SourceFile>) -> Result<(), String> {
-    let text = fs::read_to_string(path).map_err(|error| format!("read source {}: {error}", path.display()))?;
-    sources.push(SourceFile::new(repo_relative_display(path, root), text));
+fn append_file_source(
+    source_root: &SourceRoot,
+    relative: &RootRelativePath,
+    sources: &mut Vec<SourceFile>,
+) -> Result<(), String> {
+    let text = source_root.read_to_string(relative)?;
+    sources.push(SourceFile::new(relative.display(), text));
     Ok(())
 }
 
-fn repo_relative_display(path: &Path, root: &Path) -> String {
-    let absolute = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
+fn source_file_from_root_file(file: RootFile) -> Result<SourceFile, String> {
+    let text = String::from_utf8(file.contents)
+        .map_err(|error| format!("read source path `{}` as UTF-8: {error}", file.locator))?;
+    Ok(SourceFile::new(file.locator, text))
+}
+
+fn source_relative_path(path: &Path, root: &Path) -> Result<RootRelativePath, String> {
     let absolute_root = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
-    absolute.strip_prefix(&absolute_root).map_or_else(|_| normalized_display(path), normalized_display)
+    let absolute_path = path.canonicalize().unwrap_or_else(|_| {
+        if path.is_absolute() {
+            path.to_path_buf()
+        } else {
+            root.join(path)
+        }
+    });
+    let relative = absolute_path.strip_prefix(&absolute_root).unwrap_or(path);
+    RootRelativePath::new(relative)
 }
 
-fn normalized_display(path: &Path) -> String {
-    path.display().to_string().replace('\\', "/")
+fn read_workspace_file(path: &Path) -> Result<String, String> {
+    let parent = path.parent().filter(|parent| !parent.as_os_str().is_empty()).unwrap_or_else(|| Path::new("."));
+    let file_name = path.file_name().ok_or_else(|| format!("read {}: path must name a file", path.display()))?;
+    let root = WorkspaceRoot::open_existing(parent)?;
+    root.read_to_string(&RootRelativePath::new(Path::new(file_name))?)
 }
 
 fn prove_selection(families: &[String]) -> FamilySelection {
@@ -517,6 +548,10 @@ fn proof_failure_diagnostics(rail: &ProofRail, outcome: &CommandOutcome) -> Vec<
 fn load_proof_sources(rail: &ProofRail, working_dir: &Path) -> (Vec<SourceFile>, Vec<String>) {
     let mut sources = Vec::new();
     let mut diagnostics = Vec::new();
+    let proof_root = match ProofRoot::open_existing(working_dir) {
+        Ok(root) => root,
+        Err(error) => return (sources, vec![error]),
+    };
     for proof_path in &rail.proof_paths {
         if proof_path.contains('*') || proof_path.contains('?') {
             diagnostics.push(format!(
@@ -524,10 +559,16 @@ fn load_proof_sources(rail: &ProofRail, working_dir: &Path) -> (Vec<SourceFile>,
             ));
             continue;
         }
-        let path = working_dir.join(proof_path);
-        match fs::read_to_string(&path) {
+        let relative = match RootRelativePath::new(proof_path.as_str()) {
+            Ok(relative) => relative,
+            Err(error) => {
+                diagnostics.push(error);
+                continue;
+            }
+        };
+        match proof_root.read_to_string(&relative) {
             Ok(text) => sources.push(SourceFile::new(proof_path.clone(), text)),
-            Err(error) => diagnostics.push(format!("read proof path {}: {error}", path.display())),
+            Err(error) => diagnostics.push(error),
         }
     }
     (sources, diagnostics)
@@ -842,14 +883,8 @@ fn failed_receipt_text(policy_id: &str, rail_index: usize, diagnostics: &[String
 }
 
 fn write_artifacts(args: &ProveArgs, report: &ProveReport, executions: &[ExecutedProof]) -> Result<(), String> {
-    fs::create_dir_all(&args.artifact_dir)
-        .map_err(|error| format!("create artifact directory {}: {error}", args.artifact_dir.display()))?;
-    fs::create_dir_all(args.artifact_dir.join(PROOF_ARTIFACT_DIR_NAME)).map_err(|error| {
-        format!(
-            "create proof artifact directory {}: {error}",
-            args.artifact_dir.join(PROOF_ARTIFACT_DIR_NAME).display()
-        )
-    })?;
+    let artifact_root = ArtifactRoot::open_or_create(&args.artifact_dir)?;
+    artifact_root.create_dir_all(&RootRelativePath::new(PROOF_ARTIFACT_DIR_NAME)?)?;
 
     let command_text = format!("{}\n", args.command_line);
     let status_text = status_text(args.output_format, report)?;
@@ -858,18 +893,18 @@ fn write_artifacts(args: &ProveArgs, report: &ProveReport, executions: &[Execute
     let provenance_text = provenance_text(&command_text, &status_text, &summary_text, &proof_cards_text, executions)?;
     let evidence_log_manifest_text = evidence_log_manifest_text(&args.command_line, executions)?;
 
-    write_text(&args.artifact_dir.join(COMMAND_ARTIFACT_NAME), &command_text)?;
-    write_text(&args.artifact_dir.join(STATUS_ARTIFACT_NAME), &status_text)?;
-    write_text(&args.artifact_dir.join(SUMMARY_ARTIFACT_NAME), &summary_text)?;
-    write_text(&args.artifact_dir.join(PROOF_CARDS_ARTIFACT_NAME), &proof_cards_text)?;
-    write_text(&args.artifact_dir.join(PROVENANCE_ARTIFACT_NAME), &provenance_text)?;
+    write_artifact_text(&artifact_root, COMMAND_ARTIFACT_NAME, &command_text)?;
+    write_artifact_text(&artifact_root, STATUS_ARTIFACT_NAME, &status_text)?;
+    write_artifact_text(&artifact_root, SUMMARY_ARTIFACT_NAME, &summary_text)?;
+    write_artifact_text(&artifact_root, PROOF_CARDS_ARTIFACT_NAME, &proof_cards_text)?;
+    write_artifact_text(&artifact_root, PROVENANCE_ARTIFACT_NAME, &provenance_text)?;
     if let Some(manifest_text) = evidence_log_manifest_text {
-        write_text(&args.artifact_dir.join(crate::evidence_log::EVIDENCE_LOG_MANIFEST_ARTIFACT), &manifest_text)?;
+        write_artifact_text(&artifact_root, crate::evidence_log::EVIDENCE_LOG_MANIFEST_ARTIFACT, &manifest_text)?;
     }
     for execution in executions {
-        write_text(&args.artifact_dir.join(&execution.row.receipt), &execution.receipt_text)?;
+        write_artifact_text(&artifact_root, &execution.row.receipt, &execution.receipt_text)?;
         for log in &execution.logs {
-            write_text(&args.artifact_dir.join(&log.locator), &log.text)?;
+            write_artifact_text(&artifact_root, &log.locator, &log.text)?;
         }
     }
     Ok(())
@@ -1540,8 +1575,8 @@ fn parse_verus_receipt(text: &str) -> Result<VerusProofReceipt, String> {
     serde_json::from_str(text).map_err(|error| format!("parse proof receipt for card: {error}"))
 }
 
-fn write_text(path: &Path, text: &str) -> Result<(), String> {
-    fs::write(path, text).map_err(|error| format!("write {}: {error}", path.display()))
+fn write_artifact_text(root: &ArtifactRoot, locator: &str, text: &str) -> Result<(), String> {
+    root.write(&RootRelativePath::new(locator)?, text.as_bytes())
 }
 
 fn json_text<T: Serialize>(value: &T) -> Result<String, String> {
