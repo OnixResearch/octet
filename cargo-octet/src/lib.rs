@@ -18,6 +18,8 @@ mod evidence_transform;
 mod external_schema_contracts;
 mod fingerprint;
 mod imported_proof;
+#[cfg(test)]
+mod legacy_alias_contracts;
 mod migrate;
 mod migration_sessions;
 mod object;
