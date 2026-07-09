@@ -2,7 +2,7 @@
   "schema": "octet.function-object-corpus-receipt.v1",
   "schema_version": 1,
   "mode": "corpus-receipt",
-  "object_count": 561,
+  "object_count": 559,
   "source_paths": [
     "cargo-octet/src/baseline.rs",
     "cargo-octet/src/bin/cargo-slotcar.rs",
@@ -23,31 +23,31 @@
     "cargo-octet/src/roadmap.rs",
     "cargo-octet/src/transcript.rs"
   ],
-  "object_set_hash": "b3:eea65678b42e3058accb8fe32e91591b86616dcba0a1398b70b1be53f7a4a35e",
+  "object_set_hash": "b3:98804cc749a882ab383e252ea77611436e7b7b866fe699fe9539dcf255b91d4b",
   "caveat_counts": {
     "dependency_status": {
-      "source-scanner-token-set": 197,
-      "unsupported-macro-context": 364
+      "source-scanner-token-set": 200,
+      "unsupported-macro-context": 359
     },
     "effect_kind": {
-      "effect_summary": 441,
-      "filesystem": 56,
+      "effect_summary": 445,
+      "filesystem": 50,
       "panic": 88,
       "process": 9,
       "time": 2,
       "unsafe": 3
     },
     "macro_status": {
-      "none-detected": 197,
-      "review-required": 364
+      "none-detected": 200,
+      "review-required": 359
     },
     "pure_cache_blocker": {
-      "dependency-identity-unresolved": 561,
-      "effect-summary-unresolved": 561,
-      "macro-expansion-unmodeled": 364
+      "dependency-identity-unresolved": 559,
+      "effect-summary-unresolved": 559,
+      "macro-expansion-unmodeled": 359
     }
   },
-  "pure_cache_blocked_count": 561,
+  "pure_cache_blocked_count": 559,
   "replay": {
     "command": "cargo octet object corpus receipt --output RECEIPT.json cargo-octet/src/baseline.rs cargo-octet/src/bin/cargo-slotcar.rs cargo-octet/src/bin/cargo-tigerstyle.rs cargo-octet/src/cli.rs cargo-octet/src/config.rs cargo-octet/src/determinism.rs cargo-octet/src/engine.rs cargo-octet/src/evidence.rs cargo-octet/src/evidence_rails.rs cargo-octet/src/fingerprint.rs cargo-octet/src/lib.rs cargo-octet/src/main.rs cargo-octet/src/migrate.rs cargo-octet/src/object.rs cargo-octet/src/output.rs cargo-octet/src/provider_manifest.rs cargo-octet/src/roadmap.rs cargo-octet/src/transcript.rs",
     "tool_name": "cargo-octet",
