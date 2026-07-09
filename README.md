@@ -245,6 +245,7 @@ and config keys.
 - `docs/api-contract-rail.md` — Oxide-inspired API contract rail references, compatibility classes, and non-claims
 - `docs/source-boundary-core.md` — source descriptor kinds, shell/core ownership, and non-claim boundaries
 - `docs/source-acquisition-receipts.md` — stack-owned source receipt kinds, private SSH boundaries, and local override guidance
+- `docs/preserves-receipt-export.md` — optional Preserves envelope adapter contract and non-claims
 - `docs/concurrency-performance-lint-candidates.md` — first-wave concurrency/performance lint candidate matrix
 - `docs/contributor-guide.md` — source-of-truth map, doc-update crosswalk, verification rails
 - `docs/downstream-rollout.md` — rollout profiles, promotion playbooks, and boundary guidance
