@@ -13,6 +13,14 @@ the result, and core helpers classify captured process outcomes. This gives test
 a side-effect-free path for positive pass results and negative missing, malformed,
 failed, or timed-out process results.
 
+Filesystem capabilities follow the same shell/core split. `cargo-octet` opens
+operator-declared workspace, source, artifact, proof, and cache directories as
+narrow typed roots, validates every in-root locator as relative, and reads or
+writes artifact bundles, lint caches, source files, and proof receipts through
+those roots. Traversal, absolute locator, symlink, and non-regular-file cases
+fail closed before the shell reads, writes, verifies, or caches outside the
+chosen root.
+
 Capabilities stay narrow. `ProcessCapabilityToken` names only the process effect
 family; it is not a broad service object and it does not hide filesystem,
 environment, clock, randomness, logging, metrics, network, or async-runtime

@@ -2,6 +2,7 @@
 mod api_contract_rail;
 mod artifact;
 mod baseline;
+mod cap_fs;
 mod cli;
 mod config;
 mod determinism;
