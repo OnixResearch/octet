@@ -35,6 +35,8 @@ mod prove;
 mod prove_core;
 mod provider_manifest;
 mod roadmap;
+#[cfg(test)]
+mod source_boundary_core;
 mod transcript;
 
 use std::process::ExitCode;
