@@ -326,7 +326,23 @@ lint_inventory! {
     },
     "fragile_exhaustive_enum_match", safety::fragile_exhaustive_enum_match::FRAGILE_EXHAUSTIVE_ENUM_MATCH => |lint_store, cfg| {
         let sealed_enum_marker = cfg.sealed_enum_marker.clone();
-        lint_store.register_late_pass(move |_| Box::new(safety::fragile_exhaustive_enum_match::FragileExhaustiveEnumMatch::new(sealed_enum_marker.clone())));
+        let state_machine_enum_marker = cfg.state_machine_enum_marker.clone();
+        lint_store.register_late_pass(move |_| Box::new(safety::fragile_exhaustive_enum_match::FragileExhaustiveEnumMatch::new(
+            sealed_enum_marker.clone(),
+            state_machine_enum_marker.clone(),
+        )));
+    },
+    "state_machine_exhaustiveness", safety::state_machine_exhaustiveness::STATE_MACHINE_EXHAUSTIVENESS => |lint_store, cfg| {
+        let state_machine_core_marker = cfg.state_machine_core_marker.clone();
+        let state_machine_enum_marker = cfg.state_machine_enum_marker.clone();
+        let state_machine_core_scopes = cfg.state_machine_core_scopes.clone();
+        let state_machine_generated_adapter_scopes = cfg.state_machine_generated_adapter_scopes.clone();
+        lint_store.register_late_pass(move |_| Box::new(safety::state_machine_exhaustiveness::StateMachineExhaustiveness::new(
+            state_machine_core_marker.clone(),
+            state_machine_enum_marker.clone(),
+            state_machine_core_scopes.clone(),
+            state_machine_generated_adapter_scopes.clone(),
+        )));
     },
     "platform_dependent_cast", structure::platform_dependent_cast::PLATFORM_DEPENDENT_CAST => |lint_store, _cfg| {
         lint_store.register_late_pass(|_| Box::new(structure::platform_dependent_cast::PlatformDependentCast));
@@ -1495,6 +1511,7 @@ mod tests {
         "defaulting_trait_method",
         "foreign_enum_catch_all",
         "fragile_exhaustive_enum_match",
+        "state_machine_exhaustiveness",
         "verified_purity",
     ];
 
@@ -1630,6 +1647,7 @@ mod tests {
             "catch_all_on_enum" => "src/safety/catch_all_on_enum.rs",
             "foreign_enum_catch_all" => "src/safety/foreign_enum_catch_all.rs",
             "fragile_exhaustive_enum_match" => "src/safety/fragile_exhaustive_enum_match.rs",
+            "state_machine_exhaustiveness" => "src/safety/state_machine_exhaustiveness.rs",
             "platform_dependent_cast" => "src/structure/platform_dependent_cast.rs",
             "float_for_currency" => "src/naming/float_for_currency.rs",
             "ambiguous_params" => "src/structure/ambiguous_params.rs",

@@ -25,6 +25,9 @@ This section matters because concurrency bugs often hide inside state transition
 - Reviewer prompt: What are the named states, and which transitions are allowed from each state?
 - Reviewer prompt: Which invariant must hold before and after each transition, and how does code reject an impossible state?
 - Checklist: Prefer typed transitions or one obvious transition function over ad hoc flag mutation.
+- Checklist: Mark simple typed transition cores with `#[octet::state_machine_core]` when they use a pure `match (state, event)` over closed state/event enums. The `state_machine_exhaustiveness` lint requires explicit state/event arms, including explicit invalid-transition results, and rejects wildcard fallbacks, missing FSM enum markers, or mutation-coupled decisions.
+- Checklist: Mark deliberately closed state/event enums with `#[octet::state_machine_enum]` before accepting exhaustive-by-default FSM evidence; list transition files under `state_machine_core_scopes` only when the same enum marker contract is still met. List generated adapters under `state_machine_generated_adapter_scopes` so shell/parser code stays outside the pure transition-core profile.
+- Non-claim: state-machine exhaustiveness evidence is bounded source-shape evidence only. It does not prove whole-program correctness, liveness, protocol completeness outside the declared state/event domain, verifier soundness, release eligibility, exhaustive Rust coverage, or correctness of unsupported generated/trait-object/runtime-tag transition shapes.
 
 ## Message ordering, retries, and idempotence
 

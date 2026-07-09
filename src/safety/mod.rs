@@ -15,6 +15,7 @@ pub mod no_unwrap;
 pub mod public_unsafe_api;
 pub mod raw_arithmetic_overflow;
 pub mod sentinel_fallback;
+pub mod state_machine_exhaustiveness;
 pub mod unbounded_channel;
 pub mod unbounded_collection_growth;
 pub mod unbounded_loop;
