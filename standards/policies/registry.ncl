@@ -243,6 +243,18 @@ in
       negative_fixtures = ["cargo-octet/src/proof_claim_catalog.rs::proof_claim_catalog_rejects_duplicate_ids_and_missing_anchor"],
     },
     {
+      family_id = "octet.chaoscontrol-proof-style-input-contract",
+      ownership = "rust-derived",
+      owner_source_path = "cargo-octet/src/evidence_contracts.rs",
+      artifact_path = "standards/evidence/contracts/generated.ncl#ChaosControlProofStyleInputContractV1",
+      generation_command = "nix develop -c cargo test -p cargo-octet evidence_contracts::tests::generated_contracts_are_fresh",
+      validation_command = "nix develop -c cargo test -p cargo-octet evidence_contracts",
+      status = "existing",
+      config_digest_required = true,
+      positive_fixtures = ["standards/evidence/fixtures/valid/chaoscontrol_proof_style_input_v1.ncl", "cargo-octet/src/evidence_contracts.rs::chaoscontrol_proof_style_current_fixture_passes_and_preserves_identity"],
+      negative_fixtures = ["standards/evidence/fixtures/invalid/chaoscontrol_missing_profile.ncl", "standards/evidence/fixtures/invalid/chaoscontrol_missing_focused_crates.ncl", "cargo-octet/src/evidence_contracts.rs::chaoscontrol_proof_style_stale_missing_and_overbroad_inputs_fail_closed"],
+    },
+    {
       family_id = "octet.bounded-evidence-transform-report",
       ownership = "rust-derived",
       owner_source_path = "cargo-octet/src/evidence_transform.rs",

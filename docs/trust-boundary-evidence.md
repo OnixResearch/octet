@@ -219,6 +219,16 @@ prove proof correctness. Imported Trellis bundles remain external or
 verifier identity, validates an Octet-owned receipt, and then emits scoped
 Octet provenance for that receipt only.
 
+ChaosControl proof-style input contracts add a consumer-facing shape contract for
+pinned Octet/Trellis proof-style gate inputs. The contract records the
+ChaosControl consumer identity, selected Octet profile, focused crate list,
+policy registry digest, optional Trellis primitive manifest digest, input
+revision, expected command, and non-claims. Passing validation proves only that
+those profile/input identities match Octet's declared contract; it does not run
+ChaosControl VMM proofs, prove runtime determinism, prove ChaosControl
+behavioral correctness, or transfer Octet lint/profile ownership to the
+consumer.
+
 The Verus lane preserves evidence-tier boundaries. Validated Verus proof receipts
 may support `formal_proof`; lint findings remain `static_lint`, policy checks
 remain `policy_check`, transcript assertions remain `transcript_assertion`,

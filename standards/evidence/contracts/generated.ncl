@@ -78,4 +78,15 @@ let EvidenceTier = std.contract.from_predicate (fun value => std.is_string value
     property_classes | Array String | default = [],
     hegel_property | Dyn | default = {},
   },
+  ChaosControlProofStyleInputContractV1 = {
+    schema_version | std.contract.from_predicate (fun value => value == "octet-chaoscontrol-proof-style-input-contract/v1"),
+    consumer_repo | NonEmptyString,
+    selected_profile | NonEmptyString,
+    focused_crates | Array String,
+    policy_registry_digest | NonEmptyString,
+    trellis_primitive_manifest_digest | String | default = "",
+    input_revision | NonEmptyString,
+    expected_command | Array String,
+    non_claims | Array String,
+  },
 }
