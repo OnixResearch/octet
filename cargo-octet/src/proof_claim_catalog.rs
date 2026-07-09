@@ -1,6 +1,4 @@
-use std::collections::BTreeMap;
-use std::collections::BTreeSet;
-
+use iddqd::{IdOrdItem, IdOrdMap, id_upcast};
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -58,6 +56,32 @@ pub(crate) struct ProofClaimAlias {
     rationale: String,
 }
 
+impl IdOrdItem for ProofClaimEntry {
+    type Key<'a> = &'a str;
+
+    fn key(&self) -> Self::Key<'_> {
+        &self.claim_id
+    }
+
+    id_upcast!();
+}
+
+impl IdOrdItem for ProofClaimAlias {
+    type Key<'a> = &'a str;
+
+    fn key(&self) -> Self::Key<'_> {
+        &self.alias_id
+    }
+
+    id_upcast!();
+}
+
+struct CatalogIndex {
+    claims: IdOrdMap<ProofClaimEntry>,
+    aliases: IdOrdMap<ProofClaimAlias>,
+    diagnostics: Vec<String>,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct ProofClaimReference {
     proof_or_property_id: String,
@@ -71,15 +95,15 @@ pub(crate) struct ProofClaimReference {
 }
 
 pub(crate) fn validate_catalog(catalog: &ProofClaimCatalog, known_documentation_anchors: &[String]) -> Vec<String> {
-    let mut diagnostics = Vec::new();
+    let index = build_catalog_index(catalog);
+    let mut diagnostics = index.diagnostics.clone();
     if catalog.schema_version != PROOF_CLAIM_CATALOG_SCHEMA_VERSION {
         diagnostics.push(format!(
             "proof claim catalog field `schema_version` expected `{PROOF_CLAIM_CATALOG_SCHEMA_VERSION}` but got `{}`",
             catalog.schema_version
         ));
     }
-    diagnostics.extend(unique_claim_id_diagnostics(catalog));
-    diagnostics.extend(alias_diagnostics(catalog));
+    diagnostics.extend(alias_diagnostics(&index, &catalog.aliases));
     for claim in &catalog.claims {
         diagnostics.extend(claim_shape_diagnostics(claim, known_documentation_anchors));
     }
@@ -89,8 +113,14 @@ pub(crate) fn validate_catalog(catalog: &ProofClaimCatalog, known_documentation_
 }
 
 pub(crate) fn validate_claim_reference(catalog: &ProofClaimCatalog, reference: &ProofClaimReference) -> Vec<String> {
-    let mut diagnostics = Vec::new();
-    let claim = match resolve_claim(catalog, &reference.proof_or_property_id) {
+    let index = build_catalog_index(catalog);
+    let mut diagnostics = index.diagnostics.clone();
+    if !diagnostics.is_empty() {
+        diagnostics.sort();
+        diagnostics.dedup();
+        return diagnostics;
+    }
+    let claim = match resolve_claim(&index, &reference.proof_or_property_id) {
         Ok(claim) => claim,
         Err(diagnostic) => return vec![diagnostic],
     };
@@ -141,43 +171,50 @@ pub(crate) fn validate_claim_reference(catalog: &ProofClaimCatalog, reference: &
     diagnostics
 }
 
-fn resolve_claim<'a>(catalog: &'a ProofClaimCatalog, claim_id: &str) -> Result<&'a ProofClaimEntry, String> {
-    if let Some(claim) = catalog.claims.iter().find(|claim| claim.claim_id == claim_id) {
+fn resolve_claim<'a>(index: &'a CatalogIndex, claim_id: &str) -> Result<&'a ProofClaimEntry, String> {
+    if let Some(claim) = index.claims.get(claim_id) {
         return Ok(claim);
     }
-    if let Some(alias) = catalog.aliases.iter().find(|alias| alias.alias_id == claim_id) {
-        return catalog.claims.iter().find(|claim| claim.claim_id == alias.target_claim_id).ok_or_else(|| {
+    if let Some(alias) = index.aliases.get(claim_id) {
+        return index.claims.get(alias.target_claim_id.as_str()).ok_or_else(|| {
             format!("proof claim alias `{}` targets missing claim `{}`", alias.alias_id, alias.target_claim_id)
         });
     }
     Err(format!("proof claim reference `{claim_id}` is not declared in the proof claim catalog"))
 }
 
-fn unique_claim_id_diagnostics(catalog: &ProofClaimCatalog) -> Vec<String> {
+fn build_catalog_index(catalog: &ProofClaimCatalog) -> CatalogIndex {
     let mut diagnostics = Vec::new();
-    let mut seen = BTreeSet::new();
+    let mut claims = IdOrdMap::<ProofClaimEntry>::new();
     for claim in &catalog.claims {
-        if !seen.insert(claim.claim_id.as_str()) {
-            diagnostics.push(format!("duplicate proof claim id `{}`", claim.claim_id));
+        let claim_id = claim.claim_id.clone();
+        if claims.insert_unique(claim.clone()).is_err() {
+            diagnostics.push(format!("duplicate proof claim id `{claim_id}`"));
         }
     }
-    let claim_ids = catalog.claims.iter().map(|claim| claim.claim_id.as_str()).collect::<BTreeSet<_>>();
-    let mut alias_seen = BTreeSet::new();
+
+    let mut aliases = IdOrdMap::<ProofClaimAlias>::new();
     for alias in &catalog.aliases {
-        if claim_ids.contains(alias.alias_id.as_str()) {
-            diagnostics.push(format!("proof claim alias `{}` conflicts with a claim id", alias.alias_id));
+        let alias_id = alias.alias_id.clone();
+        if claims.get(alias_id.as_str()).is_some() {
+            diagnostics.push(format!("proof claim alias `{alias_id}` conflicts with a claim id"));
         }
-        if !alias_seen.insert(alias.alias_id.as_str()) {
-            diagnostics.push(format!("duplicate proof claim alias `{}`", alias.alias_id));
+        if aliases.insert_unique(alias.clone()).is_err() {
+            diagnostics.push(format!("duplicate proof claim alias `{alias_id}`"));
         }
     }
-    diagnostics
+    diagnostics.sort();
+    diagnostics.dedup();
+    CatalogIndex {
+        claims,
+        aliases,
+        diagnostics,
+    }
 }
 
-fn alias_diagnostics(catalog: &ProofClaimCatalog) -> Vec<String> {
-    let claims = catalog.claims.iter().map(|claim| (&claim.claim_id, claim)).collect::<BTreeMap<_, _>>();
+fn alias_diagnostics(index: &CatalogIndex, aliases: &[ProofClaimAlias]) -> Vec<String> {
     let mut diagnostics = Vec::new();
-    for alias in &catalog.aliases {
+    for alias in aliases {
         push_required(&mut diagnostics, "alias_id", &alias.alias_id);
         push_required(&mut diagnostics, "target_claim_id", &alias.target_claim_id);
         push_required(&mut diagnostics, "rationale", &alias.rationale);
@@ -188,7 +225,7 @@ fn alias_diagnostics(catalog: &ProofClaimCatalog) -> Vec<String> {
         if alias.alias_id == alias.target_claim_id {
             diagnostics.push(format!("proof claim alias `{}` must not target itself", alias.alias_id));
         }
-        if !claims.contains_key(&alias.target_claim_id) {
+        if !alias.target_claim_id.is_empty() && index.claims.get(alias.target_claim_id.as_str()).is_none() {
             diagnostics.push(format!(
                 "proof claim alias `{}` targets missing claim `{}`",
                 alias.alias_id, alias.target_claim_id
@@ -275,6 +312,7 @@ mod tests {
 
     const CLAIM_ID: &str = "octet.verus_proof_rails.addition-bound#rail-0";
     const ALIAS_ID: &str = "octet.proof_claims.addition-bound-fixture";
+    const DEPRECATED_ALIAS_ID: &str = "octet.proof_claims.addition-bound-legacy";
     const POLICY_ID: &str = "octet.verus_proof_rails.addition-bound";
     const CHECKED_SCOPE: &str = "formal-proof:fixture-only:octet.verus_proof_rails.addition-bound#rail-0";
     const DOC_ANCHOR: &str = "docs/trust-boundary-evidence.md#verus-proof-path-lane";
@@ -333,15 +371,74 @@ mod tests {
     #[test]
     fn proof_claim_aliases_resolve_only_when_explicit() {
         let catalog = sample_catalog();
-        let diagnostics = validate_claim_reference(&catalog, &sample_reference(ALIAS_ID));
+        let alias_diagnostics = validate_claim_reference(&catalog, &sample_reference(ALIAS_ID));
+        let deprecated_alias_diagnostics = validate_claim_reference(&catalog, &sample_reference(DEPRECATED_ALIAS_ID));
         let mut broken = catalog.clone();
         broken.aliases[0].target_claim_id = "missing.claim".to_owned();
 
-        assert!(diagnostics.is_empty(), "explicit alias should resolve: {diagnostics:?}");
+        assert!(alias_diagnostics.is_empty(), "explicit alias should resolve: {alias_diagnostics:?}");
+        assert!(
+            deprecated_alias_diagnostics.is_empty(),
+            "deprecated alias should still resolve when explicit: {deprecated_alias_diagnostics:?}"
+        );
         assert!(
             validate_catalog(&broken, &known_anchors())
                 .iter()
                 .any(|diagnostic| diagnostic.contains("targets missing claim"))
+        );
+    }
+
+    #[test]
+    fn proof_claim_alias_index_rejects_non_bijective_hazards_without_rejecting_shared_targets() {
+        let mut catalog = sample_catalog();
+        catalog.aliases.push(ProofClaimAlias {
+            alias_id: catalog.claims[0].claim_id.clone(),
+            target_claim_id: CLAIM_ID.to_owned(),
+            status: STATUS_ALIAS.to_owned(),
+            rationale: "conflicts with canonical claim id".to_owned(),
+        });
+        catalog.aliases.push(ProofClaimAlias {
+            alias_id: ALIAS_ID.to_owned(),
+            target_claim_id: CLAIM_ID.to_owned(),
+            status: STATUS_ALIAS.to_owned(),
+            rationale: "duplicate alias id".to_owned(),
+        });
+        catalog.aliases.push(ProofClaimAlias {
+            alias_id: "octet.proof_claims.self-target".to_owned(),
+            target_claim_id: "octet.proof_claims.self-target".to_owned(),
+            status: STATUS_ALIAS.to_owned(),
+            rationale: "self target should fail".to_owned(),
+        });
+        catalog.aliases.push(ProofClaimAlias {
+            alias_id: "octet.proof_claims.bad-status".to_owned(),
+            target_claim_id: CLAIM_ID.to_owned(),
+            status: STATUS_ACTIVE.to_owned(),
+            rationale: "alias rows cannot be active claims".to_owned(),
+        });
+
+        let diagnostics = validate_catalog(&catalog, &known_anchors());
+
+        assert!(diagnostics.iter().any(|diagnostic| diagnostic.contains("conflicts with a claim id")));
+        assert!(diagnostics.iter().any(|diagnostic| diagnostic.contains("duplicate proof claim alias")));
+        assert!(diagnostics.iter().any(|diagnostic| diagnostic.contains("must not target itself")));
+        assert!(diagnostics.iter().any(|diagnostic| diagnostic.contains("unsupported status")));
+    }
+
+    #[test]
+    fn proof_claim_catalog_rejects_invalid_tiers_and_weakened_reference_non_claims() {
+        let mut catalog = sample_catalog();
+        catalog.claims[0].expected_evidence_tier = "dependency_trust".to_owned();
+        let catalog_diagnostics = validate_catalog(&catalog, &known_anchors());
+
+        let mut reference = sample_reference(CLAIM_ID);
+        reference.non_claims.retain(|claim| claim != "not certification");
+        let reference_diagnostics = validate_claim_reference(&sample_catalog(), &reference);
+
+        assert!(catalog_diagnostics.iter().any(|diagnostic| diagnostic.contains("expected_evidence_tier")));
+        assert!(
+            reference_diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.contains("missing non-claim `not certification`"))
         );
     }
 
@@ -368,7 +465,11 @@ mod tests {
                 source_requirement_or_policy_id: POLICY_ID.to_owned(),
                 checked_scope: CHECKED_SCOPE.to_owned(),
                 expected_evidence_tier: EVIDENCE_TIER_FORMAL_PROOF.to_owned(),
-                allowed_proof_or_property_ids: vec![CLAIM_ID.to_owned(), ALIAS_ID.to_owned()],
+                allowed_proof_or_property_ids: vec![
+                    CLAIM_ID.to_owned(),
+                    ALIAS_ID.to_owned(),
+                    DEPRECATED_ALIAS_ID.to_owned(),
+                ],
                 required_artifacts: vec![
                     SOURCE_ARTIFACT.to_owned(),
                     PROOF_ARTIFACT.to_owned(),
@@ -379,12 +480,20 @@ mod tests {
                 status: STATUS_ACTIVE.to_owned(),
                 non_claims: REQUIRED_NON_CLAIMS.iter().map(|claim| (*claim).to_owned()).collect(),
             }],
-            aliases: vec![ProofClaimAlias {
-                alias_id: ALIAS_ID.to_owned(),
-                target_claim_id: CLAIM_ID.to_owned(),
-                status: STATUS_ALIAS.to_owned(),
-                rationale: "short reviewer-facing alias".to_owned(),
-            }],
+            aliases: vec![
+                ProofClaimAlias {
+                    alias_id: ALIAS_ID.to_owned(),
+                    target_claim_id: CLAIM_ID.to_owned(),
+                    status: STATUS_ALIAS.to_owned(),
+                    rationale: "short reviewer-facing alias".to_owned(),
+                },
+                ProofClaimAlias {
+                    alias_id: DEPRECATED_ALIAS_ID.to_owned(),
+                    target_claim_id: CLAIM_ID.to_owned(),
+                    status: STATUS_DEPRECATED.to_owned(),
+                    rationale: "legacy proof-card name retained for archived receipts".to_owned(),
+                },
+            ],
         }
     }
 

@@ -180,7 +180,10 @@ cross-surface proof/evidence claims, their source policy or requirement, checked
 scope, expected evidence tier, allowed proof-card IDs, required artifacts,
 documentation anchors, lifecycle status, aliases, owners, and scoped non-claims.
 Catalog validation is a reference check: a catalog entry is not proof, and aliases
-must be explicit before old names continue to resolve.
+must be explicit before old names continue to resolve. Aliases are many-to-one
+compatibility rows, not a bijection: several legacy or reviewer-facing names may
+point to one canonical claim, while alias IDs must never conflict with canonical
+claim IDs or other aliases.
 
 Structured Verus proof package locks bind the selected rail manifest identity,
 source/proof BLAKE3 bindings, command argv, environment allowlist, pass signal,
