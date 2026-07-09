@@ -242,6 +242,7 @@ and config keys.
 - `docs/law-tested-cores.md` — bounded, replayable law catalog for deterministic pure cores
 - `templates/pre-commit-config.yaml` — copyable deny-all pre-commit hook configuration
 - `docs/lint-reference.md` — full lint catalog, default levels, suppression paths, config reference
+- `docs/api-contract-rail.md` — Oxide-inspired API contract rail references, compatibility classes, and non-claims
 - `docs/concurrency-performance-lint-candidates.md` — first-wave concurrency/performance lint candidate matrix
 - `docs/contributor-guide.md` — source-of-truth map, doc-update crosswalk, verification rails
 - `docs/downstream-rollout.md` — rollout profiles, promotion playbooks, and boundary guidance
@@ -264,3 +265,6 @@ AGPL-3.0-or-later
 - `github:nickel-lang/nickel-schemastore` — reference pattern for packaging many generated Nickel contracts behind a discoverable indexed library.
 - `github:nickel-lang/rules_nickel` — reference pattern for a small declarative Nickel export surface with source, dependencies, format, and output.
 - `github:nickel-lang/nickel-customs` — reference pattern for local sanity checks over contributed Nickel package metadata before promotion.
+- [oxidecomputer/dropshot](https://github.com/oxidecomputer/dropshot) — reference pattern for explicit typed API surfaces and generated OpenAPI documents without hidden middleware authority.
+- [oxidecomputer/progenitor](https://github.com/oxidecomputer/progenitor) and [oxidecomputer/typify](https://github.com/oxidecomputer/typify) — reference generators for contract consumer fixtures and Rust/schema interop boundaries.
+- [oxidecomputer/drift](https://github.com/oxidecomputer/drift), [oxidecomputer/openapi-lint](https://github.com/oxidecomputer/openapi-lint), and [oxidecomputer/dropshot-api-manager](https://github.com/oxidecomputer/dropshot-api-manager) — reference patterns for API compatibility diffing, linting, and managed contract promotion.

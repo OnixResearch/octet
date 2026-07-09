@@ -1,3 +1,5 @@
+#[cfg(test)]
+mod api_contract_rail;
 mod artifact;
 mod baseline;
 mod cli;
