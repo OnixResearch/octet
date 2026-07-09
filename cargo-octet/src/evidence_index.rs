@@ -2,19 +2,18 @@ use std::fs;
 use std::path::Path;
 use std::path::PathBuf;
 
-use valence_core::evidence_codebase_index::EvidenceArtifactInput;
-use valence_core::evidence_codebase_index::EvidenceCodebaseIndex;
-use valence_core::evidence_codebase_index::EvidenceIndexBuildMode;
-use valence_core::evidence_codebase_index::EvidenceIndexIssueSeverity;
-use valence_core::evidence_codebase_index::build_evidence_codebase_index;
-use valence_core::evidence_codebase_index::query_evidence_index;
-use valence_core::evidence_codebase_index::render_evidence_index_html;
-use valence_core::evidence_index::EvidenceIndexInput;
-use valence_core::evidence_index::check_page_text_with_expected;
-use valence_core::evidence_index::render_valence_evidence_index;
-
 use crate::cli::EvidenceIndexArgs;
 use crate::cli::EvidenceIndexMode;
+use crate::valence_core_shim::evidence_codebase_index::EvidenceArtifactInput;
+use crate::valence_core_shim::evidence_codebase_index::EvidenceCodebaseIndex;
+use crate::valence_core_shim::evidence_codebase_index::EvidenceIndexBuildMode;
+use crate::valence_core_shim::evidence_codebase_index::EvidenceIndexIssueSeverity;
+use crate::valence_core_shim::evidence_codebase_index::build_evidence_codebase_index;
+use crate::valence_core_shim::evidence_codebase_index::query_evidence_index;
+use crate::valence_core_shim::evidence_codebase_index::render_evidence_index_html;
+use crate::valence_core_shim::evidence_index::EvidenceIndexInput;
+use crate::valence_core_shim::evidence_index::check_page_text_with_expected;
+use crate::valence_core_shim::evidence_index::render_valence_evidence_index;
 
 const DEFAULT_PAGE: &str = "docs/current-head-valence-evidence.md";
 const SUPPORTED_DIRECTORY_EXTENSIONS: &[&str] = &["json", "jsonl", "md"];
@@ -180,9 +179,8 @@ fn write_or_print(path: Option<&Path>, text: &str) -> Result<(), String> {
 
 #[cfg(test)]
 mod tests {
-    use valence_core::evidence_index::check_page_text;
-
     use super::*;
+    use crate::valence_core_shim::evidence_index::check_page_text;
 
     #[test]
     fn evidence_index_cli_uses_valence_core_renderer() {

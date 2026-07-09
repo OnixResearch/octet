@@ -245,6 +245,7 @@ and config keys.
 - `docs/api-contract-rail.md` — Oxide-inspired API contract rail references, compatibility classes, and non-claims
 - `docs/source-boundary-core.md` — source descriptor kinds, shell/core ownership, and non-claim boundaries
 - `docs/source-acquisition-receipts.md` — stack-owned source receipt kinds, private SSH boundaries, and local override guidance
+- `docs/valence-core-cutover.md` — standalone Valence dependency target, Octet compatibility shim, downstream migration, and cutover non-claims
 - `docs/preserves-receipt-export.md` — optional Preserves envelope adapter contract and non-claims
 - `docs/formal-proof-valence-export-fixture.md` — frozen formal-proof Valence adapter fixture contract
 - `docs/concurrency-performance-lint-candidates.md` — first-wave concurrency/performance lint candidate matrix
