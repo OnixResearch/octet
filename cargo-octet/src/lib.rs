@@ -29,6 +29,8 @@ mod object_core;
 mod output;
 #[cfg(test)]
 mod proof_claim_catalog;
+#[cfg(test)]
+mod preserves_receipt_export;
 mod proof_goal_state;
 mod proof_ref;
 mod prove;
