@@ -197,6 +197,13 @@ pub fn run(check: &CheckArgs) -> Result<i32, String> {
 
         let cargo_process_exit =
             classify_cargo_process_exit(child.wait().map_err(|error| format!("wait for cargo check: {error}"))?);
+        if cargo_process_exit.is_success() {
+            findings.extend(crate::function_address::collect_findings(
+                &check.function_addresses,
+                &cfg.workspace_root,
+                &run_metadata.config_hash,
+            )?);
+        }
         canonicalize_findings(&mut findings);
         if check.cache {
             update_lint_cache(&cfg.workspace_root, &mut findings)?;

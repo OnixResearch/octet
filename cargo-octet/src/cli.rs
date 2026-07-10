@@ -70,6 +70,7 @@ pub struct CheckArgs {
     pub baseline: Option<PathBuf>,
     pub write_baseline: Option<PathBuf>,
     pub cache: bool,
+    pub function_addresses: crate::function_address::FunctionAddressCheck,
     pub command_line: String,
 }
 
@@ -411,7 +412,7 @@ const ROOT_HELP: &str = "Octet operator commands
 
 Usage:
   cargo octet artifact verify --artifact-dir PATH [--output-format human|json] [--emit-valence-provenance PATH]
-  cargo octet check [SCOPE] [-- CARGO_CHECK_ARGS]
+  cargo octet check [SCOPE] [--function-addresses off|observe|warn|deny] [--function-address-path PATH] [-- CARGO_CHECK_ARGS]
   cargo octet evidence collect --rail RAIL --input PATH --artifact-dir PATH [--output-format human|json]
   cargo octet evidence-index render --payload-commit HASH --capture-time RFC3339
   cargo octet evidence-index check [--page PATH]
@@ -459,9 +460,9 @@ Verifies a saved cargo octet check/prove artifact directory or a log-only eviden
 
 const CHECK_HELP: &str = "cargo octet check
 
-Options: --output-format human|json|sarif, --artifact-dir PATH, --baseline PATH, --write-baseline PATH, --cache.
+Options: --output-format human|json|sarif, --artifact-dir PATH, --baseline PATH, --write-baseline PATH, --cache, --function-addresses off|observe|warn|deny, --function-address-path PATH.
 
-Artifacts include summary.txt effect-summary output, findings JSON/SARIF, and cache_status fields when --cache enables the lint-cache.
+Artifacts include summary.txt effect-summary output, findings JSON/SARIF, cache_status fields when --cache enables the lint-cache, and optional function-address diagnostics for gradual content-address adoption.
 ";
 
 const EVIDENCE_INDEX_HELP: &str = "cargo octet evidence-index
@@ -634,6 +635,8 @@ fn parse_check(args: &[String], command_line: String) -> Result<CheckArgs, Strin
     let mut baseline = None;
     let mut write_baseline = None;
     let mut cache = false;
+    let mut function_address_mode = crate::function_address::FunctionAddressMode::Off;
+    let mut function_address_paths = Vec::new();
     let mut index = 0;
 
     while index < args.len() {
@@ -667,6 +670,21 @@ fn parse_check(args: &[String], command_line: String) -> Result<CheckArgs, Strin
         } else if arg == "--cache" {
             cache = true;
             index += 1;
+        } else if arg == "--function-addresses" {
+            let value = args.get(index + 1).ok_or_else(|| "missing value after `--function-addresses`".to_owned())?;
+            function_address_mode = crate::function_address::FunctionAddressMode::parse(value)?;
+            index += 2;
+        } else if let Some(value) = arg.strip_prefix("--function-addresses=") {
+            function_address_mode = crate::function_address::FunctionAddressMode::parse(value)?;
+            index += 1;
+        } else if arg == "--function-address-path" {
+            let value =
+                args.get(index + 1).ok_or_else(|| "missing value after `--function-address-path`".to_owned())?;
+            function_address_paths.push(PathBuf::from(value));
+            index += 2;
+        } else if let Some(value) = arg.strip_prefix("--function-address-path=") {
+            function_address_paths.push(PathBuf::from(value));
+            index += 1;
         } else if arg == "--write-baseline" {
             let value = args.get(index + 1).ok_or_else(|| "missing value after `--write-baseline`".to_owned())?;
             write_baseline = Some(PathBuf::from(value));
@@ -699,6 +717,10 @@ fn parse_check(args: &[String], command_line: String) -> Result<CheckArgs, Strin
         baseline,
         write_baseline,
         cache,
+        function_addresses: crate::function_address::FunctionAddressCheck {
+            mode: function_address_mode,
+            paths: function_address_paths,
+        },
         command_line,
     })
 }
@@ -2304,6 +2326,37 @@ mod tests {
 
         let error = parse(["cargo", "octet", "unknown"].map(OsString::from)).expect_err("unknown command should fail");
         assert!(error.contains("unknown subcommand"));
+    }
+
+    #[test]
+    fn check_parse_accepts_function_address_adoption_options() {
+        let parsed = parse(
+            [
+                "cargo",
+                "octet",
+                "check",
+                "--function-addresses=warn",
+                "--function-address-path",
+                "crates/core/src",
+                "--",
+                "--all-targets",
+            ]
+            .map(OsString::from),
+        )
+        .expect("parse function-address check options");
+
+        match parsed {
+            CommandArgs::Check(args) => {
+                assert_eq!(args.function_addresses.mode, crate::function_address::FunctionAddressMode::Warn);
+                assert_eq!(args.function_addresses.paths, vec![std::path::PathBuf::from("crates/core/src")]);
+                assert_eq!(args.cargo_check_args.as_deref(), Some(["--all-targets".to_owned()].as_slice()));
+            }
+            other => panic!("expected check args, got {other:?}"),
+        }
+
+        let error = parse(["cargo", "octet", "check", "--function-addresses=strict"].map(OsString::from))
+            .expect_err("invalid mode fails");
+        assert!(error.contains("unsupported function-address mode"));
     }
 
     #[test]
