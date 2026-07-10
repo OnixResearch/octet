@@ -26,6 +26,7 @@ const FUNCTION_ADDRESS_RECEIPT_CLASS: &str = "function-address-receipt";
 const FUNCTION_ADDRESS_PRODUCER: &str = "octet";
 const FUNCTION_ADDRESS_PRODUCER_ROLE: &str = "rust-source-shape-producer";
 const FUNCTION_ADDRESS_SOURCE_LANGUAGE: &str = "rust";
+const DEPENDENCY_IDENTITY_KIND_SOURCE_TOKEN_SET: &str = "source-token-set";
 const KAMACITE_CANONICAL_IDENTITY_OWNER: &str = "kamacite-preserves-bytes";
 const KAMACITE_COMPATIBILITY_PROJECTION: &str = "kamacite.function-address-receipt.v1.compat-json";
 const IDENTITY_ALGORITHM_BLAKE3: &str = "blake3";
@@ -64,6 +65,9 @@ const FORBIDDEN_CLAIM_FRAGMENTS: &[&str] = &[
     "whole-program safety",
     "verifier soundness",
     "release eligibility",
+    "resolved call graph",
+    "semantic dependency closure",
+    "complete semantic closure",
 ];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -140,6 +144,7 @@ pub struct FunctionAddressRecord {
     pub function_address: String,
     pub normalized_body_hash: String,
     pub dependency_set_hash: String,
+    pub dependency_identity_kind: String,
     pub dependency_identity_status: String,
     pub source_identity: String,
     pub review: Option<String>,
@@ -520,6 +525,7 @@ fn function_address_record(
         function_address,
         normalized_body_hash: determinism::full_hash(&normalized),
         dependency_set_hash,
+        dependency_identity_kind: DEPENDENCY_IDENTITY_KIND_SOURCE_TOKEN_SET.to_owned(),
         dependency_identity_status,
         source_identity: source_identity.to_owned(),
         review: span.marker.as_ref().and_then(|marker| marker.review().map(str::to_owned)),
@@ -632,6 +638,7 @@ fn finding_for_baseline_issue(issue: &BaselineIssue, mode: FunctionAddressMode, 
         function_address: issue.function_address.clone(),
         normalized_body_hash: issue.function_address.clone(),
         dependency_set_hash: issue.function_address.clone(),
+        dependency_identity_kind: DEPENDENCY_IDENTITY_KIND_SOURCE_TOKEN_SET.to_owned(),
         dependency_identity_status: "baseline-receipt".to_owned(),
         source_identity: issue.function_address.clone(),
         review: None,
@@ -842,6 +849,7 @@ mod tests {
         assert_eq!(artifact["schema"], FUNCTION_ADDRESS_DOMAIN);
         assert_eq!(artifact["receipt_class"], FUNCTION_ADDRESS_RECEIPT_CLASS);
         assert_eq!(artifact["producer"]["role"], FUNCTION_ADDRESS_PRODUCER_ROLE);
+        assert_eq!(artifact["records"][0]["dependency_identity_kind"], DEPENDENCY_IDENTITY_KIND_SOURCE_TOKEN_SET);
         assert_eq!(artifact["kamacite_projection"]["compatibility_projection"], KAMACITE_COMPATIBILITY_PROJECTION);
         assert!(run.artifact_json.contains(NON_CLAIM_SEMANTIC_CORRECTNESS));
         assert!(run.artifact_json.contains("\"source_envelopes\""));
@@ -1300,5 +1308,26 @@ mod tests {
 
         assert_eq!(findings.len(), 1);
         assert_eq!(findings[0].lint, LINT_FUNCTION_ADDRESS_OVERCLAIM);
+    }
+
+    #[test]
+    fn baseline_receipt_dependency_closure_overclaim_reports_overclaim() {
+        let temp = TempDir::new().expect("temp dir");
+        let baseline = temp.path().join("function-addresses.json");
+        let mut receipt = serde_json::from_str::<serde_json::Value>(&valid_baseline_json(serde_json::json!([])))
+            .expect("baseline JSON");
+        receipt["claims"] = serde_json::json!(["records complete semantic closure"]);
+        std::fs::write(&baseline, receipt.to_string()).expect("write baseline");
+        let check = FunctionAddressCheck {
+            mode: FunctionAddressMode::Warn,
+            paths: Vec::new(),
+            baseline: Some(baseline),
+        };
+
+        let findings = collect_test_findings(&check, temp.path(), "config");
+
+        assert_eq!(findings.len(), 1);
+        assert_eq!(findings[0].lint, LINT_FUNCTION_ADDRESS_OVERCLAIM);
+        assert_eq!(findings[0].severity, WARNING_SEVERITY);
     }
 }
