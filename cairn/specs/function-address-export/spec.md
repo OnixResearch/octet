@@ -64,6 +64,26 @@ r[octet.function_address_export.adoption_modes.observe]
 - WHEN Octet checks a configured scope with missing, stale, or unsupported function-address evidence
 - THEN Octet SHOULD emit inventory and baseline diagnostics without failing the run solely because function-address coverage is incomplete.
 
+### Requirement: Observe mode emits artifacts with advisory debt
+
+r[octet.function_address_export.observe_artifact_valid.core] Octet MUST emit a function-address artifact in observe mode when Cargo checking succeeds, even when functions lack reviewed markers or baseline entries.
+
+#### Scenario: Unbaselined observe writes report
+r[octet.function_address_export.observe_artifact_valid.positive]
+- GIVEN a Rust workspace has functions and no function-address baseline
+- WHEN `cargo octet check --function-addresses=observe` runs successfully
+- THEN Octet MUST write `function-addresses.json` and MUST NOT fail because the missing-review findings are malformed.
+
+### Requirement: Observe findings use the accepted output domain
+
+r[octet.function_address_export.observe_artifact_valid.findings] Octet MUST encode observe-mode function-address findings using a severity, group, path, and identity shape accepted by the runner output validator.
+
+#### Scenario: Advisory finding validates
+r[octet.function_address_export.observe_artifact_valid.validation]
+- GIVEN observe mode reports missing reviewed function-address coverage
+- WHEN structured output and artifact-bundle validation run
+- THEN every function-address finding MUST pass the output-domain validator and the artifact bundle MUST remain consumable.
+
 #### Scenario: Warn mode emits lint-like diagnostics
 r[octet.function_address_export.adoption_modes.warn]
 - GIVEN function-address mode is `warn`
@@ -123,6 +143,16 @@ r[octet.function_address_export.fixtures.negative.suite]
 - GIVEN invalid function-address fixtures cover the fail-closed classes
 - WHEN the focused fixture suite runs
 - THEN each invalid fixture MUST fail with a deterministic diagnostic naming the rejected field or function locator.
+
+### Requirement: Strict modes fail closed on bad baselines
+
+r[octet.function_address_export.observe_artifact_valid.negative] Octet MUST keep warn and deny mode diagnostics for malformed, stale, or overclaiming reviewed baselines.
+
+#### Scenario: Malformed baseline remains diagnostic
+r[octet.function_address_export.observe_artifact_valid.docs]
+- GIVEN a reviewed function-address baseline contains malformed BLAKE3, stale source identity, or forbidden claim text
+- WHEN warn or deny mode checks the baseline
+- THEN Octet MUST report deterministic diagnostics without weakening the function-address non-claim boundary.
 
 ### Requirement: Kamacite-compatible export
 

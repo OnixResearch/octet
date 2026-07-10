@@ -19,7 +19,7 @@ const LINT_FUNCTION_ADDRESS_MISSING: &str = "function_address_missing";
 const LINT_FUNCTION_ADDRESS_OVERCLAIM: &str = "function_address_overclaim";
 const LINT_FUNCTION_ADDRESS_STALE: &str = "function_address_stale";
 const LINT_FUNCTION_ADDRESS_UNSUPPORTED: &str = "function_address_unsupported";
-const FUNCTION_ADDRESS_GROUP: &str = "octet::function_address";
+const FUNCTION_ADDRESS_GROUP: &str = "tigerstyle::function_address";
 const FUNCTION_ADDRESS_PRINCIPLE: &str = "content-addressed function identity";
 const FUNCTION_ADDRESS_EFFECT_FAMILY: &str = "source-identity";
 const FUNCTION_ADDRESS_RECEIPT_CLASS: &str = "function-address-receipt";
@@ -29,7 +29,7 @@ const FUNCTION_ADDRESS_SOURCE_LANGUAGE: &str = "rust";
 const KAMACITE_CANONICAL_IDENTITY_OWNER: &str = "kamacite-preserves-bytes";
 const KAMACITE_COMPATIBILITY_PROJECTION: &str = "kamacite.function-address-receipt.v1.compat-json";
 const IDENTITY_ALGORITHM_BLAKE3: &str = "blake3";
-const OBSERVE_SEVERITY: &str = "note";
+const OBSERVE_SEVERITY: &str = "warning";
 const WARNING_SEVERITY: &str = "warning";
 const ERROR_SEVERITY: &str = "error";
 const DEFAULT_LINE: u32 = 1;
@@ -249,15 +249,15 @@ pub fn collect_run(
     for file in files {
         let source = std::fs::read_to_string(&file).map_err(|error| format!("read {}: {error}", file.display()))?;
         let source_identity = source_identity(&source);
-        let normalized_path = determinism::normalize_path(&file);
+        let normalized_path = function_record_path(workspace_root, &file)?;
         source_envelopes.insert(normalized_path.clone(), SourceEnvelopeRecord {
-            path: normalized_path,
+            path: normalized_path.clone(),
             language: FUNCTION_ADDRESS_SOURCE_LANGUAGE,
             source_identity: source_identity.clone(),
         });
         for span in fingerprint::find_functions(&source) {
             let function_source = &source[span.start..span.end];
-            let record = function_address_record(&file, &source, &source_identity, &span, function_source);
+            let record = function_address_record(&normalized_path, &source, &source_identity, &span, function_source);
             let locator = function_locator(&record.path, &record.name);
             if seen_locators.insert(locator.clone(), record.function_address.clone()).is_some() {
                 findings.push(finding_for_record(
@@ -428,8 +428,19 @@ fn mode_name(mode: FunctionAddressMode) -> &'static str {
     }
 }
 
+fn function_record_path(workspace_root: &Path, file: &Path) -> Result<String, String> {
+    let relative = file.strip_prefix(workspace_root).map_err(|_| {
+        format!(
+            "function-address source path `{}` is outside workspace root `{}`",
+            file.display(),
+            workspace_root.display()
+        )
+    })?;
+    Ok(determinism::normalize_path(relative))
+}
+
 fn function_address_record(
-    path: &Path,
+    path: &str,
     source: &str,
     source_identity: &str,
     span: &fingerprint::FunctionSpan,
@@ -446,7 +457,7 @@ fn function_address_record(
     }
 
     FunctionAddressRecord {
-        path: determinism::normalize_path(path),
+        path: path.to_owned(),
         name: span.name.clone(),
         line,
         column,
@@ -677,8 +688,28 @@ mod tests {
 
         assert_eq!(findings.len(), 1);
         assert_eq!(findings[0].lint, LINT_FUNCTION_ADDRESS_MISSING);
+        assert_eq!(findings[0].group, FUNCTION_ADDRESS_GROUP);
         assert_eq!(findings[0].severity, OBSERVE_SEVERITY);
+        assert_eq!(findings[0].file, "lib.rs");
         assert!(findings[0].message.contains(FUNCTION_ADDRESS_CANONICALIZER));
+    }
+
+    #[test]
+    fn observe_mode_missing_marker_finding_renders_as_valid_output_domain() {
+        let temp = TempDir::new().expect("temp dir");
+        let source = temp.path().join("lib.rs");
+        std::fs::write(&source, "fn f() -> u32 { 1 }\n").expect("write source");
+        let check = FunctionAddressCheck {
+            mode: FunctionAddressMode::Observe,
+            paths: vec![source],
+            baseline: None,
+        };
+
+        let run = collect_test_run(&check, temp.path(), "config");
+        let rendered = output::render_json_lines(&run.findings).expect("function-address findings render");
+
+        assert!(rendered.contains(LINT_FUNCTION_ADDRESS_MISSING));
+        assert!(artifact_value(&run)["records"].as_array().is_some_and(|records| records.len() == 1));
     }
 
     #[test]
@@ -958,6 +989,40 @@ mod tests {
 
         assert_eq!(findings.len(), 1);
         assert_eq!(findings[0].lint, LINT_FUNCTION_ADDRESS_DUPLICATE_LOCATOR);
+    }
+
+    #[test]
+    fn malformed_baseline_receipt_reports_valid_warn_and_deny_domains() {
+        let temp = TempDir::new().expect("temp dir");
+        let baseline = temp.path().join("function-addresses.json");
+        std::fs::write(
+            &baseline,
+            valid_baseline_json(serde_json::json!([
+                {"path": "src/lib.rs", "name": "f", "function_address": "not-a-blake3-address"}
+            ])),
+        )
+        .expect("write baseline");
+        let warn = FunctionAddressCheck {
+            mode: FunctionAddressMode::Warn,
+            paths: Vec::new(),
+            baseline: Some(baseline.clone()),
+        };
+        let deny = FunctionAddressCheck {
+            mode: FunctionAddressMode::Deny,
+            paths: Vec::new(),
+            baseline: Some(baseline),
+        };
+
+        let warn_findings = collect_test_findings(&warn, temp.path(), "config");
+        let deny_findings = collect_test_findings(&deny, temp.path(), "config");
+
+        assert_eq!(warn_findings.len(), 1);
+        assert_eq!(warn_findings[0].lint, LINT_FUNCTION_ADDRESS_MALFORMED);
+        assert_eq!(warn_findings[0].severity, WARNING_SEVERITY);
+        assert_eq!(deny_findings.len(), 1);
+        assert_eq!(deny_findings[0].severity, ERROR_SEVERITY);
+        output::render_json_lines(&warn_findings).expect("warn findings render");
+        output::render_json_lines(&deny_findings).expect("deny findings render");
     }
 
     #[test]
