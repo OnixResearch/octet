@@ -135,6 +135,8 @@ pub struct FunctionAddressRecord {
     pub name: String,
     pub line: u32,
     pub column: u32,
+    pub start_byte: usize,
+    pub end_byte: usize,
     pub function_address: String,
     pub normalized_body_hash: String,
     pub dependency_set_hash: String,
@@ -260,7 +262,7 @@ pub fn collect_run(
             source_identity: source_identity.clone(),
         });
         for span in fingerprint::find_functions(&source) {
-            let function_source = &source[span.start..span.end];
+            let function_source = function_source_for_span(&source, &span)?;
             let record = function_address_record(&normalized_path, &source, &source_identity, &span, function_source);
             let locator = function_locator(&record.path, &record.name);
             if seen_locators.insert(locator.clone(), record.function_address.clone()).is_some() {
@@ -513,6 +515,8 @@ fn function_address_record(
         name: span.name.clone(),
         line,
         column,
+        start_byte: span.start,
+        end_byte: span.end,
         function_address,
         normalized_body_hash: determinism::full_hash(&normalized),
         dependency_set_hash,
@@ -571,6 +575,24 @@ fn source_identity(source: &str) -> String {
     determinism::full_hash(source)
 }
 
+fn function_source_for_span<'a>(source: &'a str, span: &fingerprint::FunctionSpan) -> Result<&'a str, String> {
+    if span.start > span.end {
+        return Err(format!(
+            "function-address span for `{}` has start_byte {} greater than end_byte {}",
+            span.name, span.start, span.end
+        ));
+    }
+    source.get(span.start..span.end).ok_or_else(|| {
+        format!(
+            "function-address span for `{}` is outside source envelope or not on UTF-8 boundaries: start_byte={} end_byte={} source_len={}",
+            span.name,
+            span.start,
+            span.end,
+            source.len()
+        )
+    })
+}
+
 fn marker_finding_for_record(
     record: &FunctionAddressRecord,
     marker: Option<&fingerprint::Marker>,
@@ -605,6 +627,8 @@ fn finding_for_baseline_issue(issue: &BaselineIssue, mode: FunctionAddressMode, 
         name: issue.name.clone(),
         line: DEFAULT_LINE,
         column: DEFAULT_COLUMN,
+        start_byte: 0,
+        end_byte: 0,
         function_address: issue.function_address.clone(),
         normalized_body_hash: issue.function_address.clone(),
         dependency_set_hash: issue.function_address.clone(),
@@ -822,6 +846,57 @@ mod tests {
         assert!(run.artifact_json.contains(NON_CLAIM_SEMANTIC_CORRECTNESS));
         assert!(run.artifact_json.contains("\"source_envelopes\""));
         assert!(run.artifact_json.contains("\"records\""));
+    }
+
+    #[test]
+    fn exported_byte_span_slices_hashed_function_source() {
+        let temp = TempDir::new().expect("temp dir");
+        let source_path = temp.path().join("src/lib.rs");
+        let source_text = "// header\n#[inline]\npub fn f() -> u32 { 1 }\n";
+        std::fs::create_dir_all(source_path.parent().expect("source parent")).expect("create src dir");
+        std::fs::write(&source_path, source_text).expect("write source");
+        let check = FunctionAddressCheck {
+            mode: FunctionAddressMode::Observe,
+            paths: vec![PathBuf::from("src/lib.rs")],
+            baseline: None,
+        };
+
+        let artifact = artifact_value(&collect_test_run(&check, temp.path(), "config"));
+        let record = &artifact["records"][0];
+        let start = usize::try_from(record["start_byte"].as_u64().expect("start byte")).expect("usize start byte");
+        let end = usize::try_from(record["end_byte"].as_u64().expect("end byte")).expect("usize end byte");
+        let slice = &source_text[start..end];
+
+        assert!(slice.starts_with("#[inline]"));
+        assert!(slice.contains("pub fn f"));
+        assert_eq!(record["normalized_body_hash"], determinism::full_hash(&fingerprint::normalize_tokens(slice)));
+    }
+
+    #[test]
+    fn invalid_byte_spans_fail_before_slicing_source() {
+        const INVERTED_START_BYTE: usize = 2;
+        const INVERTED_END_BYTE: usize = 1;
+        const OUT_OF_RANGE_END_BYTE: usize = 100;
+        let inverted = fingerprint::FunctionSpan {
+            name: "f".to_owned(),
+            start: INVERTED_START_BYTE,
+            end: INVERTED_END_BYTE,
+            marker: None,
+            macro_calls: false,
+        };
+        let out_of_range = fingerprint::FunctionSpan {
+            name: "g".to_owned(),
+            start: 0,
+            end: OUT_OF_RANGE_END_BYTE,
+            marker: None,
+            macro_calls: false,
+        };
+
+        let inverted_error = function_source_for_span("fn f() {}", &inverted).expect_err("inverted span fails");
+        let range_error = function_source_for_span("fn g() {}", &out_of_range).expect_err("out-of-range span fails");
+
+        assert!(inverted_error.contains("start_byte"));
+        assert!(range_error.contains("outside source envelope"));
     }
 
     #[test]
