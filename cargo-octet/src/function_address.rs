@@ -43,6 +43,10 @@ const BLAKE3_HEX_LENGTH: usize = blake3::OUT_LEN * HEX_CHARS_PER_BYTE;
 const LOCATOR_SEPARATOR: &str = "\u{1f}";
 const BASELINE_RECEIPT_PATH: &str = "function-address-baseline";
 const BASELINE_RECEIPT_LOCATOR: &str = "receipt";
+const PATH_SEPARATOR: char = '/';
+const WINDOWS_PATH_SEPARATOR: char = '\\';
+const CURRENT_DIRECTORY_SEGMENT: &str = ".";
+const PARENT_DIRECTORY_SEGMENT: &str = "..";
 const NON_CLAIM_SEMANTIC_CORRECTNESS: &str = "not Rust semantic correctness";
 const NON_CLAIM_COMPILER_CORRECTNESS: &str = "not compiler correctness";
 const NON_CLAIM_WHOLE_PROGRAM_SAFETY: &str = "not whole-program safety";
@@ -237,7 +241,7 @@ pub fn collect_run(
     files.sort();
     files.dedup();
 
-    let baseline = load_baseline(check.baseline.as_deref())?;
+    let baseline = load_baseline(check.baseline.as_deref(), workspace_root)?;
     let mut records = Vec::new();
     let mut findings = baseline
         .issues
@@ -354,7 +358,7 @@ pub fn render_report_json(report: &FunctionAddressReport) -> Result<String, Stri
     Ok(rendered)
 }
 
-fn load_baseline(path: Option<&Path>) -> Result<BaselineIndex, String> {
+fn load_baseline(path: Option<&Path>, workspace_root: &Path) -> Result<BaselineIndex, String> {
     let Some(path) = path else {
         return Ok(BaselineIndex::default());
     };
@@ -365,11 +369,14 @@ fn load_baseline(path: Option<&Path>) -> Result<BaselineIndex, String> {
     let mut source_identities = BTreeMap::new();
     let mut issues = Vec::new();
     for record in report.records {
-        let locator = function_locator(&record.path, &record.name);
+        let Some(normalized_path) = normalize_baseline_record_path(workspace_root, &record, &mut issues) else {
+            continue;
+        };
+        let locator = function_locator(&normalized_path, &record.name);
         if !is_blake3_identity(&record.function_address) {
             issues.push(BaselineIssue {
                 lint: LINT_FUNCTION_ADDRESS_MALFORMED,
-                path: record.path.clone(),
+                path: normalized_path.clone(),
                 name: record.name.clone(),
                 function_address: determinism::full_hash(&record.function_address),
                 message: "baseline receipt contains a malformed BLAKE3 function address",
@@ -381,7 +388,7 @@ fn load_baseline(path: Option<&Path>) -> Result<BaselineIndex, String> {
         if addresses.insert(locator, record.function_address.clone()).is_some() {
             issues.push(BaselineIssue {
                 lint: LINT_FUNCTION_ADDRESS_DUPLICATE_LOCATOR,
-                path: record.path,
+                path: normalized_path,
                 name: record.name,
                 function_address: record.function_address,
                 message: "baseline receipt contains a duplicate function locator",
@@ -417,6 +424,51 @@ fn load_baseline(path: Option<&Path>) -> Result<BaselineIndex, String> {
 
 fn function_locator(path: &str, name: &str) -> String {
     format!("{path}{LOCATOR_SEPARATOR}{name}")
+}
+
+fn normalize_baseline_record_path(
+    workspace_root: &Path,
+    record: &BaselineRecord,
+    issues: &mut Vec<BaselineIssue>,
+) -> Option<String> {
+    let raw_path = Path::new(&record.path);
+    let normalized = if raw_path.is_absolute() {
+        match raw_path.strip_prefix(workspace_root) {
+            Ok(relative) => determinism::normalize_path(relative),
+            Err(_) => {
+                issues.push(baseline_path_issue(record, "baseline receipt path is outside workspace root"));
+                return None;
+            }
+        }
+    } else {
+        determinism::normalize_path_text(&record.path)
+    };
+
+    if is_canonical_relative_path(&normalized) {
+        Some(normalized)
+    } else {
+        issues.push(baseline_path_issue(record, "baseline receipt path must be canonical and repo-relative"));
+        None
+    }
+}
+
+fn baseline_path_issue(record: &BaselineRecord, message: &'static str) -> BaselineIssue {
+    BaselineIssue {
+        lint: LINT_FUNCTION_ADDRESS_MALFORMED,
+        path: BASELINE_RECEIPT_PATH.to_owned(),
+        name: record.name.clone(),
+        function_address: determinism::full_hash(&record.path),
+        message,
+    }
+}
+
+fn is_canonical_relative_path(path: &str) -> bool {
+    if path.is_empty() || path.starts_with(PATH_SEPARATOR) || path.contains(WINDOWS_PATH_SEPARATOR) {
+        return false;
+    }
+    path.split(PATH_SEPARATOR).all(|segment| {
+        !segment.is_empty() && segment != CURRENT_DIRECTORY_SEGMENT && segment != PARENT_DIRECTORY_SEGMENT
+    })
 }
 
 fn mode_name(mode: FunctionAddressMode) -> &'static str {
@@ -773,6 +825,32 @@ mod tests {
     }
 
     #[test]
+    fn relocated_checkout_emits_stable_relative_paths_and_locators() {
+        let first = TempDir::new().expect("first temp dir");
+        let second = TempDir::new().expect("second temp dir");
+        for root in [first.path(), second.path()] {
+            let src = root.join("src");
+            std::fs::create_dir_all(&src).expect("create src dir");
+            std::fs::write(src.join("lib.rs"), "pub fn f() -> u32 { 1 }\n").expect("write source");
+        }
+        let check = FunctionAddressCheck {
+            mode: FunctionAddressMode::Observe,
+            paths: vec![PathBuf::from("src/lib.rs")],
+            baseline: None,
+        };
+
+        let first_artifact = artifact_value(&collect_test_run(&check, first.path(), "config"));
+        let second_artifact = artifact_value(&collect_test_run(&check, second.path(), "config"));
+
+        assert_eq!(first_artifact["source_envelopes"][0]["path"], "src/lib.rs");
+        assert_eq!(first_artifact["records"][0]["path"], "src/lib.rs");
+        assert_eq!(first_artifact["source_envelopes"], second_artifact["source_envelopes"]);
+        assert_eq!(first_artifact["records"][0]["path"], second_artifact["records"][0]["path"]);
+        assert_eq!(first_artifact["records"][0]["function_address"], second_artifact["records"][0]["function_address"]);
+        assert_eq!(function_locator("src/lib.rs", "f"), function_locator("src/lib.rs", "f"));
+    }
+
+    #[test]
     fn baseline_suppresses_unchanged_missing_marker_debt() {
         let temp = TempDir::new().expect("temp dir");
         let source = temp.path().join("lib.rs");
@@ -989,6 +1067,110 @@ mod tests {
 
         assert_eq!(findings.len(), 1);
         assert_eq!(findings[0].lint, LINT_FUNCTION_ADDRESS_DUPLICATE_LOCATOR);
+    }
+
+    #[test]
+    fn absolute_baseline_path_under_workspace_matches_relative_record() {
+        let temp = TempDir::new().expect("temp dir");
+        let source = temp.path().join("src/lib.rs");
+        let baseline = temp.path().join("function-addresses.json");
+        std::fs::create_dir_all(source.parent().expect("source parent")).expect("create src dir");
+        std::fs::write(&source, "fn f() -> u32 { 1 }\n").expect("write source");
+        let observe = FunctionAddressCheck {
+            mode: FunctionAddressMode::Observe,
+            paths: vec![PathBuf::from("src/lib.rs")],
+            baseline: None,
+        };
+        let mut baseline_value = artifact_value(&collect_test_run(&observe, temp.path(), "config"));
+        baseline_value["records"][0]["path"] = serde_json::json!(source.display().to_string());
+        std::fs::write(&baseline, baseline_value.to_string()).expect("write baseline");
+        let deny = FunctionAddressCheck {
+            mode: FunctionAddressMode::Deny,
+            paths: vec![PathBuf::from("src/lib.rs")],
+            baseline: Some(baseline),
+        };
+
+        let findings = collect_test_findings(&deny, temp.path(), "config");
+
+        assert!(findings.is_empty());
+    }
+
+    #[test]
+    fn baseline_path_outside_workspace_is_rejected_with_valid_finding_domain() {
+        let temp = TempDir::new().expect("temp dir");
+        let baseline = temp.path().join("function-addresses.json");
+        std::fs::write(
+            &baseline,
+            valid_baseline_json(serde_json::json!([
+                {"path": "/outside/src/lib.rs", "name": "f", "function_address": determinism::full_hash("one")}
+            ])),
+        )
+        .expect("write baseline");
+        let check = FunctionAddressCheck {
+            mode: FunctionAddressMode::Deny,
+            paths: Vec::new(),
+            baseline: Some(baseline),
+        };
+
+        let findings = collect_test_findings(&check, temp.path(), "config");
+
+        assert_eq!(findings.len(), 1);
+        assert_eq!(findings[0].lint, LINT_FUNCTION_ADDRESS_MALFORMED);
+        assert_eq!(findings[0].file, BASELINE_RECEIPT_PATH);
+        assert!(findings[0].message.contains("outside workspace root"));
+        output::render_json_lines(&findings).expect("path diagnostic renders");
+    }
+
+    #[test]
+    fn baseline_path_escape_is_rejected_with_valid_finding_domain() {
+        let temp = TempDir::new().expect("temp dir");
+        let baseline = temp.path().join("function-addresses.json");
+        std::fs::write(
+            &baseline,
+            valid_baseline_json(serde_json::json!([
+                {"path": "src/../lib.rs", "name": "f", "function_address": determinism::full_hash("one")}
+            ])),
+        )
+        .expect("write baseline");
+        let check = FunctionAddressCheck {
+            mode: FunctionAddressMode::Warn,
+            paths: Vec::new(),
+            baseline: Some(baseline),
+        };
+
+        let findings = collect_test_findings(&check, temp.path(), "config");
+
+        assert_eq!(findings.len(), 1);
+        assert_eq!(findings[0].lint, LINT_FUNCTION_ADDRESS_MALFORMED);
+        assert_eq!(findings[0].severity, WARNING_SEVERITY);
+        assert!(findings[0].message.contains("canonical and repo-relative"));
+        output::render_json_lines(&findings).expect("escape diagnostic renders");
+    }
+
+    #[test]
+    fn duplicate_baseline_receipt_reports_duplicate_after_absolute_path_normalization() {
+        let temp = TempDir::new().expect("temp dir");
+        let absolute_path = temp.path().join("src/lib.rs");
+        let baseline = temp.path().join("function-addresses.json");
+        std::fs::write(
+            &baseline,
+            valid_baseline_json(serde_json::json!([
+                {"path": absolute_path.display().to_string(), "name": "f", "function_address": determinism::full_hash("one")},
+                {"path": "src/lib.rs", "name": "f", "function_address": determinism::full_hash("two")}
+            ])),
+        )
+        .expect("write baseline");
+        let check = FunctionAddressCheck {
+            mode: FunctionAddressMode::Deny,
+            paths: Vec::new(),
+            baseline: Some(baseline),
+        };
+
+        let findings = collect_test_findings(&check, temp.path(), "config");
+
+        assert_eq!(findings.len(), 1);
+        assert_eq!(findings[0].lint, LINT_FUNCTION_ADDRESS_DUPLICATE_LOCATOR);
+        assert_eq!(findings[0].file, "src/lib.rs");
     }
 
     #[test]
