@@ -158,12 +158,14 @@ this README plus command help, without reading archived OpenSpec changes:
   when enabled with `--artifact-dir`, the check writes `function-addresses.json`
   beside the normal bundle sidecars with source envelopes, marker review fields,
   duplicate/malformed/stale diagnostics, and a Kamacite-compatible projection
-  descriptor. Use `--function-address-baseline PATH` to ratchet gradually:
-  unchanged baseline functions stay admitted while changed or new unaddressed
-  functions report stale/missing diagnostics. These receipts are identity and
-  source-shape evidence only; they do not claim Rust semantic correctness,
-  compiler correctness, whole-program safety, verifier soundness, or release
-  eligibility.
+  descriptor. `observe` is the bootstrap mode: unreviewed or unbaselined
+  functions produce renderer-valid warning findings while still emitting the
+  artifact for review. Use `--function-address-baseline PATH` to ratchet
+  gradually: unchanged baseline functions stay admitted while changed or new
+  unaddressed functions report stale/missing diagnostics. These receipts are
+  identity and source-shape evidence only; they do not claim Rust semantic
+  correctness, compiler correctness, whole-program safety, verifier soundness,
+  or release eligibility.
 - `cargo octet artifact verify --artifact-dir artifacts/octet` recomputes sidecar
   BLAKE3 hashes and fails closed on missing, stale, malformed, or inconsistent
   provenance before the directory is treated as release evidence. With
