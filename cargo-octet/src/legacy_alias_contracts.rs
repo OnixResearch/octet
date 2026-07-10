@@ -1,4 +1,5 @@
-const REQUIRED_NON_CLAIM: &str = "legacy identity approval preserves compatibility only; it does not make the legacy identity canonical";
+const REQUIRED_NON_CLAIM: &str =
+    "legacy identity approval preserves compatibility only; it does not make the legacy identity canonical";
 const DIAGNOSTIC_MISSING_CONTRACT: &str = "missing_alias_contract";
 const DIAGNOSTIC_SURFACE_NOT_ALLOWED: &str = "alias_surface_not_allowed";
 const DIAGNOSTIC_BLOCKED_ALIAS: &str = "blocked_alias_occurrence";
@@ -128,17 +129,10 @@ fn contract_diagnostics(contracts: &[LegacyAliasContract]) -> Vec<String> {
     diagnostics
 }
 
-fn push_required(
-    diagnostics: &mut Vec<String>,
-    legacy_id: &str,
-    diagnostic_code: &str,
-    field_name: &str,
-    value: &str,
-) {
+fn push_required(diagnostics: &mut Vec<String>, legacy_id: &str, diagnostic_code: &str, field_name: &str, value: &str) {
     if value.trim().is_empty() {
-        diagnostics.push(format!(
-            "{diagnostic_code}: legacy alias `{legacy_id}` field `{field_name}` must not be empty"
-        ));
+        diagnostics
+            .push(format!("{diagnostic_code}: legacy alias `{legacy_id}` field `{field_name}` must not be empty"));
     }
 }
 
@@ -203,13 +197,17 @@ mod tests {
     const OCTET_ID: &str = "octet";
     const TIGERSTYLE_ID: &str = "tigerstyle";
     const SLOTCAR_ID: &str = "slotcar";
-    const RETIREMENT_CONDITION: &str = "remove after namespace migration and archived replay docs no longer need the alias";
+    const RETIREMENT_CONDITION: &str =
+        "remove after namespace migration and archived replay docs no longer need the alias";
 
     #[test]
     fn legacy_alias_contracts_accept_approved_deprecated_and_archive_only_surfaces() {
         let contracts = vec![
             alias_contract(TIGERSTYLE_ID, AliasStatus::Approved, vec![AliasSurface::Compatibility]),
-            alias_contract(SLOTCAR_ID, AliasStatus::Deprecated, vec![AliasSurface::Compatibility, AliasSurface::Archive]),
+            alias_contract(SLOTCAR_ID, AliasStatus::Deprecated, vec![
+                AliasSurface::Compatibility,
+                AliasSurface::Archive,
+            ]),
             alias_contract("tigerstyle-archive", AliasStatus::ArchiveOnly, vec![AliasSurface::Archive]),
         ];
         let occurrences = vec![
@@ -229,7 +227,9 @@ mod tests {
 
     #[test]
     fn legacy_alias_contracts_reject_unapproved_active_aliases_and_missing_retirement() {
-        let mut contracts = vec![alias_contract(TIGERSTYLE_ID, AliasStatus::Approved, vec![AliasSurface::Compatibility])];
+        let mut contracts = vec![alias_contract(TIGERSTYLE_ID, AliasStatus::Approved, vec![
+            AliasSurface::Compatibility,
+        ])];
         contracts[0].retirement_condition.clear();
         let occurrences = vec![
             occurrence(TIGERSTYLE_ID, AliasSurface::Active, "src/lib.rs"),
@@ -248,7 +248,11 @@ mod tests {
     fn legacy_alias_contracts_reject_blocked_aliases_and_canonical_overclaims() {
         let mut blocked = alias_contract("molten", AliasStatus::Blocked, vec![AliasSurface::Compatibility]);
         blocked.non_claims.push("legacy identity is canonical for new docs".to_owned());
-        let report = validate_alias_occurrences(&[blocked], &[occurrence("molten", AliasSurface::Compatibility, "docs/index.md")]);
+        let report = validate_alias_occurrences(&[blocked], &[occurrence(
+            "molten",
+            AliasSurface::Compatibility,
+            "docs/index.md",
+        )]);
 
         assert!(!report.valid);
         assert!(report.diagnostics.iter().any(|diagnostic| diagnostic.contains(DIAGNOSTIC_BLOCKED_ALIAS)));

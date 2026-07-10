@@ -1,6 +1,7 @@
 const RECEIPT_SCHEMA_VERSION: &str = "octet-source-acquisition-receipt/v1";
 const REQUIRED_NON_CLAIM: &str = "source acquisition records source identity and policy posture only; it is not dependency audit, vulnerability proof, or formal proof";
-const DEFAULT_LOCAL_OVERRIDE_POLICY: &str = "development-only; not release evidence unless a separate release source identity is declared";
+const DEFAULT_LOCAL_OVERRIDE_POLICY: &str =
+    "development-only; not release evidence unless a separate release source identity is declared";
 const DIAGNOSTIC_SCHEMA_VERSION: &str = "source_acquisition_schema_version";
 const DIAGNOSTIC_EMPTY_LABEL: &str = "source_row_empty_label";
 const DIAGNOSTIC_EMPTY_LOCATOR: &str = "source_row_empty_locator";
@@ -227,9 +228,11 @@ fn attach_dependency_trust_parent(
     row_label: &str,
     parent_artifact: &str,
 ) -> Result<DependencyTrustSummaryLink, String> {
-    let row = receipt.rows.iter().find(|row| row.label == row_label).ok_or_else(|| {
-        format!("source row `{row_label}` missing for dependency-trust parent link")
-    })?;
+    let row = receipt
+        .rows
+        .iter()
+        .find(|row| row.label == row_label)
+        .ok_or_else(|| format!("source row `{row_label}` missing for dependency-trust parent link"))?;
     if receipt.evidence_tier != SourceEvidenceTier::PolicySourceValidation
         && receipt.evidence_tier != SourceEvidenceTier::ManualReview
     {
@@ -261,8 +264,18 @@ mod tests {
     #[test]
     fn source_acquisition_accepts_registry_git_private_vendored_nix_and_local_rows() {
         let receipt = valid_receipt(vec![
-            row("serde", AcquisitionSourceKind::Registry, "registry+https://github.com/rust-lang/crates.io-index", None),
-            row("public-git", AcquisitionSourceKind::PublicGit, "git+https://github.com/OnixResearch/trellis", Some("abc123")),
+            row(
+                "serde",
+                AcquisitionSourceKind::Registry,
+                "registry+https://github.com/rust-lang/crates.io-index",
+                None,
+            ),
+            row(
+                "public-git",
+                AcquisitionSourceKind::PublicGit,
+                "git+https://github.com/OnixResearch/trellis",
+                Some("abc123"),
+            ),
             private_ssh_row(),
             row("vendored-trellis", AcquisitionSourceKind::VendoredSnapshot, "vendor/trellis", Some("trellis-rev")),
             nix_input_to_source_row(NixInputMetadata {
@@ -284,16 +297,28 @@ mod tests {
 
     #[test]
     fn source_acquisition_rejects_unpinned_paths_missing_credentials_stale_locks_and_overclaims() {
-        let mut unpinned = row("unpinned", AcquisitionSourceKind::PublicGit, "git+https://github.com/OnixResearch/octet", None);
+        let mut unpinned =
+            row("unpinned", AcquisitionSourceKind::PublicGit, "git+https://github.com/OnixResearch/octet", None);
         unpinned.lock_identity = None;
         let mut path_release = local_override_row();
         path_release.release_eligible = true;
         let mut missing_credential = private_ssh_row();
         missing_credential.credential_boundary = None;
-        let mut stale = row("stale", AcquisitionSourceKind::Registry, "registry+https://github.com/rust-lang/crates.io-index", None);
+        let mut stale = row(
+            "stale",
+            AcquisitionSourceKind::Registry,
+            "registry+https://github.com/rust-lang/crates.io-index",
+            None,
+        );
         stale.observed_lock_identity = Some(STALE_LOCK_IDENTITY.to_owned());
-        let mut weakened = row("weakened", AcquisitionSourceKind::Registry, "registry+https://github.com/rust-lang/crates.io-index", None);
-        weakened.non_claims = vec!["source acquisition proves dependency audit and vulnerability-free status".to_owned()];
+        let mut weakened = row(
+            "weakened",
+            AcquisitionSourceKind::Registry,
+            "registry+https://github.com/rust-lang/crates.io-index",
+            None,
+        );
+        weakened.non_claims =
+            vec!["source acquisition proves dependency audit and vulnerability-free status".to_owned()];
         let receipt = valid_receipt(vec![unpinned, path_release, missing_credential, stale, weakened]);
 
         let report = validate_source_acquisition_receipt(&receipt);
@@ -363,12 +388,7 @@ mod tests {
         }
     }
 
-    fn row(
-        label: &str,
-        kind: AcquisitionSourceKind,
-        locator: &str,
-        revision: Option<&str>,
-    ) -> SourceAcquisitionRow {
+    fn row(label: &str, kind: AcquisitionSourceKind, locator: &str, revision: Option<&str>) -> SourceAcquisitionRow {
         SourceAcquisitionRow {
             label: label.to_owned(),
             kind,

@@ -2,7 +2,8 @@ const FORMAL_PROOF_TIER: &str = "formal_proof";
 const MANUAL_REVIEW_TIER: &str = "manual_review_required";
 const STATIC_LINT_TIER: &str = "static_lint";
 const PASSED_STATUS: &str = "passed";
-const REQUIRED_NON_CLAIM: &str = "formal-proof Valence export is adapter input only; Octet proof receipts remain authoritative";
+const REQUIRED_NON_CLAIM: &str =
+    "formal-proof Valence export is adapter input only; Octet proof receipts remain authoritative";
 const DIAGNOSTIC_MISSING_RECEIPT: &str = "formal_proof_export_missing_receipt";
 const DIAGNOSTIC_FAILED_RECEIPT: &str = "formal_proof_export_failed_receipt";
 const DIAGNOSTIC_STALE_PROOF_CARD: &str = "formal_proof_export_stale_proof_card";
@@ -85,10 +86,7 @@ fn validate_formal_proof_export_fixture(fixture: &FormalProofExportFixture) -> F
 
 fn render_fixture_report(fixture: &FormalProofExportFixture) -> String {
     let report = validate_formal_proof_export_fixture(fixture);
-    format!(
-        "valid={} tier={} claim={}",
-        report.valid, report.evidence_tier, report.supported_claim
-    )
+    format!("valid={} tier={} claim={}", report.valid, report.evidence_tier, report.supported_claim)
 }
 
 #[cfg(test)]
