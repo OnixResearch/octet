@@ -5,6 +5,7 @@ use std::path::PathBuf;
 use serde::Deserialize;
 
 use crate::determinism;
+use crate::evidence_chain;
 use crate::fingerprint;
 use crate::output;
 
@@ -43,6 +44,8 @@ const REQUIRED_HANDOFF_RECORD_FIELDS: &[&str] = &[
     "dependency_identity_kind",
     "source_identity",
 ];
+const EMPTY_SOURCE_ENVELOPE_SET_KIND: &str = "empty-source-envelope-set";
+const FUNCTION_ADDRESS_EVIDENCE_CHAIN_PROJECTION_ARTIFACT: &str = FUNCTION_ADDRESS_ARTIFACT_NAME;
 const OBSERVE_SEVERITY: &str = "warning";
 const WARNING_SEVERITY: &str = "warning";
 const ERROR_SEVERITY: &str = "error";
@@ -211,6 +214,7 @@ pub struct FunctionAddressReport {
     pub diagnostic_count: usize,
     pub kamacite_projection: KamaciteProjection,
     pub preserves_handoff: PreservesHandoff,
+    pub evidence_chain_handoff: evidence_chain::EvidenceChainHandoff,
     pub non_claims: Vec<&'static str>,
 }
 
@@ -260,7 +264,7 @@ struct HandoffIssue {
     source_identity: String,
     line: u32,
     column: u32,
-    message: &'static str,
+    message: String,
 }
 
 pub fn collect_run(
@@ -363,6 +367,8 @@ pub fn collect_run(
         }
     }
 
+    let source_envelopes = source_envelopes.into_values().collect::<Vec<_>>();
+    let evidence_chain_handoff = function_address_evidence_chain_handoff(config_hash, &source_envelopes, &records)?;
     let mut report = FunctionAddressReport {
         schema: FUNCTION_ADDRESS_DOMAIN,
         schema_version: FUNCTION_ADDRESS_SCHEMA_VERSION,
@@ -375,7 +381,7 @@ pub fn collect_run(
             role: FUNCTION_ADDRESS_PRODUCER_ROLE,
         },
         tool: env!("CARGO_PKG_VERSION"),
-        source_envelopes: source_envelopes.into_values().collect(),
+        source_envelopes,
         records,
         diagnostic_count: findings.len(),
         kamacite_projection: KamaciteProjection {
@@ -392,6 +398,7 @@ pub fn collect_run(
             span_recomputation_required: NO_REPARSE_REQUIREMENT,
             required_record_fields: REQUIRED_HANDOFF_RECORD_FIELDS.to_vec(),
         },
+        evidence_chain_handoff,
         non_claims: REQUIRED_NON_CLAIMS.to_vec(),
     };
     findings.extend(
@@ -413,6 +420,78 @@ pub fn render_report_json(report: &FunctionAddressReport) -> Result<String, Stri
         serde_json::to_string_pretty(report).map_err(|error| format!("serialize function-address report: {error}"))?;
     rendered.push('\n');
     Ok(rendered)
+}
+
+fn function_address_evidence_chain_handoff(
+    config_hash: &str,
+    source_envelopes: &[SourceEnvelopeRecord],
+    records: &[FunctionAddressRecord],
+) -> Result<evidence_chain::EvidenceChainHandoff, String> {
+    let profile_payload = serde_json::json!({
+        "source_envelopes": source_envelopes,
+        "records": records,
+        "canonicalizer": FUNCTION_ADDRESS_CANONICALIZER,
+    });
+    let profile_payload_json = serde_json::to_string(&profile_payload)
+        .map_err(|error| format!("serialize function-address evidence-chain profile payload: {error}"))?;
+    let profile_root = determinism::full_hash(&profile_payload_json);
+    let run_identity = determinism::full_hash(
+        &serde_json::json!({
+            "schema": evidence_chain::EVIDENCE_CHAIN_HANDOFF_SCHEMA,
+            "evidence_kind": evidence_chain::EVIDENCE_KIND_FUNCTION_ADDRESS,
+            "profile_root": profile_root,
+            "config_hash": config_hash,
+            "tool": env!("CARGO_PKG_VERSION"),
+        })
+        .to_string(),
+    );
+    let mut parent_links = source_envelopes
+        .iter()
+        .map(|envelope| evidence_chain::TypedDigest {
+            kind: evidence_chain::PARENT_KIND_SOURCE_ENVELOPE.to_owned(),
+            digest: envelope.source_identity.clone(),
+        })
+        .collect::<Vec<_>>();
+    if parent_links.is_empty() {
+        parent_links.push(evidence_chain::TypedDigest {
+            kind: EMPTY_SOURCE_ENVELOPE_SET_KIND.to_owned(),
+            digest: determinism::full_hash(EMPTY_SOURCE_ENVELOPE_SET_KIND),
+        });
+    }
+
+    Ok(evidence_chain::EvidenceChainHandoff {
+        schema: evidence_chain::EVIDENCE_CHAIN_HANDOFF_SCHEMA.to_owned(),
+        evidence_kind: evidence_chain::EVIDENCE_KIND_FUNCTION_ADDRESS.to_owned(),
+        producer: evidence_chain::EvidenceChainProducer {
+            name: FUNCTION_ADDRESS_PRODUCER.to_owned(),
+            role: FUNCTION_ADDRESS_PRODUCER_ROLE.to_owned(),
+            tool_version: env!("CARGO_PKG_VERSION").to_owned(),
+        },
+        run_identity,
+        policy_hash: canonical_hash_identity(config_hash),
+        profile_hash: determinism::full_hash(FUNCTION_ADDRESS_CANONICALIZER),
+        canonical_authority: KAMACITE_CANONICAL_IDENTITY_OWNER.to_owned(),
+        canonical_roots: vec![evidence_chain::TypedDigest {
+            kind: evidence_chain::ROOT_KIND_FUNCTION_ADDRESS_RECORDS.to_owned(),
+            digest: profile_root.clone(),
+        }],
+        parent_links,
+        projections: vec![evidence_chain::EvidenceChainProjection {
+            kind: evidence_chain::PROJECTION_KIND_COMPAT_JSON.to_owned(),
+            artifact: FUNCTION_ADDRESS_EVIDENCE_CHAIN_PROJECTION_ARTIFACT.to_owned(),
+            digest: profile_root,
+            authority: evidence_chain::PROJECTION_AUTHORITY_NON_AUTHORITATIVE.to_owned(),
+        }],
+        non_claims: REQUIRED_NON_CLAIMS.iter().map(|non_claim| (*non_claim).to_owned()).collect(),
+    })
+}
+
+fn canonical_hash_identity(value: &str) -> String {
+    if is_blake3_identity(value) {
+        value.to_owned()
+    } else {
+        determinism::full_hash(value)
+    }
 }
 
 fn load_baseline(path: Option<&Path>, workspace_root: &Path) -> Result<BaselineIndex, String> {
@@ -725,6 +804,18 @@ fn validate_handoff_metadata(report: &FunctionAddressReport, issues: &mut Vec<Ha
             "function-address handoff is missing required non-claim boundaries",
         ));
     }
+    let evidence_chain_policy = evidence_chain::EvidenceChainValidationPolicy {
+        required_canonical_authority: KAMACITE_CANONICAL_IDENTITY_OWNER,
+        required_non_claims: REQUIRED_NON_CLAIMS,
+    };
+    for diagnostic in
+        evidence_chain::validate_evidence_chain_handoff(&report.evidence_chain_handoff, evidence_chain_policy)
+    {
+        issues.push(handoff_report_issue(
+            LINT_FUNCTION_ADDRESS_MALFORMED,
+            format!("evidence-chain handoff invalid: {diagnostic}"),
+        ));
+    }
 }
 
 fn validate_handoff_record(
@@ -803,7 +894,7 @@ fn record_contains_forbidden_claim(record: &FunctionAddressRecord) -> bool {
         .any(|text| is_forbidden_claim(text))
 }
 
-fn handoff_report_issue(lint: &'static str, message: &'static str) -> HandoffIssue {
+fn handoff_report_issue(lint: &'static str, message: impl Into<String>) -> HandoffIssue {
     HandoffIssue {
         lint,
         path: FUNCTION_ADDRESS_ARTIFACT_NAME.to_owned(),
@@ -812,11 +903,15 @@ fn handoff_report_issue(lint: &'static str, message: &'static str) -> HandoffIss
         source_identity: determinism::full_hash(PRESERVES_HANDOFF_CONTRACT),
         line: DEFAULT_LINE,
         column: DEFAULT_COLUMN,
-        message,
+        message: message.into(),
     }
 }
 
-fn handoff_issue_for_record(record: &FunctionAddressRecord, lint: &'static str, message: &'static str) -> HandoffIssue {
+fn handoff_issue_for_record(
+    record: &FunctionAddressRecord,
+    lint: &'static str,
+    message: impl Into<String>,
+) -> HandoffIssue {
     HandoffIssue {
         lint,
         path: record.path.clone(),
@@ -825,7 +920,7 @@ fn handoff_issue_for_record(record: &FunctionAddressRecord, lint: &'static str, 
         source_identity: record.source_identity.clone(),
         line: record.line,
         column: record.column,
-        message,
+        message: message.into(),
     }
 }
 
@@ -875,7 +970,7 @@ fn finding_for_handoff_issue(issue: &HandoffIssue, mode: FunctionAddressMode, co
         evidence: None,
         caveats: Vec::new(),
     };
-    finding_for_record(&record, mode, issue.lint, issue.message, config_hash)
+    finding_for_record(&record, mode, issue.lint, &issue.message, config_hash)
 }
 
 fn finding_for_baseline_issue(issue: &BaselineIssue, mode: FunctionAddressMode, config_hash: &str) -> output::Finding {
@@ -1059,6 +1154,34 @@ mod tests {
                 span_recomputation_required: NO_REPARSE_REQUIREMENT,
                 required_record_fields: REQUIRED_HANDOFF_RECORD_FIELDS.to_vec(),
             },
+            evidence_chain_handoff: evidence_chain::EvidenceChainHandoff {
+                schema: evidence_chain::EVIDENCE_CHAIN_HANDOFF_SCHEMA.to_owned(),
+                evidence_kind: evidence_chain::EVIDENCE_KIND_FUNCTION_ADDRESS.to_owned(),
+                producer: evidence_chain::EvidenceChainProducer {
+                    name: FUNCTION_ADDRESS_PRODUCER.to_owned(),
+                    role: FUNCTION_ADDRESS_PRODUCER_ROLE.to_owned(),
+                    tool_version: env!("CARGO_PKG_VERSION").to_owned(),
+                },
+                run_identity: determinism::full_hash("run identity"),
+                policy_hash: determinism::full_hash("policy"),
+                profile_hash: determinism::full_hash("profile"),
+                canonical_authority: KAMACITE_CANONICAL_IDENTITY_OWNER.to_owned(),
+                canonical_roots: vec![evidence_chain::TypedDigest {
+                    kind: evidence_chain::ROOT_KIND_FUNCTION_ADDRESS_RECORDS.to_owned(),
+                    digest: determinism::full_hash("records"),
+                }],
+                parent_links: vec![evidence_chain::TypedDigest {
+                    kind: evidence_chain::PARENT_KIND_SOURCE_ENVELOPE.to_owned(),
+                    digest: determinism::full_hash("source envelope bytes"),
+                }],
+                projections: vec![evidence_chain::EvidenceChainProjection {
+                    kind: evidence_chain::PROJECTION_KIND_COMPAT_JSON.to_owned(),
+                    artifact: FUNCTION_ADDRESS_EVIDENCE_CHAIN_PROJECTION_ARTIFACT.to_owned(),
+                    digest: determinism::full_hash("projection"),
+                    authority: evidence_chain::PROJECTION_AUTHORITY_NON_AUTHORITATIVE.to_owned(),
+                }],
+                non_claims: REQUIRED_NON_CLAIMS.iter().map(|non_claim| (*non_claim).to_owned()).collect(),
+            },
             non_claims: REQUIRED_NON_CLAIMS.to_vec(),
         }
     }
@@ -1170,6 +1293,9 @@ mod tests {
         assert_eq!(artifact["preserves_handoff"]["contract"], PRESERVES_HANDOFF_CONTRACT);
         assert_eq!(artifact["preserves_handoff"]["json_projection_role"], JSON_PROJECTION_ROLE);
         assert_eq!(artifact["preserves_handoff"]["span_recomputation_required"], NO_REPARSE_REQUIREMENT);
+        assert_eq!(artifact["evidence_chain_handoff"]["schema"], evidence_chain::EVIDENCE_CHAIN_HANDOFF_SCHEMA);
+        assert_eq!(artifact["evidence_chain_handoff"]["evidence_kind"], evidence_chain::EVIDENCE_KIND_FUNCTION_ADDRESS);
+        assert_eq!(artifact["evidence_chain_handoff"]["canonical_authority"], KAMACITE_CANONICAL_IDENTITY_OWNER);
         assert!(run.artifact_json.contains(NON_CLAIM_SEMANTIC_CORRECTNESS));
         assert!(run.artifact_json.contains("\"source_envelopes\""));
         assert!(run.artifact_json.contains("\"records\""));
@@ -1206,6 +1332,30 @@ mod tests {
         assert!(issues.iter().any(|issue| issue.message.contains("BLAKE3")));
         assert!(issues.iter().any(|issue| issue.message.contains("source-token")));
         assert!(issues.iter().any(|issue| issue.lint == LINT_FUNCTION_ADDRESS_OVERCLAIM));
+    }
+
+    #[test]
+    fn evidence_chain_handoff_validation_rejects_profile_neutral_boundary_errors() {
+        let mut report = valid_preserves_handoff_report();
+        report.evidence_chain_handoff.evidence_kind.clear();
+        report.evidence_chain_handoff.policy_hash = "not-a-blake3-identity".to_owned();
+        report
+            .evidence_chain_handoff
+            .canonical_roots
+            .push(report.evidence_chain_handoff.canonical_roots[0].clone());
+        report.evidence_chain_handoff.parent_links[0].kind.clear();
+        report.evidence_chain_handoff.canonical_authority = "json".to_owned();
+        report.evidence_chain_handoff.projections[0].authority = "canonical-json".to_owned();
+        report.evidence_chain_handoff.non_claims.clear();
+
+        let issues = validate_preserves_handoff(&report);
+
+        assert!(issues.iter().any(|issue| issue.message.contains("evidence_kind")));
+        assert!(issues.iter().any(|issue| issue.message.contains("policy_hash")));
+        assert!(issues.iter().any(|issue| issue.message.contains("duplicate canonical root")));
+        assert!(issues.iter().any(|issue| issue.message.contains("untyped parent")));
+        assert!(issues.iter().any(|issue| issue.message.contains("JSON projection")));
+        assert!(issues.iter().any(|issue| issue.message.contains("non-claim")));
     }
 
     #[test]
