@@ -1,0 +1,10 @@
+## Phase 1: Rust function address producer
+
+- [x] [serial] Capture the Octet function-address extraction requirement delta before implementation. r[octet.function_address_export.receipt_contract]
+- [x] [serial] Implement the initial source-token function-address core and BLAKE3 address construction with explicit canonicalizer/domain identity. r[octet.function_address_export.receipt_contract] r[octet.function_address_export.canonicalization]
+- [x] [serial] Add the first `cargo octet check --function-addresses off|observe|warn|deny` shell integration with scoped path discovery and lint-like diagnostics. r[octet.function_address_export.scope] r[octet.function_address_export.adoption_modes]
+- [ ] [serial] Extend the rail with artifact writing, reviewed baselines, ratchet policy, duplicate/stale receipt verification, and Kamacite-compatible export integration. r[octet.function_address_export.scope] r[octet.function_address_export.adoption_modes] r[octet.function_address_export.kamacite_export]
+- [ ] [parallel] Add positive fixtures for supported function kinds, stable formatting-insensitive addresses, observe/warn/deny mode behavior, scoped ratchets, known dependency edges, and Kamacite-compatible receipt export. r[octet.function_address_export.fixtures.positive] r[octet.function_address_export.adoption_modes] r[octet.function_address_export.kamacite_export]
+- [ ] [parallel] Add negative fixtures for missing functions, stale source identities, stale function addresses, duplicate locators, unsupported syntax without exclusion, malformed BLAKE3 digests, and overclaim text. r[octet.function_address_export.fixtures.negative] r[octet.function_address_export.fail_closed]
+- [ ] [parallel] Register receipt/config families, generated contracts, and documentation that preserve Octet/Kamacite/Valence/Mantle ownership boundaries. r[octet.function_address_export.registry] r[octet.function_address_export.docs]
+- [ ] [serial] Run focused Rust tests, artifact verification, policy freshness, function-address export checks, Cairn validation, and proposal/design/tasks gates before sync/archive. r[octet.function_address_export.final_validation]
