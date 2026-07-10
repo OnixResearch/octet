@@ -111,8 +111,10 @@ whole-program correctness claim. The canonical route is documented in
 requirement or policy ID to Verus proof rail, checked Rust source scope, proof
 target, verifier identity, structured receipt, proof-card review,
 `formal_proof` provenance, and artifact verification. Imported Trellis references
-are BLAKE3 byte-identity/manual-review inputs until Octet reruns the proof and
-validates its own receipt.
+and Trellis proof evidence IR are BLAKE3 byte-identity/manual-review or
+recorded-only inputs until Octet reruns the proof and validates its own receipt.
+Promotion requires matching source, proof IR, verifier, toolchain, solver,
+command, assumptions, property scope, and passed result identity.
 
 ```bash
 cargo octet prove --list \
