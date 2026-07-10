@@ -156,9 +156,10 @@ this README plus command help, without reading archived OpenSpec changes:
   plus optional `--function-address-path PATH` entries to gradually content-address
   functions with lint-like diagnostics before promoting selected scopes to `deny`;
   when enabled with `--artifact-dir`, the check writes `function-addresses.json`
-  beside the normal bundle sidecars with source envelopes, marker review fields,
-  duplicate/malformed/stale diagnostics, and a Kamacite-compatible projection
-  descriptor. `observe` is the bootstrap mode: unreviewed or unbaselined
+  beside the normal bundle sidecars with workspace-relative source-envelope and
+  function record paths, marker review fields, duplicate/malformed/stale
+  diagnostics, and a Kamacite-compatible projection descriptor. `observe` is
+  the bootstrap mode: unreviewed or unbaselined
   functions produce renderer-valid warning findings while still emitting the
   artifact for review. Use `--function-address-baseline PATH` to ratchet
   gradually: unchanged baseline functions stay admitted while changed or new
