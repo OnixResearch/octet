@@ -1,5 +1,8 @@
+use std::collections::BTreeMap;
 use std::path::Path;
 use std::path::PathBuf;
+
+use serde::Deserialize;
 
 use crate::determinism;
 use crate::fingerprint;
@@ -11,6 +14,7 @@ pub const FUNCTION_ADDRESS_CANONICALIZER: &str = "octet-source-token-function-ad
 
 const FUNCTION_ADDRESS_SCHEMA_VERSION: u32 = 1;
 const LINT_FUNCTION_ADDRESS_MISSING: &str = "function_address_missing";
+const LINT_FUNCTION_ADDRESS_STALE: &str = "function_address_stale";
 const LINT_FUNCTION_ADDRESS_UNSUPPORTED: &str = "function_address_unsupported";
 const FUNCTION_ADDRESS_GROUP: &str = "octet::function_address";
 const FUNCTION_ADDRESS_PRINCIPLE: &str = "content-addressed function identity";
@@ -23,6 +27,7 @@ const DEFAULT_COLUMN: u32 = 1;
 const LINE_OFFSET: u32 = 1;
 const COLUMN_OFFSET: u32 = 1;
 const NEWLINE_BYTE: u8 = b'\n';
+const LOCATOR_SEPARATOR: &str = "\u{1f}";
 const NON_CLAIM_SEMANTIC_CORRECTNESS: &str = "not Rust semantic correctness";
 const NON_CLAIM_COMPILER_CORRECTNESS: &str = "not compiler correctness";
 const NON_CLAIM_WHOLE_PROGRAM_SAFETY: &str = "not whole-program safety";
@@ -64,6 +69,7 @@ impl Default for FunctionAddressMode {
 pub struct FunctionAddressCheck {
     pub mode: FunctionAddressMode,
     pub paths: Vec<PathBuf>,
+    pub baseline: Option<PathBuf>,
 }
 
 impl FunctionAddressCheck {
@@ -71,6 +77,7 @@ impl FunctionAddressCheck {
         Self {
             mode: FunctionAddressMode::Off,
             paths: Vec::new(),
+            baseline: None,
         }
     }
 
@@ -122,6 +129,23 @@ pub struct FunctionAddressRun {
     pub artifact_json: String,
 }
 
+#[derive(Debug, Deserialize)]
+struct BaselineReport {
+    records: Vec<BaselineRecord>,
+}
+
+#[derive(Debug, Deserialize)]
+struct BaselineRecord {
+    path: String,
+    name: String,
+    function_address: String,
+}
+
+#[derive(Debug, Default)]
+struct BaselineIndex {
+    addresses: BTreeMap<String, String>,
+}
+
 pub fn collect_run(
     check: &FunctionAddressCheck,
     workspace_root: &Path,
@@ -143,6 +167,7 @@ pub fn collect_run(
     files.sort();
     files.dedup();
 
+    let baseline = load_baseline(check.baseline.as_deref())?;
     let mut records = Vec::new();
     let mut findings = Vec::new();
     for file in files {
@@ -151,12 +176,23 @@ pub fn collect_run(
         for span in fingerprint::find_functions(&source) {
             let function_source = &source[span.start..span.end];
             let record = function_address_record(&file, &source, &source_identity, &span, function_source);
-            if span.marker.is_none() {
+            let locator = function_locator(&record.path, &record.name);
+            if let Some(expected_address) = baseline.addresses.get(&locator) {
+                if expected_address != &record.function_address {
+                    findings.push(finding_for_record(
+                        &record,
+                        check.mode,
+                        LINT_FUNCTION_ADDRESS_STALE,
+                        "function address changed from reviewed baseline; update the reviewed receipt or inspect the change",
+                        config_hash,
+                    ));
+                }
+            } else if span.marker.is_none() {
                 findings.push(finding_for_record(
                     &record,
                     check.mode,
                     LINT_FUNCTION_ADDRESS_MISSING,
-                    "function has no reviewed content-address marker; run observe mode to baseline or add a reviewed receipt",
+                    "function has no reviewed content-address marker or baseline entry; run observe mode to baseline or add a reviewed receipt",
                     config_hash,
                 ));
             }
@@ -202,6 +238,24 @@ pub fn render_report_json(report: &FunctionAddressReport) -> Result<String, Stri
         serde_json::to_string_pretty(report).map_err(|error| format!("serialize function-address report: {error}"))?;
     rendered.push('\n');
     Ok(rendered)
+}
+
+fn load_baseline(path: Option<&Path>) -> Result<BaselineIndex, String> {
+    let Some(path) = path else {
+        return Ok(BaselineIndex::default());
+    };
+    let contents = std::fs::read_to_string(path).map_err(|error| format!("read {}: {error}", path.display()))?;
+    let report: BaselineReport =
+        serde_json::from_str(&contents).map_err(|error| format!("parse {}: {error}", path.display()))?;
+    let mut addresses = BTreeMap::new();
+    for record in report.records {
+        addresses.insert(function_locator(&record.path, &record.name), record.function_address);
+    }
+    Ok(BaselineIndex { addresses })
+}
+
+fn function_locator(path: &str, name: &str) -> String {
+    format!("{path}{LOCATOR_SEPARATOR}{name}")
 }
 
 fn mode_name(mode: FunctionAddressMode) -> &'static str {
@@ -361,6 +415,7 @@ mod tests {
         let check = FunctionAddressCheck {
             mode: FunctionAddressMode::Observe,
             paths: vec![source],
+            baseline: None,
         };
 
         let findings = collect_test_findings(&check, temp.path(), "config");
@@ -379,6 +434,7 @@ mod tests {
         let check = FunctionAddressCheck {
             mode: FunctionAddressMode::Deny,
             paths: vec![PathBuf::from("lib.rs")],
+            baseline: None,
         };
 
         let findings = collect_test_findings(&check, temp.path(), "config");
@@ -395,6 +451,7 @@ mod tests {
         let check = FunctionAddressCheck {
             mode: FunctionAddressMode::Warn,
             paths: vec![PathBuf::from("lib.rs")],
+            baseline: None,
         };
 
         let findings = collect_test_findings(&check, temp.path(), "config");
@@ -413,6 +470,7 @@ mod tests {
         let check = FunctionAddressCheck {
             mode: FunctionAddressMode::Observe,
             paths: vec![PathBuf::from("lib.rs")],
+            baseline: None,
         };
 
         let run = collect_run(&check, temp.path(), "config").expect("collect run").expect("enabled mode returns run");
@@ -421,5 +479,60 @@ mod tests {
         assert!(run.artifact_json.contains("\"schema\": \"octet.function-address.v1\""));
         assert!(run.artifact_json.contains(NON_CLAIM_SEMANTIC_CORRECTNESS));
         assert!(run.artifact_json.contains("\"records\""));
+    }
+
+    #[test]
+    fn baseline_suppresses_unchanged_missing_marker_debt() {
+        let temp = TempDir::new().expect("temp dir");
+        let source = temp.path().join("lib.rs");
+        let baseline = temp.path().join("function-addresses.json");
+        std::fs::write(&source, "fn f() -> u32 { 1 }\n").expect("write source");
+        let observe = FunctionAddressCheck {
+            mode: FunctionAddressMode::Observe,
+            paths: vec![PathBuf::from("lib.rs")],
+            baseline: None,
+        };
+        let baseline_run = collect_run(&observe, temp.path(), "config")
+            .expect("collect baseline")
+            .expect("enabled mode returns run");
+        std::fs::write(&baseline, baseline_run.artifact_json).expect("write baseline");
+        let deny = FunctionAddressCheck {
+            mode: FunctionAddressMode::Deny,
+            paths: vec![PathBuf::from("lib.rs")],
+            baseline: Some(baseline),
+        };
+
+        let findings = collect_test_findings(&deny, temp.path(), "config");
+
+        assert!(findings.is_empty());
+    }
+
+    #[test]
+    fn baseline_reports_stale_function_address() {
+        let temp = TempDir::new().expect("temp dir");
+        let source = temp.path().join("lib.rs");
+        let baseline = temp.path().join("function-addresses.json");
+        std::fs::write(&source, "fn f() -> u32 { 1 }\n").expect("write source");
+        let observe = FunctionAddressCheck {
+            mode: FunctionAddressMode::Observe,
+            paths: vec![PathBuf::from("lib.rs")],
+            baseline: None,
+        };
+        let baseline_run = collect_run(&observe, temp.path(), "config")
+            .expect("collect baseline")
+            .expect("enabled mode returns run");
+        std::fs::write(&baseline, baseline_run.artifact_json).expect("write baseline");
+        std::fs::write(&source, "fn f() -> u32 { 2 }\n").expect("write changed source");
+        let deny = FunctionAddressCheck {
+            mode: FunctionAddressMode::Deny,
+            paths: vec![PathBuf::from("lib.rs")],
+            baseline: Some(baseline),
+        };
+
+        let findings = collect_test_findings(&deny, temp.path(), "config");
+
+        assert_eq!(findings.len(), 1);
+        assert_eq!(findings[0].lint, LINT_FUNCTION_ADDRESS_STALE);
+        assert_eq!(findings[0].severity, ERROR_SEVERITY);
     }
 }

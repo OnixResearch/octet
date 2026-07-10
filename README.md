@@ -156,7 +156,9 @@ this README plus command help, without reading archived OpenSpec changes:
   plus optional `--function-address-path PATH` entries to gradually content-address
   functions with lint-like diagnostics before promoting selected scopes to `deny`;
   when enabled with `--artifact-dir`, the check writes `function-addresses.json`
-  beside the normal bundle sidecars.
+  beside the normal bundle sidecars. Use `--function-address-baseline PATH` to
+  ratchet gradually: unchanged baseline functions stay admitted while changed or
+  new unaddressed functions report stale/missing diagnostics.
 - `cargo octet artifact verify --artifact-dir artifacts/octet` recomputes sidecar
   BLAKE3 hashes and fails closed on missing, stale, malformed, or inconsistent
   provenance before the directory is treated as release evidence. With

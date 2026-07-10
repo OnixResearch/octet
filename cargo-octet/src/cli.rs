@@ -460,7 +460,7 @@ Verifies a saved cargo octet check/prove artifact directory or a log-only eviden
 
 const CHECK_HELP: &str = "cargo octet check
 
-Options: --output-format human|json|sarif, --artifact-dir PATH, --baseline PATH, --write-baseline PATH, --cache, --function-addresses off|observe|warn|deny, --function-address-path PATH.
+Options: --output-format human|json|sarif, --artifact-dir PATH, --baseline PATH, --write-baseline PATH, --cache, --function-addresses off|observe|warn|deny, --function-address-path PATH, --function-address-baseline PATH.
 
 Artifacts include summary.txt effect-summary output, findings JSON/SARIF, cache_status fields when --cache enables the lint-cache, and optional function-address diagnostics for gradual content-address adoption.
 ";
@@ -637,6 +637,7 @@ fn parse_check(args: &[String], command_line: String) -> Result<CheckArgs, Strin
     let mut cache = false;
     let mut function_address_mode = crate::function_address::FunctionAddressMode::Off;
     let mut function_address_paths = Vec::new();
+    let mut function_address_baseline = None;
     let mut index = 0;
 
     while index < args.len() {
@@ -685,6 +686,14 @@ fn parse_check(args: &[String], command_line: String) -> Result<CheckArgs, Strin
         } else if let Some(value) = arg.strip_prefix("--function-address-path=") {
             function_address_paths.push(PathBuf::from(value));
             index += 1;
+        } else if arg == "--function-address-baseline" {
+            let value =
+                args.get(index + 1).ok_or_else(|| "missing value after `--function-address-baseline`".to_owned())?;
+            function_address_baseline = Some(PathBuf::from(value));
+            index += 2;
+        } else if let Some(value) = arg.strip_prefix("--function-address-baseline=") {
+            function_address_baseline = Some(PathBuf::from(value));
+            index += 1;
         } else if arg == "--write-baseline" {
             let value = args.get(index + 1).ok_or_else(|| "missing value after `--write-baseline`".to_owned())?;
             write_baseline = Some(PathBuf::from(value));
@@ -720,6 +729,7 @@ fn parse_check(args: &[String], command_line: String) -> Result<CheckArgs, Strin
         function_addresses: crate::function_address::FunctionAddressCheck {
             mode: function_address_mode,
             paths: function_address_paths,
+            baseline: function_address_baseline,
         },
         command_line,
     })
@@ -2338,6 +2348,7 @@ mod tests {
                 "--function-addresses=warn",
                 "--function-address-path",
                 "crates/core/src",
+                "--function-address-baseline=artifacts/function-addresses.json",
                 "--",
                 "--all-targets",
             ]
@@ -2349,6 +2360,10 @@ mod tests {
             CommandArgs::Check(args) => {
                 assert_eq!(args.function_addresses.mode, crate::function_address::FunctionAddressMode::Warn);
                 assert_eq!(args.function_addresses.paths, vec![std::path::PathBuf::from("crates/core/src")]);
+                assert_eq!(
+                    args.function_addresses.baseline,
+                    Some(std::path::PathBuf::from("artifacts/function-addresses.json"))
+                );
                 assert_eq!(args.cargo_check_args.as_deref(), Some(["--all-targets".to_owned()].as_slice()));
             }
             other => panic!("expected check args, got {other:?}"),
