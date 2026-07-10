@@ -158,10 +158,12 @@ this README plus command help, without reading archived OpenSpec changes:
   when enabled with `--artifact-dir`, the check writes `function-addresses.json`
   beside the normal bundle sidecars with workspace-relative source-envelope and
   function record paths, zero-based `start_byte`/`end_byte` spans, marker review
-  fields, duplicate/malformed/stale diagnostics, and a Kamacite-compatible
-  projection descriptor. Dependency identity is labeled `source-token-set`: it
-  records the deterministic source-token dependency set, not a resolved Rust call
-  graph or semantic dependency closure. `observe` is the bootstrap mode:
+  fields, duplicate/malformed/stale diagnostics, a Kamacite-compatible projection
+  descriptor, and an Octet-to-Kamacite Preserves handoff contract. The JSON file
+  is an operator/debug compatibility projection; Kamacite-owned canonical
+  Preserves bytes are the portable stack receipt authority. Dependency identity is
+  labeled `source-token-set`: it records the deterministic source-token dependency
+  set, not a resolved Rust call graph or semantic dependency closure. `observe` is the bootstrap mode:
   unreviewed or unbaselined functions produce renderer-valid warning findings
   while still emitting the artifact for review. Use `--function-address-baseline PATH` to ratchet
   gradually: unchanged baseline functions stay admitted while changed or new

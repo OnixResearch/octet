@@ -29,7 +29,20 @@ const FUNCTION_ADDRESS_SOURCE_LANGUAGE: &str = "rust";
 const DEPENDENCY_IDENTITY_KIND_SOURCE_TOKEN_SET: &str = "source-token-set";
 const KAMACITE_CANONICAL_IDENTITY_OWNER: &str = "kamacite-preserves-bytes";
 const KAMACITE_COMPATIBILITY_PROJECTION: &str = "kamacite.function-address-receipt.v1.compat-json";
+const PRESERVES_HANDOFF_CONTRACT: &str = "octet-to-kamacite-function-address-v1";
+const JSON_PROJECTION_ROLE: &str = "operator-debug-compatibility-projection";
+const NO_REPARSE_REQUIREMENT: &str = "not-required";
 const IDENTITY_ALGORITHM_BLAKE3: &str = "blake3";
+const REQUIRED_HANDOFF_RECORD_FIELDS: &[&str] = &[
+    "path",
+    "name",
+    "start_byte",
+    "end_byte",
+    "function_address",
+    "dependency_set_hash",
+    "dependency_identity_kind",
+    "source_identity",
+];
 const OBSERVE_SEVERITY: &str = "warning";
 const WARNING_SEVERITY: &str = "warning";
 const ERROR_SEVERITY: &str = "error";
@@ -174,6 +187,16 @@ pub struct KamaciteProjection {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+pub struct PreservesHandoff {
+    pub contract: &'static str,
+    pub canonical_identity_owner: &'static str,
+    pub json_projection_role: &'static str,
+    pub rust_reparse_required: &'static str,
+    pub span_recomputation_required: &'static str,
+    pub required_record_fields: Vec<&'static str>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct FunctionAddressReport {
     pub schema: &'static str,
     pub schema_version: u32,
@@ -187,6 +210,7 @@ pub struct FunctionAddressReport {
     pub records: Vec<FunctionAddressRecord>,
     pub diagnostic_count: usize,
     pub kamacite_projection: KamaciteProjection,
+    pub preserves_handoff: PreservesHandoff,
     pub non_claims: Vec<&'static str>,
 }
 
@@ -224,6 +248,18 @@ struct BaselineIssue {
     path: String,
     name: String,
     function_address: String,
+    message: &'static str,
+}
+
+#[derive(Debug)]
+struct HandoffIssue {
+    lint: &'static str,
+    path: String,
+    name: String,
+    function_address: String,
+    source_identity: String,
+    line: u32,
+    column: u32,
     message: &'static str,
 }
 
@@ -327,7 +363,7 @@ pub fn collect_run(
         }
     }
 
-    let report = FunctionAddressReport {
+    let mut report = FunctionAddressReport {
         schema: FUNCTION_ADDRESS_DOMAIN,
         schema_version: FUNCTION_ADDRESS_SCHEMA_VERSION,
         receipt_class: FUNCTION_ADDRESS_RECEIPT_CLASS,
@@ -348,8 +384,22 @@ pub fn collect_run(
             canonical_identity_owner: KAMACITE_CANONICAL_IDENTITY_OWNER,
             identity_algorithm: IDENTITY_ALGORITHM_BLAKE3,
         },
+        preserves_handoff: PreservesHandoff {
+            contract: PRESERVES_HANDOFF_CONTRACT,
+            canonical_identity_owner: KAMACITE_CANONICAL_IDENTITY_OWNER,
+            json_projection_role: JSON_PROJECTION_ROLE,
+            rust_reparse_required: NO_REPARSE_REQUIREMENT,
+            span_recomputation_required: NO_REPARSE_REQUIREMENT,
+            required_record_fields: REQUIRED_HANDOFF_RECORD_FIELDS.to_vec(),
+        },
         non_claims: REQUIRED_NON_CLAIMS.to_vec(),
     };
+    findings.extend(
+        validate_preserves_handoff(&report)
+            .iter()
+            .map(|issue| finding_for_handoff_issue(issue, check.mode, config_hash)),
+    );
+    report.diagnostic_count = findings.len();
     let artifact_json = render_report_json(&report)?;
 
     Ok(Some(FunctionAddressRun {
@@ -599,6 +649,186 @@ fn function_source_for_span<'a>(source: &'a str, span: &fingerprint::FunctionSpa
     })
 }
 
+fn validate_preserves_handoff(report: &FunctionAddressReport) -> Vec<HandoffIssue> {
+    let mut issues = Vec::new();
+    validate_handoff_metadata(report, &mut issues);
+
+    let mut envelopes = BTreeMap::new();
+    for envelope in &report.source_envelopes {
+        if !is_canonical_relative_path(&envelope.path) {
+            issues.push(handoff_report_issue(
+                LINT_FUNCTION_ADDRESS_MALFORMED,
+                "source envelope path is not canonical and repo-relative",
+            ));
+        }
+        if envelope.language != FUNCTION_ADDRESS_SOURCE_LANGUAGE {
+            issues.push(handoff_report_issue(
+                LINT_FUNCTION_ADDRESS_MALFORMED,
+                "source envelope declares unsupported source language",
+            ));
+        }
+        if !is_blake3_identity(&envelope.source_identity) {
+            issues.push(handoff_report_issue(
+                LINT_FUNCTION_ADDRESS_MALFORMED,
+                "source envelope identity is not a BLAKE3 identity",
+            ));
+        }
+        if envelopes.insert(envelope.path.as_str(), envelope).is_some() {
+            issues.push(handoff_report_issue(
+                LINT_FUNCTION_ADDRESS_DUPLICATE_LOCATOR,
+                "source envelope path appears more than once in the handoff",
+            ));
+        }
+    }
+
+    for record in &report.records {
+        validate_handoff_record(record, &envelopes, &mut issues);
+    }
+
+    issues
+}
+
+fn validate_handoff_metadata(report: &FunctionAddressReport, issues: &mut Vec<HandoffIssue>) {
+    if report.producer.name != FUNCTION_ADDRESS_PRODUCER || report.producer.role != FUNCTION_ADDRESS_PRODUCER_ROLE {
+        issues.push(handoff_report_issue(
+            LINT_FUNCTION_ADDRESS_MALFORMED,
+            "function-address handoff declares unsupported producer metadata",
+        ));
+    }
+    if report.kamacite_projection.canonical_identity_owner != KAMACITE_CANONICAL_IDENTITY_OWNER
+        || report.preserves_handoff.canonical_identity_owner != KAMACITE_CANONICAL_IDENTITY_OWNER
+    {
+        issues.push(handoff_report_issue(
+            LINT_FUNCTION_ADDRESS_MALFORMED,
+            "function-address handoff does not delegate canonical identity to Kamacite Preserves bytes",
+        ));
+    }
+    if report.preserves_handoff.contract != PRESERVES_HANDOFF_CONTRACT
+        || report.preserves_handoff.json_projection_role != JSON_PROJECTION_ROLE
+        || report.preserves_handoff.rust_reparse_required != NO_REPARSE_REQUIREMENT
+        || report.preserves_handoff.span_recomputation_required != NO_REPARSE_REQUIREMENT
+    {
+        issues.push(handoff_report_issue(
+            LINT_FUNCTION_ADDRESS_MALFORMED,
+            "function-address Preserves handoff metadata is incomplete",
+        ));
+    }
+    if !required_handoff_fields_are_declared(&report.preserves_handoff.required_record_fields) {
+        issues.push(handoff_report_issue(
+            LINT_FUNCTION_ADDRESS_MALFORMED,
+            "function-address Preserves handoff omits required record fields",
+        ));
+    }
+    if !report_non_claims_cover_required(&report.non_claims) {
+        issues.push(handoff_report_issue(
+            LINT_FUNCTION_ADDRESS_OVERCLAIM,
+            "function-address handoff is missing required non-claim boundaries",
+        ));
+    }
+}
+
+fn validate_handoff_record(
+    record: &FunctionAddressRecord,
+    envelopes: &BTreeMap<&str, &SourceEnvelopeRecord>,
+    issues: &mut Vec<HandoffIssue>,
+) {
+    if !is_canonical_relative_path(&record.path) {
+        issues.push(handoff_issue_for_record(
+            record,
+            LINT_FUNCTION_ADDRESS_MALFORMED,
+            "function-address handoff record path is not canonical and repo-relative",
+        ));
+    }
+    if record.start_byte >= record.end_byte {
+        issues.push(handoff_issue_for_record(
+            record,
+            LINT_FUNCTION_ADDRESS_MALFORMED,
+            "function-address handoff record has missing or invalid byte span",
+        ));
+    }
+    if !is_blake3_identity(&record.function_address)
+        || !is_blake3_identity(&record.normalized_body_hash)
+        || !is_blake3_identity(&record.dependency_set_hash)
+        || !is_blake3_identity(&record.source_identity)
+    {
+        issues.push(handoff_issue_for_record(
+            record,
+            LINT_FUNCTION_ADDRESS_MALFORMED,
+            "function-address handoff record contains malformed BLAKE3 identity",
+        ));
+    }
+    if record.dependency_identity_kind != DEPENDENCY_IDENTITY_KIND_SOURCE_TOKEN_SET {
+        issues.push(handoff_issue_for_record(
+            record,
+            LINT_FUNCTION_ADDRESS_MALFORMED,
+            "function-address handoff record is missing source-token dependency identity kind",
+        ));
+    }
+    match envelopes.get(record.path.as_str()) {
+        Some(envelope) if envelope.source_identity == record.source_identity => {}
+        Some(_) => issues.push(handoff_issue_for_record(
+            record,
+            LINT_FUNCTION_ADDRESS_STALE,
+            "function-address handoff record source identity does not match its source envelope",
+        )),
+        None => issues.push(handoff_issue_for_record(
+            record,
+            LINT_FUNCTION_ADDRESS_MALFORMED,
+            "function-address handoff record has no matching source envelope",
+        )),
+    }
+    if record_contains_forbidden_claim(record) {
+        issues.push(handoff_issue_for_record(
+            record,
+            LINT_FUNCTION_ADDRESS_OVERCLAIM,
+            "function-address handoff record contains forbidden overclaim text",
+        ));
+    }
+}
+
+fn required_handoff_fields_are_declared(fields: &[&str]) -> bool {
+    REQUIRED_HANDOFF_RECORD_FIELDS.iter().all(|required| fields.iter().any(|field| field == required))
+}
+
+fn report_non_claims_cover_required(non_claims: &[&str]) -> bool {
+    REQUIRED_NON_CLAIMS.iter().all(|required| non_claims.iter().any(|non_claim| non_claim == required))
+}
+
+fn record_contains_forbidden_claim(record: &FunctionAddressRecord) -> bool {
+    record
+        .review
+        .iter()
+        .chain(record.evidence.iter())
+        .chain(record.caveats.iter())
+        .any(|text| is_forbidden_claim(text))
+}
+
+fn handoff_report_issue(lint: &'static str, message: &'static str) -> HandoffIssue {
+    HandoffIssue {
+        lint,
+        path: FUNCTION_ADDRESS_ARTIFACT_NAME.to_owned(),
+        name: BASELINE_RECEIPT_LOCATOR.to_owned(),
+        function_address: determinism::full_hash(PRESERVES_HANDOFF_CONTRACT),
+        source_identity: determinism::full_hash(PRESERVES_HANDOFF_CONTRACT),
+        line: DEFAULT_LINE,
+        column: DEFAULT_COLUMN,
+        message,
+    }
+}
+
+fn handoff_issue_for_record(record: &FunctionAddressRecord, lint: &'static str, message: &'static str) -> HandoffIssue {
+    HandoffIssue {
+        lint,
+        path: record.path.clone(),
+        name: record.name.clone(),
+        function_address: record.function_address.clone(),
+        source_identity: record.source_identity.clone(),
+        line: record.line,
+        column: record.column,
+        message,
+    }
+}
+
 fn marker_finding_for_record(
     record: &FunctionAddressRecord,
     marker: Option<&fingerprint::Marker>,
@@ -625,6 +855,27 @@ fn marker_finding_for_record(
         ));
     }
     None
+}
+
+fn finding_for_handoff_issue(issue: &HandoffIssue, mode: FunctionAddressMode, config_hash: &str) -> output::Finding {
+    let record = FunctionAddressRecord {
+        path: issue.path.clone(),
+        name: issue.name.clone(),
+        line: issue.line,
+        column: issue.column,
+        start_byte: 0,
+        end_byte: 0,
+        function_address: issue.function_address.clone(),
+        normalized_body_hash: issue.function_address.clone(),
+        dependency_set_hash: issue.function_address.clone(),
+        dependency_identity_kind: DEPENDENCY_IDENTITY_KIND_SOURCE_TOKEN_SET.to_owned(),
+        dependency_identity_status: "preserves-handoff".to_owned(),
+        source_identity: issue.source_identity.clone(),
+        review: None,
+        evidence: None,
+        caveats: Vec::new(),
+    };
+    finding_for_record(&record, mode, issue.lint, issue.message, config_hash)
 }
 
 fn finding_for_baseline_issue(issue: &BaselineIssue, mode: FunctionAddressMode, config_hash: &str) -> output::Finding {
@@ -747,6 +998,71 @@ mod tests {
         .to_string()
     }
 
+    fn valid_preserves_handoff_report() -> FunctionAddressReport {
+        const VALID_START_BYTE: usize = 1;
+        const VALID_END_BYTE: usize = 12;
+        const VALID_LINE: u32 = 1;
+        const VALID_COLUMN: u32 = 2;
+        const VALID_PATH: &str = "src/lib.rs";
+        const VALID_FUNCTION: &str = "f";
+        let source_identity = determinism::full_hash("source envelope bytes");
+        let function_address = determinism::full_hash("function address payload");
+        let normalized_body_hash = determinism::full_hash("normalized body");
+        let dependency_set_hash = determinism::full_hash("dependency set");
+
+        FunctionAddressReport {
+            schema: FUNCTION_ADDRESS_DOMAIN,
+            schema_version: FUNCTION_ADDRESS_SCHEMA_VERSION,
+            receipt_class: FUNCTION_ADDRESS_RECEIPT_CLASS,
+            mode: "observe",
+            domain: FUNCTION_ADDRESS_DOMAIN,
+            canonicalizer: FUNCTION_ADDRESS_CANONICALIZER,
+            producer: FunctionAddressProducer {
+                name: FUNCTION_ADDRESS_PRODUCER,
+                role: FUNCTION_ADDRESS_PRODUCER_ROLE,
+            },
+            tool: env!("CARGO_PKG_VERSION"),
+            source_envelopes: vec![SourceEnvelopeRecord {
+                path: VALID_PATH.to_owned(),
+                language: FUNCTION_ADDRESS_SOURCE_LANGUAGE,
+                source_identity: source_identity.clone(),
+            }],
+            records: vec![FunctionAddressRecord {
+                path: VALID_PATH.to_owned(),
+                name: VALID_FUNCTION.to_owned(),
+                line: VALID_LINE,
+                column: VALID_COLUMN,
+                start_byte: VALID_START_BYTE,
+                end_byte: VALID_END_BYTE,
+                function_address,
+                normalized_body_hash,
+                dependency_set_hash,
+                dependency_identity_kind: DEPENDENCY_IDENTITY_KIND_SOURCE_TOKEN_SET.to_owned(),
+                dependency_identity_status: "computed".to_owned(),
+                source_identity,
+                review: None,
+                evidence: None,
+                caveats: Vec::new(),
+            }],
+            diagnostic_count: 0,
+            kamacite_projection: KamaciteProjection {
+                artifact_class: FUNCTION_ADDRESS_RECEIPT_CLASS,
+                compatibility_projection: KAMACITE_COMPATIBILITY_PROJECTION,
+                canonical_identity_owner: KAMACITE_CANONICAL_IDENTITY_OWNER,
+                identity_algorithm: IDENTITY_ALGORITHM_BLAKE3,
+            },
+            preserves_handoff: PreservesHandoff {
+                contract: PRESERVES_HANDOFF_CONTRACT,
+                canonical_identity_owner: KAMACITE_CANONICAL_IDENTITY_OWNER,
+                json_projection_role: JSON_PROJECTION_ROLE,
+                rust_reparse_required: NO_REPARSE_REQUIREMENT,
+                span_recomputation_required: NO_REPARSE_REQUIREMENT,
+                required_record_fields: REQUIRED_HANDOFF_RECORD_FIELDS.to_vec(),
+            },
+            non_claims: REQUIRED_NON_CLAIMS.to_vec(),
+        }
+    }
+
     #[test]
     fn adoption_modes_parse_and_classify() {
         assert_eq!(FunctionAddressMode::parse("off"), Ok(FunctionAddressMode::Off));
@@ -851,9 +1167,45 @@ mod tests {
         assert_eq!(artifact["producer"]["role"], FUNCTION_ADDRESS_PRODUCER_ROLE);
         assert_eq!(artifact["records"][0]["dependency_identity_kind"], DEPENDENCY_IDENTITY_KIND_SOURCE_TOKEN_SET);
         assert_eq!(artifact["kamacite_projection"]["compatibility_projection"], KAMACITE_COMPATIBILITY_PROJECTION);
+        assert_eq!(artifact["preserves_handoff"]["contract"], PRESERVES_HANDOFF_CONTRACT);
+        assert_eq!(artifact["preserves_handoff"]["json_projection_role"], JSON_PROJECTION_ROLE);
+        assert_eq!(artifact["preserves_handoff"]["span_recomputation_required"], NO_REPARSE_REQUIREMENT);
         assert!(run.artifact_json.contains(NON_CLAIM_SEMANTIC_CORRECTNESS));
         assert!(run.artifact_json.contains("\"source_envelopes\""));
         assert!(run.artifact_json.contains("\"records\""));
+    }
+
+    #[test]
+    fn preserves_handoff_validation_accepts_complete_report() {
+        let report = valid_preserves_handoff_report();
+
+        let issues = validate_preserves_handoff(&report);
+
+        assert!(issues.is_empty());
+    }
+
+    #[test]
+    fn preserves_handoff_validation_rejects_incomplete_records_and_overclaims() {
+        const INVALID_SPAN_BYTE: usize = 8;
+        let mut report = valid_preserves_handoff_report();
+        report.producer.role = "semantic-proof-producer";
+        report.source_envelopes[0].source_identity = "not-a-blake3-identity".to_owned();
+        report.records[0].path = "/absolute/src/lib.rs".to_owned();
+        report.records[0].start_byte = INVALID_SPAN_BYTE;
+        report.records[0].end_byte = INVALID_SPAN_BYTE;
+        report.records[0].function_address = "not-a-blake3-identity".to_owned();
+        report.records[0].dependency_identity_kind.clear();
+        report.records[0].caveats.push("proves whole-program safety".to_owned());
+
+        let issues = validate_preserves_handoff(&report);
+
+        assert!(issues.iter().any(|issue| issue.message.contains("producer metadata")));
+        assert!(issues.iter().any(|issue| issue.message.contains("source envelope identity")));
+        assert!(issues.iter().any(|issue| issue.message.contains("repo-relative")));
+        assert!(issues.iter().any(|issue| issue.message.contains("byte span")));
+        assert!(issues.iter().any(|issue| issue.message.contains("BLAKE3")));
+        assert!(issues.iter().any(|issue| issue.message.contains("source-token")));
+        assert!(issues.iter().any(|issue| issue.lint == LINT_FUNCTION_ADDRESS_OVERCLAIM));
     }
 
     #[test]
