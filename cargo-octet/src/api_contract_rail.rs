@@ -1,6 +1,8 @@
 const SUPPORTED_CLIENT_PROFILE: &str = "contract-consumption-fixture/v1";
-const REQUIRED_CLIENT_NON_CLAIM: &str = "generated client success proves contract consumption only, not API behavior correctness";
-const REQUIRED_BOUNDARY_NON_CLAIM: &str = "contract rail evidence does not prove service correctness, evidence truth, or release eligibility";
+const REQUIRED_CLIENT_NON_CLAIM: &str =
+    "generated client success proves contract consumption only, not API behavior correctness";
+const REQUIRED_BOUNDARY_NON_CLAIM: &str =
+    "contract rail evidence does not prove service correctness, evidence truth, or release eligibility";
 const DIAGNOSTIC_MISSING_SOURCE: &str = "contract_source_missing";
 const DIAGNOSTIC_HIDDEN_AUTHORITY: &str = "hidden_contract_authority";
 const DIAGNOSTIC_REQUIRED_FIELD_REMOVED: &str = "required_field_removed";
@@ -244,12 +246,36 @@ mod tests {
         let inventory = reference_inventory();
 
         assert!(inventory.iter().all(|input| !input.role.is_empty()));
-        assert!(inventory.iter().any(|input| input.name == "Dropshot" && input.trust_boundary.contains("hidden middleware")));
-        assert!(inventory.iter().any(|input| input.name == "Progenitor" && input.trust_boundary.contains("contract consumption only")));
-        assert!(inventory.iter().any(|input| input.name == "Typify" && input.license_boundary.contains("reference-only")));
-        assert!(inventory.iter().any(|input| input.name == "Drift" && input.trust_boundary.contains("review evidence")));
-        assert!(inventory.iter().any(|input| input.name == "openapi-lint" && input.trust_boundary.contains("does not prove")));
-        assert!(inventory.iter().any(|input| input.name == "dropshot-api-manager" && input.trust_boundary.contains("Cairn")));
+        assert!(
+            inventory
+                .iter()
+                .any(|input| input.name == "Dropshot" && input.trust_boundary.contains("hidden middleware"))
+        );
+        assert!(
+            inventory
+                .iter()
+                .any(|input| input.name == "Progenitor" && input.trust_boundary.contains("contract consumption only"))
+        );
+        assert!(
+            inventory
+                .iter()
+                .any(|input| input.name == "Typify" && input.license_boundary.contains("reference-only"))
+        );
+        assert!(
+            inventory
+                .iter()
+                .any(|input| input.name == "Drift" && input.trust_boundary.contains("review evidence"))
+        );
+        assert!(
+            inventory
+                .iter()
+                .any(|input| input.name == "openapi-lint" && input.trust_boundary.contains("does not prove"))
+        );
+        assert!(
+            inventory
+                .iter()
+                .any(|input| input.name == "dropshot-api-manager" && input.trust_boundary.contains("Cairn"))
+        );
     }
 
     #[test]
@@ -325,7 +351,11 @@ mod tests {
             contract_id: CONTRACT_ID.to_owned(),
             source_kind: ContractSourceKind::RustDto,
             supported_claim: SUPPORTED_CLAIM.to_owned(),
-            fields: vec![required_field("schema_version"), required_field("receipt_digest"), optional_field("diagnostics")],
+            fields: vec![
+                required_field("schema_version"),
+                required_field("receipt_digest"),
+                optional_field("diagnostics"),
+            ],
             generator_profile: SUPPORTED_CLIENT_PROFILE.to_owned(),
             non_claims: vec![REQUIRED_BOUNDARY_NON_CLAIM.to_owned()],
         }

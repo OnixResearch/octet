@@ -1,4 +1,6 @@
-use iddqd::{IdOrdItem, IdOrdMap, id_upcast};
+use iddqd::IdOrdItem;
+use iddqd::IdOrdMap;
+use iddqd::id_upcast;
 use serde::Deserialize;
 use serde::Serialize;
 

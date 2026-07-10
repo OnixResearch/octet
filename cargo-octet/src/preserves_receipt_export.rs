@@ -1,5 +1,6 @@
 const PRESERVES_SCHEMA_LABEL: &str = "preserves.receipt-envelope/v1";
-const REQUIRED_NON_CLAIM: &str = "Preserves export is an adapter over verified Octet artifacts; Octet source receipts remain authoritative";
+const REQUIRED_NON_CLAIM: &str =
+    "Preserves export is an adapter over verified Octet artifacts; Octet source receipts remain authoritative";
 const BLAKE3_PREFIX: &str = "b3:";
 const DIAGNOSTIC_MISSING_SOURCE: &str = "preserves_missing_source_receipt";
 const DIAGNOSTIC_STALE_DIGEST: &str = "preserves_stale_source_digest";

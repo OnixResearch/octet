@@ -336,11 +336,7 @@ mod tests {
         let dependency_report = validate_source_descriptor(&dependency_descriptor);
 
         assert!(source_report.valid, "unexpected source diagnostics: {:?}", source_report.diagnostics);
-        assert!(
-            dependency_report.valid,
-            "unexpected dependency diagnostics: {:?}",
-            dependency_report.diagnostics
-        );
+        assert!(dependency_report.valid, "unexpected dependency diagnostics: {:?}", dependency_report.diagnostics);
         assert_eq!(source_descriptor.selected_paths, vec!["src/lib.rs".to_owned()]);
         assert_eq!(dependency_descriptor.registry_package.as_deref(), Some("registry-package-from-dependency-trust"));
     }
