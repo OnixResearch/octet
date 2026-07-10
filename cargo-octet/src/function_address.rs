@@ -5,9 +5,11 @@ use crate::determinism;
 use crate::fingerprint;
 use crate::output;
 
+pub const FUNCTION_ADDRESS_ARTIFACT_NAME: &str = "function-addresses.json";
 pub const FUNCTION_ADDRESS_DOMAIN: &str = "octet.function-address.v1";
 pub const FUNCTION_ADDRESS_CANONICALIZER: &str = "octet-source-token-function-address-v1";
 
+const FUNCTION_ADDRESS_SCHEMA_VERSION: u32 = 1;
 const LINT_FUNCTION_ADDRESS_MISSING: &str = "function_address_missing";
 const LINT_FUNCTION_ADDRESS_UNSUPPORTED: &str = "function_address_unsupported";
 const FUNCTION_ADDRESS_GROUP: &str = "octet::function_address";
@@ -21,6 +23,10 @@ const DEFAULT_COLUMN: u32 = 1;
 const LINE_OFFSET: u32 = 1;
 const COLUMN_OFFSET: u32 = 1;
 const NEWLINE_BYTE: u8 = b'\n';
+const NON_CLAIM_SEMANTIC_CORRECTNESS: &str = "not Rust semantic correctness";
+const NON_CLAIM_COMPILER_CORRECTNESS: &str = "not compiler correctness";
+const NON_CLAIM_WHOLE_PROGRAM_SAFETY: &str = "not whole-program safety";
+const NON_CLAIM_RELEASE_ELIGIBILITY: &str = "not release eligibility";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FunctionAddressMode {
@@ -83,7 +89,7 @@ impl Default for FunctionAddressCheck {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct FunctionAddressRecord {
     pub path: String,
     pub name: String,
@@ -97,13 +103,32 @@ pub struct FunctionAddressRecord {
     pub caveats: Vec<String>,
 }
 
-pub fn collect_findings(
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+pub struct FunctionAddressReport {
+    pub schema: &'static str,
+    pub schema_version: u32,
+    pub mode: &'static str,
+    pub domain: &'static str,
+    pub canonicalizer: &'static str,
+    pub tool: &'static str,
+    pub records: Vec<FunctionAddressRecord>,
+    pub diagnostic_count: usize,
+    pub non_claims: Vec<&'static str>,
+}
+
+#[derive(Debug, Clone)]
+pub struct FunctionAddressRun {
+    pub findings: Vec<output::Finding>,
+    pub artifact_json: String,
+}
+
+pub fn collect_run(
     check: &FunctionAddressCheck,
     workspace_root: &Path,
     config_hash: &str,
-) -> Result<Vec<output::Finding>, String> {
+) -> Result<Option<FunctionAddressRun>, String> {
     if !check.mode.is_enabled() {
-        return Ok(Vec::new());
+        return Ok(None);
     }
 
     let mut files = Vec::new();
@@ -118,6 +143,7 @@ pub fn collect_findings(
     files.sort();
     files.dedup();
 
+    let mut records = Vec::new();
     let mut findings = Vec::new();
     for file in files {
         let source = std::fs::read_to_string(&file).map_err(|error| format!("read {}: {error}", file.display()))?;
@@ -143,10 +169,48 @@ pub fn collect_findings(
                     config_hash,
                 ));
             }
+            records.push(record);
         }
     }
 
-    Ok(findings)
+    let report = FunctionAddressReport {
+        schema: FUNCTION_ADDRESS_DOMAIN,
+        schema_version: FUNCTION_ADDRESS_SCHEMA_VERSION,
+        mode: mode_name(check.mode),
+        domain: FUNCTION_ADDRESS_DOMAIN,
+        canonicalizer: FUNCTION_ADDRESS_CANONICALIZER,
+        tool: env!("CARGO_PKG_VERSION"),
+        records,
+        diagnostic_count: findings.len(),
+        non_claims: vec![
+            NON_CLAIM_SEMANTIC_CORRECTNESS,
+            NON_CLAIM_COMPILER_CORRECTNESS,
+            NON_CLAIM_WHOLE_PROGRAM_SAFETY,
+            NON_CLAIM_RELEASE_ELIGIBILITY,
+        ],
+    };
+    let artifact_json = render_report_json(&report)?;
+
+    Ok(Some(FunctionAddressRun {
+        findings,
+        artifact_json,
+    }))
+}
+
+pub fn render_report_json(report: &FunctionAddressReport) -> Result<String, String> {
+    let mut rendered =
+        serde_json::to_string_pretty(report).map_err(|error| format!("serialize function-address report: {error}"))?;
+    rendered.push('\n');
+    Ok(rendered)
+}
+
+fn mode_name(mode: FunctionAddressMode) -> &'static str {
+    match mode {
+        FunctionAddressMode::Off => "off",
+        FunctionAddressMode::Observe => "observe",
+        FunctionAddressMode::Warn => "warn",
+        FunctionAddressMode::Deny => "deny",
+    }
 }
 
 fn function_address_record(
@@ -269,6 +333,17 @@ mod tests {
 
     use super::*;
 
+    fn collect_test_findings(
+        check: &FunctionAddressCheck,
+        workspace_root: &Path,
+        config_hash: &str,
+    ) -> Vec<output::Finding> {
+        collect_run(check, workspace_root, config_hash)
+            .expect("collect run")
+            .expect("enabled mode returns run")
+            .findings
+    }
+
     #[test]
     fn adoption_modes_parse_and_classify() {
         assert_eq!(FunctionAddressMode::parse("off"), Ok(FunctionAddressMode::Off));
@@ -288,7 +363,7 @@ mod tests {
             paths: vec![source],
         };
 
-        let findings = collect_findings(&check, temp.path(), "config").expect("collect findings");
+        let findings = collect_test_findings(&check, temp.path(), "config");
 
         assert_eq!(findings.len(), 1);
         assert_eq!(findings[0].lint, LINT_FUNCTION_ADDRESS_MISSING);
@@ -306,7 +381,7 @@ mod tests {
             paths: vec![PathBuf::from("lib.rs")],
         };
 
-        let findings = collect_findings(&check, temp.path(), "config").expect("collect findings");
+        let findings = collect_test_findings(&check, temp.path(), "config");
 
         assert_eq!(findings.len(), 1);
         assert_eq!(findings[0].severity, ERROR_SEVERITY);
@@ -322,11 +397,29 @@ mod tests {
             paths: vec![PathBuf::from("lib.rs")],
         };
 
-        let findings = collect_findings(&check, temp.path(), "config").expect("collect findings");
+        let findings = collect_test_findings(&check, temp.path(), "config");
 
         assert_eq!(findings.len(), 2);
         assert!(findings.iter().any(|finding| finding.lint == LINT_FUNCTION_ADDRESS_MISSING));
         assert!(findings.iter().any(|finding| finding.lint == LINT_FUNCTION_ADDRESS_UNSUPPORTED));
         assert!(findings.iter().all(|finding| finding.severity == WARNING_SEVERITY));
+    }
+
+    #[test]
+    fn enabled_run_renders_function_address_artifact_with_non_claims() {
+        let temp = TempDir::new().expect("temp dir");
+        let source = temp.path().join("lib.rs");
+        std::fs::write(&source, "fn f() -> u32 { 1 }\n").expect("write source");
+        let check = FunctionAddressCheck {
+            mode: FunctionAddressMode::Observe,
+            paths: vec![PathBuf::from("lib.rs")],
+        };
+
+        let run = collect_run(&check, temp.path(), "config").expect("collect run").expect("enabled mode returns run");
+
+        assert_eq!(run.findings.len(), 1);
+        assert!(run.artifact_json.contains("\"schema\": \"octet.function-address.v1\""));
+        assert!(run.artifact_json.contains(NON_CLAIM_SEMANTIC_CORRECTNESS));
+        assert!(run.artifact_json.contains("\"records\""));
     }
 }
