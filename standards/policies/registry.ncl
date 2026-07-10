@@ -211,6 +211,18 @@ in
       negative_fixtures = ["cargo-octet/src/state_machine_exhaustiveness.rs::state_machine_receipt_rejects_overclaims_missing_non_claims_and_bad_status", "cargo-octet/src/state_machine_exhaustiveness.rs::state_machine_receipt_rejects_stale_coverage_identity"],
     },
     {
+      family_id = "octet.function-address-receipt",
+      ownership = "rust-derived",
+      owner_source_path = "cargo-octet/src/function_address.rs",
+      artifact_path = "function-addresses.json",
+      generation_command = "nix develop -c cargo test -p cargo-octet function_address::tests::enabled_run_renders_function_address_artifact_with_non_claims --lib",
+      validation_command = "nix develop -c cargo test -p cargo-octet function_address:: --lib",
+      status = "existing",
+      config_digest_required = true,
+      positive_fixtures = ["cargo-octet/src/function_address.rs::matching_marker_satisfies_deny_mode_and_exports_review_fields"],
+      negative_fixtures = ["cargo-octet/src/function_address.rs::malformed_marker_reports_malformed_digest", "cargo-octet/src/function_address.rs::duplicate_baseline_receipt_reports_duplicate_locator", "cargo-octet/src/function_address.rs::baseline_receipt_overclaim_reports_overclaim"],
+    },
+    {
       family_id = "tigerstyle.proof-bundle-receipt",
       ownership = "rust-derived",
       owner_source_path = "crates/octet-standards/src/artifacts.rs",

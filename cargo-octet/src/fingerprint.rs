@@ -104,6 +104,20 @@ pub(crate) struct Marker {
     macro_allowed: bool,
 }
 
+impl Marker {
+    pub(crate) fn stored_hash(&self) -> &str {
+        &self.stored_hash
+    }
+
+    pub(crate) fn review(&self) -> Option<&str> {
+        self.review.as_deref()
+    }
+
+    pub(crate) fn evidence(&self) -> Option<&str> {
+        self.evidence.as_deref()
+    }
+}
+
 #[allow(clippy::too_many_lines)]
 pub fn run(args: &FingerprintArgs) -> Result<i32, String> {
     let paths = if args.paths.is_empty() {
