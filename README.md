@@ -154,7 +154,9 @@ this README plus command help, without reading archived OpenSpec changes:
   effect-summary output in `summary.txt`, sidecar findings, `provenance.jsonl`,
   and lint-cache `cache_status` fields. Add `--function-addresses observe|warn|deny`
   plus optional `--function-address-path PATH` entries to gradually content-address
-  functions with lint-like diagnostics before promoting selected scopes to `deny`.
+  functions with lint-like diagnostics before promoting selected scopes to `deny`;
+  when enabled with `--artifact-dir`, the check writes `function-addresses.json`
+  beside the normal bundle sidecars.
 - `cargo octet artifact verify --artifact-dir artifacts/octet` recomputes sidecar
   BLAKE3 hashes and fails closed on missing, stale, malformed, or inconsistent
   provenance before the directory is treated as release evidence. With

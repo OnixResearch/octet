@@ -39,6 +39,7 @@ const SARIF_RESULTS_ARTIFACT_NAME: &str = "results.sarif";
 const PROVENANCE_ARTIFACT_NAME: &str = "provenance.jsonl";
 const RUNNER_PROVENANCE_SOURCE_ID: &str = "octet.runner.artifact-bundle";
 const RUNNER_STATIC_FINDINGS_SOURCE_ID: &str = "octet.runner.static-findings";
+const FUNCTION_ADDRESS_PROVENANCE_SOURCE_ID: &str = "octet.function_address.receipt";
 const RUNNER_CHECKER_ID: &str = "cargo-octet";
 const RUNNER_MANUAL_REVIEW_ACTION: &str =
     "review runner status, command, and summary before using this artifact as release evidence";
@@ -58,6 +59,7 @@ struct RunArtifacts {
     status_json: String,
     provenance_jsonl: String,
     structured_output: Option<StructuredArtifact>,
+    additional_artifacts: Vec<StructuredArtifact>,
 }
 
 #[derive(Debug, Clone)]
@@ -197,13 +199,24 @@ pub fn run(check: &CheckArgs) -> Result<i32, String> {
 
         let cargo_process_exit =
             classify_cargo_process_exit(child.wait().map_err(|error| format!("wait for cargo check: {error}"))?);
-        if cargo_process_exit.is_success() {
-            findings.extend(crate::function_address::collect_findings(
+        let function_address_artifact = if cargo_process_exit.is_success() {
+            match crate::function_address::collect_run(
                 &check.function_addresses,
                 &cfg.workspace_root,
                 &run_metadata.config_hash,
-            )?);
-        }
+            )? {
+                Some(run) => {
+                    findings.extend(run.findings);
+                    Some(StructuredArtifact {
+                        file_name: crate::function_address::FUNCTION_ADDRESS_ARTIFACT_NAME,
+                        contents: run.artifact_json,
+                    })
+                }
+                None => None,
+            }
+        } else {
+            None
+        };
         canonicalize_findings(&mut findings);
         if check.cache {
             update_lint_cache(&cfg.workspace_root, &mut findings)?;
@@ -220,8 +233,15 @@ pub fn run(check: &CheckArgs) -> Result<i32, String> {
             baseline::write_baseline(path, &findings, &run_metadata)?;
         }
         let base_outcome = apply_baseline_gate(base_outcome, baseline_evaluation.as_ref());
-        let finalized_run =
-            finalize_run(check, &findings, &meta_map, base_outcome, &run_metadata, baseline_evaluation.as_ref())?;
+        let finalized_run = finalize_run(
+            check,
+            &findings,
+            &meta_map,
+            base_outcome,
+            &run_metadata,
+            baseline_evaluation.as_ref(),
+            function_address_artifact,
+        )?;
 
         if let Some(structured_output) = finalized_run.run_artifacts.structured_output.as_ref() {
             stdout_lock
@@ -259,19 +279,28 @@ fn build_run_artifacts(
     outcome: &output::RunOutcome,
     metadata: &RunMetadata,
     baseline_evaluation: Option<&BaselineEvaluation>,
+    function_address_artifact: Option<StructuredArtifact>,
 ) -> Result<RunArtifacts, String> {
     let summary = output::render_summary(findings, outcome, metadata, baseline_evaluation)?;
     let status_json = output::render_status_json(outcome, check.output_format.as_str(), metadata, baseline_evaluation)?;
     let structured_output =
         render_structured_output(check, findings, meta_map, outcome, metadata, baseline_evaluation)?;
-    let provenance_jsonl =
-        render_run_provenance_jsonl(&check.command_line, &summary, &status_json, structured_output.as_ref(), metadata)?;
+    let additional_artifacts = function_address_artifact.into_iter().collect::<Vec<_>>();
+    let provenance_jsonl = render_run_provenance_jsonl(
+        &check.command_line,
+        &summary,
+        &status_json,
+        structured_output.as_ref(),
+        &additional_artifacts,
+        metadata,
+    )?;
 
     Ok(RunArtifacts {
         summary,
         status_json,
         provenance_jsonl,
         structured_output,
+        additional_artifacts,
     })
 }
 
@@ -282,6 +311,7 @@ fn finalize_run(
     base_outcome: output::RunOutcome,
     metadata: &RunMetadata,
     baseline_evaluation: Option<&BaselineEvaluation>,
+    function_address_artifact: Option<StructuredArtifact>,
 ) -> Result<FinalizedRun, String> {
     let terminated_error = terminated_run_error(&base_outcome);
 
@@ -295,6 +325,7 @@ fn finalize_run(
                 &base_outcome,
                 metadata,
                 baseline_evaluation,
+                function_address_artifact,
             )?,
             error: terminated_error,
         });
@@ -313,14 +344,22 @@ fn finalize_run(
                     &final_outcome,
                     metadata,
                     baseline_evaluation,
+                    function_address_artifact,
                 )?,
                 error: Some(combine_errors(error, terminated_error)),
             });
         }
     };
 
-    let initial_artifacts =
-        build_run_artifacts(check, findings, meta_map, &base_outcome, metadata, baseline_evaluation)?;
+    let initial_artifacts = build_run_artifacts(
+        check,
+        findings,
+        meta_map,
+        &base_outcome,
+        metadata,
+        baseline_evaluation,
+        function_address_artifact.clone(),
+    )?;
     match write_run_artifacts(&artifact_root, &check.command_line, &initial_artifacts) {
         Ok(()) => Ok(FinalizedRun {
             outcome: base_outcome,
@@ -329,8 +368,15 @@ fn finalize_run(
         }),
         Err(error) => {
             let final_outcome = base_outcome.force_integration_failure();
-            let final_artifacts =
-                build_run_artifacts(check, findings, meta_map, &final_outcome, metadata, baseline_evaluation)?;
+            let final_artifacts = build_run_artifacts(
+                check,
+                findings,
+                meta_map,
+                &final_outcome,
+                metadata,
+                baseline_evaluation,
+                function_address_artifact,
+            )?;
             invalidate_failed_bundle_best_effort(&artifact_root, &final_artifacts);
             rewrite_status_sidecars_best_effort(&artifact_root, &check.command_line, &final_artifacts);
             Ok(FinalizedRun {
@@ -390,6 +436,7 @@ fn render_run_provenance_jsonl(
     summary: &str,
     status_json: &str,
     structured_output: Option<&StructuredArtifact>,
+    additional_artifacts: &[StructuredArtifact],
     metadata: &RunMetadata,
 ) -> Result<String, String> {
     let command_contents = format!("{command_line}\n");
@@ -424,6 +471,16 @@ fn render_run_provenance_jsonl(
             &structured_output.contents,
             crate::evidence::EvidenceTier::StaticLint,
             RUNNER_STATIC_FINDINGS_SOURCE_ID,
+            &checked_scope,
+        ));
+    }
+
+    for artifact in additional_artifacts {
+        records.push(artifact_provenance_record(
+            artifact.file_name,
+            &artifact.contents,
+            crate::evidence::EvidenceTier::StaticLint,
+            FUNCTION_ADDRESS_PROVENANCE_SOURCE_ID,
             &checked_scope,
         ));
     }
@@ -465,14 +522,18 @@ fn write_run_artifacts(
     command_line: &str,
     run_artifacts: &RunArtifacts,
 ) -> Result<(), String> {
-    let expected_files =
-        expected_artifact_files(run_artifacts.structured_output.as_ref().map(|artifact| artifact.file_name));
+    let expected_files = expected_artifact_files(run_artifacts);
     remove_extra_artifact_paths(artifact_root, &expected_files)?;
     write_status_sidecars(artifact_root, command_line, run_artifacts)?;
 
     if let Some(structured_output) = run_artifacts.structured_output.as_ref() {
         let structured_path = RootRelativePath::new(structured_output.file_name)?;
         artifact_root.write(&structured_path, structured_output.contents.as_bytes())?;
+    }
+
+    for artifact in &run_artifacts.additional_artifacts {
+        let path = RootRelativePath::new(artifact.file_name)?;
+        artifact_root.write(&path, artifact.contents.as_bytes())?;
     }
 
     Ok(())
@@ -510,16 +571,17 @@ fn invalidate_failed_bundle_best_effort(artifact_root: &ArtifactRoot, run_artifa
     let _ = artifact_root.remove_file_or_dir_all(&relative);
 }
 
-fn expected_artifact_files(selected_structured_artifact: Option<&'static str>) -> Vec<&'static str> {
+fn expected_artifact_files(run_artifacts: &RunArtifacts) -> Vec<&'static str> {
     let mut files = vec![
         COMMAND_ARTIFACT_NAME,
         PROVENANCE_ARTIFACT_NAME,
         STATUS_ARTIFACT_NAME,
         SUMMARY_ARTIFACT_NAME,
     ];
-    if let Some(structured_artifact) = selected_structured_artifact {
-        files.push(structured_artifact);
+    if let Some(structured_artifact) = run_artifacts.structured_output.as_ref() {
+        files.push(structured_artifact.file_name);
     }
+    files.extend(run_artifacts.additional_artifacts.iter().map(|artifact| artifact.file_name));
     files
 }
 
