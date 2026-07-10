@@ -10,6 +10,7 @@ mod domain_types;
 mod effect_ports;
 mod engine;
 pub mod evidence;
+mod evidence_chain;
 #[cfg(test)]
 mod evidence_contracts;
 mod evidence_index;
