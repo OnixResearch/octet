@@ -473,6 +473,7 @@ fn marker_function_address(marker: &fingerprint::Marker) -> String {
     format!("{BLAKE3_PREFIX}{}", marker.stored_hash())
 }
 
+#[cfg(test)]
 fn marker_digest(function_address: &str) -> &str {
     function_address.strip_prefix(BLAKE3_PREFIX).unwrap_or(function_address)
 }
