@@ -32,7 +32,7 @@ BLAKE3 integrity remains identity/linkage evidence, not signer authenticity, aut
 | `git diff --check` | PASS. |
 | `nix build .#checks.x86_64-linux.effect-closure-catalog --no-link -L` | PASS; Nickel contract positive/negative fixtures and generated JSON freshness. |
 | `nix run .#octet-policy-validate` | PASS. |
-| `nix build .#cargo-octet --no-link -L` | PASS. Final reviewed implementation package used for dogfood: `/nix/store/2hfqxksl89f8a872vgci4mricwdzhh04-cargo-octet-0.1.0`. Local builds emitted a failed optional SSH-builder connection to `10.10.10.1` and then completed locally. |
+| `nix build .#cargo-octet --no-link -L` | PASS. Final reviewed implementation package used for dogfood: `/nix/store/8ny5smh17x2g5njainiszzyp4sw4r3rx-cargo-octet-0.1.0` built from exact Octet commit `15965f21e4e535a35c757561f789020b70414a80`. Local builds emitted a failed optional SSH-builder connection to `10.10.10.1` and then completed locally. |
 
 ## Valence dogfood
 
@@ -44,13 +44,13 @@ The initial no-summary run:
 - selected two production source files and 16 function nodes;
 - denied with exit 1, 78 `call_edge_unknown` findings, and 90 total diagnostics;
 - used zero reviewed providers;
-- retained receipt `b3:5a8f90f5963368ca25b4d3b44a68fbe4b338d3d4a420ece302dc55bc41da5e7f`.
+- retained receipt `b3:aea12687550918254723cea648ca2b33e3ec21bf2beef214e107e0b8a2f331ed`.
 
 The final run:
 
 - used 78 exact sorted summaries and five provider identities (`core`, `alloc`, `std`, `blake3`, `serde_json`);
 - bound explicit target `x86_64-unknown-linux-gnu`;
-- admitted 16 function nodes with only `alloc`, zero closure diagnostics, profile identity `b3:217467f897307ee25135762e38bde9d321e5c3cca5ac7b4322adea7b37f95539`, config identity `b3:47531b6882b7e11f0091faf7321a2ebf42219f93567a21bec33fa1deb5d1e7c3`, and receipt `b3:7787045860bfd88d8c82bf8c30f6253f989d673cc7c11003fe11b4e838705ff7`;
+- admitted 16 function nodes with only `alloc`, zero closure diagnostics, profile identity `b3:217467f897307ee25135762e38bde9d321e5c3cca5ac7b4322adea7b37f95539`, config identity `b3:47531b6882b7e11f0091faf7321a2ebf42219f93567a21bec33fa1deb5d1e7c3`, and receipt `b3:82109fdac487d19a941ccc4a3b9e34746daed013f5d7a3bcf0befa63dbdd8300`;
 - independently verified valid with no diagnostics;
 - repeated with byte-identical `effect-closure.json` and `status.json`;
 - rejected copied closure-summary and strict-profile-parent-summary tampering with exit 1 and deterministic hash/linkage diagnostics.
