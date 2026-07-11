@@ -254,13 +254,24 @@
 
         dylintShimPath = pkgs.lib.makeBinPath [ cargo-shim rustup-shim rustToolchain ];
         rustToolchainLibPath = pkgs.lib.makeLibraryPath [ rustToolchain ];
-        productionVerusVersion = "0.2026.04.03.21dfcd2";
-        productionVerusReleaseSha256 = "sha256-JGqLytgA8C9xUJg0RpuqAB95pu+2hTxschfvi+Op2MY=";
-        productionVerusReleaseSha256Hex = "246a8bcad800f02f71509834469baa001f79a6efb6853c6c7217ef8be3a9d8c6";
-        productionVerusRustVersion = "1.94.0";
+        verusToolchainProfile =
+          builtins.fromJSON (builtins.readFile ./standards/verus-toolchain/generated/profile.json);
+        productionVerusVersion = verusToolchainProfile.verifier.release;
+        productionVerusReleaseUrl = verusToolchainProfile.verifier.release_url;
+        productionVerusReleaseSha256 = verusToolchainProfile.verifier.release_nix_sri;
+        productionVerusReleaseSha256Hex = verusToolchainProfile.verifier.release_sha256_hex;
+        productionVerusRustVersion = verusToolchainProfile.verifier.rust_version;
         productionVerusToolchainLabel = "${productionVerusRustVersion}-${hostTriple}";
         productionVerusRustToolchain = pkgs.rust-bin.stable.${productionVerusRustVersion}.default;
         productionVerusRustcLibPath = "${productionVerusRustToolchain}/lib";
+        verusfmtAssets = builtins.listToAttrs (
+          map (asset: {
+            name = asset.target;
+            value = asset;
+          }) verusToolchainProfile.formatter.assets
+        );
+        verusfmtAsset = verusfmtAssets.${system} or null;
+        verusfmtPolicyExitCode = 2;
         cargoOctetRuntimePath = pkgs.symlinkJoin {
           name = "cargo-octet-runtime-path";
           paths = [ cargo-shim rustup-shim rustToolchain pkgs.stdenv.cc octetVerus octetProductionVerus ];
@@ -552,7 +563,7 @@
           pname = "octet-production-verus";
           version = productionVerusVersion;
           src = pkgs.fetchurl {
-            url = "https://github.com/verus-lang/verus/releases/download/release/${productionVerusVersion}/verus-${productionVerusVersion}-x86-linux.zip";
+            url = productionVerusReleaseUrl;
             hash = productionVerusReleaseSha256;
           };
           nativeBuildInputs = with pkgs; [ autoPatchelfHook b3sum makeWrapper unzip ];
@@ -656,6 +667,139 @@
             inherit productionVerusReleaseSha256Hex productionVerusToolchainLabel productionVerusVersion;
           };
         };
+
+        octetVerusfmt =
+          if verusfmtAsset == null then
+            pkgs.runCommand "octet-verusfmt-unsupported-${system}" { } ''
+              mkdir -p "$out/bin" "$out/share"
+              cat > "$out/share/identity.txt" <<EOF
+              formatter-profile: ${verusToolchainProfile.profile_id}
+              formatter: verusfmt@${verusToolchainProfile.formatter.version}
+              formatter-target: ${system}
+              formatter-status: unsupported
+              trust-boundary: formatter availability and formatting are not proof evidence
+              EOF
+              cat > "$out/bin/verusfmt" <<'EOF'
+              #!${pkgs.runtimeShell}
+              echo "verusfmt: no pinned release asset for this target" >&2
+              exit ${toString verusfmtPolicyExitCode}
+              EOF
+              cat > "$out/bin/octet-verusfmt" <<EOF
+              #!${pkgs.runtimeShell}
+              if [ "\$#" -eq 1 ] && [ "\$1" = "--identity" ]; then
+                cat "$out/share/identity.txt"
+                exit 0
+              fi
+              exec "$out/bin/verusfmt" "\$@"
+              EOF
+              chmod +x "$out/bin/verusfmt" "$out/bin/octet-verusfmt"
+            ''
+          else
+            pkgs.stdenvNoCC.mkDerivation {
+              pname = "octet-verusfmt";
+              version = verusToolchainProfile.formatter.version;
+              src = pkgs.fetchurl {
+                url = "https://github.com/verus-lang/verusfmt/releases/download/${verusToolchainProfile.formatter.release_tag}/${verusfmtAsset.file_name}";
+                hash = verusfmtAsset.nix_sri;
+              };
+              nativeBuildInputs = with pkgs; [ autoPatchelfHook b3sum gnutar xz ];
+              buildInputs = [ pkgs.stdenv.cc.cc.lib ];
+              dontUnpack = true;
+              installPhase = ''
+                runHook preInstall
+                release_dir="$out/libexec/verusfmt-release"
+                mkdir -p "$release_dir" "$out/bin" "$out/share"
+                tar --extract --xz --file "$src" --strip-components=1 --directory "$release_dir"
+                mv "$release_dir/verusfmt" "$release_dir/verusfmt-real"
+                chmod +x "$release_dir/verusfmt-real"
+
+                cat > "$out/bin/verusfmt" <<'EOF'
+                #!${pkgs.runtimeShell}
+                set -eu
+                if [ "$#" -gt 0 ] && [ "$1" = "--update" ]; then
+                  echo "verusfmt self-update is disabled; update the Octet Nickel profile and Nix hash instead" >&2
+                  exit ${toString verusfmtPolicyExitCode}
+                fi
+                exec "@REAL_VERUSFMT@" "$@"
+                EOF
+                substituteInPlace "$out/bin/verusfmt" \
+                  --replace-fail "@REAL_VERUSFMT@" "$release_dir/verusfmt-real"
+                chmod +x "$out/bin/verusfmt"
+
+                formatter_blake3="$(b3sum "$release_dir/verusfmt-real")"
+                formatter_blake3="''${formatter_blake3%% *}"
+                cat > "$out/share/identity.txt" <<EOF
+                formatter-profile: ${verusToolchainProfile.profile_id}
+                formatter: verusfmt@${verusToolchainProfile.formatter.version}
+                formatter-source-revision: ${verusToolchainProfile.formatter.source_revision}
+                formatter-target: ${system}
+                formatter-release-sha256: ${verusfmtAsset.sha256_hex}
+                formatter-binary-blake3: $formatter_blake3
+                formatter-self-update: disabled-by-wrapper
+                trust-boundary: formatting proves selected source shape only, not proof success or correctness
+                EOF
+
+                cat > "$out/bin/octet-verusfmt" <<EOF
+                #!${pkgs.runtimeShell}
+                set -eu
+                if [ "\$#" -eq 1 ] && [ "\$1" = "--identity" ]; then
+                  cat "$out/share/identity.txt"
+                  exit 0
+                fi
+                exec "$out/bin/verusfmt" "\$@"
+                EOF
+                chmod +x "$out/bin/octet-verusfmt"
+                runHook postInstall
+              '';
+            };
+
+        octetVerusToolchainProfile = pkgs.runCommand "octet-verus-toolchain-profile" {
+          nativeBuildInputs = with pkgs; [ b3sum diffutils nickel ];
+        } ''
+          profile_dir=${./standards/verus-toolchain}
+          mkdir -p "$out/share/octet/verus-toolchain"
+          cd "$profile_dir"
+          nickel export --format json profile.ncl > "$TMPDIR/profile.json"
+          diff --unified generated/profile.json "$TMPDIR/profile.json"
+          cp contracts.ncl "$out/share/octet/verus-toolchain/contracts.ncl"
+          cp profile.ncl "$out/share/octet/verus-toolchain/profile.ncl"
+          cp "$TMPDIR/profile.json" "$out/share/octet/verus-toolchain/profile.json"
+          profile_blake3="$(b3sum "$TMPDIR/profile.json")"
+          profile_blake3="''${profile_blake3%% *}"
+          printf '%s\n' "$profile_blake3" > "$out/share/octet/verus-toolchain/profile.blake3"
+        '';
+
+        verusToolchainProfileCheck = pkgs.runCommand "octet-verus-toolchain-profile-check" {
+          nativeBuildInputs = with pkgs; [ diffutils findutils nickel ] ++ [ octetVerusfmt ];
+        } ''
+          profile_dir=${./standards/verus-toolchain}
+          cd "$profile_dir"
+          nickel export --format json profile.ncl > "$TMPDIR/profile.json"
+          diff --unified generated/profile.json "$TMPDIR/profile.json"
+          nickel export --format json fixtures/valid/current_profile.ncl > /dev/null
+          for invalid_profile in fixtures/invalid/*.ncl; do
+            if nickel export --format json "$invalid_profile" > /dev/null 2>&1; then
+              echo "invalid Verus toolchain profile unexpectedly passed: $invalid_profile" >&2
+              exit 1
+            fi
+          done
+          ${pkgs.lib.optionalString (verusfmtAsset != null) ''
+            verusfmt --check --verus-only ${./standards/verus-toolchain/fixtures/valid/formatted.rs}
+            if verusfmt --check --verus-only ${./standards/verus-toolchain/fixtures/invalid/unformatted.rs} > /dev/null 2>&1; then
+              echo "unformatted Verus fixture unexpectedly passed" >&2
+              exit 1
+            fi
+            while IFS= read -r verus_source; do
+              verusfmt --check --verus-only "$verus_source"
+            done < <(find ${./verus} -type f -name '*.rs' -print | LC_ALL=C sort)
+            if verusfmt --update > /dev/null 2>&1; then
+              echo "pinned verusfmt wrapper unexpectedly allowed self-update" >&2
+              exit 1
+            fi
+            octet-verusfmt --identity | grep -F "formatter: verusfmt@${verusToolchainProfile.formatter.version}" > /dev/null
+          ''}
+          mkdir -p "$out"
+        '';
 
         octetProductionVerusNixClosureManifest = pkgs.runCommand "octet-production-verus-nix-closure-manifest" {
           nativeBuildInputs = [ pkgs.b3sum pkgs.python3 ];
@@ -1493,6 +1637,8 @@ MAIN
           octet-verus = octetVerus;
           octet-production-verus = octetProductionVerus;
           octet-production-verus-nix-closure-manifest = octetProductionVerusNixClosureManifest;
+          octet-verusfmt = octetVerusfmt;
+          octet-verus-toolchain-profile = octetVerusToolchainProfile;
           slotcar-standards-nix-closure-manifest = octetStandardsNixClosureManifest;
           octet-policy-export = policyExport;
           tigerstyle-policy-export = policyExport;
@@ -1587,6 +1733,11 @@ MAIN
           octet-production-verus = flake-utils.lib.mkApp {
             drv = octetProductionVerus;
             exePath = "/bin/octet-production-verus";
+          };
+
+          octet-verusfmt = flake-utils.lib.mkApp {
+            drv = octetVerusfmt;
+            exePath = "/bin/octet-verusfmt";
           };
 
           tigerstyle-policy-validate = flake-utils.lib.mkApp {
@@ -2229,6 +2380,7 @@ MAIN
           effect-closure-catalog = effectClosureCatalogCheck;
           downstream-proc-macro = downstreamProcMacroCheck;
           proof-rail-manifest = proofRailManifestCheck;
+          verus-toolchain-profile = verusToolchainProfileCheck;
           production-verus-negative-proof = productionVerusNegativeProofCheck;
           production-verus-negative-prove = productionVerusNegativeProveCheck;
           production-verus-multi-rail-prove = productionVerusMultiRailProveCheck;
@@ -2275,7 +2427,7 @@ MAIN
             octetStandards
             octetVerus
             octetProductionVerus
-          ];
+          ] ++ pkgs.lib.optionals (verusfmtAsset != null) [ octetVerusfmt ];
 
           inputsFrom = [ octet ];
 
