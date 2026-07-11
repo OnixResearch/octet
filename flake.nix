@@ -1033,6 +1033,28 @@ MAIN
           touch "$out"
         '';
 
+        effectClosureCatalogCheck = pkgs.runCommand "octet-effect-closure-catalog-check"
+          {
+            nativeBuildInputs = with pkgs; [ nickel ];
+          } ''
+          cd ${./.}
+          generated_catalog=$(mktemp)
+          nickel typecheck standards/effect-closure/catalog.ncl
+          nickel export --format json standards/effect-closure/catalog.ncl > "$generated_catalog"
+          cmp "$generated_catalog" standards/effect-closure/generated/effect-closure-catalog.json
+
+          for file in standards/effect-closure/fixtures/valid/*.ncl; do
+            nickel export --format json "$file" >/dev/null
+          done
+          for file in standards/effect-closure/fixtures/invalid/*.ncl; do
+            if nickel export --format json "$file" >/dev/null 2>&1; then
+              echo "invalid effect-closure fixture passed: $file" >&2
+              exit 1
+            fi
+          done
+          touch "$out"
+        '';
+
         downstreamProcMacroCheck = pkgs.runCommand "octet-downstream-proc-macro-check"
           {
             nativeBuildInputs = [ cargoOctet ];
@@ -2204,6 +2226,7 @@ MAIN
 
           policy-registry = policyRegistryCheck;
           strict-profile-catalog = strictProfileCatalogCheck;
+          effect-closure-catalog = effectClosureCatalogCheck;
           downstream-proc-macro = downstreamProcMacroCheck;
           proof-rail-manifest = proofRailManifestCheck;
           production-verus-negative-proof = productionVerusNegativeProofCheck;

@@ -12,6 +12,7 @@ const EMBEDDED_DIRECTORIES: &[&str] = &[
     "crates/octet-lint-metadata",
     "crates/octet-standards",
     "crates/valence-core",
+    "standards/effect-closure/generated",
     "standards/proof-imports/generated",
     "standards/strict-profiles/generated",
 ];

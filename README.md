@@ -75,6 +75,24 @@ eligibility. `deterministic-core` additionally requires configured
 [`docs/strict-rust-profiles.md`](docs/strict-rust-profiles.md) for the profile
 matrix and bootstrap path.
 
+A separate opt-in closure rail extends a successful `deterministic-core` check
+with conservative selected source-token call/effect propagation and exact
+reviewed provider summaries:
+
+```bash
+cargo octet admit --profile deterministic-core --closure \
+  --artifact-dir target/octet-admission \
+  -- --target x86_64-unknown-linux-gnu
+cargo octet admit verify --artifact-dir target/octet-admission
+```
+
+Unknown effects, opaque constructs, stale function identities, forbidden role
+edges, and unadmitted or provider-mismatched calls fail closed. The resulting
+receipt is bounded source-token evidence under reviewed summaries—not complete
+Rust name resolution, macro/trait/MIR closure, dependency implementation proof,
+runtime determinism, whole-program correctness, or release eligibility. See
+[`docs/effect-closure-admission.md`](docs/effect-closure-admission.md).
+
 Optional external evidence rails collect selected non-starter tool output into separate receipt bundles:
 
 ```bash
@@ -131,6 +149,11 @@ and Trellis proof evidence IR are BLAKE3 byte-identity/manual-review or
 recorded-only inputs until Octet reruns the proof and validates its own receipt.
 Promotion requires matching source, proof IR, verifier, toolchain, solver,
 command, assumptions, property scope, and passed result identity.
+The typed compatibility source is `standards/verus-toolchain/profile.ncl`; its
+fresh generated export drives the production verifier package and records
+intentional downstream pins without transferring proof claims. The same profile
+pins `octet-verusfmt`, whose wrapper disables self-update and exposes bounded
+formatter identity.
 
 ```bash
 cargo octet prove --list \
@@ -304,6 +327,8 @@ AGPL-3.0-or-later
 ## References
 
 - `../trellis/` — reference Verus proof corpus and BLAKE3 proof-artifact identity patterns for Octet proof-path, proof-card, and imported proof-bundle work.
+- [verus-lang/verus](https://github.com/verus-lang/verus) — pinned production verifier, solver, and toolchain source; each receipt remains scoped to exact source, proof, assumptions, and tool identity.
+- [verus-lang/verusfmt](https://github.com/verus-lang/verusfmt) — pinned Verus formatter used for source-shape checks only; formatting is not proof or semantic validation.
 - `github:nickel-lang/json-schema-to-nickel` — reference pattern for generating Nickel contracts from JSON Schema inputs while preserving generator capability caveats.
 - `github:nickel-lang/nickel-schemastore` — reference pattern for packaging many generated Nickel contracts behind a discoverable indexed library.
 - `github:nickel-lang/rules_nickel` — reference pattern for a small declarative Nickel export surface with source, dependencies, format, and output.

@@ -566,6 +566,7 @@ pub(crate) fn build_standalone_cargo_octet() -> StandaloneCargoOctet {
         "crates/octet-lint-metadata",
         "crates/octet-standards",
         "crates/valence-core",
+        "standards/effect-closure/generated",
         "standards/proof-imports/generated",
         "standards/strict-profiles/generated",
     ] {

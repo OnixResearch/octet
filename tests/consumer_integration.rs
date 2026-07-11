@@ -216,6 +216,55 @@ fn deterministic_core_uses_reviewed_core_scope_function_address_baseline() {
     assert!(fixture.log().contains("OCTET_STRICT_PROFILE=deterministic-core"));
 }
 
+// r[verify octet.effect_closure.cli.check_failure]
+#[test]
+fn effect_closure_admission_stops_after_failed_direct_check() {
+    let fixture =
+        ConsumerFixture::new("effect-closure-blocked-check", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
+    write_file(&fixture.repo.join("dylint.toml"), "[octet]\ncore_source_scopes = [\"src/lib.rs\"]\n");
+    write_file(&fixture.repo.join("function-addresses.json"), "{}\n");
+    write_file(
+        &fixture.repo.join("octet-effect-closure.json"),
+        r#"{
+  "schema_version": "octet-effect-closure-workspace-policy/v1",
+  "profile_id": "deterministic-core",
+  "function_address_baseline": "function-addresses.json",
+  "module_roles": [{ "path": "src/lib.rs", "role": "core" }],
+  "call_summaries": [],
+  "non_claims": ["selected source-token closure only"]
+}
+"#,
+    );
+    let artifacts = artifact_dir(&fixture, "effect-closure-blocked");
+    let output = fixture.run_raw_os(
+        [
+            "admit",
+            "--profile",
+            "deterministic-core",
+            "--closure",
+            "--artifact-dir",
+            artifacts.to_str().expect("artifact path utf8"),
+        ]
+        .into_iter()
+        .map(OsString::from)
+        .collect(),
+        EXIT_CODE_LINT_FAILURE,
+        false,
+        Some("nightly-2026-03-21-x86_64-unknown-linux-gnu"),
+        Some(fixture.driver_path.as_path()),
+        Some(fixture.lint_lib_path.as_path()),
+        None,
+    );
+
+    assert!(!output.status.success(), "failed direct check must deny admission");
+    let status = read_json_artifact(&artifacts.join(STATUS_JSON_FILE));
+    assert_eq!(status["status"], "denied");
+    assert_eq!(status["phase"], "direct-check");
+    assert!(!artifacts.join("effect-closure.json").exists());
+    assert!(fixture.log().contains("ARGS:check"));
+    assert!(!fixture.log().contains("ARGS:metadata"));
+}
+
 #[test]
 fn no_argument_check_from_nested_workspace_subdirectory_uses_workspace_metadata_defaults() {
     let fixture = ConsumerFixture::new("metadata-defaults-subdir", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
@@ -684,7 +733,7 @@ fn non_utf8_cli_arguments_exit_with_integration_failure_code_and_preserve_diagno
 
 #[test]
 fn missing_and_unknown_subcommands_preserve_diagnostics_and_skip_cargo() {
-    const EXPECTED_SUBCOMMANDS: &str = "expected `artifact`, `check`, `evidence`, `evidence-index`, `fingerprint`, `migrate`, `object`, `provider-manifest`, `prove`, `proof-ref`, `roadmap`, or `transcript`";
+    const EXPECTED_SUBCOMMANDS: &str = "expected `admit`, `artifact`, `check`, `evidence`, `evidence-index`, `fingerprint`, `migrate`, `object`, `provider-manifest`, `prove`, `proof-ref`, `roadmap`, or `transcript`";
 
     let assert_subcommand_failure = |label: &str, args: Vec<OsString>, expected_stderr: &str| {
         let fixture = ConsumerFixture::new(label, &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
