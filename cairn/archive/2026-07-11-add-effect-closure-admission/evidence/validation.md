@@ -71,6 +71,10 @@ These failures predate and are outside this change; they remain visible rather t
 
 - `nix run path:.#cairn -- validate --root .`: PASS with 68 accepted specs, eight active changes, and no issues.
 - Proposal, design, and tasks gates for `add-effect-closure-admission`: PASS with no issues.
+- Sync dry-run and execute: PASS. The compatible sync created the accepted capability wrapper but omitted the full-spec-shaped requirement sections, so all 30 `octet.effect_closure.*` requirement/scenario IDs were explicitly promoted into `cairn/specs/effect-closure-admission/spec.md` and revalidated.
+- Archive dry-run: PASS and unblocked.
+- `CAIRN_ARCHIVE_DATE=2026-07-11 ... archive --execute`: PASS; moved the package to `cairn/archive/2026-07-11-add-effect-closure-admission/`.
+- Post-archive validation: PASS with 68 accepted specs, seven remaining active changes, and no issues.
 - The pinned CLI does not support newer `strict` or `implementation` stage names; no unsupported gate is claimed.
 
 ## Claim boundary
