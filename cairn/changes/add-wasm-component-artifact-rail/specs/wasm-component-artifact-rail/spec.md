@@ -71,6 +71,20 @@ r[octet.wasm_component.findings] Octet MUST emit ordered structured findings and
 - WHEN bundle verification runs
 - THEN verification MUST fail closed.
 
+### Requirement: Mantle can orchestrate the rail without owning its semantics
+
+r[octet.wasm_component.mantle_handoff] Octet MUST provide a stable exact-byte CLI/report contract that lets Mantle invoke a declared artifact profile after build-local validation and bind the resulting artifact BLAKE3, Octet profile, cohort, findings, and report identity into a materialization bundle; Octet MUST remain independently runnable and MUST NOT trust store paths or Mantle success as artifact facts.
+
+#### Scenario: Mantle checks exact final bytes
+- GIVEN Mantle supplies final portable bytes and a supported Octet profile
+- WHEN the artifact rail runs
+- THEN Octet MUST analyze those exact bytes and return the same verifiable bundle a standalone invocation would produce.
+
+#### Scenario: Mantle binds a report to different bytes
+- GIVEN a materialization request pairs an Octet report with a different artifact, profile, or cohort identity
+- WHEN handoff verification runs
+- THEN Octet MUST reject the mismatch without interpreting build or release policy.
+
 ### Requirement: The rail has deterministic positive and negative corpora
 
 r[octet.wasm_component.fixtures] Every promoted Wasm artifact check MUST have positive and negative fixtures, and generated/mutated fixtures MUST bind generator or mutator identity, seed, input, transform sequence, expected issue class, and optional shrink predicate.
@@ -114,7 +128,7 @@ r[octet.wasm_component.nonclaims] Octet MUST reject Wasm artifact evidence that 
 
 ### Requirement: Wasm artifact rail validation is complete
 
-r[octet.wasm_component.final_validation] Changes to the Wasm artifact rail MUST run focused core/CLI tests, positive and negative corpus checks, artifact verification, policy freshness checks, Valence export fixtures, Cairn gates, and the smallest relevant Octet quality checks.
+r[octet.wasm_component.final_validation] Changes to the Wasm artifact rail MUST run focused core/CLI tests, standalone/Mantle handoff tests, positive and negative corpus checks, artifact verification, policy freshness checks, Valence export fixtures, Cairn gates, and the smallest relevant Octet quality checks.
 
 #### Scenario: Rail change is reviewed
 - GIVEN profile, parser, finding, fixture, bundle, or export behavior changes
