@@ -88,4 +88,20 @@ nix run path:.#cairn -- gate design strict-rust-profile-admission --root .
 nix run path:.#cairn -- gate tasks strict-rust-profile-admission --root .
 ```
 
-The task gate returned `valid: true`, `verdict: PASS`, and no issues. This evidence records source-shape policy and artifact-integrity checks only; it does not promote the change to transitive effect proof, compiler correctness, whole-program correctness, verifier soundness, or release eligibility.
+The task gate returned `valid: true`, `verdict: PASS`, and no issues.
+
+## Sync, archive, and post-archive validation
+
+| Command | Outcome |
+| --- | --- |
+| `nix run path:.#cairn -- sync strict-rust-profile-admission --root .` | PASS; dry-run was unblocked and planned one `sync_delta_spec` action. |
+| `nix run path:.#cairn -- sync strict-rust-profile-admission --root . --execute` | PASS; created `cairn/specs/strict-rust-profiles/spec.md`. |
+| `nix run path:.#cairn -- validate --root .` | PASS after spec sync; no change or spec issues. |
+| `nix run path:.#cairn -- archive strict-rust-profile-admission --root .` | PASS; dry-run was unblocked and planned one `archive_change` action. |
+| `nix run path:.#cairn -- archive strict-rust-profile-admission --root . --execute` | PASS; moved the completed package to `cairn/archive/1970-01-01-strict-rust-profile-admission/`. The deterministic Nix-wrapped Cairn CLI uses its established `1970-01-01` archive prefix in this repository. |
+| `nix run path:.#cairn -- validate --root .` | PASS after archive; 66 accepted specs and six remaining active changes validated with no issues. |
+| `nix run path:.#cairn -- tracey coverage --root . --json` | Existing repository-wide blocker: FAIL with 1,061 requirements, zero referenced IDs, zero dangling IDs, and no Tracey configuration present. The report includes every accepted requirement family, including all strict-profile IDs, rather than identifying a change-local dangling reference. |
+
+The pinned Octet Cairn CLI supports proposal, design, and tasks gates; it does not expose the newer `strict` or `implementation` gate stage names. Archive dry-run served as the final supported archive-readiness check and was unblocked.
+
+This evidence records source-shape policy and artifact-integrity checks only; it does not promote the change to transitive effect proof, compiler correctness, whole-program correctness, verifier soundness, or release eligibility.
