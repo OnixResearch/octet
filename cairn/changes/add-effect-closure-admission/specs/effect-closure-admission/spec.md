@@ -67,10 +67,10 @@ r[octet.effect_closure.inference.direct]
 
 r[octet.effect_closure.inference.unknown]
 
-- GIVEN selected source contains an unknown macro, conditional compilation, async/await, ambiguous trait or method dispatch, unresolved call, unsupported syntax, or another shape outside the v1 resolver
-- WHEN inference runs without an exact permitted call-site summary
+- GIVEN selected source contains any macro invocation, conditional compilation, async/await, ambiguous trait or method dispatch, unresolved call, unsupported syntax, or another shape outside the v1 resolver
+- WHEN inference runs
 - THEN the caller MUST acquire `unknown` and admission MUST be denied.
-- AND a call summary MUST NOT erase direct `unsafe`, `ffi`, `panic`, or another directly inferred effect.
+- AND an exact call-site summary MAY resolve only a call edge; it MUST NOT erase direct `unknown`, `unsafe`, `ffi`, `panic`, or another directly inferred effect.
 
 ### Requirement: Explicit module roles and edges
 
@@ -94,7 +94,7 @@ r[octet.effect_closure.roles.invalid]
 
 ### Requirement: Exact dependency-call summaries
 
-r[octet.effect_closure.dependency_summaries] Every selected call not unambiguously resolved to a selected local function or a tool-owned intrinsic MUST require one exact call-site summary bound to its caller function address and resolved provider identity.
+r[octet.effect_closure.dependency_summaries] Every selected non-macro call not unambiguously resolved to a selected local function MUST require one exact call-site summary bound to its caller function address and resolved provider identity. V1 MUST NOT infer effect-free toolchain intrinsics from names such as `Ok`, `Some`, or `Vec`; macro calls remain directly `unknown` and cannot be summarized.
 
 #### Scenario: Exact summary resolves an external edge
 
@@ -112,6 +112,15 @@ r[octet.effect_closure.dependency_summaries.invalid]
 - GIVEN a call summary is missing, duplicated, unused, broad, declares `unknown`, lacks evidence, or mismatches package name, version, features, target, toolchain, workspace identity, or caller function address
 - WHEN admission runs
 - THEN Octet MUST deny admission with an `unknown` or unadmitted/stale dependency-edge diagnostic.
+
+#### Scenario: Ambient target selection is not evidence
+
+r[octet.effect_closure.dependency_summaries.target]
+
+- GIVEN the direct Cargo invocation does not contain an explicit `--target TARGET` argument
+- WHEN closure attempts to resolve its provider graph
+- THEN Octet MUST fail before effect closure rather than infer the host or trust ambient Cargo target configuration.
+- AND an explicit target MUST bind both the direct Cargo invocation and the recorded provider graph.
 
 ### Requirement: Deterministic transitive fixed point
 

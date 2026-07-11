@@ -1,3 +1,4 @@
+mod admit;
 #[cfg(test)]
 mod api_contract_rail;
 mod artifact;
@@ -7,6 +8,7 @@ mod cli;
 mod config;
 mod determinism;
 mod domain_types;
+mod effect_closure;
 mod effect_ports;
 mod engine;
 pub mod evidence;
@@ -70,6 +72,7 @@ pub fn run_cli_from_env() -> ExitCode {
 
 fn try_main() -> Result<i32, String> {
     match cli::parse(std::env::args_os())? {
+        cli::CommandArgs::Admit(args) => admit::run(&args),
         cli::CommandArgs::Artifact(args) => artifact::run(&args),
         cli::CommandArgs::Check(check) => engine::run(&check),
         cli::CommandArgs::EvidenceIndex(args) => evidence_index::run(args),

@@ -1144,11 +1144,12 @@ mod tests {
         "Cargo.toml",
         "crates/octet-lint-metadata/Cargo.toml",
         "crates/octet-lint-metadata/src/strict_profile.rs",
+        "standards/effect-closure/generated/effect-closure-catalog.json",
         "standards/strict-profiles/generated/strict-rust-profiles.json",
     ];
 
     #[test]
-    fn embedded_lint_source_contains_strict_profile_runtime_inputs() {
+    fn embedded_lint_source_contains_profile_and_effect_closure_runtime_inputs() {
         let paths = embedded_source::EMBEDDED_SOURCE_FILES
             .iter()
             .map(|(path, _contents)| *path)

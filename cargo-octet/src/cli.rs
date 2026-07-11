@@ -20,6 +20,7 @@ impl OutputFormat {
 
 #[derive(Debug)]
 pub enum CommandArgs {
+    Admit(AdmissionArgs),
     Artifact(ArtifactArgs),
     Check(CheckArgs),
     EvidenceIndex(EvidenceIndexArgs),
@@ -39,6 +40,7 @@ pub enum CommandArgs {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum HelpTopic {
     Root,
+    Admit,
     Artifact,
     Check,
     EvidenceIndex,
@@ -51,6 +53,26 @@ pub enum HelpTopic {
     ProofRef,
     Roadmap,
     Transcript,
+}
+
+#[derive(Debug)]
+pub struct AdmissionArgs {
+    pub mode: AdmissionMode,
+    pub artifact_dir: PathBuf,
+    pub output_format: OutputFormat,
+    pub command_line: String,
+}
+
+#[derive(Debug)]
+pub enum AdmissionMode {
+    Run {
+        profile: String,
+        closure: bool,
+        policy: PathBuf,
+        scope_args: Vec<String>,
+        cargo_check_args: Option<Vec<String>>,
+    },
+    Verify,
 }
 
 #[derive(Debug)]
@@ -345,6 +367,8 @@ pub fn parse(argv: impl IntoIterator<Item = OsString>) -> Result<CommandArgs, St
     match argv.first().map(String::as_str) {
         Some("--help" | "-h" | "help") => Ok(CommandArgs::Help(HelpTopic::Root)),
         Some("--version" | "-V" | "version") => Ok(CommandArgs::Version),
+        Some("admit") if artifact_wants_help(&argv[1..]) => Ok(CommandArgs::Help(HelpTopic::Admit)),
+        Some("admit") => parse_admission(&argv[1..], command_line).map(CommandArgs::Admit),
         Some("artifact") if artifact_wants_help(&argv[1..]) => Ok(CommandArgs::Help(HelpTopic::Artifact)),
         Some("artifact") => parse_artifact(&argv[1..]).map(CommandArgs::Artifact),
         Some("check") if wants_help(&argv[1..]) => Ok(CommandArgs::Help(HelpTopic::Check)),
@@ -370,10 +394,10 @@ pub fn parse(argv: impl IntoIterator<Item = OsString>) -> Result<CommandArgs, St
         Some("transcript") if wants_help(&argv[1..]) => Ok(CommandArgs::Help(HelpTopic::Transcript)),
         Some("transcript") => parse_transcript(&argv[1..]).map(CommandArgs::Transcript),
         Some(other) => Err(format!(
-            "unknown subcommand `{other}`; expected `artifact`, `check`, `evidence`, `evidence-index`, `fingerprint`, `migrate`, `object`, `provider-manifest`, `prove`, `proof-ref`, `roadmap`, or `transcript`"
+            "unknown subcommand `{other}`; expected `admit`, `artifact`, `check`, `evidence`, `evidence-index`, `fingerprint`, `migrate`, `object`, `provider-manifest`, `prove`, `proof-ref`, `roadmap`, or `transcript`"
         )),
         None => Err(
-            "missing subcommand; expected `artifact`, `check`, `evidence`, `evidence-index`, `fingerprint`, `migrate`, `object`, `provider-manifest`, `prove`, `proof-ref`, `roadmap`, or `transcript`"
+            "missing subcommand; expected `admit`, `artifact`, `check`, `evidence`, `evidence-index`, `fingerprint`, `migrate`, `object`, `provider-manifest`, `prove`, `proof-ref`, `roadmap`, or `transcript`"
                 .to_owned(),
         ),
     }
@@ -394,6 +418,7 @@ fn object_wants_help(args: &[String]) -> bool {
 pub fn help_text(topic: HelpTopic) -> &'static str {
     match topic {
         HelpTopic::Root => ROOT_HELP,
+        HelpTopic::Admit => ADMIT_HELP,
         HelpTopic::Artifact => ARTIFACT_HELP,
         HelpTopic::Check => CHECK_HELP,
         HelpTopic::EvidenceIndex => EVIDENCE_INDEX_HELP,
@@ -412,6 +437,8 @@ pub fn help_text(topic: HelpTopic) -> &'static str {
 const ROOT_HELP: &str = "Octet operator commands
 
 Usage:
+  cargo octet admit --profile deterministic-core --closure [--policy PATH] [--artifact-dir PATH] [SCOPE] -- --target TARGET [CARGO_CHECK_ARGS]
+  cargo octet admit verify --artifact-dir PATH [--output-format human|json]
   cargo octet artifact verify --artifact-dir PATH [--output-format human|json] [--emit-valence-provenance PATH]
   cargo octet check [SCOPE] [--profile robust|bounded-systems|deterministic-core] [--function-addresses off|observe|warn|deny] [--function-address-path PATH] [-- CARGO_CHECK_ARGS]
   cargo octet evidence collect --rail RAIL --input PATH --artifact-dir PATH [--output-format human|json]
@@ -450,6 +477,17 @@ Usage:
 Release smoke surfaces: fingerprint identity review, migrate manifests, check --cache lint-cache status, effect-summary output in summaries/artifacts, and executable transcript validation.
 
 Nix: nix run path:/path/to/octet#cargo-octet -- check
+";
+
+const ADMIT_HELP: &str = "cargo octet admit
+
+Commands:
+  cargo octet admit --profile deterministic-core --closure [--policy octet-effect-closure.json] [--artifact-dir target/octet-admission] [SCOPE] -- --target TARGET [CARGO_CHECK_ARGS]
+  cargo octet admit verify --artifact-dir PATH [--output-format human|json]
+
+Runs the existing deterministic-core check first, then computes conservative selected source-token effect closure under exact reviewed call summaries. An explicit Cargo target is required to exclude ambient target ambiguity. Unknown effects, opaque constructs, stale function identities, forbidden role edges, and unadmitted or identity-mismatched calls fail closed. Verification checks stored BLAKE3 artifact integrity without rerunning Cargo.
+
+V1 does not claim complete Rust name resolution, macro or trait-dispatch completeness, MIR call-graph completeness, dependency implementation verification, runtime reachability or ordering, panic freedom, semantic determinism, whole-program correctness, compiler correctness, or release eligibility.
 ";
 
 const ARTIFACT_HELP: &str = "cargo octet artifact verify
@@ -564,6 +602,163 @@ const TRANSCRIPT_HELP: &str = "cargo octet transcript <PATH>
 
 Validates executable transcript command blocks and expected-output assertions for docs-example and release smoke artifacts.
 ";
+
+fn parse_admission(args: &[String], command_line: String) -> Result<AdmissionArgs, String> {
+    const DEFAULT_ARTIFACT_DIR: &str = "target/octet-admission";
+    const DEFAULT_POLICY_PATH: &str = crate::effect_closure::WORKSPACE_POLICY_FILE;
+    const FLAG_AND_VALUE_ARGS: usize = 2;
+
+    if args.first().is_some_and(|arg| arg == "verify") {
+        return parse_admission_verify(&args[1..], command_line);
+    }
+
+    let mut profile = None;
+    let mut closure = false;
+    let mut policy = PathBuf::from(DEFAULT_POLICY_PATH);
+    let mut artifact_dir = PathBuf::from(DEFAULT_ARTIFACT_DIR);
+    let mut output_format = OutputFormat::Human;
+    let mut scope_args = Vec::new();
+    let mut cargo_check_args = None;
+    let mut index = 0;
+
+    while index < args.len() {
+        let arg = &args[index];
+        if arg == "--" {
+            cargo_check_args = Some(args[index + 1..].to_vec());
+            break;
+        }
+        match arg.as_str() {
+            "--profile" => {
+                if profile.is_some() {
+                    return Err("`--profile` may be provided only once".to_owned());
+                }
+                profile = Some(required_arg_at(args, index, arg)?);
+                index += FLAG_AND_VALUE_ARGS;
+            }
+            "--closure" => {
+                if closure {
+                    return Err("`--closure` may be provided only once".to_owned());
+                }
+                closure = true;
+                index += 1;
+            }
+            "--policy" => {
+                policy = PathBuf::from(required_arg_at(args, index, arg)?);
+                index += FLAG_AND_VALUE_ARGS;
+            }
+            "--artifact-dir" => {
+                artifact_dir = PathBuf::from(required_arg_at(args, index, arg)?);
+                index += FLAG_AND_VALUE_ARGS;
+            }
+            "--output-format" | "--format" => {
+                output_format = parse_output_format(&required_arg_at(args, index, arg)?)?;
+                index += FLAG_AND_VALUE_ARGS;
+            }
+            "-p" | "--package" | "--exclude" => {
+                scope_args.push(arg.clone());
+                scope_args.push(required_arg_at(args, index, arg)?);
+                index += FLAG_AND_VALUE_ARGS;
+            }
+            "--workspace" => {
+                scope_args.push(arg.clone());
+                index += 1;
+            }
+            _ if arg.starts_with("--profile=") => {
+                if profile.is_some() {
+                    return Err("`--profile` may be provided only once".to_owned());
+                }
+                let value = arg.trim_start_matches("--profile=");
+                if value.is_empty() {
+                    return Err("missing value after `--profile`".to_owned());
+                }
+                profile = Some(value.to_owned());
+                index += 1;
+            }
+            _ if arg.starts_with("--policy=") => {
+                policy = PathBuf::from(arg.trim_start_matches("--policy="));
+                index += 1;
+            }
+            _ if arg.starts_with("--artifact-dir=") => {
+                artifact_dir = PathBuf::from(arg.trim_start_matches("--artifact-dir="));
+                index += 1;
+            }
+            _ if arg.starts_with("--output-format=") => {
+                output_format = parse_output_format(arg.trim_start_matches("--output-format="))?;
+                index += 1;
+            }
+            _ if arg.starts_with("--format=") => {
+                output_format = parse_output_format(arg.trim_start_matches("--format="))?;
+                index += 1;
+            }
+            _ => return Err(format!("unsupported admission argument `{arg}`")),
+        }
+    }
+
+    let profile =
+        profile.ok_or_else(|| "effect closure admission requires `--profile deterministic-core`".to_owned())?;
+    if !closure {
+        return Err("effect closure admission requires explicit `--closure`".to_owned());
+    }
+    if output_format == OutputFormat::Sarif {
+        return Err("effect closure admission supports human or json output, not SARIF".to_owned());
+    }
+
+    Ok(AdmissionArgs {
+        mode: AdmissionMode::Run {
+            profile,
+            closure,
+            policy,
+            scope_args,
+            cargo_check_args,
+        },
+        artifact_dir,
+        output_format,
+        command_line,
+    })
+}
+
+fn parse_admission_verify(args: &[String], command_line: String) -> Result<AdmissionArgs, String> {
+    const FLAG_AND_VALUE_ARGS: usize = 2;
+
+    let mut artifact_dir = None;
+    let mut output_format = OutputFormat::Human;
+    let mut index = 0;
+    while index < args.len() {
+        let arg = &args[index];
+        match arg.as_str() {
+            "--artifact-dir" => {
+                artifact_dir = Some(PathBuf::from(required_arg_at(args, index, arg)?));
+                index += FLAG_AND_VALUE_ARGS;
+            }
+            "--output-format" | "--format" => {
+                output_format = parse_output_format(&required_arg_at(args, index, arg)?)?;
+                index += FLAG_AND_VALUE_ARGS;
+            }
+            _ if arg.starts_with("--artifact-dir=") => {
+                artifact_dir = Some(PathBuf::from(arg.trim_start_matches("--artifact-dir=")));
+                index += 1;
+            }
+            _ if arg.starts_with("--output-format=") => {
+                output_format = parse_output_format(arg.trim_start_matches("--output-format="))?;
+                index += 1;
+            }
+            _ if arg.starts_with("--format=") => {
+                output_format = parse_output_format(arg.trim_start_matches("--format="))?;
+                index += 1;
+            }
+            _ => return Err(format!("unsupported admission verification argument `{arg}`")),
+        }
+    }
+    if output_format == OutputFormat::Sarif {
+        return Err("effect closure admission verification supports human or json output, not SARIF".to_owned());
+    }
+    Ok(AdmissionArgs {
+        mode: AdmissionMode::Verify,
+        artifact_dir: artifact_dir.ok_or_else(|| "admission verification requires `--artifact-dir PATH`".to_owned())?,
+        output_format,
+        command_line,
+    })
+}
 
 fn parse_artifact(args: &[String]) -> Result<ArtifactArgs, String> {
     match args.first().map(String::as_str) {
@@ -2290,6 +2485,7 @@ mod tests {
     use std::ffi::OsString;
     use std::path::Path;
 
+    use super::AdmissionMode;
     use super::CommandArgs;
     use super::EvidenceIndexMode;
     use super::FingerprintMode;
@@ -2396,6 +2592,102 @@ mod tests {
         .expect_err("duplicate profile selection fails");
         assert!(missing.contains("missing value after `--profile`"));
         assert!(duplicate.contains("may be provided only once"));
+    }
+
+    // r[verify octet.effect_closure.cli]
+    #[test]
+    fn admission_parse_requires_explicit_profile_and_closure() {
+        let parsed = parse(
+            [
+                "cargo",
+                "octet",
+                "admit",
+                "--profile=deterministic-core",
+                "--closure",
+                "--policy",
+                "policy.json",
+                "--artifact-dir=artifacts/admission",
+                "-p",
+                "domain",
+                "--",
+                "--lib",
+            ]
+            .map(OsString::from),
+        )
+        .expect("parse closure admission");
+
+        match parsed {
+            CommandArgs::Admit(args) => {
+                assert_eq!(args.artifact_dir, std::path::PathBuf::from("artifacts/admission"));
+                match args.mode {
+                    AdmissionMode::Run {
+                        profile,
+                        closure,
+                        policy,
+                        scope_args,
+                        cargo_check_args,
+                    } => {
+                        assert_eq!(profile, "deterministic-core");
+                        assert!(closure);
+                        assert_eq!(policy, std::path::PathBuf::from("policy.json"));
+                        assert_eq!(scope_args, ["-p", "domain"]);
+                        assert_eq!(cargo_check_args.as_deref(), Some(["--lib".to_owned()].as_slice()));
+                    }
+                    AdmissionMode::Verify => panic!("expected admission run mode"),
+                }
+            }
+            other => panic!("expected admission args, got {other:?}"),
+        }
+
+        let missing_profile =
+            parse(["cargo", "octet", "admit", "--closure"].map(OsString::from)).expect_err("missing profile fails");
+        let missing_closure = parse(["cargo", "octet", "admit", "--profile", "deterministic-core"].map(OsString::from))
+            .expect_err("missing closure fails");
+        assert!(missing_profile.contains("requires `--profile deterministic-core`"));
+        assert!(missing_closure.contains("requires explicit `--closure`"));
+    }
+
+    // r[verify octet.effect_closure.evidence.tamper]
+    #[test]
+    fn admission_verify_parse_requires_artifact_dir_and_rejects_sarif() {
+        let parsed = parse(
+            [
+                "cargo",
+                "octet",
+                "admit",
+                "verify",
+                "--artifact-dir",
+                "artifacts/admission",
+                "--output-format=json",
+            ]
+            .map(OsString::from),
+        )
+        .expect("parse admission verification");
+        match parsed {
+            CommandArgs::Admit(args) => {
+                assert_eq!(args.output_format, OutputFormat::Json);
+                assert!(matches!(args.mode, AdmissionMode::Verify));
+            }
+            other => panic!("expected admission args, got {other:?}"),
+        }
+
+        let missing = parse(["cargo", "octet", "admit", "verify"].map(OsString::from))
+            .expect_err("missing artifact directory fails");
+        let sarif = parse(
+            [
+                "cargo",
+                "octet",
+                "admit",
+                "verify",
+                "--artifact-dir",
+                "artifacts/admission",
+                "--output-format=sarif",
+            ]
+            .map(OsString::from),
+        )
+        .expect_err("SARIF verification fails");
+        assert!(missing.contains("requires `--artifact-dir PATH`"));
+        assert!(sarif.contains("supports human or json"));
     }
 
     #[test]

@@ -162,6 +162,7 @@ dependencies = [
  "octet-standards",
  "serde",
  "serde_json",
+ "syn",
  "tempfile",
  "toml",
  "valence-core",

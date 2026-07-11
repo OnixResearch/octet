@@ -83,4 +83,6 @@ Without `--profile`, `cargo octet check` retains the existing `workspace-metadat
 
 ## Current boundary and next layers
 
-This first profile rail composes existing direct source/HIR checks. Its first Valence downstream pilot also demonstrates that packaging success, lint precision, profile admission, and function-address identity are separate observations; none promotes another into semantic proof. Deeper work can add conservative MIR effect closure, capability-typed trait contracts, dependency-closure profiles, function-address-bound waivers, and required proof rails. Those future layers must remain separate evidence claims until their own checked receipts exist.
+This profile rail composes existing direct source/HIR checks. Its first Valence downstream pilot also demonstrates that packaging success, lint precision, profile admission, and function-address identity are separate observations; none promotes another into semantic proof.
+
+Octet now provides a separate `cargo octet admit --profile deterministic-core --closure` rail for conservative selected source-token effect propagation under exact function-address-bound call summaries. It emits its own receipt and preserves explicit limits around name resolution, macros, traits, MIR, dependency implementations, and runtime behavior; see [`effect-closure-admission.md`](effect-closure-admission.md). Capability-typed trait contracts, compiler-backed closure versions, dependency implementation evidence, and required proof rails remain future evidence layers rather than implicit profile claims.

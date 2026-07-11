@@ -37,7 +37,7 @@ The new layer must remain ordinary `rustc`-compatible tooling. It must distingui
 
 **Choice:** Parse selected Rust files with `syn`. Infer direct occurrences of `alloc`, `panic`, `unsafe`, `clock`, `random`, `fs`, `net`, `spawn`, `lock`, `ffi`, and `unknown`. Resolve an unambiguous selected local call by function name and path context. Assign stable call-site IDs from the caller function address, normalized call shape, and within-function occurrence index.
 
-Opaque or ambiguous constructs become `unknown` unless an exact call-site summary resolves only the call edge. Unknown macros, conditional compilation, async/await, ambiguous trait or method dispatch, unresolved local names, and unsupported syntax fail closed. `unsafe` blocks and foreign calls remain direct effects and cannot be erased by a call summary. Indexing, panic macros, `unwrap`/`expect`, and panic-capable arithmetic are conservatively classified as `panic`.
+Opaque or ambiguous constructs become `unknown`; an exact call-site summary resolves only the call edge and never erases a direct effect. Every macro invocation remains `unknown` in v1 because `syn` does not expand or recursively analyze arbitrary macro tokens; known allocation or panic macros additionally retain their obvious effect. Conditional compilation, async/await, ambiguous trait or method dispatch, unresolved local names, and unsupported syntax also fail closed. `unsafe` blocks and foreign calls remain direct effects and cannot be erased by a call summary. Indexing, panic macros, `unwrap`/`expect`, and panic-capable arithmetic are conservatively classified as `panic`.
 
 **Rationale:** A smaller conservative claim is reviewable now. The receipt labels its resolver and canonicalizer so a future HIR/MIR implementation can be a new evidence version rather than a silent semantic upgrade.
 
@@ -61,7 +61,7 @@ Opaque or ambiguous constructs become `unknown` unless an exact call-site summar
 
 ### 7. External calls require exact, non-waiver summaries
 
-**Choice:** An unresolved call can be resolved only by a workspace-policy entry keyed by its stable call-site ID. The entry records a review label, provider kind, exact package/toolchain identity, target, sorted feature set, inferred effect set, and evidence reference. Cargo package providers must match the shell's resolved `cargo metadata --locked` graph. Toolchain providers must match the recorded rustc/target identity. Workspace summaries must match an exact workspace package identity.
+**Choice:** Every non-macro call not resolved to one selected local function can be resolved only by a workspace-policy entry keyed by its stable call-site ID. V1 does not infer toolchain intrinsics from source names such as `Ok`, `Some`, or `Vec`; those calls require exact `core`/`alloc` provider summaries, while every macro remains directly `unknown`. The entry records a review label, provider kind, exact package/toolchain identity, target, sorted feature set, inferred effect set, and evidence reference. The shell requires an explicit Cargo `--target TARGET` argument rather than inferring the host or trusting ambient Cargo configuration, then resolves `cargo metadata --locked` for that target. Cargo package providers must match that graph. Toolchain providers must match the recorded rustc/target identity. Workspace summaries must match an exact workspace package identity.
 
 Summaries cannot declare `unknown`, cannot resolve opaque non-call constructs, cannot change direct effects, and are reported as reviewed summaries rather than proof. A missing, extra, duplicate, broad, stale, or identity-mismatched summary denies admission.
 
@@ -84,7 +84,7 @@ Summaries cannot declare `unknown`, cannot resolve opaque non-call constructs, c
 - `<artifact-dir>/summary.txt` — deterministic human summary;
 - `<artifact-dir>/provenance.jsonl` — artifact identities and bounded checked scope.
 
-`cargo octet admit verify --artifact-dir PATH` recomputes BLAKE3 identities, validates canonical ordering/schema/non-claims, checks parent artifact hashes, and returns invalid on tampering. It does not rerun source analysis or promote integrity into correctness.
+`cargo octet admit verify --artifact-dir PATH` reruns ordinary artifact verification over the complete strict-profile parent, recomputes closure BLAKE3 identities, validates canonical ordering/schema/non-claims, checks parent links, and returns invalid on tampering. It does not rerun source analysis, provide signer authenticity or authorization, resist coherent replacement of every trust root, or promote integrity into correctness.
 
 **Rationale:** Reviewers can validate stored evidence without the original build process while retaining the limits of integrity verification.
 
