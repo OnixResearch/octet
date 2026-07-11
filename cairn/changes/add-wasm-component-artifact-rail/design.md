@@ -52,14 +52,21 @@ Octet should own a checked artifact profile and evidence shape, not a Wasm runti
 
 **Choice:** Export exact artifact facts and policy decisions as recorded-only or boundary Evidence IR. Do not request property/proof roles or claim execution, authority, sandboxing, semantics, or release readiness.
 
+### 9. Mantle orchestrates production artifact checks
+
+**Choice:** Expose a stable CLI/report contract that accepts exact final bytes plus an explicit Octet profile and emits a self-verifiable bundle. Mantle invokes this contract after build-local validation and binds the report, artifact BLAKE3, profile, and Octet cohort into its materialization bundle. Octet remains independently runnable, does not trust Mantle paths or build success, and does not interpret Mantle runtime or release policy.
+
+**Rationale:** Mantle is the correct shell for reproducible build-stage orchestration, while Octet remains the single owner of static artifact policy and finding semantics.
+
 ## Functional core / imperative shell split
 
 - **Pure core**: Wasm/WIT parsing from bytes, fact normalization, profile validation, policy evaluation, finding ordering, identity material construction, fixture expectation evaluation, and report DTO construction.
-- **Imperative shell**: path and capability-root handling, Nickel export loading, fixture discovery/materialization, artifact-directory writes, optional external tool orchestration, and human/SARIF/JSON rendering.
+- **Imperative shell**: path and capability-root handling, Nickel export loading, exact-byte request handling for Mantle or standalone callers, fixture discovery/materialization, artifact-directory writes, optional external tool orchestration, and human/SARIF/JSON rendering.
 
 ## Risks / Trade-offs
 
 - Wasm proposals and the Component Model evolve. Cohort pinning and explicit feature profiles limit accidental acceptance drift.
+- Mantle build cohorts and Octet parser cohorts can drift independently. Reports bind both exact identities and fail compatibility checks rather than assuming a shared version string.
 - Deep mutation corpora can be expensive. Keep deterministic fast and deep lanes with named bounds.
 - Producer metadata may be absent or untrusted. Treat it as recorded metadata, never provenance truth.
 - Validation cannot establish runtime resource use or hostcall behavior; consumers must enforce runtime boundaries separately.
@@ -70,3 +77,4 @@ Octet should own a checked artifact profile and evidence shape, not a Wasm runti
 - No Wasmtime configuration, WASI host, package registry, component composition, or capability authority.
 - No equivalence claim from matching WIT, metadata, or normalized interfaces.
 - No replacement for Mantle build evidence, Valence identity semantics, Cairn release policy, or consumer runtime receipts.
+- No requirement that standalone Octet analysis run inside Mantle; Mantle is the production orchestrator, not a prerequisite for the pure rail.
