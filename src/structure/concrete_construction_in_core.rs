@@ -2,6 +2,7 @@ use rustc_hir as hir;
 use rustc_lint::LateContext;
 use rustc_lint::LateLintPass;
 use rustc_lint::LintContext;
+use rustc_middle::ty;
 use rustc_session::declare_tool_lint;
 use rustc_session::impl_lint_pass;
 
@@ -9,10 +10,9 @@ use crate::diagnostics::emit_tiger_style_lint;
 use crate::test_context;
 
 const LINT_NAME: &str = "concrete_construction_in_core";
-const NEW_CALL_PATTERN: &str = "::new(";
-const DEFAULT_CALL_PATTERN: &str = "::default(";
-const STD_PREFIX: &str = "std::";
-const CORE_PREFIX: &str = "core::";
+const NEW_CALLEE_SUFFIX: &str = "::new";
+const DEFAULT_CALLEE_SUFFIX: &str = "::default";
+const STANDARD_VALUE_CRATES: &[&str] = &["alloc", "core", "std"];
 
 declare_tool_lint! {
     /// Detects concrete infrastructure construction inside declared core scopes.
@@ -35,6 +35,31 @@ impl ConcreteConstructionInCore {
 
 impl_lint_pass!(ConcreteConstructionInCore => [CONCRETE_CONSTRUCTION_IN_CORE]);
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ConstructedTypeOrigin {
+    LocalDomain,
+    StandardValue,
+    External,
+    Unsupported,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct ConstructionFacts {
+    in_core_scope: bool,
+    from_expansion: bool,
+    in_test_context: bool,
+    is_direct_constructor_call: bool,
+    type_origin: ConstructedTypeOrigin,
+}
+
+fn should_emit_construction(facts: ConstructionFacts) -> bool {
+    facts.in_core_scope
+        && !facts.from_expansion
+        && !facts.in_test_context
+        && facts.is_direct_constructor_call
+        && facts.type_origin == ConstructedTypeOrigin::External
+}
+
 fn path_is_in_core_scope(cx: &LateContext<'_>, span: rustc_span::Span, scopes: &[String]) -> bool {
     if scopes.is_empty() {
         return false;
@@ -44,47 +69,53 @@ fn path_is_in_core_scope(cx: &LateContext<'_>, span: rustc_span::Span, scopes: &
     scopes.iter().any(|scope| path.contains(scope))
 }
 
-fn construction_snippet(cx: &LateContext<'_>, expr: &hir::Expr<'_>) -> Option<String> {
-    let snippet = cx.sess().source_map().span_to_snippet(expr.span).ok()?;
-    if snippet.contains(NEW_CALL_PATTERN) || snippet.contains(DEFAULT_CALL_PATTERN) {
-        Some(snippet)
-    } else {
-        None
-    }
-}
-
-fn external_construction_name(snippet: &str) -> Option<String> {
-    if snippet.starts_with(STD_PREFIX) || snippet.starts_with(CORE_PREFIX) {
-        return None;
-    }
-    let separator = if snippet.contains(NEW_CALL_PATTERN) {
-        NEW_CALL_PATTERN
-    } else if snippet.contains(DEFAULT_CALL_PATTERN) {
-        DEFAULT_CALL_PATTERN
-    } else {
+fn direct_constructor_name(cx: &LateContext<'_>, expr: &hir::Expr<'_>) -> Option<String> {
+    let hir::ExprKind::Call(callee, _) = expr.kind else {
         return None;
     };
-    snippet
-        .split(separator)
-        .next()
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .map(ToOwned::to_owned)
+    let snippet = cx.sess().source_map().span_to_snippet(callee.span).ok()?;
+    let type_name = snippet
+        .strip_suffix(NEW_CALLEE_SUFFIX)
+        .or_else(|| snippet.strip_suffix(DEFAULT_CALLEE_SUFFIX))?
+        .trim();
+    if type_name.is_empty() {
+        return None;
+    }
+    Some(type_name.to_owned())
+}
+
+fn constructed_type_origin(cx: &LateContext<'_>, expr: &hir::Expr<'_>) -> ConstructedTypeOrigin {
+    let ty::Adt(adt, _) = cx.typeck_results().expr_ty(expr).kind() else {
+        return ConstructedTypeOrigin::Unsupported;
+    };
+    if adt.did().is_local() {
+        return ConstructedTypeOrigin::LocalDomain;
+    }
+    let path = cx.get_def_path(adt.did());
+    let Some(crate_name) = path.first().map(|segment| segment.as_str()) else {
+        return ConstructedTypeOrigin::Unsupported;
+    };
+    if STANDARD_VALUE_CRATES.contains(&crate_name) {
+        ConstructedTypeOrigin::StandardValue
+    } else {
+        ConstructedTypeOrigin::External
+    }
 }
 
 impl<'tcx> LateLintPass<'tcx> for ConcreteConstructionInCore {
     fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx hir::Expr<'tcx>) {
-        if expr.span.from_expansion()
-            || !path_is_in_core_scope(cx, expr.span, &self.core_source_scopes)
-            || test_context::late_hir_id_is_in_test_context(cx, expr.hir_id, expr.span)
-        {
+        let constructor_name = direct_constructor_name(cx, expr);
+        let facts = ConstructionFacts {
+            in_core_scope: path_is_in_core_scope(cx, expr.span, &self.core_source_scopes),
+            from_expansion: expr.span.from_expansion(),
+            in_test_context: test_context::late_hir_id_is_in_test_context(cx, expr.hir_id, expr.span),
+            is_direct_constructor_call: constructor_name.is_some(),
+            type_origin: constructed_type_origin(cx, expr),
+        };
+        if !should_emit_construction(facts) {
             return;
         }
-
-        let Some(snippet) = construction_snippet(cx, expr) else {
-            return;
-        };
-        let Some(type_name) = external_construction_name(&snippet) else {
+        let Some(type_name) = constructor_name else {
             return;
         };
 
@@ -97,5 +128,42 @@ impl<'tcx> LateLintPass<'tcx> for ConcreteConstructionInCore {
             ),
             LINT_NAME,
         );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn facts(type_origin: ConstructedTypeOrigin) -> ConstructionFacts {
+        ConstructionFacts {
+            in_core_scope: true,
+            from_expansion: false,
+            in_test_context: false,
+            is_direct_constructor_call: true,
+            type_origin,
+        }
+    }
+
+    #[test]
+    fn direct_external_constructor_is_reportable() {
+        assert!(should_emit_construction(facts(ConstructedTypeOrigin::External)));
+    }
+
+    #[test]
+    fn local_and_standard_value_constructors_are_not_reportable() {
+        assert!(!should_emit_construction(facts(ConstructedTypeOrigin::LocalDomain)));
+        assert!(!should_emit_construction(facts(ConstructedTypeOrigin::StandardValue)));
+    }
+
+    #[test]
+    fn indirect_parent_and_out_of_scope_shapes_are_not_reportable() {
+        let mut indirect = facts(ConstructedTypeOrigin::External);
+        indirect.is_direct_constructor_call = false;
+        let mut out_of_scope = facts(ConstructedTypeOrigin::External);
+        out_of_scope.in_core_scope = false;
+
+        assert!(!should_emit_construction(indirect));
+        assert!(!should_emit_construction(out_of_scope));
     }
 }

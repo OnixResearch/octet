@@ -1,37 +1,12 @@
-warning: core function returns concrete resource `Client`; return a command description or domain value instead
-  --> $DIR/concrete_construction_in_core/concrete_construction_in_core.rs:9:1
+warning: core scope constructs concrete type `serde_json::Map::<String, serde_json::Value>`; inject the dependency through a port or capability
+  --> $DIR/concrete_construction_in_core/concrete_construction_in_core.rs:18:23
    |
-LL | / fn build_client() -> HttpClient {
-LL | |     HttpClient::new()
-LL | | }
-   | |_^
-   |
-   = help: Tiger Style (Functional Core): return command descriptions, domain values, or injected ports from core scopes instead of concrete resource handles Example: fn plan_download(input: Input) -> DownloadCommand
-   = note: see Tiger Style guide: Functional Core / Imperative Shell
-   = note: `#[warn(tigerstyle::resource_return_from_core)]` on by default
-
-warning: core scope constructs concrete type `{
-             HttpClient`; inject the dependency through a port or capability
-  --> $DIR/concrete_construction_in_core/concrete_construction_in_core.rs:9:33
-   |
-LL |   fn build_client() -> HttpClient {
-   |  _________________________________^
-LL | |     HttpClient::new()
-LL | | }
-   | |_^
+LL |     let _value = Some(serde_json::Map::<String, serde_json::Value>::new());
+   |                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
    = help: Tiger Style (Dependency Inversion): inject infrastructure dependencies through ports or capabilities instead of constructing concrete types in core Example: fn run(clock: impl Clock) -> Output
    = note: see Tiger Style guide: Architecture / Ports and Capabilities
    = note: `#[warn(tigerstyle::concrete_construction_in_core)]` on by default
 
-warning: core scope constructs concrete type `HttpClient`; inject the dependency through a port or capability
-  --> $DIR/concrete_construction_in_core/concrete_construction_in_core.rs:10:5
-   |
-LL |     HttpClient::new()
-   |     ^^^^^^^^^^^^^^^^^
-   |
-   = help: Tiger Style (Dependency Inversion): inject infrastructure dependencies through ports or capabilities instead of constructing concrete types in core Example: fn run(clock: impl Clock) -> Output
-   = note: see Tiger Style guide: Architecture / Ports and Capabilities
-
-warning: 3 warnings emitted
+warning: 1 warning emitted
 

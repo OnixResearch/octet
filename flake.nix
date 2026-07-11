@@ -263,7 +263,7 @@
         productionVerusRustcLibPath = "${productionVerusRustToolchain}/lib";
         cargoOctetRuntimePath = pkgs.symlinkJoin {
           name = "cargo-octet-runtime-path";
-          paths = [ cargo-shim rustup-shim rustToolchain octetVerus octetProductionVerus ];
+          paths = [ cargo-shim rustup-shim rustToolchain pkgs.stdenv.cc octetVerus octetProductionVerus ];
         };
         checkNativeBuildInputs = nativeBuildInputs ++ [ cargo-shim rustup-shim pkgs.git pkgs.python3 ];
         sharedLibraryPrefix = if pkgs.stdenv.hostPlatform.isWindows then "" else "lib";
@@ -1030,6 +1030,28 @@ MAIN
               exit 1
             fi
           done
+          touch "$out"
+        '';
+
+        downstreamProcMacroCheck = pkgs.runCommand "octet-downstream-proc-macro-check"
+          {
+            nativeBuildInputs = [ cargoOctet ];
+          } ''
+          cp -R ${./tests/fixtures/downstream-proc-macro-consumer} fixture
+          chmod -R u+w fixture
+          cd fixture
+          export CARGO_HOME="$PWD/.cargo-home"
+          mkdir -p "$CARGO_HOME"
+          cp "${workspaceVendorDir}/config.toml" "$CARGO_HOME/config.toml"
+
+          cargo-octet check \
+            --profile robust \
+            --function-address-path src/lib.rs \
+            --artifact-dir artifacts
+          cargo-octet artifact verify --artifact-dir artifacts --output-format json > verification.json
+          grep -q '"profile_name": "robust"' artifacts/status.json
+          test -s artifacts/function-addresses.json
+          grep -q '"status": "valid"' verification.json
           touch "$out"
         '';
 
@@ -2182,6 +2204,7 @@ MAIN
 
           policy-registry = policyRegistryCheck;
           strict-profile-catalog = strictProfileCatalogCheck;
+          downstream-proc-macro = downstreamProcMacroCheck;
           proof-rail-manifest = proofRailManifestCheck;
           production-verus-negative-proof = productionVerusNegativeProofCheck;
           production-verus-negative-prove = productionVerusNegativeProveCheck;
