@@ -156,6 +156,11 @@ pins `octet-verusfmt`, whose wrapper disables self-update and exposes bounded
 formatter identity.
 
 ```bash
+nix build .#octet-verus-toolchain-profile .#octet-verusfmt --no-link -L
+nix run .#octet-verusfmt -- --identity
+```
+
+```bash
 cargo octet prove --list \
   --policy-artifacts-dir artifacts/policy \
   --source src/verified

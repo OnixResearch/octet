@@ -412,6 +412,18 @@ in
       ],
     },
     {
+      family_id = "octet.verus-toolchain-profile",
+      ownership = "nickel-authored",
+      owner_source_path = "standards/verus-toolchain/profile.ncl",
+      artifact_path = "standards/verus-toolchain/generated/profile.json",
+      generation_command = "nickel export --format json standards/verus-toolchain/profile.ncl > standards/verus-toolchain/generated/profile.json",
+      validation_command = "nix build .#checks.x86_64-linux.verus-toolchain-profile --no-link -L",
+      status = "existing",
+      config_digest_required = true,
+      positive_fixtures = ["standards/verus-toolchain/fixtures/valid/current_profile.ncl", "standards/verus-toolchain/fixtures/valid/formatted.rs"],
+      negative_fixtures = ["standards/verus-toolchain/fixtures/invalid/empty_non_claims.ncl", "standards/verus-toolchain/fixtures/invalid/proof_transfer_status.ncl", "standards/verus-toolchain/fixtures/invalid/unformatted.rs"],
+    },
+    {
       family_id = "octet.verus-raw-verifier-internals",
       ownership = "non-candidate",
       owner_source_path = "docs/standards/source/verification.adoc#verus-proof-rails",
