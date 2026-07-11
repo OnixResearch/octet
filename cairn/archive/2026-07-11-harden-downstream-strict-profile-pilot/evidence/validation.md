@@ -61,3 +61,11 @@ Observed result:
 ## Claim boundary
 
 These checks establish packaged linker availability, direct HIR constructor-classification precision, profile execution, source-token function identity, deterministic local replay for selected artifacts, and artifact hash integrity only. They do not establish transitive effect absence, dependency closure, behavioral correctness, semantic equivalence, compiler correctness, verifier soundness, whole-program correctness, cross-machine reproducibility, or release eligibility.
+
+## Lifecycle completion
+
+- Proposal, design, and tasks gates passed with no issues.
+- Sync dry-run was unblocked and execute completed. The compatible pinned Cairn CLI did not promote the full-spec-shaped delta requirement sections, so their new requirement IDs were manually merged into `cairn/specs/strict-rust-profiles/spec.md`; a targeted search confirmed the accepted IDs and Cairn validation passed.
+- Archive dry-run was unblocked.
+- `CAIRN_ARCHIVE_DATE=2026-07-11 ... archive --execute` moved the package to `cairn/archive/2026-07-11-harden-downstream-strict-profile-pilot/`.
+- Post-archive `nix run path:.#cairn -- validate --root .` passed with 66 accepted specs, six remaining active changes, and no issues.
