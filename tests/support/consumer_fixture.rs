@@ -123,6 +123,7 @@ printf 'ARGS:%s\n' "$*" >> "$TS_LOG"
 printf 'RUSTC_WORKSPACE_WRAPPER=%s\n' "${{RUSTC_WORKSPACE_WRAPPER:-}}" >> "$TS_LOG"
 printf 'DYLINT_LIBS=%s\n' "${{DYLINT_LIBS:-}}" >> "$TS_LOG"
 printf 'DYLINT_NO_DEPS=%s\n' "${{DYLINT_NO_DEPS:-}}" >> "$TS_LOG"
+printf 'OCTET_STRICT_PROFILE=%s\n' "${{OCTET_STRICT_PROFILE:-}}" >> "$TS_LOG"
 printf 'RUSTUP_TOOLCHAIN=%s\n' "${{RUSTUP_TOOLCHAIN:-}}" >> "$TS_LOG"
 case "${{1:-}}" in
   build)
@@ -566,6 +567,7 @@ pub(crate) fn build_standalone_cargo_octet() -> StandaloneCargoOctet {
         "crates/octet-standards",
         "crates/valence-core",
         "standards/proof-imports/generated",
+        "standards/strict-profiles/generated",
     ] {
         copy_path(&repo_root.join(relative), &source_root.join(relative));
     }

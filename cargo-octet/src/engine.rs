@@ -91,6 +91,10 @@ pub fn run(check: &CheckArgs) -> Result<i32, String> {
         check.scope_args.clone()
     };
     let cargo_check_args = check.cargo_check_args.clone().unwrap_or(cfg.cargo_check_args.clone());
+    let selected_profile =
+        crate::strict_profile::prepare_selected_profile(check.profile.as_deref(), &cfg.workspace_root)?;
+    let effective_function_addresses =
+        crate::strict_profile::effective_function_address_check(selected_profile.as_ref(), &check.function_addresses);
 
     if cargo_check_args.iter().any(|arg| arg.starts_with("--message-format")) {
         return Err("`--message-format` is managed by `--output-format`; remove it from passthrough args".to_owned());
@@ -107,12 +111,17 @@ pub fn run(check: &CheckArgs) -> Result<i32, String> {
 
     let result = (|| {
         let toolchain = resolve_toolchain()?;
+        let strict_profile_identity = selected_profile.as_ref().map(|selected| determinism::StrictProfileIdentity {
+            profile_id: &selected.policy.profile_id,
+            policy_hash: &selected.policy_hash,
+        });
         let run_metadata = determinism::build_run_metadata(&determinism::MetadataInput {
             workspace_root: &cfg.workspace_root,
             toolchain: &toolchain,
             scope_args: &scope_args,
             cargo_check_args: &cargo_check_args,
             output_format: check.output_format.as_str(),
+            strict_profile: strict_profile_identity,
         });
         let driver = resolve_driver(&toolchain)?;
         let lint_lib = resolve_lint_lib(&toolchain)?;
@@ -137,6 +146,10 @@ pub fn run(check: &CheckArgs) -> Result<i32, String> {
             .env("DYLINT_NO_DEPS", "1")
             .env("RUSTUP_TOOLCHAIN", &toolchain)
             .stdout(Stdio::piped());
+        cmd.env_remove(octet_lint_metadata::strict_profile::STRICT_PROFILE_ENV);
+        if let Some(selected) = &selected_profile {
+            cmd.env(octet_lint_metadata::strict_profile::STRICT_PROFILE_ENV, &selected.policy.profile_id);
+        }
 
         if check.output_format != OutputFormat::Human {
             cmd.stderr(Stdio::null());
@@ -201,7 +214,7 @@ pub fn run(check: &CheckArgs) -> Result<i32, String> {
             classify_cargo_process_exit(child.wait().map_err(|error| format!("wait for cargo check: {error}"))?);
         let function_address_artifact = if cargo_process_exit.is_success() {
             match crate::function_address::collect_run(
-                &check.function_addresses,
+                &effective_function_addresses,
                 &cfg.workspace_root,
                 &run_metadata.config_hash,
             )? {
@@ -1119,4 +1132,39 @@ fn copy_file(from: &Path, to: &Path) -> Result<(), String> {
     fs::copy(from, to)
         .map(|_| ())
         .map_err(|error| format!("copy {} -> {}: {error}", from.display(), to.display()))
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::BTreeSet;
+
+    use super::embedded_source;
+
+    const REQUIRED_EMBEDDED_PATHS: &[&str] = &[
+        "Cargo.toml",
+        "crates/octet-lint-metadata/Cargo.toml",
+        "crates/octet-lint-metadata/src/strict_profile.rs",
+        "standards/strict-profiles/generated/strict-rust-profiles.json",
+    ];
+
+    #[test]
+    fn embedded_lint_source_contains_strict_profile_runtime_inputs() {
+        let paths = embedded_source::EMBEDDED_SOURCE_FILES
+            .iter()
+            .map(|(path, _contents)| *path)
+            .collect::<BTreeSet<_>>();
+
+        for required in REQUIRED_EMBEDDED_PATHS {
+            assert!(paths.contains(required), "embedded lint source is missing `{required}`");
+        }
+    }
+
+    #[test]
+    fn embedded_lint_source_paths_are_unique_and_workspace_relative() {
+        let paths = embedded_source::EMBEDDED_SOURCE_FILES.iter().map(|(path, _contents)| *path).collect::<Vec<_>>();
+        let unique = paths.iter().copied().collect::<BTreeSet<_>>();
+
+        assert_eq!(paths.len(), unique.len(), "embedded source paths must be unique");
+        assert!(paths.iter().all(|path| !path.starts_with('/') && !path.contains("../")));
+    }
 }

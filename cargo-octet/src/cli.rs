@@ -65,6 +65,7 @@ pub struct ArtifactArgs {
 pub struct CheckArgs {
     pub scope_args: Vec<String>,
     pub cargo_check_args: Option<Vec<String>>,
+    pub profile: Option<String>,
     pub output_format: OutputFormat,
     pub artifact_dir: Option<PathBuf>,
     pub baseline: Option<PathBuf>,
@@ -412,7 +413,7 @@ const ROOT_HELP: &str = "Octet operator commands
 
 Usage:
   cargo octet artifact verify --artifact-dir PATH [--output-format human|json] [--emit-valence-provenance PATH]
-  cargo octet check [SCOPE] [--function-addresses off|observe|warn|deny] [--function-address-path PATH] [-- CARGO_CHECK_ARGS]
+  cargo octet check [SCOPE] [--profile robust|bounded-systems|deterministic-core] [--function-addresses off|observe|warn|deny] [--function-address-path PATH] [-- CARGO_CHECK_ARGS]
   cargo octet evidence collect --rail RAIL --input PATH --artifact-dir PATH [--output-format human|json]
   cargo octet evidence-index render --payload-commit HASH --capture-time RFC3339
   cargo octet evidence-index check [--page PATH]
@@ -460,9 +461,9 @@ Verifies a saved cargo octet check/prove artifact directory or a log-only eviden
 
 const CHECK_HELP: &str = "cargo octet check
 
-Options: --output-format human|json|sarif, --artifact-dir PATH, --baseline PATH, --write-baseline PATH, --cache, --function-addresses off|observe|warn|deny, --function-address-path PATH, --function-address-baseline PATH.
+Options: --profile robust|bounded-systems|deterministic-core, --output-format human|json|sarif, --artifact-dir PATH, --baseline PATH, --write-baseline PATH, --cache, --function-addresses off|observe|warn|deny, --function-address-path PATH, --function-address-baseline PATH.
 
-Artifacts include summary.txt effect-summary output, findings JSON/SARIF, cache_status fields when --cache enables the lint-cache, and optional function-address diagnostics for gradual content-address adoption.
+Strict profiles activate reviewed deny-level lint floors and minimum function-address modes. They validate direct source-shape policy only; they do not prove transitive effects, whole-program correctness, or release eligibility. Artifacts include summary.txt effect-summary output, findings JSON/SARIF, cache_status fields when --cache enables the lint-cache, and optional function-address diagnostics for gradual content-address adoption.
 ";
 
 const EVIDENCE_INDEX_HELP: &str = "cargo octet evidence-index
@@ -630,6 +631,7 @@ fn parse_artifact_verify(args: &[String]) -> Result<ArtifactArgs, String> {
 fn parse_check(args: &[String], command_line: String) -> Result<CheckArgs, String> {
     let mut scope_args = Vec::new();
     let mut cargo_check_args = None;
+    let mut profile = None;
     let mut output_format = OutputFormat::Human;
     let mut artifact_dir = None;
     let mut baseline = None;
@@ -647,7 +649,23 @@ fn parse_check(args: &[String], command_line: String) -> Result<CheckArgs, Strin
             break;
         }
 
-        if arg == "--output-format" {
+        if arg == "--profile" {
+            if profile.is_some() {
+                return Err("`--profile` may be provided only once".to_owned());
+            }
+            let value = args.get(index + 1).ok_or_else(|| "missing value after `--profile`".to_owned())?;
+            profile = Some(value.clone());
+            index += 2;
+        } else if let Some(value) = arg.strip_prefix("--profile=") {
+            if profile.is_some() {
+                return Err("`--profile` may be provided only once".to_owned());
+            }
+            if value.is_empty() {
+                return Err("missing value after `--profile`".to_owned());
+            }
+            profile = Some(value.to_owned());
+            index += 1;
+        } else if arg == "--output-format" {
             let value = args.get(index + 1).ok_or_else(|| "missing value after `--output-format`".to_owned())?;
             output_format = parse_output_format(value)?;
             index += 2;
@@ -721,6 +739,7 @@ fn parse_check(args: &[String], command_line: String) -> Result<CheckArgs, Strin
     Ok(CheckArgs {
         scope_args,
         cargo_check_args,
+        profile,
         output_format,
         artifact_dir,
         baseline,
@@ -2336,6 +2355,47 @@ mod tests {
 
         let error = parse(["cargo", "octet", "unknown"].map(OsString::from)).expect_err("unknown command should fail");
         assert!(error.contains("unknown subcommand"));
+    }
+
+    #[test]
+    fn check_parse_accepts_one_strict_profile_selection() {
+        let parsed = parse(
+            [
+                "cargo",
+                "octet",
+                "check",
+                "--profile=deterministic-core",
+                "-p",
+                "domain",
+            ]
+            .map(OsString::from),
+        )
+        .expect("parse strict profile selection");
+
+        match parsed {
+            CommandArgs::Check(args) => {
+                assert_eq!(args.profile.as_deref(), Some("deterministic-core"));
+                assert_eq!(args.scope_args, ["-p", "domain"]);
+            }
+            other => panic!("expected check args, got {other:?}"),
+        }
+
+        let missing = parse(["cargo", "octet", "check", "--profile"].map(OsString::from))
+            .expect_err("missing profile value fails");
+        let duplicate = parse(
+            [
+                "cargo",
+                "octet",
+                "check",
+                "--profile",
+                "robust",
+                "--profile=bounded-systems",
+            ]
+            .map(OsString::from),
+        )
+        .expect_err("duplicate profile selection fails");
+        assert!(missing.contains("missing value after `--profile`"));
+        assert!(duplicate.contains("may be provided only once"));
     }
 
     #[test]

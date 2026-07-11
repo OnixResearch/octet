@@ -1011,6 +1011,28 @@ MAIN
           touch "$out"
         '';
 
+        strictProfileCatalogCheck = pkgs.runCommand "octet-strict-profile-catalog-check"
+          {
+            nativeBuildInputs = with pkgs; [ nickel ];
+          } ''
+          cd ${./.}
+          generated_catalog=$(mktemp)
+          nickel typecheck standards/strict-profiles/profiles.ncl
+          nickel export --format json standards/strict-profiles/profiles.ncl > "$generated_catalog"
+          cmp "$generated_catalog" standards/strict-profiles/generated/strict-rust-profiles.json
+
+          for file in standards/strict-profiles/fixtures/valid/*.ncl; do
+            nickel export --format json "$file" >/dev/null
+          done
+          for file in standards/strict-profiles/fixtures/invalid/*.ncl; do
+            if nickel export --format json "$file" >/dev/null 2>&1; then
+              echo "invalid strict-profile fixture passed: $file" >&2
+              exit 1
+            fi
+          done
+          touch "$out"
+        '';
+
         proofRailManifestCheck = pkgs.runCommand "octet-proof-rail-manifest-check"
           {
             nativeBuildInputs = with pkgs; [ jq nickel ];
@@ -2159,6 +2181,7 @@ MAIN
           };
 
           policy-registry = policyRegistryCheck;
+          strict-profile-catalog = strictProfileCatalogCheck;
           proof-rail-manifest = proofRailManifestCheck;
           production-verus-negative-proof = productionVerusNegativeProofCheck;
           production-verus-negative-prove = productionVerusNegativeProveCheck;

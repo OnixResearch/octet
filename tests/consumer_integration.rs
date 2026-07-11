@@ -81,6 +81,142 @@ fn no_argument_check_uses_workspace_metadata_defaults() {
 }
 
 #[test]
+fn known_strict_profile_is_handed_to_cargo_and_unknown_profile_fails_before_cargo() {
+    let selected = ConsumerFixture::new("strict-profile-selected", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
+    let selected_output = selected.run_with_launcher_and_env(
+        None,
+        &[("OCTET_STRICT_PROFILE", "deterministic-core")],
+        &["--profile", "robust"],
+        EXIT_CODE_SUCCESS,
+        false,
+        Some("nightly-2026-03-21-x86_64-unknown-linux-gnu"),
+        Some(selected.driver_path.as_path()),
+        Some(selected.lint_lib_path.as_path()),
+        None,
+    );
+    assert_eq!(
+        selected_output.status.code(),
+        Some(EXIT_CODE_SUCCESS),
+        "known profile should run: stdout={} stderr={}",
+        String::from_utf8_lossy(&selected_output.stdout),
+        String::from_utf8_lossy(&selected_output.stderr)
+    );
+    assert!(selected.log().contains("OCTET_STRICT_PROFILE=robust"));
+    assert!(String::from_utf8_lossy(&selected_output.stderr).contains("Profile: robust"));
+
+    let unknown = ConsumerFixture::new("strict-profile-unknown", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
+    let unknown_output = unknown.run(
+        &["--profile", "not-a-profile"],
+        EXIT_CODE_SUCCESS,
+        false,
+        Some("nightly-2026-03-21-x86_64-unknown-linux-gnu"),
+        Some(unknown.driver_path.as_path()),
+        Some(unknown.lint_lib_path.as_path()),
+        None,
+    );
+    assert_eq!(unknown_output.status.code(), Some(EXIT_CODE_INTEGRATION_FAILURE));
+    let unknown_stderr = String::from_utf8_lossy(&unknown_output.stderr);
+    assert!(unknown_stderr.contains("unknown strict profile `not-a-profile`"));
+    assert!(unknown_stderr.contains("bounded-systems, deterministic-core, robust"));
+    assert!(!unknown.log().contains("ARGS:check"), "unknown profile must fail before Cargo");
+}
+
+#[test]
+fn deterministic_core_requires_scopes_and_default_check_scrubs_ambient_profile_selection() {
+    let missing_scope =
+        ConsumerFixture::new("strict-profile-missing-core", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
+    let missing_output = missing_scope.run(
+        &["--profile", "deterministic-core"],
+        EXIT_CODE_SUCCESS,
+        false,
+        Some("nightly-2026-03-21-x86_64-unknown-linux-gnu"),
+        Some(missing_scope.driver_path.as_path()),
+        Some(missing_scope.lint_lib_path.as_path()),
+        None,
+    );
+    assert_eq!(missing_output.status.code(), Some(EXIT_CODE_INTEGRATION_FAILURE));
+    let missing_stderr = String::from_utf8_lossy(&missing_output.stderr);
+    assert!(missing_stderr.contains("deterministic-core"));
+    assert!(missing_stderr.contains("core_source_scopes"));
+    assert!(!missing_scope.log().contains("ARGS:check"), "missing scope must fail before Cargo");
+
+    let default = ConsumerFixture::new("strict-profile-env-scrub", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
+    let default_output = default.run_with_launcher_and_env(
+        None,
+        &[("OCTET_STRICT_PROFILE", "deterministic-core")],
+        &[],
+        EXIT_CODE_SUCCESS,
+        false,
+        Some("nightly-2026-03-21-x86_64-unknown-linux-gnu"),
+        Some(default.driver_path.as_path()),
+        Some(default.lint_lib_path.as_path()),
+        None,
+    );
+    assert_eq!(default_output.status.code(), Some(EXIT_CODE_SUCCESS));
+    assert!(default.log().contains("OCTET_STRICT_PROFILE=\n"));
+    assert!(String::from_utf8_lossy(&default_output.stderr).contains("Profile: workspace-metadata"));
+}
+
+#[test]
+fn deterministic_core_uses_reviewed_core_scope_function_address_baseline() {
+    let fixture = ConsumerFixture::new(
+        "strict-profile-deterministic-baseline",
+        &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#),
+    );
+    write_file(&fixture.repo.join("dylint.toml"), "[octet]\ncore_source_scopes = [\"src\"]\n");
+    let observed_dir = artifact_dir(&fixture, "deterministic-observe");
+    let observed = run_with_check_args(
+        &fixture,
+        &[
+            "--function-addresses",
+            "observe",
+            "--function-address-path",
+            "src",
+            "--artifact-dir",
+            observed_dir.to_str().expect("observe artifact dir utf8"),
+        ],
+        &[cargo_build_finished(true)],
+        EXIT_CODE_SUCCESS,
+    );
+    assert_eq!(
+        observed.status.code(),
+        Some(EXIT_CODE_SUCCESS),
+        "observe bootstrap should pass: stdout={} stderr={}",
+        String::from_utf8_lossy(&observed.stdout),
+        String::from_utf8_lossy(&observed.stderr)
+    );
+
+    let baseline = observed_dir.join("function-addresses.json");
+    let admitted_dir = artifact_dir(&fixture, "deterministic-admitted");
+    let admitted = run_with_check_args(
+        &fixture,
+        &[
+            "--profile",
+            "deterministic-core",
+            "--function-address-baseline",
+            baseline.to_str().expect("baseline path utf8"),
+            "--artifact-dir",
+            admitted_dir.to_str().expect("admitted artifact dir utf8"),
+        ],
+        &[cargo_build_finished(true)],
+        EXIT_CODE_SUCCESS,
+    );
+    assert_eq!(
+        admitted.status.code(),
+        Some(EXIT_CODE_SUCCESS),
+        "reviewed deterministic core should pass: stdout={} stderr={}",
+        String::from_utf8_lossy(&admitted.stdout),
+        String::from_utf8_lossy(&admitted.stderr)
+    );
+    let status = read_json_artifact(&admitted_dir.join(STATUS_JSON_FILE));
+    assert_eq!(status["metadata"]["profile_name"], "deterministic-core");
+    let report = read_json_artifact(&admitted_dir.join("function-addresses.json"));
+    assert_eq!(report["mode"], "deny");
+    assert_eq!(report["source_envelopes"][0]["path"], "src/lib.rs");
+    assert!(fixture.log().contains("OCTET_STRICT_PROFILE=deterministic-core"));
+}
+
+#[test]
 fn no_argument_check_from_nested_workspace_subdirectory_uses_workspace_metadata_defaults() {
     let fixture = ConsumerFixture::new("metadata-defaults-subdir", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
     let nested_dir = fixture.repo.join("nested/deeper");
@@ -2767,6 +2903,69 @@ fn artifact_directory_captures_human_run() {
     );
     let summary = read_artifact(&dir.join(SUMMARY_TXT_FILE));
     assert_eq!(summary, trailing_summary(&stderr), "human summary.txt should match trailing stderr summary block");
+}
+
+#[test]
+fn strict_profile_bundle_binds_profile_identity_and_passes_artifact_verification() {
+    let fixture = ConsumerFixture::new("strict-profile-artifact", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
+    let dir = artifact_dir(&fixture, "strict-profile-run");
+    let output = run_with_check_args(
+        &fixture,
+        &[
+            "--profile",
+            "robust",
+            "--output-format",
+            JSON_OUTPUT_FORMAT,
+            "--artifact-dir",
+            dir.to_str().expect("artifact dir utf8"),
+        ],
+        &[cargo_build_finished(true)],
+        EXIT_CODE_SUCCESS,
+    );
+    assert_eq!(
+        output.status.code(),
+        Some(EXIT_CODE_SUCCESS),
+        "strict-profile bundle should be emitted: stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let status = read_json_artifact(&dir.join(STATUS_JSON_FILE));
+    assert_eq!(status["metadata"]["profile_name"], "robust");
+    assert!(status["metadata"]["profile_hash"].as_str().expect("profile hash").starts_with("b3:"));
+    assert!(status["metadata"]["config_hash"].as_str().expect("config hash").starts_with("b3:"));
+    let summary = read_artifact(&dir.join(SUMMARY_TXT_FILE));
+    assert!(summary.contains("Profile: robust"));
+    let function_addresses = read_json_artifact(&dir.join("function-addresses.json"));
+    assert_eq!(function_addresses["mode"], "observe");
+    let provenance = read_artifact(&dir.join(PROVENANCE_JSONL_FILE));
+    for line in provenance.lines() {
+        let record: serde_json::Value = serde_json::from_str(line).expect("profile provenance record");
+        assert_eq!(record["checked_scope"], "profile:robust");
+    }
+
+    let bin = built_cargo_octet_bin().expect("build cargo-octet binary");
+    let verify = Command::new(&bin)
+        .args([
+            "artifact",
+            "verify",
+            "--artifact-dir",
+            dir.to_str().expect("artifact dir utf8"),
+            "--output-format",
+            JSON_OUTPUT_FORMAT,
+        ])
+        .current_dir(&fixture.repo)
+        .output()
+        .expect("verify strict-profile bundle");
+    assert_eq!(
+        verify.status.code(),
+        Some(EXIT_CODE_SUCCESS),
+        "strict-profile bundle should verify: stdout={} stderr={}",
+        String::from_utf8_lossy(&verify.stdout),
+        String::from_utf8_lossy(&verify.stderr)
+    );
+    let report: serde_json::Value = serde_json::from_slice(&verify.stdout).expect("artifact verification report");
+    assert_eq!(report["status"], "valid");
 }
 
 #[test]

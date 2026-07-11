@@ -59,6 +59,22 @@ Structured output and reviewable sidecars are first-class too:
 cargo octet check --output-format sarif --artifact-dir artifacts/octet
 ```
 
+Named strict-Rust profiles activate reviewed lint floors, function-address
+minimums, and profile-bound BLAKE3 evidence:
+
+```bash
+cargo octet check --profile robust --artifact-dir artifacts/octet
+cargo octet artifact verify --artifact-dir artifacts/octet
+```
+
+The shipped profiles are `robust`, `bounded-systems`, and
+`deterministic-core`. They enforce bounded direct source-shape policy; they do
+not claim transitive effect inference, whole-program proof, or release
+eligibility. `deterministic-core` additionally requires configured
+`core_source_scopes` and a reviewed deny-mode function-address baseline. See
+[`docs/strict-rust-profiles.md`](docs/strict-rust-profiles.md) for the profile
+matrix and bootstrap path.
+
 Optional external evidence rails collect selected non-starter tool output into separate receipt bundles:
 
 ```bash
@@ -261,6 +277,7 @@ and config keys.
 - `docs/examples/first-checked-rust-patch/README.md` — first checked Rust patch walkthrough from `unchecked_division` finding to fixed code and verified artifacts
 - `docs/trust-boundary-evidence.md` — checked-path framing, evidence stack, evidence tiers, the [checked-contract ladder](docs/trust-boundary-evidence.md#checked-contract-ladder), provenance, scope boundary, and controlled-deployment map
 - `docs/law-tested-cores.md` — bounded, replayable law catalog for deterministic pure cores
+- `docs/strict-rust-profiles.md` — named lint floors, function-address bootstrap, profile evidence, and non-claim boundaries
 - `templates/pre-commit-config.yaml` — copyable deny-all pre-commit hook configuration
 - `docs/lint-reference.md` — full lint catalog, default levels, suppression paths, config reference
 - `docs/api-contract-rail.md` — Oxide-inspired API contract rail references, compatibility classes, and non-claims

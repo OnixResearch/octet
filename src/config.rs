@@ -239,6 +239,25 @@ impl Config {
         self.validated_lint_levels.get(lint_name).copied()
     }
 
+    fn apply_strict_profile(
+        &mut self,
+        profile: &octet_lint_metadata::strict_profile::StrictProfile,
+    ) -> Result<(), String> {
+        if profile.requires_core_scopes && self.core_source_scopes.is_empty() {
+            return Err(format!(
+                "strict profile `{}` requires non-empty `core_source_scopes` in `dylint.toml`",
+                profile.profile_id
+            ));
+        }
+
+        let required_lints = profile.required_lints.iter().map(String::as_str).collect::<BTreeSet<_>>();
+        self.disabled_lints.retain(|lint_name| !required_lints.contains(lint_name.as_str()));
+        for lint_name in &profile.required_lints {
+            self.validated_lint_levels.insert(lint_name.clone(), LintLevel::Deny);
+        }
+        Ok(())
+    }
+
     pub(crate) fn indexable_lint_exceptions(&self) -> IndexableLintExceptions {
         let enabled = |class: &str| self.indexable_lint_exceptions.iter().any(|configured| configured == class);
         IndexableLintExceptions {
@@ -355,7 +374,18 @@ pub fn load(sess: &rustc_session::Session) -> Config {
     for warning in cfg.validate() {
         sess.dcx().warn(warning);
     }
+    apply_selected_strict_profile(&mut cfg).unwrap_or_else(|error| panic!("{error}"));
     cfg
+}
+
+fn apply_selected_strict_profile(cfg: &mut Config) -> Result<(), String> {
+    let profile_id = match std::env::var(octet_lint_metadata::strict_profile::STRICT_PROFILE_ENV) {
+        Ok(profile_id) => profile_id,
+        Err(std::env::VarError::NotPresent) => return Ok(()),
+        Err(error) => return Err(format!("read strict-profile selection: {error}")),
+    };
+    let profile = octet_lint_metadata::strict_profile::strict_profile(&profile_id)?;
+    cfg.apply_strict_profile(&profile)
 }
 
 #[cfg(test)]
@@ -783,6 +813,45 @@ no_unwrap = "deny"
                 "{lint_name} should accept lint_levels override"
             );
         }
+    }
+
+    #[test]
+    fn strict_profile_strengthens_required_lints_without_changing_unrelated_levels() {
+        let mut cfg = parse_config(
+            r#"
+[octet]
+disabled_lints = ["no_unwrap", "acronym_style"]
+
+[octet.lint_levels]
+no_panic = "allow"
+function_length = "warn"
+"#,
+        );
+        let diagnostics = cfg.validate_diagnostics();
+        assert!(diagnostics.is_empty(), "fixture config should validate: {diagnostics:?}");
+        let profile = octet_lint_metadata::strict_profile::strict_profile("robust").expect("robust profile");
+
+        cfg.apply_strict_profile(&profile).expect("robust profile should apply");
+
+        assert!(!cfg.lint_is_disabled("no_unwrap"));
+        assert!(cfg.lint_is_disabled("acronym_style"));
+        assert_eq!(cfg.lint_level("no_unwrap"), Some(LintLevel::Deny));
+        assert_eq!(cfg.lint_level("no_panic"), Some(LintLevel::Deny));
+        assert_eq!(cfg.lint_level("function_length"), Some(LintLevel::Warn));
+    }
+
+    #[test]
+    fn deterministic_core_profile_rejects_missing_core_scopes() {
+        let mut cfg = parse_config("[octet]\n");
+        let diagnostics = cfg.validate_diagnostics();
+        assert!(diagnostics.is_empty(), "fixture config should validate: {diagnostics:?}");
+        let profile =
+            octet_lint_metadata::strict_profile::strict_profile("deterministic-core").expect("deterministic profile");
+
+        let error = cfg.apply_strict_profile(&profile).expect_err("missing core scopes should fail closed");
+
+        assert!(error.contains("deterministic-core"));
+        assert!(error.contains("core_source_scopes"));
     }
 
     #[test]

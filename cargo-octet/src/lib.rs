@@ -48,6 +48,7 @@ mod source_acquisition_receipts;
 mod source_boundary_core;
 #[cfg(test)]
 mod state_machine_exhaustiveness;
+mod strict_profile;
 mod transcript;
 mod valence_core_shim;
 #[cfg(test)]

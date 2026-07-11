@@ -6,6 +6,19 @@ specific commits via `TIGERSTYLE_DYLINT_REV`.
 For the full lint catalog, see `docs/lint-reference.md`.
 For rollout profiles, see `docs/downstream-rollout.md`.
 
+## 2026-07-11: Strict Rust profile admission
+
+`cargo octet check --profile <PROFILE>` now selects the Nickel-authored
+`robust`, `bounded-systems`, or `deterministic-core` policy. Profiles strengthen
+their required lints to `deny`, raise function-address checking to a declared
+minimum, and bind the selected profile into BLAKE3 run metadata and provenance.
+
+Unprofiled checks remain on `workspace-metadata`. `deterministic-core` requires
+non-empty workspace-relative `core_source_scopes` and a reviewed deny-mode
+function-address baseline. These profiles validate bounded direct source shapes;
+they are not transitive effect proofs or release certificates. See
+`docs/strict-rust-profiles.md`.
+
 ## 2026-05-05: Function fingerprint docs and checks
 
 `cargo octet fingerprint` now has checked operator docs for the full
