@@ -86,8 +86,9 @@ const FORBIDDEN_CLAIM_FRAGMENTS: &[&str] = &[
     "complete semantic closure",
 ];
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord)]
 pub enum FunctionAddressMode {
+    #[default]
     Off,
     Observe,
     Warn,
@@ -109,12 +110,6 @@ impl FunctionAddressMode {
 
     pub fn is_enabled(self) -> bool {
         self != Self::Off
-    }
-}
-
-impl Default for FunctionAddressMode {
-    fn default() -> Self {
-        Self::Off
     }
 }
 

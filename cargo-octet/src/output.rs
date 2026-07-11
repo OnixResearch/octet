@@ -469,6 +469,7 @@ pub fn render_summary(
     writeln!(&mut summary, "Tool: {} {}", metadata.tool_name, metadata.tool_version)
         .map_err(|error| format!("write summary: {error}"))?;
     writeln!(&mut summary, "Toolchain: {}", metadata.toolchain).map_err(|error| format!("write summary: {error}"))?;
+    writeln!(&mut summary, "Profile: {}", metadata.profile_name).map_err(|error| format!("write summary: {error}"))?;
     writeln!(&mut summary, "Config hash: {}", metadata.config_hash)
         .map_err(|error| format!("write summary: {error}"))?;
     writeln!(&mut summary, "Profile hash: {}", metadata.profile_hash)

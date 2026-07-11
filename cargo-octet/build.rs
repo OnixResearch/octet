@@ -6,6 +6,15 @@ use std::path::PathBuf;
 
 const HASH_INPUT_SEPARATOR: u8 = 0;
 const FILE_INPUT_SEPARATOR: u8 = 0xff;
+const EMBEDDED_DIRECTORIES: &[&str] = &[
+    "src",
+    "cargo-octet",
+    "crates/octet-lint-metadata",
+    "crates/octet-standards",
+    "crates/valence-core",
+    "standards/proof-imports/generated",
+    "standards/strict-profiles/generated",
+];
 
 fn main() {
     let manifest_dir = PathBuf::from(env::var_os("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR"));
@@ -15,8 +24,9 @@ fn main() {
     collect_file(&repo_root.join("Cargo.toml"), Path::new("Cargo.toml"), &mut files);
     collect_file(&repo_root.join("Cargo.lock"), Path::new("Cargo.lock"), &mut files);
     collect_file(&repo_root.join("rust-toolchain.toml"), Path::new("rust-toolchain.toml"), &mut files);
-    collect_dir(&repo_root.join("src"), Path::new("src"), &mut files);
-    collect_dir(&manifest_dir, Path::new("cargo-octet"), &mut files);
+    for relative in EMBEDDED_DIRECTORIES {
+        collect_dir(&repo_root.join(relative), Path::new(relative), &mut files);
+    }
     files.sort_by(|left, right| left.0.cmp(&right.0));
 
     let mut hasher = blake3::Hasher::new();
@@ -44,8 +54,9 @@ fn main() {
     println!("cargo:rerun-if-changed={}", repo_root.join("Cargo.toml").display());
     println!("cargo:rerun-if-changed={}", repo_root.join("Cargo.lock").display());
     println!("cargo:rerun-if-changed={}", repo_root.join("rust-toolchain.toml").display());
-    println!("cargo:rerun-if-changed={}", repo_root.join("src").display());
-    println!("cargo:rerun-if-changed={}", manifest_dir.display());
+    for relative in EMBEDDED_DIRECTORIES {
+        println!("cargo:rerun-if-changed={}", repo_root.join(relative).display());
+    }
 }
 
 fn collect_dir(root: &Path, relative_root: &Path, files: &mut Vec<(String, PathBuf)>) {

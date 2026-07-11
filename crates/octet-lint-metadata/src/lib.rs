@@ -1,5 +1,7 @@
 use serde::Serialize;
 
+pub mod strict_profile;
+
 pub const CANONICAL_NAMESPACE: &str = "tigerstyle";
 pub const GROUP_SAFETY: &str = "tigerstyle::safety";
 pub const GROUP_NAMING: &str = "tigerstyle::naming";

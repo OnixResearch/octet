@@ -175,6 +175,18 @@ in
       negative_fixtures = ["standards/policies/fixtures/invalid/unknown_policy_field.ncl"],
     },
     {
+      family_id = "octet.strict-rust-profile-config",
+      ownership = "nickel-authored",
+      owner_source_path = "standards/strict-profiles/profiles.ncl",
+      artifact_path = "strict-rust-profiles.json",
+      generation_command = "nickel export --format json standards/strict-profiles/profiles.ncl",
+      validation_command = "nix build .#checks.x86_64-linux.strict-profile-catalog --no-link -L",
+      status = "existing",
+      config_digest_required = true,
+      positive_fixtures = ["standards/strict-profiles/profiles.ncl", "standards/strict-profiles/fixtures/valid/minimum.ncl", "crates/octet-lint-metadata/src/strict_profile.rs::embedded_catalog_accepts_every_shipped_profile"],
+      negative_fixtures = ["standards/strict-profiles/fixtures/invalid/bad_function_address_mode.ncl", "standards/strict-profiles/fixtures/invalid/empty_non_claims.ncl", "crates/octet-lint-metadata/src/strict_profile.rs::malformed_catalog_reports_duplicate_unknown_and_scope_errors"],
+    },
+    {
       family_id = "octet.capability-manifest-policy",
       ownership = "nickel-authored",
       owner_source_path = "standards/policies/contracts.ncl",
