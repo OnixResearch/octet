@@ -19,6 +19,13 @@ function-address baseline. These profiles validate bounded direct source shapes;
 they are not transitive effect proofs or release certificates. See
 `docs/strict-rust-profiles.md`.
 
+The packaged runner now carries its linker closure, so dependency-bearing and
+proc-macro consumers can run from `nix run` without inheriting a consumer dev
+shell. `concrete_construction_in_core` now classifies only direct constructor
+calls and excludes local-domain plus `core`/`alloc`/`std` result types; this
+removes duplicate parent-expression and local DTO false positives while
+preserving external-constructor findings.
+
 ## 2026-05-05: Function fingerprint docs and checks
 
 `cargo octet fingerprint` now has checked operator docs for the full

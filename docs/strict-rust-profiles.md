@@ -27,6 +27,10 @@ A selected profile is authoritative for its required lint set. If consumer `dyli
 
 Source-level Rust suppressions remain possible. Profiles include Octet's suppression-governance lints, so an escape hatch remains an explicit source diff with the existing justification requirements; profiles do not add a silent assume mechanism.
 
+The Nix-packaged runner includes Cargo, the pinned Rust toolchain, Dylint driver/library, and linker closure. A dependency-bearing consumer with build scripts or proc macros can therefore run the package directly; it does not need an ambient consumer dev shell merely to link dependencies.
+
+Within declared core scopes, `concrete_construction_in_core` classifies direct `Type::new()` and `Type::default()` calls. Local-domain and `core`/`alloc`/`std` result types are not external dependency construction, and one direct external call emits at most one finding even when nested in a larger expression. This remains a bounded HIR/source-shape heuristic: external factories with other names and semantic dependency behavior are outside its claim.
+
 ## Bootstrap deterministic core
 
 Declare the core paths in canonical consumer configuration:
@@ -79,4 +83,4 @@ Without `--profile`, `cargo octet check` retains the existing `workspace-metadat
 
 ## Current boundary and next layers
 
-This first profile rail composes existing direct source/HIR checks. Deeper work can add conservative MIR effect closure, capability-typed trait contracts, dependency-closure profiles, function-address-bound waivers, and required proof rails. Those future layers must remain separate evidence claims until their own checked receipts exist.
+This first profile rail composes existing direct source/HIR checks. Its first Valence downstream pilot also demonstrates that packaging success, lint precision, profile admission, and function-address identity are separate observations; none promotes another into semantic proof. Deeper work can add conservative MIR effect closure, capability-typed trait contracts, dependency-closure profiles, function-address-bound waivers, and required proof rails. Those future layers must remain separate evidence claims until their own checked receipts exist.
