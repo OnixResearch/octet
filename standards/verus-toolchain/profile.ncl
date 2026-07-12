@@ -54,6 +54,18 @@ let contracts = import "contracts.ncl" in
       rationale = "Trellis retains its independently reviewed verifier and proof receipts until an explicit upgrade rerun succeeds.",
     },
     {
+      consumer = "onixos-lifecycle",
+      verifier_release = "0.2026.04.03.21dfcd2",
+      status = "native",
+      rationale = "OnixOS lifecycle proof execution consumes the exact Octet profile, verifier, and formatter packages; OnixOS retains source-model and receipt authority.",
+    },
+    {
+      consumer = "aspen-node-replication-pilot",
+      verifier_release = "0.2026.04.03.21dfcd2",
+      status = "native",
+      rationale = "Aspen's compatibility probe consumes the exact Octet profile and verifier package without authorizing runtime adoption or transferring upstream proof claims.",
+    },
+    {
       consumer = "verus-belt",
       verifier_release = "0.2026.03.16.b1c2a95",
       status = "semantic-reference-only",

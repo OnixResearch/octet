@@ -151,9 +151,11 @@ Promotion requires matching source, proof IR, verifier, toolchain, solver,
 command, assumptions, property scope, and passed result identity.
 The typed compatibility source is `standards/verus-toolchain/profile.ncl`; its
 fresh generated export drives the production verifier package and records
-intentional downstream pins without transferring proof claims. The same profile
-pins `octet-verusfmt`, whose wrapper disables self-update and exposes bounded
-formatter identity.
+intentional downstream pins without transferring proof claims. Reviewed native
+package consumers include the OnixOS lifecycle rail and Aspen node-replication
+probe; their rows do not transfer source-model, proof, runtime, or readiness
+authority. The same profile pins `octet-verusfmt`, whose wrapper disables
+self-update and exposes bounded formatter identity.
 
 ```bash
 nix build .#octet-verus-toolchain-profile .#octet-verusfmt --no-link -L
