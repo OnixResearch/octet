@@ -41,6 +41,7 @@ let CompatibilityRow = {
     verifier | {
       project | OneOf ["verus-lang/verus"],
       release | NonEmptyString,
+      source_revision | GitRevision,
       release_url | NonEmptyString,
       release_sha256_hex | Sha256Hex,
       release_nix_sri | NonEmptyString,

@@ -28,7 +28,7 @@ The production pilot rails run tiny proof targets with real Verus:
 - reflexive-order receipt path: `proofs/octet.verus_proof_rails.ordering-reflexive-production-rail-0.receipt`
 - pass signal for each production pilot: `verification results:: 1 verified, 0 errors`
 - verifier mode for each production pilot: `production`
-- pinned release: Verus `0.2026.04.03.21dfcd2`, Rust `1.94.0-x86_64-unknown-linux-gnu`, bundled Z3, and an Octet-generated Nix closure graph digest
+- pinned release: Verus `0.2026.05.17.e479cce` at revision `e479cce36490b8fa4b0fd7755aa742aec354372c`, Rust `1.95.0-x86_64-unknown-linux-gnu`, bundled Z3, and an Octet-generated Nix closure graph digest
 
 The proof-rail manifest is a typed Nickel map, so teams can add additional
 repo-local rails under `standards/proof-rails/manifest.ncl` or a consumer-owned
