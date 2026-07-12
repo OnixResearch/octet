@@ -257,6 +257,7 @@
         verusToolchainProfile =
           builtins.fromJSON (builtins.readFile ./standards/verus-toolchain/generated/profile.json);
         productionVerusVersion = verusToolchainProfile.verifier.release;
+        productionVerusSourceRevision = verusToolchainProfile.verifier.source_revision;
         productionVerusReleaseUrl = verusToolchainProfile.verifier.release_url;
         productionVerusReleaseSha256 = verusToolchainProfile.verifier.release_nix_sri;
         productionVerusReleaseSha256Hex = verusToolchainProfile.verifier.release_sha256_hex;
@@ -640,6 +641,7 @@
             cat > "$out/share/identity.txt" <<EOF
             proof-verifier-mode: production
             proof-verifier: verus@${productionVerusVersion}
+            proof-verifier-source-revision: ${productionVerusSourceRevision}
             proof-verifier-release-sha256: ${productionVerusReleaseSha256Hex}
             proof-verifier-binary: verus
             proof-verifier-binary-blake3: $verus_binary_blake3
@@ -664,7 +666,7 @@
             runHook postInstall
           '';
           passthru = {
-            inherit productionVerusReleaseSha256Hex productionVerusToolchainLabel productionVerusVersion;
+            inherit productionVerusReleaseSha256Hex productionVerusSourceRevision productionVerusToolchainLabel productionVerusVersion;
           };
         };
 

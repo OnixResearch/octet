@@ -1,16 +1,17 @@
 let contracts = import "contracts.ncl" in
 {
   schema_version = "octet-verus-toolchain-profile/v1",
-  profile_id = "octet-verus-0.2026.04.03.21dfcd2",
+  profile_id = "octet-verus-0.2026.05.17.e479cce",
   verifier = {
     project = "verus-lang/verus",
-    release = "0.2026.04.03.21dfcd2",
-    release_url = "https://github.com/verus-lang/verus/releases/download/release/0.2026.04.03.21dfcd2/verus-0.2026.04.03.21dfcd2-x86-linux.zip",
-    release_sha256_hex = "246a8bcad800f02f71509834469baa001f79a6efb6853c6c7217ef8be3a9d8c6",
-    release_nix_sri = "sha256-JGqLytgA8C9xUJg0RpuqAB95pu+2hTxschfvi+Op2MY=",
-    rust_version = "1.94.0",
-    rust_toolchain_label = "1.94.0-x86_64-unknown-linux-gnu",
-    solver_id = "z3@verus-0.2026.04.03.21dfcd2",
+    release = "0.2026.05.17.e479cce",
+    source_revision = "e479cce36490b8fa4b0fd7755aa742aec354372c",
+    release_url = "https://github.com/verus-lang/verus/releases/download/release/0.2026.05.17.e479cce/verus-0.2026.05.17.e479cce-x86-linux.zip",
+    release_sha256_hex = "2a06101ab5fdcbc32073f1815e86a09c81d1f393c2d3501d35d0a24404d0a8e5",
+    release_nix_sri = "sha256-KgYQGrX9y8Mgc/GBXoagnIHR85PC01AdNdCiRATQqOU=",
+    rust_version = "1.95.0",
+    rust_toolchain_label = "1.95.0-x86_64-unknown-linux-gnu",
+    solver_id = "z3@verus-0.2026.05.17.e479cce",
   },
   formatter = {
     project = "verus-lang/verusfmt",
@@ -43,27 +44,27 @@ let contracts = import "contracts.ncl" in
   compatibility = [
     {
       consumer = "octet",
-      verifier_release = "0.2026.04.03.21dfcd2",
+      verifier_release = "0.2026.05.17.e479cce",
       status = "native",
       rationale = "Octet production proof rails use this exact reviewed verifier release.",
     },
     {
       consumer = "trellis",
-      verifier_release = "0.2026.03.22.5e66329",
-      status = "local-pin",
-      rationale = "Trellis retains its independently reviewed verifier and proof receipts until an explicit upgrade rerun succeeds.",
+      verifier_release = "0.2026.05.17.e479cce",
+      status = "native",
+      rationale = "Complete Trellis and all required-native corpus rows pass the May 17 profile; adapted rows remain separately identified and Trellis retains proof-source and receipt authority.",
     },
     {
       consumer = "onixos-lifecycle",
       verifier_release = "0.2026.04.03.21dfcd2",
-      status = "native",
-      rationale = "OnixOS lifecycle proof execution consumes the exact Octet profile, verifier, and formatter packages; OnixOS retains source-model and receipt authority.",
+      status = "local-pin",
+      rationale = "OnixOS retains its published April package and receipt until the May 17 profile is rerun; OnixOS retains source-model and receipt authority.",
     },
     {
       consumer = "aspen-node-replication-pilot",
       verifier_release = "0.2026.04.03.21dfcd2",
-      status = "native",
-      rationale = "Aspen's compatibility probe consumes the exact Octet profile and verifier package without authorizing runtime adoption or transferring upstream proof claims.",
+      status = "local-pin",
+      rationale = "Aspen retains its published April compatibility receipt until the May 17 profile is rerun; this does not authorize runtime adoption or transfer upstream proof claims.",
     },
     {
       consumer = "verus-belt",
@@ -73,7 +74,7 @@ let contracts = import "contracts.ncl" in
     },
     {
       consumer = "aarch64-linux-formatter",
-      verifier_release = "0.2026.04.03.21dfcd2",
+      verifier_release = "0.2026.05.17.e479cce",
       status = "unsupported",
       rationale = "The selected verusfmt release does not publish an aarch64-linux binary asset; source packaging remains future work.",
     },
