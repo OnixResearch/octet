@@ -56,9 +56,9 @@ let contracts = import "contracts.ncl" in
     },
     {
       consumer = "onixos-lifecycle",
-      verifier_release = "0.2026.04.03.21dfcd2",
-      status = "local-pin",
-      rationale = "OnixOS retains its published April package and receipt until the May 17 profile is rerun; OnixOS retains source-model and receipt authority.",
+      verifier_release = "0.2026.05.17.e479cce",
+      status = "native",
+      rationale = "OnixOS candidate receipt 445e07a3dc5e5be6ebc6eadd75c34a5fe871de088a30c0578b39c2e8672d7d57 passes all four lifecycle obligations; OnixOS retains source-model and receipt authority and the wider chain remains partial.",
     },
     {
       consumer = "aspen-node-replication-pilot",

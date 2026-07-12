@@ -15,9 +15,9 @@
     },
     {
       "consumer": "onixos-lifecycle",
-      "rationale": "OnixOS retains its published April package and receipt until the May 17 profile is rerun; OnixOS retains source-model and receipt authority.",
-      "status": "local-pin",
-      "verifier_release": "0.2026.04.03.21dfcd2"
+      "rationale": "OnixOS candidate receipt 445e07a3dc5e5be6ebc6eadd75c34a5fe871de088a30c0578b39c2e8672d7d57 passes all four lifecycle obligations; OnixOS retains source-model and receipt authority and the wider chain remains partial.",
+      "status": "native",
+      "verifier_release": "0.2026.05.17.e479cce"
     },
     {
       "consumer": "aspen-node-replication-pilot",
