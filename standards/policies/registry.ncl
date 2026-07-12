@@ -421,7 +421,7 @@ in
       status = "existing",
       config_digest_required = true,
       positive_fixtures = ["standards/verus-toolchain/fixtures/valid/current_profile.ncl", "standards/verus-toolchain/fixtures/valid/formatted.rs"],
-      negative_fixtures = ["standards/verus-toolchain/fixtures/invalid/empty_non_claims.ncl", "standards/verus-toolchain/fixtures/invalid/proof_transfer_status.ncl", "standards/verus-toolchain/fixtures/invalid/unformatted.rs"],
+      negative_fixtures = ["standards/verus-toolchain/fixtures/invalid/empty_non_claims.ncl", "standards/verus-toolchain/fixtures/invalid/proof_transfer_status.ncl", "standards/verus-toolchain/fixtures/invalid/unformatted.rs", "standards/verus-toolchain/fixtures/invalid/unregistered_consumer.ncl"],
     },
     {
       family_id = "octet.verus-raw-verifier-internals",

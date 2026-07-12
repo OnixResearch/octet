@@ -14,6 +14,14 @@ let OneOf = fun allowed => std.contract.from_predicate (fun value =>
   std.is_string value && std.array.elem value allowed
 ) in
 let CompatibilityStatus = OneOf ["native", "local-pin", "semantic-reference-only", "unsupported"] in
+let CompatibilityConsumer = OneOf [
+  "octet",
+  "trellis",
+  "onixos-lifecycle",
+  "aspen-node-replication-pilot",
+  "verus-belt",
+  "aarch64-linux-formatter",
+] in
 let FormatterAsset = {
   target | NonEmptyString,
   file_name | NonEmptyString,
@@ -21,7 +29,7 @@ let FormatterAsset = {
   nix_sri | NonEmptyString,
 } in
 let CompatibilityRow = {
-  consumer | NonEmptyString,
+  consumer | CompatibilityConsumer,
   verifier_release | NonEmptyString,
   status | CompatibilityStatus,
   rationale | NonEmptyString,
