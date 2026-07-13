@@ -38,7 +38,7 @@ const DYNAMIC_COMMAND_MIRI_TEST: &str = "cargo miri test";
 const DYNAMIC_PROFILE_LOOM_CONCURRENCY: &str = "loom-concurrency";
 const DYNAMIC_PROFILE_LOOM_SHORT: &str = "loom";
 const DYNAMIC_COMMAND_LOOM_TEST: &str = "cargo test --cfg loom";
-const SUPPORTED_EVIDENCE_RAILS: &str = "dependency-audit, clippy-co-reporting, dependency-trust, api-stability, dynamic-evidence, release-supply-chain, mutation-testing, coverage-baseline, kani-model-check, or hegel-property";
+const SUPPORTED_EVIDENCE_RAILS: &str = "dependency-audit, clippy-co-reporting, dependency-trust, api-stability, dynamic-evidence, release-supply-chain, mutation-testing, coverage-baseline, kani-model-check, hegel-property, or z4-solver";
 const COVERAGE_PERCENT_MIN: f64 = 0.0;
 const COVERAGE_PERCENT_MAX: f64 = 100.0;
 const SCHEMA_VERSION_FIELD: &str = "schema_version";
@@ -46,7 +46,9 @@ const DEPENDENCY_AUDIT_SCHEMA_VERSION: &str = "cargo-deny-diagnostics/v1";
 const COVERAGE_BASELINE_SCHEMA_VERSION: &str = "cargo-llvm-cov-summary/v1";
 const KANI_MODEL_CHECK_SCHEMA_VERSION: &str = "cargo-kani-summary/v1";
 const HEGEL_PROPERTY_SCHEMA_VERSION: &str = "hegel-property-summary/v1";
+const Z4_SOLVER_SCHEMA_VERSION: &str = "z4-solver-summary/v1";
 const HEGEL_GENERATED_TESTING_NON_CLAIM: &str = "Hegel checks bounded generated inputs only and does not prove correctness, semantic equivalence, verifier soundness, requirement satisfaction, release eligibility, or whole-program safety";
+const Z4_SOLVER_NON_CLAIM: &str = "Z4 solver evidence records bounded solver output identity and diagnostics only; it does not prove source correctness, solver soundness, proof validity, requirement satisfaction, release eligibility, or whole-program safety";
 const HEGEL_FAST_CASE_BUDGET: u64 = 16;
 const FORMAL_PROOF_TIER: &str = "formal_proof";
 const BLAKE3_IDENTITY_PREFIX: &str = "b3:";
@@ -62,6 +64,10 @@ const KANI_PROPERTY_CLASS_VALIDITY_RANGE: &str = "validity-range";
 const KANI_PROPERTY_CLASS_LOOP_TERMINATION: &str = "loop-termination";
 const KANI_PROPERTY_CLASS_TRAIT_CONSISTENCY: &str = "trait-consistency";
 const KANI_PROPERTY_CLASS_BOUNDARY_PANIC: &str = "boundary-panic";
+const Z4_STATUS_SAT: &str = "sat";
+const Z4_STATUS_UNSAT: &str = "unsat";
+const Z4_STATUS_UNKNOWN: &str = "unknown";
+const Z4_STATUS_TIMEOUT: &str = "timeout";
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum EvidenceRailKind {
@@ -75,6 +81,7 @@ pub enum EvidenceRailKind {
     CoverageBaseline,
     KaniModelCheck,
     HegelProperty,
+    Z4Solver,
 }
 
 impl EvidenceRailKind {
@@ -90,6 +97,7 @@ impl EvidenceRailKind {
             "coverage-baseline" | "coverage" | "cargo-llvm-cov" => Ok(Self::CoverageBaseline),
             "kani-model-check" | "kani" | "cargo-kani" => Ok(Self::KaniModelCheck),
             "hegel-property" | "hegel" | "hegel-rs" => Ok(Self::HegelProperty),
+            "z4-solver" | "z4" => Ok(Self::Z4Solver),
             other => Err(format!("unsupported evidence rail `{other}`; expected {SUPPORTED_EVIDENCE_RAILS}")),
         }
     }
@@ -106,6 +114,7 @@ impl EvidenceRailKind {
             Self::CoverageBaseline => "coverage-baseline",
             Self::KaniModelCheck => "kani-model-check",
             Self::HegelProperty => "hegel-property",
+            Self::Z4Solver => "z4-solver",
         }
     }
 
@@ -121,6 +130,7 @@ impl EvidenceRailKind {
             Self::CoverageBaseline => crate::evidence::CHECKER_CARGO_LLVM_COV,
             Self::KaniModelCheck => crate::evidence::CHECKER_CARGO_KANI,
             Self::HegelProperty => crate::evidence::CHECKER_HEGEL_RS,
+            Self::Z4Solver => crate::evidence::CHECKER_Z4_SOLVER,
         }
     }
 
@@ -136,6 +146,7 @@ impl EvidenceRailKind {
             Self::CoverageBaseline => "octet.coverage_baseline.cargo-llvm-cov",
             Self::KaniModelCheck => "octet.kani_model_check.cargo-kani",
             Self::HegelProperty => "octet.dynamic_evidence.hegel-property",
+            Self::Z4Solver => "octet.experimental_solver_rails.z4-solver",
         }
     }
 
@@ -146,7 +157,8 @@ impl EvidenceRailKind {
             | Self::MutationTesting
             | Self::CoverageBaseline
             | Self::KaniModelCheck
-            | Self::HegelProperty => EvidenceTier::TranscriptAssertion,
+            | Self::HegelProperty
+            | Self::Z4Solver => EvidenceTier::TranscriptAssertion,
             _ => EvidenceTier::PolicyCheck,
         }
     }
@@ -194,6 +206,15 @@ impl EvidenceRailKind {
                 "generator-identity",
                 "counterexample-identity",
                 "generated-testing-non-claims",
+            ]),
+            Self::Z4Solver => string_vec(&[
+                "solver-identity",
+                "query-identity",
+                "logic-profile",
+                "result-status",
+                "proof-model-core-references",
+                "unknown-timeout-diagnostics",
+                "role-and-non-claims",
             ]),
         }
     }
@@ -246,6 +267,11 @@ impl EvidenceRailKind {
                 "Hegel property evidence is optional and not part of starter cargo octet check",
                 "Hegel receipts are scoped to named properties, source hashes, runner settings, generator identity, and case budgets",
                 HEGEL_GENERATED_TESTING_NON_CLAIM,
+            ]),
+            Self::Z4Solver => string_vec(&[
+                "Z4 solver evidence is optional and not part of starter cargo octet check",
+                "Z4 receipts are scoped to solver identity, query hash, logic profile, result status, artifact references, diagnostics, roles, and explicit non-claims",
+                Z4_SOLVER_NON_CLAIM,
             ]),
         }
     }
@@ -306,6 +332,36 @@ pub struct HegelPropertyReceiptDetails {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+pub struct Z4SolverIdentity {
+    pub name: String,
+    pub version: String,
+    pub provenance: String,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+pub struct Z4QueryIdentity {
+    pub identity: String,
+    pub logic: String,
+    pub profile: String,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+pub struct Z4SolverReceiptDetails {
+    pub solver: Z4SolverIdentity,
+    pub query: Z4QueryIdentity,
+    pub result_status: String,
+    pub verification_role: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub proof_ref: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model_ref: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub unsat_core_ref: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub unknown_reason: Option<String>,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct EvidenceRailReceipt {
     pub schema_version: String,
     pub rail_id: String,
@@ -338,6 +394,8 @@ pub struct EvidenceRailReceipt {
     pub property_classes: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub hegel_property: Option<HegelPropertyReceiptDetails>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub z4_solver: Option<Z4SolverReceiptDetails>,
 }
 
 pub struct EvaluationInput<'a> {
@@ -364,6 +422,7 @@ struct RailParseOutput {
     profile: Option<String>,
     property_classes: Vec<String>,
     hegel_property: Option<HegelPropertyReceiptDetails>,
+    z4_solver: Option<Z4SolverReceiptDetails>,
 }
 
 pub fn run(args: &EvidenceRailArgs) -> Result<i32, String> {
@@ -449,6 +508,7 @@ pub fn evaluate(input: EvaluationInput<'_>) -> EvidenceRailReceipt {
         parent_artifacts: input.parent_artifacts,
         property_classes: parsed.property_classes,
         hegel_property: parsed.hegel_property,
+        z4_solver: parsed.z4_solver,
     }
 }
 
@@ -587,6 +647,24 @@ pub fn validate_receipt(receipt: &EvidenceRailReceipt) -> Vec<String> {
         }
         (_, None) => {}
     }
+    match (rail, receipt.z4_solver.as_ref()) {
+        (EvidenceRailKind::Z4Solver, Some(details)) => {
+            if details.solver.name.trim().is_empty() {
+                diagnostics.push("z4-solver receipt missing solver name".to_owned());
+            }
+            if !is_b3_identity(&details.query.identity) {
+                diagnostics.push("z4-solver receipt query identity must be a BLAKE3 identity".to_owned());
+            }
+            if !receipt.non_claims.iter().any(|claim| claim == Z4_SOLVER_NON_CLAIM) {
+                diagnostics.push("z4-solver receipt missing solver non-claim".to_owned());
+            }
+        }
+        (EvidenceRailKind::Z4Solver, None) => {
+            diagnostics.push("z4-solver receipt missing z4_solver details".to_owned())
+        }
+        (_, Some(_)) => diagnostics.push("z4_solver details are only valid on z4-solver rail receipts".to_owned()),
+        (_, None) => {}
+    }
     diagnostics
 }
 
@@ -614,6 +692,7 @@ fn parse_rail_input(input: &EvaluationInput<'_>) -> RailParseOutput {
         EvidenceRailKind::CoverageBaseline => parse_coverage_baseline(input),
         EvidenceRailKind::KaniModelCheck => parse_kani_model_check(input),
         EvidenceRailKind::HegelProperty => parse_hegel_property(input),
+        EvidenceRailKind::Z4Solver => parse_z4_solver(input),
     }
 }
 
@@ -656,6 +735,7 @@ fn parse_dependency_audit(input: &EvaluationInput<'_>) -> RailParseOutput {
         profile: None,
         property_classes: Vec::new(),
         hegel_property: None,
+        z4_solver: None,
     }
 }
 
@@ -714,6 +794,7 @@ fn parse_clippy(input: &EvaluationInput<'_>) -> RailParseOutput {
         profile: None,
         property_classes: Vec::new(),
         hegel_property: None,
+        z4_solver: None,
     }
 }
 
@@ -771,6 +852,7 @@ fn parse_dependency_trust(input: &EvaluationInput<'_>) -> RailParseOutput {
         profile: None,
         property_classes: Vec::new(),
         hegel_property: None,
+        z4_solver: None,
     }
 }
 
@@ -806,6 +888,7 @@ fn parse_api_stability(input: &EvaluationInput<'_>) -> RailParseOutput {
         profile: None,
         property_classes: Vec::new(),
         hegel_property: None,
+        z4_solver: None,
     }
 }
 
@@ -868,6 +951,7 @@ fn parse_dynamic_evidence(input: &EvaluationInput<'_>) -> RailParseOutput {
         profile,
         property_classes: Vec::new(),
         hegel_property: None,
+        z4_solver: None,
     }
 }
 
@@ -912,6 +996,7 @@ fn parse_release_supply_chain(input: &EvaluationInput<'_>) -> RailParseOutput {
         profile: None,
         property_classes: Vec::new(),
         hegel_property: None,
+        z4_solver: None,
     }
 }
 
@@ -978,6 +1063,7 @@ fn parse_mutation_testing(input: &EvaluationInput<'_>) -> RailParseOutput {
         profile: None,
         property_classes: Vec::new(),
         hegel_property: None,
+        z4_solver: None,
     }
 }
 
@@ -1024,6 +1110,7 @@ fn parse_coverage_baseline(input: &EvaluationInput<'_>) -> RailParseOutput {
         profile: None,
         property_classes: Vec::new(),
         hegel_property: None,
+        z4_solver: None,
     }
 }
 
@@ -1071,6 +1158,7 @@ fn parse_kani_model_check(input: &EvaluationInput<'_>) -> RailParseOutput {
         profile: input.profile.map(ToOwned::to_owned),
         property_classes,
         hegel_property: None,
+        z4_solver: None,
     }
 }
 
@@ -1090,6 +1178,206 @@ fn parse_hegel_property(input: &EvaluationInput<'_>) -> RailParseOutput {
         profile: input.profile.map(ToOwned::to_owned),
         property_classes: Vec::new(),
         hegel_property,
+        z4_solver: None,
+    }
+}
+
+fn parse_z4_solver(input: &EvaluationInput<'_>) -> RailParseOutput {
+    let mut diagnostics = Vec::new();
+    let mut findings = Vec::new();
+    let value = parse_json_value(input.import_text, &mut diagnostics);
+    let z4_solver = value.as_ref().map(|value| parse_z4_solver_details(value, &mut findings, &mut diagnostics));
+    let finding_counts = counts_by_family(&findings);
+    let status = status_from_z4_findings(&findings);
+    RailParseOutput {
+        findings,
+        finding_counts,
+        diagnostics,
+        status,
+        profile: input.profile.map(ToOwned::to_owned),
+        property_classes: Vec::new(),
+        hegel_property: None,
+        z4_solver,
+    }
+}
+
+fn parse_z4_solver_details(
+    value: &serde_json::Value,
+    findings: &mut Vec<EvidenceRailFinding>,
+    diagnostics: &mut Vec<String>,
+) -> Z4SolverReceiptDetails {
+    validate_optional_schema_version(value, Z4_SOLVER_SCHEMA_VERSION, "z4-solver", diagnostics);
+    validate_required_object_strings(
+        value,
+        "solver",
+        "Z4 solver identity",
+        &["name", "version", "provenance"],
+        diagnostics,
+    );
+    validate_required_object_strings(
+        value,
+        "query",
+        "Z4 query identity",
+        &["identity", "logic", "profile"],
+        diagnostics,
+    );
+    validate_required_string_field(value, "verification_role", "Z4 verification role", diagnostics);
+    validate_z4_result_status(value, findings, diagnostics);
+    validate_z4_boundary(value, diagnostics);
+
+    let solver = value.get("solver").unwrap_or(&serde_json::Value::Null);
+    let query = value.get("query").unwrap_or(&serde_json::Value::Null);
+    Z4SolverReceiptDetails {
+        solver: Z4SolverIdentity {
+            name: string_field(solver, "name").unwrap_or_default().to_owned(),
+            version: string_field(solver, "version").unwrap_or_default().to_owned(),
+            provenance: string_field(solver, "provenance").unwrap_or_default().to_owned(),
+        },
+        query: Z4QueryIdentity {
+            identity: string_field(query, "identity").unwrap_or_default().to_owned(),
+            logic: string_field(query, "logic").unwrap_or_default().to_owned(),
+            profile: string_field(query, "profile").unwrap_or_default().to_owned(),
+        },
+        result_status: z4_status(value).unwrap_or_default().to_owned(),
+        verification_role: string_field(value, "verification_role").unwrap_or_default().to_owned(),
+        proof_ref: string_field(value, "proof_ref").map(ToOwned::to_owned),
+        model_ref: string_field(value, "model_ref").map(ToOwned::to_owned),
+        unsat_core_ref: string_field(value, "unsat_core_ref").map(ToOwned::to_owned),
+        unknown_reason: string_field(value, "unknown_reason").map(ToOwned::to_owned),
+    }
+}
+
+fn validate_z4_result_status(
+    value: &serde_json::Value,
+    findings: &mut Vec<EvidenceRailFinding>,
+    diagnostics: &mut Vec<String>,
+) {
+    match z4_status(value) {
+        Some(Z4_STATUS_SAT) => {
+            if string_field(value, "model_ref").is_none_or(str::is_empty) {
+                diagnostics.push("Z4 SAT receipt requires model_ref".to_owned());
+            }
+            findings.push(z4_finding("z4-sat", "manual_review", "Z4 reported SAT; review the model diagnostic"));
+        }
+        Some(Z4_STATUS_UNSAT) => {
+            if string_field(value, "proof_ref").is_none_or(str::is_empty)
+                && string_field(value, "unsat_core_ref").is_none_or(str::is_empty)
+            {
+                diagnostics.push("Z4 UNSAT receipt requires proof_ref or unsat_core_ref".to_owned());
+            }
+        }
+        Some(Z4_STATUS_UNKNOWN) => {
+            if string_field(value, "unknown_reason").is_none_or(str::is_empty) {
+                diagnostics.push("Z4 unknown receipt requires unknown_reason".to_owned());
+            }
+            findings.push(z4_finding(
+                "z4-unknown",
+                "manual_review",
+                "Z4 reported unknown; preserve as non-proof diagnostic evidence",
+            ));
+        }
+        Some(Z4_STATUS_TIMEOUT) => {
+            if string_field(value, "unknown_reason").is_none_or(str::is_empty) {
+                diagnostics.push("Z4 timeout receipt requires unknown_reason".to_owned());
+            }
+            findings.push(z4_finding(
+                "z4-timeout",
+                "manual_review",
+                "Z4 timed out; preserve as non-proof diagnostic evidence",
+            ));
+        }
+        Some(other) => diagnostics
+            .push(format!("Z4 result status `{other}` is unsupported; expected sat, unsat, unknown, or timeout")),
+        None => diagnostics.push("Z4 receipt requires result_status".to_owned()),
+    }
+    validate_array_records(value, "diagnostics", "Z4 diagnostic", &["severity", "message"], diagnostics);
+    for diagnostic in array_field(value, "diagnostics") {
+        let severity = string_field(diagnostic, "severity").unwrap_or("manual_review");
+        let message = string_field(diagnostic, "message").unwrap_or("Z4 diagnostic");
+        findings.push(z4_finding("z4-diagnostic", z4_diagnostic_severity(severity), message));
+    }
+}
+
+fn validate_z4_boundary(value: &serde_json::Value, diagnostics: &mut Vec<String>) {
+    if let Some(query) = value.get("query")
+        && let Some(identity) = string_field(query, "identity")
+        && !is_b3_identity(identity)
+    {
+        diagnostics.push(format!("Z4 query identity `{identity}` must be a BLAKE3 identity"));
+    }
+    let non_claims = string_array_field(value, "non_claims");
+    if !non_claims.iter().any(|claim| claim == Z4_SOLVER_NON_CLAIM) {
+        diagnostics.push("Z4 receipt missing solver non-claim".to_owned());
+    }
+    if string_field(value, "evidence_tier") == Some(FORMAL_PROOF_TIER) {
+        diagnostics.push("Z4 solver receipts cannot be promoted to formal_proof".to_owned());
+    }
+    let role = string_field(value, "verification_role").unwrap_or_default();
+    if contains_z4_overclaim(role) {
+        diagnostics.push("Z4 receipt contains unsupported proof or correctness overclaim".to_owned());
+    }
+    if let Some(claims) = value.get("claims") {
+        for field in [
+            "proves_correctness",
+            "proves_proof_validity",
+            "proves_solver_soundness",
+            "release_eligible",
+        ] {
+            if claims.get(field).and_then(serde_json::Value::as_bool) == Some(true) {
+                diagnostics.push(format!("Z4 receipt cannot set claims.{field}=true"));
+            }
+        }
+    }
+}
+
+fn z4_status(value: &serde_json::Value) -> Option<&str> {
+    string_field(value, "result_status").or_else(|| string_field(value, "status"))
+}
+
+fn z4_diagnostic_severity(severity: &str) -> &str {
+    match severity {
+        "error" => "error",
+        "warning" | "warn" | "info" | "note" => "manual_review",
+        _ => "manual_review",
+    }
+}
+
+fn contains_z4_overclaim(text: &str) -> bool {
+    for marker in [
+        "formal proof",
+        "proves correctness",
+        "proves proof validity",
+        "proves solver soundness",
+        "proves requirement satisfaction",
+        "release eligibility",
+        "whole-program correctness",
+    ] {
+        if text.contains(marker) {
+            return true;
+        }
+    }
+    false
+}
+
+fn z4_finding(family: &str, severity: &str, message: &str) -> EvidenceRailFinding {
+    EvidenceRailFinding {
+        family: family.to_owned(),
+        severity: severity.to_owned(),
+        message: message.to_owned(),
+        source_severity: None,
+        file: None,
+        line: None,
+        column: None,
+    }
+}
+
+fn status_from_z4_findings(findings: &[EvidenceRailFinding]) -> String {
+    if findings.iter().any(|finding| finding.severity == "error") {
+        STATUS_FAILED.to_owned()
+    } else if findings.is_empty() {
+        STATUS_PASSED.to_owned()
+    } else {
+        STATUS_MANUAL_REVIEW_REQUIRED.to_owned()
     }
 }
 
@@ -1581,6 +1869,9 @@ fn run_mode_command_argv(args: &EvidenceRailArgs) -> Result<Vec<String>, String>
             "hegel-property run requires an explicit --command and never bootstraps Hegel automatically".to_owned()
         );
     }
+    if args.rail == EvidenceRailKind::Z4Solver && args.command.as_deref().is_none_or(str::is_empty) {
+        return Err("z4-solver run requires an explicit --command and never bootstraps Z4 automatically".to_owned());
+    }
     Ok(command_argv(
         args.rail,
         config_path.as_deref(),
@@ -1619,7 +1910,9 @@ fn command_argv(
         EvidenceRailKind::MutationTesting => string_vec(&["cargo", "mutants", "--json"]),
         EvidenceRailKind::CoverageBaseline => string_vec(&["cargo", "llvm-cov", "--json", "--summary-only"]),
         EvidenceRailKind::KaniModelCheck => string_vec(&["cargo", "kani"]),
-        EvidenceRailKind::HegelProperty => requested_command.map(split_command).unwrap_or_default(),
+        EvidenceRailKind::HegelProperty | EvidenceRailKind::Z4Solver => {
+            requested_command.map(split_command).unwrap_or_default()
+        }
     }
 }
 
@@ -2475,6 +2768,53 @@ mod tests {
     }
 
     #[test]
+    fn z4_solver_receipts_preserve_non_proof_solver_boundaries() {
+        let unsat = z4_receipt(include_str!("../tests/fixtures/evidence-rails/z4-solver-unsat-proof.json"));
+        let unsat_json = render_receipt_json(&unsat).expect("receipt renders");
+        let unsat_summary = render_summary(&unsat);
+        let unsat_provenance =
+            render_provenance_jsonl(&unsat, &unsat_json, &unsat_summary).expect("provenance renders");
+        let details = unsat.z4_solver.as_ref().expect("z4 details are present");
+
+        assert_eq!(unsat.status, STATUS_PASSED);
+        assert!(validate_receipt(&unsat).is_empty());
+        assert_eq!(unsat.checker_id, crate::evidence::CHECKER_Z4_SOLVER);
+        assert!(unsat.checked_rule_families.iter().any(|family| family == "query-identity"));
+        assert_eq!(details.result_status, Z4_STATUS_UNSAT);
+        assert!(details.proof_ref.is_some());
+        assert!(details.query.identity.starts_with(BLAKE3_IDENTITY_PREFIX));
+        assert!(unsat.non_claims.iter().any(|claim| claim == Z4_SOLVER_NON_CLAIM));
+        assert!(unsat_provenance.contains("\"source_id\":\"octet.experimental_solver_rails.z4-solver\""));
+        assert!(unsat_provenance.contains("\"evidence_tier\":\"transcript_assertion\""));
+
+        let sat = z4_receipt(include_str!("../tests/fixtures/evidence-rails/z4-solver-sat-diagnostic.json"));
+        assert_eq!(sat.status, STATUS_MANUAL_REVIEW_REQUIRED);
+        assert_eq!(sat.finding_counts.get("z4-sat"), Some(&1));
+        assert_eq!(sat.finding_counts.get("z4-diagnostic"), Some(&1));
+
+        let unknown = z4_receipt(include_str!("../tests/fixtures/evidence-rails/z4-solver-unknown.json"));
+        assert_eq!(unknown.status, STATUS_MANUAL_REVIEW_REQUIRED);
+        assert_eq!(unknown.finding_counts.get("z4-unknown"), Some(&1));
+        assert_eq!(
+            unknown.z4_solver.as_ref().and_then(|details| details.unknown_reason.as_deref()),
+            Some("resource-limit")
+        );
+
+        let invalid = z4_receipt(include_str!("../tests/fixtures/evidence-rails/z4-solver-invalid-overclaim.json"));
+        assert_eq!(invalid.status, STATUS_FAILED);
+        assert!(invalid.diagnostics.iter().any(|diagnostic| diagnostic.contains("unsupported")));
+        assert!(invalid.diagnostics.iter().any(|diagnostic| diagnostic.contains("BLAKE3")));
+        assert!(invalid.diagnostics.iter().any(|diagnostic| diagnostic.contains("non-claim")));
+        assert!(invalid.diagnostics.iter().any(|diagnostic| diagnostic.contains("overclaim")));
+        assert!(invalid.diagnostics.iter().any(|diagnostic| diagnostic.contains("formal_proof")));
+        assert!(invalid.diagnostics.iter().any(|diagnostic| diagnostic.contains("claims.proves_correctness")));
+
+        let mut drifted = unsat.clone();
+        drifted.rail_id = EvidenceRailKind::DependencyAudit.as_str().to_owned();
+        assert!(validate_receipt(&drifted).iter().any(|diagnostic| diagnostic.contains("only valid")));
+    }
+
+    #[test]
     fn kani_panic_pilot_fixtures_and_templates_capture_assumption_review() {
         let passed = kani_receipt(include_str!("../tests/fixtures/evidence-rails/kani-panic-pilot-passed.json"));
         assert_eq!(passed.status, STATUS_PASSED);
@@ -2512,6 +2852,10 @@ mod tests {
             include_str!("../tests/fixtures/evidence-rails/kani-panic-pilot-invalid-assumption.json");
         let hegel_passed = include_str!("../tests/fixtures/evidence-rails/hegel-property-passed.json");
         let hegel_invalid = include_str!("../tests/fixtures/evidence-rails/hegel-property-invalid.json");
+        let z4_unsat = include_str!("../tests/fixtures/evidence-rails/z4-solver-unsat-proof.json");
+        let z4_sat = include_str!("../tests/fixtures/evidence-rails/z4-solver-sat-diagnostic.json");
+        let z4_unknown = include_str!("../tests/fixtures/evidence-rails/z4-solver-unknown.json");
+        let z4_invalid = include_str!("../tests/fixtures/evidence-rails/z4-solver-invalid-overclaim.json");
 
         assert_eq!(dependency_audit_receipt(clean_deny, Some(DENY_CONFIG)).status, STATUS_PASSED);
         assert_eq!(dependency_audit_receipt(denied, Some(DENY_CONFIG)).finding_counts.get("licenses"), Some(&1));
@@ -2528,6 +2872,10 @@ mod tests {
         assert_eq!(kani_receipt(kani_panic_invalid).status, STATUS_FAILED);
         assert_eq!(hegel_receipt(hegel_passed).status, STATUS_PASSED);
         assert_eq!(hegel_receipt(hegel_invalid).status, STATUS_FAILED);
+        assert_eq!(z4_receipt(z4_unsat).status, STATUS_PASSED);
+        assert_eq!(z4_receipt(z4_sat).status, STATUS_MANUAL_REVIEW_REQUIRED);
+        assert_eq!(z4_receipt(z4_unknown).status, STATUS_MANUAL_REVIEW_REQUIRED);
+        assert_eq!(z4_receipt(z4_invalid).status, STATUS_FAILED);
     }
 
     #[test]
@@ -2583,6 +2931,12 @@ mod tests {
             ),
             vec!["cargo", "test", "-p", "valence-core", "hegel_property"]
         );
+        assert_eq!(command_argv(EvidenceRailKind::Z4Solver, None, None, Some("z4 solve --json query.smt2")), vec![
+            "z4",
+            "solve",
+            "--json",
+            "query.smt2"
+        ]);
     }
 
     #[test]
@@ -2612,6 +2966,40 @@ mod tests {
             ..args
         };
         assert_eq!(run_mode_command_argv(&allowed).expect("allowed dynamic command"), vec!["cargo", "miri", "test"]);
+    }
+
+    #[test]
+    fn z4_run_mode_requires_explicit_command_before_spawn() {
+        let args = crate::cli::EvidenceRailArgs {
+            rail: EvidenceRailKind::Z4Solver,
+            input: None,
+            artifact_dir: std::path::PathBuf::from("artifacts/octet-evidence"),
+            workspace_root: None,
+            config: None,
+            baseline: None,
+            profile: None,
+            command: None,
+            parent_artifacts: Vec::new(),
+            output_format: OutputFormat::Human,
+            locked: false,
+            update_advisory_database: false,
+            run: true,
+            command_line: "cargo octet evidence collect --rail z4-solver --run".to_owned(),
+        };
+
+        let error = run_mode_command_argv(&args).expect_err("implicit Z4 command is rejected before spawn");
+        assert!(error.contains("explicit --command"));
+
+        let allowed = crate::cli::EvidenceRailArgs {
+            command: Some("z4 solve --json query.smt2".to_owned()),
+            ..args
+        };
+        assert_eq!(run_mode_command_argv(&allowed).expect("allowed z4 command"), vec![
+            "z4",
+            "solve",
+            "--json",
+            "query.smt2"
+        ]);
     }
 
     #[test]
@@ -2764,6 +3152,13 @@ mod tests {
         evaluate(EvaluationInput {
             import_text,
             ..hegel_input()
+        })
+    }
+
+    fn z4_receipt(import_text: &str) -> EvidenceRailReceipt {
+        evaluate(EvaluationInput {
+            import_text,
+            ..z4_input()
         })
     }
 
@@ -2958,6 +3353,24 @@ mod tests {
             advisory_updated_by_prior_step: false,
             profile: Some("fast"),
             requested_command: Some("cargo test hegel_property"),
+            parent_artifacts: Vec::new(),
+            tool_exit_code: None,
+        }
+    }
+
+    fn z4_input() -> EvaluationInput<'static> {
+        EvaluationInput {
+            rail: EvidenceRailKind::Z4Solver,
+            mode: MODE_IMPORT,
+            import_text: "{}",
+            workspace_scope: WORKSPACE_SCOPE,
+            config_path: None,
+            baseline_identity: None,
+            lockfile_identity: None,
+            locked: false,
+            advisory_updated_by_prior_step: false,
+            profile: Some("bounded-diagnostic"),
+            requested_command: Some("z4 solve --json query.smt2"),
             parent_artifacts: Vec::new(),
             tool_exit_code: None,
         }
