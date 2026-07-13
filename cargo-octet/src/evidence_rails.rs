@@ -38,7 +38,7 @@ const DYNAMIC_COMMAND_MIRI_TEST: &str = "cargo miri test";
 const DYNAMIC_PROFILE_LOOM_CONCURRENCY: &str = "loom-concurrency";
 const DYNAMIC_PROFILE_LOOM_SHORT: &str = "loom";
 const DYNAMIC_COMMAND_LOOM_TEST: &str = "cargo test --cfg loom";
-const SUPPORTED_EVIDENCE_RAILS: &str = "dependency-audit, clippy-co-reporting, dependency-trust, api-stability, dynamic-evidence, release-supply-chain, mutation-testing, coverage-baseline, kani-model-check, hegel-property, or z4-solver";
+const SUPPORTED_EVIDENCE_RAILS: &str = "dependency-audit, clippy-co-reporting, dependency-trust, api-stability, dynamic-evidence, release-supply-chain, mutation-testing, coverage-baseline, kani-model-check, hegel-property, z4-solver, or verifier-fixture";
 const COVERAGE_PERCENT_MIN: f64 = 0.0;
 const COVERAGE_PERCENT_MAX: f64 = 100.0;
 const SCHEMA_VERSION_FIELD: &str = "schema_version";
@@ -47,8 +47,10 @@ const COVERAGE_BASELINE_SCHEMA_VERSION: &str = "cargo-llvm-cov-summary/v1";
 const KANI_MODEL_CHECK_SCHEMA_VERSION: &str = "cargo-kani-summary/v1";
 const HEGEL_PROPERTY_SCHEMA_VERSION: &str = "hegel-property-summary/v1";
 const Z4_SOLVER_SCHEMA_VERSION: &str = "z4-solver-summary/v1";
+const VERIFIER_FIXTURE_SCHEMA_VERSION: &str = "verifier-fixture-intake/v1";
 const HEGEL_GENERATED_TESTING_NON_CLAIM: &str = "Hegel checks bounded generated inputs only and does not prove correctness, semantic equivalence, verifier soundness, requirement satisfaction, release eligibility, or whole-program safety";
 const Z4_SOLVER_NON_CLAIM: &str = "Z4 solver evidence records bounded solver output identity and diagnostics only; it does not prove source correctness, solver soundness, proof validity, requirement satisfaction, release eligibility, or whole-program safety";
+const VERIFIER_FIXTURE_NON_CLAIM: &str = "Verifier fixtures are Octet-owned regression and UX inputs only; they do not prove source-verifier execution, verifier parity, proof soundness, solver soundness, source-code correctness, whole-program safety, or release eligibility";
 const HEGEL_FAST_CASE_BUDGET: u64 = 16;
 const FORMAL_PROOF_TIER: &str = "formal_proof";
 const BLAKE3_IDENTITY_PREFIX: &str = "b3:";
@@ -82,6 +84,7 @@ pub enum EvidenceRailKind {
     KaniModelCheck,
     HegelProperty,
     Z4Solver,
+    VerifierFixture,
 }
 
 impl EvidenceRailKind {
@@ -98,6 +101,7 @@ impl EvidenceRailKind {
             "kani-model-check" | "kani" | "cargo-kani" => Ok(Self::KaniModelCheck),
             "hegel-property" | "hegel" | "hegel-rs" => Ok(Self::HegelProperty),
             "z4-solver" | "z4" => Ok(Self::Z4Solver),
+            "verifier-fixture" | "verifier-fixture-intake" => Ok(Self::VerifierFixture),
             other => Err(format!("unsupported evidence rail `{other}`; expected {SUPPORTED_EVIDENCE_RAILS}")),
         }
     }
@@ -115,6 +119,7 @@ impl EvidenceRailKind {
             Self::KaniModelCheck => "kani-model-check",
             Self::HegelProperty => "hegel-property",
             Self::Z4Solver => "z4-solver",
+            Self::VerifierFixture => "verifier-fixture",
         }
     }
 
@@ -131,6 +136,7 @@ impl EvidenceRailKind {
             Self::KaniModelCheck => crate::evidence::CHECKER_CARGO_KANI,
             Self::HegelProperty => crate::evidence::CHECKER_HEGEL_RS,
             Self::Z4Solver => crate::evidence::CHECKER_Z4_SOLVER,
+            Self::VerifierFixture => crate::evidence::CHECKER_CARGO_OCTET,
         }
     }
 
@@ -147,6 +153,7 @@ impl EvidenceRailKind {
             Self::KaniModelCheck => "octet.kani_model_check.cargo-kani",
             Self::HegelProperty => "octet.dynamic_evidence.hegel-property",
             Self::Z4Solver => "octet.experimental_solver_rails.z4-solver",
+            Self::VerifierFixture => "octet.runner.verifier-fixture-intake",
         }
     }
 
@@ -158,7 +165,8 @@ impl EvidenceRailKind {
             | Self::CoverageBaseline
             | Self::KaniModelCheck
             | Self::HegelProperty
-            | Self::Z4Solver => EvidenceTier::TranscriptAssertion,
+            | Self::Z4Solver
+            | Self::VerifierFixture => EvidenceTier::TranscriptAssertion,
             _ => EvidenceTier::PolicyCheck,
         }
     }
@@ -214,6 +222,14 @@ impl EvidenceRailKind {
                 "result-status",
                 "proof-model-core-references",
                 "unknown-timeout-diagnostics",
+                "role-and-non-claims",
+            ]),
+            Self::VerifierFixture => string_vec(&[
+                "fixture-identity",
+                "syntax-family",
+                "expected-verdict",
+                "diagnostic-expectations",
+                "assumption-and-unsupported-feature-labels",
                 "role-and-non-claims",
             ]),
         }
@@ -272,6 +288,11 @@ impl EvidenceRailKind {
                 "Z4 solver evidence is optional and not part of starter cargo octet check",
                 "Z4 receipts are scoped to solver identity, query hash, logic profile, result status, artifact references, diagnostics, roles, and explicit non-claims",
                 Z4_SOLVER_NON_CLAIM,
+            ]),
+            Self::VerifierFixture => string_vec(&[
+                "Verifier fixture intake is optional and not part of starter cargo octet check",
+                "Verifier fixtures are normalized regression inputs and do not require external verifier runtimes",
+                VERIFIER_FIXTURE_NON_CLAIM,
             ]),
         }
     }
@@ -362,6 +383,24 @@ pub struct Z4SolverReceiptDetails {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+pub struct VerifierFixtureEntry {
+    pub fixture_id: String,
+    pub source_artifact_ref: String,
+    pub syntax_family: String,
+    pub expected_verdict: String,
+    pub expected_diagnostics: Vec<String>,
+    pub assumptions: Vec<String>,
+    pub unsupported_features: Vec<String>,
+    pub verifier_family: String,
+    pub fixture_role: String,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+pub struct VerifierFixtureReceiptDetails {
+    pub fixtures: Vec<VerifierFixtureEntry>,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct EvidenceRailReceipt {
     pub schema_version: String,
     pub rail_id: String,
@@ -396,6 +435,8 @@ pub struct EvidenceRailReceipt {
     pub hegel_property: Option<HegelPropertyReceiptDetails>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub z4_solver: Option<Z4SolverReceiptDetails>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub verifier_fixtures: Option<VerifierFixtureReceiptDetails>,
 }
 
 pub struct EvaluationInput<'a> {
@@ -423,6 +464,7 @@ struct RailParseOutput {
     property_classes: Vec<String>,
     hegel_property: Option<HegelPropertyReceiptDetails>,
     z4_solver: Option<Z4SolverReceiptDetails>,
+    verifier_fixtures: Option<VerifierFixtureReceiptDetails>,
 }
 
 pub fn run(args: &EvidenceRailArgs) -> Result<i32, String> {
@@ -509,6 +551,7 @@ pub fn evaluate(input: EvaluationInput<'_>) -> EvidenceRailReceipt {
         property_classes: parsed.property_classes,
         hegel_property: parsed.hegel_property,
         z4_solver: parsed.z4_solver,
+        verifier_fixtures: parsed.verifier_fixtures,
     }
 }
 
@@ -665,6 +708,23 @@ pub fn validate_receipt(receipt: &EvidenceRailReceipt) -> Vec<String> {
         (_, Some(_)) => diagnostics.push("z4_solver details are only valid on z4-solver rail receipts".to_owned()),
         (_, None) => {}
     }
+    match (rail, receipt.verifier_fixtures.as_ref()) {
+        (EvidenceRailKind::VerifierFixture, Some(details)) => {
+            if details.fixtures.is_empty() {
+                diagnostics.push("verifier-fixture receipt must contain fixtures".to_owned());
+            }
+            if !receipt.non_claims.iter().any(|claim| claim == VERIFIER_FIXTURE_NON_CLAIM) {
+                diagnostics.push("verifier-fixture receipt missing fixture non-claim".to_owned());
+            }
+        }
+        (EvidenceRailKind::VerifierFixture, None) => {
+            diagnostics.push("verifier-fixture receipt missing verifier_fixtures details".to_owned())
+        }
+        (_, Some(_)) => {
+            diagnostics.push("verifier_fixtures details are only valid on verifier-fixture rail receipts".to_owned())
+        }
+        (_, None) => {}
+    }
     diagnostics
 }
 
@@ -693,6 +753,7 @@ fn parse_rail_input(input: &EvaluationInput<'_>) -> RailParseOutput {
         EvidenceRailKind::KaniModelCheck => parse_kani_model_check(input),
         EvidenceRailKind::HegelProperty => parse_hegel_property(input),
         EvidenceRailKind::Z4Solver => parse_z4_solver(input),
+        EvidenceRailKind::VerifierFixture => parse_verifier_fixture(input),
     }
 }
 
@@ -736,6 +797,7 @@ fn parse_dependency_audit(input: &EvaluationInput<'_>) -> RailParseOutput {
         property_classes: Vec::new(),
         hegel_property: None,
         z4_solver: None,
+        verifier_fixtures: None,
     }
 }
 
@@ -795,6 +857,7 @@ fn parse_clippy(input: &EvaluationInput<'_>) -> RailParseOutput {
         property_classes: Vec::new(),
         hegel_property: None,
         z4_solver: None,
+        verifier_fixtures: None,
     }
 }
 
@@ -853,6 +916,7 @@ fn parse_dependency_trust(input: &EvaluationInput<'_>) -> RailParseOutput {
         property_classes: Vec::new(),
         hegel_property: None,
         z4_solver: None,
+        verifier_fixtures: None,
     }
 }
 
@@ -889,6 +953,7 @@ fn parse_api_stability(input: &EvaluationInput<'_>) -> RailParseOutput {
         property_classes: Vec::new(),
         hegel_property: None,
         z4_solver: None,
+        verifier_fixtures: None,
     }
 }
 
@@ -952,6 +1017,7 @@ fn parse_dynamic_evidence(input: &EvaluationInput<'_>) -> RailParseOutput {
         property_classes: Vec::new(),
         hegel_property: None,
         z4_solver: None,
+        verifier_fixtures: None,
     }
 }
 
@@ -997,6 +1063,7 @@ fn parse_release_supply_chain(input: &EvaluationInput<'_>) -> RailParseOutput {
         property_classes: Vec::new(),
         hegel_property: None,
         z4_solver: None,
+        verifier_fixtures: None,
     }
 }
 
@@ -1064,6 +1131,7 @@ fn parse_mutation_testing(input: &EvaluationInput<'_>) -> RailParseOutput {
         property_classes: Vec::new(),
         hegel_property: None,
         z4_solver: None,
+        verifier_fixtures: None,
     }
 }
 
@@ -1111,6 +1179,7 @@ fn parse_coverage_baseline(input: &EvaluationInput<'_>) -> RailParseOutput {
         property_classes: Vec::new(),
         hegel_property: None,
         z4_solver: None,
+        verifier_fixtures: None,
     }
 }
 
@@ -1159,6 +1228,7 @@ fn parse_kani_model_check(input: &EvaluationInput<'_>) -> RailParseOutput {
         property_classes,
         hegel_property: None,
         z4_solver: None,
+        verifier_fixtures: None,
     }
 }
 
@@ -1179,6 +1249,188 @@ fn parse_hegel_property(input: &EvaluationInput<'_>) -> RailParseOutput {
         property_classes: Vec::new(),
         hegel_property,
         z4_solver: None,
+        verifier_fixtures: None,
+    }
+}
+
+fn parse_verifier_fixture(input: &EvaluationInput<'_>) -> RailParseOutput {
+    let mut diagnostics = Vec::new();
+    let mut findings = Vec::new();
+    let value = parse_json_value(input.import_text, &mut diagnostics);
+    let verifier_fixtures =
+        value.as_ref().map(|value| parse_verifier_fixture_details(value, &mut findings, &mut diagnostics));
+    let finding_counts = counts_by_family(&findings);
+    let status = status_from_verifier_fixture_findings(&findings);
+    RailParseOutput {
+        findings,
+        finding_counts,
+        diagnostics,
+        status,
+        profile: input.profile.map(ToOwned::to_owned),
+        property_classes: Vec::new(),
+        hegel_property: None,
+        z4_solver: None,
+        verifier_fixtures,
+    }
+}
+
+fn parse_verifier_fixture_details(
+    value: &serde_json::Value,
+    findings: &mut Vec<EvidenceRailFinding>,
+    diagnostics: &mut Vec<String>,
+) -> VerifierFixtureReceiptDetails {
+    validate_optional_schema_version(value, VERIFIER_FIXTURE_SCHEMA_VERSION, "verifier-fixture", diagnostics);
+    let non_claims = string_array_field(value, "non_claims");
+    if !non_claims.iter().any(|claim| claim == VERIFIER_FIXTURE_NON_CLAIM) {
+        diagnostics.push("verifier fixture receipt missing fixture non-claim".to_owned());
+    }
+    let fixtures = parse_verifier_fixture_entries(value, findings, diagnostics);
+    VerifierFixtureReceiptDetails { fixtures }
+}
+
+fn parse_verifier_fixture_entries(
+    value: &serde_json::Value,
+    findings: &mut Vec<EvidenceRailFinding>,
+    diagnostics: &mut Vec<String>,
+) -> Vec<VerifierFixtureEntry> {
+    let Some(fixtures_value) = value.get("fixtures") else {
+        diagnostics.push("verifier fixture receipt requires fixtures array".to_owned());
+        return Vec::new();
+    };
+    let Some(items) = fixtures_value.as_array() else {
+        diagnostics.push("verifier fixture receipt field `fixtures` must be an array".to_owned());
+        return Vec::new();
+    };
+    let mut fixtures = Vec::new();
+    for (index, item) in items.iter().enumerate() {
+        validate_verifier_fixture_entry(item, index, findings, diagnostics);
+        fixtures.push(verifier_fixture_entry(item));
+    }
+    fixtures
+}
+
+fn validate_verifier_fixture_entry(
+    item: &serde_json::Value,
+    index: usize,
+    findings: &mut Vec<EvidenceRailFinding>,
+    diagnostics: &mut Vec<String>,
+) {
+    let Some(record) = item.as_object() else {
+        diagnostics.push(format!("verifier fixture item fixtures[{index}] must be an object"));
+        return;
+    };
+    for required in [
+        "fixture_id",
+        "source_artifact_ref",
+        "syntax_family",
+        "expected_verdict",
+        "verifier_family",
+        "fixture_role",
+    ] {
+        match record.get(required).and_then(serde_json::Value::as_str) {
+            Some(value) if !value.trim().is_empty() => {}
+            _ => diagnostics
+                .push(format!("verifier fixture item fixtures[{index}] missing non-empty string `{required}`")),
+        }
+    }
+    let fixture_id = string_field(item, "fixture_id").unwrap_or("unknown verifier fixture");
+    match string_field(item, "expected_verdict") {
+        Some("accepted") => {}
+        Some("expected_failure") => findings.push(verifier_fixture_finding(
+            "verifier-expected-failure",
+            "manual_review",
+            &format!("verifier fixture is an expected negative case: {fixture_id}"),
+        )),
+        Some(other) => diagnostics.push(format!(
+            "verifier fixture `{fixture_id}` expected_verdict `{other}` is unsupported; expected accepted or expected_failure"
+        )),
+        None => {}
+    }
+    validate_verifier_fixture_arrays(item, index, diagnostics);
+    validate_verifier_fixture_claims(item, fixture_id, diagnostics);
+}
+
+fn validate_verifier_fixture_arrays(item: &serde_json::Value, index: usize, diagnostics: &mut Vec<String>) {
+    for field in ["expected_diagnostics", "assumptions", "unsupported_features"] {
+        let Some(value) = item.get(field) else {
+            diagnostics.push(format!("verifier fixture item fixtures[{index}] missing array `{field}`"));
+            continue;
+        };
+        if !value.is_array() {
+            diagnostics.push(format!("verifier fixture item fixtures[{index}] field `{field}` must be an array"));
+        }
+    }
+}
+
+fn validate_verifier_fixture_claims(item: &serde_json::Value, fixture_id: &str, diagnostics: &mut Vec<String>) {
+    let role = string_field(item, "fixture_role").unwrap_or_default();
+    if contains_verifier_fixture_overclaim(role) {
+        diagnostics
+            .push(format!("verifier fixture `{fixture_id}` contains unsupported proof or correctness overclaim"));
+    }
+    if let Some(claims) = item.get("claims") {
+        for field in [
+            "verifier_parity",
+            "proof_soundness",
+            "source_correctness",
+            "release_eligible",
+        ] {
+            if claims.get(field).and_then(serde_json::Value::as_bool) == Some(true) {
+                diagnostics.push(format!("verifier fixture `{fixture_id}` cannot set claims.{field}=true"));
+            }
+        }
+    }
+}
+
+fn verifier_fixture_entry(item: &serde_json::Value) -> VerifierFixtureEntry {
+    VerifierFixtureEntry {
+        fixture_id: string_field(item, "fixture_id").unwrap_or_default().to_owned(),
+        source_artifact_ref: string_field(item, "source_artifact_ref").unwrap_or_default().to_owned(),
+        syntax_family: string_field(item, "syntax_family").unwrap_or_default().to_owned(),
+        expected_verdict: string_field(item, "expected_verdict").unwrap_or_default().to_owned(),
+        expected_diagnostics: string_array_field(item, "expected_diagnostics"),
+        assumptions: string_array_field(item, "assumptions"),
+        unsupported_features: string_array_field(item, "unsupported_features"),
+        verifier_family: string_field(item, "verifier_family").unwrap_or_default().to_owned(),
+        fixture_role: string_field(item, "fixture_role").unwrap_or_default().to_owned(),
+    }
+}
+
+fn contains_verifier_fixture_overclaim(text: &str) -> bool {
+    for marker in [
+        "verifier parity",
+        "proof soundness",
+        "solver soundness",
+        "source correctness",
+        "whole-program safety",
+        "release eligibility",
+    ] {
+        if text.contains(marker) {
+            return true;
+        }
+    }
+    false
+}
+
+fn verifier_fixture_finding(family: &str, severity: &str, message: &str) -> EvidenceRailFinding {
+    EvidenceRailFinding {
+        family: family.to_owned(),
+        severity: severity.to_owned(),
+        message: message.to_owned(),
+        source_severity: None,
+        file: None,
+        line: None,
+        column: None,
+    }
+}
+
+fn status_from_verifier_fixture_findings(findings: &[EvidenceRailFinding]) -> String {
+    if findings.iter().any(|finding| finding.severity == "error") {
+        STATUS_FAILED.to_owned()
+    } else if findings.is_empty() {
+        STATUS_PASSED.to_owned()
+    } else {
+        STATUS_MANUAL_REVIEW_REQUIRED.to_owned()
     }
 }
 
@@ -1198,6 +1450,7 @@ fn parse_z4_solver(input: &EvaluationInput<'_>) -> RailParseOutput {
         property_classes: Vec::new(),
         hegel_property: None,
         z4_solver,
+        verifier_fixtures: None,
     }
 }
 
@@ -1872,6 +2125,12 @@ fn run_mode_command_argv(args: &EvidenceRailArgs) -> Result<Vec<String>, String>
     if args.rail == EvidenceRailKind::Z4Solver && args.command.as_deref().is_none_or(str::is_empty) {
         return Err("z4-solver run requires an explicit --command and never bootstraps Z4 automatically".to_owned());
     }
+    if args.rail == EvidenceRailKind::VerifierFixture && args.command.as_deref().is_none_or(str::is_empty) {
+        return Err(
+            "verifier-fixture run requires an explicit --command and never bootstraps external verifiers automatically"
+                .to_owned(),
+        );
+    }
     Ok(command_argv(
         args.rail,
         config_path.as_deref(),
@@ -1910,7 +2169,7 @@ fn command_argv(
         EvidenceRailKind::MutationTesting => string_vec(&["cargo", "mutants", "--json"]),
         EvidenceRailKind::CoverageBaseline => string_vec(&["cargo", "llvm-cov", "--json", "--summary-only"]),
         EvidenceRailKind::KaniModelCheck => string_vec(&["cargo", "kani"]),
-        EvidenceRailKind::HegelProperty | EvidenceRailKind::Z4Solver => {
+        EvidenceRailKind::HegelProperty | EvidenceRailKind::Z4Solver | EvidenceRailKind::VerifierFixture => {
             requested_command.map(split_command).unwrap_or_default()
         }
     }
@@ -2768,6 +3027,42 @@ mod tests {
     }
 
     #[test]
+    fn verifier_fixture_intake_preserves_regression_only_boundaries() {
+        let positive =
+            verifier_fixture_receipt(include_str!("../tests/fixtures/evidence-rails/verifier-fixture-positive.json"));
+        let positive_json = render_receipt_json(&positive).expect("receipt renders");
+        let positive_summary = render_summary(&positive);
+        let positive_provenance =
+            render_provenance_jsonl(&positive, &positive_json, &positive_summary).expect("provenance renders");
+        let details = positive.verifier_fixtures.as_ref().expect("fixture details are present");
+
+        assert_eq!(positive.status, STATUS_PASSED);
+        assert!(validate_receipt(&positive).is_empty());
+        assert_eq!(positive.checker_id, crate::evidence::CHECKER_CARGO_OCTET);
+        assert!(positive.checked_rule_families.iter().any(|family| family == "fixture-identity"));
+        assert_eq!(details.fixtures.len(), 5);
+        assert!(details.fixtures.iter().any(|fixture| fixture.fixture_id == "bounds-harness-positive"));
+        assert!(details.fixtures.iter().any(|fixture| fixture.syntax_family == "proof-assertion"));
+        assert!(positive.non_claims.iter().any(|claim| claim == VERIFIER_FIXTURE_NON_CLAIM));
+        assert!(positive_provenance.contains("\"source_id\":\"octet.runner.verifier-fixture-intake\""));
+        assert!(positive_provenance.contains("\"evidence_tier\":\"transcript_assertion\""));
+
+        let negative =
+            verifier_fixture_receipt(include_str!("../tests/fixtures/evidence-rails/verifier-fixture-negative.json"));
+        assert_eq!(negative.status, STATUS_FAILED);
+        assert_eq!(negative.finding_counts.get("verifier-expected-failure"), Some(&3));
+        assert!(negative.diagnostics.iter().any(|diagnostic| diagnostic.contains("unsupported")));
+        assert!(negative.diagnostics.iter().any(|diagnostic| diagnostic.contains("non-claim")));
+        assert!(negative.diagnostics.iter().any(|diagnostic| diagnostic.contains("expected_verdict")));
+        assert!(negative.diagnostics.iter().any(|diagnostic| diagnostic.contains("overclaim")));
+        assert!(negative.diagnostics.iter().any(|diagnostic| diagnostic.contains("claims.verifier_parity")));
+
+        let mut drifted = positive.clone();
+        drifted.rail_id = EvidenceRailKind::DependencyAudit.as_str().to_owned();
+        assert!(validate_receipt(&drifted).iter().any(|diagnostic| diagnostic.contains("only valid")));
+    }
+
+    #[test]
     fn z4_solver_receipts_preserve_non_proof_solver_boundaries() {
         let unsat = z4_receipt(include_str!("../tests/fixtures/evidence-rails/z4-solver-unsat-proof.json"));
         let unsat_json = render_receipt_json(&unsat).expect("receipt renders");
@@ -2852,6 +3147,8 @@ mod tests {
             include_str!("../tests/fixtures/evidence-rails/kani-panic-pilot-invalid-assumption.json");
         let hegel_passed = include_str!("../tests/fixtures/evidence-rails/hegel-property-passed.json");
         let hegel_invalid = include_str!("../tests/fixtures/evidence-rails/hegel-property-invalid.json");
+        let verifier_positive = include_str!("../tests/fixtures/evidence-rails/verifier-fixture-positive.json");
+        let verifier_negative = include_str!("../tests/fixtures/evidence-rails/verifier-fixture-negative.json");
         let z4_unsat = include_str!("../tests/fixtures/evidence-rails/z4-solver-unsat-proof.json");
         let z4_sat = include_str!("../tests/fixtures/evidence-rails/z4-solver-sat-diagnostic.json");
         let z4_unknown = include_str!("../tests/fixtures/evidence-rails/z4-solver-unknown.json");
@@ -2872,6 +3169,8 @@ mod tests {
         assert_eq!(kani_receipt(kani_panic_invalid).status, STATUS_FAILED);
         assert_eq!(hegel_receipt(hegel_passed).status, STATUS_PASSED);
         assert_eq!(hegel_receipt(hegel_invalid).status, STATUS_FAILED);
+        assert_eq!(verifier_fixture_receipt(verifier_positive).status, STATUS_PASSED);
+        assert_eq!(verifier_fixture_receipt(verifier_negative).status, STATUS_FAILED);
         assert_eq!(z4_receipt(z4_unsat).status, STATUS_PASSED);
         assert_eq!(z4_receipt(z4_sat).status, STATUS_MANUAL_REVIEW_REQUIRED);
         assert_eq!(z4_receipt(z4_unknown).status, STATUS_MANUAL_REVIEW_REQUIRED);
@@ -2937,6 +3236,15 @@ mod tests {
             "--json",
             "query.smt2"
         ]);
+        assert_eq!(
+            command_argv(
+                EvidenceRailKind::VerifierFixture,
+                None,
+                None,
+                Some("cargo test verifier_fixture_normalization")
+            ),
+            vec!["cargo", "test", "verifier_fixture_normalization"]
+        );
     }
 
     #[test]
@@ -2966,6 +3274,39 @@ mod tests {
             ..args
         };
         assert_eq!(run_mode_command_argv(&allowed).expect("allowed dynamic command"), vec!["cargo", "miri", "test"]);
+    }
+
+    #[test]
+    fn verifier_fixture_run_mode_requires_explicit_command_before_spawn() {
+        let args = crate::cli::EvidenceRailArgs {
+            rail: EvidenceRailKind::VerifierFixture,
+            input: None,
+            artifact_dir: std::path::PathBuf::from("artifacts/octet-evidence"),
+            workspace_root: None,
+            config: None,
+            baseline: None,
+            profile: None,
+            command: None,
+            parent_artifacts: Vec::new(),
+            output_format: OutputFormat::Human,
+            locked: false,
+            update_advisory_database: false,
+            run: true,
+            command_line: "cargo octet evidence collect --rail verifier-fixture --run".to_owned(),
+        };
+
+        let error = run_mode_command_argv(&args).expect_err("implicit verifier command is rejected before spawn");
+        assert!(error.contains("explicit --command"));
+
+        let allowed = crate::cli::EvidenceRailArgs {
+            command: Some("cargo test verifier_fixture_normalization".to_owned()),
+            ..args
+        };
+        assert_eq!(run_mode_command_argv(&allowed).expect("allowed verifier fixture command"), vec![
+            "cargo",
+            "test",
+            "verifier_fixture_normalization"
+        ]);
     }
 
     #[test]
@@ -3159,6 +3500,13 @@ mod tests {
         evaluate(EvaluationInput {
             import_text,
             ..z4_input()
+        })
+    }
+
+    fn verifier_fixture_receipt(import_text: &str) -> EvidenceRailReceipt {
+        evaluate(EvaluationInput {
+            import_text,
+            ..verifier_fixture_input()
         })
     }
 
@@ -3371,6 +3719,24 @@ mod tests {
             advisory_updated_by_prior_step: false,
             profile: Some("bounded-diagnostic"),
             requested_command: Some("z4 solve --json query.smt2"),
+            parent_artifacts: Vec::new(),
+            tool_exit_code: None,
+        }
+    }
+
+    fn verifier_fixture_input() -> EvaluationInput<'static> {
+        EvaluationInput {
+            rail: EvidenceRailKind::VerifierFixture,
+            mode: MODE_IMPORT,
+            import_text: "{}",
+            workspace_scope: WORKSPACE_SCOPE,
+            config_path: None,
+            baseline_identity: None,
+            lockfile_identity: None,
+            locked: false,
+            advisory_updated_by_prior_step: false,
+            profile: Some("regression-fixtures"),
+            requested_command: Some("cargo test verifier_fixture_normalization"),
             parent_artifacts: Vec::new(),
             tool_exit_code: None,
         }
