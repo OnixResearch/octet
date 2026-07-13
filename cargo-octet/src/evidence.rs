@@ -14,6 +14,7 @@ pub const CHECKER_OCTET_FINGERPRINT: &str = "octet-fingerprint";
 pub const CHECKER_OCTET_TRANSCRIPT: &str = "octet-transcript";
 pub const CHECKER_CARGO_DENY: &str = "cargo-deny";
 pub const CHECKER_CLIPPY: &str = "clippy";
+pub const CHECKER_AST_GREP: &str = "ast-grep";
 pub const CHECKER_CARGO_VET: &str = "cargo-vet";
 pub const CHECKER_CARGO_SEMVER_CHECKS: &str = "cargo-semver-checks";
 pub const CHECKER_CARGO_MUTANTS: &str = "cargo-mutants";
@@ -40,6 +41,7 @@ const SOURCE_TRANSCRIPT_PREFIX: &str = "octet.transcript.";
 const SOURCE_TRANSFORM_PREFIX: &str = "octet.transform.";
 const SOURCE_FUNCTION_ADDRESS_PREFIX: &str = "octet.function_address.";
 const SOURCE_EXTERNAL_LINT_PREFIX: &str = "octet.external_lint.";
+const SOURCE_STRUCTURAL_RAIL_PREFIX: &str = "octet.structural_rail.";
 const SOURCE_DEPENDENCY_TRUST_PREFIX: &str = "octet.dependency_trust.";
 const SOURCE_API_STABILITY_PREFIX: &str = "octet.api_stability.";
 const SOURCE_MUTATION_TESTING_PREFIX: &str = "octet.mutation_testing.";
@@ -206,6 +208,12 @@ fn provenance_producers() -> &'static [ProvenanceProducer] {
         ProvenanceProducer {
             checker_id: CHECKER_CLIPPY,
             source_prefixes: &[SOURCE_EXTERNAL_LINT_PREFIX],
+            allowed_tiers: &[EvidenceTier::StaticLint],
+            allows_formal_proof: false,
+        },
+        ProvenanceProducer {
+            checker_id: CHECKER_AST_GREP,
+            source_prefixes: &[SOURCE_STRUCTURAL_RAIL_PREFIX],
             allowed_tiers: &[EvidenceTier::StaticLint],
             allows_formal_proof: false,
         },

@@ -122,6 +122,7 @@ let CheckerIdContract =
     "registry",
     "rustc",
     "clippy",
+    "ast-grep",
     "rustfmt",
     "tigerstyle",
     "cargo-deny",

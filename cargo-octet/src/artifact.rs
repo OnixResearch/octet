@@ -49,6 +49,7 @@ const VALENCE_EXPORT_NON_CLAIM_SEMANTICS: &str =
     "Valence consumes this export for stack traceability; Mantle bundles only the final sidecar opaquely";
 const VALENCE_EXPORT_NON_CLAIM_RELEASE: &str = "Octet Valence exports are adapter inputs, not release eligibility, Mantle bundle inclusion, or verifier soundness claims";
 const FORMAL_PROOF_TIER: &str = "formal_proof";
+const STATIC_LINT_TIER: &str = "static_lint";
 const TRANSCRIPT_ASSERTION_TIER: &str = "transcript_assertion";
 const HEGEL_BOUNDARY_MARKER: &str = "bounded generated inputs";
 #[cfg(test)]
@@ -152,6 +153,8 @@ pub struct ValenceReceiptEnvelope {
     pub status: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub failure_reason: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ast_grep: Option<crate::ast_grep_rail::AstGrepReceiptDetails>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub hegel_property: Option<crate::evidence_rails::HegelPropertyReceiptDetails>,
     pub non_claims: Vec<String>,
@@ -413,6 +416,7 @@ fn valence_receipt_envelope(
         parent_artifacts: record.parent_artifacts.clone(),
         status: status.clone(),
         failure_reason: failure_reason_for_status(&status, matching_evidence_rail_receipt),
+        ast_grep: matching_evidence_rail_receipt.and_then(|receipt| receipt.ast_grep.clone()),
         hegel_property: matching_evidence_rail_receipt.and_then(|receipt| receipt.hegel_property.clone()),
         non_claims: non_claims_for_record(matching_evidence_rail_receipt),
     }
@@ -590,8 +594,28 @@ fn validate_valence_receipt(record: &ValenceProvenanceRecord, diagnostics: &mut 
     if receipt.non_claims.is_empty() {
         diagnostics.push(format!("artifact `{}` receipt must carry at least one explicit non-claim", record.artifact));
     }
+    if record.checker_id == crate::evidence::CHECKER_AST_GREP {
+        validate_ast_grep_valence_receipt(record, diagnostics);
+    }
     if record.checker_id == crate::evidence::CHECKER_HEGEL_RS {
         validate_hegel_valence_receipt(record, diagnostics);
+    }
+}
+
+fn validate_ast_grep_valence_receipt(record: &ValenceProvenanceRecord, diagnostics: &mut Vec<String>) {
+    if record.evidence_tier != STATIC_LINT_TIER {
+        diagnostics.push(format!(
+            "ast-grep Valence export must remain `{STATIC_LINT_TIER}` evidence, got `{}`",
+            record.evidence_tier
+        ));
+    }
+    match record.receipt.ast_grep.as_ref() {
+        Some(details) if details.verification_role == crate::ast_grep_rail::RECORDED_ONLY_ROLE => {}
+        Some(_) => diagnostics.push("ast-grep Valence export must remain recorded_only".to_owned()),
+        None => diagnostics.push("ast-grep Valence export missing ast_grep receipt details".to_owned()),
+    }
+    if !record.receipt.non_claims.iter().any(|claim| claim == crate::ast_grep_rail::REQUIRED_NON_CLAIM) {
+        diagnostics.push("ast-grep Valence export missing syntax-only non-claim".to_owned());
     }
 }
 
@@ -1483,6 +1507,28 @@ mod tests {
     }
 
     #[test]
+    fn valence_export_preserves_ast_grep_candidate_boundary() {
+        let export =
+            build_valence_provenance_export(valid_ast_grep_evidence_rail_input()).expect("valid ast-grep export");
+        let receipt_record = export
+            .provenance_records
+            .iter()
+            .find(|record| record.artifact == crate::evidence_rails::RECEIPT_ARTIFACT_NAME)
+            .expect("ast-grep receipt record exported");
+        let details = receipt_record.receipt.ast_grep.as_ref().expect("ast-grep details exported");
+
+        assert_eq!(receipt_record.checker_id, crate::evidence::CHECKER_AST_GREP);
+        assert_eq!(receipt_record.evidence_tier, STATIC_LINT_TIER);
+        assert_eq!(details.verification_role, crate::ast_grep_rail::RECORDED_ONLY_ROLE);
+        assert!(receipt_record.typed_edges.iter().any(|edge| edge.edge_kind == EDGE_CHECKS_SOURCE_SHAPE));
+        assert!(!receipt_record.typed_edges.iter().any(|edge| edge.edge_kind == EDGE_RECORDS_FORMAL_PROOF_RECEIPT));
+
+        let blocked = build_valence_provenance_export(ast_grep_promoted_role_input())
+            .expect_err("promoted ast-grep role blocks export");
+        assert!(blocked.iter().any(|diagnostic| diagnostic.contains("recorded_only")));
+    }
+
+    #[test]
     fn valence_export_preserves_failed_receipt_reason_without_passing_claim() {
         let export = build_valence_provenance_export(failed_evidence_rail_input()).expect("failed receipt export");
         let receipt_record = export
@@ -1999,6 +2045,16 @@ mod tests {
         })
     }
 
+    fn valid_ast_grep_evidence_rail_input() -> ArtifactBundleInput {
+        ast_grep_evidence_rail_input(|_receipt| {})
+    }
+
+    fn ast_grep_promoted_role_input() -> ArtifactBundleInput {
+        ast_grep_evidence_rail_input(|receipt| {
+            receipt.ast_grep.as_mut().expect("ast-grep details").verification_role = "formal_proof".to_owned();
+        })
+    }
+
     fn failed_evidence_rail_input() -> ArtifactBundleInput {
         evidence_rail_input(r#"{"diagnostics":[]}"#, None, Vec::new())
     }
@@ -2028,6 +2084,50 @@ mod tests {
         let provenance = crate::evidence_rails::render_provenance_jsonl(&receipt, &receipt_json, &summary)
             .expect("render evidence rail provenance");
         evidence_rail_bundle("artifacts/dependency-audit", receipt_json, summary, provenance)
+    }
+
+    fn ast_grep_evidence_rail_input(
+        mutate: impl FnOnce(&mut crate::evidence_rails::EvidenceRailReceipt),
+    ) -> ArtifactBundleInput {
+        let profile =
+            crate::ast_grep_rail::parse_profile(include_str!("../../standards/ast-grep/generated/profile.json"))
+                .expect("ast-grep profile");
+        let envelope = crate::ast_grep_rail::render_scan_envelope(
+            profile,
+            "0.41.1".to_owned(),
+            serde_json::json!([{
+                "ruleId": "unsafe-block-review",
+                "severity": "warning",
+                "message": "review unsafe block",
+                "file": "src/lib.rs",
+                "range": {"start": {"line": 1, "column": 2}, "end": {"line": 1, "column": 8}},
+                "metaVariables": {"multi": {"BODY": [{"text": "call()"}]}}
+            }]),
+            String::new(),
+            0,
+        )
+        .expect("ast-grep envelope");
+        let mut receipt = crate::evidence_rails::evaluate(crate::evidence_rails::EvaluationInput {
+            rail: crate::evidence_rails::EvidenceRailKind::AstGrepStructural,
+            mode: "import",
+            import_text: &envelope,
+            workspace_scope: CHECKED_SCOPE,
+            config_path: Some("standards/ast-grep/generated/profile.json"),
+            baseline_identity: None,
+            lockfile_identity: None,
+            locked: false,
+            advisory_updated_by_prior_step: false,
+            profile: None,
+            requested_command: None,
+            parent_artifacts: Vec::new(),
+            tool_exit_code: None,
+        });
+        mutate(&mut receipt);
+        let receipt_json = crate::evidence_rails::render_receipt_json(&receipt).expect("render ast-grep rail receipt");
+        let summary = crate::evidence_rails::render_summary(&receipt);
+        let provenance = crate::evidence_rails::render_provenance_jsonl(&receipt, &receipt_json, &summary)
+            .expect("render ast-grep rail provenance");
+        evidence_rail_bundle("artifacts/ast-grep", receipt_json, summary, provenance)
     }
 
     fn hegel_evidence_rail_input(
