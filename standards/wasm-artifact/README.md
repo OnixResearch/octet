@@ -20,6 +20,10 @@ cargo octet artifact verify --artifact-dir artifacts/wasm-artifact
 
 The bundle includes `wasm-artifact.bin`, exact-byte and normalized-interface identities, extracted facts, ordered JSON findings, a SARIF projection, profile/cohort identities, provenance, and explicit non-claims.
 
+## SpaceWasm profile
+
+`spacewasm-mvp` narrows the same exact-byte core to a reviewed NASA SpaceWasm cohort, hostless `run` ABI, WebAssembly 1.0 feature posture, and named static resource limits. See [`spacewasm/README.md`](spacewasm/README.md) for the pinned revision, source discrepancies, corpus, external-report contract, and non-claims.
+
 ## Mantle handoff
 
 Mantle supplies the exact final bytes through the same command and may add a `mantle:` parent artifact identity. Octet records a `mantle-exact-byte` handoff role but does not trust store paths, build success, runtime reports, or release decisions as static artifact facts.

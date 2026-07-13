@@ -539,7 +539,15 @@ pub fn run(args: &EvidenceRailArgs) -> Result<i32, String> {
         advisory_updated_by_prior_step: args.update_advisory_database,
         profile: args.profile.as_deref(),
         requested_command: normalized_command.as_deref(),
-        parent_artifacts: args.parent_artifacts.clone(),
+        parent_artifacts: args
+            .parent_artifacts
+            .iter()
+            .filter(|parent| {
+                args.rail != EvidenceRailKind::WasmArtifact
+                    || !crate::wasm_artifact::is_external_handoff_identity(parent)
+            })
+            .cloned()
+            .collect(),
         tool_exit_code,
     });
 
@@ -2333,13 +2341,33 @@ fn analyze_wasm_input(args: &EvidenceRailArgs) -> Result<String, String> {
     let registry_text = std::str::from_utf8(&registry_bytes)
         .map_err(|error| format!("Wasm artifact registry {} is not UTF-8: {error}", config_path.display()))?;
     let registry = crate::wasm_artifact::parse_registry(registry_text)?;
-    let envelope = crate::wasm_artifact::analyze_bytes(
-        &artifact_bytes,
-        &registry,
-        profile_id,
-        crate::wasm_artifact::registry_identity(&registry_bytes),
-        &args.parent_artifacts,
-    )
+    let external_report_texts = args
+        .external_reports
+        .iter()
+        .map(|path| {
+            fs::read_to_string(path)
+                .map_err(|error| format!("read external runtime report {}: {error}", path.display()))
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    let registry_identity = crate::wasm_artifact::registry_identity(&registry_bytes);
+    let envelope = if external_report_texts.is_empty() {
+        crate::wasm_artifact::analyze_bytes(
+            &artifact_bytes,
+            &registry,
+            profile_id,
+            registry_identity,
+            &args.parent_artifacts,
+        )
+    } else {
+        crate::wasm_artifact::analyze_bytes_with_external(
+            &artifact_bytes,
+            &registry,
+            profile_id,
+            registry_identity,
+            &args.parent_artifacts,
+            &external_report_texts,
+        )
+    }
     .map_err(|diagnostics| format!("invalid Wasm artifact profile:\n- {}", diagnostics.join("\n- ")))?;
     crate::wasm_artifact::render_envelope(&envelope)
 }
@@ -3723,6 +3751,7 @@ mod tests {
             profile: Some(DYNAMIC_PROFILE_MIRI_UNSAFE_BOUNDARY.to_owned()),
             command: Some("cargo test".to_owned()),
             parent_artifacts: Vec::new(),
+            external_reports: Vec::new(),
             output_format: OutputFormat::Human,
             locked: false,
             update_advisory_database: false,
@@ -3752,6 +3781,7 @@ mod tests {
             profile: None,
             command: None,
             parent_artifacts: Vec::new(),
+            external_reports: Vec::new(),
             output_format: OutputFormat::Human,
             locked: false,
             update_advisory_database: false,
@@ -3785,6 +3815,7 @@ mod tests {
             profile: None,
             command: None,
             parent_artifacts: Vec::new(),
+            external_reports: Vec::new(),
             output_format: OutputFormat::Human,
             locked: false,
             update_advisory_database: false,
@@ -3819,6 +3850,7 @@ mod tests {
             profile: None,
             command: None,
             parent_artifacts: Vec::new(),
+            external_reports: Vec::new(),
             output_format: OutputFormat::Human,
             locked: false,
             update_advisory_database: false,
