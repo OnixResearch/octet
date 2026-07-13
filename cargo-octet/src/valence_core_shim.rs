@@ -1,3 +1,7 @@
+// r[impl octet.valence_project_extraction.phase5.shell_consumes_standalone]
+// r[impl octet.valence_project_extraction.phase5.compatibility_shim]
+// This module is an Octet-owned name adapter only; every semantic operation delegates
+// to the exact standalone `valence-core` dependency.
 pub(crate) mod evidence_codebase_index {
     pub(crate) use valence_core::evidence_codebase_index::EvidenceArtifactInput;
     pub(crate) use valence_core::evidence_codebase_index::EvidenceCodebaseIndex;

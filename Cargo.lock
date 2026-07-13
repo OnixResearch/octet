@@ -1067,8 +1067,10 @@ checksum = "06abde3611657adf66d383f00b093d7faecc7fa57071cce2578660c9f1010821"
 [[package]]
 name = "valence-core"
 version = "0.1.0"
+source = "git+ssh://git@github.com/OnixResearch/valence.git?rev=1f4f6fe903a34c22d2cda53cd534ce58bbf84147#1f4f6fe903a34c22d2cda53cd534ce58bbf84147"
 dependencies = [
  "blake3",
+ "iddqd",
  "serde",
  "serde_json",
 ]

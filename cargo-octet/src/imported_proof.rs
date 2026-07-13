@@ -12,19 +12,27 @@ pub const HASH_ALGORITHM_BLAKE3: &str = "blake3";
 pub const EVIDENCE_ORIGIN_EXTERNAL_TRELLIS: &str = "external_trellis_import";
 pub const EVIDENCE_TIER_MANUAL_REVIEW: &str = "manual_review_required";
 pub const EVIDENCE_TIER_FORMAL_PROOF: &str = "formal_proof";
+#[cfg(test)]
 pub const TRELLIS_PROOF_IR_INTAKE_SCHEMA_VERSION: &str = "octet-trellis-proof-ir-intake/v1";
+#[cfg(test)]
 pub const TRELLIS_PROOF_IR_PROFILE: &str = "trellis-proof-evidence-ir-v1";
+#[cfg(test)]
 pub const TRELLIS_INTAKE_ROLE_RECORDED_ONLY: &str = "recorded_only_reference";
+#[cfg(test)]
 pub const TRELLIS_INTAKE_ROLE_PROMOTION_CANDIDATE: &str = "promotion_candidate";
+#[cfg(test)]
 pub const TRELLIS_INTAKE_ROLE_FORMAL_PROOF: &str = "formal_proof";
 const BLAKE3_HEX_LEN: usize = 64;
+#[cfg(test)]
 const TRELLIS_RESULT_PASSED: &str = "passed";
+#[cfg(test)]
 const REQUIRED_TRELLIS_NON_CLAIMS: &[&str] = &[
     "recorded-only reference evidence by default",
     "not verifier soundness",
     "not Rust semantic correctness",
     "Octet formal_proof requires rerun",
 ];
+#[cfg(test)]
 const FORBIDDEN_TRELLIS_OVERCLAIMS: &[&str] = &[
     "proves whole-program correctness",
     "proves rust semantic correctness",
@@ -68,6 +76,7 @@ pub struct ImportedArtifactIdentity {
     pub path: String,
 }
 
+#[cfg(test)]
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct TrellisProofIrIntake {
     pub schema_version: String,
@@ -90,6 +99,7 @@ pub struct TrellisProofIrIntake {
     pub octet_rerun_receipt: Option<TrellisProofIrRerunReceipt>,
 }
 
+#[cfg(test)]
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct TrellisProofIrRerunReceipt {
     pub source_blake3: String,
@@ -212,6 +222,7 @@ pub fn validate_imported_proof_bundle_shape(bundle: &ImportedProofBundle) -> Vec
 }
 
 #[must_use]
+#[cfg(test)]
 pub fn validate_trellis_proof_ir_intake(intake: &TrellisProofIrIntake) -> Vec<String> {
     let mut diagnostics = Vec::new();
     diagnostics.extend(validate_trellis_intake_shape(intake));
@@ -222,6 +233,7 @@ pub fn validate_trellis_proof_ir_intake(intake: &TrellisProofIrIntake) -> Vec<St
     diagnostics
 }
 
+#[cfg(test)]
 fn validate_trellis_intake_shape(intake: &TrellisProofIrIntake) -> Vec<String> {
     let mut diagnostics = Vec::new();
     if intake.schema_version != TRELLIS_PROOF_IR_INTAKE_SCHEMA_VERSION {
@@ -273,6 +285,7 @@ fn validate_trellis_intake_shape(intake: &TrellisProofIrIntake) -> Vec<String> {
     diagnostics
 }
 
+#[cfg(test)]
 fn validate_trellis_intake_non_claims(intake: &TrellisProofIrIntake) -> Vec<String> {
     let mut diagnostics = Vec::new();
     for required in REQUIRED_TRELLIS_NON_CLAIMS {
@@ -289,6 +302,7 @@ fn validate_trellis_intake_non_claims(intake: &TrellisProofIrIntake) -> Vec<Stri
     diagnostics
 }
 
+#[cfg(test)]
 fn validate_trellis_intake_promotion(intake: &TrellisProofIrIntake) -> Vec<String> {
     if intake.intake_role == TRELLIS_INTAKE_ROLE_RECORDED_ONLY {
         return Vec::new();
@@ -331,6 +345,7 @@ fn validate_trellis_intake_promotion(intake: &TrellisProofIrIntake) -> Vec<Strin
     diagnostics
 }
 
+#[cfg(test)]
 fn compare_promotion_field(diagnostics: &mut Vec<String>, field: &str, expected: &str, actual: &str) {
     if expected != actual {
         diagnostics.push(format!("Trellis proof IR promotion {field} mismatch: expected `{expected}`, got `{actual}`"));

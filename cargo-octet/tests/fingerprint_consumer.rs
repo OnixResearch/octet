@@ -3821,6 +3821,21 @@ fn object_internal_corpus_expanded_caveat_taxonomy_fixture_matches_fresh_report(
 }
 
 #[test]
+#[ignore = "explicit fixture refresh mutates checked-in object corpus receipts"]
+fn update_internal_object_corpus_fixtures() {
+    let root = repo_root();
+    let taxonomy = read_json_fixture(&root, EXPANDED_INTERNAL_OBJECT_CORPUS_TAXONOMY_FIXTURE);
+    let paths = expanded_internal_object_corpus_paths(&taxonomy);
+    write_corpus_receipt(&root, INTERNAL_OBJECT_CORPUS, &root.join(INTERNAL_OBJECT_CORPUS_RECEIPT_FIXTURE));
+    write_corpus_receipt(&root, &paths, &root.join(EXPANDED_INTERNAL_OBJECT_CORPUS_RECEIPT_FIXTURE));
+    fs::write(
+        root.join(EXPANDED_INTERNAL_OBJECT_CORPUS_CAVEAT_TAXONOMY_FIXTURE),
+        object_corpus_caveat_taxonomy(&root, &paths),
+    )
+    .expect("refresh expanded caveat taxonomy fixture");
+}
+
+#[test]
 fn object_internal_corpus_caveat_taxonomy_names_per_source_blockers() {
     let root = repo_root();
     let report = read_json_fixture(&root, EXPANDED_INTERNAL_OBJECT_CORPUS_CAVEAT_TAXONOMY_FIXTURE);
