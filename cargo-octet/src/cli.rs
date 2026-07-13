@@ -108,6 +108,7 @@ pub struct EvidenceRailArgs {
     pub profile: Option<String>,
     pub command: Option<String>,
     pub parent_artifacts: Vec<String>,
+    pub external_reports: Vec<PathBuf>,
     pub output_format: OutputFormat,
     pub locked: bool,
     pub update_advisory_database: bool,
@@ -520,9 +521,9 @@ The codebase subcommands build a deterministic, content-addressed review index o
 
 const EVIDENCE_RAIL_HELP: &str = "cargo octet evidence collect
 
-Options: --rail dependency-audit|clippy-co-reporting|ast-grep|wasm-artifact|dependency-trust|api-stability|dynamic-evidence|release-supply-chain|mutation-testing|coverage-baseline|kani-model-check|hegel-property|z4-solver|verifier-fixture, --input PATH or --run, --artifact-dir PATH, --workspace-root PATH, --config PATH, --baseline PATH, --profile NAME, --command COMMAND, --parent-artifact PATH, --locked, --update-advisory-database, --output-format human|json.
+Options: --rail dependency-audit|clippy-co-reporting|ast-grep|wasm-artifact|dependency-trust|api-stability|dynamic-evidence|release-supply-chain|mutation-testing|coverage-baseline|kani-model-check|hegel-property|z4-solver|verifier-fixture, --input PATH or --run, --artifact-dir PATH, --workspace-root PATH, --config PATH, --baseline PATH, --profile NAME, --command COMMAND, --parent-artifact PATH, --external-report PATH, --locked, --update-advisory-database, --output-format human|json.
 
-Collects optional non-starter evidence from external tools or saved tool output into a Rust-owned evidence-rail receipt, summary, and provenance bundle. The ast-grep run mode requires a checked generated profile and rejects arbitrary command authority. The wasm-artifact rail requires exact `--input` bytes plus `--config` and `--profile`, never executes the artifact, and embeds JSON/SARIF findings in a self-verifiable exact-byte bundle. Hegel, Z4, and verifier-fixture run modes require explicit commands and never bootstrap their tools automatically. These rails are complementary to cargo octet check; they do not upgrade validation evidence into formal proof.
+Collects optional non-starter evidence from external tools or saved tool output into a Rust-owned evidence-rail receipt, summary, and provenance bundle. The ast-grep run mode requires a checked generated profile and rejects arbitrary command authority. The wasm-artifact rail requires exact `--input` bytes plus `--config` and `--profile`, never executes the artifact, and embeds JSON/SARIF findings in a self-verifiable exact-byte bundle. SpaceWasm profiles may link identity-verified Mantle, ChaosControl, or Molten observations with repeated `--external-report`; linked observations remain recorded-only and cannot change static conformance. Hegel, Z4, and verifier-fixture run modes require explicit commands and never bootstrap their tools automatically. These rails are complementary to cargo octet check; they do not upgrade validation evidence into formal proof.
 ";
 
 const FINGERPRINT_HELP: &str = "cargo octet fingerprint
@@ -1136,6 +1137,7 @@ fn parse_evidence_collect(args: &[String], command_line: String) -> Result<Evide
     let mut profile = None;
     let mut command = None;
     let mut parent_artifacts = Vec::new();
+    let mut external_reports = Vec::new();
     let mut output_format = OutputFormat::Human;
     let mut locked = false;
     let mut update_advisory_database = false;
@@ -1180,6 +1182,10 @@ fn parse_evidence_collect(args: &[String], command_line: String) -> Result<Evide
             }
             "--parent-artifact" => {
                 parent_artifacts.push(required_arg_at(args, index, arg)?);
+                index += FLAG_AND_VALUE_ARGS;
+            }
+            "--external-report" => {
+                external_reports.push(PathBuf::from(required_arg_at(args, index, arg)?));
                 index += FLAG_AND_VALUE_ARGS;
             }
             "--output-format" | "--format" => {
@@ -1234,6 +1240,10 @@ fn parse_evidence_collect(args: &[String], command_line: String) -> Result<Evide
                 parent_artifacts.push(arg.trim_start_matches("--parent-artifact=").to_owned());
                 index += 1;
             }
+            _ if arg.starts_with("--external-report=") => {
+                external_reports.push(PathBuf::from(arg.trim_start_matches("--external-report=")));
+                index += 1;
+            }
             _ if arg.starts_with("--output-format=") => {
                 output_format = parse_output_format(arg.trim_start_matches("--output-format="))?;
                 index += 1;
@@ -1260,6 +1270,7 @@ fn parse_evidence_collect(args: &[String], command_line: String) -> Result<Evide
         profile,
         command,
         parent_artifacts,
+        external_reports,
         output_format,
         locked,
         update_advisory_database,
@@ -2943,6 +2954,47 @@ mod tests {
         )
         .expect_err("evidence collect rejects SARIF");
         assert!(sarif.contains("does not support SARIF"));
+    }
+
+    #[test]
+    fn spacewasm_collect_parse_accepts_external_reports_and_rejects_missing_path() {
+        let parsed = parse(
+            [
+                "cargo",
+                "octet",
+                "evidence",
+                "collect",
+                "--rail=wasm-artifact",
+                "--input=module.wasm",
+                "--config=standards/wasm-artifact/generated/profiles.json",
+                "--profile=spacewasm-mvp",
+                "--external-report=chaoscontrol.json",
+            ]
+            .map(OsString::from),
+        )
+        .expect("parse SpaceWasm evidence collect args");
+
+        match parsed {
+            CommandArgs::EvidenceRail(args) => {
+                assert_eq!(args.profile.as_deref(), Some("spacewasm-mvp"));
+                assert_eq!(args.external_reports, vec![std::path::PathBuf::from("chaoscontrol.json")]);
+            }
+            other => panic!("expected evidence rail args, got {other:?}"),
+        }
+
+        let missing = parse(
+            [
+                "cargo",
+                "octet",
+                "evidence",
+                "collect",
+                "--rail=wasm-artifact",
+                "--external-report",
+            ]
+            .map(OsString::from),
+        )
+        .expect_err("missing external report path fails");
+        assert!(missing.contains("missing value after `--external-report`"));
     }
 
     #[test]

@@ -1329,6 +1329,7 @@
           pkgs.runCommand "octet-wasm-artifact-rail-check"
             {
               nativeBuildInputs = with pkgs; [
+                b3sum
                 diffutils
                 jq
                 nickel
@@ -1338,6 +1339,8 @@
               cd ${./.}
               generated_profiles=$(mktemp)
               generated_corpus=$(mktemp)
+              generated_spacewasm_projection=$(mktemp)
+              generated_spacewasm_corpus=$(mktemp)
               nickel typecheck standards/wasm-artifact/profiles.ncl
               nickel export --format json standards/wasm-artifact/profiles.ncl > "$generated_profiles"
               diff -u standards/wasm-artifact/generated/profiles.json "$generated_profiles"
@@ -1346,6 +1349,20 @@
               diff -u standards/wasm-artifact/fixtures/corpus.json "$generated_corpus"
               jq -e '[.cases[] | select(.expected_issue_class == "none")] | length > 0' "$generated_corpus" >/dev/null
               jq -e '[.cases[] | select(.expected_issue_class != "none")] | length > 0' "$generated_corpus" >/dev/null
+
+              nickel typecheck standards/wasm-artifact/spacewasm/support-projection.ncl
+              nickel export --format json standards/wasm-artifact/spacewasm/support-projection.ncl > "$generated_spacewasm_projection"
+              diff -u standards/wasm-artifact/spacewasm/support-projection.json "$generated_spacewasm_projection"
+              nickel typecheck standards/wasm-artifact/spacewasm/corpus.ncl
+              nickel export --format json standards/wasm-artifact/spacewasm/corpus.ncl > "$generated_spacewasm_corpus"
+              diff -u standards/wasm-artifact/spacewasm/corpus.json "$generated_spacewasm_corpus"
+              jq -e '.profiles[] | select(.profile_id == "spacewasm-mvp") | .target_runtime.support_projection.source_revision == "e24cf09355a90497148eb5029fdb8e3400bd63e3"' "$generated_profiles" >/dev/null
+              jq -e '[.cases[] | select(.generator.tool == "wasm-smith")] | length > 0' "$generated_spacewasm_corpus" >/dev/null
+              jq -e '[.cases[] | select(.generator.tool == "wasm-mutate")] | length > 0' "$generated_spacewasm_corpus" >/dev/null
+              while IFS=$'\t' read -r relative_path expected_digest; do
+                observed_digest=$(b3sum "standards/wasm-artifact/spacewasm/$relative_path" | cut -d ' ' -f 1)
+                test "$observed_digest" = "$expected_digest"
+              done < <(jq -r '.cases[] | [.source, .artifact_blake3] | @tsv' "$generated_spacewasm_corpus")
               touch "$out"
             '';
 

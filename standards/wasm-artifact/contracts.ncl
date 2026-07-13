@@ -29,6 +29,8 @@ let Profile = {
   allowed_proposals | NonEmptyArray | Array NonEmptyString,
   allowed_worlds | Array NonEmptyString,
   allowed_imports | Array NonEmptyString,
+  allowed_exports | Array NonEmptyString,
+  required_exports | Array NonEmptyString,
   allow_any_exports | Bool,
   resource_limits | {
     max_artifact_bytes | Positive,
@@ -37,11 +39,17 @@ let Profile = {
     max_memories | Natural,
     max_tables | Natural,
     max_functions | Natural,
+    max_memory_initial_pages | Natural,
+    max_memory_maximum_pages | Natural,
+    max_table_initial_elements | Natural,
+    max_table_maximum_elements | Natural,
+    max_function_parameter_words | Natural,
+    max_local_words_per_function | Natural,
   },
   allow_memory_grow | Bool,
   allow_start | Bool,
   duplicate_custom_sections | OneOf ["allow", "reject"],
-  producer_metadata | OneOf ["ignore", "recorded-only", "required"],
+  producer_metadata | OneOf ["ignore", "recorded-only", "required", "reject"],
   severity | {
     malformed | Severity,
     disallowed_kind | Severity,
@@ -51,9 +59,13 @@ let Profile = {
     growth | Severity,
     start | Severity,
     duplicate_metadata | Severity,
+    abi_mismatch | Severity,
+    external_evidence | Severity,
+    cohort_drift | Severity,
   },
   verification_role | OneOf ["recorded_only", "boundary"],
   non_claims | NonEmptyArray | Array NonEmptyString,
+  target_runtime | default = null,
 } in
 {
   Registry = {

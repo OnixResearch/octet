@@ -99,6 +99,7 @@ Optional external evidence rails collect selected non-starter tool output into s
 cargo octet evidence collect --rail dependency-audit --input target/deny.json --config deny.toml --locked --artifact-dir artifacts/dependency-audit
 cargo octet evidence collect --rail ast-grep --run --config standards/ast-grep/generated/profile.json --workspace-root . --artifact-dir artifacts/ast-grep
 cargo octet evidence collect --rail wasm-artifact --input module.wasm --config standards/wasm-artifact/generated/profiles.json --profile portable-component-baseline --artifact-dir artifacts/wasm-artifact
+cargo octet evidence collect --rail wasm-artifact --input module.wasm --config standards/wasm-artifact/generated/profiles.json --profile spacewasm-mvp --external-report chaoscontrol.json --artifact-dir artifacts/spacewasm
 cargo octet evidence collect --rail hegel-property --input target/hegel-property.json --artifact-dir artifacts/hegel-property
 cargo octet artifact verify --artifact-dir artifacts/dependency-audit
 ```
@@ -236,7 +237,10 @@ this README plus command help, without reading archived OpenSpec changes:
   metavariables, promotion lane, and dry-run codemod posture while remaining
   syntax-only candidate evidence. The wasm-artifact rail validates exact module or
   component bytes without execution and keeps exact-byte identity separate from
-  normalized interface identity. Kani receipts are scoped model-check evidence;
+  normalized interface identity. Its `spacewasm-mvp` profile binds NASA SpaceWasm
+  revision `e24cf09355a90497148eb5029fdb8e3400bd63e3`, a checked support projection,
+  a restrictive hostless ABI, static resource limits, and optional recorded-only
+  runtime observations without claiming runtime acceptance. Kani receipts are scoped model-check evidence;
   Hegel receipts are bounded generated-input property evidence. These rails do not
   prove whole-program correctness, release eligibility, semantic equivalence, or
   verifier soundness.
@@ -351,3 +355,4 @@ AGPL-3.0-or-later
 - [oxidecomputer/drift](https://github.com/oxidecomputer/drift), [oxidecomputer/openapi-lint](https://github.com/oxidecomputer/openapi-lint), and [oxidecomputer/dropshot-api-manager](https://github.com/oxidecomputer/dropshot-api-manager) — reference patterns for API compatibility diffing, linting, and managed contract promotion.
 - [joweeba/z4](https://github.com/joweeba/z4) — Rust-native solver, conservative `unknown`, proof-artifact, and progress-diagnostic reference for optional recorded solver evidence rails; Octet does not treat it as a default solver or Z3 replacement.
 - [joweeba/zani](https://github.com/joweeba/zani), [joweeba/sunder](https://github.com/joweeba/sunder), and [joweeba/certus](https://github.com/joweeba/certus) — Rust verifier UX and fixture-shape references for bounded positive/negative proof-rail regression fixtures; Octet does not adopt their runtimes or transfer verifier soundness claims.
+- [nasa/spacewasm](https://github.com/nasa/spacewasm) at `e24cf09355a90497148eb5029fdb8e3400bd63e3` — reviewed source cohort for the execution-free `spacewasm-mvp` artifact profile; Octet does not import or execute the runtime and does not transfer decode, execution, safety, sandbox, certification, or release claims.
