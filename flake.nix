@@ -1325,6 +1325,30 @@
               touch "$out"
             '';
 
+        wasmArtifactRailCheck =
+          pkgs.runCommand "octet-wasm-artifact-rail-check"
+            {
+              nativeBuildInputs = with pkgs; [
+                diffutils
+                jq
+                nickel
+              ];
+            }
+            ''
+              cd ${./.}
+              generated_profiles=$(mktemp)
+              generated_corpus=$(mktemp)
+              nickel typecheck standards/wasm-artifact/profiles.ncl
+              nickel export --format json standards/wasm-artifact/profiles.ncl > "$generated_profiles"
+              diff -u standards/wasm-artifact/generated/profiles.json "$generated_profiles"
+              nickel typecheck standards/wasm-artifact/fixtures/corpus.ncl
+              nickel export --format json standards/wasm-artifact/fixtures/corpus.ncl > "$generated_corpus"
+              diff -u standards/wasm-artifact/fixtures/corpus.json "$generated_corpus"
+              jq -e '[.cases[] | select(.expected_issue_class == "none")] | length > 0' "$generated_corpus" >/dev/null
+              jq -e '[.cases[] | select(.expected_issue_class != "none")] | length > 0' "$generated_corpus" >/dev/null
+              touch "$out"
+            '';
+
         strictProfileCatalogCheck =
           pkgs.runCommand "octet-strict-profile-catalog-check"
             {
@@ -2594,6 +2618,7 @@
 
             policy-registry = policyRegistryCheck;
             ast-grep-structural-rail = astGrepStructuralRailCheck;
+            wasm-artifact-rail = wasmArtifactRailCheck;
             strict-profile-catalog = strictProfileCatalogCheck;
             effect-closure-catalog = effectClosureCatalogCheck;
             downstream-proc-macro = downstreamProcMacroCheck;
