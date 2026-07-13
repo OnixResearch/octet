@@ -156,6 +156,8 @@ pub struct ValenceReceiptEnvelope {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ast_grep: Option<crate::ast_grep_rail::AstGrepReceiptDetails>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub wasm_artifact: Option<crate::wasm_artifact::WasmArtifactReceiptDetails>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub hegel_property: Option<crate::evidence_rails::HegelPropertyReceiptDetails>,
     pub non_claims: Vec<String>,
 }
@@ -417,6 +419,7 @@ fn valence_receipt_envelope(
         status: status.clone(),
         failure_reason: failure_reason_for_status(&status, matching_evidence_rail_receipt),
         ast_grep: matching_evidence_rail_receipt.and_then(|receipt| receipt.ast_grep.clone()),
+        wasm_artifact: matching_evidence_rail_receipt.and_then(|receipt| receipt.wasm_artifact.clone()),
         hegel_property: matching_evidence_rail_receipt.and_then(|receipt| receipt.hegel_property.clone()),
         non_claims: non_claims_for_record(matching_evidence_rail_receipt),
     }
@@ -597,6 +600,9 @@ fn validate_valence_receipt(record: &ValenceProvenanceRecord, diagnostics: &mut 
     if record.checker_id == crate::evidence::CHECKER_AST_GREP {
         validate_ast_grep_valence_receipt(record, diagnostics);
     }
+    if record.source_id == "octet.artifact.wasm-tools" {
+        validate_wasm_valence_receipt(record, diagnostics);
+    }
     if record.checker_id == crate::evidence::CHECKER_HEGEL_RS {
         validate_hegel_valence_receipt(record, diagnostics);
     }
@@ -616,6 +622,21 @@ fn validate_ast_grep_valence_receipt(record: &ValenceProvenanceRecord, diagnosti
     }
     if !record.receipt.non_claims.iter().any(|claim| claim == crate::ast_grep_rail::REQUIRED_NON_CLAIM) {
         diagnostics.push("ast-grep Valence export missing syntax-only non-claim".to_owned());
+    }
+}
+
+fn validate_wasm_valence_receipt(record: &ValenceProvenanceRecord, diagnostics: &mut Vec<String>) {
+    if record.evidence_tier != EvidenceTier::PolicyCheck.as_str() {
+        diagnostics
+            .push(format!("Wasm Valence export must remain `policy_check` evidence, got `{}`", record.evidence_tier));
+    }
+    match record.receipt.wasm_artifact.as_ref() {
+        Some(details) if matches!(details.verification_role.as_str(), "recorded_only" | "boundary") => {}
+        Some(_) => diagnostics.push("Wasm Valence export requests an unsupported verification role".to_owned()),
+        None => diagnostics.push("Wasm Valence export missing wasm_artifact receipt details".to_owned()),
+    }
+    if !record.receipt.non_claims.iter().any(|claim| claim == crate::wasm_artifact::REQUIRED_NON_CLAIM) {
+        diagnostics.push("Wasm Valence export missing execution non-claim".to_owned());
     }
 }
 
@@ -894,7 +915,8 @@ fn verify_evidence_rail_bundle(
     file_map: &BTreeMap<String, Vec<u8>>,
 ) -> ArtifactVerificationReport {
     let mut diagnostics = Vec::new();
-    let expected_files = crate::evidence_rails::expected_bundle_files();
+    let receipt = parse_evidence_rail_receipt(file_map, &mut diagnostics);
+    let expected_files = crate::evidence_rails::expected_bundle_files_for_receipt(receipt.as_ref());
     validate_file_set(file_map, &expected_files, &mut diagnostics);
     let expected_non_provenance = expected_files
         .iter()
@@ -902,10 +924,10 @@ fn verify_evidence_rail_bundle(
         .filter(|name| *name != crate::evidence_rails::PROVENANCE_ARTIFACT_NAME)
         .collect::<Vec<_>>();
     let expected_hashes = expected_artifact_hashes(file_map, &expected_non_provenance);
-    let receipt = parse_evidence_rail_receipt(file_map, &mut diagnostics);
     let provenance_records = parse_provenance_records(file_map, &mut diagnostics);
     diagnostics.extend(crate::evidence::validate_provenance_chain(&provenance_records, &expected_hashes));
     validate_evidence_rail_record_shapes(receipt.as_ref(), &provenance_records, &mut diagnostics);
+    validate_wasm_artifact_binding(receipt.as_ref(), &provenance_records, &mut diagnostics);
     validate_exact_provenance_coverage(&provenance_records, &expected_non_provenance, &mut diagnostics);
     let artifacts = verified_artifact_rows(&provenance_records, &expected_non_provenance);
     diagnostics.sort();
@@ -984,6 +1006,37 @@ fn validate_evidence_rail_record_shapes(
                 ));
             }
         }
+    }
+}
+
+fn validate_wasm_artifact_binding(
+    receipt: Option<&crate::evidence_rails::EvidenceRailReceipt>,
+    records: &[ProvenanceRecord],
+    diagnostics: &mut Vec<String>,
+) {
+    let Some(details) = receipt.and_then(|receipt| receipt.wasm_artifact.as_ref()) else {
+        return;
+    };
+    let Some(input_record) =
+        records.iter().find(|record| record.artifact_locator == crate::wasm_artifact::INPUT_ARTIFACT_NAME)
+    else {
+        diagnostics.push("Wasm artifact bundle missing exact-byte provenance record".to_owned());
+        return;
+    };
+    let observed_identity = format!("b3:{}", input_record.blake3);
+    if details.exact_artifact_identity != observed_identity {
+        diagnostics.push(format!(
+            "Wasm exact-byte identity mismatch; receipt `{}`, artifact `{observed_identity}`",
+            details.exact_artifact_identity
+        ));
+    }
+    let receipt_record = records
+        .iter()
+        .find(|record| record.artifact_locator == crate::evidence_rails::RECEIPT_ARTIFACT_NAME);
+    if receipt_record.is_none_or(|record| {
+        !record.parent_artifacts.iter().any(|parent| parent == crate::wasm_artifact::INPUT_ARTIFACT_NAME)
+    }) {
+        diagnostics.push("Wasm artifact receipt provenance must link the exact input bytes".to_owned());
     }
 }
 
@@ -1529,6 +1582,42 @@ mod tests {
     }
 
     #[test]
+    fn wasm_artifact_bundle_verifies_exact_bytes_and_exports_bounded_valence_role() {
+        let input = valid_wasm_evidence_rail_input();
+        let report = verify_bundle(input.clone());
+        assert_eq!(report.status, STATUS_VALID, "unexpected diagnostics: {:?}", report.diagnostics);
+
+        let export = build_valence_provenance_export(input).expect("valid Wasm artifact export");
+        let receipt_record = export
+            .provenance_records
+            .iter()
+            .find(|record| record.source_id == "octet.artifact.wasm-tools")
+            .expect("Wasm receipt exported");
+        let details = receipt_record.receipt.wasm_artifact.as_ref().expect("Wasm details exported");
+        assert_eq!(receipt_record.evidence_tier, EvidenceTier::PolicyCheck.as_str());
+        assert_eq!(details.verification_role, crate::wasm_artifact::RECORDED_ONLY_ROLE);
+        assert_eq!(details.exact_identity_role, "exact-bytes");
+        assert!(!receipt_record.typed_edges.iter().any(|edge| edge.edge_kind == EDGE_RECORDS_FORMAL_PROOF_RECEIPT));
+
+        let mut tampered = valid_wasm_evidence_rail_input();
+        replace_file(&mut tampered, crate::wasm_artifact::INPUT_ARTIFACT_NAME, b"tampered".to_vec());
+        let tampered_report = verify_bundle(tampered);
+        assert!(
+            tampered_report.diagnostics.iter().any(|diagnostic| diagnostic.contains("hash mismatch")
+                || diagnostic.contains("exact-byte identity mismatch"))
+        );
+
+        let blocked =
+            build_valence_provenance_export(wasm_promoted_role_input()).expect_err("promoted Wasm role blocks export");
+        assert!(
+            blocked.iter().any(|diagnostic| {
+                diagnostic.contains("verification role") || diagnostic.contains("recorded_only or boundary")
+            }),
+            "{blocked:?}"
+        );
+    }
+
+    #[test]
     fn valence_export_preserves_failed_receipt_reason_without_passing_claim() {
         let export = build_valence_provenance_export(failed_evidence_rail_input()).expect("failed receipt export");
         let receipt_record = export
@@ -2055,6 +2144,16 @@ mod tests {
         })
     }
 
+    fn valid_wasm_evidence_rail_input() -> ArtifactBundleInput {
+        wasm_evidence_rail_input(|_receipt| {})
+    }
+
+    fn wasm_promoted_role_input() -> ArtifactBundleInput {
+        wasm_evidence_rail_input(|receipt| {
+            receipt.wasm_artifact.as_mut().expect("Wasm details").verification_role = "formal_proof".to_owned();
+        })
+    }
+
     fn failed_evidence_rail_input() -> ArtifactBundleInput {
         evidence_rail_input(r#"{"diagnostics":[]}"#, None, Vec::new())
     }
@@ -2128,6 +2227,52 @@ mod tests {
         let provenance = crate::evidence_rails::render_provenance_jsonl(&receipt, &receipt_json, &summary)
             .expect("render ast-grep rail provenance");
         evidence_rail_bundle("artifacts/ast-grep", receipt_json, summary, provenance)
+    }
+
+    fn wasm_evidence_rail_input(
+        mutate: impl FnOnce(&mut crate::evidence_rails::EvidenceRailReceipt),
+    ) -> ArtifactBundleInput {
+        let registry_bytes = include_bytes!("../../standards/wasm-artifact/generated/profiles.json");
+        let registry =
+            crate::wasm_artifact::parse_registry(std::str::from_utf8(registry_bytes).expect("profile registry UTF-8"))
+                .expect("profile registry");
+        let artifact = wat::parse_str(include_str!("../../standards/wasm-artifact/fixtures/positive/module.wat"))
+            .expect("Wasm fixture");
+        let envelope = crate::wasm_artifact::analyze_bytes(
+            &artifact,
+            &registry,
+            "portable-component-baseline",
+            crate::wasm_artifact::registry_identity(registry_bytes),
+            &[],
+        )
+        .expect("Wasm analysis");
+        let envelope_text = crate::wasm_artifact::render_envelope(&envelope).expect("render Wasm envelope");
+        let mut receipt = crate::evidence_rails::evaluate(crate::evidence_rails::EvaluationInput {
+            rail: crate::evidence_rails::EvidenceRailKind::WasmArtifact,
+            mode: "import",
+            import_text: &envelope_text,
+            workspace_scope: CHECKED_SCOPE,
+            config_path: Some("standards/wasm-artifact/generated/profiles.json"),
+            baseline_identity: None,
+            lockfile_identity: None,
+            locked: false,
+            advisory_updated_by_prior_step: false,
+            profile: Some("portable-component-baseline"),
+            requested_command: None,
+            parent_artifacts: Vec::new(),
+            tool_exit_code: None,
+        });
+        mutate(&mut receipt);
+        let receipt_json = crate::evidence_rails::render_receipt_json(&receipt).expect("render Wasm rail receipt");
+        let summary = crate::evidence_rails::render_summary(&receipt);
+        let provenance = crate::evidence_rails::render_provenance_jsonl(&receipt, &receipt_json, &summary)
+            .expect("render Wasm rail provenance");
+        let mut bundle = evidence_rail_bundle("artifacts/wasm-artifact", receipt_json, summary, provenance);
+        bundle.files.push(BundleFile {
+            name: crate::wasm_artifact::INPUT_ARTIFACT_NAME.to_owned(),
+            contents: artifact,
+        });
+        bundle
     }
 
     fn hegel_evidence_rail_input(

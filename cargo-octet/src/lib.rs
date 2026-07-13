@@ -56,6 +56,7 @@ mod transcript;
 mod valence_core_shim;
 #[cfg(test)]
 mod valence_cutover;
+mod wasm_artifact;
 
 use std::process::ExitCode;
 

@@ -1,0 +1,100 @@
+{
+  "cohort": {
+    "cohort_id": "wasm-tools-0.253.0",
+    "identity": "b3:c50e2d7f0e8c49de4a1d44afae196bdf96bb14e67e7de0a153de146a6207449a",
+    "members": [
+      {
+        "crate_name": "wasm-encoder",
+        "role": "fixture-encoding",
+        "version": "0.253.0"
+      },
+      {
+        "crate_name": "wasm-metadata",
+        "role": "metadata-inspection",
+        "version": "0.253.0"
+      },
+      {
+        "crate_name": "wasm-mutate",
+        "role": "bounded-mutation",
+        "version": "0.253.0"
+      },
+      {
+        "crate_name": "wasm-shrink",
+        "role": "bounded-shrinking",
+        "version": "0.253.0"
+      },
+      {
+        "crate_name": "wasm-smith",
+        "role": "bounded-generation",
+        "version": "0.253.0"
+      },
+      {
+        "crate_name": "wasmparser",
+        "role": "validation-and-facts",
+        "version": "0.253.0"
+      },
+      {
+        "crate_name": "wit-component",
+        "role": "component-metadata",
+        "version": "0.253.0"
+      },
+      {
+        "crate_name": "wit-parser",
+        "role": "wit-interface-facts",
+        "version": "0.253.0"
+      },
+      {
+        "crate_name": "wit-smith",
+        "role": "bounded-wit-generation",
+        "version": "0.253.0"
+      }
+    ]
+  },
+  "profiles": [
+    {
+      "allow_any_exports": true,
+      "allow_memory_grow": false,
+      "allow_start": false,
+      "allowed_artifact_kinds": [
+        "module",
+        "component"
+      ],
+      "allowed_imports": [],
+      "allowed_proposals": [
+        "wasm1",
+        "component-model"
+      ],
+      "allowed_worlds": [],
+      "duplicate_custom_sections": "reject",
+      "non_claims": [
+        "Wasm artifact evidence records bounded static facts and does not prove execution correctness",
+        "Matching normalized interfaces do not prove semantic equivalence or identify one implementation",
+        "Static validation does not prove sandbox effectiveness, capability authority, provenance truth, release eligibility, or whole-system safety",
+        "Producer metadata is recorded input and is not provenance truth"
+      ],
+      "producer_metadata": "recorded-only",
+      "profile_id": "portable-component-baseline",
+      "resource_limits": {
+        "max_artifact_bytes": 1048576,
+        "max_exports": 64,
+        "max_functions": 128,
+        "max_imports": 32,
+        "max_memories": 1,
+        "max_tables": 1
+      },
+      "severity": {
+        "disallowed_import": "error",
+        "disallowed_kind": "error",
+        "disallowed_world": "error",
+        "duplicate_metadata": "error",
+        "growth": "error",
+        "malformed": "error",
+        "resource_limit": "error",
+        "start": "error"
+      },
+      "summary": "Execution-free static facts for portable core modules and components with no ambient host imports.",
+      "verification_role": "recorded_only"
+    }
+  ],
+  "schema_version": "octet-wasm-artifact-profiles/v1"
+}
