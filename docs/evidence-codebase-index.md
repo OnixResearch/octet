@@ -2,7 +2,7 @@
 
 `cargo octet evidence-index codebase` builds a local, deterministic Octet-owned review index over existing Octet evidence artifacts. It is a map for reviewers and scripts: finding, lint, policy, requirement, fingerprint, provenance, proof-card, replay-capsule, transcript, and evidence-log identities link back to concrete artifact files and replay commands.
 
-The pure indexing core is currently hosted in `valence-core::evidence_codebase_index` as an in-repository deterministic helper. Octet retains CLI parsing, filesystem traversal, artifact discovery, output writing, Nix gate ownership, release bundle ownership, and non-claim boundary enforcement; hosting the pure core in `valence-core` does not imply package publication, standalone Valence repository cutover, or transfer of Octet evidence release responsibilities.
+The pure indexing core is consumed from the exact standalone `valence-core::evidence_codebase_index` dependency through Octet's compatibility shim. Octet retains CLI parsing, filesystem traversal, artifact discovery, output writing, Nix gate ownership, release bundle ownership, and non-claim boundary enforcement; standalone Valence ownership of the pure core does not transfer Octet's product or release responsibilities.
 
 ## Build
 

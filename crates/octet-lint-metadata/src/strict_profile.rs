@@ -59,6 +59,12 @@ pub struct StrictProfileCatalog {
     pub profiles: Vec<StrictProfile>,
 }
 
+/// Loads and validates the embedded strict-profile catalog.
+///
+/// # Errors
+///
+/// Returns a deterministic diagnostic when the embedded JSON is malformed or violates the catalog
+/// contract.
 pub fn load_strict_profile_catalog() -> Result<StrictProfileCatalog, String> {
     let catalog = serde_json::from_str::<StrictProfileCatalog>(STRICT_PROFILE_CATALOG_JSON)
         .map_err(|error| format!("parse embedded strict-profile catalog: {error}"))?;
@@ -70,6 +76,11 @@ pub fn load_strict_profile_catalog() -> Result<StrictProfileCatalog, String> {
     }
 }
 
+/// Returns one validated strict profile by identity.
+///
+/// # Errors
+///
+/// Returns a deterministic diagnostic when the catalog is invalid or `profile_id` is unknown.
 pub fn strict_profile(profile_id: &str) -> Result<StrictProfile, String> {
     let catalog = load_strict_profile_catalog()?;
     if let Some(profile) = catalog.profiles.iter().find(|profile| profile.profile_id == profile_id) {
@@ -80,10 +91,17 @@ pub fn strict_profile(profile_id: &str) -> Result<StrictProfile, String> {
     Err(format!("unknown strict profile `{profile_id}`; supported profiles: {}", supported.join(", ")))
 }
 
+/// Returns the sorted identities from the validated strict-profile catalog.
+///
+/// # Errors
+///
+/// Returns a deterministic diagnostic when the embedded catalog is malformed or invalid.
 pub fn supported_profile_ids() -> Result<Vec<String>, String> {
     load_strict_profile_catalog().map(|catalog| sorted_profile_ids(&catalog))
 }
 
+/// Reports deterministic contract violations for an in-memory strict-profile catalog.
+#[must_use]
 pub fn strict_profile_catalog_diagnostics(catalog: &StrictProfileCatalog) -> Vec<String> {
     let mut diagnostics = Vec::new();
     if catalog.schema_version != STRICT_PROFILE_SCHEMA_VERSION {

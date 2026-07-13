@@ -116,11 +116,12 @@ fn row_diagnostics(row: &SourceAcquisitionRow) -> Vec<String> {
         diagnostics.push(format!("{DIAGNOSTIC_EMPTY_LOCATOR}: `{}`", row.label));
     }
     match row.kind {
-        AcquisitionSourceKind::Registry => require_lock(row, &mut diagnostics),
+        AcquisitionSourceKind::Registry | AcquisitionSourceKind::NixFlake => {
+            require_lock(row, &mut diagnostics);
+        }
         AcquisitionSourceKind::PublicGit => require_git_revision(row, &mut diagnostics),
         AcquisitionSourceKind::PrivateSshGit => validate_private_ssh(row, &mut diagnostics),
         AcquisitionSourceKind::VendoredSnapshot => validate_vendored(row, &mut diagnostics),
-        AcquisitionSourceKind::NixFlake => require_lock(row, &mut diagnostics),
         AcquisitionSourceKind::LocalOverride => validate_local_override(row, &mut diagnostics),
     }
     validate_lock_identity(row, &mut diagnostics);
@@ -162,10 +163,10 @@ fn require_lock(row: &SourceAcquisitionRow, diagnostics: &mut Vec<String>) {
 }
 
 fn validate_lock_identity(row: &SourceAcquisitionRow, diagnostics: &mut Vec<String>) {
-    if let (Some(expected), Some(observed)) = (&row.lock_identity, &row.observed_lock_identity) {
-        if expected != observed {
-            diagnostics.push(format!("{DIAGNOSTIC_STALE_LOCK}: `{}`", row.label));
-        }
+    if let (Some(expected), Some(observed)) = (&row.lock_identity, &row.observed_lock_identity)
+        && expected != observed
+    {
+        diagnostics.push(format!("{DIAGNOSTIC_STALE_LOCK}: `{}`", row.label));
     }
 }
 

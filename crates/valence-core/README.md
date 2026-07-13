@@ -1,17 +1,11 @@
-# valence-core
+# Octet Valence legacy fixture
 
-`valence-core` contains pure deterministic core logic that Octet hosts for bounded Valence evidence surfaces.
+This directory preserves the final Octet-hosted Valence core as a frozen compatibility fixture. Its package identity is `octet-valence-legacy-fixture`; it is excluded from the Octet workspace, is not publishable, and is not a canonical `valence-core` provider.
 
-Current in-repository public modules:
-
-- `evidence_codebase_index`: builds, queries, renders, and boundary-checks Octet-owned evidence-codebase indexes from in-memory artifacts; Octet retains CLI parsing, filesystem traversal, artifact discovery, output writing, Nix gate ownership, release bundle ownership, and non-claim boundary enforcement.
-- `evidence_index`: renders and checks the current-head Valence evidence page from typed inputs; Octet retains command execution, repository-state capture, freshness orchestration, and publication decisions.
-- `function_object`: constructs Function Object v1 DTOs, canonical hash payloads, caveat summaries, and pure-cache eligibility from source facts; Octet retains scanning, source-marker mutation, corpus orchestration, and CLI/status reporting.
+Octet production code depends on the exact standalone Valence revision recorded in `standards/valence-core-cutover/manifest.ncl` and delegates through `cargo-octet/src/valence_core_shim.rs`. The fixture remains only for bounded drift and compatibility checks covering Function Object v1, evidence-index, and evidence-codebase-index behavior.
 
 ## Boundary
 
-This crate is intentionally an in-repository readiness seam, not a standalone release cutover or standalone repository cutover. It does not own CLI parsing, filesystem access, source scanning, marker mutation, corpus orchestration, supplement orchestration, stdout/stderr, process exits, repository tags, package publication, or release ownership. Those remain Octet-owned until a future reviewed cutover changes the contract.
+This fixture MUST NOT be selected by Octet or downstream consumers as Valence implementation code. It does not own CLI parsing, filesystem access, source scanning, publication, release evidence, or standalone Valence semantics.
 
-## Evidence limits
-
-The crate supports bounded local evidence replay for selected Octet/Valence surfaces. It does not claim behavioral correctness, semantic equivalence, exhaustive Rust coverage, pure-cache eligibility, cross-machine determinism, cross-toolchain determinism, external consumer compatibility, or general HIR/THIR/MIR extraction.
+Compatibility checks prove selected source ownership and fixture behavior only. They do not prove behavioral correctness, semantic equivalence, pure-cache eligibility, external consumer compatibility, cross-toolchain determinism, release eligibility, or whole-program safety.

@@ -249,7 +249,8 @@
         "dylint-src": "dylint-src_3",
         "flake-utils": "flake-utils_3",
         "nixpkgs": "nixpkgs_3",
-        "rust-overlay": "rust-overlay_3"
+        "rust-overlay": "rust-overlay_3",
+        "valence": "valence"
       }
     },
     "rust-overlay": {
@@ -405,6 +406,27 @@
       "original": {
         "owner": "nix-systems",
         "repo": "default",
+        "type": "github"
+      }
+    },
+    "valence": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1783912796,
+        "narHash": "sha256-uZi+t9vXECcGahD9l8Hsfq3ssNVLqhU5+D+9ZGG67uc=",
+        "owner": "OnixResearch",
+        "repo": "valence",
+        "rev": "1f4f6fe903a34c22d2cda53cd534ce58bbf84147",
+        "type": "github"
+      },
+      "original": {
+        "owner": "OnixResearch",
+        "repo": "valence",
+        "rev": "1f4f6fe903a34c22d2cda53cd534ce58bbf84147",
         "type": "github"
       }
     }
