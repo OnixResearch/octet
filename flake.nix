@@ -329,6 +329,7 @@
             rustup-shim
             rustToolchain
             pkgs.stdenv.cc
+            pkgs.ast-grep
             octetVerus
             octetProductionVerus
           ];
@@ -1286,6 +1287,41 @@
                 fi
               done
 
+              touch "$out"
+            '';
+
+        astGrepStructuralRailCheck =
+          pkgs.runCommand "octet-ast-grep-structural-rail-check"
+            {
+              nativeBuildInputs = with pkgs; [
+                ast-grep
+                diffutils
+                jq
+                nickel
+              ];
+            }
+            ''
+              cd ${./.}
+              generated_profile=$(mktemp)
+              nickel typecheck standards/ast-grep/profile.ncl
+              nickel export --format json standards/ast-grep/profile.ncl > "$generated_profile"
+              diff -u standards/ast-grep/generated/profile.json "$generated_profile"
+
+              expected_version=$(jq -r '.tool.version' standards/ast-grep/generated/profile.json)
+              test "$(ast-grep --version)" = "ast-grep $expected_version"
+              ast-grep test --config standards/ast-grep/sgconfig.yml
+
+              ast-grep scan \
+                --rule standards/ast-grep/rules/unsafe-block-review.yml \
+                --json=compact \
+                standards/ast-grep/fixtures/positive > "$TMPDIR/positive.json"
+              test "$(jq 'length' "$TMPDIR/positive.json")" -gt 0
+
+              ast-grep scan \
+                --rule standards/ast-grep/rules/unsafe-block-review.yml \
+                --json=compact \
+                standards/ast-grep/fixtures/negative > "$TMPDIR/negative.json"
+              test "$(jq 'length' "$TMPDIR/negative.json")" -eq 0
               touch "$out"
             '';
 
@@ -2557,6 +2593,7 @@
             };
 
             policy-registry = policyRegistryCheck;
+            ast-grep-structural-rail = astGrepStructuralRailCheck;
             strict-profile-catalog = strictProfileCatalogCheck;
             effect-closure-catalog = effectClosureCatalogCheck;
             downstream-proc-macro = downstreamProcMacroCheck;
@@ -2605,6 +2642,7 @@
             rustup-shim
             pkgs.cargo-nextest
             pkgs.cargo-watch
+            pkgs.ast-grep
             cairn.packages.${system}.cairn
             pkgs.jq
             pkgs.nickel

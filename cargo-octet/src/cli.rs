@@ -520,9 +520,9 @@ The codebase subcommands build a deterministic, content-addressed review index o
 
 const EVIDENCE_RAIL_HELP: &str = "cargo octet evidence collect
 
-Options: --rail dependency-audit|clippy-co-reporting|dependency-trust|api-stability|dynamic-evidence|release-supply-chain|mutation-testing|coverage-baseline|kani-model-check|hegel-property, --input PATH or --run, --artifact-dir PATH, --workspace-root PATH, --config PATH, --baseline PATH, --profile NAME, --command COMMAND, --parent-artifact PATH, --locked, --update-advisory-database, --output-format human|json.
+Options: --rail dependency-audit|clippy-co-reporting|ast-grep|dependency-trust|api-stability|dynamic-evidence|release-supply-chain|mutation-testing|coverage-baseline|kani-model-check|hegel-property|z4-solver|verifier-fixture, --input PATH or --run, --artifact-dir PATH, --workspace-root PATH, --config PATH, --baseline PATH, --profile NAME, --command COMMAND, --parent-artifact PATH, --locked, --update-advisory-database, --output-format human|json.
 
-Collects optional non-starter evidence from external tools or saved tool output into a Rust-owned evidence-rail receipt, summary, and provenance bundle. Hegel run mode requires an explicit --command and never bootstraps Hegel automatically. These rails are complementary to cargo octet check; they do not upgrade validation evidence into formal proof.
+Collects optional non-starter evidence from external tools or saved tool output into a Rust-owned evidence-rail receipt, summary, and provenance bundle. The ast-grep run mode requires a checked generated profile and rejects arbitrary command authority. Hegel, Z4, and verifier-fixture run modes require explicit commands and never bootstrap their tools automatically. These rails are complementary to cargo octet check; they do not upgrade validation evidence into formal proof.
 ";
 
 const FINGERPRINT_HELP: &str = "cargo octet fingerprint

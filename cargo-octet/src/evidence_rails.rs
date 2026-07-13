@@ -38,7 +38,7 @@ const DYNAMIC_COMMAND_MIRI_TEST: &str = "cargo miri test";
 const DYNAMIC_PROFILE_LOOM_CONCURRENCY: &str = "loom-concurrency";
 const DYNAMIC_PROFILE_LOOM_SHORT: &str = "loom";
 const DYNAMIC_COMMAND_LOOM_TEST: &str = "cargo test --cfg loom";
-const SUPPORTED_EVIDENCE_RAILS: &str = "dependency-audit, clippy-co-reporting, dependency-trust, api-stability, dynamic-evidence, release-supply-chain, mutation-testing, coverage-baseline, kani-model-check, hegel-property, z4-solver, or verifier-fixture";
+const SUPPORTED_EVIDENCE_RAILS: &str = "dependency-audit, clippy-co-reporting, ast-grep, dependency-trust, api-stability, dynamic-evidence, release-supply-chain, mutation-testing, coverage-baseline, kani-model-check, hegel-property, z4-solver, or verifier-fixture";
 const COVERAGE_PERCENT_MIN: f64 = 0.0;
 const COVERAGE_PERCENT_MAX: f64 = 100.0;
 const SCHEMA_VERSION_FIELD: &str = "schema_version";
@@ -75,6 +75,7 @@ const Z4_STATUS_TIMEOUT: &str = "timeout";
 pub enum EvidenceRailKind {
     DependencyAudit,
     ClippyCoReporting,
+    AstGrepStructural,
     DependencyTrust,
     ApiStability,
     DynamicEvidence,
@@ -92,6 +93,7 @@ impl EvidenceRailKind {
         match value {
             "dependency-audit" | "cargo-deny" => Ok(Self::DependencyAudit),
             "clippy-co-reporting" | "clippy" | "external-lint" => Ok(Self::ClippyCoReporting),
+            "ast-grep" | "ast-grep-structural" | "structural-rail" => Ok(Self::AstGrepStructural),
             "dependency-trust" | "cargo-vet" => Ok(Self::DependencyTrust),
             "api-stability" | "semver" | "cargo-semver-checks" => Ok(Self::ApiStability),
             "dynamic-evidence" => Ok(Self::DynamicEvidence),
@@ -110,6 +112,7 @@ impl EvidenceRailKind {
         match self {
             Self::DependencyAudit => "dependency-audit",
             Self::ClippyCoReporting => "clippy-co-reporting",
+            Self::AstGrepStructural => "ast-grep",
             Self::DependencyTrust => "dependency-trust",
             Self::ApiStability => "api-stability",
             Self::DynamicEvidence => "dynamic-evidence",
@@ -127,6 +130,7 @@ impl EvidenceRailKind {
         match self {
             Self::DependencyAudit => crate::evidence::CHECKER_CARGO_DENY,
             Self::ClippyCoReporting => crate::evidence::CHECKER_CLIPPY,
+            Self::AstGrepStructural => crate::evidence::CHECKER_AST_GREP,
             Self::DependencyTrust => crate::evidence::CHECKER_CARGO_VET,
             Self::ApiStability => crate::evidence::CHECKER_CARGO_SEMVER_CHECKS,
             Self::DynamicEvidence => crate::evidence::CHECKER_OCTET_DYNAMIC_EVIDENCE,
@@ -144,6 +148,7 @@ impl EvidenceRailKind {
         match self {
             Self::DependencyAudit => "octet.policy.dependency-audit",
             Self::ClippyCoReporting => "octet.external_lint.clippy-co-reporting",
+            Self::AstGrepStructural => "octet.structural_rail.ast-grep",
             Self::DependencyTrust => "octet.dependency_trust.cargo-vet",
             Self::ApiStability => "octet.api_stability.semver-rail",
             Self::DynamicEvidence => "octet.dynamic_evidence.profile-runner",
@@ -159,7 +164,7 @@ impl EvidenceRailKind {
 
     pub fn evidence_tier(self) -> EvidenceTier {
         match self {
-            Self::ClippyCoReporting => EvidenceTier::StaticLint,
+            Self::ClippyCoReporting | Self::AstGrepStructural => EvidenceTier::StaticLint,
             Self::DynamicEvidence
             | Self::MutationTesting
             | Self::CoverageBaseline
@@ -175,6 +180,14 @@ impl EvidenceRailKind {
         match self {
             Self::DependencyAudit => string_vec(&["advisories", "licenses", "bans", "sources", "duplicates"]),
             Self::ClippyCoReporting => string_vec(&["clippy-diagnostics", "source-severity", "octet-gate-outcome"]),
+            Self::AstGrepStructural => string_vec(&[
+                "rule-bundle-identity",
+                "positive-and-negative-rule-coverage",
+                "source-spans-and-metavariables",
+                "promotion-lanes",
+                "dry-run-codemods",
+                "recorded-only-valence-boundary",
+            ]),
             Self::DependencyTrust => string_vec(&["audits", "imports", "exemptions", "unaudited-gaps"]),
             Self::ApiStability => string_vec(&["public-api", "baseline", "feature-set", "target-triple"]),
             Self::DynamicEvidence => string_vec(&["profile-selection", "allowed-command", "acceptance-signal"]),
@@ -245,6 +258,11 @@ impl EvidenceRailKind {
             Self::ClippyCoReporting => string_vec(&[
                 "Clippy findings are complementary external hygiene evidence, not Octet source lint replacements",
                 "source severity is preserved separately from Octet gate outcome",
+            ]),
+            Self::AstGrepStructural => string_vec(&[
+                crate::ast_grep_rail::REQUIRED_NON_CLAIM,
+                "ast-grep findings do not prove Rust type correctness, panic freedom, memory safety, proof discharge, release eligibility, or whole-program safety",
+                "ast-grep codemods remain proposed diffs until focused validation accepts the declared migration scope",
             ]),
             Self::DependencyTrust => string_vec(&[
                 "cargo-vet audit coverage does not prove dependencies are benign or vulnerability-free",
@@ -432,6 +450,8 @@ pub struct EvidenceRailReceipt {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub property_classes: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ast_grep: Option<crate::ast_grep_rail::AstGrepReceiptDetails>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub hegel_property: Option<HegelPropertyReceiptDetails>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub z4_solver: Option<Z4SolverReceiptDetails>,
@@ -478,6 +498,11 @@ pub fn run(args: &EvidenceRailArgs) -> Result<i32, String> {
     let baseline_identity = args.baseline.as_ref().map(|path| path_identity(path)).transpose()?;
     let lockfile_identity = path_identity_if_present(&workspace_root.join("Cargo.lock"))?;
     let (mode, import_text, tool_exit_code) = evidence_input_text(args)?;
+    let normalized_command = if args.run && args.rail == EvidenceRailKind::AstGrepStructural {
+        Some(run_mode_command_argv(args)?.join(" "))
+    } else {
+        args.command.clone()
+    };
     let receipt = evaluate(EvaluationInput {
         rail: args.rail,
         mode,
@@ -489,7 +514,7 @@ pub fn run(args: &EvidenceRailArgs) -> Result<i32, String> {
         locked: args.locked,
         advisory_updated_by_prior_step: args.update_advisory_database,
         profile: args.profile.as_deref(),
-        requested_command: args.command.as_deref(),
+        requested_command: normalized_command.as_deref(),
         parent_artifacts: args.parent_artifacts.clone(),
         tool_exit_code,
     });
@@ -505,6 +530,11 @@ pub fn run(args: &EvidenceRailArgs) -> Result<i32, String> {
 
 pub fn evaluate(input: EvaluationInput<'_>) -> EvidenceRailReceipt {
     let mut parsed = parse_rail_input(&input);
+    let ast_grep = if input.rail == EvidenceRailKind::AstGrepStructural {
+        crate::ast_grep_rail::evaluate_envelope(input.import_text).details
+    } else {
+        None
+    };
     parsed.diagnostics.sort();
     parsed.diagnostics.dedup();
     let status = if parsed.diagnostics.is_empty() {
@@ -549,6 +579,7 @@ pub fn evaluate(input: EvaluationInput<'_>) -> EvidenceRailReceipt {
         findings: parsed.findings,
         parent_artifacts: input.parent_artifacts,
         property_classes: parsed.property_classes,
+        ast_grep,
         hegel_property: parsed.hegel_property,
         z4_solver: parsed.z4_solver,
         verifier_fixtures: parsed.verifier_fixtures,
@@ -673,6 +704,7 @@ pub fn validate_receipt(receipt: &EvidenceRailReceipt) -> Vec<String> {
     if receipt.non_claims.is_empty() {
         diagnostics.push("evidence rail receipt must carry at least one explicit non-claim".to_owned());
     }
+    validate_ast_grep_receipt(rail, receipt, &mut diagnostics);
     match (rail, receipt.hegel_property.as_ref()) {
         (EvidenceRailKind::HegelProperty, Some(details)) => {
             if details.property_id.trim().is_empty() {
@@ -728,6 +760,29 @@ pub fn validate_receipt(receipt: &EvidenceRailReceipt) -> Vec<String> {
     diagnostics
 }
 
+fn validate_ast_grep_receipt(rail: EvidenceRailKind, receipt: &EvidenceRailReceipt, diagnostics: &mut Vec<String>) {
+    match (rail, receipt.ast_grep.as_ref()) {
+        (EvidenceRailKind::AstGrepStructural, Some(details)) => {
+            if details.verification_role != crate::ast_grep_rail::RECORDED_ONLY_ROLE {
+                diagnostics.push("ast-grep receipt must remain recorded_only evidence".to_owned());
+            }
+            if details.findings.iter().any(|finding| finding.rule_id.trim().is_empty()) {
+                diagnostics.push("ast-grep receipt contains a finding without a rule id".to_owned());
+            }
+            if !receipt.non_claims.iter().any(|claim| claim == crate::ast_grep_rail::REQUIRED_NON_CLAIM) {
+                diagnostics.push("ast-grep receipt missing syntax-only non-claim".to_owned());
+            }
+        }
+        (EvidenceRailKind::AstGrepStructural, None) => {
+            diagnostics.push("ast-grep receipt missing ast_grep details".to_owned());
+        }
+        (_, Some(_)) => {
+            diagnostics.push("ast_grep details are only valid on ast-grep rail receipts".to_owned());
+        }
+        (_, None) => {}
+    }
+}
+
 pub fn expected_bundle_files() -> Vec<String> {
     vec![
         PROVENANCE_ARTIFACT_NAME.to_owned(),
@@ -744,6 +799,7 @@ fn parse_rail_input(input: &EvaluationInput<'_>) -> RailParseOutput {
     match input.rail {
         EvidenceRailKind::DependencyAudit => parse_dependency_audit(input),
         EvidenceRailKind::ClippyCoReporting => parse_clippy(input),
+        EvidenceRailKind::AstGrepStructural => parse_ast_grep(input),
         EvidenceRailKind::DependencyTrust => parse_dependency_trust(input),
         EvidenceRailKind::ApiStability => parse_api_stability(input),
         EvidenceRailKind::DynamicEvidence => parse_dynamic_evidence(input),
@@ -854,6 +910,48 @@ fn parse_clippy(input: &EvaluationInput<'_>) -> RailParseOutput {
         diagnostics,
         status,
         profile: None,
+        property_classes: Vec::new(),
+        hegel_property: None,
+        z4_solver: None,
+        verifier_fixtures: None,
+    }
+}
+
+fn parse_ast_grep(input: &EvaluationInput<'_>) -> RailParseOutput {
+    let evaluation = crate::ast_grep_rail::evaluate_envelope(input.import_text);
+    let profile = evaluation.details.as_ref().map(|details| details.profile_id.clone());
+    let findings = evaluation
+        .details
+        .as_ref()
+        .map(|details| {
+            details
+                .findings
+                .iter()
+                .map(|finding| EvidenceRailFinding {
+                    family: finding.rule_id.clone(),
+                    severity: finding.severity.clone(),
+                    message: finding.message.clone(),
+                    source_severity: Some(finding.severity.clone()),
+                    file: Some(finding.file.clone()),
+                    line: Some(finding.start.line),
+                    column: Some(finding.start.column),
+                })
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    let finding_counts = counts_by_family(&findings);
+    let status = match evaluation.status {
+        crate::ast_grep_rail::AstGrepEvaluationStatus::Passed => STATUS_PASSED,
+        crate::ast_grep_rail::AstGrepEvaluationStatus::ManualReview => STATUS_MANUAL_REVIEW_REQUIRED,
+        crate::ast_grep_rail::AstGrepEvaluationStatus::Failed => STATUS_FAILED,
+    }
+    .to_owned();
+    RailParseOutput {
+        findings,
+        finding_counts,
+        diagnostics: evaluation.diagnostics,
+        status,
+        profile,
         property_classes: Vec::new(),
         hegel_property: None,
         z4_solver: None,
@@ -2092,8 +2190,12 @@ struct ToolOutput {
 }
 
 fn run_tool(args: &EvidenceRailArgs) -> Result<ToolOutput, String> {
-    let argv = run_mode_command_argv(args)?;
-    let (program, rest) = argv.split_first().ok_or_else(|| "evidence rail command argv is empty".to_owned())?;
+    if args.rail == EvidenceRailKind::AstGrepStructural {
+        return run_ast_grep_tool(args);
+    }
+    let command_parts = run_mode_command_argv(args)?;
+    let (program, rest) =
+        command_parts.split_first().ok_or_else(|| "evidence rail command argv is empty".to_owned())?;
     let mut command = Command::new(program);
     command.args(rest).stdout(Stdio::piped()).stderr(Stdio::piped());
     if let Some(workspace_root) = args.workspace_root.as_deref() {
@@ -2101,7 +2203,7 @@ fn run_tool(args: &EvidenceRailArgs) -> Result<ToolOutput, String> {
     }
     let output = command
         .output()
-        .map_err(|error| format!("run evidence rail command `{}`: {error}", argv.join(" ")))?;
+        .map_err(|error| format!("run evidence rail command `{}`: {error}", command_parts.join(" ")))?;
     let mut stdout_stderr = String::new();
     stdout_stderr.push_str(&String::from_utf8_lossy(&output.stdout));
     stdout_stderr.push_str(&String::from_utf8_lossy(&output.stderr));
@@ -2111,9 +2213,100 @@ fn run_tool(args: &EvidenceRailArgs) -> Result<ToolOutput, String> {
     })
 }
 
+fn run_ast_grep_tool(args: &EvidenceRailArgs) -> Result<ToolOutput, String> {
+    let profile = load_ast_grep_profile(args)?;
+    let workspace_root = args.workspace_root.as_deref().unwrap_or_else(|| Path::new("."));
+    let canonical_root = fs::canonicalize(workspace_root)
+        .map_err(|error| format!("canonicalize ast-grep workspace root {}: {error}", workspace_root.display()))?;
+    let mut bundle_files = BTreeMap::new();
+    for relative in &profile.bundle_inputs {
+        let path = workspace_root.join(relative);
+        let canonical_path = fs::canonicalize(&path)
+            .map_err(|error| format!("canonicalize ast-grep bundle input {}: {error}", path.display()))?;
+        if !canonical_path.starts_with(&canonical_root) {
+            return Err(format!("ast-grep bundle input `{relative}` escapes the workspace root"));
+        }
+        let bytes = fs::read(&canonical_path)
+            .map_err(|error| format!("read ast-grep bundle input {}: {error}", canonical_path.display()))?;
+        bundle_files.insert(relative.clone(), bytes);
+    }
+    let observed_identity = crate::ast_grep_rail::compute_bundle_identity(&profile, &bundle_files)
+        .map_err(|diagnostics| format!("invalid ast-grep rule bundle:\n- {}", diagnostics.join("\n- ")))?;
+    if observed_identity != profile.bundle_identity {
+        return Err(format!(
+            "stale ast-grep rule bundle identity; expected `{}`, observed `{observed_identity}`",
+            profile.bundle_identity
+        ));
+    }
+
+    let version_output = Command::new("ast-grep")
+        .arg("--version")
+        .current_dir(workspace_root)
+        .output()
+        .map_err(|error| format!("run ast-grep --version: {error}"))?;
+    if !version_output.status.success() {
+        return Err(format!("ast-grep --version failed: {}", String::from_utf8_lossy(&version_output.stderr).trim()));
+    }
+    let version_text = String::from_utf8_lossy(&version_output.stdout);
+    let observed_version = version_text
+        .trim()
+        .strip_prefix("ast-grep ")
+        .ok_or_else(|| format!("unexpected ast-grep version output `{}`", version_text.trim()))?
+        .to_owned();
+
+    let command_parts = crate::ast_grep_rail::scan_command_argv(&profile);
+    let (program, rest) = command_parts.split_first().ok_or_else(|| "ast-grep command argv is empty".to_owned())?;
+    let output = Command::new(program)
+        .args(rest)
+        .current_dir(workspace_root)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .output()
+        .map_err(|error| format!("run ast-grep structural rail: {error}"))?;
+    let exit_code = output.status.code().unwrap_or(EXIT_INTEGRATION_FAILURE);
+    let source_findings = if output.stdout.is_empty() && !output.status.success() {
+        serde_json::Value::Array(Vec::new())
+    } else {
+        serde_json::from_slice(&output.stdout).map_err(|error| format!("parse ast-grep JSON output: {error}"))?
+    };
+    let envelope = crate::ast_grep_rail::render_scan_envelope(
+        profile,
+        observed_version,
+        source_findings,
+        String::from_utf8_lossy(&output.stderr).into_owned(),
+        exit_code,
+    )?;
+    Ok(ToolOutput {
+        stdout_stderr: envelope,
+        exit_code,
+    })
+}
+
+fn load_ast_grep_profile(args: &EvidenceRailArgs) -> Result<crate::ast_grep_rail::AstGrepProfile, String> {
+    let path = args
+        .config
+        .as_deref()
+        .ok_or_else(|| "ast-grep run requires `--config PATH` to a generated structural profile".to_owned())?;
+    let text = fs::read_to_string(path)
+        .map_err(|error| format!("read ast-grep structural profile {}: {error}", path.display()))?;
+    let profile = crate::ast_grep_rail::parse_profile(&text)?;
+    let diagnostics = crate::ast_grep_rail::validate_profile(&profile);
+    if diagnostics.is_empty() {
+        Ok(profile)
+    } else {
+        Err(format!("invalid ast-grep structural profile:\n- {}", diagnostics.join("\n- ")))
+    }
+}
+
 fn run_mode_command_argv(args: &EvidenceRailArgs) -> Result<Vec<String>, String> {
     let config_path = args.config.as_ref().map(|path| path.display().to_string());
     let baseline_identity = args.baseline.as_ref().map(|path| path.display().to_string());
+    if args.rail == EvidenceRailKind::AstGrepStructural {
+        if args.command.as_deref().is_some_and(|command| !command.is_empty()) {
+            return Err("ast-grep run rejects arbitrary --command authority; use the checked profile".to_owned());
+        }
+        return load_ast_grep_profile(args).map(|profile| crate::ast_grep_rail::scan_command_argv(&profile));
+    }
     if args.rail == EvidenceRailKind::DynamicEvidence {
         return dynamic_run_command_argv(args.profile.as_deref(), args.command.as_deref());
     }
@@ -2155,6 +2348,9 @@ fn command_argv(
             argv
         }
         EvidenceRailKind::ClippyCoReporting => string_vec(&["cargo", "clippy", "--message-format=json"]),
+        EvidenceRailKind::AstGrepStructural => {
+            requested_command.map_or_else(|| string_vec(&["ast-grep", "scan", "--json=compact"]), split_command)
+        }
         EvidenceRailKind::DependencyTrust => string_vec(&["cargo", "vet", "--output-format=json"]),
         EvidenceRailKind::ApiStability => {
             let mut argv = string_vec(&["cargo", "semver-checks", "check-release"]);
@@ -2763,6 +2959,56 @@ mod tests {
         assert_eq!(receipt.status, STATUS_FAILED);
         assert!(receipt.diagnostics.iter().any(|diagnostic| diagnostic.contains("malformed Clippy JSON")));
         assert!(receipt.diagnostics.iter().any(|diagnostic| diagnostic.contains("message.code.code")));
+    }
+
+    #[test]
+    fn ast_grep_receipt_preserves_candidate_findings_and_rejects_role_promotion() {
+        let profile =
+            crate::ast_grep_rail::parse_profile(include_str!("../../standards/ast-grep/generated/profile.json"))
+                .expect("ast-grep profile");
+        let envelope = crate::ast_grep_rail::render_scan_envelope(
+            profile,
+            "0.41.1".to_owned(),
+            serde_json::json!([{
+                "ruleId": "unsafe-block-review",
+                "severity": "warning",
+                "message": "review unsafe block",
+                "file": "src/lib.rs",
+                "range": {"start": {"line": 1, "column": 2}, "end": {"line": 1, "column": 8}},
+                "metaVariables": {"multi": {"BODY": [{"text": "call()"}]}}
+            }]),
+            String::new(),
+            0,
+        )
+        .expect("ast-grep envelope");
+        let mut receipt = evaluate(EvaluationInput {
+            rail: EvidenceRailKind::AstGrepStructural,
+            mode: MODE_IMPORT,
+            import_text: &envelope,
+            workspace_scope: WORKSPACE_SCOPE,
+            config_path: Some("standards/ast-grep/generated/profile.json"),
+            baseline_identity: None,
+            lockfile_identity: None,
+            locked: false,
+            advisory_updated_by_prior_step: false,
+            profile: None,
+            requested_command: None,
+            parent_artifacts: Vec::new(),
+            tool_exit_code: None,
+        });
+        let receipt_json = render_receipt_json(&receipt).expect("receipt renders");
+        let summary = render_summary(&receipt);
+        let provenance = render_provenance_jsonl(&receipt, &receipt_json, &summary).expect("provenance renders");
+
+        assert_eq!(receipt.status, STATUS_MANUAL_REVIEW_REQUIRED);
+        assert_eq!(receipt.checker_id, crate::evidence::CHECKER_AST_GREP);
+        assert_eq!(receipt.findings[0].line, Some(2));
+        assert!(receipt.ast_grep.as_ref().expect("ast-grep details").raw_findings.is_array());
+        assert!(validate_receipt(&receipt).is_empty());
+        assert!(provenance.contains("\"evidence_tier\":\"static_lint\""));
+
+        receipt.ast_grep.as_mut().expect("ast-grep details").verification_role = "formal_proof".to_owned();
+        assert!(validate_receipt(&receipt).iter().any(|diagnostic| diagnostic.contains("recorded_only")));
     }
 
     #[test]

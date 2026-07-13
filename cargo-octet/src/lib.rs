@@ -2,6 +2,7 @@ mod admit;
 #[cfg(test)]
 mod api_contract_rail;
 mod artifact;
+mod ast_grep_rail;
 mod baseline;
 mod cap_fs;
 mod cli;
