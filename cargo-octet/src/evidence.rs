@@ -20,6 +20,7 @@ pub const CHECKER_CARGO_MUTANTS: &str = "cargo-mutants";
 pub const CHECKER_CARGO_LLVM_COV: &str = "cargo-llvm-cov";
 pub const CHECKER_CARGO_KANI: &str = "cargo-kani";
 pub const CHECKER_HEGEL_RS: &str = "hegel-rs";
+pub const CHECKER_Z4_SOLVER: &str = "z4-solver";
 pub const CHECKER_OCTET_DYNAMIC_EVIDENCE: &str = "octet-dynamic-evidence";
 pub const CHECKER_OCTET_RELEASE_SUPPLY_CHAIN: &str = "octet-release-supply-chain";
 const FIELD_SCHEMA_VERSION: &str = "schema_version";
@@ -45,6 +46,7 @@ const SOURCE_MUTATION_TESTING_PREFIX: &str = "octet.mutation_testing.";
 const SOURCE_COVERAGE_BASELINE_PREFIX: &str = "octet.coverage_baseline.";
 const SOURCE_KANI_MODEL_CHECK_PREFIX: &str = "octet.kani_model_check.";
 const SOURCE_HEGEL_PROPERTY_PREFIX: &str = "octet.dynamic_evidence.hegel-property";
+const SOURCE_Z4_SOLVER_PREFIX: &str = "octet.experimental_solver_rails.z4-solver";
 const SOURCE_DYNAMIC_EVIDENCE_PREFIX: &str = "octet.dynamic_evidence.";
 const SOURCE_RELEASE_SUPPLY_CHAIN_PREFIX: &str = "octet.release_supply_chain.";
 
@@ -241,6 +243,12 @@ fn provenance_producers() -> &'static [ProvenanceProducer] {
             checker_id: CHECKER_HEGEL_RS,
             source_prefixes: &[SOURCE_HEGEL_PROPERTY_PREFIX],
             allowed_tiers: &[EvidenceTier::TranscriptAssertion],
+            allows_formal_proof: false,
+        },
+        ProvenanceProducer {
+            checker_id: CHECKER_Z4_SOLVER,
+            source_prefixes: &[SOURCE_Z4_SOLVER_PREFIX],
+            allowed_tiers: &[EvidenceTier::TranscriptAssertion, EvidenceTier::ManualReviewRequired],
             allows_formal_proof: false,
         },
         ProvenanceProducer {
