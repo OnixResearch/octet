@@ -667,6 +667,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf8baf1c55e62ffcace7a9f06f4bd9cd3f0c4beb022d3b367256b91b87513d98"
 
 [[package]]
+name = "nickel-export-core"
+version = "0.1.0"
+source = "git+https://github.com/OnixResearch/nickel-export?rev=257fafc1c746f1faf156207043a4c826bfb16d49#257fafc1c746f1faf156207043a4c826bfb16d49"
+dependencies = [
+ "blake3",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "num-modular"
 version = "0.6.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -700,6 +710,7 @@ version = "0.1.0"
 dependencies = [
  "blake3",
  "clap",
+ "nickel-export-core",
  "pretty_assertions",
  "serde",
  "serde_json",

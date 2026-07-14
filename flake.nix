@@ -21,6 +21,10 @@
       url = "github:OnixResearch/valence/1f4f6fe903a34c22d2cda53cd534ce58bbf84147";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    nickel-export = {
+      url = "github:OnixResearch/nickel-export/257fafc1c746f1faf156207043a4c826bfb16d49";
+      flake = false;
+    };
   };
 
   outputs =
@@ -33,6 +37,7 @@
       cairn,
       dylint-src,
       valence,
+      nickel-export,
       ...
     }:
     let
@@ -357,6 +362,12 @@
         valenceCargoSource = valenceCutoverManifest.standalone_source.cargo_source;
         valenceRevision = valenceCutoverManifest.standalone_source.revision;
         valenceInputRevision = valence.rev;
+        nickelExportCutoverManifest = builtins.fromJSON (
+          builtins.readFile ./standards/nickel-export-cutover/generated-manifest.json
+        );
+        nickelExportCargoSource = nickelExportCutoverManifest.standalone_source.cargo_source;
+        nickelExportRevision = nickelExportCutoverManifest.standalone_source.revision;
+        nickelExportInputRevision = nickel-export.rev;
         cargoVendorDir = craneLib.vendorCargoDeps {
           inherit src;
           overrideVendorGitCheckout =
@@ -368,6 +379,14 @@
             then
               drv.overrideAttrs (_old: {
                 src = valence;
+              })
+            else if
+              pkgs.lib.any (
+                package: package.name == "nickel-export-core" && package.source == nickelExportCargoSource
+              ) packages
+            then
+              drv.overrideAttrs (_old: {
+                src = nickel-export;
               })
             else
               drv;
@@ -2398,6 +2417,132 @@
                   echo "standalone_valence_cutover.non_claims=behavioral_correctness,semantic_equivalence,pure_cache_eligibility,external_consumer_compatibility,cross_toolchain_determinism,release_eligibility"
                   mkdir -p "$out"
                 '';
+            nickelExportCutoverReadiness =
+              pkgs.runCommand "octet-nickel-export-cutover"
+                {
+                  nativeBuildInputs = [
+                    pkgs.b3sum
+                    pkgs.coreutils
+                    pkgs.diffutils
+                    pkgs.gnugrep
+                    pkgs.jq
+                    pkgs.nickel
+                  ];
+                }
+                ''
+                  export LC_ALL=C
+
+                  repo=${src}
+                  authored="$repo/standards/nickel-export-cutover/manifest.ncl"
+                  generated="$repo/standards/nickel-export-cutover/generated-manifest.json"
+                  migration_authored="$repo/standards/nickel-export-cutover/migration-profiles.ncl"
+                  migration_generated="$repo/standards/nickel-export-cutover/generated-migration-profiles.json"
+                  crate_manifest="$repo/crates/octet-standards/Cargo.toml"
+                  facade="$repo/crates/octet-standards/src/nickel_export.rs"
+                  lockfile="$repo/Cargo.lock"
+                  expected_revision=${nickelExportRevision}
+                  expected_source='${nickelExportCargoSource}'
+                  expected_package_count=2
+                  expected_selected_count=1
+
+                  validate_manifest() {
+                    checked_manifest="$1"
+                    jq --exit-status \
+                      --arg revision "$expected_revision" \
+                      --arg source "$expected_source" \
+                      --arg input_revision "${nickelExportInputRevision}" \
+                      --arg local_override "diagnostic-only" \
+                      --arg canonical_owner "nickel-export-core" \
+                      --argjson package_count "$expected_package_count" \
+                      --argjson selected_count "$expected_selected_count" \
+                      '.schema_version == "octet-nickel-export-cutover-manifest/v1"
+                       and .standalone_source.revision == $revision
+                       and .standalone_source.revision == $input_revision
+                       and .standalone_source.cargo_source == $source
+                       and (.standalone_source.local_override_policy | contains($local_override))
+                       and (.standalone_source.local_override_policy | contains("MUST NOT"))
+                       and (.packages | length == $package_count)
+                       and ([.packages[] | select(.selected_by_octet)] | length == $selected_count)
+                       and .compatibility_facade.canonical_owner == $canonical_owner
+                       and .compatibility_facade.disposition == "delegating legacy projection only"
+                       and (.non_claims | join(" ") | contains("does not prove evaluator correctness"))' \
+                      "$checked_manifest" >/dev/null
+                  }
+
+                  nickel export --format json "$authored" > "$TMPDIR/generated.json"
+                  jq --sort-keys . "$generated" > "$TMPDIR/expected.sorted.json"
+                  jq --sort-keys . "$TMPDIR/generated.json" > "$TMPDIR/actual.sorted.json"
+                  cmp "$TMPDIR/expected.sorted.json" "$TMPDIR/actual.sorted.json"
+                  validate_manifest "$generated"
+                  nickel export --format json "$migration_authored" > "$TMPDIR/migration-generated.json"
+                  jq --sort-keys . "$migration_generated" > "$TMPDIR/migration-expected.sorted.json"
+                  jq --sort-keys . "$TMPDIR/migration-generated.json" > "$TMPDIR/migration-actual.sorted.json"
+                  cmp "$TMPDIR/migration-expected.sorted.json" "$TMPDIR/migration-actual.sorted.json"
+                  jq --exit-status \
+                    --arg revision "$expected_revision" \
+                    '.schema_version == "octet-nickel-export-consumer-migrations/v1"
+                     and .standalone_revision == $revision
+                     and (.profiles | length == 4)
+                     and ([.profiles[].consumer] | unique | length == 4)
+                     and ([.profiles[].handoff_commit] | unique | length == 4)
+                     and all(.profiles[]; (.handoff_commit | test("^[0-9a-f]{40}$"))
+                       and .handoff_state == "consumer-owned package committed locally; publication remains consumer-owned"
+                       and (.retained_authority | length > 0)
+                       and (.dual_run_validation | length > 0)
+                       and (.non_claim | contains("does not prove evaluator equivalence")))' \
+                    "$migration_generated" >/dev/null
+
+                  jq '.standalone_source.revision = "floating-main"' "$generated" > "$TMPDIR/floating.json"
+                  if validate_manifest "$TMPDIR/floating.json"; then
+                    echo 'negative fixture unexpectedly accepted floating Nickel Export revision' >&2
+                    exit 1
+                  fi
+                  jq '.standalone_source.local_override_policy = "local path override accepted"' "$generated" > "$TMPDIR/local-override.json"
+                  if validate_manifest "$TMPDIR/local-override.json"; then
+                    echo 'negative fixture unexpectedly accepted local release override' >&2
+                    exit 1
+                  fi
+                  jq '.non_claims = ["cutover proves evaluator correctness"]' "$generated" > "$TMPDIR/weakened-non-claim.json"
+                  if validate_manifest "$TMPDIR/weakened-non-claim.json"; then
+                    echo 'negative fixture unexpectedly accepted weakened non-claim' >&2
+                    exit 1
+                  fi
+
+                  test -s ${nickel-export}/cairn/specs/deterministic-nickel-export/spec.md
+                  core_b3="b3:$(b3sum ${nickel-export}/crates/nickel-export-core/src/lib.rs | cut -d' ' -f1)"
+                  shell_b3="b3:$(b3sum ${nickel-export}/crates/nickel-export/src/lib.rs | cut -d' ' -f1)"
+                  test "$core_b3" = "$(jq -r '.packages[] | select(.name == "nickel-export-core") | .source_b3' "$generated")"
+                  test "$shell_b3" = "$(jq -r '.packages[] | select(.name == "nickel-export") | .source_b3' "$generated")"
+
+                  grep -F "nickel-export-core = { git = \"https://github.com/OnixResearch/nickel-export\", rev = \"$expected_revision\"" "$crate_manifest" >/dev/null
+                  if grep -F 'nickel-export-core = { path =' "$crate_manifest" >/dev/null; then
+                    echo 'canonical Nickel Export dependency unexpectedly uses a local path' >&2
+                    exit 1
+                  fi
+                  test "$(grep -Fc "source = \"$expected_source\"" "$lockfile")" -eq "$expected_selected_count"
+                  test "$(grep -Fc 'name = "nickel-export-core"' "$lockfile")" -eq "$expected_selected_count"
+                  if grep -F 'name = "nickel-export"' "$lockfile" >/dev/null; then
+                    echo 'ordinary Octet graph unexpectedly includes the external evaluator shell' >&2
+                    exit 1
+                  fi
+
+                  grep -F 'use nickel_export_core as canonical;' "$facade" >/dev/null
+                  grep -F 'canonical::build_receipt' "$facade" >/dev/null
+                  grep -F 'canonical::build_manifest' "$facade" >/dev/null
+                  grep -F 'canonical::project_octet_manifest' "$facade" >/dev/null
+                  if grep -E 'SECRET_MARKERS|blake3::hash|artifact_text_identity|canonical::ExportReceipt[[:space:]]*\{' "$facade" >/dev/null; then
+                    echo 'Octet compatibility facade contains forked canonical export logic' >&2
+                    exit 1
+                  fi
+
+                  echo "nickel_export_cutover.manifest_freshness: PASS"
+                  echo "nickel_export_cutover.exact_source: PASS"
+                  echo "nickel_export_cutover.unique_package_identity: PASS"
+                  echo "nickel_export_cutover.delegating_facade: PASS"
+                  echo "nickel_export_cutover.migration_profiles: PASS"
+                  echo "nickel_export_cutover.runtime_shell_absent: PASS"
+                  mkdir -p "$out"
+                '';
             roadmapAgentSurfacesDocs = craneLib.buildPackage {
               inherit
                 src
@@ -2592,6 +2737,7 @@
             structured-migration-sessions = structuredMigrationSessionsGate;
             valence-evidence-release = valenceEvidenceReleaseGate;
             valence-core-package-readiness = valenceCorePackageReadiness;
+            nickel-export-cutover-readiness = nickelExportCutoverReadiness;
             thir-supplement-inventory-gate = thirSupplementInventoryGate;
             mir-supplement-fixture-gate = mirSupplementFixtureGate;
             mir-supplement-inventory-gate = mirSupplementInventoryGate;
