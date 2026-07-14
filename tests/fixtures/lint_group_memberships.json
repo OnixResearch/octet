@@ -17,6 +17,7 @@
       "catch_all_on_enum",
       "foreign_enum_catch_all",
       "fragile_exhaustive_enum_match",
+      "state_machine_exhaustiveness",
       "raw_arithmetic_overflow",
       "no_unwrap",
       "no_panic",

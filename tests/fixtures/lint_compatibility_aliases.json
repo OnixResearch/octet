@@ -228,6 +228,10 @@
     "canonical_lint_name": "tigerstyle::fragile_exhaustive_enum_match"
   },
   {
+    "alias_name": "state_machine_exhaustiveness",
+    "canonical_lint_name": "tigerstyle::state_machine_exhaustiveness"
+  },
+  {
     "alias_name": "platform_dependent_cast",
     "canonical_lint_name": "tigerstyle::platform_dependent_cast"
   },

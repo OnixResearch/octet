@@ -684,6 +684,18 @@
     "example_text": "#[octet::sealed_enum] enum State { Ready, Closed }"
   },
   {
+    "lint_name": "state_machine_exhaustiveness",
+    "default_level": "warn",
+    "principle": "State Machine Exhaustiveness",
+    "guide_section": "Enum Matches / State Machines",
+    "domain_group": "tigerstyle::safety",
+    "guidance": "mark transition cores and handle every state/event pair explicitly without wildcard fallback or mutation-coupled decisions",
+    "docs_summary": "check marked state-machine transition cores for explicit state/event handling",
+    "effect_family": "failure",
+    "example_mode": "required",
+    "example_text": "#[octet::state_machine_core] fn transition(state: State, event: Event) -> Result<State, InvalidTransition>"
+  },
+  {
     "lint_name": "platform_dependent_cast",
     "default_level": "warn",
     "principle": "Explicit Types",

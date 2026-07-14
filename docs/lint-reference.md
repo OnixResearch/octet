@@ -9,11 +9,11 @@ For the landing-page naming map, see `../README.md`.
 
 ## Catalog summary
 
-`octet` ships 68 lints across 6 domains.
+`octet` ships 69 lints across 6 domains.
 
 | Domain | Group | Count |
 | --- | --- | ---: |
-| safety | `tigerstyle::safety` | 23 |
+| safety | `tigerstyle::safety` | 24 |
 | naming | `tigerstyle::naming` | 9 |
 | performance | `tigerstyle::performance` | 2 |
 | structure | `tigerstyle::structure` | 16 |
@@ -98,7 +98,7 @@ Unknown lint names and invalid level values warn and are ignored.
 | `catch_all_on_enum` | `warn` | flag `_` match arms that hide future enum variants |
 | `foreign_enum_catch_all` | `allow` | flag `_` match arms over enums defined in another crate |
 | `fragile_exhaustive_enum_match` | `allow` | flag exhaustive matches over same-crate enums without a fallback |
-| `state_machine_exhaustiveness` | `warn` | check marked state-machine transition cores for closed enum markers, explicit state/event handling, explicit invalid-transition denials, and no wildcard/default fallbacks |
+| `state_machine_exhaustiveness` | `warn` | check marked state-machine transition cores for explicit state/event handling |
 | `explicit_defaults` | `warn` | avoid foreign `Default` shorthands such as `..Default::default()` |
 | `unbounded_channel` | `warn` | flag known unbounded channel constructors |
 | `unbounded_collection_growth` | `warn` | flag loop-driven collection growth without reservation or a local bound |

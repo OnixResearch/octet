@@ -285,6 +285,11 @@
     "category": "safe_shape"
   },
   {
+    "lint_name": "state_machine_exhaustiveness",
+    "fixture": "state_machine_exhaustiveness",
+    "category": "safe_shape"
+  },
+  {
     "lint_name": "platform_dependent_cast",
     "fixture": "lint_guardrail_common",
     "category": "safe_shape"
