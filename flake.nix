@@ -18,7 +18,7 @@
       flake = false;
     };
     valence = {
-      url = "github:OnixResearch/valence/1f4f6fe903a34c22d2cda53cd534ce58bbf84147";
+      url = "github:OnixResearch/valence/35a8c0da876acb0bfde900c61db68f740e8f9e8e";
       inputs.nixpkgs.follows = "nixpkgs";
     };
     nickel-export = {
@@ -2403,7 +2403,7 @@
                     echo 'canonical dependency unexpectedly falls back to hosted path' >&2
                     exit 1
                   fi
-                  grep -F "valence-core = { git = \"ssh://git@github.com/OnixResearch/valence.git\", rev = \"$expected_revision\"" "$repo/cargo-octet/Cargo.toml" >/dev/null
+                  grep -F "valence-core = { git = \"https://github.com/OnixResearch/valence.git\", rev = \"$expected_revision\"" "$repo/cargo-octet/Cargo.toml" >/dev/null
                   test "$(grep -Fc "source = \"$expected_source\"" "$lockfile")" -eq 1
                   test "$(grep -Fc 'name = "valence-core"' "$lockfile")" -eq 1
                   grep -F 'pub(crate) use valence_core::' "$repo/cargo-octet/src/valence_core_shim.rs" >/dev/null
