@@ -383,7 +383,9 @@ fn run_nickel_export_manifest_command(args: &NickelExportManifestArgs) -> Result
             source,
         })?;
     }
-    let manifest = manifest_for_exports(&[input]);
+    let manifest = manifest_for_exports(&[input]).map_err(|diagnostics| CliError::Config {
+        message: diagnostics.join("; "),
+    })?;
     write_text(&args.manifest_out, &json_text(&manifest)?)?;
     Ok(false)
 }

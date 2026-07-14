@@ -1,32 +1,32 @@
-//! Deterministic Nickel export helper core.
+//! Legacy Octet facade over the standalone Nickel export core.
 //!
-//! The shell can evaluate Nickel, but this module owns the pure export-plan,
-//! manifest, freshness, and boundary checks used to decide whether the exported
-//! bytes may be accepted as generated Octet evidence.
+//! Canonical request admission, exact-byte identities, evaluator descriptors,
+//! diagnostics, and receipt semantics are owned by the pinned
+//! `nickel-export-core` dependency. This module retains only Octet's v1 spec and
+//! manifest projection so existing generated artifacts and commands remain
+//! compatible during migration.
 
+use nickel_export_core as canonical;
 use serde::Deserialize;
 use serde::Serialize;
 
-use crate::proof_artifact::artifact_text_identity;
-
-/// Export manifest schema version.
-pub const NICKEL_EXPORT_MANIFEST_SCHEMA_VERSION: &str = "octet-nickel-export-manifest/v1";
-/// Export spec schema version.
+/// Export manifest schema version retained for Octet compatibility.
+pub const NICKEL_EXPORT_MANIFEST_SCHEMA_VERSION: &str = canonical::OCTET_MANIFEST_SCHEMA;
+/// Export spec schema version retained for Octet compatibility.
 pub const NICKEL_EXPORT_SPEC_SCHEMA_VERSION: &str = "octet-nickel-export-spec/v1";
-/// Generator identity recorded in helper manifests.
-pub const NICKEL_EXPORT_GENERATOR_ID: &str = "octet-standards.nickel-export-helper/v1";
+/// Generator identity retained for Octet compatibility.
+pub const NICKEL_EXPORT_GENERATOR_ID: &str = canonical::OCTET_GENERATOR_ID;
 
 const FORMAT_JSON: &str = "json";
 const FORMAT_TOML: &str = "toml";
 const FORMAT_YAML: &str = "yaml";
 const FORMAT_RAW: &str = "raw";
-const NICKEL_BINARY_PLACEHOLDER: &str = "nickel:unspecified";
+const OCTET_LEGACY_EVALUATOR_VERSION: &str = "octet-legacy-evaluator-descriptor/v1";
 const SECRET_REMEDIATION: &str = "register this family as non-candidate or replace raw secret material with references";
 
 static SUPPORTED_FORMATS: &[&str] = &[FORMAT_JSON, FORMAT_TOML, FORMAT_YAML, FORMAT_RAW];
-static SECRET_MARKERS: &[&str] = &["BEGIN PRIVATE KEY", "password =", "token =", "secret =", "api_key ="];
 
-/// A single deterministic Nickel export request.
+/// A single deterministic Nickel export request in Octet's legacy shape.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct NickelExportSpec {
     /// Spec schema version.
@@ -41,7 +41,7 @@ pub struct NickelExportSpec {
     /// Optional field selector or projection expression.
     #[serde(default)]
     pub selector: String,
-    /// Optional contract applied before export acceptance.
+    /// Optional consumer-owned contract label.
     #[serde(default)]
     pub contract: String,
     /// Native output format: json, toml, yaml, or raw.
@@ -79,60 +79,20 @@ pub struct NickelExportInput<'a> {
     pub contract_diagnostics: Vec<String>,
 }
 
-/// BLAKE3 identity for one source, dependency, or output artifact.
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct ExportIdentity {
-    /// Path or artifact locator.
-    pub path: String,
-    /// BLAKE3 digest over exact bytes.
-    pub blake3: String,
-    /// Exact byte length.
-    pub bytes: u64,
-}
+/// BLAKE3 identity in Octet's legacy manifest shape.
+pub type ExportIdentity = canonical::OctetIdentity;
+/// One accepted export in Octet's legacy manifest shape.
+pub type NickelExportManifestEntry = canonical::OctetManifestEntry;
+/// Deterministic Octet compatibility manifest.
+pub type NickelExportManifest = canonical::OctetManifest;
 
-/// One accepted export entry inside a helper manifest.
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct NickelExportManifestEntry {
-    /// Config or receipt family ID.
-    pub family_id: String,
-    /// Native output format.
-    pub output_format: String,
-    /// Source Nickel file identity.
-    pub source: ExportIdentity,
-    /// Declared dependency identities.
-    pub dependencies: Vec<ExportIdentity>,
-    /// Generated output identity.
-    pub output: ExportIdentity,
-    /// Optional field selector or projection.
-    pub selector: String,
-    /// Optional contract applied before export acceptance.
-    pub contract: String,
-    /// Shell-friendly generation command used for replay notes.
-    pub generation_command: String,
-    /// Shell-free command shape used for replay.
-    pub command_argv: Vec<String>,
-}
-
-/// Deterministic manifest for one or more helper-produced exports.
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct NickelExportManifest {
-    /// Manifest schema version.
-    pub schema_version: String,
-    /// Generator identity.
-    pub generator: String,
-    /// Nickel binary or derivation identity when known.
-    pub nickel_identity: String,
-    /// Export entries sorted by output path.
-    pub exports: Vec<NickelExportManifestEntry>,
-}
-
-/// Return true when an output format is accepted by the helper.
+/// Return true when an output format is accepted by the standalone core.
 #[must_use]
 pub fn is_supported_output_format(format: &str) -> bool {
-    SUPPORTED_FORMATS.contains(&format)
+    canonical_format(format).is_some()
 }
 
-/// Validate an export spec before the shell evaluates Nickel.
+/// Validate an Octet export spec before the shell evaluates Nickel.
 #[must_use]
 pub fn validate_export_spec(spec: &NickelExportSpec) -> Vec<String> {
     let mut diagnostics = Vec::new();
@@ -155,32 +115,54 @@ pub fn validate_export_spec(spec: &NickelExportSpec) -> Vec<String> {
     diagnostics
 }
 
-/// Validate generated output acceptance after Nickel evaluation.
+/// Validate generated output through the canonical standalone admission core.
 #[must_use]
 pub fn validate_export_acceptance(input: &NickelExportInput<'_>) -> Vec<String> {
     let mut diagnostics = validate_export_spec(input.spec);
-    diagnostics.extend(secret_diagnostics(input));
-    diagnostics.extend(input.contract_diagnostics.iter().map(|diagnostic| {
-        format!("Nickel contract `{}` failed for `{}`: {diagnostic}", contract_label(input.spec), input.spec.source)
-    }));
-    diagnostics
-}
+    if !diagnostics.is_empty() {
+        diagnostics.extend(legacy_contract_diagnostics(input));
+        return diagnostics;
+    }
 
-/// Build a deterministic manifest for accepted export outputs.
-#[must_use]
-pub fn manifest_for_exports(inputs: &[NickelExportInput<'_>]) -> NickelExportManifest {
-    let nickel_identity = inputs.first().map_or(NICKEL_BINARY_PLACEHOLDER, |input| input.nickel_identity).to_owned();
-    let mut exports = inputs.iter().map(manifest_entry).collect::<Vec<_>>();
-    exports.sort_by(|left, right| left.output.path.cmp(&right.output.path));
-    NickelExportManifest {
-        schema_version: NICKEL_EXPORT_MANIFEST_SCHEMA_VERSION.to_owned(),
-        generator: NICKEL_EXPORT_GENERATOR_ID.to_owned(),
-        nickel_identity,
-        exports,
+    match build_canonical_receipt(input) {
+        Ok(_) => diagnostics,
+        Err(canonical::CoreError::SecretMaterial(path)) => {
+            diagnostics.push(format!(
+                "Nickel export source `{path}` appears to contain raw secret material; {SECRET_REMEDIATION}"
+            ));
+            diagnostics
+        }
+        Err(canonical::CoreError::EvaluationFailed(_)) => {
+            diagnostics.extend(legacy_contract_diagnostics(input));
+            diagnostics
+        }
+        Err(error) => {
+            diagnostics.push(format!("standalone Nickel export admission failed: {error}"));
+            diagnostics
+        }
     }
 }
 
-/// Verify that an existing manifest matches exact current export bytes.
+/// Build an admitted Octet v1 manifest through the standalone core and
+/// compatibility projector.
+///
+/// # Errors
+///
+/// Returns deterministic diagnostics when any observation fails canonical
+/// admission or the canonical manifest rejects empty, duplicate, or
+/// mixed-evaluator inputs.
+pub fn manifest_for_exports(inputs: &[NickelExportInput<'_>]) -> Result<NickelExportManifest, Vec<String>> {
+    let receipts = inputs
+        .iter()
+        .map(build_canonical_receipt)
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|error| canonical_manifest_diagnostics(&error))?;
+    let canonical_manifest =
+        canonical::build_manifest(&receipts).map_err(|error| canonical_manifest_diagnostics(&error))?;
+    Ok(canonical::project_octet_manifest(&canonical_manifest))
+}
+
+/// Verify that an existing Octet v1 manifest matches current exact inputs.
 #[must_use]
 pub fn verify_manifest(manifest: &NickelExportManifest, inputs: &[NickelExportInput<'_>]) -> Vec<String> {
     let mut diagnostics = Vec::new();
@@ -190,7 +172,13 @@ pub fn verify_manifest(manifest: &NickelExportManifest, inputs: &[NickelExportIn
             manifest.schema_version
         ));
     }
-    let expected = manifest_for_exports(inputs);
+    let expected = match manifest_for_exports(inputs) {
+        Ok(expected) => expected,
+        Err(mut manifest_diagnostics) => {
+            diagnostics.append(&mut manifest_diagnostics);
+            return diagnostics;
+        }
+    };
     for expected_entry in &expected.exports {
         match manifest.exports.iter().find(|entry| entry.output.path == expected_entry.output.path) {
             Some(actual) => compare_manifest_entry(expected_entry, actual, &mut diagnostics),
@@ -203,6 +191,125 @@ pub fn verify_manifest(manifest: &NickelExportManifest, inputs: &[NickelExportIn
         }
     }
     diagnostics
+}
+
+/// Build the shell-friendly legacy generation command represented by a spec.
+#[must_use]
+pub fn generation_command(spec: &NickelExportSpec) -> String {
+    export_command_argv(spec).join(" ")
+}
+
+/// Build the shell-free legacy command shape represented by a spec.
+#[must_use]
+pub fn export_command_argv(spec: &NickelExportSpec) -> Vec<String> {
+    let mut argv = vec![
+        "nickel".to_owned(),
+        "export".to_owned(),
+        "--format".to_owned(),
+        spec.output_format.clone(),
+        spec.source.clone(),
+    ];
+    if !spec.selector.trim().is_empty() {
+        argv.push("--field".to_owned());
+        argv.push(spec.selector.clone());
+    }
+    argv
+}
+
+fn build_canonical_receipt(input: &NickelExportInput<'_>) -> Result<canonical::ExportReceipt, canonical::CoreError> {
+    let request = canonical_request(input.spec).ok_or_else(|| {
+        canonical::CoreError::InvalidRequest(vec![canonical::Diagnostic::new(
+            "unsupported-format",
+            &input.spec.output_format,
+            "legacy format could not be projected",
+            canonical::DiagnosticSeverity::Error,
+        )])
+    })?;
+    let evaluator = evaluator_for_input(input);
+    let dependencies = input
+        .dependencies
+        .iter()
+        .map(|dependency| canonical::ArtifactMaterial {
+            path: dependency.path,
+            bytes: dependency.text.as_bytes(),
+        })
+        .collect::<Vec<_>>();
+    let observed_dependencies = input.dependencies.iter().map(|dependency| dependency.path).collect::<Vec<_>>();
+    let contract_diagnostics = input
+        .contract_diagnostics
+        .iter()
+        .map(|message| {
+            canonical::Diagnostic::new(
+                "octet-contract",
+                contract_label(input.spec),
+                message,
+                canonical::DiagnosticSeverity::Error,
+            )
+        })
+        .collect::<Vec<_>>();
+    canonical::build_receipt(&canonical::EvaluationObservation {
+        request: &request,
+        source: canonical::ArtifactMaterial {
+            path: &input.spec.source,
+            bytes: input.source_text.as_bytes(),
+        },
+        dependencies,
+        output: canonical::ArtifactMaterial {
+            path: &input.spec.output_path,
+            bytes: input.output_text.as_bytes(),
+        },
+        evaluator: &evaluator,
+        observed_dependencies,
+        diagnostics: contract_diagnostics,
+    })
+}
+
+fn canonical_request(spec: &NickelExportSpec) -> Option<canonical::ExportRequest> {
+    Some(canonical::ExportRequest {
+        schema: canonical::REQUEST_SCHEMA.to_owned(),
+        family_id: spec.family_id.clone(),
+        source: spec.source.clone(),
+        dependencies: spec.dependencies.clone(),
+        import_paths: Vec::new(),
+        selector: spec.selector.clone(),
+        contract: spec.contract.clone(),
+        format: canonical_format(&spec.output_format)?,
+        destination: spec.output_path.clone(),
+        allow_secret_material: spec.allow_secret_material,
+    })
+}
+
+fn canonical_format(format: &str) -> Option<canonical::ExportFormat> {
+    match format {
+        FORMAT_JSON => Some(canonical::ExportFormat::Json),
+        FORMAT_TOML => Some(canonical::ExportFormat::Toml),
+        FORMAT_YAML => Some(canonical::ExportFormat::Yaml),
+        FORMAT_RAW => Some(canonical::ExportFormat::Raw),
+        _ => None,
+    }
+}
+
+fn evaluator_for_input(input: &NickelExportInput<'_>) -> canonical::EvaluatorDescriptor {
+    canonical::EvaluatorDescriptor {
+        identity: input.nickel_identity.to_owned(),
+        version: OCTET_LEGACY_EVALUATOR_VERSION.to_owned(),
+        options: Vec::new(),
+        import_path_policy: canonical::ImportPathPolicy::EvaluatorObservedClosure,
+    }
+}
+
+fn canonical_manifest_diagnostics(error: &canonical::CoreError) -> Vec<String> {
+    vec![format!("standalone Nickel export manifest failed: {error}")]
+}
+
+fn legacy_contract_diagnostics(input: &NickelExportInput<'_>) -> Vec<String> {
+    input
+        .contract_diagnostics
+        .iter()
+        .map(|diagnostic| {
+            format!("Nickel contract `{}` failed for `{}`: {diagnostic}", contract_label(input.spec), input.spec.source)
+        })
+        .collect()
 }
 
 fn compare_manifest_entry(
@@ -247,7 +354,7 @@ fn compare_dependencies(
         if !expected.dependencies.iter().any(|dependency| dependency.path == actual_dependency.path) {
             diagnostics.push(format!(
                 "Nickel export manifest contains stale dependency `{}` for output `{}`",
-                actual_dependency.path, actual.output.path
+                actual_dependency.path, expected.output.path
             ));
         }
     }
@@ -268,58 +375,6 @@ fn push_identity_mismatch(
     ));
 }
 
-/// Build the shell-friendly Nickel generation command represented by a spec.
-#[must_use]
-pub fn generation_command(spec: &NickelExportSpec) -> String {
-    export_command_argv(spec).join(" ")
-}
-
-/// Build the shell-free Nickel command shape represented by a spec.
-#[must_use]
-pub fn export_command_argv(spec: &NickelExportSpec) -> Vec<String> {
-    let mut argv = vec![
-        "nickel".to_owned(),
-        "export".to_owned(),
-        "--format".to_owned(),
-        spec.output_format.clone(),
-        spec.source.clone(),
-    ];
-    if !spec.selector.trim().is_empty() {
-        argv.push("--field".to_owned());
-        argv.push(spec.selector.clone());
-    }
-    argv
-}
-
-fn manifest_entry(input: &NickelExportInput<'_>) -> NickelExportManifestEntry {
-    let mut dependencies = input
-        .dependencies
-        .iter()
-        .map(|dependency| text_identity(dependency.path, dependency.text))
-        .collect::<Vec<_>>();
-    dependencies.sort_by(|left, right| left.path.cmp(&right.path));
-    NickelExportManifestEntry {
-        family_id: input.spec.family_id.clone(),
-        output_format: input.spec.output_format.clone(),
-        source: text_identity(&input.spec.source, input.source_text),
-        dependencies,
-        output: text_identity(&input.spec.output_path, input.output_text),
-        selector: input.spec.selector.clone(),
-        contract: input.spec.contract.clone(),
-        generation_command: generation_command(input.spec),
-        command_argv: export_command_argv(input.spec),
-    }
-}
-
-fn text_identity(path: &str, text: &str) -> ExportIdentity {
-    let identity = artifact_text_identity(path, text);
-    ExportIdentity {
-        path: identity.path,
-        blake3: identity.blake3,
-        bytes: identity.bytes,
-    }
-}
-
 fn push_if_blank(diagnostics: &mut Vec<String>, value: &str, field: &str) {
     if value.trim().is_empty() {
         diagnostics.push(format!("Nickel export spec field `{field}` must not be empty"));
@@ -334,34 +389,9 @@ fn contract_label(spec: &NickelExportSpec) -> &str {
     }
 }
 
-fn secret_diagnostics(input: &NickelExportInput<'_>) -> Vec<String> {
-    if input.spec.allow_secret_material {
-        return Vec::new();
-    }
-    let mut diagnostics = Vec::new();
-    push_secret_diagnostic(&mut diagnostics, &input.spec.source, input.source_text);
-    for dependency in &input.dependencies {
-        push_secret_diagnostic(&mut diagnostics, dependency.path, dependency.text);
-    }
-    diagnostics
-}
-
-fn push_secret_diagnostic(diagnostics: &mut Vec<String>, path: &str, text: &str) {
-    let lower_text = text.to_ascii_lowercase();
-    for marker in SECRET_MARKERS {
-        if lower_text.contains(&marker.to_ascii_lowercase()) {
-            diagnostics.push(format!(
-                "Nickel export source `{path}` appears to contain raw secret material marker `{marker}`; {SECRET_REMEDIATION}"
-            ));
-            return;
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::proof_artifact::blake3_hex_text;
 
     const FAMILY_ID: &str = "octet.dynamic-evidence-profile-config";
     const SOURCE_PATH: &str = "templates/dynamic-evidence-profiles.ncl";
@@ -375,11 +405,12 @@ mod tests {
         let specs = supported_format_specs();
         let inputs = specs.iter().map(|spec| export_input(spec, OUTPUT_TEXT)).collect::<Vec<_>>();
 
-        let first = manifest_for_exports(&inputs);
-        let second = manifest_for_exports(&inputs);
+        let first = manifest_for_exports(&inputs).expect("supported observations should produce a manifest");
+        let second = manifest_for_exports(&inputs).expect("repeated observations should produce a manifest");
 
         assert_eq!(first, second);
         assert_eq!(first.schema_version, NICKEL_EXPORT_MANIFEST_SCHEMA_VERSION);
+        assert_eq!(first.generator, canonical::OCTET_GENERATOR_ID);
         assert_eq!(first.nickel_identity, NICKEL_IDENTITY);
         assert_eq!(first.exports.len(), SUPPORTED_FORMATS.len());
         assert!(first.exports.iter().any(|entry| entry.output_format == FORMAT_JSON));
@@ -410,10 +441,69 @@ mod tests {
     }
 
     #[test]
+    fn standalone_admission_accepts_consumer_owned_contract_labels() {
+        let spec = json_spec();
+        let input = export_input(&spec, OUTPUT_TEXT);
+
+        let diagnostics = validate_export_acceptance(&input);
+
+        assert!(diagnostics.is_empty(), "{diagnostics:?}");
+        let manifest = manifest_for_exports(&[input]).expect("consumer-owned contract label should remain admissible");
+        assert_eq!(manifest.exports[0].contract, "DynamicEvidenceProfiles");
+    }
+
+    #[test]
+    fn standalone_admission_rejects_dependency_material_drift() {
+        let spec = json_spec();
+        let input = NickelExportInput {
+            spec: &spec,
+            source_text: SOURCE_TEXT,
+            dependencies: Vec::new(),
+            output_text: OUTPUT_TEXT,
+            nickel_identity: NICKEL_IDENTITY,
+            contract_diagnostics: Vec::new(),
+        };
+
+        let diagnostics = validate_export_acceptance(&input);
+
+        assert!(
+            diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.contains("standalone Nickel export admission failed"))
+        );
+    }
+
+    #[test]
+    fn manifest_construction_rejects_empty_error_and_mixed_evaluator_observations() {
+        let empty_diagnostics = manifest_for_exports(&[]).expect_err("empty manifests must fail closed");
+        assert!(empty_diagnostics.iter().any(|diagnostic| diagnostic.contains("invalid export request")));
+
+        let spec = json_spec();
+        let mut error_input = export_input(&spec, OUTPUT_TEXT);
+        error_input.contract_diagnostics = vec!["contract rejected output".to_owned()];
+        let error_diagnostics =
+            manifest_for_exports(&[error_input]).expect_err("contract errors must not produce a success manifest");
+        assert!(
+            error_diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.contains("contract diagnostics contain an error"))
+        );
+
+        let first = export_input(&spec, OUTPUT_TEXT);
+        let mut second_spec = spec.clone();
+        second_spec.output_path = "generated/other.json".to_owned();
+        let mut second = export_input(&second_spec, OUTPUT_TEXT);
+        second.nickel_identity = "nickel-other";
+        let mixed_diagnostics =
+            manifest_for_exports(&[first, second]).expect_err("mixed evaluators must not produce a manifest");
+        assert!(mixed_diagnostics.iter().any(|diagnostic| diagnostic.contains("cannot mix evaluator descriptors")));
+    }
+
+    #[test]
     fn manifest_verification_rejects_stale_source_dependency_output_bytes_and_extra_entries() {
         let spec = json_spec();
         let input = export_input(&spec, OUTPUT_TEXT);
-        let fresh = manifest_for_exports(&[input]);
+        let fresh = manifest_for_exports(&[input]).expect("valid observation should produce a manifest");
         let mut stale_spec = spec.clone();
         stale_spec.dependencies = vec!["templates/shared.ncl".to_owned()];
         let stale_input = NickelExportInput {
@@ -431,8 +521,8 @@ mod tests {
         stale.exports.push(NickelExportManifestEntry {
             output: ExportIdentity {
                 path: "stale.json".to_owned(),
-                blake3: blake3_hex_text("stale"),
-                bytes: u64::try_from("stale".len()).expect("fixture length fits u64"),
+                blake3: bare_blake3("stale"),
+                bytes: u64::try_from("stale".len()).unwrap_or(u64::MAX),
             },
             ..fresh.exports[0].clone()
         });
@@ -451,7 +541,10 @@ mod tests {
         let input = NickelExportInput {
             spec: &spec,
             source_text: "api_key = \"do-not-commit\"\n",
-            dependencies: Vec::new(),
+            dependencies: vec![NamedText {
+                path: "standards/policies/contracts.ncl",
+                text: "{ Contract = String }\n",
+            }],
             output_text: OUTPUT_TEXT,
             nickel_identity: NICKEL_IDENTITY,
             contract_diagnostics: Vec::new(),
@@ -500,5 +593,9 @@ mod tests {
             nickel_identity: NICKEL_IDENTITY,
             contract_diagnostics: Vec::new(),
         }
+    }
+
+    fn bare_blake3(text: &str) -> String {
+        canonical::blake3_identity(text.as_bytes()).trim_start_matches("b3:").to_owned()
     }
 }
