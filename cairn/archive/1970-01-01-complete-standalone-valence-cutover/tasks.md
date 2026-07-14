@@ -20,10 +20,10 @@
 
 - [x] [serial] Run focused cutover, compatibility, package-graph, and lock-drift tests. r[octet.valence_project_extraction.phase5.cutover_validation]
 - [x] [serial] Add a checked-in CI workflow that runs only `nix flake check`. r[octet.valence_project_extraction.phase5.flake_check_ci]
-- [ ] [serial] Run `nix flake check` and Cairn validation/gates before sync and archive. r[octet.valence_project_extraction.phase5.cutover_validation]
+- [x] [serial] Run `nix flake check` and Cairn validation/gates before sync and archive. Evidence: Cairn validation and proposal/design/tasks gates pass; focused cutover, compatibility, object-corpus, formatting, root/standards tests, UI fixtures, and strict release Clippy rails pass; `nix flake check path:$PWD -L` reports `all checks passed!`. The former pedantic and fixture-drift blockers were repaired without policy suppression. r[octet.valence_project_extraction.phase5.cutover_validation]
 
-## Blocker evidence
+## Closeout evidence
 
-- Cairn validation and the proposal/design/tasks gates pass for this package.
-- The focused cutover, compatibility, object-corpus, formatting, and non-pedantic `cargo-octet` Clippy rails pass.
-- `nix flake check -L` remains blocked by pre-existing workspace-wide `clippy::pedantic` debt outside this cutover, including long-function, excessive-boolean, structural naming, redundant closure, and semicolon diagnostics across the root lint crate and existing `cargo-octet` modules. The cutover-owned pedantic findings have been repaired; policy was not weakened.
+- Exact standalone Valence source, package identity, compatibility shim, positive and negative fixtures, and downstream migration documentation remain checked by the release graph.
+- Workspace-wide Clippy, state-machine catalog/fixture coverage, pre-commit strictness, UI support locks, and object-corpus receipts are synchronized and green.
+- The passing rails retain the documented non-claims; they do not promote linkage and compatibility evidence into behavioral correctness or release eligibility.
