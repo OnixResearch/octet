@@ -22,6 +22,19 @@ Octet currently ships 69 Dylint lints across 6 domains. The repo also owns a
 separate standards registry/checker seam for policy traceability and
 non-Dylint source-shape rules.
 
+## Status and prerequisites
+
+Octet is under active development. The primary tested path uses Nix to pin the
+Rust, Dylint, Verus, solver, and supporting toolchains; direct Cargo use is an
+advanced path that must reproduce those pins.
+
+Anonymous builds are not yet supported: `cargo-octet` currently pins
+`valence-core` through an authenticated SSH URL, while the Nix flake pins the
+same Valence revision as a flake input. Until that revision is anonymously
+fetchable, the quick-start commands below require source access. This is a
+source-availability boundary, not evidence of correctness, security, or
+release readiness.
+
 ## Quick start
 
 1. Copy `templates/dylint.toml` into the consumer workspace as `dylint.toml`.
@@ -343,7 +356,7 @@ AGPL-3.0-or-later. See [LICENSE](LICENSE). Third-party dependencies and imported
 
 ## References
 
-- `../trellis/` — reference Verus proof corpus and BLAKE3 proof-artifact identity patterns for Octet proof-path, proof-card, and imported proof-bundle work.
+- [OnixResearch/trellis](https://github.com/OnixResearch/trellis) — reference Verus proof corpus and BLAKE3 proof-artifact identity patterns for Octet proof-path, proof-card, and imported proof-bundle work.
 - [verus-lang/verus](https://github.com/verus-lang/verus) — pinned production verifier, solver, and toolchain source; each receipt remains scoped to exact source, proof, assumptions, and tool identity.
 - [verus-lang/verusfmt](https://github.com/verus-lang/verusfmt) — pinned Verus formatter used for source-shape checks only; formatting is not proof or semantic validation.
 - `github:nickel-lang/json-schema-to-nickel` — reference pattern for generating Nickel contracts from JSON Schema inputs while preserving generator capability caveats.
