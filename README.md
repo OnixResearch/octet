@@ -339,7 +339,7 @@ and config keys.
 
 ## License
 
-AGPL-3.0-or-later
+AGPL-3.0-or-later. See [LICENSE](LICENSE). Third-party dependencies and imported proof references retain their own terms; license metadata does not certify imported proofs or whole-system behavior.
 
 ## References
 
