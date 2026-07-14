@@ -18,7 +18,7 @@ Octet treats Rust-compatible code as inert by default across APIs, effects,
 capabilities, proofs, and review surfaces; interaction happens only through
 complete, explicit interfaces.
 
-Octet currently ships 68 Dylint lints across 6 domains. The repo also owns a
+Octet currently ships 69 Dylint lints across 6 domains. The repo also owns a
 separate standards registry/checker seam for policy traceability and
 non-Dylint source-shape rules.
 
@@ -291,7 +291,7 @@ tracks the source-attribute namespace decision.
 
 | Domain | Count | Focus |
 | --- | ---: | --- |
-| safety | 23 | panics, bounds, defaults, loops, queues, unsafe boundaries, explicit failure paths, enum evolution |
+| safety | 24 | panics, bounds, defaults, loops, queues, unsafe boundaries, explicit failure paths, enum evolution |
 | naming | 9 | predicate names, acronym casing, units, currency, searchable paths and imports |
 | performance | 2 | clone avoidance, hot-loop allocation, and ownership clarity |
 | structure | 16 | function size, nesting, parameters, casts, public APIs, interface cohesion |

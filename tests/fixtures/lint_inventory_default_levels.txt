@@ -55,6 +55,7 @@ zero_alloc_attr_contract=warn
 catch_all_on_enum=warn
 foreign_enum_catch_all=allow
 fragile_exhaustive_enum_match=allow
+state_machine_exhaustiveness=warn
 platform_dependent_cast=warn
 float_for_currency=allow
 ambiguous_params=allow

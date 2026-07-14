@@ -228,6 +228,10 @@
     "fixture": "fragile_exhaustive_enum_match"
   },
   {
+    "lint_name": "state_machine_exhaustiveness",
+    "fixture": "state_machine_exhaustiveness_negative"
+  },
+  {
     "lint_name": "platform_dependent_cast",
     "fixture": "platform_dependent_cast"
   },
