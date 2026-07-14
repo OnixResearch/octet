@@ -41,7 +41,7 @@ let CutoverManifest = {
   supported_claim | NonEmptyString,
   non_claims | NonClaims,
 } in
-let ValenceRevision = "35a8c0da876acb0bfde900c61db68f740e8f9e8e" in
+let ValenceRevision = "5f1c2ba5072c6f9622fa59b1af20502985f569fd" in
 let CutoverNonClaim = "standalone Valence cutover proves dependency/source ownership and DTO compatibility only; it does not prove behavioral correctness, semantic equivalence, pure-cache eligibility, external consumer compatibility, cross-toolchain determinism, or release eligibility" in
 {
   schema_version = "octet-valence-core-cutover-manifest/v2",

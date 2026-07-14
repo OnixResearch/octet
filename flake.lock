@@ -435,16 +435,16 @@
       },
       "locked": {
         "lastModified": 1784063340,
-        "narHash": "sha256-mOEFU5y3q4NMu7IpkNvne8m5ZvAZsr7DKmWAY8Q8qJA=",
+        "narHash": "sha256-ASWqHCXtUIDerN5vG57TbciTs2q2kHx/dyJI6q0veDk=",
         "owner": "OnixResearch",
         "repo": "valence",
-        "rev": "35a8c0da876acb0bfde900c61db68f740e8f9e8e",
+        "rev": "5f1c2ba5072c6f9622fa59b1af20502985f569fd",
         "type": "github"
       },
       "original": {
         "owner": "OnixResearch",
         "repo": "valence",
-        "rev": "35a8c0da876acb0bfde900c61db68f740e8f9e8e",
+        "rev": "5f1c2ba5072c6f9622fa59b1af20502985f569fd",
         "type": "github"
       }
     }
