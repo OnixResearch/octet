@@ -13,15 +13,21 @@ pub(crate) const SUPPORTED_ALLOCATING_CRATES: &[&str] = &["alloc", "std"];
 pub(crate) const SUPPORTED_ALLOCATING_TYPES: &[&str] = &["Vec", "String", "Box", "HashMap", "BTreeMap"];
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum AllocationConstructorKind {
+    Supported,
+    Other,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 struct AllocationInLoopFacts {
-    is_supported_allocation_constructor: bool,
+    constructor_kind: AllocationConstructorKind,
     is_inside_loop: bool,
     is_in_test_context: bool,
     is_from_expansion: bool,
 }
 
 fn classify_allocation_in_loop(facts: AllocationInLoopFacts) -> bool {
-    facts.is_supported_allocation_constructor
+    facts.constructor_kind == AllocationConstructorKind::Supported
         && facts.is_inside_loop
         && !facts.is_in_test_context
         && !facts.is_from_expansion
@@ -136,8 +142,11 @@ fn hir_id_has_loop_parent(cx: &LateContext<'_>, hir_id: hir::HirId) -> bool {
 
 fn allocation_in_loop_facts(cx: &LateContext<'_>, expr: &hir::Expr<'_>) -> AllocationInLoopFacts {
     AllocationInLoopFacts {
-        is_supported_allocation_constructor: expr_is_zero_arg_new_call(expr)
-            && expr_supported_allocation_type(cx, expr).is_some(),
+        constructor_kind: if expr_is_zero_arg_new_call(expr) && expr_supported_allocation_type(cx, expr).is_some() {
+            AllocationConstructorKind::Supported
+        } else {
+            AllocationConstructorKind::Other
+        },
         is_inside_loop: hir_id_has_loop_parent(cx, expr.hir_id),
         is_in_test_context: test_context::late_hir_id_is_in_test_context(cx, expr.hir_id, expr.span),
         is_from_expansion: expr.span.from_expansion(),
@@ -159,12 +168,13 @@ impl<'tcx> LateLintPass<'tcx> for AllocationInLoop {
 
 #[cfg(test)]
 mod tests {
+    use super::AllocationConstructorKind;
     use super::AllocationInLoopFacts;
     use super::classify_allocation_in_loop;
 
     fn loop_allocation() -> AllocationInLoopFacts {
         AllocationInLoopFacts {
-            is_supported_allocation_constructor: true,
+            constructor_kind: AllocationConstructorKind::Supported,
             is_inside_loop: true,
             is_in_test_context: false,
             is_from_expansion: false,
@@ -179,7 +189,7 @@ mod tests {
     #[test]
     fn skips_non_allocation_or_outside_loop() {
         let not_allocation = AllocationInLoopFacts {
-            is_supported_allocation_constructor: false,
+            constructor_kind: AllocationConstructorKind::Other,
             ..loop_allocation()
         };
         let outside_loop = AllocationInLoopFacts {

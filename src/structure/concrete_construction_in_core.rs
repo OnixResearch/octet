@@ -44,11 +44,17 @@ enum ConstructedTypeOrigin {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ConstructionKind {
+    Direct,
+    Indirect,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct ConstructionFacts {
     in_core_scope: bool,
     from_expansion: bool,
     in_test_context: bool,
-    is_direct_constructor_call: bool,
+    kind: ConstructionKind,
     type_origin: ConstructedTypeOrigin,
 }
 
@@ -56,7 +62,7 @@ fn should_emit_construction(facts: ConstructionFacts) -> bool {
     facts.in_core_scope
         && !facts.from_expansion
         && !facts.in_test_context
-        && facts.is_direct_constructor_call
+        && facts.kind == ConstructionKind::Direct
         && facts.type_origin == ConstructedTypeOrigin::External
 }
 
@@ -92,7 +98,7 @@ fn constructed_type_origin(cx: &LateContext<'_>, expr: &hir::Expr<'_>) -> Constr
         return ConstructedTypeOrigin::LocalDomain;
     }
     let path = cx.get_def_path(adt.did());
-    let Some(crate_name) = path.first().map(|segment| segment.as_str()) else {
+    let Some(crate_name) = path.first().map(rustc_span::Symbol::as_str) else {
         return ConstructedTypeOrigin::Unsupported;
     };
     if STANDARD_VALUE_CRATES.contains(&crate_name) {
@@ -109,7 +115,11 @@ impl<'tcx> LateLintPass<'tcx> for ConcreteConstructionInCore {
             in_core_scope: path_is_in_core_scope(cx, expr.span, &self.core_source_scopes),
             from_expansion: expr.span.from_expansion(),
             in_test_context: test_context::late_hir_id_is_in_test_context(cx, expr.hir_id, expr.span),
-            is_direct_constructor_call: constructor_name.is_some(),
+            kind: if constructor_name.is_some() {
+                ConstructionKind::Direct
+            } else {
+                ConstructionKind::Indirect
+            },
             type_origin: constructed_type_origin(cx, expr),
         };
         if !should_emit_construction(facts) {
@@ -140,7 +150,7 @@ mod tests {
             in_core_scope: true,
             from_expansion: false,
             in_test_context: false,
-            is_direct_constructor_call: true,
+            kind: ConstructionKind::Direct,
             type_origin,
         }
     }
@@ -159,7 +169,7 @@ mod tests {
     #[test]
     fn indirect_parent_and_out_of_scope_shapes_are_not_reportable() {
         let mut indirect = facts(ConstructedTypeOrigin::External);
-        indirect.is_direct_constructor_call = false;
+        indirect.kind = ConstructionKind::Indirect;
         let mut out_of_scope = facts(ConstructedTypeOrigin::External);
         out_of_scope.in_core_scope = false;
 

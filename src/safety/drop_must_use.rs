@@ -24,15 +24,23 @@ declare_tool_lint! {
 declare_lint_pass!(DropMustUse => [DROP_MUST_USE]);
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum DropFunctionKind {
+    StdMemDrop,
+    Other,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 struct DropMustUseFacts {
-    is_std_mem_drop: bool,
+    function_kind: DropFunctionKind,
     type_is_must_use: bool,
     producer_is_must_use: bool,
     is_in_test_context: bool,
 }
 
 fn classify_drop_must_use(facts: DropMustUseFacts) -> bool {
-    facts.is_std_mem_drop && (facts.type_is_must_use || facts.producer_is_must_use) && !facts.is_in_test_context
+    facts.function_kind == DropFunctionKind::StdMemDrop
+        && (facts.type_is_must_use || facts.producer_is_must_use)
+        && !facts.is_in_test_context
 }
 
 #[allow(deprecated)]
@@ -85,7 +93,11 @@ impl<'tcx> LateLintPass<'tcx> for DropMustUse {
         };
 
         let facts = DropMustUseFacts {
-            is_std_mem_drop: is_std_mem_drop(cx, callee),
+            function_kind: if is_std_mem_drop(cx, callee) {
+                DropFunctionKind::StdMemDrop
+            } else {
+                DropFunctionKind::Other
+            },
             type_is_must_use: type_is_must_use(cx, cx.typeck_results().expr_ty(arg)),
             producer_is_must_use: expr_is_must_use_call(cx, arg),
             is_in_test_context: test_context::late_hir_id_is_in_test_context(cx, expr.hir_id, expr.span),
@@ -106,12 +118,13 @@ impl<'tcx> LateLintPass<'tcx> for DropMustUse {
 
 #[cfg(test)]
 mod tests {
+    use super::DropFunctionKind;
     use super::DropMustUseFacts;
     use super::classify_drop_must_use;
 
     fn explicit_drop_of_must_use_type() -> DropMustUseFacts {
         DropMustUseFacts {
-            is_std_mem_drop: true,
+            function_kind: DropFunctionKind::StdMemDrop,
             type_is_must_use: true,
             producer_is_must_use: false,
             is_in_test_context: false,

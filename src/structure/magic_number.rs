@@ -38,22 +38,40 @@ const DOMAIN_WORDS: &[&str] = &[
 ];
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum LiteralKind {
+    Numeric,
+    Other,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum LiteralConvention {
+    Conventional,
+    DomainSpecific,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum SourceOrigin {
+    Authored,
+    Expansion,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 struct MagicNumberFacts {
-    is_numeric_literal: bool,
-    is_conventional_literal: bool,
+    literal_kind: LiteralKind,
+    convention: LiteralConvention,
     is_documented_by_parent: bool,
     is_policy_threshold_comparison: bool,
     is_in_test_context: bool,
-    is_from_expansion: bool,
+    source_origin: SourceOrigin,
 }
 
 fn classify_magic_number(facts: MagicNumberFacts) -> bool {
-    facts.is_numeric_literal
-        && !facts.is_conventional_literal
+    facts.literal_kind == LiteralKind::Numeric
+        && facts.convention == LiteralConvention::DomainSpecific
         && !facts.is_documented_by_parent
         && facts.is_policy_threshold_comparison
         && !facts.is_in_test_context
-        && !facts.is_from_expansion
+        && facts.source_origin == SourceOrigin::Authored
 }
 
 fn has_unit_suffix(name: &str) -> bool {
@@ -156,12 +174,24 @@ impl LateLintPass<'_> for MagicNumber {
         };
 
         let facts = MagicNumberFacts {
-            is_numeric_literal: matches!(lit.node, LitKind::Int(..) | LitKind::Float(..)),
-            is_conventional_literal: is_conventional_literal(&lit),
+            literal_kind: if matches!(lit.node, LitKind::Int(..) | LitKind::Float(..)) {
+                LiteralKind::Numeric
+            } else {
+                LiteralKind::Other
+            },
+            convention: if is_conventional_literal(&lit) {
+                LiteralConvention::Conventional
+            } else {
+                LiteralConvention::DomainSpecific
+            },
             is_documented_by_parent: literal_is_documented_by_parent(cx, expr),
             is_policy_threshold_comparison: literal_is_policy_threshold_comparison(cx, expr),
             is_in_test_context: test_context::late_hir_id_is_in_test_context(cx, expr.hir_id, expr.span),
-            is_from_expansion: expr.span.from_expansion(),
+            source_origin: if expr.span.from_expansion() {
+                SourceOrigin::Expansion
+            } else {
+                SourceOrigin::Authored
+            },
         };
         if !classify_magic_number(facts) {
             return;
@@ -179,19 +209,22 @@ impl LateLintPass<'_> for MagicNumber {
 
 #[cfg(test)]
 mod tests {
+    use super::LiteralConvention;
+    use super::LiteralKind;
     use super::MagicNumberFacts;
+    use super::SourceOrigin;
     use super::classify_magic_number;
     use super::has_domain_word;
     use super::has_unit_suffix;
 
     fn policy_threshold_literal() -> MagicNumberFacts {
         MagicNumberFacts {
-            is_numeric_literal: true,
-            is_conventional_literal: false,
+            literal_kind: LiteralKind::Numeric,
+            convention: LiteralConvention::DomainSpecific,
             is_documented_by_parent: false,
             is_policy_threshold_comparison: true,
             is_in_test_context: false,
-            is_from_expansion: false,
+            source_origin: SourceOrigin::Authored,
         }
     }
 
@@ -207,7 +240,7 @@ mod tests {
             ..policy_threshold_literal()
         };
         let conventional = MagicNumberFacts {
-            is_conventional_literal: true,
+            convention: LiteralConvention::Conventional,
             ..policy_threshold_literal()
         };
 

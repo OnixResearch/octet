@@ -11,10 +11,28 @@ use crate::test_context::late_hir_id_is_in_test_context;
 const LINT_NAME: &str = "public_unsafe_api";
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum ApiVisibility {
+    Public,
+    Private,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum ApiAbi {
+    Rust,
+    Other,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum ApiSafety {
+    Unsafe,
+    Safe,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 struct PublicUnsafeApiFacts {
-    is_public: bool,
-    is_rust_abi: bool,
-    declares_unsafe_fn: bool,
+    visibility: ApiVisibility,
+    abi: ApiAbi,
+    safety: ApiSafety,
     is_trait_impl_method: bool,
     is_in_test_context: bool,
     is_from_expansion: bool,
@@ -40,9 +58,9 @@ fn signature_uses_rust_abi(sig: &hir::FnSig<'_>) -> bool {
 }
 
 fn classify_public_unsafe_api(facts: PublicUnsafeApiFacts) -> bool {
-    facts.is_public
-        && facts.is_rust_abi
-        && facts.declares_unsafe_fn
+    facts.visibility == ApiVisibility::Public
+        && facts.abi == ApiAbi::Rust
+        && facts.safety == ApiSafety::Unsafe
         && !facts.is_trait_impl_method
         && !facts.is_in_test_context
         && !facts.is_from_expansion
@@ -77,9 +95,21 @@ impl<'tcx> LateLintPass<'tcx> for PublicUnsafeApi {
         };
 
         let facts = PublicUnsafeApiFacts {
-            is_public: cx.tcx.visibility(item.owner_id.def_id).is_public(),
-            is_rust_abi: signature_uses_rust_abi(sig),
-            declares_unsafe_fn: signature_declares_unsafe_fn(sig),
+            visibility: if cx.tcx.visibility(item.owner_id.def_id).is_public() {
+                ApiVisibility::Public
+            } else {
+                ApiVisibility::Private
+            },
+            abi: if signature_uses_rust_abi(sig) {
+                ApiAbi::Rust
+            } else {
+                ApiAbi::Other
+            },
+            safety: if signature_declares_unsafe_fn(sig) {
+                ApiSafety::Unsafe
+            } else {
+                ApiSafety::Safe
+            },
             is_trait_impl_method: false,
             is_in_test_context: late_hir_id_is_in_test_context(cx, item.hir_id(), item.span),
             is_from_expansion: item.span.from_expansion(),
@@ -97,9 +127,21 @@ impl<'tcx> LateLintPass<'tcx> for PublicUnsafeApi {
 
         let def_id = impl_item.owner_id.def_id;
         let facts = PublicUnsafeApiFacts {
-            is_public: cx.tcx.visibility(def_id).is_public(),
-            is_rust_abi: signature_uses_rust_abi(sig),
-            declares_unsafe_fn: signature_declares_unsafe_fn(sig),
+            visibility: if cx.tcx.visibility(def_id).is_public() {
+                ApiVisibility::Public
+            } else {
+                ApiVisibility::Private
+            },
+            abi: if signature_uses_rust_abi(sig) {
+                ApiAbi::Rust
+            } else {
+                ApiAbi::Other
+            },
+            safety: if signature_declares_unsafe_fn(sig) {
+                ApiSafety::Unsafe
+            } else {
+                ApiSafety::Safe
+            },
             is_trait_impl_method: impl_parent_is_trait_impl(cx, impl_item),
             is_in_test_context: late_hir_id_is_in_test_context(cx, impl_item.hir_id(), impl_item.span),
             is_from_expansion: impl_item.span.from_expansion(),
@@ -113,14 +155,17 @@ impl<'tcx> LateLintPass<'tcx> for PublicUnsafeApi {
 
 #[cfg(test)]
 mod tests {
+    use super::ApiAbi;
+    use super::ApiSafety;
+    use super::ApiVisibility;
     use super::PublicUnsafeApiFacts;
     use super::classify_public_unsafe_api;
 
     fn unsafe_public_rust_api() -> PublicUnsafeApiFacts {
         PublicUnsafeApiFacts {
-            is_public: true,
-            is_rust_abi: true,
-            declares_unsafe_fn: true,
+            visibility: ApiVisibility::Public,
+            abi: ApiAbi::Rust,
+            safety: ApiSafety::Unsafe,
             is_trait_impl_method: false,
             is_in_test_context: false,
             is_from_expansion: false,
@@ -135,7 +180,7 @@ mod tests {
     #[test]
     fn skips_extern_unsafe_api() {
         let facts = PublicUnsafeApiFacts {
-            is_rust_abi: false,
+            abi: ApiAbi::Other,
             ..unsafe_public_rust_api()
         };
 
@@ -155,11 +200,11 @@ mod tests {
     #[test]
     fn skips_private_or_safe_api() {
         let private = PublicUnsafeApiFacts {
-            is_public: false,
+            visibility: ApiVisibility::Private,
             ..unsafe_public_rust_api()
         };
         let safe = PublicUnsafeApiFacts {
-            declares_unsafe_fn: false,
+            safety: ApiSafety::Safe,
             ..unsafe_public_rust_api()
         };
 
