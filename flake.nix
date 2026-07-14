@@ -18,7 +18,7 @@
       flake = false;
     };
     valence = {
-      url = "github:OnixResearch/valence/35a8c0da876acb0bfde900c61db68f740e8f9e8e";
+      url = "github:OnixResearch/valence/5f1c2ba5072c6f9622fa59b1af20502985f569fd";
       inputs.nixpkgs.follows = "nixpkgs";
     };
     nickel-export = {
