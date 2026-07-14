@@ -71,10 +71,10 @@ declare_tool_lint! {
 }
 
 pub struct StateMachineExhaustiveness {
-    state_machine_core_marker: String,
-    state_machine_enum_marker: String,
-    state_machine_core_scopes: Vec<String>,
-    state_machine_generated_adapter_scopes: Vec<String>,
+    core_marker: String,
+    enum_marker: String,
+    core_scopes: Vec<String>,
+    generated_adapter_scopes: Vec<String>,
 }
 
 impl StateMachineExhaustiveness {
@@ -85,10 +85,10 @@ impl StateMachineExhaustiveness {
         state_machine_generated_adapter_scopes: Vec<String>,
     ) -> Self {
         Self {
-            state_machine_core_marker,
-            state_machine_enum_marker,
-            state_machine_core_scopes,
-            state_machine_generated_adapter_scopes,
+            core_marker: state_machine_core_marker,
+            enum_marker: state_machine_enum_marker,
+            core_scopes: state_machine_core_scopes,
+            generated_adapter_scopes: state_machine_generated_adapter_scopes,
         }
     }
 }
@@ -279,7 +279,7 @@ fn tuple_enum_types<'tcx>(
     Some((enum_adt(state_ty)?, enum_adt(event_ty)?))
 }
 
-fn enum_adt<'tcx>(ty: ty::Ty<'tcx>) -> Option<rustc_middle::ty::AdtDef<'tcx>> {
+fn enum_adt(ty: ty::Ty<'_>) -> Option<rustc_middle::ty::AdtDef<'_>> {
     let ty::Adt(adt, _) = ty.kind() else {
         return None;
     };
@@ -390,12 +390,12 @@ impl<'tcx> LateLintPass<'tcx> for StateMachineExhaustiveness {
         def_id: hir::def_id::LocalDefId,
     ) {
         let function_path = span_path(cx, span);
-        if span_matches_any_scope(&function_path, &self.state_machine_generated_adapter_scopes) {
+        if span_matches_any_scope(&function_path, &self.generated_adapter_scopes) {
             return;
         }
 
-        let marker_selected = has_marker(cx, def_id, &self.state_machine_core_marker);
-        let scope_selected = span_matches_any_scope(&function_path, &self.state_machine_core_scopes);
+        let marker_selected = has_marker(cx, def_id, &self.core_marker);
+        let scope_selected = span_matches_any_scope(&function_path, &self.core_scopes);
         if !marker_selected && !scope_selected {
             return;
         }
@@ -418,7 +418,7 @@ impl<'tcx> LateLintPass<'tcx> for StateMachineExhaustiveness {
 
         let mut finder = TransitionMatchFinder {
             cx,
-            state_machine_enum_marker: &self.state_machine_enum_marker,
+            state_machine_enum_marker: &self.enum_marker,
             found: None,
         };
         finder.visit_expr(body.value);

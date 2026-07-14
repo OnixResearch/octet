@@ -1051,9 +1051,9 @@ impl<'tcx> LateLintPass<'tcx> for ZeroAllocAttrContract {
     }
 }
 
-fn check_marked_zero_alloc_body<'tcx>(cx: &LateContext<'tcx>, body: &'tcx hir::Body<'tcx>, _fn_span: Span) {
+fn check_marked_zero_alloc_body<'tcx>(cx: &LateContext<'tcx>, body: &'tcx hir::Body<'tcx>, fn_span: Span) {
     // Walk all expressions in the function body
-    let mut finder = AllocExprFinder { cx, fn_span: _fn_span };
+    let mut finder = AllocExprFinder { cx, fn_span };
     finder.visit_expr(body.value);
 }
 
@@ -1063,7 +1063,7 @@ struct AllocExprFinder<'a, 'tcx> {
     fn_span: Span,
 }
 
-impl<'a, 'tcx> rustc_hir::intravisit::Visitor<'tcx> for AllocExprFinder<'a, 'tcx> {
+impl<'tcx> rustc_hir::intravisit::Visitor<'tcx> for AllocExprFinder<'_, 'tcx> {
     type NestedFilter = All;
 
     fn visit_expr(&mut self, expr: &'tcx hir::Expr<'tcx>) {

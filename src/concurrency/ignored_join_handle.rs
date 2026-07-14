@@ -41,10 +41,10 @@ fn supported_join_handle_type(cx: &LateContext<'_>, ty: ty::Ty<'_>) -> bool {
     };
 
     let def_path = cx.get_def_path(adt.did());
-    let Some(crate_name) = def_path.first().map(|segment| segment.as_str()) else {
+    let Some(crate_name) = def_path.first().map(rustc_span::Symbol::as_str) else {
         return false;
     };
-    let Some(type_name) = def_path.last().map(|segment| segment.as_str()) else {
+    let Some(type_name) = def_path.last().map(rustc_span::Symbol::as_str) else {
         return false;
     };
 

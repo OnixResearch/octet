@@ -39,19 +39,30 @@ enum LoopSourceKind {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum ExpansionOrigin {
+    Authored,
+    Expansion,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum IterationKind {
+    Other,
+    IteratorNext,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 struct LoopBoundsFacts {
     source_kind: LoopSourceKind,
-    is_from_expansion: bool,
+    expansion_origin: ExpansionOrigin,
     has_explicit_exit: bool,
     has_structural_counter_bound: bool,
     has_cancellation_path: bool,
-    is_bounded_receiver_loop: bool,
-    is_unbounded_receiver_loop: bool,
-    is_iter_next_loop: bool,
+    receiver_kind: Option<TokioReceiverKind>,
+    iteration_kind: IterationKind,
 }
 
 fn classify_unbounded_loop(facts: LoopBoundsFacts) -> bool {
-    if facts.is_from_expansion {
+    if facts.expansion_origin == ExpansionOrigin::Expansion {
         return false;
     }
 
@@ -61,10 +72,14 @@ fn classify_unbounded_loop(facts: LoopBoundsFacts) -> bool {
             !(facts.has_explicit_exit || facts.has_structural_counter_bound || facts.has_cancellation_path)
         }
         LoopSourceKind::While => {
-            if facts.has_explicit_exit || facts.has_structural_counter_bound || facts.is_bounded_receiver_loop {
+            if facts.has_explicit_exit
+                || facts.has_structural_counter_bound
+                || facts.receiver_kind == Some(TokioReceiverKind::Bounded)
+            {
                 return false;
             }
-            facts.is_unbounded_receiver_loop || facts.is_iter_next_loop
+            facts.receiver_kind == Some(TokioReceiverKind::Unbounded)
+                || facts.iteration_kind == IterationKind::IteratorNext
         }
     }
 }
@@ -107,8 +122,8 @@ impl<'tcx> Visitor<'tcx> for ExplicitExitVisitor {
             hir::ExprKind::Break(..) | hir::ExprKind::Ret(..) if !expr.span.from_expansion() => {
                 self.found = true;
             }
-            hir::ExprKind::Break(..) | hir::ExprKind::Ret(..) => {}
-            hir::ExprKind::Closure(_) | hir::ExprKind::Loop(..) => {}
+            hir::ExprKind::Break(..) | hir::ExprKind::Ret(..) | hir::ExprKind::Closure(_) | hir::ExprKind::Loop(..) => {
+            }
             _ => intravisit::walk_expr(self, expr),
         }
     }
@@ -280,13 +295,20 @@ fn loop_bounds_facts<'tcx>(
 
     LoopBoundsFacts {
         source_kind,
-        is_from_expansion: generated_explicit_loop(expr, source_kind),
+        expansion_origin: if generated_explicit_loop(expr, source_kind) {
+            ExpansionOrigin::Expansion
+        } else {
+            ExpansionOrigin::Authored
+        },
         has_explicit_exit: block_has_explicit_exit(body),
         has_structural_counter_bound: loop_has_structural_counter_bound(cx, expr, body),
         has_cancellation_path: block_contains_tokio_select(cx, body),
-        is_bounded_receiver_loop: receiver_kind == Some(TokioReceiverKind::Bounded),
-        is_unbounded_receiver_loop: receiver_kind == Some(TokioReceiverKind::Unbounded),
-        is_iter_next_loop: header_is_iter_next_while_let(cx, header_span),
+        receiver_kind,
+        iteration_kind: if header_is_iter_next_while_let(cx, header_span) {
+            IterationKind::IteratorNext
+        } else {
+            IterationKind::Other
+        },
     }
 }
 
@@ -309,20 +331,22 @@ impl<'tcx> LateLintPass<'tcx> for UnboundedLoop {
 
 #[cfg(test)]
 mod tests {
+    use super::ExpansionOrigin;
+    use super::IterationKind;
     use super::LoopBoundsFacts;
     use super::LoopSourceKind;
+    use super::TokioReceiverKind;
     use super::classify_unbounded_loop;
 
     fn explicit_loop() -> LoopBoundsFacts {
         LoopBoundsFacts {
             source_kind: LoopSourceKind::ExplicitLoop,
-            is_from_expansion: false,
+            expansion_origin: ExpansionOrigin::Authored,
             has_explicit_exit: false,
             has_structural_counter_bound: false,
             has_cancellation_path: false,
-            is_bounded_receiver_loop: false,
-            is_unbounded_receiver_loop: false,
-            is_iter_next_loop: false,
+            receiver_kind: None,
+            iteration_kind: IterationKind::Other,
         }
     }
 
@@ -360,12 +384,12 @@ mod tests {
     fn bounded_receiver_is_clean_and_unbounded_receiver_warns() {
         let bounded = LoopBoundsFacts {
             source_kind: LoopSourceKind::While,
-            is_bounded_receiver_loop: true,
+            receiver_kind: Some(TokioReceiverKind::Bounded),
             ..explicit_loop()
         };
         let unbounded = LoopBoundsFacts {
             source_kind: LoopSourceKind::While,
-            is_unbounded_receiver_loop: true,
+            receiver_kind: Some(TokioReceiverKind::Unbounded),
             ..explicit_loop()
         };
 
@@ -380,7 +404,7 @@ mod tests {
             ..explicit_loop()
         };
         let expansion_loop = LoopBoundsFacts {
-            is_from_expansion: true,
+            expansion_origin: ExpansionOrigin::Expansion,
             ..explicit_loop()
         };
 

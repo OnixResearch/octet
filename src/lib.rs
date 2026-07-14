@@ -535,7 +535,7 @@ mod tests {
         summary: String,
     }
 
-    #[derive(Debug)]
+    #[derive(Clone, Copy, Debug)]
     struct CatalogDocs<'a> {
         readme: &'a str,
         lint_reference: &'a str,
@@ -683,7 +683,7 @@ mod tests {
         for entry in expected {
             match documented_rows.get(&entry.name) {
                 Some(rows) if rows.is_empty() => {
-                    diagnostics.push(format!("lint-reference missing row for `{}`", entry.name))
+                    diagnostics.push(format!("lint-reference missing row for `{}`", entry.name));
                 }
                 Some(rows) => {
                     if rows.len() != 1 {
@@ -719,7 +719,7 @@ mod tests {
             }
         }
 
-        check_namespace_prose(docs, &namespace_contract(), &mut diagnostics);
+        check_namespace_prose(&docs, &namespace_contract(), &mut diagnostics);
 
         diagnostics
     }
@@ -736,7 +736,7 @@ mod tests {
         }
     }
 
-    fn check_namespace_prose(docs: CatalogDocs<'_>, contract: &NamespaceContract, diagnostics: &mut Vec<String>) {
+    fn check_namespace_prose(docs: &CatalogDocs<'_>, contract: &NamespaceContract, diagnostics: &mut Vec<String>) {
         let readme_lint_fragment = format!("`{}::<lint>`", contract.namespace);
         let readme_group_fragment = format!("`{}::<domain>`", contract.namespace);
         check_required_fragment("README", docs.readme, &readme_lint_fragment, diagnostics);
