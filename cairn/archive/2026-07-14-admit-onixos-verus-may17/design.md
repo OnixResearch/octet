@@ -8,4 +8,4 @@ The profile update changes only `onixos-lifecycle`; Aspen remains `local-pin`. O
 
 ## Evidence
 
-`evidence/onixos-candidate.md` records the candidate receipt identity, provider revision, OnixOS commit, observed result, and non-claim boundary. Octet's typed profile export and negative fixtures remain the fail-closed configuration rail.
+`evidence/onixos-candidate.md` records the candidate and final receipt identities, published provider revision, OnixOS commits, observed results, and non-claim boundary. Octet's typed profile export and negative fixtures remain the fail-closed configuration rail.
