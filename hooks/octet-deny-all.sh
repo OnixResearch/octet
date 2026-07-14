@@ -77,6 +77,7 @@ deny_lint_flags='
 -D catch_all_on_enum
 -D foreign_enum_catch_all
 -D fragile_exhaustive_enum_match
+-D state_machine_exhaustiveness
 -D platform_dependent_cast
 -D float_for_currency
 -D ambiguous_params
