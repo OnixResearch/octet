@@ -41,16 +41,16 @@ let CutoverManifest = {
   supported_claim | NonEmptyString,
   non_claims | NonClaims,
 } in
-let ValenceRevision = "1f4f6fe903a34c22d2cda53cd534ce58bbf84147" in
+let ValenceRevision = "35a8c0da876acb0bfde900c61db68f740e8f9e8e" in
 let CutoverNonClaim = "standalone Valence cutover proves dependency/source ownership and DTO compatibility only; it does not prove behavioral correctness, semantic equivalence, pure-cache eligibility, external consumer compatibility, cross-toolchain determinism, or release eligibility" in
 {
   schema_version = "octet-valence-core-cutover-manifest/v2",
   standalone_source = {
     coordinate = "github:OnixResearch/valence?dir=crates/valence-core",
-    cargo_git_url = "ssh://git@github.com/OnixResearch/valence.git",
+    cargo_git_url = "https://github.com/OnixResearch/valence.git",
     crate_target = "valence-core",
     revision = ValenceRevision,
-    cargo_source = "git+ssh://git@github.com/OnixResearch/valence.git?rev=%{ValenceRevision}#%{ValenceRevision}",
+    cargo_source = "git+https://github.com/OnixResearch/valence.git?rev=%{ValenceRevision}#%{ValenceRevision}",
     hardened_profile_archive = "cairn/archive/2026-07-12-harden-preserves-integrity-boundaries",
     local_override_policy = "local path overrides are development-only diagnostics and MUST NOT replace the exact release dependency or lock identity",
   },
@@ -110,7 +110,7 @@ let CutoverNonClaim = "standalone Valence cutover proves dependency/source owner
     {
       consumer = "Aspen",
       current_dependency = "git package valence-core from github:OnixResearch/octet",
-      target_dependency = "git+ssh://git@github.com/OnixResearch/valence.git?rev=%{ValenceRevision}",
+      target_dependency = "git+https://github.com/OnixResearch/valence.git?rev=%{ValenceRevision}",
       validation_command = "cargo test -p cargo-octet valence_cutover -- --nocapture; cargo test -p cargo-octet evidence_index -- --nocapture; cargo test -p cargo-octet object -- --nocapture",
       non_claim = CutoverNonClaim,
     },

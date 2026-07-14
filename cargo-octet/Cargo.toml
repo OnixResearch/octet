@@ -20,7 +20,7 @@ path = "src/bin/cargo-tigerstyle.rs"
 [dependencies]
 octet-lint-metadata = { path = "../crates/octet-lint-metadata" }
 octet-standards = { path = "../crates/octet-standards" }
-valence-core = { git = "ssh://git@github.com/OnixResearch/valence.git", rev = "1f4f6fe903a34c22d2cda53cd534ce58bbf84147", package = "valence-core" }
+valence-core = { git = "https://github.com/OnixResearch/valence.git", rev = "35a8c0da876acb0bfde900c61db68f740e8f9e8e", package = "valence-core" }
 cap-std = "3"
 blake3 = "1"
 serde = { version = "1", features = ["derive"] }

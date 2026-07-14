@@ -28,12 +28,11 @@ Octet is under active development. The primary tested path uses Nix to pin the
 Rust, Dylint, Verus, solver, and supporting toolchains; direct Cargo use is an
 advanced path that must reproduce those pins.
 
-Anonymous builds are not yet supported: `cargo-octet` currently pins
-`valence-core` through an authenticated SSH URL, while the Nix flake pins the
-same Valence revision as a flake input. Until that revision is anonymously
-fetchable, the quick-start commands below require source access. This is a
-source-availability boundary, not evidence of correctness, security, or
-release readiness.
+Octet pins `valence-core` through an exact HTTPS Git revision and pins the same
+Valence revision as a Nix flake input. The declared source paths require no SSH
+credential; anonymous clean clones work once the pinned repositories are
+publicly visible. Source availability is not evidence of correctness, security,
+or release readiness.
 
 ## Quick start
 

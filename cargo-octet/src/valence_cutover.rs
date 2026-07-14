@@ -393,7 +393,7 @@ mod tests {
         let authority = authority(&manifest);
         let mut observations = valid_observations(&manifest);
         manifest.standalone_source.revision = "0000000000000000000000000000000000000000".to_owned();
-        observations.locked_cargo_source = "git+ssh://git@github.com/OnixResearch/valence.git#stale".to_owned();
+        observations.locked_cargo_source = "git+https://github.com/OnixResearch/valence.git#stale".to_owned();
         observations.package_identity.canonical_package_count += CANONICAL_PACKAGE_COUNT;
         observations.package_identity.uses_hosted_path_dependency = true;
         observations.package_identity.legacy_package_name = REQUIRED_CRATE_TARGET.to_owned();
