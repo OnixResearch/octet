@@ -6,6 +6,7 @@ mod ast_grep_rail;
 mod baseline;
 mod cap_fs;
 mod cli;
+mod clippy_restrictions;
 mod config;
 mod determinism;
 mod domain_types;

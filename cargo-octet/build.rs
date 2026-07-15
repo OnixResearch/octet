@@ -11,6 +11,7 @@ const EMBEDDED_DIRECTORIES: &[&str] = &[
     "cargo-octet",
     "crates/octet-lint-metadata",
     "crates/octet-standards",
+    "standards/clippy-restrictions/generated",
     "standards/effect-closure/generated",
     "standards/proof-imports/generated",
     "standards/strict-profiles/generated",

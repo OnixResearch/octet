@@ -188,6 +188,18 @@ in
       negative_fixtures = ["standards/strict-profiles/fixtures/invalid/bad_function_address_mode.ncl", "standards/strict-profiles/fixtures/invalid/empty_non_claims.ncl", "crates/octet-lint-metadata/src/strict_profile.rs::malformed_catalog_reports_duplicate_unknown_and_scope_errors"],
     },
     {
+      family_id = "octet.clippy-restriction-profile-config",
+      ownership = "nickel-authored",
+      owner_source_path = "standards/clippy-restrictions/profiles.ncl",
+      artifact_path = "standards/clippy-restrictions/generated/profiles.json",
+      generation_command = "nickel export --format json standards/clippy-restrictions/profiles.ncl",
+      validation_command = "nix build .#checks.x86_64-linux.clippy-restriction-profiles --no-link -L",
+      status = "existing",
+      config_digest_required = true,
+      positive_fixtures = ["standards/clippy-restrictions/profiles.ncl", "standards/clippy-restrictions/fixtures/valid/minimum.ncl", "cargo-octet/src/clippy_restrictions.rs::shipped_catalog_selects_bounded_profiles_and_builds_exact_commands"],
+      negative_fixtures = ["standards/clippy-restrictions/fixtures/invalid/blanket_group.ncl", "standards/clippy-restrictions/fixtures/invalid/empty_non_claims.ncl", "cargo-octet/src/clippy_restrictions.rs::catalog_rejects_duplicates_unknown_lints_blanket_group_and_invalid_fields"],
+    },
+    {
       family_id = "octet.effect-closure-catalog",
       ownership = "nickel-authored",
       owner_source_path = "standards/effect-closure/catalog.ncl",

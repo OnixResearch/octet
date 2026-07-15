@@ -451,6 +451,8 @@ pub struct EvidenceRailReceipt {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub config_path: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub config_identity: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub baseline_identity: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub lockfile_identity: Option<String>,
@@ -471,6 +473,8 @@ pub struct EvidenceRailReceipt {
     pub parent_artifacts: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub property_classes: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub clippy_restrictions: Option<crate::clippy_restrictions::ClippyRestrictionReceiptDetails>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ast_grep: Option<crate::ast_grep_rail::AstGrepReceiptDetails>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -519,15 +523,24 @@ pub fn run(args: &EvidenceRailArgs) -> Result<i32, String> {
     let workspace_root = args.workspace_root.as_deref().unwrap_or_else(|| Path::new("."));
     let workspace_scope = workspace_root.display().to_string();
     let config_path = args.config.as_ref().map(|path| path.display().to_string());
+    let config_identity = args.config.as_ref().map(|path| path_identity(path)).transpose()?;
     let baseline_identity = args.baseline.as_ref().map(|path| path_identity(path)).transpose()?;
     let lockfile_identity = path_identity_if_present(&workspace_root.join("Cargo.lock"))?;
-    let (mode, import_text, tool_exit_code) = evidence_input_text(args)?;
+    let prepared_clippy_run = prepare_clippy_run(args)?;
+    let (mode, import_text, tool_exit_code) = evidence_input_text(args, prepared_clippy_run.as_ref())?;
     let normalized_command = if args.run && args.rail == EvidenceRailKind::AstGrepStructural {
         Some(run_mode_command_argv(args)?.join(" "))
+    } else if args.run && args.rail == EvidenceRailKind::ClippyCoReporting {
+        Some(
+            prepared_clippy_run
+                .as_ref()
+                .map_or_else(default_clippy_command_argv, |prepared| prepared.command_argv.clone())
+                .join(" "),
+        )
     } else {
         args.command.clone()
     };
-    let receipt = evaluate(EvaluationInput {
+    let mut receipt = evaluate(EvaluationInput {
         rail: args.rail,
         mode,
         import_text: &import_text,
@@ -550,6 +563,8 @@ pub fn run(args: &EvidenceRailArgs) -> Result<i32, String> {
             .collect(),
         tool_exit_code,
     });
+    receipt.config_identity = config_identity;
+    receipt.clippy_restrictions = prepared_clippy_run.as_ref().map(|prepared| prepared.details.clone());
 
     let wasm_bytes = if args.rail == EvidenceRailKind::WasmArtifact {
         let input = args.input.as_deref().ok_or_else(|| "wasm-artifact rail requires `--input PATH`".to_owned())?;
@@ -599,6 +614,7 @@ pub fn evaluate(input: EvaluationInput<'_>) -> EvidenceRailReceipt {
         ),
         workspace_scope: input.workspace_scope.to_owned(),
         config_path: input.config_path.map(ToOwned::to_owned),
+        config_identity: None,
         baseline_identity: input.baseline_identity,
         lockfile_identity: input.lockfile_identity,
         checked_rule_families: input.rail.checked_rule_families(),
@@ -622,6 +638,7 @@ pub fn evaluate(input: EvaluationInput<'_>) -> EvidenceRailReceipt {
         findings: parsed.findings,
         parent_artifacts: input.parent_artifacts,
         property_classes: parsed.property_classes,
+        clippy_restrictions: None,
         ast_grep,
         wasm_artifact,
         hegel_property: parsed.hegel_property,
@@ -768,6 +785,10 @@ pub fn validate_receipt(receipt: &EvidenceRailReceipt) -> Vec<String> {
     if receipt.non_claims.is_empty() {
         diagnostics.push("evidence rail receipt must carry at least one explicit non-claim".to_owned());
     }
+    if receipt.config_identity.as_deref().is_some_and(|identity| !is_b3_identity(identity)) {
+        diagnostics.push("evidence rail config_identity must be a BLAKE3 identity".to_owned());
+    }
+    validate_clippy_restriction_receipt(rail, receipt, &mut diagnostics);
     validate_ast_grep_receipt(rail, receipt, &mut diagnostics);
     validate_wasm_artifact_receipt(rail, receipt, &mut diagnostics);
     match (rail, receipt.hegel_property.as_ref()) {
@@ -823,6 +844,49 @@ pub fn validate_receipt(receipt: &EvidenceRailReceipt) -> Vec<String> {
         (_, None) => {}
     }
     diagnostics
+}
+
+fn validate_clippy_restriction_receipt(
+    rail: EvidenceRailKind,
+    receipt: &EvidenceRailReceipt,
+    diagnostics: &mut Vec<String>,
+) {
+    match (rail, receipt.clippy_restrictions.as_ref()) {
+        (EvidenceRailKind::ClippyCoReporting, Some(details)) => {
+            diagnostics.extend(crate::clippy_restrictions::receipt_details_diagnostics(details));
+            if receipt.mode != MODE_RUN {
+                diagnostics.push("Clippy restriction profile details are only valid for run-mode receipts".to_owned());
+            }
+            if receipt.profile.as_deref() != Some(details.profile.profile_id.as_str()) {
+                diagnostics
+                    .push("Clippy restriction receipt profile does not match selected profile details".to_owned());
+            }
+            if receipt.config_path.as_deref().is_none_or(str::is_empty) {
+                diagnostics.push("profiled Clippy restriction receipt missing config_path".to_owned());
+            }
+            if receipt
+                .config_identity
+                .as_deref()
+                .is_none_or(|identity| !crate::clippy_restrictions::is_blake3_identity(identity))
+            {
+                diagnostics.push("profiled Clippy restriction receipt missing BLAKE3 config_identity".to_owned());
+            }
+            let expected_command = crate::clippy_restrictions::command_argv(&details.profile);
+            if receipt.command_argv != expected_command {
+                diagnostics.push("profiled Clippy restriction receipt command argv does not match profile".to_owned());
+            }
+        }
+        (EvidenceRailKind::ClippyCoReporting, None)
+            if receipt.mode == MODE_RUN && receipt.profile.as_deref().is_some() =>
+        {
+            diagnostics.push("profiled Clippy restriction run receipt missing profile details".to_owned());
+        }
+        (EvidenceRailKind::ClippyCoReporting, None) => {}
+        (_, Some(_)) => {
+            diagnostics.push("clippy_restrictions details are only valid on Clippy co-reporting receipts".to_owned());
+        }
+        (_, None) => {}
+    }
 }
 
 fn validate_ast_grep_receipt(rail: EvidenceRailKind, receipt: &EvidenceRailReceipt, diagnostics: &mut Vec<String>) {
@@ -995,6 +1059,12 @@ fn parse_clippy(input: &EvaluationInput<'_>) -> RailParseOutput {
             line: primary.and_then(|span| span.get("line_start")).and_then(serde_json::Value::as_u64),
             column: primary.and_then(|span| span.get("column_start")).and_then(serde_json::Value::as_u64),
         });
+    }
+    if let Some(exit_code) = input.tool_exit_code {
+        let denied_finding_present = findings.iter().any(|finding| finding.severity == "error");
+        if exit_code != EXIT_SUCCESS && !denied_finding_present {
+            diagnostics.push(format!("Clippy tool exited with nonzero status {exit_code}"));
+        }
     }
     let finding_counts = counts_by_family(&findings);
     let status = status_from_error_findings(&findings);
@@ -2307,7 +2377,10 @@ fn status_from_kani_findings(findings: &[EvidenceRailFinding]) -> String {
     }
 }
 
-fn evidence_input_text(args: &EvidenceRailArgs) -> Result<(&'static str, String, Option<i32>), String> {
+fn evidence_input_text(
+    args: &EvidenceRailArgs,
+    prepared_clippy_run: Option<&PreparedClippyRun>,
+) -> Result<(&'static str, String, Option<i32>), String> {
     if args.rail == EvidenceRailKind::WasmArtifact {
         return analyze_wasm_input(args).map(|envelope| (MODE_IMPORT, envelope, None));
     }
@@ -2317,7 +2390,9 @@ fn evidence_input_text(args: &EvidenceRailArgs) -> Result<(&'static str, String,
                 .map_err(|error| format!("read evidence input {}: {error}", input.display()))?;
             Ok((MODE_IMPORT, text, None))
         }
-        (None, true) => run_tool(args).map(|output| (MODE_RUN, output.stdout_stderr, Some(output.exit_code))),
+        (None, true) => {
+            run_tool(args, prepared_clippy_run).map(|output| (MODE_RUN, output.stdout_stderr, Some(output.exit_code)))
+        }
         (Some(_), true) => Err("evidence collect accepts either `--input PATH` or `--run`, not both".to_owned()),
         (None, false) => Err("evidence collect requires `--input PATH` or `--run`".to_owned()),
     }
@@ -2377,11 +2452,13 @@ struct ToolOutput {
     exit_code: i32,
 }
 
-fn run_tool(args: &EvidenceRailArgs) -> Result<ToolOutput, String> {
+fn run_tool(args: &EvidenceRailArgs, prepared_clippy_run: Option<&PreparedClippyRun>) -> Result<ToolOutput, String> {
     if args.rail == EvidenceRailKind::AstGrepStructural {
         return run_ast_grep_tool(args);
     }
-    let command_parts = run_mode_command_argv(args)?;
+    let command_parts = prepared_clippy_run
+        .map(|prepared| prepared.command_argv.clone())
+        .map_or_else(|| run_mode_command_argv(args), Ok)?;
     let (program, rest) =
         command_parts.split_first().ok_or_else(|| "evidence rail command argv is empty".to_owned())?;
     let mut command = Command::new(program);
@@ -2394,7 +2471,9 @@ fn run_tool(args: &EvidenceRailArgs) -> Result<ToolOutput, String> {
         .map_err(|error| format!("run evidence rail command `{}`: {error}", command_parts.join(" ")))?;
     let mut stdout_stderr = String::new();
     stdout_stderr.push_str(&String::from_utf8_lossy(&output.stdout));
-    stdout_stderr.push_str(&String::from_utf8_lossy(&output.stderr));
+    if args.rail != EvidenceRailKind::ClippyCoReporting {
+        stdout_stderr.push_str(&String::from_utf8_lossy(&output.stderr));
+    }
     Ok(ToolOutput {
         stdout_stderr,
         exit_code: output.status.code().unwrap_or(EXIT_INTEGRATION_FAILURE),
@@ -2486,9 +2565,51 @@ fn load_ast_grep_profile(args: &EvidenceRailArgs) -> Result<crate::ast_grep_rail
     }
 }
 
+#[derive(Clone, Debug)]
+struct PreparedClippyRun {
+    command_argv: Vec<String>,
+    details: crate::clippy_restrictions::ClippyRestrictionReceiptDetails,
+}
+
+fn prepare_clippy_run(args: &EvidenceRailArgs) -> Result<Option<PreparedClippyRun>, String> {
+    if !args.run || args.rail != EvidenceRailKind::ClippyCoReporting {
+        return Ok(None);
+    }
+    match (args.config.as_deref(), args.profile.as_deref()) {
+        (None, None) => Ok(None),
+        (Some(_), None) => Err("profiled Clippy run requires `--profile NAME` with `--config PATH`".to_owned()),
+        (None, Some(_)) => Err("profiled Clippy run requires `--config PATH` with `--profile NAME`".to_owned()),
+        (Some(config_path), Some(profile_id)) => {
+            if args.command.as_deref().is_some_and(|command| !command.is_empty()) {
+                return Err(
+                    "profiled Clippy run rejects arbitrary --command authority; use the checked profile".to_owned()
+                );
+            }
+            let text = fs::read_to_string(config_path).map_err(|error| {
+                format!("read Clippy restriction profile catalog {}: {error}", config_path.display())
+            })?;
+            let catalog = crate::clippy_restrictions::checked_catalog(&text)?;
+            let profile = crate::clippy_restrictions::select_profile(&catalog, profile_id)?;
+            let details = crate::clippy_restrictions::receipt_details(&profile)?;
+            Ok(Some(PreparedClippyRun {
+                command_argv: crate::clippy_restrictions::command_argv(&profile),
+                details,
+            }))
+        }
+    }
+}
+
+fn default_clippy_command_argv() -> Vec<String> {
+    string_vec(&["cargo", "clippy", "--message-format=json"])
+}
+
 fn run_mode_command_argv(args: &EvidenceRailArgs) -> Result<Vec<String>, String> {
     let config_path = args.config.as_ref().map(|path| path.display().to_string());
     let baseline_identity = args.baseline.as_ref().map(|path| path.display().to_string());
+    if args.rail == EvidenceRailKind::ClippyCoReporting {
+        return prepare_clippy_run(args)
+            .map(|prepared| prepared.map_or_else(default_clippy_command_argv, |prepared| prepared.command_argv));
+    }
     if args.rail == EvidenceRailKind::AstGrepStructural {
         if args.command.as_deref().is_some_and(|command| !command.is_empty()) {
             return Err("ast-grep run rejects arbitrary --command authority; use the checked profile".to_owned());
@@ -2535,7 +2656,9 @@ fn command_argv(
             }
             argv
         }
-        EvidenceRailKind::ClippyCoReporting => string_vec(&["cargo", "clippy", "--message-format=json"]),
+        EvidenceRailKind::ClippyCoReporting => {
+            requested_command.map_or_else(default_clippy_command_argv, split_command)
+        }
         EvidenceRailKind::AstGrepStructural => {
             requested_command.map_or_else(|| string_vec(&["ast-grep", "scan", "--json=compact"]), split_command)
         }
@@ -3017,6 +3140,35 @@ mod tests {
     const CLIPPY_JSON: &str = r#"{"reason":"compiler-message","message":{"code":{"code":"clippy::unwrap_used"},"level":"warning","message":"used unwrap","spans":[{"is_primary":true,"file_name":"src/lib.rs","line_start":10,"column_start":5}]}}
 "#;
 
+    fn clippy_profile_catalog_path() -> std::path::PathBuf {
+        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../standards/clippy-restrictions/generated/profiles.json")
+    }
+
+    fn clippy_run_args(
+        config: Option<std::path::PathBuf>,
+        profile: Option<&str>,
+        command: Option<&str>,
+    ) -> crate::cli::EvidenceRailArgs {
+        crate::cli::EvidenceRailArgs {
+            rail: EvidenceRailKind::ClippyCoReporting,
+            input: None,
+            artifact_dir: std::path::PathBuf::from("artifacts/clippy-profile-test"),
+            workspace_root: None,
+            config,
+            baseline: None,
+            profile: profile.map(ToOwned::to_owned),
+            command: command.map(ToOwned::to_owned),
+            parent_artifacts: Vec::new(),
+            external_reports: Vec::new(),
+            output_format: OutputFormat::Human,
+            locked: false,
+            update_advisory_database: false,
+            run: true,
+            command_line: "cargo octet evidence collect --rail clippy-co-reporting --run".to_owned(),
+        }
+    }
+
     #[hegel::test(test_cases = HEGEL_PROPERTY_CASES)]
     fn hegel_receipt_normalizes_replay_sets_and_rejects_bad_hashes(tc: TestCase) {
         let salt = draw_hegel_salt(&tc);
@@ -3157,6 +3309,90 @@ mod tests {
         assert_eq!(receipt.status, STATUS_FAILED);
         assert!(receipt.diagnostics.iter().any(|diagnostic| diagnostic.contains("malformed Clippy JSON")));
         assert!(receipt.diagnostics.iter().any(|diagnostic| diagnostic.contains("message.code.code")));
+    }
+
+    #[test]
+    fn profiled_clippy_run_builds_checked_command_and_rejects_unchecked_authority() {
+        let config = clippy_profile_catalog_path();
+        let args = clippy_run_args(Some(config.clone()), Some("production-safety"), None);
+        let prepared = prepare_clippy_run(&args).expect("profile preparation").expect("selected profile");
+        assert_eq!(prepared.details.profile.profile_id, "production-safety");
+        assert!(prepared.command_argv.iter().any(|arg| arg == "clippy::mem_forget"));
+        assert!(!prepared.command_argv.iter().any(|arg| arg == "clippy::restriction"));
+
+        let missing_profile = prepare_clippy_run(&clippy_run_args(Some(config.clone()), None, None))
+            .expect_err("config without profile should fail");
+        let missing_config = prepare_clippy_run(&clippy_run_args(None, Some("production-safety"), None))
+            .expect_err("profile without config should fail");
+        let arbitrary = prepare_clippy_run(&clippy_run_args(
+            Some(config),
+            Some("production-safety"),
+            Some("cargo clippy --all-features"),
+        ))
+        .expect_err("profiled arbitrary command should fail");
+        assert!(missing_profile.contains("--profile"));
+        assert!(missing_config.contains("--config"));
+        assert!(arbitrary.contains("arbitrary --command authority"));
+    }
+
+    #[test]
+    fn profiled_clippy_receipt_binds_policy_and_rejects_tampering() {
+        let config = clippy_profile_catalog_path();
+        let args = clippy_run_args(Some(config.clone()), Some("production-safety"), None);
+        let prepared = prepare_clippy_run(&args).expect("profile preparation").expect("selected profile");
+        let normalized_command = prepared.command_argv.join(" ");
+        let mut receipt = evaluate(EvaluationInput {
+            rail: EvidenceRailKind::ClippyCoReporting,
+            mode: MODE_RUN,
+            import_text: "",
+            workspace_scope: WORKSPACE_SCOPE,
+            config_path: Some("standards/clippy-restrictions/generated/profiles.json"),
+            baseline_identity: None,
+            lockfile_identity: None,
+            locked: false,
+            advisory_updated_by_prior_step: false,
+            profile: Some("production-safety"),
+            requested_command: Some(&normalized_command),
+            parent_artifacts: Vec::new(),
+            tool_exit_code: Some(EXIT_SUCCESS),
+        });
+        receipt.config_identity = Some(path_identity(&config).expect("config identity"));
+        receipt.clippy_restrictions = Some(prepared.details);
+        assert_eq!(receipt.status, STATUS_PASSED);
+        assert!(validate_receipt(&receipt).is_empty());
+
+        let mut command_tamper = receipt.clone();
+        command_tamper.command_argv.push("--all-features".to_owned());
+        let mut identity_tamper = receipt.clone();
+        identity_tamper.config_identity = None;
+        let mut profile_tamper = receipt;
+        profile_tamper.clippy_restrictions.as_mut().expect("profile details").profile_identity =
+            "b3:tampered".to_owned();
+        assert!(validate_receipt(&command_tamper).iter().any(|diagnostic| diagnostic.contains("command argv")));
+        assert!(validate_receipt(&identity_tamper).iter().any(|diagnostic| diagnostic.contains("config_identity")));
+        assert!(validate_receipt(&profile_tamper).iter().any(|diagnostic| diagnostic.contains("selected-profile")));
+    }
+
+    #[test]
+    fn clippy_nonzero_tool_exit_fails_without_parsing_stderr_noise() {
+        let receipt = evaluate(EvaluationInput {
+            rail: EvidenceRailKind::ClippyCoReporting,
+            mode: MODE_RUN,
+            import_text: "",
+            workspace_scope: WORKSPACE_SCOPE,
+            config_path: None,
+            baseline_identity: None,
+            lockfile_identity: None,
+            locked: false,
+            advisory_updated_by_prior_step: false,
+            profile: None,
+            requested_command: None,
+            parent_artifacts: Vec::new(),
+            tool_exit_code: Some(EXIT_RAIL_FAILURE),
+        });
+        assert_eq!(receipt.status, STATUS_FAILED);
+        assert!(receipt.diagnostics.iter().any(|diagnostic| diagnostic.contains("nonzero status")));
+        assert!(!receipt.diagnostics.iter().any(|diagnostic| diagnostic.contains("malformed Clippy JSON")));
     }
 
     #[test]

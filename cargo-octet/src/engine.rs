@@ -1144,6 +1144,7 @@ mod tests {
         "Cargo.toml",
         "crates/octet-lint-metadata/Cargo.toml",
         "crates/octet-lint-metadata/src/strict_profile.rs",
+        "standards/clippy-restrictions/generated/profiles.json",
         "standards/effect-closure/generated/effect-closure-catalog.json",
         "standards/strict-profiles/generated/strict-rust-profiles.json",
     ];
