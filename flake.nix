@@ -1409,6 +1409,30 @@
               touch "$out"
             '';
 
+        clippyRestrictionProfilesCheck =
+          pkgs.runCommand "octet-clippy-restriction-profiles-check"
+            {
+              nativeBuildInputs = with pkgs; [ nickel ];
+            }
+            ''
+              cd ${./.}
+              generated_catalog=$(mktemp)
+              nickel typecheck standards/clippy-restrictions/profiles.ncl
+              nickel export --format json standards/clippy-restrictions/profiles.ncl > "$generated_catalog"
+              cmp "$generated_catalog" standards/clippy-restrictions/generated/profiles.json
+
+              for file in standards/clippy-restrictions/fixtures/valid/*.ncl; do
+                nickel export --format json "$file" >/dev/null
+              done
+              for file in standards/clippy-restrictions/fixtures/invalid/*.ncl; do
+                if nickel export --format json "$file" >/dev/null 2>&1; then
+                  echo "invalid Clippy restriction profile fixture passed: $file" >&2
+                  exit 1
+                fi
+              done
+              touch "$out"
+            '';
+
         effectClosureCatalogCheck =
           pkgs.runCommand "octet-effect-closure-catalog-check"
             {
@@ -2783,6 +2807,7 @@
             ast-grep-structural-rail = astGrepStructuralRailCheck;
             wasm-artifact-rail = wasmArtifactRailCheck;
             strict-profile-catalog = strictProfileCatalogCheck;
+            clippy-restriction-profiles = clippyRestrictionProfilesCheck;
             effect-closure-catalog = effectClosureCatalogCheck;
             downstream-proc-macro = downstreamProcMacroCheck;
             proof-rail-manifest = proofRailManifestCheck;
