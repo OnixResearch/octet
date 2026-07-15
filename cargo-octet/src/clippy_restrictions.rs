@@ -7,6 +7,7 @@ pub(crate) const CATALOG_SCHEMA_VERSION: &str = "octet-clippy-restriction-profil
 pub(crate) const CLAIM_SCOPE: &str = "clippy-restriction-diagnostics";
 
 const BLANKET_RESTRICTION_GROUP: &str = "restriction";
+const SHIPPED_CATALOG_JSON: &str = include_str!("../../standards/clippy-restrictions/generated/profiles.json");
 const SUPPORTED_LINTS: &[&str] = &[
     "dbg_macro",
     "exit",
@@ -57,6 +58,14 @@ pub(crate) struct ClippyRestrictionReceiptDetails {
 
 pub(crate) fn parse_catalog(text: &str) -> Result<ClippyRestrictionCatalog, String> {
     serde_json::from_str(text).map_err(|error| format!("parse Clippy restriction profile catalog: {error}"))
+}
+
+pub(crate) fn shipped_catalog() -> Result<ClippyRestrictionCatalog, String> {
+    checked_catalog(SHIPPED_CATALOG_JSON)
+}
+
+pub(crate) fn shipped_catalog_identity() -> String {
+    crate::determinism::full_hash(SHIPPED_CATALOG_JSON)
 }
 
 pub(crate) fn checked_catalog(text: &str) -> Result<ClippyRestrictionCatalog, String> {
@@ -212,12 +221,11 @@ fn profile_diagnostics(profile: &ClippyRestrictionProfile) -> Vec<String> {
 mod tests {
     use super::*;
 
-    const SHIPPED_CATALOG: &str = include_str!("../../standards/clippy-restrictions/generated/profiles.json");
     const EXPECTED_PROFILE_IDS: &[&str] = &["canonical-determinism", "production-safety", "shell-boundary-inventory"];
 
     #[test]
     fn shipped_catalog_selects_bounded_profiles_and_builds_exact_commands() {
-        let catalog = checked_catalog(SHIPPED_CATALOG).expect("shipped catalog should validate");
+        let catalog = shipped_catalog().expect("shipped catalog should validate");
         let mut profile_ids = catalog.profiles.iter().map(|profile| profile.profile_id.as_str()).collect::<Vec<_>>();
         profile_ids.sort_unstable();
         assert_eq!(profile_ids, EXPECTED_PROFILE_IDS);
@@ -249,11 +257,12 @@ mod tests {
         assert_eq!(first_identity, repeated_identity);
         assert_ne!(first_identity, canonical_identity);
         assert!(is_blake3_identity(&first_identity));
+        assert!(is_blake3_identity(&shipped_catalog_identity()));
     }
 
     #[test]
     fn catalog_rejects_duplicates_unknown_lints_blanket_group_and_invalid_fields() {
-        let mut catalog = checked_catalog(SHIPPED_CATALOG).expect("fixture catalog");
+        let mut catalog = shipped_catalog().expect("fixture catalog");
         catalog.schema_version = "unsupported".to_owned();
         catalog.profiles[0].summary.clear();
         catalog.profiles[0].claim_scope = "overclaim".to_owned();
@@ -279,7 +288,7 @@ mod tests {
 
     #[test]
     fn unknown_profile_and_tampered_receipt_fail_deterministically() {
-        let catalog = checked_catalog(SHIPPED_CATALOG).expect("shipped catalog");
+        let catalog = shipped_catalog().expect("shipped catalog");
         let unknown = select_profile(&catalog, "missing").expect_err("unknown profile should fail");
         assert!(unknown.contains("unknown Clippy restriction profile `missing`"));
         assert!(unknown.contains("canonical-determinism, production-safety, shell-boundary-inventory"));

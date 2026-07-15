@@ -1409,6 +1409,23 @@
               touch "$out"
             '';
 
+        clippyRestrictionCatalog = builtins.fromJSON (
+          builtins.readFile ./standards/clippy-restrictions/generated/profiles.json
+        );
+        productionSafetyClippyProfile = pkgs.lib.findFirst (
+          profile: profile.profile_id == "production-safety"
+        ) (throw "missing production-safety Clippy restriction profile") clippyRestrictionCatalog.profiles;
+        productionSafetyClippyLevelFlag =
+          if productionSafetyClippyProfile.lint_level == "deny" then
+            "-D"
+          else if productionSafetyClippyProfile.lint_level == "warn" then
+            "-W"
+          else
+            throw "unsupported production-safety Clippy lint level";
+        productionSafetyClippyArgs = pkgs.lib.concatMapStringsSep " " (
+          lint: "${productionSafetyClippyLevelFlag} clippy::${lint}"
+        ) productionSafetyClippyProfile.lints;
+
         clippyRestrictionProfilesCheck =
           pkgs.runCommand "octet-clippy-restriction-profiles-check"
             {
@@ -2796,7 +2813,7 @@
                 buildInputs
                 cargoVendorDir
                 ;
-              cargoClippyExtraArgs = "--all-targets -- -D warnings -W clippy::pedantic";
+              cargoClippyExtraArgs = "--all-targets -- -D warnings -W clippy::pedantic ${productionSafetyClippyArgs}";
             };
 
             fmt = craneLib.cargoFmt {

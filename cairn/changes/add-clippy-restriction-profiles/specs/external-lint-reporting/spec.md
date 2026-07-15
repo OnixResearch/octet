@@ -1,10 +1,6 @@
-# External Lint Reporting Specification
+# External Lint Reporting Specification Delta
 
-## Purpose
-
-Adds typed, profile-bound Clippy restriction execution to the existing external lint reporting capability.
-
-## Requirements
+## ADDED Requirements
 
 ### Requirement: Nickel-authored Clippy restriction profile catalog
 
@@ -36,9 +32,10 @@ r[octet.external_lint.clippy_restriction_profiles.run] The Clippy co-reporting r
 
 r[octet.external_lint.clippy_restriction_profiles.run.profiled]
 
-- GIVEN an operator supplies a checked generated catalog and known profile ID to Clippy run mode
+- GIVEN an operator supplies a known profile ID to Clippy run mode, with either the shipped embedded catalog or an explicit checked catalog
 - WHEN Octet prepares the tool invocation
 - THEN it MUST execute quiet workspace/all-target Clippy JSON output with only the profile's explicit lint-level flags appended after Cargo arguments.
+- AND a shipped profile MUST be selectable without a workspace-relative Octet catalog path.
 - AND it MUST reject an operator-supplied arbitrary command for that profiled run.
 
 #### Scenario: Unprofiled run remains compatible
@@ -97,3 +94,12 @@ r[octet.external_lint.clippy_restriction_profiles.verification.focused]
 - WHEN the profiled Clippy evidence rail runs against both fixtures
 - THEN the clean fixture MUST produce a passing policy-bound receipt.
 - AND the violating fixture MUST produce a failed receipt preserving the Clippy lint identity and nonzero tool exit.
+
+#### Scenario: Policy owner dogfoods production safety
+
+r[octet.external_lint.clippy_restriction_profiles.verification.owner_dogfood]
+
+- GIVEN Octet's generated catalog contains the `production-safety` profile
+- WHEN the repo-owned flake Clippy check constructs its lint arguments
+- THEN it MUST derive the profile's exact lint level and lint IDs from the generated catalog.
+- AND the workspace/all-target check MUST fail on any selected restriction finding.

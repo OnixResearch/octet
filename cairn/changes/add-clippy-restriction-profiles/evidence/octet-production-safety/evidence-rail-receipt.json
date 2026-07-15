@@ -1,0 +1,64 @@
+{
+  "schema_version": "octet-evidence-rail-receipt/v1",
+  "rail_id": "clippy-co-reporting",
+  "checker_id": "clippy",
+  "mode": "run",
+  "command_argv": [
+    "cargo",
+    "clippy",
+    "--quiet",
+    "--workspace",
+    "--all-targets",
+    "--message-format=json",
+    "--",
+    "-D",
+    "clippy::dbg_macro",
+    "-D",
+    "clippy::mem_forget",
+    "-D",
+    "clippy::undocumented_unsafe_blocks",
+    "-D",
+    "clippy::multiple_unsafe_ops_per_block"
+  ],
+  "workspace_scope": ".",
+  "config_path": "embedded:standards/clippy-restrictions/generated/profiles.json",
+  "config_identity": "b3:125e578fa37bfcb314108c80992df302b3dd2647df0f0d042c3ac205b82010cd",
+  "lockfile_identity": "b3:bd4649131c6492b8599137114136168dca06f49f92263921b1ccee94cb3e0a3c",
+  "checked_rule_families": [
+    "clippy-diagnostics",
+    "source-severity",
+    "octet-gate-outcome"
+  ],
+  "status": "passed",
+  "finding_counts": {},
+  "bounded_log_identity": "b3:e1d3e4f60d4a5410d05ac3ddab89e5508c6e445208c5d06dea17bf2342cb4680",
+  "imported_input_identity": "b3:e1d3e4f60d4a5410d05ac3ddab89e5508c6e445208c5d06dea17bf2342cb4680",
+  "profile": "production-safety",
+  "tool_exit_code": 0,
+  "non_claims": [
+    "Clippy findings are complementary external hygiene evidence, not Octet source lint replacements",
+    "source severity is preserved separately from Octet gate outcome"
+  ],
+  "diagnostics": [],
+  "findings": [],
+  "parent_artifacts": [],
+  "clippy_restrictions": {
+    "profile": {
+      "profile_id": "production-safety",
+      "summary": "Reject debug macros, destructor bypass, undocumented unsafe blocks, and unsafe blocks that combine multiple operations.",
+      "lint_level": "deny",
+      "lints": [
+        "dbg_macro",
+        "mem_forget",
+        "undocumented_unsafe_blocks",
+        "multiple_unsafe_ops_per_block"
+      ],
+      "claim_scope": "clippy-restriction-diagnostics",
+      "non_claims": [
+        "Clippy restriction diagnostics are compiler lint evidence and do not prove behavioral correctness, panic freedom, memory safety, runtime determinism, compiler correctness, formal proof, whole-program correctness, or release eligibility.",
+        "The profile checks direct compiled targets under the recorded command and toolchain; it does not establish transitive dependency behavior or targets omitted from that command."
+      ]
+    },
+    "profile_identity": "b3:249384f4b01c9e222c172b9062252e4d195323c9ef416449f501390360b5d086"
+  }
+}

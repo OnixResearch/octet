@@ -51,6 +51,7 @@ const VERIFIER_FIXTURE_SCHEMA_VERSION: &str = "verifier-fixture-intake/v1";
 const HEGEL_GENERATED_TESTING_NON_CLAIM: &str = "Hegel checks bounded generated inputs only and does not prove correctness, semantic equivalence, verifier soundness, requirement satisfaction, release eligibility, or whole-program safety";
 const Z4_SOLVER_NON_CLAIM: &str = "Z4 solver evidence records bounded solver output identity and diagnostics only; it does not prove source correctness, solver soundness, proof validity, requirement satisfaction, release eligibility, or whole-program safety";
 const VERIFIER_FIXTURE_NON_CLAIM: &str = "Verifier fixtures are Octet-owned regression and UX inputs only; they do not prove source-verifier execution, verifier parity, proof soundness, solver soundness, source-code correctness, whole-program safety, or release eligibility";
+const EMBEDDED_CLIPPY_PROFILE_LOCATOR: &str = "embedded:standards/clippy-restrictions/generated/profiles.json";
 const HEGEL_FAST_CASE_BUDGET: u64 = 16;
 const FORMAL_PROOF_TIER: &str = "formal_proof";
 const BLAKE3_IDENTITY_PREFIX: &str = "b3:";
@@ -522,11 +523,15 @@ pub fn run(args: &EvidenceRailArgs) -> Result<i32, String> {
 
     let workspace_root = args.workspace_root.as_deref().unwrap_or_else(|| Path::new("."));
     let workspace_scope = workspace_root.display().to_string();
-    let config_path = args.config.as_ref().map(|path| path.display().to_string());
-    let config_identity = args.config.as_ref().map(|path| path_identity(path)).transpose()?;
+    let mut config_path = args.config.as_ref().map(|path| path.display().to_string());
+    let mut config_identity = args.config.as_ref().map(|path| path_identity(path)).transpose()?;
     let baseline_identity = args.baseline.as_ref().map(|path| path_identity(path)).transpose()?;
     let lockfile_identity = path_identity_if_present(&workspace_root.join("Cargo.lock"))?;
     let prepared_clippy_run = prepare_clippy_run(args)?;
+    if let Some(prepared) = &prepared_clippy_run {
+        config_path = Some(prepared.config_path.clone());
+        config_identity = Some(prepared.config_identity.clone());
+    }
     let (mode, import_text, tool_exit_code) = evidence_input_text(args, prepared_clippy_run.as_ref())?;
     let normalized_command = if args.run && args.rail == EvidenceRailKind::AstGrepStructural {
         Some(run_mode_command_argv(args)?.join(" "))
@@ -2567,6 +2572,8 @@ fn load_ast_grep_profile(args: &EvidenceRailArgs) -> Result<crate::ast_grep_rail
 
 #[derive(Clone, Debug)]
 struct PreparedClippyRun {
+    config_path: String,
+    config_identity: String,
     command_argv: Vec<String>,
     details: crate::clippy_restrictions::ClippyRestrictionReceiptDetails,
 }
@@ -2575,28 +2582,52 @@ fn prepare_clippy_run(args: &EvidenceRailArgs) -> Result<Option<PreparedClippyRu
     if !args.run || args.rail != EvidenceRailKind::ClippyCoReporting {
         return Ok(None);
     }
+    if args.profile.is_some() && args.command.as_deref().is_some_and(|command| !command.is_empty()) {
+        return Err("profiled Clippy run rejects arbitrary --command authority; use the checked profile".to_owned());
+    }
     match (args.config.as_deref(), args.profile.as_deref()) {
         (None, None) => Ok(None),
         (Some(_), None) => Err("profiled Clippy run requires `--profile NAME` with `--config PATH`".to_owned()),
-        (None, Some(_)) => Err("profiled Clippy run requires `--config PATH` with `--profile NAME`".to_owned()),
+        (None, Some(profile_id)) => {
+            let catalog = crate::clippy_restrictions::shipped_catalog()?;
+            prepare_selected_clippy_profile(
+                &catalog,
+                profile_id,
+                EMBEDDED_CLIPPY_PROFILE_LOCATOR.to_owned(),
+                crate::clippy_restrictions::shipped_catalog_identity(),
+            )
+            .map(Some)
+        }
         (Some(config_path), Some(profile_id)) => {
-            if args.command.as_deref().is_some_and(|command| !command.is_empty()) {
-                return Err(
-                    "profiled Clippy run rejects arbitrary --command authority; use the checked profile".to_owned()
-                );
-            }
             let text = fs::read_to_string(config_path).map_err(|error| {
                 format!("read Clippy restriction profile catalog {}: {error}", config_path.display())
             })?;
             let catalog = crate::clippy_restrictions::checked_catalog(&text)?;
-            let profile = crate::clippy_restrictions::select_profile(&catalog, profile_id)?;
-            let details = crate::clippy_restrictions::receipt_details(&profile)?;
-            Ok(Some(PreparedClippyRun {
-                command_argv: crate::clippy_restrictions::command_argv(&profile),
-                details,
-            }))
+            prepare_selected_clippy_profile(
+                &catalog,
+                profile_id,
+                config_path.display().to_string(),
+                prefixed_identity(text.as_bytes()),
+            )
+            .map(Some)
         }
     }
+}
+
+fn prepare_selected_clippy_profile(
+    catalog: &crate::clippy_restrictions::ClippyRestrictionCatalog,
+    profile_id: &str,
+    config_path: String,
+    config_identity: String,
+) -> Result<PreparedClippyRun, String> {
+    let profile = crate::clippy_restrictions::select_profile(catalog, profile_id)?;
+    let details = crate::clippy_restrictions::receipt_details(&profile)?;
+    Ok(PreparedClippyRun {
+        config_path,
+        config_identity,
+        command_argv: crate::clippy_restrictions::command_argv(&profile),
+        details,
+    })
 }
 
 fn default_clippy_command_argv() -> Vec<String> {
@@ -3322,8 +3353,9 @@ mod tests {
 
         let missing_profile = prepare_clippy_run(&clippy_run_args(Some(config.clone()), None, None))
             .expect_err("config without profile should fail");
-        let missing_config = prepare_clippy_run(&clippy_run_args(None, Some("production-safety"), None))
-            .expect_err("profile without config should fail");
+        let embedded = prepare_clippy_run(&clippy_run_args(None, Some("production-safety"), None))
+            .expect("shipped profile should prepare")
+            .expect("shipped profile selected");
         let arbitrary = prepare_clippy_run(&clippy_run_args(
             Some(config),
             Some("production-safety"),
@@ -3331,7 +3363,9 @@ mod tests {
         ))
         .expect_err("profiled arbitrary command should fail");
         assert!(missing_profile.contains("--profile"));
-        assert!(missing_config.contains("--config"));
+        assert_eq!(embedded.config_path, EMBEDDED_CLIPPY_PROFILE_LOCATOR);
+        assert!(crate::clippy_restrictions::is_blake3_identity(&embedded.config_identity));
+        assert_eq!(embedded.command_argv, prepared.command_argv);
         assert!(arbitrary.contains("arbitrary --command authority"));
     }
 

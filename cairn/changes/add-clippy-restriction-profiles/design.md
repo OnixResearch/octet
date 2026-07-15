@@ -32,9 +32,9 @@ Runtime validation will allow only the reviewed lint inventory and reject duplic
 cargo clippy --quiet --workspace --all-targets --message-format=json -- <LEVEL> clippy::<LINT> ...
 ```
 
-The evidence-rail shell will read the generated JSON, reject `--command` for profiled Clippy runs, spawn only the constructed argv, parse Clippy JSON from stdout, and retain the tool exit code. Unprofiled run mode retains the existing default command.
+The shipped generated JSON will be embedded in `cargo-octet`, so downstream workspaces can select it by profile ID without a workspace-relative Octet path. The evidence-rail shell may read an explicit checked `--config` override, rejects `--command` for profiled Clippy runs, spawns only the constructed argv, parses Clippy JSON from stdout, and retains the tool exit code. Unprofiled run mode retains the existing default command.
 
-**Rationale:** This prevents profile files from becoming arbitrary process-execution authority and makes policy logic testable without Cargo, Clippy, or filesystem setup.
+**Rationale:** This prevents profile files from becoming arbitrary process-execution authority, keeps the central policy available to packaged downstream consumers, and makes policy logic testable without Cargo, Clippy, or filesystem setup.
 
 ### 4. Bind policy and command into the existing receipt
 

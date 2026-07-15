@@ -1,5 +1,4 @@
 use std::fs;
-use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
 use std::process::Output;
@@ -32,6 +31,7 @@ fn clean_workspace_produces_policy_bound_passing_receipt() {
     assert_eq!(run.receipt["profile"], PROFILE_ID);
     assert_eq!(run.receipt["clippy_restrictions"]["profile"]["profile_id"], PROFILE_ID);
     assert_eq!(run.receipt["clippy_restrictions"]["profile"]["lint_level"], "deny");
+    assert_eq!(run.receipt["config_path"], "embedded:standards/clippy-restrictions/generated/profiles.json");
     assert!(
         run.receipt["clippy_restrictions"]["profile"]["lints"]
             .as_array()
@@ -101,10 +101,10 @@ fn run_profiled_fixture(source: &str) -> ProfileRun {
             "--rail",
             "clippy-co-reporting",
             "--run",
-            "--config",
+            "--profile",
+            PROFILE_ID,
+            "--workspace-root",
         ])
-        .arg(profile_catalog())
-        .args(["--profile", PROFILE_ID, "--workspace-root"])
         .arg(&workspace)
         .arg("--artifact-dir")
         .arg(&artifact_dir)
@@ -126,10 +126,6 @@ fn run_profiled_fixture(source: &str) -> ProfileRun {
 
 fn cargo_octet() -> &'static str {
     env!("CARGO_BIN_EXE_cargo-octet")
-}
-
-fn profile_catalog() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../standards/clippy-restrictions/generated/profiles.json")
 }
 
 fn stderr(output: &Output) -> String {
