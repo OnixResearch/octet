@@ -109,7 +109,7 @@ Optional external evidence rails collect selected non-starter tool output into s
 
 ```bash
 cargo octet evidence collect --rail dependency-audit --input target/deny.json --config deny.toml --locked --artifact-dir artifacts/dependency-audit
-cargo octet evidence collect --rail clippy-co-reporting --run --config standards/clippy-restrictions/generated/profiles.json --profile production-safety --workspace-root . --artifact-dir artifacts/clippy-restrictions
+cargo octet evidence collect --rail clippy-co-reporting --run --profile production-safety --workspace-root . --artifact-dir artifacts/clippy-restrictions
 cargo octet evidence collect --rail ast-grep --run --config standards/ast-grep/generated/profile.json --workspace-root . --artifact-dir artifacts/ast-grep
 cargo octet evidence collect --rail wasm-artifact --input module.wasm --config standards/wasm-artifact/generated/profiles.json --profile portable-component-baseline --artifact-dir artifacts/wasm-artifact
 cargo octet evidence collect --rail wasm-artifact --input module.wasm --config standards/wasm-artifact/generated/profiles.json --profile spacewasm-mvp --external-report chaoscontrol.json --artifact-dir artifacts/spacewasm
@@ -117,7 +117,7 @@ cargo octet evidence collect --rail hegel-property --input target/hegel-property
 cargo octet artifact verify --artifact-dir artifacts/dependency-audit
 ```
 
-The Clippy rail accepts only reviewed, cherry-picked restriction profiles; the blanket `clippy::restriction` group is unsupported. Profiled receipts bind full-catalog and selected-profile BLAKE3 identities, exact lint argv, findings, and tool status while remaining complementary `static_lint` evidence. See [`docs/clippy-restriction-profiles.md`](docs/clippy-restriction-profiles.md).
+The Clippy rail defaults to Octet's embedded, reviewed, cherry-picked restriction catalog; `--config PATH` selects another checked catalog. The blanket `clippy::restriction` group is unsupported. Profiled receipts bind full-catalog and selected-profile BLAKE3 identities, exact lint argv, findings, and tool status while remaining complementary `static_lint` evidence. See [`docs/clippy-restriction-profiles.md`](docs/clippy-restriction-profiles.md).
 
 For a strict local gate, copy `templates/pre-commit-config.yaml` to a consumer
 repo and pin this repository as a pre-commit hook source. The `octet-deny-all`

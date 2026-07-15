@@ -6,7 +6,7 @@ Octet can import or co-run Clippy, but the run path currently executes only Clip
 
 - Add a typed Nickel catalog for narrow Clippy restriction profiles, checked-in generated JSON, valid/invalid fixtures, and a freshness gate.
 - Ship reviewed `production-safety`, `canonical-determinism`, and `shell-boundary-inventory` profiles instead of enabling the blanket restriction group.
-- Make `cargo octet evidence collect --rail clippy-co-reporting --run --config ... --profile ...` load the selected profile, reject arbitrary command authority, and execute a deterministic workspace/all-target Clippy command.
+- Make `cargo octet evidence collect --rail clippy-co-reporting --run --profile ...` load the selected embedded profile (or a checked `--config` override), reject arbitrary command authority, and execute a deterministic workspace/all-target Clippy command.
 - Bind the selected profile, selected-profile BLAKE3 identity, full config BLAKE3 identity, lint level, exact lint list, command argv, and tool exit status into the existing external-lint receipt.
 - Preserve unprofiled Clippy co-reporting compatibility and keep Clippy evidence complementary to Octet's semantic source lints.
 
