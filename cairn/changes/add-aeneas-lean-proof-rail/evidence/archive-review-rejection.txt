@@ -1,0 +1,23 @@
+# Post-archive review rejection
+
+Date: 2026-07-16
+Change: `add-aeneas-lean-proof-rail`
+Verdict: REJECTED; change reopened for repair.
+
+## Deterministic findings
+
+- No `.lean` theorem fixture exists under `standards/proof-rails/aeneas-lean/`.
+- No Aeneas `translation.json` artifact exists in the repository.
+- No verified Aeneas proof receipt or matching artifact-verification receipt exists.
+- `octet-aeneas-lean` in `flake.nix` accepts only identity and Charon-pin checks; every execution request exits with `Aeneas Lean execution is not enabled by the provider-closure slice`.
+- Execution-shell tests invoke temporary shell doubles that print stage names rather than the pinned Charon, Aeneas, and Lean executables.
+- The frozen Valence fixture asserts passed verification over nonexistent artifacts and uses repeated placeholder digests rather than BLAKE3 measurements of frozen bytes.
+- The prior final-validation transcript contains Nickel/Rust/model checks but no real positive theorem check, false theorem rejection, vacuity rejection, generated Lean artifact, translation manifest, or Aeneas receipt.
+
+## Advisory review
+
+VibeThinker independently identified the missing Lean fixtures, translation manifest, proof receipt, executable provider, and measured Valence linkage as blockers. Its advice is advisory; the repository observations above and real tool execution remain authoritative.
+
+## Repair completion contract
+
+The reopened tasks may be checked only after the pinned provider closure can execute, a real positive theorem passes, real false and vacuous fixtures fail for distinct expected reasons, exact generated artifacts and receipts are measured, the Valence fixture is generated from a verified artifact directory, and the full positive/negative compatibility matrix plus Cairn validation passes.
