@@ -337,14 +337,33 @@ fn push_contract_mismatch<T: PartialEq>(diagnostics: &mut Vec<String>, field: &s
 }
 
 #[derive(Deserialize)]
-struct AeneasProviderProfileExtraction {
+struct AeneasProviderProfile {
+    aeneas_release: String,
+    charon_revision: String,
+    ocaml_toolchain: String,
+    lean_toolchain: String,
+    aeneas_lean_library: String,
     extraction_policy: CharonExtractionPolicy,
 }
 
-fn reviewed_aeneas_extraction_policy() -> Result<CharonExtractionPolicy, String> {
-    serde_json::from_str::<AeneasProviderProfileExtraction>(AENEAS_PROVIDER_PROFILE_JSON)
-        .map(|profile| profile.extraction_policy)
-        .map_err(|error| format!("embedded Aeneas provider profile extraction policy is invalid: {error}"))
+fn reviewed_aeneas_provider_profile() -> Result<AeneasProviderProfile, String> {
+    serde_json::from_str::<AeneasProviderProfile>(AENEAS_PROVIDER_PROFILE_JSON)
+        .map_err(|error| format!("embedded Aeneas provider profile is invalid: {error}"))
+}
+
+fn validate_aeneas_provider_pins(payload: &AeneasLeanProofPayload, reviewed: &AeneasProviderProfile) -> Vec<String> {
+    let mut diagnostics = Vec::new();
+    push_contract_mismatch(&mut diagnostics, "aeneas_release", &payload.aeneas_release, &reviewed.aeneas_release);
+    push_contract_mismatch(&mut diagnostics, "charon_revision", &payload.charon_revision, &reviewed.charon_revision);
+    push_contract_mismatch(&mut diagnostics, "ocaml_toolchain", &payload.ocaml_toolchain, &reviewed.ocaml_toolchain);
+    push_contract_mismatch(&mut diagnostics, "lean_toolchain", &payload.lean_toolchain, &reviewed.lean_toolchain);
+    push_contract_mismatch(
+        &mut diagnostics,
+        "aeneas_lean_library",
+        &payload.aeneas_lean_library,
+        &reviewed.aeneas_lean_library,
+    );
+    diagnostics
 }
 
 /// Declared trust-input policy for Aeneas theorem admission.
@@ -1237,8 +1256,12 @@ pub fn validate_aeneas_lean_payload(payload: &AeneasLeanProofPayload) -> Vec<Str
     if payload.limits.stderr_max_bytes == 0 {
         diagnostics.push("limits.stderr_max_bytes must be greater than zero".to_owned());
     }
-    match reviewed_aeneas_extraction_policy() {
-        Ok(reviewed) => diagnostics.extend(validate_charon_extraction_contract(&payload.extraction_policy, &reviewed)),
+    match reviewed_aeneas_provider_profile() {
+        Ok(reviewed) => {
+            diagnostics.extend(validate_aeneas_provider_pins(payload, &reviewed));
+            diagnostics
+                .extend(validate_charon_extraction_contract(&payload.extraction_policy, &reviewed.extraction_policy));
+        }
         Err(error) => diagnostics.push(error),
     }
     if !payload.assumption_policy.requires_complete_declaration {
@@ -1521,8 +1544,6 @@ mod tests {
     const TEST_TIMEOUT_MS: u64 = 30_000;
     const TEST_LOG_MAX_BYTES: usize = 4_096;
     const TEST_DRIFT_POINTER_WIDTH_BITS: u16 = 32;
-    const TEST_PROVIDER_RELEASE: &str = "aeneas@0.1.0";
-    const TEST_CHARON_REVISION: &str = "cb50ff16b9f1066b8a97dc06da704de2da2fa41c";
     const TEST_SOURCE_PATH: &str = "src/verified/addition.rs";
     const TEST_FIRST_START_BYTE: usize = 10;
     const TEST_FIRST_END_BYTE: usize = 20;
@@ -1601,7 +1622,7 @@ mod tests {
     // r[verify octet.aeneas_lean_proof_rail.charon_contract]
     #[test]
     fn charon_extraction_contract_accepts_reviewed_profile() {
-        let reviewed = reviewed_aeneas_extraction_policy().expect("generated provider profile");
+        let reviewed = reviewed_aeneas_provider_profile().expect("generated provider profile").extraction_policy;
 
         let diagnostics = validate_charon_extraction_contract(&reviewed, &reviewed);
 
@@ -1611,7 +1632,7 @@ mod tests {
     // r[verify octet.aeneas_lean_proof_rail.charon_contract]
     #[test]
     fn charon_extraction_contract_rejects_drift_and_weakened_options() {
-        let reviewed = reviewed_aeneas_extraction_policy().expect("generated provider profile");
+        let reviewed = reviewed_aeneas_provider_profile().expect("generated provider profile").extraction_policy;
         let mut observed = reviewed.clone();
         observed.has_errors = true;
         observed.skip_borrowck = true;
@@ -1649,6 +1670,20 @@ mod tests {
                 "missing diagnostic for {field}: {diagnostics:?}"
             );
         }
+    }
+
+    // r[verify octet.aeneas_lean_proof_rail.provider_contract]
+    #[test]
+    fn aeneas_payload_rejects_provider_pin_drift() {
+        let mut payload = valid_aeneas_payload();
+        payload.charon_revision = "wrong-charon-revision".to_owned();
+
+        let diagnostics = validate_aeneas_lean_payload(&payload);
+
+        assert!(
+            diagnostics.iter().any(|diagnostic| diagnostic.contains("charon_revision drifted")),
+            "wrong provider pin must fail closed: {diagnostics:?}"
+        );
     }
 
     // r[verify octet.aeneas_lean_proof_rail.provider_contract]
@@ -1742,8 +1777,8 @@ mod tests {
     fn aeneas_stage_chain_rejects_stale_swapped_duplicate_and_malformed_links() {
         let mut chain = valid_stage_chain();
         chain.stages[2].input_artifacts[0].blake3 = "stale".to_owned();
-        chain.stages[1].output_artifacts[1] = chain.stages[1].output_artifacts[0].clone();
-        chain.stages[3].output_artifacts.swap(0, 1);
+        chain.stages[1].output_artifacts.swap(1, 2);
+        chain.stages[3].output_artifacts[0].blake3 = "stale-generated-lean".to_owned();
         chain.stages[4].input_artifacts.reverse();
         chain.stages[5].output_artifacts[0].blake3 = "not-a-blake3-digest".to_owned();
 
@@ -1775,7 +1810,8 @@ mod tests {
     // r[verify octet.aeneas_lean_proof_rail.translation_manifest]
     #[test]
     fn translation_manifest_rejects_stale_links_bad_inventory_and_durable_def_id() {
-        let (mut manifest, llbc_declarations) = valid_translation_manifest();
+        let (mut manifest, mut llbc_declarations) = valid_translation_manifest();
+        llbc_declarations.push(llbc_declarations[0].clone());
         manifest.declarations[0].rust_span.end_byte += 1;
         manifest.declarations[1].def_id = "run:missing".to_owned();
         manifest.declarations[1].durable_identity = Some("run:missing".to_owned());
@@ -1789,6 +1825,10 @@ mod tests {
         assert!(diagnostics.iter().any(|diagnostic| diagnostic.contains("durable_identity")));
         assert!(diagnostics.iter().any(|diagnostic| diagnostic.contains("generated_files")));
         assert!(diagnostics.iter().any(|diagnostic| diagnostic.contains("BLAKE3")));
+        assert!(
+            diagnostics.iter().any(|diagnostic| diagnostic.contains("duplicates a current-run declaration")),
+            "reused def_id must remain a rejected join key: {diagnostics:?}"
+        );
     }
 
     // r[verify octet.aeneas_lean_proof_rail.verus_compatibility]
@@ -1822,12 +1862,13 @@ mod tests {
     }
 
     fn valid_aeneas_payload() -> AeneasLeanProofPayload {
+        let profile = reviewed_aeneas_provider_profile().expect("generated provider profile");
         AeneasLeanProofPayload {
-            aeneas_release: TEST_PROVIDER_RELEASE.to_owned(),
-            charon_revision: TEST_CHARON_REVISION.to_owned(),
-            ocaml_toolchain: "ocaml@5.2.0".to_owned(),
-            lean_toolchain: "lean@4.19.0".to_owned(),
-            aeneas_lean_library: "aeneas-lean@0.1.0".to_owned(),
+            aeneas_release: profile.aeneas_release,
+            charon_revision: profile.charon_revision,
+            ocaml_toolchain: profile.ocaml_toolchain,
+            lean_toolchain: profile.lean_toolchain,
+            aeneas_lean_library: profile.aeneas_lean_library,
             checked_source_surface: vec!["safe sequential Rust".to_owned()],
             preflight: AeneasPreflight {
                 unsupported_inputs: Vec::new(),
@@ -1840,7 +1881,7 @@ mod tests {
                 stderr_max_bytes: TEST_LOG_MAX_BYTES,
             },
             environment_allowlist: vec!["PATH".to_owned()],
-            extraction_policy: reviewed_aeneas_extraction_policy().expect("generated provider profile"),
+            extraction_policy: profile.extraction_policy,
             assumption_policy: AeneasAssumptionPolicy {
                 external_models: vec!["none".to_owned()],
                 axioms: vec!["none".to_owned()],
@@ -1911,6 +1952,49 @@ mod tests {
         assert!(
             vacuous_diagnostics.iter().any(|diagnostic| diagnostic.contains("non_vacuous")),
             "vacuous theorem must fail adequacy: {vacuous_diagnostics:?}"
+        );
+    }
+
+    // r[verify octet.aeneas_lean_proof_rail.stage_chain]
+    // r[verify octet.aeneas_lean_proof_rail.charon_contract]
+    // r[verify octet.aeneas_lean_proof_rail.translation_manifest]
+    // r[verify octet.aeneas_lean_proof_rail.theorem_gate]
+    // r[verify octet.aeneas_lean_proof_rail.theorem_adequacy]
+    #[test]
+    fn aeneas_formal_proof_rejects_missing_theorem_trust_gaps_and_role_promotion() {
+        let mut envelope = valid_aeneas_envelope();
+        let FormalProofProvider::AeneasLean(payload) = &mut envelope.provider else {
+            panic!("fixture must use Aeneas provider");
+        };
+        let admission = payload.theorem_admission.as_mut().expect("fixture theorem admission");
+        admission.named_theorem_present = false;
+        admission.adequacy.forbidden_declarations = vec!["sorry".to_owned(), "admit".to_owned()];
+        admission.trust_closure.undeclared_inputs = vec!["model:missing".to_owned(), "axiom:missing".to_owned()];
+        admission.trust_closure.declared_admitted_declarations = vec!["theorem:admitted".to_owned()];
+
+        let diagnostics = validate_formal_proof_envelope(&envelope);
+
+        for expected in [
+            "requires a bound named theorem",
+            "rejects forbidden theorem declarations",
+            "rejects undeclared theorem trust inputs",
+            "rejects admitted theorem declarations",
+        ] {
+            assert!(
+                diagnostics.iter().any(|diagnostic| diagnostic.contains(expected)),
+                "missing promotion diagnostic `{expected}`: {diagnostics:?}"
+            );
+        }
+
+        let mut promoted_recorded_only = valid_aeneas_envelope();
+        let FormalProofProvider::AeneasLean(payload) = &mut promoted_recorded_only.provider else {
+            panic!("fixture must use Aeneas provider");
+        };
+        payload.theorem_admission = None;
+        let promotion_diagnostics = validate_formal_proof_envelope(&promoted_recorded_only);
+        assert!(
+            promotion_diagnostics.iter().any(|diagnostic| diagnostic.contains("requires theorem_admission")),
+            "recorded-only payload must not be promoted without a theorem: {promotion_diagnostics:?}"
         );
     }
 

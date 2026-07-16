@@ -1,0 +1,67 @@
+# Aeneas stage-chain negative-case slice evidence
+
+Requirement IDs:
+
+- `r[octet.aeneas_lean_proof_rail.stage_chain]`
+- `r[octet.aeneas_lean_proof_rail.charon_contract]`
+- `r[octet.aeneas_lean_proof_rail.translation_manifest]`
+- `r[octet.aeneas_lean_proof_rail.theorem_gate]`
+- `r[octet.aeneas_lean_proof_rail.theorem_adequacy]`
+
+Implementation artifact: `crates/octet-standards/src/formal_proof.rs`
+
+The pure validator now compares every Aeneas payload tool identity with the
+embedded generated provider profile before extraction/stage admission. The
+slice also adds explicit negative fixtures for stale source/package bindings,
+errorful or borrow-check-bypassed Charon extraction, target and extraction
+profile drift, swapped/stale stage artifacts, stale generated Lean, duplicate
+current-run `def_id` values, provider-pin drift, missing theorem selection,
+vacuous theorem adequacy, `sorry`/`admit`, undeclared model/axiom inputs,
+weakened non-claims, and formal-proof role promotion without theorem
+admission. Existing positive fixtures continue to exercise the valid stage
+chain, translation manifest, complete provider envelope, and non-vacuous named
+theorem path.
+
+Representative mapping:
+
+- `validate_aeneas_provider_pins` / `aeneas_payload_rejects_provider_pin_drift`
+  -> exact reviewed Aeneas, Charon, OCaml, Lean, and Aeneas Lean library pins.
+- `validate_charon_extraction_contract` /
+  `charon_extraction_contract_rejects_drift_and_weakened_options`
+  -> errorful LLBC, borrow-check bypass, target/profile, and extraction-option
+  negatives.
+- `validate_aeneas_stage_chain` /
+  `aeneas_stage_chain_rejects_stale_swapped_duplicate_and_malformed_links`
+  -> stale, swapped, malformed, and generated-Lean stage-link negatives.
+- `validate_aeneas_translation_manifest` /
+  `translation_manifest_rejects_stale_links_bad_inventory_and_durable_def_id`
+  -> stale/mismatched `translation.json`, generated-file inventory, and
+  current-run `def_id` reuse negatives.
+- `validate_aeneas_formal_proof_promotion` /
+  `aeneas_formal_proof_rejects_false_and_vacuous_theorems` and
+  `aeneas_formal_proof_rejects_missing_theorem_trust_gaps_and_role_promotion`
+  -> false/vacuous, missing theorem, `sorry`/`admit`, undeclared trust, and
+  role-promotion negatives.
+
+Baseline before the edit:
+
+```text
+$ nix develop -c cargo test -p octet-standards formal_proof --lib -- --nocapture
+... test result: ok. 16 passed; 0 failed
+```
+
+Executed evidence after the edit:
+
+```text
+$ nix develop -c cargo fmt --check
+PASS
+
+$ nix develop -c cargo test -p octet-standards formal_proof --lib -- --nocapture
+... test result: ok. 18 passed; 0 failed
+
+$ nix develop -c cargo clippy -p octet-standards --lib -- -D warnings
+Finished `dev` profile
+```
+
+The added tests exercise pure in-memory validation only; no process,
+filesystem, environment, clock, network, or runtime Nickel access was added.
