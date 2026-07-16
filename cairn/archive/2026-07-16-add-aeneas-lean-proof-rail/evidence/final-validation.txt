@@ -84,3 +84,14 @@ blocked: false; dry_run: true; mutated: false; reasons: []
 
 The accepted spec contains the `valence_handoff` and `final_validation`
 requirement IDs before archive execution.
+
+Archive execution and post-archive validation:
+
+```text
+$ CAIRN_ARCHIVE_DATE=2026-07-16 nix run path:$PWD#cairn -- archive add-aeneas-lean-proof-rail --root $PWD --execute
+exit 0; archive created at cairn/archive/2026-07-16-add-aeneas-lean-proof-rail/
+$ nix run path:$PWD#cairn -- validate --root $PWD
+valid: true; changes: 1; specs_validated: 68
+$ nix run path:$PWD#cairn -- change list --root $PWD
+remaining active change: add-charon-semantic-analysis-rail (12 todo)
+```
