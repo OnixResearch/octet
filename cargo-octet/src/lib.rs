@@ -1,4 +1,5 @@
 mod admit;
+mod aeneas_execution;
 #[cfg(test)]
 mod api_contract_rail;
 mod artifact;

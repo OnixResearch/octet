@@ -1,0 +1,24 @@
+# Aeneas provider documentation evidence
+
+Requirement: `r[octet.aeneas_lean_proof_rail.docs]`
+
+Added `docs/aeneas-lean-proof-rail.md` and linked it from the README
+Documentation section. The guide documents provider selection, the unchanged
+starter `cargo octet check` path, supported and blocked source surfaces,
+assumption/model review, named theorem and adequacy requirements, rollout order,
+Valence boundary, and explicit non-claims for translation, verifier, compiler,
+whole-program, unsafe/concurrent, and release claims.
+
+Positive heading/content checks and a negative overclaim check passed:
+
+```text
+$ grep required second-level headings docs/aeneas-lean-proof-rail.md
+success
+$ grep provider-selection, starter-path, theorem-gate, and false/vacuous text
+success
+$ grep -F 'Octet proves whole-program correctness' docs/aeneas-lean-proof-rail.md
+not found (expected)
+```
+
+The documentation is descriptive only; it does not alter starter policy
+selection or execution behavior.

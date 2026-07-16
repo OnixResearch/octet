@@ -1,0 +1,32 @@
+# Aeneas exported-evidence tamper matrix
+
+Requirements: `r[octet.aeneas_lean_proof_rail.artifact_evidence]`
+and `r[octet.aeneas_lean_proof_rail.valence_handoff]`
+
+The pure Aeneas envelope test mutates each exported linkage class and asserts a
+stage/field-specific rejection:
+
+- stage digest / BLAKE3;
+- stage role;
+- envelope status versus `formal_proof`;
+- selected theorem ID;
+- source/receipt linkage.
+
+The existing stage-chain negative fixture additionally covers stale, swapped,
+duplicate, malformed, and out-of-order stage links. Artifact verification now
+remeasures present local envelope identities before accepting a card.
+
+```text
+$ nix develop -c cargo test -p octet-standards --lib aeneas -- --nocapture
+... test result: ok. 13 passed; 0 failed
+
+$ nix develop -c cargo test -p cargo-octet --lib artifact::tests -- --nocapture
+... test result: ok. 35 passed; 0 failed
+
+$ nix develop -c cargo fmt --check
+success
+```
+
+Positive valid-envelope/stage-chain cases and negative tamper, theorem, role,
+status, receipt, and artifact cases remain covered without promoting any
+recorded-only evidence.

@@ -1,0 +1,44 @@
+# Aeneas proof-card and artifact-verification evidence
+
+Requirement: `r[octet.aeneas_lean_proof_rail.artifact_evidence]`
+
+The proof-card schema now has an optional `formal_proof_envelope`. When an
+Aeneas receipt is emitted as the typed envelope, the card preserves the full
+provider payload rather than flattening it: effective Charon extraction policy,
+`translation.json` manifest, generated/maintained theorem boundary, theorem
+statement/requirement/claim identities, adequacy and trust closure, assumptions,
+tool identities, stage identities, scoped claim, and non-claims.
+
+`cargo-octet/src/artifact.rs` revalidates that envelope with the pure Octet
+formal-proof validator. It also walks source/artifact identities, provider
+profile/package-lock identities, and every Aeneas stage input/output identity;
+when a declared locator is present in the artifact directory, its bytes are
+remeasured with BLAKE3 and mismatches fail closed. Existing Verus cards omit the
+optional field, preserving their serialized shape and behavior.
+
+Positive and negative regression coverage:
+
+```text
+$ nix develop -c cargo test -p cargo-octet --lib prove::tests -- --nocapture
+... test result: ok. 15 passed; 0 failed
+
+$ nix develop -c cargo test -p cargo-octet --lib artifact::tests -- --nocapture
+... test result: ok. 35 passed; 0 failed
+
+$ nix develop -c cargo test -p cargo-octet --lib -- --nocapture
+... test result: ok. 357 passed; 0 failed
+
+$ nix develop -c cargo test -p octet-standards --lib aeneas -- --nocapture
+... test result: ok. 12 passed; 0 failed
+
+$ nix develop -c cargo clippy -p cargo-octet --lib -- -D warnings
+success
+
+$ nix develop -c cargo fmt --check
+success
+```
+
+The existing positive Verus card/artifact fixtures remain valid. Existing
+negative card, provenance, receipt, role-promotion, and artifact-byte checks
+remain fail-closed; the Aeneas envelope path adds no authority to recorded-only
+or malformed cards.

@@ -1752,6 +1752,49 @@ mod tests {
         );
     }
 
+    // r[verify octet.aeneas_lean_proof_rail.artifact_evidence]
+    #[test]
+    fn aeneas_export_tamper_matrix_rejects_digest_role_status_theorem_and_receipt_links() {
+        let mut digest = valid_aeneas_envelope();
+        let FormalProofProvider::AeneasLean(payload) = &mut digest.provider else {
+            panic!("fixture must use Aeneas provider");
+        };
+        payload.stage_chain.stages[2].output_artifacts[0].blake3 = "stale-digest".to_owned();
+
+        let mut role = valid_aeneas_envelope();
+        let FormalProofProvider::AeneasLean(payload) = &mut role.provider else {
+            panic!("fixture must use Aeneas provider");
+        };
+        payload.stage_chain.stages[2].output_artifacts[0].role = AeneasStageArtifactRole::RustSource;
+
+        let mut status = valid_aeneas_envelope();
+        status.status = FormalProofStatus::Failed;
+
+        let mut theorem = valid_aeneas_envelope();
+        let FormalProofProvider::AeneasLean(payload) = &mut theorem.provider else {
+            panic!("fixture must use Aeneas provider");
+        };
+        payload.theorem_admission.as_mut().expect("fixture theorem admission").lean_check.theorem_id =
+            "aeneas.fixture.false_theorem".to_owned();
+
+        let mut receipt_link = valid_aeneas_envelope();
+        receipt_link.source_bindings[0].blake3 = "stale-source-link".to_owned();
+
+        for (label, envelope, expected) in [
+            ("digest", digest, "BLAKE3"),
+            ("role", role, "role"),
+            ("status", status, "passed provider status"),
+            ("theorem", theorem, "theorem_id"),
+            ("receipt link", receipt_link, "source_bindings"),
+        ] {
+            let diagnostics = validate_formal_proof_envelope(&envelope);
+            assert!(
+                diagnostics.iter().any(|diagnostic| diagnostic.contains(expected)),
+                "{label} tamper must be rejected: {diagnostics:?}"
+            );
+        }
+    }
+
     // r[verify octet.aeneas_lean_proof_rail.stage_chain]
     #[test]
     fn aeneas_stage_chain_accepts_ordered_hash_linked_pipeline() {

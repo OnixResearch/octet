@@ -13,6 +13,8 @@ use std::time::Duration;
 use std::time::Instant;
 
 use octet_standards::artifacts::POLICIES_JSON_FILE;
+use octet_standards::formal_proof::FormalProofEnvelope;
+use octet_standards::formal_proof::validate_formal_proof_envelope;
 use octet_standards::model::FamilySelection;
 use octet_standards::model::PolicyEntry;
 use octet_standards::model::PolicyRegistry;
@@ -32,6 +34,8 @@ use octet_standards::source::SourceFile;
 use serde::Deserialize;
 use serde::Serialize;
 
+use crate::aeneas_execution::AENEAS_LEAN_BACKEND;
+use crate::aeneas_execution::execute_aeneas_from_environment;
 use crate::cap_fs::ArtifactRoot;
 use crate::cap_fs::ProofRoot;
 use crate::cap_fs::RootFile;
@@ -197,6 +201,8 @@ struct ProofCard {
     artifact_verifier_command: String,
     provenance_artifact: String,
     external_reference: Option<ProofCardExternalReference>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    formal_proof_envelope: Option<FormalProofEnvelope>,
     diagnostics: Vec<String>,
 }
 
@@ -608,6 +614,21 @@ fn non_empty_directory(directory: &Path) -> PathBuf {
 }
 
 fn run_proof_command(rail: &ProofRail, working_dir: &Path) -> CommandOutcome {
+    if rail.backend == AENEAS_LEAN_BACKEND {
+        let summary = execute_aeneas_from_environment(rail, working_dir);
+        return CommandOutcome {
+            command_succeeded: summary.command_succeeded,
+            timed_out: summary.timed_out,
+            stdout_text: summary.stdout_text,
+            stdout_original_bytes: summary.stdout_original_bytes,
+            stdout_truncated: summary.stdout_truncated,
+            stderr_text: summary.stderr_text,
+            stderr_original_bytes: summary.stderr_original_bytes,
+            stderr_truncated: summary.stderr_truncated,
+            command_blake3: summary.command_blake3,
+            diagnostics: summary.diagnostics,
+        };
+    }
     let spec = match proof_command_spec(rail) {
         Ok(spec) => spec,
         Err(diagnostic) => {
@@ -1163,7 +1184,9 @@ fn imported_trellis_manifest() -> Result<ImportedProofBundleManifest, String> {
 
 fn proof_card_for_execution(execution: &ExecutedProof) -> ProofCard {
     let receipt = parse_verus_receipt(&execution.receipt_text).ok();
+    let formal_proof_envelope = parse_formal_proof_envelope(&execution.receipt_text).ok();
     let mut card = initial_proof_card(execution, receipt.as_ref(), execution.formal_provenance.as_ref());
+    card.formal_proof_envelope = formal_proof_envelope;
     if execution.formal_provenance.is_some() && receipt.is_some() {
         card.evidence_tier.clear();
         card.evidence_tier.push_str(EvidenceTier::FormalProof.as_str());
@@ -1227,6 +1250,7 @@ fn initial_proof_card(
         artifact_verifier_command: ARTIFACT_VERIFY_COMMAND.to_owned(),
         provenance_artifact: PROVENANCE_ARTIFACT_NAME.to_owned(),
         external_reference: None,
+        formal_proof_envelope: None,
         diagnostics: row.diagnostics.clone(),
     }
 }
@@ -1277,6 +1301,7 @@ fn proof_card_for_imported_bundle(bundle: &ImportedProofBundle) -> ProofCard {
             hash_algorithm: bundle.hash_algorithm.clone(),
             promotion_command_argv: bundle.promotion_command_argv.clone(),
         }),
+        formal_proof_envelope: None,
         diagnostics,
     };
     let card_diagnostics = proof_card_validation_diagnostics(&card, None, None);
@@ -1328,6 +1353,7 @@ fn proof_card_validation_diagnostics(
     diagnostics.extend(proof_card_non_claim_diagnostics(card));
     diagnostics.extend(proof_card_imported_reference_diagnostics(card));
     diagnostics.extend(proof_card_linkage_diagnostics(card, receipt, provenance));
+    diagnostics.extend(formal_proof_envelope_diagnostics(card));
     diagnostics.sort();
     diagnostics.dedup();
     diagnostics
@@ -1494,6 +1520,24 @@ fn proof_card_linkage_diagnostics(
         diagnostics.push("proof card formal_proof status requires passed receipt status".to_owned());
     }
     diagnostics
+}
+
+fn formal_proof_envelope_diagnostics(card: &ProofCard) -> Vec<String> {
+    let Some(envelope) = &card.formal_proof_envelope else {
+        return Vec::new();
+    };
+    let mut diagnostics = validate_formal_proof_envelope(envelope);
+    if envelope.provider_id == octet_standards::formal_proof::AENEAS_LEAN_PROVIDER_ID
+        && card.evidence_tier == EvidenceTier::FormalProof.as_str()
+        && envelope.evidence_tier != octet_standards::formal_proof::FormalProofEvidenceTier::FormalProof
+    {
+        diagnostics.push("Aeneas formal proof card tier does not match its envelope tier".to_owned());
+    }
+    diagnostics
+}
+
+fn parse_formal_proof_envelope(text: &str) -> Result<FormalProofEnvelope, String> {
+    serde_json::from_str(text).map_err(|error| format!("parse formal proof envelope for card: {error}"))
 }
 
 fn card_has_identity(card: &ProofCard, artifact: &str, blake3: &str) -> bool {
@@ -2549,6 +2593,7 @@ mod tests {
             artifact_verifier_command: ARTIFACT_VERIFY_COMMAND.to_owned(),
             provenance_artifact: PROVENANCE_ARTIFACT_NAME.to_owned(),
             external_reference: None,
+            formal_proof_envelope: None,
             diagnostics: Vec::new(),
         }
     }

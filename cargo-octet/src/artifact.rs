@@ -196,6 +196,8 @@ pub struct ValenceProofCard {
     pub non_claims: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub external_reference: Option<Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub formal_proof_envelope: Option<octet_standards::formal_proof::FormalProofEnvelope>,
     pub diagnostics: Vec<String>,
 }
 
@@ -706,6 +708,52 @@ fn parse_valence_proof_cards(
 
 // r[impl octet.evidence_provenance.valence_export.tier_preservation]
 // r[impl octet.evidence_provenance.valence_export.tier_preservation_hardened]
+fn validate_aeneas_proof_card_envelope(card: &ValenceProofCard, file_map: &BTreeMap<String, Vec<u8>>) -> Vec<String> {
+    let Some(envelope) = &card.formal_proof_envelope else {
+        return Vec::new();
+    };
+    let mut diagnostics = octet_standards::formal_proof::validate_formal_proof_envelope(envelope)
+        .into_iter()
+        .map(|diagnostic| format!("Aeneas proof card `{}`: {diagnostic}", card.proof_or_property_id))
+        .collect::<Vec<_>>();
+    if card.evidence_tier == FORMAL_PROOF_TIER
+        && envelope.evidence_tier != octet_standards::formal_proof::FormalProofEvidenceTier::FormalProof
+    {
+        diagnostics.push(format!(
+            "Aeneas proof card `{}` formal_proof tier does not match its envelope tier",
+            card.proof_or_property_id
+        ));
+    }
+    let mut identities = envelope
+        .source_bindings
+        .iter()
+        .chain(envelope.artifact_identities.iter())
+        .map(|identity| (&identity.locator, &identity.blake3))
+        .collect::<Vec<_>>();
+    if let octet_standards::formal_proof::FormalProofProvider::AeneasLean(payload) = &envelope.provider {
+        identities.push((&payload.stage_chain.provider_profile.locator, &payload.stage_chain.provider_profile.blake3));
+        identities.push((&payload.stage_chain.package_lock.locator, &payload.stage_chain.package_lock.blake3));
+        for stage in &payload.stage_chain.stages {
+            identities.extend(stage.input_artifacts.iter().map(|identity| (&identity.locator, &identity.blake3)));
+            identities.extend(stage.output_artifacts.iter().map(|identity| (&identity.locator, &identity.blake3)));
+        }
+    }
+    for (locator, expected) in identities {
+        if let Some(bytes) = file_map.get(locator) {
+            let observed = crate::evidence::artifact_blake3_hex(bytes);
+            if observed != *expected {
+                diagnostics.push(format!(
+                    "Aeneas proof card `{}` artifact `{locator}` BLAKE3 mismatch",
+                    card.proof_or_property_id
+                ));
+            }
+        }
+    }
+    diagnostics.sort();
+    diagnostics.dedup();
+    diagnostics
+}
+
 fn validate_valence_proof_cards(proof_cards: &[ValenceProofCard], file_map: &BTreeMap<String, Vec<u8>>) -> Vec<String> {
     let mut diagnostics = Vec::new();
     for card in proof_cards {
@@ -720,6 +768,7 @@ fn validate_valence_proof_cards(proof_cards: &[ValenceProofCard], file_map: &BTr
             diagnostics
                 .push(format!("proof card `{}` must carry at least one explicit non-claim", card.proof_or_property_id));
         }
+        diagnostics.extend(validate_aeneas_proof_card_envelope(card, file_map));
         if card.evidence_origin == crate::imported_proof::EVIDENCE_ORIGIN_EXTERNAL_TRELLIS
             && card.evidence_tier == FORMAL_PROOF_TIER
         {
@@ -2355,6 +2404,7 @@ mod tests {
             },
             non_claims: vec![VALENCE_EXPORT_NON_CLAIM_CORRECTNESS.to_owned()],
             external_reference: None,
+            formal_proof_envelope: None,
             diagnostics: Vec::new(),
         }
     }
