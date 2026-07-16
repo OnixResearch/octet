@@ -1,0 +1,67 @@
+{
+  "adapter_target": "valence.stack-provenance.adapter-input",
+  "non_claims": [
+    "Valence consumes this adapter input for identity and linkage only",
+    "does not prove Aeneas or Charon translation soundness",
+    "does not prove Lean or verifier soundness",
+    "does not prove whole-program correctness",
+    "does not establish release eligibility"
+  ],
+  "octet_export": {
+    "artifact_directory": "artifacts/aeneas-lean-fixture",
+    "artifact_verification_receipt": "artifacts/aeneas-lean-fixture/verification.json",
+    "artifact_verification_status": "valid",
+    "exported_after_verification": true,
+    "proof_receipt_id": "octet.aeneas_lean_proof_rail.fixture#receipt-0",
+    "proof_receipt_status": "passed"
+  },
+  "package_lock": "package-lock.json",
+  "property_candidate": {
+    "evidence_tier": "formal_proof",
+    "owner": "octet",
+    "receipt_artifact": "proofs/aeneas.receipt",
+    "requirement_id": "octet.aeneas_lean_proof_rail.theorem_adequacy",
+    "theorem_id": "aeneas.fixture.safe_add"
+  },
+  "provider_id": "aeneas-lean",
+  "provider_profile": "standards/proof-rails/aeneas-lean/generated/profile.json",
+  "schema_version": "octet-aeneas-lean-valence-adapter/v1",
+  "stages": [
+    {
+      "artifact": "src/verified/addition.rs",
+      "blake3": "b3:0000000000000000000000000000000000000000000000000000000000000000",
+      "evidence_role": "recorded_only",
+      "stage_kind": "rust_source"
+    },
+    {
+      "artifact": "stages/charon-options.json",
+      "blake3": "b3:1111111111111111111111111111111111111111111111111111111111111111",
+      "evidence_role": "boundary",
+      "stage_kind": "charon_extraction"
+    },
+    {
+      "artifact": "stages/translation.json",
+      "blake3": "b3:2222222222222222222222222222222222222222222222222222222222222222",
+      "evidence_role": "recorded_only",
+      "stage_kind": "aeneas_translation"
+    },
+    {
+      "artifact": "generated/Add.lean",
+      "blake3": "b3:3333333333333333333333333333333333333333333333333333333333333333",
+      "evidence_role": "recorded_only",
+      "stage_kind": "generated_lean"
+    },
+    {
+      "artifact": "theorems/addition.lean",
+      "blake3": "b3:4444444444444444444444444444444444444444444444444444444444444444",
+      "evidence_role": "boundary",
+      "stage_kind": "theorem"
+    },
+    {
+      "artifact": "proofs/aeneas.receipt",
+      "blake3": "b3:5555555555555555555555555555555555555555555555555555555555555555",
+      "evidence_role": "property_candidate",
+      "stage_kind": "lean_check"
+    }
+  ]
+}

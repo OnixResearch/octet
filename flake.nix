@@ -1651,6 +1651,7 @@
               cd ${./.}
               manifest_json=$(mktemp)
               aeneas_profile_json=$(mktemp)
+              valence_adapter_fixture_json=$(mktemp)
               compatibility_matrix_json=$(mktemp)
               trellis_import_json=$(mktemp)
               nickel export --format json standards/proof-rails/manifest.ncl > "$manifest_json"
@@ -1660,6 +1661,33 @@
               nickel typecheck standards/proof-rails/aeneas-lean/profile.ncl
               nickel export --format json standards/proof-rails/aeneas-lean/profile.ncl > "$aeneas_profile_json"
               cmp "$aeneas_profile_json" standards/proof-rails/aeneas-lean/generated/profile.json
+              nickel typecheck standards/proof-rails/aeneas-lean/valence-adapter-fixture.ncl
+              nickel export --format json standards/proof-rails/aeneas-lean/valence-adapter-fixture.ncl > "$valence_adapter_fixture_json"
+              cmp "$valence_adapter_fixture_json" standards/proof-rails/aeneas-lean/generated/valence-adapter-fixture.json
+              valence_stage_count=6
+              jq --exit-status \
+                --argjson valence_stage_count "$valence_stage_count" \
+                ' .schema_version == "octet-aeneas-lean-valence-adapter/v1"
+                  and .adapter_target == "valence.stack-provenance.adapter-input"
+                  and .provider_id == "aeneas-lean"
+                  and .octet_export.artifact_verification_status == "valid"
+                  and .octet_export.proof_receipt_status == "passed"
+                  and .octet_export.exported_after_verification == true
+                  and (.octet_export.artifact_verification_receipt | length) > 0
+                  and (.octet_export.proof_receipt_id | length) > 0
+                  and (.stages | length) == $valence_stage_count
+                  and ([.stages[].stage_kind] | index("rust_source") != null)
+                  and ([.stages[].stage_kind] | index("charon_extraction") != null)
+                  and ([.stages[].stage_kind] | index("aeneas_translation") != null)
+                  and ([.stages[].stage_kind] | index("generated_lean") != null)
+                  and ([.stages[].stage_kind] | index("theorem") != null)
+                  and ([.stages[].stage_kind] | index("lean_check") != null)
+                  and .property_candidate.evidence_tier == "formal_proof"
+                  and .property_candidate.owner == "octet"
+                  and (.non_claims | index("does not prove Aeneas or Charon translation soundness") != null)
+                  and (.non_claims | index("does not prove Lean or verifier soundness") != null)
+                  and (.non_claims | index("does not prove whole-program correctness") != null)
+                ' "$valence_adapter_fixture_json" >/dev/null
               jq --exit-status '
                 .schema_version == "octet-aeneas-lean-provider-profile/v1"
                 and .provider_id == "aeneas-lean"

@@ -502,6 +502,18 @@ in
       ],
     },
     {
+      family_id = "octet.aeneas-lean-valence-adapter-fixture",
+      ownership = "nickel-authored",
+      owner_source_path = "standards/proof-rails/aeneas-lean/valence-adapter-fixture.ncl",
+      artifact_path = "standards/proof-rails/aeneas-lean/generated/valence-adapter-fixture.json",
+      generation_command = "nickel export --format json standards/proof-rails/aeneas-lean/valence-adapter-fixture.ncl > standards/proof-rails/aeneas-lean/generated/valence-adapter-fixture.json",
+      validation_command = "nix build .#checks.x86_64-linux.proof-rail-manifest --no-link -L",
+      status = "existing",
+      config_digest_required = true,
+      positive_fixtures = ["standards/proof-rails/aeneas-lean/valence-adapter-fixture.ncl"],
+      negative_fixtures = ["standards/proof-rails/aeneas-lean/fixtures/invalid/valence_adapter_unverified.ncl"],
+    },
+    {
       family_id = "octet.verus-raw-verifier-internals",
       ownership = "non-candidate",
       owner_source_path = "docs/standards/source/verification.adoc#verus-proof-rails",
