@@ -21,6 +21,8 @@ pub const FORMAL_PROOF_EVIDENCE_TIER: &str = "formal_proof";
 pub const RECORDED_ONLY_EVIDENCE_TIER: &str = "recorded_only";
 /// Claim class used by the Verus compatibility adapter.
 pub const VERUS_COMPATIBILITY_CLAIM_CLASS: &str = "verus-v1-compatibility";
+/// Claim class required for the first named Aeneas theorem fixture.
+pub const AENEAS_NAMED_THEOREM_CLAIM_CLASS: &str = "named-theorem-over-generated-model";
 /// Aeneas non-claim required on every common envelope.
 pub const AENEAS_NON_CLAIM_TRANSLATION_SOUNDNESS: &str = "does not prove Aeneas or Charon translation soundness";
 /// Aeneas non-claim required on every common envelope.
@@ -353,6 +355,102 @@ pub struct AeneasAssumptionPolicy {
     pub requires_complete_declaration: bool,
 }
 
+/// Distinguishes generated definitions from hand-maintained theorem source.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AeneasTheoremSourceDisposition {
+    /// The theorem source was emitted by the translation pipeline.
+    Generated,
+    /// The theorem source was reviewed and maintained by Octet.
+    Maintained,
+}
+
+/// The deterministic theorem-adequacy outcome recorded before Lean checking.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AeneasTheoremAdequacyDecision {
+    /// The statement is non-vacuous for its approved claim class.
+    NonVacuous,
+    /// The statement does not establish the selected claim class.
+    Vacuous,
+    /// The statement was rejected by the adequacy review.
+    Rejected,
+}
+
+/// The typed result of the named Lean theorem check.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AeneasLeanCheckStatus {
+    /// Lean checked the selected theorem successfully.
+    Passed,
+    /// Lean rejected the selected theorem or its generated model.
+    Failed,
+}
+
+/// Complete trust inputs declared for one theorem admission.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct AeneasTrustClosure {
+    /// Whether the provider observed and declared the complete trust closure.
+    pub complete: bool,
+    /// External model identifiers included in the closure.
+    pub declared_external_models: Vec<String>,
+    /// Axiom or assumption identifiers included in the closure.
+    pub declared_axioms: Vec<String>,
+    /// Opaque generated definitions included in the closure.
+    pub declared_opaque_definitions: Vec<String>,
+    /// Admitted declarations are retained for rejection diagnostics.
+    pub declared_admitted_declarations: Vec<String>,
+    /// Trust inputs found by the checker but absent from the declaration.
+    pub undeclared_inputs: Vec<String>,
+}
+
+/// The deterministic adequacy observations for one named theorem.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct AeneasTheoremAdequacy {
+    /// Reviewed adequacy decision for the theorem statement.
+    pub decision: AeneasTheoremAdequacyDecision,
+    /// Forbidden declarations such as `sorry` or `admit` found in the source.
+    pub forbidden_declarations: Vec<String>,
+}
+
+/// The exact theorem result reported by the Lean checker.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct AeneasLeanCheckResult {
+    /// The named theorem selected by the checker.
+    pub theorem_id: String,
+    /// The checker result for the selected theorem.
+    pub status: AeneasLeanCheckStatus,
+}
+
+/// Admission facts required before an Aeneas result can become formal proof evidence.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct AeneasTheoremAdmission {
+    /// Stable name of the theorem checked over the generated model.
+    pub theorem_id: String,
+    /// Requirement authorizing this theorem claim.
+    pub requirement_id: String,
+    /// Explicit claim class for the theorem.
+    pub claim_class: String,
+    /// Whether the theorem source is generated or maintained.
+    pub source_disposition: AeneasTheoremSourceDisposition,
+    /// BLAKE3 of the approved theorem-statement artifact.
+    pub approved_statement_blake3: String,
+    /// Whether the named theorem was present in the selected source.
+    pub named_theorem_present: bool,
+    /// Whether review approved the exact statement identity.
+    pub statement_approved: bool,
+    /// Deterministic adequacy observations.
+    pub adequacy: AeneasTheoremAdequacy,
+    /// Complete declared trust closure.
+    pub trust_closure: AeneasTrustClosure,
+    /// Result of checking this exact theorem with Lean.
+    pub lean_check: AeneasLeanCheckResult,
+}
+
 /// Recorded-only semantic-foundation reference metadata.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -394,6 +492,8 @@ pub struct AeneasLeanProofPayload {
     pub extraction_policy: CharonExtractionPolicy,
     /// Declared model and assumption policy.
     pub assumption_policy: AeneasAssumptionPolicy,
+    /// Optional theorem admission; absent means translation-only recorded evidence.
+    pub theorem_admission: Option<AeneasTheoremAdmission>,
     /// Ordered, hash-linked artifacts for every provider stage.
     // r[impl octet.aeneas_lean_proof_rail.stage_chain]
     pub stage_chain: AeneasStageChain,
@@ -947,6 +1047,18 @@ pub fn validate_formal_proof_envelope(envelope: &FormalProofEnvelope) -> Vec<Str
     if let FormalProofProvider::AeneasLean(payload) = &envelope.provider {
         diagnostics.extend(validate_aeneas_lean_payload(payload));
         diagnostics.extend(validate_aeneas_envelope_stage_bindings(envelope, payload));
+        if envelope.evidence_tier == FormalProofEvidenceTier::FormalProof {
+            match &payload.theorem_admission {
+                Some(admission) => diagnostics.extend(validate_aeneas_formal_proof_promotion(
+                    admission,
+                    &envelope.claim,
+                    envelope.status,
+                    &payload.stage_chain,
+                    &payload.assumption_policy,
+                )),
+                None => diagnostics.push("formal_proof requires theorem_admission".to_owned()),
+            }
+        }
         for required in [
             AENEAS_NON_CLAIM_TRANSLATION_SOUNDNESS,
             AENEAS_NON_CLAIM_VERIFIER_SOUNDNESS,
@@ -1037,6 +1149,144 @@ pub fn validate_aeneas_lean_payload(payload: &AeneasLeanProofPayload) -> Vec<Str
     push_non_empty(&mut diagnostics, "semantic_reference.source_sentinel", &payload.semantic_reference.source_sentinel);
     if !payload.semantic_reference.recorded_only {
         diagnostics.push("semantic_reference.recorded_only must be true".to_owned());
+    }
+    if let Some(admission) = &payload.theorem_admission {
+        diagnostics.extend(validate_aeneas_theorem_admission(
+            admission,
+            &payload.stage_chain,
+            &payload.assumption_policy,
+        ));
+    }
+    diagnostics.sort();
+    diagnostics.dedup();
+    diagnostics
+}
+
+/// Validate theorem-admission shape and its stage/artifact bindings.
+// r[impl octet.aeneas_lean_proof_rail.theorem_gate]
+// r[impl octet.aeneas_lean_proof_rail.theorem_adequacy]
+#[must_use]
+pub fn validate_aeneas_theorem_admission(
+    admission: &AeneasTheoremAdmission,
+    stage_chain: &AeneasStageChain,
+    assumption_policy: &AeneasAssumptionPolicy,
+) -> Vec<String> {
+    let mut diagnostics = Vec::new();
+    push_non_empty(&mut diagnostics, "theorem_admission.theorem_id", &admission.theorem_id);
+    push_non_empty(&mut diagnostics, "theorem_admission.requirement_id", &admission.requirement_id);
+    push_non_empty(&mut diagnostics, "theorem_admission.claim_class", &admission.claim_class);
+    if !is_blake3_hex(&admission.approved_statement_blake3) {
+        diagnostics.push(
+            "theorem_admission.approved_statement_blake3 must be a lowercase 64-character BLAKE3 hex digest".to_owned(),
+        );
+    }
+    push_non_empty(&mut diagnostics, "theorem_admission.lean_check.theorem_id", &admission.lean_check.theorem_id);
+    if admission.lean_check.theorem_id != admission.theorem_id {
+        diagnostics.push("theorem_admission.lean_check.theorem_id does not match theorem_id".to_owned());
+    }
+    push_no_blank_strings(
+        &mut diagnostics,
+        "theorem_admission.adequacy.forbidden_declarations",
+        &admission.adequacy.forbidden_declarations,
+    );
+    validate_trust_closure(&mut diagnostics, &admission.trust_closure);
+    if admission.trust_closure.declared_external_models != assumption_policy.external_models {
+        diagnostics.push("theorem_admission.trust_closure.external_models do not match assumption_policy".to_owned());
+    }
+    if admission.trust_closure.declared_axioms != assumption_policy.axioms {
+        diagnostics.push("theorem_admission.trust_closure.axioms do not match assumption_policy".to_owned());
+    }
+    match stage_artifact(stage_chain, AeneasStageKind::Theorem, AeneasStageArtifactRole::TheoremStatement) {
+        Some(statement) if statement.blake3 != admission.approved_statement_blake3 => diagnostics.push(
+            "theorem_admission.approved_statement_blake3 does not match theorem-stage statement artifact".to_owned(),
+        ),
+        Some(_) => {}
+        None => diagnostics.push("theorem_admission requires a theorem-stage statement artifact".to_owned()),
+    }
+    diagnostics.sort();
+    diagnostics.dedup();
+    diagnostics
+}
+
+fn validate_trust_closure(diagnostics: &mut Vec<String>, closure: &AeneasTrustClosure) {
+    push_no_blank_strings(
+        diagnostics,
+        "theorem_admission.trust_closure.declared_external_models",
+        &closure.declared_external_models,
+    );
+    push_no_blank_strings(diagnostics, "theorem_admission.trust_closure.declared_axioms", &closure.declared_axioms);
+    push_no_blank_strings(
+        diagnostics,
+        "theorem_admission.trust_closure.declared_opaque_definitions",
+        &closure.declared_opaque_definitions,
+    );
+    push_no_blank_strings(
+        diagnostics,
+        "theorem_admission.trust_closure.declared_admitted_declarations",
+        &closure.declared_admitted_declarations,
+    );
+    push_no_blank_strings(diagnostics, "theorem_admission.trust_closure.undeclared_inputs", &closure.undeclared_inputs);
+}
+
+fn stage_artifact(
+    stage_chain: &AeneasStageChain,
+    kind: AeneasStageKind,
+    role: AeneasStageArtifactRole,
+) -> Option<&AeneasStageArtifactIdentity> {
+    stage_chain
+        .stages
+        .iter()
+        .find(|stage| stage.kind == kind)
+        .and_then(|stage| stage.output_artifacts.iter().find(|artifact| artifact.role == role))
+}
+
+/// Validate every condition required to promote a theorem to `formal_proof`.
+// r[impl octet.aeneas_lean_proof_rail.theorem_gate]
+// r[impl octet.aeneas_lean_proof_rail.theorem_adequacy]
+#[must_use]
+pub fn validate_aeneas_formal_proof_promotion(
+    admission: &AeneasTheoremAdmission,
+    claim: &FormalProofClaim,
+    status: FormalProofStatus,
+    stage_chain: &AeneasStageChain,
+    assumption_policy: &AeneasAssumptionPolicy,
+) -> Vec<String> {
+    let mut diagnostics = validate_aeneas_theorem_admission(admission, stage_chain, assumption_policy);
+    if !admission.named_theorem_present {
+        diagnostics.push("formal_proof requires a bound named theorem".to_owned());
+    }
+    if !admission.statement_approved {
+        diagnostics.push("formal_proof requires an approved theorem statement".to_owned());
+    }
+    if admission.adequacy.decision != AeneasTheoremAdequacyDecision::NonVacuous {
+        diagnostics.push("formal_proof requires a non_vacuous theorem adequacy decision".to_owned());
+    }
+    if !admission.adequacy.forbidden_declarations.is_empty() {
+        diagnostics.push("formal_proof rejects forbidden theorem declarations".to_owned());
+    }
+    if !admission.trust_closure.complete {
+        diagnostics.push("formal_proof requires a complete theorem trust closure".to_owned());
+    }
+    if !admission.trust_closure.undeclared_inputs.is_empty() {
+        diagnostics.push("formal_proof rejects undeclared theorem trust inputs".to_owned());
+    }
+    if !admission.trust_closure.declared_admitted_declarations.is_empty() {
+        diagnostics.push("formal_proof rejects admitted theorem declarations".to_owned());
+    }
+    if admission.lean_check.status != AeneasLeanCheckStatus::Passed {
+        diagnostics.push("formal_proof requires a passing Lean checker result".to_owned());
+    }
+    if status != FormalProofStatus::Passed {
+        diagnostics.push("formal_proof requires passed provider status".to_owned());
+    }
+    if claim.theorem_or_property_id != admission.theorem_id {
+        diagnostics.push("claim.theorem_or_property_id does not match theorem admission".to_owned());
+    }
+    if claim.requirement_id != admission.requirement_id {
+        diagnostics.push("claim.requirement_id does not match theorem admission".to_owned());
+    }
+    if claim.claim_class != admission.claim_class {
+        diagnostics.push("claim.claim_class does not match theorem admission".to_owned());
     }
     diagnostics.sort();
     diagnostics.dedup();
@@ -1429,6 +1679,7 @@ mod tests {
                 axioms: vec!["none".to_owned()],
                 requires_complete_declaration: true,
             },
+            theorem_admission: Some(valid_theorem_admission()),
             stage_chain: valid_stage_chain(),
             semantic_reference: SemanticReference {
                 revision: "mechanized-llbc@deadbeef".to_owned(),
@@ -1437,6 +1688,83 @@ mod tests {
                 recorded_only: true,
             },
         }
+    }
+
+    fn valid_theorem_admission() -> AeneasTheoremAdmission {
+        let theorem_id = "aeneas.fixture.safe_add".to_owned();
+        AeneasTheoremAdmission {
+            theorem_id: theorem_id.clone(),
+            requirement_id: "octet.aeneas_lean_proof_rail.theorem_adequacy".to_owned(),
+            claim_class: AENEAS_NAMED_THEOREM_CLAIM_CLASS.to_owned(),
+            source_disposition: AeneasTheoremSourceDisposition::Maintained,
+            approved_statement_blake3: crate::proof_artifact::blake3_hex_text("theorems/addition.statement"),
+            named_theorem_present: true,
+            statement_approved: true,
+            adequacy: AeneasTheoremAdequacy {
+                decision: AeneasTheoremAdequacyDecision::NonVacuous,
+                forbidden_declarations: Vec::new(),
+            },
+            trust_closure: AeneasTrustClosure {
+                complete: true,
+                declared_external_models: vec!["none".to_owned()],
+                declared_axioms: vec!["none".to_owned()],
+                declared_opaque_definitions: Vec::new(),
+                declared_admitted_declarations: Vec::new(),
+                undeclared_inputs: Vec::new(),
+            },
+            lean_check: AeneasLeanCheckResult {
+                theorem_id,
+                status: AeneasLeanCheckStatus::Passed,
+            },
+        }
+    }
+
+    // r[verify octet.aeneas_lean_proof_rail.theorem_gate]
+    // r[verify octet.aeneas_lean_proof_rail.theorem_adequacy]
+    #[test]
+    fn aeneas_formal_proof_rejects_false_and_vacuous_theorems() {
+        let mut false_theorem = valid_aeneas_envelope();
+        let FormalProofProvider::AeneasLean(payload) = &mut false_theorem.provider else {
+            panic!("fixture must use Aeneas provider");
+        };
+        payload.theorem_admission.as_mut().expect("fixture theorem admission").statement_approved = false;
+        let false_diagnostics = validate_formal_proof_envelope(&false_theorem);
+        assert!(
+            false_diagnostics.iter().any(|diagnostic| diagnostic.contains("approved theorem statement")),
+            "false theorem must fail statement approval: {false_diagnostics:?}"
+        );
+
+        let mut vacuous_theorem = valid_aeneas_envelope();
+        let FormalProofProvider::AeneasLean(payload) = &mut vacuous_theorem.provider else {
+            panic!("fixture must use Aeneas provider");
+        };
+        payload.theorem_admission.as_mut().expect("fixture theorem admission").adequacy.decision =
+            AeneasTheoremAdequacyDecision::Vacuous;
+        let vacuous_diagnostics = validate_formal_proof_envelope(&vacuous_theorem);
+        assert!(
+            vacuous_diagnostics.iter().any(|diagnostic| diagnostic.contains("non_vacuous")),
+            "vacuous theorem must fail adequacy: {vacuous_diagnostics:?}"
+        );
+    }
+
+    // r[verify octet.aeneas_lean_proof_rail.theorem_gate]
+    // r[verify octet.aeneas_lean_proof_rail.theorem_adequacy]
+    #[test]
+    fn aeneas_translation_only_output_remains_recorded_only() {
+        let mut envelope = valid_aeneas_envelope();
+        envelope.status = FormalProofStatus::Failed;
+        envelope.evidence_tier = FormalProofEvidenceTier::RecordedOnly;
+        let FormalProofProvider::AeneasLean(payload) = &mut envelope.provider else {
+            panic!("fixture must use Aeneas provider");
+        };
+        payload.theorem_admission = None;
+
+        let diagnostics = validate_formal_proof_envelope(&envelope);
+
+        assert!(
+            diagnostics.is_empty(),
+            "translation-only output must remain valid recorded evidence: {diagnostics:?}"
+        );
     }
 
     fn valid_translation_manifest() -> (AeneasTranslationManifest, Vec<AeneasLlbcDeclaration>) {
@@ -1615,7 +1943,7 @@ mod tests {
             evidence_tier: FormalProofEvidenceTier::FormalProof,
             claim: FormalProofClaim {
                 theorem_or_property_id: "aeneas.fixture.safe_add".to_owned(),
-                requirement_id: "octet.aeneas_lean_proof_rail.provider_contract".to_owned(),
+                requirement_id: "octet.aeneas_lean_proof_rail.theorem_adequacy".to_owned(),
                 claim_class: "named-theorem-over-generated-model".to_owned(),
             },
             package_lock_identity,
