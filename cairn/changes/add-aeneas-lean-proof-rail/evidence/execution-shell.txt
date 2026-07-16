@@ -1,0 +1,70 @@
+# Aeneas execution-shell task evidence
+
+Requirement: `r[octet.aeneas_lean_proof_rail.safe_execution]`
+
+Task: execute Charon, Aeneas, and Lean through explicit argv, isolated work
+roots, named limits, an environment allowlist, and network denial while
+keeping policy validation over in-memory observations.
+
+Implementation artifacts:
+
+- `cargo-octet/src/aeneas_execution.rs` contains the pure
+  `build_aeneas_execution_plan` and `validate_aeneas_execution_report` cores,
+  plus the imperative process shell.
+- `cargo-octet/src/prove.rs` dispatches an opt-in `aeneas-lean` rail to the
+  three-stage shell without changing the existing Verus path.
+- Provider executable identities are explicit absolute paths supplied through
+  `OCTET_AENEAS_CHARON`, `OCTET_AENEAS_AENEAS`, `OCTET_AENEAS_LEAN`, and
+  `OCTET_AENEAS_NETWORK_SANDBOX`. The child environment is cleared and rebuilt
+  from the configured allowlist.
+- Every stage is wrapped in argv-only network-sandbox arguments containing
+  `--unshare-net` and `--die-with-parent`, with the source root read-only and a
+  fresh deterministic work root writable. Stage stdout/stderr are drained in
+  bounded reader threads, and timeout/exit/log-limit observations are returned
+  as typed data before pure report validation.
+
+Baseline before the edit:
+
+```text
+$ nix develop -c cargo test -p cargo-octet --lib -- --nocapture
+... test result: ok. 351 passed; 0 failed
+
+$ nix develop -c cargo test -p octet-standards --lib aeneas -- --nocapture
+... test result: ok. 12 passed; 0 failed
+```
+
+Positive and negative execution-shell checks after the edit:
+
+```text
+$ nix develop -c cargo test -p cargo-octet --lib aeneas_execution -- --nocapture
+... test result: ok. 3 passed; 0 failed
+
+positive: a fake network sandbox executed Charon, Aeneas, and Lean in order;
+all three observations passed and the work root was fresh.
+
+negative: plan construction rejected a relative executable, shell
+metacharacters, missing Lean subcommands, a malformed environment name, and a
+zero timeout.
+```
+
+Regression checks:
+
+```text
+$ nix develop -c cargo test -p cargo-octet --lib -- --nocapture
+... test result: ok. 354 passed; 0 failed
+
+$ nix develop -c cargo test -p octet-standards --lib aeneas -- --nocapture
+... test result: ok. 12 passed; 0 failed
+
+$ nix develop -c cargo clippy -p cargo-octet --lib -- -D warnings
+success
+
+$ nix develop -c cargo clippy -p octet-standards --lib -- -D warnings
+success
+
+$ nix develop -c cargo fmt --check
+success
+```
+
+The shell does not promote a theorem or claim translation soundness; it only
+captures bounded stage observations for the existing pure Aeneas validators.

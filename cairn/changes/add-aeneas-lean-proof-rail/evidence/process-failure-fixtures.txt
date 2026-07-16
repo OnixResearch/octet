@@ -1,0 +1,31 @@
+# Aeneas process-failure fixture evidence
+
+Requirements: `r[octet.aeneas_lean_proof_rail.safe_execution]`
+and `r[octet.aeneas_lean_proof_rail.final_validation]`
+
+The execution-shell fixture matrix uses argv-only fake provider executables
+behind a fake network sandbox and covers:
+
+- spawn failure, with later stages not executed;
+- timeout;
+- bounded stdout overflow;
+- nonzero Charon/Aeneas translation result;
+- nonzero Lean theorem-check result;
+- successful ordered execution of all three stages.
+
+The existing pure Aeneas validation fixture covers accidental false-theorem
+selection separately: `aeneas_formal_proof_rejects_false_and_vacuous_theorems`.
+
+```text
+$ nix develop -c cargo test -p cargo-octet --lib aeneas_execution -- --nocapture
+... test result: ok. 6 passed; 0 failed
+
+$ nix develop -c cargo test -p octet-standards --lib aeneas -- --nocapture
+... test result: ok. 12 passed; 0 failed
+
+$ nix develop -c cargo test -p cargo-octet --lib -- --nocapture
+... test result: ok. 357 passed; 0 failed
+```
+
+Every failure fixture asserts a stage-specific diagnostic and a stopped or
+bounded observation report; no failure path emits proof promotion.

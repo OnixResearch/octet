@@ -1,0 +1,56 @@
+# Aeneas provider-closure task evidence
+
+Requirement: `r[octet.aeneas_lean_proof_rail.safe_execution]`
+
+Task: package the exact provider closure and assert that the configured Charon
+revision matches Aeneas's reviewed pin before execution.
+
+Implementation artifacts:
+
+- `flake.nix` adds pinned, non-flake Aeneas and Charon source inputs,
+  `octet-aeneas-lean-provider-closure`, its identity-only app, and a focused
+  positive/negative Nix check.
+- `flake.lock` was regenerated with `nix flake lock`; it records Aeneas
+  `bc2eb6f941369fa3c695e30598b5758b11e4f0de` and Charon
+  `cb50ff16b9f1066b8a97dc06da704de2da2fa41c`.
+- The provider derivation reads Aeneas `charon-pin`, compares its exact
+  40-character revision to the reviewed Nickel profile, retains store-backed
+  Aeneas/Charon source links, and emits BLAKE3 identities for the pin and
+  profile. The execution command remains explicitly disabled in this slice;
+  later tasks own process execution.
+
+Baseline before the edit:
+
+```text
+$ nix develop -c cargo test -p octet-standards --lib
+... test result: ok. 123 passed; 0 failed
+```
+
+Positive and negative provider-closure checks after the edit:
+
+```text
+$ nix build .#checks.x86_64-linux.aeneas-lean-provider-closure --no-link -L
+success (only the existing remote-builder and Nix experimental-feature warnings)
+
+$ nix run .#octet-aeneas-lean-provider -- --identity | jq --exit-status \
+    '.schema_version == "octet-aeneas-lean-provider-closure/v1" and .status == "packaged" and .charon_revision == "cb50ff16b9f1066b8a97dc06da704de2da2fa41c"'
+true
+
+$ nix run .#octet-aeneas-lean-provider -- --check-charon-pin <drifted-pin> cb50ff16b9f1066b8a97dc06da704de2da2fa41c
+exit 1
+Aeneas Charon revision mismatch: 0000000000000000000000000000000000000000 != cb50ff16b9f1066b8a97dc06da704de2da2fa41c
+```
+
+Focused regression and formatting checks:
+
+```text
+$ nix develop -c cargo test -p octet-standards --lib aeneas -- --nocapture
+... test result: ok. 12 passed; 0 failed
+
+$ nix develop -c cargo fmt --check
+success
+```
+
+The package identity and pin comparator are tested through the imperative shell;
+semantic admission remains in the existing pure Charon/Aeneas validation core.
+No default `cargo octet check` path or sibling repository was changed.

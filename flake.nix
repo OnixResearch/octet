@@ -25,6 +25,14 @@
       url = "github:OnixResearch/nickel-export/257fafc1c746f1faf156207043a4c826bfb16d49";
       flake = false;
     };
+    aeneas = {
+      url = "github:AeneasVerif/aeneas/bc2eb6f941369fa3c695e30598b5758b11e4f0de";
+      flake = false;
+    };
+    aeneasCharon = {
+      url = "github:AeneasVerif/charon/cb50ff16b9f1066b8a97dc06da704de2da2fa41c";
+      flake = false;
+    };
   };
 
   outputs =
@@ -38,6 +46,8 @@
       dylint-src,
       valence,
       nickel-export,
+      aeneas,
+      aeneasCharon,
       ...
     }:
     let
@@ -310,6 +320,11 @@
         verusToolchainProfile = builtins.fromJSON (
           builtins.readFile ./standards/verus-toolchain/generated/profile.json
         );
+        aeneasLeanProviderProfile = builtins.fromJSON (
+          builtins.readFile ./standards/proof-rails/aeneas-lean/generated/profile.json
+        );
+        aeneasRevision = aeneasLeanProviderProfile.aeneas_revision;
+        aeneasCharonRevision = aeneasLeanProviderProfile.charon_revision;
         productionVerusVersion = verusToolchainProfile.verifier.release;
         productionVerusSourceRevision = verusToolchainProfile.verifier.source_revision;
         productionVerusReleaseUrl = verusToolchainProfile.verifier.release_url;
@@ -648,6 +663,132 @@
             printf '%s\n' "$pass_signal"
           '';
         };
+
+        aeneasLeanProviderClosure =
+          pkgs.runCommand "octet-aeneas-lean-provider-closure-${system}"
+            {
+              nativeBuildInputs = with pkgs; [
+                b3sum
+                coreutils
+                gnugrep
+                jq
+              ];
+            }
+            ''
+              set -eu
+              revision_length=40
+              aeneas_source="${aeneas}"
+              charon_source="${aeneasCharon}"
+              charon_pin="$aeneas_source/charon-pin"
+              expected_charon_revision="${aeneasCharonRevision}"
+              profile_path="${./standards/proof-rails/aeneas-lean/generated/profile.json}"
+
+              if [ ! -s "$charon_pin" ]; then
+                echo "Aeneas provider closure is missing charon-pin" >&2
+                exit 1
+              fi
+              actual_charon_revision=$(grep --only-matching --extended-regexp "[0-9a-f]{$revision_length}" "$charon_pin" | head --lines=1)
+              if [ "$actual_charon_revision" != "$expected_charon_revision" ]; then
+                echo "Aeneas Charon revision mismatch: $actual_charon_revision != $expected_charon_revision" >&2
+                exit 1
+              fi
+              if [ ! -d "$charon_source" ]; then
+                echo "Aeneas provider closure is missing the pinned Charon source" >&2
+                exit 1
+              fi
+
+              charon_pin_blake3=$(b3sum "$charon_pin" | cut --delimiter=' ' --fields=1)
+              profile_blake3=$(b3sum "$profile_path" | cut --delimiter=' ' --fields=1)
+              provider_dir="$out/share/octet/aeneas-lean"
+              mkdir -p "$out/bin" "$provider_dir"
+              ln -s "$aeneas_source" "$provider_dir/aeneas-source"
+              ln -s "$charon_source" "$provider_dir/charon-source"
+              cp "$charon_pin" "$provider_dir/charon-pin"
+              cp "$profile_path" "$provider_dir/profile.json"
+
+              cat > "$provider_dir/identity.json" <<EOF
+              {
+                "schema_version": "octet-aeneas-lean-provider-closure/v1",
+                "status": "packaged",
+                "aeneas_revision": "${aeneasRevision}",
+                "charon_revision": "$expected_charon_revision",
+                "charon_pin_blake3": "$charon_pin_blake3",
+                "profile_blake3": "$profile_blake3",
+                "aeneas_source": "$provider_dir/aeneas-source",
+                "charon_source": "$provider_dir/charon-source",
+                "charon_pin": "$provider_dir/charon-pin",
+                "profile": "$provider_dir/profile.json"
+              }
+              EOF
+
+              cat > "$out/bin/octet-aeneas-lean" <<EOF
+              #!${pkgs.runtimeShell}
+              set -eu
+              revision_length=$revision_length
+              expected_charon_revision="$expected_charon_revision"
+              identity_path="$provider_dir/identity.json"
+
+              check_charon_pin() {
+                pin_file="\$1"
+                actual_revision="\$(grep --only-matching --extended-regexp "[0-9a-f]{\$revision_length}" "\$pin_file" | head --lines=1 || true)"
+                if [ "\$actual_revision" != "\$expected_charon_revision" ]; then
+                  echo "Aeneas Charon revision mismatch: \$actual_revision != \$expected_charon_revision" >&2
+                  return 1
+                fi
+              }
+
+              if [ "\$#" -eq 1 ] && [ "\$1" = "--identity" ]; then
+                cat "\$identity_path"
+                exit 0
+              fi
+              if [ "\$#" -eq 3 ] && [ "\$1" = "--check-charon-pin" ]; then
+                check_charon_pin "\$2"
+                printf 'charon-pin: valid\\n'
+                exit 0
+              fi
+              echo "Aeneas Lean execution is not enabled by the provider-closure slice" >&2
+              exit 2
+              EOF
+              chmod +x "$out/bin/octet-aeneas-lean"
+            '';
+
+        aeneasLeanProviderClosureCheck =
+          pkgs.runCommand "octet-aeneas-lean-provider-closure-check"
+            {
+              nativeBuildInputs = with pkgs; [
+                gnugrep
+                jq
+              ];
+            }
+            ''
+              set -eu
+              identity="${aeneasLeanProviderClosure}/share/octet/aeneas-lean/identity.json"
+              expected_charon_revision="${aeneasCharonRevision}"
+              jq --exit-status \
+                --arg aeneas_revision "${aeneasRevision}" \
+                --arg charon_revision "$expected_charon_revision" \
+                '.schema_version == "octet-aeneas-lean-provider-closure/v1" and .status == "packaged" and .aeneas_revision == $aeneas_revision and .charon_revision == $charon_revision and (.charon_pin_blake3 | length) == 64 and (.profile_blake3 | length) == 64' \
+                "$identity" >/dev/null
+              "${aeneasLeanProviderClosure}/bin/octet-aeneas-lean" --identity > "$TMPDIR/identity.json"
+              cmp "$identity" "$TMPDIR/identity.json"
+
+              positive_pin="$TMPDIR/charon-pin-positive"
+              printf '# reviewed pin\\n%s\\n' "$expected_charon_revision" > "$positive_pin"
+              "${aeneasLeanProviderClosure}/bin/octet-aeneas-lean" --check-charon-pin "$positive_pin" "$expected_charon_revision" \
+                | grep --fixed-strings 'charon-pin: valid' >/dev/null
+
+              negative_pin="$TMPDIR/charon-pin-negative"
+              printf '# drifted pin\\n%s\\n' '0000000000000000000000000000000000000000' > "$negative_pin"
+              set +e
+              "${aeneasLeanProviderClosure}/bin/octet-aeneas-lean" --check-charon-pin "$negative_pin" "$expected_charon_revision" > "$TMPDIR/negative.out" 2>&1
+              negative_status="$?"
+              set -e
+              test "$negative_status" -eq 1
+              grep --fixed-strings 'Aeneas Charon revision mismatch' "$TMPDIR/negative.out" >/dev/null
+              mkdir -p "$out"
+              cp "$TMPDIR/identity.json" "$out/identity.json"
+              cp "$TMPDIR/negative.out" "$out/negative.out"
+            '';
 
         octetProductionVerus = pkgs.stdenvNoCC.mkDerivation {
           pname = "octet-production-verus";
@@ -1510,6 +1651,7 @@
               cd ${./.}
               manifest_json=$(mktemp)
               aeneas_profile_json=$(mktemp)
+              compatibility_matrix_json=$(mktemp)
               trellis_import_json=$(mktemp)
               nickel export --format json standards/proof-rails/manifest.ncl > "$manifest_json"
               jq --exit-status '.schema_version == "octet-proof-rail-manifest/v1"' "$manifest_json" >/dev/null
@@ -1536,6 +1678,35 @@
                 and (.non_claims | index("does not prove whole-program correctness") != null)
               ' "$aeneas_profile_json" >/dev/null
               nickel export --format json standards/proof-rails/aeneas-lean/fixtures/valid/current_profile.ncl >/dev/null
+              nickel typecheck standards/proof-rails/aeneas-lean/compatibility-matrix.ncl
+              nickel export --format json standards/proof-rails/aeneas-lean/compatibility-matrix.ncl > "$compatibility_matrix_json"
+              cmp "$compatibility_matrix_json" standards/proof-rails/aeneas-lean/generated/compatibility-matrix.json
+              upgrade_dimension_count=7
+              canary_count=9
+              positive_canary_count=1
+              rejection_canary_count=8
+              jq --exit-status \
+                --argjson upgrade_dimension_count "$upgrade_dimension_count" \
+                --argjson canary_count "$canary_count" \
+                --argjson positive_canary_count "$positive_canary_count" \
+                --argjson rejection_canary_count "$rejection_canary_count" \
+                ' .schema_version == "octet-aeneas-lean-compatibility-matrix/v1"
+                  and .provider_id == "aeneas-lean"
+                  and (.upgrade_dimensions | length) == $upgrade_dimension_count
+                  and (.canaries | length) == $canary_count
+                  and ([.canaries[] | select(.expected == "pass")] | length) == $positive_canary_count
+                  and ([.canaries[] | select(.expected == "reject")] | length) == $rejection_canary_count
+                  and ([.canaries[].category] | index("false-vacuous") != null)
+                  and ([.canaries[].category] | index("partial-output") != null)
+                  and ([.canaries[].category] | index("borrow-check-bypass") != null)
+                  and ([.canaries[].category] | index("opacity-model") != null)
+                  and ([.canaries[].category] | index("target") != null)
+                  and ([.canaries[].category] | index("freshness") != null)
+                  and ([.canaries[].category] | index("unsupported-feature") != null)
+                ' "$compatibility_matrix_json" >/dev/null
+              while IFS= read -r test_function; do
+                grep --fixed-strings "fn $test_function" crates/octet-standards/src/formal_proof.rs >/dev/null
+              done < <(jq --raw-output '.canaries[].test_function' "$compatibility_matrix_json")
               for file in standards/proof-rails/aeneas-lean/fixtures/invalid/*.ncl; do
                 if nickel export --format json "$file" >/dev/null 2>&1; then
                   echo "invalid Aeneas Lean provider profile fixture passed: $file" >&2
@@ -1960,6 +2131,7 @@
           octet-standards-nix-closure-manifest = octetStandardsNixClosureManifest;
           octet-verus = octetVerus;
           octet-production-verus = octetProductionVerus;
+          octet-aeneas-lean-provider-closure = aeneasLeanProviderClosure;
           octet-production-verus-nix-closure-manifest = octetProductionVerusNixClosureManifest;
           octet-verusfmt = octetVerusfmt;
           octet-verus-toolchain-profile = octetVerusToolchainProfile;
@@ -2057,6 +2229,11 @@
           octet-production-verus = flake-utils.lib.mkApp {
             drv = octetProductionVerus;
             exePath = "/bin/octet-production-verus";
+          };
+
+          octet-aeneas-lean-provider = flake-utils.lib.mkApp {
+            drv = aeneasLeanProviderClosure;
+            exePath = "/bin/octet-aeneas-lean";
           };
 
           octet-verusfmt = flake-utils.lib.mkApp {
@@ -2858,6 +3035,7 @@
             effect-closure-catalog = effectClosureCatalogCheck;
             downstream-proc-macro = downstreamProcMacroCheck;
             proof-rail-manifest = proofRailManifestCheck;
+            aeneas-lean-provider-closure = aeneasLeanProviderClosureCheck;
             verus-toolchain-profile = verusToolchainProfileCheck;
             production-verus-negative-proof = productionVerusNegativeProofCheck;
             production-verus-negative-prove = productionVerusNegativeProveCheck;
