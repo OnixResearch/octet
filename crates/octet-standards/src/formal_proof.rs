@@ -556,6 +556,205 @@ pub struct AeneasStageChain {
     pub stages: Vec<AeneasStage>,
 }
 
+/// Schema version for the Aeneas translation-manifest contract.
+// r[impl octet.aeneas_lean_proof_rail.translation_manifest]
+pub const AENEAS_TRANSLATION_MANIFEST_SCHEMA_VERSION: &str = "octet-aeneas-lean-translation-manifest/v1";
+
+/// A source span preserved from the current Charon extraction run.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct AeneasSourceSpan {
+    /// Repo-relative source locator.
+    pub locator: String,
+    /// Inclusive start byte in the source envelope.
+    pub start_byte: usize,
+    /// Exclusive end byte in the source envelope.
+    pub end_byte: usize,
+}
+
+/// A selected LLBC declaration used as the current-run join target.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct AeneasLlbcDeclaration {
+    /// Charon-local declaration identifier; this is not a durable identity.
+    pub def_id: String,
+    /// Rust declaration name preserved by Charon.
+    pub rust_name: String,
+    /// Rust source span preserved by Charon.
+    pub rust_span: AeneasSourceSpan,
+}
+
+/// A generated Lean file measured by the imperative shell.
+#[derive(Clone, Debug, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct AeneasGeneratedLeanFile {
+    /// Repo-relative generated Lean file locator.
+    pub locator: String,
+    /// Lowercase BLAKE3 digest of the measured file bytes.
+    pub blake3: String,
+}
+
+/// One declaration link recorded by Aeneas `translation.json`.
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "translation.json preserves independent boolean declaration metadata"
+)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct AeneasTranslationDeclaration {
+    /// Charon-local declaration identifier used only for this run's join.
+    pub def_id: String,
+    /// Rust declaration name copied from the selected LLBC declaration.
+    pub rust_name: String,
+    /// Rust source span copied from the selected LLBC declaration.
+    pub rust_span: AeneasSourceSpan,
+    /// Generated Lean declaration name.
+    pub lean_name: String,
+    /// Generated Lean file containing the declaration.
+    pub lean_file: String,
+    /// Whether the generated declaration is opaque.
+    pub is_opaque: bool,
+    /// Whether the generated declaration may fail.
+    pub can_fail: bool,
+    /// Whether the generated declaration may diverge.
+    pub can_diverge: bool,
+    /// Whether the generated declaration is recursive.
+    pub is_recursive: bool,
+    /// Current-run parent declaration for loop metadata, when present.
+    pub loop_parent_def_id: Option<String>,
+    /// Durable identity must be derived from bound content, never from `def_id`.
+    pub durable_identity: Option<String>,
+}
+
+/// Typed Aeneas translation manifest and its measured generated-file inventory.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct AeneasTranslationManifest {
+    /// Translation-manifest schema version.
+    pub schema_version: String,
+    /// Selected LLBC-to-Lean declaration links.
+    pub declarations: Vec<AeneasTranslationDeclaration>,
+    /// Every generated Lean file named by the translation output.
+    pub generated_files: Vec<AeneasGeneratedLeanFile>,
+}
+
+/// Validate translation declaration links and generated-file identities.
+// r[impl octet.aeneas_lean_proof_rail.translation_manifest]
+#[must_use]
+pub fn validate_aeneas_translation_manifest(
+    manifest: &AeneasTranslationManifest,
+    llbc_declarations: &[AeneasLlbcDeclaration],
+) -> Vec<String> {
+    let mut diagnostics = Vec::new();
+    push_exact(
+        &mut diagnostics,
+        "translation_manifest.schema_version",
+        AENEAS_TRANSLATION_MANIFEST_SCHEMA_VERSION,
+        &manifest.schema_version,
+    );
+    if manifest.declarations.is_empty() {
+        diagnostics.push("translation_manifest.declarations must not be empty".to_owned());
+    }
+    if llbc_declarations.is_empty() {
+        diagnostics.push("translation_manifest.llbc_declarations must not be empty".to_owned());
+    }
+    if manifest.generated_files.is_empty() {
+        diagnostics.push("translation_manifest.generated_files must not be empty".to_owned());
+    }
+
+    let llbc_ids = validate_llbc_declarations(llbc_declarations, &mut diagnostics);
+    let generated_files = validate_generated_lean_files(&manifest.generated_files, &mut diagnostics);
+    let mut manifest_ids = BTreeSet::new();
+    let mut lean_declarations = BTreeSet::new();
+    for (index, declaration) in manifest.declarations.iter().enumerate() {
+        let field = format!("translation_manifest.declarations[{index}]");
+        push_non_empty(&mut diagnostics, &format!("{field}.def_id"), &declaration.def_id);
+        push_non_empty(&mut diagnostics, &format!("{field}.rust_name"), &declaration.rust_name);
+        validate_source_span(&format!("{field}.rust_span"), &declaration.rust_span, &mut diagnostics);
+        push_non_empty(&mut diagnostics, &format!("{field}.lean_name"), &declaration.lean_name);
+        push_non_empty(&mut diagnostics, &format!("{field}.lean_file"), &declaration.lean_file);
+        if !manifest_ids.insert(declaration.def_id.clone()) {
+            diagnostics.push(format!("{field}.def_id duplicates a current-run declaration"));
+        }
+        if !lean_declarations.insert((declaration.lean_file.clone(), declaration.lean_name.clone())) {
+            diagnostics.push(format!("{field} duplicates a generated Lean declaration"));
+        }
+        if declaration.durable_identity.is_some() {
+            diagnostics
+                .push(format!("{field}.durable_identity must be absent because def_id is a within-run join key only"));
+        }
+        match llbc_declarations.iter().find(|candidate| candidate.def_id == declaration.def_id) {
+            Some(llbc) => {
+                if declaration.rust_name != llbc.rust_name {
+                    diagnostics
+                        .push(format!("{field}.rust_name does not match LLBC declaration `{}`", declaration.def_id));
+                }
+                if declaration.rust_span != llbc.rust_span {
+                    diagnostics
+                        .push(format!("{field}.rust_span does not match LLBC declaration `{}`", declaration.def_id));
+                }
+            }
+            None => diagnostics.push(format!("{field}.def_id is missing from the current LLBC run")),
+        }
+        if !generated_files.contains(&declaration.lean_file) {
+            diagnostics.push(format!("{field}.lean_file is missing from generated_files inventory"));
+        }
+        if let Some(loop_parent_def_id) = &declaration.loop_parent_def_id {
+            push_non_empty(&mut diagnostics, &format!("{field}.loop_parent_def_id"), loop_parent_def_id);
+            if !llbc_ids.contains(loop_parent_def_id) {
+                diagnostics.push(format!("{field}.loop_parent_def_id is missing from the current LLBC run"));
+            }
+        }
+    }
+    for llbc in llbc_declarations {
+        if !manifest_ids.contains(&llbc.def_id) {
+            diagnostics.push(format!("translation_manifest is missing selected LLBC declaration `{}`", llbc.def_id));
+        }
+    }
+    diagnostics.sort();
+    diagnostics.dedup();
+    diagnostics
+}
+
+fn validate_llbc_declarations(
+    declarations: &[AeneasLlbcDeclaration],
+    diagnostics: &mut Vec<String>,
+) -> BTreeSet<String> {
+    let mut ids = BTreeSet::new();
+    for (index, declaration) in declarations.iter().enumerate() {
+        let field = format!("translation_manifest.llbc_declarations[{index}]");
+        push_non_empty(diagnostics, &format!("{field}.def_id"), &declaration.def_id);
+        push_non_empty(diagnostics, &format!("{field}.rust_name"), &declaration.rust_name);
+        validate_source_span(&format!("{field}.rust_span"), &declaration.rust_span, diagnostics);
+        if !ids.insert(declaration.def_id.clone()) {
+            diagnostics.push(format!("{field}.def_id duplicates a current-run declaration"));
+        }
+    }
+    ids
+}
+
+fn validate_generated_lean_files(files: &[AeneasGeneratedLeanFile], diagnostics: &mut Vec<String>) -> BTreeSet<String> {
+    let mut locators = BTreeSet::new();
+    for (index, file) in files.iter().enumerate() {
+        let field = format!("translation_manifest.generated_files[{index}]");
+        push_non_empty(diagnostics, &format!("{field}.locator"), &file.locator);
+        if !is_blake3_hex(&file.blake3) {
+            diagnostics.push(format!("{field}.blake3 must be a lowercase 64-character BLAKE3 hex digest"));
+        }
+        if !locators.insert(file.locator.clone()) {
+            diagnostics.push(format!("{field}.locator duplicates a generated file"));
+        }
+    }
+    locators
+}
+
+fn validate_source_span(field: &str, span: &AeneasSourceSpan, diagnostics: &mut Vec<String>) {
+    push_non_empty(diagnostics, &format!("{field}.locator"), &span.locator);
+    if span.start_byte > span.end_byte {
+        diagnostics.push(format!("{field} has start_byte after end_byte"));
+    }
+}
+
 /// Return the stage names in their recorded order without performing I/O.
 #[must_use]
 pub fn aeneas_stage_chain_stage_order(chain: &AeneasStageChain) -> Vec<String> {
@@ -964,6 +1163,10 @@ mod tests {
     const TEST_PROVIDER_RELEASE: &str = "aeneas@0.1.0";
     const TEST_CHARON_REVISION: &str = "cb50ff16b9f1066b8a97dc06da704de2da2fa41c";
     const TEST_SOURCE_PATH: &str = "src/verified/addition.rs";
+    const TEST_FIRST_START_BYTE: usize = 10;
+    const TEST_FIRST_END_BYTE: usize = 20;
+    const TEST_SECOND_START_BYTE: usize = 30;
+    const TEST_SECOND_END_BYTE: usize = 40;
     const TEST_NON_CLAIMS: &[&str] = &[
         AENEAS_NON_CLAIM_TRANSLATION_SOUNDNESS,
         AENEAS_NON_CLAIM_VERIFIER_SOUNDNESS,
@@ -1143,6 +1346,38 @@ mod tests {
         );
     }
 
+    // r[verify octet.aeneas_lean_proof_rail.translation_manifest]
+    #[test]
+    fn translation_manifest_accepts_complete_current_run_links() {
+        let (manifest, llbc_declarations) = valid_translation_manifest();
+
+        let diagnostics = validate_aeneas_translation_manifest(&manifest, &llbc_declarations);
+
+        assert!(diagnostics.is_empty(), "unexpected diagnostics: {diagnostics:?}");
+        let rendered = serde_json::to_string(&manifest).expect("serialize translation manifest");
+        let parsed: AeneasTranslationManifest = serde_json::from_str(&rendered).expect("parse translation manifest");
+        assert_eq!(parsed, manifest);
+    }
+
+    // r[verify octet.aeneas_lean_proof_rail.translation_manifest]
+    #[test]
+    fn translation_manifest_rejects_stale_links_bad_inventory_and_durable_def_id() {
+        let (mut manifest, llbc_declarations) = valid_translation_manifest();
+        manifest.declarations[0].rust_span.end_byte += 1;
+        manifest.declarations[1].def_id = "run:missing".to_owned();
+        manifest.declarations[1].durable_identity = Some("run:missing".to_owned());
+        manifest.declarations[1].lean_file = "generated/Missing.lean".to_owned();
+        manifest.generated_files[0].blake3 = "stale".to_owned();
+
+        let diagnostics = validate_aeneas_translation_manifest(&manifest, &llbc_declarations);
+
+        assert!(diagnostics.iter().any(|diagnostic| diagnostic.contains("rust_span")));
+        assert!(diagnostics.iter().any(|diagnostic| diagnostic.contains("missing from the current LLBC run")));
+        assert!(diagnostics.iter().any(|diagnostic| diagnostic.contains("durable_identity")));
+        assert!(diagnostics.iter().any(|diagnostic| diagnostic.contains("generated_files")));
+        assert!(diagnostics.iter().any(|diagnostic| diagnostic.contains("BLAKE3")));
+    }
+
     // r[verify octet.aeneas_lean_proof_rail.verus_compatibility]
     #[test]
     fn verus_adapter_preserves_receipt_and_uses_common_identity() {
@@ -1202,6 +1437,73 @@ mod tests {
                 recorded_only: true,
             },
         }
+    }
+
+    fn valid_translation_manifest() -> (AeneasTranslationManifest, Vec<AeneasLlbcDeclaration>) {
+        let first_span = AeneasSourceSpan {
+            locator: TEST_SOURCE_PATH.to_owned(),
+            start_byte: TEST_FIRST_START_BYTE,
+            end_byte: TEST_FIRST_END_BYTE,
+        };
+        let second_span = AeneasSourceSpan {
+            locator: TEST_SOURCE_PATH.to_owned(),
+            start_byte: TEST_SECOND_START_BYTE,
+            end_byte: TEST_SECOND_END_BYTE,
+        };
+        let llbc_declarations = vec![
+            AeneasLlbcDeclaration {
+                def_id: "run:0".to_owned(),
+                rust_name: "safe_add".to_owned(),
+                rust_span: first_span.clone(),
+            },
+            AeneasLlbcDeclaration {
+                def_id: "run:1".to_owned(),
+                rust_name: "safe_add_helper".to_owned(),
+                rust_span: second_span.clone(),
+            },
+        ];
+        let manifest = AeneasTranslationManifest {
+            schema_version: AENEAS_TRANSLATION_MANIFEST_SCHEMA_VERSION.to_owned(),
+            declarations: vec![
+                AeneasTranslationDeclaration {
+                    def_id: "run:0".to_owned(),
+                    rust_name: "safe_add".to_owned(),
+                    rust_span: first_span,
+                    lean_name: "safeAdd".to_owned(),
+                    lean_file: "generated/Add.lean".to_owned(),
+                    is_opaque: false,
+                    can_fail: false,
+                    can_diverge: false,
+                    is_recursive: false,
+                    loop_parent_def_id: None,
+                    durable_identity: None,
+                },
+                AeneasTranslationDeclaration {
+                    def_id: "run:1".to_owned(),
+                    rust_name: "safe_add_helper".to_owned(),
+                    rust_span: second_span,
+                    lean_name: "safeAddHelper".to_owned(),
+                    lean_file: "generated/Helper.lean".to_owned(),
+                    is_opaque: false,
+                    can_fail: true,
+                    can_diverge: false,
+                    is_recursive: true,
+                    loop_parent_def_id: Some("run:0".to_owned()),
+                    durable_identity: None,
+                },
+            ],
+            generated_files: vec![
+                AeneasGeneratedLeanFile {
+                    locator: "generated/Add.lean".to_owned(),
+                    blake3: crate::proof_artifact::blake3_hex_text("generated/Add.lean"),
+                },
+                AeneasGeneratedLeanFile {
+                    locator: "generated/Helper.lean".to_owned(),
+                    blake3: crate::proof_artifact::blake3_hex_text("generated/Helper.lean"),
+                },
+            ],
+        };
+        (manifest, llbc_declarations)
     }
 
     fn valid_stage_chain() -> AeneasStageChain {
