@@ -485,6 +485,23 @@ in
       negative_fixtures = ["standards/verus-toolchain/fixtures/invalid/empty_non_claims.ncl", "standards/verus-toolchain/fixtures/invalid/proof_transfer_status.ncl", "standards/verus-toolchain/fixtures/invalid/unformatted.rs", "standards/verus-toolchain/fixtures/invalid/unregistered_consumer.ncl"],
     },
     {
+      family_id = "octet.aeneas-lean-provider-profile",
+      ownership = "nickel-authored",
+      owner_source_path = "standards/proof-rails/aeneas-lean/profile.ncl",
+      artifact_path = "standards/proof-rails/aeneas-lean/generated/profile.json",
+      generation_command = "nickel export --format json standards/proof-rails/aeneas-lean/profile.ncl > standards/proof-rails/aeneas-lean/generated/profile.json",
+      validation_command = "nix build .#checks.x86_64-linux.proof-rail-manifest --no-link -L",
+      status = "existing",
+      config_digest_required = true,
+      positive_fixtures = ["standards/proof-rails/aeneas-lean/fixtures/valid/current_profile.ncl"],
+      negative_fixtures = [
+        "standards/proof-rails/aeneas-lean/fixtures/invalid/charon_pin_drift.ncl",
+        "standards/proof-rails/aeneas-lean/fixtures/invalid/weakened_non_claims.ncl",
+        "standards/proof-rails/aeneas-lean/fixtures/invalid/semantic_reference_drift.ncl",
+        "standards/proof-rails/aeneas-lean/fixtures/invalid/semantic_reference_promotion.ncl",
+      ],
+    },
+    {
       family_id = "octet.verus-raw-verifier-internals",
       ownership = "non-candidate",
       owner_source_path = "docs/standards/source/verification.adoc#verus-proof-rails",
