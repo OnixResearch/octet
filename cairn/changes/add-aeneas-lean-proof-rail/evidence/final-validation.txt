@@ -1,4 +1,6 @@
-# Aeneas Lean proof rail final validation
+# Aeneas Lean proof rail final validation — rejected
+
+This evidence is retained for diagnosis but is not completion evidence. Post-archive review found that it exercised Nickel declarations, Rust models, shell doubles, and existing Verus rails without running a real pinned Charon/Aeneas/Lean theorem fixture. See `archive-review-rejection.txt`.
 
 Requirement: `r[octet.aeneas_lean_proof_rail.final_validation]`
 
