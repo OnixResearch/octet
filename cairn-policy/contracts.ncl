@@ -98,6 +98,10 @@ let PositiveNumber = std.contract.from_predicate (fun value =>
   std.is_number value && value > 0
 ) in
 
+let DependencyTargetClass = std.contract.from_predicate (fun value =>
+  std.is_string value && value == "lifecycle-id"
+) in
+
 {
   Artifact = {
     id | NonEmptyString,
@@ -133,10 +137,22 @@ let PositiveNumber = std.contract.from_predicate (fun value =>
     promoted | Promoted,
   },
 
+  ArtifactSubstancePolicy = {
+    proposal_minimum_substantive_lines | PositiveNumber,
+    design_minimum_substantive_lines | PositiveNumber,
+    minimum_requirement_blocks | PositiveNumber,
+    minimum_substantive_tasks | PositiveNumber,
+    placeholder_tokens | NonEmptyArray | Array NonEmptyString,
+    normative_tokens | NonEmptyArray | Array NonEmptyString,
+    dependency_marker_id | NonEmptyString,
+    dependency_target_class | DependencyTargetClass,
+  },
+
   GatePolicy = {
     stages | NonEmptyArray | Array Stage,
     ignore_archives | Bool,
     finding | FindingPolicy,
+    substance | ArtifactSubstancePolicy,
   },
 
   ReportContract = {
@@ -201,6 +217,15 @@ let PositiveNumber = std.contract.from_predicate (fun value =>
     mode | StackProvenanceGateMode,
     allowed_claim_scopes | NonEmptyArray | Array NonEmptyString,
     accepted_valence_policy_hashes | Array Blake3HexContract | default = [],
+    required_boundary | NonEmptyString,
+  },
+
+  FunctionAddressPolicy = {
+    mode | StackProvenanceGateMode,
+    allowed_claim_scopes | NonEmptyArray | Array NonEmptyString,
+    accepted_valence_policy_hashes | Array Blake3HexContract | default = [],
+    required_roles | NonEmptyArray | Array NonEmptyString,
+    required_schemas | NonEmptyArray | Array NonEmptyString,
     required_boundary | NonEmptyString,
   },
 
@@ -371,6 +396,7 @@ let PositiveNumber = std.contract.from_predicate (fun value =>
     steel_orchestration_policy | SteelOrchestrationPolicy,
     traceability_policy | TraceabilityPolicy,
     stack_provenance_gate | StackProvenancePolicy,
+    function_address_gate | FunctionAddressPolicy,
     runtime_evidence_policy | RuntimeEvidencePolicy,
     structured_lifecycle | StructuredLifecycle | default = {},
     probe_policy | ProbePolicy,

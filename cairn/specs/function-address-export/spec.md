@@ -300,15 +300,19 @@ r[octet.function_address_export.registry.covered]
 - WHEN policy or artifact manifest freshness validation runs
 - THEN the receipt family MUST be covered as Rust-derived or Nickel-authored according to ownership and stale generated artifacts MUST fail validation.
 
-### Requirement: Documentation and final validation
+### Requirement: Documentation boundary
 
-r[octet.function_address_export.docs] Octet documentation MUST describe the function-address rail as Rust source-shape/content-identity evidence and MUST preserve downstream ownership boundaries. r[octet.function_address_export.final_validation] The change MUST include focused tests, positive and negative fixtures, artifact verification, policy freshness, and Cairn validation before archive.
+r[octet.function_address_export.docs] Octet documentation MUST describe the function-address rail as Rust source-shape/content-identity evidence and MUST preserve downstream ownership boundaries.
 
 #### Scenario: Boundary is visible
 r[octet.function_address_export.docs.boundary]
 - GIVEN an operator reads the function-address documentation or receipt summary
 - WHEN the supported claim is described
 - THEN it MUST state that Octet produced Rust function inventory/address evidence and did not prove Rust semantic correctness, compiler correctness, whole-program safety, release eligibility, or downstream verifier soundness.
+
+### Requirement: Final validation
+
+r[octet.function_address_export.final_validation] The change MUST include focused tests, positive and negative fixtures, artifact verification, policy freshness, and Cairn validation before archive.
 
 #### Scenario: Final validation is reviewable
 r[octet.function_address_export.final_validation.reviewable]

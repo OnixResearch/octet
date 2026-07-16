@@ -1,6 +1,6 @@
 let Contracts = import "contracts.ncl" in
 let PolicySchemaVersion = "cairn.policy-schema.v1" in
-let PolicyFieldSetDigest = "c5b71f15de4175d9ff01f7cb4b82eed898a71e55f6d1fa5e24a9a0e2bb909b42" in
+let PolicyFieldSetDigest = "cdbe3adf5778872343f8576e0304e3748dcaf7fb58f59c489599ea9dbac425ef" in
 {
   name = "octet-default",
   version = 1,
@@ -54,6 +54,16 @@ let PolicyFieldSetDigest = "c5b71f15de4175d9ff01f7cb4b82eed898a71e55f6d1fa5e24a9
       scope = "tasks",
       route = "auto-fix",
       promoted = "no",
+    },
+    substance = {
+      proposal_minimum_substantive_lines = 1,
+      design_minimum_substantive_lines = 1,
+      minimum_requirement_blocks = 1,
+      minimum_substantive_tasks = 1,
+      placeholder_tokens = ["cairn_placeholder", "tbd", "describe why", "describe the user-visible", "describe the current state", "implement the change", "verify and archive the change"],
+      normative_tokens = ["MUST", "SHALL", "SHOULD", "MAY"],
+      dependency_marker_id = "depends",
+      dependency_target_class = "lifecycle-id",
     },
   },
 
@@ -134,6 +144,23 @@ let PolicyFieldSetDigest = "c5b71f15de4175d9ff01f7cb4b82eed898a71e55f6d1fa5e24a9
     required_boundary = "Valence stack provenance verifies identity, linkage, role, digest, and non-claim policy only; it does not prove behavioral correctness, verifier soundness, release eligibility, or requirement satisfaction",
   },
 
+  function_address_gate = {
+    mode = "optional",
+    allowed_claim_scopes = ["function_address.v1.lifecycle_policy_conformance"],
+    accepted_valence_policy_hashes = [],
+    required_roles = [
+      "function-address-evidence-sidecar",
+      "valence-function-address-evidence-profile",
+      "kamacite-function-address-receipt",
+    ],
+    required_schemas = [
+      "valence.function-address-evidence.v1",
+      "function-address-evidence-v1",
+      "kamacite.function-address-receipt.v1",
+    ],
+    required_boundary = "Function-address evidence verifies bounded identity, linkage, and policy conformance only; it does not prove Rust semantic correctness, compiler correctness, whole-program safety, verifier soundness, or release eligibility",
+  },
+
   runtime_evidence_policy = {
     allowed_capture_origins = ["boundary_captured", "ingested_telemetry", "wrapper_asserted", "unknown"],
     allowed_hash_algorithms = ["BLAKE3"],
@@ -195,8 +222,8 @@ let PolicyFieldSetDigest = "c5b71f15de4175d9ff01f7cb4b82eed898a71e55f6d1fa5e24a9
     },
     {
       command = "gate",
-      top_level_keys = ["change", "evidence_summary", "input_hash", "issues", "layout", "policy", "policy_hash", "receipt_hash", "stage", "valid", "verdict"],
-      issue_keys = ["message", "promoted", "scope"],
+      top_level_keys = ["change", "evidence_summary", "input_hash", "issues", "layout", "policy", "policy_hash", "probe_evidence", "receipt_hash", "stage", "substance", "valid", "verdict"],
+      issue_keys = ["code", "message", "promoted", "scope"],
       hash_fields = ["input_hash", "policy_hash", "receipt_hash"],
     },
     {
