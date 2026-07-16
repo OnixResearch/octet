@@ -1,0 +1,49 @@
+# Charon extraction-contract slice evidence
+
+Requirement: `r[octet.aeneas_lean_proof_rail.charon_contract]`
+
+Implementation: `crates/octet-standards/src/formal_proof.rs`
+
+The pure `validate_charon_extraction_contract` core compares observed policy
+values with the generated Nickel profile and rejects errorful extraction,
+borrow-check bypass, target metadata drift, MIR/drop/start selection drift,
+include/exclude/opaque/transformation drift, and serialization-format drift.
+Aeneas payload validation invokes this comparator before admission.
+
+Positive and negative tests:
+
+```text
+$ nix develop -c cargo test -p octet-standards formal_proof --lib -- --nocapture
+running 10 tests
+... charon_extraction_contract_accepts_reviewed_profile ... ok
+... charon_extraction_contract_rejects_drift_and_weakened_options ... ok
+... aeneas_payload_and_envelope_accept_complete_typed_contract ... ok
+... aeneas_payload_rejects_weak_contract_and_unknown_fields ... ok
+... aeneas_stage_chain_accepts_ordered_hash_linked_pipeline ... ok
+... aeneas_stage_chain_rejects_stale_swapped_duplicate_and_malformed_links ... ok
+... aeneas_payload_rejects_broken_stage_link_before_provider_admission ... ok
+... aeneas_envelope_rejects_unlinked_package_and_source_stage_identities ... ok
+... verus_adapter_preserves_receipt_and_uses_common_identity ... ok
+... verus_adapter_rejects_unknown_receipt_status_without_reinterpretation ... ok
+
+test result: ok. 10 passed; 0 failed
+```
+
+Full and policy checks:
+
+```text
+$ nix develop -c cargo test -p octet-standards --lib
+... test result: ok. 115 passed; 0 failed
+$ nix develop -c cargo clippy -p octet-standards --lib -- -D warnings
+... Finished `dev` profile
+$ nix develop -c cargo fmt --check
+PASS
+$ nickel typecheck standards/proof-rails/aeneas-lean/contracts.ncl
+$ nickel typecheck standards/proof-rails/aeneas-lean/profile.ncl
+$ nickel export .../profile.ncl > temporary-profile.json
+$ cmp temporary-profile.json standards/proof-rails/aeneas-lean/generated/profile.json
+Aeneas provider profile typecheck/export freshness: PASS
+```
+
+Baseline before the edit: `nix develop -c cargo test -p octet-standards
+formal_proof --lib` passed 8 tests.

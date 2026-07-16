@@ -30,17 +30,14 @@ pub const AENEAS_NON_CLAIM_WHOLE_PROGRAM: &str = "does not prove whole-program c
 
 const LITTLE_ENDIAN: &str = "little";
 const BIG_ENDIAN: &str = "big";
+const AENEAS_PROVIDER_PROFILE_JSON: &str =
+    include_str!("../../../standards/proof-rails/aeneas-lean/generated/profile.json");
 const REQUIRED_AENEAS_FIELDS: &[&str] = &[
     "aeneas_release",
     "charon_revision",
     "ocaml_toolchain",
     "lean_toolchain",
     "aeneas_lean_library",
-    "target_triple",
-    "mir_start_stage",
-    "drop_policy",
-    "start_from",
-    "serialization_format",
 ];
 
 /// Provider-neutral status for one formal-proof execution.
@@ -215,6 +212,133 @@ pub struct CharonExtractionPolicy {
     pub transformation_settings: Vec<String>,
     /// Serialized LLBC format identifier.
     pub serialization_format: String,
+}
+
+/// Validate an observed Charon extraction policy against the reviewed policy.
+// r[impl octet.aeneas_lean_proof_rail.charon_contract]
+#[must_use]
+pub fn validate_charon_extraction_contract(
+    observed: &CharonExtractionPolicy,
+    reviewed: &CharonExtractionPolicy,
+) -> Vec<String> {
+    let mut diagnostics = validate_charon_policy_shape("extraction_policy", observed);
+    diagnostics.extend(validate_charon_policy_shape("reviewed_extraction_policy", reviewed));
+    push_contract_mismatch(
+        &mut diagnostics,
+        "extraction_policy.target_triple",
+        &observed.target_triple,
+        &reviewed.target_triple,
+    );
+    push_contract_mismatch(
+        &mut diagnostics,
+        "extraction_policy.pointer_width_bits",
+        &observed.pointer_width_bits,
+        &reviewed.pointer_width_bits,
+    );
+    push_contract_mismatch(
+        &mut diagnostics,
+        "extraction_policy.endianness",
+        &observed.endianness,
+        &reviewed.endianness,
+    );
+    push_contract_mismatch(
+        &mut diagnostics,
+        "extraction_policy.mir_start_stage",
+        &observed.mir_start_stage,
+        &reviewed.mir_start_stage,
+    );
+    push_contract_mismatch(
+        &mut diagnostics,
+        "extraction_policy.drop_policy",
+        &observed.drop_policy,
+        &reviewed.drop_policy,
+    );
+    push_contract_mismatch(
+        &mut diagnostics,
+        "extraction_policy.start_from",
+        &observed.start_from,
+        &reviewed.start_from,
+    );
+    push_contract_mismatch(
+        &mut diagnostics,
+        "extraction_policy.include_rules",
+        &observed.include_rules,
+        &reviewed.include_rules,
+    );
+    push_contract_mismatch(
+        &mut diagnostics,
+        "extraction_policy.exclude_rules",
+        &observed.exclude_rules,
+        &reviewed.exclude_rules,
+    );
+    push_contract_mismatch(
+        &mut diagnostics,
+        "extraction_policy.opaque_rules",
+        &observed.opaque_rules,
+        &reviewed.opaque_rules,
+    );
+    push_contract_mismatch(
+        &mut diagnostics,
+        "extraction_policy.transformation_settings",
+        &observed.transformation_settings,
+        &reviewed.transformation_settings,
+    );
+    push_contract_mismatch(
+        &mut diagnostics,
+        "extraction_policy.serialization_format",
+        &observed.serialization_format,
+        &reviewed.serialization_format,
+    );
+    diagnostics.sort();
+    diagnostics.dedup();
+    diagnostics
+}
+
+fn validate_charon_policy_shape(field: &str, policy: &CharonExtractionPolicy) -> Vec<String> {
+    let mut diagnostics = Vec::new();
+    if policy.has_errors {
+        diagnostics.push(format!("{field}.has_errors must be false"));
+    }
+    if policy.skip_borrowck {
+        diagnostics.push(format!("{field}.skip_borrowck must be false"));
+    }
+    push_non_empty(&mut diagnostics, &format!("{field}.target_triple"), &policy.target_triple);
+    if policy.pointer_width_bits == 0 {
+        diagnostics.push(format!("{field}.pointer_width_bits must be greater than zero"));
+    }
+    if !matches!(policy.endianness.as_str(), LITTLE_ENDIAN | BIG_ENDIAN) {
+        diagnostics.push(format!("{field}.endianness must be `{LITTLE_ENDIAN}` or `{BIG_ENDIAN}`"));
+    }
+    push_non_empty(&mut diagnostics, &format!("{field}.mir_start_stage"), &policy.mir_start_stage);
+    push_non_empty(&mut diagnostics, &format!("{field}.drop_policy"), &policy.drop_policy);
+    push_non_empty(&mut diagnostics, &format!("{field}.start_from"), &policy.start_from);
+    push_no_blank_strings(&mut diagnostics, &format!("{field}.include_rules"), &policy.include_rules);
+    push_no_blank_strings(&mut diagnostics, &format!("{field}.exclude_rules"), &policy.exclude_rules);
+    push_no_blank_strings(&mut diagnostics, &format!("{field}.opaque_rules"), &policy.opaque_rules);
+    push_non_empty_strings(
+        &mut diagnostics,
+        &format!("{field}.transformation_settings"),
+        &policy.transformation_settings,
+    );
+    push_non_empty(&mut diagnostics, &format!("{field}.serialization_format"), &policy.serialization_format);
+    diagnostics
+}
+
+fn push_contract_mismatch<T: PartialEq>(diagnostics: &mut Vec<String>, field: &str, observed: &T, reviewed: &T) {
+    if observed != reviewed {
+        diagnostics.push(format!("{field} drifted from reviewed extraction contract"));
+    }
+}
+
+#[derive(Deserialize)]
+struct AeneasProviderProfileExtraction {
+    extraction_policy: CharonExtractionPolicy,
+}
+
+fn reviewed_aeneas_extraction_policy() -> Result<CharonExtractionPolicy, String> {
+    serde_json::from_str::<AeneasProviderProfileExtraction>(AENEAS_PROVIDER_PROFILE_JSON)
+        .map(|profile| profile.extraction_policy)
+        .map_err(|error| format!("embedded Aeneas provider profile extraction policy is invalid: {error}"))
 }
 
 /// Declared trust-input policy for Aeneas theorem admission.
@@ -696,17 +820,9 @@ pub fn validate_aeneas_lean_payload(payload: &AeneasLeanProofPayload) -> Vec<Str
     if payload.limits.stderr_max_bytes == 0 {
         diagnostics.push("limits.stderr_max_bytes must be greater than zero".to_owned());
     }
-    if payload.extraction_policy.has_errors {
-        diagnostics.push("extraction_policy.has_errors must be false".to_owned());
-    }
-    if payload.extraction_policy.skip_borrowck {
-        diagnostics.push("extraction_policy.skip_borrowck must be false".to_owned());
-    }
-    if payload.extraction_policy.pointer_width_bits == 0 {
-        diagnostics.push("extraction_policy.pointer_width_bits must be greater than zero".to_owned());
-    }
-    if !matches!(payload.extraction_policy.endianness.as_str(), LITTLE_ENDIAN | BIG_ENDIAN) {
-        diagnostics.push(format!("extraction_policy.endianness must be `{LITTLE_ENDIAN}` or `{BIG_ENDIAN}`"));
+    match reviewed_aeneas_extraction_policy() {
+        Ok(reviewed) => diagnostics.extend(validate_charon_extraction_contract(&payload.extraction_policy, &reviewed)),
+        Err(error) => diagnostics.push(error),
     }
     if !payload.assumption_policy.requires_complete_declaration {
         diagnostics.push("assumption_policy.requires_complete_declaration must be true".to_owned());
@@ -844,7 +960,7 @@ mod tests {
 
     const TEST_TIMEOUT_MS: u64 = 30_000;
     const TEST_LOG_MAX_BYTES: usize = 4_096;
-    const TEST_POINTER_WIDTH_BITS: u16 = 64;
+    const TEST_DRIFT_POINTER_WIDTH_BITS: u16 = 32;
     const TEST_PROVIDER_RELEASE: &str = "aeneas@0.1.0";
     const TEST_CHARON_REVISION: &str = "cb50ff16b9f1066b8a97dc06da704de2da2fa41c";
     const TEST_SOURCE_PATH: &str = "src/verified/addition.rs";
@@ -864,6 +980,59 @@ mod tests {
         let rendered = serde_json::to_string(&envelope).expect("serialize complete envelope");
         let parsed: FormalProofEnvelope = serde_json::from_str(&rendered).expect("parse complete envelope");
         assert_eq!(parsed, envelope);
+    }
+
+    // r[verify octet.aeneas_lean_proof_rail.charon_contract]
+    #[test]
+    fn charon_extraction_contract_accepts_reviewed_profile() {
+        let reviewed = reviewed_aeneas_extraction_policy().expect("generated provider profile");
+
+        let diagnostics = validate_charon_extraction_contract(&reviewed, &reviewed);
+
+        assert!(diagnostics.is_empty(), "unexpected diagnostics: {diagnostics:?}");
+    }
+
+    // r[verify octet.aeneas_lean_proof_rail.charon_contract]
+    #[test]
+    fn charon_extraction_contract_rejects_drift_and_weakened_options() {
+        let reviewed = reviewed_aeneas_extraction_policy().expect("generated provider profile");
+        let mut observed = reviewed.clone();
+        observed.has_errors = true;
+        observed.skip_borrowck = true;
+        observed.target_triple = "aarch64-unknown-linux-gnu".to_owned();
+        observed.pointer_width_bits = TEST_DRIFT_POINTER_WIDTH_BITS;
+        observed.endianness = "middle".to_owned();
+        observed.mir_start_stage = "after-borrowck".to_owned();
+        observed.drop_policy = "exclude-drops".to_owned();
+        observed.start_from = "item".to_owned();
+        observed.include_rules = vec!["src/other".to_owned()];
+        observed.exclude_rules = vec!["src/verified".to_owned()];
+        observed.opaque_rules = vec!["core::fmt".to_owned()];
+        observed.transformation_settings = vec!["erase-spans".to_owned()];
+        observed.serialization_format = "llbc-json-v2".to_owned();
+
+        let diagnostics = validate_charon_extraction_contract(&observed, &reviewed);
+
+        for field in [
+            "has_errors",
+            "skip_borrowck",
+            "target_triple",
+            "pointer_width_bits",
+            "endianness",
+            "mir_start_stage",
+            "drop_policy",
+            "start_from",
+            "include_rules",
+            "exclude_rules",
+            "opaque_rules",
+            "transformation_settings",
+            "serialization_format",
+        ] {
+            assert!(
+                diagnostics.iter().any(|diagnostic| diagnostic.contains(field)),
+                "missing diagnostic for {field}: {diagnostics:?}"
+            );
+        }
     }
 
     // r[verify octet.aeneas_lean_proof_rail.provider_contract]
@@ -1019,21 +1188,7 @@ mod tests {
                 stderr_max_bytes: TEST_LOG_MAX_BYTES,
             },
             environment_allowlist: vec!["PATH".to_owned()],
-            extraction_policy: CharonExtractionPolicy {
-                has_errors: false,
-                skip_borrowck: false,
-                target_triple: "x86_64-unknown-linux-gnu".to_owned(),
-                pointer_width_bits: TEST_POINTER_WIDTH_BITS,
-                endianness: LITTLE_ENDIAN.to_owned(),
-                mir_start_stage: "borrowck".to_owned(),
-                drop_policy: "include-drops".to_owned(),
-                start_from: "crate".to_owned(),
-                include_rules: vec![TEST_SOURCE_PATH.to_owned()],
-                exclude_rules: Vec::new(),
-                opaque_rules: Vec::new(),
-                transformation_settings: vec!["preserve-spans".to_owned()],
-                serialization_format: "llbc-json-v1".to_owned(),
-            },
+            extraction_policy: reviewed_aeneas_extraction_policy().expect("generated provider profile"),
             assumption_policy: AeneasAssumptionPolicy {
                 external_models: vec!["none".to_owned()],
                 axioms: vec!["none".to_owned()],
