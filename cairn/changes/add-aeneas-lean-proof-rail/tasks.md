@@ -8,7 +8,7 @@
 ## Phase 2: Pure stage-chain validation
 
 - [x] [serial] Implement pure validation for ordered Rust source, effective Charon extraction contract, LLBC, Aeneas `translation.json`, generated Lean, theorem source, external models, adequacy decision, trust closure, and Lean-check stage identities. r[octet.aeneas_lean_proof_rail.stage_chain]
-- [ ] [serial] Reject `has_errors`, `skip_borrowck`, target metadata drift, unreviewed MIR/drop/start/include/exclude/opaque/transform settings, and serialization-profile drift before property promotion. r[octet.aeneas_lean_proof_rail.charon_contract]
+- [x] [serial] Reject `has_errors`, `skip_borrowck`, target metadata drift, unreviewed MIR/drop/start/include/exclude/opaque/transform settings, and serialization-profile drift before property promotion. r[octet.aeneas_lean_proof_rail.charon_contract]
 - [ ] [serial] Validate `translation.json` declaration links and generated-file inventory while treating `def_id` values as within-run join keys rather than durable identities. r[octet.aeneas_lean_proof_rail.translation_manifest]
 - [ ] [serial] Require a bound named theorem, approved theorem-statement BLAKE3, requirement ID, claim class, complete trust closure, adequacy decision, and passing Lean checker result before `formal_proof` promotion; keep translation-only outputs recorded-only. r[octet.aeneas_lean_proof_rail.theorem_gate] r[octet.aeneas_lean_proof_rail.theorem_adequacy]
 - [ ] [serial] Classify unsafe, concurrent, unsupported loop-control, unresolved external, and translation-failure inputs as blocked or failed without proof promotion. r[octet.aeneas_lean_proof_rail.unsupported_surface]
