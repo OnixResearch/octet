@@ -1588,6 +1588,35 @@ mod tests {
     const STDERR_LOCATOR: &str = "proofs/octet.verus_proof_rails.addition-bound-rail-0.stderr";
     const SECOND_STDOUT_LOCATOR: &str = "proofs/octet.verus_proof_rails.ordering-reflexive-production-rail-0.stdout";
     const SECOND_STDERR_LOCATOR: &str = "proofs/octet.verus_proof_rails.ordering-reflexive-production-rail-0.stderr";
+    const VERUS_V1_PACKAGE_LOCK_GOLDEN_BLAKE3: &str =
+        "f44dbbd319d4cf03fbc1f73a6179c2a730966267009fff350d1597956dad174b";
+    const VERUS_V1_RECEIPT_GOLDEN_BLAKE3: &str = "c7c4de3e6c38ad2c06b7a0b31159272af0f4d9db84d13e11b21cbc09dd8385ee";
+
+    // r[verify octet.aeneas_lean_proof_rail.verus_compatibility]
+    #[test]
+    fn verus_v1_compatibility_golden_preserves_package_lock_and_receipt_contract() {
+        let rail = verus_rail(VERIFIER_MODE_FIXTURE);
+        let sources = source_files();
+        let proof_sources = proof_files();
+        let lock = valid_lock(&rail, &sources, &proof_sources);
+        let receipt = valid_receipt(&rail, &sources, &proof_sources);
+        let receipt_json = serde_json::to_string(&receipt).expect("receipt json");
+        let proof_source = SourceFile::new(PROOF_ARTIFACT, receipt_json.clone());
+
+        assert_eq!(proof_package_lock_blake3(&lock), VERUS_V1_PACKAGE_LOCK_GOLDEN_BLAKE3);
+        assert_eq!(crate::proof_artifact::blake3_hex_text(&receipt_json), VERUS_V1_RECEIPT_GOLDEN_BLAKE3);
+        assert!(validate_verus_proof_package_lock(&lock_input(&rail, &sources, &proof_sources), &lock).is_empty());
+        assert!(
+            validate_proof_receipt_with_identity(
+                &rail,
+                Some(POLICY_ID),
+                Some(0),
+                &all_validation_sources(),
+                &proof_source,
+            )
+            .is_empty()
+        );
+    }
 
     #[test]
     fn structured_verus_receipt_accepts_matching_fields() {

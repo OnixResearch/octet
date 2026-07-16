@@ -12,6 +12,7 @@ pub mod customs;
 pub mod dependency_direction;
 pub mod diagnostic;
 pub mod fixture;
+pub mod formal_proof;
 pub mod model;
 pub mod nickel_export;
 pub mod proof;

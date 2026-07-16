@@ -1723,6 +1723,43 @@ mod tests {
     const SHORT_TIMEOUT_MS: u64 = 1;
     const TEST_TIMEOUT_MS: u64 = 1_000;
     const TEST_LOG_LIMIT_BYTES: usize = 128;
+    const VERUS_V1_RECEIPT_GOLDEN_BLAKE3: &str = "adc4998ee90cf9a1165c456dd2c0696f447e9c743c97bb27bbac4582cfda5cf8";
+    const VERUS_V1_PROOF_CARDS_GOLDEN_BLAKE3: &str = "572f78530d72c67d628c6af965f2caa750af76bb11ab2a41854a4f9b9b30baac";
+
+    // r[verify octet.aeneas_lean_proof_rail.verus_compatibility]
+    #[test]
+    fn verus_v1_compatibility_golden_preserves_receipt_card_and_artifact_verification() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let source = write_fixture_source(temp.path());
+        write_fixture_proof(temp.path());
+        let registry = write_fixture_registry(temp.path(), PASS_SIGNAL, command_argv(PASS_SIGNAL));
+        let artifact_dir = temp.path().join("artifacts");
+
+        let code = run(&ProveArgs {
+            registry: Some(registry),
+            policy_artifacts_dir: None,
+            source: vec![source],
+            family: Vec::new(),
+            rail: Vec::new(),
+            artifact_dir: artifact_dir.clone(),
+            output_format: OutputFormat::Json,
+            command_line: "cargo octet prove fixture".to_owned(),
+            list: false,
+            explain: false,
+        })
+        .expect("prove run");
+        assert_eq!(code, EXIT_PROOF_VALID);
+        let receipt_path = artifact_dir
+            .join(proof_artifact_locator(&fixture_policy(temp.path(), PASS_SIGNAL, command_argv(PASS_SIGNAL)), 0));
+        let receipt = fs::read(receipt_path).expect("read receipt");
+        let cards = fs::read(artifact_dir.join(PROOF_CARDS_ARTIFACT_NAME)).expect("read proof cards");
+        let report = verify_bundle(bundle_input(&artifact_dir));
+
+        assert_eq!(crate::evidence::artifact_blake3_hex(&receipt), VERUS_V1_RECEIPT_GOLDEN_BLAKE3);
+        assert_eq!(crate::evidence::artifact_blake3_hex(&cards), VERUS_V1_PROOF_CARDS_GOLDEN_BLAKE3);
+        assert_eq!(report.status, "valid");
+        assert!(report.diagnostics.is_empty());
+    }
 
     #[test]
     fn prove_writes_valid_formal_proof_artifact_bundle() {

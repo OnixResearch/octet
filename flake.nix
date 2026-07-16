@@ -1509,9 +1509,39 @@
             ''
               cd ${./.}
               manifest_json=$(mktemp)
+              aeneas_profile_json=$(mktemp)
               trellis_import_json=$(mktemp)
               nickel export --format json standards/proof-rails/manifest.ncl > "$manifest_json"
               jq --exit-status '.schema_version == "octet-proof-rail-manifest/v1"' "$manifest_json" >/dev/null
+
+              nickel typecheck standards/proof-rails/aeneas-lean/contracts.ncl
+              nickel typecheck standards/proof-rails/aeneas-lean/profile.ncl
+              nickel export --format json standards/proof-rails/aeneas-lean/profile.ncl > "$aeneas_profile_json"
+              cmp "$aeneas_profile_json" standards/proof-rails/aeneas-lean/generated/profile.json
+              jq --exit-status '
+                .schema_version == "octet-aeneas-lean-provider-profile/v1"
+                and .provider_id == "aeneas-lean"
+                and .aeneas_release == "0.1.0"
+                and .aeneas_revision == "bc2eb6f941369fa3c695e30598b5758b11e4f0de"
+                and .charon_revision == "cb50ff16b9f1066b8a97dc06da704de2da2fa41c"
+                and .lean_toolchain == "leanprover/lean4:v4.31.0"
+                and .semantic_reference.revision == "8a9b8bb3823ceceb47026837d23baea0934dfb27"
+                and .semantic_reference.license == "Apache-2.0"
+                and .semantic_reference.source_sentinel == "README.md:Mechanized LLBC"
+                and .semantic_reference.recorded_only == true
+                and .extraction_policy.has_errors == false
+                and .extraction_policy.skip_borrowck == false
+                and (.non_claims | index("does not prove Aeneas or Charon translation soundness") != null)
+                and (.non_claims | index("does not prove Lean or verifier soundness") != null)
+                and (.non_claims | index("does not prove whole-program correctness") != null)
+              ' "$aeneas_profile_json" >/dev/null
+              nickel export --format json standards/proof-rails/aeneas-lean/fixtures/valid/current_profile.ncl >/dev/null
+              for file in standards/proof-rails/aeneas-lean/fixtures/invalid/*.ncl; do
+                if nickel export --format json "$file" >/dev/null 2>&1; then
+                  echo "invalid Aeneas Lean provider profile fixture passed: $file" >&2
+                  exit 1
+                fi
+              done
               jq --exit-status '.rails.addition_bound.command_argv[0] == "octet-verus"' "$manifest_json" >/dev/null
               jq --exit-status '.rails.addition_bound.verifier_mode == "fixture"' "$manifest_json" >/dev/null
               jq --exit-status '.rails.addition_bound.receipt_paths | length > 0' "$manifest_json" >/dev/null
