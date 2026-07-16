@@ -142,6 +142,10 @@ pub struct FormalProofEnvelope {
 }
 
 /// Closed provider payload carried by the common envelope.
+#[expect(
+    clippy::large_enum_variant,
+    reason = "The closed provider enum retains typed payloads for explicit serialization and validation."
+)]
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(tag = "kind", content = "payload")]
 pub enum FormalProofProvider {
@@ -465,6 +469,104 @@ pub struct SemanticReference {
     pub recorded_only: bool,
 }
 
+/// Outcome of Aeneas source preflight before translation or theorem checking.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AeneasPreflightDisposition {
+    /// The selected source is within the reviewed provider surface.
+    Ready,
+    /// The selected source contains a construct the provider does not admit.
+    Blocked,
+    /// The provider could not produce a usable translation observation.
+    Failed,
+}
+
+impl AeneasPreflightDisposition {
+    /// Return the stable serialized disposition spelling.
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Ready => "ready",
+            Self::Blocked => "blocked",
+            Self::Failed => "failed",
+        }
+    }
+}
+
+/// Explicit source or translation input that prevents proof promotion.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize)]
+#[serde(rename_all = "snake_case")]
+// r[impl octet.aeneas_lean_proof_rail.unsupported_surface]
+pub enum AeneasUnsupportedInput {
+    /// Unsafe Rust is outside the reviewed provider surface.
+    UnsafeRust,
+    /// Concurrent Rust is outside the reviewed provider surface.
+    Concurrency,
+    /// Unsupported loop-control transfer is outside the reviewed provider surface.
+    UnsupportedLoopControl,
+    /// An unresolved external definition prevents a closed translation.
+    UnresolvedExternal,
+    /// A translation failure prevents a usable provider observation.
+    TranslationFailure,
+}
+
+impl AeneasUnsupportedInput {
+    /// Return the stable serialized input spelling.
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::UnsafeRust => "unsafe_rust",
+            Self::Concurrency => "concurrency",
+            Self::UnsupportedLoopControl => "unsupported_loop_control",
+            Self::UnresolvedExternal => "unresolved_external",
+            Self::TranslationFailure => "translation_failure",
+        }
+    }
+}
+
+/// Pure preflight observations passed from the provider shell to validation.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct AeneasPreflight {
+    /// Explicit unsupported or failed inputs observed for the selected source.
+    pub unsupported_inputs: Vec<AeneasUnsupportedInput>,
+    /// The disposition selected by the provider shell.
+    pub disposition: AeneasPreflightDisposition,
+}
+
+/// Classify preflight inputs without process, filesystem, or environment access.
+#[must_use]
+pub const fn classify_aeneas_preflight(inputs: &[AeneasUnsupportedInput]) -> AeneasPreflightDisposition {
+    let mut index = 0;
+    while index < inputs.len() {
+        if matches!(inputs[index], AeneasUnsupportedInput::TranslationFailure) {
+            return AeneasPreflightDisposition::Failed;
+        }
+        index += 1;
+    }
+    if inputs.is_empty() {
+        AeneasPreflightDisposition::Ready
+    } else {
+        AeneasPreflightDisposition::Blocked
+    }
+}
+
+/// Validate that a recorded preflight disposition matches its explicit inputs.
+// r[impl octet.aeneas_lean_proof_rail.unsupported_surface]
+#[must_use]
+pub fn validate_aeneas_preflight(preflight: &AeneasPreflight) -> Vec<String> {
+    let mut diagnostics = Vec::new();
+    let expected = classify_aeneas_preflight(&preflight.unsupported_inputs);
+    if preflight.disposition != expected {
+        diagnostics.push(format!(
+            "preflight.disposition expected `{}` for recorded inputs but got `{}`",
+            expected.as_str(),
+            preflight.disposition.as_str()
+        ));
+    }
+    diagnostics
+}
+
 /// Closed Aeneas-to-Lean provider payload.
 // r[impl octet.aeneas_lean_proof_rail.provider_contract]
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -482,6 +584,8 @@ pub struct AeneasLeanProofPayload {
     pub aeneas_lean_library: String,
     /// Reviewed safe-Rust source surface admitted by the provider.
     pub checked_source_surface: Vec<String>,
+    /// Pure source and translation preflight outcome.
+    pub preflight: AeneasPreflight,
     /// Shell-free provider command argv.
     pub command_argv: Vec<String>,
     /// Bounded execution limits.
@@ -1055,6 +1159,7 @@ pub fn validate_formal_proof_envelope(envelope: &FormalProofEnvelope) -> Vec<Str
                     envelope.status,
                     &payload.stage_chain,
                     &payload.assumption_policy,
+                    &payload.preflight,
                 )),
                 None => diagnostics.push("formal_proof requires theorem_admission".to_owned()),
             }
@@ -1120,6 +1225,7 @@ pub fn validate_aeneas_lean_payload(payload: &AeneasLeanProofPayload) -> Vec<Str
         push_non_empty(&mut diagnostics, field, value);
     }
     push_non_empty_strings(&mut diagnostics, "checked_source_surface", &payload.checked_source_surface);
+    diagnostics.extend(validate_aeneas_preflight(&payload.preflight));
     push_non_empty_strings(&mut diagnostics, "command_argv", &payload.command_argv);
     push_non_empty_strings(&mut diagnostics, "environment_allowlist", &payload.environment_allowlist);
     if payload.limits.timeout_ms == 0 {
@@ -1250,6 +1356,7 @@ pub fn validate_aeneas_formal_proof_promotion(
     status: FormalProofStatus,
     stage_chain: &AeneasStageChain,
     assumption_policy: &AeneasAssumptionPolicy,
+    preflight: &AeneasPreflight,
 ) -> Vec<String> {
     let mut diagnostics = validate_aeneas_theorem_admission(admission, stage_chain, assumption_policy);
     if !admission.named_theorem_present {
@@ -1278,6 +1385,10 @@ pub fn validate_aeneas_formal_proof_promotion(
     }
     if status != FormalProofStatus::Passed {
         diagnostics.push("formal_proof requires passed provider status".to_owned());
+    }
+    if preflight.disposition != AeneasPreflightDisposition::Ready {
+        diagnostics
+            .push(format!("formal_proof requires ready Aeneas preflight, got `{}`", preflight.disposition.as_str()));
     }
     if claim.theorem_or_property_id != admission.theorem_id {
         diagnostics.push("claim.theorem_or_property_id does not match theorem admission".to_owned());
@@ -1433,6 +1544,58 @@ mod tests {
         let rendered = serde_json::to_string(&envelope).expect("serialize complete envelope");
         let parsed: FormalProofEnvelope = serde_json::from_str(&rendered).expect("parse complete envelope");
         assert_eq!(parsed, envelope);
+    }
+
+    // r[verify octet.aeneas_lean_proof_rail.unsupported_surface]
+    #[test]
+    fn aeneas_preflight_accepts_supported_fixture() {
+        let preflight = AeneasPreflight {
+            unsupported_inputs: Vec::new(),
+            disposition: AeneasPreflightDisposition::Ready,
+        };
+
+        assert_eq!(classify_aeneas_preflight(&preflight.unsupported_inputs), AeneasPreflightDisposition::Ready);
+        assert!(validate_aeneas_preflight(&preflight).is_empty());
+    }
+
+    // r[verify octet.aeneas_lean_proof_rail.unsupported_surface]
+    #[test]
+    fn aeneas_preflight_rejects_unsupported_inputs_and_promotion() {
+        let unsupported_inputs = vec![
+            AeneasUnsupportedInput::UnsafeRust,
+            AeneasUnsupportedInput::Concurrency,
+            AeneasUnsupportedInput::UnsupportedLoopControl,
+            AeneasUnsupportedInput::UnresolvedExternal,
+        ];
+        let blocked = AeneasPreflight {
+            unsupported_inputs,
+            disposition: AeneasPreflightDisposition::Blocked,
+        };
+        assert_eq!(classify_aeneas_preflight(&blocked.unsupported_inputs), AeneasPreflightDisposition::Blocked);
+        assert!(validate_aeneas_preflight(&blocked).is_empty());
+
+        let mut mismatched = blocked.clone();
+        mismatched.disposition = AeneasPreflightDisposition::Ready;
+        let mismatch_diagnostics = validate_aeneas_preflight(&mismatched);
+        assert!(mismatch_diagnostics.iter().any(|diagnostic| diagnostic.contains("expected `blocked`")));
+
+        let failed = AeneasPreflight {
+            unsupported_inputs: vec![AeneasUnsupportedInput::TranslationFailure],
+            disposition: AeneasPreflightDisposition::Failed,
+        };
+        assert_eq!(classify_aeneas_preflight(&failed.unsupported_inputs), AeneasPreflightDisposition::Failed);
+        assert!(validate_aeneas_preflight(&failed).is_empty());
+
+        let mut envelope = valid_aeneas_envelope();
+        let FormalProofProvider::AeneasLean(payload) = &mut envelope.provider else {
+            panic!("fixture must use Aeneas provider");
+        };
+        payload.preflight = blocked;
+        let diagnostics = validate_formal_proof_envelope(&envelope);
+        assert!(
+            diagnostics.iter().any(|diagnostic| diagnostic.contains("requires ready Aeneas preflight")),
+            "unsupported source must not promote to formal proof: {diagnostics:?}"
+        );
     }
 
     // r[verify octet.aeneas_lean_proof_rail.charon_contract]
@@ -1666,6 +1829,10 @@ mod tests {
             lean_toolchain: "lean@4.19.0".to_owned(),
             aeneas_lean_library: "aeneas-lean@0.1.0".to_owned(),
             checked_source_surface: vec!["safe sequential Rust".to_owned()],
+            preflight: AeneasPreflight {
+                unsupported_inputs: Vec::new(),
+                disposition: AeneasPreflightDisposition::Ready,
+            },
             command_argv: vec!["aeneas-lean".to_owned(), "--emit-json".to_owned()],
             limits: AeneasExecutionLimits {
                 timeout_ms: TEST_TIMEOUT_MS,

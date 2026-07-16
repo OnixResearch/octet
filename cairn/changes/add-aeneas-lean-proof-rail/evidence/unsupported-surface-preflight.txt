@@ -1,0 +1,48 @@
+# Unsupported-surface preflight slice evidence
+
+Requirement: `r[octet.aeneas_lean_proof_rail.unsupported_surface]`
+
+Implementation artifact: `crates/octet-standards/src/formal_proof.rs`
+
+The pure preflight core now records typed inputs for unsafe Rust, concurrency,
+unsupported loop-control, unresolved externals, and translation failure. It
+classifies an empty input set as `ready`, unsupported source inputs as
+`blocked`, and translation failure as `failed`. The payload validator rejects
+mismatched recorded dispositions, and formal-proof promotion rejects every
+non-`ready` disposition.
+
+Baseline before the edit:
+
+```text
+$ nix develop -c cargo test -p octet-standards formal_proof --lib -- --nocapture
+running 14 tests
+... test result: ok. 14 passed; 0 failed
+```
+
+Positive and negative tests after the edit:
+
+```text
+$ nix develop -c cargo test -p octet-standards aeneas_preflight --lib -- --nocapture
+running 2 tests
+... aeneas_preflight_accepts_supported_fixture ... ok
+... aeneas_preflight_rejects_unsupported_inputs_and_promotion ... ok
+test result: ok. 2 passed; 0 failed
+
+$ nix develop -c cargo test -p octet-standards formal_proof --lib -- --nocapture
+... test result: ok. 16 passed; 0 failed
+```
+
+Focused quality checks:
+
+```text
+$ nix develop -c cargo fmt --check
+PASS
+
+$ nix develop -c cargo clippy -p octet-standards --lib -- -D warnings
+Finished `dev` profile [unoptimized + debuginfo]
+```
+
+The tests cover the supported ready path, all four blocked source categories,
+translation-failure classification, a mismatched disposition, and rejection
+of a blocked preflight during formal-proof promotion. No process, filesystem,
+environment, or network access is used by the preflight core.
