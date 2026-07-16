@@ -1,0 +1,48 @@
+# Aeneas Valence-handoff fixture evidence
+
+Requirement: `r[octet.aeneas_lean_proof_rail.valence_handoff]`
+
+The frozen adapter source is
+`standards/proof-rails/aeneas-lean/valence-adapter-fixture.ncl`; its generated
+JSON is
+`standards/proof-rails/aeneas-lean/generated/valence-adapter-fixture.json`.
+The Nickel contract requires a valid artifact-verification status, a passed
+proof receipt, explicit receipt and verification-receipt IDs, a true
+`exported_after_verification` marker, all six stage kinds in the frozen stage
+list, and a sole Octet-owned `formal_proof` property candidate. Intermediate stages remain
+recorded-only or boundary evidence.
+
+Positive and negative fixture checks:
+
+```text
+$ nix develop -c bash -c 'set -e; nickel typecheck standards/proof-rails/aeneas-lean/valence-adapter-fixture.ncl; nickel export --format json standards/proof-rails/aeneas-lean/valence-adapter-fixture.ncl | cmp standards/proof-rails/aeneas-lean/generated/valence-adapter-fixture.json -; if nickel export --format json standards/proof-rails/aeneas-lean/fixtures/invalid/valence_adapter_unverified.ncl >/dev/null 2>&1; then echo negative-unverified-export-unexpectedly-passed >&2; exit 1; else echo positive-export-byte-match; echo negative-unverified-export-rejected; fi'
+warning: unknown experimental feature 'wasm-builtin'
+positive-export-byte-match
+negative-unverified-export-rejected
+
+$ nix develop -c jq --exit-status --argjson stage_count 6 '<fixture-shape-and-stage/property checks>' standards/proof-rails/aeneas-lean/generated/valence-adapter-fixture.json >/dev/null && echo valence-adapter-positive-shape-ok
+warning: unknown experimental feature 'wasm-builtin'
+valence-adapter-positive-shape-ok
+```
+
+Focused provider and boundary regression checks:
+
+```text
+$ nix develop -c cargo test -p cargo-octet valence_export --lib -- --nocapture
+... test result: ok. 12 passed; 0 failed
+
+$ nix develop -c cargo test -p octet-standards aeneas --lib -- --nocapture
+... test result: ok. 13 passed; 0 failed
+
+$ nix develop -c bash -c 'cargo fmt --check'
+warning: unknown experimental feature 'wasm-builtin'
+
+$ nix run .#octet-policy-validate
+warning: unknown experimental feature 'wasm-builtin'
+```
+
+The focused Rust suites cover positive envelope/export paths and negative
+stage, theorem, role, status, receipt-link, stale-artifact, and promotion
+cases. The fixture is adapter input only; these checks do not claim Aeneas,
+Charon, Lean, verifier, semantic-equivalence, whole-program, or release
+correctness.
