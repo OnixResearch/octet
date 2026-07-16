@@ -270,6 +270,9 @@ pub struct AeneasLeanProofPayload {
     pub extraction_policy: CharonExtractionPolicy,
     /// Declared model and assumption policy.
     pub assumption_policy: AeneasAssumptionPolicy,
+    /// Ordered, hash-linked artifacts for every provider stage.
+    // r[impl octet.aeneas_lean_proof_rail.stage_chain]
+    pub stage_chain: AeneasStageChain,
     /// Recorded-only semantic foundation reference.
     pub semantic_reference: SemanticReference,
 }
@@ -620,6 +623,7 @@ pub fn validate_formal_proof_envelope(envelope: &FormalProofEnvelope) -> Vec<Str
     }
     if let FormalProofProvider::AeneasLean(payload) = &envelope.provider {
         diagnostics.extend(validate_aeneas_lean_payload(payload));
+        diagnostics.extend(validate_aeneas_envelope_stage_bindings(envelope, payload));
         for required in [
             AENEAS_NON_CLAIM_TRANSLATION_SOUNDNESS,
             AENEAS_NON_CLAIM_VERIFIER_SOUNDNESS,
@@ -635,10 +639,35 @@ pub fn validate_formal_proof_envelope(envelope: &FormalProofEnvelope) -> Vec<Str
     diagnostics
 }
 
+fn validate_aeneas_envelope_stage_bindings(
+    envelope: &FormalProofEnvelope,
+    payload: &AeneasLeanProofPayload,
+) -> Vec<String> {
+    let mut diagnostics = Vec::new();
+    if envelope.package_lock_identity != payload.stage_chain.package_lock.blake3 {
+        diagnostics.push("package_lock_identity does not match Aeneas stage_chain.package_lock.blake3".to_owned());
+    }
+    if let Some(source_artifact) = aeneas_root_source_artifact(&payload.stage_chain)
+        && !envelope
+            .source_bindings
+            .iter()
+            .any(|binding| binding.locator == source_artifact.locator && binding.blake3 == source_artifact.blake3)
+    {
+        diagnostics.push("source_bindings must include the Aeneas stage_chain rust_source artifact".to_owned());
+    }
+    diagnostics
+}
+
+fn aeneas_root_source_artifact(chain: &AeneasStageChain) -> Option<&AeneasStageArtifactIdentity> {
+    chain.stages.first().and_then(|stage| {
+        stage.output_artifacts.iter().find(|artifact| artifact.role == AeneasStageArtifactRole::RustSource)
+    })
+}
+
 /// Validate the Aeneas provider payload without process or filesystem access.
 #[must_use]
 pub fn validate_aeneas_lean_payload(payload: &AeneasLeanProofPayload) -> Vec<String> {
-    let mut diagnostics = Vec::new();
+    let mut diagnostics = validate_aeneas_stage_chain(&payload.stage_chain);
     for field in REQUIRED_AENEAS_FIELDS {
         let value = match *field {
             "aeneas_release" => &payload.aeneas_release,
@@ -866,6 +895,45 @@ mod tests {
 
     // r[verify octet.aeneas_lean_proof_rail.stage_chain]
     #[test]
+    fn aeneas_payload_rejects_broken_stage_link_before_provider_admission() {
+        let mut payload = valid_aeneas_payload();
+        let theorem_stage = payload
+            .stage_chain
+            .stages
+            .iter_mut()
+            .find(|stage| stage.kind == AeneasStageKind::Theorem)
+            .expect("fixture theorem stage");
+        theorem_stage.input_artifacts.clear();
+
+        let diagnostics = validate_aeneas_lean_payload(&payload);
+
+        assert!(
+            diagnostics.iter().any(|diagnostic| diagnostic.contains("stage_chain.stages[4].input_artifacts")),
+            "broken theorem-stage input must be reported: {diagnostics:?}"
+        );
+    }
+
+    // r[verify octet.aeneas_lean_proof_rail.stage_chain]
+    #[test]
+    fn aeneas_envelope_rejects_unlinked_package_and_source_stage_identities() {
+        let mut envelope = valid_aeneas_envelope();
+        envelope.package_lock_identity = "stale-package-lock".to_owned();
+        envelope.source_bindings[0].locator = "src/verified/stale.rs".to_owned();
+
+        let diagnostics = validate_formal_proof_envelope(&envelope);
+
+        assert!(
+            diagnostics.iter().any(|diagnostic| diagnostic.contains("package_lock_identity")),
+            "package-lock drift must be reported: {diagnostics:?}"
+        );
+        assert!(
+            diagnostics.iter().any(|diagnostic| diagnostic.contains("source_bindings")),
+            "source-stage drift must be reported: {diagnostics:?}"
+        );
+    }
+
+    // r[verify octet.aeneas_lean_proof_rail.stage_chain]
+    #[test]
     fn aeneas_stage_chain_accepts_ordered_hash_linked_pipeline() {
         let chain = valid_stage_chain();
 
@@ -971,6 +1039,7 @@ mod tests {
                 axioms: vec!["none".to_owned()],
                 requires_complete_declaration: true,
             },
+            stage_chain: valid_stage_chain(),
             semantic_reference: SemanticReference {
                 revision: "mechanized-llbc@deadbeef".to_owned(),
                 license: "MIT".to_owned(),
@@ -1069,6 +1138,16 @@ mod tests {
     }
 
     fn valid_aeneas_envelope() -> FormalProofEnvelope {
+        let provider = valid_aeneas_payload();
+        let source = provider
+            .stage_chain
+            .stages
+            .first()
+            .expect("fixture source stage")
+            .output_artifacts
+            .first()
+            .expect("fixture source artifact");
+        let package_lock_identity = provider.stage_chain.package_lock.blake3.clone();
         FormalProofEnvelope {
             schema_version: FORMAL_PROOF_ENVELOPE_SCHEMA_VERSION.to_owned(),
             provider_id: AENEAS_LEAN_PROVIDER_ID.to_owned(),
@@ -1082,12 +1161,15 @@ mod tests {
                 requirement_id: "octet.aeneas_lean_proof_rail.provider_contract".to_owned(),
                 claim_class: "named-theorem-over-generated-model".to_owned(),
             },
-            package_lock_identity: "b3:package-lock".to_owned(),
-            source_bindings: vec![artifact(TEST_SOURCE_PATH)],
+            package_lock_identity,
+            source_bindings: vec![FormalProofArtifactIdentity {
+                locator: source.locator.clone(),
+                blake3: source.blake3.clone(),
+            }],
             artifact_identities: vec![artifact("proofs/aeneas.translation.json")],
             trust_boundaries: vec!["fixture-only provider contract".to_owned()],
             non_claims: TEST_NON_CLAIMS.iter().map(|claim| (*claim).to_owned()).collect(),
-            provider: FormalProofProvider::AeneasLean(valid_aeneas_payload()),
+            provider: FormalProofProvider::AeneasLean(provider),
         }
     }
 
