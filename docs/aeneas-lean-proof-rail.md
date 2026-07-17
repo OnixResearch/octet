@@ -31,6 +31,8 @@ Each stage runs with argv, a fresh isolated work root, bounded output capture,
 a named timeout, and a denied network namespace. The source package and pinned
 Aeneas Lean library are copied into that work root before execution; the Nix
 store is mounted read-only so absolute provider binaries remain available.
+Mathlib and every Lake dependency are fixed-output, path-only closure inputs;
+Lake receives frozen root and nested manifests and cannot fetch missing code.
 A failed or incomplete stage stops the pipeline.
 
 ## Supported subset
@@ -45,6 +47,12 @@ become `formal_proof` evidence:
 - unresolved external definitions;
 - unsupported language or extraction features; and
 - translation or checker failures.
+
+The first executable canary further narrows the staged Lean prelude to
+`Aeneas.Data`, `Aeneas.Do`, and `Aeneas.Std.Scalar`. It excludes the broad
+command, extraction, `Std`, and tactic umbrellas; this avoids importing
+unrelated modules and does not promote excluded surfaces into the supported
+claim.
 
 A successful translation is still only a recorded stage observation until the
 complete stage chain and the named theorem admission pass.
@@ -114,4 +122,13 @@ Run the focused profile and provider checks inside the Nix development shell,
 then inspect the generated receipt and artifact verification output. The
 provider-specific evidence files under
 `cairn/changes/add-aeneas-lean-proof-rail/evidence/` record the positive and
-negative commands used for the current pins.
+negative commands used for the current pins. The executable upgrade gate is:
+
+```bash
+nix build --option builders '' --option secret-key-files '' \
+  .#checks.x86_64-linux.aeneas-lean-compatibility-matrix --no-link -L
+```
+
+It runs two live provider fixtures serially plus the pure admission/rejection
+matrix. The empty builder and signing-key options disable unavailable host
+remote/signing configuration; they do not weaken repository policy.

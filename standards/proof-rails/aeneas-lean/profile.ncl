@@ -27,14 +27,14 @@ let target_pointer_width_bits = 64 in
   stage_commands = {
     charon_argv = ["charon", "cargo", "--preset", "aeneas", "--dest-file", "llbc.llbc"],
     aeneas_argv = ["aeneas", "-backend", "lean", "-emit-json", "-dest", ".", "-no-progress-bar"],
-    lean_argv = ["lake", "env", "lean"],
+    lean_argv = ["lake", "build"],
   },
   limits = {
     timeout_ms = default_timeout_ms,
     stdout_max_bytes = default_log_max_bytes,
     stderr_max_bytes = default_log_max_bytes,
   },
-  environment_allowlist = ["PATH", "CHARON_TOOLCHAIN_IS_IN_PATH", "LD_LIBRARY_PATH", "HOME"],
+  environment_allowlist = ["PATH", "CHARON_TOOLCHAIN_IS_IN_PATH", "LD_LIBRARY_PATH", "HOME", "MATHLIB_NO_CACHE_ON_UPDATE"],
   extraction_policy = {
     has_errors = false,
     skip_borrowck = false,

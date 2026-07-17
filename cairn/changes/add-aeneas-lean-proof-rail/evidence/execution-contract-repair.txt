@@ -38,9 +38,9 @@ CouldNotExecuteCommand(Os { code: 2, kind: NotFound, message: "No such file or d
 
 Direct inspection identifies the missing runtime dependency as Charon's exact `librustc_driver-845f1164de5a76fb.so` / matching nightly-2026-06-01 Rust sysroot. The current Octet runtime PATH supplies nightly-2026-03-21 instead. No real theorem receipt or Valence handoff is claimed from this run.
 
-## Offline dependency replay
+## Intermediate offline dependency replay
 
-The provider closure now carries the network sandbox, `leantar`, and the exact
+The provider closure then carried the network sandbox, `leantar`, and the exact
 Mathlib v4.31.0 source, while the execution shell sets an isolated `HOME` and
 prepends the provider directory to `PATH`. Deterministic checks passed:
 
@@ -61,7 +61,20 @@ denied network sandbox and cannot execute `git`:
 could not execute external process 'git'
 ```
 
-This checkpoint does not complete the executable compatibility matrix, create a
-real proof receipt, or permit the Valence handoff. The next implementation must
-bind a fully local Lake dependency closure, rerun both live fixtures, and retain
-network denial.
+That intermediate checkpoint did not complete the executable compatibility
+matrix, create a real proof receipt, or permit the Valence handoff.
+
+## Resolved executable closure
+
+The final compatibility slice binds Mathlib's exact manifest revisions through
+a fixed-output Nix derivation, stages path-only root and nested Lake manifests,
+and retains bubblewrap network denial. The staged `Aeneas.lean` prelude is
+limited to `Aeneas.Data`, `Aeneas.Do`, and `Aeneas.Std.Scalar`, matching the
+scalar canary instead of importing unrelated umbrella modules.
+
+Fresh positive and false-theorem fixtures now both run Charon, Aeneas, and Lake.
+The positive theorem passes; the false theorem fails without timeout. The
+combined gate and exact commands are recorded in
+`cairn/changes/add-aeneas-lean-proof-rail/evidence/compatibility-matrix.txt`.
+This still does not create the real artifact-verified proof receipt required for
+the Valence handoff.
