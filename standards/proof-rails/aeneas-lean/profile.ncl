@@ -25,8 +25,8 @@ let target_pointer_width_bits = 64 in
   ],
   command_argv = ["aeneas", "--backend", "lean", "--emit-json"],
   stage_commands = {
-    charon_argv = ["charon", "--start-from", "crate", "--emit-llbc"],
-    aeneas_argv = ["aeneas", "--backend", "lean", "--emit-json"],
+    charon_argv = ["charon", "cargo", "--preset", "aeneas", "--dest-file", "llbc.json"],
+    aeneas_argv = ["aeneas", "-backend", "lean", "-emit-json", "-dest", ".", "-no-progress-bar"],
     lean_argv = ["lake", "env", "lean", "Theorem.lean"],
   },
   limits = {
@@ -34,7 +34,7 @@ let target_pointer_width_bits = 64 in
     stdout_max_bytes = default_log_max_bytes,
     stderr_max_bytes = default_log_max_bytes,
   },
-  environment_allowlist = ["PATH"],
+  environment_allowlist = ["PATH", "CHARON_TOOLCHAIN_IS_IN_PATH", "LD_LIBRARY_PATH"],
   extraction_policy = {
     has_errors = false,
     skip_borrowck = false,

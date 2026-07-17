@@ -20,13 +20,18 @@ the shell-owned configuration:
 
 - `OCTET_AENEAS_CHARON`;
 - `OCTET_AENEAS_AENEAS`;
-- `OCTET_AENEAS_LEAN`; and
+- `OCTET_AENEAS_LEAN`;
+- `OCTET_AENEAS_LEAN_LIBRARY`; and
 - `OCTET_AENEAS_NETWORK_SANDBOX`.
 
 The child environment is cleared and rebuilt only from the profile allowlist.
+The provider package must also supply the exact Rust driver/runtime closure
+required by the pinned Charon build; the host rustc is not an implicit fallback.
 Each stage runs with argv, a fresh isolated work root, bounded output capture,
-a named timeout, and a denied network namespace. A failed or incomplete stage
-stops the pipeline.
+a named timeout, and a denied network namespace. The source package and pinned
+Aeneas Lean library are copied into that work root before execution; the Nix
+store is mounted read-only so absolute provider binaries remain available.
+A failed or incomplete stage stops the pipeline.
 
 ## Supported subset
 

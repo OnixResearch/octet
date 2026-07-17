@@ -23,15 +23,24 @@ const AENEAS_PROFILE_JSON: &str = include_str!("../../standards/proof-rails/aene
 const CHARON_EXECUTABLE_ENV: &str = "OCTET_AENEAS_CHARON";
 const AENEAS_EXECUTABLE_ENV: &str = "OCTET_AENEAS_AENEAS";
 const LEAN_EXECUTABLE_ENV: &str = "OCTET_AENEAS_LEAN";
+const AENEAS_LEAN_LIBRARY_ENV: &str = "OCTET_AENEAS_LEAN_LIBRARY";
 const NETWORK_SANDBOX_ENV: &str = "OCTET_AENEAS_NETWORK_SANDBOX";
 const CHARON_COMMAND_NAME: &str = "charon";
 const AENEAS_COMMAND_NAME: &str = "aeneas";
 const LEAN_COMMAND_NAME: &str = "lake";
-const REQUIRED_AENEAS_FLAG: &str = "--emit-json";
-const REQUIRED_CHARON_FLAG: &str = "--emit-llbc";
+const REQUIRED_CHARON_ARGUMENTS: &[&str] = &["cargo", "--preset", "aeneas", "--dest-file", "llbc.json"];
+const REQUIRED_AENEAS_ARGUMENTS: &[&str] = &["-backend", "lean", "-emit-json"];
 const REQUIRED_LEAN_SUBCOMMANDS: &[&str] = &["env", "lean"];
+const AENEAS_LIBRARY_DIRECTORY: &str = "aeneas-lean-library";
+const LAKEFILE_NAME: &str = "lakefile.lean";
+const LEAN_TOOLCHAIN_NAME: &str = "lean-toolchain";
+const GIT_DIRECTORY_NAME: &str = ".git";
+const TARGET_DIRECTORY_NAME: &str = "target";
+const LAKE_DIRECTORY_NAME: &str = ".lake";
 const NETWORK_DENIAL_FLAG: &str = "--unshare-net";
 const DIE_WITH_PARENT_FLAG: &str = "--die-with-parent";
+const NIX_STORE_DIRECTORY: &str = "/nix/store";
+const PROC_MOUNT_PATH: &str = "/proc";
 const READ_CHUNK_BYTES: usize = 4_096;
 const PROCESS_POLL_INTERVAL_MS: u64 = 10;
 const STAGE_COUNT: usize = 3;
@@ -69,6 +78,7 @@ pub(crate) struct AeneasExecutionPlanInput {
     pub(crate) charon_executable: PathBuf,
     pub(crate) aeneas_executable: PathBuf,
     pub(crate) lean_executable: PathBuf,
+    pub(crate) aeneas_lean_library: PathBuf,
     pub(crate) network_sandbox: PathBuf,
     pub(crate) source_root: PathBuf,
     pub(crate) work_root: PathBuf,
@@ -93,6 +103,7 @@ pub(crate) struct AeneasExecutionPlan {
     pub(crate) work_root: PathBuf,
     pub(crate) limits: AeneasExecutionLimits,
     pub(crate) environment_allowlist: Vec<String>,
+    pub(crate) aeneas_lean_library: PathBuf,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -150,6 +161,7 @@ pub(crate) fn build_aeneas_execution_plan(input: AeneasExecutionPlanInput) -> Re
     validate_absolute_path(&mut diagnostics, "charon_executable", &input.charon_executable);
     validate_absolute_path(&mut diagnostics, "aeneas_executable", &input.aeneas_executable);
     validate_absolute_path(&mut diagnostics, "lean_executable", &input.lean_executable);
+    validate_absolute_path(&mut diagnostics, "aeneas_lean_library", &input.aeneas_lean_library);
     validate_absolute_path(&mut diagnostics, "network_sandbox", &input.network_sandbox);
     validate_absolute_path(&mut diagnostics, "source_root", &input.source_root);
     validate_absolute_path(&mut diagnostics, "work_root", &input.work_root);
@@ -159,12 +171,20 @@ pub(crate) fn build_aeneas_execution_plan(input: AeneasExecutionPlanInput) -> Re
     validate_relative_path(&mut diagnostics, "source_path", &input.source_path);
     validate_relative_path(&mut diagnostics, "llbc_path", &input.llbc_path);
     validate_relative_path(&mut diagnostics, "theorem_path", &input.theorem_path);
-    validate_stage_argv(&mut diagnostics, AeneasStageKind::Charon, &input.charon_argv, CHARON_COMMAND_NAME, &[
-        REQUIRED_CHARON_FLAG,
-    ]);
-    validate_stage_argv(&mut diagnostics, AeneasStageKind::Aeneas, &input.aeneas_argv, AENEAS_COMMAND_NAME, &[
-        REQUIRED_AENEAS_FLAG,
-    ]);
+    validate_stage_argv(
+        &mut diagnostics,
+        AeneasStageKind::Charon,
+        &input.charon_argv,
+        CHARON_COMMAND_NAME,
+        REQUIRED_CHARON_ARGUMENTS,
+    );
+    validate_stage_argv(
+        &mut diagnostics,
+        AeneasStageKind::Aeneas,
+        &input.aeneas_argv,
+        AENEAS_COMMAND_NAME,
+        REQUIRED_AENEAS_ARGUMENTS,
+    );
     validate_stage_argv(
         &mut diagnostics,
         AeneasStageKind::Lean,
@@ -191,17 +211,17 @@ pub(crate) fn build_aeneas_execution_plan(input: AeneasExecutionPlanInput) -> Re
     let stages = vec![
         AeneasStagePlan {
             kind: AeneasStageKind::Charon,
-            argv: sandboxed_argv(&input, &input.charon_executable, &input.charon_argv, &input.source_path),
+            argv: sandboxed_argv(&input, &input.charon_executable, &input.charon_argv, None),
             working_dir: input.work_root.clone(),
         },
         AeneasStagePlan {
             kind: AeneasStageKind::Aeneas,
-            argv: sandboxed_argv(&input, &input.aeneas_executable, &input.aeneas_argv, &input.llbc_path),
+            argv: sandboxed_argv(&input, &input.aeneas_executable, &input.aeneas_argv, Some(&input.llbc_path)),
             working_dir: input.work_root.clone(),
         },
         AeneasStagePlan {
             kind: AeneasStageKind::Lean,
-            argv: sandboxed_argv(&input, &input.lean_executable, &input.lean_argv, &input.theorem_path),
+            argv: sandboxed_argv(&input, &input.lean_executable, &input.lean_argv, Some(&input.theorem_path)),
             working_dir: input.work_root.clone(),
         },
     ];
@@ -212,6 +232,7 @@ pub(crate) fn build_aeneas_execution_plan(input: AeneasExecutionPlanInput) -> Re
         work_root: input.work_root,
         limits: input.limits,
         environment_allowlist: input.environment_allowlist,
+        aeneas_lean_library: input.aeneas_lean_library,
     })
 }
 
@@ -295,12 +316,17 @@ fn sandboxed_argv(
     input: &AeneasExecutionPlanInput,
     executable: &Path,
     provider_argv: &[String],
-    input_path: &Path,
+    input_path: Option<&Path>,
 ) -> Vec<String> {
     let mut argv = vec![
         input.network_sandbox.display().to_string(),
         DIE_WITH_PARENT_FLAG.to_owned(),
         NETWORK_DENIAL_FLAG.to_owned(),
+        "--proc".to_owned(),
+        PROC_MOUNT_PATH.to_owned(),
+        "--ro-bind".to_owned(),
+        NIX_STORE_DIRECTORY.to_owned(),
+        NIX_STORE_DIRECTORY.to_owned(),
         "--ro-bind".to_owned(),
         input.source_root.display().to_string(),
         input.source_root.display().to_string(),
@@ -313,8 +339,71 @@ fn sandboxed_argv(
         executable.display().to_string(),
     ];
     argv.extend(provider_argv.iter().skip(1).cloned());
-    argv.push(input_path.display().to_string());
+    if let Some(input_path) = input_path {
+        argv.push(input_path.display().to_string());
+    }
     argv
+}
+
+fn prepare_work_root(source_root: &Path, work_root: &Path, aeneas_lean_library: &Path) -> Result<(), String> {
+    if !source_root.is_dir() {
+        return Err(format!("Aeneas source root `{}` is not a directory", source_root.display()));
+    }
+    if !aeneas_lean_library.is_dir() {
+        return Err(format!("Aeneas Lean library `{}` is not a directory", aeneas_lean_library.display()));
+    }
+    copy_directory_contents(source_root, work_root, true)?;
+    let library_destination = work_root.join(AENEAS_LIBRARY_DIRECTORY);
+    copy_directory_contents(aeneas_lean_library, &library_destination, false)?;
+    let toolchain_source = aeneas_lean_library.join(LEAN_TOOLCHAIN_NAME);
+    let toolchain_destination = work_root.join(LEAN_TOOLCHAIN_NAME);
+    fs::copy(&toolchain_source, &toolchain_destination).map_err(|error| {
+        format!(
+            "copy Aeneas Lean toolchain `{}` to `{}`: {error}",
+            toolchain_source.display(),
+            toolchain_destination.display()
+        )
+    })?;
+    let lakefile = work_root.join(LAKEFILE_NAME);
+    let lakefile_text = format!(
+        "import Lake\\nopen Lake DSL\\npackage octet_aeneas_fixture\\nrequire aeneas from \\\"./{AENEAS_LIBRARY_DIRECTORY}\\\"\\n"
+    );
+    fs::write(&lakefile, lakefile_text)
+        .map_err(|error| format!("write generated Aeneas Lake package `{}`: {error}", lakefile.display()))
+}
+
+fn copy_directory_contents(source: &Path, destination: &Path, skip_build_directories: bool) -> Result<(), String> {
+    fs::create_dir_all(destination)
+        .map_err(|error| format!("create copied Aeneas directory `{}`: {error}", destination.display()))?;
+    let entries =
+        fs::read_dir(source).map_err(|error| format!("read Aeneas directory `{}`: {error}", source.display()))?;
+    for entry in entries {
+        let entry = entry.map_err(|error| format!("read Aeneas directory entry in `{}`: {error}", source.display()))?;
+        let name = entry.file_name();
+        let name_text = name.to_string_lossy();
+        let file_type = entry
+            .file_type()
+            .map_err(|error| format!("inspect Aeneas directory entry `{}`: {error}", entry.path().display()))?;
+        if skip_build_directories && file_type.is_dir() && should_skip_source_directory(&name_text) {
+            continue;
+        }
+        let source_path = entry.path();
+        let destination_path = destination.join(&name);
+        if file_type.is_dir() {
+            copy_directory_contents(&source_path, &destination_path, skip_build_directories)?;
+        } else if file_type.is_file() {
+            fs::copy(&source_path, &destination_path).map_err(|error| {
+                format!("copy Aeneas file `{}` to `{}`: {error}", source_path.display(), destination_path.display())
+            })?;
+        } else {
+            return Err(format!("Aeneas source contains unsupported filesystem entry `{}`", source_path.display()));
+        }
+    }
+    Ok(())
+}
+
+fn should_skip_source_directory(name: &str) -> bool {
+    matches!(name, GIT_DIRECTORY_NAME | TARGET_DIRECTORY_NAME | LAKE_DIRECTORY_NAME)
 }
 
 /// Execute the validated plan in a fresh work root with a denied network namespace.
@@ -334,6 +423,10 @@ pub(crate) fn execute_aeneas_plan(plan: &AeneasExecutionPlan) -> AeneasExecution
         report
             .diagnostics
             .push(format!("create isolated Aeneas work root `{}`: {error}", plan.work_root.display()));
+        return report;
+    }
+    if let Err(error) = prepare_work_root(&plan.source_root, &plan.work_root, &plan.aeneas_lean_library) {
+        report.diagnostics.push(error);
         return report;
     }
     for stage in &plan.stages {
@@ -536,6 +629,7 @@ pub(crate) fn execute_aeneas_from_environment(rail: &ProofRail, source_root: &Pa
         (CHARON_EXECUTABLE_ENV, "Charon"),
         (AENEAS_EXECUTABLE_ENV, "Aeneas"),
         (LEAN_EXECUTABLE_ENV, "Lean"),
+        (AENEAS_LEAN_LIBRARY_ENV, "Aeneas Lean library"),
         (NETWORK_SANDBOX_ENV, "network sandbox"),
     ];
     let mut configured = Vec::new();
@@ -587,7 +681,8 @@ pub(crate) fn execute_aeneas_from_environment(rail: &ProofRail, source_root: &Pa
         charon_executable: configured[0].clone(),
         aeneas_executable: configured[1].clone(),
         lean_executable: configured[2].clone(),
-        network_sandbox: configured[3].clone(),
+        aeneas_lean_library: configured[3].clone(),
+        network_sandbox: configured[4].clone(),
         source_root,
         work_root,
         source_path,
@@ -675,15 +770,24 @@ mod tests {
     const TEST_LLBC_PATH: &str = "llbc.json";
     const TEST_THEOREM_PATH: &str = "Theorem.lean";
     const TEST_ENVIRONMENT: &str = "PATH";
+    const LIVE_PROVIDER_TIMEOUT_MS: u64 = 300_000;
+    const LIVE_PROVIDER_LOG_BYTES: usize = 65_536;
+    const LIVE_FIXTURE_SOURCE: &str = "src/lib.rs";
+    const LIVE_FIXTURE_THEOREM: &str = "Theorem.lean";
 
     fn valid_input(root: &Path) -> AeneasExecutionPlanInput {
         AeneasExecutionPlanInput {
-            charon_argv: vec![CHARON_COMMAND_NAME.to_owned(), REQUIRED_CHARON_FLAG.to_owned()],
-            aeneas_argv: vec![AENEAS_COMMAND_NAME.to_owned(), REQUIRED_AENEAS_FLAG.to_owned()],
+            charon_argv: std::iter::once(CHARON_COMMAND_NAME.to_owned())
+                .chain(REQUIRED_CHARON_ARGUMENTS.iter().map(|argument| (*argument).to_owned()))
+                .collect(),
+            aeneas_argv: std::iter::once(AENEAS_COMMAND_NAME.to_owned())
+                .chain(REQUIRED_AENEAS_ARGUMENTS.iter().map(|argument| (*argument).to_owned()))
+                .collect(),
             lean_argv: vec![LEAN_COMMAND_NAME.to_owned(), "env".to_owned(), "lean".to_owned()],
             charon_executable: root.join("charon"),
             aeneas_executable: root.join("aeneas"),
             lean_executable: root.join("lake"),
+            aeneas_lean_library: root.join(AENEAS_LIBRARY_DIRECTORY),
             network_sandbox: root.join("bwrap"),
             source_root: root.join("source"),
             work_root: root.join("work"),
@@ -713,7 +817,12 @@ mod tests {
             assert_eq!(stage.argv[2], NETWORK_DENIAL_FLAG);
             assert!(stage.argv.contains(&"--".to_owned()));
         }
-        assert!(plan.stages[1].argv.contains(&REQUIRED_AENEAS_FLAG.to_owned()));
+        for argument in REQUIRED_AENEAS_ARGUMENTS {
+            assert!(plan.stages[1].argv.contains(&(*argument).to_owned()));
+        }
+        for argument in REQUIRED_CHARON_ARGUMENTS {
+            assert!(plan.stages[0].argv.contains(&(*argument).to_owned()));
+        }
     }
 
     #[test]
@@ -756,6 +865,26 @@ mod tests {
         assert_eq!(report.observations[1].stdout.trim(), "aeneas");
         assert_eq!(report.observations[2].stdout.trim(), "lake");
         assert!(plan.work_root.is_dir());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn shell_rejects_missing_aeneas_library_before_process_execution() {
+        let temporary = tempfile::tempdir().expect("temporary test root");
+        let plan = fixture_plan(
+            temporary.path(),
+            "printf '%s\\n' 'charon'",
+            "printf '%s\\n' 'aeneas'",
+            "printf '%s\\n' 'lake'",
+            TEST_LOG_BYTES,
+            TEST_LOG_BYTES,
+            TEST_TIMEOUT_MS,
+        );
+        fs::remove_dir_all(&plan.aeneas_lean_library).expect("remove Aeneas library fixture");
+        let report = execute_aeneas_plan(&plan);
+
+        assert!(report.observations.is_empty());
+        assert!(report.diagnostics.iter().any(|diagnostic| diagnostic.contains("Aeneas Lean library")));
     }
 
     #[cfg(unix)]
@@ -813,6 +942,57 @@ mod tests {
 
     #[cfg(unix)]
     #[test]
+    #[ignore = "requires the pinned Aeneas/Charon/Lean provider closure"]
+    fn live_provider_executes_real_positive_fixture() {
+        let source_root = live_fixture_root("valid/real_fixture");
+        let rail = live_fixture_rail(LIVE_FIXTURE_THEOREM);
+        let summary = execute_aeneas_from_environment(&rail, &source_root);
+
+        assert!(summary.command_succeeded, "real positive fixture failed: {summary:?}");
+        assert!(summary.stdout_text.contains("[charon]"), "Charon stage was not observed: {summary:?}");
+        assert!(summary.stdout_text.contains("[aeneas]"), "Aeneas stage was not observed: {summary:?}");
+        assert!(summary.stdout_text.contains("[lean]"), "Lean stage was not observed: {summary:?}");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    #[ignore = "requires the pinned Aeneas/Charon/Lean provider closure"]
+    fn live_provider_rejects_real_false_fixture() {
+        let source_root = live_fixture_root("invalid/real_fixture_false");
+        let rail = live_fixture_rail(LIVE_FIXTURE_THEOREM);
+        let summary = execute_aeneas_from_environment(&rail, &source_root);
+
+        assert!(!summary.command_succeeded, "real false fixture unexpectedly passed: {summary:?}");
+        assert!(summary.diagnostics.iter().any(|diagnostic| diagnostic.contains("lean")));
+    }
+
+    fn live_fixture_root(relative: &str) -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../standards/proof-rails/aeneas-lean/fixtures")
+            .join(relative)
+            .canonicalize()
+            .expect("live Aeneas fixture root")
+    }
+
+    fn live_fixture_rail(theorem_path: &str) -> ProofRail {
+        ProofRail {
+            backend: AENEAS_LEAN_BACKEND.to_owned(),
+            source_paths: vec![LIVE_FIXTURE_SOURCE.to_owned()],
+            proof_paths: vec![theorem_path.to_owned()],
+            timeout_ms: LIVE_PROVIDER_TIMEOUT_MS,
+            stdout_max_bytes: LIVE_PROVIDER_LOG_BYTES,
+            stderr_max_bytes: LIVE_PROVIDER_LOG_BYTES,
+            environment_allowlist: vec![
+                TEST_ENVIRONMENT.to_owned(),
+                "CHARON_TOOLCHAIN_IS_IN_PATH".to_owned(),
+                "LD_LIBRARY_PATH".to_owned(),
+            ],
+            ..ProofRail::default()
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
     fn shell_reports_timeout_and_bounded_log_overflow() {
         let timeout_root = tempfile::tempdir().expect("timeout test root");
         let timeout_plan = fixture_plan(
@@ -859,6 +1039,11 @@ mod tests {
 
         let source_root = root.join("source");
         fs::create_dir(&source_root).expect("source root");
+        let library_root = root.join(AENEAS_LIBRARY_DIRECTORY);
+        fs::create_dir(&library_root).expect("Aeneas Lean library root");
+        fs::write(library_root.join(LAKEFILE_NAME), "import Lake\n").expect("Aeneas library lakefile");
+        fs::write(library_root.join(LEAN_TOOLCHAIN_NAME), "leanprover/lean4:v4.31.0\n")
+            .expect("Aeneas library toolchain");
         let scripts = [("charon", charon_body), ("aeneas", aeneas_body), ("lake", lean_body)];
         for (script_name, body) in scripts {
             write_executable(&root.join(script_name), &format!("#!/bin/sh\n{body}\n"));
