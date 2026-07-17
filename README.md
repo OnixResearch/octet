@@ -342,6 +342,7 @@ and config keys.
 - `docs/valence-core-cutover.md` — standalone Valence dependency target, Octet compatibility shim, downstream migration, and cutover non-claims
 - `docs/preserves-receipt-export.md` — optional Preserves envelope adapter contract and non-claims
 - `docs/formal-proof-valence-export-fixture.md` — frozen formal-proof Valence adapter fixture contract
+- `docs/aeneas-lean-proof-rail.md` — opt-in Aeneas/Charon/Lean provider selection, theorem gate, rollout order, and claim boundaries
 - `docs/concurrency-performance-lint-candidates.md` — first-wave concurrency/performance lint candidate matrix
 - `docs/contributor-guide.md` — source-of-truth map, doc-update crosswalk, verification rails
 - `docs/downstream-rollout.md` — rollout profiles, promotion playbooks, and boundary guidance
@@ -372,3 +373,8 @@ AGPL-3.0-or-later. See [LICENSE](LICENSE). Third-party dependencies and imported
 - [joweeba/z4](https://github.com/joweeba/z4) — Rust-native solver, conservative `unknown`, proof-artifact, and progress-diagnostic reference for optional recorded solver evidence rails; Octet does not treat it as a default solver or Z3 replacement.
 - [joweeba/zani](https://github.com/joweeba/zani), [joweeba/sunder](https://github.com/joweeba/sunder), and [joweeba/certus](https://github.com/joweeba/certus) — Rust verifier UX and fixture-shape references for bounded positive/negative proof-rail regression fixtures; Octet does not adopt their runtimes or transfer verifier soundness claims.
 - [nasa/spacewasm](https://github.com/nasa/spacewasm) at `e24cf09355a90497148eb5029fdb8e3400bd63e3` — reviewed source cohort for the execution-free `spacewasm-mvp` artifact profile; Octet does not import or execute the runtime and does not transfer decode, execution, safety, sandbox, certification, or release claims.
+- [AeneasVerif/aeneas](https://github.com/AeneasVerif/aeneas) — Charon/LLBC-to-Lean translation and theorem-checking reference for the opt-in Aeneas proof provider; Octet must rerun exact pinned stages and does not inherit translation or verifier soundness claims.
+- [AeneasVerif/charon](https://github.com/AeneasVerif/charon) — pinned Rust semantic-extraction and serialized-option reference for Aeneas and optional Charon semantic-analysis rails; Octet rejects partial or weakened extraction and does not claim compiler correctness or complete Rust support.
+- [AeneasVerif/mechanized-llbc](https://github.com/AeneasVerif/mechanized-llbc) — recorded-only LLBC semantic-foundation corpus; it does not certify the pinned Charon or Aeneas implementations.
+- [AeneasVerif/charon-rudra](https://github.com/AeneasVerif/charon-rudra) — historical analysis-over-Charon design reference only; Octet does not adopt its old toolchain or implementation as a runtime dependency.
+- [AeneasVerif/jxl-proofs](https://github.com/AeneasVerif/jxl-proofs) — proof-architecture and vacuous-specification caution corpus used to design theorem-adequacy negatives; its theorems and generated artifacts do not transfer proof authority.

@@ -27,10 +27,13 @@
     };
     aeneas = {
       url = "github:AeneasVerif/aeneas/bc2eb6f941369fa3c695e30598b5758b11e4f0de";
-      flake = false;
     };
     aeneasCharon = {
       url = "github:AeneasVerif/charon/cb50ff16b9f1066b8a97dc06da704de2da2fa41c";
+      flake = false;
+    };
+    lean4-src = {
+      url = "github:leanprover/lean4/68218e876d2a38b1985b8590fff244a83c321783";
       flake = false;
     };
   };
@@ -48,6 +51,7 @@
       nickel-export,
       aeneas,
       aeneasCharon,
+      lean4-src,
       ...
     }:
     let
@@ -325,6 +329,37 @@
         );
         aeneasRevision = aeneasLeanProviderProfile.aeneas_revision;
         aeneasCharonRevision = aeneasLeanProviderProfile.charon_revision;
+        aeneasProviderSource = aeneas.outPath;
+        aeneasExecutable = aeneas.packages.${system}.aeneas;
+        charonExecutable = aeneas.packages.${system}.charon;
+        leantar = pkgs.stdenvNoCC.mkDerivation {
+          pname = "leantar";
+          version = "0.1.19";
+          src = pkgs.fetchurl {
+            url = "https://github.com/digama0/leangz/releases/download/v0.1.19/leantar-v0.1.19-x86_64-unknown-linux-musl.tar.gz";
+            hash = "sha256-gbsl5DF5FTVZdEj0h+amMhoboMZuCEbAerwSrboTmjk=";
+          };
+          unpackPhase = "tar -xzf $src";
+          installPhase = ''
+            install -Dm755 leantar-v0.1.19-x86_64-unknown-linux-musl/leantar "$out/bin/leantar"
+          '';
+        };
+        leanExecutable = pkgs.lean4.overrideAttrs (old: {
+          version = "4.31.0";
+          src = lean4-src;
+          nativeBuildInputs = old.nativeBuildInputs ++ [ leantar ];
+          cmakeFlags = [
+            "-DUSE_GITHASH=OFF"
+            "-DINSTALL_LICENSE=OFF"
+            "-DUSE_MIMALLOC=OFF"
+          ];
+          postPatch = ''
+            substituteInPlace src/CMakeLists.txt \
+              --replace-fail 'set(GIT_SHA1 "")' 'set(GIT_SHA1 "v4.31.0")'
+            rm -rf src/lake/examples/git/
+          '';
+          patches = [ ];
+        });
         productionVerusVersion = verusToolchainProfile.verifier.release;
         productionVerusSourceRevision = verusToolchainProfile.verifier.source_revision;
         productionVerusReleaseUrl = verusToolchainProfile.verifier.release_url;
@@ -677,12 +712,22 @@
             ''
               set -eu
               revision_length=40
-              aeneas_source="${aeneas}"
+              aeneas_source="${aeneasProviderSource}"
               charon_source="${aeneasCharon}"
+              aeneas_binary="${aeneasExecutable}/bin/aeneas"
+              charon_binary="${charonExecutable}/bin/charon"
+              lean_binary="${leanExecutable}/bin/lean"
+              lake_binary="${leanExecutable}/bin/lake"
               charon_pin="$aeneas_source/charon-pin"
+              expected_aeneas_revision="${aeneasRevision}"
+              actual_aeneas_revision="${aeneas.rev}"
               expected_charon_revision="${aeneasCharonRevision}"
               profile_path="${./standards/proof-rails/aeneas-lean/generated/profile.json}"
 
+              if [ "$actual_aeneas_revision" != "$expected_aeneas_revision" ]; then
+                echo "Aeneas revision mismatch: $actual_aeneas_revision != $expected_aeneas_revision" >&2
+                exit 1
+              fi
               if [ ! -s "$charon_pin" ]; then
                 echo "Aeneas provider closure is missing charon-pin" >&2
                 exit 1
@@ -696,13 +741,28 @@
                 echo "Aeneas provider closure is missing the pinned Charon source" >&2
                 exit 1
               fi
+              for executable in "$aeneas_binary" "$charon_binary" "$lean_binary" "$lake_binary"; do
+                if [ ! -x "$executable" ]; then
+                  echo "Aeneas provider closure is missing executable: $executable" >&2
+                  exit 1
+                fi
+              done
 
               charon_pin_blake3=$(b3sum "$charon_pin" | cut --delimiter=' ' --fields=1)
               profile_blake3=$(b3sum "$profile_path" | cut --delimiter=' ' --fields=1)
+              aeneas_binary_blake3=$(b3sum "$aeneas_binary" | cut --delimiter=' ' --fields=1)
+              charon_binary_blake3=$(b3sum "$charon_binary" | cut --delimiter=' ' --fields=1)
+              lean_binary_blake3=$(b3sum "$lean_binary" | cut --delimiter=' ' --fields=1)
+              lake_binary_blake3=$(b3sum "$lake_binary" | cut --delimiter=' ' --fields=1)
               provider_dir="$out/share/octet/aeneas-lean"
               mkdir -p "$out/bin" "$provider_dir"
               ln -s "$aeneas_source" "$provider_dir/aeneas-source"
               ln -s "$charon_source" "$provider_dir/charon-source"
+              ln -s "$aeneas_binary" "$provider_dir/aeneas"
+              ln -s "$charon_binary" "$provider_dir/charon"
+              ln -s "$lean_binary" "$provider_dir/lean"
+              ln -s "$lake_binary" "$provider_dir/lake"
+              cp -r "$aeneas_source/backends/lean" "$provider_dir/aeneas-lean-library"
               cp "$charon_pin" "$provider_dir/charon-pin"
               cp "$profile_path" "$provider_dir/profile.json"
 
@@ -710,12 +770,21 @@
               {
                 "schema_version": "octet-aeneas-lean-provider-closure/v1",
                 "status": "packaged",
-                "aeneas_revision": "${aeneasRevision}",
+                "aeneas_revision": "$expected_aeneas_revision",
                 "charon_revision": "$expected_charon_revision",
                 "charon_pin_blake3": "$charon_pin_blake3",
                 "profile_blake3": "$profile_blake3",
+                "aeneas_binary_blake3": "$aeneas_binary_blake3",
+                "charon_binary_blake3": "$charon_binary_blake3",
+                "lean_binary_blake3": "$lean_binary_blake3",
+                "lake_binary_blake3": "$lake_binary_blake3",
                 "aeneas_source": "$provider_dir/aeneas-source",
                 "charon_source": "$provider_dir/charon-source",
+                "aeneas_binary": "$provider_dir/aeneas",
+                "charon_binary": "$provider_dir/charon",
+                "lean_binary": "$provider_dir/lean",
+                "lake_binary": "$provider_dir/lake",
+                "aeneas_lean_library": "$provider_dir/aeneas-lean-library",
                 "charon_pin": "$provider_dir/charon-pin",
                 "profile": "$provider_dir/profile.json"
               }
@@ -727,6 +796,7 @@
               revision_length=$revision_length
               expected_charon_revision="$expected_charon_revision"
               identity_path="$provider_dir/identity.json"
+              provider_dir="$provider_dir"
 
               check_charon_pin() {
                 pin_file="\$1"
@@ -737,6 +807,7 @@
                 fi
               }
 
+              check_charon_pin "\$provider_dir/charon-pin"
               if [ "\$#" -eq 1 ] && [ "\$1" = "--identity" ]; then
                 cat "\$identity_path"
                 exit 0
@@ -746,7 +817,11 @@
                 printf 'charon-pin: valid\\n'
                 exit 0
               fi
-              echo "Aeneas Lean execution is not enabled by the provider-closure slice" >&2
+              if [ "\$#" -eq 1 ] && [ "\$1" = "--tool-identities" ]; then
+                jq --sort-keys '{aeneas_binary, charon_binary, lean_binary, lake_binary, aeneas_binary_blake3, charon_binary_blake3, lean_binary_blake3, lake_binary_blake3}' "\$identity_path"
+                exit 0
+              fi
+              echo "Aeneas Lean execution requires the cargo-octet execution shell" >&2
               exit 2
               EOF
               chmod +x "$out/bin/octet-aeneas-lean"
@@ -767,10 +842,12 @@
               jq --exit-status \
                 --arg aeneas_revision "${aeneasRevision}" \
                 --arg charon_revision "$expected_charon_revision" \
-                '.schema_version == "octet-aeneas-lean-provider-closure/v1" and .status == "packaged" and .aeneas_revision == $aeneas_revision and .charon_revision == $charon_revision and (.charon_pin_blake3 | length) == 64 and (.profile_blake3 | length) == 64' \
+                '.schema_version == "octet-aeneas-lean-provider-closure/v1" and .status == "packaged" and .aeneas_revision == $aeneas_revision and .charon_revision == $charon_revision and (.charon_pin_blake3 | length) == 64 and (.profile_blake3 | length) == 64 and (.aeneas_binary_blake3 | length) == 64 and (.charon_binary_blake3 | length) == 64 and (.lean_binary_blake3 | length) == 64 and (.lake_binary_blake3 | length) == 64 and (.aeneas_binary | length) > 0 and (.charon_binary | length) > 0 and (.lean_binary | length) > 0 and (.lake_binary | length) > 0' \
                 "$identity" >/dev/null
               "${aeneasLeanProviderClosure}/bin/octet-aeneas-lean" --identity > "$TMPDIR/identity.json"
               cmp "$identity" "$TMPDIR/identity.json"
+              "${aeneasLeanProviderClosure}/bin/octet-aeneas-lean" --tool-identities > "$TMPDIR/tool-identities.json"
+              jq --exit-status '([.aeneas_binary, .charon_binary, .lean_binary, .lake_binary] | all(length > 0)) and ([.aeneas_binary_blake3, .charon_binary_blake3, .lean_binary_blake3, .lake_binary_blake3] | all(length == 64))' "$TMPDIR/tool-identities.json" >/dev/null
 
               positive_pin="$TMPDIR/charon-pin-positive"
               printf '# reviewed pin\\n%s\\n' "$expected_charon_revision" > "$positive_pin"

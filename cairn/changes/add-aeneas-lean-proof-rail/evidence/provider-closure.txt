@@ -15,9 +15,10 @@ Implementation artifacts:
   `cb50ff16b9f1066b8a97dc06da704de2da2fa41c`.
 - The provider derivation reads Aeneas `charon-pin`, compares its exact
   40-character revision to the reviewed Nickel profile, retains store-backed
-  Aeneas/Charon source links, and emits BLAKE3 identities for the pin and
-  profile. The execution command remains explicitly disabled in this slice;
-  later tasks own process execution.
+  Aeneas/Charon source links, packages executable links for Aeneas, Charon,
+  Lean, and Lake, and emits BLAKE3 identities for the pin, profile, and all
+  four executables. The wrapper permits identity and pin checks only; proof
+  execution remains owned by the bounded `cargo-octet` shell.
 
 Baseline before the edit:
 
@@ -26,20 +27,31 @@ $ nix develop -c cargo test -p octet-standards --lib
 ... test result: ok. 123 passed; 0 failed
 ```
 
-Positive and negative provider-closure checks after the edit:
+The host's default Nix configuration first failed before the derivation with a
+missing `/run/secrets/vars/nix-signing-key/key`. The focused rerun used
+`--option secret-key-files ''`, the repository-documented workaround, without
+changing repository policy.
+
+Positive and negative provider-closure checks after the current implementation:
 
 ```text
-$ nix build .#checks.x86_64-linux.aeneas-lean-provider-closure --no-link -L
-success (only the existing remote-builder and Nix experimental-feature warnings)
+$ nix build --option secret-key-files '' .#checks.x86_64-linux.aeneas-lean-provider-closure --no-link -L
+exit 0
 
-$ nix run .#octet-aeneas-lean-provider -- --identity | jq --exit-status \
-    '.schema_version == "octet-aeneas-lean-provider-closure/v1" and .status == "packaged" and .charon_revision == "cb50ff16b9f1066b8a97dc06da704de2da2fa41c"'
-true
+$ nix run --option secret-key-files '' .#octet-aeneas-lean-provider -- --identity > identity_file
+$ jq --exit-status '.schema_version == "octet-aeneas-lean-provider-closure/v1" and .status == "packaged" and (.aeneas_binary | length) > 0 and (.charon_binary | length) > 0 and (.lean_binary | length) > 0 and (.lake_binary | length) > 0 and ([.aeneas_binary_blake3, .charon_binary_blake3, .lean_binary_blake3, .lake_binary_blake3] | all(length == 64))' identity_file
+exit 0
 
-$ nix run .#octet-aeneas-lean-provider -- --check-charon-pin <drifted-pin> cb50ff16b9f1066b8a97dc06da704de2da2fa41c
+$ nix run --option secret-key-files '' .#octet-aeneas-lean-provider -- --check-charon-pin negative_pin cb50ff16b9f1066b8a97dc06da704de2da2fa41c
 exit 1
 Aeneas Charon revision mismatch: 0000000000000000000000000000000000000000 != cb50ff16b9f1066b8a97dc06da704de2da2fa41c
+
+provider-closure-positive-and-negative-pass
 ```
+
+The Nix check also compares the wrapper's identity output byte-for-byte,
+checks the `--tool-identities` surface, accepts a temporary pin containing the
+reviewed revision, and rejects the drifted pin.
 
 Focused regression and formatting checks:
 
