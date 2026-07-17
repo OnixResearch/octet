@@ -18,6 +18,7 @@ use octet_standards::formal_proof::AeneasTheoremAdequacy;
 use octet_standards::formal_proof::AeneasTheoremAdequacyDecision;
 use octet_standards::formal_proof::CharonExtractionPolicy;
 use octet_standards::formal_proof::assess_aeneas_theorem_source;
+use octet_standards::formal_proof::validate_aeneas_theorem_statement_approval;
 use octet_standards::model::ProofRail;
 use serde::Deserialize;
 
@@ -797,8 +798,7 @@ pub(crate) fn execute_aeneas_from_environment(rail: &ProofRail, source_root: &Pa
         Ok(source) => source,
         Err(error) => return failed_summary(format!("read Aeneas theorem source: {error}")),
     };
-    let theorem_adequacy = assess_aeneas_theorem_source(&theorem_source);
-    if let Some(diagnostic) = theorem_adequacy_diagnostic(&theorem_adequacy) {
+    if let Err(diagnostic) = validate_aeneas_theorem_preflight(rail, &theorem_source) {
         return failed_summary(diagnostic);
     }
     let report = execute_aeneas_plan(&plan);
@@ -877,6 +877,16 @@ fn collect_aeneas_artifacts(work_root: &Path) -> Result<Vec<AeneasArtifact>, Str
             })
         })
         .collect()
+}
+
+fn validate_aeneas_theorem_preflight(rail: &ProofRail, theorem_source: &str) -> Result<AeneasTheoremAdequacy, String> {
+    let adequacy = assess_aeneas_theorem_source(theorem_source);
+    if let Some(diagnostic) = theorem_adequacy_diagnostic(&adequacy) {
+        return Err(diagnostic);
+    }
+    let observed_statement_blake3 = crate::evidence::artifact_blake3_hex(theorem_source.as_bytes());
+    validate_aeneas_theorem_statement_approval(&rail.approved_theorem_statement_blake3, &observed_statement_blake3)?;
+    Ok(adequacy)
 }
 
 fn theorem_adequacy_diagnostic(adequacy: &AeneasTheoremAdequacy) -> Option<String> {
@@ -1164,12 +1174,32 @@ mod tests {
         assert!(theorem_report.diagnostics.iter().any(|diagnostic| diagnostic.contains("lean")));
     }
 
+    #[test]
+    fn theorem_preflight_accepts_approved_source_and_rejects_mismatch_or_vacuity() {
+        let theorem_source = "theorem approved : Nat = Nat := by rfl";
+        let mut rail = ProofRail {
+            approved_theorem_statement_blake3: crate::evidence::artifact_blake3_hex(theorem_source.as_bytes()),
+            ..ProofRail::default()
+        };
+        let adequacy = validate_aeneas_theorem_preflight(&rail, theorem_source).expect("approved theorem preflight");
+        assert_eq!(adequacy.decision, AeneasTheoremAdequacyDecision::NonVacuous);
+
+        rail.approved_theorem_statement_blake3 = crate::evidence::artifact_blake3_hex(b"different theorem");
+        let mismatch = validate_aeneas_theorem_preflight(&rail, theorem_source).expect_err("mismatched approval");
+        assert!(mismatch.contains("mismatch"));
+
+        let vacuous_source = "theorem vacuous : (True) := by trivial";
+        rail.approved_theorem_statement_blake3 = crate::evidence::artifact_blake3_hex(vacuous_source.as_bytes());
+        let vacuous = validate_aeneas_theorem_preflight(&rail, vacuous_source).expect_err("vacuous theorem");
+        assert!(vacuous.contains("vacuous"));
+    }
+
     #[cfg(unix)]
     #[test]
     #[ignore = "requires the pinned Aeneas/Charon/Lean provider closure"]
     fn live_provider_executes_real_positive_fixture() {
         let source_root = live_fixture_root("valid/real_fixture");
-        let rail = live_fixture_rail(LIVE_FIXTURE_THEOREM);
+        let rail = live_fixture_rail(LIVE_FIXTURE_THEOREM, &source_root);
         let summary = execute_aeneas_from_environment(&rail, &source_root);
 
         assert!(summary.command_succeeded, "real positive fixture failed: {summary:?}");
@@ -1183,7 +1213,7 @@ mod tests {
     #[ignore = "requires the pinned Aeneas/Charon/Lean provider closure"]
     fn live_provider_rejects_real_false_fixture() {
         let source_root = live_fixture_root("invalid/real_fixture_false");
-        let rail = live_fixture_rail(LIVE_FIXTURE_THEOREM);
+        let rail = live_fixture_rail(LIVE_FIXTURE_THEOREM, &source_root);
         let summary = execute_aeneas_from_environment(&rail, &source_root);
 
         assert!(!summary.command_succeeded, "real false fixture unexpectedly passed: {summary:?}");
@@ -1196,7 +1226,7 @@ mod tests {
     #[ignore = "requires the pinned Aeneas/Charon/Lean provider closure"]
     fn live_provider_rejects_real_vacuous_fixture() {
         let source_root = live_fixture_root("invalid/real_fixture_vacuous");
-        let rail = live_fixture_rail(LIVE_FIXTURE_THEOREM);
+        let rail = live_fixture_rail(LIVE_FIXTURE_THEOREM, &source_root);
         let summary = execute_aeneas_from_environment(&rail, &source_root);
 
         assert!(!summary.command_succeeded, "real vacuous fixture unexpectedly passed: {summary:?}");
@@ -1212,11 +1242,13 @@ mod tests {
             .expect("live Aeneas fixture root")
     }
 
-    fn live_fixture_rail(theorem_path: &str) -> ProofRail {
+    fn live_fixture_rail(theorem_path: &str, source_root: &Path) -> ProofRail {
+        let theorem_source = fs::read(source_root.join(theorem_path)).expect("live fixture theorem source");
         ProofRail {
             backend: AENEAS_LEAN_BACKEND.to_owned(),
             source_paths: vec![LIVE_FIXTURE_SOURCE.to_owned()],
             proof_paths: vec![theorem_path.to_owned()],
+            approved_theorem_statement_blake3: crate::evidence::artifact_blake3_hex(&theorem_source),
             timeout_ms: LIVE_PROVIDER_TIMEOUT_MS,
             stdout_max_bytes: LIVE_PROVIDER_LOG_BYTES,
             stderr_max_bytes: LIVE_PROVIDER_LOG_BYTES,

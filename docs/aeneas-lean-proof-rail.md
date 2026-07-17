@@ -74,7 +74,7 @@ and it does not transfer translation soundness.
 Promotion requires all of the following:
 
 1. a named theorem over the generated model;
-2. an approved theorem-statement BLAKE3 identity;
+2. an independently reviewed and configured theorem-statement BLAKE3 that matches the measured source bytes;
 3. a requirement ID and explicit claim class;
 4. an explicit generated-versus-maintained source boundary;
 5. a non-vacuous adequacy decision;
@@ -82,7 +82,7 @@ Promotion requires all of the following:
    model, or undeclared axiom; and
 7. a passing Lean check for that exact theorem.
 
-False, vacuous `True`, stale, or unbound theorem selections remain recorded or
+False, `True`-style vacuous, approval-hash-mismatched, stale, or unbound theorem selections remain recorded or
 failed observations and do not receive `formal_proof` provenance.
 
 ## Rollout order

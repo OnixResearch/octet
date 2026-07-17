@@ -3,11 +3,12 @@
 Date: 2026-07-17
 Change: `add-aeneas-lean-proof-rail`
 
-This transcript supersedes the retained rejected transcript in
-`archive-review-rejection.txt`. The repair adds a bounded theorem-source
-adequacy core and shell preflight, a real vacuous theorem fixture, and an
-executable live compatibility canary. The earlier rejection remains retained
-as diagnosis; it is not completion evidence.
+This transcript supersedes the retained rejected transcripts in
+`archive-review-rejection.txt` and `admission-review-rejection.txt`. The repair
+adds a bounded theorem-source adequacy core, independently configured theorem
+statement approval, shell preflight, a real vacuous theorem fixture, and
+executable live compatibility canaries. The earlier rejections remain retained
+as diagnosis; they are not completion evidence.
 
 ## Requirement-to-artifact and test map
 
@@ -16,9 +17,10 @@ as diagnosis; it is not completion evidence.
 - Implementation: `crates/octet-standards/src/formal_proof.rs` provides the
   pure `assess_aeneas_theorem_source` core;
   `cargo-octet/src/aeneas_execution.rs` performs the imperative theorem-source
-  load and fail-closed adequacy preflight;
-  `cargo-octet/src/prove.rs` records the assessed adequacy result instead of
-  hard-coding `NonVacuous`.
+  load and fail-closed adequacy/approval preflight;
+  `cargo-octet/src/prove.rs` records the assessed adequacy result and configured
+  approved BLAKE3 instead of hard-coding `NonVacuous` or self-approving the
+  observed statement bytes.
 - Positive fixtures/tests: pinned live
   `standards/proof-rails/aeneas-lean/fixtures/valid/real_fixture/`, the
   checked-in verified artifact bundle under
@@ -40,10 +42,11 @@ as diagnosis; it is not completion evidence.
   `standards/proof-rails/aeneas-lean/compatibility-matrix.ncl`, generated
   `generated/compatibility-matrix.json`, and the pinned live/pure check in
   `flake.nix`.
-- Positive/negative coverage: two positive canaries, ten rejection canaries,
-  three live canaries (positive, false theorem, vacuous theorem), and nine
-  pure canaries (false/vacuous adequacy, partial output, borrow-check/options,
-  opacity/model, target, freshness, unsupported surface, and tamper).
+- Positive/negative coverage: two positive canaries, eleven rejection canaries,
+  three live canaries (positive, false theorem, vacuous theorem), and ten pure
+  canaries (statement approval, false/vacuous adequacy, partial output,
+  borrow-check/options, opacity/model, target, freshness, unsupported surface,
+  and tamper).
 - Executed evidence: the complete pinned matrix derivation passed, including
   its manifest count assertions and live provider run.
 
@@ -56,22 +59,29 @@ evaluation-cache warnings.
 ```text
 $ nix build --option builders '' --option secret-key-files '' .#checks.x86_64-linux.aeneas-lean-compatibility-matrix --no-link -L
 exit 0
-live compatibility: 3 passed; 0 failed; 0 ignored; 362 filtered out
-finished in 447.55s
-matrix assertions: 12 canaries; 2 positive; 10 rejection; 3 live; 9 pure
+live compatibility: 3 passed; 0 failed; 0 ignored; 363 filtered out
+finished in 444.35s
+matrix assertions: 13 canaries; 2 positive; 11 rejection; 3 live; 10 pure
 
 $ nix --option secret-key-files '' develop -c cargo fmt --check
 exit 0
 
 $ nix --option secret-key-files '' develop -c cargo test -p octet-standards --lib aeneas -- --nocapture
-13 passed; 0 failed
+16 passed; 0 failed
 
 $ nix --option secret-key-files '' develop -c cargo test -p cargo-octet --lib aeneas_execution -- --nocapture
-9 passed; 0 failed; 3 ignored
+10 passed; 0 failed; 3 ignored
 (the three ignored provider tests are executed by the pinned Nix matrix)
 
 $ nix --option secret-key-files '' develop -c cargo test -p cargo-octet --lib prove::tests -- --nocapture
 17 passed; 0 failed
+
+$ cargo octet prove with a policy copy whose configured theorem BLAKE3 was replaced by all zeroes
+failed before Charon with `Aeneas theorem statement BLAKE3 mismatch`
+
+$ cargo octet prove with the reviewed policy and pinned provider closure
+status: passed
+diagnostics: []
 
 $ nix --option secret-key-files '' develop -c cargo run -q -p cargo-octet --bin cargo-octet -- artifact verify --artifact-dir standards/proof-rails/aeneas-lean/fixtures/valid/artifacts --output-format json --emit-valence-provenance /tmp/aeneas-final-verification-post-change.json
 status: valid

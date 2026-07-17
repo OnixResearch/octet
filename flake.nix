@@ -367,6 +367,7 @@
           patches = [ ];
         });
         mathlibVersion = "4.31.0";
+        approvedAeneasTheoremStatementBlake3 = "08e7c2d1fb1e21b2e7a174340a9f5b87c3acc634c591c6102624cd3a231f1125";
         stagedAeneasPreludeImportCount = 3;
         mathlibLakeHash = "sha256-wq4OBVgChJi59Widl+vuAPoq+MNZfFmdJwcsREW5RIo=";
         mathlibLakeDependencies = pkgs.stdenvNoCC.mkDerivation {
@@ -1908,7 +1909,10 @@
               compatibility_matrix_json=$(mktemp)
               trellis_import_json=$(mktemp)
               nickel export --format json standards/proof-rails/manifest.ncl > "$manifest_json"
-              jq --exit-status '.schema_version == "octet-proof-rail-manifest/v1"' "$manifest_json" >/dev/null
+              jq --exit-status '
+                .schema_version == "octet-proof-rail-manifest/v1"
+                and .rails.aeneas_fixture.approved_theorem_statement_blake3 == "${approvedAeneasTheoremStatementBlake3}"
+              ' "$manifest_json" >/dev/null
 
               nickel typecheck standards/proof-rails/aeneas-lean/contracts.ncl
               nickel typecheck standards/proof-rails/aeneas-lean/profile.ncl
@@ -1963,9 +1967,9 @@
               nickel export --format json standards/proof-rails/aeneas-lean/compatibility-matrix.ncl > "$compatibility_matrix_json"
               cmp "$compatibility_matrix_json" standards/proof-rails/aeneas-lean/generated/compatibility-matrix.json
               upgrade_dimension_count=7
-              canary_count=12
+              canary_count=13
               positive_canary_count=2
-              rejection_canary_count=10
+              rejection_canary_count=11
               jq --exit-status \
                 --argjson upgrade_dimension_count "$upgrade_dimension_count" \
                 --argjson canary_count "$canary_count" \
@@ -1985,7 +1989,7 @@
                   and ([.canaries[].category] | index("freshness") != null)
                   and ([.canaries[].category] | index("unsupported-feature") != null)
                   and ([.canaries[] | select(.execution == "live")] | length) == 3
-                  and ([.canaries[] | select(.execution == "pure")] | length) == 9
+                  and ([.canaries[] | select(.execution == "pure")] | length) == 10
                 ' "$compatibility_matrix_json" >/dev/null
               while IFS= read -r test_function; do
                 if ! grep --fixed-strings "fn $test_function" crates/octet-standards/src/formal_proof.rs >/dev/null \

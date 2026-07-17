@@ -115,6 +115,7 @@ let productionReceiptVerifier = {
       source_paths = ["src/lib.rs"],
       proof_paths = ["Theorem.lean"],
       theorem_id = "aeneas.fixture.safe_add",
+      approved_theorem_statement_blake3 = "08e7c2d1fb1e21b2e7a174340a9f5b87c3acc634c591c6102624cd3a231f1125",
       receipt_paths = ["proofs/octet.aeneas_lean_proof_rails.fixture-rail-0.receipt"],
       pass_signal = "aeneas-proof-result: pass",
       trust_boundaries = ["Octet owns this pinned Aeneas/Charon/Lean theorem receipt; it does not prove translation soundness, verifier soundness, semantic equivalence, whole-program correctness, or release eligibility"],

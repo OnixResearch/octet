@@ -32,6 +32,14 @@ let rail_has_production_identity = fun rail =>
   )
 in
 
+let rail_has_aeneas_theorem_approval = fun rail =>
+  rail.backend != "aeneas-lean"
+  || (
+    std.string.length rail.theorem_id > 0
+    && std.string.is_match "^[0-9a-f]{64}$" rail.approved_theorem_statement_blake3
+  )
+in
+
 let rail_rules = fun rail =>
   std.array.elem rail.backend ["verus", "aeneas-lean"]
   && std.array.length rail.command_argv > 0
@@ -41,6 +49,7 @@ let rail_rules = fun rail =>
   && std.array.length rail.trust_boundaries > 0
   && rail_has_verifier_identity rail
   && rail_has_production_identity rail
+  && rail_has_aeneas_theorem_approval rail
 in
 
 let manifest_rails = fun manifest => std.record.values manifest.rails in

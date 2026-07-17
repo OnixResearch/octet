@@ -79,6 +79,14 @@ let Matrix = {
       rationale = "false and True-style theorem selections must not promote property evidence",
     },
     {
+      canary_id = "approved-theorem-statement",
+      category = "theorem-approval",
+      execution = "pure",
+      expected = "reject",
+      test_function = "aeneas_theorem_statement_approval_accepts_match_and_rejects_missing_or_mismatched",
+      rationale = "the measured theorem bytes must match an independently configured BLAKE3 rather than self-approving at receipt construction",
+    },
+    {
       canary_id = "partial-output-stage-link",
       category = "partial-output",
       execution = "pure",

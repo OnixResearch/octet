@@ -1,0 +1,52 @@
+# Independent Aeneas theorem approval repair
+
+Requirements:
+
+- `r[octet.aeneas_lean_proof_rail.theorem_adequacy]`
+- `r[octet.aeneas_lean_proof_rail.theorem_gate]`
+
+The proof-rail contract now carries
+`approved_theorem_statement_blake3`. The reviewed Aeneas fixture declares
+`08e7c2d1fb1e21b2e7a174340a9f5b87c3acc634c591c6102624cd3a231f1125`,
+which is the independently measured BLAKE3 of
+`fixtures/valid/real_fixture/Theorem.lean`.
+
+`validate_aeneas_theorem_statement_approval` is a pure core shared by the
+execution preflight and receipt builder. Missing or mismatched configured
+approval fails before Charon executes, and receipt construction records the
+configured digest rather than deriving approval from the observed artifact.
+The bounded adequacy core rejects exact, parenthesized, and conjunction-style
+`True` statements as vacuous.
+
+Focused positive and negative checks:
+
+```text
+$ cargo test -p octet-standards --lib aeneas -- --nocapture
+16 passed; 0 failed
+
+$ cargo test -p cargo-octet --lib aeneas_execution -- --nocapture
+10 passed; 0 failed; 3 ignored
+(the three pinned provider tests run in the Nix compatibility matrix)
+
+$ cargo test -p cargo-octet --lib prove::tests -- --nocapture
+17 passed; 0 failed
+```
+
+An actual `cargo octet prove` run used a generated policy copy whose configured
+approval was replaced with a different valid-length digest. It failed in four
+seconds with `Aeneas theorem statement BLAKE3 mismatch`; its report contained
+no `[charon]` stage marker. The same command with the reviewed registry and
+pinned provider closure passed with empty diagnostics.
+
+The fresh positive run reproduced the formal receipt and every proof-stage
+artifact byte-for-byte. Only Lake timing lines and their derived log provenance
+differed, so that nondeterministic timing churn was not committed. The stable
+frozen bundle was then reverified with the repaired code; regenerated
+`verification-report.json` and `verification.json` matched the committed files
+byte-for-byte with `status=valid` and empty diagnostics.
+
+The complete Nix compatibility matrix passes with thirteen canaries: two
+positive, eleven rejection, three live, and ten pure. This evidence establishes
+bounded source approval and linkage only; it does not establish translation or
+verifier soundness, semantic equivalence, whole-program correctness, or release
+eligibility.

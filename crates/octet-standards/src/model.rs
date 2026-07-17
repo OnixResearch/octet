@@ -326,6 +326,9 @@ pub struct ProofRail {
     /// Stable theorem identifier for provider-specific formal-proof rails.
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub theorem_id: String,
+    /// Independently reviewed BLAKE3 of the approved theorem-statement bytes.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub approved_theorem_statement_blake3: String,
     /// Persisted receipt paths accepted for this rail. Defaults to `proof_paths` for legacy rails.
     #[serde(default)]
     pub receipt_paths: Vec<String>,

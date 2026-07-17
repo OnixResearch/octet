@@ -42,6 +42,7 @@ use octet_standards::formal_proof::FormalProofProvider;
 use octet_standards::formal_proof::FormalProofStatus;
 use octet_standards::formal_proof::SemanticReference;
 use octet_standards::formal_proof::assess_aeneas_theorem_source;
+use octet_standards::formal_proof::validate_aeneas_theorem_statement_approval;
 use octet_standards::formal_proof::validate_formal_proof_envelope;
 use octet_standards::model::FamilySelection;
 use octet_standards::model::PolicyEntry;
@@ -757,6 +758,10 @@ fn build_aeneas_receipt(
         "proofs/aeneas/theorem-statement.lean",
         theorem_source.text.as_bytes().to_vec(),
     );
+    let approved_statement_blake3 = validate_aeneas_theorem_statement_approval(
+        &selected.rail.approved_theorem_statement_blake3,
+        &theorem_statement_identity.blake3,
+    )?;
     let theorem_adequacy = assess_aeneas_theorem_source(&theorem_source.text);
     let theorem_adequacy_identity = collector.add_with_role(
         AeneasStageArtifactRole::TheoremAdequacy,
@@ -854,7 +859,7 @@ fn build_aeneas_receipt(
         requirement_id: "octet.aeneas_lean_proof_rail.theorem_adequacy".to_owned(),
         claim_class: AENEAS_NAMED_THEOREM_CLAIM_CLASS.to_owned(),
         source_disposition: AeneasTheoremSourceDisposition::Maintained,
-        approved_statement_blake3: theorem_statement_identity.blake3.clone(),
+        approved_statement_blake3,
         named_theorem_present: theorem_name.len() > 0,
         statement_approved: true,
         adequacy: theorem_adequacy.clone(),
@@ -3033,6 +3038,7 @@ mod tests {
             source_paths: vec![SOURCE_RELATIVE_PATH.to_owned()],
             proof_paths: vec![PROOF_RELATIVE_PATH.to_owned()],
             theorem_id: String::new(),
+            approved_theorem_statement_blake3: String::new(),
             receipt_paths: vec![proof_artifact_locator(&fixture_policy_stub(), 0)],
             pass_signal: pass_signal.to_owned(),
             trust_boundaries: vec![TRUST_BOUNDARY.to_owned()],
