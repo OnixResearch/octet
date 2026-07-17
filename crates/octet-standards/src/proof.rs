@@ -2087,6 +2087,7 @@ mod tests {
             command_argv: vec!["octet-verus".to_owned(), PROOF_PATH.to_owned()],
             source_paths: vec![SOURCE_PATH.to_owned()],
             proof_paths: vec![PROOF_PATH.to_owned()],
+            theorem_id: String::new(),
             receipt_paths: vec![PROOF_ARTIFACT.to_owned()],
             pass_signal: PASS_SIGNAL.to_owned(),
             trust_boundaries: vec![
