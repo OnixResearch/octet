@@ -27,7 +27,8 @@
     "PATH",
     "CHARON_TOOLCHAIN_IS_IN_PATH",
     "LD_LIBRARY_PATH",
-    "HOME"
+    "HOME",
+    "MATHLIB_NO_CACHE_ON_UPDATE"
   ],
   "extraction_policy": {
     "drop_policy": "include-drops",
@@ -94,8 +95,7 @@
     ],
     "lean_argv": [
       "lake",
-      "env",
-      "lean"
+      "build"
     ]
   }
 }

@@ -31,11 +31,16 @@ const AENEAS_COMMAND_NAME: &str = "aeneas";
 const LEAN_COMMAND_NAME: &str = "lake";
 const REQUIRED_CHARON_ARGUMENTS: &[&str] = &["cargo", "--preset", "aeneas", "--dest-file", "llbc.llbc"];
 const REQUIRED_AENEAS_ARGUMENTS: &[&str] = &["-backend", "lean", "-emit-json"];
-const REQUIRED_LEAN_SUBCOMMANDS: &[&str] = &["env", "lean"];
+const REQUIRED_LEAN_SUBCOMMANDS: &[&str] = &["build"];
 const AENEAS_LIBRARY_DIRECTORY: &str = "aeneas-lean-library";
 const LAKEFILE_NAME: &str = "lakefile.lean";
+const LAKE_MANIFEST_NAME: &str = "lake-manifest.json";
+const LAKE_OVERRIDES_NAME: &str = "lake-overrides.json";
+const LAKE_PACKAGE_OVERRIDES_NAME: &str = "package-overrides.json";
 const LEAN_TOOLCHAIN_NAME: &str = "lean-toolchain";
 const HOME_ENVIRONMENT_NAME: &str = "HOME";
+const MATHLIB_NO_CACHE_ENVIRONMENT_NAME: &str = "MATHLIB_NO_CACHE_ON_UPDATE";
+const MATHLIB_NO_CACHE_ENVIRONMENT_VALUE: &str = "1";
 const PATH_ENVIRONMENT_NAME: &str = "PATH";
 const SANDBOX_ARGUMENT_SEPARATOR: &str = "--";
 const GIT_DIRECTORY_NAME: &str = ".git";
@@ -226,7 +231,7 @@ pub(crate) fn build_aeneas_execution_plan(input: AeneasExecutionPlanInput) -> Re
         },
         AeneasStagePlan {
             kind: AeneasStageKind::Lean,
-            argv: sandboxed_argv(&input, &input.lean_executable, &input.lean_argv, Some(&input.theorem_path)),
+            argv: sandboxed_argv(&input, &input.lean_executable, &input.lean_argv, None),
             working_dir: input.work_root.clone(),
         },
     ];
@@ -371,12 +376,39 @@ fn prepare_work_root(source_root: &Path, work_root: &Path, aeneas_lean_library: 
             toolchain_destination.display()
         )
     })?;
+    let provider_root = aeneas_lean_library
+        .parent()
+        .ok_or_else(|| format!("Aeneas Lean library `{}` has no provider root", aeneas_lean_library.display()))?;
+    let overrides_source = provider_root.join(LAKE_OVERRIDES_NAME);
+    let lake_directory = work_root.join(LAKE_DIRECTORY_NAME);
+    fs::create_dir_all(&lake_directory)
+        .map_err(|error| format!("create Aeneas Lake directory `{}`: {error}", lake_directory.display()))?;
+    let overrides_destination = lake_directory.join(LAKE_PACKAGE_OVERRIDES_NAME);
+    fs::copy(&overrides_source, &overrides_destination).map_err(|error| {
+        format!(
+            "copy Aeneas Lake overrides `{}` to `{}`: {error}",
+            overrides_source.display(),
+            overrides_destination.display()
+        )
+    })?;
+    let manifest_source = provider_root.join(LAKE_MANIFEST_NAME);
+    let manifest_destination = work_root.join(LAKE_MANIFEST_NAME);
+    fs::copy(&manifest_source, &manifest_destination).map_err(|error| {
+        format!(
+            "copy Aeneas Lake manifest `{}` to `{}`: {error}",
+            manifest_source.display(),
+            manifest_destination.display()
+        )
+    })?;
     let lakefile = work_root.join(LAKEFILE_NAME);
     let lakefile_text = format!(
         r#"import Lake
 open Lake DSL
 package octet_aeneas_fixture
 require aeneas from "./{AENEAS_LIBRARY_DIRECTORY}"
+@[default_target]
+lean_lib OctetAeneasFixture where
+  roots := #[`Llbc, `Theorem]
 "#
     );
     fs::write(&lakefile, lakefile_text)
@@ -546,6 +578,8 @@ fn spawn_stage(stage: &AeneasStagePlan, plan: &AeneasExecutionPlan) -> Result<Ae
     for name in &plan.environment_allowlist {
         if name == HOME_ENVIRONMENT_NAME {
             command.env(name, &plan.work_root);
+        } else if name == MATHLIB_NO_CACHE_ENVIRONMENT_NAME {
+            command.env(name, MATHLIB_NO_CACHE_ENVIRONMENT_VALUE);
         } else if name == PATH_ENVIRONMENT_NAME {
             let path = prepend_provider_path(provider_bin_directory.as_deref(), env::var_os(name))?;
             command.env(name, path);
@@ -807,8 +841,8 @@ mod tests {
     const TEST_LLBC_PATH: &str = "llbc.json";
     const TEST_THEOREM_PATH: &str = "Theorem.lean";
     const TEST_ENVIRONMENT: &str = "PATH";
-    const LIVE_PROVIDER_TIMEOUT_MS: u64 = 300_000;
-    const LIVE_PROVIDER_LOG_BYTES: usize = 65_536;
+    const LIVE_PROVIDER_TIMEOUT_MS: u64 = 900_000;
+    const LIVE_PROVIDER_LOG_BYTES: usize = 1_048_576;
     const LIVE_FIXTURE_SOURCE: &str = "src/lib.rs";
     const LIVE_FIXTURE_THEOREM: &str = "Theorem.lean";
 
@@ -820,7 +854,7 @@ mod tests {
             aeneas_argv: std::iter::once(AENEAS_COMMAND_NAME.to_owned())
                 .chain(REQUIRED_AENEAS_ARGUMENTS.iter().map(|argument| (*argument).to_owned()))
                 .collect(),
-            lean_argv: vec![LEAN_COMMAND_NAME.to_owned(), "env".to_owned(), "lean".to_owned()],
+            lean_argv: vec![LEAN_COMMAND_NAME.to_owned(), "build".to_owned()],
             charon_executable: root.join("charon"),
             aeneas_executable: root.join("aeneas"),
             lean_executable: root.join("lake"),
@@ -836,7 +870,11 @@ mod tests {
                 stdout_max_bytes: TEST_LOG_BYTES,
                 stderr_max_bytes: TEST_LOG_BYTES,
             },
-            environment_allowlist: vec![TEST_ENVIRONMENT.to_owned(), HOME_ENVIRONMENT_NAME.to_owned()],
+            environment_allowlist: vec![
+                TEST_ENVIRONMENT.to_owned(),
+                HOME_ENVIRONMENT_NAME.to_owned(),
+                MATHLIB_NO_CACHE_ENVIRONMENT_NAME.to_owned(),
+            ],
         }
     }
 
@@ -863,6 +901,7 @@ mod tests {
         for argument in REQUIRED_CHARON_ARGUMENTS {
             assert!(plan.stages[0].argv.contains(&(*argument).to_owned()));
         }
+        assert!(plan.environment_allowlist.contains(&MATHLIB_NO_CACHE_ENVIRONMENT_NAME.to_owned()));
     }
 
     #[test]
@@ -892,7 +931,7 @@ mod tests {
             temporary.path(),
             "printf '%s\\n' 'charon'; printf '%s\\n' \"$HOME\"",
             "printf '%s\\n' 'aeneas'",
-            "printf '%s\\n' 'lake'",
+            "printf 'lake:%s\\n' \"$MATHLIB_NO_CACHE_ON_UPDATE\"",
             TEST_LOG_BYTES,
             TEST_LOG_BYTES,
             TEST_TIMEOUT_MS,
@@ -904,7 +943,7 @@ mod tests {
         assert!(report.observations[0].stdout.starts_with("charon\n"));
         assert!(report.observations[0].stdout.contains(&plan.work_root.display().to_string()));
         assert_eq!(report.observations[1].stdout.trim(), "aeneas");
-        assert_eq!(report.observations[2].stdout.trim(), "lake");
+        assert_eq!(report.observations[2].stdout.trim(), "lake:1");
         assert!(plan.work_root.is_dir());
     }
 
@@ -926,6 +965,46 @@ mod tests {
 
         assert!(report.observations.is_empty());
         assert!(report.diagnostics.iter().any(|diagnostic| diagnostic.contains("Aeneas Lean library")));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn shell_rejects_missing_lake_overrides_before_process_execution() {
+        let temporary = tempfile::tempdir().expect("temporary test root");
+        let plan = fixture_plan(
+            temporary.path(),
+            "printf '%s\\n' 'charon'",
+            "printf '%s\\n' 'aeneas'",
+            "printf '%s\\n' 'lake'",
+            TEST_LOG_BYTES,
+            TEST_LOG_BYTES,
+            TEST_TIMEOUT_MS,
+        );
+        fs::remove_file(temporary.path().join(LAKE_OVERRIDES_NAME)).expect("remove Lake overrides fixture");
+        let report = execute_aeneas_plan(&plan);
+
+        assert!(report.observations.is_empty());
+        assert!(report.diagnostics.iter().any(|diagnostic| diagnostic.contains("Lake overrides")));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn shell_rejects_missing_lake_manifest_before_process_execution() {
+        let temporary = tempfile::tempdir().expect("temporary test root");
+        let plan = fixture_plan(
+            temporary.path(),
+            "printf '%s\\n' 'charon'",
+            "printf '%s\\n' 'aeneas'",
+            "printf '%s\\n' 'lake'",
+            TEST_LOG_BYTES,
+            TEST_LOG_BYTES,
+            TEST_TIMEOUT_MS,
+        );
+        fs::remove_file(temporary.path().join(LAKE_MANIFEST_NAME)).expect("remove Lake manifest fixture");
+        let report = execute_aeneas_plan(&plan);
+
+        assert!(report.observations.is_empty());
+        assert!(report.diagnostics.iter().any(|diagnostic| diagnostic.contains("Lake manifest")));
     }
 
     #[cfg(unix)]
@@ -1004,6 +1083,7 @@ mod tests {
         let summary = execute_aeneas_from_environment(&rail, &source_root);
 
         assert!(!summary.command_succeeded, "real false fixture unexpectedly passed: {summary:?}");
+        assert!(!summary.timed_out, "real false fixture timed out instead of rejecting the theorem: {summary:?}");
         assert!(summary.diagnostics.iter().any(|diagnostic| diagnostic.contains("lean")));
     }
 
@@ -1028,6 +1108,7 @@ mod tests {
                 "CHARON_TOOLCHAIN_IS_IN_PATH".to_owned(),
                 "LD_LIBRARY_PATH".to_owned(),
                 HOME_ENVIRONMENT_NAME.to_owned(),
+                MATHLIB_NO_CACHE_ENVIRONMENT_NAME.to_owned(),
             ],
             ..ProofRail::default()
         }
@@ -1086,6 +1167,13 @@ mod tests {
         fs::write(library_root.join(LAKEFILE_NAME), "import Lake\n").expect("Aeneas library lakefile");
         fs::write(library_root.join(LEAN_TOOLCHAIN_NAME), "leanprover/lean4:v4.31.0\n")
             .expect("Aeneas library toolchain");
+        fs::write(root.join(LAKE_OVERRIDES_NAME), "{\"schemaVersion\":\"1.2.0\",\"packages\":[]}")
+            .expect("Lake override fixture");
+        fs::write(
+            root.join(LAKE_MANIFEST_NAME),
+            "{\"version\":\"1.2.0\",\"fixedToolchain\":true,\"name\":\"fixture\",\"lakeDir\":\".lake\",\"packages\":[]}",
+        )
+        .expect("Lake manifest fixture");
         let scripts = [("charon", charon_body), ("aeneas", aeneas_body), ("lake", lean_body)];
         for (script_name, body) in scripts {
             write_executable(&root.join(script_name), &format!("#!/bin/sh\n{body}\n"));

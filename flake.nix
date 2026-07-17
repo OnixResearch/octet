@@ -366,6 +366,44 @@
           '';
           patches = [ ];
         });
+        mathlibVersion = "4.31.0";
+        stagedAeneasPreludeImportCount = 3;
+        mathlibLakeHash = "sha256-wq4OBVgChJi59Widl+vuAPoq+MNZfFmdJwcsREW5RIo=";
+        mathlibLakeDependencies = pkgs.stdenvNoCC.mkDerivation {
+          pname = "octet-aeneas-mathlib-lake-dependencies";
+          version = mathlibVersion;
+          src = mathlibSource;
+          nativeBuildInputs = [
+            pkgs.cacert
+            pkgs.gitMinimal
+            pkgs.jq
+          ];
+          dontConfigure = true;
+          buildPhase = ''
+            runHook preBuild
+            export HOME="$TMPDIR"
+            export GIT_SSL_CAINFO="$NIX_SSL_CERT_FILE"
+            mkdir -p "$TMPDIR/packages"
+            jq --compact-output '.packages[] | select(.type == "git")' lake-manifest.json \
+              | while IFS= read -r package; do
+                package_name=$(echo "$package" | jq --raw-output '.name')
+                package_url=$(echo "$package" | jq --raw-output '.url')
+                package_revision=$(echo "$package" | jq --raw-output '.rev')
+                git clone --filter=blob:none --no-checkout "$package_url" "$TMPDIR/packages/$package_name"
+                git -C "$TMPDIR/packages/$package_name" checkout "$package_revision" --quiet
+                rm -rf "$TMPDIR/packages/$package_name/.git"
+              done
+            runHook postBuild
+          '';
+          installPhase = ''
+            runHook preInstall
+            mv "$TMPDIR/packages" "$out"
+            runHook postInstall
+          '';
+          dontFixup = true;
+          outputHashMode = "recursive";
+          outputHash = mathlibLakeHash;
+        };
         productionVerusVersion = verusToolchainProfile.verifier.release;
         productionVerusSourceRevision = verusToolchainProfile.verifier.source_revision;
         productionVerusReleaseUrl = verusToolchainProfile.verifier.release_url;
@@ -719,9 +757,12 @@
             ''
               set -eu
               revision_length=40
+              staged_prelude_import_count=${toString stagedAeneasPreludeImportCount}
               aeneas_source="${aeneasProviderSource}"
               charon_source="${aeneasCharon}"
               mathlib_source="${mathlibSource}"
+              mathlib_dependencies="${mathlibLakeDependencies}"
+              mathlib_lake_hash="${mathlibLakeHash}"
               aeneas_binary="${aeneasExecutable}/bin/aeneas"
               charon_binary="${charonExecutable}/bin/charon"
               lean_binary="${leanExecutable}/bin/lean"
@@ -755,6 +796,10 @@
                 echo "Aeneas provider closure is missing the pinned mathlib source" >&2
                 exit 1
               fi
+              if [ ! -d "$mathlib_dependencies" ]; then
+                echo "Aeneas provider closure is missing the pinned Mathlib Lake dependency closure" >&2
+                exit 1
+              fi
               for executable in "$aeneas_binary" "$charon_binary" "$lean_binary" "$lake_binary" "$leantar_binary" "$network_sandbox_binary"; do
                 if [ ! -x "$executable" ]; then
                   echo "Aeneas provider closure is missing executable: $executable" >&2
@@ -782,12 +827,72 @@
               ln -s "$network_sandbox_binary" "$provider_dir/bwrap"
               cp -r "$aeneas_source/backends/lean" "$provider_dir/aeneas-lean-library"
               chmod -R u+w "$provider_dir/aeneas-lean-library"
+              cat > "$provider_dir/aeneas-lean-library/Aeneas.lean" <<'EOF'
+              import Aeneas.Data
+              import Aeneas.Do
+              import Aeneas.Std.Scalar
+              EOF
               mathlib_library="$provider_dir/aeneas-lean-library/mathlib"
               cp -r "$mathlib_source" "$mathlib_library"
               chmod -R u+w "$mathlib_library"
               find "$mathlib_library" -type l -delete
+              mathlib_packages="$mathlib_library/.lake/packages"
+              mkdir -p "$mathlib_packages"
+              cp -r "$mathlib_dependencies/." "$mathlib_packages/"
+              chmod -R u+w "$mathlib_packages"
+              find "$mathlib_packages" -type l -delete
               test -z "$(find "$mathlib_library" -type l -print -quit)"
               sed -i '/require mathlib from git/,+1c\require mathlib from "./mathlib"' "$provider_dir/aeneas-lean-library/lakefile.lean"
+              rm -f "$provider_dir/aeneas-lean-library/lake-manifest.json"
+              dependency_overrides=$(
+                for dependency in "$mathlib_packages"/*; do
+                  dependency_name=$(basename "$dependency")
+                  jq --null-input \
+                    --arg name "$dependency_name" \
+                    --arg dir "aeneas-lean-library/mathlib/.lake/packages/$dependency_name" \
+                    '{ type: "path", name: $name, inherited: false, dir: $dir }'
+                done | jq --slurp '.'
+              )
+              jq --null-input \
+                --argjson dependencies "$dependency_overrides" \
+                '{
+                  schemaVersion: "1.2.0",
+                  packages: ([
+                    {
+                      type: "path",
+                      name: "aeneas",
+                      inherited: false,
+                      dir: "aeneas-lean-library"
+                    },
+                    {
+                      type: "path",
+                      name: "mathlib",
+                      inherited: false,
+                      dir: "aeneas-lean-library/mathlib"
+                    }
+                  ] + $dependencies)
+                }' > "$provider_dir/lake-overrides.json"
+              jq '{
+                version: .schemaVersion,
+                fixedToolchain: true,
+                name: "octet_aeneas_fixture",
+                lakeDir: ".lake",
+                packagesDir: ".lake/packages",
+                packages: .packages
+              }' "$provider_dir/lake-overrides.json" > "$provider_dir/lake-manifest.json"
+              mathlib_dependency_overrides=$(
+                for dependency in "$mathlib_packages"/*; do
+                  dependency_name=$(basename "$dependency")
+                  jq --null-input \
+                    --arg name "$dependency_name" \
+                    --arg dir "aeneas-lean-library/mathlib/.lake/packages/$dependency_name" \
+                    '{ type: "path", name: $name, inherited: false, dir: $dir }'
+                done | jq --slurp '.'
+              )
+              jq --null-input \
+                --argjson dependencies "$mathlib_dependency_overrides" \
+                '{ schemaVersion: "1.2.0", packages: $dependencies }' \
+                > "$mathlib_library/.lake/package-overrides.json"
               cp "$charon_pin" "$provider_dir/charon-pin"
               cp "$profile_path" "$provider_dir/profile.json"
 
@@ -805,6 +910,8 @@
                 "lake_binary_blake3": "$lake_binary_blake3",
                 "leantar_binary_blake3": "$leantar_binary_blake3",
                 "network_sandbox_blake3": "$network_sandbox_blake3",
+                "mathlib_lake_hash": "$mathlib_lake_hash",
+                "mathlib_lake_dependencies": "$mathlib_dependencies",
                 "aeneas_source": "$provider_dir/aeneas-source",
                 "charon_source": "$provider_dir/charon-source",
                 "aeneas_binary": "$provider_dir/aeneas",
@@ -815,6 +922,8 @@
                 "network_sandbox": "$provider_dir/bwrap",
                 "aeneas_lean_library": "$provider_dir/aeneas-lean-library",
                 "mathlib_source": "$mathlib_library",
+                "lake_overrides": "$provider_dir/lake-overrides.json",
+                "lake_manifest": "$provider_dir/lake-manifest.json",
                 "charon_pin": "$provider_dir/charon-pin",
                 "profile": "$provider_dir/profile.json"
               }
@@ -874,12 +983,42 @@
               test -d "$mathlib_library"
               test -x "${aeneasLeanProviderClosure}/share/octet/aeneas-lean/leantar"
               test -z "$(find "$mathlib_library" -type l -print -quit)"
+              test ! -e "${aeneasLeanProviderClosure}/share/octet/aeneas-lean/aeneas-lean-library/lake-manifest.json"
               grep --fixed-strings 'require mathlib from "./mathlib"' \
                 "${aeneasLeanProviderClosure}/share/octet/aeneas-lean/aeneas-lean-library/lakefile.lean" >/dev/null
+              staged_prelude="${aeneasLeanProviderClosure}/share/octet/aeneas-lean/aeneas-lean-library/Aeneas.lean"
+              staged_prelude_import_count=${toString stagedAeneasPreludeImportCount}
+              test "$(grep --count '^import ' "$staged_prelude")" -eq "$staged_prelude_import_count"
+              grep --fixed-strings 'import Aeneas.Data' "$staged_prelude" >/dev/null
+              grep --fixed-strings 'import Aeneas.Do' "$staged_prelude" >/dev/null
+              grep --fixed-strings 'import Aeneas.Std.Scalar' "$staged_prelude" >/dev/null
+              if grep --extended-regexp '^import Aeneas\.(Command|Extract|Std|Tactic)$' "$staged_prelude" >/dev/null; then
+                echo "Aeneas provider closure unexpectedly includes an unsupported umbrella import" >&2
+                exit 1
+              fi
+              jq --exit-status \
+                '.schemaVersion == "1.2.0"
+                  and ([.packages[].type] | all(. == "path"))
+                  and ([.packages[].name] | index("aeneas") != null)
+                  and ([.packages[].name] | index("mathlib") != null)
+                  and ([.packages[].name] | index("batteries") != null)' \
+                "${aeneasLeanProviderClosure}/share/octet/aeneas-lean/lake-overrides.json" >/dev/null
+              jq --exit-status \
+                '.version == "1.2.0"
+                  and .fixedToolchain == true
+                  and .name == "octet_aeneas_fixture"
+                  and ([.packages[].type] | all(. == "path"))
+                  and ([.packages[].name] | index("aeneas") != null)' \
+                "${aeneasLeanProviderClosure}/share/octet/aeneas-lean/lake-manifest.json" >/dev/null
+              jq --exit-status \
+                '.schemaVersion == "1.2.0"
+                  and ([.packages[].type] | all(. == "path"))
+                  and ([.packages[].name] | index("batteries") != null)' \
+                "$mathlib_library/.lake/package-overrides.json" >/dev/null
               jq --exit-status \
                 --arg aeneas_revision "${aeneasRevision}" \
                 --arg charon_revision "$expected_charon_revision" \
-                '.schema_version == "octet-aeneas-lean-provider-closure/v1" and .status == "packaged" and .aeneas_revision == $aeneas_revision and .charon_revision == $charon_revision and (.charon_pin_blake3 | length) == 64 and (.profile_blake3 | length) == 64 and (.aeneas_binary_blake3 | length) == 64 and (.charon_binary_blake3 | length) == 64 and (.lean_binary_blake3 | length) == 64 and (.lake_binary_blake3 | length) == 64 and (.leantar_binary_blake3 | length) == 64 and (.aeneas_binary | length) > 0 and (.charon_binary | length) > 0 and (.lean_binary | length) > 0 and (.lake_binary | length) > 0 and (.leantar_binary | length) > 0 and (.network_sandbox_blake3 | length) == 64 and (.network_sandbox | length) > 0 and (.mathlib_source | length) > 0' \
+                '.schema_version == "octet-aeneas-lean-provider-closure/v1" and .status == "packaged" and .aeneas_revision == $aeneas_revision and .charon_revision == $charon_revision and (.charon_pin_blake3 | length) == 64 and (.profile_blake3 | length) == 64 and (.aeneas_binary_blake3 | length) == 64 and (.charon_binary_blake3 | length) == 64 and (.lean_binary_blake3 | length) == 64 and (.lake_binary_blake3 | length) == 64 and (.leantar_binary_blake3 | length) == 64 and (.aeneas_binary | length) > 0 and (.charon_binary | length) > 0 and (.lean_binary | length) > 0 and (.lake_binary | length) > 0 and (.leantar_binary | length) > 0 and (.network_sandbox_blake3 | length) == 64 and (.network_sandbox | length) > 0 and (.mathlib_lake_hash | length) > 0 and (.mathlib_lake_dependencies | length) > 0 and (.mathlib_source | length) > 0 and (.lake_overrides | length) > 0 and (.lake_manifest | length) > 0' \
                 "$identity" >/dev/null
               "${aeneasLeanProviderClosure}/bin/octet-aeneas-lean" --identity > "$TMPDIR/identity.json"
               cmp "$identity" "$TMPDIR/identity.json"
@@ -1824,9 +1963,9 @@
               nickel export --format json standards/proof-rails/aeneas-lean/compatibility-matrix.ncl > "$compatibility_matrix_json"
               cmp "$compatibility_matrix_json" standards/proof-rails/aeneas-lean/generated/compatibility-matrix.json
               upgrade_dimension_count=7
-              canary_count=9
-              positive_canary_count=1
-              rejection_canary_count=8
+              canary_count=11
+              positive_canary_count=2
+              rejection_canary_count=9
               jq --exit-status \
                 --argjson upgrade_dimension_count "$upgrade_dimension_count" \
                 --argjson canary_count "$canary_count" \
@@ -1845,9 +1984,15 @@
                   and ([.canaries[].category] | index("target") != null)
                   and ([.canaries[].category] | index("freshness") != null)
                   and ([.canaries[].category] | index("unsupported-feature") != null)
+                  and ([.canaries[] | select(.execution == "live")] | length) == 2
+                  and ([.canaries[] | select(.execution == "pure")] | length) == 9
                 ' "$compatibility_matrix_json" >/dev/null
               while IFS= read -r test_function; do
-                grep --fixed-strings "fn $test_function" crates/octet-standards/src/formal_proof.rs >/dev/null
+                if ! grep --fixed-strings "fn $test_function" crates/octet-standards/src/formal_proof.rs >/dev/null \
+                  && ! grep --fixed-strings "fn $test_function" cargo-octet/src/aeneas_execution.rs >/dev/null; then
+                  echo "Aeneas compatibility canary test function is missing: $test_function" >&2
+                  exit 1
+                fi
               done < <(jq --raw-output '.canaries[].test_function' "$compatibility_matrix_json")
               for file in standards/proof-rails/aeneas-lean/fixtures/invalid/*.ncl; do
                 if nickel export --format json "$file" >/dev/null 2>&1; then
@@ -3058,6 +3203,64 @@
                   echo "warning_clean.regression_dead_code: PASS"
                   mkdir -p "$out"
                 '';
+            mkAeneasLibraryCheck =
+              {
+                pname,
+                cargoPackage,
+                cargoTestExtraArgs,
+                extraPreCheck ? "",
+              }:
+              craneLib.buildPackage {
+                inherit
+                  src
+                  cargoArtifacts
+                  buildInputs
+                  cargoVendorDir
+                  pname
+                  cargoTestExtraArgs
+                  ;
+                cargoToml = ./Cargo.toml;
+                version = "0.1.0";
+                nativeBuildInputs = checkNativeBuildInputs;
+                cargoExtraArgs = "-p ${cargoPackage}";
+                doNotPostBuildInstallCargoBinaries = true;
+                buildPhaseCargoCommand = ":";
+                installPhaseCommand = ''
+                  mkdir -p "$out"
+                '';
+                LD_LIBRARY_PATH = rustToolchainLibPath;
+                RUSTUP_TOOLCHAIN = rustupToolchain;
+                preCheck = ''
+                  export PATH="${dylintShimPath}:$PATH"
+                  ${extraPreCheck}
+                '';
+              };
+            aeneasLeanPureCompatibilityCheck = mkAeneasLibraryCheck {
+              pname = "octet-aeneas-lean-pure-compatibility";
+              cargoPackage = "octet-standards";
+              cargoTestExtraArgs = "--lib aeneas -- --nocapture";
+            };
+            aeneasLeanLiveCompatibilityCheck = mkAeneasLibraryCheck {
+              pname = "octet-aeneas-lean-live-compatibility";
+              cargoPackage = "cargo-octet";
+              cargoTestExtraArgs = "--lib live_provider_ -- --ignored --nocapture --test-threads=1";
+              extraPreCheck = ''
+                export OCTET_AENEAS_CHARON="${aeneasLeanProviderClosure}/share/octet/aeneas-lean/charon"
+                export OCTET_AENEAS_AENEAS="${aeneasLeanProviderClosure}/share/octet/aeneas-lean/aeneas"
+                export OCTET_AENEAS_LEAN="${aeneasLeanProviderClosure}/share/octet/aeneas-lean/lake"
+                export OCTET_AENEAS_LEAN_LIBRARY="${aeneasLeanProviderClosure}/share/octet/aeneas-lean/aeneas-lean-library"
+                export OCTET_AENEAS_NETWORK_SANDBOX="${aeneasLeanProviderClosure}/share/octet/aeneas-lean/bwrap"
+              '';
+            };
+            aeneasLeanCompatibilityMatrixCheck =
+              pkgs.runCommand "octet-aeneas-lean-compatibility-matrix-check" { }
+                ''
+                  test -d ${aeneasLeanPureCompatibilityCheck}
+                  test -d ${aeneasLeanLiveCompatibilityCheck}
+                  test -e ${proofRailManifestCheck}
+                  test -s ${aeneasLeanProviderClosureCheck}/identity.json
+                  mkdir -p "$out"
+                '';
           in
           {
             octet = octet;
@@ -3178,6 +3381,7 @@
             downstream-proc-macro = downstreamProcMacroCheck;
             proof-rail-manifest = proofRailManifestCheck;
             aeneas-lean-provider-closure = aeneasLeanProviderClosureCheck;
+            aeneas-lean-compatibility-matrix = aeneasLeanCompatibilityMatrixCheck;
             verus-toolchain-profile = verusToolchainProfileCheck;
             production-verus-negative-proof = productionVerusNegativeProofCheck;
             production-verus-negative-prove = productionVerusNegativeProveCheck;
