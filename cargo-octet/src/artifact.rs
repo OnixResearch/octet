@@ -158,6 +158,8 @@ pub struct ValenceReceiptEnvelope {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub wasm_artifact: Option<crate::wasm_artifact::WasmArtifactReceiptDetails>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub charon_semantic: Option<crate::charon_semantic::CharonSemanticReceiptDetails>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub hegel_property: Option<crate::evidence_rails::HegelPropertyReceiptDetails>,
     pub non_claims: Vec<String>,
 }
@@ -422,6 +424,7 @@ fn valence_receipt_envelope(
         failure_reason: failure_reason_for_status(&status, matching_evidence_rail_receipt),
         ast_grep: matching_evidence_rail_receipt.and_then(|receipt| receipt.ast_grep.clone()),
         wasm_artifact: matching_evidence_rail_receipt.and_then(|receipt| receipt.wasm_artifact.clone()),
+        charon_semantic: matching_evidence_rail_receipt.and_then(|receipt| receipt.charon_semantic.clone()),
         hegel_property: matching_evidence_rail_receipt.and_then(|receipt| receipt.hegel_property.clone()),
         non_claims: non_claims_for_record(matching_evidence_rail_receipt),
     }
@@ -977,6 +980,7 @@ fn verify_evidence_rail_bundle(
     diagnostics.extend(crate::evidence::validate_provenance_chain(&provenance_records, &expected_hashes));
     validate_evidence_rail_record_shapes(receipt.as_ref(), &provenance_records, &mut diagnostics);
     validate_wasm_artifact_binding(receipt.as_ref(), &provenance_records, &mut diagnostics);
+    validate_charon_semantic_artifact_binding(receipt.as_ref(), &provenance_records, &mut diagnostics);
     validate_exact_provenance_coverage(&provenance_records, &expected_non_provenance, &mut diagnostics);
     let artifacts = verified_artifact_rows(&provenance_records, &expected_non_provenance);
     diagnostics.sort();
@@ -1086,6 +1090,46 @@ fn validate_wasm_artifact_binding(
         !record.parent_artifacts.iter().any(|parent| parent == crate::wasm_artifact::INPUT_ARTIFACT_NAME)
     }) {
         diagnostics.push("Wasm artifact receipt provenance must link the exact input bytes".to_owned());
+    }
+}
+
+fn validate_charon_semantic_artifact_binding(
+    receipt: Option<&crate::evidence_rails::EvidenceRailReceipt>,
+    records: &[ProvenanceRecord],
+    diagnostics: &mut Vec<String>,
+) {
+    let Some(details) = receipt.and_then(|receipt| receipt.charon_semantic.as_ref()) else {
+        return;
+    };
+    let receipt_record = records
+        .iter()
+        .find(|record| record.artifact_locator == crate::evidence_rails::RECEIPT_ARTIFACT_NAME);
+    for artifact in &details.artifacts {
+        let Some(record) = records.iter().find(|record| record.artifact_locator == artifact.name) else {
+            diagnostics.push(format!("Charon semantic artifact `{}` missing provenance record", artifact.name));
+            continue;
+        };
+        let observed_identity = format!("b3:{}", record.blake3);
+        if artifact.identity != observed_identity {
+            diagnostics.push(format!(
+                "Charon semantic artifact `{}` identity mismatch; receipt `{}`, artifact `{observed_identity}`",
+                artifact.name, artifact.identity
+            ));
+        }
+        if record.evidence_tier != EvidenceTier::TranscriptAssertion {
+            diagnostics.push(format!(
+                "Charon semantic artifact `{}` must remain transcript-assertion evidence",
+                artifact.name
+            ));
+        }
+        if record.checker_id != crate::evidence::CHECKER_CARGO_OCTET {
+            diagnostics.push(format!("Charon semantic artifact `{}` has unexpected checker", artifact.name));
+        }
+        if receipt_record
+            .is_none_or(|receipt_record| !receipt_record.parent_artifacts.iter().any(|parent| parent == &artifact.name))
+        {
+            diagnostics.push(format!("Charon semantic receipt provenance must link artifact `{}`", artifact.name));
+        }
     }
 }
 

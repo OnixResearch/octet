@@ -34,6 +34,7 @@ const NETWORK_SANDBOX_ENV: &str = "OCTET_AENEAS_NETWORK_SANDBOX";
 const CHARON_COMMAND_NAME: &str = "charon";
 const AENEAS_COMMAND_NAME: &str = "aeneas";
 const LEAN_COMMAND_NAME: &str = "lake";
+const REQUIRED_CHARON_BASE_ARGUMENTS: &[&str] = &["cargo", "--preset", "aeneas", "--dest-file"];
 const REQUIRED_CHARON_ARGUMENTS: &[&str] = &["cargo", "--preset", "aeneas", "--dest-file", "llbc.llbc"];
 const REQUIRED_AENEAS_ARGUMENTS: &[&str] = &["-backend", "lean", "-emit-json"];
 const REQUIRED_LEAN_SUBCOMMANDS: &[&str] = &["build"];
@@ -58,6 +59,7 @@ const PROC_MOUNT_PATH: &str = "/proc";
 const DEV_MOUNT_PATH: &str = "/dev";
 const READ_CHUNK_BYTES: usize = 4_096;
 const PROCESS_POLL_INTERVAL_MS: u64 = 10;
+const ARGV_PAIR_WIDTH: usize = 2;
 const STAGE_COUNT: usize = 3;
 const SOURCE_PATH_INDEX: usize = 0;
 const LLBC_PATH: &str = "llbc.llbc";
@@ -111,6 +113,18 @@ pub(crate) struct AeneasExecutionPlanInput {
     pub(crate) source_path: PathBuf,
     pub(crate) llbc_path: PathBuf,
     pub(crate) theorem_path: PathBuf,
+    pub(crate) limits: AeneasExecutionLimits,
+    pub(crate) environment_allowlist: Vec<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct ReusedCharonStageInput {
+    pub(crate) charon_argv: Vec<String>,
+    pub(crate) charon_executable: PathBuf,
+    pub(crate) network_sandbox: PathBuf,
+    pub(crate) source_root: PathBuf,
+    pub(crate) work_root: PathBuf,
+    pub(crate) snapshot_path: PathBuf,
     pub(crate) limits: AeneasExecutionLimits,
     pub(crate) environment_allowlist: Vec<String>,
 }
@@ -349,8 +363,26 @@ fn sandboxed_argv(
     provider_argv: &[String],
     input_path: Option<&Path>,
 ) -> Vec<String> {
+    sandboxed_provider_argv(
+        &input.network_sandbox,
+        &input.source_root,
+        &input.work_root,
+        executable,
+        provider_argv,
+        input_path,
+    )
+}
+
+fn sandboxed_provider_argv(
+    network_sandbox: &Path,
+    source_root: &Path,
+    work_root: &Path,
+    executable: &Path,
+    provider_argv: &[String],
+    input_path: Option<&Path>,
+) -> Vec<String> {
     let mut argv = vec![
-        input.network_sandbox.display().to_string(),
+        network_sandbox.display().to_string(),
         DIE_WITH_PARENT_FLAG.to_owned(),
         NETWORK_DENIAL_FLAG.to_owned(),
         "--dev".to_owned(),
@@ -361,13 +393,13 @@ fn sandboxed_argv(
         NIX_STORE_DIRECTORY.to_owned(),
         NIX_STORE_DIRECTORY.to_owned(),
         "--ro-bind".to_owned(),
-        input.source_root.display().to_string(),
-        input.source_root.display().to_string(),
+        source_root.display().to_string(),
+        source_root.display().to_string(),
         "--bind".to_owned(),
-        input.work_root.display().to_string(),
-        input.work_root.display().to_string(),
+        work_root.display().to_string(),
+        work_root.display().to_string(),
         "--chdir".to_owned(),
-        input.work_root.display().to_string(),
+        work_root.display().to_string(),
         "--".to_owned(),
         executable.display().to_string(),
     ];
@@ -376,6 +408,99 @@ fn sandboxed_argv(
         argv.push(input_path.display().to_string());
     }
     argv
+}
+
+pub(crate) fn execute_reused_charon_stage(input: ReusedCharonStageInput) -> AeneasStageObservation {
+    let mut diagnostics = Vec::new();
+    validate_absolute_path(&mut diagnostics, "charon_executable", &input.charon_executable);
+    validate_absolute_path(&mut diagnostics, "network_sandbox", &input.network_sandbox);
+    validate_absolute_path(&mut diagnostics, "source_root", &input.source_root);
+    validate_absolute_path(&mut diagnostics, "work_root", &input.work_root);
+    validate_relative_path(&mut diagnostics, "snapshot_path", &input.snapshot_path);
+    validate_stage_argv(
+        &mut diagnostics,
+        AeneasStageKind::Charon,
+        &input.charon_argv,
+        CHARON_COMMAND_NAME,
+        REQUIRED_CHARON_BASE_ARGUMENTS,
+    );
+    validate_environment_allowlist(&mut diagnostics, &input.environment_allowlist);
+    if input.limits.timeout_ms == 0 || input.limits.stdout_max_bytes == 0 || input.limits.stderr_max_bytes == 0 {
+        diagnostics.push("reused Charon limits must all be positive".to_owned());
+    }
+    let snapshot_argument = input.snapshot_path.display().to_string();
+    let destination_matches = input
+        .charon_argv
+        .windows(ARGV_PAIR_WIDTH)
+        .any(|window| window[0] == "--dest-file" && window[1] == snapshot_argument);
+    if !destination_matches {
+        diagnostics.push("reused Charon argv destination does not match snapshot_path".to_owned());
+    }
+    diagnostics.sort();
+    diagnostics.dedup();
+    if !diagnostics.is_empty() {
+        return failed_reused_charon_observation(input.charon_argv, diagnostics);
+    }
+    if input.work_root.exists() {
+        return failed_reused_charon_observation(input.charon_argv, vec![format!(
+            "reused Charon work root `{}` already exists; refusing prior-run reuse",
+            input.work_root.display()
+        )]);
+    }
+    if let Err(error) = fs::create_dir_all(&input.work_root) {
+        return failed_reused_charon_observation(input.charon_argv, vec![format!(
+            "create reused Charon work root `{}`: {error}",
+            input.work_root.display()
+        )]);
+    }
+    if let Err(error) = copy_directory_contents(&input.source_root, &input.work_root, true) {
+        return failed_reused_charon_observation(input.charon_argv, vec![error]);
+    }
+    let stage = AeneasStagePlan {
+        kind: AeneasStageKind::Charon,
+        argv: sandboxed_provider_argv(
+            &input.network_sandbox,
+            &input.source_root,
+            &input.work_root,
+            &input.charon_executable,
+            &input.charon_argv,
+            None,
+        ),
+        working_dir: input.work_root.clone(),
+    };
+    let context = AeneasExecutionPlan {
+        stages: Vec::new(),
+        source_root: input.source_root,
+        work_root: input.work_root.clone(),
+        limits: input.limits,
+        environment_allowlist: input.environment_allowlist,
+        aeneas_lean_library: PathBuf::new(),
+    };
+    let mut observation = execute_stage(&stage, &context);
+    if observation.exit_code == Some(0) && !input.work_root.join(input.snapshot_path).is_file() {
+        observation
+            .diagnostics
+            .push("reused Charon stage succeeded without producing the declared snapshot".to_owned());
+    }
+    observation
+}
+
+fn failed_reused_charon_observation(argv: Vec<String>, diagnostics: Vec<String>) -> AeneasStageObservation {
+    let stderr = diagnostics.join("; ");
+    let stderr_original_bytes = stderr.len();
+    AeneasStageObservation {
+        kind: AeneasStageKind::Charon,
+        argv,
+        exit_code: None,
+        timed_out: false,
+        stdout: String::new(),
+        stdout_original_bytes: 0,
+        stdout_truncated: false,
+        stderr,
+        stderr_original_bytes,
+        stderr_truncated: false,
+        diagnostics,
+    }
 }
 
 fn prepare_work_root(source_root: &Path, work_root: &Path, aeneas_lean_library: &Path) -> Result<(), String> {

@@ -3256,6 +3256,83 @@
                 export OCTET_AENEAS_NETWORK_SANDBOX="${aeneasLeanProviderClosure}/share/octet/aeneas-lean/bwrap"
               '';
             };
+            charonSemanticPureCheck = mkAeneasLibraryCheck {
+              pname = "octet-charon-semantic-pure";
+              cargoPackage = "cargo-octet";
+              cargoTestExtraArgs = "--lib charon_semantic -- --nocapture";
+            };
+            charonSemanticLiveCheck = mkAeneasLibraryCheck {
+              pname = "octet-charon-semantic-live";
+              cargoPackage = "cargo-octet";
+              cargoTestExtraArgs = "--lib live_charon_semantic -- --ignored --nocapture --test-threads=1";
+              extraPreCheck = ''
+                export OCTET_AENEAS_CHARON="${aeneasLeanProviderClosure}/share/octet/aeneas-lean/charon"
+                export OCTET_AENEAS_NETWORK_SANDBOX="${aeneasLeanProviderClosure}/share/octet/aeneas-lean/bwrap"
+              '';
+            };
+            charonSemanticAnalysisCheck =
+              pkgs.runCommand "octet-charon-semantic-analysis-check"
+                {
+                  nativeBuildInputs = with pkgs; [
+                    b3sum
+                    diffutils
+                    jq
+                    nickel
+                  ];
+                  LD_LIBRARY_PATH = rustToolchainLibPath;
+                }
+                ''
+                  cd ${./.}
+                  negative_case_count=30
+                  generated_profile=$(mktemp)
+                  generated_negative_cases=$(mktemp)
+                  generated_source_token_receipt=$(mktemp)
+                  generated_comparison_parent=$(mktemp)
+                  nickel typecheck standards/charon-semantic/profile.ncl
+                  nickel export --format json standards/charon-semantic/profile.ncl > "$generated_profile"
+                  diff -u standards/charon-semantic/generated/profile.json "$generated_profile"
+                  nickel typecheck standards/charon-semantic/negative-cases.ncl
+                  nickel export --format json standards/charon-semantic/negative-cases.ncl > "$generated_negative_cases"
+                  diff -u standards/charon-semantic/generated/negative-cases.json "$generated_negative_cases"
+                  nickel typecheck standards/charon-semantic/comparison/legacy-source-token-receipt.ncl
+                  nickel export --format json standards/charon-semantic/comparison/legacy-source-token-receipt.ncl \
+                    > "$generated_source_token_receipt"
+                  diff -u standards/charon-semantic/generated/legacy-source-token-receipt.json \
+                    "$generated_source_token_receipt"
+                  nickel typecheck standards/charon-semantic/comparison/comparison-parent.ncl
+                  nickel export --format json standards/charon-semantic/comparison/comparison-parent.ncl \
+                    > "$generated_comparison_parent"
+                  diff -u standards/charon-semantic/generated/comparison-parent.json "$generated_comparison_parent"
+                  expected_parent_identity="b3:$(b3sum "$generated_source_token_receipt" | cut -d ' ' -f 1)"
+                  jq --exit-status --arg expected "$expected_parent_identity" \
+                    '.identity == $expected and .authority == "source-token"' \
+                    "$generated_comparison_parent" >/dev/null
+                  jq --exit-status --argjson negative_case_count "$negative_case_count" \
+                    '.schema_version == "octet-charon-semantic-negative-cases/v1"
+                      and (.cases | length) == $negative_case_count
+                      and ([.cases[].layer] | index("snapshot") != null)
+                      and ([.cases[].layer] | index("comparison") != null)
+                      and ([.cases[].layer] | index("provenance") != null)' \
+                    "$generated_negative_cases" >/dev/null
+                  test -d ${charonSemanticPureCheck}
+                  test -d ${charonSemanticLiveCheck}
+                  test -s standards/charon-semantic/fixtures/valid/artifacts/evidence-rail-receipt.json
+                  mkdir -p "$out"
+                  ${cargoOctetUnwrapped}/bin/cargo-octet octet artifact verify \
+                    --artifact-dir standards/charon-semantic/fixtures/valid/artifacts \
+                    --format json \
+                    --emit-valence-provenance "$out/valence-handoff.json" \
+                    > "$out/artifact-verification.json"
+                  jq --exit-status '.status == "valid" and .diagnostics == []' \
+                    "$out/artifact-verification.json" >/dev/null
+                  diff -u standards/charon-semantic/generated/valence-handoff.json "$out/valence-handoff.json"
+                  jq --exit-status '
+                    .verification_status == "valid"
+                      and ([.provenance_records[] | select(.source_id | startswith("octet.charon_semantic")) | .evidence_tier] | all(. == "transcript_assertion"))
+                      and ([.provenance_records[].receipt.charon_semantic.verification_role?] | map(select(. != null)) | all(. == "recorded_only"))
+                      and ([.provenance_records[].evidence_tier] | index("formal_proof") == null)
+                  ' "$out/valence-handoff.json" >/dev/null
+                '';
             aeneasLeanCompatibilityMatrixCheck =
               pkgs.runCommand "octet-aeneas-lean-compatibility-matrix-check" { }
                 ''
@@ -3386,6 +3463,7 @@
             proof-rail-manifest = proofRailManifestCheck;
             aeneas-lean-provider-closure = aeneasLeanProviderClosureCheck;
             aeneas-lean-compatibility-matrix = aeneasLeanCompatibilityMatrixCheck;
+            charon-semantic-analysis = charonSemanticAnalysisCheck;
             verus-toolchain-profile = verusToolchainProfileCheck;
             production-verus-negative-proof = productionVerusNegativeProofCheck;
             production-verus-negative-prove = productionVerusNegativeProveCheck;
