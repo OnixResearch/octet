@@ -1,0 +1,39 @@
+# Aeneas execution-contract repair evidence
+
+Change: `add-aeneas-lean-proof-rail`
+Status: progress only; no task checkbox is claimed complete.
+
+## Implemented repair
+
+- The pinned profile now uses the executable Charon command `charon cargo --preset aeneas --dest-file llbc.json`.
+- The pinned Aeneas command now uses `-backend lean -emit-json -dest . -no-progress-bar`.
+- The execution shell copies the checked source package and pinned Aeneas Lean library into a fresh work root, mounts `/nix/store` read-only, and mounts `/proc` for Charon's `/proc/self/exe` requirement.
+- Missing provider-library input is rejected before process execution.
+- A real positive fixture and a real false-theorem fixture were added under `standards/proof-rails/aeneas-lean/fixtures/`.
+
+## Validation
+
+Before the edit:
+
+- `cargo test -p octet-standards aeneas --lib`: 13 passed.
+- `cargo-octet` Aeneas shell baseline: 6 passed.
+
+After the edit:
+
+- `cargo fmt --check`: passed.
+- `cargo test -p cargo-octet --lib aeneas_execution::tests`: 7 passed, 2 live tests ignored.
+- `cargo test -p cargo-octet prove::tests --lib`: 15 passed.
+- `cargo test -p octet-standards aeneas --lib`: 13 passed.
+- Nickel profile typecheck/export freshness: passed.
+- `git diff --check`: passed.
+
+## Live-provider replay
+
+The ignored positive fixture was run with the pinned Charon/Aeneas/Lake binaries and bubblewrap. The first replay found and repaired the missing `/proc` mount. The next replay reaches Charon but is blocked before LLBC extraction because the provider closure does not carry the matching Charon Rust runtime closure:
+
+```text
+failed to determine underlying rustc version of Charon
+CouldNotExecuteCommand(Os { code: 2, kind: NotFound, message: "No such file or directory" })
+```
+
+Direct inspection identifies the missing runtime dependency as Charon's exact `librustc_driver-845f1164de5a76fb.so` / matching nightly-2026-06-01 Rust sysroot. The current Octet runtime PATH supplies nightly-2026-03-21 instead. No real theorem receipt or Valence handoff is claimed from this run.

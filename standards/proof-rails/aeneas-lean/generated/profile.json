@@ -24,7 +24,9 @@
     "--emit-json"
   ],
   "environment_allowlist": [
-    "PATH"
+    "PATH",
+    "CHARON_TOOLCHAIN_IS_IN_PATH",
+    "LD_LIBRARY_PATH"
   ],
   "extraction_policy": {
     "drop_policy": "include-drops",
@@ -74,15 +76,20 @@
   "stage_commands": {
     "aeneas_argv": [
       "aeneas",
-      "--backend",
+      "-backend",
       "lean",
-      "--emit-json"
+      "-emit-json",
+      "-dest",
+      ".",
+      "-no-progress-bar"
     ],
     "charon_argv": [
       "charon",
-      "--start-from",
-      "crate",
-      "--emit-llbc"
+      "cargo",
+      "--preset",
+      "aeneas",
+      "--dest-file",
+      "llbc.json"
     ],
     "lean_argv": [
       "lake",
