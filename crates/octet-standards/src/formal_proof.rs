@@ -32,6 +32,11 @@ pub const AENEAS_NON_CLAIM_WHOLE_PROGRAM: &str = "does not prove whole-program c
 
 const LITTLE_ENDIAN: &str = "little";
 const BIG_ENDIAN: &str = "big";
+const THEOREM_DECLARATION_PREFIX: &str = "theorem ";
+const THEOREM_BODY_SEPARATOR: &str = ":=";
+const THEOREM_TYPE_SEPARATOR: &str = ":";
+const VACUOUS_THEOREM_STATEMENT: &str = "True";
+const FORBIDDEN_THEOREM_DECLARATIONS: &[&str] = &["admit", "sorry"];
 const AENEAS_PROVIDER_PROFILE_JSON: &str =
     include_str!("../../../standards/proof-rails/aeneas-lean/generated/profile.json");
 const REQUIRED_AENEAS_FIELDS: &[&str] = &[
@@ -436,6 +441,35 @@ pub struct AeneasTheoremAdequacy {
     pub decision: AeneasTheoremAdequacyDecision,
     /// Forbidden declarations such as `sorry` or `admit` found in the source.
     pub forbidden_declarations: Vec<String>,
+}
+
+/// Assess a bounded, already-loaded theorem source before provider admission.
+// r[impl octet.aeneas_lean_proof_rail.theorem_adequacy]
+#[must_use]
+pub fn assess_aeneas_theorem_source(source: &str) -> AeneasTheoremAdequacy {
+    let statement = source.lines().find_map(|line| {
+        let declaration = line.trim_start().strip_prefix(THEOREM_DECLARATION_PREFIX)?;
+        let header = declaration.split_once(THEOREM_BODY_SEPARATOR)?.0;
+        header.rsplit_once(THEOREM_TYPE_SEPARATOR).map(|(_, value)| value.trim())
+    });
+    let decision = match statement {
+        Some(VACUOUS_THEOREM_STATEMENT) => AeneasTheoremAdequacyDecision::Vacuous,
+        Some(value) if !value.is_empty() => AeneasTheoremAdequacyDecision::NonVacuous,
+        _ => AeneasTheoremAdequacyDecision::Rejected,
+    };
+    let forbidden_declarations = FORBIDDEN_THEOREM_DECLARATIONS
+        .iter()
+        .filter(|declaration| {
+            source
+                .split(|character: char| !character.is_ascii_alphanumeric() && character != '_')
+                .any(|token| token == **declaration)
+        })
+        .map(|declaration| (*declaration).to_owned())
+        .collect();
+    AeneasTheoremAdequacy {
+        decision,
+        forbidden_declarations,
+    }
 }
 
 /// The exact theorem result reported by the Lean checker.
@@ -1971,6 +2005,26 @@ mod tests {
     }
 
     // r[verify octet.aeneas_lean_proof_rail.theorem_gate]
+    // r[verify octet.aeneas_lean_proof_rail.theorem_adequacy]
+    #[test]
+    fn aeneas_theorem_source_assessment_accepts_non_vacuous_statement() {
+        let adequacy = assess_aeneas_theorem_source("theorem safe_add_matches_model (x : Nat) : x = x := by rfl");
+
+        assert_eq!(adequacy.decision, AeneasTheoremAdequacyDecision::NonVacuous);
+        assert!(adequacy.forbidden_declarations.is_empty());
+    }
+
+    // r[verify octet.aeneas_lean_proof_rail.theorem_adequacy]
+    #[test]
+    fn aeneas_theorem_source_assessment_rejects_vacuous_and_forbidden_statements() {
+        let vacuous = assess_aeneas_theorem_source("theorem vacuous : True := by trivial");
+        assert_eq!(vacuous.decision, AeneasTheoremAdequacyDecision::Vacuous);
+
+        let forbidden = assess_aeneas_theorem_source("theorem admitted : Nat := by sorry");
+        assert_eq!(forbidden.decision, AeneasTheoremAdequacyDecision::NonVacuous);
+        assert_eq!(forbidden.forbidden_declarations, vec!["sorry".to_owned()]);
+    }
+
     // r[verify octet.aeneas_lean_proof_rail.theorem_adequacy]
     #[test]
     fn aeneas_formal_proof_rejects_false_and_vacuous_theorems() {

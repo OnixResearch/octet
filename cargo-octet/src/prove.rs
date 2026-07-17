@@ -31,8 +31,6 @@ use octet_standards::formal_proof::AeneasStageArtifactIdentity;
 use octet_standards::formal_proof::AeneasStageArtifactRole;
 use octet_standards::formal_proof::AeneasStageChain;
 use octet_standards::formal_proof::AeneasStageKind;
-use octet_standards::formal_proof::AeneasTheoremAdequacy;
-use octet_standards::formal_proof::AeneasTheoremAdequacyDecision;
 use octet_standards::formal_proof::AeneasTheoremAdmission;
 use octet_standards::formal_proof::AeneasTheoremSourceDisposition;
 use octet_standards::formal_proof::AeneasTrustClosure;
@@ -43,6 +41,7 @@ use octet_standards::formal_proof::FormalProofEvidenceTier;
 use octet_standards::formal_proof::FormalProofProvider;
 use octet_standards::formal_proof::FormalProofStatus;
 use octet_standards::formal_proof::SemanticReference;
+use octet_standards::formal_proof::assess_aeneas_theorem_source;
 use octet_standards::formal_proof::validate_formal_proof_envelope;
 use octet_standards::model::FamilySelection;
 use octet_standards::model::PolicyEntry;
@@ -758,10 +757,7 @@ fn build_aeneas_receipt(
         "proofs/aeneas/theorem-statement.lean",
         theorem_source.text.as_bytes().to_vec(),
     );
-    let theorem_adequacy = AeneasTheoremAdequacy {
-        decision: AeneasTheoremAdequacyDecision::NonVacuous,
-        forbidden_declarations: Vec::new(),
-    };
+    let theorem_adequacy = assess_aeneas_theorem_source(&theorem_source.text);
     let theorem_adequacy_identity = collector.add_with_role(
         AeneasStageArtifactRole::TheoremAdequacy,
         "proofs/aeneas/theorem-adequacy.json",

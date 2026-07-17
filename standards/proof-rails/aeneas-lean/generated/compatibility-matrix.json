@@ -17,6 +17,14 @@
       "test_function": "live_provider_rejects_real_false_fixture"
     },
     {
+      "canary_id": "live-vacuous-theorem",
+      "category": "false-vacuous",
+      "execution": "live",
+      "expected": "reject",
+      "rationale": "the pinned live provider rejects a vacuous theorem during adequacy preflight rather than promoting Lean acceptance",
+      "test_function": "live_provider_rejects_real_vacuous_fixture"
+    },
+    {
       "canary_id": "positive-provider-envelope",
       "category": "positive",
       "execution": "pure",

@@ -75,6 +75,6 @@ scalar canary instead of importing unrelated umbrella modules.
 Fresh positive and false-theorem fixtures now both run Charon, Aeneas, and Lake.
 The positive theorem passes; the false theorem fails without timeout. The
 combined gate and exact commands are recorded in
-`cairn/changes/add-aeneas-lean-proof-rail/evidence/compatibility-matrix.txt`.
+`cairn/archive/2026-07-17-add-aeneas-lean-proof-rail/evidence/compatibility-matrix.txt`.
 This still does not create the real artifact-verified proof receipt required for
 the Valence handoff.
