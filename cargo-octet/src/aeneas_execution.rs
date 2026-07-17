@@ -14,6 +14,7 @@ use std::time::Duration;
 use std::time::Instant;
 
 use octet_standards::formal_proof::AeneasExecutionLimits;
+use octet_standards::formal_proof::CharonExtractionPolicy;
 use octet_standards::model::ProofRail;
 use serde::Deserialize;
 
@@ -59,6 +60,17 @@ const LLBC_PATH: &str = "llbc.llbc";
 const THEOREM_PATH_INDEX: usize = 0;
 const DEFAULT_SOURCE_PATH: &str = ".";
 const DEFAULT_THEOREM_PATH: &str = "Theorem.lean";
+const AENEAS_PASS_SIGNAL: &str = "aeneas-proof-result: pass";
+const TRANSLATION_MANIFEST_ARTIFACT: &str = "translation.json";
+const GENERATED_LEAN_ARTIFACT: &str = "Llbc.lean";
+const PACKAGE_LOCK_ARTIFACT: &str = "lake-manifest.json";
+const LEAN_TOOLCHAIN_ARTIFACT: &str = "lean-toolchain";
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct AeneasArtifact {
+    pub(crate) locator: String,
+    pub(crate) contents: Vec<u8>,
+}
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum AeneasStageKind {
@@ -149,6 +161,10 @@ pub(crate) struct AeneasCommandSummary {
     pub(crate) stderr_truncated: bool,
     pub(crate) command_blake3: String,
     pub(crate) diagnostics: Vec<String>,
+    pub(crate) stage_argvs: Vec<Vec<String>>,
+    pub(crate) artifacts: Vec<AeneasArtifact>,
+    pub(crate) provider_profile: Vec<u8>,
+    pub(crate) extraction_policy: Option<CharonExtractionPolicy>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -156,6 +172,7 @@ struct AeneasProfile {
     stage_commands: AeneasStageCommands,
     limits: AeneasExecutionLimits,
     environment_allowlist: Vec<String>,
+    extraction_policy: CharonExtractionPolicy,
 }
 
 #[derive(Debug, Deserialize)]
@@ -745,6 +762,12 @@ pub(crate) fn execute_aeneas_from_environment(rail: &ProofRail, source_root: &Pa
     } else {
         rail.environment_allowlist.clone()
     };
+    let stage_argvs = vec![
+        profile.stage_commands.charon_argv.clone(),
+        profile.stage_commands.aeneas_argv.clone(),
+        profile.stage_commands.lean_argv.clone(),
+    ];
+    let extraction_policy = profile.extraction_policy.clone();
     let input = AeneasExecutionPlanInput {
         charon_argv: profile.stage_commands.charon_argv,
         aeneas_argv: profile.stage_commands.aeneas_argv,
@@ -758,7 +781,7 @@ pub(crate) fn execute_aeneas_from_environment(rail: &ProofRail, source_root: &Pa
         work_root,
         source_path,
         llbc_path: PathBuf::from(LLBC_PATH),
-        theorem_path,
+        theorem_path: theorem_path.clone(),
         limits,
         environment_allowlist,
     };
@@ -785,9 +808,27 @@ pub(crate) fn execute_aeneas_from_environment(rail: &ProofRail, source_root: &Pa
         timed_out |= observation.timed_out;
         command_argv.extend(observation.argv.iter().cloned());
     }
-    let diagnostics = validate_aeneas_execution_report(&report);
+    let mut diagnostics = validate_aeneas_execution_report(&report);
+    let mut command_succeeded = diagnostics.is_empty();
+    if command_succeeded {
+        stdout.push_str(&format!("{AENEAS_PASS_SIGNAL} {}\n", theorem_path.display()));
+    }
+    let artifacts = if command_succeeded {
+        match collect_aeneas_artifacts(&plan.work_root) {
+            Ok(artifacts) => artifacts,
+            Err(error) => {
+                diagnostics.push(error);
+                command_succeeded = false;
+                Vec::new()
+            }
+        }
+    } else {
+        Vec::new()
+    };
+    diagnostics.sort();
+    diagnostics.dedup();
     AeneasCommandSummary {
-        command_succeeded: diagnostics.is_empty(),
+        command_succeeded,
         timed_out,
         stdout_text: stdout,
         stdout_original_bytes,
@@ -797,7 +838,33 @@ pub(crate) fn execute_aeneas_from_environment(rail: &ProofRail, source_root: &Pa
         stderr_truncated,
         command_blake3: command_blake3(&command_argv),
         diagnostics,
+        stage_argvs,
+        artifacts,
+        provider_profile: AENEAS_PROFILE_JSON.as_bytes().to_vec(),
+        extraction_policy: Some(extraction_policy),
     }
+}
+
+fn collect_aeneas_artifacts(work_root: &Path) -> Result<Vec<AeneasArtifact>, String> {
+    let artifact_names = [
+        LLBC_PATH,
+        TRANSLATION_MANIFEST_ARTIFACT,
+        GENERATED_LEAN_ARTIFACT,
+        PACKAGE_LOCK_ARTIFACT,
+        LEAN_TOOLCHAIN_ARTIFACT,
+    ];
+    artifact_names
+        .into_iter()
+        .map(|name| {
+            let path = work_root.join(name);
+            let contents =
+                fs::read(&path).map_err(|error| format!("read Aeneas artifact `{}`: {error}", path.display()))?;
+            Ok(AeneasArtifact {
+                locator: name.to_owned(),
+                contents,
+            })
+        })
+        .collect()
 }
 
 fn failed_summary(diagnostic: String) -> AeneasCommandSummary {
@@ -812,6 +879,10 @@ fn failed_summary(diagnostic: String) -> AeneasCommandSummary {
         stderr_truncated: false,
         command_blake3: command_blake3(&[]),
         diagnostics: vec![diagnostic],
+        stage_argvs: Vec::new(),
+        artifacts: Vec::new(),
+        provider_profile: AENEAS_PROFILE_JSON.as_bytes().to_vec(),
+        extraction_policy: None,
     }
 }
 

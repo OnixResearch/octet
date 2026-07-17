@@ -302,6 +302,7 @@ let ProofRailContract = {
   command_argv | Array NonEmptyString | default = [],
   source_paths | Array NonEmptyString,
   proof_paths | Array NonEmptyString,
+  theorem_id | String | default = "",
   receipt_paths | Array NonEmptyString | default = [],
   pass_signal | NonEmptyString,
   trust_boundaries | Array NonEmptyString,

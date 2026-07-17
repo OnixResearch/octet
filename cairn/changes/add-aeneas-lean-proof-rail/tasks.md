@@ -24,7 +24,7 @@
 ## Phase 4: Proof artifacts and stack handoff
 
 - [x] [serial] Extend proof cards and artifact verification to display and revalidate the effective extraction contract, `translation.json`, generated/maintained source boundary, theorem statement hash, requirement ID, claim class, adequacy decision, trust closure, assumptions, tool identities, and scoped claim. Evidence: `cairn/changes/add-aeneas-lean-proof-rail/evidence/aeneas-proof-card-verification.txt`; typed envelope preservation and byte remeasurement rails pass. r[octet.aeneas_lean_proof_rail.artifact_evidence]
-- [ ] [serial] Export a frozen Valence adapter fixture only after a real Octet Aeneas receipt and artifact directory verify; placeholder digests and asserted verification status are not completion evidence. r[octet.aeneas_lean_proof_rail.valence_handoff]
+- [x] [serial] Export a frozen Valence adapter fixture only after a real Octet Aeneas receipt and artifact directory verify; placeholder digests and asserted verification status are not completion evidence. Evidence: `cairn/changes/add-aeneas-lean-proof-rail/evidence/valence-handoff.txt`; the committed receipt and stage artifacts reverify with `status=valid`, and the adapter carries measured BLAKE3 identities. r[octet.aeneas_lean_proof_rail.valence_handoff]
 - [x] [parallel] Add tamper tests for every exported stage digest, role, status, theorem ID, and receipt link. Evidence: `cairn/changes/add-aeneas-lean-proof-rail/evidence/aeneas-tamper-matrix.txt`; 13 Aeneas tests and artifact verification pass. r[octet.aeneas_lean_proof_rail.artifact_evidence] r[octet.aeneas_lean_proof_rail.valence_handoff]
 
 ## Phase 5: Documentation and validation

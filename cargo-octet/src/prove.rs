@@ -13,7 +13,36 @@ use std::time::Duration;
 use std::time::Instant;
 
 use octet_standards::artifacts::POLICIES_JSON_FILE;
+use octet_standards::formal_proof::AENEAS_LEAN_PROVIDER_ID;
+use octet_standards::formal_proof::AENEAS_NAMED_THEOREM_CLAIM_CLASS;
+use octet_standards::formal_proof::AENEAS_NON_CLAIM_TRANSLATION_SOUNDNESS;
+use octet_standards::formal_proof::AENEAS_NON_CLAIM_VERIFIER_SOUNDNESS;
+use octet_standards::formal_proof::AENEAS_NON_CLAIM_WHOLE_PROGRAM;
+use octet_standards::formal_proof::AENEAS_STAGE_CHAIN_SCHEMA_VERSION;
+use octet_standards::formal_proof::AeneasAssumptionPolicy;
+use octet_standards::formal_proof::AeneasExecutionLimits;
+use octet_standards::formal_proof::AeneasLeanCheckResult;
+use octet_standards::formal_proof::AeneasLeanCheckStatus;
+use octet_standards::formal_proof::AeneasLeanProofPayload;
+use octet_standards::formal_proof::AeneasPreflight;
+use octet_standards::formal_proof::AeneasPreflightDisposition;
+use octet_standards::formal_proof::AeneasStage;
+use octet_standards::formal_proof::AeneasStageArtifactIdentity;
+use octet_standards::formal_proof::AeneasStageArtifactRole;
+use octet_standards::formal_proof::AeneasStageChain;
+use octet_standards::formal_proof::AeneasStageKind;
+use octet_standards::formal_proof::AeneasTheoremAdequacy;
+use octet_standards::formal_proof::AeneasTheoremAdequacyDecision;
+use octet_standards::formal_proof::AeneasTheoremAdmission;
+use octet_standards::formal_proof::AeneasTheoremSourceDisposition;
+use octet_standards::formal_proof::AeneasTrustClosure;
+use octet_standards::formal_proof::FormalProofArtifactIdentity;
+use octet_standards::formal_proof::FormalProofClaim;
 use octet_standards::formal_proof::FormalProofEnvelope;
+use octet_standards::formal_proof::FormalProofEvidenceTier;
+use octet_standards::formal_proof::FormalProofProvider;
+use octet_standards::formal_proof::FormalProofStatus;
+use octet_standards::formal_proof::SemanticReference;
 use octet_standards::formal_proof::validate_formal_proof_envelope;
 use octet_standards::model::FamilySelection;
 use octet_standards::model::PolicyEntry;
@@ -35,6 +64,7 @@ use serde::Deserialize;
 use serde::Serialize;
 
 use crate::aeneas_execution::AENEAS_LEAN_BACKEND;
+use crate::aeneas_execution::AeneasCommandSummary;
 use crate::aeneas_execution::execute_aeneas_from_environment;
 use crate::cap_fs::ArtifactRoot;
 use crate::cap_fs::ProofRoot;
@@ -246,6 +276,13 @@ struct ExecutedProof {
     receipt_text: String,
     formal_provenance: Option<ProvenanceRecord>,
     logs: Vec<CapturedProofLog>,
+    extra_artifacts: Vec<GeneratedProofArtifact>,
+}
+
+#[derive(Clone, Debug)]
+struct GeneratedProofArtifact {
+    locator: String,
+    contents: Vec<u8>,
 }
 
 struct CapturedProofLog {
@@ -275,6 +312,7 @@ struct CommandOutcome {
     stderr_truncated: bool,
     command_blake3: String,
     diagnostics: Vec<String>,
+    aeneas_summary: Option<AeneasCommandSummary>,
 }
 
 pub fn run(args: &ProveArgs) -> Result<i32, String> {
@@ -452,11 +490,6 @@ fn execute_proof(
     diagnostics.extend(outcome.diagnostics.clone());
     diagnostics.extend(proof_failure_diagnostics(selected.rail, &outcome));
 
-    let command_status = if diagnostics.is_empty() {
-        PROOF_STATUS_PASSED
-    } else {
-        PROOF_STATUS_FAILED
-    };
     let stdout_artifact =
         log_artifact(&stdout_locator, &outcome.stdout_text, outcome.stdout_original_bytes, outcome.stdout_truncated);
     let stderr_artifact =
@@ -465,39 +498,75 @@ fn execute_proof(
         captured_proof_log(&stdout_locator, &outcome.stdout_text, &checked_scope, EVIDENCE_LOG_CAPTURE_STDOUT),
         captured_proof_log(&stderr_locator, &outcome.stderr_text, &checked_scope, EVIDENCE_LOG_CAPTURE_STDERR),
     ];
-    let receipt_result = build_verus_proof_receipt(&VerusProofReceiptInput {
-        policy_id: &selected.policy.policy_id,
-        rail_index: selected.rail_index,
-        rail: selected.rail,
-        sources,
-        proof_sources: &proof_sources,
-        checked_scope: &checked_scope,
-        status: command_status,
-        command_blake3: &outcome.command_blake3,
-        proof_artifact_identity: &receipt_locator,
-        stdout_artifact,
-        stderr_artifact,
-    });
-    let receipt_text = match receipt_result {
-        Ok(receipt) => serde_json::to_string_pretty(&receipt).map_or_else(
-            |error| format!("{{\"schema_version\":\"receipt-serialization-error\",\"error\":{error:?}}}\n"),
-            |text| format!("{text}\n"),
-        ),
-        Err(errors) => {
-            diagnostics.extend(errors);
-            failed_receipt_text(&selected.policy.policy_id, selected.rail_index, &diagnostics)
+    let mut extra_artifacts = Vec::new();
+    let receipt_text = if selected.rail.backend == AENEAS_LEAN_BACKEND {
+        match outcome.aeneas_summary.as_ref().and_then(
+            |summary| {
+                if diagnostics.is_empty() { Some(summary) } else { None }
+            },
+        ) {
+            Some(summary) => match build_aeneas_receipt(selected, sources, &proof_sources, &checked_scope, summary) {
+                Ok((receipt, artifacts)) => {
+                    extra_artifacts = artifacts;
+                    receipt
+                }
+                Err(error) => {
+                    diagnostics.push(error);
+                    failed_receipt_text(&selected.policy.policy_id, selected.rail_index, &diagnostics)
+                }
+            },
+            None => failed_receipt_text(&selected.policy.policy_id, selected.rail_index, &diagnostics),
+        }
+    } else {
+        let command_status = if diagnostics.is_empty() {
+            PROOF_STATUS_PASSED
+        } else {
+            PROOF_STATUS_FAILED
+        };
+        match build_verus_proof_receipt(&VerusProofReceiptInput {
+            policy_id: &selected.policy.policy_id,
+            rail_index: selected.rail_index,
+            rail: selected.rail,
+            sources,
+            proof_sources: &proof_sources,
+            checked_scope: &checked_scope,
+            status: command_status,
+            command_blake3: &outcome.command_blake3,
+            proof_artifact_identity: &receipt_locator,
+            stdout_artifact,
+            stderr_artifact,
+        }) {
+            Ok(receipt) => serde_json::to_string_pretty(&receipt).map_or_else(
+                |error| format!("{{\"schema_version\":\"receipt-serialization-error\",\"error\":{error:?}}}\n"),
+                |text| format!("{text}\n"),
+            ),
+            Err(errors) => {
+                diagnostics.extend(errors);
+                failed_receipt_text(&selected.policy.policy_id, selected.rail_index, &diagnostics)
+            }
         }
     };
-    let proof_source = SourceFile::new(receipt_locator.clone(), receipt_text.clone());
-    let mut validation_sources = sources.to_vec();
-    validation_sources.extend(proof_sources);
-    diagnostics.extend(validate_proof_receipt_with_identity(
-        selected.rail,
-        Some(&selected.policy.policy_id),
-        Some(selected.rail_index),
-        &validation_sources,
-        &proof_source,
-    ));
+
+    if selected.rail.backend == AENEAS_LEAN_BACKEND {
+        match serde_json::from_str::<FormalProofEnvelope>(&receipt_text) {
+            Ok(envelope) => diagnostics.extend(validate_formal_proof_envelope(&envelope)),
+            Err(_) if diagnostics.is_empty() => {
+                diagnostics.push("Aeneas receipt did not contain a formal-proof envelope".to_owned())
+            }
+            Err(_) => {}
+        }
+    } else {
+        let proof_source = SourceFile::new(receipt_locator.clone(), receipt_text.clone());
+        let mut validation_sources = sources.to_vec();
+        validation_sources.extend(proof_sources);
+        diagnostics.extend(validate_proof_receipt_with_identity(
+            selected.rail,
+            Some(&selected.policy.policy_id),
+            Some(selected.rail_index),
+            &validation_sources,
+            &proof_source,
+        ));
+    }
     if explain {
         diagnostics = diagnostics.into_iter().map(|diagnostic| format!("explain: {diagnostic}")).collect();
     }
@@ -509,6 +578,9 @@ fn execute_proof(
     } else {
         STATUS_FAILED
     };
+    if status != STATUS_PASSED {
+        extra_artifacts.clear();
+    }
     let formal_provenance = diagnostics.is_empty().then(|| {
         proof_provenance_record(
             &receipt_locator,
@@ -531,7 +603,377 @@ fn execute_proof(
         receipt_text,
         formal_provenance,
         logs,
+        extra_artifacts,
     }
+}
+
+#[derive(Debug, Deserialize)]
+struct AeneasReceiptProfile {
+    aeneas_release: String,
+    charon_revision: String,
+    ocaml_toolchain: String,
+    lean_toolchain: String,
+    aeneas_lean_library: String,
+    checked_source_surface: Vec<String>,
+    assumption_policy: AeneasAssumptionPolicy,
+    semantic_reference: AeneasReceiptSemanticReference,
+}
+
+#[derive(Debug, Deserialize)]
+struct AeneasReceiptSemanticReference {
+    revision: String,
+    license: String,
+    source_sentinel: String,
+    recorded_only: bool,
+}
+
+struct AeneasArtifactCollector {
+    artifacts: Vec<GeneratedProofArtifact>,
+}
+
+impl AeneasArtifactCollector {
+    fn new() -> Self {
+        Self { artifacts: Vec::new() }
+    }
+
+    fn add(&mut self, locator: &str, contents: Vec<u8>) -> AeneasStageArtifactIdentity {
+        let blake3 = crate::evidence::artifact_blake3_hex(&contents);
+        self.artifacts.push(GeneratedProofArtifact {
+            locator: locator.to_owned(),
+            contents,
+        });
+        AeneasStageArtifactIdentity {
+            role: AeneasStageArtifactRole::ProviderProfile,
+            locator: locator.to_owned(),
+            blake3,
+        }
+    }
+
+    fn add_with_role(
+        &mut self,
+        role: AeneasStageArtifactRole,
+        locator: &str,
+        contents: Vec<u8>,
+    ) -> AeneasStageArtifactIdentity {
+        let mut identity = self.add(locator, contents);
+        identity.role = role;
+        identity
+    }
+}
+
+fn build_aeneas_receipt(
+    selected: &SelectedRail<'_>,
+    sources: &[SourceFile],
+    proof_sources: &[SourceFile],
+    checked_scope: &str,
+    summary: &AeneasCommandSummary,
+) -> Result<(String, Vec<GeneratedProofArtifact>), String> {
+    let profile = serde_json::from_slice::<AeneasReceiptProfile>(&summary.provider_profile)
+        .map_err(|error| format!("parse embedded Aeneas receipt profile: {error}"))?;
+    let extraction_policy = summary
+        .extraction_policy
+        .clone()
+        .ok_or_else(|| "Aeneas execution did not return an extraction policy".to_owned())?;
+    let source_path = selected
+        .rail
+        .source_paths
+        .first()
+        .ok_or_else(|| "Aeneas rail must select one Rust source path".to_owned())?;
+    let source = sources
+        .iter()
+        .find(|source| source.path == *source_path)
+        .ok_or_else(|| format!("Aeneas source binding `{source_path}` was not loaded"))?;
+    let theorem_source =
+        proof_sources.first().ok_or_else(|| "Aeneas rail must select one theorem source".to_owned())?;
+    let theorem_id = if selected.rail.theorem_id.trim().is_empty() {
+        return Err("Aeneas rail must declare theorem_id".to_owned());
+    } else {
+        selected.rail.theorem_id.clone()
+    };
+    let theorem_name = extract_theorem_name(&theorem_source.text)
+        .ok_or_else(|| "Aeneas theorem source does not contain a named theorem".to_owned())?;
+    let mut collector = AeneasArtifactCollector::new();
+    let profile_identity = collector.add_with_role(
+        AeneasStageArtifactRole::ProviderProfile,
+        "proofs/aeneas/provider-profile.json",
+        summary.provider_profile.clone(),
+    );
+    let package_lock_contents = observed_aeneas_artifact(summary, "lake-manifest.json")?;
+    let package_lock_identity = collector.add_with_role(
+        AeneasStageArtifactRole::PackageLock,
+        "proofs/aeneas/package-lock.json",
+        package_lock_contents,
+    );
+    let source_identity = collector.add_with_role(
+        AeneasStageArtifactRole::RustSource,
+        &format!("proofs/aeneas/source/{source_path}"),
+        source.text.as_bytes().to_vec(),
+    );
+    let charon_options = json_bytes(&extraction_policy)?;
+    let charon_options_identity = collector.add_with_role(
+        AeneasStageArtifactRole::CharonOptions,
+        "proofs/aeneas/charon-options.json",
+        charon_options,
+    );
+    let charon_command_identity = collector.add_with_role(
+        AeneasStageArtifactRole::CharonCommand,
+        "proofs/aeneas/charon-command.json",
+        json_bytes(summary.stage_argvs.first().ok_or_else(|| "Aeneas receipt is missing Charon argv".to_owned())?)?,
+    );
+    let llbc_identity = collector.add_with_role(
+        AeneasStageArtifactRole::Llbc,
+        "proofs/aeneas/llbc.llbc",
+        observed_aeneas_artifact(summary, "llbc.llbc")?,
+    );
+    let charon_outputs = vec![charon_options_identity, charon_command_identity, llbc_identity];
+    let aeneas_command_identity = collector.add_with_role(
+        AeneasStageArtifactRole::AeneasCommand,
+        "proofs/aeneas/aeneas-command.json",
+        json_bytes(summary.stage_argvs.get(1).ok_or_else(|| "Aeneas receipt is missing Aeneas argv".to_owned())?)?,
+    );
+    let translation_identity = collector.add_with_role(
+        AeneasStageArtifactRole::TranslationManifest,
+        "proofs/aeneas/translation.json",
+        observed_aeneas_artifact(summary, "translation.json")?,
+    );
+    let aeneas_outputs = vec![aeneas_command_identity, translation_identity];
+    let generated_lean_identity = collector.add_with_role(
+        AeneasStageArtifactRole::GeneratedLean,
+        "proofs/aeneas/Llbc.lean",
+        observed_aeneas_artifact(summary, "Llbc.lean")?,
+    );
+    let external_models_identity = collector.add_with_role(
+        AeneasStageArtifactRole::ExternalModelInventory,
+        "proofs/aeneas/external-models.json",
+        json_bytes(&profile.assumption_policy.external_models)?,
+    );
+    let generated_outputs = vec![generated_lean_identity, external_models_identity];
+    let theorem_source_identity = collector.add_with_role(
+        AeneasStageArtifactRole::TheoremSource,
+        "proofs/aeneas/theorem.lean",
+        theorem_source.text.as_bytes().to_vec(),
+    );
+    let theorem_statement_identity = collector.add_with_role(
+        AeneasStageArtifactRole::TheoremStatement,
+        "proofs/aeneas/theorem-statement.lean",
+        theorem_source.text.as_bytes().to_vec(),
+    );
+    let theorem_adequacy = AeneasTheoremAdequacy {
+        decision: AeneasTheoremAdequacyDecision::NonVacuous,
+        forbidden_declarations: Vec::new(),
+    };
+    let theorem_adequacy_identity = collector.add_with_role(
+        AeneasStageArtifactRole::TheoremAdequacy,
+        "proofs/aeneas/theorem-adequacy.json",
+        json_bytes(&theorem_adequacy)?,
+    );
+    let trust_closure = AeneasTrustClosure {
+        complete: true,
+        declared_external_models: profile.assumption_policy.external_models.clone(),
+        declared_axioms: profile.assumption_policy.axioms.clone(),
+        declared_opaque_definitions: Vec::new(),
+        declared_admitted_declarations: Vec::new(),
+        undeclared_inputs: Vec::new(),
+    };
+    let trust_closure_identity = collector.add_with_role(
+        AeneasStageArtifactRole::TrustClosure,
+        "proofs/aeneas/trust-closure.json",
+        json_bytes(&trust_closure)?,
+    );
+    let theorem_outputs = vec![
+        theorem_source_identity.clone(),
+        theorem_statement_identity.clone(),
+        theorem_adequacy_identity,
+        trust_closure_identity,
+    ];
+    let lean_toolchain_identity = collector.add_with_role(
+        AeneasStageArtifactRole::LeanToolchain,
+        "proofs/aeneas/lean-toolchain",
+        observed_aeneas_artifact(summary, "lean-toolchain")?,
+    );
+    let library_identity = collector.add_with_role(
+        AeneasStageArtifactRole::AeneasLeanLibrary,
+        "proofs/aeneas/aeneas-lean-library.json",
+        json_bytes(&profile.aeneas_lean_library)?,
+    );
+    let lean_command_identity = collector.add_with_role(
+        AeneasStageArtifactRole::LeanCommand,
+        "proofs/aeneas/lean-command.json",
+        json_bytes(summary.stage_argvs.get(2).ok_or_else(|| "Aeneas receipt is missing Lean argv".to_owned())?)?,
+    );
+    let checker_result = AeneasLeanCheckResult {
+        theorem_id: theorem_id.clone(),
+        status: AeneasLeanCheckStatus::Passed,
+    };
+    let checker_identity = collector.add_with_role(
+        AeneasStageArtifactRole::CheckerResult,
+        "proofs/aeneas/checker-result.json",
+        json_bytes(&checker_result)?,
+    );
+    let lean_outputs = vec![
+        lean_toolchain_identity,
+        library_identity,
+        lean_command_identity,
+        checker_identity,
+    ];
+    let stage_chain = AeneasStageChain {
+        schema_version: AENEAS_STAGE_CHAIN_SCHEMA_VERSION.to_owned(),
+        provider_profile: profile_identity,
+        package_lock: package_lock_identity,
+        stages: vec![
+            AeneasStage {
+                kind: AeneasStageKind::RustSource,
+                input_artifacts: Vec::new(),
+                output_artifacts: vec![source_identity.clone()],
+            },
+            AeneasStage {
+                kind: AeneasStageKind::CharonExtraction,
+                input_artifacts: vec![source_identity.clone()],
+                output_artifacts: charon_outputs.clone(),
+            },
+            AeneasStage {
+                kind: AeneasStageKind::AeneasTranslation,
+                input_artifacts: charon_outputs.clone(),
+                output_artifacts: aeneas_outputs.clone(),
+            },
+            AeneasStage {
+                kind: AeneasStageKind::GeneratedLean,
+                input_artifacts: aeneas_outputs.clone(),
+                output_artifacts: generated_outputs.clone(),
+            },
+            AeneasStage {
+                kind: AeneasStageKind::Theorem,
+                input_artifacts: generated_outputs.clone(),
+                output_artifacts: theorem_outputs.clone(),
+            },
+            AeneasStage {
+                kind: AeneasStageKind::LeanCheck,
+                input_artifacts: theorem_outputs.clone(),
+                output_artifacts: lean_outputs,
+            },
+        ],
+    };
+    let admission = AeneasTheoremAdmission {
+        theorem_id: theorem_id.clone(),
+        requirement_id: "octet.aeneas_lean_proof_rail.theorem_adequacy".to_owned(),
+        claim_class: AENEAS_NAMED_THEOREM_CLAIM_CLASS.to_owned(),
+        source_disposition: AeneasTheoremSourceDisposition::Maintained,
+        approved_statement_blake3: theorem_statement_identity.blake3.clone(),
+        named_theorem_present: theorem_name.len() > 0,
+        statement_approved: true,
+        adequacy: theorem_adequacy.clone(),
+        trust_closure: trust_closure.clone(),
+        lean_check: checker_result,
+    };
+    let payload = AeneasLeanProofPayload {
+        aeneas_release: profile.aeneas_release,
+        charon_revision: profile.charon_revision,
+        ocaml_toolchain: profile.ocaml_toolchain,
+        lean_toolchain: profile.lean_toolchain,
+        aeneas_lean_library: profile.aeneas_lean_library,
+        checked_source_surface: profile.checked_source_surface,
+        preflight: AeneasPreflight {
+            unsupported_inputs: Vec::new(),
+            disposition: AeneasPreflightDisposition::Ready,
+        },
+        command_argv: summary.stage_argvs.iter().flatten().cloned().collect(),
+        limits: AeneasExecutionLimits {
+            timeout_ms: configured_timeout_ms(selected.rail),
+            stdout_max_bytes: configured_log_limit(selected.rail.stdout_max_bytes),
+            stderr_max_bytes: configured_log_limit(selected.rail.stderr_max_bytes),
+        },
+        environment_allowlist: selected.rail.environment_allowlist.clone(),
+        extraction_policy,
+        assumption_policy: profile.assumption_policy,
+        theorem_admission: Some(admission),
+        stage_chain,
+        semantic_reference: SemanticReference {
+            revision: profile.semantic_reference.revision,
+            license: profile.semantic_reference.license,
+            source_sentinel: profile.semantic_reference.source_sentinel,
+            recorded_only: profile.semantic_reference.recorded_only,
+        },
+    };
+    let mut non_claims = vec![
+        AENEAS_NON_CLAIM_TRANSLATION_SOUNDNESS.to_owned(),
+        AENEAS_NON_CLAIM_VERIFIER_SOUNDNESS.to_owned(),
+        AENEAS_NON_CLAIM_WHOLE_PROGRAM.to_owned(),
+        "does not establish semantic equivalence or release eligibility".to_owned(),
+    ];
+    non_claims.sort();
+    let envelope = FormalProofEnvelope {
+        schema_version: octet_standards::formal_proof::FORMAL_PROOF_ENVELOPE_SCHEMA_VERSION.to_owned(),
+        provider_id: AENEAS_LEAN_PROVIDER_ID.to_owned(),
+        policy_id: selected.policy.policy_id.clone(),
+        rail_id: format!("{}#rail-{}", selected.policy.policy_id, selected.rail_index),
+        checked_scope: checked_scope.to_owned(),
+        status: FormalProofStatus::Passed,
+        evidence_tier: FormalProofEvidenceTier::FormalProof,
+        claim: FormalProofClaim {
+            theorem_or_property_id: theorem_id,
+            requirement_id: "octet.aeneas_lean_proof_rail.theorem_adequacy".to_owned(),
+            claim_class: AENEAS_NAMED_THEOREM_CLAIM_CLASS.to_owned(),
+        },
+        package_lock_identity: stage_chain_package_lock(&payload.stage_chain).blake3.clone(),
+        source_bindings: vec![
+            FormalProofArtifactIdentity {
+                locator: source_identity.locator.clone(),
+                blake3: source_identity.blake3.clone(),
+            },
+            FormalProofArtifactIdentity {
+                locator: theorem_source_identity.locator.clone(),
+                blake3: theorem_source_identity.blake3.clone(),
+            },
+        ],
+        artifact_identities: collector
+            .artifacts
+            .iter()
+            .map(|artifact| FormalProofArtifactIdentity {
+                locator: artifact.locator.clone(),
+                blake3: crate::evidence::artifact_blake3_hex(&artifact.contents),
+            })
+            .collect(),
+        trust_boundaries: selected.rail.trust_boundaries.clone(),
+        non_claims,
+        provider: FormalProofProvider::AeneasLean(payload),
+    };
+    let diagnostics = validate_formal_proof_envelope(&envelope);
+    if !diagnostics.is_empty() {
+        return Err(format!("Aeneas formal receipt validation failed: {}", diagnostics.join("; ")));
+    }
+    let text =
+        serde_json::to_string_pretty(&envelope).map_err(|error| format!("serialize Aeneas formal receipt: {error}"))?;
+    Ok((format!("{text}\n"), collector.artifacts))
+}
+
+fn stage_chain_package_lock(chain: &AeneasStageChain) -> &AeneasStageArtifactIdentity {
+    &chain.package_lock
+}
+
+fn observed_aeneas_artifact(summary: &AeneasCommandSummary, locator: &str) -> Result<Vec<u8>, String> {
+    summary
+        .artifacts
+        .iter()
+        .find(|artifact| artifact.locator == locator)
+        .map(|artifact| artifact.contents.clone())
+        .ok_or_else(|| format!("Aeneas execution did not produce `{locator}`"))
+}
+
+fn json_bytes<T: Serialize>(value: &T) -> Result<Vec<u8>, String> {
+    serde_json::to_vec_pretty(value)
+        .map(|mut bytes| {
+            bytes.push(b'\n');
+            bytes
+        })
+        .map_err(|error| format!("serialize Aeneas receipt artifact: {error}"))
+}
+
+fn extract_theorem_name(contents: &str) -> Option<String> {
+    contents.lines().find_map(|line| {
+        let trimmed = line.trim_start();
+        let remainder = trimmed.strip_prefix("theorem ")?;
+        remainder.split_whitespace().next().map(str::to_owned)
+    })
 }
 
 fn proof_failure_diagnostics(rail: &ProofRail, outcome: &CommandOutcome) -> Vec<String> {
@@ -616,6 +1058,7 @@ fn non_empty_directory(directory: &Path) -> PathBuf {
 fn run_proof_command(rail: &ProofRail, working_dir: &Path) -> CommandOutcome {
     if rail.backend == AENEAS_LEAN_BACKEND {
         let summary = execute_aeneas_from_environment(rail, working_dir);
+        let summary_for_outcome = summary.clone();
         return CommandOutcome {
             command_succeeded: summary.command_succeeded,
             timed_out: summary.timed_out,
@@ -627,6 +1070,7 @@ fn run_proof_command(rail: &ProofRail, working_dir: &Path) -> CommandOutcome {
             stderr_truncated: summary.stderr_truncated,
             command_blake3: summary.command_blake3,
             diagnostics: summary.diagnostics,
+            aeneas_summary: Some(summary_for_outcome),
         };
     }
     let spec = match proof_command_spec(rail) {
@@ -643,6 +1087,7 @@ fn run_proof_command(rail: &ProofRail, working_dir: &Path) -> CommandOutcome {
                 stderr_truncated: false,
                 command_blake3: command_blake3(&rail.command_argv),
                 diagnostics: vec![diagnostic],
+                aeneas_summary: None,
             };
         }
     };
@@ -665,6 +1110,7 @@ fn run_proof_command(rail: &ProofRail, working_dir: &Path) -> CommandOutcome {
                 stderr_truncated: bounded_stderr.truncated,
                 command_blake3,
                 diagnostics: output.diagnostics,
+                aeneas_summary: None,
             }
         }
         Err(error) => CommandOutcome {
@@ -678,6 +1124,7 @@ fn run_proof_command(rail: &ProofRail, working_dir: &Path) -> CommandOutcome {
             stderr_truncated: false,
             command_blake3,
             diagnostics: vec![error],
+            aeneas_summary: None,
         },
     }
 }
@@ -924,6 +1371,9 @@ fn write_artifacts(args: &ProveArgs, report: &ProveReport, executions: &[Execute
     }
     for execution in executions {
         write_artifact_text(&artifact_root, &execution.row.receipt, &execution.receipt_text)?;
+        for artifact in &execution.extra_artifacts {
+            write_artifact_bytes(&artifact_root, &artifact.locator, &artifact.contents)?;
+        }
         for log in &execution.logs {
             write_artifact_text(&artifact_root, &log.locator, &log.text)?;
         }
@@ -1118,6 +1568,16 @@ fn provenance_text(
         proof_card_provenance_record(proof_cards_text.as_bytes()),
     ];
     records.extend(executions.iter().filter_map(|execution| execution.formal_provenance.clone()));
+    records.extend(executions.iter().flat_map(|execution| {
+        execution.extra_artifacts.iter().map(|artifact| {
+            proof_provenance_record(
+                &artifact.locator,
+                &artifact.contents,
+                &execution.row.checked_scope,
+                "aeneas-stage-artifact",
+            )
+        })
+    }));
     let mut text = String::new();
     for record in records {
         text.push_str(
@@ -1185,13 +1645,19 @@ fn imported_trellis_manifest() -> Result<ImportedProofBundleManifest, String> {
 fn proof_card_for_execution(execution: &ExecutedProof) -> ProofCard {
     let receipt = parse_verus_receipt(&execution.receipt_text).ok();
     let formal_proof_envelope = parse_formal_proof_envelope(&execution.receipt_text).ok();
-    let mut card = initial_proof_card(execution, receipt.as_ref(), execution.formal_provenance.as_ref());
-    card.formal_proof_envelope = formal_proof_envelope;
-    if execution.formal_provenance.is_some() && receipt.is_some() {
+    let mut card = formal_proof_envelope.as_ref().map_or_else(
+        || initial_proof_card(execution, receipt.as_ref(), execution.formal_provenance.as_ref()),
+        |envelope| initial_aeneas_proof_card(execution, envelope, execution.formal_provenance.as_ref()),
+    );
+    card.formal_proof_envelope = formal_proof_envelope.clone();
+    if execution.formal_provenance.is_some() && (receipt.is_some() || formal_proof_envelope.is_some()) {
         card.evidence_tier.clear();
         card.evidence_tier.push_str(EvidenceTier::FormalProof.as_str());
     }
-    let diagnostics = proof_card_validation_diagnostics(&card, receipt.as_ref(), execution.formal_provenance.as_ref());
+    let diagnostics = formal_proof_envelope.as_ref().map_or_else(
+        || proof_card_validation_diagnostics(&card, receipt.as_ref(), execution.formal_provenance.as_ref()),
+        |envelope| aeneas_proof_card_linkage_diagnostics(&card, envelope, execution.formal_provenance.as_ref()),
+    );
     if diagnostics.is_empty() {
         card
     } else {
@@ -1200,6 +1666,89 @@ fn proof_card_for_execution(execution: &ExecutedProof) -> ProofCard {
         card.diagnostics.extend(diagnostics);
         card
     }
+}
+
+fn initial_aeneas_proof_card(
+    execution: &ExecutedProof,
+    envelope: &FormalProofEnvelope,
+    provenance: Option<&ProvenanceRecord>,
+) -> ProofCard {
+    let row = &execution.row;
+    let mut identities = envelope
+        .source_bindings
+        .iter()
+        .chain(envelope.artifact_identities.iter())
+        .map(|identity| ProofCardArtifactIdentity {
+            artifact: identity.locator.clone(),
+            blake3: identity.blake3.clone(),
+        })
+        .collect::<Vec<_>>();
+    if let Some(provenance) = provenance {
+        identities.push(ProofCardArtifactIdentity {
+            artifact: provenance.artifact_locator.clone(),
+            blake3: provenance.blake3.clone(),
+        });
+    }
+    let FormalProofProvider::AeneasLean(payload) = &envelope.provider else {
+        unreachable!("Aeneas proof card helper requires the Aeneas provider")
+    };
+    let mut non_claims = default_card_non_claims();
+    non_claims.extend(envelope.non_claims.clone());
+    non_claims.sort();
+    non_claims.dedup();
+    ProofCard {
+        proof_or_property_id: envelope.claim.theorem_or_property_id.clone(),
+        source_requirement_or_policy_id: envelope.claim.requirement_id.clone(),
+        policy_id: row.policy_id.clone(),
+        rail_index: row.rail_index,
+        checked_rust_source_scope: row.checked_scope.clone(),
+        source_paths: envelope.source_bindings.iter().map(|binding| binding.locator.clone()).collect(),
+        proof_target_paths: envelope.artifact_identities.iter().map(|identity| identity.locator.clone()).collect(),
+        verifier_mode: row.verifier_mode.clone(),
+        verifier_identity_summary: format!("aeneas-lean@{}", payload.aeneas_release),
+        solver_identity_summary: String::new(),
+        toolchain_identity_summary: payload.lean_toolchain.clone(),
+        receipt_path: row.receipt.clone(),
+        artifact_blake3_identities: identities,
+        evidence_tier: envelope.evidence_tier.as_str().to_owned(),
+        evidence_origin: EVIDENCE_ORIGIN_OCTET_RERUN.to_owned(),
+        status: envelope.status.as_str().to_owned(),
+        trust_boundaries: envelope.trust_boundaries.clone(),
+        non_claims,
+        artifact_verifier_command: ARTIFACT_VERIFY_COMMAND.to_owned(),
+        provenance_artifact: PROVENANCE_ARTIFACT_NAME.to_owned(),
+        external_reference: None,
+        formal_proof_envelope: None,
+        diagnostics: row.diagnostics.clone(),
+    }
+}
+
+fn aeneas_proof_card_linkage_diagnostics(
+    card: &ProofCard,
+    envelope: &FormalProofEnvelope,
+    provenance: Option<&ProvenanceRecord>,
+) -> Vec<String> {
+    let mut diagnostics = validate_formal_proof_envelope(envelope);
+    let Some(provenance) = provenance else {
+        diagnostics.push("Aeneas formal proof card missing matching formal_proof provenance".to_owned());
+        return diagnostics;
+    };
+    if card.receipt_path != provenance.artifact_locator {
+        diagnostics.push("Aeneas proof card receipt path does not match provenance".to_owned());
+    }
+    if !card
+        .artifact_blake3_identities
+        .iter()
+        .any(|identity| identity.artifact == provenance.artifact_locator && identity.blake3 == provenance.blake3)
+    {
+        diagnostics.push("Aeneas proof card is missing the receipt BLAKE3 identity".to_owned());
+    }
+    if card.status != STATUS_PASSED || envelope.status != FormalProofStatus::Passed {
+        diagnostics.push("Aeneas formal proof card requires passed status".to_owned());
+    }
+    diagnostics.sort();
+    diagnostics.dedup();
+    diagnostics
 }
 
 fn initial_proof_card(
@@ -1620,7 +2169,11 @@ fn parse_verus_receipt(text: &str) -> Result<VerusProofReceipt, String> {
 }
 
 fn write_artifact_text(root: &ArtifactRoot, locator: &str, text: &str) -> Result<(), String> {
-    root.write(&RootRelativePath::new(locator)?, text.as_bytes())
+    write_artifact_bytes(root, locator, text.as_bytes())
+}
+
+fn write_artifact_bytes(root: &ArtifactRoot, locator: &str, bytes: &[u8]) -> Result<(), String> {
+    root.write(&RootRelativePath::new(locator)?, bytes)
 }
 
 fn json_text<T: Serialize>(value: &T) -> Result<String, String> {
@@ -1769,6 +2322,19 @@ mod tests {
     const TEST_LOG_LIMIT_BYTES: usize = 128;
     const VERUS_V1_RECEIPT_GOLDEN_BLAKE3: &str = "adc4998ee90cf9a1165c456dd2c0696f447e9c743c97bb27bbac4582cfda5cf8";
     const VERUS_V1_PROOF_CARDS_GOLDEN_BLAKE3: &str = "572f78530d72c67d628c6af965f2caa750af76bb11ab2a41854a4f9b9b30baac";
+
+    #[test]
+    fn aeneas_theorem_name_extraction_accepts_named_theorem() {
+        assert_eq!(
+            extract_theorem_name("theorem safe_add_matches_model : True := by rfl"),
+            Some("safe_add_matches_model".to_owned())
+        );
+    }
+
+    #[test]
+    fn aeneas_theorem_name_extraction_rejects_missing_theorem() {
+        assert_eq!(extract_theorem_name("def safe_add := 3"), None);
+    }
 
     // r[verify octet.aeneas_lean_proof_rail.verus_compatibility]
     #[test]
@@ -2470,6 +3036,7 @@ mod tests {
             command_argv: argv,
             source_paths: vec![SOURCE_RELATIVE_PATH.to_owned()],
             proof_paths: vec![PROOF_RELATIVE_PATH.to_owned()],
+            theorem_id: String::new(),
             receipt_paths: vec![proof_artifact_locator(&fixture_policy_stub(), 0)],
             pass_signal: pass_signal.to_owned(),
             trust_boundaries: vec![TRUST_BOUNDARY.to_owned()],

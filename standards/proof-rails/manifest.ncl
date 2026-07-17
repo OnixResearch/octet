@@ -1,6 +1,8 @@
 let contracts = import "contracts.ncl" in
 let default_timeout_ms = 30000 in
 let default_log_max_bytes = 4096 in
+let aeneas_timeout_ms = 900000 in
+let aeneas_log_max_bytes = 1048576 in
 let productionReceiptVerifier = {
   verifier_id = "verus@0.2026.05.17.e479cce",
   verifier_digest = "sha256:2a06101ab5fdcbc32073f1815e86a09c81d1f393c2d3501d35d0a24404d0a8e5",
@@ -105,6 +107,39 @@ let productionReceiptVerifier = {
       stdout_max_bytes = default_log_max_bytes,
       stderr_max_bytes = default_log_max_bytes,
       environment_allowlist = ["PATH"],
+    },
+    aeneas_fixture = {
+      backend = "aeneas-lean",
+      command = "cargo octet prove --rail aeneas-fixture",
+      command_argv = ["cargo", "octet", "prove", "--rail", "aeneas-fixture"],
+      source_paths = ["src/lib.rs"],
+      proof_paths = ["Theorem.lean"],
+      theorem_id = "aeneas.fixture.safe_add",
+      receipt_paths = ["proofs/octet.aeneas_lean_proof_rails.fixture-rail-0.receipt"],
+      pass_signal = "aeneas-proof-result: pass",
+      trust_boundaries = ["Octet owns this pinned Aeneas/Charon/Lean theorem receipt; it does not prove translation soundness, verifier soundness, semantic equivalence, whole-program correctness, or release eligibility"],
+      receipt_binding = "blake3-command-and-source",
+      receipt_provenance = {
+        schema_version = "octet-formal-proof-envelope/v1",
+        runner = "octet-standards",
+        environment = "cargo-octet-prove-aeneas",
+        requires_backend = true,
+        requires_trust_boundary = true,
+      },
+      receipt_verifier = {
+        verifier_id = "aeneas-lean@bc2eb6f",
+        verifier_digest = "bc2eb6f941369fa3c695e30598b5758b11e4f0de",
+        verifier_binary_path = "aeneas-lean-provider-closure",
+        verifier_binary_digest = "bc2eb6f941369fa3c695e30598b5758b11e4f0de",
+        toolchain_id = "leanprover/lean4:v4.31.0",
+        toolchain_digest = "bc2eb6f941369fa3c695e30598b5758b11e4f0de",
+      },
+      verifier_mode = "fixture",
+      checked_scope = "formal-proof:fixture-only:octet.aeneas_lean_proof_rails.fixture#rail-0",
+      timeout_ms = aeneas_timeout_ms,
+      stdout_max_bytes = aeneas_log_max_bytes,
+      stderr_max_bytes = aeneas_log_max_bytes,
+      environment_allowlist = ["PATH", "CHARON_TOOLCHAIN_IS_IN_PATH", "LD_LIBRARY_PATH", "HOME", "MATHLIB_NO_CACHE_ON_UPDATE"],
     },
     addition_bound_production_negative = {
       backend = "verus",

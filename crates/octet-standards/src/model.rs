@@ -323,6 +323,9 @@ pub struct ProofRail {
     /// Proof or fixture input paths covered by this rail.
     #[serde(default)]
     pub proof_paths: Vec<String>,
+    /// Stable theorem identifier for provider-specific formal-proof rails.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub theorem_id: String,
     /// Persisted receipt paths accepted for this rail. Defaults to `proof_paths` for legacy rails.
     #[serde(default)]
     pub receipt_paths: Vec<String>,

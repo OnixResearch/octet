@@ -1418,6 +1418,7 @@ impl Session<Authenticated> { pub fn send(self) {} }
                 command_argv: vec!["octet-verus".to_owned(), "verus/proofs/addition_bound.rs".to_owned()],
                 source_paths: vec!["src/verified/addition.rs".to_owned()],
                 proof_paths: vec!["verus/proofs/addition_bound.rs".to_owned()],
+                theorem_id: String::new(),
                 receipt_paths: vec!["verus/proofs/addition.receipt".to_owned()],
                 pass_signal: "proof-result: pass octet-addition-bound".to_owned(),
                 trust_boundaries: vec!["fixture-scoped Verus proof rail".to_owned()],

@@ -2,47 +2,66 @@
 
 Requirement: `r[octet.aeneas_lean_proof_rail.valence_handoff]`
 
+Implementation artifacts: `cargo-octet/src/aeneas_execution.rs` retains the
+real stage outputs, `cargo-octet/src/prove.rs` builds the Octet envelope and
+artifact bundle, and `cargo-octet/src/artifact.rs` verifies the frozen bundle.
+The positive path is the pinned `cargo octet prove` run over
+`fixtures/valid/real_fixture`; negative paths are the unverified Nickel
+fixture plus the existing artifact tamper/fail-closed tests.
+
 The frozen adapter source is
 `standards/proof-rails/aeneas-lean/valence-adapter-fixture.ncl`; its generated
 JSON is
 `standards/proof-rails/aeneas-lean/generated/valence-adapter-fixture.json`.
-The Nickel contract requires a valid artifact-verification status, a passed
-proof receipt, explicit receipt and verification-receipt IDs, a true
-`exported_after_verification` marker, all six stage kinds in the frozen stage
-list, and a sole Octet-owned `formal_proof` property candidate. Intermediate stages remain
-recorded-only or boundary evidence.
+The frozen Octet-owned positive bundle is under
+`standards/proof-rails/aeneas-lean/fixtures/valid/artifacts/` and contains the
+real Charon LLBC, Aeneas `translation.json`, generated `Llbc.lean`, maintained
+theorem, package lock, Octet formal-proof receipt, bounded logs, proof card,
+and provenance records. The receipt's stage identities are measured from
+those committed bytes; the adapter uses the following observed identities:
+
+```text
+rust_source       b3:fc70d39d863627bf99ab6a2c13a0b798aac059dc2520d9d2e48f7ac599fb4502
+charon_options    b3:628826f12a1951a45e105272e54328586bbc1591b25d74bf8a5afc9453b5ff95
+translation       b3:0e8c4e0040003a4488fc572c04e2a66509834857a4b2786ad443cfc90fb100c8
+generated_lean    b3:7b6726a5a5a9271ffed325f25aae9c11871f3dc681a3a9d90f5f70ba4d2ad48f
+theorem           b3:08e7c2d1fb1e21b2e7a174340a9f5b87c3acc634c591c6102624cd3a231f1125
+lean_receipt      b3:b0ce7c7d5673e67b0dc5fff7f54d351f4f58f2b70c986023a3933dee15bcf489
+```
+
+The verification report is
+`standards/proof-rails/aeneas-lean/fixtures/valid/verification-report.json`;
+the Valence adapter export is
+`standards/proof-rails/aeneas-lean/fixtures/valid/verification.json`.
 
 Positive and negative fixture checks:
 
 ```text
-$ nix develop -c bash -c 'set -e; nickel typecheck standards/proof-rails/aeneas-lean/valence-adapter-fixture.ncl; nickel export --format json standards/proof-rails/aeneas-lean/valence-adapter-fixture.ncl | cmp standards/proof-rails/aeneas-lean/generated/valence-adapter-fixture.json -; if nickel export --format json standards/proof-rails/aeneas-lean/fixtures/invalid/valence_adapter_unverified.ncl >/dev/null 2>&1; then echo negative-unverified-export-unexpectedly-passed >&2; exit 1; else echo positive-export-byte-match; echo negative-unverified-export-rejected; fi'
-warning: unknown experimental feature 'wasm-builtin'
-positive-export-byte-match
-negative-unverified-export-rejected
+$ nix develop -c bash -c 'cargo run -q -p cargo-octet --bin cargo-octet -- artifact verify --artifact-dir standards/proof-rails/aeneas-lean/fixtures/valid/artifacts --output-format json --emit-valence-provenance standards/proof-rails/aeneas-lean/fixtures/valid/verification.json'
+status=valid; diagnostics=[]
 
-$ nix develop -c jq --exit-status --argjson stage_count 6 '<fixture-shape-and-stage/property checks>' standards/proof-rails/aeneas-lean/generated/valence-adapter-fixture.json >/dev/null && echo valence-adapter-positive-shape-ok
-warning: unknown experimental feature 'wasm-builtin'
-valence-adapter-positive-shape-ok
+$ nix develop -c bash -c 'nickel typecheck standards/proof-rails/aeneas-lean/valence-adapter-fixture.ncl; nickel export --format json standards/proof-rails/aeneas-lean/valence-adapter-fixture.ncl | cmp standards/proof-rails/aeneas-lean/generated/valence-adapter-fixture.json -'
+positive-export-byte-match
+
+$ nix develop -c bash -c 'if nickel export --format json standards/proof-rails/aeneas-lean/fixtures/invalid/valence_adapter_unverified.ncl >/dev/null 2>&1; then exit 1; else echo negative-unverified-export-rejected; fi'
+negative-unverified-export-rejected
 ```
 
-Focused provider and boundary regression checks:
+Focused Rust checks:
 
 ```text
-$ nix develop -c cargo test -p cargo-octet valence_export --lib -- --nocapture
-... test result: ok. 12 passed; 0 failed
+$ nix develop -c cargo test -p cargo-octet artifact --lib -- --nocapture
+... test result: ok; 53 passed; 0 failed
 
 $ nix develop -c cargo test -p octet-standards aeneas --lib -- --nocapture
-... test result: ok. 13 passed; 0 failed
+... test result: ok; 13 passed; 0 failed
 
-$ nix develop -c bash -c 'cargo fmt --check'
-warning: unknown experimental feature 'wasm-builtin'
-
-$ nix run .#octet-policy-validate
-warning: unknown experimental feature 'wasm-builtin'
+$ nix develop -c cargo fmt --check
+passed
 ```
 
-The focused Rust suites cover positive envelope/export paths and negative
-stage, theorem, role, status, receipt-link, stale-artifact, and promotion
-cases. The fixture is adapter input only; these checks do not claim Aeneas,
-Charon, Lean, verifier, semantic-equivalence, whole-program, or release
-correctness.
+The adapter is identity/linkage input only. Intermediate Charon, translation,
+and generated-Lean stages remain recorded or boundary evidence; the sole
+property candidate is the Octet-owned named theorem receipt. These checks do
+not claim Aeneas, Charon, Lean, verifier, semantic-equivalence, whole-program,
+or release correctness.

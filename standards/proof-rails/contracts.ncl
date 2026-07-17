@@ -33,7 +33,7 @@ let rail_has_production_identity = fun rail =>
 in
 
 let rail_rules = fun rail =>
-  rail.backend == "verus"
+  std.array.elem rail.backend ["verus", "aeneas-lean"]
   && std.array.length rail.command_argv > 0
   && std.array.length rail.source_paths > 0
   && std.array.length rail.proof_paths > 0
