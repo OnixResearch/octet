@@ -5,8 +5,10 @@ Requirement: `r[octet.aeneas_lean_proof_rail.pin_upgrade_matrix]`
 The typed Nickel matrix at
 `standards/proof-rails/aeneas-lean/compatibility-matrix.ncl` binds every
 reviewed upgrade dimension: Aeneas, Charon, rustc, Lean, Aeneas library,
-schema, and provider profile. Its generated JSON contains eleven canaries:
-two live provider canaries and nine pure admission/rejection canaries.
+schema, and provider profile. Its generated JSON contains thirteen canaries:
+three live provider canaries and ten pure admission/rejection canaries. The
+added theorem-approval canary requires independently configured and measured
+statement BLAKE3 identities to match.
 
 The provider closure now includes:
 
@@ -23,18 +25,20 @@ The provider closure now includes:
 
 The positive fixture executes Charon extraction, Aeneas translation, Lake
 compilation of `Llbc.lean`, and the maintained theorem. The false fixture runs
-the same stages and must fail in Lean without timeout. Both use fresh work
-roots and the denied network namespace.
+the same stages and must fail in Lean without timeout. The vacuous fixture is
+rejected during theorem-source preflight before Charon executes. All use fresh
+work roots and the denied network namespace.
 
-The combined upgrade gate runs both live fixtures serially and the pure Aeneas
-validator suite:
+The combined upgrade gate runs all three live fixtures serially and the pure
+Aeneas validator suite:
 
 ```text
 $ nix build --option builders '' --option secret-key-files '' \
     .#checks.x86_64-linux.aeneas-lean-compatibility-matrix --no-link -L
 
-pure compatibility: 13 passed; 0 failed
-live compatibility: 2 passed; 0 failed; finished in 451.73s
+matrix assertions: 13 canaries; 2 positive; 11 rejection; 3 live; 10 pure
+pure focused suite: 16 passed; 0 failed
+live compatibility: 3 passed; 0 failed; finished in 444.35s
 ```
 
 Supporting gates also pass:

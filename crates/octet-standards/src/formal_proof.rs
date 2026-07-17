@@ -35,7 +35,7 @@ const BIG_ENDIAN: &str = "big";
 const THEOREM_DECLARATION_PREFIX: &str = "theorem ";
 const THEOREM_BODY_SEPARATOR: &str = ":=";
 const THEOREM_TYPE_SEPARATOR: &str = ":";
-const VACUOUS_THEOREM_STATEMENT: &str = "True";
+const VACUOUS_THEOREM_IDENTIFIER: &str = "True";
 const FORBIDDEN_THEOREM_DECLARATIONS: &[&str] = &["admit", "sorry"];
 const AENEAS_PROVIDER_PROFILE_JSON: &str =
     include_str!("../../../standards/proof-rails/aeneas-lean/generated/profile.json");
@@ -453,7 +453,7 @@ pub fn assess_aeneas_theorem_source(source: &str) -> AeneasTheoremAdequacy {
         header.rsplit_once(THEOREM_TYPE_SEPARATOR).map(|(_, value)| value.trim())
     });
     let decision = match statement {
-        Some(VACUOUS_THEOREM_STATEMENT) => AeneasTheoremAdequacyDecision::Vacuous,
+        Some(value) if true_style_statement(value) => AeneasTheoremAdequacyDecision::Vacuous,
         Some(value) if !value.is_empty() => AeneasTheoremAdequacyDecision::NonVacuous,
         _ => AeneasTheoremAdequacyDecision::Rejected,
     };
@@ -470,6 +470,34 @@ pub fn assess_aeneas_theorem_source(source: &str) -> AeneasTheoremAdequacy {
         decision,
         forbidden_declarations,
     }
+}
+
+fn true_style_statement(statement: &str) -> bool {
+    let mut identifiers = statement
+        .split(|character: char| !character.is_ascii_alphanumeric() && character != '_')
+        .filter(|identifier| !identifier.is_empty());
+    let Some(first) = identifiers.next() else {
+        return false;
+    };
+    first == VACUOUS_THEOREM_IDENTIFIER && identifiers.all(|identifier| identifier == VACUOUS_THEOREM_IDENTIFIER)
+}
+
+/// Bind observed theorem bytes to an independently reviewed digest.
+// r[impl octet.aeneas_lean_proof_rail.theorem_adequacy]
+pub fn validate_aeneas_theorem_statement_approval(
+    expected_blake3: &str,
+    observed_blake3: &str,
+) -> Result<String, String> {
+    let expected_blake3 = expected_blake3.trim();
+    if expected_blake3.is_empty() {
+        return Err("Aeneas rail must declare approved_theorem_statement_blake3".to_owned());
+    }
+    if expected_blake3 != observed_blake3 {
+        return Err(format!(
+            "Aeneas theorem statement BLAKE3 mismatch: expected `{expected_blake3}`, observed `{observed_blake3}`"
+        ));
+    }
+    Ok(expected_blake3.to_owned())
 }
 
 /// The exact theorem result reported by the Lean checker.
@@ -2007,6 +2035,23 @@ mod tests {
     // r[verify octet.aeneas_lean_proof_rail.theorem_gate]
     // r[verify octet.aeneas_lean_proof_rail.theorem_adequacy]
     #[test]
+    fn aeneas_theorem_statement_approval_accepts_match_and_rejects_missing_or_mismatched() {
+        let approved = validate_aeneas_theorem_statement_approval("approved-digest", "approved-digest")
+            .expect("matching theorem approval");
+        assert_eq!(approved, "approved-digest");
+
+        let missing =
+            validate_aeneas_theorem_statement_approval("", "observed-digest").expect_err("missing theorem approval");
+        assert!(missing.contains("must declare"));
+
+        let mismatch = validate_aeneas_theorem_statement_approval("approved-digest", "observed-digest")
+            .expect_err("mismatched theorem approval");
+        assert!(mismatch.contains("mismatch"));
+    }
+
+    // r[verify octet.aeneas_lean_proof_rail.theorem_gate]
+    // r[verify octet.aeneas_lean_proof_rail.theorem_adequacy]
+    #[test]
     fn aeneas_theorem_source_assessment_accepts_non_vacuous_statement() {
         let adequacy = assess_aeneas_theorem_source("theorem safe_add_matches_model (x : Nat) : x = x := by rfl");
 
@@ -2017,8 +2062,14 @@ mod tests {
     // r[verify octet.aeneas_lean_proof_rail.theorem_adequacy]
     #[test]
     fn aeneas_theorem_source_assessment_rejects_vacuous_and_forbidden_statements() {
-        let vacuous = assess_aeneas_theorem_source("theorem vacuous : True := by trivial");
-        assert_eq!(vacuous.decision, AeneasTheoremAdequacyDecision::Vacuous);
+        for source in [
+            "theorem vacuous : True := by trivial",
+            "theorem parenthesized : ( True ) := by trivial",
+            "theorem conjunction : True ∧ True := by constructor <;> trivial",
+        ] {
+            let vacuous = assess_aeneas_theorem_source(source);
+            assert_eq!(vacuous.decision, AeneasTheoremAdequacyDecision::Vacuous, "source: {source}");
+        }
 
         let forbidden = assess_aeneas_theorem_source("theorem admitted : Nat := by sorry");
         assert_eq!(forbidden.decision, AeneasTheoremAdequacyDecision::NonVacuous);

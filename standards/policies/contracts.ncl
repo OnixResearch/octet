@@ -303,6 +303,7 @@ let ProofRailContract = {
   source_paths | Array NonEmptyString,
   proof_paths | Array NonEmptyString,
   theorem_id | String | default = "",
+  approved_theorem_statement_blake3 | String | default = "",
   receipt_paths | Array NonEmptyString | default = [],
   pass_signal | NonEmptyString,
   trust_boundaries | Array NonEmptyString,

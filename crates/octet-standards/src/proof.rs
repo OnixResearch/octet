@@ -2088,6 +2088,7 @@ mod tests {
             source_paths: vec![SOURCE_PATH.to_owned()],
             proof_paths: vec![PROOF_PATH.to_owned()],
             theorem_id: String::new(),
+            approved_theorem_statement_blake3: String::new(),
             receipt_paths: vec![PROOF_ARTIFACT.to_owned()],
             pass_signal: PASS_SIGNAL.to_owned(),
             trust_boundaries: vec![
