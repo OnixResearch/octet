@@ -1,6 +1,7 @@
 //! Bounded Aeneas/Charon/Lean execution planning and shell orchestration.
 
 use std::env;
+use std::ffi::OsString;
 use std::fs;
 use std::io::Read;
 use std::path::Component;
@@ -28,12 +29,15 @@ const NETWORK_SANDBOX_ENV: &str = "OCTET_AENEAS_NETWORK_SANDBOX";
 const CHARON_COMMAND_NAME: &str = "charon";
 const AENEAS_COMMAND_NAME: &str = "aeneas";
 const LEAN_COMMAND_NAME: &str = "lake";
-const REQUIRED_CHARON_ARGUMENTS: &[&str] = &["cargo", "--preset", "aeneas", "--dest-file", "llbc.json"];
+const REQUIRED_CHARON_ARGUMENTS: &[&str] = &["cargo", "--preset", "aeneas", "--dest-file", "llbc.llbc"];
 const REQUIRED_AENEAS_ARGUMENTS: &[&str] = &["-backend", "lean", "-emit-json"];
 const REQUIRED_LEAN_SUBCOMMANDS: &[&str] = &["env", "lean"];
 const AENEAS_LIBRARY_DIRECTORY: &str = "aeneas-lean-library";
 const LAKEFILE_NAME: &str = "lakefile.lean";
 const LEAN_TOOLCHAIN_NAME: &str = "lean-toolchain";
+const HOME_ENVIRONMENT_NAME: &str = "HOME";
+const PATH_ENVIRONMENT_NAME: &str = "PATH";
+const SANDBOX_ARGUMENT_SEPARATOR: &str = "--";
 const GIT_DIRECTORY_NAME: &str = ".git";
 const TARGET_DIRECTORY_NAME: &str = "target";
 const LAKE_DIRECTORY_NAME: &str = ".lake";
@@ -41,11 +45,12 @@ const NETWORK_DENIAL_FLAG: &str = "--unshare-net";
 const DIE_WITH_PARENT_FLAG: &str = "--die-with-parent";
 const NIX_STORE_DIRECTORY: &str = "/nix/store";
 const PROC_MOUNT_PATH: &str = "/proc";
+const DEV_MOUNT_PATH: &str = "/dev";
 const READ_CHUNK_BYTES: usize = 4_096;
 const PROCESS_POLL_INTERVAL_MS: u64 = 10;
 const STAGE_COUNT: usize = 3;
 const SOURCE_PATH_INDEX: usize = 0;
-const LLBC_PATH: &str = "llbc.json";
+const LLBC_PATH: &str = "llbc.llbc";
 const THEOREM_PATH_INDEX: usize = 0;
 const DEFAULT_SOURCE_PATH: &str = ".";
 const DEFAULT_THEOREM_PATH: &str = "Theorem.lean";
@@ -322,6 +327,8 @@ fn sandboxed_argv(
         input.network_sandbox.display().to_string(),
         DIE_WITH_PARENT_FLAG.to_owned(),
         NETWORK_DENIAL_FLAG.to_owned(),
+        "--dev".to_owned(),
+        DEV_MOUNT_PATH.to_owned(),
         "--proc".to_owned(),
         PROC_MOUNT_PATH.to_owned(),
         "--ro-bind".to_owned(),
@@ -366,7 +373,11 @@ fn prepare_work_root(source_root: &Path, work_root: &Path, aeneas_lean_library: 
     })?;
     let lakefile = work_root.join(LAKEFILE_NAME);
     let lakefile_text = format!(
-        "import Lake\\nopen Lake DSL\\npackage octet_aeneas_fixture\\nrequire aeneas from \\\"./{AENEAS_LIBRARY_DIRECTORY}\\\"\\n"
+        r#"import Lake
+open Lake DSL
+package octet_aeneas_fixture
+require aeneas from "./{AENEAS_LIBRARY_DIRECTORY}"
+"#
     );
     fs::write(&lakefile, lakefile_text)
         .map_err(|error| format!("write generated Aeneas Lake package `{}`: {error}", lakefile.display()))
@@ -500,6 +511,26 @@ fn execute_stage(stage: &AeneasStagePlan, plan: &AeneasExecutionPlan) -> AeneasS
     }
 }
 
+fn provider_bin_directory(stage: &AeneasStagePlan) -> Option<PathBuf> {
+    let separator_index = stage.argv.iter().position(|argument| argument == SANDBOX_ARGUMENT_SEPARATOR)?;
+    let executable = stage.argv.get(separator_index + 1)?;
+    Path::new(executable).parent().map(Path::to_path_buf)
+}
+
+fn prepend_provider_path(
+    provider_bin_directory: Option<&Path>,
+    inherited_path: Option<OsString>,
+) -> Result<OsString, String> {
+    let mut paths = Vec::new();
+    if let Some(directory) = provider_bin_directory {
+        paths.push(directory.to_path_buf());
+    }
+    if let Some(path) = inherited_path {
+        paths.extend(env::split_paths(&path));
+    }
+    env::join_paths(paths).map_err(|error| format!("construct provider PATH: {error}"))
+}
+
 fn spawn_stage(stage: &AeneasStagePlan, plan: &AeneasExecutionPlan) -> Result<AeneasStageObservation, String> {
     let executable =
         stage.argv.first().ok_or_else(|| format!("Aeneas `{}` stage has empty argv", stage.kind.as_str()))?;
@@ -511,8 +542,14 @@ fn spawn_stage(stage: &AeneasStagePlan, plan: &AeneasExecutionPlan) -> Result<Ae
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
+    let provider_bin_directory = provider_bin_directory(stage);
     for name in &plan.environment_allowlist {
-        if let Some(value) = env::var_os(name) {
+        if name == HOME_ENVIRONMENT_NAME {
+            command.env(name, &plan.work_root);
+        } else if name == PATH_ENVIRONMENT_NAME {
+            let path = prepend_provider_path(provider_bin_directory.as_deref(), env::var_os(name))?;
+            command.env(name, path);
+        } else if let Some(value) = env::var_os(name) {
             command.env(name, value);
         }
     }
@@ -799,7 +836,7 @@ mod tests {
                 stdout_max_bytes: TEST_LOG_BYTES,
                 stderr_max_bytes: TEST_LOG_BYTES,
             },
-            environment_allowlist: vec![TEST_ENVIRONMENT.to_owned()],
+            environment_allowlist: vec![TEST_ENVIRONMENT.to_owned(), HOME_ENVIRONMENT_NAME.to_owned()],
         }
     }
 
@@ -815,8 +852,11 @@ mod tests {
         for stage in &plan.stages {
             assert_eq!(stage.argv[1], DIE_WITH_PARENT_FLAG);
             assert_eq!(stage.argv[2], NETWORK_DENIAL_FLAG);
-            assert!(stage.argv.contains(&"--".to_owned()));
+            assert!(stage.argv.contains(&"--dev".to_owned()));
+            assert!(stage.argv.contains(&DEV_MOUNT_PATH.to_owned()));
+            assert!(stage.argv.contains(&SANDBOX_ARGUMENT_SEPARATOR.to_owned()));
         }
+        assert_eq!(provider_bin_directory(&plan.stages[0]), Some(root.clone()));
         for argument in REQUIRED_AENEAS_ARGUMENTS {
             assert!(plan.stages[1].argv.contains(&(*argument).to_owned()));
         }
@@ -850,7 +890,7 @@ mod tests {
         let temporary = tempfile::tempdir().expect("temporary test root");
         let plan = fixture_plan(
             temporary.path(),
-            "printf '%s\\n' 'charon'",
+            "printf '%s\\n' 'charon'; printf '%s\\n' \"$HOME\"",
             "printf '%s\\n' 'aeneas'",
             "printf '%s\\n' 'lake'",
             TEST_LOG_BYTES,
@@ -861,7 +901,8 @@ mod tests {
 
         assert_eq!(report.observations.len(), STAGE_COUNT);
         assert!(validate_aeneas_execution_report(&report).is_empty(), "report: {report:?}");
-        assert_eq!(report.observations[0].stdout.trim(), "charon");
+        assert!(report.observations[0].stdout.starts_with("charon\n"));
+        assert!(report.observations[0].stdout.contains(&plan.work_root.display().to_string()));
         assert_eq!(report.observations[1].stdout.trim(), "aeneas");
         assert_eq!(report.observations[2].stdout.trim(), "lake");
         assert!(plan.work_root.is_dir());
@@ -986,6 +1027,7 @@ mod tests {
                 TEST_ENVIRONMENT.to_owned(),
                 "CHARON_TOOLCHAIN_IS_IN_PATH".to_owned(),
                 "LD_LIBRARY_PATH".to_owned(),
+                HOME_ENVIRONMENT_NAME.to_owned(),
             ],
             ..ProofRail::default()
         }

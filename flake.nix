@@ -36,6 +36,10 @@
       url = "github:leanprover/lean4/68218e876d2a38b1985b8590fff244a83c321783";
       flake = false;
     };
+    mathlib-src = {
+      url = "github:leanprover-community/mathlib4/v4.31.0";
+      flake = false;
+    };
   };
 
   outputs =
@@ -52,6 +56,7 @@
       aeneas,
       aeneasCharon,
       lean4-src,
+      mathlib-src,
       ...
     }:
     let
@@ -330,6 +335,7 @@
         aeneasRevision = aeneasLeanProviderProfile.aeneas_revision;
         aeneasCharonRevision = aeneasLeanProviderProfile.charon_revision;
         aeneasProviderSource = aeneas.outPath;
+        mathlibSource = mathlib-src;
         aeneasExecutable = aeneas.packages.${system}.aeneas;
         charonExecutable = aeneas.packages.${system}.charon;
         leantar = pkgs.stdenvNoCC.mkDerivation {
@@ -706,6 +712,7 @@
                 b3sum
                 coreutils
                 gnugrep
+                gnused
                 jq
               ];
             }
@@ -714,10 +721,13 @@
               revision_length=40
               aeneas_source="${aeneasProviderSource}"
               charon_source="${aeneasCharon}"
+              mathlib_source="${mathlibSource}"
               aeneas_binary="${aeneasExecutable}/bin/aeneas"
               charon_binary="${charonExecutable}/bin/charon"
               lean_binary="${leanExecutable}/bin/lean"
               lake_binary="${leanExecutable}/bin/lake"
+              leantar_binary="${leantar}/bin/leantar"
+              network_sandbox_binary="${pkgs.bubblewrap}/bin/bwrap"
               charon_pin="$aeneas_source/charon-pin"
               expected_aeneas_revision="${aeneasRevision}"
               actual_aeneas_revision="${aeneas.rev}"
@@ -741,7 +751,11 @@
                 echo "Aeneas provider closure is missing the pinned Charon source" >&2
                 exit 1
               fi
-              for executable in "$aeneas_binary" "$charon_binary" "$lean_binary" "$lake_binary"; do
+              if [ ! -d "$mathlib_source" ]; then
+                echo "Aeneas provider closure is missing the pinned mathlib source" >&2
+                exit 1
+              fi
+              for executable in "$aeneas_binary" "$charon_binary" "$lean_binary" "$lake_binary" "$leantar_binary" "$network_sandbox_binary"; do
                 if [ ! -x "$executable" ]; then
                   echo "Aeneas provider closure is missing executable: $executable" >&2
                   exit 1
@@ -754,6 +768,8 @@
               charon_binary_blake3=$(b3sum "$charon_binary" | cut --delimiter=' ' --fields=1)
               lean_binary_blake3=$(b3sum "$lean_binary" | cut --delimiter=' ' --fields=1)
               lake_binary_blake3=$(b3sum "$lake_binary" | cut --delimiter=' ' --fields=1)
+              leantar_binary_blake3=$(b3sum "$leantar_binary" | cut --delimiter=' ' --fields=1)
+              network_sandbox_blake3=$(b3sum "$network_sandbox_binary" | cut --delimiter=' ' --fields=1)
               provider_dir="$out/share/octet/aeneas-lean"
               mkdir -p "$out/bin" "$provider_dir"
               ln -s "$aeneas_source" "$provider_dir/aeneas-source"
@@ -762,7 +778,16 @@
               ln -s "$charon_binary" "$provider_dir/charon"
               ln -s "$lean_binary" "$provider_dir/lean"
               ln -s "$lake_binary" "$provider_dir/lake"
+              ln -s "$leantar_binary" "$provider_dir/leantar"
+              ln -s "$network_sandbox_binary" "$provider_dir/bwrap"
               cp -r "$aeneas_source/backends/lean" "$provider_dir/aeneas-lean-library"
+              chmod -R u+w "$provider_dir/aeneas-lean-library"
+              mathlib_library="$provider_dir/aeneas-lean-library/mathlib"
+              cp -r "$mathlib_source" "$mathlib_library"
+              chmod -R u+w "$mathlib_library"
+              find "$mathlib_library" -type l -delete
+              test -z "$(find "$mathlib_library" -type l -print -quit)"
+              sed -i '/require mathlib from git/,+1c\require mathlib from "./mathlib"' "$provider_dir/aeneas-lean-library/lakefile.lean"
               cp "$charon_pin" "$provider_dir/charon-pin"
               cp "$profile_path" "$provider_dir/profile.json"
 
@@ -778,13 +803,18 @@
                 "charon_binary_blake3": "$charon_binary_blake3",
                 "lean_binary_blake3": "$lean_binary_blake3",
                 "lake_binary_blake3": "$lake_binary_blake3",
+                "leantar_binary_blake3": "$leantar_binary_blake3",
+                "network_sandbox_blake3": "$network_sandbox_blake3",
                 "aeneas_source": "$provider_dir/aeneas-source",
                 "charon_source": "$provider_dir/charon-source",
                 "aeneas_binary": "$provider_dir/aeneas",
                 "charon_binary": "$provider_dir/charon",
                 "lean_binary": "$provider_dir/lean",
                 "lake_binary": "$provider_dir/lake",
+                "leantar_binary": "$provider_dir/leantar",
+                "network_sandbox": "$provider_dir/bwrap",
                 "aeneas_lean_library": "$provider_dir/aeneas-lean-library",
+                "mathlib_source": "$mathlib_library",
                 "charon_pin": "$provider_dir/charon-pin",
                 "profile": "$provider_dir/profile.json"
               }
@@ -818,7 +848,7 @@
                 exit 0
               fi
               if [ "\$#" -eq 1 ] && [ "\$1" = "--tool-identities" ]; then
-                jq --sort-keys '{aeneas_binary, charon_binary, lean_binary, lake_binary, aeneas_binary_blake3, charon_binary_blake3, lean_binary_blake3, lake_binary_blake3}' "\$identity_path"
+                jq --sort-keys '{aeneas_binary, charon_binary, lean_binary, lake_binary, leantar_binary, network_sandbox, aeneas_binary_blake3, charon_binary_blake3, lean_binary_blake3, lake_binary_blake3, leantar_binary_blake3, network_sandbox_blake3}' "\$identity_path"
                 exit 0
               fi
               echo "Aeneas Lean execution requires the cargo-octet execution shell" >&2
@@ -831,6 +861,7 @@
           pkgs.runCommand "octet-aeneas-lean-provider-closure-check"
             {
               nativeBuildInputs = with pkgs; [
+                coreutils
                 gnugrep
                 jq
               ];
@@ -838,16 +869,22 @@
             ''
               set -eu
               identity="${aeneasLeanProviderClosure}/share/octet/aeneas-lean/identity.json"
+              mathlib_library="${aeneasLeanProviderClosure}/share/octet/aeneas-lean/aeneas-lean-library/mathlib"
               expected_charon_revision="${aeneasCharonRevision}"
+              test -d "$mathlib_library"
+              test -x "${aeneasLeanProviderClosure}/share/octet/aeneas-lean/leantar"
+              test -z "$(find "$mathlib_library" -type l -print -quit)"
+              grep --fixed-strings 'require mathlib from "./mathlib"' \
+                "${aeneasLeanProviderClosure}/share/octet/aeneas-lean/aeneas-lean-library/lakefile.lean" >/dev/null
               jq --exit-status \
                 --arg aeneas_revision "${aeneasRevision}" \
                 --arg charon_revision "$expected_charon_revision" \
-                '.schema_version == "octet-aeneas-lean-provider-closure/v1" and .status == "packaged" and .aeneas_revision == $aeneas_revision and .charon_revision == $charon_revision and (.charon_pin_blake3 | length) == 64 and (.profile_blake3 | length) == 64 and (.aeneas_binary_blake3 | length) == 64 and (.charon_binary_blake3 | length) == 64 and (.lean_binary_blake3 | length) == 64 and (.lake_binary_blake3 | length) == 64 and (.aeneas_binary | length) > 0 and (.charon_binary | length) > 0 and (.lean_binary | length) > 0 and (.lake_binary | length) > 0' \
+                '.schema_version == "octet-aeneas-lean-provider-closure/v1" and .status == "packaged" and .aeneas_revision == $aeneas_revision and .charon_revision == $charon_revision and (.charon_pin_blake3 | length) == 64 and (.profile_blake3 | length) == 64 and (.aeneas_binary_blake3 | length) == 64 and (.charon_binary_blake3 | length) == 64 and (.lean_binary_blake3 | length) == 64 and (.lake_binary_blake3 | length) == 64 and (.leantar_binary_blake3 | length) == 64 and (.aeneas_binary | length) > 0 and (.charon_binary | length) > 0 and (.lean_binary | length) > 0 and (.lake_binary | length) > 0 and (.leantar_binary | length) > 0 and (.network_sandbox_blake3 | length) == 64 and (.network_sandbox | length) > 0 and (.mathlib_source | length) > 0' \
                 "$identity" >/dev/null
               "${aeneasLeanProviderClosure}/bin/octet-aeneas-lean" --identity > "$TMPDIR/identity.json"
               cmp "$identity" "$TMPDIR/identity.json"
               "${aeneasLeanProviderClosure}/bin/octet-aeneas-lean" --tool-identities > "$TMPDIR/tool-identities.json"
-              jq --exit-status '([.aeneas_binary, .charon_binary, .lean_binary, .lake_binary] | all(length > 0)) and ([.aeneas_binary_blake3, .charon_binary_blake3, .lean_binary_blake3, .lake_binary_blake3] | all(length == 64))' "$TMPDIR/tool-identities.json" >/dev/null
+              jq --exit-status '([.aeneas_binary, .charon_binary, .lean_binary, .lake_binary, .leantar_binary, .network_sandbox] | all(length > 0)) and ([.aeneas_binary_blake3, .charon_binary_blake3, .lean_binary_blake3, .lake_binary_blake3, .leantar_binary_blake3, .network_sandbox_blake3] | all(length == 64))' "$TMPDIR/tool-identities.json" >/dev/null
 
               positive_pin="$TMPDIR/charon-pin-positive"
               printf '# reviewed pin\\n%s\\n' "$expected_charon_revision" > "$positive_pin"

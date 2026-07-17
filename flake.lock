@@ -364,6 +364,23 @@
         "type": "github"
       }
     },
+    "mathlib-src": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1781533342,
+        "narHash": "sha256-0eBeRdZCK/mxbuzmZqb8+3ssCuykGbGrDWWwD3ItVto=",
+        "owner": "leanprover-community",
+        "repo": "mathlib4",
+        "rev": "fabf563a7c95a166b8d7b6efca11c8b4dc9d911f",
+        "type": "github"
+      },
+      "original": {
+        "owner": "leanprover-community",
+        "ref": "v4.31.0",
+        "repo": "mathlib4",
+        "type": "github"
+      }
+    },
     "nickel-export": {
       "flake": false,
       "locked": {
@@ -468,6 +485,7 @@
         "dylint-src": "dylint-src_3",
         "flake-utils": "flake-utils_5",
         "lean4-src": "lean4-src",
+        "mathlib-src": "mathlib-src",
         "nickel-export": "nickel-export",
         "nixpkgs": "nixpkgs_5",
         "rust-overlay": "rust-overlay_4",
