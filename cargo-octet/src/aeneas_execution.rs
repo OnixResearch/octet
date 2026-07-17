@@ -14,7 +14,10 @@ use std::time::Duration;
 use std::time::Instant;
 
 use octet_standards::formal_proof::AeneasExecutionLimits;
+use octet_standards::formal_proof::AeneasTheoremAdequacy;
+use octet_standards::formal_proof::AeneasTheoremAdequacyDecision;
 use octet_standards::formal_proof::CharonExtractionPolicy;
+use octet_standards::formal_proof::assess_aeneas_theorem_source;
 use octet_standards::model::ProofRail;
 use serde::Deserialize;
 
@@ -789,6 +792,15 @@ pub(crate) fn execute_aeneas_from_environment(rail: &ProofRail, source_root: &Pa
         Ok(plan) => plan,
         Err(diagnostics) => return failed_summary(diagnostics.join("; ")),
     };
+    let theorem_source_path = plan.source_root.join(&theorem_path);
+    let theorem_source = match fs::read_to_string(&theorem_source_path) {
+        Ok(source) => source,
+        Err(error) => return failed_summary(format!("read Aeneas theorem source: {error}")),
+    };
+    let theorem_adequacy = assess_aeneas_theorem_source(&theorem_source);
+    if let Some(diagnostic) = theorem_adequacy_diagnostic(&theorem_adequacy) {
+        return failed_summary(diagnostic);
+    }
     let report = execute_aeneas_plan(&plan);
     let mut stdout = String::new();
     let mut stderr = String::new();
@@ -865,6 +877,27 @@ fn collect_aeneas_artifacts(work_root: &Path) -> Result<Vec<AeneasArtifact>, Str
             })
         })
         .collect()
+}
+
+fn theorem_adequacy_diagnostic(adequacy: &AeneasTheoremAdequacy) -> Option<String> {
+    let decision_diagnostic = match adequacy.decision {
+        AeneasTheoremAdequacyDecision::NonVacuous => None,
+        AeneasTheoremAdequacyDecision::Vacuous => Some("Aeneas theorem adequacy rejected vacuous theorem".to_owned()),
+        AeneasTheoremAdequacyDecision::Rejected => {
+            Some("Aeneas theorem adequacy rejected malformed theorem".to_owned())
+        }
+    };
+    if let Some(diagnostic) = decision_diagnostic {
+        return Some(diagnostic);
+    }
+    if adequacy.forbidden_declarations.is_empty() {
+        None
+    } else {
+        Some(format!(
+            "Aeneas theorem adequacy rejected forbidden declarations: {}",
+            adequacy.forbidden_declarations.join(", ")
+        ))
+    }
 }
 
 fn failed_summary(diagnostic: String) -> AeneasCommandSummary {
@@ -1156,6 +1189,19 @@ mod tests {
         assert!(!summary.command_succeeded, "real false fixture unexpectedly passed: {summary:?}");
         assert!(!summary.timed_out, "real false fixture timed out instead of rejecting the theorem: {summary:?}");
         assert!(summary.diagnostics.iter().any(|diagnostic| diagnostic.contains("lean")));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    #[ignore = "requires the pinned Aeneas/Charon/Lean provider closure"]
+    fn live_provider_rejects_real_vacuous_fixture() {
+        let source_root = live_fixture_root("invalid/real_fixture_vacuous");
+        let rail = live_fixture_rail(LIVE_FIXTURE_THEOREM);
+        let summary = execute_aeneas_from_environment(&rail, &source_root);
+
+        assert!(!summary.command_succeeded, "real vacuous fixture unexpectedly passed: {summary:?}");
+        assert!(!summary.timed_out, "real vacuous fixture timed out instead of rejecting: {summary:?}");
+        assert!(summary.diagnostics.iter().any(|diagnostic| diagnostic.contains("vacuous")));
     }
 
     fn live_fixture_root(relative: &str) -> PathBuf {

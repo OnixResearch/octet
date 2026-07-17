@@ -55,6 +55,14 @@ let Matrix = {
       rationale = "the pinned live provider rejects the false theorem without timeout or network access",
     },
     {
+      canary_id = "live-vacuous-theorem",
+      category = "false-vacuous",
+      execution = "live",
+      expected = "reject",
+      test_function = "live_provider_rejects_real_vacuous_fixture",
+      rationale = "the pinned live provider rejects a vacuous theorem during adequacy preflight rather than promoting Lean acceptance",
+    },
+    {
       canary_id = "positive-provider-envelope",
       category = "positive",
       execution = "pure",

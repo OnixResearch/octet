@@ -1963,9 +1963,9 @@
               nickel export --format json standards/proof-rails/aeneas-lean/compatibility-matrix.ncl > "$compatibility_matrix_json"
               cmp "$compatibility_matrix_json" standards/proof-rails/aeneas-lean/generated/compatibility-matrix.json
               upgrade_dimension_count=7
-              canary_count=11
+              canary_count=12
               positive_canary_count=2
-              rejection_canary_count=9
+              rejection_canary_count=10
               jq --exit-status \
                 --argjson upgrade_dimension_count "$upgrade_dimension_count" \
                 --argjson canary_count "$canary_count" \
@@ -1984,7 +1984,7 @@
                   and ([.canaries[].category] | index("target") != null)
                   and ([.canaries[].category] | index("freshness") != null)
                   and ([.canaries[].category] | index("unsupported-feature") != null)
-                  and ([.canaries[] | select(.execution == "live")] | length) == 2
+                  and ([.canaries[] | select(.execution == "live")] | length) == 3
                   and ([.canaries[] | select(.execution == "pure")] | length) == 9
                 ' "$compatibility_matrix_json" >/dev/null
               while IFS= read -r test_function; do

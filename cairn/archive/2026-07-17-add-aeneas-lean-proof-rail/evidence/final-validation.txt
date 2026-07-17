@@ -1,0 +1,99 @@
+# Aeneas Lean proof rail final validation — passed
+
+Date: 2026-07-17
+Change: `add-aeneas-lean-proof-rail`
+
+This transcript supersedes the retained rejected transcript in
+`archive-review-rejection.txt`. The repair adds a bounded theorem-source
+adequacy core and shell preflight, a real vacuous theorem fixture, and an
+executable live compatibility canary. The earlier rejection remains retained
+as diagnosis; it is not completion evidence.
+
+## Requirement-to-artifact and test map
+
+### `r[octet.aeneas_lean_proof_rail.final_validation]`
+
+- Implementation: `crates/octet-standards/src/formal_proof.rs` provides the
+  pure `assess_aeneas_theorem_source` core;
+  `cargo-octet/src/aeneas_execution.rs` performs the imperative theorem-source
+  load and fail-closed adequacy preflight;
+  `cargo-octet/src/prove.rs` records the assessed adequacy result instead of
+  hard-coding `NonVacuous`.
+- Positive fixtures/tests: pinned live
+  `standards/proof-rails/aeneas-lean/fixtures/valid/real_fixture/`, the
+  checked-in verified artifact bundle under
+  `standards/proof-rails/aeneas-lean/fixtures/valid/artifacts/`, the pure
+  non-vacuous theorem assessment test, and the existing complete-envelope
+  tests.
+- Negative fixtures/tests: live false
+  `fixtures/invalid/real_fixture_false/`, live vacuous
+  `fixtures/invalid/real_fixture_vacuous/`, pure vacuous/forbidden-source
+  assessment tests, extraction/translation/stage/tamper/unsupported fixtures,
+  and the existing Verus negative rails.
+- Executed evidence: the live compatibility matrix reported three passing
+  live tests; focused Rust tests, artifact verification, policy freshness,
+  and Verus positive/negative rails all passed below.
+
+### `r[octet.aeneas_lean_proof_rail.pin_upgrade_matrix]`
+
+- Implementation: typed source
+  `standards/proof-rails/aeneas-lean/compatibility-matrix.ncl`, generated
+  `generated/compatibility-matrix.json`, and the pinned live/pure check in
+  `flake.nix`.
+- Positive/negative coverage: two positive canaries, ten rejection canaries,
+  three live canaries (positive, false theorem, vacuous theorem), and nine
+  pure canaries (false/vacuous adequacy, partial output, borrow-check/options,
+  opacity/model, target, freshness, unsupported surface, and tamper).
+- Executed evidence: the complete pinned matrix derivation passed, including
+  its manifest count assertions and live provider run.
+
+## Executed checks
+
+All Nix commands used `--option builders '' --option secret-key-files ''`
+where applicable; the host emitted only known non-blocking remote-builder or
+evaluation-cache warnings.
+
+```text
+$ nix build --option builders '' --option secret-key-files '' .#checks.x86_64-linux.aeneas-lean-compatibility-matrix --no-link -L
+exit 0
+live compatibility: 3 passed; 0 failed; 0 ignored; 362 filtered out
+finished in 447.55s
+matrix assertions: 12 canaries; 2 positive; 10 rejection; 3 live; 9 pure
+
+$ nix --option secret-key-files '' develop -c cargo fmt --check
+exit 0
+
+$ nix --option secret-key-files '' develop -c cargo test -p octet-standards --lib aeneas -- --nocapture
+13 passed; 0 failed
+
+$ nix --option secret-key-files '' develop -c cargo test -p cargo-octet --lib aeneas_execution -- --nocapture
+9 passed; 0 failed; 3 ignored
+(the three ignored provider tests are executed by the pinned Nix matrix)
+
+$ nix --option secret-key-files '' develop -c cargo test -p cargo-octet --lib prove::tests -- --nocapture
+17 passed; 0 failed
+
+$ nix --option secret-key-files '' develop -c cargo run -q -p cargo-octet --bin cargo-octet -- artifact verify --artifact-dir standards/proof-rails/aeneas-lean/fixtures/valid/artifacts --output-format json --emit-valence-provenance /tmp/aeneas-final-verification-post-change.json
+status: valid
+diagnostics: []
+
+$ nix build --option builders '' --option secret-key-files '' .#checks.x86_64-linux.proof-rail-manifest --no-link -L
+exit 0
+
+$ nix run --option secret-key-files '' .#octet-policy-validate
+exit 0
+
+$ nix build --option builders '' --option secret-key-files '' .#checks.x86_64-linux.production-verus-multi-rail-prove --no-link -L
+exit 0
+$ nix build --option builders '' --option secret-key-files '' .#checks.x86_64-linux.production-verus-negative-proof --no-link -L
+exit 0
+$ nix build --option builders '' --option secret-key-files '' .#checks.x86_64-linux.production-verus-negative-prove --no-link -L
+exit 0
+```
+
+The positive artifact bundle reverified with measured BLAKE3 identities and
+exported Valence adapter input. The false theorem fails in Lean; the vacuous
+theorem is rejected before provider execution by the pure adequacy decision
+and shell preflight. No Aeneas/Charon/Lean translation-soundness,
+verifier-soundness, semantic-equivalence, whole-program, or release-readiness
+claim is made.
