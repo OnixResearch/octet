@@ -1,0 +1,35 @@
+# Post-archive theorem-admission review rejection
+
+Date: 2026-07-17
+Change: `add-aeneas-lean-proof-rail`
+Verdict: REJECTED; change reopened for repair.
+
+## Deterministic blockers
+
+- `cargo-octet/src/prove.rs` measured the selected theorem source and copied that
+  same digest into `approved_statement_blake3`. No independently configured
+  expected digest existed in the proof-rail contract or manifest, so any loaded
+  theorem could self-approve its statement identity.
+- `assess_aeneas_theorem_source` classified only the exact text `True` as
+  vacuous. Equivalent bounded syntax such as `(True)` was classified
+  `NonVacuous`, contrary to the accepted requirement to reject `True`-style
+  vacuous statements before property promotion.
+- The prior focused tests covered the exact `True` fixture but did not include a
+  configured-hash mismatch or parenthesized/whitespace `True` negative.
+
+## Advisory-review status
+
+The supervised Sol/VibeThinker review exceeded its declared one-hour bound and
+was stopped after the archive commit. A direct VibeThinker consultation then
+returned unusable repeated-token output. The model result is not completion
+evidence; the source/spec comparison above is deterministic and sufficient to
+reject the archive.
+
+## Repair completion contract
+
+Re-archive only after the rail declares an independently reviewed theorem-source
+BLAKE3, receipt construction fails closed when measured bytes differ, the
+receipt records the configured digest rather than deriving its own approval,
+and positive/negative tests cover matching and mismatched hashes plus bounded
+`True`-style variants. Regenerate and reverify the frozen artifact bundle and
+Valence handoff after the contract changes, then rerun the complete final gate.
