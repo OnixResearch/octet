@@ -5,9 +5,9 @@ Status: progress only; no task checkbox is claimed complete.
 
 ## Implemented repair
 
-- The pinned profile now uses the executable Charon command `charon cargo --preset aeneas --dest-file llbc.json`.
+- The pinned profile now uses the executable Charon command `charon cargo --preset aeneas --dest-file llbc.llbc`.
 - The pinned Aeneas command now uses `-backend lean -emit-json -dest . -no-progress-bar`.
-- The execution shell copies the checked source package and pinned Aeneas Lean library into a fresh work root, mounts `/nix/store` read-only, and mounts `/proc` for Charon's `/proc/self/exe` requirement.
+- The execution shell copies the checked source package and pinned Aeneas Lean library into a fresh work root, mounts `/nix/store` read-only, and mounts `/proc` plus `/dev` for the provider runtime.
 - Missing provider-library input is rejected before process execution.
 - A real positive fixture and a real false-theorem fixture were added under `standards/proof-rails/aeneas-lean/fixtures/`.
 
@@ -37,3 +37,31 @@ CouldNotExecuteCommand(Os { code: 2, kind: NotFound, message: "No such file or d
 ```
 
 Direct inspection identifies the missing runtime dependency as Charon's exact `librustc_driver-845f1164de5a76fb.so` / matching nightly-2026-06-01 Rust sysroot. The current Octet runtime PATH supplies nightly-2026-03-21 instead. No real theorem receipt or Valence handoff is claimed from this run.
+
+## Offline dependency replay
+
+The provider closure now carries the network sandbox, `leantar`, and the exact
+Mathlib v4.31.0 source, while the execution shell sets an isolated `HOME` and
+prepends the provider directory to `PATH`. Deterministic checks passed:
+
+- `cargo test -p cargo-octet aeneas_execution --lib`: 7 passed, 2 live tests ignored.
+- Nickel profile typecheck and generated-export freshness: passed.
+- `nix build --option builders '' --option secret-key-files '' .#checks.x86_64-linux.aeneas-lean-provider-closure --no-link -L`: passed.
+- The real false-theorem fixture failed as required.
+
+The real positive fixture now passes Charon extraction and Aeneas translation,
+then fails closed in Lake because the copied Aeneas `lake-manifest.json` still
+names Mathlib as a Git dependency. Lake attempts a network clone inside the
+denied network sandbox and cannot execute `git`:
+
+```text
+[charon] passed
+[aeneas] generated Llbc.lean and translation.json
+[lean] mathlib: cloning https://github.com/leanprover-community/mathlib4.git
+could not execute external process 'git'
+```
+
+This checkpoint does not complete the executable compatibility matrix, create a
+real proof receipt, or permit the Valence handoff. The next implementation must
+bind a fully local Lake dependency closure, rerun both live fixtures, and retain
+network denial.

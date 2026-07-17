@@ -26,7 +26,8 @@
   "environment_allowlist": [
     "PATH",
     "CHARON_TOOLCHAIN_IS_IN_PATH",
-    "LD_LIBRARY_PATH"
+    "LD_LIBRARY_PATH",
+    "HOME"
   ],
   "extraction_policy": {
     "drop_policy": "include-drops",
@@ -89,13 +90,12 @@
       "--preset",
       "aeneas",
       "--dest-file",
-      "llbc.json"
+      "llbc.llbc"
     ],
     "lean_argv": [
       "lake",
       "env",
-      "lean",
-      "Theorem.lean"
+      "lean"
     ]
   }
 }
