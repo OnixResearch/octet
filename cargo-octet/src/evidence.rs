@@ -40,6 +40,7 @@ const SOURCE_FINGERPRINT_PREFIX: &str = "octet.fingerprint.";
 const SOURCE_TRANSCRIPT_PREFIX: &str = "octet.transcript.";
 const SOURCE_TRANSFORM_PREFIX: &str = "octet.transform.";
 const SOURCE_FUNCTION_ADDRESS_PREFIX: &str = "octet.function_address.";
+const SOURCE_CHARON_SEMANTIC_PREFIX: &str = "octet.charon_semantic";
 const SOURCE_EXTERNAL_LINT_PREFIX: &str = "octet.external_lint.";
 const SOURCE_STRUCTURAL_RAIL_PREFIX: &str = "octet.structural_rail.";
 const SOURCE_DEPENDENCY_TRUST_PREFIX: &str = "octet.dependency_trust.";
@@ -156,6 +157,7 @@ fn provenance_producers() -> &'static [ProvenanceProducer] {
                 SOURCE_ARTIFACT_PREFIX,
                 SOURCE_TRANSFORM_PREFIX,
                 SOURCE_FUNCTION_ADDRESS_PREFIX,
+                SOURCE_CHARON_SEMANTIC_PREFIX,
             ],
             allowed_tiers: &[
                 EvidenceTier::StaticLint,

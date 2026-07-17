@@ -113,6 +113,7 @@ cargo octet evidence collect --rail clippy-co-reporting --run --profile producti
 cargo octet evidence collect --rail ast-grep --run --config standards/ast-grep/generated/profile.json --workspace-root . --artifact-dir artifacts/ast-grep
 cargo octet evidence collect --rail wasm-artifact --input module.wasm --config standards/wasm-artifact/generated/profiles.json --profile portable-component-baseline --artifact-dir artifacts/wasm-artifact
 cargo octet evidence collect --rail wasm-artifact --input module.wasm --config standards/wasm-artifact/generated/profiles.json --profile spacewasm-mvp --external-report chaoscontrol.json --artifact-dir artifacts/spacewasm
+cargo octet evidence collect --rail charon-semantic --run --workspace-root . --config standards/charon-semantic/generated/profile.json --profile octet-charon-semantic-safe-add-v1 --external-report standards/charon-semantic/generated/comparison-parent.json --artifact-dir artifacts/charon-semantic
 cargo octet evidence collect --rail hegel-property --input target/hegel-property.json --artifact-dir artifacts/hegel-property
 cargo octet artifact verify --artifact-dir artifacts/dependency-audit
 ```
@@ -245,7 +246,7 @@ this README plus command help, without reading archived OpenSpec changes:
   input only after verification succeeds; r[verify octet.evidence_provenance.valence_export.boundary_hardened.visible]
   the export is not release eligibility, Mantle bundle inclusion, whole-program
   correctness, or verifier-soundness proof.
-- `cargo octet evidence collect --rail dependency-audit|clippy-co-reporting|ast-grep|wasm-artifact|dependency-trust|api-stability|dynamic-evidence|release-supply-chain|mutation-testing|coverage-baseline|kani-model-check|hegel-property|z4-solver|verifier-fixture`
+- `cargo octet evidence collect --rail dependency-audit|clippy-co-reporting|ast-grep|wasm-artifact|charon-semantic|dependency-trust|api-stability|dynamic-evidence|release-supply-chain|mutation-testing|coverage-baseline|kani-model-check|hegel-property|z4-solver|verifier-fixture`
   writes optional external evidence receipts with checker identity, source severity,
   selected scope, parent links, and explicit non-claims. The ast-grep rail binds the
   pinned tool version, rule/test/config bundle BLAKE3, scan scope, spans,
@@ -258,7 +259,7 @@ this README plus command help, without reading archived OpenSpec changes:
   runtime observations without claiming runtime acceptance. Kani receipts are scoped model-check evidence;
   Hegel receipts are bounded generated-input property evidence. These rails do not
   prove whole-program correctness, release eligibility, semantic equivalence, or
-  verifier soundness.
+  verifier soundness. The Charon semantic rail reuses the pinned Aeneas provider's network-denied Charon stage, projects exact selected-item facts and conservative effect candidates, and emits transcript-only artifacts; agreement with independent source/token evidence does not merge authority or prove semantic equivalence.
 - `cargo octet fingerprint --check --review-manifest artifacts/fingerprint-review.json src/lib.rs`
   verifies semantic identity fingerprints with BLAKE3-backed review records.
 - `cargo octet migrate start --manifest artifacts/octet-migration.json`
@@ -343,6 +344,7 @@ and config keys.
 - `docs/preserves-receipt-export.md` — optional Preserves envelope adapter contract and non-claims
 - `docs/formal-proof-valence-export-fixture.md` — frozen formal-proof Valence adapter fixture contract
 - `docs/aeneas-lean-proof-rail.md` — opt-in Aeneas/Charon/Lean provider selection, theorem gate, rollout order, and claim boundaries
+- `docs/charon-semantic-analysis.md` — pinned Charon extraction, semantic projection, source/token comparison, artifact roles, and recorded-only boundaries
 - `docs/concurrency-performance-lint-candidates.md` — first-wave concurrency/performance lint candidate matrix
 - `docs/contributor-guide.md` — source-of-truth map, doc-update crosswalk, verification rails
 - `docs/downstream-rollout.md` — rollout profiles, promotion playbooks, and boundary guidance

@@ -860,7 +860,7 @@ fn build_aeneas_receipt(
         claim_class: AENEAS_NAMED_THEOREM_CLAIM_CLASS.to_owned(),
         source_disposition: AeneasTheoremSourceDisposition::Maintained,
         approved_statement_blake3,
-        named_theorem_present: theorem_name.len() > 0,
+        named_theorem_present: !theorem_name.is_empty(),
         statement_approved: true,
         adequacy: theorem_adequacy.clone(),
         trust_closure: trust_closure.clone(),

@@ -1,0 +1,54 @@
+Charon semantic analysis rail final validation
+Date: 2026-07-17
+
+Scope and identity
+- Profile: octet-charon-semantic-safe-add-v1
+- Profile BLAKE3: b3:9c37280796d04408389e7efc4fd8413b6c3bb3594fc66bed79ea01492b9cdf67
+- Reused provider profile BLAKE3: b3:cd11b49d1acede2c6a91fa26f0b7a6b4b28db4007b4601a65b3269706a0ce625
+- Reused compatibility matrix BLAKE3: b3:403656d75de41b955cd2493ef289ba17308da65a3d214babc1ea606aeae248f5
+- Charon revision: cb50ff16b9f1066b8a97dc06da704de2da2fa41c
+- Exact selected item: real_fixture::safe_add in src/lib.rs
+- Source BLAKE3: b3:fc70d39d863627bf99ab6a2c13a0b798aac059dc2520d9d2e48f7ac599fb4502
+- Verification role: recorded_only / transcript_assertion
+
+Live execution evidence
+- Ran the packaged Charon binary from octet-aeneas-lean-provider-closure.
+- Ran through the reused Aeneas executor with Bubblewrap --unshare-net, a fresh copied work root, the closed environment allowlist, and named timeout/log/snapshot limits.
+- Exact argv: charon cargo --preset aeneas --dest-file snapshot.llbc --start-from real_fixture::safe_add
+- The ignored live provider test executed the stage twice and observed byte-identical snapshots.
+- Raw snapshot BLAKE3: b3:3c77b53a8fe5f108043711cb02e452efdf58ba7842a5708c8d242de02948c0b9
+- Projection BLAKE3: b3:8e31a3a08cbe8b20c70906c47b2ddea301ca980bfcbd4feab0f547b63047fe90
+- Analysis BLAKE3: b3:42d37877986f3480e75e793c5e182f928eaf5ec256467ab074938afd3742dbac
+- Comparison BLAKE3: b3:2cbc5a38f2fd55a240cf1fe540ce3fa480073843bc23d04229ce6a1001006756
+- The independent source-token comparison recorded 3 agreements, 0 disagreements, 0 one-sided facts, 0 unknowns, and authority_merged=false.
+
+Positive and negative validation
+- cargo test -p cargo-octet --lib: PASS, 377 passed, 0 failed, 4 ignored.
+- Nix pure Charon semantic rail: PASS, 14 passed, 0 failed, 1 live test ignored.
+- Nix live Charon semantic rail: PASS, 1 passed, 0 failed; real pinned provider and network sandbox used.
+- cargo clippy -p cargo-octet --all-targets -- -D warnings: PASS.
+- cargo fmt --all / cargo fmt --check: PASS.
+- Nickel profile, negative-case catalog, source-token receipt, and comparison-parent typecheck/export freshness: PASS.
+- Negative-case catalog: 30 bounded cases spanning profile, snapshot, projection, analysis, comparison, shell, receipt, provenance, and default-path boundaries.
+- cargo octet artifact verify over the frozen fixture: valid, diagnostics=[].
+- Valence handoff export: valid; all Charon records remain transcript_assertion, receipt role remains recorded_only, and no formal_proof tier appears.
+- nix build .#checks.x86_64-linux.charon-semantic-analysis --no-link -L: PASS.
+- nix run .#octet-policy-validate: PASS.
+- Cairn proposal, design, and task gates: PASS.
+- Cairn validate --root .: valid=true, verdict=PASS.
+
+Workspace baseline note
+- cargo test --workspace still reports exactly the five stale object-corpus fingerprint fixture failures present before this change:
+  object_internal_corpus_gate_fixture_matches_fresh_receipt;
+  object_internal_corpus_gate_fixture_replays_cleanly;
+  object_internal_corpus_expanded_fixture_matches_fresh_receipt_and_preserves_boundaries;
+  object_internal_corpus_expanded_caveat_taxonomy_fixture_matches_fresh_report;
+  object_internal_corpus_expanded_fixture_replays_cleanly.
+- The changed cargo-octet library and Charon semantic suites are clean; the pre-existing fixture failures are outside this rail.
+- nix flake check reaches the same pre-existing fresh-build-object-corpus-determinism stale-fixture mismatch and stops there; the new charon-semantic-analysis derivation passes independently.
+
+Reference and claim boundary
+- mechanized-llbc is recorded at 8a9b8bb3823ceceb47026837d23baea0934dfb27, Apache-2.0, as semantic-foundation review material only.
+- charon-rudra is recorded at 0923bf7f21d4eb234d14bce86afc9690d0a4d00e, Apache-2.0, as historical design material only.
+- No reference code was vendored and neither reference transfers proof, implementation, or analysis authority.
+- This rail does not prove Charon or rustc correctness, complete Rust support, complete runtime reachability, effect absence, semantic equivalence, whole-program correctness, formal properties, or release readiness.

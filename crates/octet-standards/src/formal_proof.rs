@@ -483,6 +483,10 @@ fn true_style_statement(statement: &str) -> bool {
 }
 
 /// Bind observed theorem bytes to an independently reviewed digest.
+///
+/// # Errors
+///
+/// Returns an error when the approved digest is absent or differs from the observed digest.
 // r[impl octet.aeneas_lean_proof_rail.theorem_adequacy]
 pub fn validate_aeneas_theorem_statement_approval(
     expected_blake3: &str,

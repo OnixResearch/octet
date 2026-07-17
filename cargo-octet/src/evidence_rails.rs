@@ -38,7 +38,7 @@ const DYNAMIC_COMMAND_MIRI_TEST: &str = "cargo miri test";
 const DYNAMIC_PROFILE_LOOM_CONCURRENCY: &str = "loom-concurrency";
 const DYNAMIC_PROFILE_LOOM_SHORT: &str = "loom";
 const DYNAMIC_COMMAND_LOOM_TEST: &str = "cargo test --cfg loom";
-const SUPPORTED_EVIDENCE_RAILS: &str = "dependency-audit, clippy-co-reporting, ast-grep, wasm-artifact, dependency-trust, api-stability, dynamic-evidence, release-supply-chain, mutation-testing, coverage-baseline, kani-model-check, hegel-property, z4-solver, or verifier-fixture";
+const SUPPORTED_EVIDENCE_RAILS: &str = "dependency-audit, clippy-co-reporting, ast-grep, wasm-artifact, charon-semantic, dependency-trust, api-stability, dynamic-evidence, release-supply-chain, mutation-testing, coverage-baseline, kani-model-check, hegel-property, z4-solver, or verifier-fixture";
 const COVERAGE_PERCENT_MIN: f64 = 0.0;
 const COVERAGE_PERCENT_MAX: f64 = 100.0;
 const SCHEMA_VERSION_FIELD: &str = "schema_version";
@@ -78,6 +78,7 @@ pub enum EvidenceRailKind {
     ClippyCoReporting,
     AstGrepStructural,
     WasmArtifact,
+    CharonSemantic,
     DependencyTrust,
     ApiStability,
     DynamicEvidence,
@@ -97,6 +98,7 @@ impl EvidenceRailKind {
             "clippy-co-reporting" | "clippy" | "external-lint" => Ok(Self::ClippyCoReporting),
             "ast-grep" | "ast-grep-structural" | "structural-rail" => Ok(Self::AstGrepStructural),
             "wasm-artifact" | "wasm-component" | "wasm" => Ok(Self::WasmArtifact),
+            "charon-semantic" | "charon" | "llbc-semantic" => Ok(Self::CharonSemantic),
             "dependency-trust" | "cargo-vet" => Ok(Self::DependencyTrust),
             "api-stability" | "semver" | "cargo-semver-checks" => Ok(Self::ApiStability),
             "dynamic-evidence" => Ok(Self::DynamicEvidence),
@@ -117,6 +119,7 @@ impl EvidenceRailKind {
             Self::ClippyCoReporting => "clippy-co-reporting",
             Self::AstGrepStructural => "ast-grep",
             Self::WasmArtifact => "wasm-artifact",
+            Self::CharonSemantic => "charon-semantic",
             Self::DependencyTrust => "dependency-trust",
             Self::ApiStability => "api-stability",
             Self::DynamicEvidence => "dynamic-evidence",
@@ -135,7 +138,7 @@ impl EvidenceRailKind {
             Self::DependencyAudit => crate::evidence::CHECKER_CARGO_DENY,
             Self::ClippyCoReporting => crate::evidence::CHECKER_CLIPPY,
             Self::AstGrepStructural => crate::evidence::CHECKER_AST_GREP,
-            Self::WasmArtifact => crate::evidence::CHECKER_CARGO_OCTET,
+            Self::WasmArtifact | Self::CharonSemantic => crate::evidence::CHECKER_CARGO_OCTET,
             Self::DependencyTrust => crate::evidence::CHECKER_CARGO_VET,
             Self::ApiStability => crate::evidence::CHECKER_CARGO_SEMVER_CHECKS,
             Self::DynamicEvidence => crate::evidence::CHECKER_OCTET_DYNAMIC_EVIDENCE,
@@ -155,6 +158,7 @@ impl EvidenceRailKind {
             Self::ClippyCoReporting => "octet.external_lint.clippy-co-reporting",
             Self::AstGrepStructural => "octet.structural_rail.ast-grep",
             Self::WasmArtifact => "octet.artifact.wasm-tools",
+            Self::CharonSemantic => "octet.charon_semantic_analysis.recorded-snapshot",
             Self::DependencyTrust => "octet.dependency_trust.cargo-vet",
             Self::ApiStability => "octet.api_stability.semver-rail",
             Self::DynamicEvidence => "octet.dynamic_evidence.profile-runner",
@@ -172,6 +176,7 @@ impl EvidenceRailKind {
         match self {
             Self::ClippyCoReporting | Self::AstGrepStructural => EvidenceTier::StaticLint,
             Self::WasmArtifact => EvidenceTier::PolicyCheck,
+            Self::CharonSemantic => EvidenceTier::TranscriptAssertion,
             Self::DynamicEvidence
             | Self::MutationTesting
             | Self::CoverageBaseline
@@ -204,6 +209,16 @@ impl EvidenceRailKind {
                 "resource-limits",
                 "exact-and-interface-identities",
                 "recorded-only-valence-boundary",
+            ]),
+            Self::CharonSemantic => string_vec(&[
+                "provider-and-extraction-identity",
+                "exact-item-and-source-span",
+                "resolved-local-calls-and-dependencies",
+                "trait-resolution-and-control-flow",
+                "closed-effect-candidates-and-unknowns",
+                "source-token-comparison-without-authority-merge",
+                "role-separated-blake3-artifacts",
+                "recorded-only-stack-boundary",
             ]),
             Self::DependencyTrust => string_vec(&["audits", "imports", "exemptions", "unaudited-gaps"]),
             Self::ApiStability => string_vec(&["public-api", "baseline", "feature-set", "target-triple"]),
@@ -286,6 +301,14 @@ impl EvidenceRailKind {
                 "Matching normalized interfaces do not prove semantic equivalence or identify one implementation",
                 "Static validation does not prove sandbox effectiveness, capability authority, provenance truth, release eligibility, or whole-system safety",
                 "Producer metadata is recorded input and is not provenance truth",
+            ]),
+            Self::CharonSemantic => string_vec(&[
+                "Charon semantic analysis is optional and not part of starter cargo octet check",
+                "Charon semantic evidence does not prove Charon or rustc correctness",
+                "Charon semantic evidence does not prove effect absence, complete Rust support, complete runtime reachability, semantic equivalence, or whole-program correctness",
+                "Charon semantic evidence does not produce formal-proof, property, complete-closure, or release-ready authority",
+                "mechanized-llbc and charon-rudra remain recorded-only references and transfer no proof, implementation, or analysis authority",
+                "Valence and Kamacite remain evidence and interchange boundaries rather than compiler IR or semantic-analysis authorities",
             ]),
             Self::DependencyTrust => string_vec(&[
                 "cargo-vet audit coverage does not prove dependencies are benign or vulnerability-free",
@@ -481,6 +504,8 @@ pub struct EvidenceRailReceipt {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub wasm_artifact: Option<crate::wasm_artifact::WasmArtifactReceiptDetails>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub charon_semantic: Option<crate::charon_semantic::CharonSemanticReceiptDetails>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub hegel_property: Option<HegelPropertyReceiptDetails>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub z4_solver: Option<Z4SolverReceiptDetails>,
@@ -533,7 +558,9 @@ pub fn run(args: &EvidenceRailArgs) -> Result<i32, String> {
         config_identity = Some(prepared.config_identity.clone());
     }
     let (mode, import_text, tool_exit_code) = evidence_input_text(args, prepared_clippy_run.as_ref())?;
-    let normalized_command = if args.run && args.rail == EvidenceRailKind::AstGrepStructural {
+    let normalized_command = if args.run && args.rail == EvidenceRailKind::CharonSemantic {
+        Some(crate::charon_semantic::profile_command_argv()?.join(" "))
+    } else if args.run && args.rail == EvidenceRailKind::AstGrepStructural {
         Some(run_mode_command_argv(args)?.join(" "))
     } else if args.run && args.rail == EvidenceRailKind::ClippyCoReporting {
         Some(
@@ -571,16 +598,19 @@ pub fn run(args: &EvidenceRailArgs) -> Result<i32, String> {
     receipt.config_identity = config_identity;
     receipt.clippy_restrictions = prepared_clippy_run.as_ref().map(|prepared| prepared.details.clone());
 
-    let wasm_bytes = if args.rail == EvidenceRailKind::WasmArtifact {
+    let mut additional_artifacts = BTreeMap::new();
+    if args.rail == EvidenceRailKind::WasmArtifact {
         let input = args.input.as_deref().ok_or_else(|| "wasm-artifact rail requires `--input PATH`".to_owned())?;
-        Some(fs::read(input).map_err(|error| format!("read Wasm artifact {}: {error}", input.display()))?)
-    } else {
-        None
-    };
+        let bytes = fs::read(input).map_err(|error| format!("read Wasm artifact {}: {error}", input.display()))?;
+        additional_artifacts.insert(crate::wasm_artifact::INPUT_ARTIFACT_NAME.to_owned(), bytes);
+    }
+    if let Some(details) = receipt.charon_semantic.as_ref() {
+        additional_artifacts.extend(crate::charon_semantic::artifact_payloads(details, &import_text)?);
+    }
     let receipt_json = render_receipt_json(&receipt)?;
     let summary = render_summary_for_command(&receipt, &args.command_line);
     let provenance_jsonl = render_provenance_jsonl(&receipt, &receipt_json, &summary)?;
-    write_artifacts(&args.artifact_dir, &receipt_json, &summary, &provenance_jsonl, wasm_bytes.as_deref())?;
+    write_artifacts(&args.artifact_dir, &receipt_json, &summary, &provenance_jsonl, &additional_artifacts)?;
     render_cli_output(&receipt, args.output_format)?;
 
     Ok(exit_code_for_receipt(&receipt))
@@ -588,6 +618,11 @@ pub fn run(args: &EvidenceRailArgs) -> Result<i32, String> {
 
 pub fn evaluate(input: EvaluationInput<'_>) -> EvidenceRailReceipt {
     let mut parsed = parse_rail_input(&input);
+    let charon_semantic = if input.rail == EvidenceRailKind::CharonSemantic {
+        crate::charon_semantic::evaluate_envelope(input.import_text).details
+    } else {
+        None
+    };
     let ast_grep = if input.rail == EvidenceRailKind::AstGrepStructural {
         crate::ast_grep_rail::evaluate_envelope(input.import_text).details
     } else {
@@ -611,12 +646,11 @@ pub fn evaluate(input: EvaluationInput<'_>) -> EvidenceRailReceipt {
         rail_id: input.rail.as_str().to_owned(),
         checker_id: input.rail.checker_id().to_owned(),
         mode: input.mode.to_owned(),
-        command_argv: command_argv(
-            input.rail,
-            input.config_path,
-            input.baseline_identity.as_deref(),
-            input.requested_command,
-        ),
+        command_argv: if input.rail == EvidenceRailKind::CharonSemantic && input.mode == MODE_IMPORT {
+            Vec::new()
+        } else {
+            command_argv(input.rail, input.config_path, input.baseline_identity.as_deref(), input.requested_command)
+        },
         workspace_scope: input.workspace_scope.to_owned(),
         config_path: input.config_path.map(ToOwned::to_owned),
         config_identity: None,
@@ -646,6 +680,7 @@ pub fn evaluate(input: EvaluationInput<'_>) -> EvidenceRailReceipt {
         clippy_restrictions: None,
         ast_grep,
         wasm_artifact,
+        charon_semantic,
         hegel_property: parsed.hegel_property,
         z4_solver: parsed.z4_solver,
         verifier_fixtures: parsed.verifier_fixtures,
@@ -724,6 +759,32 @@ pub fn render_provenance_jsonl(
         });
         receipt_parents.push(crate::wasm_artifact::INPUT_ARTIFACT_NAME.to_owned());
     }
+    if let Some(details) = receipt.charon_semantic.as_ref() {
+        for artifact in &details.artifacts {
+            let parent_artifacts = match artifact.role.as_str() {
+                "snapshot" => Vec::new(),
+                "projection" => vec![crate::charon_semantic::RAW_SNAPSHOT_ARTIFACT.to_owned()],
+                "comparison" | "analysis" => {
+                    vec![crate::charon_semantic::PROJECTION_ARTIFACT.to_owned()]
+                }
+                _ => Vec::new(),
+            };
+            records.push(ProvenanceRecord {
+                schema_version: crate::evidence::PROVENANCE_SCHEMA_VERSION.to_owned(),
+                source_id: format!("octet.charon_semantic.{}", artifact.role),
+                checker_id: crate::evidence::CHECKER_CARGO_OCTET.to_owned(),
+                evidence_tier: EvidenceTier::TranscriptAssertion,
+                artifact_locator: artifact.name.clone(),
+                blake3: artifact.identity.strip_prefix("b3:").unwrap_or(&artifact.identity).to_owned(),
+                checked_scope: receipt.workspace_scope.clone(),
+                verifier_identity: None,
+                proof_artifact_identity: None,
+                human_action: None,
+                parent_artifacts,
+            });
+            receipt_parents.push(artifact.name.clone());
+        }
+    }
     records.push(ProvenanceRecord {
         schema_version: crate::evidence::PROVENANCE_SCHEMA_VERSION.to_owned(),
         source_id: source_id_for_receipt(receipt),
@@ -796,6 +857,7 @@ pub fn validate_receipt(receipt: &EvidenceRailReceipt) -> Vec<String> {
     validate_clippy_restriction_receipt(rail, receipt, &mut diagnostics);
     validate_ast_grep_receipt(rail, receipt, &mut diagnostics);
     validate_wasm_artifact_receipt(rail, receipt, &mut diagnostics);
+    validate_charon_semantic_receipt(rail, receipt, &mut diagnostics);
     match (rail, receipt.hegel_property.as_ref()) {
         (EvidenceRailKind::HegelProperty, Some(details)) => {
             if details.property_id.trim().is_empty() {
@@ -917,6 +979,43 @@ fn validate_ast_grep_receipt(rail: EvidenceRailKind, receipt: &EvidenceRailRecei
     }
 }
 
+fn validate_charon_semantic_receipt(
+    rail: EvidenceRailKind,
+    receipt: &EvidenceRailReceipt,
+    diagnostics: &mut Vec<String>,
+) {
+    match (rail, receipt.charon_semantic.as_ref()) {
+        (EvidenceRailKind::CharonSemantic, Some(details)) => {
+            diagnostics.extend(crate::charon_semantic::validate_details(details, &receipt.non_claims));
+            if receipt.config_identity.as_deref() != Some(crate::charon_semantic::EXPECTED_PROFILE_IDENTITY) {
+                diagnostics
+                    .push("Charon semantic receipt config identity does not match the shipped profile".to_owned());
+            }
+            if !receipt.property_classes.is_empty() {
+                diagnostics.push("Charon semantic receipt must not carry property classes".to_owned());
+            }
+            if receipt.profile.as_deref() != Some(crate::charon_semantic::shipped_profile_id()) {
+                diagnostics.push("Charon semantic receipt profile selection drifted".to_owned());
+            }
+            let expected_command = crate::charon_semantic::profile_command_argv().unwrap_or_default();
+            if receipt.mode == MODE_RUN && receipt.command_argv != expected_command {
+                diagnostics
+                    .push("Charon semantic run receipt command argv does not match the closed profile".to_owned());
+            }
+            if receipt.mode == MODE_IMPORT && !receipt.command_argv.is_empty() {
+                diagnostics.push("Charon semantic import receipt must not claim an executed command".to_owned());
+            }
+        }
+        (EvidenceRailKind::CharonSemantic, None) => {
+            diagnostics.push("charon-semantic receipt missing charon_semantic details".to_owned());
+        }
+        (_, Some(_)) => {
+            diagnostics.push("charon_semantic details are only valid on charon-semantic rail receipts".to_owned());
+        }
+        (_, None) => {}
+    }
+}
+
 fn validate_wasm_artifact_receipt(
     rail: EvidenceRailKind,
     receipt: &EvidenceRailReceipt,
@@ -949,6 +1048,9 @@ pub fn expected_bundle_files_for_receipt(receipt: Option<&EvidenceRailReceipt>) 
     if receipt.is_some_and(|receipt| receipt.wasm_artifact.is_some()) {
         files.push(crate::wasm_artifact::INPUT_ARTIFACT_NAME.to_owned());
     }
+    if let Some(details) = receipt.and_then(|receipt| receipt.charon_semantic.as_ref()) {
+        files.extend(crate::charon_semantic::expected_artifact_names(Some(details)));
+    }
     files.sort();
     files
 }
@@ -963,6 +1065,7 @@ fn parse_rail_input(input: &EvaluationInput<'_>) -> RailParseOutput {
         EvidenceRailKind::ClippyCoReporting => parse_clippy(input),
         EvidenceRailKind::AstGrepStructural => parse_ast_grep(input),
         EvidenceRailKind::WasmArtifact => parse_wasm_artifact(input),
+        EvidenceRailKind::CharonSemantic => parse_charon_semantic(input),
         EvidenceRailKind::DependencyTrust => parse_dependency_trust(input),
         EvidenceRailKind::ApiStability => parse_api_stability(input),
         EvidenceRailKind::DynamicEvidence => parse_dynamic_evidence(input),
@@ -1163,6 +1266,42 @@ fn parse_wasm_artifact(input: &EvaluationInput<'_>) -> RailParseOutput {
         diagnostics: evaluation.diagnostics,
         status,
         profile,
+        property_classes: Vec::new(),
+        hegel_property: None,
+        z4_solver: None,
+        verifier_fixtures: None,
+    }
+}
+
+fn parse_charon_semantic(input: &EvaluationInput<'_>) -> RailParseOutput {
+    let evaluation = crate::charon_semantic::evaluate_envelope(input.import_text);
+    let findings = evaluation
+        .findings
+        .into_iter()
+        .map(|finding| EvidenceRailFinding {
+            family: finding.family,
+            severity: finding.severity.clone(),
+            message: finding.message,
+            source_severity: Some(finding.severity),
+            file: finding.file,
+            line: finding.line,
+            column: None,
+        })
+        .collect::<Vec<_>>();
+    let finding_counts = counts_by_family(&findings);
+    let status = if !evaluation.diagnostics.is_empty() {
+        STATUS_FAILED
+    } else if findings.is_empty() {
+        STATUS_PASSED
+    } else {
+        STATUS_MANUAL_REVIEW_REQUIRED
+    };
+    RailParseOutput {
+        findings,
+        finding_counts,
+        diagnostics: evaluation.diagnostics,
+        status: status.to_owned(),
+        profile: evaluation.profile_id,
         property_classes: Vec::new(),
         hegel_property: None,
         z4_solver: None,
@@ -2389,6 +2528,9 @@ fn evidence_input_text(
     if args.rail == EvidenceRailKind::WasmArtifact {
         return analyze_wasm_input(args).map(|envelope| (MODE_IMPORT, envelope, None));
     }
+    if args.rail == EvidenceRailKind::CharonSemantic {
+        return analyze_charon_semantic_input(args);
+    }
     match (&args.input, args.run) {
         (Some(input), false) => {
             let text = fs::read_to_string(input)
@@ -2401,6 +2543,57 @@ fn evidence_input_text(
         (Some(_), true) => Err("evidence collect accepts either `--input PATH` or `--run`, not both".to_owned()),
         (None, false) => Err("evidence collect requires `--input PATH` or `--run`".to_owned()),
     }
+}
+
+fn analyze_charon_semantic_input(args: &EvidenceRailArgs) -> Result<(&'static str, String, Option<i32>), String> {
+    let config_path = args
+        .config
+        .as_deref()
+        .ok_or_else(|| "charon-semantic rail requires `--config PATH` to the generated profile".to_owned())?;
+    let selected_profile =
+        args.profile.as_deref().ok_or_else(|| "charon-semantic rail requires `--profile NAME`".to_owned())?;
+    if selected_profile != crate::charon_semantic::shipped_profile_id() {
+        return Err(format!("unsupported Charon semantic profile `{selected_profile}`"));
+    }
+    if args.command.as_deref().is_some_and(|command| !command.is_empty()) {
+        return Err("charon-semantic rail rejects arbitrary --command authority".to_owned());
+    }
+    let profile_text = fs::read_to_string(config_path)
+        .map_err(|error| format!("read Charon semantic profile {}: {error}", config_path.display()))?;
+    if crate::charon_semantic::prefixed_identity(profile_text.as_bytes())
+        != crate::charon_semantic::EXPECTED_PROFILE_IDENTITY
+    {
+        return Err("Charon semantic profile bytes do not match the shipped profile identity".to_owned());
+    }
+    let comparison_parent_texts = args
+        .external_reports
+        .iter()
+        .map(|path| {
+            fs::read_to_string(path)
+                .map_err(|error| format!("read Charon semantic comparison parent {}: {error}", path.display()))
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    let (mode, snapshot_text, exit_code) = match (&args.input, args.run) {
+        (Some(path), false) => {
+            let text = fs::read_to_string(path)
+                .map_err(|error| format!("read Charon snapshot {}: {error}", path.display()))?;
+            (MODE_IMPORT, text, None)
+        }
+        (None, true) => {
+            let workspace_root = args.workspace_root.as_deref().unwrap_or_else(|| Path::new("."));
+            let output = crate::charon_semantic::execute_from_profile(workspace_root, &profile_text);
+            if !output.diagnostics.is_empty() {
+                return Err(format!("pinned Charon semantic execution failed:\n- {}", output.diagnostics.join("\n- ")));
+            }
+            (MODE_RUN, output.snapshot_text, Some(output.exit_code))
+        }
+        (Some(_), true) => {
+            return Err("charon-semantic rail accepts either `--input PATH` or `--run`, not both".to_owned());
+        }
+        (None, false) => return Err("charon-semantic rail requires `--input PATH` or `--run`".to_owned()),
+    };
+    let envelope = crate::charon_semantic::build_envelope(snapshot_text, comparison_parent_texts)?;
+    Ok((mode, envelope, exit_code))
 }
 
 fn analyze_wasm_input(args: &EvidenceRailArgs) -> Result<String, String> {
@@ -2696,6 +2889,7 @@ fn command_argv(
         EvidenceRailKind::WasmArtifact => {
             string_vec(&["cargo", "octet", "evidence", "collect", "--rail", "wasm-artifact"])
         }
+        EvidenceRailKind::CharonSemantic => crate::charon_semantic::profile_command_argv().unwrap_or_default(),
         EvidenceRailKind::DependencyTrust => string_vec(&["cargo", "vet", "--output-format=json"]),
         EvidenceRailKind::ApiStability => {
             let mut argv = string_vec(&["cargo", "semver-checks", "check-release"]);
@@ -2767,24 +2961,25 @@ fn write_artifacts(
     receipt_json: &str,
     summary: &str,
     provenance_jsonl: &str,
-    wasm_bytes: Option<&[u8]>,
+    additional_artifacts: &BTreeMap<String, Vec<u8>>,
 ) -> Result<(), String> {
     let root = ArtifactRoot::open_or_create(artifact_dir)?;
-    remove_stale_artifacts(&root, wasm_bytes.is_some())?;
+    remove_stale_artifacts(&root, additional_artifacts.keys())?;
     root.write(&RootRelativePath::new(RECEIPT_ARTIFACT_NAME)?, receipt_json.as_bytes())?;
     root.write(&RootRelativePath::new(SUMMARY_ARTIFACT_NAME)?, summary.as_bytes())?;
     root.write(&RootRelativePath::new(PROVENANCE_ARTIFACT_NAME)?, provenance_jsonl.as_bytes())?;
-    if let Some(bytes) = wasm_bytes {
-        root.write(&RootRelativePath::new(crate::wasm_artifact::INPUT_ARTIFACT_NAME)?, bytes)?;
+    for (name, bytes) in additional_artifacts {
+        root.write(&RootRelativePath::new(name)?, bytes)?;
     }
     Ok(())
 }
 
-fn remove_stale_artifacts(root: &ArtifactRoot, include_wasm_artifact: bool) -> Result<(), String> {
+fn remove_stale_artifacts<'a>(
+    root: &ArtifactRoot,
+    additional_names: impl Iterator<Item = &'a String>,
+) -> Result<(), String> {
     let mut expected = expected_bundle_files();
-    if include_wasm_artifact {
-        expected.push(crate::wasm_artifact::INPUT_ARTIFACT_NAME.to_owned());
-    }
+    expected.extend(additional_names.cloned());
     for file_name in root.read_entry_names()? {
         if expected.iter().any(|expected| expected == &file_name) {
             continue;
@@ -3525,6 +3720,50 @@ mod tests {
 
         receipt.wasm_artifact.as_mut().expect("Wasm details").verification_role = "formal_proof".to_owned();
         assert!(validate_receipt(&receipt).iter().any(|diagnostic| diagnostic.contains("recorded_only or boundary")));
+    }
+
+    #[test]
+    fn charon_semantic_receipt_binds_recorded_artifacts_and_independent_comparison() {
+        const EXPECTED_COMPARISON_AGREEMENTS: u64 = 3;
+        let snapshot =
+            include_str!("../../standards/proof-rails/aeneas-lean/fixtures/valid/artifacts/proofs/aeneas/llbc.llbc");
+        let parent = include_str!("../../standards/charon-semantic/generated/comparison-parent.json");
+        let envelope = crate::charon_semantic::build_envelope(snapshot.to_owned(), vec![parent.to_owned()])
+            .expect("Charon semantic envelope");
+        let mut receipt = evaluate(EvaluationInput {
+            rail: EvidenceRailKind::CharonSemantic,
+            mode: MODE_IMPORT,
+            import_text: &envelope,
+            workspace_scope: WORKSPACE_SCOPE,
+            config_path: Some("standards/charon-semantic/generated/profile.json"),
+            baseline_identity: None,
+            lockfile_identity: None,
+            locked: false,
+            advisory_updated_by_prior_step: false,
+            profile: Some(crate::charon_semantic::shipped_profile_id()),
+            requested_command: None,
+            parent_artifacts: Vec::new(),
+            tool_exit_code: None,
+        });
+        receipt.config_identity = Some(crate::charon_semantic::EXPECTED_PROFILE_IDENTITY.to_owned());
+        let receipt_json = render_receipt_json(&receipt).expect("receipt renders");
+        let summary = render_summary(&receipt);
+        let provenance = render_provenance_jsonl(&receipt, &receipt_json, &summary).expect("provenance renders");
+        let details = receipt.charon_semantic.as_ref().expect("Charon semantic details");
+        let comparison = details.comparison.as_ref().expect("comparison details");
+
+        assert_eq!(receipt.status, STATUS_MANUAL_REVIEW_REQUIRED);
+        assert!(receipt.command_argv.is_empty());
+        assert_eq!(comparison.summary.agree, EXPECTED_COMPARISON_AGREEMENTS);
+        assert_eq!(comparison.summary.disagree, 0);
+        assert!(!comparison.authority_merged);
+        assert!(validate_receipt(&receipt).is_empty());
+        assert!(provenance.contains("transcript_assertion"));
+        assert!(provenance.contains(crate::charon_semantic::RAW_SNAPSHOT_ARTIFACT));
+
+        let details = receipt.charon_semantic.as_mut().expect("Charon semantic details");
+        details.artifacts[0].authority = "formal-proof".to_owned();
+        assert!(validate_receipt(&receipt).iter().any(|diagnostic| diagnostic.contains("proof-authority")));
     }
 
     #[test]
