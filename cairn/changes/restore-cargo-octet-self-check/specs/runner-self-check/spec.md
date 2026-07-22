@@ -30,6 +30,12 @@ r[octet.runner_self_check.failure.malformed]
 - WHEN the packaged runner attempts a no-argument check
 - THEN it SHALL exit with integration code `2`, emit the stable malformed-array diagnostic, and SHALL NOT invoke the configured Cargo sentinel.
 
+#### Scenario: Non-zero Cargo child is propagated
+r[octet.runner_self_check.failure.child_failure]
+- GIVEN valid canonical metadata and a configured Cargo sentinel that exits non-zero
+- WHEN the runner invokes that child
+- THEN it SHALL report an integration-failure summary and SHALL exit with integration code `2` rather than returning success.
+
 ### Requirement: Self-check claims SHALL remain bounded
 r[octet.runner_self_check.boundary] Octet SHALL describe this gate as pinned local static-lint execution evidence over the configured workspace library scope.
 

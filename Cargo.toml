@@ -30,3 +30,7 @@ rustc_private = true
 resolver = "2"
 members = ["cargo-octet", "crates/octet-lint-metadata", "crates/octet-standards"]
 exclude = ["crates/valence-core"]
+
+[workspace.metadata.octet]
+default_scope = ["--workspace"]
+cargo_check_args = ["--lib"]

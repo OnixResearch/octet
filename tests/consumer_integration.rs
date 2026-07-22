@@ -21,6 +21,10 @@ use support::consumer_fixture::metadata;
 use support::consumer_fixture::write_executable;
 use support::consumer_fixture::write_file;
 
+const EXPECTED_SELF_CHECK_SCOPE: [&str; 1] = ["--workspace"];
+const EXPECTED_SELF_CHECK_CARGO_ARGS: [&str; 1] = ["--lib"];
+const SELF_CHECK_GATE_NAME: &str = "cargo-octet-self-check";
+
 #[test]
 fn cargo_style_argv_prefix_parses_like_bare_check() {
     let fixture = ConsumerFixture::new("cargo-style-argv", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
@@ -78,6 +82,52 @@ fn no_argument_check_uses_workspace_metadata_defaults() {
     assert!(log.contains("-p consumer"), "expected metadata default scope, got: {log}");
     assert!(log.contains("--lib"), "expected metadata cargo_check_args, got: {log}");
     assert!(log.contains("DYLINT_NO_DEPS=1"), "expected DYLINT_NO_DEPS=1, got: {log}");
+}
+
+// r[impl octet.runner_self_check.metadata]
+// r[verify octet.runner_self_check.metadata.scoped]
+// r[impl octet.runner_self_check.execution]
+// r[verify octet.runner_self_check.execution.pass]
+// r[impl octet.runner_self_check.boundary]
+// r[verify octet.runner_self_check.boundary.non_claims]
+#[test]
+fn repository_root_declares_the_bounded_self_check() {
+    let repository_root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let manifest_path = repository_root.join("Cargo.toml");
+    let manifest_source = fs::read_to_string(&manifest_path)
+        .unwrap_or_else(|error| panic!("read root manifest {}: {error}", manifest_path.display()));
+    let manifest = manifest_source.parse::<toml::Table>().expect("parse root Cargo.toml");
+    let octet_metadata = manifest
+        .get("workspace")
+        .and_then(toml::Value::as_table)
+        .and_then(|workspace| workspace.get("metadata"))
+        .and_then(toml::Value::as_table)
+        .and_then(|metadata| metadata.get("octet"))
+        .and_then(toml::Value::as_table)
+        .expect("root [workspace.metadata.octet] table");
+
+    let scope = required_string_array(octet_metadata, "default_scope");
+    let cargo_args = required_string_array(octet_metadata, "cargo_check_args");
+    assert_eq!(scope, EXPECTED_SELF_CHECK_SCOPE);
+    assert_eq!(cargo_args, EXPECTED_SELF_CHECK_CARGO_ARGS);
+
+    let flake_path = repository_root.join("flake.nix");
+    let flake_source =
+        fs::read_to_string(&flake_path).unwrap_or_else(|error| panic!("read {}: {error}", flake_path.display()));
+    assert!(
+        flake_source.contains(SELF_CHECK_GATE_NAME),
+        "flake must expose the dedicated {SELF_CHECK_GATE_NAME} gate"
+    );
+}
+
+fn required_string_array<'a>(table: &'a toml::Table, key: &str) -> Vec<&'a str> {
+    table
+        .get(key)
+        .and_then(toml::Value::as_array)
+        .unwrap_or_else(|| panic!("root metadata requires `{key}` array"))
+        .iter()
+        .map(|value| value.as_str().unwrap_or_else(|| panic!("root metadata `{key}` values must be strings")))
+        .collect()
 }
 
 #[test]
@@ -593,6 +643,8 @@ fn missing_metadata_block_exits_with_integration_failure_code() {
     assert!(!log.contains("ARGS:"), "missing metadata should fail before invoking cargo: {log}");
 }
 
+// r[impl octet.runner_self_check.failure]
+// r[verify octet.runner_self_check.failure.malformed]
 #[test]
 fn non_string_metadata_array_entries_exit_with_integration_failure_code() {
     let fixture = ConsumerFixture::new(
@@ -2611,6 +2663,7 @@ fn clean_structured_run_stays_exit_zero() {
     assert_eq!(sarif["runs"][0]["results"].as_array().expect("clean SARIF results array").len(), 0);
 }
 
+// r[verify octet.runner_self_check.failure.child_failure]
 #[test]
 fn cargo_compilation_failure_uses_integration_failure_exit_code() {
     let fixture =

@@ -5,8 +5,9 @@ Octet documents `[workspace.metadata.octet]` as mandatory runner policy, but its
 ## What Changes
 
 - Add canonical root workspace metadata selecting all workspace libraries without tests, examples, or binaries.
-- Retain fail-closed rejection for missing or malformed consumer metadata; do not add implicit defaults or legacy top-level metadata.
-- Add a deterministic root-manifest regression test and a hermetic Nix check covering successful self-check execution plus pre-Cargo malformed-metadata rejection.
+- Include the configured Clang/Mold linker tools in the packaged runner's runtime path so its child Cargo process can honor the checked-in target configuration.
+- Retain fail-closed rejection for missing or malformed consumer metadata and non-zero Cargo children; do not add implicit defaults or legacy top-level metadata.
+- Add a deterministic root-manifest regression test and a hermetic Nix check covering successful self-check execution, pre-Cargo malformed-metadata rejection, and integration-failure exit propagation.
 - Record bounded evidence that the canonical path executes successfully without weakening lint policy.
 
 ## Impact

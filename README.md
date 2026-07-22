@@ -65,6 +65,8 @@ Local checkout alternative:
 nix run path:/path/to/octet#cargo-octet -- check
 ```
 
+Octet's own checked-in runner policy selects every workspace library with `--workspace --lib`. A successful self-check may be `warning-only` under the published exit-code contract. This no-argument scope does not cover tests, binaries, examples, benches, dependency behavior, runtime behavior, whole-program correctness, lint completeness, or release eligibility; the broader Nix, Nextest, and Clippy gates remain separate.
+
 Structured output and reviewable sidecars are first-class too:
 
 ```bash
