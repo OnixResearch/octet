@@ -2519,6 +2519,13 @@
             ],
             "root": "cairn/specs/evidence-provenance/spec.md",
             "source_kind": "accepted_specs"
+          },
+          {
+            "extensions": [
+              "md"
+            ],
+            "root": "cairn/specs/cob-collaboration-adoption/spec.md",
+            "source_kind": "accepted_specs"
           }
         ]
       },
@@ -2587,6 +2594,13 @@
               "md"
             ],
             "root": "cairn/specs/evidence-provenance/spec.md",
+            "source_kind": "accepted_specs"
+          },
+          {
+            "extensions": [
+              "md"
+            ],
+            "root": "cairn/specs/cob-collaboration-adoption/spec.md",
             "source_kind": "accepted_specs"
           }
         ]

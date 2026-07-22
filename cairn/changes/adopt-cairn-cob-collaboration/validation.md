@@ -73,7 +73,7 @@ The first full flake run exposed strict Clippy pass-by-value findings in the new
 
 `nix run .#cargo-octet -- check` remains blocked before lint execution by the repository root's existing lack of the command's required `[metadata]` table in `Cargo.toml`. This pilot did not change `Cargo.toml`; focused Clippy, Nextest, and the full Nix checks provide the accepted checked-path evidence instead.
 
-The pre-change Cairn traceability baseline contained 32 missing accepted IDs and dangling `octet.effect_closure.cli.check_failure`. These unrelated gaps are preserved and reported rather than silently attributed to or repaired by this pilot. The pilot's own IDs are linked from `tests/cairn_cob_pilot.rs`.
+The pre-change Cairn traceability baseline contained 32 missing accepted IDs and dangling `octet.effect_closure.cli.check_failure`. After accepted-spec sync, the typed Cairn policy adds `cairn/specs/cob-collaboration-adoption/spec.md` as a requirement source; all pilot IDs are linked from `tests/cairn_cob_pilot.rs`, while the final report preserves exactly those 32 unrelated missing IDs and the same dangling effect-closure marker. The refreshed current policy hash is `0d5e71092b45e2a8cfbaed4edffe6b01cd6cd0e4dc71f9c86fc1d0bf82cc70fc`. Historical COB receipts remain bound to the policy hash observed at mutation time and are not silently rewritten to claim current-policy status.
 
 ## Bounded Claims
 
