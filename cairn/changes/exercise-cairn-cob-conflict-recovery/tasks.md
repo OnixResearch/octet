@@ -8,5 +8,6 @@
 ## Validation
 
 - [x] [depends:I4] V1 Run focused Rust tests, Nickel freshness, Git bundle/ref/ancestry validation, formatting, release-floor Clippy, Octet policy validation, and the dedicated Nix gate. r[octet.cob_conflict_recovery.evidence.positive] r[octet.cob_conflict_recovery.evidence.negative]
-- [ ] [depends:V1] V2 Run native Cairn proposal, design, tasks, strict validation, sync, traceability, and deterministic archive gates; report inherited baseline failures separately. r[octet.cob_conflict_recovery.boundary] r[octet.cob_conflict_recovery.boundary.non_claims]
-- [ ] [depends:V2] V3 Run Nextest and the broad flake gate, retaining exact pass or bounded blocker evidence before archive. r[octet.cob_conflict_recovery.evidence.positive]
+- [x] [depends:V1] V2 Run native Cairn proposal, design, tasks, strict validation, accepted-spec sync, and traceability gates; report inherited baseline failures separately. r[octet.cob_conflict_recovery.boundary] r[octet.cob_conflict_recovery.boundary.non_claims]
+- [x] [depends:V2] V3 Run Nextest and the broad flake gate, retaining exact pass or bounded blocker evidence before archive. r[octet.cob_conflict_recovery.evidence.positive]
+- [ ] [depends:V3] V4 Execute deterministic archive and validate the resulting lifecycle state. r[octet.cob_conflict_recovery.boundary]
