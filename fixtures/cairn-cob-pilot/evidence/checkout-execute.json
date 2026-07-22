@@ -1,0 +1,83 @@
+{
+  "already_current": false,
+  "authority": {
+    "creator": "z6MkjPAjbbnXWtKTuUarEF3CbhnPjFzU9ify9Xuz7qdTv4Dn",
+    "delegates": [],
+    "source": "signed_root_embedded_authority"
+  },
+  "backend": "radicle-cob.v1",
+  "base_git_oid": "git_oid:28ffbe8cfb01879a241cad248008b75252a8b7f5",
+  "blocked": false,
+  "blockers": [],
+  "change": "adopt-cairn-cob-collaboration",
+  "command": "collaboration checkout",
+  "compatibility_command": "cob checkout",
+  "content_conflicts": [],
+  "content_root": "2a54f7e9216fd71d7e23ba11114ce6bf3eb3df7a4e5b7e064dee1c25cf66c183",
+  "current_evidence_count": 0,
+  "dry_run": false,
+  "evidence_count": 0,
+  "file_count": 4,
+  "files": [
+    {
+      "blake3": "2c495f6ee5ee7cbf71f0b2ef2bec6fde44599dca94dcec40362ac8b59434eccd",
+      "bytes": 6788,
+      "path": "design.md"
+    },
+    {
+      "blake3": "2061ba500ec66ade05bfdf5e90fb964f7c700ce527aea17baeb22588d6fbeceb",
+      "bytes": 1571,
+      "path": "proposal.md"
+    },
+    {
+      "blake3": "a3468b3f1272bf67943bb4758e78dfd4a15c22170c3cd36b520335bc3142a96f",
+      "bytes": 4845,
+      "path": "specs/cob-collaboration-adoption/spec.md"
+    },
+    {
+      "blake3": "4ec5f5e7e13a773d7773228fa88b6fbb2d36c309d3d058d133495b6396533d18",
+      "bytes": 1525,
+      "path": "tasks.md"
+    }
+  ],
+  "format_libraries": {
+    "git-ref-format-core": "0.6.0",
+    "git2": "0.20.4",
+    "radicle-cob": "0.20.0",
+    "radicle-crypto": "0.17.0",
+    "radicle-oid": "0.2.0"
+  },
+  "lifecycle": {
+    "condition": "stale",
+    "current_content_root": "2a54f7e9216fd71d7e23ba11114ce6bf3eb3df7a4e5b7e064dee1c25cf66c183",
+    "record": {
+      "evidence": [],
+      "status": "open",
+      "subject_root": "8784e2755b58d8dee68a02044ac379769053e35f6af35b47fa47ade7c9d7a679"
+    }
+  },
+  "local_destination": "absent",
+  "mutated": true,
+  "non_claims": [
+    "checkout proves only local materialization from the stated reduced object",
+    "embedded creator and delegate keys are immutable COB authority, not Radicle identity-document or future authorization proof",
+    "status and checkout do not prove gate validity, evidence truth, dependency readiness, source correctness, archive execution, or release eligibility",
+    "status and checkout do not prove node participation, publication, peer availability, synchronization, convergence, or remote trust",
+    "the cooperative checkout lock is not a sandbox against unrelated processes with equivalent host filesystem authority"
+  ],
+  "object_id": "8d4cf943a20d666c16cea0190db2541767ef8603",
+  "object_policy_hash": "49562ab462bbd243839837783c8edfd3743ff34c83e7d788bc5db236b4f91d4c",
+  "observed_policy_hash": "49562ab462bbd243839837783c8edfd3743ff34c83e7d788bc5db236b4f91d4c",
+  "plan_hash": "177212a8a999621b73abde5f24ca481f249a661d439172291fdde7edb36a6a83",
+  "policy": "octet-default",
+  "policy_current": true,
+  "post_checkout_destination": "current",
+  "receipt_hash": "3935b0670fe144b61a99becb695bda4ac115301cbb63947454a707c64a0b16c2",
+  "repository_head_oid": "28ffbe8cfb01879a241cad248008b75252a8b7f5",
+  "root": "target/cairn-cob-pilot/secondary-root",
+  "state_hash": "70baef24a418d18478cfdc5169b1dbfa3e093f2da05c8bd3beba5e8fbd46814d",
+  "type_name": "xyz.onixresearch.cairn-change",
+  "valid": true,
+  "verdict": "PASS",
+  "workspace_id": "workspace:octet"
+}

@@ -1,0 +1,47 @@
+{
+  "artifact_conflicts": [],
+  "authority": {
+    "creator": "z6MkjPAjbbnXWtKTuUarEF3CbhnPjFzU9ify9Xuz7qdTv4Dn",
+    "delegates": [],
+    "source": "signed_root_embedded_authority"
+  },
+  "backend": "radicle-cob.v1",
+  "base_revision": {
+    "kind": "git_oid",
+    "value": "28ffbe8cfb01879a241cad248008b75252a8b7f5"
+  },
+  "blocked": false,
+  "blockers": [],
+  "change": "adopt-cairn-cob-collaboration",
+  "command": "collaboration conflicts",
+  "compatibility_command": "cob conflicts",
+  "conflicted": false,
+  "format_libraries": {
+    "git-ref-format-core": "0.6.0",
+    "git2": "0.20.4",
+    "radicle-cob": "0.20.0",
+    "radicle-crypto": "0.17.0",
+    "radicle-oid": "0.2.0"
+  },
+  "lifecycle_heads": [],
+  "mutated": false,
+  "non_claims": [
+    "embedded creator and delegate keys are immutable COB authority, not Radicle identity-document or future authorization proof",
+    "signed conflict resolution proves bounded local Git COB observations only",
+    "selecting a conflict head does not prove semantic merge correctness or that losing heads are invalid",
+    "an explicit lifecycle reset to open does not prove review, approval, evidence truth, source correctness, archive execution, or release eligibility",
+    "local signed COB resolution does not prove node participation, publication, synchronization, peer convergence, availability, or remote trust"
+  ],
+  "object_id": "8d4cf943a20d666c16cea0190db2541767ef8603",
+  "observed_policy_hash": "49562ab462bbd243839837783c8edfd3743ff34c83e7d788bc5db236b4f91d4c",
+  "policy": "octet-default",
+  "policy_current": true,
+  "policy_hash": "49562ab462bbd243839837783c8edfd3743ff34c83e7d788bc5db236b4f91d4c",
+  "receipt_hash": "b232395fdeaed760b7950a3ef8b8a7d9371cb3ec77abb300a272515d68fb46d9",
+  "root": "target/cairn-cob-pilot/secondary-root",
+  "shown_head": null,
+  "state_hash": "70baef24a418d18478cfdc5169b1dbfa3e093f2da05c8bd3beba5e8fbd46814d",
+  "valid": true,
+  "verdict": "PASS",
+  "workspace_id": "workspace:octet"
+}

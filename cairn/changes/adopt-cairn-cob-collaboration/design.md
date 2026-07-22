@@ -67,6 +67,7 @@ The selected mechanism changes the consuming repository and operator workflow wh
 ## Evidence Outputs
 
 - `fixtures/cairn-cob-pilot/manifest.ncl` and generated `manifest.json`
+- `fixtures/cairn-cob-pilot/octet-cob.bundle` with the exact base branch and signed namespace ref
 - `fixtures/cairn-cob-pilot/evidence/import-preview.json`
 - `fixtures/cairn-cob-pilot/evidence/import-execute.json`
 - `fixtures/cairn-cob-pilot/evidence/update-preview.json`

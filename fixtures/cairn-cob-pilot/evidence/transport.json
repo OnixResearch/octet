@@ -1,0 +1,28 @@
+{
+  "schema": "octet.cairn-cob-transport.v1",
+  "command": "git fetch --no-tags <source> +refs/heads/main:refs/heads/main +refs/namespaces/*:refs/namespaces/*",
+  "backend": "radicle-cob.v1",
+  "change": "adopt-cairn-cob-collaboration",
+  "cairn_commit": "70db8fe114910feb5d162fea5db8ad4ffdb6f176",
+  "base_git_oid": "28ffbe8cfb01879a241cad248008b75252a8b7f5",
+  "actor": "z6MkjPAjbbnXWtKTuUarEF3CbhnPjFzU9ify9Xuz7qdTv4Dn",
+  "object_id": "8d4cf943a20d666c16cea0190db2541767ef8603",
+  "namespace_ref": "refs/namespaces/z6MkjPAjbbnXWtKTuUarEF3CbhnPjFzU9ify9Xuz7qdTv4Dn/refs/cobs/xyz.onixresearch.cairn-change/8d4cf943a20d666c16cea0190db2541767ef8603",
+  "source_ref_target": "35e76bfd1dc9755f936c53762c9af999b8a666dd",
+  "destination_ref_target": "35e76bfd1dc9755f936c53762c9af999b8a666dd",
+  "source_branch_target": "28ffbe8cfb01879a241cad248008b75252a8b7f5",
+  "destination_branch_target": "28ffbe8cfb01879a241cad248008b75252a8b7f5",
+  "source_remotes": [],
+  "destination_remotes": [],
+  "destination_tags": [],
+  "artifact_tree_blake3": "blake3-+nSMyo4rJmdEBytxIOC0enxjQIHLWXpR2MjkD0Rkexo=",
+  "artifact_diff_empty": true,
+  "mutated_by_cairn": false,
+  "valid": true,
+  "verdict": "PASS",
+  "non_claims": [
+    "matching local Git refs prove bounded local transport observations only",
+    "local path transport does not prove authentication, authorization, publication, remote availability, durability, synchronization, convergence, or remote trust",
+    "matching lifecycle bytes do not prove gate validity, evidence truth, source correctness, whole-program correctness, or release eligibility"
+  ]
+}
