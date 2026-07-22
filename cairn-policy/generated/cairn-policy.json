@@ -2533,6 +2533,13 @@
             ],
             "root": "cairn/specs/cob-collaboration-conflict-recovery/spec.md",
             "source_kind": "accepted_specs"
+          },
+          {
+            "extensions": [
+              "md"
+            ],
+            "root": "cairn/specs/runner-self-check/spec.md",
+            "source_kind": "accepted_specs"
           }
         ]
       },
@@ -2615,6 +2622,13 @@
               "md"
             ],
             "root": "cairn/specs/cob-collaboration-conflict-recovery/spec.md",
+            "source_kind": "accepted_specs"
+          },
+          {
+            "extensions": [
+              "md"
+            ],
+            "root": "cairn/specs/runner-self-check/spec.md",
             "source_kind": "accepted_specs"
           }
         ]
