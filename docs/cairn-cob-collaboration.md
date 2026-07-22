@@ -129,4 +129,42 @@ cairn cob conflicts CHANGE \
   --policy SECOND_ROOT/cairn-policy/generated/cairn-policy.json
 ```
 
-The checked-in pilot under [`fixtures/cairn-cob-pilot/`](../fixtures/cairn-cob-pilot/) binds one exact execution of this workflow. Its receipts are integration evidence only; they do not prove lifecycle gates, evidence truth, source correctness, whole-program correctness, or release eligibility.
+## Explicit conflict recovery
+
+A conflict requires distinct authorized actor refs. Embed a delegate's public actor ID during import with `--delegate ACTOR`, then let creator and delegate update separate stores from the same signed root before transporting their actor refs into one inspection store.
+
+Default inspection exposes bounded head metadata without exact content:
+
+```sh
+cairn cob conflicts CHANGE \
+  --root . \
+  --git-repository target/cairn-cob/conflicted.git \
+  --policy cairn-policy/generated/cairn-policy.json
+```
+
+Reveal one exact value only through an explicit selector copied from the metadata receipt:
+
+```sh
+cairn cob conflicts CHANGE \
+  --root . \
+  --git-repository target/cairn-cob/conflicted.git \
+  --policy cairn-policy/generated/cairn-policy.json \
+  --show-head tasks=REVISION
+```
+
+Ordinary `cob update` must remain blocked while multiple heads are current. Resolution is a separate preview-first mutation:
+
+```sh
+cairn cob resolve CHANGE \
+  --root . \
+  --git-repository target/cairn-cob/conflicted.git \
+  --keystore target/cairn-cob/creator-keys \
+  --policy cairn-policy/generated/cairn-policy.json \
+  --choose-head tasks=REVISION
+```
+
+Review the actor, conflict heads, selected artifact, complete action basis, plan hash, expected content root, and non-claims. Repeat with `--execute` only when every current conflicting artifact has an explicit choice. After execution, verify every losing and selected operation remains an ancestor of the resolution operation and reload the refs into a separate store.
+
+Selecting a head does not prove semantic merge correctness or make a losing head invalid. Resolving content also does not silently refresh a stale lifecycle subject root.
+
+The conflict-free pilot under [`fixtures/cairn-cob-pilot/`](../fixtures/cairn-cob-pilot/) and conflict-recovery drill under [`fixtures/cairn-cob-conflict-pilot/`](../fixtures/cairn-cob-conflict-pilot/) bind exact local executions of these workflows. Their receipts are integration evidence only; they do not prove lifecycle gates, evidence truth, network transport, synchronization, distributed convergence, source correctness, whole-program correctness, or release eligibility.

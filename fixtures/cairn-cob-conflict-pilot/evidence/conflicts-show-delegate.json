@@ -1,0 +1,77 @@
+{
+  "artifact_conflicts": [
+    {
+      "artifact": "tasks",
+      "heads": [
+        {
+          "actor": "z6MkrYePae54PSMayuv3YJJcPV65GE6Mhvuq2537cmJybFCW",
+          "content_blake3": "7f8eca743500d0d33ded2ec7f0a17e0d45821359630933250943fa2571d305bc",
+          "content_bytes": 2200,
+          "deleted": false,
+          "revision_id": "2ba95e8204bd05dd566d93f7f5f9ac68f7126904"
+        },
+        {
+          "actor": "z6Mkgvh5Qq4bjh8BZUDwPB9ZPNoQvHGMu1wvPX2KRyPNUDtq",
+          "content_blake3": "fb6963a6391aa2524c5d31a0531362e8a334f3f1b0f70026f7781a328c93ec22",
+          "content_bytes": 2201,
+          "deleted": false,
+          "revision_id": "e73bf24a150c12c5cbeda410c40d113d002ef259"
+        }
+      ]
+    }
+  ],
+  "authority": {
+    "creator": "z6MkrYePae54PSMayuv3YJJcPV65GE6Mhvuq2537cmJybFCW",
+    "delegates": [
+      "z6Mkgvh5Qq4bjh8BZUDwPB9ZPNoQvHGMu1wvPX2KRyPNUDtq"
+    ],
+    "source": "signed_root_embedded_authority"
+  },
+  "backend": "radicle-cob.v1",
+  "base_revision": {
+    "kind": "git_oid",
+    "value": "22722030cd734900c565840997a62b36055aa85d"
+  },
+  "blocked": false,
+  "blockers": [],
+  "change": "exercise-cairn-cob-conflict-recovery",
+  "command": "collaboration conflicts",
+  "compatibility_command": "cob conflicts",
+  "conflicted": true,
+  "format_libraries": {
+    "git-ref-format-core": "0.6.0",
+    "git2": "0.20.4",
+    "radicle-cob": "0.20.0",
+    "radicle-crypto": "0.17.0",
+    "radicle-oid": "0.2.0"
+  },
+  "lifecycle_heads": [],
+  "mutated": false,
+  "non_claims": [
+    "embedded creator and delegate keys are immutable COB authority, not Radicle identity-document or future authorization proof",
+    "signed conflict resolution proves bounded local Git COB observations only",
+    "selecting a conflict head does not prove semantic merge correctness or that losing heads are invalid",
+    "an explicit lifecycle reset to open does not prove review, approval, evidence truth, source correctness, archive execution, or release eligibility",
+    "local signed COB resolution does not prove node participation, publication, synchronization, peer convergence, availability, or remote trust"
+  ],
+  "object_id": "0702d3bd89a7be698cd24ec343323d7786a99d6d",
+  "observed_policy_hash": "0d5e71092b45e2a8cfbaed4edffe6b01cd6cd0e4dc71f9c86fc1d0bf82cc70fc",
+  "policy": "octet-default",
+  "policy_current": true,
+  "policy_hash": "0d5e71092b45e2a8cfbaed4edffe6b01cd6cd0e4dc71f9c86fc1d0bf82cc70fc",
+  "receipt_hash": "a43e6dd8cfdc36881ded51ecb6df557bb5903b6e4e5622d95ec83bbcbd80eb4e",
+  "root": ".",
+  "shown_head": {
+    "actor": "z6Mkgvh5Qq4bjh8BZUDwPB9ZPNoQvHGMu1wvPX2KRyPNUDtq",
+    "artifact": "tasks",
+    "content": "## Implementation\n\n<!-- conflict-fixture-candidate: delegate -->\n\n- [ ] [serial] I1 Create creator/delegate same-basis signed divergence and explicit no-remote Git transport evidence. r[octet.cob_conflict_recovery.divergence] r[octet.cob_conflict_recovery.divergence.same_basis] r[octet.cob_conflict_recovery.divergence.transport]\n- [ ] [depends:I1] I2 Retain metadata-only and exact-selector conflict inspections plus ordinary-update refusal evidence. r[octet.cob_conflict_recovery.inspection] r[octet.cob_conflict_recovery.inspection.metadata] r[octet.cob_conflict_recovery.inspection.values] r[octet.cob_conflict_recovery.refusal] r[octet.cob_conflict_recovery.refusal.update]\n- [ ] [depends:I2] I3 Preview and execute complete-basis resolution, then reload and checkout from a third store. r[octet.cob_conflict_recovery.resolution] r[octet.cob_conflict_recovery.resolution.preview] r[octet.cob_conflict_recovery.resolution.execute] r[octet.cob_conflict_recovery.reload] r[octet.cob_conflict_recovery.reload.status] r[octet.cob_conflict_recovery.reload.checkout]\n- [ ] [depends:I3] I4 Add the typed manifest, deterministic positive/negative Rust validator, policy registry entries, documentation, and hermetic Nix gate. r[octet.cob_conflict_recovery.evidence] r[octet.cob_conflict_recovery.evidence.positive] r[octet.cob_conflict_recovery.evidence.negative] r[octet.cob_conflict_recovery.boundary] r[octet.cob_conflict_recovery.boundary.non_claims]\n\n## Validation\n\n- [ ] [depends:I4] V1 Run focused Rust tests, Nickel freshness, Git bundle/ref/ancestry validation, formatting, release-floor Clippy, Octet policy validation, and the dedicated Nix gate. r[octet.cob_conflict_recovery.evidence.positive] r[octet.cob_conflict_recovery.evidence.negative]\n- [ ] [depends:V1] V2 Run native Cairn proposal, design, tasks, strict validation, sync, traceability, and deterministic archive gates; report inherited baseline failures separately. r[octet.cob_conflict_recovery.boundary] r[octet.cob_conflict_recovery.boundary.non_claims]\n- [ ] [depends:V2] V3 Run Nextest and the broad flake gate, retaining exact pass or bounded blocker evidence before archive. r[octet.cob_conflict_recovery.evidence.positive]\n",
+    "content_blake3": "fb6963a6391aa2524c5d31a0531362e8a334f3f1b0f70026f7781a328c93ec22",
+    "content_bytes": 2201,
+    "deleted": false,
+    "revision_id": "e73bf24a150c12c5cbeda410c40d113d002ef259"
+  },
+  "state_hash": "43267f6822bfb76815fe5639f94b9a7615aeed57baaec6a6ec6e047008394e35",
+  "valid": true,
+  "verdict": "PASS",
+  "workspace_id": "workspace:octet"
+}

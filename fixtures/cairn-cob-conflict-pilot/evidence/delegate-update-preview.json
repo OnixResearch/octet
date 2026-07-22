@@ -1,0 +1,71 @@
+{
+  "actor": {
+    "authority_class": "embedded_delegate",
+    "cryptographically_verified": false,
+    "currently_authorized": true,
+    "id": "z6Mkgvh5Qq4bjh8BZUDwPB9ZPNoQvHGMu1wvPX2KRyPNUDtq",
+    "source": "explicit_cob_keystore_and_embedded_authority"
+  },
+  "backend": "radicle-cob.v1",
+  "base_revision": {
+    "kind": "git_oid",
+    "value": "22722030cd734900c565840997a62b36055aa85d"
+  },
+  "blocked": false,
+  "blockers": [],
+  "change": "exercise-cairn-cob-conflict-recovery",
+  "changed_artifacts": [
+    "tasks"
+  ],
+  "command": "collaboration update",
+  "compatibility_command": "cob update",
+  "delegates": [
+    "z6Mkgvh5Qq4bjh8BZUDwPB9ZPNoQvHGMu1wvPX2KRyPNUDtq"
+  ],
+  "dry_run": true,
+  "expected_content_root": "90e8b9a74ab62bb09a974b8454a5a891b45f982f15e982e7c5f411c3ab16a005",
+  "format_libraries": {
+    "git-ref-format-core": "0.6.0",
+    "git2": "0.20.4",
+    "radicle-cob": "0.20.0",
+    "radicle-crypto": "0.17.0",
+    "radicle-oid": "0.2.0"
+  },
+  "input_content_root": "d2e4dd8f05a298db41c6f601db7f37274ffe0094e917f93db4d657bd10f44cbe",
+  "input_hash": "c0aab43e964330deba16761c448ddd536e3a736622d6f0a7a70a88cc358e837e",
+  "input_state_hash": "c0aab43e964330deba16761c448ddd536e3a736622d6f0a7a70a88cc358e837e",
+  "mutated": false,
+  "non_claims": [
+    "embedded creator and delegate keys are immutable COB authority, not Radicle identity-document or future authorization proof",
+    "a signed update proves bounded local Git COB observations, not node participation, publication, peer availability, synchronization, convergence, or remote trust",
+    "collaboration update does not prove gate validity, evidence truth, dependency readiness, source correctness, archive execution, or release eligibility",
+    "ordinary collaboration update refuses conflicts and does not prove or perform conflict resolution"
+  ],
+  "noop": false,
+  "object_id": "0702d3bd89a7be698cd24ec343323d7786a99d6d",
+  "observed_policy_hash": "0d5e71092b45e2a8cfbaed4edffe6b01cd6cd0e4dc71f9c86fc1d0bf82cc70fc",
+  "operation_plan_id": "bd3dd9d38ac35e3fae1c76edc537a0bc4a2705f050efdfc6148fb1058ec48b36",
+  "plan_hash": "5748baf41322c7a87e7da51cc7b35bc331db8ab5f72152f552547e9ce09ec9dd",
+  "policy": "octet-default",
+  "policy_current": true,
+  "policy_hash": "0d5e71092b45e2a8cfbaed4edffe6b01cd6cd0e4dc71f9c86fc1d0bf82cc70fc",
+  "receipt_hash": "58f7a9723cb4b50d0d41e03be8425f8ee786709928b1533692d69a6d6fba2026",
+  "result_content_root": null,
+  "result_operation_id": null,
+  "result_state_hash": null,
+  "root": ".",
+  "updates": [
+    {
+      "artifact": "tasks",
+      "basis": [
+        "0702d3bd89a7be698cd24ec343323d7786a99d6d"
+      ],
+      "content_blake3": "fb6963a6391aa2524c5d31a0531362e8a334f3f1b0f70026f7781a328c93ec22",
+      "content_bytes": 2201,
+      "removed": false
+    }
+  ],
+  "valid": true,
+  "verdict": "PASS",
+  "workspace_id": "workspace:octet"
+}

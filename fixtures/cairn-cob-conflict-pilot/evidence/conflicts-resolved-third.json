@@ -1,0 +1,49 @@
+{
+  "artifact_conflicts": [],
+  "authority": {
+    "creator": "z6MkrYePae54PSMayuv3YJJcPV65GE6Mhvuq2537cmJybFCW",
+    "delegates": [
+      "z6Mkgvh5Qq4bjh8BZUDwPB9ZPNoQvHGMu1wvPX2KRyPNUDtq"
+    ],
+    "source": "signed_root_embedded_authority"
+  },
+  "backend": "radicle-cob.v1",
+  "base_revision": {
+    "kind": "git_oid",
+    "value": "22722030cd734900c565840997a62b36055aa85d"
+  },
+  "blocked": false,
+  "blockers": [],
+  "change": "exercise-cairn-cob-conflict-recovery",
+  "command": "collaboration conflicts",
+  "compatibility_command": "cob conflicts",
+  "conflicted": false,
+  "format_libraries": {
+    "git-ref-format-core": "0.6.0",
+    "git2": "0.20.4",
+    "radicle-cob": "0.20.0",
+    "radicle-crypto": "0.17.0",
+    "radicle-oid": "0.2.0"
+  },
+  "lifecycle_heads": [],
+  "mutated": false,
+  "non_claims": [
+    "embedded creator and delegate keys are immutable COB authority, not Radicle identity-document or future authorization proof",
+    "signed conflict resolution proves bounded local Git COB observations only",
+    "selecting a conflict head does not prove semantic merge correctness or that losing heads are invalid",
+    "an explicit lifecycle reset to open does not prove review, approval, evidence truth, source correctness, archive execution, or release eligibility",
+    "local signed COB resolution does not prove node participation, publication, synchronization, peer convergence, availability, or remote trust"
+  ],
+  "object_id": "0702d3bd89a7be698cd24ec343323d7786a99d6d",
+  "observed_policy_hash": "0d5e71092b45e2a8cfbaed4edffe6b01cd6cd0e4dc71f9c86fc1d0bf82cc70fc",
+  "policy": "octet-default",
+  "policy_current": true,
+  "policy_hash": "0d5e71092b45e2a8cfbaed4edffe6b01cd6cd0e4dc71f9c86fc1d0bf82cc70fc",
+  "receipt_hash": "eee9438ecd2100bd253bec9a2756b8961ab9131fe114cd62b2488cb4f3836098",
+  "root": "target/cairn-cob-conflict-work/third-root",
+  "shown_head": null,
+  "state_hash": "0b843293c31ed26eb4e1572915b1701e05a5ed9af61efe6c7db8c614346135a8",
+  "valid": true,
+  "verdict": "PASS",
+  "workspace_id": "workspace:octet"
+}

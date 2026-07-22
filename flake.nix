@@ -261,6 +261,9 @@
               inCairnCobPilot =
                 pkgs.lib.hasSuffix "/fixtures/cairn-cob-pilot" path
                 || pkgs.lib.hasInfix "/fixtures/cairn-cob-pilot/" path;
+              inCairnCobConflictPilot =
+                pkgs.lib.hasSuffix "/fixtures/cairn-cob-conflict-pilot" path
+                || pkgs.lib.hasInfix "/fixtures/cairn-cob-conflict-pilot/" path;
               inDocs = pkgs.lib.hasSuffix "/docs" path || pkgs.lib.hasInfix "/docs/" path;
               inStandards = pkgs.lib.hasSuffix "/standards" path || pkgs.lib.hasInfix "/standards/" path;
               inTemplates = pkgs.lib.hasSuffix "/templates" path || pkgs.lib.hasInfix "/templates/" path;
@@ -273,6 +276,7 @@
             || inUiTests
             || inTestFixtures
             || inCairnCobPilot
+            || inCairnCobConflictPilot
             || inDocs
             || inStandards
             || inTemplates
@@ -3388,6 +3392,57 @@
                   mkdir -p "$out"
                   cp "$generated_manifest" "$bundle_heads" "$bundle_verify" "$out/"
                 '';
+            cairnCobConflictPilotCheck =
+              pkgs.runCommand "octet-cairn-cob-conflict-pilot-check"
+                {
+                  nativeBuildInputs = with pkgs; [
+                    coreutils
+                    diffutils
+                    gitMinimal
+                    gnugrep
+                    nickel
+                  ];
+                }
+                ''
+                  fixture=${src}/fixtures/cairn-cob-conflict-pilot
+                  scratch="$(mktemp -d)"
+                  audit_store="$scratch/audit.git"
+                  generated_manifest="$scratch/manifest.json"
+                  bundle_heads="$scratch/bundle-heads.txt"
+                  bundle_verify="$scratch/bundle-verify.txt"
+                  base_ref='refs/heads/main'
+                  base_oid='22722030cd734900c565840997a62b36055aa85d'
+                  creator_ref='refs/namespaces/z6MkrYePae54PSMayuv3YJJcPV65GE6Mhvuq2537cmJybFCW/refs/cobs/xyz.onixresearch.cairn-change/0702d3bd89a7be698cd24ec343323d7786a99d6d'
+                  delegate_ref='refs/namespaces/z6Mkgvh5Qq4bjh8BZUDwPB9ZPNoQvHGMu1wvPX2KRyPNUDtq/refs/cobs/xyz.onixresearch.cairn-change/0702d3bd89a7be698cd24ec343323d7786a99d6d'
+                  creator_operation='2ba95e8204bd05dd566d93f7f5f9ac68f7126904'
+                  delegate_operation='e73bf24a150c12c5cbeda410c40d113d002ef259'
+                  resolution_operation='3669f3e1001bba8878d9ad4bcaf874d21207703b'
+                  expected_head_count=3
+
+                  nickel typecheck "$fixture/manifest.ncl"
+                  nickel export --format json "$fixture/manifest.ncl" > "$generated_manifest"
+                  cmp "$fixture/manifest.json" "$generated_manifest"
+
+                  git init --bare "$audit_store"
+                  git --git-dir="$audit_store" bundle verify "$fixture/octet-cob-conflict.bundle" > "$bundle_verify"
+                  git bundle list-heads "$fixture/octet-cob-conflict.bundle" > "$bundle_heads"
+                  test "$(wc -l < "$bundle_heads")" -eq "$expected_head_count"
+                  grep -F "$base_oid $base_ref" "$bundle_heads" >/dev/null
+                  grep -F "$resolution_operation $creator_ref" "$bundle_heads" >/dev/null
+                  grep -F "$delegate_operation $delegate_ref" "$bundle_heads" >/dev/null
+                  git --git-dir="$audit_store" fetch --no-tags "$fixture/octet-cob-conflict.bundle" \
+                    "+$base_ref:$base_ref" "+refs/namespaces/*:refs/namespaces/*"
+                  test "$(git --git-dir="$audit_store" rev-parse "$base_ref")" = "$base_oid"
+                  test "$(git --git-dir="$audit_store" rev-parse "$creator_ref")" = "$resolution_operation"
+                  test "$(git --git-dir="$audit_store" rev-parse "$delegate_ref")" = "$delegate_operation"
+                  test -z "$(git --git-dir="$audit_store" remote)"
+                  git --git-dir="$audit_store" merge-base --is-ancestor "$creator_operation" "$resolution_operation"
+                  git --git-dir="$audit_store" merge-base --is-ancestor "$delegate_operation" "$resolution_operation"
+                  test "$(git --git-dir="$audit_store" rev-list --parents -n 1 "$resolution_operation")" = \
+                    "$resolution_operation $creator_operation $delegate_operation"
+                  mkdir -p "$out"
+                  cp "$generated_manifest" "$bundle_heads" "$bundle_verify" "$out/"
+                '';
           in
           {
             octet = octet;
@@ -3501,6 +3556,7 @@
 
             policy-registry = policyRegistryCheck;
             cairn-cob-pilot = cairnCobPilotCheck;
+            cairn-cob-conflict-pilot = cairnCobConflictPilotCheck;
             ast-grep-structural-rail = astGrepStructuralRailCheck;
             wasm-artifact-rail = wasmArtifactRailCheck;
             strict-profile-catalog = strictProfileCatalogCheck;

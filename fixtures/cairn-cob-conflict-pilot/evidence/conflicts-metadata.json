@@ -1,0 +1,69 @@
+{
+  "artifact_conflicts": [
+    {
+      "artifact": "tasks",
+      "heads": [
+        {
+          "actor": "z6MkrYePae54PSMayuv3YJJcPV65GE6Mhvuq2537cmJybFCW",
+          "content_blake3": "7f8eca743500d0d33ded2ec7f0a17e0d45821359630933250943fa2571d305bc",
+          "content_bytes": 2200,
+          "deleted": false,
+          "revision_id": "2ba95e8204bd05dd566d93f7f5f9ac68f7126904"
+        },
+        {
+          "actor": "z6Mkgvh5Qq4bjh8BZUDwPB9ZPNoQvHGMu1wvPX2KRyPNUDtq",
+          "content_blake3": "fb6963a6391aa2524c5d31a0531362e8a334f3f1b0f70026f7781a328c93ec22",
+          "content_bytes": 2201,
+          "deleted": false,
+          "revision_id": "e73bf24a150c12c5cbeda410c40d113d002ef259"
+        }
+      ]
+    }
+  ],
+  "authority": {
+    "creator": "z6MkrYePae54PSMayuv3YJJcPV65GE6Mhvuq2537cmJybFCW",
+    "delegates": [
+      "z6Mkgvh5Qq4bjh8BZUDwPB9ZPNoQvHGMu1wvPX2KRyPNUDtq"
+    ],
+    "source": "signed_root_embedded_authority"
+  },
+  "backend": "radicle-cob.v1",
+  "base_revision": {
+    "kind": "git_oid",
+    "value": "22722030cd734900c565840997a62b36055aa85d"
+  },
+  "blocked": false,
+  "blockers": [],
+  "change": "exercise-cairn-cob-conflict-recovery",
+  "command": "collaboration conflicts",
+  "compatibility_command": "cob conflicts",
+  "conflicted": true,
+  "format_libraries": {
+    "git-ref-format-core": "0.6.0",
+    "git2": "0.20.4",
+    "radicle-cob": "0.20.0",
+    "radicle-crypto": "0.17.0",
+    "radicle-oid": "0.2.0"
+  },
+  "lifecycle_heads": [],
+  "mutated": false,
+  "non_claims": [
+    "embedded creator and delegate keys are immutable COB authority, not Radicle identity-document or future authorization proof",
+    "signed conflict resolution proves bounded local Git COB observations only",
+    "selecting a conflict head does not prove semantic merge correctness or that losing heads are invalid",
+    "an explicit lifecycle reset to open does not prove review, approval, evidence truth, source correctness, archive execution, or release eligibility",
+    "local signed COB resolution does not prove node participation, publication, synchronization, peer convergence, availability, or remote trust"
+  ],
+  "object_id": "0702d3bd89a7be698cd24ec343323d7786a99d6d",
+  "observed_policy_hash": "0d5e71092b45e2a8cfbaed4edffe6b01cd6cd0e4dc71f9c86fc1d0bf82cc70fc",
+  "policy": "octet-default",
+  "policy_current": true,
+  "policy_hash": "0d5e71092b45e2a8cfbaed4edffe6b01cd6cd0e4dc71f9c86fc1d0bf82cc70fc",
+  "receipt_hash": "0250ad9cf39947a53a998e6e69a5f11e5a1ffa8f433fd3b5b0031c265e76b6e7",
+  "root": ".",
+  "shown_head": null,
+  "state_hash": "43267f6822bfb76815fe5639f94b9a7615aeed57baaec6a6ec6e047008394e35",
+  "valid": true,
+  "verdict": "PASS",
+  "workspace_id": "workspace:octet"
+}

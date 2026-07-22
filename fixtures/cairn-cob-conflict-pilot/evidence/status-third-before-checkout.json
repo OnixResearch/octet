@@ -1,0 +1,82 @@
+{
+  "authority": {
+    "creator": "z6MkrYePae54PSMayuv3YJJcPV65GE6Mhvuq2537cmJybFCW",
+    "delegates": [
+      "z6Mkgvh5Qq4bjh8BZUDwPB9ZPNoQvHGMu1wvPX2KRyPNUDtq"
+    ],
+    "source": "signed_root_embedded_authority"
+  },
+  "backend": "radicle-cob.v1",
+  "base_git_oid": "git_oid:22722030cd734900c565840997a62b36055aa85d",
+  "change": "exercise-cairn-cob-conflict-recovery",
+  "checkout_blockers": [],
+  "checkout_ready": true,
+  "command": "collaboration status",
+  "compatibility_command": "cob status",
+  "content_conflicts": [],
+  "content_root": "7dd70c82ceeba898e794cbb0e7f964e2ee70914c1858ea0dee111f9183d83ac6",
+  "current_evidence_count": 0,
+  "evidence_count": 0,
+  "file_count": 4,
+  "files": [
+    {
+      "blake3": "b2fefc1fe50c2455b3e7ef91fef179783d3d768a5a4915e5c8bc1061697a9547",
+      "bytes": 6563,
+      "path": "design.md"
+    },
+    {
+      "blake3": "e0a6e530f25a68fb0e7ff26cccc15445c85215aee2405b7e2cc200b053e4de7d",
+      "bytes": 1843,
+      "path": "proposal.md"
+    },
+    {
+      "blake3": "71b0d96379281cef2750c502fc64b4574fa200125cbd45d8e0106767a7c4dccb",
+      "bytes": 6545,
+      "path": "specs/cob-collaboration-conflict-recovery/spec.md"
+    },
+    {
+      "blake3": "7f8eca743500d0d33ded2ec7f0a17e0d45821359630933250943fa2571d305bc",
+      "bytes": 2200,
+      "path": "tasks.md"
+    }
+  ],
+  "format_libraries": {
+    "git-ref-format-core": "0.6.0",
+    "git2": "0.20.4",
+    "radicle-cob": "0.20.0",
+    "radicle-crypto": "0.17.0",
+    "radicle-oid": "0.2.0"
+  },
+  "lifecycle": {
+    "condition": "stale",
+    "current_content_root": "7dd70c82ceeba898e794cbb0e7f964e2ee70914c1858ea0dee111f9183d83ac6",
+    "record": {
+      "evidence": [],
+      "status": "open",
+      "subject_root": "d2e4dd8f05a298db41c6f601db7f37274ffe0094e917f93db4d657bd10f44cbe"
+    }
+  },
+  "local_destination": "absent",
+  "mutated": false,
+  "non_claims": [
+    "typed status proves only reduction and observations in the selected local Git COB store",
+    "embedded creator and delegate keys are immutable COB authority, not Radicle identity-document or future authorization proof",
+    "status and checkout do not prove gate validity, evidence truth, dependency readiness, source correctness, archive execution, or release eligibility",
+    "status and checkout do not prove node participation, publication, peer availability, synchronization, convergence, or remote trust",
+    "the cooperative checkout lock is not a sandbox against unrelated processes with equivalent host filesystem authority"
+  ],
+  "object_id": "0702d3bd89a7be698cd24ec343323d7786a99d6d",
+  "object_policy_hash": "0d5e71092b45e2a8cfbaed4edffe6b01cd6cd0e4dc71f9c86fc1d0bf82cc70fc",
+  "observed_policy_hash": "0d5e71092b45e2a8cfbaed4edffe6b01cd6cd0e4dc71f9c86fc1d0bf82cc70fc",
+  "plan_hash": "1366e149828b3012bc9adbb9df466edd83ec1e5899cc031bdc0ae79d6de4ab78",
+  "policy": "octet-default",
+  "policy_current": true,
+  "receipt_hash": "de0f8b7647a92fa08f8824e295462fcb572ba504ae1fa6bde61241a5ef0d2003",
+  "repository_head_oid": "22722030cd734900c565840997a62b36055aa85d",
+  "root": "target/cairn-cob-conflict-work/third-root",
+  "state_hash": "0b843293c31ed26eb4e1572915b1701e05a5ed9af61efe6c7db8c614346135a8",
+  "type_name": "xyz.onixresearch.cairn-change",
+  "valid": true,
+  "verdict": "PASS",
+  "workspace_id": "workspace:octet"
+}
