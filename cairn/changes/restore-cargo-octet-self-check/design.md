@@ -8,11 +8,12 @@ Completion requires all of the following:
 
 1. Root `Cargo.toml` contains `[workspace.metadata.octet]` with exact no-argument scope `--workspace` and exact Cargo tail `--lib`.
 2. A deterministic Rust test reads the checked-in root manifest and rejects missing, legacy-only, malformed, narrowed, or broadened values.
-3. `nix run .#cargo-octet -- check` invokes the packaged runner without explicit scope overrides or policy weakening and exits `0` after a successful Cargo child process.
-4. A hermetic Nix check reruns that positive path and proves a malformed metadata array exits `2` before a sentinel Cargo child can run.
-5. Focused, broad, lifecycle, policy, and traceability gates pass or preserve an explicitly inherited baseline.
+3. The packaged runner includes the linker tools required by the checked-in target configuration.
+4. `nix run .#cargo-octet -- check` invokes the packaged runner without explicit scope overrides or policy weakening and exits `0` after a successful Cargo child process.
+5. A hermetic Nix check reruns that positive path, proves a malformed metadata array exits `2` before a sentinel Cargo child can run, and proves an invoked non-zero Cargo sentinel becomes runner exit `2`.
+6. Focused, broad, lifecycle, policy, and traceability gates pass or preserve an explicitly inherited baseline.
 
-False completion includes adding top-level `[metadata]`, teaching the loader implicit defaults, selecting only one package without review, passing command-line scope overrides, using `--allow-style-violations`, testing only TOML parsing, accepting malformed arrays, or treating a successful lint run as whole-program correctness or release eligibility.
+False completion includes adding top-level `[metadata]`, teaching the loader implicit defaults, selecting only one package without review, passing command-line scope overrides, using `--allow-style-violations`, testing only TOML parsing, accepting malformed arrays, omitting configured linker tools, returning success after a failed Cargo child, or treating a successful lint run as whole-program correctness or release eligibility.
 
 ## Portfolio Search
 
@@ -45,11 +46,17 @@ The search used four mechanism families, one advisory review, repository source 
 
 **Rationale:** Restoring Octet's own configuration must not make missing consumer policy valid. The sentinel distinguishes parser rejection from a later Cargo failure.
 
+### Decision: Package configured linker tools
+
+**Choice:** Add Clang and Mold to `cargoOctetRuntimePath` alongside the existing Cargo, Rustup, Rust toolchain, C compiler, and evidence tools.
+
+**Rationale:** Root `.cargo/config.toml` explicitly selects `clang` and `-fuse-ld=mold`. Build-time availability alone does not make those executables available to a consumer process launched by `nix run`.
+
 ### Decision: Keep the Nix gate hermetic and reviewable
 
-**Choice:** The positive case uses the wrapped `cargoOctet` package against a writable copy of the filtered source and asserts the human summary. The negative case uses the unwrapped binary with a sentinel `cargo` first on `PATH`, then asserts exit `2`, the exact stable diagnostic, and absence of the sentinel marker.
+**Choice:** The positive case uses the wrapped `cargoOctet` package against a writable copy of the filtered source and asserts the human summary. One unwrapped negative uses malformed metadata and a sentinel `cargo`, then asserts exit `2`, the exact stable diagnostic, and absence of the sentinel marker. A second valid-metadata negative invokes the sentinel with a non-zero status and requires runner exit `2` plus an integration-failure summary.
 
-**Rationale:** The wrapped path proves the released environment wiring; the unwrapped negative isolates the admission boundary without allowing wrapper path injection to hide a child invocation.
+**Rationale:** The wrapped path proves released environment wiring. The unwrapped negatives isolate pre-Cargo admission and post-Cargo status propagation without wrapper path injection hiding whether the child ran.
 
 ## Risks / Trade-offs
 

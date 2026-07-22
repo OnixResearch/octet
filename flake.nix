@@ -437,6 +437,8 @@
             rustup-shim
             rustToolchain
             pkgs.stdenv.cc
+            pkgs.clang
+            pkgs.mold
             pkgs.ast-grep
             octetVerus
             octetProductionVerus
@@ -2575,6 +2577,119 @@
                   export CARGO_OCTET_BIN="${cargoOctetUnwrapped}/bin/cargo-octet"
                 '';
               };
+            cargoOctetSelfCheck =
+              pkgs.runCommand "octet-cargo-octet-self-check"
+                {
+                  nativeBuildInputs = with pkgs; [
+                    coreutils
+                    gnugrep
+                  ];
+                }
+                ''
+                  scratch="$(mktemp -d)"
+                  source_dir="$scratch/source"
+                  cargo_home="$scratch/cargo-home"
+                  positive_stdout="$scratch/positive.stdout"
+                  positive_stderr="$scratch/positive.stderr"
+                  malformed_dir="$scratch/malformed"
+                  negative_stdout="$scratch/negative.stdout"
+                  negative_stderr="$scratch/negative.stderr"
+                  child_failure_dir="$scratch/child-failure"
+                  child_failure_stdout="$scratch/child-failure.stdout"
+                  child_failure_stderr="$scratch/child-failure.stderr"
+                  sentinel_bin="$scratch/sentinel-bin"
+                  sentinel_marker="$scratch/cargo-invoked"
+                  integration_failure_exit=2
+                  sentinel_exit=99
+                  malformed_scope_entry=7
+                  fixture_edition=2024
+                  fixture_version=0.0.0
+
+                  cp -r ${src} "$source_dir"
+                  chmod -R u+w "$source_dir"
+                  mkdir -p "$cargo_home" "$scratch/home"
+                  cp "${cargoVendorDir}/config.toml" "$cargo_home/config.toml"
+
+                  (
+                    cd "$source_dir"
+                    export CARGO_HOME="$cargo_home"
+                    export CARGO_TARGET_DIR="$scratch/target"
+                    export HOME="$scratch/home"
+                    ${cargoOctet}/bin/cargo-octet check > "$positive_stdout" 2> "$positive_stderr"
+                  )
+                  grep -F -- '--- octet summary ---' "$positive_stderr" >/dev/null
+                  grep -E '^Status: (clean|warning-only)$' "$positive_stderr" >/dev/null
+                  grep -F 'Errors: 0' "$positive_stderr" >/dev/null
+
+                  mkdir -p "$malformed_dir/src" "$child_failure_dir/src" "$sentinel_bin"
+                  cat > "$malformed_dir/Cargo.toml" <<EOF
+                  [package]
+                  name = "malformed-octet-metadata"
+                  version = "$fixture_version"
+                  edition = "$fixture_edition"
+
+                  [workspace]
+
+                  [workspace.metadata.octet]
+                  default_scope = ["--workspace", $malformed_scope_entry]
+                  cargo_check_args = ["--lib"]
+                  EOF
+                  printf 'pub fn checked() {}\n' > "$malformed_dir/src/lib.rs"
+                  cat > "$sentinel_bin/cargo" <<EOF
+                  #!${pkgs.runtimeShell}
+                  touch "$sentinel_marker"
+                  exit $sentinel_exit
+                  EOF
+                  chmod +x "$sentinel_bin/cargo"
+
+                  set +e
+                  (
+                    cd "$malformed_dir"
+                    PATH="$sentinel_bin:${pkgs.coreutils}/bin" \
+                      ${cargoOctetUnwrapped}/bin/cargo-octet check > "$negative_stdout" 2> "$negative_stderr"
+                  )
+                  negative_status="$?"
+                  set -e
+                  test "$negative_status" -eq "$integration_failure_exit"
+                  grep -F 'error: `default_scope` must contain only strings in' "$negative_stderr" >/dev/null
+                  test ! -e "$sentinel_marker"
+
+                  cat > "$child_failure_dir/Cargo.toml" <<EOF
+                  [package]
+                  name = "octet-child-failure"
+                  version = "$fixture_version"
+                  edition = "$fixture_edition"
+
+                  [workspace]
+
+                  [workspace.metadata.octet]
+                  default_scope = ["--workspace"]
+                  cargo_check_args = ["--lib"]
+                  EOF
+                  printf 'pub fn checked() {}\n' > "$child_failure_dir/src/lib.rs"
+                  set +e
+                  (
+                    cd "$child_failure_dir"
+                    PATH="$sentinel_bin:${pkgs.coreutils}/bin" \
+                      TIGERSTYLE_TOOLCHAIN="${rustupToolchain}" \
+                      TIGERSTYLE_DRIVER_PATH="${dylintDriver}/bin/dylint-driver" \
+                      TIGERSTYLE_LINT_LIB="${octetUiLibrary}/lib/${octetUiLibraryName}" \
+                      ${cargoOctetUnwrapped}/bin/cargo-octet check \
+                        > "$child_failure_stdout" 2> "$child_failure_stderr"
+                  )
+                  child_failure_status="$?"
+                  set -e
+                  test "$child_failure_status" -eq "$integration_failure_exit"
+                  test -e "$sentinel_marker"
+                  grep -F 'Status: integration-failure' "$child_failure_stderr" >/dev/null
+
+                  mkdir -p "$out"
+                  cp \
+                    "$positive_stdout" "$positive_stderr" \
+                    "$negative_stdout" "$negative_stderr" \
+                    "$child_failure_stdout" "$child_failure_stderr" \
+                    "$out/"
+                '';
             fingerprintLifecycleDocs = mkFingerprintDocsCheck "octet-fingerprint-lifecycle-docs" "fingerprint_lifecycle_docs_fixture_matches_transcript";
             fingerprintHumanSummaryDocs = mkFingerprintDocsCheck "octet-fingerprint-human-summary-docs" "fingerprint_human_summary_docs_fixture_matches_transcript";
             fingerprintWarningSummaryDocs = mkFingerprintDocsCheck "octet-fingerprint-warning-summary-docs" "fingerprint_warning_summary_docs_fixture_matches_transcript";
@@ -3555,6 +3670,7 @@
             };
 
             policy-registry = policyRegistryCheck;
+            cargo-octet-self-check = cargoOctetSelfCheck;
             cairn-cob-pilot = cairnCobPilotCheck;
             cairn-cob-conflict-pilot = cairnCobConflictPilotCheck;
             ast-grep-structural-rail = astGrepStructuralRailCheck;
