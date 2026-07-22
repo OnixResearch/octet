@@ -106,6 +106,7 @@ let PolicyFieldSetDigest = "cdbe3adf5778872343f8576e0304e3748dcaf7fb58f59c489599
         id = "octet-default",
         requirement_sources = [
           { root = "cairn/specs/evidence-provenance/spec.md", source_kind = "accepted_specs", extensions = ["md"] },
+          { root = "cairn/specs/cob-collaboration-adoption/spec.md", source_kind = "accepted_specs", extensions = ["md"] },
         ],
         evidence_sources = [
           { root = "cargo-octet/src/main.rs", source_kind = "rust_source", extensions = ["rs"] },
@@ -122,6 +123,7 @@ let PolicyFieldSetDigest = "cdbe3adf5778872343f8576e0304e3748dcaf7fb58f59c489599
         id = "cairn-default",
         requirement_sources = [
           { root = "cairn/specs/evidence-provenance/spec.md", source_kind = "accepted_specs", extensions = ["md"] },
+          { root = "cairn/specs/cob-collaboration-adoption/spec.md", source_kind = "accepted_specs", extensions = ["md"] },
         ],
         evidence_sources = [
           { root = "cargo-octet/src/main.rs", source_kind = "rust_source", extensions = ["rs"] },
