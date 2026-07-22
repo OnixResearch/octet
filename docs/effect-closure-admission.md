@@ -4,6 +4,7 @@
 
 <!-- r[impl octet.effect_closure.cli] -->
 <!-- r[impl octet.effect_closure.boundaries] -->
+<!-- r[verify octet.effect_closure.boundaries.non_claims] -->
 
 Effect closure v1 source-parses the configured `core_source_scopes`, anchors each supported function to deny-mode source-token function-address evidence, classifies direct effects and call shapes, resolves selected local calls, applies exact reviewed summaries to every other supported call, and propagates effects to a finite fixed point.
 
@@ -135,6 +136,7 @@ Verification reruns the ordinary artifact verifier over the complete strict-prof
 
 ## Valence dogfood
 
+<!-- r[verify octet.effect_closure.dogfood] -->
 <!-- r[verify octet.effect_closure.dogfood.initial] -->
 <!-- r[verify octet.effect_closure.dogfood.final] -->
 

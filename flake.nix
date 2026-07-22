@@ -3473,6 +3473,50 @@
                   test -s ${aeneasLeanProviderClosureCheck}/identity.json
                   mkdir -p "$out"
                 '';
+            cairnTraceabilityCheck =
+              pkgs.runCommand "octet-cairn-traceability-check"
+                {
+                  nativeBuildInputs = with pkgs; [
+                    coreutils
+                    jq
+                  ];
+                }
+                ''
+                  cairn_bin=${cairn.packages.${system}.cairn}/bin/cairn
+                  repository=${./.}
+                  negative="$TMPDIR/negative-repository"
+                  mkdir -p "$out" "$negative"
+
+                  (
+                    cd "$repository"
+                    "$cairn_bin" tracey coverage --root . --json
+                  ) > "$out/positive.json"
+                  jq --exit-status '.valid == true and .missing == [] and .dangling == []' \
+                    "$out/positive.json" >/dev/null
+
+                  cp -R --no-preserve=mode "$repository/." "$negative"
+                  substituteInPlace "$negative/cargo-octet/src/admit.rs" \
+                    --replace-fail \
+                    '// r[impl octet.effect_closure.cli.check_failure]' \
+                    '// negative fixture removed the direct-check failure implementation marker'
+                  substituteInPlace "$negative/tests/consumer_integration.rs" \
+                    --replace-fail \
+                    '// r[verify octet.effect_closure.cli.check_failure]' \
+                    '// negative fixture removed the direct-check failure verification marker'
+
+                  if (
+                    cd "$negative"
+                    "$cairn_bin" tracey coverage --root . --json
+                  ) > "$out/negative.json" 2> "$out/negative.stderr"; then
+                    echo 'traceability negative fixture unexpectedly passed' >&2
+                    exit 1
+                  fi
+                  jq --exit-status \
+                    '.valid == false
+                     and .missing == ["octet.effect_closure.cli.check_failure"]
+                     and .dangling == []' \
+                    "$out/negative.json" >/dev/null
+                '';
             cairnCobPilotCheck =
               pkgs.runCommand "octet-cairn-cob-pilot-check"
                 {
@@ -3679,6 +3723,7 @@
 
             policy-registry = policyRegistryCheck;
             cargo-octet-self-check = cargoOctetSelfCheck;
+            cairn-traceability = cairnTraceabilityCheck;
             cairn-cob-pilot = cairnCobPilotCheck;
             cairn-cob-conflict-pilot = cairnCobConflictPilotCheck;
             ast-grep-structural-rail = astGrepStructuralRailCheck;

@@ -1648,6 +1648,7 @@ fn is_sorted_unique<T: Ord>(items: &[T]) -> bool {
     items.windows(2).all(|window| window[0] < window[1])
 }
 
+// r[verify octet.effect_closure.verification]
 #[cfg(test)]
 mod tests {
     use super::*;
