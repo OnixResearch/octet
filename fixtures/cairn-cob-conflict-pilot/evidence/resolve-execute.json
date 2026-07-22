@@ -1,0 +1,98 @@
+{
+  "actions": [
+    {
+      "artifact": "tasks",
+      "basis": [
+        "2ba95e8204bd05dd566d93f7f5f9ac68f7126904",
+        "e73bf24a150c12c5cbeda410c40d113d002ef259"
+      ],
+      "content_blake3": "7f8eca743500d0d33ded2ec7f0a17e0d45821359630933250943fa2571d305bc",
+      "content_bytes": 2200,
+      "kind": "set_artifact",
+      "removed": false
+    }
+  ],
+  "actor": {
+    "authority_class": "signed_creator",
+    "cryptographically_verified": true,
+    "currently_authorized": true,
+    "id": "z6MkrYePae54PSMayuv3YJJcPV65GE6Mhvuq2537cmJybFCW",
+    "source": "explicit_cob_keystore_and_embedded_authority"
+  },
+  "artifact_conflicts": [
+    {
+      "artifact": "tasks",
+      "heads": [
+        {
+          "actor": "z6MkrYePae54PSMayuv3YJJcPV65GE6Mhvuq2537cmJybFCW",
+          "content_blake3": "7f8eca743500d0d33ded2ec7f0a17e0d45821359630933250943fa2571d305bc",
+          "content_bytes": 2200,
+          "deleted": false,
+          "revision_id": "2ba95e8204bd05dd566d93f7f5f9ac68f7126904"
+        },
+        {
+          "actor": "z6Mkgvh5Qq4bjh8BZUDwPB9ZPNoQvHGMu1wvPX2KRyPNUDtq",
+          "content_blake3": "fb6963a6391aa2524c5d31a0531362e8a334f3f1b0f70026f7781a328c93ec22",
+          "content_bytes": 2201,
+          "deleted": false,
+          "revision_id": "e73bf24a150c12c5cbeda410c40d113d002ef259"
+        }
+      ]
+    }
+  ],
+  "backend": "radicle-cob.v1",
+  "base_revision": {
+    "kind": "git_oid",
+    "value": "22722030cd734900c565840997a62b36055aa85d"
+  },
+  "blocked": false,
+  "blockers": [],
+  "change": "exercise-cairn-cob-conflict-recovery",
+  "command": "collaboration resolve",
+  "compatibility_command": "cob resolve",
+  "delegates": [
+    "z6Mkgvh5Qq4bjh8BZUDwPB9ZPNoQvHGMu1wvPX2KRyPNUDtq"
+  ],
+  "dry_run": false,
+  "expected_content_root": "7dd70c82ceeba898e794cbb0e7f964e2ee70914c1858ea0dee111f9183d83ac6",
+  "format_libraries": {
+    "git-ref-format-core": "0.6.0",
+    "git2": "0.20.4",
+    "radicle-cob": "0.20.0",
+    "radicle-crypto": "0.17.0",
+    "radicle-oid": "0.2.0"
+  },
+  "input_hash": "43267f6822bfb76815fe5639f94b9a7615aeed57baaec6a6ec6e047008394e35",
+  "input_state_hash": "43267f6822bfb76815fe5639f94b9a7615aeed57baaec6a6ec6e047008394e35",
+  "lifecycle_heads": [],
+  "lifecycle_reset": false,
+  "mutated": true,
+  "non_claims": [
+    "embedded creator and delegate keys are immutable COB authority, not Radicle identity-document or future authorization proof",
+    "signed conflict resolution proves bounded local Git COB observations only",
+    "selecting a conflict head does not prove semantic merge correctness or that losing heads are invalid",
+    "an explicit lifecycle reset to open does not prove review, approval, evidence truth, source correctness, archive execution, or release eligibility",
+    "local signed COB resolution does not prove node participation, publication, synchronization, peer convergence, availability, or remote trust"
+  ],
+  "object_id": "0702d3bd89a7be698cd24ec343323d7786a99d6d",
+  "observed_policy_hash": "0d5e71092b45e2a8cfbaed4edffe6b01cd6cd0e4dc71f9c86fc1d0bf82cc70fc",
+  "operation_plan_id": "26dcbe384c1e385403ae07c652a16d9448ac449f5603636dde831c1808afbade",
+  "plan_hash": "c28bd3d241ed47388311bfa6f6af496764ae5696b4ec2ab4120a71d7ecff30e6",
+  "policy": "octet-default",
+  "policy_current": true,
+  "policy_hash": "0d5e71092b45e2a8cfbaed4edffe6b01cd6cd0e4dc71f9c86fc1d0bf82cc70fc",
+  "receipt_hash": "14aac08c40f783c1ce8c7ab4e61849af844c8f6654dc0c13cd8df3d75d500915",
+  "result_content_root": "7dd70c82ceeba898e794cbb0e7f964e2ee70914c1858ea0dee111f9183d83ac6",
+  "result_operation_id": "3669f3e1001bba8878d9ad4bcaf874d21207703b",
+  "result_state_hash": "0b843293c31ed26eb4e1572915b1701e05a5ed9af61efe6c7db8c614346135a8",
+  "root": ".",
+  "selected_artifacts": [
+    {
+      "artifact": "tasks",
+      "revision_id": "2ba95e8204bd05dd566d93f7f5f9ac68f7126904"
+    }
+  ],
+  "valid": true,
+  "verdict": "PASS",
+  "workspace_id": "workspace:octet"
+}
