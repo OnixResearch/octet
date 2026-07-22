@@ -568,6 +568,7 @@ pub(crate) fn build_standalone_cargo_octet() -> StandaloneCargoOctet {
         "standards/clippy-restrictions/generated",
         "standards/effect-closure/generated",
         "standards/proof-imports/generated",
+        "standards/proof-rails/aeneas-lean/generated",
         "standards/strict-profiles/generated",
     ] {
         copy_path(&repo_root.join(relative), &source_root.join(relative));
