@@ -417,6 +417,7 @@ pub fn render_report_json(report: &FunctionAddressReport) -> Result<String, Stri
     Ok(rendered)
 }
 
+// r[impl octet.evidence_provenance.evidence_chain_handoff.function_address]
 fn function_address_evidence_chain_handoff(
     config_hash: &str,
     source_envelopes: &[SourceEnvelopeRecord],
