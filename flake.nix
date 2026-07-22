@@ -258,6 +258,9 @@
               inUiTests = pkgs.lib.hasSuffix "/ui_tests" path || pkgs.lib.hasInfix "/ui_tests/" path;
               inTestFixtures =
                 pkgs.lib.hasSuffix "/tests/fixtures" path || pkgs.lib.hasInfix "/tests/fixtures/" path;
+              inCairnCobPilot =
+                pkgs.lib.hasSuffix "/fixtures/cairn-cob-pilot" path
+                || pkgs.lib.hasInfix "/fixtures/cairn-cob-pilot/" path;
               inDocs = pkgs.lib.hasSuffix "/docs" path || pkgs.lib.hasInfix "/docs/" path;
               inStandards = pkgs.lib.hasSuffix "/standards" path || pkgs.lib.hasInfix "/standards/" path;
               inTemplates = pkgs.lib.hasSuffix "/templates" path || pkgs.lib.hasInfix "/templates/" path;
@@ -269,6 +272,7 @@
             (craneLib.filterCargoSources path type)
             || inUiTests
             || inTestFixtures
+            || inCairnCobPilot
             || inDocs
             || inStandards
             || inTemplates
@@ -3342,6 +3346,48 @@
                   test -s ${aeneasLeanProviderClosureCheck}/identity.json
                   mkdir -p "$out"
                 '';
+            cairnCobPilotCheck =
+              pkgs.runCommand "octet-cairn-cob-pilot-check"
+                {
+                  nativeBuildInputs = with pkgs; [
+                    coreutils
+                    diffutils
+                    gitMinimal
+                    gnugrep
+                    nickel
+                  ];
+                }
+                ''
+                  fixture=${src}/fixtures/cairn-cob-pilot
+                  scratch="$(mktemp -d)"
+                  audit_store="$scratch/audit.git"
+                  generated_manifest="$scratch/manifest.json"
+                  bundle_heads="$scratch/bundle-heads.txt"
+                  bundle_verify="$scratch/bundle-verify.txt"
+                  base_ref='refs/heads/main'
+                  base_oid='28ffbe8cfb01879a241cad248008b75252a8b7f5'
+                  namespace_ref='refs/namespaces/z6MkjPAjbbnXWtKTuUarEF3CbhnPjFzU9ify9Xuz7qdTv4Dn/refs/cobs/xyz.onixresearch.cairn-change/8d4cf943a20d666c16cea0190db2541767ef8603'
+                  namespace_oid='35e76bfd1dc9755f936c53762c9af999b8a666dd'
+                  expected_head_count=2
+
+                  nickel typecheck "$fixture/manifest.ncl"
+                  nickel export --format json "$fixture/manifest.ncl" > "$generated_manifest"
+                  cmp "$fixture/manifest.json" "$generated_manifest"
+
+                  git init --bare "$audit_store"
+                  git --git-dir="$audit_store" bundle verify "$fixture/octet-cob.bundle" > "$bundle_verify"
+                  git bundle list-heads "$fixture/octet-cob.bundle" > "$bundle_heads"
+                  test "$(wc -l < "$bundle_heads")" -eq "$expected_head_count"
+                  grep -F "$base_oid $base_ref" "$bundle_heads" >/dev/null
+                  grep -F "$namespace_oid $namespace_ref" "$bundle_heads" >/dev/null
+                  git --git-dir="$audit_store" fetch --no-tags "$fixture/octet-cob.bundle" \
+                    "+$base_ref:$base_ref" "+refs/namespaces/*:refs/namespaces/*"
+                  test "$(git --git-dir="$audit_store" rev-parse "$base_ref")" = "$base_oid"
+                  test "$(git --git-dir="$audit_store" rev-parse "$namespace_ref")" = "$namespace_oid"
+                  test -z "$(git --git-dir="$audit_store" remote)"
+                  mkdir -p "$out"
+                  cp "$generated_manifest" "$bundle_heads" "$bundle_verify" "$out/"
+                '';
           in
           {
             octet = octet;
@@ -3454,6 +3500,7 @@
             };
 
             policy-registry = policyRegistryCheck;
+            cairn-cob-pilot = cairnCobPilotCheck;
             ast-grep-structural-rail = astGrepStructuralRailCheck;
             wasm-artifact-rail = wasmArtifactRailCheck;
             strict-profile-catalog = strictProfileCatalogCheck;
