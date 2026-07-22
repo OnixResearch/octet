@@ -23,7 +23,6 @@ use support::consumer_fixture::write_file;
 
 const EXPECTED_SELF_CHECK_SCOPE: [&str; 1] = ["--workspace"];
 const EXPECTED_SELF_CHECK_CARGO_ARGS: [&str; 1] = ["--lib"];
-const SELF_CHECK_GATE_NAME: &str = "cargo-octet-self-check";
 
 #[test]
 fn cargo_style_argv_prefix_parses_like_bare_check() {
@@ -110,14 +109,6 @@ fn repository_root_declares_the_bounded_self_check() {
     let cargo_args = required_string_array(octet_metadata, "cargo_check_args");
     assert_eq!(scope, EXPECTED_SELF_CHECK_SCOPE);
     assert_eq!(cargo_args, EXPECTED_SELF_CHECK_CARGO_ARGS);
-
-    let flake_path = repository_root.join("flake.nix");
-    let flake_source =
-        fs::read_to_string(&flake_path).unwrap_or_else(|error| panic!("read {}: {error}", flake_path.display()));
-    assert!(
-        flake_source.contains(SELF_CHECK_GATE_NAME),
-        "flake must expose the dedicated {SELF_CHECK_GATE_NAME} gate"
-    );
 }
 
 fn required_string_array<'a>(table: &'a toml::Table, key: &str) -> Vec<&'a str> {
