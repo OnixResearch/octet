@@ -9,4 +9,4 @@
 - [x] [depends:I3] V1 Run focused root-manifest, metadata-precedence, missing/malformed metadata, child-failure propagation, formatting, and Clippy checks. r[octet.runner_self_check.metadata.scoped] r[octet.runner_self_check.failure.malformed] r[octet.runner_self_check.failure.child_failure]
 - [x] [depends:V1] V2 Run the exact canonical command and dedicated Nix gate, retaining positive summary and malformed-negative evidence. r[octet.runner_self_check.execution.pass] r[octet.runner_self_check.failure.malformed]
 - [x] [depends:V2] V3 Run Nextest, the broad flake gate, native Cairn gates, accepted-spec sync, policy freshness, and traceability while reporting inherited baselines separately. r[octet.runner_self_check.boundary] r[octet.runner_self_check.boundary.non_claims]
-- [ ] [depends:V3] V4 Prepare deterministic archive execution and record post-archive validation criteria. r[octet.runner_self_check.boundary]
+- [x] [depends:V3] V4 Prepare deterministic archive execution and record post-archive validation criteria. r[octet.runner_self_check.boundary]
