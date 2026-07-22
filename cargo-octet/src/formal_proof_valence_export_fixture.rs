@@ -12,6 +12,8 @@ const DIAGNOSTIC_TIER_PROMOTION: &str = "formal_proof_export_tier_promotion";
 const DIAGNOSTIC_MISSING_NON_CLAIM: &str = "formal_proof_export_missing_non_claim";
 const DIAGNOSTIC_OVERCLAIM: &str = "formal_proof_export_overclaim";
 
+// r[impl octet.evidence_provenance.formal_proof_valence_export_fixture.contract]
+// r[impl octet.evidence_provenance.formal_proof_valence_export_fixture.contract.fields]
 #[derive(Clone, Debug, Eq, PartialEq)]
 struct FormalProofExportFixture {
     proof_receipt_id: String,
@@ -36,6 +38,8 @@ struct FormalProofExportReport {
     supported_claim: String,
 }
 
+// r[impl octet.evidence_provenance.formal_proof_valence_export_fixture.validation]
+// r[impl octet.evidence_provenance.formal_proof_valence_export_fixture.validation.core]
 fn validate_formal_proof_export_fixture(fixture: &FormalProofExportFixture) -> FormalProofExportReport {
     let mut diagnostics = Vec::new();
     if fixture.proof_receipt_id.trim().is_empty() {
@@ -97,6 +101,8 @@ mod tests {
     const CARD_DIGEST: &str = "b3:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
     const STALE_CARD_DIGEST: &str = "b3:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 
+    // r[verify octet.evidence_provenance.formal_proof_valence_export_fixture.positive]
+    // r[verify octet.evidence_provenance.formal_proof_valence_export_fixture.positive.verified]
     #[test]
     fn formal_proof_valence_export_fixture_accepts_verified_scoped_receipt_chain() {
         let fixture = valid_fixture();
@@ -107,6 +113,11 @@ mod tests {
         assert_eq!(report.supported_claim, REQUIRED_NON_CLAIM);
     }
 
+    // r[verify octet.evidence_provenance.formal_proof_valence_export_fixture.negative]
+    // r[verify octet.evidence_provenance.formal_proof_valence_export_fixture.negative.skipped_verify]
+    // r[verify octet.evidence_provenance.formal_proof_valence_export_fixture.negative.manual_review]
+    // r[verify octet.evidence_provenance.formal_proof_valence_export_fixture.final_validation]
+    // r[verify octet.evidence_provenance.formal_proof_valence_export_fixture.final_validation.fixtures]
     #[test]
     fn formal_proof_valence_export_fixture_rejects_missing_stale_unverified_promoted_and_overclaiming_rows() {
         let mut missing_receipt = valid_fixture();

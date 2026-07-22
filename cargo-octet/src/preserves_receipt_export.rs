@@ -18,6 +18,7 @@ enum EvidenceRole {
     FormalProof,
 }
 
+// r[impl octet.evidence_provenance.preserves_receipt_export.contract]
 #[derive(Clone, Debug, Eq, PartialEq)]
 struct PreservesExportRow {
     source_artifact_dir: String,
@@ -41,6 +42,7 @@ struct PreservesExportReport {
     supported_claim: String,
 }
 
+// r[impl octet.evidence_provenance.preserves_receipt_export.validation]
 fn validate_preserves_export(row: &PreservesExportRow) -> PreservesExportReport {
     let mut diagnostics = Vec::new();
     if row.source_artifact_dir.trim().is_empty() || row.source_receipt_digest.trim().is_empty() {
@@ -96,6 +98,7 @@ mod tests {
     const STALE_DIGEST: &str = "b3:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
     const ENVELOPE_BYTES: &[u8] = b"canonical preserves envelope fixture";
 
+    // r[verify octet.evidence_provenance.preserves_receipt_export.fixtures.positive]
     #[test]
     fn preserves_receipt_export_accepts_verified_octet_receipt_envelope() {
         let row = valid_row();
@@ -106,6 +109,9 @@ mod tests {
         assert_eq!(report.supported_claim, REQUIRED_NON_CLAIM);
     }
 
+    // r[verify octet.evidence_provenance.preserves_receipt_export.fixtures.negative]
+    // r[verify octet.evidence_provenance.preserves_receipt_export.final_validation]
+    // r[verify octet.evidence_provenance.preserves_receipt_export.final_validation.fixtures]
     #[test]
     fn preserves_receipt_export_rejects_missing_stale_unverified_promoted_and_overclaiming_rows() {
         let mut missing = valid_row();

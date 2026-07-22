@@ -393,6 +393,8 @@ fn parse_optional_evidence_rail_receipt(
     }
 }
 
+// r[impl octet.evidence_provenance.valence_export.hegel_receipts]
+// r[impl octet.evidence_provenance.valence_export.hegel_receipts.export]
 fn valence_receipt_envelope(
     record: &ProvenanceRecord,
     file_map: &BTreeMap<String, Vec<u8>>,
@@ -645,6 +647,8 @@ fn validate_wasm_valence_receipt(record: &ValenceProvenanceRecord, diagnostics: 
     }
 }
 
+// r[impl octet.evidence_provenance.valence_export.hegel_receipts.no_promotion]
+// r[impl octet.evidence_provenance.valence_export.hegel_receipts.blocked]
 fn validate_hegel_valence_receipt(record: &ValenceProvenanceRecord, diagnostics: &mut Vec<String>) {
     if record.evidence_tier == FORMAL_PROOF_TIER {
         diagnostics.push("Hegel Valence export must not use formal_proof tier".to_owned());
@@ -1631,6 +1635,9 @@ mod tests {
     }
 
     // r[verify octet.evidence_provenance.valence_export.replayable_receipts.failed]
+    // r[verify octet.evidence_provenance.valence_export.hegel_receipts.export]
+    // r[verify octet.evidence_provenance.valence_export.hegel_receipts.no_promotion]
+    // r[verify octet.evidence_provenance.valence_export.hegel_receipts.blocked]
     #[test]
     fn valence_export_preserves_hegel_property_receipt_boundary() {
         let export = build_valence_provenance_export(valid_hegel_evidence_rail_input()).expect("valid Hegel export");

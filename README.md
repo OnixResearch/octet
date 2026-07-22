@@ -231,7 +231,16 @@ this README plus command help, without reading archived OpenSpec changes:
   descriptor, an Octet-to-Kamacite Preserves handoff contract, and the generic
   Octet evidence-chain producer handoff envelope. The JSON file is an
   operator/debug compatibility projection; Kamacite-owned canonical Preserves
-  bytes are the portable stack receipt authority. Dependency identity is
+  bytes are the portable stack receipt authority.
+  r[verify octet.evidence_provenance.evidence_chain_handoff.projection]
+  r[verify octet.evidence_provenance.evidence_chain_handoff.positive]
+  r[verify octet.evidence_provenance.evidence_chain_handoff.validation]
+  At Cairn revision `70db8fe114910feb5d162fea5db8ad4ffdb6f176`,
+  `nix develop -c cargo test -p cairn-cli --test function_address_stack_smoke`
+  validates the frozen Octet → Kamacite → Valence → Mantle → Cairn fixture and
+  its boundary mutations. This selected-fixture result is not arbitrary-version
+  compatibility, production deployment, behavioral correctness, or release
+  eligibility. Dependency identity is
   labeled `source-token-set`: it records the deterministic source-token dependency
   set, not a resolved Rust call graph or semantic dependency closure. `observe` is the bootstrap mode:
   unreviewed or unbaselined functions produce renderer-valid warning findings

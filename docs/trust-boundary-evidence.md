@@ -162,9 +162,11 @@ Reviewers use the existing commands at the matching stage:
   kinds for checks, receipts, imported Trellis references, parent artifacts, and
   Valence adapter feeds, plus explicit non-claims. It preserves Octet artifact
   identities, provenance records, proof-card summaries, parent links,
-  diagnostics, evidence tiers, and non-claims. Hegel property receipts export as
-  scoped generated-testing facts with property IDs, linked requirement IDs,
-  source scope, source hashes, parent links, and non-claim boundaries;
+  diagnostics, evidence tiers, and non-claims.
+  r[verify octet.evidence_provenance.valence_export.hegel_receipts.boundary]
+  Hegel property receipts export as scoped generated-testing facts with property
+  IDs, linked requirement IDs, source scope, source hashes, parent links, and
+  non-claim boundaries;
   r[verify octet.evidence_provenance.valence_export.not_release_claim]
   r[verify octet.evidence_provenance.valence_export.boundary.dependency_direction]
   the export does not prove release eligibility, Mantle bundle inclusion,

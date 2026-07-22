@@ -1,5 +1,6 @@
 # Preserves receipt export
 
+<!-- r[verify octet.evidence_provenance.preserves_receipt_export.docs] -->
 Preserves receipt export is an optional adapter over already verified Octet artifacts. Octet source receipts, artifact verification, rails, roles, consumer profiles, and non-claims remain authoritative; the Preserves envelope carries canonical identity/linkage for consumers.
 
 A valid export row records:

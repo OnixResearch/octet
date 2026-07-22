@@ -2480,6 +2480,34 @@
             "extensions": [
               "rs"
             ],
+            "root": "cargo-octet/src/evidence_chain.rs",
+            "source_kind": "rust_source"
+          },
+          {
+            "extensions": [
+              "rs"
+            ],
+            "root": "cargo-octet/src/function_address.rs",
+            "source_kind": "rust_source"
+          },
+          {
+            "extensions": [
+              "rs"
+            ],
+            "root": "cargo-octet/src/formal_proof_valence_export_fixture.rs",
+            "source_kind": "rust_source"
+          },
+          {
+            "extensions": [
+              "rs"
+            ],
+            "root": "cargo-octet/src/preserves_receipt_export.rs",
+            "source_kind": "rust_source"
+          },
+          {
+            "extensions": [
+              "rs"
+            ],
             "root": "crates/valence-core/src/evidence_codebase_index.rs",
             "source_kind": "rust_source"
           },
@@ -2495,6 +2523,20 @@
               "md"
             ],
             "root": "README.md",
+            "source_kind": "tool_source"
+          },
+          {
+            "extensions": [
+              "md"
+            ],
+            "root": "docs/formal-proof-valence-export-fixture.md",
+            "source_kind": "tool_source"
+          },
+          {
+            "extensions": [
+              "md"
+            ],
+            "root": "docs/preserves-receipt-export.md",
             "source_kind": "tool_source"
           },
           {
@@ -2570,6 +2612,34 @@
             "extensions": [
               "rs"
             ],
+            "root": "cargo-octet/src/evidence_chain.rs",
+            "source_kind": "rust_source"
+          },
+          {
+            "extensions": [
+              "rs"
+            ],
+            "root": "cargo-octet/src/function_address.rs",
+            "source_kind": "rust_source"
+          },
+          {
+            "extensions": [
+              "rs"
+            ],
+            "root": "cargo-octet/src/formal_proof_valence_export_fixture.rs",
+            "source_kind": "rust_source"
+          },
+          {
+            "extensions": [
+              "rs"
+            ],
+            "root": "cargo-octet/src/preserves_receipt_export.rs",
+            "source_kind": "rust_source"
+          },
+          {
+            "extensions": [
+              "rs"
+            ],
             "root": "crates/valence-core/src/evidence_codebase_index.rs",
             "source_kind": "rust_source"
           },
@@ -2585,6 +2655,20 @@
               "md"
             ],
             "root": "README.md",
+            "source_kind": "tool_source"
+          },
+          {
+            "extensions": [
+              "md"
+            ],
+            "root": "docs/formal-proof-valence-export-fixture.md",
+            "source_kind": "tool_source"
+          },
+          {
+            "extensions": [
+              "md"
+            ],
+            "root": "docs/preserves-receipt-export.md",
             "source_kind": "tool_source"
           },
           {

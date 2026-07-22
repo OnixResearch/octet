@@ -41,6 +41,7 @@ pub struct EvidenceChainProjection {
     pub authority: String,
 }
 
+// r[impl octet.evidence_provenance.evidence_chain_handoff.contract]
 #[derive(Debug, Clone, Eq, PartialEq, Serialize)]
 pub struct EvidenceChainHandoff {
     pub schema: String,
@@ -62,6 +63,7 @@ pub struct EvidenceChainValidationPolicy<'a> {
     pub required_non_claims: &'a [&'a str],
 }
 
+// r[impl octet.evidence_provenance.evidence_chain_handoff.core]
 #[must_use]
 pub fn validate_evidence_chain_handoff(
     handoff: &EvidenceChainHandoff,
@@ -135,6 +137,7 @@ fn validate_canonical_roots(roots: &[TypedDigest], diagnostics: &mut Vec<String>
     }
 }
 
+// r[impl octet.evidence_provenance.evidence_chain_handoff.projection]
 fn validate_projections(projections: &[EvidenceChainProjection], diagnostics: &mut Vec<String>) {
     if projections.is_empty() {
         diagnostics.push(format!("{EMPTY_FIELD_DIAGNOSTIC}: projections"));
@@ -211,6 +214,7 @@ mod tests {
         }
     }
 
+    // r[verify octet.evidence_provenance.evidence_chain_handoff.positive]
     #[test]
     fn valid_evidence_chain_handoff_passes() {
         let handoff = valid_handoff();
@@ -220,6 +224,7 @@ mod tests {
         assert!(diagnostics.is_empty());
     }
 
+    // r[verify octet.evidence_provenance.evidence_chain_handoff.negative]
     #[test]
     fn invalid_evidence_chain_handoff_rejects_missing_untyped_json_only_and_weakened_non_claims() {
         let mut handoff = valid_handoff();
