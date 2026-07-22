@@ -31,7 +31,7 @@ No private key is retained. The temporary creator/delegate keystores and mutable
 - `nix run .#octet-policy-validate` — passed.
 - `nix build .#checks.x86_64-linux.cairn-cob-conflict-pilot --no-link -L` — passed.
 - `nix build .#checks.x86_64-linux.nextest --no-link -L` — 230 tests passed, 2 skipped.
-- `nix flake check -L --option secret-key-files ''` — all 59 compatible-system checks passed; incompatible non-`x86_64-linux` systems were omitted.
+- Final `nix flake check -L --option secret-key-files ''` — all 62 compatible-system checks passed; incompatible non-`x86_64-linux` systems were omitted.
 - Native Cairn proposal, design, tasks, sync, and strict validation gates — passed.
 
 ## Accepted traceability
