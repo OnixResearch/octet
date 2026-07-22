@@ -350,6 +350,7 @@ and config keys.
 - `docs/downstream-rollout.md` — rollout profiles, promotion playbooks, and boundary guidance
 - `docs/indexable-lint-signal-summary.md` — high-volume indexable lint signal-quality status and promotion blockers
 - `docs/downstream-rollout-evidence.md` — Aspen-backed rollout evidence and historical replay paths
+- `docs/cairn-cob-collaboration.md` — preview-first local signed COB collaboration, explicit Git transport, second-checkout materialization, and non-claims
 - `standards/policies/README.md` — typed policy registry and traceability contract
 - `docs/standards/policy-contract.md` — standards rules mapped to verification rails
 - `docs/examples/release-operator-smoke/transcript.md` — one bounded release smoke transcript covering operator surfaces
