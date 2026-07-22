@@ -138,12 +138,8 @@ fn evidence<'a>(files: &'a BTreeMap<String, EvidenceFile>, name: &str) -> Result
     files.get(name).ok_or_else(|| PilotEvidenceError::MissingReceipt(name.to_string()))
 }
 
-fn field_matches(value: &Value, field: &str, expected: &Value) -> bool {
-    value.get(field) == Some(expected)
-}
-
 fn require_field(receipt: &str, value: &Value, field: &str, expected: Value) -> Result<(), PilotEvidenceError> {
-    if field_matches(value, field, &expected) {
+    if value.get(field).cloned() == Some(expected) {
         return Ok(());
     }
     Err(PilotEvidenceError::Field {
@@ -153,7 +149,7 @@ fn require_field(receipt: &str, value: &Value, field: &str, expected: Value) -> 
 }
 
 fn require_pointer(receipt: &str, value: &Value, pointer: &str, expected: Value) -> Result<(), PilotEvidenceError> {
-    if value.pointer(pointer) == Some(&expected) {
+    if value.pointer(pointer).cloned() == Some(expected) {
         return Ok(());
     }
     Err(PilotEvidenceError::Field {
