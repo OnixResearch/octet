@@ -44,16 +44,21 @@ const EXPECTED_CONFLICT_HEAD_COUNT: usize = 2;
 const EXPECTED_BUNDLE_HEAD_COUNT: usize = 3;
 const TAMPERED_OPERATION_ID: &str = "0000000000000000000000000000000000000000";
 
-// r[impl octet.cob_conflict_recovery.evidence]
+// r[impl octet.cob_conflict_recovery.divergence]
 // r[verify octet.cob_conflict_recovery.divergence.same_basis]
 // r[verify octet.cob_conflict_recovery.divergence.transport]
+// r[impl octet.cob_conflict_recovery.inspection]
 // r[verify octet.cob_conflict_recovery.inspection.metadata]
 // r[verify octet.cob_conflict_recovery.inspection.values]
+// r[impl octet.cob_conflict_recovery.refusal]
 // r[verify octet.cob_conflict_recovery.refusal.update]
+// r[impl octet.cob_conflict_recovery.resolution]
 // r[verify octet.cob_conflict_recovery.resolution.preview]
 // r[verify octet.cob_conflict_recovery.resolution.execute]
+// r[impl octet.cob_conflict_recovery.reload]
 // r[verify octet.cob_conflict_recovery.reload.status]
 // r[verify octet.cob_conflict_recovery.reload.checkout]
+// r[impl octet.cob_conflict_recovery.evidence]
 // r[verify octet.cob_conflict_recovery.evidence.positive]
 // r[verify octet.cob_conflict_recovery.evidence.negative]
 // r[impl octet.cob_conflict_recovery.boundary]
