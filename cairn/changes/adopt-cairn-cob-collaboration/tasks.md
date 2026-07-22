@@ -1,0 +1,19 @@
+## Phase 1: Lifecycle and signed import
+
+- [ ] [serial] Define and gate the bounded Octet adoption contract before COB mutation. r[octet.cob_collaboration.pilot]
+- [ ] [serial] Seed an explicit bare Git store and capture preview plus executed signed import with an ephemeral mutation key. r[octet.cob_collaboration.pilot.import]
+
+## Phase 2: Downstream implementation and update
+
+- [ ] [serial] Add the operator guide, typed Nickel manifest source, and pure-core positive/negative evidence validator. r[octet.cob_collaboration.evidence]
+- [ ] [serial] Preview and execute a non-noop signed update after the active lifecycle artifacts change. r[octet.cob_collaboration.pilot.update]
+
+## Phase 3: Explicit transport and second checkout
+
+- [ ] [serial] Move exact branch and namespace refs with local Git only, verify source/target identity and no store remotes, then capture second-store status and conflict inspection. r[octet.cob_collaboration.transport]
+- [ ] [serial] Preview and execute checkout into a second Octet root and compare materialized active-change bytes. r[octet.cob_collaboration.checkout]
+
+## Phase 4: Validation and archive
+
+- [ ] [serial] Run manifest freshness, focused positive/negative tests, Cairn gates, Octet policy/check rails, and bounded Nix validation while preserving baseline limitations. r[octet.cob_collaboration.validation]
+- [ ] [serial] Sync the accepted requirement, archive the completed change with a deterministic date, and record exact non-claims. r[octet.cob_collaboration.boundary]
