@@ -54,7 +54,7 @@ The search used four mechanism families, one advisory review, repository source 
 
 ### Decision: Keep the Nix gate hermetic and reviewable
 
-**Choice:** The positive case uses the wrapped `cargoOctet` package against a writable copy of the filtered source and asserts the human summary. One unwrapped negative uses malformed metadata and a sentinel `cargo`, then asserts exit `2`, the exact stable diagnostic, and absence of the sentinel marker. A second valid-metadata negative invokes the sentinel with a non-zero status and requires runner exit `2` plus an integration-failure summary.
+**Choice:** The positive case uses the wrapped `cargoOctet` package against a writable copy of the filtered source and asserts the human summary, configured linker binaries, exact root linker settings, compile banners for all four workspace libraries, and the completed-build marker. One unwrapped negative uses malformed metadata and a sentinel `cargo`, then asserts exit `2`, the exact stable diagnostic, and absence of the sentinel marker. A second valid-metadata negative invokes the sentinel with a non-zero status and requires runner exit `2` plus an integration-failure summary.
 
 **Rationale:** The wrapped path proves released environment wiring. The unwrapped negatives isolate pre-Cargo admission and post-Cargo status propagation without wrapper path injection hiding whether the child ran.
 

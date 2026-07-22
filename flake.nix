@@ -2609,6 +2609,10 @@
                   chmod -R u+w "$source_dir"
                   mkdir -p "$cargo_home" "$scratch/home"
                   cp "${cargoVendorDir}/config.toml" "$cargo_home/config.toml"
+                  test -x "${cargoOctetRuntimePath}/bin/clang"
+                  test -x "${cargoOctetRuntimePath}/bin/mold"
+                  grep -F 'linker = "clang"' "$source_dir/.cargo/config.toml" >/dev/null
+                  grep -F -- '-fuse-ld=mold' "$source_dir/.cargo/config.toml" >/dev/null
 
                   (
                     cd "$source_dir"
@@ -2620,6 +2624,10 @@
                   grep -F -- '--- octet summary ---' "$positive_stderr" >/dev/null
                   grep -E '^Status: (clean|warning-only)$' "$positive_stderr" >/dev/null
                   grep -F 'Errors: 0' "$positive_stderr" >/dev/null
+                  for crate_name in octet_lint_metadata octet octet_standards cargo_octet; do
+                    grep -E "^   Compiling $crate_name v" "$positive_stderr" >/dev/null
+                  done
+                  grep -F '    Finished checking' "$positive_stderr" >/dev/null
 
                   mkdir -p "$malformed_dir/src" "$child_failure_dir/src" "$sentinel_bin"
                   cat > "$malformed_dir/Cargo.toml" <<EOF
