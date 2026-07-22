@@ -2466,7 +2466,28 @@
             "extensions": [
               "rs"
             ],
+            "root": "cargo-octet/src/admit.rs",
+            "source_kind": "rust_source"
+          },
+          {
+            "extensions": [
+              "rs"
+            ],
             "root": "cargo-octet/src/artifact.rs",
+            "source_kind": "rust_source"
+          },
+          {
+            "extensions": [
+              "rs"
+            ],
+            "root": "cargo-octet/src/cli.rs",
+            "source_kind": "rust_source"
+          },
+          {
+            "extensions": [
+              "rs"
+            ],
+            "root": "cargo-octet/src/effect_closure.rs",
             "source_kind": "rust_source"
           },
           {
@@ -2523,6 +2544,13 @@
               "md"
             ],
             "root": "README.md",
+            "source_kind": "tool_source"
+          },
+          {
+            "extensions": [
+              "md"
+            ],
+            "root": "docs/effect-closure-admission.md",
             "source_kind": "tool_source"
           },
           {
@@ -2566,6 +2594,13 @@
             "extensions": [
               "md"
             ],
+            "root": "cairn/specs/effect-closure-admission/spec.md",
+            "source_kind": "accepted_specs"
+          },
+          {
+            "extensions": [
+              "md"
+            ],
             "root": "cairn/specs/cob-collaboration-adoption/spec.md",
             "source_kind": "accepted_specs"
           },
@@ -2598,7 +2633,28 @@
             "extensions": [
               "rs"
             ],
+            "root": "cargo-octet/src/admit.rs",
+            "source_kind": "rust_source"
+          },
+          {
+            "extensions": [
+              "rs"
+            ],
             "root": "cargo-octet/src/artifact.rs",
+            "source_kind": "rust_source"
+          },
+          {
+            "extensions": [
+              "rs"
+            ],
+            "root": "cargo-octet/src/cli.rs",
+            "source_kind": "rust_source"
+          },
+          {
+            "extensions": [
+              "rs"
+            ],
+            "root": "cargo-octet/src/effect_closure.rs",
             "source_kind": "rust_source"
           },
           {
@@ -2661,6 +2717,13 @@
             "extensions": [
               "md"
             ],
+            "root": "docs/effect-closure-admission.md",
+            "source_kind": "tool_source"
+          },
+          {
+            "extensions": [
+              "md"
+            ],
             "root": "docs/formal-proof-valence-export-fixture.md",
             "source_kind": "tool_source"
           },
@@ -2692,6 +2755,13 @@
               "md"
             ],
             "root": "cairn/specs/evidence-provenance/spec.md",
+            "source_kind": "accepted_specs"
+          },
+          {
+            "extensions": [
+              "md"
+            ],
+            "root": "cairn/specs/effect-closure-admission/spec.md",
             "source_kind": "accepted_specs"
           },
           {
