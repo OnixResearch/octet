@@ -15,5 +15,5 @@
 
 ## Phase 4: Validation and archive
 
-- [ ] [serial] Run manifest freshness, focused positive/negative tests, Cairn gates, Octet policy/check rails, and bounded Nix validation while preserving baseline limitations. r[octet.cob_collaboration.validation]
+- [x] [serial] Run manifest freshness, focused positive/negative tests, Cairn gates, Octet policy/check rails, and bounded Nix validation while preserving baseline limitations. r[octet.cob_collaboration.validation]
 - [ ] [serial] Sync the accepted requirement, archive the completed change with a deterministic date, and record exact non-claims. r[octet.cob_collaboration.boundary]
