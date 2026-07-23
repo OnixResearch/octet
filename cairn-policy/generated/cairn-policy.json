@@ -2562,13 +2562,6 @@
           },
           {
             "extensions": [
-              "nix"
-            ],
-            "root": "flake.nix",
-            "source_kind": "tool_source"
-          },
-          {
-            "extensions": [
               "md"
             ],
             "root": "README.md",
@@ -2761,13 +2754,6 @@
             ],
             "root": "tests",
             "source_kind": "rust_source"
-          },
-          {
-            "extensions": [
-              "nix"
-            ],
-            "root": "flake.nix",
-            "source_kind": "tool_source"
           },
           {
             "extensions": [
