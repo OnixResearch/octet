@@ -1,0 +1,8 @@
+# Tasks
+
+- [x] [serial] V1 Inventory the remaining 1,112 `non_trait_imports` occurrences and 370 identities; select the single-use standards resource import from an owner file containing only import findings. r[octet.runner_self_check.warning_budget.reduction.standards_resource]
+- [x] [depends:V1] I1 Replace the private `check_resources` import with the explicit `crate::resource::check_resources` owner path without changing orchestration, lint policy, exceptions, suppression state, or resource behavior. r[octet.runner_self_check.warning_budget.reduction.standards_resource]
+- [x] [depends:I1] V2 Run focused positive and negative resource tests, then require the old baseline to report exactly stale ID `b3:3965b4dd27194e41`, zero new IDs, 2,667 warnings, and warning-only exit `0`. r[octet.runner_self_check.warning_budget.reduction.standards_resource.old_baseline]
+- [ ] [depends:V2] I2 Generate and review the candidate baseline as the exact old set minus one ID; update grouped documentation and permanent Nix counts without admitting additions. r[octet.runner_self_check.warning_budget.reduction.standards_resource.refresh]
+- [ ] [depends:I2] V3 Run refreshed standards behavior, positive and one-new-ID self-check gates, policy freshness, traceability, formatting, Clippy, Nextest, source-derived fixture checks, and the broad compatible-system flake gate. r[octet.runner_self_check.warning_budget.reduction.standards_resource.regression]
+- [ ] [depends:V3] V4 Record bounded evidence, sync the accepted requirement, and archive deterministically with `CAIRN_ARCHIVE_DATE=2026-07-21`. r[octet.runner_self_check.warning_budget.reduction.standards_resource.boundary]
