@@ -10,7 +10,7 @@
     "profile_hash": "b3:f1ebd25a3be2f3b7fa6d081f5f0dd80534f4a16d9cf5c837801fcd71282f5d4c",
     "config_hash": "b3:5e55d88eada17e881c47a4557af6f505d9162b5ab0a4672929c9ef3f4af0385b"
   },
-  "baseline_hash": "b3:1327af062e287cdd51eba7cbc26dd63ee4a1f47714ac4491884a644e05e22d5b",
+  "baseline_hash": "b3:23efb13653cef018dd76dc03eb6319bbd1946c67089add0e53db4c8c673b357e",
   "findings": [
     {
       "stable_id": "b3:000100d3345b4ebd",
@@ -9527,19 +9527,6 @@
       "column": 1,
       "message": "non-trait import `WasmFeatures` hides the owner path; prefer the qualified path at the use site",
       "crate_name": "cargo_octet"
-    },
-    {
-      "stable_id": "b3:672b1993827f233b",
-      "semantic_id": "b3:672b1993827f233b",
-      "identity_status": "computed",
-      "lint": "non_trait_imports",
-      "group": "tigerstyle::naming",
-      "severity": "warning",
-      "file": "src/safety/public_unsafe_api.rs",
-      "line": 1,
-      "column": 1,
-      "message": "non-trait import `ExternAbi` hides the owner path; prefer the qualified path at the use site",
-      "crate_name": "octet"
     },
     {
       "stable_id": "b3:6733cc47e6e8e329",

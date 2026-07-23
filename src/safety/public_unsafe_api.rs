@@ -1,3 +1,4 @@
+// r[impl octet.runner_self_check.warning_budget.reduction.public_unsafe_abi]
 use rustc_hir as hir;
 use rustc_lint::LateContext;
 use rustc_lint::LateLintPass;

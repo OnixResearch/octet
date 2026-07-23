@@ -2609,8 +2609,8 @@
                   sentinel_bin="$scratch/sentinel-bin"
                   sentinel_marker="$scratch/cargo-invoked"
                   baseline_relative="standards/self-check-warning-budget/octet-baseline.json"
-                  accepted_warning_total=2669
-                  accepted_identity_total=1819
+                  accepted_warning_total=2668
+                  accepted_identity_total=1818
                   lint_failure_exit=1
                   integration_failure_exit=2
                   sentinel_exit=99
@@ -2688,6 +2688,7 @@
 
                   # r[verify octet.runner_self_check.warning_budget.regression]
                   # r[verify octet.runner_self_check.warning_budget.reduction.regression]
+                  # r[verify octet.runner_self_check.warning_budget.reduction.public_unsafe_abi.regression]
                   cp -r "$source_dir" "$drift_dir"
                   test -z "$(grep -F 'has_no_budget' "$source_dir/cargo-octet/src/baseline.rs" || true)"
                   substituteInPlace "$drift_dir/cargo-octet/src/baseline.rs" \
