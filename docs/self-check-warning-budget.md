@@ -4,6 +4,7 @@ Octet ratchets its canonical `--workspace --lib` self-check with the runner's ex
 
 <!-- r[impl octet.runner_self_check.inventory] -->
 <!-- r[impl octet.runner_self_check.warning_budget] -->
+<!-- r[impl octet.runner_self_check.warning_budget.reduction] -->
 <!-- r[verify octet.runner_self_check.warning_budget.baseline] -->
 
 ## Current budget
@@ -75,5 +76,6 @@ Review the stable-ID additions, removals, lint/domain counts, relative locators,
 ## Boundaries
 
 <!-- r[impl octet.runner_self_check.warning_budget.boundary] -->
+<!-- r[verify octet.runner_self_check.warning_budget.reduction.boundary] -->
 
 The baseline proves only that current findings belong to one reviewed stable-ID set for the pinned local static-lint run. It does not prove that accepted warnings are correct, low-noise, harmless, or complete. It does not cover tests, binaries, examples, benches, dependencies, runtime behavior, whole-program correctness, lint completeness, or release eligibility.
