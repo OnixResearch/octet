@@ -8,20 +8,25 @@ Octet ratchets its canonical `--workspace --lib` self-check with the runner's ex
 
 ## Current budget
 
-The initial inventory contained 2,671 warning occurrences. Before baseline capture, the local `has_no_todo` name was rewritten in positive form without changing behavior or adding a suppression. The final run therefore contains 2,670 accepted warning occurrences represented by 1,820 unique stable identities, no `negated_predicate` finding, and no absolute artifact locator. Repeated stable IDs are stored once in the baseline.
+The initial inventory contained 2,671 warning occurrences. Before the first baseline capture, the local `has_no_todo` name was rewritten in positive form without changing behavior or adding a suppression, leaving 2,670 accepted occurrences and 1,820 unique stable identities.
 
-Baseline BLAKE3 identity: `b3:7bce67812e0d57029644efc644ed44035250b2891391b846fc9a2a92caf45de9`.
+The first monotonic reduction replaced the unique private `ExitCode` import in `cargo-octet/src/lib.rs` with explicit `std::process::ExitCode` owner paths. The old baseline reported exactly one stale identity, `b3:8515683389cc483f`, and zero additions before refresh. The current run contains 2,669 accepted warning occurrences represented by 1,819 unique stable identities, no `negated_predicate` finding, and no absolute artifact locator. Repeated stable IDs are stored once in the baseline.
+
+<!-- r[verify octet.runner_self_check.warning_budget.reduction.old_baseline] -->
+<!-- r[verify octet.runner_self_check.warning_budget.reduction.refresh] -->
+
+Baseline BLAKE3 identity: `b3:1327af062e287cdd51eba7cbc26dd63ee4a1f47714ac4491884a644e05e22d5b`.
 
 | Domain | Accepted warnings |
 | --- | ---: |
-| `tigerstyle::naming` | 1,671 |
+| `tigerstyle::naming` | 1,670 |
 | `tigerstyle::structure` | 476 |
 | `tigerstyle::safety` | 473 |
 | `tigerstyle::purity` | 50 |
 
 | Lint | Accepted warnings |
 | --- | ---: |
-| `non_trait_imports` | 1,114 |
+| `non_trait_imports` | 1,113 |
 | `path_segment_repetition` | 396 |
 | `borrowed_argument_types` | 253 |
 | `explicit_defaults` | 169 |
@@ -50,9 +55,10 @@ Baseline BLAKE3 identity: `b3:7bce67812e0d57029644efc644ed44035250b2891391b846fc
 
 ## Gate behavior
 
-The `cargo-octet-self-check` Nix derivation runs structured output against the checked-in baseline. The unchanged source must report 2,670 warning occurrences, 1,820 accepted stable identities, zero new IDs, zero stale IDs, a matching baseline hash, and repository-relative locators. A writable negative copy injects one behavior-preserving, intentionally negated predicate binding and must exit `1` with exactly one new ID. Malformed metadata and Cargo-child failures remain integration failures with exit `2`.
+The `cargo-octet-self-check` Nix derivation runs structured output against the checked-in baseline. The unchanged source must report 2,669 warning occurrences, 1,819 accepted stable identities, zero new IDs, zero stale IDs, a matching baseline hash, and repository-relative locators. A writable negative copy injects one behavior-preserving, intentionally negated predicate binding and must exit `1` with exactly one new ID. Malformed metadata and Cargo-child failures remain integration failures with exit `2`.
 
 <!-- r[verify octet.runner_self_check.warning_budget.regression] -->
+<!-- r[verify octet.runner_self_check.warning_budget.reduction.regression] -->
 <!-- r[verify octet.runner_self_check.warning_budget.cleanup] -->
 
 Baseline refresh is an explicit review operation, not an automatic gate action:
