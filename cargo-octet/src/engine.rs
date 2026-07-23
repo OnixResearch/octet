@@ -193,7 +193,8 @@ pub fn run(check: &CheckArgs) -> Result<i32, String> {
                         &lint_name,
                         &run_metadata.config_hash,
                         check.cache,
-                    ));
+                        &cfg.workspace_root,
+                    )?);
                 }
                 "compiler-artifact" if check.output_format == OutputFormat::Human => {
                     if let Some(banner) = format_compiling_banner(&json) {
@@ -680,6 +681,33 @@ fn json_u64_to_u32(value: Option<u64>) -> u32 {
     value.and_then(|line| u32::try_from(line).ok()).unwrap_or_default()
 }
 
+// r[impl octet.runner_self_check.inventory]
+// r[verify octet.runner_self_check.inventory.paths]
+fn normalize_finding_locator(workspace_root: &Path, reported_path: &str) -> Result<String, String> {
+    let reported_path = Path::new(reported_path);
+    let relative_path = if reported_path.is_absolute() {
+        reported_path
+            .strip_prefix(workspace_root)
+            .map_err(|_| "Cargo diagnostic path is outside the workspace root".to_owned())?
+    } else {
+        reported_path
+    };
+
+    RootRelativePath::new(relative_path)
+        .map(|path| path.display())
+        .map_err(|error| format!("invalid Cargo diagnostic path: {error}"))
+}
+
+fn normalize_finding_message(workspace_root: &Path, message: &str) -> String {
+    let native_root = workspace_root.display().to_string();
+    if native_root == "/" {
+        return message.to_owned();
+    }
+
+    let normalized_root = native_root.replace('\\', "/");
+    message.replace(&native_root, ".").replace(&normalized_root, ".")
+}
+
 fn build_finding(
     index: usize,
     cargo_msg: &serde_json::Value,
@@ -687,7 +715,8 @@ fn build_finding(
     lint_name: &str,
     config_hash: &str,
     cache_enabled: bool,
-) -> Finding {
+    workspace_root: &Path,
+) -> Result<Finding, String> {
     let message = &cargo_msg["message"];
 
     let primary_span = message["spans"]
@@ -695,11 +724,12 @@ fn build_finding(
         .and_then(|spans| spans.iter().find(|s| s["is_primary"].as_bool() == Some(true)))
         .or_else(|| message["spans"].as_array().and_then(|s| s.first()));
 
-    let file = primary_span.and_then(|s| s["file_name"].as_str()).unwrap_or("unknown").to_owned();
+    let reported_path = primary_span.and_then(|s| s["file_name"].as_str()).unwrap_or("unknown");
+    let file = normalize_finding_locator(workspace_root, reported_path)?;
     let line = json_u64_to_u32(primary_span.and_then(|s| s["line_start"].as_u64()));
     let column = json_u64_to_u32(primary_span.and_then(|s| s["column_start"].as_u64()));
 
-    let msg_text = message["message"].as_str().unwrap_or("").to_owned();
+    let msg_text = normalize_finding_message(workspace_root, message["message"].as_str().unwrap_or(""));
     let severity = message["level"].as_str().unwrap_or("warning").to_owned();
     let crate_name = cargo_msg["target"]["name"].as_str().unwrap_or("unknown").to_owned();
 
@@ -722,7 +752,7 @@ fn build_finding(
         Some(config_hash),
     );
 
-    Finding {
+    Ok(Finding {
         version: output::finding_version(),
         index: format!("F{index}"),
         stable_id: semantic_id.clone(),
@@ -744,7 +774,7 @@ fn build_finding(
         effect_family: meta.effect_family.to_owned(),
         evidence_tier: crate::evidence::EvidenceTier::StaticLint,
         crate_name,
-    }
+    })
 }
 
 fn snippet_from_span(span: &serde_json::Value) -> String {
@@ -1137,8 +1167,11 @@ fn copy_file(from: &Path, to: &Path) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use std::collections::BTreeSet;
+    use std::path::Path;
 
     use super::embedded_source;
+    use super::normalize_finding_locator;
+    use super::normalize_finding_message;
 
     const REQUIRED_EMBEDDED_PATHS: &[&str] = &[
         "Cargo.toml",
@@ -1148,6 +1181,39 @@ mod tests {
         "standards/effect-closure/generated/effect-closure-catalog.json",
         "standards/strict-profiles/generated/strict-rust-profiles.json",
     ];
+
+    #[test]
+    fn finding_locators_normalize_relative_and_in_workspace_absolute_paths() {
+        let workspace_root = Path::new("/workspace");
+
+        assert_eq!(normalize_finding_locator(workspace_root, "src/lib.rs").expect("relative path"), "src/lib.rs");
+        assert_eq!(
+            normalize_finding_locator(workspace_root, "/workspace/crates/core/src/lib.rs")
+                .expect("in-workspace absolute path"),
+            "crates/core/src/lib.rs"
+        );
+    }
+
+    #[test]
+    fn finding_locators_reject_outside_workspace_empty_and_parent_paths() {
+        let workspace_root = Path::new("/workspace");
+
+        assert!(normalize_finding_locator(workspace_root, "/other/src/lib.rs").is_err());
+        assert!(normalize_finding_locator(workspace_root, "").is_err());
+        assert!(normalize_finding_locator(workspace_root, "../src/lib.rs").is_err());
+    }
+
+    #[test]
+    fn finding_messages_replace_only_the_explicit_workspace_root() {
+        let workspace_root = Path::new("/workspace");
+        let message = "module `/workspace/src/safety` differs from `/other/src/safety`";
+
+        assert_eq!(
+            normalize_finding_message(workspace_root, message),
+            "module `./src/safety` differs from `/other/src/safety`"
+        );
+        assert_eq!(normalize_finding_message(Path::new("/"), message), message);
+    }
 
     #[test]
     fn embedded_lint_source_contains_profile_and_effect_closure_runtime_inputs() {

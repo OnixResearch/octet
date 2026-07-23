@@ -96,11 +96,12 @@ fn no_todo_allow_attr_span(cx: &LateContext<'_>, hir_id: hir::HirId) -> Option<S
             return None;
         }
 
-        let has_no_todo = source_map.span_to_snippet(attr.span()).map_or_else(
+        // r[impl octet.runner_self_check.warning_budget.cleanup]
+        let has_supported_lint = source_map.span_to_snippet(attr.span()).map_or_else(
             |_| attr_matches_supported_no_todo(&format!("{attr:?}")),
             |snippet| attr_matches_supported_no_todo(&snippet),
         );
-        has_no_todo.then_some(attr.span())
+        has_supported_lint.then_some(attr.span())
     })
 }
 

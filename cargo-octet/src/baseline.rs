@@ -11,6 +11,8 @@ use crate::output::Finding;
 
 const BASELINE_SCHEMA_VERSION: u32 = 1;
 
+// r[impl octet.runner_self_check.warning_budget]
+// r[impl octet.runner_self_check.warning_budget.baseline]
 #[derive(Debug, Clone, Serialize)]
 pub struct BaselineEvaluation {
     pub baseline_hash: String,
@@ -64,10 +66,14 @@ struct StoredBaselineFinding {
     stable_id: String,
 }
 
-pub fn write_baseline(path: &Path, findings: &[Finding], metadata: &RunMetadata) -> Result<(), String> {
-    let baseline_hash = baseline_hash(findings.iter().map(|finding| finding.stable_id.as_str()));
-    let baseline_findings = findings
-        .iter()
+fn unique_findings(findings: &[Finding]) -> Vec<BaselineFinding<'_>> {
+    let mut unique = std::collections::BTreeMap::<&str, &Finding>::new();
+    for finding in findings {
+        unique.entry(&finding.stable_id).or_insert(finding);
+    }
+
+    unique
+        .into_values()
         .map(|finding| BaselineFinding {
             stable_id: &finding.stable_id,
             semantic_id: &finding.semantic_id,
@@ -81,7 +87,12 @@ pub fn write_baseline(path: &Path, findings: &[Finding], metadata: &RunMetadata)
             message: &finding.message,
             crate_name: &finding.crate_name,
         })
-        .collect();
+        .collect()
+}
+
+pub fn write_baseline(path: &Path, findings: &[Finding], metadata: &RunMetadata) -> Result<(), String> {
+    let baseline_hash = baseline_hash(findings.iter().map(|finding| finding.stable_id.as_str()));
+    let baseline_findings = unique_findings(findings);
 
     let baseline = BaselineFile {
         schema_version: BASELINE_SCHEMA_VERSION,
