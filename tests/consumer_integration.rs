@@ -1998,6 +1998,14 @@ fn three_finding_json_lines() -> Vec<String> {
     ]
 }
 
+fn duplicated_finding_json_lines() -> Vec<String> {
+    const FIRST_FINDING_INDEX: usize = 1;
+
+    let mut lines = three_finding_json_lines();
+    lines.insert(FIRST_FINDING_INDEX, lines[FIRST_FINDING_INDEX].clone());
+    lines
+}
+
 fn four_finding_json_lines() -> Vec<String> {
     let mut lines = three_finding_json_lines();
     lines.insert(
@@ -2370,6 +2378,39 @@ $ cargo octet check --output-format json
     );
 }
 
+#[test]
+fn baseline_file_deduplicates_repeated_stable_id_records() {
+    const UNIQUE_FINDING_TOTAL: usize = 3;
+
+    let fixture = ConsumerFixture::new("baseline-deduplicates", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
+    let baseline_path = fixture.repo.join("octet-baseline.json");
+    let baseline_path_str = baseline_path.to_str().expect("baseline path utf8");
+    let output = run_with_check_args(
+        &fixture,
+        &[
+            "--output-format",
+            JSON_OUTPUT_FORMAT,
+            "--write-baseline",
+            baseline_path_str,
+        ],
+        &duplicated_finding_json_lines(),
+        EXIT_CODE_SUCCESS,
+    );
+
+    assert_eq!(output.status.code(), Some(EXIT_CODE_SUCCESS));
+    let baseline = read_json_artifact(&baseline_path);
+    let findings = baseline["findings"].as_array().expect("baseline findings array");
+    assert_eq!(findings.len(), UNIQUE_FINDING_TOTAL);
+    let stable_ids = findings
+        .iter()
+        .map(|finding| finding["stable_id"].as_str().expect("stable id"))
+        .collect::<std::collections::BTreeSet<_>>();
+    assert_eq!(stable_ids.len(), UNIQUE_FINDING_TOTAL);
+}
+
+// r[verify octet.runner_self_check.warning_budget]
+// r[verify octet.runner_self_check.warning_budget.baseline]
+// r[verify octet.runner_self_check.warning_budget.regression]
 #[test]
 fn baseline_file_accepts_current_findings_and_gates_new_ids() {
     let fixture = ConsumerFixture::new("baseline-file", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));

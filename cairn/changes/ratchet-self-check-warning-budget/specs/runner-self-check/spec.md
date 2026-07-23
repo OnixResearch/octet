@@ -10,7 +10,8 @@ r[octet.runner_self_check.inventory.paths]
 - GIVEN Cargo reports an absolute diagnostic path inside the discovered workspace root
 - WHEN the runner constructs and validates the finding
 - THEN the locator SHALL be normalized to the equivalent repository-relative path before structured rendering or baseline capture.
-- AND absolute paths outside the workspace, empty locators, and parent traversal SHALL fail closed rather than leak or broaden path authority.
+- AND exact workspace-root substrings in diagnostic text SHALL be replaced by a portable relative root before stable-ID construction.
+- AND absolute locators outside the workspace, empty locators, and parent traversal SHALL fail closed rather than leak or broaden path authority.
 
 ### Requirement: Octet SHALL ratchet its self-check warning budget
 r[octet.runner_self_check.warning_budget] Octet SHALL keep a reviewed machine-readable baseline for the canonical workspace-library self-check and SHALL fail when a current finding has a stable ID absent from that baseline.
@@ -31,7 +32,7 @@ r[octet.runner_self_check.warning_budget.regression]
 r[octet.runner_self_check.warning_budget.cleanup]
 - GIVEN the initial canonical inventory contains one `negated_predicate` finding
 - WHEN the underlying local name is rewritten into positive form without suppression or behavior change
-- THEN the final baseline SHALL contain zero `negated_predicate` findings and 2,670 total accepted warnings.
+- THEN the final canonical inventory SHALL contain zero `negated_predicate` findings and 2,670 total accepted warning occurrences.
 
 #### Scenario: Baseline evidence remains bounded
 r[octet.runner_self_check.warning_budget.boundary]

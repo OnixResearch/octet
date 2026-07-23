@@ -2459,6 +2459,20 @@
             "extensions": [
               "rs"
             ],
+            "root": "cargo-octet/src/baseline.rs",
+            "source_kind": "rust_source"
+          },
+          {
+            "extensions": [
+              "rs"
+            ],
+            "root": "cargo-octet/src/engine.rs",
+            "source_kind": "rust_source"
+          },
+          {
+            "extensions": [
+              "rs"
+            ],
             "root": "cargo-octet/src/main.rs",
             "source_kind": "rust_source"
           },
@@ -2536,8 +2550,22 @@
             "extensions": [
               "rs"
             ],
+            "root": "src/safety/no_todo.rs",
+            "source_kind": "rust_source"
+          },
+          {
+            "extensions": [
+              "rs"
+            ],
             "root": "tests",
             "source_kind": "rust_source"
+          },
+          {
+            "extensions": [
+              "nix"
+            ],
+            "root": "flake.nix",
+            "source_kind": "tool_source"
           },
           {
             "extensions": [
@@ -2565,6 +2593,13 @@
               "md"
             ],
             "root": "docs/preserves-receipt-export.md",
+            "source_kind": "tool_source"
+          },
+          {
+            "extensions": [
+              "md"
+            ],
+            "root": "docs/self-check-warning-budget.md",
             "source_kind": "tool_source"
           },
           {
@@ -2626,6 +2661,20 @@
             "extensions": [
               "rs"
             ],
+            "root": "cargo-octet/src/baseline.rs",
+            "source_kind": "rust_source"
+          },
+          {
+            "extensions": [
+              "rs"
+            ],
+            "root": "cargo-octet/src/engine.rs",
+            "source_kind": "rust_source"
+          },
+          {
+            "extensions": [
+              "rs"
+            ],
             "root": "cargo-octet/src/main.rs",
             "source_kind": "rust_source"
           },
@@ -2703,8 +2752,22 @@
             "extensions": [
               "rs"
             ],
+            "root": "src/safety/no_todo.rs",
+            "source_kind": "rust_source"
+          },
+          {
+            "extensions": [
+              "rs"
+            ],
             "root": "tests",
             "source_kind": "rust_source"
+          },
+          {
+            "extensions": [
+              "nix"
+            ],
+            "root": "flake.nix",
+            "source_kind": "tool_source"
           },
           {
             "extensions": [
@@ -2732,6 +2795,13 @@
               "md"
             ],
             "root": "docs/preserves-receipt-export.md",
+            "source_kind": "tool_source"
+          },
+          {
+            "extensions": [
+              "md"
+            ],
+            "root": "docs/self-check-warning-budget.md",
             "source_kind": "tool_source"
           },
           {

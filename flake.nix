@@ -2583,6 +2583,7 @@
                   nativeBuildInputs = with pkgs; [
                     coreutils
                     gnugrep
+                    jq
                   ];
                 }
                 ''
@@ -2591,6 +2592,14 @@
                   cargo_home="$scratch/cargo-home"
                   positive_stdout="$scratch/positive.stdout"
                   positive_stderr="$scratch/positive.stderr"
+                  positive_artifacts="$scratch/positive-artifacts"
+                  structured_stdout="$scratch/structured.stdout"
+                  structured_stderr="$scratch/structured.stderr"
+                  structured_artifacts="$scratch/structured-artifacts"
+                  drift_dir="$scratch/drift"
+                  drift_stdout="$scratch/drift.stdout"
+                  drift_stderr="$scratch/drift.stderr"
+                  drift_artifacts="$scratch/drift-artifacts"
                   malformed_dir="$scratch/malformed"
                   negative_stdout="$scratch/negative.stdout"
                   negative_stderr="$scratch/negative.stderr"
@@ -2599,6 +2608,10 @@
                   child_failure_stderr="$scratch/child-failure.stderr"
                   sentinel_bin="$scratch/sentinel-bin"
                   sentinel_marker="$scratch/cargo-invoked"
+                  baseline_relative="standards/self-check-warning-budget/octet-baseline.json"
+                  accepted_warning_total=2670
+                  accepted_identity_total=1820
+                  lint_failure_exit=1
                   integration_failure_exit=2
                   sentinel_exit=99
                   malformed_scope_entry=7
@@ -2609,25 +2622,110 @@
                   chmod -R u+w "$source_dir"
                   mkdir -p "$cargo_home" "$scratch/home"
                   cp "${cargoVendorDir}/config.toml" "$cargo_home/config.toml"
+                  baseline="$source_dir/$baseline_relative"
                   test -x "${cargoOctetRuntimePath}/bin/clang"
                   test -x "${cargoOctetRuntimePath}/bin/mold"
                   grep -F 'linker = "clang"' "$source_dir/.cargo/config.toml" >/dev/null
                   grep -F -- '-fuse-ld=mold' "$source_dir/.cargo/config.toml" >/dev/null
+                  baseline_hash="$(jq --raw-output '.baseline_hash' "$baseline")"
+                  jq --exit-status --argjson expected "$accepted_identity_total" '
+                    .schema_version == 1
+                    and .finding_schema_version == 2
+                    and (.findings | length) == $expected
+                    and ([.findings[].stable_id] | length) == ([.findings[].stable_id] | unique | length)
+                    and all(.findings[]; (.file | startswith("/") | not))
+                    and all(.findings[]; .lint != "negated_predicate")
+                  ' "$baseline" >/dev/null
 
                   (
                     cd "$source_dir"
                     export CARGO_HOME="$cargo_home"
                     export CARGO_TARGET_DIR="$scratch/target"
                     export HOME="$scratch/home"
-                    ${cargoOctet}/bin/cargo-octet check > "$positive_stdout" 2> "$positive_stderr"
+                    ${cargoOctet}/bin/cargo-octet check \
+                      --artifact-dir "$positive_artifacts" \
+                      --baseline "$baseline" \
+                      > "$positive_stdout" 2> "$positive_stderr"
                   )
                   grep -F -- '--- octet summary ---' "$positive_stderr" >/dev/null
                   grep -E '^Status: (clean|warning-only)$' "$positive_stderr" >/dev/null
                   grep -F 'Errors: 0' "$positive_stderr" >/dev/null
-                  for crate_name in octet_lint_metadata octet octet_standards cargo_octet; do
-                    grep -E "^   Compiling $crate_name v" "$positive_stderr" >/dev/null
-                  done
                   grep -F '    Finished checking' "$positive_stderr" >/dev/null
+
+                  # r[verify octet.runner_self_check.inventory.paths]
+                  # r[verify octet.runner_self_check.warning_budget.baseline]
+                  (
+                    cd "$source_dir"
+                    export CARGO_HOME="$cargo_home"
+                    export CARGO_TARGET_DIR="$scratch/target"
+                    export HOME="$scratch/home"
+                    ${cargoOctet}/bin/cargo-octet check \
+                      --output-format json \
+                      --artifact-dir "$structured_artifacts" \
+                      --baseline "$baseline" \
+                      > "$structured_stdout" 2> "$structured_stderr"
+                  )
+                  test "$(wc -l < "$structured_stdout")" -eq "$accepted_warning_total"
+                  jq --exit-status \
+                    --arg baseline_hash "$baseline_hash" \
+                    --argjson warning_total "$accepted_warning_total" \
+                    --argjson identity_total "$accepted_identity_total" '
+                      .status == "warning-only"
+                      and .exit_code == 0
+                      and .total_findings == $warning_total
+                      and .warning_findings == $warning_total
+                      and .error_findings == 0
+                      and .baseline.baseline_hash == $baseline_hash
+                      and .baseline.accepted_total == $identity_total
+                      and .baseline.current_total == $identity_total
+                      and .baseline.accepted_current == $identity_total
+                      and .baseline.new_total == 0
+                      and .baseline.stale_total == 0
+                    ' "$structured_artifacts/status.json" >/dev/null
+                  for crate_name in octet_lint_metadata octet octet_standards cargo_octet; do
+                    grep -F "\"crate_name\":\"$crate_name\"" "$structured_stdout" >/dev/null
+                  done
+
+                  # r[verify octet.runner_self_check.warning_budget.regression]
+                  cp -r "$source_dir" "$drift_dir"
+                  test -z "$(grep -F 'has_no_budget' "$source_dir/cargo-octet/src/baseline.rs" || true)"
+                  substituteInPlace "$drift_dir/cargo-octet/src/baseline.rs" \
+                    --replace-fail \
+                    'fn unique_findings(findings: &[Finding]) -> Vec<BaselineFinding<'"'"'_>> {' \
+                    'fn unique_findings(findings: &[Finding]) -> Vec<BaselineFinding<'"'"'_>> {
+                      let has_no_budget = findings.is_empty();
+                      if has_no_budget {
+                          return Vec::new();
+                      }'
+                  set +e
+                  (
+                    cd "$drift_dir"
+                    export CARGO_HOME="$cargo_home"
+                    export CARGO_TARGET_DIR="$scratch/drift-target"
+                    export HOME="$scratch/home"
+                    ${cargoOctet}/bin/cargo-octet check \
+                      --output-format json \
+                      --artifact-dir "$drift_artifacts" \
+                      --baseline "$drift_dir/$baseline_relative" \
+                      > "$drift_stdout" 2> "$drift_stderr"
+                  )
+                  drift_status="$?"
+                  set -e
+                  test "$drift_status" -eq "$lint_failure_exit"
+                  test "$(grep --count '"lint":"negated_predicate"' "$drift_stdout")" -eq 1
+                  jq --exit-status \
+                    --argjson warning_total "$accepted_warning_total" \
+                    --argjson identity_total "$accepted_identity_total" '
+                      .status == "lint-failure"
+                      and .exit_code == 1
+                      and .total_findings == ($warning_total + 1)
+                      and .baseline.accepted_total == $identity_total
+                      and .baseline.accepted_current == $identity_total
+                      and .baseline.current_total == ($identity_total + 1)
+                      and .baseline.new_total == 1
+                      and .baseline.stale_total == 0
+                      and (.baseline.new_finding_ids | length) == 1
+                    ' "$drift_artifacts/status.json" >/dev/null
 
                   mkdir -p "$malformed_dir/src" "$child_failure_dir/src" "$sentinel_bin"
                   cat > "$malformed_dir/Cargo.toml" <<EOF
@@ -2694,9 +2792,12 @@
                   mkdir -p "$out"
                   cp \
                     "$positive_stdout" "$positive_stderr" \
+                    "$structured_stdout" "$structured_stderr" \
+                    "$drift_stdout" "$drift_stderr" \
                     "$negative_stdout" "$negative_stderr" \
                     "$child_failure_stdout" "$child_failure_stderr" \
                     "$out/"
+                  cp -r "$positive_artifacts" "$structured_artifacts" "$drift_artifacts" "$out/"
                 '';
             fingerprintLifecycleDocs = mkFingerprintDocsCheck "octet-fingerprint-lifecycle-docs" "fingerprint_lifecycle_docs_fixture_matches_transcript";
             fingerprintHumanSummaryDocs = mkFingerprintDocsCheck "octet-fingerprint-human-summary-docs" "fingerprint_human_summary_docs_fixture_matches_transcript";
