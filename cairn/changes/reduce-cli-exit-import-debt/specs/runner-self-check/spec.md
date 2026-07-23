@@ -24,26 +24,27 @@ r[octet.runner_self_check.warning_budget.cleanup]
 - THEN subsequent canonical inventories SHALL retain zero `negated_predicate` findings.
 - AND the historical first reviewed baseline SHALL remain documented as 2,670 warning occurrences before later monotonic reductions.
 
-#### Scenario: Build-shell owner paths reduce one bounded cohort
+#### Scenario: CLI exit owner paths reduce one isolated identity
 r[octet.runner_self_check.warning_budget.reduction]
-r[octet.runner_self_check.warning_budget.reduction.build_shell]
-- GIVEN the reviewed canonical inventory contains 1,114 `non_trait_imports` occurrences represented by 372 stable identities, including four build-script identities
-- WHEN the build shell replaces `std::env`, `std::fs`, `std::path::Path`, and `std::path::PathBuf` imports with explicit owner-qualified use sites
-- THEN the canonical inventory SHALL contain 2,666 total warning occurrences, 1,816 unique stable identities, and 1,110 `non_trait_imports` occurrences.
-- AND `std::fmt::Write as _` SHALL remain a trait-resolution import.
+r[octet.runner_self_check.warning_budget.reduction.cli_exit]
+- GIVEN the reviewed canonical inventory contains 1,114 `non_trait_imports` occurrences represented by 372 stable identities, including one unique private `ExitCode` import in `cargo-octet/src/lib.rs`
+- WHEN that import is replaced in place and the thin CLI shell uses explicit `std::process::ExitCode` owner paths
+- THEN the canonical inventory SHALL contain 2,669 total warning occurrences, 1,819 unique stable identities, and 1,113 `non_trait_imports` occurrences.
+- AND success, delegated, and integration-error exit values SHALL remain unchanged.
 - AND the change SHALL NOT add an alias, lint suppression, exception, policy change, or unrelated behavior change.
 
 #### Scenario: Old baseline proves monotonic removal before refresh
 r[octet.runner_self_check.warning_budget.reduction.old_baseline]
-- GIVEN the qualified build shell and the previously accepted 1,820-identity baseline
+- GIVEN the owner-qualified CLI exit shell and the previously accepted 1,820-identity baseline
 - WHEN the canonical self-check evaluates current findings before baseline replacement
-- THEN it SHALL exit `0` with warning-only status, exactly four stale IDs, and zero new IDs.
+- THEN it SHALL exit `0` with warning-only status, exactly one stale ID, and zero new IDs.
+- AND the stale ID SHALL be the reviewed `non_trait_imports` identity `b3:8515683389cc483f`.
 
 #### Scenario: Reviewed refresh contains removals only
 r[octet.runner_self_check.warning_budget.reduction.refresh]
 - GIVEN the old-baseline reduction result is accepted for review
 - WHEN the runner writes the replacement baseline
-- THEN its stable-ID set SHALL equal the old set minus exactly the four reviewed build-shell identities and SHALL contain no additions.
+- THEN its stable-ID set SHALL equal the old set minus exactly `b3:8515683389cc483f` and SHALL contain no additions.
 - AND the unchanged self-check SHALL report zero new IDs and zero stale IDs against the replacement.
 
 #### Scenario: Permanent regression semantics remain unchanged
@@ -59,4 +60,4 @@ r[octet.runner_self_check.warning_budget.reduction.boundary]
 - GIVEN the monotonic baseline refresh and positive/negative gate pass
 - WHEN contributors review self-check status
 - THEN the result SHALL establish only removal and membership of stable IDs for the pinned configured static-lint run.
-- AND it SHALL NOT claim warning correctness, build-script correctness, test or binary coverage, dependency behavior, runtime safety, whole-program correctness, lint completeness, or release eligibility.
+- AND it SHALL NOT claim warning correctness, CLI correctness, test or binary coverage, dependency behavior, runtime safety, whole-program correctness, lint completeness, or release eligibility.

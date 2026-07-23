@@ -61,16 +61,16 @@ mod valence_core_shim;
 mod valence_cutover;
 mod wasm_artifact;
 
-use std::process::ExitCode;
+// r[impl octet.runner_self_check.warning_budget.reduction.cli_exit]
 
 const CLI_ERROR_EXIT: u8 = 2;
 
-pub fn run_cli_from_env() -> ExitCode {
+pub fn run_cli_from_env() -> std::process::ExitCode {
     match try_main() {
-        Ok(code) => ExitCode::from(u8::try_from(code).unwrap_or(CLI_ERROR_EXIT)),
+        Ok(code) => std::process::ExitCode::from(u8::try_from(code).unwrap_or(CLI_ERROR_EXIT)),
         Err(error) => {
             eprintln!("error: {error}");
-            ExitCode::from(CLI_ERROR_EXIT)
+            std::process::ExitCode::from(CLI_ERROR_EXIT)
         }
     }
 }
