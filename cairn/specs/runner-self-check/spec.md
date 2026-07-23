@@ -141,11 +141,41 @@ r[octet.runner_self_check.warning_budget.reduction.public_unsafe_abi.regression]
 - THEN Rust ABI detection and extern-ABI exclusion SHALL pass, accepted warning-only source SHALL exit `0`, and the one-new-ID mutation SHALL exit `1` with exactly one new stable identity.
 - AND malformed metadata and Cargo-child failures SHALL retain integration exit `2`.
 
+#### Scenario: Standards resource owner path reduces a third isolated identity
+r[octet.runner_self_check.warning_budget.reduction.standards_resource]
+- GIVEN the reviewed canonical inventory contains 1,112 `non_trait_imports` occurrences represented by 370 stable identities, including one unique private `check_resources` import in `crates/octet-standards/src/runner.rs`
+- WHEN the import is removed and the pure runner calls the explicit `crate::resource::check_resources` owner path at the same orchestration point
+- THEN the canonical inventory SHALL contain 2,667 total warning occurrences, 1,817 unique stable identities, and 1,111 `non_trait_imports` occurrences.
+- AND bounded-resource acceptance, unbounded-resource rejection, checker ordering, and diagnostic behavior SHALL remain unchanged.
+- AND the change SHALL NOT add an alias, lint suppression, exception, policy change, or unrelated behavior change.
+
+#### Scenario: Old baseline proves the standards-resource removal before refresh
+r[octet.runner_self_check.warning_budget.reduction.standards_resource.old_baseline]
+- GIVEN the owner-qualified standards runner and the previously accepted 1,818-identity baseline
+- WHEN the canonical self-check evaluates current findings before baseline replacement
+- THEN it SHALL exit `0` with warning-only status, exactly one stale ID, and zero new IDs.
+- AND the stale ID SHALL be the reviewed `non_trait_imports` identity `b3:3965b4dd27194e41`.
+
+#### Scenario: Third reviewed refresh contains removals only
+r[octet.runner_self_check.warning_budget.reduction.standards_resource.refresh]
+- GIVEN the old-baseline standards-resource reduction result is accepted for review
+- WHEN the runner writes the replacement baseline
+- THEN its stable-ID set SHALL equal the old set minus exactly `b3:3965b4dd27194e41` and SHALL contain no additions.
+- AND the unchanged self-check SHALL report zero new IDs and zero stale IDs against the replacement.
+
+#### Scenario: Standards-resource regression semantics remain unchanged
+r[octet.runner_self_check.warning_budget.reduction.standards_resource.regression]
+- GIVEN the refreshed lower standards-resource baseline and the hermetic one-warning source mutation
+- WHEN focused resource behavior, complete standards tests, and permanent positive and negative self-check cases run
+- THEN bounded-resource acceptance and unbounded-resource rejection SHALL pass, accepted warning-only source SHALL exit `0`, and the one-new-ID mutation SHALL exit `1` with exactly one new stable identity.
+- AND malformed metadata and Cargo-child failures SHALL retain integration exit `2`.
+
 #### Scenario: Baseline evidence remains bounded
 r[octet.runner_self_check.warning_budget.boundary]
 r[octet.runner_self_check.warning_budget.reduction.boundary]
 r[octet.runner_self_check.warning_budget.reduction.public_unsafe_abi.boundary]
+r[octet.runner_self_check.warning_budget.reduction.standards_resource.boundary]
 - GIVEN the monotonic baseline refresh and positive/negative gate pass
 - WHEN contributors review self-check status
 - THEN the result SHALL establish only removal and membership of stable IDs for the pinned configured static-lint run.
-- AND it SHALL NOT claim warning correctness, ABI-model completeness, lint correctness, test or binary coverage, dependency behavior, runtime safety, whole-program correctness, lint completeness, or release eligibility.
+- AND it SHALL NOT claim warning correctness, resource-analysis completeness, standards-check completeness, lint correctness, test or binary coverage, dependency behavior, runtime safety, whole-program correctness, lint completeness, or release eligibility.
