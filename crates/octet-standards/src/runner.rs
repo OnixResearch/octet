@@ -30,11 +30,7 @@ pub fn run_checks(input: &CheckInput) -> CheckReport {
     diagnostics.extend(check_architecture(&input.registry, &input.sources, &input.selection));
     let capability_manifest = check_capability_manifest(&input.registry, &input.sources, &input.selection);
     diagnostics.extend(capability_manifest.diagnostics);
-    diagnostics.extend(crate::resource::check_resources(
-        &input.registry,
-        &input.sources,
-        &input.selection,
-    ));
+    diagnostics.extend(crate::resource::check_resources(&input.registry, &input.sources, &input.selection));
     diagnostics.extend(check_verified_proof_rails(&input.registry, &input.sources, &input.selection));
     let evaluated_policy_ids = evaluated_policy_ids(&input.registry, &input.selection);
     let policy_evaluations = policy_evaluations(&input.registry, &input.selection);
