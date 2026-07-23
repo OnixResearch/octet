@@ -1,4 +1,3 @@
-use rustc_abi::ExternAbi;
 use rustc_hir as hir;
 use rustc_lint::LateContext;
 use rustc_lint::LateLintPass;
@@ -54,7 +53,7 @@ fn signature_declares_unsafe_fn(sig: &hir::FnSig<'_>) -> bool {
 }
 
 fn signature_uses_rust_abi(sig: &hir::FnSig<'_>) -> bool {
-    matches!(sig.header.abi, ExternAbi::Rust)
+    matches!(sig.header.abi, rustc_abi::ExternAbi::Rust)
 }
 
 fn classify_public_unsafe_api(facts: PublicUnsafeApiFacts) -> bool {
