@@ -2473,6 +2473,13 @@
             "extensions": [
               "rs"
             ],
+            "root": "cargo-octet/src/lib.rs",
+            "source_kind": "rust_source"
+          },
+          {
+            "extensions": [
+              "rs"
+            ],
             "root": "cargo-octet/src/main.rs",
             "source_kind": "rust_source"
           },
@@ -2662,6 +2669,13 @@
               "rs"
             ],
             "root": "cargo-octet/src/engine.rs",
+            "source_kind": "rust_source"
+          },
+          {
+            "extensions": [
+              "rs"
+            ],
+            "root": "cargo-octet/src/lib.rs",
             "source_kind": "rust_source"
           },
           {

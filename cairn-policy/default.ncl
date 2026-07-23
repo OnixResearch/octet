@@ -114,6 +114,7 @@ let PolicyFieldSetDigest = "cdbe3adf5778872343f8576e0304e3748dcaf7fb58f59c489599
         evidence_sources = [
           { root = "cargo-octet/src/baseline.rs", source_kind = "rust_source", extensions = ["rs"] },
           { root = "cargo-octet/src/engine.rs", source_kind = "rust_source", extensions = ["rs"] },
+          { root = "cargo-octet/src/lib.rs", source_kind = "rust_source", extensions = ["rs"] },
           { root = "cargo-octet/src/main.rs", source_kind = "rust_source", extensions = ["rs"] },
           { root = "cargo-octet/src/admit.rs", source_kind = "rust_source", extensions = ["rs"] },
           { root = "cargo-octet/src/artifact.rs", source_kind = "rust_source", extensions = ["rs"] },
@@ -148,6 +149,7 @@ let PolicyFieldSetDigest = "cdbe3adf5778872343f8576e0304e3748dcaf7fb58f59c489599
         evidence_sources = [
           { root = "cargo-octet/src/baseline.rs", source_kind = "rust_source", extensions = ["rs"] },
           { root = "cargo-octet/src/engine.rs", source_kind = "rust_source", extensions = ["rs"] },
+          { root = "cargo-octet/src/lib.rs", source_kind = "rust_source", extensions = ["rs"] },
           { root = "cargo-octet/src/main.rs", source_kind = "rust_source", extensions = ["rs"] },
           { root = "cargo-octet/src/admit.rs", source_kind = "rust_source", extensions = ["rs"] },
           { root = "cargo-octet/src/artifact.rs", source_kind = "rust_source", extensions = ["rs"] },
