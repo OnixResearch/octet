@@ -2564,6 +2564,13 @@
             "extensions": [
               "rs"
             ],
+            "root": "src/safety/public_unsafe_api.rs",
+            "source_kind": "rust_source"
+          },
+          {
+            "extensions": [
+              "rs"
+            ],
             "root": "tests",
             "source_kind": "rust_source"
           },
@@ -2760,6 +2767,13 @@
               "rs"
             ],
             "root": "src/safety/no_todo.rs",
+            "source_kind": "rust_source"
+          },
+          {
+            "extensions": [
+              "rs"
+            ],
+            "root": "src/safety/public_unsafe_api.rs",
             "source_kind": "rust_source"
           },
           {
