@@ -10,7 +10,7 @@
     "profile_hash": "b3:f1ebd25a3be2f3b7fa6d081f5f0dd80534f4a16d9cf5c837801fcd71282f5d4c",
     "config_hash": "b3:5e55d88eada17e881c47a4557af6f505d9162b5ab0a4672929c9ef3f4af0385b"
   },
-  "baseline_hash": "b3:23efb13653cef018dd76dc03eb6319bbd1946c67089add0e53db4c8c673b357e",
+  "baseline_hash": "b3:10c3f2decf773236c05abc465f1bc1b264933cba929a90133abc8f31502e9546",
   "findings": [
     {
       "stable_id": "b3:000100d3345b4ebd",
@@ -5263,19 +5263,6 @@
       "column": 9,
       "message": "`.expect()` in production code will panic on failure",
       "crate_name": "cargo_octet"
-    },
-    {
-      "stable_id": "b3:3965b4dd27194e41",
-      "semantic_id": "b3:3965b4dd27194e41",
-      "identity_status": "computed",
-      "lint": "non_trait_imports",
-      "group": "tigerstyle::naming",
-      "severity": "warning",
-      "file": "crates/octet-standards/src/runner.rs",
-      "line": 10,
-      "column": 1,
-      "message": "non-trait import `check_resources` hides the owner path; prefer the qualified path at the use site",
-      "crate_name": "octet_standards"
     },
     {
       "stable_id": "b3:3997215395501e4e",

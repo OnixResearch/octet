@@ -2550,6 +2550,13 @@
             "extensions": [
               "rs"
             ],
+            "root": "crates/octet-standards/src/runner.rs",
+            "source_kind": "rust_source"
+          },
+          {
+            "extensions": [
+              "rs"
+            ],
             "root": "crates/valence-core/src/evidence_codebase_index.rs",
             "source_kind": "rust_source"
           },
@@ -2753,6 +2760,13 @@
               "rs"
             ],
             "root": "cargo-octet/src/preserves_receipt_export.rs",
+            "source_kind": "rust_source"
+          },
+          {
+            "extensions": [
+              "rs"
+            ],
+            "root": "crates/octet-standards/src/runner.rs",
             "source_kind": "rust_source"
           },
           {

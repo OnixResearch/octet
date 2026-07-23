@@ -7,6 +7,7 @@ use crate::model::PolicyRegistry;
 use crate::proof::check_verified_proof_rails;
 use crate::report::CheckReport;
 use crate::report::PolicyEvaluation;
+// r[impl octet.runner_self_check.warning_budget.reduction.standards_resource]
 use crate::source::SourceFile;
 use crate::suppression::validate_suppressions;
 
