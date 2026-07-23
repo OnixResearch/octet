@@ -41,7 +41,7 @@
     "crates/octet-standards/src/source.rs",
     "crates/octet-standards/src/suppression.rs"
   ],
-  "object_set_hash": "b3:46e5d8a69591469a9e7df5b9745a02db13acb99bd442ed86e35c12fbb61ba783",
+  "object_set_hash": "b3:06a30c4dc06cc561da8af23be11e7e1dfca75351d6080b87a51d0f3affd67701",
   "caveat_counts": {
     "dependency_status": {
       "source-scanner-token-set": 443,
