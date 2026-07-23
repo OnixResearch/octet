@@ -7,7 +7,6 @@ use crate::model::PolicyRegistry;
 use crate::proof::check_verified_proof_rails;
 use crate::report::CheckReport;
 use crate::report::PolicyEvaluation;
-use crate::resource::check_resources;
 use crate::source::SourceFile;
 use crate::suppression::validate_suppressions;
 
@@ -30,7 +29,11 @@ pub fn run_checks(input: &CheckInput) -> CheckReport {
     diagnostics.extend(check_architecture(&input.registry, &input.sources, &input.selection));
     let capability_manifest = check_capability_manifest(&input.registry, &input.sources, &input.selection);
     diagnostics.extend(capability_manifest.diagnostics);
-    diagnostics.extend(check_resources(&input.registry, &input.sources, &input.selection));
+    diagnostics.extend(crate::resource::check_resources(
+        &input.registry,
+        &input.sources,
+        &input.selection,
+    ));
     diagnostics.extend(check_verified_proof_rails(&input.registry, &input.sources, &input.selection));
     let evaluated_policy_ids = evaluated_policy_ids(&input.registry, &input.selection);
     let policy_evaluations = policy_evaluations(&input.registry, &input.selection);
