@@ -19,7 +19,7 @@ False completion includes accepting any new stable ID, lowering only aggregate o
 
 | Family | Mechanism | State | Evidence / blocker |
 | --- | --- | --- | --- |
-| standards report type | Remove the unique `CheckReport` import and qualify its return-type and construction uses | active candidate | Checked-in baseline binds the import to `b3:b918c07b0ac7abe7`; deterministic old-baseline proof remains required |
+| standards report type | Remove the unique `CheckReport` import and qualify its return-type and construction uses | validated candidate | Old baseline exits `0` with 2,666 warnings, zero new IDs, and exactly stale ID `b3:b918c07b0ac7abe7` |
 | standards policy-evaluation type | Qualify `PolicyEvaluation` in the helper return type and construction | independent/deferred | Similar owner-path mechanism, but the selected report type is already bounded by direct report construction and serialization tests |
 | numeric-lint AST imports | Qualify `Local` or `PatKind` in `src/naming/numeric_units.rs` | independent/deferred | Editing lint traversal syntax has a larger semantic audit surface than a report DTO path |
 | another private leaf call | Select a single-use import in another import-only owner file | independent/deferred | No redirect is justified unless the report path fails old-baseline or behavior validation |
