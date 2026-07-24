@@ -8,6 +8,7 @@ Octet ratchets its canonical `--workspace --lib` self-check with the runner's ex
 <!-- r[impl octet.runner_self_check.warning_budget.reduction.public_unsafe_abi] -->
 <!-- r[impl octet.runner_self_check.warning_budget.reduction.standards_resource] -->
 <!-- r[impl octet.runner_self_check.warning_budget.reduction.standards_report] -->
+<!-- r[impl octet.runner_self_check.warning_budget.reduction.standards_policy_evaluation] -->
 <!-- r[verify octet.runner_self_check.warning_budget.baseline] -->
 
 ## Current budget
@@ -20,7 +21,9 @@ The second monotonic reduction replaced the unique private `ExternAbi` import in
 
 The third monotonic reduction replaced the unique private `check_resources` import in `crates/octet-standards/src/runner.rs` with the explicit `crate::resource::check_resources` owner path at the same orchestration point. The 1,818-identity old baseline reported exactly stale identity `b3:3965b4dd27194e41` and zero additions before refresh.
 
-The fourth monotonic reduction replaced the unique private `CheckReport` import in `crates/octet-standards/src/runner.rs` with explicit `crate::report::CheckReport` owner paths in the public return type and report construction. The 1,817-identity old baseline reported exactly stale identity `b3:b918c07b0ac7abe7` and zero additions before refresh. The current run contains 2,666 accepted warning occurrences represented by 1,816 unique stable identities, 1,110 `non_trait_imports` occurrences, no `negated_predicate` finding, and no absolute artifact locator. Repeated stable IDs are stored once in the baseline.
+The fourth monotonic reduction replaced the unique private `CheckReport` import in `crates/octet-standards/src/runner.rs` with explicit `crate::report::CheckReport` owner paths in the public return type and report construction. The 1,817-identity old baseline reported exactly stale identity `b3:b918c07b0ac7abe7` and zero additions before refresh.
+
+The fifth monotonic reduction replaced the unique private `PolicyEvaluation` import in `crates/octet-standards/src/runner.rs` with explicit `crate::report::PolicyEvaluation` owner paths in the helper return type and construction. The 1,816-identity old baseline reported exactly stale identity `b3:c0f0bf1de2e13e66` and zero additions before refresh. The current run contains 2,665 accepted warning occurrences represented by 1,815 unique stable identities, 1,109 `non_trait_imports` occurrences, no `negated_predicate` finding, and no absolute artifact locator. Repeated stable IDs are stored once in the baseline.
 
 <!-- r[verify octet.runner_self_check.warning_budget.reduction.old_baseline] -->
 <!-- r[verify octet.runner_self_check.warning_budget.reduction.refresh] -->
@@ -30,8 +33,10 @@ The fourth monotonic reduction replaced the unique private `CheckReport` import 
 <!-- r[verify octet.runner_self_check.warning_budget.reduction.standards_resource.refresh] -->
 <!-- r[verify octet.runner_self_check.warning_budget.reduction.standards_report.old_baseline] -->
 <!-- r[verify octet.runner_self_check.warning_budget.reduction.standards_report.refresh] -->
+<!-- r[verify octet.runner_self_check.warning_budget.reduction.standards_policy_evaluation.old_baseline] -->
+<!-- r[verify octet.runner_self_check.warning_budget.reduction.standards_policy_evaluation.refresh] -->
 
-Baseline BLAKE3 identity: `b3:36da78bf5493cf35f6fdc0ea361fafd21b065fb87fa173ddd3f59f33d6b0acb9`.
+Baseline BLAKE3 identity: `b3:af460a97f17e791476bc357eadc8ee22deb1548d5011a924e7edb94de9f7a7dc`.
 
 | Domain | Accepted warnings |
 | --- | ---: |
@@ -42,7 +47,7 @@ Baseline BLAKE3 identity: `b3:36da78bf5493cf35f6fdc0ea361fafd21b065fb87fa173ddd3
 
 | Lint | Accepted warnings |
 | --- | ---: |
-| `non_trait_imports` | 1,110 |
+| `non_trait_imports` | 1,109 |
 | `path_segment_repetition` | 396 |
 | `borrowed_argument_types` | 253 |
 | `explicit_defaults` | 169 |
@@ -71,13 +76,14 @@ Baseline BLAKE3 identity: `b3:36da78bf5493cf35f6fdc0ea361fafd21b065fb87fa173ddd3
 
 ## Gate behavior
 
-The `cargo-octet-self-check` Nix derivation runs structured output against the checked-in baseline. The unchanged source must report 2,666 warning occurrences, 1,816 accepted stable identities, zero new IDs, zero stale IDs, a matching baseline hash, and repository-relative locators. A writable negative copy injects one behavior-preserving, intentionally negated predicate binding and must exit `1` with exactly one new ID. Malformed metadata and Cargo-child failures remain integration failures with exit `2`.
+The `cargo-octet-self-check` Nix derivation runs structured output against the checked-in baseline. The unchanged source must report 2,665 warning occurrences, 1,815 accepted stable identities, zero new IDs, zero stale IDs, a matching baseline hash, and repository-relative locators. A writable negative copy injects one behavior-preserving, intentionally negated predicate binding and must exit `1` with exactly one new ID. Malformed metadata and Cargo-child failures remain integration failures with exit `2`.
 
 <!-- r[verify octet.runner_self_check.warning_budget.regression] -->
 <!-- r[verify octet.runner_self_check.warning_budget.reduction.regression] -->
 <!-- r[verify octet.runner_self_check.warning_budget.reduction.public_unsafe_abi.regression] -->
 <!-- r[verify octet.runner_self_check.warning_budget.reduction.standards_resource.regression] -->
 <!-- r[verify octet.runner_self_check.warning_budget.reduction.standards_report.regression] -->
+<!-- r[verify octet.runner_self_check.warning_budget.reduction.standards_policy_evaluation.regression] -->
 <!-- r[verify octet.runner_self_check.warning_budget.cleanup] -->
 
 Baseline refresh is an explicit review operation, not an automatic gate action:
@@ -98,5 +104,6 @@ Review the stable-ID additions, removals, lint/domain counts, relative locators,
 <!-- r[verify octet.runner_self_check.warning_budget.reduction.public_unsafe_abi.boundary] -->
 <!-- r[verify octet.runner_self_check.warning_budget.reduction.standards_resource.boundary] -->
 <!-- r[verify octet.runner_self_check.warning_budget.reduction.standards_report.boundary] -->
+<!-- r[verify octet.runner_self_check.warning_budget.reduction.standards_policy_evaluation.boundary] -->
 
 The baseline proves only that current findings belong to one reviewed stable-ID set for the pinned local static-lint run. It does not prove that accepted warnings are correct, low-noise, harmless, or complete. It does not cover tests, binaries, examples, benches, dependencies, runtime behavior, whole-program correctness, lint completeness, or release eligibility.

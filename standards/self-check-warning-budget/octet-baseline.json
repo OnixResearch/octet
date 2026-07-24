@@ -10,7 +10,7 @@
     "profile_hash": "b3:f1ebd25a3be2f3b7fa6d081f5f0dd80534f4a16d9cf5c837801fcd71282f5d4c",
     "config_hash": "b3:5e55d88eada17e881c47a4557af6f505d9162b5ab0a4672929c9ef3f4af0385b"
   },
-  "baseline_hash": "b3:36da78bf5493cf35f6fdc0ea361fafd21b065fb87fa173ddd3f59f33d6b0acb9",
+  "baseline_hash": "b3:af460a97f17e791476bc357eadc8ee22deb1548d5011a924e7edb94de9f7a7dc",
   "findings": [
     {
       "stable_id": "b3:000100d3345b4ebd",
@@ -17613,19 +17613,6 @@
       "column": 1,
       "message": "parameter uses `&Vec<WasmArtifactFinding>`; accept `&[WasmArtifactFinding]` unless ownership, capacity, or exact owned type identity is required",
       "crate_name": "cargo_octet"
-    },
-    {
-      "stable_id": "b3:c0f0bf1de2e13e66",
-      "semantic_id": "b3:c0f0bf1de2e13e66",
-      "identity_status": "computed",
-      "lint": "non_trait_imports",
-      "group": "tigerstyle::naming",
-      "severity": "warning",
-      "file": "crates/octet-standards/src/runner.rs",
-      "line": 8,
-      "column": 1,
-      "message": "non-trait import `PolicyEvaluation` hides the owner path; prefer the qualified path at the use site",
-      "crate_name": "octet_standards"
     },
     {
       "stable_id": "b3:c127ec9cd9ae4abc",
