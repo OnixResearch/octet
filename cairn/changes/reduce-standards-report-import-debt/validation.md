@@ -8,7 +8,7 @@ The canonical inventory decreased from 2,667 to 2,666 warning occurrences, from 
 
 The unchanged self-check exits `0` with `warning-only` status, zero errors, zero new IDs, and zero stale IDs. The permanent behavior-preserving negative mutation still exits `1` with exactly one new `negated_predicate` identity. Malformed metadata and Cargo-child failures remain integration exit `2` cases.
 
-Cairn traceability reports 174 of 174 accepted requirements referenced under profile `octet-default`. Policy export is fresh, and strict Cairn validation reports no issues.
+Cairn traceability reports 174 of 174 accepted requirements referenced under profile `octet-default`. Policy export is fresh, strict Cairn validation reports no issues, and the archive-ready policy hash is `73d0b853284ca1aa2a1a743759c9229a5e84ba2d1e0a092e1f64808676ffe346`.
 
 ## Portfolio Audit
 
