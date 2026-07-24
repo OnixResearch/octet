@@ -5,9 +5,9 @@ use crate::capability_manifest::check_capability_manifest;
 use crate::model::FamilySelection;
 use crate::model::PolicyRegistry;
 use crate::proof::check_verified_proof_rails;
-use crate::report::CheckReport;
 use crate::report::PolicyEvaluation;
 // r[impl octet.runner_self_check.warning_budget.reduction.standards_resource]
+// r[impl octet.runner_self_check.warning_budget.reduction.standards_report]
 use crate::source::SourceFile;
 use crate::suppression::validate_suppressions;
 
@@ -24,7 +24,7 @@ pub struct CheckInput {
 
 /// Runs pure checker logic.
 #[must_use]
-pub fn run_checks(input: &CheckInput) -> CheckReport {
+pub fn run_checks(input: &CheckInput) -> crate::report::CheckReport {
     let suppression_report = validate_suppressions(&input.registry, &input.sources, &input.selection);
     let mut diagnostics = suppression_report.diagnostics;
     diagnostics.extend(check_architecture(&input.registry, &input.sources, &input.selection));
@@ -35,7 +35,7 @@ pub fn run_checks(input: &CheckInput) -> CheckReport {
     let evaluated_policy_ids = evaluated_policy_ids(&input.registry, &input.selection);
     let policy_evaluations = policy_evaluations(&input.registry, &input.selection);
 
-    CheckReport {
+    crate::report::CheckReport {
         diagnostics,
         active_suppressions: suppression_report.active_suppressions,
         evaluated_policy_ids,
