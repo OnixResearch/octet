@@ -10,12 +10,17 @@ repos:
     hooks:
       - id: check-merge-conflict
       - id: end-of-file-fixer
+        # Preserve exact bytes for BLAKE3-bound generated and recorded artifacts.
         exclude: |
           (?x)^(
             cairn/|
             openspec/|
             ui_tests/|
             standards/policies/fixtures/|
+            standards/charon-semantic/generated/valence-handoff\.json$|
+            standards/charon-semantic/fixtures/valid/artifacts/charon-snapshot\.llbc$|
+            standards/proof-rails/aeneas-lean/fixtures/valid/verification\.json$|
+            standards/proof-rails/aeneas-lean/fixtures/valid/artifacts/proofs/aeneas/llbc\.llbc$|
             tests/support/dylint/driver/Cargo\.toml
           )
       - id: trailing-whitespace
