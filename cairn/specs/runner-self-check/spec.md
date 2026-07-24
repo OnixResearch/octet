@@ -199,13 +199,43 @@ r[octet.runner_self_check.warning_budget.reduction.standards_report.regression]
 - THEN positive serialization and negative blocking-diagnostic behavior SHALL pass, accepted warning-only source SHALL exit `0`, and the one-new-ID mutation SHALL exit `1` with exactly one new stable identity.
 - AND malformed metadata and Cargo-child failures SHALL retain integration exit `2`.
 
+#### Scenario: Standards policy-evaluation owner path reduces a fifth isolated identity
+r[octet.runner_self_check.warning_budget.reduction.standards_policy_evaluation]
+- GIVEN the reviewed canonical inventory contains 1,110 `non_trait_imports` occurrences represented by 368 stable identities, including one unique private `PolicyEvaluation` import in `crates/octet-standards/src/runner.rs`
+- WHEN the import is removed and the pure runner uses explicit `crate::report::PolicyEvaluation` owner paths in the helper return type and construction
+- THEN the canonical inventory SHALL contain 2,665 total warning occurrences, 1,815 unique stable identities, and 1,109 `non_trait_imports` occurrences.
+- AND selected-policy filtering, registry ordering, enforcement metadata, failure classification, report assembly, positive serialization, and negative blocking-diagnostic behavior SHALL remain unchanged.
+- AND the change SHALL NOT add an alias, lint suppression, exception, policy change, or unrelated behavior change.
+
+#### Scenario: Old baseline proves the standards-policy-evaluation removal before refresh
+r[octet.runner_self_check.warning_budget.reduction.standards_policy_evaluation.old_baseline]
+- GIVEN the owner-qualified standards runner and the previously accepted 1,816-identity baseline
+- WHEN the canonical self-check evaluates current findings before baseline replacement
+- THEN it SHALL exit `0` with warning-only status, exactly one stale ID, and zero new IDs.
+- AND the stale ID SHALL be the reviewed `non_trait_imports` identity `b3:c0f0bf1de2e13e66`.
+
+#### Scenario: Fifth reviewed refresh contains removals only
+r[octet.runner_self_check.warning_budget.reduction.standards_policy_evaluation.refresh]
+- GIVEN the old-baseline standards-policy-evaluation reduction result is accepted for review
+- WHEN the runner writes the replacement baseline
+- THEN its stable-ID set SHALL equal the old set minus exactly `b3:c0f0bf1de2e13e66` and SHALL contain no additions.
+- AND the unchanged self-check SHALL report zero new IDs and zero stale IDs against the replacement.
+
+#### Scenario: Standards-policy-evaluation regression semantics remain unchanged
+r[octet.runner_self_check.warning_budget.reduction.standards_policy_evaluation.regression]
+- GIVEN the refreshed lower standards-policy-evaluation baseline and the hermetic one-warning source mutation
+- WHEN focused policy-selection and report behavior, complete standards tests, and permanent positive and negative self-check cases run
+- THEN selected and unselected policy behavior plus report serialization SHALL pass, accepted warning-only source SHALL exit `0`, and the one-new-ID mutation SHALL exit `1` with exactly one new stable identity.
+- AND malformed metadata and Cargo-child failures SHALL retain integration exit `2`.
+
 #### Scenario: Baseline evidence remains bounded
 r[octet.runner_self_check.warning_budget.boundary]
 r[octet.runner_self_check.warning_budget.reduction.boundary]
 r[octet.runner_self_check.warning_budget.reduction.public_unsafe_abi.boundary]
 r[octet.runner_self_check.warning_budget.reduction.standards_resource.boundary]
 r[octet.runner_self_check.warning_budget.reduction.standards_report.boundary]
+r[octet.runner_self_check.warning_budget.reduction.standards_policy_evaluation.boundary]
 - GIVEN the monotonic baseline refresh and positive/negative gate pass
 - WHEN contributors review self-check status
 - THEN the result SHALL establish only removal and membership of stable IDs for the pinned configured static-lint run.
-- AND it SHALL NOT claim warning correctness, report completeness, standards-check completeness, lint correctness, test or binary coverage, dependency behavior, runtime safety, whole-program correctness, lint completeness, or release eligibility.
+- AND it SHALL NOT claim warning correctness, policy-evaluation completeness, report completeness, standards-check completeness, lint correctness, test or binary coverage, dependency behavior, runtime safety, whole-program correctness, lint completeness, or release eligibility.
