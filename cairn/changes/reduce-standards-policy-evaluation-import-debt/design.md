@@ -19,7 +19,7 @@ False completion includes accepting any new stable ID, lowering only aggregate o
 
 | Family | Mechanism | State | Evidence / blocker |
 | --- | --- | --- | --- |
-| standards policy-evaluation type | Remove the unique `PolicyEvaluation` import and qualify its helper return-type and construction uses | selected candidate | The preceding validated portfolio explicitly deferred this bounded owner-path candidate; old-baseline execution remains authoritative |
+| standards policy-evaluation type | Remove the unique `PolicyEvaluation` import and qualify its helper return-type and construction uses | validated candidate | Old baseline exits `0` with 2,665 warnings, zero new IDs, and exactly stale ID `b3:c0f0bf1de2e13e66` |
 | standards source-file type | Qualify `SourceFile` in runner inputs and helper signatures | independent/deferred | More use sites and public input spelling enlarge the source and review surface |
 | standards checker functions | Qualify another imported checker call | independent/deferred | Alters orchestration spelling at behavior-sensitive call points without need if the DTO path validates |
 | numeric-lint AST imports | Qualify `Local` or `PatKind` in `src/naming/numeric_units.rs` | independent/deferred | Editing lint traversal syntax has a larger semantic audit surface than a report DTO path |

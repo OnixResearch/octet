@@ -5,9 +5,9 @@ use crate::capability_manifest::check_capability_manifest;
 use crate::model::FamilySelection;
 use crate::model::PolicyRegistry;
 use crate::proof::check_verified_proof_rails;
-use crate::report::PolicyEvaluation;
 // r[impl octet.runner_self_check.warning_budget.reduction.standards_resource]
 // r[impl octet.runner_self_check.warning_budget.reduction.standards_report]
+// r[impl octet.runner_self_check.warning_budget.reduction.standards_policy_evaluation]
 use crate::source::SourceFile;
 use crate::suppression::validate_suppressions;
 
@@ -53,12 +53,12 @@ fn evaluated_policy_ids(registry: &PolicyRegistry, selection: &FamilySelection) 
         .collect()
 }
 
-fn policy_evaluations(registry: &PolicyRegistry, selection: &FamilySelection) -> Vec<PolicyEvaluation> {
+fn policy_evaluations(registry: &PolicyRegistry, selection: &FamilySelection) -> Vec<crate::report::PolicyEvaluation> {
     registry
         .policies
         .iter()
         .filter(|policy| selection.includes(&policy.pillar))
-        .map(|policy| PolicyEvaluation {
+        .map(|policy| crate::report::PolicyEvaluation {
             policy_id: policy.policy_id.clone(),
             current_enforcement_mode: policy.current_enforcement_mode,
             target_enforcement_mode: policy.target_enforcement_mode,
