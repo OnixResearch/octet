@@ -170,12 +170,42 @@ r[octet.runner_self_check.warning_budget.reduction.standards_resource.regression
 - THEN bounded-resource acceptance and unbounded-resource rejection SHALL pass, accepted warning-only source SHALL exit `0`, and the one-new-ID mutation SHALL exit `1` with exactly one new stable identity.
 - AND malformed metadata and Cargo-child failures SHALL retain integration exit `2`.
 
+#### Scenario: Standards report owner path reduces a fourth isolated identity
+r[octet.runner_self_check.warning_budget.reduction.standards_report]
+- GIVEN the reviewed canonical inventory contains 1,111 `non_trait_imports` occurrences represented by 369 stable identities, including one unique private `CheckReport` import in `crates/octet-standards/src/runner.rs`
+- WHEN the import is removed and the pure runner uses explicit `crate::report::CheckReport` owner paths in its return type and report construction
+- THEN the canonical inventory SHALL contain 2,666 total warning occurrences, 1,816 unique stable identities, and 1,110 `non_trait_imports` occurrences.
+- AND report fields, field order, diagnostic order, positive serialization, and negative blocking-diagnostic behavior SHALL remain unchanged.
+- AND the change SHALL NOT add an alias, lint suppression, exception, policy change, or unrelated behavior change.
+
+#### Scenario: Old baseline proves the standards-report removal before refresh
+r[octet.runner_self_check.warning_budget.reduction.standards_report.old_baseline]
+- GIVEN the owner-qualified standards runner and the previously accepted 1,817-identity baseline
+- WHEN the canonical self-check evaluates current findings before baseline replacement
+- THEN it SHALL exit `0` with warning-only status, exactly one stale ID, and zero new IDs.
+- AND the stale ID SHALL be the reviewed `non_trait_imports` identity `b3:b918c07b0ac7abe7`.
+
+#### Scenario: Fourth reviewed refresh contains removals only
+r[octet.runner_self_check.warning_budget.reduction.standards_report.refresh]
+- GIVEN the old-baseline standards-report reduction result is accepted for review
+- WHEN the runner writes the replacement baseline
+- THEN its stable-ID set SHALL equal the old set minus exactly `b3:b918c07b0ac7abe7` and SHALL contain no additions.
+- AND the unchanged self-check SHALL report zero new IDs and zero stale IDs against the replacement.
+
+#### Scenario: Standards-report regression semantics remain unchanged
+r[octet.runner_self_check.warning_budget.reduction.standards_report.regression]
+- GIVEN the refreshed lower standards-report baseline and the hermetic one-warning source mutation
+- WHEN focused report behavior, complete standards tests, and permanent positive and negative self-check cases run
+- THEN positive serialization and negative blocking-diagnostic behavior SHALL pass, accepted warning-only source SHALL exit `0`, and the one-new-ID mutation SHALL exit `1` with exactly one new stable identity.
+- AND malformed metadata and Cargo-child failures SHALL retain integration exit `2`.
+
 #### Scenario: Baseline evidence remains bounded
 r[octet.runner_self_check.warning_budget.boundary]
 r[octet.runner_self_check.warning_budget.reduction.boundary]
 r[octet.runner_self_check.warning_budget.reduction.public_unsafe_abi.boundary]
 r[octet.runner_self_check.warning_budget.reduction.standards_resource.boundary]
+r[octet.runner_self_check.warning_budget.reduction.standards_report.boundary]
 - GIVEN the monotonic baseline refresh and positive/negative gate pass
 - WHEN contributors review self-check status
 - THEN the result SHALL establish only removal and membership of stable IDs for the pinned configured static-lint run.
-- AND it SHALL NOT claim warning correctness, resource-analysis completeness, standards-check completeness, lint correctness, test or binary coverage, dependency behavior, runtime safety, whole-program correctness, lint completeness, or release eligibility.
+- AND it SHALL NOT claim warning correctness, report completeness, standards-check completeness, lint correctness, test or binary coverage, dependency behavior, runtime safety, whole-program correctness, lint completeness, or release eligibility.
