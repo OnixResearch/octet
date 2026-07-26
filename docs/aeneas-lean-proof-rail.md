@@ -99,6 +99,20 @@ The Valence adapter preserves intermediate translation stages as bounded
 recorded or boundary evidence. The final Octet-owned named theorem receipt is
 the only property candidate.
 
+## Consumer contract status
+
+The shipped policy registry selects only the Octet-owned `safe_add` fixture.
+It does not publish arbitrary downstream adoption as a compatibility surface.
+
+The active Cairn change
+`cairn/changes/generalize-aeneas-consumer-contract/` defines the reusable
+consumer profile, exact-source selection, outcome classes, and revision-bound
+handoff. Until that change archives, downstream consumers must treat the
+provider as a reviewed dependency with consumer-specific integration work.
+
+The [AeneasVerif integration roadmap](aeneasverif-integration-roadmap.md)
+records stack ownership and the deferred Eurydice and Scylla stages.
+
 ## Explicit non-claims
 
 An accepted Aeneas/Lean receipt is scoped to the named theorem, exact source,

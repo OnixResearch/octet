@@ -89,6 +89,21 @@ eligibility. `deterministic-core` additionally requires configured
 [`docs/strict-rust-profiles.md`](docs/strict-rust-profiles.md) for the profile
 matrix and bootstrap path.
 
+A separate machine-readable assurance profile links required mechanisms,
+assumptions, trusted-base elements, evidence scopes, validation commands, and
+non-claims without reporting that any evidence passed. The first bounded pilot
+covers the active OnixOS lifecycle proof chain:
+
+```bash
+nix build .#octet-assurance-profile-onixos-lifecycle --no-link --print-out-paths
+nix build .#checks.x86_64-linux.assurance-profile-onixos-lifecycle --no-link -L
+```
+
+The package exposes generated JSON, its Nickel source and contract, and a
+Nickel Export BLAKE3 manifest. It is not a strict Rust profile, cumulative
+proof, security score, or release decision. See
+[`docs/assurance-profiles.md`](docs/assurance-profiles.md).
+
 A separate opt-in closure rail extends a successful `deterministic-core` check
 with conservative selected source-token call/effect propagation and exact
 reviewed provider summaries:
@@ -345,6 +360,7 @@ and config keys.
 - `docs/trust-boundary-evidence.md` — checked-path framing, evidence stack, evidence tiers, the [checked-contract ladder](docs/trust-boundary-evidence.md#checked-contract-ladder), provenance, scope boundary, and controlled-deployment map
 - `docs/law-tested-cores.md` — bounded, replayable law catalog for deterministic pure cores
 - `docs/strict-rust-profiles.md` — named lint floors, function-address bootstrap, profile evidence, and non-claim boundaries
+- `docs/assurance-profiles.md` — typed cross-plane mechanism requirements, BLAKE3 profile identity, the OnixOS lifecycle pilot, and composition non-claims
 - `docs/clippy-restriction-profiles.md` — cherry-picked Clippy restriction profiles, policy-bound receipts, exceptions, and non-claim boundaries
 - `templates/pre-commit-config.yaml` — copyable deny-all pre-commit hook configuration
 - `docs/lint-reference.md` — full lint catalog, default levels, suppression paths, config reference
@@ -355,6 +371,7 @@ and config keys.
 - `docs/preserves-receipt-export.md` — optional Preserves envelope adapter contract and non-claims
 - `docs/formal-proof-valence-export-fixture.md` — frozen formal-proof Valence adapter fixture contract
 - `docs/aeneas-lean-proof-rail.md` — opt-in Aeneas/Charon/Lean provider selection, theorem gate, rollout order, and claim boundaries
+- `docs/aeneasverif-integration-roadmap.md` — stack ownership, reusable consumer-contract work, and deferred Eurydice and Scylla stages
 - `docs/charon-semantic-analysis.md` — pinned Charon extraction, semantic projection, source/token comparison, artifact roles, and recorded-only boundaries
 - `docs/concurrency-performance-lint-candidates.md` — first-wave concurrency/performance lint candidate matrix
 - `docs/contributor-guide.md` — source-of-truth map, doc-update crosswalk, verification rails
@@ -389,6 +406,8 @@ AGPL-3.0-or-later. See [LICENSE](LICENSE). Third-party dependencies and imported
 - [nasa/spacewasm](https://github.com/nasa/spacewasm) at `e24cf09355a90497148eb5029fdb8e3400bd63e3` — reviewed source cohort for the execution-free `spacewasm-mvp` artifact profile; Octet does not import or execute the runtime and does not transfer decode, execution, safety, sandbox, certification, or release claims.
 - [AeneasVerif/aeneas](https://github.com/AeneasVerif/aeneas) — Charon/LLBC-to-Lean translation and theorem-checking reference for the opt-in Aeneas proof provider; Octet must rerun exact pinned stages and does not inherit translation or verifier soundness claims.
 - [AeneasVerif/charon](https://github.com/AeneasVerif/charon) — pinned Rust semantic-extraction and serialized-option reference for Aeneas and optional Charon semantic-analysis rails; Octet rejects partial or weakened extraction and does not claim compiler correctness or complete Rust support.
+- [AeneasVerif/eurydice](https://github.com/AeneasVerif/eurydice) — deferred Rust-to-C export reference. A future Octet rail must preserve separate Charon compatibility, panic, termination, generated-C, and non-claim boundaries.
+- [AeneasVerif/scylla](https://github.com/AeneasVerif/scylla) — deferred experimental C-to-Rust migration reference. A future named-corpus rail must bind Clang, annotations, rewrites, generated Rust, unsupported constructs, and equivalence non-claims.
 - [AeneasVerif/mechanized-llbc](https://github.com/AeneasVerif/mechanized-llbc) — recorded-only LLBC semantic-foundation corpus; it does not certify the pinned Charon or Aeneas implementations.
 - [AeneasVerif/charon-rudra](https://github.com/AeneasVerif/charon-rudra) — historical analysis-over-Charon design reference only; Octet does not adopt its old toolchain or implementation as a runtime dependency.
 - [AeneasVerif/jxl-proofs](https://github.com/AeneasVerif/jxl-proofs) — proof-architecture and vacuous-specification caution corpus used to design theorem-adequacy negatives; its theorems and generated artifacts do not transfer proof authority.
