@@ -45,6 +45,7 @@ For the shipped lint catalog, see `lint-reference.md`.
 | config schema and defaults | `src/config.rs` |
 | cargo subcommand parsing and engine behavior | `cargo-octet/src/cli.rs`, `cargo-octet/src/config.rs`, `cargo-octet/src/engine.rs` |
 | standards registry and checker core | `standards/policies/`, `crates/octet-standards/src/` |
+| machine-readable assurance profiles | `standards/policies/assurance-profiles/`, `docs/assurance-profiles.md`, and `flake.nix` package/check outputs |
 | Rust-emitted evidence DTO contracts | Rust field tables in `cargo-octet/src/evidence_contracts.rs`, generated Nickel in `standards/evidence/contracts/`, and fixtures in `standards/evidence/fixtures/` |
 | standards source material | `docs/standards/source/` |
 | published Nix entry points and helpers | `flake.nix` |
