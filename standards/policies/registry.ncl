@@ -188,6 +188,18 @@ in
       negative_fixtures = ["standards/strict-profiles/fixtures/invalid/bad_function_address_mode.ncl", "standards/strict-profiles/fixtures/invalid/empty_non_claims.ncl", "crates/octet-lint-metadata/src/strict_profile.rs::malformed_catalog_reports_duplicate_unknown_and_scope_errors"],
     },
     {
+      family_id = "octet.assurance-profile.onixos-lifecycle-proof",
+      ownership = "nickel-authored",
+      owner_source_path = "standards/policies/assurance-profiles/onixos-lifecycle-proof.ncl",
+      artifact_path = "standards/policies/assurance-profiles/generated/onixos-lifecycle-proof.json",
+      generation_command = "nickel export --format json standards/policies/assurance-profiles/onixos-lifecycle-proof.ncl",
+      validation_command = "nix build .#checks.x86_64-linux.assurance-profile-onixos-lifecycle --no-link -L",
+      status = "existing",
+      config_digest_required = true,
+      positive_fixtures = ["standards/policies/assurance-profiles/onixos-lifecycle-proof.ncl", "standards/policies/assurance-profiles/fixtures/valid/minimum.ncl"],
+      negative_fixtures = ["standards/policies/assurance-profiles/fixtures/invalid/duplicate_ids.ncl", "standards/policies/assurance-profiles/fixtures/invalid/empty_non_claims.ncl", "standards/policies/assurance-profiles/fixtures/invalid/empty_scope.ncl", "standards/policies/assurance-profiles/fixtures/invalid/unknown_field.ncl", "standards/policies/assurance-profiles/fixtures/invalid/unknown_plane.ncl", "standards/policies/assurance-profiles/fixtures/invalid/unreferenced_declaration.ncl", "standards/policies/assurance-profiles/fixtures/invalid/unresolved_reference.ncl"],
+    },
+    {
       family_id = "octet.clippy-restriction-profile-config",
       ownership = "nickel-authored",
       owner_source_path = "standards/clippy-restrictions/profiles.ncl",

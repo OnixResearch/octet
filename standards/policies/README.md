@@ -8,6 +8,7 @@ The first checker foundation uses the existing Rust/Serde JSON stack and consume
 
 - `contracts.ncl` — closed Nickel contracts for registry shape, policy entries, severity, checker IDs, enforcement mode taxonomy, mechanism metadata, proof rails, seed manifests, and suppression metadata.
 - `registry.ncl` — first-wave policy inventory covering every OpenSpec minimum hard-rule candidate plus advisory and human-process-only guidance, including target-mode escalation metadata.
+- `assurance-profiles/` — closed cross-plane profile contracts, the OnixOS lifecycle pilot, positive and negative fixtures, generated JSON, and Nickel Export BLAKE3 identity.
 - `minimum-coverage.md` — reviewable mapping from OpenSpec hard-rule candidates to policy IDs and task waves.
 - `fixtures/valid/*.ncl` — positive registry contract fixtures.
 - `fixtures/invalid/*.ncl` — negative fixtures for missing traceability, unknown modes/checkers, missing suppression metadata, unknown fields, missing structural mechanisms, missing proof rails, target-mode regressions, and proof-relevant seeds without local acceptance.
@@ -27,6 +28,15 @@ The artifact export writes five consumer-facing files:
 - `octet-seed-manifests.json` — manifest-gated seed corpus metadata.
 - `octet-proof-bundles.json` — `octet-proof-bundle/v1` schema for verified proof rails and receipt obligations.
 - `octet-config-receipt-families.json` — config/receipt source-of-truth registry for freshness checks.
+
+Assurance profiles remain separate, profile-specific generated artifacts. Build and validate the first pilot with:
+
+```bash
+nix build .#octet-assurance-profile-onixos-lifecycle --no-link --print-out-paths
+nix build .#checks.x86_64-linux.assurance-profile-onixos-lifecycle --no-link -L
+```
+
+The generated manifest binds the profile output with BLAKE3. It does not report evidence success or release readiness.
 
 Rust-emitted evidence DTOs are Rust-derived receipt families: keep the Rust field table as the source of truth, check in the generated Nickel contract under `standards/evidence/contracts/`, register it in `registry.ncl`, and include both positive and negative Nickel fixtures. Freshness is enforced by `cargo test -p cargo-octet evidence_contracts::tests::generated_contracts_are_fresh`; fixture behavior is enforced by `cargo test -p cargo-octet evidence_contracts::tests::evidence_contract_fixtures_accept_valid_and_reject_invalid_records`.
 

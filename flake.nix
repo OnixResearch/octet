@@ -1790,6 +1790,112 @@
               touch "$out"
             '';
 
+        assuranceProfileOnixOSLifecycle =
+          pkgs.runCommand "octet-assurance-profile-onixos-lifecycle-proof-v1"
+            {
+              nativeBuildInputs = with pkgs; [ jq ];
+            }
+            ''
+              profile_root="$out/share/octet/assurance-profiles/onixos-lifecycle-proof-v1"
+              mkdir -p "$profile_root/generated"
+              cp ${./standards/policies/assurance-profiles/contracts.ncl} "$profile_root/contracts.ncl"
+              cp ${./standards/policies/assurance-profiles/export-spec.ncl} "$profile_root/export-spec.ncl"
+              cp ${./standards/policies/assurance-profiles/onixos-lifecycle-proof.ncl} "$profile_root/profile.ncl"
+              cp ${./standards/policies/assurance-profiles/generated/onixos-lifecycle-proof.json} "$profile_root/generated/profile.json"
+              cp ${./standards/policies/assurance-profiles/generated/onixos-lifecycle-proof.manifest.json} "$profile_root/generated/profile.manifest.json"
+              jq --raw-output '.exports[] | select(.family_id == "octet.assurance-profile.onixos-lifecycle-proof") | .output.blake3' \
+                "$profile_root/generated/profile.manifest.json" > "$profile_root/generated/profile.blake3"
+            '';
+
+        assuranceProfileOnixOSLifecycleCheck =
+          pkgs.runCommand "octet-assurance-profile-onixos-lifecycle-check"
+            {
+              nativeBuildInputs = with pkgs; [
+                coreutils
+                diffutils
+                jq
+                nickel
+                octetStandards
+              ];
+            }
+            ''
+              cd ${./.}
+              profile_dir=standards/policies/assurance-profiles
+              generated_dir="$profile_dir/generated"
+              actual_profile="$TMPDIR/onixos-lifecycle-proof.json"
+              repeat_profile="$TMPDIR/onixos-lifecycle-proof.repeat.json"
+              drift_profile="$TMPDIR/onixos-lifecycle-proof.drift.json"
+              actual_spec="$TMPDIR/export-spec.json"
+              actual_manifest="$TMPDIR/onixos-lifecycle-proof.manifest.json"
+              repeat_manifest="$TMPDIR/onixos-lifecycle-proof.repeat.manifest.json"
+              drift_manifest="$TMPDIR/onixos-lifecycle-proof.drift.manifest.json"
+
+              nickel typecheck "$profile_dir/contracts.ncl"
+              nickel typecheck "$profile_dir/onixos-lifecycle-proof.ncl"
+              nickel export --format json "$profile_dir/onixos-lifecycle-proof.ncl" > "$actual_profile"
+              cmp "$actual_profile" "$generated_dir/onixos-lifecycle-proof.json"
+
+              for file in "$profile_dir"/fixtures/valid/*.ncl; do
+                nickel export --format json "$file" >/dev/null
+              done
+              for file in "$profile_dir"/fixtures/invalid/*.ncl; do
+                if nickel export --format json "$file" >/dev/null 2>&1; then
+                  echo "invalid assurance-profile fixture passed: $file" >&2
+                  exit 1
+                fi
+              done
+
+              nickel export --format json "$profile_dir/export-spec.ncl" > "$actual_spec"
+              octet-standards nickel-export-manifest \
+                --spec "$actual_spec" \
+                --output "$actual_profile" \
+                --manifest-out "$actual_manifest" \
+                --nickel-identity "$(nickel --version)"
+              cmp "$actual_manifest" "$generated_dir/onixos-lifecycle-proof.manifest.json"
+
+              nickel export --format json "$profile_dir/onixos-lifecycle-proof.ncl" > "$repeat_profile"
+              octet-standards nickel-export-manifest \
+                --spec "$actual_spec" \
+                --output "$repeat_profile" \
+                --manifest-out "$repeat_manifest" \
+                --nickel-identity "$(nickel --version)"
+              cmp "$actual_profile" "$repeat_profile"
+              cmp "$actual_manifest" "$repeat_manifest"
+
+              cp "$actual_profile" "$drift_profile"
+              printf '\n' >> "$drift_profile"
+              octet-standards nickel-export-manifest \
+                --spec "$actual_spec" \
+                --output "$drift_profile" \
+                --manifest-out "$drift_manifest" \
+                --nickel-identity "$(nickel --version)"
+              if cmp --silent "$actual_manifest" "$drift_manifest"; then
+                echo "drifted assurance-profile output retained its prior manifest" >&2
+                exit 1
+              fi
+              expected_output_blake3=$(jq --raw-output '.exports[0].output.blake3' "$actual_manifest")
+              drift_output_blake3=$(jq --raw-output '.exports[0].output.blake3' "$drift_manifest")
+              test "$expected_output_blake3" != "$drift_output_blake3"
+
+              jq --exit-status '
+                .profile_id == "onixos-lifecycle-proof-v1"
+                and (.mechanisms | map(.assurance_plane) | sort) == ["construction", "effect-control", "provenance-readiness", "semantic-design", "verification"]
+                and (.required_evidence | map(.evidence_id) | sort) == ["cairn-proof-chain-readiness", "canonical-fsm-identity", "kani-physical-switch-proof", "octet-core-conformance", "rust-fsm-conformance", "valence-proof-linkage", "verus-lifecycle-proof"]
+                and all(.mechanisms[]; (.non_claims | length) > 0)
+                and all(.required_evidence[]; (.non_claims | length) > 0)
+                and (.non_claims | length) > 0
+              ' "$actual_profile" >/dev/null
+
+              packaged_root=${assuranceProfileOnixOSLifecycle}/share/octet/assurance-profiles/onixos-lifecycle-proof-v1
+              test -s "$packaged_root/contracts.ncl"
+              test -s "$packaged_root/profile.ncl"
+              test -s "$packaged_root/generated/profile.json"
+              test -s "$packaged_root/generated/profile.manifest.json"
+              expected_blake3=$(jq --raw-output '.exports[0].output.blake3' "$actual_manifest")
+              test "$expected_blake3" = "$(cat "$packaged_root/generated/profile.blake3")"
+              mkdir -p "$out"
+            '';
+
         strictProfileCatalogCheck =
           pkgs.runCommand "octet-strict-profile-catalog-check"
             {
@@ -2436,6 +2542,7 @@
           octet-production-verus-nix-closure-manifest = octetProductionVerusNixClosureManifest;
           octet-verusfmt = octetVerusfmt;
           octet-verus-toolchain-profile = octetVerusToolchainProfile;
+          octet-assurance-profile-onixos-lifecycle = assuranceProfileOnixOSLifecycle;
           slotcar-standards-nix-closure-manifest = octetStandardsNixClosureManifest;
           octet-policy-export = policyExport;
           tigerstyle-policy-export = policyExport;
@@ -3835,6 +3942,7 @@
             ast-grep-structural-rail = astGrepStructuralRailCheck;
             wasm-artifact-rail = wasmArtifactRailCheck;
             strict-profile-catalog = strictProfileCatalogCheck;
+            assurance-profile-onixos-lifecycle = assuranceProfileOnixOSLifecycleCheck;
             clippy-restriction-profiles = clippyRestrictionProfilesCheck;
             effect-closure-catalog = effectClosureCatalogCheck;
             downstream-proc-macro = downstreamProcMacroCheck;

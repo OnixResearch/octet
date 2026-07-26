@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Define typed, identity-bound declarations for component assurance mechanisms without turning their composition into a universal proof.
+Defines the `assurance-profiles` capability.
 
 ## Requirements
 
