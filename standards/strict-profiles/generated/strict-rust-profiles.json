@@ -71,7 +71,10 @@
         "defaulting_trait_method",
         "no_todo",
         "unjustified_no_todo_allow",
-        "no_recursion"
+        "no_recursion",
+        "primitive_domain_alias",
+        "raw_domain_value",
+        "newtype_invariant_bypass"
       ],
       "requires_core_scopes": false,
       "summary": "Robust checks plus bounded control flow, allocation, collections, channels, task lifecycle, lock ordering, and platform-width boundaries."
@@ -127,7 +130,10 @@
         "public_unsafe_api",
         "no_todo",
         "unjustified_no_todo_allow",
-        "no_recursion"
+        "no_recursion",
+        "primitive_domain_alias",
+        "raw_domain_value",
+        "newtype_invariant_bypass"
       ],
       "requires_core_scopes": true,
       "summary": "Robust checks plus configured core boundaries for ambient inputs, platform effects, state, observability, spawning, allocation, and deterministic output."

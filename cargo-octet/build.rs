@@ -13,6 +13,7 @@ const EMBEDDED_DIRECTORIES: &[&str] = &[
     "crates/octet-standards",
     "standards/clippy-restrictions/generated",
     "standards/effect-closure/generated",
+    "standards/nominal-domains/generated",
     "standards/proof-imports/generated",
     "standards/strict-profiles/generated",
 ];

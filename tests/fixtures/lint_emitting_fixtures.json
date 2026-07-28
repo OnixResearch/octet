@@ -244,6 +244,18 @@
     "fixture": "ambiguous_params"
   },
   {
+    "lint_name": "primitive_domain_alias",
+    "fixture": "primitive_domain_alias_exact"
+  },
+  {
+    "lint_name": "raw_domain_value",
+    "fixture": "raw_domain_value"
+  },
+  {
+    "lint_name": "newtype_invariant_bypass",
+    "fixture": "newtype_invariant_bypass"
+  },
+  {
     "lint_name": "raw_arithmetic_overflow",
     "fixture": "raw_arithmetic_overflow"
   },

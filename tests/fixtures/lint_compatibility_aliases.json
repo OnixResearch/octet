@@ -244,6 +244,18 @@
     "canonical_lint_name": "tigerstyle::ambiguous_params"
   },
   {
+    "alias_name": "primitive_domain_alias",
+    "canonical_lint_name": "tigerstyle::primitive_domain_alias"
+  },
+  {
+    "alias_name": "raw_domain_value",
+    "canonical_lint_name": "tigerstyle::raw_domain_value"
+  },
+  {
+    "alias_name": "newtype_invariant_bypass",
+    "canonical_lint_name": "tigerstyle::newtype_invariant_bypass"
+  },
+  {
     "alias_name": "raw_arithmetic_overflow",
     "canonical_lint_name": "tigerstyle::raw_arithmetic_overflow"
   },

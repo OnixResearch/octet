@@ -568,6 +568,7 @@ pub(crate) fn build_standalone_cargo_octet() -> StandaloneCargoOctet {
         "standards/charon-semantic/generated",
         "standards/clippy-restrictions/generated",
         "standards/effect-closure/generated",
+        "standards/nominal-domains/generated",
         "standards/proof-imports/generated",
         "standards/proof-rails/aeneas-lean/generated",
         "standards/strict-profiles/generated",

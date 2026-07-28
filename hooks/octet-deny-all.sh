@@ -81,6 +81,9 @@ deny_lint_flags='
 -D platform_dependent_cast
 -D float_for_currency
 -D ambiguous_params
+-D primitive_domain_alias
+-D raw_domain_value
+-D newtype_invariant_bypass
 -D raw_arithmetic_overflow
 -D no_unwrap
 -D no_panic

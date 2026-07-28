@@ -1,0 +1,157 @@
+{
+  "schema_version": "octet-nominal-domain-inventory/v1",
+  "pilot_id": "mantle-dynamic-plan-2026-07-27",
+  "mode": "inventory",
+  "source": {
+    "repository": "github.com/OnixResearch/mantle",
+    "revision": "f8fcf0537dde89f499aeb6a7eac437eea94e229a",
+    "path": "crates/crunch-build/src/dynamic_plan.rs",
+    "blake3": "ddfdeb455f2ab202d07125a1d41b2df09a0e28b138d1ecd0d38323d962b41ae7"
+  },
+  "policy_blake3": "76b82ab58db137a1b3d0172faea971ff37564435fa8b6cefa95b483f9fff834c",
+  "findings": [
+    {
+      "lint_name": "primitive_domain_alias",
+      "classification": "exact-core",
+      "domain_id": "mantle.dynamic-plan.unit-id",
+      "symbol": "UnitId",
+      "source_path": "crates/crunch-build/src/dynamic_plan.rs",
+      "line": 44
+    },
+    {
+      "lint_name": "primitive_domain_alias",
+      "classification": "exact-core",
+      "domain_id": "mantle.dynamic-plan.source-id",
+      "symbol": "SourceId",
+      "source_path": "crates/crunch-build/src/dynamic_plan.rs",
+      "line": 45
+    },
+    {
+      "lint_name": "primitive_domain_alias",
+      "classification": "exact-core",
+      "domain_id": "mantle.dynamic-plan.store-path",
+      "symbol": "StorePathString",
+      "source_path": "crates/crunch-build/src/dynamic_plan.rs",
+      "line": 46
+    },
+    {
+      "lint_name": "primitive_domain_alias",
+      "classification": "exact-core",
+      "domain_id": "mantle.dynamic-plan.blake3-hex",
+      "symbol": "Blake3Hex",
+      "source_path": "crates/crunch-build/src/dynamic_plan.rs",
+      "line": 47
+    },
+    {
+      "lint_name": "raw_domain_value",
+      "classification": "exact-core",
+      "domain_id": "mantle.dynamic-plan.source-id",
+      "symbol": "DynamicPlaceholder::Source::source",
+      "source_path": "crates/crunch-build/src/dynamic_plan.rs",
+      "line": 51
+    },
+    {
+      "lint_name": "raw_domain_value",
+      "classification": "exact-core",
+      "domain_id": "mantle.dynamic-plan.unit-id",
+      "symbol": "DynamicPlaceholder::UnitOutput::unit",
+      "source_path": "crates/crunch-build/src/dynamic_plan.rs",
+      "line": 52
+    },
+    {
+      "lint_name": "raw_domain_value",
+      "classification": "exact-core",
+      "domain_id": "mantle.dynamic-plan.blake3-hex",
+      "symbol": "CanonicalDynamicPlanV1::digest",
+      "source_path": "crates/crunch-build/src/dynamic_plan.rs",
+      "line": 98
+    },
+    {
+      "lint_name": "raw_domain_value",
+      "classification": "exact-core",
+      "domain_id": "mantle.dynamic-plan.unit-id",
+      "symbol": "DynamicPlanV1::roots",
+      "source_path": "crates/crunch-build/src/dynamic_plan.rs",
+      "line": 108
+    },
+    {
+      "lint_name": "raw_domain_value",
+      "classification": "exact-core",
+      "domain_id": "mantle.dynamic-plan.unit-id",
+      "symbol": "DynamicUnit::id",
+      "source_path": "crates/crunch-build/src/dynamic_plan.rs",
+      "line": 122
+    },
+    {
+      "lint_name": "raw_domain_value",
+      "classification": "exact-core",
+      "domain_id": "mantle.dynamic-plan.store-path",
+      "symbol": "DynamicDerivation::builder",
+      "source_path": "crates/crunch-build/src/dynamic_plan.rs",
+      "line": 141
+    },
+    {
+      "lint_name": "raw_domain_value",
+      "classification": "exact-core",
+      "domain_id": "mantle.dynamic-plan.source-id",
+      "symbol": "DeclaredSourceInput::id",
+      "source_path": "crates/crunch-build/src/dynamic_plan.rs",
+      "line": 156
+    },
+    {
+      "lint_name": "raw_domain_value",
+      "classification": "exact-core",
+      "domain_id": "mantle.dynamic-plan.store-path",
+      "symbol": "DeclaredSourceInput::path",
+      "source_path": "crates/crunch-build/src/dynamic_plan.rs",
+      "line": 157
+    },
+    {
+      "lint_name": "raw_domain_value",
+      "classification": "exact-core",
+      "domain_id": "mantle.dynamic-plan.blake3-hex",
+      "symbol": "DeclaredSourceInput::nar_blake3",
+      "source_path": "crates/crunch-build/src/dynamic_plan.rs",
+      "line": 158
+    },
+    {
+      "lint_name": "raw_domain_value",
+      "classification": "exact-core",
+      "domain_id": "mantle.dynamic-plan.store-path",
+      "symbol": "DynamicInput::StorePath::path",
+      "source_path": "crates/crunch-build/src/dynamic_plan.rs",
+      "line": 202
+    },
+    {
+      "lint_name": "raw_domain_value",
+      "classification": "exact-core",
+      "domain_id": "mantle.dynamic-plan.source-id",
+      "symbol": "DynamicInput::Source::source",
+      "source_path": "crates/crunch-build/src/dynamic_plan.rs",
+      "line": 203
+    },
+    {
+      "lint_name": "raw_domain_value",
+      "classification": "exact-core",
+      "domain_id": "mantle.dynamic-plan.unit-id",
+      "symbol": "DynamicInput::UnitOutput::unit",
+      "source_path": "crates/crunch-build/src/dynamic_plan.rs",
+      "line": 204
+    }
+  ],
+  "summary": {
+    "exact_findings": 16,
+    "heuristic_candidates": 0,
+    "compatibility_skips": 0
+  },
+  "review": {
+    "reviewed": true,
+    "true_positives": 16,
+    "false_positives": 0,
+    "coverage_gaps": []
+  },
+  "non_claims": [
+    "This frozen descriptor review does not prove that the referenced revision compiles or passes its product tests.",
+    "The findings prove only catalog-scoped source-shape observations and do not prove runtime correctness or release eligibility."
+  ]
+}

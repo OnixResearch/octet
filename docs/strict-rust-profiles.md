@@ -9,12 +9,14 @@ A passing profile means that the configured Octet source-shape checks passed for
 | Profile | Intended use | Required core scopes | Function-address floor | Default address scope |
 | --- | --- | --- | --- | --- |
 | `robust` | Explicit failure, checked conversion/arithmetic, unsafe public API review, TODO rejection, and suppression governance | no | `observe` | workspace |
-| `bounded-systems` | `robust` plus bounded control flow, allocation, collections, channels, task lifecycle, lock ordering, and platform-width boundaries | no | `warn` | workspace |
-| `deterministic-core` | `robust` plus ambient-input, platform-effect, state, observability, spawning, allocation, and deterministic-output checks in declared cores | yes | `deny` | `core_source_scopes` |
+| `bounded-systems` | `robust` plus bounded resources, platform-width boundaries, and exact nominal-domain policy | no | `warn` | workspace |
+| `deterministic-core` | `robust` plus declared core effects, deterministic output, and exact nominal-domain policy | yes | `deny` | `core_source_scopes` |
 
 The profiles form a lattice rather than one universal safety score. `bounded-systems` and `deterministic-core` both extend `robust`, but they make different claims about different source scopes.
 
-The Nickel source of truth is [`standards/strict-profiles/profiles.ncl`](../standards/strict-profiles/profiles.ncl). Runtime Rust consumes the checked-in generated JSON. The catalog is validated against Octet's lint metadata so an unknown required lint fails closed.
+The Nickel source of truth is [`standards/strict-profiles/profiles.ncl`](../standards/strict-profiles/profiles.ncl). Runtime Rust consumes the checked-in generated JSON. The catalog rejects an unknown required lint.
+
+`bounded-systems` and `deterministic-core` deny exact nominal-domain findings. They never deny suffix-based discovery candidates. The selected profile sets nominal-domain mode to `deny`.
 
 ## Run a profile
 

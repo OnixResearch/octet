@@ -18,9 +18,13 @@ Octet treats Rust-compatible code as inert by default across APIs, effects,
 capabilities, proofs, and review surfaces; interaction happens only through
 complete, explicit interfaces.
 
-Octet currently ships 69 Dylint lints across 6 domains. The repo also owns a
+Octet currently ships 72 Dylint lints across 6 domains. The repo also owns a
 separate standards registry/checker seam for policy traceability and
 non-Dylint source-shape rules.
+
+A Nickel nominal-domain catalog drives staged checks for primitive aliases,
+raw core values, and refined-wrapper bypasses. See
+[`docs/type-driven-domain-modeling.md`](docs/type-driven-domain-modeling.md).
 
 ## Status and prerequisites
 
@@ -336,7 +340,7 @@ tracks the source-attribute namespace decision.
 | safety | 24 | panics, bounds, defaults, loops, queues, unsafe boundaries, explicit failure paths, enum evolution |
 | naming | 9 | predicate names, acronym casing, units, currency, searchable paths and imports |
 | performance | 2 | clone avoidance, hot-loop allocation, and ownership clarity |
-| structure | 16 | function size, nesting, parameters, casts, public APIs, interface cohesion |
+| structure | 19 | function size, nesting, parameters, casts, public APIs, interface cohesion |
 | purity | 16 | wall-clock, environment, randomness, core-effect boundaries, allocation, and verified-module purity |
 | concurrency | 2 | lock ordering and task lifecycle |
 

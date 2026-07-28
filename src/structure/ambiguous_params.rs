@@ -1,5 +1,4 @@
 use rustc_hir as hir;
-use rustc_hir::ItemKind;
 use rustc_lint::LateContext;
 use rustc_lint::LateLintPass;
 use rustc_middle::ty;
@@ -8,75 +7,126 @@ use rustc_session::declare_tool_lint;
 
 use crate::diagnostics::emit_tiger_style_lint;
 
+const LINT_NAME: &str = "ambiguous_params";
+const MIN_AMBIGUOUS_RUN: usize = 2;
+
 declare_tool_lint! {
-    /// Detects function signatures with 2 or more consecutive parameters
-    /// of the same primitive type. Callers can accidentally swap arguments
-    /// without a type error. Suggest wrapping in a named struct.
+    /// Detects function signatures with consecutive parameters of the same
+    /// primitive or raw boundary type. Callers can swap these arguments
+    /// without a type error.
     pub tigerstyle::AMBIGUOUS_PARAMS,
     Allow,
-    "consecutive same-type primitive parameters are easy to swap"
+    "repeated same-type primitive parameters are easy to swap"
 }
 
 declare_lint_pass!(AmbiguousParams => [AMBIGUOUS_PARAMS]);
 
-fn ty_key(ty: ty::Ty<'_>) -> Option<String> {
-    match ty.kind() {
+fn ty_key(cx: &LateContext<'_>, resolved: ty::Ty<'_>) -> Option<String> {
+    match resolved.kind() {
         ty::Bool => Some("bool".into()),
         ty::Char => Some("char".into()),
-        ty::Int(i) => Some(i.name_str().to_string()),
-        ty::Uint(u) => Some(u.name_str().to_string()),
-        ty::Float(f) => Some(f.name_str().to_string()),
+        ty::Int(integer) => Some(integer.name_str().to_string()),
+        ty::Uint(integer) => Some(integer.name_str().to_string()),
+        ty::Float(float) => Some(float.name_str().to_string()),
         ty::Ref(_, inner, _) if matches!(inner.kind(), ty::Str) => Some("&str".into()),
+        ty::Adt(definition, _) => match cx.tcx.def_path_str(definition.did()).as_str() {
+            "alloc::string::String" | "std::string::String" => Some("String".into()),
+            "std::path::PathBuf" => Some("PathBuf".into()),
+            _ => None,
+        },
         _ => None,
     }
 }
 
+fn first_ambiguous_group(keys: &[Option<String>]) -> Option<(usize, String)> {
+    for key in keys.iter().flatten() {
+        let count = keys.iter().flatten().filter(|candidate| *candidate == key).count();
+        if count >= MIN_AMBIGUOUS_RUN {
+            return Some((count, key.clone()));
+        }
+    }
+    None
+}
+
+fn first_ambiguous_parameters(cx: &LateContext<'_>, inputs: &[ty::Ty<'_>]) -> Option<(usize, String)> {
+    let keys = inputs.iter().map(|resolved| ty_key(cx, *resolved)).collect::<Vec<_>>();
+    first_ambiguous_group(&keys)
+}
+
+fn report_signature(cx: &LateContext<'_>, def_id: hir::def_id::LocalDefId, span: rustc_span::Span, has_self: bool) {
+    let signature = cx.tcx.fn_sig(def_id).instantiate_identity().skip_binder();
+    let start = usize::from(has_self);
+    let inputs = &signature.inputs()[start..];
+    let Some((count, key)) = first_ambiguous_parameters(cx, inputs) else {
+        return;
+    };
+
+    emit_tiger_style_lint(
+        cx,
+        AMBIGUOUS_PARAMS,
+        span,
+        format!("{count} `{key}` parameters are easy to swap by accident"),
+        LINT_NAME,
+    );
+}
+
 impl<'tcx> LateLintPass<'tcx> for AmbiguousParams {
     fn check_item(&mut self, cx: &LateContext<'tcx>, item: &'tcx hir::Item<'tcx>) {
-        let ItemKind::Fn { .. } = &item.kind else {
+        let hir::ItemKind::Fn { .. } = &item.kind else {
             return;
         };
+        report_signature(cx, item.owner_id.def_id, item.span, false);
+    }
 
-        // Skip trait implementations (signature is dictated by the trait)
-        // This check_item won't fire for impl items anyway
-
-        let def_id = item.owner_id.def_id;
-        let fn_sig = cx.tcx.fn_sig(def_id).instantiate_identity();
-        let inputs = fn_sig.skip_binder().inputs();
-
-        if inputs.len() < 2 {
+    fn check_impl_item(&mut self, cx: &LateContext<'tcx>, impl_item: &'tcx hir::ImplItem<'tcx>) {
+        let hir::ImplItemKind::Fn(signature, _) = &impl_item.kind else {
+            return;
+        };
+        let parent_hir_id = cx.tcx.local_def_id_to_hir_id(cx.tcx.local_parent(impl_item.owner_id.def_id));
+        let hir::Node::Item(parent_item) = cx.tcx.hir_node(parent_hir_id) else {
+            return;
+        };
+        let hir::ItemKind::Impl(impl_block) = &parent_item.kind else {
+            return;
+        };
+        if impl_block.of_trait.is_some() {
             return;
         }
 
-        // Look for 2+ consecutive params of the same primitive type
-        let mut i = 0;
-        while i < inputs.len() {
-            let Some(key) = ty_key(inputs[i]) else {
-                i += 1;
-                continue;
-            };
+        let has_self = signature.decl.implicit_self != hir::ImplicitSelfKind::None;
+        report_signature(cx, impl_item.owner_id.def_id, impl_item.span, has_self);
+    }
 
-            let mut run = 1;
-            while i + run < inputs.len() {
-                if ty_key(inputs[i + run]).as_deref() == Some(key.as_str()) {
-                    run += 1;
-                } else {
-                    break;
-                }
-            }
+    fn check_trait_item(&mut self, cx: &LateContext<'tcx>, trait_item: &'tcx hir::TraitItem<'tcx>) {
+        let hir::TraitItemKind::Fn(signature, _) = &trait_item.kind else {
+            return;
+        };
+        let has_self = signature.decl.implicit_self != hir::ImplicitSelfKind::None;
+        report_signature(cx, trait_item.owner_id.def_id, trait_item.span, has_self);
+    }
+}
 
-            if run >= 2 {
-                emit_tiger_style_lint(
-                    cx,
-                    AMBIGUOUS_PARAMS,
-                    item.span,
-                    format!("{run} consecutive `{key}` parameters are easy to swap by accident"),
-                    "ambiguous_params",
-                );
-                return;
-            }
+#[cfg(test)]
+mod tests {
+    use super::first_ambiguous_group;
 
-            i += run;
-        }
+    const EXPECTED_REPEATED_COUNT: usize = 2;
+
+    #[test]
+    fn repeated_non_consecutive_raw_types_are_ambiguous() {
+        let keys = vec![
+            Some("String".to_owned()),
+            Some("u32".to_owned()),
+            Some("String".to_owned()),
+        ];
+
+        assert_eq!(first_ambiguous_group(&keys), Some((EXPECTED_REPEATED_COUNT, "String".to_owned())));
+    }
+
+    #[test]
+    fn distinct_nominal_types_are_not_raw_candidates() {
+        let keys = vec![None, None];
+
+        assert_eq!(first_ambiguous_group(&keys), None);
     }
 }

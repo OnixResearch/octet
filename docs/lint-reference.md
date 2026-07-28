@@ -9,14 +9,14 @@ For the landing-page naming map, see `../README.md`.
 
 ## Catalog summary
 
-`octet` ships 69 lints across 6 domains.
+`octet` ships 72 lints across 6 domains.
 
 | Domain | Group | Count |
 | --- | --- | ---: |
 | safety | `tigerstyle::safety` | 24 |
 | naming | `tigerstyle::naming` | 9 |
 | performance | `tigerstyle::performance` | 2 |
-| structure | `tigerstyle::structure` | 16 |
+| structure | `tigerstyle::structure` | 19 |
 | purity | `tigerstyle::purity` | 16 |
 | concurrency | `tigerstyle::concurrency` | 2 |
 
@@ -67,6 +67,7 @@ Rules to keep straight:
 | `impl_blocks_max` | `4` | `type_accumulation` | maximum inherent impl blocks per type before advisory |
 | `module_pub_items_max` | `12` | `type_accumulation` | maximum public items per module before advisory |
 | `core_source_scopes` | `[]` | `concrete_construction_in_core`, `global_state_in_core`, `impure_call_in_core`, `interior_mutability_in_core`, `logging_in_core`, `mutating_input_in_pure`, `resource_return_from_core`, `spawn_in_core` | source path scopes where core-boundary checks run |
+| `nominal_domain_mode` | omitted | `primitive_domain_alias`, `raw_domain_value`, `newtype_invariant_bypass` | `inventory` warns for exact and heuristic findings, `warn` reports exact findings only, and `deny` denies exact findings only |
 | `sealed_enum_marker` | `"octet::sealed_enum"` | `fragile_exhaustive_enum_match` | attribute marker that suppresses fragile local exhaustive enum-match diagnostics |
 | `state_machine_core_marker` | `"octet::state_machine_core"` | `state_machine_exhaustiveness` | attribute marker that opts transition functions into explicit state/event matrix checks |
 | `state_machine_enum_marker` | `"octet::state_machine_enum"` | `fragile_exhaustive_enum_match`, `state_machine_exhaustiveness` | required marker for deliberately closed FSM state/event enums; missing markers fail closed in FSM transition cores |
@@ -117,7 +118,7 @@ For `public_unsafe_api`, either add a safe wrapper or document the exception wit
 | `acronym_style` | `warn` | prefer `RpcHandler` over `RPCHandler` |
 | `bool_naming` | `warn` | require predicate-style boolean names like `is_ready` |
 | `negated_predicate` | `warn` | avoid names like `is_not_ready` or `no_capacity` |
-| `numeric_units` | `allow` | require unit suffixes such as `_ms`, `_secs`, or `_bytes` |
+| `numeric_units` | `allow` | require nominal units or suffixes such as `_ms`, `_secs`, or `_bytes` for raw numbers |
 | `underscore_in_module_filename` | `warn` | prefer responsibility-based module directories over compound filenames |
 | `non_trait_imports` | `warn` | keep concrete owner types qualified at use sites; import traits only for method resolution |
 | `renamed_imports` | `warn` | avoid `use ... as ...` aliases that hide searchable item names |
@@ -150,7 +151,10 @@ For `public_unsafe_api`, either add a safe wrapper or document the exception wit
 | `type_accumulation` | `allow` | flag excessive inherent impl blocks or module public surface |
 | `compound_condition` | `allow` | flag conditions with 3 or more boolean operators |
 | `unjustified_allow` | `allow` | require local justification for `#[allow(clippy::...)]` |
-| `ambiguous_params` | `allow` | flag consecutive same-type primitive parameters |
+| `ambiguous_params` | `allow` | flag repeated same-type primitive or raw boundary parameters |
+| `primitive_domain_alias` | `allow` | inventory registered domain aliases that still resolve to primitive storage |
+| `raw_domain_value` | `allow` | flag registered raw domain values in declared core fields and API signatures |
+| `newtype_invariant_bypass` | `allow` | flag public fields and conversions that bypass refined newtype invariants |
 
 ## Purity lints (`tigerstyle::purity`)
 
