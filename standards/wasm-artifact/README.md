@@ -1,6 +1,8 @@
 # Wasm/component artifact rail
 
-Octet validates exact WebAssembly module or component bytes without executing them. The rail owns static fact extraction and policy decisions; Mantle and runtime consumers retain build, sandbox, capability, execution, and release authority.
+Octet validates exact WebAssembly module or component bytes without execution.
+
+The rail owns static fact extraction and policy decisions. Mantle and runtime consumers retain build, sandbox, capability, execution, and release authority.
 
 ## Profile and cohort
 
@@ -26,7 +28,9 @@ The bundle includes `wasm-artifact.bin`, exact-byte and normalized-interface ide
 
 ## Mantle handoff
 
-Mantle supplies the exact final bytes through the same command and may add a `mantle:` parent artifact identity. Octet records a `mantle-exact-byte` handoff role but does not trust store paths, build success, runtime reports, or release decisions as static artifact facts.
+Mantle can supply the exact final bytes through the same command. It can also add a `mantle:` parent artifact identity.
+
+Octet records a `mantle-exact-byte` handoff role. It does not treat store paths, build success, runtime reports, or release decisions as static artifact facts.
 
 ## Claim boundary
 
