@@ -188,6 +188,18 @@ in
       negative_fixtures = ["standards/strict-profiles/fixtures/invalid/bad_function_address_mode.ncl", "standards/strict-profiles/fixtures/invalid/empty_non_claims.ncl", "crates/octet-lint-metadata/src/strict_profile.rs::malformed_catalog_reports_duplicate_unknown_and_scope_errors"],
     },
     {
+      family_id = "octet.nominal-domain-policy-config",
+      ownership = "nickel-authored",
+      owner_source_path = "standards/nominal-domains/catalog.ncl",
+      artifact_path = "standards/nominal-domains/generated/catalog.json",
+      generation_command = "nickel export --format json standards/nominal-domains/catalog.ncl",
+      validation_command = "nix build .#checks.x86_64-linux.nominal-domain-catalog --no-link -L",
+      status = "existing",
+      config_digest_required = true,
+      positive_fixtures = ["standards/nominal-domains/catalog.ncl", "standards/nominal-domains/fixtures/valid/minimum.ncl", "crates/octet-lint-metadata/src/nominal_domain.rs::embedded_catalog_is_valid_and_inventory_only"],
+      negative_fixtures = ["standards/nominal-domains/fixtures/invalid/duplicate_domains.ncl", "standards/nominal-domains/fixtures/invalid/invalid_constructor_policy.ncl", "standards/nominal-domains/fixtures/invalid/missing_compatibility_scope.ncl", "standards/nominal-domains/fixtures/invalid/overlapping_scopes.ncl", "standards/nominal-domains/fixtures/invalid/unknown_representation.ncl", "crates/octet-lint-metadata/src/nominal_domain.rs::malformed_catalog_fails_closed_with_deterministic_diagnostics"],
+    },
+    {
       family_id = "octet.assurance-profile.onixos-lifecycle-proof",
       ownership = "nickel-authored",
       owner_source_path = "standards/policies/assurance-profiles/onixos-lifecycle-proof.ncl",

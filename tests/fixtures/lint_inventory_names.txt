@@ -59,6 +59,9 @@ state_machine_exhaustiveness
 platform_dependent_cast
 float_for_currency
 ambiguous_params
+primitive_domain_alias
+raw_domain_value
+newtype_invariant_bypass
 raw_arithmetic_overflow
 no_unwrap
 no_panic

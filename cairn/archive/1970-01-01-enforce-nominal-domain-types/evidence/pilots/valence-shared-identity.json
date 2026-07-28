@@ -1,0 +1,31 @@
+{
+  "schema_version": "octet-nominal-domain-inventory/v1",
+  "pilot_id": "valence-shared-identity-2026-07-27",
+  "mode": "inventory",
+  "source": {
+    "repository": "github.com/OnixResearch/valence",
+    "revision": "6ab37aa34c9f81da812d6b42f2f06b7ac2d7e214",
+    "path": "crates/valence-core/src/shared_identity.rs",
+    "blake3": "2de444032dd9662f0be4e5ca5d9f096f9498e17fa629f3859a6f5fcce46aaf57"
+  },
+  "policy_blake3": "76b82ab58db137a1b3d0172faea971ff37564435fa8b6cefa95b483f9fff834c",
+  "findings": [],
+  "summary": {
+    "exact_findings": 0,
+    "heuristic_candidates": 0,
+    "compatibility_skips": 0
+  },
+  "review": {
+    "reviewed": true,
+    "true_positives": 0,
+    "false_positives": 0,
+    "coverage_gaps": [
+      "The current catalog has no exact Valence shared-identity rows.",
+      "This pilot does not assess the runtime DigestRole field as a compile-time role distinction."
+    ]
+  },
+  "non_claims": [
+    "A zero-finding receipt means that the current exact catalog has no finding for this source. It does not prove that the source uses complete nominal domains.",
+    "The receipt does not prove digest correctness, evidence truth, authority, or release eligibility."
+  ]
+}

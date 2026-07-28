@@ -1,0 +1,45 @@
+{
+  "schema_version": "octet-nominal-domain-promotion-review/v1",
+  "reviewed_on": "2026-07-27",
+  "decision": "promote-exact-only",
+  "required_fixture_classes": [
+    "positive-private-wrapper",
+    "negative-primitive-alias",
+    "negative-raw-domain-value",
+    "negative-invariant-bypass",
+    "compatibility-wire-ffi-generated",
+    "cross-domain-compile-fail",
+    "same-domain-compile-pass"
+  ],
+  "pilot_receipts": [
+    "mantle-dynamic-plan.json",
+    "valence-shared-identity.json"
+  ],
+  "signal_threshold": {
+    "maximum_reviewed_false_positives": 0,
+    "require_all_fixture_classes": true,
+    "require_heuristics_outside_denial": true,
+    "require_visible_coverage_gaps": true
+  },
+  "observed_signal": {
+    "reviewed_exact_findings": 16,
+    "reviewed_true_positives": 16,
+    "reviewed_false_positives": 0,
+    "all_fixture_classes_present": true,
+    "heuristics_outside_denial": true,
+    "coverage_gaps_visible": true
+  },
+  "promoted_profiles": [
+    "bounded-systems",
+    "deterministic-core"
+  ],
+  "promoted_lints": [
+    "primitive_domain_alias",
+    "raw_domain_value",
+    "newtype_invariant_bypass"
+  ],
+  "non_claims": [
+    "The review supports exact source-shape promotion only.",
+    "The review does not promote suffix heuristics, prove semantic correctness, or grant release eligibility."
+  ]
+}

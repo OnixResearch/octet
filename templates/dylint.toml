@@ -37,6 +37,12 @@
 # state_machine_core_scopes = ["crates/domain-core/src/fsm/"]
 # state_machine_generated_adapter_scopes = ["crates/domain-core/src/generated/"]
 
+# Nominal-domain rollout mode
+# Omit this key until the workspace owns a reviewed policy inventory.
+# `inventory` warns for exact findings and suffix candidates.
+# `warn` warns only for exact policy rows. `deny` denies only exact rows.
+# nominal_domain_mode = "inventory"
+
 # Narrow allowlists
 # Keep these explicit and domain-specific. Avoid catch-all naming exceptions.
 
@@ -121,6 +127,9 @@
 #   "allocation_in_loop",
 #   "float_for_currency",
 #   "ambiguous_params",
+#   "primitive_domain_alias",
+#   "raw_domain_value",
+#   "newtype_invariant_bypass",
 #   "raw_arithmetic_overflow",
 #   "no_unwrap",
 #   "no_panic",

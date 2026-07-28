@@ -1920,6 +1920,30 @@
               touch "$out"
             '';
 
+        nominalDomainCatalogCheck =
+          pkgs.runCommand "octet-nominal-domain-catalog-check"
+            {
+              nativeBuildInputs = with pkgs; [ nickel ];
+            }
+            ''
+              cd ${./.}
+              generated_catalog=$(mktemp)
+              nickel typecheck standards/nominal-domains/catalog.ncl
+              nickel export --format json standards/nominal-domains/catalog.ncl > "$generated_catalog"
+              cmp "$generated_catalog" standards/nominal-domains/generated/catalog.json
+
+              for file in standards/nominal-domains/fixtures/valid/*.ncl; do
+                nickel export --format json "$file" >/dev/null
+              done
+              for file in standards/nominal-domains/fixtures/invalid/*.ncl; do
+                if nickel export --format json "$file" >/dev/null 2>&1; then
+                  echo "invalid nominal-domain fixture passed: $file" >&2
+                  exit 1
+                fi
+              done
+              touch "$out"
+            '';
+
         clippyRestrictionCatalog = builtins.fromJSON (
           builtins.readFile ./standards/clippy-restrictions/generated/profiles.json
         );
@@ -3942,6 +3966,7 @@
             ast-grep-structural-rail = astGrepStructuralRailCheck;
             wasm-artifact-rail = wasmArtifactRailCheck;
             strict-profile-catalog = strictProfileCatalogCheck;
+            nominal-domain-catalog = nominalDomainCatalogCheck;
             assurance-profile-onixos-lifecycle = assuranceProfileOnixOSLifecycleCheck;
             clippy-restriction-profiles = clippyRestrictionProfilesCheck;
             effect-closure-catalog = effectClosureCatalogCheck;

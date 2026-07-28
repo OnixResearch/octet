@@ -143,7 +143,7 @@ lint_inventory! {
         lint_store.register_early_pass(move || Box::new(naming::acronym_style::AcronymStyle::new(allowlist.clone())));
     },
     "numeric_units", naming::numeric_units::NUMERIC_UNITS => |lint_store, _cfg| {
-        lint_store.register_early_pass(|| Box::new(naming::numeric_units::NumericUnits));
+        lint_store.register_late_pass(|_| Box::new(naming::numeric_units::NumericUnits));
     },
     "magic_number", structure::magic_number::MAGIC_NUMBER => |lint_store, _cfg| {
         lint_store.register_late_pass(|_| Box::new(structure::magic_number::MagicNumber));
@@ -352,6 +352,28 @@ lint_inventory! {
     },
     "ambiguous_params", structure::ambiguous_params::AMBIGUOUS_PARAMS => |lint_store, _cfg| {
         lint_store.register_late_pass(|_| Box::new(structure::ambiguous_params::AmbiguousParams));
+    },
+    "primitive_domain_alias", structure::primitive_domain_alias::PRIMITIVE_DOMAIN_ALIAS => |lint_store, cfg| {
+        let catalog = octet_lint_metadata::nominal_domain::load_nominal_domain_catalog()
+            .unwrap_or_else(|error| panic!("load embedded nominal-domain catalog: {error}"));
+        let mode = cfg.nominal_domain_mode();
+        lint_store.register_late_pass(move |_| {
+            Box::new(structure::primitive_domain_alias::PrimitiveDomainAlias::new(catalog.clone(), mode))
+        });
+    },
+    "raw_domain_value", structure::raw_domain_value::RAW_DOMAIN_VALUE => |lint_store, _cfg| {
+        let catalog = octet_lint_metadata::nominal_domain::load_nominal_domain_catalog()
+            .unwrap_or_else(|error| panic!("load embedded nominal-domain catalog: {error}"));
+        lint_store.register_late_pass(move |_| {
+            Box::new(structure::raw_domain_value::RawDomainValue::new(catalog.clone()))
+        });
+    },
+    "newtype_invariant_bypass", structure::newtype_invariant_bypass::NEWTYPE_INVARIANT_BYPASS => |lint_store, _cfg| {
+        let catalog = octet_lint_metadata::nominal_domain::load_nominal_domain_catalog()
+            .unwrap_or_else(|error| panic!("load embedded nominal-domain catalog: {error}"));
+        lint_store.register_late_pass(move |_| {
+            Box::new(structure::newtype_invariant_bypass::NewtypeInvariantBypass::new(catalog.clone()))
+        });
     },
     "raw_arithmetic_overflow", safety::raw_arithmetic_overflow::RAW_ARITHMETIC_OVERFLOW => |lint_store, _cfg| {
         lint_store.register_late_pass(|_| Box::new(safety::raw_arithmetic_overflow::RawArithmeticOverflow));
@@ -1651,6 +1673,9 @@ mod tests {
             "platform_dependent_cast" => "src/structure/platform_dependent_cast.rs",
             "float_for_currency" => "src/naming/float_for_currency.rs",
             "ambiguous_params" => "src/structure/ambiguous_params.rs",
+            "primitive_domain_alias" => "src/structure/primitive_domain_alias.rs",
+            "raw_domain_value" => "src/structure/raw_domain_value.rs",
+            "newtype_invariant_bypass" => "src/structure/newtype_invariant_bypass.rs",
             "raw_arithmetic_overflow" => "src/safety/raw_arithmetic_overflow.rs",
             "no_unwrap" => "src/safety/no_unwrap.rs",
             "no_panic" => "src/safety/no_panic.rs",

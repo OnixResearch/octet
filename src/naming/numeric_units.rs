@@ -1,10 +1,11 @@
-use rustc_ast::Local;
-use rustc_ast::PatKind;
 use rustc_errors::Applicability;
-use rustc_lint::EarlyContext;
-use rustc_lint::EarlyLintPass;
-use rustc_session::declare_lint_pass;
+use rustc_hir as hir;
+use rustc_hir::intravisit::FnKind;
+use rustc_lint::LateContext;
+use rustc_lint::LateLintPass;
+use rustc_middle::ty;
 use rustc_session::declare_tool_lint;
+use rustc_session::impl_lint_pass;
 
 use crate::diagnostics::LintSuggestion;
 use crate::diagnostics::emit_tiger_style_lint_with_suggestion;
@@ -19,7 +20,9 @@ declare_tool_lint! {
     "numeric variable name missing unit suffix"
 }
 
-declare_lint_pass!(NumericUnits => [NUMERIC_UNITS]);
+pub struct NumericUnits;
+
+impl_lint_pass!(NumericUnits => [NUMERIC_UNITS]);
 
 /// Words that imply a measurable quantity.
 const QUANTITY_WORDS: &[&str] = &[
@@ -52,33 +55,92 @@ fn placeholder_unit_name(name: &str) -> String {
     format!("{name}_<unit>")
 }
 
-impl EarlyLintPass for NumericUnits {
-    fn check_local(&mut self, cx: &EarlyContext<'_>, local: &Local) {
-        let PatKind::Ident(_, ident, _) = &local.pat.kind else {
+fn should_report_quantity(name: &str, raw_numeric: bool) -> bool {
+    raw_numeric && !should_skip(name) && has_quantity_word(name) && !has_unit_suffix(name)
+}
+
+fn resolved_type_is_raw_numeric(resolved: ty::Ty<'_>) -> bool {
+    matches!(resolved.kind(), ty::Int(_) | ty::Uint(_) | ty::Float(_))
+}
+
+fn report_late_quantity(cx: &LateContext<'_>, name: &str, span: rustc_span::Span) {
+    let placeholder = placeholder_unit_name(name);
+    emit_tiger_style_lint_with_suggestion(
+        cx,
+        NUMERIC_UNITS,
+        span,
+        format!("`{name}` looks like a raw numeric quantity but has no unit suffix"),
+        "numeric_units",
+        LintSuggestion::Single {
+            span,
+            message: "rename with an explicit unit suffix like `_ms`, `_secs`, or `_bytes`".to_owned(),
+            replacement: placeholder,
+            applicability: Applicability::HasPlaceholders,
+        },
+    );
+}
+
+impl<'tcx> LateLintPass<'tcx> for NumericUnits {
+    fn check_local(&mut self, cx: &LateContext<'tcx>, local: &'tcx hir::LetStmt<'tcx>) {
+        let hir::PatKind::Binding(_, _, ident, _) = local.pat.kind else {
             return;
         };
-
         let name = ident.name.as_str();
+        let resolved = cx.typeck_results().pat_ty(local.pat);
+        if should_report_quantity(name, resolved_type_is_raw_numeric(resolved)) {
+            report_late_quantity(cx, name, ident.span);
+        }
+    }
 
-        if should_skip(name) {
+    fn check_field_def(&mut self, cx: &LateContext<'tcx>, field: &'tcx hir::FieldDef<'tcx>) {
+        if field.span.from_expansion() {
             return;
         }
-
-        if has_quantity_word(name) && !has_unit_suffix(name) {
-            let placeholder = placeholder_unit_name(name);
-            emit_tiger_style_lint_with_suggestion(
-                cx,
-                NUMERIC_UNITS,
-                ident.span,
-                format!("`{name}` looks like a quantity but has no unit suffix"),
-                "numeric_units",
-                LintSuggestion::Single {
-                    span: ident.span,
-                    message: "rename with an explicit unit suffix like `_ms`, `_secs`, or `_bytes`".to_owned(),
-                    replacement: placeholder,
-                    applicability: Applicability::HasPlaceholders,
-                },
-            );
+        let name = field.ident.name.as_str();
+        let resolved = cx.tcx.type_of(field.def_id).instantiate_identity();
+        if should_report_quantity(name, resolved_type_is_raw_numeric(resolved)) {
+            report_late_quantity(cx, name, field.ident.span);
         }
+    }
+
+    fn check_fn(
+        &mut self,
+        cx: &LateContext<'tcx>,
+        kind: FnKind<'tcx>,
+        _decl: &'tcx hir::FnDecl<'tcx>,
+        body: &'tcx hir::Body<'tcx>,
+        span: rustc_span::Span,
+        def_id: hir::def_id::LocalDefId,
+    ) {
+        if matches!(kind, FnKind::Closure) || span.from_expansion() {
+            return;
+        }
+        let signature = cx.tcx.fn_sig(def_id).instantiate_identity().skip_binder();
+        for (parameter, resolved) in body.params.iter().zip(signature.inputs()) {
+            let hir::PatKind::Binding(_, _, ident, _) = parameter.pat.kind else {
+                continue;
+            };
+            let name = ident.name.as_str();
+            if should_report_quantity(name, resolved_type_is_raw_numeric(*resolved)) {
+                report_late_quantity(cx, name, ident.span);
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::should_report_quantity;
+
+    #[test]
+    fn raw_quantities_need_units() {
+        assert!(should_report_quantity("timeout", true));
+        assert!(!should_report_quantity("timeout_ms", true));
+    }
+
+    #[test]
+    fn typed_quantities_and_non_quantities_are_accepted() {
+        assert!(!should_report_quantity("timeout", false));
+        assert!(!should_report_quantity("attempts", true));
     }
 }

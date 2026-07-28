@@ -31,6 +31,7 @@
 use std::collections::BTreeSet;
 use std::collections::HashMap;
 
+use octet_lint_metadata::nominal_domain::EnforcementMode;
 use serde::Deserialize;
 
 pub(crate) const INDEXABLE_EXCEPTION_RUSTC_PRIVATE_ALIASES: &str = "rustc_private_aliases";
@@ -41,6 +42,7 @@ const DEFAULT_INDEXABLE_EXCEPTIONS: &[&str] = &[
     INDEXABLE_EXCEPTION_LINT_IDENTITY_NAMES,
     INDEXABLE_EXCEPTION_GENERATED_SEARCHABLE_NAMES,
 ];
+const NOMINAL_DOMAIN_LINTS: &[&str] = &["primitive_domain_alias", "raw_domain_value", "newtype_invariant_bypass"];
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) struct IndexableLintExceptions {
@@ -188,6 +190,10 @@ pub struct Config {
     /// Scoped exception classes for high-volume naming/indexable lints.
     pub indexable_lint_exceptions: Vec<String>,
 
+    /// Optional staged nominal-domain mode. Omission leaves the lints dormant
+    /// unless source attributes or per-lint levels enable them.
+    pub nominal_domain_mode: Option<EnforcementMode>,
+
     /// Raw per-lint severity overrides loaded from `dylint.toml`.
     pub lint_levels: HashMap<String, String>,
 
@@ -218,6 +224,7 @@ impl Default for Config {
             acronym_allowlist: Vec::new(),
             disabled_lints: Vec::new(),
             indexable_lint_exceptions: DEFAULT_INDEXABLE_EXCEPTIONS.iter().map(|class| (*class).to_owned()).collect(),
+            nominal_domain_mode: None,
             lint_levels: HashMap::new(),
             validated_lint_levels: HashMap::new(),
         }
@@ -239,6 +246,30 @@ impl Config {
         self.validated_lint_levels.get(lint_name).copied()
     }
 
+    #[must_use]
+    pub fn nominal_domain_mode(&self) -> EnforcementMode {
+        self.nominal_domain_mode.unwrap_or(EnforcementMode::Warn)
+    }
+
+    fn apply_nominal_domain_mode(&mut self) {
+        let Some(mode) = self.nominal_domain_mode else {
+            return;
+        };
+        for lint_name in NOMINAL_DOMAIN_LINTS {
+            if self.lint_is_disabled(lint_name) {
+                continue;
+            }
+            let selected = match mode {
+                EnforcementMode::Inventory | EnforcementMode::Warn => LintLevel::Warn,
+                EnforcementMode::Deny => LintLevel::Deny,
+            };
+            let level = self.validated_lint_levels.entry((*lint_name).to_owned()).or_insert(selected);
+            if selected == LintLevel::Deny || *level == LintLevel::Allow {
+                *level = selected;
+            }
+        }
+    }
+
     fn apply_strict_profile(
         &mut self,
         profile: &octet_lint_metadata::strict_profile::StrictProfile,
@@ -252,6 +283,9 @@ impl Config {
 
         let required_lints = profile.required_lints.iter().map(String::as_str).collect::<BTreeSet<_>>();
         self.disabled_lints.retain(|lint_name| !required_lints.contains(lint_name.as_str()));
+        if NOMINAL_DOMAIN_LINTS.iter().any(|lint_name| required_lints.contains(lint_name)) {
+            self.nominal_domain_mode = Some(EnforcementMode::Deny);
+        }
         for lint_name in &profile.required_lints {
             self.validated_lint_levels.insert(lint_name.clone(), LintLevel::Deny);
         }
@@ -343,6 +377,7 @@ impl Config {
 
             self.validated_lint_levels.insert(lint_name.clone(), level);
         }
+        self.apply_nominal_domain_mode();
 
         diagnostics
     }
@@ -392,12 +427,14 @@ fn apply_selected_strict_profile(cfg: &mut Config) -> Result<(), String> {
 mod tests {
     use std::collections::HashMap;
 
+    use octet_lint_metadata::nominal_domain::EnforcementMode;
     use serde::Deserialize;
 
     use super::Config;
     use super::ConfigDiagnostic;
     use super::ConfigDiagnosticKind;
     use super::LintLevel;
+    use super::NOMINAL_DOMAIN_LINTS;
     use super::prefer_octet_or_legacy_config;
 
     #[derive(Deserialize)]
@@ -445,6 +482,41 @@ mod tests {
 
     fn generated_disabled_and_lint_level_config(lint_name: &str, raw_level: &str) -> String {
         format!("[octet]\ndisabled_lints = [\"{lint_name}\"]\n\n[octet.lint_levels]\n{lint_name} = \"{raw_level}\"\n")
+    }
+
+    #[test]
+    fn nominal_domain_modes_apply_a_deterministic_severity_floor() {
+        assert_eq!(Config::default().nominal_domain_mode(), EnforcementMode::Warn);
+        for (raw_mode, mode, expected_level) in [
+            ("inventory", EnforcementMode::Inventory, LintLevel::Warn),
+            ("warn", EnforcementMode::Warn, LintLevel::Warn),
+            ("deny", EnforcementMode::Deny, LintLevel::Deny),
+        ] {
+            let (cfg, warnings) = parse_and_validate(&format!("[octet]\nnominal_domain_mode = \"{raw_mode}\"\n"));
+
+            assert!(warnings.is_empty(), "unexpected warnings for {raw_mode}: {warnings:?}");
+            assert_eq!(cfg.nominal_domain_mode, Some(mode));
+            for lint_name in NOMINAL_DOMAIN_LINTS {
+                assert_eq!(cfg.lint_level(lint_name), Some(expected_level));
+            }
+        }
+    }
+
+    #[test]
+    fn nominal_domain_deny_cannot_be_relaxed_by_a_per_lint_allow() {
+        let (cfg, warnings) = parse_and_validate(
+            "[octet]\nnominal_domain_mode = \"deny\"\n\n[octet.lint_levels]\nprimitive_domain_alias = \"allow\"\n",
+        );
+
+        assert!(warnings.is_empty(), "unexpected warnings: {warnings:?}");
+        assert_eq!(cfg.lint_level("primitive_domain_alias"), Some(LintLevel::Deny));
+    }
+
+    #[test]
+    fn malformed_nominal_domain_mode_fails_toml_deserialization() {
+        let parsed = toml::from_str::<Wrapper>("[octet]\nnominal_domain_mode = \"enforce-everything\"\n");
+
+        assert!(parsed.is_err());
     }
 
     #[test]
@@ -838,6 +910,21 @@ function_length = "warn"
         assert_eq!(cfg.lint_level("no_unwrap"), Some(LintLevel::Deny));
         assert_eq!(cfg.lint_level("no_panic"), Some(LintLevel::Deny));
         assert_eq!(cfg.lint_level("function_length"), Some(LintLevel::Warn));
+    }
+
+    #[test]
+    fn reviewed_profiles_select_exact_only_nominal_domain_denial() {
+        let mut cfg = parse_config("[octet]\nnominal_domain_mode = \"inventory\"\n");
+        let diagnostics = cfg.validate_diagnostics();
+        assert!(diagnostics.is_empty(), "fixture config should validate: {diagnostics:?}");
+        let profile = octet_lint_metadata::strict_profile::strict_profile("bounded-systems").expect("bounded profile");
+
+        cfg.apply_strict_profile(&profile).expect("bounded profile should apply");
+
+        assert_eq!(cfg.nominal_domain_mode, Some(EnforcementMode::Deny));
+        for lint_name in NOMINAL_DOMAIN_LINTS {
+            assert_eq!(cfg.lint_level(lint_name), Some(LintLevel::Deny));
+        }
     }
 
     #[test]

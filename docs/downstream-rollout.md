@@ -123,6 +123,18 @@ Per-lint config rules to preserve in every consumer example:
 - `disabled_lints` wins over `lint_levels` and source-level lint attrs because
   disabled lints are not registered
 
+Nominal domains use one additional staged control:
+
+```toml
+[octet]
+nominal_domain_mode = "inventory"
+```
+
+Use `inventory` to review exact findings and suffix candidates without a hard
+failure. Use `warn` for exact findings only. Use `deny` only after saved
+positive, negative, compatibility, bypass, compile-fail, and pilot evidence is
+accepted. Suffix candidates never enter warning or deny mode.
+
 ### breaking-change: migrate `todo!()` escapes from `no_panic` to `no_todo`
 
 Current octet contract:

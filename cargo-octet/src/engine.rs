@@ -1176,9 +1176,11 @@ mod tests {
     const REQUIRED_EMBEDDED_PATHS: &[&str] = &[
         "Cargo.toml",
         "crates/octet-lint-metadata/Cargo.toml",
+        "crates/octet-lint-metadata/src/nominal_domain.rs",
         "crates/octet-lint-metadata/src/strict_profile.rs",
         "standards/clippy-restrictions/generated/profiles.json",
         "standards/effect-closure/generated/effect-closure-catalog.json",
+        "standards/nominal-domains/generated/catalog.json",
         "standards/strict-profiles/generated/strict-rust-profiles.json",
     ];
 

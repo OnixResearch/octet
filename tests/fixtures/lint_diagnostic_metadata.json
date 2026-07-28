@@ -41,8 +41,8 @@
     "principle": "Unit Suffixes",
     "guide_section": "Unit Suffixes",
     "domain_group": "tigerstyle::naming",
-    "guidance": "put the unit in the name of numeric quantities",
-    "docs_summary": "require unit suffixes such as `_ms`, `_secs`, or `_bytes`",
+    "guidance": "use a nominal unit type or put the unit in the name of raw numeric quantities",
+    "docs_summary": "require nominal units or suffixes such as `_ms`, `_secs`, or `_bytes` for raw numbers",
     "effect_family": "unknown",
     "example_mode": "required",
     "example_text": "timeout_ms"
@@ -726,10 +726,46 @@
     "guide_section": "Explicit Interfaces",
     "domain_group": "tigerstyle::structure",
     "guidance": "replace same-type parameter clusters with named fields or an options struct",
-    "docs_summary": "flag consecutive same-type primitive parameters",
+    "docs_summary": "flag repeated same-type primitive or raw boundary parameters",
     "effect_family": "resource",
     "example_mode": "required",
     "example_text": "fn connect(opts: ConnectOptions) -> ..."
+  },
+  {
+    "lint_name": "primitive_domain_alias",
+    "default_level": "allow",
+    "principle": "Nominal Domain Types",
+    "guide_section": "Explicit Interfaces",
+    "domain_group": "tigerstyle::structure",
+    "guidance": "replace registered primitive domain aliases with private nominal wrappers and checked constructors",
+    "docs_summary": "inventory registered domain aliases that still resolve to primitive storage",
+    "effect_family": "failure",
+    "example_mode": "required",
+    "example_text": "pub struct UnitId(String);"
+  },
+  {
+    "lint_name": "raw_domain_value",
+    "default_level": "allow",
+    "principle": "Nominal Domain Types",
+    "guide_section": "Explicit Interfaces",
+    "domain_group": "tigerstyle::structure",
+    "guidance": "replace registered raw core values with nominal domain types and decode raw values at compatibility boundaries",
+    "docs_summary": "flag registered raw domain values in declared core fields and API signatures",
+    "effect_family": "failure",
+    "example_mode": "required",
+    "example_text": "pub struct UnitId(String);"
+  },
+  {
+    "lint_name": "newtype_invariant_bypass",
+    "default_level": "allow",
+    "principle": "Nominal Domain Types",
+    "guide_section": "Explicit Interfaces",
+    "domain_group": "tigerstyle::structure",
+    "guidance": "keep refined fields private and expose checked constructors plus explicit borrowed accessors",
+    "docs_summary": "flag public fields and conversions that bypass refined newtype invariants",
+    "effect_family": "failure",
+    "example_mode": "required",
+    "example_text": "pub struct Token(String); impl TryFrom<String> for Token { ... }"
   },
   {
     "lint_name": "raw_arithmetic_overflow",

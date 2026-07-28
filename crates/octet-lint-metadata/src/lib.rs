@@ -1,5 +1,6 @@
 use serde::Serialize;
 
+pub mod nominal_domain;
 pub mod strict_profile;
 
 pub const CANONICAL_NAMESPACE: &str = "tigerstyle";
@@ -92,8 +93,8 @@ pub const LINT_METADATA: &[LintMetadata] = &[
         principle: "Unit Suffixes",
         guide_section: "Unit Suffixes",
         domain_group: GROUP_NAMING,
-        guidance: "put the unit in the name of numeric quantities",
-        docs_summary: "require unit suffixes such as `_ms`, `_secs`, or `_bytes`",
+        guidance: "use a nominal unit type or put the unit in the name of raw numeric quantities",
+        docs_summary: "require nominal units or suffixes such as `_ms`, `_secs`, or `_bytes` for raw numbers",
         effect_family: EFFECT_UNKNOWN,
         example_mode: ExampleMode::Required,
         example_text: Some("timeout_ms"),
@@ -785,10 +786,46 @@ pub const LINT_METADATA: &[LintMetadata] = &[
         guide_section: "Explicit Interfaces",
         domain_group: GROUP_STRUCTURE,
         guidance: "replace same-type parameter clusters with named fields or an options struct",
-        docs_summary: "flag consecutive same-type primitive parameters",
+        docs_summary: "flag repeated same-type primitive or raw boundary parameters",
         effect_family: EFFECT_RESOURCE,
         example_mode: ExampleMode::Required,
         example_text: Some("fn connect(opts: ConnectOptions) -> ..."),
+    },
+    LintMetadata {
+        lint_name: "primitive_domain_alias",
+        default_level: DEFAULT_ALLOW,
+        principle: "Nominal Domain Types",
+        guide_section: "Explicit Interfaces",
+        domain_group: GROUP_STRUCTURE,
+        guidance: "replace registered primitive domain aliases with private nominal wrappers and checked constructors",
+        docs_summary: "inventory registered domain aliases that still resolve to primitive storage",
+        effect_family: EFFECT_FAILURE,
+        example_mode: ExampleMode::Required,
+        example_text: Some("pub struct UnitId(String);"),
+    },
+    LintMetadata {
+        lint_name: "raw_domain_value",
+        default_level: DEFAULT_ALLOW,
+        principle: "Nominal Domain Types",
+        guide_section: "Explicit Interfaces",
+        domain_group: GROUP_STRUCTURE,
+        guidance: "replace registered raw core values with nominal domain types and decode raw values at compatibility boundaries",
+        docs_summary: "flag registered raw domain values in declared core fields and API signatures",
+        effect_family: EFFECT_FAILURE,
+        example_mode: ExampleMode::Required,
+        example_text: Some("pub struct UnitId(String);"),
+    },
+    LintMetadata {
+        lint_name: "newtype_invariant_bypass",
+        default_level: DEFAULT_ALLOW,
+        principle: "Nominal Domain Types",
+        guide_section: "Explicit Interfaces",
+        domain_group: GROUP_STRUCTURE,
+        guidance: "keep refined fields private and expose checked constructors plus explicit borrowed accessors",
+        docs_summary: "flag public fields and conversions that bypass refined newtype invariants",
+        effect_family: EFFECT_FAILURE,
+        example_mode: ExampleMode::Required,
+        example_text: Some("pub struct Token(String); impl TryFrom<String> for Token { ... }"),
     },
     LintMetadata {
         lint_name: "raw_arithmetic_overflow",

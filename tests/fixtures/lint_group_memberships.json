@@ -67,7 +67,10 @@
       "concrete_construction_in_core",
       "type_accumulation",
       "platform_dependent_cast",
-      "ambiguous_params"
+      "ambiguous_params",
+      "primitive_domain_alias",
+      "raw_domain_value",
+      "newtype_invariant_bypass"
     ]
   },
   {
