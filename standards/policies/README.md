@@ -1,8 +1,14 @@
-# Tiger Style Policy Registry
+# Tiger Style policy registry
 
-`registry.ncl` is the typed index from Tiger Style prose to executable policy. The narrative source remains `docs/standards/source/octet-standards.adoc` and `docs/standards/source/*.adoc`; this registry gives checkers stable IDs, source anchors, current/target enforcement modes, structural mechanisms, proof rails, suppression requirements, seed manifests, and planned evidence.
+`registry.ncl` maps Tiger Style prose to typed executable policy.
 
-The first checker foundation uses the existing Rust/Serde JSON stack and consumes exported registry JSON. No new parser dependency is introduced; custom source checks must record why existing rustc, Clippy, rustfmt, Tiger Style, cargo-deny, Tracey, Verus, or flake rails are insufficient before they grow bespoke parsing.
+The narrative sources are `docs/standards/source/octet-standards.adoc` and `docs/standards/source/*.adoc`.
+
+The registry gives checkers stable IDs, source anchors, enforcement modes, mechanisms, proof rails, suppression rules, seed manifests, and planned evidence.
+
+The checker uses the existing Rust and Serde JSON stack. It consumes exported registry JSON.
+
+Before you add a custom parser, record why the existing checks are insufficient.
 
 ## Files
 
@@ -38,9 +44,20 @@ nix build .#checks.x86_64-linux.assurance-profile-onixos-lifecycle --no-link -L
 
 The generated manifest binds the profile output with BLAKE3. It does not report evidence success or release readiness.
 
-Rust-emitted evidence DTOs are Rust-derived receipt families: keep the Rust field table as the source of truth, check in the generated Nickel contract under `standards/evidence/contracts/`, register it in `registry.ncl`, and include both positive and negative Nickel fixtures. Freshness is enforced by `cargo test -p cargo-octet evidence_contracts::tests::generated_contracts_are_fresh`; fixture behavior is enforced by `cargo test -p cargo-octet evidence_contracts::tests::evidence_contract_fixtures_accept_valid_and_reject_invalid_records`.
+Rust-emitted evidence DTOs are Rust-derived receipt families.
 
-Invalid fixtures should fail export:
+For each family:
+
+1. Keep the Rust field table as the source of truth.
+2. Check in the generated Nickel contract under `standards/evidence/contracts/`.
+3. Register the family in `registry.ncl`.
+4. Add positive and negative Nickel fixtures.
+
+Check freshness with `cargo test -p cargo-octet evidence_contracts::tests::generated_contracts_are_fresh`.
+
+Check fixture behavior with `cargo test -p cargo-octet evidence_contracts::tests::evidence_contract_fixtures_accept_valid_and_reject_invalid_records`.
+
+Confirm that invalid fixtures fail export:
 
 ```bash
 for file in standards/policies/fixtures/invalid/*.ncl; do

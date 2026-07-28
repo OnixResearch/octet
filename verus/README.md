@@ -79,9 +79,9 @@ run through `cargo octet prove --source src/verified --artifact-dir artifacts/oc
 | `octet.verus_proof_rails.addition-bound-production#rail-0` | `production` | `src/verified/addition.rs` | `verus/proofs/addition_bound.rs` | `proofs/octet.verus_proof_rails.addition-bound-production-rail-0.receipt` |
 | `octet.verus_proof_rails.ordering-reflexive-production#rail-0` | `production` | `src/verified/ordering.rs` | `verus/proofs/ordering_reflexive.rs` | `proofs/octet.verus_proof_rails.ordering-reflexive-production-rail-0.receipt` |
 
-A generated card may report `evidence_tier = formal_proof` only when it matches a
-validated structured receipt and matching provenance record for the same source
-scope, proof target, verifier mode, and artifact BLAKE3 identity. Imported
+A generated card reports `evidence_tier = formal_proof` only if it matches a validated receipt and provenance record.
+
+The source scope, proof target, verifier mode, and artifact BLAKE3 identity must match. Imported
 Trellis cards use `evidence_origin = external_trellis_import`, name the Trellis
 repository revision plus source/proof/log/receipt BLAKE3 identities when present,
 and stay `manual_review_required` unless Octet reruns the proof and validates an
@@ -145,17 +145,16 @@ cargo octet proof-ref validate \
   --ref proof-ref.json
 ```
 
-Scaffold computes the consumer source BLAKE3 and copies proof-card fields into
-valid JSON; validation still checks the saved card, required artifacts, exact
-source identity, and exact anchor. This links a comment, doc reference, or future
+Scaffold computes the consumer source BLAKE3 and copies proof-card fields into valid JSON.
+
+Validation checks the saved card, required artifacts, exact source identity, and exact anchor. This links a comment, doc reference, or future
 suppression to the proof card without rerunning Verus or emitting new
 `formal_proof` provenance.
 
 Passing the fixture rail is scoped evidence for the declared proof-plumbing
 fixture only. Passing a production pilot is scoped evidence for that pilot's
 declared property only: the addition-bound target or the reflexive-order target.
-The negative fixture is not a proof; it exists only to show production Verus
-failures fail closed. No rail claims whole-program correctness, certification,
+The negative fixture is not a proof. It shows that production Verus failures fail closed. No rail claims whole-program correctness, certification,
 business-domain validation, semantic equivalence, or full safety. Every
 production rail must declare `verifier_mode = "production"` and pin the real
 Verus verifier, solver, Rust toolchain, and Nix closure or closure-graph digest.

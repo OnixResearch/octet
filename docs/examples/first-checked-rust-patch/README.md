@@ -1,10 +1,8 @@
 # First checked Rust patch
 
-This walkthrough starts from one ordinary Rust patch, runs the existing Octet
-static-lint path, fixes the finding, and verifies the saved local evidence. It is
-intended for a repository that already follows the setup in
-[`docs/consumer-guide.md`](../../consumer-guide.md); production onboarding details
-stay there.
+This walkthrough starts with an ordinary Rust patch. It runs Octet, fixes one finding, and verifies the saved evidence.
+
+First, complete the setup in [`docs/consumer-guide.md`](../../consumer-guide.md). That guide also defines the production onboarding process.
 
 ## Before patch
 
@@ -16,8 +14,7 @@ pub fn average_bytes(total_bytes: u64, completed_operations: u64) -> u64 {
 }
 ```
 
-The code is small, deterministic, and ordinary Rust. The issue is that
-`completed_operations` can be zero, so the division has no explicit guard.
+The code is small and deterministic. However, `completed_operations` can be zero. The division has no explicit guard.
 
 ## Run Octet and inspect the finding
 
@@ -27,11 +24,11 @@ Run Octet with a local artifact directory:
 cargo octet check --artifact-dir artifacts/octet --output-format sarif
 ```
 
-For this patch, the selected surface is the existing `unchecked_division` lint.
-The deterministic finding shape is a division whose divisor lacks an explicit
-zero guard tied to the same value. The diagnostic should name the lint and point
-at the division expression; the exact human wording can evolve with the lint, but
-the review reason remains the missing explicit zero guard.
+This patch uses the `unchecked_division` lint.
+
+The finding identifies a division without an explicit guard for its divisor. The diagnostic names the lint and points to the division expression.
+
+The exact diagnostic text can change. The review reason remains the missing zero guard.
 
 A representative finding summary is:
 
@@ -62,9 +59,7 @@ pub fn average_bytes(
 }
 ```
 
-The bounded remediation rationale is local and reviewable: the fixed code names
-the zero-operation case, rejects it before division, and preserves a pure
-function that is easy to test without standing up the world.
+The fix names the zero-operation case and rejects it before division. The function remains pure and easy to test.
 
 ## Save and verify local evidence
 
@@ -76,14 +71,11 @@ cargo octet check --artifact-dir artifacts/octet --output-format sarif
 
 Expected local outputs include:
 
-- `artifacts/octet/command.txt` with the replayable command;
-- `artifacts/octet/status.json` with exit status, counts, selected profile, and
-  replay metadata;
-- `artifacts/octet/summary.txt` with the human effect summary;
-- `artifacts/octet/results.sarif` or `artifacts/octet/results.jsonl` with
-  findings sidecars when that output is selected;
-- `artifacts/octet/provenance.jsonl` with checker identity, evidence tier,
-  artifact locator, BLAKE3 identity, and checked scope.
+- `artifacts/octet/command.txt` contains the replayable command.
+- `artifacts/octet/status.json` contains the exit status, counts, profile, and replay metadata.
+- `artifacts/octet/summary.txt` contains the human effect summary.
+- `artifacts/octet/results.sarif` or `artifacts/octet/results.jsonl` contains selected finding sidecars.
+- `artifacts/octet/provenance.jsonl` contains the checker identity, evidence tier, artifact locator, BLAKE3 identity, and scope.
 
 Then verify the artifact bundle before treating it as review evidence:
 
@@ -96,12 +88,18 @@ missing, stale, malformed, or inconsistent evidence.
 
 ## Claim boundaries
 
-This walkthrough demonstrates static lint evidence and artifact verification for
-the selected scope. It is not a solver model, not a solver counterexample, not a
-formal counterexample, not mathematical proof, not whole-program correctness, not
-certification, not C performance parity, not a verified runtime, and not a Rust
-replacement. Octet does not introduce `requires` or `ensures` syntax for this
-path.
+This walkthrough demonstrates static-lint evidence and artifact verification for the selected scope.
+
+It does not prove these claims:
+
+- a solver model or counterexample
+- a formal counterexample or mathematical proof
+- whole-program correctness
+- certification
+- C performance parity
+- a verified runtime
+
+This path does not replace Rust or add `requires` and `ensures` syntax.
 
 For production setup, rollout profiles, and CI storage decisions, continue with
 [`docs/consumer-guide.md`](../../consumer-guide.md).

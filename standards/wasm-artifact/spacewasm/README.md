@@ -1,6 +1,8 @@
 # SpaceWasm MVP artifact profile
 
-`spacewasm-mvp` is an execution-free Octet profile over exact WebAssembly core-module bytes. It is a restrictive, hostless `run`-export ABI review profile; it is not a universal SpaceWasm ABI and does not execute or embed SpaceWasm.
+`spacewasm-mvp` is an execution-free Octet profile over exact WebAssembly core-module bytes.
+
+It is a restrictive, hostless `run`-export ABI review profile. It is not a universal SpaceWasm ABI. It does not execute or embed SpaceWasm.
 
 ## Reviewed cohort
 
@@ -18,13 +20,14 @@ The upstream Git revision is a Git SHA-1 interoperability identifier. Octet deri
 
 The profile requires:
 
-- a core module, never a component, WIT, or WASI artifact;
-- no imports;
-- exactly allowed exports, with `module::run` required;
-- no start function and no `memory.grow`;
-- at most one memory and one table;
-- named limits for artifact size, functions, pages, table elements, parameter words, and local words;
-- recorded-only producer metadata and deterministic duplicate-section rejection.
+- A core module, not a component, WIT, or WASI artifact.
+- No imports.
+- Only allowed exports, with `module::run` required.
+- No start function or `memory.grow`.
+- At most one memory and one table.
+- Named limits for artifact size, functions, pages, table elements, parameters, and local words.
+- Recorded-only producer metadata.
+- Deterministic rejection of duplicate sections.
 
 The profile limits are intentionally no wider than the reviewed upstream support limits. Runtime allocator pages, code pages, control frames, stack depth, fuel, and host implementations remain external configuration and cannot be inferred from module declarations.
 
@@ -40,7 +43,9 @@ cargo octet evidence collect \
 cargo octet artifact verify --artifact-dir artifacts/spacewasm
 ```
 
-Mantle may supply exact final bytes and a `mantle:` parent artifact. Octet independently measures the bytes and records the handoff without importing store-path, build-success, materialization, sandbox, or release semantics.
+Mantle can supply exact final bytes and a `mantle:` parent artifact.
+
+Octet independently measures the bytes and records the handoff. It does not import store-path, build, materialization, sandbox, or release claims.
 
 ## Optional runtime observations
 
@@ -48,7 +53,11 @@ Identity-verified Mantle, ChaosControl, or Molten observations can be linked wit
 
 ## Corpora
 
-`corpus.ncl` binds exact generated Wasm and external-report bytes, tool versions, seeds or seed artifacts, input identities, transforms, expected issue classes, and shrink predicates. The fast lane covers admitted and denied boundaries. The deep lane records deterministic wasm-smith and wasm-mutate outputs; these remain validation evidence, not proof.
+`corpus.ncl` binds exact generated Wasm and report bytes, tools, seeds, inputs, transforms, expected issues, and shrink predicates.
+
+The fast lane covers admitted and denied boundaries. The deep lane records deterministic wasm-smith and wasm-mutate outputs.
+
+These outputs are validation evidence, not proof.
 
 ## Non-claims
 

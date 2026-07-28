@@ -18,4 +18,6 @@ Render a static review page from the same model:
 cargo octet evidence-index codebase html --index artifacts/octet/evidence-codebase-index.json --output artifacts/octet/evidence-codebase-index.html
 ```
 
-The generated index is Octet review/provenance infrastructure only: it proves artifact identity and linkage, not correctness, semantic equivalence, or standalone Valence release ownership.
+The generated index is Octet review and provenance infrastructure. It proves artifact identity and linkage only.
+
+It does not prove correctness, semantic equivalence, or standalone Valence release ownership.
