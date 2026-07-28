@@ -1,47 +1,43 @@
 # Octet
 
-Octet is the evidence-backed checked path for agent-written and human-written
-Rust systems code. It is a Rust-compatible toolchain and lint distribution for
-systems code that should be stable through closed interfaces. It applies
-[Tiger Style](https://github.com/tigerbeetle/tigerbeetle/blob/main/docs/TIGER_STYLE.md)
-rules: explicit shell/core boundaries, bounded resource use, positive naming,
-compact functions, and reviewable suppressions.
+Octet is an evidence-backed checked path for Rust systems code. It supports code written by people and agents.
 
-The checked path is concrete: Rust source flows through `cargo octet check` and
-`octet-standards` checks, checked-in policy/config, reviewable evidence
-artifacts, then consumer CI or release gates. See
-`docs/trust-boundary-evidence.md` for the evidence stack, evidence tiers,
-provenance chain, scope boundary, and controlled-deployment map.
+Octet provides a Rust-compatible toolchain, Dylint lints, standards checks, policy, and evidence artifacts.
 
-The chemistry metaphor is intentional: an octet is a stable full valence shell.
-Octet treats Rust-compatible code as inert by default across APIs, effects,
-capabilities, proofs, and review surfaces; interaction happens only through
-complete, explicit interfaces.
+It applies [Tiger Style](https://github.com/tigerbeetle/tigerbeetle/blob/main/docs/TIGER_STYLE.md) rules:
 
-Octet currently ships 72 Dylint lints across 6 domains. The repo also owns a
-separate standards registry/checker seam for policy traceability and
-non-Dylint source-shape rules.
+- explicit functional-core and imperative-shell boundaries
+- bounded resource use
+- positive names
+- compact functions
+- reviewable suppressions
 
-A Nickel nominal-domain catalog drives staged checks for primitive aliases,
-raw core values, and refined-wrapper bypasses. See
-[`docs/type-driven-domain-modeling.md`](docs/type-driven-domain-modeling.md).
+The checked path is:
+
+```text
+Rust source → cargo octet check → standards and policy → evidence artifacts → consumer gates
+```
+
+Read [`docs/trust-boundary-evidence.md`](docs/trust-boundary-evidence.md) for evidence tiers, provenance, scope, and deployment boundaries.
+
+Octet treats code as closed by default across APIs, effects, capabilities, proofs, and review surfaces. Interaction requires a complete interface.
+
+Octet ships 72 Dylint lints across six domains. A separate standards registry handles policy traceability and other source-shape rules.
+
+A Nickel catalog defines nominal domains for primitive aliases, raw core values, and wrapper bypasses. Read [`docs/type-driven-domain-modeling.md`](docs/type-driven-domain-modeling.md).
 
 ## Status and prerequisites
 
-Octet is under active development. The primary tested path uses Nix to pin the
-Rust, Dylint, Verus, solver, and supporting toolchains; direct Cargo use is an
-advanced path that must reproduce those pins.
+Octet is under active development. Nix pins Rust, Dylint, Verus, solvers, and support tools.
 
-Octet pins `valence-core` through an exact HTTPS Git revision and pins the same
-Valence revision as a Nix flake input. The declared source paths require no SSH
-credential; anonymous clean clones work once the pinned repositories are
-publicly visible. Source availability is not evidence of correctness, security,
-or release readiness.
+Direct Cargo use is an advanced path. It must reproduce the same pins.
+
+Octet pins one exact public Valence revision in Cargo and Nix. Source availability does not prove correctness, security, or release readiness.
 
 ## Quick start
 
-1. Copy `templates/dylint.toml` into the consumer workspace as `dylint.toml`.
-2. Add runner metadata to the workspace `Cargo.toml`:
+1. Copy `templates/dylint.toml` to the consumer root as `dylint.toml`.
+2. Add runner metadata to the workspace `Cargo.toml`.
 
 ```toml
 [workspace.metadata.octet]
@@ -49,68 +45,79 @@ default_scope = ["-p", "your-core-crate"]
 cargo_check_args = ["--lib"]
 ```
 
-3. Run Octet through the first-class runner.
+3. Run Octet.
 
-Installed cargo subcommand:
+Installed Cargo subcommand:
 
 ```bash
 cargo octet check
 ```
 
-Nix, from the canonical repo flake without installing into the consumer toolchain:
+Public Nix flake:
 
 ```bash
 nix run github:OnixResearch/octet#cargo-octet -- check
 ```
 
-Local checkout alternative:
+Local checkout:
 
 ```bash
 nix run path:/path/to/octet#cargo-octet -- check
 ```
 
-Octet's own checked-in runner policy selects every workspace library with `--workspace --lib`. A successful self-check may be `warning-only` under the published exit-code contract. The repository's [self-check warning budget](docs/self-check-warning-budget.md) records current stable IDs and fails the Nix gate on newly introduced findings. This no-argument scope does not cover tests, binaries, examples, benches, dependency behavior, runtime behavior, whole-program correctness, lint completeness, or release eligibility; the broader Nix, Nextest, and Clippy gates remain separate.
+Octet's own policy checks each workspace library with `--workspace --lib`.
 
-Structured output and reviewable sidecars are first-class too:
+A self-check can be `warning-only`. The [warning budget](docs/self-check-warning-budget.md) records accepted finding IDs and rejects new IDs.
+
+This scope does not cover tests, binaries, examples, dependencies, runtime behavior, whole-program correctness, or release eligibility.
+
+Write SARIF and sidecars with:
 
 ```bash
 cargo octet check --output-format sarif --artifact-dir artifacts/octet
 ```
 
-Named strict-Rust profiles activate reviewed lint floors, function-address
-minimums, and profile-bound BLAKE3 evidence:
+## Strict Rust profiles
+
+Named profiles set reviewed lint floors, function-address minimums, and BLAKE3 evidence.
 
 ```bash
 cargo octet check --profile robust --artifact-dir artifacts/octet
 cargo octet artifact verify --artifact-dir artifacts/octet
 ```
 
-The shipped profiles are `robust`, `bounded-systems`, and
-`deterministic-core`. They enforce bounded direct source-shape policy; they do
-not claim transitive effect inference, whole-program proof, or release
-eligibility. `deterministic-core` additionally requires configured
-`core_source_scopes` and a reviewed deny-mode function-address baseline. See
-[`docs/strict-rust-profiles.md`](docs/strict-rust-profiles.md) for the profile
-matrix and bootstrap path.
+The profiles are:
 
-A separate machine-readable assurance profile links required mechanisms,
-assumptions, trusted-base elements, evidence scopes, validation commands, and
-non-claims without reporting that any evidence passed. The first bounded pilot
-covers the active OnixOS lifecycle proof chain:
+- `robust`
+- `bounded-systems`
+- `deterministic-core`
+
+These profiles enforce direct source-shape policy. They do not prove transitive effects, whole-program behavior, or release eligibility.
+
+`deterministic-core` requires `core_source_scopes` and a reviewed deny-mode function-address baseline.
+
+Read [`docs/strict-rust-profiles.md`](docs/strict-rust-profiles.md).
+
+## Assurance profiles
+
+An assurance profile links mechanisms, assumptions, trusted-base elements, evidence scopes, commands, and non-claims.
+
+The OnixOS lifecycle pilot is available through:
 
 ```bash
 nix build .#octet-assurance-profile-onixos-lifecycle --no-link --print-out-paths
 nix build .#checks.x86_64-linux.assurance-profile-onixos-lifecycle --no-link -L
 ```
 
-The package exposes generated JSON, its Nickel source and contract, and a
-Nickel Export BLAKE3 manifest. It is not a strict Rust profile, cumulative
-proof, security score, or release decision. See
-[`docs/assurance-profiles.md`](docs/assurance-profiles.md).
+The package includes generated JSON, Nickel source, its contract, and a Nickel Export BLAKE3 manifest.
 
-A separate opt-in closure rail extends a successful `deterministic-core` check
-with conservative selected source-token call/effect propagation and exact
-reviewed provider summaries:
+It is not a strict Rust profile, cumulative proof, security score, or release decision.
+
+Read [`docs/assurance-profiles.md`](docs/assurance-profiles.md).
+
+## Effect-closure admission
+
+The opt-in closure rail extends a successful `deterministic-core` result. It uses conservative source-token propagation and reviewed provider summaries.
 
 ```bash
 cargo octet admit --profile deterministic-core --closure \
@@ -119,14 +126,15 @@ cargo octet admit --profile deterministic-core --closure \
 cargo octet admit verify --artifact-dir target/octet-admission
 ```
 
-Unknown effects, opaque constructs, stale function identities, forbidden role
-edges, and unadmitted or provider-mismatched calls fail closed. The resulting
-receipt is bounded source-token evidence under reviewed summaries—not complete
-Rust name resolution, macro/trait/MIR closure, dependency implementation proof,
-runtime determinism, whole-program correctness, or release eligibility. See
-[`docs/effect-closure-admission.md`](docs/effect-closure-admission.md).
+Unknown effects, opaque constructs, stale identities, forbidden role edges, and provider mismatches fail closed.
 
-Optional external evidence rails collect selected non-starter tool output into separate receipt bundles:
+The receipt is bounded source-token evidence. It is not complete name resolution, macro closure, MIR closure, dependency proof, runtime determinism, or release eligibility.
+
+Read [`docs/effect-closure-admission.md`](docs/effect-closure-admission.md).
+
+## External evidence rails
+
+Optional rails collect external tool output into separate receipt bundles.
 
 ```bash
 cargo octet evidence collect --rail dependency-audit --input target/deny.json --config deny.toml --locked --artifact-dir artifacts/dependency-audit
@@ -139,63 +147,54 @@ cargo octet evidence collect --rail hegel-property --input target/hegel-property
 cargo octet artifact verify --artifact-dir artifacts/dependency-audit
 ```
 
-The Clippy rail defaults to Octet's embedded, reviewed, cherry-picked restriction catalog; `--config PATH` selects another checked catalog. The blanket `clippy::restriction` group is unsupported. Profiled receipts bind full-catalog and selected-profile BLAKE3 identities, exact lint argv, findings, and tool status while remaining complementary `static_lint` evidence. See [`docs/clippy-restriction-profiles.md`](docs/clippy-restriction-profiles.md).
+The Clippy rail uses an embedded reviewed catalog. It does not enable the full `clippy::restriction` group.
 
-For a strict local gate, copy `templates/pre-commit-config.yaml` to a consumer
-repo and pin this repository as a pre-commit hook source. The `octet-deny-all`
-hook runs the same runner with every Octet/Tiger Style lint promoted to `deny`.
+Receipts bind catalog and profile identities, arguments, findings, and tool status. They remain complementary static-lint evidence.
 
-Exit codes stay stable for automation:
+Read [`docs/clippy-restriction-profiles.md`](docs/clippy-restriction-profiles.md).
 
-- `0` clean or warning-only runs
-- `1` error-level lint findings
-- `2` integration or cargo-check failures
+## Pre-commit and exit status
 
-Outside Nix, install the cargo subcommand once, then follow
-`docs/consumer-guide.md` for the repo-pinned `OCTET_DYLINT_REV` bootstrap
-before running `cargo octet check`:
+Copy `templates/pre-commit-config.yaml` to a consumer repository. Pin Octet as the hook source.
+
+The `octet-deny-all` hook promotes each Octet lint to `deny`.
+
+Exit status values are stable:
+
+- `0`: clean or warning-only
+- `1`: error-level findings
+- `2`: integration or Cargo failure
+
+For direct Cargo use, install the runner once:
 
 ```bash
 cargo install --path /path/to/octet/cargo-octet
 ```
 
-4. Tune thresholds, disabled lints, and per-lint levels in `dylint.toml`.
+Then use [`docs/consumer-guide.md`](docs/consumer-guide.md) for the pinned `OCTET_DYLINT_REV` setup.
 
-After TOML syntax parses, Octet accumulates independent semantic config diagnostics (for example unknown lint names, invalid levels, and conflicting disabled/level entries) in deterministic order while still ignoring invalid entries and failing closed before dependent evidence promotion.
+Octet reports independent config errors in deterministic order. Invalid entries do not affect dependent evidence, and the command fails closed.
 
-Standards registry checks live behind a separate command surface:
+Run standards checks with:
 
 ```bash
 nix run .#octet-policy-validate
 nix run .#octet-standards -- --help
 ```
 
-Formal proof rails are opt-in. `cargo octet prove` lists or runs selected
-standards proof rails, writes structured verifier receipts plus `proof-cards.json`
-under an artifact directory, and emits `formal_proof` provenance only for scoped
-receipts with verifier, solver/toolchain, command argv, source/proof path,
-receipt path, and bounded log identity. Starter `cargo octet check` usage does
-not require Verus.
-Octet keeps the fixture `octet-verus` rail for plumbing tests and also ships
-multiple tiny production-mode pilots through `octet-production-verus`, pinned to
-the real Verus binary release, solver, Rust toolchain, and Nix closure graph
-identity. Each pilot proves only its declared property and makes no
-whole-program correctness claim. The canonical route is documented in
-[`docs/trust-boundary-evidence.md#verus-proof-path-lane`](docs/trust-boundary-evidence.md#verus-proof-path-lane):
-requirement or policy ID to Verus proof rail, checked Rust source scope, proof
-target, verifier identity, structured receipt, proof-card review,
-`formal_proof` provenance, and artifact verification. Imported Trellis references
-and Trellis proof evidence IR are BLAKE3 byte-identity/manual-review or
-recorded-only inputs until Octet reruns the proof and validates its own receipt.
-Promotion requires matching source, proof IR, verifier, toolchain, solver,
-command, assumptions, property scope, and passed result identity.
-The typed compatibility source is `standards/verus-toolchain/profile.ncl`; its
-fresh generated export drives the production verifier package and records
-intentional downstream pins without transferring proof claims. Reviewed native
-package consumers include the OnixOS lifecycle rail and Aspen node-replication
-probe; their rows do not transfer source-model, proof, runtime, or readiness
-authority. The same profile pins `octet-verusfmt`, whose wrapper disables
-self-update and exposes bounded formatter identity.
+## Formal proof rails
+
+Proof rails are opt-in. `cargo octet prove` writes verifier receipts and `proof-cards.json`.
+
+Formal-proof provenance applies only to the exact source, proof, verifier, solver, command, assumptions, and property scope.
+
+Starter `cargo octet check` does not require Verus.
+
+Octet includes fixture rails and production-mode pilots. Each pilot proves only its named property.
+
+Imported Trellis evidence remains recorded-only until Octet reruns the proof and checks its own receipt.
+
+The Verus toolchain profile is `standards/verus-toolchain/profile.ncl`. It also pins `octet-verusfmt`.
 
 ```bash
 nix build .#octet-verus-toolchain-profile .#octet-verusfmt --no-link -L
@@ -229,189 +228,113 @@ cargo octet proof-ref validate \
 cargo octet artifact verify --artifact-dir artifacts/octet
 ```
 
-Start with `docs/consumer-guide.md` for the full consumer setup and rollout
-path. Legacy `cargo slotcar` / `cargo tigerstyle` command names remain
-compatibility aliases only.
+Legacy `cargo slotcar` and `cargo tigerstyle` commands remain compatibility aliases.
 
-## Release/operator smoke path
+## Release operator path
 
-For release readiness, operators should be able to find the critical surfaces from
-this README plus command help, without reading archived OpenSpec changes:
+Use these surfaces for a bounded release smoke:
 
-- `cargo octet check --cache --artifact-dir artifacts/octet` records
-  effect-summary output in `summary.txt`, sidecar findings, `provenance.jsonl`,
-  and lint-cache `cache_status` fields. Add `--function-addresses observe|warn|deny`
-  plus optional `--function-address-path PATH` entries to gradually content-address
-  functions with lint-like diagnostics before promoting selected scopes to `deny`;
-  when enabled with `--artifact-dir`, the check writes `function-addresses.json`
-  beside the normal bundle sidecars with workspace-relative source-envelope and
-  function record paths, zero-based `start_byte`/`end_byte` spans, marker review
-  fields, duplicate/malformed/stale diagnostics, a Kamacite-compatible projection
-  descriptor, an Octet-to-Kamacite Preserves handoff contract, and the generic
-  Octet evidence-chain producer handoff envelope. The JSON file is an
-  operator/debug compatibility projection; Kamacite-owned canonical Preserves
-  bytes are the portable stack receipt authority.
-  r[verify octet.evidence_provenance.evidence_chain_handoff.projection]
-  r[verify octet.evidence_provenance.evidence_chain_handoff.positive]
-  r[verify octet.evidence_provenance.evidence_chain_handoff.validation]
-  At Cairn revision `70db8fe114910feb5d162fea5db8ad4ffdb6f176`,
-  `nix develop -c cargo test -p cairn-cli --test function_address_stack_smoke`
-  validates the frozen Octet → Kamacite → Valence → Mantle → Cairn fixture and
-  its boundary mutations. This selected-fixture result is not arbitrary-version
-  compatibility, production deployment, behavioral correctness, or release
-  eligibility. Dependency identity is
-  labeled `source-token-set`: it records the deterministic source-token dependency
-  set, not a resolved Rust call graph or semantic dependency closure. `observe` is the bootstrap mode:
-  unreviewed or unbaselined functions produce renderer-valid warning findings
-  while still emitting the artifact for review. Use `--function-address-baseline PATH` to ratchet
-  gradually: unchanged baseline functions stay admitted while changed or new
-  unaddressed functions report stale/missing diagnostics. These receipts are
-  identity and source-shape evidence only; they do not claim Rust semantic
-  correctness, compiler correctness, whole-program safety, verifier soundness,
-  or release eligibility.
-- `cargo octet artifact verify --artifact-dir artifacts/octet` recomputes sidecar
-  BLAKE3 hashes and fails closed on missing, stale, malformed, or inconsistent
-  provenance before the directory is treated as release evidence. With
-  `--emit-valence-provenance PATH`, it writes a replayable, typed Valence adapter
-  input only after verification succeeds; r[verify octet.evidence_provenance.valence_export.boundary_hardened.visible]
-  the export is not release eligibility, Mantle bundle inclusion, whole-program
-  correctness, or verifier-soundness proof.
-- `cargo octet evidence collect --rail dependency-audit|clippy-co-reporting|ast-grep|wasm-artifact|charon-semantic|dependency-trust|api-stability|dynamic-evidence|release-supply-chain|mutation-testing|coverage-baseline|kani-model-check|hegel-property|z4-solver|verifier-fixture`
-  writes optional external evidence receipts with checker identity, source severity,
-  selected scope, parent links, and explicit non-claims. The ast-grep rail binds the
-  pinned tool version, rule/test/config bundle BLAKE3, scan scope, spans,
-  metavariables, promotion lane, and dry-run codemod posture while remaining
-  syntax-only candidate evidence. The wasm-artifact rail validates exact module or
-  component bytes without execution and keeps exact-byte identity separate from
-  normalized interface identity. Its `spacewasm-mvp` profile binds NASA SpaceWasm
-  revision `e24cf09355a90497148eb5029fdb8e3400bd63e3`, a checked support projection,
-  a restrictive hostless ABI, static resource limits, and optional recorded-only
-  runtime observations without claiming runtime acceptance. Kani receipts are scoped model-check evidence;
-  Hegel receipts are bounded generated-input property evidence. These rails do not
-  prove whole-program correctness, release eligibility, semantic equivalence, or
-  verifier soundness. The Charon semantic rail reuses the pinned Aeneas provider's network-denied Charon stage, projects exact selected-item facts and conservative effect candidates, and emits transcript-only artifacts; agreement with independent source/token evidence does not merge authority or prove semantic equivalence.
+- `cargo octet check --cache --artifact-dir artifacts/octet`
+- `cargo octet artifact verify --artifact-dir artifacts/octet`
+- `cargo octet evidence collect --rail <rail> ...`
 - `cargo octet fingerprint --check --review-manifest artifacts/fingerprint-review.json src/lib.rs`
-  verifies semantic identity fingerprints with BLAKE3-backed review records.
 - `cargo octet migrate start --manifest artifacts/octet-migration.json`
-  writes a deterministic migration manifest before safe application.
 - `cargo octet transcript docs/examples/release-operator-smoke/transcript.md`
-  validates executable transcript command blocks and expected-output assertions.
 
-One bounded smoke artifact covers those surfaces together:
+Function-address modes are `observe`, `warn`, and `deny`. They produce source-envelope records, function spans, review fields, diagnostics, and Kamacite handoff data.
+
+Kamacite-owned Preserves bytes are the portable receipt authority. The JSON file is an operator projection.
+
+<!--
+r[verify octet.evidence_provenance.evidence_chain_handoff.projection]
+r[verify octet.evidence_provenance.evidence_chain_handoff.positive]
+r[verify octet.evidence_provenance.evidence_chain_handoff.validation]
+r[verify octet.evidence_provenance.valence_export.boundary_hardened.visible]
+-->
+
+At Cairn revision `70db8fe114910feb5d162fea5db8ad4ffdb6f176`, the stack smoke checks one frozen Octet-to-Cairn fixture.
+
+This result does not prove arbitrary-version compatibility, behavior, deployment, or release eligibility.
+
+External rails can collect dependency, Clippy, ast-grep, Wasm, Charon, trust, API, runtime, supply-chain, mutation, coverage, Kani, Hegel, solver, and verifier evidence.
+
+Each rail retains its own scope and non-claims. Agreement between rails does not merge their authority.
+
+Run the complete documentation smoke:
 
 ```bash
 nix build .#checks.x86_64-linux.docs-examples --no-link -L
 ```
 
-The smoke transcript lives at
-`docs/examples/release-operator-smoke/transcript.md`.
+The transcript is at `docs/examples/release-operator-smoke/transcript.md`.
 
 ## Naming map
 
-Octet is the canonical current product identity. `Tiger Style` remains the
-source philosophy. Current release lint source attrs, domain groups, and emitted
-lint group metadata still use `tigerstyle::...` until the namespace migration
-lands; Octet command and config names are the preferred product surfaces.
+Octet is the current product identity. Tiger Style remains the coding philosophy and current lint namespace.
 
-| Surface | Canonical Octet name | Legacy / compatibility classification |
-| --- | --- | --- |
-| public site | `octet.dev` | `slotcar.dev` is historical until a site decision lands |
-| project name | `Octet` / `octet` | `slotcar` is legacy product identity |
-| GitHub repo reference | `github:OnixResearch/octet` | legacy repo slugs are obsolete |
-| crate and lint package | `octet` | `slotcar`/`tigerstyle` package aliases are compatibility only |
-| lint runner binary | `cargo-octet` | `cargo-slotcar` and `cargo-tigerstyle` route to the same engine as aliases |
-| lint runner command | `cargo octet check` | `cargo slotcar check` and `cargo tigerstyle check` are transition aliases |
-| standards checker binary | `octet-standards` | `slotcar-standards` / `tigerstyle-standards` are compatibility aliases |
-| standards policy commands | `octet-policy-export`, `octet-policy-validate` | old policy command names are compatibility aliases |
-| lint attrs and domain groups | `tigerstyle::<lint>` and `tigerstyle::<domain>` | bare lint names remain compatibility aliases during migration |
-| workspace runner config | `[workspace.metadata.octet]` | `[workspace.metadata.slotcar]` is legacy and lower precedence |
-| lint tuning config | `[octet]` and `[octet.lint_levels]` | `[slotcar]` is legacy and lower precedence |
-| support env prefix | `OCTET_*` | `TIGERSTYLE_*` is bootstrap compatibility while Dylint wiring migrates |
+| Surface | Current name | Compatibility name |
+|---|---|---|
+| Public site | `octet.dev` | `slotcar.dev` is historical |
+| Project | `Octet` or `octet` | `slotcar` is legacy |
+| Repository | `github:OnixResearch/octet` | Old repository names are obsolete |
+| Package | `octet` | `slotcar` and `tigerstyle` are aliases |
+| Runner binary | `cargo-octet` | `cargo-slotcar` and `cargo-tigerstyle` are aliases |
+| Runner command | `cargo octet check` | Legacy commands route to the same engine |
+| Standards binary | `octet-standards` | Legacy binaries are aliases |
+| Policy commands | `octet-policy-export` and `octet-policy-validate` | Old names are aliases |
+| Lint attributes | `tigerstyle::<lint>` | Bare names remain compatibility aliases |
+| Workspace config | `[workspace.metadata.octet]` | `[workspace.metadata.slotcar]` has lower precedence |
+| Lint config | `[octet]` and `[octet.lint_levels]` | `[slotcar]` has lower precedence |
+| Environment prefix | `OCTET_*` | `TIGERSTYLE_*` remains bootstrap compatibility |
 
-When both Octet and legacy config are present, Octet names win. Remaining
-`Tiger Style` references are valid when they describe the coding philosophy or
-the current release's live lint namespace; `settle-octet-namespace-migration`
-tracks the source-attribute namespace decision.
+When both forms exist, Octet names take precedence.
 
-## Lint domains at a glance
+## Lint domains
 
 | Domain | Count | Focus |
-| --- | ---: | --- |
-| safety | 24 | panics, bounds, defaults, loops, queues, unsafe boundaries, explicit failure paths, enum evolution |
-| naming | 9 | predicate names, acronym casing, units, currency, searchable paths and imports |
-| performance | 2 | clone avoidance, hot-loop allocation, and ownership clarity |
-| structure | 19 | function size, nesting, parameters, casts, public APIs, interface cohesion |
-| purity | 16 | wall-clock, environment, randomness, core-effect boundaries, allocation, and verified-module purity |
-| concurrency | 2 | lock ordering and task lifecycle |
+|---|---:|---|
+| safety | 24 | panics, bounds, defaults, loops, queues, unsafe code, and failures |
+| naming | 9 | predicates, acronyms, units, currency, paths, and imports |
+| performance | 2 | clones, allocation, and ownership |
+| structure | 19 | size, nesting, parameters, casts, APIs, and cohesion |
+| purity | 16 | clocks, environment, randomness, effects, allocation, and verified purity |
+| concurrency | 2 | lock order and task lifecycle |
 
-See `docs/lint-reference.md` for the full catalog, defaults, suppression rules,
-and config keys.
+Read [`docs/lint-reference.md`](docs/lint-reference.md) for the full catalog.
 
 ## Documentation
 
-- [Assertion review guide](docs/assertion-review.md) and [checklist template](templates/assertion-checklist.md)
-- [Safety-critical claims guide](docs/safety-critical.md)
-- [Bounds and pacing review guide](docs/bounds-and-pacing-review.md) and [checklist template](templates/bounds-and-pacing-checklist.md)
-- [Resilience review guide](docs/resilience-review.md) and [five-whys template](templates/five-whys-architecture.md)
-- [Performance review guide](docs/performance-review.md) and [sketch template](templates/performance-sketch.md)
-- [Concurrency and distributed-state review guide](docs/concurrency-state-review.md) and [checklist template](templates/concurrency-state-checklist.md)
-- [Kani panic-freedom pilot guide](docs/kani-panic-freedom-pilots.md) and [harness template](templates/kani-panic-harness.rs)
-- [Kani property checklist](docs/kani-property-checklist.md) and [checklist template](templates/kani-property-checklist.md)
-- [System comprehension guide](docs/system-comprehension.md) and [walkthrough template](templates/system-walkthrough.md)
-- `docs/consumer-guide.md` — first run, config split, Nix integration, pre-commit hook, output modes, artifact bundles, migration notes
-- `docs/adoption-story.md` — card-oriented public story, terminal-first quickstart, examples, Built with Octet case-study format, methodology requirements, and claim boundaries
-- `docs/examples/first-checked-rust-patch/README.md` — first checked Rust patch walkthrough from `unchecked_division` finding to fixed code and verified artifacts
-- `docs/trust-boundary-evidence.md` — checked-path framing, evidence stack, evidence tiers, the [checked-contract ladder](docs/trust-boundary-evidence.md#checked-contract-ladder), provenance, scope boundary, and controlled-deployment map
-- `docs/law-tested-cores.md` — bounded, replayable law catalog for deterministic pure cores
-- `docs/strict-rust-profiles.md` — named lint floors, function-address bootstrap, profile evidence, and non-claim boundaries
-- `docs/assurance-profiles.md` — typed cross-plane mechanism requirements, BLAKE3 profile identity, the OnixOS lifecycle pilot, and composition non-claims
-- `docs/clippy-restriction-profiles.md` — cherry-picked Clippy restriction profiles, policy-bound receipts, exceptions, and non-claim boundaries
-- `templates/pre-commit-config.yaml` — copyable deny-all pre-commit hook configuration
-- `docs/lint-reference.md` — full lint catalog, default levels, suppression paths, config reference
-- `docs/api-contract-rail.md` — Oxide-inspired API contract rail references, compatibility classes, and non-claims
-- `docs/source-boundary-core.md` — source descriptor kinds, shell/core ownership, and non-claim boundaries
-- `docs/source-acquisition-receipts.md` — stack-owned source receipt kinds, private SSH boundaries, and local override guidance
-- `docs/valence-core-cutover.md` — standalone Valence dependency target, Octet compatibility shim, downstream migration, and cutover non-claims
-- `docs/preserves-receipt-export.md` — optional Preserves envelope adapter contract and non-claims
-- `docs/formal-proof-valence-export-fixture.md` — frozen formal-proof Valence adapter fixture contract
-- `docs/aeneas-lean-proof-rail.md` — opt-in Aeneas/Charon/Lean provider selection, theorem gate, rollout order, and claim boundaries
-- `docs/aeneasverif-integration-roadmap.md` — stack ownership, reusable consumer-contract work, and deferred Eurydice and Scylla stages
-- `docs/charon-semantic-analysis.md` — pinned Charon extraction, semantic projection, source/token comparison, artifact roles, and recorded-only boundaries
-- `docs/concurrency-performance-lint-candidates.md` — first-wave concurrency/performance lint candidate matrix
-- `docs/contributor-guide.md` — source-of-truth map, doc-update crosswalk, verification rails
-- `docs/downstream-rollout.md` — rollout profiles, promotion playbooks, and boundary guidance
-- `docs/indexable-lint-signal-summary.md` — high-volume indexable lint signal-quality status and promotion blockers
-- `docs/downstream-rollout-evidence.md` — Aspen-backed rollout evidence and historical replay paths
-- `docs/cairn-cob-collaboration.md` — preview-first local signed COB collaboration, explicit Git transport, second-checkout materialization, and non-claims
-- `standards/policies/README.md` — typed policy registry and traceability contract
-- `docs/standards/policy-contract.md` — standards rules mapped to verification rails
-- `docs/examples/release-operator-smoke/transcript.md` — one bounded release smoke transcript covering operator surfaces
-- `docs/release-candidate.md` — pre-tag release candidate checklist and local smoke receipt path
-- `CHANGELOG.md` — breaking changes and notable updates for consumers
+Start with these guides:
+
+- [`docs/consumer-guide.md`](docs/consumer-guide.md): setup and rollout
+- [`docs/lint-reference.md`](docs/lint-reference.md): lint catalog and config
+- [`docs/trust-boundary-evidence.md`](docs/trust-boundary-evidence.md): evidence and claims
+- [`docs/strict-rust-profiles.md`](docs/strict-rust-profiles.md): named profiles
+- [`docs/assurance-profiles.md`](docs/assurance-profiles.md): cross-plane assurance profiles
+- [`docs/downstream-rollout.md`](docs/downstream-rollout.md): consumer promotion
+- [`docs/contributor-guide.md`](docs/contributor-guide.md): source map and checks
+- [`docs/release-candidate.md`](docs/release-candidate.md): release checklist
+- [`CHANGELOG.md`](CHANGELOG.md): consumer changes
+
+The `docs/` and `templates/` directories contain focused guides and copyable checklists for assertions, safety, bounds, resilience, performance, concurrency, Kani, system comprehension, APIs, sources, and proof rails.
 
 ## License
 
-AGPL-3.0-or-later. See [LICENSE](LICENSE). Third-party dependencies and imported proof references retain their own terms; license metadata does not certify imported proofs or whole-system behavior.
+Octet uses `AGPL-3.0-or-later`. See [LICENSE](LICENSE).
+
+Dependencies and imported proof references retain their own terms. License metadata does not certify a proof or whole-system behavior.
 
 ## References
 
-- [OnixResearch/trellis](https://github.com/OnixResearch/trellis) — reference Verus proof corpus and BLAKE3 proof-artifact identity patterns for Octet proof-path, proof-card, and imported proof-bundle work.
-- [verus-lang/verus](https://github.com/verus-lang/verus) — pinned production verifier, solver, and toolchain source; each receipt remains scoped to exact source, proof, assumptions, and tool identity.
-- [verus-lang/verusfmt](https://github.com/verus-lang/verusfmt) — pinned Verus formatter used for source-shape checks only; formatting is not proof or semantic validation.
-- `github:nickel-lang/json-schema-to-nickel` — reference pattern for generating Nickel contracts from JSON Schema inputs while preserving generator capability caveats.
-- `github:nickel-lang/nickel-schemastore` — reference pattern for packaging many generated Nickel contracts behind a discoverable indexed library.
-- `github:nickel-lang/rules_nickel` — reference pattern for a small declarative Nickel export surface with source, dependencies, format, and output.
-- `github:nickel-lang/nickel-customs` — reference pattern for local sanity checks over contributed Nickel package metadata before promotion.
-- [oxidecomputer/dropshot](https://github.com/oxidecomputer/dropshot) — reference pattern for explicit typed API surfaces and generated OpenAPI documents without hidden middleware authority.
-- [oxidecomputer/progenitor](https://github.com/oxidecomputer/progenitor) and [oxidecomputer/typify](https://github.com/oxidecomputer/typify) — reference generators for contract consumer fixtures and Rust/schema interop boundaries.
-- [oxidecomputer/drift](https://github.com/oxidecomputer/drift), [oxidecomputer/openapi-lint](https://github.com/oxidecomputer/openapi-lint), and [oxidecomputer/dropshot-api-manager](https://github.com/oxidecomputer/dropshot-api-manager) — reference patterns for API compatibility diffing, linting, and managed contract promotion.
-- [joweeba/z4](https://github.com/joweeba/z4) — Rust-native solver, conservative `unknown`, proof-artifact, and progress-diagnostic reference for optional recorded solver evidence rails; Octet does not treat it as a default solver or Z3 replacement.
-- [joweeba/zani](https://github.com/joweeba/zani), [joweeba/sunder](https://github.com/joweeba/sunder), and [joweeba/certus](https://github.com/joweeba/certus) — Rust verifier UX and fixture-shape references for bounded positive/negative proof-rail regression fixtures; Octet does not adopt their runtimes or transfer verifier soundness claims.
-- [nasa/spacewasm](https://github.com/nasa/spacewasm) at `e24cf09355a90497148eb5029fdb8e3400bd63e3` — reviewed source cohort for the execution-free `spacewasm-mvp` artifact profile; Octet does not import or execute the runtime and does not transfer decode, execution, safety, sandbox, certification, or release claims.
-- [AeneasVerif/aeneas](https://github.com/AeneasVerif/aeneas) — Charon/LLBC-to-Lean translation and theorem-checking reference for the opt-in Aeneas proof provider; Octet must rerun exact pinned stages and does not inherit translation or verifier soundness claims.
-- [AeneasVerif/charon](https://github.com/AeneasVerif/charon) — pinned Rust semantic-extraction and serialized-option reference for Aeneas and optional Charon semantic-analysis rails; Octet rejects partial or weakened extraction and does not claim compiler correctness or complete Rust support.
-- [AeneasVerif/eurydice](https://github.com/AeneasVerif/eurydice) — deferred Rust-to-C export reference. A future Octet rail must preserve separate Charon compatibility, panic, termination, generated-C, and non-claim boundaries.
-- [AeneasVerif/scylla](https://github.com/AeneasVerif/scylla) — deferred experimental C-to-Rust migration reference. A future named-corpus rail must bind Clang, annotations, rewrites, generated Rust, unsupported constructs, and equivalence non-claims.
-- [AeneasVerif/mechanized-llbc](https://github.com/AeneasVerif/mechanized-llbc) — recorded-only LLBC semantic-foundation corpus; it does not certify the pinned Charon or Aeneas implementations.
-- [AeneasVerif/charon-rudra](https://github.com/AeneasVerif/charon-rudra) — historical analysis-over-Charon design reference only; Octet does not adopt its old toolchain or implementation as a runtime dependency.
-- [AeneasVerif/jxl-proofs](https://github.com/AeneasVerif/jxl-proofs) — proof-architecture and vacuous-specification caution corpus used to design theorem-adequacy negatives; its theorems and generated artifacts do not transfer proof authority.
+- [OnixResearch/trellis](https://github.com/OnixResearch/trellis) — Verus proof corpus and proof-artifact identity reference.
+- [verus-lang/verus](https://github.com/verus-lang/verus) — pinned verifier and toolchain source.
+- [verus-lang/verusfmt](https://github.com/verus-lang/verusfmt) — source formatter.
+- [nickel-lang/json-schema-to-nickel](https://github.com/nickel-lang/json-schema-to-nickel) — generated contract reference.
+- [oxidecomputer/dropshot](https://github.com/oxidecomputer/dropshot) — typed API reference.
+- [oxidecomputer/progenitor](https://github.com/oxidecomputer/progenitor) and [oxidecomputer/typify](https://github.com/oxidecomputer/typify) — contract generator references.
+- [joweeba/z4](https://github.com/joweeba/z4) — optional solver evidence reference.
+- [nasa/spacewasm](https://github.com/nasa/spacewasm) at `e24cf09355a90497148eb5029fdb8e3400bd63e3` — execution-free Wasm profile source.
+- [AeneasVerif/aeneas](https://github.com/AeneasVerif/aeneas) and [AeneasVerif/charon](https://github.com/AeneasVerif/charon) — opt-in proof and semantic extraction references.
+- [AeneasVerif/eurydice](https://github.com/AeneasVerif/eurydice) and [AeneasVerif/scylla](https://github.com/AeneasVerif/scylla) — deferred translation references.
+
+These references do not transfer compiler, verifier, semantic, security, or release claims into Octet.
