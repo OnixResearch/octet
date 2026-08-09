@@ -188,8 +188,10 @@
 
 (define (archive-path? rel)
   (or (string=? rel "openspec/changes/archive")
+      (string=? rel ".cairn/archive")
       (string=? rel "cairn/archive")
       (string-starts-with? "openspec/changes/archive/" rel)
+      (string-starts-with? ".cairn/archive/" rel)
       (string-starts-with? "cairn/archive/" rel)
       (string-contains? rel "/archive/")))
 
@@ -197,6 +199,7 @@
   (or (string=? rel "openspec/changes/mechanical-slotcar-to-octet-sweep/evidence")
       (string-starts-with? ACTIVE-CHANGE-EVIDENCE-PREFIX rel)
       (and (string-starts-with? "openspec/changes/" rel) (string-contains? rel "/evidence/"))
+      (and (string-starts-with? ".cairn/changes/" rel) (string-contains? rel "/evidence/"))
       (and (string-starts-with? "cairn/changes/" rel) (string-contains? rel "/evidence/"))))
 
 (define (active-change-path? rel)
@@ -427,7 +430,8 @@
 (define (archive-summary-rows)
   (list
    (archive-summary-record "openspec/changes/archive/**" "historical OpenSpec evidence remains scan-only")
-   (archive-summary-record "cairn/archive/**" "historical Cairn evidence remains scan-only")
+   (archive-summary-record "cairn/archive/**" "historical Cairn compatibility evidence remains scan-only")
+   (archive-summary-record ".cairn/archive/**" "native Cairn evidence remains scan-only")
    (archive-summary-record "openspec/changes/*/evidence/**" "change evidence artifacts remain scan-only to avoid recursive proof churn")))
 
 (define (row-category row) (hash-ref row "category"))

@@ -105,7 +105,7 @@ The shipped policy registry selects only the Octet-owned `safe_add` fixture.
 It does not publish arbitrary downstream adoption as a compatibility surface.
 
 The active Cairn change
-`cairn/changes/generalize-aeneas-consumer-contract/` defines the reusable
+`.cairn/changes/generalize-aeneas-consumer-contract/` defines the reusable
 consumer profile, exact-source selection, outcome classes, and revision-bound
 handoff. Until that change archives, downstream consumers must treat the
 provider as a reviewed dependency with consumer-specific integration work.
@@ -135,7 +135,7 @@ establish the truth of a theorem or the soundness of a verifier.
 Run the focused profile and provider checks inside the Nix development shell,
 then inspect the generated receipt and artifact verification output. The
 provider-specific evidence files under
-`cairn/changes/add-aeneas-lean-proof-rail/evidence/` record the positive and
+`.cairn/archive/2026-07-17-add-aeneas-lean-proof-rail/evidence/` record the positive and
 negative commands used for the current pins. The executable upgrade gate is:
 
 ```bash

@@ -606,11 +606,11 @@ mod tests {
     #[test]
     fn frozen_pilot_receipts_are_valid_and_reviewed() {
         let mantle: InventoryReceipt = serde_json::from_str(include_str!(
-            "../../../cairn/changes/enforce-nominal-domain-types/evidence/pilots/mantle-dynamic-plan.json"
+            "../../../.cairn/archive/1970-01-01-enforce-nominal-domain-types/evidence/pilots/mantle-dynamic-plan.json"
         ))
         .expect("parse Mantle pilot receipt");
         let valence: InventoryReceipt = serde_json::from_str(include_str!(
-            "../../../cairn/changes/enforce-nominal-domain-types/evidence/pilots/valence-shared-identity.json"
+            "../../../.cairn/archive/1970-01-01-enforce-nominal-domain-types/evidence/pilots/valence-shared-identity.json"
         ))
         .expect("parse Valence pilot receipt");
 
@@ -628,7 +628,7 @@ mod tests {
     #[test]
     fn inventory_receipt_validation_rejects_stale_counts_hashes_and_order() {
         let mut receipt: InventoryReceipt = serde_json::from_str(include_str!(
-            "../../../cairn/changes/enforce-nominal-domain-types/evidence/pilots/mantle-dynamic-plan.json"
+            "../../../.cairn/archive/1970-01-01-enforce-nominal-domain-types/evidence/pilots/mantle-dynamic-plan.json"
         ))
         .expect("parse Mantle pilot receipt");
         receipt.policy_blake3 = "stale".to_owned();

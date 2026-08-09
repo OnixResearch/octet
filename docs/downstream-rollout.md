@@ -438,7 +438,7 @@ representative remediation, rollback path, and final `ready`, `deferred`, or
 
 Current first-wave advisory candidates remain unpromoted after the focused
 Octet self-dogfood run saved at
-`cairn/changes/archive/2026-07-03-promote-advisory-lints-with-evidence/evidence/advisory-candidate-summary.md`:
+`.cairn/archive/2026-07-03-promote-advisory-lints-with-evidence/evidence/advisory-candidate-summary.md`:
 
 | Candidate | Raw | Accepted | Fixed | Residual | Status |
 | --- | ---: | ---: | ---: | ---: | --- |

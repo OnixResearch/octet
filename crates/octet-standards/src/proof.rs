@@ -34,7 +34,7 @@ const VERIFIED_PATH_COMPONENT: &str = "/verified/";
 const VERIFIED_PATH_PREFIX: &str = "verified/";
 const FORMAL_PROOF_CLAIM_MARKER: &str = "octet-formal-proof-claim:";
 const VERIFIED_MODULE_COVERAGE_POLICY_ID: &str = "octet.verus_proof_rails.verified_module_coverage";
-const VERIFIED_MODULE_COVERAGE_SOURCE: &str = "cairn/specs/verus-proof-rails/spec.md#verified-module-proof-coverage";
+const VERIFIED_MODULE_COVERAGE_SOURCE: &str = ".cairn/specs/verus-proof-rails/spec.md#verified-module-proof-coverage";
 const VERIFIED_PROOF_REMEDIATION: &str =
     "rerun the configured proof command and save a passing proof receipt under the declared proof path";
 const VERIFIED_MODULE_REMEDIATION: &str =
