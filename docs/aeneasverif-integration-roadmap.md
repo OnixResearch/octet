@@ -28,7 +28,7 @@ Octet has no Eurydice or Scylla execution rail.
 
 ## Stage one: reusable Aeneas consumer contract
 
-The immediate change is `cairn/changes/generalize-aeneas-consumer-contract/`.
+The immediate change is `.cairn/changes/generalize-aeneas-consumer-contract/`.
 
 This change keeps provider pins in Octet. It lets a consumer select exact local source and maintained theorem files through reviewed policy artifacts.
 

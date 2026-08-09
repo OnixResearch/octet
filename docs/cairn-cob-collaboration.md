@@ -8,7 +8,7 @@ Use the sibling or packaged Cairn CLI that includes backend `radicle-cob.v1`. Ev
 
 The provider:
 
-- reads native change artifacts from `cairn/changes/<change>/`;
+- reads native change artifacts from `.cairn/changes/<change>/`;
 - writes signed COB commits and namespaced refs to the selected Git repository;
 - embeds the creator and optional delegate keys immutably at object creation;
 - previews import, update, checkout, and resolution before mutation; and
@@ -107,7 +107,7 @@ Matching refs are bounded local Git observations. They do not prove authenticati
 From a second Octet root at the recorded base revision with no local active change, first restore the empty lifecycle directory that Git does not track:
 
 ```sh
-mkdir -p SECOND_ROOT/cairn/changes
+mkdir -p SECOND_ROOT/.cairn/changes
 
 cairn cob status CHANGE \
   --root SECOND_ROOT \

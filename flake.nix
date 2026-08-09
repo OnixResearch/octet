@@ -264,6 +264,7 @@
               inCairnCobConflictPilot =
                 pkgs.lib.hasSuffix "/fixtures/cairn-cob-conflict-pilot" path
                 || pkgs.lib.hasInfix "/fixtures/cairn-cob-conflict-pilot/" path;
+              inCairnLifecycle = pkgs.lib.hasSuffix "/.cairn" path || pkgs.lib.hasInfix "/.cairn/" path;
               inDocs = pkgs.lib.hasSuffix "/docs" path || pkgs.lib.hasInfix "/docs/" path;
               inStandards = pkgs.lib.hasSuffix "/standards" path || pkgs.lib.hasInfix "/standards/" path;
               inTemplates = pkgs.lib.hasSuffix "/templates" path || pkgs.lib.hasInfix "/templates/" path;
@@ -277,6 +278,7 @@
             || inTestFixtures
             || inCairnCobPilot
             || inCairnCobConflictPilot
+            || inCairnLifecycle
             || inDocs
             || inStandards
             || inTemplates

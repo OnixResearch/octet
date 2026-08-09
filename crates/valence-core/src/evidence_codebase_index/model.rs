@@ -26,6 +26,7 @@ pub(crate) const EXPECTED_OUTPUT_PREFIX: &str = "=> ";
 pub(crate) const LOCATOR_STABLE_MARKERS: &[&str] = &[
     "artifacts/",
     "cargo-octet/tests/fixtures/",
+    ".cairn/",
     "cairn/",
     "docs/",
     "openspec/",
