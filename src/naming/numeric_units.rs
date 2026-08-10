@@ -1,11 +1,7 @@
 use rustc_errors::Applicability;
 use rustc_hir as hir;
-use rustc_hir::intravisit::FnKind;
-use rustc_lint::LateContext;
 use rustc_lint::LateLintPass;
-use rustc_middle::ty;
 use rustc_session::declare_tool_lint;
-use rustc_session::impl_lint_pass;
 
 use crate::diagnostics::LintSuggestion;
 use crate::diagnostics::emit_tiger_style_lint_with_suggestion;
@@ -22,7 +18,7 @@ declare_tool_lint! {
 
 pub struct NumericUnits;
 
-impl_lint_pass!(NumericUnits => [NUMERIC_UNITS]);
+rustc_session::impl_lint_pass!(NumericUnits => [NUMERIC_UNITS]);
 
 /// Words that imply a measurable quantity.
 const QUANTITY_WORDS: &[&str] = &[
@@ -59,11 +55,11 @@ fn should_report_quantity(name: &str, raw_numeric: bool) -> bool {
     raw_numeric && !should_skip(name) && has_quantity_word(name) && !has_unit_suffix(name)
 }
 
-fn resolved_type_is_raw_numeric(resolved: ty::Ty<'_>) -> bool {
-    matches!(resolved.kind(), ty::Int(_) | ty::Uint(_) | ty::Float(_))
+fn resolved_type_is_raw_primitive(resolved: rustc_middle::ty::Ty<'_>) -> bool {
+    matches!(resolved.kind(), rustc_middle::ty::Int(_) | rustc_middle::ty::Uint(_) | rustc_middle::ty::Float(_))
 }
 
-fn report_late_quantity(cx: &LateContext<'_>, name: &str, span: rustc_span::Span) {
+fn report_late_quantity(cx: &rustc_lint::LateContext<'_>, name: &str, span: rustc_span::Span) {
     let placeholder = placeholder_unit_name(name);
     emit_tiger_style_lint_with_suggestion(
         cx,
@@ -81,38 +77,38 @@ fn report_late_quantity(cx: &LateContext<'_>, name: &str, span: rustc_span::Span
 }
 
 impl<'tcx> LateLintPass<'tcx> for NumericUnits {
-    fn check_local(&mut self, cx: &LateContext<'tcx>, local: &'tcx hir::LetStmt<'tcx>) {
+    fn check_local(&mut self, cx: &rustc_lint::LateContext<'tcx>, local: &'tcx hir::LetStmt<'tcx>) {
         let hir::PatKind::Binding(_, _, ident, _) = local.pat.kind else {
             return;
         };
         let name = ident.name.as_str();
         let resolved = cx.typeck_results().pat_ty(local.pat);
-        if should_report_quantity(name, resolved_type_is_raw_numeric(resolved)) {
+        if should_report_quantity(name, resolved_type_is_raw_primitive(resolved)) {
             report_late_quantity(cx, name, ident.span);
         }
     }
 
-    fn check_field_def(&mut self, cx: &LateContext<'tcx>, field: &'tcx hir::FieldDef<'tcx>) {
+    fn check_field_def(&mut self, cx: &rustc_lint::LateContext<'tcx>, field: &'tcx hir::FieldDef<'tcx>) {
         if field.span.from_expansion() {
             return;
         }
         let name = field.ident.name.as_str();
         let resolved = cx.tcx.type_of(field.def_id).instantiate_identity();
-        if should_report_quantity(name, resolved_type_is_raw_numeric(resolved)) {
+        if should_report_quantity(name, resolved_type_is_raw_primitive(resolved)) {
             report_late_quantity(cx, name, field.ident.span);
         }
     }
 
     fn check_fn(
         &mut self,
-        cx: &LateContext<'tcx>,
-        kind: FnKind<'tcx>,
+        cx: &rustc_lint::LateContext<'tcx>,
+        kind: rustc_hir::intravisit::FnKind<'tcx>,
         _decl: &'tcx hir::FnDecl<'tcx>,
         body: &'tcx hir::Body<'tcx>,
         span: rustc_span::Span,
         def_id: hir::def_id::LocalDefId,
     ) {
-        if matches!(kind, FnKind::Closure) || span.from_expansion() {
+        if matches!(kind, rustc_hir::intravisit::FnKind::Closure) || span.from_expansion() {
             return;
         }
         let signature = cx.tcx.fn_sig(def_id).instantiate_identity().skip_binder();
@@ -121,7 +117,7 @@ impl<'tcx> LateLintPass<'tcx> for NumericUnits {
                 continue;
             };
             let name = ident.name.as_str();
-            if should_report_quantity(name, resolved_type_is_raw_numeric(*resolved)) {
+            if should_report_quantity(name, resolved_type_is_raw_primitive(*resolved)) {
                 report_late_quantity(cx, name, ident.span);
             }
         }

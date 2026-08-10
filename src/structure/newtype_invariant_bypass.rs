@@ -1,53 +1,33 @@
-use octet_lint_metadata::nominal_domain::ConstructorPolicy;
-use octet_lint_metadata::nominal_domain::DescriptorKind;
-use octet_lint_metadata::nominal_domain::DomainDescriptor;
-use octet_lint_metadata::nominal_domain::DomainDisposition;
-use octet_lint_metadata::nominal_domain::NominalDomainCatalog;
-use octet_lint_metadata::nominal_domain::NominalDomainPolicy;
-use octet_lint_metadata::nominal_domain::RawRepresentation;
-use octet_lint_metadata::nominal_domain::WrapperFacts;
-use octet_lint_metadata::nominal_domain::WrapperKind;
-use octet_lint_metadata::nominal_domain::WrapperViolation;
-use octet_lint_metadata::nominal_domain::classify_descriptor;
-use octet_lint_metadata::nominal_domain::wrapper_contract_violations;
 use rustc_hir as hir;
-use rustc_lint::LateContext;
 use rustc_lint::LateLintPass;
 use rustc_lint::LintContext;
-use rustc_middle::ty;
-use rustc_session::declare_tool_lint;
-use rustc_session::impl_lint_pass;
-use rustc_span::sym;
-
-use crate::diagnostics::emit_tiger_style_lint;
 
 const LINT_NAME: &str = "newtype_invariant_bypass";
 const FROM_TRAIT_NAME: &str = "From";
 const FROM_TRAIT_ARG_COUNT: usize = 2;
-
 // Detects source shapes that let callers bypass a registered refined newtype's
 // constructor and validation boundary.
-declare_tool_lint! {
+rustc_session::declare_tool_lint! {
     pub tigerstyle::NEWTYPE_INVARIANT_BYPASS,
     Allow,
     "registered refined newtype exposes an invariant bypass"
 }
 
 pub struct NewtypeInvariantBypass {
-    catalog: NominalDomainCatalog,
+    catalog: octet_lint_metadata::nominal_domain::NominalDomainCatalog,
 }
 
-impl_lint_pass!(NewtypeInvariantBypass => [NEWTYPE_INVARIANT_BYPASS]);
+rustc_session::impl_lint_pass!(NewtypeInvariantBypass => [NEWTYPE_INVARIANT_BYPASS]);
 
 impl NewtypeInvariantBypass {
     #[must_use]
-    pub fn new(catalog: NominalDomainCatalog) -> Self {
+    pub fn new(catalog: octet_lint_metadata::nominal_domain::NominalDomainCatalog) -> Self {
         assert!(!catalog.domains.is_empty());
         Self { catalog }
     }
 }
 
-fn source_path(cx: &LateContext<'_>, span: rustc_span::Span) -> String {
+fn source_path(cx: &rustc_lint::LateContext<'_>, span: rustc_span::Span) -> String {
     cx.sess()
         .source_map()
         .lookup_char_pos(span.lo())
@@ -59,34 +39,46 @@ fn source_path(cx: &LateContext<'_>, span: rustc_span::Span) -> String {
 }
 
 fn refined_core_policy<'a>(
-    catalog: &'a NominalDomainCatalog,
+    catalog: &'a octet_lint_metadata::nominal_domain::NominalDomainCatalog,
     symbol: &str,
     source: &str,
-) -> Option<&'a NominalDomainPolicy> {
+) -> Option<&'a octet_lint_metadata::nominal_domain::NominalDomainPolicy> {
     catalog.domains.iter().find(|policy| {
-        if policy.wrapper_kind != WrapperKind::RefinedNewtype
-            || policy.constructor_policy != ConstructorPolicy::PrivateFallible
+        if policy.wrapper_kind != octet_lint_metadata::nominal_domain::WrapperKind::RefinedNewtype
+            || policy.constructor_policy != octet_lint_metadata::nominal_domain::ConstructorPolicy::PrivateFallible
             || !policy.symbols.iter().any(|candidate| candidate == symbol)
         {
             return false;
         }
-        let descriptor = DomainDescriptor {
+        let descriptor = octet_lint_metadata::nominal_domain::DomainDescriptor {
             symbol,
             raw_representation: policy.raw_representation,
             source_path: source,
-            kind: DescriptorKind::Field,
+            kind: octet_lint_metadata::nominal_domain::DescriptorKind::Field,
         };
-        matches!(classify_descriptor(catalog, descriptor), DomainDisposition::ExactCore { .. })
+        matches!(
+            octet_lint_metadata::nominal_domain::classify_descriptor(catalog, descriptor),
+            octet_lint_metadata::nominal_domain::DomainDisposition::ExactCore { .. }
+        )
     })
 }
 
-fn direct_raw_representation(cx: &LateContext<'_>, resolved: ty::Ty<'_>) -> Option<RawRepresentation> {
+fn direct_raw_representation(
+    cx: &rustc_lint::LateContext<'_>,
+    resolved: rustc_middle::ty::Ty<'_>,
+) -> Option<octet_lint_metadata::nominal_domain::RawRepresentation> {
     match resolved.kind() {
-        ty::Uint(ty::UintTy::U64) => Some(RawRepresentation::U64),
-        ty::Uint(ty::UintTy::Usize) => Some(RawRepresentation::Usize),
-        ty::Adt(definition, _) => match cx.tcx.def_path_str(definition.did()).as_str() {
-            "alloc::string::String" | "std::string::String" => Some(RawRepresentation::String),
-            "std::path::PathBuf" => Some(RawRepresentation::Path),
+        rustc_middle::ty::Uint(rustc_middle::ty::UintTy::U64) => {
+            Some(octet_lint_metadata::nominal_domain::RawRepresentation::U64)
+        }
+        rustc_middle::ty::Uint(rustc_middle::ty::UintTy::Usize) => {
+            Some(octet_lint_metadata::nominal_domain::RawRepresentation::Usize)
+        }
+        rustc_middle::ty::Adt(definition, _) => match cx.tcx.def_path_str(definition.did()).as_str() {
+            "alloc::string::String" | "std::string::String" => {
+                Some(octet_lint_metadata::nominal_domain::RawRepresentation::String)
+            }
+            "std::path::PathBuf" => Some(octet_lint_metadata::nominal_domain::RawRepresentation::Path),
             _ => None,
         },
         _ => None,
@@ -108,10 +100,10 @@ fn impl_trait_is_from(impl_block: &hir::Impl<'_>) -> bool {
 }
 
 fn from_input_representation(
-    cx: &LateContext<'_>,
+    cx: &rustc_lint::LateContext<'_>,
     item: &hir::Item<'_>,
     impl_block: &hir::Impl<'_>,
-) -> Option<RawRepresentation> {
+) -> Option<octet_lint_metadata::nominal_domain::RawRepresentation> {
     if !impl_trait_is_from(impl_block) {
         return None;
     }
@@ -122,14 +114,17 @@ fn from_input_representation(
     direct_raw_representation(cx, trait_ref.args.type_at(1))
 }
 
-fn deref_target_representation(cx: &LateContext<'_>, impl_block: &hir::Impl<'_>) -> Option<RawRepresentation> {
+fn deref_target_representation(
+    cx: &rustc_lint::LateContext<'_>,
+    impl_block: &hir::Impl<'_>,
+) -> Option<octet_lint_metadata::nominal_domain::RawRepresentation> {
     let deref_trait = cx.tcx.lang_items().deref_trait()?;
     if impl_block.of_trait?.trait_ref.trait_def_id() != Some(deref_trait) {
         return None;
     }
     for item_id in impl_block.items {
         let impl_item = cx.tcx.hir_expect_impl_item(item_id.owner_id.def_id);
-        if impl_item.ident.name != sym::Target {
+        if impl_item.ident.name != rustc_span::sym::Target {
             continue;
         }
         let resolved = cx.tcx.type_of(impl_item.owner_id.def_id).instantiate_identity();
@@ -138,67 +133,84 @@ fn deref_target_representation(cx: &LateContext<'_>, impl_block: &hir::Impl<'_>)
     None
 }
 
-fn violation_message(symbol: &str, violation: WrapperViolation) -> String {
+fn violation_message(symbol: &str, violation: octet_lint_metadata::nominal_domain::WrapperViolation) -> String {
     match violation {
-        WrapperViolation::PublicInnerField => {
+        octet_lint_metadata::nominal_domain::WrapperViolation::PublicInnerField => {
             format!("refined newtype `{symbol}` exposes its raw inner field; keep the field private")
         }
-        WrapperViolation::UncheckedPrimitiveConversion => format!(
+        octet_lint_metadata::nominal_domain::WrapperViolation::UncheckedPrimitiveConversion => format!(
             "refined newtype `{symbol}` implements unchecked conversion from raw storage; use `TryFrom` or a fallible constructor"
         ),
-        WrapperViolation::BoundaryErasingDeref => {
+        octet_lint_metadata::nominal_domain::WrapperViolation::BoundaryErasingDeref => {
             format!("refined newtype `{symbol}` dereferences to raw storage; use an explicit borrowed accessor")
         }
-        WrapperViolation::MissingFallibleConstructor => {
+        octet_lint_metadata::nominal_domain::WrapperViolation::MissingFallibleConstructor => {
             format!("refined newtype `{symbol}` needs a fallible constructor")
         }
     }
 }
 
-fn isolated_violations(policy: &NominalDomainPolicy, violation: WrapperViolation) -> Vec<WrapperViolation> {
+fn isolated_violations(
+    policy: &octet_lint_metadata::nominal_domain::NominalDomainPolicy,
+    violation: octet_lint_metadata::nominal_domain::WrapperViolation,
+) -> Vec<octet_lint_metadata::nominal_domain::WrapperViolation> {
     let facts = match violation {
-        WrapperViolation::PublicInnerField => WrapperFacts {
-            inner_field_public: true,
-            unchecked_from_raw: false,
-            has_fallible_constructor: true,
-            boundary_erasing_deref: false,
-        },
-        WrapperViolation::UncheckedPrimitiveConversion => WrapperFacts {
-            inner_field_public: false,
-            unchecked_from_raw: true,
-            has_fallible_constructor: true,
-            boundary_erasing_deref: false,
-        },
-        WrapperViolation::BoundaryErasingDeref => WrapperFacts {
-            inner_field_public: false,
-            unchecked_from_raw: false,
-            has_fallible_constructor: true,
-            boundary_erasing_deref: true,
-        },
-        WrapperViolation::MissingFallibleConstructor => WrapperFacts {
-            inner_field_public: false,
-            unchecked_from_raw: false,
-            has_fallible_constructor: false,
-            boundary_erasing_deref: false,
-        },
+        octet_lint_metadata::nominal_domain::WrapperViolation::PublicInnerField => {
+            octet_lint_metadata::nominal_domain::WrapperFacts {
+                inner_field_public: true,
+                unchecked_from_raw: false,
+                has_fallible_constructor: true,
+                boundary_erasing_deref: false,
+            }
+        }
+        octet_lint_metadata::nominal_domain::WrapperViolation::UncheckedPrimitiveConversion => {
+            octet_lint_metadata::nominal_domain::WrapperFacts {
+                inner_field_public: false,
+                unchecked_from_raw: true,
+                has_fallible_constructor: true,
+                boundary_erasing_deref: false,
+            }
+        }
+        octet_lint_metadata::nominal_domain::WrapperViolation::BoundaryErasingDeref => {
+            octet_lint_metadata::nominal_domain::WrapperFacts {
+                inner_field_public: false,
+                unchecked_from_raw: false,
+                has_fallible_constructor: true,
+                boundary_erasing_deref: true,
+            }
+        }
+        octet_lint_metadata::nominal_domain::WrapperViolation::MissingFallibleConstructor => {
+            octet_lint_metadata::nominal_domain::WrapperFacts {
+                inner_field_public: false,
+                unchecked_from_raw: false,
+                has_fallible_constructor: false,
+                boundary_erasing_deref: false,
+            }
+        }
     };
-    wrapper_contract_violations(policy, facts)
+    octet_lint_metadata::nominal_domain::wrapper_contract_violations(policy, facts)
 }
 
 fn emit_violation(
-    cx: &LateContext<'_>,
+    cx: &rustc_lint::LateContext<'_>,
     span: rustc_span::Span,
     symbol: &str,
-    policy: &NominalDomainPolicy,
-    violation: WrapperViolation,
+    policy: &octet_lint_metadata::nominal_domain::NominalDomainPolicy,
+    violation: octet_lint_metadata::nominal_domain::WrapperViolation,
 ) {
     for confirmed in isolated_violations(policy, violation) {
-        emit_tiger_style_lint(cx, NEWTYPE_INVARIANT_BYPASS, span, violation_message(symbol, confirmed), LINT_NAME);
+        crate::diagnostics::emit_tiger_style_lint(
+            cx,
+            NEWTYPE_INVARIANT_BYPASS,
+            span,
+            violation_message(symbol, confirmed),
+            LINT_NAME,
+        );
     }
 }
 
 impl<'tcx> LateLintPass<'tcx> for NewtypeInvariantBypass {
-    fn check_item(&mut self, cx: &LateContext<'tcx>, item: &'tcx hir::Item<'tcx>) {
+    fn check_item(&mut self, cx: &rustc_lint::LateContext<'tcx>, item: &'tcx hir::Item<'tcx>) {
         if item.span.from_expansion() {
             return;
         }
@@ -214,7 +226,13 @@ impl<'tcx> LateLintPass<'tcx> for NewtypeInvariantBypass {
                     if cx.tcx.visibility(field.def_id).is_public()
                         && direct_raw_representation(cx, resolved) == Some(policy.raw_representation)
                     {
-                        emit_violation(cx, field.span, symbol, policy, WrapperViolation::PublicInnerField);
+                        emit_violation(
+                            cx,
+                            field.span,
+                            symbol,
+                            policy,
+                            octet_lint_metadata::nominal_domain::WrapperViolation::PublicInnerField,
+                        );
                     }
                 }
             }
@@ -226,10 +244,22 @@ impl<'tcx> LateLintPass<'tcx> for NewtypeInvariantBypass {
                     return;
                 };
                 if from_input_representation(cx, item, impl_block) == Some(policy.raw_representation) {
-                    emit_violation(cx, item.span, &symbol, policy, WrapperViolation::UncheckedPrimitiveConversion);
+                    emit_violation(
+                        cx,
+                        item.span,
+                        &symbol,
+                        policy,
+                        octet_lint_metadata::nominal_domain::WrapperViolation::UncheckedPrimitiveConversion,
+                    );
                 }
                 if deref_target_representation(cx, impl_block) == Some(policy.raw_representation) {
-                    emit_violation(cx, item.span, &symbol, policy, WrapperViolation::BoundaryErasingDeref);
+                    emit_violation(
+                        cx,
+                        item.span,
+                        &symbol,
+                        policy,
+                        octet_lint_metadata::nominal_domain::WrapperViolation::BoundaryErasingDeref,
+                    );
                 }
             }
             _ => {}
@@ -250,10 +280,10 @@ mod tests {
             .find(|domain| domain.domain_id == "mantle.dynamic-plan.unit-id")
             .expect("refined fixture policy");
         for violation in [
-            WrapperViolation::PublicInnerField,
-            WrapperViolation::UncheckedPrimitiveConversion,
-            WrapperViolation::BoundaryErasingDeref,
-            WrapperViolation::MissingFallibleConstructor,
+            octet_lint_metadata::nominal_domain::WrapperViolation::PublicInnerField,
+            octet_lint_metadata::nominal_domain::WrapperViolation::UncheckedPrimitiveConversion,
+            octet_lint_metadata::nominal_domain::WrapperViolation::BoundaryErasingDeref,
+            octet_lint_metadata::nominal_domain::WrapperViolation::MissingFallibleConstructor,
         ] {
             assert_eq!(isolated_violations(policy, violation), vec![violation]);
         }

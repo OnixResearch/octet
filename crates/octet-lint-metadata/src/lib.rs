@@ -1,6 +1,10 @@
 use serde::Serialize;
 
-pub mod nominal_domain;
+#[path = "identity.rs"]
+pub mod identity;
+pub mod nominal_domain {
+    pub use crate::identity::*;
+}
 pub mod strict_profile;
 
 pub const CANONICAL_NAMESPACE: &str = "tigerstyle";

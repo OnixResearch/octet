@@ -13,6 +13,7 @@ const BASELINE_SCHEMA_VERSION: u32 = 1;
 
 // r[impl octet.runner_self_check.warning_budget]
 // r[impl octet.runner_self_check.warning_budget.baseline]
+// r[impl octet.runner_self_check.warning_budget.semantic_refresh]
 #[derive(Debug, Clone, Serialize)]
 pub struct BaselineEvaluation {
     pub baseline_hash: String,

@@ -30,7 +30,7 @@ pub(crate) struct LintInventoryEntry {
 }
 
 macro_rules! lint_inventory {
-    ($( $name:literal, $lint:expr => |$lint_store:ident, $cfg:ident| $body:block ),+ $(,)?) => {
+    ($( $name:literal, $lint:expr => |$lint_store:ident, $cfg:ident $(, $catalog:ident)?| $body:block ),+ $(,)?) => {
         pub(crate) const LINT_INVENTORY: &[LintInventoryEntry] = &[
             $(
                 LintInventoryEntry {
@@ -40,12 +40,17 @@ macro_rules! lint_inventory {
             )+
         ];
 
-        fn register_inventory(lint_store: &mut rustc_lint::LintStore, cfg: &Config) {
+        fn register_inventory(
+            lint_store: &mut rustc_lint::LintStore,
+            cfg: &Config,
+            nominal_domain_catalog: &octet_lint_metadata::nominal_domain::NominalDomainCatalog,
+        ) {
             $(
                 if !cfg.lint_is_disabled($name) {
                     lint_store.register_lints(&[$lint]);
                     let $lint_store = &mut *lint_store;
                     let $cfg = cfg;
+                    $(let $catalog = nominal_domain_catalog;)?
                     $body
                 }
             )+
@@ -353,24 +358,21 @@ lint_inventory! {
     "ambiguous_params", structure::ambiguous_params::AMBIGUOUS_PARAMS => |lint_store, _cfg| {
         lint_store.register_late_pass(|_| Box::new(structure::ambiguous_params::AmbiguousParams));
     },
-    "primitive_domain_alias", structure::primitive_domain_alias::PRIMITIVE_DOMAIN_ALIAS => |lint_store, cfg| {
-        let catalog = octet_lint_metadata::nominal_domain::load_nominal_domain_catalog()
-            .unwrap_or_else(|error| panic!("load embedded nominal-domain catalog: {error}"));
+    "primitive_domain_alias", structure::primitive_domain_alias::PRIMITIVE_DOMAIN_ALIAS => |lint_store, cfg, nominal_domain_catalog| {
+        let catalog = nominal_domain_catalog.clone();
         let mode = cfg.nominal_domain_mode();
         lint_store.register_late_pass(move |_| {
             Box::new(structure::primitive_domain_alias::PrimitiveDomainAlias::new(catalog.clone(), mode))
         });
     },
-    "raw_domain_value", structure::raw_domain_value::RAW_DOMAIN_VALUE => |lint_store, _cfg| {
-        let catalog = octet_lint_metadata::nominal_domain::load_nominal_domain_catalog()
-            .unwrap_or_else(|error| panic!("load embedded nominal-domain catalog: {error}"));
+    "raw_domain_value", structure::raw_domain_value::RAW_DOMAIN_VALUE => |lint_store, _cfg, nominal_domain_catalog| {
+        let catalog = nominal_domain_catalog.clone();
         lint_store.register_late_pass(move |_| {
             Box::new(structure::raw_domain_value::RawDomainValue::new(catalog.clone()))
         });
     },
-    "newtype_invariant_bypass", structure::newtype_invariant_bypass::NEWTYPE_INVARIANT_BYPASS => |lint_store, _cfg| {
-        let catalog = octet_lint_metadata::nominal_domain::load_nominal_domain_catalog()
-            .unwrap_or_else(|error| panic!("load embedded nominal-domain catalog: {error}"));
+    "newtype_invariant_bypass", structure::newtype_invariant_bypass::NEWTYPE_INVARIANT_BYPASS => |lint_store, _cfg, nominal_domain_catalog| {
+        let catalog = nominal_domain_catalog.clone();
         lint_store.register_late_pass(move |_| {
             Box::new(structure::newtype_invariant_bypass::NewtypeInvariantBypass::new(catalog.clone()))
         });
@@ -403,8 +405,15 @@ lint_inventory! {
 pub extern "Rust" fn register_lints(sess: &rustc_session::Session, lint_store: &mut rustc_lint::LintStore) {
     dylint_linting::init_config(sess);
     let cfg = config::load(sess);
+    let nominal_domain_catalog = match octet_lint_metadata::nominal_domain::load_nominal_domain_catalog() {
+        Ok(catalog) => catalog,
+        Err(error) => {
+            sess.dcx().err(format!("load embedded nominal-domain catalog: {error}"));
+            return;
+        }
+    };
     apply_lint_level_overrides(sess, &cfg);
-    register_inventory(lint_store, &cfg);
+    register_inventory(lint_store, &cfg, &nominal_domain_catalog);
     register_no_todo_bundle(lint_store, &cfg);
     register_domain_groups(lint_store, &cfg);
     register_compatibility_aliases(lint_store, &cfg);
@@ -1219,7 +1228,9 @@ mod tests {
 
     fn lint_store_with_groups_and_aliases(cfg: &Config) -> rustc_lint::LintStore {
         let mut store = rustc_lint::LintStore::new();
-        register_inventory(&mut store, cfg);
+        let catalog = octet_lint_metadata::nominal_domain::load_nominal_domain_catalog()
+            .expect("embedded nominal-domain catalog must be valid");
+        register_inventory(&mut store, cfg, &catalog);
         register_domain_groups(&mut store, cfg);
         register_compatibility_aliases(&mut store, cfg);
         store

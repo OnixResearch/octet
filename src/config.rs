@@ -31,7 +31,6 @@
 use std::collections::BTreeSet;
 use std::collections::HashMap;
 
-use octet_lint_metadata::nominal_domain::EnforcementMode;
 use serde::Deserialize;
 
 pub(crate) const INDEXABLE_EXCEPTION_RUSTC_PRIVATE_ALIASES: &str = "rustc_private_aliases";
@@ -192,7 +191,7 @@ pub struct Config {
 
     /// Optional staged nominal-domain mode. Omission leaves the lints dormant
     /// unless source attributes or per-lint levels enable them.
-    pub nominal_domain_mode: Option<EnforcementMode>,
+    pub nominal_domain_mode: Option<octet_lint_metadata::nominal_domain::EnforcementMode>,
 
     /// Raw per-lint severity overrides loaded from `dylint.toml`.
     pub lint_levels: HashMap<String, String>,
@@ -247,8 +246,8 @@ impl Config {
     }
 
     #[must_use]
-    pub fn nominal_domain_mode(&self) -> EnforcementMode {
-        self.nominal_domain_mode.unwrap_or(EnforcementMode::Warn)
+    pub fn nominal_domain_mode(&self) -> octet_lint_metadata::nominal_domain::EnforcementMode {
+        self.nominal_domain_mode.unwrap_or(octet_lint_metadata::nominal_domain::EnforcementMode::Warn)
     }
 
     fn apply_nominal_domain_mode(&mut self) {
@@ -260,8 +259,9 @@ impl Config {
                 continue;
             }
             let selected = match mode {
-                EnforcementMode::Inventory | EnforcementMode::Warn => LintLevel::Warn,
-                EnforcementMode::Deny => LintLevel::Deny,
+                octet_lint_metadata::nominal_domain::EnforcementMode::Inventory
+                | octet_lint_metadata::nominal_domain::EnforcementMode::Warn => LintLevel::Warn,
+                octet_lint_metadata::nominal_domain::EnforcementMode::Deny => LintLevel::Deny,
             };
             let level = self.validated_lint_levels.entry((*lint_name).to_owned()).or_insert(selected);
             if selected == LintLevel::Deny || *level == LintLevel::Allow {
@@ -284,7 +284,7 @@ impl Config {
         let required_lints = profile.required_lints.iter().map(String::as_str).collect::<BTreeSet<_>>();
         self.disabled_lints.retain(|lint_name| !required_lints.contains(lint_name.as_str()));
         if NOMINAL_DOMAIN_LINTS.iter().any(|lint_name| required_lints.contains(lint_name)) {
-            self.nominal_domain_mode = Some(EnforcementMode::Deny);
+            self.nominal_domain_mode = Some(octet_lint_metadata::nominal_domain::EnforcementMode::Deny);
         }
         for lint_name in &profile.required_lints {
             self.validated_lint_levels.insert(lint_name.clone(), LintLevel::Deny);
@@ -427,7 +427,6 @@ fn apply_selected_strict_profile(cfg: &mut Config) -> Result<(), String> {
 mod tests {
     use std::collections::HashMap;
 
-    use octet_lint_metadata::nominal_domain::EnforcementMode;
     use serde::Deserialize;
 
     use super::Config;
@@ -486,11 +485,11 @@ mod tests {
 
     #[test]
     fn nominal_domain_modes_apply_a_deterministic_severity_floor() {
-        assert_eq!(Config::default().nominal_domain_mode(), EnforcementMode::Warn);
+        assert_eq!(Config::default().nominal_domain_mode(), octet_lint_metadata::nominal_domain::EnforcementMode::Warn);
         for (raw_mode, mode, expected_level) in [
-            ("inventory", EnforcementMode::Inventory, LintLevel::Warn),
-            ("warn", EnforcementMode::Warn, LintLevel::Warn),
-            ("deny", EnforcementMode::Deny, LintLevel::Deny),
+            ("inventory", octet_lint_metadata::nominal_domain::EnforcementMode::Inventory, LintLevel::Warn),
+            ("warn", octet_lint_metadata::nominal_domain::EnforcementMode::Warn, LintLevel::Warn),
+            ("deny", octet_lint_metadata::nominal_domain::EnforcementMode::Deny, LintLevel::Deny),
         ] {
             let (cfg, warnings) = parse_and_validate(&format!("[octet]\nnominal_domain_mode = \"{raw_mode}\"\n"));
 
@@ -921,7 +920,7 @@ function_length = "warn"
 
         cfg.apply_strict_profile(&profile).expect("bounded profile should apply");
 
-        assert_eq!(cfg.nominal_domain_mode, Some(EnforcementMode::Deny));
+        assert_eq!(cfg.nominal_domain_mode, Some(octet_lint_metadata::nominal_domain::EnforcementMode::Deny));
         for lint_name in NOMINAL_DOMAIN_LINTS {
             assert_eq!(cfg.lint_level(lint_name), Some(LintLevel::Deny));
         }

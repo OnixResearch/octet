@@ -38,7 +38,7 @@ fn ty_key(cx: &LateContext<'_>, resolved: ty::Ty<'_>) -> Option<String> {
     }
 }
 
-fn first_ambiguous_group(keys: &[Option<String>]) -> Option<(usize, String)> {
+fn first_swap_risk_group(keys: &[Option<String>]) -> Option<(usize, String)> {
     for key in keys.iter().flatten() {
         let count = keys.iter().flatten().filter(|candidate| *candidate == key).count();
         if count >= MIN_AMBIGUOUS_RUN {
@@ -48,16 +48,16 @@ fn first_ambiguous_group(keys: &[Option<String>]) -> Option<(usize, String)> {
     None
 }
 
-fn first_ambiguous_parameters(cx: &LateContext<'_>, inputs: &[ty::Ty<'_>]) -> Option<(usize, String)> {
+fn first_swap_risk_parameters(cx: &LateContext<'_>, inputs: &[ty::Ty<'_>]) -> Option<(usize, String)> {
     let keys = inputs.iter().map(|resolved| ty_key(cx, *resolved)).collect::<Vec<_>>();
-    first_ambiguous_group(&keys)
+    first_swap_risk_group(&keys)
 }
 
 fn report_signature(cx: &LateContext<'_>, def_id: hir::def_id::LocalDefId, span: rustc_span::Span, has_self: bool) {
     let signature = cx.tcx.fn_sig(def_id).instantiate_identity().skip_binder();
     let start = usize::from(has_self);
     let inputs = &signature.inputs()[start..];
-    let Some((count, key)) = first_ambiguous_parameters(cx, inputs) else {
+    let Some((count, key)) = first_swap_risk_parameters(cx, inputs) else {
         return;
     };
 
@@ -108,7 +108,7 @@ impl<'tcx> LateLintPass<'tcx> for AmbiguousParams {
 
 #[cfg(test)]
 mod tests {
-    use super::first_ambiguous_group;
+    use super::first_swap_risk_group;
 
     const EXPECTED_REPEATED_COUNT: usize = 2;
 
@@ -120,13 +120,13 @@ mod tests {
             Some("String".to_owned()),
         ];
 
-        assert_eq!(first_ambiguous_group(&keys), Some((EXPECTED_REPEATED_COUNT, "String".to_owned())));
+        assert_eq!(first_swap_risk_group(&keys), Some((EXPECTED_REPEATED_COUNT, "String".to_owned())));
     }
 
     #[test]
     fn distinct_nominal_types_are_not_raw_candidates() {
         let keys = vec![None, None];
 
-        assert_eq!(first_ambiguous_group(&keys), None);
+        assert_eq!(first_swap_risk_group(&keys), None);
     }
 }

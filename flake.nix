@@ -2742,12 +2742,13 @@
                   sentinel_bin="$scratch/sentinel-bin"
                   sentinel_marker="$scratch/cargo-invoked"
                   baseline_relative="standards/self-check-warning-budget/octet-baseline.json"
-                  accepted_warning_total=2665
-                  accepted_identity_total=1815
+                  accepted_warning_total=2660
+                  accepted_identity_total=1813
                   lint_failure_exit=1
                   integration_failure_exit=2
                   sentinel_exit=99
                   malformed_scope_entry=7
+                  diagnostic_tail_lines=80
                   fixture_edition=2024
                   fixture_version=0.0.0
 
@@ -2770,6 +2771,7 @@
                     and all(.findings[]; .lint != "negated_predicate")
                   ' "$baseline" >/dev/null
 
+                  set +e
                   (
                     cd "$source_dir"
                     export CARGO_HOME="$cargo_home"
@@ -2780,6 +2782,30 @@
                       --baseline "$baseline" \
                       > "$positive_stdout" 2> "$positive_stderr"
                   )
+                  positive_status="$?"
+                  set -e
+                  # r[impl octet.runner_self_check.failure_diagnostics]
+                  # r[verify octet.runner_self_check.failure_diagnostics]
+                  if test "$positive_status" -ne 0; then
+                    printf 'canonical self-check failed with status %s\n' "$positive_status" >&2
+                    if test -f "$positive_artifacts/status.json" && test -f "$positive_artifacts/results.jsonl"; then
+                      jq --raw-output '
+                        .baseline
+                        | "accepted=\(.accepted_total) current=\(.current_total) accepted_current=\(.accepted_current) new=\(.new_total) stale=\(.stale_total)",
+                          (.stale_finding_ids[] | "stale_id=\(.)")
+                      ' "$positive_artifacts/status.json" >&2
+                      jq --raw-output \
+                        --slurpfile status "$positive_artifacts/status.json" '
+                          select(.stable_id as $id | ($status[0].baseline.new_finding_ids | index($id)))
+                          | "new_id=\(.stable_id) lint=\(.lint) file=\(.file):\(.line):\(.column) message=\(.message)"
+                        ' "$positive_artifacts/results.jsonl" >&2
+                    else
+                      grep -E '^--- octet summary ---$|^(Status|Findings|Warnings|Errors|Baseline hash|Baseline):' \
+                        "$positive_stderr" >&2 \
+                        || tail -n "$diagnostic_tail_lines" "$positive_stderr" >&2
+                    fi
+                    exit "$positive_status"
+                  fi
                   grep -F -- '--- octet summary ---' "$positive_stderr" >/dev/null
                   grep -E '^Status: (clean|warning-only)$' "$positive_stderr" >/dev/null
                   grep -F 'Errors: 0' "$positive_stderr" >/dev/null
@@ -2787,6 +2813,8 @@
 
                   # r[verify octet.runner_self_check.inventory.paths]
                   # r[verify octet.runner_self_check.warning_budget.baseline]
+                  # r[verify octet.runner_self_check.warning_budget.semantic_refresh]
+                  set +e
                   (
                     cd "$source_dir"
                     export CARGO_HOME="$cargo_home"
@@ -2798,6 +2826,20 @@
                       --baseline "$baseline" \
                       > "$structured_stdout" 2> "$structured_stderr"
                   )
+                  structured_status="$?"
+                  set -e
+                  if test "$structured_status" -ne 0; then
+                    printf 'structured self-check failed with status %s\n' "$structured_status" >&2
+                    if test -f "$structured_artifacts/status.json"; then
+                      jq --raw-output '
+                        .baseline
+                        | "accepted=\(.accepted_total) current=\(.current_total) accepted_current=\(.accepted_current) new=\(.new_total) stale=\(.stale_total)"
+                      ' "$structured_artifacts/status.json" >&2
+                    else
+                      tail -n "$diagnostic_tail_lines" "$structured_stderr" >&2
+                    fi
+                    exit "$structured_status"
+                  fi
                   test "$(wc -l < "$structured_stdout")" -eq "$accepted_warning_total"
                   jq --exit-status \
                     --arg baseline_hash "$baseline_hash" \

@@ -14,7 +14,7 @@ pub fn average_bytes(total_bytes: u64, completed_operations: u64) -> u64 {
 }
 ```
 
-The code is small and deterministic. However, `completed_operations` can be zero. The division has no explicit guard.
+The code has a deterministic finding shape. However, `completed_operations` can be zero. The division has a missing explicit zero guard.
 
 ## Run Octet and inspect the finding
 
@@ -59,7 +59,7 @@ pub fn average_bytes(
 }
 ```
 
-The fix names the zero-operation case and rejects it before division. The function remains pure and easy to test.
+The bounded remediation rationale is direct: name the zero-operation case and reject it before division. The function remains pure and easy to test.
 
 ## Save and verify local evidence
 
@@ -88,18 +88,20 @@ missing, stale, malformed, or inconsistent evidence.
 
 ## Claim boundaries
 
-This walkthrough demonstrates static-lint evidence and artifact verification for the selected scope.
+This walkthrough demonstrates static lint evidence and artifact verification for the selected scope.
 
-It does not prove these claims:
+Keep these boundaries:
 
-- a solver model or counterexample
-- a formal counterexample or mathematical proof
-- whole-program correctness
-- certification
-- C performance parity
-- a verified runtime
-
-This path does not replace Rust or add `requires` and `ensures` syntax.
+- The finding is not a solver model.
+- The finding is not a solver counterexample.
+- The finding is not a formal counterexample.
+- The finding is not mathematical proof.
+- The result is not whole-program correctness.
+- The result is not certification.
+- The result is not C performance parity.
+- The result is not a verified runtime.
+- This path is not a Rust replacement.
+- This path does not introduce `requires` or `ensures` syntax.
 
 For production setup, rollout profiles, and CI storage decisions, continue with
 [`docs/consumer-guide.md`](../../consumer-guide.md).
