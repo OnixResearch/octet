@@ -10,6 +10,8 @@ Octet ratchets its canonical `--workspace --lib` self-check with the runner's ex
 <!-- r[impl octet.runner_self_check.warning_budget.reduction.standards_report] -->
 <!-- r[impl octet.runner_self_check.warning_budget.reduction.standards_policy_evaluation] -->
 <!-- r[verify octet.runner_self_check.warning_budget.baseline] -->
+<!-- r[verify octet.runner_self_check.failure_diagnostics] -->
+<!-- r[verify octet.runner_self_check.warning_budget.semantic_refresh] -->
 
 ## Current budget
 
@@ -23,7 +25,11 @@ The third monotonic reduction replaced the unique private `check_resources` impo
 
 The fourth monotonic reduction replaced the unique private `CheckReport` import in `crates/octet-standards/src/runner.rs` with explicit `crate::report::CheckReport` owner paths in the public return type and report construction. The 1,817-identity old baseline reported exactly stale identity `b3:b918c07b0ac7abe7` and zero additions before refresh.
 
-The fifth monotonic reduction replaced the unique private `PolicyEvaluation` import in `crates/octet-standards/src/runner.rs` with explicit `crate::report::PolicyEvaluation` owner paths in the helper return type and construction. The 1,816-identity old baseline reported exactly stale identity `b3:c0f0bf1de2e13e66` and zero additions before refresh. The current run contains 2,665 accepted warning occurrences represented by 1,815 unique stable identities, 1,109 `non_trait_imports` occurrences, no `negated_predicate` finding, and no absolute artifact locator. Repeated stable IDs are stored once in the baseline.
+The fifth monotonic reduction replaced the private `PolicyEvaluation` import with explicit `crate::report::PolicyEvaluation` owner paths. Its 1,816-identity baseline reported stale identity `b3:c0f0bf1de2e13e66` and no additions.
+
+The validation closure split oversized modules and qualified new imports. It mapped 13 changed identities and removed two stale identities. It also removed five warning occurrences without semantic occurrence growth.
+
+The current run contains 2,660 accepted warning occurrences and 1,813 unique stable identities. It contains 1,104 `non_trait_imports` occurrences. It has no `negated_predicate` finding or absolute artifact locator. Repeated stable IDs are stored once in the baseline.
 
 <!-- r[verify octet.runner_self_check.warning_budget.reduction.old_baseline] -->
 <!-- r[verify octet.runner_self_check.warning_budget.reduction.refresh] -->
@@ -36,18 +42,18 @@ The fifth monotonic reduction replaced the unique private `PolicyEvaluation` imp
 <!-- r[verify octet.runner_self_check.warning_budget.reduction.standards_policy_evaluation.old_baseline] -->
 <!-- r[verify octet.runner_self_check.warning_budget.reduction.standards_policy_evaluation.refresh] -->
 
-Baseline BLAKE3 identity: `b3:af460a97f17e791476bc357eadc8ee22deb1548d5011a924e7edb94de9f7a7dc`.
+Baseline BLAKE3 identity: `b3:cb7cb5c359de18a3b6f05014edb6bee45989f236e8404f3e7633b7d25e89f057`.
 
 | Domain | Accepted warnings |
 | --- | ---: |
-| `tigerstyle::naming` | 1,667 |
+| `tigerstyle::naming` | 1,661 |
 | `tigerstyle::structure` | 476 |
 | `tigerstyle::safety` | 473 |
 | `tigerstyle::purity` | 50 |
 
 | Lint | Accepted warnings |
 | --- | ---: |
-| `non_trait_imports` | 1,109 |
+| `non_trait_imports` | 1,104 |
 | `path_segment_repetition` | 396 |
 | `borrowed_argument_types` | 253 |
 | `explicit_defaults` | 169 |

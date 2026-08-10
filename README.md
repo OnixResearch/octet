@@ -1,8 +1,10 @@
 # Octet
 
-Octet is an evidence-backed checked path for Rust systems code. It supports code written by people and agents.
+Octet is the evidence-backed checked path for agent-written and human-written Rust systems code.
 
-Octet provides a Rust-compatible toolchain, Dylint lints, standards checks, policy, and evidence artifacts.
+Rust source flows through `cargo octet check` and checked-in policy to reviewable evidence artifacts and consumer CI or release gates.
+
+Octet provides a Rust-compatible toolchain, lint checks, standards checks, policy, and evidence artifacts.
 
 It applies [Tiger Style](https://github.com/tigerbeetle/tigerbeetle/blob/main/docs/TIGER_STYLE.md) rules:
 
@@ -19,6 +21,14 @@ Rust source → cargo octet check → standards and policy → evidence artifact
 ```
 
 Read [`docs/trust-boundary-evidence.md`](docs/trust-boundary-evidence.md) for evidence tiers, provenance, scope, and deployment boundaries.
+
+Use [`docs/trust-boundary-evidence.md#checked-contract-ladder`](docs/trust-boundary-evidence.md#checked-contract-ladder) to review the evidence ladder.
+
+Use [`docs/trust-boundary-evidence.md#verus-proof-path-lane`](docs/trust-boundary-evidence.md#verus-proof-path-lane) to map a requirement or policy ID to Verus proof rail evidence.
+
+Read [`docs/adoption-story.md`](docs/adoption-story.md) for the card-oriented public story.
+
+Read [`docs/examples/first-checked-rust-patch/README.md`](docs/examples/first-checked-rust-patch/README.md) for the first checked Rust patch walkthrough.
 
 Octet treats code as closed by default across APIs, effects, capabilities, proofs, and review surfaces. Interaction requires a complete interface.
 
@@ -271,6 +281,8 @@ The transcript is at `docs/examples/release-operator-smoke/transcript.md`.
 ## Naming map
 
 Octet is the current product identity. Tiger Style remains the coding philosophy and current lint namespace.
+
+Canonical attributes use `tigerstyle::<lint>`. Domain groups use `tigerstyle::<domain>`.
 
 | Surface | Current name | Compatibility name |
 |---|---|---|
