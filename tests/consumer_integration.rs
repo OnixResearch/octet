@@ -112,6 +112,14 @@ fn project_without_architecture_policy_gets_no_collector_state_or_artifacts() {
         "compiler-architecture-coverage.json",
         "compiler-architecture-issues.json",
         "compiler-architecture-receipt.json",
+        "project-architecture-policy-source.ncl",
+        "project-architecture-policy.json",
+        "project-architecture-cargo-graph.json",
+        "project-architecture-receipt.json",
+        "effect-closure.json",
+        "effect-closure-policy.json",
+        "effect-closure-dependency-graph.json",
+        "effect-closure-parent-status.json",
     ] {
         assert!(!artifact_dir.join(name).exists(), "inactive project emitted {name}");
     }

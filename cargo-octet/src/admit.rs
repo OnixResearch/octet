@@ -85,6 +85,11 @@ const REQUIRED_PROVENANCE_ARTIFACTS: &[&str] = &[
     CHECK_STATUS_ARTIFACT,
     CHECK_FUNCTION_ADDRESS_ARTIFACT,
 ];
+pub(crate) const INTEGRATED_CLOSURE_RECEIPT_ARTIFACT_NAME: &str = "effect-closure.json";
+pub(crate) const INTEGRATED_CLOSURE_POLICY_ARTIFACT_NAME: &str = "effect-closure-policy.json";
+pub(crate) const INTEGRATED_CLOSURE_GRAPH_ARTIFACT_NAME: &str = "effect-closure-dependency-graph.json";
+pub(crate) const INTEGRATED_CLOSURE_PARENT_STATUS_ARTIFACT_NAME: &str = "effect-closure-parent-status.json";
+pub(crate) const INTEGRATED_CLOSURE_PROVENANCE_SOURCE_ID: &str = "octet.runner.effect-closure";
 const NON_CLAIM_INTEGRITY: &str = "Admission verification checks stored BLAKE3 identity and linkage only; it does not rerun Cargo, source inference, dependency review, or compiler analysis, and it provides no signer authenticity, authorization, or defense against coherent replacement of every trust root.";
 
 #[derive(Clone, Debug, Deserialize)]
@@ -165,13 +170,13 @@ struct CargoNode {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-struct DependencyGraphArtifact {
-    schema_version: String,
-    target: String,
-    toolchain: String,
-    rustc_version: String,
-    cargo_lock_blake3: String,
-    providers: Vec<ProviderIdentity>,
+pub(crate) struct DependencyGraphArtifact {
+    pub schema_version: String,
+    pub target: String,
+    pub toolchain: String,
+    pub rustc_version: String,
+    pub cargo_lock_blake3: String,
+    pub providers: Vec<ProviderIdentity>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -198,10 +203,19 @@ struct AdmissionVerificationReport {
     non_claims: Vec<String>,
 }
 
-struct PreparedInputs {
+pub(crate) struct PreparedIntegratedClosure {
     policy: WorkspacePolicy,
     policy_bytes: Vec<u8>,
-    baseline_path: PathBuf,
+    pub baseline_path: PathBuf,
+}
+
+#[derive(Clone)]
+pub(crate) struct IntegratedClosureArtifacts {
+    pub parent: octet_standards::project_architecture_gate::EffectClosureParent,
+    pub receipt_json: String,
+    pub policy_json: String,
+    pub dependency_graph_json: String,
+    pub parent_status_json: String,
 }
 
 // r[impl octet.effect_closure.cli]
@@ -357,7 +371,14 @@ fn run_verification(args: &AdmissionArgs) -> Result<i32, String> {
     })
 }
 
-fn prepare_inputs(workspace_root: &Path, policy_path: &Path) -> Result<PreparedInputs, String> {
+pub(crate) fn prepare_integrated_closure(
+    workspace_root: &Path,
+    binding: &octet_standards::project_architecture_policy::ArchitectureAdmissionBinding,
+) -> Result<PreparedIntegratedClosure, String> {
+    prepare_inputs(workspace_root, Path::new(&binding.effect_closure_policy))
+}
+
+fn prepare_inputs(workspace_root: &Path, policy_path: &Path) -> Result<PreparedIntegratedClosure, String> {
     let policy_path = checked_workspace_path(workspace_root, policy_path, "effect-closure policy")?;
     let policy_bytes = read_required(&policy_path)?;
     let policy = serde_json::from_slice::<WorkspacePolicy>(&policy_bytes)
@@ -374,7 +395,7 @@ fn prepare_inputs(workspace_root: &Path, policy_path: &Path) -> Result<PreparedI
     if !baseline_path.is_file() {
         return Err(format!("function-address baseline does not exist: {}", baseline_path.display()));
     }
-    Ok(PreparedInputs {
+    Ok(PreparedIntegratedClosure {
         policy,
         policy_bytes,
         baseline_path,
@@ -465,6 +486,86 @@ fn parse_function_report(bytes: &[u8]) -> Result<FunctionAddressReport, String> 
         return Err("effect closure requires at least one function-address record".to_owned());
     }
     Ok(report)
+}
+
+pub(crate) fn run_integrated_closure(
+    workspace_root: &Path,
+    binding: &octet_standards::project_architecture_policy::ArchitectureAdmissionBinding,
+    selected_profile: &crate::strict_profile::SelectedStrictProfile,
+    cargo_check_args: &[String],
+    metadata: &crate::determinism::RunMetadata,
+    command_line: &str,
+    status_json: &str,
+    function_address_json: &str,
+    prepared: PreparedIntegratedClosure,
+) -> Result<IntegratedClosureArtifacts, String> {
+    if selected_profile.policy.profile_id != binding.strict_profile {
+        return Err("architecture admission strict-profile binding does not match selected profile".to_owned());
+    }
+    let function_report = parse_function_report(function_address_json.as_bytes())?;
+    let target = selected_target(cargo_check_args)?;
+    let (dependency_graph, dependency_graph_bytes) =
+        dependency_graph(workspace_root, cargo_check_args, &target, &CheckMetadata {
+            rustc_version: metadata.rustc_version.clone(),
+            toolchain: metadata.toolchain.clone(),
+            profile_name: metadata.profile_name.clone(),
+            profile_hash: metadata.profile_hash.clone(),
+            config_hash: metadata.config_hash.clone(),
+        })?;
+    let sources = read_selected_sources(workspace_root, &selected_profile.core_source_scopes)?;
+    validate_function_source_envelopes(&sources, &function_report)?;
+    let record_root = function_address_record_root(&function_report)?;
+    let command_bytes = normalized_text_bytes(command_line);
+    let receipt = effect_closure::compute_closure(ClosureInput {
+        profile_id: binding.strict_profile.clone(),
+        profile_hash: metadata.profile_hash.clone(),
+        config_hash: metadata.config_hash.clone(),
+        command_blake3: crate::evidence::artifact_blake3_hex(&command_bytes),
+        check_status_blake3: crate::evidence::artifact_blake3_hex(status_json.as_bytes()),
+        function_address_artifact_blake3: crate::evidence::artifact_blake3_hex(function_address_json.as_bytes()),
+        function_address_record_root: record_root,
+        workspace_policy_blake3: crate::evidence::artifact_blake3_hex(&prepared.policy_bytes),
+        cargo_graph_blake3: crate::evidence::artifact_blake3_hex(&dependency_graph_bytes),
+        cargo_lock_blake3: dependency_graph.cargo_lock_blake3.clone(),
+        target,
+        toolchain: metadata.toolchain.clone(),
+        sources,
+        function_addresses: function_report
+            .records
+            .into_iter()
+            .map(|record| FunctionAddressRecord {
+                path: record.path,
+                name: record.name,
+                function_address: record.function_address,
+                source_identity: record.source_identity,
+            })
+            .collect(),
+        resolved_providers: dependency_graph.providers.clone(),
+        catalog: effect_closure::embedded_catalog()?,
+        policy: prepared.policy,
+    });
+    let diagnostics = effect_closure::verify_receipt_identity(&receipt);
+    if !diagnostics.is_empty() {
+        return Err(format!(
+            "new integrated effect-closure receipt failed self-verification: {}",
+            diagnostics.join("; ")
+        ));
+    }
+    let parent = octet_standards::project_architecture_gate::EffectClosureParent {
+        receipt_id: receipt.receipt_identity.clone(),
+        admitted: receipt.status == AdmissionStatus::Admitted,
+        evidence_tier: EvidenceTier::PolicyCheck.as_str().to_owned(),
+        non_claims: receipt.non_claims.clone(),
+    };
+    Ok(IntegratedClosureArtifacts {
+        parent,
+        receipt_json: pretty_json_string(&receipt)?,
+        policy_json: String::from_utf8(prepared.policy_bytes)
+            .map_err(|error| format!("effect-closure policy is not UTF-8: {error}"))?,
+        dependency_graph_json: String::from_utf8(dependency_graph_bytes)
+            .map_err(|error| format!("effect-closure dependency graph is not UTF-8: {error}"))?,
+        parent_status_json: status_json.to_owned(),
+    })
 }
 
 fn function_address_record_root(report: &FunctionAddressReport) -> Result<String, String> {
@@ -1066,6 +1167,12 @@ fn normalized_text_bytes(text: &str) -> Vec<u8> {
     let mut bytes = text.as_bytes().to_vec();
     bytes.push(b'\n');
     bytes
+}
+
+fn pretty_json_string<T: Serialize>(value: &T) -> Result<String, String> {
+    let mut rendered = serde_json::to_string_pretty(value).map_err(|error| format!("serialize JSON: {error}"))?;
+    rendered.push('\n');
+    Ok(rendered)
 }
 
 fn pretty_json_bytes<T: Serialize>(value: &T) -> Result<Vec<u8>, String> {

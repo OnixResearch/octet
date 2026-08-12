@@ -898,7 +898,9 @@ fn issue(code: &str, unit_id: Option<&str>, fact_id: Option<&str>, message: &str
     }
 }
 
-fn coverage_identity(coverage: &CompilerArchitectureCoverage) -> String {
+/// Compute the canonical identity of a compiler coverage artifact.
+#[must_use]
+pub fn coverage_identity(coverage: &CompilerArchitectureCoverage) -> String {
     canonical_identity(
         COVERAGE_ID_DOMAIN,
         &(
@@ -915,7 +917,9 @@ fn coverage_identity(coverage: &CompilerArchitectureCoverage) -> String {
     .expect("compiler architecture coverage identity fields must serialize")
 }
 
-fn ir_identity(ir: &CompilerArchitectureIr) -> String {
+/// Compute the canonical identity of a normalized compiler Architecture IR artifact.
+#[must_use]
+pub fn ir_identity(ir: &CompilerArchitectureIr) -> String {
     canonical_identity(
         IR_ID_DOMAIN,
         &(&ir.schema_version, &ir.policy_blake3, &ir.units, &ir.spans, &ir.facts, &ir.unknowns, &ir.non_claims),
@@ -923,7 +927,9 @@ fn ir_identity(ir: &CompilerArchitectureIr) -> String {
     .expect("compiler architecture IR identity fields must serialize")
 }
 
-fn receipt_identity(receipt: &CompilerArchitectureReceipt) -> String {
+/// Compute the canonical identity of a compiler architecture collection receipt.
+#[must_use]
+pub fn receipt_identity(receipt: &CompilerArchitectureReceipt) -> String {
     canonical_identity(
         RECEIPT_ID_DOMAIN,
         &(

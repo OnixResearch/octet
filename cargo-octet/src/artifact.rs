@@ -27,6 +27,26 @@ const ARCHITECTURE_IR_ARTIFACT_NAME: &str = "compiler-architecture-ir.json";
 const ARCHITECTURE_COVERAGE_ARTIFACT_NAME: &str = "compiler-architecture-coverage.json";
 const ARCHITECTURE_ISSUES_ARTIFACT_NAME: &str = "compiler-architecture-issues.json";
 const ARCHITECTURE_RECEIPT_ARTIFACT_NAME: &str = "compiler-architecture-receipt.json";
+const PROJECT_ARCHITECTURE_POLICY_SOURCE_ARTIFACT_NAME: &str = "project-architecture-policy-source.ncl";
+const PROJECT_ARCHITECTURE_POLICY_ARTIFACT_NAME: &str = "project-architecture-policy.json";
+const PROJECT_ARCHITECTURE_CARGO_GRAPH_ARTIFACT_NAME: &str = "project-architecture-cargo-graph.json";
+const PROJECT_ARCHITECTURE_RECEIPT_ARTIFACT_NAME: &str = "project-architecture-receipt.json";
+const EFFECT_CLOSURE_RECEIPT_ARTIFACT_NAME: &str = "effect-closure.json";
+const EFFECT_CLOSURE_POLICY_ARTIFACT_NAME: &str = "effect-closure-policy.json";
+const EFFECT_CLOSURE_GRAPH_ARTIFACT_NAME: &str = "effect-closure-dependency-graph.json";
+const EFFECT_CLOSURE_PARENT_STATUS_ARTIFACT_NAME: &str = "effect-closure-parent-status.json";
+const EFFECT_CLOSURE_ARTIFACT_NAMES: &[&str] = &[
+    EFFECT_CLOSURE_RECEIPT_ARTIFACT_NAME,
+    EFFECT_CLOSURE_POLICY_ARTIFACT_NAME,
+    EFFECT_CLOSURE_GRAPH_ARTIFACT_NAME,
+    EFFECT_CLOSURE_PARENT_STATUS_ARTIFACT_NAME,
+];
+const PROJECT_ARCHITECTURE_ARTIFACT_NAMES: &[&str] = &[
+    PROJECT_ARCHITECTURE_POLICY_SOURCE_ARTIFACT_NAME,
+    PROJECT_ARCHITECTURE_POLICY_ARTIFACT_NAME,
+    PROJECT_ARCHITECTURE_CARGO_GRAPH_ARTIFACT_NAME,
+    PROJECT_ARCHITECTURE_RECEIPT_ARTIFACT_NAME,
+];
 const ARCHITECTURE_ARTIFACT_NAMES: &[&str] = &[
     ARCHITECTURE_IR_ARTIFACT_NAME,
     ARCHITECTURE_COVERAGE_ARTIFACT_NAME,
@@ -37,6 +57,8 @@ const RUNNER_PROVENANCE_SOURCE_ID: &str = "octet.runner.artifact-bundle";
 const RUNNER_STATIC_FINDINGS_SOURCE_ID: &str = "octet.runner.static-findings";
 const FUNCTION_ADDRESS_SOURCE_ID: &str = "octet.function_address.receipt";
 const ARCHITECTURE_IR_SOURCE_ID: &str = "octet.compiler-architecture-ir.receipt";
+const PROJECT_ARCHITECTURE_SOURCE_ID: &str = "octet.project-architecture-gate.receipt";
+const EFFECT_CLOSURE_SOURCE_ID: &str = "octet.runner.effect-closure";
 const RUNNER_CHECKER_ID: &str = "cargo-octet";
 const STATUS_VALID: &str = "valid";
 const STATUS_INVALID: &str = "invalid";
@@ -851,6 +873,8 @@ pub fn verify_bundle(input: ArtifactBundleInput) -> ArtifactVerificationReport {
         status.bundle_kind,
         &mut diagnostics,
     );
+    validate_project_architecture_bundle(&file_map, &mut diagnostics);
+    validate_integrated_effect_closure_bundle(&file_map, &mut diagnostics);
 
     let artifacts = verified_artifact_rows(&provenance_records, &expected_non_provenance);
     diagnostics.sort();
@@ -867,6 +891,260 @@ pub fn verify_bundle(input: ArtifactBundleInput) -> ArtifactVerificationReport {
         },
         artifacts,
         diagnostics,
+    }
+}
+
+fn validate_project_architecture_bundle(file_map: &BTreeMap<String, Vec<u8>>, diagnostics: &mut Vec<String>) {
+    let present = PROJECT_ARCHITECTURE_ARTIFACT_NAMES.iter().filter(|name| file_map.contains_key(**name)).count();
+    if present == 0 {
+        return;
+    }
+    if present != PROJECT_ARCHITECTURE_ARTIFACT_NAMES.len() {
+        diagnostics.push("project architecture artifact set is incomplete".to_owned());
+        return;
+    }
+    let receipt = parse_project_architecture_artifact::<
+        octet_standards::project_architecture_gate::ProjectArchitectureReceipt,
+    >(file_map, PROJECT_ARCHITECTURE_RECEIPT_ARTIFACT_NAME, diagnostics);
+    let graph = parse_project_architecture_artifact::<octet_standards::project_architecture_gate::ArchitectureCargoGraph>(
+        file_map,
+        PROJECT_ARCHITECTURE_CARGO_GRAPH_ARTIFACT_NAME,
+        diagnostics,
+    );
+    let policy = parse_project_architecture_artifact::<
+        octet_standards::project_architecture_policy::ProjectArchitecturePolicy,
+    >(file_map, PROJECT_ARCHITECTURE_POLICY_ARTIFACT_NAME, diagnostics);
+    let ir = parse_project_architecture_artifact::<octet_architecture_ir::CompilerArchitectureIr>(
+        file_map,
+        ARCHITECTURE_IR_ARTIFACT_NAME,
+        diagnostics,
+    );
+    let coverage = parse_project_architecture_artifact::<octet_architecture_ir::CompilerArchitectureCoverage>(
+        file_map,
+        ARCHITECTURE_COVERAGE_ARTIFACT_NAME,
+        diagnostics,
+    );
+    let compiler_receipt = parse_project_architecture_artifact::<octet_architecture_ir::CompilerArchitectureReceipt>(
+        file_map,
+        ARCHITECTURE_RECEIPT_ARTIFACT_NAME,
+        diagnostics,
+    );
+    let command = file_map.get(COMMAND_ARTIFACT_NAME);
+    let (Some(receipt), Some(graph), Some(policy), Some(ir), Some(coverage), Some(compiler_receipt), Some(command)) =
+        (receipt, graph, policy, ir, coverage, compiler_receipt, command)
+    else {
+        return;
+    };
+    diagnostics.extend(octet_standards::project_architecture_gate::verify_project_architecture_receipt(&receipt));
+    if graph.cargo_graph_id != octet_standards::project_architecture_gate::architecture_cargo_graph_identity(&graph) {
+        diagnostics.push("project architecture Cargo graph identity is stale or malformed".to_owned());
+    }
+    if ir.architecture_ir_id != octet_architecture_ir::ir_identity(&ir) {
+        diagnostics.push("compiler Architecture IR identity is stale or malformed".to_owned());
+    }
+    if coverage.coverage_id != octet_architecture_ir::coverage_identity(&coverage) {
+        diagnostics.push("compiler architecture coverage identity is stale or malformed".to_owned());
+    }
+    if compiler_receipt.receipt_id != octet_architecture_ir::receipt_identity(&compiler_receipt) {
+        diagnostics.push("compiler architecture receipt identity is stale or malformed".to_owned());
+    }
+    if receipt.policy_source_blake3
+        != file_map
+            .get(PROJECT_ARCHITECTURE_POLICY_SOURCE_ARTIFACT_NAME)
+            .map(|bytes| crate::evidence::artifact_blake3_hex(bytes))
+            .unwrap_or_default()
+    {
+        diagnostics.push("project architecture policy source identity does not match stored Nickel bytes".to_owned());
+    }
+    if receipt.policy_blake3
+        != file_map
+            .get(PROJECT_ARCHITECTURE_POLICY_ARTIFACT_NAME)
+            .map(|bytes| crate::evidence::artifact_blake3_hex(bytes))
+            .unwrap_or_default()
+    {
+        diagnostics.push("project architecture policy identity does not match stored policy bytes".to_owned());
+    }
+    if receipt.command_blake3 != crate::evidence::artifact_blake3_hex(command) {
+        diagnostics.push("project architecture command identity does not match command.txt".to_owned());
+    }
+    if receipt.project_id != policy.project_id
+        || receipt.mode != policy.mode
+        || receipt.cargo_graph_id != graph.cargo_graph_id
+        || receipt.architecture_ir_id != ir.architecture_ir_id
+        || receipt.coverage_id != coverage.coverage_id
+        || receipt.compiler_receipt_id != compiler_receipt.receipt_id
+    {
+        diagnostics.push(
+            "project architecture receipt links do not match stored policy, graph, or compiler artifacts".to_owned(),
+        );
+    }
+    let observed_policy_source = file_map
+        .get(PROJECT_ARCHITECTURE_POLICY_SOURCE_ARTIFACT_NAME)
+        .map(|bytes| crate::evidence::artifact_blake3_hex(bytes))
+        .unwrap_or_default();
+    let observed_policy = file_map
+        .get(PROJECT_ARCHITECTURE_POLICY_ARTIFACT_NAME)
+        .map(|bytes| crate::evidence::artifact_blake3_hex(bytes))
+        .unwrap_or_default();
+    let observed_command = crate::evidence::artifact_blake3_hex(command);
+    let regenerated = octet_standards::project_architecture_gate::evaluate_project_architecture(
+        &octet_standards::project_architecture_gate::ProjectArchitectureGateInput {
+            policy: &policy,
+            policy_source_blake3: &observed_policy_source,
+            policy_blake3: &observed_policy,
+            lint_phase_status: &receipt.lint_phase_status,
+            command_blake3: &observed_command,
+            cargo_graph: &graph,
+            architecture_ir: &ir,
+            coverage: &coverage,
+            compiler_receipt: &compiler_receipt,
+            effect_closure: receipt.effect_closure.as_ref(),
+        },
+    );
+    if regenerated != receipt {
+        diagnostics
+            .push("project architecture receipt does not match pure reevaluation of stored artifacts".to_owned());
+    }
+    validate_project_architecture_status(&receipt, file_map, diagnostics);
+    let closure_present = EFFECT_CLOSURE_ARTIFACT_NAMES.iter().any(|name| file_map.contains_key(*name));
+    if receipt.effect_closure.is_some() && !closure_present {
+        diagnostics.push("project architecture receipt links missing integrated effect-closure artifacts".to_owned());
+    }
+}
+
+fn validate_project_architecture_status(
+    receipt: &octet_standards::project_architecture_gate::ProjectArchitectureReceipt,
+    file_map: &BTreeMap<String, Vec<u8>>,
+    diagnostics: &mut Vec<String>,
+) {
+    let status = file_map
+        .get(STATUS_ARTIFACT_NAME)
+        .and_then(|bytes| serde_json::from_slice::<serde_json::Value>(bytes).ok());
+    let status_matches = status.as_ref().is_some_and(|value| {
+        value.pointer("/phases/lint/status").and_then(serde_json::Value::as_str)
+            == Some(receipt.lint_phase_status.as_str())
+            && value.pointer("/phases/architecture/status").and_then(serde_json::Value::as_str)
+                == Some(receipt.status.as_str())
+            && value.pointer("/phases/architecture/receipt_id").and_then(serde_json::Value::as_str)
+                == Some(receipt.receipt_id.as_str())
+    });
+    if !status_matches {
+        diagnostics.push("project architecture receipt phase status does not match status.json".to_owned());
+    }
+}
+
+fn validate_integrated_effect_closure_bundle(file_map: &BTreeMap<String, Vec<u8>>, diagnostics: &mut Vec<String>) {
+    let present = EFFECT_CLOSURE_ARTIFACT_NAMES.iter().filter(|name| file_map.contains_key(**name)).count();
+    if present == 0 {
+        return;
+    }
+    if present != EFFECT_CLOSURE_ARTIFACT_NAMES.len() {
+        diagnostics.push("integrated effect-closure artifact set is incomplete".to_owned());
+        return;
+    }
+    let receipt = parse_project_architecture_artifact::<crate::effect_closure::EffectClosureReceipt>(
+        file_map,
+        EFFECT_CLOSURE_RECEIPT_ARTIFACT_NAME,
+        diagnostics,
+    );
+    let policy = parse_project_architecture_artifact::<crate::effect_closure::WorkspacePolicy>(
+        file_map,
+        EFFECT_CLOSURE_POLICY_ARTIFACT_NAME,
+        diagnostics,
+    );
+    let graph = parse_project_architecture_artifact::<crate::admit::DependencyGraphArtifact>(
+        file_map,
+        EFFECT_CLOSURE_GRAPH_ARTIFACT_NAME,
+        diagnostics,
+    );
+    let parent = parse_project_architecture_artifact::<
+        octet_standards::project_architecture_gate::ProjectArchitectureReceipt,
+    >(file_map, PROJECT_ARCHITECTURE_RECEIPT_ARTIFACT_NAME, diagnostics);
+    let (Some(receipt), Some(policy), Some(graph), Some(parent)) = (receipt, policy, graph, parent) else {
+        return;
+    };
+    diagnostics.extend(crate::effect_closure::verify_receipt_identity(&receipt));
+    if receipt.inputs.workspace_policy_blake3
+        != file_map
+            .get(EFFECT_CLOSURE_POLICY_ARTIFACT_NAME)
+            .map(|bytes| crate::evidence::artifact_blake3_hex(bytes))
+            .unwrap_or_default()
+    {
+        diagnostics.push("effect-closure policy identity does not match stored policy bytes".to_owned());
+    }
+    if receipt.inputs.cargo_graph_blake3
+        != file_map
+            .get(EFFECT_CLOSURE_GRAPH_ARTIFACT_NAME)
+            .map(|bytes| crate::evidence::artifact_blake3_hex(bytes))
+            .unwrap_or_default()
+    {
+        diagnostics.push("effect-closure Cargo graph identity does not match stored graph bytes".to_owned());
+    }
+    if receipt.inputs.check_status_blake3
+        != file_map
+            .get(EFFECT_CLOSURE_PARENT_STATUS_ARTIFACT_NAME)
+            .map(|bytes| crate::evidence::artifact_blake3_hex(bytes))
+            .unwrap_or_default()
+    {
+        diagnostics.push("effect-closure parent status identity does not match stored status bytes".to_owned());
+    }
+    if receipt.inputs.command_blake3
+        != file_map
+            .get(COMMAND_ARTIFACT_NAME)
+            .map(|bytes| crate::evidence::artifact_blake3_hex(bytes))
+            .unwrap_or_default()
+    {
+        diagnostics.push("effect-closure command identity does not match command.txt".to_owned());
+    }
+    if receipt.inputs.function_address_artifact_blake3
+        != file_map
+            .get(FUNCTION_ADDRESS_ARTIFACT_NAME)
+            .map(|bytes| crate::evidence::artifact_blake3_hex(bytes))
+            .unwrap_or_default()
+    {
+        diagnostics.push("effect-closure function-address identity does not match stored evidence".to_owned());
+    }
+    if receipt.inputs.profile_id != policy.profile_id {
+        diagnostics.push("effect-closure receipt profile does not match its stored policy".to_owned());
+    }
+    if receipt.inputs.target != graph.target
+        || receipt.inputs.toolchain != graph.toolchain
+        || receipt.inputs.cargo_lock_blake3 != graph.cargo_lock_blake3
+    {
+        diagnostics.push("effect-closure receipt inputs do not match the stored dependency graph".to_owned());
+    }
+    let graph_providers = graph.providers.iter().collect::<std::collections::BTreeSet<_>>();
+    if receipt.providers.iter().any(|provider| !graph_providers.contains(provider)) {
+        diagnostics.push("effect-closure receipt uses a provider absent from the stored dependency graph".to_owned());
+    }
+    let linked = parent.effect_closure.as_ref().is_some_and(|closure| {
+        closure.receipt_id == receipt.receipt_identity
+            && closure.admitted == (receipt.status == crate::effect_closure::AdmissionStatus::Admitted)
+            && closure.evidence_tier == EvidenceTier::PolicyCheck.as_str()
+            && closure.non_claims == receipt.non_claims
+    });
+    if !linked {
+        diagnostics.push(
+            "project architecture receipt does not exactly link the integrated effect-closure receipt".to_owned(),
+        );
+    }
+}
+
+fn parse_project_architecture_artifact<T: serde::de::DeserializeOwned>(
+    file_map: &BTreeMap<String, Vec<u8>>,
+    name: &str,
+    diagnostics: &mut Vec<String>,
+) -> Option<T> {
+    let Some(bytes) = file_map.get(name) else {
+        diagnostics.push(format!("missing expected artifact `{name}`"));
+        return None;
+    };
+    match serde_json::from_slice(bytes) {
+        Ok(value) => Some(value),
+        Err(error) => {
+            diagnostics.push(format!("malformed {name}: {error}"));
+            None
+        }
     }
 }
 
@@ -1270,7 +1548,12 @@ fn expected_check_extra_artifact(record: &ProvenanceRecord) -> Option<String> {
         record.source_id == FUNCTION_ADDRESS_SOURCE_ID && record.artifact_locator == FUNCTION_ADDRESS_ARTIFACT_NAME;
     let is_architecture = record.source_id == ARCHITECTURE_IR_SOURCE_ID
         && ARCHITECTURE_ARTIFACT_NAMES.contains(&record.artifact_locator.as_str());
-    (is_function_address || is_architecture).then(|| record.artifact_locator.clone())
+    let is_project_architecture = record.source_id == PROJECT_ARCHITECTURE_SOURCE_ID
+        && PROJECT_ARCHITECTURE_ARTIFACT_NAMES.contains(&record.artifact_locator.as_str());
+    let is_effect_closure = record.source_id == EFFECT_CLOSURE_SOURCE_ID
+        && EFFECT_CLOSURE_ARTIFACT_NAMES.contains(&record.artifact_locator.as_str());
+    (is_function_address || is_architecture || is_project_architecture || is_effect_closure)
+        .then(|| record.artifact_locator.clone())
 }
 
 fn expected_proof_artifact(record: &ProvenanceRecord) -> Option<String> {
@@ -1467,6 +1750,20 @@ fn expected_shape_for_artifact(
                 source_id: ARCHITECTURE_IR_SOURCE_ID,
                 checker_id: RUNNER_CHECKER_ID,
                 evidence_tier: EvidenceTier::StaticLint,
+            })
+        }
+        _ if bundle_kind == BundleKind::Check && PROJECT_ARCHITECTURE_ARTIFACT_NAMES.contains(&artifact) => {
+            Some(ExpectedRecordShape {
+                source_id: PROJECT_ARCHITECTURE_SOURCE_ID,
+                checker_id: RUNNER_CHECKER_ID,
+                evidence_tier: EvidenceTier::PolicyCheck,
+            })
+        }
+        _ if bundle_kind == BundleKind::Check && EFFECT_CLOSURE_ARTIFACT_NAMES.contains(&artifact) => {
+            Some(ExpectedRecordShape {
+                source_id: EFFECT_CLOSURE_SOURCE_ID,
+                checker_id: RUNNER_CHECKER_ID,
+                evidence_tier: EvidenceTier::PolicyCheck,
             })
         }
         _ if bundle_kind == BundleKind::Prove && artifact.starts_with(PROOF_ARTIFACT_PREFIX) => {

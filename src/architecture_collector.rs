@@ -30,6 +30,7 @@ use rustc_middle::ty;
 use rustc_middle::ty::Ty;
 use rustc_session::impl_lint_pass;
 use rustc_span::Span;
+use rustc_span::sym;
 
 const CONTEXT_BYTE_LIMIT: u64 = 16 * 1024 * 1024;
 const ITEM_ID_DOMAIN: &str = "octet.compiler-architecture-ir.item/v1";
@@ -505,8 +506,8 @@ impl ArchitectureCollector {
     }
 
     fn insert_item_identity(&mut self, def_id: LocalDefId, item_id: &str) {
-        if self.item_ids.contains_key(&def_id) {
-            self.item_ids.insert(def_id, item_id.to_owned());
+        if let std::collections::hash_map::Entry::Occupied(mut existing) = self.item_ids.entry(def_id) {
+            existing.insert(item_id.to_owned());
             return;
         }
         if self.item_ids.len() >= self.context.limits.max_items {
@@ -612,6 +613,16 @@ impl ArchitectureCollector {
     }
 
     fn collect_active_configuration(&mut self, cx: &LateContext<'_>) {
+        if cx.tcx.hir_attrs(hir::CRATE_HIR_ID).iter().any(|attribute| attribute.has_name(sym::no_std)) {
+            let mut no_std = CompilerArchitectureFact::Configuration {
+                fact_id: String::new(),
+                predicate: format!("crate:no-std={}", self.selected.unit.package_name),
+                active: true,
+                span_id: None,
+            };
+            assign_fact_identity(&mut no_std);
+            self.push_fact(no_std);
+        }
         for feature in self.selected.unit.features.clone() {
             let mut fact = CompilerArchitectureFact::Configuration {
                 fact_id: String::new(),

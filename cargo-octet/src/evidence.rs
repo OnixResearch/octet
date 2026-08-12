@@ -41,6 +41,7 @@ const SOURCE_TRANSCRIPT_PREFIX: &str = "octet.transcript.";
 const SOURCE_TRANSFORM_PREFIX: &str = "octet.transform.";
 const SOURCE_FUNCTION_ADDRESS_PREFIX: &str = "octet.function_address.";
 const SOURCE_COMPILER_ARCHITECTURE_PREFIX: &str = "octet.compiler-architecture-ir.";
+const SOURCE_PROJECT_ARCHITECTURE_PREFIX: &str = "octet.project-architecture-gate.";
 const SOURCE_CHARON_SEMANTIC_PREFIX: &str = "octet.charon_semantic";
 const SOURCE_EXTERNAL_LINT_PREFIX: &str = "octet.external_lint.";
 const SOURCE_STRUCTURAL_RAIL_PREFIX: &str = "octet.structural_rail.";
@@ -159,6 +160,7 @@ fn provenance_producers() -> &'static [ProvenanceProducer] {
                 SOURCE_TRANSFORM_PREFIX,
                 SOURCE_FUNCTION_ADDRESS_PREFIX,
                 SOURCE_COMPILER_ARCHITECTURE_PREFIX,
+                SOURCE_PROJECT_ARCHITECTURE_PREFIX,
                 SOURCE_CHARON_SEMANTIC_PREFIX,
             ],
             allowed_tiers: &[
@@ -535,6 +537,35 @@ mod tests {
         let diagnostics = validate_with_defaults(&record);
 
         assert_eq!(diagnostics, vec!["unknown checker_id `unknown-checker`".to_owned()]);
+    }
+
+    #[test]
+    fn project_architecture_provenance_accepts_registered_policy_check() {
+        let record = ProvenanceRecord {
+            source_id: "octet.project-architecture-gate.receipt".to_owned(),
+            checker_id: CHECKER_CARGO_OCTET.to_owned(),
+            evidence_tier: EvidenceTier::PolicyCheck,
+            ..valid_record(EvidenceTier::PolicyCheck)
+        };
+
+        let diagnostics = validate_producer_registry(&record);
+
+        assert!(diagnostics.is_empty(), "unexpected diagnostics: {diagnostics:?}");
+    }
+
+    #[test]
+    fn cargo_octet_provenance_rejects_unregistered_source_family() {
+        let record = ProvenanceRecord {
+            source_id: "octet.unregistered.receipt".to_owned(),
+            checker_id: CHECKER_CARGO_OCTET.to_owned(),
+            ..valid_record(EvidenceTier::PolicyCheck)
+        };
+
+        let diagnostics = validate_producer_registry(&record);
+
+        assert_eq!(diagnostics, vec![
+            "unsupported source_id family `octet.unregistered.receipt` for checker_id `cargo-octet`".to_owned()
+        ]);
     }
 
     // r[verify octet.evidence_provenance.cross_gate_coverage.release_chain]

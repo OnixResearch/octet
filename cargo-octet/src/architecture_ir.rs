@@ -15,6 +15,10 @@ use octet_architecture_ir::ExpectedCompilationUnit;
 use octet_architecture_ir::InvalidCompilerArchitectureShard;
 use octet_architecture_ir::NormalizationInput;
 use octet_architecture_ir::SourceRoleScope;
+use octet_standards::project_architecture_gate::ArchitectureCargoEdge;
+use octet_standards::project_architecture_gate::ArchitectureCargoGraph;
+use octet_standards::project_architecture_gate::PROJECT_ARCHITECTURE_CARGO_GRAPH_SCHEMA_VERSION;
+use octet_standards::project_architecture_gate::architecture_cargo_graph_identity;
 use octet_standards::project_architecture_policy::ArchitectureRole;
 use octet_standards::project_architecture_policy::ArchitectureScopeKind;
 use serde::Deserialize;
@@ -36,10 +40,35 @@ const CUSTOM_BUILD_TARGET_KIND: &str = "custom-build";
 #[derive(Debug, Deserialize)]
 struct CargoMetadata {
     packages: Vec<CargoPackage>,
+    resolve: Option<CargoResolve>,
+}
+
+#[derive(Debug, Deserialize)]
+struct CargoResolve {
+    nodes: Vec<CargoResolveNode>,
+}
+
+#[derive(Debug, Deserialize)]
+struct CargoResolveNode {
+    id: String,
+    deps: Vec<CargoResolvedDependency>,
+}
+
+#[derive(Debug, Deserialize)]
+struct CargoResolvedDependency {
+    pkg: String,
+    dep_kinds: Vec<CargoResolvedDependencyKind>,
+}
+
+#[derive(Debug, Deserialize)]
+struct CargoResolvedDependencyKind {
+    kind: Option<String>,
+    target: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
 struct CargoPackage {
+    id: String,
     name: String,
     version: String,
     manifest_path: String,
@@ -70,6 +99,7 @@ pub(crate) struct PreparedCollector {
     pub policy_blake3: String,
     pub limits: octet_architecture_ir::ArchitectureCollectionLimits,
     pub expected_units: Vec<ExpectedCompilationUnit>,
+    pub cargo_graph: ArchitectureCargoGraph,
     pub non_claims: Vec<String>,
 }
 
@@ -90,16 +120,23 @@ pub(crate) fn prepare_collector(
     scope_args: &[String],
     cargo_check_args: &[String],
 ) -> Result<PreparedCollector, String> {
-    let (metadata, cargo_graph_blake3) = load_locked_metadata(workspace_root, toolchain)?;
     let package_roles = package_roles(policy)?;
     let source_roles = source_roles(policy)?;
     let selected_packages = selected_packages(scope_args, &policy.policy.production.packages)?;
     let (toolchain_blake3, host_triple) = toolchain_identity(toolchain)?;
     let collector_blake3 = file_blake3(collector_path, "compiler architecture collector")?;
     let target = selected_policy_target(cargo_check_args, &policy.policy.production.targets, &host_triple)?;
+    let (metadata, cargo_graph_blake3) = load_locked_metadata(workspace_root, toolchain, target)?;
     let lockfile_bytes = fs::read(workspace_root.join("Cargo.lock"))
         .map_err(|error| format!("read Cargo.lock for architecture identity: {error}"))?;
     let lockfile_blake3 = blake3::hash(&lockfile_bytes).to_hex().to_string();
+    let cargo_graph = resolved_architecture_cargo_graph(
+        &metadata,
+        &selected_packages,
+        &lockfile_blake3,
+        &cargo_graph_blake3,
+        target,
+    )?;
     let invocation_blake3 = octet_architecture_ir::canonical_identity(
         "octet.compiler-architecture-ir.invocation/v1",
         &(scope_args, cargo_check_args, &lockfile_blake3, &cargo_graph_blake3),
@@ -224,6 +261,7 @@ pub(crate) fn prepare_collector(
         policy_blake3: policy.policy_blake3.clone(),
         limits: policy.policy.collection_limits.clone(),
         expected_units,
+        cargo_graph,
         non_claims: policy.policy.non_claims.clone(),
     })
 }
@@ -460,16 +498,28 @@ fn render_json<T: serde::Serialize>(value: &T, label: &str) -> Result<String, St
     Ok(rendered)
 }
 
-fn load_locked_metadata(workspace_root: &Path, toolchain: &str) -> Result<(CargoMetadata, String), String> {
-    let output = Command::new("cargo")
+fn load_locked_metadata(
+    workspace_root: &Path,
+    toolchain: &str,
+    target: &octet_standards::project_architecture_policy::ArchitectureTarget,
+) -> Result<(CargoMetadata, String), String> {
+    let mut command = Command::new("cargo");
+    command
         .arg(CARGO_METADATA_SUBCOMMAND)
         .arg(FORMAT_VERSION_FLAG)
         .arg(METADATA_FORMAT_VERSION)
         .arg(LOCKED_FLAG)
+        .arg("--filter-platform")
+        .arg(&target.triple)
         .current_dir(workspace_root)
-        .env("RUSTUP_TOOLCHAIN", toolchain)
-        .output()
-        .map_err(|error| format!("run locked cargo metadata: {error}"))?;
+        .env("RUSTUP_TOOLCHAIN", toolchain);
+    if !target.features.is_empty() {
+        command.arg("--features").arg(target.features.join(","));
+    }
+    if !target.default_features {
+        command.arg("--no-default-features");
+    }
+    let output = command.output().map_err(|error| format!("run locked cargo metadata: {error}"))?;
     if !output.status.success() {
         return Err(format!("locked cargo metadata failed: {}", String::from_utf8_lossy(&output.stderr).trim()));
     }
@@ -480,6 +530,66 @@ fn load_locked_metadata(workspace_root: &Path, toolchain: &str) -> Result<(Cargo
         &canonical_cargo_graph(&metadata),
     )?;
     Ok((metadata, cargo_graph_blake3))
+}
+
+fn resolved_architecture_cargo_graph(
+    metadata: &CargoMetadata,
+    selected_packages: &std::collections::BTreeSet<&str>,
+    cargo_lock_blake3: &str,
+    cargo_metadata_blake3: &str,
+    target: &octet_standards::project_architecture_policy::ArchitectureTarget,
+) -> Result<ArchitectureCargoGraph, String> {
+    let resolve = metadata.resolve.as_ref().ok_or_else(|| "locked Cargo metadata omitted resolve nodes".to_owned())?;
+    let package_names = metadata
+        .packages
+        .iter()
+        .map(|package| (package.id.as_str(), package.name.as_str()))
+        .collect::<BTreeMap<_, _>>();
+    let mut edges = Vec::new();
+    for node in &resolve.nodes {
+        let caller_package = package_names
+            .get(node.id.as_str())
+            .ok_or_else(|| format!("Cargo resolve node has unknown package ID `{}`", node.id))?;
+        if !selected_packages.contains(*caller_package) {
+            continue;
+        }
+        for dependency in &node.deps {
+            let callee_package = package_names
+                .get(dependency.pkg.as_str())
+                .ok_or_else(|| format!("Cargo dependency has unknown package ID `{}`", dependency.pkg))?;
+            for kind in &dependency.dep_kinds {
+                if kind.kind.as_deref() == Some("dev") {
+                    continue;
+                }
+                edges.push(ArchitectureCargoEdge {
+                    caller_package: (*caller_package).to_owned(),
+                    callee_package: (*callee_package).to_owned(),
+                    edge_kind: kind.kind.clone().unwrap_or_else(|| "normal".to_owned()),
+                    target_predicate: kind.target.clone(),
+                });
+            }
+        }
+    }
+    edges.sort();
+    edges.dedup();
+    let mut selected_package_names = selected_packages.iter().map(|package| (*package).to_owned()).collect::<Vec<_>>();
+    selected_package_names.sort();
+    let mut features = target.features.clone();
+    features.sort();
+    features.dedup();
+    let mut graph = ArchitectureCargoGraph {
+        schema_version: PROJECT_ARCHITECTURE_CARGO_GRAPH_SCHEMA_VERSION.to_owned(),
+        cargo_graph_id: String::new(),
+        cargo_lock_blake3: cargo_lock_blake3.to_owned(),
+        cargo_metadata_blake3: cargo_metadata_blake3.to_owned(),
+        selected_packages: selected_package_names,
+        target_triple: target.triple.clone(),
+        features,
+        default_features: target.default_features,
+        edges,
+    };
+    graph.cargo_graph_id = architecture_cargo_graph_identity(&graph);
+    Ok(graph)
 }
 
 #[derive(Eq, Ord, PartialEq, PartialOrd, serde::Serialize)]

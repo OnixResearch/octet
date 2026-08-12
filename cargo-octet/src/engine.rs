@@ -63,6 +63,13 @@ struct RunArtifacts {
     additional_artifacts: Vec<StructuredArtifact>,
 }
 
+#[derive(Clone)]
+struct ArchitectureRunArtifacts {
+    compiler: Option<crate::architecture_ir::ArchitectureArtifacts>,
+    project: Option<crate::project_architecture::ProjectArchitectureArtifacts>,
+    closure: Option<crate::admit::IntegratedClosureArtifacts>,
+}
+
 #[derive(Debug, Clone)]
 struct FinalizedRun {
     outcome: output::RunOutcome,
@@ -95,10 +102,31 @@ pub fn run(check: &CheckArgs) -> Result<i32, String> {
         check.scope_args.clone()
     };
     let cargo_check_args = check.cargo_check_args.clone().unwrap_or(cfg.cargo_check_args.clone());
-    let selected_profile =
-        crate::strict_profile::prepare_selected_profile(check.profile.as_deref(), &cfg.workspace_root)?;
-    let effective_function_addresses =
-        crate::strict_profile::effective_function_address_check(selected_profile.as_ref(), &check.function_addresses);
+    let admission_binding = cfg.architecture_policy.as_ref().and_then(|policy| policy.policy.admission.as_ref());
+    if let (Some(requested), Some(binding)) = (check.profile.as_deref(), admission_binding)
+        && requested != binding.strict_profile
+    {
+        return Err(format!(
+            "architecture admission binds strict profile `{}`, but `--profile` selected `{requested}`",
+            binding.strict_profile
+        ));
+    }
+    let selected_profile_id = check
+        .profile
+        .as_deref()
+        .or_else(|| admission_binding.map(|binding| binding.strict_profile.as_str()));
+    let selected_profile = crate::strict_profile::prepare_selected_profile(selected_profile_id, &cfg.workspace_root)?;
+    let prepared_integrated_closure = admission_binding
+        .map(|binding| crate::admit::prepare_integrated_closure(&cfg.workspace_root, binding))
+        .transpose()?;
+    let mut requested_function_addresses = check.function_addresses.clone();
+    if let Some(prepared) = &prepared_integrated_closure {
+        requested_function_addresses.baseline = Some(prepared.baseline_path.clone());
+    }
+    let effective_function_addresses = crate::strict_profile::effective_function_address_check(
+        selected_profile.as_ref(),
+        &requested_function_addresses,
+    );
 
     if cargo_check_args.iter().any(|arg| arg.starts_with("--message-format")) {
         return Err("`--message-format` is managed by `--output-format`; remove it from passthrough args".to_owned());
@@ -276,12 +304,100 @@ pub fn run(check: &CheckArgs) -> Result<i32, String> {
         }
         let architecture_error =
             architecture_artifacts.as_ref().and_then(|artifacts| artifacts.incomplete_error.clone());
+        let lint_outcome = apply_baseline_gate(base_outcome, baseline_evaluation.as_ref());
+        let mut project_architecture_artifacts =
+            match (cfg.architecture_policy.as_ref(), collector.as_ref(), architecture_artifacts.as_ref()) {
+                (Some(policy), Some(prepared), Some(architecture)) if architecture.incomplete_error.is_none() => {
+                    Some(crate::project_architecture::evaluate(
+                        policy,
+                        prepared,
+                        architecture,
+                        &check.command_line,
+                        lint_outcome.status.as_str(),
+                        None,
+                    )?)
+                }
+                _ => None,
+            };
+        let mut integrated_closure_artifacts = None;
+        if lint_outcome.status == output::RunStatus::Clean
+            && project_architecture_artifacts.as_ref().is_some_and(|project| {
+                project.receipt.status
+                    == octet_standards::project_architecture_gate::ArchitecturePhaseStatus::ClosureRequired
+            })
+        {
+            let binding = admission_binding.ok_or_else(|| "architecture admission binding disappeared".to_owned())?;
+            let selected = selected_profile
+                .as_ref()
+                .ok_or_else(|| "architecture admission requires its selected strict profile".to_owned())?;
+            let function_json = function_address_artifact
+                .as_ref()
+                .map(|artifact| artifact.contents.as_str())
+                .ok_or_else(|| "architecture admission requires deny-mode function-address evidence".to_owned())?;
+            let prepared_closure = prepared_integrated_closure
+                .ok_or_else(|| "architecture admission closure policy was not prepared before Cargo".to_owned())?;
+            let pre_closure_architecture = project_architecture_artifacts
+                .as_ref()
+                .ok_or_else(|| "architecture admission prerequisite receipt disappeared".to_owned())?;
+            let parent_status_json = output::render_integrated_status_json(
+                &lint_outcome,
+                &lint_outcome,
+                check.output_format.as_str(),
+                &run_metadata,
+                baseline_evaluation.as_ref(),
+                &pre_closure_architecture.receipt,
+            )?;
+            let closure = crate::admit::run_integrated_closure(
+                &cfg.workspace_root,
+                binding,
+                selected,
+                &cargo_check_args,
+                &run_metadata,
+                &check.command_line,
+                &parent_status_json,
+                function_json,
+                prepared_closure,
+            )?;
+            project_architecture_artifacts =
+                match (cfg.architecture_policy.as_ref(), collector.as_ref(), architecture_artifacts.as_ref()) {
+                    (Some(policy), Some(prepared), Some(architecture)) => Some(crate::project_architecture::evaluate(
+                        policy,
+                        prepared,
+                        architecture,
+                        &check.command_line,
+                        lint_outcome.status.as_str(),
+                        Some(&closure.parent),
+                    )?),
+                    _ => return Err("architecture admission inputs disappeared before closure composition".to_owned()),
+                };
+            integrated_closure_artifacts = Some(closure);
+        }
         let base_outcome = if architecture_error.is_some() {
-            base_outcome.force_integration_failure()
+            lint_outcome.force_integration_failure()
+        } else if let Some(project) = &project_architecture_artifacts {
+            match project.receipt.status {
+                octet_standards::project_architecture_gate::ArchitecturePhaseStatus::IntegrationFailure => {
+                    lint_outcome.force_integration_failure()
+                }
+                octet_standards::project_architecture_gate::ArchitecturePhaseStatus::Blocked
+                | octet_standards::project_architecture_gate::ArchitecturePhaseStatus::ClosureRequired => {
+                    lint_outcome.force_lint_failure()
+                }
+                octet_standards::project_architecture_gate::ArchitecturePhaseStatus::Findings
+                    if lint_outcome.status == output::RunStatus::Clean =>
+                {
+                    lint_outcome.force_warning_only()
+                }
+                _ => lint_outcome.clone(),
+            }
         } else {
-            base_outcome
+            lint_outcome.clone()
         };
-        let base_outcome = apply_baseline_gate(base_outcome, baseline_evaluation.as_ref());
+        let architecture_run_artifacts = ArchitectureRunArtifacts {
+            compiler: architecture_artifacts,
+            project: project_architecture_artifacts,
+            closure: integrated_closure_artifacts,
+        };
         let finalized_run = finalize_run(
             check,
             &findings,
@@ -290,7 +406,8 @@ pub fn run(check: &CheckArgs) -> Result<i32, String> {
             &run_metadata,
             baseline_evaluation.as_ref(),
             function_address_artifact,
-            architecture_artifacts,
+            architecture_run_artifacts,
+            &lint_outcome,
             architecture_error,
         )?;
 
@@ -331,14 +448,48 @@ fn build_run_artifacts(
     metadata: &RunMetadata,
     baseline_evaluation: Option<&BaselineEvaluation>,
     function_address_artifact: Option<StructuredArtifact>,
-    architecture_artifacts: Option<crate::architecture_ir::ArchitectureArtifacts>,
+    architecture_artifacts: ArchitectureRunArtifacts,
+    lint_outcome: &output::RunOutcome,
 ) -> Result<RunArtifacts, String> {
-    let summary = output::render_summary(findings, outcome, metadata, baseline_evaluation)?;
-    let status_json = output::render_status_json(outcome, check.output_format.as_str(), metadata, baseline_evaluation)?;
-    let structured_output =
-        render_structured_output(check, findings, meta_map, outcome, metadata, baseline_evaluation)?;
+    let ArchitectureRunArtifacts {
+        compiler,
+        project,
+        closure,
+    } = architecture_artifacts;
+    let summary = match &project {
+        Some(project) => output::render_integrated_summary(
+            findings,
+            outcome,
+            lint_outcome,
+            metadata,
+            baseline_evaluation,
+            &project.receipt,
+        )?,
+        None => output::render_summary(findings, outcome, metadata, baseline_evaluation)?,
+    };
+    let status_json = match &project {
+        Some(project) => output::render_integrated_status_json(
+            outcome,
+            lint_outcome,
+            check.output_format.as_str(),
+            metadata,
+            baseline_evaluation,
+            &project.receipt,
+        )?,
+        None => output::render_status_json(outcome, check.output_format.as_str(), metadata, baseline_evaluation)?,
+    };
+    let structured_output = render_structured_output(
+        check,
+        findings,
+        meta_map,
+        outcome,
+        lint_outcome,
+        metadata,
+        baseline_evaluation,
+        project.as_ref(),
+    )?;
     let mut additional_artifacts = function_address_artifact.into_iter().collect::<Vec<_>>();
-    if let Some(architecture) = architecture_artifacts {
+    if let Some(architecture) = compiler {
         additional_artifacts.extend([
             StructuredArtifact {
                 file_name: crate::architecture_ir::ARCHITECTURE_IR_ARTIFACT_NAME,
@@ -355,6 +506,46 @@ fn build_run_artifacts(
             StructuredArtifact {
                 file_name: crate::architecture_ir::ARCHITECTURE_RECEIPT_ARTIFACT_NAME,
                 contents: architecture.receipt,
+            },
+        ]);
+    }
+    if let Some(project) = project {
+        additional_artifacts.extend([
+            StructuredArtifact {
+                file_name: crate::project_architecture::PROJECT_ARCHITECTURE_POLICY_SOURCE_ARTIFACT_NAME,
+                contents: project.policy_source,
+            },
+            StructuredArtifact {
+                file_name: crate::project_architecture::PROJECT_ARCHITECTURE_POLICY_ARTIFACT_NAME,
+                contents: project.policy_json,
+            },
+            StructuredArtifact {
+                file_name: crate::project_architecture::PROJECT_ARCHITECTURE_CARGO_GRAPH_ARTIFACT_NAME,
+                contents: project.cargo_graph_json,
+            },
+            StructuredArtifact {
+                file_name: crate::project_architecture::PROJECT_ARCHITECTURE_RECEIPT_ARTIFACT_NAME,
+                contents: project.receipt_json,
+            },
+        ]);
+    }
+    if let Some(closure) = closure {
+        additional_artifacts.extend([
+            StructuredArtifact {
+                file_name: crate::admit::INTEGRATED_CLOSURE_RECEIPT_ARTIFACT_NAME,
+                contents: closure.receipt_json,
+            },
+            StructuredArtifact {
+                file_name: crate::admit::INTEGRATED_CLOSURE_POLICY_ARTIFACT_NAME,
+                contents: closure.policy_json,
+            },
+            StructuredArtifact {
+                file_name: crate::admit::INTEGRATED_CLOSURE_GRAPH_ARTIFACT_NAME,
+                contents: closure.dependency_graph_json,
+            },
+            StructuredArtifact {
+                file_name: crate::admit::INTEGRATED_CLOSURE_PARENT_STATUS_ARTIFACT_NAME,
+                contents: closure.parent_status_json,
             },
         ]);
     }
@@ -384,7 +575,8 @@ fn finalize_run(
     metadata: &RunMetadata,
     baseline_evaluation: Option<&BaselineEvaluation>,
     function_address_artifact: Option<StructuredArtifact>,
-    architecture_artifacts: Option<crate::architecture_ir::ArchitectureArtifacts>,
+    architecture_artifacts: ArchitectureRunArtifacts,
+    lint_outcome: &output::RunOutcome,
     architecture_error: Option<String>,
 ) -> Result<FinalizedRun, String> {
     let terminated_error = architecture_error.or_else(|| terminated_run_error(&base_outcome));
@@ -401,6 +593,7 @@ fn finalize_run(
                 baseline_evaluation,
                 function_address_artifact,
                 architecture_artifacts,
+                lint_outcome,
             )?,
             error: terminated_error,
         });
@@ -421,6 +614,7 @@ fn finalize_run(
                     baseline_evaluation,
                     function_address_artifact,
                     architecture_artifacts,
+                    lint_outcome,
                 )?,
                 error: Some(combine_errors(error, terminated_error)),
             });
@@ -436,6 +630,7 @@ fn finalize_run(
         baseline_evaluation,
         function_address_artifact.clone(),
         architecture_artifacts.clone(),
+        lint_outcome,
     )?;
     match write_run_artifacts(&artifact_root, &check.command_line, &initial_artifacts) {
         Ok(()) => Ok(FinalizedRun {
@@ -454,6 +649,7 @@ fn finalize_run(
                 baseline_evaluation,
                 function_address_artifact,
                 architecture_artifacts,
+                lint_outcome,
             )?;
             invalidate_failed_bundle_best_effort(&artifact_root, &final_artifacts);
             rewrite_status_sidecars_best_effort(&artifact_root, &check.command_line, &final_artifacts);
@@ -486,25 +682,42 @@ fn render_structured_output(
     findings: &[Finding],
     meta_map: &std::collections::HashMap<&str, output::LintMeta>,
     outcome: &output::RunOutcome,
+    lint_outcome: &output::RunOutcome,
     metadata: &RunMetadata,
     baseline_evaluation: Option<&BaselineEvaluation>,
+    project_architecture: Option<&crate::project_architecture::ProjectArchitectureArtifacts>,
 ) -> Result<Option<StructuredArtifact>, String> {
     match check.output_format {
         OutputFormat::Human => Ok(None),
         OutputFormat::Json => Ok(Some(StructuredArtifact {
             file_name: JSON_RESULTS_ARTIFACT_NAME,
-            contents: output::render_json_lines(findings)?,
+            contents: match project_architecture {
+                Some(project) => output::render_integrated_json(findings, lint_outcome, &project.receipt)?,
+                None => output::render_json_lines(findings)?,
+            },
         })),
         OutputFormat::Sarif => Ok(Some(StructuredArtifact {
             file_name: SARIF_RESULTS_ARTIFACT_NAME,
-            contents: output::render_sarif(
-                findings,
-                meta_map,
-                outcome,
-                &check.command_line,
-                metadata,
-                baseline_evaluation,
-            )?,
+            contents: match project_architecture {
+                Some(project) => output::render_integrated_sarif(
+                    findings,
+                    meta_map,
+                    outcome,
+                    lint_outcome,
+                    &check.command_line,
+                    metadata,
+                    baseline_evaluation,
+                    &project.receipt,
+                )?,
+                None => output::render_sarif(
+                    findings,
+                    meta_map,
+                    outcome,
+                    &check.command_line,
+                    metadata,
+                    baseline_evaluation,
+                )?,
+            },
         })),
     }
 }
@@ -554,15 +767,22 @@ fn render_run_provenance_jsonl(
     }
 
     for artifact in additional_artifacts {
-        let source_id = if artifact.file_name.starts_with("compiler-architecture-") {
-            ARCHITECTURE_IR_PROVENANCE_SOURCE_ID
+        let (source_id, evidence_tier) = if artifact.file_name.starts_with("compiler-architecture-") {
+            (ARCHITECTURE_IR_PROVENANCE_SOURCE_ID, crate::evidence::EvidenceTier::StaticLint)
+        } else if artifact.file_name.starts_with("project-architecture-") {
+            (
+                crate::project_architecture::PROJECT_ARCHITECTURE_PROVENANCE_SOURCE_ID,
+                crate::evidence::EvidenceTier::PolicyCheck,
+            )
+        } else if artifact.file_name.starts_with("effect-closure") {
+            (crate::admit::INTEGRATED_CLOSURE_PROVENANCE_SOURCE_ID, crate::evidence::EvidenceTier::PolicyCheck)
         } else {
-            FUNCTION_ADDRESS_PROVENANCE_SOURCE_ID
+            (FUNCTION_ADDRESS_PROVENANCE_SOURCE_ID, crate::evidence::EvidenceTier::StaticLint)
         };
         records.push(artifact_provenance_record(
             artifact.file_name,
             &artifact.contents,
-            crate::evidence::EvidenceTier::StaticLint,
+            evidence_tier,
             source_id,
             &checked_scope,
         ));
