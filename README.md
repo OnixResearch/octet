@@ -77,6 +77,15 @@ nix run path:/path/to/octet#cargo-octet -- check
 
 Octet's own policy checks each workspace library with `--workspace --lib`.
 
+Projects can opt in to explicit FCIS and Hexagonal policy with:
+
+```toml
+[workspace.metadata.octet]
+architecture_policy = "octet-architecture.ncl"
+```
+
+Read [`docs/project-architecture-policy.md`](docs/project-architecture-policy.md) before activation. Without this pointer, Octet makes no project architecture claim.
+
 A self-check can be `warning-only`. The [warning budget](docs/self-check-warning-budget.md) records accepted finding IDs and rejects new IDs.
 
 This scope does not cover tests, binaries, examples, dependencies, runtime behavior, whole-program correctness, or release eligibility.
@@ -322,6 +331,7 @@ Start with these guides:
 - [`docs/lint-reference.md`](docs/lint-reference.md): lint catalog and config
 - [`docs/trust-boundary-evidence.md`](docs/trust-boundary-evidence.md): evidence and claims
 - [`docs/strict-rust-profiles.md`](docs/strict-rust-profiles.md): named profiles
+- [`docs/project-architecture-policy.md`](docs/project-architecture-policy.md): opt-in FCIS and Hexagonal project policy
 - [`docs/assurance-profiles.md`](docs/assurance-profiles.md): cross-plane assurance profiles
 - [`docs/downstream-rollout.md`](docs/downstream-rollout.md): consumer promotion
 - [`docs/contributor-guide.md`](docs/contributor-guide.md): source map and checks

@@ -1,0 +1,137 @@
+# Project architecture policy
+
+A project can select explicit FCIS and Hexagonal architecture policy.
+
+Activation is optional. After activation, missing or stale policy inputs are errors.
+
+## Activate the policy
+
+Copy these files to the workspace root:
+
+- `templates/octet-architecture.ncl`
+- `templates/octet-architecture.contracts.ncl`
+- `templates/octet-architecture-export-spec.ncl`
+
+Rename them only if all companion file names and export paths stay consistent.
+
+Add the source pointer to the Cargo workspace metadata:
+
+```toml
+[workspace.metadata.octet]
+default_scope = ["--workspace"]
+cargo_check_args = ["--lib"]
+architecture_policy = "octet-architecture.ncl"
+```
+
+The pointer must be workspace-relative. It must name a `.ncl` file inside the workspace.
+
+Octet derives these companion paths from the pointer:
+
+- policy export: `octet-architecture.json`
+- policy contract: `octet-architecture.contracts.ncl`
+- freshness manifest: `octet-architecture.manifest.json`
+
+Generate the runtime export and BLAKE3 freshness manifest:
+
+```bash
+nickel export --format json octet-architecture.ncl > octet-architecture.json
+nickel export --format json octet-architecture-export-spec.ncl > /tmp/octet-architecture-export-spec.json
+octet-standards nickel-export-manifest \
+  --spec /tmp/octet-architecture-export-spec.json \
+  --output octet-architecture.json \
+  --manifest-out octet-architecture.manifest.json
+```
+
+Commit the Nickel source, contract, JSON export, and manifest together.
+
+Octet runtime code does not invoke Nickel. It reads the generated JSON and verifies exact source, contract, output, evaluator, and BLAKE3 identities.
+
+## No-policy behavior
+
+If `architecture_policy` is absent, Octet does not load project architecture policy.
+
+It also does not emit:
+
+- project FCIS findings;
+- project Hexagonal findings;
+- project architecture receipts;
+- architecture-clean claims.
+
+Existing lint checks and strict Rust profiles still run. Selecting `deterministic-core` does not activate project architecture policy.
+
+## Modes
+
+Start with `inventory`. Promote only after scope and role coverage are complete.
+
+| Mode | Result |
+|---|---|
+| `inventory` | Records declared roles, targets, rules, ports, capabilities, waivers, and later compiler facts. Findings do not block promotion. |
+| `advisory` | Reports architecture findings. Findings do not block promotion. |
+| `gate` | Blocks declared architecture violations and required unknown facts. |
+| `admission` | Requires the architecture gate and transitive effect-closure evidence. |
+
+Every active mode rejects malformed policy, stale exports, escaping paths, ambiguous roles, and missing required inputs.
+
+## Roles
+
+Assign each production package and source scope exactly one production role:
+
+- `domain-core`: deterministic domain meaning, policy, invariants, and transitions;
+- `application-shell`: orchestration and application-owned port contracts;
+- `inbound-adapter`: converts external requests into application inputs;
+- `outbound-adapter`: implements application-owned ports;
+- `composition-root`: selects concrete adapters and starts the application.
+
+Use `test` and `generated` for explicit exclusions. These roles are not production roles.
+
+Do not infer roles from directory names. Declare every package and source scope.
+
+## Functional core and imperative shell
+
+The domain core receives explicit facts, validated policy, state, actor context, identifiers, and prior observations.
+
+It returns decisions, state, events, and effect plans. It does not invoke external capability ports.
+
+The application shell interprets plans and invokes application-owned ports. Adapters implement those ports.
+
+The composition root can construct concrete adapters. This exception does not give it domain-policy ownership.
+
+## Application-owned ports
+
+Each port declares:
+
+- a compiler-qualified trait name;
+- one `application-shell` owner scope;
+- permitted inbound or outbound adapter scopes;
+- forbidden concrete infrastructure type origins;
+- reserved status.
+
+Legacy `core_owner_scope` is invalid. Use `application_owner_scope` and move the contract to the application shell.
+
+## Optional `no_std`
+
+`core_no_std` is a separate host-independence obligation.
+
+A `domain-core` role does not imply `no_std`. A `no_std` crate does not prove functional purity.
+
+## Waivers
+
+An architecture waiver must bind:
+
+- one stable finding ID;
+- the exact policy BLAKE3;
+- the exact source BLAKE3;
+- an owner;
+- a reason;
+- a review condition;
+- one affected claim.
+
+A changed policy, source, finding, or claim makes the waiver stale. A waived finding remains visible as `waived`; it is not `clean`.
+
+Rust `#[allow]` attributes do not suppress project architecture findings.
+
+## Claim boundary
+
+A valid policy proves only that the generated policy input passed its typed and cross-field checks.
+
+It does not prove complete FCIS conformance, complete Hexagonal conformance, runtime determinism, whole-program correctness, or release eligibility.

@@ -282,6 +282,7 @@ let MechanismContract = {
 
   # Port mechanism fields (hexagonal-port-mechanism)
   port_traits | Array NonEmptyString | default = [],
+  application_owner_scope | String | default = "",
   core_owner_scope | String | default = "",
   permitted_adapter_scopes | Array NonEmptyString | default = [],
   forbidden_concrete_types | Array NonEmptyString | default = [],
@@ -387,15 +388,24 @@ in
 
 let crate_boundary_mechanism_valid = fun mechanism =>
   mechanism.kind != "crate-boundary"
-  || std.array.length mechanism.core_crates > 0
+  || (
+    std.array.length mechanism.core_crates > 0
+    && std.array.length mechanism.shell_crates > 0
+    && std.array.length mechanism.dependency_edge_kinds > 0
+  )
 in
 
 let port_mechanism_valid = fun mechanism =>
   mechanism.kind != "port"
-  || std.array.length mechanism.port_traits == 0
   || (
-    std.string.length mechanism.core_owner_scope > 0
-    && (mechanism.reserved || std.array.length mechanism.permitted_adapter_scopes > 0)
+    std.string.length mechanism.core_owner_scope == 0
+    && (
+      std.array.length mechanism.port_traits == 0
+      || (
+        std.string.length mechanism.application_owner_scope > 0
+        && (mechanism.reserved || std.array.length mechanism.permitted_adapter_scopes > 0)
+      )
+    )
   )
 in
 

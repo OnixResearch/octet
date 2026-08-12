@@ -90,6 +90,9 @@ Runner keys:
 | --- | --- |
 | `default_scope` | default `cargo check` scope when the command gets no explicit `-p` / `--workspace` flags |
 | `cargo_check_args` | default cargo-check tail such as `--lib` |
+| `architecture_policy` | optional workspace-relative Nickel policy pointer for project FCIS and Hexagonal checks |
+
+Do not add `architecture_policy` until the project has complete roles, targets, exports, and freshness data. Read [`project-architecture-policy.md`](project-architecture-policy.md). Without the pointer, Octet makes no project architecture claim.
 
 ### 3. Run the check
 
