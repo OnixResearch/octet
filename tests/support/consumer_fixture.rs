@@ -124,6 +124,7 @@ printf 'RUSTC_WORKSPACE_WRAPPER=%s\n' "${{RUSTC_WORKSPACE_WRAPPER:-}}" >> "$TS_L
 printf 'DYLINT_LIBS=%s\n' "${{DYLINT_LIBS:-}}" >> "$TS_LOG"
 printf 'DYLINT_NO_DEPS=%s\n' "${{DYLINT_NO_DEPS:-}}" >> "$TS_LOG"
 printf 'OCTET_STRICT_PROFILE=%s\n' "${{OCTET_STRICT_PROFILE:-}}" >> "$TS_LOG"
+printf 'OCTET_COMPILER_ARCHITECTURE_CONTEXT=%s\n' "${{OCTET_COMPILER_ARCHITECTURE_CONTEXT:-}}" >> "$TS_LOG"
 printf 'RUSTUP_TOOLCHAIN=%s\n' "${{RUSTUP_TOOLCHAIN:-}}" >> "$TS_LOG"
 case "${{1:-}}" in
   build)
@@ -563,10 +564,12 @@ pub(crate) fn build_standalone_cargo_octet() -> StandaloneCargoOctet {
         "rust-toolchain.toml",
         "src",
         "cargo-octet",
+        "crates/octet-architecture-ir",
         "crates/octet-lint-metadata",
         "crates/octet-standards",
         "standards/charon-semantic/generated",
         "standards/clippy-restrictions/generated",
+        "standards/compiler-architecture-ir/contracts",
         "standards/effect-closure/generated",
         "standards/nominal-domains/generated",
         "standards/proof-imports/generated",

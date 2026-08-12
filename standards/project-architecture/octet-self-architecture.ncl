@@ -5,12 +5,14 @@ let contracts = import "./octet-self-architecture.contracts.ncl" in
   mode = "inventory",
   production = {
     packages = [
+      "octet-architecture-ir",
       "octet-lint-metadata",
       "octet-standards",
       "octet",
       "cargo-octet",
     ],
     source_scopes = [
+      "crates/octet-architecture-ir/src",
       "crates/octet-lint-metadata/src",
       "crates/octet-standards/src",
       "src",
@@ -23,6 +25,11 @@ let contracts = import "./octet-self-architecture.contracts.ncl" in
     }],
   },
   roles = [
+    {
+      scope_kind = "package",
+      scope = "octet-architecture-ir",
+      role = "domain-core",
+    },
     {
       scope_kind = "package",
       scope = "octet-lint-metadata",
@@ -42,6 +49,11 @@ let contracts = import "./octet-self-architecture.contracts.ncl" in
       scope_kind = "package",
       scope = "cargo-octet",
       role = "composition-root",
+    },
+    {
+      scope_kind = "source",
+      scope = "crates/octet-architecture-ir/src",
+      role = "domain-core",
     },
     {
       scope_kind = "source",
@@ -190,6 +202,26 @@ let contracts = import "./octet-self-architecture.contracts.ncl" in
   ],
   core_no_std = [],
   waivers = [],
+  collection_limits = {
+    max_units = 32,
+    max_shards = 32,
+    max_modules = 4096,
+    max_items = 65536,
+    max_types = 65536,
+    max_traits = 8192,
+    max_implementations = 16384,
+    max_signatures = 65536,
+    max_calls = 262144,
+    max_constructors = 65536,
+    max_effects = 65536,
+    max_expansions = 65536,
+    max_configurations = 8192,
+    max_unknowns = 65536,
+    max_spans = 262144,
+    max_span_bytes = 1048576,
+    max_shard_bytes = 67108864,
+    max_artifact_bytes = 268435456,
+  },
   non_claims = [
     "complete-fcis-proof",
     "complete-hexagonal-proof",

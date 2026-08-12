@@ -9,6 +9,7 @@ extern crate rustc_middle;
 extern crate rustc_session;
 extern crate rustc_span;
 
+mod architecture_collector;
 mod concurrency;
 pub mod config;
 mod diagnostics;
@@ -415,6 +416,20 @@ pub extern "Rust" fn register_lints(sess: &rustc_session::Session, lint_store: &
     apply_lint_level_overrides(sess, &cfg);
     register_inventory(lint_store, &cfg, &nominal_domain_catalog);
     register_no_todo_bundle(lint_store, &cfg);
+    match architecture_collector::active_collector() {
+        Ok(Some(collector)) => {
+            if let Err(error) = architecture_collector::validate_compiler_session(sess, &collector) {
+                sess.dcx().err(error);
+                return;
+            }
+            lint_store.register_late_pass(move |_| Box::new(collector.clone()));
+        }
+        Ok(None) => {}
+        Err(error) => {
+            sess.dcx().err(error);
+            return;
+        }
+    }
     register_domain_groups(lint_store, &cfg);
     register_compatibility_aliases(lint_store, &cfg);
 }

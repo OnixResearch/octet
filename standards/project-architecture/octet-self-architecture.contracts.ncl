@@ -94,6 +94,27 @@ let Waiver = {
   review_condition | NonEmptyString,
   affected_claim | NonEmptyString,
 } in
+let Positive = std.contract.from_predicate (fun value => std.is_number value && value > 0) in
+let CollectionLimits = {
+  max_units | Positive,
+  max_shards | Positive,
+  max_modules | Positive,
+  max_items | Positive,
+  max_types | Positive,
+  max_traits | Positive,
+  max_implementations | Positive,
+  max_signatures | Positive,
+  max_calls | Positive,
+  max_constructors | Positive,
+  max_effects | Positive,
+  max_expansions | Positive,
+  max_configurations | Positive,
+  max_unknowns | Positive,
+  max_spans | Positive,
+  max_span_bytes | Positive,
+  max_shard_bytes | Positive,
+  max_artifact_bytes | Positive,
+} in
 let ProjectArchitecturePolicyContract = {
   schema_version | SchemaVersion,
   project_id | NonEmptyString,
@@ -105,6 +126,7 @@ let ProjectArchitecturePolicyContract = {
   capability_classifications | NonEmptyArray | Array CapabilityClassification,
   core_no_std | Array NoStdObligation | default = [],
   waivers | Array Waiver | default = [],
+  collection_limits | CollectionLimits,
   non_claims | NonEmptyArray | Array NonEmptyString,
 } in
 let has_duplicates = fun values =>
@@ -205,6 +227,7 @@ let rules_valid = fun policy =>
     role_for_scope obligation.scope policy.roles == "domain-core"
   ) policy.core_no_std
   && !has_duplicates (policy.waivers |> std.array.map (fun waiver => waiver.finding_id))
+  && policy.collection_limits.max_shards >= policy.collection_limits.max_units
 in
 let ProjectArchitecturePolicyRulesContract = std.contract.from_predicate rules_valid in
 {

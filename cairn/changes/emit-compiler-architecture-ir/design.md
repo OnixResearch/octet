@@ -112,7 +112,7 @@ The normalizer core accepts policy, expected units, and shard values. It returns
 
 ## Risks / Trade-offs
 
-- rustc-private APIs can drift. The exact toolchain identity and versioned schema make drift visible.
+- rustc-private APIs can drift. Exact toolchain and collector identities plus the versioned schema make drift visible.
 - MIR extraction can increase build cost. Opt-in activation and explicit limits contain the cost.
 - Macro and trait resolution remain incomplete. Typed unknown facts preserve that boundary.
 - Generated code can create large fact sets. Separate role scopes and limits prevent silent omission.

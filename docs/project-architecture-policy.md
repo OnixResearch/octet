@@ -59,6 +59,29 @@ It also does not emit:
 
 Existing lint checks and strict Rust profiles still run. Selecting `deterministic-core` does not activate project architecture policy.
 
+## Compiler Architecture IR
+
+An active policy starts compiler architecture collection for the exact production library units.
+
+The policy must define positive limits for units, shards, facts, unknowns, spans, and artifact bytes.
+
+The Cargo invocation must cover all declared production packages. Its target, features, and default-feature selection must match one declared target.
+
+Octet writes one content-bound shard for each selected compilation unit. The shard records resolved items, types, traits, implementations, signatures, calls, constructors, effects, expansions, and active configuration.
+
+The collector records unresolved dispatch, FFI, missing bodies, and unsupported expansions as typed unknown facts. External generated spans use redacted BLAKE3 provenance, not workspace paths. The collector does not infer a clean result.
+
+When `--artifact-dir` is set, a complete run adds these files:
+
+- `compiler-architecture-ir.json`;
+- `compiler-architecture-coverage.json`;
+- `compiler-architecture-issues.json`;
+- `compiler-architecture-receipt.json`.
+
+Missing, duplicate, stale, malformed, mismatched, or over-limit shards make collection incomplete. Octet saves the incomplete coverage and receipt before it returns an error.
+
+The Architecture IR proves bounded compiler observations for the selected policy, Cargo graph, invocation, target, features, toolchain, collector, and sources. It does not prove runtime behavior or whole-program correctness.
+
 ## Modes
 
 Start with `inventory`. Promote only after scope and role coverage are complete.

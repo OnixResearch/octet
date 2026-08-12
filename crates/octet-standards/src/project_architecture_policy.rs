@@ -248,6 +248,8 @@ pub struct ProjectArchitecturePolicy {
     /// Exact architecture finding waivers.
     #[serde(default)]
     pub waivers: Vec<ArchitectureWaiver>,
+    /// Named bounds for compiler architecture evidence collection.
+    pub collection_limits: octet_architecture_ir::ArchitectureCollectionLimits,
     /// Explicit project architecture non-claims.
     pub non_claims: Vec<String>,
 }
@@ -314,6 +316,7 @@ pub fn validate_project_architecture_policy(
     validate_capabilities(policy, &mut diagnostics);
     validate_no_std(policy, &assignments, &mut diagnostics);
     validate_waivers(policy, &mut diagnostics);
+    validate_collection_limits(policy, &mut diagnostics);
     diagnostics.sort();
     diagnostics.dedup();
     diagnostics
@@ -371,6 +374,48 @@ fn validate_scalar_fields(
         ));
     }
     validate_non_empty_unique_strings("non_claims", &policy.non_claims, diagnostics);
+}
+
+fn validate_collection_limits(
+    policy: &ProjectArchitecturePolicy,
+    diagnostics: &mut Vec<ProjectArchitecturePolicyDiagnostic>,
+) {
+    let limits = &policy.collection_limits;
+    for (field, value) in [
+        ("max_units", limits.max_units),
+        ("max_shards", limits.max_shards),
+        ("max_modules", limits.max_modules),
+        ("max_items", limits.max_items),
+        ("max_types", limits.max_types),
+        ("max_traits", limits.max_traits),
+        ("max_implementations", limits.max_implementations),
+        ("max_signatures", limits.max_signatures),
+        ("max_calls", limits.max_calls),
+        ("max_constructors", limits.max_constructors),
+        ("max_effects", limits.max_effects),
+        ("max_expansions", limits.max_expansions),
+        ("max_configurations", limits.max_configurations),
+        ("max_unknowns", limits.max_unknowns),
+        ("max_spans", limits.max_spans),
+        ("max_span_bytes", limits.max_span_bytes),
+        ("max_shard_bytes", limits.max_shard_bytes),
+        ("max_artifact_bytes", limits.max_artifact_bytes),
+    ] {
+        if value == 0 {
+            diagnostics.push(diagnostic(
+                "collection-limit",
+                format!("collection_limits.{field}"),
+                "compiler architecture collection limits must be positive",
+            ));
+        }
+    }
+    if limits.max_shards < limits.max_units {
+        diagnostics.push(diagnostic(
+            "collection-limit",
+            "collection_limits.max_shards",
+            "compiler architecture shard limit must be at least the compilation-unit limit",
+        ));
+    }
 }
 
 fn validate_scopes_and_roles(
@@ -875,6 +920,7 @@ mod tests {
         assert!(diagnostics.iter().all(|diagnostic| diagnostic.code == "stale-waiver"));
     }
 
+    #[allow(clippy::too_many_lines)]
     fn valid_policy() -> ProjectArchitecturePolicy {
         let production_packages = ["domain", "application", "inbound", "outbound", "host"];
         let production_sources = [
@@ -957,6 +1003,26 @@ mod tests {
                 review_condition: "remove after migration".to_owned(),
                 affected_claim: "example-claim".to_owned(),
             }],
+            collection_limits: octet_architecture_ir::ArchitectureCollectionLimits {
+                max_units: 32,
+                max_shards: 32,
+                max_modules: 4096,
+                max_items: 65_536,
+                max_types: 65_536,
+                max_traits: 8192,
+                max_implementations: 16_384,
+                max_signatures: 65_536,
+                max_calls: 262_144,
+                max_constructors: 65_536,
+                max_effects: 65_536,
+                max_expansions: 65_536,
+                max_configurations: 8192,
+                max_unknowns: 65_536,
+                max_spans: 262_144,
+                max_span_bytes: 1_048_576,
+                max_shard_bytes: 67_108_864,
+                max_artifact_bytes: 268_435_456,
+            },
             non_claims: vec!["runtime-correctness".to_owned(), "release-eligibility".to_owned()],
         }
     }

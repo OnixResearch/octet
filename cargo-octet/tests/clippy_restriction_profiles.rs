@@ -7,6 +7,8 @@ const FIXTURE_MANIFEST: &str = r#"[package]
 name = "clippy-restriction-fixture"
 version = "0.1.0"
 edition = "2024"
+
+[workspace]
 "#;
 const CLEAN_SOURCE: &str = "pub fn increment(value: u32) -> u32 { value + 1 }\n";
 const VIOLATING_SOURCE: &str = "pub fn inspect(value: u32) -> u32 { dbg!(value) }\n";

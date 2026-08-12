@@ -24,6 +24,7 @@ path = "src/bin/tigerstyle-standards.rs"
 
 [dependencies]
 blake3 = "1"
+octet-architecture-ir = { path = "../octet-architecture-ir" }
 clap = { version = "4", features = ["derive"] }
 nickel-export-core = { git = "https://github.com/OnixResearch/nickel-export", rev = "257fafc1c746f1faf156207043a4c826bfb16d49" }
 serde = { version = "1", features = ["derive"] }

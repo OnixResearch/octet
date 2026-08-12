@@ -23,9 +23,20 @@ const SARIF_RESULTS_ARTIFACT_NAME: &str = "results.sarif";
 const PROVENANCE_ARTIFACT_NAME: &str = "provenance.jsonl";
 const PROOF_CARDS_ARTIFACT_NAME: &str = "proof-cards.json";
 const FUNCTION_ADDRESS_ARTIFACT_NAME: &str = "function-addresses.json";
+const ARCHITECTURE_IR_ARTIFACT_NAME: &str = "compiler-architecture-ir.json";
+const ARCHITECTURE_COVERAGE_ARTIFACT_NAME: &str = "compiler-architecture-coverage.json";
+const ARCHITECTURE_ISSUES_ARTIFACT_NAME: &str = "compiler-architecture-issues.json";
+const ARCHITECTURE_RECEIPT_ARTIFACT_NAME: &str = "compiler-architecture-receipt.json";
+const ARCHITECTURE_ARTIFACT_NAMES: &[&str] = &[
+    ARCHITECTURE_IR_ARTIFACT_NAME,
+    ARCHITECTURE_COVERAGE_ARTIFACT_NAME,
+    ARCHITECTURE_ISSUES_ARTIFACT_NAME,
+    ARCHITECTURE_RECEIPT_ARTIFACT_NAME,
+];
 const RUNNER_PROVENANCE_SOURCE_ID: &str = "octet.runner.artifact-bundle";
 const RUNNER_STATIC_FINDINGS_SOURCE_ID: &str = "octet.runner.static-findings";
 const FUNCTION_ADDRESS_SOURCE_ID: &str = "octet.function_address.receipt";
+const ARCHITECTURE_IR_SOURCE_ID: &str = "octet.compiler-architecture-ir.receipt";
 const RUNNER_CHECKER_ID: &str = "cargo-octet";
 const STATUS_VALID: &str = "valid";
 const STATUS_INVALID: &str = "invalid";
@@ -1255,8 +1266,11 @@ fn expected_files_with_proofs(
 }
 
 fn expected_check_extra_artifact(record: &ProvenanceRecord) -> Option<String> {
-    (record.source_id == FUNCTION_ADDRESS_SOURCE_ID && record.artifact_locator == FUNCTION_ADDRESS_ARTIFACT_NAME)
-        .then(|| record.artifact_locator.clone())
+    let is_function_address =
+        record.source_id == FUNCTION_ADDRESS_SOURCE_ID && record.artifact_locator == FUNCTION_ADDRESS_ARTIFACT_NAME;
+    let is_architecture = record.source_id == ARCHITECTURE_IR_SOURCE_ID
+        && ARCHITECTURE_ARTIFACT_NAMES.contains(&record.artifact_locator.as_str());
+    (is_function_address || is_architecture).then(|| record.artifact_locator.clone())
 }
 
 fn expected_proof_artifact(record: &ProvenanceRecord) -> Option<String> {
@@ -1448,6 +1462,13 @@ fn expected_shape_for_artifact(
             checker_id: RUNNER_CHECKER_ID,
             evidence_tier: EvidenceTier::StaticLint,
         }),
+        _ if bundle_kind == BundleKind::Check && ARCHITECTURE_ARTIFACT_NAMES.contains(&artifact) => {
+            Some(ExpectedRecordShape {
+                source_id: ARCHITECTURE_IR_SOURCE_ID,
+                checker_id: RUNNER_CHECKER_ID,
+                evidence_tier: EvidenceTier::StaticLint,
+            })
+        }
         _ if bundle_kind == BundleKind::Prove && artifact.starts_with(PROOF_ARTIFACT_PREFIX) => {
             Some(ExpectedRecordShape {
                 source_id: PROOF_SOURCE_ID,
@@ -1517,6 +1538,13 @@ mod tests {
 "#;
     const FUNCTION_ADDRESS_CONTENTS: &[u8] = br#"{"schema":"octet.function-address.v1"}
 "#;
+    const ARCHITECTURE_IR_CONTENTS: &[u8] = br#"{"schema_version":"octet-compiler-architecture-ir/v1"}
+"#;
+    const ARCHITECTURE_COVERAGE_CONTENTS: &[u8] = br#"{"schema_version":"octet-compiler-architecture-coverage/v1"}
+"#;
+    const ARCHITECTURE_ISSUES_CONTENTS: &[u8] = b"[]\n";
+    const ARCHITECTURE_RECEIPT_CONTENTS: &[u8] = br#"{"schema_version":"octet-compiler-architecture-receipt/v1"}
+"#;
     const HUMAN_ACTION: &str = "review runner status before release";
     const EVIDENCE_LOG_ARTIFACT_NAME: &str = "proofs/sample-rail-0.stdout";
     const EVIDENCE_LOG_CONTENTS: &[u8] = b"proof-result: pass sample\n";
@@ -1558,6 +1586,46 @@ mod tests {
             artifact.artifact == FUNCTION_ADDRESS_ARTIFACT_NAME
                 && artifact.source_id == FUNCTION_ADDRESS_SOURCE_ID
                 && artifact.evidence_tier == EvidenceTier::StaticLint.as_str()
+        }));
+    }
+
+    #[test]
+    fn compiler_architecture_sidecar_bundle_passes_and_rejects_wrong_source() {
+        let mut input = valid_input(OutputFormat::Human);
+        let architecture_files = [
+            (ARCHITECTURE_IR_ARTIFACT_NAME, ARCHITECTURE_IR_CONTENTS),
+            (ARCHITECTURE_COVERAGE_ARTIFACT_NAME, ARCHITECTURE_COVERAGE_CONTENTS),
+            (ARCHITECTURE_ISSUES_ARTIFACT_NAME, ARCHITECTURE_ISSUES_CONTENTS),
+            (ARCHITECTURE_RECEIPT_ARTIFACT_NAME, ARCHITECTURE_RECEIPT_CONTENTS),
+        ];
+        for (name, contents) in architecture_files {
+            input.files.push(BundleFile {
+                name: name.to_owned(),
+                contents: contents.to_vec(),
+            });
+        }
+        let mut records = valid_records(OutputFormat::Human);
+        records.extend(architecture_files.into_iter().map(|(name, contents)| {
+            let mut record = record(name, contents, EvidenceTier::StaticLint);
+            record.source_id = ARCHITECTURE_IR_SOURCE_ID.to_owned();
+            record
+        }));
+        replace_file(&mut input, PROVENANCE_ARTIFACT_NAME, render_records(&records).into_bytes());
+
+        let report = verify_bundle(input.clone());
+        assert_eq!(report.status, STATUS_VALID, "unexpected diagnostics: {:?}", report.diagnostics);
+
+        let mut wrong_records = records;
+        let architecture_record = wrong_records
+            .iter_mut()
+            .find(|record| record.artifact_locator == ARCHITECTURE_RECEIPT_ARTIFACT_NAME)
+            .expect("architecture receipt record");
+        architecture_record.source_id = RUNNER_STATIC_FINDINGS_SOURCE_ID.to_owned();
+        replace_file(&mut input, PROVENANCE_ARTIFACT_NAME, render_records(&wrong_records).into_bytes());
+        let wrong_report = verify_bundle(input);
+        assert_eq!(wrong_report.status, STATUS_INVALID);
+        assert!(wrong_report.diagnostics.iter().any(|diagnostic| {
+            diagnostic.contains("unexpected source_id") && diagnostic.contains(ARCHITECTURE_RECEIPT_ARTIFACT_NAME)
         }));
     }
 

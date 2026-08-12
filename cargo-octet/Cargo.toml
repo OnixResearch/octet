@@ -18,6 +18,7 @@ name = "cargo-tigerstyle"
 path = "src/bin/cargo-tigerstyle.rs"
 
 [dependencies]
+octet-architecture-ir = { path = "../crates/octet-architecture-ir" }
 octet-lint-metadata = { path = "../crates/octet-lint-metadata" }
 octet-standards = { path = "../crates/octet-standards" }
 valence-core = { git = "https://github.com/OnixResearch/valence.git", rev = "5f1c2ba5072c6f9622fa59b1af20502985f569fd", package = "valence-core" }
