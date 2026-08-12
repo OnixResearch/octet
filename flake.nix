@@ -1792,6 +1792,68 @@
               touch "$out"
             '';
 
+        projectArchitecturePolicy =
+          pkgs.runCommand "octet-project-architecture-policy-v1"
+            {
+              nativeBuildInputs = with pkgs; [ jq ];
+            }
+            ''
+              policy_root="$out/share/octet/project-architecture-policy-v1"
+              mkdir -p "$policy_root/templates" "$policy_root/octet-self"
+              cp ${./templates/octet-architecture.ncl} "$policy_root/templates/octet-architecture.ncl"
+              cp ${./templates/octet-architecture.contracts.ncl} "$policy_root/templates/octet-architecture.contracts.ncl"
+              cp ${./templates/octet-architecture-export-spec.ncl} "$policy_root/templates/octet-architecture-export-spec.ncl"
+              cp ${./standards/project-architecture/octet-self-architecture.ncl} "$policy_root/octet-self/octet-architecture.ncl"
+              cp ${./standards/project-architecture/octet-self-architecture.contracts.ncl} "$policy_root/octet-self/octet-architecture.contracts.ncl"
+              cp ${./standards/project-architecture/octet-self-architecture.json} "$policy_root/octet-self/octet-architecture.json"
+              cp ${./standards/project-architecture/octet-self-architecture.manifest.json} "$policy_root/octet-self/octet-architecture.manifest.json"
+              jq --raw-output '.exports[0].output.blake3' \
+                "$policy_root/octet-self/octet-architecture.manifest.json" > "$policy_root/octet-self/octet-architecture.blake3"
+            '';
+
+        projectArchitecturePolicyCheck =
+          pkgs.runCommand "octet-project-architecture-policy-check"
+            {
+              nativeBuildInputs = with pkgs; [
+                coreutils
+                diffutils
+                nickel
+                octetStandards
+              ];
+            }
+            ''
+              cd ${./.}
+              policy_dir=standards/project-architecture
+              actual_policy="$TMPDIR/octet-self-architecture.json"
+              actual_spec="$TMPDIR/octet-self-architecture-export-spec.json"
+              actual_manifest="$TMPDIR/octet-self-architecture.manifest.json"
+
+              cmp "$policy_dir/octet-self-architecture.contracts.ncl" templates/octet-architecture.contracts.ncl
+              nickel typecheck "$policy_dir/octet-self-architecture.contracts.ncl"
+              nickel typecheck templates/octet-architecture.ncl
+              nickel export --format json "$policy_dir/octet-self-architecture.ncl" > "$actual_policy"
+              cmp "$actual_policy" "$policy_dir/octet-self-architecture.json"
+
+              for file in "$policy_dir"/fixtures/valid/*.ncl; do
+                nickel export --format json "$file" >/dev/null
+              done
+              for file in "$policy_dir"/fixtures/invalid/*.ncl; do
+                if nickel export --format json "$file" >/dev/null 2>&1; then
+                  echo "invalid project-architecture fixture passed: $file" >&2
+                  exit 1
+                fi
+              done
+
+              nickel export --format json "$policy_dir/export-spec.ncl" > "$actual_spec"
+              octet-standards nickel-export-manifest \
+                --spec "$actual_spec" \
+                --output "$actual_policy" \
+                --manifest-out "$actual_manifest" \
+                --nickel-identity "$(nickel --version)"
+              cmp "$actual_manifest" "$policy_dir/octet-self-architecture.manifest.json"
+              touch "$out"
+            '';
+
         assuranceProfileOnixOSLifecycle =
           pkgs.runCommand "octet-assurance-profile-onixos-lifecycle-proof-v1"
             {
@@ -2568,6 +2630,7 @@
           octet-production-verus-nix-closure-manifest = octetProductionVerusNixClosureManifest;
           octet-verusfmt = octetVerusfmt;
           octet-verus-toolchain-profile = octetVerusToolchainProfile;
+          octet-project-architecture-policy = projectArchitecturePolicy;
           octet-assurance-profile-onixos-lifecycle = assuranceProfileOnixOSLifecycle;
           slotcar-standards-nix-closure-manifest = octetStandardsNixClosureManifest;
           octet-policy-export = policyExport;
@@ -4011,6 +4074,7 @@
             wasm-artifact-rail = wasmArtifactRailCheck;
             strict-profile-catalog = strictProfileCatalogCheck;
             nominal-domain-catalog = nominalDomainCatalogCheck;
+            project-architecture-policy = projectArchitecturePolicyCheck;
             assurance-profile-onixos-lifecycle = assuranceProfileOnixOSLifecycleCheck;
             clippy-restriction-profiles = clippyRestrictionProfilesCheck;
             effect-closure-catalog = effectClosureCatalogCheck;

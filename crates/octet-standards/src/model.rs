@@ -195,7 +195,10 @@ pub struct Mechanism {
     /// Declared port trait qualified names.
     #[serde(default)]
     pub port_traits: Vec<String>,
-    /// Core owner source scope for port traits.
+    /// Application-shell owner source scope for port traits.
+    #[serde(default)]
+    pub application_owner_scope: String,
+    /// Legacy core-owner field retained only for deterministic migration diagnostics.
     #[serde(default)]
     pub core_owner_scope: String,
     /// Permitted adapter source scopes that may impl ports.

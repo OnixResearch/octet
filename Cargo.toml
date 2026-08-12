@@ -34,3 +34,4 @@ exclude = ["crates/valence-core"]
 [workspace.metadata.octet]
 default_scope = ["--workspace"]
 cargo_check_args = ["--lib"]
+architecture_policy = "standards/project-architecture/octet-self-architecture.ncl"

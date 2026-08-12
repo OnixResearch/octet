@@ -85,6 +85,9 @@ fn apply_baseline_gate(
 pub fn run(check: &CheckArgs) -> Result<i32, String> {
     let cwd = env::current_dir().map_err(|error| format!("current_dir: {error}"))?;
     let cfg = config::load(&cwd)?;
+    if let Some(policy) = &cfg.architecture_policy {
+        policy.validate_loaded_binding()?;
+    }
     let scope_args = if check.scope_args.is_empty() {
         cfg.default_scope.clone()
     } else {

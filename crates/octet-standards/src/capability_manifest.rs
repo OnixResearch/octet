@@ -290,6 +290,9 @@ struct SourceScopeMatch {
 }
 
 /// Evaluates capability manifest diagnostics and report data for one checker run.
+// r[impl octet.capability_manifest_checker.manifest]
+// r[impl octet.capability_manifest_checker.scope_resolution]
+// r[impl octet.capability_manifest_checker.effect_matching]
 #[must_use]
 pub fn check_capability_manifest(
     registry: &PolicyRegistry,
@@ -302,6 +305,9 @@ pub fn check_capability_manifest(
     let Some(policy) = registry.policy_by_id(EFFECT_CAPABILITY_POLICY_ID) else {
         return CapabilityManifestCheck::default();
     };
+    if capability_mechanism(policy).is_none() {
+        return CapabilityManifestCheck::default();
+    }
     let manifest = CapabilityManifest::from_policy(policy);
     let mut diagnostics = manifest_validation_diagnostics(policy, &manifest, sources);
     diagnostics.extend(handler_validation_diagnostics(policy, &manifest, sources));

@@ -15,6 +15,7 @@ pub mod fixture;
 pub mod formal_proof;
 pub mod model;
 pub mod nickel_export;
+pub mod project_architecture_policy;
 pub mod proof;
 pub mod proof_artifact;
 pub mod receipt;
@@ -519,6 +520,40 @@ fn concurrency() { let _ = std::thread::spawn(|| ()); }\n";
     }
 
     #[test]
+    fn architecture_checks_do_not_use_implicit_consumer_fallbacks() {
+        let registry = PolicyRegistry {
+            schema_version: "test".to_owned(),
+            checker_ids: vec!["octet-standards".to_owned()],
+            policies: vec![
+                sample_policy(
+                    FCIS_POLICY_ID,
+                    "architecture",
+                    "docs/standards/source/architecture.adoc#boundaries-the-compiler-can-see",
+                ),
+                sample_policy(
+                    EFFECT_CAPABILITY_POLICY_ID,
+                    "architecture",
+                    "docs/standards/source/architecture.adoc#effect-capability-boundaries",
+                ),
+            ],
+            seed_manifests: Vec::new(),
+            config_receipt_families: Vec::new(),
+        };
+        let sources = vec![SourceFile::new(
+            "crates/tigerstyle-core/src/lib.rs",
+            "pub fn process_id() -> u32 { std::process::id() }\n",
+        )];
+
+        let diagnostics = check_architecture(&registry, &sources, &FamilySelection::from_families(["architecture"]));
+        let capability =
+            check_capability_manifest(&registry, &sources, &FamilySelection::from_families(["architecture"]));
+
+        assert!(diagnostics.is_empty());
+        assert!(capability.diagnostics.is_empty());
+        assert!(capability.reports.is_empty());
+    }
+
+    #[test]
     fn architecture_port_mechanism_noops_without_declared_ports() {
         let sources = vec![SourceFile::new(
             "domain/src/lib.rs",
@@ -531,7 +566,7 @@ fn concurrency() { let _ = std::thread::spawn(|| ()); }\n";
     }
 
     #[test]
-    fn architecture_port_mechanism_rejects_missing_core_port_trait() {
+    fn architecture_port_mechanism_rejects_missing_application_port_trait() {
         let sources = vec![SourceFile::new(
             "adapters/std/src/lib.rs",
             "impl Clock for AdapterClock { fn now_ms(&self) -> u64 { 0 } }\n",
@@ -544,13 +579,13 @@ fn concurrency() { let _ = std::thread::spawn(|| ()); }\n";
 
         assert_eq!(diagnostics.len(), 1);
         assert_eq!(diagnostics[0].policy_id, HEXAGONAL_PORT_POLICY_ID);
-        assert!(diagnostics[0].message.contains("must be defined as a trait in core"));
+        assert!(diagnostics[0].message.contains("must be defined as a trait in application"));
     }
 
     #[test]
     fn architecture_port_mechanism_rejects_missing_adapter_impl() {
         let sources = vec![SourceFile::new(
-            "domain/src/lib.rs",
+            "application/src/lib.rs",
             "pub trait Clock { fn now_ms(&self) -> u64; }\n",
         )];
         let diagnostics = check_architecture(
@@ -567,7 +602,7 @@ fn concurrency() { let _ = std::thread::spawn(|| ()); }\n";
     #[test]
     fn architecture_port_mechanism_accepts_adapter_impl() {
         let sources = vec![
-            SourceFile::new("domain/src/lib.rs", "pub trait Clock { fn now_ms(&self) -> u64; }\n"),
+            SourceFile::new("application/src/lib.rs", "pub trait Clock { fn now_ms(&self) -> u64; }\n"),
             SourceFile::new(
                 "adapters/std/src/lib.rs",
                 "impl Clock for SystemClock { fn now_ms(&self) -> u64 { 0 } }\n",
@@ -583,10 +618,10 @@ fn concurrency() { let _ = std::thread::spawn(|| ()); }\n";
     }
 
     #[test]
-    fn architecture_port_mechanism_rejects_core_concrete_impl() {
+    fn architecture_port_mechanism_rejects_application_concrete_impl() {
         let sources = vec![
             SourceFile::new(
-                "domain/src/lib.rs",
+                "application/src/lib.rs",
                 "pub trait Clock { fn now_ms(&self) -> u64; }\nimpl Clock for SystemClock { fn now_ms(&self) -> u64 { 0 } }\n",
             ),
             SourceFile::new(
@@ -608,7 +643,7 @@ fn concurrency() { let _ = std::thread::spawn(|| ()); }\n";
     #[test]
     fn architecture_port_mechanism_reserved_suppresses_missing_impl() {
         let sources = vec![SourceFile::new(
-            "domain/src/lib.rs",
+            "application/src/lib.rs",
             "pub trait Clock { fn now_ms(&self) -> u64; }\n",
         )];
         let diagnostics = check_architecture(
@@ -621,9 +656,9 @@ fn concurrency() { let _ = std::thread::spawn(|| ()); }\n";
     }
 
     #[test]
-    fn architecture_port_mechanism_reserved_keeps_core_purity_check() {
+    fn architecture_port_mechanism_reserved_keeps_application_purity_check() {
         let sources = vec![SourceFile::new(
-            "domain/src/lib.rs",
+            "application/src/lib.rs",
             "pub trait Clock { fn now_ms(&self) -> u64; }\nimpl Clock for SystemClock { fn now_ms(&self) -> u64 { 0 } }\n",
         )];
         let diagnostics = check_architecture(
@@ -635,6 +670,23 @@ fn concurrency() { let _ = std::thread::spawn(|| ()); }\n";
         assert_eq!(diagnostics.len(), 1);
         assert_eq!(diagnostics[0].policy_id, HEXAGONAL_PORT_POLICY_ID);
         assert!(diagnostics[0].message.contains("SystemClock"));
+    }
+
+    #[test]
+    fn architecture_port_mechanism_rejects_legacy_core_owner_scope() {
+        let sources = vec![SourceFile::new(
+            "domain/src/lib.rs",
+            "pub trait Clock { fn now_ms(&self) -> u64; }\n",
+        )];
+        let diagnostics = check_architecture(
+            &sample_legacy_port_registry(),
+            &sources,
+            &FamilySelection::from_families(["architecture"]),
+        );
+
+        assert_eq!(diagnostics.len(), 1);
+        assert!(diagnostics[0].message.contains("legacy `core_owner_scope`"));
+        assert!(diagnostics[0].remediation.contains("application_owner_scope"));
     }
 
     #[test]
@@ -723,9 +775,9 @@ fn concurrency() { let _ = std::thread::spawn(|| ()); }\n";
     }
 
     #[test]
-    fn architecture_dependency_direction_excludes_dev_dependencies_by_default() {
+    fn architecture_dependency_direction_excludes_dev_dependencies_when_not_declared() {
         let diagnostics = check_architecture(
-            &sample_dependency_direction_registry(Vec::new()),
+            &sample_dependency_direction_registry(vec!["normal", "build"]),
             &[metadata_source(dev_dependency_metadata())],
             &FamilySelection::from_families(["architecture"]),
         );
@@ -996,11 +1048,7 @@ impl Session<Authenticated> { pub fn send(self) {} }
             policies: vec![
                 sample_policy(DEVTOOLS_POLICY_ID, "devtools", DEVTOOLS_SOURCE),
                 sample_policy(EMBEDDED_POLICY_ID, "embedded", EMBEDDED_SOURCE),
-                sample_policy(
-                    FCIS_POLICY_ID,
-                    "architecture",
-                    "docs/standards/source/architecture.adoc#boundaries-the-compiler-can-see",
-                ),
+                sample_crate_boundary_policy(),
                 sample_policy(
                     EXTERNAL_DOMAIN_LEAKAGE_POLICY_ID,
                     "architecture",
@@ -1022,6 +1070,51 @@ impl Session<Authenticated> { pub fn send(self) {} }
             ],
             seed_manifests: Vec::new(),
             config_receipt_families: Vec::new(),
+        }
+    }
+
+    fn sample_crate_boundary_policy() -> PolicyEntry {
+        PolicyEntry {
+            mechanisms: vec![Mechanism {
+                kind: MechanismKind::CrateBoundary,
+                description: "explicit Octet-layout test boundary".to_owned(),
+                core_crates: vec!["crates/tigerstyle-core/src/lib.rs".to_owned()],
+                shell_crates: vec!["crates/tigerstyle-std/Cargo.toml".to_owned()],
+                forbidden_core_deps: [
+                    "tokio",
+                    "tracing",
+                    "tracing-subscriber",
+                    "clap",
+                    "parking_lot",
+                    "url",
+                    "tigerstyle-std",
+                ]
+                .into_iter()
+                .map(str::to_owned)
+                .collect(),
+                external_domain_patterns: [
+                    "axum::",
+                    "hyper::",
+                    "prost::",
+                    "reqwest::",
+                    "serde_json::",
+                    "sqlx::",
+                    "tonic::",
+                ]
+                .into_iter()
+                .map(str::to_owned)
+                .collect(),
+                dependency_edge_kinds: vec!["normal".to_owned(), "build".to_owned()],
+                core_no_std: true,
+                ..Mechanism::default()
+            }],
+            current_enforcement_mode: EnforcementMode::Gate,
+            target_enforcement_mode: EnforcementMode::Structural,
+            ..sample_policy(
+                FCIS_POLICY_ID,
+                "architecture",
+                "docs/standards/source/architecture.adoc#boundaries-the-compiler-can-see",
+            )
         }
     }
 
@@ -1086,13 +1179,27 @@ impl Session<Authenticated> { pub fn send(self) {} }
         }
     }
 
+    fn sample_legacy_port_registry() -> PolicyRegistry {
+        let mut policy = sample_port_policy(false);
+        let mechanism = policy.mechanisms.first_mut().expect("port mechanism");
+        mechanism.application_owner_scope.clear();
+        mechanism.core_owner_scope = "domain/src/".to_owned();
+        PolicyRegistry {
+            schema_version: "test".to_owned(),
+            checker_ids: vec!["octet-standards".to_owned()],
+            policies: vec![policy],
+            seed_manifests: Vec::new(),
+            config_receipt_families: Vec::new(),
+        }
+    }
+
     fn sample_port_policy(reserved: bool) -> PolicyEntry {
         PolicyEntry {
             mechanisms: vec![Mechanism {
                 kind: MechanismKind::Port,
                 description: "test port mechanism".to_owned(),
                 port_traits: vec!["Clock".to_owned()],
-                core_owner_scope: "domain/src/".to_owned(),
+                application_owner_scope: "application/src/".to_owned(),
                 permitted_adapter_scopes: vec!["adapters/std/src/".to_owned()],
                 forbidden_concrete_types: vec!["SystemClock".to_owned()],
                 reserved,
