@@ -86,6 +86,8 @@ architecture_policy = "octet-architecture.ncl"
 
 Read [`docs/project-architecture-policy.md`](docs/project-architecture-policy.md) before activation. Without this pointer, Octet makes no project architecture claim.
 
+An active `admission` policy makes `cargo octet check` run strict lint, the architecture gate, and its explicitly bound effect closure in order.
+
 A self-check can be `warning-only`. The [warning budget](docs/self-check-warning-budget.md) records accepted finding IDs and rejects new IDs.
 
 This scope does not cover tests, binaries, examples, dependencies, runtime behavior, whole-program correctness, or release eligibility.

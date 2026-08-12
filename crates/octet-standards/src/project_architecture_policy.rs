@@ -115,6 +115,34 @@ pub struct ArchitectureDependencyRule {
     pub edge_kinds: Vec<String>,
 }
 
+/// Project classification for one external Cargo provider.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum ArchitectureProviderKind {
+    /// Deterministic value or mechanism provider permitted by explicit caller roles.
+    PureValue,
+    /// Application contract provider permitted by explicit caller roles.
+    ApplicationContract,
+    /// Infrastructure provider restricted to adapters and composition roots.
+    Infrastructure,
+}
+
+/// Exact external Cargo provider classification.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct ArchitectureProviderClassification {
+    /// Cargo package name.
+    pub package: String,
+    /// Provider kind.
+    pub kind: ArchitectureProviderKind,
+    /// Production roles permitted to depend on this provider.
+    pub permitted_caller_roles: Vec<ArchitectureRole>,
+    /// Cargo dependency edge kinds covered by this classification.
+    pub edge_kinds: Vec<String>,
+    /// Reviewable classification reason.
+    pub rationale: String,
+}
+
 /// Application-owned Hexagonal port declaration.
 // r[impl octet.project_architecture_policy.ports]
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -199,6 +227,16 @@ pub struct ArchitectureNoStdObligation {
     pub scope: String,
 }
 
+/// Explicit binding to the existing effect-closure rail for admission mode.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct ArchitectureAdmissionBinding {
+    /// Strict profile used by the direct prerequisite check.
+    pub strict_profile: String,
+    /// Workspace-relative effect-closure policy path.
+    pub effect_closure_policy: String,
+}
+
 /// Exact, reviewable architecture finding waiver.
 // r[impl octet.project_architecture_policy.waivers]
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -237,6 +275,9 @@ pub struct ProjectArchitecturePolicy {
     pub roles: Vec<ArchitectureRoleAssignment>,
     /// Role dependency rules.
     pub dependency_rules: Vec<ArchitectureDependencyRule>,
+    /// Exact external Cargo provider classifications.
+    #[serde(default)]
+    pub provider_classifications: Vec<ArchitectureProviderClassification>,
     /// Application-owned ports.
     #[serde(default)]
     pub ports: Vec<ArchitecturePort>,
@@ -245,6 +286,9 @@ pub struct ProjectArchitecturePolicy {
     /// Optional `no_std` obligations, separate from FCIS role meaning.
     #[serde(default)]
     pub core_no_std: Vec<ArchitectureNoStdObligation>,
+    /// Explicit effect-closure binding required only by admission mode.
+    #[serde(default)]
+    pub admission: Option<ArchitectureAdmissionBinding>,
     /// Exact architecture finding waivers.
     #[serde(default)]
     pub waivers: Vec<ArchitectureWaiver>,
@@ -312,9 +356,11 @@ pub fn validate_project_architecture_policy(
     let assignments = validate_scopes_and_roles(policy, &mut diagnostics);
     validate_targets(policy, &mut diagnostics);
     validate_dependency_rules(policy, &mut diagnostics);
+    validate_provider_classifications(policy, &mut diagnostics);
     validate_ports(policy, &assignments, &mut diagnostics);
     validate_capabilities(policy, &mut diagnostics);
     validate_no_std(policy, &assignments, &mut diagnostics);
+    validate_admission(policy, &mut diagnostics);
     validate_waivers(policy, &mut diagnostics);
     validate_collection_limits(policy, &mut diagnostics);
     diagnostics.sort();
@@ -563,6 +609,52 @@ fn validate_dependency_rules(
     }
 }
 
+fn validate_provider_classifications(
+    policy: &ProjectArchitecturePolicy,
+    diagnostics: &mut Vec<ProjectArchitecturePolicyDiagnostic>,
+) {
+    let production_packages = policy.production.packages.iter().collect::<BTreeSet<_>>();
+    let mut packages = BTreeSet::new();
+    for provider in &policy.provider_classifications {
+        push_blank(diagnostics, "provider_classifications.package", &provider.package);
+        push_blank(diagnostics, "provider_classifications.rationale", &provider.rationale);
+        if !packages.insert(provider.package.clone()) {
+            diagnostics.push(diagnostic(
+                "duplicate-provider-classification",
+                "provider_classifications.package",
+                format!("external provider `{}` is classified more than once", provider.package),
+            ));
+        }
+        if production_packages.contains(&provider.package) {
+            diagnostics.push(diagnostic(
+                "internal-provider-classification",
+                "provider_classifications.package",
+                format!(
+                    "production package `{}` must use its role, not an external provider classification",
+                    provider.package
+                ),
+            ));
+        }
+        if provider.permitted_caller_roles.is_empty()
+            || provider.permitted_caller_roles.iter().any(|role| !role.is_production())
+        {
+            diagnostics.push(diagnostic(
+                "provider-caller-roles",
+                "provider_classifications.permitted_caller_roles",
+                "external provider classification must permit at least one production caller role",
+            ));
+        }
+        if provider.edge_kinds.is_empty() {
+            diagnostics.push(diagnostic(
+                "provider-edge-kinds",
+                "provider_classifications.edge_kinds",
+                "external provider classification must select at least one Cargo edge kind",
+            ));
+        }
+        validate_non_empty_unique_strings("provider_classifications.edge_kinds", &provider.edge_kinds, diagnostics);
+    }
+}
+
 fn validate_ports(
     policy: &ProjectArchitecturePolicy,
     assignments: &BTreeMap<(ArchitectureScopeKind, String), ArchitectureRole>,
@@ -674,6 +766,38 @@ fn validate_no_std(
                 format!("no_std scope `{}` is not assigned domain-core", obligation.scope),
             ));
         }
+    }
+}
+
+fn validate_admission(policy: &ProjectArchitecturePolicy, diagnostics: &mut Vec<ProjectArchitecturePolicyDiagnostic>) {
+    match (&policy.mode, &policy.admission) {
+        (ArchitectureMode::Admission, None) => diagnostics.push(diagnostic(
+            "missing-admission-binding",
+            "admission",
+            "admission mode requires an explicit strict profile and effect-closure policy path",
+        )),
+        (ArchitectureMode::Admission, Some(binding)) => {
+            push_blank(diagnostics, "admission.strict_profile", &binding.strict_profile);
+            push_blank(diagnostics, "admission.effect_closure_policy", &binding.effect_closure_policy);
+            if binding.strict_profile != "deterministic-core" {
+                diagnostics.push(diagnostic(
+                    "invalid-admission-profile",
+                    "admission.strict_profile",
+                    "project architecture admission requires the deterministic-core strict profile",
+                ));
+            }
+            validate_workspace_relative_path(
+                "admission.effect_closure_policy",
+                &binding.effect_closure_policy,
+                diagnostics,
+            );
+        }
+        (_, Some(_)) => diagnostics.push(diagnostic(
+            "unexpected-admission-binding",
+            "admission",
+            "only admission mode can define an admission binding",
+        )),
+        _ => {}
     }
 }
 
@@ -853,8 +977,23 @@ mod tests {
         ];
         for mode in modes {
             policy.mode = mode;
+            policy.admission = (mode == ArchitectureMode::Admission).then(|| ArchitectureAdmissionBinding {
+                strict_profile: "deterministic-core".to_owned(),
+                effect_closure_policy: "octet-effect-closure.json".to_owned(),
+            });
             assert_eq!(validate_project_architecture_policy(&policy), Vec::new());
         }
+        policy.mode = ArchitectureMode::Inventory;
+        policy.admission = Some(ArchitectureAdmissionBinding {
+            strict_profile: "deterministic-core".to_owned(),
+            effect_closure_policy: "octet-effect-closure.json".to_owned(),
+        });
+        assert!(
+            validate_project_architecture_policy(&policy)
+                .iter()
+                .any(|diagnostic| diagnostic.code == "unexpected-admission-binding")
+        );
+
         let roles = policy.roles.iter().map(|assignment| assignment.role).collect::<BTreeSet<_>>();
         assert_eq!(
             roles,
@@ -978,6 +1117,7 @@ mod tests {
                     ArchitectureRole::OutboundAdapter,
                 ]),
             ],
+            provider_classifications: Vec::new(),
             ports: vec![ArchitecturePort {
                 port_trait: "application::Clock".to_owned(),
                 application_owner_scope: "crates/application/src".to_owned(),
@@ -994,6 +1134,7 @@ mod tests {
             core_no_std: vec![ArchitectureNoStdObligation {
                 scope: "domain".to_owned(),
             }],
+            admission: None,
             waivers: vec![ArchitectureWaiver {
                 finding_id: "architecture.example".to_owned(),
                 policy_blake3: HASH_A.to_owned(),

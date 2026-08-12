@@ -41,6 +41,7 @@ mod object_core;
 mod output;
 #[cfg(test)]
 mod preserves_receipt_export;
+mod project_architecture;
 #[cfg(test)]
 mod proof_claim_catalog;
 mod proof_goal_state;

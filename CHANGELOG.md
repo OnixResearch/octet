@@ -6,6 +6,12 @@ specific commits via `TIGERSTYLE_DYLINT_REV`.
 For the full lint catalog, see `docs/lint-reference.md`.
 For rollout profiles, see `docs/downstream-rollout.md`.
 
+## 2026-08-19: Integrated project architecture gate
+
+An activated policy now makes `cargo octet check` evaluate the resolved Cargo graph and compiler Architecture IR. Lint and architecture phases keep separate statuses, findings, evidence tiers, receipts, and non-claims. Input-integrity failures block every active mode. Policy findings block only `gate` and `admission`.
+
+`admission` now binds the `deterministic-core` profile and one workspace-relative effect-closure policy. Octet runs strict lint, architecture evaluation, and closure in order. It emits separate linked receipts and rejects denied closure or tampered policy, graph, compiler, provider, command, and parent-status identities. Unconfigured projects keep their existing output bytes and emit no architecture or closure artifacts.
+
 ## 2026-08-12: Compiler-backed Architecture IR
 
 Activated project policies now collect bounded rustc facts into content-addressed shards. Octet emits normalized Architecture IR, coverage, issue, and receipt sidecars only for selected production compilation units. Incomplete or stale evidence fails closed and keeps explicit non-claims.

@@ -94,6 +94,8 @@ Runner keys:
 
 Do not add `architecture_policy` until the project has complete roles, targets, exports, and freshness data. Read [`project-architecture-policy.md`](project-architecture-policy.md). Without the pointer, Octet makes no project architecture claim.
 
+If the policy selects `admission`, `cargo octet check` runs strict lint, the architecture gate, and the explicitly bound effect-closure policy in that order.
+
 ### 3. Run the check
 
 Run one of the supported entry points above from the workspace root. If you

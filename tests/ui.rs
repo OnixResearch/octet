@@ -663,15 +663,17 @@ fn compiler_architecture_ir_fixtures() {
         "expansion",
         "configuration",
     ] {
-        let has_fact = positive.facts.iter().any(|fact| match (expected, fact) {
-            ("trait", CompilerArchitectureFact::Trait { .. })
-            | ("implementation", CompilerArchitectureFact::Implementation { .. })
-            | ("signature", CompilerArchitectureFact::Signature { .. })
-            | ("call", CompilerArchitectureFact::Call { .. })
-            | ("constructor", CompilerArchitectureFact::Constructor { .. })
-            | ("expansion", CompilerArchitectureFact::Expansion { .. })
-            | ("configuration", CompilerArchitectureFact::Configuration { .. }) => true,
-            _ => false,
+        let has_fact = positive.facts.iter().any(|fact| {
+            matches!(
+                (expected, fact),
+                ("trait", CompilerArchitectureFact::Trait { .. })
+                    | ("implementation", CompilerArchitectureFact::Implementation { .. })
+                    | ("signature", CompilerArchitectureFact::Signature { .. })
+                    | ("call", CompilerArchitectureFact::Call { .. })
+                    | ("constructor", CompilerArchitectureFact::Constructor { .. })
+                    | ("expansion", CompilerArchitectureFact::Expansion { .. })
+                    | ("configuration", CompilerArchitectureFact::Configuration { .. })
+            )
         });
         assert!(has_fact, "positive compiler fixture omitted {expected} fact");
     }

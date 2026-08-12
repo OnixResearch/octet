@@ -15,6 +15,7 @@ pub mod fixture;
 pub mod formal_proof;
 pub mod model;
 pub mod nickel_export;
+pub mod project_architecture_gate;
 pub mod project_architecture_policy;
 pub mod proof;
 pub mod proof_artifact;

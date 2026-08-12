@@ -24,6 +24,8 @@ const CARGO_PROCESS_EXIT_CODE: &str = "exit-code";
 const CARGO_PROCESS_TERMINATED: &str = "terminated";
 const WARNING_SEVERITY: &str = "warning";
 const ERROR_SEVERITY: &str = "error";
+const INTEGRATED_RESULT_SCHEMA_VERSION: &str = "octet-integrated-check-result/v1";
+const LINT_NON_CLAIM: &str = "static-lint-findings-do-not-prove-project-architecture";
 
 pub struct LintMeta {
     pub group: &'static str,
@@ -243,6 +245,15 @@ impl RunOutcome {
             cargo_process_exit: self.cargo_process_exit.clone(),
         }
     }
+
+    pub fn force_warning_only(&self) -> Self {
+        Self {
+            status: RunStatus::WarningOnly,
+            exit_code: RunStatus::WarningOnly.exit_code(),
+            counts: self.counts.clone(),
+            cargo_process_exit: self.cargo_process_exit.clone(),
+        }
+    }
 }
 
 #[derive(Serialize)]
@@ -423,6 +434,85 @@ pub fn render_sarif(
     Ok(rendered)
 }
 
+pub fn render_integrated_json(
+    findings: &[Finding],
+    lint_outcome: &RunOutcome,
+    receipt: &octet_standards::project_architecture_gate::ProjectArchitectureReceipt,
+) -> Result<String, String> {
+    validate_finding_domains(findings)?;
+    let value = serde_json::json!({
+        "schema_version": INTEGRATED_RESULT_SCHEMA_VERSION,
+        "phases": integrated_phases(lint_outcome, receipt),
+        "lint_findings": findings,
+        "architecture_findings": receipt.findings,
+    });
+    pretty_json(&value, "write integrated JSON")
+}
+
+pub fn render_integrated_sarif(
+    findings: &[Finding],
+    meta_map: &HashMap<&str, LintMeta>,
+    outcome: &RunOutcome,
+    lint_outcome: &RunOutcome,
+    command_line: &str,
+    metadata: &RunMetadata,
+    baseline: Option<&BaselineEvaluation>,
+    receipt: &octet_standards::project_architecture_gate::ProjectArchitectureReceipt,
+) -> Result<String, String> {
+    let base = render_sarif(findings, meta_map, outcome, command_line, metadata, baseline)?;
+    let mut sarif = serde_json::from_str::<serde_json::Value>(&base)
+        .map_err(|error| format!("parse rendered SARIF for architecture phases: {error}"))?;
+    sarif["runs"][0]["properties"]["phases"] = integrated_phases(lint_outcome, receipt);
+    let rules = sarif["runs"][0]["tool"]["driver"]["rules"]
+        .as_array_mut()
+        .ok_or_else(|| "rendered SARIF rules are not an array".to_owned())?;
+    let mut architecture_codes = receipt.findings.iter().map(|finding| finding.code.as_str()).collect::<Vec<_>>();
+    architecture_codes.sort();
+    architecture_codes.dedup();
+    rules.extend(architecture_codes.into_iter().map(|code| {
+        serde_json::json!({
+            "id": format!("project-architecture/{code}"),
+            "shortDescription": { "text": "Octet project architecture policy finding" },
+            "properties": { "evidenceTier": receipt.evidence_tier }
+        })
+    }));
+    let results = sarif["runs"][0]["results"]
+        .as_array_mut()
+        .ok_or_else(|| "rendered SARIF results are not an array".to_owned())?;
+    results.extend(receipt.findings.iter().map(|finding| {
+        let level = if finding.status == octet_standards::project_architecture_gate::ArchitectureFindingStatus::Waived {
+            "note"
+        } else if matches!(
+            receipt.mode,
+            octet_standards::project_architecture_policy::ArchitectureMode::Inventory
+                | octet_standards::project_architecture_policy::ArchitectureMode::Advisory
+        ) {
+            "warning"
+        } else {
+            "error"
+        };
+        let locations = finding.source_path.as_ref().map_or_else(Vec::new, |source_path| {
+            vec![serde_json::json!({
+                "physicalLocation": { "artifactLocation": { "uri": source_path } }
+            })]
+        });
+        serde_json::json!({
+            "ruleId": format!("project-architecture/{}", finding.code),
+            "level": level,
+            "message": { "text": finding.message },
+            "locations": locations,
+            "properties": {
+                "findingId": finding.finding_id,
+                "affectedClaim": finding.affected_claim,
+                "findingStatus": finding.status,
+                "evidenceTier": receipt.evidence_tier,
+                "phase": "architecture"
+            }
+        })
+    }));
+    pretty_json(&sarif, "write integrated SARIF")
+}
+
 pub fn render_status_json(
     outcome: &RunOutcome,
     output_format: &str,
@@ -446,6 +536,21 @@ pub fn render_status_json(
         serde_json::to_string_pretty(&artifact).map_err(|error| format!("write status JSON: {error}"))?;
     rendered.push('\n');
     Ok(rendered)
+}
+
+pub fn render_integrated_status_json(
+    outcome: &RunOutcome,
+    lint_outcome: &RunOutcome,
+    output_format: &str,
+    metadata: &RunMetadata,
+    baseline: Option<&BaselineEvaluation>,
+    receipt: &octet_standards::project_architecture_gate::ProjectArchitectureReceipt,
+) -> Result<String, String> {
+    let base = render_status_json(outcome, output_format, metadata, baseline)?;
+    let mut value = serde_json::from_str::<serde_json::Value>(&base)
+        .map_err(|error| format!("parse rendered status for architecture phases: {error}"))?;
+    value["phases"] = integrated_phases(lint_outcome, receipt);
+    pretty_json(&value, "write integrated status JSON")
 }
 
 pub fn render_summary(
@@ -559,6 +664,68 @@ pub fn render_summary(
 
     writeln!(&mut summary, "{SUMMARY_FOOTER}").map_err(|error| format!("write summary: {error}"))?;
     Ok(summary)
+}
+
+pub fn render_integrated_summary(
+    findings: &[Finding],
+    outcome: &RunOutcome,
+    lint_outcome: &RunOutcome,
+    metadata: &RunMetadata,
+    baseline: Option<&BaselineEvaluation>,
+    receipt: &octet_standards::project_architecture_gate::ProjectArchitectureReceipt,
+) -> Result<String, String> {
+    let base = render_summary(findings, outcome, metadata, baseline)?;
+    let mut summary = base
+        .strip_suffix(&format!("{SUMMARY_FOOTER}\n"))
+        .ok_or_else(|| "rendered summary lacks footer".to_owned())?
+        .to_owned();
+    writeln!(&mut summary, "Lint phase: {} ({})", lint_outcome.status.as_str(), EvidenceTier::StaticLint.as_str())
+        .map_err(|error| format!("write integrated summary: {error}"))?;
+    writeln!(&mut summary, "Architecture phase: {} ({})", receipt.status.as_str(), receipt.evidence_tier)
+        .map_err(|error| format!("write integrated summary: {error}"))?;
+    writeln!(&mut summary, "Architecture findings: {}", receipt.findings.len())
+        .map_err(|error| format!("write integrated summary: {error}"))?;
+    writeln!(&mut summary, "Architecture receipt: {}", receipt.receipt_id)
+        .map_err(|error| format!("write integrated summary: {error}"))?;
+    if let Some(closure) = &receipt.effect_closure {
+        writeln!(
+            &mut summary,
+            "Effect-closure phase: {} ({})",
+            if closure.admitted { "admitted" } else { "denied" },
+            closure.evidence_tier
+        )
+        .map_err(|error| format!("write integrated summary: {error}"))?;
+    }
+    writeln!(&mut summary, "{SUMMARY_FOOTER}").map_err(|error| format!("write integrated summary: {error}"))?;
+    Ok(summary)
+}
+
+fn integrated_phases(
+    lint_outcome: &RunOutcome,
+    receipt: &octet_standards::project_architecture_gate::ProjectArchitectureReceipt,
+) -> serde_json::Value {
+    serde_json::json!({
+        "lint": {
+            "status": lint_outcome.status.as_str(),
+            "evidence_tier": EvidenceTier::StaticLint.as_str(),
+            "finding_count": lint_outcome.counts.total_findings,
+            "non_claims": [LINT_NON_CLAIM],
+        },
+        "architecture": {
+            "status": receipt.status.as_str(),
+            "evidence_tier": receipt.evidence_tier,
+            "receipt_id": receipt.receipt_id,
+            "finding_ids": receipt.findings.iter().map(|finding| &finding.finding_id).collect::<Vec<_>>(),
+            "non_claims": receipt.non_claims,
+        },
+        "effect_closure": receipt.effect_closure,
+    })
+}
+
+fn pretty_json(value: &serde_json::Value, label: &str) -> Result<String, String> {
+    let mut rendered = serde_json::to_string_pretty(value).map_err(|error| format!("{label}: {error}"))?;
+    rendered.push('\n');
+    Ok(rendered)
 }
 
 #[cfg(test)]

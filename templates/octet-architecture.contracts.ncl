@@ -31,6 +31,7 @@ let ProductionRole = OneOf [
   "composition-root",
 ] in
 let AdapterRole = OneOf ["inbound-adapter", "outbound-adapter"] in
+let ProviderKind = OneOf ["pure-value", "application-contract", "infrastructure"] in
 let ScopeKind = OneOf ["package", "source"] in
 let CapabilityFamily = OneOf [
   "time",
@@ -69,6 +70,13 @@ let DependencyRule = {
   allowed_callee_roles | Array ProductionRole,
   edge_kinds | NonEmptyArray | Array NonEmptyString,
 } in
+let ProviderClassification = {
+  package | NonEmptyString,
+  kind | ProviderKind,
+  permitted_caller_roles | NonEmptyArray | Array ProductionRole,
+  edge_kinds | NonEmptyArray | Array NonEmptyString,
+  rationale | NonEmptyString,
+} in
 let Port = {
   port_trait | NonEmptyString,
   application_owner_scope | NonEmptyString,
@@ -84,6 +92,10 @@ let CapabilityClassification = {
 } in
 let NoStdObligation = {
   scope | NonEmptyString,
+} in
+let AdmissionBinding = {
+  strict_profile | OneOf ["deterministic-core"],
+  effect_closure_policy | NonEmptyString,
 } in
 let Waiver = {
   finding_id | NonEmptyString,
@@ -122,9 +134,11 @@ let ProjectArchitecturePolicyContract = {
   production | Production,
   roles | NonEmptyArray | Array RoleAssignment,
   dependency_rules | NonEmptyArray | Array DependencyRule,
+  provider_classifications | Array ProviderClassification | default = [],
   ports | Array Port | default = [],
   capability_classifications | NonEmptyArray | Array CapabilityClassification,
   core_no_std | Array NoStdObligation | default = [],
+  admission | default = null,
   waivers | Array Waiver | default = [],
   collection_limits | CollectionLimits,
   non_claims | NonEmptyArray | Array NonEmptyString,
@@ -214,6 +228,12 @@ let rules_valid = fun policy =>
   ) policy.roles
   && !has_duplicates caller_roles
   && std.array.all (fun role => std.array.elem role caller_roles) (production_roles policy)
+  && !has_duplicates (policy.provider_classifications |> std.array.map (fun provider => provider.package))
+  && std.array.all (fun provider =>
+    !std.array.elem provider.package policy.production.packages
+    && std.array.length provider.permitted_caller_roles > 0
+    && std.array.length provider.edge_kinds > 0
+  ) policy.provider_classifications
   && !has_duplicates (policy.ports |> std.array.map (fun port => port.port_trait))
   && std.array.all (fun port =>
     role_for_source port.application_owner_scope policy.roles == "application-shell"
@@ -226,6 +246,14 @@ let rules_valid = fun policy =>
   && std.array.all (fun obligation =>
     role_for_scope obligation.scope policy.roles == "domain-core"
   ) policy.core_no_std
+  && (
+    if policy.mode == "admission" then
+      policy.admission != null
+      && (policy.admission | AdmissionBinding) == policy.admission
+      && workspace_path_valid policy.admission.effect_closure_policy
+    else
+      policy.admission == null
+  )
   && !has_duplicates (policy.waivers |> std.array.map (fun waiver => waiver.finding_id))
   && policy.collection_limits.max_shards >= policy.collection_limits.max_units
 in

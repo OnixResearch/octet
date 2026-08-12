@@ -59,6 +59,8 @@ It also does not emit:
 
 Existing lint checks and strict Rust profiles still run. Selecting `deterministic-core` does not activate project architecture policy.
 
+An inactive run does not create compiler, project-architecture, or effect-closure artifacts. Its existing output serializers stay unchanged.
+
 ## Compiler Architecture IR
 
 An active policy starts compiler architecture collection for the exact production library units.
@@ -94,6 +96,66 @@ Start with `inventory`. Promote only after scope and role coverage are complete.
 | `admission` | Requires the architecture gate and transitive effect-closure evidence. |
 
 Every active mode rejects malformed policy, stale exports, escaping paths, ambiguous roles, and missing required inputs.
+
+## Architecture gate output
+
+After compiler collection succeeds, `cargo octet check` evaluates the activated policy against the exact resolved Cargo graph and Architecture IR.
+
+The evaluator checks:
+
+- complete production package and source-role coverage;
+- permitted production dependency edges;
+- explicit external provider classifications;
+- domain-core effects and required compiler unknowns;
+- application-owned port traits and adapter implementations;
+- concrete adapter construction at composition roots;
+- forbidden infrastructure types in inward contracts;
+- capability executor roles and optional `no_std` obligations.
+
+When `--artifact-dir` is set, an active run also adds:
+
+- `project-architecture-policy-source.ncl`;
+- `project-architecture-policy.json`;
+- `project-architecture-cargo-graph.json`;
+- `project-architecture-receipt.json`.
+
+The receipt binds the Nickel source, exported policy, normalized command, lint status, Cargo graph, compiler IR, coverage, toolchain, roles, ports, capabilities, findings, unknowns, waivers, and phase status.
+
+JSON, SARIF, status, and human output keep lint and architecture phase records separate. Architecture findings use `policy-check` evidence. They are not lint findings.
+
+Use `cargo octet artifact verify --artifact-dir PATH` to check stored identities and cross-artifact links.
+
+## Admission mode
+
+Admission runs these phases in order:
+
+1. the `deterministic-core` strict lint profile;
+2. the project architecture gate;
+3. the existing selected-source effect-closure rail.
+
+A later phase does not run after an earlier phase fails. Passing one phase does not change another phase status or evidence tier.
+
+The policy must contain this explicit binding:
+
+```nickel
+admission = {
+  strict_profile = "deterministic-core",
+  effect_closure_policy = "octet-effect-closure.json",
+}
+```
+
+The path must stay inside the workspace. Octet does not guess a closure policy. An explicit `--profile` value must match the binding.
+
+An admission run adds these separate closure artifacts:
+
+- `effect-closure.json`;
+- `effect-closure-policy.json`;
+- `effect-closure-dependency-graph.json`;
+- `effect-closure-parent-status.json`.
+
+The parent status contains the successful lint and architecture prerequisites. The architecture receipt links the closure receipt without merging findings, evidence tiers, or non-claims.
+
+Admission fails if closure is denied or if any stored source, graph, provider, receipt, or parent link is missing or mismatched.
 
 ## Roles
 

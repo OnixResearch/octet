@@ -1,4 +1,5 @@
 {
+  "admission": null,
   "capability_classifications": [
     {
       "core_handling": "explicit-fact",
@@ -182,6 +183,149 @@
     ]
   },
   "project_id": "octet",
+  "provider_classifications": [
+    {
+      "edge_kinds": [
+        "normal",
+        "build"
+      ],
+      "kind": "pure-value",
+      "package": "blake3",
+      "permitted_caller_roles": [
+        "domain-core",
+        "application-shell",
+        "composition-root"
+      ],
+      "rationale": "BLAKE3 supplies deterministic content identity"
+    },
+    {
+      "edge_kinds": [
+        "normal"
+      ],
+      "kind": "pure-value",
+      "package": "serde",
+      "permitted_caller_roles": [
+        "domain-core",
+        "application-shell",
+        "inbound-adapter",
+        "composition-root"
+      ],
+      "rationale": "Serde supplies typed value encoding contracts"
+    },
+    {
+      "edge_kinds": [
+        "normal"
+      ],
+      "kind": "pure-value",
+      "package": "serde_json",
+      "permitted_caller_roles": [
+        "domain-core",
+        "application-shell",
+        "inbound-adapter",
+        "composition-root"
+      ],
+      "rationale": "JSON encoding remains a bounded value transformation at these call sites"
+    },
+    {
+      "edge_kinds": [
+        "normal"
+      ],
+      "kind": "infrastructure",
+      "package": "dylint_linting",
+      "permitted_caller_roles": [
+        "inbound-adapter"
+      ],
+      "rationale": "the rustc lint adapter owns Dylint integration"
+    },
+    {
+      "edge_kinds": [
+        "normal"
+      ],
+      "kind": "infrastructure",
+      "package": "clap",
+      "permitted_caller_roles": [
+        "application-shell"
+      ],
+      "rationale": "the standards application shell owns command parsing"
+    },
+    {
+      "edge_kinds": [
+        "normal"
+      ],
+      "kind": "application-contract",
+      "package": "nickel-export-core",
+      "permitted_caller_roles": [
+        "application-shell"
+      ],
+      "rationale": "the standards shell owns deterministic Nickel export integration"
+    },
+    {
+      "edge_kinds": [
+        "normal"
+      ],
+      "kind": "pure-value",
+      "package": "thiserror",
+      "permitted_caller_roles": [
+        "application-shell"
+      ],
+      "rationale": "the standards shell derives bounded error values"
+    },
+    {
+      "edge_kinds": [
+        "normal"
+      ],
+      "kind": "application-contract",
+      "package": "valence-core",
+      "permitted_caller_roles": [
+        "composition-root"
+      ],
+      "rationale": "the cargo runner composes Valence evidence contracts"
+    },
+    {
+      "edge_kinds": [
+        "normal"
+      ],
+      "kind": "infrastructure",
+      "package": "cap-std",
+      "permitted_caller_roles": [
+        "composition-root"
+      ],
+      "rationale": "the cargo runner owns capability-relative filesystem access"
+    },
+    {
+      "edge_kinds": [
+        "normal"
+      ],
+      "kind": "pure-value",
+      "package": "syn",
+      "permitted_caller_roles": [
+        "composition-root"
+      ],
+      "rationale": "the cargo runner parses bounded Rust syntax inputs"
+    },
+    {
+      "edge_kinds": [
+        "normal"
+      ],
+      "kind": "pure-value",
+      "package": "toml",
+      "permitted_caller_roles": [
+        "composition-root"
+      ],
+      "rationale": "the cargo runner parses bounded Cargo configuration values"
+    },
+    {
+      "edge_kinds": [
+        "normal"
+      ],
+      "kind": "pure-value",
+      "package": "wasmparser",
+      "permitted_caller_roles": [
+        "composition-root"
+      ],
+      "rationale": "the cargo runner parses bounded Wasm artifact values"
+    }
+  ],
   "roles": [
     {
       "role": "domain-core",

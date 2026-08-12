@@ -200,6 +200,18 @@ in
       negative_fixtures = ["crates/octet-architecture-ir/src/tests.rs::missing_unit_fails_closed_without_architecture_ir", "crates/octet-architecture-ir/src/tests.rs::stale_fact_identity_and_invalid_reference_are_rejected", "crates/octet-architecture-ir/src/tests.rs::count_overflow_is_incomplete"],
     },
     {
+      family_id = "octet.project-architecture-gate-receipt",
+      ownership = "rust-derived",
+      owner_source_path = "crates/octet-standards/src/project_architecture_gate.rs",
+      artifact_path = "project-architecture-receipt.json",
+      generation_command = "cargo octet check --artifact-dir PATH",
+      validation_command = "cargo test -p octet-standards project_architecture -- --nocapture",
+      status = "existing",
+      config_digest_required = true,
+      positive_fixtures = ["crates/octet-standards/src/project_architecture_gate.rs::clean_role_graph_passes_and_receipt_repeats", "crates/octet-standards/src/project_architecture_gate.rs::admission_keeps_effect_closure_separate"],
+      negative_fixtures = ["crates/octet-standards/src/project_architecture_gate.rs::incomplete_compiler_coverage_is_an_integration_failure_in_advisory_mode", "crates/octet-standards/src/project_architecture_gate.rs::receipt_verifier_rejects_tampering_and_missing_non_claims"],
+    },
+    {
       family_id = "octet.strict-rust-profile-config",
       ownership = "nickel-authored",
       owner_source_path = "standards/strict-profiles/profiles.ncl",

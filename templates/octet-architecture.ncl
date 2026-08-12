@@ -68,6 +68,22 @@ let contracts = import "./octet-architecture.contracts.ncl" in
       edge_kinds = ["normal", "build"],
     },
   ],
+  provider_classifications = [
+    {
+      package = "serde",
+      kind = "pure-value",
+      permitted_caller_roles = ["domain-core", "application-shell"],
+      edge_kinds = ["normal"],
+      rationale = "reviewed deterministic value provider",
+    },
+    {
+      package = "sqlx",
+      kind = "infrastructure",
+      permitted_caller_roles = ["outbound-adapter", "composition-root"],
+      edge_kinds = ["normal"],
+      rationale = "storage infrastructure remains outside inward contracts",
+    },
+  ],
   ports = [{
     port_trait = "application::ports::Repository",
     application_owner_scope = "crates/application/src",
@@ -90,6 +106,7 @@ let contracts = import "./octet-architecture.contracts.ncl" in
     },
   ],
   core_no_std = [{ scope = "domain" }],
+  admission = null,
   waivers = [],
   collection_limits = {
     max_units = 32,
