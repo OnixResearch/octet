@@ -18,6 +18,7 @@ result*
 *.redb
 *.sock
 data/
+/.octet/
 /.agent
 /.pi
 .pi/

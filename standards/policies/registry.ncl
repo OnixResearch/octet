@@ -188,6 +188,18 @@ in
       negative_fixtures = ["standards/project-architecture/fixtures/invalid/unknown-mode.ncl", "standards/project-architecture/fixtures/invalid/overlapping-scopes.ncl", "standards/project-architecture/fixtures/invalid/stale-waiver-shape.ncl"],
     },
     {
+      family_id = "octet.compiler-architecture-ir-receipt",
+      ownership = "rust-derived",
+      owner_source_path = "crates/octet-architecture-ir/src/model.rs",
+      artifact_path = "compiler-architecture-receipt.json",
+      generation_command = "cargo octet check --artifact-dir PATH",
+      validation_command = "cargo test -p octet-architecture-ir --lib",
+      status = "existing",
+      config_digest_required = true,
+      positive_fixtures = ["crates/octet-architecture-ir/src/tests.rs::complete_shard_normalizes_and_keeps_unknown_facts", "crates/octet-architecture-ir/src/tests.rs::unchanged_inputs_repeat_byte_identities"],
+      negative_fixtures = ["crates/octet-architecture-ir/src/tests.rs::missing_unit_fails_closed_without_architecture_ir", "crates/octet-architecture-ir/src/tests.rs::stale_fact_identity_and_invalid_reference_are_rejected", "crates/octet-architecture-ir/src/tests.rs::count_overflow_is_incomplete"],
+    },
+    {
       family_id = "octet.strict-rust-profile-config",
       ownership = "nickel-authored",
       owner_source_path = "standards/strict-profiles/profiles.ncl",

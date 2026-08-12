@@ -83,6 +83,40 @@ fn no_argument_check_uses_workspace_metadata_defaults() {
     assert!(log.contains("DYLINT_NO_DEPS=1"), "expected DYLINT_NO_DEPS=1, got: {log}");
 }
 
+#[test]
+fn project_without_architecture_policy_gets_no_collector_state_or_artifacts() {
+    let fixture =
+        ConsumerFixture::new("inactive-architecture-policy", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
+    let artifact_dir = fixture.repo.join("artifacts/octet");
+
+    let output = fixture.run(
+        &["--artifact-dir", "artifacts/octet"],
+        0,
+        false,
+        Some("nightly-2026-03-21-x86_64-unknown-linux-gnu"),
+        Some(fixture.driver_path.as_path()),
+        Some(fixture.lint_lib_path.as_path()),
+        None,
+    );
+
+    assert!(
+        output.status.success(),
+        "inactive architecture run failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(fixture.log().contains("OCTET_COMPILER_ARCHITECTURE_CONTEXT="));
+    assert!(!fixture.log().contains("OCTET_COMPILER_ARCHITECTURE_CONTEXT=/"));
+    assert!(!fixture.repo.join(".octet/compiler-architecture").exists());
+    for name in [
+        "compiler-architecture-ir.json",
+        "compiler-architecture-coverage.json",
+        "compiler-architecture-issues.json",
+        "compiler-architecture-receipt.json",
+    ] {
+        assert!(!artifact_dir.join(name).exists(), "inactive project emitted {name}");
+    }
+}
+
 // r[impl octet.runner_self_check.metadata]
 // r[verify octet.runner_self_check.metadata.scoped]
 // r[impl octet.runner_self_check.execution]

@@ -1830,6 +1830,7 @@
 
               cmp "$policy_dir/octet-self-architecture.contracts.ncl" templates/octet-architecture.contracts.ncl
               nickel typecheck "$policy_dir/octet-self-architecture.contracts.ncl"
+              nickel typecheck standards/compiler-architecture-ir/contracts/compiler-architecture-ir.generated.ncl
               nickel typecheck templates/octet-architecture.ncl
               nickel export --format json "$policy_dir/octet-self-architecture.ncl" > "$actual_policy"
               cmp "$actual_policy" "$policy_dir/octet-self-architecture.json"

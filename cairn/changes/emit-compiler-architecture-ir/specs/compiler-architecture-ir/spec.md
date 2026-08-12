@@ -50,6 +50,8 @@ Each selected compilation-unit shard MUST record bounded compiler facts for role
 - GIVEN rustc resolves a public signature, trait implementation, constructor type, call definition, macro origin, or direct effect primitive
 - WHEN the collector evaluates the unit
 - THEN the shard MUST record the resolved definition origin, source span, active target, feature set, and fact kind
+- AND workspace source paths MUST be normalized and workspace-relative
+- AND external generated sources MUST use typed BLAKE3 provenance without a workspace path
 
 #### Scenario: Source text mimics a declaration
 
@@ -89,7 +91,7 @@ Octet MUST compare expected production compilation units with valid observed com
 
 #### Scenario: Unit is missing or mismatched
 
-- GIVEN an expected target emits no shard or a shard has a stale package, target, feature, source, policy, or toolchain identity
+- GIVEN an expected target emits no shard or a shard has a stale package, target, feature, source, policy, toolchain, or collector identity
 - WHEN coverage evaluation runs
 - THEN collection MUST fail with a deterministic incomplete-coverage diagnostic
 

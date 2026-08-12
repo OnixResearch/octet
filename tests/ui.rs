@@ -9,6 +9,16 @@ use std::process::Command;
 use std::time::SystemTime;
 use std::time::UNIX_EPOCH;
 
+use octet_architecture_ir::ArchitectureCollectionLimits;
+use octet_architecture_ir::CollectionStatus;
+use octet_architecture_ir::CollectorCompilationUnit;
+use octet_architecture_ir::CompilationUnit;
+use octet_architecture_ir::CompilerArchitectureCollectorContext;
+use octet_architecture_ir::CompilerArchitectureFact;
+use octet_architecture_ir::CompilerArchitectureRole;
+use octet_architecture_ir::CompilerArchitectureShard;
+use octet_architecture_ir::SourceRoleScope;
+use octet_architecture_ir::UnknownFactKind;
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
@@ -16,6 +26,12 @@ struct UiFixtureSet {
     all_fixtures: Vec<String>,
     expected_failures: Vec<String>,
 }
+
+const COMPILER_FIXTURE_HASH: &str = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+const COMPILER_FIXTURE_MAX_FACTS: usize = 4_096;
+const COMPILER_FIXTURE_MAX_SPANS: usize = 8_192;
+const COMPILER_FIXTURE_MAX_BYTES: usize = 16 * 1_024 * 1_024;
+const COMPILER_FIXTURE_MAX_UNITS: usize = 1;
 
 fn fixture_set() -> UiFixtureSet {
     let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
@@ -510,6 +526,168 @@ fn run_autofix_fixture(driver: &Path, library: &Path, toolchain: &str, name: &st
         !combined_check_output.contains("warning:"),
         "autofixed fixture {name} still emitted warnings:\n{combined_check_output}"
     );
+}
+
+fn compiler_fixture_limits() -> ArchitectureCollectionLimits {
+    ArchitectureCollectionLimits {
+        max_units: COMPILER_FIXTURE_MAX_UNITS,
+        max_shards: COMPILER_FIXTURE_MAX_UNITS,
+        max_modules: COMPILER_FIXTURE_MAX_FACTS,
+        max_items: COMPILER_FIXTURE_MAX_FACTS,
+        max_types: COMPILER_FIXTURE_MAX_FACTS,
+        max_traits: COMPILER_FIXTURE_MAX_FACTS,
+        max_implementations: COMPILER_FIXTURE_MAX_FACTS,
+        max_signatures: COMPILER_FIXTURE_MAX_FACTS,
+        max_calls: COMPILER_FIXTURE_MAX_FACTS,
+        max_constructors: COMPILER_FIXTURE_MAX_FACTS,
+        max_effects: COMPILER_FIXTURE_MAX_FACTS,
+        max_expansions: COMPILER_FIXTURE_MAX_FACTS,
+        max_configurations: COMPILER_FIXTURE_MAX_FACTS,
+        max_unknowns: COMPILER_FIXTURE_MAX_FACTS,
+        max_spans: COMPILER_FIXTURE_MAX_SPANS,
+        max_span_bytes: COMPILER_FIXTURE_MAX_BYTES,
+        max_shard_bytes: COMPILER_FIXTURE_MAX_BYTES,
+        max_artifact_bytes: COMPILER_FIXTURE_MAX_BYTES,
+    }
+}
+
+fn run_compiler_architecture_fixture(
+    driver: &Path,
+    library: &Path,
+    host: &str,
+    fixture_name: &str,
+) -> CompilerArchitectureShard {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let source_scope = "fixtures/compiler-architecture-ir";
+    let fixture_path = root.join(source_scope).join(fixture_name);
+    let work_name = temp_path("octet-compiler-architecture-fixture").file_name().expect("fixture work name").to_owned();
+    let work_dir = root.join(".octet/compiler-architecture-fixtures").join(work_name);
+    let shard_dir = work_dir.join("shards");
+    fs::create_dir_all(&shard_dir).expect("create compiler architecture fixture shard dir");
+    let crate_name = fixture_path.file_stem().expect("fixture stem").to_string_lossy().replace('-', "_");
+    let mut unit = CompilationUnit {
+        unit_id: String::new(),
+        package_name: crate_name.clone(),
+        package_version: "0.1.0".to_owned(),
+        target_name: crate_name.clone(),
+        target_kind: "lib".to_owned(),
+        crate_types: vec!["rlib".to_owned()],
+        target_triple: host.to_owned(),
+        features: Vec::new(),
+        default_features: true,
+        role: CompilerArchitectureRole::DomainCore,
+        toolchain_blake3: COMPILER_FIXTURE_HASH.to_owned(),
+        collector_blake3: COMPILER_FIXTURE_HASH.to_owned(),
+        policy_blake3: COMPILER_FIXTURE_HASH.to_owned(),
+        source_blake3: COMPILER_FIXTURE_HASH.to_owned(),
+        invocation_blake3: COMPILER_FIXTURE_HASH.to_owned(),
+    };
+    unit.unit_id = octet_architecture_ir::compilation_unit_identity(&unit);
+    let context = CompilerArchitectureCollectorContext {
+        schema_version: octet_architecture_ir::COMPILER_ARCHITECTURE_COLLECTOR_CONTEXT_SCHEMA_VERSION.to_owned(),
+        output_directory: shard_dir.display().to_string(),
+        limits: compiler_fixture_limits(),
+        selected_units: vec![CollectorCompilationUnit {
+            rustc_crate_name: crate_name.clone(),
+            manifest_dir: String::new(),
+            source_roles: vec![SourceRoleScope {
+                source_scope: source_scope.to_owned(),
+                role: CompilerArchitectureRole::DomainCore,
+            }],
+            unit,
+        }],
+        non_claims: vec!["whole-program-correctness".to_owned()],
+    };
+    let context_path = work_dir.join("collector-context.json");
+    fs::write(&context_path, serde_json::to_vec_pretty(&context).expect("serialize collector context"))
+        .expect("write collector context");
+    let dylint_libs = serde_json::to_string(&vec![library]).expect("encode compiler fixture DYLINT_LIBS");
+    let output = Command::new(driver)
+        .current_dir(root)
+        .env("DYLINT_LIBS", dylint_libs)
+        .env(octet_architecture_ir::COMPILER_ARCHITECTURE_COLLECTOR_CONTEXT_ENV, &context_path)
+        .env("CARGO_CRATE_NAME", &crate_name)
+        .env("CARGO_MANIFEST_DIR", root)
+        .arg(&fixture_path)
+        .arg("--crate-name")
+        .arg(&crate_name)
+        .args([
+            "--crate-type",
+            "lib",
+            "--edition=2024",
+            "--emit=metadata",
+            "-A",
+            "unused",
+        ])
+        .arg(format!("--target={host}"))
+        .arg("-o")
+        .arg(work_dir.join("fixture.rmeta"))
+        .output()
+        .expect("run compiler architecture fixture");
+    assert!(
+        output.status.success(),
+        "compiler architecture fixture {fixture_name} failed:\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let mut shard_paths = fs::read_dir(&shard_dir)
+        .expect("read compiler fixture shard dir")
+        .map(|entry| entry.expect("compiler fixture shard entry").path())
+        .collect::<Vec<_>>();
+    shard_paths.sort();
+    assert_eq!(shard_paths.len(), COMPILER_FIXTURE_MAX_UNITS);
+    let shard = serde_json::from_slice::<CompilerArchitectureShard>(
+        &fs::read(&shard_paths[0]).expect("read compiler fixture shard"),
+    )
+    .expect("parse compiler fixture shard");
+    fs::remove_dir_all(&work_dir).expect("remove compiler fixture work dir");
+    shard
+}
+
+#[test]
+#[ignore = "run via cargo test --test ui compiler_architecture_ir_fixtures -- --ignored --nocapture"]
+fn compiler_architecture_ir_fixtures() {
+    let toolchain = rustup_toolchain();
+    let library = build_library(&toolchain);
+    let host = host_triple();
+    let driver = build_driver(&toolchain);
+
+    let positive = run_compiler_architecture_fixture(&driver, &library, &host, "positive/resolved_semantics.rs");
+    assert_eq!(positive.collection_status, CollectionStatus::Complete);
+    for expected in [
+        "trait",
+        "implementation",
+        "signature",
+        "call",
+        "constructor",
+        "expansion",
+        "configuration",
+    ] {
+        let has_fact = positive.facts.iter().any(|fact| match (expected, fact) {
+            ("trait", CompilerArchitectureFact::Trait { .. })
+            | ("implementation", CompilerArchitectureFact::Implementation { .. })
+            | ("signature", CompilerArchitectureFact::Signature { .. })
+            | ("call", CompilerArchitectureFact::Call { .. })
+            | ("constructor", CompilerArchitectureFact::Constructor { .. })
+            | ("expansion", CompilerArchitectureFact::Expansion { .. })
+            | ("configuration", CompilerArchitectureFact::Configuration { .. }) => true,
+            _ => false,
+        });
+        assert!(has_fact, "positive compiler fixture omitted {expected} fact");
+    }
+
+    let negative =
+        run_compiler_architecture_fixture(&driver, &library, &host, "negative/source_text_and_dynamic_dispatch.rs");
+    assert_eq!(negative.collection_status, CollectionStatus::Complete);
+    assert!(negative.unknowns.iter().any(|unknown| unknown.kind == UnknownFactKind::DynamicDispatch));
+    assert!(!negative.facts.iter().any(|fact| {
+        matches!(
+            fact,
+            CompilerArchitectureFact::Trait { qualified_path, .. }
+                | CompilerArchitectureFact::Item { qualified_path, .. }
+                if qualified_path.contains("FakePort")
+        )
+    }));
 }
 
 #[test]

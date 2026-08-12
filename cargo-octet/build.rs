@@ -9,9 +9,11 @@ const FILE_INPUT_SEPARATOR: u8 = 0xff;
 const EMBEDDED_DIRECTORIES: &[&str] = &[
     "src",
     "cargo-octet",
+    "crates/octet-architecture-ir",
     "crates/octet-lint-metadata",
     "crates/octet-standards",
     "standards/clippy-restrictions/generated",
+    "standards/compiler-architecture-ir/contracts",
     "standards/effect-closure/generated",
     "standards/nominal-domains/generated",
     "standards/proof-imports/generated",

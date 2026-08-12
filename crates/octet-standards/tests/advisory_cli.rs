@@ -9,6 +9,8 @@ use octet_standards::model::EnforcementMode;
 use octet_standards::model::EvidenceCommand;
 use octet_standards::model::FixtureCoverage;
 use octet_standards::model::FixtureStatus;
+use octet_standards::model::Mechanism;
+use octet_standards::model::MechanismKind;
 use octet_standards::model::PolicyEntry;
 use octet_standards::model::PolicyRegistry;
 use octet_standards::model::ProofRail;
@@ -1150,6 +1152,18 @@ fn verified_policy(current: EnforcementMode, target: EnforcementMode) -> PolicyE
 }
 
 fn hard_policy(policy_id: &str, source_anchor: &str) -> PolicyEntry {
+    let mechanisms = if policy_id == FCIS_POLICY_ID {
+        vec![Mechanism {
+            kind: MechanismKind::CrateBoundary,
+            description: "explicit CLI fixture boundary".to_owned(),
+            core_crates: vec!["crates/tigerstyle-core/src/lib.rs".to_owned()],
+            shell_crates: vec!["crates/tigerstyle-std/Cargo.toml".to_owned()],
+            core_no_std: true,
+            ..Mechanism::default()
+        }]
+    } else {
+        Vec::new()
+    };
     PolicyEntry {
         policy_id: policy_id.to_owned(),
         pillar: ARCHITECTURE_FAMILY.to_owned(),
@@ -1162,7 +1176,7 @@ fn hard_policy(policy_id: &str, source_anchor: &str) -> PolicyEntry {
         current_enforcement_mode: EnforcementMode::Gate,
         target_enforcement_mode: EnforcementMode::Gate,
         escalation_criteria: "already gated".to_owned(),
-        mechanisms: Vec::new(),
+        mechanisms,
         deterministic_checker: EvidenceCommand::default(),
         proof_rails: Vec::new(),
         checker_owner: ARCHITECTURE_FAMILY.to_owned(),

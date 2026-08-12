@@ -40,6 +40,7 @@ const PROVENANCE_ARTIFACT_NAME: &str = "provenance.jsonl";
 const RUNNER_PROVENANCE_SOURCE_ID: &str = "octet.runner.artifact-bundle";
 const RUNNER_STATIC_FINDINGS_SOURCE_ID: &str = "octet.runner.static-findings";
 const FUNCTION_ADDRESS_PROVENANCE_SOURCE_ID: &str = "octet.function_address.receipt";
+const ARCHITECTURE_IR_PROVENANCE_SOURCE_ID: &str = "octet.compiler-architecture-ir.receipt";
 const RUNNER_CHECKER_ID: &str = "cargo-octet";
 const RUNNER_MANUAL_REVIEW_ACTION: &str =
     "review runner status, command, and summary before using this artifact as release evidence";
@@ -128,6 +129,20 @@ pub fn run(check: &CheckArgs) -> Result<i32, String> {
         });
         let driver = resolve_driver(&toolchain)?;
         let lint_lib = resolve_lint_lib(&toolchain)?;
+        let collector = cfg
+            .architecture_policy
+            .as_ref()
+            .map(|policy| {
+                crate::architecture_ir::prepare_collector(
+                    &cfg.workspace_root,
+                    policy,
+                    &toolchain,
+                    Path::new(lint_lib.path()),
+                    &scope_args,
+                    &cargo_check_args,
+                )
+            })
+            .transpose()?;
         let dylint_libs = serde_json::to_string(&vec![lint_lib.path().to_owned()])
             .map_err(|error| format!("encode DYLINT_LIBS: {error}"))?;
 
@@ -150,6 +165,11 @@ pub fn run(check: &CheckArgs) -> Result<i32, String> {
             .env("RUSTUP_TOOLCHAIN", &toolchain)
             .stdout(Stdio::piped());
         cmd.env_remove(octet_lint_metadata::strict_profile::STRICT_PROFILE_ENV);
+        cmd.env_remove(octet_architecture_ir::COMPILER_ARCHITECTURE_COLLECTOR_CONTEXT_ENV);
+        if let Some(collector) = &collector {
+            debug_assert!(collector.shard_directory.is_absolute());
+            cmd.env(octet_architecture_ir::COMPILER_ARCHITECTURE_COLLECTOR_CONTEXT_ENV, &collector.context_path);
+        }
         if let Some(selected) = &selected_profile {
             cmd.env(octet_lint_metadata::strict_profile::STRICT_PROFILE_ENV, &selected.policy.profile_id);
         }
@@ -216,6 +236,11 @@ pub fn run(check: &CheckArgs) -> Result<i32, String> {
 
         let cargo_process_exit =
             classify_cargo_process_exit(child.wait().map_err(|error| format!("wait for cargo check: {error}"))?);
+        let architecture_artifacts = if cargo_process_exit.is_success() {
+            collector.as_ref().map(crate::architecture_ir::normalize_collected_shards).transpose()?
+        } else {
+            None
+        };
         let function_address_artifact = if cargo_process_exit.is_success() {
             match crate::function_address::collect_run(
                 &effective_function_addresses,
@@ -249,6 +274,13 @@ pub fn run(check: &CheckArgs) -> Result<i32, String> {
         {
             baseline::write_baseline(path, &findings, &run_metadata)?;
         }
+        let architecture_error =
+            architecture_artifacts.as_ref().and_then(|artifacts| artifacts.incomplete_error.clone());
+        let base_outcome = if architecture_error.is_some() {
+            base_outcome.force_integration_failure()
+        } else {
+            base_outcome
+        };
         let base_outcome = apply_baseline_gate(base_outcome, baseline_evaluation.as_ref());
         let finalized_run = finalize_run(
             check,
@@ -258,6 +290,8 @@ pub fn run(check: &CheckArgs) -> Result<i32, String> {
             &run_metadata,
             baseline_evaluation.as_ref(),
             function_address_artifact,
+            architecture_artifacts,
+            architecture_error,
         )?;
 
         if let Some(structured_output) = finalized_run.run_artifacts.structured_output.as_ref() {
@@ -297,12 +331,33 @@ fn build_run_artifacts(
     metadata: &RunMetadata,
     baseline_evaluation: Option<&BaselineEvaluation>,
     function_address_artifact: Option<StructuredArtifact>,
+    architecture_artifacts: Option<crate::architecture_ir::ArchitectureArtifacts>,
 ) -> Result<RunArtifacts, String> {
     let summary = output::render_summary(findings, outcome, metadata, baseline_evaluation)?;
     let status_json = output::render_status_json(outcome, check.output_format.as_str(), metadata, baseline_evaluation)?;
     let structured_output =
         render_structured_output(check, findings, meta_map, outcome, metadata, baseline_evaluation)?;
-    let additional_artifacts = function_address_artifact.into_iter().collect::<Vec<_>>();
+    let mut additional_artifacts = function_address_artifact.into_iter().collect::<Vec<_>>();
+    if let Some(architecture) = architecture_artifacts {
+        additional_artifacts.extend([
+            StructuredArtifact {
+                file_name: crate::architecture_ir::ARCHITECTURE_IR_ARTIFACT_NAME,
+                contents: architecture.architecture_ir,
+            },
+            StructuredArtifact {
+                file_name: crate::architecture_ir::ARCHITECTURE_COVERAGE_ARTIFACT_NAME,
+                contents: architecture.coverage,
+            },
+            StructuredArtifact {
+                file_name: crate::architecture_ir::ARCHITECTURE_ISSUES_ARTIFACT_NAME,
+                contents: architecture.issues,
+            },
+            StructuredArtifact {
+                file_name: crate::architecture_ir::ARCHITECTURE_RECEIPT_ARTIFACT_NAME,
+                contents: architecture.receipt,
+            },
+        ]);
+    }
     let provenance_jsonl = render_run_provenance_jsonl(
         &check.command_line,
         &summary,
@@ -329,8 +384,10 @@ fn finalize_run(
     metadata: &RunMetadata,
     baseline_evaluation: Option<&BaselineEvaluation>,
     function_address_artifact: Option<StructuredArtifact>,
+    architecture_artifacts: Option<crate::architecture_ir::ArchitectureArtifacts>,
+    architecture_error: Option<String>,
 ) -> Result<FinalizedRun, String> {
-    let terminated_error = terminated_run_error(&base_outcome);
+    let terminated_error = architecture_error.or_else(|| terminated_run_error(&base_outcome));
 
     let Some(artifact_dir) = check.artifact_dir.as_deref() else {
         return Ok(FinalizedRun {
@@ -343,6 +400,7 @@ fn finalize_run(
                 metadata,
                 baseline_evaluation,
                 function_address_artifact,
+                architecture_artifacts,
             )?,
             error: terminated_error,
         });
@@ -362,6 +420,7 @@ fn finalize_run(
                     metadata,
                     baseline_evaluation,
                     function_address_artifact,
+                    architecture_artifacts,
                 )?,
                 error: Some(combine_errors(error, terminated_error)),
             });
@@ -376,6 +435,7 @@ fn finalize_run(
         metadata,
         baseline_evaluation,
         function_address_artifact.clone(),
+        architecture_artifacts.clone(),
     )?;
     match write_run_artifacts(&artifact_root, &check.command_line, &initial_artifacts) {
         Ok(()) => Ok(FinalizedRun {
@@ -393,6 +453,7 @@ fn finalize_run(
                 metadata,
                 baseline_evaluation,
                 function_address_artifact,
+                architecture_artifacts,
             )?;
             invalidate_failed_bundle_best_effort(&artifact_root, &final_artifacts);
             rewrite_status_sidecars_best_effort(&artifact_root, &check.command_line, &final_artifacts);
@@ -493,11 +554,16 @@ fn render_run_provenance_jsonl(
     }
 
     for artifact in additional_artifacts {
+        let source_id = if artifact.file_name.starts_with("compiler-architecture-") {
+            ARCHITECTURE_IR_PROVENANCE_SOURCE_ID
+        } else {
+            FUNCTION_ADDRESS_PROVENANCE_SOURCE_ID
+        };
         records.push(artifact_provenance_record(
             artifact.file_name,
             &artifact.contents,
             crate::evidence::EvidenceTier::StaticLint,
-            FUNCTION_ADDRESS_PROVENANCE_SOURCE_ID,
+            source_id,
             &checked_scope,
         ));
     }
@@ -677,11 +743,16 @@ fn canonicalize_findings(findings: &mut [Finding]) {
 }
 
 fn normalize_lint_name(code: &str) -> String {
-    code.strip_prefix("tigerstyle::").unwrap_or(code).to_owned()
+    let normalized = code.strip_prefix("tigerstyle::").unwrap_or(code);
+    if normalized.is_empty() {
+        "compiler_error".to_owned()
+    } else {
+        normalized.to_owned()
+    }
 }
 
 fn json_u64_to_u32(value: Option<u64>) -> u32 {
-    value.and_then(|line| u32::try_from(line).ok()).unwrap_or_default()
+    value.and_then(|line| u32::try_from(line).ok()).filter(|line| *line > 0).unwrap_or(1)
 }
 
 // r[impl octet.runner_self_check.inventory]
@@ -1173,8 +1244,10 @@ mod tests {
     use std::path::Path;
 
     use super::embedded_source;
+    use super::json_u64_to_u32;
     use super::normalize_finding_locator;
     use super::normalize_finding_message;
+    use super::normalize_lint_name;
 
     const REQUIRED_EMBEDDED_PATHS: &[&str] = &[
         "Cargo.toml",
@@ -1190,6 +1263,14 @@ mod tests {
         "standards/nominal-domains/generated/catalog.json",
         "standards/strict-profiles/generated/strict-rust-profiles.json",
     ];
+
+    #[test]
+    fn spanless_compiler_errors_keep_valid_structured_domains() {
+        assert_eq!(normalize_lint_name(""), "compiler_error");
+        assert_eq!(json_u64_to_u32(None), 1);
+        assert_eq!(json_u64_to_u32(Some(0)), 1);
+        assert_eq!(json_u64_to_u32(Some(42)), 42);
+    }
 
     #[test]
     fn finding_locators_normalize_relative_and_in_workspace_absolute_paths() {

@@ -164,6 +164,7 @@ dependencies = [
  "cap-std",
  "hegeltest",
  "iddqd",
+ "octet-architecture-ir",
  "octet-lint-metadata",
  "octet-standards",
  "serde",
@@ -689,11 +690,21 @@ dependencies = [
  "blake3",
  "crossbeam",
  "dylint_linting",
+ "octet-architecture-ir",
  "octet-lint-metadata",
  "serde",
  "serde_json",
  "tokio",
  "toml",
+]
+
+[[package]]
+name = "octet-architecture-ir"
+version = "0.1.0"
+dependencies = [
+ "blake3",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -712,6 +723,7 @@ dependencies = [
  "blake3",
  "clap",
  "nickel-export-core",
+ "octet-architecture-ir",
  "pretty_assertions",
  "serde",
  "serde_json",
