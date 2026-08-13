@@ -65,13 +65,13 @@ An inactive run does not create compiler, project-architecture, or effect-closur
 
 An active policy starts compiler architecture collection for the exact production library units.
 
-The policy must define positive limits for units, shards, facts, unknowns, spans, and artifact bytes.
+The policy must define positive limits for units, shards, facts, unknowns, spans, artifacts, and selected MIR traversal.
 
 The Cargo invocation must cover all declared production packages. Its target, features, and default-feature selection must match one declared target.
 
 Octet writes one content-bound shard for each selected compilation unit. The shard records resolved items, types, traits, implementations, signatures, calls, constructors, effects, expansions, and active configuration.
 
-The collector records unresolved dispatch, FFI, missing bodies, and unsupported expansions as typed unknown facts. External generated spans use redacted BLAKE3 provenance, not workspace paths. The collector does not infer a clean result.
+The collector records unresolved dispatch, FFI, missing bodies, unsupported expansions, and ambiguous selected provenance as typed unknown facts. External generated spans use redacted BLAKE3 provenance, not workspace paths. The collector does not infer a clean result.
 
 When `--artifact-dir` is set, a complete run adds these files:
 
@@ -110,7 +110,11 @@ The evaluator checks:
 - application-owned port traits and adapter implementations;
 - concrete adapter construction at composition roots;
 - forbidden infrastructure types in inward contracts;
-- capability executor roles and optional `no_std` obligations.
+- capability executor roles and optional `no_std` obligations;
+- explicit outbound effect authority classifications;
+- protected witness opacity, constructor safety, and use cardinality;
+- executor witness signatures and selected MIR origin provenance;
+- distinct plan, attempt, observation, and receipt boundaries.
 
 When `--artifact-dir` is set, an active run also adds:
 
@@ -119,7 +123,7 @@ When `--artifact-dir` is set, an active run also adds:
 - `project-architecture-cargo-graph.json`;
 - `project-architecture-receipt.json`.
 
-The receipt binds the Nickel source, exported policy, normalized command, lint status, Cargo graph, compiler IR, coverage, toolchain, roles, ports, capabilities, findings, unknowns, waivers, and phase status.
+The receipt binds the Nickel source, exported policy, normalized command, lint status, Cargo graph, compiler IR, coverage, toolchain, roles, ports, capabilities, outbound authority protocols, findings, unknowns, waivers, and phase status.
 
 JSON, SARIF, status, and human output keep lint and architecture phase records separate. Architecture findings use `policy-check` evidence. They are not lint findings.
 
@@ -192,6 +196,29 @@ Each port declares:
 - reserved status.
 
 Legacy `core_owner_scope` is invalid. Use `application_owner_scope` and move the contract to the application shell.
+
+## Authorized outbound effects
+
+Each effectful outbound adapter family must have one explicit authority classification:
+
+- `unprotected` requires a reviewable reason;
+- `protected` requires an exact typed protocol.
+
+A protected protocol names the authority inputs, domain decision, authorized output, opaque witness, executor, plan, attempt, observation, receipt, constructors, scopes, cardinality, and non-claims.
+
+The witness fields must be restricted to the witness owner module. The witness must not implement `Copy`, `Clone`, `Default`, `Deserialize`, broad `From`, or broad `Into`. Each function that returns the witness is checked against the approved safe constructor set.
+
+A `consume` witness is one-shot. A `borrow` witness needs an explicit reusable scope and reason. A borrow declaration does not grant wider authority.
+
+The compiler traces only selected protocol types and calls through optimized MIR. It follows local moves, projections, parameters, returns, and wrappers. Empty, merged, unresolved, or over-limit provenance becomes a blocking typed unknown in strict modes.
+
+A protected executor must have the witness in its compiler-resolved input types. The effect site must remain in the declared executor method and outbound-adapter scope.
+
+Success-receipt constructors must receive the declared observed-outcome type from an approved success observation. Failure-receipt constructors require an approved failure observation. A plan, attempt, witness, missing observation, or failed observation cannot become a success receipt.
+
+Denial remains application behavior. Test it with controlled ports: a denied decision must yield no witness and zero protected executor calls. Static policy evidence does not prove that an external system denied or succeeded.
+
+A passing protocol does not prove credential validity, revocation freshness, actor trust, business-policy correctness, external success, or receipt authenticity.
 
 ## Optional `no_std`
 

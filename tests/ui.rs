@@ -17,6 +17,7 @@ use octet_architecture_ir::CompilerArchitectureCollectorContext;
 use octet_architecture_ir::CompilerArchitectureFact;
 use octet_architecture_ir::CompilerArchitectureRole;
 use octet_architecture_ir::CompilerArchitectureShard;
+use octet_architecture_ir::CompilerValueFlowSelection;
 use octet_architecture_ir::SourceRoleScope;
 use octet_architecture_ir::UnknownFactKind;
 use serde::Deserialize;
@@ -543,6 +544,12 @@ fn compiler_fixture_limits() -> ArchitectureCollectionLimits {
         max_effects: COMPILER_FIXTURE_MAX_FACTS,
         max_expansions: COMPILER_FIXTURE_MAX_FACTS,
         max_configurations: COMPILER_FIXTURE_MAX_FACTS,
+        max_type_shapes: COMPILER_FIXTURE_MAX_FACTS,
+        max_function_safety_facts: COMPILER_FIXTURE_MAX_FACTS,
+        max_value_provenance_facts: COMPILER_FIXTURE_MAX_FACTS,
+        max_value_flow_bodies: COMPILER_FIXTURE_MAX_FACTS,
+        max_value_flow_steps: COMPILER_FIXTURE_MAX_FACTS,
+        max_value_flow_rounds: COMPILER_FIXTURE_MAX_FACTS,
         max_unknowns: COMPILER_FIXTURE_MAX_FACTS,
         max_spans: COMPILER_FIXTURE_MAX_SPANS,
         max_span_bytes: COMPILER_FIXTURE_MAX_BYTES,
@@ -556,6 +563,16 @@ fn run_compiler_architecture_fixture(
     library: &Path,
     host: &str,
     fixture_name: &str,
+) -> CompilerArchitectureShard {
+    run_compiler_architecture_fixture_with_selection(driver, library, host, fixture_name, Vec::new())
+}
+
+fn run_compiler_architecture_fixture_with_selection(
+    driver: &Path,
+    library: &Path,
+    host: &str,
+    fixture_name: &str,
+    value_flow_selections: Vec<CompilerValueFlowSelection>,
 ) -> CompilerArchitectureShard {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let source_scope = "fixtures/compiler-architecture-ir";
@@ -596,6 +613,7 @@ fn run_compiler_architecture_fixture(
             }],
             unit,
         }],
+        value_flow_selections,
         non_claims: vec!["whole-program-correctness".to_owned()],
     };
     let context_path = work_dir.join("collector-context.json");
@@ -677,6 +695,94 @@ fn compiler_architecture_ir_fixtures() {
         });
         assert!(has_fact, "positive compiler fixture omitted {expected} fact");
     }
+
+    let value_flow_selection = CompilerValueFlowSelection {
+        tracked_callee_definitions: vec![
+            "authorized_effect_provenance::publish".to_owned(),
+            "authorized_effect_provenance::PublicationReceipt::from_observation".to_owned(),
+        ],
+        tracked_type_definitions: vec![
+            "authorized_effect_provenance::ActorAuthority".to_owned(),
+            "authorized_effect_provenance::AuthorizedPublication".to_owned(),
+            "authorized_effect_provenance::PublicationPlanId".to_owned(),
+            "authorized_effect_provenance::PublicationAuthority".to_owned(),
+            "authorized_effect_provenance::PublicationObservation".to_owned(),
+            "authorized_effect_provenance::PublicationReceipt".to_owned(),
+        ],
+        root_origin_definitions: vec![
+            "authorized_effect_provenance::authorize_publication".to_owned(),
+            "authorized_effect_provenance::PublicationObservation::success".to_owned(),
+        ],
+        propagation_definitions: vec![
+            "authorized_effect_provenance::PublicationAuthority::from_decision".to_owned(),
+            "authorized_effect_provenance::PublicationReceipt::from_observation".to_owned(),
+        ],
+    };
+    let authorized = run_compiler_architecture_fixture_with_selection(
+        &driver,
+        &library,
+        &host,
+        "positive/authorized_effect_provenance.rs",
+        vec![value_flow_selection],
+    );
+    assert!(
+        authorized.facts.iter().any(|fact| matches!(
+            fact,
+            CompilerArchitectureFact::TypeShape { definition_path, .. }
+                if definition_path == "authorized_effect_provenance::PublicationAuthority"
+        )),
+        "authorized compiler facts: {:#?}",
+        authorized.facts
+    );
+    assert!(authorized.facts.iter().any(|fact| matches!(
+        fact,
+        CompilerArchitectureFact::FunctionSafety { qualified_path, is_unsafe: false, .. }
+            if qualified_path == "authorized_effect_provenance::PublicationAuthority::from_decision"
+    )));
+    assert!(authorized.facts.iter().any(|fact| matches!(
+        fact,
+        CompilerArchitectureFact::CallArgumentProvenance {
+            callee_definition,
+            origin_definitions,
+            status: octet_architecture_ir::ValueProvenanceStatus::Exact,
+            ..
+        } if callee_definition == "authorized_effect_provenance::publish"
+            && origin_definitions == &["authorized_effect_provenance::authorize_publication"]
+    )));
+
+    let ambiguous_selection = CompilerValueFlowSelection {
+        tracked_callee_definitions: vec!["ambiguous_effect_provenance::publish".to_owned()],
+        tracked_type_definitions: vec![
+            "ambiguous_effect_provenance::ActorAuthority".to_owned(),
+            "ambiguous_effect_provenance::PublicationAuthority".to_owned(),
+        ],
+        root_origin_definitions: vec![
+            "ambiguous_effect_provenance::authorize_publication".to_owned(),
+            "ambiguous_effect_provenance::forge_publication".to_owned(),
+        ],
+        propagation_definitions: Vec::new(),
+    };
+    let ambiguous = run_compiler_architecture_fixture_with_selection(
+        &driver,
+        &library,
+        &host,
+        "negative/ambiguous_effect_provenance.rs",
+        vec![ambiguous_selection],
+    );
+    assert!(ambiguous.facts.iter().any(|fact| matches!(
+        fact,
+        CompilerArchitectureFact::CallArgumentProvenance {
+            callee_definition,
+            status: octet_architecture_ir::ValueProvenanceStatus::Merged,
+            ..
+        } if callee_definition == "ambiguous_effect_provenance::publish"
+    )));
+    assert!(
+        ambiguous
+            .unknowns
+            .iter()
+            .any(|unknown| { unknown.kind == UnknownFactKind::AmbiguousValueProvenance })
+    );
 
     let negative =
         run_compiler_architecture_fixture(&driver, &library, &host, "negative/source_text_and_dynamic_dispatch.rs");
