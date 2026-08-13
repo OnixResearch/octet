@@ -14,14 +14,19 @@ use octet_architecture_ir::CompilerArchitectureRole;
 use octet_architecture_ir::CoverageStatus;
 use octet_architecture_ir::SourceOrigin;
 use octet_architecture_ir::SourceSpan;
+use octet_architecture_ir::ValueProvenanceStatus;
 use serde::Deserialize;
 use serde::Serialize;
 
 use crate::project_architecture_policy::ArchitectureCapabilityFamily;
+use crate::project_architecture_policy::ArchitectureEffectAuthority;
 use crate::project_architecture_policy::ArchitectureFindingIdentity;
 use crate::project_architecture_policy::ArchitectureMode;
+use crate::project_architecture_policy::ArchitectureOutboundEffectClassification;
+use crate::project_architecture_policy::ArchitectureProtectedEffectProtocol;
 use crate::project_architecture_policy::ArchitectureRole;
 use crate::project_architecture_policy::ArchitectureScopeKind;
+use crate::project_architecture_policy::ArchitectureWitnessUse;
 use crate::project_architecture_policy::ProjectArchitecturePolicy;
 use crate::project_architecture_policy::validate_architecture_waiver_binding;
 
@@ -46,6 +51,20 @@ const CLAIM_CAPABILITY: &str = "capability-classification";
 const CLAIM_NO_STD: &str = "no-std-obligation";
 const CLAIM_COMPILER_COMPLETENESS: &str = "required-compiler-fact";
 const CLAIM_INPUT_INTEGRITY: &str = "architecture-input-integrity";
+const CLAIM_EFFECT_AUTHORITY_CLASSIFICATION: &str = "outbound-effect-authority-classification";
+const CLAIM_AUTHORIZATION_WITNESS: &str = "authorization-witness-opacity";
+const CLAIM_AUTHORIZATION_ORIGIN: &str = "authorization-witness-origin";
+const CLAIM_PROTECTED_EXECUTOR: &str = "protected-effect-executor";
+const CLAIM_EFFECT_RECEIPT: &str = "observed-effect-receipt";
+const FORBIDDEN_WITNESS_TRAITS: &[&str] = &[
+    "core::marker::Copy",
+    "core::clone::Clone",
+    "core::default::Default",
+    "serde::de::Deserialize",
+    "serde::Deserialize",
+    "core::convert::From",
+    "core::convert::Into",
+];
 const NON_CLAIMS: &[&str] = &[
     "complete-fcis-proof",
     "complete-hexagonal-proof",
@@ -54,6 +73,12 @@ const NON_CLAIMS: &[&str] = &[
     "whole-program-correctness",
     "release-eligibility",
     "signer-authenticity",
+    "credential-validity",
+    "revocation-freshness",
+    "actor-trust",
+    "business-policy-correctness",
+    "external-execution-success",
+    "receipt-authenticity",
 ];
 
 /// One resolved Cargo dependency edge selected for architecture evaluation.
@@ -263,6 +288,12 @@ pub struct ProjectArchitectureReceipt {
     pub port_traits: Vec<String>,
     /// Evaluated capability families.
     pub capability_families: Vec<ArchitectureCapabilityFamily>,
+    /// Explicit outbound effect authority classifications.
+    pub outbound_effects: Vec<ArchitectureOutboundEffectClassification>,
+    /// Compiler fact identities selected for authorized-effect evaluation.
+    pub authorized_effect_fact_ids: Vec<String>,
+    /// Compiler type identities selected for authorized-effect evaluation.
+    pub authorized_effect_type_ids: Vec<String>,
     /// Deterministically ordered findings, including waived findings.
     pub findings: Vec<ProjectArchitectureFinding>,
     /// Compiler unknown identities retained by the gate.
@@ -339,6 +370,9 @@ let EffectClosureParent = {{
     package_roles | Array Dyn,
     port_traits | Array NonEmptyString,
     capability_families | Array NonEmptyString,
+    outbound_effects | Array Dyn,
+    authorized_effect_fact_ids | Array Blake3,
+    authorized_effect_type_ids | Array Blake3,
     findings | Array Finding,
     unknown_ids | Array Blake3,
     applied_waiver_ids | Array Blake3,
@@ -382,6 +416,7 @@ pub fn architecture_cargo_graph_identity(graph: &ArchitectureCargoGraph) -> Stri
 // r[impl octet.project_architecture_gate.admission]
 // r[impl octet.project_architecture_gate.evidence]
 #[must_use]
+#[allow(clippy::too_many_lines)]
 pub fn evaluate_project_architecture(input: &ProjectArchitectureGateInput<'_>) -> ProjectArchitectureReceipt {
     let mut findings = evaluate_findings(input);
     findings.sort();
@@ -404,6 +439,46 @@ pub fn evaluate_project_architecture(input: &ProjectArchitectureGateInput<'_>) -
     let port_traits = sorted_dedup(input.policy.ports.iter().map(|port| port.port_trait.clone()).collect());
     let capability_families = sorted_dedup(
         input.policy.capability_classifications.iter().map(|classification| classification.family).collect(),
+    );
+    let mut outbound_effects = input.policy.outbound_effects.clone();
+    outbound_effects.sort_by_key(|classification| classification.family);
+    let protected_definitions = protected_effect_definitions(input.policy);
+    let authorized_effect_type_ids = sorted_dedup(
+        input
+            .architecture_ir
+            .facts
+            .iter()
+            .filter_map(|fact| match fact {
+                CompilerArchitectureFact::Type {
+                    type_id,
+                    definition_path: Some(definition),
+                    ..
+                } if protected_definitions.types.contains(definition) => Some(type_id.clone()),
+                _ => None,
+            })
+            .collect(),
+    );
+    let protected_type_ids = authorized_effect_type_ids.iter().map(String::as_str).collect::<BTreeSet<_>>();
+    let authorized_effect_fact_ids = sorted_dedup(
+        input
+            .architecture_ir
+            .facts
+            .iter()
+            .filter_map(|fact| match fact {
+                CompilerArchitectureFact::TypeShape { fact_id, type_id, .. }
+                | CompilerArchitectureFact::FunctionSafety {
+                    fact_id,
+                    output_type_id: type_id,
+                    ..
+                }
+                | CompilerArchitectureFact::CallArgumentProvenance {
+                    fact_id,
+                    argument_type_id: type_id,
+                    ..
+                } if protected_type_ids.contains(type_id.as_str()) => Some(fact_id.clone()),
+                _ => None,
+            })
+            .collect(),
     );
     let toolchain_blake3s =
         sorted_dedup(input.architecture_ir.units.iter().map(|unit| unit.toolchain_blake3.clone()).collect());
@@ -446,6 +521,9 @@ pub fn evaluate_project_architecture(input: &ProjectArchitectureGateInput<'_>) -
         package_roles,
         port_traits,
         capability_families,
+        outbound_effects,
+        authorized_effect_fact_ids,
+        authorized_effect_type_ids,
         findings,
         unknown_ids,
         applied_waiver_ids,
@@ -469,6 +547,24 @@ pub fn verify_project_architecture_receipt(receipt: &ProjectArchitectureReceipt)
     for required in NON_CLAIMS {
         if !receipt.non_claims.iter().any(|claim| claim == required) {
             diagnostics.push(format!("project architecture receipt is missing non-claim `{required}`"));
+        }
+    }
+    if !receipt.outbound_effects.is_empty() {
+        for required in [
+            "credential-validity",
+            "revocation-freshness",
+            "actor-trust",
+            "business-policy-correctness",
+            "external-execution-success",
+            "receipt-authenticity",
+        ] {
+            if !receipt.non_claims.iter().any(|claim| claim == required) {
+                diagnostics
+                    .push(format!("project architecture receipt is missing authorized-effect non-claim `{required}`"));
+            }
+        }
+        if receipt.authorized_effect_fact_ids.is_empty() || receipt.authorized_effect_type_ids.is_empty() {
+            diagnostics.push("project architecture receipt lacks authorized-effect fact or type identities".to_owned());
         }
     }
     if receipt.evidence_tier != EVIDENCE_TIER {
@@ -498,6 +594,7 @@ fn evaluate_findings(input: &ProjectArchitectureGateInput<'_>) -> Vec<ProjectArc
         let indexes = GateIndexes::new(input.architecture_ir);
         evaluate_role_graph(input, &indexes, &mut findings);
         evaluate_core_effects(input, &indexes, &mut findings);
+        evaluate_authorized_effects(input, &indexes, &mut findings);
         evaluate_ports(input, &indexes, &mut findings);
         evaluate_construction(input, &indexes, &mut findings);
         evaluate_contract_types(input, &indexes, &mut findings);
@@ -815,6 +912,759 @@ fn evaluate_core_effects(
             ));
         }
     }
+}
+
+#[derive(Default)]
+struct ProtectedEffectDefinitions {
+    types: BTreeSet<String>,
+}
+
+fn protected_effect_definitions(policy: &ProjectArchitecturePolicy) -> ProtectedEffectDefinitions {
+    let mut definitions = ProtectedEffectDefinitions::default();
+    for protocol in policy.outbound_effects.iter().filter_map(|classification| classification.protected.as_ref()) {
+        definitions.types.extend(protocol.authority_input_types.iter().cloned());
+        definitions.types.extend(protocol.authorized_output_types.iter().cloned());
+        definitions.types.extend(protocol.witness_binding_types.iter().cloned());
+        definitions.types.extend([
+            protocol.witness_type.clone(),
+            protocol.plan_type.clone(),
+            protocol.attempt_type.clone(),
+            protocol.observed_outcome_type.clone(),
+            protocol.receipt_type.clone(),
+        ]);
+    }
+    definitions
+}
+
+fn evaluate_authorized_effects(
+    input: &ProjectArchitectureGateInput<'_>,
+    indexes: &GateIndexes<'_>,
+    findings: &mut Vec<ProjectArchitectureFinding>,
+) {
+    let classifications = input
+        .policy
+        .outbound_effects
+        .iter()
+        .map(|classification| (classification.family, classification))
+        .collect::<BTreeMap<_, _>>();
+    for fact in &input.architecture_ir.facts {
+        let CompilerArchitectureFact::Effect {
+            fact_id,
+            capability_family,
+            span_id,
+            ..
+        } = fact
+        else {
+            continue;
+        };
+        let Some(unit) = indexes.unit_for_fact(fact_id) else {
+            continue;
+        };
+        if unit.role != CompilerArchitectureRole::OutboundAdapter {
+            continue;
+        }
+        let Some(family) = policy_capability(*capability_family) else {
+            continue;
+        };
+        if !classifications.contains_key(&family) {
+            findings.push(finding_for_unit(
+                "unclassified-effect-authority",
+                CLAIM_EFFECT_AUTHORITY_CLASSIFICATION,
+                Some(unit),
+                Some(fact_id),
+                indexes.source_path(span_id),
+                &format!("outbound effect capability `{family:?}` has no explicit authority classification"),
+            ));
+        }
+    }
+    for classification in classifications.values() {
+        if classification.authority != ArchitectureEffectAuthority::Protected {
+            continue;
+        }
+        let Some(protocol) = &classification.protected else {
+            findings.push(new_finding(
+                "missing-protected-effect-protocol",
+                ArchitectureFindingSeverity::Policy,
+                CLAIM_EFFECT_AUTHORITY_CLASSIFICATION,
+                None,
+                None,
+                None,
+                Some(classification.executor_scope.clone()),
+                input.policy_blake3,
+                &format!("protected effect capability `{:?}` has no protocol", classification.family),
+            ));
+            continue;
+        };
+        evaluate_protected_witness(input, indexes, classification, protocol, findings);
+        evaluate_protected_calls(input, indexes, classification, protocol, findings);
+    }
+}
+
+#[allow(clippy::too_many_lines)]
+fn evaluate_protected_witness(
+    input: &ProjectArchitectureGateInput<'_>,
+    indexes: &GateIndexes<'_>,
+    classification: &ArchitectureOutboundEffectClassification,
+    protocol: &ArchitectureProtectedEffectProtocol,
+    findings: &mut Vec<ProjectArchitectureFinding>,
+) {
+    let shapes = input
+        .architecture_ir
+        .facts
+        .iter()
+        .filter_map(|fact| match fact {
+            CompilerArchitectureFact::TypeShape {
+                fact_id,
+                definition_path,
+                field_visibilities,
+                field_type_definitions,
+                implemented_traits,
+                span_id,
+                ..
+            } if definition_path == &protocol.witness_type => {
+                Some((fact_id, field_visibilities, field_type_definitions, implemented_traits, span_id))
+            }
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    if shapes.len() == 1 {
+        let (fact_id, fields, field_types, traits, span_id) = shapes[0];
+        let public_field = fields.iter().any(|visibility| visibility == "public");
+        let owner_prefix = format!("restricted:{}", witness_owner_module(&protocol.witness_type));
+        let escaped_field = fields.iter().any(|visibility| visibility != &owner_prefix);
+        if public_field || escaped_field {
+            findings.push(finding_for_unit(
+                "witness-field-visibility",
+                CLAIM_AUTHORIZATION_WITNESS,
+                indexes.unit_for_fact(fact_id),
+                Some(fact_id),
+                indexes.source_path(span_id),
+                &format!("witness type `{}` has fields visible outside its owning module", protocol.witness_type),
+            ));
+        }
+        for required in &protocol.witness_binding_types {
+            if !field_types.iter().any(|field_type| field_type == required) {
+                findings.push(finding_for_unit(
+                    "witness-binding-type-missing",
+                    CLAIM_AUTHORIZATION_WITNESS,
+                    indexes.unit_for_fact(fact_id),
+                    Some(fact_id),
+                    indexes.source_path(span_id),
+                    &format!(
+                        "witness type `{}` does not carry required binding type `{required}`",
+                        protocol.witness_type
+                    ),
+                ));
+            }
+        }
+        for forbidden in FORBIDDEN_WITNESS_TRAITS {
+            if traits.iter().any(|current| trait_matches(current, forbidden)) {
+                findings.push(finding_for_unit(
+                    "witness-forbidden-trait",
+                    CLAIM_AUTHORIZATION_WITNESS,
+                    indexes.unit_for_fact(fact_id),
+                    Some(fact_id),
+                    indexes.source_path(span_id),
+                    &format!("witness type `{}` implements forbidden trait `{forbidden}`", protocol.witness_type),
+                ));
+            }
+        }
+        let broad_conversion = traits.iter().any(|current| {
+            (current.contains("From<")
+                || current.contains("Into<")
+                || trait_matches(current, "core::convert::From")
+                || trait_matches(current, "core::convert::Into"))
+                && !protocol.authorized_output_types.iter().any(|allowed| current.contains(allowed))
+        });
+        if broad_conversion {
+            findings.push(finding_for_unit(
+                "witness-broad-conversion",
+                CLAIM_AUTHORIZATION_WITNESS,
+                indexes.unit_for_fact(fact_id),
+                Some(fact_id),
+                indexes.source_path(span_id),
+                &format!("witness type `{}` has an ambient conversion path", protocol.witness_type),
+            ));
+        }
+        if protocol.witness_use == ArchitectureWitnessUse::Consume
+            && traits.iter().any(|current| trait_matches(current, "core::marker::Copy"))
+        {
+            findings.push(finding_for_unit(
+                "witness-replayable",
+                CLAIM_AUTHORIZATION_WITNESS,
+                indexes.unit_for_fact(fact_id),
+                Some(fact_id),
+                indexes.source_path(span_id),
+                &format!("consume witness `{}` is compiler-copyable", protocol.witness_type),
+            ));
+        }
+    } else {
+        findings.push(new_finding(
+            "witness-shape-resolution",
+            ArchitectureFindingSeverity::Policy,
+            CLAIM_AUTHORIZATION_WITNESS,
+            None,
+            None,
+            None,
+            Some(protocol.witness_owner_scope.clone()),
+            input.policy_blake3,
+            &format!("witness type `{}` must resolve to exactly one compiler type-shape fact", protocol.witness_type),
+        ));
+    }
+    let item_visibility = input
+        .architecture_ir
+        .facts
+        .iter()
+        .filter_map(|fact| match fact {
+            CompilerArchitectureFact::Item {
+                item_id, visibility, ..
+            } => Some((item_id.as_str(), visibility.as_str())),
+            _ => None,
+        })
+        .collect::<BTreeMap<_, _>>();
+    let safety_facts = input.architecture_ir.facts.iter().filter_map(|fact| match fact {
+        CompilerArchitectureFact::FunctionSafety {
+            fact_id,
+            qualified_path,
+            output_type_id,
+            is_unsafe,
+            span_id,
+            ..
+        } => Some((fact_id, qualified_path, output_type_id, *is_unsafe, span_id)),
+        _ => None,
+    });
+    let type_definitions = input
+        .architecture_ir
+        .facts
+        .iter()
+        .filter_map(|fact| match fact {
+            CompilerArchitectureFact::Type {
+                type_id,
+                definition_path: Some(definition),
+                ..
+            } => Some((type_id.as_str(), definition.as_str())),
+            _ => None,
+        })
+        .collect::<BTreeMap<_, _>>();
+    for (fact_id, qualified_path, output_type_id, is_unsafe, span_id) in safety_facts {
+        if type_definitions.get(output_type_id.as_str()) != Some(&protocol.witness_type.as_str()) {
+            continue;
+        }
+        let declared = protocol.witness_constructors.iter().any(|constructor| constructor == qualified_path);
+        let constructor_restricted = input.architecture_ir.facts.iter().any(|fact| match fact {
+            CompilerArchitectureFact::FunctionSafety {
+                fact_id: current,
+                item_id,
+                ..
+            } if current == fact_id => {
+                item_visibility.get(item_id.as_str()).is_some_and(|visibility| *visibility != "public")
+            }
+            _ => false,
+        });
+        if is_unsafe || !declared || !constructor_restricted {
+            findings.push(finding_for_unit(
+                if is_unsafe {
+                    "unsafe-witness-constructor"
+                } else if !declared {
+                    "undeclared-witness-constructor"
+                } else {
+                    "public-witness-constructor"
+                },
+                CLAIM_AUTHORIZATION_WITNESS,
+                indexes.unit_for_fact(fact_id),
+                Some(fact_id),
+                indexes.source_path(span_id),
+                &format!(
+                    "function `{qualified_path}` constructs witness `{}` outside its approved safe constructor set",
+                    protocol.witness_type
+                ),
+            ));
+        }
+    }
+    let _ = classification;
+}
+
+#[allow(clippy::too_many_lines)]
+fn evaluate_protected_calls(
+    input: &ProjectArchitectureGateInput<'_>,
+    indexes: &GateIndexes<'_>,
+    classification: &ArchitectureOutboundEffectClassification,
+    protocol: &ArchitectureProtectedEffectProtocol,
+    findings: &mut Vec<ProjectArchitectureFinding>,
+) {
+    let type_definitions = input
+        .architecture_ir
+        .facts
+        .iter()
+        .filter_map(|fact| match fact {
+            CompilerArchitectureFact::Type {
+                type_id,
+                definition_path: Some(definition),
+                ..
+            } => Some((type_id.as_str(), definition.as_str())),
+            _ => None,
+        })
+        .collect::<BTreeMap<_, _>>();
+    let item_paths = input
+        .architecture_ir
+        .facts
+        .iter()
+        .filter_map(|fact| match fact {
+            CompilerArchitectureFact::Item {
+                item_id,
+                qualified_path,
+                ..
+            } => Some((item_id.as_str(), qualified_path.as_str())),
+            _ => None,
+        })
+        .collect::<BTreeMap<_, _>>();
+    let signatures = input
+        .architecture_ir
+        .facts
+        .iter()
+        .filter_map(|fact| match fact {
+            CompilerArchitectureFact::Signature {
+                fact_id,
+                owner_item_id,
+                input_type_ids,
+                output_type_id,
+                ..
+            } => Some((fact_id, owner_item_id, input_type_ids, output_type_id)),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    for decision in &protocol.decision_functions {
+        let decision_items = input
+            .architecture_ir
+            .facts
+            .iter()
+            .filter_map(|fact| match fact {
+                CompilerArchitectureFact::Item {
+                    fact_id,
+                    item_id,
+                    qualified_path,
+                    span_id,
+                    ..
+                } if qualified_path == decision => Some((fact_id, item_id, span_id)),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        if decision_items.len() != 1 {
+            findings.push(new_finding(
+                "authority-decision-resolution",
+                ArchitectureFindingSeverity::Policy,
+                CLAIM_AUTHORIZATION_ORIGIN,
+                None,
+                None,
+                None,
+                Some(protocol.decision_scope.clone()),
+                input.policy_blake3,
+                &format!("authority decision `{decision}` must resolve to exactly one compiler item"),
+            ));
+            continue;
+        }
+        let (fact_id, item_id, span_id) = decision_items[0];
+        let source = indexes.source_path(span_id);
+        let unit = indexes.unit_for_fact(fact_id);
+        let owned = unit.is_some_and(|current| current.role == CompilerArchitectureRole::DomainCore)
+            && source.is_some_and(|path| path_in_scope(path, &protocol.decision_scope));
+        if !owned {
+            findings.push(finding_for_unit(
+                "authority-decision-scope",
+                CLAIM_AUTHORIZATION_ORIGIN,
+                unit,
+                Some(fact_id),
+                source,
+                &format!("authority decision `{decision}` is outside its declared domain-core scope"),
+            ));
+        }
+        let signature_matches = signatures.iter().find(|(_, owner_item_id, _, _)| *owner_item_id == item_id);
+        let output_allowed = signature_matches.is_some_and(|(_, _, _, output_type_id)| {
+            type_definitions
+                .get(output_type_id.as_str())
+                .is_some_and(|definition| protocol.authorized_output_types.iter().any(|allowed| allowed == definition))
+        });
+        let inputs_complete = signature_matches.is_some_and(|(_, _, input_type_ids, _)| {
+            protocol.authority_input_types.iter().all(|required| {
+                input_type_ids.iter().any(|type_id| {
+                    type_definitions.get(type_id.as_str()).is_some_and(|definition| *definition == required)
+                })
+            })
+        });
+        if !output_allowed {
+            findings.push(finding_for_unit(
+                "authority-decision-output",
+                CLAIM_AUTHORIZATION_ORIGIN,
+                unit,
+                Some(fact_id),
+                source,
+                &format!("authority decision `{decision}` does not return a declared authorized output type"),
+            ));
+        }
+        if !inputs_complete {
+            findings.push(finding_for_unit(
+                "authority-decision-input",
+                CLAIM_AUTHORIZATION_ORIGIN,
+                unit,
+                Some(fact_id),
+                source,
+                &format!("authority decision `{decision}` does not receive every declared authority input type"),
+            ));
+        }
+    }
+    for constructor in &protocol.witness_constructors {
+        let constructor_items = input
+            .architecture_ir
+            .facts
+            .iter()
+            .filter_map(|fact| match fact {
+                CompilerArchitectureFact::Item {
+                    fact_id,
+                    item_id,
+                    qualified_path,
+                    span_id,
+                    ..
+                } if qualified_path == constructor => Some((fact_id, item_id, span_id)),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        if constructor_items.len() != 1 {
+            findings.push(new_finding(
+                "witness-constructor-resolution",
+                ArchitectureFindingSeverity::Policy,
+                CLAIM_AUTHORIZATION_WITNESS,
+                None,
+                None,
+                None,
+                Some(protocol.witness_owner_scope.clone()),
+                input.policy_blake3,
+                &format!("witness constructor `{constructor}` must resolve to exactly one compiler item"),
+            ));
+            continue;
+        }
+        let (fact_id, item_id, span_id) = constructor_items[0];
+        let signature_matches = signatures.iter().find(|(_, owner_item_id, _, _)| *owner_item_id == item_id);
+        let input_allowed = signature_matches.is_some_and(|(_, _, input_type_ids, _)| {
+            input_type_ids.iter().any(|type_id| {
+                type_definitions.get(type_id.as_str()).is_some_and(|definition| {
+                    protocol.authorized_output_types.iter().any(|allowed| allowed == definition)
+                })
+            })
+        });
+        let output_matches = signature_matches.is_some_and(|(_, _, _, output_type_id)| {
+            type_definitions.get(output_type_id.as_str()) == Some(&protocol.witness_type.as_str())
+        });
+        if !input_allowed || !output_matches {
+            findings.push(finding_for_unit(
+                "witness-constructor-signature",
+                CLAIM_AUTHORIZATION_WITNESS,
+                indexes.unit_for_fact(fact_id),
+                Some(fact_id),
+                indexes.source_path(span_id),
+                &format!("witness constructor `{constructor}` must transform a declared authorized output into the witness type"),
+            ));
+        }
+    }
+    let provenance = input
+        .architecture_ir
+        .facts
+        .iter()
+        .filter_map(|fact| match fact {
+            CompilerArchitectureFact::CallArgumentProvenance {
+                fact_id,
+                caller_item_id,
+                callee_definition,
+                argument_type_id,
+                origin_definitions,
+                status,
+                span_id,
+                ..
+            } => Some((
+                fact_id,
+                caller_item_id,
+                callee_definition,
+                argument_type_id,
+                origin_definitions,
+                *status,
+                span_id,
+            )),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    for executor in &classification.executor_methods {
+        let executor_items = input
+            .architecture_ir
+            .facts
+            .iter()
+            .filter_map(|fact| match fact {
+                CompilerArchitectureFact::Item {
+                    fact_id,
+                    item_id,
+                    qualified_path,
+                    span_id,
+                    ..
+                } if qualified_path == executor => Some((fact_id, item_id, span_id)),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        if executor_items.len() != 1 {
+            findings.push(new_finding(
+                "protected-executor-resolution",
+                ArchitectureFindingSeverity::Policy,
+                CLAIM_PROTECTED_EXECUTOR,
+                None,
+                None,
+                None,
+                Some(classification.executor_scope.clone()),
+                input.policy_blake3,
+                &format!("protected executor `{executor}` must resolve to exactly one compiler item"),
+            ));
+        }
+        for (item_fact_id, item_id, span_id) in &executor_items {
+            let source = indexes.source_path(span_id);
+            let unit = indexes.unit_for_fact(item_fact_id);
+            let owned = unit.is_some_and(|current| current.role == CompilerArchitectureRole::OutboundAdapter)
+                && source.is_some_and(|path| path_in_scope(path, &classification.executor_scope));
+            if !owned {
+                findings.push(finding_for_unit(
+                    "protected-executor-scope",
+                    CLAIM_PROTECTED_EXECUTOR,
+                    unit,
+                    Some(item_fact_id),
+                    source,
+                    &format!("protected executor `{executor}` is outside its declared outbound-adapter scope"),
+                ));
+            }
+            let has_witness_input = signatures.iter().any(|(_, owner_item_id, input_type_ids, _)| {
+                *owner_item_id == *item_id
+                    && input_type_ids.iter().any(|type_id| {
+                        type_definitions
+                            .get(type_id.as_str())
+                            .is_some_and(|definition| *definition == protocol.witness_type)
+                    })
+            });
+            if !has_witness_input {
+                findings.push(finding_for_unit(
+                    "protected-executor-witness-parameter",
+                    CLAIM_PROTECTED_EXECUTOR,
+                    unit,
+                    Some(item_fact_id),
+                    source,
+                    &format!("protected executor `{executor}` lacks its declared witness parameter"),
+                ));
+            }
+        }
+        let calls = provenance
+            .iter()
+            .filter(|(_, _, callee, type_id, _, _, _)| {
+                *callee == executor
+                    && type_definitions
+                        .get(type_id.as_str())
+                        .is_some_and(|definition| *definition == protocol.witness_type)
+            })
+            .collect::<Vec<_>>();
+        if calls.is_empty() {
+            findings.push(new_finding(
+                "protected-executor-provenance-missing",
+                ArchitectureFindingSeverity::Policy,
+                CLAIM_PROTECTED_EXECUTOR,
+                None,
+                None,
+                None,
+                Some(classification.executor_scope.clone()),
+                input.policy_blake3,
+                &format!("protected executor `{executor}` has no selected witness provenance fact"),
+            ));
+        }
+        for (fact_id, _, _, _, origins, status, span_id) in calls {
+            if protocol.witness_use == ArchitectureWitnessUse::Borrow
+                && !protocol
+                    .borrow_scope
+                    .as_ref()
+                    .is_some_and(|scope| indexes.source_path(span_id).is_some_and(|path| path_in_scope(path, scope)))
+            {
+                findings.push(finding_for_unit(
+                    "borrowed-witness-scope",
+                    CLAIM_PROTECTED_EXECUTOR,
+                    indexes.unit_for_fact(fact_id),
+                    Some(fact_id),
+                    indexes.source_path(span_id),
+                    &format!("borrowed witness for executor `{executor}` escapes its reusable scope"),
+                ));
+            }
+            if *status != ValueProvenanceStatus::Exact || origins.len() != 1 {
+                findings.push(finding_for_unit(
+                    "unknown-witness-origin",
+                    CLAIM_AUTHORIZATION_ORIGIN,
+                    indexes.unit_for_fact(fact_id),
+                    Some(fact_id),
+                    indexes.source_path(span_id),
+                    &format!("protected executor `{executor}` does not have one exact witness origin"),
+                ));
+            } else if !protocol.decision_functions.iter().any(|decision| decision == &origins[0]) {
+                findings.push(finding_for_unit(
+                    "unauthorized-witness-origin",
+                    CLAIM_AUTHORIZATION_ORIGIN,
+                    indexes.unit_for_fact(fact_id),
+                    Some(fact_id),
+                    indexes.source_path(span_id),
+                    &format!(
+                        "protected executor `{executor}` receives witness from unapproved origin `{}`",
+                        origins[0]
+                    ),
+                ));
+            }
+        }
+    }
+    for fact in &input.architecture_ir.facts {
+        let CompilerArchitectureFact::Effect {
+            fact_id,
+            capability_family,
+            caller_item_id,
+            span_id,
+            ..
+        } = fact
+        else {
+            continue;
+        };
+        if policy_capability(*capability_family) != Some(classification.family) {
+            continue;
+        }
+        let caller = item_paths.get(caller_item_id.as_str()).copied();
+        if !caller.is_some_and(|path| classification.executor_methods.iter().any(|executor| executor == path)) {
+            findings.push(finding_for_unit(
+                "unguarded-protected-effect",
+                CLAIM_PROTECTED_EXECUTOR,
+                indexes.unit_for_fact(fact_id),
+                Some(fact_id),
+                indexes.source_path(span_id),
+                &format!(
+                    "protected effect `{:?}` executes outside its declared executor methods",
+                    classification.family
+                ),
+            ));
+        }
+    }
+    evaluate_receipt_constructors(
+        input,
+        indexes,
+        protocol,
+        &type_definitions,
+        &item_paths,
+        &provenance,
+        &protocol.receipt_constructors,
+        &protocol.success_observation_constructors,
+        true,
+        findings,
+    );
+    evaluate_receipt_constructors(
+        input,
+        indexes,
+        protocol,
+        &type_definitions,
+        &item_paths,
+        &provenance,
+        &protocol.failure_receipt_constructors,
+        &protocol.failure_observation_constructors,
+        false,
+        findings,
+    );
+}
+
+#[allow(clippy::too_many_arguments)]
+fn evaluate_receipt_constructors(
+    input: &ProjectArchitectureGateInput<'_>,
+    indexes: &GateIndexes<'_>,
+    protocol: &ArchitectureProtectedEffectProtocol,
+    type_definitions: &BTreeMap<&str, &str>,
+    item_paths: &BTreeMap<&str, &str>,
+    provenance: &[ProvenanceFactRef<'_>],
+    receipt_constructors: &[String],
+    permitted_observation_origins: &[String],
+    success_receipt: bool,
+    findings: &mut Vec<ProjectArchitectureFinding>,
+) {
+    for receipt_constructor in receipt_constructors {
+        let calls = provenance
+            .iter()
+            .filter(|(_, _, callee, _, _, _, _)| *callee == receipt_constructor)
+            .collect::<Vec<_>>();
+        if calls.is_empty() {
+            findings.push(new_finding(
+                "receipt-observation-provenance-missing",
+                ArchitectureFindingSeverity::Policy,
+                CLAIM_EFFECT_RECEIPT,
+                None,
+                None,
+                None,
+                Some(protocol.receipt_scope.clone()),
+                input.policy_blake3,
+                &format!("receipt constructor `{receipt_constructor}` has no selected observation provenance fact"),
+            ));
+        }
+        for (fact_id, caller_item_id, _, argument_type_id, origins, status, span_id) in calls {
+            let observed_argument = type_definitions
+                .get(argument_type_id.as_str())
+                .is_some_and(|definition| *definition == protocol.observed_outcome_type);
+            let approved_observation = origins
+                .iter()
+                .all(|origin| permitted_observation_origins.iter().any(|constructor| constructor == origin));
+            let opposite_origin = origins.iter().any(|origin| {
+                if success_receipt {
+                    protocol.failure_observation_constructors.iter().any(|constructor| constructor == origin)
+                } else {
+                    protocol.success_observation_constructors.iter().any(|constructor| constructor == origin)
+                }
+            });
+            if !observed_argument {
+                findings.push(finding_for_unit(
+                    "planned-effect-promoted-to-receipt",
+                    CLAIM_EFFECT_RECEIPT,
+                    indexes.unit_for_fact(fact_id),
+                    Some(fact_id),
+                    indexes.source_path(span_id),
+                    &format!("receipt constructor `{receipt_constructor}` receives a non-observation protocol type"),
+                ));
+            } else if *status != ValueProvenanceStatus::Exact || !approved_observation || opposite_origin {
+                findings.push(finding_for_unit(
+                    if success_receipt && opposite_origin {
+                        "failure-promoted-to-success-receipt"
+                    } else if !success_receipt && opposite_origin {
+                        "success-promoted-to-failure-receipt"
+                    } else {
+                        "unknown-receipt-observation"
+                    },
+                    CLAIM_EFFECT_RECEIPT,
+                    indexes.unit_for_fact(fact_id),
+                    Some(fact_id),
+                    indexes.source_path(span_id),
+                    &format!("receipt constructor `{receipt_constructor}` lacks one exact approved observation for its receipt class"),
+                ));
+            }
+            let caller_path = item_paths.get(caller_item_id.as_str()).copied().unwrap_or("unknown-caller");
+            if caller_path == "unknown-caller" {
+                findings.push(finding_for_unit(
+                    "receipt-caller-resolution",
+                    CLAIM_EFFECT_RECEIPT,
+                    indexes.unit_for_fact(fact_id),
+                    Some(fact_id),
+                    indexes.source_path(span_id),
+                    "receipt constructor caller could not be resolved to a compiler item",
+                ));
+            }
+        }
+    }
+}
+
+type ProvenanceFactRef<'a> =
+    (&'a String, &'a String, &'a String, &'a String, &'a Vec<String>, ValueProvenanceStatus, &'a String);
+
+fn witness_owner_module(witness_type: &str) -> &str {
+    witness_type.rsplit_once("::").map_or(witness_type, |(module, _)| module)
+}
+
+fn trait_matches(actual: &str, expected: &str) -> bool {
+    actual == expected || actual.rsplit_once("::").is_some_and(|(_, tail)| expected.ends_with(tail))
 }
 
 fn evaluate_ports(
@@ -1317,9 +2167,12 @@ fn fact_package<'a>(
         CompilerArchitectureFact::Signature { owner_item_id, .. } => item_packages.get(owner_item_id.as_str()).copied(),
         CompilerArchitectureFact::Call { caller_item_id, .. }
         | CompilerArchitectureFact::Constructor { caller_item_id, .. }
-        | CompilerArchitectureFact::Effect { caller_item_id, .. } => {
+        | CompilerArchitectureFact::Effect { caller_item_id, .. }
+        | CompilerArchitectureFact::CallArgumentProvenance { caller_item_id, .. } => {
             item_packages.get(caller_item_id.as_str()).copied()
         }
+        CompilerArchitectureFact::TypeShape { type_id, .. } => type_packages.get(type_id.as_str()).copied(),
+        CompilerArchitectureFact::FunctionSafety { item_id, .. } => item_packages.get(item_id.as_str()).copied(),
         CompilerArchitectureFact::Module { .. }
         | CompilerArchitectureFact::Expansion { .. }
         | CompilerArchitectureFact::Configuration { .. } => None,
@@ -1335,6 +2188,9 @@ fn fact_span_id(fact: &CompilerArchitectureFact) -> Option<&str> {
         | CompilerArchitectureFact::Call { span_id, .. }
         | CompilerArchitectureFact::Constructor { span_id, .. }
         | CompilerArchitectureFact::Effect { span_id, .. }
+        | CompilerArchitectureFact::TypeShape { span_id, .. }
+        | CompilerArchitectureFact::FunctionSafety { span_id, .. }
+        | CompilerArchitectureFact::CallArgumentProvenance { span_id, .. }
         | CompilerArchitectureFact::Configuration {
             span_id: Some(span_id), ..
         } => Some(span_id),
@@ -1463,11 +2319,15 @@ mod tests {
     use super::*;
     use crate::project_architecture_policy::ArchitectureCapabilityClassification;
     use crate::project_architecture_policy::ArchitectureDependencyRule;
+    use crate::project_architecture_policy::ArchitectureEffectAuthority;
+    use crate::project_architecture_policy::ArchitectureOutboundEffectClassification;
     use crate::project_architecture_policy::ArchitecturePort;
     use crate::project_architecture_policy::ArchitectureProductionScope;
+    use crate::project_architecture_policy::ArchitectureProtectedEffectProtocol;
     use crate::project_architecture_policy::ArchitectureRoleAssignment;
     use crate::project_architecture_policy::ArchitectureTarget;
     use crate::project_architecture_policy::ArchitectureWaiver;
+    use crate::project_architecture_policy::ArchitectureWitnessUse;
     use crate::project_architecture_policy::CoreCapabilityHandling;
     use crate::project_architecture_policy::PROJECT_ARCHITECTURE_POLICY_SCHEMA_VERSION;
 
@@ -1617,6 +2477,241 @@ mod tests {
     }
 
     #[test]
+    fn protected_effect_protocol_accepts_exact_authority_and_observation_provenance() {
+        let mut fixture = Fixture::new(ArchitectureMode::Gate);
+        fixture.add_protected_effect_facts(ValueProvenanceStatus::Exact, "domain::authorize_publication", false);
+
+        let receipt = fixture.evaluate(None);
+
+        assert_eq!(receipt.status, ArchitecturePhaseStatus::Clean);
+        assert!(receipt.findings.is_empty());
+        assert_eq!(receipt.outbound_effects.len(), 1);
+        assert!(!receipt.authorized_effect_fact_ids.is_empty());
+        assert!(!receipt.authorized_effect_type_ids.is_empty());
+        assert!(receipt.non_claims.iter().any(|claim| claim == "credential-validity"));
+    }
+
+    #[test]
+    fn protected_effect_protocol_blocks_ambiguous_origin_and_forging_constructor() {
+        let mut fixture = Fixture::new(ArchitectureMode::Gate);
+        fixture.add_protected_effect_facts(ValueProvenanceStatus::Merged, "domain::forge_publication", true);
+
+        let receipt = fixture.evaluate(None);
+
+        assert_eq!(receipt.status, ArchitecturePhaseStatus::Blocked);
+        assert!(receipt.findings.iter().any(|finding| finding.code == "unknown-witness-origin"));
+        assert!(receipt.findings.iter().any(|finding| finding.code == "undeclared-witness-constructor"));
+        assert!(receipt.findings.iter().any(|finding| finding.code == "witness-forbidden-trait"));
+        mutate_witness_shape(&mut fixture.ir, |_, traits| {
+            traits.push("core::convert::From<application::Request>".to_owned());
+        });
+        let converted = fixture.evaluate(None);
+        assert!(converted.findings.iter().any(|finding| finding.code == "witness-broad-conversion"));
+    }
+
+    #[test]
+    fn protected_effect_protocol_rejects_public_replayable_and_ambient_witness_shapes() {
+        let mut fixture = Fixture::new(ArchitectureMode::Gate);
+        fixture.add_protected_effect_facts(ValueProvenanceStatus::Exact, "domain::authorize_publication", false);
+        mutate_witness_visibility(&mut fixture.ir, "public");
+        mutate_witness_shape(&mut fixture.ir, |_, traits| {
+            traits.extend([
+                "core::marker::Copy".to_owned(),
+                "core::clone::Clone".to_owned(),
+                "core::default::Default".to_owned(),
+                "serde::Deserialize".to_owned(),
+                "core::convert::From<application::Request>".to_owned(),
+            ]);
+        });
+
+        let receipt = fixture.evaluate(None);
+
+        assert!(receipt.findings.iter().any(|finding| finding.code == "witness-field-visibility"));
+        assert!(receipt.findings.iter().any(|finding| finding.code == "witness-replayable"));
+        for forbidden in ["Copy", "Clone", "Default", "Deserialize"] {
+            assert!(
+                receipt.findings.iter().any(|finding| {
+                    finding.code == "witness-forbidden-trait" && finding.message.contains(forbidden)
+                })
+            );
+        }
+        assert!(receipt.findings.iter().any(|finding| finding.code == "witness-broad-conversion"));
+    }
+
+    #[test]
+    fn protected_effect_protocol_rejects_public_and_unsafe_witness_constructors() {
+        let mut public = Fixture::new(ArchitectureMode::Gate);
+        public.add_protected_effect_facts(ValueProvenanceStatus::Exact, "domain::authorize_publication", false);
+        mutate_witness_constructor(&mut public.ir, "public", false);
+        let public_receipt = public.evaluate(None);
+        assert!(public_receipt.findings.iter().any(|finding| finding.code == "public-witness-constructor"));
+
+        let mut unsafe_constructor = Fixture::new(ArchitectureMode::Gate);
+        unsafe_constructor.add_protected_effect_facts(
+            ValueProvenanceStatus::Exact,
+            "domain::authorize_publication",
+            false,
+        );
+        mutate_witness_constructor(&mut unsafe_constructor.ir, "restricted", true);
+        let unsafe_receipt = unsafe_constructor.evaluate(None);
+        assert!(unsafe_receipt.findings.iter().any(|finding| finding.code == "unsafe-witness-constructor"));
+    }
+
+    #[test]
+    fn protected_effect_protocol_rejects_missing_witness_and_pre_decision_origin() {
+        let mut missing = Fixture::new(ArchitectureMode::Gate);
+        missing.add_protected_effect_facts(ValueProvenanceStatus::Exact, "domain::authorize_publication", false);
+        remove_executor_provenance(&mut missing.ir);
+        remove_executor_witness_parameter(&mut missing.ir);
+        let missing_receipt = missing.evaluate(None);
+        assert!(
+            missing_receipt
+                .findings
+                .iter()
+                .any(|finding| finding.code == "protected-executor-provenance-missing")
+        );
+        assert!(
+            missing_receipt
+                .findings
+                .iter()
+                .any(|finding| finding.code == "protected-executor-witness-parameter")
+        );
+
+        let mut pre_decision = Fixture::new(ArchitectureMode::Gate);
+        pre_decision.add_protected_effect_facts(
+            ValueProvenanceStatus::Exact,
+            "application::prepare_publication",
+            false,
+        );
+        let pre_decision_receipt = pre_decision.evaluate(None);
+        assert!(pre_decision_receipt.findings.iter().any(|finding| finding.code == "unauthorized-witness-origin"));
+    }
+
+    #[test]
+    fn protected_effect_protocol_accepts_borrow_inside_declared_scope() {
+        let mut fixture = Fixture::new(ArchitectureMode::Gate);
+        fixture.add_protected_effect_facts(ValueProvenanceStatus::Exact, "domain::authorize_publication", false);
+        let protocol = fixture.policy.outbound_effects[0].protected.as_mut().expect("protected protocol");
+        protocol.witness_use = ArchitectureWitnessUse::Borrow;
+        protocol.borrow_scope = Some("crates/outbound/src".to_owned());
+        protocol.borrow_rationale = Some("one bounded outbound request".to_owned());
+
+        let receipt = fixture.evaluate(None);
+
+        assert_eq!(receipt.status, ArchitecturePhaseStatus::Clean);
+        assert!(receipt.findings.is_empty());
+    }
+
+    #[test]
+    fn protected_effect_protocol_rejects_missing_binding_decision_output_and_borrow_escape() {
+        let mut missing_binding = Fixture::new(ArchitectureMode::Gate);
+        missing_binding.add_protected_effect_facts(
+            ValueProvenanceStatus::Exact,
+            "domain::authorize_publication",
+            false,
+        );
+        mutate_witness_shape(&mut missing_binding.ir, |field_types, _| field_types.clear());
+        let binding_receipt = missing_binding.evaluate(None);
+        assert!(binding_receipt.findings.iter().any(|finding| finding.code == "witness-binding-type-missing"));
+
+        let mut wrong_output = Fixture::new(ArchitectureMode::Gate);
+        wrong_output.add_protected_effect_facts(ValueProvenanceStatus::Exact, "domain::authorize_publication", false);
+        mutate_decision_output(&mut wrong_output.ir, "domain::authorize_publication", "domain::PublicationAuthority");
+        let output_receipt = wrong_output.evaluate(None);
+        assert!(output_receipt.findings.iter().any(|finding| finding.code == "authority-decision-output"));
+
+        let mut borrow_escape = Fixture::new(ArchitectureMode::Gate);
+        borrow_escape.add_protected_effect_facts(ValueProvenanceStatus::Exact, "domain::authorize_publication", false);
+        let protocol = borrow_escape.policy.outbound_effects[0].protected.as_mut().expect("protected protocol");
+        protocol.witness_use = ArchitectureWitnessUse::Borrow;
+        protocol.borrow_scope = Some("crates/application/src".to_owned());
+        protocol.borrow_rationale = Some("one application request".to_owned());
+        let borrow_receipt = borrow_escape.evaluate(None);
+        assert!(borrow_receipt.findings.iter().any(|finding| finding.code == "borrowed-witness-scope"));
+    }
+
+    #[test]
+    fn protected_effect_protocol_blocks_unguarded_effect_and_receipt_promotion() {
+        let mut unguarded = Fixture::new(ArchitectureMode::Gate);
+        unguarded.add_protected_effect_facts(ValueProvenanceStatus::Exact, "domain::authorize_publication", false);
+        let span = span("crates/outbound/src/helper.rs");
+        let helper = item(&span.span_id, "outbound::unguarded_publish");
+        let mut effect = CompilerArchitectureFact::Effect {
+            fact_id: String::new(),
+            caller_item_id: item_id(&helper).to_owned(),
+            capability_family: CapabilityFamily::Filesystem,
+            primitive_definition: "std::fs::write".to_owned(),
+            span_id: span.span_id.clone(),
+        };
+        set_fact_id(&mut effect);
+        unguarded.add_unit_facts("outbound", vec![span], vec![helper, effect], Vec::new());
+        let unguarded_receipt = unguarded.evaluate(None);
+        assert!(unguarded_receipt.findings.iter().any(|finding| finding.code == "unguarded-protected-effect"));
+
+        let mut promoted = Fixture::new(ArchitectureMode::Gate);
+        promoted.add_protected_effect_facts(ValueProvenanceStatus::Exact, "domain::authorize_publication", false);
+        let witness_type_id = promoted
+            .ir
+            .facts
+            .iter()
+            .find_map(|fact| match fact {
+                CompilerArchitectureFact::Type {
+                    type_id,
+                    definition_path: Some(definition),
+                    ..
+                } if definition == "domain::PublicationAuthority" => Some(type_id.clone()),
+                _ => None,
+            })
+            .expect("witness type");
+        mutate_receipt_provenance(&mut promoted.ir, |argument_type_id, origins, status| {
+            *argument_type_id = witness_type_id;
+            *origins = vec!["domain::authorize_publication".to_owned()];
+            *status = ValueProvenanceStatus::Exact;
+        });
+        let promoted_receipt = promoted.evaluate(None);
+        assert!(promoted_receipt.findings.iter().any(|finding| finding.code == "planned-effect-promoted-to-receipt"));
+
+        let mut false_success = Fixture::new(ArchitectureMode::Gate);
+        false_success.add_protected_effect_facts(ValueProvenanceStatus::Exact, "domain::authorize_publication", false);
+        mutate_receipt_provenance(&mut false_success.ir, |_, origins, status| {
+            *origins = vec!["application::PublicationObservation::failure".to_owned()];
+            *status = ValueProvenanceStatus::Exact;
+        });
+        let false_success_receipt = false_success.evaluate(None);
+        assert!(
+            false_success_receipt
+                .findings
+                .iter()
+                .any(|finding| finding.code == "failure-promoted-to-success-receipt")
+        );
+    }
+
+    #[test]
+    fn receipt_verifier_rejects_protocol_overclaim_and_tampering() {
+        let mut fixture = Fixture::new(ArchitectureMode::Gate);
+        fixture.add_protected_effect_facts(ValueProvenanceStatus::Exact, "domain::authorize_publication", false);
+        let mut receipt = fixture.evaluate(None);
+        receipt.non_claims.retain(|claim| claim != "credential-validity");
+        receipt.authorized_effect_fact_ids.clear();
+
+        let diagnostics = verify_project_architecture_receipt(&receipt);
+
+        assert!(diagnostics.iter().any(|diagnostic| diagnostic.contains("identity")));
+        assert!(diagnostics.iter().any(|diagnostic| diagnostic.contains("credential-validity")));
+    }
+
+    #[test]
+    fn unclassified_outbound_effect_blocks_strict_mode() {
+        let mut fixture = Fixture::new(ArchitectureMode::Gate);
+        fixture.add_outbound_effect_only();
+
+        let receipt = fixture.evaluate(None);
+
+        assert_eq!(receipt.status, ArchitecturePhaseStatus::Blocked);
+        assert!(receipt.findings.iter().any(|finding| finding.code == "unclassified-effect-authority"));
+    }
+
+    #[test]
     fn receipt_verifier_rejects_tampering_and_missing_non_claims() {
         let fixture = Fixture::new(ArchitectureMode::Gate);
         let mut receipt = fixture.evaluate(None);
@@ -1695,6 +2790,7 @@ mod tests {
                     executor_role: ArchitectureRole::OutboundAdapter,
                     rationale: "outbound adapter executes filesystem plans".to_owned(),
                 }],
+                outbound_effects: Vec::new(),
                 core_no_std: Vec::new(),
                 admission: (mode == ArchitectureMode::Admission).then(|| {
                     crate::project_architecture_policy::ArchitectureAdmissionBinding {
@@ -1804,6 +2900,219 @@ mod tests {
             };
             set_fact_id(&mut effect);
             self.add_unit_facts("domain", vec![span], vec![item, effect], Vec::new());
+        }
+
+        fn add_outbound_effect_only(&mut self) {
+            let effect_span = span("crates/outbound/src/filesystem.rs");
+            let executor = item(&effect_span.span_id, "outbound::FilesystemPort::publish");
+            let mut effect = CompilerArchitectureFact::Effect {
+                fact_id: String::new(),
+                caller_item_id: item_id(&executor).to_owned(),
+                capability_family: CapabilityFamily::Filesystem,
+                primitive_definition: "std::fs::write".to_owned(),
+                span_id: effect_span.span_id.clone(),
+            };
+            set_fact_id(&mut effect);
+            self.add_unit_facts("outbound", vec![effect_span], vec![executor, effect], Vec::new());
+        }
+
+        #[allow(clippy::too_many_lines)]
+        fn add_protected_effect_facts(
+            &mut self,
+            origin_status: ValueProvenanceStatus,
+            witness_origin: &str,
+            forge_witness: bool,
+        ) {
+            let protocol = ArchitectureProtectedEffectProtocol {
+                decision_scope: "crates/domain/src".to_owned(),
+                witness_owner_scope: "crates/domain/src".to_owned(),
+                receipt_scope: "crates/application/src".to_owned(),
+                authority_input_types: vec!["domain::ActorAuthority".to_owned()],
+                decision_functions: vec!["domain::authorize_publication".to_owned()],
+                authorized_output_types: vec!["domain::AuthorizedPublication".to_owned()],
+                witness_type: "domain::PublicationAuthority".to_owned(),
+                witness_constructors: vec!["domain::PublicationAuthority::from_decision".to_owned()],
+                witness_binding_types: vec!["domain::PublicationPlanId".to_owned()],
+                plan_type: "domain::PublicationPlan".to_owned(),
+                attempt_type: "application::PublicationAttempt".to_owned(),
+                observed_outcome_type: "application::PublicationObservation".to_owned(),
+                receipt_type: "application::PublicationReceipt".to_owned(),
+                receipt_constructors: vec!["application::PublicationReceipt::from_observation".to_owned()],
+                failure_receipt_constructors: vec!["application::PublicationReceipt::from_failure".to_owned()],
+                success_observation_constructors: vec!["application::PublicationObservation::success".to_owned()],
+                failure_observation_constructors: vec!["application::PublicationObservation::failure".to_owned()],
+                witness_use: ArchitectureWitnessUse::Consume,
+                borrow_scope: None,
+                borrow_rationale: None,
+                non_claims: vec![
+                    "credential-validity".to_owned(),
+                    "external-execution-success".to_owned(),
+                ],
+            };
+            self.policy.outbound_effects.push(ArchitectureOutboundEffectClassification {
+                family: ArchitectureCapabilityFamily::Filesystem,
+                executor_scope: "crates/outbound/src".to_owned(),
+                executor_methods: vec!["outbound::FilesystemPort::publish".to_owned()],
+                authority: ArchitectureEffectAuthority::Protected,
+                rationale: "publication requires authority".to_owned(),
+                protected: Some(protocol.clone()),
+            });
+            let domain_span = span("crates/domain/src/authority.rs");
+            let authority_input_type = type_fact("domain", &protocol.authority_input_types[0]);
+            let authority_input_type_id = type_id(&authority_input_type).to_owned();
+            let authorized_output_type = type_fact("domain", &protocol.authorized_output_types[0]);
+            let authorized_output_type_id = type_id(&authorized_output_type).to_owned();
+            let decision = item(&domain_span.span_id, &protocol.decision_functions[0]);
+            let mut decision_signature = CompilerArchitectureFact::Signature {
+                fact_id: String::new(),
+                signature_id: octet_architecture_ir::canonical_identity(
+                    "fixture-signature",
+                    &protocol.decision_functions[0],
+                )
+                .expect("signature id"),
+                owner_item_id: item_id(&decision).to_owned(),
+                input_type_ids: vec![authority_input_type_id],
+                output_type_id: authorized_output_type_id.clone(),
+                is_public: true,
+            };
+            set_fact_id(&mut decision_signature);
+            let witness_type = type_fact("domain", &protocol.witness_type);
+            let witness_type_id = type_id(&witness_type).to_owned();
+            let mut witness_shape = CompilerArchitectureFact::TypeShape {
+                fact_id: String::new(),
+                type_id: witness_type_id.clone(),
+                definition_path: protocol.witness_type.clone(),
+                field_visibilities: vec!["restricted:domain".to_owned()],
+                field_type_definitions: protocol.witness_binding_types.clone(),
+                implemented_traits: forge_witness.then(|| "core::clone::Clone".to_owned()).into_iter().collect(),
+                span_id: domain_span.span_id.clone(),
+            };
+            set_fact_id(&mut witness_shape);
+            let constructor_name = if forge_witness {
+                "domain::PublicationAuthority::forge"
+            } else {
+                "domain::PublicationAuthority::from_decision"
+            };
+            let mut constructor = item(&domain_span.span_id, constructor_name);
+            set_item_visibility(&mut constructor, "restricted");
+            let mut constructor_signature = CompilerArchitectureFact::Signature {
+                fact_id: String::new(),
+                signature_id: octet_architecture_ir::canonical_identity("fixture-signature", &constructor_name)
+                    .expect("signature id"),
+                owner_item_id: item_id(&constructor).to_owned(),
+                input_type_ids: vec![authorized_output_type_id.clone()],
+                output_type_id: witness_type_id.clone(),
+                is_public: false,
+            };
+            set_fact_id(&mut constructor_signature);
+            let mut constructor_safety = CompilerArchitectureFact::FunctionSafety {
+                fact_id: String::new(),
+                item_id: item_id(&constructor).to_owned(),
+                qualified_path: constructor_name.to_owned(),
+                output_type_id: witness_type_id.clone(),
+                is_unsafe: false,
+                span_id: domain_span.span_id.clone(),
+            };
+            set_fact_id(&mut constructor_safety);
+            self.add_unit_facts(
+                "domain",
+                vec![domain_span],
+                vec![
+                    authority_input_type,
+                    authorized_output_type,
+                    decision,
+                    decision_signature,
+                    witness_type,
+                    witness_shape,
+                    constructor,
+                    constructor_signature,
+                    constructor_safety,
+                ],
+                Vec::new(),
+            );
+
+            let application_span = span("crates/application/src/receipt.rs");
+            let observation_type = type_fact("application", &protocol.observed_outcome_type);
+            let observation_type_id = type_id(&observation_type).to_owned();
+            let receipt_caller = item(&application_span.span_id, "application::record_publication");
+            let mut receipt_provenance = CompilerArchitectureFact::CallArgumentProvenance {
+                fact_id: String::new(),
+                caller_item_id: item_id(&receipt_caller).to_owned(),
+                callee_definition: protocol.receipt_constructors[0].clone(),
+                argument_position: 0,
+                argument_type_id: observation_type_id.clone(),
+                origin_definitions: vec![protocol.success_observation_constructors[0].clone()],
+                status: ValueProvenanceStatus::Exact,
+                span_id: application_span.span_id.clone(),
+            };
+            set_fact_id(&mut receipt_provenance);
+            let mut failure_receipt_provenance = CompilerArchitectureFact::CallArgumentProvenance {
+                fact_id: String::new(),
+                caller_item_id: item_id(&receipt_caller).to_owned(),
+                callee_definition: protocol.failure_receipt_constructors[0].clone(),
+                argument_position: 0,
+                argument_type_id: observation_type_id,
+                origin_definitions: vec![protocol.failure_observation_constructors[0].clone()],
+                status: ValueProvenanceStatus::Exact,
+                span_id: application_span.span_id.clone(),
+            };
+            set_fact_id(&mut failure_receipt_provenance);
+            self.add_unit_facts(
+                "application",
+                vec![application_span],
+                vec![
+                    observation_type,
+                    receipt_caller,
+                    receipt_provenance,
+                    failure_receipt_provenance,
+                ],
+                Vec::new(),
+            );
+
+            let outbound_span = span("crates/outbound/src/filesystem.rs");
+            let executor = item(&outbound_span.span_id, &self.policy.outbound_effects[0].executor_methods[0]);
+            let mut executor_signature = CompilerArchitectureFact::Signature {
+                fact_id: String::new(),
+                signature_id: octet_architecture_ir::canonical_identity(
+                    "fixture-signature",
+                    &self.policy.outbound_effects[0].executor_methods[0],
+                )
+                .expect("signature id"),
+                owner_item_id: item_id(&executor).to_owned(),
+                input_type_ids: vec![witness_type_id.clone()],
+                output_type_id: witness_type_id.clone(),
+                is_public: true,
+            };
+            set_fact_id(&mut executor_signature);
+            let mut executor_provenance = CompilerArchitectureFact::CallArgumentProvenance {
+                fact_id: String::new(),
+                caller_item_id: item_id(&executor).to_owned(),
+                callee_definition: self.policy.outbound_effects[0].executor_methods[0].clone(),
+                argument_position: 1,
+                argument_type_id: witness_type_id,
+                origin_definitions: if origin_status == ValueProvenanceStatus::Merged {
+                    vec![witness_origin.to_owned(), "domain::other_decision".to_owned()]
+                } else {
+                    vec![witness_origin.to_owned()]
+                },
+                status: origin_status,
+                span_id: outbound_span.span_id.clone(),
+            };
+            set_fact_id(&mut executor_provenance);
+            let mut effect = CompilerArchitectureFact::Effect {
+                fact_id: String::new(),
+                caller_item_id: item_id(&executor).to_owned(),
+                capability_family: CapabilityFamily::Filesystem,
+                primitive_definition: "std::fs::write".to_owned(),
+                span_id: outbound_span.span_id.clone(),
+            };
+            set_fact_id(&mut effect);
+            self.add_unit_facts(
+                "outbound",
+                vec![outbound_span],
+                vec![executor, executor_signature, executor_provenance, effect],
+                Vec::new(),
+            );
         }
 
         fn add_domain_unknown(&mut self) {
@@ -1989,6 +3298,272 @@ mod tests {
         fact
     }
 
+    fn mutate_witness_visibility(ir: &mut CompilerArchitectureIr, visibility: &str) {
+        let fact = ir
+            .facts
+            .iter_mut()
+            .find(|fact| {
+                matches!(
+                    fact,
+                    CompilerArchitectureFact::TypeShape { definition_path, .. }
+                        if definition_path == "domain::PublicationAuthority"
+                )
+            })
+            .expect("witness shape");
+        let CompilerArchitectureFact::TypeShape {
+            fact_id,
+            field_visibilities,
+            ..
+        } = fact
+        else {
+            panic!("witness shape expected");
+        };
+        field_visibilities.clear();
+        field_visibilities.push(visibility.to_owned());
+        fact_id.clear();
+        set_fact_id(fact);
+        ir.facts.sort_by(|left, right| left.fact_id().cmp(right.fact_id()));
+    }
+
+    fn mutate_witness_shape(ir: &mut CompilerArchitectureIr, mutate: impl FnOnce(&mut Vec<String>, &mut Vec<String>)) {
+        let fact = ir
+            .facts
+            .iter_mut()
+            .find(|fact| {
+                matches!(
+                    fact,
+                    CompilerArchitectureFact::TypeShape { definition_path, .. }
+                        if definition_path == "domain::PublicationAuthority"
+                )
+            })
+            .expect("witness shape");
+        let CompilerArchitectureFact::TypeShape {
+            fact_id,
+            field_type_definitions,
+            implemented_traits,
+            ..
+        } = fact
+        else {
+            panic!("witness shape expected");
+        };
+        mutate(field_type_definitions, implemented_traits);
+        fact_id.clear();
+        set_fact_id(fact);
+        ir.facts.sort_by(|left, right| left.fact_id().cmp(right.fact_id()));
+    }
+
+    fn mutate_witness_constructor(ir: &mut CompilerArchitectureIr, visibility: &str, is_unsafe: bool) {
+        let constructor_item_id = ir
+            .facts
+            .iter()
+            .find_map(|fact| match fact {
+                CompilerArchitectureFact::Item {
+                    item_id,
+                    qualified_path,
+                    ..
+                } if qualified_path == "domain::PublicationAuthority::from_decision" => Some(item_id.clone()),
+                _ => None,
+            })
+            .expect("witness constructor item");
+        let item = ir
+            .facts
+            .iter_mut()
+            .find(|fact| {
+                matches!(
+                    fact,
+                    CompilerArchitectureFact::Item { item_id, .. } if item_id == &constructor_item_id
+                )
+            })
+            .expect("witness constructor item");
+        set_item_visibility(item, visibility);
+        let safety = ir
+            .facts
+            .iter_mut()
+            .find(|fact| {
+                matches!(
+                    fact,
+                    CompilerArchitectureFact::FunctionSafety { item_id, .. } if item_id == &constructor_item_id
+                )
+            })
+            .expect("witness constructor safety");
+        let CompilerArchitectureFact::FunctionSafety {
+            fact_id,
+            is_unsafe: current,
+            ..
+        } = safety
+        else {
+            panic!("witness constructor safety expected");
+        };
+        *current = is_unsafe;
+        fact_id.clear();
+        set_fact_id(safety);
+        ir.facts.sort_by(|left, right| left.fact_id().cmp(right.fact_id()));
+    }
+
+    fn remove_executor_provenance(ir: &mut CompilerArchitectureIr) {
+        ir.facts.retain(|fact| {
+            !matches!(
+                fact,
+                CompilerArchitectureFact::CallArgumentProvenance { callee_definition, .. }
+                    if callee_definition == "outbound::FilesystemPort::publish"
+            )
+        });
+    }
+
+    fn remove_executor_witness_parameter(ir: &mut CompilerArchitectureIr) {
+        let executor_item_id = ir
+            .facts
+            .iter()
+            .find_map(|fact| match fact {
+                CompilerArchitectureFact::Item {
+                    item_id,
+                    qualified_path,
+                    ..
+                } if qualified_path == "outbound::FilesystemPort::publish" => Some(item_id.clone()),
+                _ => None,
+            })
+            .expect("protected executor item");
+        let signature = ir
+            .facts
+            .iter_mut()
+            .find(|fact| {
+                matches!(
+                    fact,
+                    CompilerArchitectureFact::Signature { owner_item_id, .. }
+                        if owner_item_id == &executor_item_id
+                )
+            })
+            .expect("protected executor signature");
+        let CompilerArchitectureFact::Signature {
+            fact_id,
+            input_type_ids,
+            ..
+        } = signature
+        else {
+            panic!("protected executor signature expected");
+        };
+        input_type_ids.clear();
+        fact_id.clear();
+        set_fact_id(signature);
+        ir.facts.sort_by(|left, right| left.fact_id().cmp(right.fact_id()));
+    }
+
+    fn mutate_receipt_provenance(
+        ir: &mut CompilerArchitectureIr,
+        mutate: impl FnOnce(&mut String, &mut Vec<String>, &mut ValueProvenanceStatus),
+    ) {
+        let fact = ir
+            .facts
+            .iter_mut()
+            .find(|fact| {
+                matches!(
+                    fact,
+                    CompilerArchitectureFact::CallArgumentProvenance { callee_definition, .. }
+                        if callee_definition == "application::PublicationReceipt::from_observation"
+                )
+            })
+            .expect("success receipt provenance");
+        let CompilerArchitectureFact::CallArgumentProvenance {
+            fact_id,
+            argument_type_id,
+            origin_definitions,
+            status,
+            ..
+        } = fact
+        else {
+            panic!("receipt provenance expected");
+        };
+        mutate(argument_type_id, origin_definitions, status);
+        fact_id.clear();
+        set_fact_id(fact);
+        ir.facts.sort_by(|left, right| left.fact_id().cmp(right.fact_id()));
+    }
+
+    fn mutate_decision_output(ir: &mut CompilerArchitectureIr, decision: &str, output: &str) {
+        let decision_item_id = ir
+            .facts
+            .iter()
+            .find_map(|fact| match fact {
+                CompilerArchitectureFact::Item {
+                    item_id,
+                    qualified_path,
+                    ..
+                } if qualified_path == decision => Some(item_id.clone()),
+                _ => None,
+            })
+            .expect("decision item");
+        let output_type_id = ir
+            .facts
+            .iter()
+            .find_map(|fact| match fact {
+                CompilerArchitectureFact::Type {
+                    type_id,
+                    definition_path: Some(definition),
+                    ..
+                } if definition == output => Some(type_id.clone()),
+                _ => None,
+            })
+            .expect("output type");
+        let signature = ir
+            .facts
+            .iter_mut()
+            .find(|fact| {
+                matches!(
+                    fact,
+                    CompilerArchitectureFact::Signature { owner_item_id, .. } if owner_item_id == &decision_item_id
+                )
+            })
+            .expect("decision signature");
+        let CompilerArchitectureFact::Signature {
+            fact_id,
+            output_type_id: current,
+            ..
+        } = signature
+        else {
+            panic!("decision signature expected");
+        };
+        *current = output_type_id;
+        fact_id.clear();
+        set_fact_id(signature);
+        ir.facts.sort_by(|left, right| left.fact_id().cmp(right.fact_id()));
+    }
+
+    fn set_item_visibility(fact: &mut CompilerArchitectureFact, visibility: &str) {
+        let CompilerArchitectureFact::Item {
+            fact_id,
+            visibility: current,
+            ..
+        } = fact
+        else {
+            panic!("fixture item fact expected");
+        };
+        *current = visibility.to_owned();
+        fact_id.clear();
+        set_fact_id(fact);
+    }
+
+    fn type_fact(origin_crate: &str, definition_path: &str) -> CompilerArchitectureFact {
+        let type_id = octet_architecture_ir::canonical_identity("fixture-type", &(origin_crate, definition_path))
+            .expect("type id");
+        let mut fact = CompilerArchitectureFact::Type {
+            fact_id: String::new(),
+            type_id,
+            display: definition_path.to_owned(),
+            definition_path: Some(definition_path.to_owned()),
+            origin_crate: origin_crate.to_owned(),
+            type_kind: octet_architecture_ir::TypeKind::Adt,
+        };
+        set_fact_id(&mut fact);
+        fact
+    }
+
+    fn type_id(fact: &CompilerArchitectureFact) -> &str {
+        let CompilerArchitectureFact::Type { type_id, .. } = fact else {
+            panic!("fixture type fact expected");
+        };
+        type_id
+    }
+
     fn item_id(fact: &CompilerArchitectureFact) -> &str {
         let CompilerArchitectureFact::Item { item_id, .. } = fact else {
             panic!("fixture item fact expected");
@@ -2009,7 +3584,10 @@ mod tests {
             | CompilerArchitectureFact::Constructor { fact_id, .. }
             | CompilerArchitectureFact::Effect { fact_id, .. }
             | CompilerArchitectureFact::Expansion { fact_id, .. }
-            | CompilerArchitectureFact::Configuration { fact_id, .. } => *fact_id = identity,
+            | CompilerArchitectureFact::Configuration { fact_id, .. }
+            | CompilerArchitectureFact::TypeShape { fact_id, .. }
+            | CompilerArchitectureFact::FunctionSafety { fact_id, .. }
+            | CompilerArchitectureFact::CallArgumentProvenance { fact_id, .. } => *fact_id = identity,
         }
     }
 
@@ -2029,6 +3607,12 @@ mod tests {
             max_effects: FIXTURE_LIMIT,
             max_expansions: FIXTURE_LIMIT,
             max_configurations: FIXTURE_LIMIT,
+            max_type_shapes: FIXTURE_LIMIT,
+            max_function_safety_facts: FIXTURE_LIMIT,
+            max_value_provenance_facts: FIXTURE_LIMIT,
+            max_value_flow_bodies: FIXTURE_LIMIT,
+            max_value_flow_steps: FIXTURE_LIMIT,
+            max_value_flow_rounds: FIXTURE_LIMIT,
             max_unknowns: FIXTURE_LIMIT,
             max_spans: FIXTURE_LIMIT,
             max_span_bytes: FIXTURE_LIMIT,

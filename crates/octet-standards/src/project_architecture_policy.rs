@@ -219,6 +219,96 @@ pub struct ArchitectureCapabilityClassification {
     pub rationale: String,
 }
 
+/// Authority treatment for one outbound effect family.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum ArchitectureEffectAuthority {
+    /// Execution does not require an authorization witness under this project policy.
+    Unprotected,
+    /// Execution requires the complete typed authorization protocol.
+    Protected,
+}
+
+/// How a protected executor receives its authorization witness.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum ArchitectureWitnessUse {
+    /// The executor consumes a one-shot witness.
+    Consume,
+    /// The executor borrows a reusable witness within an explicit scope.
+    Borrow,
+}
+
+/// Complete compiler-visible protocol for one protected outbound effect family.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct ArchitectureProtectedEffectProtocol {
+    /// Domain-core source scope that owns authority decisions.
+    pub decision_scope: String,
+    /// Domain-core source scope that owns the opaque witness type.
+    pub witness_owner_scope: String,
+    /// Application-shell source scope that owns observation and receipt meaning.
+    pub receipt_scope: String,
+    /// Exact authority input type names.
+    pub authority_input_types: Vec<String>,
+    /// Exact approved domain decision function names.
+    pub decision_functions: Vec<String>,
+    /// Exact authorized decision output type names.
+    pub authorized_output_types: Vec<String>,
+    /// Exact opaque authorization witness type name.
+    pub witness_type: String,
+    /// Exact approved witness constructor names.
+    pub witness_constructors: Vec<String>,
+    /// Exact types that bind the witness to this effect family or plan.
+    pub witness_binding_types: Vec<String>,
+    /// Exact planned-effect type name.
+    pub plan_type: String,
+    /// Exact execution-attempt type name.
+    pub attempt_type: String,
+    /// Exact observed-outcome type name.
+    pub observed_outcome_type: String,
+    /// Exact execution-receipt type name.
+    pub receipt_type: String,
+    /// Exact success-receipt constructor names that require a successful observation.
+    pub receipt_constructors: Vec<String>,
+    /// Exact failure-receipt constructor names that require a failed or denied observation.
+    #[serde(default)]
+    pub failure_receipt_constructors: Vec<String>,
+    /// Exact constructors for successful observations.
+    pub success_observation_constructors: Vec<String>,
+    /// Exact constructors for failed or denied observations.
+    pub failure_observation_constructors: Vec<String>,
+    /// Witness use cardinality.
+    pub witness_use: ArchitectureWitnessUse,
+    /// Reusable witness scope, required only for `borrow`.
+    #[serde(default)]
+    pub borrow_scope: Option<String>,
+    /// Reusable authority rationale, required only for `borrow`.
+    #[serde(default)]
+    pub borrow_rationale: Option<String>,
+    /// Explicit protocol non-claims.
+    pub non_claims: Vec<String>,
+}
+
+/// Explicit authority classification for one outbound effect family.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct ArchitectureOutboundEffectClassification {
+    /// Effect family.
+    pub family: ArchitectureCapabilityFamily,
+    /// Source scope that owns protected execution.
+    pub executor_scope: String,
+    /// Exact protected or unprotected executor operation names.
+    pub executor_methods: Vec<String>,
+    /// Authority treatment.
+    pub authority: ArchitectureEffectAuthority,
+    /// Reviewable classification reason.
+    pub rationale: String,
+    /// Complete protocol, required only for protected effects.
+    #[serde(default)]
+    pub protected: Option<ArchitectureProtectedEffectProtocol>,
+}
+
 /// Optional host-independence obligation for one domain-core scope.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -283,6 +373,9 @@ pub struct ProjectArchitecturePolicy {
     pub ports: Vec<ArchitecturePort>,
     /// Capability-family classifications.
     pub capability_classifications: Vec<ArchitectureCapabilityClassification>,
+    /// Explicit outbound effect authority classifications.
+    #[serde(default)]
+    pub outbound_effects: Vec<ArchitectureOutboundEffectClassification>,
     /// Optional `no_std` obligations, separate from FCIS role meaning.
     #[serde(default)]
     pub core_no_std: Vec<ArchitectureNoStdObligation>,
@@ -359,6 +452,7 @@ pub fn validate_project_architecture_policy(
     validate_provider_classifications(policy, &mut diagnostics);
     validate_ports(policy, &assignments, &mut diagnostics);
     validate_capabilities(policy, &mut diagnostics);
+    validate_outbound_effects(policy, &assignments, &mut diagnostics);
     validate_no_std(policy, &assignments, &mut diagnostics);
     validate_admission(policy, &mut diagnostics);
     validate_waivers(policy, &mut diagnostics);
@@ -441,6 +535,12 @@ fn validate_collection_limits(
         ("max_effects", limits.max_effects),
         ("max_expansions", limits.max_expansions),
         ("max_configurations", limits.max_configurations),
+        ("max_type_shapes", limits.max_type_shapes),
+        ("max_function_safety_facts", limits.max_function_safety_facts),
+        ("max_value_provenance_facts", limits.max_value_provenance_facts),
+        ("max_value_flow_bodies", limits.max_value_flow_bodies),
+        ("max_value_flow_steps", limits.max_value_flow_steps),
+        ("max_value_flow_rounds", limits.max_value_flow_rounds),
         ("max_unknowns", limits.max_unknowns),
         ("max_spans", limits.max_spans),
         ("max_span_bytes", limits.max_span_bytes),
@@ -741,6 +841,197 @@ fn validate_capabilities(
     }
 }
 
+fn validate_outbound_effects(
+    policy: &ProjectArchitecturePolicy,
+    assignments: &BTreeMap<(ArchitectureScopeKind, String), ArchitectureRole>,
+    diagnostics: &mut Vec<ProjectArchitecturePolicyDiagnostic>,
+) {
+    let mut families = BTreeSet::new();
+    for classification in &policy.outbound_effects {
+        if !families.insert(classification.family) {
+            diagnostics.push(diagnostic(
+                "duplicate-outbound-effect-family",
+                "outbound_effects.family",
+                format!("outbound effect family `{:?}` is classified more than once", classification.family),
+            ));
+        }
+        validate_non_empty_unique_strings(
+            "outbound_effects.executor_methods",
+            &classification.executor_methods,
+            diagnostics,
+        );
+        if classification.executor_methods.is_empty() {
+            diagnostics.push(diagnostic(
+                "missing-executor-method",
+                "outbound_effects.executor_methods",
+                "outbound effect classification must declare at least one exact executor method",
+            ));
+        }
+        push_blank(diagnostics, "outbound_effects.executor_scope", &classification.executor_scope);
+        push_blank(diagnostics, "outbound_effects.rationale", &classification.rationale);
+        let executor_role = assignments.get(&(ArchitectureScopeKind::Source, classification.executor_scope.clone()));
+        if !matches!(
+            executor_role,
+            Some(
+                ArchitectureRole::ApplicationShell
+                    | ArchitectureRole::OutboundAdapter
+                    | ArchitectureRole::CompositionRoot
+            )
+        ) {
+            diagnostics.push(diagnostic(
+                "invalid-effect-executor-scope",
+                "outbound_effects.executor_scope",
+                format!(
+                    "outbound executor scope `{}` must be application-shell, outbound-adapter, or composition-root",
+                    classification.executor_scope
+                ),
+            ));
+        }
+        match (classification.authority, classification.protected.as_ref()) {
+            (ArchitectureEffectAuthority::Unprotected, None) => {}
+            (ArchitectureEffectAuthority::Unprotected, Some(_)) => diagnostics.push(diagnostic(
+                "unexpected-protected-protocol",
+                "outbound_effects.protected",
+                "unprotected outbound effects cannot define a protected protocol",
+            )),
+            (ArchitectureEffectAuthority::Protected, None) => diagnostics.push(diagnostic(
+                "missing-protected-protocol",
+                "outbound_effects.protected",
+                "protected outbound effects require a complete authorization protocol",
+            )),
+            (ArchitectureEffectAuthority::Protected, Some(protocol)) => {
+                validate_protected_effect_protocol(protocol, assignments, diagnostics);
+            }
+        }
+    }
+}
+
+#[allow(clippy::too_many_lines)]
+fn validate_protected_effect_protocol(
+    protocol: &ArchitectureProtectedEffectProtocol,
+    assignments: &BTreeMap<(ArchitectureScopeKind, String), ArchitectureRole>,
+    diagnostics: &mut Vec<ProjectArchitecturePolicyDiagnostic>,
+) {
+    for (field, scope, role) in [
+        ("outbound_effects.protected.decision_scope", &protocol.decision_scope, ArchitectureRole::DomainCore),
+        (
+            "outbound_effects.protected.witness_owner_scope",
+            &protocol.witness_owner_scope,
+            ArchitectureRole::DomainCore,
+        ),
+        (
+            "outbound_effects.protected.receipt_scope",
+            &protocol.receipt_scope,
+            ArchitectureRole::ApplicationShell,
+        ),
+    ] {
+        push_blank(diagnostics, field, scope);
+        require_scope_role(assignments, scope, role, field, diagnostics);
+    }
+    for (field, values) in [
+        ("outbound_effects.protected.authority_input_types", protocol.authority_input_types.as_slice()),
+        ("outbound_effects.protected.decision_functions", protocol.decision_functions.as_slice()),
+        ("outbound_effects.protected.authorized_output_types", protocol.authorized_output_types.as_slice()),
+        ("outbound_effects.protected.witness_constructors", protocol.witness_constructors.as_slice()),
+        ("outbound_effects.protected.witness_binding_types", protocol.witness_binding_types.as_slice()),
+        ("outbound_effects.protected.receipt_constructors", protocol.receipt_constructors.as_slice()),
+        (
+            "outbound_effects.protected.failure_receipt_constructors",
+            protocol.failure_receipt_constructors.as_slice(),
+        ),
+        (
+            "outbound_effects.protected.success_observation_constructors",
+            protocol.success_observation_constructors.as_slice(),
+        ),
+        (
+            "outbound_effects.protected.failure_observation_constructors",
+            protocol.failure_observation_constructors.as_slice(),
+        ),
+        ("outbound_effects.protected.non_claims", protocol.non_claims.as_slice()),
+    ] {
+        validate_non_empty_unique_strings(field, values, diagnostics);
+        if values.is_empty() {
+            diagnostics.push(diagnostic(
+                "missing-protocol-field",
+                field,
+                "protected effect protocol arrays must contain at least one exact value",
+            ));
+        }
+    }
+    for (left, right, code) in [
+        (
+            &protocol.receipt_constructors,
+            &protocol.failure_receipt_constructors,
+            "receipt-constructor-overlap",
+        ),
+        (
+            &protocol.success_observation_constructors,
+            &protocol.failure_observation_constructors,
+            "observation-constructor-overlap",
+        ),
+    ] {
+        if left.iter().any(|value| right.contains(value)) {
+            diagnostics.push(diagnostic(
+                code,
+                "outbound_effects.protected",
+                "success and failure constructor sets must be disjoint",
+            ));
+        }
+    }
+    for (field, value) in [
+        ("outbound_effects.protected.witness_type", &protocol.witness_type),
+        ("outbound_effects.protected.plan_type", &protocol.plan_type),
+        ("outbound_effects.protected.attempt_type", &protocol.attempt_type),
+        ("outbound_effects.protected.observed_outcome_type", &protocol.observed_outcome_type),
+        ("outbound_effects.protected.receipt_type", &protocol.receipt_type),
+    ] {
+        push_blank(diagnostics, field, value);
+    }
+    let distinct_types = [
+        protocol.witness_type.as_str(),
+        protocol.plan_type.as_str(),
+        protocol.attempt_type.as_str(),
+        protocol.observed_outcome_type.as_str(),
+        protocol.receipt_type.as_str(),
+    ];
+    if distinct_types.iter().copied().collect::<BTreeSet<_>>().len() != distinct_types.len() {
+        diagnostics.push(diagnostic(
+            "protocol-type-alias",
+            "outbound_effects.protected",
+            "witness, plan, attempt, observation, and receipt must use distinct qualified types",
+        ));
+    }
+    match protocol.witness_use {
+        ArchitectureWitnessUse::Consume => {
+            if protocol.borrow_scope.is_some() || protocol.borrow_rationale.is_some() {
+                diagnostics.push(diagnostic(
+                    "unexpected-borrow-policy",
+                    "outbound_effects.protected.witness_use",
+                    "consume witnesses cannot define a reusable borrow scope or rationale",
+                ));
+            }
+        }
+        ArchitectureWitnessUse::Borrow => match (&protocol.borrow_scope, &protocol.borrow_rationale) {
+            (Some(scope), Some(rationale)) => {
+                push_blank(diagnostics, "outbound_effects.protected.borrow_scope", scope);
+                push_blank(diagnostics, "outbound_effects.protected.borrow_rationale", rationale);
+                if !assignments.contains_key(&(ArchitectureScopeKind::Source, scope.clone())) {
+                    diagnostics.push(diagnostic(
+                        "invalid-borrow-scope",
+                        "outbound_effects.protected.borrow_scope",
+                        format!("reusable witness scope `{scope}` has no explicit source role"),
+                    ));
+                }
+            }
+            _ => diagnostics.push(diagnostic(
+                "missing-borrow-policy",
+                "outbound_effects.protected.witness_use",
+                "borrow witnesses require both a reusable-authority scope and rationale",
+            )),
+        },
+    }
+}
+
 fn validate_no_std(
     policy: &ProjectArchitecturePolicy,
     assignments: &BTreeMap<(ArchitectureScopeKind, String), ArchitectureRole>,
@@ -1030,6 +1321,38 @@ mod tests {
     }
 
     #[test]
+    fn protected_effect_protocol_accepts_complete_consume_and_borrow_forms() {
+        let mut policy = valid_policy();
+        policy.outbound_effects.push(protected_filesystem_effect(ArchitectureWitnessUse::Consume));
+        assert_eq!(validate_project_architecture_policy(&policy), Vec::new());
+
+        let mut borrow = protected_filesystem_effect(ArchitectureWitnessUse::Borrow);
+        let protocol = borrow.protected.as_mut().expect("protected protocol");
+        protocol.borrow_scope = Some("crates/application/src".to_owned());
+        protocol.borrow_rationale = Some("bounded transaction authority is reused within one request".to_owned());
+        policy.outbound_effects = vec![borrow];
+        assert_eq!(validate_project_architecture_policy(&policy), Vec::new());
+    }
+
+    #[test]
+    fn protected_effect_protocol_rejects_missing_protocol_aliases_and_implicit_borrow() {
+        let mut policy = valid_policy();
+        let mut classification = protected_filesystem_effect(ArchitectureWitnessUse::Borrow);
+        let protocol = classification.protected.as_mut().expect("protected protocol");
+        protocol.receipt_type.clone_from(&protocol.plan_type);
+        policy.outbound_effects.push(classification);
+
+        let diagnostics = validate_project_architecture_policy(&policy);
+
+        assert!(diagnostics.iter().any(|diagnostic| diagnostic.code == "protocol-type-alias"));
+        assert!(diagnostics.iter().any(|diagnostic| diagnostic.code == "missing-borrow-policy"));
+
+        policy.outbound_effects[0].protected = None;
+        let missing = validate_project_architecture_policy(&policy);
+        assert!(missing.iter().any(|diagnostic| diagnostic.code == "missing-protected-protocol"));
+    }
+
+    #[test]
     fn waiver_binding_accepts_current_and_rejects_stale_facts() {
         let waiver = ArchitectureWaiver {
             finding_id: "architecture.port.owner".to_owned(),
@@ -1131,6 +1454,7 @@ mod tests {
                 executor_role: ArchitectureRole::OutboundAdapter,
                 rationale: "the shell observes time before domain evaluation".to_owned(),
             }],
+            outbound_effects: Vec::new(),
             core_no_std: vec![ArchitectureNoStdObligation {
                 scope: "domain".to_owned(),
             }],
@@ -1158,6 +1482,12 @@ mod tests {
                 max_effects: 65_536,
                 max_expansions: 65_536,
                 max_configurations: 8192,
+                max_type_shapes: 65_536,
+                max_function_safety_facts: 65_536,
+                max_value_provenance_facts: 262_144,
+                max_value_flow_bodies: 65_536,
+                max_value_flow_steps: 1_048_576,
+                max_value_flow_rounds: 64,
                 max_unknowns: 65_536,
                 max_spans: 262_144,
                 max_span_bytes: 1_048_576,
@@ -1165,6 +1495,42 @@ mod tests {
                 max_artifact_bytes: 268_435_456,
             },
             non_claims: vec!["runtime-correctness".to_owned(), "release-eligibility".to_owned()],
+        }
+    }
+
+    fn protected_filesystem_effect(witness_use: ArchitectureWitnessUse) -> ArchitectureOutboundEffectClassification {
+        ArchitectureOutboundEffectClassification {
+            family: ArchitectureCapabilityFamily::Filesystem,
+            executor_scope: "crates/outbound/src".to_owned(),
+            executor_methods: vec!["outbound::FilesystemPort::publish".to_owned()],
+            authority: ArchitectureEffectAuthority::Protected,
+            rationale: "publication requires an application-owned authority decision".to_owned(),
+            protected: Some(ArchitectureProtectedEffectProtocol {
+                decision_scope: "crates/domain/src".to_owned(),
+                witness_owner_scope: "crates/domain/src".to_owned(),
+                receipt_scope: "crates/application/src".to_owned(),
+                authority_input_types: vec!["domain::ActorAuthority".to_owned()],
+                decision_functions: vec!["domain::authorize_publication".to_owned()],
+                authorized_output_types: vec!["domain::AuthorizedPublication".to_owned()],
+                witness_type: "domain::PublicationAuthority".to_owned(),
+                witness_constructors: vec!["domain::PublicationAuthority::from_decision".to_owned()],
+                witness_binding_types: vec!["domain::PublicationPlanId".to_owned()],
+                plan_type: "domain::PublicationPlan".to_owned(),
+                attempt_type: "application::PublicationAttempt".to_owned(),
+                observed_outcome_type: "application::PublicationObservation".to_owned(),
+                receipt_type: "application::PublicationReceipt".to_owned(),
+                receipt_constructors: vec!["application::PublicationReceipt::from_observation".to_owned()],
+                failure_receipt_constructors: vec!["application::PublicationReceipt::from_failure".to_owned()],
+                success_observation_constructors: vec!["application::PublicationObservation::success".to_owned()],
+                failure_observation_constructors: vec!["application::PublicationObservation::failure".to_owned()],
+                witness_use,
+                borrow_scope: None,
+                borrow_rationale: None,
+                non_claims: vec![
+                    "credential-validity".to_owned(),
+                    "external-execution-success".to_owned(),
+                ],
+            }),
         }
     }
 

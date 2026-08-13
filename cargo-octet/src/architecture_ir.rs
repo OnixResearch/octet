@@ -11,6 +11,7 @@ use octet_architecture_ir::CompilerArchitectureCollectorContext;
 use octet_architecture_ir::CompilerArchitectureIr;
 use octet_architecture_ir::CompilerArchitectureRole;
 use octet_architecture_ir::CompilerArchitectureShard;
+use octet_architecture_ir::CompilerValueFlowSelection;
 use octet_architecture_ir::ExpectedCompilationUnit;
 use octet_architecture_ir::InvalidCompilerArchitectureShard;
 use octet_architecture_ir::NormalizationInput;
@@ -247,6 +248,7 @@ pub(crate) fn prepare_collector(
         output_directory: shard_directory.display().to_string(),
         limits: policy.policy.collection_limits.clone(),
         selected_units,
+        value_flow_selections: protected_value_flow_selections(&policy.policy),
         non_claims: policy.policy.non_claims.clone(),
     };
     let context_bytes = serde_json::to_vec_pretty(&context)
@@ -264,6 +266,60 @@ pub(crate) fn prepare_collector(
         cargo_graph,
         non_claims: policy.policy.non_claims.clone(),
     })
+}
+
+fn protected_value_flow_selections(
+    policy: &octet_standards::project_architecture_policy::ProjectArchitecturePolicy,
+) -> Vec<CompilerValueFlowSelection> {
+    let mut selections = policy
+        .outbound_effects
+        .iter()
+        .filter_map(|classification| classification.protected.as_ref().map(|protocol| (classification, protocol)))
+        .map(|(classification, protocol)| {
+            let mut tracked_callee_definitions = classification.executor_methods.clone();
+            tracked_callee_definitions.extend(protocol.receipt_constructors.clone());
+            tracked_callee_definitions.extend(protocol.failure_receipt_constructors.clone());
+            tracked_callee_definitions.sort();
+            tracked_callee_definitions.dedup();
+            let mut tracked_type_definitions = protocol.authority_input_types.clone();
+            tracked_type_definitions.extend(protocol.authorized_output_types.clone());
+            tracked_type_definitions.extend(protocol.witness_binding_types.clone());
+            tracked_type_definitions.extend([
+                protocol.witness_type.clone(),
+                protocol.plan_type.clone(),
+                protocol.attempt_type.clone(),
+                protocol.observed_outcome_type.clone(),
+                protocol.receipt_type.clone(),
+            ]);
+            tracked_type_definitions.sort();
+            tracked_type_definitions.dedup();
+            let mut root_origin_definitions = protocol.decision_functions.clone();
+            root_origin_definitions.extend(protocol.success_observation_constructors.clone());
+            root_origin_definitions.extend(protocol.failure_observation_constructors.clone());
+            root_origin_definitions.sort();
+            root_origin_definitions.dedup();
+            let mut propagation_definitions = protocol.witness_constructors.clone();
+            propagation_definitions.extend(protocol.receipt_constructors.clone());
+            propagation_definitions.extend(protocol.failure_receipt_constructors.clone());
+            propagation_definitions.sort();
+            propagation_definitions.dedup();
+            CompilerValueFlowSelection {
+                tracked_callee_definitions,
+                tracked_type_definitions,
+                root_origin_definitions,
+                propagation_definitions,
+            }
+        })
+        .collect::<Vec<_>>();
+    selections.sort_by(|left, right| {
+        left.tracked_callee_definitions
+            .cmp(&right.tracked_callee_definitions)
+            .then_with(|| left.tracked_type_definitions.cmp(&right.tracked_type_definitions))
+            .then_with(|| left.root_origin_definitions.cmp(&right.root_origin_definitions))
+            .then_with(|| left.propagation_definitions.cmp(&right.propagation_definitions))
+    });
+    selections.dedup();
+    selections
 }
 
 pub(crate) fn normalize_collected_shards(prepared: &PreparedCollector) -> Result<ArchitectureArtifacts, String> {

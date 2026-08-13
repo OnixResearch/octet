@@ -90,6 +90,39 @@ let CapabilityClassification = {
   executor_role | CapabilityExecutorRole,
   rationale | NonEmptyString,
 } in
+let EffectAuthority = OneOf ["unprotected", "protected"] in
+let WitnessUse = OneOf ["consume", "borrow"] in
+let ProtectedEffectProtocol = {
+  decision_scope | NonEmptyString,
+  witness_owner_scope | NonEmptyString,
+  receipt_scope | NonEmptyString,
+  authority_input_types | NonEmptyArray | Array NonEmptyString,
+  decision_functions | NonEmptyArray | Array NonEmptyString,
+  authorized_output_types | NonEmptyArray | Array NonEmptyString,
+  witness_type | NonEmptyString,
+  witness_constructors | NonEmptyArray | Array NonEmptyString,
+  witness_binding_types | NonEmptyArray | Array NonEmptyString,
+  plan_type | NonEmptyString,
+  attempt_type | NonEmptyString,
+  observed_outcome_type | NonEmptyString,
+  receipt_type | NonEmptyString,
+  receipt_constructors | NonEmptyArray | Array NonEmptyString,
+  failure_receipt_constructors | default = [] | Array NonEmptyString,
+  success_observation_constructors | NonEmptyArray | Array NonEmptyString,
+  failure_observation_constructors | NonEmptyArray | Array NonEmptyString,
+  witness_use | WitnessUse,
+  borrow_scope | default = null,
+  borrow_rationale | default = null,
+  non_claims | NonEmptyArray | Array NonEmptyString,
+} in
+let OutboundEffectClassification = {
+  family | CapabilityFamily,
+  executor_scope | NonEmptyString,
+  executor_methods | NonEmptyArray | Array NonEmptyString,
+  authority | EffectAuthority,
+  rationale | NonEmptyString,
+  protected | default = null,
+} in
 let NoStdObligation = {
   scope | NonEmptyString,
 } in
@@ -121,6 +154,12 @@ let CollectionLimits = {
   max_effects | Positive,
   max_expansions | Positive,
   max_configurations | Positive,
+  max_type_shapes | Positive,
+  max_function_safety_facts | Positive,
+  max_value_provenance_facts | Positive,
+  max_value_flow_bodies | Positive,
+  max_value_flow_steps | Positive,
+  max_value_flow_rounds | Positive,
   max_unknowns | Positive,
   max_spans | Positive,
   max_span_bytes | Positive,
@@ -137,6 +176,7 @@ let ProjectArchitecturePolicyContract = {
   provider_classifications | Array ProviderClassification | default = [],
   ports | Array Port | default = [],
   capability_classifications | NonEmptyArray | Array CapabilityClassification,
+  outbound_effects | Array OutboundEffectClassification | default = [],
   core_no_std | Array NoStdObligation | default = [],
   admission | default = null,
   waivers | Array Waiver | default = [],
@@ -243,6 +283,27 @@ let rules_valid = fun policy =>
     ) port.permitted_adapter_scopes
   ) policy.ports
   && !has_duplicates (policy.capability_classifications |> std.array.map (fun item => item.family))
+  && !has_duplicates (policy.outbound_effects |> std.array.map (fun item => item.family))
+  && std.array.all (fun item =>
+    std.array.elem (role_for_source item.executor_scope policy.roles) [
+      "application-shell", "outbound-adapter", "composition-root",
+    ]
+    && std.array.length item.executor_methods > 0
+    && (
+      if item.authority == "unprotected" then item.protected == null else
+        item.protected != null
+        && (item.protected | ProtectedEffectProtocol) == item.protected
+        && role_for_source item.protected.decision_scope policy.roles == "domain-core"
+        && role_for_source item.protected.witness_owner_scope policy.roles == "domain-core"
+        && role_for_source item.protected.receipt_scope policy.roles == "application-shell"
+        && (
+          if item.protected.witness_use == "consume" then
+            item.protected.borrow_scope == null && item.protected.borrow_rationale == null
+          else
+            item.protected.borrow_scope != null && item.protected.borrow_rationale != null
+        )
+    )
+  ) policy.outbound_effects
   && std.array.all (fun obligation =>
     role_for_scope obligation.scope policy.roles == "domain-core"
   ) policy.core_no_std

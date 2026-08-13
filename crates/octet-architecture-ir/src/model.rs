@@ -28,11 +28,27 @@ pub struct ArchitectureCollectionLimits {
     pub max_effects: usize,
     pub max_expansions: usize,
     pub max_configurations: usize,
+    #[serde(default = "default_authority_fact_limit")]
+    pub max_type_shapes: usize,
+    #[serde(default = "default_authority_fact_limit")]
+    pub max_function_safety_facts: usize,
+    #[serde(default = "default_authority_fact_limit")]
+    pub max_value_provenance_facts: usize,
+    #[serde(default = "default_authority_fact_limit")]
+    pub max_value_flow_bodies: usize,
+    #[serde(default = "default_authority_fact_limit")]
+    pub max_value_flow_steps: usize,
+    #[serde(default = "default_authority_fact_limit")]
+    pub max_value_flow_rounds: usize,
     pub max_unknowns: usize,
     pub max_spans: usize,
     pub max_span_bytes: usize,
     pub max_shard_bytes: usize,
     pub max_artifact_bytes: usize,
+}
+
+const fn default_authority_fact_limit() -> usize {
+    1
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize)]
@@ -148,6 +164,25 @@ pub enum CapabilityFamily {
     Unknown,
 }
 
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum ValueProvenanceStatus {
+    Exact,
+    Merged,
+    Unknown,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct CompilerValueFlowSelection {
+    pub tracked_callee_definitions: Vec<String>,
+    pub tracked_type_definitions: Vec<String>,
+    #[serde(default)]
+    pub root_origin_definitions: Vec<String>,
+    #[serde(default)]
+    pub propagation_definitions: Vec<String>,
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize)]
 #[serde(tag = "kind", rename_all = "kebab-case", deny_unknown_fields)]
 pub enum CompilerArchitectureFact {
@@ -231,6 +266,34 @@ pub enum CompilerArchitectureFact {
         active: bool,
         span_id: Option<String>,
     },
+    TypeShape {
+        fact_id: String,
+        type_id: String,
+        definition_path: String,
+        field_visibilities: Vec<String>,
+        #[serde(default)]
+        field_type_definitions: Vec<String>,
+        implemented_traits: Vec<String>,
+        span_id: String,
+    },
+    FunctionSafety {
+        fact_id: String,
+        item_id: String,
+        qualified_path: String,
+        output_type_id: String,
+        is_unsafe: bool,
+        span_id: String,
+    },
+    CallArgumentProvenance {
+        fact_id: String,
+        caller_item_id: String,
+        callee_definition: String,
+        argument_position: usize,
+        argument_type_id: String,
+        origin_definitions: Vec<String>,
+        status: ValueProvenanceStatus,
+        span_id: String,
+    },
 }
 
 impl CompilerArchitectureFact {
@@ -247,7 +310,10 @@ impl CompilerArchitectureFact {
             | Self::Constructor { fact_id, .. }
             | Self::Effect { fact_id, .. }
             | Self::Expansion { fact_id, .. }
-            | Self::Configuration { fact_id, .. } => fact_id,
+            | Self::Configuration { fact_id, .. }
+            | Self::TypeShape { fact_id, .. }
+            | Self::FunctionSafety { fact_id, .. }
+            | Self::CallArgumentProvenance { fact_id, .. } => fact_id,
         }
     }
 }
@@ -263,6 +329,8 @@ pub enum UnknownFactKind {
     MissingBody,
     UnresolvedDefinition,
     UnsupportedCompilerShape,
+    AmbiguousValueProvenance,
+    MissingValueProvenance,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize)]
@@ -325,6 +393,8 @@ pub struct CompilerArchitectureCollectorContext {
     pub output_directory: String,
     pub limits: ArchitectureCollectionLimits,
     pub selected_units: Vec<CollectorCompilationUnit>,
+    #[serde(default)]
+    pub value_flow_selections: Vec<CompilerValueFlowSelection>,
     pub non_claims: Vec<String>,
 }
 

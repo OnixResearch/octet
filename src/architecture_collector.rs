@@ -1,7 +1,9 @@
 use std::collections::BTreeMap;
 use std::collections::BTreeSet;
 use std::collections::HashMap;
+use std::collections::VecDeque;
 use std::fs;
+use std::hash::Hash;
 use std::path::Path;
 use std::path::PathBuf;
 
@@ -12,6 +14,7 @@ use octet_architecture_ir::CompilerArchitectureCollectorContext;
 use octet_architecture_ir::CompilerArchitectureFact;
 use octet_architecture_ir::CompilerArchitectureRole;
 use octet_architecture_ir::CompilerArchitectureShard;
+use octet_architecture_ir::CompilerValueFlowSelection;
 use octet_architecture_ir::DispatchKind;
 use octet_architecture_ir::ItemKind;
 use octet_architecture_ir::SourceOrigin;
@@ -19,6 +22,7 @@ use octet_architecture_ir::SourceSpan;
 use octet_architecture_ir::TypeKind;
 use octet_architecture_ir::UnknownCompilerFact;
 use octet_architecture_ir::UnknownFactKind;
+use octet_architecture_ir::ValueProvenanceStatus;
 use rustc_hir as hir;
 use rustc_hir::def::DefKind;
 use rustc_hir::def_id::DefId;
@@ -26,10 +30,12 @@ use rustc_hir::def_id::LocalDefId;
 use rustc_lint::LateContext;
 use rustc_lint::LateLintPass;
 use rustc_lint::LintContext;
+use rustc_middle::mir;
 use rustc_middle::ty;
 use rustc_middle::ty::Ty;
 use rustc_session::impl_lint_pass;
 use rustc_span::Span;
+use rustc_span::Spanned;
 use rustc_span::sym;
 
 const CONTEXT_BYTE_LIMIT: u64 = 16 * 1024 * 1024;
@@ -41,6 +47,35 @@ const CONFIG_FACT_PREFIX: &str = "active";
 const TEMP_FILE_SUFFIX: &str = "tmp";
 const REMAPPED_WORKSPACE_PREFIX: &str = "<WORKSPACE>/";
 const MAX_EXPANSION_CALLSITE_DEPTH: usize = 64;
+const PARAMETER_ORIGIN_PREFIX: &str = "octet-parameter:";
+const UNKNOWN_ORIGIN_PREFIX: &str = "octet-unknown:";
+const VALUE_FLOW_LIMIT_TARGET: &str = "compiler-selected-value-flow";
+
+type ValueOrigins = BTreeSet<String>;
+type LocalValueOrigins = BTreeMap<mir::Local, ValueOrigins>;
+
+#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
+struct ProvenanceObservationKey {
+    callee_definition: String,
+    argument_position: usize,
+    argument_type: String,
+    span_lo: u32,
+    span_hi: u32,
+}
+
+#[derive(Clone, Debug)]
+struct ProvenanceObservation {
+    key: ProvenanceObservationKey,
+    origins: ValueOrigins,
+    span: Span,
+}
+
+#[derive(Clone, Debug, Default)]
+struct MirValueFlowResult {
+    return_origins: ValueOrigins,
+    observations: Vec<ProvenanceObservation>,
+    argument_updates: Vec<((LocalDefId, usize), ValueOrigins)>,
+}
 const EFFECT_PATHS: &[(&str, CapabilityFamily)] = &[
     ("std::env::", CapabilityFamily::Environment),
     ("std::fs::", CapabilityFamily::Filesystem),
@@ -146,6 +181,7 @@ pub(crate) struct ArchitectureCollector {
     item_ids: HashMap<LocalDefId, String>,
     type_ids: BTreeSet<String>,
     module_paths: BTreeSet<String>,
+    selected_type_items: BTreeMap<String, (LocalDefId, String, String)>,
     incomplete: bool,
 }
 
@@ -158,6 +194,7 @@ impl ArchitectureCollector {
             item_ids: HashMap::new(),
             type_ids: BTreeSet::new(),
             module_paths: BTreeSet::new(),
+            selected_type_items: BTreeMap::new(),
             incomplete: false,
             context,
             selected,
@@ -172,7 +209,7 @@ impl ArchitectureCollector {
         span: Span,
         signature: bool,
     ) -> String {
-        let qualified_path = cx.tcx.def_path_str(def_id.to_def_id());
+        let qualified_path = qualified_definition(cx, def_id.to_def_id());
         let span_id = self.collect_span(cx, span);
         let signature_id = signature.then(|| signature_shape_identity(cx, def_id));
         let item_id = item_identity(
@@ -202,11 +239,72 @@ impl ArchitectureCollector {
         };
         assign_fact_identity(&mut fact);
         self.push_fact(fact);
+        self.collect_function_safety(cx, def_id, item_kind, &item_id, &qualified_path, &span_id);
+        self.remember_selected_type(cx, def_id, item_kind, &qualified_path, &span_id);
         self.collect_module(&qualified_path, item_kind, &span_id);
         if span.from_expansion() {
             self.collect_expansion(cx, span, &span_id);
         }
         item_id
+    }
+
+    fn collect_function_safety(
+        &mut self,
+        cx: &LateContext<'_>,
+        def_id: LocalDefId,
+        item_kind: ItemKind,
+        item_id: &str,
+        qualified_path: &str,
+        span_id: &str,
+    ) {
+        if item_kind != ItemKind::Function {
+            return;
+        }
+        let signature = cx.tcx.fn_sig(def_id).instantiate_identity().skip_binder();
+        let output_definition = type_definition_path(cx, signature.output());
+        let selected = output_definition.as_ref().is_some_and(|definition| {
+            self.context
+                .value_flow_selections
+                .iter()
+                .any(|selection| selection.tracked_type_definitions.iter().any(|tracked| tracked == definition))
+        });
+        if !selected {
+            return;
+        }
+        let output_type_id = self.collect_type(cx, signature.output());
+        let mut fact = CompilerArchitectureFact::FunctionSafety {
+            fact_id: String::new(),
+            item_id: item_id.to_owned(),
+            qualified_path: qualified_path.to_owned(),
+            output_type_id,
+            is_unsafe: signature.safety.is_unsafe(),
+            span_id: span_id.to_owned(),
+        };
+        assign_fact_identity(&mut fact);
+        self.push_fact(fact);
+    }
+
+    fn remember_selected_type(
+        &mut self,
+        cx: &LateContext<'_>,
+        def_id: LocalDefId,
+        item_kind: ItemKind,
+        qualified_path: &str,
+        span_id: &str,
+    ) {
+        if !matches!(item_kind, ItemKind::Struct | ItemKind::Enum | ItemKind::Union) {
+            return;
+        }
+        let selected = self
+            .context
+            .value_flow_selections
+            .iter()
+            .any(|selection| selection.tracked_type_definitions.iter().any(|tracked| tracked == qualified_path));
+        if !selected {
+            return;
+        }
+        let type_id = self.collect_type(cx, cx.tcx.type_of(def_id).instantiate_identity());
+        self.selected_type_items.insert(qualified_path.to_owned(), (def_id, type_id, span_id.to_owned()));
     }
 
     fn collect_signature(&mut self, cx: &LateContext<'_>, def_id: LocalDefId, owner_item_id: &str, signature_id: &str) {
@@ -370,7 +468,7 @@ impl ArchitectureCollector {
     ) {
         let caller_item_id = self.caller_item_id(cx, expr.hir_id);
         let span_id = self.collect_span(cx, expr.span);
-        let resolved_definition = def_id.map(|current| cx.tcx.def_path_str(current));
+        let resolved_definition = def_id.map(|current| qualified_definition(cx, current));
         if def_id.is_none() {
             self.push_unknown(
                 UnknownFactKind::UnresolvedDefinition,
@@ -446,7 +544,7 @@ impl ArchitectureCollector {
             return;
         }
         let constructed_type_id = self.collect_type(cx, resolved);
-        let constructor_definition = def_id.map(|current| cx.tcx.def_path_str(current));
+        let constructor_definition = def_id.map(|current| qualified_definition(cx, current));
         let mut fact = CompilerArchitectureFact::Constructor {
             fact_id: String::new(),
             caller_item_id: caller_item_id.to_owned(),
@@ -459,7 +557,7 @@ impl ArchitectureCollector {
     }
 
     fn local_item_identity(&self, cx: &LateContext<'_>, def_id: LocalDefId) -> String {
-        let qualified_path = cx.tcx.def_path_str(def_id.to_def_id());
+        let qualified_path = qualified_definition(cx, def_id.to_def_id());
         let kind = def_kind_to_item_kind(cx.tcx.def_kind(def_id));
         let signature_id = matches!(kind, ItemKind::Function).then(|| signature_shape_identity(cx, def_id));
         item_identity(
@@ -548,6 +646,15 @@ impl ArchitectureCollector {
             CompilerArchitectureFact::Configuration { .. } => {
                 (self.count_facts(is_configuration), self.context.limits.max_configurations)
             }
+            CompilerArchitectureFact::TypeShape { .. } => {
+                (self.count_facts(is_type_shape), self.context.limits.max_type_shapes)
+            }
+            CompilerArchitectureFact::FunctionSafety { .. } => {
+                (self.count_facts(is_function_safety), self.context.limits.max_function_safety_facts)
+            }
+            CompilerArchitectureFact::CallArgumentProvenance { .. } => {
+                (self.count_facts(is_value_provenance), self.context.limits.max_value_provenance_facts)
+            }
         };
         observed >= limit && !self.facts.contains_key(candidate.fact_id())
     }
@@ -612,6 +719,224 @@ impl ArchitectureCollector {
         self.push_fact(fact);
     }
 
+    fn collect_selected_type_shapes(&mut self, cx: &LateContext<'_>) {
+        let selected_types = self.selected_type_items.clone();
+        for (qualified_path, (def_id, type_id, span_id)) in selected_types {
+            let adt_def = cx.tcx.adt_def(def_id);
+            let mut field_visibilities = adt_def
+                .all_fields()
+                .map(|field| match field.vis {
+                    ty::Visibility::Public => "public".to_owned(),
+                    ty::Visibility::Restricted(module_def_id) => {
+                        format!("restricted:{}", qualified_definition(cx, module_def_id))
+                    }
+                })
+                .collect::<Vec<_>>();
+            field_visibilities.sort();
+            let mut field_type_definitions = adt_def
+                .all_fields()
+                .filter_map(|field| type_definition_path(cx, cx.tcx.type_of(field.did).instantiate_identity()))
+                .collect::<Vec<_>>();
+            field_type_definitions.sort();
+            field_type_definitions.dedup();
+            let mut implemented_traits = BTreeSet::new();
+            for (trait_def_id, impl_def_ids) in cx.tcx.all_local_trait_impls(()).iter() {
+                for impl_def_id in impl_def_ids {
+                    let trait_ref = cx.tcx.impl_trait_ref(*impl_def_id).instantiate_identity();
+                    let ty::Adt(self_adt, _) = trait_ref.self_ty().kind() else {
+                        continue;
+                    };
+                    if self_adt.did() == def_id.to_def_id() {
+                        implemented_traits.insert(qualified_definition(cx, *trait_def_id));
+                    }
+                }
+            }
+            let mut fact = CompilerArchitectureFact::TypeShape {
+                fact_id: String::new(),
+                type_id,
+                definition_path: qualified_path,
+                field_visibilities,
+                field_type_definitions,
+                implemented_traits: implemented_traits.into_iter().collect(),
+                span_id,
+            };
+            assign_fact_identity(&mut fact);
+            self.push_fact(fact);
+        }
+    }
+
+    fn collect_selected_value_provenance(&mut self, cx: &LateContext<'_>) {
+        if self.context.value_flow_selections.is_empty() {
+            return;
+        }
+        let mut body_def_ids = self
+            .item_ids
+            .keys()
+            .copied()
+            .filter(|def_id| {
+                matches!(cx.tcx.def_kind(*def_id), DefKind::Fn | DefKind::AssocFn | DefKind::Closure)
+                    && cx.tcx.is_mir_available(def_id.to_def_id())
+            })
+            .collect::<Vec<_>>();
+        body_def_ids.sort_by_key(|def_id| qualified_definition(cx, def_id.to_def_id()));
+        body_def_ids.dedup();
+        if body_def_ids.len() > self.context.limits.max_value_flow_bodies {
+            self.push_unknown(
+                UnknownFactKind::UnsupportedCompilerShape,
+                None,
+                Some(VALUE_FLOW_LIMIT_TARGET),
+                None,
+                "selected MIR body count exceeded the configured value-flow bound",
+            );
+            return;
+        }
+        let tracked_callees =
+            selected_names(&self.context.value_flow_selections, |selection| &selection.tracked_callee_definitions);
+        let tracked_types =
+            selected_names(&self.context.value_flow_selections, |selection| &selection.tracked_type_definitions);
+        let root_definitions =
+            selected_names(&self.context.value_flow_selections, |selection| &selection.root_origin_definitions);
+        let propagation_definitions =
+            selected_names(&self.context.value_flow_selections, |selection| &selection.propagation_definitions);
+        let mut argument_origins = HashMap::<(LocalDefId, usize), ValueOrigins>::new();
+        let mut return_origins = HashMap::<LocalDefId, ValueOrigins>::new();
+        let mut final_observations =
+            BTreeMap::<(String, ProvenanceObservationKey), (LocalDefId, ProvenanceObservation)>::new();
+        let mut steps = 0usize;
+        let mut converged = false;
+        for _ in 0..self.context.limits.max_value_flow_rounds {
+            let mut next_argument_origins = HashMap::<(LocalDefId, usize), ValueOrigins>::new();
+            let mut next_return_origins = HashMap::<LocalDefId, ValueOrigins>::new();
+            let mut round_observations =
+                BTreeMap::<(String, ProvenanceObservationKey), (LocalDefId, ProvenanceObservation)>::new();
+            for def_id in &body_def_ids {
+                let body = cx.tcx.optimized_mir(def_id.to_def_id());
+                let result = analyze_selected_mir_body(
+                    cx,
+                    *def_id,
+                    body,
+                    &tracked_callees,
+                    &tracked_types,
+                    &root_definitions,
+                    &propagation_definitions,
+                    &argument_origins,
+                    &return_origins,
+                    self.context.limits.max_value_flow_steps,
+                    &mut steps,
+                );
+                let Ok(result) = result else {
+                    self.push_unknown(
+                        UnknownFactKind::UnsupportedCompilerShape,
+                        None,
+                        Some(VALUE_FLOW_LIMIT_TARGET),
+                        None,
+                        "selected MIR transfer steps exceeded the configured value-flow bound",
+                    );
+                    return;
+                };
+                union_origin_map_entry(&mut next_return_origins, *def_id, &result.return_origins);
+                for (key, origins) in result.argument_updates {
+                    union_origin_map_entry(&mut next_argument_origins, key, &origins);
+                }
+                for observation in result.observations {
+                    let key = (qualified_definition(cx, def_id.to_def_id()), observation.key.clone());
+                    match round_observations.get_mut(&key) {
+                        Some((_, existing)) => {
+                            existing.origins.extend(observation.origins);
+                        }
+                        None => {
+                            round_observations.insert(key, (*def_id, observation));
+                        }
+                    }
+                }
+            }
+            let changed = next_argument_origins != argument_origins || next_return_origins != return_origins;
+            argument_origins = next_argument_origins;
+            return_origins = next_return_origins;
+            final_observations = round_observations;
+            if !changed {
+                converged = true;
+                break;
+            }
+        }
+        if !converged {
+            self.push_unknown(
+                UnknownFactKind::AmbiguousValueProvenance,
+                None,
+                Some(VALUE_FLOW_LIMIT_TARGET),
+                None,
+                "selected MIR provenance did not converge within the configured round bound",
+            );
+            return;
+        }
+        for (_, (caller_def_id, observation)) in final_observations {
+            let caller_item_id = self.local_item_identity(cx, caller_def_id);
+            let argument_type_id = self.collect_type_from_definition(cx, &observation.key.argument_type);
+            let span_id = self.collect_span(cx, observation.span);
+            let (origin_definitions, status) = canonical_provenance(&observation.origins);
+            let mut fact = CompilerArchitectureFact::CallArgumentProvenance {
+                fact_id: String::new(),
+                caller_item_id: caller_item_id.clone(),
+                callee_definition: observation.key.callee_definition.clone(),
+                argument_position: observation.key.argument_position,
+                argument_type_id,
+                origin_definitions,
+                status,
+                span_id: span_id.clone(),
+            };
+            assign_fact_identity(&mut fact);
+            self.push_fact(fact);
+            if status != ValueProvenanceStatus::Exact {
+                let kind = if status == ValueProvenanceStatus::Merged {
+                    UnknownFactKind::AmbiguousValueProvenance
+                } else {
+                    UnknownFactKind::MissingValueProvenance
+                };
+                self.push_unknown(
+                    kind,
+                    Some(&caller_item_id),
+                    Some(&observation.key.callee_definition),
+                    Some(&span_id),
+                    "selected call argument provenance is not one exact compiler-resolved origin",
+                );
+            }
+        }
+    }
+
+    fn collect_type_from_definition(&mut self, cx: &LateContext<'_>, definition: &str) -> String {
+        if let Some((_, type_id, _)) = self.selected_type_items.get(definition) {
+            return type_id.clone();
+        }
+        if let Some(type_id) = self.facts.values().find_map(|fact| match fact {
+            CompilerArchitectureFact::Type {
+                type_id,
+                definition_path: Some(current),
+                ..
+            } if current == definition => Some(type_id.clone()),
+            _ => None,
+        }) {
+            return type_id;
+        }
+        let fallback = octet_architecture_ir::canonical_identity(
+            TYPE_ID_DOMAIN,
+            &(
+                definition,
+                Some(definition),
+                &self.selected.unit.package_name,
+                TypeKind::Adt,
+                &self.selected.unit.source_blake3,
+            ),
+        )
+        .expect("selected compiler type identity must serialize");
+        if !self.type_ids.contains(&fallback) {
+            let selected = self.selected_type_items.get(definition).map(|(def_id, _, _)| *def_id);
+            if let Some(def_id) = selected {
+                return self.collect_type(cx, cx.tcx.type_of(def_id).instantiate_identity());
+            }
+        }
+        fallback
+    }
+
     fn collect_active_configuration(&mut self, cx: &LateContext<'_>) {
         if cx.tcx.hir_attrs(hir::CRATE_HIR_ID).iter().any(|attribute| attribute.has_name(sym::no_std)) {
             let mut no_std = CompilerArchitectureFact::Configuration {
@@ -666,6 +991,8 @@ impl ArchitectureCollector {
     }
 
     fn emit_shard(&mut self, cx: &LateContext<'_>) -> Result<(), String> {
+        self.collect_selected_type_shapes(cx);
+        self.collect_selected_value_provenance(cx);
         self.collect_active_configuration(cx);
         let mut shard = CompilerArchitectureShard {
             schema_version: octet_architecture_ir::COMPILER_ARCHITECTURE_SHARD_SCHEMA_VERSION.to_owned(),
@@ -746,7 +1073,7 @@ impl<'tcx> LateLintPass<'tcx> for ArchitectureCollector {
                 let mut fact = CompilerArchitectureFact::Trait {
                     fact_id: String::new(),
                     trait_id: item_id,
-                    qualified_path: cx.tcx.def_path_str(item.owner_id.def_id.to_def_id()),
+                    qualified_path: qualified_definition(cx, item.owner_id.def_id.to_def_id()),
                     origin_crate: self.selected.unit.package_name.clone(),
                     span_id: self.collect_span(cx, item.span),
                 };
@@ -761,7 +1088,7 @@ impl<'tcx> LateLintPass<'tcx> for ArchitectureCollector {
                         .of_trait
                         .as_ref()
                         .and_then(|trait_ref| trait_ref.trait_ref.trait_def_id())
-                        .map(|def_id| cx.tcx.def_path_str(def_id)),
+                        .map(|def_id| qualified_definition(cx, def_id)),
                     _ => None,
                 };
                 let trait_id = match &item.kind {
@@ -851,6 +1178,385 @@ impl<'tcx> LateLintPass<'tcx> for ArchitectureCollector {
     }
 }
 
+fn qualified_definition(cx: &LateContext<'_>, def_id: DefId) -> String {
+    let path = cx.tcx.def_path_str(def_id);
+    if def_id.is_local() {
+        let crate_name = cx.tcx.crate_name(def_id.krate).to_string();
+        if path == crate_name || path.starts_with(&format!("{crate_name}::")) {
+            path
+        } else {
+            format!("{crate_name}::{path}")
+        }
+    } else {
+        path
+    }
+}
+
+fn selected_names<'a>(
+    selections: &'a [CompilerValueFlowSelection],
+    select: impl Fn(&'a CompilerValueFlowSelection) -> &'a [String],
+) -> BTreeSet<String> {
+    selections.iter().flat_map(select).cloned().collect()
+}
+
+#[allow(clippy::too_many_arguments)]
+fn analyze_selected_mir_body<'tcx>(
+    cx: &LateContext<'tcx>,
+    def_id: LocalDefId,
+    body: &mir::Body<'tcx>,
+    tracked_callees: &BTreeSet<String>,
+    tracked_types: &BTreeSet<String>,
+    root_definitions: &BTreeSet<String>,
+    propagation_definitions: &BTreeSet<String>,
+    argument_origins: &HashMap<(LocalDefId, usize), ValueOrigins>,
+    return_origins: &HashMap<LocalDefId, ValueOrigins>,
+    max_steps: usize,
+    steps: &mut usize,
+) -> Result<MirValueFlowResult, ()> {
+    let mut result = MirValueFlowResult::default();
+    let mut entry_states = BTreeMap::<mir::BasicBlock, LocalValueOrigins>::new();
+    let mut start_state = LocalValueOrigins::new();
+    let definition = qualified_definition(cx, def_id.to_def_id());
+    for (position, local) in body.args_iter().enumerate() {
+        if tracked_type_definition(cx, body.local_decls[local].ty, tracked_types).is_none() {
+            continue;
+        }
+        let origins = argument_origins
+            .get(&(def_id, position))
+            .cloned()
+            .unwrap_or_else(|| BTreeSet::from([parameter_origin(&definition, position)]));
+        start_state.insert(local, origins);
+    }
+    entry_states.insert(mir::START_BLOCK, start_state);
+    let mut queue = VecDeque::from([mir::START_BLOCK]);
+    while let Some(block) = queue.pop_front() {
+        let mut state = entry_states.get(&block).cloned().unwrap_or_default();
+        let block_data = &body.basic_blocks[block];
+        for statement in &block_data.statements {
+            increment_value_flow_step(steps, max_steps)?;
+            let mir::StatementKind::Assign(assignment) = &statement.kind else {
+                continue;
+            };
+            let (destination, rvalue) = &**assignment;
+            let destination_ty = destination.ty(&body.local_decls, cx.tcx).ty;
+            if tracked_type_definition(cx, destination_ty, tracked_types).is_none() {
+                continue;
+            }
+            let origins = rvalue_origins(cx, body, rvalue, &state, tracked_types);
+            state.insert(destination.local, origins);
+        }
+        increment_value_flow_step(steps, max_steps)?;
+        match &block_data.terminator().kind {
+            mir::TerminatorKind::Call {
+                func,
+                args,
+                destination,
+                fn_span,
+                ..
+            } => {
+                analyze_call_terminator(
+                    cx,
+                    def_id,
+                    body,
+                    func,
+                    args,
+                    Some(*destination),
+                    *fn_span,
+                    tracked_callees,
+                    tracked_types,
+                    root_definitions,
+                    propagation_definitions,
+                    argument_origins,
+                    return_origins,
+                    &mut state,
+                    &mut result,
+                );
+            }
+            mir::TerminatorKind::TailCall { func, args, fn_span } => {
+                analyze_call_terminator(
+                    cx,
+                    def_id,
+                    body,
+                    func,
+                    args,
+                    None,
+                    *fn_span,
+                    tracked_callees,
+                    tracked_types,
+                    root_definitions,
+                    propagation_definitions,
+                    argument_origins,
+                    return_origins,
+                    &mut state,
+                    &mut result,
+                );
+            }
+            mir::TerminatorKind::Return => {
+                if let Some(origins) = state.get(&mir::RETURN_PLACE) {
+                    result.return_origins.extend(origins.iter().cloned());
+                }
+            }
+            _ => {}
+        }
+        for successor in block_data.terminator().successors() {
+            let successor_state = entry_states.entry(successor).or_default();
+            if union_local_origins(successor_state, &state) {
+                queue.push_back(successor);
+            }
+        }
+    }
+    result.return_origins.extend(state_origins(&entry_states, mir::RETURN_PLACE));
+    Ok(result)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn analyze_call_terminator<'tcx>(
+    cx: &LateContext<'tcx>,
+    caller_def_id: LocalDefId,
+    body: &mir::Body<'tcx>,
+    func: &mir::Operand<'tcx>,
+    args: &[Spanned<mir::Operand<'tcx>>],
+    destination: Option<mir::Place<'tcx>>,
+    span: Span,
+    tracked_callees: &BTreeSet<String>,
+    tracked_types: &BTreeSet<String>,
+    root_definitions: &BTreeSet<String>,
+    propagation_definitions: &BTreeSet<String>,
+    _argument_origins: &HashMap<(LocalDefId, usize), ValueOrigins>,
+    return_origins: &HashMap<LocalDefId, ValueOrigins>,
+    state: &mut LocalValueOrigins,
+    result: &mut MirValueFlowResult,
+) {
+    let Some((callee_def_id, _)) = func.const_fn_def() else {
+        for (position, argument) in args.iter().enumerate() {
+            let argument_ty = argument.node.ty(&body.local_decls, cx.tcx);
+            let Some(argument_type) = tracked_type_definition(cx, argument_ty, tracked_types) else {
+                continue;
+            };
+            result.observations.push(provenance_observation(
+                "unresolved-call-target".to_owned(),
+                position,
+                argument_type,
+                BTreeSet::from([unknown_origin("unresolved-call-target")]),
+                span,
+            ));
+        }
+        return;
+    };
+    let callee_definition = qualified_definition(cx, callee_def_id);
+    let argument_values = args.iter().map(|argument| operand_origins(&argument.node, state)).collect::<Vec<_>>();
+    for (position, argument) in args.iter().enumerate() {
+        let argument_ty = argument.node.ty(&body.local_decls, cx.tcx);
+        let Some(argument_type) = tracked_type_definition(cx, argument_ty, tracked_types) else {
+            continue;
+        };
+        let origins = argument_values.get(position).cloned().unwrap_or_default();
+        if tracked_callees.contains(&callee_definition) {
+            result.observations.push(provenance_observation(
+                callee_definition.clone(),
+                position,
+                argument_type.clone(),
+                origins.clone(),
+                argument.span,
+            ));
+        }
+        if let Some(local_callee) = callee_def_id.as_local() {
+            result.argument_updates.push(((local_callee, position), origins));
+        }
+    }
+    let Some(destination) = destination else {
+        return;
+    };
+    let destination_ty = destination.ty(&body.local_decls, cx.tcx).ty;
+    if tracked_type_definition(cx, destination_ty, tracked_types).is_none() {
+        return;
+    }
+    let origins = if root_definitions.contains(&callee_definition) {
+        BTreeSet::from([callee_definition.clone()])
+    } else if propagation_definitions.contains(&callee_definition) {
+        union_all_origins(&argument_values)
+    } else if let Some(local_callee) = callee_def_id.as_local() {
+        substitute_parameter_origins(
+            return_origins.get(&local_callee).cloned().unwrap_or_default(),
+            &callee_definition,
+            &argument_values,
+        )
+    } else {
+        BTreeSet::from([callee_definition])
+    };
+    state.insert(destination.local, origins);
+    let _ = caller_def_id;
+}
+
+fn provenance_observation(
+    callee_definition: String,
+    argument_position: usize,
+    argument_type: String,
+    origins: ValueOrigins,
+    span: Span,
+) -> ProvenanceObservation {
+    ProvenanceObservation {
+        key: ProvenanceObservationKey {
+            callee_definition,
+            argument_position,
+            argument_type,
+            span_lo: span.lo().0,
+            span_hi: span.hi().0,
+        },
+        origins,
+        span,
+    }
+}
+
+fn rvalue_origins<'tcx>(
+    cx: &LateContext<'tcx>,
+    _body: &mir::Body<'tcx>,
+    rvalue: &mir::Rvalue<'tcx>,
+    state: &LocalValueOrigins,
+    tracked_types: &BTreeSet<String>,
+) -> ValueOrigins {
+    match rvalue {
+        mir::Rvalue::Use(operand)
+        | mir::Rvalue::Cast(_, operand, _)
+        | mir::Rvalue::UnaryOp(_, operand)
+        | mir::Rvalue::WrapUnsafeBinder(operand, _) => operand_origins(operand, state),
+        mir::Rvalue::Ref(_, _, place) | mir::Rvalue::RawPtr(_, place) | mir::Rvalue::CopyForDeref(place) => {
+            place_origins(place, state)
+        }
+        mir::Rvalue::Aggregate(kind, operands) => {
+            let mut origins: ValueOrigins =
+                operands.iter().flat_map(|operand| operand_origins(operand, state)).collect();
+            if let mir::AggregateKind::Adt(def_id, ..) = &**kind {
+                let definition = qualified_definition(cx, *def_id);
+                if tracked_types.contains(&definition) {
+                    origins.insert(definition);
+                }
+            }
+            origins
+        }
+        mir::Rvalue::Repeat(operand, _) => operand_origins(operand, state),
+        mir::Rvalue::BinaryOp(_, operands) => {
+            let mut origins = operand_origins(&operands.0, state);
+            origins.extend(operand_origins(&operands.1, state));
+            origins
+        }
+        mir::Rvalue::Discriminant(place) => place_origins(place, state),
+        mir::Rvalue::ThreadLocalRef(def_id) => BTreeSet::from([qualified_definition(cx, *def_id)]),
+    }
+}
+
+fn operand_origins(operand: &mir::Operand<'_>, state: &LocalValueOrigins) -> ValueOrigins {
+    match operand {
+        mir::Operand::Copy(place) | mir::Operand::Move(place) => place_origins(place, state),
+        mir::Operand::Constant(_) | mir::Operand::RuntimeChecks(_) => {
+            BTreeSet::from([unknown_origin("constant-or-runtime-check")])
+        }
+    }
+}
+
+fn place_origins(place: &mir::Place<'_>, state: &LocalValueOrigins) -> ValueOrigins {
+    state.get(&place.local).cloned().unwrap_or_default()
+}
+
+fn tracked_type_definition<'tcx>(
+    cx: &LateContext<'tcx>,
+    ty: Ty<'tcx>,
+    tracked_types: &BTreeSet<String>,
+) -> Option<String> {
+    let definition = type_definition_path(cx, ty)?;
+    tracked_types.contains(&definition).then_some(definition)
+}
+
+fn type_definition_path<'tcx>(cx: &LateContext<'tcx>, ty: Ty<'tcx>) -> Option<String> {
+    match ty.peel_refs().kind() {
+        ty::Adt(definition, _) => Some(qualified_definition(cx, definition.did())),
+        ty::Alias(_, alias) => Some(qualified_definition(cx, alias.def_id)),
+        _ => None,
+    }
+}
+
+fn union_local_origins(target: &mut LocalValueOrigins, source: &LocalValueOrigins) -> bool {
+    let mut changed = false;
+    for (local, origins) in source {
+        let entry = target.entry(*local).or_default();
+        let before = entry.len();
+        entry.extend(origins.iter().cloned());
+        changed |= entry.len() != before;
+    }
+    changed
+}
+
+fn union_origin_map_entry<K: Eq + Hash>(target: &mut HashMap<K, ValueOrigins>, key: K, origins: &ValueOrigins) -> bool {
+    let entry = target.entry(key).or_default();
+    let before = entry.len();
+    entry.extend(origins.iter().cloned());
+    entry.len() != before
+}
+
+fn state_origins(states: &BTreeMap<mir::BasicBlock, LocalValueOrigins>, local: mir::Local) -> ValueOrigins {
+    states.values().filter_map(|state| state.get(&local)).flatten().cloned().collect()
+}
+
+fn union_all_origins(values: &[ValueOrigins]) -> ValueOrigins {
+    values.iter().flatten().cloned().collect()
+}
+
+fn parameter_origin(definition: &str, position: usize) -> String {
+    format!("{PARAMETER_ORIGIN_PREFIX}{definition}:{position}")
+}
+
+fn unknown_origin(reason: &str) -> String {
+    format!("{UNKNOWN_ORIGIN_PREFIX}{reason}")
+}
+
+fn substitute_parameter_origins(
+    origins: ValueOrigins,
+    callee_definition: &str,
+    argument_values: &[ValueOrigins],
+) -> ValueOrigins {
+    let parameter_prefix = format!("{PARAMETER_ORIGIN_PREFIX}{callee_definition}:");
+    let mut resolved = ValueOrigins::new();
+    for origin in origins {
+        let Some(position) = origin.strip_prefix(&parameter_prefix).and_then(|value| value.parse::<usize>().ok())
+        else {
+            resolved.insert(origin);
+            continue;
+        };
+        if let Some(argument_origins) = argument_values.get(position) {
+            resolved.extend(argument_origins.iter().cloned());
+        } else {
+            resolved.insert(unknown_origin("missing-wrapper-argument"));
+        }
+    }
+    resolved
+}
+
+fn canonical_provenance(origins: &ValueOrigins) -> (Vec<String>, ValueProvenanceStatus) {
+    let mut canonical = origins
+        .iter()
+        .filter(|origin| !origin.starts_with(PARAMETER_ORIGIN_PREFIX) && !origin.starts_with(UNKNOWN_ORIGIN_PREFIX))
+        .cloned()
+        .collect::<Vec<_>>();
+    canonical.sort();
+    canonical.dedup();
+    let has_unknown = origins
+        .iter()
+        .any(|origin| origin.starts_with(PARAMETER_ORIGIN_PREFIX) || origin.starts_with(UNKNOWN_ORIGIN_PREFIX));
+    let status = if !has_unknown && canonical.len() == 1 {
+        ValueProvenanceStatus::Exact
+    } else if !has_unknown && canonical.len() > 1 {
+        ValueProvenanceStatus::Merged
+    } else {
+        ValueProvenanceStatus::Unknown
+    };
+    (canonical, status)
+}
+
+fn increment_value_flow_step(steps: &mut usize, max_steps: usize) -> Result<(), ()> {
+    *steps = steps.checked_add(1).ok_or(())?;
+    (*steps <= max_steps).then_some(()).ok_or(())
+}
+
 fn item_kind(kind: &hir::ItemKind<'_>) -> (ItemKind, bool) {
     match kind {
         hir::ItemKind::Mod(..) => (ItemKind::Module, false),
@@ -909,7 +1615,7 @@ fn def_kind_to_item_kind(kind: DefKind) -> ItemKind {
 fn type_metadata(cx: &LateContext<'_>, resolved: Ty<'_>) -> (Option<String>, String, TypeKind) {
     match resolved.kind() {
         ty::Adt(definition, _) => (
-            Some(cx.tcx.def_path_str(definition.did())),
+            Some(qualified_definition(cx, definition.did())),
             cx.tcx.crate_name(definition.did().krate).to_string(),
             TypeKind::Adt,
         ),
@@ -917,9 +1623,11 @@ fn type_metadata(cx: &LateContext<'_>, resolved: Ty<'_>) -> (Option<String>, Str
         ty::Tuple(..) => (None, "core".to_owned(), TypeKind::Tuple),
         ty::Ref(..) => (None, "core".to_owned(), TypeKind::Reference),
         ty::RawPtr(..) => (None, "core".to_owned(), TypeKind::Pointer),
-        ty::FnDef(def_id, _) => {
-            (Some(cx.tcx.def_path_str(*def_id)), cx.tcx.crate_name(def_id.krate).to_string(), TypeKind::Function)
-        }
+        ty::FnDef(def_id, _) => (
+            Some(qualified_definition(cx, *def_id)),
+            cx.tcx.crate_name(def_id.krate).to_string(),
+            TypeKind::Function,
+        ),
         ty::Alias(..) => (None, "opaque".to_owned(), TypeKind::Opaque),
         ty::Param(..) => (None, "generic".to_owned(), TypeKind::Generic),
         ty::Bool | ty::Char | ty::Int(..) | ty::Uint(..) | ty::Float(..) | ty::Str | ty::Never => {
@@ -1029,7 +1737,10 @@ fn assign_fact_identity(fact: &mut CompilerArchitectureFact) {
         | CompilerArchitectureFact::Constructor { fact_id, .. }
         | CompilerArchitectureFact::Effect { fact_id, .. }
         | CompilerArchitectureFact::Expansion { fact_id, .. }
-        | CompilerArchitectureFact::Configuration { fact_id, .. } => *fact_id = identity,
+        | CompilerArchitectureFact::Configuration { fact_id, .. }
+        | CompilerArchitectureFact::TypeShape { fact_id, .. }
+        | CompilerArchitectureFact::FunctionSafety { fact_id, .. }
+        | CompilerArchitectureFact::CallArgumentProvenance { fact_id, .. } => *fact_id = identity,
     }
 }
 
@@ -1065,6 +1776,18 @@ fn is_expansion(fact: &CompilerArchitectureFact) -> bool {
 }
 fn is_configuration(fact: &CompilerArchitectureFact) -> bool {
     matches!(fact, CompilerArchitectureFact::Configuration { .. })
+}
+
+fn is_type_shape(fact: &CompilerArchitectureFact) -> bool {
+    matches!(fact, CompilerArchitectureFact::TypeShape { .. })
+}
+
+fn is_function_safety(fact: &CompilerArchitectureFact) -> bool {
+    matches!(fact, CompilerArchitectureFact::FunctionSafety { .. })
+}
+
+fn is_value_provenance(fact: &CompilerArchitectureFact) -> bool {
+    matches!(fact, CompilerArchitectureFact::CallArgumentProvenance { .. })
 }
 
 #[cfg(test)]

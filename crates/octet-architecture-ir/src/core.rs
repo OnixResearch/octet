@@ -175,6 +175,59 @@ pub fn fact_identity(fact: &CompilerArchitectureFact) -> String {
             span_id,
             ..
         } => canonical_identity(FACT_ID_DOMAIN, &("configuration", predicate, active, span_id)),
+        CompilerArchitectureFact::TypeShape {
+            type_id,
+            definition_path,
+            field_visibilities,
+            field_type_definitions,
+            implemented_traits,
+            span_id,
+            ..
+        } => canonical_identity(
+            FACT_ID_DOMAIN,
+            &(
+                "type-shape",
+                type_id,
+                definition_path,
+                field_visibilities,
+                field_type_definitions,
+                implemented_traits,
+                span_id,
+            ),
+        ),
+        CompilerArchitectureFact::FunctionSafety {
+            item_id,
+            qualified_path,
+            output_type_id,
+            is_unsafe,
+            span_id,
+            ..
+        } => canonical_identity(
+            FACT_ID_DOMAIN,
+            &("function-safety", item_id, qualified_path, output_type_id, is_unsafe, span_id),
+        ),
+        CompilerArchitectureFact::CallArgumentProvenance {
+            caller_item_id,
+            callee_definition,
+            argument_position,
+            argument_type_id,
+            origin_definitions,
+            status,
+            span_id,
+            ..
+        } => canonical_identity(
+            FACT_ID_DOMAIN,
+            &(
+                "call-argument-provenance",
+                caller_item_id,
+                callee_definition,
+                argument_position,
+                argument_type_id,
+                origin_definitions,
+                status,
+                span_id,
+            ),
+        ),
     }
     .expect("compiler architecture fact identity fields must serialize")
 }
@@ -673,6 +726,30 @@ fn validate_fact_references(
                 require_ref("span", span_id, spans, unit_id, fact_id, issues);
             }
         }
+        CompilerArchitectureFact::TypeShape { type_id, span_id, .. } => {
+            require_ref("type", type_id, types, unit_id, fact_id, issues);
+            require_ref("span", span_id, spans, unit_id, fact_id, issues);
+        }
+        CompilerArchitectureFact::FunctionSafety {
+            item_id,
+            output_type_id,
+            span_id,
+            ..
+        } => {
+            require_ref("item", item_id, items, unit_id, fact_id, issues);
+            require_ref("type", output_type_id, types, unit_id, fact_id, issues);
+            require_ref("span", span_id, spans, unit_id, fact_id, issues);
+        }
+        CompilerArchitectureFact::CallArgumentProvenance {
+            caller_item_id,
+            argument_type_id,
+            span_id,
+            ..
+        } => {
+            require_ref("item", caller_item_id, items, unit_id, fact_id, issues);
+            require_ref("type", argument_type_id, types, unit_id, fact_id, issues);
+            require_ref("span", span_id, spans, unit_id, fact_id, issues);
+        }
     }
 }
 
@@ -802,6 +879,27 @@ fn validate_fact_limits(
         "configurations",
         count(|fact| matches!(fact, CompilerArchitectureFact::Configuration { .. })),
         limits.max_configurations,
+        unit_id,
+        issues,
+    );
+    validate_count_limit(
+        "type-shapes",
+        count(|fact| matches!(fact, CompilerArchitectureFact::TypeShape { .. })),
+        limits.max_type_shapes,
+        unit_id,
+        issues,
+    );
+    validate_count_limit(
+        "function-safety-facts",
+        count(|fact| matches!(fact, CompilerArchitectureFact::FunctionSafety { .. })),
+        limits.max_function_safety_facts,
+        unit_id,
+        issues,
+    );
+    validate_count_limit(
+        "value-provenance-facts",
+        count(|fact| matches!(fact, CompilerArchitectureFact::CallArgumentProvenance { .. })),
+        limits.max_value_provenance_facts,
         unit_id,
         issues,
     );
