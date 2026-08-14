@@ -2,6 +2,9 @@ use super::*;
 
 const MANTLE_PLAN_PATH: &str = "crates/crunch-build/src/dynamic_plan.rs";
 const WIRE_PATH: &str = "crates/crunch-build/src/wire.rs";
+const LATTICE_CORE_PATH: &str = "src/orchestration/core.rs";
+const LATTICE_WIRE_PATH: &str = "src/orchestration/format.rs";
+const FROZEN_PILOT_POLICY_BLAKE3: &str = "76b82ab58db137a1b3d0172faea971ff37564435fa8b6cefa95b483f9fff834c";
 
 fn unit_domain() -> NominalDomainPolicy {
     NominalDomainPolicy {
@@ -65,6 +68,35 @@ fn exact_core_compatibility_and_outside_scopes_are_distinct() {
             domain_id: "fixture.unit-id".to_owned()
         }
     );
+}
+
+#[test]
+fn lattice_orchestration_domains_distinguish_core_wire_and_unrelated_scopes() {
+    let catalog = load_nominal_domain_catalog().expect("embedded catalog must pass");
+    let core = DomainDescriptor {
+        symbol: "OrchestrationInstance::id",
+        raw_representation: RawRepresentation::String,
+        source_path: LATTICE_CORE_PATH,
+        kind: DescriptorKind::Field,
+    };
+    let wire = DomainDescriptor {
+        source_path: LATTICE_WIRE_PATH,
+        ..core
+    };
+    let unrelated = DomainDescriptor {
+        source_path: "src/other.rs",
+        ..core
+    };
+
+    assert_eq!(classify_descriptor(&catalog, core), DomainDisposition::ExactCore {
+        domain_id: "lattice.orchestration.decision-identities".to_owned()
+    });
+    assert_eq!(classify_descriptor(&catalog, wire), DomainDisposition::Compatibility {
+        domain_id: "lattice.orchestration.decision-identities".to_owned()
+    });
+    assert_eq!(classify_descriptor(&catalog, unrelated), DomainDisposition::ExactOutsideScope {
+        domain_id: "lattice.orchestration.decision-identities".to_owned()
+    });
 }
 
 #[test]
@@ -149,11 +181,12 @@ fn frozen_pilot_receipts_are_valid_and_reviewed() {
     ))
     .expect("parse Valence pilot receipt");
 
-    let policy_blake3 = blake3::hash(admission::catalog_json().as_bytes()).to_hex().to_string();
+    let current_policy_blake3 = blake3::hash(admission::catalog_json().as_bytes()).to_hex().to_string();
     for receipt in [&mantle, &valence] {
         assert!(validate_inventory_receipt(receipt).is_empty());
         assert!(receipt.review.reviewed);
-        assert_eq!(receipt.policy_blake3, policy_blake3);
+        assert_eq!(receipt.policy_blake3, FROZEN_PILOT_POLICY_BLAKE3);
+        assert_ne!(receipt.policy_blake3, current_policy_blake3);
     }
     assert!(!mantle.findings.is_empty());
     assert!(valence.findings.is_empty());

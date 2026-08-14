@@ -72,6 +72,114 @@
     {
       "compatibility_required": true,
       "compatibility_scopes": [
+        "src/orchestration/format.rs",
+        "src/orchestration/shell.rs",
+        "src/main.rs"
+      ],
+      "constructor_policy": "private-fallible",
+      "core_scopes": [
+        "src/orchestration/identity.rs",
+        "src/orchestration/core.rs"
+      ],
+      "domain_id": "lattice.orchestration.text-identities",
+      "raw_representation": "string",
+      "symbols": [
+        "DefinitionId",
+        "TriggerId",
+        "TriggerIdempotencyKey",
+        "OrchestrationDefinition::id",
+        "OrchestrationTriggerBinding::trigger_id",
+        "TriggerStartRequest::idempotency_key"
+      ],
+      "wrapper_kind": "refined-newtype"
+    },
+    {
+      "compatibility_required": true,
+      "compatibility_scopes": [
+        "src/orchestration/format.rs",
+        "src/scheduler/shell.rs"
+      ],
+      "constructor_policy": "private-fallible",
+      "core_scopes": [
+        "src/orchestration/identity.rs",
+        "src/orchestration/core.rs"
+      ],
+      "domain_id": "lattice.orchestration.revisions",
+      "raw_representation": "string",
+      "symbols": [
+        "DefinitionRevision",
+        "WorkflowRevision",
+        "OrchestrationInstance::definition_revision",
+        "WorkflowRevisionRef::content_hash"
+      ],
+      "wrapper_kind": "refined-newtype"
+    },
+    {
+      "compatibility_required": true,
+      "compatibility_scopes": [
+        "src/orchestration/format.rs",
+        "src/orchestration/shell.rs",
+        "src/run/inspection/evidence.rs",
+        "src/scheduler/shell.rs",
+        "src/main.rs"
+      ],
+      "constructor_policy": "private-fallible",
+      "core_scopes": [
+        "src/orchestration/identity.rs",
+        "src/orchestration/core.rs",
+        "src/run/inspection/core.rs",
+        "src/store/mod.rs"
+      ],
+      "domain_id": "lattice.orchestration.decision-identities",
+      "raw_representation": "string",
+      "symbols": [
+        "InstanceId",
+        "DispatchId",
+        "ProposalId",
+        "ApprovalId",
+        "ReservationId",
+        "FactId",
+        "AuthorityPolicyIdentity",
+        "TriggerScopedKey",
+        "OrchestrationInstance::id",
+        "DispatchIntent::id",
+        "RevisionProposal::id",
+        "ApprovalDecision::id",
+        "OrchestrationFact::id",
+        "ApprovalDecision::authority_policy_hash",
+        "OrchestrationInstance::trigger_idempotency_key"
+      ],
+      "wrapper_kind": "refined-newtype"
+    },
+    {
+      "compatibility_required": true,
+      "compatibility_scopes": [
+        "src/run/inspection/evidence.rs",
+        "src/main.rs"
+      ],
+      "constructor_policy": "private-fallible",
+      "core_scopes": [
+        "src/orchestration/identity.rs",
+        "src/orchestration/core.rs",
+        "src/store/mod.rs"
+      ],
+      "domain_id": "lattice.orchestration.event-identities",
+      "raw_representation": "string",
+      "symbols": [
+        "EventId",
+        "PreviousEventId",
+        "LedgerHeadId",
+        "StateDigest",
+        "OrchestrationEvent::event_hash",
+        "OrchestrationEvent::prior_hash",
+        "OrchestrationInstance::event_head",
+        "OrchestrationEvent::state_hash"
+      ],
+      "wrapper_kind": "refined-newtype"
+    },
+    {
+      "compatibility_required": true,
+      "compatibility_scopes": [
         "ui_tests/primitive_domain_alias_compat.rs"
       ],
       "constructor_policy": "private-fallible",
