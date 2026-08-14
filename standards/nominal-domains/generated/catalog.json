@@ -73,6 +73,7 @@
       "compatibility_required": true,
       "compatibility_scopes": [
         "src/orchestration/format.rs",
+        "src/orchestration/format/wire.rs",
         "src/orchestration/shell.rs",
         "src/main.rs"
       ],
@@ -97,6 +98,7 @@
       "compatibility_required": true,
       "compatibility_scopes": [
         "src/orchestration/format.rs",
+        "src/orchestration/format/wire.rs",
         "src/scheduler/shell.rs"
       ],
       "constructor_policy": "private-fallible",
@@ -118,6 +120,7 @@
       "compatibility_required": true,
       "compatibility_scopes": [
         "src/orchestration/format.rs",
+        "src/orchestration/format/wire.rs",
         "src/orchestration/shell.rs",
         "src/run/inspection/evidence.rs",
         "src/scheduler/shell.rs",

@@ -3,7 +3,7 @@ use super::*;
 const MANTLE_PLAN_PATH: &str = "crates/crunch-build/src/dynamic_plan.rs";
 const WIRE_PATH: &str = "crates/crunch-build/src/wire.rs";
 const LATTICE_CORE_PATH: &str = "src/orchestration/core.rs";
-const LATTICE_WIRE_PATH: &str = "src/orchestration/format.rs";
+const LATTICE_WIRE_PATH: &str = "src/orchestration/format/wire.rs";
 const FROZEN_PILOT_POLICY_BLAKE3: &str = "76b82ab58db137a1b3d0172faea971ff37564435fa8b6cefa95b483f9fff834c";
 
 fn unit_domain() -> NominalDomainPolicy {
