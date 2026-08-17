@@ -36,6 +36,8 @@ Octet ships 72 Dylint lints across six domains. A separate standards registry ha
 
 A Nickel catalog defines nominal domains for primitive aliases, raw core values, and wrapper bypasses. Read [`docs/type-driven-domain-modeling.md`](docs/type-driven-domain-modeling.md).
 
+Checked-path configuration uses the exact reviewed Nickel cohort. Read [`docs/nickel-toolchain.md`](docs/nickel-toolchain.md).
+
 ## Status and prerequisites
 
 Octet is under active development. Nix pins Rust, Dylint, Verus, solvers, and support tools.

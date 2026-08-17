@@ -16,6 +16,8 @@ pub const NICKEL_EXPORT_MANIFEST_SCHEMA_VERSION: &str = canonical::OCTET_MANIFES
 pub const NICKEL_EXPORT_SPEC_SCHEMA_VERSION: &str = "octet-nickel-export-spec/v1";
 /// Generator identity retained for Octet compatibility.
 pub const NICKEL_EXPORT_GENERATOR_ID: &str = canonical::OCTET_GENERATOR_ID;
+/// Exact evaluator identity admitted for checked-path export evidence.
+pub const REVIEWED_NICKEL_EVALUATOR_IDENTITY: &str = "nickel-lang-cli nickel 1.17.0 (rev 1320a98)";
 
 const FORMAT_JSON: &str = "json";
 const FORMAT_TOML: &str = "toml";
@@ -119,6 +121,7 @@ pub fn validate_export_spec(spec: &NickelExportSpec) -> Vec<String> {
 #[must_use]
 pub fn validate_export_acceptance(input: &NickelExportInput<'_>) -> Vec<String> {
     let mut diagnostics = validate_export_spec(input.spec);
+    push_evaluator_identity_diagnostic(&mut diagnostics, input.nickel_identity);
     if !diagnostics.is_empty() {
         diagnostics.extend(legacy_contract_diagnostics(input));
         return diagnostics;
@@ -152,6 +155,13 @@ pub fn validate_export_acceptance(input: &NickelExportInput<'_>) -> Vec<String> 
 /// admission or the canonical manifest rejects empty, duplicate, or
 /// mixed-evaluator inputs.
 pub fn manifest_for_exports(inputs: &[NickelExportInput<'_>]) -> Result<NickelExportManifest, Vec<String>> {
+    let mut evaluator_diagnostics = Vec::new();
+    for input in inputs {
+        push_evaluator_identity_diagnostic(&mut evaluator_diagnostics, input.nickel_identity);
+    }
+    if !evaluator_diagnostics.is_empty() {
+        return Err(evaluator_diagnostics);
+    }
     let receipts = inputs
         .iter()
         .map(build_canonical_receipt)
@@ -381,6 +391,13 @@ fn push_if_blank(diagnostics: &mut Vec<String>, value: &str, field: &str) {
     }
 }
 
+fn push_evaluator_identity_diagnostic(diagnostics: &mut Vec<String>, identity: &str) {
+    if identity != REVIEWED_NICKEL_EVALUATOR_IDENTITY {
+        diagnostics
+            .push(format!("unsupported Nickel evaluator identity; expected `{REVIEWED_NICKEL_EVALUATOR_IDENTITY}`"));
+    }
+}
+
 fn contract_label(spec: &NickelExportSpec) -> &str {
     if spec.contract.trim().is_empty() {
         "<unspecified>"
@@ -398,7 +415,7 @@ mod tests {
     const OUTPUT_PATH: &str = "dynamic-evidence-profiles.json";
     const SOURCE_TEXT: &str = "{ schema_version = \"octet-dynamic-evidence-profiles/v1\" }\n";
     const OUTPUT_TEXT: &str = "{\"schema_version\":\"octet-dynamic-evidence-profiles/v1\"}\n";
-    const NICKEL_IDENTITY: &str = "nickel-1.11.0";
+    const NICKEL_IDENTITY: &str = REVIEWED_NICKEL_EVALUATOR_IDENTITY;
 
     #[test]
     fn stable_manifest_records_json_toml_yaml_and_raw_exports() {
@@ -453,6 +470,37 @@ mod tests {
     }
 
     #[test]
+    // r[verify octet.nickel_toolchain.boundary]
+    // r[verify octet.nickel_toolchain.evidence]
+    fn evaluator_identity_cannot_replace_policy_or_be_substituted() {
+        let valid_spec = json_spec();
+        let valid_input = export_input(&valid_spec, OUTPUT_TEXT);
+        assert!(validate_export_acceptance(&valid_input).is_empty());
+
+        let mut unsupported_spec = json_spec();
+        unsupported_spec.output_format = "unsupported".to_owned();
+        let unsupported_input = export_input(&unsupported_spec, OUTPUT_TEXT);
+        let policy_diagnostics = validate_export_acceptance(&unsupported_input);
+        assert!(policy_diagnostics.iter().any(|diagnostic| diagnostic.contains("unsupported Nickel export format")));
+
+        let mut substituted_input = export_input(&valid_spec, OUTPUT_TEXT);
+        substituted_input.nickel_identity = "nickel-substituted";
+        let identity_diagnostics = validate_export_acceptance(&substituted_input);
+        assert!(
+            identity_diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.contains("unsupported Nickel evaluator identity"))
+        );
+        let manifest_diagnostics = manifest_for_exports(&[substituted_input])
+            .expect_err("substituted evaluator identity must not produce evidence");
+        assert!(
+            manifest_diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.contains("unsupported Nickel evaluator identity"))
+        );
+    }
+
+    #[test]
     fn standalone_admission_rejects_dependency_material_drift() {
         let spec = json_spec();
         let input = NickelExportInput {
@@ -496,7 +544,11 @@ mod tests {
         second.nickel_identity = "nickel-other";
         let mixed_diagnostics =
             manifest_for_exports(&[first, second]).expect_err("mixed evaluators must not produce a manifest");
-        assert!(mixed_diagnostics.iter().any(|diagnostic| diagnostic.contains("cannot mix evaluator descriptors")));
+        assert!(
+            mixed_diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.contains("unsupported Nickel evaluator identity"))
+        );
     }
 
     #[test]
