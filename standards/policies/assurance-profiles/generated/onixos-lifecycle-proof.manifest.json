@@ -1,7 +1,7 @@
 {
   "schema_version": "octet-nickel-export-manifest/v1",
   "generator": "octet-standards.nickel-export-helper/v1",
-  "nickel_identity": "nickel-lang-cli nickel 1.16.0 (rev cargore)",
+  "nickel_identity": "nickel-lang-cli nickel 1.17.0 (rev 1320a98)",
   "exports": [
     {
       "family_id": "octet.assurance-profile.onixos-lifecycle-proof",

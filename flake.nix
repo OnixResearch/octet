@@ -25,6 +25,8 @@
       url = "github:OnixResearch/nickel-export/257fafc1c746f1faf156207043a4c826bfb16d49";
       flake = false;
     };
+    # r[impl octet.nickel_toolchain.cohort]
+    nickel-1-17-0.url = "github:nickel-lang/nickel/1320a983e6c3d1e2fb53dd2464b084b4903b1426";
     aeneas = {
       url = "github:AeneasVerif/aeneas/bc2eb6f941369fa3c695e30598b5758b11e4f0de";
     };
@@ -53,6 +55,7 @@
       dylint-src,
       valence,
       nickel-export,
+      nickel-1-17-0,
       aeneas,
       aeneasCharon,
       lean4-src,
@@ -238,6 +241,7 @@
           inherit system;
           overlays = [ (import rust-overlay) ];
         };
+        nickel = nickel-1-17-0.packages.${system}.default;
 
         rustToolchain = pkgs.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml;
         hostTriple = pkgs.stdenv.hostPlatform.rust.rustcTarget;
@@ -2611,6 +2615,7 @@
       in
       {
         packages = {
+          nickel-1-17-0 = nickel;
           default = octet;
           octet = octet;
           slotcar = octet;
@@ -3350,7 +3355,7 @@
                     pkgs.diffutils
                     pkgs.gnugrep
                     pkgs.jq
-                    pkgs.nickel
+                    nickel
                   ];
                 }
                 ''
@@ -3441,7 +3446,7 @@
                     pkgs.diffutils
                     pkgs.gnugrep
                     pkgs.jq
-                    pkgs.nickel
+                    nickel
                   ];
                 }
                 ''
@@ -4022,6 +4027,44 @@
             valence-evidence-index = valenceEvidenceIndexGate;
             evidence-codebase-index = evidenceCodebaseIndexGate;
             structured-migration-sessions = structuredMigrationSessionsGate;
+            # r[verify octet.nickel_toolchain.cohort]
+            nickel-cohort-exact =
+              pkgs.runCommand "octet-nickel-cohort-exact"
+                {
+                  nativeBuildInputs = [ nickel ];
+                }
+                ''
+                  test '${nickel-1-17-0.rev}' = '1320a983e6c3d1e2fb53dd2464b084b4903b1426'
+                  test "$(command -v nickel)" = '${nickel}/bin/nickel'
+                  test "$(nickel --version)" = 'nickel-lang-cli nickel 1.17.0 (rev 1320a98)'
+                  if grep -q 'pkgs\.nickel' ${self}/flake.nix; then
+                    echo 'older, floating, ambient, or mixed Nickel evaluator reference found' >&2
+                    exit 1
+                  fi
+                  mkdir -p "$out"
+                '';
+            # r[verify octet.nickel_toolchain.compatibility]
+            # r[verify octet.nickel_toolchain.evidence]
+            nickel-toolchain-fixtures =
+              pkgs.runCommand "octet-nickel-toolchain-fixtures"
+                {
+                  nativeBuildInputs = [ nickel ];
+                }
+                ''
+                  fixtures=${src}/standards/nickel-toolchain/fixtures
+                  for fixture in "$fixtures"/positive/*.ncl; do
+                    nickel typecheck "$fixture"
+                    nickel export --format json "$fixture" > /dev/null
+                  done
+                  for fixture in "$fixtures"/negative/*.ncl; do
+                    if nickel eval "$fixture" >negative.out 2>negative.err; then
+                      echo "negative Nickel fixture unexpectedly passed: $fixture" >&2
+                      exit 1
+                    fi
+                    test -s negative.err
+                  done
+                  mkdir -p "$out"
+                '';
             valence-evidence-release = valenceEvidenceReleaseGate;
             valence-core-package-readiness = valenceCorePackageReadiness;
             nickel-export-cutover-readiness = nickelExportCutoverReadiness;
@@ -4131,7 +4174,7 @@
             pkgs.ast-grep
             cairn.packages.${system}.cairn
             pkgs.jq
-            pkgs.nickel
+            nickel
             pkgs.rust-analyzer
             octetStandards
             octetVerus
