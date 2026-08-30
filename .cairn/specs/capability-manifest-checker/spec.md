@@ -8,58 +8,72 @@ Defines the `capability-manifest-checker` capability: a Rust-compatible, policy-
 
 ### Requirement: Capability manifest schema
 
-r[octet.capability_manifest_checker.manifest] Octet SHOULD provide a typed capability manifest mechanism that declares scope classes, allowed capability families, injected capability traits or tokens, shell interpreters, deterministic handlers, and strict or advisory enforcement mode.
+r[octet.capability_manifest_checker.manifest] An activated project architecture policy MAY declare typed capability classifications across domain, application, adapter, composition-root, test, generated, and remote-execution scopes.
 
-#### Scenario: Valid manifest exports deterministic runtime policy
+#### Scenario: Valid project manifest exports deterministic runtime policy
 
 r[octet.capability_manifest_checker.manifest.valid]
 
-- GIVEN a Nickel-authored capability manifest declares supported scope classes, capability families, injected traits or tokens, shell interpreters, and deterministic handlers
+- GIVEN an active Nickel project policy declares supported scope classes, capability families, application-owned ports, shell interpreters, deterministic handlers, and enforcement mode
 - WHEN policy export and artifact freshness validation run
-- THEN the manifest SHOULD export deterministic runtime JSON with a BLAKE3 identity and registry coverage.
-- AND the exported policy SHOULD preserve declared strict or advisory enforcement mode.
+- THEN the manifest MUST export deterministic runtime JSON with a BLAKE3 identity and registry coverage
+- AND the export MUST preserve the project activation identity
 
-#### Scenario: Invalid manifest fails closed
+#### Scenario: Invalid active manifest fails closed
 
 r[octet.capability_manifest_checker.manifest.invalid]
 
-- GIVEN a capability manifest omits required fields, names an unknown capability family, names an unknown strict scope class, or declares an empty strict core scope profile
+- GIVEN an active manifest omits required fields, names an unknown capability family, or declares an invalid strict scope
 - WHEN policy validation runs
-- THEN validation MUST fail closed with a deterministic diagnostic naming the rejected field.
+- THEN validation MUST fail closed with a deterministic diagnostic naming the rejected field
+
+#### Scenario: Project has no architecture policy
+
+- GIVEN a workspace declares no architecture-policy pointer
+- WHEN capability policy resolution runs
+- THEN project capability evaluation MUST remain inactive
+- AND Octet MUST NOT use global fallback source scopes
 
 ### Requirement: Scope resolution
 
-r[octet.capability_manifest_checker.scope_resolution] Octet SHOULD resolve repo-relative source paths or crates to declared capability scope classes before applying capability obligations.
+r[octet.capability_manifest_checker.scope_resolution] Octet MUST resolve declared project paths and compiler units to project capability roles before applying capability obligations.
 
 #### Scenario: Scope resolution is deterministic
 
 r[octet.capability_manifest_checker.scope_resolution.deterministic]
 
-- GIVEN the same manifest and same repo-relative source path inventory
+- GIVEN the same active policy, repo-relative inventory, targets, features, and compiler units
 - WHEN scope resolution runs twice
-- THEN each selected source path or crate SHOULD resolve to the same scope class and manifest profile.
-- AND ambiguous strict matches MUST fail closed rather than choosing an arbitrary scope.
+- THEN each selected item MUST resolve to the same role and capability classification
+- AND ambiguous strict matches MUST fail closed
 
 ### Requirement: Effect observation matching
 
-r[octet.capability_manifest_checker.effect_matching] Octet SHOULD compare observed direct platform effects and declared injected capabilities against the capability manifest.
+r[octet.capability_manifest_checker.effect_matching] Octet MUST compare observed direct effects, explicit domain facts, application-owned ports, effect plans, and shell interpreters against the active project policy.
 
 #### Scenario: Undeclared direct effect is flagged
 
 r[octet.capability_manifest_checker.effect_matching.direct_effect]
 
-- GIVEN a source file resolves to a strict core scope that does not allow direct filesystem, network, time, randomness, process, environment, secrets, unsafe-code, global-state, concurrency, or observability effects
-- WHEN checker observations find a direct platform effect in that source file
-- THEN the checker SHOULD emit a deterministic diagnostic naming the effect family, source scope, and required shell or capability boundary.
+- GIVEN compiler facts place a direct platform effect in a strict domain-core scope
+- WHEN capability evaluation runs
+- THEN the checker MUST emit a deterministic diagnostic naming the effect family, scope, and required shell boundary
 
-#### Scenario: Declared injected capability is accepted
+#### Scenario: Explicit fact and effect plan are accepted
 
 r[octet.capability_manifest_checker.effect_matching.injected]
 
-- GIVEN a strict core scope declares a capability trait or authority token for a specific effect family
-- WHEN core code accepts that declared trait or token as an explicit input and does not call the concrete platform API directly
-- THEN the checker SHOULD accept the injected capability usage.
-- AND the report SHOULD link the capability to its declared shell interpreter when one is provided.
+- GIVEN domain-core code receives explicit validated facts and returns a declared effect plan without invoking an external capability port
+- WHEN capability evaluation runs
+- THEN the domain-core shape MUST be accepted
+- AND the application shell MAY interpret the plan through an application-owned port
+
+#### Scenario: Domain core calls an injected infrastructure capability
+
+- GIVEN domain-core code invokes a clock, repository, executor, network, filesystem, or other external capability trait
+- WHEN strict capability evaluation runs
+- THEN the checker MUST flag the call even when the concrete implementation is injected
+- AND remediation MUST move the port invocation to the application shell
 
 ### Requirement: Deterministic handler evidence
 
