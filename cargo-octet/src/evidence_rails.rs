@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 use std::fs;
+use std::io::Read as _;
 use std::path::Path;
 use std::process::Command;
 use std::process::Stdio;
@@ -56,6 +57,7 @@ const HEGEL_FAST_CASE_BUDGET: u64 = 16;
 const FORMAL_PROOF_TIER: &str = "formal_proof";
 const BLAKE3_IDENTITY_PREFIX: &str = "b3:";
 const BLAKE3_HEX_LENGTH: usize = 64;
+const SPECIALIZED_DIAGNOSTIC_CAPACITY: usize = 4;
 const KANI_STUB_KIND_VERIFIED: &str = "verified";
 const KANI_STUB_KIND_PLAIN: &str = "plain";
 const KANI_STUB_KIND_ENVIRONMENT: &str = "environment";
@@ -222,7 +224,13 @@ impl EvidenceRailKind {
             ]),
             Self::DependencyTrust => string_vec(&["audits", "imports", "exemptions", "unaudited-gaps"]),
             Self::ApiStability => string_vec(&["public-api", "baseline", "feature-set", "target-triple"]),
-            Self::DynamicEvidence => string_vec(&["profile-selection", "allowed-command", "acceptance-signal"]),
+            Self::DynamicEvidence => string_vec(&[
+                "profile-selection",
+                "allowed-command",
+                "acceptance-signal",
+                "cargo-fuzz-target-and-budget",
+                "cargo-fuzz-corpus-and-crash-identity",
+            ]),
             Self::ReleaseSupplyChain => string_vec(&[
                 "auditable-binary-metadata",
                 "sbom",
@@ -321,6 +329,7 @@ impl EvidenceRailKind {
             Self::DynamicEvidence => string_vec(&[
                 "dynamic evidence profiles are opt-in and not required by default cargo octet check",
                 "Miri, Loom, profiling, or model-checking evidence does not prove whole-program correctness",
+                crate::cargo::fuzz::REQUIRED_NON_CLAIM,
             ]),
             Self::ReleaseSupplyChain => string_vec(&[
                 "local release receipts are SLSA/in-toto compatible shapes, not hosted-service attestations",
@@ -511,6 +520,8 @@ pub struct EvidenceRailReceipt {
     pub z4_solver: Option<Z4SolverReceiptDetails>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub verifier_fixtures: Option<VerifierFixtureReceiptDetails>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cargo_fuzz: Option<crate::cargo::fuzz::ReceiptDetails>,
 }
 
 pub struct EvaluationInput<'a> {
@@ -558,20 +569,7 @@ pub fn run(args: &EvidenceRailArgs) -> Result<i32, String> {
         config_identity = Some(prepared.config_identity.clone());
     }
     let (mode, import_text, tool_exit_code) = evidence_input_text(args, prepared_clippy_run.as_ref())?;
-    let normalized_command = if args.run && args.rail == EvidenceRailKind::CharonSemantic {
-        Some(crate::charon_semantic::profile_command_argv()?.join(" "))
-    } else if args.run && args.rail == EvidenceRailKind::AstGrepStructural {
-        Some(run_mode_command_argv(args)?.join(" "))
-    } else if args.run && args.rail == EvidenceRailKind::ClippyCoReporting {
-        Some(
-            prepared_clippy_run
-                .as_ref()
-                .map_or_else(default_clippy_command_argv, |prepared| prepared.command_argv.clone())
-                .join(" "),
-        )
-    } else {
-        args.command.clone()
-    };
+    let normalized_command = normalized_run_command(args, prepared_clippy_run.as_ref())?;
     let mut receipt = evaluate(EvaluationInput {
         rail: args.rail,
         mode,
@@ -616,6 +614,27 @@ pub fn run(args: &EvidenceRailArgs) -> Result<i32, String> {
     Ok(exit_code_for_receipt(&receipt))
 }
 
+fn normalized_run_command(
+    args: &EvidenceRailArgs,
+    prepared_clippy_run: Option<&PreparedClippyRun>,
+) -> Result<Option<String>, String> {
+    if !args.run {
+        return Ok(args.command.clone());
+    }
+    match args.rail {
+        EvidenceRailKind::CharonSemantic => Ok(Some(crate::charon_semantic::profile_command_argv()?.join(" "))),
+        EvidenceRailKind::AstGrepStructural | EvidenceRailKind::DynamicEvidence => {
+            Ok(Some(run_mode_command_argv(args)?.join(" ")))
+        }
+        EvidenceRailKind::ClippyCoReporting => Ok(Some(
+            prepared_clippy_run
+                .map_or_else(default_clippy_command_argv, |prepared| prepared.command_argv.clone())
+                .join(" "),
+        )),
+        _ => Ok(args.command.clone()),
+    }
+}
+
 pub fn evaluate(input: EvaluationInput<'_>) -> EvidenceRailReceipt {
     let mut parsed = parse_rail_input(&input);
     let charon_semantic = if input.rail == EvidenceRailKind::CharonSemantic {
@@ -633,6 +652,7 @@ pub fn evaluate(input: EvaluationInput<'_>) -> EvidenceRailReceipt {
     } else {
         None
     };
+    let cargo_fuzz = fuzz_details(&input);
     parsed.diagnostics.sort();
     parsed.diagnostics.dedup();
     let status = if parsed.diagnostics.is_empty() {
@@ -646,11 +666,7 @@ pub fn evaluate(input: EvaluationInput<'_>) -> EvidenceRailReceipt {
         rail_id: input.rail.as_str().to_owned(),
         checker_id: input.rail.checker_id().to_owned(),
         mode: input.mode.to_owned(),
-        command_argv: if input.rail == EvidenceRailKind::CharonSemantic && input.mode == MODE_IMPORT {
-            Vec::new()
-        } else {
-            command_argv(input.rail, input.config_path, input.baseline_identity.as_deref(), input.requested_command)
-        },
+        command_argv: receipt_command_argv(&input, cargo_fuzz.as_ref()),
         workspace_scope: input.workspace_scope.to_owned(),
         config_path: input.config_path.map(ToOwned::to_owned),
         config_identity: None,
@@ -684,7 +700,26 @@ pub fn evaluate(input: EvaluationInput<'_>) -> EvidenceRailReceipt {
         hegel_property: parsed.hegel_property,
         z4_solver: parsed.z4_solver,
         verifier_fixtures: parsed.verifier_fixtures,
+        cargo_fuzz,
     }
+}
+
+fn fuzz_details(input: &EvaluationInput<'_>) -> Option<crate::cargo::fuzz::ReceiptDetails> {
+    if input.rail == EvidenceRailKind::DynamicEvidence && input.profile == Some(crate::cargo::fuzz::PROFILE_ID) {
+        crate::cargo::fuzz::evaluate_envelope(input.import_text).details
+    } else {
+        None
+    }
+}
+
+fn receipt_command_argv(input: &EvaluationInput<'_>, fuzz: Option<&crate::cargo::fuzz::ReceiptDetails>) -> Vec<String> {
+    if let Some(details) = fuzz {
+        return details.command_argv.clone();
+    }
+    if input.rail == EvidenceRailKind::CharonSemantic && input.mode == MODE_IMPORT {
+        return Vec::new();
+    }
+    command_argv(input.rail, input.config_path, input.baseline_identity.as_deref(), input.requested_command)
 }
 
 pub fn render_receipt_json(receipt: &EvidenceRailReceipt) -> Result<String, String> {
@@ -858,6 +893,15 @@ pub fn validate_receipt(receipt: &EvidenceRailReceipt) -> Vec<String> {
     validate_ast_grep_receipt(rail, receipt, &mut diagnostics);
     validate_wasm_artifact_receipt(rail, receipt, &mut diagnostics);
     validate_charon_semantic_receipt(rail, receipt, &mut diagnostics);
+    diagnostics.extend(hegel_diagnostics(rail, receipt));
+    diagnostics.extend(z4_diagnostics(rail, receipt));
+    diagnostics.extend(verifier_diagnostics(rail, receipt));
+    diagnostics.extend(fuzz_diagnostics(rail, receipt));
+    diagnostics
+}
+
+fn hegel_diagnostics(rail: EvidenceRailKind, receipt: &EvidenceRailReceipt) -> Vec<String> {
+    let mut diagnostics = Vec::with_capacity(SPECIALIZED_DIAGNOSTIC_CAPACITY);
     match (rail, receipt.hegel_property.as_ref()) {
         (EvidenceRailKind::HegelProperty, Some(details)) => {
             if details.property_id.trim().is_empty() {
@@ -871,10 +915,15 @@ pub fn validate_receipt(receipt: &EvidenceRailReceipt) -> Vec<String> {
             diagnostics.push("hegel-property receipt missing hegel_property details".to_owned());
         }
         (_, Some(_)) => {
-            diagnostics.push("hegel_property details are only valid on hegel-property rail receipts".to_owned())
+            diagnostics.push("hegel_property details are only valid on hegel-property rail receipts".to_owned());
         }
         (_, None) => {}
     }
+    diagnostics
+}
+
+fn z4_diagnostics(rail: EvidenceRailKind, receipt: &EvidenceRailReceipt) -> Vec<String> {
+    let mut diagnostics = Vec::with_capacity(SPECIALIZED_DIAGNOSTIC_CAPACITY);
     match (rail, receipt.z4_solver.as_ref()) {
         (EvidenceRailKind::Z4Solver, Some(details)) => {
             if details.solver.name.trim().is_empty() {
@@ -893,6 +942,11 @@ pub fn validate_receipt(receipt: &EvidenceRailReceipt) -> Vec<String> {
         (_, Some(_)) => diagnostics.push("z4_solver details are only valid on z4-solver rail receipts".to_owned()),
         (_, None) => {}
     }
+    diagnostics
+}
+
+fn verifier_diagnostics(rail: EvidenceRailKind, receipt: &EvidenceRailReceipt) -> Vec<String> {
+    let mut diagnostics = Vec::with_capacity(SPECIALIZED_DIAGNOSTIC_CAPACITY);
     match (rail, receipt.verifier_fixtures.as_ref()) {
         (EvidenceRailKind::VerifierFixture, Some(details)) => {
             if details.fixtures.is_empty() {
@@ -903,12 +957,33 @@ pub fn validate_receipt(receipt: &EvidenceRailReceipt) -> Vec<String> {
             }
         }
         (EvidenceRailKind::VerifierFixture, None) => {
-            diagnostics.push("verifier-fixture receipt missing verifier_fixtures details".to_owned())
+            diagnostics.push("verifier-fixture receipt missing verifier_fixtures details".to_owned());
         }
         (_, Some(_)) => {
-            diagnostics.push("verifier_fixtures details are only valid on verifier-fixture rail receipts".to_owned())
+            diagnostics.push("verifier_fixtures details are only valid on verifier-fixture rail receipts".to_owned());
         }
         (_, None) => {}
+    }
+    diagnostics
+}
+
+fn fuzz_diagnostics(rail: EvidenceRailKind, receipt: &EvidenceRailReceipt) -> Vec<String> {
+    let mut diagnostics = Vec::with_capacity(SPECIALIZED_DIAGNOSTIC_CAPACITY);
+    let is_selected =
+        rail == EvidenceRailKind::DynamicEvidence && receipt.profile.as_deref() == Some(crate::cargo::fuzz::PROFILE_ID);
+    match (is_selected, receipt.cargo_fuzz.as_ref()) {
+        (true, Some(details)) => {
+            diagnostics.extend(crate::cargo::fuzz::validate(details));
+            if receipt.command_argv != details.command_argv {
+                diagnostics.push("cargo-fuzz receipt command does not match typed details".to_owned());
+            }
+            if !receipt.non_claims.iter().any(|claim| claim == crate::cargo::fuzz::REQUIRED_NON_CLAIM) {
+                diagnostics.push("cargo-fuzz evidence receipt is missing its bounded non-claim".to_owned());
+            }
+        }
+        (true, None) => diagnostics.push("cargo-fuzz dynamic receipt is missing cargo_fuzz details".to_owned()),
+        (false, Some(_)) => diagnostics.push("cargo_fuzz details require the cargo-fuzz dynamic profile".to_owned()),
+        (false, None) => {}
     }
     diagnostics
 }
@@ -1406,6 +1481,9 @@ fn parse_api_stability(input: &EvaluationInput<'_>) -> RailParseOutput {
 }
 
 fn parse_dynamic_evidence(input: &EvaluationInput<'_>) -> RailParseOutput {
+    if input.profile == Some(crate::cargo::fuzz::PROFILE_ID) {
+        return parse_fuzz(input);
+    }
     let mut diagnostics = Vec::new();
     let value = parse_json_value(input.import_text, &mut diagnostics);
     let mut findings = Vec::new();
@@ -1462,6 +1540,35 @@ fn parse_dynamic_evidence(input: &EvaluationInput<'_>) -> RailParseOutput {
         diagnostics,
         status,
         profile,
+        property_classes: Vec::new(),
+        hegel_property: None,
+        z4_solver: None,
+        verifier_fixtures: None,
+    }
+}
+
+fn parse_fuzz(input: &EvaluationInput<'_>) -> RailParseOutput {
+    let evaluation = crate::cargo::fuzz::evaluate_envelope(input.import_text);
+    let mut findings = Vec::with_capacity(1);
+    if evaluation.is_crash_observed {
+        findings.push(EvidenceRailFinding {
+            family: "cargo-fuzz-crash".to_owned(),
+            severity: "error".to_owned(),
+            message: "cargo-fuzz discovered a reproducible crash".to_owned(),
+            source_severity: None,
+            file: None,
+            line: None,
+            column: None,
+        });
+    }
+    let finding_counts = counts_by_family(&findings);
+    let status = status_from_error_findings(&findings);
+    RailParseOutput {
+        findings,
+        finding_counts,
+        diagnostics: evaluation.diagnostics,
+        status,
+        profile: Some(crate::cargo::fuzz::PROFILE_ID.to_owned()),
         property_classes: Vec::new(),
         hegel_property: None,
         z4_solver: None,
@@ -2531,10 +2638,25 @@ fn evidence_input_text(
     if args.rail == EvidenceRailKind::CharonSemantic {
         return analyze_charon_semantic_input(args);
     }
+    if args.rail == EvidenceRailKind::DynamicEvidence
+        && args.profile.as_deref() == Some(crate::cargo::fuzz::PROFILE_ID)
+        && args.run
+    {
+        dynamic_run_command_argv(args.profile.as_deref(), args.command.as_deref())?;
+        let workspace_root = args.workspace_root.as_deref().unwrap_or_else(|| Path::new("."));
+        return crate::cargo::fuzz::shell::run(workspace_root)
+            .map(|(receipt, exit_code)| (MODE_RUN, receipt, Some(exit_code)));
+    }
     match (&args.input, args.run) {
         (Some(input), false) => {
-            let text = fs::read_to_string(input)
-                .map_err(|error| format!("read evidence input {}: {error}", input.display()))?;
+            let text = if args.rail == EvidenceRailKind::DynamicEvidence
+                && args.profile.as_deref() == Some(crate::cargo::fuzz::PROFILE_ID)
+            {
+                read_cargo_fuzz_receipt(input)?
+            } else {
+                fs::read_to_string(input)
+                    .map_err(|error| format!("read evidence input {}: {error}", input.display()))?
+            };
             Ok((MODE_IMPORT, text, None))
         }
         (None, true) => {
@@ -2543,6 +2665,25 @@ fn evidence_input_text(
         (Some(_), true) => Err("evidence collect accepts either `--input PATH` or `--run`, not both".to_owned()),
         (None, false) => Err("evidence collect requires `--input PATH` or `--run`".to_owned()),
     }
+}
+
+fn read_cargo_fuzz_receipt(path: &Path) -> Result<String, String> {
+    let metadata =
+        fs::metadata(path).map_err(|error| format!("inspect cargo-fuzz receipt {}: {error}", path.display()))?;
+    if metadata.len() > crate::cargo::fuzz::MAX_RECEIPT_BYTES {
+        return Err(format!("cargo-fuzz receipt exceeds {} byte limit", crate::cargo::fuzz::MAX_RECEIPT_BYTES));
+    }
+    let file = fs::File::open(path).map_err(|error| format!("open cargo-fuzz receipt {}: {error}", path.display()))?;
+    let mut bytes = Vec::new();
+    file.take(crate::cargo::fuzz::MAX_RECEIPT_BYTES + 1)
+        .read_to_end(&mut bytes)
+        .map_err(|error| format!("read cargo-fuzz receipt {}: {error}", path.display()))?;
+    let observed_bytes =
+        u64::try_from(bytes.len()).map_err(|_| "cargo-fuzz receipt byte count does not fit u64".to_owned())?;
+    if observed_bytes > crate::cargo::fuzz::MAX_RECEIPT_BYTES {
+        return Err("cargo-fuzz receipt grew beyond its byte limit during read".to_owned());
+    }
+    String::from_utf8(bytes).map_err(|error| format!("cargo-fuzz receipt {} is not UTF-8: {error}", path.display()))
 }
 
 fn analyze_charon_semantic_input(args: &EvidenceRailArgs) -> Result<(&'static str, String, Option<i32>), String> {
@@ -2912,11 +3053,18 @@ fn command_argv(
 
 fn dynamic_run_command_argv(profile: Option<&str>, requested_command: Option<&str>) -> Result<Vec<String>, String> {
     let profile = profile.ok_or_else(|| "dynamic evidence run requires `--profile NAME`".to_owned())?;
+    if profile == crate::cargo::fuzz::PROFILE_ID {
+        if requested_command.is_some_and(|command| !command.is_empty()) {
+            return Err("cargo-fuzz dynamic evidence rejects arbitrary --command authority".to_owned());
+        }
+        return Ok(crate::cargo::fuzz::command_argv());
+    }
     let requested_command =
         requested_command.ok_or_else(|| "dynamic evidence run requires `--command COMMAND`".to_owned())?;
     let allowed_command = allowed_dynamic_command(profile).ok_or_else(|| {
         format!(
-            "unknown dynamic evidence profile `{profile}`; expected `{DYNAMIC_PROFILE_MIRI_UNSAFE_BOUNDARY}` or `{DYNAMIC_PROFILE_LOOM_CONCURRENCY}`"
+            "unknown dynamic evidence profile `{profile}`; expected `{DYNAMIC_PROFILE_MIRI_UNSAFE_BOUNDARY}`, `{DYNAMIC_PROFILE_LOOM_CONCURRENCY}`, or `{}`",
+            crate::cargo::fuzz::PROFILE_ID
         )
     })?;
     if requested_command != allowed_command {
@@ -2965,7 +3113,7 @@ fn write_artifacts(
 ) -> Result<(), String> {
     let root = ArtifactRoot::open_or_create(artifact_dir)?;
     remove_stale_artifacts(&root, additional_artifacts.keys())?;
-    root.write(&RootRelativePath::new(RECEIPT_ARTIFACT_NAME)?, receipt_json.as_bytes())?;
+    root.write_atomic(&RootRelativePath::new(RECEIPT_ARTIFACT_NAME)?, receipt_json.as_bytes())?;
     root.write(&RootRelativePath::new(SUMMARY_ARTIFACT_NAME)?, summary.as_bytes())?;
     root.write(&RootRelativePath::new(PROVENANCE_ARTIFACT_NAME)?, provenance_jsonl.as_bytes())?;
     for (name, bytes) in additional_artifacts {
@@ -3369,6 +3517,31 @@ mod tests {
     fn clippy_profile_catalog_path() -> std::path::PathBuf {
         std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("../standards/clippy-restrictions/generated/profiles.json")
+    }
+
+    fn cargo_fuzz_import_args(
+        input: std::path::PathBuf,
+        artifact_dir: std::path::PathBuf,
+    ) -> crate::cli::EvidenceRailArgs {
+        crate::cli::EvidenceRailArgs {
+            rail: EvidenceRailKind::DynamicEvidence,
+            input: Some(input),
+            artifact_dir,
+            workspace_root: None,
+            config: Some(
+                std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../dynamic-evidence-profiles.json"),
+            ),
+            baseline: None,
+            profile: Some(crate::cargo::fuzz::PROFILE_ID.to_owned()),
+            command: None,
+            parent_artifacts: Vec::new(),
+            external_reports: Vec::new(),
+            output_format: OutputFormat::Human,
+            locked: false,
+            update_advisory_database: false,
+            run: false,
+            command_line: "cargo octet evidence collect --rail dynamic-evidence --profile cargo-fuzz-libfuzzer --input fixture.json".to_owned(),
+        }
     }
 
     fn clippy_run_args(
@@ -3872,6 +4045,154 @@ mod tests {
     }
 
     #[test]
+    fn cargo_fuzz_profile_preserves_typed_receipt_and_command_isolation() {
+        let corpus = vec![crate::cargo::fuzz::ArtifactIdentity {
+            path: "corpus/seed".to_owned(),
+            length: 4,
+            blake3: "b3:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".to_owned(),
+        }];
+        let root = crate::cargo::fuzz::corpus_root(&corpus);
+        let details = crate::cargo::fuzz::ReceiptDetails {
+            schema_version: crate::cargo::fuzz::RECEIPT_SCHEMA_VERSION.to_owned(),
+            profile_id: crate::cargo::fuzz::PROFILE_ID.to_owned(),
+            profile_identity: crate::cargo::fuzz::EXPECTED_PROFILE_IDENTITY.to_owned(),
+            target: crate::cargo::fuzz::TARGET.to_owned(),
+            engine: crate::cargo::fuzz::ENGINE.to_owned(),
+            toolchain: crate::cargo::fuzz::TOOLCHAIN.to_owned(),
+            compiler_identity: "b3:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb".to_owned(),
+            sanitizer: crate::cargo::fuzz::SANITIZER.to_owned(),
+            command_argv: crate::cargo::fuzz::command_argv(),
+            budget: crate::cargo::fuzz::Budget {
+                max_total_time_seconds: crate::cargo::fuzz::MAX_TOTAL_TIME_SECONDS,
+                max_runs: crate::cargo::fuzz::MAX_RUNS,
+                seed: crate::cargo::fuzz::FIXED_SEED,
+            },
+            initial_corpus: corpus.clone(),
+            initial_corpus_root: root.clone(),
+            final_corpus: corpus,
+            final_corpus_root: root,
+            dictionary: None,
+            outcome: "clean".to_owned(),
+            crash_input: None,
+            minimized_reproducer: None,
+            replay_argv: Vec::new(),
+            bounded_log_identity: "b3:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc".to_owned(),
+            evidence_tier: crate::cargo::fuzz::EVIDENCE_TIER.to_owned(),
+            claimed_properties: Vec::new(),
+            non_claims: vec![crate::cargo::fuzz::REQUIRED_NON_CLAIM.to_owned()],
+        };
+        let text = serde_json::to_string(&details).expect("serialize cargo-fuzz fixture");
+        let receipt = evaluate(EvaluationInput {
+            rail: EvidenceRailKind::DynamicEvidence,
+            mode: MODE_IMPORT,
+            import_text: &text,
+            workspace_scope: WORKSPACE_SCOPE,
+            config_path: Some("dynamic-evidence-profiles.json"),
+            baseline_identity: None,
+            lockfile_identity: None,
+            locked: false,
+            advisory_updated_by_prior_step: false,
+            profile: Some(crate::cargo::fuzz::PROFILE_ID),
+            requested_command: None,
+            parent_artifacts: Vec::new(),
+            tool_exit_code: None,
+        });
+        assert_eq!(receipt.status, STATUS_PASSED, "{:?}", receipt.diagnostics);
+        assert_eq!(receipt.command_argv, crate::cargo::fuzz::command_argv());
+        assert_eq!(receipt.cargo_fuzz, Some(details));
+        assert!(validate_receipt(&receipt).is_empty());
+        assert!(dynamic_run_command_argv(Some(crate::cargo::fuzz::PROFILE_ID), None).is_ok());
+        assert!(dynamic_run_command_argv(Some(crate::cargo::fuzz::PROFILE_ID), Some("cargo fuzz run other")).is_err());
+        assert_eq!(
+            dynamic_run_command_argv(Some(DYNAMIC_PROFILE_MIRI_SHORT), Some(DYNAMIC_COMMAND_MIRI_TEST))
+                .expect("Miri command"),
+            split_command(DYNAMIC_COMMAND_MIRI_TEST)
+        );
+        assert_eq!(
+            dynamic_run_command_argv(Some(DYNAMIC_PROFILE_LOOM_SHORT), Some(DYNAMIC_COMMAND_LOOM_TEST))
+                .expect("Loom command"),
+            split_command(DYNAMIC_COMMAND_LOOM_TEST)
+        );
+    }
+
+    #[test]
+    fn cargo_fuzz_receipt_reads_are_bounded() {
+        let directory = tempfile::tempdir().expect("create receipt fixture directory");
+        let valid_path = directory.path().join("valid.json");
+        let valid = include_str!("../tests/fixtures/evidence-rails/cargo-fuzz-clean.json");
+        fs::write(&valid_path, valid).expect("write valid cargo-fuzz receipt");
+        assert_eq!(read_cargo_fuzz_receipt(&valid_path).expect("read valid receipt"), valid);
+
+        let oversized_path = directory.path().join("oversized.json");
+        let oversized_length =
+            usize::try_from(crate::cargo::fuzz::MAX_RECEIPT_BYTES + 1).expect("cargo-fuzz receipt limit fits usize");
+        fs::write(&oversized_path, vec![b'x'; oversized_length]).expect("write oversized receipt");
+        let error = read_cargo_fuzz_receipt(&oversized_path).expect_err("oversized receipt must fail");
+        assert!(error.contains("exceeds"));
+    }
+
+    #[test]
+    fn cargo_fuzz_import_publishes_without_dynamic_tool_execution() {
+        let directory = tempfile::tempdir().expect("create cargo-fuzz import directory");
+        let input = directory.path().join("receipt.json");
+        let artifacts = directory.path().join("artifacts");
+        fs::write(&input, include_str!("../tests/fixtures/evidence-rails/cargo-fuzz-clean.json"))
+            .expect("write cargo-fuzz import receipt");
+        let args = cargo_fuzz_import_args(input, artifacts.clone());
+
+        assert_eq!(run(&args).expect("import cargo-fuzz receipt"), EXIT_SUCCESS);
+        let receipt = fs::read_to_string(artifacts.join(RECEIPT_ARTIFACT_NAME)).expect("read published receipt");
+        let parsed: EvidenceRailReceipt = serde_json::from_str(&receipt).expect("parse published receipt");
+        assert_eq!(parsed.status, STATUS_PASSED);
+        assert!(parsed.cargo_fuzz.is_some());
+        assert!(artifacts.join(SUMMARY_ARTIFACT_NAME).is_file());
+        assert!(artifacts.join(PROVENANCE_ARTIFACT_NAME).is_file());
+    }
+
+    #[test]
+    fn cargo_fuzz_crash_and_profile_tampering_fail_closed() {
+        let clean_text = serde_json::to_string(&crate::cargo::fuzz::ReceiptDetails {
+            schema_version: crate::cargo::fuzz::RECEIPT_SCHEMA_VERSION.to_owned(),
+            profile_id: crate::cargo::fuzz::PROFILE_ID.to_owned(),
+            profile_identity: "b3:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd".to_owned(),
+            target: crate::cargo::fuzz::TARGET.to_owned(),
+            engine: crate::cargo::fuzz::ENGINE.to_owned(),
+            toolchain: crate::cargo::fuzz::TOOLCHAIN.to_owned(),
+            compiler_identity: "b3:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee".to_owned(),
+            sanitizer: crate::cargo::fuzz::SANITIZER.to_owned(),
+            command_argv: crate::cargo::fuzz::command_argv(),
+            budget: crate::cargo::fuzz::Budget {
+                max_total_time_seconds: 1,
+                max_runs: 1,
+                seed: 1,
+            },
+            initial_corpus: Vec::new(),
+            initial_corpus_root: crate::cargo::fuzz::corpus_root(&[]),
+            final_corpus: Vec::new(),
+            final_corpus_root: crate::cargo::fuzz::corpus_root(&[]),
+            dictionary: None,
+            outcome: "crash".to_owned(),
+            crash_input: None,
+            minimized_reproducer: None,
+            replay_argv: Vec::new(),
+            bounded_log_identity: "b3:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff".to_owned(),
+            evidence_tier: "formal_proof".to_owned(),
+            claimed_properties: vec!["exhaustive coverage".to_owned()],
+            non_claims: Vec::new(),
+        })
+        .expect("serialize invalid cargo-fuzz fixture");
+        let receipt = evaluate(EvaluationInput {
+            import_text: &clean_text,
+            profile: Some(crate::cargo::fuzz::PROFILE_ID),
+            ..dynamic_input()
+        });
+        assert_eq!(receipt.status, STATUS_FAILED);
+        assert_eq!(receipt.finding_counts.get("cargo-fuzz-crash"), Some(&1));
+        assert!(receipt.diagnostics.iter().any(|value| value.contains("profile identity")));
+        assert!(receipt.diagnostics.iter().any(|value| value.contains("formal") || value.contains("transcript")));
+    }
+
+    #[test]
     fn release_supply_chain_records_auditable_metadata_sbom_vulnerabilities_and_parents() {
         let parent = "artifacts/octet/status.json".to_owned();
         let clean = evaluate(EvaluationInput {
@@ -4138,6 +4459,9 @@ mod tests {
         let trust = include_str!("../tests/fixtures/evidence-rails/dependency-trust-covered.json");
         let semver_removed = include_str!("../tests/fixtures/evidence-rails/api-stability-removed.json");
         let dynamic_mismatch = include_str!("../tests/fixtures/evidence-rails/dynamic-profile-mismatch.json");
+        let cargo_fuzz_clean = include_str!("../tests/fixtures/evidence-rails/cargo-fuzz-clean.json");
+        let cargo_fuzz_crash = include_str!("../tests/fixtures/evidence-rails/cargo-fuzz-crash.json");
+        let cargo_fuzz_invalid = include_str!("../tests/fixtures/evidence-rails/cargo-fuzz-invalid.json");
         let release_clean = include_str!("../tests/fixtures/evidence-rails/release-supply-chain-clean.json");
         let mutation_clean = include_str!("../tests/fixtures/evidence-rails/mutation-testing-clean.json");
         let coverage_regression = include_str!("../tests/fixtures/evidence-rails/coverage-baseline-regression.json");
@@ -4161,6 +4485,9 @@ mod tests {
         assert_eq!(dependency_trust_receipt(trust).status, STATUS_PASSED);
         assert_eq!(api_removed_receipt(semver_removed).finding_counts.get("removed-public-item"), Some(&1));
         assert!(!dynamic_mismatch_receipt(dynamic_mismatch).diagnostics.is_empty());
+        assert!(crate::cargo::fuzz::evaluate_envelope(cargo_fuzz_clean).diagnostics.is_empty());
+        assert!(crate::cargo::fuzz::evaluate_envelope(cargo_fuzz_crash).is_crash_observed);
+        assert!(!crate::cargo::fuzz::evaluate_envelope(cargo_fuzz_invalid).diagnostics.is_empty());
         assert_eq!(release_receipt(release_clean).status, STATUS_PASSED);
         assert_eq!(mutation_receipt(mutation_clean).status, STATUS_PASSED);
         assert_eq!(coverage_receipt(coverage_regression, Some(BASELINE_IDENTITY.to_owned())).status, STATUS_FAILED);

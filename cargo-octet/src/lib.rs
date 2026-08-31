@@ -7,6 +7,9 @@ mod artifact;
 mod ast_grep_rail;
 mod baseline;
 mod cap_fs;
+mod cargo {
+    pub(crate) mod fuzz;
+}
 mod charon_semantic;
 mod cli;
 mod clippy_restrictions;
