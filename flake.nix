@@ -1965,6 +1965,47 @@
               mkdir -p "$out"
             '';
 
+        dynamicEvidenceProfilesCheck =
+          pkgs.runCommand "octet-dynamic-evidence-profiles-check"
+            {
+              nativeBuildInputs = with pkgs; [
+                b3sum
+                coreutils
+                diffutils
+                jq
+                nickel
+              ];
+            }
+            ''
+              cd ${./.}
+              generated=$(mktemp)
+              expected_profile_identity=7ad698ddebaaac2640a51e5f58871ac026b4b32653fb95bf971ec491560b48d6
+              expected_profile_count=1
+              expected_max_time_seconds=60
+              expected_max_runs=100000
+              expected_seed=1
+
+              nickel typecheck templates/dynamic-evidence-profiles.ncl
+              nickel export --format json templates/dynamic-evidence-profiles.ncl > "$generated"
+              diff -u dynamic-evidence-profiles.json "$generated"
+              test "$(b3sum "$generated" | cut -d ' ' -f 1)" = "$expected_profile_identity"
+              test "$(jq '.cargo_fuzz_profiles | length' "$generated")" = "$expected_profile_count"
+              jq --exit-status \
+                --argjson max_time "$expected_max_time_seconds" \
+                --argjson max_runs "$expected_max_runs" \
+                --argjson seed "$expected_seed" \
+                '.cargo_fuzz_profiles[0]
+                  | .name == "cargo-fuzz-libfuzzer"
+                  and .engine == "libfuzzer"
+                  and .target == "octet-profile-intake"
+                  and .max_total_time_seconds == $max_time
+                  and .max_runs == $max_runs
+                  and .seed == $seed
+                  and .evidence_tier == "transcript_assertion"' \
+                "$generated"
+              mkdir -p "$out"
+            '';
+
         strictProfileCatalogCheck =
           pkgs.runCommand "octet-strict-profile-catalog-check"
             {
@@ -4116,6 +4157,7 @@
             cairn-cob-conflict-pilot = cairnCobConflictPilotCheck;
             ast-grep-structural-rail = astGrepStructuralRailCheck;
             wasm-artifact-rail = wasmArtifactRailCheck;
+            dynamic-evidence-profiles = dynamicEvidenceProfilesCheck;
             strict-profile-catalog = strictProfileCatalogCheck;
             nominal-domain-catalog = nominalDomainCatalogCheck;
             project-architecture-policy = projectArchitecturePolicyCheck;

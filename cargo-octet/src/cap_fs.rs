@@ -11,6 +11,7 @@ const PARENT_COMPONENT: &str = "..";
 const ABSOLUTE_COMPONENT: &str = "absolute";
 const PREFIX_COMPONENT: &str = "prefix";
 const EMPTY_LOCATOR: &str = "empty";
+const ATOMIC_STAGE_SUFFIX: &str = ".octet-stage";
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct RootRelativePath {
@@ -102,6 +103,10 @@ impl ArtifactRoot {
 
     pub(crate) fn write(&self, relative: &RootRelativePath, bytes: &[u8]) -> Result<(), String> {
         self.root.write(relative, bytes)
+    }
+
+    pub(crate) fn write_atomic(&self, relative: &RootRelativePath, bytes: &[u8]) -> Result<(), String> {
+        self.root.write_atomic(relative, bytes)
     }
 
     pub(crate) fn remove_file_or_dir_all(&self, relative: &RootRelativePath) -> Result<(), String> {
@@ -206,6 +211,42 @@ impl CapabilityRoot {
         }
         self.dir.write(relative.as_path(), bytes).map_err(|error| {
             format!("write {kind} path `{locator}`: {error}", kind = self.kind, locator = relative.display())
+        })
+    }
+
+    fn write_atomic(&self, relative: &RootRelativePath, bytes: &[u8]) -> Result<(), String> {
+        if let Some(parent) = relative.as_path().parent().filter(|parent| !parent.as_os_str().is_empty()) {
+            let parent = RootRelativePath::new(parent)?;
+            self.create_dir_all(&parent)?;
+        }
+        let file_name = relative.as_path().file_name().and_then(OsStr::to_str).ok_or_else(|| {
+            format!(
+                "atomic {kind} path `{locator}` has no UTF-8 file name",
+                kind = self.kind,
+                locator = relative.display()
+            )
+        })?;
+        let stage_name = format!(".{file_name}{ATOMIC_STAGE_SUFFIX}");
+        let stage = relative
+            .as_path()
+            .parent()
+            .filter(|parent| !parent.as_os_str().is_empty())
+            .map_or_else(|| PathBuf::from(&stage_name), |parent| parent.join(&stage_name));
+        let stage = RootRelativePath::new(stage)?;
+        match self.dir.remove_file(stage.as_path()) {
+            Ok(()) => {}
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => {
+                return Err(format!(
+                    "remove stale atomic {kind} stage `{locator}`: {error}",
+                    kind = self.kind,
+                    locator = stage.display()
+                ));
+            }
+        }
+        self.write(&stage, bytes)?;
+        self.dir.rename(stage.as_path(), &self.dir, relative.as_path()).map_err(|error| {
+            format!("publish atomic {kind} path `{locator}`: {error}", kind = self.kind, locator = relative.display())
         })
     }
 
@@ -456,6 +497,25 @@ mod tests {
                 .expect("read proof"),
             VALID_TEXT
         );
+    }
+
+    #[test]
+    fn artifact_root_atomically_replaces_declared_file() {
+        const REPLACEMENT_TEXT: &str = "replacement fixture";
+
+        let tempdir = tempfile::tempdir().expect("tempdir");
+        let root_path = tempdir.path().join(ARTIFACT_ROOT);
+        let root = ArtifactRoot::open_or_create(&root_path).expect("artifact root");
+        let locator = RootRelativePath::new(COMMAND_FILE).expect("command locator");
+
+        root.write_atomic(&locator, VALID_TEXT.as_bytes()).expect("publish initial file");
+        root.write_atomic(&locator, REPLACEMENT_TEXT.as_bytes()).expect("replace file");
+
+        assert_eq!(
+            std::fs::read_to_string(root_path.join(COMMAND_FILE)).expect("read replaced file"),
+            REPLACEMENT_TEXT
+        );
+        assert!(!root_path.join(format!(".{COMMAND_FILE}{ATOMIC_STAGE_SUFFIX}")).exists());
     }
 
     #[cfg(unix)]

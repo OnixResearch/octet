@@ -682,8 +682,32 @@ in
       validation_command = "nix develop -c cargo test -p cargo-octet --lib evidence_rails::tests::dynamic_evidence_accepts_configured_profile_and_rejects_profile_errors",
       status = "existing",
       config_digest_required = true,
-      positive_fixtures = ["templates/dynamic-evidence-profiles.ncl"],
-      negative_fixtures = ["cargo-octet/src/evidence_rails.rs::dynamic_evidence_accepts_configured_profile_and_rejects_profile_errors"],
+      positive_fixtures = [
+        "templates/dynamic-evidence-profiles.ncl",
+        "standards/evidence/fixtures/valid/cargo_fuzz_details_v1.ncl",
+      ],
+      negative_fixtures = [
+        "cargo-octet/src/evidence_rails.rs::dynamic_evidence_accepts_configured_profile_and_rejects_profile_errors",
+        "standards/evidence/fixtures/invalid/cargo_fuzz_wrong_profile.ncl",
+      ],
+    },
+    {
+      family_id = "octet.cargo-fuzz-receipt",
+      ownership = "rust-derived",
+      owner_source_path = "cargo-octet/src/cargo/fuzz/mod.rs",
+      artifact_path = "evidence-rail-receipt.json#cargo_fuzz",
+      generation_command = "cargo octet evidence collect --rail dynamic-evidence --profile cargo-fuzz-libfuzzer --input RUN.json --artifact-dir ARTIFACTS",
+      validation_command = "nix develop -c cargo test -p cargo-octet --lib cargo_fuzz::tests",
+      status = "existing",
+      config_digest_required = true,
+      positive_fixtures = [
+        "standards/evidence/fixtures/valid/cargo_fuzz_details_v1.ncl",
+        "cargo-octet/src/cargo/fuzz/tests.rs::clean_and_crash_receipts_preserve_bounded_identity",
+      ],
+      negative_fixtures = [
+        "standards/evidence/fixtures/invalid/cargo_fuzz_wrong_profile.ncl",
+        "cargo-octet/src/cargo/fuzz/tests.rs::malformed_stale_unsafe_and_over_limit_receipts_fail_closed",
+      ],
     },
     {
       family_id = "octet.nickel-export-helper-specs",

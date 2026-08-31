@@ -9,6 +9,7 @@ const FINDING_CONTRACT_NAME: &str = "FindingV2";
 const PROVENANCE_CONTRACT_NAME: &str = "ProvenanceRecordV1";
 const EVIDENCE_RAIL_RECEIPT_CONTRACT_NAME: &str = "EvidenceRailReceiptV1";
 const HEGEL_PROPERTY_DETAILS_CONTRACT_NAME: &str = "HegelPropertyReceiptDetailsV1";
+const CARGO_FUZZ_DETAILS_CONTRACT_NAME: &str = "CargoFuzzReceiptDetailsV1";
 const CHAOSCONTROL_PROOF_STYLE_INPUT_CONTRACT_NAME: &str = "ChaosControlProofStyleInputContractV1";
 const CHAOSCONTROL_PROOF_STYLE_INPUT_SCHEMA_VERSION: &str = "octet-chaoscontrol-proof-style-input-contract/v1";
 const CHAOSCONTROL_CONSUMER_REPO: &str = "github:OnixResearch/chaoscontrol";
@@ -90,6 +91,27 @@ static HEGEL_PROPERTY_DETAILS_FIELDS: &[ContractField] = &[
     },
 ];
 
+static CARGO_FUZZ_DETAILS_FIELDS: &[ContractField] = &[
+    ContractField::required("schema_version", FieldKind::ExactString(crate::cargo::fuzz::RECEIPT_SCHEMA_VERSION)),
+    ContractField::required("profile_id", FieldKind::ExactString(crate::cargo::fuzz::PROFILE_ID)),
+    ContractField::required("profile_identity", FieldKind::NonEmptyString),
+    ContractField::required("target", FieldKind::ExactString(crate::cargo::fuzz::TARGET)),
+    ContractField::required("engine", FieldKind::ExactString(crate::cargo::fuzz::ENGINE)),
+    ContractField::required("toolchain", FieldKind::ExactString(crate::cargo::fuzz::TOOLCHAIN)),
+    ContractField::required("compiler_identity", FieldKind::NonEmptyString),
+    ContractField::required("sanitizer", FieldKind::ExactString(crate::cargo::fuzz::SANITIZER)),
+    ContractField::required("command_argv", FieldKind::StringArray),
+    ContractField::required("budget", FieldKind::Dyn),
+    ContractField::required("initial_corpus", FieldKind::Dyn),
+    ContractField::required("initial_corpus_root", FieldKind::NonEmptyString),
+    ContractField::required("final_corpus", FieldKind::Dyn),
+    ContractField::required("final_corpus_root", FieldKind::NonEmptyString),
+    ContractField::required("outcome", FieldKind::NonEmptyString),
+    ContractField::required("bounded_log_identity", FieldKind::NonEmptyString),
+    ContractField::required("evidence_tier", FieldKind::EvidenceTier),
+    ContractField::required("non_claims", FieldKind::StringArray),
+];
+
 static CHAOSCONTROL_PROOF_STYLE_INPUT_FIELDS: &[ContractField] = &[
     ContractField::required("schema_version", FieldKind::ExactString(CHAOSCONTROL_PROOF_STYLE_INPUT_SCHEMA_VERSION)),
     ContractField::required("consumer_repo", FieldKind::NonEmptyString),
@@ -163,6 +185,11 @@ static EVIDENCE_RAIL_RECEIPT_FIELDS: &[ContractField] = &[
         kind: FieldKind::Dyn,
         default: Some(EMPTY_RECORD_DEFAULT),
     },
+    ContractField {
+        name: "cargo_fuzz",
+        kind: FieldKind::Dyn,
+        default: Some(EMPTY_RECORD_DEFAULT),
+    },
 ];
 
 #[derive(Clone, Copy)]
@@ -198,6 +225,7 @@ pub fn render_generated_contracts() -> String {
         finding_schema(),
         provenance_schema(),
         hegel_property_details_schema(),
+        cargo_fuzz_details_schema(),
         evidence_rail_receipt_schema(),
         chaoscontrol_proof_style_input_schema(),
     ];
@@ -252,6 +280,13 @@ fn hegel_property_details_schema() -> ContractSchema {
     ContractSchema {
         name: HEGEL_PROPERTY_DETAILS_CONTRACT_NAME,
         fields: HEGEL_PROPERTY_DETAILS_FIELDS,
+    }
+}
+
+fn cargo_fuzz_details_schema() -> ContractSchema {
+    ContractSchema {
+        name: CARGO_FUZZ_DETAILS_CONTRACT_NAME,
+        fields: CARGO_FUZZ_DETAILS_FIELDS,
     }
 }
 
@@ -433,6 +468,7 @@ mod tests {
         "standards/evidence/fixtures/valid/finding_v2.ncl",
         "standards/evidence/fixtures/valid/provenance_record_v1.ncl",
         "standards/evidence/fixtures/valid/hegel_property_details_v1.ncl",
+        "standards/evidence/fixtures/valid/cargo_fuzz_details_v1.ncl",
         "standards/evidence/fixtures/valid/evidence_rail_receipt_v1.ncl",
         "standards/evidence/fixtures/valid/chaoscontrol_proof_style_input_v1.ncl",
     ];
@@ -442,6 +478,7 @@ mod tests {
         "standards/evidence/fixtures/invalid/provenance_bad_schema.ncl",
         "standards/evidence/fixtures/invalid/provenance_bad_tier.ncl",
         "standards/evidence/fixtures/invalid/hegel_property_missing_property_id.ncl",
+        "standards/evidence/fixtures/invalid/cargo_fuzz_wrong_profile.ncl",
         "standards/evidence/fixtures/invalid/evidence_rail_receipt_missing_non_claims.ncl",
         "standards/evidence/fixtures/invalid/chaoscontrol_missing_profile.ncl",
         "standards/evidence/fixtures/invalid/chaoscontrol_missing_focused_crates.ncl",
