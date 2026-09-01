@@ -192,12 +192,14 @@ cargo octet evidence collect --rail dynamic-evidence --input target/miri-profile
 cargo octet evidence collect --rail dynamic-evidence --input target/cargo-fuzz-run.json --profile cargo-fuzz-libfuzzer --config dynamic-evidence-profiles.json --artifact-dir artifacts/dynamic/cargo-fuzz
 cargo octet evidence collect --rail sarif-import --input target/codeql.sarif --profile codeql-local --config standards/sarif/profiles.json --artifact-dir artifacts/sarif-codeql
 cargo octet evidence collect --rail release-supply-chain --input target/release-supply-chain.json --parent-artifact artifacts/octet/status.json --artifact-dir artifacts/release-supply-chain
-cargo octet evidence collect --rail mutation-testing --input target/mutants.json --artifact-dir artifacts/mutation-testing
+cargo octet evidence collect --rail mutation-testing --profile cargo-mutants-octet-metadata --config standards/mutation/profiles.json --input .octet/mutants-output/mutants.out/outcomes.json --external-report evidence/mutation-source-manifest.json --workspace-root . --artifact-dir artifacts/mutation-testing
 cargo octet evidence collect --rail coverage-baseline --profile cargo-llvm-cov-octet-lib --config standards/coverage/profiles.json --input target/coverage.json --baseline baselines/coverage.json --external-report evidence/coverage-source-manifest.json --workspace-root . --artifact-dir artifacts/coverage-baseline
 cargo octet evidence collect --rail kani-model-check --input target/kani-summary.json --artifact-dir artifacts/kani-model-check
 cargo octet evidence collect --rail hegel-property --input target/hegel-property.json --artifact-dir artifacts/hegel-property
 cargo octet artifact verify --artifact-dir artifacts/dependency-audit
 ```
+
+Read [`mutation-testing-evidence.md`](mutation-testing-evidence.md) for typed cargo-mutants profiles, complete outcome partitions, and retained diffs.
 
 Read [`coverage-baseline-evidence.md`](coverage-baseline-evidence.md) for the checked coverage profile, exact-count comparison, and baseline-envelope workflow.
 

@@ -200,6 +200,8 @@ pub struct ValenceReceiptEnvelope {
     pub sarif_import: Option<crate::external::sarif::ReceiptDetails>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub coverage_baseline: Option<crate::coverage::ReceiptDetails>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cargo_mutants: Option<crate::mutation::ReceiptDetails>,
     pub non_claims: Vec<String>,
 }
 
@@ -470,6 +472,7 @@ fn valence_receipt_envelope(
         cargo_fuzz: matching_evidence_rail_receipt.and_then(|receipt| receipt.cargo_fuzz.clone()),
         sarif_import: matching_evidence_rail_receipt.and_then(|receipt| receipt.sarif_import.clone()),
         coverage_baseline: matching_evidence_rail_receipt.and_then(|receipt| receipt.coverage_baseline.clone()),
+        cargo_mutants: matching_evidence_rail_receipt.and_then(|receipt| receipt.cargo_mutants.clone()),
         non_claims: non_claims_for_record(matching_evidence_rail_receipt),
     }
 }

@@ -546,6 +546,8 @@ pub struct EvidenceRailReceipt {
     pub sarif_import: Option<crate::external::sarif::ReceiptDetails>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub coverage_baseline: Option<crate::coverage::ReceiptDetails>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cargo_mutants: Option<crate::mutation::ReceiptDetails>,
 }
 
 pub struct EvaluationInput<'a> {
@@ -662,6 +664,9 @@ pub fn run(args: &EvidenceRailArgs) -> Result<i32, String> {
     if let Some(details) = receipt.coverage_baseline.as_ref() {
         additional_artifacts.extend(crate::coverage::request::artifact_payloads(details, &import_text)?);
     }
+    if let Some(details) = receipt.cargo_mutants.as_ref() {
+        additional_artifacts.extend(crate::mutation::request::artifact_payloads(details, &import_text)?);
+    }
     let receipt_json = render_receipt_json(&receipt)?;
     let summary = render_summary_for_command(&receipt, &args.command_line);
     let provenance_jsonl = render_provenance_jsonl(&receipt, &receipt_json, &summary)?;
@@ -679,8 +684,12 @@ fn input_identities(
 ) -> Result<InputIdentities, String> {
     let is_profiled_coverage =
         args.rail == EvidenceRailKind::CoverageBaseline && args.profile.as_deref() == Some(crate::coverage::PROFILE_ID);
+    let is_profiled_mutation =
+        args.rail == EvidenceRailKind::MutationTesting && args.profile.as_deref() == Some(crate::mutation::PROFILE_ID);
     let config = if is_profiled_coverage {
         Some(crate::coverage::PROFILE_IDENTITY.to_owned())
+    } else if is_profiled_mutation {
+        Some(crate::mutation::PROFILE_IDENTITY.to_owned())
     } else if let Some(prepared) = prepared_clippy_run {
         Some(prepared.config_identity.clone())
     } else {
@@ -739,6 +748,7 @@ pub fn evaluate(input: EvaluationInput<'_>) -> EvidenceRailReceipt {
     let cargo_fuzz = fuzz_details(&input);
     let sarif_import = sarif_details(&input);
     let coverage_baseline = coverage_details(&input);
+    let cargo_mutants = mutation_details(&input);
     parsed.diagnostics.sort();
     parsed.diagnostics.dedup();
     let status = if parsed.diagnostics.is_empty() {
@@ -753,7 +763,12 @@ pub fn evaluate(input: EvaluationInput<'_>) -> EvidenceRailReceipt {
         rail_id: input.rail.as_str().to_owned(),
         checker_id: input.rail.checker_id().to_owned(),
         mode: input.mode.to_owned(),
-        command_argv: receipt_command_argv(&input, cargo_fuzz.as_ref(), coverage_baseline.as_ref()),
+        command_argv: receipt_command_argv(
+            &input,
+            cargo_fuzz.as_ref(),
+            coverage_baseline.as_ref(),
+            cargo_mutants.as_ref(),
+        ),
         workspace_scope: input.workspace_scope.to_owned(),
         config_path: input.config_path.map(ToOwned::to_owned),
         config_identity: None,
@@ -786,17 +801,20 @@ pub fn evaluate(input: EvaluationInput<'_>) -> EvidenceRailReceipt {
         cargo_fuzz,
         sarif_import,
         coverage_baseline,
+        cargo_mutants,
     }
 }
 
 fn receipt_log_identity(input: &EvaluationInput<'_>) -> String {
-    crate::coverage::request::bounded_log_identity(input.import_text).unwrap_or_else(|| {
-        if input.import_text.is_empty() {
-            EMPTY_LOG_IDENTITY.to_owned()
-        } else {
-            prefixed_identity(input.import_text.as_bytes())
-        }
-    })
+    crate::coverage::request::bounded_log_identity(input.import_text)
+        .or_else(|| crate::mutation::request::bounded_log_identity(input.import_text))
+        .unwrap_or_else(|| {
+            if input.import_text.is_empty() {
+                EMPTY_LOG_IDENTITY.to_owned()
+            } else {
+                prefixed_identity(input.import_text.as_bytes())
+            }
+        })
 }
 
 fn fuzz_details(input: &EvaluationInput<'_>) -> Option<crate::cargo::fuzz::ReceiptDetails> {
@@ -825,15 +843,27 @@ fn coverage_details(input: &EvaluationInput<'_>) -> Option<crate::coverage::Rece
     }
 }
 
+fn mutation_details(input: &EvaluationInput<'_>) -> Option<crate::mutation::ReceiptDetails> {
+    if input.rail == EvidenceRailKind::MutationTesting && input.profile == Some(crate::mutation::PROFILE_ID) {
+        crate::mutation::request::evaluate(input.import_text, crate::mutation::PROFILE_ID).details
+    } else {
+        None
+    }
+}
+
 fn receipt_command_argv(
     input: &EvaluationInput<'_>,
     fuzz: Option<&crate::cargo::fuzz::ReceiptDetails>,
     coverage: Option<&crate::coverage::ReceiptDetails>,
+    mutation: Option<&crate::mutation::ReceiptDetails>,
 ) -> Vec<String> {
     if let Some(details) = fuzz {
         return details.command_argv.clone();
     }
     if let Some(details) = coverage {
+        return details.command_argv.clone();
+    }
+    if let Some(details) = mutation {
         return details.command_argv.clone();
     }
     if matches!(input.rail, EvidenceRailKind::CharonSemantic | EvidenceRailKind::SarifImport)
@@ -996,6 +1026,11 @@ fn specialized_provenance(receipt: &EvidenceRailReceipt) -> (Vec<ProvenanceRecor
             crate::coverage::PROJECTION_ARTIFACT.to_owned(),
         ]);
     }
+    if let Some(details) = receipt.cargo_mutants.as_ref() {
+        let mutation_records = mutation_provenance(details, &receipt.workspace_scope);
+        parents.extend(mutation_records.iter().map(|record| record.artifact_locator.clone()));
+        records.extend(mutation_records);
+    }
     (records, parents)
 }
 
@@ -1086,6 +1121,68 @@ fn coverage_provenance(details: &crate::coverage::ReceiptDetails, checked_scope:
     ]
 }
 
+fn mutation_provenance(details: &crate::mutation::ReceiptDetails, checked_scope: &str) -> Vec<ProvenanceRecord> {
+    let record = |source: &str, locator: &str, identity: &str, parents: Vec<String>| ProvenanceRecord {
+        schema_version: crate::evidence::PROVENANCE_SCHEMA_VERSION.to_owned(),
+        source_id: source.to_owned(),
+        checker_id: crate::evidence::CHECKER_CARGO_MUTANTS.to_owned(),
+        evidence_tier: EvidenceTier::TranscriptAssertion,
+        artifact_locator: locator.to_owned(),
+        blake3: identity.trim_start_matches("b3:").to_owned(),
+        checked_scope: checked_scope.to_owned(),
+        verifier_identity: None,
+        proof_artifact_identity: None,
+        human_action: None,
+        parent_artifacts: parents,
+    };
+    let mut records = vec![
+        record(
+            "octet.mutation_testing.source-manifest",
+            crate::mutation::SOURCE_MANIFEST_ARTIFACT,
+            &details.source_manifest_identity,
+            Vec::new(),
+        ),
+        record(
+            "octet.mutation_testing.native-outcomes",
+            crate::mutation::OUTCOMES_ARTIFACT,
+            &details.native_outcomes_identity,
+            vec![crate::mutation::SOURCE_MANIFEST_ARTIFACT.to_owned()],
+        ),
+        record(
+            "octet.mutation_testing.native-inventory",
+            crate::mutation::INVENTORY_ARTIFACT,
+            &details.native_inventory_identity,
+            vec![crate::mutation::SOURCE_MANIFEST_ARTIFACT.to_owned()],
+        ),
+        record(
+            "octet.mutation_testing.projection",
+            crate::mutation::PROJECTION_ARTIFACT,
+            &details.projection_identity,
+            vec![
+                crate::mutation::OUTCOMES_ARTIFACT.to_owned(),
+                crate::mutation::INVENTORY_ARTIFACT.to_owned(),
+            ],
+        ),
+        record(
+            "octet.mutation_testing.baseline-log",
+            &details.baseline.log.locator,
+            &details.baseline.log.identity,
+            vec![crate::mutation::OUTCOMES_ARTIFACT.to_owned()],
+        ),
+    ];
+    for mutant in &details.mutants {
+        records.push(record("octet.mutation_testing.mutant-log", &mutant.log.locator, &mutant.log.identity, vec![
+            crate::mutation::OUTCOMES_ARTIFACT.to_owned(),
+        ]));
+        if let Some(diff) = mutant.diff.as_ref() {
+            records.push(record("octet.mutation_testing.mutant-diff", &diff.locator, &diff.identity, vec![
+                crate::mutation::INVENTORY_ARTIFACT.to_owned(),
+            ]));
+        }
+    }
+    records
+}
+
 pub fn validate_receipt(receipt: &EvidenceRailReceipt) -> Vec<String> {
     let mut diagnostics = Vec::new();
     if receipt.schema_version != RECEIPT_SCHEMA_VERSION {
@@ -1131,6 +1228,7 @@ pub fn validate_receipt(receipt: &EvidenceRailReceipt) -> Vec<String> {
     diagnostics.extend(fuzz_diagnostics(rail, receipt));
     diagnostics.extend(sarif_diagnostics(rail, receipt));
     diagnostics.extend(coverage_diagnostics(rail, receipt));
+    diagnostics.extend(mutation_diagnostics(rail, receipt));
     diagnostics
 }
 
@@ -1277,6 +1375,27 @@ fn coverage_diagnostics(rail: EvidenceRailKind, receipt: &EvidenceRailReceipt) -
         (false, Some(_)) => {
             diagnostics.push("coverage_baseline details require the checked coverage profile".to_owned())
         }
+        (false, None) => {}
+    }
+    diagnostics
+}
+
+fn mutation_diagnostics(rail: EvidenceRailKind, receipt: &EvidenceRailReceipt) -> Vec<String> {
+    let mut diagnostics = Vec::with_capacity(SPECIALIZED_DIAGNOSTIC_CAPACITY);
+    let is_selected =
+        rail == EvidenceRailKind::MutationTesting && receipt.profile.as_deref() == Some(crate::mutation::PROFILE_ID);
+    match (is_selected, receipt.cargo_mutants.as_ref()) {
+        (true, Some(details)) => {
+            diagnostics.extend(crate::mutation::validate(details));
+            if receipt.config_identity.as_deref() != Some(crate::mutation::PROFILE_IDENTITY) {
+                diagnostics.push("mutation receipt config identity is stale".to_owned());
+            }
+            if receipt.command_argv != details.command_argv {
+                diagnostics.push("mutation receipt command does not match typed details".to_owned());
+            }
+        }
+        (true, None) => diagnostics.push("profiled mutation receipt is missing typed details".to_owned()),
+        (false, Some(_)) => diagnostics.push("cargo_mutants details require the checked mutation profile".to_owned()),
         (false, None) => {}
     }
     diagnostics
@@ -1430,6 +1549,21 @@ pub fn expected_bundle_files_for_receipt(receipt: Option<&EvidenceRailReceipt>) 
         files.push(crate::coverage::CURRENT_ENVELOPE_ARTIFACT.to_owned());
         files.push(crate::coverage::BASELINE_ENVELOPE_ARTIFACT.to_owned());
         files.push(crate::coverage::PROJECTION_ARTIFACT.to_owned());
+    }
+    if let Some(details) = receipt.and_then(|receipt| receipt.cargo_mutants.as_ref()) {
+        files.extend([
+            crate::mutation::SOURCE_MANIFEST_ARTIFACT.to_owned(),
+            crate::mutation::OUTCOMES_ARTIFACT.to_owned(),
+            crate::mutation::INVENTORY_ARTIFACT.to_owned(),
+            crate::mutation::PROJECTION_ARTIFACT.to_owned(),
+            details.baseline.log.locator.clone(),
+        ]);
+        for mutant in &details.mutants {
+            files.push(mutant.log.locator.clone());
+            if let Some(diff) = mutant.diff.as_ref() {
+                files.push(diff.locator.clone());
+            }
+        }
     }
     files.sort();
     files
@@ -1978,6 +2112,9 @@ fn parse_release_supply_chain(input: &EvaluationInput<'_>) -> RailParseOutput {
 }
 
 fn parse_mutation_testing(input: &EvaluationInput<'_>) -> RailParseOutput {
+    if input.profile == Some(crate::mutation::PROFILE_ID) {
+        return parse_profiled_mutation(input);
+    }
     let mut diagnostics = Vec::new();
     let mut findings = Vec::new();
     let value = parse_json_value(input.import_text, &mut diagnostics);
@@ -2043,6 +2180,53 @@ fn parse_mutation_testing(input: &EvaluationInput<'_>) -> RailParseOutput {
         z4_solver: None,
         verifier_fixtures: None,
     }
+}
+
+fn parse_profiled_mutation(input: &EvaluationInput<'_>) -> RailParseOutput {
+    let evaluation = crate::mutation::request::evaluate(input.import_text, crate::mutation::PROFILE_ID);
+    let findings = evaluation.details.as_ref().map(profiled_mutation_findings).unwrap_or_default();
+    let status = evaluation
+        .details
+        .as_ref()
+        .map_or_else(|| STATUS_FAILED.to_owned(), |details| details.gate_status.clone());
+    RailParseOutput {
+        finding_counts: counts_by_family(&findings),
+        findings,
+        diagnostics: evaluation.diagnostics,
+        status,
+        profile: Some(crate::mutation::PROFILE_ID.to_owned()),
+        property_classes: Vec::new(),
+        hegel_property: None,
+        z4_solver: None,
+        verifier_fixtures: None,
+    }
+}
+
+fn profiled_mutation_findings(details: &crate::mutation::ReceiptDetails) -> Vec<EvidenceRailFinding> {
+    let mut findings = Vec::with_capacity(details.mutants.len());
+    if details.baseline.outcome != "passed" {
+        findings.push(kani_finding("mutation-baseline", "error", "unmutated baseline failed"));
+    }
+    for mutant in &details.mutants {
+        if mutant.outcome == "caught" {
+            continue;
+        }
+        let severity = if matches!(mutant.outcome.as_str(), "timeout" | "unviable") {
+            "manual_review"
+        } else {
+            "error"
+        };
+        findings.push(EvidenceRailFinding {
+            family: format!("mutation-{}", mutant.outcome),
+            severity: severity.to_owned(),
+            message: format!("cargo-mutants outcome `{}` for `{}`", mutant.outcome, mutant.name),
+            source_severity: Some(mutant.outcome.clone()),
+            file: Some(mutant.file.clone()),
+            line: Some(mutant.line),
+            column: Some(mutant.column),
+        });
+    }
+    findings
 }
 
 fn parse_coverage_baseline(input: &EvaluationInput<'_>) -> RailParseOutput {
@@ -3061,6 +3245,9 @@ fn input_text(
     if args.rail == EvidenceRailKind::SarifImport {
         return analyze_sarif_input(args).map(|report| (MODE_IMPORT, report, None));
     }
+    if args.rail == EvidenceRailKind::MutationTesting && args.profile.as_deref() == Some(crate::mutation::PROFILE_ID) {
+        return analyze_profiled_mutation_input(args);
+    }
     if args.rail == EvidenceRailKind::CoverageBaseline && args.profile.as_deref() == Some(crate::coverage::PROFILE_ID) {
         return analyze_profiled_coverage_input(args);
     }
@@ -3112,6 +3299,53 @@ fn analyze_sarif_input(args: &EvidenceRailArgs) -> Result<String, String> {
     }
     let report = root.read_bounded(&RootRelativePath::new(input)?, crate::external::sarif::MAX_REPORT_BYTES)?;
     String::from_utf8(report).map_err(|error| format!("SARIF report is not UTF-8: {error}"))
+}
+
+fn analyze_profiled_mutation_input(args: &EvidenceRailArgs) -> Result<(&'static str, String, Option<i32>), String> {
+    if args.command.as_deref().is_some_and(|command| !command.is_empty()) {
+        return Err("profiled mutation testing rejects arbitrary `--command` authority".to_owned());
+    }
+    if args.run && args.input.is_some() {
+        return Err("profiled mutation testing accepts either `--input PATH` or `--run`, not both".to_owned());
+    }
+    let profile_id = args
+        .profile
+        .as_deref()
+        .ok_or_else(|| "profiled mutation testing requires `--profile NAME`".to_owned())?;
+    let profile = crate::mutation::selected_profile(profile_id)?;
+    let config = args
+        .config
+        .as_deref()
+        .ok_or_else(|| "profiled mutation testing requires `--config PATH`".to_owned())?;
+    if args.external_reports.len() != 1 {
+        return Err("profiled mutation testing requires one source manifest through `--external-report`".to_owned());
+    }
+    let workspace = args.workspace_root.as_deref().unwrap_or_else(|| Path::new("."));
+    let root = SourceRoot::open_existing(workspace)?;
+    let config_bytes = root.read_bounded(&RootRelativePath::new(config)?, profile.max_report_bytes)?;
+    if crate::mutation::prefixed_identity(&config_bytes) != crate::mutation::PROFILE_IDENTITY {
+        return Err("mutation profile bytes do not match the checked Nickel registry".to_owned());
+    }
+    let source_bytes =
+        root.read_bounded(&RootRelativePath::new(&args.external_reports[0])?, profile.max_report_bytes)?;
+    let source_manifest_text =
+        String::from_utf8(source_bytes).map_err(|error| format!("mutation source manifest is not UTF-8: {error}"))?;
+    let (mode, parts, exit_code) = if args.run {
+        let observation = crate::mutation::shell::run(workspace, &profile, source_manifest_text)?;
+        (MODE_RUN, observation.parts, Some(observation.exit_code))
+    } else {
+        let input = args
+            .input
+            .as_deref()
+            .ok_or_else(|| "profiled mutation testing requires `--input PATH` or `--run`".to_owned())?;
+        if RootRelativePath::new(input)?.display() != profile.native_outcomes_path {
+            return Err(format!("profiled mutation input must be `{}`", profile.native_outcomes_path));
+        }
+        let mut parts = crate::mutation::shell::collect_native(workspace, &profile)?;
+        parts.source_manifest_text = source_manifest_text;
+        (MODE_IMPORT, parts, None)
+    };
+    Ok((mode, crate::mutation::request::render(parts)?, exit_code))
 }
 
 fn analyze_profiled_coverage_input(args: &EvidenceRailArgs) -> Result<(&'static str, String, Option<i32>), String> {
@@ -3494,6 +3728,12 @@ fn run_mode_command_argv(args: &EvidenceRailArgs) -> Result<Vec<String>, String>
     }
     if args.rail == EvidenceRailKind::DynamicEvidence {
         return dynamic_run_command_argv(args.profile.as_deref(), args.command.as_deref());
+    }
+    if args.rail == EvidenceRailKind::MutationTesting && args.profile.as_deref() == Some(crate::mutation::PROFILE_ID) {
+        if args.command.as_deref().is_some_and(|command| !command.is_empty()) {
+            return Err("profiled mutation testing rejects arbitrary --command authority".to_owned());
+        }
+        return crate::mutation::selected_profile(crate::mutation::PROFILE_ID).map(|profile| profile.command_argv);
     }
     if args.rail == EvidenceRailKind::CoverageBaseline && args.profile.as_deref() == Some(crate::coverage::PROFILE_ID) {
         if args.command.as_deref().is_some_and(|command| !command.is_empty()) {
@@ -4872,6 +5112,30 @@ mod tests {
     }
 
     #[test]
+    fn profiled_mutation_receipts_preserve_native_outcomes_and_artifacts() {
+        // r[verify octet.mutation_testing.verification]
+        let mut caught = profiled_mutation_receipt("CaughtMutant");
+        assert_eq!(caught.status, STATUS_PASSED, "{:?}", caught.diagnostics);
+        assert!(caught.findings.is_empty());
+        caught.config_identity = Some(crate::mutation::PROFILE_IDENTITY.to_owned());
+        assert!(validate_receipt(&caught).is_empty());
+        let details = caught.cargo_mutants.as_ref().expect("typed mutation details");
+        let request = profiled_mutation_request("CaughtMutant");
+        let artifacts =
+            crate::mutation::request::artifact_payloads(details, &request).expect("mutation artifact payloads");
+        assert!(artifacts.contains_key(crate::mutation::PROJECTION_ARTIFACT));
+        let receipt_json = render_receipt_json(&caught).expect("render mutation receipt");
+        let provenance = render_provenance_jsonl(&caught, &receipt_json, &render_summary(&caught))
+            .expect("render mutation provenance");
+        assert!(provenance.contains("octet.mutation_testing.native-outcomes"));
+        assert!(!provenance.contains("formal_proof"));
+
+        let missed = profiled_mutation_receipt("MissedMutant");
+        assert_eq!(missed.status, STATUS_FAILED);
+        assert_eq!(missed.finding_counts.get("mutation-missed"), Some(&1));
+    }
+
+    #[test]
     fn coverage_baseline_external_schema_rejects_bad_summary_shape() {
         let bad_version = coverage_receipt(
             r#"{"schema_version":"cargo-llvm-cov-summary/v0","summary":{"line_percent":"many"},"regressions":[{}],"threshold_failures":[]}"#,
@@ -5601,6 +5865,50 @@ mod tests {
             import_text,
             ..mutation_input()
         })
+    }
+
+    fn profiled_mutation_receipt(outcome: &str) -> EvidenceRailReceipt {
+        let request = profiled_mutation_request(outcome);
+        evaluate(EvaluationInput {
+            rail: EvidenceRailKind::MutationTesting,
+            mode: MODE_IMPORT,
+            import_text: &request,
+            workspace_scope: WORKSPACE_SCOPE,
+            config_path: Some("standards/mutation/profiles.json"),
+            baseline_identity: None,
+            lockfile_identity: None,
+            locked: true,
+            advisory_updated_by_prior_step: false,
+            profile: Some(crate::mutation::PROFILE_ID),
+            requested_command: None,
+            parent_artifacts: Vec::new(),
+            tool_exit_code: None,
+        })
+    }
+
+    fn profiled_mutation_request(outcome: &str) -> String {
+        let mut artifacts = std::collections::BTreeMap::new();
+        artifacts.insert("log/baseline.log".to_owned(), "baseline log".to_owned());
+        artifacts.insert("log/mutant.log".to_owned(), "mutant log".to_owned());
+        artifacts.insert("diff/mutant.diff".to_owned(), "mutant diff".to_owned());
+        crate::mutation::request::render(crate::mutation::request::InputParts {
+            outcomes_text: serde_json::json!({"outcomes": [
+                {"scenario": "Baseline", "summary": "Success", "log_path": "log/baseline.log", "diff_path": null},
+                {"scenario": {"Mutant": {"name": "src/lib.rs:1:1: replace value"}}, "summary": outcome,
+                 "log_path": "log/mutant.log", "diff_path": "diff/mutant.diff"}
+            ]}).to_string(),
+            inventory_text: serde_json::json!([{
+                "name": "src/lib.rs:1:1: replace value", "package": "octet-lint-metadata",
+                "file": "src/lib.rs", "replacement": "false", "genre": "FnValue",
+                "span": {"start": {"line": 1, "column": 1}}
+            }]).to_string(),
+            source_manifest_text: serde_json::json!({
+                "schema_version": "octet-source-manifest/v1",
+                "files": [{"path": "src/lib.rs", "blake3": "b3:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}]
+            }).to_string(),
+            artifacts,
+            bounded_log_identity: prefixed_identity(b""),
+        }).expect("profiled mutation request")
     }
 
     fn coverage_receipt(import_text: &str, baseline_identity: Option<String>) -> EvidenceRailReceipt {
