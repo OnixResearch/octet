@@ -244,6 +244,31 @@
         nickel = nickel-1-17-0.packages.${system}.default;
 
         rustToolchain = pkgs.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml;
+        miraiRevision = "aae0a56f91d9a0a62073bb86e7b2c9793cefc24b";
+        miraiSource = pkgs.fetchFromGitHub {
+          owner = "endorlabs";
+          repo = "MIRAI";
+          rev = miraiRevision;
+          hash = "sha256-+H0JIbrwxMi3uMuxBqgVBzNkDYom8X616rH9y7YqIXg=";
+          name = "endorlabs-mirai-source-${miraiRevision}";
+        };
+        miraiSourceProvider = pkgs.runCommand "octet-mirai-source-provider-1.1.12" { } ''
+          mkdir -p "$out"
+          ln -s ${miraiSource} "$out/source"
+          cat > "$out/provider.json" <<'EOF'
+          {
+            "schema_version": "octet-mirai-source-provider/v1",
+            "repository": "https://github.com/endorlabs/MIRAI",
+            "revision": "${miraiRevision}",
+            "license": "MIT",
+            "version": "1.1.12",
+            "rust_toolchain": "nightly-2025-01-10",
+            "target": "x86_64-unknown-linux-gnu",
+            "execution_admitted": false,
+            "blocker_code": "stable-machine-output-unavailable"
+          }
+          EOF
+        '';
         hostTriple = pkgs.stdenv.hostPlatform.rust.rustcTarget;
         toolchainChannel = (builtins.fromTOML (builtins.readFile ./rust-toolchain.toml)).toolchain.channel;
         rustupToolchain =
@@ -2198,6 +2223,61 @@
               mkdir -p "$out"
             '';
 
+        miraiPilotCheck =
+          pkgs.runCommand "octet-mirai-semantic-pilot-check"
+            {
+              nativeBuildInputs = with pkgs; [
+                b3sum
+                diffutils
+                jq
+                nickel
+              ];
+            }
+            ''
+              cd ${./.}
+              generated_policy=$(mktemp)
+              generated_corpus=$(mktemp)
+              expected_policy_identity=cd4120f1df6d9715a615b87bbce4cbf41cdb3e0abd0a40dfd3ae175dc085b1ca
+              expected_corpus_identity=1dfb3e7ddeb1bc470d0e17e0a0b1c6b2895895643fa7c98a7f529a20ee99b015
+              expected_comparisons=8
+              nickel typecheck standards/mirai/pilot.ncl
+              nickel typecheck standards/mirai/corpus.ncl
+              nickel export --format json standards/mirai/pilot.ncl > "$generated_policy"
+              nickel export --format json standards/mirai/corpus.ncl > "$generated_corpus"
+              diff -u standards/mirai/pilot.json "$generated_policy"
+              diff -u standards/mirai/corpus.json "$generated_corpus"
+              test "$(b3sum "$generated_policy" | cut -d ' ' -f 1)" = "$expected_policy_identity"
+              test "$(b3sum "$generated_corpus" | cut -d ' ' -f 1)" = "$expected_corpus_identity"
+              test "$(readlink ${miraiSourceProvider}/source)" = "${miraiSource}"
+              jq --exit-status '
+                .schema_version == "octet-mirai-source-provider/v1"
+                and .revision == "${miraiRevision}"
+                and .rust_toolchain == "nightly-2025-01-10"
+                and (.execution_admitted | not)
+                and .blocker_code == "stable-machine-output-unavailable"
+              ' ${miraiSourceProvider}/provider.json >/dev/null
+              jq --exit-status --argjson expected_comparisons "$expected_comparisons" '
+                .schema_version == "octet-mirai-semantic-pilot-decision/v1"
+                and .decision == "blocked"
+                and (.execution_attempted | not)
+                and .reproducible_decision
+                and .blocker_code == "stable-machine-output-unavailable"
+                and (.comparisons | length) == $expected_comparisons
+                and all(.comparisons[]; .outcome == "unknown" and (.parent_identities | length) == 2)
+              ' standards/mirai/decision.json >/dev/null
+              jq -r '.profile.corpus[] | [.source_identity, (.bytes | tostring), .path] | @tsv' "$generated_policy" |
+                while IFS=$'\t' read -r identity bytes path; do
+                  test "b3:$(b3sum "$path" | cut -d ' ' -f 1)" = "$identity"
+                  test "$(wc -c < "$path")" = "$bytes"
+                done
+              nickel export --format json standards/evidence/fixtures/valid/mirai_pilot_decision_v1.ncl >/dev/null
+              if nickel export --format json standards/evidence/fixtures/invalid/mirai_pilot_wrong_decision.ncl >/dev/null 2>&1; then
+                echo "invalid MIRAI pilot decision fixture passed" >&2
+                exit 1
+              fi
+              mkdir -p "$out"
+            '';
+
         mutationProfilesCheck =
           pkgs.runCommand "octet-mutation-profiles-check"
             {
@@ -2888,6 +2968,7 @@
           cargo-octet = cargoOctet;
           cargo-llvm-cov-provider = pkgs.cargo-llvm-cov;
           cargo-mutants-provider = pkgs.cargo-mutants;
+          mirai-source-provider = miraiSourceProvider;
           cargo-slotcar = cargoOctet;
           cargo-tigerstyle = cargoOctet;
           fingerprint-docs-downstream-smoke = fingerprintDocsDownstreamSmoke;
@@ -4388,6 +4469,7 @@
             coverage-profiles = coverageProfilesCheck;
             benchmark-profiles = benchmarkProfilesCheck;
             hegel-profiles = hegelProfilesCheck;
+            mirai-semantic-pilot = miraiPilotCheck;
             mutation-profiles = mutationProfilesCheck;
             strict-profile-catalog = strictProfileCatalogCheck;
             nominal-domain-catalog = nominalDomainCatalogCheck;

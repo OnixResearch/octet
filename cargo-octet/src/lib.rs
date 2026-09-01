@@ -45,6 +45,7 @@ mod imported_proof;
 mod legacy_alias_contracts;
 mod migrate;
 mod migration_sessions;
+pub mod mirai_pilot;
 mod mutation;
 mod object;
 mod object_core;

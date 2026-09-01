@@ -10,6 +10,7 @@ const PROVENANCE_CONTRACT_NAME: &str = "ProvenanceRecordV1";
 const EVIDENCE_RAIL_RECEIPT_CONTRACT_NAME: &str = "EvidenceRailReceiptV1";
 const HEGEL_PROPERTY_DETAILS_CONTRACT_NAME: &str = "HegelPropertyReceiptDetailsV1";
 const HEGEL_HARDENED_DETAILS_CONTRACT_NAME: &str = "HegelHardenedReceiptDetailsV1";
+const MIRAI_PILOT_DECISION_CONTRACT_NAME: &str = "MiraiPilotDecisionV1";
 const CARGO_FUZZ_DETAILS_CONTRACT_NAME: &str = "CargoFuzzReceiptDetailsV1";
 const SARIF_DETAILS_CONTRACT_NAME: &str = "SarifImportReceiptDetailsV1";
 const COVERAGE_DETAILS_CONTRACT_NAME: &str = "CoverageBaselineReceiptDetailsV1";
@@ -126,6 +127,33 @@ static HEGEL_HARDENED_DETAILS_FIELDS: &[ContractField] = &[
     ContractField::required("evidence_tier", FieldKind::EvidenceTier),
     ContractField::required("verification_role", FieldKind::NonEmptyString),
     ContractField::required("non_claims", FieldKind::StringArray),
+];
+
+static MIRAI_PILOT_DECISION_FIELDS: &[ContractField] = &[
+    ContractField::required("schema_version", FieldKind::ExactString(crate::mirai_pilot::DECISION_SCHEMA)),
+    ContractField::required("profile_id", FieldKind::ExactString(crate::mirai_pilot::PROFILE_ID)),
+    ContractField::required("profile_identity", FieldKind::NonEmptyString),
+    ContractField::required("corpus_identity", FieldKind::NonEmptyString),
+    ContractField::required("provider_revision", FieldKind::NonEmptyString),
+    ContractField::required("provider_source_hash", FieldKind::NonEmptyString),
+    ContractField::required("rust_toolchain", FieldKind::NonEmptyString),
+    ContractField::required("target", FieldKind::NonEmptyString),
+    ContractField::required("derivation_attr", FieldKind::NonEmptyString),
+    ContractField::required("closure_components", FieldKind::StringArray),
+    ContractField::required("command_argv", FieldKind::StringArray),
+    ContractField::required("environment", FieldKind::StringArray),
+    ContractField::required("decision", FieldKind::ExactString("blocked")),
+    ContractField::required("blocker_code", FieldKind::ExactString(crate::mirai_pilot::EXPECTED_BLOCKER)),
+    ContractField::required("failed_criteria", FieldKind::StringArray),
+    ContractField::required("measurements", FieldKind::Dyn),
+    ContractField::required("comparisons", FieldKind::Dyn),
+    ContractField::required("execution_attempted", FieldKind::Dyn),
+    ContractField::required("reproducible_decision", FieldKind::Dyn),
+    ContractField::required("claims", FieldKind::StringArray),
+    ContractField::required("evidence_tier", FieldKind::EvidenceTier),
+    ContractField::required("verification_role", FieldKind::NonEmptyString),
+    ContractField::required("non_claims", FieldKind::StringArray),
+    ContractField::required("receipt_identity", FieldKind::NonEmptyString),
 ];
 
 static CARGO_FUZZ_DETAILS_FIELDS: &[ContractField] = &[
@@ -349,6 +377,7 @@ pub fn render_generated_contracts() -> String {
         provenance_schema(),
         hegel_property_details_schema(),
         hegel_hardened_details_schema(),
+        mirai_pilot_decision_schema(),
         cargo_fuzz_details_schema(),
         sarif_details_schema(),
         coverage_details_schema(),
@@ -415,6 +444,13 @@ fn hegel_hardened_details_schema() -> ContractSchema {
     ContractSchema {
         name: HEGEL_HARDENED_DETAILS_CONTRACT_NAME,
         fields: HEGEL_HARDENED_DETAILS_FIELDS,
+    }
+}
+
+fn mirai_pilot_decision_schema() -> ContractSchema {
+    ContractSchema {
+        name: MIRAI_PILOT_DECISION_CONTRACT_NAME,
+        fields: MIRAI_PILOT_DECISION_FIELDS,
     }
 }
 
@@ -632,6 +668,7 @@ mod tests {
         "standards/evidence/fixtures/valid/provenance_record_v1.ncl",
         "standards/evidence/fixtures/valid/hegel_property_details_v1.ncl",
         "standards/evidence/fixtures/valid/hegel_hardened_details_v1.ncl",
+        "standards/evidence/fixtures/valid/mirai_pilot_decision_v1.ncl",
         "standards/evidence/fixtures/valid/cargo_fuzz_details_v1.ncl",
         "standards/evidence/fixtures/valid/sarif_import_details_v1.ncl",
         "standards/evidence/fixtures/valid/coverage_baseline_details_v1.ncl",
@@ -646,6 +683,7 @@ mod tests {
         "standards/evidence/fixtures/invalid/provenance_bad_tier.ncl",
         "standards/evidence/fixtures/invalid/hegel_property_missing_property_id.ncl",
         "standards/evidence/fixtures/invalid/hegel_hardened_wrong_profile.ncl",
+        "standards/evidence/fixtures/invalid/mirai_pilot_wrong_decision.ncl",
         "standards/evidence/fixtures/invalid/cargo_fuzz_wrong_profile.ncl",
         "standards/evidence/fixtures/invalid/sarif_import_bad_version.ncl",
         "standards/evidence/fixtures/invalid/coverage_baseline_bad_profile.ncl",
