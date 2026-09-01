@@ -196,6 +196,8 @@ pub struct ValenceReceiptEnvelope {
     pub hegel_property: Option<crate::evidence_rails::HegelPropertyReceiptDetails>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cargo_fuzz: Option<crate::cargo::fuzz::ReceiptDetails>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sarif_import: Option<crate::external::sarif::ReceiptDetails>,
     pub non_claims: Vec<String>,
 }
 
@@ -464,6 +466,7 @@ fn valence_receipt_envelope(
         charon_semantic: matching_evidence_rail_receipt.and_then(|receipt| receipt.charon_semantic.clone()),
         hegel_property: matching_evidence_rail_receipt.and_then(|receipt| receipt.hegel_property.clone()),
         cargo_fuzz: matching_evidence_rail_receipt.and_then(|receipt| receipt.cargo_fuzz.clone()),
+        sarif_import: matching_evidence_rail_receipt.and_then(|receipt| receipt.sarif_import.clone()),
         non_claims: non_claims_for_record(matching_evidence_rail_receipt),
     }
 }

@@ -2006,6 +2006,30 @@
               mkdir -p "$out"
             '';
 
+        sarifProfilesCheck =
+          pkgs.runCommand "octet-sarif-profiles-check"
+            {
+              nativeBuildInputs = with pkgs; [
+                b3sum
+                diffutils
+                jq
+                nickel
+              ];
+            }
+            ''
+              cd ${./.}
+              generated=$(mktemp)
+              expected_identity=81a482fe3b807b973898bd7454e73857605f6c5e48e5092d1d6e47b3fe7a9ce7
+              expected_profiles=2
+              nickel typecheck standards/sarif/profiles.ncl
+              nickel export --format json standards/sarif/profiles.ncl > "$generated"
+              diff -u standards/sarif/profiles.json "$generated"
+              test "$(b3sum "$generated" | cut -d ' ' -f 1)" = "$expected_identity"
+              test "$(jq '.profiles | length' "$generated")" = "$expected_profiles"
+              jq --exit-status 'all(.profiles[]; .supported_version == "2.1.0" and .workspace_relative_only and .require_rule_id and .evidence_tier == "static_lint")' "$generated"
+              mkdir -p "$out"
+            '';
+
         strictProfileCatalogCheck =
           pkgs.runCommand "octet-strict-profile-catalog-check"
             {
@@ -4158,6 +4182,7 @@
             ast-grep-structural-rail = astGrepStructuralRailCheck;
             wasm-artifact-rail = wasmArtifactRailCheck;
             dynamic-evidence-profiles = dynamicEvidenceProfilesCheck;
+            sarif-profiles = sarifProfilesCheck;
             strict-profile-catalog = strictProfileCatalogCheck;
             nominal-domain-catalog = nominalDomainCatalogCheck;
             project-architecture-policy = projectArchitecturePolicyCheck;

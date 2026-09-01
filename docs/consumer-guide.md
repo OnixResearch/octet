@@ -190,6 +190,7 @@ cargo octet evidence collect --rail dependency-trust --input target/vet.json --a
 cargo octet evidence collect --rail api-stability --input target/semver.json --baseline baselines/public-api --artifact-dir artifacts/api-stability
 cargo octet evidence collect --rail dynamic-evidence --input target/miri-profile.json --profile miri-unsafe-boundary --artifact-dir artifacts/dynamic/miri
 cargo octet evidence collect --rail dynamic-evidence --input target/cargo-fuzz-run.json --profile cargo-fuzz-libfuzzer --config dynamic-evidence-profiles.json --artifact-dir artifacts/dynamic/cargo-fuzz
+cargo octet evidence collect --rail sarif-import --input target/codeql.sarif --profile codeql-local --config standards/sarif/profiles.json --artifact-dir artifacts/sarif-codeql
 cargo octet evidence collect --rail release-supply-chain --input target/release-supply-chain.json --parent-artifact artifacts/octet/status.json --artifact-dir artifacts/release-supply-chain
 cargo octet evidence collect --rail mutation-testing --input target/mutants.json --artifact-dir artifacts/mutation-testing
 cargo octet evidence collect --rail coverage-baseline --input target/coverage.json --baseline baselines/coverage.json --artifact-dir artifacts/coverage-baseline

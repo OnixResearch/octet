@@ -1,4 +1,5 @@
 use std::ffi::OsStr;
+use std::io::Read as _;
 use std::path::Component;
 use std::path::Path;
 use std::path::PathBuf;
@@ -151,6 +152,10 @@ impl SourceRoot {
         self.root.read_to_string(relative)
     }
 
+    pub(crate) fn read_bounded(&self, relative: &RootRelativePath, max_bytes: u64) -> Result<Vec<u8>, String> {
+        self.root.read_bounded(relative, max_bytes)
+    }
+
     pub(crate) fn is_dir(&self, relative: &RootRelativePath) -> Result<bool, String> {
         self.root.is_dir(relative)
     }
@@ -186,6 +191,43 @@ impl CapabilityRoot {
         self.dir.read(relative.as_path()).map_err(|error| {
             format!("read {kind} path `{locator}`: {error}", kind = self.kind, locator = relative.display())
         })
+    }
+
+    fn read_bounded(&self, relative: &RootRelativePath, max_bytes: u64) -> Result<Vec<u8>, String> {
+        let file = self.dir.open(relative.as_path()).map_err(|error| {
+            format!("open {kind} path `{locator}`: {error}", kind = self.kind, locator = relative.display())
+        })?;
+        let metadata = file.metadata().map_err(|error| {
+            format!("inspect {kind} path `{locator}`: {error}", kind = self.kind, locator = relative.display())
+        })?;
+        if metadata.len() > max_bytes {
+            return Err(format!(
+                "{kind} path `{locator}` exceeds {max_bytes} byte limit",
+                kind = self.kind,
+                locator = relative.display()
+            ));
+        }
+        let read_limit = max_bytes.checked_add(1).ok_or_else(|| {
+            format!(
+                "{kind} path `{locator}` byte limit cannot include the growth sentinel",
+                kind = self.kind,
+                locator = relative.display()
+            )
+        })?;
+        let mut bytes = Vec::new();
+        file.take(read_limit).read_to_end(&mut bytes).map_err(|error| {
+            format!("read {kind} path `{locator}`: {error}", kind = self.kind, locator = relative.display())
+        })?;
+        let observed =
+            u64::try_from(bytes.len()).map_err(|_| "bounded capability read length does not fit u64".to_owned())?;
+        if observed > max_bytes {
+            return Err(format!(
+                "{kind} path `{locator}` grew beyond {max_bytes} byte limit",
+                kind = self.kind,
+                locator = relative.display()
+            ));
+        }
+        Ok(bytes)
     }
 
     fn read_to_string(&self, relative: &RootRelativePath) -> Result<String, String> {

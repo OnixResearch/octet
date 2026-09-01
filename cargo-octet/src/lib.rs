@@ -26,6 +26,9 @@ mod evidence_contracts;
 mod evidence_index;
 mod evidence_log;
 mod evidence_rails;
+mod external {
+    pub(crate) mod sarif;
+}
 #[cfg(test)]
 mod evidence_transform;
 #[cfg(test)]
