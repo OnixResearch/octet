@@ -9,6 +9,7 @@ const FINDING_CONTRACT_NAME: &str = "FindingV2";
 const PROVENANCE_CONTRACT_NAME: &str = "ProvenanceRecordV1";
 const EVIDENCE_RAIL_RECEIPT_CONTRACT_NAME: &str = "EvidenceRailReceiptV1";
 const HEGEL_PROPERTY_DETAILS_CONTRACT_NAME: &str = "HegelPropertyReceiptDetailsV1";
+const HEGEL_HARDENED_DETAILS_CONTRACT_NAME: &str = "HegelHardenedReceiptDetailsV1";
 const CARGO_FUZZ_DETAILS_CONTRACT_NAME: &str = "CargoFuzzReceiptDetailsV1";
 const SARIF_DETAILS_CONTRACT_NAME: &str = "SarifImportReceiptDetailsV1";
 const COVERAGE_DETAILS_CONTRACT_NAME: &str = "CoverageBaselineReceiptDetailsV1";
@@ -93,6 +94,38 @@ static HEGEL_PROPERTY_DETAILS_FIELDS: &[ContractField] = &[
         kind: FieldKind::Dyn,
         default: Some(EMPTY_RECORD_DEFAULT),
     },
+    ContractField {
+        name: "hardened",
+        kind: FieldKind::Dyn,
+        default: Some(EMPTY_RECORD_DEFAULT),
+    },
+];
+
+static HEGEL_HARDENED_DETAILS_FIELDS: &[ContractField] = &[
+    ContractField::required("schema_version", FieldKind::ExactString(crate::hegel::RECEIPT_SCHEMA)),
+    ContractField::required("profile_id", FieldKind::ExactString(crate::hegel::PROFILE_ID)),
+    ContractField::required("profile_identity", FieldKind::NonEmptyString),
+    ContractField::required("law_catalog_identity", FieldKind::NonEmptyString),
+    ContractField::required("property_id", FieldKind::NonEmptyString),
+    ContractField::required("linked_ids", FieldKind::StringArray),
+    ContractField::required("source_scope", FieldKind::NonEmptyString),
+    ContractField::required("producer", FieldKind::Dyn),
+    ContractField::required("settings", FieldKind::Dyn),
+    ContractField::required("generator", FieldKind::Dyn),
+    ContractField::required("command_argv", FieldKind::StringArray),
+    ContractField::required("cargo_lock_identity", FieldKind::NonEmptyString),
+    ContractField::required("package_manifest_identity", FieldKind::NonEmptyString),
+    ContractField::required("source_manifest_identity", FieldKind::NonEmptyString),
+    ContractField::required("generator_manifest_identity", FieldKind::NonEmptyString),
+    ContractField::required("summary_identity", FieldKind::NonEmptyString),
+    ContractField::required("bounded_log_identity", FieldKind::NonEmptyString),
+    ContractField::required("result", FieldKind::NonEmptyString),
+    ContractField::required("cases_completed", FieldKind::Number),
+    ContractField::required("issue_codes", FieldKind::StringArray),
+    ContractField::required("projection_identity", FieldKind::NonEmptyString),
+    ContractField::required("evidence_tier", FieldKind::EvidenceTier),
+    ContractField::required("verification_role", FieldKind::NonEmptyString),
+    ContractField::required("non_claims", FieldKind::StringArray),
 ];
 
 static CARGO_FUZZ_DETAILS_FIELDS: &[ContractField] = &[
@@ -315,6 +348,7 @@ pub fn render_generated_contracts() -> String {
         finding_schema(),
         provenance_schema(),
         hegel_property_details_schema(),
+        hegel_hardened_details_schema(),
         cargo_fuzz_details_schema(),
         sarif_details_schema(),
         coverage_details_schema(),
@@ -374,6 +408,13 @@ fn hegel_property_details_schema() -> ContractSchema {
     ContractSchema {
         name: HEGEL_PROPERTY_DETAILS_CONTRACT_NAME,
         fields: HEGEL_PROPERTY_DETAILS_FIELDS,
+    }
+}
+
+fn hegel_hardened_details_schema() -> ContractSchema {
+    ContractSchema {
+        name: HEGEL_HARDENED_DETAILS_CONTRACT_NAME,
+        fields: HEGEL_HARDENED_DETAILS_FIELDS,
     }
 }
 
@@ -590,6 +631,7 @@ mod tests {
         "standards/evidence/fixtures/valid/finding_v2.ncl",
         "standards/evidence/fixtures/valid/provenance_record_v1.ncl",
         "standards/evidence/fixtures/valid/hegel_property_details_v1.ncl",
+        "standards/evidence/fixtures/valid/hegel_hardened_details_v1.ncl",
         "standards/evidence/fixtures/valid/cargo_fuzz_details_v1.ncl",
         "standards/evidence/fixtures/valid/sarif_import_details_v1.ncl",
         "standards/evidence/fixtures/valid/coverage_baseline_details_v1.ncl",
@@ -603,6 +645,7 @@ mod tests {
         "standards/evidence/fixtures/invalid/provenance_bad_schema.ncl",
         "standards/evidence/fixtures/invalid/provenance_bad_tier.ncl",
         "standards/evidence/fixtures/invalid/hegel_property_missing_property_id.ncl",
+        "standards/evidence/fixtures/invalid/hegel_hardened_wrong_profile.ncl",
         "standards/evidence/fixtures/invalid/cargo_fuzz_wrong_profile.ncl",
         "standards/evidence/fixtures/invalid/sarif_import_bad_version.ncl",
         "standards/evidence/fixtures/invalid/coverage_baseline_bad_profile.ncl",

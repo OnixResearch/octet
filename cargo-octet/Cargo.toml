@@ -35,7 +35,7 @@ wasmparser = "=0.253.0"
 blake3 = "1"
 
 [dev-dependencies]
-hegeltest = { version = "0.14.12", features = ["native"] }
+hegeltest = { version = "=0.14.27", features = ["native"] }
 iddqd = "0.4.5"
 tempfile = "3"
 wat = "=1.253.0"

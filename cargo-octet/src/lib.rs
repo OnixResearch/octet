@@ -39,6 +39,7 @@ mod fingerprint;
 #[cfg(test)]
 mod formal_proof_valence_export_fixture;
 mod function_address;
+mod hegel;
 mod imported_proof;
 #[cfg(test)]
 mod legacy_alias_contracts;
