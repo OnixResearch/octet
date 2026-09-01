@@ -13,6 +13,7 @@ const CARGO_FUZZ_DETAILS_CONTRACT_NAME: &str = "CargoFuzzReceiptDetailsV1";
 const SARIF_DETAILS_CONTRACT_NAME: &str = "SarifImportReceiptDetailsV1";
 const COVERAGE_DETAILS_CONTRACT_NAME: &str = "CoverageBaselineReceiptDetailsV1";
 const MUTATION_DETAILS_CONTRACT_NAME: &str = "CargoMutantsReceiptDetailsV1";
+const BENCHMARK_DETAILS_CONTRACT_NAME: &str = "BenchmarkEvidenceReceiptDetailsV1";
 const CHAOSCONTROL_PROOF_STYLE_INPUT_CONTRACT_NAME: &str = "ChaosControlProofStyleInputContractV1";
 const CHAOSCONTROL_PROOF_STYLE_INPUT_SCHEMA_VERSION: &str = "octet-chaoscontrol-proof-style-input-contract/v1";
 const CHAOSCONTROL_CONSUMER_REPO: &str = "github:OnixResearch/chaoscontrol";
@@ -161,6 +162,26 @@ static MUTATION_DETAILS_FIELDS: &[ContractField] = &[
     ContractField::required("non_claims", FieldKind::StringArray),
 ];
 
+static BENCHMARK_DETAILS_FIELDS: &[ContractField] = &[
+    ContractField::required("schema_version", FieldKind::ExactString(crate::benchmark::RECEIPT_SCHEMA)),
+    ContractField::required("profile_id", FieldKind::ExactString(crate::benchmark::PROFILE_ID)),
+    ContractField::required("profile_identity", FieldKind::NonEmptyString),
+    ContractField::required("provider_identity", FieldKind::NonEmptyString),
+    ContractField::required("command_argv", FieldKind::StringArray),
+    ContractField::required("baseline_identity", FieldKind::NonEmptyString),
+    ContractField::required("candidate_identity", FieldKind::NonEmptyString),
+    ContractField::required("allocation_identity", FieldKind::NonEmptyString),
+    ContractField::required("copy_identity", FieldKind::NonEmptyString),
+    ContractField::required("oracle_identity", FieldKind::NonEmptyString),
+    ContractField::required("findings_identity", FieldKind::NonEmptyString),
+    ContractField::required("projection_identity", FieldKind::NonEmptyString),
+    ContractField::required("bounded_log_identity", FieldKind::NonEmptyString),
+    ContractField::required("projection", FieldKind::Dyn),
+    ContractField::required("public_claims", FieldKind::Dyn),
+    ContractField::required("evidence_tier", FieldKind::EvidenceTier),
+    ContractField::required("non_claims", FieldKind::StringArray),
+];
+
 static CHAOSCONTROL_PROOF_STYLE_INPUT_FIELDS: &[ContractField] = &[
     ContractField::required("schema_version", FieldKind::ExactString(CHAOSCONTROL_PROOF_STYLE_INPUT_SCHEMA_VERSION)),
     ContractField::required("consumer_repo", FieldKind::NonEmptyString),
@@ -254,6 +275,11 @@ static EVIDENCE_RAIL_RECEIPT_FIELDS: &[ContractField] = &[
         kind: FieldKind::Dyn,
         default: Some(EMPTY_RECORD_DEFAULT),
     },
+    ContractField {
+        name: "benchmark_evidence",
+        kind: FieldKind::Dyn,
+        default: Some(EMPTY_RECORD_DEFAULT),
+    },
 ];
 
 #[derive(Clone, Copy)]
@@ -293,6 +319,7 @@ pub fn render_generated_contracts() -> String {
         sarif_details_schema(),
         coverage_details_schema(),
         mutation_details_schema(),
+        benchmark_details_schema(),
         evidence_rail_receipt_schema(),
         chaoscontrol_proof_style_input_schema(),
     ];
@@ -375,6 +402,13 @@ fn mutation_details_schema() -> ContractSchema {
     ContractSchema {
         name: MUTATION_DETAILS_CONTRACT_NAME,
         fields: MUTATION_DETAILS_FIELDS,
+    }
+}
+
+fn benchmark_details_schema() -> ContractSchema {
+    ContractSchema {
+        name: BENCHMARK_DETAILS_CONTRACT_NAME,
+        fields: BENCHMARK_DETAILS_FIELDS,
     }
 }
 
