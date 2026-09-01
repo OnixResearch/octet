@@ -1531,7 +1531,11 @@
               --set OCTET_MUTATION_CARGO "${cargo-shim}/bin/cargo" \
               --set OCTET_MUTATION_PATH "${cargoOctetRuntimePath}/bin" \
               --set OCTET_MUTATION_CARGO_CONFIG "${cargoVendorDir}/config.toml" \
-              --set OCTET_MUTATION_LD_LIBRARY_PATH "${rustToolchainLibPath}"
+              --set OCTET_MUTATION_LD_LIBRARY_PATH "${rustToolchainLibPath}" \
+              --set OCTET_HEGEL_CARGO "${cargo-shim}/bin/cargo" \
+              --set OCTET_HEGEL_PATH "${cargoOctetRuntimePath}/bin" \
+              --set OCTET_HEGEL_CARGO_CONFIG "${cargoVendorDir}/config.toml" \
+              --set OCTET_HEGEL_LD_LIBRARY_PATH "${rustToolchainLibPath}"
             wrapProgram "$out/bin/cargo-slotcar" \
               --prefix PATH : "${cargoOctetRuntimePath}/bin" \
               --prefix LD_LIBRARY_PATH : "${rustToolchainLibPath}" \
@@ -1545,7 +1549,11 @@
               --set OCTET_MUTATION_CARGO "${cargo-shim}/bin/cargo" \
               --set OCTET_MUTATION_PATH "${cargoOctetRuntimePath}/bin" \
               --set OCTET_MUTATION_CARGO_CONFIG "${cargoVendorDir}/config.toml" \
-              --set OCTET_MUTATION_LD_LIBRARY_PATH "${rustToolchainLibPath}"
+              --set OCTET_MUTATION_LD_LIBRARY_PATH "${rustToolchainLibPath}" \
+              --set OCTET_HEGEL_CARGO "${cargo-shim}/bin/cargo" \
+              --set OCTET_HEGEL_PATH "${cargoOctetRuntimePath}/bin" \
+              --set OCTET_HEGEL_CARGO_CONFIG "${cargoVendorDir}/config.toml" \
+              --set OCTET_HEGEL_LD_LIBRARY_PATH "${rustToolchainLibPath}"
             wrapProgram "$out/bin/cargo-tigerstyle" \
               --prefix PATH : "${cargoOctetRuntimePath}/bin" \
               --prefix LD_LIBRARY_PATH : "${rustToolchainLibPath}" \
@@ -1559,7 +1567,11 @@
               --set OCTET_MUTATION_CARGO "${cargo-shim}/bin/cargo" \
               --set OCTET_MUTATION_PATH "${cargoOctetRuntimePath}/bin" \
               --set OCTET_MUTATION_CARGO_CONFIG "${cargoVendorDir}/config.toml" \
-              --set OCTET_MUTATION_LD_LIBRARY_PATH "${rustToolchainLibPath}"
+              --set OCTET_MUTATION_LD_LIBRARY_PATH "${rustToolchainLibPath}" \
+              --set OCTET_HEGEL_CARGO "${cargo-shim}/bin/cargo" \
+              --set OCTET_HEGEL_PATH "${cargoOctetRuntimePath}/bin" \
+              --set OCTET_HEGEL_CARGO_CONFIG "${cargoVendorDir}/config.toml" \
+              --set OCTET_HEGEL_LD_LIBRARY_PATH "${rustToolchainLibPath}"
           '';
         };
 
@@ -2128,6 +2140,59 @@
               nickel export --format json standards/evidence/fixtures/valid/benchmark_evidence_details_v1.ncl >/dev/null
               if nickel export --format json standards/evidence/fixtures/invalid/benchmark_evidence_bad_profile.ncl >/dev/null 2>&1; then
                 echo "invalid benchmark evidence fixture passed" >&2
+                exit 1
+              fi
+              mkdir -p "$out"
+            '';
+
+        hegelProfilesCheck =
+          pkgs.runCommand "octet-hegel-profiles-check"
+            {
+              nativeBuildInputs = with pkgs; [
+                b3sum
+                diffutils
+                jq
+                nickel
+              ];
+            }
+            ''
+              cd ${./.}
+              generated_profiles=$(mktemp)
+              generated_laws=$(mktemp)
+              expected_profile_identity=8739e90ca0707af37eae8553c3b792ec747b0668cad8c4e7e6b0b7c7a5e00e17
+              expected_law_identity=33710ac60efb4a7edca25de746d9740d75233b372d0016f54a2e138ec1a038eb
+              nickel typecheck standards/hegel/profiles.ncl
+              nickel typecheck standards/hegel/laws.ncl
+              nickel export --format json standards/hegel/profiles.ncl > "$generated_profiles"
+              nickel export --format json standards/hegel/laws.ncl > "$generated_laws"
+              diff -u standards/hegel/profiles.json "$generated_profiles"
+              diff -u standards/hegel/laws.json "$generated_laws"
+              test "$(b3sum "$generated_profiles" | cut -d ' ' -f 1)" = "$expected_profile_identity"
+              test "$(b3sum "$generated_laws" | cut -d ' ' -f 1)" = "$expected_law_identity"
+              jq --exit-status '
+                .schema_version == "octet-hegel-producer-profiles/v1"
+                and (.profiles | length) == 1
+                and .profiles[0].profile_id == "octet-pure-core-laws-v1"
+                and .profiles[0].producer.hegel_version == "0.14.27"
+                and .profiles[0].producer.backend == "native"
+                and .profiles[0].settings.case_budget == 64
+                and .profiles[0].settings.derandomized
+                and .profiles[0].evidence_tier == "transcript_assertion"
+                and .profiles[0].verification_role == "recorded_only"
+                and (.profiles[0].command_argv[0:2] == ["cargo", "test"])
+              ' "$generated_profiles" >/dev/null
+              jq --exit-status '
+                .schema_version == "octet-hegel-law-catalog/v1"
+                and (.laws | length) == 1
+                and .laws[0].effect_free
+                and .laws[0].case_budget == 64
+                and (.laws[0].positive_property | length) > 0
+                and (.laws[0].negative_property | length) > 0
+                and (.laws[0].generated_input_benefit | length) > 0
+              ' "$generated_laws" >/dev/null
+              nickel export --format json standards/evidence/fixtures/valid/hegel_hardened_details_v1.ncl >/dev/null
+              if nickel export --format json standards/evidence/fixtures/invalid/hegel_hardened_wrong_profile.ncl >/dev/null 2>&1; then
+                echo "invalid Hegel evidence fixture passed" >&2
                 exit 1
               fi
               mkdir -p "$out"
@@ -4322,6 +4387,7 @@
             sarif-profiles = sarifProfilesCheck;
             coverage-profiles = coverageProfilesCheck;
             benchmark-profiles = benchmarkProfilesCheck;
+            hegel-profiles = hegelProfilesCheck;
             mutation-profiles = mutationProfilesCheck;
             strict-profile-catalog = strictProfileCatalogCheck;
             nominal-domain-catalog = nominalDomainCatalogCheck;
@@ -4403,6 +4469,10 @@
           OCTET_MUTATION_PATH = "${cargoOctetRuntimePath}/bin";
           OCTET_MUTATION_CARGO_CONFIG = "${cargoVendorDir}/config.toml";
           OCTET_MUTATION_LD_LIBRARY_PATH = rustToolchainLibPath;
+          OCTET_HEGEL_CARGO = "${cargo-shim}/bin/cargo";
+          OCTET_HEGEL_PATH = "${cargoOctetRuntimePath}/bin";
+          OCTET_HEGEL_CARGO_CONFIG = "${cargoVendorDir}/config.toml";
+          OCTET_HEGEL_LD_LIBRARY_PATH = rustToolchainLibPath;
           shellHook = ''
             export PATH="${dylintShimPath}:$PATH"
           '';
