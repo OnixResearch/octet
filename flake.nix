@@ -448,6 +448,7 @@
             pkgs.mold
             pkgs.ast-grep
             pkgs.cargo-llvm-cov
+            pkgs.cargo-mutants
             octetVerus
             octetProductionVerus
           ];
@@ -1526,7 +1527,11 @@
               --set OCTET_COVERAGE_CARGO "${cargo-shim}/bin/cargo" \
               --set OCTET_COVERAGE_PATH "${cargoOctetRuntimePath}/bin" \
               --set OCTET_COVERAGE_CARGO_CONFIG "${cargoVendorDir}/config.toml" \
-              --set OCTET_COVERAGE_LD_LIBRARY_PATH "${rustToolchainLibPath}"
+              --set OCTET_COVERAGE_LD_LIBRARY_PATH "${rustToolchainLibPath}" \
+              --set OCTET_MUTATION_CARGO "${cargo-shim}/bin/cargo" \
+              --set OCTET_MUTATION_PATH "${cargoOctetRuntimePath}/bin" \
+              --set OCTET_MUTATION_CARGO_CONFIG "${cargoVendorDir}/config.toml" \
+              --set OCTET_MUTATION_LD_LIBRARY_PATH "${rustToolchainLibPath}"
             wrapProgram "$out/bin/cargo-slotcar" \
               --prefix PATH : "${cargoOctetRuntimePath}/bin" \
               --prefix LD_LIBRARY_PATH : "${rustToolchainLibPath}" \
@@ -1536,7 +1541,11 @@
               --set OCTET_COVERAGE_CARGO "${cargo-shim}/bin/cargo" \
               --set OCTET_COVERAGE_PATH "${cargoOctetRuntimePath}/bin" \
               --set OCTET_COVERAGE_CARGO_CONFIG "${cargoVendorDir}/config.toml" \
-              --set OCTET_COVERAGE_LD_LIBRARY_PATH "${rustToolchainLibPath}"
+              --set OCTET_COVERAGE_LD_LIBRARY_PATH "${rustToolchainLibPath}" \
+              --set OCTET_MUTATION_CARGO "${cargo-shim}/bin/cargo" \
+              --set OCTET_MUTATION_PATH "${cargoOctetRuntimePath}/bin" \
+              --set OCTET_MUTATION_CARGO_CONFIG "${cargoVendorDir}/config.toml" \
+              --set OCTET_MUTATION_LD_LIBRARY_PATH "${rustToolchainLibPath}"
             wrapProgram "$out/bin/cargo-tigerstyle" \
               --prefix PATH : "${cargoOctetRuntimePath}/bin" \
               --prefix LD_LIBRARY_PATH : "${rustToolchainLibPath}" \
@@ -1546,7 +1555,11 @@
               --set OCTET_COVERAGE_CARGO "${cargo-shim}/bin/cargo" \
               --set OCTET_COVERAGE_PATH "${cargoOctetRuntimePath}/bin" \
               --set OCTET_COVERAGE_CARGO_CONFIG "${cargoVendorDir}/config.toml" \
-              --set OCTET_COVERAGE_LD_LIBRARY_PATH "${rustToolchainLibPath}"
+              --set OCTET_COVERAGE_LD_LIBRARY_PATH "${rustToolchainLibPath}" \
+              --set OCTET_MUTATION_CARGO "${cargo-shim}/bin/cargo" \
+              --set OCTET_MUTATION_PATH "${cargoOctetRuntimePath}/bin" \
+              --set OCTET_MUTATION_CARGO_CONFIG "${cargoVendorDir}/config.toml" \
+              --set OCTET_MUTATION_LD_LIBRARY_PATH "${rustToolchainLibPath}"
           '';
         };
 
@@ -2071,6 +2084,38 @@
                 and .profiles[0].provider.version == "0.8.3"
                 and .profiles[0].evidence_tier == "transcript_assertion"
                 and .profiles[0].denominator_policy == "require_equal"
+              ' "$generated" >/dev/null
+              mkdir -p "$out"
+            '';
+
+        mutationProfilesCheck =
+          pkgs.runCommand "octet-mutation-profiles-check"
+            {
+              nativeBuildInputs = with pkgs; [
+                b3sum
+                cargo-mutants
+                diffutils
+                jq
+                nickel
+              ];
+            }
+            ''
+              cd ${./.}
+              generated=$(mktemp)
+              expected_identity=a40fc0726aea38932f42d6096a84846778e832472767b3c3129de4f7e69d9176
+              nickel typecheck standards/mutation/profiles.ncl
+              nickel export --format json standards/mutation/profiles.ncl > "$generated"
+              diff -u standards/mutation/profiles.json "$generated"
+              test "$(b3sum "$generated" | cut -d ' ' -f 1)" = "$expected_identity"
+              test "$(cargo-mutants mutants --version)" = "cargo-mutants 27.0.0"
+              jq --exit-status '
+                .schema_version == "octet-mutation-profiles/v1"
+                and (.profiles | length) == 1
+                and .profiles[0].profile_id == "cargo-mutants-octet-metadata"
+                and .profiles[0].provider.version == "27.0.0"
+                and .profiles[0].evidence_tier == "transcript_assertion"
+                and .profiles[0].retain_logs
+                and .profiles[0].retain_diffs
               ' "$generated" >/dev/null
               mkdir -p "$out"
             '';
@@ -2732,6 +2777,7 @@
           tigerstyle = octet;
           cargo-octet = cargoOctet;
           cargo-llvm-cov-provider = pkgs.cargo-llvm-cov;
+          cargo-mutants-provider = pkgs.cargo-mutants;
           cargo-slotcar = cargoOctet;
           cargo-tigerstyle = cargoOctet;
           fingerprint-docs-downstream-smoke = fingerprintDocsDownstreamSmoke;
@@ -4230,6 +4276,7 @@
             dynamic-evidence-profiles = dynamicEvidenceProfilesCheck;
             sarif-profiles = sarifProfilesCheck;
             coverage-profiles = coverageProfilesCheck;
+            mutation-profiles = mutationProfilesCheck;
             strict-profile-catalog = strictProfileCatalogCheck;
             nominal-domain-catalog = nominalDomainCatalogCheck;
             project-architecture-policy = projectArchitecturePolicyCheck;
@@ -4286,6 +4333,7 @@
             pkgs.cargo-nextest
             pkgs.cargo-watch
             pkgs.cargo-llvm-cov
+            pkgs.cargo-mutants
             pkgs.ast-grep
             cairn.packages.${system}.cairn
             pkgs.jq
@@ -4305,6 +4353,10 @@
           OCTET_COVERAGE_PATH = "${cargoOctetRuntimePath}/bin";
           OCTET_COVERAGE_CARGO_CONFIG = "${cargoVendorDir}/config.toml";
           OCTET_COVERAGE_LD_LIBRARY_PATH = rustToolchainLibPath;
+          OCTET_MUTATION_CARGO = "${cargo-shim}/bin/cargo";
+          OCTET_MUTATION_PATH = "${cargoOctetRuntimePath}/bin";
+          OCTET_MUTATION_CARGO_CONFIG = "${cargoVendorDir}/config.toml";
+          OCTET_MUTATION_LD_LIBRARY_PATH = rustToolchainLibPath;
           shellHook = ''
             export PATH="${dylintShimPath}:$PATH"
           '';

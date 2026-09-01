@@ -43,6 +43,7 @@ mod imported_proof;
 mod legacy_alias_contracts;
 mod migrate;
 mod migration_sessions;
+mod mutation;
 mod object;
 mod object_core;
 mod output;

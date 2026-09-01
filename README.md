@@ -167,6 +167,7 @@ cargo octet evidence collect --rail wasm-artifact --input module.wasm --config s
 cargo octet evidence collect --rail wasm-artifact --input module.wasm --config standards/wasm-artifact/generated/profiles.json --profile spacewasm-mvp --external-report chaoscontrol.json --artifact-dir artifacts/spacewasm
 cargo octet evidence collect --rail charon-semantic --run --workspace-root . --config standards/charon-semantic/generated/profile.json --profile octet-charon-semantic-safe-add-v1 --external-report standards/charon-semantic/generated/comparison-parent.json --artifact-dir artifacts/charon-semantic
 cargo octet evidence collect --rail hegel-property --input target/hegel-property.json --artifact-dir artifacts/hegel-property
+cargo octet evidence collect --rail mutation-testing --profile cargo-mutants-octet-metadata --config standards/mutation/profiles.json --input .octet/mutants-output/mutants.out/outcomes.json --external-report evidence/mutation-source-manifest.json --workspace-root . --artifact-dir artifacts/mutation
 cargo octet evidence collect --rail coverage-baseline --profile cargo-llvm-cov-octet-lib --config standards/coverage/profiles.json --input target/coverage.json --baseline baselines/coverage.json --external-report evidence/coverage-source-manifest.json --workspace-root . --artifact-dir artifacts/coverage
 cargo octet artifact verify --artifact-dir artifacts/dependency-audit
 ```
@@ -176,6 +177,8 @@ The Clippy rail uses an embedded reviewed catalog. It does not enable the full `
 Receipts bind catalog and profile identities, arguments, findings, and tool status. They remain complementary static-lint evidence.
 
 Read [`docs/clippy-restriction-profiles.md`](docs/clippy-restriction-profiles.md).
+
+Read [`docs/mutation-testing-evidence.md`](docs/mutation-testing-evidence.md) for typed mutation profiles and complete native outcomes.
 
 Read [`docs/coverage-baseline-evidence.md`](docs/coverage-baseline-evidence.md) for typed coverage profiles and exact-count comparison.
 
