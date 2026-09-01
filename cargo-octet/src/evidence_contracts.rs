@@ -10,6 +10,7 @@ const PROVENANCE_CONTRACT_NAME: &str = "ProvenanceRecordV1";
 const EVIDENCE_RAIL_RECEIPT_CONTRACT_NAME: &str = "EvidenceRailReceiptV1";
 const HEGEL_PROPERTY_DETAILS_CONTRACT_NAME: &str = "HegelPropertyReceiptDetailsV1";
 const CARGO_FUZZ_DETAILS_CONTRACT_NAME: &str = "CargoFuzzReceiptDetailsV1";
+const SARIF_DETAILS_CONTRACT_NAME: &str = "SarifImportReceiptDetailsV1";
 const CHAOSCONTROL_PROOF_STYLE_INPUT_CONTRACT_NAME: &str = "ChaosControlProofStyleInputContractV1";
 const CHAOSCONTROL_PROOF_STYLE_INPUT_SCHEMA_VERSION: &str = "octet-chaoscontrol-proof-style-input-contract/v1";
 const CHAOSCONTROL_CONSUMER_REPO: &str = "github:OnixResearch/chaoscontrol";
@@ -112,6 +113,18 @@ static CARGO_FUZZ_DETAILS_FIELDS: &[ContractField] = &[
     ContractField::required("non_claims", FieldKind::StringArray),
 ];
 
+static SARIF_DETAILS_FIELDS: &[ContractField] = &[
+    ContractField::required("schema_version", FieldKind::ExactString(crate::external::sarif::RECEIPT_SCHEMA)),
+    ContractField::required("profile_id", FieldKind::NonEmptyString),
+    ContractField::required("profile_identity", FieldKind::NonEmptyString),
+    ContractField::required("raw_report_identity", FieldKind::NonEmptyString),
+    ContractField::required("projection_identity", FieldKind::NonEmptyString),
+    ContractField::required("source_driver", FieldKind::NonEmptyString),
+    ContractField::required("supported_version", FieldKind::ExactString(crate::external::sarif::SUPPORTED_VERSION)),
+    ContractField::required("findings", FieldKind::Dyn),
+    ContractField::required("non_claims", FieldKind::StringArray),
+];
+
 static CHAOSCONTROL_PROOF_STYLE_INPUT_FIELDS: &[ContractField] = &[
     ContractField::required("schema_version", FieldKind::ExactString(CHAOSCONTROL_PROOF_STYLE_INPUT_SCHEMA_VERSION)),
     ContractField::required("consumer_repo", FieldKind::NonEmptyString),
@@ -190,6 +203,11 @@ static EVIDENCE_RAIL_RECEIPT_FIELDS: &[ContractField] = &[
         kind: FieldKind::Dyn,
         default: Some(EMPTY_RECORD_DEFAULT),
     },
+    ContractField {
+        name: "sarif_import",
+        kind: FieldKind::Dyn,
+        default: Some(EMPTY_RECORD_DEFAULT),
+    },
 ];
 
 #[derive(Clone, Copy)]
@@ -226,6 +244,7 @@ pub fn render_generated_contracts() -> String {
         provenance_schema(),
         hegel_property_details_schema(),
         cargo_fuzz_details_schema(),
+        sarif_details_schema(),
         evidence_rail_receipt_schema(),
         chaoscontrol_proof_style_input_schema(),
     ];
@@ -287,6 +306,13 @@ fn cargo_fuzz_details_schema() -> ContractSchema {
     ContractSchema {
         name: CARGO_FUZZ_DETAILS_CONTRACT_NAME,
         fields: CARGO_FUZZ_DETAILS_FIELDS,
+    }
+}
+
+fn sarif_details_schema() -> ContractSchema {
+    ContractSchema {
+        name: SARIF_DETAILS_CONTRACT_NAME,
+        fields: SARIF_DETAILS_FIELDS,
     }
 }
 
@@ -469,6 +495,7 @@ mod tests {
         "standards/evidence/fixtures/valid/provenance_record_v1.ncl",
         "standards/evidence/fixtures/valid/hegel_property_details_v1.ncl",
         "standards/evidence/fixtures/valid/cargo_fuzz_details_v1.ncl",
+        "standards/evidence/fixtures/valid/sarif_import_details_v1.ncl",
         "standards/evidence/fixtures/valid/evidence_rail_receipt_v1.ncl",
         "standards/evidence/fixtures/valid/chaoscontrol_proof_style_input_v1.ncl",
     ];
@@ -479,6 +506,7 @@ mod tests {
         "standards/evidence/fixtures/invalid/provenance_bad_tier.ncl",
         "standards/evidence/fixtures/invalid/hegel_property_missing_property_id.ncl",
         "standards/evidence/fixtures/invalid/cargo_fuzz_wrong_profile.ncl",
+        "standards/evidence/fixtures/invalid/sarif_import_bad_version.ncl",
         "standards/evidence/fixtures/invalid/evidence_rail_receipt_missing_non_claims.ncl",
         "standards/evidence/fixtures/invalid/chaoscontrol_missing_profile.ncl",
         "standards/evidence/fixtures/invalid/chaoscontrol_missing_focused_crates.ncl",

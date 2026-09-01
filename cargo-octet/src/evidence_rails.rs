@@ -10,6 +10,7 @@ use serde::Serialize;
 
 use crate::cap_fs::ArtifactRoot;
 use crate::cap_fs::RootRelativePath;
+use crate::cap_fs::SourceRoot;
 use crate::cli::EvidenceRailArgs;
 use crate::cli::OutputFormat;
 use crate::evidence::EvidenceTier;
@@ -39,7 +40,7 @@ const DYNAMIC_COMMAND_MIRI_TEST: &str = "cargo miri test";
 const DYNAMIC_PROFILE_LOOM_CONCURRENCY: &str = "loom-concurrency";
 const DYNAMIC_PROFILE_LOOM_SHORT: &str = "loom";
 const DYNAMIC_COMMAND_LOOM_TEST: &str = "cargo test --cfg loom";
-const SUPPORTED_EVIDENCE_RAILS: &str = "dependency-audit, clippy-co-reporting, ast-grep, wasm-artifact, charon-semantic, dependency-trust, api-stability, dynamic-evidence, release-supply-chain, mutation-testing, coverage-baseline, kani-model-check, hegel-property, z4-solver, or verifier-fixture";
+const SUPPORTED_EVIDENCE_RAILS: &str = "dependency-audit, clippy-co-reporting, ast-grep, wasm-artifact, charon-semantic, dependency-trust, api-stability, dynamic-evidence, sarif-import, release-supply-chain, mutation-testing, coverage-baseline, kani-model-check, hegel-property, z4-solver, or verifier-fixture";
 const COVERAGE_PERCENT_MIN: f64 = 0.0;
 const COVERAGE_PERCENT_MAX: f64 = 100.0;
 const SCHEMA_VERSION_FIELD: &str = "schema_version";
@@ -84,6 +85,7 @@ pub enum EvidenceRailKind {
     DependencyTrust,
     ApiStability,
     DynamicEvidence,
+    SarifImport,
     ReleaseSupplyChain,
     MutationTesting,
     CoverageBaseline,
@@ -104,6 +106,7 @@ impl EvidenceRailKind {
             "dependency-trust" | "cargo-vet" => Ok(Self::DependencyTrust),
             "api-stability" | "semver" | "cargo-semver-checks" => Ok(Self::ApiStability),
             "dynamic-evidence" => Ok(Self::DynamicEvidence),
+            "sarif-import" | "external-sarif" => Ok(Self::SarifImport),
             "release-supply-chain" => Ok(Self::ReleaseSupplyChain),
             "mutation-testing" | "cargo-mutants" | "mutants" => Ok(Self::MutationTesting),
             "coverage-baseline" | "coverage" | "cargo-llvm-cov" => Ok(Self::CoverageBaseline),
@@ -125,6 +128,7 @@ impl EvidenceRailKind {
             Self::DependencyTrust => "dependency-trust",
             Self::ApiStability => "api-stability",
             Self::DynamicEvidence => "dynamic-evidence",
+            Self::SarifImport => "sarif-import",
             Self::ReleaseSupplyChain => "release-supply-chain",
             Self::MutationTesting => "mutation-testing",
             Self::CoverageBaseline => "coverage-baseline",
@@ -144,6 +148,7 @@ impl EvidenceRailKind {
             Self::DependencyTrust => crate::evidence::CHECKER_CARGO_VET,
             Self::ApiStability => crate::evidence::CHECKER_CARGO_SEMVER_CHECKS,
             Self::DynamicEvidence => crate::evidence::CHECKER_OCTET_DYNAMIC_EVIDENCE,
+            Self::SarifImport => crate::evidence::CHECKER_SARIF_IMPORT,
             Self::ReleaseSupplyChain => crate::evidence::CHECKER_OCTET_RELEASE_SUPPLY_CHAIN,
             Self::MutationTesting => crate::evidence::CHECKER_CARGO_MUTANTS,
             Self::CoverageBaseline => crate::evidence::CHECKER_CARGO_LLVM_COV,
@@ -164,6 +169,7 @@ impl EvidenceRailKind {
             Self::DependencyTrust => "octet.dependency_trust.cargo-vet",
             Self::ApiStability => "octet.api_stability.semver-rail",
             Self::DynamicEvidence => "octet.dynamic_evidence.profile-runner",
+            Self::SarifImport => "octet.external_lint.sarif-import",
             Self::ReleaseSupplyChain => "octet.release_supply_chain.local-receipt",
             Self::MutationTesting => "octet.mutation_testing.cargo-mutants",
             Self::CoverageBaseline => "octet.coverage_baseline.cargo-llvm-cov",
@@ -176,7 +182,7 @@ impl EvidenceRailKind {
 
     pub fn evidence_tier(self) -> EvidenceTier {
         match self {
-            Self::ClippyCoReporting | Self::AstGrepStructural => EvidenceTier::StaticLint,
+            Self::ClippyCoReporting | Self::AstGrepStructural | Self::SarifImport => EvidenceTier::StaticLint,
             Self::WasmArtifact => EvidenceTier::PolicyCheck,
             Self::CharonSemantic => EvidenceTier::TranscriptAssertion,
             Self::DynamicEvidence
@@ -224,6 +230,13 @@ impl EvidenceRailKind {
             ]),
             Self::DependencyTrust => string_vec(&["audits", "imports", "exemptions", "unaudited-gaps"]),
             Self::ApiStability => string_vec(&["public-api", "baseline", "feature-set", "target-triple"]),
+            Self::SarifImport => string_vec(&[
+                "producer-profile-identity",
+                "raw-report-identity",
+                "normalized-projection-identity",
+                "source-rule-severity-location-preservation",
+                "local-bounded-intake",
+            ]),
             Self::DynamicEvidence => string_vec(&[
                 "profile-selection",
                 "allowed-command",
@@ -325,6 +338,11 @@ impl EvidenceRailKind {
             Self::ApiStability => string_vec(&[
                 "API stability evidence covers selected public API checks only",
                 "compatible semver output is not a whole-program behavior compatibility proof",
+            ]),
+            Self::SarifImport => string_vec(&[
+                crate::external::sarif::REQUIRED_NON_CLAIM,
+                "SARIF import is local-only and does not execute or attest the external producer",
+                "source severity remains separate from Octet gate outcome",
             ]),
             Self::DynamicEvidence => string_vec(&[
                 "dynamic evidence profiles are opt-in and not required by default cargo octet check",
@@ -522,6 +540,8 @@ pub struct EvidenceRailReceipt {
     pub verifier_fixtures: Option<VerifierFixtureReceiptDetails>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cargo_fuzz: Option<crate::cargo::fuzz::ReceiptDetails>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sarif_import: Option<crate::external::sarif::ReceiptDetails>,
 }
 
 pub struct EvaluationInput<'a> {
@@ -605,6 +625,13 @@ pub fn run(args: &EvidenceRailArgs) -> Result<i32, String> {
     if let Some(details) = receipt.charon_semantic.as_ref() {
         additional_artifacts.extend(crate::charon_semantic::artifact_payloads(details, &import_text)?);
     }
+    if let Some(details) = receipt.sarif_import.as_ref() {
+        additional_artifacts.insert(crate::external::sarif::RAW_ARTIFACT.to_owned(), import_text.as_bytes().to_vec());
+        additional_artifacts.insert(
+            crate::external::sarif::PROJECTION_ARTIFACT.to_owned(),
+            crate::external::sarif::projection_bytes(details)?,
+        );
+    }
     let receipt_json = render_receipt_json(&receipt)?;
     let summary = render_summary_for_command(&receipt, &args.command_line);
     let provenance_jsonl = render_provenance_jsonl(&receipt, &receipt_json, &summary)?;
@@ -653,6 +680,7 @@ pub fn evaluate(input: EvaluationInput<'_>) -> EvidenceRailReceipt {
         None
     };
     let cargo_fuzz = fuzz_details(&input);
+    let sarif_import = sarif_details(&input);
     parsed.diagnostics.sort();
     parsed.diagnostics.dedup();
     let status = if parsed.diagnostics.is_empty() {
@@ -701,6 +729,7 @@ pub fn evaluate(input: EvaluationInput<'_>) -> EvidenceRailReceipt {
         z4_solver: parsed.z4_solver,
         verifier_fixtures: parsed.verifier_fixtures,
         cargo_fuzz,
+        sarif_import,
     }
 }
 
@@ -712,11 +741,23 @@ fn fuzz_details(input: &EvaluationInput<'_>) -> Option<crate::cargo::fuzz::Recei
     }
 }
 
+fn sarif_details(input: &EvaluationInput<'_>) -> Option<crate::external::sarif::ReceiptDetails> {
+    if input.rail == EvidenceRailKind::SarifImport {
+        input
+            .profile
+            .and_then(|profile| crate::external::sarif::evaluate(input.import_text, profile).details)
+    } else {
+        None
+    }
+}
+
 fn receipt_command_argv(input: &EvaluationInput<'_>, fuzz: Option<&crate::cargo::fuzz::ReceiptDetails>) -> Vec<String> {
     if let Some(details) = fuzz {
         return details.command_argv.clone();
     }
-    if input.rail == EvidenceRailKind::CharonSemantic && input.mode == MODE_IMPORT {
+    if matches!(input.rail, EvidenceRailKind::CharonSemantic | EvidenceRailKind::SarifImport)
+        && input.mode == MODE_IMPORT
+    {
         return Vec::new();
     }
     command_argv(input.rail, input.config_path, input.baseline_identity.as_deref(), input.requested_command)
@@ -820,6 +861,11 @@ pub fn render_provenance_jsonl(
             receipt_parents.push(artifact.name.clone());
         }
     }
+    if let Some(details) = receipt.sarif_import.as_ref() {
+        records.extend(sarif_provenance(details, &receipt.workspace_scope));
+        receipt_parents.push(crate::external::sarif::RAW_ARTIFACT.to_owned());
+        receipt_parents.push(crate::external::sarif::PROJECTION_ARTIFACT.to_owned());
+    }
     records.push(ProvenanceRecord {
         schema_version: crate::evidence::PROVENANCE_SCHEMA_VERSION.to_owned(),
         source_id: source_id_for_receipt(receipt),
@@ -852,6 +898,37 @@ pub fn render_provenance_jsonl(
         rendered.push('\n');
     }
     Ok(rendered)
+}
+
+fn sarif_provenance(details: &crate::external::sarif::ReceiptDetails, checked_scope: &str) -> Vec<ProvenanceRecord> {
+    vec![
+        ProvenanceRecord {
+            schema_version: crate::evidence::PROVENANCE_SCHEMA_VERSION.to_owned(),
+            source_id: "octet.external_lint.sarif-raw".to_owned(),
+            checker_id: crate::evidence::CHECKER_SARIF_IMPORT.to_owned(),
+            evidence_tier: EvidenceTier::StaticLint,
+            artifact_locator: crate::external::sarif::RAW_ARTIFACT.to_owned(),
+            blake3: details.raw_report_identity.trim_start_matches("b3:").to_owned(),
+            checked_scope: checked_scope.to_owned(),
+            verifier_identity: None,
+            proof_artifact_identity: None,
+            human_action: None,
+            parent_artifacts: Vec::new(),
+        },
+        ProvenanceRecord {
+            schema_version: crate::evidence::PROVENANCE_SCHEMA_VERSION.to_owned(),
+            source_id: "octet.external_lint.sarif-projection".to_owned(),
+            checker_id: crate::evidence::CHECKER_SARIF_IMPORT.to_owned(),
+            evidence_tier: EvidenceTier::StaticLint,
+            artifact_locator: crate::external::sarif::PROJECTION_ARTIFACT.to_owned(),
+            blake3: details.projection_identity.trim_start_matches("b3:").to_owned(),
+            checked_scope: checked_scope.to_owned(),
+            verifier_identity: None,
+            proof_artifact_identity: None,
+            human_action: None,
+            parent_artifacts: vec![crate::external::sarif::RAW_ARTIFACT.to_owned()],
+        },
+    ]
 }
 
 pub fn validate_receipt(receipt: &EvidenceRailReceipt) -> Vec<String> {
@@ -897,6 +974,7 @@ pub fn validate_receipt(receipt: &EvidenceRailReceipt) -> Vec<String> {
     diagnostics.extend(z4_diagnostics(rail, receipt));
     diagnostics.extend(verifier_diagnostics(rail, receipt));
     diagnostics.extend(fuzz_diagnostics(rail, receipt));
+    diagnostics.extend(sarif_diagnostics(rail, receipt));
     diagnostics
 }
 
@@ -984,6 +1062,40 @@ fn fuzz_diagnostics(rail: EvidenceRailKind, receipt: &EvidenceRailReceipt) -> Ve
         (true, None) => diagnostics.push("cargo-fuzz dynamic receipt is missing cargo_fuzz details".to_owned()),
         (false, Some(_)) => diagnostics.push("cargo_fuzz details require the cargo-fuzz dynamic profile".to_owned()),
         (false, None) => {}
+    }
+    diagnostics
+}
+
+fn sarif_diagnostics(rail: EvidenceRailKind, receipt: &EvidenceRailReceipt) -> Vec<String> {
+    let mut diagnostics = Vec::with_capacity(SPECIALIZED_DIAGNOSTIC_CAPACITY);
+    match (rail, receipt.sarif_import.as_ref()) {
+        (EvidenceRailKind::SarifImport, Some(details)) => {
+            if receipt.profile.as_deref() != Some(details.profile_id.as_str()) {
+                diagnostics.push("SARIF receipt profile does not match typed details".to_owned());
+            }
+            if details.profile_identity != crate::external::sarif::PROFILE_IDENTITY {
+                diagnostics.push("SARIF receipt profile identity is stale".to_owned());
+            }
+            if receipt.config_identity.as_deref() != Some(crate::external::sarif::PROFILE_IDENTITY) {
+                diagnostics.push("SARIF receipt config identity is stale".to_owned());
+            }
+            if details.raw_report_identity != receipt.imported_input_identity {
+                diagnostics.push("SARIF raw report identity does not match imported bytes".to_owned());
+            }
+            match crate::external::sarif::projection_bytes(details) {
+                Ok(bytes) if crate::external::sarif::prefixed_identity(&bytes) == details.projection_identity => {}
+                Ok(_) => diagnostics.push("SARIF normalized projection identity is stale".to_owned()),
+                Err(error) => diagnostics.push(error),
+            }
+            if !receipt.non_claims.iter().any(|claim| claim == crate::external::sarif::REQUIRED_NON_CLAIM) {
+                diagnostics.push("SARIF receipt is missing the required non-claim".to_owned());
+            }
+        }
+        (EvidenceRailKind::SarifImport, None) => {
+            diagnostics.push("SARIF import receipt is missing typed details".to_owned())
+        }
+        (_, Some(_)) => diagnostics.push("sarif_import details require the SARIF import rail".to_owned()),
+        (_, None) => {}
     }
     diagnostics
 }
@@ -1126,6 +1238,10 @@ pub fn expected_bundle_files_for_receipt(receipt: Option<&EvidenceRailReceipt>) 
     if let Some(details) = receipt.and_then(|receipt| receipt.charon_semantic.as_ref()) {
         files.extend(crate::charon_semantic::expected_artifact_names(Some(details)));
     }
+    if receipt.is_some_and(|receipt| receipt.sarif_import.is_some()) {
+        files.push(crate::external::sarif::RAW_ARTIFACT.to_owned());
+        files.push(crate::external::sarif::PROJECTION_ARTIFACT.to_owned());
+    }
     files.sort();
     files
 }
@@ -1144,6 +1260,7 @@ fn parse_rail_input(input: &EvaluationInput<'_>) -> RailParseOutput {
         EvidenceRailKind::DependencyTrust => parse_dependency_trust(input),
         EvidenceRailKind::ApiStability => parse_api_stability(input),
         EvidenceRailKind::DynamicEvidence => parse_dynamic_evidence(input),
+        EvidenceRailKind::SarifImport => parse_sarif_import(input),
         EvidenceRailKind::ReleaseSupplyChain => parse_release_supply_chain(input),
         EvidenceRailKind::MutationTesting => parse_mutation_testing(input),
         EvidenceRailKind::CoverageBaseline => parse_coverage_baseline(input),
@@ -1569,6 +1686,55 @@ fn parse_fuzz(input: &EvaluationInput<'_>) -> RailParseOutput {
         diagnostics: evaluation.diagnostics,
         status,
         profile: Some(crate::cargo::fuzz::PROFILE_ID.to_owned()),
+        property_classes: Vec::new(),
+        hegel_property: None,
+        z4_solver: None,
+        verifier_fixtures: None,
+    }
+}
+
+fn parse_sarif_import(input: &EvaluationInput<'_>) -> RailParseOutput {
+    let Some(profile) = input.profile else {
+        return RailParseOutput {
+            findings: Vec::new(),
+            finding_counts: BTreeMap::new(),
+            diagnostics: vec!["SARIF import requires `--profile NAME`".to_owned()],
+            status: STATUS_FAILED.to_owned(),
+            profile: None,
+            property_classes: Vec::new(),
+            hegel_property: None,
+            z4_solver: None,
+            verifier_fixtures: None,
+        };
+    };
+    let evaluation = crate::external::sarif::evaluate(input.import_text, profile);
+    let findings = evaluation
+        .details
+        .as_ref()
+        .map(|details| {
+            details
+                .findings
+                .iter()
+                .map(|finding| EvidenceRailFinding {
+                    family: finding.source_rule_id.clone(),
+                    severity: finding.gate_severity.clone(),
+                    message: finding.message.clone(),
+                    source_severity: Some(finding.source_level.clone()),
+                    file: Some(finding.file.clone()),
+                    line: Some(finding.line),
+                    column: Some(finding.column),
+                })
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    let finding_counts = counts_by_family(&findings);
+    let status = status_from_error_findings(&findings);
+    RailParseOutput {
+        findings,
+        finding_counts,
+        diagnostics: evaluation.diagnostics,
+        status,
+        profile: Some(profile.to_owned()),
         property_classes: Vec::new(),
         hegel_property: None,
         z4_solver: None,
@@ -2638,6 +2804,9 @@ fn evidence_input_text(
     if args.rail == EvidenceRailKind::CharonSemantic {
         return analyze_charon_semantic_input(args);
     }
+    if args.rail == EvidenceRailKind::SarifImport {
+        return analyze_sarif_input(args).map(|report| (MODE_IMPORT, report, None));
+    }
     if args.rail == EvidenceRailKind::DynamicEvidence
         && args.profile.as_deref() == Some(crate::cargo::fuzz::PROFILE_ID)
         && args.run
@@ -2665,6 +2834,27 @@ fn evidence_input_text(
         (Some(_), true) => Err("evidence collect accepts either `--input PATH` or `--run`, not both".to_owned()),
         (None, false) => Err("evidence collect requires `--input PATH` or `--run`".to_owned()),
     }
+}
+
+fn analyze_sarif_input(args: &EvidenceRailArgs) -> Result<String, String> {
+    if args.run {
+        return Err("SARIF import accepts a local `--input PATH` and rejects `--run`".to_owned());
+    }
+    if args.command.as_deref().is_some_and(|command| !command.is_empty()) {
+        return Err("SARIF import rejects arbitrary `--command` authority".to_owned());
+    }
+    let input = args.input.as_deref().ok_or_else(|| "SARIF import requires `--input PATH`".to_owned())?;
+    let config = args.config.as_deref().ok_or_else(|| "SARIF import requires `--config PATH`".to_owned())?;
+    let profile = args.profile.as_deref().ok_or_else(|| "SARIF import requires `--profile NAME`".to_owned())?;
+    crate::external::sarif::selected_profile(profile)?;
+    let workspace = args.workspace_root.as_deref().unwrap_or_else(|| Path::new("."));
+    let root = SourceRoot::open_existing(workspace)?;
+    let config_bytes = root.read_bounded(&RootRelativePath::new(config)?, crate::external::sarif::MAX_REPORT_BYTES)?;
+    if crate::external::sarif::prefixed_identity(&config_bytes) != crate::external::sarif::PROFILE_IDENTITY {
+        return Err("SARIF profile bytes do not match the checked Nickel registry".to_owned());
+    }
+    let report = root.read_bounded(&RootRelativePath::new(input)?, crate::external::sarif::MAX_REPORT_BYTES)?;
+    String::from_utf8(report).map_err(|error| format!("SARIF report is not UTF-8: {error}"))
 }
 
 fn read_cargo_fuzz_receipt(path: &Path) -> Result<String, String> {
@@ -3041,6 +3231,7 @@ fn command_argv(
             argv
         }
         EvidenceRailKind::DynamicEvidence => requested_command.map(split_command).unwrap_or_default(),
+        EvidenceRailKind::SarifImport => Vec::new(),
         EvidenceRailKind::ReleaseSupplyChain => string_vec(&["cargo", "auditable", "build"]),
         EvidenceRailKind::MutationTesting => string_vec(&["cargo", "mutants", "--json"]),
         EvidenceRailKind::CoverageBaseline => string_vec(&["cargo", "llvm-cov", "--json", "--summary-only"]),
@@ -3541,6 +3732,26 @@ mod tests {
             update_advisory_database: false,
             run: false,
             command_line: "cargo octet evidence collect --rail dynamic-evidence --profile cargo-fuzz-libfuzzer --input fixture.json".to_owned(),
+        }
+    }
+
+    fn sarif_import_args(workspace_root: std::path::PathBuf) -> crate::cli::EvidenceRailArgs {
+        crate::cli::EvidenceRailArgs {
+            rail: EvidenceRailKind::SarifImport,
+            input: Some(std::path::PathBuf::from("report.json")),
+            artifact_dir: std::path::PathBuf::from("artifacts/sarif-import-test"),
+            workspace_root: Some(workspace_root),
+            config: Some(std::path::PathBuf::from("profiles.json")),
+            baseline: None,
+            profile: Some("codeql-local".to_owned()),
+            command: None,
+            parent_artifacts: Vec::new(),
+            external_reports: Vec::new(),
+            output_format: OutputFormat::Human,
+            locked: false,
+            update_advisory_database: false,
+            run: false,
+            command_line: "cargo octet evidence collect --rail sarif-import --profile codeql-local --input report.json --config profiles.json".to_owned(),
         }
     }
 
@@ -4190,6 +4401,89 @@ mod tests {
         assert_eq!(receipt.finding_counts.get("cargo-fuzz-crash"), Some(&1));
         assert!(receipt.diagnostics.iter().any(|value| value.contains("profile identity")));
         assert!(receipt.diagnostics.iter().any(|value| value.contains("formal") || value.contains("transcript")));
+    }
+
+    #[test]
+    fn sarif_import_preserves_source_identity_and_local_artifact_links() {
+        let report = include_str!("../tests/fixtures/evidence-rails/sarif-codeql.json");
+        let mut receipt = evaluate(EvaluationInput {
+            rail: EvidenceRailKind::SarifImport,
+            mode: MODE_IMPORT,
+            import_text: report,
+            workspace_scope: WORKSPACE_SCOPE,
+            config_path: Some("standards/sarif/profiles.json"),
+            baseline_identity: None,
+            lockfile_identity: None,
+            locked: false,
+            advisory_updated_by_prior_step: false,
+            profile: Some("codeql-local"),
+            requested_command: None,
+            parent_artifacts: Vec::new(),
+            tool_exit_code: None,
+        });
+        receipt.config_identity = Some(crate::external::sarif::PROFILE_IDENTITY.to_owned());
+        assert_eq!(receipt.status, STATUS_PASSED, "{:?}", receipt.diagnostics);
+        assert_eq!(receipt.checker_id, crate::evidence::CHECKER_SARIF_IMPORT);
+        assert_eq!(receipt.findings[0].source_severity.as_deref(), Some("warning"));
+        assert_eq!(receipt.findings[0].severity, "warning");
+        assert!(receipt.sarif_import.is_some());
+        assert!(validate_receipt(&receipt).is_empty());
+
+        let receipt_json = render_receipt_json(&receipt).expect("render SARIF receipt");
+        let summary = render_summary(&receipt);
+        let provenance = render_provenance_jsonl(&receipt, &receipt_json, &summary).expect("render SARIF provenance");
+        assert!(provenance.contains(crate::external::sarif::RAW_ARTIFACT));
+        assert!(provenance.contains(crate::external::sarif::PROJECTION_ARTIFACT));
+        assert!(provenance.contains("octet.external_lint.sarif-projection"));
+        assert!(!provenance.contains("formal_proof"));
+    }
+
+    #[test]
+    fn sarif_import_rejects_error_findings_unsafe_paths_and_role_promotion() {
+        let error_report = include_str!("../tests/fixtures/evidence-rails/sarif-semgrep.json");
+        let error_receipt = evaluate(EvaluationInput {
+            import_text: error_report,
+            profile: Some("semgrep-local"),
+            ..sarif_input()
+        });
+        assert_eq!(error_receipt.status, STATUS_FAILED);
+        assert_eq!(error_receipt.findings[0].source_severity.as_deref(), Some("error"));
+
+        let unsafe_report = include_str!("../tests/fixtures/evidence-rails/sarif-unsafe.json");
+        let unsafe_receipt = evaluate(EvaluationInput {
+            import_text: unsafe_report,
+            ..sarif_input()
+        });
+        assert_eq!(unsafe_receipt.status, STATUS_FAILED);
+        assert!(unsafe_receipt.diagnostics.iter().any(|value| value.contains("unsafe")));
+
+        let mut promoted = error_receipt;
+        promoted.non_claims = vec!["formal_proof".to_owned()];
+        assert!(!validate_receipt(&promoted).is_empty());
+    }
+
+    #[test]
+    fn sarif_import_shell_is_local_bounded_and_authority_free() {
+        let directory = tempfile::tempdir().expect("create SARIF import fixture directory");
+        let report = include_str!("../tests/fixtures/evidence-rails/sarif-codeql.json");
+        std::fs::write(directory.path().join("report.json"), report).expect("write SARIF report fixture");
+        std::fs::write(directory.path().join("profiles.json"), include_bytes!("../../standards/sarif/profiles.json"))
+            .expect("write SARIF profile fixture");
+
+        let args = sarif_import_args(directory.path().to_path_buf());
+        assert_eq!(analyze_sarif_input(&args).expect("read local SARIF report"), report);
+
+        let run_error = analyze_sarif_input(&crate::cli::EvidenceRailArgs { run: true, ..args })
+            .expect_err("SARIF run authority is rejected");
+        assert!(run_error.contains("rejects `--run`"));
+
+        let oversized_bytes =
+            usize::try_from(crate::external::sarif::MAX_REPORT_BYTES).expect("SARIF byte limit fits usize") + 1;
+        std::fs::write(directory.path().join("report.json"), vec![b' '; oversized_bytes])
+            .expect("write oversized SARIF report fixture");
+        let size_error = analyze_sarif_input(&sarif_import_args(directory.path().to_path_buf()))
+            .expect_err("oversized SARIF report is rejected");
+        assert!(size_error.contains("exceeds"));
     }
 
     #[test]
@@ -4924,6 +5218,24 @@ mod tests {
             locked: false,
             advisory_updated_by_prior_step: false,
             profile: None,
+            requested_command: None,
+            parent_artifacts: Vec::new(),
+            tool_exit_code: None,
+        }
+    }
+
+    fn sarif_input() -> EvaluationInput<'static> {
+        EvaluationInput {
+            rail: EvidenceRailKind::SarifImport,
+            mode: MODE_IMPORT,
+            import_text: "{}",
+            workspace_scope: WORKSPACE_SCOPE,
+            config_path: Some("standards/sarif/profiles.json"),
+            baseline_identity: None,
+            lockfile_identity: None,
+            locked: false,
+            advisory_updated_by_prior_step: false,
+            profile: Some("codeql-local"),
             requested_command: None,
             parent_artifacts: Vec::new(),
             tool_exit_code: None,

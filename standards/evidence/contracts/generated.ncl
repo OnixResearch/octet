@@ -76,6 +76,17 @@ let EvidenceTier = std.contract.from_predicate (fun value => std.is_string value
     evidence_tier | EvidenceTier,
     non_claims | Array String,
   },
+  SarifImportReceiptDetailsV1 = {
+    schema_version | std.contract.from_predicate (fun value => value == "octet-sarif-intake-receipt/v1"),
+    profile_id | NonEmptyString,
+    profile_identity | NonEmptyString,
+    raw_report_identity | NonEmptyString,
+    projection_identity | NonEmptyString,
+    source_driver | NonEmptyString,
+    supported_version | std.contract.from_predicate (fun value => value == "2.1.0"),
+    findings | Dyn,
+    non_claims | Array String,
+  },
   EvidenceRailReceiptV1 = {
     schema_version | std.contract.from_predicate (fun value => value == "octet-evidence-rail-receipt/v1"),
     rail_id | NonEmptyString,
@@ -98,6 +109,7 @@ let EvidenceTier = std.contract.from_predicate (fun value => std.is_string value
     property_classes | Array String | default = [],
     hegel_property | Dyn | default = {},
     cargo_fuzz | Dyn | default = {},
+    sarif_import | Dyn | default = {},
   },
   ChaosControlProofStyleInputContractV1 = {
     schema_version | std.contract.from_predicate (fun value => value == "octet-chaoscontrol-proof-style-input-contract/v1"),

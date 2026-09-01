@@ -23,6 +23,7 @@ pub const CHECKER_CARGO_KANI: &str = "cargo-kani";
 pub const CHECKER_HEGEL_RS: &str = "hegel-rs";
 pub const CHECKER_Z4_SOLVER: &str = "z4-solver";
 pub const CHECKER_OCTET_DYNAMIC_EVIDENCE: &str = "octet-dynamic-evidence";
+pub const CHECKER_SARIF_IMPORT: &str = "external-sarif";
 pub const CHECKER_OCTET_RELEASE_SUPPLY_CHAIN: &str = "octet-release-supply-chain";
 const FIELD_SCHEMA_VERSION: &str = "schema_version";
 const FIELD_SOURCE_ID: &str = "source_id";
@@ -213,6 +214,12 @@ fn provenance_producers() -> &'static [ProvenanceProducer] {
         },
         ProvenanceProducer {
             checker_id: CHECKER_CLIPPY,
+            source_prefixes: &[SOURCE_EXTERNAL_LINT_PREFIX],
+            allowed_tiers: &[EvidenceTier::StaticLint],
+            allows_formal_proof: false,
+        },
+        ProvenanceProducer {
+            checker_id: CHECKER_SARIF_IMPORT,
             source_prefixes: &[SOURCE_EXTERNAL_LINT_PREFIX],
             allowed_tiers: &[EvidenceTier::StaticLint],
             allows_formal_proof: false,
