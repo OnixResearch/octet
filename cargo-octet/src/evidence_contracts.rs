@@ -11,6 +11,7 @@ const EVIDENCE_RAIL_RECEIPT_CONTRACT_NAME: &str = "EvidenceRailReceiptV1";
 const HEGEL_PROPERTY_DETAILS_CONTRACT_NAME: &str = "HegelPropertyReceiptDetailsV1";
 const CARGO_FUZZ_DETAILS_CONTRACT_NAME: &str = "CargoFuzzReceiptDetailsV1";
 const SARIF_DETAILS_CONTRACT_NAME: &str = "SarifImportReceiptDetailsV1";
+const COVERAGE_DETAILS_CONTRACT_NAME: &str = "CoverageBaselineReceiptDetailsV1";
 const CHAOSCONTROL_PROOF_STYLE_INPUT_CONTRACT_NAME: &str = "ChaosControlProofStyleInputContractV1";
 const CHAOSCONTROL_PROOF_STYLE_INPUT_SCHEMA_VERSION: &str = "octet-chaoscontrol-proof-style-input-contract/v1";
 const CHAOSCONTROL_CONSUMER_REPO: &str = "github:OnixResearch/chaoscontrol";
@@ -125,6 +126,21 @@ static SARIF_DETAILS_FIELDS: &[ContractField] = &[
     ContractField::required("non_claims", FieldKind::StringArray),
 ];
 
+static COVERAGE_DETAILS_FIELDS: &[ContractField] = &[
+    ContractField::required("schema_version", FieldKind::ExactString(crate::coverage::RECEIPT_SCHEMA)),
+    ContractField::required("profile_id", FieldKind::ExactString(crate::coverage::PROFILE_ID)),
+    ContractField::required("profile_identity", FieldKind::NonEmptyString),
+    ContractField::required("command_argv", FieldKind::StringArray),
+    ContractField::required("current", FieldKind::Dyn),
+    ContractField::required("baseline", FieldKind::Dyn),
+    ContractField::required("current_envelope_identity", FieldKind::NonEmptyString),
+    ContractField::required("baseline_envelope_identity", FieldKind::NonEmptyString),
+    ContractField::required("projection_identity", FieldKind::NonEmptyString),
+    ContractField::required("comparison", FieldKind::Dyn),
+    ContractField::required("evidence_tier", FieldKind::EvidenceTier),
+    ContractField::required("non_claims", FieldKind::StringArray),
+];
+
 static CHAOSCONTROL_PROOF_STYLE_INPUT_FIELDS: &[ContractField] = &[
     ContractField::required("schema_version", FieldKind::ExactString(CHAOSCONTROL_PROOF_STYLE_INPUT_SCHEMA_VERSION)),
     ContractField::required("consumer_repo", FieldKind::NonEmptyString),
@@ -208,6 +224,11 @@ static EVIDENCE_RAIL_RECEIPT_FIELDS: &[ContractField] = &[
         kind: FieldKind::Dyn,
         default: Some(EMPTY_RECORD_DEFAULT),
     },
+    ContractField {
+        name: "coverage_baseline",
+        kind: FieldKind::Dyn,
+        default: Some(EMPTY_RECORD_DEFAULT),
+    },
 ];
 
 #[derive(Clone, Copy)]
@@ -245,6 +266,7 @@ pub fn render_generated_contracts() -> String {
         hegel_property_details_schema(),
         cargo_fuzz_details_schema(),
         sarif_details_schema(),
+        coverage_details_schema(),
         evidence_rail_receipt_schema(),
         chaoscontrol_proof_style_input_schema(),
     ];
@@ -313,6 +335,13 @@ fn sarif_details_schema() -> ContractSchema {
     ContractSchema {
         name: SARIF_DETAILS_CONTRACT_NAME,
         fields: SARIF_DETAILS_FIELDS,
+    }
+}
+
+fn coverage_details_schema() -> ContractSchema {
+    ContractSchema {
+        name: COVERAGE_DETAILS_CONTRACT_NAME,
+        fields: COVERAGE_DETAILS_FIELDS,
     }
 }
 
@@ -496,6 +525,7 @@ mod tests {
         "standards/evidence/fixtures/valid/hegel_property_details_v1.ncl",
         "standards/evidence/fixtures/valid/cargo_fuzz_details_v1.ncl",
         "standards/evidence/fixtures/valid/sarif_import_details_v1.ncl",
+        "standards/evidence/fixtures/valid/coverage_baseline_details_v1.ncl",
         "standards/evidence/fixtures/valid/evidence_rail_receipt_v1.ncl",
         "standards/evidence/fixtures/valid/chaoscontrol_proof_style_input_v1.ncl",
     ];
@@ -507,6 +537,7 @@ mod tests {
         "standards/evidence/fixtures/invalid/hegel_property_missing_property_id.ncl",
         "standards/evidence/fixtures/invalid/cargo_fuzz_wrong_profile.ncl",
         "standards/evidence/fixtures/invalid/sarif_import_bad_version.ncl",
+        "standards/evidence/fixtures/invalid/coverage_baseline_bad_profile.ncl",
         "standards/evidence/fixtures/invalid/evidence_rail_receipt_missing_non_claims.ncl",
         "standards/evidence/fixtures/invalid/chaoscontrol_missing_profile.ncl",
         "standards/evidence/fixtures/invalid/chaoscontrol_missing_focused_crates.ncl",
@@ -526,6 +557,15 @@ mod tests {
         let actual = render_generated_contracts();
 
         assert_eq!(expected, actual, "generated evidence contracts are stale");
+    }
+
+    #[test]
+    #[ignore = "writes the checked generated Nickel contract"]
+    fn regenerate_evidence_contracts() {
+        let repo_root = repo_root();
+        let path = repo_root.join(generated_contract_path());
+        std::fs::write(&path, render_generated_contracts())
+            .unwrap_or_else(|error| panic!("write generated contract {}: {error}", path.display()));
     }
 
     #[test]

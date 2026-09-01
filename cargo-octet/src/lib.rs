@@ -14,6 +14,7 @@ mod charon_semantic;
 mod cli;
 mod clippy_restrictions;
 mod config;
+mod coverage;
 mod determinism;
 mod domain_types;
 mod effect_closure;

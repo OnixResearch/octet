@@ -87,6 +87,20 @@ let EvidenceTier = std.contract.from_predicate (fun value => std.is_string value
     findings | Dyn,
     non_claims | Array String,
   },
+  CoverageBaselineReceiptDetailsV1 = {
+    schema_version | std.contract.from_predicate (fun value => value == "octet-coverage-receipt/v1"),
+    profile_id | std.contract.from_predicate (fun value => value == "cargo-llvm-cov-octet-lib"),
+    profile_identity | NonEmptyString,
+    command_argv | Array String,
+    current | Dyn,
+    baseline | Dyn,
+    current_envelope_identity | NonEmptyString,
+    baseline_envelope_identity | NonEmptyString,
+    projection_identity | NonEmptyString,
+    comparison | Dyn,
+    evidence_tier | EvidenceTier,
+    non_claims | Array String,
+  },
   EvidenceRailReceiptV1 = {
     schema_version | std.contract.from_predicate (fun value => value == "octet-evidence-rail-receipt/v1"),
     rail_id | NonEmptyString,
@@ -110,6 +124,7 @@ let EvidenceTier = std.contract.from_predicate (fun value => std.is_string value
     hegel_property | Dyn | default = {},
     cargo_fuzz | Dyn | default = {},
     sarif_import | Dyn | default = {},
+    coverage_baseline | Dyn | default = {},
   },
   ChaosControlProofStyleInputContractV1 = {
     schema_version | std.contract.from_predicate (fun value => value == "octet-chaoscontrol-proof-style-input-contract/v1"),

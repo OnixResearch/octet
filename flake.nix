@@ -300,6 +300,7 @@
 
         nativeBuildInputs = with pkgs; [
           clang
+          git
           mold
           pkg-config
         ];
@@ -446,6 +447,7 @@
             pkgs.clang
             pkgs.mold
             pkgs.ast-grep
+            pkgs.cargo-llvm-cov
             octetVerus
             octetProductionVerus
           ];
@@ -1520,19 +1522,31 @@
               --prefix LD_LIBRARY_PATH : "${rustToolchainLibPath}" \
               --set TIGERSTYLE_TOOLCHAIN "${rustupToolchain}" \
               --set TIGERSTYLE_DRIVER_PATH "${dylintDriver}/bin/dylint-driver" \
-              --set TIGERSTYLE_LINT_LIB "${octetUiLibrary}/lib/${octetUiLibraryName}"
+              --set TIGERSTYLE_LINT_LIB "${octetUiLibrary}/lib/${octetUiLibraryName}" \
+              --set OCTET_COVERAGE_CARGO "${cargo-shim}/bin/cargo" \
+              --set OCTET_COVERAGE_PATH "${cargoOctetRuntimePath}/bin" \
+              --set OCTET_COVERAGE_CARGO_CONFIG "${cargoVendorDir}/config.toml" \
+              --set OCTET_COVERAGE_LD_LIBRARY_PATH "${rustToolchainLibPath}"
             wrapProgram "$out/bin/cargo-slotcar" \
               --prefix PATH : "${cargoOctetRuntimePath}/bin" \
               --prefix LD_LIBRARY_PATH : "${rustToolchainLibPath}" \
               --set TIGERSTYLE_TOOLCHAIN "${rustupToolchain}" \
               --set TIGERSTYLE_DRIVER_PATH "${dylintDriver}/bin/dylint-driver" \
-              --set TIGERSTYLE_LINT_LIB "${octetUiLibrary}/lib/${octetUiLibraryName}"
+              --set TIGERSTYLE_LINT_LIB "${octetUiLibrary}/lib/${octetUiLibraryName}" \
+              --set OCTET_COVERAGE_CARGO "${cargo-shim}/bin/cargo" \
+              --set OCTET_COVERAGE_PATH "${cargoOctetRuntimePath}/bin" \
+              --set OCTET_COVERAGE_CARGO_CONFIG "${cargoVendorDir}/config.toml" \
+              --set OCTET_COVERAGE_LD_LIBRARY_PATH "${rustToolchainLibPath}"
             wrapProgram "$out/bin/cargo-tigerstyle" \
               --prefix PATH : "${cargoOctetRuntimePath}/bin" \
               --prefix LD_LIBRARY_PATH : "${rustToolchainLibPath}" \
               --set TIGERSTYLE_TOOLCHAIN "${rustupToolchain}" \
               --set TIGERSTYLE_DRIVER_PATH "${dylintDriver}/bin/dylint-driver" \
-              --set TIGERSTYLE_LINT_LIB "${octetUiLibrary}/lib/${octetUiLibraryName}"
+              --set TIGERSTYLE_LINT_LIB "${octetUiLibrary}/lib/${octetUiLibraryName}" \
+              --set OCTET_COVERAGE_CARGO "${cargo-shim}/bin/cargo" \
+              --set OCTET_COVERAGE_PATH "${cargoOctetRuntimePath}/bin" \
+              --set OCTET_COVERAGE_CARGO_CONFIG "${cargoVendorDir}/config.toml" \
+              --set OCTET_COVERAGE_LD_LIBRARY_PATH "${rustToolchainLibPath}"
           '';
         };
 
@@ -2027,6 +2041,37 @@
               test "$(b3sum "$generated" | cut -d ' ' -f 1)" = "$expected_identity"
               test "$(jq '.profiles | length' "$generated")" = "$expected_profiles"
               jq --exit-status 'all(.profiles[]; .supported_version == "2.1.0" and .workspace_relative_only and .require_rule_id and .evidence_tier == "static_lint")' "$generated"
+              mkdir -p "$out"
+            '';
+
+        coverageProfilesCheck =
+          pkgs.runCommand "octet-coverage-profiles-check"
+            {
+              nativeBuildInputs = with pkgs; [
+                b3sum
+                cargo-llvm-cov
+                diffutils
+                jq
+                nickel
+              ];
+            }
+            ''
+              cd ${./.}
+              generated=$(mktemp)
+              expected_identity=e221f5d35528e6979bb44ab58cc5e486109799cf99fb80fc4d85ab77a7082634
+              nickel typecheck standards/coverage/profiles.ncl
+              nickel export --format json standards/coverage/profiles.ncl > "$generated"
+              diff -u standards/coverage/profiles.json "$generated"
+              test "$(b3sum "$generated" | cut -d ' ' -f 1)" = "$expected_identity"
+              test "$(cargo-llvm-cov llvm-cov --version)" = "cargo-llvm-cov 0.8.3"
+              jq --exit-status '
+                .schema_version == "octet-coverage-profiles/v1"
+                and (.profiles | length) == 1
+                and .profiles[0].profile_id == "cargo-llvm-cov-octet-lib"
+                and .profiles[0].provider.version == "0.8.3"
+                and .profiles[0].evidence_tier == "transcript_assertion"
+                and .profiles[0].denominator_policy == "require_equal"
+              ' "$generated" >/dev/null
               mkdir -p "$out"
             '';
 
@@ -2686,6 +2731,7 @@
           slotcar = octet;
           tigerstyle = octet;
           cargo-octet = cargoOctet;
+          cargo-llvm-cov-provider = pkgs.cargo-llvm-cov;
           cargo-slotcar = cargoOctet;
           cargo-tigerstyle = cargoOctet;
           fingerprint-docs-downstream-smoke = fingerprintDocsDownstreamSmoke;
@@ -4183,6 +4229,7 @@
             wasm-artifact-rail = wasmArtifactRailCheck;
             dynamic-evidence-profiles = dynamicEvidenceProfilesCheck;
             sarif-profiles = sarifProfilesCheck;
+            coverage-profiles = coverageProfilesCheck;
             strict-profile-catalog = strictProfileCatalogCheck;
             nominal-domain-catalog = nominalDomainCatalogCheck;
             project-architecture-policy = projectArchitecturePolicyCheck;
@@ -4238,6 +4285,7 @@
             rustup-shim
             pkgs.cargo-nextest
             pkgs.cargo-watch
+            pkgs.cargo-llvm-cov
             pkgs.ast-grep
             cairn.packages.${system}.cairn
             pkgs.jq
@@ -4253,6 +4301,10 @@
 
           LD_LIBRARY_PATH = rustToolchainLibPath;
           RUSTUP_TOOLCHAIN = rustupToolchain;
+          OCTET_COVERAGE_CARGO = "${cargo-shim}/bin/cargo";
+          OCTET_COVERAGE_PATH = "${cargoOctetRuntimePath}/bin";
+          OCTET_COVERAGE_CARGO_CONFIG = "${cargoVendorDir}/config.toml";
+          OCTET_COVERAGE_LD_LIBRARY_PATH = rustToolchainLibPath;
           shellHook = ''
             export PATH="${dylintShimPath}:$PATH"
           '';
