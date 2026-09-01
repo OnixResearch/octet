@@ -40,7 +40,7 @@ const DYNAMIC_COMMAND_MIRI_TEST: &str = "cargo miri test";
 const DYNAMIC_PROFILE_LOOM_CONCURRENCY: &str = "loom-concurrency";
 const DYNAMIC_PROFILE_LOOM_SHORT: &str = "loom";
 const DYNAMIC_COMMAND_LOOM_TEST: &str = "cargo test --cfg loom";
-const SUPPORTED_EVIDENCE_RAILS: &str = "dependency-audit, clippy-co-reporting, ast-grep, wasm-artifact, charon-semantic, dependency-trust, api-stability, dynamic-evidence, sarif-import, release-supply-chain, mutation-testing, coverage-baseline, kani-model-check, hegel-property, z4-solver, or verifier-fixture";
+const SUPPORTED_EVIDENCE_RAILS: &str = "dependency-audit, clippy-co-reporting, ast-grep, wasm-artifact, charon-semantic, dependency-trust, api-stability, dynamic-evidence, sarif-import, release-supply-chain, mutation-testing, coverage-baseline, benchmark-evidence, kani-model-check, hegel-property, z4-solver, or verifier-fixture";
 const COVERAGE_PERCENT_MIN: f64 = 0.0;
 const COVERAGE_PERCENT_MAX: f64 = 100.0;
 const SCHEMA_VERSION_FIELD: &str = "schema_version";
@@ -90,6 +90,7 @@ pub enum EvidenceRailKind {
     ReleaseSupplyChain,
     MutationTesting,
     CoverageBaseline,
+    BenchmarkEvidence,
     KaniModelCheck,
     HegelProperty,
     Z4Solver,
@@ -111,6 +112,7 @@ impl EvidenceRailKind {
             "release-supply-chain" => Ok(Self::ReleaseSupplyChain),
             "mutation-testing" | "cargo-mutants" | "mutants" => Ok(Self::MutationTesting),
             "coverage-baseline" | "coverage" | "cargo-llvm-cov" => Ok(Self::CoverageBaseline),
+            "benchmark-evidence" | "benchmark" => Ok(Self::BenchmarkEvidence),
             "kani-model-check" | "kani" | "cargo-kani" => Ok(Self::KaniModelCheck),
             "hegel-property" | "hegel" | "hegel-rs" => Ok(Self::HegelProperty),
             "z4-solver" | "z4" => Ok(Self::Z4Solver),
@@ -133,6 +135,7 @@ impl EvidenceRailKind {
             Self::ReleaseSupplyChain => "release-supply-chain",
             Self::MutationTesting => "mutation-testing",
             Self::CoverageBaseline => "coverage-baseline",
+            Self::BenchmarkEvidence => "benchmark-evidence",
             Self::KaniModelCheck => "kani-model-check",
             Self::HegelProperty => "hegel-property",
             Self::Z4Solver => "z4-solver",
@@ -153,6 +156,7 @@ impl EvidenceRailKind {
             Self::ReleaseSupplyChain => crate::evidence::CHECKER_OCTET_RELEASE_SUPPLY_CHAIN,
             Self::MutationTesting => crate::evidence::CHECKER_CARGO_MUTANTS,
             Self::CoverageBaseline => crate::evidence::CHECKER_CARGO_LLVM_COV,
+            Self::BenchmarkEvidence => crate::evidence::CHECKER_OCTET_BENCHMARK,
             Self::KaniModelCheck => crate::evidence::CHECKER_CARGO_KANI,
             Self::HegelProperty => crate::evidence::CHECKER_HEGEL_RS,
             Self::Z4Solver => crate::evidence::CHECKER_Z4_SOLVER,
@@ -174,6 +178,7 @@ impl EvidenceRailKind {
             Self::ReleaseSupplyChain => "octet.release_supply_chain.local-receipt",
             Self::MutationTesting => "octet.mutation_testing.cargo-mutants",
             Self::CoverageBaseline => "octet.coverage_baseline.cargo-llvm-cov",
+            Self::BenchmarkEvidence => "octet.benchmark_evidence.profile-runner",
             Self::KaniModelCheck => "octet.kani_model_check.cargo-kani",
             Self::HegelProperty => "octet.dynamic_evidence.hegel-property",
             Self::Z4Solver => "octet.experimental_solver_rails.z4-solver",
@@ -189,6 +194,7 @@ impl EvidenceRailKind {
             Self::DynamicEvidence
             | Self::MutationTesting
             | Self::CoverageBaseline
+            | Self::BenchmarkEvidence
             | Self::KaniModelCheck
             | Self::HegelProperty
             | Self::Z4Solver
@@ -263,6 +269,15 @@ impl EvidenceRailKind {
                 "accepted-baseline",
                 "regression-detection",
                 "threshold-failures",
+            ]),
+            Self::BenchmarkEvidence => string_vec(&[
+                "typed-workload-profile",
+                "bounded-raw-samples",
+                "environment-comparability",
+                "allocation-intervals",
+                "llvm-copy-sites",
+                "independent-signal-oracle",
+                "receipt-backed-public-claims",
             ]),
             Self::KaniModelCheck => string_vec(&[
                 "harness-identity",
@@ -365,6 +380,12 @@ impl EvidenceRailKind {
                 "coverage baseline evidence is optional and not part of starter cargo octet check",
                 "passing coverage thresholds does not replace review of uncovered critical paths",
                 crate::coverage::REQUIRED_NON_CLAIM,
+            ]),
+            Self::BenchmarkEvidence => string_vec(&[
+                "benchmark evidence is optional and not part of starter cargo octet check",
+                "selected workloads and signal corpora do not represent all Rust projects, defects, or environments",
+                "static copy sites are not runtime copy-volume observations",
+                crate::benchmark::REQUIRED_NON_CLAIM,
             ]),
             Self::KaniModelCheck => string_vec(&[
                 "Kani model-check evidence is optional and not part of starter cargo octet check",
@@ -548,6 +569,8 @@ pub struct EvidenceRailReceipt {
     pub coverage_baseline: Option<crate::coverage::ReceiptDetails>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cargo_mutants: Option<crate::mutation::ReceiptDetails>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub benchmark_evidence: Option<crate::benchmark::ReceiptDetails>,
 }
 
 pub struct EvaluationInput<'a> {
@@ -667,6 +690,9 @@ pub fn run(args: &EvidenceRailArgs) -> Result<i32, String> {
     if let Some(details) = receipt.cargo_mutants.as_ref() {
         additional_artifacts.extend(crate::mutation::request::artifact_payloads(details, &import_text)?);
     }
+    if let Some(details) = receipt.benchmark_evidence.as_ref() {
+        additional_artifacts.extend(crate::benchmark::request::artifact_payloads(details, &import_text)?);
+    }
     let receipt_json = render_receipt_json(&receipt)?;
     let summary = render_summary_for_command(&receipt, &args.command_line);
     let provenance_jsonl = render_provenance_jsonl(&receipt, &receipt_json, &summary)?;
@@ -686,10 +712,14 @@ fn input_identities(
         args.rail == EvidenceRailKind::CoverageBaseline && args.profile.as_deref() == Some(crate::coverage::PROFILE_ID);
     let is_profiled_mutation =
         args.rail == EvidenceRailKind::MutationTesting && args.profile.as_deref() == Some(crate::mutation::PROFILE_ID);
+    let is_profiled_benchmark = args.rail == EvidenceRailKind::BenchmarkEvidence
+        && args.profile.as_deref() == Some(crate::benchmark::PROFILE_ID);
     let config = if is_profiled_coverage {
         Some(crate::coverage::PROFILE_IDENTITY.to_owned())
     } else if is_profiled_mutation {
         Some(crate::mutation::PROFILE_IDENTITY.to_owned())
+    } else if is_profiled_benchmark {
+        Some(crate::benchmark::PROFILE_IDENTITY.to_owned())
     } else if let Some(prepared) = prepared_clippy_run {
         Some(prepared.config_identity.clone())
     } else {
@@ -697,6 +727,8 @@ fn input_identities(
     };
     let baseline = if is_profiled_coverage {
         crate::coverage::request::baseline_identity(import_text)
+    } else if is_profiled_benchmark {
+        crate::benchmark::request::baseline_identity(import_text)
     } else {
         args.baseline.as_ref().map(|path| path_identity(path)).transpose()?
     };
@@ -716,6 +748,7 @@ fn normalized_run_command(
     }
     match args.rail {
         EvidenceRailKind::CharonSemantic => Ok(Some(crate::charon_semantic::profile_command_argv()?.join(" "))),
+        EvidenceRailKind::BenchmarkEvidence => Ok(None),
         EvidenceRailKind::AstGrepStructural | EvidenceRailKind::DynamicEvidence => {
             Ok(Some(run_mode_command_argv(args)?.join(" ")))
         }
@@ -749,6 +782,7 @@ pub fn evaluate(input: EvaluationInput<'_>) -> EvidenceRailReceipt {
     let sarif_import = sarif_details(&input);
     let coverage_baseline = coverage_details(&input);
     let cargo_mutants = mutation_details(&input);
+    let benchmark_evidence = benchmark_details(&input);
     parsed.diagnostics.sort();
     parsed.diagnostics.dedup();
     let status = if parsed.diagnostics.is_empty() {
@@ -768,6 +802,7 @@ pub fn evaluate(input: EvaluationInput<'_>) -> EvidenceRailReceipt {
             cargo_fuzz.as_ref(),
             coverage_baseline.as_ref(),
             cargo_mutants.as_ref(),
+            benchmark_evidence.as_ref(),
         ),
         workspace_scope: input.workspace_scope.to_owned(),
         config_path: input.config_path.map(ToOwned::to_owned),
@@ -802,12 +837,14 @@ pub fn evaluate(input: EvaluationInput<'_>) -> EvidenceRailReceipt {
         sarif_import,
         coverage_baseline,
         cargo_mutants,
+        benchmark_evidence,
     }
 }
 
 fn receipt_log_identity(input: &EvaluationInput<'_>) -> String {
     crate::coverage::request::bounded_log_identity(input.import_text)
         .or_else(|| crate::mutation::request::bounded_log_identity(input.import_text))
+        .or_else(|| crate::benchmark::request::bounded_log_identity(input.import_text))
         .unwrap_or_else(|| {
             if input.import_text.is_empty() {
                 EMPTY_LOG_IDENTITY.to_owned()
@@ -851,11 +888,20 @@ fn mutation_details(input: &EvaluationInput<'_>) -> Option<crate::mutation::Rece
     }
 }
 
+fn benchmark_details(input: &EvaluationInput<'_>) -> Option<crate::benchmark::ReceiptDetails> {
+    if input.rail == EvidenceRailKind::BenchmarkEvidence && input.profile == Some(crate::benchmark::PROFILE_ID) {
+        crate::benchmark::request::evaluate(input.import_text, crate::benchmark::PROFILE_ID).details
+    } else {
+        None
+    }
+}
+
 fn receipt_command_argv(
     input: &EvaluationInput<'_>,
     fuzz: Option<&crate::cargo::fuzz::ReceiptDetails>,
     coverage: Option<&crate::coverage::ReceiptDetails>,
     mutation: Option<&crate::mutation::ReceiptDetails>,
+    benchmark: Option<&crate::benchmark::ReceiptDetails>,
 ) -> Vec<String> {
     if let Some(details) = fuzz {
         return details.command_argv.clone();
@@ -864,6 +910,9 @@ fn receipt_command_argv(
         return details.command_argv.clone();
     }
     if let Some(details) = mutation {
+        return details.command_argv.clone();
+    }
+    if let Some(details) = benchmark {
         return details.command_argv.clone();
     }
     if matches!(input.rail, EvidenceRailKind::CharonSemantic | EvidenceRailKind::SarifImport)
@@ -1031,6 +1080,11 @@ fn specialized_provenance(receipt: &EvidenceRailReceipt) -> (Vec<ProvenanceRecor
         parents.extend(mutation_records.iter().map(|record| record.artifact_locator.clone()));
         records.extend(mutation_records);
     }
+    if let Some(details) = receipt.benchmark_evidence.as_ref() {
+        let benchmark_records = benchmark_provenance(details, &receipt.workspace_scope);
+        parents.extend(benchmark_records.iter().map(|record| record.artifact_locator.clone()));
+        records.extend(benchmark_records);
+    }
     (records, parents)
 }
 
@@ -1119,6 +1173,43 @@ fn coverage_provenance(details: &crate::coverage::ReceiptDetails, checked_scope:
             ],
         ),
     ]
+}
+
+fn benchmark_provenance(details: &crate::benchmark::ReceiptDetails, checked_scope: &str) -> Vec<ProvenanceRecord> {
+    let record = |source: &str, locator: &str, identity: &str, parents: Vec<String>| ProvenanceRecord {
+        schema_version: crate::evidence::PROVENANCE_SCHEMA_VERSION.to_owned(),
+        source_id: source.to_owned(),
+        checker_id: crate::evidence::CHECKER_OCTET_BENCHMARK.to_owned(),
+        evidence_tier: EvidenceTier::TranscriptAssertion,
+        artifact_locator: locator.to_owned(),
+        blake3: identity.trim_start_matches("b3:").to_owned(),
+        checked_scope: checked_scope.to_owned(),
+        verifier_identity: None,
+        proof_artifact_identity: None,
+        human_action: None,
+        parent_artifacts: parents,
+    };
+    let raw = [
+        ("baseline", crate::benchmark::BASELINE_ARTIFACT, details.baseline_identity.as_str()),
+        ("candidate", crate::benchmark::CANDIDATE_ARTIFACT, details.candidate_identity.as_str()),
+        ("allocations", crate::benchmark::ALLOCATION_ARTIFACT, details.allocation_identity.as_str()),
+        ("copy-sites", crate::benchmark::COPY_ARTIFACT, details.copy_identity.as_str()),
+        ("signal-oracle", crate::benchmark::ORACLE_ARTIFACT, details.oracle_identity.as_str()),
+        ("signal-findings", crate::benchmark::FINDINGS_ARTIFACT, details.findings_identity.as_str()),
+    ];
+    let mut records: Vec<ProvenanceRecord> = raw
+        .iter()
+        .map(|(role, locator, identity)| {
+            record(&format!("octet.benchmark_evidence.{role}"), locator, identity, Vec::new())
+        })
+        .collect();
+    records.push(record(
+        "octet.benchmark_evidence.projection",
+        crate::benchmark::PROJECTION_ARTIFACT,
+        &details.projection_identity,
+        raw.iter().map(|(_, locator, _)| (*locator).to_owned()).collect(),
+    ));
+    records
 }
 
 fn mutation_provenance(details: &crate::mutation::ReceiptDetails, checked_scope: &str) -> Vec<ProvenanceRecord> {
@@ -1229,6 +1320,7 @@ pub fn validate_receipt(receipt: &EvidenceRailReceipt) -> Vec<String> {
     diagnostics.extend(sarif_diagnostics(rail, receipt));
     diagnostics.extend(coverage_diagnostics(rail, receipt));
     diagnostics.extend(mutation_diagnostics(rail, receipt));
+    diagnostics.extend(benchmark_diagnostics(rail, receipt));
     diagnostics
 }
 
@@ -1401,6 +1493,32 @@ fn mutation_diagnostics(rail: EvidenceRailKind, receipt: &EvidenceRailReceipt) -
     diagnostics
 }
 
+fn benchmark_diagnostics(rail: EvidenceRailKind, receipt: &EvidenceRailReceipt) -> Vec<String> {
+    let mut diagnostics = Vec::with_capacity(SPECIALIZED_DIAGNOSTIC_CAPACITY);
+    let is_selected =
+        rail == EvidenceRailKind::BenchmarkEvidence && receipt.profile.as_deref() == Some(crate::benchmark::PROFILE_ID);
+    match (is_selected, receipt.benchmark_evidence.as_ref()) {
+        (true, Some(details)) => {
+            diagnostics.extend(crate::benchmark::validate(details));
+            if receipt.config_identity.as_deref() != Some(crate::benchmark::PROFILE_IDENTITY) {
+                diagnostics.push("benchmark receipt config identity is stale".to_owned());
+            }
+            if receipt.baseline_identity.as_deref() != Some(details.baseline_identity.as_str()) {
+                diagnostics.push("benchmark receipt baseline identity is stale".to_owned());
+            }
+            if receipt.command_argv != details.command_argv {
+                diagnostics.push("benchmark receipt command does not match typed details".to_owned());
+            }
+        }
+        (true, None) => diagnostics.push("profiled benchmark receipt is missing typed details".to_owned()),
+        (false, Some(_)) => {
+            diagnostics.push("benchmark_evidence details require the checked benchmark profile".to_owned());
+        }
+        (false, None) => {}
+    }
+    diagnostics
+}
+
 fn validate_clippy_restriction_receipt(
     rail: EvidenceRailKind,
     receipt: &EvidenceRailReceipt,
@@ -1565,6 +1683,17 @@ pub fn expected_bundle_files_for_receipt(receipt: Option<&EvidenceRailReceipt>) 
             }
         }
     }
+    if receipt.is_some_and(|receipt| receipt.benchmark_evidence.is_some()) {
+        files.extend([
+            crate::benchmark::BASELINE_ARTIFACT.to_owned(),
+            crate::benchmark::CANDIDATE_ARTIFACT.to_owned(),
+            crate::benchmark::ALLOCATION_ARTIFACT.to_owned(),
+            crate::benchmark::COPY_ARTIFACT.to_owned(),
+            crate::benchmark::ORACLE_ARTIFACT.to_owned(),
+            crate::benchmark::FINDINGS_ARTIFACT.to_owned(),
+            crate::benchmark::PROJECTION_ARTIFACT.to_owned(),
+        ]);
+    }
     files.sort();
     files
 }
@@ -1587,6 +1716,7 @@ fn parse_rail_input(input: &EvaluationInput<'_>) -> RailParseOutput {
         EvidenceRailKind::ReleaseSupplyChain => parse_release_supply_chain(input),
         EvidenceRailKind::MutationTesting => parse_mutation_testing(input),
         EvidenceRailKind::CoverageBaseline => parse_coverage_baseline(input),
+        EvidenceRailKind::BenchmarkEvidence => parse_benchmark_evidence(input),
         EvidenceRailKind::KaniModelCheck => parse_kani_model_check(input),
         EvidenceRailKind::HegelProperty => parse_hegel_property(input),
         EvidenceRailKind::Z4Solver => parse_z4_solver(input),
@@ -2180,6 +2310,69 @@ fn parse_mutation_testing(input: &EvaluationInput<'_>) -> RailParseOutput {
         z4_solver: None,
         verifier_fixtures: None,
     }
+}
+
+fn parse_benchmark_evidence(input: &EvaluationInput<'_>) -> RailParseOutput {
+    let evaluation = crate::benchmark::request::evaluate(input.import_text, crate::benchmark::PROFILE_ID);
+    let findings = evaluation.details.as_ref().map(benchmark_findings).unwrap_or_default();
+    let status = evaluation.details.as_ref().map_or_else(
+        || STATUS_FAILED.to_owned(),
+        |details| match details.projection.performance.result {
+            crate::benchmark::ComparisonResult::Regressed => STATUS_FAILED.to_owned(),
+            crate::benchmark::ComparisonResult::Inconclusive | crate::benchmark::ComparisonResult::Incomparable => {
+                STATUS_MANUAL_REVIEW_REQUIRED.to_owned()
+            }
+            crate::benchmark::ComparisonResult::Improved | crate::benchmark::ComparisonResult::Stable => {
+                if details.projection.signals.false_positive > 0
+                    || details.projection.signals.false_negative > 0
+                    || details.projection.signals.unexpected_suppression > 0
+                {
+                    STATUS_MANUAL_REVIEW_REQUIRED.to_owned()
+                } else {
+                    STATUS_PASSED.to_owned()
+                }
+            }
+        },
+    );
+    RailParseOutput {
+        finding_counts: counts_by_family(&findings),
+        findings,
+        diagnostics: evaluation.diagnostics,
+        status,
+        profile: Some(crate::benchmark::PROFILE_ID.to_owned()),
+        property_classes: Vec::new(),
+        hegel_property: None,
+        z4_solver: None,
+        verifier_fixtures: None,
+    }
+}
+
+fn benchmark_findings(details: &crate::benchmark::ReceiptDetails) -> Vec<EvidenceRailFinding> {
+    let mut findings = Vec::new();
+    match details.projection.performance.result {
+        crate::benchmark::ComparisonResult::Regressed => {
+            findings.push(kani_finding("benchmark-regression", "error", "benchmark candidate regressed"));
+        }
+        crate::benchmark::ComparisonResult::Inconclusive | crate::benchmark::ComparisonResult::Incomparable => {
+            findings.push(kani_finding(
+                "benchmark-inconclusive",
+                "manual_review",
+                "benchmark comparison is inconclusive or incomparable",
+            ));
+        }
+        crate::benchmark::ComparisonResult::Improved | crate::benchmark::ComparisonResult::Stable => {}
+    }
+    let signals = &details.projection.signals;
+    for (family, count) in [
+        ("benchmark-false-positive", signals.false_positive),
+        ("benchmark-false-negative", signals.false_negative),
+        ("benchmark-unexpected-suppression", signals.unexpected_suppression),
+    ] {
+        if count > 0 {
+            findings.push(kani_finding(family, "manual_review", &format!("benchmark signal count is {count}")));
+        }
+    }
+    findings
 }
 
 fn parse_profiled_mutation(input: &EvaluationInput<'_>) -> RailParseOutput {
@@ -3251,6 +3444,10 @@ fn input_text(
     if args.rail == EvidenceRailKind::CoverageBaseline && args.profile.as_deref() == Some(crate::coverage::PROFILE_ID) {
         return analyze_profiled_coverage_input(args);
     }
+    if args.rail == EvidenceRailKind::BenchmarkEvidence && args.profile.as_deref() == Some(crate::benchmark::PROFILE_ID)
+    {
+        return analyze_profiled_benchmark_input(args);
+    }
     if args.rail == EvidenceRailKind::DynamicEvidence
         && args.profile.as_deref() == Some(crate::cargo::fuzz::PROFILE_ID)
         && args.run
@@ -3346,6 +3543,57 @@ fn analyze_profiled_mutation_input(args: &EvidenceRailArgs) -> Result<(&'static 
         (MODE_IMPORT, parts, None)
     };
     Ok((mode, crate::mutation::request::render(parts)?, exit_code))
+}
+
+fn analyze_profiled_benchmark_input(args: &EvidenceRailArgs) -> Result<(&'static str, String, Option<i32>), String> {
+    if args.command.as_deref().is_some_and(|command| !command.is_empty()) {
+        return Err("profiled benchmark evidence rejects arbitrary `--command` authority".to_owned());
+    }
+    if args.run && args.input.is_some() {
+        return Err("profiled benchmark evidence accepts either `--input PATH` or `--run`, not both".to_owned());
+    }
+    let profile_id = args
+        .profile
+        .as_deref()
+        .ok_or_else(|| "profiled benchmark evidence requires `--profile NAME`".to_owned())?;
+    let profile = crate::benchmark::selected_profile(profile_id)?;
+    let config = args
+        .config
+        .as_deref()
+        .ok_or_else(|| "profiled benchmark evidence requires `--config PATH`".to_owned())?;
+    let workspace = args.workspace_root.as_deref().unwrap_or_else(|| Path::new("."));
+    let root = SourceRoot::open_existing(workspace)?;
+    let config_bytes = root.read_bounded(&RootRelativePath::new(config)?, profile.limits.max_artifact_bytes)?;
+    if crate::benchmark::prefixed_identity(&config_bytes) != crate::benchmark::PROFILE_IDENTITY {
+        return Err("benchmark profile bytes do not match the checked Nickel registry".to_owned());
+    }
+    if args.run {
+        if !args.external_reports.is_empty() {
+            return Err("profiled benchmark run rejects untyped external reports".to_owned());
+        }
+        let baseline = args
+            .baseline
+            .as_deref()
+            .ok_or_else(|| "profiled benchmark run requires `--baseline PATH`".to_owned())?;
+        let bytes = root.read_bounded(&RootRelativePath::new(baseline)?, profile.limits.max_artifact_bytes)?;
+        let baseline: crate::benchmark::RunSet =
+            serde_json::from_slice(&bytes).map_err(|error| format!("parse benchmark baseline run set: {error}"))?;
+        let observation = crate::benchmark::shell::run(workspace, &profile, baseline)?;
+        return Ok((MODE_RUN, crate::benchmark::request::render(&observation.input)?, Some(observation.exit_code)));
+    }
+    if args.baseline.is_some() || !args.external_reports.is_empty() {
+        return Err(
+            "profiled benchmark import accepts one complete typed input and rejects separate parents".to_owned()
+        );
+    }
+    let input = args
+        .input
+        .as_deref()
+        .ok_or_else(|| "profiled benchmark import requires `--input PATH`".to_owned())?;
+    let bytes = root.read_bounded(&RootRelativePath::new(input)?, profile.limits.max_artifact_bytes)?;
+    let text = String::from_utf8(bytes).map_err(|error| format!("benchmark input is not UTF-8: {error}"))?;
+    crate::benchmark::request::parse(&text)?;
+    Ok((MODE_IMPORT, text, None))
 }
 
 fn analyze_profiled_coverage_input(args: &EvidenceRailArgs) -> Result<(&'static str, String, Option<i32>), String> {
@@ -3741,6 +3989,18 @@ fn run_mode_command_argv(args: &EvidenceRailArgs) -> Result<Vec<String>, String>
         }
         return crate::coverage::selected_profile(crate::coverage::PROFILE_ID).map(|profile| profile.command_argv);
     }
+    if args.rail == EvidenceRailKind::BenchmarkEvidence && args.profile.as_deref() == Some(crate::benchmark::PROFILE_ID)
+    {
+        if args.command.as_deref().is_some_and(|command| !command.is_empty()) {
+            return Err("profiled benchmark evidence rejects arbitrary --command authority".to_owned());
+        }
+        let profile = crate::benchmark::selected_profile(crate::benchmark::PROFILE_ID)?;
+        return profile
+            .workloads
+            .first()
+            .map(|workload| workload.command_argv.clone())
+            .ok_or_else(|| "benchmark profile has no workloads".to_owned());
+    }
     if args.rail == EvidenceRailKind::HegelProperty && args.command.as_deref().is_none_or(str::is_empty) {
         return Err(
             "hegel-property run requires an explicit --command and never bootstraps Hegel automatically".to_owned()
@@ -3802,6 +4062,7 @@ fn command_argv(
         EvidenceRailKind::ReleaseSupplyChain => string_vec(&["cargo", "auditable", "build"]),
         EvidenceRailKind::MutationTesting => string_vec(&["cargo", "mutants", "--json"]),
         EvidenceRailKind::CoverageBaseline => string_vec(&["cargo", "llvm-cov", "--json", "--summary-only"]),
+        EvidenceRailKind::BenchmarkEvidence => string_vec(&["cargo", "metadata", "--no-deps", "--format-version", "1"]),
         EvidenceRailKind::KaniModelCheck => string_vec(&["cargo", "kani"]),
         EvidenceRailKind::HegelProperty | EvidenceRailKind::Z4Solver | EvidenceRailKind::VerifierFixture => {
             requested_command.map(split_command).unwrap_or_default()

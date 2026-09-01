@@ -2088,6 +2088,51 @@
               mkdir -p "$out"
             '';
 
+        benchmarkProfilesCheck =
+          pkgs.runCommand "octet-benchmark-profiles-check"
+            {
+              nativeBuildInputs = with pkgs; [
+                b3sum
+                diffutils
+                jq
+                nickel
+              ];
+            }
+            ''
+              cd ${./.}
+              generated=$(mktemp)
+              expected_identity=64e4b8163b3c89d8143d4f6ff07230d33b2b2a9b7bcab35bf45325027a20cd47
+              expected_profiles=1
+              expected_workloads=4
+              expected_corpora=2
+              expected_environment_facts=9
+              nickel typecheck standards/benchmark/profiles.ncl
+              nickel export --format json standards/benchmark/profiles.ncl > "$generated"
+              diff -u standards/benchmark/profiles.json "$generated"
+              test "$(b3sum "$generated" | cut -d ' ' -f 1)" = "$expected_identity"
+              jq --exit-status \
+                --argjson expected_profiles "$expected_profiles" \
+                --argjson expected_workloads "$expected_workloads" \
+                --argjson expected_corpora "$expected_corpora" \
+                --argjson expected_environment_facts "$expected_environment_facts" '
+                  .schema_version == "octet-benchmark-profiles/v1"
+                  and (.profiles | length) == $expected_profiles
+                  and .profiles[0].profile_id == "octet-metadata-benchmark"
+                  and (.profiles[0].workloads | length) == $expected_workloads
+                  and (.profiles[0].signal_corpus | length) == $expected_corpora
+                  and ([.profiles[0].signal_corpus[].source_kind] | sort) == (["cross_project", "synthetic"] | sort)
+                  and ([.profiles[0].workloads[].mode] | sort) == (["cold", "incremental", "no_change", "warm"] | sort)
+                  and all(.profiles[0].workloads[]; (.required_environment_facts | length) == $expected_environment_facts)
+                  and .profiles[0].evidence_tier == "transcript_assertion"
+                ' "$generated" >/dev/null
+              nickel export --format json standards/evidence/fixtures/valid/benchmark_evidence_details_v1.ncl >/dev/null
+              if nickel export --format json standards/evidence/fixtures/invalid/benchmark_evidence_bad_profile.ncl >/dev/null 2>&1; then
+                echo "invalid benchmark evidence fixture passed" >&2
+                exit 1
+              fi
+              mkdir -p "$out"
+            '';
+
         mutationProfilesCheck =
           pkgs.runCommand "octet-mutation-profiles-check"
             {
@@ -4276,6 +4321,7 @@
             dynamic-evidence-profiles = dynamicEvidenceProfilesCheck;
             sarif-profiles = sarifProfilesCheck;
             coverage-profiles = coverageProfilesCheck;
+            benchmark-profiles = benchmarkProfilesCheck;
             mutation-profiles = mutationProfilesCheck;
             strict-profile-catalog = strictProfileCatalogCheck;
             nominal-domain-catalog = nominalDomainCatalogCheck;
