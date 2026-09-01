@@ -59,6 +59,7 @@ const FORMAL_PROOF_TIER: &str = "formal_proof";
 const BLAKE3_IDENTITY_PREFIX: &str = "b3:";
 const BLAKE3_HEX_LENGTH: usize = 64;
 const SPECIALIZED_DIAGNOSTIC_CAPACITY: usize = 4;
+const PROFILED_COVERAGE_FINDING_CAPACITY: usize = 12;
 const KANI_STUB_KIND_VERIFIED: &str = "verified";
 const KANI_STUB_KIND_PLAIN: &str = "plain";
 const KANI_STUB_KIND_ENVIRONMENT: &str = "environment";
@@ -363,6 +364,7 @@ impl EvidenceRailKind {
                 "coverage evidence measures executed code regions and does not prove behavioral correctness",
                 "coverage baseline evidence is optional and not part of starter cargo octet check",
                 "passing coverage thresholds does not replace review of uncovered critical paths",
+                crate::coverage::REQUIRED_NON_CLAIM,
             ]),
             Self::KaniModelCheck => string_vec(&[
                 "Kani model-check evidence is optional and not part of starter cargo octet check",
@@ -542,6 +544,8 @@ pub struct EvidenceRailReceipt {
     pub cargo_fuzz: Option<crate::cargo::fuzz::ReceiptDetails>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sarif_import: Option<crate::external::sarif::ReceiptDetails>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub coverage_baseline: Option<crate::coverage::ReceiptDetails>,
 }
 
 pub struct EvaluationInput<'a> {
@@ -558,6 +562,32 @@ pub struct EvaluationInput<'a> {
     pub requested_command: Option<&'a str>,
     pub parent_artifacts: Vec<String>,
     pub tool_exit_code: Option<i32>,
+}
+
+struct CoverageFindings {
+    entries: Vec<EvidenceRailFinding>,
+}
+
+impl CoverageFindings {
+    fn new() -> Self {
+        Self {
+            entries: Vec::with_capacity(PROFILED_COVERAGE_FINDING_CAPACITY),
+        }
+    }
+
+    fn push(&mut self, finding: EvidenceRailFinding) {
+        self.entries.push(finding);
+    }
+
+    fn finish(self) -> Vec<EvidenceRailFinding> {
+        self.entries
+    }
+}
+
+struct InputIdentities {
+    config: Option<String>,
+    baseline: Option<String>,
+    lockfile: Option<String>,
 }
 
 struct RailParseOutput {
@@ -580,15 +610,12 @@ pub fn run(args: &EvidenceRailArgs) -> Result<i32, String> {
     let workspace_root = args.workspace_root.as_deref().unwrap_or_else(|| Path::new("."));
     let workspace_scope = workspace_root.display().to_string();
     let mut config_path = args.config.as_ref().map(|path| path.display().to_string());
-    let mut config_identity = args.config.as_ref().map(|path| path_identity(path)).transpose()?;
-    let baseline_identity = args.baseline.as_ref().map(|path| path_identity(path)).transpose()?;
-    let lockfile_identity = path_identity_if_present(&workspace_root.join("Cargo.lock"))?;
     let prepared_clippy_run = prepare_clippy_run(args)?;
     if let Some(prepared) = &prepared_clippy_run {
         config_path = Some(prepared.config_path.clone());
-        config_identity = Some(prepared.config_identity.clone());
     }
-    let (mode, import_text, tool_exit_code) = evidence_input_text(args, prepared_clippy_run.as_ref())?;
+    let (mode, import_text, tool_exit_code) = input_text(args, prepared_clippy_run.as_ref())?;
+    let identities = input_identities(args, prepared_clippy_run.as_ref(), workspace_root, &import_text)?;
     let normalized_command = normalized_run_command(args, prepared_clippy_run.as_ref())?;
     let mut receipt = evaluate(EvaluationInput {
         rail: args.rail,
@@ -596,8 +623,8 @@ pub fn run(args: &EvidenceRailArgs) -> Result<i32, String> {
         import_text: &import_text,
         workspace_scope: &workspace_scope,
         config_path: config_path.as_deref(),
-        baseline_identity,
-        lockfile_identity,
+        baseline_identity: identities.baseline,
+        lockfile_identity: identities.lockfile,
         locked: args.locked,
         advisory_updated_by_prior_step: args.update_advisory_database,
         profile: args.profile.as_deref(),
@@ -613,7 +640,7 @@ pub fn run(args: &EvidenceRailArgs) -> Result<i32, String> {
             .collect(),
         tool_exit_code,
     });
-    receipt.config_identity = config_identity;
+    receipt.config_identity = identities.config;
     receipt.clippy_restrictions = prepared_clippy_run.as_ref().map(|prepared| prepared.details.clone());
 
     let mut additional_artifacts = BTreeMap::new();
@@ -632,6 +659,9 @@ pub fn run(args: &EvidenceRailArgs) -> Result<i32, String> {
             crate::external::sarif::projection_bytes(details)?,
         );
     }
+    if let Some(details) = receipt.coverage_baseline.as_ref() {
+        additional_artifacts.extend(crate::coverage::request::artifact_payloads(details, &import_text)?);
+    }
     let receipt_json = render_receipt_json(&receipt)?;
     let summary = render_summary_for_command(&receipt, &args.command_line);
     let provenance_jsonl = render_provenance_jsonl(&receipt, &receipt_json, &summary)?;
@@ -639,6 +669,33 @@ pub fn run(args: &EvidenceRailArgs) -> Result<i32, String> {
     render_cli_output(&receipt, args.output_format)?;
 
     Ok(exit_code_for_receipt(&receipt))
+}
+
+fn input_identities(
+    args: &EvidenceRailArgs,
+    prepared_clippy_run: Option<&PreparedClippyRun>,
+    workspace_root: &Path,
+    import_text: &str,
+) -> Result<InputIdentities, String> {
+    let is_profiled_coverage =
+        args.rail == EvidenceRailKind::CoverageBaseline && args.profile.as_deref() == Some(crate::coverage::PROFILE_ID);
+    let config = if is_profiled_coverage {
+        Some(crate::coverage::PROFILE_IDENTITY.to_owned())
+    } else if let Some(prepared) = prepared_clippy_run {
+        Some(prepared.config_identity.clone())
+    } else {
+        args.config.as_ref().map(|path| path_identity(path)).transpose()?
+    };
+    let baseline = if is_profiled_coverage {
+        crate::coverage::request::baseline_identity(import_text)
+    } else {
+        args.baseline.as_ref().map(|path| path_identity(path)).transpose()?
+    };
+    Ok(InputIdentities {
+        config,
+        baseline,
+        lockfile: path_identity_if_present(&workspace_root.join("Cargo.lock"))?,
+    })
 }
 
 fn normalized_run_command(
@@ -681,6 +738,7 @@ pub fn evaluate(input: EvaluationInput<'_>) -> EvidenceRailReceipt {
     };
     let cargo_fuzz = fuzz_details(&input);
     let sarif_import = sarif_details(&input);
+    let coverage_baseline = coverage_details(&input);
     parsed.diagnostics.sort();
     parsed.diagnostics.dedup();
     let status = if parsed.diagnostics.is_empty() {
@@ -688,13 +746,14 @@ pub fn evaluate(input: EvaluationInput<'_>) -> EvidenceRailReceipt {
     } else {
         STATUS_FAILED.to_owned()
     };
+    let bounded_log_identity = receipt_log_identity(&input);
 
     EvidenceRailReceipt {
         schema_version: RECEIPT_SCHEMA_VERSION.to_owned(),
         rail_id: input.rail.as_str().to_owned(),
         checker_id: input.rail.checker_id().to_owned(),
         mode: input.mode.to_owned(),
-        command_argv: receipt_command_argv(&input, cargo_fuzz.as_ref()),
+        command_argv: receipt_command_argv(&input, cargo_fuzz.as_ref(), coverage_baseline.as_ref()),
         workspace_scope: input.workspace_scope.to_owned(),
         config_path: input.config_path.map(ToOwned::to_owned),
         config_identity: None,
@@ -703,11 +762,7 @@ pub fn evaluate(input: EvaluationInput<'_>) -> EvidenceRailReceipt {
         checked_rule_families: input.rail.checked_rule_families(),
         status,
         finding_counts: parsed.finding_counts,
-        bounded_log_identity: if input.import_text.is_empty() {
-            EMPTY_LOG_IDENTITY.to_owned()
-        } else {
-            prefixed_identity(input.import_text.as_bytes())
-        },
+        bounded_log_identity,
         imported_input_identity: prefixed_identity(input.import_text.as_bytes()),
         advisory_database_update: advisory_database_update(
             input.rail,
@@ -730,7 +785,18 @@ pub fn evaluate(input: EvaluationInput<'_>) -> EvidenceRailReceipt {
         verifier_fixtures: parsed.verifier_fixtures,
         cargo_fuzz,
         sarif_import,
+        coverage_baseline,
     }
+}
+
+fn receipt_log_identity(input: &EvaluationInput<'_>) -> String {
+    crate::coverage::request::bounded_log_identity(input.import_text).unwrap_or_else(|| {
+        if input.import_text.is_empty() {
+            EMPTY_LOG_IDENTITY.to_owned()
+        } else {
+            prefixed_identity(input.import_text.as_bytes())
+        }
+    })
 }
 
 fn fuzz_details(input: &EvaluationInput<'_>) -> Option<crate::cargo::fuzz::ReceiptDetails> {
@@ -751,8 +817,23 @@ fn sarif_details(input: &EvaluationInput<'_>) -> Option<crate::external::sarif::
     }
 }
 
-fn receipt_command_argv(input: &EvaluationInput<'_>, fuzz: Option<&crate::cargo::fuzz::ReceiptDetails>) -> Vec<String> {
+fn coverage_details(input: &EvaluationInput<'_>) -> Option<crate::coverage::ReceiptDetails> {
+    if input.rail == EvidenceRailKind::CoverageBaseline && input.profile == Some(crate::coverage::PROFILE_ID) {
+        crate::coverage::request::evaluate(input.import_text, crate::coverage::PROFILE_ID).details
+    } else {
+        None
+    }
+}
+
+fn receipt_command_argv(
+    input: &EvaluationInput<'_>,
+    fuzz: Option<&crate::cargo::fuzz::ReceiptDetails>,
+    coverage: Option<&crate::coverage::ReceiptDetails>,
+) -> Vec<String> {
     if let Some(details) = fuzz {
+        return details.command_argv.clone();
+    }
+    if let Some(details) = coverage {
         return details.command_argv.clone();
     }
     if matches!(input.rail, EvidenceRailKind::CharonSemantic | EvidenceRailKind::SarifImport)
@@ -815,57 +896,9 @@ pub fn render_provenance_jsonl(
 ) -> Result<String, String> {
     let mut receipt_parents = receipt.parent_artifacts.clone();
     let mut records = Vec::new();
-    if let Some(details) = receipt.wasm_artifact.as_ref() {
-        records.push(ProvenanceRecord {
-            schema_version: crate::evidence::PROVENANCE_SCHEMA_VERSION.to_owned(),
-            source_id: "octet.artifact.wasm-input".to_owned(),
-            checker_id: crate::evidence::CHECKER_CARGO_OCTET.to_owned(),
-            evidence_tier: EvidenceTier::PolicyCheck,
-            artifact_locator: crate::wasm_artifact::INPUT_ARTIFACT_NAME.to_owned(),
-            blake3: details
-                .exact_artifact_identity
-                .strip_prefix("b3:")
-                .unwrap_or(&details.exact_artifact_identity)
-                .to_owned(),
-            checked_scope: receipt.workspace_scope.clone(),
-            verifier_identity: None,
-            proof_artifact_identity: None,
-            human_action: None,
-            parent_artifacts: Vec::new(),
-        });
-        receipt_parents.push(crate::wasm_artifact::INPUT_ARTIFACT_NAME.to_owned());
-    }
-    if let Some(details) = receipt.charon_semantic.as_ref() {
-        for artifact in &details.artifacts {
-            let parent_artifacts = match artifact.role.as_str() {
-                "snapshot" => Vec::new(),
-                "projection" => vec![crate::charon_semantic::RAW_SNAPSHOT_ARTIFACT.to_owned()],
-                "comparison" | "analysis" => {
-                    vec![crate::charon_semantic::PROJECTION_ARTIFACT.to_owned()]
-                }
-                _ => Vec::new(),
-            };
-            records.push(ProvenanceRecord {
-                schema_version: crate::evidence::PROVENANCE_SCHEMA_VERSION.to_owned(),
-                source_id: format!("octet.charon_semantic.{}", artifact.role),
-                checker_id: crate::evidence::CHECKER_CARGO_OCTET.to_owned(),
-                evidence_tier: EvidenceTier::TranscriptAssertion,
-                artifact_locator: artifact.name.clone(),
-                blake3: artifact.identity.strip_prefix("b3:").unwrap_or(&artifact.identity).to_owned(),
-                checked_scope: receipt.workspace_scope.clone(),
-                verifier_identity: None,
-                proof_artifact_identity: None,
-                human_action: None,
-                parent_artifacts,
-            });
-            receipt_parents.push(artifact.name.clone());
-        }
-    }
-    if let Some(details) = receipt.sarif_import.as_ref() {
-        records.extend(sarif_provenance(details, &receipt.workspace_scope));
-        receipt_parents.push(crate::external::sarif::RAW_ARTIFACT.to_owned());
-        receipt_parents.push(crate::external::sarif::PROJECTION_ARTIFACT.to_owned());
-    }
+    let (specialized_records, specialized_parents) = specialized_provenance(receipt);
+    records.extend(specialized_records);
+    receipt_parents.extend(specialized_parents);
     records.push(ProvenanceRecord {
         schema_version: crate::evidence::PROVENANCE_SCHEMA_VERSION.to_owned(),
         source_id: source_id_for_receipt(receipt),
@@ -900,6 +933,72 @@ pub fn render_provenance_jsonl(
     Ok(rendered)
 }
 
+fn specialized_provenance(receipt: &EvidenceRailReceipt) -> (Vec<ProvenanceRecord>, Vec<String>) {
+    let mut records = Vec::new();
+    let mut parents = Vec::new();
+    if let Some(details) = receipt.wasm_artifact.as_ref() {
+        records.push(ProvenanceRecord {
+            schema_version: crate::evidence::PROVENANCE_SCHEMA_VERSION.to_owned(),
+            source_id: "octet.artifact.wasm-input".to_owned(),
+            checker_id: crate::evidence::CHECKER_CARGO_OCTET.to_owned(),
+            evidence_tier: EvidenceTier::PolicyCheck,
+            artifact_locator: crate::wasm_artifact::INPUT_ARTIFACT_NAME.to_owned(),
+            blake3: details
+                .exact_artifact_identity
+                .strip_prefix("b3:")
+                .unwrap_or(&details.exact_artifact_identity)
+                .to_owned(),
+            checked_scope: receipt.workspace_scope.clone(),
+            verifier_identity: None,
+            proof_artifact_identity: None,
+            human_action: None,
+            parent_artifacts: Vec::new(),
+        });
+        parents.push(crate::wasm_artifact::INPUT_ARTIFACT_NAME.to_owned());
+    }
+    if let Some(details) = receipt.charon_semantic.as_ref() {
+        for artifact in &details.artifacts {
+            let parent_artifacts = match artifact.role.as_str() {
+                "snapshot" => Vec::new(),
+                "projection" => vec![crate::charon_semantic::RAW_SNAPSHOT_ARTIFACT.to_owned()],
+                "comparison" | "analysis" => vec![crate::charon_semantic::PROJECTION_ARTIFACT.to_owned()],
+                _ => Vec::new(),
+            };
+            records.push(ProvenanceRecord {
+                schema_version: crate::evidence::PROVENANCE_SCHEMA_VERSION.to_owned(),
+                source_id: format!("octet.charon_semantic.{}", artifact.role),
+                checker_id: crate::evidence::CHECKER_CARGO_OCTET.to_owned(),
+                evidence_tier: EvidenceTier::TranscriptAssertion,
+                artifact_locator: artifact.name.clone(),
+                blake3: artifact.identity.strip_prefix("b3:").unwrap_or(&artifact.identity).to_owned(),
+                checked_scope: receipt.workspace_scope.clone(),
+                verifier_identity: None,
+                proof_artifact_identity: None,
+                human_action: None,
+                parent_artifacts,
+            });
+            parents.push(artifact.name.clone());
+        }
+    }
+    if let Some(details) = receipt.sarif_import.as_ref() {
+        records.extend(sarif_provenance(details, &receipt.workspace_scope));
+        parents.extend([
+            crate::external::sarif::RAW_ARTIFACT.to_owned(),
+            crate::external::sarif::PROJECTION_ARTIFACT.to_owned(),
+        ]);
+    }
+    if let Some(details) = receipt.coverage_baseline.as_ref() {
+        records.extend(coverage_provenance(details, &receipt.workspace_scope));
+        parents.extend([
+            crate::coverage::SOURCE_MANIFEST_ARTIFACT.to_owned(),
+            crate::coverage::CURRENT_ENVELOPE_ARTIFACT.to_owned(),
+            crate::coverage::BASELINE_ENVELOPE_ARTIFACT.to_owned(),
+            crate::coverage::PROJECTION_ARTIFACT.to_owned(),
+        ]);
+    }
+    (records, parents)
+}
+
 fn sarif_provenance(details: &crate::external::sarif::ReceiptDetails, checked_scope: &str) -> Vec<ProvenanceRecord> {
     vec![
         ProvenanceRecord {
@@ -928,6 +1027,62 @@ fn sarif_provenance(details: &crate::external::sarif::ReceiptDetails, checked_sc
             human_action: None,
             parent_artifacts: vec![crate::external::sarif::RAW_ARTIFACT.to_owned()],
         },
+    ]
+}
+
+fn coverage_provenance(details: &crate::coverage::ReceiptDetails, checked_scope: &str) -> Vec<ProvenanceRecord> {
+    let source_identity =
+        details.current.source_identity.strip_prefix("source:").unwrap_or(&details.current.source_identity);
+    let record = |source: &str, locator: &str, identity: &str, parents: Vec<String>| ProvenanceRecord {
+        schema_version: crate::evidence::PROVENANCE_SCHEMA_VERSION.to_owned(),
+        source_id: source.to_owned(),
+        checker_id: crate::evidence::CHECKER_CARGO_LLVM_COV.to_owned(),
+        evidence_tier: EvidenceTier::TranscriptAssertion,
+        artifact_locator: locator.to_owned(),
+        blake3: identity.trim_start_matches("b3:").to_owned(),
+        checked_scope: checked_scope.to_owned(),
+        verifier_identity: None,
+        proof_artifact_identity: None,
+        human_action: None,
+        parent_artifacts: parents,
+    };
+    vec![
+        record(
+            "octet.coverage_baseline.source-manifest",
+            crate::coverage::SOURCE_MANIFEST_ARTIFACT,
+            source_identity,
+            Vec::new(),
+        ),
+        record(
+            "octet.coverage_baseline.current-raw",
+            crate::coverage::CURRENT_RAW_ARTIFACT,
+            &details.current.raw_report_identity,
+            vec![crate::coverage::SOURCE_MANIFEST_ARTIFACT.to_owned()],
+        ),
+        record(
+            "octet.coverage_baseline.current-envelope",
+            crate::coverage::CURRENT_ENVELOPE_ARTIFACT,
+            &details.current_envelope_identity,
+            vec![
+                crate::coverage::SOURCE_MANIFEST_ARTIFACT.to_owned(),
+                crate::coverage::CURRENT_RAW_ARTIFACT.to_owned(),
+            ],
+        ),
+        record(
+            "octet.coverage_baseline.accepted-envelope",
+            crate::coverage::BASELINE_ENVELOPE_ARTIFACT,
+            &details.baseline_envelope_identity,
+            vec![crate::coverage::SOURCE_MANIFEST_ARTIFACT.to_owned()],
+        ),
+        record(
+            "octet.coverage_baseline.comparison",
+            crate::coverage::PROJECTION_ARTIFACT,
+            &details.projection_identity,
+            vec![
+                crate::coverage::CURRENT_ENVELOPE_ARTIFACT.to_owned(),
+                crate::coverage::BASELINE_ENVELOPE_ARTIFACT.to_owned(),
+            ],
+        ),
     ]
 }
 
@@ -975,6 +1130,7 @@ pub fn validate_receipt(receipt: &EvidenceRailReceipt) -> Vec<String> {
     diagnostics.extend(verifier_diagnostics(rail, receipt));
     diagnostics.extend(fuzz_diagnostics(rail, receipt));
     diagnostics.extend(sarif_diagnostics(rail, receipt));
+    diagnostics.extend(coverage_diagnostics(rail, receipt));
     diagnostics
 }
 
@@ -1096,6 +1252,32 @@ fn sarif_diagnostics(rail: EvidenceRailKind, receipt: &EvidenceRailReceipt) -> V
         }
         (_, Some(_)) => diagnostics.push("sarif_import details require the SARIF import rail".to_owned()),
         (_, None) => {}
+    }
+    diagnostics
+}
+
+fn coverage_diagnostics(rail: EvidenceRailKind, receipt: &EvidenceRailReceipt) -> Vec<String> {
+    let mut diagnostics = Vec::with_capacity(SPECIALIZED_DIAGNOSTIC_CAPACITY);
+    let is_selected =
+        rail == EvidenceRailKind::CoverageBaseline && receipt.profile.as_deref() == Some(crate::coverage::PROFILE_ID);
+    match (is_selected, receipt.coverage_baseline.as_ref()) {
+        (true, Some(details)) => {
+            diagnostics.extend(crate::coverage::validate(details));
+            if receipt.config_identity.as_deref() != Some(crate::coverage::PROFILE_IDENTITY) {
+                diagnostics.push("coverage receipt config identity is stale".to_owned());
+            }
+            if receipt.baseline_identity.as_deref() != Some(details.baseline_envelope_identity.as_str()) {
+                diagnostics.push("coverage receipt baseline envelope identity is stale".to_owned());
+            }
+            if receipt.command_argv != details.command_argv {
+                diagnostics.push("coverage receipt command does not match typed details".to_owned());
+            }
+        }
+        (true, None) => diagnostics.push("profiled coverage receipt is missing typed details".to_owned()),
+        (false, Some(_)) => {
+            diagnostics.push("coverage_baseline details require the checked coverage profile".to_owned())
+        }
+        (false, None) => {}
     }
     diagnostics
 }
@@ -1241,6 +1423,13 @@ pub fn expected_bundle_files_for_receipt(receipt: Option<&EvidenceRailReceipt>) 
     if receipt.is_some_and(|receipt| receipt.sarif_import.is_some()) {
         files.push(crate::external::sarif::RAW_ARTIFACT.to_owned());
         files.push(crate::external::sarif::PROJECTION_ARTIFACT.to_owned());
+    }
+    if receipt.is_some_and(|receipt| receipt.coverage_baseline.is_some()) {
+        files.push(crate::coverage::SOURCE_MANIFEST_ARTIFACT.to_owned());
+        files.push(crate::coverage::CURRENT_RAW_ARTIFACT.to_owned());
+        files.push(crate::coverage::CURRENT_ENVELOPE_ARTIFACT.to_owned());
+        files.push(crate::coverage::BASELINE_ENVELOPE_ARTIFACT.to_owned());
+        files.push(crate::coverage::PROJECTION_ARTIFACT.to_owned());
     }
     files.sort();
     files
@@ -1857,6 +2046,9 @@ fn parse_mutation_testing(input: &EvaluationInput<'_>) -> RailParseOutput {
 }
 
 fn parse_coverage_baseline(input: &EvaluationInput<'_>) -> RailParseOutput {
+    if input.profile == Some(crate::coverage::PROFILE_ID) {
+        return parse_profiled_coverage(input);
+    }
     let mut diagnostics = Vec::new();
     if input.baseline_identity.is_none() {
         diagnostics.push("coverage-baseline rail requires an accepted baseline path or identity".to_owned());
@@ -1901,6 +2093,68 @@ fn parse_coverage_baseline(input: &EvaluationInput<'_>) -> RailParseOutput {
         hegel_property: None,
         z4_solver: None,
         verifier_fixtures: None,
+    }
+}
+
+fn parse_profiled_coverage(input: &EvaluationInput<'_>) -> RailParseOutput {
+    let evaluation = crate::coverage::request::evaluate(input.import_text, crate::coverage::PROFILE_ID);
+    let mut findings = CoverageFindings::new();
+    let status = if let Some(details) = evaluation.details.as_ref() {
+        append_coverage_policy_findings(&details.comparison, &mut findings);
+        if details.comparison.passed {
+            STATUS_PASSED.to_owned()
+        } else {
+            STATUS_FAILED.to_owned()
+        }
+    } else {
+        STATUS_FAILED.to_owned()
+    };
+    let findings = findings.finish();
+    RailParseOutput {
+        finding_counts: counts_by_family(&findings),
+        findings,
+        diagnostics: evaluation.diagnostics,
+        status,
+        profile: Some(crate::coverage::PROFILE_ID.to_owned()),
+        property_classes: Vec::new(),
+        hegel_property: None,
+        z4_solver: None,
+        verifier_fixtures: None,
+    }
+}
+
+fn append_coverage_policy_findings(comparison: &crate::coverage::Comparison, findings: &mut CoverageFindings) {
+    for (name, metric) in [
+        ("lines", comparison.lines),
+        ("branches", comparison.branches),
+        ("functions", comparison.functions),
+        ("regions", comparison.regions),
+    ] {
+        append_coverage_metric_findings(name, &metric, findings);
+    }
+}
+
+fn append_coverage_metric_findings(
+    name: &str,
+    metric: &crate::coverage::MetricComparison,
+    findings: &mut CoverageFindings,
+) {
+    for (passed, family, message) in [
+        (metric.threshold_passed, "coverage-threshold", "threshold failed"),
+        (metric.regression_passed, "coverage-regression", "regression detected"),
+        (metric.denominator_passed, "coverage-denominator", "denominator changed"),
+    ] {
+        if !passed {
+            findings.push(EvidenceRailFinding {
+                family: family.to_owned(),
+                severity: "error".to_owned(),
+                message: format!("coverage {name} {message}"),
+                source_severity: None,
+                file: None,
+                line: None,
+                column: None,
+            });
+        }
     }
 }
 
@@ -2794,7 +3048,7 @@ fn status_from_kani_findings(findings: &[EvidenceRailFinding]) -> String {
     }
 }
 
-fn evidence_input_text(
+fn input_text(
     args: &EvidenceRailArgs,
     prepared_clippy_run: Option<&PreparedClippyRun>,
 ) -> Result<(&'static str, String, Option<i32>), String> {
@@ -2806,6 +3060,9 @@ fn evidence_input_text(
     }
     if args.rail == EvidenceRailKind::SarifImport {
         return analyze_sarif_input(args).map(|report| (MODE_IMPORT, report, None));
+    }
+    if args.rail == EvidenceRailKind::CoverageBaseline && args.profile.as_deref() == Some(crate::coverage::PROFILE_ID) {
+        return analyze_profiled_coverage_input(args);
     }
     if args.rail == EvidenceRailKind::DynamicEvidence
         && args.profile.as_deref() == Some(crate::cargo::fuzz::PROFILE_ID)
@@ -2855,6 +3112,70 @@ fn analyze_sarif_input(args: &EvidenceRailArgs) -> Result<String, String> {
     }
     let report = root.read_bounded(&RootRelativePath::new(input)?, crate::external::sarif::MAX_REPORT_BYTES)?;
     String::from_utf8(report).map_err(|error| format!("SARIF report is not UTF-8: {error}"))
+}
+
+fn analyze_profiled_coverage_input(args: &EvidenceRailArgs) -> Result<(&'static str, String, Option<i32>), String> {
+    if args.command.as_deref().is_some_and(|command| !command.is_empty()) {
+        return Err("profiled coverage rejects arbitrary `--command` authority".to_owned());
+    }
+    if args.run && args.input.is_some() {
+        return Err("profiled coverage accepts either `--input PATH` or `--run`, not both".to_owned());
+    }
+    let profile_id = args.profile.as_deref().ok_or_else(|| "profiled coverage requires `--profile NAME`".to_owned())?;
+    let profile = crate::coverage::selected_profile(profile_id)?;
+    let config = args.config.as_deref().ok_or_else(|| "profiled coverage requires `--config PATH`".to_owned())?;
+    let baseline = args.baseline.as_deref().ok_or_else(|| "profiled coverage requires `--baseline PATH`".to_owned())?;
+    let workspace = args.workspace_root.as_deref().unwrap_or_else(|| Path::new("."));
+    let root = SourceRoot::open_existing(workspace)?;
+    let (source_identity, source_manifest_text) =
+        selected_coverage_source_identity(&args.external_reports, &root, profile.max_report_bytes)?;
+    let config_bytes = root.read_bounded(&RootRelativePath::new(config)?, profile.max_report_bytes)?;
+    if crate::coverage::prefixed_identity(&config_bytes) != crate::coverage::PROFILE_IDENTITY {
+        return Err("coverage profile bytes do not match the checked Nickel registry".to_owned());
+    }
+    let baseline_bytes = root.read_bounded(&RootRelativePath::new(baseline)?, profile.max_report_bytes)?;
+    let baseline_text =
+        String::from_utf8(baseline_bytes).map_err(|error| format!("coverage baseline input is not UTF-8: {error}"))?;
+    let baseline_text = crate::coverage::prepare_baseline_text(&baseline_text, profile_id, &source_identity)?;
+    let (mode, current_text, log_identity, exit_code) = if args.run {
+        let observation = crate::coverage::shell::run(workspace, &profile)?;
+        (MODE_RUN, observation.current_text, observation.bounded_log_identity, Some(observation.exit_code))
+    } else {
+        let input = args
+            .input
+            .as_deref()
+            .ok_or_else(|| "profiled coverage requires `--input PATH` or `--run`".to_owned())?;
+        let current_bytes = root.read_bounded(&RootRelativePath::new(input)?, profile.max_report_bytes)?;
+        let current_text = String::from_utf8(current_bytes)
+            .map_err(|error| format!("coverage current report is not UTF-8: {error}"))?;
+        (MODE_IMPORT, current_text, crate::coverage::prefixed_identity(b""), None)
+    };
+    let request = crate::coverage::request::render(
+        current_text,
+        baseline_text,
+        source_identity,
+        source_manifest_text,
+        log_identity,
+    )?;
+    Ok((mode, request, exit_code))
+}
+
+fn selected_coverage_source_identity(
+    reports: &[std::path::PathBuf],
+    root: &SourceRoot,
+    max_bytes: u64,
+) -> Result<(String, String), String> {
+    if reports.len() != 1 {
+        return Err("profiled coverage requires one `--external-report` source manifest".to_owned());
+    }
+    let bytes = root.read_bounded(&RootRelativePath::new(&reports[0])?, max_bytes)?;
+    if bytes.is_empty() {
+        return Err("profiled coverage source manifest is empty".to_owned());
+    }
+    let identity = format!("source:{}", crate::coverage::prefixed_identity(&bytes));
+    let text =
+        String::from_utf8(bytes).map_err(|error| format!("profiled coverage source manifest is not UTF-8: {error}"))?;
+    Ok((identity, text))
 }
 
 fn read_cargo_fuzz_receipt(path: &Path) -> Result<String, String> {
@@ -3173,6 +3494,12 @@ fn run_mode_command_argv(args: &EvidenceRailArgs) -> Result<Vec<String>, String>
     }
     if args.rail == EvidenceRailKind::DynamicEvidence {
         return dynamic_run_command_argv(args.profile.as_deref(), args.command.as_deref());
+    }
+    if args.rail == EvidenceRailKind::CoverageBaseline && args.profile.as_deref() == Some(crate::coverage::PROFILE_ID) {
+        if args.command.as_deref().is_some_and(|command| !command.is_empty()) {
+            return Err("profiled coverage rejects arbitrary --command authority".to_owned());
+        }
+        return crate::coverage::selected_profile(crate::coverage::PROFILE_ID).map(|profile| profile.command_argv);
     }
     if args.rail == EvidenceRailKind::HegelProperty && args.command.as_deref().is_none_or(str::is_empty) {
         return Err(
@@ -3699,6 +4026,11 @@ mod tests {
     const WORKSPACE_SCOPE: &str = "fixture-workspace";
     const DENY_CONFIG: &str = "deny.toml";
     const BASELINE_IDENTITY: &str = "b3:baseline";
+    const COVERAGE_SOURCE_MANIFEST: &str = "coverage source manifest fixture\n";
+    const COVERAGE_CURRENT_COVERED: u64 = 92;
+    const COVERAGE_CURRENT_BASIS_POINTS: u64 = 9_200;
+    const COVERAGE_ARTIFACT_COUNT: usize = 5;
+    const COVERAGE_METRIC_COUNT: u64 = 4;
     const HEGEL_PROPERTY_CASES: u64 = HEGEL_FAST_CASE_BUDGET;
     const PROPERTY_MIN_SALT: u64 = 0;
     const PROPERTY_MAX_SALT: u64 = 1_000;
@@ -4578,6 +4910,172 @@ mod tests {
     }
 
     #[test]
+    fn profiled_coverage_binds_native_counts_artifacts_and_policy() {
+        // r[verify octet.coverage_baseline.receipt]
+        let current = include_str!("../tests/fixtures/evidence-rails/coverage-native-current.json");
+        let mut receipt = profiled_coverage_receipt(current);
+        assert_eq!(receipt.status, STATUS_PASSED, "{:?}", receipt.diagnostics);
+        assert!(receipt.findings.is_empty());
+        let details = receipt.coverage_baseline.as_ref().expect("profiled coverage details");
+        assert_eq!(details.current.counts.lines.covered, COVERAGE_CURRENT_COVERED);
+        assert_eq!(details.current.counts.lines.percentage_basis_points, COVERAGE_CURRENT_BASIS_POINTS);
+        assert_eq!(receipt.command_argv, details.command_argv);
+        assert!(validate_receipt(&receipt).is_empty());
+
+        let receipt_json = render_receipt_json(&receipt).expect("render coverage receipt");
+        let summary = render_summary(&receipt);
+        let provenance =
+            render_provenance_jsonl(&receipt, &receipt_json, &summary).expect("render coverage provenance");
+        assert!(provenance.contains(crate::coverage::CURRENT_RAW_ARTIFACT));
+        assert!(provenance.contains(crate::coverage::BASELINE_ENVELOPE_ARTIFACT));
+        assert!(provenance.contains(crate::coverage::PROJECTION_ARTIFACT));
+        assert!(!provenance.contains("formal_proof"));
+
+        let request = profiled_coverage_request(current);
+        let artifacts =
+            crate::coverage::request::artifact_payloads(details, &request).expect("coverage artifact payloads");
+        assert_eq!(artifacts.len(), COVERAGE_ARTIFACT_COUNT);
+
+        receipt.coverage_baseline.as_mut().expect("coverage details").comparison.lines.current.covered = 1;
+        assert!(validate_receipt(&receipt).iter().any(|value| value.contains("comparison is stale")));
+    }
+
+    #[test]
+    fn profiled_coverage_rejects_regression_percentages_and_command_authority() {
+        // r[verify octet.coverage_baseline.verification]
+        let regression = include_str!("../tests/fixtures/evidence-rails/coverage-native-regression.json");
+        let receipt = profiled_coverage_receipt(regression);
+        assert_eq!(receipt.status, STATUS_FAILED);
+        assert_eq!(receipt.finding_counts.get("coverage-regression"), Some(&COVERAGE_METRIC_COUNT));
+
+        let percentages = include_str!("../tests/fixtures/evidence-rails/coverage-native-percentage-only.json");
+        let receipt = profiled_coverage_receipt(percentages);
+        assert_eq!(receipt.status, STATUS_FAILED);
+        assert!(receipt.coverage_baseline.is_none());
+        assert!(receipt.diagnostics.iter().any(|value| value.contains("covered count")));
+
+        let mut stale_source: serde_json::Value =
+            serde_json::from_str(&profiled_coverage_request(regression)).expect("parse coverage request");
+        stale_source["source_manifest_text"] = serde_json::Value::String("stale".to_owned());
+        let stale_source = serde_json::to_string(&stale_source).expect("serialize stale source request");
+        assert!(
+            crate::coverage::request::evaluate(&stale_source, crate::coverage::PROFILE_ID)
+                .diagnostics
+                .iter()
+                .any(|value| value.contains("source manifest identity is stale"))
+        );
+
+        let args = crate::cli::EvidenceRailArgs {
+            rail: EvidenceRailKind::CoverageBaseline,
+            input: None,
+            artifact_dir: "artifacts/coverage".into(),
+            workspace_root: None,
+            config: None,
+            baseline: None,
+            profile: Some(crate::coverage::PROFILE_ID.to_owned()),
+            command: Some("arbitrary scanner".to_owned()),
+            parent_artifacts: Vec::new(),
+            external_reports: vec!["source-manifest.json".into()],
+            output_format: OutputFormat::Human,
+            locked: true,
+            update_advisory_database: false,
+            run: true,
+            command_line: "cargo octet evidence collect --rail coverage-baseline --run".to_owned(),
+        };
+        assert!(run_mode_command_argv(&args).expect_err("arbitrary command rejected").contains("authority"));
+    }
+
+    #[test]
+    fn profiled_coverage_import_uses_capability_rooted_checked_inputs() {
+        // r[verify octet.coverage_baseline.boundary]
+        let directory = tempfile::tempdir().expect("create profiled coverage import fixture");
+        let baseline = include_str!("../tests/fixtures/evidence-rails/coverage-native-baseline.json");
+        let source_manifest = b"coverage source manifest fixture\n";
+        let source_identity = format!("source:{}", crate::coverage::prefixed_identity(source_manifest));
+        let baseline_envelope =
+            crate::coverage::baseline_envelope_text(baseline, crate::coverage::PROFILE_ID, &source_identity)
+                .expect("coverage baseline envelope");
+        std::fs::write(
+            directory.path().join("current.json"),
+            include_bytes!("../tests/fixtures/evidence-rails/coverage-native-current.json"),
+        )
+        .expect("write current coverage fixture");
+        std::fs::write(directory.path().join("baseline.json"), baseline_envelope)
+            .expect("write coverage baseline fixture");
+        std::fs::write(directory.path().join("source-manifest.json"), source_manifest)
+            .expect("write coverage source manifest fixture");
+        std::fs::write(
+            directory.path().join("profiles.json"),
+            include_bytes!("../../standards/coverage/profiles.json"),
+        )
+        .expect("write coverage profile fixture");
+        let artifact_dir = directory.path().join("artifacts");
+        let args = crate::cli::EvidenceRailArgs {
+            rail: EvidenceRailKind::CoverageBaseline,
+            input: Some("current.json".into()),
+            artifact_dir: artifact_dir.clone(),
+            workspace_root: Some(directory.path().to_path_buf()),
+            config: Some("profiles.json".into()),
+            baseline: Some("baseline.json".into()),
+            profile: Some(crate::coverage::PROFILE_ID.to_owned()),
+            command: None,
+            parent_artifacts: Vec::new(),
+            external_reports: vec!["source-manifest.json".into()],
+            output_format: OutputFormat::Human,
+            locked: true,
+            update_advisory_database: false,
+            run: false,
+            command_line: "cargo octet evidence collect --rail coverage-baseline --input current.json".to_owned(),
+        };
+        let (mode, request, exit_code) = analyze_profiled_coverage_input(&args).expect("read profiled coverage inputs");
+        assert_eq!(mode, MODE_IMPORT);
+        assert_eq!(exit_code, None);
+        assert!(crate::coverage::request::evaluate(&request, crate::coverage::PROFILE_ID).diagnostics.is_empty());
+        assert_eq!(run(&args).expect("publish profiled coverage import"), EXIT_SUCCESS);
+        for file in expected_bundle_files_for_receipt(None).into_iter().chain([
+            crate::coverage::SOURCE_MANIFEST_ARTIFACT.to_owned(),
+            crate::coverage::CURRENT_RAW_ARTIFACT.to_owned(),
+            crate::coverage::CURRENT_ENVELOPE_ARTIFACT.to_owned(),
+            crate::coverage::BASELINE_ENVELOPE_ARTIFACT.to_owned(),
+            crate::coverage::PROJECTION_ARTIFACT.to_owned(),
+        ]) {
+            assert!(artifact_dir.join(file).is_file());
+        }
+        let valence_path = directory.path().join("valence.json");
+        assert_eq!(
+            crate::artifact::run(&crate::cli::ArtifactArgs {
+                artifact_dir: artifact_dir.clone(),
+                output_format: OutputFormat::Human,
+                emit_valence_provenance: Some(valence_path.clone()),
+            })
+            .expect("verify profiled coverage artifact bundle"),
+            EXIT_SUCCESS
+        );
+        let valence = std::fs::read_to_string(valence_path).expect("read coverage Valence export");
+        assert!(valence.contains("coverage_baseline"));
+        assert!(!valence.contains("formal_proof"));
+
+        std::fs::write(artifact_dir.join(crate::coverage::CURRENT_RAW_ARTIFACT), b"tampered")
+            .expect("tamper current coverage artifact");
+        assert_eq!(
+            crate::artifact::run(&crate::cli::ArtifactArgs {
+                artifact_dir: artifact_dir.clone(),
+                output_format: OutputFormat::Human,
+                emit_valence_provenance: None,
+            })
+            .expect("reject tampered coverage artifact bundle"),
+            EXIT_RAIL_FAILURE
+        );
+
+        std::fs::write(directory.path().join("profiles.json"), b"{}").expect("write stale coverage profile");
+        assert!(
+            analyze_profiled_coverage_input(&args)
+                .expect_err("stale profile rejected")
+                .contains("checked Nickel")
+        );
+    }
+
+    #[test]
     fn kani_model_check_records_contracts_stubs_and_failure_modes() {
         let valid = kani_receipt(include_str!("../tests/fixtures/evidence-rails/kani-model-check-contract.json"));
         let valid_json = render_receipt_json(&valid).expect("receipt renders");
@@ -4759,6 +5257,9 @@ mod tests {
         let release_clean = include_str!("../tests/fixtures/evidence-rails/release-supply-chain-clean.json");
         let mutation_clean = include_str!("../tests/fixtures/evidence-rails/mutation-testing-clean.json");
         let coverage_regression = include_str!("../tests/fixtures/evidence-rails/coverage-baseline-regression.json");
+        let coverage_native = include_str!("../tests/fixtures/evidence-rails/coverage-native-current.json");
+        let coverage_percentage_only =
+            include_str!("../tests/fixtures/evidence-rails/coverage-native-percentage-only.json");
         let kani_contract = include_str!("../tests/fixtures/evidence-rails/kani-model-check-contract.json");
         let kani_invalid = include_str!("../tests/fixtures/evidence-rails/kani-model-check-invalid.json");
         let kani_panic_passed = include_str!("../tests/fixtures/evidence-rails/kani-panic-pilot-passed.json");
@@ -4785,6 +5286,8 @@ mod tests {
         assert_eq!(release_receipt(release_clean).status, STATUS_PASSED);
         assert_eq!(mutation_receipt(mutation_clean).status, STATUS_PASSED);
         assert_eq!(coverage_receipt(coverage_regression, Some(BASELINE_IDENTITY.to_owned())).status, STATUS_FAILED);
+        assert_eq!(profiled_coverage_receipt(coverage_native).status, STATUS_PASSED);
+        assert_eq!(profiled_coverage_receipt(coverage_percentage_only).status, STATUS_FAILED);
         assert_eq!(kani_receipt(kani_contract).status, STATUS_PASSED);
         assert_eq!(kani_receipt(kani_invalid).status, STATUS_FAILED);
         assert_eq!(kani_receipt(kani_panic_passed).status, STATUS_PASSED);
@@ -5106,6 +5609,44 @@ mod tests {
             baseline_identity,
             ..coverage_input()
         })
+    }
+
+    fn profiled_coverage_receipt(current: &str) -> EvidenceRailReceipt {
+        let request = profiled_coverage_request(current);
+        let baseline_identity = crate::coverage::request::baseline_identity(&request);
+        let mut receipt = evaluate(EvaluationInput {
+            rail: EvidenceRailKind::CoverageBaseline,
+            mode: MODE_IMPORT,
+            import_text: &request,
+            workspace_scope: WORKSPACE_SCOPE,
+            config_path: Some("standards/coverage/profiles.json"),
+            baseline_identity,
+            lockfile_identity: Some("b3:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd".to_owned()),
+            locked: true,
+            advisory_updated_by_prior_step: false,
+            profile: Some(crate::coverage::PROFILE_ID),
+            requested_command: None,
+            parent_artifacts: Vec::new(),
+            tool_exit_code: None,
+        });
+        receipt.config_identity = Some(crate::coverage::PROFILE_IDENTITY.to_owned());
+        receipt
+    }
+
+    fn profiled_coverage_request(current: &str) -> String {
+        let baseline = include_str!("../tests/fixtures/evidence-rails/coverage-native-baseline.json");
+        let source_identity =
+            format!("source:{}", crate::coverage::prefixed_identity(COVERAGE_SOURCE_MANIFEST.as_bytes()));
+        let envelope = crate::coverage::baseline_envelope_text(baseline, crate::coverage::PROFILE_ID, &source_identity)
+            .expect("coverage baseline envelope");
+        crate::coverage::request::render(
+            current.to_owned(),
+            envelope,
+            source_identity,
+            COVERAGE_SOURCE_MANIFEST.to_owned(),
+            prefixed_identity(b""),
+        )
+        .expect("profiled coverage request")
     }
 
     fn kani_receipt(import_text: &str) -> EvidenceRailReceipt {

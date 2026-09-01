@@ -2,6 +2,10 @@
 target/
 /target
 coverage/
+!/cargo-octet/src/coverage/
+!/cargo-octet/src/coverage/**
+!/standards/coverage/
+!/standards/coverage/**
 doc/
 
 # Nix
