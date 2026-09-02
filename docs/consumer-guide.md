@@ -176,6 +176,12 @@ cargo octet prove --policy-artifacts-dir artifacts/policy --source src/verified 
 cargo octet artifact verify --artifact-dir artifacts/octet
 ```
 
+External Aeneas consumers use a closed Nickel profile. The receipt binds the
+provider cohort, exact source and span, generated artifacts, theorem,
+requirement, trust closure, resource policy, and outcome. Use
+[`aeneas-consumer-contract.md`](aeneas-consumer-contract.md) for the checked
+fixture, migration rules, and fail-closed cases.
+
 Starter `cargo octet check` usage does not require Verus.
 
 ### 3b. Optional external evidence rails

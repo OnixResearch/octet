@@ -13,6 +13,7 @@ use crate::proof::VerusProofReceipt;
 pub const FORMAL_PROOF_ENVELOPE_SCHEMA_VERSION: &str = "octet-formal-proof-envelope/v1";
 /// Provider identifier for the Aeneas-to-Lean proof path.
 pub const AENEAS_LEAN_PROVIDER_ID: &str = "aeneas-lean";
+const AENEAS_CONSUMER_POLICY_ID: &str = "octet.aeneas_consumer_contract.external-fixture";
 /// Provider identifier for the explicit Verus-v1 compatibility adapter.
 pub const VERUS_V1_PROVIDER_ID: &str = "verus-v1-compatibility";
 /// Evidence tier emitted only for a passed, fully validated formal proof.
@@ -142,6 +143,9 @@ pub struct FormalProofEnvelope {
     pub trust_boundaries: Vec<String>,
     /// Explicit non-claim statements.
     pub non_claims: Vec<String>,
+    /// Optional exact-source Aeneas consumer binding.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub consumer: Option<crate::aeneas_consumer::ConsumerReceiptBinding>,
     /// Closed provider-specific payload.
     pub provider: FormalProofProvider,
 }
@@ -1230,12 +1234,24 @@ pub fn validate_formal_proof_envelope(envelope: &FormalProofEnvelope) -> Vec<Str
             envelope.provider.provider_id()
         ));
     }
+    if envelope.policy_id == AENEAS_CONSUMER_POLICY_ID && envelope.consumer.is_none() {
+        diagnostics.push("Aeneas consumer policy requires its exact consumer binding".to_owned());
+    }
+    if envelope.consumer.is_some() && envelope.policy_id != AENEAS_CONSUMER_POLICY_ID {
+        diagnostics.push("Aeneas consumer binding requires the selected consumer policy".to_owned());
+    }
+    if envelope.consumer.is_some() && !matches!(envelope.provider, FormalProofProvider::AeneasLean(_)) {
+        diagnostics.push("Aeneas consumer binding requires the closed Aeneas provider payload".to_owned());
+    }
     if envelope.evidence_tier == FormalProofEvidenceTier::FormalProof && envelope.status != FormalProofStatus::Passed {
         diagnostics.push("formal_proof evidence requires passed provider status".to_owned());
     }
     if let FormalProofProvider::AeneasLean(payload) = &envelope.provider {
         diagnostics.extend(validate_aeneas_lean_payload(payload));
         diagnostics.extend(validate_aeneas_envelope_stage_bindings(envelope, payload));
+        if let Some(consumer) = envelope.consumer.as_ref() {
+            diagnostics.extend(validate_aeneas_consumer_envelope(envelope, payload, consumer));
+        }
         if envelope.evidence_tier == FormalProofEvidenceTier::FormalProof {
             match &payload.theorem_admission {
                 Some(admission) => diagnostics.extend(validate_aeneas_formal_proof_promotion(
@@ -1262,6 +1278,71 @@ pub fn validate_formal_proof_envelope(envelope: &FormalProofEnvelope) -> Vec<Str
     diagnostics.sort();
     diagnostics.dedup();
     diagnostics
+}
+
+// r[impl octet.aeneas_consumer_contract.valence_handoff]
+fn validate_aeneas_consumer_envelope(
+    envelope: &FormalProofEnvelope,
+    payload: &AeneasLeanProofPayload,
+    consumer: &crate::aeneas_consumer::ConsumerReceiptBinding,
+) -> Vec<String> {
+    let mut diagnostics = crate::aeneas_consumer::validate_receipt(consumer);
+    if envelope.claim.theorem_or_property_id != consumer.theorem.theorem_id
+        || envelope.claim.requirement_id != consumer.theorem.requirement_id
+        || envelope.claim.claim_class != consumer.theorem.claim_class
+    {
+        diagnostics.push("formal-proof claim does not match the Aeneas consumer theorem mapping".to_owned());
+    }
+    let artifact_identities = envelope
+        .source_bindings
+        .iter()
+        .chain(&envelope.artifact_identities)
+        .map(|artifact| artifact.blake3.as_str())
+        .collect::<Vec<_>>();
+    for artifact in &consumer.stage_artifacts {
+        let identity = artifact.blake3.strip_prefix("b3:").unwrap_or(&artifact.blake3);
+        if !artifact_identities.contains(&identity) {
+            diagnostics.push(format!(
+                "Aeneas consumer stage artifact `{}` is absent from the verified envelope",
+                artifact.role
+            ));
+        }
+        match consumer_provider_stage(&payload.stage_chain, &artifact.role) {
+            Some(provider_artifact) if provider_artifact.blake3 == identity => {}
+            Some(_) => diagnostics.push(format!(
+                "Aeneas consumer stage artifact `{}` does not match the provider stage chain",
+                artifact.role
+            )),
+            None => diagnostics.push(format!(
+                "Aeneas consumer stage artifact role `{}` is not supported by the provider chain",
+                artifact.role
+            )),
+        }
+    }
+    let provider_profile = consumer.provider_profile_identity.strip_prefix("b3:").unwrap_or_default();
+    if payload.stage_chain.provider_profile.blake3 != provider_profile {
+        diagnostics.push("Aeneas consumer provider profile does not match the provider stage chain".to_owned());
+    }
+    if consumer.resource_policy.timeout_ms != payload.limits.timeout_ms
+        || consumer.resource_policy.stdout_max_bytes != payload.limits.stdout_max_bytes
+        || consumer.resource_policy.stderr_max_bytes != payload.limits.stderr_max_bytes
+        || consumer.resource_policy.environment_allowlist != payload.environment_allowlist
+    {
+        diagnostics.push("Aeneas consumer resource policy does not match the provider execution limits".to_owned());
+    }
+    diagnostics
+}
+
+fn consumer_provider_stage<'a>(chain: &'a AeneasStageChain, role: &str) -> Option<&'a AeneasStageArtifactIdentity> {
+    let (kind, provider_role) = match role {
+        "rust-source" => (AeneasStageKind::RustSource, AeneasStageArtifactRole::RustSource),
+        "llbc" => (AeneasStageKind::CharonExtraction, AeneasStageArtifactRole::Llbc),
+        "translation-manifest" => (AeneasStageKind::AeneasTranslation, AeneasStageArtifactRole::TranslationManifest),
+        "generated-lean" => (AeneasStageKind::GeneratedLean, AeneasStageArtifactRole::GeneratedLean),
+        "maintained-theorem" => (AeneasStageKind::Theorem, AeneasStageArtifactRole::TheoremSource),
+        _ => return None,
+    };
+    stage_artifact(chain, kind, provider_role)
 }
 
 fn validate_aeneas_envelope_stage_bindings(
@@ -1555,6 +1636,7 @@ pub fn adapt_verus_v1_receipt(receipt: VerusProofReceipt) -> Result<FormalProofE
         artifact_identities,
         trust_boundaries: receipt.trust_boundaries.clone(),
         non_claims: receipt.non_claims.clone(),
+        consumer: None,
         provider: FormalProofProvider::VerusV1(VerusCompatibilityPayload { receipt }),
     })
 }
@@ -2357,6 +2439,7 @@ mod tests {
             artifact_identities: vec![artifact("proofs/aeneas.translation.json")],
             trust_boundaries: vec!["fixture-only provider contract".to_owned()],
             non_claims: TEST_NON_CLAIMS.iter().map(|claim| (*claim).to_owned()).collect(),
+            consumer: None,
             provider: FormalProofProvider::AeneasLean(provider),
         }
     }
