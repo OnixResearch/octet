@@ -5,6 +5,7 @@
 #![allow(clippy::module_name_repetitions)]
 //! Functional core for the Tiger Style policy checker.
 
+pub mod aeneas_consumer;
 pub mod architecture;
 pub mod artifacts;
 pub mod capability_manifest;

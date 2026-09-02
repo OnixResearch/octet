@@ -2451,6 +2451,7 @@
           pkgs.runCommand "octet-proof-rail-manifest-check"
             {
               nativeBuildInputs = with pkgs; [
+                b3sum
                 jq
                 nickel
               ];
@@ -2459,6 +2460,7 @@
               cd ${./.}
               manifest_json=$(mktemp)
               aeneas_profile_json=$(mktemp)
+              consumer_profile_json=$(mktemp)
               valence_adapter_fixture_json=$(mktemp)
               compatibility_matrix_json=$(mktemp)
               trellis_import_json=$(mktemp)
@@ -2466,12 +2468,31 @@
               jq --exit-status '
                 .schema_version == "octet-proof-rail-manifest/v1"
                 and .rails.aeneas_fixture.approved_theorem_statement_blake3 == "${approvedAeneasTheoremStatementBlake3}"
+                and .rails.aeneas_external_consumer.theorem_id == "aeneas.consumer.increment-matches-model"
+                and .rails.aeneas_external_consumer.source_paths == ["src/lib.rs"]
+                and .rails.aeneas_external_consumer.proof_paths == ["Theorem.lean"]
               ' "$manifest_json" >/dev/null
 
               nickel typecheck standards/proof-rails/aeneas-lean/contracts.ncl
               nickel typecheck standards/proof-rails/aeneas-lean/profile.ncl
               nickel export --format json standards/proof-rails/aeneas-lean/profile.ncl > "$aeneas_profile_json"
               cmp "$aeneas_profile_json" standards/proof-rails/aeneas-lean/generated/profile.json
+              nickel typecheck standards/proof-rails/aeneas-lean/consumer-contracts.ncl
+              nickel typecheck standards/proof-rails/aeneas-lean/consumer-profile.ncl
+              nickel export --format json standards/proof-rails/aeneas-lean/consumer-profile.ncl > "$consumer_profile_json"
+              cmp "$consumer_profile_json" standards/proof-rails/aeneas-lean/generated/consumer-profile.json
+              expected_consumer_identity=62bb3c01a2037eef1410e35d3902d73fb5e7439e8856d721d0823e14c0af4879
+              test "$(b3sum "$consumer_profile_json" | cut -d ' ' -f 1)" = "$expected_consumer_identity"
+              jq --exit-status '
+                .schema_version == "octet-aeneas-consumer-profile/v1"
+                and .profile_id == "octet-external-aeneas-consumer-v1"
+                and .provider.profile_identity == "b3:cd11b49d1acede2c6a91fa26f0b7a6b4b28db4007b4601a65b3269706a0ce625"
+                and .provider.compatibility_matrix_identity == "b3:403656d75de41b955cd2493ef289ba17308da65a3d214babc1ea606aeae248f5"
+                and (.source.selected_items | length) == 1
+                and (.theorems | length) == 1
+                and .outcomes == ["supported", "blocked", "failed"]
+                and (.provider.network_allowed | not)
+              ' "$consumer_profile_json" >/dev/null
               nickel typecheck standards/proof-rails/aeneas-lean/valence-adapter-fixture.ncl
               nickel export --format json standards/proof-rails/aeneas-lean/valence-adapter-fixture.ncl > "$valence_adapter_fixture_json"
               cmp "$valence_adapter_fixture_json" standards/proof-rails/aeneas-lean/generated/valence-adapter-fixture.json
@@ -2600,6 +2621,18 @@
 
               touch "$out"
             '';
+
+        aeneasConsumerContractCheck = pkgs.runCommand "octet-aeneas-consumer-contract-check" { } ''
+          test -e ${proofRailManifestCheck}
+          test -s ${./standards/proof-rails/aeneas-lean/generated/consumer-profile.json}
+          test -s ${./standards/proof-rails/aeneas-lean/fixtures/external-consumer/src/lib.rs}
+          test -s ${./standards/proof-rails/aeneas-lean/fixtures/external-consumer/Theorem.lean}
+          test -s ${./standards/proof-rails/aeneas-lean/fixtures/external-consumer/expected/llbc.llbc}
+          test -s ${./standards/proof-rails/aeneas-lean/fixtures/external-consumer/expected/translation.json}
+          test -s ${./standards/proof-rails/aeneas-lean/fixtures/external-consumer/expected/Llbc.lean}
+          test -s ${./standards/proof-rails/aeneas-lean/fixtures/external-consumer/expected/formal-proof-receipt.json}
+          touch "$out"
+        '';
 
         productionVerusNegativeProofCheck = pkgs.runCommand "octet-production-verus-negative-proof" { } ''
           set +e
@@ -4481,6 +4514,7 @@
             proof-rail-manifest = proofRailManifestCheck;
             aeneas-lean-provider-closure = aeneasLeanProviderClosureCheck;
             aeneas-lean-compatibility-matrix = aeneasLeanCompatibilityMatrixCheck;
+            aeneas-consumer-contract = aeneasConsumerContractCheck;
             charon-semantic-analysis = charonSemanticAnalysisCheck;
             verus-toolchain-profile = verusToolchainProfileCheck;
             production-verus-negative-proof = productionVerusNegativeProofCheck;

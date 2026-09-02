@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Define a reusable, exact-source consumer contract for the pinned Octet Aeneas, Charon, and Lean provider.
+Defines the `aeneas-consumer-contract` capability.
 
 ## Requirements
 

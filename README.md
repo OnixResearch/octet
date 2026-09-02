@@ -264,6 +264,10 @@ cargo octet proof-ref validate \
 cargo octet artifact verify --artifact-dir artifacts/octet
 ```
 
+The reusable Aeneas consumer profile binds exact downstream source, generated
+artifacts, a maintained theorem, and the existing pinned provider. See
+[`docs/aeneas-consumer-contract.md`](docs/aeneas-consumer-contract.md).
+
 Legacy `cargo slotcar` and `cargo tigerstyle` commands remain compatibility aliases.
 
 ## Release operator path
