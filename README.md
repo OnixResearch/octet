@@ -380,5 +380,6 @@ Dependencies and imported proof references retain their own terms. License metad
 - [AeneasVerif/aeneas](https://github.com/AeneasVerif/aeneas) and [AeneasVerif/charon](https://github.com/AeneasVerif/charon) — opt-in proof and semantic extraction references.
 - [AeneasVerif/eurydice](https://github.com/AeneasVerif/eurydice) and [AeneasVerif/scylla](https://github.com/AeneasVerif/scylla) — deferred translation references.
 - [endorlabs/MIRAI](https://github.com/endorlabs/MIRAI) at `aae0a56f91d9a0a62073bb86e7b2c9793cefc24b` — bounded semantic-pilot source reference.
+- [dafny-lang/dafny](https://github.com/dafny-lang/dafny) release `v4.11.0` at `fcb2042d6d043a2634f0854338c08feeaaaf4ae2` — clean-room reference for proof stability, assumption audit, proof-use, and workspace-state mechanisms. Dafny, Boogie, generated Rust, `.doo`, and `.dtr` are not Octet runtime dependencies.
 
 These references do not transfer compiler, verifier, semantic, security, or release claims into Octet.
