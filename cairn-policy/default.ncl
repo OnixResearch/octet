@@ -35,6 +35,8 @@ let OctetTraceabilityProfile = {
     { root = "docs/trust-boundary-evidence.md", source_kind = "tool_source", extensions = ["md"] },
   ],
   marker_verbs = ["impl", "verify", "depends", "related"],
+  assurance_level = "declared",
+  anchor_kind = "exact_marker_bytes",
 } in
 let OctetReceiptSchema = {
   command = "cargo octet artifact verify --emit-valence-provenance",
