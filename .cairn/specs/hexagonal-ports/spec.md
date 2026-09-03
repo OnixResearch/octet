@@ -8,56 +8,68 @@ Defines the `hexagonal-ports` capability.
 
 ### Requirement: Port mechanism is opt-in
 
-r[octet.hexagonal_ports.opt_in] The port check MUST be opt-in: a consumer that declares no `port` mechanism MUST receive zero port diagnostics.
+r[octet.hexagonal_ports.opt_in] Project port checks MUST run only through an activated project architecture policy with declared port mechanisms.
 
-#### Scenario: No port mechanism means no port diagnostics
+#### Scenario: No project policy means no port evaluation
 
 r[octet.hexagonal_ports.opt_in.noop]
 
-- GIVEN a consumer declares no `port` mechanism
-- WHEN the architecture checker runs the port checks
-- THEN it MUST emit zero port diagnostics.
-- AND it MUST NOT treat an undeclared `trait` as a port.
+- GIVEN a project declares no architecture-policy pointer
+- WHEN `cargo octet check` runs
+- THEN Octet MUST emit no project port diagnostics or port-pass claim
+- AND it MUST NOT infer ports from undeclared traits
+
+#### Scenario: Active policy has no declared ports
+
+- GIVEN a valid active project policy declares no port mechanism
+- WHEN project port checks resolve
+- THEN Octet MUST emit zero port diagnostics
+- AND it MUST record that no port obligations were selected
 
 ### Requirement: Port mechanism contract
 
-r[octet.hexagonal_ports.mechanism] The policy registry MUST accept a `port` mechanism declaring port trait names, the core owner scope, permitted adapter scopes, forbidden concrete types, and a reserved flag.
+r[octet.hexagonal_ports.mechanism] Project policy MUST declare port trait identities, one application-owner scope, permitted adapter scopes, forbidden concrete types, and reserved status.
 
 #### Scenario: Port mechanism is well-formed
 
 r[octet.hexagonal_ports.mechanism.well_formed]
 
-- GIVEN a consumer declares a `port` mechanism with `port_traits`, `core_owner_scope`, and `permitted_adapter_scopes`
-- WHEN Nickel evaluates the policy contract
-- THEN evaluation MUST succeed.
-- AND a `port` mechanism omitting `core_owner_scope` MUST fail closed.
+- GIVEN a project declares port traits with `application_owner_scope` and permitted adapter scopes
+- WHEN Nickel validates the project policy
+- THEN validation MUST succeed when all scopes resolve to permitted roles
+
+#### Scenario: Legacy core owner is declared
+
+- GIVEN a project declares `core_owner_scope` or assigns port ownership to `domain-core`
+- WHEN policy validation runs
+- THEN validation MUST fail with a deterministic application-owner migration diagnostic
 
 ### Requirement: Port invariants
 
-r[octet.hexagonal_ports.invariants] The checker MUST verify that ports are defined in core, that each non-reserved port has an adapter implementation, and that core never implements a port for a concrete infrastructure type.
+r[octet.hexagonal_ports.invariants] The checker MUST verify that ports are application-owned, adapters implement them, and concrete implementations remain outside domain and application scopes.
 
-#### Scenario: Port defined in core
+#### Scenario: Port defined in application scope
 
 r[octet.hexagonal_ports.invariants.defined_in_core]
 
-- GIVEN a port trait is declared but not found in the declared `core_owner_scope`
+- GIVEN a port is declared but no compiler-visible trait exists in its application-owner scope
 - WHEN the port check runs
-- THEN it MUST emit a diagnostic stating the port must be declared in core.
+- THEN it MUST emit a diagnostic that names the missing application-owned port
 
-#### Scenario: Non-reserved port has an adapter impl
+#### Scenario: Non-reserved port has an adapter implementation
 
 r[octet.hexagonal_ports.invariants.adapter_impl]
 
-- GIVEN a non-reserved port has no `impl` in any permitted adapter scope
+- GIVEN a non-reserved port has no compiler-visible implementation in a permitted adapter scope
 - WHEN the port check runs
-- THEN it MUST emit a diagnostic naming the port and the permitted adapter scopes.
-- AND a port flagged `reserved: true` MUST NOT emit the missing-impl diagnostic.
+- THEN it MUST emit a diagnostic naming the port and permitted adapter scopes
+- AND a reserved port MUST remain visible without a missing-implementation finding
 
-#### Scenario: Core has no concrete-infrastructure port impl
+#### Scenario: Core or application has concrete implementation
 
 r[octet.hexagonal_ports.invariants.no_concrete_impl]
 
-- GIVEN the declared core scope contains an `impl <Port> for <ConcreteInfraType>`
+- GIVEN a domain-core or application-shell scope implements a port for a concrete infrastructure type
 - WHEN the port check runs
-- THEN it MUST emit a diagnostic stating core must keep ports abstract and the concrete impl belongs in an adapter.
-- AND the diagnostic MUST name the port, the concrete type, and the core source location.
+- THEN it MUST emit a placement diagnostic naming the port, concrete type, role, and source location
+- AND remediation MUST move the implementation to a permitted adapter scope

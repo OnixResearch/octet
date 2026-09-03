@@ -9,6 +9,13 @@ const FINDING_CONTRACT_NAME: &str = "FindingV2";
 const PROVENANCE_CONTRACT_NAME: &str = "ProvenanceRecordV1";
 const EVIDENCE_RAIL_RECEIPT_CONTRACT_NAME: &str = "EvidenceRailReceiptV1";
 const HEGEL_PROPERTY_DETAILS_CONTRACT_NAME: &str = "HegelPropertyReceiptDetailsV1";
+const HEGEL_HARDENED_DETAILS_CONTRACT_NAME: &str = "HegelHardenedReceiptDetailsV1";
+const MIRAI_PILOT_DECISION_CONTRACT_NAME: &str = "MiraiPilotDecisionV1";
+const CARGO_FUZZ_DETAILS_CONTRACT_NAME: &str = "CargoFuzzReceiptDetailsV1";
+const SARIF_DETAILS_CONTRACT_NAME: &str = "SarifImportReceiptDetailsV1";
+const COVERAGE_DETAILS_CONTRACT_NAME: &str = "CoverageBaselineReceiptDetailsV1";
+const MUTATION_DETAILS_CONTRACT_NAME: &str = "CargoMutantsReceiptDetailsV1";
+const BENCHMARK_DETAILS_CONTRACT_NAME: &str = "BenchmarkEvidenceReceiptDetailsV1";
 const CHAOSCONTROL_PROOF_STYLE_INPUT_CONTRACT_NAME: &str = "ChaosControlProofStyleInputContractV1";
 const CHAOSCONTROL_PROOF_STYLE_INPUT_SCHEMA_VERSION: &str = "octet-chaoscontrol-proof-style-input-contract/v1";
 const CHAOSCONTROL_CONSUMER_REPO: &str = "github:OnixResearch/chaoscontrol";
@@ -88,6 +95,152 @@ static HEGEL_PROPERTY_DETAILS_FIELDS: &[ContractField] = &[
         kind: FieldKind::Dyn,
         default: Some(EMPTY_RECORD_DEFAULT),
     },
+    ContractField {
+        name: "hardened",
+        kind: FieldKind::Dyn,
+        default: Some(EMPTY_RECORD_DEFAULT),
+    },
+];
+
+static HEGEL_HARDENED_DETAILS_FIELDS: &[ContractField] = &[
+    ContractField::required("schema_version", FieldKind::ExactString(crate::hegel::RECEIPT_SCHEMA)),
+    ContractField::required("profile_id", FieldKind::ExactString(crate::hegel::PROFILE_ID)),
+    ContractField::required("profile_identity", FieldKind::NonEmptyString),
+    ContractField::required("law_catalog_identity", FieldKind::NonEmptyString),
+    ContractField::required("property_id", FieldKind::NonEmptyString),
+    ContractField::required("linked_ids", FieldKind::StringArray),
+    ContractField::required("source_scope", FieldKind::NonEmptyString),
+    ContractField::required("producer", FieldKind::Dyn),
+    ContractField::required("settings", FieldKind::Dyn),
+    ContractField::required("generator", FieldKind::Dyn),
+    ContractField::required("command_argv", FieldKind::StringArray),
+    ContractField::required("cargo_lock_identity", FieldKind::NonEmptyString),
+    ContractField::required("package_manifest_identity", FieldKind::NonEmptyString),
+    ContractField::required("source_manifest_identity", FieldKind::NonEmptyString),
+    ContractField::required("generator_manifest_identity", FieldKind::NonEmptyString),
+    ContractField::required("summary_identity", FieldKind::NonEmptyString),
+    ContractField::required("bounded_log_identity", FieldKind::NonEmptyString),
+    ContractField::required("result", FieldKind::NonEmptyString),
+    ContractField::required("cases_completed", FieldKind::Number),
+    ContractField::required("issue_codes", FieldKind::StringArray),
+    ContractField::required("projection_identity", FieldKind::NonEmptyString),
+    ContractField::required("evidence_tier", FieldKind::EvidenceTier),
+    ContractField::required("verification_role", FieldKind::NonEmptyString),
+    ContractField::required("non_claims", FieldKind::StringArray),
+];
+
+static MIRAI_PILOT_DECISION_FIELDS: &[ContractField] = &[
+    ContractField::required("schema_version", FieldKind::ExactString(crate::mirai_pilot::DECISION_SCHEMA)),
+    ContractField::required("profile_id", FieldKind::ExactString(crate::mirai_pilot::PROFILE_ID)),
+    ContractField::required("profile_identity", FieldKind::NonEmptyString),
+    ContractField::required("corpus_identity", FieldKind::NonEmptyString),
+    ContractField::required("provider_revision", FieldKind::NonEmptyString),
+    ContractField::required("provider_source_hash", FieldKind::NonEmptyString),
+    ContractField::required("rust_toolchain", FieldKind::NonEmptyString),
+    ContractField::required("target", FieldKind::NonEmptyString),
+    ContractField::required("derivation_attr", FieldKind::NonEmptyString),
+    ContractField::required("closure_components", FieldKind::StringArray),
+    ContractField::required("command_argv", FieldKind::StringArray),
+    ContractField::required("environment", FieldKind::StringArray),
+    ContractField::required("decision", FieldKind::ExactString("blocked")),
+    ContractField::required("blocker_code", FieldKind::ExactString(crate::mirai_pilot::EXPECTED_BLOCKER)),
+    ContractField::required("failed_criteria", FieldKind::StringArray),
+    ContractField::required("measurements", FieldKind::Dyn),
+    ContractField::required("comparisons", FieldKind::Dyn),
+    ContractField::required("execution_attempted", FieldKind::Dyn),
+    ContractField::required("reproducible_decision", FieldKind::Dyn),
+    ContractField::required("claims", FieldKind::StringArray),
+    ContractField::required("evidence_tier", FieldKind::EvidenceTier),
+    ContractField::required("verification_role", FieldKind::NonEmptyString),
+    ContractField::required("non_claims", FieldKind::StringArray),
+    ContractField::required("receipt_identity", FieldKind::NonEmptyString),
+];
+
+static CARGO_FUZZ_DETAILS_FIELDS: &[ContractField] = &[
+    ContractField::required("schema_version", FieldKind::ExactString(crate::cargo::fuzz::RECEIPT_SCHEMA_VERSION)),
+    ContractField::required("profile_id", FieldKind::ExactString(crate::cargo::fuzz::PROFILE_ID)),
+    ContractField::required("profile_identity", FieldKind::NonEmptyString),
+    ContractField::required("target", FieldKind::ExactString(crate::cargo::fuzz::TARGET)),
+    ContractField::required("engine", FieldKind::ExactString(crate::cargo::fuzz::ENGINE)),
+    ContractField::required("toolchain", FieldKind::ExactString(crate::cargo::fuzz::TOOLCHAIN)),
+    ContractField::required("compiler_identity", FieldKind::NonEmptyString),
+    ContractField::required("sanitizer", FieldKind::ExactString(crate::cargo::fuzz::SANITIZER)),
+    ContractField::required("command_argv", FieldKind::StringArray),
+    ContractField::required("budget", FieldKind::Dyn),
+    ContractField::required("initial_corpus", FieldKind::Dyn),
+    ContractField::required("initial_corpus_root", FieldKind::NonEmptyString),
+    ContractField::required("final_corpus", FieldKind::Dyn),
+    ContractField::required("final_corpus_root", FieldKind::NonEmptyString),
+    ContractField::required("outcome", FieldKind::NonEmptyString),
+    ContractField::required("bounded_log_identity", FieldKind::NonEmptyString),
+    ContractField::required("evidence_tier", FieldKind::EvidenceTier),
+    ContractField::required("non_claims", FieldKind::StringArray),
+];
+
+static SARIF_DETAILS_FIELDS: &[ContractField] = &[
+    ContractField::required("schema_version", FieldKind::ExactString(crate::external::sarif::RECEIPT_SCHEMA)),
+    ContractField::required("profile_id", FieldKind::NonEmptyString),
+    ContractField::required("profile_identity", FieldKind::NonEmptyString),
+    ContractField::required("raw_report_identity", FieldKind::NonEmptyString),
+    ContractField::required("projection_identity", FieldKind::NonEmptyString),
+    ContractField::required("source_driver", FieldKind::NonEmptyString),
+    ContractField::required("supported_version", FieldKind::ExactString(crate::external::sarif::SUPPORTED_VERSION)),
+    ContractField::required("findings", FieldKind::Dyn),
+    ContractField::required("non_claims", FieldKind::StringArray),
+];
+
+static COVERAGE_DETAILS_FIELDS: &[ContractField] = &[
+    ContractField::required("schema_version", FieldKind::ExactString(crate::coverage::RECEIPT_SCHEMA)),
+    ContractField::required("profile_id", FieldKind::ExactString(crate::coverage::PROFILE_ID)),
+    ContractField::required("profile_identity", FieldKind::NonEmptyString),
+    ContractField::required("command_argv", FieldKind::StringArray),
+    ContractField::required("current", FieldKind::Dyn),
+    ContractField::required("baseline", FieldKind::Dyn),
+    ContractField::required("current_envelope_identity", FieldKind::NonEmptyString),
+    ContractField::required("baseline_envelope_identity", FieldKind::NonEmptyString),
+    ContractField::required("projection_identity", FieldKind::NonEmptyString),
+    ContractField::required("comparison", FieldKind::Dyn),
+    ContractField::required("evidence_tier", FieldKind::EvidenceTier),
+    ContractField::required("non_claims", FieldKind::StringArray),
+];
+
+static MUTATION_DETAILS_FIELDS: &[ContractField] = &[
+    ContractField::required("schema_version", FieldKind::ExactString(crate::mutation::RECEIPT_SCHEMA)),
+    ContractField::required("profile_id", FieldKind::ExactString(crate::mutation::PROFILE_ID)),
+    ContractField::required("profile_identity", FieldKind::NonEmptyString),
+    ContractField::required("provider_identity", FieldKind::NonEmptyString),
+    ContractField::required("rust_toolchain", FieldKind::NonEmptyString),
+    ContractField::required("command_argv", FieldKind::StringArray),
+    ContractField::required("source_manifest_identity", FieldKind::NonEmptyString),
+    ContractField::required("native_outcomes_identity", FieldKind::NonEmptyString),
+    ContractField::required("native_inventory_identity", FieldKind::NonEmptyString),
+    ContractField::required("projection_identity", FieldKind::NonEmptyString),
+    ContractField::required("baseline", FieldKind::Dyn),
+    ContractField::required("mutants", FieldKind::Dyn),
+    ContractField::required("outcome_counts", FieldKind::Dyn),
+    ContractField::required("gate_status", FieldKind::NonEmptyString),
+    ContractField::required("evidence_tier", FieldKind::EvidenceTier),
+    ContractField::required("non_claims", FieldKind::StringArray),
+];
+
+static BENCHMARK_DETAILS_FIELDS: &[ContractField] = &[
+    ContractField::required("schema_version", FieldKind::ExactString(crate::benchmark::RECEIPT_SCHEMA)),
+    ContractField::required("profile_id", FieldKind::ExactString(crate::benchmark::PROFILE_ID)),
+    ContractField::required("profile_identity", FieldKind::NonEmptyString),
+    ContractField::required("provider_identity", FieldKind::NonEmptyString),
+    ContractField::required("command_argv", FieldKind::StringArray),
+    ContractField::required("baseline_identity", FieldKind::NonEmptyString),
+    ContractField::required("candidate_identity", FieldKind::NonEmptyString),
+    ContractField::required("allocation_identity", FieldKind::NonEmptyString),
+    ContractField::required("copy_identity", FieldKind::NonEmptyString),
+    ContractField::required("oracle_identity", FieldKind::NonEmptyString),
+    ContractField::required("findings_identity", FieldKind::NonEmptyString),
+    ContractField::required("projection_identity", FieldKind::NonEmptyString),
+    ContractField::required("bounded_log_identity", FieldKind::NonEmptyString),
+    ContractField::required("projection", FieldKind::Dyn),
+    ContractField::required("public_claims", FieldKind::Dyn),
+    ContractField::required("evidence_tier", FieldKind::EvidenceTier),
+    ContractField::required("non_claims", FieldKind::StringArray),
 ];
 
 static CHAOSCONTROL_PROOF_STYLE_INPUT_FIELDS: &[ContractField] = &[
@@ -163,6 +316,31 @@ static EVIDENCE_RAIL_RECEIPT_FIELDS: &[ContractField] = &[
         kind: FieldKind::Dyn,
         default: Some(EMPTY_RECORD_DEFAULT),
     },
+    ContractField {
+        name: "cargo_fuzz",
+        kind: FieldKind::Dyn,
+        default: Some(EMPTY_RECORD_DEFAULT),
+    },
+    ContractField {
+        name: "sarif_import",
+        kind: FieldKind::Dyn,
+        default: Some(EMPTY_RECORD_DEFAULT),
+    },
+    ContractField {
+        name: "coverage_baseline",
+        kind: FieldKind::Dyn,
+        default: Some(EMPTY_RECORD_DEFAULT),
+    },
+    ContractField {
+        name: "cargo_mutants",
+        kind: FieldKind::Dyn,
+        default: Some(EMPTY_RECORD_DEFAULT),
+    },
+    ContractField {
+        name: "benchmark_evidence",
+        kind: FieldKind::Dyn,
+        default: Some(EMPTY_RECORD_DEFAULT),
+    },
 ];
 
 #[derive(Clone, Copy)]
@@ -198,6 +376,13 @@ pub fn render_generated_contracts() -> String {
         finding_schema(),
         provenance_schema(),
         hegel_property_details_schema(),
+        hegel_hardened_details_schema(),
+        mirai_pilot_decision_schema(),
+        cargo_fuzz_details_schema(),
+        sarif_details_schema(),
+        coverage_details_schema(),
+        mutation_details_schema(),
+        benchmark_details_schema(),
         evidence_rail_receipt_schema(),
         chaoscontrol_proof_style_input_schema(),
     ];
@@ -252,6 +437,55 @@ fn hegel_property_details_schema() -> ContractSchema {
     ContractSchema {
         name: HEGEL_PROPERTY_DETAILS_CONTRACT_NAME,
         fields: HEGEL_PROPERTY_DETAILS_FIELDS,
+    }
+}
+
+fn hegel_hardened_details_schema() -> ContractSchema {
+    ContractSchema {
+        name: HEGEL_HARDENED_DETAILS_CONTRACT_NAME,
+        fields: HEGEL_HARDENED_DETAILS_FIELDS,
+    }
+}
+
+fn mirai_pilot_decision_schema() -> ContractSchema {
+    ContractSchema {
+        name: MIRAI_PILOT_DECISION_CONTRACT_NAME,
+        fields: MIRAI_PILOT_DECISION_FIELDS,
+    }
+}
+
+fn cargo_fuzz_details_schema() -> ContractSchema {
+    ContractSchema {
+        name: CARGO_FUZZ_DETAILS_CONTRACT_NAME,
+        fields: CARGO_FUZZ_DETAILS_FIELDS,
+    }
+}
+
+fn sarif_details_schema() -> ContractSchema {
+    ContractSchema {
+        name: SARIF_DETAILS_CONTRACT_NAME,
+        fields: SARIF_DETAILS_FIELDS,
+    }
+}
+
+fn coverage_details_schema() -> ContractSchema {
+    ContractSchema {
+        name: COVERAGE_DETAILS_CONTRACT_NAME,
+        fields: COVERAGE_DETAILS_FIELDS,
+    }
+}
+
+fn mutation_details_schema() -> ContractSchema {
+    ContractSchema {
+        name: MUTATION_DETAILS_CONTRACT_NAME,
+        fields: MUTATION_DETAILS_FIELDS,
+    }
+}
+
+fn benchmark_details_schema() -> ContractSchema {
+    ContractSchema {
+        name: BENCHMARK_DETAILS_CONTRACT_NAME,
+        fields: BENCHMARK_DETAILS_FIELDS,
     }
 }
 
@@ -433,6 +667,12 @@ mod tests {
         "standards/evidence/fixtures/valid/finding_v2.ncl",
         "standards/evidence/fixtures/valid/provenance_record_v1.ncl",
         "standards/evidence/fixtures/valid/hegel_property_details_v1.ncl",
+        "standards/evidence/fixtures/valid/hegel_hardened_details_v1.ncl",
+        "standards/evidence/fixtures/valid/mirai_pilot_decision_v1.ncl",
+        "standards/evidence/fixtures/valid/cargo_fuzz_details_v1.ncl",
+        "standards/evidence/fixtures/valid/sarif_import_details_v1.ncl",
+        "standards/evidence/fixtures/valid/coverage_baseline_details_v1.ncl",
+        "standards/evidence/fixtures/valid/cargo_mutants_details_v1.ncl",
         "standards/evidence/fixtures/valid/evidence_rail_receipt_v1.ncl",
         "standards/evidence/fixtures/valid/chaoscontrol_proof_style_input_v1.ncl",
     ];
@@ -442,6 +682,12 @@ mod tests {
         "standards/evidence/fixtures/invalid/provenance_bad_schema.ncl",
         "standards/evidence/fixtures/invalid/provenance_bad_tier.ncl",
         "standards/evidence/fixtures/invalid/hegel_property_missing_property_id.ncl",
+        "standards/evidence/fixtures/invalid/hegel_hardened_wrong_profile.ncl",
+        "standards/evidence/fixtures/invalid/mirai_pilot_wrong_decision.ncl",
+        "standards/evidence/fixtures/invalid/cargo_fuzz_wrong_profile.ncl",
+        "standards/evidence/fixtures/invalid/sarif_import_bad_version.ncl",
+        "standards/evidence/fixtures/invalid/coverage_baseline_bad_profile.ncl",
+        "standards/evidence/fixtures/invalid/cargo_mutants_bad_profile.ncl",
         "standards/evidence/fixtures/invalid/evidence_rail_receipt_missing_non_claims.ncl",
         "standards/evidence/fixtures/invalid/chaoscontrol_missing_profile.ncl",
         "standards/evidence/fixtures/invalid/chaoscontrol_missing_focused_crates.ncl",
@@ -461,6 +707,15 @@ mod tests {
         let actual = render_generated_contracts();
 
         assert_eq!(expected, actual, "generated evidence contracts are stale");
+    }
+
+    #[test]
+    #[ignore = "writes the checked generated Nickel contract"]
+    fn regenerate_evidence_contracts() {
+        let repo_root = repo_root();
+        let path = repo_root.join(generated_contract_path());
+        std::fs::write(&path, render_generated_contracts())
+            .unwrap_or_else(|error| panic!("write generated contract {}: {error}", path.display()));
     }
 
     #[test]

@@ -6,11 +6,16 @@ mod architecture_ir;
 mod artifact;
 mod ast_grep_rail;
 mod baseline;
+mod benchmark;
 mod cap_fs;
+mod cargo {
+    pub(crate) mod fuzz;
+}
 mod charon_semantic;
 mod cli;
 mod clippy_restrictions;
 mod config;
+mod coverage;
 mod determinism;
 mod domain_types;
 mod effect_closure;
@@ -23,6 +28,9 @@ mod evidence_contracts;
 mod evidence_index;
 mod evidence_log;
 mod evidence_rails;
+mod external {
+    pub(crate) mod sarif;
+}
 #[cfg(test)]
 mod evidence_transform;
 #[cfg(test)]
@@ -31,11 +39,14 @@ mod fingerprint;
 #[cfg(test)]
 mod formal_proof_valence_export_fixture;
 mod function_address;
+mod hegel;
 mod imported_proof;
 #[cfg(test)]
 mod legacy_alias_contracts;
 mod migrate;
 mod migration_sessions;
+pub mod mirai_pilot;
+mod mutation;
 mod object;
 mod object_core;
 mod output;

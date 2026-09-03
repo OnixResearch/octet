@@ -117,6 +117,7 @@ const PROOF_CARD_MANUAL_ACTION: &str =
 const ARTIFACT_VERIFY_COMMAND: &str = "cargo octet artifact verify --artifact-dir <artifact-dir>";
 const TRELLIS_IMPORT_PROVENANCE_ARTIFACT: &str = "standards/proof-imports/generated/trellis-proof-imports.json";
 const TRELLIS_IMPORTS_JSON: &str = include_str!("../../standards/proof-imports/generated/trellis-proof-imports.json");
+const AENEAS_CONSUMER_POLICY_ID: &str = "octet.aeneas_consumer_contract.external-fixture";
 const EVIDENCE_ORIGIN_OCTET_RERUN: &str = "octet_rerun";
 const VERIFIER_MODE_EXTERNAL: &str = "external";
 const NON_CLAIM_WHOLE_PROGRAM: &str = "not whole-program correctness";
@@ -854,10 +855,18 @@ fn build_aeneas_receipt(
             },
         ],
     };
+    let consumer = build_aeneas_consumer_binding(selected, source, theorem_source, &collector)?;
+    let requirement_id = consumer.as_ref().map_or_else(
+        || "octet.aeneas_lean_proof_rail.theorem_adequacy".to_owned(),
+        |binding| binding.theorem.requirement_id.clone(),
+    );
+    let claim_class = consumer
+        .as_ref()
+        .map_or_else(|| AENEAS_NAMED_THEOREM_CLAIM_CLASS.to_owned(), |binding| binding.theorem.claim_class.clone());
     let admission = AeneasTheoremAdmission {
         theorem_id: theorem_id.clone(),
-        requirement_id: "octet.aeneas_lean_proof_rail.theorem_adequacy".to_owned(),
-        claim_class: AENEAS_NAMED_THEOREM_CLAIM_CLASS.to_owned(),
+        requirement_id: requirement_id.clone(),
+        claim_class: claim_class.clone(),
         source_disposition: AeneasTheoremSourceDisposition::Maintained,
         approved_statement_blake3,
         named_theorem_present: !theorem_name.is_empty(),
@@ -901,7 +910,11 @@ fn build_aeneas_receipt(
         AENEAS_NON_CLAIM_WHOLE_PROGRAM.to_owned(),
         "does not establish semantic equivalence or release eligibility".to_owned(),
     ];
+    if let Some(binding) = consumer.as_ref() {
+        non_claims.extend(binding.non_claims.clone());
+    }
     non_claims.sort();
+    non_claims.dedup();
     let envelope = FormalProofEnvelope {
         schema_version: octet_standards::formal_proof::FORMAL_PROOF_ENVELOPE_SCHEMA_VERSION.to_owned(),
         provider_id: AENEAS_LEAN_PROVIDER_ID.to_owned(),
@@ -912,8 +925,8 @@ fn build_aeneas_receipt(
         evidence_tier: FormalProofEvidenceTier::FormalProof,
         claim: FormalProofClaim {
             theorem_or_property_id: theorem_id,
-            requirement_id: "octet.aeneas_lean_proof_rail.theorem_adequacy".to_owned(),
-            claim_class: AENEAS_NAMED_THEOREM_CLAIM_CLASS.to_owned(),
+            requirement_id,
+            claim_class,
         },
         package_lock_identity: stage_chain_package_lock(&payload.stage_chain).blake3.clone(),
         source_bindings: vec![
@@ -936,6 +949,7 @@ fn build_aeneas_receipt(
             .collect(),
         trust_boundaries: selected.rail.trust_boundaries.clone(),
         non_claims,
+        consumer,
         provider: FormalProofProvider::AeneasLean(payload),
     };
     let diagnostics = validate_formal_proof_envelope(&envelope);
@@ -945,6 +959,81 @@ fn build_aeneas_receipt(
     let text =
         serde_json::to_string_pretty(&envelope).map_err(|error| format!("serialize Aeneas formal receipt: {error}"))?;
     Ok((format!("{text}\n"), collector.artifacts))
+}
+
+// r[impl octet.aeneas_consumer_contract.execution]
+// r[impl octet.aeneas_consumer_contract.source_selection]
+fn build_aeneas_consumer_binding(
+    selected: &SelectedRail<'_>,
+    source: &SourceFile,
+    theorem_source: &SourceFile,
+    collector: &AeneasArtifactCollector,
+) -> Result<Option<octet_standards::aeneas_consumer::ConsumerReceiptBinding>, String> {
+    let profile = octet_standards::aeneas_consumer::selected_profile()?;
+    let theorem = profile
+        .theorems
+        .first()
+        .ok_or_else(|| "Aeneas consumer profile has no theorem mapping".to_owned())?;
+    if selected.policy.policy_id != AENEAS_CONSUMER_POLICY_ID || selected.rail.theorem_id != theorem.theorem_id {
+        return Ok(None);
+    }
+    let source_paths = profile.source.paths.iter().map(|binding| binding.path.as_str()).collect::<Vec<_>>();
+    let expected_statement = theorem.approved_statement_blake3.strip_prefix("b3:").unwrap_or_default();
+    if selected.rail.backend != AENEAS_LEAN_BACKEND
+        || selected.rail.source_paths.iter().map(String::as_str).collect::<Vec<_>>() != source_paths
+        || selected.rail.proof_paths != [theorem.path.as_str()]
+        || selected.rail.approved_theorem_statement_blake3 != expected_statement
+        || selected.rail.timeout_ms != profile.resource_policy.timeout_ms
+        || selected.rail.stdout_max_bytes != profile.resource_policy.stdout_max_bytes
+        || selected.rail.stderr_max_bytes != profile.resource_policy.stderr_max_bytes
+        || selected.rail.environment_allowlist != profile.resource_policy.environment_allowlist
+    {
+        return Err("selected Aeneas consumer rail does not match the checked consumer profile".to_owned());
+    }
+    let item = profile
+        .source
+        .selected_items
+        .first()
+        .ok_or_else(|| "Aeneas consumer profile has no selected item".to_owned())?;
+    let llbc = generated_aeneas_artifact_text(collector, "proofs/aeneas/llbc.llbc")?;
+    let translation = generated_aeneas_artifact_text(collector, "proofs/aeneas/translation.json")?;
+    let generated = generated_aeneas_artifact_text(collector, "proofs/aeneas/Llbc.lean")?;
+    let input = octet_standards::aeneas_consumer::ObservationInput {
+        source_path: &source.path,
+        source_text: &source.text,
+        selected_item: &item.qualified_name,
+        theorem_path: &theorem_source.path,
+        theorem_text: &theorem_source.text,
+        llbc_text: llbc,
+        translation_text: translation,
+        generated_lean_text: generated,
+    };
+    let binding = octet_standards::aeneas_consumer::build_binding(
+        &profile,
+        octet_standards::aeneas_consumer::PROFILE_IDENTITY,
+        &input,
+        octet_standards::aeneas_consumer::ConsumerOutcome::Supported,
+    )
+    .map_err(|diagnostics| format!("Aeneas consumer binding failed: {}", diagnostics.join("; ")))?;
+    let diagnostics = octet_standards::aeneas_consumer::validate_receipt(&binding);
+    if diagnostics.is_empty() {
+        Ok(Some(binding))
+    } else {
+        Err(format!("Aeneas consumer receipt validation failed: {}", diagnostics.join("; ")))
+    }
+}
+
+fn generated_aeneas_artifact_text<'a>(
+    collector: &'a AeneasArtifactCollector,
+    locator: &str,
+) -> Result<&'a str, String> {
+    let artifact = collector
+        .artifacts
+        .iter()
+        .find(|artifact| artifact.locator == locator)
+        .ok_or_else(|| format!("Aeneas consumer artifact `{locator}` is missing"))?;
+    std::str::from_utf8(&artifact.contents)
+        .map_err(|error| format!("Aeneas consumer artifact `{locator}` is not UTF-8: {error}"))
 }
 
 fn stage_chain_package_lock(chain: &AeneasStageChain) -> &AeneasStageArtifactIdentity {
@@ -2321,8 +2410,84 @@ mod tests {
     const SHORT_TIMEOUT_MS: u64 = 1;
     const TEST_TIMEOUT_MS: u64 = 1_000;
     const TEST_LOG_LIMIT_BYTES: usize = 128;
+    const AENEAS_CONSUMER_TRUST_BOUNDARY: &str =
+        "the external consumer proves only its named theorem over exact bound inputs";
     const VERUS_V1_RECEIPT_GOLDEN_BLAKE3: &str = "adc4998ee90cf9a1165c456dd2c0696f447e9c743c97bb27bbac4582cfda5cf8";
     const VERUS_V1_PROOF_CARDS_GOLDEN_BLAKE3: &str = "572f78530d72c67d628c6af965f2caa750af76bb11ab2a41854a4f9b9b30baac";
+
+    // r[verify octet.aeneas_consumer_contract.execution]
+    // r[verify octet.aeneas_consumer_contract.valence_handoff]
+    #[cfg(unix)]
+    #[test]
+    #[ignore = "requires the pinned Aeneas/Charon/Lean provider closure"]
+    fn live_provider_builds_external_consumer_binding() {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../standards/proof-rails/aeneas-lean/fixtures/external-consumer")
+            .canonicalize()
+            .expect("external consumer fixture root");
+        let profile = octet_standards::aeneas_consumer::selected_profile().expect("consumer profile");
+        let theorem = profile.theorems.first().expect("consumer theorem");
+        let source = SourceFile::new(
+            profile.source.paths[0].path.clone(),
+            fs::read_to_string(root.join(&profile.source.paths[0].path)).expect("consumer source"),
+        );
+        let theorem_source = SourceFile::new(
+            theorem.path.clone(),
+            fs::read_to_string(root.join(&theorem.path)).expect("consumer theorem source"),
+        );
+        let rail = ProofRail {
+            backend: AENEAS_LEAN_BACKEND.to_owned(),
+            command: "cargo octet prove --rail aeneas-external-consumer".to_owned(),
+            command_argv: vec![
+                "cargo".to_owned(),
+                "octet".to_owned(),
+                "prove".to_owned(),
+                "--rail".to_owned(),
+                "aeneas-external-consumer".to_owned(),
+            ],
+            source_paths: vec![source.path.clone()],
+            proof_paths: vec![theorem_source.path.clone()],
+            theorem_id: theorem.theorem_id.clone(),
+            approved_theorem_statement_blake3: theorem
+                .approved_statement_blake3
+                .strip_prefix("b3:")
+                .expect("prefixed theorem identity")
+                .to_owned(),
+            receipt_paths: vec!["proofs/aeneas-consumer.receipt".to_owned()],
+            pass_signal: "aeneas-proof-result: pass".to_owned(),
+            trust_boundaries: vec![AENEAS_CONSUMER_TRUST_BOUNDARY.to_owned()],
+            verifier_mode: VERIFIER_MODE_FIXTURE.to_owned(),
+            checked_scope: format!("formal-proof:external-consumer:{AENEAS_CONSUMER_POLICY_ID}#rail-0"),
+            timeout_ms: profile.resource_policy.timeout_ms,
+            stdout_max_bytes: profile.resource_policy.stdout_max_bytes,
+            stderr_max_bytes: profile.resource_policy.stderr_max_bytes,
+            environment_allowlist: profile.resource_policy.environment_allowlist.clone(),
+            ..ProofRail::default()
+        };
+        let mut policy = fixture_policy_stub();
+        policy.policy_id = AENEAS_CONSUMER_POLICY_ID.to_owned();
+        policy.proof_rails = vec![rail];
+        let selected = SelectedRail {
+            policy: &policy,
+            rail_index: 0,
+            rail: &policy.proof_rails[0],
+        };
+        let summary = execute_aeneas_from_environment(selected.rail, &root);
+        assert!(summary.command_succeeded, "external consumer provider failed: {summary:?}");
+        let (receipt, _) = build_aeneas_receipt(
+            &selected,
+            std::slice::from_ref(&source),
+            std::slice::from_ref(&theorem_source),
+            &selected.rail.checked_scope,
+            &summary,
+        )
+        .expect("external consumer formal receipt");
+        let envelope: FormalProofEnvelope = serde_json::from_str(&receipt).expect("typed external consumer receipt");
+        let consumer = envelope.consumer.as_ref().expect("consumer binding");
+        assert_eq!(consumer.profile_identity, octet_standards::aeneas_consumer::PROFILE_IDENTITY);
+        assert_eq!(consumer.outcome, octet_standards::aeneas_consumer::ConsumerOutcome::Supported);
+        assert!(validate_formal_proof_envelope(&envelope).is_empty());
+    }
 
     #[test]
     fn aeneas_theorem_name_extraction_accepts_named_theorem() {

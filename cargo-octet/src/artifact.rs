@@ -194,6 +194,16 @@ pub struct ValenceReceiptEnvelope {
     pub charon_semantic: Option<crate::charon_semantic::CharonSemanticReceiptDetails>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub hegel_property: Option<crate::evidence_rails::HegelPropertyReceiptDetails>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cargo_fuzz: Option<crate::cargo::fuzz::ReceiptDetails>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sarif_import: Option<crate::external::sarif::ReceiptDetails>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub coverage_baseline: Option<crate::coverage::ReceiptDetails>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cargo_mutants: Option<crate::mutation::ReceiptDetails>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub benchmark_evidence: Option<crate::benchmark::ReceiptDetails>,
     pub non_claims: Vec<String>,
 }
 
@@ -461,6 +471,11 @@ fn valence_receipt_envelope(
         wasm_artifact: matching_evidence_rail_receipt.and_then(|receipt| receipt.wasm_artifact.clone()),
         charon_semantic: matching_evidence_rail_receipt.and_then(|receipt| receipt.charon_semantic.clone()),
         hegel_property: matching_evidence_rail_receipt.and_then(|receipt| receipt.hegel_property.clone()),
+        cargo_fuzz: matching_evidence_rail_receipt.and_then(|receipt| receipt.cargo_fuzz.clone()),
+        sarif_import: matching_evidence_rail_receipt.and_then(|receipt| receipt.sarif_import.clone()),
+        coverage_baseline: matching_evidence_rail_receipt.and_then(|receipt| receipt.coverage_baseline.clone()),
+        cargo_mutants: matching_evidence_rail_receipt.and_then(|receipt| receipt.cargo_mutants.clone()),
+        benchmark_evidence: matching_evidence_rail_receipt.and_then(|receipt| receipt.benchmark_evidence.clone()),
         non_claims: non_claims_for_record(matching_evidence_rail_receipt),
     }
 }
@@ -2025,6 +2040,34 @@ mod tests {
     }
 
     #[test]
+    fn valence_export_preserves_cargo_fuzz_transcript_boundary() {
+        let export =
+            build_valence_provenance_export(valid_cargo_fuzz_evidence_rail_input()).expect("valid cargo-fuzz export");
+        let receipt_record = export
+            .provenance_records
+            .iter()
+            .find(|record| record.artifact == crate::evidence_rails::RECEIPT_ARTIFACT_NAME)
+            .expect("cargo-fuzz receipt record exported");
+        let details = receipt_record.receipt.cargo_fuzz.as_ref().expect("cargo-fuzz details exported");
+
+        assert_eq!(receipt_record.checker_id, crate::evidence::CHECKER_OCTET_DYNAMIC_EVIDENCE);
+        assert_eq!(receipt_record.evidence_tier, TRANSCRIPT_ASSERTION_TIER);
+        assert_eq!(details.profile_id, crate::cargo::fuzz::PROFILE_ID);
+        assert!(
+            receipt_record
+                .receipt
+                .non_claims
+                .iter()
+                .any(|claim| claim == crate::cargo::fuzz::REQUIRED_NON_CLAIM)
+        );
+        assert!(!receipt_record.typed_edges.iter().any(|edge| edge.edge_kind == EDGE_RECORDS_FORMAL_PROOF_RECEIPT));
+
+        let blocked = build_valence_provenance_export(cargo_fuzz_missing_details_input())
+            .expect_err("cargo-fuzz receipt missing details blocks export");
+        assert!(blocked.iter().any(|diagnostic| diagnostic.contains("cargo_fuzz details")));
+    }
+
+    #[test]
     fn valence_export_preserves_ast_grep_candidate_boundary() {
         let export =
             build_valence_provenance_export(valid_ast_grep_evidence_rail_input()).expect("valid ast-grep export");
@@ -2593,6 +2636,16 @@ mod tests {
         hegel_evidence_rail_input(|_receipt| {})
     }
 
+    fn valid_cargo_fuzz_evidence_rail_input() -> ArtifactBundleInput {
+        cargo_fuzz_evidence_rail_input(|_receipt| {})
+    }
+
+    fn cargo_fuzz_missing_details_input() -> ArtifactBundleInput {
+        cargo_fuzz_evidence_rail_input(|receipt| {
+            receipt.cargo_fuzz = None;
+        })
+    }
+
     fn hegel_missing_details_input() -> ArtifactBundleInput {
         hegel_evidence_rail_input(|receipt| {
             receipt.hegel_property = None;
@@ -2738,6 +2791,32 @@ mod tests {
             contents: artifact,
         });
         bundle
+    }
+
+    fn cargo_fuzz_evidence_rail_input(
+        mutate: impl FnOnce(&mut crate::evidence_rails::EvidenceRailReceipt),
+    ) -> ArtifactBundleInput {
+        let mut receipt = crate::evidence_rails::evaluate(crate::evidence_rails::EvaluationInput {
+            rail: crate::evidence_rails::EvidenceRailKind::DynamicEvidence,
+            mode: "import",
+            import_text: include_str!("../tests/fixtures/evidence-rails/cargo-fuzz-clean.json"),
+            workspace_scope: CHECKED_SCOPE,
+            config_path: Some("dynamic-evidence-profiles.json"),
+            baseline_identity: None,
+            lockfile_identity: None,
+            locked: false,
+            advisory_updated_by_prior_step: false,
+            profile: Some(crate::cargo::fuzz::PROFILE_ID),
+            requested_command: None,
+            parent_artifacts: Vec::new(),
+            tool_exit_code: None,
+        });
+        mutate(&mut receipt);
+        let receipt_json = crate::evidence_rails::render_receipt_json(&receipt).expect("render cargo-fuzz receipt");
+        let summary = crate::evidence_rails::render_summary(&receipt);
+        let provenance = crate::evidence_rails::render_provenance_jsonl(&receipt, &receipt_json, &summary)
+            .expect("render cargo-fuzz provenance");
+        evidence_rail_bundle("artifacts/cargo-fuzz", receipt_json, summary, provenance)
     }
 
     fn hegel_evidence_rail_input(

@@ -33,8 +33,39 @@ Every saved dynamic evidence artifact must include:
 6. Link back to the OpenSpec scenario or review checklist row.
 7. For unsafe/FFI profiles, link the `UNSAFE-TRUST-BOUNDARY:` record and state the selected command, fixture, transcript or artifact, and acceptance signal.
 
+## Cargo-fuzz libFuzzer profile
+
+The `cargo-fuzz-libfuzzer` profile is optional. Starter `cargo octet check` does not resolve or run cargo-fuzz.
+
+Export the reviewed Nickel registry before an import:
+
+```console
+nickel export --format json templates/dynamic-evidence-profiles.ncl > dynamic-evidence-profiles.json
+cargo octet evidence collect \
+  --rail dynamic-evidence \
+  --profile cargo-fuzz-libfuzzer \
+  --config dynamic-evidence-profiles.json \
+  --input cargo-fuzz-run.json \
+  --artifact-dir artifacts/cargo-fuzz
+```
+
+The reviewed run command is fixed:
+
+```console
+cargo fuzz run octet-profile-intake -- -max_total_time=60 -runs=100000 -seed=1
+```
+
+Octet rejects `--command` for this profile. It binds the exact target, libFuzzer engine, nightly toolchain, address sanitizer, budgets, corpus roots, dictionary identity, crash input, minimized reproducer, replay command, and bounded log identity.
+
+Corpus rows use safe relative paths, lengths, and BLAKE3 identities. The canonical root sorts rows and uses the `octet-cargo-fuzz-corpus-v1` framing domain. Hash-only rows reduce disclosure, but hashes can still reveal known sensitive inputs. Do not put credentials, production records, or personal data in a corpus.
+
+A clean receipt means only that one target found no crash under the selected seed and budget. A crash receipt remains failed evidence. It must retain both the original crash input and minimized reproducer identity. Reviewers must reproduce the crash with the recorded replay argv before they use it in a decision.
+
+The rail rejects unsupported profiles, arbitrary command text, unsafe paths, duplicate artifacts, stale corpus roots, missing crash roles, excessive counts or bytes, malformed receipts, and non-transcript evidence tiers.
+
 ## Non-goals
 
-- Do not require Valgrind, Miri, sanitizers, heap profilers, cache profilers, or Loom for ordinary consumer lint runs.
-- Do not treat a profiler result as design proof unless it is compared to a workload sketch.
+- Do not require cargo-fuzz, Valgrind, Miri, sanitizers, heap profilers, cache profilers, or Loom for ordinary consumer lint runs.
+- Do not treat a profiler or fuzz result as design proof unless it is compared to its declared workload and budget.
 - Do not accept "ran tool" as evidence without the acceptance signal and finding summary.
+- Do not claim exhaustive coverage, memory safety, panic freedom, whole-program correctness, or release eligibility from cargo-fuzz evidence.

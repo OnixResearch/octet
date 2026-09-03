@@ -176,6 +176,12 @@ cargo octet prove --policy-artifacts-dir artifacts/policy --source src/verified 
 cargo octet artifact verify --artifact-dir artifacts/octet
 ```
 
+External Aeneas consumers use a closed Nickel profile. The receipt binds the
+provider cohort, exact source and span, generated artifacts, theorem,
+requirement, trust closure, resource policy, and outcome. Use
+[`aeneas-consumer-contract.md`](aeneas-consumer-contract.md) for the checked
+fixture, migration rules, and fail-closed cases.
+
 Starter `cargo octet check` usage does not require Verus.
 
 ### 3b. Optional external evidence rails
@@ -189,15 +195,27 @@ cargo octet evidence collect --rail clippy-co-reporting --run --profile producti
 cargo octet evidence collect --rail dependency-trust --input target/vet.json --artifact-dir artifacts/dependency-trust
 cargo octet evidence collect --rail api-stability --input target/semver.json --baseline baselines/public-api --artifact-dir artifacts/api-stability
 cargo octet evidence collect --rail dynamic-evidence --input target/miri-profile.json --profile miri-unsafe-boundary --artifact-dir artifacts/dynamic/miri
+cargo octet evidence collect --rail dynamic-evidence --input target/cargo-fuzz-run.json --profile cargo-fuzz-libfuzzer --config dynamic-evidence-profiles.json --artifact-dir artifacts/dynamic/cargo-fuzz
+cargo octet evidence collect --rail sarif-import --input target/codeql.sarif --profile codeql-local --config standards/sarif/profiles.json --artifact-dir artifacts/sarif-codeql
 cargo octet evidence collect --rail release-supply-chain --input target/release-supply-chain.json --parent-artifact artifacts/octet/status.json --artifact-dir artifacts/release-supply-chain
-cargo octet evidence collect --rail mutation-testing --input target/mutants.json --artifact-dir artifacts/mutation-testing
-cargo octet evidence collect --rail coverage-baseline --input target/coverage.json --baseline baselines/coverage.json --artifact-dir artifacts/coverage-baseline
+cargo octet evidence collect --rail mutation-testing --profile cargo-mutants-octet-metadata --config standards/mutation/profiles.json --input .octet/mutants-output/mutants.out/outcomes.json --external-report evidence/mutation-source-manifest.json --workspace-root . --artifact-dir artifacts/mutation-testing
+cargo octet evidence collect --rail coverage-baseline --profile cargo-llvm-cov-octet-lib --config standards/coverage/profiles.json --input target/coverage.json --baseline baselines/coverage.json --external-report evidence/coverage-source-manifest.json --workspace-root . --artifact-dir artifacts/coverage-baseline
+cargo octet evidence collect --rail benchmark-evidence --profile octet-metadata-benchmark --config standards/benchmark/profiles.json --input evidence/benchmark-input.json --workspace-root . --artifact-dir artifacts/benchmark-evidence
 cargo octet evidence collect --rail kani-model-check --input target/kani-summary.json --artifact-dir artifacts/kani-model-check
-cargo octet evidence collect --rail hegel-property --input target/hegel-property.json --artifact-dir artifacts/hegel-property
+cargo octet evidence collect --rail hegel-property --profile octet-pure-core-laws-v1 --config standards/hegel/profiles.json --workspace-root . --run --locked --artifact-dir artifacts/hegel-property
+cargo octet evidence collect --rail hegel-property --input target/hegel-property-v1.json --artifact-dir artifacts/hegel-property-import
 cargo octet artifact verify --artifact-dir artifacts/dependency-audit
 ```
 
-The dependency-audit rail uses tool-native `deny.toml`; `templates/deny.toml` is a starter copy. Clippy restriction run policy is Nickel-authored at `standards/clippy-restrictions/profiles.ncl` and embedded in `cargo-octet` for downstream selection by profile name; `--config PATH` may supply another checked catalog. Profiled runs bind exact catalog/profile BLAKE3 identities and fixed lint argv, reject arbitrary `--command` authority, and never enable the blanket `clippy::restriction` group. Use `production-safety` for general production code, `canonical-determinism` only where byte/order contracts apply, and `shell-boundary-inventory` as a warning-only cleanup rail. Dynamic evidence profile configuration is Nickel-authored at `templates/dynamic-evidence-profiles.ncl`. The Kani rail imports a Rust-owned summary for named harnesses, toolchain/solver identity, unwind or contract status, and stub classification. The Hegel rail imports a Rust-owned summary for named pure-core property IDs, linked requirement IDs, source scope, runner settings, generator identity, BLAKE3 source hashes, and counterexample identity; `--run` requires an explicit `--command` and never bootstraps Hegel automatically. These receipts preserve checker identity (`cargo-deny`, Clippy, `cargo-vet`, `cargo-semver-checks`, `cargo-mutants`, `cargo-llvm-cov`, `cargo-kani`, `hegel-rs`, dynamic profile runner, or release supply-chain collector), source severity, selected scope, BLAKE3 input identity, parent artifacts when supplied, and explicit non-claims. Clippy co-reporting remains external `static_lint` evidence with checker ID `clippy`; mutation, coverage, dynamic, Kani, and Hegel rails remain `transcript_assertion` evidence; the other rails remain `policy_check` evidence. They do not replace Octet source lints, cargo-vet human review, legal review, vulnerability triage, test review, uncovered-critical-path review, formal proof, Kani verifier-soundness review, or Hegel generated-testing boundary review.
+Read [`mutation-testing-evidence.md`](mutation-testing-evidence.md) for typed cargo-mutants profiles, complete outcome partitions, and retained diffs.
+
+Read [`coverage-baseline-evidence.md`](coverage-baseline-evidence.md) for the checked coverage profile, exact-count comparison, and baseline-envelope workflow.
+
+Read [`benchmark-evidence.md`](benchmark-evidence.md) for typed workloads, bounded samples, resource observations, signal oracles, comparisons, and public-claim boundaries.
+
+Read [`mirai-semantic-pilot.md`](mirai-semantic-pilot.md) for the bounded blocked pilot. The pilot is not a production evidence rail.
+
+The dependency-audit rail uses tool-native `deny.toml`; `templates/deny.toml` is a starter copy. Clippy restriction run policy is Nickel-authored at `standards/clippy-restrictions/profiles.ncl` and embedded in `cargo-octet` for downstream selection by profile name; `--config PATH` may supply another checked catalog. Profiled runs bind exact catalog/profile BLAKE3 identities and fixed lint argv, reject arbitrary `--command` authority, and never enable the blanket `clippy::restriction` group. Use `production-safety` for general production code, `canonical-determinism` only where byte/order contracts apply, and `shell-boundary-inventory` as a warning-only cleanup rail. Dynamic evidence profile configuration is Nickel-authored at `templates/dynamic-evidence-profiles.ncl`. The cargo-fuzz profile rejects arbitrary commands and binds one exact target, seed, budget, corpus root, crash evidence set, and transcript tier. The Kani rail imports a Rust-owned summary for named harnesses, toolchain/solver identity, unwind or contract status, and stub classification. The Hegel rail imports a Rust-owned summary for named pure-core property IDs, linked requirement IDs, source scope, runner settings, generator identity, BLAKE3 source hashes, and counterexample identity; `--run` uses the fixed checked profile and rejects arbitrary command authority. These receipts preserve checker identity (`cargo-deny`, Clippy, `cargo-vet`, `cargo-semver-checks`, `cargo-mutants`, `cargo-llvm-cov`, `octet-benchmark`, `cargo-kani`, `hegel-rs`, dynamic profile runner, or release supply-chain collector), source severity, selected scope, BLAKE3 input identity, parent artifacts when supplied, and explicit non-claims. Clippy co-reporting remains external `static_lint` evidence with checker ID `clippy`; mutation, coverage, benchmark, dynamic, Kani, and Hegel rails remain `transcript_assertion` evidence; the other rails remain `policy_check` evidence. They do not replace Octet source lints, cargo-vet human review, legal review, vulnerability triage, test review, uncovered-critical-path review, formal proof, Kani verifier-soundness review, or Hegel generated-testing boundary review.
 
 ### 3c. Controlled deployment quick check
 
