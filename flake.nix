@@ -244,6 +244,31 @@
         nickel = nickel-1-17-0.packages.${system}.default;
 
         rustToolchain = pkgs.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml;
+        miraiRevision = "aae0a56f91d9a0a62073bb86e7b2c9793cefc24b";
+        miraiSource = pkgs.fetchFromGitHub {
+          owner = "endorlabs";
+          repo = "MIRAI";
+          rev = miraiRevision;
+          hash = "sha256-+H0JIbrwxMi3uMuxBqgVBzNkDYom8X616rH9y7YqIXg=";
+          name = "endorlabs-mirai-source-${miraiRevision}";
+        };
+        miraiSourceProvider = pkgs.runCommand "octet-mirai-source-provider-1.1.12" { } ''
+          mkdir -p "$out"
+          ln -s ${miraiSource} "$out/source"
+          cat > "$out/provider.json" <<'EOF'
+          {
+            "schema_version": "octet-mirai-source-provider/v1",
+            "repository": "https://github.com/endorlabs/MIRAI",
+            "revision": "${miraiRevision}",
+            "license": "MIT",
+            "version": "1.1.12",
+            "rust_toolchain": "nightly-2025-01-10",
+            "target": "x86_64-unknown-linux-gnu",
+            "execution_admitted": false,
+            "blocker_code": "stable-machine-output-unavailable"
+          }
+          EOF
+        '';
         hostTriple = pkgs.stdenv.hostPlatform.rust.rustcTarget;
         toolchainChannel = (builtins.fromTOML (builtins.readFile ./rust-toolchain.toml)).toolchain.channel;
         rustupToolchain =
@@ -300,6 +325,7 @@
 
         nativeBuildInputs = with pkgs; [
           clang
+          git
           mold
           pkg-config
         ];
@@ -446,6 +472,8 @@
             pkgs.clang
             pkgs.mold
             pkgs.ast-grep
+            pkgs.cargo-llvm-cov
+            pkgs.cargo-mutants
             octetVerus
             octetProductionVerus
           ];
@@ -1520,19 +1548,55 @@
               --prefix LD_LIBRARY_PATH : "${rustToolchainLibPath}" \
               --set TIGERSTYLE_TOOLCHAIN "${rustupToolchain}" \
               --set TIGERSTYLE_DRIVER_PATH "${dylintDriver}/bin/dylint-driver" \
-              --set TIGERSTYLE_LINT_LIB "${octetUiLibrary}/lib/${octetUiLibraryName}"
+              --set TIGERSTYLE_LINT_LIB "${octetUiLibrary}/lib/${octetUiLibraryName}" \
+              --set OCTET_COVERAGE_CARGO "${cargo-shim}/bin/cargo" \
+              --set OCTET_COVERAGE_PATH "${cargoOctetRuntimePath}/bin" \
+              --set OCTET_COVERAGE_CARGO_CONFIG "${cargoVendorDir}/config.toml" \
+              --set OCTET_COVERAGE_LD_LIBRARY_PATH "${rustToolchainLibPath}" \
+              --set OCTET_MUTATION_CARGO "${cargo-shim}/bin/cargo" \
+              --set OCTET_MUTATION_PATH "${cargoOctetRuntimePath}/bin" \
+              --set OCTET_MUTATION_CARGO_CONFIG "${cargoVendorDir}/config.toml" \
+              --set OCTET_MUTATION_LD_LIBRARY_PATH "${rustToolchainLibPath}" \
+              --set OCTET_HEGEL_CARGO "${cargo-shim}/bin/cargo" \
+              --set OCTET_HEGEL_PATH "${cargoOctetRuntimePath}/bin" \
+              --set OCTET_HEGEL_CARGO_CONFIG "${cargoVendorDir}/config.toml" \
+              --set OCTET_HEGEL_LD_LIBRARY_PATH "${rustToolchainLibPath}"
             wrapProgram "$out/bin/cargo-slotcar" \
               --prefix PATH : "${cargoOctetRuntimePath}/bin" \
               --prefix LD_LIBRARY_PATH : "${rustToolchainLibPath}" \
               --set TIGERSTYLE_TOOLCHAIN "${rustupToolchain}" \
               --set TIGERSTYLE_DRIVER_PATH "${dylintDriver}/bin/dylint-driver" \
-              --set TIGERSTYLE_LINT_LIB "${octetUiLibrary}/lib/${octetUiLibraryName}"
+              --set TIGERSTYLE_LINT_LIB "${octetUiLibrary}/lib/${octetUiLibraryName}" \
+              --set OCTET_COVERAGE_CARGO "${cargo-shim}/bin/cargo" \
+              --set OCTET_COVERAGE_PATH "${cargoOctetRuntimePath}/bin" \
+              --set OCTET_COVERAGE_CARGO_CONFIG "${cargoVendorDir}/config.toml" \
+              --set OCTET_COVERAGE_LD_LIBRARY_PATH "${rustToolchainLibPath}" \
+              --set OCTET_MUTATION_CARGO "${cargo-shim}/bin/cargo" \
+              --set OCTET_MUTATION_PATH "${cargoOctetRuntimePath}/bin" \
+              --set OCTET_MUTATION_CARGO_CONFIG "${cargoVendorDir}/config.toml" \
+              --set OCTET_MUTATION_LD_LIBRARY_PATH "${rustToolchainLibPath}" \
+              --set OCTET_HEGEL_CARGO "${cargo-shim}/bin/cargo" \
+              --set OCTET_HEGEL_PATH "${cargoOctetRuntimePath}/bin" \
+              --set OCTET_HEGEL_CARGO_CONFIG "${cargoVendorDir}/config.toml" \
+              --set OCTET_HEGEL_LD_LIBRARY_PATH "${rustToolchainLibPath}"
             wrapProgram "$out/bin/cargo-tigerstyle" \
               --prefix PATH : "${cargoOctetRuntimePath}/bin" \
               --prefix LD_LIBRARY_PATH : "${rustToolchainLibPath}" \
               --set TIGERSTYLE_TOOLCHAIN "${rustupToolchain}" \
               --set TIGERSTYLE_DRIVER_PATH "${dylintDriver}/bin/dylint-driver" \
-              --set TIGERSTYLE_LINT_LIB "${octetUiLibrary}/lib/${octetUiLibraryName}"
+              --set TIGERSTYLE_LINT_LIB "${octetUiLibrary}/lib/${octetUiLibraryName}" \
+              --set OCTET_COVERAGE_CARGO "${cargo-shim}/bin/cargo" \
+              --set OCTET_COVERAGE_PATH "${cargoOctetRuntimePath}/bin" \
+              --set OCTET_COVERAGE_CARGO_CONFIG "${cargoVendorDir}/config.toml" \
+              --set OCTET_COVERAGE_LD_LIBRARY_PATH "${rustToolchainLibPath}" \
+              --set OCTET_MUTATION_CARGO "${cargo-shim}/bin/cargo" \
+              --set OCTET_MUTATION_PATH "${cargoOctetRuntimePath}/bin" \
+              --set OCTET_MUTATION_CARGO_CONFIG "${cargoVendorDir}/config.toml" \
+              --set OCTET_MUTATION_LD_LIBRARY_PATH "${rustToolchainLibPath}" \
+              --set OCTET_HEGEL_CARGO "${cargo-shim}/bin/cargo" \
+              --set OCTET_HEGEL_PATH "${cargoOctetRuntimePath}/bin" \
+              --set OCTET_HEGEL_CARGO_CONFIG "${cargoVendorDir}/config.toml" \
+              --set OCTET_HEGEL_LD_LIBRARY_PATH "${rustToolchainLibPath}"
           '';
         };
 
@@ -1965,6 +2029,287 @@
               mkdir -p "$out"
             '';
 
+        dynamicEvidenceProfilesCheck =
+          pkgs.runCommand "octet-dynamic-evidence-profiles-check"
+            {
+              nativeBuildInputs = with pkgs; [
+                b3sum
+                coreutils
+                diffutils
+                jq
+                nickel
+              ];
+            }
+            ''
+              cd ${./.}
+              generated=$(mktemp)
+              expected_profile_identity=7ad698ddebaaac2640a51e5f58871ac026b4b32653fb95bf971ec491560b48d6
+              expected_profile_count=1
+              expected_max_time_seconds=60
+              expected_max_runs=100000
+              expected_seed=1
+
+              nickel typecheck templates/dynamic-evidence-profiles.ncl
+              nickel export --format json templates/dynamic-evidence-profiles.ncl > "$generated"
+              diff -u dynamic-evidence-profiles.json "$generated"
+              test "$(b3sum "$generated" | cut -d ' ' -f 1)" = "$expected_profile_identity"
+              test "$(jq '.cargo_fuzz_profiles | length' "$generated")" = "$expected_profile_count"
+              jq --exit-status \
+                --argjson max_time "$expected_max_time_seconds" \
+                --argjson max_runs "$expected_max_runs" \
+                --argjson seed "$expected_seed" \
+                '.cargo_fuzz_profiles[0]
+                  | .name == "cargo-fuzz-libfuzzer"
+                  and .engine == "libfuzzer"
+                  and .target == "octet-profile-intake"
+                  and .max_total_time_seconds == $max_time
+                  and .max_runs == $max_runs
+                  and .seed == $seed
+                  and .evidence_tier == "transcript_assertion"' \
+                "$generated"
+              mkdir -p "$out"
+            '';
+
+        sarifProfilesCheck =
+          pkgs.runCommand "octet-sarif-profiles-check"
+            {
+              nativeBuildInputs = with pkgs; [
+                b3sum
+                diffutils
+                jq
+                nickel
+              ];
+            }
+            ''
+              cd ${./.}
+              generated=$(mktemp)
+              expected_identity=81a482fe3b807b973898bd7454e73857605f6c5e48e5092d1d6e47b3fe7a9ce7
+              expected_profiles=2
+              nickel typecheck standards/sarif/profiles.ncl
+              nickel export --format json standards/sarif/profiles.ncl > "$generated"
+              diff -u standards/sarif/profiles.json "$generated"
+              test "$(b3sum "$generated" | cut -d ' ' -f 1)" = "$expected_identity"
+              test "$(jq '.profiles | length' "$generated")" = "$expected_profiles"
+              jq --exit-status 'all(.profiles[]; .supported_version == "2.1.0" and .workspace_relative_only and .require_rule_id and .evidence_tier == "static_lint")' "$generated"
+              mkdir -p "$out"
+            '';
+
+        coverageProfilesCheck =
+          pkgs.runCommand "octet-coverage-profiles-check"
+            {
+              nativeBuildInputs = with pkgs; [
+                b3sum
+                cargo-llvm-cov
+                diffutils
+                jq
+                nickel
+              ];
+            }
+            ''
+              cd ${./.}
+              generated=$(mktemp)
+              expected_identity=e221f5d35528e6979bb44ab58cc5e486109799cf99fb80fc4d85ab77a7082634
+              nickel typecheck standards/coverage/profiles.ncl
+              nickel export --format json standards/coverage/profiles.ncl > "$generated"
+              diff -u standards/coverage/profiles.json "$generated"
+              test "$(b3sum "$generated" | cut -d ' ' -f 1)" = "$expected_identity"
+              test "$(cargo-llvm-cov llvm-cov --version)" = "cargo-llvm-cov 0.8.3"
+              jq --exit-status '
+                .schema_version == "octet-coverage-profiles/v1"
+                and (.profiles | length) == 1
+                and .profiles[0].profile_id == "cargo-llvm-cov-octet-lib"
+                and .profiles[0].provider.version == "0.8.3"
+                and .profiles[0].evidence_tier == "transcript_assertion"
+                and .profiles[0].denominator_policy == "require_equal"
+              ' "$generated" >/dev/null
+              mkdir -p "$out"
+            '';
+
+        benchmarkProfilesCheck =
+          pkgs.runCommand "octet-benchmark-profiles-check"
+            {
+              nativeBuildInputs = with pkgs; [
+                b3sum
+                diffutils
+                jq
+                nickel
+              ];
+            }
+            ''
+              cd ${./.}
+              generated=$(mktemp)
+              expected_identity=64e4b8163b3c89d8143d4f6ff07230d33b2b2a9b7bcab35bf45325027a20cd47
+              expected_profiles=1
+              expected_workloads=4
+              expected_corpora=2
+              expected_environment_facts=9
+              nickel typecheck standards/benchmark/profiles.ncl
+              nickel export --format json standards/benchmark/profiles.ncl > "$generated"
+              diff -u standards/benchmark/profiles.json "$generated"
+              test "$(b3sum "$generated" | cut -d ' ' -f 1)" = "$expected_identity"
+              jq --exit-status \
+                --argjson expected_profiles "$expected_profiles" \
+                --argjson expected_workloads "$expected_workloads" \
+                --argjson expected_corpora "$expected_corpora" \
+                --argjson expected_environment_facts "$expected_environment_facts" '
+                  .schema_version == "octet-benchmark-profiles/v1"
+                  and (.profiles | length) == $expected_profiles
+                  and .profiles[0].profile_id == "octet-metadata-benchmark"
+                  and (.profiles[0].workloads | length) == $expected_workloads
+                  and (.profiles[0].signal_corpus | length) == $expected_corpora
+                  and ([.profiles[0].signal_corpus[].source_kind] | sort) == (["cross_project", "synthetic"] | sort)
+                  and ([.profiles[0].workloads[].mode] | sort) == (["cold", "incremental", "no_change", "warm"] | sort)
+                  and all(.profiles[0].workloads[]; (.required_environment_facts | length) == $expected_environment_facts)
+                  and .profiles[0].evidence_tier == "transcript_assertion"
+                ' "$generated" >/dev/null
+              nickel export --format json standards/evidence/fixtures/valid/benchmark_evidence_details_v1.ncl >/dev/null
+              if nickel export --format json standards/evidence/fixtures/invalid/benchmark_evidence_bad_profile.ncl >/dev/null 2>&1; then
+                echo "invalid benchmark evidence fixture passed" >&2
+                exit 1
+              fi
+              mkdir -p "$out"
+            '';
+
+        hegelProfilesCheck =
+          pkgs.runCommand "octet-hegel-profiles-check"
+            {
+              nativeBuildInputs = with pkgs; [
+                b3sum
+                diffutils
+                jq
+                nickel
+              ];
+            }
+            ''
+              cd ${./.}
+              generated_profiles=$(mktemp)
+              generated_laws=$(mktemp)
+              expected_profile_identity=8739e90ca0707af37eae8553c3b792ec747b0668cad8c4e7e6b0b7c7a5e00e17
+              expected_law_identity=33710ac60efb4a7edca25de746d9740d75233b372d0016f54a2e138ec1a038eb
+              nickel typecheck standards/hegel/profiles.ncl
+              nickel typecheck standards/hegel/laws.ncl
+              nickel export --format json standards/hegel/profiles.ncl > "$generated_profiles"
+              nickel export --format json standards/hegel/laws.ncl > "$generated_laws"
+              diff -u standards/hegel/profiles.json "$generated_profiles"
+              diff -u standards/hegel/laws.json "$generated_laws"
+              test "$(b3sum "$generated_profiles" | cut -d ' ' -f 1)" = "$expected_profile_identity"
+              test "$(b3sum "$generated_laws" | cut -d ' ' -f 1)" = "$expected_law_identity"
+              jq --exit-status '
+                .schema_version == "octet-hegel-producer-profiles/v1"
+                and (.profiles | length) == 1
+                and .profiles[0].profile_id == "octet-pure-core-laws-v1"
+                and .profiles[0].producer.hegel_version == "0.14.27"
+                and .profiles[0].producer.backend == "native"
+                and .profiles[0].settings.case_budget == 64
+                and .profiles[0].settings.derandomized
+                and .profiles[0].evidence_tier == "transcript_assertion"
+                and .profiles[0].verification_role == "recorded_only"
+                and (.profiles[0].command_argv[0:2] == ["cargo", "test"])
+              ' "$generated_profiles" >/dev/null
+              jq --exit-status '
+                .schema_version == "octet-hegel-law-catalog/v1"
+                and (.laws | length) == 1
+                and .laws[0].effect_free
+                and .laws[0].case_budget == 64
+                and (.laws[0].positive_property | length) > 0
+                and (.laws[0].negative_property | length) > 0
+                and (.laws[0].generated_input_benefit | length) > 0
+              ' "$generated_laws" >/dev/null
+              nickel export --format json standards/evidence/fixtures/valid/hegel_hardened_details_v1.ncl >/dev/null
+              if nickel export --format json standards/evidence/fixtures/invalid/hegel_hardened_wrong_profile.ncl >/dev/null 2>&1; then
+                echo "invalid Hegel evidence fixture passed" >&2
+                exit 1
+              fi
+              mkdir -p "$out"
+            '';
+
+        miraiPilotCheck =
+          pkgs.runCommand "octet-mirai-semantic-pilot-check"
+            {
+              nativeBuildInputs = with pkgs; [
+                b3sum
+                diffutils
+                jq
+                nickel
+              ];
+            }
+            ''
+              cd ${./.}
+              generated_policy=$(mktemp)
+              generated_corpus=$(mktemp)
+              expected_policy_identity=cd4120f1df6d9715a615b87bbce4cbf41cdb3e0abd0a40dfd3ae175dc085b1ca
+              expected_corpus_identity=1dfb3e7ddeb1bc470d0e17e0a0b1c6b2895895643fa7c98a7f529a20ee99b015
+              expected_comparisons=8
+              nickel typecheck standards/mirai/pilot.ncl
+              nickel typecheck standards/mirai/corpus.ncl
+              nickel export --format json standards/mirai/pilot.ncl > "$generated_policy"
+              nickel export --format json standards/mirai/corpus.ncl > "$generated_corpus"
+              diff -u standards/mirai/pilot.json "$generated_policy"
+              diff -u standards/mirai/corpus.json "$generated_corpus"
+              test "$(b3sum "$generated_policy" | cut -d ' ' -f 1)" = "$expected_policy_identity"
+              test "$(b3sum "$generated_corpus" | cut -d ' ' -f 1)" = "$expected_corpus_identity"
+              test "$(readlink ${miraiSourceProvider}/source)" = "${miraiSource}"
+              jq --exit-status '
+                .schema_version == "octet-mirai-source-provider/v1"
+                and .revision == "${miraiRevision}"
+                and .rust_toolchain == "nightly-2025-01-10"
+                and (.execution_admitted | not)
+                and .blocker_code == "stable-machine-output-unavailable"
+              ' ${miraiSourceProvider}/provider.json >/dev/null
+              jq --exit-status --argjson expected_comparisons "$expected_comparisons" '
+                .schema_version == "octet-mirai-semantic-pilot-decision/v1"
+                and .decision == "blocked"
+                and (.execution_attempted | not)
+                and .reproducible_decision
+                and .blocker_code == "stable-machine-output-unavailable"
+                and (.comparisons | length) == $expected_comparisons
+                and all(.comparisons[]; .outcome == "unknown" and (.parent_identities | length) == 2)
+              ' standards/mirai/decision.json >/dev/null
+              jq -r '.profile.corpus[] | [.source_identity, (.bytes | tostring), .path] | @tsv' "$generated_policy" |
+                while IFS=$'\t' read -r identity bytes path; do
+                  test "b3:$(b3sum "$path" | cut -d ' ' -f 1)" = "$identity"
+                  test "$(wc -c < "$path")" = "$bytes"
+                done
+              nickel export --format json standards/evidence/fixtures/valid/mirai_pilot_decision_v1.ncl >/dev/null
+              if nickel export --format json standards/evidence/fixtures/invalid/mirai_pilot_wrong_decision.ncl >/dev/null 2>&1; then
+                echo "invalid MIRAI pilot decision fixture passed" >&2
+                exit 1
+              fi
+              mkdir -p "$out"
+            '';
+
+        mutationProfilesCheck =
+          pkgs.runCommand "octet-mutation-profiles-check"
+            {
+              nativeBuildInputs = with pkgs; [
+                b3sum
+                cargo-mutants
+                diffutils
+                jq
+                nickel
+              ];
+            }
+            ''
+              cd ${./.}
+              generated=$(mktemp)
+              expected_identity=a40fc0726aea38932f42d6096a84846778e832472767b3c3129de4f7e69d9176
+              nickel typecheck standards/mutation/profiles.ncl
+              nickel export --format json standards/mutation/profiles.ncl > "$generated"
+              diff -u standards/mutation/profiles.json "$generated"
+              test "$(b3sum "$generated" | cut -d ' ' -f 1)" = "$expected_identity"
+              test "$(cargo-mutants mutants --version)" = "cargo-mutants 27.0.0"
+              jq --exit-status '
+                .schema_version == "octet-mutation-profiles/v1"
+                and (.profiles | length) == 1
+                and .profiles[0].profile_id == "cargo-mutants-octet-metadata"
+                and .profiles[0].provider.version == "27.0.0"
+                and .profiles[0].evidence_tier == "transcript_assertion"
+                and .profiles[0].retain_logs
+                and .profiles[0].retain_diffs
+              ' "$generated" >/dev/null
+              mkdir -p "$out"
+            '';
+
         strictProfileCatalogCheck =
           pkgs.runCommand "octet-strict-profile-catalog-check"
             {
@@ -2106,6 +2451,7 @@
           pkgs.runCommand "octet-proof-rail-manifest-check"
             {
               nativeBuildInputs = with pkgs; [
+                b3sum
                 jq
                 nickel
               ];
@@ -2114,6 +2460,7 @@
               cd ${./.}
               manifest_json=$(mktemp)
               aeneas_profile_json=$(mktemp)
+              consumer_profile_json=$(mktemp)
               valence_adapter_fixture_json=$(mktemp)
               compatibility_matrix_json=$(mktemp)
               trellis_import_json=$(mktemp)
@@ -2121,12 +2468,31 @@
               jq --exit-status '
                 .schema_version == "octet-proof-rail-manifest/v1"
                 and .rails.aeneas_fixture.approved_theorem_statement_blake3 == "${approvedAeneasTheoremStatementBlake3}"
+                and .rails.aeneas_external_consumer.theorem_id == "aeneas.consumer.increment-matches-model"
+                and .rails.aeneas_external_consumer.source_paths == ["src/lib.rs"]
+                and .rails.aeneas_external_consumer.proof_paths == ["Theorem.lean"]
               ' "$manifest_json" >/dev/null
 
               nickel typecheck standards/proof-rails/aeneas-lean/contracts.ncl
               nickel typecheck standards/proof-rails/aeneas-lean/profile.ncl
               nickel export --format json standards/proof-rails/aeneas-lean/profile.ncl > "$aeneas_profile_json"
               cmp "$aeneas_profile_json" standards/proof-rails/aeneas-lean/generated/profile.json
+              nickel typecheck standards/proof-rails/aeneas-lean/consumer-contracts.ncl
+              nickel typecheck standards/proof-rails/aeneas-lean/consumer-profile.ncl
+              nickel export --format json standards/proof-rails/aeneas-lean/consumer-profile.ncl > "$consumer_profile_json"
+              cmp "$consumer_profile_json" standards/proof-rails/aeneas-lean/generated/consumer-profile.json
+              expected_consumer_identity=62bb3c01a2037eef1410e35d3902d73fb5e7439e8856d721d0823e14c0af4879
+              test "$(b3sum "$consumer_profile_json" | cut -d ' ' -f 1)" = "$expected_consumer_identity"
+              jq --exit-status '
+                .schema_version == "octet-aeneas-consumer-profile/v1"
+                and .profile_id == "octet-external-aeneas-consumer-v1"
+                and .provider.profile_identity == "b3:cd11b49d1acede2c6a91fa26f0b7a6b4b28db4007b4601a65b3269706a0ce625"
+                and .provider.compatibility_matrix_identity == "b3:403656d75de41b955cd2493ef289ba17308da65a3d214babc1ea606aeae248f5"
+                and (.source.selected_items | length) == 1
+                and (.theorems | length) == 1
+                and .outcomes == ["supported", "blocked", "failed"]
+                and (.provider.network_allowed | not)
+              ' "$consumer_profile_json" >/dev/null
               nickel typecheck standards/proof-rails/aeneas-lean/valence-adapter-fixture.ncl
               nickel export --format json standards/proof-rails/aeneas-lean/valence-adapter-fixture.ncl > "$valence_adapter_fixture_json"
               cmp "$valence_adapter_fixture_json" standards/proof-rails/aeneas-lean/generated/valence-adapter-fixture.json
@@ -2255,6 +2621,18 @@
 
               touch "$out"
             '';
+
+        aeneasConsumerContractCheck = pkgs.runCommand "octet-aeneas-consumer-contract-check" { } ''
+          test -e ${proofRailManifestCheck}
+          test -s ${./standards/proof-rails/aeneas-lean/generated/consumer-profile.json}
+          test -s ${./standards/proof-rails/aeneas-lean/fixtures/external-consumer/src/lib.rs}
+          test -s ${./standards/proof-rails/aeneas-lean/fixtures/external-consumer/Theorem.lean}
+          test -s ${./standards/proof-rails/aeneas-lean/fixtures/external-consumer/expected/llbc.llbc}
+          test -s ${./standards/proof-rails/aeneas-lean/fixtures/external-consumer/expected/translation.json}
+          test -s ${./standards/proof-rails/aeneas-lean/fixtures/external-consumer/expected/Llbc.lean}
+          test -s ${./standards/proof-rails/aeneas-lean/fixtures/external-consumer/expected/formal-proof-receipt.json}
+          touch "$out"
+        '';
 
         productionVerusNegativeProofCheck = pkgs.runCommand "octet-production-verus-negative-proof" { } ''
           set +e
@@ -2621,6 +2999,9 @@
           slotcar = octet;
           tigerstyle = octet;
           cargo-octet = cargoOctet;
+          cargo-llvm-cov-provider = pkgs.cargo-llvm-cov;
+          cargo-mutants-provider = pkgs.cargo-mutants;
+          mirai-source-provider = miraiSourceProvider;
           cargo-slotcar = cargoOctet;
           cargo-tigerstyle = cargoOctet;
           fingerprint-docs-downstream-smoke = fingerprintDocsDownstreamSmoke;
@@ -4116,6 +4497,13 @@
             cairn-cob-conflict-pilot = cairnCobConflictPilotCheck;
             ast-grep-structural-rail = astGrepStructuralRailCheck;
             wasm-artifact-rail = wasmArtifactRailCheck;
+            dynamic-evidence-profiles = dynamicEvidenceProfilesCheck;
+            sarif-profiles = sarifProfilesCheck;
+            coverage-profiles = coverageProfilesCheck;
+            benchmark-profiles = benchmarkProfilesCheck;
+            hegel-profiles = hegelProfilesCheck;
+            mirai-semantic-pilot = miraiPilotCheck;
+            mutation-profiles = mutationProfilesCheck;
             strict-profile-catalog = strictProfileCatalogCheck;
             nominal-domain-catalog = nominalDomainCatalogCheck;
             project-architecture-policy = projectArchitecturePolicyCheck;
@@ -4126,6 +4514,7 @@
             proof-rail-manifest = proofRailManifestCheck;
             aeneas-lean-provider-closure = aeneasLeanProviderClosureCheck;
             aeneas-lean-compatibility-matrix = aeneasLeanCompatibilityMatrixCheck;
+            aeneas-consumer-contract = aeneasConsumerContractCheck;
             charon-semantic-analysis = charonSemanticAnalysisCheck;
             verus-toolchain-profile = verusToolchainProfileCheck;
             production-verus-negative-proof = productionVerusNegativeProofCheck;
@@ -4171,6 +4560,8 @@
             rustup-shim
             pkgs.cargo-nextest
             pkgs.cargo-watch
+            pkgs.cargo-llvm-cov
+            pkgs.cargo-mutants
             pkgs.ast-grep
             cairn.packages.${system}.cairn
             pkgs.jq
@@ -4186,6 +4577,18 @@
 
           LD_LIBRARY_PATH = rustToolchainLibPath;
           RUSTUP_TOOLCHAIN = rustupToolchain;
+          OCTET_COVERAGE_CARGO = "${cargo-shim}/bin/cargo";
+          OCTET_COVERAGE_PATH = "${cargoOctetRuntimePath}/bin";
+          OCTET_COVERAGE_CARGO_CONFIG = "${cargoVendorDir}/config.toml";
+          OCTET_COVERAGE_LD_LIBRARY_PATH = rustToolchainLibPath;
+          OCTET_MUTATION_CARGO = "${cargo-shim}/bin/cargo";
+          OCTET_MUTATION_PATH = "${cargoOctetRuntimePath}/bin";
+          OCTET_MUTATION_CARGO_CONFIG = "${cargoVendorDir}/config.toml";
+          OCTET_MUTATION_LD_LIBRARY_PATH = rustToolchainLibPath;
+          OCTET_HEGEL_CARGO = "${cargo-shim}/bin/cargo";
+          OCTET_HEGEL_PATH = "${cargoOctetRuntimePath}/bin";
+          OCTET_HEGEL_CARGO_CONFIG = "${cargoVendorDir}/config.toml";
+          OCTET_HEGEL_LD_LIBRARY_PATH = rustToolchainLibPath;
           shellHook = ''
             export PATH="${dylintShimPath}:$PATH"
           '';

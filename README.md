@@ -166,7 +166,10 @@ cargo octet evidence collect --rail ast-grep --run --config standards/ast-grep/g
 cargo octet evidence collect --rail wasm-artifact --input module.wasm --config standards/wasm-artifact/generated/profiles.json --profile portable-component-baseline --artifact-dir artifacts/wasm-artifact
 cargo octet evidence collect --rail wasm-artifact --input module.wasm --config standards/wasm-artifact/generated/profiles.json --profile spacewasm-mvp --external-report chaoscontrol.json --artifact-dir artifacts/spacewasm
 cargo octet evidence collect --rail charon-semantic --run --workspace-root . --config standards/charon-semantic/generated/profile.json --profile octet-charon-semantic-safe-add-v1 --external-report standards/charon-semantic/generated/comparison-parent.json --artifact-dir artifacts/charon-semantic
-cargo octet evidence collect --rail hegel-property --input target/hegel-property.json --artifact-dir artifacts/hegel-property
+cargo octet evidence collect --rail hegel-property --profile octet-pure-core-laws-v1 --config standards/hegel/profiles.json --workspace-root . --run --locked --artifact-dir artifacts/hegel-property
+cargo octet evidence collect --rail mutation-testing --profile cargo-mutants-octet-metadata --config standards/mutation/profiles.json --input .octet/mutants-output/mutants.out/outcomes.json --external-report evidence/mutation-source-manifest.json --workspace-root . --artifact-dir artifacts/mutation
+cargo octet evidence collect --rail coverage-baseline --profile cargo-llvm-cov-octet-lib --config standards/coverage/profiles.json --input target/coverage.json --baseline baselines/coverage.json --external-report evidence/coverage-source-manifest.json --workspace-root . --artifact-dir artifacts/coverage
+cargo octet evidence collect --rail benchmark-evidence --profile octet-metadata-benchmark --config standards/benchmark/profiles.json --input evidence/benchmark-input.json --workspace-root . --artifact-dir artifacts/benchmark
 cargo octet artifact verify --artifact-dir artifacts/dependency-audit
 ```
 
@@ -175,6 +178,16 @@ The Clippy rail uses an embedded reviewed catalog. It does not enable the full `
 Receipts bind catalog and profile identities, arguments, findings, and tool status. They remain complementary static-lint evidence.
 
 Read [`docs/clippy-restriction-profiles.md`](docs/clippy-restriction-profiles.md).
+
+Read [`docs/benchmark-evidence.md`](docs/benchmark-evidence.md) for typed workloads, bounded samples, resource observations, signal oracles, and public-claim limits.
+
+Read [`docs/hegel-property-evidence.md`](docs/hegel-property-evidence.md) for the checked Hegel producer, law catalog, replay artifacts, and bounded claims.
+
+Read [`docs/mirai-semantic-pilot.md`](docs/mirai-semantic-pilot.md) for the pinned source package, selected corpus, and blocked output-contract decision.
+
+Read [`docs/mutation-testing-evidence.md`](docs/mutation-testing-evidence.md) for typed mutation profiles and complete native outcomes.
+
+Read [`docs/coverage-baseline-evidence.md`](docs/coverage-baseline-evidence.md) for typed coverage profiles and exact-count comparison.
 
 ## Pre-commit and exit status
 
@@ -250,6 +263,10 @@ cargo octet proof-ref validate \
   --ref proof-ref.json
 cargo octet artifact verify --artifact-dir artifacts/octet
 ```
+
+The reusable Aeneas consumer profile binds exact downstream source, generated
+artifacts, a maintained theorem, and the existing pinned provider. See
+[`docs/aeneas-consumer-contract.md`](docs/aeneas-consumer-contract.md).
 
 Legacy `cargo slotcar` and `cargo tigerstyle` commands remain compatibility aliases.
 
@@ -362,5 +379,6 @@ Dependencies and imported proof references retain their own terms. License metad
 - [nasa/spacewasm](https://github.com/nasa/spacewasm) at `e24cf09355a90497148eb5029fdb8e3400bd63e3` — execution-free Wasm profile source.
 - [AeneasVerif/aeneas](https://github.com/AeneasVerif/aeneas) and [AeneasVerif/charon](https://github.com/AeneasVerif/charon) — opt-in proof and semantic extraction references.
 - [AeneasVerif/eurydice](https://github.com/AeneasVerif/eurydice) and [AeneasVerif/scylla](https://github.com/AeneasVerif/scylla) — deferred translation references.
+- [endorlabs/MIRAI](https://github.com/endorlabs/MIRAI) at `aae0a56f91d9a0a62073bb86e7b2c9793cefc24b` — bounded semantic-pilot source reference.
 
 These references do not transfer compiler, verifier, semantic, security, or release claims into Octet.

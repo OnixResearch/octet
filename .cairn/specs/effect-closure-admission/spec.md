@@ -30,25 +30,31 @@ r[octet.effect_closure.catalog.invalid]
 
 ### Requirement: Two-stage closure CLI
 
-r[octet.effect_closure.cli] `cargo octet admit --profile deterministic-core --closure` MUST run the existing strict-profile check before attempting effect closure and MUST require successful deny-mode function-address evidence for the selected core paths.
+r[octet.effect_closure.cli] Effect closure MUST run only after its required direct strict check and any activated project architecture gate succeed.
 
-#### Scenario: Direct check and closure are admitted
+#### Scenario: Direct check, architecture gate, and closure are admitted
 
 r[octet.effect_closure.cli.admitted]
 
-- GIVEN the selected strict check passes, function addresses match, all source constructs and calls are resolved, role edges are allowed, and closure effects satisfy the profile
-- WHEN the admission command runs
-- THEN it MUST emit an admitted effect-closure bundle and exit successfully.
-- AND the existing check artifacts MUST remain available as identified parent evidence.
+- GIVEN the strict check passes, active project architecture gate passes, function addresses match, calls resolve, role edges are allowed, and closure effects satisfy policy
+- WHEN `admission` mode or the explicit closure command runs
+- THEN Octet MUST emit an admitted effect-closure bundle and identified parent evidence
 
-#### Scenario: Direct check failure blocks closure
+#### Scenario: Direct or architecture failure blocks closure
 
 r[octet.effect_closure.cli.check_failure]
 
-- GIVEN the strict check reports an error, stale function address, compiler failure, or integration failure
-- WHEN the admission command runs
-- THEN Octet MUST NOT claim or emit an admitted closure.
-- AND status evidence MUST identify the failed direct-check phase.
+- GIVEN the strict check fails or an activated project architecture gate blocks
+- WHEN closure orchestration runs
+- THEN Octet MUST NOT execute or claim an admitted closure
+- AND status evidence MUST identify the failed prerequisite phase
+
+#### Scenario: Explicit closure command has no project policy
+
+- GIVEN a project selects the existing explicit closure command without a project architecture-policy pointer
+- WHEN the command runs
+- THEN existing strict-profile and closure behavior MUST remain compatible
+- AND no project architecture claim MUST be inferred
 
 ### Requirement: Conservative direct-effect inference
 
@@ -167,24 +173,24 @@ r[octet.effect_closure.evidence.tamper]
 
 ### Requirement: Compatibility and claim boundaries
 
-r[octet.effect_closure.boundaries] Closure admission MUST remain opt-in and MUST describe its result as conservative selected-source-token effect closure under exact reviewed dependency summaries.
+r[octet.effect_closure.boundaries] Closure admission MUST remain opt-in and retain its conservative selected-source-token claim boundary when composed with project architecture evaluation.
 
 #### Scenario: Existing check remains unchanged
 
 r[octet.effect_closure.boundaries.default]
 
-- GIVEN an operator invokes `cargo octet check` with or without an existing strict profile
-- WHEN this change is installed
-- THEN its arguments, default behavior, lint execution, address behavior, and artifact schema MUST remain compatible.
+- GIVEN an operator invokes `cargo octet check` without project architecture activation
+- WHEN the integrated architecture feature is installed
+- THEN existing check arguments, lint behavior, address behavior, closure behavior, and artifact schemas MUST remain compatible
 
 #### Scenario: Evidence does not overclaim
 
 r[octet.effect_closure.boundaries.non_claims]
 
-- GIVEN an operator reads help, documentation, status, summary, provenance, policy, or receipt output
-- WHEN closure admission is described
-- THEN Octet MUST state that v1 uses conservative selected source-token inference and reviewed summaries.
-- AND it MUST NOT claim complete Rust name resolution, macro or trait-dispatch completeness, MIR call-graph completeness, dependency implementation verification, runtime reachability or ordering, panic freedom, semantic determinism, compiler correctness, whole-program correctness, verifier soundness, or release eligibility.
+- GIVEN a parent architecture receipt links an effect-closure receipt
+- WHEN output describes admission
+- THEN each receipt MUST preserve its checker, inputs, evidence tier, assumptions, and non-claims
+- AND their combination MUST NOT claim complete MIR closure, runtime determinism, whole-program correctness, or release eligibility
 
 ### Requirement: Valence deterministic-core dogfood
 
