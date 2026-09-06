@@ -1,0 +1,43 @@
+this derivation will be built:
+  /nix/store/d7g05waybgpm7fsc3i018n2gvw6ypakd-octet-no-todo-regression-0.1.0.drv
+building '/nix/store/d7g05waybgpm7fsc3i018n2gvw6ypakd-octet-no-todo-regression-0.1.0.drv'...
+octet-no-todo-regression> Running phase: unpackPhase
+octet-no-todo-regression> unpacking source archive /nix/store/46f1z188bg14s7q4c8bs08csracz5aab-9zkwfg71hjmbjfxn3xad2yx9z1xl1bf0-source
+octet-no-todo-regression> source root is 9zkwfg71hjmbjfxn3xad2yx9z1xl1bf0-source
+octet-no-todo-regression> Running phase: patchPhase
+octet-no-todo-regression> Executing configureCargoCommonVars
+octet-no-todo-regression> decompressing cargo artifacts from /nix/store/sxabvjdxk2kkx6fn6gxxn03w16q1wp9k-octet-deps-0.1.0/target.tar.zst to target
+octet-no-todo-regression> Running phase: updateAutotoolsGnuConfigScriptsPhase
+octet-no-todo-regression> Running phase: configurePhase
+octet-no-todo-regression> will append /build/9zkwfg71hjmbjfxn3xad2yx9z1xl1bf0-source/.cargo-home/config.toml with contents of /nix/store/l5jm0i0397hg6nh5w40mby14isi2ngwh-vendor-cargo-deps/config.toml
+octet-no-todo-regression> default configurePhase, nothing to do
+octet-no-todo-regression> Running phase: buildPhase
+octet-no-todo-regression> +++ command cargo --version
+octet-no-todo-regression> cargo 1.96.0-nightly (cbb9bb8bd 2026-03-13)
+octet-no-todo-regression> Running phase: checkPhase
+octet-no-todo-regression> +++ command cargo test --release --locked --test ui no_todo_expansion_shapes -- --ignored --nocapture
+octet-no-todo-regression>    Compiling octet-lint-metadata v0.1.0 (/build/9zkwfg71hjmbjfxn3xad2yx9z1xl1bf0-source/crates/octet-lint-metadata)
+octet-no-todo-regression>    Compiling octet v0.1.0 (/build/9zkwfg71hjmbjfxn3xad2yx9z1xl1bf0-source)
+octet-no-todo-regression>     Finished `release` profile [optimized] target(s) in 2.71s
+octet-no-todo-regression>      Running tests/ui.rs (target/release/deps/ui-9e7ea542e38e81f9)
+octet-no-todo-regression> 
+octet-no-todo-regression> running 1 test
+octet-no-todo-regression> [ui fixture] no_todo
+octet-no-todo-regression> [ui fixture] no_todo_allow
+octet-no-todo-regression> [ui fixture] no_todo_legacy_no_panic_allow
+octet-no-todo-regression> [ui fixture] no_todo_orphan_allow
+octet-no-todo-regression> test no_todo_expansion_shapes ... ok
+octet-no-todo-regression> 
+octet-no-todo-regression> test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.16s
+octet-no-todo-regression> 
+octet-no-todo-regression> Running phase: installPhase
+octet-no-todo-regression> stripping references to Rust toolchain
+octet-no-todo-regression> Rust toolchain at: /nix/store/1yvh3d6y3fj3xk2dgwczrp1dj5svd92c-rust-default-1.96.0-nightly-2026-03-21
+octet-no-todo-regression> stripping Rust toolchain references done
+octet-no-todo-regression> stripping references to cargoVendorDir from:
+octet-no-todo-regression> stripping references done
+octet-no-todo-regression> Running phase: fixupPhase
+octet-no-todo-regression> shrinking RPATHs of ELF executables and libraries in /nix/store/wlyqzwrsk4qlp5skmd9qgg72gwwg6aq3-octet-no-todo-regression-0.1.0
+octet-no-todo-regression> checking for references to /build/ in /nix/store/wlyqzwrsk4qlp5skmd9qgg72gwwg6aq3-octet-no-todo-regression-0.1.0...
+octet-no-todo-regression> patching script interpreter paths in /nix/store/wlyqzwrsk4qlp5skmd9qgg72gwwg6aq3-octet-no-todo-regression-0.1.0
+/nix/store/wlyqzwrsk4qlp5skmd9qgg72gwwg6aq3-octet-no-todo-regression-0.1.0

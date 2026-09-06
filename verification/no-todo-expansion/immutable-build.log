@@ -1,0 +1,38 @@
+this derivation will be built:
+  /nix/store/25rbm3gfg7ss8h5j2nnpcw13k2dh4rvl-octet-0.1.0.drv
+building '/nix/store/25rbm3gfg7ss8h5j2nnpcw13k2dh4rvl-octet-0.1.0.drv'...
+octet> Running phase: unpackPhase
+octet> unpacking source archive /nix/store/10j9h8gvfqs0qcrqv39a4b1qqiv6fqrm-source
+octet> source root is source
+octet> Running phase: patchPhase
+octet> Executing configureCargoCommonVars
+octet> decompressing cargo artifacts from /nix/store/sxabvjdxk2kkx6fn6gxxn03w16q1wp9k-octet-deps-0.1.0/target.tar.zst to target
+octet> Running phase: updateAutotoolsGnuConfigScriptsPhase
+octet> Running phase: configurePhase
+octet> will append /build/source/.cargo-home/config.toml with contents of /nix/store/l5jm0i0397hg6nh5w40mby14isi2ngwh-vendor-cargo-deps/config.toml
+octet> default configurePhase, nothing to do
+octet> Running phase: buildPhase
+octet> +++ command cargo --version
+octet> cargo 1.96.0-nightly (cbb9bb8bd 2026-03-13)
+octet> +++ command cargo build --release --message-format json-render-diagnostics --locked
+octet>    Compiling octet-lint-metadata v0.1.0 (/build/source/crates/octet-lint-metadata)
+octet>    Compiling octet v0.1.0 (/build/source)
+octet>     Finished `release` profile [optimized] target(s) in 9.86s
+octet> searching for bins/libs to install from cargo build log at cargoBuildLogjcT7.json
+octet> installing /build/source/target/release/liboctet.so in postBuildInstallFromCargoBuildLogOutTempzU3/lib
+octet> searching for bins/libs complete
+octet> Running phase: installPhase
+octet> actually installing contents of postBuildInstallFromCargoBuildLogOutTempzU3 to /nix/store/1wmd44w5qrpazl97g8rv0dfkaf3wzb9j-octet-0.1.0
+octet> stripping references to Rust toolchain
+octet> Rust toolchain at: /nix/store/1yvh3d6y3fj3xk2dgwczrp1dj5svd92c-rust-default-1.96.0-nightly-2026-03-21
+octet> stripping Rust toolchain references done
+octet> stripping references to cargoVendorDir from:
+octet> /nix/store/1wmd44w5qrpazl97g8rv0dfkaf3wzb9j-octet-0.1.0/lib/liboctet.so
+octet> stripping references done
+octet> Running phase: fixupPhase
+octet> shrinking RPATHs of ELF executables and libraries in /nix/store/1wmd44w5qrpazl97g8rv0dfkaf3wzb9j-octet-0.1.0
+octet> shrinking /nix/store/1wmd44w5qrpazl97g8rv0dfkaf3wzb9j-octet-0.1.0/lib/liboctet.so
+octet> checking for references to /build/ in /nix/store/1wmd44w5qrpazl97g8rv0dfkaf3wzb9j-octet-0.1.0...
+octet> patching script interpreter paths in /nix/store/1wmd44w5qrpazl97g8rv0dfkaf3wzb9j-octet-0.1.0
+octet> stripping (with command strip and flags -S -p) in  /nix/store/1wmd44w5qrpazl97g8rv0dfkaf3wzb9j-octet-0.1.0/lib
+/nix/store/1wmd44w5qrpazl97g8rv0dfkaf3wzb9j-octet-0.1.0

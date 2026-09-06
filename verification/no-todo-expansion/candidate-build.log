@@ -1,0 +1,38 @@
+this derivation will be built:
+  /nix/store/vm2ib4vad27wpqnxv899z7h9595nska3-octet-0.1.0.drv
+building '/nix/store/vm2ib4vad27wpqnxv899z7h9595nska3-octet-0.1.0.drv'...
+octet> Running phase: unpackPhase
+octet> unpacking source archive /nix/store/zibvy7gaihd6fakqwk7hjm7nb9fbyxii-source
+octet> source root is source
+octet> Running phase: patchPhase
+octet> Executing configureCargoCommonVars
+octet> decompressing cargo artifacts from /nix/store/sxabvjdxk2kkx6fn6gxxn03w16q1wp9k-octet-deps-0.1.0/target.tar.zst to target
+octet> Running phase: updateAutotoolsGnuConfigScriptsPhase
+octet> Running phase: configurePhase
+octet> will append /build/source/.cargo-home/config.toml with contents of /nix/store/l5jm0i0397hg6nh5w40mby14isi2ngwh-vendor-cargo-deps/config.toml
+octet> default configurePhase, nothing to do
+octet> Running phase: buildPhase
+octet> +++ command cargo --version
+octet> cargo 1.96.0-nightly (cbb9bb8bd 2026-03-13)
+octet> +++ command cargo build --release --message-format json-render-diagnostics --locked
+octet>    Compiling octet-lint-metadata v0.1.0 (/build/source/crates/octet-lint-metadata)
+octet>    Compiling octet v0.1.0 (/build/source)
+octet>     Finished `release` profile [optimized] target(s) in 10.22s
+octet> searching for bins/libs to install from cargo build log at cargoBuildLogvapd.json
+octet> installing /build/source/target/release/liboctet.so in postBuildInstallFromCargoBuildLogOutTempVLR/lib
+octet> searching for bins/libs complete
+octet> Running phase: installPhase
+octet> actually installing contents of postBuildInstallFromCargoBuildLogOutTempVLR to /nix/store/pfy0qmxclc6cnj24f5vwglc2fgbgiay2-octet-0.1.0
+octet> stripping references to Rust toolchain
+octet> Rust toolchain at: /nix/store/1yvh3d6y3fj3xk2dgwczrp1dj5svd92c-rust-default-1.96.0-nightly-2026-03-21
+octet> stripping Rust toolchain references done
+octet> stripping references to cargoVendorDir from:
+octet> /nix/store/pfy0qmxclc6cnj24f5vwglc2fgbgiay2-octet-0.1.0/lib/liboctet.so
+octet> stripping references done
+octet> Running phase: fixupPhase
+octet> shrinking RPATHs of ELF executables and libraries in /nix/store/pfy0qmxclc6cnj24f5vwglc2fgbgiay2-octet-0.1.0
+octet> shrinking /nix/store/pfy0qmxclc6cnj24f5vwglc2fgbgiay2-octet-0.1.0/lib/liboctet.so
+octet> checking for references to /build/ in /nix/store/pfy0qmxclc6cnj24f5vwglc2fgbgiay2-octet-0.1.0...
+octet> patching script interpreter paths in /nix/store/pfy0qmxclc6cnj24f5vwglc2fgbgiay2-octet-0.1.0
+octet> stripping (with command strip and flags -S -p) in  /nix/store/pfy0qmxclc6cnj24f5vwglc2fgbgiay2-octet-0.1.0/lib
+/nix/store/pfy0qmxclc6cnj24f5vwglc2fgbgiay2-octet-0.1.0
