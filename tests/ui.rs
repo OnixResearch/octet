@@ -969,6 +969,32 @@ fn ui() {
 }
 
 #[test]
+#[ignore = "run via cargo test --test ui no_todo_expansion_shapes -- --ignored --nocapture"]
+fn no_todo_expansion_shapes() {
+    let toolchain = rustup_toolchain();
+    let library = build_library(&toolchain);
+    let host = host_triple();
+    let driver = build_driver(&toolchain);
+    let mut support_cache = HashMap::new();
+
+    let fixture_set = fixture_set();
+    let fixtures = fixture_set.all_fixtures.into_iter().filter(|name| name.starts_with("no_todo")).collect::<Vec<_>>();
+    assert!(!fixtures.is_empty(), "no_todo regression fixtures must be registered");
+    for fixture in fixtures {
+        eprintln!("[ui fixture] {fixture}");
+        run_fixture(
+            &driver,
+            &library,
+            &host,
+            &toolchain,
+            &fixture,
+            !fixture_set.expected_failures.contains(&fixture),
+            &mut support_cache,
+        );
+    }
+}
+
+#[test]
 #[ignore = "run via cargo test --test ui autofix_machine_applicable -- --ignored --nocapture"]
 fn autofix_machine_applicable() {
     let toolchain = rustup_toolchain();
