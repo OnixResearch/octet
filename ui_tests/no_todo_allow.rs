@@ -63,6 +63,36 @@ fn bare_missing_comment_still_warns() {
     todo!("bare missing comment should still warn");
 }
 
+// justified bare macro while API lands
+#[allow(no_todo)]
+fn bare_macro_function_allowed() {
+    todo!()
+}
+
+fn bare_macro_block_allowed() {
+    // justified bare macro while API lands
+    #[allow(tigerstyle::no_todo)]
+    {
+        todo!();
+    }
+}
+
+#[allow(no_todo)]
+fn bare_macro_missing_comment() {
+    todo!();
+}
+
+// no_todo cannot justify a production panic
+#[allow(no_todo)]
+fn wrong_bare_macro() {
+    panic!();
+}
+
+#[cfg(not(test))]
+fn production_cfg_is_not_test_only() {
+    todo!();
+}
+
 fn main() {
     tool_scoped_function_level_allowed();
     tool_scoped_same_line_allowed();

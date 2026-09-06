@@ -37,6 +37,7 @@ pub struct NoTodo {
     seen_unjustified_allow_spans: Vec<Span>,
     candidate_allow_spans: Vec<Span>,
     live_allow_spans: Vec<Span>,
+    seen_macro_callsites: Vec<Span>,
 }
 
 impl NoTodo {
@@ -47,6 +48,7 @@ impl NoTodo {
             seen_unjustified_allow_spans: Vec::new(),
             candidate_allow_spans: Vec::new(),
             live_allow_spans: Vec::new(),
+            seen_macro_callsites: Vec::new(),
         }
     }
 }
@@ -239,7 +241,9 @@ impl<'tcx> LateLintPass<'tcx> for NoTodo {
             self.collect_candidate_allow(cx, expr.hir_id, expr.span);
         }
 
-        if !expr.span.from_expansion() || !matches!(expr.kind, ExprKind::Block(..)) {
+        // A bare todo!() lowers to a call; a formatted one includes a block.
+        // Classify the macro callsite, not its compiler-dependent HIR shape.
+        if !expr.span.from_expansion() {
             return;
         }
 
@@ -256,6 +260,12 @@ impl<'tcx> LateLintPass<'tcx> for NoTodo {
         let Some(name) = panic_family_macro_name_from_callsite(&snippet) else {
             return;
         };
+        // All expressions introduced by one expansion share this source site.
+        // Check it once, while keeping distinct invocations independent.
+        if self.seen_macro_callsites.contains(&callsite) {
+            return;
+        }
+        self.seen_macro_callsites.push(callsite);
 
         let allows = enclosing_no_todo_allows(cx, expr);
         for allow in &allows {
@@ -319,6 +329,8 @@ mod tests {
     fn finds_panic_family_macro_name() {
         assert_eq!(panic_family_macro_name_from_callsite("panic!(\"oops\")"), Some("panic!"));
         assert_eq!(panic_family_macro_name_from_callsite("todo!(\"later\")"), Some("todo!"));
+        assert_eq!(panic_family_macro_name_from_callsite("todo!()"), Some("todo!"));
+        assert_eq!(panic_family_macro_name_from_callsite("todo! {}"), Some("todo!"));
         assert_eq!(panic_family_macro_name_from_callsite("unimplemented!(\"x\")"), Some("unimplemented!"));
         assert_eq!(panic_family_macro_name_from_callsite("unreachable!(\"x\")"), Some("unreachable!"));
         assert_eq!(panic_family_macro_name_from_callsite("assert!(x > 0)"), None);
