@@ -1,0 +1,9 @@
+Running as unit: octet-todo-strict.service; invocation ID: 7ea34f02a2214a81aa1a5807d7f57b12
+Real strict positive fixture exited 0.
+Bare todo CLI exit with candidate library: 2
+Bare todo was rejected with no_todo errors. This mixed-component probe grants no startup authority.
+          Finished with result: success
+Main processes terminated with: code=exited, status=0/SUCCESS
+               Service runtime: 461ms
+             CPU time consumed: 470ms
+                   Memory peak: 33M (swap: 0B)

@@ -1,0 +1,4 @@
+10919bdd10b0049c1b1113f9757dc563441c6709b91efb02323ff5d32489447b  /nix/store/pfy0qmxclc6cnj24f5vwglc2fgbgiay2-octet-0.1.0/lib/liboctet.so
+10919bdd10b0049c1b1113f9757dc563441c6709b91efb02323ff5d32489447b  /nix/store/1wmd44w5qrpazl97g8rv0dfkaf3wzb9j-octet-0.1.0/lib/liboctet.so
+checking '/nix/store/1wmd44w5qrpazl97g8rv0dfkaf3wzb9j-octet-0.1.0'...
+Six protected inputs remain unchanged. Immutable library bytes match the tested candidate.

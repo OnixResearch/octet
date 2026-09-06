@@ -1,0 +1,53 @@
+this derivation will be built:
+  /nix/store/6f8hq2z5z3psjx7cbwxihgbvyxd9v6as-octet-no-todo-quality-0.1.0.drv
+building '/nix/store/6f8hq2z5z3psjx7cbwxihgbvyxd9v6as-octet-no-todo-quality-0.1.0.drv'...
+octet-no-todo-quality> Running phase: unpackPhase
+octet-no-todo-quality> unpacking source archive /nix/store/avjm0f7rk088zyklppscr3s76zl2fms5-source
+octet-no-todo-quality> source root is source
+octet-no-todo-quality> Running phase: patchPhase
+octet-no-todo-quality> Executing configureCargoCommonVars
+octet-no-todo-quality> decompressing cargo artifacts from /nix/store/sxabvjdxk2kkx6fn6gxxn03w16q1wp9k-octet-deps-0.1.0/target.tar.zst to target
+octet-no-todo-quality> Running phase: updateAutotoolsGnuConfigScriptsPhase
+octet-no-todo-quality> Running phase: configurePhase
+octet-no-todo-quality> will append /build/source/.cargo-home/config.toml with contents of /nix/store/l5jm0i0397hg6nh5w40mby14isi2ngwh-vendor-cargo-deps/config.toml
+octet-no-todo-quality> default configurePhase, nothing to do
+octet-no-todo-quality> Running phase: buildPhase
+octet-no-todo-quality> +++ command cargo --version
+octet-no-todo-quality> cargo 1.96.0-nightly (cbb9bb8bd 2026-03-13)
+octet-no-todo-quality> Running phase: checkPhase
+octet-no-todo-quality> +++ command cargo test --release --locked --lib safety::no_todo::tests -- --nocapture
+octet-no-todo-quality>    Compiling octet-lint-metadata v0.1.0 (/build/source/crates/octet-lint-metadata)
+octet-no-todo-quality>    Compiling octet v0.1.0 (/build/source)
+octet-no-todo-quality>     Finished `release` profile [optimized] target(s) in 15.60s
+octet-no-todo-quality>      Running unittests src/lib.rs (target/release/deps/octet-49b933cd8063c3ed)
+octet-no-todo-quality> 
+octet-no-todo-quality> running 2 tests
+octet-no-todo-quality> test safety::no_todo::tests::matches_supported_no_todo_spellings ... ok
+octet-no-todo-quality> test safety::no_todo::tests::finds_panic_family_macro_name ... ok
+octet-no-todo-quality> 
+octet-no-todo-quality> test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 123 filtered out; finished in 0.00s
+octet-no-todo-quality> 
+octet-no-todo-quality> +++ command cargo clippy --release --locked --lib -- -D warnings
+octet-no-todo-quality>     Checking serde v1.0.228
+octet-no-todo-quality>     Checking thiserror v2.0.18
+octet-no-todo-quality>     Checking cargo_metadata v0.23.1
+octet-no-todo-quality>     Checking octet-lint-metadata v0.1.0 (/build/source/crates/octet-lint-metadata)
+octet-no-todo-quality>     Checking dylint_internal v5.0.0 (https://github.com/trailofbits/dylint?rev=0e0a71eefe6f01563d11acc6e1d7af1d505934a9#0e0a71ee)
+octet-no-todo-quality>     Checking dylint_linting v5.0.0 (https://github.com/trailofbits/dylint?rev=0e0a71eefe6f01563d11acc6e1d7af1d505934a9#0e0a71ee)
+octet-no-todo-quality>     Checking octet v0.1.0 (/build/source)
+octet-no-todo-quality>     Finished `release` profile [optimized] target(s) in 2.71s
+octet-no-todo-quality> Running phase: installPhase
+octet-no-todo-quality> stripping references to Rust toolchain
+octet-no-todo-quality> Rust toolchain at: /nix/store/1yvh3d6y3fj3xk2dgwczrp1dj5svd92c-rust-default-1.96.0-nightly-2026-03-21
+octet-no-todo-quality> stripping Rust toolchain references done
+octet-no-todo-quality> stripping references to cargoVendorDir from:
+octet-no-todo-quality> /nix/store/kmwz7hshhjvwrs0fw2cxny1kc1fca566-octet-no-todo-quality-0.1.0/snapshots/no_todo.stderr
+octet-no-todo-quality> /nix/store/kmwz7hshhjvwrs0fw2cxny1kc1fca566-octet-no-todo-quality-0.1.0/snapshots/no_todo_allow.stderr
+octet-no-todo-quality> /nix/store/kmwz7hshhjvwrs0fw2cxny1kc1fca566-octet-no-todo-quality-0.1.0/snapshots/no_todo_legacy_no_panic_allow.stderr
+octet-no-todo-quality> /nix/store/kmwz7hshhjvwrs0fw2cxny1kc1fca566-octet-no-todo-quality-0.1.0/snapshots/no_todo_orphan_allow.stderr
+octet-no-todo-quality> stripping references done
+octet-no-todo-quality> Running phase: fixupPhase
+octet-no-todo-quality> shrinking RPATHs of ELF executables and libraries in /nix/store/kmwz7hshhjvwrs0fw2cxny1kc1fca566-octet-no-todo-quality-0.1.0
+octet-no-todo-quality> checking for references to /build/ in /nix/store/kmwz7hshhjvwrs0fw2cxny1kc1fca566-octet-no-todo-quality-0.1.0...
+octet-no-todo-quality> patching script interpreter paths in /nix/store/kmwz7hshhjvwrs0fw2cxny1kc1fca566-octet-no-todo-quality-0.1.0
+/nix/store/kmwz7hshhjvwrs0fw2cxny1kc1fca566-octet-no-todo-quality-0.1.0

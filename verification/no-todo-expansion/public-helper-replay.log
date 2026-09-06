@@ -1,0 +1,47 @@
+this derivation will be built:
+  /nix/store/4zgbwyprm1pzib4n9vzynirzc4ygyrlg-octet-no-todo-ui-0.1.0.drv
+building '/nix/store/4zgbwyprm1pzib4n9vzynirzc4ygyrlg-octet-no-todo-ui-0.1.0.drv'...
+octet-no-todo-ui> Running phase: unpackPhase
+octet-no-todo-ui> unpacking source archive /nix/store/10j9h8gvfqs0qcrqv39a4b1qqiv6fqrm-source
+octet-no-todo-ui> source root is source
+octet-no-todo-ui> Running phase: patchPhase
+octet-no-todo-ui> Executing configureCargoCommonVars
+octet-no-todo-ui> decompressing cargo artifacts from /nix/store/sxabvjdxk2kkx6fn6gxxn03w16q1wp9k-octet-deps-0.1.0/target.tar.zst to target
+octet-no-todo-ui> Running phase: updateAutotoolsGnuConfigScriptsPhase
+octet-no-todo-ui> Running phase: configurePhase
+octet-no-todo-ui> will append /build/source/.cargo-home/config.toml with contents of /nix/store/l5jm0i0397hg6nh5w40mby14isi2ngwh-vendor-cargo-deps/config.toml
+octet-no-todo-ui> default configurePhase, nothing to do
+octet-no-todo-ui> Running phase: buildPhase
+octet-no-todo-ui> +++ command cargo --version
+octet-no-todo-ui> cargo 1.96.0-nightly (cbb9bb8bd 2026-03-13)
+octet-no-todo-ui> Running phase: checkPhase
+octet-no-todo-ui> +++ command cargo test --release --locked --test ui no_todo_expansion_shapes -- --ignored --nocapture
+octet-no-todo-ui>    Compiling octet-lint-metadata v0.1.0 (/build/source/crates/octet-lint-metadata)
+octet-no-todo-ui>    Compiling octet v0.1.0 (/build/source)
+octet-no-todo-ui>     Finished `release` profile [optimized] target(s) in 2.75s
+octet-no-todo-ui>      Running tests/ui.rs (target/release/deps/ui-9e7ea542e38e81f9)
+octet-no-todo-ui> 
+octet-no-todo-ui> running 1 test
+octet-no-todo-ui> [ui fixture] no_todo
+octet-no-todo-ui> [ui fixture] no_todo_allow
+octet-no-todo-ui> [ui fixture] no_todo_legacy_no_panic_allow
+octet-no-todo-ui> [ui fixture] no_todo_orphan_allow
+octet-no-todo-ui> test no_todo_expansion_shapes ... ok
+octet-no-todo-ui> 
+octet-no-todo-ui> test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.12s
+octet-no-todo-ui> 
+octet-no-todo-ui> Running phase: installPhase
+octet-no-todo-ui> stripping references to Rust toolchain
+octet-no-todo-ui> Rust toolchain at: /nix/store/1yvh3d6y3fj3xk2dgwczrp1dj5svd92c-rust-default-1.96.0-nightly-2026-03-21
+octet-no-todo-ui> stripping Rust toolchain references done
+octet-no-todo-ui> stripping references to cargoVendorDir from:
+octet-no-todo-ui> /nix/store/ffrc69xn67wa7jf828as8xhvx5sms18b-octet-no-todo-ui-0.1.0/snapshots/no_todo.stderr
+octet-no-todo-ui> /nix/store/ffrc69xn67wa7jf828as8xhvx5sms18b-octet-no-todo-ui-0.1.0/snapshots/no_todo_allow.stderr
+octet-no-todo-ui> /nix/store/ffrc69xn67wa7jf828as8xhvx5sms18b-octet-no-todo-ui-0.1.0/snapshots/no_todo_legacy_no_panic_allow.stderr
+octet-no-todo-ui> /nix/store/ffrc69xn67wa7jf828as8xhvx5sms18b-octet-no-todo-ui-0.1.0/snapshots/no_todo_orphan_allow.stderr
+octet-no-todo-ui> stripping references done
+octet-no-todo-ui> Running phase: fixupPhase
+octet-no-todo-ui> shrinking RPATHs of ELF executables and libraries in /nix/store/ffrc69xn67wa7jf828as8xhvx5sms18b-octet-no-todo-ui-0.1.0
+octet-no-todo-ui> checking for references to /build/ in /nix/store/ffrc69xn67wa7jf828as8xhvx5sms18b-octet-no-todo-ui-0.1.0...
+octet-no-todo-ui> patching script interpreter paths in /nix/store/ffrc69xn67wa7jf828as8xhvx5sms18b-octet-no-todo-ui-0.1.0
+/nix/store/ffrc69xn67wa7jf828as8xhvx5sms18b-octet-no-todo-ui-0.1.0

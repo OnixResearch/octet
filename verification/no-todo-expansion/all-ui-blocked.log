@@ -1,0 +1,402 @@
+this derivation will be built:
+  /nix/store/fw2d6d9b8ipfhj31xzhjx1wfr7602pl5-octet-no-todo-all-ui-0.1.0.drv
+building '/nix/store/fw2d6d9b8ipfhj31xzhjx1wfr7602pl5-octet-no-todo-all-ui-0.1.0.drv'...
+octet-no-todo-all-ui> Running phase: unpackPhase
+octet-no-todo-all-ui> unpacking source archive /nix/store/avjm0f7rk088zyklppscr3s76zl2fms5-source
+octet-no-todo-all-ui> source root is source
+octet-no-todo-all-ui> Running phase: patchPhase
+octet-no-todo-all-ui> Executing configureCargoCommonVars
+octet-no-todo-all-ui> decompressing cargo artifacts from /nix/store/sxabvjdxk2kkx6fn6gxxn03w16q1wp9k-octet-deps-0.1.0/target.tar.zst to target
+octet-no-todo-all-ui> Running phase: updateAutotoolsGnuConfigScriptsPhase
+octet-no-todo-all-ui> Running phase: configurePhase
+octet-no-todo-all-ui> will append /build/source/.cargo-home/config.toml with contents of /nix/store/l5jm0i0397hg6nh5w40mby14isi2ngwh-vendor-cargo-deps/config.toml
+octet-no-todo-all-ui> default configurePhase, nothing to do
+octet-no-todo-all-ui> Running phase: buildPhase
+octet-no-todo-all-ui> +++ command cargo --version
+octet-no-todo-all-ui> cargo 1.96.0-nightly (cbb9bb8bd 2026-03-13)
+octet-no-todo-all-ui> Running phase: checkPhase
+octet-no-todo-all-ui> +++ command cargo test --release --locked --test ui -- --ignored --nocapture
+octet-no-todo-all-ui>    Compiling octet-lint-metadata v0.1.0 (/build/source/crates/octet-lint-metadata)
+octet-no-todo-all-ui>    Compiling octet v0.1.0 (/build/source)
+octet-no-todo-all-ui>     Finished `release` profile [optimized] target(s) in 2.59s
+octet-no-todo-all-ui>      Running tests/ui.rs (target/release/deps/ui-9e7ea542e38e81f9)
+octet-no-todo-all-ui> 
+octet-no-todo-all-ui> running 3 tests
+octet-no-todo-all-ui> [autofix fixture] bool_naming_local_rename
+octet-no-todo-all-ui> [autofix command] (cd /build/octet-autofix-bool_naming_local_rename-208-1788738419522150369 && cargo fix --allow-dirty --allow-staged --allow-no-vcs --bin autofix_fixture)
+octet-no-todo-all-ui> [ui fixture] no_todo
+octet-no-todo-all-ui> [ui fixture] no_todo_allow
+octet-no-todo-all-ui> [ui fixture] no_todo_legacy_no_panic_allow
+octet-no-todo-all-ui> [ui fixture] no_todo_orphan_allow
+octet-no-todo-all-ui> [autofix stderr]
+octet-no-todo-all-ui>     Checking autofix_fixture v0.1.0 (/build/octet-autofix-bool_naming_local_rename-208-1788738419522150369)
+octet-no-todo-all-ui>        Fixed src/main.rs (1 fix)
+octet-no-todo-all-ui>     Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.10s
+octet-no-todo-all-ui> 
+octet-no-todo-all-ui> [autofix idempotence command] (cd /build/octet-autofix-bool_naming_local_rename-208-1788738419522150369 && cargo fix --allow-dirty --allow-staged --allow-no-vcs --bin autofix_fixture)
+octet-no-todo-all-ui> test no_todo_expansion_shapes ... ok
+octet-no-todo-all-ui> [ui fixture] acronym_allowlist_custom/acronym_allowlist_custom
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/acronym_allowlist_custom.stderr
+octet-no-todo-all-ui> [ui fixture] acronym_style
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/acronym_style.stderr
+octet-no-todo-all-ui> [ui fixture] allocation_in_loop
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/allocation_in_loop.stderr
+octet-no-todo-all-ui> [autofix idempotence stderr]
+octet-no-todo-all-ui>     Checking autofix_fixture v0.1.0 (/build/octet-autofix-bool_naming_local_rename-208-1788738419522150369)
+octet-no-todo-all-ui>     Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.07s
+octet-no-todo-all-ui> 
+octet-no-todo-all-ui> [autofix post-check command] (cd /build/octet-autofix-bool_naming_local_rename-208-1788738419522150369 && cargo check --quiet --bin autofix_fixture)
+octet-no-todo-all-ui> [ui fixture] ambient_clock
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/ambient_clock.stderr
+octet-no-todo-all-ui> [ui fixture] ambient_env
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/ambient_env.stderr
+octet-no-todo-all-ui> [autofix fixture] compound_assertion_indented
+octet-no-todo-all-ui> [autofix command] (cd /build/octet-autofix-compound_assertion_indented-208-1788738419752256465 && cargo fix --allow-dirty --allow-staged --allow-no-vcs --bin autofix_fixture)
+octet-no-todo-all-ui> [ui fixture] ambient_random
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/ambient_random.stderr
+octet-no-todo-all-ui> [ui fixture] ambiguous_params
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/ambiguous_params.stderr
+octet-no-todo-all-ui> [ui fixture] assertion_density
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/assertion_density.stderr
+octet-no-todo-all-ui> [ui fixture] assertion_density_custom/assertion_density_custom
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/assertion_density_custom.stderr
+octet-no-todo-all-ui> [autofix stderr]
+octet-no-todo-all-ui>     Checking autofix_fixture v0.1.0 (/build/octet-autofix-compound_assertion_indented-208-1788738419752256465)
+octet-no-todo-all-ui>        Fixed src/main.rs (1 fix)
+octet-no-todo-all-ui>     Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.10s
+octet-no-todo-all-ui> 
+octet-no-todo-all-ui> [autofix idempotence command] (cd /build/octet-autofix-compound_assertion_indented-208-1788738419752256465 && cargo fix --allow-dirty --allow-staged --allow-no-vcs --bin autofix_fixture)
+octet-no-todo-all-ui> [ui fixture] bool_naming
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/bool_naming.stderr
+octet-no-todo-all-ui> [ui fixture] bool_naming_local_rename
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/bool_naming_local_rename.stderr
+octet-no-todo-all-ui> [ui fixture] bool_naming_macro_fallback
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/bool_naming_macro_fallback.stderr
+octet-no-todo-all-ui> [ui fixture] borrowed_argument_types
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/borrowed_argument_types.stderr
+octet-no-todo-all-ui> [autofix idempotence stderr]
+octet-no-todo-all-ui>     Checking autofix_fixture v0.1.0 (/build/octet-autofix-compound_assertion_indented-208-1788738419752256465)
+octet-no-todo-all-ui>     Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.08s
+octet-no-todo-all-ui> 
+octet-no-todo-all-ui> [autofix post-check command] (cd /build/octet-autofix-compound_assertion_indented-208-1788738419752256465 && cargo check --quiet --bin autofix_fixture)
+octet-no-todo-all-ui> [ui fixture] catch_all_on_enum
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/catch_all_on_enum.stderr
+octet-no-todo-all-ui> [ui fixture] clone_then_borrow
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/clone_then_borrow.stderr
+octet-no-todo-all-ui> [autofix fixture] compound_assertion_machine_applicable
+octet-no-todo-all-ui> [autofix command] (cd /build/octet-autofix-compound_assertion_machine_applicable-208-1788738419991606432 && cargo fix --allow-dirty --allow-staged --allow-no-vcs --bin autofix_fixture)
+octet-no-todo-all-ui> [ui fixture] compound_assertion
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/compound_assertion.stderr
+octet-no-todo-all-ui> [ui fixture] compound_assertion_indented
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/compound_assertion_indented.stderr
+octet-no-todo-all-ui> [ui fixture] compound_assertion_machine_applicable
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/compound_assertion_machine_applicable.stderr
+octet-no-todo-all-ui> [ui fixture] compound_assertion_message_guardrail
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/compound_assertion_message_guardrail.stderr
+octet-no-todo-all-ui> [autofix stderr]
+octet-no-todo-all-ui>     Checking autofix_fixture v0.1.0 (/build/octet-autofix-compound_assertion_machine_applicable-208-1788738419991606432)
+octet-no-todo-all-ui>        Fixed src/main.rs (2 fixes)
+octet-no-todo-all-ui>     Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.10s
+octet-no-todo-all-ui> 
+octet-no-todo-all-ui> [autofix idempotence command] (cd /build/octet-autofix-compound_assertion_machine_applicable-208-1788738419991606432 && cargo fix --allow-dirty --allow-staged --allow-no-vcs --bin autofix_fixture)
+octet-no-todo-all-ui> [ui fixture] compound_assertion_or_guardrail
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/compound_assertion_or_guardrail.stderr
+octet-no-todo-all-ui> [ui fixture] compound_condition
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/compound_condition.stderr
+octet-no-todo-all-ui> [ui fixture] contradictory_time
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/contradictory_time.stderr
+octet-no-todo-all-ui> [autofix idempotence stderr]
+octet-no-todo-all-ui>     Checking autofix_fixture v0.1.0 (/build/octet-autofix-compound_assertion_machine_applicable-208-1788738419991606432)
+octet-no-todo-all-ui>     Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.08s
+octet-no-todo-all-ui> 
+octet-no-todo-all-ui> [autofix post-check command] (cd /build/octet-autofix-compound_assertion_machine_applicable-208-1788738419991606432 && cargo check --quiet --bin autofix_fixture)
+octet-no-todo-all-ui> [ui fixture] concrete_construction_in_core/concrete_construction_in_core
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/concrete_construction_in_core.stderr
+octet-no-todo-all-ui> [autofix fixture] negated_predicate_local_rename
+octet-no-todo-all-ui> [autofix command] (cd /build/octet-autofix-negated_predicate_local_rename-208-1788738420273328748 && cargo fix --allow-dirty --allow-staged --allow-no-vcs --bin autofix_fixture)
+octet-no-todo-all-ui> [autofix stderr]
+octet-no-todo-all-ui>     Checking autofix_fixture v0.1.0 (/build/octet-autofix-negated_predicate_local_rename-208-1788738420273328748)
+octet-no-todo-all-ui>        Fixed src/main.rs (1 fix)
+octet-no-todo-all-ui>     Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.09s
+octet-no-todo-all-ui> 
+octet-no-todo-all-ui> [autofix idempotence command] (cd /build/octet-autofix-negated_predicate_local_rename-208-1788738420273328748 && cargo fix --allow-dirty --allow-staged --allow-no-vcs --bin autofix_fixture)
+octet-no-todo-all-ui> [autofix idempotence stderr]
+octet-no-todo-all-ui>     Checking autofix_fixture v0.1.0 (/build/octet-autofix-negated_predicate_local_rename-208-1788738420273328748)
+octet-no-todo-all-ui>     Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.08s
+octet-no-todo-all-ui> 
+octet-no-todo-all-ui> [autofix post-check command] (cd /build/octet-autofix-negated_predicate_local_rename-208-1788738420273328748 && cargo check --quiet --bin autofix_fixture)
+octet-no-todo-all-ui> test autofix_machine_applicable ... ok
+octet-no-todo-all-ui> warning: struct `DomainValue` is never constructed
+octet-no-todo-all-ui>  --> concrete_construction_in_core.rs:1:8
+octet-no-todo-all-ui>   |
+octet-no-todo-all-ui> 1 | struct DomainValue;
+octet-no-todo-all-ui>   |        ^^^^^^^^^^^
+octet-no-todo-all-ui>   |
+octet-no-todo-all-ui>   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+octet-no-todo-all-ui> 
+octet-no-todo-all-ui> warning: associated function `new` is never used
+octet-no-todo-all-ui>  --> concrete_construction_in_core.rs:4:8
+octet-no-todo-all-ui>   |
+octet-no-todo-all-ui> 3 | impl DomainValue {
+octet-no-todo-all-ui>   | ---------------- associated function in this implementation
+octet-no-todo-all-ui> 4 |     fn new() -> Self {
+octet-no-todo-all-ui>   |        ^^^
+octet-no-todo-all-ui> 
+octet-no-todo-all-ui> warning: function `construct_local_domain_value` is never used
+octet-no-todo-all-ui>  --> concrete_construction_in_core.rs:9:4
+octet-no-todo-all-ui>   |
+octet-no-todo-all-ui> 9 | fn construct_local_domain_value() {
+octet-no-todo-all-ui>   |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+octet-no-todo-all-ui> 
+octet-no-todo-all-ui> warning: function `construct_standard_value` is never used
+octet-no-todo-all-ui>   --> concrete_construction_in_core.rs:13:4
+octet-no-todo-all-ui>    |
+octet-no-todo-all-ui> 13 | fn construct_standard_value() {
+octet-no-todo-all-ui>    |    ^^^^^^^^^^^^^^^^^^^^^^^^
+octet-no-todo-all-ui> 
+octet-no-todo-all-ui> warning: function `construct_nested_external_value` is never used
+octet-no-todo-all-ui>   --> concrete_construction_in_core.rs:17:4
+octet-no-todo-all-ui>    |
+octet-no-todo-all-ui> 17 | fn construct_nested_external_value() {
+octet-no-todo-all-ui>    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+octet-no-todo-all-ui> 
+octet-no-todo-all-ui> warning: function `main` is never used
+octet-no-todo-all-ui>   --> concrete_construction_in_core.rs:21:4
+octet-no-todo-all-ui>    |
+octet-no-todo-all-ui> 21 | fn main() {
+octet-no-todo-all-ui>    |    ^^^^
+octet-no-todo-all-ui> 
+octet-no-todo-all-ui> [ui fixture] concrete_construction_in_core_no_scope
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/concrete_construction_in_core_no_scope.stderr
+octet-no-todo-all-ui> [ui fixture] defaulting_trait_method
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/defaulting_trait_method.stderr
+octet-no-todo-all-ui> [ui fixture] defaulting_trait_method_required
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/defaulting_trait_method_required.stderr
+octet-no-todo-all-ui> [ui fixture] deref_polymorphism
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/deref_polymorphism.stderr
+octet-no-todo-all-ui> [ui fixture] drop_must_use
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/drop_must_use.stderr
+octet-no-todo-all-ui> [ui fixture] excessive_file_length
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/excessive_file_length.stderr
+octet-no-todo-all-ui> [ui fixture] excessive_file_length_within_limit
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/excessive_file_length_within_limit.stderr
+octet-no-todo-all-ui> [ui fixture] explicit_defaults/explicit_defaults
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/explicit_defaults.stderr
+octet-no-todo-all-ui> [ui fixture] fallible_int_fallback
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/fallible_int_fallback.stderr
+octet-no-todo-all-ui> [ui fixture] fat_trait
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/fat_trait.stderr
+octet-no-todo-all-ui> [ui fixture] fat_trait_within_limit
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/fat_trait_within_limit.stderr
+octet-no-todo-all-ui> [ui fixture] float_for_currency
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/float_for_currency.stderr
+octet-no-todo-all-ui> [ui fixture] foreign_enum_catch_all
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/foreign_enum_catch_all.stderr
+octet-no-todo-all-ui> [ui fixture] foreign_enum_catch_all_macro
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/foreign_enum_catch_all_macro.stderr
+octet-no-todo-all-ui> [ui fixture] foreign_enum_catch_all_own_enum
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/foreign_enum_catch_all_own_enum.stderr
+octet-no-todo-all-ui> [ui fixture] fragile_exhaustive_enum_match
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/fragile_exhaustive_enum_match.stderr
+octet-no-todo-all-ui> [ui fixture] fragile_exhaustive_enum_match_foreign
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/fragile_exhaustive_enum_match_foreign.stderr
+octet-no-todo-all-ui> [ui fixture] fragile_exhaustive_enum_match_sealed
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/fragile_exhaustive_enum_match_sealed.stderr
+octet-no-todo-all-ui> [ui fixture] fragile_exhaustive_enum_match_state_machine
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/fragile_exhaustive_enum_match_state_machine.stderr
+octet-no-todo-all-ui> [ui fixture] state_machine_exhaustiveness
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/state_machine_exhaustiveness.stderr
+octet-no-todo-all-ui> [ui fixture] state_machine_exhaustiveness_negative
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/state_machine_exhaustiveness_negative.stderr
+octet-no-todo-all-ui> [ui fixture] function_length
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/function_length.stderr
+octet-no-todo-all-ui> [ui fixture] function_length_custom/function_length_custom
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/function_length_custom.stderr
+octet-no-todo-all-ui> [ui fixture] group_allow_safety
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/group_allow_safety.stderr
+octet-no-todo-all-ui> [ui fixture] group_deny_naming
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/group_deny_naming.stderr
+octet-no-todo-all-ui> [ui fixture] global_state_in_core/global_state_in_core
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/global_state_in_core.stderr
+octet-no-todo-all-ui> [ui fixture] ignored_join_handle
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/ignored_join_handle.stderr
+octet-no-todo-all-ui> [ui fixture] ignored_result
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/ignored_result.stderr
+octet-no-todo-all-ui> [ui fixture] ignored_result_drop
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/ignored_result_drop.stderr
+octet-no-todo-all-ui> [ui fixture] impure_call_in_core/impure_call_in_core
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/impure_call_in_core.stderr
+octet-no-todo-all-ui> [ui fixture] interior_mutability_in_core/interior_mutability_in_core
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/interior_mutability_in_core.stderr
+octet-no-todo-all-ui> [ui fixture] ignored_result_shutdown_send
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/ignored_result_shutdown_send.stderr
+octet-no-todo-all-ui> [ui fixture] lint_guardrail_common
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/lint_guardrail_common.stderr
+octet-no-todo-all-ui> [ui fixture] logging_in_core/logging_in_core
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/logging_in_core.stderr
+octet-no-todo-all-ui> [ui fixture] magic_number
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/magic_number.stderr
+octet-no-todo-all-ui> [ui fixture] max_parameters_custom/max_parameters_custom
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/max_parameters_custom.stderr
+octet-no-todo-all-ui> [ui fixture] missing_const_fn
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/missing_const_fn.stderr
+octet-no-todo-all-ui> [ui fixture] module_file_count
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/module_file_count.stderr
+octet-no-todo-all-ui> [ui fixture] module_file_count_at_limit
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/module_file_count_at_limit.stderr
+octet-no-todo-all-ui> [ui fixture] multi_lock_ordering
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/multi_lock_ordering.stderr
+octet-no-todo-all-ui> [ui fixture] mutating_input_in_pure
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/mutating_input_in_pure.stderr
+octet-no-todo-all-ui> [ui fixture] negated_predicate
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/negated_predicate.stderr
+octet-no-todo-all-ui> [ui fixture] negated_predicate_local_rename
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/negated_predicate_local_rename.stderr
+octet-no-todo-all-ui> [ui fixture] nested_conditionals
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/nested_conditionals.stderr
+octet-no-todo-all-ui> [ui fixture] nesting_custom/nesting_custom
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/nesting_custom.stderr
+octet-no-todo-all-ui> [ui fixture] namespace_bare_lint_deny
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/namespace_bare_lint_deny.stderr
+octet-no-todo-all-ui> [ui fixture] namespace_canonical_group_allow
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/namespace_canonical_group_allow.stderr
+octet-no-todo-all-ui> [ui fixture] namespace_canonical_lint_allow
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/namespace_canonical_lint_allow.stderr
+octet-no-todo-all-ui> [ui fixture] namespace_unsupported_octet_attr
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/namespace_unsupported_octet_attr.stderr
+octet-no-todo-all-ui> [ui fixture] no_panic
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/no_panic.stderr
+octet-no-todo-all-ui> [ui fixture] no_panic_cfg_not
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/no_panic_cfg_not.stderr
+octet-no-todo-all-ui> [ui fixture] no_panic_exhaustive
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/no_panic_exhaustive.stderr
+octet-no-todo-all-ui> [ui fixture] no_panic_exhaustive_external
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/no_panic_exhaustive_external.stderr
+octet-no-todo-all-ui> [ui fixture] no_panic_exhaustive_indirect
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/no_panic_exhaustive_indirect.stderr
+octet-no-todo-all-ui> [ui fixture] no_panic_exhaustive_non_exhaustive
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/no_panic_exhaustive_non_exhaustive.stderr
+octet-no-todo-all-ui> [ui fixture] no_recursion
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/no_recursion.stderr
+octet-no-todo-all-ui> [ui fixture] no_todo
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/no_todo.stderr
+octet-no-todo-all-ui> [ui fixture] no_todo_allow
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/no_todo_allow.stderr
+octet-no-todo-all-ui> [ui fixture] no_todo_legacy_no_panic_allow
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/no_todo_legacy_no_panic_allow.stderr
+octet-no-todo-all-ui> [ui fixture] no_todo_orphan_allow
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/no_todo_orphan_allow.stderr
+octet-no-todo-all-ui> [ui fixture] no_unwrap
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/no_unwrap.stderr
+octet-no-todo-all-ui> [ui fixture] no_unwrap_allow_custom/no_unwrap_allow_custom
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/no_unwrap_allow_custom.stderr
+octet-no-todo-all-ui> [ui fixture] no_unwrap_cfg_not
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/no_unwrap_cfg_not.stderr
+octet-no-todo-all-ui> [ui fixture] no_unwrap_compile_time_known
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/no_unwrap_compile_time_known.stderr
+octet-no-todo-all-ui> [ui fixture] no_unwrap_default_custom/no_unwrap_default_custom
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/no_unwrap_default_custom.stderr
+octet-no-todo-all-ui> [ui fixture] no_unwrap_deny_custom/no_unwrap_deny_custom
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/no_unwrap_deny_custom.stderr
+octet-no-todo-all-ui> [ui fixture] no_unwrap_disabled_custom/no_unwrap_disabled_custom
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/no_unwrap_disabled_custom.stderr
+octet-no-todo-all-ui> [ui fixture] no_unwrap_disabled_deny_custom/no_unwrap_disabled_deny_custom
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/no_unwrap_disabled_deny_custom.stderr
+octet-no-todo-all-ui> [ui fixture] no_unwrap_disabled_source_attr_custom/no_unwrap_disabled_source_attr_custom
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/no_unwrap_disabled_source_attr_custom.stderr
+octet-no-todo-all-ui> [ui fixture] no_unwrap_guarded
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/no_unwrap_guarded.stderr
+octet-no-todo-all-ui> [ui fixture] no_unwrap_tool_attr
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/no_unwrap_tool_attr.stderr
+octet-no-todo-all-ui> [ui fixture] no_unwrap_warn_custom/no_unwrap_warn_custom
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/no_unwrap_warn_custom.stderr
+octet-no-todo-all-ui> [ui fixture] nondeterministic_output
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/nondeterministic_output.stderr
+octet-no-todo-all-ui> [ui fixture] numeric_units
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/numeric_units.stderr
+octet-no-todo-all-ui> [ui fixture] platform_dependent_cast
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/platform_dependent_cast.stderr
+octet-no-todo-all-ui> [ui fixture] public_unsafe_api
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/public_unsafe_api.stderr
+octet-no-todo-all-ui> [ui fixture] raw_arithmetic_overflow
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/raw_arithmetic_overflow.stderr
+octet-no-todo-all-ui> [ui fixture] sentinel_fallback
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/sentinel_fallback.stderr
+octet-no-todo-all-ui> [ui fixture] tokio_async/ignored_result_shutdown_send_tokio
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/ignored_result_shutdown_send_tokio.stderr
+octet-no-todo-all-ui> [ui fixture] tokio_async/ignored_result_try_send_tokio
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/ignored_result_try_send_tokio.stderr
+octet-no-todo-all-ui> [ui fixture] tokio_async/unbounded_loop_bare_async
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/unbounded_loop_bare_async.stderr
+octet-no-todo-all-ui> [ui fixture] tokio_async/unbounded_loop_bounded_receiver
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/unbounded_loop_bounded_receiver.stderr
+octet-no-todo-all-ui> [ui fixture] tokio_async/unbounded_loop_imported_select
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/unbounded_loop_imported_select.stderr
+octet-no-todo-all-ui> [ui fixture] tokio_async/unbounded_loop_non_tokio_select
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/unbounded_loop_non_tokio_select.stderr
+octet-no-todo-all-ui> [ui fixture] tokio_async/unbounded_loop_plain_await
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/unbounded_loop_plain_await.stderr
+octet-no-todo-all-ui> [ui fixture] tokio_async/unbounded_loop_tokio_select
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/unbounded_loop_tokio_select.stderr
+octet-no-todo-all-ui> [ui fixture] tokio_async/unbounded_loop_unbounded_receiver
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/unbounded_loop_unbounded_receiver.stderr
+octet-no-todo-all-ui> [ui fixture] too_many_parameters
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/too_many_parameters.stderr
+octet-no-todo-all-ui> [ui fixture] type_accumulation
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/type_accumulation.stderr
+octet-no-todo-all-ui> [ui fixture] type_accumulation_within_limit
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/type_accumulation_within_limit.stderr
+octet-no-todo-all-ui> [ui fixture] unbounded_channel/unbounded_channel
+octet-no-todo-all-ui> [ui snapshot] /build/source/ui_tests/unbounded_channel.stderr
+octet-no-todo-all-ui> error: failed to select a version for the requirement `crossbeam-channel = "^0.5.10"` (locked to 0.5.15)
+octet-no-todo-all-ui> candidate versions found which didn't match: 0.5.16
+octet-no-todo-all-ui> location searched: directory source `/nix/store/l5jm0i0397hg6nh5w40mby14isi2ngwh-vendor-cargo-deps/c19b7c6f923b580ac259164a89f2577984ad5ab09ee9d583b888f934adbbe8d0` (which is replacing registry `crates-io`)
+octet-no-todo-all-ui> required by package `crossbeam v0.8.4`
+octet-no-todo-all-ui>     ... which satisfies dependency `crossbeam = "^0.8"` (locked to 0.8.4) of package `tigerstyle-ui-unbounded-channel-fixture-support v0.1.0 (/build/source/ui_tests/unbounded_channel)`
+octet-no-todo-all-ui> perhaps a crate was updated and forgotten to be re-vendored?
+octet-no-todo-all-ui> 
+octet-no-todo-all-ui> thread 'ui' (257) panicked at tests/ui.rs:160:5:
+octet-no-todo-all-ui> failed to build fixture support deps for /build/source/ui_tests/unbounded_channel/Cargo.toml
+octet-no-todo-all-ui> note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+octet-no-todo-all-ui> test ui ... FAILED
+octet-no-todo-all-ui> 
+octet-no-todo-all-ui> failures:
+octet-no-todo-all-ui> 
+octet-no-todo-all-ui> failures:
+octet-no-todo-all-ui>     ui
+octet-no-todo-all-ui> 
+octet-no-todo-all-ui> test result: FAILED. 2 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 8.74s
+octet-no-todo-all-ui> 
+octet-no-todo-all-ui> error: test failed, to rerun pass `--test ui`
+error: Cannot build '/nix/store/fw2d6d9b8ipfhj31xzhjx1wfr7602pl5-octet-no-todo-all-ui-0.1.0.drv'.
+       Reason: builder failed with exit code 101.
+       Output paths:
+         /nix/store/vca0jhqwiplrkrwkyy4233gdziflmj5j-octet-no-todo-all-ui-0.1.0
+       Last 25 log lines:
+       > [ui snapshot] /build/source/ui_tests/type_accumulation.stderr
+       > [ui fixture] type_accumulation_within_limit
+       > [ui snapshot] /build/source/ui_tests/type_accumulation_within_limit.stderr
+       > [ui fixture] unbounded_channel/unbounded_channel
+       > [ui snapshot] /build/source/ui_tests/unbounded_channel.stderr
+       > error: failed to select a version for the requirement `crossbeam-channel = "^0.5.10"` (locked to 0.5.15)
+       > candidate versions found which didn't match: 0.5.16
+       > location searched: directory source `/nix/store/l5jm0i0397hg6nh5w40mby14isi2ngwh-vendor-cargo-deps/c19b7c6f923b580ac259164a89f2577984ad5ab09ee9d583b888f934adbbe8d0` (which is replacing registry `crates-io`)
+       > required by package `crossbeam v0.8.4`
+       >     ... which satisfies dependency `crossbeam = "^0.8"` (locked to 0.8.4) of package `tigerstyle-ui-unbounded-channel-fixture-support v0.1.0 (/build/source/ui_tests/unbounded_channel)`
+       > perhaps a crate was updated and forgotten to be re-vendored?
+       >
+       > thread 'ui' (257) panicked at tests/ui.rs:160:5:
+       > failed to build fixture support deps for /build/source/ui_tests/unbounded_channel/Cargo.toml
+       > note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+       > test ui ... FAILED
+       >
+       > failures:
+       >
+       > failures:
+       >     ui
+       >
+       > test result: FAILED. 2 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 8.74s
+       >
+       > error: test failed, to rerun pass `--test ui`
+       For full logs, run:
+         nix log /nix/store/fw2d6d9b8ipfhj31xzhjx1wfr7602pl5-octet-no-todo-all-ui-0.1.0.drv
