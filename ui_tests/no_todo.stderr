@@ -14,5 +14,95 @@ LL -     todo!("implement later");
 LL +     return Err(/* TODO: implement error */);
    |
 
-warning: 1 warning emitted
+warning: `todo!()` marks unfinished production code
+  --> $DIR/no_todo.rs:32:5
+   |
+LL |     todo!()
+   |     ^^^^^^^
+   |
+   = help: Tiger Style (Fail Fast Correctly): replace temporary stubs with implemented code or an explicit error path before release Example: return Err(Error::not_ready());
+   = note: structured suggestion applicability: HasPlaceholders
+   = note: see Tiger Style guide: Error Handling / Panics
+help: replace `todo!()` with an explicit error path
+   |
+LL -     todo!()
+LL +     return Err(/* TODO: implement error */)
+   |
+
+warning: `todo!()` marks unfinished production code
+  --> $DIR/no_todo.rs:36:5
+   |
+LL |     todo!();
+   |     ^^^^^^^
+   |
+   = help: Tiger Style (Fail Fast Correctly): replace temporary stubs with implemented code or an explicit error path before release Example: return Err(Error::not_ready());
+   = note: structured suggestion applicability: HasPlaceholders
+   = note: see Tiger Style guide: Error Handling / Panics
+help: replace `todo!()` with an explicit error path
+   |
+LL -     todo!();
+LL +     return Err(/* TODO: implement error */);
+   |
+
+warning: `todo!()` marks unfinished production code
+  --> $DIR/no_todo.rs:40:5
+   |
+LL |     todo! {}
+   |     ^^^^^^^^
+   |
+   = help: Tiger Style (Fail Fast Correctly): replace temporary stubs with implemented code or an explicit error path before release Example: return Err(Error::not_ready());
+   = note: structured suggestion applicability: HasPlaceholders
+   = note: see Tiger Style guide: Error Handling / Panics
+help: replace `todo!()` with an explicit error path
+   |
+LL -     todo! {}
+LL +     return Err(/* TODO: implement error */)
+   |
+
+warning: `todo!()` marks unfinished production code
+  --> $DIR/no_todo.rs:44:5
+   |
+LL |     todo!("missing {}", 1);
+   |     ^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Fail Fast Correctly): replace temporary stubs with implemented code or an explicit error path before release Example: return Err(Error::not_ready());
+   = note: structured suggestion applicability: HasPlaceholders
+   = note: see Tiger Style guide: Error Handling / Panics
+help: replace `todo!()` with an explicit error path
+   |
+LL -     todo!("missing {}", 1);
+LL +     return Err(/* TODO: implement error */);
+   |
+
+warning: `todo!()` marks unfinished production code
+  --> $DIR/no_todo.rs:49:9
+   |
+LL |         todo!()
+   |         ^^^^^^^
+   |
+   = help: Tiger Style (Fail Fast Correctly): replace temporary stubs with implemented code or an explicit error path before release Example: return Err(Error::not_ready());
+   = note: structured suggestion applicability: HasPlaceholders
+   = note: see Tiger Style guide: Error Handling / Panics
+help: replace `todo!()` with an explicit error path
+   |
+LL -         todo!()
+LL +         return Err(/* TODO: implement error */)
+   |
+
+warning: `todo!()` marks unfinished production code
+  --> $DIR/no_todo.rs:51:9
+   |
+LL |         todo!()
+   |         ^^^^^^^
+   |
+   = help: Tiger Style (Fail Fast Correctly): replace temporary stubs with implemented code or an explicit error path before release Example: return Err(Error::not_ready());
+   = note: structured suggestion applicability: HasPlaceholders
+   = note: see Tiger Style guide: Error Handling / Panics
+help: replace `todo!()` with an explicit error path
+   |
+LL -         todo!()
+LL +         return Err(/* TODO: implement error */)
+   |
+
+warning: 7 warnings emitted
 

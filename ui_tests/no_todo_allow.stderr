@@ -39,5 +39,41 @@ LL | #[allow(no_todo)]
            #[allow(tigerstyle::no_todo)] fn stub() { todo!() }
    = note: see Tiger Style guide: Error Handling / Panics
 
-warning: 4 warnings emitted
+warning: `#[allow(tigerstyle::no_todo)]` / `#[allow(no_todo)]` needs an adjacent `//` justification comment and may only wrap temporary `todo!()` stubs
+  --> $DIR/no_todo_allow.rs:80:1
+   |
+LL | #[allow(no_todo)]
+   | ^^^^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Documented Todo Escape): reserve `#[allow(tigerstyle::no_todo)]` or `#[allow(no_todo)]` for temporary `todo!()` stubs with an adjacent `//` justification comment Example: // justified stub while API lands
+           #[allow(tigerstyle::no_todo)] fn stub() { todo!() }
+   = note: see Tiger Style guide: Error Handling / Panics
+
+warning: `#[allow(tigerstyle::no_todo)]` / `#[allow(no_todo)]` is reserved for temporary `todo!()` stubs, not `panic!`
+  --> $DIR/no_todo_allow.rs:86:1
+   |
+LL | #[allow(no_todo)]
+   | ^^^^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Documented Todo Escape): reserve `#[allow(tigerstyle::no_todo)]` or `#[allow(no_todo)]` for temporary `todo!()` stubs with an adjacent `//` justification comment Example: // justified stub while API lands
+           #[allow(tigerstyle::no_todo)] fn stub() { todo!() }
+   = note: see Tiger Style guide: Error Handling / Panics
+
+warning: `todo!()` marks unfinished production code
+  --> $DIR/no_todo_allow.rs:93:5
+   |
+LL |     todo!();
+   |     ^^^^^^^
+   |
+   = help: Tiger Style (Fail Fast Correctly): replace temporary stubs with implemented code or an explicit error path before release Example: return Err(Error::not_ready());
+   = note: structured suggestion applicability: HasPlaceholders
+   = note: see Tiger Style guide: Error Handling / Panics
+   = note: `#[warn(tigerstyle::no_todo)]` on by default
+help: replace `todo!()` with an explicit error path
+   |
+LL -     todo!();
+LL +     return Err(/* TODO: implement error */);
+   |
+
+warning: 7 warnings emitted
 

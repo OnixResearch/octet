@@ -13,6 +13,12 @@ fn bare_legacy_no_panic_attr() {
     todo!("legacy bare no_panic attr should not suppress no_todo");
 }
 
+// legacy bare no_panic also cannot suppress the bare macro
+#[allow(no_panic)]
+fn bare_macro_legacy_no_panic_attr() {
+    todo!();
+}
+
 fn main() {
     tool_scoped_legacy_no_panic_attr();
     bare_legacy_no_panic_attr();
