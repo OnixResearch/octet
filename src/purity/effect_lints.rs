@@ -905,8 +905,8 @@ impl<'tcx> LateLintPass<'tcx> for LoggingInCore {
 
 // Formatting macros lower to this allocation call. Resolve its owner instead
 // of inspecting whitespace, macro spelling, or text inside string literals.
-fn is_runtime_format_path(path: &str) -> bool {
-    path == "alloc::fmt::format"
+fn is_runtime_format_owner(krate: &str, module: &str, name: &str) -> bool {
+    krate == "alloc" && module == "fmt" && name == "format"
 }
 
 fn body_calls_runtime_format<'tcx>(cx: &LateContext<'tcx>, body: &'tcx hir::Body<'tcx>) -> bool {
@@ -928,7 +928,11 @@ impl<'tcx> Visitor<'tcx> for RuntimeFormatFinder<'_, 'tcx> {
         if let hir::ExprKind::Call(callee, _) = expr.kind
             && let hir::ExprKind::Path(ref qpath) = callee.kind
             && let Some(def_id) = self.cx.qpath_res(qpath, callee.hir_id).opt_def_id()
-            && is_runtime_format_path(&self.cx.tcx.def_path_str(def_id))
+            && is_runtime_format_owner(
+                self.cx.tcx.crate_name(def_id.krate).as_str(),
+                self.cx.tcx.item_name(self.cx.tcx.parent(def_id)).as_str(),
+                self.cx.tcx.item_name(def_id).as_str(),
+            )
         {
             self.found = true;
             return;
@@ -1213,10 +1217,10 @@ mod tests {
 
     #[test]
     fn runtime_format_owner_is_exact() {
-        assert!(super::is_runtime_format_path("alloc::fmt::format"));
-        assert!(!super::is_runtime_format_path("app::fmt::format"));
-        assert!(!super::is_runtime_format_path("core::fmt::Arguments::new_const"));
-        assert!(!super::is_runtime_format_path("alloc::fmt::format_other"));
+        assert!(super::is_runtime_format_owner("alloc", "fmt", "format"));
+        assert!(!super::is_runtime_format_owner("app", "fmt", "format"));
+        assert!(!super::is_runtime_format_owner("alloc", "other", "format"));
+        assert!(!super::is_runtime_format_owner("alloc", "fmt", "format_other"));
     }
 
     #[test]
