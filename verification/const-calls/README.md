@@ -1,5 +1,7 @@
 # Const declaration and call eligibility
 
+[Check-only CLI recovery and full-command result](CLI-RECOVERY.md)
+
 Implementation: `1e7b64f9c1a56052a51dc98e7538cbcb8531d15a`, based on `706b47d6957835fbe46213d5573bebfe3630a66e`.
 
 ## Repair
