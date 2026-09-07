@@ -928,11 +928,9 @@ impl<'tcx> Visitor<'tcx> for RuntimeFormatFinder<'_, 'tcx> {
         if let hir::ExprKind::Call(callee, _) = expr.kind
             && let hir::ExprKind::Path(ref qpath) = callee.kind
             && let Some(def_id) = self.cx.qpath_res(qpath, callee.hir_id).opt_def_id()
-            && is_runtime_format_owner(
-                self.cx.tcx.crate_name(def_id.krate).as_str(),
-                self.cx.tcx.item_name(self.cx.tcx.parent(def_id)).as_str(),
-                self.cx.tcx.item_name(def_id).as_str(),
-            )
+            && let Some(name) = self.cx.tcx.opt_item_name(def_id)
+            && let Some(module) = self.cx.tcx.opt_item_name(self.cx.tcx.parent(def_id))
+            && is_runtime_format_owner(self.cx.tcx.crate_name(def_id.krate).as_str(), module.as_str(), name.as_str())
         {
             self.found = true;
             return;
