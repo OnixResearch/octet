@@ -28,8 +28,24 @@ fn is_unsigned_int(ty: ty::Ty<'_>) -> bool {
     matches!(ty.kind(), ty::Uint(_))
 }
 
+const MAX_LITERAL_ARITHMETIC_DEPTH: u32 = 32;
+
 fn is_constant_expr(expr: &hir::Expr<'_>) -> bool {
-    matches!(expr.kind, ExprKind::Lit(_))
+    // Bound recursion depth; unsupported/deeper expressions stay lint candidates.
+    literal_arithmetic(expr, MAX_LITERAL_ARITHMETIC_DEPTH)
+}
+
+fn literal_arithmetic(expr: &hir::Expr<'_>, remaining: u32) -> bool {
+    match expr.kind {
+        ExprKind::Lit(_) => true,
+        ExprKind::Binary(op, lhs, rhs) if matches!(op.node, BinOpKind::Add | BinOpKind::Sub | BinOpKind::Mul) => {
+            let Some(next) = remaining.checked_sub(1) else {
+                return false;
+            };
+            literal_arithmetic(lhs, next) && literal_arithmetic(rhs, next)
+        }
+        _ => false,
+    }
 }
 
 fn expr_snippet(cx: &LateContext<'_>, expr: &hir::Expr<'_>) -> Option<String> {
