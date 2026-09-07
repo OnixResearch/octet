@@ -1,0 +1,2 @@
+fixture/**/lib.rs whitespace=-blank-at-eof
+direct/clean.rs whitespace=-blank-at-eof
