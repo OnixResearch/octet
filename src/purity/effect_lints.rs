@@ -903,6 +903,40 @@ impl<'tcx> LateLintPass<'tcx> for LoggingInCore {
     }
 }
 
+// Formatting macros lower to this allocation call. Resolve its owner instead
+// of inspecting whitespace, macro spelling, or text inside string literals.
+fn is_runtime_format_path(path: &str) -> bool {
+    path == "alloc::fmt::format"
+}
+
+fn body_calls_runtime_format<'tcx>(cx: &LateContext<'tcx>, body: &'tcx hir::Body<'tcx>) -> bool {
+    let mut visitor = RuntimeFormatFinder { cx, found: false };
+    visitor.visit_expr(body.value);
+    visitor.found
+}
+
+struct RuntimeFormatFinder<'a, 'tcx> {
+    cx: &'a LateContext<'tcx>,
+    found: bool,
+}
+
+impl<'tcx> Visitor<'tcx> for RuntimeFormatFinder<'_, 'tcx> {
+    fn visit_expr(&mut self, expr: &'tcx hir::Expr<'tcx>) {
+        if self.found || matches!(expr.kind, hir::ExprKind::Closure(_)) {
+            return;
+        }
+        if let hir::ExprKind::Call(callee, _) = expr.kind
+            && let hir::ExprKind::Path(ref qpath) = callee.kind
+            && let Some(def_id) = self.cx.qpath_res(qpath, callee.hir_id).opt_def_id()
+            && is_runtime_format_path(&self.cx.tcx.def_path_str(def_id))
+        {
+            self.found = true;
+            return;
+        }
+        rustc_hir::intravisit::walk_expr(self, expr);
+    }
+}
+
 impl<'tcx> LateLintPass<'tcx> for MissingConstFn {
     fn check_fn(
         &mut self,
@@ -919,7 +953,7 @@ impl<'tcx> LateLintPass<'tcx> for MissingConstFn {
         let Some(source) = fn_snippet(cx, body, span) else {
             return;
         };
-        if !function_is_const_candidate(&source) {
+        if !function_is_const_candidate(&source) || body_calls_runtime_format(cx, body) {
             return;
         }
         emit(
@@ -1175,6 +1209,14 @@ mod tests {
         assert!(!function_has_nondeterministic_output(
             "fn names(map: HashMap<String, u8>) -> Vec<String> { let mut out = map.keys().cloned().collect::<Vec<_>>(); out.sort(); out }"
         ));
+    }
+
+    #[test]
+    fn runtime_format_owner_is_exact() {
+        assert!(super::is_runtime_format_path("alloc::fmt::format"));
+        assert!(!super::is_runtime_format_path("app::fmt::format"));
+        assert!(!super::is_runtime_format_path("core::fmt::Arguments::new_const"));
+        assert!(!super::is_runtime_format_path("alloc::fmt::format_other"));
     }
 
     #[test]
