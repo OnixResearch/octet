@@ -939,6 +939,43 @@ impl<'tcx> Visitor<'tcx> for RuntimeFormatFinder<'_, 'tcx> {
     }
 }
 
+// Exclude resolved calls whose definitions are not const. This is a negative
+// check, not proof that every operation in the candidate is const-compatible.
+fn body_calls_non_const<'tcx>(cx: &LateContext<'tcx>, body: &'tcx hir::Body<'tcx>) -> bool {
+    let mut visitor = NonConstCallFinder { cx, found: false };
+    visitor.visit_expr(body.value);
+    visitor.found
+}
+
+struct NonConstCallFinder<'a, 'tcx> {
+    cx: &'a LateContext<'tcx>,
+    found: bool,
+}
+
+impl<'tcx> Visitor<'tcx> for NonConstCallFinder<'_, 'tcx> {
+    fn visit_expr(&mut self, expr: &'tcx hir::Expr<'tcx>) {
+        if self.found || matches!(expr.kind, hir::ExprKind::Closure(_)) {
+            return;
+        }
+        let callee = match expr.kind {
+            hir::ExprKind::Call(callee, _) => match callee.kind {
+                hir::ExprKind::Path(ref path) => self.cx.qpath_res(path, callee.hir_id).opt_def_id(),
+                _ => None,
+            },
+            hir::ExprKind::MethodCall(..) => self.cx.typeck_results().type_dependent_def_id(expr.hir_id),
+            _ => None,
+        };
+        if let Some(def_id) = callee
+            && matches!(self.cx.tcx.def_kind(def_id), hir::def::DefKind::Fn | hir::def::DefKind::AssocFn)
+            && !self.cx.tcx.is_const_fn(def_id)
+        {
+            self.found = true;
+            return;
+        }
+        rustc_hir::intravisit::walk_expr(self, expr);
+    }
+}
+
 impl<'tcx> LateLintPass<'tcx> for MissingConstFn {
     fn check_fn(
         &mut self,
@@ -947,15 +984,21 @@ impl<'tcx> LateLintPass<'tcx> for MissingConstFn {
         _decl: &'tcx hir::FnDecl<'tcx>,
         body: &'tcx hir::Body<'tcx>,
         span: Span,
-        _def_id: rustc_hir::def_id::LocalDefId,
+        def_id: rustc_hir::def_id::LocalDefId,
     ) {
-        if test_context::late_hir_id_is_in_test_context(cx, body.value.hir_id, span) {
+        if test_context::late_hir_id_is_in_test_context(cx, body.value.hir_id, span)
+            || cx.tcx.trait_of_assoc(def_id.to_def_id()).is_some()
+            || cx.tcx.trait_impl_of_assoc(def_id.to_def_id()).is_some()
+        {
             return;
         }
         let Some(source) = fn_snippet(cx, body, span) else {
             return;
         };
-        if !function_is_const_candidate(&source) || body_calls_runtime_format(cx, body) {
+        if !function_is_const_candidate(&source)
+            || body_calls_runtime_format(cx, body)
+            || body_calls_non_const(cx, body)
+        {
             return;
         }
         emit(
