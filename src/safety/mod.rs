@@ -12,6 +12,7 @@ pub mod no_panic;
 pub mod no_recursion;
 pub mod no_todo;
 pub mod no_unwrap;
+mod policy_markers;
 pub mod public_unsafe_api;
 pub mod raw_arithmetic_overflow;
 pub mod sentinel_fallback;

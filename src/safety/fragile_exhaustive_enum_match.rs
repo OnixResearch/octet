@@ -48,12 +48,7 @@ fn enum_has_marker(cx: &LateContext<'_>, adt: rustc_middle::ty::AdtDef<'_>, mark
     let Some(local_def_id) = adt.did().as_local() else {
         return false;
     };
-    let hir_id = cx.tcx.local_def_id_to_hir_id(local_def_id);
-    let marker_tail = marker.rsplit("::").next().unwrap_or(marker);
-    cx.tcx.hir_attrs(hir_id).iter().any(|attr| {
-        let rendered = format!("{attr:?}");
-        rendered.contains(marker) || rendered.contains(marker_tail)
-    })
+    super::policy_markers::has_marker(cx, local_def_id, marker)
 }
 
 fn arm_mentions_variant(cx: &LateContext<'_>, arm: &hir::Arm<'_>, variant_name: &str) -> bool {
