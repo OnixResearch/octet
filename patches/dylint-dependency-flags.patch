@@ -1,0 +1,82 @@
+diff --git a/driver/src/lib.rs b/driver/src/lib.rs
+index f964835..25454dc 100644
+--- a/driver/src/lib.rs
++++ b/driver/src/lib.rs
+@@ -301,7 +301,6 @@ impl rustc_driver::Callbacks for Callbacks {
+             let dylint_libs = env::var(env::DYLINT_LIBS).ok();
+             let dylint_metadata = env::var(env::DYLINT_METADATA).ok();
+             let dylint_no_deps = env::var(env::DYLINT_NO_DEPS).ok();
+-            let dylint_no_deps_enabled = dylint_no_deps.as_ref().is_some_and(|value| value != "0");
+             let cargo_primary_package_is_set = env::var(env::CARGO_PRIMARY_PACKAGE).is_ok();
+ 
+             sess.env_depinfo().lock().insert((
+@@ -317,7 +316,7 @@ impl rustc_driver::Callbacks for Callbacks {
+                 dylint_no_deps.as_deref().map(rustc_span::Symbol::intern),
+             ));
+ 
+-            if dylint_no_deps_enabled && !cargo_primary_package_is_set {
++            if !package_lints_enabled(dylint_no_deps.as_deref(), cargo_primary_package_is_set) {
+                 return;
+             }
+ 
+@@ -429,10 +428,23 @@ fn sysroot() -> Result<PathBuf> {
+         .join(rustup_toolchain))
+ }
+ 
++fn package_lints_enabled(no_deps: Option<&str>, primary_package: bool) -> bool {
++    !no_deps.is_some_and(|value| value != "0") || primary_package
++}
++
++fn scoped_rustflags(no_deps: Option<&str>, primary_package: bool, flags: &str) -> Vec<String> {
++    if package_lints_enabled(no_deps, primary_package) {
++        flags.split_whitespace().map(String::from).collect()
++    } else {
++        Vec::new()
++    }
++}
++
+ fn rustflags() -> Vec<String> {
+-    env::var(env::DYLINT_RUSTFLAGS).map_or_else(
+-        |_| Vec::new(),
+-        |rustflags| rustflags.split_whitespace().map(String::from).collect(),
++    scoped_rustflags(
++        env::var(env::DYLINT_NO_DEPS).ok().as_deref(),
++        env::var(env::CARGO_PRIMARY_PACKAGE).is_ok(),
++        &env::var(env::DYLINT_RUSTFLAGS).unwrap_or_default(),
+     )
+ }
+ 
+@@ -523,6 +535,33 @@ mod test {
+     use super::*;
+     use rustc_version::{Channel, version_meta};
+ 
++    #[test]
++    fn plugin_flags_follow_registration_scope() {
++        let flags = "-D unknown_lints -D no_todo --cfg example";
++        let expected: Vec<String> = flags.split_whitespace().map(String::from).collect();
++        for no_deps in [None, Some("0"), Some("1"), Some("")] {
++            assert!(package_lints_enabled(no_deps, true));
++            assert_eq!(scoped_rustflags(no_deps, true, flags), expected);
++            let enabled = no_deps.is_none() || no_deps == Some("0");
++            assert_eq!(package_lints_enabled(no_deps, false), enabled);
++            if enabled {
++                assert_eq!(scoped_rustflags(no_deps, false, flags), expected);
++            } else {
++                assert!(scoped_rustflags(no_deps, false, flags).is_empty());
++            }
++        }
++        assert!(scoped_rustflags(None, true, "").is_empty());
++    }
++
++    #[test]
++    fn ordinary_rustc_args_survive_dependency_plugin_flag_filtering() {
++        let flags = scoped_rustflags(Some("1"), false, "-D no_todo");
++        assert_eq!(
++            rustc_args(&["--deny", "warnings"], None, &flags, &[] as &[&Path]).unwrap(),
++            vec!["rustc", "--deny", "warnings"]
++        );
++    }
++
+     #[test]
+     fn channel_is_nightly() {
+         assert!(matches!(version_meta().unwrap().channel, Channel::Nightly));
