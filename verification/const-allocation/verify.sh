@@ -23,12 +23,16 @@ run_case() {
   status=$?
   set -e
   printf '%s\n' "$status" > "$out/$name.exit"
+  if grep -q 'internal compiler error' "$out/$name.stderr"; then
+    echo "$name: compiler crash is not a lint result" >&2
+    exit 1
+  fi
   test "$status" -eq "$expected"
   printf '%s: expected exit %s\n' "$name" "$status"
 }
 flags='-D unknown_lints -D missing_const_fn'
 for name in nested qualified alias constant; do run_case "$name" 0 "$flags"; done
-for name in positive text custom; do
+for name in positive text custom associated; do
   run_case "$name" 101 "$flags"
   grep -q 'private helper appears const-compatible' "$out/$name.stderr"
 done
@@ -44,4 +48,4 @@ set -e
 printf '%s\n' "$status" > "$out/illegal.exit"
 test "$status" -eq 1
 grep -q 'error\[E0015\]' "$out/illegal.stderr"
-printf '%s\n' 'illegal: rustc rejects const formatting; nine diagnostic controls passed.'
+printf '%s\n' 'illegal: rustc rejects const formatting; ten diagnostic controls passed.'
