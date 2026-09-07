@@ -1486,19 +1486,21 @@
         # Dylint driver binary — used by mkConsumerCheck to run lints.
         # Patches the upstream driver source to add a binary target, then
         # builds offline with vendored deps.
-        dylintDriverSrc = pkgs.runCommand "dylint-driver-src" { } ''
-                    cp -r ${dylint-src} $out
-                    chmod -R u+w $out
-                    cat > $out/driver/src/main.rs <<'MAIN'
-          #![feature(rustc_private)]
-          fn main() {
-              let args: Vec<_> = std::env::args_os().collect();
-              dylint_driver::dylint_driver(&args).unwrap_or_else(|e| {
-                  eprintln!("dylint-driver: {e:#}");
-                  std::process::exit(1);
-              });
-          }
-          MAIN
+        dylintDriverSrc = pkgs.runCommand "dylint-driver-src" { nativeBuildInputs = [ pkgs.patch ]; } ''
+          cp -r ${dylint-src} $out
+          chmod -R u+w $out
+          patch -d "$out" -p1 < ${./patches/dylint-dependency-flags.patch}
+          cmp "$out/driver/src/lib.rs" ${./tests/support/dylint/driver/src/lib.rs}
+          cat > $out/driver/src/main.rs <<'MAIN'
+#![feature(rustc_private)]
+fn main() {
+    let args: Vec<_> = std::env::args_os().collect();
+    dylint_driver::dylint_driver(&args).unwrap_or_else(|e| {
+        eprintln!("dylint-driver: {e:#}");
+        std::process::exit(1);
+    });
+}
+MAIN
         '';
 
         dylintDriverVendorDir = craneLib.vendorCargoDeps {
@@ -1509,6 +1511,7 @@
           pname = "dylint-driver";
           version = "5.0.0";
           src = dylintDriverSrc;
+          doCheck = true;
           nativeBuildInputs = checkNativeBuildInputs ++ [ rustToolchain ];
           buildInputs =
             buildInputs
@@ -1531,8 +1534,14 @@
             mkdir -p "$CARGO_HOME"
             cp "${dylintDriverVendorDir}/config.toml" "$CARGO_HOME/config.toml"
             cd driver
-            cargo build --release --offline
+            cargo build --release --offline --locked
             runHook postBuild
+          '';
+
+          checkPhase = ''
+            runHook preCheck
+            cargo test --release --offline --locked --lib
+            runHook postCheck
           '';
 
           installPhase = ''
