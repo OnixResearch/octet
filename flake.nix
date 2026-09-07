@@ -901,9 +901,11 @@
         # Dylint driver binary — used by mkConsumerCheck to run lints.
         # Patches the upstream driver source to add a binary target, then
         # builds offline with vendored deps.
-        dylintDriverSrc = pkgs.runCommand "dylint-driver-src" {} ''
+        dylintDriverSrc = pkgs.runCommand "dylint-driver-src" { nativeBuildInputs = [ pkgs.patch ]; } ''
           cp -r ${dylint-src} $out
           chmod -R u+w $out
+          patch -d "$out" -p1 < ${./patches/dylint-dependency-flags.patch}
+          cmp "$out/driver/src/lib.rs" ${./tests/support/dylint/driver/src/lib.rs}
           cat > $out/driver/src/main.rs <<'MAIN'
 #![feature(rustc_private)]
 fn main() {
@@ -924,6 +926,7 @@ MAIN
           pname = "dylint-driver";
           version = "5.0.0";
           src = dylintDriverSrc;
+          doCheck = true;
           nativeBuildInputs = checkNativeBuildInputs ++ [ rustToolchain ];
           buildInputs = buildInputs ++ (with pkgs; [ curl libgit2 ]);
           LD_LIBRARY_PATH = rustToolchainLibPath;
@@ -941,8 +944,14 @@ MAIN
             mkdir -p "$CARGO_HOME"
             cp "${dylintDriverVendorDir}/config.toml" "$CARGO_HOME/config.toml"
             cd driver
-            cargo build --release --offline
+            cargo build --release --offline --locked
             runHook postBuild
+          '';
+
+          checkPhase = ''
+            runHook preCheck
+            cargo test --release --offline --locked --lib
+            runHook postCheck
           '';
 
           installPhase = ''
