@@ -4,8 +4,10 @@ use std::path::PathBuf;
 use std::process::Command;
 
 use octet_architecture_ir::CompilerArchitectureCoverage;
+use octet_architecture_ir::CompilerArchitectureFact;
 use octet_architecture_ir::CompilerArchitectureIr;
 use octet_architecture_ir::CoverageStatus;
+use octet_architecture_ir::ItemKind;
 use octet_standards::project_architecture_policy::parse_project_architecture_policy;
 
 use super::SelectedProjectArchitecturePolicy;
@@ -141,6 +143,7 @@ fn real_cargo_all_targets_has_complete_compiler_coverage() {
             .iter()
             .any(|fact| matches!(fact, octet_architecture_ir::CompilerArchitectureFact::Effect { .. }))
     );
+    assert_associated_item_classification(&ir);
     eprintln!("actual Cargo target coverage: {} units", coverage.observed_unit_ids.len());
     let shard = fs::read_dir(&prepared.shard_directory)
         .expect("shards")
@@ -151,4 +154,32 @@ fn real_cargo_all_targets_has_complete_compiler_coverage() {
     fs::remove_file(shard).expect("remove one controlled observation");
     let omitted = super::normalize_collected_shards(&prepared).expect("normalize omitted unit");
     assert!(omitted.incomplete_error.is_some(), "missing compiler unit must fail closed");
+}
+
+fn assert_associated_item_classification(ir: &CompilerArchitectureIr) {
+    for (suffix, expected_kind) in [
+        ("::Value", ItemKind::TypeAlias),
+        ("::PRESENT", ItemKind::Constant),
+        ("::Associated::identity", ItemKind::Function),
+    ] {
+        let mut observed = false;
+        for fact in &ir.facts {
+            let CompilerArchitectureFact::Item {
+                qualified_path,
+                item_kind,
+                signature_id,
+                ..
+            } = fact
+            else {
+                continue;
+            };
+            if !qualified_path.ends_with(suffix) {
+                continue;
+            }
+            observed = true;
+            assert_eq!(*item_kind, expected_kind, "wrong classification for {qualified_path}");
+            assert_eq!(signature_id.is_some(), expected_kind == ItemKind::Function);
+        }
+        assert!(observed, "missing associated item {suffix}");
+    }
 }
