@@ -131,6 +131,9 @@ impl EarlyLintPass for UnderscoreInModuleFilename {
         let workspace_root = std::env::current_dir().map(|path| normalize_path(&path)).unwrap_or_default();
 
         for source_file in cx.sess().source_map().files().iter() {
+            if !crate::source::is_local(source_file) {
+                continue;
+            }
             let path = normalize_path(&source_file_path(source_file));
             let Some((stem, replacement)) = should_warn(&path, &workspace_root, self.exceptions) else {
                 continue;
@@ -170,6 +173,11 @@ mod tests {
     #[test]
     fn warns_for_workspace_underscore_module_filename() {
         assert!(should_warn(Path::new("src/test_context.rs"), workspace_root(), all_exceptions()).is_some());
+    }
+
+    #[test]
+    fn accepts_local_filename_without_underscores() {
+        assert!(should_warn(Path::new("src/source.rs"), workspace_root(), all_exceptions()).is_none());
     }
 
     #[test]
