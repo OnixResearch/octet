@@ -144,6 +144,13 @@ fn real_cargo_all_targets_has_complete_compiler_coverage() {
             .any(|fact| matches!(fact, octet_architecture_ir::CompilerArchitectureFact::Effect { .. }))
     );
     assert_associated_item_classification(&ir);
+    assert!(
+        ir.unknowns
+            .iter()
+            .all(|unknown| unknown.kind != octet_architecture_ir::UnknownFactKind::UnsupportedExpansion),
+        "fixture expansions must retain compiler-resolved provenance: {:?}",
+        ir.unknowns
+    );
     eprintln!("actual Cargo target coverage: {} units", coverage.observed_unit_ids.len());
     let shard = fs::read_dir(&prepared.shard_directory)
         .expect("shards")
