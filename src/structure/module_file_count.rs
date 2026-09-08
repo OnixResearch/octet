@@ -99,6 +99,9 @@ impl EarlyLintPass for ModuleFileCount {
         let workspace_root = std::env::current_dir().map(|path| normalize_path(&path)).unwrap_or_default();
 
         for source_file in cx.sess().source_map().files().iter() {
+            if !crate::source::is_local(source_file) {
+                continue;
+            }
             let path = normalize_path(&source_file_path(source_file));
             if !is_countable_workspace_rust_source(&path, &workspace_root) {
                 continue;

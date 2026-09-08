@@ -17,6 +17,7 @@ mod naming;
 mod performance;
 mod purity;
 mod safety;
+mod source;
 mod structure;
 mod test_context;
 
