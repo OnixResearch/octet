@@ -40,3 +40,9 @@ nix build .#cargo-octet .#checks.x86_64-linux.compiler-architecture-targets .#ch
 The Seaglass probe ran `scripts/check-octet-project-architecture.sh` from its architecture worktree with `OCTET_ARCHITECTURE_PACKAGE=git+file:///home/brittonr/git-worktrees/octet-imported-source-20260908#cargo-octet`. That override is probe evidence, not a durable consumer dependency.
 
 Compressed transcripts accompany this report. Raw logs also remain under `/home/brittonr/.local/state/seaglass-drain-20260908/`. Failed consumer transcripts are intentional negative evidence, not acceptance claims.
+
+## Integration verification
+
+Origin main advanced to `8012a7fd` during publication. The repair branch merged that compiler-expansion correction without conflicts. The merged tree passed all 148 lint-library tests, all-target Clippy, and formatting.
+
+The merged Nix replay passed cargo-octet, compiler-architecture-targets, project-architecture-policy, and cairn-traceability. Its two transcripts accompany this archive as `owner-merged-cargo.log.gz` and `owner-merged-nix.log.gz`. The primary Octet worktree and its unrelated staged plans remain unchanged.
