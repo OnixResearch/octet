@@ -57,14 +57,19 @@
 - The custom `tests/ui.rs` harness now supports snapshot refresh via `BLESS=1 cargo test --test ui -- --ignored --nocapture`; use it inside `nix develop` when updating `.stderr` files.
 - `tests/ui.rs` now also has ignored rail `autofix_machine_applicable`; it discovers every checked-in `ui_tests/*.fixed`, runs `cargo fix` in a temporary Cargo crate with the built tigerstyle Dylint wrapper, compares the result to the `.fixed` file, reruns `cargo fix` to prove idempotence, then reruns `cargo check` and asserts zero warnings remain.
 
-## OpenSpec workflow
-- Repo-local OpenSpec task guidance now lives at `openspec/templates/tasks.md`; active changes should dogfood that `I<n>` / `V<n>` / `H<n>` shape and end with `## Verification Coverage`.
+## Legacy OpenSpec workflow
+
+Use this section only for a repository-approved legacy OpenSpec task. For native changes, preserve the Cairn layout and required gates.
+
+- Repo-local OpenSpec task guidance lives at `openspec/templates/tasks.md`; active changes should dogfood that `I<n>` / `V<n>` / `H<n>` shape and end with `## Verification Coverage`.
 - `I<n>` tasks are implementation-only units; if a checkbox text says `verify`, `save`, `capture`, `evidence=`, or names an `evidence/` path, split that work into `V<n>` or `H<n>` instead.
 - `## Verification Coverage` is scenario-based, not artifact-based: every added or modified scenario heading gets its own row even when multiple rows point at one shared transcript.
 - `H<n>` tasks must carry all four replay fields: `command=`, `input=`, `asserts=`, and `evidence=`.
 - For OpenSpec gate-fixture proof here, keep the committed fixture under `tests/fixtures/openspec-task-governance/`, temporarily copy it into `openspec/changes/<fixture-name>/` before calling `openspec_gate`, then remove the temporary active change after saving the transcript.
-- Shell-launched `pi -p` helpers that rely on `openspec_gate` need explicit `-e ~/.pi/agent/extensions/openspec-gates.ts`; default non-interactive pi startup may omit that tool.
-- When cross-family gate reruns are blocked by reviewer quota or current conversation context causes recursive missing-evidence findings, temporarily switch to `reviewer_selection off` and run a fresh `pi --no-session -e ~/.pi/agent/extensions/openspec-gates.ts -p "Call the openspec_gate tool ... Print the full result."`; same-family review avoids the exhausted Claude lane and keeps the transcript free of current-session prompt leakage.
+- Before a legacy `openspec_gate` run, verify that the required extension exists and exposes the tool. If unavailable, report the gate blocker. Do not substitute another gate or disable review policy.
+- Shell-launched `pi -p` helpers for that gate need explicit `-e ~/.pi/agent/extensions/openspec-gates.ts`. For Pueue tasks without input, append `</dev/null` so Pi receives stdin EOF.
+- If reviewer quota blocks a gate, record the exact blocker. Keep the required reviewer policy unchanged.
+- If conversation context contaminates review, use a fresh session. Keep the required policy and explicit repository target unchanged. Use `pi --no-session -e ~/.pi/agent/extensions/openspec-gates.ts -p "Call the openspec_gate tool ... Print the full result." </dev/null`. Keep the required gate blocked until fresh output shows that it passed.
 - `openspec archive` can create a new main spec with a placeholder `## Purpose` line (`TBD - created by archiving change ...`); replace that placeholder before committing the archive.
 - If a change links contributor docs back to an existing canonical main spec (for example `openspec/specs/performance/spec.md`), say explicitly in the proposal that the main spec already exists and the link targets that canonical file rather than the change-local delta path, or proposal/design gates may treat the spec path as unresolved.
 - When a change requires saved deterministic proof artifacts under `evidence/`, make the spec/design name each artifact's exact expected output, not just the file path; gate review treats path-only artifact requirements as underspecified.
