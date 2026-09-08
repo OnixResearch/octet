@@ -63,11 +63,17 @@ An inactive run does not create compiler, project-architecture, or effect-closur
 
 ## Compiler Architecture IR
 
-An active policy starts compiler architecture collection for the exact production library units.
+An active policy starts compiler architecture collection for the selected Cargo units. Explicit `--all-targets` selection covers libraries, binaries, tests, examples, benchmarks, procedural macros, and supporting build-script compilations.
+
+Cargo owns target and feature resolution. The planner requests a bounded, locked `cargo build --unit-graph` with the same selectors. It does not execute that build. The pinned Cargo check graph omits the distinction between normal and test checks, so array order is not a valid test-mode signal.
+
+Actual compilation still uses `cargo check`. Context v2 binds each source root, test configuration, resolved feature set, target triple, and profile identity. Unknown sessions in selected packages fail closed. Equivalent metadata and linking compilations can share a content-identical shard. Each process reserves its own staging file, so concurrent writers do not share mutable staging bytes.
 
 The policy must define positive limits for units, shards, facts, unknowns, spans, artifacts, and selected MIR traversal.
 
-The Cargo invocation must cover all declared production packages. Its target, features, and default-feature selection must match one declared target.
+The Cargo invocation must cover all declared production packages. Its target, features, and default-feature selection must match one declared target. Matrix rows use explicit `--features` sets. `--all-features`, `-F` shorthand, and repeated feature or target selectors are rejected because this policy version cannot bind them unambiguously. Expand the complete required feature set into a declared row instead.
+
+Every selected source root needs a role, including build scripts outside `src`. Existing `--lib` policies can require those additional source declarations. Test and generated source roles remain explicit. Old collector contexts are rejected rather than assigned a default normal-library identity. Source roots inside excluded build or evidence directories are rejected.
 
 Octet writes one content-bound shard for each selected compilation unit. The shard records resolved items, types, traits, implementations, signatures, calls, constructors, effects, expansions, and active configuration.
 

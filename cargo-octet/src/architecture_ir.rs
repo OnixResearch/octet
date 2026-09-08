@@ -26,6 +26,10 @@ use serde::Deserialize;
 
 use crate::config::SelectedProjectArchitecturePolicy;
 
+#[cfg(test)]
+mod cargo_fixture_tests;
+mod target_plan;
+
 pub(crate) const ARCHITECTURE_SHARD_DIRECTORY: &str = ".octet/compiler-architecture/shards";
 pub(crate) const ARCHITECTURE_IR_ARTIFACT_NAME: &str = "compiler-architecture-ir.json";
 pub(crate) const ARCHITECTURE_COVERAGE_ARTIFACT_NAME: &str = "compiler-architecture-coverage.json";
@@ -35,8 +39,7 @@ const CARGO_METADATA_SUBCOMMAND: &str = "metadata";
 const FORMAT_VERSION_FLAG: &str = "--format-version";
 const METADATA_FORMAT_VERSION: &str = "1";
 const LOCKED_FLAG: &str = "--locked";
-const LIBRARY_TARGET_KINDS: &[&str] = &["lib", "rlib", "dylib", "cdylib", "staticlib"];
-const CUSTOM_BUILD_TARGET_KIND: &str = "custom-build";
+const SOURCE_BUILD_DIRECTORIES: &[&str] = &["target", ".cargo-target", ".git", ".octet", ".direnv", ".devenv", ".pi"];
 
 #[derive(Debug, Deserialize)]
 struct CargoMetadata {
@@ -143,6 +146,13 @@ pub(crate) fn prepare_collector(
         &(scope_args, cargo_check_args, &lockfile_blake3, &cargo_graph_blake3),
     )?;
 
+    let graph = target_plan::load(
+        workspace_root,
+        toolchain,
+        scope_args,
+        cargo_check_args,
+        policy.policy.collection_limits.max_artifact_bytes,
+    )?;
     let mut selected_units = Vec::new();
     for package in metadata.packages {
         if !selected_packages.contains(package.name.as_str()) {
@@ -164,17 +174,42 @@ pub(crate) fn prepare_collector(
             policy.policy.collection_limits.max_spans,
             policy.policy.collection_limits.max_artifact_bytes,
         )?;
-        for cargo_target in package.targets {
-            if cargo_target.kind.iter().any(|kind| kind == CUSTOM_BUILD_TARGET_KIND) {
-                continue;
+        let mut package_unit_count = 0;
+        for planned in graph.units.iter().filter(|planned| planned.pkg_id == package.id) {
+            let test_configuration = match planned.mode.as_str() {
+                "run-custom-build" => continue,
+                "build" => false,
+                "test" => true,
+                other => return Err(format!("unsupported Cargo architecture unit mode `{other}`")),
+            };
+            if planned.platform.as_ref().is_some_and(|platform| platform != &target.triple) {
+                return Err("Cargo plan selects a target outside the declared architecture row".to_owned());
             }
-            if !cargo_target.kind.iter().any(|kind| LIBRARY_TARGET_KINDS.contains(&kind.as_str())) {
-                continue;
+            let cargo_target = &planned.target;
+            let root_path = Path::new(&cargo_target.src_path)
+                .strip_prefix(workspace_root)
+                .map_err(|_| "Cargo architecture source root is outside the workspace".to_owned())?;
+            if root_path
+                .components()
+                .any(|part| part.as_os_str().to_str().is_some_and(|name| SOURCE_BUILD_DIRECTORIES.contains(&name)))
+            {
+                return Err(
+                    "Cargo architecture source root is inside an excluded build or evidence directory".to_owned()
+                );
             }
-            let mut features = target.features.clone();
+            let source_path = normalized_relative(root_path)?;
+            let unit_invocation = octet_architecture_ir::canonical_identity(
+                "octet.compiler-architecture-ir.unit-invocation/v2",
+                &(&invocation_blake3, &source_path, test_configuration, &planned.profile),
+            )?;
+            let mut features = planned.features.clone();
             features.sort();
             features.dedup();
-            let mut crate_types = canonical_rustc_crate_types(&cargo_target.kind, cargo_target.crate_types);
+            let mut crate_types = if test_configuration {
+                vec!["bin".to_owned()]
+            } else {
+                canonical_rustc_crate_types(&cargo_target.kind, cargo_target.crate_types.clone())
+            };
             crate_types.sort();
             crate_types.dedup();
             let mut unit = CompilationUnit {
@@ -182,9 +217,13 @@ pub(crate) fn prepare_collector(
                 package_name: package.name.clone(),
                 package_version: package.version.clone(),
                 target_name: cargo_target.name.clone(),
-                target_kind: cargo_target.kind.join("+"),
+                target_kind: if test_configuration {
+                    format!("{}+test", cargo_target.kind.join("+"))
+                } else {
+                    cargo_target.kind.join("+")
+                },
                 crate_types,
-                target_triple: target.triple.clone(),
+                target_triple: planned.platform.clone().unwrap_or_else(|| host_triple.clone()),
                 features,
                 default_features: target.default_features,
                 role,
@@ -192,21 +231,19 @@ pub(crate) fn prepare_collector(
                 collector_blake3: collector_blake3.clone(),
                 policy_blake3: policy.policy_blake3.clone(),
                 source_blake3: source_blake3.clone(),
-                invocation_blake3: invocation_blake3.clone(),
+                invocation_blake3: unit_invocation,
             };
             unit.unit_id = octet_architecture_ir::compilation_unit_identity(&unit);
-            let package_source_root = if manifest_dir.is_empty() {
-                "src".to_owned()
-            } else {
-                format!("{manifest_dir}/src")
-            };
             let unit_source_roles = source_roles
                 .iter()
-                .filter(|scope| path_scopes_overlap(&scope.source_scope, &package_source_root))
+                .filter(|scope| manifest_dir.is_empty() || path_scopes_overlap(&scope.source_scope, &manifest_dir))
                 .cloned()
                 .collect::<Vec<_>>();
-            if unit_source_roles.is_empty() {
-                return Err(format!("package `{}` has no explicit compiler source-role scope", package.name));
+            if !unit_source_roles.iter().any(|scope| {
+                source_path == scope.source_scope
+                    || source_path.strip_prefix(&scope.source_scope).is_some_and(|suffix| suffix.starts_with('/'))
+            }) {
+                return Err(format!("Cargo unit `{}` has no explicit compiler source-root role", cargo_target.name));
             }
             if selected_units.len() >= policy.policy.collection_limits.max_units {
                 return Err(format!(
@@ -217,14 +254,21 @@ pub(crate) fn prepare_collector(
             selected_units.push(CollectorCompilationUnit {
                 rustc_crate_name: cargo_target.name.replace('-', "_"),
                 manifest_dir: manifest_dir.clone(),
+                source_path,
+                test_configuration,
                 source_roles: unit_source_roles,
                 unit,
             });
+            package_unit_count += 1;
+        }
+        if package_unit_count == 0 {
+            return Err(format!("Cargo plan omits selected architecture package `{}`", package.name));
         }
     }
+    octet_architecture_ir::validate_collector_units(&selected_units).map_err(|error| error.to_string())?;
     selected_units.sort_by(|left, right| left.unit.unit_id.cmp(&right.unit.unit_id));
     if selected_units.is_empty() {
-        return Err("activated architecture policy selected no Cargo library compilation units".to_owned());
+        return Err("activated architecture policy selected no Cargo compilation units".to_owned());
     }
     let shard_directory = workspace_root.join(ARCHITECTURE_SHARD_DIRECTORY);
     prepare_shard_directory(
@@ -245,6 +289,7 @@ pub(crate) fn prepare_collector(
         .collect::<Vec<_>>();
     let context = CompilerArchitectureCollectorContext {
         schema_version: COMPILER_ARCHITECTURE_COLLECTOR_CONTEXT_SCHEMA_VERSION.to_owned(),
+        workspace_root: workspace_root.display().to_string(),
         output_directory: shard_directory.display().to_string(),
         limits: policy.policy.collection_limits.clone(),
         selected_units,
@@ -810,8 +855,19 @@ fn validate_cargo_selection(
     cargo_check_args: &[String],
     target: &octet_standards::project_architecture_policy::ArchitectureTarget,
 ) -> Result<(), String> {
-    if !cargo_check_args.iter().any(|argument| argument == "--lib") {
-        return Err("architecture collection requires `--lib` to bind expected library units".to_owned());
+    if cargo_check_args.iter().any(|argument| argument == "--all-features" || argument.starts_with("-F")) {
+        return Err("architecture rows require explicit --features rather than all-features or shorthand".to_owned());
+    }
+    for option in ["--features", "--target"] {
+        let prefix = format!("{option}=");
+        if cargo_check_args
+            .iter()
+            .filter(|argument| argument.as_str() == option || argument.starts_with(&prefix))
+            .count()
+            > 1
+        {
+            return Err(format!("architecture rows reject repeated `{option}` selections"));
+        }
     }
     let requested_target = option_value(cargo_check_args, "--target");
     if let Some(requested_target) = requested_target
@@ -861,7 +917,7 @@ fn option_value<'a>(arguments: &'a [String], option: &str) -> Option<&'a str> {
 fn source_roles(selected: &SelectedProjectArchitecturePolicy) -> Result<Vec<SourceRoleScope>, String> {
     let mut roles = Vec::with_capacity(selected.policy.roles.len());
     for assignment in &selected.policy.roles {
-        if assignment.scope_kind != ArchitectureScopeKind::Source || !assignment.role.is_production() {
+        if assignment.scope_kind != ArchitectureScopeKind::Source {
             continue;
         }
         roles.push(SourceRoleScope {
@@ -894,9 +950,8 @@ fn convert_role(role: ArchitectureRole) -> Result<CompilerArchitectureRole, Stri
         ArchitectureRole::InboundAdapter => Ok(CompilerArchitectureRole::InboundAdapter),
         ArchitectureRole::OutboundAdapter => Ok(CompilerArchitectureRole::OutboundAdapter),
         ArchitectureRole::CompositionRoot => Ok(CompilerArchitectureRole::CompositionRoot),
-        ArchitectureRole::Test | ArchitectureRole::Generated => {
-            Err("non-production role reached production compiler selection".to_owned())
-        }
+        ArchitectureRole::Test => Ok(CompilerArchitectureRole::Test),
+        ArchitectureRole::Generated => Ok(CompilerArchitectureRole::Generated),
     }
 }
 
@@ -913,7 +968,7 @@ fn package_source_identity(
     let mut files = Vec::new();
     files.push(package_root.join("Cargo.toml"));
     let mut observed_source_entries = 1usize;
-    collect_rust_sources(&package_root.join("src"), &mut files, max_source_files, &mut observed_source_entries)?;
+    collect_rust_sources(&package_root, &mut files, max_source_files, &mut observed_source_entries)?;
     files.sort();
     let frame_capacity = files
         .len()
@@ -971,6 +1026,22 @@ fn collect_rust_sources(
     }
     paths.sort();
     for path in paths {
+        if path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .is_some_and(|name| SOURCE_BUILD_DIRECTORIES.contains(&name))
+        {
+            continue;
+        }
+        if path.is_symlink() {
+            if path.is_dir() || path.extension().and_then(|extension| extension.to_str()) == Some("rs") {
+                return Err(format!(
+                    "compiler architecture source envelope contains a source symlink: {}",
+                    path.display()
+                ));
+            }
+            continue;
+        }
         if path.is_dir() {
             collect_rust_sources(&path, files, max_source_entries, observed_source_entries)?;
         } else if path.extension().and_then(|extension| extension.to_str()) == Some("rs") {
@@ -1140,6 +1211,27 @@ mod tests {
             .expect("prepare overflow cache");
 
         assert_eq!(fs::read_dir(fixture.path()).expect("read cleared cache").count(), 0);
+    }
+
+    #[test]
+    fn all_target_rows_accept_explicit_features_but_reject_ambiguous_scope() {
+        let valid = vec![
+            "--all-targets".to_owned(),
+            "--target=x86_64-unknown-linux-gnu".to_owned(),
+            "--features=production".to_owned(),
+            "--no-default-features".to_owned(),
+        ];
+        assert_eq!(validate_cargo_selection(&valid, &target()), Ok(()));
+        for extra in [
+            "--all-features",
+            "-Fproduction",
+            "--features=production",
+            "--target=x86_64-unknown-linux-gnu",
+        ] {
+            let mut invalid = valid.clone();
+            invalid.push(extra.to_owned());
+            assert!(validate_cargo_selection(&invalid, &target()).is_err(), "{extra}");
+        }
     }
 
     #[test]

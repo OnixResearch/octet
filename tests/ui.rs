@@ -574,6 +574,35 @@ fn run_compiler_architecture_fixture_with_selection(
     fixture_name: &str,
     value_flow_selections: Vec<CompilerValueFlowSelection>,
 ) -> CompilerArchitectureShard {
+    run_compiler_architecture_target(
+        driver,
+        library,
+        host,
+        CompilerFixtureTarget {
+            fixture_name,
+            crate_type: "rlib",
+            test_configuration: false,
+            features: &[],
+        },
+        value_flow_selections,
+    )
+}
+
+struct CompilerFixtureTarget<'a> {
+    fixture_name: &'a str,
+    crate_type: &'a str,
+    test_configuration: bool,
+    features: &'a [&'a str],
+}
+
+fn run_compiler_architecture_target(
+    driver: &Path,
+    library: &Path,
+    host: &str,
+    target: CompilerFixtureTarget<'_>,
+    value_flow_selections: Vec<CompilerValueFlowSelection>,
+) -> CompilerArchitectureShard {
+    let fixture_name = target.fixture_name;
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let source_scope = "fixtures/compiler-architecture-ir";
     let fixture_path = root.join(source_scope).join(fixture_name);
@@ -587,10 +616,21 @@ fn run_compiler_architecture_fixture_with_selection(
         package_name: crate_name.clone(),
         package_version: "0.1.0".to_owned(),
         target_name: crate_name.clone(),
-        target_kind: "lib".to_owned(),
-        crate_types: vec!["rlib".to_owned()],
+        target_kind: if target.test_configuration {
+            format!("{}+test", target.crate_type)
+        } else {
+            target.crate_type.to_owned()
+        },
+        crate_types: vec![
+            if target.test_configuration {
+                "bin"
+            } else {
+                target.crate_type
+            }
+            .to_owned(),
+        ],
         target_triple: host.to_owned(),
-        features: Vec::new(),
+        features: target.features.iter().map(|feature| (*feature).to_owned()).collect(),
         default_features: true,
         role: CompilerArchitectureRole::DomainCore,
         toolchain_blake3: COMPILER_FIXTURE_HASH.to_owned(),
@@ -602,11 +642,14 @@ fn run_compiler_architecture_fixture_with_selection(
     unit.unit_id = octet_architecture_ir::compilation_unit_identity(&unit);
     let context = CompilerArchitectureCollectorContext {
         schema_version: octet_architecture_ir::COMPILER_ARCHITECTURE_COLLECTOR_CONTEXT_SCHEMA_VERSION.to_owned(),
+        workspace_root: root.display().to_string(),
         output_directory: shard_dir.display().to_string(),
         limits: compiler_fixture_limits(),
         selected_units: vec![CollectorCompilationUnit {
             rustc_crate_name: crate_name.clone(),
             manifest_dir: String::new(),
+            source_path: format!("{source_scope}/{fixture_name}"),
+            test_configuration: target.test_configuration,
             source_roles: vec![SourceRoleScope {
                 source_scope: source_scope.to_owned(),
                 role: CompilerArchitectureRole::DomainCore,
@@ -620,7 +663,16 @@ fn run_compiler_architecture_fixture_with_selection(
     fs::write(&context_path, serde_json::to_vec_pretty(&context).expect("serialize collector context"))
         .expect("write collector context");
     let dylint_libs = serde_json::to_string(&vec![library]).expect("encode compiler fixture DYLINT_LIBS");
-    let output = Command::new(driver)
+    let mut command = Command::new(driver);
+    if target.test_configuration {
+        command.arg("--test");
+    } else {
+        command.arg("--crate-type").arg(target.crate_type);
+    }
+    for feature in target.features {
+        command.arg("--cfg").arg(format!("feature=\"{feature}\""));
+    }
+    let output = command
         .current_dir(root)
         .env("DYLINT_LIBS", dylint_libs)
         .env(octet_architecture_ir::COMPILER_ARCHITECTURE_COLLECTOR_CONTEXT_ENV, &context_path)
@@ -629,14 +681,7 @@ fn run_compiler_architecture_fixture_with_selection(
         .arg(&fixture_path)
         .arg("--crate-name")
         .arg(&crate_name)
-        .args([
-            "--crate-type",
-            "lib",
-            "--edition=2024",
-            "--emit=metadata",
-            "-A",
-            "unused",
-        ])
+        .args(["--edition=2024", "--emit=metadata", "-A", "unused"])
         .arg(format!("--target={host}"))
         .arg("-o")
         .arg(work_dir.join("fixture.rmeta"))
@@ -796,6 +841,97 @@ fn compiler_architecture_ir_fixtures() {
                 if qualified_path.contains("FakePort")
         )
     }));
+}
+
+#[test]
+#[ignore = "run via cargo test --test ui compiler_architecture_target_fixtures -- --ignored --nocapture"]
+fn compiler_architecture_target_fixtures() {
+    let toolchain = rustup_toolchain();
+    let library = build_library(&toolchain);
+    let host = host_triple();
+    let driver = build_driver(&toolchain);
+    let pure = run_compiler_architecture_target(
+        &driver,
+        &library,
+        &host,
+        CompilerFixtureTarget {
+            fixture_name: "targets/conditional.rs",
+            crate_type: "rlib",
+            test_configuration: false,
+            features: &[],
+        },
+        Vec::new(),
+    );
+    assert_eq!(pure.collection_status, CollectionStatus::Complete);
+    assert!(!pure.facts.iter().any(|fact| matches!(fact, CompilerArchitectureFact::Effect { .. })));
+    let test = run_compiler_architecture_target(
+        &driver,
+        &library,
+        &host,
+        CompilerFixtureTarget {
+            fixture_name: "targets/conditional.rs",
+            crate_type: "rlib",
+            test_configuration: true,
+            features: &[],
+        },
+        Vec::new(),
+    );
+    assert_eq!(test.collection_status, CollectionStatus::Complete);
+    assert_ne!(pure.unit.unit_id, test.unit.unit_id);
+    assert!(test.facts.iter().any(|fact| matches!(fact, CompilerArchitectureFact::Effect {
+        capability_family: octet_architecture_ir::CapabilityFamily::Filesystem,
+        ..
+    })));
+    for target in [
+        CompilerFixtureTarget {
+            fixture_name: "targets/conditional.rs",
+            crate_type: "rlib",
+            test_configuration: false,
+            features: &["extra"],
+        },
+        CompilerFixtureTarget {
+            fixture_name: "targets/binary.rs",
+            crate_type: "bin",
+            test_configuration: false,
+            features: &[],
+        },
+        CompilerFixtureTarget {
+            fixture_name: "targets/procedural.rs",
+            crate_type: "proc-macro",
+            test_configuration: false,
+            features: &[],
+        },
+    ] {
+        eprintln!("[compiler target fixture] {} {}", target.fixture_name, target.crate_type);
+        let shard = run_compiler_architecture_target(&driver, &library, &host, target, Vec::new());
+        assert_eq!(shard.collection_status, CollectionStatus::Complete);
+        assert!(shard.facts.iter().any(|fact| matches!(fact, CompilerArchitectureFact::Effect { .. })));
+    }
+    let expected_units = vec![
+        octet_architecture_ir::ExpectedCompilationUnit {
+            unit: pure.unit.clone(),
+        },
+        octet_architecture_ir::ExpectedCompilationUnit {
+            unit: test.unit.clone(),
+        },
+    ];
+    let mut limits = compiler_fixture_limits();
+    limits.max_units = expected_units.len();
+    limits.max_shards = expected_units.len();
+    let mut input = octet_architecture_ir::NormalizationInput {
+        policy_blake3: COMPILER_FIXTURE_HASH.to_owned(),
+        limits,
+        expected_units,
+        shards: vec![pure, test],
+        invalid_shards: Vec::new(),
+        non_claims: vec!["whole-program-correctness".to_owned()],
+    };
+    let complete = octet_architecture_ir::normalize_architecture_shards(input.clone()).expect("normalize both units");
+    assert_eq!(complete.receipt.status, CollectionStatus::Complete, "{:?}", complete.issues);
+    input.shards.pop();
+    let missing = octet_architecture_ir::normalize_architecture_shards(input).expect("normalize missing test unit");
+    assert_eq!(missing.receipt.status, CollectionStatus::Incomplete);
+    assert!(!missing.coverage.missing_unit_ids.is_empty());
 }
 
 #[test]

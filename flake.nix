@@ -293,6 +293,9 @@
               inCairnCobConflictPilot =
                 pkgs.lib.hasSuffix "/fixtures/cairn-cob-conflict-pilot" path
                 || pkgs.lib.hasInfix "/fixtures/cairn-cob-conflict-pilot/" path;
+              inArchitectureTargets =
+                pkgs.lib.hasSuffix "/fixtures/architecture-targets" path
+                || pkgs.lib.hasInfix "/fixtures/architecture-targets/" path;
               inCairnLifecycle = pkgs.lib.hasSuffix "/.cairn" path || pkgs.lib.hasInfix "/.cairn/" path;
               inDocs = pkgs.lib.hasSuffix "/docs" path || pkgs.lib.hasInfix "/docs/" path;
               inStandards = pkgs.lib.hasSuffix "/standards" path || pkgs.lib.hasInfix "/standards/" path;
@@ -301,12 +304,14 @@
               inGitHub = pkgs.lib.hasSuffix "/.github" path || pkgs.lib.hasInfix "/.github/" path;
               isPreCommitHooks = pkgs.lib.hasSuffix "/.pre-commit-hooks.yaml" path;
               isReadme = builtins.baseNameOf path == "README.md";
+              isDynamicEvidenceProfile = builtins.baseNameOf path == "dynamic-evidence-profiles.json";
             in
             (craneLib.filterCargoSources path type)
             || inUiTests
             || inTestFixtures
             || inCairnCobPilot
             || inCairnCobConflictPilot
+            || inArchitectureTargets
             || inCairnLifecycle
             || inDocs
             || inStandards
@@ -314,7 +319,8 @@
             || inHooks
             || inGitHub
             || isPreCommitHooks
-            || isReadme;
+            || isReadme
+            || isDynamicEvidenceProfile;
         };
         fmtSrc = pkgs.lib.cleanSourceWith {
           src = ./.;
@@ -4391,6 +4397,30 @@
                 export OCTET_UI_LIBRARY="${octetUiLibrary}/lib/${octetUiLibraryName}"
                 export TIGERSTYLE_UI_DRIVER="$OCTET_UI_DRIVER"
                 export TIGERSTYLE_UI_LIBRARY="$OCTET_UI_LIBRARY"
+              '';
+            };
+
+            compiler-architecture-targets = craneLib.buildPackage {
+              inherit
+                src
+                cargoArtifacts
+                buildInputs
+                cargoVendorDir
+                ;
+              cargoToml = ./Cargo.toml;
+              pname = "octet-compiler-architecture-targets";
+              version = "0.1.0";
+              nativeBuildInputs = checkNativeBuildInputs;
+              doNotPostBuildInstallCargoBinaries = true;
+              buildPhaseCargoCommand = ":";
+              cargoTestExtraArgs = "-p cargo-octet --lib real_cargo_all_targets_has_complete_compiler_coverage -- --ignored --nocapture";
+              installPhaseCommand = ''mkdir -p "$out"'';
+              LD_LIBRARY_PATH = rustToolchainLibPath;
+              RUSTUP_TOOLCHAIN = rustupToolchain;
+              preCheck = ''
+                export PATH="${dylintShimPath}:$PATH"
+                export OCTET_UI_DRIVER="${uiDriver}/bin/octet-ui-driver"
+                export OCTET_UI_LIBRARY="${octetUiLibrary}/lib/${octetUiLibraryName}"
               '';
             };
 

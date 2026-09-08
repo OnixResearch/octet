@@ -416,7 +416,7 @@ pub extern "Rust" fn register_lints(sess: &rustc_session::Session, lint_store: &
     apply_lint_level_overrides(sess, &cfg);
     register_inventory(lint_store, &cfg, &nominal_domain_catalog);
     register_no_todo_bundle(lint_store, &cfg);
-    match architecture_collector::active_collector() {
+    match architecture_collector::active_collector(sess) {
         Ok(Some(collector)) => {
             if let Err(error) = architecture_collector::validate_compiler_session(sess, &collector) {
                 sess.dcx().err(error);
