@@ -254,7 +254,10 @@ impl ArchitectureCollector {
             qualified_path: qualified_path.clone(),
             item_kind,
             origin_crate: self.selected.unit.package_name.clone(),
-            visibility: if cx.tcx.visibility(def_id).is_public() {
+            visibility: if matches!(cx.tcx.def_kind(def_id), DefKind::AnonConst | DefKind::InlineConst) {
+                // Anonymous bodies have no supported visibility query.
+                "private".to_owned()
+            } else if cx.tcx.visibility(def_id).is_public() {
                 "public".to_owned()
             } else {
                 "restricted".to_owned()
@@ -597,6 +600,7 @@ impl ArchitectureCollector {
         )
     }
 
+    // r[impl octet.compiler_architecture_ir.body_owner_queries]
     fn caller_item_id(&mut self, cx: &LateContext<'_>, hir_id: hir::HirId) -> String {
         let owner = cx.tcx.hir_enclosing_body_owner(hir_id);
         if let Some(item_id) = self.item_ids.get(&owner) {
@@ -628,7 +632,8 @@ impl ArchitectureCollector {
             self.insert_item_identity(owner, &item_id);
             return item_id;
         }
-        self.collect_item(cx, owner, ItemKind::Function, cx.tcx.def_span(owner), true)
+        let item_kind = def_kind_to_item_kind(cx.tcx.def_kind(owner));
+        self.collect_item(cx, owner, item_kind, cx.tcx.def_span(owner), item_kind == ItemKind::Function)
     }
 
     fn insert_item_identity(&mut self, def_id: LocalDefId, item_id: &str) {
