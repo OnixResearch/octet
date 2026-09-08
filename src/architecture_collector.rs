@@ -1165,12 +1165,14 @@ impl<'tcx> LateLintPass<'tcx> for ArchitectureCollector {
 
     fn check_impl_item(&mut self, cx: &LateContext<'tcx>, item: &'tcx hir::ImplItem<'tcx>) {
         let signature = matches!(item.kind, hir::ImplItemKind::Fn(..));
-        self.collect_item(cx, item.owner_id.def_id, ItemKind::Function, item.span, signature);
+        let item_kind = def_kind_to_item_kind(cx.tcx.def_kind(item.owner_id.def_id));
+        self.collect_item(cx, item.owner_id.def_id, item_kind, item.span, signature);
     }
 
     fn check_trait_item(&mut self, cx: &LateContext<'tcx>, item: &'tcx hir::TraitItem<'tcx>) {
         let signature = matches!(item.kind, hir::TraitItemKind::Fn(..));
-        let item_id = self.collect_item(cx, item.owner_id.def_id, ItemKind::Function, item.span, signature);
+        let item_kind = def_kind_to_item_kind(cx.tcx.def_kind(item.owner_id.def_id));
+        let item_id = self.collect_item(cx, item.owner_id.def_id, item_kind, item.span, signature);
         if matches!(item.kind, hir::TraitItemKind::Fn(_, hir::TraitFn::Required(_))) {
             let span_id = self.collect_span(cx, item.span);
             self.push_unknown(
@@ -1636,7 +1638,7 @@ fn def_kind_to_item_kind(kind: DefKind) -> ItemKind {
         DefKind::Union => ItemKind::Union,
         DefKind::Enum => ItemKind::Enum,
         DefKind::Trait => ItemKind::Trait,
-        DefKind::TyAlias => ItemKind::TypeAlias,
+        DefKind::TyAlias | DefKind::AssocTy => ItemKind::TypeAlias,
         DefKind::Fn | DefKind::AssocFn => ItemKind::Function,
         DefKind::Const { .. } | DefKind::AssocConst { .. } => ItemKind::Constant,
         DefKind::Static { .. } => ItemKind::Static,
