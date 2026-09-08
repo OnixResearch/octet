@@ -11,4 +11,4 @@
 
 ## Mandatory completion postconditions
 
-Archive locally after sync. Publish the verified branch. Preserve the unrelated unpublished plan on primary main. Remote-main integration needs reconciliation of that plan, so retain the worktree until integration and guarded teardown are complete.
+Archive locally after sync. Publish the verified branch. Include only the existing spec-trace plan that the owner approved on 2026-09-08. Preserve other staged and untracked drafts. Retain the worktree until remote-main ancestry and the evidence guard permit teardown.
