@@ -35,7 +35,7 @@ The first concurrent Cargo control exposed shared temporary shard paths. Equival
 
 ## Nix checks
 
-The first `compiler-architecture-targets` Nix check failed before execution because the source filter omitted an existing compiled fixture input, `dynamic-evidence-profiles.json`. The filter now includes that named file. The corrected combined r2 Nix run passed, including the real ten-unit Cargo control. A final rerun remains required after explicit feature-selector validation changes.
+The first `compiler-architecture-targets` Nix check failed before execution because the source filter omitted an existing compiled fixture input, `dynamic-evidence-profiles.json`. The filter now includes that named file. The corrected combined r2 Nix run passed, including the real ten-unit Cargo control. The final r3 rerun also passed after explicit feature-selector validation changes. It built the current source at product commit `1d8a6f88` and repeated the ten-unit compiler control in the Nix sandbox.
 
 The new dedicated Nix check runs the ignored Cargo compiler control with the current packaged collector and pinned driver. Existing UI checks run the expanded direct compiler fixtures.
 
@@ -45,4 +45,6 @@ No whole-program purity, runtime determinism, or clean full-catalog consumer cla
 
 The policy v1 row requires explicit feature sets. Ambiguous shorthand, all-features expansion, and repeated target or feature selectors now fail before collection. Tests cover those rejections. Supporting build units remain host-bound, while non-host planned units must match the declared target.
 
-Final Nix verification, source review, lifecycle sync/archive, and remote integration remain incomplete. No change is published yet. Existing staged benchmark-plan edits and the unpublished spec-trace plan on primary Octet main remain unrelated work and must be preserved.
+Product checks are complete at `1d8a6f88`. The review remains correlated and makes no independent-assurance claim. Final proposal, design, and tasks gates report valid true and PASS. Root validation reports valid true. The sync dry-run was unblocked, and sync execution reported blocked false and mutated true. The accepted specification is `.cairn/specs/compiler-architecture-targets/spec.md`. Logs are `final-gate-*.json`, `final-validate.json`, `sync-dry.json`, and `sync.json` in the private evidence directory. Archive and publication follow those checks.
+
+Primary Octet main has unpublished commit `37ba20b5` for an unrelated spec-trace plan, plus staged benchmark-plan edits. This work will preserve them and publish its own verified branch. Remote-main integration and worktree teardown remain incomplete until that unrelated local history is reconciled. H7 can consume the published immutable feature revision without an ambient sibling dependency.

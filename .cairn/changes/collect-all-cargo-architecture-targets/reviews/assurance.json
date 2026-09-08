@@ -8,8 +8,8 @@
     {"path": "proposal.md", "hash": "19af50209f299ec4a14126946ee596be804f123303739ab0d97b9bee9d816327"},
     {"path": "design.md", "hash": "f4e1845529edbf1b910038bb33f62c073f9313e72b373d3e717029370cea9e84"},
     {"path": "risk.md", "hash": "fb21085ed64e8a3e4f9c04257f9201a898c90aa098e78b13f1e727966829c453"},
-    {"path": "tasks.md", "hash": "24b03db640fb3164334f8472130da9d7a6dc87042a7beb70671f64334a7e6dde"},
-    {"path": "verification.md", "hash": "181d928f6431f35d24513953299bd1a1545dcc056d1654eccf9a11a68a7801fe"},
+    {"path": "tasks.md", "hash": "415c1a1b92550606f9f338b1d9acf28b8439cc4f0f3395085966d53a9d6c3a71"},
+    {"path": "verification.md", "hash": "5e1d13c41c33af9253b57e30d9a5c002bf7d5724b42cb24084648f45aa595dae"},
     {"path": "specs/compiler-architecture-targets/spec.md", "hash": "0bee11b292673a12ed01e1ba04fdce8ccf26c46af2df8ca59ae2ba5e051289e2"}
   ]
 }
