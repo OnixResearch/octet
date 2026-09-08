@@ -36,6 +36,8 @@ use rustc_middle::ty::Ty;
 use rustc_session::impl_lint_pass;
 use rustc_span::Span;
 use rustc_span::Spanned;
+use rustc_span::hygiene::AstPass;
+use rustc_span::hygiene::ExpnKind;
 use rustc_span::sym;
 
 const CONTEXT_BYTE_LIMIT: u64 = 16 * 1024 * 1024;
@@ -471,13 +473,16 @@ impl ArchitectureCollector {
         };
         assign_fact_identity(&mut fact);
         self.push_fact(fact);
-        if macro_definition.is_none() {
+        if macro_definition.is_none() && !compiler_owned_expansion(span.ctxt().outer_expn_data().kind) {
             self.push_unknown(
                 UnknownFactKind::UnsupportedExpansion,
                 None,
                 None,
                 Some(generated_span_id),
-                "expanded source has no compiler-resolved macro definition",
+                &format!(
+                    "expanded source has no compiler-resolved macro definition: {:?}",
+                    span.ctxt().outer_expn_data().kind
+                ),
             );
         }
     }
@@ -1825,9 +1830,33 @@ fn is_value_provenance(fact: &CompilerArchitectureFact) -> bool {
     matches!(fact, CompilerArchitectureFact::CallArgumentProvenance { .. })
 }
 
+// These compiler passes synthesize code, not macro invocations. Keep their expansion
+// facts and all generated calls/effects, but do not require a nonexistent macro DefId.
+// Every other definition-less expansion stays unknown.
+fn compiler_owned_expansion(kind: ExpnKind) -> bool {
+    matches!(kind, ExpnKind::AstPass(AstPass::StdImports | AstPass::TestHarness | AstPass::ProcMacroHarness))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn compiler_passes_do_not_require_macro_definitions() {
+        for pass in [AstPass::StdImports, AstPass::TestHarness, AstPass::ProcMacroHarness] {
+            assert!(compiler_owned_expansion(ExpnKind::AstPass(pass)));
+        }
+    }
+
+    #[test]
+    fn unresolved_macros_and_root_context_remain_unknown() {
+        use rustc_span::hygiene::MacroKind;
+
+        assert!(!compiler_owned_expansion(ExpnKind::Root));
+        assert!(!compiler_owned_expansion(ExpnKind::Macro(MacroKind::Bang, sym::test)));
+        assert!(!compiler_owned_expansion(ExpnKind::Macro(MacroKind::Attr, sym::test)));
+        assert!(!compiler_owned_expansion(ExpnKind::Macro(MacroKind::Derive, sym::test)));
+    }
 
     #[test]
     fn absent_context_does_not_activate_collection() {
