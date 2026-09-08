@@ -144,6 +144,7 @@ fn real_cargo_all_targets_has_complete_compiler_coverage() {
             .any(|fact| matches!(fact, octet_architecture_ir::CompilerArchitectureFact::Effect { .. }))
     );
     assert_associated_item_classification(&ir);
+    assert_body_owner_classification(&ir);
     assert!(
         ir.unknowns
             .iter()
@@ -161,6 +162,58 @@ fn real_cargo_all_targets_has_complete_compiler_coverage() {
     fs::remove_file(shard).expect("remove one controlled observation");
     let omitted = super::normalize_collected_shards(&prepared).expect("normalize omitted unit");
     assert!(omitted.incomplete_error.is_some(), "missing compiler unit must fail closed");
+}
+
+// r[verify octet.compiler_architecture_ir.body_owner_queries]
+fn assert_body_owner_classification(ir: &CompilerArchitectureIr) {
+    for (owner_fragment, target_suffix) in [
+        ("::anonymous_body::", "::constant_width"),
+        ("::inline_body::", "::constant_truth"),
+        ("::closure@", "::closure_truth"),
+    ] {
+        let mut observed = false;
+        for fact in &ir.facts {
+            let CompilerArchitectureFact::Item {
+                item_id,
+                qualified_path,
+                item_kind,
+                signature_id,
+                visibility,
+                ..
+            } = fact
+            else {
+                continue;
+            };
+            if !qualified_path.contains(owner_fragment) {
+                continue;
+            }
+            let has_expected_call = ir.facts.iter().any(|candidate| {
+                matches!(
+                    candidate,
+                    CompilerArchitectureFact::Call { caller_item_id, resolved_definition: Some(target), .. }
+                        if caller_item_id == item_id && target.ends_with(target_suffix)
+                )
+            });
+            // Rustc also emits test-harness closures. Select our closure by its callee.
+            if owner_fragment == "::closure@" && !has_expected_call {
+                continue;
+            }
+            observed = true;
+            assert_eq!(*item_kind, ItemKind::Other, "body misclassified: {qualified_path}");
+            assert!(signature_id.is_none(), "body acquired a signature: {qualified_path}");
+            assert_eq!(visibility, "private", "body acquired visibility: {qualified_path}");
+            assert!(has_expected_call, "missing resolved call for {qualified_path}");
+        }
+        assert!(observed, "missing body owner matching {owner_fragment}");
+        eprintln!("body owner control: {owner_fragment} -> {target_suffix}: private, no signature, call retained");
+    }
+    for suffix in ["::anonymous_body", "::inline_body", "::closure_body"] {
+        assert!(ir.facts.iter().any(|fact| matches!(
+            fact,
+            CompilerArchitectureFact::Item { qualified_path, item_kind: ItemKind::Function, signature_id: Some(_), .. }
+                if qualified_path.ends_with(suffix)
+        )), "ordinary function lost its signature: {suffix}");
+    }
 }
 
 fn assert_associated_item_classification(ir: &CompilerArchitectureIr) {
