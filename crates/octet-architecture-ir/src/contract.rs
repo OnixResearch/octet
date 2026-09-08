@@ -1,3 +1,4 @@
+use crate::model::COMPILER_ARCHITECTURE_COLLECTOR_CONTEXT_SCHEMA_VERSION;
 use crate::model::COMPILER_ARCHITECTURE_COVERAGE_SCHEMA_VERSION;
 use crate::model::COMPILER_ARCHITECTURE_IR_SCHEMA_VERSION;
 use crate::model::COMPILER_ARCHITECTURE_ISSUE_SCHEMA_VERSION;
@@ -68,6 +69,20 @@ let Unit = {{
   source_blake3 | Blake3,
   invocation_blake3 | Blake3,
 }} in
+let CollectorUnit = {{
+  rustc_crate_name | NonEmptyString,
+  manifest_dir | String,
+  source_path | NonEmptyString,
+  test_configuration | Bool,
+  source_roles | Array {{ source_scope | NonEmptyString, role | Role }},
+  unit | Unit,
+}} in
+let ValueFlowSelection = {{
+  tracked_callee_definitions | Array NonEmptyString,
+  tracked_type_definitions | Array NonEmptyString,
+  root_origin_definitions | Array NonEmptyString,
+  propagation_definitions | Array NonEmptyString,
+}} in
 let SourceOrigin = std.contract.from_predicate (fun value =>
   std.is_record value
   && std.record.has_field "kind" value
@@ -112,6 +127,15 @@ let Issue = {{
 }} in
 {{
   ArchitectureCollectionLimits = Limits,
+  CompilerArchitectureCollectorContext = {{
+    schema_version | OneOf ["{context_schema}"],
+    workspace_root | NonEmptyString,
+    output_directory | NonEmptyString,
+    limits | Limits,
+    selected_units | Array CollectorUnit,
+    value_flow_selections | Array ValueFlowSelection,
+    non_claims | Array NonEmptyString,
+  }},
   CompilerArchitectureShard = {{
     schema_version | OneOf ["{shard_schema}"],
     shard_id | Blake3,
@@ -156,6 +180,7 @@ let Issue = {{
   }},
 }}
 "#,
+        context_schema = COMPILER_ARCHITECTURE_COLLECTOR_CONTEXT_SCHEMA_VERSION,
         shard_schema = COMPILER_ARCHITECTURE_SHARD_SCHEMA_VERSION,
         ir_schema = COMPILER_ARCHITECTURE_IR_SCHEMA_VERSION,
         coverage_schema = COMPILER_ARCHITECTURE_COVERAGE_SCHEMA_VERSION,

@@ -86,7 +86,7 @@ const EFFECT_PATHS: &[(&str, CapabilityFamily)] = &[
     ("std::time::SystemTime::now", CapabilityFamily::Time),
 ];
 
-pub(crate) fn active_collector() -> Result<Option<ArchitectureCollector>, String> {
+fn load_collector_context() -> Result<Option<CompilerArchitectureCollectorContext>, String> {
     let Some(context_path) = std::env::var_os(octet_architecture_ir::COMPILER_ARCHITECTURE_COLLECTOR_CONTEXT_ENV)
     else {
         return Ok(None);
@@ -108,9 +108,58 @@ pub(crate) fn active_collector() -> Result<Option<ArchitectureCollector>, String
     if context.schema_version != octet_architecture_ir::COMPILER_ARCHITECTURE_COLLECTOR_CONTEXT_SCHEMA_VERSION {
         return Err(format!("unsupported compiler architecture collector context schema `{}`", context.schema_version));
     }
+    octet_architecture_ir::validate_collector_units(&context.selected_units).map_err(|error| error.to_string())?;
+    Ok(Some(context))
+}
+
+pub(crate) fn active_collector(sess: &rustc_session::Session) -> Result<Option<ArchitectureCollector>, String> {
+    let Some(context) = load_collector_context()? else {
+        return Ok(None);
+    };
+    let workspace_root = fs::canonicalize(&context.workspace_root)
+        .map_err(|error| format!("resolve architecture workspace: {error}"))?;
+    let manifest_dir = std::env::var_os("CARGO_MANIFEST_DIR")
+        .ok_or_else(|| "compiler architecture session has no manifest directory".to_owned())?;
+    let manifest_dir =
+        fs::canonicalize(manifest_dir).map_err(|error| format!("resolve compiler manifest directory: {error}"))?;
+    let Ok(manifest_relative) = manifest_dir.strip_prefix(&workspace_root) else {
+        return Ok(None);
+    };
     let crate_name = std::env::var("CARGO_CRATE_NAME").unwrap_or_else(|_| rustc_crate_name());
-    let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap_or_default();
-    let selected = select_unit(&context.selected_units, &crate_name, &manifest_dir)?;
+    let input = sess
+        .io
+        .input
+        .opt_path()
+        .ok_or_else(|| "compiler architecture session has no source path".to_owned())?;
+    let input = fs::canonicalize(input).map_err(|error| format!("resolve compiler source root: {error}"))?;
+    let source_relative = input
+        .strip_prefix(&workspace_root)
+        .map_err(|_| "selected compiler source root is outside the workspace".to_owned())?;
+    let mut features = sess
+        .psess
+        .config
+        .iter()
+        .filter_map(|(name, value)| {
+            (name.as_str() == "feature").then(|| value.map(|value| value.to_string())).flatten()
+        })
+        .collect::<Vec<_>>();
+    features.sort();
+    features.dedup();
+    let test_configuration =
+        sess.opts.test || sess.psess.config.iter().any(|(name, value)| name.as_str() == "test" && value.is_none());
+    let selected = octet_architecture_ir::select_compilation_unit(
+        &context.selected_units,
+        &octet_architecture_ir::CompilerUnitObservation {
+            crate_name: &crate_name,
+            manifest_dir: &manifest_relative.to_string_lossy(),
+            source_path: &source_relative.to_string_lossy(),
+            test_configuration,
+            target_triple: sess.target.llvm_target.as_ref(),
+            features: &features,
+        },
+    )
+    .map_err(|error| error.to_string())?
+    .cloned();
     Ok(selected.map(|unit| ArchitectureCollector::new(context, unit)))
 }
 
@@ -125,7 +174,11 @@ pub(crate) fn validate_compiler_session(
             collector.selected.unit.target_triple
         ));
     }
-    let mut observed_crate_types = sess.opts.crate_types.iter().map(ToString::to_string).collect::<Vec<_>>();
+    let mut observed_crate_types = if sess.opts.test {
+        vec!["bin".to_owned()]
+    } else {
+        sess.opts.crate_types.iter().map(ToString::to_string).collect::<Vec<_>>()
+    };
     observed_crate_types.sort();
     observed_crate_types.dedup();
     if !observed_crate_types.is_empty() && observed_crate_types != collector.selected.unit.crate_types {
@@ -139,36 +192,6 @@ pub(crate) fn validate_compiler_session(
 
 fn rustc_crate_name() -> String {
     std::env::var("CARGO_PKG_NAME").unwrap_or_default().replace('-', "_")
-}
-
-fn select_unit(
-    selected_units: &[CollectorCompilationUnit],
-    crate_name: &str,
-    manifest_dir: &str,
-) -> Result<Option<CollectorCompilationUnit>, String> {
-    let mut matches = selected_units
-        .iter()
-        .filter(|selected| {
-            selected.rustc_crate_name == crate_name && manifest_matches(manifest_dir, &selected.manifest_dir)
-        })
-        .cloned()
-        .collect::<Vec<_>>();
-    if matches.len() > 1 {
-        return Err(format!(
-            "compiler architecture collector context has multiple units for crate `{crate_name}` and manifest `{manifest_dir}`"
-        ));
-    }
-    Ok(matches.pop())
-}
-
-fn manifest_matches(observed: &str, selected_relative: &str) -> bool {
-    if observed.is_empty() {
-        return true;
-    }
-    if selected_relative.is_empty() {
-        return Path::new(observed).join("Cargo.toml").is_file();
-    }
-    Path::new(observed).ends_with(selected_relative)
 }
 
 #[derive(Clone)]
@@ -1021,14 +1044,24 @@ impl ArchitectureCollector {
         }
         let output_directory = Path::new(&self.context.output_directory);
         let output_path = output_directory.join(format!("{}.json", shard.shard_id));
-        let temporary_path = output_path.with_extension(TEMP_FILE_SUFFIX);
-        fs::write(&temporary_path, bytes)
-            .map_err(|error| format!("write compiler architecture shard {}: {error}", temporary_path.display()))?;
-        fs::rename(&temporary_path, &output_path)
-            .map_err(|error| format!("publish compiler architecture shard {}: {error}", output_path.display()))?;
-        Ok(())
+        // Cargo can compile the same proc-macro source concurrently for metadata and linking.
+        // Equivalent shards share their content path, but never a mutable staging file.
+        let temporary_path = output_path.with_extension(format!("{}.{TEMP_FILE_SUFFIX}", std::process::id()));
+        publish_shard(&temporary_path, &output_path, &bytes)
+            .map_err(|error| format!("publish compiler architecture shard {}: {error}", output_path.display()))
     }
 }
+
+fn publish_shard(temporary: &Path, output: &Path, bytes: &[u8]) -> std::io::Result<()> {
+    {
+        let mut staged = fs::OpenOptions::new().write(true).create_new(true).open(temporary)?;
+        std::io::Write::write_all(&mut staged, bytes)?;
+    }
+    fs::rename(temporary, output)
+}
+
+#[cfg(test)]
+mod publication_tests;
 
 fn bounded_source_line(line: usize, max_span_bytes: usize, incomplete: &mut bool) -> u32 {
     let one_based_line = line.max(1);
@@ -1800,7 +1833,7 @@ mod tests {
         unsafe {
             std::env::remove_var(octet_architecture_ir::COMPILER_ARCHITECTURE_COLLECTOR_CONTEXT_ENV);
         }
-        let result = active_collector();
+        let result = load_collector_context();
         if let Some(value) = original {
             unsafe {
                 std::env::set_var(octet_architecture_ir::COMPILER_ARCHITECTURE_COLLECTOR_CONTEXT_ENV, value);

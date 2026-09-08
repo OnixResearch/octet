@@ -188,6 +188,18 @@ in
       negative_fixtures = ["standards/project-architecture/fixtures/invalid/unknown-mode.ncl", "standards/project-architecture/fixtures/invalid/overlapping-scopes.ncl", "standards/project-architecture/fixtures/invalid/stale-waiver-shape.ncl"],
     },
     {
+      family_id = "octet.compiler-architecture-collector-context",
+      ownership = "rust-derived",
+      owner_source_path = "crates/octet-architecture-ir/src/model.rs",
+      artifact_path = ".octet/compiler-architecture/collector-context.json",
+      generation_command = "cargo octet check --artifact-dir PATH",
+      validation_command = "cargo test -p octet-architecture-ir --lib",
+      status = "existing",
+      config_digest_required = true,
+      positive_fixtures = ["crates/octet-architecture-ir/src/selection/tests.rs::same_crate_normal_and_test_sessions_select_distinct_units"],
+      negative_fixtures = ["crates/octet-architecture-ir/src/selection/tests.rs::duplicate_observation_keys_are_rejected_even_with_different_unit_ids", "crates/octet-architecture-ir/src/selection/tests.rs::missing_configuration_fields_do_not_default_to_a_normal_library"],
+    },
+    {
       family_id = "octet.compiler-architecture-ir-receipt",
       ownership = "rust-derived",
       owner_source_path = "crates/octet-architecture-ir/src/model.rs",

@@ -1,0 +1,19 @@
+[package]
+name = "architecture-target-fixture"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[workspace]
+members = ["macro"]
+resolver = "2"
+
+[features]
+extra = []
+
+[dependencies]
+architecture-target-macro = { path = "macro" }
+
+[[bench]]
+name = "sample"
+harness = false

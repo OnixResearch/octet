@@ -38,7 +38,7 @@ fn limits() -> ArchitectureCollectionLimits {
     }
 }
 
-fn unit() -> CompilationUnit {
+pub(crate) fn unit() -> CompilationUnit {
     let mut unit = CompilationUnit {
         unit_id: String::new(),
         package_name: "fixture".to_owned(),

@@ -7,7 +7,7 @@ pub const COMPILER_ARCHITECTURE_COVERAGE_SCHEMA_VERSION: &str = "octet-compiler-
 pub const COMPILER_ARCHITECTURE_ISSUE_SCHEMA_VERSION: &str = "octet-compiler-architecture-issue/v1";
 pub const COMPILER_ARCHITECTURE_RECEIPT_SCHEMA_VERSION: &str = "octet-compiler-architecture-receipt/v1";
 pub const COMPILER_ARCHITECTURE_COLLECTOR_CONTEXT_SCHEMA_VERSION: &str =
-    "octet-compiler-architecture-collector-context/v1";
+    "octet-compiler-architecture-collector-context/v2";
 pub const COMPILER_ARCHITECTURE_COLLECTOR_CONTEXT_ENV: &str = "OCTET_COMPILER_ARCHITECTURE_CONTEXT";
 pub const COMPILER_ARCHITECTURE_CONTRACT_PATH: &str =
     "standards/compiler-architecture-ir/contracts/compiler-architecture-ir.generated.ncl";
@@ -382,6 +382,8 @@ pub struct SourceRoleScope {
 pub struct CollectorCompilationUnit {
     pub rustc_crate_name: String,
     pub manifest_dir: String,
+    pub source_path: String,
+    pub test_configuration: bool,
     pub source_roles: Vec<SourceRoleScope>,
     pub unit: CompilationUnit,
 }
@@ -390,6 +392,7 @@ pub struct CollectorCompilationUnit {
 #[serde(deny_unknown_fields)]
 pub struct CompilerArchitectureCollectorContext {
     pub schema_version: String,
+    pub workspace_root: String,
     pub output_directory: String,
     pub limits: ArchitectureCollectionLimits,
     pub selected_units: Vec<CollectorCompilationUnit>,

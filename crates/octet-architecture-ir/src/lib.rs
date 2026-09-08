@@ -4,6 +4,7 @@ mod contract;
 mod core;
 mod identity;
 mod model;
+mod selection;
 
 pub use core::compilation_unit_identity;
 pub use core::coverage_identity;
@@ -20,6 +21,10 @@ pub use identity::canonical_identity;
 pub use identity::canonical_json;
 pub use identity::framed_blake3;
 pub use model::*;
+pub use selection::CompilerUnitObservation;
+pub use selection::UnitSelectionError;
+pub use selection::select_compilation_unit;
+pub use selection::validate_collector_units;
 
 #[cfg(test)]
 mod tests;
