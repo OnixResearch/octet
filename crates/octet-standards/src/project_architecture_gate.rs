@@ -617,6 +617,7 @@ fn input_integrity_findings(input: &ProjectArchitectureGateInput<'_>) -> Vec<Pro
     validate_cargo_inputs(input, source_identity, &mut findings);
     validate_compiler_inputs(input, source_identity, &mut findings);
     validate_unit_inputs(input, source_identity, &mut findings);
+    validate_source_unit_roles(input, &mut findings);
     findings
 }
 
@@ -755,6 +756,42 @@ fn validate_unit_inputs(
             "unit-role-mismatch",
             &format!("compiler unit `{}` role does not match explicit package policy", unit.package_name),
         );
+    }
+}
+
+/// Package-owned decisions cannot safely interpret a conflicting source role.
+/// Reject the conflict until the evaluator supports fact-level role ownership.
+fn validate_source_unit_roles(
+    input: &ProjectArchitectureGateInput<'_>,
+    findings: &mut Vec<ProjectArchitectureFinding>,
+) {
+    let indexes = GateIndexes::new(input.architecture_ir);
+    // Definition ownership is distinct from the origin of an implemented self type.
+    // A local trait can legally be implemented for a type from another package.
+    for fact in &input.architecture_ir.facts {
+        let CompilerArchitectureFact::Item { span_id, .. } = fact else {
+            continue;
+        };
+        let Some(source_path) = indexes.source_path(span_id) else {
+            continue;
+        };
+        let Some(unit) = indexes.unit_for_fact(fact.fact_id()) else {
+            continue;
+        };
+        for assignment in input.policy.roles.iter().filter(|assignment| {
+            assignment.scope_kind == ArchitectureScopeKind::Source && path_in_scope(source_path, &assignment.scope)
+        }) {
+            require_input(
+                findings,
+                &unit.source_blake3,
+                compiler_role(assignment.role) == unit.role,
+                "source-role-unit-mismatch",
+                &format!(
+                    "source scope `{}` conflicts with package `{}` role; mixed source roles are unsupported",
+                    assignment.scope, unit.package_name
+                ),
+            );
+        }
     }
 }
 
@@ -2356,6 +2393,54 @@ mod tests {
         assert!(first.findings.is_empty());
         assert_eq!(first, second);
         assert!(verify_project_architecture_receipt(&first).is_empty());
+    }
+
+    #[test]
+    fn matching_source_and_package_roles_pass() {
+        let mut fixture = Fixture::new(ArchitectureMode::Gate);
+        let source_span = span("crates/host/src/core.rs");
+        fixture.ir.facts.push(item(&source_span.span_id, "host::core::value"));
+        let foreign_type = type_fact("domain", "domain::Value");
+        let mut implementation = CompilerArchitectureFact::Implementation {
+            fact_id: String::new(),
+            implementation_id: HASH_A.to_owned(),
+            trait_id: None,
+            trait_definition: Some("host::LocalTrait".to_owned()),
+            self_type_id: type_id(&foreign_type).to_owned(),
+            span_id: source_span.span_id.clone(),
+        };
+        set_fact_id(&mut implementation);
+        fixture.ir.facts.extend([foreign_type, implementation]);
+        fixture.ir.spans.push(source_span);
+
+        let receipt = fixture.evaluate(None);
+        assert_eq!(receipt.status, ArchitecturePhaseStatus::Clean);
+        assert!(receipt.findings.is_empty());
+    }
+
+    #[test]
+    fn conflicting_source_and_package_roles_fail_closed() {
+        for mode in [
+            ArchitectureMode::Gate,
+            ArchitectureMode::Inventory,
+            ArchitectureMode::Advisory,
+        ] {
+            let mut fixture = Fixture::new(mode);
+            let assignment = fixture
+                .policy
+                .roles
+                .iter_mut()
+                .find(|assignment| assignment.scope == "crates/host/src")
+                .expect("host source assignment");
+            assignment.role = ArchitectureRole::DomainCore;
+            let source_span = span("crates/host/src/core.rs");
+            fixture.ir.facts.push(item(&source_span.span_id, "host::core::value"));
+            fixture.ir.spans.push(source_span);
+
+            let receipt = fixture.evaluate(None);
+            assert_eq!(receipt.status, ArchitecturePhaseStatus::IntegrationFailure);
+            assert!(receipt.findings.iter().any(|finding| finding.code == "source-role-unit-mismatch"));
+        }
     }
 
     #[test]
