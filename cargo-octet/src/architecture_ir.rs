@@ -28,6 +28,9 @@ use crate::config::SelectedProjectArchitecturePolicy;
 
 #[cfg(test)]
 mod cargo_fixture_tests;
+#[cfg(test)]
+mod feature_fixture_tests;
+mod resolved_plan;
 mod target_plan;
 
 pub(crate) const ARCHITECTURE_SHARD_DIRECTORY: &str = ".octet/compiler-architecture/shards";
@@ -146,11 +149,12 @@ pub(crate) fn prepare_collector(
         &(scope_args, cargo_check_args, &lockfile_blake3, &cargo_graph_blake3),
     )?;
 
-    let graph = target_plan::load(
+    let graph = target_plan::load_for_policy(
         workspace_root,
         toolchain,
         scope_args,
         cargo_check_args,
+        &target.features,
         policy.policy.collection_limits.max_artifact_bytes,
     )?;
     let mut selected_units = Vec::new();
@@ -855,10 +859,18 @@ fn validate_cargo_selection(
     cargo_check_args: &[String],
     target: &octet_standards::project_architecture_policy::ArchitectureTarget,
 ) -> Result<(), String> {
-    if cargo_check_args.iter().any(|argument| argument == "--all-features" || argument.starts_with("-F")) {
-        return Err("architecture rows require explicit --features rather than all-features or shorthand".to_owned());
+    if cargo_check_args.iter().any(|argument| argument.starts_with("-F")) {
+        return Err("architecture rows require --features rather than -F shorthand".to_owned());
     }
-    for option in ["--features", "--target"] {
+    let all_features = cargo_check_args.iter().any(|argument| argument == "--all-features");
+    if all_features
+        && cargo_check_args
+            .iter()
+            .any(|argument| argument == "--features" || argument.starts_with("--features="))
+    {
+        return Err("architecture rows reject mixed --all-features and --features selections".to_owned());
+    }
+    for option in ["--features", "--target", "--all-features"] {
         let prefix = format!("{option}=");
         if cargo_check_args
             .iter()
@@ -887,7 +899,8 @@ fn validate_cargo_selection(
     let mut expected_features = target.features.clone();
     expected_features.sort();
     expected_features.dedup();
-    if requested_features != expected_features {
+    // All-feature equality is established by complete Cargo plans before collector context publication.
+    if !all_features && requested_features != expected_features {
         return Err(format!(
             "Cargo invocation features {:?} do not match architecture policy features {:?}",
             requested_features, expected_features
@@ -1232,6 +1245,25 @@ mod tests {
             invalid.push(extra.to_owned());
             assert!(validate_cargo_selection(&invalid, &target()).is_err(), "{extra}");
         }
+    }
+
+    // r[verify octet.architecture.features.rejection]
+    #[test]
+    fn all_features_preserves_selector_default_and_target_guards() {
+        let valid = vec!["--all-features".to_owned(), "--no-default-features".to_owned()];
+        assert_eq!(validate_cargo_selection(&valid, &target()), Ok(()));
+        for extra in [
+            "--all-features",
+            "--features=production",
+            "-Fproduction",
+            "--target=other",
+        ] {
+            let mut invalid = valid.clone();
+            invalid.push(extra.to_owned());
+            assert!(validate_cargo_selection(&invalid, &target()).is_err(), "{extra}");
+        }
+        assert!(validate_cargo_selection(&["--all-features".to_owned()], &target()).is_err());
+        assert!(selected_policy_target(&valid, &[target()], "other-host").is_err());
     }
 
     #[test]
