@@ -16,6 +16,8 @@ pub(super) struct CargoUnitGraph {
     pub version: u64,
     pub units: Vec<CargoPlannedUnit>,
     pub roots: Vec<usize>,
+    #[serde(skip)]
+    selection_identity: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -38,15 +40,50 @@ pub(super) struct CargoPlannedTarget {
 
 impl CargoUnitGraph {
     pub fn parse(bytes: &[u8]) -> Result<Self, String> {
-        let graph: Self = serde_json::from_slice(bytes).map_err(|error| format!("parse Cargo unit graph: {error}"))?;
+        let mut graph: Self =
+            serde_json::from_slice(bytes).map_err(|error| format!("parse Cargo unit graph: {error}"))?;
         if graph.version != UNIT_GRAPH_VERSION || graph.roots.is_empty() || graph.units.is_empty() {
             return Err("Cargo unit graph has an unsupported version or empty selection".to_owned());
         }
         if graph.roots.iter().any(|root| *root >= graph.units.len()) {
             return Err("Cargo unit graph contains an invalid root index".to_owned());
         }
+        graph.selection_identity = super::resolved_plan::identity(bytes)?;
         Ok(graph)
     }
+
+    pub fn require_equivalent(&self, declared: &Self) -> Result<(), String> {
+        if self.selection_identity != declared.selection_identity {
+            return Err("Cargo --all-features plan does not match the explicit architecture policy row".to_owned());
+        }
+        Ok(())
+    }
+}
+
+// r[impl octet.architecture.features.equivalence]
+pub(super) fn load_for_policy(
+    workspace_root: &Path,
+    toolchain: &str,
+    scope_args: &[String],
+    cargo_args: &[String],
+    features: &[String],
+    max_bytes: usize,
+) -> Result<CargoUnitGraph, String> {
+    let actual = load(workspace_root, toolchain, scope_args, cargo_args, max_bytes)?;
+    if cargo_args.iter().any(|argument| argument == "--all-features") {
+        let mut declared_args = cargo_args
+            .iter()
+            .filter(|argument| argument.as_str() != "--all-features")
+            .cloned()
+            .collect::<Vec<_>>();
+        if !features.is_empty() {
+            declared_args.push("--features".to_owned());
+            declared_args.push(features.join(","));
+        }
+        let declared = load(workspace_root, toolchain, scope_args, &declared_args, max_bytes)?;
+        actual.require_equivalent(&declared)?;
+    }
+    Ok(actual)
 }
 
 pub(super) fn load(
@@ -151,7 +188,7 @@ mod tests {
 
     #[test]
     fn complete_graph_preserves_test_mode_and_rejects_missing_root() {
-        let graph = br#"{"version":1,"units":[{"pkg_id":"fixture","target":{"name":"fixture","kind":["lib"],"crate_types":["lib"],"src_path":"src/lib.rs"},"platform":null,"mode":"test","features":[],"profile":{}}],"roots":[0]}"#;
+        let graph = br#"{"version":1,"units":[{"pkg_id":"fixture","target":{"name":"fixture","kind":["lib"],"crate_types":["lib"],"src_path":"src/lib.rs"},"platform":null,"mode":"test","features":[],"profile":{},"dependencies":[]}],"roots":[0]}"#;
         let parsed = CargoUnitGraph::parse(graph).expect("complete graph");
         assert_eq!(parsed.units[0].mode, "test");
         let mut altered: serde_json::Value = serde_json::from_slice(graph).expect("JSON");

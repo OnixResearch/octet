@@ -296,6 +296,9 @@
               inArchitectureTargets =
                 pkgs.lib.hasSuffix "/fixtures/architecture-targets" path
                 || pkgs.lib.hasInfix "/fixtures/architecture-targets/" path;
+              inArchitectureFeatures =
+                pkgs.lib.hasSuffix "/fixtures/architecture-features" path
+                || pkgs.lib.hasInfix "/fixtures/architecture-features/" path;
               inCairnLifecycle = pkgs.lib.hasSuffix "/.cairn" path || pkgs.lib.hasInfix "/.cairn/" path;
               inDocs = pkgs.lib.hasSuffix "/docs" path || pkgs.lib.hasInfix "/docs/" path;
               inStandards = pkgs.lib.hasSuffix "/standards" path || pkgs.lib.hasInfix "/standards/" path;
@@ -312,6 +315,7 @@
             || inCairnCobPilot
             || inCairnCobConflictPilot
             || inArchitectureTargets
+            || inArchitectureFeatures
             || inCairnLifecycle
             || inDocs
             || inStandards
@@ -4400,6 +4404,7 @@
               '';
             };
 
+            # r[impl octet.architecture.features.evidence]
             compiler-architecture-targets = craneLib.buildPackage {
               inherit
                 src
@@ -4413,7 +4418,7 @@
               nativeBuildInputs = checkNativeBuildInputs;
               doNotPostBuildInstallCargoBinaries = true;
               buildPhaseCargoCommand = ":";
-              cargoTestExtraArgs = "-p cargo-octet --lib real_cargo_all_targets_has_complete_compiler_coverage -- --ignored --nocapture";
+              cargoTestExtraArgs = "-p cargo-octet --lib architecture_ir -- --include-ignored --nocapture";
               installPhaseCommand = ''mkdir -p "$out"'';
               LD_LIBRARY_PATH = rustToolchainLibPath;
               RUSTUP_TOOLCHAIN = rustupToolchain;

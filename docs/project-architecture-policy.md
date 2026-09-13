@@ -71,7 +71,15 @@ Actual compilation still uses `cargo check`. Context v2 binds each source root, 
 
 The policy must define positive limits for units, shards, facts, unknowns, spans, artifacts, and selected MIR traversal.
 
-The Cargo invocation must cover all declared production packages. Its target, features, and default-feature selection must match one declared target. Matrix rows use explicit `--features` sets. `--all-features`, `-F` shorthand, and repeated feature or target selectors are rejected because this policy version cannot bind them unambiguously. Expand the complete required feature set into a declared row instead.
+The Cargo invocation must cover all declared production packages. Its target, features, and default-feature selection must match one declared target. Matrix rows use explicit feature sets.
+
+An invocation can use `--all-features` if Cargo resolves it to the explicit policy row. Octet compares two bounded locked unit plans. The second plan replaces only `--all-features` with the policy features. Both plans retain the same package, target, profile, and default-feature selectors. Neither plan executes a build or build script.
+
+The comparison binds complete unit descriptions, resolved features, dependency edges, and selected roots. It ignores array order and replaces dependency indices with content identities. Extra features, feature-gated targets, optional dependencies, and changed edges cause rejection. Missing or ambiguous graph facts also cause rejection.
+
+Declare package-qualified features when the workspace needs them. Cargo owns feature unification and optional-dependency resolution. `--no-default-features` remains a separate exact policy choice. Because Cargo includes named `default` features in `--all-features`, a row with disabled automatic defaults can need explicit `package/default` features.
+
+Mixed `--all-features` and `--features`, `-F` shorthand, and repeated feature or target selectors remain errors. The actual invocation stays bound to compiler identities and receipts. All-feature support does not weaken missing-shard checks or change architecture modes.
 
 Every selected source root needs a role, including build scripts outside `src`. Existing `--lib` policies can require those additional source declarations. Test and generated source roles remain explicit. Old collector contexts are rejected rather than assigned a default normal-library identity. Source roots inside excluded build or evidence directories are rejected.
 

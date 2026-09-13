@@ -86,6 +86,19 @@ fn required_artifact(name: &str) -> PathBuf {
 #[test]
 #[ignore = "requires current OCTET_UI_LIBRARY and pinned OCTET_UI_DRIVER"]
 fn real_cargo_all_targets_has_complete_compiler_coverage() {
+    run_compiler_fixture(false);
+}
+
+// r[verify octet.architecture.features.equivalence]
+// r[verify octet.architecture.features.rejection]
+// r[verify octet.architecture.features.evidence]
+#[test]
+#[ignore = "requires current OCTET_UI_LIBRARY and pinned OCTET_UI_DRIVER"]
+fn real_cargo_all_targets_has_complete_compiler_coverage_with_all_features() {
+    run_compiler_fixture(true);
+}
+
+fn run_compiler_fixture(all_features: bool) {
     let library = required_artifact("OCTET_UI_LIBRARY");
     let driver = required_artifact("OCTET_UI_DRIVER");
     let owner = Path::new(env!("CARGO_MANIFEST_DIR")).parent().expect("owner root");
@@ -100,7 +113,18 @@ fn real_cargo_all_targets_has_complete_compiler_coverage() {
     let (_, host) = super::toolchain_identity(TOOLCHAIN).expect("pinned host");
     let policy = policy(root, &host);
     let scope = vec!["--workspace".to_owned()];
-    let args = vec!["--all-targets".to_owned(), "--features".to_owned(), "extra".to_owned()];
+    let args = if all_features {
+        vec!["--all-targets".to_owned(), "--all-features".to_owned()]
+    } else {
+        vec!["--all-targets".to_owned(), "--features".to_owned(), "extra".to_owned()]
+    };
+    if all_features {
+        let mut incomplete = self::policy(root, &host);
+        incomplete.policy.production.targets[0].features.clear();
+        let rejected = super::prepare_collector(root, &incomplete, TOOLCHAIN, &library, &scope, &args);
+        assert!(rejected.err().expect("under-declared row must fail").contains("does not match"));
+        assert!(!root.join(".octet").exists(), "mismatch must not publish a collector context");
+    }
     let prepared = super::prepare_collector(root, &policy, TOOLCHAIN, &library, &scope, &args)
         .expect("plan actual Cargo compilation units");
     for kind in ["lib", "bin", "test", "example", "bench", "proc-macro", "custom-build"] {
@@ -114,14 +138,8 @@ fn real_cargo_all_targets_has_complete_compiler_coverage() {
     }
     let output = Command::new("cargo")
         .current_dir(root)
-        .args([
-            "check",
-            "--locked",
-            "--workspace",
-            "--all-targets",
-            "--features",
-            "extra",
-        ])
+        .args(["check", "--locked", "--workspace"])
+        .args(&args)
         .env("RUSTUP_TOOLCHAIN", TOOLCHAIN)
         .env("CARGO_TARGET_DIR", root.join("target"))
         .env("RUSTC_WRAPPER", "")
@@ -151,7 +169,10 @@ fn real_cargo_all_targets_has_complete_compiler_coverage() {
         "fixture expansions must retain compiler-resolved provenance: {:?}",
         ir.unknowns
     );
-    eprintln!("actual Cargo target coverage: {} units", coverage.observed_unit_ids.len());
+    eprintln!(
+        "actual Cargo target coverage: {} units, all_features={all_features}",
+        coverage.observed_unit_ids.len()
+    );
     let shard = fs::read_dir(&prepared.shard_directory)
         .expect("shards")
         .next()
