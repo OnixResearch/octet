@@ -563,7 +563,14 @@ pub fn verify_project_architecture_receipt(receipt: &ProjectArchitectureReceipt)
                     .push(format!("project architecture receipt is missing authorized-effect non-claim `{required}`"));
             }
         }
-        if receipt.authorized_effect_fact_ids.is_empty() || receipt.authorized_effect_type_ids.is_empty() {
+        // r[impl octet.project_architecture_gate.authority_scoped_receipt_ids]
+        // The producer selects these identities from protected protocols only.
+        if receipt
+            .outbound_effects
+            .iter()
+            .any(|effect| effect.authority == ArchitectureEffectAuthority::Protected)
+            && (receipt.authorized_effect_fact_ids.is_empty() || receipt.authorized_effect_type_ids.is_empty())
+        {
             diagnostics.push("project architecture receipt lacks authorized-effect fact or type identities".to_owned());
         }
     }
@@ -2559,6 +2566,132 @@ mod tests {
         let blocked = fixture.evaluate(Some(&denied));
         assert_eq!(blocked.status, ArchitecturePhaseStatus::Blocked);
         assert_eq!(blocked.effect_closure, Some(denied));
+    }
+
+    // r[verify octet.project_architecture_gate.authority_scoped_receipt_ids]
+    #[test]
+    fn unprotected_effect_receipt_self_verifies_without_authorization_identities() {
+        let mut fixture = Fixture::new(ArchitectureMode::Gate);
+        fixture.add_outbound_effect_only();
+        fixture.policy.outbound_effects.push(unprotected_effect(ArchitectureCapabilityFamily::Filesystem));
+
+        let receipt = fixture.evaluate(None);
+        assert_eq!(receipt.status, ArchitecturePhaseStatus::Clean);
+        assert!(receipt.findings.is_empty());
+        assert!(receipt.authorized_effect_fact_ids.is_empty());
+        assert!(receipt.authorized_effect_type_ids.is_empty());
+        assert_eq!(receipt.outbound_effects, fixture.policy.outbound_effects);
+        assert_eq!(receipt, fixture.evaluate(None));
+        let encoded = serde_json::to_vec(&receipt).expect("encode receipt");
+        let decoded: ProjectArchitectureReceipt = serde_json::from_slice(&encoded).expect("decode receipt");
+        assert_eq!(decoded, receipt);
+        assert_eq!(verify_project_architecture_receipt(&decoded), Vec::<String>::new());
+    }
+
+    // r[verify octet.project_architecture_gate.authority_scoped_receipt_ids]
+    #[test]
+    fn protected_and_mixed_receipts_reject_each_missing_identity_array_after_resealing() {
+        let mut fixture = Fixture::new(ArchitectureMode::Gate);
+        fixture.add_protected_effect_facts(ValueProvenanceStatus::Exact, "domain::authorize_publication", false);
+        let protected = fixture.evaluate(None);
+        fixture
+            .policy
+            .outbound_effects
+            .push(unprotected_effect(ArchitectureCapabilityFamily::Observability));
+        let mixed = fixture.evaluate(None);
+        let mut reversed = mixed.clone();
+        reversed.outbound_effects.reverse();
+        reversed.receipt_id = receipt_identity(&reversed);
+
+        for complete in [protected, mixed, reversed] {
+            assert_eq!(complete.status, ArchitecturePhaseStatus::Clean);
+            assert!(verify_project_architecture_receipt(&complete).is_empty());
+            for clear_facts in [true, false] {
+                let mut missing = complete.clone();
+                if clear_facts {
+                    missing.authorized_effect_fact_ids.clear();
+                } else {
+                    missing.authorized_effect_type_ids.clear();
+                }
+                missing.receipt_id = receipt_identity(&missing);
+                assert_eq!(verify_project_architecture_receipt(&missing), [
+                    "project architecture receipt lacks authorized-effect fact or type identities"
+                ]);
+            }
+        }
+    }
+
+    // r[verify octet.project_architecture_gate.authority_scoped_receipt_ids]
+    #[test]
+    fn unprotected_receipt_cannot_promote_authority_without_identities() {
+        let mut fixture = Fixture::new(ArchitectureMode::Gate);
+        fixture.add_outbound_effect_only();
+        fixture.policy.outbound_effects.push(unprotected_effect(ArchitectureCapabilityFamily::Filesystem));
+        let mut receipt = fixture.evaluate(None);
+        receipt.outbound_effects[0].authority = ArchitectureEffectAuthority::Protected;
+        assert!(receipt.outbound_effects[0].protected.is_none());
+        receipt.receipt_id = receipt_identity(&receipt);
+
+        assert_eq!(verify_project_architecture_receipt(&receipt), [
+            "project architecture receipt lacks authorized-effect fact or type identities"
+        ]);
+    }
+
+    // r[verify octet.project_architecture_gate.authority_scoped_receipt_ids]
+    #[test]
+    fn unprotected_receipt_retains_identity_and_non_claim_checks() {
+        let mut fixture = Fixture::new(ArchitectureMode::Gate);
+        fixture.add_outbound_effect_only();
+        fixture.policy.outbound_effects.push(unprotected_effect(ArchitectureCapabilityFamily::Filesystem));
+        let complete = fixture.evaluate(None);
+        let mut tampered = complete.clone();
+        tampered.outbound_effects[0].rationale = "changed without resealing".to_owned();
+        assert_eq!(verify_project_architecture_receipt(&tampered), [
+            "project architecture receipt identity is stale or malformed"
+        ]);
+
+        for required in [
+            "credential-validity",
+            "revocation-freshness",
+            "actor-trust",
+            "business-policy-correctness",
+            "external-execution-success",
+            "receipt-authenticity",
+        ] {
+            let mut missing = complete.clone();
+            missing.non_claims.retain(|claim| claim != required);
+            missing.receipt_id = receipt_identity(&missing);
+            let diagnostics = verify_project_architecture_receipt(&missing);
+            assert!(diagnostics.iter().any(|diagnostic| diagnostic.contains(required)));
+            assert!(!diagnostics.iter().any(|diagnostic| diagnostic.contains("identity is stale")));
+        }
+    }
+
+    // r[verify octet.project_architecture_gate.authority_scoped_receipt_ids]
+    #[test]
+    fn unprotected_classification_does_not_hide_another_unclassified_effect() {
+        let mut fixture = Fixture::new(ArchitectureMode::Gate);
+        fixture.add_outbound_effect_only();
+        fixture
+            .policy
+            .outbound_effects
+            .push(unprotected_effect(ArchitectureCapabilityFamily::Observability));
+
+        let receipt = fixture.evaluate(None);
+        assert_eq!(receipt.status, ArchitecturePhaseStatus::Blocked);
+        assert!(receipt.findings.iter().any(|finding| finding.code == "unclassified-effect-authority"));
+        assert!(verify_project_architecture_receipt(&receipt).is_empty());
+    }
+
+    fn unprotected_effect(family: ArchitectureCapabilityFamily) -> ArchitectureOutboundEffectClassification {
+        ArchitectureOutboundEffectClassification {
+            family,
+            executor_scope: "crates/outbound/src".to_owned(),
+            executor_methods: vec!["outbound::FilesystemPort::publish".to_owned()],
+            authority: ArchitectureEffectAuthority::Unprotected,
+            rationale: "fixture output has no authorization requirement".to_owned(),
+            protected: None,
+        }
     }
 
     #[test]
