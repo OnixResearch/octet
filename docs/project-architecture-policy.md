@@ -218,6 +218,12 @@ Each effectful outbound adapter family must have one explicit authority classifi
 - `unprotected` requires a reviewable reason;
 - `protected` requires an exact typed protocol.
 
+An unprotected-only receipt can have empty authorization fact and type identity arrays.
+If any effect is protected, both arrays must be nonempty, including in a mixed effect list.
+The authority classification controls this requirement, not the optional protocol payload.
+All receipt identity, non-claim, compiler coverage, and policy-binding checks still apply.
+Receipt self-verification alone does not establish a passing architecture phase or authorize execution.
+
 A protected protocol names the authority inputs, domain decision, authorized output, opaque witness, executor, plan, attempt, observation, receipt, constructors, scopes, cardinality, and non-claims.
 
 The witness fields must be restricted to the witness owner module. The witness must not implement `Copy`, `Clone`, `Default`, `Deserialize`, broad `From`, or broad `Into`. Each function that returns the witness is checked against the approved safe constructor set.

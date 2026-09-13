@@ -6,6 +6,13 @@ specific commits via `TIGERSTYLE_DYLINT_REV`.
 For the full lint catalog, see `docs/lint-reference.md`.
 For rollout profiles, see `docs/downstream-rollout.md`.
 
+## 2026-09-13: Unprotected effect receipt correction
+
+An unprotected-only architecture receipt no longer requires protected authorization fact and type identities.
+Protected and mixed effect declarations still require both identity arrays.
+Receipt identity, non-claims, compiler coverage, policy binding, and authority-promotion rejection remain enforced.
+The receipt schema remains `octet-project-architecture-receipt/v1`.
+
 ## 2026-08-26: Compiler-visible authorized effect protocols
 
 Project architecture policies can now classify outbound effect families as protected or unprotected. Protected protocols name exact authority inputs, decisions, opaque witnesses, executors, observations, receipts, use cardinality, source scopes, and non-claims.
