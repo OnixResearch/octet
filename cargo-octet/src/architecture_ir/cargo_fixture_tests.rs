@@ -13,6 +13,7 @@ use octet_standards::project_architecture_policy::parse_project_architecture_pol
 use super::SelectedProjectArchitecturePolicy;
 
 mod body_owners;
+mod randomness;
 
 const TOOLCHAIN: &str = "nightly-2026-03-21";
 const FIXTURE_FILES: &[&str] = &[
@@ -21,6 +22,9 @@ const FIXTURE_FILES: &[&str] = &[
     "build.rs",
     "src/lib.rs",
     "src/body_owners.rs",
+    "src/randomness.rs",
+    "randomness.Cargo.toml",
+    "randomness.Cargo.lock",
     "src/main.rs",
     "tests/integration.rs",
     "examples/sample.rs",
@@ -86,6 +90,9 @@ fn policy_with_mode(
     value["capability_classifications"] = serde_json::json!([{
         "family": "filesystem", "core_handling": "forbidden", "executor_role": "outbound-adapter",
         "rationale": "fixture filesystem effects must remain visible and forbidden in the core",
+    }, {
+        "family": "randomness", "core_handling": "forbidden", "executor_role": "outbound-adapter",
+        "rationale": "fixture randomness effects must remain visible and forbidden in the core",
     }]);
     if require_no_std {
         value["core_no_std"] = serde_json::json!([{"scope":"src/lib.rs"}]);
@@ -196,12 +203,30 @@ fn run_configured_compiler_fixture(all_features: bool, import_test_source: TestI
     run_body_owner_compiler_fixture(all_features, import_test_source, no_std, false);
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum BodyFixture {
+    Ordinary,
+    NonFunctionOwners,
+    Randomness,
+}
+
 fn run_body_owner_compiler_fixture(
     all_features: bool,
     import_test_source: TestImport,
     no_std: NoStdMode,
     include_body_owners: bool,
 ) {
+    let fixture = if include_body_owners {
+        BodyFixture::NonFunctionOwners
+    } else {
+        BodyFixture::Ordinary
+    };
+    run_body_fixture(all_features, import_test_source, no_std, fixture);
+}
+
+fn run_body_fixture(all_features: bool, import_test_source: TestImport, no_std: NoStdMode, fixture: BodyFixture) {
+    let include_body_owners = fixture == BodyFixture::NonFunctionOwners;
+    let include_randomness = fixture == BodyFixture::Randomness;
     let library = required_artifact("OCTET_UI_LIBRARY");
     let driver = required_artifact("OCTET_UI_DRIVER");
     let owner = Path::new(env!("CARGO_MANIFEST_DIR")).parent().expect("owner root");
@@ -217,6 +242,13 @@ fn run_body_owner_compiler_fixture(
         let path = root.join("src/lib.rs");
         let source = fs::read_to_string(&path).expect("library fixture root");
         fs::write(path, format!("{source}\npub mod body_owners;\n")).expect("body-owner fixture module");
+    }
+    if include_randomness {
+        fs::copy(root.join("randomness.Cargo.toml"), root.join("Cargo.toml")).expect("registry fixture manifest");
+        fs::copy(root.join("randomness.Cargo.lock"), root.join("Cargo.lock")).expect("registry fixture lock");
+        let path = root.join("src/lib.rs");
+        let source = fs::read_to_string(&path).expect("library fixture root");
+        fs::write(path, format!("{source}\npub mod randomness;\n")).expect("randomness fixture module");
     }
     if import_test_source != TestImport::None {
         let support = root.join("tests/support");
@@ -254,7 +286,7 @@ fn run_body_owner_compiler_fixture(
         fs::write(&path, format!("{attribute}\nextern crate std;\n{source}")).expect("compiler configuration fixture");
     }
     let (_, host) = super::toolchain_identity(TOOLCHAIN).expect("pinned host");
-    let policy = if include_body_owners {
+    let policy = if include_body_owners || include_randomness {
         policy_with_mode(
             root,
             &host,
@@ -370,6 +402,9 @@ fn run_body_owner_compiler_fixture(
     );
     if include_body_owners {
         body_owners::assert_nested_effects(&ir, &architecture);
+    }
+    if include_randomness {
+        randomness::assert_randomness_facts(&ir, &architecture);
     }
     if no_std != NoStdMode::None {
         let missing = architecture.findings.iter().any(|finding| finding.code == "no-std-obligation");

@@ -526,7 +526,9 @@ impl ArchitectureCollector {
         self.push_fact(fact);
 
         if let Some(definition) = resolved_definition.as_deref()
-            && let Some(family) = effect_family(definition)
+            && let Some(family) = def_id
+                .and_then(|current| resolved_randomness_family(cx, current))
+                .or_else(|| effect_family(definition))
         {
             let mut effect = CompilerArchitectureFact::Effect {
                 fact_id: String::new(),
@@ -1718,6 +1720,22 @@ fn definition_is_foreign(cx: &LateContext<'_>, def_id: DefId) -> bool {
     cx.tcx.opt_parent(def_id).is_some_and(|parent| cx.tcx.def_kind(parent) == DefKind::ForeignMod)
 }
 
+// r[impl octet.compiler_architecture_ir.randomness_effects]
+fn resolved_randomness_family(cx: &LateContext<'_>, def_id: DefId) -> Option<CapabilityFamily> {
+    // Diagnostic paths can retain consumer extern-crate aliases. Classification
+    // uses the defining crate, item, and root-function shape instead.
+    if def_id.is_local() || cx.tcx.def_kind(def_id) != DefKind::Fn {
+        return None;
+    }
+    let is_root_function = cx.tcx.def_path(def_id).data.len() == 1;
+    randomness_family(cx.tcx.crate_name(def_id.krate).as_str(), cx.tcx.item_name(def_id).as_str(), is_root_function)
+}
+
+fn randomness_family(crate_name: &str, item_name: &str, is_root_function: bool) -> Option<CapabilityFamily> {
+    (crate_name == "getrandom" && is_root_function && matches!(item_name, "fill" | "fill_uninit" | "u32" | "u64"))
+        .then_some(CapabilityFamily::Randomness)
+}
+
 fn effect_family(definition: &str) -> Option<CapabilityFamily> {
     EFFECT_PATHS.iter().find_map(|(prefix, family)| definition.starts_with(prefix).then_some(*family))
 }
@@ -1941,6 +1959,30 @@ mod tests {
             }
         }
         assert!(result.expect("absent collector context").is_none());
+    }
+
+    // r[verify octet.compiler_architecture_ir.randomness_effects]
+    #[test]
+    fn getrandom_entry_points_are_randomness_effects() {
+        for name in ["fill", "fill_uninit", "u32", "u64"] {
+            assert_eq!(randomness_family("getrandom", name, true), Some(CapabilityFamily::Randomness), "{name}");
+        }
+    }
+
+    // r[verify octet.compiler_architecture_ir.randomness_effects]
+    #[test]
+    fn getrandom_classification_rejects_similar_and_unrelated_paths() {
+        for (owner, name, root) in [
+            ("getrandom", "fill_helper", true),
+            ("getrandom", "fill::other", true),
+            ("getrandom", "raw_os_error", true),
+            ("fixture", "fill", true),
+            ("getrandom_other", "fill", true),
+            ("rand", "unreviewed", true),
+            ("getrandom", "fill", false),
+        ] {
+            assert_eq!(randomness_family(owner, name, root), None, "{owner}::{name}, root={root}");
+        }
     }
 
     #[test]
