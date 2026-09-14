@@ -12,12 +12,15 @@ use octet_standards::project_architecture_policy::parse_project_architecture_pol
 
 use super::SelectedProjectArchitecturePolicy;
 
+mod body_owners;
+
 const TOOLCHAIN: &str = "nightly-2026-03-21";
 const FIXTURE_FILES: &[&str] = &[
     "Cargo.toml",
     "Cargo.lock",
     "build.rs",
     "src/lib.rs",
+    "src/body_owners.rs",
     "src/main.rs",
     "tests/integration.rs",
     "examples/sample.rs",
@@ -29,11 +32,25 @@ const SOURCE_SCOPES: &[&str] = &["src", "tests", "examples", "benches", "build.r
 const PACKAGES: &[&str] = &["architecture-target-fixture", "architecture-target-macro"];
 
 fn policy(root: &Path, host: &str, require_no_std: bool) -> SelectedProjectArchitecturePolicy {
+    policy_with_mode(
+        root,
+        host,
+        require_no_std,
+        octet_standards::project_architecture_policy::ArchitectureMode::Inventory,
+    )
+}
+
+fn policy_with_mode(
+    root: &Path,
+    host: &str,
+    require_no_std: bool,
+    mode: octet_standards::project_architecture_policy::ArchitectureMode,
+) -> SelectedProjectArchitecturePolicy {
     let mut value: serde_json::Value =
         serde_json::from_str(include_str!("../../../standards/project-architecture/octet-self-architecture.json"))
             .expect("template policy");
     value["project_id"] = "cargo-target-fixture".into();
-    value["mode"] = "inventory".into();
+    value["mode"] = serde_json::to_value(mode).expect("fixture mode");
     let mut source_scopes = SOURCE_SCOPES.to_vec();
     if require_no_std {
         source_scopes.retain(|scope| *scope != "src");
@@ -176,6 +193,15 @@ fn real_cargo_all_targets_rejects_integration_only_no_std() {
 }
 
 fn run_configured_compiler_fixture(all_features: bool, import_test_source: TestImport, no_std: NoStdMode) {
+    run_body_owner_compiler_fixture(all_features, import_test_source, no_std, false);
+}
+
+fn run_body_owner_compiler_fixture(
+    all_features: bool,
+    import_test_source: TestImport,
+    no_std: NoStdMode,
+    include_body_owners: bool,
+) {
     let library = required_artifact("OCTET_UI_LIBRARY");
     let driver = required_artifact("OCTET_UI_DRIVER");
     let owner = Path::new(env!("CARGO_MANIFEST_DIR")).parent().expect("owner root");
@@ -186,6 +212,11 @@ fn run_configured_compiler_fixture(all_features: bool, import_test_source: TestI
         let target = root.join(relative);
         fs::create_dir_all(target.parent().expect("fixture parent")).expect("create fixture parent");
         fs::copy(source.join(relative), target).expect("copy controlled fixture source");
+    }
+    if include_body_owners {
+        let path = root.join("src/lib.rs");
+        let source = fs::read_to_string(&path).expect("library fixture root");
+        fs::write(path, format!("{source}\npub mod body_owners;\n")).expect("body-owner fixture module");
     }
     if import_test_source != TestImport::None {
         let support = root.join("tests/support");
@@ -223,7 +254,16 @@ fn run_configured_compiler_fixture(all_features: bool, import_test_source: TestI
         fs::write(&path, format!("{attribute}\nextern crate std;\n{source}")).expect("compiler configuration fixture");
     }
     let (_, host) = super::toolchain_identity(TOOLCHAIN).expect("pinned host");
-    let policy = policy(root, &host, no_std != NoStdMode::None);
+    let policy = if include_body_owners {
+        policy_with_mode(
+            root,
+            &host,
+            no_std != NoStdMode::None,
+            octet_standards::project_architecture_policy::ArchitectureMode::Gate,
+        )
+    } else {
+        policy(root, &host, no_std != NoStdMode::None)
+    };
     let scope = vec!["--workspace".to_owned()];
     let args = if all_features {
         vec!["--all-targets".to_owned(), "--all-features".to_owned()]
@@ -297,6 +337,9 @@ fn run_configured_compiler_fixture(all_features: bool, import_test_source: TestI
     let ir: CompilerArchitectureIr = serde_json::from_str(&artifacts.architecture_ir).expect("IR");
     assert_selected_root_roles(&ir);
     assert_no_std_memberships(&ir, no_std);
+    if include_body_owners {
+        body_owners::assert_body_owner_facts(&ir);
+    }
     assert!(octet_architecture_ir::verify_ir_unit_bindings(&ir).is_empty());
     assert!(octet_architecture_ir::verify_ir_unit_memberships(&ir).is_empty());
     for expected in &prepared.expected_units {
@@ -325,6 +368,9 @@ fn run_configured_compiler_fixture(all_features: bool, import_test_source: TestI
             effect_closure: None,
         },
     );
+    if include_body_owners {
+        body_owners::assert_nested_effects(&ir, &architecture);
+    }
     if no_std != NoStdMode::None {
         let missing = architecture.findings.iter().any(|finding| finding.code == "no-std-obligation");
         let satisfied = matches!(no_std, NoStdMode::Always | NoStdMode::ActiveCfgAttr);

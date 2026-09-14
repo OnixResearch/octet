@@ -85,6 +85,12 @@ Every selected source root needs a role, including build scripts outside `src`. 
 
 Octet writes one content-bound shard for each selected compilation unit. The shard records resolved items, types, traits, implementations, signatures, calls, constructors, effects, expansions, and active configuration.
 
+Calls inside constant and static initializers retain their actual compiler-owned caller items.
+Named, associated, inline, and anonymous constants use the existing constant item kind.
+Only function item owners request function signatures. Expression owners have private visibility, without a named-item visibility query.
+Closures keep their separate identities. Production memberships and effect checks still apply to nested and expanded bodies.
+This repair does not change targets, roles, exemptions, or schemas.
+
 The collector records unresolved dispatch, FFI, missing bodies, unsupported expansions, and ambiguous selected provenance as typed unknown facts. External generated spans use redacted BLAKE3 provenance, not workspace paths. The collector does not infer a clean result.
 
 When `--artifact-dir` is set, a complete run adds these files:
