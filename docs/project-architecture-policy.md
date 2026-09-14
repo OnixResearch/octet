@@ -91,6 +91,12 @@ Only function item owners request function signatures. Expression owners have pr
 Closures keep their separate identities. Production memberships and effect checks still apply to nested and expanded bodies.
 This repair does not change targets, roles, exemptions, or schemas.
 
+The collector classifies the root `getrandom` functions `fill`, `fill_uninit`, `u32`, and `u64` as randomness effects.
+It uses the defining crate and root-function shape from compiler metadata, because diagnostic paths can retain consumer aliases.
+Recorded call and effect paths remain equal. Their callers, spans, and production unit memberships remain attached.
+Local same-named helpers, nested definitions, and unrelated entry points do not qualify through name resemblance.
+This bounded classification does not claim complete randomness-provider coverage or dependency safety.
+
 The collector records unresolved dispatch, FFI, missing bodies, unsupported expansions, and ambiguous selected provenance as typed unknown facts. External generated spans use redacted BLAKE3 provenance, not workspace paths. The collector does not infer a clean result.
 
 When `--artifact-dir` is set, a complete run adds these files:

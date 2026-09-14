@@ -6,6 +6,16 @@ specific commits via `TIGERSTYLE_DYLINT_REV`.
 For the full lint catalog, see `docs/lint-reference.md`.
 For rollout profiles, see `docs/downstream-rollout.md`.
 
+## Unreleased: Compiler randomness effects
+
+The collector now classifies the four root `getrandom` entry points: `fill`, `fill_uninit`, `u32`, and `u64`.
+Classification uses the compiler's defining crate and function shape, not alias-sensitive diagnostic paths.
+Calls and effects retain the same recorded paths, callers, spans, identities, and production observers.
+Local same-named helpers and unrelated definitions do not become randomness effects through a prefix match.
+
+Real registry controls cover all four APIs through an extern-crate alias in both production library configurations.
+This repair changes no schema, role, target, lint level, or exemption. It does not establish downstream acceptance.
+
 ## Unreleased: Non-function compiler body owners
 
 The collector preserves constant and static caller kinds during lazy discovery.
