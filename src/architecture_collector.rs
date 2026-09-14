@@ -255,7 +255,11 @@ impl ArchitectureCollector {
             qualified_path: qualified_path.clone(),
             item_kind,
             origin_crate: self.selected.unit.package_name.clone(),
-            visibility: if cx.tcx.visibility(def_id).is_public() {
+            visibility: if !definition_has_item_visibility(cx.tcx.def_kind(def_id)) {
+                // Expression bodies have no independently visible item, and
+                // rustc does not provide the visibility query for these keys.
+                "private".to_owned()
+            } else if cx.tcx.visibility(def_id).is_public() {
                 "public".to_owned()
             } else {
                 "restricted".to_owned()
@@ -630,7 +634,12 @@ impl ArchitectureCollector {
             self.insert_item_identity(owner, &item_id);
             return item_id;
         }
-        self.collect_item(cx, owner, ItemKind::Function, cx.tcx.def_span(owner), true)
+        // r[impl octet.compiler_architecture_ir.body_owner_kinds]
+        // A call can belong to a constant initializer, not only a function.
+        // Keep classification identical to local_item_identity; never invent a
+        // function signature or replace the real owner with an enclosing item.
+        let kind = def_kind_to_item_kind(cx.tcx.def_kind(owner));
+        self.collect_item(cx, owner, kind, cx.tcx.def_span(owner), kind == ItemKind::Function)
     }
 
     fn insert_item_identity(&mut self, def_id: LocalDefId, item_id: &str) {
@@ -1640,6 +1649,11 @@ fn signature_shape_identity(cx: &LateContext<'_>, def_id: LocalDefId) -> String 
         .expect("compiler signature shape identity must serialize")
 }
 
+// r[impl octet.compiler_architecture_ir.body_owner_kinds]
+fn definition_has_item_visibility(kind: DefKind) -> bool {
+    !matches!(kind, DefKind::AnonConst | DefKind::InlineConst | DefKind::Closure | DefKind::SyntheticCoroutineBody)
+}
+
 fn def_kind_to_item_kind(kind: DefKind) -> ItemKind {
     match kind {
         DefKind::Mod => ItemKind::Module,
@@ -1649,7 +1663,9 @@ fn def_kind_to_item_kind(kind: DefKind) -> ItemKind {
         DefKind::Trait => ItemKind::Trait,
         DefKind::TyAlias | DefKind::AssocTy => ItemKind::TypeAlias,
         DefKind::Fn | DefKind::AssocFn => ItemKind::Function,
-        DefKind::Const { .. } | DefKind::AssocConst { .. } => ItemKind::Constant,
+        DefKind::Const { .. } | DefKind::AssocConst { .. } | DefKind::AnonConst | DefKind::InlineConst => {
+            ItemKind::Constant
+        }
         DefKind::Static { .. } => ItemKind::Static,
         DefKind::ForeignMod | DefKind::ForeignTy => ItemKind::Foreign,
         _ => ItemKind::Other,
@@ -1845,6 +1861,54 @@ fn compiler_owned_expansion(kind: ExpnKind) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // r[verify octet.compiler_architecture_ir.body_owner_kinds]
+    #[test]
+    fn expression_body_owners_do_not_request_item_visibility() {
+        for kind in [
+            DefKind::AnonConst,
+            DefKind::InlineConst,
+            DefKind::Closure,
+            DefKind::SyntheticCoroutineBody,
+        ] {
+            assert!(!definition_has_item_visibility(kind));
+        }
+        for kind in [
+            DefKind::Fn,
+            DefKind::AssocFn,
+            DefKind::Const { is_type_const: false },
+            DefKind::AssocConst { is_type_const: false },
+        ] {
+            assert!(definition_has_item_visibility(kind));
+        }
+    }
+
+    // r[verify octet.compiler_architecture_ir.body_owner_kinds]
+    #[test]
+    fn body_owner_classification_does_not_invent_function_signatures() {
+        for kind in [
+            DefKind::Const { is_type_const: false },
+            DefKind::AssocConst { is_type_const: false },
+            DefKind::AnonConst,
+            DefKind::InlineConst,
+        ] {
+            assert_eq!(def_kind_to_item_kind(kind), ItemKind::Constant);
+        }
+        for kind in [DefKind::Fn, DefKind::AssocFn] {
+            assert_eq!(def_kind_to_item_kind(kind), ItemKind::Function);
+        }
+        for kind in [DefKind::Closure, DefKind::SyntheticCoroutineBody] {
+            assert_eq!(def_kind_to_item_kind(kind), ItemKind::Other);
+        }
+        assert_eq!(
+            def_kind_to_item_kind(DefKind::Static {
+                safety: hir::Safety::Safe,
+                mutability: rustc_ast::Mutability::Not,
+                nested: false,
+            }),
+            ItemKind::Static
+        );
+    }
 
     #[test]
     fn compiler_passes_do_not_require_macro_definitions() {

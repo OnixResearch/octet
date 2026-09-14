@@ -6,6 +6,16 @@ specific commits via `TIGERSTYLE_DYLINT_REV`.
 For the full lint catalog, see `docs/lint-reference.md`.
 For rollout profiles, see `docs/downstream-rollout.md`.
 
+## Unreleased: Non-function compiler body owners
+
+The collector preserves constant and static caller kinds during lazy discovery.
+Inline and anonymous constants no longer trigger invalid function-signature or named-item visibility queries.
+Expression owners retain private visibility, caller references, and compiler-unit memberships.
+Function signatures, closure identities, and production effect checks remain enforced.
+
+Compiler controls cover named, associated, inline, anonymous, and expanded constants, static initialization, methods, closures, and thread-local state.
+This repair changes no schemas, roles, target selection, lint levels, or exemptions. It does not establish downstream acceptance.
+
 ## Unreleased: Compiler-bound integration-test ownership
 
 Compiler units now bind required source roots and retain fact and unknown membership before deduplication.
