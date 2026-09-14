@@ -26,12 +26,12 @@ use crate::model::UnknownCompilerFact;
 
 const BLAKE3_HEX_LENGTH: usize = blake3::OUT_LEN * HEX_CHARS_PER_BYTE;
 const HEX_CHARS_PER_BYTE: usize = 2;
-const UNIT_ID_DOMAIN: &str = "octet.compiler-architecture-ir.unit/v1";
+const UNIT_ID_DOMAIN: &str = "octet.compiler-architecture-ir.unit/v2";
 const SPAN_ID_DOMAIN: &str = "octet.compiler-architecture-ir.span/v1";
 const FACT_ID_DOMAIN: &str = "octet.compiler-architecture-ir.fact/v1";
 const UNKNOWN_ID_DOMAIN: &str = "octet.compiler-architecture-ir.unknown/v1";
-const SHARD_ID_DOMAIN: &str = "octet.compiler-architecture-ir.shard/v1";
-const IR_ID_DOMAIN: &str = "octet.compiler-architecture-ir.normalized/v1";
+const SHARD_ID_DOMAIN: &str = "octet.compiler-architecture-ir.shard/v2";
+const IR_ID_DOMAIN: &str = "octet.compiler-architecture-ir.normalized/v2";
 const COVERAGE_ID_DOMAIN: &str = "octet.compiler-architecture-ir.coverage/v1";
 const ISSUE_ID_DOMAIN: &str = "octet.compiler-architecture-ir.issue/v1";
 const RECEIPT_ID_DOMAIN: &str = "octet.compiler-architecture-ir.receipt/v1";
@@ -45,6 +45,7 @@ pub fn compilation_unit_identity(unit: &CompilationUnit) -> String {
             &unit.package_version,
             &unit.target_name,
             &unit.target_kind,
+            &unit.source_path,
             &unit.crate_types,
             &unit.target_triple,
             &unit.features,
@@ -479,6 +480,17 @@ fn validate_shard(
     Ok(())
 }
 
+/// Verify unit fields and inner identities without trusting a resealed outer IR digest.
+#[must_use]
+// r[impl octet.project_architecture_gate.test_ownership]
+pub fn verify_ir_unit_bindings(ir: &CompilerArchitectureIr) -> Vec<String> {
+    let mut issues = Vec::new();
+    for unit in &ir.units {
+        validate_unit(unit, &ir.policy_blake3, &mut issues);
+    }
+    sorted_unique(issues.into_iter().map(|issue| issue.message).collect())
+}
+
 fn validate_unit(unit: &CompilationUnit, policy_blake3: &str, issues: &mut Vec<CompilerArchitectureIssue>) {
     let unit_id = Some(unit.unit_id.as_str());
     for (field, value) in [
@@ -518,6 +530,14 @@ fn validate_unit(unit: &CompilationUnit, policy_blake3: &str, issues: &mut Vec<C
     }
     if !valid_blake3(&unit.unit_id) || unit.unit_id != compilation_unit_identity(unit) {
         issues.push(issue("unit-identity", unit_id, None, "compilation unit identity is stale or malformed"));
+    }
+    if !valid_workspace_path(&unit.source_path) {
+        issues.push(issue(
+            "unit-source-root",
+            unit_id,
+            None,
+            "compilation unit source root is not workspace-relative and canonical",
+        ));
     }
     if unit.crate_types.is_empty() {
         issues.push(issue("unit-crate-types", unit_id, None, "compilation unit has no crate type"));
@@ -584,6 +604,25 @@ fn validate_spans(
             issues.push(issue("span-identity", unit_id, None, "source span identity is stale or malformed"));
         }
     }
+}
+
+/// Check observation identities and reference closure without assigning ownership.
+#[must_use]
+pub fn verify_observation_set(
+    facts: &[CompilerArchitectureFact],
+    unknowns: &[UnknownCompilerFact],
+    spans: &[SourceSpan],
+    limits: &ArchitectureCollectionLimits,
+) -> Vec<String> {
+    let mut issues = Vec::new();
+    validate_spans(spans, limits, None, &mut issues);
+    validate_facts(facts, spans, None, &mut issues);
+    validate_unknowns(unknowns, spans, facts, None, &mut issues);
+    let mut diagnostics =
+        issues.into_iter().map(|issue| format!("{}: {}", issue.code, issue.message)).collect::<Vec<_>>();
+    diagnostics.sort();
+    diagnostics.dedup();
+    diagnostics
 }
 
 fn validate_facts(
@@ -914,22 +953,30 @@ fn build_ir(
     let mut spans = shards.iter().flat_map(|shard| shard.spans.clone()).collect::<Vec<_>>();
     let mut facts = shards.iter().flat_map(|shard| shard.facts.clone()).collect::<Vec<_>>();
     let mut unknowns = shards.iter().flat_map(|shard| shard.unknowns.clone()).collect::<Vec<_>>();
+    let unit_memberships = crate::membership::memberships_from_shards(&shards);
     units.sort_by(|left, right| left.unit_id.cmp(&right.unit_id));
     spans.sort();
+    spans.dedup();
     facts.sort_by(|left, right| left.fact_id().cmp(right.fact_id()));
+    facts.dedup();
     unknowns.sort();
+    unknowns.dedup();
 
     let mut ir = CompilerArchitectureIr {
         schema_version: COMPILER_ARCHITECTURE_IR_SCHEMA_VERSION.to_owned(),
         architecture_ir_id: String::new(),
         policy_blake3: input.policy_blake3.clone(),
         units,
+        unit_memberships,
         spans,
         facts,
         unknowns,
         non_claims: sorted_unique(input.non_claims.clone()),
     };
     ir.architecture_ir_id = ir_identity(&ir);
+    for diagnostic in crate::verify_ir_unit_memberships(&ir) {
+        issues.push(issue("ir-unit-membership", None, None, &diagnostic));
+    }
     let artifact_bytes = canonical_json(&ir)?.len();
     validate_count_limit("artifact-bytes", artifact_bytes, input.limits.max_artifact_bytes, None, issues);
     Ok(ir)
@@ -1020,7 +1067,16 @@ pub fn coverage_identity(coverage: &CompilerArchitectureCoverage) -> String {
 pub fn ir_identity(ir: &CompilerArchitectureIr) -> String {
     canonical_identity(
         IR_ID_DOMAIN,
-        &(&ir.schema_version, &ir.policy_blake3, &ir.units, &ir.spans, &ir.facts, &ir.unknowns, &ir.non_claims),
+        &(
+            &ir.schema_version,
+            &ir.policy_blake3,
+            &ir.units,
+            &ir.unit_memberships,
+            &ir.spans,
+            &ir.facts,
+            &ir.unknowns,
+            &ir.non_claims,
+        ),
     )
     .expect("compiler architecture IR identity fields must serialize")
 }
@@ -1047,7 +1103,7 @@ fn valid_blake3(value: &str) -> bool {
     value.len() == BLAKE3_HEX_LENGTH && value.bytes().all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
 }
 
-fn valid_workspace_path(path: &str) -> bool {
+pub(crate) fn valid_workspace_path(path: &str) -> bool {
     !path.is_empty()
         && !path.starts_with('/')
         && path.split('/').all(|component| !component.is_empty() && component != "." && component != "..")

@@ -24,9 +24,11 @@ use octet_architecture_ir::UnknownCompilerFact;
 use octet_architecture_ir::UnknownFactKind;
 use octet_architecture_ir::ValueProvenanceStatus;
 use rustc_hir as hir;
+use rustc_hir::attrs::AttributeKind;
 use rustc_hir::def::DefKind;
 use rustc_hir::def_id::DefId;
 use rustc_hir::def_id::LocalDefId;
+use rustc_hir::find_attr;
 use rustc_lint::LateContext;
 use rustc_lint::LateLintPass;
 use rustc_lint::LintContext;
@@ -38,7 +40,6 @@ use rustc_span::Span;
 use rustc_span::Spanned;
 use rustc_span::hygiene::AstPass;
 use rustc_span::hygiene::ExpnKind;
-use rustc_span::sym;
 
 const CONTEXT_BYTE_LIMIT: u64 = 16 * 1024 * 1024;
 const ITEM_ID_DOMAIN: &str = "octet.compiler-architecture-ir.item/v1";
@@ -407,12 +408,12 @@ impl ArchitectureCollector {
 
     fn collect_span(&mut self, cx: &LateContext<'_>, span: Span) -> String {
         let source_map = cx.sess().source_map();
-        let workspace_span = workspace_source_span(cx, span);
+        let workspace_span = workspace_source_span(cx, span, &self.context.workspace_root);
         let resolved_span = workspace_span.unwrap_or(span);
         let filename = source_map.span_to_filename(resolved_span);
         let raw_path = filename.prefer_local_unconditionally().to_string();
         let external_source = workspace_span.is_none();
-        let origin = normalized_workspace_source_path(&raw_path).map_or_else(
+        let origin = normalized_workspace_source_path(&raw_path, &self.context.workspace_root).map_or_else(
             || SourceOrigin::ExternalGenerated {
                 provenance_blake3: octet_architecture_ir::framed_blake3(
                     "octet.compiler-architecture-ir.external-source/v1",
@@ -605,7 +606,8 @@ impl ArchitectureCollector {
         if cx.tcx.def_kind(owner) == DefKind::Closure {
             let span = cx.tcx.def_span(owner);
             let span_id = self.collect_span(cx, span);
-            let qualified_path = closure_qualified_path(cx, span, &self.selected.unit.package_name);
+            let qualified_path =
+                closure_qualified_path(cx, span, &self.selected.unit.package_name, &self.context.workspace_root);
             let item_id = item_identity(
                 &self.selected.unit.package_name,
                 &qualified_path,
@@ -966,7 +968,9 @@ impl ArchitectureCollector {
     }
 
     fn collect_active_configuration(&mut self, cx: &LateContext<'_>) {
-        if cx.tcx.hir_attrs(hir::CRATE_HIR_ID).iter().any(|attribute| attribute.has_name(sym::no_std)) {
+        // Built-in attributes are parsed in this compiler cohort; name matching
+        // only sees unparsed attributes. Query this session's active crate attrs.
+        if find_attr!(cx.tcx, crate, AttributeKind::NoStd(_)) {
             let mut no_std = CompilerArchitectureFact::Configuration {
                 fact_id: String::new(),
                 predicate: format!("crate:no-std={}", self.selected.unit.package_name),
@@ -1706,12 +1710,12 @@ fn path_in_scope(path: &str, scope: &str) -> bool {
     path == scope || path.strip_prefix(scope).is_some_and(|suffix| suffix.starts_with('/'))
 }
 
-fn closure_qualified_path(cx: &LateContext<'_>, span: Span, package_name: &str) -> String {
+fn closure_qualified_path(cx: &LateContext<'_>, span: Span, package_name: &str, workspace_root: &str) -> String {
     let source_map = cx.sess().source_map();
-    let resolved_span = workspace_source_span(cx, span).unwrap_or(span);
+    let resolved_span = workspace_source_span(cx, span, workspace_root).unwrap_or(span);
     let filename = source_map.span_to_filename(resolved_span);
     let raw_path = filename.prefer_local_unconditionally().to_string();
-    let source_path = normalized_workspace_source_path(&raw_path).unwrap_or_else(|| {
+    let source_path = normalized_workspace_source_path(&raw_path, workspace_root).unwrap_or_else(|| {
         let provenance_blake3 =
             octet_architecture_ir::framed_blake3("octet.compiler-architecture-ir.external-source/v1", &[
                 raw_path.as_bytes()
@@ -1724,11 +1728,13 @@ fn closure_qualified_path(cx: &LateContext<'_>, span: Span, package_name: &str) 
     format!("{package_name}::closure@{source_path}:{byte_start}:{byte_end}")
 }
 
-fn workspace_source_span(cx: &LateContext<'_>, span: Span) -> Option<Span> {
+fn workspace_source_span(cx: &LateContext<'_>, span: Span, workspace_root: &str) -> Option<Span> {
     let mut candidate = span;
     for _ in 0..MAX_EXPANSION_CALLSITE_DEPTH {
         let filename = cx.sess().source_map().span_to_filename(candidate);
-        if normalized_workspace_source_path(&filename.prefer_local_unconditionally().to_string()).is_some() {
+        if normalized_workspace_source_path(&filename.prefer_local_unconditionally().to_string(), workspace_root)
+            .is_some()
+        {
             return Some(candidate);
         }
         let callsite = candidate.source_callsite();
@@ -1740,28 +1746,27 @@ fn workspace_source_span(cx: &LateContext<'_>, span: Span) -> Option<Span> {
     None
 }
 
-fn normalized_workspace_source_path(path: &str) -> Option<String> {
-    if let Some(relative) = path.strip_prefix(REMAPPED_WORKSPACE_PREFIX) {
-        return normalized_relative_path(Path::new(relative));
-    }
-    let candidate = Path::new(path);
-    if candidate.is_absolute() {
-        let workspace = std::env::current_dir().ok()?;
-        return candidate.strip_prefix(workspace).ok().and_then(normalized_relative_path);
-    }
-    normalized_relative_path(candidate)
+fn normalized_workspace_source_path(path: &str, workspace_root: &str) -> Option<String> {
+    // rustc preserves `src/../tests/...` in #[path] module spans. Resolve physical
+    // ownership before classifying a path; lexical rejection would call test code
+    // generated, while lexical collapsing could hide a symlink escape.
+    let workspace = fs::canonicalize(workspace_root).ok()?;
+    let candidate = path
+        .strip_prefix(REMAPPED_WORKSPACE_PREFIX)
+        .map_or_else(|| PathBuf::from(path), |relative| workspace.join(relative));
+    let physical = fs::canonicalize(candidate).ok()?;
+    normalized_relative_path(physical.strip_prefix(&workspace).ok()?)
 }
 
 fn normalized_relative_path(path: &Path) -> Option<String> {
-    if path.as_os_str().is_empty() {
-        return None;
-    }
     let components = path
         .components()
-        .map(|component| component.as_os_str().to_str().map(str::to_owned))
+        .map(|component| match component {
+            std::path::Component::Normal(name) => name.to_str().map(str::to_owned),
+            _ => None,
+        })
         .collect::<Option<Vec<_>>>()?;
-    let normalized = components.join("/");
-    (!normalized.is_empty() && !normalized.starts_with('/') && !normalized.contains("..")).then_some(normalized)
+    (!components.is_empty()).then(|| components.join("/"))
 }
 
 fn assign_fact_identity(fact: &mut CompilerArchitectureFact) {
@@ -1851,6 +1856,7 @@ mod tests {
     #[test]
     fn unresolved_macros_and_root_context_remain_unknown() {
         use rustc_span::hygiene::MacroKind;
+        use rustc_span::sym;
 
         assert!(!compiler_owned_expansion(ExpnKind::Root));
         assert!(!compiler_owned_expansion(ExpnKind::Macro(MacroKind::Bang, sym::test)));

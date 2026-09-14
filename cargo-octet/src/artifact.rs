@@ -957,6 +957,8 @@ fn validate_project_architecture_bundle(file_map: &BTreeMap<String, Vec<u8>>, di
     if ir.architecture_ir_id != octet_architecture_ir::ir_identity(&ir) {
         diagnostics.push("compiler Architecture IR identity is stale or malformed".to_owned());
     }
+    diagnostics.extend(octet_architecture_ir::verify_ir_unit_memberships(&ir));
+    diagnostics.extend(octet_architecture_ir::verify_ir_unit_bindings(&ir));
     if coverage.coverage_id != octet_architecture_ir::coverage_identity(&coverage) {
         diagnostics.push("compiler architecture coverage identity is stale or malformed".to_owned());
     }
@@ -1831,6 +1833,7 @@ fn verified_artifact_rows(records: &[ProvenanceRecord], expected_non_provenance:
 
 #[cfg(test)]
 mod tests {
+    mod ownership;
     use super::*;
 
     const ARTIFACT_DIR: &str = "artifacts/octet";

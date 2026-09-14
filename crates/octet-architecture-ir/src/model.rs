@@ -1,13 +1,13 @@
 use serde::Deserialize;
 use serde::Serialize;
 
-pub const COMPILER_ARCHITECTURE_SHARD_SCHEMA_VERSION: &str = "octet-compiler-architecture-shard/v1";
-pub const COMPILER_ARCHITECTURE_IR_SCHEMA_VERSION: &str = "octet-compiler-architecture-ir/v1";
+pub const COMPILER_ARCHITECTURE_SHARD_SCHEMA_VERSION: &str = "octet-compiler-architecture-shard/v2";
+pub const COMPILER_ARCHITECTURE_IR_SCHEMA_VERSION: &str = "octet-compiler-architecture-ir/v2";
 pub const COMPILER_ARCHITECTURE_COVERAGE_SCHEMA_VERSION: &str = "octet-compiler-architecture-coverage/v1";
 pub const COMPILER_ARCHITECTURE_ISSUE_SCHEMA_VERSION: &str = "octet-compiler-architecture-issue/v1";
 pub const COMPILER_ARCHITECTURE_RECEIPT_SCHEMA_VERSION: &str = "octet-compiler-architecture-receipt/v1";
 pub const COMPILER_ARCHITECTURE_COLLECTOR_CONTEXT_SCHEMA_VERSION: &str =
-    "octet-compiler-architecture-collector-context/v2";
+    "octet-compiler-architecture-collector-context/v3";
 pub const COMPILER_ARCHITECTURE_COLLECTOR_CONTEXT_ENV: &str = "OCTET_COMPILER_ARCHITECTURE_CONTEXT";
 pub const COMPILER_ARCHITECTURE_CONTRACT_PATH: &str =
     "standards/compiler-architecture-ir/contracts/compiler-architecture-ir.generated.ncl";
@@ -71,6 +71,8 @@ pub struct CompilationUnit {
     pub package_version: String,
     pub target_name: String,
     pub target_kind: String,
+    /// Exact workspace-relative Cargo target root observed by the compiler adapter.
+    pub source_path: String,
     pub crate_types: Vec<String>,
     pub target_triple: String,
     pub features: Vec<String>,
@@ -408,6 +410,7 @@ pub struct CompilerArchitectureIr {
     pub architecture_ir_id: String,
     pub policy_blake3: String,
     pub units: Vec<CompilationUnit>,
+    pub unit_memberships: Vec<UnitFactMembership>,
     pub spans: Vec<SourceSpan>,
     pub facts: Vec<CompilerArchitectureFact>,
     pub unknowns: Vec<UnknownCompilerFact>,
@@ -419,6 +422,15 @@ pub struct CompilerArchitectureIr {
 pub enum CoverageStatus {
     Complete,
     Incomplete,
+}
+
+/// Observations from one validated shard, retained before cross-unit deduplication.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct UnitFactMembership {
+    pub unit_id: String,
+    pub fact_ids: Vec<String>,
+    pub unknown_ids: Vec<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]

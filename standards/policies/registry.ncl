@@ -196,8 +196,8 @@ in
       validation_command = "cargo test -p octet-architecture-ir --lib",
       status = "existing",
       config_digest_required = true,
-      positive_fixtures = ["crates/octet-architecture-ir/src/selection/tests.rs::same_crate_normal_and_test_sessions_select_distinct_units"],
-      negative_fixtures = ["crates/octet-architecture-ir/src/selection/tests.rs::duplicate_observation_keys_are_rejected_even_with_different_unit_ids", "crates/octet-architecture-ir/src/selection/tests.rs::missing_configuration_fields_do_not_default_to_a_normal_library"],
+      positive_fixtures = ["crates/octet-architecture-ir/src/selection/tests.rs::same_crate_normal_and_test_sessions_select_distinct_units", "crates/octet-architecture-ir/src/roles.rs::tests::only_exact_integration_target_and_explicit_scope_select_test"],
+      negative_fixtures = ["crates/octet-architecture-ir/src/selection/tests.rs::duplicate_observation_keys_are_rejected_even_with_different_unit_ids", "crates/octet-architecture-ir/src/selection/tests.rs::missing_configuration_fields_do_not_default_to_a_normal_library", "crates/octet-architecture-ir/src/selection/tests.rs::resealed_root_drift_and_test_promotion_are_invalid_context"],
     },
     {
       family_id = "octet.compiler-architecture-ir-receipt",
@@ -208,8 +208,8 @@ in
       validation_command = "cargo test -p octet-architecture-ir --lib",
       status = "existing",
       config_digest_required = true,
-      positive_fixtures = ["crates/octet-architecture-ir/src/tests.rs::complete_shard_normalizes_and_keeps_unknown_facts", "crates/octet-architecture-ir/src/tests.rs::unchanged_inputs_repeat_byte_identities"],
-      negative_fixtures = ["crates/octet-architecture-ir/src/tests.rs::missing_unit_fails_closed_without_architecture_ir", "crates/octet-architecture-ir/src/tests.rs::stale_fact_identity_and_invalid_reference_are_rejected", "crates/octet-architecture-ir/src/tests.rs::count_overflow_is_incomplete"],
+      positive_fixtures = ["crates/octet-architecture-ir/src/tests.rs::complete_shard_normalizes_and_keeps_unknown_facts", "crates/octet-architecture-ir/src/tests.rs::unchanged_inputs_repeat_byte_identities", "crates/octet-architecture-ir/src/tests.rs::unit_roots_are_required_and_bound_in_the_unit_identity"],
+      negative_fixtures = ["crates/octet-architecture-ir/src/tests.rs::missing_unit_fails_closed_without_architecture_ir", "crates/octet-architecture-ir/src/tests.rs::stale_fact_identity_and_invalid_reference_are_rejected", "crates/octet-architecture-ir/src/tests.rs::count_overflow_is_incomplete", "crates/octet-architecture-ir/src/tests.rs::malformed_roots_and_legacy_shards_reject_after_resealing"],
     },
     {
       family_id = "octet.project-architecture-gate-receipt",
@@ -220,8 +220,8 @@ in
       validation_command = "cargo test -p octet-standards project_architecture -- --nocapture",
       status = "existing",
       config_digest_required = true,
-      positive_fixtures = ["crates/octet-standards/src/project_architecture_gate.rs::clean_role_graph_passes_and_receipt_repeats", "crates/octet-standards/src/project_architecture_gate.rs::admission_keeps_effect_closure_separate"],
-      negative_fixtures = ["crates/octet-standards/src/project_architecture_gate.rs::incomplete_compiler_coverage_is_an_integration_failure_in_advisory_mode", "crates/octet-standards/src/project_architecture_gate.rs::receipt_verifier_rejects_tampering_and_missing_non_claims"],
+      positive_fixtures = ["crates/octet-standards/src/project_architecture_gate.rs::clean_role_graph_passes_and_receipt_repeats", "crates/octet-standards/src/project_architecture_gate.rs::admission_keeps_effect_closure_separate", "crates/octet-standards/src/project_architecture_gate/tests/ownership.rs::test_only_effects_and_unknowns_have_explicit_dispositions_and_full_input_identity", "cargo-octet/src/architecture_ir/cargo_fixture_tests.rs::real_cargo_all_targets_binds_no_std_to_library_units", "cargo-octet/src/architecture_ir/cargo_fixture_tests.rs::real_cargo_all_targets_binds_active_no_std_cfg_attr"],
+      negative_fixtures = ["crates/octet-standards/src/project_architecture_gate.rs::incomplete_compiler_coverage_is_an_integration_failure_in_advisory_mode", "crates/octet-standards/src/project_architecture_gate.rs::receipt_verifier_rejects_tampering_and_missing_non_claims", "crates/octet-standards/src/project_architecture_gate/tests/ownership.rs::test_only_witness_shape_and_provenance_cannot_discharge_production_protocol", "crates/octet-standards/src/project_architecture_gate/tests/ownership.rs::test_only_port_declarations_cannot_discharge_production_port_ownership", "crates/octet-standards/src/project_architecture_gate/tests/ownership.rs::no_std_requires_each_production_unit_not_a_package_or_test_witness", "crates/octet-standards/src/project_architecture_gate/tests/ownership.rs::shared_production_effects_and_unknowns_remain_findings", "crates/octet-standards/src/project_architecture_gate/tests/ownership.rs::excluding_test_only_types_cannot_turn_production_reference_checks_into_skips", "cargo-octet/src/artifact/tests/ownership.rs::full_bundle_replay_rejects_resealed_test_disposition_drift", "cargo-octet/src/artifact/tests/ownership.rs::full_bundle_replay_rejects_resealed_orphan_test_unknown", "cargo-octet/src/architecture_ir/cargo_fixture_tests.rs::real_cargo_all_targets_rejects_production_import_of_test_source", "cargo-octet/src/architecture_ir/cargo_fixture_tests.rs::real_cargo_all_targets_rejects_symlink_alias_before_collection", "cargo-octet/src/architecture_ir/cargo_fixture_tests.rs::real_cargo_all_targets_rejects_inactive_no_std_cfg_attr", "cargo-octet/src/architecture_ir/cargo_fixture_tests.rs::real_cargo_all_targets_rejects_no_std_disabled_in_library_test", "cargo-octet/src/architecture_ir/cargo_fixture_tests.rs::real_cargo_all_targets_rejects_integration_only_no_std"],
     },
     {
       family_id = "octet.strict-rust-profile-config",

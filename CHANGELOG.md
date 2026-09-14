@@ -6,12 +6,28 @@ specific commits via `TIGERSTYLE_DYLINT_REV`.
 For the full lint catalog, see `docs/lint-reference.md`.
 For rollout profiles, see `docs/downstream-rollout.md`.
 
+## Unreleased: Compiler-bound integration-test ownership
+
+Compiler units now bind required source roots and retain fact and unknown membership before deduplication.
+Only explicitly declared, compiler-bound independent integration tests receive test dispositions.
+Library and binary test configurations retain production obligations. Production imports of test-labelled source still reject.
+
+Production evaluation retains shared observations and validates reference closure after excluding test-only evidence.
+Test-only witnesses, ports, types, no-std configuration, and unknowns cannot satisfy production requirements.
+Full bundle replay compares the identity-bound disposition, not only receipt self-consistency.
+
+Normalized IR, raw shard, and project receipt schemas advance to v2; collector context advances to v3.
+Legacy inputs without required membership, root, or disposition fields reject rather than gaining default ownership.
+The collector now reads rustc's parsed `NoStd` attribute instead of an unparsed attribute name.
+Active crate configuration remains specific to each compiler unit. Inactive or integration-only attributes cannot satisfy production no-std obligations.
+These checks do not authenticate compiler observations or establish downstream acceptance.
+
 ## 2026-09-13: Unprotected effect receipt correction
 
 An unprotected-only architecture receipt no longer requires protected authorization fact and type identities.
 Protected and mixed effect declarations still require both identity arrays.
 Receipt identity, non-claims, compiler coverage, policy binding, and authority-promotion rejection remain enforced.
-The receipt schema remains `octet-project-architecture-receipt/v1`.
+That correction kept receipt schema `octet-project-architecture-receipt/v1`.
 
 ## 2026-08-26: Compiler-visible authorized effect protocols
 
