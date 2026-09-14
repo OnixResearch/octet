@@ -621,6 +621,7 @@ fn run_compiler_architecture_target(
         } else {
             target.crate_type.to_owned()
         },
+        source_path: format!("{source_scope}/{fixture_name}"),
         crate_types: vec![
             if target.test_configuration {
                 "bin"

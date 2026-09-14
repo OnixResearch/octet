@@ -67,7 +67,7 @@ An active policy starts compiler architecture collection for the selected Cargo 
 
 Cargo owns target and feature resolution. The planner requests a bounded, locked `cargo build --unit-graph` with the same selectors. It does not execute that build. The pinned Cargo check graph omits the distinction between normal and test checks, so array order is not a valid test-mode signal.
 
-Actual compilation still uses `cargo check`. Context v2 binds each source root, test configuration, resolved feature set, target triple, and profile identity. Unknown sessions in selected packages fail closed. Equivalent metadata and linking compilations can share a content-identical shard. Each process reserves its own staging file, so concurrent writers do not share mutable staging bytes.
+Actual compilation still uses `cargo check`. Context v3 binds the selected unit's source root and role to its test configuration, features, target triple, and profile identity. Unknown sessions in selected packages fail closed. Equivalent metadata and linking compilations can share a content-identical shard. Each process reserves its own staging file, so concurrent writers do not share mutable staging bytes.
 
 The policy must define positive limits for units, shards, facts, unknowns, spans, artifacts, and selected MIR traversal.
 
@@ -96,7 +96,13 @@ When `--artifact-dir` is set, a complete run adds these files:
 
 Missing, duplicate, stale, malformed, mismatched, or over-limit shards make collection incomplete. Octet saves the incomplete coverage and receipt before it returns an error.
 
-The Architecture IR proves bounded compiler observations for the selected policy, Cargo graph, invocation, target, features, toolchain, collector, and sources. It does not prove runtime behavior or whole-program correctness.
+Architecture IR records bounded compiler observations for the selected policy, Cargo graph, invocation, target, features, toolchain, collector, and sources.
+It does not prove runtime behavior, whole-program correctness, or observation authenticity.
+
+Normalized IR and raw shards use schema v2. Unit identities bind the required `source_path`.
+Normalized IR retains a required `unit_memberships` relation before shared facts and unknowns are deduplicated.
+Missing, orphan, noncanonical, or unreferenced memberships reject even when the outer IR identity is recomputed.
+A structurally possible relation is not independently authenticated by its hash.
 
 ## Modes
 
@@ -138,6 +144,15 @@ When `--artifact-dir` is set, an active run also adds:
 - `project-architecture-receipt.json`.
 
 The receipt binds the Nickel source, exported policy, normalized command, lint status, Cargo graph, compiler IR, coverage, toolchain, roles, ports, capabilities, outbound authority protocols, findings, unknowns, waivers, and phase status.
+
+Project receipt schema v2 requires `test_only`, even when its value is null.
+After successful projection, this field lists validated test units and exclusively test-observed fact and unknown IDs.
+Shared production observations remain in production evaluation. Null means integrity errors prevented projection, not that evidence was safely excluded.
+The full input identities and unknown list remain bound. Protocol identity arrays remain input metadata, not production ownership proof.
+
+Production evaluation checks identities and reference closure before and after exclusion. Each required production unit needs its own no-std evidence.
+Test-only witnesses, ports, types, configuration facts, and unknowns cannot satisfy production obligations.
+Full bundle replay must reproduce the complete receipt and disposition. Recomputed receipt and provenance hashes do not replace replay or authenticate observations.
 
 JSON, SARIF, status, and human output keep lint and architecture phase records separate. Architecture findings use `policy-check` evidence. They are not lint findings.
 
@@ -185,7 +200,13 @@ Assign each production package and source scope exactly one production role:
 - `outbound-adapter`: implements application-owned ports;
 - `composition-root`: selects concrete adapters and starts the application.
 
-Use `test` and `generated` for explicit exclusions. These roles are not production roles.
+Whole-package `test` and `generated` roles do not grant compilation-unit exemptions.
+An independent integration test can receive `test` only through its explicit source scope and compiler-bound `test+test` target.
+Libraries and binaries retain their production roles in test configurations. Examples, benchmarks, and test-looking names do not receive test exemptions.
+A `generated` source declaration does not grant a compilation-unit exemption.
+
+The collector preserves physical workspace source ownership for parent-relative imports. Source symlinks reject at the source envelope before collection.
+Importing test-labelled source into a production root remains an integrity failure. Full lint and compilation target selection stays enabled.
 
 Do not infer roles from directory names. Declare every package and source scope.
 
@@ -245,6 +266,10 @@ A passing protocol does not prove credential validity, revocation freshness, act
 `core_no_std` is a separate host-independence obligation.
 
 A `domain-core` role does not imply `no_std`. A `no_std` crate does not prove functional purity.
+
+The collector reads the active, parsed crate attribute from rustc. Source text and inactive `cfg_attr` branches cannot supply this fact.
+Each required production unit needs its own observation, including library test configurations.
+An integration-only fact cannot satisfy that obligation. An active `no_std` attribute does not prove that every dependency excludes `std`.
 
 ## Waivers
 

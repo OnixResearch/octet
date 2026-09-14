@@ -43,7 +43,10 @@ pub fn validate_collector_units(units: &[CollectorCompilationUnit]) -> Result<()
     let mut keys = BTreeSet::new();
     for selected in units {
         if selected.rustc_crate_name.is_empty()
-            || selected.source_path.is_empty()
+            || selected.source_path != selected.unit.source_path
+            || selected.unit.target_kind.ends_with("+test") != selected.test_configuration
+            || crate::roles::root_role(&selected.source_path, &selected.source_roles) != Ok(selected.unit.role)
+            || (selected.unit.role == crate::CompilerArchitectureRole::Test && selected.unit.target_kind != "test+test")
             || selected.unit.target_triple.is_empty()
             || selected.unit.features.windows(ADJACENT_FEATURE_COUNT).any(|pair| pair[0] >= pair[1])
         {
@@ -69,6 +72,7 @@ pub fn select_compilation_unit<'a>(
     units: &'a [CollectorCompilationUnit],
     observation: &CompilerUnitObservation<'_>,
 ) -> Result<Option<&'a CollectorCompilationUnit>, UnitSelectionError> {
+    validate_collector_units(units)?;
     let mut package_selected = false;
     let mut matched = None;
     for selected in units {

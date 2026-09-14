@@ -1,5 +1,6 @@
 //! Pure project architecture gate evaluation over supplied Cargo and compiler facts.
 
+mod production_view;
 use std::collections::BTreeMap;
 use std::collections::BTreeSet;
 
@@ -15,6 +16,9 @@ use octet_architecture_ir::CoverageStatus;
 use octet_architecture_ir::SourceOrigin;
 use octet_architecture_ir::SourceSpan;
 use octet_architecture_ir::ValueProvenanceStatus;
+use production_view::GateIndexes;
+use production_view::ProductionGateInput;
+use production_view::ProductionView;
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -31,14 +35,14 @@ use crate::project_architecture_policy::ProjectArchitecturePolicy;
 use crate::project_architecture_policy::validate_architecture_waiver_binding;
 
 /// Project architecture receipt schema emitted by this Octet release.
-pub const PROJECT_ARCHITECTURE_RECEIPT_SCHEMA_VERSION: &str = "octet-project-architecture-receipt/v1";
+pub const PROJECT_ARCHITECTURE_RECEIPT_SCHEMA_VERSION: &str = "octet-project-architecture-receipt/v2";
 /// Repository path for the generated project architecture receipt contract.
 pub const PROJECT_ARCHITECTURE_RECEIPT_CONTRACT_PATH: &str =
     "standards/project-architecture/contracts/project-architecture-receipt.generated.ncl";
 /// Cargo graph schema consumed by the project architecture gate.
 pub const PROJECT_ARCHITECTURE_CARGO_GRAPH_SCHEMA_VERSION: &str = "octet-project-architecture-cargo-graph/v1";
 
-const RECEIPT_ID_DOMAIN: &str = "octet.project-architecture-gate.receipt/v1";
+const RECEIPT_ID_DOMAIN: &str = "octet.project-architecture-gate.receipt/v2";
 const FINDING_ID_DOMAIN: &str = "octet.project-architecture-gate.finding/v1";
 const CARGO_GRAPH_ID_DOMAIN: &str = "octet.project-architecture-gate.cargo-graph/v1";
 const EVIDENCE_TIER: &str = "policy-check";
@@ -72,6 +76,8 @@ const NON_CLAIMS: &[&str] = &[
     "runtime-determinism",
     "whole-program-correctness",
     "release-eligibility",
+    "test-only-evidence-is-not-production-proof",
+    "membership-consistency-is-not-authenticity",
     "signer-authenticity",
     "credential-validity",
     "revocation-freshness",
@@ -238,6 +244,19 @@ pub struct ProjectArchitectureGateInput<'a> {
     pub effect_closure: Option<&'a EffectClosureParent>,
 }
 
+/// Observations retained in the full IR but excluded from production obligations.
+/// Shared production observations are never listed as test-only.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct TestOnlyDisposition {
+    /// All independently bound test units, including units with shared observations.
+    pub unit_ids: Vec<String>,
+    /// Facts observed only in those test units.
+    pub fact_ids: Vec<String>,
+    /// Unknowns observed only in those test units.
+    pub unknown_ids: Vec<String>,
+}
+
 /// Rust-owned architecture evaluation receipt.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -298,12 +317,21 @@ pub struct ProjectArchitectureReceipt {
     pub findings: Vec<ProjectArchitectureFinding>,
     /// Compiler unknown identities retained by the gate.
     pub unknown_ids: Vec<String>,
+    /// None only when input integrity prevents production projection.
+    #[serde(deserialize_with = "deserialize_test_only")]
+    pub test_only: Option<TestOnlyDisposition>,
     /// Applied waiver finding identities.
     pub applied_waiver_ids: Vec<String>,
     /// Separate effect-closure parent, when supplied.
     pub effect_closure: Option<EffectClosureParent>,
     /// Explicit architecture non-claims.
     pub non_claims: Vec<String>,
+}
+
+fn deserialize_test_only<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Option<TestOnlyDisposition>, D::Error> {
+    Option::<TestOnlyDisposition>::deserialize(deserializer)
 }
 
 /// Render the Nickel contract derived from the Rust receipt DTO.
@@ -375,6 +403,15 @@ let EffectClosureParent = {{
     authorized_effect_type_ids | Array Blake3,
     findings | Array Finding,
     unknown_ids | Array Blake3,
+    test_only | std.contract.from_predicate (fun value =>
+      value == null || (std.is_record value
+        && std.record.has_field "unit_ids" value
+        && std.record.has_field "fact_ids" value
+        && std.record.has_field "unknown_ids" value
+        && std.is_array value.unit_ids && std.array.all (fun id => std.is_string id && std.string.length id == 64) value.unit_ids
+        && std.is_array value.fact_ids && std.array.all (fun id => std.is_string id && std.string.length id == 64) value.fact_ids
+        && std.is_array value.unknown_ids && std.array.all (fun id => std.is_string id && std.string.length id == 64) value.unknown_ids)
+    ),
     applied_waiver_ids | Array Blake3,
     effect_closure | Dyn,
     non_claims | Array NonEmptyString,
@@ -418,7 +455,7 @@ pub fn architecture_cargo_graph_identity(graph: &ArchitectureCargoGraph) -> Stri
 #[must_use]
 #[allow(clippy::too_many_lines)]
 pub fn evaluate_project_architecture(input: &ProjectArchitectureGateInput<'_>) -> ProjectArchitectureReceipt {
-    let mut findings = evaluate_findings(input);
+    let (mut findings, test_only) = evaluate_findings(input);
     findings.sort();
     findings.dedup();
     apply_waivers(input, &mut findings);
@@ -526,6 +563,7 @@ pub fn evaluate_project_architecture(input: &ProjectArchitectureGateInput<'_>) -
         authorized_effect_type_ids,
         findings,
         unknown_ids,
+        test_only,
         applied_waiver_ids,
         effect_closure: input.effect_closure.cloned(),
         non_claims,
@@ -544,6 +582,7 @@ pub fn verify_project_architecture_receipt(receipt: &ProjectArchitectureReceipt)
     if receipt.receipt_id != receipt_identity(receipt) {
         diagnostics.push("project architecture receipt identity is stale or malformed".to_owned());
     }
+    verify_test_only_disposition(receipt, &mut diagnostics);
     for required in NON_CLAIMS {
         if !receipt.non_claims.iter().any(|claim| claim == required) {
             diagnostics.push(format!("project architecture receipt is missing non-claim `{required}`"));
@@ -595,20 +634,72 @@ pub fn verify_project_architecture_receipt(receipt: &ProjectArchitectureReceipt)
     diagnostics
 }
 
-fn evaluate_findings(input: &ProjectArchitectureGateInput<'_>) -> Vec<ProjectArchitectureFinding> {
-    let mut findings = input_integrity_findings(input);
-    if findings.is_empty() {
-        let indexes = GateIndexes::new(input.architecture_ir);
-        evaluate_role_graph(input, &indexes, &mut findings);
-        evaluate_core_effects(input, &indexes, &mut findings);
-        evaluate_authorized_effects(input, &indexes, &mut findings);
-        evaluate_ports(input, &indexes, &mut findings);
-        evaluate_construction(input, &indexes, &mut findings);
-        evaluate_contract_types(input, &indexes, &mut findings);
-        evaluate_no_std(input, &indexes, &mut findings);
-        evaluate_unknowns(input, &indexes, &mut findings);
+fn verify_test_only_disposition(receipt: &ProjectArchitectureReceipt, diagnostics: &mut Vec<String>) {
+    let Some(test_only) = &receipt.test_only else {
+        if receipt.status != ArchitecturePhaseStatus::IntegrationFailure {
+            diagnostics.push("project architecture receipt lacks evaluated test-only disposition".to_owned());
+        }
+        return;
+    };
+    for ids in [&test_only.unit_ids, &test_only.fact_ids, &test_only.unknown_ids] {
+        if ids.windows(2).any(|pair| pair[0] >= pair[1])
+            || ids
+                .iter()
+                .any(|id| id.len() != 64 || !id.bytes().all(|byte| matches!(byte, b'0'..=b'9' | b'a'..=b'f')))
+        {
+            diagnostics.push("project architecture test-only identities are not canonical".to_owned());
+        }
     }
-    findings
+    if test_only.unit_ids.is_empty() && (!test_only.fact_ids.is_empty() || !test_only.unknown_ids.is_empty()) {
+        diagnostics.push("project architecture test-only subjects lack a test unit".to_owned());
+    }
+    if test_only.unknown_ids.iter().any(|id| !receipt.unknown_ids.contains(id)) {
+        diagnostics.push("project architecture test-only unknown is absent from full input identities".to_owned());
+    }
+    for finding in &receipt.findings {
+        if finding.unit_id.as_ref().is_some_and(|id| test_only.unit_ids.contains(id))
+            || finding
+                .fact_id
+                .as_ref()
+                .is_some_and(|id| test_only.fact_ids.contains(id) || test_only.unknown_ids.contains(id))
+        {
+            diagnostics.push("project architecture finding uses excluded test-only evidence".to_owned());
+        }
+    }
+}
+
+fn evaluate_findings(
+    input: &ProjectArchitectureGateInput<'_>,
+) -> (Vec<ProjectArchitectureFinding>, Option<TestOnlyDisposition>) {
+    let mut findings = input_integrity_findings(input);
+    if !findings.is_empty() {
+        return (findings, None);
+    }
+    let view = match ProductionView::new(input.architecture_ir, &input.policy.collection_limits) {
+        Ok(view) => view,
+        Err(errors) => {
+            for error in errors {
+                require_input(&mut findings, input.policy_blake3, false, "production-evidence-integrity", &error);
+            }
+            return (findings, None);
+        }
+    };
+    let production = ProductionGateInput {
+        policy: input.policy,
+        policy_blake3: input.policy_blake3,
+        cargo_graph: input.cargo_graph,
+        architecture_ir: &view,
+    };
+    let indexes = GateIndexes::new(&view);
+    evaluate_role_graph(&production, &indexes, &mut findings);
+    evaluate_core_effects(&production, &indexes, &mut findings);
+    evaluate_authorized_effects(&production, &indexes, &mut findings);
+    evaluate_ports(&production, &indexes, &mut findings);
+    evaluate_construction(&production, &indexes, &mut findings);
+    evaluate_contract_types(&production, &indexes, &mut findings);
+    evaluate_no_std(&production, &indexes, &mut findings);
+    evaluate_unknowns(&production, &indexes, &mut findings);
+    (findings, Some(view.disposition))
 }
 
 fn sorted_dedup<T: Ord>(mut values: Vec<T>) -> Vec<T> {
@@ -624,6 +715,12 @@ fn input_integrity_findings(input: &ProjectArchitectureGateInput<'_>) -> Vec<Pro
     validate_cargo_inputs(input, source_identity, &mut findings);
     validate_compiler_inputs(input, source_identity, &mut findings);
     validate_unit_inputs(input, source_identity, &mut findings);
+    for diagnostic in octet_architecture_ir::verify_ir_unit_bindings(input.architecture_ir) {
+        require_input(&mut findings, source_identity, false, "compiler-unit-binding", &diagnostic);
+    }
+    for diagnostic in octet_architecture_ir::verify_ir_unit_memberships(input.architecture_ir) {
+        require_input(&mut findings, source_identity, false, "compiler-unit-membership", &diagnostic);
+    }
     validate_source_unit_roles(input, &mut findings);
     findings
 }
@@ -689,7 +786,39 @@ fn validate_compiler_inputs(
     source_identity: &str,
     findings: &mut Vec<ProjectArchitectureFinding>,
 ) {
+    let unit_ids = sorted_dedup(input.architecture_ir.units.iter().map(|unit| unit.unit_id.clone()).collect());
     let checks = [
+        (
+            input.architecture_ir.schema_version == octet_architecture_ir::COMPILER_ARCHITECTURE_IR_SCHEMA_VERSION
+                && input.architecture_ir.architecture_ir_id
+                    == octet_architecture_ir::ir_identity(input.architecture_ir),
+            "compiler-ir-identity",
+            "compiler Architecture IR schema or identity is invalid",
+        ),
+        (
+            input.coverage.schema_version == octet_architecture_ir::COMPILER_ARCHITECTURE_COVERAGE_SCHEMA_VERSION
+                && input.coverage.coverage_id == octet_architecture_ir::coverage_identity(input.coverage),
+            "compiler-coverage-identity",
+            "compiler coverage schema or identity is invalid",
+        ),
+        (
+            input.coverage.expected_unit_ids == unit_ids
+                && input.coverage.observed_unit_ids == unit_ids
+                && input.coverage.missing_unit_ids.is_empty()
+                && input.coverage.unexpected_unit_ids.is_empty()
+                && input.coverage.duplicate_unit_ids.is_empty()
+                && input.coverage.invalid_shard_ids.is_empty(),
+            "compiler-unit-coverage",
+            "compiler coverage does not cover the complete IR unit set",
+        ),
+        (
+            input.compiler_receipt.schema_version
+                == octet_architecture_ir::COMPILER_ARCHITECTURE_RECEIPT_SCHEMA_VERSION
+                && input.compiler_receipt.receipt_id == octet_architecture_ir::receipt_identity(input.compiler_receipt)
+                && input.compiler_receipt.issue_ids.is_empty(),
+            "compiler-receipt-identity",
+            "compiler collection receipt schema, identity, or issues are invalid",
+        ),
         (
             !input.policy_source_blake3.trim().is_empty(),
             "policy-source-identity",
@@ -744,8 +873,13 @@ fn validate_unit_inputs(
     findings: &mut Vec<ProjectArchitectureFinding>,
 ) {
     let expected_packages = input.policy.production.packages.iter().map(String::as_str).collect::<BTreeSet<_>>();
-    let unit_packages =
-        input.architecture_ir.units.iter().map(|unit| unit.package_name.as_str()).collect::<BTreeSet<_>>();
+    let unit_packages = input
+        .architecture_ir
+        .units
+        .iter()
+        .filter(|unit| unit.role != CompilerArchitectureRole::Test)
+        .map(|unit| unit.package_name.as_str())
+        .collect::<BTreeSet<_>>();
     require_input(
         findings,
         source_identity,
@@ -754,49 +888,91 @@ fn validate_unit_inputs(
         "compiler units do not exactly cover declared production packages",
     );
     let policy_roles = policy_package_roles(input.policy);
+    let source_roles = input
+        .policy
+        .roles
+        .iter()
+        .filter(|assignment| assignment.scope_kind == ArchitectureScopeKind::Source)
+        .map(|assignment| octet_architecture_ir::SourceRoleScope {
+            source_scope: assignment.scope.clone(),
+            role: compiler_role(assignment.role),
+        })
+        .collect::<Vec<_>>();
     for unit in &input.architecture_ir.units {
-        let role_matches = policy_roles.get(&unit.package_name).is_some_and(|role| compiler_role(*role) == unit.role);
+        let role_matches = policy_roles.get(&unit.package_name).is_some_and(|role| {
+            octet_architecture_ir::select_compilation_unit_role(
+                compiler_role(*role),
+                &unit.target_kind,
+                &unit.source_path,
+                &source_roles,
+            ) == Ok(unit.role)
+        });
         require_input(
             findings,
             source_identity,
             role_matches,
             "unit-role-mismatch",
-            &format!("compiler unit `{}` role does not match explicit package policy", unit.package_name),
+            &format!(
+                "compiler unit `{}/{}` role or source root does not match explicit policy",
+                unit.package_name, unit.target_name
+            ),
         );
     }
 }
 
-/// Package-owned decisions cannot safely interpret a conflicting source role.
-/// Reject the conflict until the evaluator supports fact-level role ownership.
+/// Check every production observation before test-only evidence can be excluded.
 fn validate_source_unit_roles(
     input: &ProjectArchitectureGateInput<'_>,
     findings: &mut Vec<ProjectArchitectureFinding>,
 ) {
-    let indexes = GateIndexes::new(input.architecture_ir);
-    // Definition ownership is distinct from the origin of an implemented self type.
-    // A local trait can legally be implemented for a type from another package.
-    for fact in &input.architecture_ir.facts {
-        let CompilerArchitectureFact::Item { span_id, .. } = fact else {
+    let ir = input.architecture_ir;
+    let spans = ir.spans.iter().map(|span| (span.span_id.as_str(), span)).collect::<BTreeMap<_, _>>();
+    let facts = ir.facts.iter().map(|fact| (fact.fact_id(), fact)).collect::<BTreeMap<_, _>>();
+    let units = ir.units.iter().map(|unit| (unit.unit_id.as_str(), unit)).collect::<BTreeMap<_, _>>();
+    let roles = policy_package_roles(input.policy);
+    for row in &ir.unit_memberships {
+        let Some(unit) = units.get(row.unit_id.as_str()) else {
             continue;
         };
-        let Some(source_path) = indexes.source_path(span_id) else {
+        if unit.role == CompilerArchitectureRole::Test {
             continue;
-        };
-        let Some(unit) = indexes.unit_for_fact(fact.fact_id()) else {
-            continue;
-        };
-        for assignment in input.policy.roles.iter().filter(|assignment| {
-            assignment.scope_kind == ArchitectureScopeKind::Source && path_in_scope(source_path, &assignment.scope)
-        }) {
+        }
+        for id in &row.fact_ids {
+            let Some(CompilerArchitectureFact::Item {
+                span_id, origin_crate, ..
+            }) = facts.get(id.as_str())
+            else {
+                continue;
+            };
+            let Some(SourceSpan {
+                origin: SourceOrigin::Workspace { source_path },
+                ..
+            }) = spans.get(span_id.as_str()).copied()
+            else {
+                continue;
+            };
+            // A foreign declaration reference does not move its definition into the observing package.
+            let expected = if origin_crate == &unit.package_name {
+                Some(unit.role)
+            } else {
+                roles.get(origin_crate).map(|role| compiler_role(*role))
+            };
+            let assignments = input
+                .policy
+                .roles
+                .iter()
+                .filter(|assignment| {
+                    assignment.scope_kind == ArchitectureScopeKind::Source
+                        && path_in_scope(source_path, &assignment.scope)
+                })
+                .collect::<Vec<_>>();
             require_input(
                 findings,
                 &unit.source_blake3,
-                compiler_role(assignment.role) == unit.role,
+                !assignments.is_empty()
+                    && assignments.iter().all(|assignment| Some(compiler_role(assignment.role)) == expected),
                 "source-role-unit-mismatch",
-                &format!(
-                    "source scope `{}` conflicts with package `{}` role; mixed source roles are unsupported",
-                    assignment.scope, unit.package_name
-                ),
+                &format!("source `{source_path}` conflicts with production observation `{}`", unit.unit_id),
             );
         }
     }
@@ -825,7 +1001,7 @@ fn require_input(
 }
 
 fn evaluate_role_graph(
-    input: &ProjectArchitectureGateInput<'_>,
+    input: &ProductionGateInput<'_>,
     indexes: &GateIndexes<'_>,
     findings: &mut Vec<ProjectArchitectureFinding>,
 ) {
@@ -893,7 +1069,7 @@ fn evaluate_role_graph(
 }
 
 fn evaluate_core_effects(
-    input: &ProjectArchitectureGateInput<'_>,
+    input: &ProductionGateInput<'_>,
     indexes: &GateIndexes<'_>,
     findings: &mut Vec<ProjectArchitectureFinding>,
 ) {
@@ -914,26 +1090,26 @@ fn evaluate_core_effects(
         else {
             continue;
         };
-        let Some(unit) = indexes.unit_for_fact(fact_id) else {
-            continue;
-        };
-        let source = indexes.source_path(span_id);
-        let policy_family = policy_capability(*capability_family);
-        if unit.role == CompilerArchitectureRole::DomainCore {
-            findings.push(finding_for_unit(
-                "domain-core-effect",
-                CLAIM_CORE_PURITY,
-                Some(unit),
-                Some(fact_id),
-                source,
-                &format!("domain-core compiler fact performs `{capability_family:?}` through `{primitive_definition}`"),
-            ));
-        } else if let Some(policy_family) = policy_family {
-            let executor_matches = classifications
-                .get(&policy_family)
-                .is_some_and(|classification| compiler_role(classification.executor_role) == unit.role);
-            if !executor_matches {
+        for unit in indexes.units_for_fact(fact_id) {
+            let source = indexes.source_path(span_id);
+            let policy_family = policy_capability(*capability_family);
+            if unit.role == CompilerArchitectureRole::DomainCore {
                 findings.push(finding_for_unit(
+                    "domain-core-effect",
+                    CLAIM_CORE_PURITY,
+                    Some(unit),
+                    Some(fact_id),
+                    source,
+                    &format!(
+                        "domain-core compiler fact performs `{capability_family:?}` through `{primitive_definition}`"
+                    ),
+                ));
+            } else if let Some(policy_family) = policy_family {
+                let executor_matches = classifications
+                    .get(&policy_family)
+                    .is_some_and(|classification| compiler_role(classification.executor_role) == unit.role);
+                if !executor_matches {
+                    findings.push(finding_for_unit(
                     "capability-executor-role",
                     CLAIM_CAPABILITY,
                     Some(unit),
@@ -944,16 +1120,17 @@ fn evaluate_core_effects(
                         unit.package_name
                     ),
                 ));
+                }
+            } else {
+                findings.push(finding_for_unit(
+                    "unclassified-capability",
+                    CLAIM_CAPABILITY,
+                    Some(unit),
+                    Some(fact_id),
+                    source,
+                    &format!("compiler effect capability `{capability_family:?}` has no project classification"),
+                ));
             }
-        } else {
-            findings.push(finding_for_unit(
-                "unclassified-capability",
-                CLAIM_CAPABILITY,
-                Some(unit),
-                Some(fact_id),
-                source,
-                &format!("compiler effect capability `{capability_family:?}` has no project classification"),
-            ));
         }
     }
 }
@@ -981,7 +1158,7 @@ fn protected_effect_definitions(policy: &ProjectArchitecturePolicy) -> Protected
 }
 
 fn evaluate_authorized_effects(
-    input: &ProjectArchitectureGateInput<'_>,
+    input: &ProductionGateInput<'_>,
     indexes: &GateIndexes<'_>,
     findings: &mut Vec<ProjectArchitectureFinding>,
 ) {
@@ -1001,24 +1178,23 @@ fn evaluate_authorized_effects(
         else {
             continue;
         };
-        let Some(unit) = indexes.unit_for_fact(fact_id) else {
-            continue;
-        };
-        if unit.role != CompilerArchitectureRole::OutboundAdapter {
-            continue;
-        }
-        let Some(family) = policy_capability(*capability_family) else {
-            continue;
-        };
-        if !classifications.contains_key(&family) {
-            findings.push(finding_for_unit(
-                "unclassified-effect-authority",
-                CLAIM_EFFECT_AUTHORITY_CLASSIFICATION,
-                Some(unit),
-                Some(fact_id),
-                indexes.source_path(span_id),
-                &format!("outbound effect capability `{family:?}` has no explicit authority classification"),
-            ));
+        for unit in indexes.units_for_fact(fact_id) {
+            if unit.role != CompilerArchitectureRole::OutboundAdapter {
+                continue;
+            }
+            let Some(family) = policy_capability(*capability_family) else {
+                continue;
+            };
+            if !classifications.contains_key(&family) {
+                findings.push(finding_for_unit(
+                    "unclassified-effect-authority",
+                    CLAIM_EFFECT_AUTHORITY_CLASSIFICATION,
+                    Some(unit),
+                    Some(fact_id),
+                    indexes.source_path(span_id),
+                    &format!("outbound effect capability `{family:?}` has no explicit authority classification"),
+                ));
+            }
         }
     }
     for classification in classifications.values() {
@@ -1046,7 +1222,7 @@ fn evaluate_authorized_effects(
 
 #[allow(clippy::too_many_lines)]
 fn evaluate_protected_witness(
-    input: &ProjectArchitectureGateInput<'_>,
+    input: &ProductionGateInput<'_>,
     indexes: &GateIndexes<'_>,
     classification: &ArchitectureOutboundEffectClassification,
     protocol: &ArchitectureProtectedEffectProtocol,
@@ -1230,7 +1406,7 @@ fn evaluate_protected_witness(
 
 #[allow(clippy::too_many_lines)]
 fn evaluate_protected_calls(
-    input: &ProjectArchitectureGateInput<'_>,
+    input: &ProductionGateInput<'_>,
     indexes: &GateIndexes<'_>,
     classification: &ArchitectureOutboundEffectClassification,
     protocol: &ArchitectureProtectedEffectProtocol,
@@ -1617,7 +1793,7 @@ fn evaluate_protected_calls(
 
 #[allow(clippy::too_many_arguments)]
 fn evaluate_receipt_constructors(
-    input: &ProjectArchitectureGateInput<'_>,
+    input: &ProductionGateInput<'_>,
     indexes: &GateIndexes<'_>,
     protocol: &ArchitectureProtectedEffectProtocol,
     type_definitions: &BTreeMap<&str, &str>,
@@ -1712,7 +1888,7 @@ fn trait_matches(actual: &str, expected: &str) -> bool {
 }
 
 fn evaluate_ports(
-    input: &ProjectArchitectureGateInput<'_>,
+    input: &ProductionGateInput<'_>,
     indexes: &GateIndexes<'_>,
     findings: &mut Vec<ProjectArchitectureFinding>,
 ) {
@@ -1820,7 +1996,7 @@ fn evaluate_ports(
 }
 
 fn evaluate_construction(
-    input: &ProjectArchitectureGateInput<'_>,
+    input: &ProductionGateInput<'_>,
     indexes: &GateIndexes<'_>,
     findings: &mut Vec<ProjectArchitectureFinding>,
 ) {
@@ -1855,22 +2031,23 @@ fn evaluate_construction(
         if !is_adapter {
             continue;
         }
-        let unit = indexes.unit_for_fact(fact_id);
-        if unit.is_none_or(|current| current.role != CompilerArchitectureRole::CompositionRoot) {
-            findings.push(finding_for_unit(
-                "adapter-construction-outside-root",
-                CLAIM_ADAPTER_CONSTRUCTION,
-                unit,
-                Some(fact_id),
-                indexes.source_path(span_id),
-                &format!("concrete adapter type from package `{origin}` is constructed outside a composition root"),
-            ));
+        for unit in indexes.units_for_fact(fact_id) {
+            if unit.role != CompilerArchitectureRole::CompositionRoot {
+                findings.push(finding_for_unit(
+                    "adapter-construction-outside-root",
+                    CLAIM_ADAPTER_CONSTRUCTION,
+                    Some(unit),
+                    Some(fact_id),
+                    indexes.source_path(span_id),
+                    &format!("concrete adapter type from package `{origin}` is constructed outside a composition root"),
+                ));
+            }
         }
     }
 }
 
 fn evaluate_contract_types(
-    input: &ProjectArchitectureGateInput<'_>,
+    input: &ProductionGateInput<'_>,
     indexes: &GateIndexes<'_>,
     findings: &mut Vec<ProjectArchitectureFinding>,
 ) {
@@ -1960,7 +2137,7 @@ fn evaluate_contract_types(
 }
 
 fn evaluate_no_std(
-    input: &ProjectArchitectureGateInput<'_>,
+    input: &ProductionGateInput<'_>,
     indexes: &GateIndexes<'_>,
     findings: &mut Vec<ProjectArchitectureFinding>,
 ) {
@@ -1977,7 +2154,7 @@ fn evaluate_no_std(
         } else {
             indexes.units_for_source_scope(&obligation.scope)
         };
-        let has_no_std = units.iter().all(|unit| indexes.package_has_configuration(&unit.package_name, "crate:no-std"));
+        let has_no_std = units.iter().all(|unit| indexes.unit_has_configuration(unit, "crate:no-std"));
         if units.is_empty() || !has_no_std {
             findings.push(new_finding(
                 "no-std-obligation",
@@ -1995,7 +2172,7 @@ fn evaluate_no_std(
 }
 
 fn evaluate_unknowns(
-    input: &ProjectArchitectureGateInput<'_>,
+    input: &ProductionGateInput<'_>,
     indexes: &GateIndexes<'_>,
     findings: &mut Vec<ProjectArchitectureFinding>,
 ) {
@@ -2092,106 +2269,6 @@ fn classify_status(
                 }
             }
         }
-    }
-}
-
-struct GateIndexes<'a> {
-    ir: &'a CompilerArchitectureIr,
-    units_by_package: BTreeMap<&'a str, &'a CompilationUnit>,
-    fact_units: BTreeMap<&'a str, &'a CompilationUnit>,
-    unknown_units: BTreeMap<&'a str, &'a CompilationUnit>,
-    spans: BTreeMap<&'a str, &'a SourceSpan>,
-}
-
-impl<'a> GateIndexes<'a> {
-    fn new(ir: &'a CompilerArchitectureIr) -> Self {
-        let units_by_package =
-            ir.units.iter().map(|unit| (unit.package_name.as_str(), unit)).collect::<BTreeMap<_, _>>();
-        let item_packages = ir
-            .facts
-            .iter()
-            .filter_map(|fact| match fact {
-                CompilerArchitectureFact::Item {
-                    item_id, origin_crate, ..
-                } => Some((item_id.as_str(), origin_crate.as_str())),
-                _ => None,
-            })
-            .collect::<BTreeMap<_, _>>();
-        let type_packages = ir
-            .facts
-            .iter()
-            .filter_map(|fact| match fact {
-                CompilerArchitectureFact::Type {
-                    type_id, origin_crate, ..
-                } => Some((type_id.as_str(), origin_crate.as_str())),
-                _ => None,
-            })
-            .collect::<BTreeMap<_, _>>();
-        let mut fact_units = BTreeMap::new();
-        for fact in &ir.facts {
-            let package = fact_package(fact, &item_packages, &type_packages);
-            if let Some(unit) = package.and_then(|package| units_by_package.get(package).copied()) {
-                fact_units.insert(fact.fact_id(), unit);
-            }
-        }
-        let unknown_units = ir
-            .unknowns
-            .iter()
-            .filter_map(|unknown| {
-                let package =
-                    unknown.owner_item_id.as_deref().and_then(|item_id| item_packages.get(item_id).copied())?;
-                Some((unknown.unknown_id.as_str(), *units_by_package.get(package)?))
-            })
-            .collect::<BTreeMap<_, _>>();
-        let spans = ir.spans.iter().map(|span| (span.span_id.as_str(), span)).collect::<BTreeMap<_, _>>();
-        Self {
-            ir,
-            units_by_package,
-            fact_units,
-            unknown_units,
-            spans,
-        }
-    }
-
-    fn unit_for_package(&self, package: &str) -> Option<&'a CompilationUnit> {
-        self.units_by_package.get(package).copied()
-    }
-
-    fn unit_for_fact(&self, fact_id: &str) -> Option<&'a CompilationUnit> {
-        self.fact_units.get(fact_id).copied()
-    }
-
-    fn unit_for_unknown(&self, unknown_id: &str) -> Option<&'a CompilationUnit> {
-        self.unknown_units.get(unknown_id).copied()
-    }
-
-    fn source_path(&self, span_id: &str) -> Option<&'a str> {
-        self.spans.get(span_id).and_then(|span| match &span.origin {
-            SourceOrigin::Workspace { source_path } => Some(source_path.as_str()),
-            SourceOrigin::ExternalGenerated { .. } => None,
-        })
-    }
-
-    fn units_for_source_scope(&self, scope: &str) -> Vec<&'a CompilationUnit> {
-        let packages = self
-            .ir
-            .facts
-            .iter()
-            .filter_map(|fact| {
-                let span_id = fact_span_id(fact)?;
-                let source_path = self.source_path(span_id)?;
-                let unit = path_in_scope(source_path, scope).then(|| self.unit_for_fact(fact.fact_id())).flatten()?;
-                Some((unit.package_name.as_str(), unit))
-            })
-            .collect::<BTreeMap<_, _>>();
-        packages.into_values().collect()
-    }
-
-    fn package_has_configuration(&self, package: &str, predicate: &str) -> bool {
-        let expected = format!("{predicate}={package}");
-        self.ir.facts.iter().any(|fact| {
-            matches!(fact, CompilerArchitectureFact::Configuration { predicate: current, active: true, .. } if current == &expected)
-        })
     }
 }
 
@@ -2355,6 +2432,7 @@ fn path_in_scope(path: &str, scope: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
+    mod ownership;
     use octet_architecture_ir::ArchitectureCollectionLimits;
     use octet_architecture_ir::ItemKind;
     use octet_architecture_ir::UnknownCompilerFact;
@@ -2406,7 +2484,7 @@ mod tests {
     fn matching_source_and_package_roles_pass() {
         let mut fixture = Fixture::new(ArchitectureMode::Gate);
         let source_span = span("crates/host/src/core.rs");
-        fixture.ir.facts.push(item(&source_span.span_id, "host::core::value"));
+        let local_item = item(&source_span.span_id, "host::core::value");
         let foreign_type = type_fact("domain", "domain::Value");
         let mut implementation = CompilerArchitectureFact::Implementation {
             fact_id: String::new(),
@@ -2417,12 +2495,85 @@ mod tests {
             span_id: source_span.span_id.clone(),
         };
         set_fact_id(&mut implementation);
-        fixture.ir.facts.extend([foreign_type, implementation]);
-        fixture.ir.spans.push(source_span);
+        fixture.add_unit_facts("host", vec![source_span], vec![local_item, foreign_type, implementation], Vec::new());
 
         let receipt = fixture.evaluate(None);
         assert_eq!(receipt.status, ArchitecturePhaseStatus::Clean);
         assert!(receipt.findings.is_empty());
+    }
+
+    // r[verify octet.project_architecture_gate.test_ownership]
+    #[test]
+    fn integration_root_binding_precedes_production_evaluation() {
+        let mut fixture = Fixture::new(ArchitectureMode::Gate);
+        fixture.policy.roles.push(role_assignment(
+            ArchitectureScopeKind::Source,
+            "crates/domain/tests",
+            ArchitectureRole::Test,
+        ));
+        let mut test = unit("domain", CompilerArchitectureRole::Test);
+        test.target_name = "contract".to_owned();
+        test.target_kind = "test+test".to_owned();
+        test.source_path = "crates/domain/tests/contract.rs".to_owned();
+        test.crate_types = vec!["bin".to_owned()];
+        test.unit_id = octet_architecture_ir::compilation_unit_identity(&test);
+        fixture.ir.units.push(test.clone());
+        fixture.ir.unit_memberships.push(octet_architecture_ir::UnitFactMembership {
+            unit_id: test.unit_id.clone(),
+            fact_ids: Vec::new(),
+            unknown_ids: Vec::new(),
+        });
+        let receipt = fixture.evaluate(None);
+        assert!(!receipt.findings.iter().any(|finding| finding.code == "unit-role-mismatch"));
+        assert_eq!(receipt.status, ArchitecturePhaseStatus::Clean);
+        let json = serde_json::to_value(&receipt).expect("receipt");
+        assert_eq!(json["test_only"]["unit_ids"], serde_json::json!([test.unit_id]));
+        for kind in ["lib", "lib+test", "bin+test", "test"] {
+            let last = fixture.ir.units.last_mut().expect("test unit");
+            last.target_kind = kind.to_owned();
+            last.unit_id = octet_architecture_ir::compilation_unit_identity(last);
+            fixture.ir.unit_memberships.last_mut().expect("test row").unit_id = last.unit_id.clone();
+            assert!(
+                fixture.evaluate(None).findings.iter().any(|finding| finding.code == "unit-role-mismatch"),
+                "{kind}"
+            );
+        }
+        *fixture.ir.units.last_mut().expect("test unit") = test;
+        let last = fixture.ir.units.last_mut().expect("test unit");
+        last.source_path = "crates/domain/src/lib.rs".to_owned();
+        last.unit_id = octet_architecture_ir::compilation_unit_identity(last);
+        fixture.ir.unit_memberships.last_mut().expect("test row").unit_id = last.unit_id.clone();
+        assert!(fixture.evaluate(None).findings.iter().any(|finding| finding.code == "unit-role-mismatch"));
+    }
+
+    // r[verify octet.project_architecture_gate.test_ownership]
+    #[test]
+    fn production_and_library_test_imports_cannot_claim_test_source() {
+        for kind in ["lib", "lib+test"] {
+            let mut fixture = Fixture::new(ArchitectureMode::Gate);
+            let domain = fixture.ir.units.iter_mut().find(|unit| unit.package_name == "domain").expect("domain");
+            let previous = domain.unit_id.clone();
+            domain.target_kind = kind.to_owned();
+            domain.unit_id = octet_architecture_ir::compilation_unit_identity(domain);
+            fixture
+                .ir
+                .unit_memberships
+                .iter_mut()
+                .find(|row| row.unit_id == previous)
+                .expect("domain row")
+                .unit_id = domain.unit_id.clone();
+            fixture.policy.roles.push(role_assignment(
+                ArchitectureScopeKind::Source,
+                "crates/domain/tests",
+                ArchitectureRole::Test,
+            ));
+            let source_span = span("crates/domain/tests/imported.rs");
+            let imported = item(&source_span.span_id, "domain::imported::value");
+            fixture.add_unit_facts("domain", vec![source_span], vec![imported], Vec::new());
+            let receipt = fixture.evaluate(None);
+            assert_eq!(receipt.status, ArchitecturePhaseStatus::IntegrationFailure);
+            assert!(receipt.findings.iter().any(|finding| finding.code == "source-role-unit-mismatch"), "{kind}");
+        }
     }
 
     #[test]
@@ -2441,8 +2592,8 @@ mod tests {
                 .expect("host source assignment");
             assignment.role = ArchitectureRole::DomainCore;
             let source_span = span("crates/host/src/core.rs");
-            fixture.ir.facts.push(item(&source_span.span_id, "host::core::value"));
-            fixture.ir.spans.push(source_span);
+            let local_item = item(&source_span.span_id, "host::core::value");
+            fixture.add_unit_facts("host", vec![source_span], vec![local_item], Vec::new());
 
             let receipt = fixture.evaluate(None);
             assert_eq!(receipt.status, ArchitecturePhaseStatus::IntegrationFailure);
@@ -3050,6 +3201,14 @@ mod tests {
                 schema_version: octet_architecture_ir::COMPILER_ARCHITECTURE_IR_SCHEMA_VERSION.to_owned(),
                 architecture_ir_id: HASH_B.to_owned(),
                 policy_blake3: HASH_A.to_owned(),
+                unit_memberships: units
+                    .iter()
+                    .map(|unit| octet_architecture_ir::UnitFactMembership {
+                        unit_id: unit.unit_id.clone(),
+                        fact_ids: Vec::new(),
+                        unknown_ids: Vec::new(),
+                    })
+                    .collect(),
                 units,
                 spans: Vec::new(),
                 facts: Vec::new(),
@@ -3086,7 +3245,42 @@ mod tests {
             }
         }
 
+        fn prepared_ir(&self) -> CompilerArchitectureIr {
+            let mut ir = self.ir.clone();
+            ir.units.sort_by(|left, right| left.unit_id.cmp(&right.unit_id));
+            ir.facts.sort_by(|left, right| left.fact_id().cmp(right.fact_id()));
+            ir.facts.dedup();
+            ir.spans.sort();
+            ir.spans.dedup();
+            ir.unknowns.sort();
+            ir.unknowns.dedup();
+            ir.unit_memberships.sort_by(|left, right| left.unit_id.cmp(&right.unit_id));
+            for row in &mut ir.unit_memberships {
+                row.fact_ids = sorted_dedup(std::mem::take(&mut row.fact_ids));
+                row.unknown_ids = sorted_dedup(std::mem::take(&mut row.unknown_ids));
+            }
+            ir.architecture_ir_id = octet_architecture_ir::ir_identity(&ir);
+            ir
+        }
+
         fn evaluate(&self, effect_closure: Option<&EffectClosureParent>) -> ProjectArchitectureReceipt {
+            self.evaluate_ir(&self.prepared_ir(), effect_closure)
+        }
+
+        // Malformed-input tests use this entry directly: it does not repair the supplied IR.
+        fn evaluate_ir(
+            &self,
+            ir: &CompilerArchitectureIr,
+            effect_closure: Option<&EffectClosureParent>,
+        ) -> ProjectArchitectureReceipt {
+            let mut coverage = self.coverage.clone();
+            coverage.expected_unit_ids = sorted_dedup(ir.units.iter().map(|unit| unit.unit_id.clone()).collect());
+            coverage.observed_unit_ids = coverage.expected_unit_ids.clone();
+            coverage.coverage_id = octet_architecture_ir::coverage_identity(&coverage);
+            let mut compiler_receipt = self.compiler_receipt.clone();
+            compiler_receipt.architecture_ir_id = Some(ir.architecture_ir_id.clone());
+            compiler_receipt.coverage_id = coverage.coverage_id.clone();
+            compiler_receipt.receipt_id = octet_architecture_ir::receipt_identity(&compiler_receipt);
             evaluate_project_architecture(&ProjectArchitectureGateInput {
                 policy: &self.policy,
                 policy_source_blake3: HASH_C,
@@ -3094,9 +3288,9 @@ mod tests {
                 lint_phase_status: "clean",
                 command_blake3: HASH_B,
                 cargo_graph: &self.graph,
-                architecture_ir: &self.ir,
-                coverage: &self.coverage,
-                compiler_receipt: &self.compiler_receipt,
+                architecture_ir: ir,
+                coverage: &coverage,
+                compiler_receipt: &compiler_receipt,
                 effect_closure,
             })
         }
@@ -3411,7 +3605,15 @@ mod tests {
             facts: Vec<CompilerArchitectureFact>,
             unknowns: Vec<UnknownCompilerFact>,
         ) {
-            assert!(self.ir.units.iter().any(|unit| unit.package_name == package), "fixture unit");
+            let unit = self
+                .ir
+                .units
+                .iter()
+                .find(|unit| unit.package_name == package && unit.role != CompilerArchitectureRole::Test)
+                .expect("fixture production unit");
+            let row = self.ir.unit_memberships.iter_mut().find(|row| row.unit_id == unit.unit_id).expect("fixture row");
+            row.fact_ids.extend(facts.iter().map(|fact| fact.fact_id().to_owned()));
+            row.unknown_ids.extend(unknowns.iter().map(|unknown| unknown.unknown_id.clone()));
             self.ir.spans.extend(spans);
             self.ir.facts.extend(facts);
             self.ir.unknowns.extend(unknowns);
@@ -3466,12 +3668,13 @@ mod tests {
     }
 
     fn unit(package: &str, role: CompilerArchitectureRole) -> CompilationUnit {
-        CompilationUnit {
-            unit_id: octet_architecture_ir::canonical_identity("fixture-unit", &(package, role)).expect("unit id"),
+        let mut unit = CompilationUnit {
+            unit_id: String::new(),
             package_name: package.to_owned(),
             package_version: "0.1.0".to_owned(),
             target_name: package.to_owned(),
             target_kind: "lib".to_owned(),
+            source_path: format!("crates/{package}/src/lib.rs"),
             crate_types: vec!["rlib".to_owned()],
             target_triple: TARGET.to_owned(),
             features: Vec::new(),
@@ -3482,7 +3685,9 @@ mod tests {
             policy_blake3: HASH_A.to_owned(),
             source_blake3: octet_architecture_ir::canonical_identity("fixture-source", &package).expect("source id"),
             invocation_blake3: HASH_B.to_owned(),
-        }
+        };
+        unit.unit_id = octet_architecture_ir::compilation_unit_identity(&unit);
+        unit
     }
 
     fn span(path: &str) -> SourceSpan {
@@ -3538,8 +3743,9 @@ mod tests {
         };
         field_visibilities.clear();
         field_visibilities.push(visibility.to_owned());
-        fact_id.clear();
+        let previous = std::mem::take(fact_id);
         set_fact_id(fact);
+        rebind_fixture_fact(&mut ir.unit_memberships, &previous, fact.fact_id());
         ir.facts.sort_by(|left, right| left.fact_id().cmp(right.fact_id()));
     }
 
@@ -3565,8 +3771,9 @@ mod tests {
             panic!("witness shape expected");
         };
         mutate(field_type_definitions, implemented_traits);
-        fact_id.clear();
+        let previous = std::mem::take(fact_id);
         set_fact_id(fact);
+        rebind_fixture_fact(&mut ir.unit_memberships, &previous, fact.fact_id());
         ir.facts.sort_by(|left, right| left.fact_id().cmp(right.fact_id()));
     }
 
@@ -3593,7 +3800,9 @@ mod tests {
                 )
             })
             .expect("witness constructor item");
+        let previous = item.fact_id().to_owned();
         set_item_visibility(item, visibility);
+        rebind_fixture_fact(&mut ir.unit_memberships, &previous, item.fact_id());
         let safety = ir
             .facts
             .iter_mut()
@@ -3613,8 +3822,9 @@ mod tests {
             panic!("witness constructor safety expected");
         };
         *current = is_unsafe;
-        fact_id.clear();
+        let previous = std::mem::take(fact_id);
         set_fact_id(safety);
+        rebind_fixture_fact(&mut ir.unit_memberships, &previous, safety.fact_id());
         ir.facts.sort_by(|left, right| left.fact_id().cmp(right.fact_id()));
     }
 
@@ -3626,6 +3836,10 @@ mod tests {
                     if callee_definition == "outbound::FilesystemPort::publish"
             )
         });
+        let retained = ir.facts.iter().map(CompilerArchitectureFact::fact_id).collect::<BTreeSet<_>>();
+        for row in &mut ir.unit_memberships {
+            row.fact_ids.retain(|id| retained.contains(id.as_str()));
+        }
     }
 
     fn remove_executor_witness_parameter(ir: &mut CompilerArchitectureIr) {
@@ -3661,8 +3875,9 @@ mod tests {
             panic!("protected executor signature expected");
         };
         input_type_ids.clear();
-        fact_id.clear();
+        let previous = std::mem::take(fact_id);
         set_fact_id(signature);
+        rebind_fixture_fact(&mut ir.unit_memberships, &previous, signature.fact_id());
         ir.facts.sort_by(|left, right| left.fact_id().cmp(right.fact_id()));
     }
 
@@ -3692,8 +3907,9 @@ mod tests {
             panic!("receipt provenance expected");
         };
         mutate(argument_type_id, origin_definitions, status);
-        fact_id.clear();
+        let previous = std::mem::take(fact_id);
         set_fact_id(fact);
+        rebind_fixture_fact(&mut ir.unit_memberships, &previous, fact.fact_id());
         ir.facts.sort_by(|left, right| left.fact_id().cmp(right.fact_id()));
     }
 
@@ -3741,8 +3957,9 @@ mod tests {
             panic!("decision signature expected");
         };
         *current = output_type_id;
-        fact_id.clear();
+        let previous = std::mem::take(fact_id);
         set_fact_id(signature);
+        rebind_fixture_fact(&mut ir.unit_memberships, &previous, signature.fact_id());
         ir.facts.sort_by(|left, right| left.fact_id().cmp(right.fact_id()));
     }
 
@@ -3787,6 +4004,16 @@ mod tests {
             panic!("fixture item fact expected");
         };
         item_id
+    }
+
+    fn rebind_fixture_fact(rows: &mut [octet_architecture_ir::UnitFactMembership], previous: &str, current: &str) {
+        for row in rows {
+            for id in &mut row.fact_ids {
+                if id == previous {
+                    *id = current.to_owned();
+                }
+            }
+        }
     }
 
     fn set_fact_id(fact: &mut CompilerArchitectureFact) {

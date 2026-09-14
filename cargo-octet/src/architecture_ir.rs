@@ -216,21 +216,35 @@ pub(crate) fn prepare_collector(
             };
             crate_types.sort();
             crate_types.dedup();
+            let target_kind = if test_configuration {
+                format!("{}+test", cargo_target.kind.join("+"))
+            } else {
+                cargo_target.kind.join("+")
+            };
+            let unit_source_roles = source_roles
+                .iter()
+                .filter(|scope| manifest_dir.is_empty() || path_scopes_overlap(&scope.source_scope, &manifest_dir))
+                .cloned()
+                .collect::<Vec<_>>();
+            let unit_role = octet_architecture_ir::select_compilation_unit_role(
+                role,
+                &target_kind,
+                &source_path,
+                &unit_source_roles,
+            )
+            .map_err(|error| format!("Cargo unit `{}`: {error}", cargo_target.name))?;
             let mut unit = CompilationUnit {
                 unit_id: String::new(),
                 package_name: package.name.clone(),
                 package_version: package.version.clone(),
                 target_name: cargo_target.name.clone(),
-                target_kind: if test_configuration {
-                    format!("{}+test", cargo_target.kind.join("+"))
-                } else {
-                    cargo_target.kind.join("+")
-                },
+                target_kind,
+                source_path: source_path.clone(),
                 crate_types,
                 target_triple: planned.platform.clone().unwrap_or_else(|| host_triple.clone()),
                 features,
                 default_features: target.default_features,
-                role,
+                role: unit_role,
                 toolchain_blake3: toolchain_blake3.clone(),
                 collector_blake3: collector_blake3.clone(),
                 policy_blake3: policy.policy_blake3.clone(),
@@ -238,17 +252,6 @@ pub(crate) fn prepare_collector(
                 invocation_blake3: unit_invocation,
             };
             unit.unit_id = octet_architecture_ir::compilation_unit_identity(&unit);
-            let unit_source_roles = source_roles
-                .iter()
-                .filter(|scope| manifest_dir.is_empty() || path_scopes_overlap(&scope.source_scope, &manifest_dir))
-                .cloned()
-                .collect::<Vec<_>>();
-            if !unit_source_roles.iter().any(|scope| {
-                source_path == scope.source_scope
-                    || source_path.strip_prefix(&scope.source_scope).is_some_and(|suffix| suffix.starts_with('/'))
-            }) {
-                return Err(format!("Cargo unit `{}` has no explicit compiler source-root role", cargo_target.name));
-            }
             if selected_units.len() >= policy.policy.collection_limits.max_units {
                 return Err(format!(
                     "selected compiler architecture units exceed policy limit {}",
@@ -1115,6 +1118,7 @@ mod tests {
                 package_version: "0.1.0".to_owned(),
                 target_name: "fixture".to_owned(),
                 target_kind: "lib".to_owned(),
+                source_path: "src/lib.rs".to_owned(),
                 crate_types: vec!["rlib".to_owned()],
                 target_triple: "x86_64-unknown-linux-gnu".to_owned(),
                 features: Vec::new(),
