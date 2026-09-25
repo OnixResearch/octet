@@ -939,9 +939,10 @@ impl<'tcx> Visitor<'tcx> for RuntimeFormatFinder<'_, 'tcx> {
     }
 }
 
-// Exclude resolved calls that are not stable-const on this toolchain. `is_const_fn`
-// alone also accepts unstable library const functions (for example Vec::push
-// behind const_heap), which cannot be called by an ordinary const fn.
+// Exclude resolved calls and overloaded operators that are not stable-const
+// on this toolchain. `is_const_fn` alone also accepts unstable library const
+// functions (for example Vec::push behind const_heap), which cannot be called
+// by an ordinary const fn.
 // This is a negative check, not proof that every operation is const-compatible.
 fn body_calls_non_const<'tcx>(cx: &LateContext<'tcx>, body: &'tcx hir::Body<'tcx>) -> bool {
     let mut visitor = NonConstCallFinder { cx, found: false };
@@ -957,6 +958,21 @@ struct NonConstCallFinder<'a, 'tcx> {
 impl<'tcx> Visitor<'tcx> for NonConstCallFinder<'_, 'tcx> {
     fn visit_expr(&mut self, expr: &'tcx hir::Expr<'tcx>) {
         if self.found || matches!(expr.kind, hir::ExprKind::Closure(_)) {
+            return;
+        }
+        if let hir::ExprKind::Binary(_, left, right) = expr.kind
+            && [left, right].into_iter().any(|operand| {
+                !matches!(
+                    self.cx.typeck_results().expr_ty(operand).kind(),
+                    rustc_middle::ty::Bool
+                        | rustc_middle::ty::Char
+                        | rustc_middle::ty::Int(_)
+                        | rustc_middle::ty::Uint(_)
+                        | rustc_middle::ty::Float(_)
+                )
+            })
+        {
+            self.found = true;
             return;
         }
         let callee = match expr.kind {

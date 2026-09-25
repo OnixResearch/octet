@@ -11,3 +11,8 @@ fn scale_value(value: u64) -> u64 {
 fn main() {
     let _scaled = scale_value(SCALE_FACTOR);
 }
+
+// `str` equality still invokes a non-const trait implementation on this toolchain.
+fn compares_text(left: &str, right: &str) -> bool {
+    left == right
+}

@@ -193,7 +193,9 @@ functions remain lint candidates when they exceed the bounded literal checker.
 | `contradictory_time` | `warn` | avoid taking time as input and then reading the clock again |
 
 `missing_const_fn` excludes resolved library calls that require unstable const
-features; they are not stable `const fn` candidates.
+features and binary operators on non-scalar operands. For example, `&str`
+equality uses a `PartialEq` implementation that is not stable in `const fn`
+on the pinned toolchain; primitive arithmetic remains eligible.
 
 ## Concurrency lints (`tigerstyle::concurrency`)
 
