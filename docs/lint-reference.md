@@ -110,6 +110,11 @@ Unknown lint names and invalid level values warn and are ignored.
 | `defaulting_trait_method` | `allow` | flag trait methods with default bodies that can weaken substitution contracts |
 
 For `public_unsafe_api`, either add a safe wrapper or document the exception with an unsafe-boundary record.
+`raw_arithmetic_overflow` excludes const/static initializers, including arithmetic
+using const calls: the compiler evaluates those expressions and rejects overflow.
+It still checks const-function bodies and closures stored in constants, which can
+run with unchecked arithmetic at runtime. Deep literal expressions inside runtime
+functions remain lint candidates when they exceed the bounded literal checker.
 
 ## Naming lints (`tigerstyle::naming`)
 
@@ -167,7 +172,7 @@ For `public_unsafe_api`, either add a safe wrapper or document the exception wit
 | `impure_call_in_core` | `warn` | flag direct platform-effect calls in configured core scopes |
 | `interior_mutability_in_core` | `warn` | flag cells, locks, atomics, and unsafe cells in configured core scopes |
 | `logging_in_core` | `warn` | flag logging and console output in configured core scopes |
-| `missing_const_fn` | `allow` | identify private helpers that appear eligible for `const fn`; resolved calls requiring unstable const features are excluded |
+| `missing_const_fn` | `allow` | identify private helpers that appear eligible for `const fn` |
 | `mutating_input_in_pure` | `warn` | flag mutating input capabilities in declared pure contexts |
 | `nondeterministic_output` | `allow` | flag unordered hash iteration collected into ordered output |
 | `pure_attr_contract` | `warn` | enforce direct-effect checks on marked pure functions |
@@ -176,6 +181,9 @@ For `public_unsafe_api`, either add a safe wrapper or document the exception wit
 | `zero_alloc_attr_contract` | `warn` | enforce direct allocation-site checks on marked zero-alloc functions |
 | `verified_purity` | `deny` | ban async, IO, and wall-clock usage in `verified/` modules |
 | `contradictory_time` | `warn` | avoid taking time as input and then reading the clock again |
+
+`missing_const_fn` excludes resolved library calls that require unstable const
+features; they are not stable `const fn` candidates.
 
 ## Concurrency lints (`tigerstyle::concurrency`)
 

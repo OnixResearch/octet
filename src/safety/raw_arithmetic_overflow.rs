@@ -15,8 +15,8 @@ use crate::diagnostics::emit_tiger_style_lint_with_suggestion;
 
 declare_tool_lint! {
     /// Detects unprotected `+`, `-`, `*` on unsigned integer types in
-    /// production code where overflow is not checked. Verified-logic uses
-    /// `checked_add`, `saturating_sub`, etc. for every arithmetic operation.
+    /// production code where overflow is not checked at compile time.
+    /// Verified runtime logic uses `checked_add`, `saturating_sub`, etc.
     pub tigerstyle::RAW_ARITHMETIC_OVERFLOW,
     Allow,
     "unprotected arithmetic on unsigned integers"
@@ -33,6 +33,22 @@ const MAX_LITERAL_ARITHMETIC_DEPTH: u32 = 32;
 fn is_constant_expr(expr: &hir::Expr<'_>) -> bool {
     // Bound recursion depth; unsupported/deeper expressions stay lint candidates.
     literal_arithmetic(expr, MAX_LITERAL_ARITHMETIC_DEPTH)
+}
+
+fn is_compile_time_initializer(cx: &LateContext<'_>, expr: &hir::Expr<'_>) -> bool {
+    for (_, node) in cx.tcx.hir_parent_iter(expr.hir_id) {
+        match node {
+            // A closure stored in a constant has a runtime body.
+            hir::Node::Expr(parent) if matches!(parent.kind, ExprKind::Closure(..)) => return false,
+            hir::Node::Item(item) => {
+                return matches!(item.kind, hir::ItemKind::Const(..) | hir::ItemKind::Static(..));
+            }
+            hir::Node::ImplItem(item) => return matches!(item.kind, hir::ImplItemKind::Const(..)),
+            hir::Node::TraitItem(item) => return matches!(item.kind, hir::TraitItemKind::Const(..)),
+            _ => {}
+        }
+    }
+    false
 }
 
 fn literal_arithmetic(expr: &hir::Expr<'_>, remaining: u32) -> bool {
@@ -85,8 +101,9 @@ impl<'tcx> LateLintPass<'tcx> for RawArithmeticOverflow {
             return;
         }
 
-        // Skip if both operands are constants (compiler checks these)
-        if is_constant_expr(lhs) && is_constant_expr(rhs) {
+        // Initializers are evaluated by the compiler, even when they call
+        // const functions. A const fn or stored closure body can run later.
+        if is_compile_time_initializer(cx, expr) || (is_constant_expr(lhs) && is_constant_expr(rhs)) {
             return;
         }
 

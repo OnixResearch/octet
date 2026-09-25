@@ -34,15 +34,18 @@ test ! -s constants.stderr
 probe checked checked "$driver" 0
 test ! -s checked.stderr
 probe runtime runtime "$driver" 101
-test "$(grep -c 'error: unprotected unsigned' runtime.stderr)" -eq 5
+test "$(grep -c 'error: unprotected unsigned' runtime.stderr)" -eq 7
 grep -q 'runtime.rs:4:' runtime.stderr
 probe deep-rustc deep "$compiler/bin/rustc" 0
-probe deep deep "$driver" 101
-grep -q 'unprotected unsigned addition may overflow' deep.stderr
+probe deep deep "$driver" 0
+test ! -s deep.stderr
+probe deep-runtime-rustc deep-runtime "$compiler/bin/rustc" 0
+probe deep-runtime deep-runtime "$driver" 101
+grep -q 'unprotected unsigned addition may overflow' deep-runtime.stderr
 probe overflow overflow "$compiler/bin/rustc" 1
 grep -q 'E0080' overflow.stderr
 probe overflow-driver overflow "$driver" 101
 grep -q 'E0080' overflow-driver.stderr
 b3sum "$driver" "$library" "$compiler/bin/rustc" "$self"/fixtures/*.rs > after.txt
 cmp before.txt after.txt
-printf '%s\n' 'PASS: eight probes; five runtime operations retained; no startup authority.'
+printf '%s\n' 'PASS: ten probes; seven runtime operations retained; no startup authority.'
