@@ -939,8 +939,10 @@ impl<'tcx> Visitor<'tcx> for RuntimeFormatFinder<'_, 'tcx> {
     }
 }
 
-// Exclude resolved calls whose definitions are not const. This is a negative
-// check, not proof that every operation in the candidate is const-compatible.
+// Exclude resolved calls that are not stable-const on this toolchain. `is_const_fn`
+// alone also accepts unstable library const functions (for example Vec::push
+// behind const_heap), which cannot be called by an ordinary const fn.
+// This is a negative check, not proof that every operation is const-compatible.
 fn body_calls_non_const<'tcx>(cx: &LateContext<'tcx>, body: &'tcx hir::Body<'tcx>) -> bool {
     let mut visitor = NonConstCallFinder { cx, found: false };
     visitor.visit_expr(body.value);
@@ -967,7 +969,8 @@ impl<'tcx> Visitor<'tcx> for NonConstCallFinder<'_, 'tcx> {
         };
         if let Some(def_id) = callee
             && matches!(self.cx.tcx.def_kind(def_id), hir::def::DefKind::Fn | hir::def::DefKind::AssocFn)
-            && !self.cx.tcx.is_const_fn(def_id)
+            && (!self.cx.tcx.is_const_fn(def_id)
+                || self.cx.tcx.lookup_const_stability(def_id).is_some_and(|stability| stability.is_const_unstable()))
         {
             self.found = true;
             return;

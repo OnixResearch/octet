@@ -12,7 +12,7 @@ sh "$here/../const-allocation/verify.sh" "$out/prior" "$driver" "$library" "$com
 cp "$here/fixtures/"*.rs "$out/"
 alias="$out/liboctet@nightly-2026-03-21-x86_64-unknown-linux-gnu.so"
 ln -s "$library" "$alias"
-for name in display local locator free method trait inherent constant constructor; do
+for name in display local locator free method trait vector inherent constant constructor; do
   expected=0
   case "$name" in inherent|constant|constructor) expected=101;; esac
   env -i PATH="$compiler/bin:/run/current-system/sw/bin" LD_LIBRARY_PATH="$compiler/lib" \
@@ -32,4 +32,4 @@ for name in display local locator free method trait inherent constant constructo
   if test "$expected" -eq 101; then grep -q 'private helper appears const-compatible' "$out/$name.stderr"; fi
   printf '%s: plain rustc 0, driver %s\n' "$name" "$status"
 done
-printf '%s\n' 'Ten prior controls plus nine new paired controls passed. Diagnostic only; no startup authority.'
+printf '%s\n' 'Ten prior controls plus ten new paired controls passed. Diagnostic only; no startup authority.'
