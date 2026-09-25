@@ -53,3 +53,19 @@ fn main() {
     visitor.visit(&name);
     external_callback(&name);
 }
+
+fn record_issue(issues: &mut Vec<u8>) {
+    issues.push(1);
+}
+
+fn forward_issues(issues: &mut Vec<u8>) {
+    record_issue(issues);
+}
+
+fn append_name(name: &mut String) {
+    name.push_str(" suffix");
+}
+
+fn descend_path(path: &mut PathBuf) {
+    path.push("child");
+}

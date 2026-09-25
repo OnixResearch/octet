@@ -567,14 +567,7 @@ pub(crate) fn build_standalone_cargo_octet() -> StandaloneCargoOctet {
         "crates/octet-architecture-ir",
         "crates/octet-lint-metadata",
         "crates/octet-standards",
-        "standards/charon-semantic/generated",
-        "standards/clippy-restrictions/generated",
-        "standards/compiler-architecture-ir/contracts",
-        "standards/effect-closure/generated",
-        "standards/nominal-domains/generated",
-        "standards/proof-imports/generated",
-        "standards/proof-rails/aeneas-lean/generated",
-        "standards/strict-profiles/generated",
+        "standards",
     ] {
         copy_path(&repo_root.join(relative), &source_root.join(relative));
     }

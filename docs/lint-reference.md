@@ -115,6 +115,10 @@ against a finite, literal `usize` constant by an exiting guard before the loop.
 An unguarded slice, a mutable/rebound source, nested loops, and `extend` remain
 lint candidates; a bound on the outer iterator does not bound those growth paths.
 
+`borrowed_argument_types` suggests borrowed views only for immutable references
+to owned containers. A mutable `Vec`, `String`, or `PathBuf` may be grown in a
+helper even when the current function does not call `push` itself.
+
 For `public_unsafe_api`, either add a safe wrapper or document the exception with an unsafe-boundary record.
 `raw_arithmetic_overflow` excludes const/static initializers, including arithmetic
 using const calls: the compiler evaluates those expressions and rejects overflow.
