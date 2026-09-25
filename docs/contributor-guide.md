@@ -201,6 +201,10 @@ before trusting `--locked` Nix builds.
 
 Run Rust commands inside the Nix devshell here.
 
+The standalone `cargo-octet` consumer fixture copies the repository's
+`standards/` tree: the CLI embeds profiles and corpora at compile time, so a
+partial list of generated subdirectories is not a buildable source closure.
+
 Common checks:
 
 ```bash
