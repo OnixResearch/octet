@@ -167,7 +167,7 @@ For `public_unsafe_api`, either add a safe wrapper or document the exception wit
 | `impure_call_in_core` | `warn` | flag direct platform-effect calls in configured core scopes |
 | `interior_mutability_in_core` | `warn` | flag cells, locks, atomics, and unsafe cells in configured core scopes |
 | `logging_in_core` | `warn` | flag logging and console output in configured core scopes |
-| `missing_const_fn` | `allow` | identify private helpers that appear eligible for `const fn` |
+| `missing_const_fn` | `allow` | identify private helpers that appear eligible for `const fn`; resolved calls requiring unstable const features are excluded |
 | `mutating_input_in_pure` | `warn` | flag mutating input capabilities in declared pure contexts |
 | `nondeterministic_output` | `allow` | flag unordered hash iteration collected into ordered output |
 | `pure_attr_contract` | `warn` | enforce direct-effect checks on marked pure functions |
