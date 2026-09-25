@@ -109,6 +109,12 @@ Unknown lint names and invalid level values warn and are ignored.
 | `public_unsafe_api` | `warn` | flag public Rust `unsafe fn` APIs that leak unsafe obligations to callers |
 | `defaulting_trait_method` | `allow` | flag trait methods with default bodies that can weaken substitution contracts |
 
+`unbounded_collection_growth` accepts one `push` or `insert` per iteration over
+a named constant array, or an immutable borrowed slice whose length is checked
+against a finite, literal `usize` constant by an exiting guard before the loop.
+An unguarded slice, a mutable/rebound source, nested loops, and `extend` remain
+lint candidates; a bound on the outer iterator does not bound those growth paths.
+
 For `public_unsafe_api`, either add a safe wrapper or document the exception with an unsafe-boundary record.
 `raw_arithmetic_overflow` excludes const/static initializers, including arithmetic
 using const calls: the compiler evaluates those expressions and rejects overflow.
