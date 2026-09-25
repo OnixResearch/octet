@@ -4,6 +4,7 @@ use std::collections::HashSet;
 use rustc_errors::Applicability;
 use rustc_hir as hir;
 use rustc_hir::ExprKind;
+use rustc_hir::def::DefKind;
 use rustc_hir::def::Res;
 use rustc_hir::intravisit::Visitor;
 use rustc_hir::intravisit::{self};
@@ -265,14 +266,7 @@ fn block_definitely_exits(block: &hir::Block<'_>) -> bool {
         return expr_definitely_exits(expr);
     }
 
-    if block.stmts.len() != 1 {
-        return false;
-    }
-
-    let Some(expr) = stmt_expr(&block.stmts[0]) else {
-        return false;
-    };
-    expr_definitely_exits(expr)
+    block.stmts.last().and_then(stmt_expr).is_some_and(expr_definitely_exits)
 }
 
 fn direct_break_guard_locals(
@@ -389,6 +383,157 @@ fn enclosing_block<'tcx>(cx: &LateContext<'tcx>, hir_id: hir::HirId) -> Option<&
     None
 }
 
+fn for_loop_iterable<'tcx>(cx: &LateContext<'tcx>, loop_expr: &'tcx hir::Expr<'tcx>) -> Option<&'tcx hir::Expr<'tcx>> {
+    let outer = cx.tcx.hir_parent_iter(loop_expr.hir_id).find_map(|(_, node)| match node {
+        hir::Node::Expr(parent) => Some(parent),
+        _ => None,
+    })?;
+    let ExprKind::Match(into_iter, [arm], hir::MatchSource::ForLoopDesugar) = &outer.kind else {
+        return None;
+    };
+    if arm.body.hir_id != loop_expr.hir_id {
+        return None;
+    }
+    let ExprKind::Call(_, [iterable]) = &peel_transparent_expr(into_iter).kind else {
+        return None;
+    };
+    Some(peel_transparent_expr(iterable))
+}
+
+fn is_named_const(cx: &LateContext<'_>, expr: &hir::Expr<'_>) -> bool {
+    let expr = peel_transparent_expr(expr);
+    let ExprKind::Path(qpath) = &expr.kind else {
+        return false;
+    };
+    matches!(cx.typeck_results().qpath_res(qpath, expr.hir_id), Res::Def(DefKind::Const { .. }, _))
+}
+
+fn is_finite_named_limit(cx: &LateContext<'_>, expr: &hir::Expr<'_>) -> bool {
+    let expr = peel_transparent_expr(expr);
+    let ExprKind::Path(qpath) = &expr.kind else {
+        return false;
+    };
+    let Res::Def(DefKind::Const { .. }, did) = cx.typeck_results().qpath_res(qpath, expr.hir_id) else {
+        return false;
+    };
+    let Some(body) = did.as_local().and_then(|local| cx.tcx.hir_maybe_body_owned_by(local)) else {
+        return false;
+    };
+    let ExprKind::Lit(lit) = &peel_transparent_expr(body.value).kind else {
+        return false;
+    };
+    let rustc_ast::LitKind::Int(value, _) = lit.node else {
+        return false;
+    };
+    let Some(usize_max) = 1_u128.checked_shl(cx.tcx.data_layout.pointer_size().bits() as u32).map(|max| max - 1) else {
+        return false;
+    };
+    value.get() < usize_max
+}
+
+fn is_slice_len(cx: &LateContext<'_>, expr: &hir::Expr<'_>, source_id: hir::HirId) -> bool {
+    if measurement_kind(cx, expr, source_id) != Some(MeasureKind::Len) {
+        return false;
+    }
+    let Some(method) = cx.typeck_results().type_dependent_def_id(peel_transparent_expr(expr).hir_id) else {
+        return false;
+    };
+    let assoc = cx.tcx.associated_item(method);
+    if assoc.container != ty::AssocContainer::InherentImpl {
+        return false;
+    }
+    let Some(owner) = assoc.impl_container(cx.tcx) else {
+        return false;
+    };
+    matches!(cx.tcx.type_of(owner).instantiate_identity().kind(), ty::Slice(_))
+}
+
+fn guarded_slice_source(
+    cx: &LateContext<'_>,
+    block: &hir::Block<'_>,
+    loop_expr: &hir::Expr<'_>,
+    iterable: &hir::Expr<'_>,
+) -> bool {
+    let Some(source_id) = direct_local_hir_id(cx, iterable) else {
+        return false;
+    };
+    let ty::Ref(_, slice, hir::Mutability::Not) = cx.typeck_results().expr_ty(iterable).kind() else {
+        return false;
+    };
+    if !matches!(slice.kind(), ty::Slice(_)) {
+        return false;
+    }
+    let hir::Node::Pat(pat) = cx.tcx.hir_node(source_id) else {
+        return false;
+    };
+    let hir::PatKind::Binding(mode, _, _, None) = pat.kind else {
+        return false;
+    };
+    if mode.1 != hir::Mutability::Not {
+        return false;
+    }
+
+    let loop_start = loop_expr.span.source_callsite().lo();
+    block.stmts.iter().take_while(|stmt| stmt.span.source_callsite().hi() <= loop_start).any(|stmt| {
+        let Some(expr) = stmt_expr(stmt) else {
+            return false;
+        };
+        let ExprKind::If(cond, then_expr, _) = &peel_transparent_expr(expr).kind else {
+            return false;
+        };
+        let ExprKind::Block(then_block, _) = &then_expr.kind else {
+            return false;
+        };
+        if !block_definitely_exits(then_block) {
+            return false;
+        }
+        let ExprKind::Binary(op, lhs, rhs) = &peel_transparent_expr(cond).kind else {
+            return false;
+        };
+        let (len, maximum) = match op.node {
+            hir::BinOpKind::Gt => (lhs, rhs),
+            hir::BinOpKind::Lt => (rhs, lhs),
+            _ => return false,
+        };
+        is_slice_len(cx, len, source_id) && is_finite_named_limit(cx, maximum)
+    })
+}
+
+fn has_fixed_for_loop_bound<'tcx>(
+    cx: &LateContext<'tcx>,
+    block: &hir::Block<'_>,
+    loop_expr: &'tcx hir::Expr<'tcx>,
+) -> bool {
+    let Some(iterable) = for_loop_iterable(cx, loop_expr) else {
+        return false;
+    };
+    // Other IntoIterator sources can yield an input-sized number of elements.
+    (is_named_const(cx, iterable) && matches!(cx.typeck_results().expr_ty(iterable).kind(), ty::Array(..)))
+        || guarded_slice_source(cx, block, loop_expr, iterable)
+}
+
+fn single_item_growth_in_loop(cx: &LateContext<'_>, growth: &hir::Expr<'_>, loop_id: hir::HirId) -> bool {
+    let ExprKind::MethodCall(segment, _, _, _) = &peel_transparent_expr(growth).kind else {
+        return false;
+    };
+    if !matches!(segment.ident.name.as_str(), "push" | "insert") {
+        return false;
+    }
+
+    // The iterator bound does not constrain a nested loop or an `extend` source.
+    for (_, node) in cx.tcx.hir_parent_iter(growth.hir_id) {
+        if let hir::Node::Expr(parent) = node {
+            if parent.hir_id == loop_id {
+                return true;
+            }
+            if matches!(parent.kind, ExprKind::Loop(..)) {
+                return false;
+            }
+        }
+    }
+    false
+}
+
 fn collect_candidate_bindings_before_loop<'tcx>(
     cx: &LateContext<'tcx>,
     block: &'tcx hir::Block<'tcx>,
@@ -452,6 +597,7 @@ struct LoopBodyAnalyzer<'a, 'tcx> {
     guarded: HashSet<hir::HirId>,
     reserved: HashSet<hir::HirId>,
     init_spans: &'a HashMap<hir::HirId, rustc_span::Span>,
+    fixed_for_loop: Option<hir::HirId>,
 }
 
 impl<'tcx> Visitor<'tcx> for LoopBodyAnalyzer<'_, 'tcx> {
@@ -526,6 +672,7 @@ impl<'tcx> Visitor<'tcx> for LoopBodyAnalyzer<'_, 'tcx> {
             && self.candidates.contains(&local_id)
             && !self.guarded.contains(&local_id)
             && !self.reserved.contains(&local_id)
+            && !self.fixed_for_loop.is_some_and(|loop_id| single_item_growth_in_loop(self.cx, expr, loop_id))
             && self.warned.insert(local_id)
         {
             let message = "collection grows in loop without a prior reservation or explicit local bound";
@@ -603,6 +750,7 @@ impl<'tcx> LateLintPass<'tcx> for UnboundedCollectionGrowth {
             guarded: HashSet::new(),
             reserved: pre_reserved,
             init_spans: &init_spans,
+            fixed_for_loop: has_fixed_for_loop_bound(cx, parent_block, expr).then_some(expr.hir_id),
         };
         analyzer.visit_block(loop_block);
     }
