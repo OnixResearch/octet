@@ -13,6 +13,8 @@ pub struct RunMetadata {
     pub profile_name: String,
     pub profile_hash: String,
     pub config_hash: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub dylint_rustflags_hash: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -29,10 +31,18 @@ pub struct MetadataInput<'a> {
     pub cargo_check_args: &'a [String],
     pub output_format: &'a str,
     pub strict_profile: Option<StrictProfileIdentity<'a>>,
+    pub dylint_rustflags: Option<&'a str>,
 }
 
 pub fn build_run_metadata(input: &MetadataInput<'_>) -> RunMetadata {
-    let config_hash = config_hash(input.workspace_root, input.scope_args, input.cargo_check_args, input.strict_profile);
+    let dylint_rustflags_hash = input.dylint_rustflags.filter(|flags| !flags.is_empty()).map(full_hash);
+    let config_hash = config_hash(
+        input.workspace_root,
+        input.scope_args,
+        input.cargo_check_args,
+        input.strict_profile,
+        dylint_rustflags_hash.as_deref(),
+    );
     let profile_hash =
         profile_hash(input.scope_args, input.cargo_check_args, input.output_format, &config_hash, input.strict_profile);
 
@@ -46,6 +56,7 @@ pub fn build_run_metadata(input: &MetadataInput<'_>) -> RunMetadata {
             .map_or_else(|| "workspace-metadata".to_owned(), |profile| profile.profile_id.to_owned()),
         profile_hash,
         config_hash,
+        dylint_rustflags_hash,
     }
 }
 
@@ -129,11 +140,12 @@ fn config_hash(
     scope_args: &[String],
     cargo_check_args: &[String],
     strict_profile: Option<StrictProfileIdentity<'_>>,
+    dylint_rustflags_hash: Option<&str>,
 ) -> String {
     let mut files = Vec::new();
     push_file_hash(&workspace_root.join("Cargo.toml"), &mut files);
     push_file_hash(&workspace_root.join("dylint.toml"), &mut files);
-    let payload = match strict_profile {
+    let mut payload = match strict_profile {
         Some(profile) => serde_json::json!({
             "files": files,
             "effective_scope_args": scope_args,
@@ -149,6 +161,9 @@ fn config_hash(
             "effective_cargo_check_args": cargo_check_args,
         }),
     };
+    if let Some(hash) = dylint_rustflags_hash {
+        payload["dylint_rustflags_hash"] = serde_json::json!(hash);
+    }
     full_hash(&payload.to_string())
 }
 
@@ -199,7 +214,7 @@ mod tests {
             policy_hash: BOUNDED_POLICY_HASH,
         };
 
-        let default_hash = config_hash(root.path(), &scope_args, &cargo_args, None);
+        let default_hash = config_hash(root.path(), &scope_args, &cargo_args, None, None);
         let expected_default_hash = full_hash(
             &serde_json::json!({
                 "files": [
@@ -211,9 +226,9 @@ mod tests {
             })
             .to_string(),
         );
-        let robust_hash = config_hash(root.path(), &scope_args, &cargo_args, Some(robust));
-        let repeated_robust_hash = config_hash(root.path(), &scope_args, &cargo_args, Some(robust));
-        let bounded_hash = config_hash(root.path(), &scope_args, &cargo_args, Some(bounded));
+        let robust_hash = config_hash(root.path(), &scope_args, &cargo_args, Some(robust), None);
+        let repeated_robust_hash = config_hash(root.path(), &scope_args, &cargo_args, Some(robust), None);
+        let bounded_hash = config_hash(root.path(), &scope_args, &cargo_args, Some(bounded), None);
 
         assert_eq!(default_hash, expected_default_hash);
         assert_eq!(robust_hash, repeated_robust_hash);

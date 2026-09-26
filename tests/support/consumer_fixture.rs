@@ -123,6 +123,7 @@ printf 'ARGS:%s\n' "$*" >> "$TS_LOG"
 printf 'RUSTC_WORKSPACE_WRAPPER=%s\n' "${{RUSTC_WORKSPACE_WRAPPER:-}}" >> "$TS_LOG"
 printf 'DYLINT_LIBS=%s\n' "${{DYLINT_LIBS:-}}" >> "$TS_LOG"
 printf 'DYLINT_NO_DEPS=%s\n' "${{DYLINT_NO_DEPS:-}}" >> "$TS_LOG"
+printf 'DYLINT_RUSTFLAGS=%s\n' "${{DYLINT_RUSTFLAGS:-}}" >> "$TS_LOG"
 printf 'OCTET_STRICT_PROFILE=%s\n' "${{OCTET_STRICT_PROFILE:-}}" >> "$TS_LOG"
 printf 'OCTET_COMPILER_ARCHITECTURE_CONTEXT=%s\n' "${{OCTET_COMPILER_ARCHITECTURE_CONTEXT:-}}" >> "$TS_LOG"
 printf 'RUSTUP_TOOLCHAIN=%s\n' "${{RUSTUP_TOOLCHAIN:-}}" >> "$TS_LOG"
@@ -246,7 +247,8 @@ esac
             .env("TS_MUTATE_LOCKFILE", if mutate_lockfile { "1" } else { "0" })
             .env("TS_MUTATE_LOCKFILE_ON_BUILD", "0")
             .env("TS_CONSUMER_LOCKFILE", self.repo.join("Cargo.lock"))
-            .env("CARGO_TARGET_DIR", &self.target_dir);
+            .env("CARGO_TARGET_DIR", &self.target_dir)
+            .env_remove("DYLINT_RUSTFLAGS");
 
         fs::write(&self.log_path, format!("LAUNCHER:{}\nPATH:{}\n", command.get_program().to_string_lossy(), path))
             .expect("seed cargo log");
@@ -437,7 +439,8 @@ esac
             .env("TS_MUTATE_LOCKFILE", if mutate_lockfile { "1" } else { "0" })
             .env("TS_MUTATE_LOCKFILE_ON_BUILD", if mutate_lockfile_on_build { "1" } else { "0" })
             .env("TS_CONSUMER_LOCKFILE", self.repo.join("Cargo.lock"))
-            .env("CARGO_TARGET_DIR", &self.target_dir);
+            .env("CARGO_TARGET_DIR", &self.target_dir)
+            .env_remove("DYLINT_RUSTFLAGS");
 
         fs::write(&self.log_path, format!("LAUNCHER:{}\nPATH:{}\n", command.get_program().to_string_lossy(), path))
             .expect("seed cargo log");

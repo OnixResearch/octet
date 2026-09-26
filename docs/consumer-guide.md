@@ -267,6 +267,13 @@ hard errors without promoting unrelated rustc warnings. Do not use
 fail-closed because their command-line deny name is no longer registered.
 Prefer narrow source `allow` attributes with reasons for reviewable exceptions.
 
+A nonempty `DYLINT_RUSTFLAGS` value is hashed into `status.json` as
+`metadata.dylint_rustflags_hash` and changes both config and profile hashes.
+Compare the digest against the exact flags from the reviewed hook revision;
+identical findings under two hook revisions do not make their policies
+identical. This records the runner's Dylint flag input, not proof that every
+lint executed or that other Cargo/rustc flags cannot affect the check.
+
 If a consumer cannot use Nix but already installed `cargo-octet`, set
 `OCTET_PRECOMMIT_USE_INSTALLED=true` in that environment. Use hook `args` only
 for runner scope or cargo-check tail overrides, for example:

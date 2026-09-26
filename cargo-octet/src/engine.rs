@@ -143,6 +143,11 @@ pub fn run(check: &CheckArgs) -> Result<i32, String> {
 
     let result = (|| {
         let toolchain = resolve_toolchain()?;
+        let dylint_rustflags = match env::var("DYLINT_RUSTFLAGS") {
+            Ok(flags) => Some(flags),
+            Err(env::VarError::NotPresent) => None,
+            Err(env::VarError::NotUnicode(_)) => return Err("DYLINT_RUSTFLAGS must be valid UTF-8".to_owned()),
+        };
         let strict_profile_identity = selected_profile.as_ref().map(|selected| determinism::StrictProfileIdentity {
             profile_id: &selected.policy.profile_id,
             policy_hash: &selected.policy_hash,
@@ -154,6 +159,7 @@ pub fn run(check: &CheckArgs) -> Result<i32, String> {
             cargo_check_args: &cargo_check_args,
             output_format: check.output_format.as_str(),
             strict_profile: strict_profile_identity,
+            dylint_rustflags: dylint_rustflags.as_deref(),
         });
         let driver = resolve_driver(&toolchain)?;
         let lint_lib = resolve_lint_lib(&toolchain)?;
@@ -192,6 +198,10 @@ pub fn run(check: &CheckArgs) -> Result<i32, String> {
             .env("DYLINT_NO_DEPS", "1")
             .env("RUSTUP_TOOLCHAIN", &toolchain)
             .stdout(Stdio::piped());
+        match &dylint_rustflags {
+            Some(flags) => cmd.env("DYLINT_RUSTFLAGS", flags),
+            None => cmd.env_remove("DYLINT_RUSTFLAGS"),
+        };
         cmd.env_remove(octet_lint_metadata::strict_profile::STRICT_PROFILE_ENV);
         cmd.env_remove(octet_architecture_ir::COMPILER_ARCHITECTURE_COLLECTOR_CONTEXT_ENV);
         if let Some(collector) = &collector {

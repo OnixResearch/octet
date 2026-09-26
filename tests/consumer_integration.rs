@@ -84,6 +84,63 @@ fn no_argument_check_uses_workspace_metadata_defaults() {
 }
 
 #[test]
+fn inherited_dylint_lint_flags_change_reviewable_run_identity() {
+    let fixture = ConsumerFixture::new("dylint-flags-identity", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
+    let old_flags = "-D unknown_lints -D no_recursion";
+    let reviewed_flags = "-D unknown_lints -D no_recursion -D state_machine_exhaustiveness";
+    let run = |flags: &str, artifact_dir: &str| {
+        let output = fixture.run_with_launcher_and_env(
+            None,
+            &[("DYLINT_RUSTFLAGS", flags)],
+            &["--artifact-dir", artifact_dir],
+            EXIT_CODE_SUCCESS,
+            false,
+            Some("nightly-2026-03-21-x86_64-unknown-linux-gnu"),
+            Some(fixture.driver_path.as_path()),
+            Some(fixture.lint_lib_path.as_path()),
+            None,
+        );
+        assert_eq!(
+            output.status.code(),
+            Some(EXIT_CODE_SUCCESS),
+            "runner failed with flags `{flags}`: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let status = read_json_artifact(&fixture.repo.join(artifact_dir).join(STATUS_JSON_FILE));
+        assert_eq!(
+            status["metadata"]["dylint_rustflags_hash"],
+            format!("b3:{}", blake3::hash(flags.as_bytes()).to_hex())
+        );
+        assert!(
+            fixture.log().contains(&format!("DYLINT_RUSTFLAGS={flags}\n")),
+            "recorded flags must be the flags passed to the Cargo child"
+        );
+        status
+    };
+
+    let old = run(old_flags, "artifacts/old-hook");
+    let reviewed = run(reviewed_flags, "artifacts/reviewed-hook");
+    assert_ne!(old["metadata"]["dylint_rustflags_hash"], reviewed["metadata"]["dylint_rustflags_hash"]);
+    assert_ne!(old["metadata"]["config_hash"], reviewed["metadata"]["config_hash"]);
+    assert_ne!(old["metadata"]["profile_hash"], reviewed["metadata"]["profile_hash"]);
+}
+
+#[test]
+fn non_utf8_dylint_flags_fail_before_cargo_runs() {
+    let fixture = ConsumerFixture::new("dylint-flags-non-utf8", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
+    let output = Command::new(built_cargo_octet_bin().expect("build runner"))
+        .arg("check")
+        .current_dir(&fixture.repo)
+        .env("DYLINT_RUSTFLAGS", OsString::from_vec(vec![0xff]))
+        .env("TIGERSTYLE_TOOLCHAIN", "nightly-2026-03-21-x86_64-unknown-linux-gnu")
+        .output()
+        .expect("run with non-UTF-8 Dylint flags");
+    assert_eq!(output.status.code(), Some(EXIT_CODE_INTEGRATION_FAILURE));
+    assert!(String::from_utf8_lossy(&output.stderr).contains("DYLINT_RUSTFLAGS must be valid UTF-8"));
+    assert!(!fixture.log().contains("ARGS:check"), "invalid flags must fail before Cargo");
+}
+
+#[test]
 fn project_without_architecture_policy_gets_no_collector_state_or_artifacts() {
     let fixture =
         ConsumerFixture::new("inactive-architecture-policy", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));

@@ -73,15 +73,15 @@ Strict-profile selection is visible or cryptographically bound in:
 
 - `command.txt` through the normalized `--profile` invocation;
 - `summary.txt` through `Profile`, `Config hash`, and `Profile hash`;
-- `status.json` through `metadata.profile_name`, `metadata.config_hash`, and `metadata.profile_hash`;
+- `status.json` through `metadata.profile_name`, `metadata.config_hash`, and `metadata.profile_hash`; when `DYLINT_RUSTFLAGS` is nonempty, `metadata.dylint_rustflags_hash` records the BLAKE3 digest of the exact UTF-8 value passed to the Cargo child;
 - `provenance.jsonl` through `checked_scope = "profile:<PROFILE>"` and artifact BLAKE3 identities;
 - `function-addresses.json` when the profile floor enables that rail.
 
-Changing the selected profile or its generated policy changes the BLAKE3 configuration/profile identity. `cargo octet artifact verify` recomputes artifact hashes and checks profile-scoped provenance coverage, but verification remains evidence-integrity validation rather than behavioral proof.
+Changing the selected profile, its generated policy, or nonempty `DYLINT_RUSTFLAGS` changes the BLAKE3 configuration/profile identity. The runner snapshots the flags once and passes that value to Cargo; non-UTF-8 flags fail before Cargo runs. The flags digest identifies this input, not the set of lints actually executed: ambient Cargo/rustc flags, Cargo configuration, compiler behavior, and source-level suppression still require separate review. `cargo octet artifact verify` recomputes artifact hashes and checks profile-scoped provenance coverage, but verification remains evidence-integrity validation rather than behavioral proof.
 
 ## Compatibility
 
-Without `--profile`, `cargo octet check` retains the existing `workspace-metadata` profile, consumer configuration behavior, hashes, and function-address default. The runner removes any ambient `OCTET_STRICT_PROFILE` value from an unprofiled child process, so shell state cannot silently opt a check into strict behavior.
+Without `--profile`, `cargo octet check` retains the existing `workspace-metadata` profile, consumer configuration behavior, and function-address default. Runs without nonempty `DYLINT_RUSTFLAGS` retain their existing hashes; runs with flags now bind that input into both hashes. The runner removes any ambient `OCTET_STRICT_PROFILE` value from an unprofiled child process, so shell state cannot silently opt a check into strict behavior.
 
 ## Current boundary and next layers
 
