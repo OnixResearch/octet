@@ -109,6 +109,11 @@ Unknown lint names and invalid level values warn and are ignored.
 | `public_unsafe_api` | `warn` | flag public Rust `unsafe fn` APIs that leak unsafe obligations to callers |
 | `defaulting_trait_method` | `allow` | flag trait methods with default bodies that can weaken substitution contracts |
 
+For lints that exclude test code, a compilation unit built with `rustc --test`
+is test context throughout, including unannotated helpers in
+integration-test crates. The normally compiled library target is checked
+separately; a plain `--cfg test` does not suppress unannotated production code.
+
 `unbounded_collection_growth` accepts one `push` or `insert` per iteration over
 a named constant array, or an immutable borrowed slice whose length is checked
 against a finite, literal `usize` constant by an exiting guard before the loop.

@@ -52,6 +52,12 @@ pub(crate) fn hir_attrs_indicate_test(sess: &Session, attrs: &[hir::Attribute]) 
 }
 
 pub(crate) fn late_hir_id_is_in_test_context(cx: &LateContext<'_>, hir_id: hir::HirId, _span: Span) -> bool {
+    // Integration-test targets are compiled with `--test`, but their test and
+    // helper functions need not have individual #[test] or #[cfg(test)] attrs.
+    if cx.sess().opts.test {
+        return true;
+    }
+
     for (_, node) in cx.tcx.hir_parent_iter(hir_id) {
         if let hir::Node::Item(item) = node
             && (hir_attrs_indicate_test(cx.sess(), cx.tcx.hir_attrs(item.hir_id()))
