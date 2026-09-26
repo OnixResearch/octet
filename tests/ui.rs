@@ -281,6 +281,7 @@ fn normalize_stderr(stderr: &str, fixture_path: &Path) -> String {
 
 fn extra_rustc_args(name: &str) -> &'static [&'static str] {
     match name {
+        "no_unwrap_test_target" => &["--test"],
         "no_panic"
         | "no_todo"
         | "no_unwrap"

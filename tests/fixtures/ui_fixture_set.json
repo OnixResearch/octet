@@ -93,6 +93,7 @@
     "no_unwrap_disabled_deny_custom/no_unwrap_disabled_deny_custom",
     "no_unwrap_disabled_source_attr_custom/no_unwrap_disabled_source_attr_custom",
     "no_unwrap_guarded",
+    "no_unwrap_test_target",
     "no_unwrap_tool_attr",
     "no_unwrap_warn_custom/no_unwrap_warn_custom",
     "nominal_domain_compile_fail",
