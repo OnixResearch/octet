@@ -850,6 +850,7 @@ mod tests {
             profile_name: "default".to_owned(),
             profile_hash: "profile-hash".to_owned(),
             config_hash: TEST_CONFIG_HASH.to_owned(),
+            dylint_rustflags_hash: None,
         };
 
         let rendered = render_sarif(
