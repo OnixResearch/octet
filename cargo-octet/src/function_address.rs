@@ -11,7 +11,9 @@ use crate::output;
 
 pub const FUNCTION_ADDRESS_ARTIFACT_NAME: &str = "function-addresses.json";
 pub const FUNCTION_ADDRESS_DOMAIN: &str = "octet.function-address.v1";
-pub const FUNCTION_ADDRESS_CANONICALIZER: &str = "octet-source-token-function-address-v1";
+// v2 keeps literal contents, including any quoted `//` and the code after it,
+// and drops block comments. v1 addresses are not comparable and fail closed.
+pub const FUNCTION_ADDRESS_CANONICALIZER: &str = "octet-source-token-function-address-v2";
 
 const FUNCTION_ADDRESS_SCHEMA_VERSION: u32 = 1;
 const LINT_FUNCTION_ADDRESS_DUPLICATE_LOCATOR: &str = "function_address_duplicate_locator";
@@ -1624,6 +1626,133 @@ mod tests {
         let findings = collect_test_findings(&check, temp.path(), "config");
 
         assert!(findings.iter().any(|finding| finding.lint == LINT_FUNCTION_ADDRESS_DUPLICATE_LOCATOR));
+    }
+
+    #[test]
+    fn documentation_examples_do_not_create_missing_or_duplicate_locators() {
+        let temp = TempDir::new().expect("temp dir");
+        let source = temp.path().join("lib.rs");
+        std::fs::write(
+            &source,
+            "/// ```compile_fail\n/// fn forge() {}\n/// ```\n///\n/// ```compile_fail\n/// fn forge() {}\n/// ```\npub fn real() -> u32 { 1 }\n",
+        )
+        .expect("write source");
+        let check = FunctionAddressCheck {
+            mode: FunctionAddressMode::Deny,
+            paths: vec![PathBuf::from("lib.rs")],
+            baseline: None,
+        };
+
+        let run = collect_test_run(&check, temp.path(), "config");
+
+        assert_eq!(run.findings.len(), 1);
+        assert_eq!(run.findings[0].lint, LINT_FUNCTION_ADDRESS_MISSING);
+        assert!(run.findings[0].message.contains("; function=real "));
+        let artifact = artifact_value(&run);
+        let records = artifact["records"].as_array().expect("records array");
+        let names = records.iter().map(|record| record["name"].as_str()).collect::<Vec<_>>();
+        assert_eq!(names, [Some("real")]);
+    }
+
+    #[test]
+    fn array_typed_signatures_are_checked_instead_of_skipped() {
+        let temp = TempDir::new().expect("temp dir");
+        let source = temp.path().join("lib.rs");
+        let text = "trait Pairs {\n    fn first(&self) -> [u8; 2];\n}\nfn pair(bytes: [u8; 2]) -> [bool; 2] {\n    [bytes[0] == 0, bytes[1] == 0]\n}\n";
+        std::fs::write(&source, text).expect("write source");
+        let check = FunctionAddressCheck {
+            mode: FunctionAddressMode::Deny,
+            paths: vec![PathBuf::from("lib.rs")],
+            baseline: None,
+        };
+
+        let run = collect_test_run(&check, temp.path(), "config");
+
+        assert_eq!(run.findings.len(), 1);
+        assert_eq!(run.findings[0].lint, LINT_FUNCTION_ADDRESS_MISSING);
+        assert!(run.findings[0].message.contains("; function=pair "));
+        let artifact = artifact_value(&run);
+        let records = artifact["records"].as_array().expect("records array");
+        assert_eq!(records.len(), 1);
+        assert_eq!(records[0]["start_byte"], text.find("fn pair").expect("pair definition"));
+        assert_eq!(records[0]["end_byte"], text.trim_end().len());
+    }
+
+    #[test]
+    fn macro_context_follows_real_macro_calls_not_keywords_or_quoted_text() {
+        let temp = TempDir::new().expect("temp dir");
+        let source = temp.path().join("lib.rs");
+        std::fs::write(
+            &source,
+            "fn guarded(ready: bool) -> bool { if !(ready) { return false; } true }\n\
+             fn quoted() -> &'static str { \"fake!(x) at https://example.invalid\" }\n\
+             fn after_url() -> bool { let _url = \"https://example.invalid\"; assert!(true); true }\n\
+             fn listed() -> Vec<u8> { vec![1] }\n",
+        )
+        .expect("write source");
+        let check = FunctionAddressCheck {
+            mode: FunctionAddressMode::Deny,
+            paths: vec![PathBuf::from("lib.rs")],
+            baseline: None,
+        };
+
+        let run = collect_test_run(&check, temp.path(), "config");
+
+        let artifact = artifact_value(&run);
+        let statuses = artifact["records"]
+            .as_array()
+            .expect("records array")
+            .iter()
+            .map(|record| (record["name"].as_str(), record["dependency_identity_status"].as_str()))
+            .collect::<Vec<_>>();
+        assert_eq!(statuses, [
+            (Some("guarded"), Some("source-scanner-token-set")),
+            (Some("quoted"), Some("source-scanner-token-set")),
+            (Some("after_url"), Some("unsupported-macro-context")),
+            (Some("listed"), Some("unsupported-macro-context")),
+        ]);
+        let unsupported = run
+            .findings
+            .iter()
+            .filter(|finding| finding.lint == LINT_FUNCTION_ADDRESS_UNSUPPORTED)
+            .filter_map(|finding| finding.message.split("; function=").nth(1)?.split(' ').next())
+            .collect::<Vec<_>>();
+        assert_eq!(unsupported, ["after_url", "listed"]);
+        assert!(run.findings.iter().all(|finding| finding.severity == ERROR_SEVERITY));
+    }
+
+    #[test]
+    fn reviewed_marker_fails_closed_for_code_after_quoted_slashes() {
+        let temp = TempDir::new().expect("temp dir");
+        let source = temp.path().join("lib.rs");
+        let reviewed = "pub fn fetch() -> u32 {\n    let _endpoint = \"https://example.invalid/api\"; 1\n}\n";
+        std::fs::write(&source, reviewed).expect("write reviewed source");
+        let observe = FunctionAddressCheck {
+            mode: FunctionAddressMode::Observe,
+            paths: vec![PathBuf::from("lib.rs")],
+            baseline: None,
+        };
+        let reviewed_run = collect_test_run(&observe, temp.path(), "config");
+        let address = artifact_value(&reviewed_run)["records"][0]["function_address"]
+            .as_str()
+            .expect("reviewed function address")
+            .to_owned();
+        let marker = format!("// octet-fingerprint: {address}; review=R-1; evidence=E-1\n");
+        let deny = FunctionAddressCheck {
+            mode: FunctionAddressMode::Deny,
+            ..observe
+        };
+
+        let comment_only = reviewed.replace("; 1", "; 1 // still one");
+        std::fs::write(&source, format!("{marker}{comment_only}")).expect("write comment-only edit");
+        assert!(collect_test_findings(&deny, temp.path(), "config").is_empty());
+
+        let aborts = reviewed.replace("; 1", "; std::process::abort()");
+        std::fs::write(&source, format!("{marker}{aborts}")).expect("write hidden behavior edit");
+        let findings = collect_test_findings(&deny, temp.path(), "config");
+        assert_eq!(findings.len(), 1);
+        assert_eq!(findings[0].lint, LINT_FUNCTION_ADDRESS_STALE);
+        assert!(findings[0].message.contains("; function=fetch "));
     }
 
     #[test]

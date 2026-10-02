@@ -4,7 +4,6 @@ use std::fs;
 use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
-use std::str::FromStr;
 
 use serde::Deserialize;
 use serde::Serialize;
@@ -19,12 +18,10 @@ use crate::fingerprint;
 use crate::object_core;
 use crate::object_core::SupplementFixtureSpec;
 use crate::valence_core_shim::function_object;
-use crate::valence_core_shim::function_object::DependencyIdentityStatus;
-use crate::valence_core_shim::function_object::FunctionObjectInput;
 use crate::valence_core_shim::function_object::FunctionObjectV1;
-use crate::valence_core_shim::function_object::NormalizedFunctionSource;
-use crate::valence_core_shim::function_object::SourceSpan;
 
+/// Stable code that starts every refused Function Object v1 construction.
+const FUNCTION_OBJECT_V1_UNAVAILABLE: &str = "function-object-v1-unavailable";
 #[allow(dead_code)]
 const HIR_SUPPLEMENT_SCHEMA: &str = "octet.function-object-hir-supplement.v1";
 #[allow(dead_code)]
@@ -821,7 +818,7 @@ fn rustc_hir_spike_supplement(fixture_path: &Path, function: &str) -> Result<Fun
         .into_iter()
         .find(|span| span.name == function)
         .ok_or_else(|| format!("fixture {} does not contain function `{function}`", read_path.display()))?;
-    let object = function_object_for_source(fixture_path, &source, &span, &source[span.start..span.end])?;
+    let object = function_object_for_source(fixture_path, &span)?;
     let hir_tree = rustc_hir_tree(&read_path)?;
     let context = runtime_rustc_hir_spike_context()?;
     let hir_tree_hash = determinism::full_hash(&hir_tree);
@@ -875,7 +872,7 @@ fn rustc_thir_spike_supplement(fixture_path: &Path, function: &str) -> Result<Fu
         .find(|span| span.name == function)
         .ok_or_else(|| format!("fixture {} does not contain function `{function}`", read_path.display()))?;
     let function_source = &source[span.start..span.end];
-    let object = function_object_for_source(fixture_path, &source, &span, function_source)?;
+    let object = function_object_for_source(fixture_path, &span)?;
     let context = runtime_rustc_thir_spike_context()?;
     let fixture_contract_hash = determinism::full_hash(&format!(
         "{}\n{}\n{}\n{}",
@@ -924,7 +921,7 @@ fn rustc_mir_spike_supplement(fixture_path: &Path, function: &str) -> Result<Fun
         .find(|span| span.name == function)
         .ok_or_else(|| format!("fixture {} does not contain function `{function}`", read_path.display()))?;
     let function_source = &source[span.start..span.end];
-    let object = function_object_for_source(fixture_path, &source, &span, function_source)?;
+    let object = function_object_for_source(fixture_path, &span)?;
     let context = runtime_rustc_mir_spike_context()?;
     let fixture_contract_hash = determinism::full_hash(&format!(
         "{}
@@ -1495,11 +1492,13 @@ fn run_corpus_check(paths: &[PathBuf], receipt_path: &Path, output_format: Outpu
     let objects = match collect_objects(paths, None) {
         Ok(records) => records.into_iter().map(|record| record.object).collect::<Vec<_>>(),
         Err(error) => {
-            let report = invalid_corpus_check_report(receipt_path_string, vec![corpus_check_error(
-                "source-selection",
-                Some("paths"),
-                error,
-            )]);
+            let kind = if error.starts_with(FUNCTION_OBJECT_V1_UNAVAILABLE) {
+                FUNCTION_OBJECT_V1_UNAVAILABLE
+            } else {
+                "source-selection"
+            };
+            let report =
+                invalid_corpus_check_report(receipt_path_string, vec![corpus_check_error(kind, Some("paths"), error)]);
             print_corpus_check_report(&report, output_format)?;
             return Ok(1);
         }
@@ -2098,8 +2097,7 @@ fn run_marker(args: &ObjectArgs, update: bool) -> Result<i32, String> {
             {
                 continue;
             }
-            let function_source = &source[span.start..span.end];
-            let object = function_object_for_source(&path, &source, &span, function_source)?;
+            let object = function_object_for_source(&path, &span)?;
             let marker = object_marker_before(&source, span.start);
             let status = match marker.as_ref().map(|marker| marker.stored_hash.as_str()) {
                 Some(stored) if stored == object.object_hash => "match",
@@ -2165,8 +2163,7 @@ fn collect_objects(paths: &[PathBuf], function: Option<&str>) -> Result<Vec<Obje
             {
                 continue;
             }
-            let function_source = &source[span.start..span.end];
-            let object = function_object_for_source(&path, &source, &span, function_source)?;
+            let object = function_object_for_source(&path, &span)?;
             objects.push(ObjectRecord { object });
         }
     }
@@ -2188,52 +2185,28 @@ fn collect_files(paths: &[PathBuf]) -> Result<Vec<PathBuf>, String> {
     Ok(files)
 }
 
-fn function_object_for_source(
-    path: &Path,
-    full_source: &str,
-    span: &fingerprint::FunctionSpan,
-    function_source: &str,
-) -> Result<FunctionObjectV1, String> {
-    let normalized_function_source = NormalizedFunctionSource::new(
+/// Function Object v1 construction is refused for every function. The pinned
+/// valence-core accepts only the normalization label `octet-source-token-v1`,
+/// which names the token bytes of the source scanner before literal contents
+/// were kept and quoted `//` stopped hiding code. Octet no longer produces
+/// those bytes, so corrected bytes under that label would misstate their
+/// algorithm. The old bytes are not a safe identity either. Objects stay
+/// unavailable until a reviewed valence-core label for the corrected bytes is
+/// pinned.
+fn function_object_for_source(path: &Path, span: &fingerprint::FunctionSpan) -> Result<FunctionObjectV1, String> {
+    Err(format!(
+        "{FUNCTION_OBJECT_V1_UNAVAILABLE}: {}::{}: Function Object v1 normalization `{}` names source-token bytes \
+         that Octet no longer produces; object construction is refused until a reviewed valence-core normalization \
+         label for the corrected source-token bytes is pinned",
+        normalized_source_path(path),
+        span.name,
         function_object::NORMALIZATION_ALGORITHM,
-        fingerprint::normalize_tokens(function_source),
-    )
-    .map_err(|error| error.to_string())?;
-    let dependency_identity_status =
-        DependencyIdentityStatus::from_str(fingerprint::dependency_identity_status(function_source))
-            .map_err(|error| error.to_string())?;
-    function_object::build_function_object(FunctionObjectInput {
-        tool_name: "cargo-octet",
-        tool_version: env!("CARGO_PKG_VERSION"),
-        name: &span.name,
-        source_path: normalized_source_path(path),
-        source_span: source_span(full_source, span.start, span.end)?,
-        function_source,
-        normalized_function_source,
-        dependency_set_hash: fingerprint::dependency_set_hash(function_source),
-        dependency_identity_status,
-        macro_calls: span.macro_calls,
-    })
-    .map_err(|error| error.to_string())
+    ))
 }
 
 #[allow(dead_code)]
 fn effect_caveats(function_source: &str) -> Vec<function_object::EffectCaveat> {
     function_object::effect_caveats(function_source)
-}
-
-fn source_span(source: &str, start: usize, end: usize) -> Result<SourceSpan, String> {
-    let start_line = line_number(source, start)?;
-    let end_line = line_number(source, end.saturating_sub(1))?;
-    Ok(SourceSpan { start_line, end_line })
-}
-
-fn line_number(source: &str, byte_index: usize) -> Result<u32, String> {
-    if byte_index > source.len() {
-        return Err("function span exceeded source length".to_owned());
-    }
-    let line_count = source[..byte_index].bytes().filter(|byte| *byte == b'\n').count() + 1;
-    u32::try_from(line_count).map_err(|_| "source line count exceeds u32".to_owned())
 }
 
 fn normalized_source_path(path: &Path) -> String {
@@ -2606,8 +2579,6 @@ mod tests {
 
     use super::ObjectSupplementStatus;
     use super::PilotSupplementContext;
-    use super::RUSTC_HIR_SPIKE_EXTRACTOR_NAME;
-    use super::RUSTC_HIR_SPIKE_EXTRACTOR_VERSION;
     use super::SUPPLEMENT_STATUS_VALUES;
     use super::SupplementFamilyArg;
     use super::SupplementScopeArg;
@@ -2630,48 +2601,52 @@ mod tests {
     use crate::object_core::RUSTC_THIR_SPIKE_CALL_FUNCTION;
     use crate::object_core::RUSTC_THIR_SPIKE_FIXTURE_RELATIVE_PATH;
     use crate::object_core::RUSTC_THIR_SPIKE_FUNCTION;
+    use crate::valence_core_shim::function_object;
+    use crate::valence_core_shim::function_object::DependencyIdentityStatus;
+    use crate::valence_core_shim::function_object::FunctionObjectInput;
+    use crate::valence_core_shim::function_object::FunctionObjectV1;
+    use crate::valence_core_shim::function_object::NormalizedFunctionSource;
+    use crate::valence_core_shim::function_object::SourceSpan;
 
-    #[test]
-    fn function_object_rejects_correctness_claims() {
+    /// Function Object v1 built directly through valence-core, for testing
+    /// supplement logic. The fixture has no literals or comments, so these
+    /// tokens are the bytes that `octet-source-token-v1` names.
+    fn fixture_object() -> FunctionObjectV1 {
         let source = "pub fn checked(input: u32) -> u32 { input + 1 }\n";
-        let spans = fingerprint::find_functions(source);
-        let object = function_object_for_source(Path::new("src/lib.rs"), source, &spans[0], source)
-            .expect("build function object");
-        assert!(!object.object_hash.is_empty());
-        assert!(!object.correctness_claim.claims_correctness);
-        assert!(object.correctness_claim.detail.contains("do not prove"));
+        function_object::build_function_object(FunctionObjectInput {
+            tool_name: "cargo-octet",
+            tool_version: env!("CARGO_PKG_VERSION"),
+            name: "checked",
+            source_path: "src/lib.rs".to_owned(),
+            source_span: SourceSpan {
+                start_line: 1,
+                end_line: 1,
+            },
+            function_source: source,
+            normalized_function_source: NormalizedFunctionSource::new(
+                function_object::NORMALIZATION_ALGORITHM,
+                "pub fn checked ( input : u32 ) - > u32 { input + 1 }".to_owned(),
+            )
+            .expect("v1 normalized fixture"),
+            dependency_set_hash: fingerprint::dependency_set_hash(source),
+            dependency_identity_status: DependencyIdentityStatus::SourceScannerTokenSet,
+            macro_calls: false,
+        })
+        .expect("build fixture object")
     }
 
     #[test]
-    fn function_object_hash_is_stable_for_comments_and_formatting() {
-        let one = "pub fn checked(input: u32) -> u32 { // comment\n input + 1 }\n";
-        let two = "pub fn checked( input:u32)->u32{input+1}\n";
-        let one_span = fingerprint::find_functions(one);
-        let two_span = fingerprint::find_functions(two);
-        let one_object = function_object_for_source(
-            Path::new("src/lib.rs"),
-            one,
-            &one_span[0],
-            &one[one_span[0].start..one_span[0].end],
-        )
-        .expect("one object");
-        let two_object = function_object_for_source(
-            Path::new("src/lib.rs"),
-            two,
-            &two_span[0],
-            &two[two_span[0].start..two_span[0].end],
-        )
-        .expect("two object");
-        assert_eq!(one_object.normalized_body_hash, two_object.normalized_body_hash);
-        assert_eq!(one_object.object_hash, two_object.object_hash);
+    fn function_object_v1_construction_is_refused() {
+        let source = "pub fn checked(input: u32) -> u32 { input + 1 }\n";
+        let spans = fingerprint::find_functions(source);
+        let error = function_object_for_source(Path::new("src/lib.rs"), &spans[0]).expect_err("object v1 refused");
+        assert!(error.starts_with("function-object-v1-unavailable: src/lib.rs::checked: "), "{error}");
+        assert!(error.contains("`octet-source-token-v1`"), "{error}");
     }
 
     #[test]
     fn pilot_hir_supplement_attaches_to_v1_identity() {
-        let source = "pub fn checked(input: u32) -> u32 { input + 1 }\n";
-        let spans = fingerprint::find_functions(source);
-        let object = function_object_for_source(Path::new("src/lib.rs"), source, &spans[0], source)
-            .expect("build function object");
+        let object = fixture_object();
         let context = pilot_context();
         let supplement = pilot_hir_supplement(&object, &context);
         let json = canonical_supplement_json(&supplement).expect("canonical supplement json");
@@ -2691,11 +2666,7 @@ mod tests {
 
     #[test]
     fn pilot_mir_supplement_records_closed_unsupported_summary_families() {
-        let source = "pub fn checked(input: u32) -> u32 { input + 1 }\n";
-        let spans = fingerprint::find_functions(source);
-        let object = function_object_for_source(Path::new("src/lib.rs"), source, &spans[0], source)
-            .expect("build function object");
-        let supplement = pilot_mir_supplement(&object, &pilot_context());
+        let supplement = pilot_mir_supplement(&fixture_object(), &pilot_context());
 
         assert_eq!(SUPPLEMENT_STATUS_VALUES, &[
             ObjectSupplementStatus::UnsupportedPlanned.as_str(),
@@ -2719,42 +2690,14 @@ mod tests {
     }
 
     #[test]
-    fn rustc_hir_spike_helper_records_fixture_context_and_hashes() {
-        let fixture = Path::new(RUSTC_HIR_SPIKE_FIXTURE_RELATIVE_PATH);
-        let supplement =
-            rustc_hir_spike_supplement(fixture, RUSTC_HIR_SPIKE_FUNCTION).expect("rustc HIR spike supplement");
-        let json = canonical_supplement_json(&supplement).expect("canonical rustc HIR supplement json");
-
-        assert_eq!(supplement.schema, "octet.function-object-hir-supplement.v1");
-        assert_eq!(supplement.family, "hir");
-        assert_eq!(supplement.source_path, RUSTC_HIR_SPIKE_FIXTURE_RELATIVE_PATH);
-        assert_eq!(supplement.function_name, RUSTC_HIR_SPIKE_FUNCTION);
-        assert_eq!(supplement.extractor.name, RUSTC_HIR_SPIKE_EXTRACTOR_NAME);
-        assert_eq!(supplement.extractor.version, RUSTC_HIR_SPIKE_EXTRACTOR_VERSION);
-        assert!(supplement.rustc_version.contains("rustc "));
-        assert!(!supplement.target_triple.is_empty());
-        assert!(supplement.observations.contains_key("rustc_hir_tree_hash"));
-        assert!(supplement.observations.contains_key("fixture_context"));
-        assert!(supplement.observation_hash.starts_with("b3:"));
-        assert!(json.contains("fixture-bounded"));
-        assert!(json.contains("\"claims_correctness\": false"));
-        assert!(json.contains("\"claims_semantic_equivalence\": false"));
-    }
-
-    #[test]
-    fn rustc_hir_spike_helper_accepts_second_branch_fixture_shape() {
-        let fixture = Path::new(RUSTC_HIR_SPIKE_BRANCH_FIXTURE_RELATIVE_PATH);
-        let supplement = rustc_hir_spike_supplement(fixture, RUSTC_HIR_SPIKE_BRANCH_FUNCTION)
-            .expect("branch rustc HIR spike supplement");
-        let fixture_context = supplement.observations.get("fixture_context").expect("fixture context observation");
-
-        assert_eq!(supplement.source_path, RUSTC_HIR_SPIKE_BRANCH_FIXTURE_RELATIVE_PATH);
-        assert_eq!(supplement.function_name, RUSTC_HIR_SPIKE_BRANCH_FUNCTION);
-        assert!(fixture_context.detail.contains("fixture_shape=branch-control-flow"));
-        assert!(supplement.observations.contains_key("rustc_hir_tree_hash"));
-        assert!(supplement.observation_hash.starts_with("b3:"));
-        assert!(!supplement.boundary.claims_correctness);
-        assert!(!supplement.boundary.claims_semantic_equivalence);
+    fn rustc_hir_spike_supplement_refuses_object_v1_for_selected_fixtures() {
+        for (fixture, function) in [
+            (RUSTC_HIR_SPIKE_FIXTURE_RELATIVE_PATH, RUSTC_HIR_SPIKE_FUNCTION),
+            (RUSTC_HIR_SPIKE_BRANCH_FIXTURE_RELATIVE_PATH, RUSTC_HIR_SPIKE_BRANCH_FUNCTION),
+        ] {
+            let error = rustc_hir_spike_supplement(Path::new(fixture), function).expect_err("object v1 refused");
+            assert!(error.starts_with(&format!("function-object-v1-unavailable: {fixture}::{function}: ")), "{error}");
+        }
     }
 
     #[test]
@@ -2865,11 +2808,7 @@ mod tests {
 
     #[test]
     fn supplement_check_comparisons_fail_closed_on_context_mismatch() {
-        let source = "pub fn checked(input: u32) -> u32 { input + 1 }\n";
-        let spans = fingerprint::find_functions(source);
-        let object = function_object_for_source(Path::new("src/lib.rs"), source, &spans[0], source)
-            .expect("build function object");
-        let current = pilot_hir_supplement(&object, &pilot_context());
+        let current = pilot_hir_supplement(&fixture_object(), &pilot_context());
         let mut expected = serde_json::to_value(&current).expect("serialize expected supplement");
         expected["rustc_version"] = serde_json::json!("different-rustc");
 
@@ -2890,15 +2829,13 @@ mod tests {
     }
 
     #[test]
-    fn rustc_hir_spike_replay_compares_fixture_observations_and_caveats() {
-        let fixture = Path::new(RUSTC_HIR_SPIKE_FIXTURE_RELATIVE_PATH);
-        let current =
-            rustc_hir_spike_supplement(fixture, RUSTC_HIR_SPIKE_FUNCTION).expect("rustc HIR spike supplement");
+    fn supplement_comparisons_flag_each_tampered_field() {
+        let current = pilot_hir_supplement(&fixture_object(), &pilot_context());
         let mut expected = serde_json::to_value(&current).expect("serialize expected supplement");
         expected["source_path"] = serde_json::json!("different/src.rs");
         expected["function_name"] = serde_json::json!("different_function");
         expected["extractor"]["name"] = serde_json::json!("different-extractor");
-        expected["observations"]["rustc_hir_tree_hash"]["detail"] = serde_json::json!("tampered observation");
+        expected["observations"]["hir_context"]["detail"] = serde_json::json!("tampered observation");
         expected["observation_hash"] = serde_json::json!("b3:tampered");
         expected["extraction_caveats"][0]["detail"] = serde_json::json!("tampered caveat");
 

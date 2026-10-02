@@ -3,13 +3,13 @@ use rustc_hir as hir;
 use rustc_hir::ExprKind;
 use rustc_lint::LateContext;
 use rustc_lint::LateLintPass;
-use rustc_lint::LintContext;
 use rustc_middle::ty;
 use rustc_session::declare_lint_pass;
 use rustc_session::declare_tool_lint;
 
 use crate::diagnostics::LintSuggestion;
 use crate::diagnostics::emit_tiger_style_lint_with_suggestion;
+use crate::test_context;
 
 declare_tool_lint! {
     /// Detects direct calls to `Instant::now()`, `SystemTime::now()`,
@@ -37,29 +37,6 @@ const CLOCK_TYPES: &[&str] = &[
     "Utc",   // chrono::Utc::now()
     "Local", // chrono::Local::now()
 ];
-
-fn is_in_test_context(cx: &LateContext<'_>, expr: &hir::Expr<'_>) -> bool {
-    use rustc_span::sym;
-    for (_, node) in cx.tcx.hir_parent_iter(expr.hir_id) {
-        if let hir::Node::Item(item) = node {
-            let attrs = cx.tcx.hir_attrs(item.hir_id());
-            if attrs.iter().any(|a| a.has_name(sym::test)) {
-                return true;
-            }
-            if let hir::ItemKind::Mod(..) = &item.kind {
-                for attr in attrs {
-                    if attr.has_name(sym::cfg) {
-                        let source = cx.sess().source_map().span_to_snippet(attr.span()).unwrap_or_default();
-                        if source.contains("test") {
-                            return true;
-                        }
-                    }
-                }
-            }
-        }
-    }
-    false
-}
 
 /// Check if a resolved path ends with `SomeClockType::now`.
 fn is_clock_now_path(qpath: &hir::QPath<'_>) -> bool {
@@ -99,7 +76,7 @@ impl<'tcx> LateLintPass<'tcx> for AmbientClock {
         if let ExprKind::Call(func, _) = &expr.kind
             && let ExprKind::Path(ref qpath) = func.kind
             && is_clock_now_path(qpath)
-            && !is_in_test_context(cx, expr)
+            && !test_context::late_hir_id_is_in_test_context(cx, expr.hir_id, expr.span)
         {
             emit(cx, expr);
             return;
@@ -113,7 +90,9 @@ impl<'tcx> LateLintPass<'tcx> for AmbientClock {
         {
             let name = cx.tcx.item_name(adt.did());
             let type_name = name.as_str();
-            if CLOCK_TYPES.contains(&type_name) && !is_in_test_context(cx, expr) {
+            if CLOCK_TYPES.contains(&type_name)
+                && !test_context::late_hir_id_is_in_test_context(cx, expr.hir_id, expr.span)
+            {
                 emit(cx, expr);
             }
         }

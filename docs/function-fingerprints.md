@@ -24,10 +24,18 @@ Attribute markers are also recognized by the scanner:
 fn checked_transition(input: State) -> State { /* ... */ }
 ```
 
-The implementation hashes normalized function tokens and ignores the marker itself.
-Formatting and comments do not change the hash; signature, attribute, visibility,
-or body token changes do. Macro calls produce a review warning unless the marker
-records an explicit macro review allowance such as `macro=allow`.
+The implementation hashes canonical function tokens and ignores the marker itself.
+Whitespace and comments (line, doc, and nested block comments) do not change the
+hash; signature, attribute, visibility, or body token changes do. String,
+raw-string, byte, and character literals are hashed whole, so any change inside a
+literal changes the hash, and a `//` inside a literal does not hide the code after
+it. Macro calls produce a review warning unless the marker records an explicit
+macro review allowance such as `macro=allow`.
+
+Marker hashes are version 2: a version tag is hashed ahead of the tokens. Markers
+written before version 2 never match, even for an unchanged function, so they fail
+closed with `mismatch` until the function is re-reviewed and `--update` rewrites
+them.
 
 ## Operator workflow
 
@@ -132,6 +140,13 @@ example transcripts change, use this single CI/operator review gate:
 nix build .#checks.x86_64-linux.docs-examples --no-link -L
 ```
 
+The examples above still carry version-1 marker hashes and need owner re-review.
+Their transcript tests compared stored hashes and transcripts byte for byte, so
+they were removed rather than re-pinned. Until the owner regenerates the
+examples, `docs-examples`, the five `fingerprint-*-docs` checks, and
+`fingerprint-docs-downstream-smoke` fail closed. The rest of this section
+describes what the gate checks once the examples are restored.
+
 That `docs-examples` Nix check is part of `nix flake check` and is the aggregate
 home for executable docs/examples regressions. Treat it as the review command;
 use the narrower checks below only to debug a failing slice. It currently replays
@@ -152,11 +167,6 @@ nix build .#checks.x86_64-linux.fingerprint-warning-summary-docs --no-link -L
 nix build .#checks.x86_64-linux.fingerprint-json-output-docs --no-link -L
 nix build .#checks.x86_64-linux.fingerprint-source-scanner-docs --no-link -L
 nix build .#checks.x86_64-linux.fingerprint-docs-downstream-smoke --no-link -L
-nix develop -c bash -c 'cargo test -p cargo-octet --test fingerprint_consumer fingerprint_lifecycle_docs_fixture_matches_transcript -- --nocapture'
-nix develop -c bash -c 'cargo test -p cargo-octet --test fingerprint_consumer fingerprint_human_summary_docs_fixture_matches_transcript -- --nocapture'
-nix develop -c bash -c 'cargo test -p cargo-octet --test fingerprint_consumer fingerprint_warning_summary_docs_fixture_matches_transcript -- --nocapture'
-nix develop -c bash -c 'cargo test -p cargo-octet --test fingerprint_consumer fingerprint_json_output_docs_fixture_matches_transcript -- --nocapture'
-nix develop -c bash -c 'cargo test -p cargo-octet --test fingerprint_consumer fingerprint_source_scanner_docs_fixture_matches_transcript -- --nocapture'
 ```
 
 ## JSON output
@@ -207,7 +217,29 @@ It intentionally skips `fn` tokens inside `macro_rules!` definitions and does no
 claim to fingerprint functions generated after macro expansion. Fingerprint explicit
 source wrappers around generated code when a reviewed boundary is needed. The
 checked [`source-scanner example`](examples/function-fingerprint-source-scanner/transcript.md)
-keeps that contract executable.
+shows that contract. Like the other examples, it awaits owner re-review and is no
+longer executed by a test.
+
+The scanner ignores comments (line, doc, and nested block comments) and string,
+raw-string, byte, and character literals when it finds functions and their braces.
+Documentation examples and quoted source text are therefore not functions, and a
+quoted or commented brace does not end a function early.
+Macro-call detection uses the same view: a macro call is a name or path followed by
+`!` and a `(`, `[`, or `{` group. A keyword before a unary `!`, as in `if !(ready)`,
+and macro-like text inside comments or literals are not macro calls.
+
+A function signature ends at its first `{` or `;` outside parentheses, brackets,
+braces, and generic arguments. Array types such as `[u8; 2]` in parameters or
+return types therefore keep the function and its body; a trailing `;` still marks
+a bodiless trait or foreign declaration.
+
+A function is found when `fn` is followed by whitespace, including a tab or a
+newline, or by a comment. Unicode identifiers and raw identifiers such as `r#type`
+are full function names and locators. Unicode identifiers stay whole in canonical
+tokens and dependency sets, and a Unicode-named macro call counts as macro context.
+These rules changed the names, locators, and hashes of affected functions, so
+markers written before them must be re-reviewed; nothing rebinds them. The scanner
+does not claim complete Rust syntax coverage.
 
 Directory inputs are traversed recursively across Rust files. Non-write modes gate
 only marked functions, so large `#[cfg(test)]` modules or helper functions are not

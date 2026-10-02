@@ -11,6 +11,11 @@ use crate::determinism;
 use crate::evidence;
 
 const HASH_PREFIX: &str = "b3:";
+/// Version tag hashed ahead of the canonical tokens in every marker hash. The
+/// untagged v1 hash split literal contents into tokens and dropped code after
+/// a quoted `//`; its token text never contains a newline, so no v1 marker can
+/// equal a tagged v2 hash.
+const MARKER_HASH_DOMAIN: &str = "octet-source-token-fingerprint-v2";
 const COMMENT_MARKER: &str = "// octet-fingerprint:";
 const LEGACY_SLOTCAR_COMMENT_MARKER: &str = "// slotcar-fingerprint:";
 const LEGACY_TIGERSTYLE_COMMENT_MARKER: &str = "// tigerstyle-fingerprint:";
@@ -140,8 +145,9 @@ pub fn run(args: &FingerprintArgs) -> Result<i32, String> {
         let mut replacements = Vec::new();
         for span in spans {
             let function_source = &source[span.start..span.end];
-            let computed_hash = function_hash(function_source);
-            let normalized_body_hash = determinism::full_hash(&normalize_tokens(function_source));
+            let normalized = normalize_tokens(function_source);
+            let computed_hash = function_hash(&normalized);
+            let normalized_body_hash = determinism::full_hash(&normalized);
             let dependency_set_hash = dependency_set_hash(function_source);
             let dependency_identity_status = dependency_identity_status(function_source).to_owned();
             let semantic_id = determinism::short_hash(&format!(
@@ -335,37 +341,46 @@ pub(crate) fn collect_rust_files(path: &Path, files: &mut Vec<PathBuf>) -> Resul
 
 pub(crate) fn find_functions(source: &str) -> Vec<FunctionSpan> {
     let mut spans = Vec::new();
-    let bytes = source.as_bytes();
-    let macro_rules_ranges = macro_rules_ranges(source);
+    // Structure is matched in a same-length view with comments and literals
+    // blanked, so documentation examples and quoted text cannot define, hide,
+    // or end a function. Spans, markers, and hashed text still use `source`.
+    let code = code_view(source);
+    let macro_rules_ranges = macro_rules_ranges(&code);
     let mut cursor = 0;
-    while let Some(relative) = source[cursor..].find("fn ") {
+    while let Some(relative) = code[cursor..].find("fn") {
         let fn_pos = cursor + relative;
-        if fn_pos > 0 && is_ident(bytes[fn_pos - 1] as char) {
-            cursor = fn_pos + 3;
+        let after_keyword = fn_pos + "fn".len();
+        if code[..fn_pos].chars().next_back().is_some_and(identifier_continue)
+            || !code[after_keyword..].chars().next().is_some_and(char::is_whitespace)
+        {
+            cursor = after_keyword;
             continue;
         }
         if macro_rules_ranges.iter().any(|(start, end)| (*start..*end).contains(&fn_pos)) {
-            cursor = fn_pos + 3;
+            cursor = after_keyword;
             continue;
         }
-        let name_start = fn_pos + 3;
-        if !source[name_start..].chars().next().is_some_and(is_ident) {
-            cursor = name_start;
-            continue;
-        }
-        let Some(name_end) = source[name_start..].find(|c: char| !is_ident(c)).map(|offset| name_start + offset) else {
+        let Some((separator, _)) = code[after_keyword..].char_indices().find(|(_, ch)| !ch.is_whitespace()) else {
             break;
         };
-        let next_open_brace = source[name_end..].find('{').map(|offset| name_end + offset);
-        let next_semicolon = source[name_end..].find(';').map(|offset| name_end + offset);
-        if next_semicolon.is_some_and(|semicolon| next_open_brace.is_none_or(|open_brace| semicolon < open_brace)) {
-            cursor = next_semicolon.unwrap_or(name_end) + 1;
+        let name_start = after_keyword + separator;
+        let ident_start = name_start + if code[name_start..].starts_with("r#") { 2 } else { 0 };
+        if !code[ident_start..].chars().next().is_some_and(identifier_start) {
+            cursor = ident_start;
             continue;
         }
-        let Some(open_brace) = next_open_brace else {
-            break;
+        let name_end = code[ident_start..]
+            .find(|ch: char| !identifier_continue(ch))
+            .map_or(code.len(), |offset| ident_start + offset);
+        let open_brace = match signature_end(&code, name_end) {
+            Some(SignatureEnd::Body(open_brace)) => open_brace,
+            Some(SignatureEnd::Declaration(semicolon)) => {
+                cursor = semicolon + 1;
+                continue;
+            }
+            None => break,
         };
-        let Some(end) = matching_brace(source, open_brace) else {
+        let Some(end) = matching_brace(&code, open_brace) else {
             break;
         };
         let item_start = function_item_start(source, fn_pos);
@@ -398,6 +413,184 @@ fn macro_rules_ranges(source: &str) -> Vec<(usize, usize)> {
         cursor = end;
     }
     ranges
+}
+
+/// How a function signature ends in the code view.
+enum SignatureEnd {
+    /// Offset of the opening brace of the function body.
+    Body(usize),
+    /// Offset of the `;` that ends a bodiless declaration.
+    Declaration(usize),
+}
+
+/// Finds the first top-level `{` or `;` after a function name. Delimiters
+/// nested in parentheses, brackets, braces, or generic arguments belong to the
+/// signature, as in `fn f(x: [u8; 2]) -> W<{ N }> {`.
+fn signature_end(code: &str, name_end: usize) -> Option<SignatureEnd> {
+    let bytes = code.as_bytes();
+    let mut enclosing = 0_usize;
+    let mut generics = 0_usize;
+    for (index, byte) in bytes.iter().enumerate().skip(name_end) {
+        match byte {
+            b'{' if enclosing == 0 && !opens_const_argument(bytes, index, generics) => {
+                return Some(SignatureEnd::Body(index));
+            }
+            b';' if enclosing == 0 => return Some(SignatureEnd::Declaration(index)),
+            b'(' | b'[' | b'{' => enclosing += 1,
+            b')' | b']' | b'}' => enclosing = enclosing.saturating_sub(1),
+            b'<' if enclosing == 0 && opens_generics(code, index) => generics += 1,
+            b'>' if enclosing == 0 && closes_generics(bytes, index) => generics = generics.saturating_sub(1),
+            _ => {}
+        }
+    }
+    None
+}
+
+/// A `{` directly inside generic arguments, as in `W<{ N }>` or `W<A, { N }>`.
+fn opens_const_argument(bytes: &[u8], index: usize, generics: usize) -> bool {
+    generics > 0
+        && matches!(
+            bytes.get(..index).and_then(|before| before.iter().rev().find(|byte| !byte.is_ascii_whitespace())),
+            Some(b'<' | b',')
+        )
+}
+
+/// `<` opens generic arguments when it directly follows a name or `::`; a
+/// spaced `x < y` or a `<=` is a comparison, for example in a macro's proof
+/// clauses.
+fn opens_generics(code: &str, index: usize) -> bool {
+    let previous = code[..index].chars().next_back();
+    previous.is_some_and(|ch| identifier_continue(ch) || ch == ':') && code.as_bytes().get(index + 1) != Some(&b'=')
+}
+
+/// `>` closes generic arguments unless it belongs to `->`, `=>`, or `>=`.
+fn closes_generics(bytes: &[u8], index: usize) -> bool {
+    let previous = index.checked_sub(1).and_then(|before| bytes.get(before));
+    !matches!(previous, Some(b'-' | b'=')) && bytes.get(index + 1) != Some(&b'=')
+}
+
+/// Returns `source` with comments and string, raw-string, byte, and character
+/// literals blanked to spaces. Byte offsets and line breaks are unchanged, so
+/// an offset found in the view indexes the same position in `source`.
+fn code_view(source: &str) -> String {
+    let mut view = String::with_capacity(source.len());
+    let mut hidden_end = 0;
+    for (offset, ch) in source.char_indices() {
+        if offset >= hidden_end {
+            hidden_end = non_code_at(source, offset).map_or(offset, |(_, end)| end);
+        }
+        if offset < hidden_end && ch != '\n' {
+            view.extend(std::iter::repeat_n(' ', ch.len_utf8()));
+        } else {
+            view.push(ch);
+        }
+    }
+    view
+}
+
+/// A source region that is not code.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum NonCode {
+    Comment,
+    Literal,
+}
+
+/// Kind and end offset of the comment or literal that starts at `start`, if
+/// any. `code_view` blanks both kinds; `SourceTokens` drops comments and keeps
+/// literals whole.
+fn non_code_at(source: &str, start: usize) -> Option<(NonCode, usize)> {
+    let bytes = source.as_bytes();
+    let next = bytes.get(start + 1).copied();
+    match bytes.get(start).copied()? {
+        b'/' if next == Some(b'/') => Some((NonCode::Comment, line_comment_end(bytes, start))),
+        b'/' if next == Some(b'*') => Some((NonCode::Comment, block_comment_end(bytes, start))),
+        b'"' => Some((NonCode::Literal, quoted_literal_end(bytes, start))),
+        b'\'' => char_literal_end(source, start).map(|end| (NonCode::Literal, end)),
+        b'r' => raw_string_end(source, start).map(|end| (NonCode::Literal, end)),
+        _ => None,
+    }
+}
+
+/// Line, outer doc, and inner doc comments end before their newline.
+fn line_comment_end(bytes: &[u8], start: usize) -> usize {
+    bytes
+        .get(start..)
+        .and_then(|rest| rest.iter().position(|byte| *byte == b'\n'))
+        .map_or(bytes.len(), |offset| start + offset)
+}
+
+/// Block comments nest in Rust, so `/* /* */ */` is one comment.
+fn block_comment_end(bytes: &[u8], start: usize) -> usize {
+    let mut depth = 0_usize;
+    let mut index = start;
+    while let Some(pair) = bytes.get(index..index + 2) {
+        match pair {
+            b"/*" => {
+                depth += 1;
+                index += 2;
+            }
+            b"*/" => {
+                depth -= 1;
+                index += 2;
+                if depth == 0 {
+                    return index;
+                }
+            }
+            _ => index += 1,
+        }
+    }
+    bytes.len()
+}
+
+/// String, byte-string, and C-string literals with backslash escapes.
+fn quoted_literal_end(bytes: &[u8], start: usize) -> usize {
+    let mut index = start + 1;
+    while let Some(byte) = bytes.get(index) {
+        match byte {
+            b'\\' => index += 2,
+            b'"' => return index + 1,
+            _ => index += 1,
+        }
+    }
+    bytes.len()
+}
+
+/// Character and byte literals. A quote that starts a lifetime or a loop label
+/// is code, so it returns `None`.
+fn char_literal_end(source: &str, start: usize) -> Option<usize> {
+    let bytes = source.as_bytes();
+    let content = start + 1;
+    let close = if bytes.get(content) == Some(&b'\\') {
+        // Escapes include `'\''`, `'\\'`, `'\x7f'`, and `'\u{10FFFF}'`.
+        let escaped = content + 2;
+        escaped + bytes.get(escaped..)?.iter().position(|byte| matches!(byte, b'\'' | b'\n'))?
+    } else {
+        content + source.get(content..)?.chars().next()?.len_utf8()
+    };
+    (bytes.get(close) == Some(&b'\'')).then_some(close + 1)
+}
+
+/// Raw string literals such as `r"…"`, `r#"…"#`, `br"…"`, and `cr#"…"#`.
+/// Raw identifiers such as `r#type` are code.
+fn raw_string_end(source: &str, start: usize) -> Option<usize> {
+    let bytes = source.as_bytes();
+    let prefix_start = match start.checked_sub(1).and_then(|before| bytes.get(before)) {
+        Some(b'b' | b'c') => start - 1,
+        _ => start,
+    };
+    if source[..prefix_start].chars().next_back().is_some_and(identifier_continue) {
+        return None;
+    }
+    let hashes = bytes.get(start + 1..)?.iter().take_while(|byte| **byte == b'#').count();
+    let body = start + 2 + hashes;
+    if bytes.get(body - 1) != Some(&b'"') {
+        return None;
+    }
+    let closing_quote = (body..bytes.len()).find(|index| {
+        bytes.get(*index) == Some(&b'"')
+            && bytes.get(index + 1..index + 1 + hashes).is_some_and(|tail| tail.iter().all(|byte| *byte == b'#'))
+    });
+    Some(closing_quote.map_or(bytes.len(), |index| index + 1 + hashes))
 }
 
 fn function_item_start(source: &str, fn_pos: usize) -> usize {
@@ -519,21 +712,33 @@ fn matching_brace(source: &str, open: usize) -> Option<usize> {
     None
 }
 
-fn function_hash(function_source: &str) -> String {
-    let normalized = normalize_tokens(function_source);
-    blake3::hash(normalized.as_bytes()).to_hex().to_string()
+/// Marker hash of a function's canonical tokens, separated from v1 hashes by
+/// [`MARKER_HASH_DOMAIN`].
+fn function_hash(normalized: &str) -> String {
+    let mut hasher = blake3::Hasher::new();
+    hasher.update(MARKER_HASH_DOMAIN.as_bytes());
+    hasher.update(b"\n");
+    hasher.update(normalized.as_bytes());
+    hasher.finalize().to_hex().to_string()
 }
 
+/// Hash of the sorted, distinct identifiers in code, one per line. Literal
+/// contents are not dependencies.
 pub(crate) fn dependency_set_hash(function_source: &str) -> String {
-    let mut calls = Vec::new();
-    for token in normalize_tokens(function_source).split_whitespace() {
-        if token.chars().next().is_some_and(|ch| ch.is_ascii_alphabetic() || ch == '_') {
-            calls.push(token.to_owned());
+    let mut identifiers = SourceTokens::new(function_source)
+        .filter(|token| !token.is_literal && token.text.starts_with(identifier_start))
+        .map(|token| token.text)
+        .collect::<Vec<_>>();
+    identifiers.sort_unstable();
+    identifiers.dedup();
+    let mut lines = String::with_capacity(identifiers.iter().map(|identifier| identifier.len() + 1).sum());
+    for identifier in identifiers {
+        if !lines.is_empty() {
+            lines.push('\n');
         }
+        lines.push_str(identifier);
     }
-    calls.sort();
-    calls.dedup();
-    determinism::full_hash(&calls.join("\n"))
+    determinism::full_hash(&lines)
 }
 
 pub(crate) fn dependency_identity_status(function_source: &str) -> &'static str {
@@ -544,56 +749,131 @@ pub(crate) fn dependency_identity_status(function_source: &str) -> &'static str 
     }
 }
 
+/// Canonical token text: tokens joined by single spaces. Whitespace and
+/// comments, including doc and nested block comments, do not change it.
+/// Literal contents stay verbatim, including any `//` inside them.
 pub(crate) fn normalize_tokens(source: &str) -> String {
-    let without_comments = strip_comments_and_strings(source);
-    let mut tokens = Vec::new();
-    let mut current = String::new();
-    for ch in without_comments.chars() {
-        if is_ident(ch) {
-            current.push(ch);
-        } else {
-            if !current.is_empty() {
-                tokens.push(std::mem::take(&mut current));
-            }
-            if !ch.is_whitespace() {
-                tokens.push(ch.to_string());
-            }
+    let mut normalized = String::with_capacity(source.len());
+    for token in SourceTokens::new(source) {
+        if !normalized.is_empty() {
+            normalized.push(' ');
         }
+        normalized.push_str(token.text);
     }
-    if !current.is_empty() {
-        tokens.push(current);
-    }
-    tokens.join(" ")
+    normalized
 }
 
-fn strip_comments_and_strings(source: &str) -> String {
-    let mut out = String::new();
-    for line in source.lines() {
-        let code = line.split("//").next().unwrap_or("");
-        out.push_str(code);
-        out.push('\n');
+/// One canonical source token, borrowed from the source text.
+struct SourceToken<'a> {
+    text: &'a str,
+    is_literal: bool,
+}
+
+/// Canonical tokens of Rust source: identifier runs, single punctuation
+/// characters, and whole literals, including a `b`, `c`, `br`, or `cr` prefix.
+/// Comments and whitespace only separate tokens.
+struct SourceTokens<'a> {
+    source: &'a str,
+    offset: usize,
+}
+
+impl<'a> SourceTokens<'a> {
+    fn new(source: &'a str) -> Self {
+        Self { source, offset: 0 }
     }
-    out
+
+    /// End of a literal whose prefix is the identifier run `start..run_end`.
+    fn prefixed_literal_end(&self, start: usize, run_end: usize) -> Option<usize> {
+        match &self.source[start..run_end] {
+            "br" | "cr" => raw_string_end(self.source, run_end - 1),
+            "b" | "c" => match non_code_at(self.source, run_end)? {
+                (NonCode::Literal, end) => Some(end),
+                (NonCode::Comment, _) => None,
+            },
+            _ => None,
+        }
+    }
+}
+
+impl<'a> Iterator for SourceTokens<'a> {
+    type Item = SourceToken<'a>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        while let Some(ch) = self.source[self.offset..].chars().next() {
+            let start = self.offset;
+            if let Some((kind, end)) = non_code_at(self.source, start) {
+                self.offset = end;
+                if kind == NonCode::Literal {
+                    return Some(SourceToken {
+                        text: &self.source[start..end],
+                        is_literal: true,
+                    });
+                }
+                continue;
+            }
+            self.offset += ch.len_utf8();
+            if ch.is_whitespace() {
+                continue;
+            }
+            if !identifier_continue(ch) {
+                return Some(SourceToken {
+                    text: &self.source[start..self.offset],
+                    is_literal: false,
+                });
+            }
+            let run_end = self.source[start..]
+                .find(|next: char| !identifier_continue(next))
+                .map_or(self.source.len(), |len| start + len);
+            let literal_end = self.prefixed_literal_end(start, run_end);
+            self.offset = literal_end.unwrap_or(run_end);
+            return Some(SourceToken {
+                text: &self.source[start..self.offset],
+                is_literal: literal_end.is_some(),
+            });
+        }
+        None
+    }
 }
 
 fn contains_macro_call(source: &str) -> bool {
-    let stripped = strip_comments_and_strings(source);
-    let chars = stripped.char_indices().collect::<Vec<_>>();
-    for (index, (byte_index, ch)) in chars.iter().enumerate() {
-        if *ch != '!' {
-            continue;
-        }
-        let previous = chars[..index].iter().rev().find_map(|(_, c)| (!c.is_whitespace()).then_some(*c));
-        let next = stripped[*byte_index + ch.len_utf8()..].chars().find(|c| !c.is_whitespace());
-        if previous.is_some_and(is_ident) && next.is_some_and(|c| matches!(c, '(' | '[' | '{')) {
-            return true;
-        }
-    }
-    false
+    // Comments and literals are blanked, so quoted or commented text cannot
+    // add a macro call and a quoted `//` cannot hide one.
+    let code = code_view(source);
+    code.match_indices('!').any(|(bang, _)| invokes_macro(&code, bang))
 }
 
-fn is_ident(ch: char) -> bool {
-    ch.is_ascii_alphanumeric() || ch == '_'
+/// Strict keywords in every edition plus keywords reserved since Rust 1.0. None
+/// can name a macro, so `if !(ready)` or `return !(flag)` is a unary `!`. Words
+/// that are keywords only in later editions stay macro names: `try!` is a 2015
+/// macro.
+const NON_MACRO_KEYWORDS: &[&str] = &[
+    "abstract", "as", "become", "box", "break", "const", "continue", "crate", "do", "else", "enum", "extern", "false",
+    "final", "fn", "for", "if", "impl", "in", "let", "loop", "macro", "match", "mod", "move", "mut", "override",
+    "priv", "pub", "ref", "return", "self", "Self", "static", "struct", "super", "trait", "true", "type", "typeof",
+    "unsafe", "unsized", "use", "virtual", "where", "while", "yield",
+];
+
+/// Whether the `!` at `bang` invokes a macro: a macro name or path ends right
+/// before it, and a `(`, `[`, or `{` group follows it.
+fn invokes_macro(code: &str, bang: usize) -> bool {
+    let has_group_after = code[bang + 1..].trim_start().starts_with(['(', '[', '{']);
+    let before = code[..bang].trim_end();
+    let name_start = before
+        .char_indices()
+        .rev()
+        .find(|(_, ch)| !identifier_continue(*ch))
+        .map_or(0, |(index, ch)| index + ch.len_utf8());
+    let name = &before[name_start..];
+    let is_raw_identifier = before[..name_start].ends_with("r#");
+    has_group_after && name.starts_with(identifier_start) && (is_raw_identifier || !NON_MACRO_KEYWORDS.contains(&name))
+}
+
+fn identifier_start(ch: char) -> bool {
+    ch == '_' || unicode_ident::is_xid_start(ch)
+}
+
+fn identifier_continue(ch: char) -> bool {
+    ch == '_' || unicode_ident::is_xid_continue(ch)
 }
 
 fn mode_name(mode: FingerprintMode) -> &'static str {
@@ -655,20 +935,105 @@ fn status_name(status: FingerprintStatus) -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::contains_macro_call;
+    use super::dependency_set_hash;
     use super::find_functions;
     use super::function_hash;
     use super::normalize_tokens;
+
+    fn source_hash(source: &str) -> String {
+        function_hash(&normalize_tokens(source))
+    }
 
     #[test]
     fn formatting_and_comments_do_not_change_hash() {
         let one = "fn checked(input: u32) -> u32 { // comment\n input + 1 }";
         let two = "fn checked( input:u32)->u32{input+1}";
-        assert_eq!(function_hash(one), function_hash(two));
+        assert_eq!(source_hash(one), source_hash(two));
     }
 
     #[test]
     fn token_changes_update_hash() {
-        assert_ne!(function_hash("fn f() -> u32 { 1 }"), function_hash("fn f() -> u32 { 2 }"));
+        assert_ne!(source_hash("fn f() -> u32 { 1 }"), source_hash("fn f() -> u32 { 2 }"));
+    }
+
+    #[test]
+    fn dependency_set_is_sorted_distinct_code_identifiers() {
+        let source = "fn total(items: &[u32]) -> u32 {\n    // comment_word\n    let _first = items.first();\n    items.iter().fold(0_u32, |sum, item| sum.saturating_add(*item)) + Bias::of(_first)\n}";
+        assert_eq!(
+            dependency_set_hash(source),
+            crate::determinism::full_hash(
+                "Bias\n_first\nfirst\nfn\nfold\nitem\nitems\niter\nlet\nof\nsaturating_add\nsum\ntotal\nu32"
+            ),
+        );
+    }
+
+    #[test]
+    fn unicode_identifiers_stay_whole_in_tokens_dependencies_and_macros() {
+        let source = "fn 漢字() { let 値 = 1; 値 }";
+        assert_eq!(normalize_tokens(source), "fn 漢字 ( ) { let 値 = 1 ; 値 }");
+        assert_eq!(dependency_set_hash(source), crate::determinism::full_hash("fn\nlet\n値\n漢字"));
+        assert!(contains_macro_call("{ 漢字!(1); }"));
+        assert!(!contains_macro_call("{ let 漢字 = 1; if !(ready) {} }"));
+    }
+
+    #[test]
+    fn token_hash_covers_literal_contents_and_code_after_quoted_slashes() {
+        let fetch = |tail: &str| {
+            format!("pub fn fetch() -> u32 {{\n    let _endpoint = \"https://example.invalid/api\"; {tail}\n}}\n")
+        };
+        let returns_one = fetch("1");
+        let aborts = fetch("std::process::abort()");
+        assert_ne!(source_hash(&returns_one), source_hash(&aborts));
+        assert_ne!(dependency_set_hash(&returns_one), dependency_set_hash(&aborts));
+        for (one, other) in [
+            ("fn f() -> &'static str { \"a b\" }", "fn f() -> &'static str { \"a  b\" }"),
+            ("fn f() -> &'static str { \"a \\\" // b\" }", "fn f() -> &'static str { \"a \\\" // c\" }"),
+            ("fn f() -> &'static str { r#\"x // \" y\"# }", "fn f() -> &'static str { r#\"x // \" z\"# }"),
+            ("fn f() -> &'static [u8] { br\"/\" }", "fn f() -> &'static [u8] { br\"*\" }"),
+            ("fn f() -> u8 { b'/' }", "fn f() -> u8 { b'*' }"),
+        ] {
+            assert_ne!(source_hash(one), source_hash(other), "{one} vs {other}");
+        }
+    }
+
+    #[test]
+    fn token_hash_ignores_comments_and_whitespace_around_literals() {
+        let reference = source_hash("fn f() -> u32 { let _u = \"https://example.invalid\"; 1 }");
+        for variant in [
+            "fn f() -> u32 {\n    let _u = \"https://example.invalid\"; // trailing note\n    1\n}",
+            "fn f() -> u32 { /* block /* nested */ note */ let _u = \"https://example.invalid\"; 1 }",
+            "/// docs\nfn f() -> u32 { let _u =\n\"https://example.invalid\";\n1 /** doc block */ }",
+        ] {
+            assert_eq!(source_hash(variant), reference, "{variant}");
+        }
+    }
+
+    #[test]
+    fn normalized_tokens_keep_literals_whole_and_drop_comments() {
+        let normalized = normalize_tokens(
+            "fn f() { /* gone */ let _a = b\"x  // y\"; // gone too\n let _b = '\\''; let _c = br#\"raw \" //\"#; 'outer: loop {} }",
+        );
+        for kept in ["b\"x  // y\"", "'\\''", "br#\"raw \" //\"#", "' outer : loop"] {
+            assert!(normalized.contains(kept), "{kept} missing from {normalized}");
+        }
+        assert!(!normalized.contains("gone"), "comment text in {normalized}");
+    }
+
+    #[test]
+    fn unicode_token_runs_preserve_byte_c_and_raw_literal_prefixes() {
+        let normalized = normalize_tokens(
+            "fn 漢字() { let _b = b\"x // y\"; let _c = c\"x /* y\"; let _br = br#\"漢字 //\"#; let _cr = cr#\"漢字 /*\"#; let _ch = b'\\''; }",
+        );
+        for literal in [
+            "b\"x // y\"",
+            "c\"x /* y\"",
+            "br#\"漢字 //\"#",
+            "cr#\"漢字 /*\"#",
+            "b'\\''",
+        ] {
+            assert!(normalized.contains(literal), "{literal} missing from {normalized}");
+        }
+        assert!(normalized.contains("fn 漢字 ( )"), "Unicode name was split: {normalized}");
     }
 
     #[test]
@@ -734,12 +1099,82 @@ mod tests {
     }
 
     #[test]
+    fn macro_detection_needs_a_macro_name_outside_comments_and_literals() {
+        for code in [
+            "{ if !(ready) { return; } }",
+            "{ while !(done) {} }",
+            "{ return !(flag); }",
+            "{ match !(flag) { _ => {} } }",
+            "{ let _quoted = \"fake!(x)\"; let _bang = '!'; }",
+            "{ let _raw = r#\"fake![x]\"#; }",
+            "{ /* fake!(x) */ // fake!{x}\n }",
+        ] {
+            assert!(!contains_macro_call(code), "not a macro call: {code}");
+        }
+        for code in [
+            "{ assert!(ready); }",
+            "{ let _list = vec![1]; }",
+            "{ let _text = format!(\"{ready}\"); }",
+            "{ std::println!(\"ready\"); }",
+            "{ if !matches!(ready, Some(_)) {} }",
+            "{ let _url = \"https://example.invalid\"; assert!(ready); }",
+        ] {
+            assert!(contains_macro_call(code), "macro call: {code}");
+        }
+    }
+
+    #[test]
     fn macro_generated_functions_are_not_source_fingerprinted() {
         let source = "macro_rules! define_checked {\n    ($name:ident) => {\n        pub fn $name(input: u32) -> u32 { input + 1 }\n    };\n}\n\ndefine_checked!(generated_checked);\n\n// tigerstyle-fingerprint: b3:abc; review=R; evidence=E\npub fn explicit_wrapper(input: u32) -> u32 { generated_checked(input) }\n";
         let functions = find_functions(source);
         assert_eq!(functions.len(), 1);
         assert_eq!(functions[0].name, "explicit_wrapper");
         assert!(functions[0].marker.is_some());
+    }
+
+    #[test]
+    fn keyword_delimiters_and_unicode_raw_names_cover_executable_functions() {
+        let source = r##"//! fn fake_doc() {}
+/* fn fake_block() {} */
+macro_rules! generated { () => { fn fake_generated() {} }; }
+pub fn control() -> u8 {
+    let 漢fn = 0;
+    let _quoted = "fn fake_quoted() {}";
+    let _raw = r#"fn fake_raw() {}"#;
+    1
+}
+pub fn	foo() -> u8 { 2 }
+pub fn
+bar() -> u8 { 3 }
+pub fn /* comment */ baz() -> u8 { 4 }
+pub fn r#type() -> u8 { 5 }
+pub fn 漢字() -> u8 { 6 }
+trait Contract { fn declaration(); }
+pub fn sum() -> u8 { control() + foo() + bar() + baz() + r#type() + 漢字() }
+"##;
+        let functions = find_functions(source);
+        let names = functions.iter().map(|span| span.name.as_str()).collect::<Vec<_>>();
+        assert_eq!(names, ["control", "foo", "bar", "baz", "r#type", "漢字", "sum"]);
+        for (span, name) in functions.iter().zip(names) {
+            let function = &source[span.start..span.end];
+            assert!(
+                function.contains(&format!("fn {name}"))
+                    || function.contains(&format!("fn\t{name}"))
+                    || function.contains(&format!("fn\n{name}"))
+                    || function.contains(&format!("fn /* comment */ {name}"))
+            );
+            assert!(function.ends_with('}'), "incomplete body for {name}: {function}");
+        }
+    }
+
+    #[test]
+    fn marker_before_comment_separated_raw_name_attaches() {
+        let source = "// octet-fingerprint: b3:abc; review=R; evidence=E\npub fn /* comment */ r#type() -> u8 { 5 }\n";
+        let functions = find_functions(source);
+        assert_eq!(functions.len(), 1);
+        assert_eq!(functions[0].name, "r#type");
+        assert!(functions[0].marker.is_some());
+        assert!(source[functions[0].start..functions[0].end].starts_with("pub fn /* comment */ r#type"));
     }
 
     #[test]
@@ -758,5 +1193,123 @@ mod tests {
         assert_eq!(functions[0].name, "f");
         assert!(functions[0].marker.is_some());
         assert!(normalize_tokens(&source[functions[0].start..functions[0].end]).starts_with("# [ inline ] fn f"));
+    }
+
+    #[test]
+    fn documentation_examples_are_not_functions() {
+        let source = r#"//! fn inner_doc() {}
+/// ```compile_fail
+/// fn forge(claim: Claim) -> Witness { Witness { claim } }
+/// ```
+///
+/// ```compile_fail
+/// fn forge(table: &Table) {
+///     table.receipt();
+/// }
+/// ```
+/** fn block_doc() { */
+#[must_use]
+pub fn real(value: u32) -> u32 {
+    value
+}
+"#;
+        let functions = find_functions(source);
+        let names = functions.iter().map(|span| span.name.as_str()).collect::<Vec<_>>();
+        assert_eq!(names, ["real"]);
+        let real = &source[functions[0].start..functions[0].end];
+        assert!(real.starts_with("#[must_use]\npub fn real"));
+        assert!(real.ends_with("value\n}"));
+    }
+
+    #[test]
+    fn literals_and_nested_comments_neither_create_nor_end_functions() {
+        let source = r##"/* outer /* nested fn fake_nested() { */ still fn fake_outer() { */
+fn quoted() -> &'static str {
+    let _url = "https://example.invalid/{";
+    let _raw = r#"fn fake_raw() { " } "#;
+    let _quote = '"';
+    let _brace = '}';
+    "// fn fake_line() {"
+}
+fn after<'a>(value: &'a str) -> &'a str {
+    value // a closing } in a comment
+}
+"##;
+        let functions = find_functions(source);
+        let names = functions.iter().map(|span| span.name.as_str()).collect::<Vec<_>>();
+        assert_eq!(names, ["quoted", "after"]);
+        let quoted_start = source.find("fn quoted").expect("quoted function");
+        let quoted_end = source.find("}\nfn after").expect("quoted closing brace") + 1;
+        assert_eq!((functions[0].start, functions[0].end), (quoted_start, quoted_end));
+        assert_eq!(functions[1].end, source.trim_end().len());
+    }
+
+    #[test]
+    fn comments_inside_or_naming_macro_definitions_do_not_change_functions() {
+        let definition = r#"macro_rules! define {
+    // fn not_real() {
+    ($name:ident) => { pub fn $name() -> u32 { 1 } };
+}
+pub fn explicit() -> u32 { 2 }
+"#;
+        let names = find_functions(definition).into_iter().map(|span| span.name).collect::<Vec<_>>();
+        assert_eq!(names, ["explicit"]);
+
+        let mention = r#"impl Widget {
+    // a macro_rules! sketch {
+    fn method(&self) -> u32 { 3 }
+}
+pub fn explicit() -> u32 { 4 }
+"#;
+        let names = find_functions(mention).into_iter().map(|span| span.name).collect::<Vec<_>>();
+        assert_eq!(names, ["method", "explicit"]);
+    }
+
+    #[test]
+    fn unicode_type_const_generic_signature_keeps_the_real_body() {
+        let source = "struct 漢字<const N: usize>;\nfn create() -> 漢字<{ 2 }> { 漢字 }\n";
+        let functions = find_functions(source);
+        assert_eq!(functions.len(), 1);
+        assert_eq!(functions[0].name, "create");
+        assert_eq!(&source[functions[0].start..functions[0].end], "fn create() -> 漢字<{ 2 }> { 漢字 }");
+    }
+
+    #[test]
+    fn array_and_const_generic_signatures_keep_their_bodies() {
+        let source = r#"trait Encode {
+    fn encode(&self, out: &mut [u8; 4]) -> [u8; 2];
+    fn width(&self) -> usize { 2 }
+}
+fn pair(bytes: [u8; 2]) -> bool {
+    bytes[0] == bytes[1]
+}
+impl Plan {
+    fn lanes(&self) -> Result<&[Option<u32>; LANES], Error> {
+        fn nested() {}
+        Ok(&self.lanes)
+    }
+}
+fn shaped<const N: usize>() -> Wrapper<{ N + 1 }>
+where
+    [(); N]: Sized,
+{
+    Wrapper
+}
+extern "C" {
+    fn external(buffer: *mut [u8; 8]);
+}
+"#;
+        let functions = find_functions(source);
+        let names = functions.iter().map(|span| span.name.as_str()).collect::<Vec<_>>();
+        assert_eq!(names, ["width", "pair", "lanes", "shaped"]);
+        let text = |index: usize| &source[functions[index].start..functions[index].end];
+        assert!(text(1).starts_with("fn pair(bytes: [u8; 2])") && text(1).ends_with("bytes[1]\n}"));
+        assert!(text(2).trim_start().starts_with("fn lanes") && text(2).ends_with("Ok(&self.lanes)\n    }"));
+        assert!(text(3).starts_with("fn shaped") && text(3).ends_with("Wrapper\n}"));
+
+        // Comparisons in a macro's proof clauses are not generic arguments.
+        let proof = "verus! {\npub proof fn ordered(value: nat)\n    ensures\n        value <= value, value < value + 1,\n{\n}\n}\nfn main() {}\n";
+        let names = find_functions(proof).into_iter().map(|span| span.name).collect::<Vec<_>>();
+        assert_eq!(names, ["ordered", "main"]);
     }
 }

@@ -2,6 +2,8 @@ use rustc_errors::Applicability;
 use rustc_hir as hir;
 use rustc_hir::BinOpKind;
 use rustc_hir::ExprKind;
+use rustc_hir::def::DefKind;
+use rustc_hir::def::Res;
 use rustc_lint::LateContext;
 use rustc_lint::LateLintPass;
 use rustc_lint::LintContext;
@@ -28,8 +30,51 @@ fn is_unsigned_int(ty: ty::Ty<'_>) -> bool {
     matches!(ty.kind(), ty::Uint(_))
 }
 
-fn is_constant_expr(expr: &hir::Expr<'_>) -> bool {
-    matches!(expr.kind, ExprKind::Lit(_))
+/// Only literals, named const items, and primitive expressions composed from
+/// them are known here. Associated consts and inline const blocks can depend
+/// on generic parameters; `let` bindings can be runtime even if initialized
+/// from a const. Keep the lint for all of those opaque operands.
+fn is_constant_expr(cx: &LateContext<'_>, expr: &hir::Expr<'_>) -> bool {
+    match &expr.kind {
+        ExprKind::Lit(_) => true,
+        ExprKind::Path(qpath) => {
+            matches!(cx.typeck_results().qpath_res(qpath, expr.hir_id), Res::Def(DefKind::Const { .. }, _))
+        }
+        ExprKind::Binary(op, lhs, rhs)
+            if matches!(
+                op.node,
+                BinOpKind::Add
+                    | BinOpKind::Sub
+                    | BinOpKind::Mul
+                    | BinOpKind::Div
+                    | BinOpKind::Rem
+                    | BinOpKind::BitAnd
+                    | BinOpKind::BitOr
+                    | BinOpKind::BitXor
+                    | BinOpKind::Shl
+                    | BinOpKind::Shr
+            ) && is_integer_ty(cx.typeck_results().expr_ty(expr))
+                && is_integer_ty(cx.typeck_results().expr_ty(lhs))
+                && is_integer_ty(cx.typeck_results().expr_ty(rhs)) =>
+        {
+            is_constant_expr(cx, lhs) && is_constant_expr(cx, rhs)
+        }
+        ExprKind::Unary(hir::UnOp::Neg | hir::UnOp::Not, inner) if is_integer_ty(cx.typeck_results().expr_ty(expr)) => {
+            is_constant_expr(cx, inner)
+        }
+        ExprKind::Cast(inner, _)
+            if is_integer_ty(cx.typeck_results().expr_ty(expr))
+                && is_integer_ty(cx.typeck_results().expr_ty(inner)) =>
+        {
+            is_constant_expr(cx, inner)
+        }
+        ExprKind::DropTemps(inner) => is_constant_expr(cx, inner),
+        _ => false,
+    }
+}
+
+fn is_integer_ty(ty: ty::Ty<'_>) -> bool {
+    matches!(ty.kind(), ty::Int(_) | ty::Uint(_))
 }
 
 fn expr_snippet(cx: &LateContext<'_>, expr: &hir::Expr<'_>) -> Option<String> {
@@ -69,8 +114,8 @@ impl<'tcx> LateLintPass<'tcx> for RawArithmeticOverflow {
             return;
         }
 
-        // Skip if both operands are constants (compiler checks these)
-        if is_constant_expr(lhs) && is_constant_expr(rhs) {
+        // Retain checks on runtime locals, even in const fn bodies.
+        if is_constant_expr(cx, lhs) && is_constant_expr(cx, rhs) {
             return;
         }
 

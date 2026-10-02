@@ -238,21 +238,51 @@ For fingerprint docs/examples, use one review command:
 nix build .#checks.x86_64-linux.docs-examples --no-link -L
 ```
 
+That command is temporarily blocked. The five `docs/examples/function-fingerprint-*`
+examples still carry pre-v2 marker hashes, and their transcript tests were removed
+as hash snapshots. The five `fingerprint-*-docs` rails therefore fail closed
+(`selected rail unverified`), and `fingerprint-docs-downstream-smoke` fails on the
+stale markers, until an owner re-reviews and regenerates the examples. Do not
+rewrite the example markers just to obtain a pass.
+
 For Valence object-evidence changes, use one aggregate operator command:
 
 ```bash
 nix build .#checks.x86_64-linux.valence-object-evidence --no-link -L
 ```
 
-That aggregate gate composes selected local object corpus replay, compatibility,
+This aggregate is blocked while Function Object v1 is unavailable. Every
+source-backed `cargo octet object` command refuses construction with
+`function-object-v1-unavailable` until the owner pins a reviewed valence-core
+normalization label. The object-corpus, caveat-taxonomy, fixture-freshness,
+supplement-compatibility, THIR-inventory, and MIR-fixture rails therefore select
+no tests and fail closed with
+`selected rail unverified: Function Object v1 construction is refused until a reviewed valence-core normalization label is pinned`.
+The object-corpus-compatibility rail stays red on its two v1 receipt contract tests,
+and `fresh-build-object-corpus-determinism` stops at the refused
+`object corpus receipt`. Tests that only read checked-in artifacts are named
+`checked_in_*` or `*_spike_fixture_listing_*`, so no object rail selects them; refusal
+tests are named `object_v1_refusal_*` for the same reason. Do not add refusal tests to
+these rails or re-pin fixtures to make them pass. The
+[current-head evidence page](current-head-valence-evidence.md) records an earlier
+payload commit, and its object pass signals do not hold for the current tree. The
+rest of this section describes the rails as they behave once the label exists.
+
+That aggregate gate composes selected local object corpus receipt checks, compatibility,
 caveat taxonomy, named object-corpus fixture freshness, selected THIR fixture
 inventory, selected MIR fixture replay, and fresh-build determinism rails. Run
 `nix build .#checks.x86_64-linux.object-corpus-fixture-freshness --no-link -L`
 whenever a change touches object-corpus inputs such as `cargo-octet/src/object.rs`,
 `cargo-octet/src/cli.rs`, `cargo-octet/tests/fingerprint_consumer.rs`,
 `THIR/MIR fixture inventories`, or `cargo-octet/tests/fixtures/object-corpus/*`; regenerate
-stale object-corpus fixtures before closeout. The aggregate includes a named
-freshness PASS line,
+stale object-corpus fixtures before closeout once an owner-reviewed freshness comparison
+exists. That rail is temporarily blocked: its fixture parity tests compared checked-in
+receipts with Octet's own changing source and were removed as implementation snapshots,
+so it fails closed with
+`no test selected by 'matches_fresh'; selected rail unverified: Function Object v1 construction is refused until a reviewed valence-core normalization label is pinned`
+and the aggregate cannot pass until the owner-reviewed replacement lands.
+Do not regenerate the fixtures to obtain a pass. When it passes, the aggregate includes
+a named freshness PASS line,
 `valence_object_evidence.object_corpus_fixture_freshness_gate: PASS`. It also includes a named MIR inventory check,
 `nix build .#checks.x86_64-linux.mir-supplement-inventory-gate --no-link -L`,
 which is composed into the aggregate as
@@ -358,19 +388,23 @@ For the internal function object corpus gate, use the named check:
 nix build .#checks.x86_64-linux.object-corpus-gate --no-link -L
 ```
 
-This runs the selected internal corpus fixture replay. For a freshness-only
-operator rail, use the named check:
+This runs the selected internal corpus receipt determinism, boundary, and
+checked-in fixture structure checks. For a freshness-only operator rail, use the
+named check:
 
 ```bash
 nix build .#checks.x86_64-linux.object-corpus-fixture-freshness --no-link -L
 ```
 
-That focused rail compares checked-in internal, expanded, and caveat-taxonomy
-object-corpus fixtures against fresh outputs. Run it before closeout whenever a
-change touches object-corpus inputs such as `cargo-octet/src/object.rs`,
+That focused rail is meant to compare checked-in internal, expanded, and
+caveat-taxonomy object-corpus fixtures against fresh outputs. It is temporarily
+blocked: no parity test currently matches its selection, so it fails closed
+(`selected rail unverified`) pending an owner-reviewed replacement. Run it before
+closeout whenever a change touches object-corpus inputs such as `cargo-octet/src/object.rs`,
 `cargo-octet/src/cli.rs`, `cargo-octet/tests/fingerprint_consumer.rs`,
 `THIR/MIR fixture inventories`, or `cargo-octet/tests/fixtures/object-corpus/*`.
-Regenerate stale fixtures before relying on the aggregate gate. Treat any pass
+Regenerate stale fixtures before relying on the aggregate gate once that replacement
+exists; until then the aggregate cannot pass. Treat any pass
 as bounded local evidence replay for the selected corpus, not a correctness
 proof, semantic-equivalence proof, cross-machine determinism proof, or exhaustive
 Rust coverage claim.
