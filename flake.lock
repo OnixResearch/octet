@@ -76,15 +76,17 @@
       "locked": {
         "lastModified": 1786223974,
         "narHash": "sha256-OKzh+0SPDKBS8Jr6icvTxuAmTZ79v6Lm6wmgQ6vaY/o=",
-        "owner": "onixresearch",
-        "repo": "cairn",
+        "ref": "change/hash-bound-cairn-migration",
         "rev": "695124d459574ba7aeba6097310d237f393c243c",
-        "type": "github"
+        "revCount": 395,
+        "type": "git",
+        "url": "ssh://git@github.com/OnixResearch/cairn.git"
       },
       "original": {
-        "owner": "onixresearch",
-        "repo": "cairn",
-        "type": "github"
+        "ref": "change/hash-bound-cairn-migration",
+        "rev": "695124d459574ba7aeba6097310d237f393c243c",
+        "type": "git",
+        "url": "ssh://git@github.com/OnixResearch/cairn.git"
       }
     },
     "cairn_2": {
@@ -1249,18 +1251,19 @@
         ]
       },
       "locked": {
-        "lastModified": 1784063340,
-        "narHash": "sha256-ASWqHCXtUIDerN5vG57TbciTs2q2kHx/dyJI6q0veDk=",
-        "owner": "OnixResearch",
-        "repo": "valence",
-        "rev": "5f1c2ba5072c6f9622fa59b1af20502985f569fd",
-        "type": "github"
+        "lastModified": 1790934384,
+        "narHash": "sha256-70AmHxWEbeQK3SFi9ZZ67Prmy3d1zgXHLk/AdPp+EdE=",
+        "ref": "review/source-token-v2-7546a78b",
+        "rev": "7546a78b4eeef8686c6837e187aa12420f4f03bb",
+        "revCount": 66,
+        "type": "git",
+        "url": "ssh://git@github.com/OnixResearch/valence.git"
       },
       "original": {
-        "owner": "OnixResearch",
-        "repo": "valence",
-        "rev": "5f1c2ba5072c6f9622fa59b1af20502985f569fd",
-        "type": "github"
+        "ref": "review/source-token-v2-7546a78b",
+        "rev": "7546a78b4eeef8686c6837e187aa12420f4f03bb",
+        "type": "git",
+        "url": "ssh://git@github.com/OnixResearch/valence.git"
       }
     }
   },

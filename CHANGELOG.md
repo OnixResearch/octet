@@ -6,6 +6,117 @@ specific commits via `TIGERSTYLE_DYLINT_REV`.
 For the full lint catalog, see `docs/lint-reference.md`.
 For rollout profiles, see `docs/downstream-rollout.md`.
 
+## Unreleased: reviewed Valence source-token-v2 pin and source-bound object rails
+
+- Candidate `cargo-octet` source-backed object, marker, corpus, and supplement
+  commands share one typed Valence constructor over each function's original
+  byte span and `octet-source-token-v2` tokens. Source line conversion and
+  addition reject `u32` overflow instead of silently wrapping. Local integration
+  tests cover quoted-URL literals, code after the URL, trivia, corpus
+  source/boundary drift, marker identity, and bounded HIR/THIR/MIR selected
+  fixture emit, replay, and tamper refusal without claiming correctness.
+- Fixed a shared scanner gap after reproducing an ABI-breaking identity
+  collision: `#[unsafe(export_name = "alpha")]` versus `"omega"` above a
+  comment-separated `fn` exported distinct symbols under rustc but returned
+  the same v2 object hash. Attached outer attributes now participate in source
+  spans across intervening comments/blank lines. Regression coverage requires
+  distinct v2 object identities, a stale reviewed function-address marker,
+  stable identity for token-preserving ordinary whitespace/non-doc comment edits,
+  and preserved marker/unrelated-item boundaries.
+- Closed the remaining multiline attribute and split-visibility collisions:
+  valid `#[unsafe(export_name =` followed by a literal-only line and `)]`
+  exported distinct `alpha`/`omega` symbols but previously had identical v2
+  hashes; valid `pub` on the preceding line also hashed like a private
+  function. Balanced bracket matching over the scanner's same-length code
+  view now includes stacked/multiline attributes despite nested brackets in
+  literals/comments, and item-prefix scanning includes split visibility and
+  modifiers. Reviewed function-address and object markers stale on those
+  edits; ordinary whitespace/non-doc comment edits that leave Rust TokenStream
+  unchanged remain stable.
+- Closed a reviewed-marker trust-boundary bug: `// octet-object:` inside an
+  enclosing Rust block comment previously produced a false `match` when its
+  digest and review fields matched. Object and fingerprint/function-address
+  markers now require an active lexical marker start, not marker-looking text
+  in a block comment or literal. A closing `*/` on the function's own line
+  stays outside its source identity; explicit marker update inserts an active
+  marker after the closer and still requires real review metadata. Marker
+  association shares one monotone lexical scan per file, rather than
+  rescanning every source prefix for each reviewed function.
+- Closed source-token-v2 collisions observed with real Rust procedural macros:
+  joint versus separated punctuation, numeric literals versus split tokens,
+  raw identifiers/lifetimes, attached literal suffixes, and doc comments
+  inside macro arguments produced different compiler token streams but shared
+  an object hash. The candidate scanner now preserves these lexical boundaries
+  while ordinary comments and group-adjacent whitespace remain trivia.
+  Macro review caveats never make colliding source identities acceptable.
+- The caller requests the v2 label from the typed Valence constructor without
+  presenting corrected bytes as v1. The selected reviewed Valence commit
+  `7546a78b4eeef8686c6837e187aa12420f4f03bb` admits source-backed v2
+  objects; historical v1 source replay does not acquire a false match.
+- The fixed quoted-URL source and a locally regenerated v2 diagnostic receipt
+  under `cargo-octet/tests/fixtures/object-corpus/source-token-v2/` have an
+  explicit `candidate-source-manifest.json` with source, receipt, and exact
+  tested Valence module hashes; this historical candidate remains `PENDING`.
+  The tested module is identified by canonical repository URI and
+  repo-relative path, never a local checkout path. The same directory also
+  contains internal (18 paths), expanded (36 paths), and
+  expanded caveat-taxonomy v2 references. The candidate manifest binds all 37
+  source-byte hashes, four artifact hashes, and prospective Octet
+  module hashes. A distinct independently audited
+  `reviewed-source-manifest.json` binds these approved H2 identities to
+  the immutable candidate snapshot and selected upstream revision/module;
+  it excludes later consumer-test edits and does not claim an owner signature.
+  Fresh byte-identical replay is diagnostic: changing one ordinary non-doc
+  comment byte without changing Rust TokenStream leaves the token object set
+  stable but invalidates its source binding. The existing named object rails
+  require fail-closed admission of the frozen manifests, exact 37 source-byte
+  hashes, four saved reference bytes, scoped owner approval, and the selected
+  Cargo/Nix Valence identity before executing source-backed positive and
+  negative tests. Two independently built binaries must also match each other
+  and both the saved internal and expanded receipts; matching local binaries
+  alone do not supply review.
+  The in-repository verifier and expected hashes share a PR-controlled trust
+  boundary, so an external reviewer must compare the frozen candidate and
+  reviewed manifest BLAKE3 anchors independently. H2 also does not freeze
+  compiled `valence_core_shim.rs` or `object_core.rs`; observed selected
+  producer behavior cannot authenticate arbitrary later producer edits.
+  After OpenSpec archive, the manifest's old approval path remains immutable
+  historical metadata; the verifier reads the archived H2 approval note with
+  an exact byte-hash drift lock and rejects missing, altered, or resurrected
+  active approval paths. All eight named children, the two-binary fresh-build
+  rail, and the twelve-dependency aggregate passed again after that cutover;
+  the in-PR note hash is not an owner signature or external H2 authentication.
+- Incidental contributor-guide substring, help-wording, and human-contract-text
+  assertions were removed; actual CLI transcript and fixture inventory
+  behavior tests remain.
+- A selected Valence dependency alone is **not** an approved object-rail PASS.
+  Candidate proof used a disposable, non-Git Octet copy with a local Cargo
+  `[patch]`; the independently reviewed upstream module has since been published
+  at `7546a78b4eeef8686c6837e187aa12420f4f03bb`, and the selected
+  Cargo/lock/Nix/manifest pins now identify that exact revision via direct
+  SSH Cargo and flake sources. Existing v1 receipts, markers, policies, and
+  accepted evidence were not rebound. A named PASS requires its actual Nix
+  derivation to build after source admission, not only focused source tests.
+- Historical v1 source replay under the selected v2 pin returns
+  `status=mismatch` on `object_set_hash`; v1 artifact-only readers still work.
+  The owner's H1 `approve` decision permits replacing the obsolete positive
+  v1 replay assertion with the honest mismatch and removing the false v1
+  object-set match assertion from boundary tampering. A separate test reads
+  the saved v1 receipt and exercises diff/pointer/bundle on transparently
+  test-owned, real typed Valence v1 objects serialized to JSON (one pinned to
+  the upstream core's v1 golden identity), not a nonexistent archived standalone
+  v1 object. The selected eight named child rails and aggregate subsequently
+  passed actual source-bound Nix derivations, not merely focused source tests.
+  The supported OpenSpec archive now promotes the versioned v1-mismatch/v2-match
+  contract to the canonical `standards-codification` spec, retaining old v1
+  JSON and artifact-only reads without asserting source replay remains valid.
+- The exact repo-pinned Cairn CLI commit `695124d459574ba7aeba6097310d237f393c243c`
+  is now reachable through immutable SSH flake transport without changing
+  Octet's Cairn policy. A separate native spec-driven change added current v2
+  Valence compatibility requirements alongside historical Phase 2 v1 text and
+  was gated, synced, strictly validated, and archived. The unrelated newer
+  installed CLI's additional profile did not authorize a policy migration.
+
 ## Unreleased: Consumer fixture matches Cargo metadata and source assets
 
 - The consumer integration harness now delegates `cargo metadata` to Cargo
@@ -24,15 +135,17 @@ For rollout profiles, see `docs/downstream-rollout.md`.
   tests now read existing object JSON or the checked-in v1 receipt instead of emitting.
   Tests that only read checked-in artifacts were renamed (`checked_in_*`,
   `*_spike_fixture_listing_*`).
-- `object_corpus_compatibility_positive_v1_fixture_replays_cleanly` and
-  `object_corpus_compatibility_boundary_tamper_fixture_fails_closed` check a
-  checked-in v1 receipt contract. They are kept, labelled blocked, and stay red until
-  a reviewed valence-core normalization label is pinned.
-- The object, supplement, and corpus Nix rails now fail closed with
+- At this earlier blocked stage, the then-named
+  `object_corpus_compatibility_positive_v1_fixture_replays_cleanly` and
+  `object_corpus_compatibility_boundary_tamper_fixture_fails_closed` checked
+  a v1 source-replay contract and stayed red. The H1 migration above
+  replaces that obsolete positive assertion; this entry records history,
+  not the current test expectation.
+- At this earlier blocked stage, the object, supplement, and corpus Nix rails failed closed with
   `<check>: no test selected by '<filter>'; selected rail unverified: Function Object v1 construction is refused until a reviewed valence-core normalization label is pinned`.
-  The compatibility rail stays red on its blocked tests, and
-  `fresh-build-object-corpus-determinism` stops at the refused receipt command.
-  `valence-object-evidence` therefore cannot build or print PASS lines.
+  The compatibility rail was red on its blocked tests, and
+  `fresh-build-object-corpus-determinism` stopped at the refused receipt command.
+  `valence-object-evidence` therefore could not build or print PASS lines at that stage.
   `docs/current-head-valence-evidence.md` still records an earlier payload commit,
   and its object pass signals do not hold for the current tree.
 - The source scanner now also finds functions whose `fn` is followed by a tab, a
@@ -44,11 +157,12 @@ For rollout profiles, see `docs/downstream-rollout.md`.
   re-reviewed; nothing rebinds them. This does not establish complete Rust syntax
   coverage.
 
-## Unreleased: Source-token identity v2; Function Object v1 unavailable
+## Unreleased historical stage: Source-token identity v2 before reviewed Valence pin
 
 Canonical source tokens now keep every string, raw-string, byte, and character
-literal whole, including any `//` inside it. Line, doc, and nested block
-comments are dropped. Before this change, each line was cut at its first `//`,
+literal whole, including any `//` inside it. Ordinary line and nested block
+comments are dropped; compiler-visible doc comments inside function bodies
+are retained. Before this change, each line was cut at its first `//`,
 so code after a quoted URL was never hashed. Literal contents were also split
 into tokens, so whitespace changes inside a literal went unseen. Dependency sets
 now hold only identifiers in code; words inside literals no longer count.
@@ -60,15 +174,19 @@ now hold only identifiers in code; words inside literals no longer count.
 - Function addresses use canonicalizer `octet-source-token-function-address-v2`,
   which is hashed into every address. Existing function-address markers and
   baselines report stale until re-reviewed.
-- Function Object v1 is unavailable. valence-core accepts only the
-  normalization label `octet-source-token-v1`, which names the old token bytes.
+- At this earlier stage (superseded by the reviewed pin above), the selected
+  v1-only valence-core pin rejected source-backed Function Object
+  v2 construction. That pin accepted only the normalization label
+  `octet-source-token-v1`, which names the old token bytes.
   Every `cargo octet object` command that builds objects from source (`emit`,
   `check`, `update`, `corpus receipt`, `corpus caveats`, `corpus check`,
-  `supplement emit`, `supplement check`) fails with
-  `function-object-v1-unavailable: <path>::<function>: ...`.
-  `object corpus check` reports the same refusal as an error of kind
-  `function-object-v1-unavailable`. Objects stay unavailable until a reviewed
-  valence-core label for the corrected bytes is pinned. Commands that read
+  `supplement emit`, `supplement check`) requested `octet-source-token-v2`;
+  the then-selected v1 pin compiled but rejected that label with
+  ``function object normalization algorithm `octet-source-token-v2` does not match v1 algorithm `octet-source-token-v1` ``.
+  `object corpus check` returned `status="invalid"` with error kind
+  `source-selection` on `paths`; neither command emitted a v1-labeled object.
+  Objects stayed unavailable until the reviewed valence-core label for the
+  corrected bytes was pinned. Commands that read
   existing object JSON or list fixtures (`diff`, `pointer`, `bundle export`,
   `corpus contract`, `supplement fixtures`) are unchanged.
 - The five fingerprint docs examples still carry pre-change marker hashes.
@@ -104,13 +222,13 @@ source. They and the ignored fixture re-pin helper were deleted as implementatio
 snapshots. The fixtures stay and are still checked for structure and boundary
 claims; separate tests still cover fresh-receipt determinism and receipt replay.
 
-`nix build .#checks.x86_64-linux.object-corpus-fixture-freshness` now lists the
+At this earlier blocked stage, `nix build .#checks.x86_64-linux.object-corpus-fixture-freshness` listed the
 tests its `matches_fresh` filter selects before running them. With no
 non-ignored test selected, it exits nonzero with
 `no test selected by 'matches_fresh'; selected rail unverified: Function Object v1 construction is refused until a reviewed valence-core normalization label is pinned`
-instead of passing without running anything. No such test exists now, so the
-rail fails, and `valence-object-evidence`, which depends on it, cannot pass until
-an owner-reviewed freshness comparison replaces the deleted tests.
+instead of passing without running anything. No such test existed then, so the
+rail failed, and `valence-object-evidence`, which depended on it, could not pass
+until an owner-reviewed freshness comparison replaced the deleted tests.
 
 ## Unreleased: Functions with array-typed signatures are scanned
 

@@ -1,0 +1,7 @@
+H1 owner decision (conversation evidence, not a cryptographic signature)
+
+The user explicitly replied `approve` after this H1 proposal: replace the positive historical v1 source-replay `match` with an honest default-v2 `mismatch` while retaining unchanged/readable v1 artifacts. The same approval included a separate conditional H2 review scope; this note records H1 only.
+
+Authorized consequence: a shape-valid historical v1 receipt remains readable, but replaying its checked-in source through default source-token-v2 construction must report a nonzero `mismatch` on `object_set_hash`; the historical boundary-tamper fixture must report a `boundary` mismatch without asserting a v1 object-set match. Retain the v1 receipt, taxonomy, sources, malformed-shape negative fixtures, markers, pointers, baselines, and historical evidence unchanged. No archived standalone v1 Function Object JSON was found in the bounded search; test-owned v1-shape JSON cannot be described as a saved historical object.
+
+This decision does not approve migration of historical Cairn records, rewrite of v1 artifacts, self-generated v2 references, promotion of the draft OpenSpec change, or any owner signature over hashes. H2 independent review and selected-rail verification remain separate.

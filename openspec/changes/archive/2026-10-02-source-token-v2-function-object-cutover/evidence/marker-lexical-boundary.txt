@@ -1,0 +1,9 @@
+V16 — Marker-looking text in non-code cannot confer review
+
+Executed the four drafted filters from Octet root with offline/locked selected SSH Valence pin:
+- `cargo test -p cargo-octet --lib marker_looking_text_inside_comments_and_literals_never_attaches -- --nocapture`: 1 passed, 0 failed, 0 ignored. Nested block-comment and raw-string marker-looking fingerprint comments/attributes attach to no function; a real line marker above attributes still attaches.
+- `cargo test -p cargo-octet --lib marker_lexical_state_stays_correct_across_multiple_functions -- --nocapture`: 1 passed, 0 failed, 0 ignored. Source-ordered real/forged/literal/real functions yielded marker presence [true,false,false,true].
+- `cargo test -p cargo-octet --lib marker_text_inside_block_comment_cannot_supply_a_reviewed_address -- --nocapture`: 1 passed, 0 failed, 0 ignored. Two matching-digest forgeries inside block comments yielded missing reviewed address under deny mode with null review.
+- `cargo test -p cargo-octet --test fingerprint_consumer object_v2_comment_forgery_with_matching_digest_is_missing_not_reviewed -- --exact --nocapture`: 1 passed, 0 failed, 0 ignored. Real CLI emitted a correct v2 hash; an identical digest embedded under nested block comment still exited nonzero with status=missing, stored_hash/review/evidence null. Explicit `object update` inserted an ACTIVE marker outside the comment; later `object check` still exited nonzero because review metadata was not invented.
+
+No frozen H2 source or historical v1 marker was rewritten. This establishes lexical review-association refusal, not independent review authorization or correctness.

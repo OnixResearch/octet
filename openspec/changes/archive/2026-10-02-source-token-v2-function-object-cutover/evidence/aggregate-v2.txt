@@ -1,0 +1,20 @@
+V15: Existing Valence Object evidence aggregate PASS under reviewed v2
+
+Executed: export NIX_CONFIG with actual newline-separated `min-free = 0` and `max-free = 0`; then nix build path:.#checks.x86_64-linux.valence-object-evidence --no-link -L --option min-free 0 --option max-free 0 --option builders '' --option max-jobs 2 --option cores 4 --option substituters 'https://cache.nixos.org https://nix-community.cachix.org https://devenv.cachix.org'. Immediately before, `nix config show --json` verified effective min-free=0, max-free=0, builders="", max-jobs=2, cores=4. Result: exit 0, derivation /nix/store/qv8x0v87a4bvhpc36h4qpzawslp0xm87-octet-valence-object-evidence.drv. Its own log first printed `reviewed-v2-source: ADMITTED independently bound source and references (not a correctness or owner-signature proof)`, then all twelve dependency PASS lines:
+
+valence_object_evidence.object_corpus_gate: PASS
+valence_object_evidence.compatibility_gate: PASS
+valence_object_evidence.caveat_taxonomy_gate: PASS
+valence_object_evidence.object_corpus_fixture_freshness_gate: PASS
+valence_object_evidence.supplement_compatibility_gate: PASS
+valence_object_evidence.evidence_index_gate: PASS
+valence_object_evidence.evidence_release_gate: PASS
+valence_object_evidence.valence_core_package_readiness: PASS
+valence_object_evidence.thir_supplement_inventory_gate: PASS
+valence_object_evidence.mir_supplement_fixture_gate: PASS
+valence_object_evidence.mir_supplement_inventory_gate: PASS
+valence_object_evidence.fresh_build_determinism_gate: PASS
+
+Aggregate scope line: `bounded-local-selected-corpus-evidence-replay`; non-claims: correctness, semantic_equivalence, exhaustive_rust_coverage, cross_machine_determinism, cross_toolchain_determinism. The standalone-Valence readiness dependency separately logged manifest_freshness/exact_source/hardened_profile/unique_package_identity/positive_and_negative_fixtures PASS. The fresh-build dependency again independently produced matching internal and expanded reviewed receipts with two binaries and a passing tamper matrix. The historical c9cdf676 current-head page remains historical and was not rebound as v2 evidence.
+
+Trust limits: the verifier and expected digests are in the same PR-controlled tree, so PASS is not by itself independent H2 authentication against malicious coordinated PR edits; an out-of-PR reviewer must compare candidate/reviewed BLAKE3 to external 6d79a8b09c4e7dd20236f4a141c01d6c18b793df7aad93e8ee4ec1d7fb83b221 / 2f420d0464e67a8b6ae518e7215eefd1ba8afc47d1849c07afedf284f196da29. H2 does not freeze compiled valence_core_shim.rs/object_core.rs or post-H2 consumer-test edits; their observed scenarios and future code review are distinct. The accidental auto-GC during a separate, failed Cairn evaluation and bounded path impact/safety controls are recorded in nix-auto-gc-impact.txt.

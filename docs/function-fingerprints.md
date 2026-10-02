@@ -25,8 +25,10 @@ fn checked_transition(input: State) -> State { /* ... */ }
 ```
 
 The implementation hashes canonical function tokens and ignores the marker itself.
-Whitespace and comments (line, doc, and nested block comments) do not change the
-hash; signature, attribute, visibility, or body token changes do. String,
+Ordinary whitespace and non-doc comments that leave Rust TokenStream unchanged
+do not change the hash; doc comments can become compiler-visible attributes
+and change identity, particularly inside macro inputs. Signature, attribute,
+visibility, or body token changes also change the hash. String,
 raw-string, byte, and character literals are hashed whole, so any change inside a
 literal changes the hash, and a `//` inside a literal does not hide the code after
 it. Macro calls produce a review warning unless the marker records an explicit
