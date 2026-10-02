@@ -96,6 +96,7 @@ pub(crate) struct FunctionSpan {
     pub(crate) start: usize,
     pub(crate) end: usize,
     pub(crate) marker: Option<Marker>,
+    pub(crate) preceding_marker_in_code: bool,
     pub(crate) macro_calls: bool,
 }
 
@@ -204,7 +205,8 @@ pub fn run(args: &FingerprintArgs) -> Result<i32, String> {
                 if let Some(marker) = marker {
                     replacements.push((marker.start, marker.end, line));
                 } else {
-                    replacements.push((span.start, span.start, line));
+                    let (start, line) = marker_insertion(&source, span.start, line);
+                    replacements.push((start, start, line));
                 }
             }
             records.push(record);
@@ -346,6 +348,7 @@ pub(crate) fn find_functions(source: &str) -> Vec<FunctionSpan> {
     // or end a function. Spans, markers, and hashed text still use `source`.
     let code = code_view(source);
     let macro_rules_ranges = macro_rules_ranges(&code);
+    let mut marker_cursor = MarkerLexicalCursor::new(source);
     let mut cursor = 0;
     while let Some(relative) = code[cursor..].find("fn") {
         let fn_pos = cursor + relative;
@@ -383,14 +386,27 @@ pub(crate) fn find_functions(source: &str) -> Vec<FunctionSpan> {
         let Some(end) = matching_brace(&code, open_brace) else {
             break;
         };
-        let item_start = function_item_start(source, fn_pos);
-        let marker = preceding_marker(source, item_start);
+        let item_start = function_item_start(source, &code, fn_pos);
+        // A block comment can close on the function's own line (`*/ pub fn`).
+        // Its closing bytes precede the first code token, not the item, and
+        // cannot contribute to the function identity or marker insertion.
+        let first_code = code[item_start..fn_pos]
+            .char_indices()
+            .find(|(_, ch)| !ch.is_whitespace())
+            .map_or(fn_pos, |(offset, _)| item_start + offset);
+        let item_start = if source[item_start..first_code].trim().is_empty() {
+            item_start
+        } else {
+            first_code
+        };
+        let (marker, preceding_marker_in_code) = preceding_marker(source, item_start, &mut marker_cursor);
         let body = &source[open_brace..end];
         spans.push(FunctionSpan {
             name: source[name_start..name_end].to_owned(),
-            start: marker.as_ref().map_or(item_start, |m| m.end),
+            start: item_start,
             end,
             marker,
+            preceding_marker_in_code,
             macro_calls: contains_macro_call(body),
         });
         cursor = end;
@@ -511,6 +527,16 @@ fn non_code_at(source: &str, start: usize) -> Option<(NonCode, usize)> {
     }
 }
 
+/// Doc comments become `#[doc = "..."]` tokens inside macro input; unlike
+/// ordinary comments, their text is observable by a procedural macro.
+fn is_doc_comment(comment: &str) -> bool {
+    let bytes = comment.as_bytes();
+    bytes.starts_with(b"//!")
+        || (bytes.starts_with(b"///") && !bytes.starts_with(b"////"))
+        || bytes.starts_with(b"/*!")
+        || (bytes.starts_with(b"/**") && !bytes.starts_with(b"/***") && !bytes.starts_with(b"/**/"))
+}
+
 /// Line, outer doc, and inner doc comments end before their newline.
 fn line_comment_end(bytes: &[u8], start: usize) -> usize {
     bytes
@@ -593,76 +619,173 @@ fn raw_string_end(source: &str, start: usize) -> Option<usize> {
     Some(closing_quote.map_or(bytes.len(), |index| index + 1 + hashes))
 }
 
-fn function_item_start(source: &str, fn_pos: usize) -> usize {
-    let mut line_start = source[..fn_pos].rfind('\n').map_or(0, |index| index + 1);
+fn function_item_start(source: &str, code: &str, fn_pos: usize) -> usize {
+    let mut prefix_start = fn_pos;
+    while let Some(modifier_start) = preceding_function_modifier_start(code, prefix_start) {
+        prefix_start = modifier_start;
+    }
+    let mut item_start = source[..prefix_start].rfind('\n').map_or(0, |index| index + 1);
+    let mut line_start = item_start;
 
     loop {
         let previous_end = line_start.saturating_sub(1);
         if previous_end == 0 {
-            return line_start;
+            return item_start;
         }
 
         let previous_start = source[..previous_end].rfind('\n').map_or(0, |index| index + 1);
-        let previous = source[previous_start..previous_end].trim();
-        if previous.starts_with("#[") {
+        // Comments and blank lines do not detach Rust outer attributes from
+        // their item. Probe across them, but do not include unrelated trivia
+        // (or a reviewed marker) in the function's source-token span.
+        if code[previous_start..previous_end].trim().is_empty() {
             line_start = previous_start;
             continue;
         }
-        if (previous.starts_with(']') || previous.starts_with(')'))
-            && let Some(attribute_start) = multiline_attribute_start(source, previous_start)
-        {
+        if code[previous_start..previous_end].trim_start().starts_with("#[") {
+            // The historical fingerprint attribute is a review marker, not
+            // one of the attributes hashed as part of the function item.
+            if source[previous_start..previous_end].trim_start().starts_with(ATTR_MARKER) {
+                return item_start;
+            }
+            item_start = previous_start;
+            line_start = previous_start;
+            continue;
+        }
+        if let Some(attribute_start) = multiline_attribute_start(source, code, previous_end) {
+            item_start = attribute_start;
             line_start = attribute_start;
             continue;
         }
 
-        return line_start;
+        return item_start;
     }
 }
 
-fn multiline_attribute_start(source: &str, before_line_start: usize) -> Option<usize> {
-    let mut line_end = before_line_start.saturating_sub(1);
-    loop {
-        let line_start = source[..line_end].rfind('\n').map_or(0, |index| index + 1);
-        let line = source[line_start..line_end].trim();
-        if line.starts_with("#[") {
-            return Some(line_start);
-        }
-        if line.is_empty() || (!line.ends_with(',') && !line.contains('=')) {
-            return None;
-        }
-        if line_start == 0 {
-            return None;
-        }
-        line_end = line_start.saturating_sub(1);
+fn preceding_function_modifier_start(code: &str, before: usize) -> Option<usize> {
+    let end = code[..before].trim_end().len();
+    let bytes = code.as_bytes();
+    if bytes.get(end.checked_sub(1)?) == Some(&b')') {
+        let open = matching_open_delimiter(code, end - 1, b'(', b')')?;
+        let word_end = code[..open].trim_end().len();
+        let start = ascii_identifier_start(bytes, word_end);
+        return (code.get(start..word_end) == Some("pub")).then_some(start);
     }
+
+    let start = ascii_identifier_start(bytes, end);
+    matches!(code.get(start..end)?, "pub" | "default" | "const" | "async" | "unsafe" | "extern").then_some(start)
 }
 
-fn preceding_marker(source: &str, item_start: usize) -> Option<Marker> {
+fn ascii_identifier_start(bytes: &[u8], end: usize) -> usize {
+    let mut start = end;
+    while start > 0 && (bytes[start - 1].is_ascii_alphanumeric() || bytes[start - 1] == b'_') {
+        start -= 1;
+    }
+    start
+}
+
+fn multiline_attribute_start(source: &str, code: &str, line_end: usize) -> Option<usize> {
+    let end = code[..line_end].trim_end().len();
+    let close = end.checked_sub(1)?;
+    if code.as_bytes()[close] != b']' {
+        return None;
+    }
+    let open = matching_open_delimiter(code, close, b'[', b']')?;
+    let hash = open.checked_sub(1)?;
+    if code.as_bytes()[hash] != b'#' {
+        return None;
+    }
+    let line_start = source[..hash].rfind('\n').map_or(0, |index| index + 1);
+    code[line_start..hash].trim().is_empty().then_some(line_start)
+}
+
+fn matching_open_delimiter(code: &str, close: usize, open_byte: u8, close_byte: u8) -> Option<usize> {
+    let mut depth = 0usize;
+    for (index, byte) in code.as_bytes()[..=close].iter().enumerate().rev() {
+        if *byte == close_byte {
+            depth += 1;
+        } else if *byte == open_byte {
+            depth = depth.checked_sub(1)?;
+            if depth == 0 {
+                return Some(index);
+            }
+        }
+    }
+    None
+}
+
+fn preceding_marker(
+    source: &str,
+    item_start: usize,
+    marker_cursor: &mut MarkerLexicalCursor<'_>,
+) -> (Option<Marker>, bool) {
     let prefix = &source[..item_start];
     let line_start = prefix.rfind('\n').map_or(0, |index| index + 1);
     let previous_end = line_start.saturating_sub(1);
     let previous_start = source[..previous_end].rfind('\n').map_or(0, |index| index + 1);
-    let previous = source[previous_start..previous_end].trim();
-    if previous.starts_with(COMMENT_MARKER)
+    let line = &source[previous_start..previous_end];
+    let previous = line.trim();
+    let marker_in_code = marker_cursor.in_code(previous_start + line.len() - line.trim_start().len());
+    if !(previous.starts_with(COMMENT_MARKER)
         || previous.starts_with(LEGACY_SLOTCAR_COMMENT_MARKER)
         || previous.starts_with(LEGACY_TIGERSTYLE_COMMENT_MARKER)
+        || previous.starts_with(ATTR_MARKER))
+        || !marker_in_code
     {
-        let line_end = if previous_end < source.len() {
-            previous_end + 1
-        } else {
-            previous_end
-        };
-        return parse_marker(previous, previous_start, line_end);
+        return (None, marker_in_code);
     }
-    if previous.starts_with(ATTR_MARKER) {
-        let line_end = if previous_end < source.len() {
-            previous_end + 1
-        } else {
-            previous_end
-        };
-        return parse_marker(previous, previous_start, line_end);
+    let line_end = if previous_end < source.len() {
+        previous_end + 1
+    } else {
+        previous_end
+    };
+    (parse_marker(previous, previous_start, line_end), marker_in_code)
+}
+
+/// Source-ordered functions share one lexical walk. Even if every function has
+/// a marker, the total scan is O(source bytes), without per-function storage.
+struct MarkerLexicalCursor<'a> {
+    source: &'a str,
+    visited: usize,
+    hidden_end: usize,
+}
+
+impl<'a> MarkerLexicalCursor<'a> {
+    fn new(source: &'a str) -> Self {
+        Self {
+            source,
+            visited: 0,
+            hidden_end: 0,
+        }
     }
-    None
+
+    fn in_code(&mut self, marker_start: usize) -> bool {
+        if marker_start < self.visited
+            || marker_start > self.source.len()
+            || !self.source.is_char_boundary(marker_start)
+        {
+            return false;
+        }
+        for (relative, _) in self.source[self.visited..marker_start].char_indices() {
+            let offset = self.visited + relative;
+            if offset >= self.hidden_end {
+                self.hidden_end = non_code_at(self.source, offset).map_or(offset, |(_, end)| end);
+            }
+        }
+        self.visited = marker_start;
+        self.hidden_end <= marker_start
+    }
+}
+
+/// Insert a standalone marker before the item, preserving its indentation.
+/// If a block comment closes on the item's line, a newline must separate
+/// that closer from the active marker before the function.
+pub(crate) fn marker_insertion(source: &str, item_start: usize, line: String) -> (usize, String) {
+    let line_start = source[..item_start].rfind('\n').map_or(0, |index| index + 1);
+    if source[line_start..item_start].trim().is_empty() {
+        (line_start, line)
+    } else {
+        (item_start, format!("\n{line}"))
+    }
 }
 
 fn parse_marker(line: &str, start: usize, end: usize) -> Option<Marker> {
@@ -750,15 +873,26 @@ pub(crate) fn dependency_identity_status(function_source: &str) -> &'static str 
 }
 
 /// Canonical token text: tokens joined by single spaces. Whitespace and
-/// comments, including doc and nested block comments, do not change it.
+/// ordinary comments do not change it. Joint punctuation and lexical literal
+/// boundaries stay intact, as does doc-comment text observable inside macros.
 /// Literal contents stay verbatim, including any `//` inside them.
 pub(crate) fn normalize_tokens(source: &str) -> String {
     let mut normalized = String::with_capacity(source.len());
+    let mut previous_end = 0;
+    let mut previous_punctuation = false;
+    let mut previous_quote = false;
     for token in SourceTokens::new(source) {
-        if !normalized.is_empty() {
+        let joint = previous_end == token.start
+            && previous_punctuation
+            && (token.is_punctuation
+                || (previous_quote && !token.is_literal && token.text.starts_with(identifier_start)));
+        if !normalized.is_empty() && !joint {
             normalized.push(' ');
         }
         normalized.push_str(token.text);
+        previous_end = token.start + token.text.len();
+        previous_punctuation = token.is_punctuation;
+        previous_quote = token.is_punctuation && token.text == "'";
     }
     normalized
 }
@@ -767,11 +901,14 @@ pub(crate) fn normalize_tokens(source: &str) -> String {
 struct SourceToken<'a> {
     text: &'a str,
     is_literal: bool,
+    is_punctuation: bool,
+    start: usize,
 }
 
-/// Canonical tokens of Rust source: identifier runs, single punctuation
-/// characters, and whole literals, including a `b`, `c`, `br`, or `cr` prefix.
-/// Comments and whitespace only separate tokens.
+/// Canonical tokens of Rust source: identifiers (including raw identifiers),
+/// numbers, punctuation, and whole literals (including suffixes and string
+/// prefixes). Ordinary comments and whitespace only separate tokens; doc
+/// comments remain observable tokens.
 struct SourceTokens<'a> {
     source: &'a str,
     offset: usize,
@@ -780,6 +917,26 @@ struct SourceTokens<'a> {
 impl<'a> SourceTokens<'a> {
     fn new(source: &'a str) -> Self {
         Self { source, offset: 0 }
+    }
+
+    fn raw_identifier_end(&self, start: usize) -> Option<usize> {
+        let rest = self.source.get(start..)?;
+        if !rest.starts_with("r#") && !rest.starts_with("k#") {
+            return None;
+        }
+        let name_start = start + 2;
+        let first = self.source[name_start..].chars().next()?;
+        if !identifier_start(first) {
+            return None;
+        }
+        let mut end = name_start + first.len_utf8();
+        while let Some(ch) = self.source[end..].chars().next() {
+            if !identifier_continue(ch) {
+                break;
+            }
+            end += ch.len_utf8();
+        }
+        Some(end)
     }
 
     /// End of a literal whose prefix is the identifier run `start..run_end`.
@@ -795,6 +952,81 @@ impl<'a> SourceTokens<'a> {
     }
 }
 
+/// Rust's numeric lexer keeps a fraction, exponent, and immediately attached
+/// suffix in one literal token. A dot starting a range or field access is not
+/// part of the number. Operates only on source byte offsets; no token copies.
+fn numeric_literal_end(source: &str, start: usize) -> usize {
+    let bytes = source.as_bytes();
+    let mut end = start + 1;
+    let mut hexadecimal = false;
+    if bytes[start] == b'0' {
+        match bytes.get(end) {
+            Some(b'b' | b'o' | b'x') => {
+                hexadecimal = bytes[end] == b'x';
+                end += 1;
+            }
+            Some(b'0'..=b'9' | b'_' | b'.' | b'e' | b'E') => {}
+            _ => return literal_suffix_end(source, end),
+        }
+    }
+    end = number_digits_end(bytes, end, hexadecimal);
+
+    if bytes.get(end) == Some(&b'.')
+        && bytes.get(end + 1) != Some(&b'.')
+        && !source[end + 1..].chars().next().is_some_and(identifier_start)
+    {
+        end += 1;
+        if bytes.get(end).is_some_and(u8::is_ascii_digit) {
+            end = number_digits_end(bytes, end, false);
+            if matches!(bytes.get(end), Some(b'e' | b'E')) {
+                end = exponent_end(bytes, end + 1);
+            }
+        }
+    } else if matches!(bytes.get(end), Some(b'e' | b'E')) {
+        end = exponent_end(bytes, end + 1);
+    }
+    literal_suffix_end(source, end)
+}
+
+fn number_digits_end(bytes: &[u8], mut end: usize, hexadecimal: bool) -> usize {
+    while bytes
+        .get(end)
+        .is_some_and(|byte| *byte == b'_' || byte.is_ascii_digit() || (hexadecimal && byte.is_ascii_hexdigit()))
+    {
+        end += 1;
+    }
+    end
+}
+
+fn exponent_end(bytes: &[u8], mut end: usize) -> usize {
+    if matches!(bytes.get(end), Some(b'+' | b'-')) {
+        end += 1;
+    }
+    number_digits_end(bytes, end, false)
+}
+
+fn literal_suffix_end(source: &str, start: usize) -> usize {
+    let mut end = start;
+    let Some(first) = source[end..].chars().next() else {
+        return end;
+    };
+    if !identifier_start(first) {
+        return end;
+    }
+    end += first.len_utf8();
+    while let Some(ch) = source[end..].chars().next() {
+        if !identifier_continue(ch) {
+            break;
+        }
+        end += ch.len_utf8();
+    }
+    end
+}
+
+fn rust_punctuation(ch: char) -> bool {
+    ch.is_ascii_punctuation() && !matches!(ch, '(' | ')' | '[' | ']' | '{' | '}' | '_' | '"' | '\\' | '`')
+}
+
 impl<'a> Iterator for SourceTokens<'a> {
     type Item = SourceToken<'a>;
 
@@ -804,9 +1036,20 @@ impl<'a> Iterator for SourceTokens<'a> {
             if let Some((kind, end)) = non_code_at(self.source, start) {
                 self.offset = end;
                 if kind == NonCode::Literal {
+                    self.offset = literal_suffix_end(self.source, end);
+                    return Some(SourceToken {
+                        text: &self.source[start..self.offset],
+                        is_literal: true,
+                        is_punctuation: false,
+                        start,
+                    });
+                }
+                if is_doc_comment(&self.source[start..end]) {
                     return Some(SourceToken {
                         text: &self.source[start..end],
                         is_literal: true,
+                        is_punctuation: false,
+                        start,
                     });
                 }
                 continue;
@@ -815,20 +1058,44 @@ impl<'a> Iterator for SourceTokens<'a> {
             if ch.is_whitespace() {
                 continue;
             }
+            if ch.is_ascii_digit() {
+                self.offset = numeric_literal_end(self.source, start);
+                return Some(SourceToken {
+                    text: &self.source[start..self.offset],
+                    is_literal: true,
+                    is_punctuation: false,
+                    start,
+                });
+            }
+            if matches!(ch, 'r' | 'k')
+                && let Some(end) = self.raw_identifier_end(start)
+            {
+                self.offset = end;
+                return Some(SourceToken {
+                    text: &self.source[start..end],
+                    is_literal: false,
+                    is_punctuation: false,
+                    start,
+                });
+            }
             if !identifier_continue(ch) {
                 return Some(SourceToken {
                     text: &self.source[start..self.offset],
                     is_literal: false,
+                    is_punctuation: rust_punctuation(ch),
+                    start,
                 });
             }
             let run_end = self.source[start..]
                 .find(|next: char| !identifier_continue(next))
                 .map_or(self.source.len(), |len| start + len);
             let literal_end = self.prefixed_literal_end(start, run_end);
-            self.offset = literal_end.unwrap_or(run_end);
+            self.offset = literal_end.map_or(run_end, |end| literal_suffix_end(self.source, end));
             return Some(SourceToken {
                 text: &self.source[start..self.offset],
                 is_literal: literal_end.is_some(),
+                is_punctuation: false,
+                start,
             });
         }
         None
@@ -997,12 +1264,11 @@ mod tests {
     }
 
     #[test]
-    fn token_hash_ignores_comments_and_whitespace_around_literals() {
+    fn token_hash_ignores_ordinary_comments_and_whitespace_around_literals() {
         let reference = source_hash("fn f() -> u32 { let _u = \"https://example.invalid\"; 1 }");
         for variant in [
             "fn f() -> u32 {\n    let _u = \"https://example.invalid\"; // trailing note\n    1\n}",
             "fn f() -> u32 { /* block /* nested */ note */ let _u = \"https://example.invalid\"; 1 }",
-            "/// docs\nfn f() -> u32 { let _u =\n\"https://example.invalid\";\n1 /** doc block */ }",
         ] {
             assert_eq!(source_hash(variant), reference, "{variant}");
         }
@@ -1013,7 +1279,7 @@ mod tests {
         let normalized = normalize_tokens(
             "fn f() { /* gone */ let _a = b\"x  // y\"; // gone too\n let _b = '\\''; let _c = br#\"raw \" //\"#; 'outer: loop {} }",
         );
-        for kept in ["b\"x  // y\"", "'\\''", "br#\"raw \" //\"#", "' outer : loop"] {
+        for kept in ["b\"x  // y\"", "'\\''", "br#\"raw \" //\"#"] {
             assert!(normalized.contains(kept), "{kept} missing from {normalized}");
         }
         assert!(!normalized.contains("gone"), "comment text in {normalized}");
@@ -1070,6 +1336,68 @@ mod tests {
     }
 
     #[test]
+    fn marker_looking_text_inside_comments_and_literals_never_attaches() {
+        for source in [
+            "/* outer /* nested */\n// octet-fingerprint: b3:abc; review=R; evidence=E\n*/ pub fn f() -> u32 { 1 }\n",
+            "/*\n// slotcar-fingerprint: b3:abc; review=R; evidence=E\n*/ pub fn f() -> u32 { 1 }\n",
+            "/*\n#[fingerprint(b3:abc, review=\"R\", evidence=\"E\")]\n*/ pub fn f() -> u32 { 1 }\n",
+            "const TEXT: &str = r#\"\n// tigerstyle-fingerprint: b3:abc; review=R; evidence=E\n\"#; pub fn f() -> u32 { 1 }\n",
+            "const TEXT: &str = r#\"\n#[fingerprint(b3:abc, review=\"R\", evidence=\"E\")]\n\"#; pub fn f() -> u32 { 1 }\n",
+        ] {
+            let functions = find_functions(source);
+            assert_eq!(functions.len(), 1, "{source}");
+            assert!(functions[0].marker.is_none(), "{source}");
+        }
+        let real =
+            "    // octet-fingerprint: b3:abc; review=R; evidence=E\n    #[inline]\n\n    pub fn f() -> u32 { 1 }\n";
+        assert!(find_functions(real)[0].marker.is_some());
+        let real_attribute = "    #[fingerprint(b3:abc, review=\"R\", evidence=\"E\")]\n    fn f() -> u32 { 1 }\n";
+        assert!(find_functions(real_attribute)[0].marker.is_some());
+    }
+
+    #[test]
+    fn marker_lexical_state_stays_correct_across_multiple_functions() {
+        let source = concat!(
+            "// octet-fingerprint: b3:abc; review=R; evidence=E\n",
+            "pub fn first() -> u32 { 1 }\n",
+            "/* outer /* nested */\n",
+            "// octet-fingerprint: b3:abc; review=R; evidence=E\n",
+            "*/ pub fn forged() -> u32 { 2 }\n",
+            "const TEXT: &str = r#\"\n",
+            "#[fingerprint(b3:abc, review=\"R\", evidence=\"E\")]\n",
+            "\"#; pub fn literal() -> u32 { 3 }\n",
+            "// octet-fingerprint: b3:abc; review=R; evidence=E\n",
+            "#[inline]\n",
+            "pub fn last() -> u32 { 4 }\n",
+        );
+        let functions = find_functions(source);
+        assert_eq!(functions.iter().map(|function| function.name.as_str()).collect::<Vec<_>>(), [
+            "first", "forged", "literal", "last"
+        ]);
+        assert_eq!(functions.iter().map(|function| function.marker.is_some()).collect::<Vec<_>>(), [
+            true, false, false, true
+        ]);
+        assert_eq!(functions.iter().map(|function| function.preceding_marker_in_code).collect::<Vec<_>>(), [
+            true, false, false, true
+        ]);
+    }
+
+    #[test]
+    fn separated_outer_attributes_belong_to_function_but_markers_and_prior_items_do_not() {
+        let source = "const OTHER: u32 = 7;\n// octet-fingerprint: b3:abc; review=R; evidence=E\n#[inline]\n#[unsafe(export_name = \"alpha\")]\n/* explanation\n   of the export */\n\npub extern \"C\" fn exported() -> u32 { 1 }\n";
+        let functions = find_functions(source);
+        assert_eq!(functions.len(), 1);
+        let span = &functions[0];
+        let tokens = normalize_tokens(&source[span.start..span.end]);
+        assert!(
+            tokens.starts_with("# [ inline ] # [ unsafe ( export_name = \"alpha\" ) ] pub extern \"C\" fn exported")
+        );
+        assert!(!tokens.contains("OTHER"));
+        assert!(!tokens.contains("octet-fingerprint"));
+        assert!(span.marker.is_some(), "marker immediately above attached attribute must remain associated");
+    }
+
+    #[test]
     fn insertion_start_includes_visibility_before_fn_keyword() {
         let source = "#[inline]\npub fn f() -> u32 { 1 }\n";
         let functions = find_functions(source);
@@ -1088,6 +1416,38 @@ mod tests {
         assert_eq!(functions[0].name, "f");
         assert!(functions[0].marker.is_some());
         assert!(normalize_tokens(&source[functions[0].start..functions[0].end]).starts_with("# [ inline ] # [ allow"));
+    }
+
+    #[test]
+    fn multiline_export_attribute_with_literal_only_line_and_nested_brackets_stays_attached() {
+        let source = "const PRIOR: [u8; 1] = [7];\n// octet-fingerprint: b3:abc; review=R; evidence=E\n#[cfg_attr(any(),\n    doc = [\"unused\"]\n)]\n#[doc = \"literal [brackets]\"]\n#[unsafe(export_name =\n    \"alpha\" /* ignored ] */\n)]\n// gap before function\npub extern \"C\" fn exported() -> u32 { 1 }\n";
+        let spans = find_functions(source);
+        assert_eq!(spans.len(), 1);
+        let span = &spans[0];
+        assert!(span.marker.is_some());
+        let tokens = normalize_tokens(&source[span.start..span.end]);
+        assert_eq!(span.start, source.find("#[cfg_attr").expect("first outer attribute"));
+        assert!(!source[span.start..span.end].contains("octet-fingerprint"));
+        assert!(
+            tokens.starts_with("# [ cfg_attr ( any ( ) , doc = [ \"unused\" ] ) ] # [ doc = \"literal [brackets]\" ]")
+        );
+        assert!(tokens.contains("# [ unsafe ( export_name = \"alpha\" ) ]"));
+        assert!(tokens.contains("pub extern \"C\" fn exported"));
+        assert!(!tokens.contains("PRIOR"));
+    }
+
+    #[test]
+    fn split_visibility_and_modifiers_are_part_of_the_marked_item() {
+        let source = "const PRIOR: u32 = 7;\n// octet-fingerprint: b3:abc; review=R; evidence=E\n#[inline]\npub(crate)\n// modifier gap\nunsafe\nextern \"C\"\nfn exported() -> u32 { 1 }\n";
+        let spans = find_functions(source);
+        assert_eq!(spans.len(), 1);
+        let span = &spans[0];
+        assert!(span.marker.is_some());
+        let tokens = normalize_tokens(&source[span.start..span.end]);
+        assert_eq!(span.start, source.find("#[inline]").expect("first outer attribute"));
+        assert!(!source[span.start..span.end].contains("octet-fingerprint"));
+        assert!(tokens.starts_with("# [ inline ] pub ( crate ) unsafe extern \"C\" fn exported"));
+        assert!(!tokens.contains("PRIOR"));
     }
 
     #[test]

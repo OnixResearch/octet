@@ -1,0 +1,277 @@
+{
+  "schema": "octet.function-object-v2-candidate-source-manifest.v1",
+  "status": "PENDING",
+  "selected_for_named_rails": false,
+  "normalization_algorithm": "octet-source-token-v2",
+  "tested_octet_version": "0.1.0",
+  "candidate_source": {
+    "path": "cargo-octet/tests/fixtures/object-corpus/source-token-v2/src/lib.rs",
+    "blake3": "208621f8824deeccf145d9f4515187e035e81e1c0ce1033853458686bef514b6"
+  },
+  "candidate_receipt": {
+    "path": "cargo-octet/tests/fixtures/object-corpus/source-token-v2/positive-v2-receipt.json",
+    "blake3": "66557c8db7562520241f65748e81d8d1b838554d87628acdf427d5e0341a9519",
+    "provenance": "Byte-identical diagnostic replay from a disposable Octet checkout using an unselected local Valence v2 patch after shared source-token and marker lexical-boundary fixes; not independent review."
+  },
+  "source_selections": {
+    "fixed_quoted_url": [
+      "cargo-octet/tests/fixtures/object-corpus/source-token-v2/src/lib.rs"
+    ],
+    "internal_corpus": [
+      "cargo-octet/src/baseline.rs",
+      "cargo-octet/src/bin/cargo-slotcar.rs",
+      "cargo-octet/src/bin/cargo-tigerstyle.rs",
+      "cargo-octet/src/cli.rs",
+      "cargo-octet/src/config.rs",
+      "cargo-octet/src/determinism.rs",
+      "cargo-octet/src/engine.rs",
+      "cargo-octet/src/evidence.rs",
+      "cargo-octet/src/evidence_rails.rs",
+      "cargo-octet/src/fingerprint.rs",
+      "cargo-octet/src/lib.rs",
+      "cargo-octet/src/main.rs",
+      "cargo-octet/src/migrate.rs",
+      "cargo-octet/src/object.rs",
+      "cargo-octet/src/output.rs",
+      "cargo-octet/src/provider_manifest.rs",
+      "cargo-octet/src/roadmap.rs",
+      "cargo-octet/src/transcript.rs"
+    ],
+    "expanded_internal_corpus": [
+      "cargo-octet/src/baseline.rs",
+      "cargo-octet/src/bin/cargo-slotcar.rs",
+      "cargo-octet/src/bin/cargo-tigerstyle.rs",
+      "cargo-octet/src/cli.rs",
+      "cargo-octet/src/config.rs",
+      "cargo-octet/src/determinism.rs",
+      "cargo-octet/src/engine.rs",
+      "cargo-octet/src/evidence.rs",
+      "cargo-octet/src/evidence_rails.rs",
+      "cargo-octet/src/fingerprint.rs",
+      "cargo-octet/src/lib.rs",
+      "cargo-octet/src/main.rs",
+      "cargo-octet/src/migrate.rs",
+      "cargo-octet/src/object.rs",
+      "cargo-octet/src/output.rs",
+      "cargo-octet/src/proof_ref.rs",
+      "cargo-octet/src/provider_manifest.rs",
+      "cargo-octet/src/roadmap.rs",
+      "cargo-octet/src/transcript.rs",
+      "crates/octet-standards/src/architecture.rs",
+      "crates/octet-standards/src/artifacts.rs",
+      "crates/octet-standards/src/bin/slotcar-standards.rs",
+      "crates/octet-standards/src/bin/tigerstyle-standards.rs",
+      "crates/octet-standards/src/cli_shell.rs",
+      "crates/octet-standards/src/diagnostic.rs",
+      "crates/octet-standards/src/fixture.rs",
+      "crates/octet-standards/src/lib.rs",
+      "crates/octet-standards/src/main.rs",
+      "crates/octet-standards/src/model.rs",
+      "crates/octet-standards/src/proof.rs",
+      "crates/octet-standards/src/receipt.rs",
+      "crates/octet-standards/src/report.rs",
+      "crates/octet-standards/src/resource.rs",
+      "crates/octet-standards/src/runner.rs",
+      "crates/octet-standards/src/source.rs",
+      "crates/octet-standards/src/suppression.rs"
+    ]
+  },
+  "source_file_hashes": [
+    {
+      "path": "cargo-octet/src/baseline.rs",
+      "blake3": "9bc15dd43e6e9dbb20c41aa8dd29add9dc30320ae14b4c0aaebef46396d5367f"
+    },
+    {
+      "path": "cargo-octet/src/bin/cargo-slotcar.rs",
+      "blake3": "2b816ae70bb996a51abf5d90cd928a8958f63d16b86095abf7c983732d958cc4"
+    },
+    {
+      "path": "cargo-octet/src/bin/cargo-tigerstyle.rs",
+      "blake3": "2b816ae70bb996a51abf5d90cd928a8958f63d16b86095abf7c983732d958cc4"
+    },
+    {
+      "path": "cargo-octet/src/cli.rs",
+      "blake3": "b58d4c47198d09c78377c88d82c0dc1319d4d8fcb19071cd5aa03592815d0821"
+    },
+    {
+      "path": "cargo-octet/src/config.rs",
+      "blake3": "82d3574b53caeef4c95505da142db0db1ca0ac904e9cf4dd02bd7d25b794123c"
+    },
+    {
+      "path": "cargo-octet/src/determinism.rs",
+      "blake3": "c066a130c0990c3967736fd2f5deb8874d2cf549e1cf09f54f130768a11ab2d4"
+    },
+    {
+      "path": "cargo-octet/src/engine.rs",
+      "blake3": "546489d4cb5919823448264a880f13687a7de4d86fc7c72cdf364b6526a22eb6"
+    },
+    {
+      "path": "cargo-octet/src/evidence.rs",
+      "blake3": "c3ba8efddcc70ed7928db643b49f0b64e08b1f3c866c884c6a22b67dd0af8213"
+    },
+    {
+      "path": "cargo-octet/src/evidence_rails.rs",
+      "blake3": "79f727d4422d36f9f19c95e383410aa7ba2a192b65c3b8d6560648f3cd082cef"
+    },
+    {
+      "path": "cargo-octet/src/fingerprint.rs",
+      "blake3": "d8efcd8ea9e8b6f21d4dd61ffd81e5f51549a69039b9576a66c5ba1e8e29579f"
+    },
+    {
+      "path": "cargo-octet/src/lib.rs",
+      "blake3": "4dccdc6114059f9e30b2a3d6586028f2a1da6dad9f2cefed6ab8db1745873c1b"
+    },
+    {
+      "path": "cargo-octet/src/main.rs",
+      "blake3": "2b816ae70bb996a51abf5d90cd928a8958f63d16b86095abf7c983732d958cc4"
+    },
+    {
+      "path": "cargo-octet/src/migrate.rs",
+      "blake3": "19f0bc83b5d26125cbf5a8db50149afb0c8e4e44582729038be4a4cf3316fc6e"
+    },
+    {
+      "path": "cargo-octet/src/object.rs",
+      "blake3": "4bbd5ecc8d289dbac487cc2b5241c9b1e0d59aed8fdff6ebad947d0406da6c13"
+    },
+    {
+      "path": "cargo-octet/src/output.rs",
+      "blake3": "0a6e45434306070b710597b7a613afbc0d99a968dfb2de02cf04ef80e8f3e832"
+    },
+    {
+      "path": "cargo-octet/src/proof_ref.rs",
+      "blake3": "6f2203ce61c5b0db586f6aae163c718c7c786f64fd9ae704b20e68b1c9fddc33"
+    },
+    {
+      "path": "cargo-octet/src/provider_manifest.rs",
+      "blake3": "8d357d02cd795aa79d6f352c305b4d0d72332653367a3665231c2771a845ad92"
+    },
+    {
+      "path": "cargo-octet/src/roadmap.rs",
+      "blake3": "402e71508e77f36c9aa988a31e122ef4815d0f4887448bf99efb5ddc4a697dad"
+    },
+    {
+      "path": "cargo-octet/src/transcript.rs",
+      "blake3": "1ea322c14e21dfde94daed5d09972c339e9a123206e7326bc959ab11c65f3cd9"
+    },
+    {
+      "path": "cargo-octet/tests/fixtures/object-corpus/source-token-v2/src/lib.rs",
+      "blake3": "208621f8824deeccf145d9f4515187e035e81e1c0ce1033853458686bef514b6"
+    },
+    {
+      "path": "crates/octet-standards/src/architecture.rs",
+      "blake3": "c63befb9c5b5ae1ef542833ed8270461722784735a2ed442bd491471c578d77d"
+    },
+    {
+      "path": "crates/octet-standards/src/artifacts.rs",
+      "blake3": "a518101a08e0a3cee8198465707c8bf733962f3b789a1f83a35fc69dadf92ac1"
+    },
+    {
+      "path": "crates/octet-standards/src/bin/slotcar-standards.rs",
+      "blake3": "b11df67b21a0558d08905f6b0bb7da7a7ec279a671e910369bfd3e31326a5106"
+    },
+    {
+      "path": "crates/octet-standards/src/bin/tigerstyle-standards.rs",
+      "blake3": "fb8bdac9c61af094cde135a8c25647b713d055160b603e123956e0040609dc63"
+    },
+    {
+      "path": "crates/octet-standards/src/cli_shell.rs",
+      "blake3": "2e997abe810cb56f0a0f6565735c699c6fdcc571d90308d4852e75afd449370d"
+    },
+    {
+      "path": "crates/octet-standards/src/diagnostic.rs",
+      "blake3": "76da9353b979c91e2ae428c0a0aaf14ccb99dd7987689fdcc97751b8cce45919"
+    },
+    {
+      "path": "crates/octet-standards/src/fixture.rs",
+      "blake3": "36557ac8b0063ec9b346194dfb6c9e32c01ffa5021b25e1f229684d14bad892e"
+    },
+    {
+      "path": "crates/octet-standards/src/lib.rs",
+      "blake3": "192e651221fe079aff668fea7ef1553e27c479c5b77f21feaca4e60acc7adae8"
+    },
+    {
+      "path": "crates/octet-standards/src/main.rs",
+      "blake3": "3313ee618a615e742c56a3a5822d56146ed9f4369e95d237aba2f3eb3694ba56"
+    },
+    {
+      "path": "crates/octet-standards/src/model.rs",
+      "blake3": "e47a70b1d26c34ac81838a22a23bf2b95485084fe18a3cee4dddcdbe12b505a8"
+    },
+    {
+      "path": "crates/octet-standards/src/proof.rs",
+      "blake3": "4adccf5720f9878fcbb4bdfc50050df8436f8770a014e77b47ae1c1b2fda1834"
+    },
+    {
+      "path": "crates/octet-standards/src/receipt.rs",
+      "blake3": "6eede8f2db0981143775611d1d549928d1ff0722582876dd3ae81a6dfb566393"
+    },
+    {
+      "path": "crates/octet-standards/src/report.rs",
+      "blake3": "ba99bec11112234de886f05f51b210f31d88ce4726d548be97e064f38cef5834"
+    },
+    {
+      "path": "crates/octet-standards/src/resource.rs",
+      "blake3": "62829e1b9ad17af7ecca55aab823f980c6c671704d6a81cc39e5cce5ae65a19f"
+    },
+    {
+      "path": "crates/octet-standards/src/runner.rs",
+      "blake3": "7430a4f11e59d6088ddc1db491683cf843dad0662c1e5df472d6a77d539c712b"
+    },
+    {
+      "path": "crates/octet-standards/src/source.rs",
+      "blake3": "16238c90045bf824902f1477d602cef79e0357f0643b1942a7ba9c8a4eff911b"
+    },
+    {
+      "path": "crates/octet-standards/src/suppression.rs",
+      "blake3": "4984388719b0ddc3e36cd01835c88754cff071ca661911972e3af27c42a59a5a"
+    }
+  ],
+  "reference_hashes": [
+    {
+      "path": "cargo-octet/tests/fixtures/object-corpus/source-token-v2/expanded-internal-corpus-caveat-taxonomy.json",
+      "blake3": "9b91725e693c002b530833a94be113d5830d9c894e8301ccecb2b117bc3c65e1",
+      "object_count": 1258
+    },
+    {
+      "path": "cargo-octet/tests/fixtures/object-corpus/source-token-v2/expanded-internal-corpus-receipt.json",
+      "blake3": "d90b7ddf31362ac7aa5d47844b9cb312bd02554b6862af6d517a25050854ddf5",
+      "object_count": 1258
+    },
+    {
+      "path": "cargo-octet/tests/fixtures/object-corpus/source-token-v2/internal-corpus-receipt.json",
+      "blake3": "dbc8c92c0c10055aa135e09d85802fc1a9e0d4985929710ea4d893daedb04bb6",
+      "object_count": 795
+    },
+    {
+      "path": "cargo-octet/tests/fixtures/object-corpus/source-token-v2/positive-v2-receipt.json",
+      "blake3": "66557c8db7562520241f65748e81d8d1b838554d87628acdf427d5e0341a9519",
+      "object_count": 1
+    }
+  ],
+  "prospective_octet_modules": [
+    {
+      "path": "cargo-octet/src/fingerprint.rs",
+      "blake3": "d8efcd8ea9e8b6f21d4dd61ffd81e5f51549a69039b9576a66c5ba1e8e29579f"
+    },
+    {
+      "path": "cargo-octet/src/function_address.rs",
+      "blake3": "bc57fc0cef8e46a2ad9e67dd7e0d6032196d3acbde05e7d8343e8797670fe6a0"
+    },
+    {
+      "path": "cargo-octet/src/object.rs",
+      "blake3": "4bbd5ecc8d289dbac487cc2b5241c9b1e0d59aed8fdff6ebad947d0406da6c13"
+    }
+  ],
+  "candidate_consumer_test": {
+    "path": "cargo-octet/tests/fingerprint_consumer.rs",
+    "blake3": "f77b5ea1b7e9006d978c7c7f23f5f437f4fe28c8456c6569f0f9291141df5414"
+  },
+  "tested_valence_module": {
+    "repository_uri": "https://github.com/OnixResearch/valence.git",
+    "path": "crates/valence-core/src/function_object.rs",
+    "blake3": "11f0f4233aaf3153966f6aa37de570c2dcd0e75335591934461ae2b25ab3ecb1",
+    "reviewed_upstream_revision": null
+  },
+  "currently_selected_valence_revision": "5f1c2ba5072c6f9622fa59b1af20502985f569fd",
+  "independent_owner_approval": null
+}

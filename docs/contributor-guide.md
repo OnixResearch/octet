@@ -241,7 +241,7 @@ nix build .#checks.x86_64-linux.docs-examples --no-link -L
 That command is temporarily blocked. The five `docs/examples/function-fingerprint-*`
 examples still carry pre-v2 marker hashes, and their transcript tests were removed
 as hash snapshots. The five `fingerprint-*-docs` rails therefore fail closed
-(`selected rail unverified`), and `fingerprint-docs-downstream-smoke` fails on the
+(no nonignored test selected), and `fingerprint-docs-downstream-smoke` fails on the
 stale markers, until an owner re-reviews and regenerates the examples. Do not
 rewrite the example markers just to obtain a pass.
 
@@ -251,22 +251,69 @@ For Valence object-evidence changes, use one aggregate operator command:
 nix build .#checks.x86_64-linux.valence-object-evidence --no-link -L
 ```
 
-This aggregate is blocked while Function Object v1 is unavailable. Every
-source-backed `cargo octet object` command refuses construction with
-`function-object-v1-unavailable` until the owner pins a reviewed valence-core
-normalization label. The object-corpus, caveat-taxonomy, fixture-freshness,
-supplement-compatibility, THIR-inventory, and MIR-fixture rails therefore select
-no tests and fail closed with
-`selected rail unverified: Function Object v1 construction is refused until a reviewed valence-core normalization label is pinned`.
-The object-corpus-compatibility rail stays red on its two v1 receipt contract tests,
-and `fresh-build-object-corpus-determinism` stops at the refused
-`object corpus receipt`. Tests that only read checked-in artifacts are named
-`checked_in_*` or `*_spike_fixture_listing_*`, so no object rail selects them; refusal
-tests are named `object_v1_refusal_*` for the same reason. Do not add refusal tests to
-these rails or re-pin fixtures to make them pass. The
-[current-head evidence page](current-head-valence-evidence.md) records an earlier
-payload commit, and its object pass signals do not hold for the current tree. The
-rest of this section describes the rails as they behave once the label exists.
+The exact reviewed Valence pin now constructs source-backed
+`octet-source-token-v2` Function Objects. The historical v1 receipt remains
+readable, but its checked-in source replays as a nonzero `object_set_hash`
+mismatch under v2; its boundary-tamper fixture separately reports a boundary
+mismatch. The existing named child rails now reject missing or stale reviewed
+source bytes, saved references, scoped approval evidence, or Cargo/Nix Valence
+pin before executing nonignored source-backed positive/negative tests. The
+fresh-build comparison requires two independent binaries to reproduce both
+saved internal and expanded receipts, not merely one another. A PASS requires
+the actual child and aggregate derivations to build; artifact-only reads,
+refusal-only tests, and self-produced receipts cannot replace source-backed
+proof. The
+[current-head evidence page](current-head-valence-evidence.md) attests an
+earlier payload, not the current v2 rail state.
+
+The historical source-token-v2 candidate snapshot remains `PENDING`; a local
+Cargo `[patch]` was only a disposable diagnostic and is not the selected pin.
+The `source-token-v2/positive-v2-receipt.json`, `internal-corpus-receipt.json`,
+`expanded-internal-corpus-receipt.json`, and
+`expanded-internal-corpus-caveat-taxonomy.json` have a separate
+`reviewed-source-manifest.json` binding their exact independently audited
+18-path/36-path selections, all 37 source-byte hashes, four reference hashes,
+and immutable Valence module/revision. H2 approval covers these frozen
+source/reference identities, not later changed consumer-test code and not a
+cryptographic signature. The checked-in admission verifier binds these bytes
+and explicitly cannot attest later consumer-test edits or owner signatures.
+Its expected manifest digests and verifier code live in the same PR-controlled
+repository as the rails: a named PASS alone cannot authenticate H2 against
+adversarial PR edits. An independent reviewer must compare the candidate and
+reviewed manifest BLAKE3 to externally frozen
+`6d79a8b09c4e7dd20236f4a141c01d6c18b793df7aad93e8ee4ec1d7fb83b221`
+and `2f420d0464e67a8b6ae518e7215eefd1ba8afc47d1849c07afedf284f196da29`.
+After OpenSpec archive, the frozen reviewed manifest retains its historical
+active-change approval locator. The verifier maps only that exact metadata
+value to the archived H2 note at
+`openspec/changes/archive/2026-10-02-source-token-v2-function-object-cutover/evidence/owner-source-bound-references.txt`,
+requires its BLAKE3 `a86d4c22740d4ea0427285d62133c8434dc77c3d144403902f276031836abcae`,
+and rejects a missing/altered note or any resurrected active approval path.
+That repository-owned hash detects drift; it is not an owner signature or an
+external substitute for review of the frozen manifest anchors.
+The compiled producer includes `cargo-octet/src/valence_core_shim.rs` and
+`cargo-octet/src/object_core.rs`, neither among the three H2-frozen Octet
+modules. H2 covers the selected 37 source bytes and four references, plus
+observed producer scenarios; it does not attest arbitrary future producer
+changes. Re-review changed producer code and tests separately.
+In particular, the source scanner hashes multiline outer attributes even when
+an `export_name` value occupies a literal-only line and comments/blank lines
+separate the attribute from `fn`. A changed export-name attribute changes the
+Rust symbol, v2 Function Object identity, and reviewed function-address
+identity. Line-separated `pub`/`pub(crate)` visibility and split modifiers
+also belong to the function span; changing visibility must change identity.
+Ordinary whitespace/non-doc comments that leave Rust TokenStream unchanged
+keep v2 identity stable but still change source-byte review bindings: a
+one-byte ordinary comment edit can leave the saved corpus object-set hash
+matching while making the manifest's source-byte hash stale. Doc comments
+can become compiler-visible attributes and change v2 identity, including
+inside macro inputs. Marker-looking `//` inside a block comment or
+`#[fingerprint(...)]` inside non-code is missing review, never a reviewed match;
+an explicit update must insert an active marker
+and review/evidence must still be supplied separately. The immutable candidate
+snapshot is bound by BLAKE3 in the reviewed manifest; neither manifest binds a
+machine-local checkout. Do not regenerate old v1 receipts/markers or report
+the named Nix child/aggregate rails as PASS before source-bound admission.
 
 That aggregate gate composes selected local object corpus receipt checks, compatibility,
 caveat taxonomy, named object-corpus fixture freshness, selected THIR fixture
@@ -274,14 +321,14 @@ inventory, selected MIR fixture replay, and fresh-build determinism rails. Run
 `nix build .#checks.x86_64-linux.object-corpus-fixture-freshness --no-link -L`
 whenever a change touches object-corpus inputs such as `cargo-octet/src/object.rs`,
 `cargo-octet/src/cli.rs`, `cargo-octet/tests/fingerprint_consumer.rs`,
-`THIR/MIR fixture inventories`, or `cargo-octet/tests/fixtures/object-corpus/*`; regenerate
-stale object-corpus fixtures before closeout once an owner-reviewed freshness comparison
-exists. That rail is temporarily blocked: its fixture parity tests compared checked-in
-receipts with Octet's own changing source and were removed as implementation snapshots,
-so it fails closed with
-`no test selected by 'matches_fresh'; selected rail unverified: Function Object v1 construction is refused until a reviewed valence-core normalization label is pinned`
-and the aggregate cannot pass until the owner-reviewed replacement lands.
-Do not regenerate the fixtures to obtain a pass. When it passes, the aggregate includes
+`THIR/MIR fixture inventories`, or `cargo-octet/tests/fixtures/object-corpus/*`.
+The named freshness rail must bind actual source bytes to the approved
+37-source manifest and compare generated output against its four separately
+saved, reviewed references; a self-replay or freshly regenerated expected
+receipt is insufficient. The selected freshness rail and aggregate have now
+passed against those saved reviewed references. An intentional refresh requires new
+independent review of changed bytes and hashes, not an automatic rewrite.
+Do not regenerate the fixtures to obtain a pass. The observed aggregate includes
 a named freshness PASS line,
 `valence_object_evidence.object_corpus_fixture_freshness_gate: PASS`. It also includes a named MIR inventory check,
 `nix build .#checks.x86_64-linux.mir-supplement-inventory-gate --no-link -L`,
@@ -388,23 +435,28 @@ For the internal function object corpus gate, use the named check:
 nix build .#checks.x86_64-linux.object-corpus-gate --no-link -L
 ```
 
-This runs the selected internal corpus receipt determinism, boundary, and
-checked-in fixture structure checks. For a freshness-only operator rail, use the
-named check:
+This named rail must compare the actual selected internal source bytes and v2
+receipt against the separately reviewed source manifest/reference before
+reporting PASS. Receipt determinism or checked-in fixture structure alone
+cannot substitute for source-bound admission. The selected
+source-bound internal rail passed against its reviewed reference. For the
+freshness-only operator rail, use the named check:
 
 ```bash
 nix build .#checks.x86_64-linux.object-corpus-fixture-freshness --no-link -L
 ```
 
-That focused rail is meant to compare checked-in internal, expanded, and
-caveat-taxonomy object-corpus fixtures against fresh outputs. It is temporarily
-blocked: no parity test currently matches its selection, so it fails closed
-(`selected rail unverified`) pending an owner-reviewed replacement. Run it before
+That focused rail must compare reviewed internal/expanded v2 receipts, the
+caveat taxonomy, and fixed quoted-URL fixture to current output and actual
+source bytes. Its selected nonignored tests and approval binding passed the
+named Nix derivation; structural fixture checks alone are not a PASS. Run it before
 closeout whenever a change touches object-corpus inputs such as `cargo-octet/src/object.rs`,
 `cargo-octet/src/cli.rs`, `cargo-octet/tests/fingerprint_consumer.rs`,
 `THIR/MIR fixture inventories`, or `cargo-octet/tests/fixtures/object-corpus/*`.
-Regenerate stale fixtures before relying on the aggregate gate once that replacement
-exists; until then the aggregate cannot pass. Treat any pass
+An intentional reference refresh requires new independent source/reference
+review; do not regenerate approved expected bytes to obtain a pass. The
+reviewed-source verifier and behavioral tests are wired, and the aggregate
+passed with its twelve named dependency PASS lines. Treat that pass
 as bounded local evidence replay for the selected corpus, not a correctness
 proof, semantic-equivalence proof, cross-machine determinism proof, or exhaustive
 Rust coverage claim.
@@ -415,9 +467,11 @@ For the fresh-build object corpus determinism rail, use the named check:
 nix build .#checks.x86_64-linux.fresh-build-object-corpus-determinism --no-link -L
 ```
 
-This builds two fresh `cargo-octet` derivations, regenerates the expanded
-internal object corpus receipt with each binary, and compares both outputs to
-the checked-in fixture. Treat a pass as bounded local fresh-build evidence
+This rail must build two fresh `cargo-octet` derivations, check reviewed
+internal/expanded source bytes, then compare both binaries' corresponding v2
+receipts to each other AND the saved approved references. That replacement
+comparison passed with two fresh binaries; binary agreement alone is not
+independent evidence. Treat this pass as bounded local fresh-build evidence
 replay only; it is not a cross-machine, cross-toolchain, correctness, or
 semantic-equivalence proof.
 

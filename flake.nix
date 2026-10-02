@@ -10,7 +10,7 @@
     };
     flake-utils.url = "github:numtide/flake-utils";
     cairn = {
-      url = "github:onixresearch/cairn";
+      url = "git+ssh://git@github.com/OnixResearch/cairn.git?ref=change/hash-bound-cairn-migration&rev=695124d459574ba7aeba6097310d237f393c243c";
       inputs.nixpkgs.follows = "nixpkgs";
     };
     dylint-src = {
@@ -18,7 +18,7 @@
       flake = false;
     };
     valence = {
-      url = "github:OnixResearch/valence/5f1c2ba5072c6f9622fa59b1af20502985f569fd";
+      url = "git+ssh://git@github.com/OnixResearch/valence.git?ref=review/source-token-v2-7546a78b&rev=7546a78b4eeef8686c6837e187aa12420f4f03bb";
       inputs.nixpkgs.follows = "nixpkgs";
     };
     nickel-export = {
@@ -326,6 +326,9 @@
             || isReadme
             || isDynamicEvidenceProfile;
         };
+        # Admission needs the Git-root flake.lock, approval note, and verifier
+        # scripts omitted by the Crane-filtered Rust build source.
+        reviewedObjectSource = ./.;
         fmtSrc = pkgs.lib.cleanSourceWith {
           src = ./.;
           filter =
@@ -3143,10 +3146,10 @@
 
         checks =
           let
-            # Runs the fingerprint_consumer tests a filter selects. `unverifiedReason`
-            # is appended to the zero-selection diagnostic.
+            # Runs the fingerprint_consumer tests a filter selects. Object rails
+            # first admit the independently reviewed source and references.
             mkConsumerTestRail =
-              pname: testFilter: unverifiedReason:
+              pname: testFilter: verifyObject:
               let
                 listSelectedTests = "cargoWithProfile test -p cargo-octet --test fingerprint_consumer ${testFilter} -- --list --format terse";
               in
@@ -3160,7 +3163,7 @@
                 cargoToml = ./Cargo.toml;
                 inherit pname;
                 version = "0.1.0";
-                nativeBuildInputs = checkNativeBuildInputs;
+                nativeBuildInputs = checkNativeBuildInputs ++ (pkgs.lib.optionals verifyObject [ pkgs.python3 pkgs.b3sum ]);
                 cargoExtraArgs = "-p cargo-octet";
                 doNotPostBuildInstallCargoBinaries = true;
                 buildPhaseCargoCommand = ":";
@@ -3180,21 +3183,17 @@
                   selected_count="$(printf '%s\n' "$selected_listing" | grep -c ': test$' || true)"
                   ignored_count="$(printf '%s\n' "$ignored_listing" | grep -c ': test$' || true)"
                   if [ "$((selected_count - ignored_count))" -le 0 ]; then
-                    echo "${pname}: no test selected by '${testFilter}'; selected rail unverified${unverifiedReason}" >&2
+                    echo "${pname}: no non-ignored test selected by '${testFilter}'" >&2
                     exit 1
                   fi
+                  ${pkgs.lib.optionalString verifyObject ''
+                    ${pkgs.python3}/bin/python3 ${reviewedObjectSource}/tools/verify-reviewed-object-source.py \
+                      --repo ${reviewedObjectSource} --valence-module ${valence}/crates/valence-core/src/function_object.rs
+                  ''}
                 '';
               };
-            mkFingerprintDocsCheck = pname: testFilter: mkConsumerTestRail pname testFilter "";
-            # Function Object v1 construction is refused until a reviewed valence-core
-            # normalization label is pinned. These rails' output tests were removed, so
-            # they select nothing and fail closed; the compatibility rail stays red on its
-            # blocked v1 receipt contract tests. Refusal tests are named so that no
-            # object rail selects them.
-            mkObjectV1Rail =
-              pname: testFilter:
-              mkConsumerTestRail pname testFilter
-                ": Function Object v1 construction is refused until a reviewed valence-core normalization label is pinned";
+            mkFingerprintDocsCheck = pname: testFilter: mkConsumerTestRail pname testFilter false;
+            mkObjectRail = pname: testFilter: mkConsumerTestRail pname testFilter true;
             cargoOctetSelfCheck =
               pkgs.runCommand "octet-cargo-octet-self-check"
                 {
@@ -3470,11 +3469,11 @@
             fingerprintJsonOutputDocs = mkFingerprintDocsCheck "octet-fingerprint-json-output-docs" "fingerprint_json_output_docs_fixture_matches_transcript";
             fingerprintSourceScannerDocs = mkFingerprintDocsCheck "octet-fingerprint-source-scanner-docs" "fingerprint_source_scanner_docs_fixture_matches_transcript";
             releaseOperatorSmokeDocs = mkFingerprintDocsCheck "octet-release-operator-smoke-docs" "release_operator_smoke_transcript_and_help_cover_operator_surfaces";
-            objectCorpusGate = mkObjectV1Rail "octet-object-corpus-gate" "object_internal_corpus";
-            objectCorpusCompatibilityGate = mkObjectV1Rail "octet-object-corpus-compatibility-gate" "object_corpus_compatibility";
-            objectCorpusCaveatTaxonomyGate = mkObjectV1Rail "octet-object-corpus-caveat-taxonomy-gate" "caveat_taxonomy";
-            objectCorpusFixtureFreshnessGate = mkObjectV1Rail "octet-object-corpus-fixture-freshness" "matches_fresh";
-            supplementCompatibilityGate = mkObjectV1Rail "octet-supplement-compatibility-gate" "supplement_compatibility";
+            objectCorpusGate = mkObjectRail "octet-object-corpus-gate" "object_internal_corpus";
+            objectCorpusCompatibilityGate = mkObjectRail "octet-object-corpus-compatibility-gate" "object_corpus_compatibility";
+            objectCorpusCaveatTaxonomyGate = mkObjectRail "octet-object-corpus-caveat-taxonomy-gate" "caveat_taxonomy";
+            objectCorpusFixtureFreshnessGate = mkObjectRail "octet-object-corpus-fixture-freshness" "matches_fresh";
+            supplementCompatibilityGate = mkObjectRail "octet-supplement-compatibility-gate" "supplement_compatibility";
             valenceEvidenceIndexGate = pkgs.runCommand "octet-valence-evidence-index" { } ''
               cd ${src}
               ${cargoOctetUnwrapped}/bin/cargo-octet evidence-index check --page docs/current-head-valence-evidence.md
@@ -3613,11 +3612,9 @@
                   fi
                   mkdir -p "$out"
                 '';
-            thirSupplementInventoryGate = mkObjectV1Rail "octet-thir-supplement-inventory-gate" "thir_inventory";
-            mirSupplementFixtureGate = mkObjectV1Rail "octet-mir-supplement-fixture-gate" "mir_fixture";
-            mirSupplementInventoryGate = mkObjectV1Rail "octet-mir-supplement-inventory-gate" "mir_fixture";
-            # Blocked while Function Object v1 construction is refused: the first
-            # `object corpus receipt` exits with `function-object-v1-unavailable`.
+            thirSupplementInventoryGate = mkObjectRail "octet-thir-supplement-inventory-gate" "thir_inventory";
+            mirSupplementFixtureGate = mkObjectRail "octet-mir-supplement-fixture-gate" "mir_fixture";
+            mirSupplementInventoryGate = mkObjectRail "octet-mir-supplement-inventory-gate" "mir_inventory";
             freshBuildObjectCorpusDeterminism =
               pkgs.runCommand "octet-fresh-build-object-corpus-determinism"
                 {
@@ -3625,41 +3622,57 @@
                     pkgs.coreutils
                     pkgs.diffutils
                     pkgs.jq
+                    pkgs.python3
+                    pkgs.b3sum
                   ];
                 }
                 ''
-                  repo=${src}
+                  repo=${reviewedObjectSource}
                   scratch="$(mktemp -d)"
                   trap 'rm -rf "$scratch"' EXIT
-                  fixture="$repo/cargo-octet/tests/fixtures/object-corpus/expanded-internal-corpus-receipt.json"
-                  mapfile -t sources < <(jq -r '.source_paths[]' "$fixture")
+                  ${pkgs.python3}/bin/python3 "$repo/tools/verify-reviewed-object-source.py" \
+                    --repo "$repo" --valence-module ${valence}/crates/valence-core/src/function_object.rs
+                  ${pkgs.python3}/bin/python3 "$repo/tools/test-verify-reviewed-object-source.py" \
+                    --repo "$repo" --valence-module ${valence}/crates/valence-core/src/function_object.rs
+                  manifest="$repo/cargo-octet/tests/fixtures/object-corpus/source-token-v2/reviewed-source-manifest.json"
 
                   cd "$repo"
-                  ${cargoOctetFreshBuildA}/bin/cargo-octet object corpus receipt --output "$scratch/fresh-a.json" "''${sources[@]}"
-                  ${cargoOctetFreshBuildB}/bin/cargo-octet object corpus receipt --output "$scratch/fresh-b.json" "''${sources[@]}"
-
-                  cmp "$scratch/fresh-a.json" "$scratch/fresh-b.json"
-                  cmp "$scratch/fresh-a.json" "$fixture"
-                  for field in schema schema_version object_count source_paths object_set_hash caveat_counts pure_cache_blocked_count boundary; do
-                    jq -S ".$field" "$scratch/fresh-a.json" > "$scratch/a-$field.json"
-                    jq -S ".$field" "$scratch/fresh-b.json" > "$scratch/b-$field.json"
-                    jq -S ".$field" "$fixture" > "$scratch/fixture-$field.json"
-                    cmp "$scratch/a-$field.json" "$scratch/b-$field.json"
-                    cmp "$scratch/a-$field.json" "$scratch/fixture-$field.json"
+                  for role in internal_corpus expanded_internal_corpus; do
+                    case "$role" in
+                      internal_corpus) reference="internal-corpus-receipt.json" ;;
+                      expanded_internal_corpus) reference="expanded-internal-corpus-receipt.json" ;;
+                    esac
+                    reference="$repo/cargo-octet/tests/fixtures/object-corpus/source-token-v2/$reference"
+                    mapfile -t sources < <(jq -r --arg role "$role" '.source_selections[$role][]' "$manifest")
+                    test "''${#sources[@]}" -gt 0
+                    ${cargoOctetFreshBuildA}/bin/cargo-octet object corpus receipt --output "$scratch/$role-a.json" "''${sources[@]}"
+                    ${cargoOctetFreshBuildB}/bin/cargo-octet object corpus receipt --output "$scratch/$role-b.json" "''${sources[@]}"
+                    cmp "$scratch/$role-a.json" "$scratch/$role-b.json"
+                    cmp "$scratch/$role-a.json" "$reference"
+                    for field in schema schema_version object_count source_paths object_set_hash caveat_counts pure_cache_blocked_count boundary; do
+                      jq -S ".$field" "$scratch/$role-a.json" > "$scratch/$role-a-$field.json"
+                      jq -S ".$field" "$scratch/$role-b.json" > "$scratch/$role-b-$field.json"
+                      jq -S ".$field" "$reference" > "$scratch/$role-reference-$field.json"
+                      cmp "$scratch/$role-a-$field.json" "$scratch/$role-b-$field.json"
+                      cmp "$scratch/$role-a-$field.json" "$scratch/$role-reference-$field.json"
+                    done
+                    jq -e '.boundary.claims_correctness == false and .boundary.claims_semantic_equivalence == false' "$scratch/$role-a.json" >/dev/null
+                    jq -e '.boundary.detail | contains("do not prove behavioral correctness") and contains("semantic equivalence")' "$scratch/$role-a.json" >/dev/null
                   done
-                  jq -e '.boundary.claims_correctness == false and .boundary.claims_semantic_equivalence == false' "$scratch/fresh-a.json" > /dev/null
-                  jq -e '.boundary.detail | contains("do not prove behavioral correctness") and contains("semantic equivalence")' "$scratch/fresh-a.json" > /dev/null
 
                   echo "fresh_build.receipt_producers=2"
                   echo "fresh_build.byte_stability: PASS"
                   echo "fresh_build.fixture_parity: PASS"
                   echo "fresh_build.compared_fields_stable: PASS"
                   echo "fresh_build.boundary_claims_false: PASS"
+                  echo "fresh_build.selected_roles=internal_corpus,expanded_internal_corpus"
                   echo "fresh_build.scope=bounded-local-fresh-build-evidence-replay"
                   mkdir -p "$out"
                 '';
-            # Cannot build, so prints no PASS line, while any object rail above is blocked.
-            valenceObjectEvidenceGate = pkgs.runCommand "octet-valence-object-evidence" { } ''
+            valenceObjectEvidenceGate = pkgs.runCommand "octet-valence-object-evidence"
+              { nativeBuildInputs = [ pkgs.python3 pkgs.b3sum ]; } ''
+              ${pkgs.python3}/bin/python3 ${reviewedObjectSource}/tools/verify-reviewed-object-source.py \
+                --repo ${reviewedObjectSource} --valence-module ${valence}/crates/valence-core/src/function_object.rs
               test -d ${objectCorpusGate}
               test -d ${objectCorpusCompatibilityGate}
               test -d ${objectCorpusCaveatTaxonomyGate}
@@ -3842,7 +3855,7 @@
                     echo 'canonical dependency unexpectedly falls back to hosted path' >&2
                     exit 1
                   fi
-                  grep -F "valence-core = { git = \"https://github.com/OnixResearch/valence.git\", rev = \"$expected_revision\"" "$repo/cargo-octet/Cargo.toml" >/dev/null
+                  grep -F "valence-core = { git = \"ssh://git@github.com/OnixResearch/valence.git\", rev = \"$expected_revision\"" "$repo/cargo-octet/Cargo.toml" >/dev/null
                   test "$(grep -Fc "source = \"$expected_source\"" "$lockfile")" -eq 1
                   test "$(grep -Fc 'name = "valence-core"' "$lockfile")" -eq 1
                   grep -F 'pub(crate) use valence_core::' "$repo/cargo-octet/src/valence_core_shim.rs" >/dev/null

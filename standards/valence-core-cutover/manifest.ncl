@@ -41,16 +41,16 @@ let CutoverManifest = {
   supported_claim | NonEmptyString,
   non_claims | NonClaims,
 } in
-let ValenceRevision = "5f1c2ba5072c6f9622fa59b1af20502985f569fd" in
+let ValenceRevision = "7546a78b4eeef8686c6837e187aa12420f4f03bb" in
 let CutoverNonClaim = "standalone Valence cutover proves dependency/source ownership and DTO compatibility only; it does not prove behavioral correctness, semantic equivalence, pure-cache eligibility, external consumer compatibility, cross-toolchain determinism, or release eligibility" in
 {
   schema_version = "octet-valence-core-cutover-manifest/v2",
   standalone_source = {
     coordinate = "github:OnixResearch/valence?dir=crates/valence-core",
-    cargo_git_url = "https://github.com/OnixResearch/valence.git",
+    cargo_git_url = "ssh://git@github.com/OnixResearch/valence.git",
     crate_target = "valence-core",
     revision = ValenceRevision,
-    cargo_source = "git+https://github.com/OnixResearch/valence.git?rev=%{ValenceRevision}#%{ValenceRevision}",
+    cargo_source = "git+ssh://git@github.com/OnixResearch/valence.git?rev=%{ValenceRevision}#%{ValenceRevision}",
     hardened_profile_archive = "cairn/archive/2026-07-12-harden-preserves-integrity-boundaries",
     local_override_policy = "local path overrides are development-only diagnostics and MUST NOT replace the exact release dependency or lock identity",
   },
@@ -58,7 +58,7 @@ let CutoverNonClaim = "standalone Valence cutover proves dependency/source owner
     {
       module_or_schema = "function_object",
       standalone_path = "crates/valence-core/src/function_object.rs",
-      standalone_source_b3 = "b3:90165fa493397aa7fbd620d191ebb5990b355b42a71f5310b306f8b0d32c435c",
+      standalone_source_b3 = "b3:11f0f4233aaf3153966f6aa37de570c2dcd0e75335591934461ae2b25ab3ecb1",
       legacy_fixture_path = "crates/valence-core/src/function_object.rs",
       compatibility_disposition = "legacy-fixture",
       fixture_refs = ["function-object-v1-compatible"],
@@ -87,8 +87,8 @@ let CutoverNonClaim = "standalone Valence cutover proves dependency/source owner
     {
       fixture_id = "function-object-v1-compatible",
       module_or_schema = "function_object",
-      expected_behavior = "Function Object v1 DTO and object hash behavior remains byte-compatible for checked fixtures",
-      compatibility_command = "cargo test -p cargo-octet object -- --nocapture",
+      expected_behavior = "Historical v1 artifact-only reads and the saved v1 receipt remain stable; default source-token-v2 replay of the saved v1 corpus receipt reports object_set_hash mismatch, while reviewed v2 source/receipt replays against its own versioned identity. The upstream pinned-v1 core golden test remains separately runnable in Valence",
+      compatibility_command = "cargo test -p cargo-octet --test fingerprint_consumer object_corpus_compatibility -- --nocapture",
       non_claims = [CutoverNonClaim],
     },
     {
@@ -110,7 +110,7 @@ let CutoverNonClaim = "standalone Valence cutover proves dependency/source owner
     {
       consumer = "Aspen",
       current_dependency = "git package valence-core from github:OnixResearch/octet",
-      target_dependency = "git+https://github.com/OnixResearch/valence.git?rev=%{ValenceRevision}",
+      target_dependency = "git+ssh://git@github.com/OnixResearch/valence.git?rev=%{ValenceRevision}",
       validation_command = "cargo test -p cargo-octet valence_cutover -- --nocapture; cargo test -p cargo-octet evidence_index -- --nocapture; cargo test -p cargo-octet object -- --nocapture",
       non_claim = CutoverNonClaim,
     },

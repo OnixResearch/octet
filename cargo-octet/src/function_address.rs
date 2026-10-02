@@ -1390,6 +1390,7 @@ mod tests {
             start: INVERTED_START_BYTE,
             end: INVERTED_END_BYTE,
             marker: None,
+            preceding_marker_in_code: false,
             macro_calls: false,
         };
         let out_of_range = fingerprint::FunctionSpan {
@@ -1397,6 +1398,7 @@ mod tests {
             start: 0,
             end: OUT_OF_RANGE_END_BYTE,
             marker: None,
+            preceding_marker_in_code: false,
             macro_calls: false,
         };
 
@@ -1567,6 +1569,104 @@ mod tests {
         assert!(run.findings.is_empty());
         assert_eq!(artifact["records"][0]["review"], "R-1");
         assert_eq!(artifact["records"][0]["evidence"], "E-1");
+    }
+
+    #[test]
+    fn marker_text_inside_block_comment_cannot_supply_a_reviewed_address() {
+        let temp = TempDir::new().expect("temp dir");
+        let source = temp.path().join("lib.rs");
+        let check = FunctionAddressCheck {
+            mode: FunctionAddressMode::Deny,
+            paths: vec![PathBuf::from("lib.rs")],
+            baseline: None,
+        };
+        for prefix in [
+            "/* nested /* comment */\n// octet-fingerprint: b3:",
+            "/*\n#[fingerprint(b3:",
+        ] {
+            let unreviewed =
+                format!("{prefix}{}; review=R-stale; evidence=E-stale\n*/ pub fn f() -> u32 {{ 1 }}\n", "0".repeat(64));
+            std::fs::write(&source, &unreviewed).expect("write forged source");
+            let observed = collect_test_run(&check, temp.path(), "config");
+            let address = artifact_value(&observed)["records"][0]["function_address"]
+                .as_str()
+                .expect("observed address")
+                .to_owned();
+            let reviewed = unreviewed.replace(&"0".repeat(64), marker_digest(&address));
+            std::fs::write(&source, reviewed).expect("write matching forged digest");
+
+            let denied = collect_test_run(&check, temp.path(), "config");
+            assert_eq!(denied.findings.len(), 1, "{prefix}");
+            assert_eq!(denied.findings[0].lint, LINT_FUNCTION_ADDRESS_MISSING, "{prefix}");
+            assert!(artifact_value(&denied)["records"][0]["review"].is_null(), "{prefix}");
+        }
+    }
+
+    #[test]
+    fn reviewed_marker_goes_stale_when_comment_separated_export_name_changes() {
+        let temp = TempDir::new().expect("temp dir");
+        let source = temp.path().join("lib.rs");
+        let alpha = "#[unsafe(export_name = \"alpha\")]\n// review gap\npub extern \"C\" fn exported() -> u32 { 1 }\n";
+        std::fs::write(&source, alpha).expect("write alpha source");
+        let check = FunctionAddressCheck {
+            mode: FunctionAddressMode::Deny,
+            paths: vec![PathBuf::from("lib.rs")],
+            baseline: None,
+        };
+        let observed = collect_test_run(&check, temp.path(), "config");
+        let reviewed_address = artifact_value(&observed)["records"][0]["function_address"]
+            .as_str()
+            .expect("alpha function address")
+            .to_owned();
+        let reviewed = format!(
+            "// octet-fingerprint: b3:{}; review=R-export; evidence=E-export\n{alpha}",
+            marker_digest(&reviewed_address)
+        );
+        std::fs::write(&source, &reviewed).expect("write reviewed marker");
+        assert!(collect_test_run(&check, temp.path(), "config").findings.is_empty());
+
+        std::fs::write(&source, reviewed.replace("alpha", "omega")).expect("change exported symbol");
+        let changed = collect_test_run(&check, temp.path(), "config");
+        assert_eq!(changed.findings.len(), 1);
+        assert_eq!(changed.findings[0].lint, LINT_FUNCTION_ADDRESS_STALE);
+        assert_ne!(artifact_value(&changed)["records"][0]["function_address"], reviewed_address);
+    }
+
+    #[test]
+    fn reviewed_marker_stales_on_multiline_export_and_split_visibility_edits() {
+        for (original, edited) in [
+            (
+                "#[unsafe(export_name =\n    \"alpha\"\n)]\n// gap\npub extern \"C\" fn exported() -> u32 { 1 }\n",
+                "#[unsafe(export_name =\n    \"omega\"\n)]\n// gap\npub extern \"C\" fn exported() -> u32 { 1 }\n",
+            ),
+            ("pub\nfn exported() -> u32 { 1 }\n", "fn exported() -> u32 { 1 }\n"),
+        ] {
+            let temp = TempDir::new().expect("temp dir");
+            let source = temp.path().join("lib.rs");
+            let check = FunctionAddressCheck {
+                mode: FunctionAddressMode::Deny,
+                paths: vec![PathBuf::from("lib.rs")],
+                baseline: None,
+            };
+            std::fs::write(&source, original).expect("write original function");
+            let observed = collect_test_run(&check, temp.path(), "config");
+            let reviewed_address = artifact_value(&observed)["records"][0]["function_address"]
+                .as_str()
+                .expect("original function address")
+                .to_owned();
+            let marker = format!(
+                "// octet-fingerprint: b3:{}; review=R-export; evidence=E-export\n",
+                marker_digest(&reviewed_address)
+            );
+            std::fs::write(&source, format!("{marker}{original}")).expect("write original review marker");
+            assert!(collect_test_run(&check, temp.path(), "config").findings.is_empty());
+
+            std::fs::write(&source, format!("{marker}{edited}")).expect("change reviewed source identity");
+            let changed = collect_test_run(&check, temp.path(), "config");
+            assert_eq!(changed.findings.len(), 1, "{edited}");
+            assert_eq!(changed.findings[0].lint, LINT_FUNCTION_ADDRESS_STALE);
+            assert_ne!(artifact_value(&changed)["records"][0]["function_address"], reviewed_address);
+        }
     }
 
     #[test]
