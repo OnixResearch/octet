@@ -1,4 +1,6 @@
 use rustc_hir as hir;
+use rustc_hir::attrs::AttributeKind;
+use rustc_hir::find_attr;
 use rustc_lint::LateContext;
 use rustc_lint::LintContext;
 use rustc_session::Session;
@@ -55,13 +57,35 @@ pub(crate) fn late_hir_id_is_in_test_context(cx: &LateContext<'_>, hir_id: hir::
     for (_, node) in cx.tcx.hir_parent_iter(hir_id) {
         if let hir::Node::Item(item) = node
             && (hir_attrs_indicate_test(cx.sess(), cx.tcx.hir_attrs(item.hir_id()))
-                || item_span_indicates_test(cx.sess(), item.span))
+                || item_span_indicates_test(cx.sess(), item.span)
+                || item_is_harness_test_fn(cx, item))
         {
             return true;
         }
     }
 
     false
+}
+
+/// Under `--test`, rustc's builtin `#[test]` macro consumes the attribute: the
+/// function keeps no test attribute in HIR and is registered through a
+/// same-named sibling `const` marked `#[rustc_test_marker]`. Without `--test`
+/// the function is removed, so only harness crates can contain such markers.
+fn item_is_harness_test_fn(cx: &LateContext<'_>, item: &hir::Item<'_>) -> bool {
+    let hir::ItemKind::Fn { ident, .. } = item.kind else {
+        return false;
+    };
+    if !cx.sess().opts.test {
+        return false;
+    }
+
+    let parent = cx.tcx.local_parent(item.owner_id.def_id);
+    cx.tcx.hir_module_free_items(cx.tcx.parent_module_from_def_id(item.owner_id.def_id)).any(|id| {
+        let candidate = cx.tcx.hir_item(id);
+        matches!(candidate.kind, hir::ItemKind::Const(marker_ident, ..) if marker_ident.name == ident.name)
+            && cx.tcx.local_parent(candidate.owner_id.def_id) == parent
+            && find_attr!(cx.tcx.hir_attrs(candidate.hir_id()), AttributeKind::RustcTestMarker(..))
+    })
 }
 
 pub(crate) fn item_span_indicates_test(sess: &Session, span: Span) -> bool {
@@ -97,10 +121,6 @@ pub(crate) fn item_span_indicates_test(sess: &Session, span: Span) -> bool {
 }
 
 fn hir_attr_indicates_test(sess: &Session, attr: &hir::Attribute) -> bool {
-    if attr.has_name(sym::test) {
-        return true;
-    }
-
     if !attr.has_name(sym::cfg) {
         return false;
     }

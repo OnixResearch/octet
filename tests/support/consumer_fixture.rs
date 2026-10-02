@@ -127,6 +127,11 @@ printf 'OCTET_STRICT_PROFILE=%s\n' "${{OCTET_STRICT_PROFILE:-}}" >> "$TS_LOG"
 printf 'OCTET_COMPILER_ARCHITECTURE_CONTEXT=%s\n' "${{OCTET_COMPILER_ARCHITECTURE_CONTEXT:-}}" >> "$TS_LOG"
 printf 'RUSTUP_TOOLCHAIN=%s\n' "${{RUSTUP_TOOLCHAIN:-}}" >> "$TS_LOG"
 case "${{1:-}}" in
+  metadata)
+    # Use Cargo's actual manifest/workspace resolver, without fetching dependencies
+    # or changing the fixture lockfile used by the check-path tests.
+    exec "${{TS_REAL_CARGO:?}}" "$@" --no-deps --offline
+    ;;
   build)
     out_dir="${{CARGO_TARGET_DIR:?}}/release"
     mkdir -p "$out_dir"
@@ -246,6 +251,7 @@ esac
             .env("TS_MUTATE_LOCKFILE", if mutate_lockfile { "1" } else { "0" })
             .env("TS_MUTATE_LOCKFILE_ON_BUILD", "0")
             .env("TS_CONSUMER_LOCKFILE", self.repo.join("Cargo.lock"))
+            .env("TS_REAL_CARGO", env::var_os("CARGO").expect("Cargo runner path"))
             .env("CARGO_TARGET_DIR", &self.target_dir);
 
         fs::write(&self.log_path, format!("LAUNCHER:{}\nPATH:{}\n", command.get_program().to_string_lossy(), path))
@@ -437,6 +443,7 @@ esac
             .env("TS_MUTATE_LOCKFILE", if mutate_lockfile { "1" } else { "0" })
             .env("TS_MUTATE_LOCKFILE_ON_BUILD", if mutate_lockfile_on_build { "1" } else { "0" })
             .env("TS_CONSUMER_LOCKFILE", self.repo.join("Cargo.lock"))
+            .env("TS_REAL_CARGO", env::var_os("CARGO").expect("Cargo runner path"))
             .env("CARGO_TARGET_DIR", &self.target_dir);
 
         fs::write(&self.log_path, format!("LAUNCHER:{}\nPATH:{}\n", command.get_program().to_string_lossy(), path))
@@ -567,14 +574,7 @@ pub(crate) fn build_standalone_cargo_octet() -> StandaloneCargoOctet {
         "crates/octet-architecture-ir",
         "crates/octet-lint-metadata",
         "crates/octet-standards",
-        "standards/charon-semantic/generated",
-        "standards/clippy-restrictions/generated",
-        "standards/compiler-architecture-ir/contracts",
-        "standards/effect-closure/generated",
-        "standards/nominal-domains/generated",
-        "standards/proof-imports/generated",
-        "standards/proof-rails/aeneas-lean/generated",
-        "standards/strict-profiles/generated",
+        "standards",
     ] {
         copy_path(&repo_root.join(relative), &source_root.join(relative));
     }

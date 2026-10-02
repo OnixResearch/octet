@@ -345,7 +345,6 @@ fn effect_closure_admission_stops_after_failed_direct_check() {
     assert_eq!(status["phase"], "direct-check");
     assert!(!artifacts.join("effect-closure.json").exists());
     assert!(fixture.log().contains("ARGS:check"));
-    assert!(!fixture.log().contains("ARGS:metadata"));
 }
 
 #[test]

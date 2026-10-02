@@ -24,11 +24,13 @@ octet-standards = { path = "../crates/octet-standards" }
 valence-core = { git = "https://github.com/OnixResearch/valence.git", rev = "5f1c2ba5072c6f9622fa59b1af20502985f569fd", package = "valence-core" }
 bounded-exec = { git = "ssh://git@github.com/OnixResearch/bounded-exec.git", rev = "44eb74eb639194665ee820562d5b2ce2c3ff6a94", package = "bounded-exec" }
 cap-std = "3"
+libc = "0.2"
 blake3 = "1"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 syn = { version = "2", features = ["full", "visit"] }
 toml = "1"
+unicode-ident = "=1.0.24"
 wasmparser = "=0.253.0"
 
 [build-dependencies]

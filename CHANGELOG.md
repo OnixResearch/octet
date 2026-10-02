@@ -6,6 +6,164 @@ specific commits via `TIGERSTYLE_DYLINT_REV`.
 For the full lint catalog, see `docs/lint-reference.md`.
 For rollout profiles, see `docs/downstream-rollout.md`.
 
+## Unreleased: Consumer fixture matches Cargo metadata and source assets
+
+- The consumer integration harness now delegates `cargo metadata` to Cargo
+  against the fixture's actual manifest, without fetching dependencies or
+  changing its lockfile. Standalone CLI builds copy the `standards/` source
+  assets needed by compile-time includes. This repairs consumer test-harness
+  parity; it does not establish that ObjectV1 selected gates pass.
+
+## Unreleased: Object rails blocked; new scanner names need marker re-review
+
+- Object tests that built objects from source were removed rather than re-pinned.
+  These covered emit, marker check and update, caveats, determinism, corpus receipt
+  round trips, the harness, and HIR/THIR/MIR supplement replays. Two tests now cover
+  the refusal: one runs every source-backed object command, and one shows supplement
+  receipt validation runs before the refusal. Pointer, bundle, and receipt-validation
+  tests now read existing object JSON or the checked-in v1 receipt instead of emitting.
+  Tests that only read checked-in artifacts were renamed (`checked_in_*`,
+  `*_spike_fixture_listing_*`).
+- `object_corpus_compatibility_positive_v1_fixture_replays_cleanly` and
+  `object_corpus_compatibility_boundary_tamper_fixture_fails_closed` check a
+  checked-in v1 receipt contract. They are kept, labelled blocked, and stay red until
+  a reviewed valence-core normalization label is pinned.
+- The object, supplement, and corpus Nix rails now fail closed with
+  `<check>: no test selected by '<filter>'; selected rail unverified: Function Object v1 construction is refused until a reviewed valence-core normalization label is pinned`.
+  The compatibility rail stays red on its blocked tests, and
+  `fresh-build-object-corpus-determinism` stops at the refused receipt command.
+  `valence-object-evidence` therefore cannot build or print PASS lines.
+  `docs/current-head-valence-evidence.md` still records an earlier payload commit,
+  and its object pass signals do not hold for the current tree.
+- The source scanner now also finds functions whose `fn` is followed by a tab, a
+  newline, or a comment. It names functions with Unicode identifiers, and raw
+  identifiers such as `r#type`, by their full name. Unicode identifiers stay whole in
+  canonical tokens and dependency sets, and Unicode-named macro calls count as macro
+  context. Names, locators, hashes, and addresses of the affected functions change.
+  Existing fingerprint markers, function-address markers, and baselines must be
+  re-reviewed; nothing rebinds them. This does not establish complete Rust syntax
+  coverage.
+
+## Unreleased: Source-token identity v2; Function Object v1 unavailable
+
+Canonical source tokens now keep every string, raw-string, byte, and character
+literal whole, including any `//` inside it. Line, doc, and nested block
+comments are dropped. Before this change, each line was cut at its first `//`,
+so code after a quoted URL was never hashed. Literal contents were also split
+into tokens, so whitespace changes inside a literal went unseen. Dependency sets
+now hold only identifiers in code; words inside literals no longer count.
+
+- `cargo octet fingerprint` hashes a version tag ahead of the tokens. A marker
+  written before this change never matches, even for an unchanged function.
+  Every existing reviewed marker reports `mismatch` and fails closed until its
+  owner re-reviews the function and runs `--update`.
+- Function addresses use canonicalizer `octet-source-token-function-address-v2`,
+  which is hashed into every address. Existing function-address markers and
+  baselines report stale until re-reviewed.
+- Function Object v1 is unavailable. valence-core accepts only the
+  normalization label `octet-source-token-v1`, which names the old token bytes.
+  Every `cargo octet object` command that builds objects from source (`emit`,
+  `check`, `update`, `corpus receipt`, `corpus caveats`, `corpus check`,
+  `supplement emit`, `supplement check`) fails with
+  `function-object-v1-unavailable: <path>::<function>: ...`.
+  `object corpus check` reports the same refusal as an error of kind
+  `function-object-v1-unavailable`. Objects stay unavailable until a reviewed
+  valence-core label for the corrected bytes is pinned. Commands that read
+  existing object JSON or list fixtures (`diff`, `pointer`, `bundle export`,
+  `corpus contract`, `supplement fixtures`) are unchanged.
+- The five fingerprint docs examples still carry pre-change marker hashes.
+  Their transcript tests compared stored hashes and transcripts byte for byte,
+  so they were deleted rather than re-pinned. Separate tests now cover two
+  behaviours that only those tests checked: warning counts failing `--check`,
+  and JSON stored and computed hashes across drift. Every
+  `mkFingerprintDocsCheck` rail now fails closed with
+  `<check>: no test selected by '<filter>'; selected rail unverified` when its
+  filter selects no non-ignored test. The five `fingerprint-*-docs` checks
+  therefore fail, and so does `fingerprint-docs-downstream-smoke`, until an
+  owner re-reviews and regenerates the examples.
+
+## Unreleased: Macro-call detection ignores keywords, comments, and literals
+
+Macro-context detection for function addresses, `cargo octet fingerprint`, and
+`cargo octet object` now reads the same comment- and literal-blanked view as the
+function scanner. A macro call is a name or path followed by `!` and a `(`, `[`,
+or `{` group. Keywords such as `if`, `while`, `match`, and `return` before a unary
+`!` are not macro names, and macro-like text in comments or string, raw-string,
+byte, or character literals no longer counts. A real macro after a quoted `//`
+is now found. Functions whose classification changes move between
+`source-scanner-token-set` and `unsupported-macro-context`, which changes their
+function address, fingerprint semantic ID, and function object identity;
+function-address markers and baselines report them as stale until re-reviewed.
+Token hashes and `cargo octet fingerprint` markers are unchanged.
+
+## Unreleased: Object-corpus freshness rail fails closed
+
+Five `cargo-octet` tests compared checked-in internal-corpus receipts and the
+caveat taxonomy byte-for-byte with output generated from Octet's own changing
+source. They and the ignored fixture re-pin helper were deleted as implementation
+snapshots. The fixtures stay and are still checked for structure and boundary
+claims; separate tests still cover fresh-receipt determinism and receipt replay.
+
+`nix build .#checks.x86_64-linux.object-corpus-fixture-freshness` now lists the
+tests its `matches_fresh` filter selects before running them. With no
+non-ignored test selected, it exits nonzero with
+`no test selected by 'matches_fresh'; selected rail unverified: Function Object v1 construction is refused until a reviewed valence-core normalization label is pinned`
+instead of passing without running anything. No such test exists now, so the
+rail fails, and `valence-object-evidence`, which depends on it, cannot pass until
+an owner-reviewed freshness comparison replaces the deleted tests.
+
+## Unreleased: Functions with array-typed signatures are scanned
+
+The source scanner now ends a function signature only at a top-level `{` or
+`;`. A `;` inside an array type such as `[u8; 2]` no longer makes a function
+look bodiless, and a `{` inside generic arguments such as `W<{ N }>` is no
+longer taken as the body. Functions with array parameters or return types were
+previously left out of function-address receipts, `cargo octet fingerprint`,
+and `cargo octet object` without any finding; they are now recorded and checked
+like other functions. Bodiless trait and foreign declarations are still
+skipped, and functions inside `macro_rules!` definitions are still excluded.
+
+## Unreleased: Source function scanner ignores comments and literals
+
+The source scanner behind function addresses, `cargo octet fingerprint`, and
+`cargo octet object` no longer matches `fn`, `macro_rules!`, braces, or
+semicolons inside line, doc, or nested block comments, or inside string,
+raw-string, byte, or character literals. Documentation examples such as
+`compile_fail` doctests no longer produce function records, missing markers,
+or duplicate locators. A function containing a quoted or commented brace now
+ends at its own closing brace, so its function address changes, and a
+function its neighbour previously swallowed is recorded again. Spans, hashing,
+and macro-context detection are otherwise unchanged. No lint levels, profiles,
+or baselines change.
+
+## Unreleased: Compile-time unsigned arithmetic
+
+`raw_arithmetic_overflow` skips primitive arithmetic composed of literals
+and named const items. Associated consts and inline const blocks remain
+checked conservatively, as do runtime locals and parameters in `const fn`.
+
+## Unreleased: `#[test]` functions in test-harness builds
+
+Under `--test`, rustc consumes `#[test]` and registers functions through
+same-named sibling test-marker constants. The shared test-context classifier
+now recognizes these functions without exempting non-test harness helpers.
+`ambient_clock` now uses that shared classifier instead of a private copy that
+flagged clock reads in harness `#[test]` functions and `#[cfg(test)]` modules;
+non-test helpers and `cfg(not(test))` code still warn.
+No lint levels, profiles, or exemptions change.
+
+## Unreleased: Compiler diagnostic source paths
+
+The runner resolves compiler-origin absolute spans and package-rooted relative spans containing `..`
+only when the package ID matches the complete Cargo graph (including in-workspace local path
+dependencies excluded from workspace membership), each physical path component stays inside the
+workspace, and the target is an existing regular file. Intermediate files, missing paths, FIFO
+targets, and symlink escapes fail closed. On the selected Linux runner, a nonblocking capability
+open and Unix inode comparison constrain the check, but concurrent swap-back can still change
+source identity: this is a containment check, not an immutable snapshot. Clean relative spans retain their existing
+root-relative validation. Non-Unix platforms reject absolute/parent-bearing compiler spans
+until an equivalent nonblocking capability check exists; artifact path validation is unchanged.
+
 ## Unreleased: Compiler randomness effects
 
 The collector now classifies the four root `getrandom` entry points: `fill`, `fill_uninit`, `u32`, and `u64`.

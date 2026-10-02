@@ -2,6 +2,8 @@
 
 This document fixes the Phase 7 boundary for Octet's Valence-oriented content-addressed Rust evidence work. It is a contract document, not an implementation claim for HIR/MIR extraction.
 
+> **Function Object v1 is currently unavailable.** valence-core accepts only the normalization label `octet-source-token-v1`, which names token bytes Octet's corrected source scanner no longer produces. Every `cargo octet object` command that builds objects from source, including the HIR, THIR, and MIR supplement commands below, exits with `function-object-v1-unavailable: <path>::<function>: ...`. That refusal stays until the owner pins a reviewed valence-core normalization label for the corrected bytes. Checked-in v1 receipts cannot be replayed until then. The commands and contracts below describe the v1 boundary that will return with that label; they are not current evidence.
+
 ## Canonical v1 identity
 
 `octet.function-object.v1` remains the canonical v1 review/provenance identity for selected Rust functions.

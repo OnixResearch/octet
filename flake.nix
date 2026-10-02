@@ -3143,8 +3143,13 @@
 
         checks =
           let
-            mkFingerprintDocsCheck =
-              pname: testFilter:
+            # Runs the fingerprint_consumer tests a filter selects. `unverifiedReason`
+            # is appended to the zero-selection diagnostic.
+            mkConsumerTestRail =
+              pname: testFilter: unverifiedReason:
+              let
+                listSelectedTests = "cargoWithProfile test -p cargo-octet --test fingerprint_consumer ${testFilter} -- --list --format terse";
+              in
               craneLib.buildPackage {
                 inherit
                   src
@@ -3168,8 +3173,28 @@
                 preCheck = ''
                   export PATH="${dylintShimPath}:$PATH"
                   export CARGO_OCTET_BIN="${cargoOctetUnwrapped}/bin/cargo-octet"
+                  # A selected rail must not pass by running zero tests: fail
+                  # closed unless the filter still selects a non-ignored test.
+                  selected_listing="$(${listSelectedTests})" || exit
+                  ignored_listing="$(${listSelectedTests} --ignored)" || exit
+                  selected_count="$(printf '%s\n' "$selected_listing" | grep -c ': test$' || true)"
+                  ignored_count="$(printf '%s\n' "$ignored_listing" | grep -c ': test$' || true)"
+                  if [ "$((selected_count - ignored_count))" -le 0 ]; then
+                    echo "${pname}: no test selected by '${testFilter}'; selected rail unverified${unverifiedReason}" >&2
+                    exit 1
+                  fi
                 '';
               };
+            mkFingerprintDocsCheck = pname: testFilter: mkConsumerTestRail pname testFilter "";
+            # Function Object v1 construction is refused until a reviewed valence-core
+            # normalization label is pinned. These rails' output tests were removed, so
+            # they select nothing and fail closed; the compatibility rail stays red on its
+            # blocked v1 receipt contract tests. Refusal tests are named so that no
+            # object rail selects them.
+            mkObjectV1Rail =
+              pname: testFilter:
+              mkConsumerTestRail pname testFilter
+                ": Function Object v1 construction is refused until a reviewed valence-core normalization label is pinned";
             cargoOctetSelfCheck =
               pkgs.runCommand "octet-cargo-octet-self-check"
                 {
@@ -3445,11 +3470,11 @@
             fingerprintJsonOutputDocs = mkFingerprintDocsCheck "octet-fingerprint-json-output-docs" "fingerprint_json_output_docs_fixture_matches_transcript";
             fingerprintSourceScannerDocs = mkFingerprintDocsCheck "octet-fingerprint-source-scanner-docs" "fingerprint_source_scanner_docs_fixture_matches_transcript";
             releaseOperatorSmokeDocs = mkFingerprintDocsCheck "octet-release-operator-smoke-docs" "release_operator_smoke_transcript_and_help_cover_operator_surfaces";
-            objectCorpusGate = mkFingerprintDocsCheck "octet-object-corpus-gate" "object_internal_corpus";
-            objectCorpusCompatibilityGate = mkFingerprintDocsCheck "octet-object-corpus-compatibility-gate" "object_corpus_compatibility";
-            objectCorpusCaveatTaxonomyGate = mkFingerprintDocsCheck "octet-object-corpus-caveat-taxonomy-gate" "caveat_taxonomy";
-            objectCorpusFixtureFreshnessGate = mkFingerprintDocsCheck "octet-object-corpus-fixture-freshness" "matches_fresh";
-            supplementCompatibilityGate = mkFingerprintDocsCheck "octet-supplement-compatibility-gate" "supplement_compatibility";
+            objectCorpusGate = mkObjectV1Rail "octet-object-corpus-gate" "object_internal_corpus";
+            objectCorpusCompatibilityGate = mkObjectV1Rail "octet-object-corpus-compatibility-gate" "object_corpus_compatibility";
+            objectCorpusCaveatTaxonomyGate = mkObjectV1Rail "octet-object-corpus-caveat-taxonomy-gate" "caveat_taxonomy";
+            objectCorpusFixtureFreshnessGate = mkObjectV1Rail "octet-object-corpus-fixture-freshness" "matches_fresh";
+            supplementCompatibilityGate = mkObjectV1Rail "octet-supplement-compatibility-gate" "supplement_compatibility";
             valenceEvidenceIndexGate = pkgs.runCommand "octet-valence-evidence-index" { } ''
               cd ${src}
               ${cargoOctetUnwrapped}/bin/cargo-octet evidence-index check --page docs/current-head-valence-evidence.md
@@ -3588,9 +3613,11 @@
                   fi
                   mkdir -p "$out"
                 '';
-            thirSupplementInventoryGate = mkFingerprintDocsCheck "octet-thir-supplement-inventory-gate" "thir_inventory";
-            mirSupplementFixtureGate = mkFingerprintDocsCheck "octet-mir-supplement-fixture-gate" "mir_fixture";
-            mirSupplementInventoryGate = mkFingerprintDocsCheck "octet-mir-supplement-inventory-gate" "mir_fixture";
+            thirSupplementInventoryGate = mkObjectV1Rail "octet-thir-supplement-inventory-gate" "thir_inventory";
+            mirSupplementFixtureGate = mkObjectV1Rail "octet-mir-supplement-fixture-gate" "mir_fixture";
+            mirSupplementInventoryGate = mkObjectV1Rail "octet-mir-supplement-inventory-gate" "mir_fixture";
+            # Blocked while Function Object v1 construction is refused: the first
+            # `object corpus receipt` exits with `function-object-v1-unavailable`.
             freshBuildObjectCorpusDeterminism =
               pkgs.runCommand "octet-fresh-build-object-corpus-determinism"
                 {
@@ -3631,6 +3658,7 @@
                   echo "fresh_build.scope=bounded-local-fresh-build-evidence-replay"
                   mkdir -p "$out"
                 '';
+            # Cannot build, so prints no PASS line, while any object rail above is blocked.
             valenceObjectEvidenceGate = pkgs.runCommand "octet-valence-object-evidence" { } ''
               test -d ${objectCorpusGate}
               test -d ${objectCorpusCompatibilityGate}

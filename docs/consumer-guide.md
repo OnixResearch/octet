@@ -45,6 +45,17 @@ For repo-local one-offs without installation, reuse the same
 cargo run --manifest-path /path/to/octet/cargo-octet/Cargo.toml -- check
 ```
 
+Compiler diagnostic spans from `include_str!` and `#[path]` may contain `..`.
+The runner normalizes these only for a local package matched in the complete
+Cargo metadata graph (including excluded in-workspace path dependencies) and
+a physically contained, existing regular source file. On the tested Linux runner,
+the capability-confined open is nonblocking; the check does not prove immutable
+source identity under concurrent swaps. Non-Unix platforms reject these
+absolute/parent-bearing spans rather than taking a potentially blocking path.
+Ordinary clean relative locators keep their previous validation; invalid or
+escaped spans are errors, not silently omitted findings.
+This does not weaken artifact capability paths.
+
 For Nix consumers wiring Octet into `nix flake check`, use the first-party
 helper exposed from `flake.nix`:
 
