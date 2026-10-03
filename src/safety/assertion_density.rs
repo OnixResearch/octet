@@ -19,8 +19,9 @@ use crate::test_context;
 
 declare_tool_lint! {
     /// Warns on functions exceeding a configurable line count (default: 20)
-    /// that contain fewer than a required number of syntactic fail-closed
-    /// checks (default: 2). This does not prove domain invariant coverage.
+    /// that contain fewer than a required number of syntactic gate exits
+    /// (default: 2). Option exits have no inferred success/failure polarity;
+    /// their count does not prove domain invariant coverage.
     ///
     /// Configure in `dylint.toml`:
     /// ```toml
@@ -76,12 +77,7 @@ fn is_assertion_macro(snippet: &str) -> bool {
     ASSERT_MACROS.contains(&name) && matches!(args.trim_start().chars().next(), Some('(' | '[' | '{'))
 }
 
-fn is_core_failure_variant(
-    cx: &LateContext<'_>,
-    expr: &hir::Expr<'_>,
-    enum_name: rustc_span::Symbol,
-    variant: &str,
-) -> bool {
+fn is_core_variant(cx: &LateContext<'_>, expr: &hir::Expr<'_>, enum_name: rustc_span::Symbol, variant: &str) -> bool {
     let hir::ExprKind::Path(qpath) = &expr.kind else {
         return false;
     };
@@ -99,11 +95,13 @@ fn is_core_failure_variant(
         && cx.tcx.opt_parent(variant_id).is_some_and(|enum_id| cx.tcx.is_diagnostic_item(enum_name, enum_id))
 }
 
-fn is_failure_return(cx: &LateContext<'_>, expr: &hir::Expr<'_>) -> bool {
+fn is_gate_return(cx: &LateContext<'_>, expr: &hir::Expr<'_>) -> bool {
     match &expr.kind {
-        hir::ExprKind::DropTemps(inner) => is_failure_return(cx, inner),
-        hir::ExprKind::Call(callee, _) => is_core_failure_variant(cx, callee, sym::Result, "Err"),
-        hir::ExprKind::Path(..) => is_core_failure_variant(cx, expr, sym::Option, "None"),
+        hir::ExprKind::DropTemps(inner) => is_gate_return(cx, inner),
+        hir::ExprKind::Call(callee, _) => {
+            is_core_variant(cx, callee, sym::Result, "Err") || is_core_variant(cx, callee, sym::Option, "Some")
+        }
+        hir::ExprKind::Path(..) => is_core_variant(cx, expr, sym::Option, "None"),
         _ => false,
     }
 }
@@ -115,7 +113,7 @@ fn is_core_result_type(cx: &LateContext<'_>, ty: ty::Ty<'_>) -> bool {
 fn is_literal_ok(cx: &LateContext<'_>, expr: &hir::Expr<'_>) -> bool {
     match &expr.kind {
         hir::ExprKind::DropTemps(inner) => is_literal_ok(cx, inner),
-        hir::ExprKind::Call(callee, _) => is_core_failure_variant(cx, callee, sym::Result, "Ok"),
+        hir::ExprKind::Call(callee, _) => is_core_variant(cx, callee, sym::Result, "Ok"),
         _ => false,
     }
 }
@@ -202,7 +200,7 @@ impl<'tcx> Visitor<'tcx> for CheckVisitor<'_, 'tcx> {
         self.count_macro_assertion(expr);
         match &expr.kind {
             hir::ExprKind::Ret(Some(value))
-                if self.in_guard > 0 && !expr.span.from_expansion() && is_failure_return(self.cx, value) =>
+                if self.in_guard > 0 && !expr.span.from_expansion() && is_gate_return(self.cx, value) =>
             {
                 self.checks += 1;
             }
@@ -312,10 +310,7 @@ impl<'tcx> LateLintPass<'tcx> for AssertionDensity {
             cx,
             ASSERTION_DENSITY,
             body.value.span,
-            format!(
-                "function `{name}` has {} syntactic fail-closed check(s) in {lines} lines (need {min_a}+)",
-                visitor.checks
-            ),
+            format!("function `{name}` has {} syntactic gate exit(s) in {lines} lines (need {min_a}+)", visitor.checks),
             "assertion_density",
         );
     }
