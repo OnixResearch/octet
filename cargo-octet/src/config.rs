@@ -319,6 +319,7 @@ mod tests {
     use octet_standards::nickel_export::NamedText;
     use octet_standards::nickel_export::NickelExportInput;
     use octet_standards::nickel_export::NickelExportSpec;
+    use octet_standards::nickel_export::REVIEWED_NICKEL_EVALUATOR_IDENTITY;
     use octet_standards::nickel_export::manifest_for_exports;
     use tempfile::TempDir;
 
@@ -327,7 +328,6 @@ mod tests {
     const POLICY_SOURCE: &str = "let contracts = import \"./octet-architecture.contracts.ncl\" in {}\n";
     const CONTRACT_SOURCE: &str = "{ ProjectArchitecturePolicy = Dyn, ProjectArchitecturePolicyRules = Dyn }\n";
     const POLICY_EXPORT: &str = include_str!("../../standards/project-architecture/octet-self-architecture.json");
-    const NICKEL_IDENTITY: &str = "nickel-test-identity";
 
     fn metadata_table(source: &str) -> toml::Table {
         let document = source.parse::<toml::Table>().expect("parse Cargo.toml");
@@ -507,7 +507,7 @@ cargo_check_args = ["--lib"]
                 text: CONTRACT_SOURCE,
             }],
             output_text: POLICY_EXPORT,
-            nickel_identity: NICKEL_IDENTITY,
+            nickel_identity: REVIEWED_NICKEL_EVALUATOR_IDENTITY,
             contract_diagnostics: Vec::new(),
         };
         let manifest = manifest_for_exports(&[input]).expect("build policy manifest");
