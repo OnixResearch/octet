@@ -6,6 +6,23 @@ specific commits via `TIGERSTYLE_DYLINT_REV`.
 For the full lint catalog, see `docs/lint-reference.md`.
 For rollout profiles, see `docs/downstream-rollout.md`.
 
+## 2026-10-03: Bounded adverse-result syntactic gates
+
+`assertion_density` now recognizes conditional outer `Ok(Err(_))` returns
+only for compiler-resolved nested core `Result` outputs and canonical
+constructors. A final, directly consumed exhaustive core `Result` match can
+also count one syntactic gate when its error arm preserves an `Err` and its
+success arm forwards an existing `Result`. Compiler UI cases cover guarded
+refusals and consumed error-as-data values alongside shadowed, unconditional,
+macro-generated, discarded, fallback, wildcard, and non-`Result` negatives.
+These checks do not prove outcome classification, authority, or correctness;
+the minimum-line and minimum-check settings are unchanged.
+
+The selected internal and expanded object-corpus receipt identities were
+refreshed from the reviewed CLI against the clean Git source while preserving
+source selections, object/caveat counts, and the explicit no-correctness and
+no-semantic-equivalence boundaries.
+
 ## 2026-10-03: Conservative const candidates and syntactic gate exits
 
 `missing_const_fn` now uses HIR and types to suggest `const fn` only for private

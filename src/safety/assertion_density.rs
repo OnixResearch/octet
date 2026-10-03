@@ -77,11 +77,8 @@ fn is_assertion_macro(snippet: &str) -> bool {
     ASSERT_MACROS.contains(&name) && matches!(args.trim_start().chars().next(), Some('(' | '[' | '{'))
 }
 
-fn is_core_variant(cx: &LateContext<'_>, expr: &hir::Expr<'_>, enum_name: rustc_span::Symbol, variant: &str) -> bool {
-    let hir::ExprKind::Path(qpath) = &expr.kind else {
-        return false;
-    };
-    let variant_id = match cx.qpath_res(qpath, expr.hir_id) {
+fn is_core_variant_res(cx: &LateContext<'_>, res: Res, enum_name: rustc_span::Symbol, variant: &str) -> bool {
+    let variant_id = match res {
         Res::Def(DefKind::Variant, did) => did,
         Res::Def(DefKind::Ctor(CtorOf::Variant, _), did) => {
             let Some(parent) = cx.tcx.opt_parent(did) else {
@@ -93,6 +90,20 @@ fn is_core_variant(cx: &LateContext<'_>, expr: &hir::Expr<'_>, enum_name: rustc_
     };
     cx.tcx.item_name(variant_id).as_str() == variant
         && cx.tcx.opt_parent(variant_id).is_some_and(|enum_id| cx.tcx.is_diagnostic_item(enum_name, enum_id))
+}
+
+fn is_core_variant(cx: &LateContext<'_>, expr: &hir::Expr<'_>, enum_name: rustc_span::Symbol, variant: &str) -> bool {
+    let hir::ExprKind::Path(qpath) = &expr.kind else {
+        return false;
+    };
+    is_core_variant_res(cx, cx.qpath_res(qpath, expr.hir_id), enum_name, variant)
+}
+
+fn is_core_result_pattern(cx: &LateContext<'_>, pat: &hir::Pat<'_>, variant: &str) -> bool {
+    let hir::PatKind::TupleStruct(qpath, _, _) = &pat.kind else {
+        return false;
+    };
+    is_core_variant_res(cx, cx.qpath_res(qpath, pat.hir_id), sym::Result, variant)
 }
 
 fn is_gate_return(cx: &LateContext<'_>, expr: &hir::Expr<'_>) -> bool {
@@ -108,6 +119,35 @@ fn is_gate_return(cx: &LateContext<'_>, expr: &hir::Expr<'_>) -> bool {
 
 fn is_core_result_type(cx: &LateContext<'_>, ty: ty::Ty<'_>) -> bool {
     matches!(ty.kind(), ty::Adt(adt, _) if cx.tcx.is_diagnostic_item(sym::Result, adt.did()))
+}
+
+fn is_nested_core_result_type(cx: &LateContext<'_>, ty: ty::Ty<'_>) -> bool {
+    matches!(ty.kind(), ty::Adt(adt, args)
+        if cx.tcx.is_diagnostic_item(sym::Result, adt.did()) && is_core_result_type(cx, args.type_at(0)))
+}
+
+fn is_nested_result_error_return(cx: &LateContext<'_>, expr: &hir::Expr<'_>) -> bool {
+    if expr.span.from_expansion() {
+        return false;
+    }
+    match &expr.kind {
+        hir::ExprKind::DropTemps(inner) => is_nested_result_error_return(cx, inner),
+        hir::ExprKind::Call(ok, [inner]) => {
+            is_core_variant(cx, ok, sym::Result, "Ok") && is_result_error_value(cx, inner)
+        }
+        _ => false,
+    }
+}
+
+fn is_result_error_value(cx: &LateContext<'_>, expr: &hir::Expr<'_>) -> bool {
+    if expr.span.from_expansion() {
+        return false;
+    }
+    match &expr.kind {
+        hir::ExprKind::DropTemps(inner) => is_result_error_value(cx, inner),
+        hir::ExprKind::Call(err, [_]) => is_core_variant(cx, err, sym::Result, "Err"),
+        _ => false,
+    }
 }
 
 fn is_literal_ok(cx: &LateContext<'_>, expr: &hir::Expr<'_>) -> bool {
@@ -148,12 +188,87 @@ fn is_authored_result_try_exit(
     is_core_result_type(cx, cx.typeck_results().expr_ty(operand)) && !is_literal_ok(cx, operand)
 }
 
+fn is_authored_error_as_data_match(cx: &LateContext<'_>, expr: &hir::Expr<'_>) -> bool {
+    let hir::ExprKind::Match(scrutinee, arms, hir::MatchSource::Normal) = &expr.kind else {
+        return false;
+    };
+    if expr.span.from_expansion()
+        || arms.len() != 2
+        || !is_core_result_type(cx, cx.typeck_results().expr_ty(scrutinee))
+        || !is_core_result_type(cx, cx.typeck_results().expr_ty(expr))
+        || is_literal_ok(cx, scrutinee)
+    {
+        return false;
+    }
+
+    let mut success_forwarded = false;
+    let mut failure_preserved = false;
+    for arm in *arms {
+        if arm.guard.is_some() || arm.span.from_expansion() || arm.pat.span.from_expansion() || arm.body.span.from_expansion() {
+            return false;
+        }
+        if is_core_result_pattern(cx, arm.pat, "Ok") {
+            let hir::ExprKind::Path(qpath) = &arm.body.kind else {
+                return false;
+            };
+            success_forwarded = matches!(cx.qpath_res(qpath, arm.body.hir_id), Res::Local(_))
+                && is_core_result_type(cx, cx.typeck_results().expr_ty(arm.body));
+        } else if is_core_result_pattern(cx, arm.pat, "Err") {
+            failure_preserved = is_result_error_value(cx, arm.body);
+        } else {
+            return false;
+        }
+    }
+    success_forwarded && failure_preserved
+}
+
+fn count_consumed_error_as_data_match(cx: &LateContext<'_>, body: &hir::Block<'_>) -> usize {
+    // Only a final let immediately passed by value to the function's tail
+    // call is credited. No intervening statement can overwrite, shadow, or
+    // discard the matched Result; this is syntactic use, not a claim about
+    // what the called function does with the adverse value.
+    let Some(last) = body.stmts.last() else {
+        return 0;
+    };
+    let hir::StmtKind::Let(local) = last.kind else {
+        return 0;
+    };
+    let hir::PatKind::Binding(_, binding, _, None) = local.pat.kind else {
+        return 0;
+    };
+    let Some(init) = local.init else {
+        return 0;
+    };
+    let Some(tail) = body.expr else {
+        return 0;
+    };
+    let hir::ExprKind::Call(_, args) = &tail.kind else {
+        return 0;
+    };
+    usize::from(
+        local.els.is_none()
+            && !last.span.from_expansion()
+            && !tail.span.from_expansion()
+            && is_authored_error_as_data_match(cx, init)
+            && args.iter().any(|arg| {
+                if let hir::ExprKind::Path(qpath) = &arg.kind {
+                    !arg.span.from_expansion()
+                        && matches!(cx.qpath_res(qpath, arg.hir_id), Res::Local(id) if id == binding)
+                        && is_core_result_type(cx, cx.typeck_results().expr_ty(arg))
+                } else {
+                    false
+                }
+            }),
+    )
+}
+
 struct CheckVisitor<'a, 'tcx> {
     cx: &'a LateContext<'tcx>,
     seen_macro_calls: Vec<Span>,
     checks: usize,
     in_guard: usize,
     returns_result: bool,
+    returns_nested_result: bool,
 }
 
 impl CheckVisitor<'_, '_> {
@@ -200,7 +315,10 @@ impl<'tcx> Visitor<'tcx> for CheckVisitor<'_, 'tcx> {
         self.count_macro_assertion(expr);
         match &expr.kind {
             hir::ExprKind::Ret(Some(value))
-                if self.in_guard > 0 && !expr.span.from_expansion() && is_gate_return(self.cx, value) =>
+                if self.in_guard > 0
+                    && !expr.span.from_expansion()
+                    && (is_gate_return(self.cx, value)
+                        || (self.returns_nested_result && is_nested_result_error_return(self.cx, value))) =>
             {
                 self.checks += 1;
             }
@@ -290,17 +408,19 @@ impl<'tcx> LateLintPass<'tcx> for AssertionDensity {
             return;
         }
 
+        let output = cx.tcx.fn_sig(def_id).instantiate_identity().skip_binder().output();
         let mut visitor = CheckVisitor {
             cx,
             seen_macro_calls: Vec::new(),
             checks: 0,
             in_guard: 0,
-            returns_result: is_core_result_type(
-                cx,
-                cx.tcx.fn_sig(def_id).instantiate_identity().skip_binder().output(),
-            ),
+            returns_result: is_core_result_type(cx, output),
+            returns_nested_result: is_nested_core_result_type(cx, output),
         };
         visitor.visit_block(block);
+        if visitor.returns_result {
+            visitor.checks += count_consumed_error_as_data_match(cx, block);
+        }
         if visitor.checks >= self.min_assertions {
             return;
         }
