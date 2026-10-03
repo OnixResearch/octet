@@ -17,6 +17,8 @@ let contracts = import "./octet-self-architecture.contracts.ncl" in
       "crates/octet-standards/src",
       "src",
       "cargo-octet/src",
+      "cargo-octet/build.rs",
+      "examples/authorized_effect_protocol.rs",
     ],
     targets = [{
       triple = "x86_64-unknown-linux-gnu",
@@ -77,7 +79,32 @@ let contracts = import "./octet-self-architecture.contracts.ncl" in
     },
     {
       scope_kind = "source",
+      scope = "cargo-octet/build.rs",
+      role = "composition-root",
+    },
+    {
+      scope_kind = "source",
+      scope = "examples/authorized_effect_protocol.rs",
+      role = "inbound-adapter",
+    },
+    {
+      scope_kind = "source",
       scope = "tests",
+      role = "test",
+    },
+    {
+      scope_kind = "source",
+      scope = "cargo-octet/tests",
+      role = "test",
+    },
+    {
+      scope_kind = "source",
+      scope = "crates/octet-lint-metadata/tests",
+      role = "test",
+    },
+    {
+      scope_kind = "source",
+      scope = "crates/octet-standards/tests",
       role = "test",
     },
     {

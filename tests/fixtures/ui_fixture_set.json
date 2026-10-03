@@ -111,6 +111,12 @@
     "public_unsafe_api",
     "raw_arithmetic_overflow",
     "raw_arithmetic_overflow_const_expr",
+    "raw_bool_parameter",
+    "raw_bool_parameter_crate_suppression",
+    "raw_bool_parameter_expectation",
+    "raw_bool_parameter_guard_strict/raw_bool_parameter_guard_strict",
+    "raw_bool_parameter_safe",
+    "raw_bool_parameter_suppression",
     "raw_domain_value",
     "raw_domain_value_compat",
     "raw_domain_value_ffi",
@@ -167,6 +173,7 @@
     "no_unwrap_deny_custom/no_unwrap_deny_custom",
     "no_unwrap_tool_attr",
     "nominal_domain_compile_fail",
+    "raw_bool_parameter_guard_strict/raw_bool_parameter_guard_strict",
     "verified/verified_purity"
   ],
   "canonical_tool_group_fixtures": [
@@ -200,6 +207,7 @@
     "no_unwrap_allow_custom/no_unwrap_allow_custom",
     "no_unwrap_warn_custom/no_unwrap_warn_custom",
     "no_unwrap_deny_custom/no_unwrap_deny_custom",
+    "raw_bool_parameter_guard_strict/raw_bool_parameter_guard_strict",
     "no_unwrap_default_custom/no_unwrap_default_custom",
     "no_unwrap_disabled_deny_custom/no_unwrap_disabled_deny_custom",
     "no_unwrap_disabled_source_attr_custom/no_unwrap_disabled_source_attr_custom"

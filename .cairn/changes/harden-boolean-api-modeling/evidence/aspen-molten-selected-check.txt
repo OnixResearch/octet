@@ -1,0 +1,40 @@
+Aspen selected molten-release-policy compiled check (bounded excerpt)
+
+Public-redacted historical excerpt; raw command output remains operator-local
+and is not published with this repository. The selected checkout was
+brittonr/aspen molten at 81baf80cb667a22277be22c140d34829e5c7da7f,
+in an isolated local clone (`ASPEN` below). The selected package's
+src/{lib,main,observe,profile}.rs files had no `bool` spelling when scanned
+after the run. This source inventory and the compiled result cover the
+selected binary, not the Aspen workspace or historical aspen-time.
+
+Public-redacted SAFE replay shape, NOT the byte-exact original argv (run from
+the isolated Aspen checkout after setting three local absolute paths).
+Unlike the historical invocation, this template pins local builders:
+export ROOT=/path/to/isolated/octet ASPEN=/path/to/isolated/aspen SCRATCH=/path/to/private/scratch
+cd "$ASPEN"
+mkdir -p "$SCRATCH" && env TMPDIR="$SCRATCH" RUSTC_WRAPPER= NIX_CONFIG=$'min-free = 0\nmax-free = 0\nbuilders =\n' nix develop "path:$ROOT" --option min-free 0 --option max-free 0 --option builders '' --option max-jobs 2 --option cores 4 -c bash -c 'env TMPDIR="$SCRATCH" RUSTC_WRAPPER= CARGO_TARGET_DIR="$ASPEN/target" RUSTUP_TOOLCHAIN=nightly-2026-03-21-x86_64-unknown-linux-gnu DYLINT_LIBS="[\"$ROOT/target/debug/liboctet@nightly-2026-03-21-x86_64-unknown-linux-gnu.so\"]" DYLINT_NO_DEPS=1 RUSTC_WORKSPACE_WRAPPER="$ROOT/target/ui-driver/debug/octet-ui-driver" nice -n 10 cargo check -j 4 -p molten-release-policy --bin molten-release-policy --locked'
+No DYLINT_DRIVER_PATH or boolean-specific -D environment was recorded for
+this historical consumer check. The library and UI-driver paths identify the
+Octet build used then; their historical bytes were not frozen here.
+
+Public-redacted status and representative source output (remote endpoint
+substituted; these excerpt bytes do not equal the original capture):
+building '/nix/store/sj0gf4y2dgbzm00h8mjyb5lmx6fik0rv-octet-standards-0.1.0.drv' on 'ssh-ng://<configured remote builder>'...
+warning: `molten-release-policy` (bin "molten-release-policy") generated 45 warnings (run `cargo fix --bin "molten-release-policy" -p molten-release-policy` to apply 1 suggestion)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 39.80s
+
+The captured output contains no `raw_bool_parameter` or
+`raw_bool_parameter_suppression` finding. It exited successfully but retained
+45 unrelated binary warnings. There was no selected consumer signature to
+migrate or expectation to add.
+
+Remote-builder incident: the historical NIX_CONFIG had no builders = line
+and Nix inherited a configured remote builder while materializing
+Octet's development environment. This was not an aspen3-only/local-builder
+proof. The cache endpoints also timed out before Nix disabled them.
+No remote cleanup, restart, or destructive operation was performed. Do not
+rerun the historical Nix command as-is: any fresh replay must explicitly set
+NIX_CONFIG min-free = 0, max-free = 0, builders =, and pass --option min-free 0
+--option max-free 0 --option builders '' --option max-jobs 2 --option cores 4.
+This is selected-target evidence only, not a whole-catalog or release gate.

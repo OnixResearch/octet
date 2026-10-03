@@ -348,6 +348,30 @@
     "example_text": "fn connect(opts: ConnectOptions) -> ..."
   },
   {
+    "lint_name": "raw_bool_parameter",
+    "default_level": "warn",
+    "principle": "Explicit Interfaces",
+    "guide_section": "Explicit Interfaces / Boolean API Modeling",
+    "domain_group": "tigerstyle::structure",
+    "guidance": "use a domain enum, option record, typestate value, or nominal wrapper for ambiguous arguments; boolean returns, fields, and predicate values remain valid",
+    "docs_summary": "avoid direct `bool` parameters in public APIs and multiple positional booleans in private callables",
+    "effect_family": "unknown",
+    "example_mode": "required",
+    "example_text": "pub fn deploy(mode: DeploymentMode, audit: AuditPolicy)"
+  },
+  {
+    "lint_name": "raw_bool_parameter_suppression",
+    "default_level": "warn",
+    "principle": "Explicit Interfaces",
+    "guide_section": "Explicit Interfaces / Boolean API Modeling",
+    "domain_group": "tigerstyle::structure",
+    "guidance": "keep compatibility exceptions on one callable with a specific external contract and named owner; do not allow broad suppression",
+    "docs_summary": "reject broad or unjustified raw-boolean parameter suppressions",
+    "effect_family": "unknown",
+    "example_mode": "required",
+    "example_text": "#[expect(tigerstyle::raw_bool_parameter, reason = \"external compatibility contract: v1 callback ABI; owner: api-team\")]"
+  },
+  {
     "lint_name": "fat_trait",
     "default_level": "warn",
     "principle": "Interface Segregation",

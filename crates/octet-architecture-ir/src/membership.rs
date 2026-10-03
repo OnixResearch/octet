@@ -45,7 +45,7 @@ pub fn verify_ir_unit_memberships(ir: &CompilerArchitectureIr) -> Vec<String> {
         diagnostics.push("compiler Architecture IR membership schema is unsupported".to_owned());
     }
     let units = ir.units.iter().map(|unit| unit.unit_id.as_str()).collect::<Vec<_>>();
-    let facts = ir.facts.iter().map(|fact| fact.fact_id()).collect::<Vec<_>>();
+    let facts = ir.facts.iter().map(crate::CompilerArchitectureFact::fact_id).collect::<Vec<_>>();
     let unknowns = ir.unknowns.iter().map(|unknown| unknown.unknown_id.as_str()).collect::<Vec<_>>();
     if units.is_empty() || !strictly_ordered(&units) || !strictly_ordered(&facts) || !strictly_ordered(&unknowns) {
         diagnostics.push("compiler Architecture IR membership subjects are empty or noncanonical".to_owned());

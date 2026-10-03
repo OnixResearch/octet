@@ -60,6 +60,11 @@
 # ]
 
 # Per-lint rollout controls
+# Do not add `raw_bool_parameter` to disabled_lints for a strict release gate.
+# Inventory the owned APIs, migrate covered direct `bool` parameters, and use
+# only an exact source-local compatibility expectation with a specific reason
+# and named owner when a published external contract cannot change.
+# See `docs/boolean-api-modeling.md`.
 # Omitted `disabled_lints` / `lint_levels` default to empty collections.
 # Unknown lint names and invalid level values warn and are ignored.
 # If the same lint appears in both places, `disabled_lints` wins and the level

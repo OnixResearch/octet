@@ -1,0 +1,50 @@
+UNAPPROVED — NOT H2 EVIDENCE
+Current-source review packet, 2026-10-02; isolated Octet base b65337f1cd3ce130afb3dd76415b665e91cfd191.
+This is an independent READ-ONLY comparison and a proposed review procedure, not an owner decision, external signature, frozen replacement binding, accepted receipt, or PASS. Current H2 source admission: FAIL/BLOCKED. The Boolean change cannot be archived or represented as current-source approved on this packet.
+
+Scope and 37/37 byte comparison
+Compared every source_file_hashes row in the unchanged reviewed-source-manifest.json to b3sum of the present repo-relative file. All 37 selected paths exist; 35 MATCH, precisely 2 DRIFT. The 18-path internal and 36-path expanded selections both include both drifted files; the fixed quoted-URL source is unchanged. The approved hashes also equal `git show b65337f:<path> | b3sum`, so this is an exact base-to-working-tree change rather than an untracked replacement of the historical approved bytes.
+
+DRIFT cargo-octet/src/engine.rs
+  approved BLAKE3 546489d4cb5919823448264a880f13687a7de4d86fc7c72cdf364b6526a22eb6
+  current  BLAKE3 b8a5235ee699908ee75936fd5c41b29fc3f168b5e9f7cf0fea844e9aeeda84ae
+  `run`, lines 128-136: seven new source lines after strict-profile preparation and before architecture/Cargo execution. If the selected effective strict profile requires `raw_bool_parameter`, `--baseline` or `--write-baseline` now returns an error. This strengthens the Boolean API strict-admission boundary, while preserving the preexisting non-strict baseline path and the separate internal function-address baseline. It is a real CLI behavior change, not an H2 verifier/reference edit. A dedicated runtime check of this new rejection was not performed in this review.
+
+DRIFT cargo-octet/src/evidence_rails.rs
+  approved BLAKE3 79f727d4422d36f9f19c95e383410aa7ba2a192b65c3b8d6560648f3cd082cef
+  current  BLAKE3 c87d556705947e506f95df58b90af7b19e9a8663ed79f622735abb02dd75951b
+  `evaluate`, lines 809-834: computes advisory_database_update(&input) before receipt construction instead of passing three existing input fields at the receipt field. `parse_kani_model_check`, lines 2653-2664, constructs KaniClaimEvidence from the same three boolean outcomes. `validate_kani_claims`, lines 3534-3558, reads those named fields; the unbounded-claim unwind/contract disjunction, plain/environmental-stub property-claim rejection, and diagnostic texts remain unchanged. `advisory_database_update`, lines 4389-4401, reads the same rail/locked/updated-prior fields from &EvaluationInput, retaining None for other rails and updated-prior > locked-reused > locked-unavailable precedence. These are two observed private positional-bool migration sites, not an evidence DTO/schema change or relaxed H2 admission check. Behavioral equivalence is source-reviewed, not independently rerun here.
+
+The other 35 exact matches (reviewed order):
+cargo-octet/src/{baseline.rs,bin/cargo-slotcar.rs,bin/cargo-tigerstyle.rs,cli.rs,config.rs,determinism.rs,evidence.rs,fingerprint.rs,lib.rs,main.rs,migrate.rs,object.rs,output.rs,proof_ref.rs,provider_manifest.rs,roadmap.rs,transcript.rs}; cargo-octet/tests/fixtures/object-corpus/source-token-v2/src/lib.rs; crates/octet-standards/src/{architecture.rs,artifacts.rs,bin/slotcar-standards.rs,bin/tigerstyle-standards.rs,cli_shell.rs,diagnostic.rs,fixture.rs,lib.rs,main.rs,model.rs,proof.rs,receipt.rs,report.rs,resource.rs,runner.rs,source.rs,suppression.rs}. This is 17 + 1 + 17 = 35 paths. `cargo-octet/src/cli.rs` matches b58d4c47198d09c78377c88d82c0dc1319d4d8fcb19071cd5aa03592815d0821; the distinct `cargo-octet/src/config.rs` matches 82d3574b53caeef4c95505da142db0db1ca0ac904e9cf4dd02bd7d25b794123c.
+
+Frozen binding and authority boundary
+  candidate-source-manifest.json: BLAKE3 6d79a8b09c4e7dd20236f4a141c01d6c18b793df7aad93e8ee4ec1d7fb83b221; status PENDING, selected_for_named_rails=false.
+  reviewed-source-manifest.json: BLAKE3 2f420d0464e67a8b6ae518e7215eefd1ba8afc47d1849c07afedf284f196da29; its 37 source, four reference, and source-selection bindings exactly equal that frozen candidate.
+  archived owner note: openspec/changes/archive/2026-10-02-source-token-v2-function-object-cutover/evidence/owner-source-bound-references.txt; BLAKE3 a86d4c22740d4ea0427285d62133c8434dc77c3d144403902f276031836abcae. The original active note path is absent; the manifest's historical active locator is immutable metadata. The archived note reports an owner `approve` for the OLD audited bytes, not a cryptographic signature or approval of subsequent edits.
+  expanded-internal-corpus-caveat-taxonomy.json: BLAKE3 9b91725e693c002b530833a94be113d5830d9c894e8301ccecb2b117bc3c65e1, object_count 1258.
+  expanded-internal-corpus-receipt.json: BLAKE3 d90b7ddf31362ac7aa5d47844b9cb312bd02554b6862af6d517a25050854ddf5, object_count 1258.
+  internal-corpus-receipt.json: BLAKE3 dbc8c92c0c10055aa135e09d85802fc1a9e0d4985929710ea4d893daedb04bb6, object_count 795.
+  positive-v2-receipt.json: BLAKE3 66557c8db7562520241f65748e81d8d1b838554d87628acdf427d5e0341a9519, object_count 1.
+All four present reference file hashes and embedded counts match the unchanged reviewed manifest. The local immutable Valence `function_object.rs` has BLAKE3 11f0f4233aaf3153966f6aa37de570c2dcd0e75335591934461ae2b25ab3ecb1 at reviewed revision 7546a78b4eeef8686c6837e187aa12420f4f03bb. No historical v1/c9cdf reference or archived H2 file is modified in this isolated worktree.
+
+Required fresh decision; no self-authorization
+The historical note explicitly limits H2 to the old exact 37 Rust byte hashes and four saved reference path/hash/count bindings; in-PR verifier constants are only drift locks, not external authority. An independent reviewer must inspect both changed source diffs and the complete *new* 37-path/18-internal/36-expanded selection, compare actual source bytes and NEW current internal/expanded receipt plus taxonomy bytes, counts, boundaries and caveats against separately preserved proposed references, and recheck the unchanged fixed receipt and Valence module pin. The owner then must explicitly approve that enumerated NEW scope and reviewed digests; this user request authorizes preparation, not approval. Freeze new candidate/reviewed manifest and approval-note BLAKE3 anchors outside the PR with the actual owner's decision. Only after such approval should a separate versioned current-source verifier/admission binding and named rail/fresh-build/aggregate replay be proposed. Preserve the old PENDING candidate, reviewed manifest, four saved references, archived note, v1 artifacts, and fail-closed fingerprint tests exactly as historical evidence. No owner approval, new audited receipt hashes, or out-of-PR anchor currently exists for these changed bytes.
+
+Minimal scratch generation/review recipe (NOT EXECUTED HERE)
+Grounded in `cargo-octet/tests/fingerprint_consumer.rs` lines 1021-1041 and 1332-1355: the real CLI emits corpus receipts using `object corpus receipt --output FILE PATHS...` and emits the expanded taxonomy via `object corpus caveats --output-format=json PATHS...`. From the isolated repository root, with a freshly built/reviewed current cargo-octet binary and a disposable reviewer-owned directory, independently run (bash):
+
+  repo=$(git rev-parse --show-toplevel)
+  manifest="$repo/cargo-octet/tests/fixtures/object-corpus/source-token-v2/reviewed-source-manifest.json"
+  scratch=$(mktemp -d)
+  mapfile -t internal < <(jq -r '.source_selections.internal_corpus[]' "$manifest")
+  mapfile -t expanded < <(jq -r '.source_selections.expanded_internal_corpus[]' "$manifest")
+  (cd "$repo" && cargo octet object corpus receipt --output "$scratch/internal-current.json" "${internal[@]}")
+  (cd "$repo" && cargo octet object corpus receipt --output "$scratch/expanded-current.json" "${expanded[@]}")
+  (cd "$repo" && cargo octet object corpus caveats --output-format=json "${expanded[@]}" > "$scratch/expanded-taxonomy-current.json")
+  jq '{schema,source_paths,object_count,boundary}' "$scratch/internal-current.json" "$scratch/expanded-current.json" "$scratch/expanded-taxonomy-current.json"
+  b3sum "$scratch/internal-current.json" "$scratch/expanded-current.json" "$scratch/expanded-taxonomy-current.json"
+
+These are prospective scratch outputs only, NOT replacements for the old expected files; validate exact sorted source lists, canonical bytes, 795/1258 historical counts only as comparison (new counts must be observed, never assumed), taxonomy buckets/sum and explicit false correctness/semantic-equivalence claims. Independently repeat with a separate current binary and compare both binaries to the reviewer-preserved proposed references, not merely to each other. The unchanged fixed quoted-URL receipt must also be rechecked and individually hash-bound in any new approval. A reviewer must separately attest the 37 source BLAKE3 identities and each proposed artifact hash/count before the owner decides; the proposed files and externally frozen new manifest/owner-note anchors must be distinct from the historical approved set. This packet does not run a source-bound admission verifier (which correctly rejects the present drift), does not run the known failing object-corpus/full-workspace checks, and cannot justify archive or a current H2 PASS.
+
+Public-redacted path: subsequent scratch-only generation after the build-slot release is recorded separately in `unapproved-h2-proposed-corpus-artifacts-20261002.txt`, with four observed outputs under an operator-local disposable `SCRATCH` directory outside immutable fixtures. The original absolute path and raw outputs are not published; output BLAKE3s and comparisons are preserved in that packet, but public readers cannot independently verify the bytes without an independently regenerated corpus. The recipe above was not executed when this original packet was authored; the later inventory records the actual direct binary identity, semantic output locations, hashes and comparisons. Both packets remain UNAPPROVED and do not change H2 admission or archive eligibility.

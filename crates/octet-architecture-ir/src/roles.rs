@@ -26,6 +26,13 @@ impl std::error::Error for UnitRoleError {}
 
 /// Only an independent Cargo integration-test target can select a different test role.
 /// Names, path spelling, and library/binary test configurations do not grant that role.
+///
+/// # Errors
+///
+/// Returns `InvalidPackageRole` for a non-production package role, `InvalidSourceRoot` for
+/// noncanonical workspace paths, or `MissingSourceRole` when no declared scope covers the target.
+/// Returns `ConflictingSourceRole` when matching scopes disagree or the selected role conflicts
+/// with the package role outside the independent integration-test exception.
 // r[impl octet.project_architecture_gate.test_ownership]
 pub fn select_compilation_unit_role(
     package_role: CompilerArchitectureRole,

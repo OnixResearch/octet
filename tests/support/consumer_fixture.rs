@@ -83,6 +83,13 @@ pub(crate) struct ConsumerFixture {
     pub(crate) target_dir: PathBuf,
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum LockfileMutation {
+    None,
+    DuringCheck,
+    DuringBootstrapBuild,
+}
+
 impl ConsumerFixture {
     pub(crate) fn new(label: &str, metadata_block: &str) -> Self {
         let bash = bash_path().expect("find bash");
@@ -214,8 +221,11 @@ esac
             &[],
             args,
             cargo_exit_status,
-            mutate_lockfile,
-            false,
+            if mutate_lockfile {
+                LockfileMutation::DuringCheck
+            } else {
+                LockfileMutation::None
+            },
             toolchain_env,
             driver_env,
             lint_lib_env,
@@ -338,8 +348,11 @@ esac
             extra_env,
             args,
             cargo_exit_status,
-            mutate_lockfile,
-            false,
+            if mutate_lockfile {
+                LockfileMutation::DuringCheck
+            } else {
+                LockfileMutation::None
+            },
             toolchain_env,
             driver_env,
             lint_lib_env,
@@ -370,8 +383,11 @@ esac
             extra_env,
             args,
             cargo_exit_status,
-            mutate_lockfile,
-            false,
+            if mutate_lockfile {
+                LockfileMutation::DuringCheck
+            } else {
+                LockfileMutation::None
+            },
             toolchain_env,
             driver_env,
             lint_lib_env,
@@ -394,8 +410,7 @@ esac
             &[],
             args,
             cargo_exit_status,
-            false,
-            true,
+            LockfileMutation::DuringBootstrapBuild,
             toolchain_env,
             driver_env,
             lint_lib_env,
@@ -414,8 +429,7 @@ esac
         extra_env: &[(&str, &str)],
         args: &[&str],
         cargo_exit_status: i32,
-        mutate_lockfile: bool,
-        mutate_lockfile_on_build: bool,
+        lockfile_mutation: LockfileMutation,
         toolchain_env: Option<&str>,
         driver_env: Option<&Path>,
         lint_lib_env: Option<&Path>,
@@ -440,8 +454,22 @@ esac
             .env("PATH", &path)
             .env("TS_LOG", &self.log_path)
             .env("TS_CARGO_EXIT_STATUS", cargo_exit_status.to_string())
-            .env("TS_MUTATE_LOCKFILE", if mutate_lockfile { "1" } else { "0" })
-            .env("TS_MUTATE_LOCKFILE_ON_BUILD", if mutate_lockfile_on_build { "1" } else { "0" })
+            .env(
+                "TS_MUTATE_LOCKFILE",
+                if lockfile_mutation == LockfileMutation::DuringCheck {
+                    "1"
+                } else {
+                    "0"
+                },
+            )
+            .env(
+                "TS_MUTATE_LOCKFILE_ON_BUILD",
+                if lockfile_mutation == LockfileMutation::DuringBootstrapBuild {
+                    "1"
+                } else {
+                    "0"
+                },
+            )
             .env("TS_CONSUMER_LOCKFILE", self.repo.join("Cargo.lock"))
             .env("TS_REAL_CARGO", env::var_os("CARGO").expect("Cargo runner path"))
             .env("CARGO_TARGET_DIR", &self.target_dir);

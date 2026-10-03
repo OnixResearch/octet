@@ -107,6 +107,15 @@ Why this works:
 - false-positive and shell-boundary patterns get written down before rollout
 - promotion decisions stay tied to measured baselines
 
+`raw_bool_parameter` is different from the generic debt-based rollout above:
+inventory direct bool parameters in the declared owned API scope, migrate
+callers to reviewed domain types, and use only a source-local owned
+compatibility expectation for an unavoidable external contract. Do not count
+a finding baseline, warning budget, broad disable, or warning-only run as
+clean strict activation. The separate `boolean-api-modeling` Clippy profile
+co-reports excessive bool parameters without replacing Octet's public
+single-boolean check; see [`boolean-api-modeling.md`](boolean-api-modeling.md).
+
 ## Profile-to-config mapping
 
 All three rollout profiles now use the same first-class engine path and differ

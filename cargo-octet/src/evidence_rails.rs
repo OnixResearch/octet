@@ -807,6 +807,7 @@ pub fn evaluate(input: EvaluationInput<'_>) -> EvidenceRailReceipt {
         STATUS_FAILED.to_owned()
     };
     let bounded_log_identity = receipt_log_identity(&input);
+    let advisory_database_update = advisory_database_update(&input);
 
     EvidenceRailReceipt {
         schema_version: RECEIPT_SCHEMA_VERSION.to_owned(),
@@ -830,11 +831,7 @@ pub fn evaluate(input: EvaluationInput<'_>) -> EvidenceRailReceipt {
         finding_counts: parsed.finding_counts,
         bounded_log_identity,
         imported_input_identity: prefixed_identity(input.import_text.as_bytes()),
-        advisory_database_update: advisory_database_update(
-            input.rail,
-            input.locked,
-            input.advisory_updated_by_prior_step,
-        ),
+        advisory_database_update,
         profile: parsed.profile.or_else(|| input.profile.map(ToOwned::to_owned)),
         tool_exit_code: input.tool_exit_code,
         non_claims: input.rail.non_claims(),
@@ -2654,7 +2651,15 @@ fn parse_kani_model_check(input: &EvaluationInput<'_>) -> RailParseOutput {
         let unwind_passed = push_kani_unwind_findings(&value, &mut findings, &mut diagnostics);
         let contract_passed = push_kani_contract_findings(&value, &mut findings, &mut diagnostics);
         let boundary_stub_seen = push_kani_stub_findings(&value, &mut findings, &mut diagnostics);
-        validate_kani_claims(&value, unwind_passed, contract_passed, boundary_stub_seen, &mut diagnostics);
+        validate_kani_claims(
+            &value,
+            KaniClaimEvidence {
+                unwind_passed,
+                contract_passed,
+                boundary_stub_seen,
+            },
+            &mut diagnostics,
+        );
     }
     let finding_counts = counts_by_family(&findings);
     let status = status_from_kani_findings(&findings);
@@ -3529,25 +3534,25 @@ fn push_kani_stub_findings(
     boundary_stub_seen
 }
 
-fn validate_kani_claims(
-    value: &serde_json::Value,
+struct KaniClaimEvidence {
     unwind_passed: bool,
     contract_passed: bool,
     boundary_stub_seen: bool,
-    diagnostics: &mut Vec<String>,
-) {
+}
+
+fn validate_kani_claims(value: &serde_json::Value, evidence: KaniClaimEvidence, diagnostics: &mut Vec<String>) {
     let Some(claims) = value.get("claims") else {
         return;
     };
     let unbounded_claim = string_field(claims, "coverage") == Some(KANI_COVERAGE_UNBOUNDED)
         || claims.get("unbounded").and_then(serde_json::Value::as_bool) == Some(true);
-    if unbounded_claim && !unwind_passed && !contract_passed {
+    if unbounded_claim && !evidence.unwind_passed && !evidence.contract_passed {
         diagnostics.push(
             "Kani unbounded claim requires passing unwinding assertions or a passing contract receipt".to_owned(),
         );
     }
     let property_claim = claims.get("property_evidence").and_then(serde_json::Value::as_bool) == Some(true);
-    if property_claim && boundary_stub_seen {
+    if property_claim && evidence.boundary_stub_seen {
         diagnostics.push("plain or environmental Kani stubs cannot be promoted to property evidence".to_owned());
     }
 }
@@ -4381,17 +4386,13 @@ fn receipt_tier(receipt: &EvidenceRailReceipt) -> EvidenceTier {
     receipt_tier_from_rail_id(&receipt.rail_id)
 }
 
-fn advisory_database_update(
-    rail: EvidenceRailKind,
-    locked: bool,
-    advisory_updated_by_prior_step: bool,
-) -> Option<String> {
-    if rail != EvidenceRailKind::DependencyAudit {
+fn advisory_database_update(input: &EvaluationInput<'_>) -> Option<String> {
+    if input.rail != EvidenceRailKind::DependencyAudit {
         return None;
     }
-    if advisory_updated_by_prior_step {
+    if input.advisory_updated_by_prior_step {
         Some(LOCKED_UPDATED_PRIOR.to_owned())
-    } else if locked {
+    } else if input.locked {
         Some(LOCKED_REUSED.to_owned())
     } else {
         Some(LOCKED_UNAVAILABLE.to_owned())

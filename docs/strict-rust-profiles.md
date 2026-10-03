@@ -16,6 +16,13 @@ The profiles form a lattice rather than one universal safety score. `bounded-sys
 
 The Nickel source of truth is [`standards/strict-profiles/profiles.ncl`](../standards/strict-profiles/profiles.ncl). Runtime Rust consumes the checked-in generated JSON. The catalog rejects an unknown required lint.
 
+The shared Nickel `boolean_api_policy` defines covered direct boolean
+parameters, the private minimum, narrow expectations, and prohibited broad
+suppression. All three strict profiles require `raw_bool_parameter` and its
+exception-governance companion `raw_bool_parameter_suppression`. A selected
+profile binds the policy into its identity rather than importing consumer
+warning budgets. See [`boolean-api-modeling.md`](boolean-api-modeling.md).
+
 `bounded-systems` and `deterministic-core` deny exact nominal-domain findings. They never deny suffix-based discovery candidates. The selected profile sets nominal-domain mode to `deny`.
 
 ## Run a profile

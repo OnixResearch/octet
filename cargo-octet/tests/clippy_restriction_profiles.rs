@@ -12,6 +12,7 @@ edition = "2024"
 "#;
 const CLEAN_SOURCE: &str = "pub fn increment(value: u32) -> u32 { value + 1 }\n";
 const VIOLATING_SOURCE: &str = "pub fn inspect(value: u32) -> u32 { dbg!(value) }\n";
+const BOOLEAN_SOURCE: &str = include_str!("../../ui_tests/raw_bool_parameter.rs");
 const PROFILE_ID: &str = "production-safety";
 const RECEIPT_NAME: &str = "evidence-rail-receipt.json";
 const SUCCESS_EXIT: i32 = 0;
@@ -86,7 +87,70 @@ fn violating_workspace_preserves_lint_and_nonzero_tool_failure() {
     );
 }
 
+#[test]
+fn boolean_api_profile_records_clippy_finding_under_its_own_identity() {
+    let run = run_profiled_fixture_with_profile(BOOLEAN_SOURCE, "boolean-api-modeling");
+
+    assert_eq!(run.output.status.code(), Some(SUCCESS_EXIT), "stderr: {}", stderr(&run.output));
+    assert_eq!(run.receipt["checker_id"], "clippy");
+    assert_eq!(run.receipt["profile"], "boolean-api-modeling");
+    assert_eq!(run.receipt["clippy_restrictions"]["profile"]["lint_level"], "warn");
+    assert!(run.receipt["config_identity"].as_str().is_some_and(|identity| identity.starts_with("b3:")));
+    assert!(
+        run.receipt["clippy_restrictions"]["profile_identity"]
+            .as_str()
+            .is_some_and(|identity| identity.starts_with("b3:"))
+    );
+    assert!(run.receipt["bounded_log_identity"].as_str().is_some_and(|identity| identity.starts_with("b3:")));
+    assert!(run.receipt["imported_input_identity"].as_str().is_some_and(|identity| identity.starts_with("b3:")));
+    assert!(
+        run.receipt["findings"].as_array().expect("findings").iter().any(|finding| {
+            finding["family"] == "fn_params_excessive_bools"
+                && finding["message"].as_str().is_some_and(|message| message.contains("bool"))
+                && finding["file"].as_str().is_some_and(|file| file.ends_with("src/lib.rs"))
+        }),
+        "Clippy boolean finding missing: {}",
+        run.receipt
+    );
+    verify_bundle(&run);
+}
+
+#[test]
+fn boolean_api_profile_clean_callable_has_no_false_finding() {
+    let run = run_profiled_fixture_with_profile(CLEAN_SOURCE, "boolean-api-modeling");
+
+    assert_eq!(run.output.status.code(), Some(SUCCESS_EXIT), "stderr: {}", stderr(&run.output));
+    assert_eq!(run.receipt["status"], "passed");
+    assert_eq!(run.receipt["checker_id"], "clippy");
+    assert!(
+        run.receipt["findings"]
+            .as_array()
+            .expect("findings")
+            .iter()
+            .all(|finding| finding["family"] != "fn_params_excessive_bools")
+    );
+    verify_bundle(&run);
+}
+
+fn verify_bundle(run: &ProfileRun) {
+    let verification = Command::new(cargo_octet())
+        .args(["artifact", "verify", "--artifact-dir"])
+        .arg(&run.artifact_dir)
+        .output()
+        .expect("verify Clippy artifact bundle");
+    assert_eq!(
+        verification.status.code(),
+        Some(SUCCESS_EXIT),
+        "artifact verification stderr: {}",
+        stderr(&verification)
+    );
+}
+
 fn run_profiled_fixture(source: &str) -> ProfileRun {
+    run_profiled_fixture_with_profile(source, PROFILE_ID)
+}
+
+fn run_profiled_fixture_with_profile(source: &str, profile_id: &str) -> ProfileRun {
     let temp = tempfile::tempdir().expect("temporary fixture root");
     let workspace = temp.path().join("workspace");
     let source_dir = workspace.join("src");
@@ -104,7 +168,7 @@ fn run_profiled_fixture(source: &str) -> ProfileRun {
             "clippy-co-reporting",
             "--run",
             "--profile",
-            PROFILE_ID,
+            profile_id,
             "--workspace-root",
         ])
         .arg(&workspace)

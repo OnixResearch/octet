@@ -461,14 +461,7 @@ pub fn evaluate_project_architecture(input: &ProjectArchitectureGateInput<'_>) -
     apply_waivers(input, &mut findings);
     findings.sort();
 
-    let integration_failure = findings.iter().any(|finding| {
-        finding.severity == ArchitectureFindingSeverity::Integration
-            && finding.status == ArchitectureFindingStatus::Open
-    });
-    let open_policy_findings = findings.iter().any(|finding| {
-        finding.severity == ArchitectureFindingSeverity::Policy && finding.status == ArchitectureFindingStatus::Open
-    });
-    let status = classify_status(input.policy.mode, integration_failure, open_policy_findings, input.effect_closure);
+    let status = classify_status(input.policy.mode, &findings, input.effect_closure);
     let targets = sorted_dedup(input.architecture_ir.units.iter().map(|unit| unit.target_triple.clone()).collect());
     let feature_sets =
         sorted_dedup(input.architecture_ir.units.iter().map(|unit| sorted_dedup(unit.features.clone())).collect());
@@ -2236,13 +2229,18 @@ fn apply_waivers(input: &ProjectArchitectureGateInput<'_>, findings: &mut Vec<Pr
 
 fn classify_status(
     mode: ArchitectureMode,
-    integration_failure: bool,
-    open_policy_findings: bool,
+    findings: &[ProjectArchitectureFinding],
     closure: Option<&EffectClosureParent>,
 ) -> ArchitecturePhaseStatus {
-    if integration_failure {
+    if findings.iter().any(|finding| {
+        finding.severity == ArchitectureFindingSeverity::Integration
+            && finding.status == ArchitectureFindingStatus::Open
+    }) {
         return ArchitecturePhaseStatus::IntegrationFailure;
     }
+    let open_policy_findings = findings.iter().any(|finding| {
+        finding.severity == ArchitectureFindingSeverity::Policy && finding.status == ArchitectureFindingStatus::Open
+    });
     match mode {
         ArchitectureMode::Inventory | ArchitectureMode::Advisory => {
             if open_policy_findings {

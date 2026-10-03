@@ -32,7 +32,7 @@ Read [`docs/examples/first-checked-rust-patch/README.md`](docs/examples/first-ch
 
 Octet treats code as closed by default across APIs, effects, capabilities, proofs, and review surfaces. Interaction requires a complete interface.
 
-Octet ships 72 Dylint lints across six domains. A separate standards registry handles policy traceability and other source-shape rules.
+Octet ships 74 Dylint lints across six domains. A separate standards registry handles policy traceability and other source-shape rules.
 
 A Nickel catalog defines nominal domains for primitive aliases, raw core values, and wrapper bypasses. Read [`docs/type-driven-domain-modeling.md`](docs/type-driven-domain-modeling.md).
 
@@ -338,7 +338,7 @@ When both forms exist, Octet names take precedence.
 | safety | 24 | panics, bounds, defaults, loops, queues, unsafe code, and failures |
 | naming | 9 | predicates, acronyms, units, currency, paths, and imports |
 | performance | 2 | clones, allocation, and ownership |
-| structure | 19 | size, nesting, parameters, casts, APIs, and cohesion |
+| structure | 21 | size, nesting, parameters, casts, APIs, and cohesion |
 | purity | 16 | clocks, environment, randomness, effects, allocation, and verified purity |
 | concurrency | 2 | lock order and task lifecycle |
 
@@ -350,6 +350,7 @@ Start with these guides:
 
 - [`docs/consumer-guide.md`](docs/consumer-guide.md): setup and rollout
 - [`docs/lint-reference.md`](docs/lint-reference.md): lint catalog and config
+- [`docs/boolean-api-modeling.md`](docs/boolean-api-modeling.md): public boolean API migration and compatibility policy
 - [`docs/trust-boundary-evidence.md`](docs/trust-boundary-evidence.md): evidence and claims
 - [`docs/strict-rust-profiles.md`](docs/strict-rust-profiles.md): named profiles
 - [`docs/project-architecture-policy.md`](docs/project-architecture-policy.md): opt-in FCIS and Hexagonal project policy
@@ -380,5 +381,6 @@ Dependencies and imported proof references retain their own terms. License metad
 - [AeneasVerif/aeneas](https://github.com/AeneasVerif/aeneas) and [AeneasVerif/charon](https://github.com/AeneasVerif/charon) — opt-in proof and semantic extraction references.
 - [AeneasVerif/eurydice](https://github.com/AeneasVerif/eurydice) and [AeneasVerif/scylla](https://github.com/AeneasVerif/scylla) — deferred translation references.
 - [endorlabs/MIRAI](https://github.com/endorlabs/MIRAI) at `aae0a56f91d9a0a62073bb86e7b2c9793cefc24b` — bounded semantic-pilot source reference.
+- [Radiant Computer/radiance](https://code.radiant.computer/radiance/tree/8c7552bb010a226d2686724e93e8e5d064ec01cdf46523185eebb9937588f7e4) at `8c7552bb010a226d2686724e93e8e5d064ec01cdf46523185eebb9937588f7e4` — its MIT-licensed [STYLE](https://code.radiant.computer/radiance/tree/8c7552bb010a226d2686724e93e8e5d064ec01cdf46523185eebb9937588f7e4/STYLE) is a reference for explicit boolean-callsite and state modeling only; not an Octet lint, compiler, or behavior proof. See [the bounded adaptation](docs/boolean-api-modeling.md#upstream-style-boundary).
 
 These references do not transfer compiler, verifier, semantic, security, or release claims into Octet.

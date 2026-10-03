@@ -7,14 +7,24 @@ use octet_standards::project_architecture_gate::ProjectArchitectureReceipt;
 #[test]
 #[ignore = "requires current OCTET_UI_LIBRARY and pinned OCTET_UI_DRIVER"]
 fn real_cargo_all_targets_preserves_non_function_body_owners() {
-    super::run_body_owner_compiler_fixture(false, super::TestImport::None, super::NoStdMode::None, true);
+    super::run_body_fixture(
+        false,
+        super::TestImport::None,
+        super::NoStdMode::None,
+        super::BodyFixture::NonFunctionOwners,
+    );
 }
 
 // r[verify octet.compiler_architecture_ir.body_owner_kinds]
 #[test]
 #[ignore = "requires current OCTET_UI_LIBRARY and pinned OCTET_UI_DRIVER"]
 fn real_cargo_all_targets_preserves_non_function_body_owners_with_all_features() {
-    super::run_body_owner_compiler_fixture(true, super::TestImport::None, super::NoStdMode::None, true);
+    super::run_body_fixture(
+        true,
+        super::TestImport::None,
+        super::NoStdMode::None,
+        super::BodyFixture::NonFunctionOwners,
+    );
 }
 
 pub(super) fn assert_body_owner_facts(ir: &CompilerArchitectureIr) {

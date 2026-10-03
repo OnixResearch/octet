@@ -39,11 +39,17 @@ pub struct NoTodo {
     live_allow_spans: Vec<Span>,
 }
 
+/// Independent lint selections for the shared `todo!()` and escape-hatch pass.
+pub struct NoTodoLintSelection {
+    pub todo: bool,
+    pub unjustified_allow: bool,
+}
+
 impl NoTodo {
-    pub fn new(emit_no_todo: bool, emit_unjustified_allow: bool) -> Self {
+    pub fn new(selection: NoTodoLintSelection) -> Self {
         Self {
-            emit_todo_lint: emit_no_todo,
-            emit_unjustified_allow,
+            emit_todo_lint: selection.todo,
+            emit_unjustified_allow: selection.unjustified_allow,
             seen_unjustified_allow_spans: Vec::new(),
             candidate_allow_spans: Vec::new(),
             live_allow_spans: Vec::new(),

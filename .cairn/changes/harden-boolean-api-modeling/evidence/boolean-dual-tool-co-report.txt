@@ -1,0 +1,52 @@
+Same-source Boolean API co-report (bounded compiled proof)
+
+Public-redacted path: disposable workspace `$ROOT/ui_tests/_bool_dual_tool_smoke`,
+used by both actual CLI invocations. The original raw command captures are
+operator-local, not published; the source directory was removed afterward.
+Source at src/lib.rs (SHA256 7293c3e0d24bccb3f446416936c511b09b29ad906332f8ffb0ab1e2eca3a928c):
+  pub fn co_report(first: bool, second: bool, third: bool, fourth: bool) {
+      let _ = (first, second, third, fourth);
+  }
+This package was throwaway proof input, not a committed consumer or a
+preserved source snapshot. Its source bytes and hashes above bind the two
+receipts after the temporary package is removed.
+
+Public-redacted native replay shape, NOT the byte-exact historical argv:
+export ROOT=/path/to/isolated/octet SCRATCH=/path/to/private/scratch
+cd "$ROOT/ui_tests/_bool_dual_tool_smoke"
+env TMPDIR="$SCRATCH" RUSTC_WRAPPER= CARGO_TARGET_DIR="$SCRATCH/dual-tool-target" TIGERSTYLE_DRIVER_PATH="$ROOT/target/ui-driver/debug/octet-ui-driver" TIGERSTYLE_LINT_LIB="$ROOT/target/debug/liboctet@nightly-2026-03-21-x86_64-unknown-linux-gnu.so" NIX_CONFIG=$'min-free = 0\nmax-free = 0\nbuilders =\n' nix develop "path:$ROOT" --option min-free 0 --option max-free 0 --option builders '' --option max-jobs 2 --option cores 4 --option substituters https://cache.nixos.org/ -c bash -c 'cargo generate-lockfile --offline && "$ROOT/target/debug/cargo-octet" check --profile robust --artifact-dir "$SCRATCH/dual-native-artifacts" --output-format json'
+The removed throwaway package is not in the repository, so this template
+requires independently recreating its package before it can be replayed.
+Native saved results.jsonl BLAKE3:
+  786654ef186d66cc57c8dcfc84be0cc08e7908c740c6bcef7a5cfdb1ad549274
+Four compiled `raw_bool_parameter` findings in src/lib.rs at line 1,
+columns 25, 39, 52, 66; the results.jsonl artifact provenance names
+checker_id=cargo-octet. Each row has severity=error and message
+  public callable `co_report` has a direct `bool` parameter; callers cannot see its domain meaning
+All four records share stable_id=b3:515338640534eb94 while their source
+columns remain distinct. status.json reports total_findings=4,
+cargo_process_exit.code=101, status=integration-failure and exit_code=2:
+Cargo's compiler failure takes precedence over a finding-only gate status.
+Do not call the native command a passing gate.
+
+Public-redacted Clippy producing/verifying shape, from the SAME disposable
+workspace (not the byte-exact historical argv):
+env TMPDIR="$SCRATCH" RUSTC_WRAPPER= CARGO_TARGET_DIR="$SCRATCH/dual-tool-target" NIX_CONFIG=$'min-free = 0\nmax-free = 0\nbuilders =\n' nix develop "path:$ROOT" --option min-free 0 --option max-free 0 --option builders '' --option max-jobs 2 --option cores 4 --option substituters https://cache.nixos.org/ -c bash -c '"$ROOT/target/debug/cargo-octet" evidence collect --rail clippy-co-reporting --run --profile boolean-api-modeling --workspace-root "$PWD" --artifact-dir "$SCRATCH/dual-clippy-artifacts" --output-format json && "$ROOT/target/debug/cargo-octet" artifact verify --artifact-dir "$SCRATCH/dual-clippy-artifacts"'
+
+Clippy evidence-rail-receipt.json BLAKE3:
+  39c8c65e34c11dcdab34111f5e102f65a283465a66a17518da5fdeb9945fedf4
+Receipt checker_id=clippy, profile=boolean-api-modeling, status=passed,
+tool_exit_code=0, family=fn_params_excessive_bools, source severity=warning,
+message="more than 3 bools in function parameters". Two rows name
+src/lib.rs:1:1 under the --workspace --all-targets Clippy command; they do not
+denote two different API signatures. Its bounded_log_identity is
+b3:11ae30f7969cfa93db51cbda98ae3c04cb2d209b74457d973660e4fff8c3550c.
+The following `cargo-octet artifact verify` reported status=valid and
+matched the receipt BLAKE3 above.
+
+Native and Clippy retain separate checker, rule/family, message, severity,
+and receipt provenance for the exact same callable. Clippy's receipt has a
+bounded log identity and artifact hash, not a per-row stable finding ID;
+do not claim its identity granularity equals Octet's stable_id. Neither
+diagnostic alone proves correct domain modeling or whole-workspace clean
+admission.

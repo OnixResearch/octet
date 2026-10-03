@@ -1,0 +1,29 @@
+Octet post-migration compiled two-lint check (bounded excerpt)
+
+Operator-local raw command output, not publicly distributed (4,884 lines;
+685,095 bytes; BLAKE3 4c19d9bbd0295e8b0442580edfcbe2a3b2b1e5e429d513f416c0f15d58fcc454).
+That hash identifies the original raw capture, not this public-redacted text.
+The capture is from the isolated Octet worktree after migration and a final
+Dylint library rebuild, before later in-progress source fixes. It is not a
+frozen source-commit or whole-catalog release receipt.
+
+Public-redacted working directory: isolated Octet checkout (`ROOT`).
+Replay shape, NOT the byte-exact recorded invocation:
+export ROOT=/path/to/isolated/octet SCRATCH=/path/to/private/scratch
+cd "$ROOT"
+env TMPDIR="$SCRATCH" RUSTC_WRAPPER= NIX_CONFIG=$'min-free = 0\nmax-free = 0\nbuilders =\n' nix --option min-free 0 --option max-free 0 --option builders '' --option max-jobs 2 --option cores 4 --option substituters 'https://cache.nixos.org/' develop "path:$ROOT" -c bash -c 'env TMPDIR="$SCRATCH" RUSTC_WRAPPER= CARGO_TARGET_DIR="$ROOT/target" RUSTUP_TOOLCHAIN=nightly-2026-03-21-x86_64-unknown-linux-gnu RUSTFLAGS="--cfg octet_boolean_api_final_inventory" RUSTC_WORKSPACE_WRAPPER="$ROOT/target/ui-driver/debug/octet-ui-driver" DYLINT_LIBS="[\"$ROOT/target/debug/liboctet@nightly-2026-03-21-x86_64-unknown-linux-gnu.so\"]" DYLINT_NO_DEPS=1 DYLINT_RUSTFLAGS="-D raw_bool_parameter -D raw_bool_parameter_suppression" nice -n 10 cargo check -j 4 --workspace --all-targets --message-format=short'
+No DYLINT_DRIVER_PATH was set; RUSTC_WORKSPACE_WRAPPER selected the local
+UI driver. The Dylint alias targets nightly-2026-03-21 x86_64 Linux.
+The extra cfg forces a fresh compilation of every selected workspace target
+under this alias.
+
+Output selection: zero lines match the public/private raw-bool finding
+messages from the initial inventory or the suppression guard's hard-error
+prefix. The full output retains many unrelated warnings. End-of-output
+status excerpt (verbatim):
+warning: `cargo-octet` (lib test) generated 2167 warnings (1672 duplicates) (run `cargo fix --lib -p cargo-octet --tests` to apply 15 suggestions)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 36.43s
+
+The command exited successfully with both named lints denied. This proves
+only the compiled --workspace --all-targets scope of that captured run; it
+does not establish deny-all cleanliness or currently edited source state.

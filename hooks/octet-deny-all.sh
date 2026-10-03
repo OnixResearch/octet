@@ -35,6 +35,8 @@ deny_lint_flags='
 -D compound_condition
 -D verified_purity
 -D unjustified_allow
+-D raw_bool_parameter
+-D raw_bool_parameter_suppression
 -D nested_conditionals
 -D assertion_density
 -D multi_lock_ordering

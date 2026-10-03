@@ -119,7 +119,7 @@ let Unknown = {{
   detail | NonEmptyString,
 }} in
 let Issue = {{
-  schema_version | OneOf ["{issue_schema}"],
+  schema_version | OneOf ["{COMPILER_ARCHITECTURE_ISSUE_SCHEMA_VERSION}"],
   issue_id | Blake3,
   code | NonEmptyString,
   unit_id | Dyn,
@@ -129,7 +129,7 @@ let Issue = {{
 {{
   ArchitectureCollectionLimits = Limits,
   CompilerArchitectureCollectorContext = {{
-    schema_version | OneOf ["{context_schema}"],
+    schema_version | OneOf ["{COMPILER_ARCHITECTURE_COLLECTOR_CONTEXT_SCHEMA_VERSION}"],
     workspace_root | NonEmptyString,
     output_directory | NonEmptyString,
     limits | Limits,
@@ -138,7 +138,7 @@ let Issue = {{
     non_claims | Array NonEmptyString,
   }},
   CompilerArchitectureShard = {{
-    schema_version | OneOf ["{shard_schema}"],
+    schema_version | OneOf ["{COMPILER_ARCHITECTURE_SHARD_SCHEMA_VERSION}"],
     shard_id | Blake3,
     unit | Unit,
     collection_status | CollectionStatus,
@@ -148,7 +148,7 @@ let Issue = {{
     non_claims | Array NonEmptyString,
   }},
   CompilerArchitectureIr = {{
-    schema_version | OneOf ["{ir_schema}"],
+    schema_version | OneOf ["{COMPILER_ARCHITECTURE_IR_SCHEMA_VERSION}"],
     architecture_ir_id | Blake3,
     policy_blake3 | Blake3,
     units | Array Unit,
@@ -159,7 +159,7 @@ let Issue = {{
     non_claims | Array NonEmptyString,
   }},
   CompilerArchitectureCoverage = {{
-    schema_version | OneOf ["{coverage_schema}"],
+    schema_version | OneOf ["{COMPILER_ARCHITECTURE_COVERAGE_SCHEMA_VERSION}"],
     coverage_id | Blake3,
     status | CoverageStatus,
     expected_unit_ids | Array Blake3,
@@ -171,7 +171,7 @@ let Issue = {{
   }},
   CompilerArchitectureIssue = Issue,
   CompilerArchitectureReceipt = {{
-    schema_version | OneOf ["{receipt_schema}"],
+    schema_version | OneOf ["{COMPILER_ARCHITECTURE_RECEIPT_SCHEMA_VERSION}"],
     receipt_id | Blake3,
     status | CollectionStatus,
     policy_blake3 | Blake3,
@@ -181,12 +181,6 @@ let Issue = {{
     non_claims | Array NonEmptyString,
   }},
 }}
-"#,
-        context_schema = COMPILER_ARCHITECTURE_COLLECTOR_CONTEXT_SCHEMA_VERSION,
-        shard_schema = COMPILER_ARCHITECTURE_SHARD_SCHEMA_VERSION,
-        ir_schema = COMPILER_ARCHITECTURE_IR_SCHEMA_VERSION,
-        coverage_schema = COMPILER_ARCHITECTURE_COVERAGE_SCHEMA_VERSION,
-        issue_schema = COMPILER_ARCHITECTURE_ISSUE_SCHEMA_VERSION,
-        receipt_schema = COMPILER_ARCHITECTURE_RECEIPT_SCHEMA_VERSION,
+"#
     )
 }

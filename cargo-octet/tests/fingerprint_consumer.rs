@@ -1263,9 +1263,13 @@ fn object_internal_corpus_matches_reviewed_source_reference_and_rejects_tamper()
     assert_eq!(mismatch.status.code(), Some(1));
     let report: serde_json::Value = serde_json::from_slice(&mismatch.stdout).expect("tampered internal report");
     assert_eq!(report["status"], "mismatch");
-    assert!(report["comparisons"].as_array().unwrap().iter().any(|comparison| {
-        comparison["field"] == "object_set_hash" && comparison["status"] == "mismatch"
-    }));
+    assert!(
+        report["comparisons"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|comparison| { comparison["field"] == "object_set_hash" && comparison["status"] == "mismatch" })
+    );
 }
 
 #[test]
@@ -1364,7 +1368,11 @@ fn object_caveat_taxonomy_matches_reviewed_expanded_reference_and_detects_added_
         .current_dir(temp.path())
         .output()
         .expect("emit taxonomy for changed source");
-    assert!(changed_report.status.success(), "changed taxonomy stderr: {}", String::from_utf8_lossy(&changed_report.stderr));
+    assert!(
+        changed_report.status.success(),
+        "changed taxonomy stderr: {}",
+        String::from_utf8_lossy(&changed_report.stderr)
+    );
     let changed: serde_json::Value = serde_json::from_slice(&changed_report.stdout).expect("changed taxonomy json");
     assert_eq!(changed["object_count"].as_u64(), Some(taxonomy["object_count"].as_u64().unwrap() + 1));
     assert_ne!(changed_report.stdout, output.stdout, "source-added function must stale reviewed taxonomy");
@@ -1398,7 +1406,11 @@ fn object_corpus_matches_fresh_reviewed_references_and_rejects_missing_receipt()
         .current_dir(&root)
         .output()
         .expect("emit freshness taxonomy");
-    assert!(taxonomy.status.success(), "freshness taxonomy stderr: {}", String::from_utf8_lossy(&taxonomy.stderr));
+    assert!(
+        taxonomy.status.success(),
+        "freshness taxonomy stderr: {}",
+        String::from_utf8_lossy(&taxonomy.stderr)
+    );
     assert_eq!(
         taxonomy.stdout,
         fs::read(fixture.join("expanded-internal-corpus-caveat-taxonomy.json")).expect("read reviewed taxonomy")
@@ -1611,8 +1623,12 @@ fn selected_fixture_supplement(root: &Path, family: &str, shape: &str) -> (Strin
         "--output-format=json",
     ]);
     let name = &supplement["supplements"][0]["function_name"];
-    let selected_object = object["objects"].as_array().expect("fixture object records")
-        .iter().find(|row| &row["name"] == name).expect("source-backed selected function object");
+    let selected_object = object["objects"]
+        .as_array()
+        .expect("fixture object records")
+        .iter()
+        .find(|row| &row["name"] == name)
+        .expect("source-backed selected function object");
     assert_eq!(selected_object["normalization"]["algorithm"], "octet-source-token-v2");
     assert_eq!(supplement["supplements"][0]["function_object_hash"], selected_object["object_hash"]);
     assert_eq!(supplement["supplements"][0]["status"], "pilot-supported");
@@ -1621,12 +1637,7 @@ fn selected_fixture_supplement(root: &Path, family: &str, shape: &str) -> (Strin
     (path, supplement)
 }
 
-fn replay_selected_supplement(
-    root: &Path,
-    family: &str,
-    shape: &str,
-    receipt: &Path,
-) -> std::process::Output {
+fn replay_selected_supplement(root: &Path, family: &str, shape: &str, receipt: &Path) -> std::process::Output {
     Command::new(cargo_octet())
         .args([
             "object",
@@ -1669,9 +1680,13 @@ fn object_thir_inventory_call_return_replay_rejects_true_boundary() {
     assert_eq!(failed.status.code(), Some(1));
     let mismatch: serde_json::Value = serde_json::from_slice(&failed.stdout).expect("THIR boundary mismatch json");
     assert_eq!(mismatch["status"], "fail");
-    assert!(mismatch["comparisons"].as_array().unwrap().iter().any(|row| {
-        row["field"] == "boundary" && row["status"] == "mismatch"
-    }));
+    assert!(
+        mismatch["comparisons"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|row| { row["field"] == "boundary" && row["status"] == "mismatch" })
+    );
 }
 
 #[test]
@@ -1695,9 +1710,13 @@ fn object_mir_fixture_checked_arithmetic_replay_rejects_observation_tamper() {
     assert_eq!(failed.status.code(), Some(1));
     let mismatch: serde_json::Value = serde_json::from_slice(&failed.stdout).expect("MIR observation mismatch json");
     assert_eq!(mismatch["status"], "fail");
-    assert!(mismatch["comparisons"].as_array().unwrap().iter().any(|row| {
-        row["field"] == "observation_hash" && row["status"] == "mismatch"
-    }));
+    assert!(
+        mismatch["comparisons"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|row| { row["field"] == "observation_hash" && row["status"] == "mismatch" })
+    );
 }
 
 #[test]
@@ -1724,9 +1743,13 @@ fn object_mir_inventory_branch_source_replay_rejects_wrong_path() {
     assert_eq!(failed.status.code(), Some(1));
     let mismatch: serde_json::Value = serde_json::from_slice(&failed.stdout).expect("MIR source-path mismatch json");
     assert_eq!(mismatch["status"], "fail");
-    assert!(mismatch["comparisons"].as_array().unwrap().iter().any(|row| {
-        row["field"] == "source_path" && row["status"] == "mismatch"
-    }));
+    assert!(
+        mismatch["comparisons"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|row| { row["field"] == "source_path" && row["status"] == "mismatch" })
+    );
 }
 
 #[test]
@@ -2225,10 +2248,12 @@ fn object_corpus_compatibility_historical_v1_is_stale_under_v2() {
 
 #[test]
 fn object_corpus_compatibility_preserves_v1_artifact_read() {
-    use valence_core::function_object::{
-        DependencyIdentityStatus, FunctionObjectInput, NORMALIZATION_ALGORITHM, NormalizedFunctionSource, SourceSpan,
-        build_function_object,
-    };
+    use valence_core::function_object::DependencyIdentityStatus;
+    use valence_core::function_object::FunctionObjectInput;
+    use valence_core::function_object::NORMALIZATION_ALGORITHM;
+    use valence_core::function_object::NormalizedFunctionSource;
+    use valence_core::function_object::SourceSpan;
+    use valence_core::function_object::build_function_object;
 
     let root = repo_root();
     let receipt = read_json_fixture(
@@ -2328,7 +2353,11 @@ fn object_corpus_compatibility_preserves_v1_artifact_read() {
         .arg(&objects_path)
         .output()
         .expect("validate artifact-only pointer");
-    assert!(validate.status.success(), "pointer validation stderr: {}", String::from_utf8_lossy(&validate.stderr));
+    assert!(
+        validate.status.success(),
+        "pointer validation stderr: {}",
+        String::from_utf8_lossy(&validate.stderr)
+    );
     let validation: serde_json::Value = serde_json::from_slice(&validate.stdout).expect("validation json");
     assert_eq!(validation["status"], "resolved");
 
@@ -2344,8 +2373,8 @@ fn object_corpus_compatibility_preserves_v1_artifact_read() {
         .output()
         .expect("export artifact-only bundle");
     assert!(bundle.status.success(), "bundle stderr: {}", String::from_utf8_lossy(&bundle.stderr));
-    let exported: serde_json::Value = serde_json::from_slice(&fs::read(bundle_path).expect("read bundle"))
-        .expect("bundle json");
+    let exported: serde_json::Value =
+        serde_json::from_slice(&fs::read(bundle_path).expect("read bundle")).expect("bundle json");
     assert_eq!(exported["objects"][0], old_object);
     assert_eq!(exported["object_count"], 1);
     assert_eq!(exported["pointer_count"], 1);

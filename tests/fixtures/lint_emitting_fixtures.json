@@ -116,6 +116,14 @@
     "fixture": "too_many_parameters"
   },
   {
+    "lint_name": "raw_bool_parameter",
+    "fixture": "raw_bool_parameter"
+  },
+  {
+    "lint_name": "raw_bool_parameter_suppression",
+    "fixture": "raw_bool_parameter_suppression"
+  },
+  {
     "lint_name": "fat_trait",
     "fixture": "fat_trait"
   },

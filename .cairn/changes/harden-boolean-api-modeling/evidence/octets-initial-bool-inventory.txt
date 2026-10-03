@@ -1,0 +1,37 @@
+Octet initial compiled raw-boolean inventory (bounded excerpt)
+
+Operator-local raw command output, not publicly distributed (4,882 lines;
+685,968 bytes; BLAKE3 f1ec953df22def5370a08ded21699f948a6fccabdb1077c07cd68782b5006c69).
+That hash identifies the original raw capture, not this public-redacted text.
+The output is from an in-progress, uncommitted version of the isolated Octet
+worktree, before the six listed sites were migrated. The historical Dylint
+library bytes and exact source-tree identity were not frozen by this capture;
+these excerpts document the observed inventory, not bit-identical replay.
+
+Public-redacted working directory: isolated Octet checkout (`ROOT`).
+Replay shape, NOT the byte-exact recorded invocation (historical Nix settings retained):
+export ROOT=/path/to/isolated/octet SCRATCH=/path/to/private/scratch
+cd "$ROOT"
+env TMPDIR="$SCRATCH" RUSTC_WRAPPER= CARGO_TARGET_DIR="$ROOT/target" NIX_CONFIG=$'min-free = 0\nmax-free = 0\nsubstituters = https://cache.nixos.org/' nix develop --option min-free 0 --option max-free 0 --option builders '' --option max-jobs 2 --option cores 4 -c bash -c 'DYLINT_LIBS="[\"$PWD/target/debug/liboctet@nightly-2026-03-21-x86_64-unknown-linux-gnu.so\"]" DYLINT_NO_DEPS=1 RUSTC_WORKSPACE_WRAPPER="$PWD/target/ui-driver/debug/octet-ui-driver" cargo check -j 4 --workspace --all-targets --message-format=short'
+The capture does not record an explicit RUSTFLAGS or DYLINT_RUSTFLAGS setting
+for this initial invocation. Do not infer a clean inherited environment.
+The outer Nix invocation explicitly set builders empty through --option, but
+the surrounding NIX_CONFIG did not contain builders =. Unlike the selected
+Aspen run, the effective initial Octet invocation had an explicit empty
+builder option; its envelope was not identical to the later final run.
+
+Verbatim finding lines from the captured compiler output (seven diagnostics at
+six callable sites, in output order):
+crates/octet-standards/src/project_architecture_gate.rs:2239:26: warning: private callable `classify_status` has 2 direct `bool` parameters; positional flags are ambiguous
+tests/support/consumer_fixture.rs:417:26: warning: private callable `run_internal` has 2 direct `bool` parameters; positional flags are ambiguous
+src/safety/no_todo.rs:43:30: warning: public callable `new` has a direct `bool` parameter; callers cannot see its domain meaning
+src/safety/no_todo.rs:43:60: warning: public callable `new` has a direct `bool` parameter; callers cannot see its domain meaning
+cargo-octet/src/evidence_rails.rs:3534:20: warning: private callable `validate_kani_claims` has 3 direct `bool` parameters; positional flags are ambiguous
+cargo-octet/src/evidence_rails.rs:4386:13: warning: private callable `advisory_database_update` has 2 direct `bool` parameters; positional flags are ambiguous
+cargo-octet/src/architecture_ir/cargo_fixture_tests.rs:214:19: warning: private callable `run_body_owner_compiler_fixture` has 2 direct `bool` parameters; positional flags are ambiguous
+
+End-of-output status excerpt:
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 38.96s
+
+The command succeeded despite many unrelated warnings. This inventory counts
+the new boolean finding messages only; it is not a full-catalog-clean claim.

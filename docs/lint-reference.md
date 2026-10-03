@@ -9,14 +9,14 @@ For the landing-page naming map, see `../README.md`.
 
 ## Catalog summary
 
-`octet` ships 72 lints across 6 domains.
+`octet` ships 74 lints across 6 domains.
 
 | Domain | Group | Count |
 | --- | --- | ---: |
 | safety | `tigerstyle::safety` | 24 |
 | naming | `tigerstyle::naming` | 9 |
 | performance | `tigerstyle::performance` | 2 |
-| structure | `tigerstyle::structure` | 19 |
+| structure | `tigerstyle::structure` | 21 |
 | purity | `tigerstyle::purity` | 16 |
 | concurrency | `tigerstyle::concurrency` | 2 |
 
@@ -146,6 +146,8 @@ For `public_unsafe_api`, either add a safe wrapper or document the exception wit
 | `borrowed_argument_types` | `warn` | prefer `&str`, `&[T]`, and `&Path` over borrowed owned containers |
 | `deref_polymorphism` | `warn` | flag public `Deref` impls to nominal target types that hide API boundaries |
 | `too_many_parameters` | `warn` | flag signatures that exceed the configured parameter limit |
+| `raw_bool_parameter` | `warn` | avoid direct `bool` parameters in public APIs and multiple positional booleans in private callables |
+| `raw_bool_parameter_suppression` | `warn` | reject broad or unjustified raw-boolean parameter suppressions |
 | `fat_trait` | `warn` | flag traits exceeding the configured method budget |
 | `concrete_construction_in_core` | `warn` | flag concrete construction calls in declared core source scopes |
 | `type_accumulation` | `allow` | flag excessive inherent impl blocks or module public surface |
@@ -155,6 +157,13 @@ For `public_unsafe_api`, either add a safe wrapper or document the exception wit
 | `primitive_domain_alias` | `allow` | inventory registered domain aliases that still resolve to primitive storage |
 | `raw_domain_value` | `allow` | flag registered raw domain values in declared core fields and API signatures |
 | `newtype_invariant_bypass` | `allow` | flag public fields and conversions that bypass refined newtype invariants |
+
+See [`boolean-api-modeling.md`](boolean-api-modeling.md) for domain type
+choices, generated/external-trait exclusions, narrow expectations, and
+independent Clippy co-reporting. `raw_bool_parameter_suppression` governs
+exception attrs, not parameter types. Both warnings can be promoted to deny
+by strict profiles and the full deny-all gate; no baseline or warning budget
+is accepted as migration completion.
 
 ## Purity lints (`tigerstyle::purity`)
 

@@ -1,0 +1,12 @@
+Final staged Octet compiled Boolean API two-lint inventory (bounded)
+
+Public-redacted working tree: isolated Octet checkout (`ROOT` below).
+The complete raw command output remains operator-local, not public.
+Source includes the finalized cargo-octet/src/architecture_ir/resolved_plan.rs repair (BLAKE3 a7cac5cb3f939d148edeabca0eb88b056f1521fcfa7433b7ae9daf4bd283d185), the flat checked Boolean policy, and the unchanged H2 source-bound blocker. No claim is made about a clean full deny-all catalog.
+
+Public-redacted replay shape, NOT byte-exact historical argv (run from ROOT):
+export ROOT=/path/to/isolated/octet SCRATCH=/path/to/private/scratch
+cd "$ROOT"
+env TMPDIR="$SCRATCH" RUSTC_WRAPPER= CARGO_TARGET_DIR="$ROOT/target" NIX_CONFIG=$'min-free = 0\nmax-free = 0\nbuilders =\n' nix --option min-free 0 --option max-free 0 --option builders '' --option max-jobs 2 --option cores 4 --option substituters https://cache.nixos.org/ develop path:. -c bash -c 'env TMPDIR="$SCRATCH" RUSTC_WRAPPER= CARGO_TARGET_DIR="$ROOT/target" RUSTUP_TOOLCHAIN=nightly-2026-03-21-x86_64-unknown-linux-gnu RUSTFLAGS="--cfg octet_boolean_api_final_inventory_v3" RUSTC_WORKSPACE_WRAPPER="$ROOT/target/ui-driver/debug/octet-ui-driver" DYLINT_LIBS="[\"$ROOT/target/debug/liboctet@nightly-2026-03-21-x86_64-unknown-linux-gnu.so\"]" DYLINT_NO_DEPS=1 DYLINT_RUSTFLAGS="-D raw_bool_parameter -D raw_bool_parameter_suppression" nice -n 10 cargo check -j 4 --workspace --all-targets --message-format=short'
+
+Original operator-local full command stdout/stderr (not distributed): 4,893 lines, 686,206 bytes, BLAKE3 9325333c3aa6125ddd07053312255ba70f2a77fefc77637943013c9ff9580a7c. This hash identifies the unredacted raw capture, NOT this edited text. Result: exit 0, `Finished dev profile [unoptimized + debuginfo] target(s) in 39.25s`. A search of the full output for `public callable .* direct `bool` parameter`, `private callable .* direct `bool` parameters`, and `tigerstyle::raw_bool_parameter_suppression:` returned zero matching finding lines. The output retains thousands of warnings from other Octet lints (including unrelated style diagnostics on the new lint implementation); this is NOT a passing full-catalog deny-all gate, H2 source approval, or authorization to baseline warnings.
