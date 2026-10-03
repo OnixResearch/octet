@@ -1,5 +1,6 @@
-#![warn(assertion_density)]
+#![deny(assertion_density, unfulfilled_lint_expectations)]
 
+#[expect(assertion_density)]
 fn sparse_function(data: &[u8]) -> usize {
     // A single debug assertion is one check, not two overlapping macro names.
     let a = data.len();
@@ -121,6 +122,7 @@ fn fallible_step(value: usize) -> Result<usize, &'static str> {
     if value == 0 { Err("zero") } else { Ok(value + 1) }
 }
 
+#[expect(assertion_density)]
 fn unchecked_result(data: &[usize]) -> Result<usize, &'static str> {
     // Should warn: one real propagation plus a direct Ok expression, comments,
     // strings, and a nested closure do not meet the two-check threshold.
@@ -161,6 +163,7 @@ mod shadowed_result {
         Ok(1)
     }
 
+    #[expect(assertion_density)]
     pub(super) fn unchecked(data: &[usize]) -> Result<usize, &'static str> {
         if data.is_empty() {
             return Err("not a failure");
@@ -222,6 +225,7 @@ mod shadowed_option {
         Some(1)
     }
 
+    #[expect(assertion_density)]
     pub(super) fn unchecked(data: &[usize]) -> Option<usize> {
         if data.is_empty() {
             return None();
@@ -254,6 +258,7 @@ mod shadowed_none_value {
     #[allow(non_upper_case_globals)]
     const None: Option<usize> = Some(1);
 
+    #[expect(assertion_density)]
     pub(super) fn unchecked(data: &[usize]) -> Option<usize> {
         if data.is_empty() {
             return None;

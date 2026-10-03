@@ -379,8 +379,13 @@ fn run_fixture(
         return;
     }
 
-    let expected = fs::read_to_string(&expected_path)
-        .unwrap_or_else(|error| panic!("read expected stderr {}: {error}", expected_path.display()));
+    // An absent snapshot requires no diagnostics; lint-level expectations
+    // assert the intended positive and negative cases without pinning wording.
+    let expected = match fs::read_to_string(&expected_path) {
+        Ok(expected) => expected,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => String::new(),
+        Err(error) => panic!("read expected stderr {}: {error}", expected_path.display()),
+    };
     assert_eq!(expected.trim_end_matches('\n'), actual.trim_end_matches('\n'), "stderr mismatch for fixture {name}");
 }
 

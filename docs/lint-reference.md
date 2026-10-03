@@ -61,7 +61,7 @@ Rules to keep straight:
 | `function_length_max` | `70` | `function_length` | maximum non-blank, non-comment lines in a function body |
 | `nesting_max_depth` | `3` | `nested_conditionals` | maximum `if` / `match` nesting depth |
 | `assertion_density_min_lines` | `20` | `assertion_density` | minimum function size before assertion-density checks apply |
-| `assertion_density_min_assertions` | `2` | `assertion_density` | minimum count of authored assertions, conditional failure returns, and eligible `Result` `?` expressions once the line threshold is crossed |
+| `assertion_density_min_assertions` | `2` | `assertion_density` | minimum count of authored assertions, conditional canonical gate returns, and eligible `Result` `?` expressions once the line threshold is crossed |
 | `max_parameters` | `5` | `too_many_parameters` | maximum counted parameters before warning |
 | `trait_method_max` | `7` | `fat_trait` | maximum trait methods before warning |
 | `impl_blocks_max` | `4` | `type_accumulation` | maximum inherent impl blocks per type before advisory |
@@ -103,14 +103,19 @@ Unknown lint names and invalid level values warn and are ignored.
 | `explicit_defaults` | `warn` | avoid foreign `Default` shorthands such as `..Default::default()` |
 | `unbounded_channel` | `warn` | flag known unbounded channel constructors |
 | `unbounded_collection_growth` | `warn` | flag loop-driven collection growth without reservation or a local bound |
-| `assertion_density` | `allow` | count authored assertions, conditional core `Result::Err` / `Option::None` returns, and outer-returning core `Result` `?`; not domain proof |
+| `assertion_density` | `allow` | count authored assertions, conditional core `Result::Err` / `Option::Some` / `Option::None` returns, and outer-returning core `Result` `?`; Option polarity is not inferred |
 | `raw_arithmetic_overflow` | `allow` | flag unchecked `+`, `-`, or `*` on unsigned integers |
 | `sentinel_fallback` | `warn` | flag `<int>::MAX` / `<int>::MIN` sentinel fallbacks instead of explicit branching or tagged fallback text |
 | `public_unsafe_api` | `warn` | flag public Rust `unsafe fn` APIs that leak unsafe obligations to callers |
 | `defaulting_trait_method` | `allow` | flag trait methods with default bodies that can weaken substitution contracts |
 
-`assertion_density` counts syntactic fail-closed sites, not proofs that a domain
-invariant is true, that an error is reachable, or that effects are protected.
+`assertion_density` counts syntactic gate exits, not proofs that a domain
+invariant is true, that a branch is a failure, or that effects are protected.
+Both canonical `Option::Some` and `Option::None` count only as authored
+conditional outer returns. An `Option<Refusal>` can use `Some` for refusal,
+while an `Option<Value>` can use `Some` for success: the lint does not establish
+either polarity or domain policy. Shadowed names, unconditional returns,
+macro-generated exits, and exits inside nested closures are not credited.
 An authored `?` counts once only when its operand has the compiler-resolved
 core `Result` type and its residual returns from the enclosing `Result`
 function. A `?` local to a `try` block, an `Option`/`ControlFlow` `?`, a

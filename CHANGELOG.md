@@ -6,7 +6,7 @@ specific commits via `TIGERSTYLE_DYLINT_REV`.
 For the full lint catalog, see `docs/lint-reference.md`.
 For rollout profiles, see `docs/downstream-rollout.md`.
 
-## 2026-10-03: Conservative const candidates and syntactic failure checks
+## 2026-10-03: Conservative const candidates and syntactic gate exits
 
 `missing_const_fn` now uses HIR and types to suggest `const fn` only for private
 free helpers with primitive signatures and supported scalar computations.
@@ -14,9 +14,9 @@ Calls, trait dispatch, mutation, references, filesystem and path operations,
 and unknown expressions are not presumed const-compatible.
 
 `assertion_density` now counts each authored assertion macro once and recognizes
-conditional branches returning compiler-resolved core `Result::Err` or
-`Option::None` variants as fail-closed checks. A local function or constant
-shadowing `Err` or `None` is not credited. An authored `?` on a
+conditional outer returns of compiler-resolved core `Result::Err`,
+`Option::Some`, or `Option::None` as syntactic gate exits. A local function or
+constant shadowing `Err`, `Some`, or `None` is not credited. An authored `?` on a
 compiler-resolved core `Result` counts once when its residual returns from
 the outer `Result` function; direct `Ok(value)?`, `Option`/`ControlFlow` `?`,
 local `try`-block propagation, macro-generated `?`, strings, comments,
@@ -24,9 +24,10 @@ and checks inside nested closures or items do not count.
 The previous text matcher counted one
 `debug_assert*!` twice because the shorter `assert*!` pattern matched its
 suffix; functions that passed only because of that overlap can now warn.
-Existing minimum-line and minimum-check settings are unchanged. This lint is
-source-level syntactic fail-closed guidance, not proof of runtime domain
-invariant coverage or error-path reachability.
+Existing minimum-line and minimum-check settings are unchanged. `Option` gate
+exits do not establish success or failure polarity (`Some` can be a refusal
+or a success), and syntactic density is not proof of runtime domain policy,
+invariant coverage, or error-path reachability.
 
 ## 2026-08-26: Compiler-visible authorized effect protocols
 

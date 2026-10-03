@@ -1,4 +1,4 @@
-#![warn(assertion_density)]
+#![deny(assertion_density, unfulfilled_lint_expectations)]
 
 fn under_custom_line_threshold() -> u32 {
     let s1 = 1;
@@ -27,6 +27,7 @@ fn under_custom_line_threshold() -> u32 {
     s1
 }
 
+#[expect(assertion_density)]
 fn insufficient_for_custom_assertion_count() -> u32 {
     let w1 = 1;
     let w2 = 2;
@@ -106,6 +107,7 @@ fn fallible_guards_meet_custom_count(data: &[usize]) -> Result<usize, &'static s
     Ok(ac)
 }
 
+#[expect(assertion_density)]
 fn insufficient_fallible_checks(data: &[usize]) -> Result<usize, &'static str> {
     // Should warn: two real error guards are below the custom minimum.
     if data.is_empty() {
