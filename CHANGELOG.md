@@ -6,7 +6,7 @@ specific commits via `TIGERSTYLE_DYLINT_REV`.
 For the full lint catalog, see `docs/lint-reference.md`.
 For rollout profiles, see `docs/downstream-rollout.md`.
 
-## 2026-10-03: Conservative const candidates and explicit failure guards
+## 2026-10-03: Conservative const candidates and syntactic failure checks
 
 `missing_const_fn` now uses HIR and types to suggest `const fn` only for private
 free helpers with primitive signatures and supported scalar computations.
@@ -16,13 +16,17 @@ and unknown expressions are not presumed const-compatible.
 `assertion_density` now counts each authored assertion macro once and recognizes
 conditional branches returning compiler-resolved core `Result::Err` or
 `Option::None` variants as fail-closed checks. A local function or constant
-shadowing `Err` or `None` is not credited. It does not count arbitrary `?`
-propagation, strings, comments, or checks inside nested closures or items.
+shadowing `Err` or `None` is not credited. An authored `?` on a
+compiler-resolved core `Result` counts once when its residual returns from
+the outer `Result` function; direct `Ok(value)?`, `Option`/`ControlFlow` `?`,
+local `try`-block propagation, macro-generated `?`, strings, comments,
+and checks inside nested closures or items do not count.
 The previous text matcher counted one
 `debug_assert*!` twice because the shorter `assert*!` pattern matched its
 suffix; functions that passed only because of that overlap can now warn.
 Existing minimum-line and minimum-check settings are unchanged. This lint is
-source-level guidance, not proof of runtime invariant coverage.
+source-level syntactic fail-closed guidance, not proof of runtime domain
+invariant coverage or error-path reachability.
 
 ## 2026-08-26: Compiler-visible authorized effect protocols
 

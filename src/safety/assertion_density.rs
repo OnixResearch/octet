@@ -8,6 +8,7 @@ use rustc_hir::intravisit::{self};
 use rustc_lint::LateContext;
 use rustc_lint::LateLintPass;
 use rustc_lint::LintContext;
+use rustc_middle::ty;
 use rustc_session::declare_tool_lint;
 use rustc_session::impl_lint_pass;
 use rustc_span::Span;
@@ -18,8 +19,8 @@ use crate::test_context;
 
 declare_tool_lint! {
     /// Warns on functions exceeding a configurable line count (default: 20)
-    /// that contain fewer than a required number of invariant checks (default: 2).
-    /// Assertions and conditional error returns both make invariants visible.
+    /// that contain fewer than a required number of syntactic fail-closed
+    /// checks (default: 2). This does not prove domain invariant coverage.
     ///
     /// Configure in `dylint.toml`:
     /// ```toml
@@ -107,11 +108,54 @@ fn is_failure_return(cx: &LateContext<'_>, expr: &hir::Expr<'_>) -> bool {
     }
 }
 
+fn is_core_result_type(cx: &LateContext<'_>, ty: ty::Ty<'_>) -> bool {
+    matches!(ty.kind(), ty::Adt(adt, _) if cx.tcx.is_diagnostic_item(sym::Result, adt.did()))
+}
+
+fn is_literal_ok(cx: &LateContext<'_>, expr: &hir::Expr<'_>) -> bool {
+    match &expr.kind {
+        hir::ExprKind::DropTemps(inner) => is_literal_ok(cx, inner),
+        hir::ExprKind::Call(callee, _) => is_core_failure_variant(cx, callee, sym::Result, "Ok"),
+        _ => false,
+    }
+}
+
+fn is_authored_result_try_exit(
+    cx: &LateContext<'_>,
+    expr: &hir::Expr<'_>,
+    scrutinee: &hir::Expr<'_>,
+    arms: &[hir::Arm<'_>],
+    branch_id: hir::HirId,
+) -> bool {
+    // The pinned HIR lowers `operand?` to `match Try::branch(operand)`.
+    // The TryDesugar id names the branch call, NOT the original operand.
+    if expr.span.from_expansion() || scrutinee.hir_id != branch_id || arms.len() != 2 {
+        return false;
+    }
+    // Pinned lowering constructs Continue first but stores [Break, Continue].
+    // The Break arm returns from the function, but breaks locally in `try {}`.
+    let break_arm = &arms[0];
+    let hir::PatKind::Struct(qpath, ..) = break_arm.pat.kind else {
+        return false;
+    };
+    if !matches!(cx.qpath_res(&qpath, break_arm.pat.hir_id),
+        Res::Def(DefKind::Variant, did) if cx.tcx.is_lang_item(did, hir::LangItem::ControlFlowBreak))
+        || !matches!(break_arm.body.kind, hir::ExprKind::Ret(Some(_)))
+    {
+        return false;
+    }
+    let hir::ExprKind::Call(_, [operand]) = scrutinee.kind else {
+        return false;
+    };
+    is_core_result_type(cx, cx.typeck_results().expr_ty(operand)) && !is_literal_ok(cx, operand)
+}
+
 struct CheckVisitor<'a, 'tcx> {
     cx: &'a LateContext<'tcx>,
     seen_macro_calls: Vec<Span>,
     checks: usize,
     in_guard: usize,
+    returns_result: bool,
 }
 
 impl CheckVisitor<'_, '_> {
@@ -173,7 +217,13 @@ impl<'tcx> Visitor<'tcx> for CheckVisitor<'_, 'tcx> {
                 self.in_guard -= usize::from(conditional);
                 return;
             }
-            hir::ExprKind::Match(scrutinee, arms, _) => {
+            hir::ExprKind::Match(scrutinee, arms, source) => {
+                if self.returns_result
+                    && let hir::MatchSource::TryDesugar(branch_id) = source
+                    && is_authored_result_try_exit(self.cx, expr, scrutinee, arms, *branch_id)
+                {
+                    self.checks += 1;
+                }
                 self.visit_expr(scrutinee);
                 let conditional = arms.len() > 1;
                 self.in_guard += usize::from(conditional);
@@ -213,7 +263,7 @@ impl<'tcx> LateLintPass<'tcx> for AssertionDensity {
         _decl: &'tcx hir::FnDecl<'tcx>,
         body: &'tcx hir::Body<'tcx>,
         span: Span,
-        _def_id: hir::def_id::LocalDefId,
+        def_id: hir::def_id::LocalDefId,
     ) {
         let FnKind::ItemFn(name, _, _) = kind else {
             return;
@@ -247,6 +297,10 @@ impl<'tcx> LateLintPass<'tcx> for AssertionDensity {
             seen_macro_calls: Vec::new(),
             checks: 0,
             in_guard: 0,
+            returns_result: is_core_result_type(
+                cx,
+                cx.tcx.fn_sig(def_id).instantiate_identity().skip_binder().output(),
+            ),
         };
         visitor.visit_block(block);
         if visitor.checks >= self.min_assertions {
@@ -258,7 +312,10 @@ impl<'tcx> LateLintPass<'tcx> for AssertionDensity {
             cx,
             ASSERTION_DENSITY,
             body.value.span,
-            format!("function `{name}` has {} invariant check(s) in {lines} lines (need {min_a}+)", visitor.checks),
+            format!(
+                "function `{name}` has {} syntactic fail-closed check(s) in {lines} lines (need {min_a}+)",
+                visitor.checks
+            ),
             "assertion_density",
         );
     }

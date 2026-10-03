@@ -1,4 +1,4 @@
-warning: function `insufficient_for_custom_assertion_count` has 2 invariant check(s) in 35 lines (need 3+)
+warning: function `insufficient_for_custom_assertion_count` has 2 syntactic fail-closed check(s) in 35 lines (need 3+)
   --> $DIR/assertion_density_custom/assertion_density_custom.rs:30:53
    |
 LL |   fn insufficient_for_custom_assertion_count() -> u32 {
@@ -11,7 +11,7 @@ LL | |     x30
 LL | | }
    | |_^
    |
-   = help: Tiger Style (Assertion Density): add enough assertions to make local invariants visible near the logic they defend
+   = help: Tiger Style (Assertion Density): make fail-closed checks visible near the logic they defend; their count does not prove domain invariants
    = note: see Tiger Style guide: Assertion Density
 note: the lint level is defined here
   --> $DIR/assertion_density_custom/assertion_density_custom.rs:1:9
@@ -20,7 +20,7 @@ LL | #![warn(assertion_density)]
    |         ^^^^^^^^^^^^^^^^^
    = note: `#[warn(tigerstyle::assertion_density)]` implied by `#[warn(assertion_density)]`
 
-warning: function `insufficient_fallible_checks` has 2 invariant check(s) in 38 lines (need 3+)
+warning: function `insufficient_fallible_checks` has 2 syntactic fail-closed check(s) in 38 lines (need 3+)
   --> $DIR/assertion_density_custom/assertion_density_custom.rs:109:80
    |
 LL |   fn insufficient_fallible_checks(data: &[usize]) -> Result<usize, &'static str> {
@@ -33,7 +33,7 @@ LL | |     Ok(ac)
 LL | | }
    | |_^
    |
-   = help: Tiger Style (Assertion Density): add enough assertions to make local invariants visible near the logic they defend
+   = help: Tiger Style (Assertion Density): make fail-closed checks visible near the logic they defend; their count does not prove domain invariants
    = note: see Tiger Style guide: Assertion Density
 
 warning: 2 warnings emitted

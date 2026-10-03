@@ -122,8 +122,8 @@ fn fallible_step(value: usize) -> Result<usize, &'static str> {
 }
 
 fn unchecked_result(data: &[usize]) -> Result<usize, &'static str> {
-    // Should warn: opaque propagation, comments, strings, and a nested closure
-    // do not establish this function's invariants.
+    // Should warn: one real propagation plus a direct Ok expression, comments,
+    // strings, and a nested closure do not meet the two-check threshold.
     // assert!(true); return Err("not a guard"); let checked = data.first()?;
     let _text = "assert!(true); assert_eq!(1, 1); return Err(\"no\");";
     let _nested = || {
@@ -131,7 +131,7 @@ fn unchecked_result(data: &[usize]) -> Result<usize, &'static str> {
         assert_eq!(data[0], 1);
     };
     let a = fallible_step(data.len())?;
-    let b = fallible_step(a)?;
+    let b = Ok::<_, &'static str>(a)?;
     let c = b + 2;
     let d = c + 3;
     let e = d + 4;
