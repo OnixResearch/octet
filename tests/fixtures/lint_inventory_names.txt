@@ -27,6 +27,8 @@ deref_polymorphism
 clone_then_borrow
 allocation_in_loop
 too_many_parameters
+raw_bool_parameter
+raw_bool_parameter_suppression
 fat_trait
 concrete_construction_in_core
 type_accumulation

@@ -127,6 +127,13 @@ pub fn run(check: &CheckArgs) -> Result<i32, String> {
         .as_deref()
         .or_else(|| admission_binding.map(|binding| binding.strict_profile.as_str()));
     let selected_profile = crate::strict_profile::prepare_selected_profile(selected_profile_id, &cfg.workspace_root)?;
+    if selected_profile
+        .as_ref()
+        .is_some_and(|profile| profile.policy.required_lints.iter().any(|lint| lint == "raw_bool_parameter"))
+        && (check.baseline.is_some() || check.write_baseline.is_some())
+    {
+        return Err("strict boolean API admission forbids finding baselines and warning budgets".to_owned());
+    }
     let prepared_integrated_closure = admission_binding
         .map(|binding| crate::admit::prepare_integrated_closure(&cfg.workspace_root, binding))
         .transpose()?;

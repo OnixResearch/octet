@@ -42,9 +42,11 @@ pub fn prepare_selected_profile(
 }
 
 pub fn strict_profile_policy_hash(profile: &StrictProfile) -> Result<String, String> {
+    let (boolean_api_policy, _) = octet_lint_metadata::strict_profile::boolean_api_policy()?;
     let canonical = serde_json::to_string(&serde_json::json!({
         "schema_version": octet_lint_metadata::strict_profile::STRICT_PROFILE_SCHEMA_VERSION,
         "profile": profile,
+        "boolean_api_policy": boolean_api_policy,
     }))
     .map_err(|error| format!("serialize strict profile identity: {error}"))?;
     Ok(crate::determinism::full_hash(&canonical))

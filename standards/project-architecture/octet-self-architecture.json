@@ -179,7 +179,9 @@
       "crates/octet-lint-metadata/src",
       "crates/octet-standards/src",
       "src",
-      "cargo-octet/src"
+      "cargo-octet/src",
+      "cargo-octet/build.rs",
+      "examples/authorized_effect_protocol.rs"
     ],
     "targets": [
       {
@@ -385,8 +387,33 @@
       "scope_kind": "source"
     },
     {
+      "role": "composition-root",
+      "scope": "cargo-octet/build.rs",
+      "scope_kind": "source"
+    },
+    {
+      "role": "inbound-adapter",
+      "scope": "examples/authorized_effect_protocol.rs",
+      "scope_kind": "source"
+    },
+    {
       "role": "test",
       "scope": "tests",
+      "scope_kind": "source"
+    },
+    {
+      "role": "test",
+      "scope": "cargo-octet/tests",
+      "scope_kind": "source"
+    },
+    {
+      "role": "test",
+      "scope": "crates/octet-lint-metadata/tests",
+      "scope_kind": "source"
+    },
+    {
+      "role": "test",
+      "scope": "crates/octet-standards/tests",
       "scope_kind": "source"
     },
     {

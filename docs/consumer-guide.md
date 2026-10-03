@@ -8,6 +8,8 @@ deeper docs to read next.
 
 For the landing page and naming map, see `../README.md`.
 For the full lint catalog, see `lint-reference.md`.
+For public boolean API migration and narrow compatibility exceptions, see
+`boolean-api-modeling.md`.
 For the Rust-compatible public story cards, examples, quickstart, FAQ, and
 case-study format, see `adoption-story.md`.
 For rollout profiles, see `downstream-rollout.md`.
@@ -138,6 +140,13 @@ Once a rollout has known debt, capture it as an explicit acceptance baseline:
 cargo octet check --output-format json --write-baseline octet-baseline.json
 cargo octet check --output-format json --baseline octet-baseline.json
 ```
+
+Do not use a finding baseline, warning budget, or broad lint disable as
+completion evidence for the strict `raw_bool_parameter` migration. Inventory
+the declared owned API scope, replace each covered direct boolean with a
+reviewed domain type, and recheck the migrated consumer before promotion.
+Only a specific, owner-attributed compatibility contract can justify one
+source-local expectation; see [`boolean-api-modeling.md`](boolean-api-modeling.md).
 
 The baseline file records the current semantic/stable finding IDs plus enough
 finding context for review. Semantic IDs are derived from the lint, crate,

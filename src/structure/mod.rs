@@ -12,6 +12,8 @@ pub mod nested_conditionals;
 pub mod newtype_invariant_bypass;
 pub mod platform_dependent_cast;
 pub mod primitive_domain_alias;
+pub mod raw_bool_parameter;
+pub mod raw_bool_parameter_suppression;
 pub mod raw_domain_value;
 pub mod too_many_parameters;
 pub mod type_accumulation;

@@ -6,6 +6,35 @@ specific commits via `TIGERSTYLE_DYLINT_REV`.
 For the full lint catalog, see `docs/lint-reference.md`.
 For rollout profiles, see `docs/downstream-rollout.md`.
 
+## Unreleased: domain-modeled boolean APIs
+
+- `raw_bool_parameter` rejects direct booleans on covered public crate-owned
+  callable APIs and multiple direct boolean parameters on private callables.
+  Replace covered API arguments with reviewed enums, option records, typestate,
+  or nominal wrappers; migrate callers when changing a public signature.
+  Generated expansion output and externally owned trait implementation
+  signatures remain outside this rule. One private predicate flag, boolean
+  returns, fields, and local values are not banned.
+- `raw_bool_parameter_suppression` rejects broad or unjustified source
+  suppression while permitting only an exact, reasoned, owner-attributed
+  compatibility expectation.
+- The optional `boolean-api-modeling` Clippy profile co-reports
+  `clippy::fn_params_excessive_bools` independently at warning level; it does
+  not replace Octet's single-public-boolean rule or merge findings. See
+  [`docs/boolean-api-modeling.md`](docs/boolean-api-modeling.md) for migration
+  choices, bounded compatibility expectations, and claim limits; the bounded
+  Octet/Aspen source inventory is in
+  [`docs/boolean-api-migration-inventory.md`](docs/boolean-api-migration-inventory.md).
+- Cargo plan units with identical descriptions but distinct resolved dependency
+  features no longer collide. Truly indistinguishable resolved units and
+  dependency cycles still fail closed; the complete Cargo plan identity
+  intentionally changes from v1 to v2.
+- Self-architecture assigns selected build-script, test, and example compilation
+  roots explicit source roles. The `cargo-octet` build script propagates input
+  and output errors instead of panicking while retaining generated source bytes;
+  its two narrowly attributed ambient-environment expectations cover Cargo's
+  execution-time manifest and output directory variables only.
+
 ## Unreleased: reviewed Valence source-token-v2 pin and source-bound object rails
 
 - Candidate `cargo-octet` source-backed object, marker, corpus, and supplement

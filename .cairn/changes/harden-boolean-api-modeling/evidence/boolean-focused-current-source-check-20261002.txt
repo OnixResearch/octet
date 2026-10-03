@@ -1,0 +1,47 @@
+Public-redacted current-source Boolean API focused closeout, 2026-10-02;
+isolated Octet worktree (`ROOT` below). All focused test commands below
+completed successfully. The raw local captures/argv remain operator-local,
+not published; the replay commands preserve command shapes but substitute
+semantic path variables and are NOT byte-exact historical argv. This is
+scoped verification, NOT a passing workspace/full pinned deny-all/aggregate
+Nix gate, current-source H2 approval, or permission to sync/archive.
+
+Public-redacted reusable focused test commands (bash, substitute local absolute
+ROOT/SCRATCH paths before use). The common invocation uses pinned
+nightly-2026-03-21, no remote builders, the source tree's existing Cargo
+target, and an external temporary directory. Each run_octet_focus call
+preserves the original Cargo subcommand; the compiler-fixture env values
+are specified on their call. No formatter or broad test suite was run here.
+
+export ROOT=/path/to/isolated/octet SCRATCH=/path/to/private/scratch ASPEN=/path/to/isolated/aspen
+mkdir -p "$SCRATCH"
+cd "$ROOT"
+export TMPDIR="$SCRATCH"
+export RUSTC_WRAPPER=
+export CARGO_TARGET_DIR="$ROOT/target"
+export NIX_CONFIG=$'min-free = 0\nmax-free = 0\nbuilders =\n'
+run_octet_focus() { nix --option min-free 0 --option max-free 0 --option builders '' --option max-jobs 2 --option cores 4 --option substituters https://cache.nixos.org/ develop path:. -c bash -c "RUSTUP_TOOLCHAIN=nightly-2026-03-21-x86_64-unknown-linux-gnu RUSTC_WORKSPACE_WRAPPER= nice -n 10 $1"; }
+run_octet_focus 'cargo test -j 4 --lib tests:: -- --test-threads 4'
+run_octet_focus 'cargo test -j 4 -p octet-lint-metadata --lib strict_profile::tests:: -- --test-threads 4'
+run_octet_focus 'cargo test -j 4 -p cargo-octet --test clippy_restriction_profiles boolean_api_profile_ -- --test-threads 4'
+run_octet_focus 'cargo test -j 4 --test ui ui -- --ignored --nocapture --test-threads 4'
+run_octet_focus 'cargo test -j 4 -p octet-standards --lib project_architecture_gate::tests:: -- --test-threads 4'
+run_octet_focus 'cargo test -j 4 -p cargo-octet --lib evidence_rails::tests:: -- --test-threads 4'
+run_octet_focus 'cargo test -j 4 --test consumer_integration lockfile_mutation -- --test-threads 4'
+OCTET_UI_LIBRARY="$ROOT/target/debug/liboctet@nightly-2026-03-21-x86_64-unknown-linux-gnu.so" OCTET_UI_DRIVER="$ROOT/target/ui-driver/debug/octet-ui-driver" run_octet_focus 'cargo test -j 4 -p cargo-octet --lib real_cargo_all_targets_preserves_non_function_body_owners -- --ignored --nocapture --test-threads 1'
+
+Observed results in command order: 155/155 root library tests passed (configuration rejection, lint inventory, group/alias/catalog/docs/metadata/fixture/snapshot freshness; raw output operator-local, not publicly accessible); 5/5 strict-profile metadata tests passed; 2/2 Clippy boolean-profile integration tests passed, including the actual included UI boolean source and a clean-callable control with verified artifact bundle; 1/1 ignored real UI harness test passed, compiling the current Dylint library and comparing the entire UI corpus (including positive, negative, narrow-expectation, and suppression fixtures) without BLESS; 38/38 standards architecture-gate tests passed, including migrated classify_status precedence; 43/43 cargo-octet evidence-rail tests passed, including named Kani claim fields and dependency audit; 4/4 consumer lockfile-mutation integration tests passed, including restore/remove/bootstrap behavior; 2/2 ignored real all-target compiler body-owner fixtures passed (10 units each, default-extra and all-features; typed migrated fixture input, compiler-bound role and body-owner assertions). The current library and nightly alias each have BLAKE3 8a8bbe5ae8133548ba9af4d3d4b1b089850aaaaa6b60ef966d9726192e31a7c3; the pinned UI driver has BLAKE3 c8477f76f7761be9aa23759f7cde9c40844b12bfb579e944726b0ece159b124f.
+
+Two separate actual negative runtime invocations, from the same Octet worktree (not gate PASS):
+"$ROOT/target/debug/cargo-octet" check --profile robust --baseline "$SCRATCH/nonexistent-baseline.json"
+"$ROOT/target/debug/cargo-octet" check --profile robust --write-baseline "$SCRATCH/nonexistent-baseline.json"
+Each exited 2 with `error: strict boolean API admission forbids finding baselines and warning budgets`; the current CLI binary BLAKE3 was 67af32f7b6054bd7edfcf3eeb9ca95c33f57c251936ef5811deeb49e42d7e84a. The negative paths rejected before reading the named nonexistent baseline. This specifically exercises current cargo-octet/src/engine.rs and does not constitute H2 source admission. Current engine.rs BLAKE3 b8a5235ee699908ee75936fd5c41b29fc3f168b5e9f7cf0fea844e9aeeda84ae; evidence_rails.rs BLAKE3 c87d556705947e506f95df58b90af7b19e9a8663ed79f622735abb02dd75951b.
+
+Selected current-library external consumer, independently rerun from a clean isolated Aspen checkout at commit 81baf80cb667a22277be22c140d34829e5c7da7f (not an Aspen workspace audit):
+cd "$ASPEN"
+TMPDIR="$SCRATCH" RUSTC_WRAPPER= CARGO_TARGET_DIR="$ASPEN/target" NIX_CONFIG=$'min-free = 0\nmax-free = 0\nbuilders =\n' nix --option min-free 0 --option max-free 0 --option builders '' --option max-jobs 2 --option cores 4 --option substituters https://cache.nixos.org/ develop "path:$ROOT" -c bash -c 'RUSTUP_TOOLCHAIN=nightly-2026-03-21-x86_64-unknown-linux-gnu RUSTFLAGS="--cfg octet_bool_focus_molten_20261002" RUSTC_WORKSPACE_WRAPPER="$ROOT/target/ui-driver/debug/octet-ui-driver" DYLINT_LIBS="[\"$ROOT/target/debug/liboctet@nightly-2026-03-21-x86_64-unknown-linux-gnu.so\"]" DYLINT_NO_DEPS=1 DYLINT_RUSTFLAGS="-D raw_bool_parameter -D raw_bool_parameter_suppression" nice -n 10 cargo check -j 4 -p molten-release-policy --bin molten-release-policy --locked --message-format=short'
+Observed result (raw output operator-local, not published): exit 0, `Finished dev profile ... in 37.25s`; selected binary emitted 45 unrelated warnings and zero Boolean API findings. RUSTFLAGS changed the Cargo fingerprint, compelling a new compilation with the above current Octet lint bytes. Two E0602 unknown-lint warnings occurred in the NON-linted molten-core library dependency because the named Dylint flags propagate there; this is not a successful check of that dependency and does not claim an Aspen-wide deny-all result. This replay has no remote-builder line; the prior historical selected run documented in aspen-molten-selected-check.txt inherited a configured remote builder and did not freeze its old lint-library bytes. The selected source had no Boolean signature to migrate.
+
+Separate already-recorded bounded checks were not rerun merely to reconfirm user-reported results: octets-current-two-lint-check.txt (operator-local raw capture not published; current two denied Boolean lints, `cargo check --workspace --all-targets`, exit 0 with unrelated lint warnings) and boolean-dual-tool-co-report.txt (actual same public callable: four Octet parameter findings and independent warning-level Clippy fn_params_excessive_bools, with distinct checker/receipt identities; the native command's expected compiler error made its status integration-failure, NOT gate PASS). The new Clippy-focused integration run above verifies current source/profile artifact behavior but does not replace that dual-tool receipt.
+
+Gate/H2 boundary: old alias_bins and build-script-build source-role errors and the former 23 Clippy-pedantic errors were historical attempts. Current roles are explicit in standards/project-architecture/octet-self-architecture.ncl, its generated .json and .manifest.json; the strict cargo-octet/build.rs proof already checked byte-identical generated output/rerun directives and returned errors instead of panicking. The unchanged max_units=32 cap is below the current all-targets 39-unit selection, so the full pinned all-targets hook exits 2. A real robust workspace run reaches lint and reports 108 unrelated preexisting architecture-IR/metadata strict findings (operator-local raw capture, not published). Current local-only `nix flake check -L` exits 1 with two observed clippy::too_many_lines at crates/octet-architecture-ir/src/contract.rs:9 and core.rs:96 (operator-local raw capture, not published); 74 checks evaluated/32 realized, NOT an aggregate PASS. The older local-only targeted object-corpus-gate rejected historical manifest source-byte drift (operator-local raw capture, not published). The unapproved-h2-current-source-review-20261002.txt and unapproved-h2-proposed-corpus-artifacts-20261002.txt packets compare 35/37 matching selected file bytes and give proposed same-producer scratch receipts, respectively; they confer NO independent owner approval, new frozen reference, H2 PASS, or archive authorization. All original H2 references/verifier/owner note remain untouched; H2 is FAIL/BLOCKED until independent source-bound approval.

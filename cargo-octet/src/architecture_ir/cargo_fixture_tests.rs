@@ -6,6 +6,7 @@ use std::process::Command;
 use octet_architecture_ir::CompilerArchitectureCoverage;
 use octet_architecture_ir::CompilerArchitectureFact;
 use octet_architecture_ir::CompilerArchitectureIr;
+use octet_architecture_ir::CompilerArchitectureRole;
 use octet_architecture_ir::CoverageStatus;
 use octet_architecture_ir::ItemKind;
 use octet_standards::project_architecture_policy::parse_project_architecture_policy;
@@ -118,6 +119,64 @@ fn required_artifact(name: &str) -> PathBuf {
 }
 
 #[test]
+fn self_policy_assigns_real_cargo_compilation_roots() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().expect("workspace root");
+    let config = crate::config::load(root).expect("bound self architecture policy");
+    let selected = config.architecture_policy.as_ref().expect("self architecture policy");
+    let source_roles = super::source_roles(selected).expect("source roles");
+    let package_roles = super::package_roles(selected).expect("package roles");
+    let (metadata, _) =
+        super::load_locked_metadata(root, TOOLCHAIN, &selected.policy.production.targets[0]).expect("locked metadata");
+    let graph = super::target_plan::load(
+        root,
+        TOOLCHAIN,
+        &["--workspace".to_owned()],
+        &["--all-targets".to_owned()],
+        selected.policy.collection_limits.max_artifact_bytes,
+    )
+    .expect("real Cargo all-targets plan");
+    let mut observed = std::collections::BTreeSet::new();
+    for package in metadata.packages {
+        let Some(&package_role) = package_roles.get(package.name.as_str()) else {
+            continue;
+        };
+        for unit in graph.units.iter().filter(|unit| unit.pkg_id == package.id && unit.mode != "run-custom-build") {
+            let source =
+                Path::new(&unit.target.src_path).strip_prefix(root).expect("selected source root inside workspace");
+            let source = super::normalized_relative(source).expect("canonical source root");
+            let kind = if unit.mode == "test" {
+                format!("{}+test", unit.target.kind.join("+"))
+            } else {
+                unit.target.kind.join("+")
+            };
+            let role = octet_architecture_ir::select_compilation_unit_role(package_role, &kind, &source, &source_roles)
+                .unwrap_or_else(|error| panic!("Cargo root {source} ({kind}): {error}"));
+            if source == "cargo-octet/build.rs" {
+                assert_eq!(role, CompilerArchitectureRole::CompositionRoot);
+            } else if source == "examples/authorized_effect_protocol.rs" {
+                assert_eq!(role, CompilerArchitectureRole::InboundAdapter);
+            } else if source.starts_with("cargo-octet/tests/")
+                || source.starts_with("crates/octet-lint-metadata/tests/")
+                || source.starts_with("crates/octet-standards/tests/")
+            {
+                assert_eq!(role, CompilerArchitectureRole::Test);
+            }
+            observed.insert(source);
+        }
+    }
+    for source in ["cargo-octet/build.rs", "examples/authorized_effect_protocol.rs"] {
+        assert!(observed.contains(source), "Cargo no longer selects expected source root {source}");
+    }
+    for scope in [
+        "cargo-octet/tests/",
+        "crates/octet-lint-metadata/tests/",
+        "crates/octet-standards/tests/",
+    ] {
+        assert!(observed.iter().any(|source| source.starts_with(scope)), "Cargo selects no test root under {scope}");
+    }
+}
+
+#[test]
 #[ignore = "requires current OCTET_UI_LIBRARY and pinned OCTET_UI_DRIVER"]
 fn real_cargo_all_targets_has_complete_compiler_coverage() {
     run_compiler_fixture(false, TestImport::None);
@@ -200,7 +259,7 @@ fn real_cargo_all_targets_rejects_integration_only_no_std() {
 }
 
 fn run_configured_compiler_fixture(all_features: bool, import_test_source: TestImport, no_std: NoStdMode) {
-    run_body_owner_compiler_fixture(all_features, import_test_source, no_std, false);
+    run_body_fixture(all_features, import_test_source, no_std, BodyFixture::Ordinary);
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -208,20 +267,6 @@ enum BodyFixture {
     Ordinary,
     NonFunctionOwners,
     Randomness,
-}
-
-fn run_body_owner_compiler_fixture(
-    all_features: bool,
-    import_test_source: TestImport,
-    no_std: NoStdMode,
-    include_body_owners: bool,
-) {
-    let fixture = if include_body_owners {
-        BodyFixture::NonFunctionOwners
-    } else {
-        BodyFixture::Ordinary
-    };
-    run_body_fixture(all_features, import_test_source, no_std, fixture);
 }
 
 fn run_body_fixture(all_features: bool, import_test_source: TestImport, no_std: NoStdMode, fixture: BodyFixture) {

@@ -1,0 +1,24 @@
+Match-arm Boolean API suppression guard, failing-before / passing-after compiler proof
+
+Public-redacted path: isolated Octet worktree (`ROOT=/path/to/isolated/octet`);
+the original compiler output remains operator-local, not published here.
+Pinned compiler: nightly-2026-03-21-x86_64-unknown-linux-gnu. The real Octet UI driver and freshly compiled Dylint library ran from this worktree, with `DYLINT_LIBS` pointing at target/debug/liboctet@nightly-2026-03-21-x86_64-unknown-linux-gnu.so and `DYLINT_RUSTFLAGS='-D raw_bool_parameter -D raw_bool_parameter_suppression'`. Every Nix materialization set local builders only, min-free=0, max-free=0, max-jobs=2, cores=4, and cache.nixos.org. Compiler source lived temporarily under this worktree's target/, was compiled as an edition-2024 lib from the existing strict fixture directory, and was then removed.
+
+Exact source shape (temporary source BLAKE3 74e4247fa38044f708416604411f8180083afc01ed3e3942500d9781604dc6bd):
+    pub fn check_arm(flag: u8) {
+        match flag {
+            #[allow(tigerstyle::raw_bool_parameter)]
+            0 => {
+                let callback = |first: bool, second: bool| first && second;
+                let _ = callback(true, false);
+            }
+            _ => {}
+        }
+    }
+The source also declared `#![feature(register_tool)]` and `#![register_tool(tigerstyle)]`.
+
+Before source change: the allow-bearing arm compiler invocation exited 0 with no Boolean API finding or guard error (raw output retained operator-local, not publicly accessible). Its otherwise identical unsuppressed control (BLAKE3 eac15b49a5b3458f8c1407631c5188c58ee4a6434c0b792eeac7f10a06e85d23) exited 101: `error: private callable `closure` has 2 direct `bool` parameters; positional flags are ambiguous` at the first boolean parameter. Therefore the match-arm attribute really propagated to suppress a finding, not merely an ineffective spelling.
+
+Fix: LateLintPass::check_arm passes arm.hir_id to the existing lint_attrs guard as non-callable; it adds no exception and does not change attribute parsing or policy. After rebuilding the actual Dylint library, the SAME allow-bearing source exited 101: `error: tigerstyle::raw_bool_parameter_suppression: `raw_bool_parameter` does not permit `#[allow]`; use a local, owned `#[expect]` for an unavoidable compatibility API` at its arm attribute line 6:9. Strict mode uses an unconditional compiler error, so the arm's inherited lint allowance cannot hide the guard.
+
+Permanent strict UI fixture raw_bool_parameter_guard_strict/raw_bool_parameter_guard_strict.rs now contains that two-bool closure arm, a second arm with `#[cfg_attr(all(), allow(tigerstyle::structure))]`, and an unrelated `#[allow(dead_code)]` arm. The observed normalized snapshot has exactly two new guard errors, at 21:9 and 26:27; the unrelated attribute adds no error. The real ignored UI suite ran after snapshot update: 4 passed, 0 failed (raw output retained operator-local, not publicly accessible). `cargo fmt --all` and `cargo fmt --all -- --check` passed. No H2 manifest/receipts/freshness tests, architecture policy, warning budget, or baseline changed.

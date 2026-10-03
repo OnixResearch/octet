@@ -145,6 +145,16 @@
     "category": "safe_shape"
   },
   {
+    "lint_name": "raw_bool_parameter",
+    "fixture": "raw_bool_parameter_safe",
+    "category": "safe_shape"
+  },
+  {
+    "lint_name": "raw_bool_parameter_suppression",
+    "fixture": "raw_bool_parameter_expectation",
+    "category": "safe_shape"
+  },
+  {
     "lint_name": "fat_trait",
     "fixture": "lint_guardrail_common",
     "category": "safe_shape"

@@ -36,6 +36,12 @@ impl std::fmt::Display for UnitSelectionError {
 impl std::error::Error for UnitSelectionError {}
 
 /// Reject plans that cannot distinguish their compiler sessions.
+///
+/// # Errors
+///
+/// Returns `InvalidContext` for an empty plan or a unit with an empty crate name, inconsistent
+/// source root, role or test configuration, missing target triple, or noncanonical features.
+/// Returns `AmbiguousUnit` for duplicate observation keys.
 pub fn validate_collector_units(units: &[CollectorCompilationUnit]) -> Result<(), UnitSelectionError> {
     if units.is_empty() {
         return Err(UnitSelectionError::InvalidContext);
@@ -68,6 +74,12 @@ pub fn validate_collector_units(units: &[CollectorCompilationUnit]) -> Result<()
 }
 
 /// External packages are unselected. Unknown sessions inside selected packages are errors.
+///
+/// # Errors
+///
+/// Propagates invalid or ambiguous plan errors from `validate_collector_units`. Returns
+/// `UnexpectedUnit` when an observation belongs to a selected package but matches no selected
+/// unit; an observation matching more than one unit returns `AmbiguousUnit`.
 pub fn select_compilation_unit<'a>(
     units: &'a [CollectorCompilationUnit],
     observation: &CompilerUnitObservation<'_>,

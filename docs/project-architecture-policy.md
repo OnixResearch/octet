@@ -76,6 +76,7 @@ The Cargo invocation must cover all declared production packages. Its target, fe
 An invocation can use `--all-features` if Cargo resolves it to the explicit policy row. Octet compares two bounded locked unit plans. The second plan replaces only `--all-features` with the policy features. Both plans retain the same package, target, profile, and default-feature selectors. Neither plan executes a build or build script.
 
 The comparison binds complete unit descriptions, resolved features, dependency edges, and selected roots. It ignores array order and replaces dependency indices with content identities. Extra features, feature-gated targets, optional dependencies, and changed edges cause rejection. Missing or ambiguous graph facts also cause rejection.
+Each unit identity includes its sorted full edge metadata and the resolved identities of its dependencies. Units with equal descriptions but different dependency feature selections remain distinct; truly identical resolved units, cyclic dependencies, and invalid references still fail closed. This complete-plan identity uses v2 rather than the prior v1 identity.
 
 Declare package-qualified features when the workspace needs them. Cargo owns feature unification and optional-dependency resolution. `--no-default-features` remains a separate exact policy choice. Because Cargo includes named `default` features in `--all-features`, a row with disabled automatic defaults can need explicit `package/default` features.
 

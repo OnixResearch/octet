@@ -36,6 +36,11 @@ const COVERAGE_ID_DOMAIN: &str = "octet.compiler-architecture-ir.coverage/v1";
 const ISSUE_ID_DOMAIN: &str = "octet.compiler-architecture-ir.issue/v1";
 const RECEIPT_ID_DOMAIN: &str = "octet.compiler-architecture-ir.receipt/v1";
 
+/// Compute the canonical identity of a selected compilation unit.
+///
+/// # Panics
+///
+/// Panics if the unit's package, target, feature, role, or provenance fields cannot be serialized.
 #[must_use]
 pub fn compilation_unit_identity(unit: &CompilationUnit) -> String {
     canonical_identity(
@@ -61,6 +66,11 @@ pub fn compilation_unit_identity(unit: &CompilationUnit) -> String {
     .expect("compilation-unit identity fields must serialize")
 }
 
+/// Compute the canonical identity of a source span.
+///
+/// # Panics
+///
+/// Panics if the span's origin and coordinate fields cannot be serialized.
 #[must_use]
 pub fn source_span_identity(span: &SourceSpan) -> String {
     canonical_identity(
@@ -77,6 +87,11 @@ pub fn source_span_identity(span: &SourceSpan) -> String {
     .expect("source-span identity fields must serialize")
 }
 
+/// Compute the identity of one compiler fact, including its variant-specific fields.
+///
+/// # Panics
+///
+/// Panics if the selected fact variant's identity fields cannot be serialized.
 #[must_use]
 pub fn fact_identity(fact: &CompilerArchitectureFact) -> String {
     match fact {
@@ -233,6 +248,11 @@ pub fn fact_identity(fact: &CompilerArchitectureFact) -> String {
     .expect("compiler architecture fact identity fields must serialize")
 }
 
+/// Compute the canonical identity of an unknown compiler fact.
+///
+/// # Panics
+///
+/// Panics if the unknown's kind, owner, target, span, or detail cannot be serialized.
 #[must_use]
 pub fn unknown_fact_identity(unknown: &UnknownCompilerFact) -> String {
     canonical_identity(
@@ -242,6 +262,11 @@ pub fn unknown_fact_identity(unknown: &UnknownCompilerFact) -> String {
     .expect("unknown compiler fact identity fields must serialize")
 }
 
+/// Compute the canonical identity of a compiler architecture shard.
+///
+/// # Panics
+///
+/// Panics if the shard's unit, spans, facts, unknowns, or non-claims cannot be serialized.
 #[must_use]
 pub fn shard_identity(shard: &CompilerArchitectureShard) -> String {
     canonical_identity(
@@ -259,31 +284,17 @@ pub fn shard_identity(shard: &CompilerArchitectureShard) -> String {
     .expect("compiler architecture shard identity fields must serialize")
 }
 
+/// Normalize compiler shards into a coverage report, issues, receipt, and optional IR.
+///
+/// # Errors
+///
+/// Returns an error if invalid-shard capacity overflows `usize` or serializing a shard or the
+/// assembled IR fails. Invalid source facts, policy bindings, and coverage instead become issues
+/// in the returned outcome.
 pub fn normalize_architecture_shards(input: NormalizationInput) -> Result<NormalizationOutcome, String> {
     let mut issues = validate_limit_shape(&input.limits);
     let expected_by_id = validate_expected_units(&input, &mut issues);
-    let mut valid_shards = Vec::with_capacity(input.shards.len());
-    let invalid_capacity = input
-        .invalid_shards
-        .len()
-        .checked_add(input.shards.len())
-        .ok_or_else(|| "compiler architecture invalid-shard capacity overflowed usize".to_owned())?;
-    let mut invalid_shard_ids = Vec::with_capacity(invalid_capacity);
-
-    for invalid in &input.invalid_shards {
-        invalid_shard_ids.push(invalid.shard_id.clone());
-        issues.push(issue(&invalid.code, None, None, &invalid.message));
-    }
-
-    for shard in &input.shards {
-        let before = issues.len();
-        validate_shard(shard, &input.policy_blake3, &input.limits, &mut issues)?;
-        if issues.len() == before {
-            valid_shards.push(shard.clone());
-        } else {
-            invalid_shard_ids.push(shard.shard_id.clone());
-        }
-    }
+    let (valid_shards, mut invalid_shard_ids) = collect_shards(&input, &mut issues)?;
 
     validate_count_limit("units", expected_by_id.len(), input.limits.max_units, None, &mut issues);
     let observed_shard_count = input.shards.len().saturating_add(input.invalid_shards.len());
@@ -353,7 +364,7 @@ pub fn normalize_architecture_shards(input: NormalizationInput) -> Result<Normal
     coverage.coverage_id = coverage_identity(&coverage);
 
     let architecture_ir = if coverage.status == CoverageStatus::Complete {
-        let candidate = build_ir(&input, valid_shards, &mut issues)?;
+        let candidate = build_ir(&input, &valid_shards, &mut issues)?;
         issues.is_empty().then_some(candidate)
     } else {
         None
@@ -384,6 +395,35 @@ pub fn normalize_architecture_shards(input: NormalizationInput) -> Result<Normal
         issues,
         receipt,
     })
+}
+
+fn collect_shards(
+    input: &NormalizationInput,
+    issues: &mut Vec<CompilerArchitectureIssue>,
+) -> Result<(Vec<CompilerArchitectureShard>, Vec<String>), String> {
+    let mut valid_shards = Vec::with_capacity(input.shards.len());
+    let invalid_capacity = input
+        .invalid_shards
+        .len()
+        .checked_add(input.shards.len())
+        .ok_or_else(|| "compiler architecture invalid-shard capacity overflowed usize".to_owned())?;
+    let mut invalid_shard_ids = Vec::with_capacity(invalid_capacity);
+
+    for invalid in &input.invalid_shards {
+        invalid_shard_ids.push(invalid.shard_id.clone());
+        issues.push(issue(&invalid.code, None, None, &invalid.message));
+    }
+
+    for shard in &input.shards {
+        let before = issues.len();
+        validate_shard(shard, &input.policy_blake3, &input.limits, issues)?;
+        if issues.len() == before {
+            valid_shards.push(shard.clone());
+        } else {
+            invalid_shard_ids.push(shard.shard_id.clone());
+        }
+    }
+    Ok((valid_shards, invalid_shard_ids))
 }
 
 fn validate_limit_shape(limits: &ArchitectureCollectionLimits) -> Vec<CompilerArchitectureIssue> {
@@ -691,7 +731,7 @@ fn validate_fact_references(
     let fact_id = Some(fact.fact_id());
     match fact {
         CompilerArchitectureFact::Module { span_id, .. } | CompilerArchitectureFact::Trait { span_id, .. } => {
-            require_ref("span", span_id, spans, unit_id, fact_id, issues)
+            require_ref("span", span_id, spans, unit_id, fact_id, issues);
         }
         CompilerArchitectureFact::Item {
             signature_id, span_id, ..
@@ -730,6 +770,11 @@ fn validate_fact_references(
             caller_item_id,
             span_id,
             ..
+        }
+        | CompilerArchitectureFact::Effect {
+            caller_item_id,
+            span_id,
+            ..
         } => {
             require_ref("item", caller_item_id, items, unit_id, fact_id, issues);
             require_ref("span", span_id, spans, unit_id, fact_id, issues);
@@ -742,14 +787,6 @@ fn validate_fact_references(
         } => {
             require_ref("item", caller_item_id, items, unit_id, fact_id, issues);
             require_ref("type", constructed_type_id, types, unit_id, fact_id, issues);
-            require_ref("span", span_id, spans, unit_id, fact_id, issues);
-        }
-        CompilerArchitectureFact::Effect {
-            caller_item_id,
-            span_id,
-            ..
-        } => {
-            require_ref("item", caller_item_id, items, unit_id, fact_id, issues);
             require_ref("span", span_id, spans, unit_id, fact_id, issues);
         }
         CompilerArchitectureFact::Expansion {
@@ -946,14 +983,14 @@ fn validate_fact_limits(
 
 fn build_ir(
     input: &NormalizationInput,
-    shards: Vec<CompilerArchitectureShard>,
+    shards: &[CompilerArchitectureShard],
     issues: &mut Vec<CompilerArchitectureIssue>,
 ) -> Result<CompilerArchitectureIr, String> {
     let mut units = shards.iter().map(|shard| shard.unit.clone()).collect::<Vec<_>>();
     let mut spans = shards.iter().flat_map(|shard| shard.spans.clone()).collect::<Vec<_>>();
     let mut facts = shards.iter().flat_map(|shard| shard.facts.clone()).collect::<Vec<_>>();
     let mut unknowns = shards.iter().flat_map(|shard| shard.unknowns.clone()).collect::<Vec<_>>();
-    let unit_memberships = crate::membership::memberships_from_shards(&shards);
+    let unit_memberships = crate::membership::memberships_from_shards(shards);
     units.sort_by(|left, right| left.unit_id.cmp(&right.unit_id));
     spans.sort();
     spans.dedup();
@@ -1044,6 +1081,11 @@ fn issue(code: &str, unit_id: Option<&str>, fact_id: Option<&str>, message: &str
 }
 
 /// Compute the canonical identity of a compiler coverage artifact.
+///
+/// # Panics
+///
+/// Panics if the coverage status or its expected, observed, and rejected unit IDs cannot be
+/// serialized.
 #[must_use]
 pub fn coverage_identity(coverage: &CompilerArchitectureCoverage) -> String {
     canonical_identity(
@@ -1063,6 +1105,10 @@ pub fn coverage_identity(coverage: &CompilerArchitectureCoverage) -> String {
 }
 
 /// Compute the canonical identity of a normalized compiler Architecture IR artifact.
+///
+/// # Panics
+///
+/// Panics if the IR's policy, units, memberships, observations, or non-claims cannot be serialized.
 #[must_use]
 pub fn ir_identity(ir: &CompilerArchitectureIr) -> String {
     canonical_identity(
@@ -1082,6 +1128,11 @@ pub fn ir_identity(ir: &CompilerArchitectureIr) -> String {
 }
 
 /// Compute the canonical identity of a compiler architecture collection receipt.
+///
+/// # Panics
+///
+/// Panics if the receipt's status, policy, coverage, IR, issue IDs, or non-claims cannot be
+/// serialized.
 #[must_use]
 pub fn receipt_identity(receipt: &CompilerArchitectureReceipt) -> String {
     canonical_identity(

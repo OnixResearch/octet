@@ -63,6 +63,8 @@
       "borrowed_argument_types",
       "deref_polymorphism",
       "too_many_parameters",
+      "raw_bool_parameter",
+      "raw_bool_parameter_suppression",
       "fat_trait",
       "concrete_construction_in_core",
       "type_accumulation",

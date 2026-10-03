@@ -334,6 +334,12 @@ fn run_fixture(
         .env("DYLINT_LIBS", dylint_libs)
         .args(extra_rustc_args(name));
 
+    // Keep legacy fixtures focused on their own lint; boolean-API cases
+    // exercise both new rules without this fixture-local compiler override.
+    if !name.starts_with("raw_bool_parameter") {
+        command.args(["-A", "raw_bool_parameter", "-A", "raw_bool_parameter_suppression"]);
+    }
+
     if let Some(support) = fixture_support_for(toolchain, &fixture_path, support_cache) {
         command.arg("-L").arg(format!("dependency={}", support.dependency_search_path.display()));
         for (crate_name, artifact_path) in &support.externs {
@@ -949,14 +955,6 @@ fn ui() {
 
     for fixture in fixture_set.all_fixtures {
         eprintln!("[ui fixture] {fixture}");
-        let snapshot_stem = Path::new(&fixture).file_stem().expect("fixture file stem").to_string_lossy();
-        eprintln!(
-            "[ui snapshot] {}",
-            Path::new(env!("CARGO_MANIFEST_DIR"))
-                .join("ui_tests")
-                .join(format!("{snapshot_stem}.stderr"))
-                .display()
-        );
         run_fixture(
             &driver,
             &library,
