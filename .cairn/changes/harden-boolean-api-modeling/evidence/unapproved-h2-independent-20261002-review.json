@@ -1,0 +1,357 @@
+{
+  "schema": "octet.h2-independent-source-review-proposal.v1",
+  "status": "UNAPPROVED - REVIEW AID ONLY",
+  "selected_for_named_rails": false,
+  "not_an_owner_decision": true,
+  "worktree_head_at_review": "684f6a18bdaf5031cdce56a153889639bebfb3e5",
+  "selected_file_bytes_include_uncommitted_engine_fix": true,
+  "base_commit": "b65337f1cd3ce130afb3dd76415b665e91cfd191",
+  "source_diff": "diff --git a/cargo-octet/src/engine.rs b/cargo-octet/src/engine.rs\nindex b3122ae..5e43d25 100644\n--- a/cargo-octet/src/engine.rs\n+++ b/cargo-octet/src/engine.rs\n@@ -127,6 +127,13 @@ pub fn run(check: &CheckArgs) -> Result<i32, String> {\n         .as_deref()\n         .or_else(|| admission_binding.map(|binding| binding.strict_profile.as_str()));\n     let selected_profile = crate::strict_profile::prepare_selected_profile(selected_profile_id, &cfg.workspace_root)?;\n+    if selected_profile\n+        .as_ref()\n+        .is_some_and(|profile| profile.policy.required_lints.iter().any(|lint| lint == \"raw_bool_parameter\"))\n+        && (check.baseline.is_some() || check.write_baseline.is_some())\n+    {\n+        return Err(\"strict boolean API admission forbids finding baselines and warning budgets\".to_owned());\n+    }\n     let prepared_integrated_closure = admission_binding\n         .map(|binding| crate::admit::prepare_integrated_closure(&cfg.workspace_root, binding))\n         .transpose()?;\n@@ -1687,21 +1694,6 @@ mod tests {\n     use super::normalize_finding_message;\n     use super::normalize_lint_name;\n \n-    const REQUIRED_EMBEDDED_PATHS: &[&str] = &[\n-        \"Cargo.toml\",\n-        \"crates/octet-lint-metadata/Cargo.toml\",\n-        \"crates/octet-lint-metadata/src/identity.rs\",\n-        \"crates/octet-lint-metadata/src/identity/admission.rs\",\n-        \"crates/octet-lint-metadata/src/identity/evidence.rs\",\n-        \"crates/octet-lint-metadata/src/identity/model.rs\",\n-        \"crates/octet-lint-metadata/src/identity/tests.rs\",\n-        \"crates/octet-lint-metadata/src/strict_profile.rs\",\n-        \"standards/clippy-restrictions/generated/profiles.json\",\n-        \"standards/effect-closure/generated/effect-closure-catalog.json\",\n-        \"standards/nominal-domains/generated/catalog.json\",\n-        \"standards/strict-profiles/generated/strict-rust-profiles.json\",\n-    ];\n-\n     #[test]\n     fn spanless_compiler_errors_keep_valid_structured_domains() {\n         assert_eq!(normalize_lint_name(\"\"), \"compiler_error\");\n@@ -2034,18 +2026,6 @@ mod tests {\n         assert_eq!(normalize_finding_message(Path::new(\"/\"), message), message);\n     }\n \n-    #[test]\n-    fn embedded_lint_source_contains_profile_and_effect_closure_runtime_inputs() {\n-        let paths = embedded_source::EMBEDDED_SOURCE_FILES\n-            .iter()\n-            .map(|(path, _contents)| *path)\n-            .collect::<BTreeSet<_>>();\n-\n-        for required in REQUIRED_EMBEDDED_PATHS {\n-            assert!(paths.contains(required), \"embedded lint source is missing `{required}`\");\n-        }\n-    }\n-\n     #[test]\n     fn embedded_lint_source_paths_are_unique_and_workspace_relative() {\n         let paths = embedded_source::EMBEDDED_SOURCE_FILES.iter().map(|(path, _contents)| *path).collect::<Vec<_>>();\ndiff --git a/cargo-octet/src/evidence_rails.rs b/cargo-octet/src/evidence_rails.rs\nindex 75692d8..06b2e6d 100644\n--- a/cargo-octet/src/evidence_rails.rs\n+++ b/cargo-octet/src/evidence_rails.rs\n@@ -807,6 +807,7 @@ pub fn evaluate(input: EvaluationInput<'_>) -> EvidenceRailReceipt {\n         STATUS_FAILED.to_owned()\n     };\n     let bounded_log_identity = receipt_log_identity(&input);\n+    let advisory_database_update = advisory_database_update(&input);\n \n     EvidenceRailReceipt {\n         schema_version: RECEIPT_SCHEMA_VERSION.to_owned(),\n@@ -830,11 +831,7 @@ pub fn evaluate(input: EvaluationInput<'_>) -> EvidenceRailReceipt {\n         finding_counts: parsed.finding_counts,\n         bounded_log_identity,\n         imported_input_identity: prefixed_identity(input.import_text.as_bytes()),\n-        advisory_database_update: advisory_database_update(\n-            input.rail,\n-            input.locked,\n-            input.advisory_updated_by_prior_step,\n-        ),\n+        advisory_database_update,\n         profile: parsed.profile.or_else(|| input.profile.map(ToOwned::to_owned)),\n         tool_exit_code: input.tool_exit_code,\n         non_claims: input.rail.non_claims(),\n@@ -2654,7 +2651,15 @@ fn parse_kani_model_check(input: &EvaluationInput<'_>) -> RailParseOutput {\n         let unwind_passed = push_kani_unwind_findings(&value, &mut findings, &mut diagnostics);\n         let contract_passed = push_kani_contract_findings(&value, &mut findings, &mut diagnostics);\n         let boundary_stub_seen = push_kani_stub_findings(&value, &mut findings, &mut diagnostics);\n-        validate_kani_claims(&value, unwind_passed, contract_passed, boundary_stub_seen, &mut diagnostics);\n+        validate_kani_claims(\n+            &value,\n+            KaniClaimEvidence {\n+                unwind_passed,\n+                contract_passed,\n+                boundary_stub_seen,\n+            },\n+            &mut diagnostics,\n+        );\n     }\n     let finding_counts = counts_by_family(&findings);\n     let status = status_from_kani_findings(&findings);\n@@ -3529,25 +3534,25 @@ fn push_kani_stub_findings(\n     boundary_stub_seen\n }\n \n-fn validate_kani_claims(\n-    value: &serde_json::Value,\n+struct KaniClaimEvidence {\n     unwind_passed: bool,\n     contract_passed: bool,\n     boundary_stub_seen: bool,\n-    diagnostics: &mut Vec<String>,\n-) {\n+}\n+\n+fn validate_kani_claims(value: &serde_json::Value, evidence: KaniClaimEvidence, diagnostics: &mut Vec<String>) {\n     let Some(claims) = value.get(\"claims\") else {\n         return;\n     };\n     let unbounded_claim = string_field(claims, \"coverage\") == Some(KANI_COVERAGE_UNBOUNDED)\n         || claims.get(\"unbounded\").and_then(serde_json::Value::as_bool) == Some(true);\n-    if unbounded_claim && !unwind_passed && !contract_passed {\n+    if unbounded_claim && !evidence.unwind_passed && !evidence.contract_passed {\n         diagnostics.push(\n             \"Kani unbounded claim requires passing unwinding assertions or a passing contract receipt\".to_owned(),\n         );\n     }\n     let property_claim = claims.get(\"property_evidence\").and_then(serde_json::Value::as_bool) == Some(true);\n-    if property_claim && boundary_stub_seen {\n+    if property_claim && evidence.boundary_stub_seen {\n         diagnostics.push(\"plain or environmental Kani stubs cannot be promoted to property evidence\".to_owned());\n     }\n }\n@@ -4381,17 +4386,13 @@ fn receipt_tier(receipt: &EvidenceRailReceipt) -> EvidenceTier {\n     receipt_tier_from_rail_id(&receipt.rail_id)\n }\n \n-fn advisory_database_update(\n-    rail: EvidenceRailKind,\n-    locked: bool,\n-    advisory_updated_by_prior_step: bool,\n-) -> Option<String> {\n-    if rail != EvidenceRailKind::DependencyAudit {\n+fn advisory_database_update(input: &EvaluationInput<'_>) -> Option<String> {\n+    if input.rail != EvidenceRailKind::DependencyAudit {\n         return None;\n     }\n-    if advisory_updated_by_prior_step {\n+    if input.advisory_updated_by_prior_step {\n         Some(LOCKED_UPDATED_PRIOR.to_owned())\n-    } else if locked {\n+    } else if input.locked {\n         Some(LOCKED_REUSED.to_owned())\n     } else {\n         Some(LOCKED_UNAVAILABLE.to_owned())\n",
+  "source_selections": {
+    "fixed_quoted_url": [
+      "cargo-octet/tests/fixtures/object-corpus/source-token-v2/src/lib.rs"
+    ],
+    "internal_corpus": [
+      "cargo-octet/src/baseline.rs",
+      "cargo-octet/src/bin/cargo-slotcar.rs",
+      "cargo-octet/src/bin/cargo-tigerstyle.rs",
+      "cargo-octet/src/cli.rs",
+      "cargo-octet/src/config.rs",
+      "cargo-octet/src/determinism.rs",
+      "cargo-octet/src/engine.rs",
+      "cargo-octet/src/evidence.rs",
+      "cargo-octet/src/evidence_rails.rs",
+      "cargo-octet/src/fingerprint.rs",
+      "cargo-octet/src/lib.rs",
+      "cargo-octet/src/main.rs",
+      "cargo-octet/src/migrate.rs",
+      "cargo-octet/src/object.rs",
+      "cargo-octet/src/output.rs",
+      "cargo-octet/src/provider_manifest.rs",
+      "cargo-octet/src/roadmap.rs",
+      "cargo-octet/src/transcript.rs"
+    ],
+    "expanded_internal_corpus": [
+      "cargo-octet/src/baseline.rs",
+      "cargo-octet/src/bin/cargo-slotcar.rs",
+      "cargo-octet/src/bin/cargo-tigerstyle.rs",
+      "cargo-octet/src/cli.rs",
+      "cargo-octet/src/config.rs",
+      "cargo-octet/src/determinism.rs",
+      "cargo-octet/src/engine.rs",
+      "cargo-octet/src/evidence.rs",
+      "cargo-octet/src/evidence_rails.rs",
+      "cargo-octet/src/fingerprint.rs",
+      "cargo-octet/src/lib.rs",
+      "cargo-octet/src/main.rs",
+      "cargo-octet/src/migrate.rs",
+      "cargo-octet/src/object.rs",
+      "cargo-octet/src/output.rs",
+      "cargo-octet/src/proof_ref.rs",
+      "cargo-octet/src/provider_manifest.rs",
+      "cargo-octet/src/roadmap.rs",
+      "cargo-octet/src/transcript.rs",
+      "crates/octet-standards/src/architecture.rs",
+      "crates/octet-standards/src/artifacts.rs",
+      "crates/octet-standards/src/bin/slotcar-standards.rs",
+      "crates/octet-standards/src/bin/tigerstyle-standards.rs",
+      "crates/octet-standards/src/cli_shell.rs",
+      "crates/octet-standards/src/diagnostic.rs",
+      "crates/octet-standards/src/fixture.rs",
+      "crates/octet-standards/src/lib.rs",
+      "crates/octet-standards/src/main.rs",
+      "crates/octet-standards/src/model.rs",
+      "crates/octet-standards/src/proof.rs",
+      "crates/octet-standards/src/receipt.rs",
+      "crates/octet-standards/src/report.rs",
+      "crates/octet-standards/src/resource.rs",
+      "crates/octet-standards/src/runner.rs",
+      "crates/octet-standards/src/source.rs",
+      "crates/octet-standards/src/suppression.rs"
+    ]
+  },
+  "source_file_hashes": [
+    {
+      "path": "cargo-octet/src/baseline.rs",
+      "blake3": "9bc15dd43e6e9dbb20c41aa8dd29add9dc30320ae14b4c0aaebef46396d5367f",
+      "historic_approved_blake3": "9bc15dd43e6e9dbb20c41aa8dd29add9dc30320ae14b4c0aaebef46396d5367f"
+    },
+    {
+      "path": "cargo-octet/src/bin/cargo-slotcar.rs",
+      "blake3": "2b816ae70bb996a51abf5d90cd928a8958f63d16b86095abf7c983732d958cc4",
+      "historic_approved_blake3": "2b816ae70bb996a51abf5d90cd928a8958f63d16b86095abf7c983732d958cc4"
+    },
+    {
+      "path": "cargo-octet/src/bin/cargo-tigerstyle.rs",
+      "blake3": "2b816ae70bb996a51abf5d90cd928a8958f63d16b86095abf7c983732d958cc4",
+      "historic_approved_blake3": "2b816ae70bb996a51abf5d90cd928a8958f63d16b86095abf7c983732d958cc4"
+    },
+    {
+      "path": "cargo-octet/src/cli.rs",
+      "blake3": "b58d4c47198d09c78377c88d82c0dc1319d4d8fcb19071cd5aa03592815d0821",
+      "historic_approved_blake3": "b58d4c47198d09c78377c88d82c0dc1319d4d8fcb19071cd5aa03592815d0821"
+    },
+    {
+      "path": "cargo-octet/src/config.rs",
+      "blake3": "82d3574b53caeef4c95505da142db0db1ca0ac904e9cf4dd02bd7d25b794123c",
+      "historic_approved_blake3": "82d3574b53caeef4c95505da142db0db1ca0ac904e9cf4dd02bd7d25b794123c"
+    },
+    {
+      "path": "cargo-octet/src/determinism.rs",
+      "blake3": "c066a130c0990c3967736fd2f5deb8874d2cf549e1cf09f54f130768a11ab2d4",
+      "historic_approved_blake3": "c066a130c0990c3967736fd2f5deb8874d2cf549e1cf09f54f130768a11ab2d4"
+    },
+    {
+      "path": "cargo-octet/src/engine.rs",
+      "blake3": "4d487f1a50f5f87589a3804dff2b1afacab7536a919aa02fa91713d4815f995a",
+      "historic_approved_blake3": "546489d4cb5919823448264a880f13687a7de4d86fc7c72cdf364b6526a22eb6"
+    },
+    {
+      "path": "cargo-octet/src/evidence.rs",
+      "blake3": "c3ba8efddcc70ed7928db643b49f0b64e08b1f3c866c884c6a22b67dd0af8213",
+      "historic_approved_blake3": "c3ba8efddcc70ed7928db643b49f0b64e08b1f3c866c884c6a22b67dd0af8213"
+    },
+    {
+      "path": "cargo-octet/src/evidence_rails.rs",
+      "blake3": "c87d556705947e506f95df58b90af7b19e9a8663ed79f622735abb02dd75951b",
+      "historic_approved_blake3": "79f727d4422d36f9f19c95e383410aa7ba2a192b65c3b8d6560648f3cd082cef"
+    },
+    {
+      "path": "cargo-octet/src/fingerprint.rs",
+      "blake3": "d8efcd8ea9e8b6f21d4dd61ffd81e5f51549a69039b9576a66c5ba1e8e29579f",
+      "historic_approved_blake3": "d8efcd8ea9e8b6f21d4dd61ffd81e5f51549a69039b9576a66c5ba1e8e29579f"
+    },
+    {
+      "path": "cargo-octet/src/lib.rs",
+      "blake3": "4dccdc6114059f9e30b2a3d6586028f2a1da6dad9f2cefed6ab8db1745873c1b",
+      "historic_approved_blake3": "4dccdc6114059f9e30b2a3d6586028f2a1da6dad9f2cefed6ab8db1745873c1b"
+    },
+    {
+      "path": "cargo-octet/src/main.rs",
+      "blake3": "2b816ae70bb996a51abf5d90cd928a8958f63d16b86095abf7c983732d958cc4",
+      "historic_approved_blake3": "2b816ae70bb996a51abf5d90cd928a8958f63d16b86095abf7c983732d958cc4"
+    },
+    {
+      "path": "cargo-octet/src/migrate.rs",
+      "blake3": "19f0bc83b5d26125cbf5a8db50149afb0c8e4e44582729038be4a4cf3316fc6e",
+      "historic_approved_blake3": "19f0bc83b5d26125cbf5a8db50149afb0c8e4e44582729038be4a4cf3316fc6e"
+    },
+    {
+      "path": "cargo-octet/src/object.rs",
+      "blake3": "4bbd5ecc8d289dbac487cc2b5241c9b1e0d59aed8fdff6ebad947d0406da6c13",
+      "historic_approved_blake3": "4bbd5ecc8d289dbac487cc2b5241c9b1e0d59aed8fdff6ebad947d0406da6c13"
+    },
+    {
+      "path": "cargo-octet/src/output.rs",
+      "blake3": "0a6e45434306070b710597b7a613afbc0d99a968dfb2de02cf04ef80e8f3e832",
+      "historic_approved_blake3": "0a6e45434306070b710597b7a613afbc0d99a968dfb2de02cf04ef80e8f3e832"
+    },
+    {
+      "path": "cargo-octet/src/proof_ref.rs",
+      "blake3": "6f2203ce61c5b0db586f6aae163c718c7c786f64fd9ae704b20e68b1c9fddc33",
+      "historic_approved_blake3": "6f2203ce61c5b0db586f6aae163c718c7c786f64fd9ae704b20e68b1c9fddc33"
+    },
+    {
+      "path": "cargo-octet/src/provider_manifest.rs",
+      "blake3": "8d357d02cd795aa79d6f352c305b4d0d72332653367a3665231c2771a845ad92",
+      "historic_approved_blake3": "8d357d02cd795aa79d6f352c305b4d0d72332653367a3665231c2771a845ad92"
+    },
+    {
+      "path": "cargo-octet/src/roadmap.rs",
+      "blake3": "402e71508e77f36c9aa988a31e122ef4815d0f4887448bf99efb5ddc4a697dad",
+      "historic_approved_blake3": "402e71508e77f36c9aa988a31e122ef4815d0f4887448bf99efb5ddc4a697dad"
+    },
+    {
+      "path": "cargo-octet/src/transcript.rs",
+      "blake3": "1ea322c14e21dfde94daed5d09972c339e9a123206e7326bc959ab11c65f3cd9",
+      "historic_approved_blake3": "1ea322c14e21dfde94daed5d09972c339e9a123206e7326bc959ab11c65f3cd9"
+    },
+    {
+      "path": "cargo-octet/tests/fixtures/object-corpus/source-token-v2/src/lib.rs",
+      "blake3": "208621f8824deeccf145d9f4515187e035e81e1c0ce1033853458686bef514b6",
+      "historic_approved_blake3": "208621f8824deeccf145d9f4515187e035e81e1c0ce1033853458686bef514b6"
+    },
+    {
+      "path": "crates/octet-standards/src/architecture.rs",
+      "blake3": "c63befb9c5b5ae1ef542833ed8270461722784735a2ed442bd491471c578d77d",
+      "historic_approved_blake3": "c63befb9c5b5ae1ef542833ed8270461722784735a2ed442bd491471c578d77d"
+    },
+    {
+      "path": "crates/octet-standards/src/artifacts.rs",
+      "blake3": "a518101a08e0a3cee8198465707c8bf733962f3b789a1f83a35fc69dadf92ac1",
+      "historic_approved_blake3": "a518101a08e0a3cee8198465707c8bf733962f3b789a1f83a35fc69dadf92ac1"
+    },
+    {
+      "path": "crates/octet-standards/src/bin/slotcar-standards.rs",
+      "blake3": "b11df67b21a0558d08905f6b0bb7da7a7ec279a671e910369bfd3e31326a5106",
+      "historic_approved_blake3": "b11df67b21a0558d08905f6b0bb7da7a7ec279a671e910369bfd3e31326a5106"
+    },
+    {
+      "path": "crates/octet-standards/src/bin/tigerstyle-standards.rs",
+      "blake3": "fb8bdac9c61af094cde135a8c25647b713d055160b603e123956e0040609dc63",
+      "historic_approved_blake3": "fb8bdac9c61af094cde135a8c25647b713d055160b603e123956e0040609dc63"
+    },
+    {
+      "path": "crates/octet-standards/src/cli_shell.rs",
+      "blake3": "2e997abe810cb56f0a0f6565735c699c6fdcc571d90308d4852e75afd449370d",
+      "historic_approved_blake3": "2e997abe810cb56f0a0f6565735c699c6fdcc571d90308d4852e75afd449370d"
+    },
+    {
+      "path": "crates/octet-standards/src/diagnostic.rs",
+      "blake3": "76da9353b979c91e2ae428c0a0aaf14ccb99dd7987689fdcc97751b8cce45919",
+      "historic_approved_blake3": "76da9353b979c91e2ae428c0a0aaf14ccb99dd7987689fdcc97751b8cce45919"
+    },
+    {
+      "path": "crates/octet-standards/src/fixture.rs",
+      "blake3": "36557ac8b0063ec9b346194dfb6c9e32c01ffa5021b25e1f229684d14bad892e",
+      "historic_approved_blake3": "36557ac8b0063ec9b346194dfb6c9e32c01ffa5021b25e1f229684d14bad892e"
+    },
+    {
+      "path": "crates/octet-standards/src/lib.rs",
+      "blake3": "192e651221fe079aff668fea7ef1553e27c479c5b77f21feaca4e60acc7adae8",
+      "historic_approved_blake3": "192e651221fe079aff668fea7ef1553e27c479c5b77f21feaca4e60acc7adae8"
+    },
+    {
+      "path": "crates/octet-standards/src/main.rs",
+      "blake3": "3313ee618a615e742c56a3a5822d56146ed9f4369e95d237aba2f3eb3694ba56",
+      "historic_approved_blake3": "3313ee618a615e742c56a3a5822d56146ed9f4369e95d237aba2f3eb3694ba56"
+    },
+    {
+      "path": "crates/octet-standards/src/model.rs",
+      "blake3": "e47a70b1d26c34ac81838a22a23bf2b95485084fe18a3cee4dddcdbe12b505a8",
+      "historic_approved_blake3": "e47a70b1d26c34ac81838a22a23bf2b95485084fe18a3cee4dddcdbe12b505a8"
+    },
+    {
+      "path": "crates/octet-standards/src/proof.rs",
+      "blake3": "4adccf5720f9878fcbb4bdfc50050df8436f8770a014e77b47ae1c1b2fda1834",
+      "historic_approved_blake3": "4adccf5720f9878fcbb4bdfc50050df8436f8770a014e77b47ae1c1b2fda1834"
+    },
+    {
+      "path": "crates/octet-standards/src/receipt.rs",
+      "blake3": "6eede8f2db0981143775611d1d549928d1ff0722582876dd3ae81a6dfb566393",
+      "historic_approved_blake3": "6eede8f2db0981143775611d1d549928d1ff0722582876dd3ae81a6dfb566393"
+    },
+    {
+      "path": "crates/octet-standards/src/report.rs",
+      "blake3": "ba99bec11112234de886f05f51b210f31d88ce4726d548be97e064f38cef5834",
+      "historic_approved_blake3": "ba99bec11112234de886f05f51b210f31d88ce4726d548be97e064f38cef5834"
+    },
+    {
+      "path": "crates/octet-standards/src/resource.rs",
+      "blake3": "62829e1b9ad17af7ecca55aab823f980c6c671704d6a81cc39e5cce5ae65a19f",
+      "historic_approved_blake3": "62829e1b9ad17af7ecca55aab823f980c6c671704d6a81cc39e5cce5ae65a19f"
+    },
+    {
+      "path": "crates/octet-standards/src/runner.rs",
+      "blake3": "7430a4f11e59d6088ddc1db491683cf843dad0662c1e5df472d6a77d539c712b",
+      "historic_approved_blake3": "7430a4f11e59d6088ddc1db491683cf843dad0662c1e5df472d6a77d539c712b"
+    },
+    {
+      "path": "crates/octet-standards/src/source.rs",
+      "blake3": "16238c90045bf824902f1477d602cef79e0357f0643b1942a7ba9c8a4eff911b",
+      "historic_approved_blake3": "16238c90045bf824902f1477d602cef79e0357f0643b1942a7ba9c8a4eff911b"
+    },
+    {
+      "path": "crates/octet-standards/src/suppression.rs",
+      "blake3": "4984388719b0ddc3e36cd01835c88754cff071ca661911972e3af27c42a59a5a",
+      "historic_approved_blake3": "4984388719b0ddc3e36cd01835c88754cff071ca661911972e3af27c42a59a5a"
+    }
+  ],
+  "selected_source_count": 37,
+  "original_authority": {
+    "candidate_blake3": "6d79a8b09c4e7dd20236f4a141c01d6c18b793df7aad93e8ee4ec1d7fb83b221",
+    "reviewed_blake3": "2f420d0464e67a8b6ae518e7215eefd1ba8afc47d1849c07afedf284f196da29",
+    "archived_owner_note_blake3": "a86d4c22740d4ea0427285d62133c8434dc77c3d144403902f276031836abcae",
+    "historic_approved_reference_hashes": [
+      {
+        "path": "cargo-octet/tests/fixtures/object-corpus/source-token-v2/expanded-internal-corpus-caveat-taxonomy.json",
+        "blake3": "9b91725e693c002b530833a94be113d5830d9c894e8301ccecb2b117bc3c65e1",
+        "object_count": 1258
+      },
+      {
+        "path": "cargo-octet/tests/fixtures/object-corpus/source-token-v2/expanded-internal-corpus-receipt.json",
+        "blake3": "d90b7ddf31362ac7aa5d47844b9cb312bd02554b6862af6d517a25050854ddf5",
+        "object_count": 1258
+      },
+      {
+        "path": "cargo-octet/tests/fixtures/object-corpus/source-token-v2/internal-corpus-receipt.json",
+        "blake3": "dbc8c92c0c10055aa135e09d85802fc1a9e0d4985929710ea4d893daedb04bb6",
+        "object_count": 795
+      },
+      {
+        "path": "cargo-octet/tests/fixtures/object-corpus/source-token-v2/positive-v2-receipt.json",
+        "blake3": "66557c8db7562520241f65748e81d8d1b838554d87628acdf427d5e0341a9519",
+        "object_count": 1
+      }
+    ],
+    "immutable_valence_revision": "7546a78b4eeef8686c6837e187aa12420f4f03bb",
+    "immutable_valence_module_blake3": "11f0f4233aaf3153966f6aa37de570c2dcd0e75335591934461ae2b25ab3ecb1"
+  },
+  "proposed_references": [
+    {
+      "role": "positive",
+      "path": ".cairn/changes/harden-boolean-api-modeling/evidence/unapproved-h2-independent-20261002-positive.json",
+      "blake3": "66557c8db7562520241f65748e81d8d1b838554d87628acdf427d5e0341a9519",
+      "bytes": 1324,
+      "object_count": 1,
+      "pure_cache_blocked_count": 1,
+      "object_set_hash": "b3:aed3209d88840b3c484c3c8ba57aeff8d9fff993026af485e6c07ee18e4c43d2",
+      "identical_to_historical_reference": true,
+      "claims_correctness": false,
+      "claims_semantic_equivalence": false
+    },
+    {
+      "role": "internal",
+      "path": ".cairn/changes/harden-boolean-api-modeling/evidence/unapproved-h2-independent-20261002-internal.json",
+      "blake3": "126182b2db5d5b893f1784a198e60b1be14a02bd227d7474341a84bc1199b91b",
+      "bytes": 2694,
+      "object_count": 794,
+      "pure_cache_blocked_count": 794,
+      "object_set_hash": "b3:766db509fddeb74e16c65a67fab7ba98bbc03b3417056a101134d7c773d9fd7f",
+      "identical_to_historical_reference": false,
+      "claims_correctness": false,
+      "claims_semantic_equivalence": false
+    },
+    {
+      "role": "expanded",
+      "path": ".cairn/changes/harden-boolean-api-modeling/evidence/unapproved-h2-independent-20261002-expanded.json",
+      "blake3": "2232babd9a70501adb733e2396a93c7baf22108f32a6cba1dcf4bc304da3e3bf",
+      "bytes": 4243,
+      "object_count": 1257,
+      "pure_cache_blocked_count": 1257,
+      "object_set_hash": "b3:71f751ce1e4289f0d27786a0dd0206118a81cb88939a1f7a679b138ef23290ba",
+      "identical_to_historical_reference": false,
+      "claims_correctness": false,
+      "claims_semantic_equivalence": false
+    },
+    {
+      "role": "taxonomy",
+      "path": ".cairn/changes/harden-boolean-api-modeling/evidence/unapproved-h2-independent-20261002-taxonomy.json",
+      "blake3": "693e4e87022639b15a451174818e2874c0e055fb3c4f545a483a272aface39d0",
+      "bytes": 29835,
+      "object_count": 1257,
+      "pure_cache_blocked_count": 1257,
+      "object_set_hash": null,
+      "identical_to_historical_reference": false,
+      "claims_correctness": false,
+      "claims_semantic_equivalence": false
+    }
+  ],
+  "producer": {
+    "tool": "cargo-octet 0.1.0",
+    "executable_blake3": "67af32f7b6054bd7edfcf3eeb9ca95c33f57c251936ef5811deeb49e42d7e84a",
+    "reads_current_selected_source_paths": true,
+    "existing_executable_predates_uncommitted_engine_fix": true,
+    "not_independently_source_to_binary_attested": true,
+    "prior_operator_local_reported_executable_blake3": "751031dc7949cec1acb21a528c8a9d4c68a3417f940e93b576d33fdf8ce015c4",
+    "prior_executable_bytes_not_independently_reverified": true
+  },
+  "review": {
+    "source_diff": "engine.rs retains strict Boolean baseline rejection and deletes the tautological REQUIRED_EMBEDDED_PATHS constant plus path-list/file-existence test under the no-wiring-test rule; the unique-relative embedded path security invariant stays. evidence_rails.rs uses named Kani outcomes and borrowed advisory input, retaining field-to-condition mappings, precedence, diagnostics, and receipt shape.",
+    "source_root_closure": "All sorted repo-relative fixed/internal/expanded 1/18/36 selections have an exact 37-file union; all paths physically resolve under the checkout without traversal or symlink escape. Pre- and post-emission hashes match: 35 historical byte matches; engine.rs current 4d487f1a50f5f87589a3804dff2b1afacab7536a919aa02fa91713d4815f995a and evidence_rails.rs current c87d556705947e506f95df58b90af7b19e9a8663ed79f622735abb02dd75951b drift.",
+    "artifact_comparison": "Four adjacent files contain actual freshly emitted source-backed JSON bytes. Fixed positive is regenerated from the historical fixture-local src/lib.rs path and byte-identical to its immutable reference; internal, expanded and taxonomy differ. Observed object counts are 1/794/1257/1257, all pure-cache blocked. Expanded taxonomy has 36 source buckets and per-category bucket sums exactly match aggregates and expanded receipt caveats. Three new receipt self-replays matched all eight comparison fields; self-replay cannot replace independent reference approval.",
+    "taxonomy_effect_shift": "Relative to the prior UNAPPROVED path-list-test proposal, deleting one engine test function changes engine object count 59->58 and total internal/expanded counts 795->794 and 1258->1257. Engine effect_kind panic 9->8 and expanded aggregate panic 158->157; engine effect_summary 36 and expanded aggregate effect_summary 1054 remain unchanged. The new internal/expanded object-set hashes and taxonomy bytes must be individually reviewed and owner-bound, not described as byte-identical.",
+    "limitations": "The directly hashed existing executable predates the latest uncommitted engine source change; no new independently attested clean source-to-binary build. Strict source owner reports a separate focused test and real emitted-bundle runtime smoke, not a full build/gate or owner H2 approval. Prior operator-local executable bytes remain unavailable for independent verification. Selected source bytes and output JSON were rehashed after emission, but this packet has no new external owner approval/frozen manifest or source-bound gate PASS; historic H2 references and owner authority apply ONLY to old source hashes. Compiled producer modules outside 37 selected source files remain out of scope.",
+    "recommendation": "Eligible for external owner consideration of exact 37 new source-file identities and four adjacent proposal-byte hashes/counts, explicitly including changed expanded taxonomy caveats. This packet neither signs/approves nor selects/replaces references, authorizes archive, or changes the H2 FAIL/BLOCKED status. External owner must explicitly approve enumerated NEW scope and externally freeze new candidate/reviewed/decision anchors before verifier/gate changes."
+  }
+}

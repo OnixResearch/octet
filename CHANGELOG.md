@@ -34,6 +34,11 @@ For rollout profiles, see `docs/downstream-rollout.md`.
   and output errors instead of panicking while retaining generated source bytes;
   its two narrowly attributed ambient-environment expectations cover Cargo's
   execution-time manifest and output directory variables only.
+- The `octet-architecture-ir` compilation-unit, span, fact, unknown, shard,
+  coverage, IR, and receipt `*_identity` APIs return `Result<String, String>`
+  rather than `String`. Collection propagates serialization failures, and
+  artifact and architecture-gate consumers reject them instead of accepting a
+  missing or fabricated identity.
 
 ## Unreleased: reviewed Valence source-token-v2 pin and source-bound object rails
 

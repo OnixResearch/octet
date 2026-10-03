@@ -190,7 +190,7 @@ in
     {
       family_id = "octet.compiler-architecture-collector-context",
       ownership = "rust-derived",
-      owner_source_path = "crates/octet-architecture-ir/src/model.rs",
+      owner_source_path = "crates/octet-architecture-ir/src/model/records.rs",
       artifact_path = ".octet/compiler-architecture/collector-context.json",
       generation_command = "cargo octet check --artifact-dir PATH",
       validation_command = "cargo test -p octet-architecture-ir --lib",
@@ -202,7 +202,7 @@ in
     {
       family_id = "octet.compiler-architecture-ir-receipt",
       ownership = "rust-derived",
-      owner_source_path = "crates/octet-architecture-ir/src/model.rs",
+      owner_source_path = "crates/octet-architecture-ir/src/model/records.rs",
       artifact_path = "compiler-architecture-receipt.json",
       generation_command = "cargo octet check --artifact-dir PATH",
       validation_command = "cargo test -p octet-architecture-ir --lib",
@@ -232,8 +232,8 @@ in
       validation_command = "nix build .#checks.x86_64-linux.strict-profile-catalog --no-link -L",
       status = "existing",
       config_digest_required = true,
-      positive_fixtures = ["standards/strict-profiles/profiles.ncl", "standards/strict-profiles/fixtures/valid/minimum.ncl", "crates/octet-lint-metadata/src/strict_profile.rs::embedded_catalog_accepts_every_shipped_profile"],
-      negative_fixtures = ["standards/strict-profiles/fixtures/invalid/bad_function_address_mode.ncl", "standards/strict-profiles/fixtures/invalid/empty_non_claims.ncl", "crates/octet-lint-metadata/src/strict_profile.rs::malformed_catalog_reports_duplicate_unknown_and_scope_errors"],
+      positive_fixtures = ["standards/strict-profiles/profiles.ncl", "standards/strict-profiles/fixtures/valid/minimum.ncl", "crates/octet-lint-metadata/src/strict_profile/mod.rs::embedded_catalog_accepts_every_shipped_profile"],
+      negative_fixtures = ["standards/strict-profiles/fixtures/invalid/bad_function_address_mode.ncl", "standards/strict-profiles/fixtures/invalid/empty_non_claims.ncl", "crates/octet-lint-metadata/src/strict_profile/mod.rs::malformed_catalog_reports_duplicate_unknown_and_scope_errors"],
     },
     {
       family_id = "octet.nominal-domain-policy-config",

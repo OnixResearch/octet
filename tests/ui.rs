@@ -647,7 +647,8 @@ fn run_compiler_architecture_target(
         source_blake3: COMPILER_FIXTURE_HASH.to_owned(),
         invocation_blake3: COMPILER_FIXTURE_HASH.to_owned(),
     };
-    unit.unit_id = octet_architecture_ir::compilation_unit_identity(&unit);
+    unit.unit_id = octet_architecture_ir::compilation_unit_identity(&unit)
+        .expect("serialize compiler fixture compilation unit identity");
     let context = CompilerArchitectureCollectorContext {
         schema_version: octet_architecture_ir::COMPILER_ARCHITECTURE_COLLECTOR_CONTEXT_SCHEMA_VERSION.to_owned(),
         workspace_root: root.display().to_string(),

@@ -774,26 +774,79 @@ fn validate_cargo_inputs(
     );
 }
 
+struct CompilerIdentityCheck<'a> {
+    prerequisite: bool,
+    observed: &'a str,
+    code: &'a str,
+    message: &'a str,
+}
+
+fn require_compiler_identity(
+    findings: &mut Vec<ProjectArchitectureFinding>,
+    source_identity: &str,
+    check: CompilerIdentityCheck<'_>,
+    identity: impl FnOnce() -> Result<String, String>,
+) {
+    if !check.prerequisite {
+        require_input(findings, source_identity, false, check.code, check.message);
+        return;
+    }
+    match identity() {
+        Ok(expected) => require_input(findings, source_identity, check.observed == expected, check.code, check.message),
+        Err(error) => require_input(
+            findings,
+            source_identity,
+            false,
+            check.code,
+            &format!("{}: identity serialization failed: {error}", check.message),
+        ),
+    }
+}
+
 fn validate_compiler_inputs(
     input: &ProjectArchitectureGateInput<'_>,
     source_identity: &str,
     findings: &mut Vec<ProjectArchitectureFinding>,
 ) {
     let unit_ids = sorted_dedup(input.architecture_ir.units.iter().map(|unit| unit.unit_id.clone()).collect());
+    require_compiler_identity(
+        findings,
+        source_identity,
+        CompilerIdentityCheck {
+            prerequisite: input.architecture_ir.schema_version
+                == octet_architecture_ir::COMPILER_ARCHITECTURE_IR_SCHEMA_VERSION,
+            observed: &input.architecture_ir.architecture_ir_id,
+            code: "compiler-ir-identity",
+            message: "compiler Architecture IR schema or identity is invalid",
+        },
+        || octet_architecture_ir::ir_identity(input.architecture_ir),
+    );
+    require_compiler_identity(
+        findings,
+        source_identity,
+        CompilerIdentityCheck {
+            prerequisite: input.coverage.schema_version
+                == octet_architecture_ir::COMPILER_ARCHITECTURE_COVERAGE_SCHEMA_VERSION,
+            observed: &input.coverage.coverage_id,
+            code: "compiler-coverage-identity",
+            message: "compiler coverage schema or identity is invalid",
+        },
+        || octet_architecture_ir::coverage_identity(input.coverage),
+    );
+    require_compiler_identity(
+        findings,
+        source_identity,
+        CompilerIdentityCheck {
+            prerequisite: input.compiler_receipt.schema_version
+                == octet_architecture_ir::COMPILER_ARCHITECTURE_RECEIPT_SCHEMA_VERSION
+                && input.compiler_receipt.issue_ids.is_empty(),
+            observed: &input.compiler_receipt.receipt_id,
+            code: "compiler-receipt-identity",
+            message: "compiler collection receipt schema, identity, or issues are invalid",
+        },
+        || octet_architecture_ir::receipt_identity(input.compiler_receipt),
+    );
     let checks = [
-        (
-            input.architecture_ir.schema_version == octet_architecture_ir::COMPILER_ARCHITECTURE_IR_SCHEMA_VERSION
-                && input.architecture_ir.architecture_ir_id
-                    == octet_architecture_ir::ir_identity(input.architecture_ir),
-            "compiler-ir-identity",
-            "compiler Architecture IR schema or identity is invalid",
-        ),
-        (
-            input.coverage.schema_version == octet_architecture_ir::COMPILER_ARCHITECTURE_COVERAGE_SCHEMA_VERSION
-                && input.coverage.coverage_id == octet_architecture_ir::coverage_identity(input.coverage),
-            "compiler-coverage-identity",
-            "compiler coverage schema or identity is invalid",
-        ),
         (
             input.coverage.expected_unit_ids == unit_ids
                 && input.coverage.observed_unit_ids == unit_ids
@@ -803,14 +856,6 @@ fn validate_compiler_inputs(
                 && input.coverage.invalid_shard_ids.is_empty(),
             "compiler-unit-coverage",
             "compiler coverage does not cover the complete IR unit set",
-        ),
-        (
-            input.compiler_receipt.schema_version
-                == octet_architecture_ir::COMPILER_ARCHITECTURE_RECEIPT_SCHEMA_VERSION
-                && input.compiler_receipt.receipt_id == octet_architecture_ir::receipt_identity(input.compiler_receipt)
-                && input.compiler_receipt.issue_ids.is_empty(),
-            "compiler-receipt-identity",
-            "compiler collection receipt schema, identity, or issues are invalid",
         ),
         (
             !input.policy_source_blake3.trim().is_empty(),
@@ -2514,7 +2559,7 @@ mod tests {
         test.target_kind = "test+test".to_owned();
         test.source_path = "crates/domain/tests/contract.rs".to_owned();
         test.crate_types = vec!["bin".to_owned()];
-        test.unit_id = octet_architecture_ir::compilation_unit_identity(&test);
+        test.unit_id = octet_architecture_ir::compilation_unit_identity(&test).expect("test unit identity");
         fixture.ir.units.push(test.clone());
         fixture.ir.unit_memberships.push(octet_architecture_ir::UnitFactMembership {
             unit_id: test.unit_id.clone(),
@@ -2529,7 +2574,7 @@ mod tests {
         for kind in ["lib", "lib+test", "bin+test", "test"] {
             let last = fixture.ir.units.last_mut().expect("test unit");
             last.target_kind = kind.to_owned();
-            last.unit_id = octet_architecture_ir::compilation_unit_identity(last);
+            last.unit_id = octet_architecture_ir::compilation_unit_identity(last).expect("test unit identity");
             fixture.ir.unit_memberships.last_mut().expect("test row").unit_id = last.unit_id.clone();
             assert!(
                 fixture.evaluate(None).findings.iter().any(|finding| finding.code == "unit-role-mismatch"),
@@ -2539,7 +2584,7 @@ mod tests {
         *fixture.ir.units.last_mut().expect("test unit") = test;
         let last = fixture.ir.units.last_mut().expect("test unit");
         last.source_path = "crates/domain/src/lib.rs".to_owned();
-        last.unit_id = octet_architecture_ir::compilation_unit_identity(last);
+        last.unit_id = octet_architecture_ir::compilation_unit_identity(last).expect("test unit identity");
         fixture.ir.unit_memberships.last_mut().expect("test row").unit_id = last.unit_id.clone();
         assert!(fixture.evaluate(None).findings.iter().any(|finding| finding.code == "unit-role-mismatch"));
     }
@@ -2552,7 +2597,7 @@ mod tests {
             let domain = fixture.ir.units.iter_mut().find(|unit| unit.package_name == "domain").expect("domain");
             let previous = domain.unit_id.clone();
             domain.target_kind = kind.to_owned();
-            domain.unit_id = octet_architecture_ir::compilation_unit_identity(domain);
+            domain.unit_id = octet_architecture_ir::compilation_unit_identity(domain).expect("test unit identity");
             fixture
                 .ir
                 .unit_memberships
@@ -3257,7 +3302,7 @@ mod tests {
                 row.fact_ids = sorted_dedup(std::mem::take(&mut row.fact_ids));
                 row.unknown_ids = sorted_dedup(std::mem::take(&mut row.unknown_ids));
             }
-            ir.architecture_ir_id = octet_architecture_ir::ir_identity(&ir);
+            ir.architecture_ir_id = octet_architecture_ir::ir_identity(&ir).expect("test IR identity");
             ir
         }
 
@@ -3274,11 +3319,12 @@ mod tests {
             let mut coverage = self.coverage.clone();
             coverage.expected_unit_ids = sorted_dedup(ir.units.iter().map(|unit| unit.unit_id.clone()).collect());
             coverage.observed_unit_ids = coverage.expected_unit_ids.clone();
-            coverage.coverage_id = octet_architecture_ir::coverage_identity(&coverage);
+            coverage.coverage_id = octet_architecture_ir::coverage_identity(&coverage).expect("test coverage identity");
             let mut compiler_receipt = self.compiler_receipt.clone();
             compiler_receipt.architecture_ir_id = Some(ir.architecture_ir_id.clone());
             compiler_receipt.coverage_id = coverage.coverage_id.clone();
-            compiler_receipt.receipt_id = octet_architecture_ir::receipt_identity(&compiler_receipt);
+            compiler_receipt.receipt_id =
+                octet_architecture_ir::receipt_identity(&compiler_receipt).expect("test receipt identity");
             evaluate_project_architecture(&ProjectArchitectureGateInput {
                 policy: &self.policy,
                 policy_source_blake3: HASH_C,
@@ -3536,7 +3582,7 @@ mod tests {
                 span_id: Some(span.span_id.clone()),
                 detail: "dynamic target is unresolved".to_owned(),
             };
-            unknown.unknown_id = octet_architecture_ir::unknown_fact_identity(&unknown);
+            unknown.unknown_id = octet_architecture_ir::unknown_fact_identity(&unknown).expect("test unknown identity");
             self.add_unit_facts("domain", vec![span], vec![item], vec![unknown]);
         }
 
@@ -3684,7 +3730,7 @@ mod tests {
             source_blake3: octet_architecture_ir::canonical_identity("fixture-source", &package).expect("source id"),
             invocation_blake3: HASH_B.to_owned(),
         };
-        unit.unit_id = octet_architecture_ir::compilation_unit_identity(&unit);
+        unit.unit_id = octet_architecture_ir::compilation_unit_identity(&unit).expect("test unit identity");
         unit
     }
 
@@ -3700,7 +3746,7 @@ mod tests {
             column_start: 1,
             from_expansion: false,
         };
-        span.span_id = octet_architecture_ir::source_span_identity(&span);
+        span.span_id = octet_architecture_ir::source_span_identity(&span).expect("test span identity");
         span
     }
 
@@ -4015,7 +4061,7 @@ mod tests {
     }
 
     fn set_fact_id(fact: &mut CompilerArchitectureFact) {
-        let identity = octet_architecture_ir::fact_identity(fact);
+        let identity = octet_architecture_ir::fact_identity(fact).expect("test fact identity");
         match fact {
             CompilerArchitectureFact::Module { fact_id, .. }
             | CompilerArchitectureFact::Item { fact_id, .. }

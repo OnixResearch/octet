@@ -70,27 +70,36 @@ remain outside this change's boolean-API scope. The separate guard checks
 attempts to suppress either boolean-API lint rather than treating a blanket
 `allow` as a migration.
 
-The [H2 source-bound drift record](../.cairn/changes/harden-boolean-api-modeling/evidence/h2-source-drift-blocker.txt)
-identifies the two necessary changed frozen files, their approved and current
-hashes, and the three failing object-corpus freshness tests. The other 35
-frozen files, including `cargo-octet/src/config.rs` and the restored
-`cargo-octet/src/cli.rs`, still match their approved hashes. Historical H2
-manifest, receipts, and owner note remain untouched; a new independent
-source/reference review and externally frozen approval are required before
-current-source admission. A clean two-lint compiler inventory is not that
-approval or a passing full workspace test suite.
+The [historical H2 source-bound drift record](../.cairn/changes/harden-boolean-api-modeling/evidence/h2-source-drift-blocker.txt)
+records the earlier engine/evidence-rails source drift, then-current hashes,
+and three failing object-corpus freshness tests. Its engine hash predates the
+subsequent required embedded-metadata-path correction and is **not current**.
+At that earlier snapshot the other 35 frozen files, including
+`cargo-octet/src/config.rs` and the restored `cargo-octet/src/cli.rs`,
+matched approved hashes. Historical H2 manifest, receipts, and owner note
+remain untouched; new independent source/reference review and externally
+frozen approval are required before current-source admission. A clean
+two-lint compiler inventory is not that approval or a passing full
+workspace test suite.
 The earlier targeted local-only Nix `object-corpus-gate` child rejected
-`selected source byte drift: cargo-octet/src/engine.rs`
-(see [bounded H2 drift note](../.cairn/changes/harden-boolean-api-modeling/evidence/h2-source-drift-blocker.txt);
-raw output is operator-local, not publicly accessible);
-the planner identity source is outside the H2 selected paths. Neither the
+`selected source byte drift: cargo-octet/src/engine.rs`. The
+[bounded H2 drift note](../.cairn/changes/harden-boolean-api-modeling/evidence/h2-source-drift-blocker.txt)
+records that failure; raw output is operator-local, not publicly accessible.
+The planner identity source is outside the H2 selected paths. Neither the
 original reviewed manifest nor its receipts, owner approval, or freshness
-tests were repinned. The [unapproved current-source review](../.cairn/changes/harden-boolean-api-modeling/evidence/unapproved-h2-current-source-review-20261002.txt)
-compares all 37 selected source files (35 match; `engine.rs` and
-`evidence_rails.rs` drift). The [unapproved proposed-corpus packet](../.cairn/changes/harden-boolean-api-modeling/evidence/unapproved-h2-proposed-corpus-artifacts-20261002.txt)
-records scratch positive/internal/expanded/taxonomy outputs and same-producer
-replay, not a new frozen reference or independent owner approval. Current H2
-admission remains **FAIL/BLOCKED**; neither packet authorizes archive.
+tests were repinned. Older unapproved source/scratch packets and the
+intermediate path-list-test proposal bind superseded engine bytes; their
+internal/expanded/taxonomy hashes are stale. The [current independent UNAPPROVED review packet](../.cairn/changes/harden-boolean-api-modeling/evidence/unapproved-h2-independent-20261002-review.json)
+binds 37 current selected source hashes (35 historical matches; changed
+`engine.rs` and `evidence_rails.rs`) and points to four adjacent proposed
+JSON outputs with object counts 1/794/1257/1257. Fixed positive bytes match
+the old reference; internal, expanded, and taxonomy outputs differ.
+Removing the incidental path-list test changes the engine panic caveat
+bucket from 9 to 8 and the expanded panic aggregate from 158 to 157
+relative to that intermediate proposal; effect-summary counts remain
+36 and 1054 respectively. This proposal is not a source-to-binary
+attested clean build, new owner approval, frozen binding, or gate PASS.
+Current H2 admission remains **FAIL/BLOCKED**; no archive is authorized.
 
 The former `alias_bins` (full pinned all-targets hook) and `build-script-build`
 (robust workspace) missing-source-role errors were **historical**, not
@@ -100,25 +109,52 @@ current blockers. Target-root roles are now explicit in the
 and [export manifest](../standards/project-architecture/octet-self-architecture.manifest.json).
 The strict `cargo-octet/build.rs` proof found byte-identical generated source
 and rerun directives and checked that failure paths return errors rather than
-panic. No source-role fallback or cap increase was introduced.
+panic. No source-role fallback was introduced.
 
-The current full pinned deny-all hook
-(`--profile robust --workspace -- --all-targets`) instead exits 2 when its
-39 selected compiler-architecture units exceed unchanged `max_units=32`.
-The real robust `--workspace` run reaches lint evaluation and reports 108
-unrelated preexisting strict architecture-IR/metadata findings
-(raw output is operator-local, not publicly accessible). The earlier
-23-pedantic-error Clippy report was also
-historical: the current local-only `nix flake check -L` exits 1 with two
-observed `clippy::too_many_lines` errors at
+The previously run full pinned deny-all hook
+(`--profile robust --workspace -- --all-targets`) exited 2 when its 39
+selected compiler-architecture units exceeded the former `max_units=32`.
+The authored self-policy now explicitly pairs `max_units=max_shards=48`;
+the other limits remain unchanged, including 64 MiB per shard and 256 MiB
+for the assembled IR. Pinned Nickel 1.17.0 typecheck/export and independent
+generated JSON/manifest byte comparisons passed. A throwaway normalizer
+probe using the generated limits admitted 39 and 48 expected units without
+a unit-limit overflow and reported a unit-limit overflow for 49; without
+shards these probes have incomplete coverage, not gate PASS. The authored
+source BLAKE3 is `0ba968dcea3178687c0fc916c2a5dda32ce5e80ee96b953f3a26da1b425cb96f`;
+the exported JSON BLAKE3 is
+`46f6a1ce0a1e27adc2dcc04c510be38f836aba4002780a2f83dc648158c5dff5`.
+The 48-shard theoretical disk/ingestion bound is 3 GiB before in-memory
+deserialization/cloning overhead. No new all-targets gate result is claimed:
+owner-reported shared ZFS logical free space varied around 1.3–1.8 GiB
+(latest architecture-owner sample 1,536,688,128 bytes). Snapshot-retained
+deleted generated cache does not immediately release the needed space, and
+the full-hook dry-run selected four uncached derivations. Avoid heavy
+all-targets/flake runs until capacity is safe; their current outcome is
+**UNKNOWN**, not PASS.
+
+The previously run real robust `--workspace` check reached lint evaluation
+and reported 108 strict architecture-IR/metadata findings; that is
+**historical**, not a statement of current scoped debt (raw output is
+operator-local). Later separate package-level robust Dylint checks report
+zero findings for each of architecture-IR and metadata, not a whole-workspace
+rerun. Metadata tests passed 14 unit + 2 integration, architecture-IR
+33 unit tests passed before the final source split and two targeted tests
+passed afterward; the real collector compiler fixture passed 1/1. The
+earlier 23-pedantic-error report was historical too. A previously run
+local-only `nix flake check -L` exited 1 with two observed
+`clippy::too_many_lines` errors at
 `crates/octet-architecture-ir/src/contract.rs:9` and `core.rs:96`
-(raw output is operator-local, not publicly accessible). It evaluated 74
-checks but realized only 32: this is
-**not** an aggregate PASS or evidence that the remaining checks pass.
-The [bounded current-source focused checks](../.cairn/changes/harden-boolean-api-modeling/evidence/boolean-focused-current-source-check-20261002.txt)
-cover unit, real UI/snapshot, metadata/profile, Clippy co-reporting,
-compiler-fixture and selected-consumer migration paths; they do not override
-these gate failures or authorize a Boolean-API finding baseline.
+(raw output is operator-local, not publicly accessible). Those functions
+were refactored; subsequent scoped pedantic Clippy passed after the final
+source split, while full release-pedantic/aggregate Clippy has **not** been
+rerun. The old flake evaluated 74 checks and realized only 32; it was
+**not** an aggregate PASS or evidence for later checks.
+The [public-safe scoped post-publication WIP receipt](../.cairn/changes/harden-boolean-api-modeling/evidence/boolean-scoped-current-source-20261002.txt)
+records exact exercised subcommands, owner-reported outputs and chronology.
+The [earlier focused Boolean receipt](../.cairn/changes/harden-boolean-api-modeling/evidence/boolean-focused-current-source-check-20261002.txt)
+remains historical after the engine source correction. Neither permits a
+Boolean-API finding baseline or asserts full deny-all activation.
 
 ## Same-callable Clippy co-report
 

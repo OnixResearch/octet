@@ -1,4 +1,8 @@
 UNAPPROVED — NOT H2 EVIDENCE
+HISTORICAL SOURCE SNAPSHOT: this packet binds the pre-embedded-path-fix
+engine.rs hash b8a5235e…, not the later corrected source. Do not cite its
+source hashes as current; a separate independent packet requires regeneration
+after source freeze. H2 remains FAIL/BLOCKED.
 Current-source review packet, 2026-10-02; isolated Octet base b65337f1cd3ce130afb3dd76415b665e91cfd191.
 This is an independent READ-ONLY comparison and a proposed review procedure, not an owner decision, external signature, frozen replacement binding, accepted receipt, or PASS. Current H2 source admission: FAIL/BLOCKED. The Boolean change cannot be archived or represented as current-source approved on this packet.
 

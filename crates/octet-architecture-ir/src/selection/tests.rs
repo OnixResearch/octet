@@ -11,7 +11,7 @@ fn selected(test_configuration: bool) -> CollectorCompilationUnit {
         unit.target_kind = "lib+test".to_owned();
         unit.crate_types = vec!["bin".to_owned()];
     }
-    unit.unit_id = crate::compilation_unit_identity(&unit);
+    unit.unit_id = crate::compilation_unit_identity(&unit).expect("test unit identity");
     CollectorCompilationUnit {
         rustc_crate_name: "fixture".to_owned(),
         manifest_dir: "crates/fixture".to_owned(),
@@ -53,7 +53,7 @@ fn same_name_binary_and_library_match_source_roots() {
     binary.source_path = "crates/fixture/src/main.rs".to_owned();
     binary.unit.source_path = binary.source_path.clone();
     binary.unit.target_kind = "bin".to_owned();
-    binary.unit.unit_id = crate::compilation_unit_identity(&binary.unit);
+    binary.unit.unit_id = crate::compilation_unit_identity(&binary.unit).expect("test unit identity");
     let units = vec![library, binary.clone()];
     assert_eq!(validate_collector_units(&units), Ok(()));
     assert_eq!(select_compilation_unit(&units, &observation(&binary)), Ok(Some(&units[1])));
@@ -112,21 +112,21 @@ fn resealed_root_drift_and_test_promotion_are_invalid_context() {
     let normal = selected(false);
     let mut drift = normal.clone();
     drift.unit.source_path = "tests/unobserved.rs".to_owned();
-    drift.unit.unit_id = crate::compilation_unit_identity(&drift.unit);
+    drift.unit.unit_id = crate::compilation_unit_identity(&drift.unit).expect("test unit identity");
     assert_eq!(select_compilation_unit(&[drift], &observation(&normal)), Err(UnitSelectionError::InvalidContext));
     for kind in ["lib", "lib+test", "bin+test"] {
         let mut forged = selected(kind.ends_with("+test"));
         forged.unit.target_kind = kind.to_owned();
         forged.unit.role = crate::CompilerArchitectureRole::Test;
         forged.source_roles[0].role = crate::CompilerArchitectureRole::Test;
-        forged.unit.unit_id = crate::compilation_unit_identity(&forged.unit);
+        forged.unit.unit_id = crate::compilation_unit_identity(&forged.unit).expect("test unit identity");
         assert_eq!(validate_collector_units(&[forged]), Err(UnitSelectionError::InvalidContext));
     }
     let mut test = selected(true);
     test.unit.target_kind = "test+test".to_owned();
     test.unit.role = crate::CompilerArchitectureRole::Test;
     test.source_roles[0].role = crate::CompilerArchitectureRole::Test;
-    test.unit.unit_id = crate::compilation_unit_identity(&test.unit);
+    test.unit.unit_id = crate::compilation_unit_identity(&test.unit).expect("test unit identity");
     assert_eq!(validate_collector_units(&[test.clone()]), Ok(()));
     test.test_configuration = false;
     assert_eq!(validate_collector_units(&[test]), Err(UnitSelectionError::InvalidContext));

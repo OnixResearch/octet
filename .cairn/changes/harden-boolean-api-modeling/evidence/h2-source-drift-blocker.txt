@@ -1,4 +1,8 @@
 Current-source H2 approval blocker (Boolean API change; isolated Octet worktree)
+HISTORICAL SOURCE SNAPSHOT: this note predates the required
+`cargo-octet/src/engine.rs` embedded-metadata-path correction. Its b8a5235e…
+engine hash is not the current source hash; preserve this observed old drift
+as history, not as a current H2 receipt. Current H2 remains FAIL/BLOCKED.
 
 Frozen reference: cargo-octet/tests/fixtures/object-corpus/source-token-v2/reviewed-source-manifest.json. Independently frozen approved reviewed-manifest BLAKE3: 2f420d0464e67a8b6ae518e7215eefd1ba8afc47d1849c07afedf284f196da29 (candidate 6d79a8b09c4e7dd20236f4a141c01d6c18b793df7aad93e8ee4ec1d7fb83b221); archived H2 owner evidence note BLAKE3 a86d4c22740d4ea0427285d62133c8434dc77c3d144403902f276031836abcae. The four saved reference receipts/taxonomy, reviewed manifest, and archived approval note remain unmodified.
 

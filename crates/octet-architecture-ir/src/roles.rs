@@ -1,8 +1,5 @@
 //! Pure role selection from explicit policy and a Cargo-selected target root.
 
-use crate::CompilerArchitectureRole;
-use crate::SourceRoleScope;
-
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum UnitRoleError {
     InvalidSourceRoot,
@@ -35,16 +32,18 @@ impl std::error::Error for UnitRoleError {}
 /// with the package role outside the independent integration-test exception.
 // r[impl octet.project_architecture_gate.test_ownership]
 pub fn select_compilation_unit_role(
-    package_role: CompilerArchitectureRole,
+    package_role: crate::CompilerArchitectureRole,
     target_kind: &str,
     source_path: &str,
-    source_roles: &[SourceRoleScope],
-) -> Result<CompilerArchitectureRole, UnitRoleError> {
-    if matches!(package_role, CompilerArchitectureRole::Test | CompilerArchitectureRole::Generated) {
+    source_roles: &[crate::SourceRoleScope],
+) -> Result<crate::CompilerArchitectureRole, UnitRoleError> {
+    if matches!(package_role, crate::CompilerArchitectureRole::Test | crate::CompilerArchitectureRole::Generated) {
         return Err(UnitRoleError::InvalidPackageRole);
     }
     let source_role = root_role(source_path, source_roles)?;
-    if source_role == package_role || (source_role == CompilerArchitectureRole::Test && target_kind == "test+test") {
+    if source_role == package_role
+        || (source_role == crate::CompilerArchitectureRole::Test && target_kind == "test+test")
+    {
         Ok(source_role)
     } else {
         Err(UnitRoleError::ConflictingSourceRole)
@@ -53,8 +52,8 @@ pub fn select_compilation_unit_role(
 
 pub(crate) fn root_role(
     source_path: &str,
-    source_roles: &[SourceRoleScope],
-) -> Result<CompilerArchitectureRole, UnitRoleError> {
+    source_roles: &[crate::SourceRoleScope],
+) -> Result<crate::CompilerArchitectureRole, UnitRoleError> {
     if !crate::core::valid_workspace_path(source_path)
         || source_roles.iter().any(|scope| !crate::core::valid_workspace_path(&scope.source_scope))
     {
@@ -77,8 +76,8 @@ pub(crate) fn root_role(
 mod tests {
     use super::*;
 
-    fn scopes(role: CompilerArchitectureRole) -> Vec<SourceRoleScope> {
-        vec![SourceRoleScope {
+    fn scopes(role: crate::CompilerArchitectureRole) -> Vec<crate::SourceRoleScope> {
+        vec![crate::SourceRoleScope {
             source_scope: "tests".to_owned(),
             role,
         }]
@@ -87,11 +86,11 @@ mod tests {
     // r[verify octet.project_architecture_gate.test_ownership]
     #[test]
     fn only_exact_integration_target_and_explicit_scope_select_test() {
-        let core = CompilerArchitectureRole::DomainCore;
-        let test = CompilerArchitectureRole::Test;
+        let core = crate::CompilerArchitectureRole::DomainCore;
+        let test = crate::CompilerArchitectureRole::Test;
         assert_eq!(select_compilation_unit_role(core, "test+test", "tests/check.rs", &scopes(test)), Ok(test));
         // Cargo also permits an explicitly selected integration root outside a tests directory.
-        let custom = vec![SourceRoleScope {
+        let custom = vec![crate::SourceRoleScope {
             source_scope: "checks/contract.rs".to_owned(),
             role: test,
         }];
@@ -119,8 +118,8 @@ mod tests {
     // r[verify octet.project_architecture_gate.test_ownership]
     #[test]
     fn missing_conflicting_and_noncanonical_roots_reject() {
-        let core = CompilerArchitectureRole::DomainCore;
-        let test = CompilerArchitectureRole::Test;
+        let core = crate::CompilerArchitectureRole::DomainCore;
+        let test = crate::CompilerArchitectureRole::Test;
         for path in [
             "",
             "/tests/check.rs",
@@ -150,7 +149,7 @@ mod tests {
             );
             conflicting.reverse();
         }
-        for role in [test, CompilerArchitectureRole::Generated] {
+        for role in [test, crate::CompilerArchitectureRole::Generated] {
             assert_eq!(
                 select_compilation_unit_role(role, "test+test", "tests/check.rs", &scopes(test)),
                 Err(UnitRoleError::InvalidPackageRole)

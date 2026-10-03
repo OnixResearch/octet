@@ -8,7 +8,7 @@
       "output_format": "json",
       "source": {
         "path": "standards/project-architecture/octet-self-architecture.ncl",
-        "blake3": "107bf41346a31bc9fb201c19012edc792a7284d39bde86991fad45ee0ca57152",
+        "blake3": "0ba968dcea3178687c0fc916c2a5dda32ce5e80ee96b953f3a26da1b425cb96f",
         "bytes": 9996
       },
       "dependencies": [
@@ -20,7 +20,7 @@
       ],
       "output": {
         "path": "standards/project-architecture/octet-self-architecture.json",
-        "blake3": "588a1b82e3fb25c0ae24a7e3e12970bd33ffc3de3a62f0daebd5b3c70945c6b8",
+        "blake3": "46f6a1ce0a1e27adc2dcc04c510be38f836aba4002780a2f83dc648158c5dff5",
         "bytes": 10655
       },
       "selector": "",

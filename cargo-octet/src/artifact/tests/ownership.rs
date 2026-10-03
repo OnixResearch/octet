@@ -68,7 +68,7 @@ fn synthetic_unit(policy_id: &str, test: bool) -> ir::CompilationUnit {
         source_blake3: "c".repeat(64),
         invocation_blake3: "d".repeat(64),
     };
-    unit.unit_id = ir::compilation_unit_identity(&unit);
+    unit.unit_id = ir::compilation_unit_identity(&unit).expect("test unit identity");
     unit
 }
 
@@ -110,7 +110,7 @@ fn synthetic_files() -> BTreeMap<String, Vec<u8>> {
         active: true,
         span_id: None,
     };
-    let fact_id = ir::fact_identity(&configuration);
+    let fact_id = ir::fact_identity(&configuration).expect("test fact identity");
     if let ir::CompilerArchitectureFact::Configuration { fact_id: current, .. } = &mut configuration {
         *current = fact_id;
     }
@@ -122,7 +122,7 @@ fn synthetic_files() -> BTreeMap<String, Vec<u8>> {
         span_id: None,
         detail: "synthetic unresolved test target".to_owned(),
     };
-    unknown.unknown_id = ir::unknown_fact_identity(&unknown);
+    unknown.unknown_id = ir::unknown_fact_identity(&unknown).expect("test unknown identity");
     let shards = [production, test]
         .into_iter()
         .map(|unit| {
@@ -141,7 +141,7 @@ fn synthetic_files() -> BTreeMap<String, Vec<u8>> {
                 unknowns: if is_test { vec![unknown.clone()] } else { Vec::new() },
                 non_claims: vec!["signer-authenticity".to_owned()],
             };
-            shard.shard_id = ir::shard_identity(&shard);
+            shard.shard_id = ir::shard_identity(&shard).expect("test shard identity");
             shard
         })
         .collect::<Vec<_>>();
@@ -248,12 +248,12 @@ fn full_bundle_replay_rejects_resealed_orphan_test_unknown() {
     for row in &mut ir.unit_memberships {
         row.unknown_ids.clear();
     }
-    ir.architecture_ir_id = ir::ir_identity(&ir);
+    ir.architecture_ir_id = ir::ir_identity(&ir).expect("test IR identity");
     insert_json(&mut files, ARCHITECTURE_IR_ARTIFACT_NAME, &ir);
     let mut compiler: ir::CompilerArchitectureReceipt =
         serde_json::from_slice(&files[ARCHITECTURE_RECEIPT_ARTIFACT_NAME]).expect("compiler receipt");
     compiler.architecture_ir_id = Some(ir.architecture_ir_id.clone());
-    compiler.receipt_id = ir::receipt_identity(&compiler);
+    compiler.receipt_id = ir::receipt_identity(&compiler).expect("test receipt identity");
     insert_json(&mut files, ARCHITECTURE_RECEIPT_ARTIFACT_NAME, &compiler);
     let mut receipt: gate::ProjectArchitectureReceipt =
         serde_json::from_slice(&files[PROJECT_ARCHITECTURE_RECEIPT_ARTIFACT_NAME]).expect("receipt");
