@@ -1,11 +1,11 @@
-warning: function `sparse_function` has 0 assertion(s) in 23 lines (need 2+)
+warning: function `sparse_function` has 1 invariant check(s) in 24 lines (need 2+)
   --> $DIR/assertion_density.rs:3:42
    |
 LL |   fn sparse_function(data: &[u8]) -> usize {
    |  __________________________________________^
-LL | |     // Should warn: 20+ lines with 0 assertions
+LL | |     // A single debug assertion is one check, not two overlapping macro names.
 LL | |     let a = data.len();
-LL | |     let b = a + 1;
+LL | |     debug_assert_eq!(a, data.len());
 ...  |
 LL | |     t
 LL | | }
@@ -20,5 +20,18 @@ LL | #![warn(assertion_density)]
    |         ^^^^^^^^^^^^^^^^^
    = note: `#[warn(tigerstyle::assertion_density)]` implied by `#[warn(assertion_density)]`
 
-warning: 1 warning emitted
+warning: function `unchecked_result` has 0 invariant check(s) in 28 lines (need 2+)
+  --> $DIR/assertion_density.rs:124:68
+   |
+LL |   fn unchecked_result(data: &[usize]) -> Result<usize, &'static str> {
+   |  ____________________________________________________________________^
+...  |
+LL | |     Ok(t)
+LL | | }
+   | |_^
+   |
+   = help: Tiger Style (Assertion Density): add enough assertions to make local invariants visible near the logic they defend
+   = note: see Tiger Style guide: Assertion Density
+
+warning: 2 warnings emitted
 

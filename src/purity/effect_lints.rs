@@ -5,6 +5,7 @@ use rustc_lint::LateContext;
 use rustc_lint::LateLintPass;
 use rustc_lint::LintContext;
 use rustc_middle::hir::nested_filter::All;
+use rustc_middle::ty;
 use rustc_session::declare_tool_lint;
 use rustc_session::impl_lint_pass;
 use rustc_span::Span;
@@ -187,26 +188,6 @@ const RESOURCE_DESCRIPTION_ALLOW_PATTERNS: &[&str] = &[
     "Request",
     "Spec",
 ];
-const CONST_INELIGIBLE_PATTERNS: &[&str] = &[
-    " async fn ",
-    " const fn ",
-    " pub fn ",
-    " unsafe fn ",
-    " for ",
-    " while ",
-    " loop ",
-    " await",
-    " format!(",
-    " vec!(",
-    "Box::new(",
-    "String::",
-    "Vec::",
-    "?",
-];
-const CONST_ELIGIBLE_HINTS: &[&str] = &[
-    " + ", " - ", " * ", " / ", " % ", " == ", " != ", " < ", " > ", " match ",
-];
-
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum EffectClass {
     Env,
@@ -689,25 +670,103 @@ fn function_has_nondeterministic_output(source: &str) -> bool {
     iterates_hash && ordered_output
 }
 
-fn function_is_const_candidate(source: &str) -> bool {
-    let trimmed = source.trim_start();
-    if !trimmed.contains("fn ") {
+fn const_primitive_type(ty: ty::Ty<'_>) -> bool {
+    matches!(ty.kind(), ty::Bool | ty::Char | ty::Int(..) | ty::Uint(..) | ty::Float(..))
+}
+
+// Accept only operations whose operands are primitive values and whose HIR
+// contains no calls, trait dispatch, mutation, indexing, loops, or effects.
+// The bool records a real computation so a bare constant/identity is not linted.
+fn const_primitive_expr(cx: &LateContext<'_>, expr: &hir::Expr<'_>) -> Option<bool> {
+    let interesting = match &expr.kind {
+        hir::ExprKind::Lit(_) => false,
+        hir::ExprKind::Path(qpath) => {
+            match cx.qpath_res(qpath, expr.hir_id) {
+                hir::def::Res::Local(_) | hir::def::Res::Def(hir::def::DefKind::Const { .. }, _) => {}
+                _ => return None,
+            }
+            false
+        }
+        hir::ExprKind::Binary(_, left, right) => {
+            const_primitive_expr(cx, left)?;
+            const_primitive_expr(cx, right)?;
+            true
+        }
+        hir::ExprKind::Unary(hir::UnOp::Not | hir::UnOp::Neg, operand) => {
+            const_primitive_expr(cx, operand)?;
+            true
+        }
+        hir::ExprKind::If(condition, then_expr, Some(else_expr)) => {
+            if !cx.typeck_results().expr_ty(condition).is_bool() {
+                return None;
+            }
+            const_primitive_expr(cx, condition)?;
+            const_primitive_expr(cx, then_expr)?;
+            const_primitive_expr(cx, else_expr)?;
+            true
+        }
+        hir::ExprKind::Match(scrutinee, arms, hir::MatchSource::Normal) => {
+            const_primitive_expr(cx, scrutinee)?;
+            for arm in *arms {
+                if arm.guard.is_some() {
+                    return None;
+                }
+                const_primitive_expr(cx, arm.body)?;
+            }
+            true
+        }
+        hir::ExprKind::Block(block, _) if matches!(block.rules, hir::BlockCheckMode::DefaultBlock) => {
+            let mut interesting = false;
+            for stmt in block.stmts {
+                interesting |= match stmt.kind {
+                    hir::StmtKind::Let(local)
+                        if local.els.is_none()
+                            && matches!(local.pat.kind, hir::PatKind::Binding(_, _, _, None) | hir::PatKind::Wild)
+                            && const_primitive_type(cx.typeck_results().pat_ty(local.pat)) =>
+                    {
+                        const_primitive_expr(cx, local.init?)?
+                    }
+                    hir::StmtKind::Expr(expr) | hir::StmtKind::Semi(expr) => const_primitive_expr(cx, expr)?,
+                    _ => return None,
+                };
+            }
+            interesting | const_primitive_expr(cx, block.expr?)?
+        }
+        hir::ExprKind::DropTemps(inner) => const_primitive_expr(cx, inner)?,
+        _ => return None,
+    };
+    const_primitive_type(cx.typeck_results().expr_ty(expr)).then_some(interesting)
+}
+
+fn function_is_const_candidate(
+    cx: &LateContext<'_>,
+    kind: FnKind<'_>,
+    body: &hir::Body<'_>,
+    span: Span,
+    def_id: rustc_hir::def_id::LocalDefId,
+) -> bool {
+    let FnKind::ItemFn(_, generics, header) = kind else {
+        // Methods, trait functions, and closures have different const rules.
         return false;
-    }
-    if trimmed.starts_with("pub fn")
-        || trimmed.starts_with("pub(crate) fn")
-        || trimmed.starts_with("pub(super) fn")
-        || trimmed.starts_with("const fn")
-        || trimmed.starts_with("async fn")
-        || trimmed.starts_with("unsafe fn")
-        || contains_any(source, CONST_INELIGIBLE_PATTERNS)
+    };
+    let hir::Node::Item(item) = cx.tcx.hir_node(cx.tcx.local_def_id_to_hir_id(def_id)) else {
+        return false;
+    };
+    if span.from_expansion()
+        || !item.vis_span.is_empty()
+        || cx.tcx.visibility(def_id).is_public()
+        || !generics.params.is_empty()
+        || !matches!(header.constness, hir::Constness::NotConst)
+        || header.is_async()
+        || !matches!(header.safety, hir::HeaderSafety::Normal(hir::Safety::Safe))
+        || !matches!(header.abi, rustc_abi::ExternAbi::Rust)
     {
         return false;
     }
-    if classify_effect(source).is_some() || contains_interior_mutability(source) || source_has_panic(source) {
-        return false;
-    }
-    contains_any(source, CONST_ELIGIBLE_HINTS)
+    let sig = cx.tcx.fn_sig(def_id).instantiate_identity().skip_binder();
+    sig.inputs().iter().all(|input| const_primitive_type(*input))
+        && const_primitive_type(sig.output())
+        && const_primitive_expr(cx, body.value) == Some(true)
 }
 
 fn pure_contract_violation(
@@ -907,26 +966,23 @@ impl<'tcx> LateLintPass<'tcx> for MissingConstFn {
     fn check_fn(
         &mut self,
         cx: &LateContext<'tcx>,
-        _kind: FnKind<'tcx>,
+        kind: FnKind<'tcx>,
         _decl: &'tcx hir::FnDecl<'tcx>,
         body: &'tcx hir::Body<'tcx>,
         span: Span,
-        _def_id: rustc_hir::def_id::LocalDefId,
+        def_id: rustc_hir::def_id::LocalDefId,
     ) {
         if test_context::late_hir_id_is_in_test_context(cx, body.value.hir_id, span) {
             return;
         }
-        let Some(source) = fn_snippet(cx, body, span) else {
-            return;
-        };
-        if !function_is_const_candidate(&source) {
+        if !function_is_const_candidate(cx, kind, body, span, def_id) {
             return;
         }
         emit(
             cx,
             MISSING_CONST_FN,
             span,
-            "private helper appears const-compatible; consider declaring it `const fn` if that does not freeze public API".to_owned(),
+            "private primitive helper appears const-compatible; consider declaring it `const fn`".to_owned(),
             MISSING_CONST_FN_LINT,
         );
     }
@@ -1145,7 +1201,6 @@ mod tests {
     use super::classify_effect;
     use super::contains_env_call;
     use super::function_has_nondeterministic_output;
-    use super::function_is_const_candidate;
     use super::pure_contract_violation;
     use super::return_type_has_resource;
 
@@ -1174,15 +1229,6 @@ mod tests {
         ));
         assert!(!function_has_nondeterministic_output(
             "fn names(map: HashMap<String, u8>) -> Vec<String> { let mut out = map.keys().cloned().collect::<Vec<_>>(); out.sort(); out }"
-        ));
-    }
-
-    #[test]
-    fn const_candidate_classifier_is_conservative() {
-        assert!(function_is_const_candidate("fn double(value: u32) -> u32 { value * 2 }"));
-        assert!(!function_is_const_candidate("pub fn double(value: u32) -> u32 { value * 2 }"));
-        assert!(!function_is_const_candidate(
-            "fn load(path: &Path) -> String { std::fs::read_to_string(path).unwrap() }"
         ));
     }
 

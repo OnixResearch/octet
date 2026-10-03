@@ -61,7 +61,7 @@ Rules to keep straight:
 | `function_length_max` | `70` | `function_length` | maximum non-blank, non-comment lines in a function body |
 | `nesting_max_depth` | `3` | `nested_conditionals` | maximum `if` / `match` nesting depth |
 | `assertion_density_min_lines` | `20` | `assertion_density` | minimum function size before assertion-density checks apply |
-| `assertion_density_min_assertions` | `2` | `assertion_density` | minimum assertion count once the line threshold is crossed |
+| `assertion_density_min_assertions` | `2` | `assertion_density` | minimum count of authored assertions and explicit conditional failure returns once the line threshold is crossed |
 | `max_parameters` | `5` | `too_many_parameters` | maximum counted parameters before warning |
 | `trait_method_max` | `7` | `fat_trait` | maximum trait methods before warning |
 | `impl_blocks_max` | `4` | `type_accumulation` | maximum inherent impl blocks per type before advisory |
@@ -103,7 +103,7 @@ Unknown lint names and invalid level values warn and are ignored.
 | `explicit_defaults` | `warn` | avoid foreign `Default` shorthands such as `..Default::default()` |
 | `unbounded_channel` | `warn` | flag known unbounded channel constructors |
 | `unbounded_collection_growth` | `warn` | flag loop-driven collection growth without reservation or a local bound |
-| `assertion_density` | `allow` | flag large functions with too few assertions |
+| `assertion_density` | `allow` | flag large functions with too few authored assertions or conditional `return Err(...)` / `return None` guards; bare `?` is not a guard |
 | `raw_arithmetic_overflow` | `allow` | flag unchecked `+`, `-`, or `*` on unsigned integers |
 | `sentinel_fallback` | `warn` | flag `<int>::MAX` / `<int>::MIN` sentinel fallbacks instead of explicit branching or tagged fallback text |
 | `public_unsafe_api` | `warn` | flag public Rust `unsafe fn` APIs that leak unsafe obligations to callers |
@@ -167,7 +167,7 @@ For `public_unsafe_api`, either add a safe wrapper or document the exception wit
 | `impure_call_in_core` | `warn` | flag direct platform-effect calls in configured core scopes |
 | `interior_mutability_in_core` | `warn` | flag cells, locks, atomics, and unsafe cells in configured core scopes |
 | `logging_in_core` | `warn` | flag logging and console output in configured core scopes |
-| `missing_const_fn` | `allow` | identify private helpers that appear eligible for `const fn` |
+| `missing_const_fn` | `allow` | suggest `const fn` only for private, primitive-signature free helpers with supported scalar HIR expressions; calls and unknown operations are excluded |
 | `mutating_input_in_pure` | `warn` | flag mutating input capabilities in declared pure contexts |
 | `nondeterministic_output` | `allow` | flag unordered hash iteration collected into ordered output |
 | `pure_attr_contract` | `warn` | enforce direct-effect checks on marked pure functions |
