@@ -6,6 +6,22 @@ specific commits via `TIGERSTYLE_DYLINT_REV`.
 For the full lint catalog, see `docs/lint-reference.md`.
 For rollout profiles, see `docs/downstream-rollout.md`.
 
+## 2026-10-03: Conservative const candidates and explicit failure guards
+
+`missing_const_fn` now uses HIR and types to suggest `const fn` only for private
+free helpers with primitive signatures and supported scalar computations.
+Calls, trait dispatch, mutation, references, filesystem and path operations,
+and unknown expressions are not presumed const-compatible.
+
+`assertion_density` now counts each authored assertion macro once and recognizes
+conditional branches returning `Err(...)` or `None` as fail-closed checks. It
+does not count arbitrary `?` propagation, strings, comments, or checks inside
+nested closures or items. The previous text matcher counted one
+`debug_assert*!` twice because the shorter `assert*!` pattern matched its
+suffix; functions that passed only because of that overlap can now warn.
+Existing minimum-line and minimum-check settings are unchanged. This lint is
+source-level guidance, not proof of runtime invariant coverage.
+
 ## 2026-08-26: Compiler-visible authorized effect protocols
 
 Project architecture policies can now classify outbound effect families as protected or unprotected. Protected protocols name exact authority inputs, decisions, opaque witnesses, executors, observations, receipts, use cardinality, source scopes, and non-claims.

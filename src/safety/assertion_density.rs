@@ -1,20 +1,26 @@
 use rustc_ast::Block;
+use rustc_ast::Expr;
+use rustc_ast::ExprKind;
 use rustc_ast::Item;
 use rustc_ast::ItemKind;
+use rustc_ast::Local;
+use rustc_ast::LocalKind;
 use rustc_ast::StmtKind;
+use rustc_ast::visit::{self, Visitor};
 use rustc_lint::EarlyContext;
 use rustc_lint::EarlyLintPass;
 use rustc_lint::LintContext;
 use rustc_session::declare_tool_lint;
 use rustc_session::impl_lint_pass;
+use rustc_span::Span;
 use rustc_span::sym;
 
 use crate::diagnostics::emit_tiger_style_lint;
 
 declare_tool_lint! {
     /// Warns on functions exceeding a configurable line count (default: 20)
-    /// that contain fewer than a required number of assertions (default: 2).
-    /// Functions without assertions lack documentation of their invariants.
+    /// that contain fewer than a required number of invariant checks (default: 2).
+    /// Assertions and conditional error returns both make invariants visible.
     ///
     /// Configure in `dylint.toml`:
     /// ```toml
@@ -53,54 +59,116 @@ fn count_code_lines(source: &str) -> usize {
         .count()
 }
 
-const ASSERT_PATTERNS: &[&str] = &[
-    "assert!(",
-    "assert_eq!(",
-    "assert_ne!(",
-    "debug_assert!(",
-    "debug_assert_eq!(",
-    "debug_assert_ne!(",
+const ASSERT_MACROS: &[&str] = &[
+    "assert",
+    "assert_eq",
+    "assert_ne",
+    "debug_assert",
+    "debug_assert_eq",
+    "debug_assert_ne",
 ];
 
-fn strip_comments(source: &str) -> String {
-    let mut out = String::with_capacity(source.len());
-    let mut chars = source.chars().peekable();
-    let mut in_block_comment = false;
-
-    while let Some(ch) = chars.next() {
-        if in_block_comment {
-            if ch == '*' && chars.peek() == Some(&'/') {
-                let _ = chars.next();
-                in_block_comment = false;
-            }
-            continue;
-        }
-
-        if ch == '/' && chars.peek() == Some(&'/') {
-            for next in chars.by_ref() {
-                if next == '\n' {
-                    out.push('\n');
-                    break;
-                }
-            }
-            continue;
-        }
-
-        if ch == '/' && chars.peek() == Some(&'*') {
-            let _ = chars.next();
-            in_block_comment = true;
-            continue;
-        }
-
-        out.push(ch);
-    }
-
-    out
+fn is_assertion_macro(snippet: &str) -> bool {
+    let Some((path, args)) = snippet.trim_start().split_once('!') else {
+        return false;
+    };
+    let name = path.trim_end().rsplit("::").next().unwrap_or(path);
+    ASSERT_MACROS.contains(&name) && matches!(args.trim_start().chars().next(), Some('(' | '[' | '{'))
 }
 
-fn count_assertions(source: &str) -> usize {
-    let stripped = strip_comments(source);
-    ASSERT_PATTERNS.iter().map(|pattern| stripped.match_indices(pattern).count()).sum()
+fn is_failure_return(expr: &Expr) -> bool {
+    match &expr.kind {
+        ExprKind::Paren(inner) => is_failure_return(inner),
+        ExprKind::Call(callee, _) => {
+            matches!(&callee.kind, ExprKind::Path(_, path)
+                if path.segments.last().is_some_and(|segment| segment.ident.name.as_str() == "Err"))
+        }
+        ExprKind::Path(_, path) => {
+            path.segments.last().is_some_and(|segment| segment.ident.name.as_str() == "None")
+        }
+        _ => false,
+    }
+}
+
+struct CheckVisitor<'a, 'b> {
+    cx: &'a EarlyContext<'b>,
+    seen_macro_calls: Vec<Span>,
+    checks: usize,
+    in_guard: usize,
+}
+
+impl CheckVisitor<'_, '_> {
+    fn count_macro_assertion(&mut self, expr: &Expr) {
+        if !matches!(expr.kind, ExprKind::MacCall(..)) && !expr.span.from_expansion() {
+            return;
+        }
+        // Expansion nodes share their authored invocation's callsite. Inspect
+        // each invocation once, rather than counting its expanded child nodes.
+        let callsite = expr.span.source_callsite();
+        if self.seen_macro_calls.contains(&callsite) {
+            return;
+        }
+        self.seen_macro_calls.push(callsite);
+        if let Ok(snippet) = self.cx.sess().source_map().span_to_snippet(callsite)
+            && is_assertion_macro(&snippet)
+        {
+            self.checks += 1;
+        }
+    }
+}
+
+impl<'ast> Visitor<'ast> for CheckVisitor<'_, '_> {
+    // Local items and closures have their own bodies and invariants.
+    fn visit_item(&mut self, _item: &'ast Item) {}
+
+    fn visit_local(&mut self, local: &'ast Local) {
+        if let LocalKind::InitElse(init, else_block) = &local.kind {
+            self.visit_expr(init);
+            self.in_guard += 1;
+            visit::walk_block(self, else_block);
+            self.in_guard -= 1;
+        } else {
+            visit::walk_local(self, local);
+        }
+    }
+
+    fn visit_expr(&mut self, expr: &'ast Expr) {
+        if matches!(expr.kind, ExprKind::Closure(..) | ExprKind::Gen(..) | ExprKind::ConstBlock(..)) {
+            return;
+        }
+
+        self.count_macro_assertion(expr);
+        match &expr.kind {
+            ExprKind::Ret(Some(value))
+                if self.in_guard > 0 && !expr.span.from_expansion() && is_failure_return(value) =>
+            {
+                self.checks += 1;
+            }
+            ExprKind::If(condition, then_block, else_expr) => {
+                self.visit_expr(condition);
+                let conditional = !matches!(condition.kind, ExprKind::Lit(..));
+                self.in_guard += usize::from(conditional);
+                visit::walk_block(self, then_block);
+                if let Some(else_expr) = else_expr {
+                    self.visit_expr(else_expr);
+                }
+                self.in_guard -= usize::from(conditional);
+                return;
+            }
+            ExprKind::Match(scrutinee, arms, _) => {
+                self.visit_expr(scrutinee);
+                let conditional = arms.len() > 1;
+                self.in_guard += usize::from(conditional);
+                for arm in arms {
+                    self.visit_arm(arm);
+                }
+                self.in_guard -= usize::from(conditional);
+                return;
+            }
+            _ => {}
+        }
+        visit::walk_expr(self, expr);
+    }
 }
 
 /// Returns true if the block is a single expression or a trivial delegation
@@ -161,8 +229,14 @@ impl EarlyLintPass for AssertionDensity {
             return;
         }
 
-        let assertions = count_assertions(&snippet);
-        if assertions >= self.min_assertions {
+        let mut visitor = CheckVisitor {
+            cx,
+            seen_macro_calls: Vec::new(),
+            checks: 0,
+            in_guard: 0,
+        };
+        visit::walk_block(&mut visitor, body);
+        if visitor.checks >= self.min_assertions {
             return;
         }
 
@@ -171,7 +245,7 @@ impl EarlyLintPass for AssertionDensity {
             cx,
             ASSERTION_DENSITY,
             body.span,
-            format!("function `{}` has {assertions} assertion(s) in {lines} lines (need {min_a}+)", func.ident.name),
+            format!("function `{}` has {} invariant check(s) in {lines} lines (need {min_a}+)", func.ident.name, visitor.checks),
             "assertion_density",
         );
     }

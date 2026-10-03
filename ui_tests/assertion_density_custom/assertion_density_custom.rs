@@ -63,7 +63,93 @@ fn insufficient_for_custom_assertion_count() -> u32 {
     x30
 }
 
-fn main() {
+fn fallible_guards_meet_custom_count(data: &[usize]) -> Result<usize, &'static str> {
+    // Three conditional error returns meet the custom minimum.
+    let Some(&first) = data.first() else {
+        return Err("missing first");
+    };
+    if data.len() < 2 {
+        return Err("missing second");
+    }
+    let a = first;
+    let b = data[1];
+    if a == 0 {
+        return Err("zero first value");
+    }
+    let c = a + b;
+    let d = c + 1;
+    let e = d + 2;
+    let f = e + 3;
+    let g = f + 4;
+    let h = g + 5;
+    let i = h + 6;
+    let j = i + 7;
+    let k = j + 8;
+    let l = k + 9;
+    let m = l + 10;
+    let n = m + 11;
+    let o = n + 12;
+    let p = o + 13;
+    let q = p + 14;
+    let r = q + 15;
+    let s = r + 16;
+    let t = s + 17;
+    let u = t + 18;
+    let v = u + 19;
+    let w = v + 20;
+    let x = w + 21;
+    let y = x + 22;
+    let z = y + 23;
+    let aa = z + 24;
+    let ab = aa + 25;
+    let ac = ab + 26;
+    Ok(ac)
+}
+
+fn insufficient_fallible_checks(data: &[usize]) -> Result<usize, &'static str> {
+    // Should warn: two real error guards are below the custom minimum.
+    if data.is_empty() {
+        return Err("missing first");
+    }
+    if data.len() < 2 {
+        return Err("missing second");
+    }
+    let a = data[0];
+    let b = data[1];
+    let c = a + b;
+    let d = c + 1;
+    let e = d + 2;
+    let f = e + 3;
+    let g = f + 4;
+    let h = g + 5;
+    let i = h + 6;
+    let j = i + 7;
+    let k = j + 8;
+    let l = k + 9;
+    let m = l + 10;
+    let n = m + 11;
+    let o = n + 12;
+    let p = o + 13;
+    let q = p + 14;
+    let r = q + 15;
+    let s = r + 16;
+    let t = s + 17;
+    let u = t + 18;
+    let v = u + 19;
+    let w = v + 20;
+    let x = w + 21;
+    let y = x + 22;
+    let z = y + 23;
+    let aa = z + 24;
+    let ab = aa + 25;
+    let ac = ab + 26;
+    Ok(ac)
+}
+
+fn main() -> Result<(), &'static str> {
     under_custom_line_threshold();
     insufficient_for_custom_assertion_count();
+    fallible_guards_meet_custom_count(&[1, 2])?;
+    insufficient_fallible_checks(&[1, 2])?;
+    Ok(())
 }

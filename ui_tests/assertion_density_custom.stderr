@@ -1,4 +1,4 @@
-warning: function `insufficient_for_custom_assertion_count` has 2 assertion(s) in 35 lines (need 3+)
+warning: function `insufficient_for_custom_assertion_count` has 2 invariant check(s) in 35 lines (need 3+)
   --> $DIR/assertion_density_custom/assertion_density_custom.rs:30:53
    |
 LL |   fn insufficient_for_custom_assertion_count() -> u32 {
@@ -20,5 +20,21 @@ LL | #![warn(assertion_density)]
    |         ^^^^^^^^^^^^^^^^^
    = note: `#[warn(tigerstyle::assertion_density)]` implied by `#[warn(assertion_density)]`
 
-warning: 1 warning emitted
+warning: function `insufficient_fallible_checks` has 2 invariant check(s) in 38 lines (need 3+)
+  --> $DIR/assertion_density_custom/assertion_density_custom.rs:109:80
+   |
+LL |   fn insufficient_fallible_checks(data: &[usize]) -> Result<usize, &'static str> {
+   |  ________________________________________________________________________________^
+LL | |     // Should warn: two real error guards are below the custom minimum.
+LL | |     if data.is_empty() {
+LL | |         return Err("missing first");
+...  |
+LL | |     Ok(ac)
+LL | | }
+   | |_^
+   |
+   = help: Tiger Style (Assertion Density): add enough assertions to make local invariants visible near the logic they defend
+   = note: see Tiger Style guide: Assertion Density
+
+warning: 2 warnings emitted
 
