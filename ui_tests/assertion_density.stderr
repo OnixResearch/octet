@@ -1,4 +1,4 @@
-warning: function `sparse_function` has 1 invariant check(s) in 24 lines (need 2+)
+warning: function `sparse_function` has 1 syntactic fail-closed check(s) in 24 lines (need 2+)
   --> $DIR/assertion_density.rs:3:42
    |
 LL |   fn sparse_function(data: &[u8]) -> usize {
@@ -11,7 +11,7 @@ LL | |     t
 LL | | }
    | |_^
    |
-   = help: Tiger Style (Assertion Density): add enough assertions to make local invariants visible near the logic they defend
+   = help: Tiger Style (Assertion Density): make fail-closed checks visible near the logic they defend; their count does not prove domain invariants
    = note: see Tiger Style guide: Assertion Density
 note: the lint level is defined here
   --> $DIR/assertion_density.rs:1:9
@@ -20,7 +20,7 @@ LL | #![warn(assertion_density)]
    |         ^^^^^^^^^^^^^^^^^
    = note: `#[warn(tigerstyle::assertion_density)]` implied by `#[warn(assertion_density)]`
 
-warning: function `unchecked_result` has 0 invariant check(s) in 28 lines (need 2+)
+warning: function `unchecked_result` has 1 syntactic fail-closed check(s) in 28 lines (need 2+)
   --> $DIR/assertion_density.rs:124:68
    |
 LL |   fn unchecked_result(data: &[usize]) -> Result<usize, &'static str> {
@@ -30,10 +30,10 @@ LL | |     Ok(t)
 LL | | }
    | |_^
    |
-   = help: Tiger Style (Assertion Density): add enough assertions to make local invariants visible near the logic they defend
+   = help: Tiger Style (Assertion Density): make fail-closed checks visible near the logic they defend; their count does not prove domain invariants
    = note: see Tiger Style guide: Assertion Density
 
-warning: function `unchecked` has 0 invariant check(s) in 26 lines (need 2+)
+warning: function `unchecked` has 0 syntactic fail-closed check(s) in 26 lines (need 2+)
   --> $DIR/assertion_density.rs:164:76
    |
 LL |       pub(super) fn unchecked(data: &[usize]) -> Result<usize, &'static str> {
@@ -45,10 +45,10 @@ LL | |         Ok(q)
 LL | |     }
    | |_____^
    |
-   = help: Tiger Style (Assertion Density): add enough assertions to make local invariants visible near the logic they defend
+   = help: Tiger Style (Assertion Density): make fail-closed checks visible near the logic they defend; their count does not prove domain invariants
    = note: see Tiger Style guide: Assertion Density
 
-warning: function `unchecked` has 0 invariant check(s) in 26 lines (need 2+)
+warning: function `unchecked` has 0 syntactic fail-closed check(s) in 26 lines (need 2+)
   --> $DIR/assertion_density.rs:225:62
    |
 LL |       pub(super) fn unchecked(data: &[usize]) -> Option<usize> {
@@ -60,10 +60,10 @@ LL | |         Some(q)
 LL | |     }
    | |_____^
    |
-   = help: Tiger Style (Assertion Density): add enough assertions to make local invariants visible near the logic they defend
+   = help: Tiger Style (Assertion Density): make fail-closed checks visible near the logic they defend; their count does not prove domain invariants
    = note: see Tiger Style guide: Assertion Density
 
-warning: function `unchecked` has 0 invariant check(s) in 26 lines (need 2+)
+warning: function `unchecked` has 0 syntactic fail-closed check(s) in 26 lines (need 2+)
   --> $DIR/assertion_density.rs:257:62
    |
 LL |       pub(super) fn unchecked(data: &[usize]) -> Option<usize> {
@@ -75,7 +75,7 @@ LL | |         Some(q)
 LL | |     }
    | |_____^
    |
-   = help: Tiger Style (Assertion Density): add enough assertions to make local invariants visible near the logic they defend
+   = help: Tiger Style (Assertion Density): make fail-closed checks visible near the logic they defend; their count does not prove domain invariants
    = note: see Tiger Style guide: Assertion Density
 
 warning: 5 warnings emitted

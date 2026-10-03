@@ -9,6 +9,7 @@
     "ambiguous_params",
     "assertion_density",
     "assertion_density_custom/assertion_density_custom",
+    "assertion_density_result_try",
     "bool_naming",
     "bool_naming_local_rename",
     "bool_naming_macro_fallback",
