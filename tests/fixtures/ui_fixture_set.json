@@ -8,6 +8,7 @@
     "ambient_random",
     "ambiguous_params",
     "assertion_density",
+    "assertion_density_adverse_result",
     "assertion_density_custom/assertion_density_custom",
     "assertion_density_result_try",
     "bool_naming",

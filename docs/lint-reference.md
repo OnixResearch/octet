@@ -61,7 +61,7 @@ Rules to keep straight:
 | `function_length_max` | `70` | `function_length` | maximum non-blank, non-comment lines in a function body |
 | `nesting_max_depth` | `3` | `nested_conditionals` | maximum `if` / `match` nesting depth |
 | `assertion_density_min_lines` | `20` | `assertion_density` | minimum function size before assertion-density checks apply |
-| `assertion_density_min_assertions` | `2` | `assertion_density` | minimum count of authored assertions, conditional canonical gate returns, and eligible `Result` `?` expressions once the line threshold is crossed |
+| `assertion_density_min_assertions` | `2` | `assertion_density` | minimum count of authored assertions, conditional canonical gate returns, eligible `Result` `?` expressions, and consumed adverse-result matches once the line threshold is crossed |
 | `max_parameters` | `5` | `too_many_parameters` | maximum counted parameters before warning |
 | `trait_method_max` | `7` | `fat_trait` | maximum trait methods before warning |
 | `impl_blocks_max` | `4` | `type_accumulation` | maximum inherent impl blocks per type before advisory |
@@ -103,7 +103,7 @@ Unknown lint names and invalid level values warn and are ignored.
 | `explicit_defaults` | `warn` | avoid foreign `Default` shorthands such as `..Default::default()` |
 | `unbounded_channel` | `warn` | flag known unbounded channel constructors |
 | `unbounded_collection_growth` | `warn` | flag loop-driven collection growth without reservation or a local bound |
-| `assertion_density` | `allow` | count authored assertions, conditional core `Result::Err` / `Option::Some` / `Option::None` returns, and outer-returning core `Result` `?`; Option polarity is not inferred |
+| `assertion_density` | `allow` | count authored assertions, conditional canonical gate returns (including nested `Ok(Err(_))`), outer-returning core `Result` `?`, and narrowly consumed error-as-data matches; no outcome polarity or authority is inferred |
 | `raw_arithmetic_overflow` | `allow` | flag unchecked `+`, `-`, or `*` on unsigned integers |
 | `sentinel_fallback` | `warn` | flag `<int>::MAX` / `<int>::MIN` sentinel fallbacks instead of explicit branching or tagged fallback text |
 | `public_unsafe_api` | `warn` | flag public Rust `unsafe fn` APIs that leak unsafe obligations to callers |
@@ -121,6 +121,21 @@ core `Result` type and its residual returns from the enclosing `Result`
 function. A `?` local to a `try` block, an `Option`/`ControlFlow` `?`, a
 macro-generated `?`, or a `?` inside a nested closure or const block does not
 count. Direct `Ok(value)?` does not count because its residual cannot fail.
+An authored conditional outer `return Ok(Err(value))` counts only when both
+constructors resolve to core `Result` variants and the function's resolved
+return type is `Result<Result<T, E>, F>`. An unconditional return, a shadowed
+constructor, or an exit inside a macro or nested closure does not count.
+
+An authored, exhaustive two-arm core `Result` match can count once when its
+canonical `Err` arm constructs a canonical `Err`, its canonical `Ok` arm
+forwards an existing `Result`, and the matched `Result` is bound by the final
+statement and passed by value directly to the function's tail call. Guards,
+wildcards, literal `Ok` scrutinees, non-`Result` matches, shadowed constructors,
+discarded or shadowed bindings, and matches inside nested closures do not
+qualify. This tracks a syntactic failure-as-data transition and consumption
+only: the lint does not establish that the callee classifies the value as
+adverse, that an authority check was performed, or that any domain invariant
+holds. The configured line and gate-count thresholds are unchanged.
 
 For `public_unsafe_api`, either add a safe wrapper or document the exception with an unsafe-boundary record.
 
