@@ -1,14 +1,12 @@
-use rustc_ast::Block;
-use rustc_ast::Expr;
-use rustc_ast::ExprKind;
-use rustc_ast::Item;
-use rustc_ast::ItemKind;
-use rustc_ast::Local;
-use rustc_ast::LocalKind;
-use rustc_ast::StmtKind;
-use rustc_ast::visit::{self, Visitor};
-use rustc_lint::EarlyContext;
-use rustc_lint::EarlyLintPass;
+use rustc_hir as hir;
+use rustc_hir::def::CtorOf;
+use rustc_hir::def::DefKind;
+use rustc_hir::def::Res;
+use rustc_hir::intravisit::FnKind;
+use rustc_hir::intravisit::Visitor;
+use rustc_hir::intravisit::{self};
+use rustc_lint::LateContext;
+use rustc_lint::LateLintPass;
 use rustc_lint::LintContext;
 use rustc_session::declare_tool_lint;
 use rustc_session::impl_lint_pass;
@@ -16,6 +14,7 @@ use rustc_span::Span;
 use rustc_span::sym;
 
 use crate::diagnostics::emit_tiger_style_lint;
+use crate::test_context;
 
 declare_tool_lint! {
     /// Warns on functions exceeding a configurable line count (default: 20)
@@ -76,30 +75,48 @@ fn is_assertion_macro(snippet: &str) -> bool {
     ASSERT_MACROS.contains(&name) && matches!(args.trim_start().chars().next(), Some('(' | '[' | '{'))
 }
 
-fn is_failure_return(expr: &Expr) -> bool {
+fn is_core_failure_variant(
+    cx: &LateContext<'_>,
+    expr: &hir::Expr<'_>,
+    enum_name: rustc_span::Symbol,
+    variant: &str,
+) -> bool {
+    let hir::ExprKind::Path(qpath) = &expr.kind else {
+        return false;
+    };
+    let variant_id = match cx.qpath_res(qpath, expr.hir_id) {
+        Res::Def(DefKind::Variant, did) => did,
+        Res::Def(DefKind::Ctor(CtorOf::Variant, _), did) => {
+            let Some(parent) = cx.tcx.opt_parent(did) else {
+                return false;
+            };
+            parent
+        }
+        _ => return false,
+    };
+    cx.tcx.item_name(variant_id).as_str() == variant
+        && cx.tcx.opt_parent(variant_id).is_some_and(|enum_id| cx.tcx.is_diagnostic_item(enum_name, enum_id))
+}
+
+fn is_failure_return(cx: &LateContext<'_>, expr: &hir::Expr<'_>) -> bool {
     match &expr.kind {
-        ExprKind::Paren(inner) => is_failure_return(inner),
-        ExprKind::Call(callee, _) => {
-            matches!(&callee.kind, ExprKind::Path(_, path)
-                if path.segments.last().is_some_and(|segment| segment.ident.name.as_str() == "Err"))
-        }
-        ExprKind::Path(_, path) => {
-            path.segments.last().is_some_and(|segment| segment.ident.name.as_str() == "None")
-        }
+        hir::ExprKind::DropTemps(inner) => is_failure_return(cx, inner),
+        hir::ExprKind::Call(callee, _) => is_core_failure_variant(cx, callee, sym::Result, "Err"),
+        hir::ExprKind::Path(..) => is_core_failure_variant(cx, expr, sym::Option, "None"),
         _ => false,
     }
 }
 
-struct CheckVisitor<'a, 'b> {
-    cx: &'a EarlyContext<'b>,
+struct CheckVisitor<'a, 'tcx> {
+    cx: &'a LateContext<'tcx>,
     seen_macro_calls: Vec<Span>,
     checks: usize,
     in_guard: usize,
 }
 
 impl CheckVisitor<'_, '_> {
-    fn count_macro_assertion(&mut self, expr: &Expr) {
-        if !matches!(expr.kind, ExprKind::MacCall(..)) && !expr.span.from_expansion() {
+    fn count_macro_assertion(&mut self, expr: &hir::Expr<'_>) {
+        if !expr.span.from_expansion() {
             return;
         }
         // Expansion nodes share their authored invocation's callsite. Inspect
@@ -117,49 +134,50 @@ impl CheckVisitor<'_, '_> {
     }
 }
 
-impl<'ast> Visitor<'ast> for CheckVisitor<'_, '_> {
-    // Local items and closures have their own bodies and invariants.
-    fn visit_item(&mut self, _item: &'ast Item) {}
-
-    fn visit_local(&mut self, local: &'ast Local) {
-        if let LocalKind::InitElse(init, else_block) = &local.kind {
-            self.visit_expr(init);
+impl<'tcx> Visitor<'tcx> for CheckVisitor<'_, 'tcx> {
+    fn visit_stmt(&mut self, stmt: &'tcx hir::Stmt<'tcx>) {
+        if let hir::StmtKind::Let(local) = stmt.kind
+            && let Some(else_block) = local.els
+        {
+            if let Some(init) = local.init {
+                self.visit_expr(init);
+            }
             self.in_guard += 1;
-            visit::walk_block(self, else_block);
+            self.visit_block(else_block);
             self.in_guard -= 1;
         } else {
-            visit::walk_local(self, local);
+            intravisit::walk_stmt(self, stmt);
         }
     }
 
-    fn visit_expr(&mut self, expr: &'ast Expr) {
-        if matches!(expr.kind, ExprKind::Closure(..) | ExprKind::Gen(..) | ExprKind::ConstBlock(..)) {
+    fn visit_expr(&mut self, expr: &'tcx hir::Expr<'tcx>) {
+        if matches!(expr.kind, hir::ExprKind::Closure(..) | hir::ExprKind::ConstBlock(..)) {
             return;
         }
 
         self.count_macro_assertion(expr);
         match &expr.kind {
-            ExprKind::Ret(Some(value))
-                if self.in_guard > 0 && !expr.span.from_expansion() && is_failure_return(value) =>
+            hir::ExprKind::Ret(Some(value))
+                if self.in_guard > 0 && !expr.span.from_expansion() && is_failure_return(self.cx, value) =>
             {
                 self.checks += 1;
             }
-            ExprKind::If(condition, then_block, else_expr) => {
+            hir::ExprKind::If(condition, then_expr, else_expr) => {
                 self.visit_expr(condition);
-                let conditional = !matches!(condition.kind, ExprKind::Lit(..));
+                let conditional = !matches!(condition.kind, hir::ExprKind::Lit(..));
                 self.in_guard += usize::from(conditional);
-                visit::walk_block(self, then_block);
+                self.visit_expr(then_expr);
                 if let Some(else_expr) = else_expr {
                     self.visit_expr(else_expr);
                 }
                 self.in_guard -= usize::from(conditional);
                 return;
             }
-            ExprKind::Match(scrutinee, arms, _) => {
+            hir::ExprKind::Match(scrutinee, arms, _) => {
                 self.visit_expr(scrutinee);
                 let conditional = arms.len() > 1;
                 self.in_guard += usize::from(conditional);
-                for arm in arms {
+                for arm in *arms {
                     self.visit_arm(arm);
                 }
                 self.in_guard -= usize::from(conditional);
@@ -167,60 +185,55 @@ impl<'ast> Visitor<'ast> for CheckVisitor<'_, '_> {
             }
             _ => {}
         }
-        visit::walk_expr(self, expr);
+        intravisit::walk_expr(self, expr);
     }
 }
 
 /// Returns true if the block is a single expression or a trivial delegation
 /// like `self.inner.method(args)`.
-fn is_single_expression_body(body: &Block) -> bool {
+fn is_single_expression_body(body: &hir::Block<'_>) -> bool {
     // A block with just one expression (no statements, just the tail expr)
     if body.stmts.is_empty() {
         return true;
     }
     // A block with one statement that's an expression
     if body.stmts.len() == 1
-        && let StmtKind::Expr(_) | StmtKind::Semi(_) = &body.stmts[0].kind
+        && let hir::StmtKind::Expr(_) | hir::StmtKind::Semi(_) = &body.stmts[0].kind
     {
         return true;
     }
     false
 }
 
-impl EarlyLintPass for AssertionDensity {
-    fn check_item(&mut self, cx: &EarlyContext<'_>, item: &Item) {
-        let ItemKind::Fn(func) = &item.kind else {
+impl<'tcx> LateLintPass<'tcx> for AssertionDensity {
+    fn check_fn(
+        &mut self,
+        cx: &LateContext<'tcx>,
+        kind: FnKind<'tcx>,
+        _decl: &'tcx hir::FnDecl<'tcx>,
+        body: &'tcx hir::Body<'tcx>,
+        span: Span,
+        _def_id: hir::def_id::LocalDefId,
+    ) {
+        let FnKind::ItemFn(name, _, _) = kind else {
             return;
         };
 
-        // Skip test functions
-        if item.attrs.iter().any(|a| a.has_name(sym::test)) {
+        if test_context::late_hir_id_is_in_test_context(cx, body.value.hir_id, span) {
             return;
         }
 
-        // Skip #[cfg(test)] items
-        if item.attrs.iter().any(|attr| {
-            if attr.has_name(sym::cfg) {
-                let source = format!("{attr:?}");
-                source.contains("test")
-            } else {
-                false
-            }
-        }) {
-            return;
-        }
-
-        let Some(body) = &func.body else {
+        let hir::ExprKind::Block(block, _) = &body.value.kind else {
             return;
         };
 
         // Skip single-expression bodies
-        if is_single_expression_body(body) {
+        if is_single_expression_body(block) {
             return;
         }
 
         let source_map = cx.sess().source_map();
-        let Ok(snippet) = source_map.span_to_snippet(body.span) else {
+        let Ok(snippet) = source_map.span_to_snippet(body.value.span) else {
             return;
         };
 
@@ -235,7 +248,7 @@ impl EarlyLintPass for AssertionDensity {
             checks: 0,
             in_guard: 0,
         };
-        visit::walk_block(&mut visitor, body);
+        visitor.visit_block(block);
         if visitor.checks >= self.min_assertions {
             return;
         }
@@ -244,8 +257,8 @@ impl EarlyLintPass for AssertionDensity {
         emit_tiger_style_lint(
             cx,
             ASSERTION_DENSITY,
-            body.span,
-            format!("function `{}` has {} invariant check(s) in {lines} lines (need {min_a}+)", func.ident.name, visitor.checks),
+            body.value.span,
+            format!("function `{name}` has {} invariant check(s) in {lines} lines (need {min_a}+)", visitor.checks),
             "assertion_density",
         );
     }

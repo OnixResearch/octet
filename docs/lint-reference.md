@@ -103,7 +103,7 @@ Unknown lint names and invalid level values warn and are ignored.
 | `explicit_defaults` | `warn` | avoid foreign `Default` shorthands such as `..Default::default()` |
 | `unbounded_channel` | `warn` | flag known unbounded channel constructors |
 | `unbounded_collection_growth` | `warn` | flag loop-driven collection growth without reservation or a local bound |
-| `assertion_density` | `allow` | flag large functions with too few authored assertions or conditional `return Err(...)` / `return None` guards; bare `?` is not a guard |
+| `assertion_density` | `allow` | count authored assertions and conditional returns of resolved core `Result::Err` / `Option::None` variants; shadowed names and bare `?` do not count |
 | `raw_arithmetic_overflow` | `allow` | flag unchecked `+`, `-`, or `*` on unsigned integers |
 | `sentinel_fallback` | `warn` | flag `<int>::MAX` / `<int>::MIN` sentinel fallbacks instead of explicit branching or tagged fallback text |
 | `public_unsafe_api` | `warn` | flag public Rust `unsafe fn` APIs that leak unsafe obligations to callers |

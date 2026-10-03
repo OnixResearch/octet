@@ -33,5 +33,50 @@ LL | | }
    = help: Tiger Style (Assertion Density): add enough assertions to make local invariants visible near the logic they defend
    = note: see Tiger Style guide: Assertion Density
 
-warning: 2 warnings emitted
+warning: function `unchecked` has 0 invariant check(s) in 26 lines (need 2+)
+  --> $DIR/assertion_density.rs:164:76
+   |
+LL |       pub(super) fn unchecked(data: &[usize]) -> Result<usize, &'static str> {
+   |  ____________________________________________________________________________^
+LL | |         if data.is_empty() {
+LL | |             return Err("not a failure");
+...  |
+LL | |         Ok(q)
+LL | |     }
+   | |_____^
+   |
+   = help: Tiger Style (Assertion Density): add enough assertions to make local invariants visible near the logic they defend
+   = note: see Tiger Style guide: Assertion Density
+
+warning: function `unchecked` has 0 invariant check(s) in 26 lines (need 2+)
+  --> $DIR/assertion_density.rs:225:62
+   |
+LL |       pub(super) fn unchecked(data: &[usize]) -> Option<usize> {
+   |  ______________________________________________________________^
+LL | |         if data.is_empty() {
+LL | |             return None();
+...  |
+LL | |         Some(q)
+LL | |     }
+   | |_____^
+   |
+   = help: Tiger Style (Assertion Density): add enough assertions to make local invariants visible near the logic they defend
+   = note: see Tiger Style guide: Assertion Density
+
+warning: function `unchecked` has 0 invariant check(s) in 26 lines (need 2+)
+  --> $DIR/assertion_density.rs:257:62
+   |
+LL |       pub(super) fn unchecked(data: &[usize]) -> Option<usize> {
+   |  ______________________________________________________________^
+LL | |         if data.is_empty() {
+LL | |             return None;
+...  |
+LL | |         Some(q)
+LL | |     }
+   | |_____^
+   |
+   = help: Tiger Style (Assertion Density): add enough assertions to make local invariants visible near the logic they defend
+   = note: see Tiger Style guide: Assertion Density
+
+warning: 5 warnings emitted
 

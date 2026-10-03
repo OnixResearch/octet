@@ -197,7 +197,7 @@ lint_inventory! {
     "assertion_density", safety::assertion_density::ASSERTION_DENSITY => |lint_store, cfg| {
         let ad_lines = cfg.assertion_density_min_lines;
         let ad_asserts = cfg.assertion_density_min_assertions;
-        lint_store.register_early_pass(move || Box::new(safety::assertion_density::AssertionDensity::new(ad_lines, ad_asserts)));
+        lint_store.register_late_pass(move |_| Box::new(safety::assertion_density::AssertionDensity::new(ad_lines, ad_asserts)));
     },
     "multi_lock_ordering", concurrency::multi_lock_ordering::MULTI_LOCK_ORDERING => |lint_store, _cfg| {
         lint_store.register_late_pass(|_| Box::new(concurrency::multi_lock_ordering::MultiLockOrdering));
