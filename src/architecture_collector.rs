@@ -209,9 +209,19 @@ pub(crate) struct ArchitectureCollector {
     module_paths: BTreeSet<String>,
     selected_type_items: BTreeMap<String, (LocalDefId, String, String)>,
     incomplete: bool,
+    identity_error: Option<String>,
 }
 
 impl ArchitectureCollector {
+    fn visit(&mut self, collect: impl FnOnce(&mut Self) -> Result<(), String>) {
+        if self.identity_error.is_some() {
+            return;
+        }
+        if let Err(error) = collect(self) {
+            self.identity_error = Some(error);
+        }
+    }
+
     fn new(context: CompilerArchitectureCollectorContext, selected: CollectorCompilationUnit) -> Self {
         Self {
             spans: BTreeMap::new(),
@@ -222,6 +232,7 @@ impl ArchitectureCollector {
             module_paths: BTreeSet::new(),
             selected_type_items: BTreeMap::new(),
             incomplete: false,
+            identity_error: None,
             context,
             selected,
         }
@@ -234,20 +245,20 @@ impl ArchitectureCollector {
         item_kind: ItemKind,
         span: Span,
         signature: bool,
-    ) -> String {
+    ) -> Result<String, String> {
         let qualified_path = qualified_definition(cx, def_id.to_def_id());
-        let span_id = self.collect_span(cx, span);
-        let signature_id = signature.then(|| signature_shape_identity(cx, def_id));
+        let span_id = self.collect_span(cx, span)?;
+        let signature_id = signature.then(|| signature_shape_identity(cx, def_id)).transpose()?;
         let item_id = item_identity(
             &self.selected.unit.package_name,
             &qualified_path,
             item_kind,
             signature_id.as_deref(),
             &self.selected.unit.source_blake3,
-        );
+        )?;
         self.insert_item_identity(def_id, &item_id);
         if let Some(signature_id) = &signature_id {
-            self.collect_signature(cx, def_id, &item_id, signature_id);
+            self.collect_signature(cx, def_id, &item_id, signature_id)?;
         }
         let mut fact = CompilerArchitectureFact::Item {
             fact_id: String::new(),
@@ -267,15 +278,15 @@ impl ArchitectureCollector {
             signature_id,
             span_id: span_id.clone(),
         };
-        assign_fact_identity(&mut fact);
+        assign_fact_identity(&mut fact)?;
         self.push_fact(fact);
-        self.collect_function_safety(cx, def_id, item_kind, &item_id, &qualified_path, &span_id);
-        self.remember_selected_type(cx, def_id, item_kind, &qualified_path, &span_id);
-        self.collect_module(&qualified_path, item_kind, &span_id);
+        self.collect_function_safety(cx, def_id, item_kind, &item_id, &qualified_path, &span_id)?;
+        self.remember_selected_type(cx, def_id, item_kind, &qualified_path, &span_id)?;
+        self.collect_module(&qualified_path, item_kind, &span_id)?;
         if span.from_expansion() {
-            self.collect_expansion(cx, span, &span_id);
+            self.collect_expansion(cx, span, &span_id)?;
         }
-        item_id
+        Ok(item_id)
     }
 
     fn collect_function_safety(
@@ -286,9 +297,9 @@ impl ArchitectureCollector {
         item_id: &str,
         qualified_path: &str,
         span_id: &str,
-    ) {
+    ) -> Result<(), String> {
         if item_kind != ItemKind::Function {
-            return;
+            return Ok(());
         }
         let signature = cx.tcx.fn_sig(def_id).instantiate_identity().skip_binder();
         let output_definition = type_definition_path(cx, signature.output());
@@ -299,9 +310,9 @@ impl ArchitectureCollector {
                 .any(|selection| selection.tracked_type_definitions.iter().any(|tracked| tracked == definition))
         });
         if !selected {
-            return;
+            return Ok(());
         }
-        let output_type_id = self.collect_type(cx, signature.output());
+        let output_type_id = self.collect_type(cx, signature.output())?;
         let mut fact = CompilerArchitectureFact::FunctionSafety {
             fact_id: String::new(),
             item_id: item_id.to_owned(),
@@ -310,8 +321,9 @@ impl ArchitectureCollector {
             is_unsafe: signature.safety.is_unsafe(),
             span_id: span_id.to_owned(),
         };
-        assign_fact_identity(&mut fact);
+        assign_fact_identity(&mut fact)?;
         self.push_fact(fact);
+        Ok(())
     }
 
     fn remember_selected_type(
@@ -321,9 +333,9 @@ impl ArchitectureCollector {
         item_kind: ItemKind,
         qualified_path: &str,
         span_id: &str,
-    ) {
+    ) -> Result<(), String> {
         if !matches!(item_kind, ItemKind::Struct | ItemKind::Enum | ItemKind::Union) {
-            return;
+            return Ok(());
         }
         let selected = self
             .context
@@ -331,16 +343,27 @@ impl ArchitectureCollector {
             .iter()
             .any(|selection| selection.tracked_type_definitions.iter().any(|tracked| tracked == qualified_path));
         if !selected {
-            return;
+            return Ok(());
         }
-        let type_id = self.collect_type(cx, cx.tcx.type_of(def_id).instantiate_identity());
+        let type_id = self.collect_type(cx, cx.tcx.type_of(def_id).instantiate_identity())?;
         self.selected_type_items.insert(qualified_path.to_owned(), (def_id, type_id, span_id.to_owned()));
+        Ok(())
     }
 
-    fn collect_signature(&mut self, cx: &LateContext<'_>, def_id: LocalDefId, owner_item_id: &str, signature_id: &str) {
+    fn collect_signature(
+        &mut self,
+        cx: &LateContext<'_>,
+        def_id: LocalDefId,
+        owner_item_id: &str,
+        signature_id: &str,
+    ) -> Result<(), String> {
         let signature = cx.tcx.fn_sig(def_id).instantiate_identity().skip_binder();
-        let input_type_ids = signature.inputs().iter().map(|current| self.collect_type(cx, *current)).collect();
-        let output_type_id = self.collect_type(cx, signature.output());
+        let input_type_ids = signature
+            .inputs()
+            .iter()
+            .map(|current| self.collect_type(cx, *current))
+            .collect::<Result<Vec<_>, _>>()?;
+        let output_type_id = self.collect_type(cx, signature.output())?;
         let mut fact = CompilerArchitectureFact::Signature {
             fact_id: String::new(),
             signature_id: signature_id.to_owned(),
@@ -349,24 +372,24 @@ impl ArchitectureCollector {
             output_type_id,
             is_public: cx.tcx.visibility(def_id).is_public(),
         };
-        assign_fact_identity(&mut fact);
+        assign_fact_identity(&mut fact)?;
         self.push_fact(fact);
+        Ok(())
     }
 
-    fn collect_type(&mut self, cx: &LateContext<'_>, resolved: Ty<'_>) -> String {
+    fn collect_type(&mut self, cx: &LateContext<'_>, resolved: Ty<'_>) -> Result<String, String> {
         let display = resolved.to_string();
         let (definition_path, origin_crate, type_kind) = type_metadata(cx, resolved);
         let type_id = octet_architecture_ir::canonical_identity(
             TYPE_ID_DOMAIN,
             &(&display, &definition_path, &origin_crate, type_kind, &self.selected.unit.source_blake3),
-        )
-        .expect("compiler type identity must serialize");
+        )?;
         if self.type_ids.contains(&type_id) {
-            return type_id;
+            return Ok(type_id);
         }
         if self.type_ids.len() >= self.context.limits.max_types {
             self.incomplete = true;
-            return type_id;
+            return Ok(type_id);
         }
         self.type_ids.insert(type_id.clone());
         {
@@ -378,27 +401,27 @@ impl ArchitectureCollector {
                 origin_crate,
                 type_kind,
             };
-            assign_fact_identity(&mut fact);
+            assign_fact_identity(&mut fact)?;
             self.push_fact(fact);
         }
-        type_id
+        Ok(type_id)
     }
 
-    fn collect_module(&mut self, qualified_path: &str, item_kind: ItemKind, span_id: &str) {
+    fn collect_module(&mut self, qualified_path: &str, item_kind: ItemKind, span_id: &str) -> Result<(), String> {
         let module_path = if item_kind == ItemKind::Module {
             qualified_path
         } else {
             let Some((module_path, _)) = qualified_path.rsplit_once("::") else {
-                return;
+                return Ok(());
             };
             module_path
         };
         if self.module_paths.contains(module_path) {
-            return;
+            return Ok(());
         }
         if self.module_paths.len() >= self.context.limits.max_modules {
             self.incomplete = true;
-            return;
+            return Ok(());
         }
         self.module_paths.insert(module_path.to_owned());
         let mut fact = CompilerArchitectureFact::Module {
@@ -406,11 +429,12 @@ impl ArchitectureCollector {
             module_path: module_path.to_owned(),
             span_id: span_id.to_owned(),
         };
-        assign_fact_identity(&mut fact);
+        assign_fact_identity(&mut fact)?;
         self.push_fact(fact);
+        Ok(())
     }
 
-    fn collect_span(&mut self, cx: &LateContext<'_>, span: Span) -> String {
+    fn collect_span(&mut self, cx: &LateContext<'_>, span: Span) -> Result<String, String> {
         let source_map = cx.sess().source_map();
         let workspace_span = workspace_source_span(cx, span, &self.context.workspace_root);
         let resolved_span = workspace_span.unwrap_or(span);
@@ -442,7 +466,7 @@ impl ArchitectureCollector {
             ),
             from_expansion: span.from_expansion(),
         };
-        record.span_id = octet_architecture_ir::source_span_identity(&record);
+        record.span_id = octet_architecture_ir::source_span_identity(&record)?;
         if self.spans.len() < self.context.limits.max_spans {
             self.spans.entry(record.span_id.clone()).or_insert(record.clone());
         } else {
@@ -456,17 +480,17 @@ impl ArchitectureCollector {
                     Some(provenance_blake3),
                     Some(&record.span_id),
                     "compiler span has no workspace call site; external source is content-redacted",
-                );
+                )?;
             } else {
                 self.incomplete = true;
             }
         }
-        record.span_id
+        Ok(record.span_id)
     }
 
-    fn collect_expansion(&mut self, cx: &LateContext<'_>, span: Span, generated_span_id: &str) {
+    fn collect_expansion(&mut self, cx: &LateContext<'_>, span: Span, generated_span_id: &str) -> Result<(), String> {
         let callsite = span.source_callsite();
-        let callsite_span_id = self.collect_span(cx, callsite);
+        let callsite_span_id = self.collect_span(cx, callsite)?;
         let macro_definition = span
             .macro_backtrace()
             .find_map(|expansion| expansion.macro_def_id.map(|def_id| cx.tcx.def_path_str(def_id)));
@@ -476,7 +500,7 @@ impl ArchitectureCollector {
             callsite_span_id,
             macro_definition: macro_definition.clone(),
         };
-        assign_fact_identity(&mut fact);
+        assign_fact_identity(&mut fact)?;
         self.push_fact(fact);
         if macro_definition.is_none() && !compiler_owned_expansion(span.ctxt().outer_expn_data().kind) {
             self.push_unknown(
@@ -488,8 +512,9 @@ impl ArchitectureCollector {
                     "expanded source has no compiler-resolved macro definition: {:?}",
                     span.ctxt().outer_expn_data().kind
                 ),
-            );
+            )?;
         }
+        Ok(())
     }
 
     fn collect_call(
@@ -498,9 +523,9 @@ impl ArchitectureCollector {
         expr: &hir::Expr<'_>,
         def_id: Option<DefId>,
         dispatch: DispatchKind,
-    ) {
-        let caller_item_id = self.caller_item_id(cx, expr.hir_id);
-        let span_id = self.collect_span(cx, expr.span);
+    ) -> Result<(), String> {
+        let caller_item_id = self.caller_item_id(cx, expr.hir_id)?;
+        let span_id = self.collect_span(cx, expr.span)?;
         let resolved_definition = def_id.map(|current| qualified_definition(cx, current));
         if def_id.is_none() {
             self.push_unknown(
@@ -509,11 +534,12 @@ impl ArchitectureCollector {
                 None,
                 Some(&span_id),
                 "call expression has no compiler-resolved definition",
-            );
+            )?;
         }
         let callee_item_id = def_id
             .filter(|current| current.is_local())
-            .map(|current| self.local_item_identity(cx, current.expect_local()));
+            .map(|current| self.local_item_identity(cx, current.expect_local()))
+            .transpose()?;
         let mut fact = CompilerArchitectureFact::Call {
             fact_id: String::new(),
             caller_item_id: caller_item_id.clone(),
@@ -522,7 +548,7 @@ impl ArchitectureCollector {
             dispatch,
             span_id: span_id.clone(),
         };
-        assign_fact_identity(&mut fact);
+        assign_fact_identity(&mut fact)?;
         self.push_fact(fact);
 
         if let Some(definition) = resolved_definition.as_deref()
@@ -537,7 +563,7 @@ impl ArchitectureCollector {
                 primitive_definition: definition.to_owned(),
                 span_id: span_id.clone(),
             };
-            assign_fact_identity(&mut effect);
+            assign_fact_identity(&mut effect)?;
             self.push_fact(effect);
         }
         if let Some(def_id) = def_id
@@ -549,7 +575,7 @@ impl ArchitectureCollector {
                 resolved_definition.as_deref(),
                 Some(&span_id),
                 "foreign item call requires consumer-owned authority analysis",
-            );
+            )?;
         }
         if dispatch == DispatchKind::Dynamic {
             self.push_unknown(
@@ -558,12 +584,13 @@ impl ArchitectureCollector {
                 resolved_definition.as_deref(),
                 Some(&span_id),
                 "dynamic dispatch target is not statically unique",
-            );
+            )?;
         }
-        self.collect_constructor(cx, expr, &caller_item_id, def_id, &span_id);
+        self.collect_constructor(cx, expr, &caller_item_id, def_id, &span_id)?;
         if expr.span.from_expansion() {
-            self.collect_expansion(cx, expr.span, &span_id);
+            self.collect_expansion(cx, expr.span, &span_id)?;
         }
+        Ok(())
     }
 
     fn collect_constructor(
@@ -573,12 +600,12 @@ impl ArchitectureCollector {
         caller_item_id: &str,
         def_id: Option<DefId>,
         span_id: &str,
-    ) {
+    ) -> Result<(), String> {
         let resolved = cx.typeck_results().expr_ty(expr);
         if !matches!(resolved.kind(), ty::Adt(..)) {
-            return;
+            return Ok(());
         }
-        let constructed_type_id = self.collect_type(cx, resolved);
+        let constructed_type_id = self.collect_type(cx, resolved)?;
         let constructor_definition = def_id.map(|current| qualified_definition(cx, current));
         let mut fact = CompilerArchitectureFact::Constructor {
             fact_id: String::new(),
@@ -587,14 +614,16 @@ impl ArchitectureCollector {
             constructor_definition,
             span_id: span_id.to_owned(),
         };
-        assign_fact_identity(&mut fact);
+        assign_fact_identity(&mut fact)?;
         self.push_fact(fact);
+        Ok(())
     }
 
-    fn local_item_identity(&self, cx: &LateContext<'_>, def_id: LocalDefId) -> String {
+    fn local_item_identity(&self, cx: &LateContext<'_>, def_id: LocalDefId) -> Result<String, String> {
         let qualified_path = qualified_definition(cx, def_id.to_def_id());
         let kind = def_kind_to_item_kind(cx.tcx.def_kind(def_id));
-        let signature_id = matches!(kind, ItemKind::Function).then(|| signature_shape_identity(cx, def_id));
+        let signature_id =
+            matches!(kind, ItemKind::Function).then(|| signature_shape_identity(cx, def_id)).transpose()?;
         item_identity(
             &self.selected.unit.package_name,
             &qualified_path,
@@ -604,14 +633,14 @@ impl ArchitectureCollector {
         )
     }
 
-    fn caller_item_id(&mut self, cx: &LateContext<'_>, hir_id: hir::HirId) -> String {
+    fn caller_item_id(&mut self, cx: &LateContext<'_>, hir_id: hir::HirId) -> Result<String, String> {
         let owner = cx.tcx.hir_enclosing_body_owner(hir_id);
         if let Some(item_id) = self.item_ids.get(&owner) {
-            return item_id.clone();
+            return Ok(item_id.clone());
         }
         if cx.tcx.def_kind(owner) == DefKind::Closure {
             let span = cx.tcx.def_span(owner);
-            let span_id = self.collect_span(cx, span);
+            let span_id = self.collect_span(cx, span)?;
             let qualified_path =
                 closure_qualified_path(cx, span, &self.selected.unit.package_name, &self.context.workspace_root);
             let item_id = item_identity(
@@ -620,7 +649,7 @@ impl ArchitectureCollector {
                 ItemKind::Other,
                 None,
                 &self.selected.unit.source_blake3,
-            );
+            )?;
             let mut fact = CompilerArchitectureFact::Item {
                 fact_id: String::new(),
                 item_id: item_id.clone(),
@@ -631,10 +660,10 @@ impl ArchitectureCollector {
                 signature_id: None,
                 span_id,
             };
-            assign_fact_identity(&mut fact);
+            assign_fact_identity(&mut fact)?;
             self.push_fact(fact);
             self.insert_item_identity(owner, &item_id);
-            return item_id;
+            return Ok(item_id);
         }
         // r[impl octet.compiler_architecture_ir.body_owner_kinds]
         // A call can belong to a constant initializer, not only a function.
@@ -711,7 +740,7 @@ impl ArchitectureCollector {
         target_identity: Option<&str>,
         span_id: Option<&str>,
         detail: &str,
-    ) {
+    ) -> Result<(), String> {
         let mut unknown = UnknownCompilerFact {
             unknown_id: String::new(),
             kind,
@@ -720,19 +749,20 @@ impl ArchitectureCollector {
             span_id: span_id.map(str::to_owned),
             detail: detail.to_owned(),
         };
-        unknown.unknown_id = octet_architecture_ir::unknown_fact_identity(&unknown);
+        unknown.unknown_id = octet_architecture_ir::unknown_fact_identity(&unknown)?;
         if self.unknowns.contains_key(&unknown.unknown_id) {
-            return;
+            return Ok(());
         }
         if self.unknowns.len() >= self.context.limits.max_unknowns {
             self.incomplete = true;
-            return;
+            return Ok(());
         }
         self.unknowns.insert(unknown.unknown_id.clone(), unknown);
+        Ok(())
     }
 
-    fn collect_role_fact(&mut self, cx: &LateContext<'_>, span: Span) {
-        let span_id = self.collect_span(cx, span);
+    fn collect_role_fact(&mut self, cx: &LateContext<'_>, span: Span) -> Result<(), String> {
+        let span_id = self.collect_span(cx, span)?;
         let source_role = match self.spans.get(&span_id).map(|current| &current.origin) {
             Some(SourceOrigin::ExternalGenerated { .. }) => CompilerArchitectureRole::Generated,
             Some(SourceOrigin::Workspace { source_path }) => self
@@ -756,11 +786,12 @@ impl ArchitectureCollector {
             active: true,
             span_id: Some(span_id),
         };
-        assign_fact_identity(&mut fact);
+        assign_fact_identity(&mut fact)?;
         self.push_fact(fact);
+        Ok(())
     }
 
-    fn collect_selected_type_shapes(&mut self, cx: &LateContext<'_>) {
+    fn collect_selected_type_shapes(&mut self, cx: &LateContext<'_>) -> Result<(), String> {
         let selected_types = self.selected_type_items.clone();
         for (qualified_path, (def_id, type_id, span_id)) in selected_types {
             let adt_def = cx.tcx.adt_def(def_id);
@@ -801,14 +832,15 @@ impl ArchitectureCollector {
                 implemented_traits: implemented_traits.into_iter().collect(),
                 span_id,
             };
-            assign_fact_identity(&mut fact);
+            assign_fact_identity(&mut fact)?;
             self.push_fact(fact);
         }
+        Ok(())
     }
 
-    fn collect_selected_value_provenance(&mut self, cx: &LateContext<'_>) {
+    fn collect_selected_value_provenance(&mut self, cx: &LateContext<'_>) -> Result<(), String> {
         if self.context.value_flow_selections.is_empty() {
-            return;
+            return Ok(());
         }
         let mut body_def_ids = self
             .item_ids
@@ -828,8 +860,8 @@ impl ArchitectureCollector {
                 Some(VALUE_FLOW_LIMIT_TARGET),
                 None,
                 "selected MIR body count exceeded the configured value-flow bound",
-            );
-            return;
+            )?;
+            return Ok(());
         }
         let tracked_callees =
             selected_names(&self.context.value_flow_selections, |selection| &selection.tracked_callee_definitions);
@@ -872,8 +904,8 @@ impl ArchitectureCollector {
                         Some(VALUE_FLOW_LIMIT_TARGET),
                         None,
                         "selected MIR transfer steps exceeded the configured value-flow bound",
-                    );
-                    return;
+                    )?;
+                    return Ok(());
                 };
                 union_origin_map_entry(&mut next_return_origins, *def_id, &result.return_origins);
                 for (key, origins) in result.argument_updates {
@@ -907,13 +939,13 @@ impl ArchitectureCollector {
                 Some(VALUE_FLOW_LIMIT_TARGET),
                 None,
                 "selected MIR provenance did not converge within the configured round bound",
-            );
-            return;
+            )?;
+            return Ok(());
         }
         for (_, (caller_def_id, observation)) in final_observations {
-            let caller_item_id = self.local_item_identity(cx, caller_def_id);
-            let argument_type_id = self.collect_type_from_definition(cx, &observation.key.argument_type);
-            let span_id = self.collect_span(cx, observation.span);
+            let caller_item_id = self.local_item_identity(cx, caller_def_id)?;
+            let argument_type_id = self.collect_type_from_definition(cx, &observation.key.argument_type)?;
+            let span_id = self.collect_span(cx, observation.span)?;
             let (origin_definitions, status) = canonical_provenance(&observation.origins);
             let mut fact = CompilerArchitectureFact::CallArgumentProvenance {
                 fact_id: String::new(),
@@ -925,7 +957,7 @@ impl ArchitectureCollector {
                 status,
                 span_id: span_id.clone(),
             };
-            assign_fact_identity(&mut fact);
+            assign_fact_identity(&mut fact)?;
             self.push_fact(fact);
             if status != ValueProvenanceStatus::Exact {
                 let kind = if status == ValueProvenanceStatus::Merged {
@@ -939,14 +971,15 @@ impl ArchitectureCollector {
                     Some(&observation.key.callee_definition),
                     Some(&span_id),
                     "selected call argument provenance is not one exact compiler-resolved origin",
-                );
+                )?;
             }
         }
+        Ok(())
     }
 
-    fn collect_type_from_definition(&mut self, cx: &LateContext<'_>, definition: &str) -> String {
+    fn collect_type_from_definition(&mut self, cx: &LateContext<'_>, definition: &str) -> Result<String, String> {
         if let Some((_, type_id, _)) = self.selected_type_items.get(definition) {
-            return type_id.clone();
+            return Ok(type_id.clone());
         }
         if let Some(type_id) = self.facts.values().find_map(|fact| match fact {
             CompilerArchitectureFact::Type {
@@ -956,7 +989,7 @@ impl ArchitectureCollector {
             } if current == definition => Some(type_id.clone()),
             _ => None,
         }) {
-            return type_id;
+            return Ok(type_id);
         }
         let fallback = octet_architecture_ir::canonical_identity(
             TYPE_ID_DOMAIN,
@@ -967,18 +1000,17 @@ impl ArchitectureCollector {
                 TypeKind::Adt,
                 &self.selected.unit.source_blake3,
             ),
-        )
-        .expect("selected compiler type identity must serialize");
+        )?;
         if !self.type_ids.contains(&fallback) {
             let selected = self.selected_type_items.get(definition).map(|(def_id, _, _)| *def_id);
             if let Some(def_id) = selected {
                 return self.collect_type(cx, cx.tcx.type_of(def_id).instantiate_identity());
             }
         }
-        fallback
+        Ok(fallback)
     }
 
-    fn collect_active_configuration(&mut self, cx: &LateContext<'_>) {
+    fn collect_active_configuration(&mut self, cx: &LateContext<'_>) -> Result<(), String> {
         // Built-in attributes are parsed in this compiler cohort; name matching
         // only sees unparsed attributes. Query this session's active crate attrs.
         if find_attr!(cx.tcx, crate, AttributeKind::NoStd(_)) {
@@ -988,7 +1020,7 @@ impl ArchitectureCollector {
                 active: true,
                 span_id: None,
             };
-            assign_fact_identity(&mut no_std);
+            assign_fact_identity(&mut no_std)?;
             self.push_fact(no_std);
         }
         for feature in self.selected.unit.features.clone() {
@@ -998,7 +1030,7 @@ impl ArchitectureCollector {
                 active: true,
                 span_id: None,
             };
-            assign_fact_identity(&mut fact);
+            assign_fact_identity(&mut fact)?;
             self.push_fact(fact);
         }
         let mut target = CompilerArchitectureFact::Configuration {
@@ -1007,7 +1039,7 @@ impl ArchitectureCollector {
             active: true,
             span_id: None,
         };
-        assign_fact_identity(&mut target);
+        assign_fact_identity(&mut target)?;
         self.push_fact(target);
         let mut active_cfgs = cx
             .sess()
@@ -1028,15 +1060,19 @@ impl ArchitectureCollector {
                 active: true,
                 span_id: None,
             };
-            assign_fact_identity(&mut fact);
+            assign_fact_identity(&mut fact)?;
             self.push_fact(fact);
         }
+        Ok(())
     }
 
     fn emit_shard(&mut self, cx: &LateContext<'_>) -> Result<(), String> {
-        self.collect_selected_type_shapes(cx);
-        self.collect_selected_value_provenance(cx);
-        self.collect_active_configuration(cx);
+        if let Some(error) = &self.identity_error {
+            return Err(error.clone());
+        }
+        self.collect_selected_type_shapes(cx)?;
+        self.collect_selected_value_provenance(cx)?;
+        self.collect_active_configuration(cx)?;
         let mut shard = CompilerArchitectureShard {
             schema_version: octet_architecture_ir::COMPILER_ARCHITECTURE_SHARD_SCHEMA_VERSION.to_owned(),
             shard_id: String::new(),
@@ -1051,7 +1087,7 @@ impl ArchitectureCollector {
             unknowns: self.unknowns.values().cloned().collect(),
             non_claims: self.context.non_claims.clone(),
         };
-        shard.shard_id = octet_architecture_ir::shard_identity(&shard);
+        shard.shard_id = octet_architecture_ir::shard_identity(&shard)?;
         let mut bytes = serde_json::to_vec_pretty(&shard)
             .map_err(|error| format!("serialize compiler architecture shard: {error}"))?;
         bytes.push(b'\n');
@@ -1118,9 +1154,70 @@ impl_lint_pass!(ArchitectureCollector => []);
 
 impl<'tcx> LateLintPass<'tcx> for ArchitectureCollector {
     fn check_item(&mut self, cx: &LateContext<'tcx>, item: &'tcx hir::Item<'tcx>) {
+        self.visit(|collector| collector.collect_checked_item(cx, item));
+    }
+
+    fn check_impl_item(&mut self, cx: &LateContext<'tcx>, item: &'tcx hir::ImplItem<'tcx>) {
+        self.visit(|collector| {
+            let signature = matches!(item.kind, hir::ImplItemKind::Fn(..));
+            let item_kind = def_kind_to_item_kind(cx.tcx.def_kind(item.owner_id.def_id));
+            collector.collect_item(cx, item.owner_id.def_id, item_kind, item.span, signature)?;
+            Ok(())
+        });
+    }
+
+    fn check_trait_item(&mut self, cx: &LateContext<'tcx>, item: &'tcx hir::TraitItem<'tcx>) {
+        self.visit(|collector| {
+            let signature = matches!(item.kind, hir::TraitItemKind::Fn(..));
+            let item_kind = def_kind_to_item_kind(cx.tcx.def_kind(item.owner_id.def_id));
+            let item_id = collector.collect_item(cx, item.owner_id.def_id, item_kind, item.span, signature)?;
+            if matches!(item.kind, hir::TraitItemKind::Fn(_, hir::TraitFn::Required(_))) {
+                let span_id = collector.collect_span(cx, item.span)?;
+                collector.push_unknown(
+                    UnknownFactKind::MissingBody,
+                    Some(&item_id),
+                    None,
+                    Some(&span_id),
+                    "required trait method has no body in this compilation unit",
+                )?;
+            }
+            Ok(())
+        });
+    }
+
+    fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx hir::Expr<'tcx>) {
+        self.visit(|collector| match &expr.kind {
+            hir::ExprKind::Call(callee, _) => {
+                let def_id = match &callee.kind {
+                    hir::ExprKind::Path(qpath) => cx.qpath_res(qpath, callee.hir_id).opt_def_id(),
+                    _ => None,
+                };
+                let dispatch = def_id.map_or(DispatchKind::Unknown, |current| dispatch_kind(cx, current, None));
+                collector.collect_call(cx, expr, def_id, dispatch)
+            }
+            hir::ExprKind::MethodCall(_, receiver, _, _) => {
+                let def_id = cx.typeck_results().type_dependent_def_id(expr.hir_id);
+                let receiver_ty = cx.typeck_results().expr_ty(receiver);
+                let dispatch =
+                    def_id.map_or(DispatchKind::Unknown, |current| dispatch_kind(cx, current, Some(receiver_ty)));
+                collector.collect_call(cx, expr, def_id, dispatch)
+            }
+            _ => Ok(()),
+        });
+    }
+
+    fn check_crate_post(&mut self, cx: &LateContext<'tcx>) {
+        if let Err(error) = self.emit_shard(cx) {
+            cx.tcx.dcx().err(error);
+        }
+    }
+}
+
+impl ArchitectureCollector {
+    fn collect_checked_item(&mut self, cx: &LateContext<'_>, item: &hir::Item<'_>) -> Result<(), String> {
         let (kind, signature) = item_kind(&item.kind);
-        let item_id = self.collect_item(cx, item.owner_id.def_id, kind, item.span, signature);
-        self.collect_role_fact(cx, item.span);
+        let item_id = self.collect_item(cx, item.owner_id.def_id, kind, item.span, signature)?;
+        self.collect_role_fact(cx, item.span)?;
         match &item.kind {
             hir::ItemKind::Trait(..) => {
                 let mut fact = CompilerArchitectureFact::Trait {
@@ -1128,14 +1225,14 @@ impl<'tcx> LateLintPass<'tcx> for ArchitectureCollector {
                     trait_id: item_id,
                     qualified_path: qualified_definition(cx, item.owner_id.def_id.to_def_id()),
                     origin_crate: self.selected.unit.package_name.clone(),
-                    span_id: self.collect_span(cx, item.span),
+                    span_id: self.collect_span(cx, item.span)?,
                 };
-                assign_fact_identity(&mut fact);
+                assign_fact_identity(&mut fact)?;
                 self.push_fact(fact);
             }
             hir::ItemKind::Impl(..) => {
                 let self_type = cx.tcx.type_of(item.owner_id.def_id).instantiate_identity();
-                let self_type_id = self.collect_type(cx, self_type);
+                let self_type_id = self.collect_type(cx, self_type)?;
                 let trait_definition = match &item.kind {
                     hir::ItemKind::Impl(impl_block) => impl_block
                         .of_trait
@@ -1150,86 +1247,38 @@ impl<'tcx> LateLintPass<'tcx> for ArchitectureCollector {
                         .as_ref()
                         .and_then(|trait_ref| trait_ref.trait_ref.trait_def_id())
                         .filter(|def_id| def_id.is_local())
-                        .map(|def_id| self.local_item_identity(cx, def_id.expect_local())),
+                        .map(|def_id| self.local_item_identity(cx, def_id.expect_local()))
+                        .transpose()?,
                     _ => None,
                 };
                 let implementation_id = octet_architecture_ir::canonical_identity(
                     IMPLEMENTATION_ID_DOMAIN,
                     &(&item_id, &trait_definition, &self_type_id, &self.selected.unit.source_blake3),
-                )
-                .expect("compiler implementation identity must serialize");
+                )?;
                 let mut fact = CompilerArchitectureFact::Implementation {
                     fact_id: String::new(),
                     implementation_id,
                     trait_id,
                     trait_definition,
                     self_type_id,
-                    span_id: self.collect_span(cx, item.span),
+                    span_id: self.collect_span(cx, item.span)?,
                 };
-                assign_fact_identity(&mut fact);
+                assign_fact_identity(&mut fact)?;
                 self.push_fact(fact);
             }
             hir::ItemKind::ForeignMod { .. } => {
-                let span_id = self.collect_span(cx, item.span);
+                let span_id = self.collect_span(cx, item.span)?;
                 self.push_unknown(
                     UnknownFactKind::Ffi,
                     Some(&item_id),
                     None,
                     Some(&span_id),
                     "foreign module requires consumer-owned authority analysis",
-                );
+                )?;
             }
             _ => {}
         }
-    }
-
-    fn check_impl_item(&mut self, cx: &LateContext<'tcx>, item: &'tcx hir::ImplItem<'tcx>) {
-        let signature = matches!(item.kind, hir::ImplItemKind::Fn(..));
-        let item_kind = def_kind_to_item_kind(cx.tcx.def_kind(item.owner_id.def_id));
-        self.collect_item(cx, item.owner_id.def_id, item_kind, item.span, signature);
-    }
-
-    fn check_trait_item(&mut self, cx: &LateContext<'tcx>, item: &'tcx hir::TraitItem<'tcx>) {
-        let signature = matches!(item.kind, hir::TraitItemKind::Fn(..));
-        let item_kind = def_kind_to_item_kind(cx.tcx.def_kind(item.owner_id.def_id));
-        let item_id = self.collect_item(cx, item.owner_id.def_id, item_kind, item.span, signature);
-        if matches!(item.kind, hir::TraitItemKind::Fn(_, hir::TraitFn::Required(_))) {
-            let span_id = self.collect_span(cx, item.span);
-            self.push_unknown(
-                UnknownFactKind::MissingBody,
-                Some(&item_id),
-                None,
-                Some(&span_id),
-                "required trait method has no body in this compilation unit",
-            );
-        }
-    }
-
-    fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx hir::Expr<'tcx>) {
-        match &expr.kind {
-            hir::ExprKind::Call(callee, _) => {
-                let def_id = match &callee.kind {
-                    hir::ExprKind::Path(qpath) => cx.qpath_res(qpath, callee.hir_id).opt_def_id(),
-                    _ => None,
-                };
-                let dispatch = def_id.map_or(DispatchKind::Unknown, |current| dispatch_kind(cx, current, None));
-                self.collect_call(cx, expr, def_id, dispatch);
-            }
-            hir::ExprKind::MethodCall(_, receiver, _, _) => {
-                let def_id = cx.typeck_results().type_dependent_def_id(expr.hir_id);
-                let receiver_ty = cx.typeck_results().expr_ty(receiver);
-                let dispatch =
-                    def_id.map_or(DispatchKind::Unknown, |current| dispatch_kind(cx, current, Some(receiver_ty)));
-                self.collect_call(cx, expr, def_id, dispatch);
-            }
-            _ => {}
-        }
-    }
-
-    fn check_crate_post(&mut self, cx: &LateContext<'tcx>) {
-        if let Err(error) = self.emit_shard(cx) {
-            cx.tcx.dcx().err(error);
-        }
+        Ok(())
     }
 }
 
@@ -1635,20 +1684,18 @@ fn item_identity(
     item_kind: ItemKind,
     signature_id: Option<&str>,
     source_blake3: &str,
-) -> String {
+) -> Result<String, String> {
     octet_architecture_ir::canonical_identity(
         ITEM_ID_DOMAIN,
         &(package_name, qualified_path, item_kind, signature_id, source_blake3),
     )
-    .expect("compiler item identity must serialize")
 }
 
-fn signature_shape_identity(cx: &LateContext<'_>, def_id: LocalDefId) -> String {
+fn signature_shape_identity(cx: &LateContext<'_>, def_id: LocalDefId) -> Result<String, String> {
     let signature = cx.tcx.fn_sig(def_id).instantiate_identity().skip_binder();
     let inputs = signature.inputs().iter().map(ToString::to_string).collect::<Vec<_>>();
     let output = signature.output().to_string();
     octet_architecture_ir::canonical_identity(SIGNATURE_ID_DOMAIN, &(inputs, output))
-        .expect("compiler signature shape identity must serialize")
 }
 
 // r[impl octet.compiler_architecture_ir.body_owner_kinds]
@@ -1803,8 +1850,8 @@ fn normalized_relative_path(path: &Path) -> Option<String> {
     (!components.is_empty()).then(|| components.join("/"))
 }
 
-fn assign_fact_identity(fact: &mut CompilerArchitectureFact) {
-    let identity = octet_architecture_ir::fact_identity(fact);
+fn assign_fact_identity(fact: &mut CompilerArchitectureFact) -> Result<(), String> {
+    let identity = octet_architecture_ir::fact_identity(fact)?;
     match fact {
         CompilerArchitectureFact::Module { fact_id, .. }
         | CompilerArchitectureFact::Item { fact_id, .. }
@@ -1821,6 +1868,7 @@ fn assign_fact_identity(fact: &mut CompilerArchitectureFact) {
         | CompilerArchitectureFact::FunctionSafety { fact_id, .. }
         | CompilerArchitectureFact::CallArgumentProvenance { fact_id, .. } => *fact_id = identity,
     }
+    Ok(())
 }
 
 fn is_module(fact: &CompilerArchitectureFact) -> bool {

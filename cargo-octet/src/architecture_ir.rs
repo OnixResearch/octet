@@ -251,7 +251,7 @@ pub(crate) fn prepare_collector(
                 source_blake3: source_blake3.clone(),
                 invocation_blake3: unit_invocation,
             };
-            unit.unit_id = octet_architecture_ir::compilation_unit_identity(&unit);
+            unit.unit_id = octet_architecture_ir::compilation_unit_identity(&unit)?;
             if selected_units.len() >= policy.policy.collection_limits.max_units {
                 return Err(format!(
                     "selected compiler architecture units exceed policy limit {}",

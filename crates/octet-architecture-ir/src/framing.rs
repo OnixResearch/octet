@@ -1,6 +1,6 @@
-use serde::Serialize;
-
-const FRAME_LENGTH_BYTES: usize = std::mem::size_of::<u64>();
+// A framed byte slice cannot exceed usize::MAX. Reject platforms where that
+// length cannot be represented in the identity format, rather than truncating it.
+const _: () = assert!(usize::BITS <= u64::BITS);
 
 #[must_use]
 pub fn framed_blake3(domain: &str, fields: &[&[u8]]) -> String {
@@ -17,7 +17,7 @@ pub fn framed_blake3(domain: &str, fields: &[&[u8]]) -> String {
 /// # Errors
 ///
 /// Returns the serializer error when `value` cannot be encoded as JSON.
-pub fn canonical_json<T: Serialize>(value: &T) -> Result<Vec<u8>, String> {
+pub fn canonical_json<T: serde::Serialize>(value: &T) -> Result<Vec<u8>, String> {
     serde_json::to_vec(value).map_err(|error| format!("serialize canonical architecture value: {error}"))
 }
 
@@ -26,15 +26,13 @@ pub fn canonical_json<T: Serialize>(value: &T) -> Result<Vec<u8>, String> {
 /// # Errors
 ///
 /// Propagates `canonical_json`'s error if `value` cannot be serialized.
-pub fn canonical_identity<T: Serialize>(domain: &str, value: &T) -> Result<String, String> {
+pub fn canonical_identity<T: serde::Serialize>(domain: &str, value: &T) -> Result<String, String> {
     let bytes = canonical_json(value)?;
     Ok(framed_blake3(domain, &[&bytes]))
 }
 
 fn update_frame(hasher: &mut blake3::Hasher, value: &[u8]) {
-    let length = u64::try_from(value.len()).expect("architecture identity input length must fit u64");
-    let length_bytes = length.to_le_bytes();
-    assert_eq!(length_bytes.len(), FRAME_LENGTH_BYTES);
+    let length_bytes = (value.len() as u64).to_le_bytes();
     hasher.update(&length_bytes);
     hasher.update(value);
 }

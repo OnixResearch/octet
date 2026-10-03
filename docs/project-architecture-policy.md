@@ -113,6 +113,11 @@ Architecture IR records bounded compiler observations for the selected policy, C
 It does not prove runtime behavior, whole-program correctness, or observation authenticity.
 
 Normalized IR and raw shards use schema v2. Unit identities bind the required `source_path`.
+Rust callers of `octet-architecture-ir` now receive `Result<String, String>` from the
+compilation-unit, span, fact, unknown, shard, coverage, IR, and receipt
+`*_identity` functions instead of a `String`. Collection propagates identity
+serialization errors; artifact and policy-gate verification report them and
+reject the input rather than treating a failed computation as a valid identity.
 Normalized IR retains a required `unit_memberships` relation before shared facts and unknowns are deduplicated.
 Missing, orphan, noncanonical, or unreferenced memberships reject even when the outer IR identity is recomputed.
 A structurally possible relation is not independently authenticated by its hash.

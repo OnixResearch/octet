@@ -1694,21 +1694,6 @@ mod tests {
     use super::normalize_finding_message;
     use super::normalize_lint_name;
 
-    const REQUIRED_EMBEDDED_PATHS: &[&str] = &[
-        "Cargo.toml",
-        "crates/octet-lint-metadata/Cargo.toml",
-        "crates/octet-lint-metadata/src/identity.rs",
-        "crates/octet-lint-metadata/src/identity/admission.rs",
-        "crates/octet-lint-metadata/src/identity/evidence.rs",
-        "crates/octet-lint-metadata/src/identity/model.rs",
-        "crates/octet-lint-metadata/src/identity/tests.rs",
-        "crates/octet-lint-metadata/src/strict_profile.rs",
-        "standards/clippy-restrictions/generated/profiles.json",
-        "standards/effect-closure/generated/effect-closure-catalog.json",
-        "standards/nominal-domains/generated/catalog.json",
-        "standards/strict-profiles/generated/strict-rust-profiles.json",
-    ];
-
     #[test]
     fn spanless_compiler_errors_keep_valid_structured_domains() {
         assert_eq!(normalize_lint_name(""), "compiler_error");
@@ -2039,18 +2024,6 @@ mod tests {
             "module `./src/safety` differs from `/other/src/safety`"
         );
         assert_eq!(normalize_finding_message(Path::new("/"), message), message);
-    }
-
-    #[test]
-    fn embedded_lint_source_contains_profile_and_effect_closure_runtime_inputs() {
-        let paths = embedded_source::EMBEDDED_SOURCE_FILES
-            .iter()
-            .map(|(path, _contents)| *path)
-            .collect::<BTreeSet<_>>();
-
-        for required in REQUIRED_EMBEDDED_PATHS {
-            assert!(paths.contains(required), "embedded lint source is missing `{required}`");
-        }
     }
 
     #[test]

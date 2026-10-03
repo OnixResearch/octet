@@ -1,4 +1,8 @@
 UNAPPROVED — PROPOSED CURRENT-SOURCE ARTIFACT INVENTORY — NOT H2 EVIDENCE
+HISTORICAL SOURCE SNAPSHOT: these proposed scratch outputs bind the
+pre-embedded-path-fix engine.rs hash b8a5235e…, not the later corrected
+source. Internal/expanded/taxonomy output hashes are stale for current H2; do not
+promote this packet. Current H2 remains FAIL/BLOCKED.
 Generated 2026-10-02 in isolated Octet worktree at HEAD b65337f1cd3ce130afb3dd76415b665e91cfd191. This is a scratch-only source-emission and comparison record, NOT independent owner approval, a signed/frozen reference, an H2 admission PASS, or authorization to archive. Current H2 remains FAIL/BLOCKED. No frozen manifest, reference, archived owner note, verifier, or source file was modified or replaced.
 
 Scratch location, producer and source identity

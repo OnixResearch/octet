@@ -1,9 +1,5 @@
 //! Exact, effect-free selection of a planned compiler unit.
 
-use std::collections::BTreeSet;
-
-use crate::CollectorCompilationUnit;
-
 const ADJACENT_FEATURE_COUNT: usize = 2;
 
 /// Compiler facts supplied by the adapter, with workspace-relative paths.
@@ -16,24 +12,7 @@ pub struct CompilerUnitObservation<'a> {
     pub features: &'a [String],
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum UnitSelectionError {
-    InvalidContext,
-    AmbiguousUnit,
-    UnexpectedUnit,
-}
-
-impl std::fmt::Display for UnitSelectionError {
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        formatter.write_str(match self {
-            Self::InvalidContext => "invalid compiler architecture unit context",
-            Self::AmbiguousUnit => "ambiguous compiler architecture unit observation key",
-            Self::UnexpectedUnit => "unexpected compiler configuration for a selected architecture package",
-        })
-    }
-}
-
-impl std::error::Error for UnitSelectionError {}
+pub use crate::model::UnitSelectionError;
 
 /// Reject plans that cannot distinguish their compiler sessions.
 ///
@@ -42,11 +21,11 @@ impl std::error::Error for UnitSelectionError {}
 /// Returns `InvalidContext` for an empty plan or a unit with an empty crate name, inconsistent
 /// source root, role or test configuration, missing target triple, or noncanonical features.
 /// Returns `AmbiguousUnit` for duplicate observation keys.
-pub fn validate_collector_units(units: &[CollectorCompilationUnit]) -> Result<(), UnitSelectionError> {
+pub fn validate_collector_units(units: &[crate::CollectorCompilationUnit]) -> Result<(), UnitSelectionError> {
     if units.is_empty() {
         return Err(UnitSelectionError::InvalidContext);
     }
-    let mut keys = BTreeSet::new();
+    let mut keys = std::collections::BTreeSet::new();
     for selected in units {
         if selected.rustc_crate_name.is_empty()
             || selected.source_path != selected.unit.source_path
@@ -81,17 +60,17 @@ pub fn validate_collector_units(units: &[CollectorCompilationUnit]) -> Result<()
 /// `UnexpectedUnit` when an observation belongs to a selected package but matches no selected
 /// unit; an observation matching more than one unit returns `AmbiguousUnit`.
 pub fn select_compilation_unit<'a>(
-    units: &'a [CollectorCompilationUnit],
+    units: &'a [crate::CollectorCompilationUnit],
     observation: &CompilerUnitObservation<'_>,
-) -> Result<Option<&'a CollectorCompilationUnit>, UnitSelectionError> {
+) -> Result<Option<&'a crate::CollectorCompilationUnit>, UnitSelectionError> {
     validate_collector_units(units)?;
-    let mut package_selected = false;
+    let mut is_package_selected = false;
     let mut matched = None;
     for selected in units {
         if selected.manifest_dir != observation.manifest_dir {
             continue;
         }
-        package_selected = true;
+        is_package_selected = true;
         if selected.rustc_crate_name != observation.crate_name
             || selected.source_path != observation.source_path
             || selected.test_configuration != observation.test_configuration
@@ -105,7 +84,7 @@ pub fn select_compilation_unit<'a>(
         }
         matched = Some(selected);
     }
-    if package_selected && matched.is_none() {
+    if is_package_selected && matched.is_none() {
         return Err(UnitSelectionError::UnexpectedUnit);
     }
     Ok(matched)

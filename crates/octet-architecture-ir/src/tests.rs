@@ -57,7 +57,7 @@ pub(crate) fn unit() -> CompilationUnit {
         source_blake3: HASH_C.to_owned(),
         invocation_blake3: HASH_D.to_owned(),
     };
-    unit.unit_id = compilation_unit_identity(&unit);
+    unit.unit_id = compilation_unit_identity(&unit).expect("test unit identity");
     unit
 }
 
@@ -73,7 +73,7 @@ fn span() -> SourceSpan {
         column_start: 1,
         from_expansion: false,
     };
-    span.span_id = source_span_identity(&span);
+    span.span_id = source_span_identity(&span).expect("test span identity");
     span
 }
 
@@ -88,7 +88,7 @@ fn item_fact(span_id: &str) -> CompilerArchitectureFact {
         signature_id: None,
         span_id: span_id.to_owned(),
     };
-    let id = fact_identity(&fact);
+    let id = fact_identity(&fact).expect("test fact identity");
     match &mut fact {
         CompilerArchitectureFact::Item { fact_id, .. } => *fact_id = id,
         _ => unreachable!(),
@@ -105,7 +105,7 @@ fn unknown(span_id: &str) -> UnknownCompilerFact {
         span_id: Some(span_id.to_owned()),
         detail: "trait-object call target is not statically unique".to_owned(),
     };
-    unknown.unknown_id = unknown_fact_identity(&unknown);
+    unknown.unknown_id = unknown_fact_identity(&unknown).expect("test unknown identity");
     unknown
 }
 
@@ -121,7 +121,7 @@ fn shard() -> CompilerArchitectureShard {
         unknowns: vec![unknown(&span.span_id)],
         non_claims: vec!["runtime-behavior".to_owned()],
     };
-    shard.shard_id = shard_identity(&shard);
+    shard.shard_id = shard_identity(&shard).expect("test shard identity");
     shard
 }
 
@@ -193,7 +193,7 @@ fn unit_roots_are_required_and_bound_in_the_unit_identity() {
     );
     value["source_path"] = "tests/independent.rs".into();
     let changed: CompilationUnit = serde_json::from_value(value.clone()).expect("changed root");
-    assert_ne!(compilation_unit_identity(&changed), original.unit_id);
+    assert_ne!(compilation_unit_identity(&changed).expect("test unit identity"), original.unit_id);
     value.as_object_mut().expect("unit object").remove("source_path");
     assert!(serde_json::from_value::<CompilationUnit>(value).is_err(), "missing roots must not default");
 }
@@ -204,8 +204,8 @@ fn malformed_roots_and_legacy_shards_reject_after_resealing() {
     for path in ["", "/src/lib.rs", "../src/lib.rs", "src//lib.rs", "src/./lib.rs"] {
         let mut invalid = shard();
         invalid.unit.source_path = path.to_owned();
-        invalid.unit.unit_id = compilation_unit_identity(&invalid.unit);
-        invalid.shard_id = shard_identity(&invalid);
+        invalid.unit.unit_id = compilation_unit_identity(&invalid.unit).expect("test unit identity");
+        invalid.shard_id = shard_identity(&invalid).expect("test shard identity");
         let mut selected = input(vec![invalid.clone()]);
         selected.expected_units[0].unit = invalid.unit;
         let outcome = normalize_architecture_shards(selected).expect("invalid-root outcome");
@@ -214,7 +214,7 @@ fn malformed_roots_and_legacy_shards_reject_after_resealing() {
     }
     let mut legacy = shard();
     legacy.schema_version = "octet-compiler-architecture-shard/v1".to_owned();
-    legacy.shard_id = shard_identity(&legacy);
+    legacy.shard_id = shard_identity(&legacy).expect("test shard identity");
     let rejected = normalize_architecture_shards(input(vec![legacy])).expect("legacy outcome");
     assert!(rejected.architecture_ir.is_none());
     assert!(rejected.issues.iter().any(|issue| issue.code == "shard-schema"));
@@ -222,13 +222,13 @@ fn malformed_roots_and_legacy_shards_reject_after_resealing() {
     let mut ir = normalize_architecture_shards(input(vec![shard()])).expect("normalize").architecture_ir.expect("IR");
     assert!(verify_ir_unit_bindings(&ir).is_empty());
     ir.units[0].source_path = "tests/unobserved.rs".to_owned();
-    ir.architecture_ir_id = ir_identity(&ir);
+    ir.architecture_ir_id = ir_identity(&ir).expect("test IR identity");
     assert!(verify_ir_unit_bindings(&ir).iter().any(|message| message.contains("identity is stale")));
     // A fully resealed, structurally possible root remains consistency, not authenticated Cargo
     // evidence.
-    ir.units[0].unit_id = compilation_unit_identity(&ir.units[0]);
+    ir.units[0].unit_id = compilation_unit_identity(&ir.units[0]).expect("test unit identity");
     ir.unit_memberships[0].unit_id = ir.units[0].unit_id.clone();
-    ir.architecture_ir_id = ir_identity(&ir);
+    ir.architecture_ir_id = ir_identity(&ir).expect("test IR identity");
     assert!(verify_ir_unit_bindings(&ir).is_empty());
     assert!(verify_ir_unit_memberships(&ir).is_empty());
 }
@@ -237,8 +237,8 @@ fn shared_observation_input() -> NormalizationInput {
     let first = shard();
     let mut second = first.clone();
     second.unit.target_kind = "lib+test".to_owned();
-    second.unit.unit_id = compilation_unit_identity(&second.unit);
-    second.shard_id = shard_identity(&second);
+    second.unit.unit_id = compilation_unit_identity(&second.unit).expect("test unit identity");
+    second.shard_id = shard_identity(&second).expect("test shard identity");
     let mut selected = input(vec![first, second.clone()]);
     selected.expected_units.push(ExpectedCompilationUnit { unit: second.unit });
     selected
@@ -312,7 +312,7 @@ fn malformed_memberships_are_rejected_after_resealing() {
             }
             _ => unreachable!("declared fixture case"),
         }
-        altered.architecture_ir_id = ir_identity(&altered);
+        altered.architecture_ir_id = ir_identity(&altered).expect("test IR identity");
         assert!(!verify_ir_unit_memberships(&altered).is_empty(), "accepted {case}");
     }
 }
@@ -330,12 +330,12 @@ fn legacy_membership_is_not_invented_and_shared_edge_changes_identity() {
     assert!(serde_json::from_value::<CompilerArchitectureIr>(legacy).is_err());
     let mut altered = ir.clone();
     altered.schema_version = "octet-compiler-architecture-ir/v1".to_owned();
-    altered.architecture_ir_id = ir_identity(&altered);
+    altered.architecture_ir_id = ir_identity(&altered).expect("test IR identity");
     assert!(!verify_ir_unit_memberships(&altered).is_empty());
 
     let mut changed_relation = ir.clone();
     changed_relation.unit_memberships[0].fact_ids.clear();
-    assert_ne!(ir.architecture_ir_id, ir_identity(&changed_relation));
+    assert_ne!(ir.architecture_ir_id, ir_identity(&changed_relation).expect("test IR identity"));
     // The remaining relation is structurally possible. The producer must retain
     // its observations; a digest does not authenticate a compiler invocation.
     assert!(verify_ir_unit_memberships(&changed_relation).is_empty());
@@ -351,7 +351,7 @@ fn member_order_is_canonical_and_shard_order_is_not_semantic() {
         active: true,
         span_id: None,
     };
-    let id = fact_identity(&extra);
+    let id = fact_identity(&extra).expect("test fact identity");
     let CompilerArchitectureFact::Configuration { fact_id, .. } = &mut extra else {
         unreachable!()
     };
@@ -360,9 +360,9 @@ fn member_order_is_canonical_and_shard_order_is_not_semantic() {
         observed.facts.push(extra.clone());
         let mut additional = observed.unknowns[0].clone();
         additional.detail = "another bounded unknown observation".to_owned();
-        additional.unknown_id = unknown_fact_identity(&additional);
+        additional.unknown_id = unknown_fact_identity(&additional).expect("test unknown identity");
         observed.unknowns.push(additional);
-        observed.shard_id = shard_identity(observed);
+        observed.shard_id = shard_identity(observed).expect("test shard identity");
     }
     let ir = normalize_architecture_shards(selected.clone())
         .expect("normalize two members")
@@ -390,14 +390,14 @@ fn member_order_is_canonical_and_shard_order_is_not_semantic() {
             }
             _ => unreachable!(),
         }
-        altered.architecture_ir_id = ir_identity(&altered);
+        altered.architecture_ir_id = ir_identity(&altered).expect("test IR identity");
         let diagnostics = verify_ir_unit_memberships(&altered);
         assert!(diagnostics.iter().any(|message| message.contains("canonical")), "accepted {case}: {diagnostics:?}");
     }
     for observed in &mut selected.shards {
         observed.facts.reverse();
         observed.unknowns.reverse();
-        observed.shard_id = shard_identity(observed);
+        observed.shard_id = shard_identity(observed).expect("test shard identity");
     }
     assert_eq!(
         Some(ir),
@@ -421,19 +421,19 @@ fn external_generated_span_uses_provenance_without_workspace_path() {
     current.spans[0].origin = SourceOrigin::ExternalGenerated {
         provenance_blake3: HASH_C.to_owned(),
     };
-    current.spans[0].span_id = source_span_identity(&current.spans[0]);
+    current.spans[0].span_id = source_span_identity(&current.spans[0]).expect("test span identity");
     let CompilerArchitectureFact::Item { span_id, .. } = &mut current.facts[0] else {
         unreachable!();
     };
     *span_id = current.spans[0].span_id.clone();
-    let updated_fact_id = fact_identity(&current.facts[0]);
+    let updated_fact_id = fact_identity(&current.facts[0]).expect("test fact identity");
     let CompilerArchitectureFact::Item { fact_id, .. } = &mut current.facts[0] else {
         unreachable!();
     };
     *fact_id = updated_fact_id;
     current.unknowns[0].span_id = Some(current.spans[0].span_id.clone());
-    current.unknowns[0].unknown_id = unknown_fact_identity(&current.unknowns[0]);
-    current.shard_id = shard_identity(&current);
+    current.unknowns[0].unknown_id = unknown_fact_identity(&current.unknowns[0]).expect("test unknown identity");
+    current.shard_id = shard_identity(&current).expect("test shard identity");
 
     let outcome = normalize_architecture_shards(input(vec![current])).expect("normalize external generated span");
 
@@ -447,19 +447,19 @@ fn invalid_external_generated_provenance_is_rejected() {
     current.spans[0].origin = SourceOrigin::ExternalGenerated {
         provenance_blake3: "invalid".to_owned(),
     };
-    current.spans[0].span_id = source_span_identity(&current.spans[0]);
+    current.spans[0].span_id = source_span_identity(&current.spans[0]).expect("test span identity");
     let CompilerArchitectureFact::Item { span_id, .. } = &mut current.facts[0] else {
         unreachable!();
     };
     *span_id = current.spans[0].span_id.clone();
-    let updated_fact_id = fact_identity(&current.facts[0]);
+    let updated_fact_id = fact_identity(&current.facts[0]).expect("test fact identity");
     let CompilerArchitectureFact::Item { fact_id, .. } = &mut current.facts[0] else {
         unreachable!();
     };
     *fact_id = updated_fact_id;
     current.unknowns[0].span_id = Some(current.spans[0].span_id.clone());
-    current.unknowns[0].unknown_id = unknown_fact_identity(&current.unknowns[0]);
-    current.shard_id = shard_identity(&current);
+    current.unknowns[0].unknown_id = unknown_fact_identity(&current.unknowns[0]).expect("test unknown identity");
+    current.shard_id = shard_identity(&current).expect("test shard identity");
 
     let outcome = normalize_architecture_shards(input(vec![current])).expect("normalize invalid external provenance");
 
@@ -471,19 +471,19 @@ fn invalid_external_generated_provenance_is_rejected() {
 fn zero_based_source_coordinate_is_rejected() {
     let mut current = shard();
     current.spans[0].column_start = 0;
-    current.spans[0].span_id = source_span_identity(&current.spans[0]);
+    current.spans[0].span_id = source_span_identity(&current.spans[0]).expect("test span identity");
     let CompilerArchitectureFact::Item { span_id, .. } = &mut current.facts[0] else {
         unreachable!();
     };
     *span_id = current.spans[0].span_id.clone();
-    let updated_fact_id = fact_identity(&current.facts[0]);
+    let updated_fact_id = fact_identity(&current.facts[0]).expect("test fact identity");
     let CompilerArchitectureFact::Item { fact_id, .. } = &mut current.facts[0] else {
         unreachable!();
     };
     *fact_id = updated_fact_id;
     current.unknowns[0].span_id = Some(current.spans[0].span_id.clone());
-    current.unknowns[0].unknown_id = unknown_fact_identity(&current.unknowns[0]);
-    current.shard_id = shard_identity(&current);
+    current.unknowns[0].unknown_id = unknown_fact_identity(&current.unknowns[0]).expect("test unknown identity");
+    current.shard_id = shard_identity(&current).expect("test shard identity");
 
     let outcome = normalize_architecture_shards(input(vec![current])).expect("normalize zero-based coordinate");
 
@@ -522,8 +522,8 @@ fn duplicate_valid_shards_fail_closed() {
 fn unexpected_valid_unit_fails_closed() {
     let mut current = shard();
     current.unit.package_name = "unexpected".to_owned();
-    current.unit.unit_id = compilation_unit_identity(&current.unit);
-    current.shard_id = shard_identity(&current);
+    current.unit.unit_id = compilation_unit_identity(&current.unit).expect("test unit identity");
+    current.shard_id = shard_identity(&current).expect("test shard identity");
     let unexpected_id = current.unit.unit_id.clone();
 
     let outcome = normalize_architecture_shards(input(vec![current])).expect("normalize unexpected unit");
@@ -537,7 +537,7 @@ fn unexpected_valid_unit_fails_closed() {
 fn stale_collector_unit_is_invalid_and_missing() {
     let mut current = shard();
     current.unit.collector_blake3 = HASH_C.to_owned();
-    current.shard_id = shard_identity(&current);
+    current.shard_id = shard_identity(&current).expect("test shard identity");
 
     let outcome = normalize_architecture_shards(input(vec![current])).expect("normalize stale collector unit");
 
@@ -555,7 +555,7 @@ fn stale_fact_identity_and_invalid_reference_are_rejected() {
     };
     *fact_id = HASH_D.to_owned();
     *span_id = HASH_C.to_owned();
-    current.shard_id = shard_identity(&current);
+    current.shard_id = shard_identity(&current).expect("test shard identity");
 
     let outcome = normalize_architecture_shards(input(vec![current])).expect("normalize malformed fixture");
 
@@ -570,9 +570,9 @@ fn count_overflow_is_incomplete() {
     input.limits.max_unknowns = 1;
     let mut second = unknown(&input.shards[0].spans[0].span_id);
     second.detail.push_str(" for a second call");
-    second.unknown_id = unknown_fact_identity(&second);
+    second.unknown_id = unknown_fact_identity(&second).expect("test unknown identity");
     input.shards[0].unknowns.push(second);
-    input.shards[0].shard_id = shard_identity(&input.shards[0]);
+    input.shards[0].shard_id = shard_identity(&input.shards[0]).expect("test shard identity");
 
     let outcome = normalize_architecture_shards(input).expect("normalize overflow fixture");
 

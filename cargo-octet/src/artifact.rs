@@ -954,16 +954,24 @@ fn validate_project_architecture_bundle(file_map: &BTreeMap<String, Vec<u8>>, di
     if graph.cargo_graph_id != octet_standards::project_architecture_gate::architecture_cargo_graph_identity(&graph) {
         diagnostics.push("project architecture Cargo graph identity is stale or malformed".to_owned());
     }
-    if ir.architecture_ir_id != octet_architecture_ir::ir_identity(&ir) {
-        diagnostics.push("compiler Architecture IR identity is stale or malformed".to_owned());
+    match octet_architecture_ir::ir_identity(&ir) {
+        Ok(expected) if ir.architecture_ir_id == expected => {}
+        Ok(_) => diagnostics.push("compiler Architecture IR identity is stale or malformed".to_owned()),
+        Err(error) => diagnostics.push(format!("compiler Architecture IR identity serialization failed: {error}")),
     }
     diagnostics.extend(octet_architecture_ir::verify_ir_unit_memberships(&ir));
     diagnostics.extend(octet_architecture_ir::verify_ir_unit_bindings(&ir));
-    if coverage.coverage_id != octet_architecture_ir::coverage_identity(&coverage) {
-        diagnostics.push("compiler architecture coverage identity is stale or malformed".to_owned());
+    match octet_architecture_ir::coverage_identity(&coverage) {
+        Ok(expected) if coverage.coverage_id == expected => {}
+        Ok(_) => diagnostics.push("compiler architecture coverage identity is stale or malformed".to_owned()),
+        Err(error) => {
+            diagnostics.push(format!("compiler architecture coverage identity serialization failed: {error}"))
+        }
     }
-    if compiler_receipt.receipt_id != octet_architecture_ir::receipt_identity(&compiler_receipt) {
-        diagnostics.push("compiler architecture receipt identity is stale or malformed".to_owned());
+    match octet_architecture_ir::receipt_identity(&compiler_receipt) {
+        Ok(expected) if compiler_receipt.receipt_id == expected => {}
+        Ok(_) => diagnostics.push("compiler architecture receipt identity is stale or malformed".to_owned()),
+        Err(error) => diagnostics.push(format!("compiler architecture receipt identity serialization failed: {error}")),
     }
     if receipt.policy_source_blake3
         != file_map

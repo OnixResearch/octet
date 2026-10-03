@@ -1,32 +1,25 @@
 //! Complete, canonical observation membership; this is not source authenticity.
 
-use std::collections::BTreeSet;
-
-use crate::COMPILER_ARCHITECTURE_IR_SCHEMA_VERSION;
-use crate::CompilerArchitectureIr;
-use crate::CompilerArchitectureShard;
-use crate::UnitFactMembership;
-
 const ADJACENT_COUNT: usize = 2;
 
 // r[impl octet.architecture.unit_membership]
-pub(crate) fn memberships_from_shards(shards: &[CompilerArchitectureShard]) -> Vec<UnitFactMembership> {
+pub(crate) fn memberships_from_shards(shards: &[crate::CompilerArchitectureShard]) -> Vec<crate::UnitFactMembership> {
     let mut rows = shards
         .iter()
-        .map(|shard| UnitFactMembership {
+        .map(|shard| crate::UnitFactMembership {
             unit_id: shard.unit.unit_id.clone(),
             fact_ids: shard
                 .facts
                 .iter()
                 .map(|fact| fact.fact_id().to_owned())
-                .collect::<BTreeSet<_>>()
+                .collect::<std::collections::BTreeSet<_>>()
                 .into_iter()
                 .collect(),
             unknown_ids: shard
                 .unknowns
                 .iter()
                 .map(|unknown| unknown.unknown_id.clone())
-                .collect::<BTreeSet<_>>()
+                .collect::<std::collections::BTreeSet<_>>()
                 .into_iter()
                 .collect(),
         })
@@ -39,9 +32,9 @@ pub(crate) fn memberships_from_shards(shards: &[CompilerArchitectureShard]) -> V
 /// This verifies consistency, not the authenticity of a compiler invocation.
 #[must_use]
 // r[impl octet.architecture.unit_membership]
-pub fn verify_ir_unit_memberships(ir: &CompilerArchitectureIr) -> Vec<String> {
+pub fn verify_ir_unit_memberships(ir: &crate::CompilerArchitectureIr) -> Vec<String> {
     let mut diagnostics = Vec::new();
-    if ir.schema_version != COMPILER_ARCHITECTURE_IR_SCHEMA_VERSION {
+    if ir.schema_version != crate::COMPILER_ARCHITECTURE_IR_SCHEMA_VERSION {
         diagnostics.push("compiler Architecture IR membership schema is unsupported".to_owned());
     }
     let units = ir.units.iter().map(|unit| unit.unit_id.as_str()).collect::<Vec<_>>();
@@ -54,22 +47,38 @@ pub fn verify_ir_unit_memberships(ir: &CompilerArchitectureIr) -> Vec<String> {
     if row_units != units {
         diagnostics.push("compiler Architecture IR memberships do not exactly cover canonical units".to_owned());
     }
-    let expected_facts = facts.into_iter().collect::<BTreeSet<_>>();
-    let expected_unknowns = unknowns.into_iter().collect::<BTreeSet<_>>();
-    let mut observed_facts = BTreeSet::new();
-    let mut observed_unknowns = BTreeSet::new();
+    let expected_facts = facts.into_iter().collect::<std::collections::BTreeSet<_>>();
+    let expected_unknowns = unknowns.into_iter().collect::<std::collections::BTreeSet<_>>();
+    let mut observed_facts = std::collections::BTreeSet::new();
+    let mut observed_unknowns = std::collections::BTreeSet::new();
+    let mut has_unexpected_fact = false;
+    let mut has_unexpected_unknown = false;
+    let mut has_noncanonical_membership = false;
     for row in &ir.unit_memberships {
-        if !strictly_ordered(&row.fact_ids) || !strictly_ordered(&row.unknown_ids) {
-            diagnostics.push("compiler Architecture IR membership IDs are not canonical".to_owned());
+        has_noncanonical_membership |= !strictly_ordered(&row.fact_ids) || !strictly_ordered(&row.unknown_ids);
+        for id in &row.fact_ids {
+            if expected_facts.contains(id.as_str()) {
+                observed_facts.insert(id.as_str());
+            } else {
+                has_unexpected_fact = true;
+            }
         }
-        observed_facts.extend(row.fact_ids.iter().map(String::as_str));
-        observed_unknowns.extend(row.unknown_ids.iter().map(String::as_str));
+        for id in &row.unknown_ids {
+            if expected_unknowns.contains(id.as_str()) {
+                observed_unknowns.insert(id.as_str());
+            } else {
+                has_unexpected_unknown = true;
+            }
+        }
     }
-    if observed_facts != expected_facts {
+    if has_noncanonical_membership {
+        diagnostics.push("compiler Architecture IR membership IDs are not canonical".to_owned());
+    }
+    if has_unexpected_fact || observed_facts != expected_facts {
         diagnostics
             .push("compiler Architecture IR fact memberships contain orphan or unreferenced identities".to_owned());
     }
-    if observed_unknowns != expected_unknowns {
+    if has_unexpected_unknown || observed_unknowns != expected_unknowns {
         diagnostics
             .push("compiler Architecture IR unknown memberships contain orphan or unreferenced identities".to_owned());
     }

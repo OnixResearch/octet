@@ -15,7 +15,7 @@ impl Fixture {
         test.target_kind = "test+test".to_owned();
         test.source_path = format!("{scope}/integration.rs");
         test.crate_types = vec!["bin".to_owned()];
-        test.unit_id = octet_architecture_ir::compilation_unit_identity(&test);
+        test.unit_id = octet_architecture_ir::compilation_unit_identity(&test).expect("test unit identity");
         self.ir.units.push(test.clone());
         self.ir.unit_memberships.push(UnitFactMembership {
             unit_id: test.unit_id.clone(),
@@ -67,7 +67,7 @@ impl Fixture {
             span_id: Some(source.span_id.clone()),
             detail: "test dispatch unresolved".to_owned(),
         };
-        unknown.unknown_id = octet_architecture_ir::unknown_fact_identity(&unknown);
+        unknown.unknown_id = octet_architecture_ir::unknown_fact_identity(&unknown).expect("test unknown identity");
         let row = self.ir.unit_memberships.last_mut().expect("test row");
         row.fact_ids.extend([caller.fact_id().to_owned(), effect.fact_id().to_owned()]);
         row.unknown_ids.push(unknown.unknown_id.clone());
@@ -207,7 +207,7 @@ fn no_std_requires_each_production_unit_not_a_package_or_test_witness() {
         .push(id.clone());
     let mut library_test = production;
     library_test.target_kind = "lib+test".to_owned();
-    library_test.unit_id = octet_architecture_ir::compilation_unit_identity(&library_test);
+    library_test.unit_id = octet_architecture_ir::compilation_unit_identity(&library_test).expect("test unit identity");
     fixture.ir.units.push(library_test.clone());
     fixture.ir.unit_memberships.push(UnitFactMembership {
         unit_id: library_test.unit_id,
@@ -307,7 +307,7 @@ fn malformed_and_noncanonical_memberships_reject_even_after_resealing() {
                 }
             }
         }
-        invalid.architecture_ir_id = octet_architecture_ir::ir_identity(&invalid);
+        invalid.architecture_ir_id = octet_architecture_ir::ir_identity(&invalid).expect("test IR identity");
         let receipt = fixture.evaluate_ir(&invalid, None);
         assert_eq!(receipt.status, ArchitecturePhaseStatus::IntegrationFailure, "case {case}");
         assert!(receipt.test_only.is_none());
