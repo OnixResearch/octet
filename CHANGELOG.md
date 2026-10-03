@@ -14,9 +14,11 @@ Calls, trait dispatch, mutation, references, filesystem and path operations,
 and unknown expressions are not presumed const-compatible.
 
 `assertion_density` now counts each authored assertion macro once and recognizes
-conditional branches returning `Err(...)` or `None` as fail-closed checks. It
-does not count arbitrary `?` propagation, strings, comments, or checks inside
-nested closures or items. The previous text matcher counted one
+conditional branches returning compiler-resolved core `Result::Err` or
+`Option::None` variants as fail-closed checks. A local function or constant
+shadowing `Err` or `None` is not credited. It does not count arbitrary `?`
+propagation, strings, comments, or checks inside nested closures or items.
+The previous text matcher counted one
 `debug_assert*!` twice because the shorter `assert*!` pattern matched its
 suffix; functions that passed only because of that overlap can now warn.
 Existing minimum-line and minimum-check settings are unchanged. This lint is
