@@ -174,13 +174,28 @@ fn real_cargo_forged_question_retains_unknown_call_effect_and_blocks_gate() {
     assert_eq!(receipt.status, ArchitecturePhaseStatus::Blocked);
     assert!(receipt.applied_waiver_ids.is_empty());
     assert!(receipt.effect_closure.is_none());
-    for (code, fact_id) in [("required-compiler-unknown", &unknown.unknown_id), ("domain-core-effect", effect_id)] {
-        assert!(receipt.findings.iter().any(|finding| {
-            finding.code == code
-                && finding.status == ArchitectureFindingStatus::Open
-                && finding.unit_id.as_ref() == Some(&shard.unit.unit_id)
-                && finding.fact_id.as_ref() == Some(fact_id)
-        }), "{code} for the actual forged question must block this selected unit: {:?}", receipt.findings);
-    }
-    eprintln!("forged source token: unit={} unknown={} effect={} gate={:?}", shard.unit.unit_id, unknown.unknown_id, effect_id, receipt.status);
+    let required_unknown = receipt.findings.iter().find(|finding| {
+        finding.code == "required-compiler-unknown"
+            && finding.status == ArchitectureFindingStatus::Open
+            && finding.fact_id.as_ref() == Some(&unknown.unknown_id)
+    }).expect("the actual forged unknown blocks Gate");
+    let blocked_unit_id = required_unknown.unit_id.as_ref().expect("compiler-bound unknown unit");
+    let blocked_unit = ir.units.iter().find(|unit| &unit.unit_id == blocked_unit_id).expect("selected blocked unit");
+    assert_eq!(blocked_unit.package_name, shard.unit.package_name);
+    assert_eq!(blocked_unit.role, CompilerArchitectureRole::DomainCore);
+    assert!(matches!(blocked_unit.target_kind.as_str(), "lib" | "lib+test"));
+    let membership = ir.unit_memberships.iter().find(|row| &row.unit_id == blocked_unit_id)
+        .expect("compiler-bound production membership");
+    assert!(membership.unknown_ids.contains(&unknown.unknown_id));
+    assert!(membership.fact_ids.iter().any(|id| id == effect_id));
+    assert!(receipt.findings.iter().any(|finding| {
+        finding.code == "domain-core-effect"
+            && finding.status == ArchitectureFindingStatus::Open
+            && finding.unit_id.as_ref() == Some(blocked_unit_id)
+            && finding.fact_id.as_ref() == Some(effect_id)
+    }), "the forged filesystem effect must block the same unit as its unknown: {:?}", receipt.findings);
+    eprintln!(
+        "forged source token: unit={} unknown={} effect={} gate={:?}",
+        blocked_unit_id, unknown.unknown_id, effect_id, receipt.status
+    );
 }
