@@ -13,6 +13,7 @@ use octet_standards::project_architecture_policy::parse_project_architecture_pol
 use super::SelectedProjectArchitecturePolicy;
 
 mod body_owners;
+mod forged_question;
 mod randomness;
 
 const TOOLCHAIN: &str = "nightly-2026-03-21";
