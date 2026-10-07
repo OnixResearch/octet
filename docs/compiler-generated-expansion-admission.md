@@ -22,6 +22,10 @@ A separate consumer contains a pure `no_std` library and a real host package. Bo
 
 A mutation adds a dormant `std::fs::read` function to the core. Plain Cargo still accepts all targets. The architecture gate rejects the function with `domain-core-effect` and exit 1. Changing the policy without regenerating its export rejects before compilation. The fixture never executes its filesystem function.
 
+The ignored real-Cargo forged-question fixture copies the selected target workspace, then has a procedural macro emit a *different* filesystem-reading `?` expression with every generated token stamped with an authored input `?` span. The forged function's item and resolved `std::fs::read` Call/Filesystem Effect appear at the apparently authored location. Rustc's `Try::branch` lowering at that location has a distinct expanded span; its Expansion links back to the stolen source span without a macro definition. The collector records `UnsupportedExpansion` on that exact lowered span, and Gate mode retains open `required-compiler-unknown` and `domain-core-effect` findings for the actual forged unknown and effect in the same selected production unit. The test checks these identities and their source-unit binding; a separate directly authored `?` cannot satisfy the forged assertions.
+
+This controls the observed `?` lowering, not arbitrary source-token authenticity. It adds no exemption, policy change, waiver, or effect-closure assertion.
+
 Exact owner checks:
 
 ```sh

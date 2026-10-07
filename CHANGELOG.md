@@ -282,6 +282,12 @@ source identity: this is a containment check, not an immutable snapshot. Clean r
 root-relative validation. Non-Unix platforms reject absolute/parent-bearing compiler spans
 until an equivalent nonblocking capability check exists; artifact path validation is unchanged.
 
+## Unreleased: Forged question-token compiler control
+
+A real compiler fixture stamps a newly generated filesystem-reading function with an authored `?` token's span. The original item and resolved `std::fs::read` Call/Filesystem Effect retain that source location, while rustc's lowered `Try::branch` span retains an expansion with no resolved macro definition.
+The collector retains the exact `UnsupportedExpansion` unknown, and Gate mode blocks both that unknown and the same function's filesystem Effect by their fact identities. A separate directly authored `?` keeps the control tied to the forged operator rather than an unrelated desugaring.
+This adds a regression, not a collector exemption or a claim that every possible proc-macro token substitution is authenticated.
+
 ## Unreleased: Compiler randomness effects
 
 The collector now classifies the four root `getrandom` entry points: `fill`, `fill_uninit`, `u32`, and `u64`.
