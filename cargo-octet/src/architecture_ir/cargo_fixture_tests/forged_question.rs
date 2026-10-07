@@ -2,18 +2,28 @@ use std::fs;
 use std::path::Path;
 use std::process::Command;
 
-use octet_architecture_ir::{
-    CapabilityFamily, CollectionStatus, CompilerArchitectureFact, CompilerArchitectureIr,
-    CompilerArchitectureReceipt, CompilerArchitectureShard, CompilerArchitectureRole, CompilerArchitectureCoverage,
-    CoverageStatus, SourceOrigin, UnknownFactKind,
-};
-use octet_standards::project_architecture_gate::{
-    ArchitectureFindingStatus, ArchitecturePhaseStatus, ProjectArchitectureGateInput,
-    evaluate_project_architecture, verify_project_architecture_receipt,
-};
+use octet_architecture_ir::CapabilityFamily;
+use octet_architecture_ir::CollectionStatus;
+use octet_architecture_ir::CompilerArchitectureCoverage;
+use octet_architecture_ir::CompilerArchitectureFact;
+use octet_architecture_ir::CompilerArchitectureIr;
+use octet_architecture_ir::CompilerArchitectureReceipt;
+use octet_architecture_ir::CompilerArchitectureRole;
+use octet_architecture_ir::CompilerArchitectureShard;
+use octet_architecture_ir::CoverageStatus;
+use octet_architecture_ir::SourceOrigin;
+use octet_architecture_ir::UnknownFactKind;
+use octet_standards::project_architecture_gate::ArchitectureFindingStatus;
+use octet_standards::project_architecture_gate::ArchitecturePhaseStatus;
+use octet_standards::project_architecture_gate::ProjectArchitectureGateInput;
+use octet_standards::project_architecture_gate::evaluate_project_architecture;
+use octet_standards::project_architecture_gate::verify_project_architecture_receipt;
 use octet_standards::project_architecture_policy::ArchitectureMode;
 
-use super::{FIXTURE_FILES, TOOLCHAIN, policy_with_mode, required_artifact};
+use super::FIXTURE_FILES;
+use super::TOOLCHAIN;
+use super::policy_with_mode;
+use super::required_artifact;
 
 #[test]
 #[ignore = "requires current OCTET_UI_LIBRARY and pinned OCTET_UI_DRIVER"]
@@ -35,11 +45,8 @@ fn real_cargo_forged_question_retains_unknown_call_effect_and_blocks_gate() {
     fs::write(&source_path, &source_text).expect("append hostile client fixture");
     let macro_path = root.join("macro/src/lib.rs");
     let macro_source = include_str!("../../../../fixtures/architecture-targets/forged-question-proc-macro.rs");
-    fs::write(
-        &macro_path,
-        format!("{}\n{macro_source}", fs::read_to_string(&macro_path).expect("macro source")),
-    )
-    .expect("append hostile macro fixture");
+    fs::write(&macro_path, format!("{}\n{macro_source}", fs::read_to_string(&macro_path).expect("macro source")))
+        .expect("append hostile macro fixture");
 
     let (_, host) = super::super::toolchain_identity(TOOLCHAIN).expect("pinned host");
     let policy = policy_with_mode(root, &host, false, ArchitectureMode::Gate);
@@ -99,47 +106,106 @@ fn real_cargo_forged_question_retains_unknown_call_effect_and_blocks_gate() {
     let direct_offset = direct_start + direct.find('?').expect("direct question token");
     assert_ne!(forged_offset, direct_offset);
     let source_span = |id: &str| shard.spans.iter().find(|span| span.span_id == id).expect("fact source span");
-    let stolen_span = shard.spans.iter().find(|span| {
-        matches!(&span.origin, SourceOrigin::Workspace { source_path } if source_path == "src/lib.rs")
-            && span.byte_start == forged_offset as u64
-            && span.byte_end == forged_offset as u64 + 1
-            && !span.from_expansion
-    }).expect("forged punctuation keeps the authored input span");
-    let forged_item = shard.facts.iter().find_map(|fact| match fact {
-        CompilerArchitectureFact::Item { item_id, qualified_path, span_id, .. }
-            if qualified_path.ends_with("::forged_question_filesystem") && span_id == &stolen_span.span_id => Some(item_id),
-        _ => None,
-    }).expect("hostile macro-generated filesystem function");
-    let direct_item = shard.facts.iter().find_map(|fact| match fact {
-        CompilerArchitectureFact::Item { item_id, qualified_path, .. }
-            if qualified_path.ends_with("::direct_authored_question") => Some(item_id),
-        _ => None,
-    }).expect("direct-authored control function");
+    let stolen_span = shard
+        .spans
+        .iter()
+        .find(|span| {
+            matches!(&span.origin, SourceOrigin::Workspace { source_path } if source_path == "src/lib.rs")
+                && span.byte_start == forged_offset as u64
+                && span.byte_end == forged_offset as u64 + 1
+                && !span.from_expansion
+        })
+        .expect("forged punctuation keeps the authored input span");
+    let forged_item = shard
+        .facts
+        .iter()
+        .find_map(|fact| match fact {
+            CompilerArchitectureFact::Item {
+                item_id,
+                qualified_path,
+                span_id,
+                ..
+            } if qualified_path.ends_with("::forged_question_filesystem") && span_id == &stolen_span.span_id => {
+                Some(item_id)
+            }
+            _ => None,
+        })
+        .expect("hostile macro-generated filesystem function");
+    let direct_item = shard
+        .facts
+        .iter()
+        .find_map(|fact| match fact {
+            CompilerArchitectureFact::Item {
+                item_id,
+                qualified_path,
+                ..
+            } if qualified_path.ends_with("::direct_authored_question") => Some(item_id),
+            _ => None,
+        })
+        .expect("direct-authored control function");
     assert_ne!(forged_item, direct_item);
-    assert!(shard.facts.iter().any(|fact| match fact {
-        CompilerArchitectureFact::Call { caller_item_id, resolved_definition: Some(definition), span_id, .. }
-            => caller_item_id == direct_item && definition == "std::ops::Try::branch"
-                && source_span(span_id).byte_start == (direct_start + "Ok(".len()) as u64
-                && source_span(span_id).byte_end == direct_offset as u64 + 1,
-        _ => false,
-    }), "direct-authored question has a distinct compiler lowering");
+    assert!(
+        shard.facts.iter().any(|fact| match fact {
+            CompilerArchitectureFact::Call {
+                caller_item_id,
+                resolved_definition: Some(definition),
+                span_id,
+                ..
+            } =>
+                caller_item_id == direct_item
+                    && definition == "std::ops::Try::branch"
+                    && source_span(span_id).byte_start == (direct_start + "Ok(".len()) as u64
+                    && source_span(span_id).byte_end == direct_offset as u64 + 1,
+            _ => false,
+        }),
+        "direct-authored question has a distinct compiler lowering"
+    );
 
-    assert!(shard.facts.iter().any(|fact| match fact {
-        CompilerArchitectureFact::Call { caller_item_id, resolved_definition: Some(definition), span_id, .. }
-            => caller_item_id == forged_item && definition == "std::fs::read" && span_id == &stolen_span.span_id,
-        _ => false,
-    }), "forged source span must not erase its compiler-resolved filesystem call");
-    let effect_id = shard.facts.iter().find_map(|fact| match fact {
-        CompilerArchitectureFact::Effect { fact_id, caller_item_id, capability_family, primitive_definition, span_id }
-            if caller_item_id == forged_item && *capability_family == CapabilityFamily::Filesystem
-                && primitive_definition == "std::fs::read" && span_id == &stolen_span.span_id => Some(fact_id),
-        _ => None,
-    }).expect("forged function retains its exact filesystem effect");
-    let generated_span_id = shard.facts.iter().find_map(|fact| match fact {
-        CompilerArchitectureFact::Call { caller_item_id, resolved_definition: Some(definition), span_id, .. }
-            if caller_item_id == forged_item && definition == "std::ops::Try::branch" => Some(span_id),
-        _ => None,
-    }).expect("forged question retains its generated Try::branch lowering");
+    assert!(
+        shard.facts.iter().any(|fact| match fact {
+            CompilerArchitectureFact::Call {
+                caller_item_id,
+                resolved_definition: Some(definition),
+                span_id,
+                ..
+            } => caller_item_id == forged_item && definition == "std::fs::read" && span_id == &stolen_span.span_id,
+            _ => false,
+        }),
+        "forged source span must not erase its compiler-resolved filesystem call"
+    );
+    let effect_id = shard
+        .facts
+        .iter()
+        .find_map(|fact| match fact {
+            CompilerArchitectureFact::Effect {
+                fact_id,
+                caller_item_id,
+                capability_family,
+                primitive_definition,
+                span_id,
+            } if caller_item_id == forged_item
+                && *capability_family == CapabilityFamily::Filesystem
+                && primitive_definition == "std::fs::read"
+                && span_id == &stolen_span.span_id =>
+            {
+                Some(fact_id)
+            }
+            _ => None,
+        })
+        .expect("forged function retains its exact filesystem effect");
+    let generated_span_id = shard
+        .facts
+        .iter()
+        .find_map(|fact| match fact {
+            CompilerArchitectureFact::Call {
+                caller_item_id,
+                resolved_definition: Some(definition),
+                span_id,
+                ..
+            } if caller_item_id == forged_item && definition == "std::ops::Try::branch" => Some(span_id),
+            _ => None,
+        })
+        .expect("forged question retains its generated Try::branch lowering");
     let generated_span = source_span(generated_span_id);
     assert!(generated_span.from_expansion);
     assert_eq!(generated_span.origin, stolen_span.origin);
@@ -148,11 +214,15 @@ fn real_cargo_forged_question_retains_unknown_call_effect_and_blocks_gate() {
         CompilerArchitectureFact::Expansion { generated_span_id: generated, callsite_span_id, macro_definition: None, .. }
             if generated == generated_span_id && callsite_span_id == &stolen_span.span_id
     )), "lowered forged question must retain the exact compiler expansion/callsite link");
-    let unknown = shard.unknowns.iter().find(|unknown| {
-        unknown.kind == UnknownFactKind::UnsupportedExpansion
-            && unknown.span_id.as_ref() == Some(generated_span_id)
-            && unknown.detail.contains("Desugaring(QuestionMark)")
-    }).expect("the actual forged question lowering must be a required unknown");
+    let unknown = shard
+        .unknowns
+        .iter()
+        .find(|unknown| {
+            unknown.kind == UnknownFactKind::UnsupportedExpansion
+                && unknown.span_id.as_ref() == Some(generated_span_id)
+                && unknown.detail.contains("Desugaring(QuestionMark)")
+        })
+        .expect("the actual forged question lowering must be a required unknown");
     assert!(ir.unknowns.iter().any(|item| item.unknown_id == unknown.unknown_id));
     assert!(ir.facts.iter().any(|fact| fact.fact_id() == effect_id));
 
@@ -174,26 +244,37 @@ fn real_cargo_forged_question_retains_unknown_call_effect_and_blocks_gate() {
     assert_eq!(receipt.status, ArchitecturePhaseStatus::Blocked);
     assert!(receipt.applied_waiver_ids.is_empty());
     assert!(receipt.effect_closure.is_none());
-    let required_unknown = receipt.findings.iter().find(|finding| {
-        finding.code == "required-compiler-unknown"
-            && finding.status == ArchitectureFindingStatus::Open
-            && finding.fact_id.as_ref() == Some(&unknown.unknown_id)
-    }).expect("the actual forged unknown blocks Gate");
+    let required_unknown = receipt
+        .findings
+        .iter()
+        .find(|finding| {
+            finding.code == "required-compiler-unknown"
+                && finding.status == ArchitectureFindingStatus::Open
+                && finding.fact_id.as_ref() == Some(&unknown.unknown_id)
+        })
+        .expect("the actual forged unknown blocks Gate");
     let blocked_unit_id = required_unknown.unit_id.as_ref().expect("compiler-bound unknown unit");
     let blocked_unit = ir.units.iter().find(|unit| &unit.unit_id == blocked_unit_id).expect("selected blocked unit");
     assert_eq!(blocked_unit.package_name, shard.unit.package_name);
     assert_eq!(blocked_unit.role, CompilerArchitectureRole::DomainCore);
     assert!(matches!(blocked_unit.target_kind.as_str(), "lib" | "lib+test"));
-    let membership = ir.unit_memberships.iter().find(|row| &row.unit_id == blocked_unit_id)
+    let membership = ir
+        .unit_memberships
+        .iter()
+        .find(|row| &row.unit_id == blocked_unit_id)
         .expect("compiler-bound production membership");
     assert!(membership.unknown_ids.contains(&unknown.unknown_id));
     assert!(membership.fact_ids.iter().any(|id| id == effect_id));
-    assert!(receipt.findings.iter().any(|finding| {
-        finding.code == "domain-core-effect"
-            && finding.status == ArchitectureFindingStatus::Open
-            && finding.unit_id.as_ref() == Some(blocked_unit_id)
-            && finding.fact_id.as_ref() == Some(effect_id)
-    }), "the forged filesystem effect must block the same unit as its unknown: {:?}", receipt.findings);
+    assert!(
+        receipt.findings.iter().any(|finding| {
+            finding.code == "domain-core-effect"
+                && finding.status == ArchitectureFindingStatus::Open
+                && finding.unit_id.as_ref() == Some(blocked_unit_id)
+                && finding.fact_id.as_ref() == Some(effect_id)
+        }),
+        "the forged filesystem effect must block the same unit as its unknown: {:?}",
+        receipt.findings
+    );
     eprintln!(
         "forged source token: unit={} unknown={} effect={} gate={:?}",
         blocked_unit_id, unknown.unknown_id, effect_id, receipt.status
