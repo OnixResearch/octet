@@ -72,6 +72,343 @@
     {
       "compatibility_required": true,
       "compatibility_scopes": [
+        "src/authority/nominal.rs",
+        "ui_tests/molten_nominal_compat.rs"
+      ],
+      "constructor_policy": "private-fallible",
+      "core_scopes": [
+        "crates/molten-core/src/nominal.rs",
+        "ui_tests/molten_nominal_raw_alias.rs",
+        "ui_tests/molten_nominal_macro_raw_alias.rs",
+        "ui_tests/molten_nominal_raw_core.rs",
+        "ui_tests/molten_nominal_typed.rs"
+      ],
+      "domain_id": "molten.nominal-reference.principal",
+      "raw_representation": "string",
+      "symbols": [
+        "PrincipalRef",
+        "AuthorityReferenceSet::holder"
+      ],
+      "wrapper_kind": "marker-generic"
+    },
+    {
+      "compatibility_required": true,
+      "compatibility_scopes": [
+        "src/authority/nominal.rs",
+        "ui_tests/molten_nominal_compat.rs"
+      ],
+      "constructor_policy": "private-fallible",
+      "core_scopes": [
+        "crates/molten-core/src/nominal.rs",
+        "ui_tests/molten_nominal_raw_alias.rs",
+        "ui_tests/molten_nominal_macro_raw_alias.rs",
+        "ui_tests/molten_nominal_raw_core.rs",
+        "ui_tests/molten_nominal_typed.rs"
+      ],
+      "domain_id": "molten.nominal-reference.node",
+      "raw_representation": "string",
+      "symbols": [
+        "NodeRef",
+        "ExecutionReferenceSet::node"
+      ],
+      "wrapper_kind": "marker-generic"
+    },
+    {
+      "compatibility_required": true,
+      "compatibility_scopes": [
+        "src/authority/nominal.rs",
+        "ui_tests/molten_nominal_compat.rs"
+      ],
+      "constructor_policy": "private-fallible",
+      "core_scopes": [
+        "crates/molten-core/src/nominal.rs",
+        "ui_tests/molten_nominal_raw_alias.rs",
+        "ui_tests/molten_nominal_macro_raw_alias.rs",
+        "ui_tests/molten_nominal_raw_core.rs",
+        "ui_tests/molten_nominal_typed.rs"
+      ],
+      "domain_id": "molten.nominal-reference.actor",
+      "raw_representation": "string",
+      "symbols": [
+        "ActorRef",
+        "ExecutionReferenceSet::actor"
+      ],
+      "wrapper_kind": "marker-generic"
+    },
+    {
+      "compatibility_required": true,
+      "compatibility_scopes": [
+        "src/authority/nominal.rs",
+        "ui_tests/molten_nominal_compat.rs"
+      ],
+      "constructor_policy": "private-fallible",
+      "core_scopes": [
+        "crates/molten-core/src/nominal.rs",
+        "ui_tests/molten_nominal_raw_alias.rs",
+        "ui_tests/molten_nominal_macro_raw_alias.rs",
+        "ui_tests/molten_nominal_raw_core.rs",
+        "ui_tests/molten_nominal_typed.rs"
+      ],
+      "domain_id": "molten.nominal-reference.service",
+      "raw_representation": "string",
+      "symbols": [
+        "ServiceRef",
+        "ExecutionReferenceSet::service"
+      ],
+      "wrapper_kind": "marker-generic"
+    },
+    {
+      "compatibility_required": true,
+      "compatibility_scopes": [
+        "src/authority/nominal.rs",
+        "ui_tests/molten_nominal_compat.rs"
+      ],
+      "constructor_policy": "private-fallible",
+      "core_scopes": [
+        "crates/molten-core/src/nominal.rs",
+        "ui_tests/molten_nominal_raw_alias.rs",
+        "ui_tests/molten_nominal_macro_raw_alias.rs",
+        "ui_tests/molten_nominal_raw_core.rs",
+        "ui_tests/molten_nominal_typed.rs"
+      ],
+      "domain_id": "molten.nominal-reference.session",
+      "raw_representation": "string",
+      "symbols": [
+        "SessionRef",
+        "AuthorityReferenceSet::session",
+        "ExecutionReferenceSet::session"
+      ],
+      "wrapper_kind": "marker-generic"
+    },
+    {
+      "compatibility_required": true,
+      "compatibility_scopes": [
+        "src/authority/nominal.rs",
+        "ui_tests/molten_nominal_compat.rs"
+      ],
+      "constructor_policy": "private-fallible",
+      "core_scopes": [
+        "crates/molten-core/src/nominal.rs",
+        "ui_tests/molten_nominal_raw_alias.rs",
+        "ui_tests/molten_nominal_macro_raw_alias.rs",
+        "ui_tests/molten_nominal_raw_core.rs",
+        "ui_tests/molten_nominal_typed.rs"
+      ],
+      "domain_id": "molten.nominal-reference.authority-context",
+      "raw_representation": "string",
+      "symbols": [
+        "AuthorityContextRef",
+        "AuthorityReferenceSet::context"
+      ],
+      "wrapper_kind": "marker-generic"
+    },
+    {
+      "compatibility_required": true,
+      "compatibility_scopes": [
+        "src/authority/nominal.rs",
+        "ui_tests/molten_nominal_compat.rs"
+      ],
+      "constructor_policy": "private-fallible",
+      "core_scopes": [
+        "crates/molten-core/src/nominal.rs",
+        "ui_tests/molten_nominal_raw_alias.rs",
+        "ui_tests/molten_nominal_macro_raw_alias.rs",
+        "ui_tests/molten_nominal_raw_core.rs",
+        "ui_tests/molten_nominal_typed.rs"
+      ],
+      "domain_id": "molten.nominal-reference.delegation",
+      "raw_representation": "string",
+      "symbols": [
+        "DelegationRef",
+        "AuthorityReferenceSet::delegation"
+      ],
+      "wrapper_kind": "marker-generic"
+    },
+    {
+      "compatibility_required": true,
+      "compatibility_scopes": [
+        "src/authority/nominal.rs",
+        "ui_tests/molten_nominal_compat.rs"
+      ],
+      "constructor_policy": "private-fallible",
+      "core_scopes": [
+        "crates/molten-core/src/nominal.rs",
+        "ui_tests/molten_nominal_raw_alias.rs",
+        "ui_tests/molten_nominal_macro_raw_alias.rs",
+        "ui_tests/molten_nominal_raw_core.rs",
+        "ui_tests/molten_nominal_typed.rs"
+      ],
+      "domain_id": "molten.nominal-reference.revocation",
+      "raw_representation": "string",
+      "symbols": [
+        "RevocationRef",
+        "AuthorityReferenceSet::revocation"
+      ],
+      "wrapper_kind": "marker-generic"
+    },
+    {
+      "compatibility_required": true,
+      "compatibility_scopes": [
+        "src/authority/nominal.rs",
+        "ui_tests/molten_nominal_compat.rs"
+      ],
+      "constructor_policy": "private-fallible",
+      "core_scopes": [
+        "crates/molten-core/src/nominal.rs",
+        "ui_tests/molten_nominal_raw_alias.rs",
+        "ui_tests/molten_nominal_macro_raw_alias.rs",
+        "ui_tests/molten_nominal_raw_core.rs",
+        "ui_tests/molten_nominal_typed.rs"
+      ],
+      "domain_id": "molten.nominal-reference.key",
+      "raw_representation": "string",
+      "symbols": [
+        "KeyRef",
+        "AuthorityReferenceSet::key"
+      ],
+      "wrapper_kind": "marker-generic"
+    },
+    {
+      "compatibility_required": true,
+      "compatibility_scopes": [
+        "src/authority/nominal.rs",
+        "ui_tests/molten_nominal_compat.rs"
+      ],
+      "constructor_policy": "private-fallible",
+      "core_scopes": [
+        "crates/molten-core/src/nominal.rs",
+        "ui_tests/molten_nominal_raw_alias.rs",
+        "ui_tests/molten_nominal_macro_raw_alias.rs",
+        "ui_tests/molten_nominal_raw_core.rs",
+        "ui_tests/molten_nominal_typed.rs"
+      ],
+      "domain_id": "molten.nominal-reference.policy",
+      "raw_representation": "string",
+      "symbols": [
+        "PolicyRef",
+        "AuthorityReferenceSet::policy"
+      ],
+      "wrapper_kind": "marker-generic"
+    },
+    {
+      "compatibility_required": true,
+      "compatibility_scopes": [
+        "src/authority/nominal.rs",
+        "ui_tests/molten_nominal_compat.rs"
+      ],
+      "constructor_policy": "private-fallible",
+      "core_scopes": [
+        "crates/molten-core/src/nominal.rs",
+        "ui_tests/molten_nominal_raw_alias.rs",
+        "ui_tests/molten_nominal_macro_raw_alias.rs",
+        "ui_tests/molten_nominal_raw_core.rs",
+        "ui_tests/molten_nominal_typed.rs"
+      ],
+      "domain_id": "molten.nominal-reference.resource",
+      "raw_representation": "string",
+      "symbols": [
+        "ResourceRef",
+        "AuthorityReferenceSet::resource",
+        "ExecutionReferenceSet::resource"
+      ],
+      "wrapper_kind": "marker-generic"
+    },
+    {
+      "compatibility_required": true,
+      "compatibility_scopes": [
+        "src/authority/nominal.rs",
+        "ui_tests/molten_nominal_compat.rs"
+      ],
+      "constructor_policy": "private-fallible",
+      "core_scopes": [
+        "crates/molten-core/src/nominal.rs",
+        "ui_tests/molten_nominal_raw_alias.rs",
+        "ui_tests/molten_nominal_macro_raw_alias.rs",
+        "ui_tests/molten_nominal_raw_core.rs",
+        "ui_tests/molten_nominal_typed.rs"
+      ],
+      "domain_id": "molten.nominal-reference.evidence",
+      "raw_representation": "string",
+      "symbols": [
+        "EvidenceRef",
+        "AuthorityReferenceSet::evidence",
+        "ArtifactReferenceSet::evidence",
+        "HistoricalReferenceSet::evidence"
+      ],
+      "wrapper_kind": "marker-generic"
+    },
+    {
+      "compatibility_required": true,
+      "compatibility_scopes": [
+        "src/authority/nominal.rs",
+        "ui_tests/molten_nominal_compat.rs"
+      ],
+      "constructor_policy": "private-fallible",
+      "core_scopes": [
+        "crates/molten-core/src/nominal.rs",
+        "ui_tests/molten_nominal_raw_alias.rs",
+        "ui_tests/molten_nominal_macro_raw_alias.rs",
+        "ui_tests/molten_nominal_raw_core.rs",
+        "ui_tests/molten_nominal_typed.rs"
+      ],
+      "domain_id": "molten.nominal-reference.artifact",
+      "raw_representation": "string",
+      "symbols": [
+        "ArtifactRef",
+        "ArtifactReferenceSet::artifact",
+        "HistoricalReferenceSet::artifact"
+      ],
+      "wrapper_kind": "marker-generic"
+    },
+    {
+      "compatibility_required": true,
+      "compatibility_scopes": [
+        "src/authority/nominal.rs",
+        "ui_tests/molten_nominal_compat.rs"
+      ],
+      "constructor_policy": "private-fallible",
+      "core_scopes": [
+        "crates/molten-core/src/nominal.rs",
+        "ui_tests/molten_nominal_raw_alias.rs",
+        "ui_tests/molten_nominal_macro_raw_alias.rs",
+        "ui_tests/molten_nominal_raw_core.rs",
+        "ui_tests/molten_nominal_typed.rs"
+      ],
+      "domain_id": "molten.nominal-reference.operation",
+      "raw_representation": "string",
+      "symbols": [
+        "OperationRef",
+        "ExecutionReferenceSet::operation",
+        "ArtifactReferenceSet::operation"
+      ],
+      "wrapper_kind": "marker-generic"
+    },
+    {
+      "compatibility_required": true,
+      "compatibility_scopes": [
+        "src/authority/nominal.rs",
+        "ui_tests/molten_nominal_compat.rs"
+      ],
+      "constructor_policy": "private-fallible",
+      "core_scopes": [
+        "crates/molten-core/src/nominal.rs",
+        "ui_tests/molten_nominal_raw_alias.rs",
+        "ui_tests/molten_nominal_macro_raw_alias.rs",
+        "ui_tests/molten_nominal_raw_core.rs",
+        "ui_tests/molten_nominal_typed.rs"
+      ],
+      "domain_id": "molten.nominal-reference.receipt",
+      "raw_representation": "string",
+      "symbols": [
+        "ReceiptRef",
+        "ArtifactReferenceSet::receipt",
+        "HistoricalReferenceSet::receipt"
+      ],
+      "wrapper_kind": "marker-generic"
+    },
+    {
+      "compatibility_required": true,
+      "compatibility_scopes": [
         "ui_tests/primitive_domain_alias_compat.rs"
       ],
       "constructor_policy": "private-fallible",

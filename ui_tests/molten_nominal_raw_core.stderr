@@ -1,0 +1,206 @@
+error: registered domain value `AuthorityReferenceSet::holder` uses raw `string` storage in core scope `molten.nominal-reference.principal`
+  --> $DIR/molten_nominal_raw_core.rs:5:5
+   |
+LL |     holder: String,
+   |     ^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Nominal Domain Types): replace registered raw core values with nominal domain types and decode raw values at compatibility boundaries Example: pub struct UnitId(String);
+   = note: see Tiger Style guide: Explicit Interfaces
+note: the lint level is defined here
+  --> $DIR/molten_nominal_raw_core.rs:1:33
+   |
+LL | #![deny(primitive_domain_alias, raw_domain_value)]
+   |                                 ^^^^^^^^^^^^^^^^
+   = note: `#[deny(tigerstyle::raw_domain_value)]` implied by `#[deny(raw_domain_value)]`
+
+error: registered domain value `AuthorityReferenceSet::session` uses raw `string` storage in core scope `molten.nominal-reference.session`
+  --> $DIR/molten_nominal_raw_core.rs:6:5
+   |
+LL |     session: Option<String>,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Nominal Domain Types): replace registered raw core values with nominal domain types and decode raw values at compatibility boundaries Example: pub struct UnitId(String);
+   = note: see Tiger Style guide: Explicit Interfaces
+
+error: registered domain value `AuthorityReferenceSet::context` uses raw `string` storage in core scope `molten.nominal-reference.authority-context`
+  --> $DIR/molten_nominal_raw_core.rs:7:5
+   |
+LL |     context: String,
+   |     ^^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Nominal Domain Types): replace registered raw core values with nominal domain types and decode raw values at compatibility boundaries Example: pub struct UnitId(String);
+   = note: see Tiger Style guide: Explicit Interfaces
+
+error: registered domain value `AuthorityReferenceSet::delegation` uses raw `string` storage in core scope `molten.nominal-reference.delegation`
+  --> $DIR/molten_nominal_raw_core.rs:8:5
+   |
+LL |     delegation: String,
+   |     ^^^^^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Nominal Domain Types): replace registered raw core values with nominal domain types and decode raw values at compatibility boundaries Example: pub struct UnitId(String);
+   = note: see Tiger Style guide: Explicit Interfaces
+
+error: registered domain value `AuthorityReferenceSet::revocation` uses raw `string` storage in core scope `molten.nominal-reference.revocation`
+  --> $DIR/molten_nominal_raw_core.rs:9:5
+   |
+LL |     revocation: String,
+   |     ^^^^^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Nominal Domain Types): replace registered raw core values with nominal domain types and decode raw values at compatibility boundaries Example: pub struct UnitId(String);
+   = note: see Tiger Style guide: Explicit Interfaces
+
+error: registered domain value `AuthorityReferenceSet::key` uses raw `string` storage in core scope `molten.nominal-reference.key`
+  --> $DIR/molten_nominal_raw_core.rs:10:5
+   |
+LL |     key: String,
+   |     ^^^^^^^^^^^
+   |
+   = help: Tiger Style (Nominal Domain Types): replace registered raw core values with nominal domain types and decode raw values at compatibility boundaries Example: pub struct UnitId(String);
+   = note: see Tiger Style guide: Explicit Interfaces
+
+error: registered domain value `AuthorityReferenceSet::policy` uses raw `string` storage in core scope `molten.nominal-reference.policy`
+  --> $DIR/molten_nominal_raw_core.rs:11:5
+   |
+LL |     policy: String,
+   |     ^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Nominal Domain Types): replace registered raw core values with nominal domain types and decode raw values at compatibility boundaries Example: pub struct UnitId(String);
+   = note: see Tiger Style guide: Explicit Interfaces
+
+error: registered domain value `AuthorityReferenceSet::resource` uses raw `string` storage in core scope `molten.nominal-reference.resource`
+  --> $DIR/molten_nominal_raw_core.rs:12:5
+   |
+LL |     resource: String,
+   |     ^^^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Nominal Domain Types): replace registered raw core values with nominal domain types and decode raw values at compatibility boundaries Example: pub struct UnitId(String);
+   = note: see Tiger Style guide: Explicit Interfaces
+
+error: registered domain value `AuthorityReferenceSet::evidence` uses raw `string` storage in core scope `molten.nominal-reference.evidence`
+  --> $DIR/molten_nominal_raw_core.rs:13:5
+   |
+LL |     evidence: String,
+   |     ^^^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Nominal Domain Types): replace registered raw core values with nominal domain types and decode raw values at compatibility boundaries Example: pub struct UnitId(String);
+   = note: see Tiger Style guide: Explicit Interfaces
+
+error: registered domain value `ExecutionReferenceSet::node` uses raw `string` storage in core scope `molten.nominal-reference.node`
+  --> $DIR/molten_nominal_raw_core.rs:17:5
+   |
+LL |     node: String,
+   |     ^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Nominal Domain Types): replace registered raw core values with nominal domain types and decode raw values at compatibility boundaries Example: pub struct UnitId(String);
+   = note: see Tiger Style guide: Explicit Interfaces
+
+error: registered domain value `ExecutionReferenceSet::actor` uses raw `string` storage in core scope `molten.nominal-reference.actor`
+  --> $DIR/molten_nominal_raw_core.rs:18:5
+   |
+LL |     actor: String,
+   |     ^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Nominal Domain Types): replace registered raw core values with nominal domain types and decode raw values at compatibility boundaries Example: pub struct UnitId(String);
+   = note: see Tiger Style guide: Explicit Interfaces
+
+error: registered domain value `ExecutionReferenceSet::service` uses raw `string` storage in core scope `molten.nominal-reference.service`
+  --> $DIR/molten_nominal_raw_core.rs:19:5
+   |
+LL |     service: String,
+   |     ^^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Nominal Domain Types): replace registered raw core values with nominal domain types and decode raw values at compatibility boundaries Example: pub struct UnitId(String);
+   = note: see Tiger Style guide: Explicit Interfaces
+
+error: registered domain value `ExecutionReferenceSet::session` uses raw `string` storage in core scope `molten.nominal-reference.session`
+  --> $DIR/molten_nominal_raw_core.rs:20:5
+   |
+LL |     session: Option<String>,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Nominal Domain Types): replace registered raw core values with nominal domain types and decode raw values at compatibility boundaries Example: pub struct UnitId(String);
+   = note: see Tiger Style guide: Explicit Interfaces
+
+error: registered domain value `ExecutionReferenceSet::resource` uses raw `string` storage in core scope `molten.nominal-reference.resource`
+  --> $DIR/molten_nominal_raw_core.rs:21:5
+   |
+LL |     resource: String,
+   |     ^^^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Nominal Domain Types): replace registered raw core values with nominal domain types and decode raw values at compatibility boundaries Example: pub struct UnitId(String);
+   = note: see Tiger Style guide: Explicit Interfaces
+
+error: registered domain value `ExecutionReferenceSet::operation` uses raw `string` storage in core scope `molten.nominal-reference.operation`
+  --> $DIR/molten_nominal_raw_core.rs:22:5
+   |
+LL |     operation: String,
+   |     ^^^^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Nominal Domain Types): replace registered raw core values with nominal domain types and decode raw values at compatibility boundaries Example: pub struct UnitId(String);
+   = note: see Tiger Style guide: Explicit Interfaces
+
+error: registered domain value `ArtifactReferenceSet::evidence` uses raw `string` storage in core scope `molten.nominal-reference.evidence`
+  --> $DIR/molten_nominal_raw_core.rs:26:5
+   |
+LL |     evidence: String,
+   |     ^^^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Nominal Domain Types): replace registered raw core values with nominal domain types and decode raw values at compatibility boundaries Example: pub struct UnitId(String);
+   = note: see Tiger Style guide: Explicit Interfaces
+
+error: registered domain value `ArtifactReferenceSet::artifact` uses raw `string` storage in core scope `molten.nominal-reference.artifact`
+  --> $DIR/molten_nominal_raw_core.rs:27:5
+   |
+LL |     artifact: String,
+   |     ^^^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Nominal Domain Types): replace registered raw core values with nominal domain types and decode raw values at compatibility boundaries Example: pub struct UnitId(String);
+   = note: see Tiger Style guide: Explicit Interfaces
+
+error: registered domain value `ArtifactReferenceSet::operation` uses raw `string` storage in core scope `molten.nominal-reference.operation`
+  --> $DIR/molten_nominal_raw_core.rs:28:5
+   |
+LL |     operation: String,
+   |     ^^^^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Nominal Domain Types): replace registered raw core values with nominal domain types and decode raw values at compatibility boundaries Example: pub struct UnitId(String);
+   = note: see Tiger Style guide: Explicit Interfaces
+
+error: registered domain value `ArtifactReferenceSet::receipt` uses raw `string` storage in core scope `molten.nominal-reference.receipt`
+  --> $DIR/molten_nominal_raw_core.rs:29:5
+   |
+LL |     receipt: String,
+   |     ^^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Nominal Domain Types): replace registered raw core values with nominal domain types and decode raw values at compatibility boundaries Example: pub struct UnitId(String);
+   = note: see Tiger Style guide: Explicit Interfaces
+
+error: registered domain value `HistoricalReferenceSet::evidence` uses raw `string` storage in core scope `molten.nominal-reference.evidence`
+  --> $DIR/molten_nominal_raw_core.rs:33:5
+   |
+LL |     evidence: String,
+   |     ^^^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Nominal Domain Types): replace registered raw core values with nominal domain types and decode raw values at compatibility boundaries Example: pub struct UnitId(String);
+   = note: see Tiger Style guide: Explicit Interfaces
+
+error: registered domain value `HistoricalReferenceSet::artifact` uses raw `string` storage in core scope `molten.nominal-reference.artifact`
+  --> $DIR/molten_nominal_raw_core.rs:34:5
+   |
+LL |     artifact: String,
+   |     ^^^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Nominal Domain Types): replace registered raw core values with nominal domain types and decode raw values at compatibility boundaries Example: pub struct UnitId(String);
+   = note: see Tiger Style guide: Explicit Interfaces
+
+error: registered domain value `HistoricalReferenceSet::receipt` uses raw `string` storage in core scope `molten.nominal-reference.receipt`
+  --> $DIR/molten_nominal_raw_core.rs:35:5
+   |
+LL |     receipt: String,
+   |     ^^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Nominal Domain Types): replace registered raw core values with nominal domain types and decode raw values at compatibility boundaries Example: pub struct UnitId(String);
+   = note: see Tiger Style guide: Explicit Interfaces
+
+error: aborting due to 22 previous errors
+

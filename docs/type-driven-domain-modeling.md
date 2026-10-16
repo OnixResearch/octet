@@ -54,3 +54,73 @@ Set it to `inventory` for non-blocking exact and suffix findings. Set it to
 
 A passing check proves configured source-shape conformance. It does not prove
 authority, secrecy, runtime correctness, wire safety, or release eligibility.
+
+The catalog admits `marker-generic` wrappers with either `marker-only` or
+`private-fallible` construction; `private-infallible` remains rejected for this
+wrapper kind. The latter pair represents checked generic storage such as Molten's
+reference wrappers. This declaration does not make the refined-newtype bypass
+checker verify generic constructor semantics.
+
+## Molten reference-domain adoption
+
+The existing nominal checker is reused; Molten adds policy rows under
+`molten.nominal-reference.*`, not a consumer-supplied runtime catalog.
+All rows use `raw_representation = "string"`, `wrapper_kind = "marker-generic"`,
+and `constructor_policy = "private-fallible"`. The core source is exactly
+`crates/molten-core/src/nominal.rs`; `src/authority/nominal.rs` is explicit
+compatibility, with `compatibility_required = true`. UI fixture paths in the
+same rows exercise this contract without changing the consumer scope.
+
+| Domain suffix | Alias | Registered core fields |
+| --- | --- | --- |
+| `principal` | `PrincipalRef` | `AuthorityReferenceSet::holder` |
+| `node` | `NodeRef` | `ExecutionReferenceSet::node` |
+| `actor` | `ActorRef` | `ExecutionReferenceSet::actor` |
+| `service` | `ServiceRef` | `ExecutionReferenceSet::service` |
+| `session` | `SessionRef` | `AuthorityReferenceSet::session`, `ExecutionReferenceSet::session` |
+| `authority-context` | `AuthorityContextRef` | `AuthorityReferenceSet::context` |
+| `delegation` | `DelegationRef` | `AuthorityReferenceSet::delegation` |
+| `revocation` | `RevocationRef` | `AuthorityReferenceSet::revocation` |
+| `key` | `KeyRef` | `AuthorityReferenceSet::key` |
+| `policy` | `PolicyRef` | `AuthorityReferenceSet::policy` |
+| `resource` | `ResourceRef` | `AuthorityReferenceSet::resource`, `ExecutionReferenceSet::resource` |
+| `evidence` | `EvidenceRef` | `AuthorityReferenceSet::evidence`, `ArtifactReferenceSet::evidence`, `HistoricalReferenceSet::evidence` |
+| `artifact` | `ArtifactRef` | `ArtifactReferenceSet::artifact`, `HistoricalReferenceSet::artifact` |
+| `operation` | `OperationRef` | `ExecutionReferenceSet::operation`, `ArtifactReferenceSet::operation` |
+| `receipt` | `ReceiptRef` | `ArtifactReferenceSet::receipt`, `HistoricalReferenceSet::receipt` |
+
+Scopes are normalized exact file paths, including matching absolute-path suffixes;
+they are not directory prefixes, globs, or logical migration labels. Symbols are
+exact alias names or qualified Rust field-path suffixes. Compatibility takes
+precedence. Wire DTOs, projections, display text, private generic wrapper storage,
+and `ReferenceError::role` are not claimed as migrated primitive domain fields.
+
+Local macro-generated aliases use the user invocation callsite for policy scope
+and diagnostics, and their compiler-resolved type for representation checks.
+Only exact core rows are enforceable for expanded aliases; suffix-only macro
+names do not generate inventory noise. External macro expansions remain excluded.
+Nominal generic aliases are admitted because their resolved type is a nominal
+wrapper, not primitive storage. `molten_nominal_macro_raw_alias` exercises the
+local macro-to-String regression for all 15 domains; `molten_nominal_raw_alias`
+and `molten_nominal_raw_core` cover direct aliases and registered fields.
+`molten_nominal_typed` and `molten_nominal_compat` cover admitted shapes.
+
+The raw-value checker covers direct `String` and its supported `Vec`, `Option`,
+`Result` success, and `BTreeMap` containers. It does not inspect borrowed
+`&str`/`&String` APIs, arbitrary generic internals, macro-generated fields,
+or unregistered enum tuple payloads. In particular, Molten
+`require_session(&SessionRef) -> &SessionRef` has Rust nominal separation but
+is not evidence that borrowed raw representations are enforced by this policy.
+Broader cache, retention, node, effect, or authority migration claims are not
+implied by the one declared core source file.
+
+The published provider base inspected for this adoption is
+`620833ca621efd3908ae4f3d76c3975effa8bd1a` from the recorded
+`git@github.com:OnixResearch/octet.git` upstream. It contains the pre-existing
+checker but no Molten catalog rows or local-macro alias enforcement. A consumer
+immutable pin requires an approved, verified provider commit containing these
+changes and upstream availability; a local working tree or alias declaration
+is not a published cohort or enforcement proof. Publication and coordinated
+consumer pinning require separate owner authorization and passing provider
+acceptance; neither is implied by this guide.
+

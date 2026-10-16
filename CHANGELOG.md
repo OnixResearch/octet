@@ -6,6 +6,16 @@ specific commits via `TIGERSTYLE_DYLINT_REV`.
 For the full lint catalog, see `docs/lint-reference.md`.
 For rollout profiles, see `docs/downstream-rollout.md`.
 
+## Unreleased: Molten nominal reference domains
+
+- Declare the 15 Molten reference domains at their exact typed core file and
+  explicit wire compatibility file, reusing the embedded nominal catalog.
+- Enforce configured primitive aliases produced by local macros at their user
+  callsite, without suffix-only macro noise or external-macro scope expansion.
+  Compiler UI cases cover raw aliases and core fields, nominal generic aliases,
+  and explicit raw wire compatibility. These are source-shape checks, not runtime
+  validity, authority, or release claims.
+
 ## Unreleased: reviewed Valence source-token-v2 pin and source-bound object rails
 
 - Candidate `cargo-octet` source-backed object, marker, corpus, and supplement
