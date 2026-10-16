@@ -1,0 +1,143 @@
+error: domain alias `PrincipalRef` resolves to primitive storage declared by `molten.nominal-reference.principal`
+  --> $DIR/molten_nominal_raw_alias.rs:4:6
+   |
+LL | type PrincipalRef = String;
+   |      ^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Nominal Domain Types): replace registered primitive domain aliases with private nominal wrappers and checked constructors Example: pub struct UnitId(String);
+   = note: see Tiger Style guide: Explicit Interfaces
+note: the lint level is defined here
+  --> $DIR/molten_nominal_raw_alias.rs:1:9
+   |
+LL | #![deny(primitive_domain_alias, raw_domain_value)]
+   |         ^^^^^^^^^^^^^^^^^^^^^^
+   = note: `#[deny(tigerstyle::primitive_domain_alias)]` implied by `#[deny(primitive_domain_alias)]`
+
+error: domain alias `NodeRef` resolves to primitive storage declared by `molten.nominal-reference.node`
+  --> $DIR/molten_nominal_raw_alias.rs:5:6
+   |
+LL | type NodeRef = String;
+   |      ^^^^^^^
+   |
+   = help: Tiger Style (Nominal Domain Types): replace registered primitive domain aliases with private nominal wrappers and checked constructors Example: pub struct UnitId(String);
+   = note: see Tiger Style guide: Explicit Interfaces
+
+error: domain alias `ActorRef` resolves to primitive storage declared by `molten.nominal-reference.actor`
+  --> $DIR/molten_nominal_raw_alias.rs:6:6
+   |
+LL | type ActorRef = String;
+   |      ^^^^^^^^
+   |
+   = help: Tiger Style (Nominal Domain Types): replace registered primitive domain aliases with private nominal wrappers and checked constructors Example: pub struct UnitId(String);
+   = note: see Tiger Style guide: Explicit Interfaces
+
+error: domain alias `ServiceRef` resolves to primitive storage declared by `molten.nominal-reference.service`
+  --> $DIR/molten_nominal_raw_alias.rs:7:6
+   |
+LL | type ServiceRef = String;
+   |      ^^^^^^^^^^
+   |
+   = help: Tiger Style (Nominal Domain Types): replace registered primitive domain aliases with private nominal wrappers and checked constructors Example: pub struct UnitId(String);
+   = note: see Tiger Style guide: Explicit Interfaces
+
+error: domain alias `SessionRef` resolves to primitive storage declared by `molten.nominal-reference.session`
+  --> $DIR/molten_nominal_raw_alias.rs:8:6
+   |
+LL | type SessionRef = String;
+   |      ^^^^^^^^^^
+   |
+   = help: Tiger Style (Nominal Domain Types): replace registered primitive domain aliases with private nominal wrappers and checked constructors Example: pub struct UnitId(String);
+   = note: see Tiger Style guide: Explicit Interfaces
+
+error: domain alias `AuthorityContextRef` resolves to primitive storage declared by `molten.nominal-reference.authority-context`
+  --> $DIR/molten_nominal_raw_alias.rs:9:6
+   |
+LL | type AuthorityContextRef = String;
+   |      ^^^^^^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Nominal Domain Types): replace registered primitive domain aliases with private nominal wrappers and checked constructors Example: pub struct UnitId(String);
+   = note: see Tiger Style guide: Explicit Interfaces
+
+error: domain alias `DelegationRef` resolves to primitive storage declared by `molten.nominal-reference.delegation`
+  --> $DIR/molten_nominal_raw_alias.rs:10:6
+   |
+LL | type DelegationRef = String;
+   |      ^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Nominal Domain Types): replace registered primitive domain aliases with private nominal wrappers and checked constructors Example: pub struct UnitId(String);
+   = note: see Tiger Style guide: Explicit Interfaces
+
+error: domain alias `RevocationRef` resolves to primitive storage declared by `molten.nominal-reference.revocation`
+  --> $DIR/molten_nominal_raw_alias.rs:11:6
+   |
+LL | type RevocationRef = String;
+   |      ^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Nominal Domain Types): replace registered primitive domain aliases with private nominal wrappers and checked constructors Example: pub struct UnitId(String);
+   = note: see Tiger Style guide: Explicit Interfaces
+
+error: domain alias `KeyRef` resolves to primitive storage declared by `molten.nominal-reference.key`
+  --> $DIR/molten_nominal_raw_alias.rs:12:6
+   |
+LL | type KeyRef = String;
+   |      ^^^^^^
+   |
+   = help: Tiger Style (Nominal Domain Types): replace registered primitive domain aliases with private nominal wrappers and checked constructors Example: pub struct UnitId(String);
+   = note: see Tiger Style guide: Explicit Interfaces
+
+error: domain alias `PolicyRef` resolves to primitive storage declared by `molten.nominal-reference.policy`
+  --> $DIR/molten_nominal_raw_alias.rs:13:6
+   |
+LL | type PolicyRef = String;
+   |      ^^^^^^^^^
+   |
+   = help: Tiger Style (Nominal Domain Types): replace registered primitive domain aliases with private nominal wrappers and checked constructors Example: pub struct UnitId(String);
+   = note: see Tiger Style guide: Explicit Interfaces
+
+error: domain alias `ResourceRef` resolves to primitive storage declared by `molten.nominal-reference.resource`
+  --> $DIR/molten_nominal_raw_alias.rs:14:6
+   |
+LL | type ResourceRef = String;
+   |      ^^^^^^^^^^^
+   |
+   = help: Tiger Style (Nominal Domain Types): replace registered primitive domain aliases with private nominal wrappers and checked constructors Example: pub struct UnitId(String);
+   = note: see Tiger Style guide: Explicit Interfaces
+
+error: domain alias `EvidenceRef` resolves to primitive storage declared by `molten.nominal-reference.evidence`
+  --> $DIR/molten_nominal_raw_alias.rs:15:6
+   |
+LL | type EvidenceRef = String;
+   |      ^^^^^^^^^^^
+   |
+   = help: Tiger Style (Nominal Domain Types): replace registered primitive domain aliases with private nominal wrappers and checked constructors Example: pub struct UnitId(String);
+   = note: see Tiger Style guide: Explicit Interfaces
+
+error: domain alias `ArtifactRef` resolves to primitive storage declared by `molten.nominal-reference.artifact`
+  --> $DIR/molten_nominal_raw_alias.rs:16:6
+   |
+LL | type ArtifactRef = String;
+   |      ^^^^^^^^^^^
+   |
+   = help: Tiger Style (Nominal Domain Types): replace registered primitive domain aliases with private nominal wrappers and checked constructors Example: pub struct UnitId(String);
+   = note: see Tiger Style guide: Explicit Interfaces
+
+error: domain alias `OperationRef` resolves to primitive storage declared by `molten.nominal-reference.operation`
+  --> $DIR/molten_nominal_raw_alias.rs:17:6
+   |
+LL | type OperationRef = String;
+   |      ^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Nominal Domain Types): replace registered primitive domain aliases with private nominal wrappers and checked constructors Example: pub struct UnitId(String);
+   = note: see Tiger Style guide: Explicit Interfaces
+
+error: domain alias `ReceiptRef` resolves to primitive storage declared by `molten.nominal-reference.receipt`
+  --> $DIR/molten_nominal_raw_alias.rs:18:6
+   |
+LL | type ReceiptRef = String;
+   |      ^^^^^^^^^^
+   |
+   = help: Tiger Style (Nominal Domain Types): replace registered primitive domain aliases with private nominal wrappers and checked constructors Example: pub struct UnitId(String);
+   = note: see Tiger Style guide: Explicit Interfaces
+
+error: aborting due to 15 previous errors
+

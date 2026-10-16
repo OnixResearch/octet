@@ -315,6 +315,26 @@
     "category": "known_exception"
   },
   {
+    "lint_name": "primitive_domain_alias",
+    "fixture": "molten_nominal_typed",
+    "category": "safe_shape"
+  },
+  {
+    "lint_name": "primitive_domain_alias",
+    "fixture": "molten_nominal_compat",
+    "category": "known_exception"
+  },
+  {
+    "lint_name": "raw_domain_value",
+    "fixture": "molten_nominal_typed",
+    "category": "safe_shape"
+  },
+  {
+    "lint_name": "raw_domain_value",
+    "fixture": "molten_nominal_compat",
+    "category": "known_exception"
+  },
+  {
     "lint_name": "newtype_invariant_bypass",
     "fixture": "newtype_invariant_safe",
     "category": "safe_shape"

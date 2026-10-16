@@ -126,7 +126,10 @@ fn constructor_policy_diagnostics(domain: &super::model::NominalDomainPolicy) ->
             domain.constructor_policy == super::model::ConstructorPolicy::PrivateFallible
         }
         super::model::WrapperKind::MarkerGeneric => {
-            domain.constructor_policy == super::model::ConstructorPolicy::MarkerOnly
+            matches!(
+                domain.constructor_policy,
+                super::model::ConstructorPolicy::MarkerOnly | super::model::ConstructorPolicy::PrivateFallible
+            )
         }
         super::model::WrapperKind::OpaqueNewtype | super::model::WrapperKind::UnitNewtype => {
             domain.constructor_policy != super::model::ConstructorPolicy::MarkerOnly

@@ -34,7 +34,7 @@ let constructor_matches_wrapper = fun domain =>
   if domain.wrapper_kind == "refined-newtype" then
     domain.constructor_policy == "private-fallible"
   else if domain.wrapper_kind == "marker-generic" then
-    domain.constructor_policy == "marker-only"
+    domain.constructor_policy == "marker-only" || domain.constructor_policy == "private-fallible"
   else
     domain.constructor_policy != "marker-only"
 in

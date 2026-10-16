@@ -244,8 +244,8 @@ in
       validation_command = "nix build .#checks.x86_64-linux.nominal-domain-catalog --no-link -L",
       status = "existing",
       config_digest_required = true,
-      positive_fixtures = ["standards/nominal-domains/catalog.ncl", "standards/nominal-domains/fixtures/valid/minimum.ncl", "crates/octet-lint-metadata/src/nominal_domain.rs::embedded_catalog_is_valid_and_inventory_only"],
-      negative_fixtures = ["standards/nominal-domains/fixtures/invalid/duplicate_domains.ncl", "standards/nominal-domains/fixtures/invalid/invalid_constructor_policy.ncl", "standards/nominal-domains/fixtures/invalid/missing_compatibility_scope.ncl", "standards/nominal-domains/fixtures/invalid/overlapping_scopes.ncl", "standards/nominal-domains/fixtures/invalid/unknown_representation.ncl", "crates/octet-lint-metadata/src/nominal_domain.rs::malformed_catalog_fails_closed_with_deterministic_diagnostics"],
+      positive_fixtures = ["standards/nominal-domains/catalog.ncl", "standards/nominal-domains/fixtures/valid/minimum.ncl", "crates/octet-lint-metadata/src/nominal_domain.rs::embedded_catalog_is_valid_and_inventory_only", "standards/nominal-domains/fixtures/valid/checked-generic.ncl", "crates/octet-lint-metadata/src/identity/tests.rs::marker_generic_constructor_policy_preserves_checked_and_marker_only_shapes", "ui_tests/molten_nominal_typed.rs", "ui_tests/molten_nominal_compat.rs"],
+      negative_fixtures = ["standards/nominal-domains/fixtures/invalid/duplicate_domains.ncl", "standards/nominal-domains/fixtures/invalid/invalid_constructor_policy.ncl", "standards/nominal-domains/fixtures/invalid/missing_compatibility_scope.ncl", "standards/nominal-domains/fixtures/invalid/overlapping_scopes.ncl", "standards/nominal-domains/fixtures/invalid/unknown_representation.ncl", "crates/octet-lint-metadata/src/nominal_domain.rs::malformed_catalog_fails_closed_with_deterministic_diagnostics", "standards/nominal-domains/fixtures/invalid/unchecked-generic.ncl", "ui_tests/molten_nominal_raw_alias.rs", "ui_tests/molten_nominal_macro_raw_alias.rs", "ui_tests/molten_nominal_raw_core.rs"],
     },
     {
       family_id = "octet.assurance-profile.onixos-lifecycle-proof",

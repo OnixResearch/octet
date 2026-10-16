@@ -107,7 +107,7 @@ impl<'tcx> LateLintPass<'tcx> for PrimitiveDomainAlias {
         let hir::ItemKind::TyAlias(ident, ..) = item.kind else {
             return;
         };
-        if item.span.from_expansion() {
+        if item.span.in_external_macro(cx.sess().source_map()) {
             return;
         }
 
@@ -116,7 +116,9 @@ impl<'tcx> LateLintPass<'tcx> for PrimitiveDomainAlias {
             return;
         };
         let symbol = ident.name.as_str();
-        let source_path = source_path(cx, item.span);
+        let expanded = item.span.from_expansion();
+        let policy_span = item.span.source_callsite();
+        let source_path = source_path(cx, policy_span);
         let descriptor = octet_lint_metadata::nominal_domain::DomainDescriptor {
             symbol,
             raw_representation,
@@ -124,6 +126,12 @@ impl<'tcx> LateLintPass<'tcx> for PrimitiveDomainAlias {
             kind: octet_lint_metadata::nominal_domain::DescriptorKind::TypeAlias,
         };
         let disposition = octet_lint_metadata::nominal_domain::classify_descriptor(&self.catalog, descriptor);
+        // Macro-generated names are enforceable only through exact reviewed rows;
+        // suffix inventory must not turn local helper macros into discovery noise.
+        if expanded && !matches!(disposition, octet_lint_metadata::nominal_domain::DomainDisposition::ExactCore { .. })
+        {
+            return;
+        }
         if !disposition_is_reportable(self.mode, &disposition) {
             return;
         }
@@ -131,7 +139,8 @@ impl<'tcx> LateLintPass<'tcx> for PrimitiveDomainAlias {
             return;
         };
 
-        crate::diagnostics::emit_tiger_style_lint(cx, PRIMITIVE_DOMAIN_ALIAS, ident.span, message, LINT_NAME);
+        let report_span = if expanded { policy_span } else { ident.span };
+        crate::diagnostics::emit_tiger_style_lint(cx, PRIMITIVE_DOMAIN_ALIAS, report_span, message, LINT_NAME);
     }
 }
 

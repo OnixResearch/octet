@@ -1,0 +1,115 @@
+{
+  "attempt": "9/20",
+  "provider_worktree": "/home/brittonr/git/octet-worktrees/molten-nominal-adoption-20261015",
+  "authorization": "Validate, review, commit and publish only the reviewed provider cohort; then perform coordinated immutable consumer pin adoption. No Molten remote push.",
+  "checks": {
+    "metadata": {
+      "passed": 13,
+      "failed": 0,
+      "evidence": "metadata-tests-after.json"
+    },
+    "library": {
+      "passed": 154,
+      "failed": 0,
+      "evidence": "provider-library-tests-output.json",
+      "command": [
+        "nix",
+        "develop",
+        "--no-update-lock-file",
+        "-c",
+        "cargo",
+        "test",
+        "-p",
+        "octet",
+        "--lib",
+        "--locked"
+      ]
+    },
+    "nominal_catalog": {
+      "attempt": "9/20",
+      "command": [
+        "nix",
+        "build",
+        ".#checks.x86_64-linux.nominal-domain-catalog",
+        "--no-link",
+        "--print-out-paths",
+        "-L"
+      ],
+      "exit_code": 0,
+      "derivation": "/nix/store/1v83mfnhlh3f0yr98k5zbpfsvbrlzsbn-octet-nominal-domain-catalog-check.drv",
+      "output": "/nix/store/n7jzjxyxr1xi9g04b8qkg31lsd62ynbs-octet-nominal-domain-catalog-check",
+      "checks": [
+        "Nickel catalog typechecking",
+        "exact source export/checked-in JSON equality",
+        "all valid catalog fixtures admitted",
+        "all invalid catalog fixtures rejected"
+      ]
+    },
+    "ui": {
+      "command": [
+        "nix",
+        "build",
+        ".#checks.x86_64-linux.ui",
+        "--no-link",
+        "--print-out-paths",
+        "-L"
+      ],
+      "exit_code": 0,
+      "derivation": "/nix/store/w7drw2q6j5wibsfzslh6kk0w7s4gkbil-octet-ui-0.1.0.drv",
+      "output": "/nix/store/l4hhdk0rmcndaph3wg2wizad4baj7bd8-octet-ui-0.1.0",
+      "unblessed": true,
+      "cargo_test_extra_args": "--test ui -- --ignored --nocapture",
+      "observed_test_result": "4 passed; 0 failed; 0 ignored",
+      "raw_full_tool_output": "artifact://553",
+      "retained_native_build_log": "provider-ui-replay-log.json"
+    },
+    "ui_snapshot_inspection": {
+      "direct_alias_errors": 15,
+      "local_macro_alias_errors": 15,
+      "registered_raw_field_errors": 22,
+      "typed_and_compatibility_successes": 2,
+      "replayed_fixture_count": 163,
+      "evidence": "provider-ui-snapshot-inspection.json"
+    },
+    "provider_pinned_cairn": {
+      "executable": "/nix/store/ynjawpza9ci9i8ha7f3ywaqwbd60m83k-cairn-0.1.0/bin/cairn",
+      "policy": "/home/brittonr/git/octet-worktrees/molten-nominal-adoption-20261015/cairn-policy/generated/cairn-policy.json",
+      "policy_name": "octet-default",
+      "stage_gates": [
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "strict_validation_exit": 0,
+      "findings": []
+    },
+    "real_consumer_development_smoke": "real-consumer-development-smoke.json"
+  },
+  "review": {
+    "initial_issue_reproduced": true,
+    "correction": "Delete the incidental mutable-live-catalog assertion while preserving validation of both historical receipts; do not edit or repin frozen evidence.",
+    "independent_final_verdict": "correct; no remaining must-fix code findings",
+    "evidence": "provider-corrected-review.json"
+  },
+  "scope": {
+    "domains": 15,
+    "registered_fields": 22,
+    "core": "crates/molten-core/src/nominal.rs",
+    "wire_compatibility": "src/authority/nominal.rs",
+    "generic_constructor_pair": "marker-generic/private-fallible"
+  },
+  "remaining_before_consumer_pin": [
+    "Focused Rust formatting result",
+    "Publish the reviewed immutable provider commit and observe exact remote availability",
+    "Complete provider native sync/archive with retained input/mutation linkage",
+    "Pin consumer and rerun immutable-cohort adoption acceptance"
+  ],
+  "maintenance_owner": "Octet nominal-domain policy and lint maintainers; Molten maintains its adoption inventory and exact source scopes",
+  "durable_capability": "The existing producer-owned embedded policy enforces exact registered local macro aliases and checked generic wrapper policy without a duplicate consumer checker.",
+  "non_claims": [
+    "No external macro or arbitrary borrowed/generic-inner traversal guarantee.",
+    "No runtime authority, correctness, whole-system, or release eligibility claim.",
+    "Source checks and development overrides are not immutable consumer adoption.",
+    "Conversation approval is scoped authorization, not an upstream cryptographic signature."
+  ]
+}
