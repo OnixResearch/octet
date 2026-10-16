@@ -124,3 +124,12 @@ is not a published cohort or enforcement proof. Publication and coordinated
 consumer pinning require separate owner authorization and passing provider
 acceptance; neither is implied by this guide.
 
+The reviewed implementation was first published at
+`82a6f01a15cfbfda7ed9b37e03605d0c052391c4`. The
+[native lifecycle linkage](../.cairn/archive/1970-01-01-adopt-molten-nominal-reference-domains/evidence/native-lifecycle-linkage.json)
+retains successful specification sync/archive, unchanged native plan inputs,
+and exact mutation hashes under the provider-pinned Cairn and unchanged policy.
+The archive also retains the named unblessed UI replay, complete new snapshots,
+catalog freshness, 154 library and 13 metadata tests, formatting, and review.
+This provider evidence is not proof of immutable Molten adoption or runtime correctness.
+

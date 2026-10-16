@@ -10,7 +10,7 @@
 - [x] [serial] Generate and review only new Molten UI diagnostics, then replay the UI rail without blessing; prove all 15 direct/macro raw aliases and raw core fields fail while nominal generic and explicit compatibility pass. r[octet.type_driven_domain_modeling.molten_adoption.macros]
 - [x] [serial] Run nominal catalog freshness and focused library/metadata checks; inspect exact fixture diagnostics rather than accepting a generic suite pass. r[octet.type_driven_domain_modeling.molten_adoption.catalog]
 - [x] [serial] Run real Molten clean and alias-to-String mutation smokes through the integrated Octet provider; preserve the macro and original source after the mutation. r[octet.type_driven_domain_modeling.molten_adoption.macros]
-- [ ] [serial] Obtain required review/lifecycle gates and approved immutable upstream provider availability before changing the consumer pin or claiming sync/archive readiness. r[octet.type_driven_domain_modeling.molten_adoption.compatibility]
+- [x] [serial] Obtain required review/lifecycle gates and approved immutable upstream provider availability before changing the consumer pin or claiming sync/archive readiness. r[octet.type_driven_domain_modeling.molten_adoption.compatibility]
 
 ## Verification Coverage
 
