@@ -2,7 +2,9 @@
 # theorem policy; Mantle may realize its complete exported ordinary drv graph.
 let consumer = import "consumer-profile.ncl" in
 let profile = import "profile.ncl" in
-let NonEmpty = String | std.contract.from_predicate (fun value => std.string.length value > 0) in
+let NonEmpty = std.contract.from_predicate (fun value =>
+  std.is_string value && std.string.length value > 0
+) in
 let Job = {
   schema_version | String | std.contract.from_predicate (fun value => value == "octet-mantle-producer-job/v1"),
   owner | String,
