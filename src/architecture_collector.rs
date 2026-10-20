@@ -504,13 +504,31 @@ impl ArchitectureCollector {
         let span_id = self.collect_span(cx, expr.span);
         let resolved_definition = def_id.map(|current| qualified_definition(cx, current));
         if def_id.is_none() {
-            self.push_unknown(
-                UnknownFactKind::UnresolvedDefinition,
-                Some(&caller_item_id),
-                None,
-                Some(&span_id),
-                "call expression has no compiler-resolved definition",
-            );
+            let function_value = match &expr.kind {
+                hir::ExprKind::Call(callee, _) => matches!(
+                    cx.typeck_results().expr_ty(callee).peel_refs().kind(),
+                    ty::FnPtr(..) | ty::Dynamic(..) | ty::Param(..)
+                ),
+                hir::ExprKind::MethodCall(..) => true,
+                _ => false,
+            };
+            if function_value {
+                self.push_unknown(
+                    UnknownFactKind::DynamicDispatch,
+                    Some(&caller_item_id),
+                    Some("core::ops::Fn::call"),
+                    Some(&span_id),
+                    "call through a function value has no statically unique definition",
+                );
+            } else {
+                self.push_unknown(
+                    UnknownFactKind::UnresolvedDefinition,
+                    Some(&caller_item_id),
+                    None,
+                    Some(&span_id),
+                    "call expression has no compiler-resolved definition",
+                );
+            }
         }
         let callee_item_id = def_id
             .filter(|current| current.is_local())
