@@ -1646,10 +1646,11 @@
         };
 
         mantleProducerExportCheck = pkgs.runCommand "octet-mantle-producer-export-check" {
-          nativeBuildInputs = [ pkgs.python3 ];
+          nativeBuildInputs = [ pkgs.python3 nickel ];
         } ''
           python3 -B -m unittest discover -s ${self}/tools/mantle-producer -p 'test_*.py' -v
           mkdir -p "$out"
+          nickel export --format json ${self}/standards/proof-rails/aeneas-lean/mantle-job.ncl > "$out/job.json"
         '';
 
         policyArtifacts = pkgs.writeShellApplication {

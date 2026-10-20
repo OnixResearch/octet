@@ -133,6 +133,9 @@ profile and reviewed external-fixture rail, their resource bounds, exact
 commands, denied-network execution and output contract. It introduces no
 alternative theorem admission policy. This selected Lean rail has no SMT solver.
 
+`checks.x86_64-linux.mantle-producer-export` exercises graph admission and exports
+this typed job with the pinned Nickel evaluator; it does not execute the proof.
+
 `packages.x86_64-linux.octet-mantle-aeneas-consumer-job` realizes that contract
 as an ordinary derivation: it runs actual `cargo-octet prove` and
 `cargo-octet artifact verify`, requires successful owner verification, and
