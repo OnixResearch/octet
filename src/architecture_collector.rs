@@ -1719,10 +1719,7 @@ fn dispatch_kind(cx: &LateContext<'_>, def_id: DefId, receiver: Option<Ty<'_>>) 
 }
 
 fn callable_def_kind(cx: &LateContext<'_>, def_id: DefId) -> bool {
-    matches!(
-        cx.tcx.def_kind(def_id),
-        DefKind::Fn | DefKind::AssocFn | DefKind::Ctor(..) | DefKind::Closure
-    )
+    matches!(cx.tcx.def_kind(def_id), DefKind::Fn | DefKind::AssocFn | DefKind::Ctor(..) | DefKind::Closure)
 }
 
 // A call through a closure or function item has a compiler-resolved body even
