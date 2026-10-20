@@ -123,3 +123,38 @@ resource limits, trust boundaries, and non-claims.
 
 Octet does not infer these declarations from repository membership. It does not
 grant proof authority because a project uses the same workspace or provider.
+
+## Mantle producer handoff
+
+Octet owns the executable handoff in
+`standards/proof-rails/aeneas-lean/mantle-job.ncl`
+(`octet-mantle-producer-job/v1`). It selects this existing consumer/provider
+profile and reviewed external-fixture rail, their resource bounds, exact
+commands, denied-network execution and output contract. It introduces no
+alternative theorem admission policy. This selected Lean rail has no SMT solver.
+
+`packages.x86_64-linux.octet-mantle-aeneas-consumer-job` realizes that contract
+as an ordinary derivation: it runs actual `cargo-octet prove` and
+`cargo-octet artifact verify`, requires successful owner verification, and
+preserves the original report, envelope and full artifact payload tree. Cached
+output bytes record their original acceptance; reuse is not fresh proof work.
+
+`tools/mantle-producer/export.py --help` describes acquisition-only export from
+an explicit immutable committed flake revision. It retains the exact job,
+recursive Nix derivation JSON, flake metadata/lock, selected root/revision and
+all declared source objects. Legacy flat and explicit Nix v4 reference shapes
+are admitted separately; the original JSON graph bytes are never rewritten or
+hash-relabelled as another format. Unknown/mixed versions, incomplete edges and
+dynamic outputs are rejected. The exporter requires `--revision COMMITTED_SHA`
+and resolves the immutable flake before exporting Nickel from its locked path,
+including imported consumer/provider contracts. It refuses to substitute a
+mutable checkout job or an old fixture pin. Graph size, derivation/source count
+and source bytes are bounded. Acquisition does not build tools or execute a proof.
+The complete graph includes declared bootstrap/binary acquisition inputs; it
+does not claim source-only or seed-free bootstrap.
+
+Mantle may consume that frozen graph through its existing build/source/store
+boundaries and preserve Octet's full external acceptance report. Mantle does
+not gain profile, theorem, proof admission, signature trust or release authority
+by doing so. Real execution/replay evidence must identify the actual route;
+importing a prebuilt closure is not evidence of source-built tools.
