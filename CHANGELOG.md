@@ -6,6 +6,18 @@ specific commits via `TIGERSTYLE_DYLINT_REV`.
 For the full lint catalog, see `docs/lint-reference.md`.
 For rollout profiles, see `docs/downstream-rollout.md`.
 
+## Unreleased: Compiler-owned desugarings
+
+`?`, `for`, and range expressions are compiler desugarings, not macro
+invocations. The collector no longer records an `UnsupportedExpansion` unknown
+for their missing macro `DefId`; their expansion facts, generated calls, and
+effects are retained from the expanded HIR. `?` transfers control through
+`Try`, `for` drives `IntoIterator`, and range construction is pure.
+Every other definition-less expansion still records an unknown.
+
+This changes no schema, role, target, lint level, or exemption. It does not
+establish downstream acceptance.
+
 ## Unreleased: Compiler randomness effects
 
 The collector now classifies the four root `getrandom` entry points: `fill`, `fill_uninit`, `u32`, and `u64`.
