@@ -152,6 +152,18 @@ in
   ],
   config_receipt_families = [
     {
+      family_id = "octet.mantle-aeneas-producer-job",
+      ownership = "nickel-authored",
+      owner_source_path = "standards/proof-rails/aeneas-lean/mantle-job.ncl",
+      artifact_path = "job.json",
+      generation_command = "nickel export --format json standards/proof-rails/aeneas-lean/mantle-job.ncl",
+      validation_command = "nix build .#checks.x86_64-linux.mantle-aeneas-consumer-job --no-link -L",
+      status = "existing",
+      config_digest_required = true,
+      positive_fixtures = ["standards/proof-rails/aeneas-lean/fixtures/external-consumer/src/lib.rs"],
+      negative_fixtures = ["standards/proof-rails/aeneas-lean/fixtures/invalid/consumer_provider_drift.ncl"],
+    },
+    {
       family_id = "tigerstyle.policy-registry-config",
       ownership = "nickel-authored",
       owner_source_path = "standards/policies/registry.ncl",

@@ -1637,6 +1637,21 @@
           '';
         };
 
+        mantleAeneasConsumerJob = import ./nix/mantle-aeneas-job.nix {
+          inherit pkgs nickel rustToolchain policyArtifacts;
+          provider = aeneasLeanProviderClosure;
+          cargoOctet = cargoOctetUnwrapped;
+          sourceRoot = self;
+          sourceRevision = self.rev or self.narHash;
+        };
+
+        mantleProducerExportCheck = pkgs.runCommand "octet-mantle-producer-export-check" {
+          nativeBuildInputs = [ pkgs.python3 ];
+        } ''
+          python3 -B -m unittest discover -s ${self}/tools/mantle-producer -p 'test_*.py' -v
+          mkdir -p "$out"
+        '';
+
         policyArtifacts = pkgs.writeShellApplication {
           name = "octet-policy-artifacts";
           runtimeInputs = with pkgs; [
@@ -3027,6 +3042,7 @@
           octet-verus = octetVerus;
           octet-production-verus = octetProductionVerus;
           octet-aeneas-lean-provider-closure = aeneasLeanProviderClosure;
+          octet-mantle-aeneas-consumer-job = mantleAeneasConsumerJob;
           octet-production-verus-nix-closure-manifest = octetProductionVerusNixClosureManifest;
           octet-verusfmt = octetVerusfmt;
           octet-verus-toolchain-profile = octetVerusToolchainProfile;
@@ -4591,6 +4607,8 @@
             aeneas-lean-provider-closure = aeneasLeanProviderClosureCheck;
             aeneas-lean-compatibility-matrix = aeneasLeanCompatibilityMatrixCheck;
             aeneas-consumer-contract = aeneasConsumerContractCheck;
+            mantle-aeneas-consumer-job = mantleAeneasConsumerJob;
+            mantle-producer-export = mantleProducerExportCheck;
             charon-semantic-analysis = charonSemanticAnalysisCheck;
             verus-toolchain-profile = verusToolchainProfileCheck;
             production-verus-negative-proof = productionVerusNegativeProofCheck;
