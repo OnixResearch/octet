@@ -39,6 +39,7 @@ use rustc_session::impl_lint_pass;
 use rustc_span::Span;
 use rustc_span::Spanned;
 use rustc_span::hygiene::AstPass;
+use rustc_span::hygiene::DesugaringKind;
 use rustc_span::hygiene::ExpnKind;
 
 const CONTEXT_BYTE_LIMIT: u64 = 16 * 1024 * 1024;
@@ -1871,9 +1872,16 @@ fn is_value_provenance(fact: &CompilerArchitectureFact) -> bool {
 
 // These compiler passes synthesize code, not macro invocations. Keep their expansion
 // facts and all generated calls/effects, but do not require a nonexistent macro DefId.
-// Every other definition-less expansion stays unknown.
+// `?`, `for` and range expressions are compiler desugarings with a fixed effect shape:
+// `?` transfers control through `Try`, `for` drives `IntoIterator`, and a range
+// constructor is pure. Their generated calls and effects are still collected from the
+// expanded HIR. Every other definition-less expansion stays unknown.
 fn compiler_owned_expansion(kind: ExpnKind) -> bool {
-    matches!(kind, ExpnKind::AstPass(AstPass::StdImports | AstPass::TestHarness | AstPass::ProcMacroHarness))
+    matches!(
+        kind,
+        ExpnKind::AstPass(AstPass::StdImports | AstPass::TestHarness | AstPass::ProcMacroHarness)
+            | ExpnKind::Desugaring(DesugaringKind::QuestionMark | DesugaringKind::ForLoop | DesugaringKind::RangeExpr)
+    )
 }
 
 #[cfg(test)]
@@ -1932,6 +1940,17 @@ mod tests {
     fn compiler_passes_do_not_require_macro_definitions() {
         for pass in [AstPass::StdImports, AstPass::TestHarness, AstPass::ProcMacroHarness] {
             assert!(compiler_owned_expansion(ExpnKind::AstPass(pass)));
+        }
+    }
+
+    #[test]
+    fn compiler_desugarings_do_not_require_macro_definitions() {
+        for kind in [
+            DesugaringKind::QuestionMark,
+            DesugaringKind::ForLoop,
+            DesugaringKind::RangeExpr,
+        ] {
+            assert!(compiler_owned_expansion(ExpnKind::Desugaring(kind)));
         }
     }
 
