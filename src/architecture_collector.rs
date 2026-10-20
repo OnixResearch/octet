@@ -1210,10 +1210,13 @@ impl<'tcx> LateLintPass<'tcx> for ArchitectureCollector {
         match &expr.kind {
             hir::ExprKind::Call(callee, _) => {
                 let def_id = match &callee.kind {
-                    hir::ExprKind::Path(qpath) => cx.qpath_res(qpath, callee.hir_id).opt_def_id(),
+                    hir::ExprKind::Path(qpath) => cx
+                        .qpath_res(qpath, callee.hir_id)
+                        .opt_def_id()
+                        .filter(|current| callable_def_kind(cx, *current)),
                     _ => None,
                 }
-                .or_else(|| closure_callee(cx, callee));
+                .or_else(|| callee_def_id(cx, callee));
                 let dispatch = def_id.map_or(DispatchKind::Unknown, |current| dispatch_kind(cx, current, None));
                 self.collect_call(cx, expr, def_id, dispatch);
             }
@@ -1715,15 +1718,21 @@ fn dispatch_kind(cx: &LateContext<'_>, def_id: DefId, receiver: Option<Ty<'_>>) 
     }
 }
 
-// A call through a closure value has a compiler-resolved closure body even
-// when the callee expression is not a named path. The closure's type fixes the
+fn callable_def_kind(cx: &LateContext<'_>, def_id: DefId) -> bool {
+    matches!(
+        cx.tcx.def_kind(def_id),
+        DefKind::Fn | DefKind::AssocFn | DefKind::Ctor(..) | DefKind::Closure
+    )
+}
+
+// A call through a closure or function item has a compiler-resolved body even
+// when the callee expression is not a named path. The callee type fixes the
 // code that runs, so record it as the call target instead of an unresolved
 // definition.
-fn closure_callee<'tcx>(cx: &LateContext<'tcx>, callee: &hir::Expr<'tcx>) -> Option<DefId> {
-    if let ty::Closure(def_id, _) = cx.typeck_results().expr_ty(callee).peel_refs().kind() {
-        Some(*def_id)
-    } else {
-        None
+fn callee_def_id<'tcx>(cx: &LateContext<'tcx>, callee: &hir::Expr<'tcx>) -> Option<DefId> {
+    match cx.typeck_results().expr_ty(callee).peel_refs().kind() {
+        ty::FnDef(def_id, _) | ty::Closure(def_id, _) if callable_def_kind(cx, *def_id) => Some(*def_id),
+        _ => None,
     }
 }
 
