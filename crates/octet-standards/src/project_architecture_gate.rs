@@ -2177,6 +2177,9 @@ fn evaluate_unknowns(
     findings: &mut Vec<ProjectArchitectureFinding>,
 ) {
     for unknown in &input.architecture_ir.unknowns {
+        if dynamic_dispatch_classified(input.policy, unknown) {
+            continue;
+        }
         let unit = indexes.unit_for_unknown(&unknown.unknown_id);
         let source = unknown.span_id.as_deref().and_then(|span_id| indexes.source_path(span_id));
         findings.push(finding_for_unit(
@@ -2188,6 +2191,31 @@ fn evaluate_unknowns(
             &format!("required compiler fact remains unknown: {:?}: {}", unknown.kind, unknown.detail),
         ));
     }
+}
+
+fn dynamic_dispatch_classified(
+    policy: &ProjectArchitecturePolicy,
+    unknown: &octet_architecture_ir::UnknownCompilerFact,
+) -> bool {
+    if !matches!(
+        unknown.kind,
+        octet_architecture_ir::UnknownFactKind::AmbiguousTraitDispatch
+            | octet_architecture_ir::UnknownFactKind::DynamicDispatch
+    ) {
+        return false;
+    }
+    let Some(target) = unknown.target_identity.as_deref() else {
+        return false;
+    };
+    let external = policy
+        .dynamic_dispatch
+        .external_crates
+        .iter()
+        .any(|name| target.strip_prefix(name.as_str()).is_some_and(|rest| rest.starts_with("::")));
+    let local = policy.dynamic_dispatch.local_traits.iter().any(|local| {
+        target == local.path || target.strip_prefix(local.path.as_str()).is_some_and(|rest| rest.starts_with("::"))
+    });
+    external || local
 }
 
 fn apply_waivers(input: &ProjectArchitectureGateInput<'_>, findings: &mut Vec<ProjectArchitectureFinding>) {
@@ -2641,6 +2669,45 @@ mod tests {
         assert_eq!(receipt.status, ArchitecturePhaseStatus::Blocked);
         assert!(receipt.findings.iter().any(|finding| finding.code == "domain-core-effect"));
         assert!(receipt.findings.iter().any(|finding| finding.code == "required-compiler-unknown"));
+    }
+
+    #[test]
+    fn reviewed_dynamic_dispatch_is_not_a_required_unknown() {
+        use crate::project_architecture_policy::ArchitectureDynamicTrait;
+
+        let mut fixture = Fixture::new(ArchitectureMode::Gate);
+        fixture.policy.dynamic_dispatch.external_crates = vec!["core".to_owned(), "std".to_owned()];
+        fixture.policy.dynamic_dispatch.local_traits = vec![ArchitectureDynamicTrait {
+            path: "domain::Port".to_owned(),
+            owner: "architecture-team".to_owned(),
+            reason: "the trait has no foreign implementations".to_owned(),
+            review_condition: "reopen when an implementation is added outside the crate".to_owned(),
+        }];
+        let unknown = |kind, target: &str| UnknownCompilerFact {
+            unknown_id: String::new(),
+            kind,
+            owner_item_id: None,
+            target_identity: Some(target.to_owned()),
+            span_id: None,
+            detail: String::new(),
+        };
+
+        assert!(dynamic_dispatch_classified(
+            &fixture.policy,
+            &unknown(UnknownFactKind::AmbiguousTraitDispatch, "core::iter::Iterator::map"),
+        ));
+        assert!(dynamic_dispatch_classified(
+            &fixture.policy,
+            &unknown(UnknownFactKind::DynamicDispatch, "domain::Port::invoke"),
+        ));
+        assert!(!dynamic_dispatch_classified(
+            &fixture.policy,
+            &unknown(UnknownFactKind::DynamicDispatch, "vendor::Port::invoke"),
+        ));
+        assert!(!dynamic_dispatch_classified(
+            &fixture.policy,
+            &unknown(UnknownFactKind::UnresolvedDefinition, "core::iter::Iterator::map"),
+        ));
     }
 
     #[test]
@@ -3168,6 +3235,7 @@ mod tests {
                     }
                 }),
                 waivers: Vec::new(),
+                dynamic_dispatch: crate::project_architecture_policy::ArchitectureDynamicDispatchPolicy::default(),
                 collection_limits: limits(),
                 non_claims: vec!["whole-program-correctness".to_owned()],
             };

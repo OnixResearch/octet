@@ -348,6 +348,39 @@ pub struct ArchitectureWaiver {
     pub affected_claim: String,
 }
 
+/// Reviewed dynamic-call target classes.
+///
+/// A dynamic call records a real compiler fact: the call and its dispatch
+/// kind. The callee set, not a fact, is unresolved. These classes name the
+/// exact external crates and local sealed traits whose dynamic targets are
+/// reviewed, so the architecture phase does not report every such call as a
+/// missing compiler fact.
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct ArchitectureDynamicDispatchPolicy {
+    /// External crate roots whose trait method calls are outside the analyzed
+    /// source scope and governed by provider/dependency policy instead.
+    #[serde(default)]
+    pub external_crates: Vec<String>,
+    /// Local traits whose implementations are closed and reviewed.
+    #[serde(default)]
+    pub local_traits: Vec<ArchitectureDynamicTrait>,
+}
+
+/// One reviewed local trait with closed dynamic targets.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct ArchitectureDynamicTrait {
+    /// Fully qualified trait path as recorded in the IR target identity.
+    pub path: String,
+    /// Named review owner.
+    pub owner: String,
+    /// Why every implementation is known and its effects are bounded.
+    pub reason: String,
+    /// Condition that requires review or removal.
+    pub review_condition: String,
+}
+
 /// Typed project architecture policy consumed by Octet runtime code.
 // r[impl octet.project_architecture_policy.schema]
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -385,6 +418,9 @@ pub struct ProjectArchitecturePolicy {
     /// Exact architecture finding waivers.
     #[serde(default)]
     pub waivers: Vec<ArchitectureWaiver>,
+    /// Reviewed dynamic-call target classes.
+    #[serde(default)]
+    pub dynamic_dispatch: ArchitectureDynamicDispatchPolicy,
     /// Named bounds for compiler architecture evidence collection.
     pub collection_limits: octet_architecture_ir::ArchitectureCollectionLimits,
     /// Explicit project architecture non-claims.
@@ -456,6 +492,7 @@ pub fn validate_project_architecture_policy(
     validate_no_std(policy, &assignments, &mut diagnostics);
     validate_admission(policy, &mut diagnostics);
     validate_waivers(policy, &mut diagnostics);
+    validate_dynamic_dispatch(policy, &mut diagnostics);
     validate_collection_limits(policy, &mut diagnostics);
     diagnostics.sort();
     diagnostics.dedup();
@@ -1112,6 +1149,42 @@ fn validate_waivers(policy: &ProjectArchitecturePolicy, diagnostics: &mut Vec<Pr
     }
 }
 
+fn validate_dynamic_dispatch(
+    policy: &ProjectArchitecturePolicy,
+    diagnostics: &mut Vec<ProjectArchitecturePolicyDiagnostic>,
+) {
+    let mut external = BTreeSet::new();
+    for name in &policy.dynamic_dispatch.external_crates {
+        if name.is_empty() || !name.chars().all(|character| character.is_ascii_alphanumeric() || character == '_') {
+            diagnostics.push(diagnostic(
+                "dynamic-dispatch-crate",
+                "dynamic_dispatch.external_crates",
+                format!("external crate `{name}` must be one Rust crate identifier"),
+            ));
+        } else if !external.insert(name.as_str()) {
+            diagnostics.push(diagnostic(
+                "duplicate-dynamic-dispatch",
+                "dynamic_dispatch.external_crates",
+                format!("external crate `{name}` is classified more than once"),
+            ));
+        }
+    }
+    let mut paths = BTreeSet::new();
+    for local in &policy.dynamic_dispatch.local_traits {
+        push_blank(diagnostics, "dynamic_dispatch.local_traits.path", &local.path);
+        push_blank(diagnostics, "dynamic_dispatch.local_traits.owner", &local.owner);
+        push_blank(diagnostics, "dynamic_dispatch.local_traits.reason", &local.reason);
+        push_blank(diagnostics, "dynamic_dispatch.local_traits.review_condition", &local.review_condition);
+        if !paths.insert(local.path.as_str()) {
+            diagnostics.push(diagnostic(
+                "duplicate-dynamic-dispatch",
+                "dynamic_dispatch.local_traits.path",
+                format!("local trait `{}` is classified more than once", local.path),
+            ));
+        }
+    }
+}
+
 fn require_assignment(
     assignments: &BTreeMap<(ArchitectureScopeKind, String), ArchitectureRole>,
     kind: ArchitectureScopeKind,
@@ -1382,6 +1455,24 @@ mod tests {
         assert!(diagnostics.iter().all(|diagnostic| diagnostic.code == "stale-waiver"));
     }
 
+    #[test]
+    fn dynamic_dispatch_policy_entries_are_reviewable_and_unique() {
+        let mut policy = valid_policy();
+        policy.dynamic_dispatch.external_crates = vec!["core".to_owned(), "not a crate".to_owned(), "core".to_owned()];
+        policy.dynamic_dispatch.local_traits = vec![ArchitectureDynamicTrait {
+            path: String::new(),
+            owner: String::new(),
+            reason: String::new(),
+            review_condition: String::new(),
+        }];
+
+        let diagnostics = validate_project_architecture_policy(&policy);
+
+        assert!(diagnostics.iter().any(|diagnostic| diagnostic.code == "dynamic-dispatch-crate"));
+        assert!(diagnostics.iter().any(|diagnostic| diagnostic.code == "duplicate-dynamic-dispatch"));
+        assert!(diagnostics.iter().any(|diagnostic| diagnostic.code == "empty-field"));
+    }
+
     #[allow(clippy::too_many_lines)]
     fn valid_policy() -> ProjectArchitecturePolicy {
         let production_packages = ["domain", "application", "inbound", "outbound", "host"];
@@ -1468,6 +1559,7 @@ mod tests {
                 review_condition: "remove after migration".to_owned(),
                 affected_claim: "example-claim".to_owned(),
             }],
+            dynamic_dispatch: ArchitectureDynamicDispatchPolicy::default(),
             collection_limits: octet_architecture_ir::ArchitectureCollectionLimits {
                 max_units: 32,
                 max_shards: 32,
