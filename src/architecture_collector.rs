@@ -1212,7 +1212,8 @@ impl<'tcx> LateLintPass<'tcx> for ArchitectureCollector {
                 let def_id = match &callee.kind {
                     hir::ExprKind::Path(qpath) => cx.qpath_res(qpath, callee.hir_id).opt_def_id(),
                     _ => None,
-                };
+                }
+                .or_else(|| closure_callee(cx, callee));
                 let dispatch = def_id.map_or(DispatchKind::Unknown, |current| dispatch_kind(cx, current, None));
                 self.collect_call(cx, expr, def_id, dispatch);
             }
@@ -1711,6 +1712,18 @@ fn dispatch_kind(cx: &LateContext<'_>, def_id: DefId, receiver: Option<Ty<'_>>) 
         DispatchKind::Trait
     } else {
         DispatchKind::Static
+    }
+}
+
+// A call through a closure value has a compiler-resolved closure body even
+// when the callee expression is not a named path. The closure's type fixes the
+// code that runs, so record it as the call target instead of an unresolved
+// definition.
+fn closure_callee<'tcx>(cx: &LateContext<'tcx>, callee: &hir::Expr<'tcx>) -> Option<DefId> {
+    if let ty::Closure(def_id, _) = cx.typeck_results().expr_ty(callee).peel_refs().kind() {
+        Some(*def_id)
+    } else {
+        None
     }
 }
 

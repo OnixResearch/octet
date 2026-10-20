@@ -18,6 +18,22 @@ Every other definition-less expansion still records an unknown.
 This changes no schema, role, target, lint level, or exemption. It does not
 establish downstream acceptance.
 
+## Unreleased: Reviewed dynamic dispatch and closure calls
+
+A call through a closure value now records the closure body as its target
+instead of an unresolved definition. The compiler resolves the closure type,
+and the call/effect facts are retained.
+
+The architecture policy gains `dynamic_dispatch`: an explicit list of external
+crate roots and local traits whose dynamic call targets are reviewed. An
+`AmbiguousTraitDispatch` or `DynamicDispatch` unknown whose target belongs to
+one of those classes is not reported as a missing compiler fact. External
+entries name a crate; local entries carry owner, reason, and a review
+condition. The unknown facts remain in the IR.
+
+This changes the policy schema and receipt input, not the lint schema, roles,
+targets, or exemptions. It does not establish downstream acceptance.
+
 ## Unreleased: Compiler randomness effects
 
 The collector now classifies the four root `getrandom` entry points: `fill`, `fill_uninit`, `u32`, and `u64`.
