@@ -1,7 +1,7 @@
 # Octet owns this bounded producer job. It selects existing contracts, not new
 # theorem policy; Mantle may realize its complete exported ordinary drv graph.
 let consumer = import "consumer-profile.ncl" in
-let profile = import "profile.ncl" in
+let providerProfile = import "profile.ncl" in
 let NonEmpty = std.contract.from_predicate (fun value =>
   std.is_string value && std.string.length value > 0
 ) in
@@ -47,7 +47,7 @@ let Job = {
   },
   tools = {
     closure_format = "nix-derivation-show-recursive-json; inputDrvs and inputSrcs are mandatory; flake.lock is preserved verbatim",
-    dependencies = ["cargo-octet", "octet-policy-artifacts", "octet-aeneas-lean-provider-closure", profile.aeneas_revision, profile.charon_revision, profile.lean_toolchain, "flake.lock:mathlib-src", "flake.lock:nixpkgs", "flake.lock:aeneas"],
+    dependencies = ["cargo-octet", "octet-policy-artifacts", "octet-aeneas-lean-provider-closure", providerProfile.aeneas_revision, providerProfile.charon_revision, providerProfile.lean_toolchain, "flake.lock:mathlib-src", "flake.lock:nixpkgs", "flake.lock:aeneas"],
     solver = "none: this selected Aeneas/Charon/Lean rail invokes no external SMT solver; imported Verus evidence is not accepted by this job",
   },
   limits = {
