@@ -1,0 +1,195 @@
+{
+  "changes": [
+    {
+      "delta_specs": [
+        "./.cairn/changes/add-spec-trace-parity-rail/specs/spec-trace-parity/spec.md"
+      ],
+      "has_design": true,
+      "has_proposal": true,
+      "has_tasks": true,
+      "metadata": {
+        "groups": [],
+        "status": null,
+        "target_date": null
+      },
+      "name": "add-spec-trace-parity-rail",
+      "path": "./.cairn/changes/add-spec-trace-parity-rail",
+      "task_counts": {
+        "done": 0,
+        "in_progress": 0,
+        "todo": 7,
+        "total": 7,
+        "unmarked": 0
+      }
+    },
+    {
+      "delta_specs": [
+        "./.cairn/changes/bind-effect-closure-to-kamacite/specs/effect-closure-admission/spec.md"
+      ],
+      "has_design": true,
+      "has_proposal": true,
+      "has_tasks": true,
+      "metadata": {
+        "groups": [],
+        "status": null,
+        "target_date": null
+      },
+      "name": "bind-effect-closure-to-kamacite",
+      "path": "./.cairn/changes/bind-effect-closure-to-kamacite",
+      "task_counts": {
+        "done": 0,
+        "in_progress": 0,
+        "todo": 11,
+        "total": 11,
+        "unmarked": 0
+      }
+    },
+    {
+      "delta_specs": [
+        "./.cairn/changes/emit-binary-debug-map-evidence/specs/evidence-provenance/spec.md"
+      ],
+      "has_design": true,
+      "has_proposal": true,
+      "has_tasks": true,
+      "metadata": {
+        "groups": [],
+        "status": null,
+        "target_date": null
+      },
+      "name": "emit-binary-debug-map-evidence",
+      "path": "./.cairn/changes/emit-binary-debug-map-evidence",
+      "task_counts": {
+        "done": 0,
+        "in_progress": 0,
+        "todo": 12,
+        "total": 12,
+        "unmarked": 0
+      }
+    },
+    {
+      "delta_specs": [
+        "./.cairn/changes/harden-boolean-api-modeling/specs/solid-structure-lints/spec.md"
+      ],
+      "has_design": true,
+      "has_proposal": true,
+      "has_tasks": true,
+      "metadata": {
+        "groups": [
+          "feature:structure-lints"
+        ],
+        "status": "planned",
+        "target_date": null
+      },
+      "name": "harden-boolean-api-modeling",
+      "path": "./.cairn/changes/harden-boolean-api-modeling",
+      "task_counts": {
+        "done": 0,
+        "in_progress": 0,
+        "todo": 24,
+        "total": 24,
+        "unmarked": 0
+      }
+    }
+  ],
+  "layout": "cairn",
+  "resolution": {
+    "diagnostics": [],
+    "locator_consulted": false,
+    "registry_lookup": "local_locator_only",
+    "selected": {
+      "project_identity": null,
+      "root": ".",
+      "source": "explicit_root",
+      "store_id": null,
+      "store_identity": null
+    },
+    "valid": true
+  },
+  "root": ".",
+  "specs": [
+    "./.cairn/specs/accumulating-validation/spec.md",
+    "./.cairn/specs/adoption-story/spec.md",
+    "./.cairn/specs/advisory-lint-promotion/spec.md",
+    "./.cairn/specs/aeneas-consumer-contract/spec.md",
+    "./.cairn/specs/aeneas-lean-proof-rail/spec.md",
+    "./.cairn/specs/api-stability-rail/spec.md",
+    "./.cairn/specs/artifact-bundle-verification/spec.md",
+    "./.cairn/specs/assurance-profiles/spec.md",
+    "./.cairn/specs/ast-grep-structural-rails/spec.md",
+    "./.cairn/specs/authorized-effect-protocol/spec.md",
+    "./.cairn/specs/benchmark-evidence/spec.md",
+    "./.cairn/specs/build-hygiene/spec.md",
+    "./.cairn/specs/capability-manifest-checker/spec.md",
+    "./.cairn/specs/charon-semantic-analysis/spec.md",
+    "./.cairn/specs/checked-contract-ladder/spec.md",
+    "./.cairn/specs/cob-collaboration-adoption/spec.md",
+    "./.cairn/specs/cob-collaboration-conflict-recovery/spec.md",
+    "./.cairn/specs/compiler-architecture-ir/spec.md",
+    "./.cairn/specs/compiler-architecture-targets/spec.md",
+    "./.cairn/specs/compiler-policy-provider/spec.md",
+    "./.cairn/specs/concurrency-performance-lints/spec.md",
+    "./.cairn/specs/controlled-deployment/spec.md",
+    "./.cairn/specs/coverage-baseline-evidence/spec.md",
+    "./.cairn/specs/crate-boundary-config/spec.md",
+    "./.cairn/specs/dependency-audit/spec.md",
+    "./.cairn/specs/dependency-direction/spec.md",
+    "./.cairn/specs/dependency-trust/spec.md",
+    "./.cairn/specs/dynamic-evidence-rails/spec.md",
+    "./.cairn/specs/effect-closure-admission/spec.md",
+    "./.cairn/specs/evidence-codebase-index/spec.md",
+    "./.cairn/specs/evidence-contracts/spec.md",
+    "./.cairn/specs/evidence-log-storage/spec.md",
+    "./.cairn/specs/evidence-provenance/spec.md",
+    "./.cairn/specs/evidence-stack/spec.md",
+    "./.cairn/specs/evidence-tier-taxonomy/spec.md",
+    "./.cairn/specs/experimental-solver-rails/spec.md",
+    "./.cairn/specs/external-lint-reporting/spec.md",
+    "./.cairn/specs/function-address-export/spec.md",
+    "./.cairn/specs/gate-posture/spec.md",
+    "./.cairn/specs/hexagonal-ports/spec.md",
+    "./.cairn/specs/kani-evidence-rail/spec.md",
+    "./.cairn/specs/kani-panic-pilots/spec.md",
+    "./.cairn/specs/kani-property-checklist/spec.md",
+    "./.cairn/specs/law-tested-deterministic-cores/spec.md",
+    "./.cairn/specs/lint-analysis-cores/spec.md",
+    "./.cairn/specs/lint-autofix-quality/spec.md",
+    "./.cairn/specs/lint-catalog-freshness/spec.md",
+    "./.cairn/specs/lint-guardrail-fixtures/spec.md",
+    "./.cairn/specs/lint-guidance-freshness/spec.md",
+    "./.cairn/specs/lint-metadata-catalog/spec.md",
+    "./.cairn/specs/lint-signal-quality/spec.md",
+    "./.cairn/specs/mantle-producer-handoff/spec.md",
+    "./.cairn/specs/mirai-semantic-pilot/spec.md",
+    "./.cairn/specs/mutation-testing-evidence/spec.md",
+    "./.cairn/specs/namespace-compatibility/spec.md",
+    "./.cairn/specs/nickel-export-helpers/spec.md",
+    "./.cairn/specs/nickel-toolchain/spec.md",
+    "./.cairn/specs/ocp-enum-match-lints/spec.md",
+    "./.cairn/specs/policy-package-customs/spec.md",
+    "./.cairn/specs/product-positioning/spec.md",
+    "./.cairn/specs/project-architecture-gate/spec.md",
+    "./.cairn/specs/project-architecture-policy/spec.md",
+    "./.cairn/specs/proof-artifact-library/spec.md",
+    "./.cairn/specs/proof-claim-catalog/spec.md",
+    "./.cairn/specs/purity-effect-lints/spec.md",
+    "./.cairn/specs/release-supply-chain/spec.md",
+    "./.cairn/specs/runner-core-architecture/spec.md",
+    "./.cairn/specs/runner-self-check/spec.md",
+    "./.cairn/specs/safety-lint-semantics/spec.md",
+    "./.cairn/specs/scope-boundary/spec.md",
+    "./.cairn/specs/small-checker-receipts/spec.md",
+    "./.cairn/specs/solid-structure-lints/spec.md",
+    "./.cairn/specs/spacewasm-mvp-artifact-profile/spec.md",
+    "./.cairn/specs/state-machine-exhaustiveness/spec.md",
+    "./.cairn/specs/strict-rust-profiles/spec.md",
+    "./.cairn/specs/structured-migration-sessions/spec.md",
+    "./.cairn/specs/trust-boundary-index/spec.md",
+    "./.cairn/specs/type-driven-domain-modeling/spec.md",
+    "./.cairn/specs/unsafe-trust-boundary/spec.md",
+    "./.cairn/specs/valence-evidence/spec.md",
+    "./.cairn/specs/valence-project-extraction/spec.md",
+    "./.cairn/specs/verifier-fixture-intake/spec.md",
+    "./.cairn/specs/verus-proof-rails/spec.md",
+    "./.cairn/specs/wasm-component-artifact-rail/spec.md"
+  ]
+}

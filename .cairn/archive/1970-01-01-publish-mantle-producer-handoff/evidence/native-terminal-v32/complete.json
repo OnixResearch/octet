@@ -1,0 +1,62 @@
+{
+  "implementation_revision": "9237f931e8e65dd4254011839d5fd207f2ad85a5",
+  "pre_archive_commit": "dd8b2eabe33853c220702c874a763dbcd00a8656",
+  "records": [
+    {
+      "label": "native-archive-preview",
+      "command": [
+        "/nix/store/ynjawpza9ci9i8ha7f3ywaqwbd60m83k-cairn-0.1.0/bin/cairn",
+        "archive",
+        "publish-mantle-producer-handoff",
+        "--root",
+        "."
+      ],
+      "cwd": "/home/brittonr/mantle-cairn-finish/xrepo/octet-mantle-producer-20261020",
+      "exit": 0,
+      "elapsed_s": 0.06450335495173931
+    },
+    {
+      "label": "native-archive-execute",
+      "command": [
+        "/nix/store/ynjawpza9ci9i8ha7f3ywaqwbd60m83k-cairn-0.1.0/bin/cairn",
+        "archive",
+        "publish-mantle-producer-handoff",
+        "--root",
+        ".",
+        "--execute"
+      ],
+      "cwd": "/home/brittonr/mantle-cairn-finish/xrepo/octet-mantle-producer-20261020",
+      "exit": 0,
+      "elapsed_s": 0.06410801038146019
+    },
+    {
+      "label": "native-post-archive-validation",
+      "command": [
+        "/nix/store/ynjawpza9ci9i8ha7f3ywaqwbd60m83k-cairn-0.1.0/bin/cairn",
+        "validate",
+        "--root",
+        "."
+      ],
+      "cwd": "/home/brittonr/mantle-cairn-finish/xrepo/octet-mantle-producer-20261020",
+      "exit": 0,
+      "elapsed_s": 0.03191622067242861
+    },
+    {
+      "label": "native-post-archive-status",
+      "command": [
+        "/nix/store/ynjawpza9ci9i8ha7f3ywaqwbd60m83k-cairn-0.1.0/bin/cairn",
+        "status",
+        "--root",
+        "."
+      ],
+      "cwd": "/home/brittonr/mantle-cairn-finish/xrepo/octet-mantle-producer-20261020",
+      "exit": 0,
+      "elapsed_s": 0.015778155997395515
+    }
+  ],
+  "archive_path": ".cairn/archive/1970-01-01-publish-mantle-producer-handoff",
+  "archive_executed": true,
+  "post_archive_validation_passed": true,
+  "release_authority": false,
+  "archive_publication": false
+}
