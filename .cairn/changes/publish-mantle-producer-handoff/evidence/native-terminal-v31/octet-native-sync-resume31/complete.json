@@ -1,0 +1,116 @@
+{
+  "records": [
+    {
+      "label": "native-validate",
+      "command": [
+        "/nix/store/ynjawpza9ci9i8ha7f3ywaqwbd60m83k-cairn-0.1.0/bin/cairn",
+        "validate",
+        "--root",
+        "."
+      ],
+      "cwd": "/home/brittonr/mantle-cairn-finish/xrepo/octet-mantle-producer-20261020",
+      "exit": 0,
+      "elapsed_s": 0.06418347265571356
+    },
+    {
+      "label": "native-gate-proposal",
+      "command": [
+        "/nix/store/ynjawpza9ci9i8ha7f3ywaqwbd60m83k-cairn-0.1.0/bin/cairn",
+        "gate",
+        "proposal",
+        "publish-mantle-producer-handoff",
+        "--root",
+        "."
+      ],
+      "cwd": "/home/brittonr/mantle-cairn-finish/xrepo/octet-mantle-producer-20261020",
+      "exit": 0,
+      "elapsed_s": 0.03196492325514555
+    },
+    {
+      "label": "native-gate-design",
+      "command": [
+        "/nix/store/ynjawpza9ci9i8ha7f3ywaqwbd60m83k-cairn-0.1.0/bin/cairn",
+        "gate",
+        "design",
+        "publish-mantle-producer-handoff",
+        "--root",
+        "."
+      ],
+      "cwd": "/home/brittonr/mantle-cairn-finish/xrepo/octet-mantle-producer-20261020",
+      "exit": 0,
+      "elapsed_s": 0.015827378258109093
+    },
+    {
+      "label": "native-gate-tasks",
+      "command": [
+        "/nix/store/ynjawpza9ci9i8ha7f3ywaqwbd60m83k-cairn-0.1.0/bin/cairn",
+        "gate",
+        "tasks",
+        "publish-mantle-producer-handoff",
+        "--root",
+        "."
+      ],
+      "cwd": "/home/brittonr/mantle-cairn-finish/xrepo/octet-mantle-producer-20261020",
+      "exit": 0,
+      "elapsed_s": 0.01592516340315342
+    },
+    {
+      "label": "native-sync-plan",
+      "command": [
+        "/nix/store/ynjawpza9ci9i8ha7f3ywaqwbd60m83k-cairn-0.1.0/bin/cairn",
+        "sync",
+        "publish-mantle-producer-handoff",
+        "--root",
+        "."
+      ],
+      "cwd": "/home/brittonr/mantle-cairn-finish/xrepo/octet-mantle-producer-20261020",
+      "exit": 0,
+      "elapsed_s": 0.032075329683721066
+    },
+    {
+      "label": "native-sync-execute",
+      "command": [
+        "/nix/store/ynjawpza9ci9i8ha7f3ywaqwbd60m83k-cairn-0.1.0/bin/cairn",
+        "sync",
+        "publish-mantle-producer-handoff",
+        "--root",
+        ".",
+        "--execute"
+      ],
+      "cwd": "/home/brittonr/mantle-cairn-finish/xrepo/octet-mantle-producer-20261020",
+      "exit": 0,
+      "elapsed_s": 0.03191401716321707
+    },
+    {
+      "label": "native-post-sync-plan",
+      "command": [
+        "/nix/store/ynjawpza9ci9i8ha7f3ywaqwbd60m83k-cairn-0.1.0/bin/cairn",
+        "sync",
+        "publish-mantle-producer-handoff",
+        "--root",
+        "."
+      ],
+      "cwd": "/home/brittonr/mantle-cairn-finish/xrepo/octet-mantle-producer-20261020",
+      "exit": 0,
+      "elapsed_s": 0.03192606847733259
+    },
+    {
+      "label": "native-archive-plan",
+      "command": [
+        "/nix/store/ynjawpza9ci9i8ha7f3ywaqwbd60m83k-cairn-0.1.0/bin/cairn",
+        "archive",
+        "publish-mantle-producer-handoff",
+        "--root",
+        "."
+      ],
+      "cwd": "/home/brittonr/mantle-cairn-finish/xrepo/octet-mantle-producer-20261020",
+      "exit": 0,
+      "elapsed_s": 0.03200702182948589
+    }
+  ],
+  "sync_executed": true,
+  "sync_idempotent": true,
+  "archive_preview_blocked": false,
+  "archive_executed": false,
+  "release_authority": false
+}

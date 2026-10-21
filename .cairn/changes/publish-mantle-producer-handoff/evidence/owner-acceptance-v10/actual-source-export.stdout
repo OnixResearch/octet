@@ -1,0 +1,9 @@
+{
+  "root_derivation": "/nix/store/3ank8ycs77cigpv4v3h5njpjc8s4mgdr-octet-mantle-aeneas-consumer-job-v1.drv",
+  "source_revision": "9237f931e8e65dd4254011839d5fd207f2ad85a5",
+  "graph_format": "nix-derivation-show-v4",
+  "derivations": 11450,
+  "source_objects": 676,
+  "source_bytes": 844351659,
+  "proof_executed": false
+}

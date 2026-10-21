@@ -1,0 +1,172 @@
+these 4 derivations will be built:
+  /nix/store/0f255v9qgrrg7rsrcfxc5drw7c7plsf9-cargo-octet-0.1.0.drv
+  /nix/store/zad98zwxjyyqsc7l85mkya8kx5mdsbhk-octet-standards-0.1.0.drv
+  /nix/store/f89n1p327fsq5kdhayqmj4yysndzb2x7-octet-policy-artifacts.drv
+  /nix/store/3ank8ycs77cigpv4v3h5njpjc8s4mgdr-octet-mantle-aeneas-consumer-job-v1.drv
+building '/nix/store/0f255v9qgrrg7rsrcfxc5drw7c7plsf9-cargo-octet-0.1.0.drv'...
+cargo-octet> Running phase: unpackPhase
+cargo-octet> unpacking source archive /nix/store/fl3phnyiz9jx3d9ix58qmdchbfbi2vr0-source
+cargo-octet> source root is source
+cargo-octet> Running phase: patchPhase
+cargo-octet> Executing configureCargoCommonVars
+cargo-octet> decompressing cargo artifacts from /nix/store/9jj3plydw5yvqf364wp1j8s0jypscv2m-octet-deps-0.1.0/target.tar.zst to target
+cargo-octet> Running phase: updateAutotoolsGnuConfigScriptsPhase
+cargo-octet> Running phase: configurePhase
+cargo-octet> will append /build/source/.cargo-home/config.toml with contents of /nix/store/qfqxix5vm4j73icnydinlsnq0ls8k2ml-vendor-cargo-deps/config.toml
+cargo-octet> default configurePhase, nothing to do
+cargo-octet> Running phase: buildPhase
+cargo-octet> +++ command cargo --version
+cargo-octet> cargo 1.96.0-nightly (cbb9bb8bd 2026-03-13)
+cargo-octet> +++ command cargo build --release --message-format json-render-diagnostics -p cargo-octet
+cargo-octet>    Compiling serde_core v1.0.228
+cargo-octet>    Compiling bitflags v2.13.0
+cargo-octet>    Compiling serde v1.0.228
+cargo-octet>    Compiling serde_json v1.0.150
+cargo-octet>    Compiling rustix v1.1.4
+cargo-octet>    Compiling io-lifetimes v2.0.4
+cargo-octet>    Compiling utf8parse v0.2.2
+cargo-octet>    Compiling linux-raw-sys v0.12.1
+cargo-octet>    Compiling foldhash v0.2.0
+cargo-octet>    Compiling colorchoice v1.0.5
+cargo-octet>    Compiling anstyle v1.0.14
+cargo-octet>    Compiling io-extras v0.18.4
+cargo-octet>    Compiling proc-macro2 v1.0.106
+cargo-octet>    Compiling cfg_aliases v0.2.2
+cargo-octet>    Compiling is_terminal_polyfill v1.70.2
+cargo-octet>    Compiling anstyle-query v1.1.5
+cargo-octet>    Compiling equivalent v1.0.2
+cargo-octet>    Compiling libc v0.2.186
+cargo-octet>    Compiling constant_time_eq v0.4.2
+cargo-octet>    Compiling allocator-api2 v0.2.21
+cargo-octet>    Compiling heck v0.5.0
+cargo-octet>    Compiling clap_lex v1.1.0
+cargo-octet>    Compiling cfg-if v1.0.4
+cargo-octet>    Compiling quote v1.0.46
+cargo-octet>    Compiling arrayvec v0.7.8
+cargo-octet>    Compiling cap-primitives v3.4.5
+cargo-octet>    Compiling strsim v0.11.1
+cargo-octet>    Compiling arrayref v0.3.9
+cargo-octet>    Compiling cpufeatures v0.3.0
+cargo-octet>    Compiling blake3 v1.8.5
+cargo-octet>    Compiling anstyle-parse v1.0.0
+cargo-octet>    Compiling nix v0.30.1
+cargo-octet>    Compiling once_cell v1.21.4
+cargo-octet>    Compiling unicode-ident v1.0.24
+cargo-octet>    Compiling ipnet v2.12.0
+cargo-octet>    Compiling ambient-authority v0.0.2
+cargo-octet>    Compiling cap-std v3.4.5
+cargo-octet>    Compiling maybe-owned v0.3.4
+cargo-octet>    Compiling bounded-exec-core v0.1.0 (ssh://git@github.com/OnixResearch/bounded-exec.git?rev=44eb74eb639194665ee820562d5b2ce2c3ff6a94#44eb74eb)
+cargo-octet>    Compiling semver v1.0.28
+cargo-octet>    Compiling clap_derive v4.6.1
+cargo-octet>    Compiling anstream v1.0.0
+cargo-octet>    Compiling hashbrown v0.16.1
+cargo-octet>    Compiling clap_builder v4.6.0
+cargo-octet>    Compiling cargo-octet v0.1.0 (/build/source/cargo-octet)
+cargo-octet>    Compiling iddqd v0.4.5
+cargo-octet>    Compiling syn v2.0.118
+cargo-octet>    Compiling bounded-exec v0.1.0 (ssh://git@github.com/OnixResearch/bounded-exec.git?rev=44eb74eb639194665ee820562d5b2ce2c3ff6a94#44eb74eb)
+cargo-octet>    Compiling clap v4.6.1
+cargo-octet>    Compiling hashbrown v0.17.1
+cargo-octet>    Compiling toml_datetime v1.1.1+spec-1.1.0
+cargo-octet>    Compiling serde_spanned v1.1.1
+cargo-octet>    Compiling toml v1.1.2+spec-1.1.0
+cargo-octet>    Compiling indexmap v2.14.0
+cargo-octet>    Compiling fs-set-times v0.20.3
+cargo-octet>    Compiling rustix-linux-procfs v0.1.1
+cargo-octet>    Compiling octet-architecture-ir v0.1.0 (/build/source/crates/octet-architecture-ir)
+cargo-octet>    Compiling nickel-export-core v0.1.0 (https://github.com/OnixResearch/nickel-export?rev=257fafc1c746f1faf156207043a4c826bfb16d49#257fafc1)
+cargo-octet>    Compiling octet-lint-metadata v0.1.0 (/build/source/crates/octet-lint-metadata)
+cargo-octet>    Compiling valence-core v0.1.0 (ssh://git@github.com/OnixResearch/valence.git?rev=7546a78b4eeef8686c6837e187aa12420f4f03bb#7546a78b)
+cargo-octet>    Compiling wasmparser v0.253.0
+cargo-octet>    Compiling octet-standards v0.1.0 (/build/source/crates/octet-standards)
+cargo-octet>     Finished `release` profile [optimized] target(s) in 1m 35s
+cargo-octet> searching for bins/libs to install from cargo build log at cargoBuildLog335n.json
+cargo-octet> installing /build/source/target/release/cargo-slotcar in postBuildInstallFromCargoBuildLogOutTempXov/bin
+cargo-octet> installing /build/source/target/release/cargo-octet in postBuildInstallFromCargoBuildLogOutTempXov/bin
+cargo-octet> installing /build/source/target/release/cargo-tigerstyle in postBuildInstallFromCargoBuildLogOutTempXov/bin
+cargo-octet> searching for bins/libs complete
+cargo-octet> buildPhase completed in 1 minutes 36 seconds
+cargo-octet> Running phase: installPhase
+cargo-octet> actually installing contents of postBuildInstallFromCargoBuildLogOutTempXov to /nix/store/js85mjr4mh1zmj3pd5b8rvwh85xnhb9j-cargo-octet-0.1.0
+cargo-octet> stripping references to Rust toolchain
+cargo-octet> Rust toolchain at: /nix/store/1yvh3d6y3fj3xk2dgwczrp1dj5svd92c-rust-default-1.96.0-nightly-2026-03-21
+cargo-octet> stripping Rust toolchain references done
+cargo-octet> stripping references to cargoVendorDir from:
+cargo-octet> /nix/store/js85mjr4mh1zmj3pd5b8rvwh85xnhb9j-cargo-octet-0.1.0/bin/cargo-octet
+cargo-octet> /nix/store/js85mjr4mh1zmj3pd5b8rvwh85xnhb9j-cargo-octet-0.1.0/bin/cargo-slotcar
+cargo-octet> /nix/store/js85mjr4mh1zmj3pd5b8rvwh85xnhb9j-cargo-octet-0.1.0/bin/cargo-tigerstyle
+cargo-octet> stripping references done
+cargo-octet> Running phase: fixupPhase
+cargo-octet> shrinking RPATHs of ELF executables and libraries in /nix/store/js85mjr4mh1zmj3pd5b8rvwh85xnhb9j-cargo-octet-0.1.0
+cargo-octet> shrinking /nix/store/js85mjr4mh1zmj3pd5b8rvwh85xnhb9j-cargo-octet-0.1.0/bin/cargo-octet
+cargo-octet> shrinking /nix/store/js85mjr4mh1zmj3pd5b8rvwh85xnhb9j-cargo-octet-0.1.0/bin/cargo-tigerstyle
+cargo-octet> shrinking /nix/store/js85mjr4mh1zmj3pd5b8rvwh85xnhb9j-cargo-octet-0.1.0/bin/cargo-slotcar
+cargo-octet> checking for references to /build/ in /nix/store/js85mjr4mh1zmj3pd5b8rvwh85xnhb9j-cargo-octet-0.1.0...
+cargo-octet> patching script interpreter paths in /nix/store/js85mjr4mh1zmj3pd5b8rvwh85xnhb9j-cargo-octet-0.1.0
+cargo-octet> stripping (with command strip and flags -S -p) in  /nix/store/js85mjr4mh1zmj3pd5b8rvwh85xnhb9j-cargo-octet-0.1.0/bin
+building '/nix/store/zad98zwxjyyqsc7l85mkya8kx5mdsbhk-octet-standards-0.1.0.drv'...
+octet-standards> Running phase: unpackPhase
+octet-standards> unpacking source archive /nix/store/fl3phnyiz9jx3d9ix58qmdchbfbi2vr0-source
+octet-standards> source root is source
+octet-standards> Running phase: patchPhase
+octet-standards> Executing configureCargoCommonVars
+octet-standards> decompressing cargo artifacts from /nix/store/9jj3plydw5yvqf364wp1j8s0jypscv2m-octet-deps-0.1.0/target.tar.zst to target
+octet-standards> Running phase: updateAutotoolsGnuConfigScriptsPhase
+octet-standards> Running phase: configurePhase
+octet-standards> will append /build/source/.cargo-home/config.toml with contents of /nix/store/qfqxix5vm4j73icnydinlsnq0ls8k2ml-vendor-cargo-deps/config.toml
+octet-standards> default configurePhase, nothing to do
+octet-standards> Running phase: buildPhase
+octet-standards> +++ command cargo --version
+octet-standards> cargo 1.96.0-nightly (cbb9bb8bd 2026-03-13)
+octet-standards> +++ command cargo build --release --message-format json-render-diagnostics -p octet-standards
+octet-standards>    Compiling serde_core v1.0.228
+octet-standards>    Compiling serde v1.0.228
+octet-standards>    Compiling utf8parse v0.2.2
+octet-standards>    Compiling serde_json v1.0.150
+octet-standards>    Compiling is_terminal_polyfill v1.70.2
+octet-standards>    Compiling anstyle-query v1.1.5
+octet-standards>    Compiling colorchoice v1.0.5
+octet-standards>    Compiling anstyle v1.0.14
+octet-standards>    Compiling strsim v0.11.1
+octet-standards>    Compiling clap_lex v1.1.0
+octet-standards>    Compiling heck v0.5.0
+octet-standards>    Compiling anstyle-parse v1.0.0
+octet-standards>    Compiling clap_derive v4.6.1
+octet-standards>    Compiling anstream v1.0.0
+octet-standards>    Compiling clap_builder v4.6.0
+octet-standards>    Compiling clap v4.6.1
+octet-standards>    Compiling octet-architecture-ir v0.1.0 (/build/source/crates/octet-architecture-ir)
+octet-standards>    Compiling nickel-export-core v0.1.0 (https://github.com/OnixResearch/nickel-export?rev=257fafc1c746f1faf156207043a4c826bfb16d49#257fafc1)
+octet-standards>    Compiling octet-standards v0.1.0 (/build/source/crates/octet-standards)
+octet-standards>     Finished `release` profile [optimized] target(s) in 25.49s
+octet-standards> searching for bins/libs to install from cargo build log at cargoBuildLogfgdd.json
+octet-standards> installing /build/source/target/release/generate-project-architecture-contract in postBuildInstallFromCargoBuildLogOutTempycJ/bin
+octet-standards> installing /build/source/target/release/tigerstyle-standards in postBuildInstallFromCargoBuildLogOutTempycJ/bin
+octet-standards> installing /build/source/target/release/slotcar-standards in postBuildInstallFromCargoBuildLogOutTempycJ/bin
+octet-standards> installing /build/source/target/release/octet-standards in postBuildInstallFromCargoBuildLogOutTempycJ/bin
+octet-standards> searching for bins/libs complete
+octet-standards> Running phase: installPhase
+octet-standards> actually installing contents of postBuildInstallFromCargoBuildLogOutTempycJ to /nix/store/d1vcqm4zdwig3jdg5wv6prdf0d5bba0w-octet-standards-0.1.0
+octet-standards> stripping references to Rust toolchain
+octet-standards> Rust toolchain at: /nix/store/1yvh3d6y3fj3xk2dgwczrp1dj5svd92c-rust-default-1.96.0-nightly-2026-03-21
+octet-standards> stripping Rust toolchain references done
+octet-standards> stripping references to cargoVendorDir from:
+octet-standards> /nix/store/d1vcqm4zdwig3jdg5wv6prdf0d5bba0w-octet-standards-0.1.0/bin/generate-project-architecture-contract
+octet-standards> /nix/store/d1vcqm4zdwig3jdg5wv6prdf0d5bba0w-octet-standards-0.1.0/bin/octet-standards
+octet-standards> /nix/store/d1vcqm4zdwig3jdg5wv6prdf0d5bba0w-octet-standards-0.1.0/bin/slotcar-standards
+octet-standards> /nix/store/d1vcqm4zdwig3jdg5wv6prdf0d5bba0w-octet-standards-0.1.0/bin/tigerstyle-standards
+octet-standards> stripping references done
+octet-standards> Running phase: fixupPhase
+octet-standards> shrinking RPATHs of ELF executables and libraries in /nix/store/d1vcqm4zdwig3jdg5wv6prdf0d5bba0w-octet-standards-0.1.0
+octet-standards> shrinking /nix/store/d1vcqm4zdwig3jdg5wv6prdf0d5bba0w-octet-standards-0.1.0/bin/slotcar-standards
+octet-standards> shrinking /nix/store/d1vcqm4zdwig3jdg5wv6prdf0d5bba0w-octet-standards-0.1.0/bin/generate-project-architecture-contract
+octet-standards> shrinking /nix/store/d1vcqm4zdwig3jdg5wv6prdf0d5bba0w-octet-standards-0.1.0/bin/octet-standards
+octet-standards> shrinking /nix/store/d1vcqm4zdwig3jdg5wv6prdf0d5bba0w-octet-standards-0.1.0/bin/tigerstyle-standards
+octet-standards> checking for references to /build/ in /nix/store/d1vcqm4zdwig3jdg5wv6prdf0d5bba0w-octet-standards-0.1.0...
+octet-standards> patching script interpreter paths in /nix/store/d1vcqm4zdwig3jdg5wv6prdf0d5bba0w-octet-standards-0.1.0
+octet-standards> stripping (with command strip and flags -S -p) in  /nix/store/d1vcqm4zdwig3jdg5wv6prdf0d5bba0w-octet-standards-0.1.0/bin
+building '/nix/store/f89n1p327fsq5kdhayqmj4yysndzb2x7-octet-policy-artifacts.drv'...
+building '/nix/store/3ank8ycs77cigpv4v3h5njpjc8s4mgdr-octet-mantle-aeneas-consumer-job-v1.drv'...
+octet-mantle-aeneas-consumer-job-v1> pid 1's current affinity list: 0-255
+octet-mantle-aeneas-consumer-job-v1> pid 1's new affinity list: 0-31

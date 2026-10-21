@@ -1,0 +1,131 @@
+{
+  "acceptance_ids": [],
+  "actions": [
+    {
+      "description": "merge delta spec into main specs: ./.cairn/changes/publish-mantle-producer-handoff/specs/mantle-producer-handoff/spec.md",
+      "kind": "sync_delta_spec",
+      "path": "./.cairn/changes/publish-mantle-producer-handoff/specs/mantle-producer-handoff/spec.md"
+    }
+  ],
+  "blocked": false,
+  "change": "publish-mantle-producer-handoff",
+  "cross_repo_dependencies": {
+    "blocked_count": 0,
+    "dependency_count": 0,
+    "input_hash": "72693277ceb40c908b4efd1c81842c733b3f3c417f223e50b1138938ac6bc983",
+    "non_claims": [
+      "dependency satisfaction proves presented receipt linkage only",
+      "dependency satisfaction does not prove upstream correctness or remote trust",
+      "dependency satisfaction does not prove downstream integration correctness or release eligibility"
+    ],
+    "policy_hash": "62e40f642e798bfaf5a68a495a7456bcf4e9fd8106ae2f52a24100967b39df5d",
+    "receipt_hash": "3fbe945792d747652b6d8bd78074ba24bcacff8257966f91256ec3482443dc1b",
+    "rows": [],
+    "satisfied_count": 0,
+    "schema": "cairn.cross-repo-dependency-receipt.v1",
+    "valid": true,
+    "verdict": "PASS"
+  },
+  "cross_repo_evidence_issues": [],
+  "delta_specs": [
+    "./.cairn/changes/publish-mantle-producer-handoff/specs/mantle-producer-handoff/spec.md"
+  ],
+  "dry_run": false,
+  "input_hash": "57444a36b8e4250353e13a5f224389d1b4f8032ce44763c6b63a85e8915fbf9b",
+  "layout": "cairn",
+  "merge_preflight": {
+    "documents": [
+      {
+        "accepted_before_exists": false,
+        "accepted_before_hash": "5fb5e777343000c9c8644c72a365a840a9eed8bcab66217d629a8b35ccca00bd",
+        "blocked": false,
+        "changed": true,
+        "delta_hash": "d279a89bb8b83af7be09a5965ec3c4822dc6df703bc14bb6ef7d99655371ac68",
+        "destination": ".cairn/specs/mantle-producer-handoff/spec.md",
+        "diagnostics": [],
+        "expected_after_hash": "3c7cfd23e4829cceba5d793a3bd2b07d709a5b7ac48b2c3e8f39d1cffd094757",
+        "operations": [
+          {
+            "block_hash": "a6ca1afe17b9ed77e0fca30e9ec31fae8bf9f2b22f5aff3781d17f36778ab8ae",
+            "heading": "### Requirement: Registered owner job preserves existing external proof authority",
+            "kind": "added",
+            "requirement_id": "octet.mantle_producer_handoff.contract"
+          },
+          {
+            "block_hash": "ba0f3b9221d4d88ea291836bc5487489780b6ecf160d3d5b679f83cd3b6ed595",
+            "heading": "### Requirement: Immutable graph acquisition is complete, bounded and byte-preserving",
+            "kind": "added",
+            "requirement_id": "octet.mantle_producer_handoff.acquisition"
+          },
+          {
+            "block_hash": "17ef744408b4b1885f5826b035209b3acf775f8450707155b32e53e3991b208c",
+            "heading": "### Requirement: Handoff observations keep owner roles and non-claims separate",
+            "kind": "added",
+            "requirement_id": "octet.mantle_producer_handoff.boundary"
+          }
+        ],
+        "outcomes": [
+          {
+            "kind": "added",
+            "requirement_id": "octet.mantle_producer_handoff.contract",
+            "state": "applied"
+          },
+          {
+            "kind": "added",
+            "requirement_id": "octet.mantle_producer_handoff.acquisition",
+            "state": "applied"
+          },
+          {
+            "kind": "added",
+            "requirement_id": "octet.mantle_producer_handoff.boundary",
+            "state": "applied"
+          }
+        ],
+        "source": ".cairn/changes/publish-mantle-producer-handoff/specs/mantle-producer-handoff/spec.md"
+      }
+    ]
+  },
+  "mutated": true,
+  "mutation_manifest": {
+    "after": {
+      "entries": [
+        {
+          "content_hash": "3c7cfd23e4829cceba5d793a3bd2b07d709a5b7ac48b2c3e8f39d1cffd094757",
+          "exists": true,
+          "path": "./.cairn/specs/mantle-producer-handoff/spec.md"
+        }
+      ],
+      "manifest_hash": "b292f116218de5ea96e7fa9c93aa098c42b2b9b997ab52d122c7060f0dcdd487"
+    },
+    "before": {
+      "entries": [
+        {
+          "content_hash": null,
+          "exists": false,
+          "path": "./.cairn/specs/mantle-producer-handoff/spec.md"
+        }
+      ],
+      "manifest_hash": "870fc1053fe8bdddd96b15dee85c59feba5c023196b0679d6a17219a4d34f203"
+    },
+    "kind": "sync",
+    "manifest_hash": "6b8c3d821a8abd1335ab412c647ddbf8b26ed11b29c04e086c49713b573f2eeb"
+  },
+  "non_claims": [
+    "workflow state proves only the selected policy graph and observed structural artifact facts",
+    "workflow instructions do not prove artifact truth, review quality, or implementation correctness",
+    "workflow state does not satisfy proposal, design, tasks, sync, archive, evidence, or release gates",
+    "workflow commands are read-only and do not create, edit, delete, or approve lifecycle artifacts"
+  ],
+  "plan_hash": "e19b4c42eb8202846c3e001336365587a6f326fd02f1d81a5fb0d8608226053d",
+  "policy": "octet-default",
+  "policy_hash": "62e40f642e798bfaf5a68a495a7456bcf4e9fd8106ae2f52a24100967b39df5d",
+  "profile_identity_hash": "ace844663d39e18431eba396ad8ce7198f97581744b3f2df41a0aafe110ed5d0",
+  "reasons": [],
+  "receipt_hash": "b223ef779e395ed52214503532ee151c3f7c0c9544b7be4a65cc0748c67d8802",
+  "review_receipt_hashes": [],
+  "spec_effect": "delta",
+  "workflow_profile": "spec-driven",
+  "workflow_profile_compatibility_fallback": false,
+  "workflow_profile_source": "change_create",
+  "workflow_profile_version": 1
+}
