@@ -171,6 +171,12 @@ and the worker recommendation, not total domains or threads: Domainslib workers
 are additional to the main domain. No `-sequential` argument, provider/profile
 identity change, theorem substitution or proof-isolation relaxation is used.
 
+The restricted producer `PATH` includes the pinned Nixpkgs `stdenv.cc` wrapper.
+Lean's native compilation invokes `cc`; a Rust-only tool path caused the actual
+external consumer build to fail with `could not execute external process 'cc'`.
+The compiler is an explicit job dependency in the ordinary derivation closure,
+not ambient host discovery or an added provider argument.
+
 `tools/mantle-producer/export.py --help` describes acquisition-only export. It
 requires `--revision` with the exact committed owner Git revision, an immutable
 `--flake`, and an explicit `--graph-format`. There is no mutable `--root`

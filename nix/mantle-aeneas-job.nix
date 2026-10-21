@@ -6,7 +6,7 @@ let
   jobPolicy = sourceRoot + "/standards/proof-rails/aeneas-lean/mantle-job.ncl";
 in
 pkgs.runCommand "octet-mantle-aeneas-consumer-job-v1" {
-  nativeBuildInputs = [ nickel pkgs.coreutils pkgs.jq pkgs.bash ];
+  nativeBuildInputs = [ nickel pkgs.coreutils pkgs.jq pkgs.bash pkgs.stdenv.cc ];
   # Avoid impure/local preference: this derivation must be sandboxable by Mantle.
   preferLocalBuild = false;
   allowSubstitutes = true;
@@ -91,7 +91,7 @@ pkgs.runCommand "octet-mantle-aeneas-consumer-job-v1" {
   test "$cpu_count" -gt 0
   # Children, including the unchanged bwrap/provider argv, inherit this mask.
   ${pkgs.util-linux}/bin/taskset --pid --cpu-list "$cpu_list" "$$" >&2
-  export PATH="${pkgs.lib.makeBinPath [ rustToolchain pkgs.coreutils pkgs.bash pkgs.jq ]}"
+  export PATH="${pkgs.lib.makeBinPath [ rustToolchain pkgs.stdenv.cc pkgs.coreutils pkgs.bash pkgs.jq ]}"
   export LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath [ rustToolchain ]}"
   export CHARON_TOOLCHAIN_IS_IN_PATH=1
   export CARGO_NET_OFFLINE=true

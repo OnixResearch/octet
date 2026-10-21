@@ -48,7 +48,7 @@ let Job = {
   tools = {
     closure_format = "nix-derivation-show-recursive-json; preserve raw bytes and flake.lock; legacy uses absolute inputDrvs/inputSrcs, v4 uses basename derivations and inputs.drvs/inputs.srcs with explicit version 4",
     graph_formats = ["nix-derivation-show-legacy", "nix-derivation-show-v4"],
-    dependencies = ["cargo-octet", "octet-policy-artifacts", "octet-aeneas-lean-provider-closure", providerProfile.aeneas_revision, providerProfile.charon_revision, providerProfile.lean_toolchain, "flake.lock:mathlib-src", "flake.lock:nixpkgs", "flake.lock:aeneas"],
+    dependencies = ["cargo-octet", "octet-policy-artifacts", "octet-aeneas-lean-provider-closure", providerProfile.aeneas_revision, providerProfile.charon_revision, providerProfile.lean_toolchain, "flake.lock:mathlib-src", "flake.lock:nixpkgs", "flake.lock:nixpkgs:stdenv.cc", "flake.lock:aeneas"],
     solver = "none: this selected Aeneas/Charon/Lean rail invokes no external SMT solver; imported Verus evidence is not accepted by this job",
   },
   limits = {
