@@ -54,6 +54,7 @@ def producer_graph(graph, drv, source_root):
         nodes, root_key, source_key = graph, drv, source_root
     if not nodes or len(nodes) > MAX_DERIVATIONS or root_key not in nodes:
         raise ValueError("producer graph root missing or graph exceeds bound")
+
     def store_object(path):
         if not isinstance(path, str):
             raise ValueError("invalid producer store object identity")
@@ -61,6 +62,7 @@ def producer_graph(graph, drv, source_root):
         if (not versioned and not path.startswith("/nix/store/")) or not re.fullmatch(r"[0-9abcdfghijklmnpqrsvwxyz]{32}-[A-Za-z0-9+._?=-]{1,222}", name):
             raise ValueError("invalid producer store object identity")
         return "/nix/store/" + name
+
     store_object(root_key)
     store_object(source_key)
     sources = set()
@@ -98,6 +100,9 @@ def main():
     parser.add_argument("--nickel", type=Path, required=True)
     parser.add_argument("--flake", required=True, help="explicit immutable flake reference for this committed owner source")
     parser.add_argument("--revision", required=True, help="exact committed owner Git revision expected from the flake")
+    parser.add_argument("--graph-format", required=True,
+                        choices=["nix-derivation-show-legacy", "nix-derivation-show-v4"],
+                        help="consumer's required raw Nix wire format; never convert or downgrade")
     parser.add_argument("--out", type=Path, required=True)
     args = parser.parse_args()
     nix, nickel = (path.resolve(strict=True) for path in (args.nix, args.nickel))
@@ -123,13 +128,16 @@ def main():
     if job["schema_version"] != "octet-mantle-producer-job/v1" or job["owner"] != "Octet":
         raise ValueError("unsupported owner job contract")
     attribute = job["package_attribute"]
-    target = f"{args.flake}#{attribute}"
+    # Nix's locked URL includes the resolved revision, even if the input was a branch.
+    target = f"{meta['url']}#{attribute}"
     drv = command([nix, "eval", "--raw", "--no-write-lock-file", target + ".drvPath"], 4096).decode().strip()
     graph_bytes = command([nix, "derivation", "show", "--recursive", drv], MAX_GRAPH_BYTES)
     graph = json.loads(graph_bytes)
     if not isinstance(graph, dict) or not graph or len(graph_bytes) > MAX_GRAPH_BYTES:
         raise ValueError("invalid or oversized recursive producer graph")
     sources, graph_format = producer_graph(graph, drv, str(locked_root))
+    if graph_format != args.graph_format or graph_format not in job["tools"]["graph_formats"]:
+        raise ValueError("exported graph format differs from explicit consumer contract")
     if len(sources) > MAX_SOURCES:
         raise ValueError("source count bound exceeded")
     total = 0
