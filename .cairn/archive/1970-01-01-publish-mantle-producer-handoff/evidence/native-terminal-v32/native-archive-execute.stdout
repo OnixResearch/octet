@@ -1,0 +1,881 @@
+{
+  "acceptance_ids": [],
+  "actions": [
+    {
+      "description": "move active change to archive: publish-mantle-producer-handoff",
+      "kind": "archive_change",
+      "path": "./.cairn/archive/1970-01-01-publish-mantle-producer-handoff"
+    }
+  ],
+  "blocked": false,
+  "change": "publish-mantle-producer-handoff",
+  "cross_repo_dependencies": {
+    "blocked_count": 0,
+    "dependency_count": 0,
+    "input_hash": "72693277ceb40c908b4efd1c81842c733b3f3c417f223e50b1138938ac6bc983",
+    "non_claims": [
+      "dependency satisfaction proves presented receipt linkage only",
+      "dependency satisfaction does not prove upstream correctness or remote trust",
+      "dependency satisfaction does not prove downstream integration correctness or release eligibility"
+    ],
+    "policy_hash": "62e40f642e798bfaf5a68a495a7456bcf4e9fd8106ae2f52a24100967b39df5d",
+    "receipt_hash": "3fbe945792d747652b6d8bd78074ba24bcacff8257966f91256ec3482443dc1b",
+    "rows": [],
+    "satisfied_count": 0,
+    "schema": "cairn.cross-repo-dependency-receipt.v1",
+    "valid": true,
+    "verdict": "PASS"
+  },
+  "cross_repo_evidence_issues": [],
+  "dry_run": false,
+  "input_hash": "59ccce6695ee5632b7ecae295a4eacf9b93ae1889d73e10dc183b4734159fe9f",
+  "layout": "cairn",
+  "mutated": true,
+  "mutation_manifest": {
+    "after": {
+      "entries": [
+        {
+          "content_hash": "cb674bb6948455d9d4c1d63944594e5d02529856da94a06266999e7eadaaff02",
+          "exists": true,
+          "path": "./.cairn/archive/1970-01-01-publish-mantle-producer-handoff/design.md"
+        },
+        {
+          "content_hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+          "exists": true,
+          "path": "./.cairn/archive/1970-01-01-publish-mantle-producer-handoff/evidence/native-terminal-v31/octet-native-readiness-resume30/archive-plan.stderr"
+        },
+        {
+          "content_hash": "836782f9f6033b7cb0a0446209f64ce0f7df112b8e842b6e89e58b54184ceb12",
+          "exists": true,
+          "path": "./.cairn/archive/1970-01-01-publish-mantle-producer-handoff/evidence/native-terminal-v31/octet-native-readiness-resume30/archive-plan.stdout"
+        },
+        {
+          "content_hash": "503c5d926ac78fe740ee9bafd42795be6d0a2c02d99f02a8795747a9c0bc3fb5",
+          "exists": true,
+          "path": "./.cairn/archive/1970-01-01-publish-mantle-producer-handoff/evidence/native-terminal-v31/octet-native-readiness-resume30/complete.json"
+        },
+        {
+          "content_hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+          "exists": true,
+          "path": "./.cairn/archive/1970-01-01-publish-mantle-producer-handoff/evidence/native-terminal-v31/octet-native-readiness-resume30/design-gate.stderr"
+        },
+        {
+          "content_hash": "b81b477757f1060acfd6073fe5a1e2ae03b91fc4feb6157dfa8c7bcf132c23a5",
+          "exists": true,
+          "path": "./.cairn/archive/1970-01-01-publish-mantle-producer-handoff/evidence/native-terminal-v31/octet-native-readiness-resume30/design-gate.stdout"
+        },
+        {
+          "content_hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+          "exists": true,
+          "path": "./.cairn/archive/1970-01-01-publish-mantle-producer-handoff/evidence/native-terminal-v31/octet-native-readiness-resume30/native-validation.stderr"
+        },
+        {
+          "content_hash": "9d401b09599ee308b723182af876eac4035ca7080581f4c5a1c6d068ec95fad6",
+          "exists": true,
+          "path": "./.cairn/archive/1970-01-01-publish-mantle-producer-handoff/evidence/native-terminal-v31/octet-native-readiness-resume30/native-validation.stdout"
+        },
+        {
+          "content_hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+          "exists": true,
+          "path": "./.cairn/archive/1970-01-01-publish-mantle-producer-handoff/evidence/native-terminal-v31/octet-native-readiness-resume30/proposal-gate.stderr"
+        },
+        {
+          "content_hash": "ac8f10245b6043e802b2657cb2cc5fb1ee5cc439009480a417d0178878133015",
+          "exists": true,
+          "path": "./.cairn/archive/1970-01-01-publish-mantle-producer-handoff/evidence/native-terminal-v31/octet-native-readiness-resume30/proposal-gate.stdout"
+        },
+        {
+          "content_hash": "0e43321322dad96780db3184be5ab5a83f204c4576c3483d7c7a0ed1f71dd091",
+          "exists": true,
+          "path": "./.cairn/archive/1970-01-01-publish-mantle-producer-handoff/evidence/native-terminal-v31/octet-native-readiness-resume30/results.json"
+        },
+        {
+          "content_hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+          "exists": true,
+          "path": "./.cairn/archive/1970-01-01-publish-mantle-producer-handoff/evidence/native-terminal-v31/octet-native-readiness-resume30/retained-proof-output-root.stderr"
+        },
+        {
+          "content_hash": "e4082148a550417feedbb27a56cdcce82a0868e8cd298d6f6b128972c84f126f",
+          "exists": true,
+          "path": "./.cairn/archive/1970-01-01-publish-mantle-producer-handoff/evidence/native-terminal-v31/octet-native-readiness-resume30/retained-proof-output-root.stdout"
+        },
+        {
+          "content_hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+          "exists": true,
+          "path": "./.cairn/archive/1970-01-01-publish-mantle-producer-handoff/evidence/native-terminal-v31/octet-native-readiness-resume30/sync-plan.stderr"
+        },
+        {
+          "content_hash": "a244551ac5088532269dc4b7bad4a7afd6248f8ef9fbdaca85601cbe9357c9c8",
+          "exists": true,
+          "path": "./.cairn/archive/1970-01-01-publish-mantle-producer-handoff/evidence/native-terminal-v31/octet-native-readiness-resume30/sync-plan.stdout"
+        },
+        {
+          "content_hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+          "exists": true,
+          "path": "./.cairn/archive/1970-01-01-publish-mantle-producer-handoff/evidence/native-terminal-v31/octet-native-readiness-resume30/tasks-gate.stderr"
+        },
+        {
+          "content_hash": "d50ee52b7878de420258f3c9636ccaa65a1b3e17aa03aed0d0d4ada839f5e7ec",
+          "exists": true,
+          "path": "./.cairn/archive/1970-01-01-publish-mantle-producer-handoff/evidence/native-terminal-v31/octet-native-readiness-resume30/tasks-gate.stdout"
+        },
+        {
+          "content_hash": "57db5b8d3068956d3af6d3c73d54cdd0e18e917d60a63853df83f1b6e980a51b",
+          "exists": true,
+          "path": "./.cairn/archive/1970-01-01-publish-mantle-producer-handoff/evidence/native-terminal-v31/octet-native-sync-resume31/complete.json"
+        },
+        {
+          "content_hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+          "exists": true,
+          "path": "./.cairn/archive/1970-01-01-publish-mantle-producer-handoff/evidence/native-terminal-v31/octet-native-sync-resume31/native-archive-plan.stderr"
+        },
+        {
+          "content_hash": "60209b2aa19bd9e163be8ed97ed8d15548620945138e88bfb680088547d1b1e0",
+          "exists": true,
+          "path": "./.cairn/archive/1970-01-01-publish-mantle-producer-handoff/evidence/native-terminal-v31/octet-native-sync-resume31/native-archive-plan.stdout"
+        },
+        {
+          "content_hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+          "exists": true,
+          "path": "./.cairn/archive/1970-01-01-publish-mantle-producer-handoff/evidence/native-terminal-v31/octet-native-sync-resume31/native-gate-design.stderr"
+        },
+        {
+          "content_hash": "23820389ef8bf6624a6d34b85e9b54527de738cf18ad31d09a6cde0742932c40",
+          "exists": true,
+          "path": "./.cairn/archive/1970-01-01-publish-mantle-producer-handoff/evidence/native-terminal-v31/octet-native-sync-resume31/native-gate-design.stdout"
+        },
+        {
+          "content_hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+          "exists": true,
+          "path": "./.cairn/archive/1970-01-01-publish-mantle-producer-handoff/evidence/native-terminal-v31/octet-native-sync-resume31/native-gate-proposal.stderr"
+        },
+        {
+          "content_hash": "02dc9d5af4ad891458be88cb632dbbd44fe792179f5f5553169876240dca07ff",
+          "exists": true,
+          "path": "./.cairn/archive/1970-01-01-publish-mantle-producer-handoff/evidence/native-terminal-v31/octet-native-sync-resume31/native-gate-proposal.stdout"
+        },
+        {
+          "content_hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+          "exists": true,
+          "path": "./.cairn/archive/1970-01-01-publish-mantle-producer-handoff/evidence/native-terminal-v31/octet-native-sync-resume31/native-gate-tasks.stderr"
+        },
+        {
+          "content_hash": "f28413d676f1f07e4285173cff3c3eb60012729d9dbb51d99e91ea7e5bbe1c5b",
+          "exists": true,
+          "path": "./.cairn/archive/1970-01-01-publish-mantle-producer-handoff/evidence/native-terminal-v31/octet-native-sync-resume31/native-gate-tasks.stdout"
+        },
+        {
+          "content_hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+          "exists": true,
+          "path": "./.cairn/archive/1970-01-01-publish-mantle-producer-handoff/evidence/native-terminal-v31/octet-native-sync-resume31/native-post-sync-plan.stderr"
+        },
+        {
+          "content_hash": "fc08fc42f8f6e2fdffbefe2c52e46c4471f657d4c9570888cab3fa5b383c9e04",
+          "exists": true,
+          "path": "./.cairn/archive/1970-01-01-publish-mantle-producer-handoff/evidence/native-terminal-v31/octet-native-sync-resume31/native-post-sync-plan.stdout"
+        },
+        {
+          "content_hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+          "exists": true,
+          "path": "./.cairn/archive/1970-01-01-publish-mantle-producer-handoff/evidence/native-terminal-v31/octet-native-sync-resume31/native-sync-execute.stderr"
+        },
+        {
+          "content_hash": "ad669bb508dbc3ebcc326edd53dca67a5c4321e5e30a6bd77e8e8ee91018a417",
+          "exists": true,
+          "path": "./.cairn/archive/1970-01-01-publish-mantle-producer-handoff/evidence/native-terminal-v31/octet-native-sync-resume31/native-sync-execute.stdout"
+        },
+        {
+          "content_hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+          "exists": true,
+          "path": "./.cairn/archive/1970-01-01-publish-mantle-producer-handoff/evidence/native-terminal-v31/octet-native-sync-resume31/native-sync-plan.stderr"
+        },
+        {
+          "content_hash": "932cc092663ae9a3f80acf36251a8091bb5826d0ba092b8e07ee49e57cc5cb53",
+          "exists": true,
+          "path": "./.cairn/archive/1970-01-01-publish-mantle-producer-handoff/evidence/native-terminal-v31/octet-native-sync-resume31/native-sync-plan.stdout"
+        },
+        {
+          "content_hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+          "exists": true,
+          "path": "./.cairn/archive/1970-01-01-publish-mantle-producer-handoff/evidence/native-terminal-v31/octet-native-sync-resume31/native-validate.stderr"
+        },
+        {
+          "content_hash": "93163ff64abe0a91b04c70fdfab0d0db5204fd19ea7c10449e7f05e35d08b35e",
+          "exists": true,
+          "path": "./.cairn/archive/1970-01-01-publish-mantle-producer-handoff/evidence/native-terminal-v31/octet-native-sync-resume31/native-validate.stdout"
+        },
+        {
+          "content_hash": "404d37b48d052c132c4cc6362a9857691967575ae83b116b4e1f663816592bbe",
+          "exists": true,
+          "path": "./.cairn/archive/1970-01-01-publish-mantle-producer-handoff/evidence/native-terminal-v31/octet-native-sync-resume31/results.json"
+        },
+        {
+          "content_hash": "94ea09291260405af6ce7cb0189203701129cfe3e0c85649ee6b5c9178a28ffc",
+          "exists": true,
+          "path": "./.cairn/archive/1970-01-01-publish-mantle-producer-handoff/evidence/native-terminal-v31/readiness-driver.py"
+        },
+        {
+          "content_hash": "e2c98cf724f325109bda5b2dc5f1c541e4101f7f7153b9b860711fe411db1858",
+          "exists": true,
+          "path": "./.cairn/archive/1970-01-01-publish-mantle-producer-handoff/evidence/native-terminal-v31/sync-driver.py"
+        },
+        {
+          "content_hash": "f594e084ae3746d2d7fc717db06cf83414ac8bc810325f461607462a3cb49c30",
+          "exists": true,
+          "path": "./.cairn/archive/1970-01-01-publish-mantle-producer-handoff/evidence/owner-acceptance-v10/actual-owner-job.stderr"
+        },
+        {
+          "content_hash": "851cac6ec54df950c53bcc023ff8cd245e6b4c5e2019278d423debf68d7ef244",
+          "exists": true,
+          "path": "./.cairn/archive/1970-01-01-publish-mantle-producer-handoff/evidence/owner-acceptance-v10/actual-owner-job.stdout"
+        },
+        {
+          "content_hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+          "exists": true,
+          "path": "./.cairn/archive/1970-01-01-publish-mantle-producer-handoff/evidence/owner-acceptance-v10/actual-source-export.stderr"
+        },
+        {
+          "content_hash": "1d67b18f8e3969416fcea6d1f5fcf7f8fcf429034801460e8bd3a789e5df0d2c",
+          "exists": true,
+          "path": "./.cairn/archive/1970-01-01-publish-mantle-producer-handoff/evidence/owner-acceptance-v10/actual-source-export.stdout"
+        },
+        {
+          "content_hash": "2b263ae5fa896182cadb8f63438bfb4bd5d1b13ebfa40977ca57e3908f9f9572",
+          "exists": true,
+          "path": "./.cairn/archive/1970-01-01-publish-mantle-producer-handoff/evidence/owner-acceptance-v10/complete.json"
+        },
+        {
+          "content_hash": "09558ff02115e71b197eae4faa0ea306f1a17c8e4fbe9d56fd20f65f1f1b9de7",
+          "exists": true,
+          "path": "./.cairn/archive/1970-01-01-publish-mantle-producer-handoff/evidence/owner-acceptance-v10/executed-driver.py"
+        },
+        {
+          "content_hash": "62bb3c01a2037eef1410e35d3902d73fb5e7439e8856d721d0823e14c0af4879",
+          "exists": true,
+          "path": "./.cairn/archive/1970-01-01-publish-mantle-producer-handoff/evidence/owner-acceptance-v10/external-profile.json"
+        },
+        {
+          "content_hash": "38a31cc536604a75d572c007743ed8103c9bd9b6b688556fb9f7de6b151e08d7",
+          "exists": true,
+          "path": "./.cairn/archive/1970-01-01-publish-mantle-producer-handoff/evidence/owner-acceptance-v10/external-receipt.json"
+        },
+        {
+          "content_hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+          "exists": true,
+          "path": "./.cairn/archive/1970-01-01-publish-mantle-producer-handoff/evidence/owner-acceptance-v10/job-contract.stderr"
+        },
+        {
+          "content_hash": "c52719ffc27d504f56b88bc2eae2c70739b5c95f500d1c7dc424773b03692ac1",
+          "exists": true,
+          "path": "./.cairn/archive/1970-01-01-publish-mantle-producer-handoff/evidence/owner-acceptance-v10/job-contract.stdout"
+        },
+        {
+          "content_hash": "c52719ffc27d504f56b88bc2eae2c70739b5c95f500d1c7dc424773b03692ac1",
+          "exists": true,
+          "path": "./.cairn/archive/1970-01-01-publish-mantle-producer-handoff/evidence/owner-acceptance-v10/job.json"
+        },
+        {
+          "content_hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+          "exists": true,
+          "path": "./.cairn/archive/1970-01-01-publish-mantle-producer-handoff/evidence/owner-acceptance-v10/native-gate-design.stderr"
+        },
+        {
+          "content_hash": "b81b477757f1060acfd6073fe5a1e2ae03b91fc4feb6157dfa8c7bcf132c23a5",
+          "exists": true,
+          "path": "./.cairn/archive/1970-01-01-publish-mantle-producer-handoff/evidence/owner-acceptance-v10/native-gate-design.stdout"
+        },
+        {
+          "content_hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+          "exists": true,
+          "path": "./.cairn/archive/1970-01-01-publish-mantle-producer-handoff/evidence/owner-acceptance-v10/native-gate-proposal.stderr"
+        },
+        {
+          "content_hash": "ac8f10245b6043e802b2657cb2cc5fb1ee5cc439009480a417d0178878133015",
+          "exists": true,
+          "path": "./.cairn/archive/1970-01-01-publish-mantle-producer-handoff/evidence/owner-acceptance-v10/native-gate-proposal.stdout"
+        },
+        {
+          "content_hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+          "exists": true,
+          "path": "./.cairn/archive/1970-01-01-publish-mantle-producer-handoff/evidence/owner-acceptance-v10/native-gate-tasks.stderr"
+        },
+        {
+          "content_hash": "d50ee52b7878de420258f3c9636ccaa65a1b3e17aa03aed0d0d4ada839f5e7ec",
+          "exists": true,
+          "path": "./.cairn/archive/1970-01-01-publish-mantle-producer-handoff/evidence/owner-acceptance-v10/native-gate-tasks.stdout"
+        },
+        {
+          "content_hash": "20edf0499a2d91906f53770c37afb2a6d31e4219aebdab913fc38cb51e1b549a",
+          "exists": true,
+          "path": "./.cairn/archive/1970-01-01-publish-mantle-producer-handoff/evidence/owner-acceptance-v10/nix-export-check.stderr"
+        },
+        {
+          "content_hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+          "exists": true,
+          "path": "./.cairn/archive/1970-01-01-publish-mantle-producer-handoff/evidence/owner-acceptance-v10/nix-export-check.stdout"
+        },
+        {
+          "content_hash": "5c8454e56561a66649b04b0c5c71008f884eb106f7de52364b4f9a192e4eb60a",
+          "exists": true,
+          "path": "./.cairn/archive/1970-01-01-publish-mantle-producer-handoff/evidence/owner-acceptance-v10/owner-consumer-contract-check.stderr"
+        },
+        {
+          "content_hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+          "exists": true,
+          "path": "./.cairn/archive/1970-01-01-publish-mantle-producer-handoff/evidence/owner-acceptance-v10/owner-consumer-contract-check.stdout"
+        },
+        {
+          "content_hash": "314b04f6e4f0c446ace550d6461ad0f3b4585ebd368c1a77c5422b294f249af8",
+          "exists": true,
+          "path": "./.cairn/archive/1970-01-01-publish-mantle-producer-handoff/evidence/owner-acceptance-v10/owner-job-build-plan.stderr"
+        },
+        {
+          "content_hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+          "exists": true,
+          "path": "./.cairn/archive/1970-01-01-publish-mantle-producer-handoff/evidence/owner-acceptance-v10/owner-job-build-plan.stdout"
+        },
+        {
+          "content_hash": "84c556ca1dd3cae46b588a3f0635e8555301e0b6bd86d648d581ff60eaf03a91",
+          "exists": true,
+          "path": "./.cairn/archive/1970-01-01-publish-mantle-producer-handoff/evidence/owner-acceptance-v10/owner-policy-check.stderr"
+        },
+        {
+          "content_hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+          "exists": true,
+          "path": "./.cairn/archive/1970-01-01-publish-mantle-producer-handoff/evidence/owner-acceptance-v10/owner-policy-check.stdout"
+        },
+        {
+          "content_hash": "5b032de4abb27e919e25ab9c7e3aa2c9471b793a68381cce50f9f58bef66b306",
+          "exists": true,
+          "path": "./.cairn/archive/1970-01-01-publish-mantle-producer-handoff/evidence/owner-acceptance-v10/owner-verifier-binary.stderr"
+        },
+        {
+          "content_hash": "c8d0a5ab0161f53fa1bd9bca4520ca4327ac326fa9c7c2e1d7fa7fd8193224a8",
+          "exists": true,
+          "path": "./.cairn/archive/1970-01-01-publish-mantle-producer-handoff/evidence/owner-acceptance-v10/owner-verifier-binary.stdout"
+        },
+        {
+          "content_hash": "35f3a584c67a9e170376c16fc6bf4526ab1ffafc5f9293c79f27d636e6e87aa0",
+          "exists": true,
+          "path": "./.cairn/archive/1970-01-01-publish-mantle-producer-handoff/evidence/owner-acceptance-v10/producer-artifact-verification.json"
+        },
+        {
+          "content_hash": "2d62d217e09ab4486e71c14f29ff6a59284146cf90b8a2d93f9e54efa8e85b6c",
+          "exists": true,
+          "path": "./.cairn/archive/1970-01-01-publish-mantle-producer-handoff/evidence/owner-acceptance-v10/producer-prove.json"
+        },
+        {
+          "content_hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+          "exists": true,
+          "path": "./.cairn/archive/1970-01-01-publish-mantle-producer-handoff/evidence/owner-acceptance-v10/registry-contract.stderr"
+        },
+        {
+          "content_hash": "b78e798b00e440af860d9dd73edb503877fa081652346a37a6b3a9ba19be5739",
+          "exists": true,
+          "path": "./.cairn/archive/1970-01-01-publish-mantle-producer-handoff/evidence/owner-acceptance-v10/registry-contract.stdout"
+        },
+        {
+          "content_hash": "048a385d9af8f83d3adcb69f6c964f99409dddfeb6f44ea0503a9708273aacbf",
+          "exists": true,
+          "path": "./.cairn/archive/1970-01-01-publish-mantle-producer-handoff/evidence/owner-acceptance-v10/reject-incompatible-original-wire.stderr"
+        },
+        {
+          "content_hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+          "exists": true,
+          "path": "./.cairn/archive/1970-01-01-publish-mantle-producer-handoff/evidence/owner-acceptance-v10/reject-incompatible-original-wire.stdout"
+        },
+        {
+          "content_hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+          "exists": true,
+          "path": "./.cairn/archive/1970-01-01-publish-mantle-producer-handoff/evidence/owner-acceptance-v10/reject-tampered-real-proof.stderr"
+        },
+        {
+          "content_hash": "184369ec0934c5133849a54947f4364985c181acf89b0589416f0f0c62a89467",
+          "exists": true,
+          "path": "./.cairn/archive/1970-01-01-publish-mantle-producer-handoff/evidence/owner-acceptance-v10/reject-tampered-real-proof.stdout"
+        },
+        {
+          "content_hash": "32c8a054f85f214dd272b54f1d49dff04a7755cdc61840ab4e02aca8144885b3",
+          "exists": true,
+          "path": "./.cairn/archive/1970-01-01-publish-mantle-producer-handoff/evidence/owner-acceptance-v10/results.json"
+        },
+        {
+          "content_hash": "61c6af6cc7badc2a3774448689b90e863064b6b30b48b208a468924f20bc89be",
+          "exists": true,
+          "path": "./.cairn/archive/1970-01-01-publish-mantle-producer-handoff/evidence/owner-acceptance-v10/source-revision"
+        },
+        {
+          "content_hash": "36c72c04702241b0f6bd111ed97d8abc884013769be3a1f8dea7b2eeb9da84ee",
+          "exists": true,
+          "path": "./.cairn/archive/1970-01-01-publish-mantle-producer-handoff/evidence/owner-acceptance-v10/valence-provenance.json"
+        },
+        {
+          "content_hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+          "exists": true,
+          "path": "./.cairn/archive/1970-01-01-publish-mantle-producer-handoff/evidence/owner-acceptance-v10/verify-real-proof-payload.stderr"
+        },
+        {
+          "content_hash": "35f3a584c67a9e170376c16fc6bf4526ab1ffafc5f9293c79f27d636e6e87aa0",
+          "exists": true,
+          "path": "./.cairn/archive/1970-01-01-publish-mantle-producer-handoff/evidence/owner-acceptance-v10/verify-real-proof-payload.stdout"
+        },
+        {
+          "content_hash": "df8b71bae570eb5accd702e7370a816b8ea9f2e4521254c5d75ea82a9cfcf4db",
+          "exists": true,
+          "path": "./.cairn/archive/1970-01-01-publish-mantle-producer-handoff/metadata.json"
+        },
+        {
+          "content_hash": "4072b69f294ddba60e035bba43c8797c7dfee417e01e4bc80bf98da40aa1f2e9",
+          "exists": true,
+          "path": "./.cairn/archive/1970-01-01-publish-mantle-producer-handoff/proposal.md"
+        },
+        {
+          "content_hash": "d279a89bb8b83af7be09a5965ec3c4822dc6df703bc14bb6ef7d99655371ac68",
+          "exists": true,
+          "path": "./.cairn/archive/1970-01-01-publish-mantle-producer-handoff/specs/mantle-producer-handoff/spec.md"
+        },
+        {
+          "content_hash": "ccf504213915b54c71c09b1cf9fbc56b4016f4ac1b1480a2f554d0ae6ed1344b",
+          "exists": true,
+          "path": "./.cairn/archive/1970-01-01-publish-mantle-producer-handoff/tasks.md"
+        },
+        {
+          "content_hash": null,
+          "exists": false,
+          "path": "./.cairn/changes/publish-mantle-producer-handoff"
+        }
+      ],
+      "manifest_hash": "e4a9a45ec77c0cd03b38800308176501d297a094158f78acefd2c0af152bb1d6"
+    },
+    "before": {
+      "entries": [
+        {
+          "content_hash": "cb674bb6948455d9d4c1d63944594e5d02529856da94a06266999e7eadaaff02",
+          "exists": true,
+          "path": "./.cairn/changes/publish-mantle-producer-handoff/design.md"
+        },
+        {
+          "content_hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+          "exists": true,
+          "path": "./.cairn/changes/publish-mantle-producer-handoff/evidence/native-terminal-v31/octet-native-readiness-resume30/archive-plan.stderr"
+        },
+        {
+          "content_hash": "836782f9f6033b7cb0a0446209f64ce0f7df112b8e842b6e89e58b54184ceb12",
+          "exists": true,
+          "path": "./.cairn/changes/publish-mantle-producer-handoff/evidence/native-terminal-v31/octet-native-readiness-resume30/archive-plan.stdout"
+        },
+        {
+          "content_hash": "503c5d926ac78fe740ee9bafd42795be6d0a2c02d99f02a8795747a9c0bc3fb5",
+          "exists": true,
+          "path": "./.cairn/changes/publish-mantle-producer-handoff/evidence/native-terminal-v31/octet-native-readiness-resume30/complete.json"
+        },
+        {
+          "content_hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+          "exists": true,
+          "path": "./.cairn/changes/publish-mantle-producer-handoff/evidence/native-terminal-v31/octet-native-readiness-resume30/design-gate.stderr"
+        },
+        {
+          "content_hash": "b81b477757f1060acfd6073fe5a1e2ae03b91fc4feb6157dfa8c7bcf132c23a5",
+          "exists": true,
+          "path": "./.cairn/changes/publish-mantle-producer-handoff/evidence/native-terminal-v31/octet-native-readiness-resume30/design-gate.stdout"
+        },
+        {
+          "content_hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+          "exists": true,
+          "path": "./.cairn/changes/publish-mantle-producer-handoff/evidence/native-terminal-v31/octet-native-readiness-resume30/native-validation.stderr"
+        },
+        {
+          "content_hash": "9d401b09599ee308b723182af876eac4035ca7080581f4c5a1c6d068ec95fad6",
+          "exists": true,
+          "path": "./.cairn/changes/publish-mantle-producer-handoff/evidence/native-terminal-v31/octet-native-readiness-resume30/native-validation.stdout"
+        },
+        {
+          "content_hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+          "exists": true,
+          "path": "./.cairn/changes/publish-mantle-producer-handoff/evidence/native-terminal-v31/octet-native-readiness-resume30/proposal-gate.stderr"
+        },
+        {
+          "content_hash": "ac8f10245b6043e802b2657cb2cc5fb1ee5cc439009480a417d0178878133015",
+          "exists": true,
+          "path": "./.cairn/changes/publish-mantle-producer-handoff/evidence/native-terminal-v31/octet-native-readiness-resume30/proposal-gate.stdout"
+        },
+        {
+          "content_hash": "0e43321322dad96780db3184be5ab5a83f204c4576c3483d7c7a0ed1f71dd091",
+          "exists": true,
+          "path": "./.cairn/changes/publish-mantle-producer-handoff/evidence/native-terminal-v31/octet-native-readiness-resume30/results.json"
+        },
+        {
+          "content_hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+          "exists": true,
+          "path": "./.cairn/changes/publish-mantle-producer-handoff/evidence/native-terminal-v31/octet-native-readiness-resume30/retained-proof-output-root.stderr"
+        },
+        {
+          "content_hash": "e4082148a550417feedbb27a56cdcce82a0868e8cd298d6f6b128972c84f126f",
+          "exists": true,
+          "path": "./.cairn/changes/publish-mantle-producer-handoff/evidence/native-terminal-v31/octet-native-readiness-resume30/retained-proof-output-root.stdout"
+        },
+        {
+          "content_hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+          "exists": true,
+          "path": "./.cairn/changes/publish-mantle-producer-handoff/evidence/native-terminal-v31/octet-native-readiness-resume30/sync-plan.stderr"
+        },
+        {
+          "content_hash": "a244551ac5088532269dc4b7bad4a7afd6248f8ef9fbdaca85601cbe9357c9c8",
+          "exists": true,
+          "path": "./.cairn/changes/publish-mantle-producer-handoff/evidence/native-terminal-v31/octet-native-readiness-resume30/sync-plan.stdout"
+        },
+        {
+          "content_hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+          "exists": true,
+          "path": "./.cairn/changes/publish-mantle-producer-handoff/evidence/native-terminal-v31/octet-native-readiness-resume30/tasks-gate.stderr"
+        },
+        {
+          "content_hash": "d50ee52b7878de420258f3c9636ccaa65a1b3e17aa03aed0d0d4ada839f5e7ec",
+          "exists": true,
+          "path": "./.cairn/changes/publish-mantle-producer-handoff/evidence/native-terminal-v31/octet-native-readiness-resume30/tasks-gate.stdout"
+        },
+        {
+          "content_hash": "57db5b8d3068956d3af6d3c73d54cdd0e18e917d60a63853df83f1b6e980a51b",
+          "exists": true,
+          "path": "./.cairn/changes/publish-mantle-producer-handoff/evidence/native-terminal-v31/octet-native-sync-resume31/complete.json"
+        },
+        {
+          "content_hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+          "exists": true,
+          "path": "./.cairn/changes/publish-mantle-producer-handoff/evidence/native-terminal-v31/octet-native-sync-resume31/native-archive-plan.stderr"
+        },
+        {
+          "content_hash": "60209b2aa19bd9e163be8ed97ed8d15548620945138e88bfb680088547d1b1e0",
+          "exists": true,
+          "path": "./.cairn/changes/publish-mantle-producer-handoff/evidence/native-terminal-v31/octet-native-sync-resume31/native-archive-plan.stdout"
+        },
+        {
+          "content_hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+          "exists": true,
+          "path": "./.cairn/changes/publish-mantle-producer-handoff/evidence/native-terminal-v31/octet-native-sync-resume31/native-gate-design.stderr"
+        },
+        {
+          "content_hash": "23820389ef8bf6624a6d34b85e9b54527de738cf18ad31d09a6cde0742932c40",
+          "exists": true,
+          "path": "./.cairn/changes/publish-mantle-producer-handoff/evidence/native-terminal-v31/octet-native-sync-resume31/native-gate-design.stdout"
+        },
+        {
+          "content_hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+          "exists": true,
+          "path": "./.cairn/changes/publish-mantle-producer-handoff/evidence/native-terminal-v31/octet-native-sync-resume31/native-gate-proposal.stderr"
+        },
+        {
+          "content_hash": "02dc9d5af4ad891458be88cb632dbbd44fe792179f5f5553169876240dca07ff",
+          "exists": true,
+          "path": "./.cairn/changes/publish-mantle-producer-handoff/evidence/native-terminal-v31/octet-native-sync-resume31/native-gate-proposal.stdout"
+        },
+        {
+          "content_hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+          "exists": true,
+          "path": "./.cairn/changes/publish-mantle-producer-handoff/evidence/native-terminal-v31/octet-native-sync-resume31/native-gate-tasks.stderr"
+        },
+        {
+          "content_hash": "f28413d676f1f07e4285173cff3c3eb60012729d9dbb51d99e91ea7e5bbe1c5b",
+          "exists": true,
+          "path": "./.cairn/changes/publish-mantle-producer-handoff/evidence/native-terminal-v31/octet-native-sync-resume31/native-gate-tasks.stdout"
+        },
+        {
+          "content_hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+          "exists": true,
+          "path": "./.cairn/changes/publish-mantle-producer-handoff/evidence/native-terminal-v31/octet-native-sync-resume31/native-post-sync-plan.stderr"
+        },
+        {
+          "content_hash": "fc08fc42f8f6e2fdffbefe2c52e46c4471f657d4c9570888cab3fa5b383c9e04",
+          "exists": true,
+          "path": "./.cairn/changes/publish-mantle-producer-handoff/evidence/native-terminal-v31/octet-native-sync-resume31/native-post-sync-plan.stdout"
+        },
+        {
+          "content_hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+          "exists": true,
+          "path": "./.cairn/changes/publish-mantle-producer-handoff/evidence/native-terminal-v31/octet-native-sync-resume31/native-sync-execute.stderr"
+        },
+        {
+          "content_hash": "ad669bb508dbc3ebcc326edd53dca67a5c4321e5e30a6bd77e8e8ee91018a417",
+          "exists": true,
+          "path": "./.cairn/changes/publish-mantle-producer-handoff/evidence/native-terminal-v31/octet-native-sync-resume31/native-sync-execute.stdout"
+        },
+        {
+          "content_hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+          "exists": true,
+          "path": "./.cairn/changes/publish-mantle-producer-handoff/evidence/native-terminal-v31/octet-native-sync-resume31/native-sync-plan.stderr"
+        },
+        {
+          "content_hash": "932cc092663ae9a3f80acf36251a8091bb5826d0ba092b8e07ee49e57cc5cb53",
+          "exists": true,
+          "path": "./.cairn/changes/publish-mantle-producer-handoff/evidence/native-terminal-v31/octet-native-sync-resume31/native-sync-plan.stdout"
+        },
+        {
+          "content_hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+          "exists": true,
+          "path": "./.cairn/changes/publish-mantle-producer-handoff/evidence/native-terminal-v31/octet-native-sync-resume31/native-validate.stderr"
+        },
+        {
+          "content_hash": "93163ff64abe0a91b04c70fdfab0d0db5204fd19ea7c10449e7f05e35d08b35e",
+          "exists": true,
+          "path": "./.cairn/changes/publish-mantle-producer-handoff/evidence/native-terminal-v31/octet-native-sync-resume31/native-validate.stdout"
+        },
+        {
+          "content_hash": "404d37b48d052c132c4cc6362a9857691967575ae83b116b4e1f663816592bbe",
+          "exists": true,
+          "path": "./.cairn/changes/publish-mantle-producer-handoff/evidence/native-terminal-v31/octet-native-sync-resume31/results.json"
+        },
+        {
+          "content_hash": "94ea09291260405af6ce7cb0189203701129cfe3e0c85649ee6b5c9178a28ffc",
+          "exists": true,
+          "path": "./.cairn/changes/publish-mantle-producer-handoff/evidence/native-terminal-v31/readiness-driver.py"
+        },
+        {
+          "content_hash": "e2c98cf724f325109bda5b2dc5f1c541e4101f7f7153b9b860711fe411db1858",
+          "exists": true,
+          "path": "./.cairn/changes/publish-mantle-producer-handoff/evidence/native-terminal-v31/sync-driver.py"
+        },
+        {
+          "content_hash": "f594e084ae3746d2d7fc717db06cf83414ac8bc810325f461607462a3cb49c30",
+          "exists": true,
+          "path": "./.cairn/changes/publish-mantle-producer-handoff/evidence/owner-acceptance-v10/actual-owner-job.stderr"
+        },
+        {
+          "content_hash": "851cac6ec54df950c53bcc023ff8cd245e6b4c5e2019278d423debf68d7ef244",
+          "exists": true,
+          "path": "./.cairn/changes/publish-mantle-producer-handoff/evidence/owner-acceptance-v10/actual-owner-job.stdout"
+        },
+        {
+          "content_hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+          "exists": true,
+          "path": "./.cairn/changes/publish-mantle-producer-handoff/evidence/owner-acceptance-v10/actual-source-export.stderr"
+        },
+        {
+          "content_hash": "1d67b18f8e3969416fcea6d1f5fcf7f8fcf429034801460e8bd3a789e5df0d2c",
+          "exists": true,
+          "path": "./.cairn/changes/publish-mantle-producer-handoff/evidence/owner-acceptance-v10/actual-source-export.stdout"
+        },
+        {
+          "content_hash": "2b263ae5fa896182cadb8f63438bfb4bd5d1b13ebfa40977ca57e3908f9f9572",
+          "exists": true,
+          "path": "./.cairn/changes/publish-mantle-producer-handoff/evidence/owner-acceptance-v10/complete.json"
+        },
+        {
+          "content_hash": "09558ff02115e71b197eae4faa0ea306f1a17c8e4fbe9d56fd20f65f1f1b9de7",
+          "exists": true,
+          "path": "./.cairn/changes/publish-mantle-producer-handoff/evidence/owner-acceptance-v10/executed-driver.py"
+        },
+        {
+          "content_hash": "62bb3c01a2037eef1410e35d3902d73fb5e7439e8856d721d0823e14c0af4879",
+          "exists": true,
+          "path": "./.cairn/changes/publish-mantle-producer-handoff/evidence/owner-acceptance-v10/external-profile.json"
+        },
+        {
+          "content_hash": "38a31cc536604a75d572c007743ed8103c9bd9b6b688556fb9f7de6b151e08d7",
+          "exists": true,
+          "path": "./.cairn/changes/publish-mantle-producer-handoff/evidence/owner-acceptance-v10/external-receipt.json"
+        },
+        {
+          "content_hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+          "exists": true,
+          "path": "./.cairn/changes/publish-mantle-producer-handoff/evidence/owner-acceptance-v10/job-contract.stderr"
+        },
+        {
+          "content_hash": "c52719ffc27d504f56b88bc2eae2c70739b5c95f500d1c7dc424773b03692ac1",
+          "exists": true,
+          "path": "./.cairn/changes/publish-mantle-producer-handoff/evidence/owner-acceptance-v10/job-contract.stdout"
+        },
+        {
+          "content_hash": "c52719ffc27d504f56b88bc2eae2c70739b5c95f500d1c7dc424773b03692ac1",
+          "exists": true,
+          "path": "./.cairn/changes/publish-mantle-producer-handoff/evidence/owner-acceptance-v10/job.json"
+        },
+        {
+          "content_hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+          "exists": true,
+          "path": "./.cairn/changes/publish-mantle-producer-handoff/evidence/owner-acceptance-v10/native-gate-design.stderr"
+        },
+        {
+          "content_hash": "b81b477757f1060acfd6073fe5a1e2ae03b91fc4feb6157dfa8c7bcf132c23a5",
+          "exists": true,
+          "path": "./.cairn/changes/publish-mantle-producer-handoff/evidence/owner-acceptance-v10/native-gate-design.stdout"
+        },
+        {
+          "content_hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+          "exists": true,
+          "path": "./.cairn/changes/publish-mantle-producer-handoff/evidence/owner-acceptance-v10/native-gate-proposal.stderr"
+        },
+        {
+          "content_hash": "ac8f10245b6043e802b2657cb2cc5fb1ee5cc439009480a417d0178878133015",
+          "exists": true,
+          "path": "./.cairn/changes/publish-mantle-producer-handoff/evidence/owner-acceptance-v10/native-gate-proposal.stdout"
+        },
+        {
+          "content_hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+          "exists": true,
+          "path": "./.cairn/changes/publish-mantle-producer-handoff/evidence/owner-acceptance-v10/native-gate-tasks.stderr"
+        },
+        {
+          "content_hash": "d50ee52b7878de420258f3c9636ccaa65a1b3e17aa03aed0d0d4ada839f5e7ec",
+          "exists": true,
+          "path": "./.cairn/changes/publish-mantle-producer-handoff/evidence/owner-acceptance-v10/native-gate-tasks.stdout"
+        },
+        {
+          "content_hash": "20edf0499a2d91906f53770c37afb2a6d31e4219aebdab913fc38cb51e1b549a",
+          "exists": true,
+          "path": "./.cairn/changes/publish-mantle-producer-handoff/evidence/owner-acceptance-v10/nix-export-check.stderr"
+        },
+        {
+          "content_hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+          "exists": true,
+          "path": "./.cairn/changes/publish-mantle-producer-handoff/evidence/owner-acceptance-v10/nix-export-check.stdout"
+        },
+        {
+          "content_hash": "5c8454e56561a66649b04b0c5c71008f884eb106f7de52364b4f9a192e4eb60a",
+          "exists": true,
+          "path": "./.cairn/changes/publish-mantle-producer-handoff/evidence/owner-acceptance-v10/owner-consumer-contract-check.stderr"
+        },
+        {
+          "content_hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+          "exists": true,
+          "path": "./.cairn/changes/publish-mantle-producer-handoff/evidence/owner-acceptance-v10/owner-consumer-contract-check.stdout"
+        },
+        {
+          "content_hash": "314b04f6e4f0c446ace550d6461ad0f3b4585ebd368c1a77c5422b294f249af8",
+          "exists": true,
+          "path": "./.cairn/changes/publish-mantle-producer-handoff/evidence/owner-acceptance-v10/owner-job-build-plan.stderr"
+        },
+        {
+          "content_hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+          "exists": true,
+          "path": "./.cairn/changes/publish-mantle-producer-handoff/evidence/owner-acceptance-v10/owner-job-build-plan.stdout"
+        },
+        {
+          "content_hash": "84c556ca1dd3cae46b588a3f0635e8555301e0b6bd86d648d581ff60eaf03a91",
+          "exists": true,
+          "path": "./.cairn/changes/publish-mantle-producer-handoff/evidence/owner-acceptance-v10/owner-policy-check.stderr"
+        },
+        {
+          "content_hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+          "exists": true,
+          "path": "./.cairn/changes/publish-mantle-producer-handoff/evidence/owner-acceptance-v10/owner-policy-check.stdout"
+        },
+        {
+          "content_hash": "5b032de4abb27e919e25ab9c7e3aa2c9471b793a68381cce50f9f58bef66b306",
+          "exists": true,
+          "path": "./.cairn/changes/publish-mantle-producer-handoff/evidence/owner-acceptance-v10/owner-verifier-binary.stderr"
+        },
+        {
+          "content_hash": "c8d0a5ab0161f53fa1bd9bca4520ca4327ac326fa9c7c2e1d7fa7fd8193224a8",
+          "exists": true,
+          "path": "./.cairn/changes/publish-mantle-producer-handoff/evidence/owner-acceptance-v10/owner-verifier-binary.stdout"
+        },
+        {
+          "content_hash": "35f3a584c67a9e170376c16fc6bf4526ab1ffafc5f9293c79f27d636e6e87aa0",
+          "exists": true,
+          "path": "./.cairn/changes/publish-mantle-producer-handoff/evidence/owner-acceptance-v10/producer-artifact-verification.json"
+        },
+        {
+          "content_hash": "2d62d217e09ab4486e71c14f29ff6a59284146cf90b8a2d93f9e54efa8e85b6c",
+          "exists": true,
+          "path": "./.cairn/changes/publish-mantle-producer-handoff/evidence/owner-acceptance-v10/producer-prove.json"
+        },
+        {
+          "content_hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+          "exists": true,
+          "path": "./.cairn/changes/publish-mantle-producer-handoff/evidence/owner-acceptance-v10/registry-contract.stderr"
+        },
+        {
+          "content_hash": "b78e798b00e440af860d9dd73edb503877fa081652346a37a6b3a9ba19be5739",
+          "exists": true,
+          "path": "./.cairn/changes/publish-mantle-producer-handoff/evidence/owner-acceptance-v10/registry-contract.stdout"
+        },
+        {
+          "content_hash": "048a385d9af8f83d3adcb69f6c964f99409dddfeb6f44ea0503a9708273aacbf",
+          "exists": true,
+          "path": "./.cairn/changes/publish-mantle-producer-handoff/evidence/owner-acceptance-v10/reject-incompatible-original-wire.stderr"
+        },
+        {
+          "content_hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+          "exists": true,
+          "path": "./.cairn/changes/publish-mantle-producer-handoff/evidence/owner-acceptance-v10/reject-incompatible-original-wire.stdout"
+        },
+        {
+          "content_hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+          "exists": true,
+          "path": "./.cairn/changes/publish-mantle-producer-handoff/evidence/owner-acceptance-v10/reject-tampered-real-proof.stderr"
+        },
+        {
+          "content_hash": "184369ec0934c5133849a54947f4364985c181acf89b0589416f0f0c62a89467",
+          "exists": true,
+          "path": "./.cairn/changes/publish-mantle-producer-handoff/evidence/owner-acceptance-v10/reject-tampered-real-proof.stdout"
+        },
+        {
+          "content_hash": "32c8a054f85f214dd272b54f1d49dff04a7755cdc61840ab4e02aca8144885b3",
+          "exists": true,
+          "path": "./.cairn/changes/publish-mantle-producer-handoff/evidence/owner-acceptance-v10/results.json"
+        },
+        {
+          "content_hash": "61c6af6cc7badc2a3774448689b90e863064b6b30b48b208a468924f20bc89be",
+          "exists": true,
+          "path": "./.cairn/changes/publish-mantle-producer-handoff/evidence/owner-acceptance-v10/source-revision"
+        },
+        {
+          "content_hash": "36c72c04702241b0f6bd111ed97d8abc884013769be3a1f8dea7b2eeb9da84ee",
+          "exists": true,
+          "path": "./.cairn/changes/publish-mantle-producer-handoff/evidence/owner-acceptance-v10/valence-provenance.json"
+        },
+        {
+          "content_hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+          "exists": true,
+          "path": "./.cairn/changes/publish-mantle-producer-handoff/evidence/owner-acceptance-v10/verify-real-proof-payload.stderr"
+        },
+        {
+          "content_hash": "35f3a584c67a9e170376c16fc6bf4526ab1ffafc5f9293c79f27d636e6e87aa0",
+          "exists": true,
+          "path": "./.cairn/changes/publish-mantle-producer-handoff/evidence/owner-acceptance-v10/verify-real-proof-payload.stdout"
+        },
+        {
+          "content_hash": "df8b71bae570eb5accd702e7370a816b8ea9f2e4521254c5d75ea82a9cfcf4db",
+          "exists": true,
+          "path": "./.cairn/changes/publish-mantle-producer-handoff/metadata.json"
+        },
+        {
+          "content_hash": "4072b69f294ddba60e035bba43c8797c7dfee417e01e4bc80bf98da40aa1f2e9",
+          "exists": true,
+          "path": "./.cairn/changes/publish-mantle-producer-handoff/proposal.md"
+        },
+        {
+          "content_hash": "d279a89bb8b83af7be09a5965ec3c4822dc6df703bc14bb6ef7d99655371ac68",
+          "exists": true,
+          "path": "./.cairn/changes/publish-mantle-producer-handoff/specs/mantle-producer-handoff/spec.md"
+        },
+        {
+          "content_hash": "ccf504213915b54c71c09b1cf9fbc56b4016f4ac1b1480a2f554d0ae6ed1344b",
+          "exists": true,
+          "path": "./.cairn/changes/publish-mantle-producer-handoff/tasks.md"
+        }
+      ],
+      "manifest_hash": "c51a07c1c98c6d5978b42ceb73d1e5200d8b20c037beec1f47cc37a47b12642e"
+    },
+    "kind": "archive",
+    "manifest_hash": "58ab4c21aa99dd7bb50b7cf55693e03fbbfc0c37796f72a64653d4fe315497c3"
+  },
+  "non_claims": [
+    "workflow state proves only the selected policy graph and observed structural artifact facts",
+    "workflow instructions do not prove artifact truth, review quality, or implementation correctness",
+    "workflow state does not satisfy proposal, design, tasks, sync, archive, evidence, or release gates",
+    "workflow commands are read-only and do not create, edit, delete, or approve lifecycle artifacts"
+  ],
+  "plan_hash": "77ba6fe5132403520f575b7ff8a4f043af0bfd1f5b84c74c2c00f56b613009a8",
+  "policy": "octet-default",
+  "policy_hash": "62e40f642e798bfaf5a68a495a7456bcf4e9fd8106ae2f52a24100967b39df5d",
+  "profile_identity_hash": "ace844663d39e18431eba396ad8ce7198f97581744b3f2df41a0aafe110ed5d0",
+  "reasons": [],
+  "receipt_hash": "fc7a24163b57f822cb9fef7fb154c577b97910be9d2ef949fba8ffe5ca801b14",
+  "review_receipt_hashes": [],
+  "spec_effect": "delta",
+  "workflow_profile": "spec-driven",
+  "workflow_profile_compatibility_fallback": false,
+  "workflow_profile_source": "change_create",
+  "workflow_profile_version": 1
+}
