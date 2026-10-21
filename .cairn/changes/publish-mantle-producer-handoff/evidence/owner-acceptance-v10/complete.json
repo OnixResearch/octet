@@ -1,0 +1,314 @@
+{
+  "revision": "9237f931e8e65dd4254011839d5fd207f2ad85a5",
+  "source": "/home/brittonr/mantle-cairn-finish/xrepo/octet-mantle-producer-20261020",
+  "source_blake3": [
+    {
+      "path": "flake.nix",
+      "blake3": "9d39dfc4fa5886e4ef8042c87eb62b8af286f915a620935c9a9b1c65324f2896"
+    },
+    {
+      "path": "standards/policies/registry.ncl",
+      "blake3": "25aaa32a9f375bd368ffdf7790861d43d8d76db09156d0aff7bce6ef3f4e8997"
+    },
+    {
+      "path": "docs/aeneas-consumer-contract.md",
+      "blake3": "72fa8df54ccf5fb2fc196cbd768b8d2cea07c2df894c52461d65989a8ef020b8"
+    },
+    {
+      "path": "nix/mantle-aeneas-job.nix",
+      "blake3": "6cdb7b0442b78ca4abf97f187c8bf6217b9f4086dd785bc4b1428c23726ff0b9"
+    },
+    {
+      "path": "standards/proof-rails/aeneas-lean/mantle-job.ncl",
+      "blake3": "b7fef80e61fefc2068efd8921e0491792cd154e683a408fb976a8e3ce807cddf"
+    },
+    {
+      "path": "tools/mantle-producer/export.py",
+      "blake3": "1ac2d7bfc07260514d45023d9bdfdb33d9979b0425a9cebfa7f4a7f3c32bf54d"
+    },
+    {
+      "path": "tools/mantle-producer/test_export.py",
+      "blake3": "d12c5ec8d9448a55379070c73f3e78bc0c5349381c7f38a126cd0601de6ee401"
+    }
+  ],
+  "records": [
+    {
+      "label": "job-contract",
+      "command": [
+        "/nix/store/ck3a4k9az87z5rjwgy8nmpcs34xp9cc5-nickel-lang-rev-fixup-1.17.0/bin/nickel",
+        "export",
+        "--format",
+        "json",
+        "standards/proof-rails/aeneas-lean/mantle-job.ncl"
+      ],
+      "cwd": "/home/brittonr/mantle-cairn-finish/xrepo/octet-mantle-producer-20261020",
+      "exit": 0,
+      "expected": 0,
+      "elapsed_s": 0.06426986493170261
+    },
+    {
+      "label": "registry-contract",
+      "command": [
+        "/nix/store/ck3a4k9az87z5rjwgy8nmpcs34xp9cc5-nickel-lang-rev-fixup-1.17.0/bin/nickel",
+        "export",
+        "--format",
+        "json",
+        "standards/policies/registry.ncl"
+      ],
+      "cwd": "/home/brittonr/mantle-cairn-finish/xrepo/octet-mantle-producer-20261020",
+      "exit": 0,
+      "expected": 0,
+      "elapsed_s": 0.21429418586194515
+    },
+    {
+      "label": "nix-export-check",
+      "command": [
+        "/nix/store/kgwqirnzhflf9vmrkzgqz16z2bry397z-nix-2.34.8/bin/nix",
+        "build",
+        "--no-link",
+        "--no-write-lock-file",
+        "git+file:///home/brittonr/mantle-cairn-finish/xrepo/octet-mantle-producer-20261020?rev=9237f931e8e65dd4254011839d5fd207f2ad85a5#checks.x86_64-linux.mantle-producer-export"
+      ],
+      "cwd": "/home/brittonr/mantle-cairn-finish/xrepo/octet-mantle-producer-20261020",
+      "exit": 0,
+      "expected": 0,
+      "elapsed_s": 6.526849567890167
+    },
+    {
+      "label": "owner-policy-check",
+      "command": [
+        "/nix/store/kgwqirnzhflf9vmrkzgqz16z2bry397z-nix-2.34.8/bin/nix",
+        "build",
+        "--no-link",
+        "--no-write-lock-file",
+        "git+file:///home/brittonr/mantle-cairn-finish/xrepo/octet-mantle-producer-20261020?rev=9237f931e8e65dd4254011839d5fd207f2ad85a5#checks.x86_64-linux.policy-registry"
+      ],
+      "cwd": "/home/brittonr/mantle-cairn-finish/xrepo/octet-mantle-producer-20261020",
+      "exit": 0,
+      "expected": 0,
+      "elapsed_s": 8.982210142537951
+    },
+    {
+      "label": "owner-consumer-contract-check",
+      "command": [
+        "/nix/store/kgwqirnzhflf9vmrkzgqz16z2bry397z-nix-2.34.8/bin/nix",
+        "build",
+        "--no-link",
+        "--no-write-lock-file",
+        "git+file:///home/brittonr/mantle-cairn-finish/xrepo/octet-mantle-producer-20261020?rev=9237f931e8e65dd4254011839d5fd207f2ad85a5#checks.x86_64-linux.aeneas-consumer-contract"
+      ],
+      "cwd": "/home/brittonr/mantle-cairn-finish/xrepo/octet-mantle-producer-20261020",
+      "exit": 0,
+      "expected": 0,
+      "elapsed_s": 9.48305291403085
+    },
+    {
+      "label": "actual-source-export",
+      "command": [
+        "/nix/store/0r6k8xa2kgqyp3r4v2w7yrb80ma2iawm-python3-3.13.12/bin/python3.13",
+        "-B",
+        "/home/brittonr/mantle-cairn-finish/xrepo/octet-mantle-producer-20261020/tools/mantle-producer/export.py",
+        "--nix",
+        "/nix/store/kgwqirnzhflf9vmrkzgqz16z2bry397z-nix-2.34.8/bin/nix",
+        "--nickel",
+        "/nix/store/ck3a4k9az87z5rjwgy8nmpcs34xp9cc5-nickel-lang-rev-fixup-1.17.0/bin/nickel",
+        "--revision",
+        "9237f931e8e65dd4254011839d5fd207f2ad85a5",
+        "--flake",
+        "git+file:///home/brittonr/mantle-cairn-finish/xrepo/octet-mantle-producer-20261020?rev=9237f931e8e65dd4254011839d5fd207f2ad85a5",
+        "--graph-format",
+        "nix-derivation-show-v4",
+        "--out",
+        "/home/brittonr/mantle-cairn-finish/runs/octet-mantle-producer-acceptance-20261020-v10/export"
+      ],
+      "cwd": "/home/brittonr/mantle-cairn-finish/xrepo/octet-mantle-producer-20261020",
+      "exit": 0,
+      "expected": 0,
+      "elapsed_s": 22.661168090067804
+    },
+    {
+      "label": "native-gate-proposal",
+      "command": [
+        "/nix/store/ynjawpza9ci9i8ha7f3ywaqwbd60m83k-cairn-0.1.0/bin/cairn",
+        "gate",
+        "proposal",
+        "publish-mantle-producer-handoff",
+        "--root",
+        "."
+      ],
+      "cwd": "/home/brittonr/mantle-cairn-finish/xrepo/octet-mantle-producer-20261020",
+      "exit": 0,
+      "expected": 0,
+      "elapsed_s": 0.03252315986901522
+    },
+    {
+      "label": "native-gate-design",
+      "command": [
+        "/nix/store/ynjawpza9ci9i8ha7f3ywaqwbd60m83k-cairn-0.1.0/bin/cairn",
+        "gate",
+        "design",
+        "publish-mantle-producer-handoff",
+        "--root",
+        "."
+      ],
+      "cwd": "/home/brittonr/mantle-cairn-finish/xrepo/octet-mantle-producer-20261020",
+      "exit": 0,
+      "expected": 0,
+      "elapsed_s": 0.015804662369191647
+    },
+    {
+      "label": "native-gate-tasks",
+      "command": [
+        "/nix/store/ynjawpza9ci9i8ha7f3ywaqwbd60m83k-cairn-0.1.0/bin/cairn",
+        "gate",
+        "tasks",
+        "publish-mantle-producer-handoff",
+        "--root",
+        "."
+      ],
+      "cwd": "/home/brittonr/mantle-cairn-finish/xrepo/octet-mantle-producer-20261020",
+      "exit": 0,
+      "expected": 0,
+      "elapsed_s": 0.015804752707481384
+    },
+    {
+      "label": "owner-job-build-plan",
+      "command": [
+        "/nix/store/kgwqirnzhflf9vmrkzgqz16z2bry397z-nix-2.34.8/bin/nix",
+        "build",
+        "--dry-run",
+        "--no-link",
+        "--no-write-lock-file",
+        "git+file:///home/brittonr/mantle-cairn-finish/xrepo/octet-mantle-producer-20261020?rev=9237f931e8e65dd4254011839d5fd207f2ad85a5#packages.x86_64-linux.octet-mantle-aeneas-consumer-job"
+      ],
+      "cwd": "/home/brittonr/mantle-cairn-finish/xrepo/octet-mantle-producer-20261020",
+      "exit": 0,
+      "expected": 0,
+      "elapsed_s": 3.2201993633061647
+    },
+    {
+      "label": "actual-owner-job",
+      "command": [
+        "/nix/store/kgwqirnzhflf9vmrkzgqz16z2bry397z-nix-2.34.8/bin/nix",
+        "build",
+        "--no-link",
+        "--print-out-paths",
+        "--no-write-lock-file",
+        "--keep-failed",
+        "--max-jobs",
+        "1",
+        "--cores",
+        "32",
+        "-L",
+        "git+file:///home/brittonr/mantle-cairn-finish/xrepo/octet-mantle-producer-20261020?rev=9237f931e8e65dd4254011839d5fd207f2ad85a5#packages.x86_64-linux.octet-mantle-aeneas-consumer-job"
+      ],
+      "cwd": "/home/brittonr/mantle-cairn-finish/xrepo/octet-mantle-producer-20261020",
+      "exit": 0,
+      "expected": 0,
+      "elapsed_s": 581.1157538378611
+    },
+    {
+      "label": "owner-verifier-binary",
+      "command": [
+        "/nix/store/kgwqirnzhflf9vmrkzgqz16z2bry397z-nix-2.34.8/bin/nix",
+        "build",
+        "--no-link",
+        "--print-out-paths",
+        "--no-write-lock-file",
+        "git+file:///home/brittonr/mantle-cairn-finish/xrepo/octet-mantle-producer-20261020?rev=9237f931e8e65dd4254011839d5fd207f2ad85a5#cargo-octet"
+      ],
+      "cwd": "/home/brittonr/mantle-cairn-finish/xrepo/octet-mantle-producer-20261020",
+      "exit": 0,
+      "expected": 0,
+      "elapsed_s": 19.557777137495577
+    },
+    {
+      "label": "verify-real-proof-payload",
+      "command": [
+        "/nix/store/1kivmns62dfcyqbkgmm4jjlm5x0vgqp1-cargo-octet-0.1.0/bin/cargo-octet",
+        "artifact",
+        "verify",
+        "--artifact-dir",
+        "/nix/store/zvg32hisd2zz07hyszw3259l66rm95sl-octet-mantle-aeneas-consumer-job-v1/artifacts",
+        "--format",
+        "json"
+      ],
+      "cwd": "/home/brittonr/mantle-cairn-finish/xrepo/octet-mantle-producer-20261020",
+      "exit": 0,
+      "expected": 0,
+      "elapsed_s": 0.008077169768512249
+    },
+    {
+      "label": "reject-tampered-real-proof",
+      "command": [
+        "/nix/store/1kivmns62dfcyqbkgmm4jjlm5x0vgqp1-cargo-octet-0.1.0/bin/cargo-octet",
+        "artifact",
+        "verify",
+        "--artifact-dir",
+        "/home/brittonr/mantle-cairn-finish/runs/octet-mantle-producer-acceptance-20261020-v10/tampered-artifacts",
+        "--format",
+        "json"
+      ],
+      "cwd": "/home/brittonr/mantle-cairn-finish/xrepo/octet-mantle-producer-20261020",
+      "exit": 1,
+      "expected": 1,
+      "elapsed_s": 0.007768677547574043
+    },
+    {
+      "label": "reject-incompatible-original-wire",
+      "command": [
+        "/nix/store/0r6k8xa2kgqyp3r4v2w7yrb80ma2iawm-python3-3.13.12/bin/python3.13",
+        "-B",
+        "/home/brittonr/mantle-cairn-finish/xrepo/octet-mantle-producer-20261020/tools/mantle-producer/export.py",
+        "--nix",
+        "/nix/store/kgwqirnzhflf9vmrkzgqz16z2bry397z-nix-2.34.8/bin/nix",
+        "--nickel",
+        "/nix/store/ck3a4k9az87z5rjwgy8nmpcs34xp9cc5-nickel-lang-rev-fixup-1.17.0/bin/nickel",
+        "--revision",
+        "9237f931e8e65dd4254011839d5fd207f2ad85a5",
+        "--flake",
+        "git+file:///home/brittonr/mantle-cairn-finish/xrepo/octet-mantle-producer-20261020?rev=9237f931e8e65dd4254011839d5fd207f2ad85a5",
+        "--graph-format",
+        "nix-derivation-show-legacy",
+        "--out",
+        "/home/brittonr/mantle-cairn-finish/runs/octet-mantle-producer-acceptance-20261020-v10/incompatible-wire"
+      ],
+      "cwd": "/home/brittonr/mantle-cairn-finish/xrepo/octet-mantle-producer-20261020",
+      "exit": 1,
+      "expected": 1,
+      "elapsed_s": 15.44497134257108
+    }
+  ],
+  "export": "/home/brittonr/mantle-cairn-finish/runs/octet-mantle-producer-acceptance-20261020-v10/export",
+  "actual_owner_output": "/nix/store/zvg32hisd2zz07hyszw3259l66rm95sl-octet-mantle-aeneas-consumer-job-v1",
+  "preserved_artifacts": [
+    {
+      "path": "producer-prove.json",
+      "blake3": "2d62d217e09ab4486e71c14f29ff6a59284146cf90b8a2d93f9e54efa8e85b6c"
+    },
+    {
+      "path": "producer-artifact-verification.json",
+      "blake3": "35f3a584c67a9e170376c16fc6bf4526ab1ffafc5f9293c79f27d636e6e87aa0"
+    },
+    {
+      "path": "external-receipt.json",
+      "blake3": "38a31cc536604a75d572c007743ed8103c9bd9b6b688556fb9f7de6b151e08d7"
+    },
+    {
+      "path": "external-profile.json",
+      "blake3": "62bb3c01a2037eef1410e35d3902d73fb5e7439e8856d721d0823e14c0af4879"
+    },
+    {
+      "path": "job.json",
+      "blake3": "c52719ffc27d504f56b88bc2eae2c70739b5c95f500d1c7dc424773b03692ac1"
+    },
+    {
+      "path": "valence-provenance.json",
+      "blake3": "36c72c04702241b0f6bd111ed97d8abc884013769be3a1f8dea7b2eeb9da84ee"
+    }
+  ],
+  "owner_job_executed": true,
+  "external_proof_accepted": true,
+  "mantle_acceptance": false,
+  "release_authority": false
+}

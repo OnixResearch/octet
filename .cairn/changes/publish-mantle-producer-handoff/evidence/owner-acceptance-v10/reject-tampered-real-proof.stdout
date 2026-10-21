@@ -1,0 +1,199 @@
+{
+  "schema_version": 1,
+  "artifact_dir": "/home/brittonr/mantle-cairn-finish/runs/octet-mantle-producer-acceptance-20261020-v10/tampered-artifacts",
+  "output_format": "json",
+  "status": "invalid",
+  "artifacts": [
+    {
+      "artifact": "command.txt",
+      "source_id": "octet.runner.artifact-bundle",
+      "checker_id": "cargo-octet",
+      "evidence_tier": "manual_review_required",
+      "blake3": "9f0a31d69a63e92f00a69792e4115e15035ac174e087f6372320281e74539f22",
+      "checked_scope": "profile:prove-verification",
+      "manual_action": "review cargo octet prove command, status, and scoped proof receipt before release"
+    },
+    {
+      "artifact": "proof-cards.json",
+      "source_id": "octet.runner.artifact-bundle",
+      "checker_id": "cargo-octet",
+      "evidence_tier": "manual_review_required",
+      "blake3": "349a91932f43ebdeca9dd9dcb12e22fffcff11a0dad9c54cb9e72864849dcac9",
+      "checked_scope": "profile:prove-verification",
+      "manual_action": "review proof cards with matching receipt, provenance, and cargo octet artifact verify output before release"
+    },
+    {
+      "artifact": "proofs/aeneas/Llbc.lean",
+      "source_id": "octet.standards.formal-proof",
+      "checker_id": "octet-standards",
+      "evidence_tier": "formal_proof",
+      "blake3": "417f6e10736a1267c42deac018402ee17384d0a433d35c524e11372c3be5beb3",
+      "checked_scope": "formal-proof:external-consumer:octet.aeneas_consumer_contract.external-fixture#rail-0"
+    },
+    {
+      "artifact": "proofs/aeneas/aeneas-command.json",
+      "source_id": "octet.standards.formal-proof",
+      "checker_id": "octet-standards",
+      "evidence_tier": "formal_proof",
+      "blake3": "7255d9366ad9340a5abcb82a970c8b8f461739e90274b2698db2f3b4ffb3880b",
+      "checked_scope": "formal-proof:external-consumer:octet.aeneas_consumer_contract.external-fixture#rail-0"
+    },
+    {
+      "artifact": "proofs/aeneas/aeneas-lean-library.json",
+      "source_id": "octet.standards.formal-proof",
+      "checker_id": "octet-standards",
+      "evidence_tier": "formal_proof",
+      "blake3": "c16344b6008749131ab6b5ba03881740fb8a75f4f3dde2adb1679aa8e073252d",
+      "checked_scope": "formal-proof:external-consumer:octet.aeneas_consumer_contract.external-fixture#rail-0"
+    },
+    {
+      "artifact": "proofs/aeneas/charon-command.json",
+      "source_id": "octet.standards.formal-proof",
+      "checker_id": "octet-standards",
+      "evidence_tier": "formal_proof",
+      "blake3": "3d546d9090d3331d821aa2f328c7323f9b2aca9bf1836f14d4804fa94b992aef",
+      "checked_scope": "formal-proof:external-consumer:octet.aeneas_consumer_contract.external-fixture#rail-0"
+    },
+    {
+      "artifact": "proofs/aeneas/charon-options.json",
+      "source_id": "octet.standards.formal-proof",
+      "checker_id": "octet-standards",
+      "evidence_tier": "formal_proof",
+      "blake3": "628826f12a1951a45e105272e54328586bbc1591b25d74bf8a5afc9453b5ff95",
+      "checked_scope": "formal-proof:external-consumer:octet.aeneas_consumer_contract.external-fixture#rail-0"
+    },
+    {
+      "artifact": "proofs/aeneas/checker-result.json",
+      "source_id": "octet.standards.formal-proof",
+      "checker_id": "octet-standards",
+      "evidence_tier": "formal_proof",
+      "blake3": "6f22675e95c98edcf9ace87cbc9f02ffba770c583b37e782d321c18f2863c952",
+      "checked_scope": "formal-proof:external-consumer:octet.aeneas_consumer_contract.external-fixture#rail-0"
+    },
+    {
+      "artifact": "proofs/aeneas/external-models.json",
+      "source_id": "octet.standards.formal-proof",
+      "checker_id": "octet-standards",
+      "evidence_tier": "formal_proof",
+      "blake3": "9fa8dc9570625be2be53d308f958332981ec8fb8137d3dd7ba0ae5da317eaa7d",
+      "checked_scope": "formal-proof:external-consumer:octet.aeneas_consumer_contract.external-fixture#rail-0"
+    },
+    {
+      "artifact": "proofs/aeneas/lean-command.json",
+      "source_id": "octet.standards.formal-proof",
+      "checker_id": "octet-standards",
+      "evidence_tier": "formal_proof",
+      "blake3": "130be6eabfed0fe39289c1ac21e2ec592be79a94f9e693bc5634817a0e524325",
+      "checked_scope": "formal-proof:external-consumer:octet.aeneas_consumer_contract.external-fixture#rail-0"
+    },
+    {
+      "artifact": "proofs/aeneas/lean-toolchain",
+      "source_id": "octet.standards.formal-proof",
+      "checker_id": "octet-standards",
+      "evidence_tier": "formal_proof",
+      "blake3": "4ff9ff39f3ec4e1015d318f317230c2a568a3aded1b49c07a9ab814af2cdbefa",
+      "checked_scope": "formal-proof:external-consumer:octet.aeneas_consumer_contract.external-fixture#rail-0"
+    },
+    {
+      "artifact": "proofs/aeneas/llbc.llbc",
+      "source_id": "octet.standards.formal-proof",
+      "checker_id": "octet-standards",
+      "evidence_tier": "formal_proof",
+      "blake3": "a4d7eb6892d949ad0b5c50bb1a5a0d54deb7a81732a6d7e760326db6b49cd7b2",
+      "checked_scope": "formal-proof:external-consumer:octet.aeneas_consumer_contract.external-fixture#rail-0"
+    },
+    {
+      "artifact": "proofs/aeneas/package-lock.json",
+      "source_id": "octet.standards.formal-proof",
+      "checker_id": "octet-standards",
+      "evidence_tier": "formal_proof",
+      "blake3": "a90f0bc8c3ab6544519d582a901324b218242e006e4f53236a4f486b3ed07a7d",
+      "checked_scope": "formal-proof:external-consumer:octet.aeneas_consumer_contract.external-fixture#rail-0"
+    },
+    {
+      "artifact": "proofs/aeneas/provider-profile.json",
+      "source_id": "octet.standards.formal-proof",
+      "checker_id": "octet-standards",
+      "evidence_tier": "formal_proof",
+      "blake3": "cd11b49d1acede2c6a91fa26f0b7a6b4b28db4007b4601a65b3269706a0ce625",
+      "checked_scope": "formal-proof:external-consumer:octet.aeneas_consumer_contract.external-fixture#rail-0"
+    },
+    {
+      "artifact": "proofs/aeneas/source/src/lib.rs",
+      "source_id": "octet.standards.formal-proof",
+      "checker_id": "octet-standards",
+      "evidence_tier": "formal_proof",
+      "blake3": "691e8de8b8f92665dd00b938b48b398b451c71a06c99dae10b38b38184d4dddd",
+      "checked_scope": "formal-proof:external-consumer:octet.aeneas_consumer_contract.external-fixture#rail-0"
+    },
+    {
+      "artifact": "proofs/aeneas/theorem-adequacy.json",
+      "source_id": "octet.standards.formal-proof",
+      "checker_id": "octet-standards",
+      "evidence_tier": "formal_proof",
+      "blake3": "dbda19205e0a5202032ed61b4dae184a68f00af38161324416ae2a4f1ecc5eb4",
+      "checked_scope": "formal-proof:external-consumer:octet.aeneas_consumer_contract.external-fixture#rail-0"
+    },
+    {
+      "artifact": "proofs/aeneas/theorem-statement.lean",
+      "source_id": "octet.standards.formal-proof",
+      "checker_id": "octet-standards",
+      "evidence_tier": "formal_proof",
+      "blake3": "776e9f85261080fbcfd75cb481c4f563cff50ffefaf8bdaae3d5fad010d8c77f",
+      "checked_scope": "formal-proof:external-consumer:octet.aeneas_consumer_contract.external-fixture#rail-0"
+    },
+    {
+      "artifact": "proofs/aeneas/theorem.lean",
+      "source_id": "octet.standards.formal-proof",
+      "checker_id": "octet-standards",
+      "evidence_tier": "formal_proof",
+      "blake3": "776e9f85261080fbcfd75cb481c4f563cff50ffefaf8bdaae3d5fad010d8c77f",
+      "checked_scope": "formal-proof:external-consumer:octet.aeneas_consumer_contract.external-fixture#rail-0"
+    },
+    {
+      "artifact": "proofs/aeneas/translation.json",
+      "source_id": "octet.standards.formal-proof",
+      "checker_id": "octet-standards",
+      "evidence_tier": "formal_proof",
+      "blake3": "ac9089c17b063507da0515308a099eafe255e22605c0d9e633d6bb89b23b0abb",
+      "checked_scope": "formal-proof:external-consumer:octet.aeneas_consumer_contract.external-fixture#rail-0"
+    },
+    {
+      "artifact": "proofs/aeneas/trust-closure.json",
+      "source_id": "octet.standards.formal-proof",
+      "checker_id": "octet-standards",
+      "evidence_tier": "formal_proof",
+      "blake3": "021c033fb39bbf2ba3ef4d1e14a473e5988c1b464978881ec720c3b4e01d8379",
+      "checked_scope": "formal-proof:external-consumer:octet.aeneas_consumer_contract.external-fixture#rail-0"
+    },
+    {
+      "artifact": "proofs/octet.aeneas_consumer_contract.external-fixture-rail-0.receipt",
+      "source_id": "octet.standards.formal-proof",
+      "checker_id": "octet-standards",
+      "evidence_tier": "formal_proof",
+      "blake3": "38a31cc536604a75d572c007743ed8103c9bd9b6b688556fb9f7de6b151e08d7",
+      "checked_scope": "formal-proof:external-consumer:octet.aeneas_consumer_contract.external-fixture#rail-0"
+    },
+    {
+      "artifact": "status.json",
+      "source_id": "octet.runner.artifact-bundle",
+      "checker_id": "cargo-octet",
+      "evidence_tier": "manual_review_required",
+      "blake3": "f694e9a6b94bf4a9842b3171730035c8656e1fc71ecc09d7debff9d9af472068",
+      "checked_scope": "profile:prove-verification",
+      "manual_action": "review cargo octet prove command, status, and scoped proof receipt before release"
+    },
+    {
+      "artifact": "summary.txt",
+      "source_id": "octet.runner.artifact-bundle",
+      "checker_id": "cargo-octet",
+      "evidence_tier": "manual_review_required",
+      "blake3": "6547735798af9de63a6127d3fd354f693a28a2c9e395fa8a636be6ec42dc74fa",
+      "checked_scope": "profile:prove-verification",
+      "manual_action": "review cargo octet prove command, status, and scoped proof receipt before release"
+    }
+  ],
+  "diagnostics": [
+    "hash mismatch for artifact locator `proofs/aeneas/Llbc.lean`; expected blake3 2c4231131ba1f02a5c594e09973ce23568251e24aff7b4ecce938d183250405d, got 417f6e10736a1267c42deac018402ee17384d0a433d35c524e11372c3be5beb3"
+  ]
+}

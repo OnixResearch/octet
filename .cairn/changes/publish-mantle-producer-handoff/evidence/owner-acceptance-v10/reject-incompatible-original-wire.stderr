@@ -1,0 +1,7 @@
+Traceback (most recent call last):
+  File "/home/brittonr/mantle-cairn-finish/xrepo/octet-mantle-producer-20261020/tools/mantle-producer/export.py", line 176, in <module>
+    main()
+    ~~~~^^
+  File "/home/brittonr/mantle-cairn-finish/xrepo/octet-mantle-producer-20261020/tools/mantle-producer/export.py", line 140, in main
+    raise ValueError("exported graph format differs from explicit consumer contract")
+ValueError: exported graph format differs from explicit consumer contract

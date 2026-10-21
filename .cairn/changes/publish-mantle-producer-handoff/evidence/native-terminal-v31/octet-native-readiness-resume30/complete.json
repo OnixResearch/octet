@@ -1,0 +1,112 @@
+{
+  "revision": "9237f931e8e65dd4254011839d5fd207f2ad85a5",
+  "records": [
+    {
+      "label": "retained-proof-output-root",
+      "command": [
+        "nix-store",
+        "--add-root",
+        "/home/brittonr/mantle-cairn-finish/retained-octet-producer-9237f931",
+        "--indirect",
+        "--realise",
+        "/nix/store/zvg32hisd2zz07hyszw3259l66rm95sl-octet-mantle-aeneas-consumer-job-v1"
+      ],
+      "cwd": "/home/brittonr/mantle-cairn-finish/xrepo/octet-mantle-producer-20261020",
+      "exit": 0,
+      "elapsed_s": 0.06448592524975538
+    },
+    {
+      "label": "native-validation",
+      "command": [
+        "/nix/store/ynjawpza9ci9i8ha7f3ywaqwbd60m83k-cairn-0.1.0/bin/cairn",
+        "validate",
+        "--root",
+        "."
+      ],
+      "cwd": "/home/brittonr/mantle-cairn-finish/xrepo/octet-mantle-producer-20261020",
+      "exit": 0,
+      "elapsed_s": 0.06424993090331554
+    },
+    {
+      "label": "proposal-gate",
+      "command": [
+        "/nix/store/ynjawpza9ci9i8ha7f3ywaqwbd60m83k-cairn-0.1.0/bin/cairn",
+        "gate",
+        "proposal",
+        "publish-mantle-producer-handoff",
+        "--root",
+        "."
+      ],
+      "cwd": "/home/brittonr/mantle-cairn-finish/xrepo/octet-mantle-producer-20261020",
+      "exit": 0,
+      "elapsed_s": 0.03209607116878033
+    },
+    {
+      "label": "design-gate",
+      "command": [
+        "/nix/store/ynjawpza9ci9i8ha7f3ywaqwbd60m83k-cairn-0.1.0/bin/cairn",
+        "gate",
+        "design",
+        "publish-mantle-producer-handoff",
+        "--root",
+        "."
+      ],
+      "cwd": "/home/brittonr/mantle-cairn-finish/xrepo/octet-mantle-producer-20261020",
+      "exit": 0,
+      "elapsed_s": 0.031936570070683956
+    },
+    {
+      "label": "tasks-gate",
+      "command": [
+        "/nix/store/ynjawpza9ci9i8ha7f3ywaqwbd60m83k-cairn-0.1.0/bin/cairn",
+        "gate",
+        "tasks",
+        "publish-mantle-producer-handoff",
+        "--root",
+        "."
+      ],
+      "cwd": "/home/brittonr/mantle-cairn-finish/xrepo/octet-mantle-producer-20261020",
+      "exit": 0,
+      "elapsed_s": 0.015833711251616478
+    },
+    {
+      "label": "sync-plan",
+      "command": [
+        "/nix/store/ynjawpza9ci9i8ha7f3ywaqwbd60m83k-cairn-0.1.0/bin/cairn",
+        "sync",
+        "publish-mantle-producer-handoff",
+        "--root",
+        "."
+      ],
+      "cwd": "/home/brittonr/mantle-cairn-finish/xrepo/octet-mantle-producer-20261020",
+      "exit": 0,
+      "elapsed_s": 0.03185699041932821
+    },
+    {
+      "label": "archive-plan",
+      "command": [
+        "/nix/store/ynjawpza9ci9i8ha7f3ywaqwbd60m83k-cairn-0.1.0/bin/cairn",
+        "archive",
+        "publish-mantle-producer-handoff",
+        "--root",
+        "."
+      ],
+      "cwd": "/home/brittonr/mantle-cairn-finish/xrepo/octet-mantle-producer-20261020",
+      "exit": 0,
+      "elapsed_s": 0.031978389248251915
+    }
+  ],
+  "gate_verdicts": {
+    "proposal-gate": "PASS",
+    "design-gate": "PASS",
+    "tasks-gate": "PASS"
+  },
+  "sync_plan_blocked": false,
+  "archive_plan_blocked": true,
+  "archive_plan_reasons": [
+    "publish-mantle-producer-handoff: tasks not archive-ready (todo: 6, in_progress: 0, unmarked: 0)"
+  ],
+  "archive_executed": false,
+  "publication_implementation": "9237f931e8e65dd4254011839d5fd207f2ad85a5",
+  "release_authority": false
+}
