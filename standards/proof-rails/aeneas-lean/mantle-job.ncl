@@ -15,8 +15,8 @@ let Job = {
   provider | { path | NonEmpty, identity | NonEmpty },
   source | { root | NonEmpty, paths | Array NonEmpty, network_allowed | Bool },
   execution | { command_argv | Array String, artifact_verify_argv | Array String, rail_id | NonEmpty, network_allowed | Bool },
-  tools | { closure_format | NonEmpty, dependencies | Array NonEmpty, solver | NonEmpty },
-  limits | { timeout_ms | Number, stdout_max_bytes | Number, stderr_max_bytes | Number },
+  tools | { closure_format | NonEmpty, graph_formats | Array NonEmpty, dependencies | Array NonEmpty, solver | NonEmpty },
+  limits | { cores | Number, timeout_ms | Number, stdout_max_bytes | Number, stderr_max_bytes | Number },
   outputs | Array NonEmpty,
   non_claims | Array NonEmpty,
 } in
@@ -46,11 +46,14 @@ let Job = {
     network_allowed = false,
   },
   tools = {
-    closure_format = "nix-derivation-show-recursive-json; inputDrvs and inputSrcs are mandatory; flake.lock is preserved verbatim",
+    closure_format = "nix-derivation-show-recursive-json; preserve raw bytes and flake.lock; legacy uses absolute inputDrvs/inputSrcs, v4 uses basename derivations and inputs.drvs/inputs.srcs with explicit version 4",
+    graph_formats = ["nix-derivation-show-legacy", "nix-derivation-show-v4"],
     dependencies = ["cargo-octet", "octet-policy-artifacts", "octet-aeneas-lean-provider-closure", providerProfile.aeneas_revision, providerProfile.charon_revision, providerProfile.lean_toolchain, "flake.lock:mathlib-src", "flake.lock:nixpkgs", "flake.lock:aeneas"],
     solver = "none: this selected Aeneas/Charon/Lean rail invokes no external SMT solver; imported Verus evidence is not accepted by this job",
   },
   limits = {
+    # OCaml 5.2 reads CPU affinity, not NIX_BUILD_CORES, for domain fanout.
+    cores = 32,
     timeout_ms = consumer.resource_policy.timeout_ms,
     stdout_max_bytes = consumer.resource_policy.stdout_max_bytes,
     stderr_max_bytes = consumer.resource_policy.stderr_max_bytes,
