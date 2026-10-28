@@ -49,6 +49,7 @@ const WASM1_PROPOSAL: &str = "wasm1";
 const WASM2_PROPOSAL: &str = "wasm2";
 const WASM3_PROPOSAL: &str = "wasm3";
 const COMPONENT_MODEL_PROPOSAL: &str = "component-model";
+const BULK_MEMORY_PROPOSAL: &str = "bulk-memory";
 const PRODUCERS_SECTION: &str = "producers";
 const COMPONENT_WORLD_SEPARATOR: char = '/';
 const STANDALONE_HANDOFF: &str = "standalone";
@@ -725,6 +726,7 @@ fn validation_features(profile: &WasmArtifactProfile) -> WasmFeatures {
             WASM2_PROPOSAL => WasmFeatures::WASM2,
             WASM3_PROPOSAL => WasmFeatures::WASM3,
             COMPONENT_MODEL_PROPOSAL => WasmFeatures::COMPONENT_MODEL,
+            BULK_MEMORY_PROPOSAL => WasmFeatures::BULK_MEMORY,
             _ => WasmFeatures::empty(),
         };
     }
@@ -1171,8 +1173,10 @@ fn validate_profiles(profiles: &[WasmArtifactProfile], diagnostics: &mut Vec<Str
                 .push(format!("Wasm artifact profile `{}` has empty kind or proposal policy", profile.profile_id));
         }
         for proposal in &profile.allowed_proposals {
-            if !matches!(proposal.as_str(), WASM1_PROPOSAL | WASM2_PROPOSAL | WASM3_PROPOSAL | COMPONENT_MODEL_PROPOSAL)
-            {
+            if !matches!(
+                proposal.as_str(),
+                WASM1_PROPOSAL | WASM2_PROPOSAL | WASM3_PROPOSAL | COMPONENT_MODEL_PROPOSAL | BULK_MEMORY_PROPOSAL
+            ) {
                 diagnostics.push(format!(
                     "Wasm artifact profile `{}` names unknown proposal `{proposal}`",
                     profile.profile_id
@@ -1961,6 +1965,30 @@ mod tests {
             data: Cow::Owned(data.to_vec()),
         });
         module.finish()
+    }
+
+    #[test]
+    fn bulk_memory_proposal_is_recognized_and_enables_validation() {
+        let registry = valid_registry();
+        assert!(validate_registry(&registry).is_empty());
+        let profile = registry
+            .profiles
+            .iter()
+            .find(|profile| profile.profile_id == "molten-component-baseline")
+            .expect("molten profile");
+        assert!(profile.allowed_proposals.iter().any(|proposal| proposal == BULK_MEMORY_PROPOSAL));
+        assert!(validation_features(profile).contains(WasmFeatures::BULK_MEMORY));
+
+        let mut unknown = profile.clone();
+        unknown.allowed_proposals = vec![String::from("bulk-memory-unknown")];
+        let mut diagnostics = Vec::new();
+        validate_profiles(&[unknown], &mut diagnostics);
+        assert!(
+            diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.contains("names unknown proposal `bulk-memory-unknown`")),
+            "{diagnostics:?}"
+        );
     }
 
     fn module_with_duplicate_custom(name: &str) -> Vec<u8> {
