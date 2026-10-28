@@ -1,0 +1,14 @@
+{
+  "command": [
+    "cairn",
+    "gate",
+    "proposal",
+    "add-molten-component-effects-profile",
+    "--root",
+    "."
+  ],
+  "cwd": "/home/brittonr/git/OnixResearch/.worktrees/octet-effects-20261028",
+  "exit": 1,
+  "stdout": "",
+  "stderr": "error: failed to parse policy cairn-policy/generated/cairn-policy.json: cairn.workflow.profile.registry at workflow_profile_policy.schemas: initial workflow profile is missing: outcome-machine\n"
+}

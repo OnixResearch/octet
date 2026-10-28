@@ -1,0 +1,17 @@
+{
+  "command": [
+    "nix",
+    "develop",
+    "--builders",
+    "",
+    "-c",
+    "rustfmt",
+    "--edition",
+    "2024",
+    "cargo-octet/src/wasm_artifact.rs"
+  ],
+  "cwd": "/home/brittonr/git/OnixResearch/.worktrees/octet-effects-20261028",
+  "exit": 0,
+  "stdout": "",
+  "stderr": "building '/nix/store/n1qnd5h8050w2i90iv0yg3kdf9wfxihr-octet-standards-0.1.0.drv'...\nbuilding '/nix/store/dc448d7bxljpmlsaqwn1qwxi1lmjqsxv-nix-shell-env.drv'...\n"
+}

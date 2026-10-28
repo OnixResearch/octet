@@ -1,0 +1,23 @@
+{
+  "command": [
+    "cargo",
+    "test",
+    "--offline",
+    "--locked",
+    "-p",
+    "cargo-octet",
+    "wasm_artifact",
+    "--",
+    "--nocapture"
+  ],
+  "cwd": "/home/brittonr/git/OnixResearch/octet",
+  "environment_overrides": {
+    "CARGO_BUILD_JOBS": "2",
+    "CARGO_PROFILE_TEST_DEBUG": "0",
+    "CARGO_PROFILE_DEV_DEBUG": "0"
+  },
+  "exit": 101,
+  "duration_seconds": 0.358,
+  "stdout": "",
+  "stderr": "error: failed to get `bounded-exec` as a dependency of package `cargo-octet v0.1.0 (/home/brittonr/git/OnixResearch/octet/cargo-octet)`\n\nCaused by:\n  failed to load source for dependency `bounded-exec`\n\nCaused by:\n  unable to update https://github.com/OnixResearch/bounded-exec.git?rev=44eb74eb639194665ee820562d5b2ce2c3ff6a94#44eb74eb\n\nCaused by:\n  can't checkout from 'https://github.com/OnixResearch/bounded-exec.git': you are in the offline mode (--offline)\n"
+}

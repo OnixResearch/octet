@@ -1,0 +1,15 @@
+--- octet evidence rail summary ---
+Rail: wasm-artifact
+Checker: cargo-octet
+Status: passed
+Mode: import
+Workspace scope: .
+Input identity: b3:efdedb97d30c36dc16f2df0e468eebe3a944d2f53c79b878ca9fe22c9c9555ff
+Finding counts:
+Non-claims:
+  - Wasm artifact evidence records bounded static facts and does not prove execution correctness
+  - Matching normalized interfaces do not prove semantic equivalence or identify one implementation
+  - Static validation does not prove sandbox effectiveness, capability authority, provenance truth, release eligibility, or whole-system safety
+  - Producer metadata is recorded input and is not provenance truth
+Octet command: /home/brittonr/.cache/mantle-octet-profiles-20261028/octet-target/debug/cargo-octet evidence collect --rail wasm-artifact --input /home/brittonr/.cache/aspen-component-adoption-20261028/effect-profile-probe/normalized.wasm --config standards/wasm-artifact/generated/profiles.json --profile molten-component-effects-v1 --artifact-dir /home/brittonr/git/OnixResearch/.worktrees/octet-effects-20261028/.cairn/changes/add-molten-component-effects-profile/evidence/2026-10-28-effects-verification/real-effect-guest
+---

@@ -1,0 +1,516 @@
+{
+  "schema_version": "octet-evidence-rail-receipt/v1",
+  "rail_id": "wasm-artifact",
+  "checker_id": "cargo-octet",
+  "mode": "import",
+  "command_argv": [
+    "cargo",
+    "octet",
+    "evidence",
+    "collect",
+    "--rail",
+    "wasm-artifact"
+  ],
+  "workspace_scope": ".",
+  "config_path": "standards/wasm-artifact/generated/profiles.json",
+  "config_identity": "b3:f344d68c3106dcf25dc0b02231925229f2ee44128c4cc2aaf2251211f7729dfc",
+  "lockfile_identity": "b3:6a3ba693246bc6a1035f3c8d0b9eca68deeb53e587e01257d08565433a5a021c",
+  "checked_rule_families": [
+    "exact-byte-validation",
+    "module-component-classification",
+    "imports-exports-worlds",
+    "memory-table-growth-start",
+    "producer-and-custom-metadata",
+    "resource-limits",
+    "exact-and-interface-identities",
+    "recorded-only-valence-boundary"
+  ],
+  "status": "failed",
+  "finding_counts": {
+    "abi-mismatch": 3,
+    "disallowed-export": 1,
+    "disallowed-import": 5,
+    "malformed-artifact": 1,
+    "resource-limit": 2
+  },
+  "bounded_log_identity": "b3:9c1f2323fe5cdf9ad89762924c3bddce3272b2b0e94a08587ac257114e89eba4",
+  "imported_input_identity": "b3:9c1f2323fe5cdf9ad89762924c3bddce3272b2b0e94a08587ac257114e89eba4",
+  "profile": "molten-component-effects-v1",
+  "non_claims": [
+    "Wasm artifact evidence records bounded static facts and does not prove execution correctness",
+    "Matching normalized interfaces do not prove semantic equivalence or identify one implementation",
+    "Static validation does not prove sandbox effectiveness, capability authority, provenance truth, release eligibility, or whole-system safety",
+    "Producer metadata is recorded input and is not provenance truth"
+  ],
+  "diagnostics": [],
+  "findings": [
+    {
+      "family": "abi-mismatch",
+      "severity": "error",
+      "message": "required export `component::invoke::Func(list<u8>)->result<list<u8>,string>` is missing for profile `molten-component-effects-v1`",
+      "source_severity": "error",
+      "file": "wasm-artifact.bin"
+    },
+    {
+      "family": "abi-mismatch",
+      "severity": "error",
+      "message": "required import `component::effect-request::Func(list<u8>)->result<list<u8>,string>` is missing for profile `molten-component-effects-v1`",
+      "source_severity": "error",
+      "file": "wasm-artifact.bin"
+    },
+    {
+      "family": "abi-mismatch",
+      "severity": "error",
+      "message": "required import `component::preserves-payload::Type(list<u8>)` is missing for profile `molten-component-effects-v1`",
+      "source_severity": "error",
+      "file": "wasm-artifact.bin"
+    },
+    {
+      "family": "disallowed-export",
+      "severity": "error",
+      "message": "export `component::invoke::Func` is not allowed by profile `molten-component-effects-v1`",
+      "source_severity": "error",
+      "file": "wasm-artifact.bin"
+    },
+    {
+      "family": "disallowed-import",
+      "severity": "error",
+      "message": "import `$root::effect-request::Func(2)` is not allowed by profile `molten-component-effects-v1`",
+      "source_severity": "error",
+      "file": "wasm-artifact.bin"
+    },
+    {
+      "family": "disallowed-import",
+      "severity": "error",
+      "message": "import `::$imports::Table(TableType { element_type: funcref, table64: false, initial: 1, maximum: Some(1), shared: false })` is not allowed by profile `molten-component-effects-v1`",
+      "source_severity": "error",
+      "file": "wasm-artifact.bin"
+    },
+    {
+      "family": "disallowed-import",
+      "severity": "error",
+      "message": "import `::0::Func(0)` is not allowed by profile `molten-component-effects-v1`",
+      "source_severity": "error",
+      "file": "wasm-artifact.bin"
+    },
+    {
+      "family": "disallowed-import",
+      "severity": "error",
+      "message": "import `component::effect-request::Func(3)` is not allowed by profile `molten-component-effects-v1`",
+      "source_severity": "error",
+      "file": "wasm-artifact.bin"
+    },
+    {
+      "family": "disallowed-import",
+      "severity": "error",
+      "message": "import `component::preserves-payload::Type(Eq(0))` is not allowed by profile `molten-component-effects-v1`",
+      "source_severity": "error",
+      "file": "wasm-artifact.bin"
+    },
+    {
+      "family": "malformed-artifact",
+      "severity": "error",
+      "message": "wasmparser validation failed: zero byte expected (at offset 0x7f5)",
+      "source_severity": "error",
+      "file": "wasm-artifact.bin"
+    },
+    {
+      "family": "resource-limit",
+      "severity": "error",
+      "message": "imports count `5` exceeds profile limit `2`",
+      "source_severity": "error",
+      "file": "wasm-artifact.bin"
+    },
+    {
+      "family": "resource-limit",
+      "severity": "error",
+      "message": "tables count `3` exceeds profile limit `2`",
+      "source_severity": "error",
+      "file": "wasm-artifact.bin"
+    }
+  ],
+  "parent_artifacts": [],
+  "wasm_artifact": {
+    "profile_id": "molten-component-effects-v1",
+    "profile_identity": "b3:a7714f063cc429c43a48f10b6d9902de193c16e8e499f7839796313cb851cc64",
+    "registry_identity": "b3:f344d68c3106dcf25dc0b02231925229f2ee44128c4cc2aaf2251211f7729dfc",
+    "cohort_id": "wasm-tools-0.253.0",
+    "cohort_identity": "b3:c50e2d7f0e8c49de4a1d44afae196bdf96bb14e67e7de0a153de146a6207449a",
+    "exact_artifact_identity": "b3:53ce05c7a3b0234c36ca4dc27fc9c501bcf70563296dcd6c95f633c350ca2742",
+    "interface_identity": "b3:d338d34206981854f5651d260f321276f34ea5fff12584bec955bb4d12187ef4",
+    "exact_identity_role": "exact-bytes",
+    "interface_identity_role": "normalized-interface-non-equivalence",
+    "input_artifact": "wasm-artifact.bin",
+    "handoff_role": "standalone",
+    "verification_role": "recorded_only",
+    "facts": {
+      "artifact_kind": "component",
+      "proposals": [
+        "component-model"
+      ],
+      "imports": [
+        {
+          "namespace": "",
+          "name": "$imports",
+          "kind": "Table(TableType { element_type: funcref, table64: false, initial: 1, maximum: Some(1), shared: false })"
+        },
+        {
+          "namespace": "",
+          "name": "0",
+          "kind": "Func(0)"
+        },
+        {
+          "namespace": "$root",
+          "name": "effect-request",
+          "kind": "Func(2)"
+        },
+        {
+          "namespace": "component",
+          "name": "effect-request",
+          "kind": "Func(3)"
+        },
+        {
+          "namespace": "component",
+          "name": "preserves-payload",
+          "kind": "Type(Eq(0))"
+        }
+      ],
+      "exports": [
+        {
+          "namespace": "component",
+          "name": "invoke",
+          "kind": "Func"
+        }
+      ],
+      "worlds": [],
+      "memory_count": 1,
+      "table_count": 3,
+      "function_count": 31,
+      "memories": [
+        {
+          "initial_pages": 19,
+          "maximum_pages": null,
+          "memory64": false,
+          "shared": false,
+          "page_size_log2": 16
+        }
+      ],
+      "tables": [
+        {
+          "initial_elements": 1,
+          "maximum_elements": 1,
+          "table64": false,
+          "shared": false,
+          "element_type": "funcref"
+        },
+        {
+          "initial_elements": 1,
+          "maximum_elements": 1,
+          "table64": false,
+          "shared": false,
+          "element_type": "funcref"
+        },
+        {
+          "initial_elements": 5,
+          "maximum_elements": 5,
+          "table64": false,
+          "shared": false,
+          "element_type": "funcref"
+        }
+      ],
+      "max_function_parameter_words": 6,
+      "max_local_words_per_function": 10,
+      "memory_grow_count": 0,
+      "has_start": false,
+      "custom_sections": [
+        "scope[1]::name",
+        "scope[2]::name",
+        "scope[3]::name"
+      ],
+      "producer_sections": 0
+    },
+    "findings": [
+      {
+        "issue_code": "abi-mismatch",
+        "severity": "error",
+        "message": "required export `component::invoke::Func(list<u8>)->result<list<u8>,string>` is missing for profile `molten-component-effects-v1`"
+      },
+      {
+        "issue_code": "abi-mismatch",
+        "severity": "error",
+        "message": "required import `component::effect-request::Func(list<u8>)->result<list<u8>,string>` is missing for profile `molten-component-effects-v1`"
+      },
+      {
+        "issue_code": "abi-mismatch",
+        "severity": "error",
+        "message": "required import `component::preserves-payload::Type(list<u8>)` is missing for profile `molten-component-effects-v1`"
+      },
+      {
+        "issue_code": "disallowed-export",
+        "severity": "error",
+        "message": "export `component::invoke::Func` is not allowed by profile `molten-component-effects-v1`"
+      },
+      {
+        "issue_code": "disallowed-import",
+        "severity": "error",
+        "message": "import `$root::effect-request::Func(2)` is not allowed by profile `molten-component-effects-v1`"
+      },
+      {
+        "issue_code": "disallowed-import",
+        "severity": "error",
+        "message": "import `::$imports::Table(TableType { element_type: funcref, table64: false, initial: 1, maximum: Some(1), shared: false })` is not allowed by profile `molten-component-effects-v1`"
+      },
+      {
+        "issue_code": "disallowed-import",
+        "severity": "error",
+        "message": "import `::0::Func(0)` is not allowed by profile `molten-component-effects-v1`"
+      },
+      {
+        "issue_code": "disallowed-import",
+        "severity": "error",
+        "message": "import `component::effect-request::Func(3)` is not allowed by profile `molten-component-effects-v1`"
+      },
+      {
+        "issue_code": "disallowed-import",
+        "severity": "error",
+        "message": "import `component::preserves-payload::Type(Eq(0))` is not allowed by profile `molten-component-effects-v1`"
+      },
+      {
+        "issue_code": "malformed-artifact",
+        "severity": "error",
+        "message": "wasmparser validation failed: zero byte expected (at offset 0x7f5)",
+        "byte_offset": 2037
+      },
+      {
+        "issue_code": "resource-limit",
+        "severity": "error",
+        "message": "imports count `5` exceeds profile limit `2`"
+      },
+      {
+        "issue_code": "resource-limit",
+        "severity": "error",
+        "message": "tables count `3` exceeds profile limit `2`"
+      }
+    ],
+    "sarif": {
+      "runs": [
+        {
+          "results": [
+            {
+              "level": "error",
+              "locations": [
+                {
+                  "physicalLocation": {
+                    "artifactLocation": {
+                      "uri": "wasm-artifact.bin"
+                    },
+                    "region": {}
+                  }
+                }
+              ],
+              "message": {
+                "text": "required export `component::invoke::Func(list<u8>)->result<list<u8>,string>` is missing for profile `molten-component-effects-v1`"
+              },
+              "ruleId": "abi-mismatch"
+            },
+            {
+              "level": "error",
+              "locations": [
+                {
+                  "physicalLocation": {
+                    "artifactLocation": {
+                      "uri": "wasm-artifact.bin"
+                    },
+                    "region": {}
+                  }
+                }
+              ],
+              "message": {
+                "text": "required import `component::effect-request::Func(list<u8>)->result<list<u8>,string>` is missing for profile `molten-component-effects-v1`"
+              },
+              "ruleId": "abi-mismatch"
+            },
+            {
+              "level": "error",
+              "locations": [
+                {
+                  "physicalLocation": {
+                    "artifactLocation": {
+                      "uri": "wasm-artifact.bin"
+                    },
+                    "region": {}
+                  }
+                }
+              ],
+              "message": {
+                "text": "required import `component::preserves-payload::Type(list<u8>)` is missing for profile `molten-component-effects-v1`"
+              },
+              "ruleId": "abi-mismatch"
+            },
+            {
+              "level": "error",
+              "locations": [
+                {
+                  "physicalLocation": {
+                    "artifactLocation": {
+                      "uri": "wasm-artifact.bin"
+                    },
+                    "region": {}
+                  }
+                }
+              ],
+              "message": {
+                "text": "export `component::invoke::Func` is not allowed by profile `molten-component-effects-v1`"
+              },
+              "ruleId": "disallowed-export"
+            },
+            {
+              "level": "error",
+              "locations": [
+                {
+                  "physicalLocation": {
+                    "artifactLocation": {
+                      "uri": "wasm-artifact.bin"
+                    },
+                    "region": {}
+                  }
+                }
+              ],
+              "message": {
+                "text": "import `$root::effect-request::Func(2)` is not allowed by profile `molten-component-effects-v1`"
+              },
+              "ruleId": "disallowed-import"
+            },
+            {
+              "level": "error",
+              "locations": [
+                {
+                  "physicalLocation": {
+                    "artifactLocation": {
+                      "uri": "wasm-artifact.bin"
+                    },
+                    "region": {}
+                  }
+                }
+              ],
+              "message": {
+                "text": "import `::$imports::Table(TableType { element_type: funcref, table64: false, initial: 1, maximum: Some(1), shared: false })` is not allowed by profile `molten-component-effects-v1`"
+              },
+              "ruleId": "disallowed-import"
+            },
+            {
+              "level": "error",
+              "locations": [
+                {
+                  "physicalLocation": {
+                    "artifactLocation": {
+                      "uri": "wasm-artifact.bin"
+                    },
+                    "region": {}
+                  }
+                }
+              ],
+              "message": {
+                "text": "import `::0::Func(0)` is not allowed by profile `molten-component-effects-v1`"
+              },
+              "ruleId": "disallowed-import"
+            },
+            {
+              "level": "error",
+              "locations": [
+                {
+                  "physicalLocation": {
+                    "artifactLocation": {
+                      "uri": "wasm-artifact.bin"
+                    },
+                    "region": {}
+                  }
+                }
+              ],
+              "message": {
+                "text": "import `component::effect-request::Func(3)` is not allowed by profile `molten-component-effects-v1`"
+              },
+              "ruleId": "disallowed-import"
+            },
+            {
+              "level": "error",
+              "locations": [
+                {
+                  "physicalLocation": {
+                    "artifactLocation": {
+                      "uri": "wasm-artifact.bin"
+                    },
+                    "region": {}
+                  }
+                }
+              ],
+              "message": {
+                "text": "import `component::preserves-payload::Type(Eq(0))` is not allowed by profile `molten-component-effects-v1`"
+              },
+              "ruleId": "disallowed-import"
+            },
+            {
+              "level": "error",
+              "locations": [
+                {
+                  "physicalLocation": {
+                    "artifactLocation": {
+                      "uri": "wasm-artifact.bin"
+                    },
+                    "region": {
+                      "byteOffset": 2037
+                    }
+                  }
+                }
+              ],
+              "message": {
+                "text": "wasmparser validation failed: zero byte expected (at offset 0x7f5)"
+              },
+              "ruleId": "malformed-artifact"
+            },
+            {
+              "level": "error",
+              "locations": [
+                {
+                  "physicalLocation": {
+                    "artifactLocation": {
+                      "uri": "wasm-artifact.bin"
+                    },
+                    "region": {}
+                  }
+                }
+              ],
+              "message": {
+                "text": "imports count `5` exceeds profile limit `2`"
+              },
+              "ruleId": "resource-limit"
+            },
+            {
+              "level": "error",
+              "locations": [
+                {
+                  "physicalLocation": {
+                    "artifactLocation": {
+                      "uri": "wasm-artifact.bin"
+                    },
+                    "region": {}
+                  }
+                }
+              ],
+              "message": {
+                "text": "tables count `3` exceeds profile limit `2`"
+              },
+              "ruleId": "resource-limit"
+            }
+          ],
+          "tool": {
+            "driver": {
+              "name": "cargo-octet-wasm-artifact"
+            }
+          }
+        }
+      ],
+      "version": "2.1.0"
+    }
+  }
+}

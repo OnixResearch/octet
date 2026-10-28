@@ -1,0 +1,122 @@
+   Compiling unicode-ident v1.0.24
+   Compiling cfg-if v1.0.4
+[kache] the cache index could not be opened after retries (opening index database /var/cache/kache-nix/user-brittonr/index.db: disk I/O error: Error code 4618: disk I/O error).
+[kache] Caching is disabled for this build — compilation still succeeds,
+[kache] just without cache hits or stores (everything builds uncached).
+[kache] This is usually a storage issue: the cache directory is on a
+[kache] filesystem that doesn't support reliable file locking, or it is
+[kache] being accessed from more than one machine at the same time.
+[kache] → set KACHE_CACHE_DIR to a fast, local, single-machine path
+   Compiling proc-macro2 v1.0.106
+   Compiling quote v1.0.46
+   Compiling serde_core v1.0.228
+   Compiling syn v2.0.118
+   Compiling cpufeatures v0.3.0
+   Compiling shlex v2.0.1
+   Compiling find-msvc-tools v0.1.9
+   Compiling cc v1.2.67
+   Compiling libc v0.2.186
+   Compiling arrayref v0.3.9
+   Compiling blake3 v1.8.5
+   Compiling constant_time_eq v0.4.2
+   Compiling serde v1.0.228
+   Compiling bitflags v2.13.0
+   Compiling arrayvec v0.7.8
+   Compiling serde_derive v1.0.228
+   Compiling memchr v2.8.3
+   Compiling zmij v1.0.21
+   Compiling rustix v1.1.4
+   Compiling serde_json v1.0.150
+   Compiling linux-raw-sys v0.12.1
+   Compiling io-lifetimes v2.0.4
+   Compiling itoa v1.0.18
+   Compiling once_cell v1.21.4
+   Compiling utf8parse v0.2.2
+   Compiling foldhash v0.2.0
+   Compiling anstyle-parse v1.0.0
+   Compiling is_terminal_polyfill v1.70.2
+   Compiling colorchoice v1.0.5
+   Compiling equivalent v1.0.2
+   Compiling cfg_aliases v0.2.2
+   Compiling anstyle-query v1.1.5
+   Compiling io-extras v0.18.4
+   Compiling anstyle v1.0.14
+   Compiling anstream v1.0.0
+   Compiling nix v0.30.1
+   Compiling strsim v0.11.1
+   Compiling heck v0.5.0
+   Compiling thiserror v2.0.18
+   Compiling allocator-api2 v0.2.21
+   Compiling clap_lex v1.1.0
+   Compiling cap-primitives v3.4.5
+   Compiling clap_builder v4.6.0
+   Compiling hashbrown v0.16.1
+   Compiling clap_derive v4.6.1
+   Compiling fs-set-times v0.20.3
+   Compiling hashbrown v0.17.1
+   Compiling rustix-linux-procfs v0.1.1
+   Compiling thiserror-impl v2.0.18
+   Compiling cap-std v3.4.5
+   Compiling ipnet v2.12.0
+   Compiling ambient-authority v0.0.2
+   Compiling winnow v1.0.3
+   Compiling zerocopy v0.8.54
+   Compiling maybe-owned v0.3.4
+   Compiling toml_parser v1.1.2+spec-1.1.0
+   Compiling indexmap v2.14.0
+   Compiling clap v4.6.1
+   Compiling iddqd v0.4.5
+   Compiling nickel-export-core v0.1.0 (https://github.com/OnixResearch/nickel-export?rev=257fafc1c746f1faf156207043a4c826bfb16d49#257fafc1)
+   Compiling octet-architecture-ir v0.1.0 (/home/brittonr/git/OnixResearch/octet/crates/octet-architecture-ir)
+   Compiling cargo-octet v0.1.0 (/home/brittonr/git/OnixResearch/octet/cargo-octet)
+   Compiling bounded-exec-core v0.1.0 (https://github.com/OnixResearch/bounded-exec.git?rev=44eb74eb639194665ee820562d5b2ce2c3ff6a94#44eb74eb)
+   Compiling zerocopy-derive v0.8.54
+   Compiling serde_spanned v1.1.1
+   Compiling toml_datetime v1.1.1+spec-1.1.0
+   Compiling rand_core v0.10.1
+   Compiling toml_writer v1.1.1+spec-1.1.0
+   Compiling getrandom v0.4.3
+   Compiling semver v1.0.28
+   Compiling toml v1.1.2+spec-1.1.0
+   Compiling wasmparser v0.253.0
+   Compiling bounded-exec v0.1.0 (https://github.com/OnixResearch/bounded-exec.git?rev=44eb74eb639194665ee820562d5b2ce2c3ff6a94#44eb74eb)
+   Compiling octet-standards v0.1.0 (/home/brittonr/git/OnixResearch/octet/crates/octet-standards)
+   Compiling valence-core v0.1.0 (https://github.com/OnixResearch/valence.git?rev=5f1c2ba5072c6f9622fa59b1af20502985f569fd#5f1c2ba5)
+   Compiling octet-lint-metadata v0.1.0 (/home/brittonr/git/OnixResearch/octet/crates/octet-lint-metadata)
+   Compiling parking_lot_core v0.9.12
+   Compiling rustversion v1.0.23
+   Compiling half v2.7.1
+   Compiling scopeguard v1.2.0
+   Compiling ciborium-io v0.2.2
+   Compiling crc32fast v1.5.0
+   Compiling paste v1.0.15
+   Compiling dashu-int v0.4.3
+   Compiling leb128fmt v0.1.0
+   Compiling smallvec v1.15.2
+   Compiling wasm-encoder v0.253.0
+   Compiling ciborium-ll v0.2.2
+   Compiling lock_api v0.4.14
+   Compiling chacha20 v0.10.1
+   Compiling num-modular v0.6.4
+   Compiling static_assertions v1.1.0
+   Compiling dashu-base v0.4.3
+   Compiling bumpalo v3.20.3
+   Compiling fastrand v2.4.1
+   Compiling unicode-width v0.2.2
+   Compiling wast v253.0.0
+   Compiling tempfile v3.27.0
+   Compiling rand v0.10.2
+   Compiling parking_lot v0.12.5
+   Compiling ciborium v0.2.2
+   Compiling hegeltest-macros v0.14.27
+   Compiling rustc-hash v2.1.3
+   Compiling wat v1.253.0
+   Compiling hegeltest v0.14.27
+error[E0423]: expected function, tuple struct or tuple variant, found trait `wasm_encoder::ComponentSection`
+    --> cargo-octet/src/wasm_artifact.rs:1727:28
+     |
+1727 |         component.section(&wasm_encoder::ComponentSection(&nested));
+     |                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ not a function, tuple struct or tuple variant
+
+For more information about this error, try `rustc --explain E0423`.
+error: could not compile `cargo-octet` (lib test) due to 1 previous error

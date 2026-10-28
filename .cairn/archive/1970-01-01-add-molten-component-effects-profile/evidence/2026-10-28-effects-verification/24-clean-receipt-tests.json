@@ -1,0 +1,27 @@
+{
+  "command": [
+    "cargo",
+    "--config",
+    "/nix/store/qfqxix5vm4j73icnydinlsnq0ls8k2ml-vendor-cargo-deps/config.toml",
+    "test",
+    "--offline",
+    "--locked",
+    "-p",
+    "cargo-octet",
+    "wasm_artifact_receipt",
+    "--",
+    "--nocapture"
+  ],
+  "cwd": "/home/brittonr/git/OnixResearch/.worktrees/octet-effects-20261028",
+  "environment_overrides": {
+    "CARGO_TARGET_DIR": "/home/brittonr/.cache/mantle-octet-profiles-20261028/octet-target",
+    "CARGO_BUILD_JOBS": "2",
+    "CARGO_PROFILE_TEST_DEBUG": "0",
+    "CARGO_PROFILE_DEV_DEBUG": "0",
+    "CARGO_INCREMENTAL": "0"
+  },
+  "exit": 0,
+  "duration_seconds": 0.306,
+  "stdout": "\nrunning 1 test\ntest evidence_rails::tests::wasm_artifact_receipt_binds_exact_bytes_interface_and_input_provenance ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 526 filtered out; finished in 0.00s\n\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s\n\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s\n\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 49 filtered out; finished in 0.00s\n\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.00s\n\n",
+  "stderr": "[kache] the cache index could not be opened after retries (opening index database /var/cache/kache-nix/user-brittonr/index.db: disk I/O error: Error code 4618: disk I/O error).\n[kache] Caching is disabled for this build \u2014 compilation still succeeds,\n[kache] just without cache hits or stores (everything builds uncached).\n[kache] This is usually a storage issue: the cache directory is on a\n[kache] filesystem that doesn't support reliable file locking, or it is\n[kache] being accessed from more than one machine at the same time.\n[kache] \u2192 set KACHE_CACHE_DIR to a fast, local, single-machine path\n    Finished `test` profile [unoptimized] target(s) in 0.25s\n     Running unittests src/lib.rs (/home/brittonr/.cache/mantle-octet-profiles-20261028/octet-target/debug/deps/cargo_octet-27c316e5456156c2)\n     Running unittests src/main.rs (/home/brittonr/.cache/mantle-octet-profiles-20261028/octet-target/debug/deps/cargo_octet-5eb728dc01333df6)\n     Running unittests src/bin/cargo-slotcar.rs (/home/brittonr/.cache/mantle-octet-profiles-20261028/octet-target/debug/deps/cargo_slotcar-b129147c5171677b)\n     Running unittests src/bin/cargo-tigerstyle.rs (/home/brittonr/.cache/mantle-octet-profiles-20261028/octet-target/debug/deps/cargo_tigerstyle-6507d7bb274f632b)\n     Running tests/alias_bins.rs (/home/brittonr/.cache/mantle-octet-profiles-20261028/octet-target/debug/deps/alias_bins-83ac019c506eb022)\n     Running tests/clippy_restriction_profiles.rs (/home/brittonr/.cache/mantle-octet-profiles-20261028/octet-target/debug/deps/clippy_restriction_profiles-2a1658947560d293)\n     Running tests/fingerprint_consumer.rs (/home/brittonr/.cache/mantle-octet-profiles-20261028/octet-target/debug/deps/fingerprint_consumer-6122b397f60712e8)\n     Running tests/unison_roadmap.rs (/home/brittonr/.cache/mantle-octet-profiles-20261028/octet-target/debug/deps/unison_roadmap-766f0f1d961e3a05)\n"
+}
