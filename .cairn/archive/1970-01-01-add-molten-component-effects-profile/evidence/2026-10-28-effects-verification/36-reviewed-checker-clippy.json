@@ -1,0 +1,25 @@
+{
+  "command": [
+    "nix",
+    "develop",
+    "--builders",
+    "",
+    "-c",
+    "cargo",
+    "--config",
+    "/nix/store/qfqxix5vm4j73icnydinlsnq0ls8k2ml-vendor-cargo-deps/config.toml",
+    "clippy",
+    "--offline",
+    "--locked",
+    "-p",
+    "cargo-octet",
+    "--all-targets",
+    "--",
+    "-D",
+    "warnings"
+  ],
+  "cwd": "/home/brittonr/git/OnixResearch/.worktrees/octet-effects-20261028",
+  "exit": 101,
+  "stdout": "",
+  "stderr": "   Compiling proc-macro2 v1.0.106\n   Compiling quote v1.0.46\n[kache] the cache index could not be opened after retries (opening index database /var/cache/kache-nix/user-brittonr/index.db: disk I/O error: Error code 4618: disk I/O error).\n[kache] Caching is disabled for this build \u2014 compilation still succeeds,\n[kache] just without cache hits or stores (everything builds uncached).\n[kache] This is usually a storage issue: the cache directory is on a\n[kache] filesystem that doesn't support reliable file locking, or it is\n[kache] being accessed from more than one machine at the same time.\n[kache] \u2192 set KACHE_CACHE_DIR to a fast, local, single-machine path\n   Compiling unicode-ident v1.0.24\n   Compiling serde_core v1.0.228\n   Compiling syn v2.0.118\n   Compiling shlex v2.0.1\n   Compiling find-msvc-tools v0.1.9\n   Compiling cc v1.2.67\n   Compiling libc v0.2.186\n   Compiling serde v1.0.228\n   Compiling blake3 v1.8.5\n   Compiling serde_derive v1.0.228\n   Compiling rustix v1.1.4\n   Compiling zmij v1.0.21\n   Compiling serde_json v1.0.150\n   Compiling io-lifetimes v2.0.4\n   Compiling io-extras v0.18.4\n   Compiling cfg_aliases v0.2.2\n   Compiling nix v0.30.1\n   Compiling heck v0.5.0\n   Compiling cpufeatures v0.3.0\n   Compiling thiserror v2.0.18\n   Compiling cap-primitives v3.4.5\n   Compiling cfg-if v1.0.4\n   Compiling arrayvec v0.7.8\n   Compiling constant_time_eq v0.4.2\n   Compiling arrayref v0.3.9\n   Compiling clap_derive v4.6.1\n    Checking fs-set-times v0.20.3\n    Checking rustix-linux-procfs v0.1.1\n    Checking hashbrown v0.17.1\n   Compiling thiserror-impl v2.0.18\n   Compiling cap-std v3.4.5\n   Compiling zerocopy v0.8.54\n    Checking indexmap v2.14.0\n    Checking clap v4.6.1\n   Compiling cargo-octet v0.1.0 (/home/brittonr/git/OnixResearch/.worktrees/octet-effects-20261028/cargo-octet)\n    Checking octet-architecture-ir v0.1.0 (/home/brittonr/git/OnixResearch/.worktrees/octet-effects-20261028/crates/octet-architecture-ir)\n    Checking nickel-export-core v0.1.0 (https://github.com/OnixResearch/nickel-export?rev=257fafc1c746f1faf156207043a4c826bfb16d49#257fafc1)\n    Checking bounded-exec-core v0.1.0 (ssh://git@github.com/OnixResearch/bounded-exec.git?rev=44eb74eb639194665ee820562d5b2ce2c3ff6a94#44eb74eb)\n   Compiling zerocopy-derive v0.8.54\n    Checking serde_spanned v1.1.1\n    Checking toml_datetime v1.1.1+spec-1.1.0\n   Compiling getrandom v0.4.3\n    Checking toml v1.1.2+spec-1.1.0\n    Checking wasmparser v0.253.0\n    Checking bounded-exec v0.1.0 (ssh://git@github.com/OnixResearch/bounded-exec.git?rev=44eb74eb639194665ee820562d5b2ce2c3ff6a94#44eb74eb)\n    Checking octet-standards v0.1.0 (/home/brittonr/git/OnixResearch/.worktrees/octet-effects-20261028/crates/octet-standards)\n    Checking valence-core v0.1.0 (ssh://git@github.com/OnixResearch/valence.git?rev=7546a78b4eeef8686c6837e187aa12420f4f03bb#7546a78b)\n    Checking octet-lint-metadata v0.1.0 (/home/brittonr/git/OnixResearch/.worktrees/octet-effects-20261028/crates/octet-lint-metadata)\n   Compiling rustversion v1.0.23\n   Compiling parking_lot_core v0.9.12\n    Checking half v2.7.1\n   Compiling paste v1.0.15\n   Compiling crc32fast v1.5.0\n   Compiling dashu-int v0.4.3\n    Checking ciborium-ll v0.2.2\n    Checking tempfile v3.27.0\n    Checking rand v0.10.2\n    Checking ciborium v0.2.2\n    Checking parking_lot v0.12.5\n   Compiling hegeltest-macros v0.14.27\n    Checking hegeltest v0.14.27\nerror: this `if` statement can be collapsed\n   --> cargo-octet/src/wasm_artifact.rs:784:5\n    |\n784 | /     if profile.component_interface.as_deref() == Some(\"structural-v1\")\n785 | |         && extraction.facts.artifact_kind == COMPONENT_KIND\n786 | |     {\n787 | |         if let Some(types) = validated.as_ref() {\n...   |\n790 | |     }\n    | |_____^\n    |\n    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#collapsible_if\n    = note: `-D clippy::collapsible-if` implied by `-D warnings`\n    = help: to override `-D warnings` add `#[allow(clippy::collapsible_if)]`\nhelp: collapse nested if block\n    |\n785 ~         && extraction.facts.artifact_kind == COMPONENT_KIND\n786 ~         && let Some(types) = validated.as_ref() {\n787 |             canonicalize_component_boundary(&mut extraction.facts, types);\n788 ~         }\n    |\n\nerror: could not compile `cargo-octet` (lib) due to 1 previous error\nwarning: build failed, waiting for other jobs to finish...\nerror: could not compile `cargo-octet` (lib test) due to 1 previous error\n"
+}

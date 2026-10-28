@@ -1,0 +1,27 @@
+{
+  "attempts": [
+    {
+      "command": ["nix", "develop", "-c", "nickel", "export", "--format", "json", "standards/wasm-artifact/profiles.ncl"],
+      "exit": 1,
+      "observed_error": "Path 'nix/public-dependencies.nix' in the repository is not tracked by Git",
+      "resolution": "No unrelated staging; direct pinned Nickel later exported successfully"
+    },
+    {
+      "command": ["nix", "develop", "path:/home/brittonr/git/OnixResearch/octet", "-c", "nickel", "export", "--format", "json", "standards/wasm-artifact/profiles.ncl"],
+      "exit": 1,
+      "observed_errors": ["SQLite database /nix/var/nix/db/db.sqlite is busy", "opening build-farm lock file: File name too long", "unexpected EOF reading a line"],
+      "resolution": "Direct pinned Nickel avoids project devshell setup"
+    },
+    {
+      "command": ["nix", "develop", "path:/home/brittonr/git/OnixResearch/octet", "--option", "builders", "", "-c", "cargo", "test", "--offline", "--locked", "-p", "cargo-octet", "wasm_artifact", "--", "--nocapture"],
+      "status": "Interrupted before an exit status or captured command output was returned",
+      "environment_overrides": {
+        "CARGO_TARGET_DIR": "/home/brittonr/.cache/mantle-octet-profiles-20261028/octet-target",
+        "CARGO_BUILD_JOBS": "2",
+        "CARGO_PROFILE_TEST_DEBUG": "0",
+        "CARGO_PROFILE_DEV_DEBUG": "0"
+      },
+      "resolution": "Use already inherited matching Octet nightly devshell and exact immutable vendor config, with HTTPS bounded-exec source binding to the same immutable vendor package"
+    }
+  ]
+}

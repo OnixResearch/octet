@@ -1,0 +1,19 @@
+{
+  "command": [
+    "nix",
+    "develop",
+    "--builders",
+    "",
+    "-c",
+    "cairn",
+    "gate",
+    "design",
+    "add-molten-component-effects-profile",
+    "--root",
+    "."
+  ],
+  "cwd": "/home/brittonr/git/OnixResearch/.worktrees/octet-effects-20261028",
+  "exit": 0,
+  "stdout": "{\n  \"change\": \"add-molten-component-effects-profile\",\n  \"evidence_summary\": {\n    \"docs_only\": 0,\n    \"fixture\": 0,\n    \"formal\": 0,\n    \"mode\": \"advisory\",\n    \"model\": 0,\n    \"probe\": 0,\n    \"property\": 0\n  },\n  \"input_hash\": \"1396579d0460ea21ad450c013a170cf309e8c03e7e3f2b127fe0852648cbfc92\",\n  \"issues\": [],\n  \"layout\": \"cairn\",\n  \"policy\": \"octet-default\",\n  \"policy_hash\": \"62e40f642e798bfaf5a68a495a7456bcf4e9fd8106ae2f52a24100967b39df5d\",\n  \"probe_evidence\": null,\n  \"receipt_hash\": \"dd85c1d3338fdf258050adb4755f89ccc1629e3013e5982580d3f1475e856f16\",\n  \"stage\": \"design\",\n  \"substance\": [\n    {\n      \"checkbox_tasks\": 0,\n      \"kind\": \"design\",\n      \"malformed_dependency_markers\": 0,\n      \"path\": \"./.cairn/changes/add-molten-component-effects-profile/design.md\",\n      \"requirement_blocks\": 0,\n      \"scenario_blocks\": 0,\n      \"substantive_lines\": 55,\n      \"substantive_requirement_blocks\": 0,\n      \"substantive_tasks\": 0,\n      \"task_done\": 0,\n      \"task_in_progress\": 0,\n      \"task_todo\": 0\n    },\n    {\n      \"checkbox_tasks\": 0,\n      \"kind\": \"proposal\",\n      \"malformed_dependency_markers\": 0,\n      \"path\": \"./.cairn/changes/add-molten-component-effects-profile/proposal.md\",\n      \"requirement_blocks\": 0,\n      \"scenario_blocks\": 0,\n      \"substantive_lines\": 34,\n      \"substantive_requirement_blocks\": 0,\n      \"substantive_tasks\": 0,\n      \"task_done\": 0,\n      \"task_in_progress\": 0,\n      \"task_todo\": 0\n    },\n    {\n      \"checkbox_tasks\": 0,\n      \"kind\": \"delta_spec\",\n      \"malformed_dependency_markers\": 0,\n      \"path\": \"./.cairn/changes/add-molten-component-effects-profile/specs/wasm-component-artifact-rail/spec.md\",\n      \"requirement_blocks\": 5,\n      \"scenario_blocks\": 12,\n      \"substantive_lines\": 43,\n      \"substantive_requirement_blocks\": 5,\n      \"substantive_tasks\": 0,\n      \"task_done\": 0,\n      \"task_in_progress\": 0,\n      \"task_todo\": 0\n    }\n  ],\n  \"valid\": true,\n  \"verdict\": \"PASS\"\n}\n",
+  "stderr": ""
+}

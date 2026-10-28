@@ -1,0 +1,13 @@
+{
+  "command": [
+    "/home/brittonr/.cache/mantle-octet-profiles-20261028/octet-target/debug/cargo-octet",
+    "artifact",
+    "verify",
+    "--artifact-dir",
+    "/home/brittonr/git/OnixResearch/.worktrees/octet-effects-20261028/.cairn/changes/add-molten-component-effects-profile/evidence/2026-10-28-effects-verification/real-effect-guest-index-corrected"
+  ],
+  "cwd": "/home/brittonr/git/OnixResearch/.worktrees/octet-effects-20261028",
+  "exit": 0,
+  "stdout": "octet artifact verification artifact_dir=/home/brittonr/git/OnixResearch/.worktrees/octet-effects-20261028/.cairn/changes/add-molten-component-effects-profile/evidence/2026-10-28-effects-verification/real-effect-guest-index-corrected output_format=evidence-rail status=valid\nartifact=evidence-rail-receipt.json source_id=octet.artifact.wasm-tools checker_id=cargo-octet evidence_tier=policy_check blake3=3a4950f7f03a8877ab26464a546961b631011309038614e9ebdad8cd264b7e0b checked_scope=. manual_action=\nartifact=summary.txt source_id=octet.runner.artifact-bundle checker_id=cargo-octet evidence_tier=manual_review_required blake3=09806b9df06ee838bf92267d1a860e51735861d888506293ab296f3a61557f15 checked_scope=. manual_action=review optional evidence rail summary and receipt before using this artifact\nartifact=wasm-artifact.bin source_id=octet.artifact.wasm-input checker_id=cargo-octet evidence_tier=policy_check blake3=53ce05c7a3b0234c36ca4dc27fc9c501bcf70563296dcd6c95f633c350ca2742 checked_scope=. manual_action=\n",
+  "stderr": ""
+}

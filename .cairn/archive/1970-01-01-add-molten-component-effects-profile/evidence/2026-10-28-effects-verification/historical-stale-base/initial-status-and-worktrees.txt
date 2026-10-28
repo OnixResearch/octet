@@ -1,0 +1,127 @@
+## main...origin/main [ahead 2, behind 29]
+A  .cairn/changes/add-reproducible-benchmark-evidence/design.md
+A  .cairn/changes/add-reproducible-benchmark-evidence/proposal.md
+A  .cairn/changes/add-reproducible-benchmark-evidence/specs/benchmark-evidence/spec.md
+A  .cairn/changes/add-reproducible-benchmark-evidence/tasks.md
+ M .cairn/specs/law-tested-deterministic-cores/spec.md
+D  .claude/settings.local.json
+ M .github/workflows/nix-flake-check.yml
+ M .gitignore
+ M CHANGELOG.md
+A  CONTRIBUTING.md
+ M Cargo.lock
+ M Cargo.toml
+A  LICENSES/clippy-MIT.txt
+A  LICENSES/dylint-APACHE.txt
+A  LICENSES/dylint-MIT.txt
+A  NOTICE
+ M README.md
+A  SECURITY.md
+AM THIRD_PARTY_NOTICES.md
+ M cargo-octet/Cargo.toml
+ M cargo-octet/build.rs
+ M crates/octet-architecture-ir/Cargo.toml
+ M crates/octet-lint-metadata/Cargo.toml
+ M crates/octet-standards/Cargo.toml
+ M crates/octet-standards/tests/advisory_cli.rs
+ M docs/aeneas-consumer-contract.md
+ M docs/contributor-guide.md
+ M docs/law-tested-cores.md
+ M docs/lint-reference.md
+ M docs/release-candidate.md
+ M docs/standards/policy-contract.md
+ M docs/standards/source/architecture.adoc
+ M docs/standards/source/build-what-you-test.adoc
+ M docs/standards/source/culture.adoc
+ M docs/standards/source/devtools.adoc
+ M docs/standards/source/embedded.adoc
+ M docs/standards/source/external-sources.adoc
+ M docs/standards/source/fitness.adoc
+ M docs/standards/source/front-matter.adoc
+ M docs/standards/source/grounding-idioms.adoc
+ M docs/standards/source/idioms.adoc
+ M docs/standards/source/index.adoc
+ M docs/standards/source/metrics.adoc
+ M docs/standards/source/one-idiom-one-verifier.adoc
+ M docs/standards/source/orchestration.adoc
+ M docs/standards/source/resilience.adoc
+ M docs/standards/source/tigerstyle-standards.adoc
+ M docs/standards/source/verification.adoc
+ M docs/standards/source/what-safety-critical-means.adoc
+ M docs/strict-rust-profiles.md
+ M docs/trust-boundary-evidence.md
+ M flake.lock
+ M flake.nix
+ M openspec/specs/standards-codification/spec.md
+ M src/config.rs
+ M src/lib.rs
+ M src/naming/numeric_units.rs
+ M src/purity/effect_lints.rs
+ M src/structure/concrete_construction_in_core.rs
+ M standards/check-fixtures/README.md
+ M standards/policies/README.md
+ M standards/policies/fixtures/invalid/missing_source_heading.ncl
+ M standards/policies/fixtures/invalid/missing_source_path.ncl
+ M standards/policies/fixtures/invalid/missing_suppression_metadata.ncl
+ M standards/policies/fixtures/invalid/unknown_checker_reference.ncl
+ M standards/policies/fixtures/invalid/unknown_enforcement_level.ncl
+ M standards/policies/fixtures/valid/minimum.ncl
+ M standards/policies/fixtures/valid/structural-and-seeds.ncl
+ M standards/policies/registry.ncl
+ M templates/dylint.toml
+ M tests/fixtures/ui_fixture_set.json
+ M tests/support/consumer_fixture.rs
+ M ui_tests/missing_const_fn.rs
+ M ui_tests/numeric_units.rs
+ M ui_tests/numeric_units.stderr
+?? .cairn/archive/2026-10-22-document-proof-implementation-gap/
+?? .cairn/changes/classify-reviewed-core-value-providers/
+?? .cairn/changes/conservative-const-helper-classification/
+?? .cairn/changes/detect-false-durability-claims/
+?? .cairn/changes/recognize-numeric-quantity-words/
+?? .cairn/specs/proof-implementation-gap/
+?? docs/proof-implementation-gap.md
+?? nix/
+?? standards/proof-rails/aeneas-lean/mantle-job.ncl
+?? tools/import-public-dependencies.py
+?? tools/mantle-producer/
+?? ui_tests/concrete_construction_in_core_custom.stderr
+?? ui_tests/concrete_construction_in_core_custom/
+?? vendor/
+/home/brittonr/git/OnixResearch/octet                                             1ceda8fb [main]
+/dev/shm/octet-push                                                               d8a5d6b9 (detached HEAD)
+/home/brittonr/.cargo-target/worktrees/octet-source-ownership-20260908            1a1752c9 [cairn/fact-level-source-ownership-20260908] prunable
+/home/brittonr/git-worktrees/octet-anonymous-body-20260908                        5977f1a8 [fix/anonymous-body-collector-20260908]
+/home/brittonr/git-worktrees/octet-imported-source-20260908                       762a3db5 [fix/imported-source-file-lints-20260908]
+/home/brittonr/git/OnixResearch/.pi/worktrees/octet-kamacite-effect-closure       731571fb [pi/octet-kamacite-effect-closure-20260729]
+/home/brittonr/git/OnixResearch/.worktrees/checked-functional-core-plans/octet    a9204b79 [plan/checked-functional-core-20260905]
+/home/brittonr/git/OnixResearch/.worktrees/flt-cairns-octet-20260904              c7099ddb [cairn/kernel-observed-proof-contracts-20260904]
+/home/brittonr/git/OnixResearch/.worktrees/octet-architecture-clippy-20260929     235255bc [fix/architecture-ir-clippy-20260929]
+/home/brittonr/git/OnixResearch/.worktrees/octet-boolean-api-20260901             890f424c [drain/boolean-api-modeling-20260901]
+/home/brittonr/git/OnixResearch/.worktrees/octet-bounded-exec-provider-20260929   4a540dff [fix/octet-bounded-exec-provider-20260929]
+/home/brittonr/git/OnixResearch/.worktrees/octet-compiler-cairns-20260907         357dcda5 [plan/octet-compiler-cairns-20260907]
+/home/brittonr/git/OnixResearch/.worktrees/octet-dafny-proof-mechanisms           4828beea [cairn/adapt-dafny-proof-mechanisms-20260902]
+/home/brittonr/git/OnixResearch/.worktrees/octet-eight-slice-scratch-20260929     235255bc (detached HEAD)
+/home/brittonr/git/OnixResearch/.worktrees/octet-embedded-provenance-20260929     235255bc [fix/octet-embedded-provenance-20260929]
+/home/brittonr/git/OnixResearch/.worktrees/octet-fcis-architecture-cairns         731571fb [octet-fcis-architecture-cairns]
+/home/brittonr/git/OnixResearch/.worktrees/octet-feature-unit-identity-20260929   235255bc [fix/cargo-feature-unit-identity-20260929]
+/home/brittonr/git/OnixResearch/.worktrees/octet-hir-module-20260929              235255bc [fix/octet-hir-module-20260929]
+/home/brittonr/git/OnixResearch/.worktrees/octet-improvements-20260907            b7027014 [plan/octet-improvements-20260907]
+/home/brittonr/git/OnixResearch/.worktrees/octet-lattice-domains-20260929         235255bc [change/reconcile-lattice-domains-20260929]
+/home/brittonr/git/OnixResearch/.worktrees/octet-message-boundary-20260828        6555f9b0 [cairn/enforce-message-only-core-boundaries-20260828]
+/home/brittonr/git/OnixResearch/.worktrees/octet-molten-profile-20261028          0e0e5dc8 (detached HEAD)
+/home/brittonr/git/OnixResearch/.worktrees/octet-owner-clippy-20260929            235255bc [fix/octet-owner-clippy-20260929]
+/home/brittonr/git/OnixResearch/.worktrees/octet-shard-canonical-20260929         235255bc [fix/octet-canonical-shard-20260929]
+/home/brittonr/git/OnixResearch/.worktrees/octet-source-role-20260929             235255bc [fix/octet-build-script-source-role-20260929]
+/home/brittonr/git/OnixResearch/.worktrees/octet-source-role-scratch-20260929     235255bc [verify/octet-build-script-role-identity-20260929]
+/home/brittonr/git/OnixResearch/.worktrees/octet-spec-trace-parity-20260903       91202f88 [cairn/spec-trace-parity-rail-20260903]
+/home/brittonr/git/OnixResearch/.worktrees/octet-standalone-artifacts-20260929    235255bc [fix/standalone-embedded-inputs-20260929]
+/home/brittonr/git/OnixResearch/.worktrees/octet-standards-toml-borrowed-20260929 235255bc (detached HEAD)
+/home/brittonr/git/OnixResearch/.worktrees/octet-update-cairn-20260929            235255bc [change/update-cairn-input-20260929]
+/home/brittonr/git/OnixResearch/.worktrees/octet-zerocopy-cairns                  d0d80b4c [record-zerocopy-cairns-20260912]
+/home/brittonr/git/OnixResearch/.worktrees/rust-assurance-octet-6b781b9           fd5be12c [plan/rust-assurance-6b781b9]
+/home/brittonr/git/OnixResearch/.worktrees/rust-content-identity-plans/octet      f0edfe9a [plan/rust-content-identity]
+/home/brittonr/git/OnixResearch/.worktrees/veil-cairns-20260906/octet             8c0c030a [plan/veil-cairns-20260906]
+/home/brittonr/git/OnixResearch/octet-u-effect-review                             647334d3 [cairn/u-effect-change-review]
+/home/brittonr/git/aspen-worktrees/octet-molten-domains                           73d5f8e9 [cairn/declare-molten-nominal-reference-domains-20260925]
+/var/tmp/omp-bounded-source.WD5bA2/octet                                          c8372e2e (detached HEAD)

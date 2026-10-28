@@ -1,0 +1,151 @@
+{
+  "schema_version": "octet-evidence-rail-receipt/v1",
+  "rail_id": "wasm-artifact",
+  "checker_id": "cargo-octet",
+  "mode": "import",
+  "command_argv": [
+    "cargo",
+    "octet",
+    "evidence",
+    "collect",
+    "--rail",
+    "wasm-artifact"
+  ],
+  "workspace_scope": ".",
+  "config_path": "standards/wasm-artifact/generated/profiles.json",
+  "config_identity": "b3:09f1fbb7ce4d9da085b3f1325dbd5e8ae1c17bde2755caf79c1d2850e67b116a",
+  "lockfile_identity": "b3:76fccb9f2d290572102cb09a69ca34ccc4e5102707a99ef99d27b358146e6711",
+  "checked_rule_families": [
+    "exact-byte-validation",
+    "module-component-classification",
+    "imports-exports-worlds",
+    "memory-table-growth-start",
+    "producer-and-custom-metadata",
+    "resource-limits",
+    "exact-and-interface-identities",
+    "recorded-only-valence-boundary"
+  ],
+  "status": "passed",
+  "finding_counts": {},
+  "bounded_log_identity": "b3:efdedb97d30c36dc16f2df0e468eebe3a944d2f53c79b878ca9fe22c9c9555ff",
+  "imported_input_identity": "b3:efdedb97d30c36dc16f2df0e468eebe3a944d2f53c79b878ca9fe22c9c9555ff",
+  "profile": "molten-component-effects-v1",
+  "non_claims": [
+    "Wasm artifact evidence records bounded static facts and does not prove execution correctness",
+    "Matching normalized interfaces do not prove semantic equivalence or identify one implementation",
+    "Static validation does not prove sandbox effectiveness, capability authority, provenance truth, release eligibility, or whole-system safety",
+    "Producer metadata is recorded input and is not provenance truth"
+  ],
+  "diagnostics": [],
+  "findings": [],
+  "parent_artifacts": [],
+  "wasm_artifact": {
+    "profile_id": "molten-component-effects-v1",
+    "profile_identity": "b3:a3ad131b214390c9e0ab515e0a63698067dcdd15f2fd4abbc1fd2d120726292e",
+    "registry_identity": "b3:09f1fbb7ce4d9da085b3f1325dbd5e8ae1c17bde2755caf79c1d2850e67b116a",
+    "cohort_id": "wasm-tools-0.253.0",
+    "cohort_identity": "b3:c50e2d7f0e8c49de4a1d44afae196bdf96bb14e67e7de0a153de146a6207449a",
+    "exact_artifact_identity": "b3:53ce05c7a3b0234c36ca4dc27fc9c501bcf70563296dcd6c95f633c350ca2742",
+    "interface_identity": "b3:c9aa45f2949775537a9b0bda51d3ab3f78a6abbf4c858c67f7a03dbaaad3d1b7",
+    "exact_identity_role": "exact-bytes",
+    "interface_identity_role": "normalized-interface-non-equivalence",
+    "input_artifact": "wasm-artifact.bin",
+    "handoff_role": "standalone",
+    "verification_role": "recorded_only",
+    "facts": {
+      "artifact_kind": "component",
+      "proposals": [
+        "component-model"
+      ],
+      "imports": [
+        {
+          "namespace": "component",
+          "name": "effect-request",
+          "kind": "Func(list<u8>)->result<list<u8>,string>"
+        },
+        {
+          "namespace": "component",
+          "name": "preserves-payload",
+          "kind": "Type(list<u8>)"
+        }
+      ],
+      "bound_imports": [
+        {
+          "namespace": "scope[1]::$root",
+          "name": "effect-request",
+          "kind": "Func(2)"
+        },
+        {
+          "namespace": "scope[3]::",
+          "name": "$imports",
+          "kind": "Table(TableType { element_type: funcref, table64: false, initial: 1, maximum: Some(1), shared: false })"
+        },
+        {
+          "namespace": "scope[3]::",
+          "name": "0",
+          "kind": "Func(0)"
+        }
+      ],
+      "exports": [
+        {
+          "namespace": "component",
+          "name": "invoke",
+          "kind": "Func(list<u8>)->result<list<u8>,string>"
+        }
+      ],
+      "worlds": [],
+      "memory_count": 1,
+      "table_count": 2,
+      "function_count": 29,
+      "memories": [
+        {
+          "initial_pages": 19,
+          "maximum_pages": null,
+          "memory64": false,
+          "shared": false,
+          "page_size_log2": 16
+        }
+      ],
+      "tables": [
+        {
+          "initial_elements": 1,
+          "maximum_elements": 1,
+          "table64": false,
+          "shared": false,
+          "element_type": "funcref"
+        },
+        {
+          "initial_elements": 5,
+          "maximum_elements": 5,
+          "table64": false,
+          "shared": false,
+          "element_type": "funcref"
+        }
+      ],
+      "max_function_parameter_words": 6,
+      "max_local_words_per_function": 10,
+      "memory_grow_count": 0,
+      "has_start": false,
+      "custom_sections": [
+        "scope[1]::name",
+        "scope[2]::name",
+        "scope[3]::name"
+      ],
+      "producer_sections": 0
+    },
+    "findings": [],
+    "sarif": {
+      "runs": [
+        {
+          "results": [],
+          "tool": {
+            "driver": {
+              "name": "cargo-octet-wasm-artifact"
+            }
+          }
+        }
+      ],
+      "version": "2.1.0"
+    }
+  }
+}

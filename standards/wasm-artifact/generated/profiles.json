@@ -172,6 +172,77 @@
       "allow_memory_grow": false,
       "allow_start": false,
       "allowed_artifact_kinds": [
+        "component"
+      ],
+      "allowed_exports": [
+        "component::invoke::Func(list<u8>)->result<list<u8>,string>"
+      ],
+      "allowed_imports": [
+        "component::preserves-payload::Type(list<u8>)",
+        "component::effect-request::Func(list<u8>)->result<list<u8>,string>"
+      ],
+      "allowed_proposals": [
+        "wasm1",
+        "component-model",
+        "bulk-memory",
+        "call-indirect-overlong"
+      ],
+      "allowed_worlds": [],
+      "component_interface": "structural-v1",
+      "duplicate_custom_sections": "reject",
+      "non_claims": [
+        "Wasm artifact evidence records bounded static facts and does not prove execution correctness",
+        "Matching normalized interfaces do not prove semantic equivalence or identify one implementation",
+        "Static validation does not prove sandbox effectiveness, capability authority, provenance truth, release eligibility, or whole-system safety",
+        "Producer metadata is recorded input and is not provenance truth",
+        "Structural admission does not authenticate the molten:component-effects@1.0.0 package or actor-effects world; canonical Preserves and effect authority remain Molten-owned",
+        "Resource counts conservatively include unused definitions and multiply local instantiations; declared bounds do not prove runtime allocation or execution capacity"
+      ],
+      "producer_metadata": "recorded-only",
+      "profile_id": "molten-component-effects-v1",
+      "required_exports": [
+        "component::invoke::Func(list<u8>)->result<list<u8>,string>"
+      ],
+      "required_imports": [
+        "component::preserves-payload::Type(list<u8>)",
+        "component::effect-request::Func(list<u8>)->result<list<u8>,string>"
+      ],
+      "resource_limits": {
+        "max_artifact_bytes": 1048576,
+        "max_exports": 1,
+        "max_function_parameter_words": 255,
+        "max_functions": 128,
+        "max_imports": 2,
+        "max_local_words_per_function": 65535,
+        "max_memories": 1,
+        "max_memory_initial_pages": 65536,
+        "max_memory_maximum_pages": 65536,
+        "max_table_initial_elements": 65535,
+        "max_table_maximum_elements": 65535,
+        "max_tables": 2
+      },
+      "severity": {
+        "abi_mismatch": "error",
+        "cohort_drift": "error",
+        "disallowed_import": "error",
+        "disallowed_kind": "error",
+        "disallowed_world": "error",
+        "duplicate_metadata": "error",
+        "external_evidence": "error",
+        "growth": "error",
+        "malformed": "error",
+        "resource_limit": "error",
+        "start": "error"
+      },
+      "summary": "Execution-free structural admission of the no-WASI Molten actor-effects function surface and its internally bound canonical adapters.",
+      "target_runtime": null,
+      "verification_role": "recorded_only"
+    },
+    {
+      "allow_any_exports": false,
+      "allow_memory_grow": false,
+      "allow_start": false,
+      "allowed_artifact_kinds": [
         "module"
       ],
       "allowed_exports": [

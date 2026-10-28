@@ -1,0 +1,21 @@
+{
+  "command": [
+    "/home/brittonr/.cache/mantle-octet-profiles-20261028/octet-target/debug/cargo-octet",
+    "evidence",
+    "collect",
+    "--rail",
+    "wasm-artifact",
+    "--input",
+    "/home/brittonr/.cache/aspen-component-adoption-20261028/effect-profile-probe/normalized.wasm",
+    "--config",
+    "standards/wasm-artifact/generated/profiles.json",
+    "--profile",
+    "molten-component-effects-v1",
+    "--artifact-dir",
+    "/home/brittonr/git/OnixResearch/.worktrees/octet-effects-20261028/.cairn/changes/add-molten-component-effects-profile/evidence/2026-10-28-effects-verification/real-effect-guest-reviewed"
+  ],
+  "cwd": "/home/brittonr/git/OnixResearch/.worktrees/octet-effects-20261028",
+  "exit": 0,
+  "stdout": "octet evidence rail rail=wasm-artifact checker=cargo-octet status=passed artifact=evidence-rail-receipt.json\n",
+  "stderr": ""
+}

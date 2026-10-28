@@ -1,0 +1,33 @@
+{
+  "command": [
+    "cargo",
+    "--config",
+    "/nix/store/lk2hn79aibxb8a38q5il11mr33vd3r1r-vendor-cargo-deps/config.toml",
+    "--config",
+    "source.\"https://github.com/OnixResearch/bounded-exec.git?rev=44eb74eb639194665ee820562d5b2ce2c3ff6a94\".git=\"https://github.com/OnixResearch/bounded-exec.git\"",
+    "--config",
+    "source.\"https://github.com/OnixResearch/bounded-exec.git?rev=44eb74eb639194665ee820562d5b2ce2c3ff6a94\".rev=\"44eb74eb639194665ee820562d5b2ce2c3ff6a94\"",
+    "--config",
+    "source.\"https://github.com/OnixResearch/bounded-exec.git?rev=44eb74eb639194665ee820562d5b2ce2c3ff6a94\".replace-with=\"nix-sources-88cd7bc573db2cca682d20d2993de91917124e0d58003f86b4c3b871b4c8cbc0\"",
+    "test",
+    "--offline",
+    "--locked",
+    "-p",
+    "cargo-octet",
+    "wasm_artifact_receipt",
+    "--",
+    "--nocapture"
+  ],
+  "cwd": "/home/brittonr/git/OnixResearch/octet",
+  "environment_overrides": {
+    "CARGO_TARGET_DIR": "/home/brittonr/.cache/mantle-octet-profiles-20261028/octet-target",
+    "CARGO_BUILD_JOBS": "2",
+    "CARGO_PROFILE_TEST_DEBUG": "0",
+    "CARGO_PROFILE_DEV_DEBUG": "0",
+    "CARGO_INCREMENTAL": "0"
+  },
+  "exit": 0,
+  "duration_seconds": 49.074,
+  "stdout": "\nrunning 1 test\ntest evidence_rails::tests::wasm_artifact_receipt_binds_exact_bytes_interface_and_input_provenance ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 478 filtered out; finished in 0.00s\n\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s\n\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s\n\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 65 filtered out; finished in 0.00s\n\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.00s\n\n",
+  "stderr": "   Compiling cargo-octet v0.1.0 (/home/brittonr/git/OnixResearch/octet/cargo-octet)\n[kache] the cache index could not be opened after retries (opening index database /var/cache/kache-nix/user-brittonr/index.db: disk I/O error: Error code 4618: disk I/O error).\n[kache] Caching is disabled for this build \u2014 compilation still succeeds,\n[kache] just without cache hits or stores (everything builds uncached).\n[kache] This is usually a storage issue: the cache directory is on a\n[kache] filesystem that doesn't support reliable file locking, or it is\n[kache] being accessed from more than one machine at the same time.\n[kache] \u2192 set KACHE_CACHE_DIR to a fast, local, single-machine path\n    Finished `test` profile [unoptimized] target(s) in 48.89s\n     Running unittests src/lib.rs (/home/brittonr/.cache/mantle-octet-profiles-20261028/octet-target/debug/deps/cargo_octet-f260507754a0f87e)\n     Running unittests src/main.rs (/home/brittonr/.cache/mantle-octet-profiles-20261028/octet-target/debug/deps/cargo_octet-a5f1b39049361d5f)\n     Running unittests src/bin/cargo-slotcar.rs (/home/brittonr/.cache/mantle-octet-profiles-20261028/octet-target/debug/deps/cargo_slotcar-23650089737d5da3)\n     Running unittests src/bin/cargo-tigerstyle.rs (/home/brittonr/.cache/mantle-octet-profiles-20261028/octet-target/debug/deps/cargo_tigerstyle-74d1e56292ce089f)\n     Running tests/alias_bins.rs (/home/brittonr/.cache/mantle-octet-profiles-20261028/octet-target/debug/deps/alias_bins-0803468a4be24ce2)\n     Running tests/clippy_restriction_profiles.rs (/home/brittonr/.cache/mantle-octet-profiles-20261028/octet-target/debug/deps/clippy_restriction_profiles-3711a10cf244ee73)\n     Running tests/fingerprint_consumer.rs (/home/brittonr/.cache/mantle-octet-profiles-20261028/octet-target/debug/deps/fingerprint_consumer-0bc77ecd3684ca3e)\n     Running tests/unison_roadmap.rs (/home/brittonr/.cache/mantle-octet-profiles-20261028/octet-target/debug/deps/unison_roadmap-1976cf7ef71f6076)\n"
+}

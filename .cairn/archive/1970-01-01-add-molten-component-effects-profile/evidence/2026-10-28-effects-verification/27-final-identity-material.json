@@ -1,0 +1,18 @@
+{
+  "method": "BLAKE3 over compact JSON ordered exactly by WasmArtifactProfile/WasmResourceLimits/WasmFindingSeverities Rust declaration order; absent optional fields omitted",
+  "baseline_and_effect_profile_identities": {
+    "portable-component-baseline": "b3:e8fbf118b283d63a3662af4853a2ce5f4a1777c18fe37e0be0dc1e235fd707bd",
+    "molten-component-baseline": "b3:24dc3346b817ee2645b000922a612a1988f63914b49688a8b72ebb758316c846",
+    "molten-component-effects-v1": "b3:a3ad131b214390c9e0ab515e0a63698067dcdd15f2fd4abbc1fd2d120726292e"
+  },
+  "source_b3sum_command": [
+    "b3sum",
+    "cargo-octet/src/wasm_artifact.rs",
+    "standards/wasm-artifact/contracts.ncl",
+    "standards/wasm-artifact/profiles.ncl",
+    "standards/wasm-artifact/generated/profiles.json",
+    "standards/wasm-artifact/fixtures/positive/component-effects.wat",
+    "standards/wasm-artifact/README.md"
+  ],
+  "source_b3sum_stdout": "6766961d2d8b4e7b5fcd5caad7bb868f604166d5b1ea6190de5ea80cebcedccd  cargo-octet/src/wasm_artifact.rs\nf763fe9941296310c821fc80e96ee83de662ee0b5d5062e8fd7ff6cd958a3a15  standards/wasm-artifact/contracts.ncl\n4c97918f6ba07833cc83e5c31bbdab5a9f6da681f105420fb5ab94ff891abafd  standards/wasm-artifact/profiles.ncl\n09f1fbb7ce4d9da085b3f1325dbd5e8ae1c17bde2755caf79c1d2850e67b116a  standards/wasm-artifact/generated/profiles.json\n2d827a46d1325675b1383a99d81f4bf463fadc72524920fbfe0e6fb60dc527da  standards/wasm-artifact/fixtures/positive/component-effects.wat\ne53ad40b31525752425b2aed3e85b7d307d97bb395fa452db03caca89cc78e91  standards/wasm-artifact/README.md\n"
+}

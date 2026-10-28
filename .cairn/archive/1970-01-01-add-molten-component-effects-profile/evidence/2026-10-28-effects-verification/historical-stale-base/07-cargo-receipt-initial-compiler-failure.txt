@@ -1,0 +1,17 @@
+    Blocking waiting for file lock on build directory
+[kache] the cache index could not be opened after retries (opening index database /var/cache/kache-nix/user-brittonr/index.db: disk I/O error: Error code 4618: disk I/O error).
+[kache] Caching is disabled for this build — compilation still succeeds,
+[kache] just without cache hits or stores (everything builds uncached).
+[kache] This is usually a storage issue: the cache directory is on a
+[kache] filesystem that doesn't support reliable file locking, or it is
+[kache] being accessed from more than one machine at the same time.
+[kache] → set KACHE_CACHE_DIR to a fast, local, single-machine path
+   Compiling cargo-octet v0.1.0 (/home/brittonr/git/OnixResearch/octet/cargo-octet)
+error[E0423]: expected function, tuple struct or tuple variant, found trait `wasm_encoder::ComponentSection`
+    --> cargo-octet/src/wasm_artifact.rs:1727:28
+     |
+1727 |         component.section(&wasm_encoder::ComponentSection(&nested));
+     |                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ not a function, tuple struct or tuple variant
+
+For more information about this error, try `rustc --explain E0423`.
+error: could not compile `cargo-octet` (lib test) due to 1 previous error

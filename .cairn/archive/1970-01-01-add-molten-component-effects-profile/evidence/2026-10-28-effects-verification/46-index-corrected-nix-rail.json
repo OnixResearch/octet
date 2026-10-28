@@ -1,0 +1,15 @@
+{
+  "command": [
+    "nix",
+    "build",
+    "--builders",
+    "",
+    ".#checks.x86_64-linux.wasm-artifact-rail",
+    "--no-link",
+    "-L"
+  ],
+  "cwd": "/home/brittonr/git/OnixResearch/.worktrees/octet-effects-20261028",
+  "exit": 0,
+  "stdout": "",
+  "stderr": "this derivation will be built:\n  /nix/store/7hnnr65kxnkd1xlzjfngqdwdsw828sc2-octet-wasm-artifact-rail-check.drv\nbuilding '/nix/store/7hnnr65kxnkd1xlzjfngqdwdsw828sc2-octet-wasm-artifact-rail-check.drv'...\n"
+}

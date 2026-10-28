@@ -1,0 +1,27 @@
+    Blocking waiting for file lock on build directory
+   Compiling syn v2.0.118
+[kache] the cache index could not be opened after retries (opening index database /var/cache/kache-nix/user-brittonr/index.db: disk I/O error: Error code 4618: disk I/O error).
+[kache] Caching is disabled for this build — compilation still succeeds,
+[kache] just without cache hits or stores (everything builds uncached).
+[kache] This is usually a storage issue: the cache directory is on a
+[kache] filesystem that doesn't support reliable file locking, or it is
+[kache] being accessed from more than one machine at the same time.
+[kache] → set KACHE_CACHE_DIR to a fast, local, single-machine path
+   Compiling memchr v2.8.3
+   Compiling serde_json v1.0.150
+   Compiling serde_derive v1.0.228
+   Compiling thiserror-impl v2.0.18
+   Compiling clap_derive v4.6.1
+   Compiling serde v1.0.228
+   Compiling nickel-export-core v0.1.0 (https://github.com/OnixResearch/nickel-export?rev=257fafc1c746f1faf156207043a4c826bfb16d49#257fafc1)
+   Compiling clap v4.6.1
+   Compiling octet-architecture-ir v0.1.0 (/home/brittonr/git/OnixResearch/octet/crates/octet-architecture-ir)
+   Compiling thiserror v2.0.18
+   Compiling octet-lint-metadata v0.1.0 (/home/brittonr/git/OnixResearch/octet/crates/octet-lint-metadata)
+   Compiling octet-standards v0.1.0 (/home/brittonr/git/OnixResearch/octet/crates/octet-standards)
+   Compiling valence-core v0.1.0 (https://github.com/OnixResearch/valence.git?rev=5f1c2ba5072c6f9622fa59b1af20502985f569fd#5f1c2ba5)
+   Compiling wasmparser v0.253.0
+   Compiling cargo-octet v0.1.0 (/home/brittonr/git/OnixResearch/octet/cargo-octet)
+    Finished `dev` profile [unoptimized] target(s) in 1m 23s
+     Running `/home/brittonr/.cache/mantle-octet-profiles-20261028/octet-target/debug/cargo-octet evidence collect --rail wasm-artifact --input /home/brittonr/.cache/aspen-component-adoption-20261028/effect-profile-probe/normalized.wasm --config standards/wasm-artifact/generated/profiles.json --profile molten-component-effects-v1 --artifact-dir .cairn/changes/add-molten-component-artifact-profile/evidence/2026-10-28-effects-verification/real-effect-guest`
+octet evidence rail rail=wasm-artifact checker=cargo-octet status=failed artifact=evidence-rail-receipt.json

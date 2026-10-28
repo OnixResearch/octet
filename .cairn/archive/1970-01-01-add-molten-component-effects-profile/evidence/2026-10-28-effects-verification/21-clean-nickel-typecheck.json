@@ -1,0 +1,13 @@
+{
+  "command": [
+    "/nix/store/ck3a4k9az87z5rjwgy8nmpcs34xp9cc5-nickel-lang-rev-fixup-1.17.0/bin/nickel",
+    "typecheck",
+    "standards/wasm-artifact/profiles.ncl"
+  ],
+  "cwd": "/home/brittonr/git/OnixResearch/.worktrees/octet-effects-20261028",
+  "environment_overrides": {},
+  "exit": 0,
+  "duration_seconds": 0.013,
+  "stdout": "",
+  "stderr": ""
+}

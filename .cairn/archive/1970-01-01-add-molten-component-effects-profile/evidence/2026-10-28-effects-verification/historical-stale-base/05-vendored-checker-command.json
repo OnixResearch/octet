@@ -1,0 +1,31 @@
+{
+  "command": [
+    "cargo",
+    "--config",
+    "/nix/store/lk2hn79aibxb8a38q5il11mr33vd3r1r-vendor-cargo-deps/config.toml",
+    "--config",
+    "source.\"https://github.com/OnixResearch/bounded-exec.git?rev=44eb74eb639194665ee820562d5b2ce2c3ff6a94\".git=\"https://github.com/OnixResearch/bounded-exec.git\"",
+    "--config",
+    "source.\"https://github.com/OnixResearch/bounded-exec.git?rev=44eb74eb639194665ee820562d5b2ce2c3ff6a94\".rev=\"44eb74eb639194665ee820562d5b2ce2c3ff6a94\"",
+    "--config",
+    "source.\"https://github.com/OnixResearch/bounded-exec.git?rev=44eb74eb639194665ee820562d5b2ce2c3ff6a94\".replace-with=\"nix-sources-88cd7bc573db2cca682d20d2993de91917124e0d58003f86b4c3b871b4c8cbc0\"",
+    "test",
+    "--offline",
+    "--locked",
+    "-p",
+    "cargo-octet",
+    "wasm_artifact",
+    "--",
+    "--nocapture"
+  ],
+  "environment_overrides": {
+    "CARGO_TARGET_DIR": "/home/brittonr/.cache/mantle-octet-profiles-20261028/octet-target",
+    "CARGO_BUILD_JOBS": "2",
+    "CARGO_PROFILE_TEST_DEBUG": "0",
+    "CARGO_PROFILE_DEV_DEBUG": "0",
+    "CARGO_INCREMENTAL": "0"
+  },
+  "rust_toolchain": "nightly-2026-03-21",
+  "vendor_source_policy": "Exact same git revisions and immutable directory-source checksums; command-local HTTPS URL binding for bounded-exec, no path dependency or manifest edits",
+  "output_artifact": "Background job bg_474 output will be retained after completion"
+}

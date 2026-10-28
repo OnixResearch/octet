@@ -31,6 +31,8 @@ let Profile = {
   allowed_imports | Array NonEmptyString,
   allowed_exports | Array NonEmptyString,
   required_exports | Array NonEmptyString,
+  required_imports | optional | Array NonEmptyString,
+  component_interface | optional | OneOf ["structural-v1"],
   allow_any_exports | Bool,
   resource_limits | {
     max_artifact_bytes | Positive,
