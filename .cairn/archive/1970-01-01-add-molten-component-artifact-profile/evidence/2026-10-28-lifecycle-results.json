@@ -1,0 +1,49 @@
+[
+  {
+    "name": "proposal",
+    "command": [
+      "/nix/store/ynjawpza9ci9i8ha7f3ywaqwbd60m83k-cairn-0.1.0/bin/cairn",
+      "gate",
+      "proposal",
+      "add-molten-component-artifact-profile",
+      "--root",
+      "."
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "design",
+    "command": [
+      "/nix/store/ynjawpza9ci9i8ha7f3ywaqwbd60m83k-cairn-0.1.0/bin/cairn",
+      "gate",
+      "design",
+      "add-molten-component-artifact-profile",
+      "--root",
+      "."
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "tasks",
+    "command": [
+      "/nix/store/ynjawpza9ci9i8ha7f3ywaqwbd60m83k-cairn-0.1.0/bin/cairn",
+      "gate",
+      "tasks",
+      "add-molten-component-artifact-profile",
+      "--root",
+      "."
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "strict-validation",
+    "command": [
+      "/nix/store/ynjawpza9ci9i8ha7f3ywaqwbd60m83k-cairn-0.1.0/bin/cairn",
+      "validate",
+      "--root",
+      ".",
+      "--strict"
+    ],
+    "exit_code": 0
+  }
+]

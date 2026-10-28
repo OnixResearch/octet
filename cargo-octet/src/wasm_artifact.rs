@@ -50,6 +50,7 @@ const WASM2_PROPOSAL: &str = "wasm2";
 const WASM3_PROPOSAL: &str = "wasm3";
 const COMPONENT_MODEL_PROPOSAL: &str = "component-model";
 const BULK_MEMORY_PROPOSAL: &str = "bulk-memory";
+const CALL_INDIRECT_OVERLONG_PROPOSAL: &str = "call-indirect-overlong";
 const PRODUCERS_SECTION: &str = "producers";
 const COMPONENT_WORLD_SEPARATOR: char = '/';
 const STANDALONE_HANDOFF: &str = "standalone";
@@ -727,6 +728,7 @@ fn validation_features(profile: &WasmArtifactProfile) -> WasmFeatures {
             WASM3_PROPOSAL => WasmFeatures::WASM3,
             COMPONENT_MODEL_PROPOSAL => WasmFeatures::COMPONENT_MODEL,
             BULK_MEMORY_PROPOSAL => WasmFeatures::BULK_MEMORY,
+            CALL_INDIRECT_OVERLONG_PROPOSAL => WasmFeatures::CALL_INDIRECT_OVERLONG,
             _ => WasmFeatures::empty(),
         };
     }
@@ -1175,7 +1177,12 @@ fn validate_profiles(profiles: &[WasmArtifactProfile], diagnostics: &mut Vec<Str
         for proposal in &profile.allowed_proposals {
             if !matches!(
                 proposal.as_str(),
-                WASM1_PROPOSAL | WASM2_PROPOSAL | WASM3_PROPOSAL | COMPONENT_MODEL_PROPOSAL | BULK_MEMORY_PROPOSAL
+                WASM1_PROPOSAL
+                    | WASM2_PROPOSAL
+                    | WASM3_PROPOSAL
+                    | COMPONENT_MODEL_PROPOSAL
+                    | BULK_MEMORY_PROPOSAL
+                    | CALL_INDIRECT_OVERLONG_PROPOSAL
             ) {
                 diagnostics.push(format!(
                     "Wasm artifact profile `{}` names unknown proposal `{proposal}`",
@@ -1968,7 +1975,7 @@ mod tests {
     }
 
     #[test]
-    fn bulk_memory_proposal_is_recognized_and_enables_validation() {
+    fn molten_profile_validates_bulk_memory_and_padded_indirect_calls_without_reference_types() {
         let registry = valid_registry();
         assert!(validate_registry(&registry).is_empty());
         let profile = registry
@@ -1976,17 +1983,32 @@ mod tests {
             .iter()
             .find(|profile| profile.profile_id == "molten-component-baseline")
             .expect("molten profile");
-        assert!(profile.allowed_proposals.iter().any(|proposal| proposal == BULK_MEMORY_PROPOSAL));
-        assert!(validation_features(profile).contains(WasmFeatures::BULK_MEMORY));
-
+        let features = validation_features(profile);
+        let bulk_memory = wat::parse_str("(module (memory 1) (func i32.const 0 i32.const 0 i32.const 0 memory.copy))")
+            .expect("bulk-memory fixture");
+        Validator::new_with_features(features).validate_all(&bulk_memory).expect("declared bulk memory");
+        // One () -> () function and funcref table; call_indirect uses a padded
+        // LEB-encoded zero table index, as emitted by the reviewed LLVM linker.
+        let padded_call = b"\0asm\x01\0\0\0\x01\x04\x01\x60\0\0\x03\x02\x01\0\x04\x04\x01\x70\0\x01\x0a\x0a\x01\x08\0\x41\0\x11\0\x80\0\x0b";
+        Validator::new_with_features(features)
+            .validate_all(padded_call)
+            .expect("declared padded table immediate");
+        let without_encoding = features & !WasmFeatures::CALL_INDIRECT_OVERLONG;
+        assert!(Validator::new_with_features(without_encoding).validate_all(padded_call).is_err());
+        let references =
+            wat::parse_str("(module (func (result externref) ref.null extern))").expect("reference fixture");
+        assert!(Validator::new_with_features(features).validate_all(&references).is_err());
+        let simd = wat::parse_str("(module (func (result v128) v128.const i32x4 0 0 0 0))").expect("SIMD fixture");
+        assert!(Validator::new_with_features(features).validate_all(&simd).is_err());
+        let baseline = registry.profiles.iter().find(|profile| profile.profile_id == PROFILE_ID).expect("baseline");
+        assert!(Validator::new_with_features(validation_features(baseline)).validate_all(&bulk_memory).is_err());
+        assert!(Validator::new_with_features(validation_features(baseline)).validate_all(padded_call).is_err());
         let mut unknown = profile.clone();
-        unknown.allowed_proposals = vec![String::from("bulk-memory-unknown")];
+        unknown.allowed_proposals = vec![String::from("call-indirect-overlong-unknown")];
         let mut diagnostics = Vec::new();
         validate_profiles(&[unknown], &mut diagnostics);
         assert!(
-            diagnostics
-                .iter()
-                .any(|diagnostic| diagnostic.contains("names unknown proposal `bulk-memory-unknown`")),
+            diagnostics.iter().any(|diagnostic| diagnostic.contains("names unknown proposal")),
             "{diagnostics:?}"
         );
     }
