@@ -173,6 +173,15 @@ cargo octet evidence collect --rail benchmark-evidence --profile octet-metadata-
 cargo octet artifact verify --artifact-dir artifacts/dependency-audit
 ```
 
+For Mantle-produced Molten components, select `molten-component-baseline`
+explicitly. It permits the declared Preserves carrier type import, bulk memory
+and padded `call_indirect` table immediates. `call-indirect-overlong` enables
+only that encoding feature; it does not enable reference types, SIMD or all of
+Wasm 2. The import-free `portable-component-baseline` remains unchanged.
+Profile and registry identities change with policy; downstream toolchains must
+pin the new identities and rerun exact-byte evidence. Static admission grants
+no runtime authority or execution-correctness claim.
+
 The Clippy rail uses an embedded reviewed catalog. It does not enable the full `clippy::restriction` group.
 
 Receipts bind catalog and profile identities, arguments, findings, and tool status. They remain complementary static-lint evidence.

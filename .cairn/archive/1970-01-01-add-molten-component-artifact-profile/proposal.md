@@ -3,7 +3,8 @@
 ## Why
 
 Molten's supported component world is denied by `portable-component-baseline`:
-two nested `component::preserves-payload::Type(Eq(0))` imports and bulk memory.
+two nested `component::preserves-payload::Type(Eq(0))` imports, bulk memory,
+and the reviewed LLVM linker's padded zero indirect-call table immediates.
 The baseline must stay import-free, so the fix is a separate reviewed profile
 plus a granular proposal token.
 
@@ -13,6 +14,7 @@ plus a granular proposal token.
   type import only, bulk memory, no ambient imports, baseline resource limits.
 - Recognize a granular `bulk-memory` proposal mapped to wasmparser's bulk-memory
   feature instead of admitting all of Wasm 2.
+- Recognize `call-indirect-overlong` as only the padded indirect-call encoding feature, without admitting reference types.
 - Keep `portable-component-baseline` unchanged.
 
 ## Impact

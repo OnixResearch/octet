@@ -121,7 +121,8 @@
       "allowed_proposals": [
         "wasm1",
         "component-model",
-        "bulk-memory"
+        "bulk-memory",
+        "call-indirect-overlong"
       ],
       "allowed_worlds": [],
       "duplicate_custom_sections": "reject",
@@ -130,7 +131,7 @@
         "Matching normalized interfaces do not prove semantic equivalence or identify one implementation",
         "Static validation does not prove sandbox effectiveness, capability authority, provenance truth, release eligibility, or whole-system safety",
         "Producer metadata is recorded input and is not provenance truth",
-        "Admission of one declared preserves-payload type import and bulk memory does not admit other imports, proposals, or Molten runtime authority"
+        "Admission of the declared preserves-payload type import, bulk memory and padded indirect calls does not admit other imports, proposals, or Molten runtime authority"
       ],
       "producer_metadata": "recorded-only",
       "profile_id": "molten-component-baseline",
@@ -162,7 +163,7 @@
         "resource_limit": "error",
         "start": "error"
       },
-      "summary": "Execution-free static facts for the admitted Molten component cohort: bulk-memory inside the declared preserves-payload type import and no ambient host imports.",
+      "summary": "Execution-free static facts for the admitted Molten component cohort: bulk-memory and padded indirect calls inside the declared preserves-payload type import and no ambient host imports.",
       "target_runtime": null,
       "verification_role": "recorded_only"
     },
