@@ -355,6 +355,251 @@
         }
       },
       "verification_role": "boundary"
+    },
+    {
+      "allow_any_exports": false,
+      "allow_memory_grow": false,
+      "allow_start": false,
+      "allowed_artifact_kinds": [
+        "module"
+      ],
+      "allowed_exports": [
+        "module::run::Func",
+        "module::total::Global"
+      ],
+      "allowed_imports": [
+        "molten::observe::Func(0)",
+        "molten::pause::Func(1)"
+      ],
+      "allowed_proposals": [
+        "wasm1",
+        "mutable-globals"
+      ],
+      "allowed_worlds": [],
+      "duplicate_custom_sections": "reject",
+      "non_claims": [
+        "Wasm artifact evidence records bounded static facts and does not prove execution correctness",
+        "Host ABI shape does not prove observe transcript, pause/resume behavior, fuel accounting, runtime semantics, hardware, safety, or release eligibility"
+      ],
+      "producer_metadata": "recorded-only",
+      "profile_id": "spacewasm-mvp-host-pilot",
+      "required_exports": [
+        "module::run::Func",
+        "module::total::Global"
+      ],
+      "resource_limits": {
+        "max_artifact_bytes": 1048576,
+        "max_exports": 2,
+        "max_function_parameter_words": 32,
+        "max_functions": 4096,
+        "max_imports": 2,
+        "max_local_words_per_function": 1024,
+        "max_memories": 0,
+        "max_memory_initial_pages": 256,
+        "max_memory_maximum_pages": 256,
+        "max_table_initial_elements": 1024,
+        "max_table_maximum_elements": 1024,
+        "max_tables": 0
+      },
+      "severity": {
+        "abi_mismatch": "error",
+        "cohort_drift": "error",
+        "disallowed_import": "error",
+        "disallowed_kind": "error",
+        "disallowed_world": "error",
+        "duplicate_metadata": "error",
+        "external_evidence": "error",
+        "growth": "error",
+        "malformed": "error",
+        "resource_limit": "error",
+        "start": "error"
+      },
+      "summary": "Diagnostic molten observe/pause host ABI with run and mutable i32 total; static checks only.",
+      "target_runtime": {
+        "cohort_identity": "b3:7c537eef7bff66d0a90508715de08de79c9aaac23352e1007a6d47e7fb4674a2",
+        "support_projection": {
+          "default_allow_memory_grow": false,
+          "denied_or_unimplemented_proposals": [
+            "bulk-memory",
+            "component-model",
+            "custom-page-sizes",
+            "memory64",
+            "multi-memory",
+            "multi-value",
+            "non-trapping-float-to-int",
+            "sign-extension-ops",
+            "threads",
+            "wit",
+            "wasi"
+          ],
+          "external_runtime_configuration": [
+            "allocator pages",
+            "code pages",
+            "control frames",
+            "fuel or instruction budget",
+            "host import implementations",
+            "stack depth"
+          ],
+          "maximum_function_index": 65535,
+          "maximum_function_parameter_words": 255,
+          "maximum_linear_memory_pages": 65536,
+          "maximum_local_words_per_function": 65535,
+          "module_kind": "module",
+          "non_claims": [
+            "The projection records a bounded source review and does not prove SpaceWasm runtime behavior",
+            "Static artifact limits do not prove configured allocator, code-page, control-frame, fuel, host-import, or stack capacity",
+            "The upstream Git revision uses Git SHA-1 for interoperability; Octet uses BLAKE3 for the derived cohort identity"
+          ],
+          "observed_discrepancies": [
+            "REQUIREMENTS.md allows selected post-MVP proposals in principle while README.md and the reviewed opcode decoder expose only Wasm 1.0 plus mutable globals",
+            "README.md describes spacewasm-check as not yet developed"
+          ],
+          "reviewed_paths": [
+            "Cargo.lock",
+            "README.md",
+            "REQUIREMENTS.md",
+            "src/SPEC.md",
+            "src/code.rs",
+            "src/compiler.rs",
+            "src/opcode.rs",
+            "src/types.rs"
+          ],
+          "runtime_id": "nasa-spacewasm",
+          "schema_version": "octet-spacewasm-support-projection/v1",
+          "source_lock_identity": "b3:4e6a07910125d4c921a62cec03d8bc9acb3bf341ebd1a11999df08d6c6c5c5f1",
+          "source_repository": "https://github.com/nasa/spacewasm",
+          "source_revision": "e24cf09355a90497148eb5029fdb8e3400bd63e3",
+          "supported_proposals": [
+            "wasm1",
+            "mutable-globals"
+          ]
+        }
+      },
+      "verification_role": "boundary"
+    },
+    {
+      "allow_any_exports": false,
+      "allow_memory_grow": false,
+      "allow_start": false,
+      "allowed_artifact_kinds": [
+        "module"
+      ],
+      "allowed_exports": [
+        "module::memory::Memory",
+        "module::molten_alloc::Func",
+        "module::molten_dealloc::Func",
+        "module::molten_run::Func"
+      ],
+      "allowed_imports": [
+        "molten:hostcall::assert::Func",
+        "molten:hostcall::send::Func"
+      ],
+      "allowed_proposals": [
+        "wasm1"
+      ],
+      "allowed_worlds": [],
+      "duplicate_custom_sections": "reject",
+      "non_claims": [
+        "Wasm artifact evidence records bounded static facts and does not prove execution correctness",
+        "ABI shape does not prove allocation, deallocation, canonical payloads, descriptor correctness, host authority, runtime semantics, hardware, safety, or release eligibility"
+      ],
+      "producer_metadata": "recorded-only",
+      "profile_id": "spacewasm-molten-abi-pilot",
+      "required_exports": [
+        "module::memory::Memory",
+        "module::molten_alloc::Func",
+        "module::molten_dealloc::Func",
+        "module::molten_run::Func"
+      ],
+      "resource_limits": {
+        "max_artifact_bytes": 1048576,
+        "max_exports": 4,
+        "max_function_parameter_words": 32,
+        "max_functions": 4096,
+        "max_imports": 2,
+        "max_local_words_per_function": 1024,
+        "max_memories": 1,
+        "max_memory_initial_pages": 256,
+        "max_memory_maximum_pages": 256,
+        "max_table_initial_elements": 1024,
+        "max_table_maximum_elements": 1024,
+        "max_tables": 0
+      },
+      "severity": {
+        "abi_mismatch": "error",
+        "cohort_drift": "error",
+        "disallowed_import": "error",
+        "disallowed_kind": "error",
+        "disallowed_world": "error",
+        "duplicate_metadata": "error",
+        "external_evidence": "error",
+        "growth": "error",
+        "malformed": "error",
+        "resource_limit": "error",
+        "start": "error"
+      },
+      "summary": "Static molten.wasm.abi.v1 pilot with declared hostcalls; no runtime or hardware claim.",
+      "target_runtime": {
+        "cohort_identity": "b3:7c537eef7bff66d0a90508715de08de79c9aaac23352e1007a6d47e7fb4674a2",
+        "support_projection": {
+          "default_allow_memory_grow": false,
+          "denied_or_unimplemented_proposals": [
+            "bulk-memory",
+            "component-model",
+            "custom-page-sizes",
+            "memory64",
+            "multi-memory",
+            "multi-value",
+            "non-trapping-float-to-int",
+            "sign-extension-ops",
+            "threads",
+            "wit",
+            "wasi"
+          ],
+          "external_runtime_configuration": [
+            "allocator pages",
+            "code pages",
+            "control frames",
+            "fuel or instruction budget",
+            "host import implementations",
+            "stack depth"
+          ],
+          "maximum_function_index": 65535,
+          "maximum_function_parameter_words": 255,
+          "maximum_linear_memory_pages": 65536,
+          "maximum_local_words_per_function": 65535,
+          "module_kind": "module",
+          "non_claims": [
+            "The projection records a bounded source review and does not prove SpaceWasm runtime behavior",
+            "Static artifact limits do not prove configured allocator, code-page, control-frame, fuel, host-import, or stack capacity",
+            "The upstream Git revision uses Git SHA-1 for interoperability; Octet uses BLAKE3 for the derived cohort identity"
+          ],
+          "observed_discrepancies": [
+            "REQUIREMENTS.md allows selected post-MVP proposals in principle while README.md and the reviewed opcode decoder expose only Wasm 1.0 plus mutable globals",
+            "README.md describes spacewasm-check as not yet developed"
+          ],
+          "reviewed_paths": [
+            "Cargo.lock",
+            "README.md",
+            "REQUIREMENTS.md",
+            "src/SPEC.md",
+            "src/code.rs",
+            "src/compiler.rs",
+            "src/opcode.rs",
+            "src/types.rs"
+          ],
+          "runtime_id": "nasa-spacewasm",
+          "schema_version": "octet-spacewasm-support-projection/v1",
+          "source_lock_identity": "b3:4e6a07910125d4c921a62cec03d8bc9acb3bf341ebd1a11999df08d6c6c5c5f1",
+          "source_repository": "https://github.com/nasa/spacewasm",
+          "source_revision": "e24cf09355a90497148eb5029fdb8e3400bd63e3",
+          "supported_proposals": [
+            "wasm1",
+            "mutable-globals"
+          ]
+        }
+      },
+      "verification_role": "boundary"
     }
   ],
   "schema_version": "octet-wasm-artifact-profiles/v1"

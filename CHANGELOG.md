@@ -6,6 +6,18 @@ specific commits via `TIGERSTYLE_DYLINT_REV`.
 For the full lint catalog, see `docs/lint-reference.md`.
 For rollout profiles, see `docs/downstream-rollout.md`.
 
+## Unreleased: Exact SpaceWasm pilot ABI facts
+
+SpaceWasm analysis now resolves core function export/import signatures and binds
+them into normalized interface identity. Hostless `run` must have signature
+`() -> ()`. Artifact reads and parser construction are bounded by profile size.
+The additive `spacewasm-molten-abi-pilot` profile checks the real Molten
+memory/allocator/deallocator/packed-result ABI and closed assert/send hostcalls;
+`spacewasm-mvp-host-pilot` separately checks the diagnostic observe/pause ABI.
+Both preserve the reviewed immutable NASA source cohort and explicit static-only
+boundaries. Operator smoke and positive/negative ABI fixtures are provided;
+runtime semantics, hardware, and producer provenance remain separate evidence.
+
 ## Unreleased: reviewed Valence source-token-v2 pin and source-bound object rails
 
 - Candidate `cargo-octet` source-backed object, marker, corpus, and supplement

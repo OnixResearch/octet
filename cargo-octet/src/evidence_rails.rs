@@ -97,6 +97,132 @@ pub enum EvidenceRailKind {
     VerifierFixture,
 }
 
+const DEPENDENCY_AUDIT_RULE_FAMILIES: &[&str] = &["advisories", "licenses", "bans", "sources", "duplicates"];
+
+const CLIPPY_CO_REPORTING_RULE_FAMILIES: &[&str] = &["clippy-diagnostics", "source-severity", "octet-gate-outcome"];
+
+const AST_GREP_STRUCTURAL_RULE_FAMILIES: &[&str] = &[
+    "rule-bundle-identity",
+    "positive-and-negative-rule-coverage",
+    "source-spans-and-metavariables",
+    "promotion-lanes",
+    "dry-run-codemods",
+    "recorded-only-valence-boundary",
+];
+
+const WASM_ARTIFACT_RULE_FAMILIES: &[&str] = &[
+    "exact-byte-validation",
+    "module-component-classification",
+    "imports-exports-worlds",
+    "memory-table-growth-start",
+    "producer-and-custom-metadata",
+    "resource-limits",
+    "exact-and-interface-identities",
+    "recorded-only-valence-boundary",
+];
+
+const CHARON_SEMANTIC_RULE_FAMILIES: &[&str] = &[
+    "provider-and-extraction-identity",
+    "exact-item-and-source-span",
+    "resolved-local-calls-and-dependencies",
+    "trait-resolution-and-control-flow",
+    "closed-effect-candidates-and-unknowns",
+    "source-token-comparison-without-authority-merge",
+    "role-separated-blake3-artifacts",
+    "recorded-only-stack-boundary",
+];
+
+const DEPENDENCY_TRUST_RULE_FAMILIES: &[&str] = &["audits", "imports", "exemptions", "unaudited-gaps"];
+
+const API_STABILITY_RULE_FAMILIES: &[&str] = &["public-api", "baseline", "feature-set", "target-triple"];
+
+const SARIF_IMPORT_RULE_FAMILIES: &[&str] = &[
+    "producer-profile-identity",
+    "raw-report-identity",
+    "normalized-projection-identity",
+    "source-rule-severity-location-preservation",
+    "local-bounded-intake",
+];
+
+const DYNAMIC_EVIDENCE_RULE_FAMILIES: &[&str] = &[
+    "profile-selection",
+    "allowed-command",
+    "acceptance-signal",
+    "cargo-fuzz-target-and-budget",
+    "cargo-fuzz-corpus-and-crash-identity",
+];
+
+const RELEASE_SUPPLY_CHAIN_RULE_FAMILIES: &[&str] = &[
+    "auditable-binary-metadata",
+    "sbom",
+    "vulnerability-scan",
+    "attestation-compatibility",
+];
+
+const MUTATION_TESTING_RULE_FAMILIES: &[&str] = &[
+    "mutant-generation",
+    "caught-mutants",
+    "survived-mutants",
+    "timeout-mutants",
+    "test-suite-kill-signal",
+];
+
+const COVERAGE_BASELINE_RULE_FAMILIES: &[&str] = &[
+    "coverage-summary",
+    "accepted-baseline",
+    "regression-detection",
+    "threshold-failures",
+];
+
+const BENCHMARK_EVIDENCE_RULE_FAMILIES: &[&str] = &[
+    "typed-workload-profile",
+    "bounded-raw-samples",
+    "environment-comparability",
+    "allocation-intervals",
+    "llvm-copy-sites",
+    "independent-signal-oracle",
+    "receipt-backed-public-claims",
+];
+
+const KANI_MODEL_CHECK_RULE_FAMILIES: &[&str] = &[
+    "harness-identity",
+    "toolchain-identity",
+    "solver-identity",
+    "unwind-status",
+    "contract-status",
+    "stub-classification",
+    "bounded-model-check-non-claims",
+];
+
+const HEGEL_PROPERTY_RULE_FAMILIES: &[&str] = &[
+    "property-identity",
+    "linked-requirement-ids",
+    "source-scope",
+    "runner-settings",
+    "generator-identity",
+    "counterexample-identity",
+    "generated-testing-non-claims",
+];
+
+const Z4_SOLVER_RULE_FAMILIES: &[&str] = &[
+    "solver-identity",
+    "query-identity",
+    "logic-profile",
+    "result-status",
+    "proof-model-core-references",
+    "unknown-timeout-diagnostics",
+    "role-and-non-claims",
+];
+
+const VERIFIER_FIXTURE_RULE_FAMILIES: &[&str] = &[
+    "fixture-identity",
+    "syntax-family",
+    "expected-verdict",
+    "diagnostic-expectations",
+    "assumption-and-unsupported-feature-labels",
+    "role-and-non-claims",
+];
+
 impl EvidenceRailKind {
     pub fn parse(value: &str) -> Result<Self, String> {
         match value {
@@ -148,7 +274,7 @@ impl EvidenceRailKind {
             Self::DependencyAudit => crate::evidence::CHECKER_CARGO_DENY,
             Self::ClippyCoReporting => crate::evidence::CHECKER_CLIPPY,
             Self::AstGrepStructural => crate::evidence::CHECKER_AST_GREP,
-            Self::WasmArtifact | Self::CharonSemantic => crate::evidence::CHECKER_CARGO_OCTET,
+            Self::WasmArtifact | Self::CharonSemantic | Self::VerifierFixture => crate::evidence::CHECKER_CARGO_OCTET,
             Self::DependencyTrust => crate::evidence::CHECKER_CARGO_VET,
             Self::ApiStability => crate::evidence::CHECKER_CARGO_SEMVER_CHECKS,
             Self::DynamicEvidence => crate::evidence::CHECKER_OCTET_DYNAMIC_EVIDENCE,
@@ -160,7 +286,6 @@ impl EvidenceRailKind {
             Self::KaniModelCheck => crate::evidence::CHECKER_CARGO_KANI,
             Self::HegelProperty => crate::evidence::CHECKER_HEGEL_RS,
             Self::Z4Solver => crate::evidence::CHECKER_Z4_SOLVER,
-            Self::VerifierFixture => crate::evidence::CHECKER_CARGO_OCTET,
         }
     }
 
@@ -189,9 +314,8 @@ impl EvidenceRailKind {
     pub fn evidence_tier(self) -> EvidenceTier {
         match self {
             Self::ClippyCoReporting | Self::AstGrepStructural | Self::SarifImport => EvidenceTier::StaticLint,
-            Self::WasmArtifact => EvidenceTier::PolicyCheck,
-            Self::CharonSemantic => EvidenceTier::TranscriptAssertion,
-            Self::DynamicEvidence
+            Self::CharonSemantic
+            | Self::DynamicEvidence
             | Self::MutationTesting
             | Self::CoverageBaseline
             | Self::BenchmarkEvidence
@@ -204,117 +328,25 @@ impl EvidenceRailKind {
     }
 
     fn checked_rule_families(self) -> Vec<String> {
-        match self {
-            Self::DependencyAudit => string_vec(&["advisories", "licenses", "bans", "sources", "duplicates"]),
-            Self::ClippyCoReporting => string_vec(&["clippy-diagnostics", "source-severity", "octet-gate-outcome"]),
-            Self::AstGrepStructural => string_vec(&[
-                "rule-bundle-identity",
-                "positive-and-negative-rule-coverage",
-                "source-spans-and-metavariables",
-                "promotion-lanes",
-                "dry-run-codemods",
-                "recorded-only-valence-boundary",
-            ]),
-            Self::WasmArtifact => string_vec(&[
-                "exact-byte-validation",
-                "module-component-classification",
-                "imports-exports-worlds",
-                "memory-table-growth-start",
-                "producer-and-custom-metadata",
-                "resource-limits",
-                "exact-and-interface-identities",
-                "recorded-only-valence-boundary",
-            ]),
-            Self::CharonSemantic => string_vec(&[
-                "provider-and-extraction-identity",
-                "exact-item-and-source-span",
-                "resolved-local-calls-and-dependencies",
-                "trait-resolution-and-control-flow",
-                "closed-effect-candidates-and-unknowns",
-                "source-token-comparison-without-authority-merge",
-                "role-separated-blake3-artifacts",
-                "recorded-only-stack-boundary",
-            ]),
-            Self::DependencyTrust => string_vec(&["audits", "imports", "exemptions", "unaudited-gaps"]),
-            Self::ApiStability => string_vec(&["public-api", "baseline", "feature-set", "target-triple"]),
-            Self::SarifImport => string_vec(&[
-                "producer-profile-identity",
-                "raw-report-identity",
-                "normalized-projection-identity",
-                "source-rule-severity-location-preservation",
-                "local-bounded-intake",
-            ]),
-            Self::DynamicEvidence => string_vec(&[
-                "profile-selection",
-                "allowed-command",
-                "acceptance-signal",
-                "cargo-fuzz-target-and-budget",
-                "cargo-fuzz-corpus-and-crash-identity",
-            ]),
-            Self::ReleaseSupplyChain => string_vec(&[
-                "auditable-binary-metadata",
-                "sbom",
-                "vulnerability-scan",
-                "attestation-compatibility",
-            ]),
-            Self::MutationTesting => string_vec(&[
-                "mutant-generation",
-                "caught-mutants",
-                "survived-mutants",
-                "timeout-mutants",
-                "test-suite-kill-signal",
-            ]),
-            Self::CoverageBaseline => string_vec(&[
-                "coverage-summary",
-                "accepted-baseline",
-                "regression-detection",
-                "threshold-failures",
-            ]),
-            Self::BenchmarkEvidence => string_vec(&[
-                "typed-workload-profile",
-                "bounded-raw-samples",
-                "environment-comparability",
-                "allocation-intervals",
-                "llvm-copy-sites",
-                "independent-signal-oracle",
-                "receipt-backed-public-claims",
-            ]),
-            Self::KaniModelCheck => string_vec(&[
-                "harness-identity",
-                "toolchain-identity",
-                "solver-identity",
-                "unwind-status",
-                "contract-status",
-                "stub-classification",
-                "bounded-model-check-non-claims",
-            ]),
-            Self::HegelProperty => string_vec(&[
-                "property-identity",
-                "linked-requirement-ids",
-                "source-scope",
-                "runner-settings",
-                "generator-identity",
-                "counterexample-identity",
-                "generated-testing-non-claims",
-            ]),
-            Self::Z4Solver => string_vec(&[
-                "solver-identity",
-                "query-identity",
-                "logic-profile",
-                "result-status",
-                "proof-model-core-references",
-                "unknown-timeout-diagnostics",
-                "role-and-non-claims",
-            ]),
-            Self::VerifierFixture => string_vec(&[
-                "fixture-identity",
-                "syntax-family",
-                "expected-verdict",
-                "diagnostic-expectations",
-                "assumption-and-unsupported-feature-labels",
-                "role-and-non-claims",
-            ]),
-        }
+        string_vec(match self {
+            Self::DependencyAudit => DEPENDENCY_AUDIT_RULE_FAMILIES,
+            Self::ClippyCoReporting => CLIPPY_CO_REPORTING_RULE_FAMILIES,
+            Self::AstGrepStructural => AST_GREP_STRUCTURAL_RULE_FAMILIES,
+            Self::WasmArtifact => WASM_ARTIFACT_RULE_FAMILIES,
+            Self::CharonSemantic => CHARON_SEMANTIC_RULE_FAMILIES,
+            Self::DependencyTrust => DEPENDENCY_TRUST_RULE_FAMILIES,
+            Self::ApiStability => API_STABILITY_RULE_FAMILIES,
+            Self::SarifImport => SARIF_IMPORT_RULE_FAMILIES,
+            Self::DynamicEvidence => DYNAMIC_EVIDENCE_RULE_FAMILIES,
+            Self::ReleaseSupplyChain => RELEASE_SUPPLY_CHAIN_RULE_FAMILIES,
+            Self::MutationTesting => MUTATION_TESTING_RULE_FAMILIES,
+            Self::CoverageBaseline => COVERAGE_BASELINE_RULE_FAMILIES,
+            Self::BenchmarkEvidence => BENCHMARK_EVIDENCE_RULE_FAMILIES,
+            Self::KaniModelCheck => KANI_MODEL_CHECK_RULE_FAMILIES,
+            Self::HegelProperty => HEGEL_PROPERTY_RULE_FAMILIES,
+            Self::Z4Solver => Z4_SOLVER_RULE_FAMILIES,
+            Self::VerifierFixture => VERIFIER_FIXTURE_RULE_FAMILIES,
+        })
     }
 
     fn non_claims(self) -> Vec<String> {
@@ -948,29 +980,26 @@ pub fn render_receipt_json(receipt: &EvidenceRailReceipt) -> Result<String, Stri
 }
 
 pub fn render_summary(receipt: &EvidenceRailReceipt) -> String {
-    let mut summary = String::new();
-    summary.push_str("--- octet evidence rail summary ---\n");
-    summary.push_str(&format!("Rail: {}\n", receipt.rail_id));
-    summary.push_str(&format!("Checker: {}\n", receipt.checker_id));
-    summary.push_str(&format!("Status: {}\n", receipt.status));
-    summary.push_str(&format!("Mode: {}\n", receipt.mode));
-    summary.push_str(&format!("Workspace scope: {}\n", receipt.workspace_scope));
-    summary.push_str(&format!("Input identity: {}\n", receipt.imported_input_identity));
-    summary.push_str("Finding counts:\n");
-    for (family, count) in &receipt.finding_counts {
-        summary.push_str(&format!("  {family}: {count}\n"));
-    }
-    summary.push_str("Non-claims:\n");
-    for non_claim in &receipt.non_claims {
-        summary.push_str(&format!("  - {non_claim}\n"));
-    }
+    let mut lines = vec![
+        "--- octet evidence rail summary ---".to_owned(),
+        format!("Rail: {}", receipt.rail_id),
+        format!("Checker: {}", receipt.checker_id),
+        format!("Status: {}", receipt.status),
+        format!("Mode: {}", receipt.mode),
+        format!("Workspace scope: {}", receipt.workspace_scope),
+        format!("Input identity: {}", receipt.imported_input_identity),
+        "Finding counts:".to_owned(),
+    ];
+    lines.extend(receipt.finding_counts.iter().map(|(family, count)| format!("  {family}: {count}")));
+    lines.push("Non-claims:".to_owned());
+    lines.extend(receipt.non_claims.iter().map(|non_claim| format!("  - {non_claim}")));
     if !receipt.diagnostics.is_empty() {
-        summary.push_str("Diagnostics:\n");
-        for diagnostic in &receipt.diagnostics {
-            summary.push_str(&format!("  - {diagnostic}\n"));
-        }
+        lines.push("Diagnostics:".to_owned());
+        lines.extend(receipt.diagnostics.iter().map(|diagnostic| format!("  - {diagnostic}")));
     }
-    summary.push_str("---\n");
+    lines.push("---".to_owned());
+    let mut summary = lines.join("\n");
+    summary.push('\n');
     summary
 }
 
@@ -1055,9 +1084,9 @@ fn specialized_provenance(receipt: &EvidenceRailReceipt) -> (Vec<ProvenanceRecor
     if let Some(details) = receipt.charon_semantic.as_ref() {
         for artifact in &details.artifacts {
             let parent_artifacts = match artifact.role.as_str() {
-                "snapshot" => Vec::new(),
                 "projection" => vec![crate::charon_semantic::RAW_SNAPSHOT_ARTIFACT.to_owned()],
                 "comparison" | "analysis" => vec![crate::charon_semantic::PROJECTION_ARTIFACT.to_owned()],
+                // Snapshots and any other role record no parent artifacts.
                 _ => Vec::new(),
             };
             records.push(ProvenanceRecord {
@@ -1433,7 +1462,7 @@ fn z4_diagnostics(rail: EvidenceRailKind, receipt: &EvidenceRailReceipt) -> Vec<
             }
         }
         (EvidenceRailKind::Z4Solver, None) => {
-            diagnostics.push("z4-solver receipt missing z4_solver details".to_owned())
+            diagnostics.push("z4-solver receipt missing z4_solver details".to_owned());
         }
         (_, Some(_)) => diagnostics.push("z4_solver details are only valid on z4-solver rail receipts".to_owned()),
         (_, None) => {}
@@ -1510,7 +1539,7 @@ fn sarif_diagnostics(rail: EvidenceRailKind, receipt: &EvidenceRailReceipt) -> V
             }
         }
         (EvidenceRailKind::SarifImport, None) => {
-            diagnostics.push("SARIF import receipt is missing typed details".to_owned())
+            diagnostics.push("SARIF import receipt is missing typed details".to_owned());
         }
         (_, Some(_)) => diagnostics.push("sarif_import details require the SARIF import rail".to_owned()),
         (_, None) => {}
@@ -1537,7 +1566,7 @@ fn coverage_diagnostics(rail: EvidenceRailKind, receipt: &EvidenceRailReceipt) -
         }
         (true, None) => diagnostics.push("profiled coverage receipt is missing typed details".to_owned()),
         (false, Some(_)) => {
-            diagnostics.push("coverage_baseline details require the checked coverage profile".to_owned())
+            diagnostics.push("coverage_baseline details require the checked coverage profile".to_owned());
         }
         (false, None) => {}
     }
@@ -1626,7 +1655,6 @@ fn validate_clippy_restriction_receipt(
         {
             diagnostics.push("profiled Clippy restriction run receipt missing profile details".to_owned());
         }
-        (EvidenceRailKind::ClippyCoReporting, None) => {}
         (_, Some(_)) => {
             diagnostics.push("clippy_restrictions details are only valid on Clippy co-reporting receipts".to_owned());
         }
@@ -2835,7 +2863,7 @@ fn validate_verifier_fixture_entry(
     }
     let fixture_id = string_field(item, "fixture_id").unwrap_or("unknown verifier fixture");
     match string_field(item, "expected_verdict") {
-        Some("accepted") => {}
+        Some("accepted") | None => {}
         Some("expected_failure") => findings.push(verifier_fixture_finding(
             "verifier-expected-failure",
             "manual_review",
@@ -2844,7 +2872,6 @@ fn validate_verifier_fixture_entry(
         Some(other) => diagnostics.push(format!(
             "verifier fixture `{fixture_id}` expected_verdict `{other}` is unsupported; expected accepted or expected_failure"
         )),
-        None => {}
     }
     validate_verifier_fixture_arrays(item, index, diagnostics);
     validate_verifier_fixture_claims(item, fixture_id, diagnostics);
@@ -3090,7 +3117,7 @@ fn z4_status(value: &serde_json::Value) -> Option<&str> {
 fn z4_diagnostic_severity(severity: &str) -> &str {
     match severity {
         "error" => "error",
-        "warning" | "warn" | "info" | "note" => "manual_review",
+        // Warnings, notes, and unknown severities all require manual review.
         _ => "manual_review",
     }
 }
@@ -3272,7 +3299,7 @@ fn validate_hegel_settings(value: &serde_json::Value, diagnostics: &mut Vec<Stri
         None => diagnostics.push("Hegel settings requires case_budget".to_owned()),
     }
     let phases = settings.get("phases").and_then(serde_json::Value::as_array);
-    if phases.is_none_or(|phases| phases.is_empty()) {
+    if phases.is_none_or(Vec::is_empty) {
         diagnostics.push("Hegel settings requires at least one phase".to_owned());
     }
     if !settings.contains_key("derandomized") {
@@ -3383,7 +3410,7 @@ fn push_kani_verdict_finding(
     match string_field(value, "verdict") {
         Some(STATUS_PASSED) => {}
         Some(STATUS_FAILED) => {
-            findings.push(kani_finding("kani-check-failure", "error", "Kani reported a failing verification verdict"))
+            findings.push(kani_finding("kani-check-failure", "error", "Kani reported a failing verification verdict"));
         }
         Some(other) => diagnostics.push(format!("Kani verdict `{other}` is unsupported; expected passed or failed")),
         None => diagnostics.push("Kani report requires verdict `passed` or `failed`".to_owned()),
@@ -3418,7 +3445,7 @@ fn push_kani_property_findings(
         match string_field(property, "status") {
             Some(STATUS_PASSED) => {}
             Some(STATUS_FAILED) => {
-                findings.push(kani_finding("kani-property-failure", "error", &format!("Kani property failed: {name}")))
+                findings.push(kani_finding("kani-property-failure", "error", &format!("Kani property failed: {name}")));
             }
             Some(other) => diagnostics.push(format!("Kani property `{name}` has unsupported status `{other}`")),
             None => diagnostics.push(format!("Kani property `{name}` missing status")),
@@ -3493,7 +3520,7 @@ fn push_kani_contract_findings(
         match string_field(contract, "status") {
             Some(STATUS_PASSED) => contract_passed = true,
             Some(STATUS_FAILED) => {
-                findings.push(kani_finding("contract-failure", "error", &format!("Kani contract failed: {name}")))
+                findings.push(kani_finding("contract-failure", "error", &format!("Kani contract failed: {name}")));
             }
             Some(other) => diagnostics.push(format!("Kani contract `{name}` has unsupported status `{other}`")),
             None => diagnostics.push(format!("Kani contract `{name}` missing status")),
@@ -3937,13 +3964,26 @@ fn analyze_wasm_input(args: &EvidenceRailArgs) -> Result<String, String> {
         .ok_or_else(|| "wasm-artifact rail requires `--config PATH` to a generated profile registry".to_owned())?;
     let profile_id =
         args.profile.as_deref().ok_or_else(|| "wasm-artifact rail requires `--profile NAME`".to_owned())?;
-    let artifact_bytes =
-        fs::read(input_path).map_err(|error| format!("read Wasm artifact {}: {error}", input_path.display()))?;
     let registry_bytes = fs::read(config_path)
         .map_err(|error| format!("read Wasm artifact registry {}: {error}", config_path.display()))?;
     let registry_text = std::str::from_utf8(&registry_bytes)
         .map_err(|error| format!("Wasm artifact registry {} is not UTF-8: {error}", config_path.display()))?;
     let registry = crate::wasm_artifact::parse_registry(registry_text)?;
+    let limit = registry
+        .profiles
+        .iter()
+        .find(|profile| profile.profile_id == profile_id)
+        .ok_or_else(|| format!("unknown Wasm artifact profile `{profile_id}`"))?
+        .resource_limits
+        .artifact_bytes;
+    let mut input =
+        fs::File::open(input_path).map_err(|error| format!("open Wasm artifact {}: {error}", input_path.display()))?;
+    let mut artifact_bytes = Vec::new();
+    std::io::Read::read_to_end(&mut std::io::Read::take(&mut input, limit.saturating_add(1)), &mut artifact_bytes)
+        .map_err(|error| format!("read bounded Wasm artifact {}: {error}", input_path.display()))?;
+    if u64::try_from(artifact_bytes.len()).unwrap_or(u64::MAX) > limit {
+        return Err(format!("Wasm artifact exceeds profile byte limit {limit}; no truncated identity emitted"));
+    }
     let external_report_texts = args
         .external_reports
         .iter()
@@ -4372,8 +4412,7 @@ fn exit_code_for_receipt(receipt: &EvidenceRailReceipt) -> i32 {
 
 fn source_id_for_receipt(receipt: &EvidenceRailReceipt) -> String {
     EvidenceRailKind::parse(&receipt.rail_id)
-        .map(EvidenceRailKind::source_id)
-        .unwrap_or("octet.policy.unknown")
+        .map_or("octet.policy.unknown", EvidenceRailKind::source_id)
         .to_owned()
 }
 
@@ -4542,10 +4581,10 @@ fn push_outcome_mutant_findings(value: &serde_json::Value, findings: &mut Vec<Ev
         let status = string_field(outcome, "status").or_else(|| string_field(outcome, "outcome"));
         match status {
             Some("survived" | "missed") => {
-                findings.push(mutant_finding(outcome, "survived-mutant", "manual_review", "survived mutant"))
+                findings.push(mutant_finding(outcome, "survived-mutant", "manual_review", "survived mutant"));
             }
             Some("timeout" | "timed-out" | "timed_out") => {
-                findings.push(mutant_finding(outcome, "timeout-mutant", "manual_review", "timed-out mutant"))
+                findings.push(mutant_finding(outcome, "timeout-mutant", "manual_review", "timed-out mutant"));
             }
             _ => {}
         }
