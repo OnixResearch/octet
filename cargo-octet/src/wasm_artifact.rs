@@ -52,6 +52,7 @@ const WASM3_PROPOSAL: &str = "wasm3";
 const COMPONENT_MODEL_PROPOSAL: &str = "component-model";
 const BULK_MEMORY_PROPOSAL: &str = "bulk-memory";
 const CALL_INDIRECT_OVERLONG_PROPOSAL: &str = "call-indirect-overlong";
+const MUTABLE_GLOBALS_PROPOSAL: &str = "mutable-globals";
 const PRODUCERS_SECTION: &str = "producers";
 const COMPONENT_WORLD_SEPARATOR: char = '/';
 const STANDALONE_HANDOFF: &str = "standalone";
@@ -144,18 +145,30 @@ pub(crate) struct RuntimeSupportProjection {
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub(crate) struct WasmResourceLimits {
-    pub(crate) max_artifact_bytes: u64,
-    pub(crate) max_imports: u64,
-    pub(crate) max_exports: u64,
-    pub(crate) max_memories: u64,
-    pub(crate) max_tables: u64,
-    pub(crate) max_functions: u64,
-    pub(crate) max_memory_initial_pages: u64,
-    pub(crate) max_memory_maximum_pages: u64,
-    pub(crate) max_table_initial_elements: u64,
-    pub(crate) max_table_maximum_elements: u64,
-    pub(crate) max_function_parameter_words: u64,
-    pub(crate) max_local_words_per_function: u64,
+    #[serde(rename = "max_artifact_bytes")]
+    pub(crate) artifact_bytes: u64,
+    #[serde(rename = "max_imports")]
+    pub(crate) imports: u64,
+    #[serde(rename = "max_exports")]
+    pub(crate) exports: u64,
+    #[serde(rename = "max_memories")]
+    pub(crate) memories: u64,
+    #[serde(rename = "max_tables")]
+    pub(crate) tables: u64,
+    #[serde(rename = "max_functions")]
+    pub(crate) functions: u64,
+    #[serde(rename = "max_memory_initial_pages")]
+    pub(crate) memory_initial_pages: u64,
+    #[serde(rename = "max_memory_maximum_pages")]
+    pub(crate) memory_maximum_pages: u64,
+    #[serde(rename = "max_table_initial_elements")]
+    pub(crate) table_initial_elements: u64,
+    #[serde(rename = "max_table_maximum_elements")]
+    pub(crate) table_maximum_elements: u64,
+    #[serde(rename = "max_function_parameter_words")]
+    pub(crate) function_parameter_words: u64,
+    #[serde(rename = "max_local_words_per_function")]
+    pub(crate) local_words_per_function: u64,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -218,6 +231,8 @@ pub(crate) struct WasmArtifactFacts {
     pub(crate) has_start: bool,
     pub(crate) custom_sections: Vec<String>,
     pub(crate) producer_sections: u64,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub(crate) function_abis: Vec<crate::spacewasm::FunctionAbi>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -713,7 +728,10 @@ pub(crate) fn validate_receipt_details(
 
 fn extract_facts(bytes: &[u8], profile: &WasmArtifactProfile) -> FactExtraction {
     let mut extraction = FactExtraction::default();
-    extraction.facts.artifact_kind = UNKNOWN_KIND.to_owned();
+    UNKNOWN_KIND.clone_into(&mut extraction.facts.artifact_kind);
+    if u64::try_from(bytes.len()).unwrap_or(u64::MAX) > profile.resource_limits.artifact_bytes {
+        return extraction;
+    }
     let mut validator = Validator::new_with_features(validation_features(profile));
     let validated = match validator.validate_all(bytes) {
         Ok(types) => Some(types),
@@ -753,7 +771,7 @@ fn extract_facts(bytes: &[u8], profile: &WasmArtifactProfile) -> FactExtraction 
                 parent,
                 ..BinaryScope::default()
             };
-            scope.extraction.facts.artifact_kind = UNKNOWN_KIND.to_owned();
+            UNKNOWN_KIND.clone_into(&mut scope.extraction.facts.artifact_kind);
             scopes.push(scope);
             stack.push(id);
         }
@@ -768,7 +786,7 @@ fn extract_facts(bytes: &[u8], profile: &WasmArtifactProfile) -> FactExtraction 
     if scopes.is_empty() {
         return extraction;
     }
-    extraction.facts.artifact_kind = scopes[0].extraction.facts.artifact_kind.clone();
+    extraction.facts.artifact_kind.clone_from(&scopes[0].extraction.facts.artifact_kind);
     let mut multipliers = vec![1_u64; scopes.len()];
     for id in 0..scopes.len() {
         if let Some(parent) = scopes[id].parent {
@@ -788,6 +806,16 @@ fn extract_facts(bytes: &[u8], profile: &WasmArtifactProfile) -> FactExtraction 
         canonicalize_component_boundary(&mut extraction.facts, types);
     }
     normalize_facts(&mut extraction.facts);
+    if profile.target_runtime.is_some() && extraction.facts.artifact_kind == MODULE_KIND {
+        match crate::spacewasm::function_abis(bytes) {
+            Ok(abis) => extraction.facts.function_abis = abis,
+            Err(message) => extraction.parse_diagnostics.push(ParseDiagnostic {
+                issue_code: ABI_MISMATCH_ISSUE,
+                message,
+                byte_offset: None,
+            }),
+        }
+    }
     extraction
 }
 
@@ -849,7 +877,7 @@ fn record_scope_links(payload: &Payload<'_>, id: usize, scopes: &mut [BinaryScop
                         record_instantiation(child, scopes, extraction);
                     }
                     wasmparser::ComponentInstance::FromExports(exports) => {
-                        for export in exports.iter() {
+                        for export in &exports {
                             record_scope_export(export, id, scopes);
                         }
                     }
@@ -986,7 +1014,7 @@ fn structural_component_kind(
             let function = &types[id];
             let params =
                 function.params.iter().map(|(_, ty)| structural_value(*ty, types, 0)).collect::<Vec<_>>().join(",");
-            let result = function.result.map(|ty| structural_value(ty, types, 0)).unwrap_or_else(|| "unit".to_owned());
+            let result = function.result.map_or_else(|| "unit".to_owned(), |ty| structural_value(ty, types, 0));
             format!("{}Func({params})->{result}", if function.async_ { "Async" } else { "" })
         }
         ComponentEntityType::Type {
@@ -1022,12 +1050,12 @@ fn structural_value(
             ComponentDefinedType::List(element) => format!("list<{}>", structural_value(*element, types, depth + 1)),
             ComponentDefinedType::Result { ok, err } => format!(
                 "result<{},{}>",
-                ok.map(|ty| structural_value(ty, types, depth + 1)).unwrap_or_else(|| "unit".to_owned()),
-                err.map(|ty| structural_value(ty, types, depth + 1)).unwrap_or_else(|| "unit".to_owned())
+                ok.map_or_else(|| "unit".to_owned(), |ty| structural_value(ty, types, depth + 1)),
+                err.map_or_else(|| "unit".to_owned(), |ty| structural_value(ty, types, depth + 1))
             ),
             _ => "unsupported".to_owned(),
         },
-        _ => "unsupported".to_owned(),
+        ComponentValType::Primitive(_) => "unsupported".to_owned(),
     }
 }
 
@@ -1041,6 +1069,7 @@ fn validation_features(profile: &WasmArtifactProfile) -> WasmFeatures {
             COMPONENT_MODEL_PROPOSAL => WasmFeatures::COMPONENT_MODEL,
             BULK_MEMORY_PROPOSAL => WasmFeatures::BULK_MEMORY,
             CALL_INDIRECT_OVERLONG_PROPOSAL => WasmFeatures::CALL_INDIRECT_OVERLONG,
+            MUTABLE_GLOBALS_PROPOSAL => WasmFeatures::MUTABLE_GLOBAL,
             _ => WasmFeatures::empty(),
         };
     }
@@ -1058,43 +1087,13 @@ fn push_parse_error(extraction: &mut FactExtraction, context: &str, error: &wasm
 fn extract_payload(payload: Payload<'_>, extraction: &mut FactExtraction) {
     match payload {
         Payload::Version { encoding, .. } if extraction.facts.artifact_kind == UNKNOWN_KIND => {
-            extraction.facts.artifact_kind = match encoding {
+            match encoding {
                 Encoding::Module => MODULE_KIND,
                 Encoding::Component => COMPONENT_KIND,
             }
-            .to_owned();
+            .clone_into(&mut extraction.facts.artifact_kind);
         }
-        Payload::ImportSection(reader) => {
-            for import in reader.into_imports() {
-                match import {
-                    Ok(import) => {
-                        match import.ty {
-                            TypeRef::Func(_) => {
-                                extraction.facts.function_count += 1;
-                                extraction.imported_functions += 1;
-                            }
-                            TypeRef::Memory(memory) => {
-                                extraction.imported_memories += 1;
-                                extraction.facts.memory_count += 1;
-                                extraction.facts.memories.push(memory_declaration(memory));
-                            }
-                            TypeRef::Table(table) => {
-                                extraction.imported_tables += 1;
-                                extraction.facts.table_count += 1;
-                                extraction.facts.tables.push(table_declaration(table));
-                            }
-                            _ => {}
-                        }
-                        extraction.facts.imports.push(WasmInterfaceItem {
-                            namespace: import.module.to_owned(),
-                            name: import.name.to_owned(),
-                            kind: format!("{:?}", import.ty),
-                        });
-                    }
-                    Err(error) => push_parse_error(extraction, "parse core import", &error),
-                }
-            }
-        }
+        Payload::ImportSection(reader) => extract_core_imports(reader, extraction),
         Payload::ExportSection(reader) => {
             for export in reader {
                 match export {
@@ -1135,7 +1134,7 @@ fn extract_payload(payload: Payload<'_>, extraction: &mut FactExtraction) {
             for function_type in reader.into_iter_err_on_gc_types() {
                 match function_type {
                     Ok(function_type) => {
-                        let words = function_type.params().iter().map(value_type_words).sum::<u64>();
+                        let words = function_type.params().iter().copied().map(value_type_words).sum::<u64>();
                         extraction.facts.max_function_parameter_words =
                             extraction.facts.max_function_parameter_words.max(words);
                     }
@@ -1146,66 +1145,7 @@ fn extract_payload(payload: Payload<'_>, extraction: &mut FactExtraction) {
         Payload::FunctionSection(reader) => {
             extraction.facts.function_count += u64::from(reader.count());
         }
-        Payload::ComponentCanonicalSection(reader) => {
-            for function in reader {
-                match function {
-                    // Lifts expose an existing core function; every other
-                    // canonical operation in pinned wasmparser 0.253.0 defines
-                    // one core function in this binary scope. Scope merging
-                    // applies enclosing instance multiplicity exactly once.
-                    Ok(CanonicalFunction::Lift { .. }) => {}
-                    Ok(
-                        CanonicalFunction::Lower { .. }
-                        | CanonicalFunction::ResourceNew { .. }
-                        | CanonicalFunction::ResourceDrop { .. }
-                        | CanonicalFunction::ResourceRep { .. }
-                        | CanonicalFunction::ThreadSpawnRef { .. }
-                        | CanonicalFunction::ThreadSpawnIndirect { .. }
-                        | CanonicalFunction::ThreadAvailableParallelism
-                        | CanonicalFunction::BackpressureInc
-                        | CanonicalFunction::BackpressureDec
-                        | CanonicalFunction::TaskReturn { .. }
-                        | CanonicalFunction::TaskCancel
-                        | CanonicalFunction::ContextGet { .. }
-                        | CanonicalFunction::ContextSet { .. }
-                        | CanonicalFunction::ThreadYield { .. }
-                        | CanonicalFunction::SubtaskDrop
-                        | CanonicalFunction::SubtaskCancel { .. }
-                        | CanonicalFunction::StreamNew { .. }
-                        | CanonicalFunction::StreamRead { .. }
-                        | CanonicalFunction::StreamWrite { .. }
-                        | CanonicalFunction::StreamCancelRead { .. }
-                        | CanonicalFunction::StreamCancelWrite { .. }
-                        | CanonicalFunction::StreamDropReadable { .. }
-                        | CanonicalFunction::StreamDropWritable { .. }
-                        | CanonicalFunction::FutureNew { .. }
-                        | CanonicalFunction::FutureRead { .. }
-                        | CanonicalFunction::FutureWrite { .. }
-                        | CanonicalFunction::FutureCancelRead { .. }
-                        | CanonicalFunction::FutureCancelWrite { .. }
-                        | CanonicalFunction::FutureDropReadable { .. }
-                        | CanonicalFunction::FutureDropWritable { .. }
-                        | CanonicalFunction::ErrorContextNew { .. }
-                        | CanonicalFunction::ErrorContextDebugMessage { .. }
-                        | CanonicalFunction::ErrorContextDrop
-                        | CanonicalFunction::WaitableSetNew
-                        | CanonicalFunction::WaitableSetWait { .. }
-                        | CanonicalFunction::WaitableSetPoll { .. }
-                        | CanonicalFunction::WaitableSetDrop
-                        | CanonicalFunction::WaitableJoin
-                        | CanonicalFunction::ThreadIndex
-                        | CanonicalFunction::ThreadNewIndirect { .. }
-                        | CanonicalFunction::ThreadResumeLater
-                        | CanonicalFunction::ThreadSuspend { .. }
-                        | CanonicalFunction::ThreadSuspendThenResume { .. }
-                        | CanonicalFunction::ThreadYieldThenResume { .. }
-                        | CanonicalFunction::ThreadSuspendThenPromote { .. }
-                        | CanonicalFunction::ThreadYieldThenPromote { .. },
-                    ) => extraction.facts.function_count = extraction.facts.function_count.saturating_add(1),
-                    Err(error) => push_parse_error(extraction, "parse canonical function", &error),
-                }
-            }
-        }
+        Payload::ComponentCanonicalSection(reader) => extract_canonical_functions(reader, extraction),
         Payload::MemorySection(reader) => {
             extraction.facts.memory_count += u64::from(reader.count());
             for memory in reader {
@@ -1227,40 +1167,7 @@ fn extract_payload(payload: Payload<'_>, extraction: &mut FactExtraction) {
         Payload::StartSection { .. } | Payload::ComponentStartSection { .. } => {
             extraction.facts.has_start = true;
         }
-        Payload::CodeSectionEntry(body) => {
-            match body.get_locals_reader() {
-                Ok(locals) => {
-                    let mut local_words = 0_u64;
-                    for local in locals {
-                        match local {
-                            Ok((count, value_type)) => {
-                                local_words = local_words
-                                    .saturating_add(u64::from(count).saturating_mul(value_type_words(&value_type)));
-                            }
-                            Err(error) => push_parse_error(extraction, "parse Wasm locals", &error),
-                        }
-                    }
-                    extraction.facts.max_local_words_per_function =
-                        extraction.facts.max_local_words_per_function.max(local_words);
-                }
-                Err(error) => push_parse_error(extraction, "read Wasm locals", &error),
-            }
-            match body.get_operators_reader() {
-                Ok(mut operators) => {
-                    while !operators.eof() {
-                        match operators.read() {
-                            Ok(Operator::MemoryGrow { .. }) => extraction.facts.memory_grow_count += 1,
-                            Ok(_) => {}
-                            Err(error) => {
-                                push_parse_error(extraction, "parse Wasm operator", &error);
-                                break;
-                            }
-                        }
-                    }
-                }
-                Err(error) => push_parse_error(extraction, "read Wasm operators", &error),
-            }
-        }
+        Payload::CodeSectionEntry(body) => extract_code_entry(&body, extraction),
         Payload::CustomSection(section) => {
             let name = section.name().to_owned();
             if name == PRODUCERS_SECTION {
@@ -1269,6 +1176,137 @@ fn extract_payload(payload: Payload<'_>, extraction: &mut FactExtraction) {
             extraction.facts.custom_sections.push(name);
         }
         _ => {}
+    }
+}
+
+fn extract_core_imports(reader: wasmparser::ImportSectionReader<'_>, extraction: &mut FactExtraction) {
+    for import in reader.into_imports() {
+        match import {
+            Ok(import) => {
+                match import.ty {
+                    TypeRef::Func(_) => {
+                        extraction.facts.function_count += 1;
+                        extraction.imported_functions += 1;
+                    }
+                    TypeRef::Memory(memory) => {
+                        extraction.imported_memories += 1;
+                        extraction.facts.memory_count += 1;
+                        extraction.facts.memories.push(memory_declaration(memory));
+                    }
+                    TypeRef::Table(table) => {
+                        extraction.imported_tables += 1;
+                        extraction.facts.table_count += 1;
+                        extraction.facts.tables.push(table_declaration(table));
+                    }
+                    _ => {}
+                }
+                extraction.facts.imports.push(WasmInterfaceItem {
+                    namespace: import.module.to_owned(),
+                    name: import.name.to_owned(),
+                    kind: format!("{:?}", import.ty),
+                });
+            }
+            Err(error) => push_parse_error(extraction, "parse core import", &error),
+        }
+    }
+}
+
+fn extract_canonical_functions(
+    reader: wasmparser::ComponentCanonicalSectionReader<'_>,
+    extraction: &mut FactExtraction,
+) {
+    for function in reader {
+        match function {
+            // Lifts expose an existing core function; every other
+            // canonical operation in pinned wasmparser 0.253.0 defines
+            // one core function in this binary scope. Scope merging
+            // applies enclosing instance multiplicity exactly once.
+            Ok(CanonicalFunction::Lift { .. }) => {}
+            Ok(
+                CanonicalFunction::Lower { .. }
+                | CanonicalFunction::ResourceNew { .. }
+                | CanonicalFunction::ResourceDrop { .. }
+                | CanonicalFunction::ResourceRep { .. }
+                | CanonicalFunction::ThreadSpawnRef { .. }
+                | CanonicalFunction::ThreadSpawnIndirect { .. }
+                | CanonicalFunction::ThreadAvailableParallelism
+                | CanonicalFunction::BackpressureInc
+                | CanonicalFunction::BackpressureDec
+                | CanonicalFunction::TaskReturn { .. }
+                | CanonicalFunction::TaskCancel
+                | CanonicalFunction::ContextGet { .. }
+                | CanonicalFunction::ContextSet { .. }
+                | CanonicalFunction::ThreadYield { .. }
+                | CanonicalFunction::SubtaskDrop
+                | CanonicalFunction::SubtaskCancel { .. }
+                | CanonicalFunction::StreamNew { .. }
+                | CanonicalFunction::StreamRead { .. }
+                | CanonicalFunction::StreamWrite { .. }
+                | CanonicalFunction::StreamCancelRead { .. }
+                | CanonicalFunction::StreamCancelWrite { .. }
+                | CanonicalFunction::StreamDropReadable { .. }
+                | CanonicalFunction::StreamDropWritable { .. }
+                | CanonicalFunction::FutureNew { .. }
+                | CanonicalFunction::FutureRead { .. }
+                | CanonicalFunction::FutureWrite { .. }
+                | CanonicalFunction::FutureCancelRead { .. }
+                | CanonicalFunction::FutureCancelWrite { .. }
+                | CanonicalFunction::FutureDropReadable { .. }
+                | CanonicalFunction::FutureDropWritable { .. }
+                | CanonicalFunction::ErrorContextNew { .. }
+                | CanonicalFunction::ErrorContextDebugMessage { .. }
+                | CanonicalFunction::ErrorContextDrop
+                | CanonicalFunction::WaitableSetNew
+                | CanonicalFunction::WaitableSetWait { .. }
+                | CanonicalFunction::WaitableSetPoll { .. }
+                | CanonicalFunction::WaitableSetDrop
+                | CanonicalFunction::WaitableJoin
+                | CanonicalFunction::ThreadIndex
+                | CanonicalFunction::ThreadNewIndirect { .. }
+                | CanonicalFunction::ThreadResumeLater
+                | CanonicalFunction::ThreadSuspend { .. }
+                | CanonicalFunction::ThreadSuspendThenResume { .. }
+                | CanonicalFunction::ThreadYieldThenResume { .. }
+                | CanonicalFunction::ThreadSuspendThenPromote { .. }
+                | CanonicalFunction::ThreadYieldThenPromote { .. },
+            ) => extraction.facts.function_count = extraction.facts.function_count.saturating_add(1),
+            Err(error) => push_parse_error(extraction, "parse canonical function", &error),
+        }
+    }
+}
+
+fn extract_code_entry(body: &wasmparser::FunctionBody<'_>, extraction: &mut FactExtraction) {
+    match body.get_locals_reader() {
+        Ok(locals) => {
+            let mut local_words = 0_u64;
+            for local in locals {
+                match local {
+                    Ok((count, value_type)) => {
+                        local_words =
+                            local_words.saturating_add(u64::from(count).saturating_mul(value_type_words(value_type)));
+                    }
+                    Err(error) => push_parse_error(extraction, "parse Wasm locals", &error),
+                }
+            }
+            extraction.facts.max_local_words_per_function =
+                extraction.facts.max_local_words_per_function.max(local_words);
+        }
+        Err(error) => push_parse_error(extraction, "read Wasm locals", &error),
+    }
+    match body.get_operators_reader() {
+        Ok(mut operators) => {
+            while !operators.eof() {
+                match operators.read() {
+                    Ok(Operator::MemoryGrow { .. }) => extraction.facts.memory_grow_count += 1,
+                    Ok(_) => {}
+                    Err(error) => {
+                        push_parse_error(extraction, "parse Wasm operator", &error);
+                        break;
+                    }
+                }
+            }
+        }
+        Err(error) => push_parse_error(extraction, "read Wasm operators", &error),
     }
 }
 
@@ -1292,7 +1330,7 @@ fn table_declaration(table: wasmparser::TableType) -> WasmTableDeclaration {
     }
 }
 
-fn value_type_words(value_type: &ValType) -> u64 {
+fn value_type_words(value_type: ValType) -> u64 {
     match value_type {
         ValType::I64 | ValType::F64 => WIDE_VALUE_WORDS,
         ValType::V128 => SIMD_VALUE_WORDS,
@@ -1341,8 +1379,35 @@ fn evaluate_policy(bytes: &[u8], facts: &WasmArtifactFacts, profile: &WasmArtifa
             ));
         }
     }
+    push_interface_findings(facts, profile, &mut findings);
+    push_spacewasm_abi_findings(bytes, facts, profile, &mut findings);
+    if !profile.allowed_worlds.is_empty() {
+        for world in &facts.worlds {
+            if !profile.allowed_worlds.iter().any(|allowed| allowed == world) {
+                findings.push(finding(
+                    DISALLOWED_WORLD_ISSUE,
+                    &profile.severity.disallowed_world,
+                    format!("component world `{world}` is not allowed by profile `{}`", profile.profile_id),
+                ));
+            }
+        }
+    }
+    push_resource_findings(bytes, facts, profile, &mut findings);
+    push_metadata_findings(facts, profile, &mut findings);
+    findings
+}
+
+fn push_interface_findings(
+    facts: &WasmArtifactFacts,
+    profile: &WasmArtifactProfile,
+    findings: &mut Vec<WasmArtifactFinding>,
+) {
     for import in &facts.imports {
-        let identity = import_identity(import);
+        let identity = if profile.profile_id == "spacewasm-molten-abi-pilot" && import.kind.starts_with("Func(") {
+            format!("{}::{}::Func", import.namespace, import.name)
+        } else {
+            import_identity(import)
+        };
         if !profile.allowed_imports.iter().any(|allowed| allowed == &identity) {
             findings.push(finding(
                 DISALLOWED_IMPORT_ISSUE,
@@ -1381,116 +1446,148 @@ fn evaluate_policy(bytes: &[u8], facts: &WasmArtifactFacts, profile: &WasmArtifa
             ));
         }
     }
-    if !profile.allowed_worlds.is_empty() {
-        for world in &facts.worlds {
-            if !profile.allowed_worlds.iter().any(|allowed| allowed == world) {
-                findings.push(finding(
-                    DISALLOWED_WORLD_ISSUE,
-                    &profile.severity.disallowed_world,
-                    format!("component world `{world}` is not allowed by profile `{}`", profile.profile_id),
-                ));
-            }
+}
+
+fn push_spacewasm_abi_findings(
+    bytes: &[u8],
+    facts: &WasmArtifactFacts,
+    profile: &WasmArtifactProfile,
+    findings: &mut Vec<WasmArtifactFinding>,
+) {
+    if profile.profile_id == "spacewasm-mvp" {
+        let run = facts.function_abis.iter().find(|abi| abi.direction == "export" && abi.name == "run");
+        if !run.is_some_and(|abi| abi.parameters.is_empty() && abi.results.is_empty()) {
+            findings.push(finding(
+                ABI_MISMATCH_ISSUE,
+                &profile.severity.abi_mismatch,
+                "SpaceWasm hostless run ABI requires () -> ()".to_owned(),
+            ));
         }
     }
+    if profile.profile_id == "spacewasm-mvp-host-pilot" {
+        for message in crate::spacewasm::host_abi_errors(bytes, &facts.function_abis) {
+            findings.push(finding(ABI_MISMATCH_ISSUE, &profile.severity.abi_mismatch, message));
+        }
+    }
+    if profile.profile_id == "spacewasm-molten-abi-pilot" {
+        for message in crate::spacewasm::molten_abi_errors(&facts.function_abis, &facts.memories) {
+            findings.push(finding(ABI_MISMATCH_ISSUE, &profile.severity.abi_mismatch, message));
+        }
+    }
+}
+
+fn push_resource_findings(
+    bytes: &[u8],
+    facts: &WasmArtifactFacts,
+    profile: &WasmArtifactProfile,
+    findings: &mut Vec<WasmArtifactFinding>,
+) {
     let artifact_bytes = u64::try_from(bytes.len()).unwrap_or(u64::MAX);
     push_limit_finding(
-        &mut findings,
+        findings,
         "artifact bytes",
         artifact_bytes,
-        profile.resource_limits.max_artifact_bytes,
+        profile.resource_limits.artifact_bytes,
         &profile.severity.resource_limit,
     );
     push_limit_finding(
-        &mut findings,
+        findings,
         "imports",
         count(&facts.imports),
-        profile.resource_limits.max_imports,
+        profile.resource_limits.imports,
         &profile.severity.resource_limit,
     );
     push_limit_finding(
-        &mut findings,
+        findings,
         "exports",
         count(&facts.exports),
-        profile.resource_limits.max_exports,
+        profile.resource_limits.exports,
         &profile.severity.resource_limit,
     );
     push_limit_finding(
-        &mut findings,
+        findings,
         "memories",
         facts.memory_count,
-        profile.resource_limits.max_memories,
+        profile.resource_limits.memories,
         &profile.severity.resource_limit,
     );
     push_limit_finding(
-        &mut findings,
+        findings,
         "tables",
         facts.table_count,
-        profile.resource_limits.max_tables,
+        profile.resource_limits.tables,
         &profile.severity.resource_limit,
     );
     push_limit_finding(
-        &mut findings,
+        findings,
         "functions",
         facts.function_count,
-        profile.resource_limits.max_functions,
+        profile.resource_limits.functions,
         &profile.severity.resource_limit,
     );
     for memory in &facts.memories {
         push_typed_limit_finding(
-            &mut findings,
+            findings,
             MEMORY_LIMIT_ISSUE,
             "memory initial pages",
             memory.initial_pages,
-            profile.resource_limits.max_memory_initial_pages,
+            profile.resource_limits.memory_initial_pages,
             &profile.severity.resource_limit,
         );
         if let Some(maximum) = memory.maximum_pages {
             push_typed_limit_finding(
-                &mut findings,
+                findings,
                 MEMORY_LIMIT_ISSUE,
                 "memory maximum pages",
                 maximum,
-                profile.resource_limits.max_memory_maximum_pages,
+                profile.resource_limits.memory_maximum_pages,
                 &profile.severity.resource_limit,
             );
         }
     }
     for table in &facts.tables {
         push_typed_limit_finding(
-            &mut findings,
+            findings,
             TABLE_LIMIT_ISSUE,
             "table initial elements",
             table.initial_elements,
-            profile.resource_limits.max_table_initial_elements,
+            profile.resource_limits.table_initial_elements,
             &profile.severity.resource_limit,
         );
         if let Some(maximum) = table.maximum_elements {
             push_typed_limit_finding(
-                &mut findings,
+                findings,
                 TABLE_LIMIT_ISSUE,
                 "table maximum elements",
                 maximum,
-                profile.resource_limits.max_table_maximum_elements,
+                profile.resource_limits.table_maximum_elements,
                 &profile.severity.resource_limit,
             );
         }
     }
     push_typed_limit_finding(
-        &mut findings,
+        findings,
         STRUCTURAL_LIMIT_ISSUE,
         "function parameter words",
         facts.max_function_parameter_words,
-        profile.resource_limits.max_function_parameter_words,
+        profile.resource_limits.function_parameter_words,
         &profile.severity.resource_limit,
     );
     push_typed_limit_finding(
-        &mut findings,
+        findings,
         STRUCTURAL_LIMIT_ISSUE,
         "local words per function",
         facts.max_local_words_per_function,
-        profile.resource_limits.max_local_words_per_function,
+        profile.resource_limits.local_words_per_function,
         &profile.severity.resource_limit,
     );
+}
+
+fn push_metadata_findings(
+    facts: &WasmArtifactFacts,
+    profile: &WasmArtifactProfile,
+    findings: &mut Vec<WasmArtifactFinding>,
+) {
     if !profile.allow_memory_grow && facts.memory_grow_count > 0 {
         findings.push(finding(
             MEMORY_GROWTH_ISSUE,
@@ -1528,7 +1625,6 @@ fn evaluate_policy(bytes: &[u8], facts: &WasmArtifactFacts, profile: &WasmArtifa
             ));
         }
     }
-    findings
 }
 
 fn validate_cohort_members(members: &[WasmToolsCohortMember], diagnostics: &mut Vec<String>) {
@@ -1570,6 +1666,7 @@ fn validate_profiles(profiles: &[WasmArtifactProfile], diagnostics: &mut Vec<Str
                     | COMPONENT_MODEL_PROPOSAL
                     | BULK_MEMORY_PROPOSAL
                     | CALL_INDIRECT_OVERLONG_PROPOSAL
+                    | MUTABLE_GLOBALS_PROPOSAL
             ) {
                 diagnostics.push(format!(
                     "Wasm artifact profile `{}` names unknown proposal `{proposal}`",
@@ -1632,6 +1729,13 @@ fn validate_target_runtime(profile: &WasmArtifactProfile, target: &TargetRuntime
     if support.runtime_id != SPACEWASM_RUNTIME_ID {
         diagnostics.push(format!("unsupported target runtime `{}`", support.runtime_id));
     }
+    for proposal in &profile.allowed_proposals {
+        if !support.supported_proposals.contains(proposal)
+            || support.denied_or_unimplemented_proposals.contains(proposal)
+        {
+            diagnostics.push(format!("profile proposal `{proposal}` is outside reviewed runtime support"));
+        }
+    }
     let valid_revision = support.source_revision.len() == GIT_REVISION_HEX_LENGTH
         && support.source_revision.bytes().all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase());
     if !valid_revision {
@@ -1655,22 +1759,18 @@ fn validate_target_runtime(profile: &WasmArtifactProfile, target: &TargetRuntime
         diagnostics.push("target runtime memory.grow posture differs from profile policy".to_owned());
     }
     for (label, observed, configured) in [
-        (
-            "memory pages",
-            support.maximum_linear_memory_pages,
-            profile.resource_limits.max_memory_maximum_pages,
-        ),
+        ("memory pages", support.maximum_linear_memory_pages, profile.resource_limits.memory_maximum_pages),
         (
             "function parameter words",
             support.maximum_function_parameter_words,
-            profile.resource_limits.max_function_parameter_words,
+            profile.resource_limits.function_parameter_words,
         ),
         (
             "local words per function",
             support.maximum_local_words_per_function,
-            profile.resource_limits.max_local_words_per_function,
+            profile.resource_limits.local_words_per_function,
         ),
-        ("function index", support.maximum_function_index, profile.resource_limits.max_functions),
+        ("function index", support.maximum_function_index, profile.resource_limits.functions),
     ] {
         if configured > observed {
             diagnostics
@@ -1697,6 +1797,18 @@ fn interface_identity(facts: &WasmArtifactFacts) -> String {
     }
     for item in &facts.exports {
         update_interface_item(&mut hasher, b"export", item);
+    }
+    for abi in &facts.function_abis {
+        update_hash_field(&mut hasher, abi.direction.as_bytes());
+        update_hash_field(&mut hasher, abi.namespace.as_bytes());
+        update_hash_field(&mut hasher, abi.name.as_bytes());
+        for parameter in &abi.parameters {
+            update_hash_field(&mut hasher, parameter.as_bytes());
+        }
+        update_hash_field(&mut hasher, b"results");
+        for result in &abi.results {
+            update_hash_field(&mut hasher, result.as_bytes());
+        }
     }
     format!("{BLAKE3_PREFIX}{}", hasher.finalize().to_hex())
 }
@@ -1790,7 +1902,7 @@ fn render_sarif(findings: &[WasmArtifactFinding]) -> Value {
                 "message": {"text": finding.message},
                 "locations": [{"physicalLocation": {
                     "artifactLocation": {"uri": INPUT_ARTIFACT_NAME},
-                    "region": finding.byte_offset.map(|offset| serde_json::json!({"byteOffset": offset})).unwrap_or_else(|| serde_json::json!({}))
+                    "region": finding.byte_offset.map_or_else(|| serde_json::json!({}), |offset| serde_json::json!({"byteOffset": offset}))
                 }}]
             })
         })
@@ -2115,12 +2227,12 @@ mod tests {
         let registry = valid_registry();
         for (definitions, denied) in [(64, false), (65, true)] {
             let source = format!(
-                r#"{}
+                r"{}
                 (component $inner
                     (type $resource (resource (rep i32)))
                     {})
                 (instance (instantiate $inner))
-                (instance (instantiate $inner)))"#,
+                (instance (instantiate $inner)))",
                 &EFFECTS_SEED[..EFFECTS_SEED.rfind(')').expect("seed close")],
                 "(core func (canon resource.new $resource))".repeat(definitions),
             );
@@ -2275,8 +2387,8 @@ mod tests {
             .iter_mut()
             .find(|profile| profile.profile_id == EFFECTS_PROFILE_ID)
             .expect("effects profile");
-        profile.resource_limits.max_memory_initial_pages = 1;
-        profile.resource_limits.max_memory_maximum_pages = 1;
+        profile.resource_limits.memory_initial_pages = 1;
+        profile.resource_limits.memory_maximum_pages = 1;
         for (maximum, expected) in [(1, false), (2, true)] {
             let source = format!(
                 "{} (core module (memory 1 {maximum})))",
@@ -2560,7 +2672,7 @@ mod tests {
     #[test]
     fn malformed_import_growth_start_and_resource_cases_fail_closed() {
         let registry = valid_registry();
-        let function_limit = registry.profiles[0].resource_limits.max_functions;
+        let function_limit = registry.profiles[0].resource_limits.functions;
         let over_function_limit = usize::try_from(function_limit.saturating_add(1)).expect("fixture function count");
         let resource_fixture = format!("(module {})", "(func)".repeat(over_function_limit));
         let cases = [

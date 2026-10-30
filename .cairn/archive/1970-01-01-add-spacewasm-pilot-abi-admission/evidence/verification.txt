@@ -1,0 +1,159 @@
+Verification executed in /home/brittonr/.cargo-target/octet-spacewasm-20261029.
+All Rust commands use nix develop --builders '' -c, CARGO_TARGET_DIR=/home/brittonr/.cargo-target/octet-spacewasm-verification-20261029, TMPDIR=/home/brittonr/.cargo-target, XDG_CACHE_HOME=/home/brittonr/.cargo-target/octet-spacewasm-cache-20261029. Selected later commands additionally set KACHE_CACHE_DIR=/home/brittonr/.cargo-target/octet-kache-20261029 after default cache reported disk I/O errors and disabled caching; inherited kache wrapper still reported the default cache path.
+
+$ nix develop --builders '' -c cargo test -p cargo-octet spacewasm
+12 passed; 0 failed; 467 filtered out.
+$ nix develop --builders '' -c cargo test -p cargo-octet wasm_artifact
+17 passed; 0 failed; 462 filtered out. Counts overlap; not 29 unique tests.
+$ nix develop --builders '' -c cargo build -p cargo-octet --bin cargo-octet
+Finished dev profile successfully.
+No Rust build/test compiler failure was observed. Formatting and one Clippy assigning_clones finding required scoped source repairs.
+
+$ nix build --builders '' .#checks.x86_64-linux.wasm-artifact-rail --no-link -L
+exit 0; Nickel typechecks/exports, four exact generated-output comparisons, reviewed NASA revision, deep-lane presence and corpus BLAKE3 checks executed by flake.nix.
+$ nix build --builders '' .#checks.x86_64-linux.standards-fixtures --no-link -L
+exit 0; existing native fixture check includes emitted octet-artifact-manifest/v1 coverage and artifact-backed integrity validation.
+Generated profiles BLAKE3: d81af5edffa5b48166ca412a5bd09bd873224fec81d1aee66916bcf01188c601
+Support projection BLAKE3: 7f3c40650c576bf9340d07df5371da28fad42ef4937d1d9ce9c2c8bc80a5b638
+Corpus BLAKE3: 3c3f042bfe3d52177d188d372fce86d3ffaed59bdec1a0421004dd396a71e1e8
+
+$ nix develop --builders '' -c cargo install wasm-tools --version 0.253.0 --locked --root /home/brittonr/.cargo-target/octet-wasm-tools-0.253.0
+exit 101: no such CLI version. This was a tool-version naming mismatch, not missing parser cohort.
+$ nix develop --builders '' -c cargo install wasm-tools --version 1.253.0 --locked --root /home/brittonr/.cargo-target/octet-wasm-tools-1.253.0
+Finished release profile; installed actual wasm-tools 1.253.0 with wasmparser/wasm-encoder/etc 0.253.0.
+Install build target: /home/brittonr/.cargo-target/octet-wasm-tools-build-20261029.
+
+Producer: /home/brittonr/.cargo-target/octet-spacewasm-verification-20261029/debug/cargo-octet
+Version: cargo-octet 0.1.0
+Final rebuilt binary BLAKE3: e61046a993d8adc63c60fbb48f73a2f3c45e3589bbeede111c0e7cd4a96a3384
+Wasm tool: /home/brittonr/.cargo-target/octet-wasm-tools-1.253.0/bin/wasm-tools
+Version: wasm-tools 1.253.0
+Binary BLAKE3: 5750936e1e01372b463bed2d7fee5dbdc8c726cee9555d45a9a0ff712b0dbd6a
+rustc 1.96.0-nightly (ac7f9ec7d 2026-03-20); LLVM 22.1.0; x86_64-unknown-linux-gnu.
+
+$ nix develop --builders '' -c python3 standards/wasm-artifact/spacewasm/smoke.py /home/brittonr/.cargo-target/octet-spacewasm-verification-20261029/debug/cargo-octet /home/brittonr/.cargo-target/octet-wasm-tools-1.253.0/bin/wasm-tools
+admitted: expected admission plus tamper denial observed
+unbounded: expected denial observed
+wrong-host: expected denial observed
+wrong-alloc: expected denial observed
+wasi: expected denial observed
+component: expected denial observed
+proposal: expected denial observed
+exit 0. Temporary smoke artifacts were removed by its TemporaryDirectory; durable independent receipts below remain.
+
+$ nix develop --builders '' -c python3 .cairn/changes/add-spacewasm-pilot-abi-admission/evidence/replay.py /home/brittonr/.cargo-target/octet-spacewasm-verification-20261029/debug/cargo-octet /home/brittonr/.cargo-target/octet-wasm-tools-1.253.0/bin/wasm-tools /home/brittonr/.cargo-target/octet-spacewasm-receipts-20261029
+exit 0. Both pilot collect commands reported status=passed; both artifact verify commands reported status=valid.
+Wrong-host-signature, wrong-allocator-signature, wrong-observe-signature and immutable-total mutations all passed actual wasm-tools validate, then collector returned exit 1/status=failed. The two diagnostic mutations used spacewasm-mvp-host-pilot; actor mutations used spacewasm-molten-abi-pilot. Oversized actual input (1048577 bytes) returned exit 2 with byte limit 1048576 and no truncated identity emitted.
+Stale NASA registry mutation returned exit 2 with stale target runtime cohort identity.
+Forged/overclaim external fixture returned exit 2 with artifact/profile mismatch and recorded_only role violation.
+No extra 'octet' positional token was passed to the actual binary.
+
+Receipt schema: octet-evidence-rail-receipt/v1
+Receipt base: /home/brittonr/.cargo-target/octet-spacewasm-receipts-20261029
+Actor receipt: spacewasm-molten-abi-pilot/evidence-rail-receipt.json
+Actor receipt BLAKE3: d09f355c4f6e3ccac33d209334757f2e21c8e561fdc13f194fa4056c9eb1c3dd
+Actor module exact BLAKE3: 7536cf51f2eeed6898693058f918e5c5fb74eefbb15b5a550ffade17fb830e7a
+Actor profile identity: b3:2fd08aba3959f85f58aaac323758df3e286872cf14e7b52985a1b8d7c4647956
+Diagnostic receipt: spacewasm-mvp-host-pilot/evidence-rail-receipt.json
+Diagnostic receipt BLAKE3: 5a061a524333b9404f39e3c6c2b8c3398bcf8e93b57a020c44a1bd3aa6476346
+Diagnostic module exact BLAKE3: 63d1d6e2da1b619e453e7388bb8445731500056afff7984560ef920aba799732
+Diagnostic profile identity: b3:48807d40cb592da3a684152a65c226a811898dc259985753bbb8ee4bcfa53d4a
+Both bind NASA revision e24cf09355a90497148eb5029fdb8e3400bd63e3 and runtime cohort b3:7c537eef7bff66d0a90508715de08de79c9aaac23352e1007a6d47e7fb4674a2.
+Both bind tool cohort wasm-tools-0.253.0 / b3:c50e2d7f0e8c49de4a1d44afae196bdf96bb14e67e7de0a153de146a6207449a.
+These are actual checked-in fixture bytes, NOT final Mantle workload bytes or proof of Molten consumer execution.
+
+Native governance check:
+$ cairn workflow status add-spacewasm-pilot-abi-admission
+exit 1: failed to parse policy cairn-policy/generated/cairn-policy.json: cairn.workflow.profile.registry at workflow_profile_policy.schemas: initial workflow profile is missing: outcome-machine
+Parent owns policy/gate resolution, final publication/pin, consumer final-byte receipt generation and archive. None is marked complete here.
+
+Initial cargo fmt -p cargo-octet --check failed on new additions; cargo fmt -p cargo-octet applied only those scoped formatting repairs.
+Initial scoped cargo clippy -p cargo-octet --all-targets -- -D warnings -W clippy::pedantic -D clippy::dbg_macro -D clippy::mem_forget -D clippy::undocumented_unsafe_blocks -D clippy::multiple_unsafe_ops_per_block failed in pre-existing crates/octet-architecture-ir with 21 errors (including missing Errors/Panics docs and needless_pass_by_value), before checking owning package. Dependency source not modified.
+$ nix develop --builders '' -c cargo clippy -p cargo-octet --all-targets --no-deps -- -D warnings -W clippy::pedantic -D clippy::dbg_macro -D clippy::mem_forget -D clippy::undocumented_unsafe_blocks -D clippy::multiple_unsafe_ops_per_block
+exit 101: 131 lib errors and 111 lib-test errors. Existing baseline includes architecture_ir similar_names, benchmark/signal unnested_or_patterns, admit map_unwrap_or, existing WasmResourceLimits struct_field_names and oversized existing evaluate_policy/extract_payload functions. No diagnostic in new spacewasm.rs. New oversized-analyzer UNKNOWN_KIND assignment triggered assigning_clones; repaired to clone_into. Unrelated baseline source not modified; full pedantic Clippy closure remains unproven and blocked by those reported errors.
+
+After the analyzer clone_into repair, the affected command `nix develop --builders '' -c cargo test -p cargo-octet oversized_artifact_is_denied_before_any_fact_extraction` passed 1 test (478 filtered out). Then `cargo build -p cargo-octet --bin cargo-octet`, the exact operator smoke command above, and `cargo fmt -p cargo-octet --check` all completed successfully inside the same Nix shell command (exit 0). The retained replay helper was then executed again against that final rebuilt binary: both receipt identities remained the same, and all seven retained denial inputs (four valid-Wasm ABI/global mutations, oversized bytes, stale cohort and forged external evidence) denied as recorded above.
+
+
+== Final integration 2026-10-30 ==
+Worktree /home/brittonr/.cargo-target/octet-spacewasm-20261029, branch cairn/spacewasm-profile-20261029.
+$ git fetch origin && git rebase origin/main
+Rebased onto published main abb6082062251944a40093a274df3d35331fa168. Local base commits 4a540dff/1ceda8fb were skipped as already applied (same patch-ids as ed421e82/d8a5d6b9). Conflicts in CHANGELOG.md and cargo-octet/src/wasm_artifact.rs (proposal match arms next to upstream call-indirect-overlong) were resolved by keeping both; "mutable-globals" became constant MUTABLE_GLOBALS_PROPOSAL.
+$ nix develop --builders '' -c bash -c 'nickel typecheck standards/wasm-artifact/profiles.ncl && nickel export --format json standards/wasm-artifact/profiles.ncl > /home/brittonr/.cargo-target/octet-profiles-regen.json && diff -u standards/wasm-artifact/generated/profiles.json /home/brittonr/.cargo-target/octet-profiles-regen.json'
+exit 0; merged generated profiles are byte-identical to the Nickel export.
+
+Source repairs in this integration (no allows or baselines added):
+- spacewasm.rs exported_total now counts imported globals before defined globals in the global index space; regression test exported_total_resolves_through_imported_globals.
+- wasm_artifact.rs, evidence_rails.rs and lib.rs pedantic findings fixed in source: extract_payload and evaluate_policy split into section/finding helpers (finding order unchanged); WasmResourceLimits fields drop the repeated max_ prefix with serde renames preserving the max_* wire names (profile identities below are unchanged from the 2026-10-29 receipts); map_or_else, clone_into/clone_from, by-value ValType, merged identical match arms, rule-family constants, line-based summary rendering (same bytes), trailing semicolons, Vec::is_empty, #[must_use] on run_cli_from_env.
+
+Rust commands below ran inside nix develop --max-jobs 2 --cores 4 --builders '' with CARGO_TARGET_DIR=/home/brittonr/.cargo-target/octet-spacewasm-verification-20261029, CARGO_BUILD_JOBS=4, TMPDIR=/home/brittonr/.cargo-target.
+$ rustfmt --edition 2024 --check cargo-octet/src/evidence_rails.rs cargo-octet/src/wasm_artifact.rs cargo-octet/src/spacewasm.rs cargo-octet/src/lib.rs
+exit 0. (cargo fmt -p cargo-octet would also reformat the unrelated, unchanged cargo-octet/tests/fingerprint_consumer.rs; that file was left unchanged.)
+$ cargo clippy -p cargo-octet --all-targets -- -D warnings
+exit 0 (strict package Clippy, as in the add-molten-component-effects-profile precedent).
+$ cargo clippy --workspace --all-targets --message-format=short -- -W clippy::pedantic -W clippy::dbg_macro -W clippy::mem_forget -W clippy::undocumented_unsafe_blocks -W clippy::multiple_unsafe_ops_per_block
+exit 0; 150 unique findings remain in the workspace and 0 in cargo-octet/src/{spacewasm,wasm_artifact,evidence_rails,lib}.rs.
+$ cargo test -p cargo-octet --lib
+517 passed; 0 failed; 21 ignored.
+
+Pre-existing blocker, not claimed by this change. The release-readiness pedantic rail uses the checks.clippy flags:
+$ cargo clippy --workspace --all-targets -- -D warnings -W clippy::pedantic -D clippy::dbg_macro -D clippy::mem_forget -D clippy::undocumented_unsafe_blocks -D clippy::multiple_unsafe_ops_per_block
+exit 101 on this branch and exit 101 on unchanged published main abb6082062251944a40093a274df3d35331fa168 (detached worktree /home/brittonr/.cargo-target/octet-origin-main-baseline-20261030). Both stop at "could not compile `octet-architecture-ir` (lib) due to 23 previous errors".
+With every lint at -W and --keep-going, published main reports 193 unique pre-existing findings across the workspace. 43 of them are in the four files above and are fixed here. The rest are in unrelated files and remain out of scope.
+
+$ cargo build -p cargo-octet --bin cargo-octet
+Producer /home/brittonr/.cargo-target/octet-spacewasm-verification-20261029/debug/cargo-octet, cargo-octet 0.1.0, BLAKE3 f6242d11612f6dd2d5c2378526bb5cfafc59c72da331937e07dcee62b3bfd7c2.
+Wasm tool /home/brittonr/.cargo-target/octet-wasm-tools-1.253.0/bin/wasm-tools, wasm-tools 1.253.0, BLAKE3 5750936e1e01372b463bed2d7fee5dbdc8c726cee9555d45a9a0ff712b0dbd6a. rustc 1.96.0-nightly (ac7f9ec7d 2026-03-20).
+$ python3 standards/wasm-artifact/spacewasm/smoke.py <producer> <wasm-tools>
+admitted: expected admission plus tamper denial observed
+unbounded: expected denial observed
+wrong-host: expected denial observed
+wrong-alloc: expected denial observed
+wasi: expected denial observed
+component: expected denial observed
+proposal: expected denial observed
+exit 0.
+$ python3 .cairn/changes/add-spacewasm-pilot-abi-admission/evidence/replay.py <producer> <wasm-tools> /home/brittonr/.cargo-target/octet-spacewasm-receipts-20261030
+(run before archive; the helper now lives under the archive path with the same relative depth)
+exit 0. Both pilot collects reported status=passed and artifact verify reported status=valid. The wrong-host, wrong-allocator, wrong-observe and immutable-total mutations passed wasm-tools validate, then the collector returned exit 1/status=failed. Oversized input returned exit 2 (byte limit 1048576, no truncated identity). Stale registry returned exit 2 (stale target runtime cohort identity). Forged external report returned exit 2 (identity mismatch and recorded_only role violation).
+Actor receipt BLAKE3 650fa8d366166a21568e67fabb6fc1ada89c2ea57d74855b5c03d25e49a9fcb4; module b3:7536cf51f2eeed6898693058f918e5c5fb74eefbb15b5a550ffade17fb830e7a; profile b3:2fd08aba3959f85f58aaac323758df3e286872cf14e7b52985a1b8d7c4647956; interface b3:5853e4a5a41e682aba198f5a553a14c5d6c6ff3ea9aec85da07ed48f1271218b; registry b3:8105bd1f00db1270dec2206356f038faaea9f16d1c788e7010f1c28d1625a365.
+Diagnostic receipt BLAKE3 6f0069012b39360b11a9ad9aa4b5f933443feb8b81c2860369070c0d6e12ad7d; module b3:63d1d6e2da1b619e453e7388bb8445731500056afff7984560ef920aba799732; profile b3:48807d40cb592da3a684152a65c226a811898dc259985753bbb8ee4bcfa53d4a; interface b3:0d19430f51a721a5c64f3c0a290cddbb3e31e175e0cd9b44b9c0248c694a5275.
+Both bind NASA revision e24cf09355a90497148eb5029fdb8e3400bd63e3, runtime cohort b3:7c537eef7bff66d0a90508715de08de79c9aaac23352e1007a6d47e7fb4674a2, and tool cohort wasm-tools-0.253.0 / b3:c50e2d7f0e8c49de4a1d44afae196bdf96bb14e67e7de0a153de146a6207449a. These are fixture bytes only, not final Mantle workload bytes or Molten execution.
+
+$ nix run --builders '' .#octet-policy-validate
+exit 0.
+$ nix build --builders '' .#checks.x86_64-linux.<check> --no-link -L for wasm-artifact-rail, standards-fixtures, policy-registry, cairn-traceability (one at a time)
+all four exit 0.
+$ nix run --builders '' .#cargo-octet -- check --artifact-dir /home/brittonr/.cargo-target/octet-spacewasm-octet-check-artifacts-20261030   (CARGO_TARGET_DIR=/home/brittonr/.cargo-target/octet-spacewasm-octet-check-20261030)
+exit 2: "error: Cargo feature plan has ambiguous duplicate unit identities" (cargo-octet/src/architecture_ir/resolved_plan.rs, architecture-IR feature planning).
+$ nix build --builders '' .#checks.x86_64-linux.cargo-octet-self-check --no-link -L
+exit 1: "canonical self-check failed with status 2" with the same error.
+Pre-existing blocker, not claimed by this change: the same two commands on unchanged published main abb6082062251944a40093a274df3d35331fa168 (worktree /home/brittonr/.cargo-target/octet-origin-main-baseline-20261030) fail identically (exit 2 and exit 1, same message). This change does not touch Cargo manifests, feature plans or architecture IR.
+Native lifecycle used the repository-pinned Cairn (nix build .#cairn -> /nix/store/ynjawpza9ci9i8ha7f3ywaqwbd60m83k-cairn-0.1.0, flake lock rev 695124d459574ba7aeba6097310d237f393c243c):
+$ cairn policy export --source cairn-policy/default.ncl --output cairn-policy/generated/cairn-policy.json --check
+"policy fresh", exit 0. The ambient /nix/store/x37qabfj71nzk5661f3x735nni4m96qk-cairn-0.1.0 on PATH is newer and rejects even the source policy with "initial workflow profile is missing: outcome-machine". That caused the earlier workflow-status failure, so no policy edit was made.
+Pre-archive runs with that binary (cairn ... --root .):
+$ cairn validate --root .   and   cairn validate --root . --strict
+both exit 0; valid=true, 89 specs, 0 issues, 0 change issues.
+$ cairn workflow status add-spacewasm-pilot-abi-admission --root .
+exit 0.
+$ cairn traceability coverage --root . --json
+exit 0, verdict pass, 181/181 requirements referenced.
+$ cairn gate proposal|design|tasks add-spacewasm-pilot-abi-admission --root .
+each exit 0, verdict PASS (policy hash 62e40f642e798bfaf5a68a495a7456bcf4e9fd8106ae2f52a24100967b39df5d; receipts f4750f3a56d043fa83189e4970e8fb5d3bb3c927d5b92104900113f5c1f4c983, f114c44b26e52fbd6ee75d9fc50aa419473b82b7929a72d605c962401518b62f, 3e3e83715a580eacadbd3718e461c3870058d2e88d17dcfb359bbbce2970dd60; evidence text appended after these runs).
+$ cairn sync add-spacewasm-pilot-abi-admission --root . --execute
+$ cairn archive add-spacewasm-pilot-abi-admission --root . --execute
+Both ran after the gates. Post-archive results are below.
+Post-archive (same pinned binary):
+sync --execute exit 0, mutated, created .cairn/specs/spacewasm-pilot-abi-admission/spec.md (receipt c2fbd2de13422ba0b648fda3df37bc417d1fc18dae57ba65157a13b45a65954b). archive --execute exit 0, mutated (receipt 9220f5f91692cebf5ffb4f6fd6f62e2bcc32d7ed8aeb0bb64c348544e6448a3b). The generated main-spec title and placeholder Purpose were then replaced with the reviewed capability text.
+$ nix develop --builders '' -c python3 .cairn/archive/1970-01-01-add-spacewasm-pilot-abi-admission/evidence/replay.py <producer> <wasm-tools> /home/brittonr/.cargo-target/octet-spacewasm-receipts-archived-20261030
+exit 0 from the archived helper path. Receipt BLAKE3 values match the pre-archive replay: actor 650fa8d366166a21568e67fabb6fc1ada89c2ea57d74855b5c03d25e49a9fcb4, diagnostic 6f0069012b39360b11a9ad9aa4b5f933443feb8b81c2860369070c0d6e12ad7d.
+$ cairn validate --root .   and   cairn validate --root . --strict
+both exit 0; valid=true, 4 remaining unrelated active changes, 0 issues.
+$ cairn status --root .
+exit 0.
+$ cairn traceability coverage --root . --json
+exit 0, verdict pass, 181/181.
+$ cairn policy export --source cairn-policy/default.ncl --output cairn-policy/generated/cairn-policy.json --check
+policy fresh, exit 0.
+Not claimed: final Mantle workload bytes, Molten intake or execution, Molten's producer pin, workspace pedantic Clippy, or cargo octet check over the Octet workspace (pre-existing blockers above).

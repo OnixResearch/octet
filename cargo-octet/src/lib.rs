@@ -65,6 +65,7 @@ mod roadmap;
 mod source_acquisition_receipts;
 #[cfg(test)]
 mod source_boundary_core;
+mod spacewasm;
 #[cfg(test)]
 mod state_machine_exhaustiveness;
 mod strict_profile;
@@ -78,6 +79,7 @@ mod wasm_artifact;
 
 const CLI_ERROR_EXIT: u8 = 2;
 
+#[must_use]
 pub fn run_cli_from_env() -> std::process::ExitCode {
     match try_main() {
         Ok(code) => std::process::ExitCode::from(u8::try_from(code).unwrap_or(CLI_ERROR_EXIT)),
