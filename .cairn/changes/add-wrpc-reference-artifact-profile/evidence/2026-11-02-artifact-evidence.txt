@@ -1,0 +1,24 @@
+$ cargo-octet evidence collect --rail wasm-artifact --input wrpc-server-normalized.wasm --config standards/wasm-artifact/generated/profiles.json --profile wrpc-reference --artifact-dir /tmp/octet-server-wrpc --output-format json
+exit 0
+status: passed
+findings: none
+profile_identity: b3:f7c26c93f643fc8d277de8c8b9a0ee34e386d8ac6e3159726b1bbecbd4919f23
+
+$ cargo-octet evidence collect --rail wasm-artifact --input wrpc-client-normalized.wasm --config standards/wasm-artifact/generated/profiles.json --profile wrpc-reference --artifact-dir /tmp/octet-client-wrpc --output-format json
+exit 0
+status: passed
+findings: none
+profile_identity: b3:f7c26c93f643fc8d277de8c8b9a0ee34e386d8ac6e3159726b1bbecbd4919f23
+
+$ cargo-octet evidence collect ... --profile portable-component-baseline (server)
+exit 1
+status: failed
+findings:
+  disallowed-import: import `component@3::import-func-hello::Func(0)` is not allowed by profile `portable-component-baseline`
+  disallowed-proposal: wasmparser validation failed: bulk memory support is not enabled (at offset 0x4bf)
+
+$ cargo-octet evidence collect ... --profile portable-component-baseline (client)
+exit 1
+status: failed
+findings: disallowed-import (5, including `component::wrpc-examples:hello/handler::Instance(0)`),
+  disallowed-proposal (bulk memory), resource-limit (tables count 3 exceeds limit 1)

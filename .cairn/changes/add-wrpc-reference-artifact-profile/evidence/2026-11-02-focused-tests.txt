@@ -1,0 +1,18 @@
+$ nix develop path:. -c cargo test -p cargo-octet --lib wrpc_reference -- --nocapture
+running 1 test
+test wasm_artifact::tests::wrpc_reference_profile_admits_the_exact_hello_component_and_keeps_the_baseline_closed ... ok
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 538 filtered out; finished in 0.01s
+
+$ nix develop path:. -c cargo clippy -p cargo-octet --lib -- -D warnings
+Finished `dev` profile ... (exit 0)
+
+$ rustfmt --edition 2024 --check cargo-octet/src/wasm_artifact.rs
+exit 0
+
+Note: `cargo fmt --check -p cargo-octet` reports pre-existing diffs only in
+`cargo-octet/tests/fingerprint_consumer.rs`, which this change does not touch.
+
+Repeat after admitting the client component:
+$ nix develop path:. -c cargo test -p cargo-octet --lib wrpc_reference -- --nocapture
+test wasm_artifact::tests::wrpc_reference_profile_admits_the_exact_hello_component_and_keeps_the_baseline_closed ... ok
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 538 filtered out

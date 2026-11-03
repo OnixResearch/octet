@@ -1,0 +1,6 @@
+$ nickel typecheck standards/wasm-artifact/profiles.ncl
+exit 0
+
+$ nickel export --format json standards/wasm-artifact/profiles.ncl > /tmp/profiles-export.json
+$ cmp -s /tmp/profiles-export.json standards/wasm-artifact/generated/profiles.json
+exit 0

@@ -6,6 +6,18 @@ source revisions and the reviewed nightly/Dylint cohort.
 For the full lint catalog, see `docs/lint-reference.md`.
 For rollout profiles, see `docs/downstream-rollout.md`.
 
+## Unreleased: Exact wrpc reference artifact profile
+
+The additive `wrpc-reference` Wasm artifact profile admits the normalized wrpc
+reference hello pair: the server's exact hello host import
+(`component@3::import-func-hello::Func(0)`) and the client's exact handler
+instance import (`component::wrpc-examples:hello/handler::Instance(0)`), bulk
+memory and padded indirect calls, with two import slots. The portable baseline
+remains closed against both artifacts, and the profile makes no runtime,
+authority, provenance, or release claim. Positive fixtures and a
+baseline-denial test accompany the profile. It ports the profile first
+recorded on Octet's pre-rewrite history at `f081ed96`, which Mantle pins.
+
 ## 0.1.1-rc.1 — published immutable prerelease
 
 `OnixResearch/octet` is the sole canonical source, release and support home.
