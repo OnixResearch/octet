@@ -2027,6 +2027,34 @@ mod tests {
         assert!(report.details.findings.iter().any(|finding| finding.issue_code == RESOURCE_LIMIT_ISSUE));
     }
 
+    const WRPC_PROFILE_ID: &str = "wrpc-reference";
+    const WRPC_HELLO_SERVER: &[u8] =
+        include_bytes!("../../standards/wasm-artifact/fixtures/positive/wrpc-hello-component.wasm");
+    const WRPC_HELLO_CLIENT: &[u8] =
+        include_bytes!("../../standards/wasm-artifact/fixtures/positive/wrpc-hello-client-component.wasm");
+
+    #[test]
+    fn wrpc_reference_profile_admits_the_exact_hello_component_and_keeps_the_baseline_closed() {
+        let registry = valid_registry();
+        for component in [WRPC_HELLO_SERVER, WRPC_HELLO_CLIENT] {
+            let report = analyze_profile(component, &registry, WRPC_PROFILE_ID, &[]);
+            assert!(report.details.findings.is_empty(), "{:?}", report.details.findings);
+            assert_eq!(report.details.verification_role, RECORDED_ONLY_ROLE);
+            let baseline = analyze(component, &registry, &[]);
+            assert!(
+                baseline.details.findings.iter().any(|finding| finding.issue_code == DISALLOWED_IMPORT_ISSUE),
+                "{:?}",
+                baseline.details.findings
+            );
+        }
+        let baseline = analyze(WRPC_HELLO_SERVER, &registry, &[]);
+        assert!(
+            baseline.details.findings.iter().any(|finding| finding.issue_code == DISALLOWED_PROPOSAL_ISSUE),
+            "{:?}",
+            baseline.details.findings
+        );
+    }
+
     #[test]
     fn effects_profile_requires_exact_structural_boundary_and_keeps_baselines_closed() {
         let registry = valid_registry();

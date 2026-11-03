@@ -600,6 +600,67 @@
         }
       },
       "verification_role": "boundary"
+    },
+    {
+      "allow_any_exports": true,
+      "allow_memory_grow": false,
+      "allow_start": false,
+      "allowed_artifact_kinds": [
+        "component"
+      ],
+      "allowed_exports": [],
+      "allowed_imports": [
+        "component@3::import-func-hello::Func(0)",
+        "component::wrpc-examples:hello/handler::Instance(0)"
+      ],
+      "allowed_proposals": [
+        "wasm1",
+        "component-model",
+        "bulk-memory",
+        "call-indirect-overlong"
+      ],
+      "allowed_worlds": [],
+      "duplicate_custom_sections": "reject",
+      "non_claims": [
+        "Wasm artifact evidence records bounded static facts and does not prove execution correctness",
+        "Matching normalized interfaces do not prove semantic equivalence or identify one implementation",
+        "Static validation does not prove sandbox effectiveness, capability authority, provenance truth, release eligibility, or whole-system safety",
+        "Producer metadata is recorded input and is not provenance truth",
+        "Admission of the wrpc reference hello import and bulk memory does not admit other imports, proposals, or wrpc runtime authority"
+      ],
+      "producer_metadata": "recorded-only",
+      "profile_id": "wrpc-reference",
+      "required_exports": [],
+      "resource_limits": {
+        "max_artifact_bytes": 1048576,
+        "max_exports": 64,
+        "max_function_parameter_words": 255,
+        "max_functions": 128,
+        "max_imports": 2,
+        "max_local_words_per_function": 65535,
+        "max_memories": 1,
+        "max_memory_initial_pages": 65536,
+        "max_memory_maximum_pages": 65536,
+        "max_table_initial_elements": 65535,
+        "max_table_maximum_elements": 65535,
+        "max_tables": 2
+      },
+      "severity": {
+        "abi_mismatch": "error",
+        "cohort_drift": "error",
+        "disallowed_import": "error",
+        "disallowed_kind": "error",
+        "disallowed_world": "error",
+        "duplicate_metadata": "error",
+        "external_evidence": "error",
+        "growth": "error",
+        "malformed": "error",
+        "resource_limit": "error",
+        "start": "error"
+      },
+      "summary": "Execution-free static facts for the admitted wrpc reference hello component pair: the server's exact hello host import and the client's exact handler instance import, with bulk memory and padded indirect calls, and no other imports.",
+      "target_runtime": null,
+      "verification_role": "recorded_only"
     }
   ],
   "schema_version": "octet-wasm-artifact-profiles/v1"

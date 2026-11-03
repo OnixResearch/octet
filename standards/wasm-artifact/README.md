@@ -22,6 +22,23 @@ cargo octet artifact verify --artifact-dir artifacts/wasm-artifact
 
 The bundle includes `wasm-artifact.bin`, exact-byte and normalized-interface identities, extracted facts, ordered JSON findings, a SARIF projection, profile/cohort identities, provenance, and explicit non-claims.
 
+## wrpc reference artifact
+
+`wrpc-reference` is an additive recorded-only profile for the normalized
+`bytecodealliance/wrpc` reference hello component pair. It admits exactly the
+server host import identity `component@3::import-func-hello::Func(0)` and the
+client handler instance import
+`component::wrpc-examples:hello/handler::Instance(0)`, with `bulk-memory` and
+`call-indirect-overlong`, two import slots, two tables, and the same remaining
+resource maxima, severity map, and metadata policy as the portable baseline. The portable
+baseline remains closed against the same bytes, so the denial is available as
+negative evidence. The fixtures `fixtures/positive/wrpc-hello-component.wasm` and
+`fixtures/positive/wrpc-hello-client-component.wasm` are the normalized server
+and client artifacts from the wrpc reference bundle at revision
+`aa01409ed38bf7a978570ff567c4475376925df6`; the profile is bound to the observed
+parser scope ordinal and admits no other import or proposal. Runtime, authority,
+provenance, and release claims remain outside this profile.
+
 ## Molten effect surface
 
 `molten-component-effects-v1` is separate from both unchanged baseline policies.

@@ -1,0 +1,4 @@
+$ cairn validate --root .            -> exit 0, issues: [], change_issues: []
+$ cairn gate proposal add-wrpc-reference-artifact-profile --root .   -> PASS (valid true)
+$ cairn gate design   add-wrpc-reference-artifact-profile --root .   -> PASS (valid true)
+$ cairn gate tasks    add-wrpc-reference-artifact-profile --root . --policy cairn-policy/generated/cairn-policy.json -> PASS (valid true)

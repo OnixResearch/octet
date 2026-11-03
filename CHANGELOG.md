@@ -6,6 +6,16 @@ specific commits via `TIGERSTYLE_DYLINT_REV`.
 For the full lint catalog, see `docs/lint-reference.md`.
 For rollout profiles, see `docs/downstream-rollout.md`.
 
+## Unreleased: Exact wrpc reference artifact profile
+
+The additive `wrpc-reference` Wasm artifact profile admits the normalized wrpc
+reference hello component: one exact import identity
+(`component@3::import-func-hello::Func(0)`), bulk memory, and padded indirect
+calls, with one import slot. The portable baseline remains closed against the
+same artifact, and the profile makes no runtime, authority, provenance, or
+release claim. A positive fixture and a baseline-denial test accompany the
+profile.
+
 ## Unreleased: Exact SpaceWasm pilot ABI facts
 
 SpaceWasm analysis now resolves core function export/import signatures and binds
