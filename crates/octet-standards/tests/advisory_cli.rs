@@ -262,11 +262,16 @@ fn export_artifacts_emits_profile_bound_acceptance_receipt() {
     assert_receipt_artifact(&receipt, CHECK_CONFIG_TOML_FILE, &artifact_dir);
     assert_receipt_artifact(&receipt, CONFIG_RECEIPT_FAMILIES_JSON_FILE, &artifact_dir);
     assert_receipt_artifact(&receipt, ARTIFACT_MANIFEST_JSON_FILE, &artifact_dir);
+    let verification_commands = receipt["verification_commands"].as_array().expect("commands should be an array");
     assert!(
-        receipt["verification_commands"].as_array().expect("commands should be an array")[0]["command"]
+        verification_commands[0]["command"]
             .as_str()
             .expect("command should be a string")
             .contains("nickel export")
+    );
+    assert_eq!(
+        verification_commands[0]["status"], "recorded",
+        "a caller-supplied command is recorded, not executed, by export-artifacts"
     );
     let provenance_records = receipt["provenance_records"].as_array().expect("provenance records array");
     assert!(!provenance_records.is_empty(), "receipt should carry generated-artifact provenance records");
@@ -277,6 +282,35 @@ fn export_artifacts_emits_profile_bound_acceptance_receipt() {
             && record["artifact_locator"].as_str().unwrap_or_default().ends_with(ARTIFACT_MANIFEST_JSON_FILE)
             && !record["parent_artifacts"].as_array().expect("parent artifacts").is_empty()
     }));
+}
+
+#[test]
+fn export_artifacts_receipt_without_recorded_commands_lists_its_own_passing_run() {
+    let temp = TempDir::new().expect("temp dir should be created");
+    let registry = write_registry(&temp);
+    let receipt_path = temp.path().join("receipts/acceptance.json");
+    let profile_path = temp.path().join("profile.json");
+    std::fs::write(&profile_path, test_profile_json()).expect("profile JSON should be written");
+
+    let output = Command::new(binary_path())
+        .arg("export-artifacts")
+        .arg("--registry")
+        .arg(&registry)
+        .arg("--out-dir")
+        .arg(temp.path().join("generated"))
+        .arg("--profile-json")
+        .arg(&profile_path)
+        .arg("--receipt-out")
+        .arg(&receipt_path)
+        .output()
+        .expect("artifact export should run");
+    assert_success(&output);
+
+    let receipt_text = std::fs::read_to_string(&receipt_path).expect("receipt should be readable");
+    let receipt: serde_json::Value = serde_json::from_str(&receipt_text).expect("receipt should parse as JSON");
+    let verification_commands = receipt["verification_commands"].as_array().expect("commands should be an array");
+    assert_eq!(verification_commands.len(), 1);
+    assert_eq!(verification_commands[0]["status"], "passed");
 }
 
 #[test]

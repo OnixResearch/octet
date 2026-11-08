@@ -150,7 +150,8 @@ struct ExportArtifactsArgs {
     #[arg(long)]
     receipt_out: Option<PathBuf>,
 
-    /// Verification or replay command to record in the receipt.
+    /// Verification or replay command to record in the receipt with status `recorded`; it is not
+    /// executed.
     #[arg(long)]
     verification_command: Vec<String>,
 }
@@ -636,17 +637,22 @@ fn policy_provenance_record(
     }
 }
 
+/// Bind verification commands into the receipt.
+///
+/// `export-artifacts` does not execute caller-supplied `--verification-command` entries, so they
+/// are `recorded`; without any, the receipt lists its own completed export as `passed`.
 fn export_verification_commands(args: &ExportArtifactsArgs) -> Vec<ReceiptVerificationCommand> {
-    let commands = if args.verification_command.is_empty() {
-        vec!["octet-standards export-artifacts receipt emission".to_owned()]
-    } else {
-        args.verification_command.clone()
-    };
-    commands
-        .into_iter()
-        .map(|command| ReceiptVerificationCommand {
-            command,
+    if args.verification_command.is_empty() {
+        return vec![ReceiptVerificationCommand {
+            command: "octet-standards export-artifacts receipt emission".to_owned(),
             status: AcceptanceStatus::Passed,
+        }];
+    }
+    args.verification_command
+        .iter()
+        .map(|command| ReceiptVerificationCommand {
+            command: command.clone(),
+            status: AcceptanceStatus::Recorded,
         })
         .collect()
 }
