@@ -1059,11 +1059,7 @@ fn json_bytes<T: Serialize>(value: &T) -> Result<Vec<u8>, String> {
 }
 
 fn extract_theorem_name(contents: &str) -> Option<String> {
-    contents.lines().find_map(|line| {
-        let trimmed = line.trim_start();
-        let remainder = trimmed.strip_prefix("theorem ")?;
-        remainder.split_whitespace().next().map(str::to_owned)
-    })
+    octet_standards::formal_proof::aeneas_theorem_name(contents).map(str::to_owned)
 }
 
 fn proof_failure_diagnostics(rail: &ProofRail, outcome: &CommandOutcome) -> Vec<String> {
@@ -2517,6 +2513,20 @@ mod tests {
             extract_theorem_name("theorem safe_add_matches_model : True := by rfl"),
             Some("safe_add_matches_model".to_owned())
         );
+    }
+
+    #[test]
+    fn aeneas_theorem_name_and_adequacy_select_the_same_multi_line_theorem() {
+        let named = "theorem safe_add_matches_model (x : Nat) :\n    True := by\n  trivial\n";
+        let with_helper = format!("{named}\ntheorem helper (x : Nat) : x = x := by rfl\n");
+        for source in [named, with_helper.as_str()] {
+            assert_eq!(extract_theorem_name(source), Some("safe_add_matches_model".to_owned()), "source: {source}");
+            assert_eq!(
+                assess_aeneas_theorem_source(source).decision,
+                octet_standards::formal_proof::AeneasTheoremAdequacyDecision::Vacuous,
+                "source: {source}"
+            );
+        }
     }
 
     #[test]

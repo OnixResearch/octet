@@ -447,15 +447,43 @@ pub struct AeneasTheoremAdequacy {
     pub forbidden_declarations: Vec<String>,
 }
 
+/// Return the name of the first `theorem` declaration in a theorem source.
+///
+/// This is the theorem that [`assess_aeneas_theorem_source`] assesses.
+#[must_use]
+pub fn aeneas_theorem_name(source: &str) -> Option<&str> {
+    named_theorem_declaration(source).map(|(name, _)| name)
+}
+
+/// Find the first `theorem` declaration and its header text before `:=`.
+///
+/// The header joins the declaration's lines up to `:=`; it is `None` when the
+/// declaration reaches the next `theorem` or the end of the source without `:=`.
+fn named_theorem_declaration(source: &str) -> Option<(&str, Option<String>)> {
+    let mut lines = source.lines();
+    let declaration = lines.find_map(|line| line.trim_start().strip_prefix(THEOREM_DECLARATION_PREFIX))?;
+    let name = declaration.split_whitespace().next()?;
+    let continuation = lines.take_while(|line| !line.trim_start().starts_with(THEOREM_DECLARATION_PREFIX));
+    let mut header = String::new();
+    for line in std::iter::once(declaration).chain(continuation) {
+        if let Some((before_body, _)) = line.split_once(THEOREM_BODY_SEPARATOR) {
+            header.push_str(before_body);
+            return Some((name, Some(header)));
+        }
+        header.push_str(line);
+        header.push('\n');
+    }
+    Some((name, None))
+}
+
 /// Assess a bounded, already-loaded theorem source before provider admission.
 // r[impl octet.aeneas_lean_proof_rail.theorem_adequacy]
 #[must_use]
 pub fn assess_aeneas_theorem_source(source: &str) -> AeneasTheoremAdequacy {
-    let statement = source.lines().find_map(|line| {
-        let declaration = line.trim_start().strip_prefix(THEOREM_DECLARATION_PREFIX)?;
-        let header = declaration.split_once(THEOREM_BODY_SEPARATOR)?.0;
-        header.rsplit_once(THEOREM_TYPE_SEPARATOR).map(|(_, value)| value.trim())
-    });
+    let header = named_theorem_declaration(source).and_then(|(_, header)| header);
+    let statement = header
+        .as_deref()
+        .and_then(|header| header.rsplit_once(THEOREM_TYPE_SEPARATOR).map(|(_, value)| value.trim()));
     let decision = match statement {
         Some(value) if true_style_statement(value) => AeneasTheoremAdequacyDecision::Vacuous,
         Some(value) if !value.is_empty() => AeneasTheoremAdequacyDecision::NonVacuous,
@@ -2160,6 +2188,28 @@ mod tests {
         let forbidden = assess_aeneas_theorem_source("theorem admitted : Nat := by sorry");
         assert_eq!(forbidden.decision, AeneasTheoremAdequacyDecision::NonVacuous);
         assert_eq!(forbidden.forbidden_declarations, vec!["sorry".to_owned()]);
+    }
+
+    // r[verify octet.aeneas_lean_proof_rail.theorem_adequacy]
+    #[test]
+    fn aeneas_theorem_source_assessment_reads_multi_line_named_theorem() {
+        let named = "theorem named_vacuous (x : Nat) :\n    True := by\n  trivial\n";
+        let alone = assess_aeneas_theorem_source(named);
+        assert_eq!(alone.decision, AeneasTheoremAdequacyDecision::Vacuous);
+
+        let with_helper = format!("{named}\ntheorem helper (x : Nat) : x = x := by rfl\n");
+        let followed = assess_aeneas_theorem_source(&with_helper);
+        assert_eq!(followed.decision, AeneasTheoremAdequacyDecision::Vacuous);
+
+        let non_vacuous =
+            "theorem named_model (x : Nat)\n    : x + 0 = x := by\n  simp\n\ntheorem helper : True := by trivial\n";
+        let assessed = assess_aeneas_theorem_source(non_vacuous);
+        assert_eq!(assessed.decision, AeneasTheoremAdequacyDecision::NonVacuous);
+
+        let unterminated =
+            "theorem named_missing_body (x : Nat) : x = x\n\ntheorem helper (x : Nat) : x = x := by rfl\n";
+        let rejected = assess_aeneas_theorem_source(unterminated);
+        assert_eq!(rejected.decision, AeneasTheoremAdequacyDecision::Rejected);
     }
 
     // r[verify octet.aeneas_lean_proof_rail.theorem_adequacy]
