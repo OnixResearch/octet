@@ -57,7 +57,8 @@ them.
 
 Start in a scratch copy or review branch. `--write` and `--update` rewrite source
 markers, so do not run them against a production checkout unless you intend to keep
-those marker changes.
+those marker changes. Give at most one mode flag (`--check`, `--write`, `--update`,
+or `--diff`) per command; with none, the command runs `--check`.
 
 1. Add fingerprints to selected reviewed functions:
 
@@ -65,8 +66,11 @@ those marker changes.
    cargo octet fingerprint --write path/to/file.rs
    ```
 
-   Use this only for initial marker creation. It discovers functions in the target
-   file or directory and writes markers for functions that do not already have one.
+   It discovers functions in the target file or directory, writes markers for
+   functions that do not already have one, and also rewrites any existing marker
+   whose hash is stale or missing. Like `--update`, that rewrite re-approves the
+   current body of every stale marked function, so run `--check` or `--diff`
+   first when the target already contains markers.
 
 2. Gate reviewed functions in CI or during review:
 
