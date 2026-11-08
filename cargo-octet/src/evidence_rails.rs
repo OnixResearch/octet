@@ -2841,6 +2841,9 @@ fn parse_verifier_fixture_entries(
         diagnostics.push("verifier fixture receipt field `fixtures` must be an array".to_owned());
         return Vec::new();
     };
+    if items.is_empty() {
+        diagnostics.push("verifier fixture receipt must contain at least one fixture".to_owned());
+    }
     let mut fixtures = Vec::new();
     for (index, item) in items.iter().enumerate() {
         validate_verifier_fixture_entry(item, index, findings, diagnostics);
@@ -6329,6 +6332,23 @@ mod tests {
             assert_eq!(receipt.status, STATUS_FAILED, "{role}");
             assert!(receipt.diagnostics.iter().any(|diagnostic| diagnostic.contains("overclaim")), "{role}");
         }
+    }
+
+    #[test]
+    fn verifier_fixture_intake_rejects_empty_fixture_array_at_collect_time() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(include_str!("../tests/fixtures/evidence-rails/verifier-fixture-positive.json"))
+                .expect("parse verifier fixture");
+        value["fixtures"] = serde_json::Value::Array(Vec::new());
+        let receipt = verifier_fixture_receipt(&value.to_string());
+
+        assert_eq!(receipt.status, STATUS_FAILED);
+        assert!(
+            receipt.diagnostics.iter().any(|diagnostic| diagnostic.contains("at least one fixture")),
+            "{:?}",
+            receipt.diagnostics
+        );
+        assert!(validate_receipt(&receipt).iter().any(|diagnostic| diagnostic.contains("must contain fixtures")));
     }
 
     #[test]
