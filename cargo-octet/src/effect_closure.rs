@@ -415,18 +415,33 @@ struct CollectedFunction {
 /// than lexical, so a name bound anywhere in the function blocks local resolution everywhere in it.
 #[derive(Default)]
 struct CallerBindings {
-    /// Pattern bindings and const generic parameters; a single-segment path naming one is a local
-    /// value, not a function edge.
-    values: BTreeSet<String>,
-    /// Every bound name, including `values`, type parameters, and body `use` and item names.
+    /// Every bound name: pattern bindings, generic parameters, and body `use` and item names.
     names: BTreeSet<String>,
     /// Whether the body holds a glob `use`, which may bring any name into scope.
     glob_import: bool,
 }
 
+/// One lexical scope of the body scanner: a function signature, block, match arm, `if let` or
+/// `while let` condition and body, `for` body, or closure. A single-segment path naming one of
+/// `locals` reads a local value. A path naming an item declared in the scope, or any name under a
+/// glob `use` in it, may name a function, so it stays a value edge.
+#[derive(Default)]
+struct ValueScope {
+    /// Pattern bindings and const generic parameters visible at the current scan position.
+    locals: BTreeSet<String>,
+    /// Items and `use` names declared directly in a block, which shadow outer locals.
+    items: BTreeSet<String>,
+    glob_import: bool,
+}
+
+/// Collects the identifiers a pattern binds, without entering the expressions or types it holds.
+struct PatternBindings<'a>(&'a mut BTreeSet<String>);
+
 struct BodyScanner<'a> {
     foreign_functions: &'a BTreeSet<String>,
     bindings: &'a CallerBindings,
+    /// Lexical value scopes, innermost last; a nested item starts a fresh stack.
+    scopes: Vec<ValueScope>,
     /// Depth of enclosing patterns and types, whose paths name constants, variants, or types
     /// evaluated at compile time rather than runtime values.
     compile_time_depth: usize,
@@ -529,33 +544,8 @@ impl CallerBindings {
         bindings
     }
 
-    fn bind_value(&mut self, ident: &syn::Ident) {
-        let name = ident.to_string();
-        self.values.insert(name.clone());
-        self.names.insert(name);
-    }
-
     fn bind_name(&mut self, ident: &syn::Ident) {
         self.names.insert(ident.to_string());
-    }
-
-    fn bind_use_tree(&mut self, tree: &syn::UseTree, parent: Option<&syn::Ident>) {
-        match tree {
-            syn::UseTree::Path(path) => self.bind_use_tree(&path.tree, Some(&path.ident)),
-            syn::UseTree::Name(name) if name.ident == "self" => {
-                if let Some(parent) = parent {
-                    self.bind_name(parent);
-                }
-            }
-            syn::UseTree::Name(name) => self.bind_name(&name.ident),
-            syn::UseTree::Rename(rename) => self.bind_name(&rename.rename),
-            syn::UseTree::Glob(_) => self.glob_import = true,
-            syn::UseTree::Group(group) => {
-                for tree in &group.items {
-                    self.bind_use_tree(tree, parent);
-                }
-            }
-        }
     }
 
     /// Whether `path` may name a selected module item: it has no leading `::`, the caller holds no
@@ -565,20 +555,11 @@ impl CallerBindings {
             && !self.glob_import
             && path.segments.first().is_none_or(|segment| !self.names.contains(&segment.ident.to_string()))
     }
-
-    /// Whether `path` reads `self` or a pattern-bound local value.
-    fn is_local_value(&self, path: &syn::ExprPath) -> bool {
-        path.qself.is_none()
-            && path
-                .path
-                .get_ident()
-                .is_some_and(|ident| ident == "self" || self.values.contains(&ident.to_string()))
-    }
 }
 
 impl<'ast> Visit<'ast> for CallerBindings {
     fn visit_pat_ident(&mut self, node: &'ast syn::PatIdent) {
-        self.bind_value(&node.ident);
+        self.bind_name(&node.ident);
         syn::visit::visit_pat_ident(self, node);
     }
 
@@ -588,55 +569,142 @@ impl<'ast> Visit<'ast> for CallerBindings {
     }
 
     fn visit_const_param(&mut self, node: &'ast syn::ConstParam) {
-        self.bind_value(&node.ident);
+        self.bind_name(&node.ident);
         syn::visit::visit_const_param(self, node);
     }
 
     fn visit_item_use(&mut self, node: &'ast syn::ItemUse) {
-        self.bind_use_tree(&node.tree, None);
+        bind_use_tree(&node.tree, None, &mut self.names, &mut self.glob_import);
     }
 
     fn visit_item(&mut self, node: &'ast syn::Item) {
-        let ident = match node {
-            syn::Item::Const(item) => Some(&item.ident),
-            syn::Item::Enum(item) => Some(&item.ident),
-            syn::Item::ExternCrate(item) => Some(item.rename.as_ref().map_or(&item.ident, |(_as, rename)| rename)),
-            syn::Item::Fn(item) => Some(&item.sig.ident),
-            syn::Item::Macro(item) => item.ident.as_ref(),
-            syn::Item::Mod(item) => Some(&item.ident),
-            syn::Item::Static(item) => Some(&item.ident),
-            syn::Item::Struct(item) => Some(&item.ident),
-            syn::Item::Trait(item) => Some(&item.ident),
-            syn::Item::TraitAlias(item) => Some(&item.ident),
-            syn::Item::Type(item) => Some(&item.ident),
-            syn::Item::Union(item) => Some(&item.ident),
-            _ => None,
-        };
-        if let Some(ident) = ident {
+        if let Some(ident) = item_ident(node) {
             self.bind_name(ident);
         }
         syn::visit::visit_item(self, node);
     }
 
     fn visit_foreign_item(&mut self, node: &'ast syn::ForeignItem) {
-        let ident = match node {
-            syn::ForeignItem::Fn(item) => Some(&item.sig.ident),
-            syn::ForeignItem::Static(item) => Some(&item.ident),
-            syn::ForeignItem::Type(item) => Some(&item.ident),
-            _ => None,
-        };
-        if let Some(ident) = ident {
+        if let Some(ident) = foreign_item_ident(node) {
             self.bind_name(ident);
         }
         syn::visit::visit_foreign_item(self, node);
     }
 }
 
+/// Adds the names a `use` tree brings into scope to `names`, and records whether it holds a glob.
+fn bind_use_tree(
+    tree: &syn::UseTree,
+    parent: Option<&syn::Ident>,
+    names: &mut BTreeSet<String>,
+    glob_import: &mut bool,
+) {
+    match tree {
+        syn::UseTree::Path(path) => bind_use_tree(&path.tree, Some(&path.ident), names, glob_import),
+        syn::UseTree::Name(name) if name.ident == "self" => {
+            if let Some(parent) = parent {
+                names.insert(parent.to_string());
+            }
+        }
+        syn::UseTree::Name(name) => {
+            names.insert(name.ident.to_string());
+        }
+        syn::UseTree::Rename(rename) => {
+            names.insert(rename.rename.to_string());
+        }
+        syn::UseTree::Glob(_) => *glob_import = true,
+        syn::UseTree::Group(group) => {
+            for tree in &group.items {
+                bind_use_tree(tree, parent, names, glob_import);
+            }
+        }
+    }
+}
+
+fn item_ident(item: &syn::Item) -> Option<&syn::Ident> {
+    match item {
+        syn::Item::Const(item) => Some(&item.ident),
+        syn::Item::Enum(item) => Some(&item.ident),
+        syn::Item::ExternCrate(item) => Some(item.rename.as_ref().map_or(&item.ident, |(_as, rename)| rename)),
+        syn::Item::Fn(item) => Some(&item.sig.ident),
+        syn::Item::Macro(item) => item.ident.as_ref(),
+        syn::Item::Mod(item) => Some(&item.ident),
+        syn::Item::Static(item) => Some(&item.ident),
+        syn::Item::Struct(item) => Some(&item.ident),
+        syn::Item::Trait(item) => Some(&item.ident),
+        syn::Item::TraitAlias(item) => Some(&item.ident),
+        syn::Item::Type(item) => Some(&item.ident),
+        syn::Item::Union(item) => Some(&item.ident),
+        _ => None,
+    }
+}
+
+fn foreign_item_ident(item: &syn::ForeignItem) -> Option<&syn::Ident> {
+    match item {
+        syn::ForeignItem::Fn(item) => Some(&item.sig.ident),
+        syn::ForeignItem::Static(item) => Some(&item.ident),
+        syn::ForeignItem::Type(item) => Some(&item.ident),
+        _ => None,
+    }
+}
+
+impl ValueScope {
+    /// Parameters and const generic parameters, visible in the whole function body.
+    fn of_signature(enclosing_generics: &syn::Generics, signature: &syn::Signature) -> Self {
+        let mut scope = Self::default();
+        for param in enclosing_generics.const_params().chain(signature.generics.const_params()) {
+            scope.locals.insert(param.ident.to_string());
+        }
+        for input in &signature.inputs {
+            if let syn::FnArg::Typed(typed) = input {
+                scope.bind_pattern(&typed.pat);
+            }
+        }
+        scope
+    }
+
+    /// Items and `use` names declared directly in `block`, visible throughout it.
+    fn of_block(block: &syn::Block) -> Self {
+        let mut scope = Self::default();
+        for statement in &block.stmts {
+            let syn::Stmt::Item(item) = statement else {
+                continue;
+            };
+            match item {
+                syn::Item::Use(item) => bind_use_tree(&item.tree, None, &mut scope.items, &mut scope.glob_import),
+                syn::Item::ForeignMod(module) => {
+                    scope.items.extend(module.items.iter().filter_map(foreign_item_ident).map(ToString::to_string));
+                }
+                item => scope.items.extend(item_ident(item).map(ToString::to_string)),
+            }
+        }
+        scope
+    }
+
+    fn bind_pattern(&mut self, pattern: &syn::Pat) {
+        PatternBindings(&mut self.locals).visit_pat(pattern);
+    }
+}
+
+impl<'ast> Visit<'ast> for PatternBindings<'_> {
+    fn visit_pat_ident(&mut self, node: &'ast syn::PatIdent) {
+        self.0.insert(node.ident.to_string());
+        syn::visit::visit_pat_ident(self, node);
+    }
+
+    fn visit_expr(&mut self, _node: &'ast syn::Expr) {}
+
+    fn visit_expr_const(&mut self, _node: &'ast syn::ExprConst) {}
+
+    fn visit_type(&mut self, _node: &'ast syn::Type) {}
+}
+
 impl<'a> BodyScanner<'a> {
-    fn new(foreign_functions: &'a BTreeSet<String>, bindings: &'a CallerBindings) -> Self {
+    fn new(foreign_functions: &'a BTreeSet<String>, bindings: &'a CallerBindings, function_scope: ValueScope) -> Self {
         Self {
             foreign_functions,
             bindings,
+            scopes: vec![function_scope],
             compile_time_depth: 0,
             direct_effects: BTreeSet::new(),
             calls: Vec::new(),
@@ -658,6 +726,41 @@ impl<'a> BodyScanner<'a> {
         let effects = classify_path_call(&effect_path, self.foreign_functions).unwrap_or_default();
         let locally_resolvable = node.qself.is_none() && self.bindings.admits_local_path(&node.path);
         self.record_call(format!("{}{shape_path}", kind.shape_prefix()), kind, effects, locally_resolvable);
+    }
+
+    /// Whether `path` reads `self` or a local value in lexical scope at the current scan position.
+    /// The innermost scope that declares the name decides, so a block item or glob `use` shadows an
+    /// outer local.
+    fn is_local_value(&self, path: &syn::ExprPath) -> bool {
+        let Some(ident) = path.path.get_ident().filter(|_| path.qself.is_none()) else {
+            return false;
+        };
+        if ident == "self" {
+            return true;
+        }
+        let name = ident.to_string();
+        for scope in self.scopes.iter().rev() {
+            if scope.locals.contains(&name) {
+                return true;
+            }
+            if scope.glob_import || scope.items.contains(&name) {
+                return false;
+            }
+        }
+        false
+    }
+
+    /// Makes the pattern's bindings visible for the rest of the innermost scope.
+    fn bind_pattern(&mut self, pattern: &syn::Pat) {
+        if let Some(scope) = self.scopes.last_mut() {
+            scope.bind_pattern(pattern);
+        }
+    }
+
+    fn in_scope(&mut self, scope: ValueScope, visit: impl FnOnce(&mut Self)) {
+        self.scopes.push(scope);
+        visit(self);
+        self.scopes.pop();
     }
 }
 
@@ -695,10 +798,111 @@ impl<'ast> Visit<'ast> for BodyScanner<'_> {
     }
 
     fn visit_expr_path(&mut self, node: &'ast syn::ExprPath) {
-        if self.compile_time_depth == 0 && !self.bindings.is_local_value(node) {
+        if self.compile_time_depth == 0 && !self.is_local_value(node) {
             self.record_path(node, RawCallKind::Value);
         }
         syn::visit::visit_expr_path(self, node);
+    }
+
+    fn visit_block(&mut self, node: &'ast syn::Block) {
+        self.in_scope(ValueScope::of_block(node), |scanner| syn::visit::visit_block(scanner, node));
+    }
+
+    // A `let` binding is visible from the next statement on, not in its own initializer or `else`.
+    fn visit_local(&mut self, node: &'ast syn::Local) {
+        for attribute in &node.attrs {
+            self.visit_attribute(attribute);
+        }
+        if let Some(init) = &node.init {
+            self.visit_expr(&init.expr);
+            if let Some((_else, diverge)) = &init.diverge {
+                self.visit_expr(diverge);
+            }
+        }
+        self.visit_pat(&node.pat);
+        self.bind_pattern(&node.pat);
+    }
+
+    fn visit_arm(&mut self, node: &'ast syn::Arm) {
+        let mut scope = ValueScope::default();
+        scope.bind_pattern(&node.pat);
+        self.in_scope(scope, |scanner| syn::visit::visit_arm(scanner, node));
+    }
+
+    // `if let` bindings are visible in later conditions of a chain and the `then` block, not `else`.
+    fn visit_expr_if(&mut self, node: &'ast syn::ExprIf) {
+        for attribute in &node.attrs {
+            self.visit_attribute(attribute);
+        }
+        self.in_scope(ValueScope::default(), |scanner| {
+            scanner.visit_expr(&node.cond);
+            scanner.visit_block(&node.then_branch);
+        });
+        if let Some((_else, branch)) = &node.else_branch {
+            self.visit_expr(branch);
+        }
+    }
+
+    fn visit_expr_while(&mut self, node: &'ast syn::ExprWhile) {
+        for attribute in &node.attrs {
+            self.visit_attribute(attribute);
+        }
+        self.in_scope(ValueScope::default(), |scanner| {
+            scanner.visit_expr(&node.cond);
+            scanner.visit_block(&node.body);
+        });
+    }
+
+    fn visit_expr_let(&mut self, node: &'ast syn::ExprLet) {
+        for attribute in &node.attrs {
+            self.visit_attribute(attribute);
+        }
+        self.visit_expr(&node.expr);
+        self.visit_pat(&node.pat);
+        self.bind_pattern(&node.pat);
+    }
+
+    fn visit_expr_for_loop(&mut self, node: &'ast syn::ExprForLoop) {
+        for attribute in &node.attrs {
+            self.visit_attribute(attribute);
+        }
+        self.visit_expr(&node.expr);
+        let mut scope = ValueScope::default();
+        scope.bind_pattern(&node.pat);
+        self.in_scope(scope, |scanner| {
+            scanner.visit_pat(&node.pat);
+            scanner.visit_block(&node.body);
+        });
+    }
+
+    fn visit_expr_closure(&mut self, node: &'ast syn::ExprClosure) {
+        let mut scope = ValueScope::default();
+        for input in &node.inputs {
+            scope.bind_pattern(input);
+        }
+        self.in_scope(scope, |scanner| syn::visit::visit_expr_closure(scanner, node));
+    }
+
+    // A nested item does not see the enclosing function's locals.
+    fn visit_item(&mut self, node: &'ast syn::Item) {
+        let enclosing = std::mem::take(&mut self.scopes);
+        syn::visit::visit_item(self, node);
+        self.scopes = enclosing;
+    }
+
+    fn visit_item_fn(&mut self, node: &'ast syn::ItemFn) {
+        let scope = ValueScope::of_signature(&syn::Generics::default(), &node.sig);
+        self.in_scope(scope, |scanner| syn::visit::visit_item_fn(scanner, node));
+    }
+
+    fn visit_impl_item_fn(&mut self, node: &'ast syn::ImplItemFn) {
+        let scope = ValueScope::of_signature(&syn::Generics::default(), &node.sig);
+        self.in_scope(scope, |scanner| syn::visit::visit_impl_item_fn(scanner, node));
+    }
+
+    fn visit_trait_item_fn(&mut self, node: &'ast syn::TraitItemFn) {
+        let scope = ValueScope::of_signature(&syn::Generics::default(), &node.sig);
+        self.in_scope(scope, |scanner| syn::visit::visit_trait_item_fn(scanner, node));
     }
 
     fn visit_pat(&mut self, node: &'ast syn::Pat) {
@@ -1556,7 +1760,8 @@ fn build_nodes(
 
     for function in functions {
         let bindings = CallerBindings::collect(&function.draft);
-        let mut scanner = BodyScanner::new(&foreign_functions, &bindings);
+        let function_scope = ValueScope::of_signature(&function.draft.enclosing_generics, &function.draft.signature);
+        let mut scanner = BodyScanner::new(&foreign_functions, &bindings, function_scope);
         if function.draft.conditional || function.draft.signature.asyncness.is_some() {
             scanner.direct_effects.insert(Effect::Unknown);
         }
@@ -2710,15 +2915,47 @@ unsafe fn risky(values: &[u8]) -> u8 {
         assert_eq!(external.status, AdmissionStatus::Denied);
 
         let local = compute_closure(input(
-            "fn helper() {}\nfn run(_hook: fn()) {}\nfn root(count: u8) -> u8 { run(helper); let copy = count; copy }\n",
-            vec![address("helper", '1'), address("root", '2'), address("run", '3')],
+            "fn helper() {}\nfn run(_hook: fn()) {}\nfn use_it(_value: u8) {}\nfn root(count: u8) -> u8 {\n    run(helper);\n    let f = 1;\n    use_it(f);\n    match count {\n        inner => use_it(inner),\n    }\n    for item in [count] {\n        use_it(item);\n    }\n    let copy = count;\n    copy\n}\n",
+            vec![
+                address("helper", '1'),
+                address("root", '2'),
+                address("run", '3'),
+                address("use_it", '4'),
+            ],
             policy(Vec::new()),
         ));
         assert_eq!(local.status, AdmissionStatus::Admitted, "{:?}", local.diagnostics);
         assert_eq!(call_edge(&local, "root", "value:helper").resolution, CallResolution::Local);
         let root = local.nodes.iter().find(|node| node.name == "root").expect("root node");
-        assert_eq!(root.calls.len(), 2, "local bindings are not call edges: {:?}", root.calls);
+        assert_eq!(root.calls.len(), 5, "in-scope local bindings are not call edges: {:?}", root.calls);
         assert!(verify_receipt_identity(&local).is_empty());
+    }
+
+    // r[verify octet.effect_closure.verification.adversarial]
+    #[test]
+    fn out_of_scope_local_bindings_do_not_hide_value_edges() {
+        let import = "use std::fs::remove_dir_all as cleanup;\n";
+        for body in [
+            "fn root(x: Option<&str>) { if false { let cleanup = 1; let _ = cleanup; } let _ = x.map(cleanup); }",
+            "fn root(x: Option<&str>) { let _ = x.map(cleanup); let cleanup = 1; let _ = cleanup; }",
+            "fn root(x: Option<u8>) { match x { Some(cleanup) => { let _ = cleanup; } None => { let _ = x.map(cleanup); } } }",
+            "fn root(x: Option<&str>) { match 1 { cleanup => { let _ = cleanup; } } let _ = x.map(cleanup); }",
+            "fn root(x: Option<u8>) { if let Some(cleanup) = x { let _ = cleanup; } else { let _ = x.map(cleanup); } }",
+            "fn root(x: Option<&str>) { while let Some(cleanup) = None::<u8> { let _ = cleanup; } let _ = x.map(cleanup); }",
+            "fn root(x: Option<&str>) { for cleanup in [1] { let _ = cleanup; } let _ = x.map(cleanup); }",
+            "fn root(x: Option<&str>) { let apply = |cleanup: u8| cleanup; let _ = apply; let _ = x.map(cleanup); }",
+            "fn root(cleanup: u8) { fn inner(x: Option<&str>) { let _ = x.map(cleanup); } let _ = cleanup; }",
+            "fn root(x: Option<&str>) { let cleanup = 1; { use std::fs::remove_dir_all as cleanup; let _ = x.map(cleanup); } let _ = cleanup; }",
+        ] {
+            let source = format!("{import}{body}\n");
+            let receipt = compute_closure(input(&source, vec![address("root", '1')], policy(Vec::new())));
+            let root = receipt.nodes.iter().find(|node| node.name == "root").expect("root node");
+            let edges = root.calls.iter().filter(|call| call.shape == "value:cleanup").collect::<Vec<_>>();
+
+            assert_eq!(edges.len(), 1, "{body}: {:?}", root.calls);
+            assert_eq!(edges[0].resolution, CallResolution::Unknown, "{body}");
+            assert_eq!(receipt.status, AdmissionStatus::Denied, "{body}");
+        }
     }
 
     // r[verify octet.effect_closure.inference.direct]
