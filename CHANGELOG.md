@@ -6,6 +6,39 @@ specific commits via `TIGERSTYLE_DYLINT_REV`.
 For the full lint catalog, see `docs/lint-reference.md`.
 For rollout profiles, see `docs/downstream-rollout.md`.
 
+## Unreleased: stable finding IDs, roadmap, and external evidence fixes
+
+- Finding IDs no longer change when unrelated parts of the root `Cargo.toml`
+  change. The config hash in every semantic and stable ID now covers only
+  `dylint.toml`, the `[workspace.metadata.octet]` table (plus the legacy
+  `slotcar`/`tigerstyle` tables), the effective scope and `cargo check`
+  arguments, and the strict profile. Upgrading re-keys existing baselines
+  once; regenerate them with `--write-baseline`.
+- SARIF output sets `executionSuccessful: false` only for integration failures
+  (exit 2); a complete scan that fails on findings is a successful execution.
+  With `--cache`, a cold run no longer labels the second finding sharing a
+  semantic ID as a cache hit. `cargo octet artifact verify` fails when
+  `status.json` declares an architecture or effect-closure phase whose
+  artifacts are all missing.
+- `cargo octet roadmap` fails closed on malformed input. `capsule replay` exits
+  2 for a capsule without a manifest, with a missing compared field or
+  non-integer `expected_exit_code`, or with a stale `capsule_hash`. `pointer
+  rollback` restores the previous artifact kind and refuses receipts that later
+  pointer updates superseded. `session migrate` reports an error instead of
+  panicking on non-object JSON, and every subcommand rejects unknown, repeated,
+  or valueless flags.
+- Charon semantic comparison compares multi-valued facts (several
+  `local-call`/`item-dependency` edges or effect candidates) as sorted value
+  sets, so results no longer depend on input order. SARIF import gives a result
+  without `level` its rule's `defaultConfiguration.level`, skips `pass`,
+  `notApplicable` and `informational` results, and rejects undecided
+  `review`/`open` results.
+- The Aeneas rail judges theorem adequacy on the whole named theorem
+  declaration, including statements spanning several lines, instead of a
+  helper theorem after it. The Aeneas consumer check compares the selected
+  item's LLBC source text with the lines its span selects, so multi-item source
+  files validate and mismatched text reports drift.
+
 ## Unreleased: lint crash, coverage, and autofix fixes
 
 Several fixes report findings that were previously missed, so consumer
