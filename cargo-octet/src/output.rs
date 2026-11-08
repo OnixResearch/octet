@@ -218,7 +218,7 @@ pub struct RunOutcome {
 impl RunOutcome {
     pub fn classify(findings: &[Finding], cargo_process_exit: CargoProcessExit) -> Self {
         let counts = FindingCounts::from_findings(findings);
-        let status = classify_status(&counts, &cargo_process_exit);
+        let status = classify_status(findings, &counts, &cargo_process_exit);
 
         Self {
             status,
@@ -271,9 +271,13 @@ struct StatusArtifact<'a> {
     cargo_process_exit: &'a CargoProcessExit,
 }
 
-fn classify_status(counts: &FindingCounts, cargo_process_exit: &CargoProcessExit) -> RunStatus {
+fn classify_status(findings: &[Finding], counts: &FindingCounts, cargo_process_exit: &CargoProcessExit) -> RunStatus {
     if !cargo_process_exit.is_success() {
-        return RunStatus::IntegrationFailure;
+        return if is_denied_lint_compile_failure(findings, cargo_process_exit) {
+            RunStatus::LintFailure
+        } else {
+            RunStatus::IntegrationFailure
+        };
     }
 
     if counts.error_findings > 0 {
@@ -285,6 +289,22 @@ fn classify_status(counts: &FindingCounts, cargo_process_exit: &CargoProcessExit
     }
 
     RunStatus::Clean
+}
+
+/// rustc fails a compile that hit an error-level lint, so Cargo exits non-zero for denied
+/// findings alone. That run is a lint failure only when Cargo exited with a code (not a signal)
+/// and every error-level diagnostic is an Octet lint finding; any other compiler error (an
+/// `E####` code, an uncoded error, an ICE, or a non-Octet lint) keeps it an integration failure.
+fn is_denied_lint_compile_failure(findings: &[Finding], cargo_process_exit: &CargoProcessExit) -> bool {
+    if cargo_process_exit.is_terminated() {
+        return false;
+    }
+    let mut errors = findings.iter().filter(|finding| finding.severity_is_error()).peekable();
+    errors.peek().is_some() && errors.all(is_octet_lint_finding)
+}
+
+fn is_octet_lint_finding(finding: &Finding) -> bool {
+    octet_lint_metadata::all_metadata().iter().any(|meta| meta.lint_name == finding.lint)
 }
 
 pub fn lint_meta_map() -> HashMap<&'static str, LintMeta> {
@@ -902,6 +922,45 @@ mod tests {
             assert_eq!(invocation["exitCode"], expected_exit);
             assert_eq!(invocation["executionSuccessful"], expected_success, "{:?}", outcome.status);
         }
+    }
+
+    #[test]
+    fn denied_octet_lints_are_lint_failures_only_when_no_other_compiler_error_failed_cargo() {
+        let mut denied = test_finding();
+        denied.severity = ERROR_SEVERITY.to_owned();
+        let mut type_error = compiler_error_finding("mismatched types");
+        type_error.lint = "E0308".to_owned();
+        let cargo_failed = CargoProcessExit::exit_code(101);
+
+        for (findings, cargo_process_exit, expected) in [
+            (vec![denied.clone()], cargo_failed.clone(), RunStatus::LintFailure),
+            (vec![denied.clone(), test_finding()], cargo_failed.clone(), RunStatus::LintFailure),
+            (vec![denied.clone(), type_error], cargo_failed.clone(), RunStatus::IntegrationFailure),
+            (
+                vec![
+                    denied.clone(),
+                    compiler_error_finding("internal compiler error: unexpected panic"),
+                ],
+                cargo_failed.clone(),
+                RunStatus::IntegrationFailure,
+            ),
+            (vec![test_finding()], cargo_failed.clone(), RunStatus::IntegrationFailure),
+            (Vec::new(), cargo_failed, RunStatus::IntegrationFailure),
+            (vec![denied], CargoProcessExit::terminated(), RunStatus::IntegrationFailure),
+        ] {
+            let outcome = RunOutcome::classify(&findings, cargo_process_exit);
+            assert_eq!(outcome.status, expected, "{findings:#?}");
+            assert_eq!(outcome.exit_code, expected.exit_code());
+        }
+    }
+
+    fn compiler_error_finding(message: &str) -> Finding {
+        let mut finding = test_finding();
+        finding.lint = "compiler_error".to_owned();
+        finding.group = UNKNOWN_LINT_META.group.to_owned();
+        finding.severity = ERROR_SEVERITY.to_owned();
+        message.clone_into(&mut finding.message);
+        finding
     }
 
     fn test_finding() -> Finding {

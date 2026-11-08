@@ -1041,6 +1041,7 @@ fn explicit_empty_tigerstyle_env_vars_exit_with_integration_failure_code() {
     );
 }
 
+// rustc fails a compile that hit an error-level lint, so real Cargo exits 101 for denied findings.
 #[test]
 fn error_level_lint_findings_exit_with_code_one() {
     let fixture = ConsumerFixture::new("lint-failure", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
@@ -1055,10 +1056,11 @@ fn error_level_lint_findings_exit_with_code_one() {
             5,
             None,
         ),
-        cargo_build_finished(true),
+        cargo_top_level_diagnostic("consumer", ERROR_LEVEL, "aborting due to 1 previous error"),
+        cargo_build_finished(false),
     ];
 
-    let output = run_with_output_format(&fixture, JSON_OUTPUT_FORMAT, &lines, EXIT_CODE_SUCCESS);
+    let output = run_with_output_format(&fixture, JSON_OUTPUT_FORMAT, &lines, CARGO_COMPILE_FAILURE_EXIT);
     assert_eq!(
         output.status.code(),
         Some(EXIT_CODE_LINT_FAILURE),
@@ -1072,8 +1074,67 @@ fn error_level_lint_findings_exit_with_code_one() {
         stderr.contains(&format!("Status: {STATUS_LINT_FAILURE}")),
         "lint failure summary should report lint-failure: {stderr}"
     );
-    assert!(stderr.contains("Errors: 1"), "lint failure summary should count one error: {stderr}");
+    assert!(
+        stderr.contains("Errors: 1"),
+        "lint failure summary should count one error and skip rustc's abort summary: {stderr}"
+    );
     assert_eq!(fixture.lockfile(), fixture.original_lockfile, "lint failure should not dirty lockfile");
+
+    let sarif_output = run_with_output_format(&fixture, SARIF_OUTPUT_FORMAT, &lines, CARGO_COMPILE_FAILURE_EXIT);
+    assert_eq!(sarif_output.status.code(), Some(EXIT_CODE_LINT_FAILURE));
+    let sarif: serde_json::Value =
+        serde_json::from_slice(&sarif_output.stdout).expect("parse lint-failure SARIF output");
+    let invocation = &sarif["runs"][0]["invocations"][0];
+    assert_eq!(invocation["exitCode"], EXIT_CODE_LINT_FAILURE);
+    assert_eq!(invocation["executionSuccessful"], true, "denied findings are a successful scan: {invocation}");
+    assert_eq!(sarif["runs"][0]["properties"]["status"], STATUS_LINT_FAILURE);
+}
+
+#[test]
+fn non_lint_compile_errors_beside_denied_findings_exit_two() {
+    let fixture =
+        ConsumerFixture::new("lint-failure-compile-error", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
+    let denied = cargo_compiler_message_with_level(
+        "consumer",
+        "no_unwrap",
+        ERROR_LEVEL,
+        "use of `.unwrap()`",
+        "src/lib.rs",
+        10,
+        5,
+        None,
+    );
+    let coded_error = cargo_compiler_message_with_level(
+        "consumer",
+        "E0308",
+        ERROR_LEVEL,
+        "mismatched types",
+        "src/lib.rs",
+        12,
+        9,
+        None,
+    );
+    let uncoded_error =
+        cargo_top_level_diagnostic("consumer", ERROR_LEVEL, "cannot find macro `missing` in this scope");
+
+    for (label, compile_error) in [("coded", coded_error), ("uncoded", uncoded_error)] {
+        let lines = vec![
+            denied.clone(),
+            compile_error,
+            cargo_top_level_diagnostic("consumer", "failure-note", "For more information about this error"),
+            cargo_build_finished(false),
+        ];
+        let output = run_with_output_format(&fixture, JSON_OUTPUT_FORMAT, &lines, CARGO_COMPILE_FAILURE_EXIT);
+        assert_eq!(
+            output.status.code(),
+            Some(EXIT_CODE_INTEGRATION_FAILURE),
+            "{label} compile error must stay an integration failure: stdout={} stderr={}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(stderr.contains(&format!("Status: {STATUS_INTEGRATION_FAILURE}")), "{label}: {stderr}");
+    }
 }
 
 #[test]
@@ -2742,6 +2803,79 @@ fn baseline_file_accepts_current_findings_and_gates_new_ids() {
     assert_eq!(drift_status["baseline"]["new_total"], 1);
     assert_eq!(drift_status["baseline"]["stale_total"], 0);
     assert_eq!(drift_status["baseline"]["new_finding_ids"].as_array().expect("new finding ids").len(), 1);
+}
+
+#[test]
+fn baseline_write_and_gate_follow_denied_lint_classification() {
+    let fixture =
+        ConsumerFixture::new("baseline-write-lint-failure", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
+    let baseline_path = fixture.repo.join("octet-baseline.json");
+    let baseline_path_str = baseline_path.to_str().expect("baseline path utf8");
+    let dir = artifact_dir(&fixture, "baseline-lint-failure");
+    let denied = |line| {
+        cargo_compiler_message_with_level(
+            "consumer",
+            "no_unwrap",
+            ERROR_LEVEL,
+            "use of `.unwrap()`",
+            "src/lib.rs",
+            line,
+            5,
+            None,
+        )
+    };
+
+    let written = run_with_check_args(
+        &fixture,
+        &[
+            "--output-format",
+            JSON_OUTPUT_FORMAT,
+            "--write-baseline",
+            baseline_path_str,
+        ],
+        &[denied(10), cargo_build_finished(false)],
+        CARGO_COMPILE_FAILURE_EXIT,
+    );
+    assert_eq!(
+        written.status.code(),
+        Some(EXIT_CODE_LINT_FAILURE),
+        "denied findings should exit 1: stdout={} stderr={}",
+        String::from_utf8_lossy(&written.stdout),
+        String::from_utf8_lossy(&written.stderr)
+    );
+    let baseline = read_json_artifact(&baseline_path);
+    assert_eq!(baseline["findings"].as_array().map(Vec::len), Some(1), "baseline should record the denied finding");
+
+    let gated = run_with_check_args(
+        &fixture,
+        &[
+            "--output-format",
+            JSON_OUTPUT_FORMAT,
+            "--baseline",
+            baseline_path_str,
+            "--artifact-dir",
+            dir.to_str().expect("artifact dir utf8"),
+        ],
+        &[
+            denied(10),
+            cargo_compiler_message_with_level(
+                "consumer",
+                "no_panic",
+                ERROR_LEVEL,
+                "use of `panic!`",
+                "src/lib.rs",
+                20,
+                5,
+                None,
+            ),
+            cargo_build_finished(false),
+        ],
+        CARGO_COMPILE_FAILURE_EXIT,
+    );
+    assert_eq!(gated.status.code(), Some(EXIT_CODE_LINT_FAILURE));
+    let status = read_json_artifact(&dir.join(STATUS_JSON_FILE));
+    assert_eq!(status["status"], STATUS_LINT_FAILURE);
+    assert_eq!(status["baseline"]["new_total"], 1, "baseline gate should evaluate the denied run: {status}");
 }
 
 #[test]

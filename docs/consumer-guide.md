@@ -164,6 +164,13 @@ Exit codes are stable for automation:
 - `1` error-level lint findings
 - `2` integration/configuration failures, including underlying `cargo check` failures
 
+rustc fails a compile that hit a denied lint, so `cargo check` itself exits
+non-zero for error-level Octet findings. The runner still reports exit `1`
+when Cargo exited with a code and every compiler error is an Octet finding;
+any other compiler error (an `E####` code, an uncoded error, or an internal
+compiler error) or a Cargo process ended by a signal stays exit `2`.
+`--write-baseline` records the finding set of any run that does not exit `2`.
+
 SARIF invocations record the same `exitCode`. `executionSuccessful` is `false`
 only for exit `2`; a complete scan that fails on error-level findings or new
 baseline IDs (exit `1`) is still a successful tool execution.

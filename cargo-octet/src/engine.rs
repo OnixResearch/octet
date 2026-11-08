@@ -63,6 +63,7 @@ const RUSTC_ERROR_LEVEL: &str = "error";
 const RUSTC_NOTE_LEVEL: &str = "note";
 const RUSTC_HELP_LEVEL: &str = "help";
 const RUSTC_FAILURE_NOTE_LEVEL: &str = "failure-note";
+const RUSTC_ABORT_SUMMARY_PREFIX: &str = "aborting due to ";
 
 #[derive(Debug, Clone)]
 struct StructuredArtifact {
@@ -97,7 +98,8 @@ fn apply_baseline_gate(
     outcome: output::RunOutcome,
     baseline_evaluation: Option<&BaselineEvaluation>,
 ) -> output::RunOutcome {
-    if outcome.cargo_process_exit.is_success() && baseline_evaluation.is_some_and(BaselineEvaluation::has_new_findings)
+    if outcome.status != output::RunStatus::IntegrationFailure
+        && baseline_evaluation.is_some_and(BaselineEvaluation::has_new_findings)
     {
         return outcome.force_lint_failure();
     }
@@ -250,7 +252,7 @@ pub fn run(check: &CheckArgs) -> Result<i32, String> {
                         let _ = write!(stderr_lock, "{rendered}");
                     }
 
-                    if is_informational_compiler_level(message["level"].as_str()) {
+                    if is_informational_compiler_level(message["level"].as_str()) || is_rustc_abort_summary(message) {
                         continue;
                     }
 
@@ -313,14 +315,13 @@ pub fn run(check: &CheckArgs) -> Result<i32, String> {
         if check.cache {
             update_lint_cache(&cfg.workspace_root, &mut findings)?;
         }
-        let cargo_process_succeeded = cargo_process_exit.is_success();
         let base_outcome = output::RunOutcome::classify(&findings, cargo_process_exit);
         let baseline_evaluation = match check.baseline.as_deref() {
             Some(path) => Some(baseline::evaluate_baseline(path, &findings)?),
             None => None,
         };
         if let Some(path) = check.write_baseline.as_deref()
-            && cargo_process_succeeded
+            && base_outcome.status != output::RunStatus::IntegrationFailure
         {
             baseline::write_baseline(path, &findings, &run_metadata)?;
         }
@@ -1047,6 +1048,14 @@ fn is_informational_compiler_level(level: Option<&str>) -> bool {
     matches!(level, Some(RUSTC_NOTE_LEVEL | RUSTC_HELP_LEVEL | RUSTC_FAILURE_NOTE_LEVEL))
 }
 
+/// rustc closes a failed compile with a spanless, uncoded "aborting due to N previous errors"
+/// summary. It counts other diagnostics and is not a finding of its own.
+fn is_rustc_abort_summary(message: &serde_json::Value) -> bool {
+    message["code"].is_null()
+        && message["spans"].as_array().is_none_or(Vec::is_empty)
+        && message["message"].as_str().is_some_and(|text| text.starts_with(RUSTC_ABORT_SUMMARY_PREFIX))
+}
+
 /// Maps a non-informational rustc level onto the finding severity domain. Internal compiler
 /// errors (`error: internal compiler error`) and any unrecognized level fail closed as errors;
 /// rustc also exits nonzero on an ICE, so such runs stay integration failures.
@@ -1770,6 +1779,7 @@ mod tests {
     use super::compiler_finding_severity;
     use super::embedded_source;
     use super::is_informational_compiler_level;
+    use super::is_rustc_abort_summary;
     use super::json_u64_to_u32;
     use super::normalize_finding_message;
     use super::normalize_lint_name;
@@ -1820,6 +1830,18 @@ mod tests {
         assert_eq!(compiler_finding_severity(Some("warning")), "warning");
         assert_eq!(compiler_finding_severity(Some("error")), "error");
         assert_eq!(compiler_finding_severity(Some("error: internal compiler error")), "error");
+
+        for summary in [
+            "aborting due to 1 previous error",
+            "aborting due to 2 previous errors; 1 warning emitted",
+        ] {
+            let abort = serde_json::json!({"level": "error", "message": summary, "code": null, "spans": []});
+            assert!(is_rustc_abort_summary(&abort), "{summary} is a summary, not a finding");
+        }
+        let coded = serde_json::json!({"level": "error", "message": "aborting due to 1 previous error", "code": {"code": "E0001"}, "spans": []});
+        assert!(!is_rustc_abort_summary(&coded));
+        let uncoded = serde_json::json!({"level": "error", "message": "cannot find macro", "code": null, "spans": []});
+        assert!(!is_rustc_abort_summary(&uncoded));
     }
 
     #[test]

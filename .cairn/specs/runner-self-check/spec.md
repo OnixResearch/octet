@@ -36,7 +36,7 @@ r[octet.runner_self_check.failure.malformed]
 
 #### Scenario: Non-zero Cargo child is propagated
 r[octet.runner_self_check.failure.child_failure]
-- GIVEN valid canonical metadata and a configured Cargo sentinel that exits non-zero
+- GIVEN valid canonical metadata and a configured Cargo sentinel that exits non-zero without reporting denied Octet lint findings as its only compiler errors
 - WHEN the runner invokes that child
 - THEN it SHALL report an integration-failure summary and SHALL exit with integration code `2` rather than returning success.
 

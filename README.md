@@ -207,8 +207,8 @@ The `octet-deny-all` hook promotes each Octet lint to `deny`.
 Exit status values are stable:
 
 - `0`: clean or warning-only
-- `1`: error-level findings
-- `2`: integration or Cargo failure
+- `1`: error-level findings, including denied Octet lints that make rustc fail the compile
+- `2`: integration or Cargo failure, including any compiler error that is not an Octet finding
 
 For direct Cargo use, install the runner once:
 
