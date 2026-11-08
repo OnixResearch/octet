@@ -571,6 +571,7 @@ r[octet.verus_proof_rails.proof_evidence_ref.diagnostics.overclaim]
 - GIVEN a `ProofEvidenceRef` non-claim or consumer-context field claims whole-program correctness, certification, business-domain validation, semantic equivalence, full safety, or verified-runtime behavior
 - WHEN validation runs
 - THEN validation MUST fail with a diagnostic naming the unsupported claim.
+- AND matching MUST be independent of the claiming verb and of hyphenation, while negated non-claims such as `not verified runtime` MUST NOT be rejected.
 
 ### Requirement: Proof package lock records
 

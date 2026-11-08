@@ -193,7 +193,7 @@ fn overclaim_patterns() -> [(&'static str, &'static str); OVERCLAIM_PATTERN_COUN
 
 const OVERCLAIM_PATTERN_COUNT: usize = 5;
 
-fn positive_phrase_present(lower_wording: &str, phrase: &str) -> bool {
+pub(crate) fn positive_phrase_present(lower_wording: &str, phrase: &str) -> bool {
     lower_wording.contains(phrase)
         && !lower_wording.contains(&format!("not {phrase}"))
         && !lower_wording.contains(&format!("no {phrase}"))

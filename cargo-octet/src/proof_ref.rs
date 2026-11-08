@@ -10,6 +10,7 @@ use crate::cli::ProofRefArgs;
 use crate::cli::ProofRefMode;
 use crate::cli::ProofRefScaffoldArgs;
 use crate::cli::ProofRefValidateArgs;
+use crate::proof_goal_state::positive_phrase_present;
 
 const PROOF_EVIDENCE_REF_SCHEMA_VERSION: &str = "octet-proof-evidence-ref/v1";
 const PROOF_CARDS_SCHEMA_VERSION: &str = "octet-proof-cards/v1";
@@ -37,6 +38,19 @@ const NON_CLAIM_CERTIFICATION: &str = "not certification";
 const NON_CLAIM_BUSINESS_DOMAIN: &str = "not business-domain validation";
 const NON_CLAIM_SEMANTIC_EQUIVALENCE: &str = "not semantic equivalence";
 const NON_CLAIM_FULL_SAFETY: &str = "not full safety";
+/// Claim subjects matched per field after lowercasing and replacing hyphens with
+/// spaces, so any verb (`proves`, `guarantees`, `certifies`) and hyphenated
+/// spellings are caught while negated non-claims such as `not verified runtime`
+/// are not.
+const OVERCLAIM_PHRASES: &[(&str, &str)] = &[
+    ("whole program correctness", "whole-program correctness"),
+    ("certification", "certification"),
+    ("certifies", "certification"),
+    ("business domain validation", "business-domain validation"),
+    ("semantic equivalence", "semantic equivalence"),
+    ("full safety", "full safety"),
+    ("verified runtime", "verified runtime"),
+];
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct ProofEvidenceRef {
@@ -345,20 +359,18 @@ fn proof_card_deck_shape_diagnostics(deck: &ProofCardDeck) -> Vec<String> {
 }
 
 fn proof_ref_overclaim_diagnostics(reference: &ProofEvidenceRef) -> Vec<String> {
-    let text = format!(
-        "{} {} {}",
-        reference.consumer_context,
-        reference.consumer_source_anchor,
-        reference.non_claims.join(" ")
-    )
-    .to_lowercase();
+    let fields = [&reference.consumer_context, &reference.consumer_source_anchor]
+        .into_iter()
+        .chain(&reference.non_claims);
     let mut diagnostics = Vec::new();
-    push_overclaim(&mut diagnostics, &text, "proves whole-program correctness", "whole-program correctness");
-    push_overclaim(&mut diagnostics, &text, "provides certification", "certification");
-    push_overclaim(&mut diagnostics, &text, "provides business-domain validation", "business-domain validation");
-    push_overclaim(&mut diagnostics, &text, "proves semantic equivalence", "semantic equivalence");
-    push_overclaim(&mut diagnostics, &text, "guarantees full safety", "full safety");
-    push_overclaim(&mut diagnostics, &text, "verified runtime", "verified runtime");
+    for field in fields {
+        let wording = field.to_ascii_lowercase().replace('-', " ");
+        for (phrase, claim) in OVERCLAIM_PHRASES {
+            if positive_phrase_present(&wording, phrase) {
+                diagnostics.push(format!("proof evidence ref contains unsupported {claim} claim"));
+            }
+        }
+    }
     diagnostics
 }
 
@@ -480,12 +492,6 @@ fn push_consumer_source_mismatch(diagnostics: &mut Vec<String>, field_name: &str
         diagnostics.push(format!(
             "proof evidence ref field `{field_name}` expected `{expected}` but consumer source has `{actual}`"
         ));
-    }
-}
-
-fn push_overclaim(diagnostics: &mut Vec<String>, text: &str, needle: &str, claim: &str) {
-    if text.contains(needle) {
-        diagnostics.push(format!("proof evidence ref contains unsupported {claim} claim"));
     }
 }
 
@@ -724,6 +730,39 @@ mod tests {
         assert!(diagnostics.iter().any(|diagnostic| diagnostic.contains(PROOF_EVIDENCE_REF_SCHEMA_VERSION)));
         assert!(diagnostics.iter().any(|diagnostic| diagnostic.contains(PROOF_CARDS_SCHEMA_VERSION)));
         assert!(diagnostics.iter().any(|diagnostic| diagnostic.contains(FIELD_NON_CLAIMS)));
+    }
+
+    #[test]
+    fn proof_ref_accepts_negated_verified_runtime_non_claim() {
+        let mut reference = matching_reference();
+        reference.non_claims.push("not verified runtime".to_owned());
+        let mut card = card();
+        card.non_claims.push("not verified runtime".to_owned());
+        let deck = deck_with(card);
+
+        let diagnostics = validate_proof_evidence_ref(&reference, &deck, None);
+
+        assert!(diagnostics.is_empty(), "unexpected diagnostics: {diagnostics:?}");
+    }
+
+    #[test]
+    fn proof_ref_rejects_overclaims_with_other_verbs_and_hyphenation() {
+        for (wording, claim) in [
+            ("this guarantees whole-program correctness", "whole-program correctness"),
+            ("this certifies the codec", "certification"),
+            ("this establishes verified-runtime behavior", "verified runtime"),
+        ] {
+            let mut reference = matching_reference();
+            reference.consumer_context = format!("allow linked proof evidence at src/codec.rs:42; {wording}");
+            let deck = deck_with(card());
+
+            let diagnostics = validate_proof_evidence_ref(&reference, &deck, None);
+
+            assert!(
+                diagnostics.iter().any(|diagnostic| diagnostic.contains(&format!("unsupported {claim} claim"))),
+                "`{wording}` should be rejected as a {claim} claim: {diagnostics:?}"
+            );
+        }
     }
 
     fn matching_reference() -> ProofEvidenceRef {
