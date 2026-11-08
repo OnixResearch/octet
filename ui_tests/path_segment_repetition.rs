@@ -15,8 +15,19 @@ mod path_segment_repetition {
     pub fn path_segment_repetition_classifier() {}
 }
 
+mod registry {
+    // Should warn: a module named `registry` is ordinary source, not generated code.
+    pub fn registry_lookup() {}
+}
+
+// Should NOT warn: the module file sits under a `generated/` source directory, which the
+// default `generated_searchable_names` exception class keeps exempt.
+#[path = "../policy_inputs/generated_searchable_names/path_segment_repetition/generated/items.rs"]
+mod generated_items;
+
 fn main() {
     guest::spawn_guest_vm();
     let _ = storage::storage_flush();
     path_segment_repetition::path_segment_repetition_classifier();
+    registry::registry_lookup();
 }

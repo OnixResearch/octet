@@ -11,16 +11,8 @@ use rustc_span::Ident;
 use crate::config::IndexableLintExceptions;
 use crate::diagnostics::emit_tiger_style_lint;
 use crate::naming::indexable_exceptions::is_canonical_rustc_private_alias;
+use crate::naming::indexable_exceptions::is_generated_source_span;
 
-const GENERATED_SEGMENTS: &[&str] = &[
-    "target",
-    "generated",
-    "OUT_DIR",
-    "rustlib",
-    "registry",
-    ".cargo",
-    "vendor-cargo-deps",
-];
 const COMPATIBILITY_WORD: &str = "compat";
 const PRELUDE_SEGMENT: &str = "prelude";
 const UNDERSCORE_IMPORT: &str = "_";
@@ -36,11 +28,15 @@ declare_tool_lint! {
 
 pub struct RenamedImports {
     exceptions: IndexableLintExceptions,
+    workspace_root: std::path::PathBuf,
 }
 
 impl RenamedImports {
     pub fn new(exceptions: IndexableLintExceptions) -> Self {
-        Self { exceptions }
+        Self {
+            exceptions,
+            workspace_root: crate::source::workspace_root(),
+        }
     }
 }
 
@@ -58,10 +54,8 @@ fn source_name(path: &hir::UsePath<'_>, ident: Ident) -> String {
     path_segments(path).last().cloned().unwrap_or_else(|| ident.name.as_str().to_owned())
 }
 
-fn is_generated_or_prelude(path: &hir::UsePath<'_>) -> bool {
-    let segments = path_segments(path);
-    segments.iter().any(|segment| GENERATED_SEGMENTS.contains(&segment.as_str()))
-        || segments.iter().any(|segment| segment == PRELUDE_SEGMENT)
+fn is_prelude(path: &hir::UsePath<'_>) -> bool {
+    path_segments(path).iter().any(|segment| segment == PRELUDE_SEGMENT)
 }
 
 fn is_trait_res(res: Option<Res>) -> bool {
@@ -101,7 +95,11 @@ impl<'tcx> LateLintPass<'tcx> for RenamedImports {
             return;
         };
 
-        if item.span.from_expansion() || is_generated_or_prelude(path) || is_unrelated_ui_fixture(cx, item) {
+        if item.span.from_expansion()
+            || is_prelude(path)
+            || is_unrelated_ui_fixture(cx, item)
+            || is_generated_source_span(cx.sess().source_map(), item.span, &self.workspace_root, self.exceptions)
+        {
             return;
         }
 

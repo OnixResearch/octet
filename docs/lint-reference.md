@@ -73,7 +73,7 @@ Rules to keep straight:
 | `state_machine_enum_marker` | `"octet::state_machine_enum"` | `fragile_exhaustive_enum_match`, `state_machine_exhaustiveness` | required marker for deliberately closed FSM state/event enums; missing markers fail closed in FSM transition cores |
 | `state_machine_core_scopes` | `[]` | `state_machine_exhaustiveness` | source path scopes that opt transition functions into the FSM exhaustive-default profile |
 | `state_machine_generated_adapter_scopes` | `[]` | `state_machine_exhaustiveness` | generated adapter/source scopes excluded from the pure transition-core FSM profile |
-| `indexable_lint_exceptions` | `["rustc_private_aliases", "lint_identity_names", "generated_searchable_names"]` | naming/indexable lints | named exception classes for rustc-private aliases, lint-identity-preserving names, and generated/searchable paths |
+| `indexable_lint_exceptions` | `["rustc_private_aliases", "lint_identity_names", "generated_searchable_names"]` | naming/indexable lints | named exception classes for rustc-private aliases, lint-identity-preserving names, and generated source; `generated_searchable_names` exempts `non_trait_imports`, `renamed_imports`, and `path_segment_repetition` findings in source files outside the workspace root or with a whole `target`, `generated`, `OUT_DIR`, `rustlib`, `.cargo`, or `*vendor-cargo-deps*` path component below it, never because of `use` path segments, module names, or path substrings |
 | `acronym_allowlist` | `[]` | `acronym_style` | case-sensitive allowlist such as `IO` or `ID` |
 | `disabled_lints` | `[]` | all lints | bare lint names only; disabled lints do not register |
 | `[octet.lint_levels]` | `{}` | all lints | bare lint names mapped to `allow`, `warn`, or `deny` |

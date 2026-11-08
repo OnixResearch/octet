@@ -10,18 +10,10 @@ use rustc_span::Ident;
 
 use crate::config::IndexableLintExceptions;
 use crate::diagnostics::emit_tiger_style_lint;
+use crate::naming::indexable_exceptions::is_generated_source_span;
 use crate::naming::indexable_exceptions::is_lint_identity_name;
 
 const COMPATIBILITY_WORDS: &[&str] = &["compat", "compatibility", "external", "mandated", "api"];
-const GENERATED_SEGMENTS: &[&str] = &[
-    "target",
-    "generated",
-    "OUT_DIR",
-    "rustlib",
-    "registry",
-    ".cargo",
-    "vendor-cargo-deps",
-];
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct Repetition {
@@ -40,11 +32,15 @@ declare_tool_lint! {
 
 pub struct PathSegmentRepetition {
     exceptions: IndexableLintExceptions,
+    workspace_root: std::path::PathBuf,
 }
 
 impl PathSegmentRepetition {
     pub fn new(exceptions: IndexableLintExceptions) -> Self {
-        Self { exceptions }
+        Self {
+            exceptions,
+            workspace_root: crate::source::workspace_root(),
+        }
     }
 }
 
@@ -143,23 +139,25 @@ fn has_compatibility_documentation(cx: &LateContext<'_>, item: &hir::Item<'_>) -
     })
 }
 
-fn is_generated_or_unrelated_fixture(cx: &LateContext<'_>, item: &hir::Item<'_>) -> bool {
+fn is_unrelated_fixture(cx: &LateContext<'_>, item: &hir::Item<'_>) -> bool {
     let filename = cx.sess().source_map().span_to_filename(item.span);
     let path = filename.prefer_local_unconditionally().to_string();
-    GENERATED_SEGMENTS.iter().any(|segment| path.contains(segment))
-        || path.contains("tests/fixtures")
-        || (path.contains("ui_tests/") && !path.contains("path_segment_repetition"))
+    path.contains("tests/fixtures") || (path.contains("ui_tests/") && !path.contains("path_segment_repetition"))
 }
 
 impl<'tcx> LateLintPass<'tcx> for PathSegmentRepetition {
     fn check_item(&mut self, cx: &LateContext<'tcx>, item: &'tcx hir::Item<'tcx>) {
-        if item.span.from_expansion() || is_generated_or_unrelated_fixture(cx, item) {
+        if item.span.from_expansion() || is_unrelated_fixture(cx, item) {
             return;
         }
 
         let Some(ident) = identifier_for_item(item) else {
             return;
         };
+
+        if is_generated_source_span(cx.sess().source_map(), item.span, &self.workspace_root, self.exceptions) {
+            return;
+        }
 
         if has_compatibility_documentation(cx, item) {
             return;
