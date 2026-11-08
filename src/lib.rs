@@ -415,13 +415,19 @@ pub extern "Rust" fn register_lints(sess: &rustc_session::Session, lint_store: &
     apply_lint_level_overrides(sess, &cfg);
     register_inventory(lint_store, &cfg, &nominal_domain_catalog);
     register_no_todo_bundle(lint_store, &cfg);
-    // Cargo rebuilds a workspace unit when this value changes, so switching between lint-only and
-    // architecture runs always gives the collector a compilation to observe.
-    let collector_context = std::env::var(octet_architecture_ir::COMPILER_ARCHITECTURE_COLLECTOR_CONTEXT_ENV).ok();
-    sess.env_depinfo.lock().insert((
-        rustc_span::Symbol::intern(octet_architecture_ir::COMPILER_ARCHITECTURE_COLLECTOR_CONTEXT_ENV),
-        collector_context.as_deref().map(rustc_span::Symbol::intern),
-    ));
+    // Cargo rebuilds a workspace unit when a recorded value changes. The collector context switches
+    // between lint-only and architecture runs, so the collector always gets a compilation to
+    // observe. The strict-profile selection changes lint levels only inside rustc and is not
+    // recorded by Cargo, so without it a cached unit would replay warnings the profile denies.
+    for variable in [
+        octet_architecture_ir::COMPILER_ARCHITECTURE_COLLECTOR_CONTEXT_ENV,
+        octet_lint_metadata::strict_profile::STRICT_PROFILE_ENV,
+    ] {
+        let value = std::env::var(variable).ok();
+        sess.env_depinfo
+            .lock()
+            .insert((rustc_span::Symbol::intern(variable), value.as_deref().map(rustc_span::Symbol::intern)));
+    }
     match architecture_collector::active_collector(sess) {
         Ok(Some(collector)) => {
             if let Err(error) = architecture_collector::validate_compiler_session(sess, &collector) {
