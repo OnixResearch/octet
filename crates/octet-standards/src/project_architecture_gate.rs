@@ -1826,9 +1826,8 @@ fn evaluate_receipt_constructors(
             let observed_argument = type_definitions
                 .get(argument_type_id.as_str())
                 .is_some_and(|definition| *definition == protocol.observed_outcome_type);
-            let approved_observation = origins
-                .iter()
-                .all(|origin| permitted_observation_origins.iter().any(|constructor| constructor == origin));
+            let approved_observation = matches!(origins.as_slice(), [origin]
+                if permitted_observation_origins.iter().any(|constructor| constructor == origin));
             let opposite_origin = origins.iter().any(|origin| {
                 if success_receipt {
                     protocol.failure_observation_constructors.iter().any(|constructor| constructor == origin)
@@ -3108,6 +3107,32 @@ mod tests {
                 .iter()
                 .any(|finding| finding.code == "failure-promoted-to-success-receipt")
         );
+    }
+
+    #[test]
+    fn receipt_constructor_requires_exactly_one_approved_observation() {
+        const RETRIED_SUCCESS: &str = "application::PublicationObservation::retried_success";
+        for origins in [Vec::new(), vec![
+            "application::PublicationObservation::success".to_owned(),
+            RETRIED_SUCCESS.to_owned(),
+        ]] {
+            let mut fixture = Fixture::new(ArchitectureMode::Gate);
+            fixture.add_protected_effect_facts(ValueProvenanceStatus::Exact, "domain::authorize_publication", false);
+            let protocol = fixture.policy.outbound_effects[0].protected.as_mut().expect("protected protocol");
+            protocol.success_observation_constructors.push(RETRIED_SUCCESS.to_owned());
+            mutate_receipt_provenance(&mut fixture.ir, |_, current, status| {
+                current.clone_from(&origins);
+                *status = ValueProvenanceStatus::Exact;
+            });
+
+            let receipt = fixture.evaluate(None);
+
+            assert_eq!(receipt.status, ArchitecturePhaseStatus::Blocked, "{origins:?}");
+            assert!(
+                receipt.findings.iter().any(|finding| finding.code == "unknown-receipt-observation"),
+                "{origins:?}"
+            );
+        }
     }
 
     #[test]
