@@ -169,7 +169,11 @@ non-zero for error-level Octet findings. The runner still reports exit `1`
 when Cargo exited with a code and every compiler error is an Octet finding;
 any other compiler error (an `E####` code, an uncoded error, or an internal
 compiler error) or a Cargo process ended by a signal stays exit `2`.
-`--write-baseline` records the finding set of any run that does not exit `2`.
+`--write-baseline` records only a complete scan, one where `cargo check`
+itself succeeded. Denied lints make Cargo fail and stop before every crate is
+checked, so such a run writes no baseline and exits `2` with an error naming
+the cause; lower those lints to `warn` for the baseline run. A baseline cannot
+make error-level findings pass in any case.
 
 SARIF invocations record the same `exitCode`. `executionSuccessful` is `false`
 only for exit `2`; a complete scan that fails on error-level findings or new

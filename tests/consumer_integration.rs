@@ -2908,12 +2908,13 @@ fn baseline_write_and_gate_follow_denied_lint_classification() {
         ConsumerFixture::new("baseline-write-lint-failure", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
     let baseline_path = fixture.repo.join("octet-baseline.json");
     let baseline_path_str = baseline_path.to_str().expect("baseline path utf8");
+    let refused_dir = artifact_dir(&fixture, "baseline-write-refused");
     let dir = artifact_dir(&fixture, "baseline-lint-failure");
-    let denied = |line| {
+    let finding = |level, line| {
         cargo_compiler_message_with_level(
             "consumer",
             "no_unwrap",
-            ERROR_LEVEL,
+            level,
             "use of `.unwrap()`",
             "src/lib.rs",
             line,
@@ -2922,6 +2923,38 @@ fn baseline_write_and_gate_follow_denied_lint_classification() {
         )
     };
 
+    // Denied lints stop Cargo before every crate is checked, so no baseline is written from that run.
+    let refused = run_with_check_args(
+        &fixture,
+        &[
+            "--output-format",
+            JSON_OUTPUT_FORMAT,
+            "--write-baseline",
+            baseline_path_str,
+            "--artifact-dir",
+            refused_dir.to_str().expect("artifact dir utf8"),
+        ],
+        &[finding(ERROR_LEVEL, 10), cargo_build_finished(false)],
+        CARGO_COMPILE_FAILURE_EXIT,
+    );
+    assert_eq!(
+        refused.status.code(),
+        Some(EXIT_CODE_INTEGRATION_FAILURE),
+        "a requested baseline that cannot be produced should exit 2: stdout={} stderr={}",
+        String::from_utf8_lossy(&refused.stdout),
+        String::from_utf8_lossy(&refused.stderr)
+    );
+    let refused_stderr = String::from_utf8_lossy(&refused.stderr);
+    assert!(
+        refused_stderr.contains("denied lints made Cargo fail")
+            && refused_stderr.contains("lower those lints to `warn`"),
+        "the refusal should name the cause and the remedy: {refused_stderr}"
+    );
+    assert!(!baseline_path.exists(), "an incomplete scan must not create a baseline");
+    let refused_status = read_json_artifact(&refused_dir.join(STATUS_JSON_FILE));
+    assert_eq!(refused_status["status"], STATUS_INTEGRATION_FAILURE);
+
+    // With the lint lowered to warn, Cargo completes and the baseline records the finding.
     let written = run_with_check_args(
         &fixture,
         &[
@@ -2930,18 +2963,18 @@ fn baseline_write_and_gate_follow_denied_lint_classification() {
             "--write-baseline",
             baseline_path_str,
         ],
-        &[denied(10), cargo_build_finished(false)],
-        CARGO_COMPILE_FAILURE_EXIT,
+        &[finding(WARNING_LEVEL, 10), cargo_build_finished(true)],
+        EXIT_CODE_SUCCESS,
     );
     assert_eq!(
         written.status.code(),
-        Some(EXIT_CODE_LINT_FAILURE),
-        "denied findings should exit 1: stdout={} stderr={}",
+        Some(EXIT_CODE_SUCCESS),
+        "a complete warning-only scan should write the baseline: stdout={} stderr={}",
         String::from_utf8_lossy(&written.stdout),
         String::from_utf8_lossy(&written.stderr)
     );
     let baseline = read_json_artifact(&baseline_path);
-    assert_eq!(baseline["findings"].as_array().map(Vec::len), Some(1), "baseline should record the denied finding");
+    assert_eq!(baseline["findings"].as_array().map(Vec::len), Some(1), "baseline should record the finding");
 
     let gated = run_with_check_args(
         &fixture,
@@ -2954,7 +2987,7 @@ fn baseline_write_and_gate_follow_denied_lint_classification() {
             dir.to_str().expect("artifact dir utf8"),
         ],
         &[
-            denied(10),
+            finding(ERROR_LEVEL, 10),
             cargo_compiler_message_with_level(
                 "consumer",
                 "no_panic",

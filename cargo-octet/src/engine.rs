@@ -274,11 +274,20 @@ pub fn run(check: &CheckArgs) -> Result<i32, String> {
             Some(path) => Some(baseline::evaluate_baseline(path, &findings)?),
             None => None,
         };
-        if let Some(path) = check.write_baseline.as_deref()
-            && base_outcome.status != output::RunStatus::IntegrationFailure
-        {
-            baseline::write_baseline(path, &findings, &run_metadata)?;
-        }
+        // A baseline must record a complete scan. Denied lints make Cargo fail and stop scheduling
+        // dependent crates, so a lint-failure run without Cargo success cannot produce one.
+        let baseline_write_error = match check.write_baseline.as_deref() {
+            Some(path) if base_outcome.cargo_process_exit.is_success() => {
+                baseline::write_baseline(path, &findings, &run_metadata)?;
+                None
+            }
+            Some(path) if base_outcome.status == output::RunStatus::LintFailure => Some(format!(
+                "`--write-baseline` did not write {}: denied lints made Cargo fail, so it stopped before every \
+                 crate was checked; lower those lints to `warn` for the baseline run",
+                path.display()
+            )),
+            _ => None,
+        };
         let architecture_error =
             architecture_artifacts.as_ref().and_then(|artifacts| artifacts.incomplete_error.clone());
         let lint_outcome = apply_baseline_gate(base_outcome, baseline_evaluation.as_ref());
@@ -356,7 +365,8 @@ pub fn run(check: &CheckArgs) -> Result<i32, String> {
         } else {
             restore_changed_lockfile(&lockfile_path, &lockfile_before)?
         };
-        let base_outcome = if architecture_error.is_some() || lockfile_error.is_some() {
+        let base_outcome = if architecture_error.is_some() || lockfile_error.is_some() || baseline_write_error.is_some()
+        {
             lint_outcome.force_integration_failure()
         } else if let Some(project) = &project_architecture_artifacts {
             match project.receipt.status {
@@ -379,6 +389,7 @@ pub fn run(check: &CheckArgs) -> Result<i32, String> {
         };
         let run_error = [
             architecture_error.or_else(|| terminated_run_error(&lint_outcome)),
+            baseline_write_error,
             lockfile_error,
         ]
         .into_iter()
