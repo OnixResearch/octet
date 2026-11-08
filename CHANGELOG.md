@@ -46,6 +46,26 @@ baselines and warning budgets can see new stable IDs; refresh them deliberately.
 - `excessive_file_length` skips files outside the workspace, so `include!`d
   build-script output under a custom `CARGO_TARGET_DIR` no longer makes the
   runner exit 2 with "absolute path is outside the workspace root".
+- `ambient_env`, `ambient_random`, `impure_call_in_core`, `spawn_in_core` and
+  `interior_mutability_in_core` match the called function, not the whole call
+  text, so a wrapper such as `parse(std::env::var("PORT").ok())`, `Some(..)` or
+  `Arc::new(Mutex::new(0))` no longer adds a second report. `logging_in_core`
+  reports each `println!`/`eprintln!`/`dbg!`/`log`/`tracing` invocation once,
+  at the macro, instead of at the enclosing function body, `if` and blocks.
+- `unbounded_collection_growth` accepts `v.try_reserve(n)?` as a reservation
+  and reports growth inside `loop`/`while` nested in another loop.
+  `state_machine_exhaustiveness` decides wildcard arms from pattern structure,
+  so snake_case bindings, underscored paths, and `_`/`..` inside variant
+  payloads no longer read as fallbacks. `type_accumulation` counts a module's
+  own public items, so file-backed `mod foo;` modules are checked and inline
+  modules are no longer over-counted by `pub` fields and impl methods.
+- The `generated_searchable_names` exception class now takes effect:
+  `non_trait_imports`, `renamed_imports` and `path_segment_repetition` skip only
+  files outside the workspace or under whole `target`, `generated`, `OUT_DIR`,
+  `rustlib`, `.cargo` or `*vendor-cargo-deps*` directories, so ordinary
+  modules such as `crate::registry` or `src/targeting.rs` are linted.
+  `verified_purity` also denies importing impure paths in `verified/` modules,
+  for example `use std::time::Instant;`.
 - Autofix: `bool_naming`/`negated_predicate` renames cover uses in closures,
   async blocks and struct field shorthand; `ignored_result` keeps the `;` in
   `expr?;`; `unbounded_channel` keeps turbofish arguments like `::<()>`; and
@@ -61,13 +81,21 @@ and the run fails as an integration failure (exit 2). rustc's informational
 top-level `note`, `help` and `failure-note` diagnostics are no longer findings,
 so a compile error or ICE under `--output-format json|sarif` produces a
 structured integration-failure report instead of aborting with `invalid
-finding domain values`.
+finding domain values`. The `Cargo.lock` guard now settles before the bundle
+is written, so a run whose lockfile Cargo rewrote reports
+`integration-failure` and exit 2 in `status.json`, SARIF and the summary,
+matching the process exit code. `cargo octet evidence collect --artifact-dir`
+applies the same rule as `check`: only a new, empty, or earlier evidence bundle
+(with `evidence-rail-receipt.json` and `provenance.jsonl`) is pruned.
 
 ## Unreleased: fail-closed effect-closure, proof, evidence, and Wasm checks
 
 - Effect-closure admission treats compound assignment (`+=`, `-=`, `*=`, `/=`,
   `%=`, `<<=`, `>>=`) as panic-capable, so `deterministic-core` no longer
-  admits functions that only use those forms.
+  admits functions that only use those forms. Verifying an `admitted`
+  receipt now re-derives admission facts (no unknown call edges, closures
+  within the allowed effects and containing each callee's closure), so a
+  denied receipt cannot be relabelled admitted by dropping its diagnostics.
 - `cargo octet prove` drains verifier output while the verifier runs, within
   the rail's log limits, and kills the verifier's process group. Verbose
   verifiers no longer report false timeouts, and leftover background processes
@@ -80,6 +108,10 @@ finding domain values`.
   role/identity mismatches and recomputes the interface identity from the
   recorded facts. Profile registries with unknown `severity.*` or
   `duplicate_custom_sections` values are rejected.
+- `cargo octet provider-manifest export` resolves `rustc` the way process
+  execution does and both runs and hashes that file; `compatible_rustc.executable`
+  is the resolved path, and an unreadable executable is an error instead of a
+  missing `executable_blake3`.
 
 ## Unreleased: octet-standards family selection and manifest parsing
 
