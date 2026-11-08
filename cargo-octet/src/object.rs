@@ -203,7 +203,9 @@ struct ObjectRecord {
 struct ObjectMarker {
     start: usize,
     end: usize,
-    stored_hash: String,
+    /// `b3:` and the hex digest; `None` when the marker has no hash yet, as in
+    /// `b3:` or `b3:TODO`, so the function reports `missing`.
+    stored_hash: Option<String>,
     review: Option<String>,
     evidence: Option<String>,
 }
@@ -2197,7 +2199,7 @@ fn run_marker(args: &ObjectArgs, update: bool) -> Result<i32, String> {
             }
             let object = function_object_for_source(&path, &source, &span)?;
             let marker = object_marker_before(&source, span.marker_block.clone());
-            let status = match marker.as_ref().map(|marker| marker.stored_hash.as_str()) {
+            let status = match marker.as_ref().and_then(|marker| marker.stored_hash.as_deref()) {
                 Some(stored) if stored == object.object_hash => "match",
                 Some(_) => "mismatch",
                 None => "missing",
@@ -2216,7 +2218,7 @@ fn run_marker(args: &ObjectArgs, update: bool) -> Result<i32, String> {
             records.push(ObjectMarkerRecord {
                 path: normalized_source_path(&path),
                 name: object.name,
-                stored_hash: marker.as_ref().map(|marker| marker.stored_hash.clone()),
+                stored_hash: marker.as_ref().and_then(|marker| marker.stored_hash.clone()),
                 computed_hash: object.object_hash,
                 status: if update && status != "match" { "written" } else { status },
                 review: marker.as_ref().and_then(|marker| marker.review.clone()),
@@ -2343,17 +2345,23 @@ fn normalized_source_path(path: &Path) -> String {
 }
 
 /// The object marker nearest the function in its marker block, which it can
-/// share with a fingerprint marker in either order.
+/// share with a fingerprint marker in either order. A marker without a hex
+/// hash still binds, so `update` replaces it in place and keeps its metadata.
 fn object_marker_before(source: &str, marker_block: std::ops::Range<usize>) -> Option<ObjectMarker> {
     let line = fingerprint::marker_lines(source, marker_block)
         .filter(|line| line.text.starts_with(fingerprint::OBJECT_COMMENT_MARKER))
         .last()?;
-    let hash_start = line.text.find(HASH_PREFIX)? + HASH_PREFIX.len();
-    let stored_hash =
-        format!("b3:{}", line.text[hash_start..].chars().take_while(char::is_ascii_hexdigit).collect::<String>());
-    if stored_hash == "b3:" {
-        return None;
-    }
+    let stored_hash = line
+        .text
+        .find(HASH_PREFIX)
+        .map(|index| {
+            line.text[index + HASH_PREFIX.len()..]
+                .chars()
+                .take_while(char::is_ascii_hexdigit)
+                .collect::<String>()
+        })
+        .filter(|hash| !hash.is_empty())
+        .map(|hash| format!("{HASH_PREFIX}{hash}"));
     Some(ObjectMarker {
         start: line.start,
         end: line.end,

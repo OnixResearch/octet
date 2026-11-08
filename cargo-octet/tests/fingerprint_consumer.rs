@@ -1285,6 +1285,47 @@ fn object_update_rejects_sarif_before_rewriting_sources() {
 }
 
 #[test]
+fn object_markers_without_a_hash_are_missing_and_replaced_in_place() {
+    let temp = tempfile::tempdir().expect("create tempdir");
+    let fixture = temp.path().join("lib.rs");
+    fs::write(
+        &fixture,
+        "// octet-object: b3:; review=R-1; evidence=E-1\npub fn empty_hash() -> u32 { 1 }\n\n// octet-object: b3:TODO; review=R-2; evidence=E-2\npub fn placeholder_hash() -> u32 { 2 }\n",
+    )
+    .expect("write hashless object markers");
+    let records = |mode: &str| {
+        let (code, stdout, _) = run_octet(temp.path(), &["object", mode, "--output-format=json", "lib.rs"]);
+        let report = parse_json(&stdout, mode);
+        let records = report["records"]
+            .as_array()
+            .expect("records")
+            .iter()
+            .map(|record| {
+                (
+                    record["status"].as_str().expect("status").to_owned(),
+                    record["stored_hash"].is_null(),
+                    record["review"].as_str().map(str::to_owned),
+                )
+            })
+            .collect::<Vec<_>>();
+        (code, records)
+    };
+    let reviewed = |status: &str, hashless: bool| {
+        vec![
+            (status.to_owned(), hashless, Some("R-1".to_owned())),
+            (status.to_owned(), hashless, Some("R-2".to_owned())),
+        ]
+    };
+
+    assert_eq!(records("check"), (Some(1), reviewed("missing", true)));
+    assert_eq!(records("update"), (Some(0), reviewed("written", true)));
+    let updated = fs::read_to_string(&fixture).expect("read updated fixture");
+    assert_eq!(updated.matches("// octet-object: b3:").count(), 2, "{updated}");
+    assert!(!updated.contains("b3:;") && !updated.contains("b3:TODO"), "{updated}");
+    assert_eq!(records("check"), (Some(0), reviewed("match", false)));
+}
+
+#[test]
 fn fingerprint_json_records_report_stored_and_computed_hashes_across_drift() {
     let temp = tempfile::tempdir().expect("create tempdir");
     let fixture = temp.path().join("reviewed.rs");

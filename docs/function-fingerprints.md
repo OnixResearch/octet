@@ -41,6 +41,10 @@ nonzero. `--write` and `--update` refuse to rewrite any source while one exists,
 so they never add a second marker next to a misplaced one; move or delete it
 first.
 
+An object marker whose hash is empty or not hexadecimal, such as `b3:` or
+`b3:TODO`, still binds: `object check` reports `missing`, and `object update`
+replaces it in place and keeps its `review` and `evidence`.
+
 Marker metadata is a list of `key=value` items separated by `;` or `,`. Keys
 match exactly: `preview=` does not supply `review`, and `review=macro=allow`
 records the review class `macro=allow` without granting a macro allowance.
