@@ -297,6 +297,8 @@ An architecture waiver must bind:
 
 A changed policy, source, finding, or claim makes the waiver stale. A waived finding remains visible as `waived`; it is not `clean`.
 
+Waivers apply only to policy findings. Input-integrity findings, such as incomplete compiler coverage, stay open; a waiver that targets one adds an `unwaivable-integration-finding` integration failure.
+
 Rust `#[allow]` attributes do not suppress project architecture findings.
 
 ## Claim boundary

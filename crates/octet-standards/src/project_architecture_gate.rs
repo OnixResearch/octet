@@ -2208,6 +2208,23 @@ fn apply_waivers(input: &ProjectArchitectureGateInput<'_>, findings: &mut Vec<Pr
             ));
             continue;
         };
+        if finding.severity == ArchitectureFindingSeverity::Integration {
+            stale.push(new_finding(
+                "unwaivable-integration-finding",
+                ArchitectureFindingSeverity::Integration,
+                CLAIM_INPUT_INTEGRITY,
+                finding.package_name.as_deref(),
+                finding.unit_id.as_deref(),
+                finding.fact_id.as_deref(),
+                finding.source_path.clone(),
+                &finding.source_blake3,
+                &format!(
+                    "architecture waiver `{}` targets an input-integrity finding, which cannot be waived",
+                    waiver.finding_id
+                ),
+            ));
+            continue;
+        }
         let identity = ArchitectureFindingIdentity {
             finding_id: &finding.finding_id,
             policy_blake3: input.policy_blake3,
@@ -2691,6 +2708,44 @@ mod tests {
         let stale = fixture.evaluate(None);
         assert_eq!(stale.status, ArchitecturePhaseStatus::IntegrationFailure);
         assert!(stale.findings.iter().any(|current| current.code == "stale-waiver"));
+    }
+
+    #[test]
+    fn integration_findings_cannot_be_waived() {
+        let mut fixture = Fixture::new(ArchitectureMode::Advisory);
+        fixture.coverage.status = CoverageStatus::Incomplete;
+        let findings = fixture.evaluate(None).findings;
+        assert!(findings.iter().any(|finding| finding.code == "compiler-coverage-incomplete"));
+        assert!(findings.iter().all(|finding| finding.severity == ArchitectureFindingSeverity::Integration));
+        fixture.policy.waivers = findings
+            .iter()
+            .map(|finding| ArchitectureWaiver {
+                finding_id: finding.finding_id.clone(),
+                policy_blake3: HASH_A.to_owned(),
+                source_blake3: finding.source_blake3.clone(),
+                owner: "architecture-team".to_owned(),
+                reason: "attempted input-integrity waiver".to_owned(),
+                review_condition: "never".to_owned(),
+                affected_claim: finding.affected_claim.clone(),
+            })
+            .collect();
+
+        let receipt = fixture.evaluate(None);
+
+        assert_eq!(receipt.status, ArchitecturePhaseStatus::IntegrationFailure);
+        assert!(receipt.applied_waiver_ids.is_empty());
+        for original in &findings {
+            let current = receipt
+                .findings
+                .iter()
+                .find(|current| current.finding_id == original.finding_id)
+                .expect("integration finding remains");
+            assert_eq!(current.status, ArchitectureFindingStatus::Open);
+        }
+        assert_eq!(
+            receipt.findings.iter().filter(|finding| finding.code == "unwaivable-integration-finding").count(),
+            findings.len()
+        );
     }
 
     #[test]
