@@ -81,7 +81,10 @@ fn direct_integer_extreme_const<'tcx>(
         return false;
     }
 
-    let Res::Def(_, did) = cx.typeck_results().qpath_res(qpath, expr.hir_id) else {
+    // `Self::MAX` can also name an enum variant constructor; only associated
+    // consts have an `associated_item` to inspect.
+    let Res::Def(rustc_hir::def::DefKind::AssocConst { .. }, did) = cx.typeck_results().qpath_res(qpath, expr.hir_id)
+    else {
         return false;
     };
 

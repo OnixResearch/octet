@@ -36,6 +36,23 @@ fn test_only(raw_index: i128) -> u64 {
     u64::try_from(raw_index).unwrap_or(u64::MAX)
 }
 
+// Should NOT warn (or crash): `Self::MAX` names an enum variant, not an integer extreme.
+#[derive(Clone, Copy)]
+enum Level {
+    MIN,
+    MAX,
+}
+
+impl Level {
+    fn or_highest(maybe_level: Option<Level>) -> Level {
+        maybe_level.unwrap_or(Self::MAX)
+    }
+
+    fn or_lowest(maybe_level: Option<Level>) -> Level {
+        maybe_level.unwrap_or(Self::MIN)
+    }
+}
+
 fn main() {
     let _ = formatted_recent(-1);
     let _ = optional_index(None);
