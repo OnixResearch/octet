@@ -18,6 +18,18 @@ pub const MAX_RECEIPT_BYTES: u64 = 1_048_576;
 pub const CORPUS_DOMAIN: &[u8] = b"octet-cargo-fuzz-corpus-v1\0";
 pub const REQUIRED_NON_CLAIM: &str = "Cargo-fuzz evidence covers one target, seed, corpus, sanitizer, and bounded run; it is not exhaustive coverage, memory-safety proof, panic-freedom proof, or release eligibility.";
 
+/// libFuzzer artifact name prefixes that record a finding: a crash or deadly signal, a leak, an
+/// out-of-memory input, or a timeout. Each one fails the run, so the receipt binds it as the crash
+/// input.
+pub const FINDING_ARTIFACT_PREFIXES: [&str; 4] = ["crash-", "leak-", "oom-", "timeout-"];
+
+/// Reports whether an artifact path names a libFuzzer finding.
+pub fn is_finding_artifact(path: &str) -> bool {
+    path.rsplit('/')
+        .next()
+        .is_some_and(|name| FINDING_ARTIFACT_PREFIXES.iter().any(|prefix| name.starts_with(prefix)))
+}
+
 #[derive(Debug, Clone, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Budget {
     pub max_total_time_seconds: u64,

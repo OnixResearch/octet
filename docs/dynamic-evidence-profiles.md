@@ -65,11 +65,11 @@ With `--run`, Octet executes that command through Bounded Exec in a fresh proces
 
 The run deadline is the 60-second libFuzzer budget plus a 14-minute build allowance. Stdout and stderr each retain at most half of the 1 MiB receipt log limit. A timeout or an output overflow stops the whole process group and fails the run without a receipt.
 
-The artifact directory `fuzz/artifacts/octet-profile-intake` must be empty or absent before a run. Octet rejects the run otherwise, because libFuzzer reuses content-hash file names and earlier `crash-*` or `minimized-*` files would decide the outcome. Move earlier artifacts aside before you rerun.
+The artifact directory `fuzz/artifacts/octet-profile-intake` must be empty or absent before a run. Octet rejects the run otherwise, because libFuzzer reuses content-hash file names and earlier `crash-*`, `leak-*`, `oom-*`, `timeout-*`, or `minimized-*` files would decide the outcome. Move earlier artifacts aside before you rerun.
 
 Corpus rows use safe relative paths, lengths, and BLAKE3 identities. The canonical root sorts rows and uses the `octet-cargo-fuzz-corpus-v1` framing domain. Hash-only rows reduce disclosure, but hashes can still reveal known sensitive inputs. Do not put credentials, production records, or personal data in a corpus.
 
-A clean receipt means only that one target found no crash under the selected seed and budget. A crash receipt remains failed evidence. It must retain both the original crash input and minimized reproducer identity. Reviewers must reproduce the crash with the recorded replay argv before they use it in a decision.
+A clean receipt means only that one target found no crash under the selected seed and budget. libFuzzer `crash-*`, `leak-*`, `oom-*`, and `timeout-*` artifacts are all findings: a failed run that leaves one gets a `crash` outcome with that artifact bound as the crash input. A crash receipt remains failed evidence. It must retain both the original crash input and minimized reproducer identity. Reviewers must reproduce the crash with the recorded replay argv before they use it in a decision.
 
 The rail rejects unsupported profiles, arbitrary command text, unsafe paths, duplicate artifacts, stale corpus roots, missing crash roles, excessive counts or bytes, malformed receipts, and non-transcript evidence tiers.
 

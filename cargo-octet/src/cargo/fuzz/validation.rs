@@ -17,6 +17,7 @@ use super::SANITIZER;
 use super::TARGET;
 use super::TOOLCHAIN;
 use super::command_argv;
+use super::is_finding_artifact;
 
 const MAX_DIAGNOSTIC_COUNT: usize = 32;
 
@@ -210,11 +211,14 @@ fn check_outcome(details: &ReceiptDetails, diagnostics: &mut Diagnostics) {
 }
 
 fn check_crash_outcome(details: &ReceiptDetails, diagnostics: &mut Diagnostics) {
-    push_if(
-        diagnostics,
-        details.crash_input.is_none(),
-        "crash cargo-fuzz receipt is missing the original crash input",
-    );
+    match details.crash_input.as_ref() {
+        None => diagnostics.push("crash cargo-fuzz receipt is missing the original crash input"),
+        Some(crash_input) => push_if(
+            diagnostics,
+            !is_finding_artifact(&crash_input.path),
+            "cargo-fuzz crash input must be a libFuzzer crash, leak, oom, or timeout artifact",
+        ),
+    }
     push_if(
         diagnostics,
         details.minimized_reproducer.is_none(),

@@ -20,11 +20,11 @@ use super::TARGET;
 use super::TOOLCHAIN;
 use super::command_argv;
 use super::corpus_root;
+use super::is_finding_artifact;
 
 const CORPUS_DIRECTORY: &str = "fuzz/corpus/octet-profile-intake";
 const ARTIFACT_DIRECTORY: &str = "fuzz/artifacts/octet-profile-intake";
 const COMPILER_PROFILE: &str = "nix:fenix-nightly-2026-03-21-x86_64-unknown-linux-gnu";
-const CRASH_PREFIX: &str = "crash-";
 const MINIMIZED_PREFIX: &str = "minimized-";
 const INTEGRATION_FAILURE_EXIT: i32 = 2;
 const ACCEPTED_EXIT_CODE: i32 = 0;
@@ -180,8 +180,10 @@ pub fn run_with(
     let final_corpus = snapshot(&workspace_root, CORPUS_DIRECTORY)?;
     let artifacts = snapshot(&workspace_root, ARTIFACT_DIRECTORY)?;
     let exit_code = output.exit_code.unwrap_or(INTEGRATION_FAILURE_EXIT);
-    let crash_input = find_artifact(&artifacts, CRASH_PREFIX);
-    let minimized_reproducer = find_artifact(&artifacts, MINIMIZED_PREFIX);
+    let crash_input = find_artifact(&artifacts, is_finding_artifact);
+    let minimized_reproducer = find_artifact(&artifacts, |path| {
+        path.rsplit('/').next().is_some_and(|name| name.starts_with(MINIMIZED_PREFIX))
+    });
     let outcome = classify_outcome(exit_code, crash_input.as_ref());
     let replay_argv = minimized_reproducer.as_ref().map_or_else(Vec::new, |artifact| {
         vec![
@@ -313,11 +315,8 @@ fn bounded_log_identity(stdout: &[u8], stderr: &[u8]) -> Result<String, String> 
     Ok(prefixed_identity(&bytes))
 }
 
-fn find_artifact(artifacts: &[ArtifactIdentity], prefix: &str) -> Option<ArtifactIdentity> {
-    artifacts
-        .iter()
-        .find(|artifact| artifact.path.rsplit('/').next().is_some_and(|name| name.starts_with(prefix)))
-        .cloned()
+fn find_artifact(artifacts: &[ArtifactIdentity], matches: impl Fn(&str) -> bool) -> Option<ArtifactIdentity> {
+    artifacts.iter().find(|artifact| matches(&artifact.path)).cloned()
 }
 
 fn classify_outcome(exit_code: i32, crash_input: Option<&ArtifactIdentity>) -> &'static str {
@@ -345,6 +344,8 @@ mod tests {
     const FIXTURE_POLL_MS: u64 = 10;
     const FIXTURE_TEARDOWN_MS: u64 = 1_000;
     const FIXTURE_DEADLINE_SECONDS: u64 = 10;
+    const REVIEWED_COMMIT: &str = "ac7f9ec7da74d37fd28667c86bf117a39ba5b02a";
+    const CRASH_PREFIX: &str = "crash-";
 
     #[test]
     fn bounded_snapshot_hashes_files_and_rejects_symlinks() {
@@ -465,6 +466,25 @@ mod tests {
         assert_eq!(details.crash_input.expect("fresh crash").path, format!("{ARTIFACT_DIRECTORY}/{CRASH_PREFIX}new"));
     }
 
+    #[cfg(unix)]
+    #[test]
+    fn leak_oom_and_timeout_artifacts_are_bound_as_findings() {
+        for prefix in ["leak-", "oom-", "timeout-"] {
+            let directory = tempfile::tempdir().expect("create cargo-fuzz finding fixture");
+            std::fs::create_dir_all(directory.path().join(ARTIFACT_DIRECTORY)).expect("create artifact directory");
+            let artifact = format!("{ARTIFACT_DIRECTORY}/{prefix}new");
+            let tools = fixture_tools(
+                directory.path(),
+                &format!("printf finding > {artifact}\nexit 1\n"),
+                &rustc_version_verbose(REVIEWED_COMMIT),
+            );
+            let (rendered, _) = run_with(directory.path(), tools, run_limits().expect("limits")).expect("finding run");
+            let details: ReceiptDetails = serde_json::from_str(&rendered).expect("parse cargo-fuzz receipt");
+            assert_eq!(details.outcome, "crash", "{prefix}");
+            assert_eq!(details.crash_input.expect("finding artifact bound").path, artifact);
+        }
+    }
+
     #[test]
     fn production_limits_derive_from_receipt_bounds() {
         let limits = run_limits().expect("limits");
@@ -478,5 +498,25 @@ mod tests {
         let path = directory.join("cargo-fixture");
         crate::test_support::write_executable_script(&path, &format!("#!/bin/sh\n{body}"));
         path
+    }
+
+    #[cfg(unix)]
+    fn fixture_tools(directory: &std::path::Path, cargo_body: &str, rustc_output: &str) -> RuntimeTools {
+        let bin = directory.join("bin");
+        std::fs::create_dir_all(&bin).expect("create fixture bin directory");
+        crate::test_support::write_executable_script(
+            &bin.join("rustc"),
+            &format!("#!/bin/sh\nprintf '%s' '{rustc_output}'\n"),
+        );
+        RuntimeTools {
+            cargo: write_fixture_cargo(directory, cargo_body),
+            environment: vec![(PATH_ENVIRONMENT.into(), bin.into_os_string())],
+        }
+    }
+
+    fn rustc_version_verbose(commit_hash: &str) -> String {
+        format!(
+            "rustc 1.96.0-nightly (ac7f9ec7d 2026-03-20)\nbinary: rustc\ncommit-hash: {commit_hash}\ncommit-date: 2026-03-20\nhost: x86_64-unknown-linux-gnu\nrelease: 1.96.0-nightly\nLLVM version: 22.1.0\n"
+        )
     }
 }

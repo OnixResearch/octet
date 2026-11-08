@@ -15,18 +15,7 @@ fn clean_and_crash_receipts_preserve_bounded_identity() {
     assert!(validate(&clean).is_empty());
     assert_eq!(clean.initial_corpus_root, clean.final_corpus_root);
 
-    let mut crash = clean;
-    crash.outcome = "crash".to_owned();
-    crash.crash_input = Some(artifact("artifacts/crash-deadbeef", CRASH_IDENTITY));
-    let reproducer = artifact("artifacts/minimized-deadbeef", REPRODUCER_IDENTITY);
-    crash.replay_argv = vec![
-        "cargo".to_owned(),
-        "fuzz".to_owned(),
-        "run".to_owned(),
-        TARGET.to_owned(),
-        reproducer.path.clone(),
-    ];
-    crash.minimized_reproducer = Some(reproducer);
+    let crash = crash_fixture("artifacts/crash-deadbeef");
     let evaluation = evaluate_envelope(&serde_json::to_string(&crash).expect("serialize crash fixture"));
     assert!(evaluation.diagnostics.is_empty());
     assert!(evaluation.is_crash_observed);
@@ -61,6 +50,18 @@ fn crash_artifacts_replay_and_tier_are_required() {
     assert!(diagnostics.iter().any(|value| value.contains("minimized reproducer")));
     assert!(diagnostics.iter().any(|value| value.contains("transcript_assertion")));
     assert!(diagnostics.iter().any(|value| value.contains("required non-claim")));
+}
+
+#[test]
+fn crash_receipts_bind_named_libfuzzer_finding_artifacts() {
+    for name in ["crash-deadbeef", "leak-deadbeef", "oom-deadbeef", "timeout-deadbeef"] {
+        let finding = crash_fixture(&format!("artifacts/{name}"));
+        assert!(validate(&finding).is_empty(), "{name}: {:?}", validate(&finding));
+    }
+    for name in ["seed", "minimized-deadbeef", "slow-unit-deadbeef"] {
+        let unnamed = crash_fixture(&format!("artifacts/{name}"));
+        assert_eq!(validate(&unnamed).len(), 1, "{name} is not a libFuzzer finding artifact");
+    }
 }
 
 #[test]
@@ -155,6 +156,22 @@ fn fixture() -> ReceiptDetails {
         claimed_properties: Vec::new(),
         non_claims: vec![REQUIRED_NON_CLAIM.to_owned()],
     }
+}
+
+fn crash_fixture(crash_path: &str) -> ReceiptDetails {
+    let mut crash = fixture();
+    crash.outcome = "crash".to_owned();
+    crash.crash_input = Some(artifact(crash_path, CRASH_IDENTITY));
+    let reproducer = artifact("artifacts/minimized-deadbeef", REPRODUCER_IDENTITY);
+    crash.replay_argv = vec![
+        "cargo".to_owned(),
+        "fuzz".to_owned(),
+        "run".to_owned(),
+        TARGET.to_owned(),
+        reproducer.path.clone(),
+    ];
+    crash.minimized_reproducer = Some(reproducer);
+    crash
 }
 
 fn artifact(path: &str, identity: &str) -> ArtifactIdentity {
