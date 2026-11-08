@@ -792,7 +792,8 @@ fn pure_cache_hits_only_matching_key_components() {
         temp.path(),
     ));
     assert_eq!(drift["status"], "miss");
-    assert_eq!(drift["changed_key_component"], "new-or-changed-key");
+    assert_eq!(drift["miss_reason"], "changed-key-components");
+    assert_eq!(drift["changed_key_components"], serde_json::json!(["tool_revision"]));
 }
 
 #[test]
@@ -1225,6 +1226,68 @@ fn replay_capsule_identity_excludes_local_argv_paths() {
         assert_eq!(replay["status"], "replayed");
     }
     assert_eq!(hashes[0], hashes[1]);
+}
+
+fn cache_check(key: serde_json::Value, output_hash: &str, cwd: &Path) -> std::process::Output {
+    let key_path = cwd.join("cache-key.json");
+    write_json(&key_path, key);
+    run(
+        &[
+            "roadmap",
+            "pure-cache",
+            "check",
+            "--key",
+            key_path.to_str().unwrap(),
+            "--store-dir",
+            cwd.join("cache").to_str().unwrap(),
+            "--output-hash",
+            output_hash,
+        ],
+        cwd,
+    )
+}
+
+#[test]
+fn pure_cache_miss_names_changed_components_and_hit_checks_output_hash() {
+    let temp = tempfile::tempdir().unwrap();
+    let base = serde_json::json!({
+        "command_identity": "cargo-check",
+        "input_hashes": ["b3:src"],
+        "config_hash": "b3:cfg",
+        "tool_revision": "rev1",
+        "environment_allowlist": {"RUSTFLAGS": "-Dwarnings"}
+    });
+    let first = stdout_json(&cache_check(base.clone(), "b3:out", temp.path()));
+    assert_eq!(first["status"], "miss");
+    assert_eq!(first["miss_reason"], "new-key");
+    assert_eq!(first["changed_key_components"], serde_json::json!([]));
+
+    let mut drifted = base.clone();
+    drifted["tool_revision"] = serde_json::json!("rev2");
+    drifted["environment_allowlist"] = serde_json::json!({"RUSTFLAGS": "-Cdebuginfo=0"});
+    let drift_output = cache_check(drifted, "b3:out2", temp.path());
+    let drift = stdout_json(&drift_output);
+    assert_eq!(drift["status"], "miss");
+    assert_eq!(drift["miss_reason"], "changed-key-components");
+    assert_eq!(drift["changed_key_components"], serde_json::json!(["environment_allowlist", "tool_revision"]));
+    assert!(
+        !String::from_utf8_lossy(&drift_output.stdout).contains("debuginfo"),
+        "miss receipt dumped the environment"
+    );
+
+    let mut other_command = base.clone();
+    other_command["command_identity"] = serde_json::json!("cargo-doc");
+    let new_command = stdout_json(&cache_check(other_command, "b3:doc", temp.path()));
+    assert_eq!(new_command["miss_reason"], "new-key");
+
+    let hit = stdout_json(&cache_check(base.clone(), "b3:out", temp.path()));
+    assert_eq!(hit["status"], "hit");
+    let mismatch = cache_check(base, "b3:different", temp.path());
+    assert_eq!(mismatch.status.code(), Some(1));
+    let report: serde_json::Value = serde_json::from_slice(&mismatch.stdout).unwrap();
+    assert_eq!(report["status"], "output-mismatch");
+    assert_eq!(report["stored_output_hash"], "b3:out");
+    assert_eq!(report["observed_output_hash"], "b3:different");
 }
 
 fn migrate_session(session: serde_json::Value, cwd: &Path) -> (std::process::Output, std::path::PathBuf) {

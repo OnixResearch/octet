@@ -31,5 +31,5 @@ $ cargo octet roadmap session todo --input session.json
 => summarizes structured todo kinds, statuses, sources, next actions, and blockers
 
 $ cargo octet roadmap pure-cache check --key cache-key.json --store-dir cache --output-hash b3:<output>
-=> reports miss for new deterministic keys and hit when command identity, input hashes, config hash, tool revision, and environment allowlist match
+=> reports hit when command identity, input hashes, config hash, tool revision, and environment allowlist match; a miss names miss_reason new-key or the changed_key_components; a hit with a different output hash reports output-mismatch and exits 1
 ```

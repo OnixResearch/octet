@@ -16,6 +16,13 @@ const BLAKE3_HEX_LENGTH: usize = 64;
 const ABSOLUTE_PATH_PLACEHOLDER: &str = "<absolute-path>";
 /// What [`normalize_value`] guarantees about stored artifacts and capsules.
 const REDACTION_STATUS: &str = "secret-like-and-local-fields-dropped-absolute-paths-normalized";
+const PURE_CACHE_KEY_FIELDS: [&str; 5] = [
+    "command_identity",
+    "input_hashes",
+    "config_hash",
+    "tool_revision",
+    "environment_allowlist",
+];
 
 #[derive(Debug)]
 pub enum RoadmapCommand {
@@ -924,14 +931,7 @@ fn session_todo(input: &Path) -> Result<i32, String> {
 
 fn pure_cache_check(key_path: &Path, store_dir: &Path, output_hash: &str) -> Result<i32, String> {
     let key = redact_secret_fields(read_json(key_path)?);
-    let required = [
-        "command_identity",
-        "input_hashes",
-        "config_hash",
-        "tool_revision",
-        "environment_allowlist",
-    ];
-    for field in required {
+    for field in PURE_CACHE_KEY_FIELDS {
         if key.get(field).is_none() {
             return Err(format!("cache key missing {field}"));
         }
@@ -942,24 +942,85 @@ fn pure_cache_check(key_path: &Path, store_dir: &Path, output_hash: &str) -> Res
     let entry_path = store_dir.join(hash_file_name(&cache_key));
     if entry_path.exists() {
         let entry = read_json(&entry_path)?;
+        let stored_output_hash = entry
+            .get("output_hash")
+            .and_then(Value::as_str)
+            .ok_or_else(|| format!("cache entry {} missing string output_hash", entry_path.display()))?;
+        if stored_output_hash != output_hash {
+            print_json(&serde_json::json!({
+                "schema_version": SCHEMA_VERSION,
+                "status": "output-mismatch",
+                "cache_key": cache_key,
+                "stored_output_hash": stored_output_hash,
+                "observed_output_hash": output_hash,
+                "key_components": key,
+            }))?;
+            return Ok(1);
+        }
         print_json(&serde_json::json!({
             "schema_version": SCHEMA_VERSION,
             "status": "hit",
             "cache_key": cache_key,
-            "stored_output_hash": entry["output_hash"],
+            "stored_output_hash": stored_output_hash,
             "key_components": key,
         }))?;
-    } else {
-        let entry = serde_json::json!({"cache_key": cache_key, "output_hash": output_hash, "key_components": key});
-        write_json(&entry_path, &entry)?;
-        print_json(&serde_json::json!({
-            "schema_version": SCHEMA_VERSION,
-            "status": "miss",
-            "cache_key": cache_key,
-            "changed_key_component": "new-or-changed-key",
-        }))?;
+        return Ok(0);
     }
+    let changed = changed_key_components(&key, &stored_cache_keys(store_dir)?);
+    let entry = serde_json::json!({"cache_key": cache_key, "output_hash": output_hash, "key_components": key});
+    write_json(&entry_path, &entry)?;
+    print_json(&serde_json::json!({
+        "schema_version": SCHEMA_VERSION,
+        "status": "miss",
+        "cache_key": cache_key,
+        "miss_reason": if changed.is_empty() { "new-key" } else { "changed-key-components" },
+        "changed_key_components": changed,
+    }))?;
     Ok(0)
+}
+
+/// Key components of every entry in the cache store, in file-name order.
+fn stored_cache_keys(store_dir: &Path) -> Result<Vec<Value>, String> {
+    let mut paths = Vec::new();
+    for entry in fs::read_dir(store_dir).map_err(|error| format!("read {}: {error}", store_dir.display()))? {
+        let path = entry.map_err(|error| format!("read {}: {error}", store_dir.display()))?.path();
+        if path.extension().is_some_and(|extension| extension == "json") {
+            paths.push(path);
+        }
+    }
+    paths.sort();
+    paths
+        .iter()
+        .map(|path| {
+            let mut entry = read_json(path)?;
+            entry
+                .get_mut("key_components")
+                .filter(|components| components.is_object())
+                .map(Value::take)
+                .ok_or_else(|| format!("cache entry {} missing key_components object", path.display()))
+        })
+        .collect()
+}
+
+/// Names the key fields that differ from the closest stored key with the same command identity,
+/// without their values; empty when no stored key shares the command identity.
+fn changed_key_components(key: &Value, stored_keys: &[Value]) -> Vec<String> {
+    stored_keys
+        .iter()
+        .filter(|stored| stored.get("command_identity") == key.get("command_identity"))
+        .map(|stored| differing_fields(key, stored))
+        .min_by_key(Vec::len)
+        .unwrap_or_default()
+}
+
+fn differing_fields(left: &Value, right: &Value) -> Vec<String> {
+    let fields: BTreeSet<&String> =
+        left.as_object().into_iter().chain(right.as_object()).flat_map(serde_json::Map::keys).collect();
+    fields
+        .into_iter()
+        .filter(|field| left.get(field.as_str()) != right.get(field.as_str()))
+        .cloned()
+        .collect()
 }
 
 /// Normalizes a DTO for content identity: drops secret-like and local-only fields and replaces
