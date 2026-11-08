@@ -23,7 +23,7 @@ const MINIMUM_SOURCE_COORDINATE: u64 = 1;
 const SUCCESS_EXIT_CODE: i32 = 0;
 const BLAKE3_IDENTITY_PREFIX: &str = "b3:";
 const BLAKE3_HEX_LENGTH: usize = 64;
-const BUNDLE_IDENTITY_DOMAIN: &[u8] = b"octet-ast-grep-rule-bundle/v1\0";
+const BUNDLE_IDENTITY_DOMAIN: &[u8] = b"octet-ast-grep-rule-bundle/v2\0";
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub(crate) struct AstGrepProfile {
@@ -203,14 +203,17 @@ pub(crate) fn compute_bundle_identity(
 
     let mut hasher = blake3::Hasher::new();
     hasher.update(BUNDLE_IDENTITY_DOMAIN);
+    update_hash_count(&mut hasher, profile.bundle_inputs.len()).map_err(|error| vec![error])?;
     for path in &profile.bundle_inputs {
         let bytes = &files[path];
         update_hash_field(&mut hasher, path.as_bytes()).map_err(|error| vec![error])?;
         update_hash_field(&mut hasher, bytes).map_err(|error| vec![error])?;
     }
+    update_hash_count(&mut hasher, profile.scan_scope.paths.len()).map_err(|error| vec![error])?;
     for path in &profile.scan_scope.paths {
         update_hash_field(&mut hasher, path.as_bytes()).map_err(|error| vec![error])?;
     }
+    update_hash_count(&mut hasher, profile.scan_scope.globs.len()).map_err(|error| vec![error])?;
     for glob in &profile.scan_scope.globs {
         update_hash_field(&mut hasher, glob.as_bytes()).map_err(|error| vec![error])?;
     }
@@ -410,9 +413,14 @@ fn validate_bundle_identity(identity: &str, diagnostics: &mut Vec<String>) {
 }
 
 fn update_hash_field(hasher: &mut blake3::Hasher, bytes: &[u8]) -> Result<(), String> {
-    let length = u64::try_from(bytes.len()).map_err(|_| "ast-grep bundle field length exceeds u64".to_owned())?;
-    hasher.update(&length.to_le_bytes());
+    update_hash_count(hasher, bytes.len())?;
     hasher.update(bytes);
+    Ok(())
+}
+
+fn update_hash_count(hasher: &mut blake3::Hasher, count: usize) -> Result<(), String> {
+    let count = u64::try_from(count).map_err(|_| "ast-grep bundle field length exceeds u64".to_owned())?;
+    hasher.update(&count.to_le_bytes());
     Ok(())
 }
 
@@ -637,6 +645,23 @@ mod tests {
 
         assert_ne!(first, second);
         assert_ne!(second, third);
+    }
+
+    #[test]
+    fn bundle_identity_binds_scan_scope_sections() {
+        let profile = valid_profile();
+        let files = BTreeMap::from([
+            ("standards/ast-grep/sgconfig.yml".to_owned(), b"config".to_vec()),
+            ("standards/ast-grep/rules/unsafe.yml".to_owned(), b"rule".to_vec()),
+        ]);
+        let original = compute_bundle_identity(&profile, &files).expect("valid bundle");
+        let mut moved = profile;
+        let glob = moved.scan_scope.globs.remove(0);
+        moved.scan_scope.paths.push(glob);
+
+        let observed = compute_bundle_identity(&moved, &files).expect("moved scope entry");
+
+        assert_ne!(original, observed, "moving a glob into scan paths changes the scan and its identity");
     }
 
     #[test]
