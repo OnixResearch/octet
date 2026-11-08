@@ -314,7 +314,17 @@ pub fn collect_run(
         });
         for span in fingerprint::find_functions(&source) {
             let function_source = function_source_for_span(&source, &span)?;
-            let record = function_address_record(&normalized_path, &source, &source_identity, &span, function_source);
+            let normalized = fingerprint::normalize_tokens(function_source);
+            let marker = function_address_marker(span.marker.as_ref(), &normalized);
+            let record = function_address_record(
+                &normalized_path,
+                &source,
+                &source_identity,
+                &span,
+                function_source,
+                &normalized,
+                marker,
+            );
             let locator = function_locator(&record.path, &record.name);
             if seen_locators.insert(locator.clone(), record.function_address.clone()).is_some() {
                 findings.push(finding_for_record(
@@ -325,9 +335,7 @@ pub fn collect_run(
                     config_hash,
                 ));
             }
-            if let Some(marker_finding) =
-                marker_finding_for_record(&record, span.marker.as_ref(), check.mode, config_hash)
-            {
+            if let Some(marker_finding) = marker_finding_for_record(&record, marker, check.mode, config_hash) {
                 findings.push(marker_finding);
             }
             if let Some(expected) = baseline.addresses.get(&locator) {
@@ -351,7 +359,7 @@ pub fn collect_run(
                         config_hash,
                     ));
                 }
-            } else if span.marker.is_none() {
+            } else if marker.is_none() {
                 findings.push(finding_for_record(
                     &record,
                     check.mode,
@@ -678,17 +686,29 @@ fn function_record_path(workspace_root: &Path, file: &Path) -> Result<String, St
     Ok(determinism::normalize_path(relative))
 }
 
+/// The function-address marker for a span, if any. `cargo octet fingerprint`
+/// writes the same `// octet-fingerprint:` syntax with its token hash; a marker
+/// holding that hash is fingerprint evidence, not a reviewed function address,
+/// so it neither satisfies nor stales the function-address check.
+fn function_address_marker<'a>(
+    marker: Option<&'a fingerprint::Marker>,
+    normalized: &str,
+) -> Option<&'a fingerprint::Marker> {
+    marker.filter(|marker| marker.stored_hash() != fingerprint::function_hash(normalized))
+}
+
 fn function_address_record(
     path: &str,
     source: &str,
     source_identity: &str,
     span: &fingerprint::FunctionSpan,
     function_source: &str,
+    normalized: &str,
+    marker: Option<&fingerprint::Marker>,
 ) -> FunctionAddressRecord {
-    let normalized = fingerprint::normalize_tokens(function_source);
     let dependency_set_hash = fingerprint::dependency_set_hash(function_source);
     let dependency_identity_status = fingerprint::dependency_identity_status(function_source).to_owned();
-    let function_address = function_address(&normalized, &dependency_set_hash, &dependency_identity_status);
+    let function_address = function_address(normalized, &dependency_set_hash, &dependency_identity_status);
     let (line, column) = line_column_for_offset(source, span.start);
     let mut caveats = Vec::new();
     if span.macro_calls {
@@ -703,13 +723,13 @@ fn function_address_record(
         start_byte: span.start,
         end_byte: span.end,
         function_address,
-        normalized_body_hash: determinism::full_hash(&normalized),
+        normalized_body_hash: determinism::full_hash(normalized),
         dependency_set_hash,
         dependency_identity_kind: DEPENDENCY_IDENTITY_KIND_SOURCE_TOKEN_SET.to_owned(),
         dependency_identity_status,
         source_identity: source_identity.to_owned(),
-        review: span.marker.as_ref().and_then(|marker| marker.review().map(str::to_owned)),
-        evidence: span.marker.as_ref().and_then(|marker| marker.evidence().map(str::to_owned)),
+        review: marker.and_then(|marker| marker.review().map(str::to_owned)),
+        evidence: marker.and_then(|marker| marker.evidence().map(str::to_owned)),
         caveats,
     }
 }
@@ -1832,6 +1852,49 @@ mod tests {
 
         assert_eq!(findings.len(), 1);
         assert_eq!(findings[0].lint, LINT_FUNCTION_ADDRESS_STALE);
+    }
+
+    #[test]
+    fn fingerprint_writer_marker_is_not_a_function_address_marker() {
+        let temp = TempDir::new().expect("temp dir");
+        let source = temp.path().join("lib.rs");
+        let baseline = temp.path().join("function-addresses.json");
+        std::fs::write(&source, "fn f() -> u32 { 1 }\n").expect("write source");
+        let written = fingerprint::run(&crate::cli::FingerprintArgs {
+            mode: crate::cli::FingerprintMode::Write,
+            paths: vec![source.clone()],
+            output_format: crate::cli::OutputFormat::Json,
+            review_manifest: None,
+        })
+        .expect("fingerprint write");
+        assert_eq!(written, 0);
+        let marked = std::fs::read_to_string(&source).expect("read fingerprinted source");
+        assert!(marked.starts_with("// octet-fingerprint: b3:"), "{marked}");
+        let deny = FunctionAddressCheck {
+            mode: FunctionAddressMode::Deny,
+            paths: vec![PathBuf::from("lib.rs")],
+            baseline: None,
+        };
+
+        let unbaselined = collect_test_run(&deny, temp.path(), "config");
+        let lints = unbaselined.findings.iter().map(|finding| finding.lint.as_str()).collect::<Vec<_>>();
+        assert_eq!(lints, [LINT_FUNCTION_ADDRESS_MISSING]);
+        assert!(artifact_value(&unbaselined)["records"][0]["review"].is_null());
+
+        let observe = FunctionAddressCheck {
+            mode: FunctionAddressMode::Observe,
+            ..deny.clone()
+        };
+        std::fs::write(&baseline, collect_test_run(&observe, temp.path(), "config").artifact_json)
+            .expect("write baseline");
+        let baselined = FunctionAddressCheck {
+            baseline: Some(baseline),
+            ..deny
+        };
+
+        let findings = collect_test_findings(&baselined, temp.path(), "config");
+
+        assert!(findings.is_empty(), "{findings:#?}");
     }
 
     #[test]

@@ -294,6 +294,8 @@ Function-address modes are `observe`, `warn`, and `deny`. They produce source-en
 
 A reviewed baseline entry whose function was deleted or renamed away reports `function_address_stale`. Entries outside the checked `--function-address-path` scope are not checked.
 
+Function-address markers share the `// octet-fingerprint:` syntax. A marker written by `cargo octet fingerprint` holds the fingerprint token hash, not a function address, so function-address checks ignore it; that function still needs a function-address baseline entry or a function-address marker.
+
 Kamacite-owned Preserves bytes are the portable receipt authority. The JSON file is an operator projection.
 
 <!--

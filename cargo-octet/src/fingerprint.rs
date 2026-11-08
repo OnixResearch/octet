@@ -977,7 +977,7 @@ fn matching_delimiter(code: &str, open: usize) -> Option<usize> {
 
 /// Marker hash of a function's canonical tokens, separated from v1 hashes by
 /// [`MARKER_HASH_DOMAIN`].
-fn function_hash(normalized: &str) -> String {
+pub(crate) fn function_hash(normalized: &str) -> String {
     let mut hasher = blake3::Hasher::new();
     hasher.update(MARKER_HASH_DOMAIN.as_bytes());
     hasher.update(b"\n");
