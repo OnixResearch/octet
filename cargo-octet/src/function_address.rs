@@ -271,6 +271,9 @@ struct HandoffIssue {
     message: String,
 }
 
+// Collection walks files, matches baselines, and renders the artifact as one sequential pipeline
+// over shared run state.
+#[allow(clippy::too_many_lines)]
 pub fn collect_run(
     check: &FunctionAddressCheck,
     workspace_root: &Path,

@@ -953,6 +953,9 @@ fn verify_bundle(artifact_dir: &Path) -> Result<AdmissionVerificationReport, Str
     verify_bundle_inner(artifact_dir, true)
 }
 
+// Bundle verification checks every bound artifact against one parsed receipt; splitting it would
+// scatter the cross-artifact identity checks.
+#[allow(clippy::too_many_lines)]
 fn verify_bundle_inner(
     artifact_dir: &Path,
     verify_strict_profile_parent: bool,
@@ -1265,6 +1268,8 @@ mod tests {
     // r[verify octet.effect_closure.evidence.visible]
     // r[verify octet.effect_closure.evidence.tamper]
     #[test]
+    // One fixture bundle drives the valid case and every tamper case so they share the same setup.
+    #[allow(clippy::too_many_lines)]
     fn complete_admission_bundle_verifies_and_tampering_is_invalid() {
         let temp = tempfile::tempdir().expect("tempdir");
         fs::create_dir_all(temp.path().join(CHECK_DIR)).expect("create check dir");

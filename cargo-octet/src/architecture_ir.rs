@@ -119,6 +119,9 @@ pub(crate) struct ArchitectureArtifacts {
     pub incomplete_error: Option<String>,
 }
 
+// Collector preparation binds policy, toolchain, Cargo graph, and unit identities in sequence;
+// helpers would thread the same partial state.
+#[allow(clippy::too_many_lines)]
 pub(crate) fn prepare_collector(
     workspace_root: &Path,
     policy: &SelectedProjectArchitecturePolicy,

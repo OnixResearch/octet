@@ -226,6 +226,8 @@ fn run_body_owner_compiler_fixture(
     run_body_fixture(all_features, import_test_source, no_std, fixture);
 }
 
+// One real-Cargo fixture run asserts every body-fixture variant against the same collected IR.
+#[allow(clippy::too_many_lines)]
 fn run_body_fixture(all_features: bool, import_test_source: TestImport, no_std: NoStdMode, fixture: BodyFixture) {
     let include_body_owners = fixture == BodyFixture::NonFunctionOwners;
     let include_randomness = fixture == BodyFixture::Randomness;

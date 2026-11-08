@@ -931,6 +931,9 @@ fn validate_declared_phase_artifacts(file_map: &BTreeMap<String, Vec<u8>>, diagn
     }
 }
 
+// The project-architecture artifacts are validated as one set; the cross-artifact identity checks
+// share every parsed value.
+#[allow(clippy::too_many_lines)]
 fn validate_project_architecture_bundle(file_map: &BTreeMap<String, Vec<u8>>, diagnostics: &mut Vec<String>) {
     let present = PROJECT_ARCHITECTURE_ARTIFACT_NAMES.iter().filter(|name| file_map.contains_key(**name)).count();
     if present == 0 {

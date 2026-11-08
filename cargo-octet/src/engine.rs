@@ -473,6 +473,9 @@ pub fn run(check: &CheckArgs) -> Result<i32, String> {
     result
 }
 
+// Run artifacts are assembled from one set of rendered outputs; helpers would pass the same inputs
+// through each step.
+#[allow(clippy::too_many_lines)]
 fn build_run_artifacts(
     check: &CheckArgs,
     findings: &[Finding],

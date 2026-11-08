@@ -27,6 +27,8 @@ use super::required_artifact;
 
 #[test]
 #[ignore = "requires current OCTET_UI_LIBRARY and pinned OCTET_UI_DRIVER"]
+// The ignored real-Cargo scenario builds, collects, and gates one forged fixture end to end.
+#[allow(clippy::too_many_lines)]
 fn real_cargo_forged_question_retains_unknown_call_effect_and_blocks_gate() {
     let library = required_artifact("OCTET_UI_LIBRARY");
     let driver = required_artifact("OCTET_UI_DRIVER");

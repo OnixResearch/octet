@@ -817,6 +817,9 @@ pub fn verify_receipt_identity(receipt: &EffectClosureReceipt) -> Vec<String> {
     diagnostics
 }
 
+// Receipt structure validation is a flat checklist of independent field checks that reads best in
+// one place.
+#[allow(clippy::too_many_lines)]
 fn validate_receipt_structure(receipt: &EffectClosureReceipt) -> Vec<String> {
     let mut diagnostics = Vec::new();
     let bound_identities = [
@@ -1180,6 +1183,9 @@ fn address_functions(
     addressed
 }
 
+// Node construction resolves summaries, providers, and role edges against lookup tables built at
+// the top of the function.
+#[allow(clippy::too_many_lines)]
 fn build_nodes(
     functions: &[AddressedFunction],
     input: &ClosureInput,

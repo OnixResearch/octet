@@ -474,6 +474,9 @@ fn selected_rails<'a>(
         .collect()
 }
 
+// Proof execution loads sources, runs the command, and binds logs and receipt into one
+// ExecutedProof in sequence.
+#[allow(clippy::too_many_lines)]
 fn execute_proof(
     selected: &SelectedRail<'_>,
     sources: &[SourceFile],
@@ -662,6 +665,9 @@ impl AeneasArtifactCollector {
     }
 }
 
+// The Aeneas receipt binds provider, source, theorem, and artifact identities into one envelope
+// from the same parsed profile and summary.
+#[allow(clippy::too_many_lines)]
 fn build_aeneas_receipt(
     selected: &SelectedRail<'_>,
     sources: &[SourceFile],
@@ -2570,6 +2576,8 @@ mod tests {
     }
 
     #[test]
+    // The test writes one proof bundle and checks every emitted artifact against it.
+    #[allow(clippy::too_many_lines)]
     fn prove_writes_valid_formal_proof_artifact_bundle() {
         let temp = tempfile::tempdir().expect("tempdir");
         let source = write_fixture_source(temp.path());

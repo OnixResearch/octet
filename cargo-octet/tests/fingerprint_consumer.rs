@@ -1817,11 +1817,11 @@ fn object_v2_corpus_receipt_detects_drift_and_boundary_tamper_without_rebinding_
 #[test]
 fn object_supplement_compatibility_marker_and_bounded_families_reject_tamper() {
     let temp = tempfile::tempdir().expect("create tempdir");
-    let marked = format!(
+    let marked_source = format!(
         "// octet-object: b3:{}; review=R-candidate; evidence=E-candidate\npub fn render(input: u32) -> String {{ format!(\"value={{input}}\") }}\n",
         "0".repeat(64)
     );
-    fs::write(temp.path().join("lib.rs"), marked).expect("write source");
+    fs::write(temp.path().join("lib.rs"), marked_source).expect("write source");
     let object = object_v2_hash(temp.path());
     assert_eq!(object["dependency_caveats"][0]["status"], "unsupported-macro-context");
     assert_eq!(object["correctness_claim"]["claims_correctness"], false);
@@ -2656,6 +2656,8 @@ fn object_corpus_compatibility_historical_v1_is_stale_under_v2() {
 }
 
 #[test]
+// One pair of test-owned v1 objects flows through diff, pointer, and bundle commands in sequence.
+#[allow(clippy::too_many_lines)]
 fn object_corpus_compatibility_preserves_v1_artifact_read() {
     use valence_core::function_object::DependencyIdentityStatus;
     use valence_core::function_object::FunctionObjectInput;

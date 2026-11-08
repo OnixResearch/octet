@@ -89,6 +89,9 @@ fn reseal_receipt(receipt: &mut gate::ProjectArchitectureReceipt) {
         ir::canonical_identity("octet.project-architecture-gate.receipt/v2", receipt).expect("receipt identity");
 }
 
+// The synthetic bundle lists every owned artifact inline so ownership tests read the whole fixture
+// in one place.
+#[allow(clippy::too_many_lines)]
 fn synthetic_files() -> BTreeMap<String, Vec<u8>> {
     let mut files = valid_input(OutputFormat::Human)
         .files

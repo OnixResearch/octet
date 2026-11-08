@@ -655,6 +655,9 @@ fn validate_selected_items(profile: &CharonSemanticProfile, functions: &[RawFunc
     }
 }
 
+// One walk over Charon functions emits items, edges, unknowns, and effect candidates from the same
+// per-function state.
+#[allow(clippy::too_many_lines)]
 fn normalize_functions(
     functions: &[RawFunction],
     diagnostics: &mut Vec<String>,

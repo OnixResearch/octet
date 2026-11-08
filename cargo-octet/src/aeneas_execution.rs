@@ -841,6 +841,9 @@ fn join_capture(
 }
 
 /// Execute an Aeneas rail using explicit provider executable paths supplied by the shell.
+// The shell resolves inputs, runs the three stages, and folds their observations into one
+// summary; each step feeds the next.
+#[allow(clippy::too_many_lines)]
 pub(crate) fn execute_aeneas_from_environment(rail: &ProofRail, source_root: &Path) -> AeneasCommandSummary {
     let profile = match serde_json::from_str::<AeneasProfile>(AENEAS_PROFILE_JSON) {
         Ok(profile) => profile,

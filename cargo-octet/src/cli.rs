@@ -610,6 +610,9 @@ const TRANSCRIPT_HELP: &str = "cargo octet transcript <PATH>
 Validates executable transcript command blocks and expected-output assertions for docs-example and release smoke artifacts.
 ";
 
+// Flag parsing is one linear match over the subcommand's flags; splitting it would hide which flags
+// the command accepts.
+#[allow(clippy::too_many_lines)]
 fn parse_admission(args: &[String], command_line: String) -> Result<AdmissionArgs, String> {
     const DEFAULT_ARTIFACT_DIR: &str = "target/octet-admission";
     const DEFAULT_POLICY_PATH: &str = crate::effect_closure::WORKSPACE_POLICY_FILE;
@@ -830,6 +833,9 @@ fn parse_artifact_verify(args: &[String]) -> Result<ArtifactArgs, String> {
     })
 }
 
+// Flag parsing is one linear match over the subcommand's flags; splitting it would hide which flags
+// the command accepts.
+#[allow(clippy::too_many_lines)]
 fn parse_check(args: &[String], command_line: String) -> Result<CheckArgs, String> {
     let mut scope_args = Vec::new();
     let mut cargo_check_args = None;
@@ -1130,6 +1136,9 @@ fn parse_evidence_rail(args: &[String], command_line: String) -> Result<Evidence
     }
 }
 
+// Flag parsing is one linear match over the subcommand's flags; splitting it would hide which flags
+// the command accepts.
+#[allow(clippy::too_many_lines)]
 fn parse_evidence_collect(args: &[String], command_line: String) -> Result<EvidenceRailArgs, String> {
     const FLAG_AND_VALUE_ARGS: usize = 2;
 
@@ -2137,6 +2146,9 @@ fn required_arg_at(args: &[String], index: usize, flag: &str) -> Result<String, 
     args.get(value_index).cloned().ok_or_else(|| format!("missing value after `{flag}`"))
 }
 
+// Flag parsing is one linear match over the subcommand's flags; splitting it would hide which flags
+// the command accepts.
+#[allow(clippy::too_many_lines)]
 fn parse_prove(args: &[String], command_line: String) -> Result<ProveArgs, String> {
     let mut registry = None;
     let mut policy_artifacts_dir = None;
