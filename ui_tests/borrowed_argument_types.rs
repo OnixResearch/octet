@@ -23,6 +23,19 @@ fn already_borrowed(name: &str, bytes: &[u8], path: &Path) -> usize {
     name.len() + bytes.len() + usize::from(path.is_absolute())
 }
 
+// Should NOT warn: mutable references need the owned container's growth API.
+fn fill(out: &mut Vec<u8>) {
+    out.push(1);
+}
+
+fn append_suffix(name: &mut String) {
+    name.push('!');
+}
+
+fn extend_path(path: &mut PathBuf) {
+    path.push("child");
+}
+
 trait Visitor {
     fn visit(&self, value: &String);
 }
@@ -50,6 +63,12 @@ fn main() {
     let _ = load_config(&path);
     let _ = checksum_qualified(&vec![1_u16, 2]);
     let _ = already_borrowed(&name, &bytes, path.as_path());
+    let mut buffer = Vec::new();
+    fill(&mut buffer);
+    let mut label = String::new();
+    append_suffix(&mut label);
+    let mut root = PathBuf::new();
+    extend_path(&mut root);
     visitor.visit(&name);
     external_callback(&name);
 }

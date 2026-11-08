@@ -40,6 +40,11 @@ fn borrowed_replacement(cx: &LateContext<'_>, ty: &hir::Ty<'_>) -> Option<Borrow
     let hir::TyKind::Ref(_, borrowed) = &ty.kind else {
         return None;
     };
+    // `&mut Vec<T>`/`&mut String`/`&mut PathBuf` need the owned container's
+    // growth API (`push`, `push_str`, ...), which the borrowed forms lack.
+    if borrowed.mutbl.is_mut() {
+        return None;
+    }
     let hir::TyKind::Path(hir::QPath::Resolved(_, path)) = &borrowed.ty.kind else {
         return None;
     };
