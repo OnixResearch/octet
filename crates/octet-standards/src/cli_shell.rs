@@ -299,6 +299,7 @@ fn run_check_command(args: CheckArgs) -> Result<bool, CliError> {
             message: "pass --registry or --policy-artifacts-dir".to_owned(),
         });
     };
+    validate_family_selection(&registry, &selection)?;
     let mut sources = load_sources(&args.source)?;
     append_cargo_metadata_source(&registry, &selection, &args.source, &mut sources);
     if args.execute_proof_rails {
@@ -316,6 +317,30 @@ fn run_check_command(args: CheckArgs) -> Result<bool, CliError> {
     });
     emit_report(args.output, &report)?;
     Ok(report.has_blocking_diagnostics())
+}
+
+fn validate_family_selection(registry: &PolicyRegistry, selection: &FamilySelection) -> Result<(), CliError> {
+    let unknown_families = selection.unknown_families(registry);
+    if !unknown_families.is_empty() {
+        let known_families = registry
+            .policies
+            .iter()
+            .map(|policy| policy.pillar.as_str())
+            .collect::<std::collections::BTreeSet<_>>();
+        return Err(CliError::Config {
+            message: format!(
+                "unknown --family value(s): {}; known families: {}",
+                unknown_families.join(", "),
+                known_families.into_iter().collect::<Vec<_>>().join(", ")
+            ),
+        });
+    }
+    if !selection.selects_any_policy(registry) {
+        return Err(CliError::Config {
+            message: "family selection evaluates zero policies; the registry declares no matching policies".to_owned(),
+        });
+    }
+    Ok(())
 }
 
 fn run_export_artifacts_command(args: &ExportArtifactsArgs) -> Result<bool, CliError> {

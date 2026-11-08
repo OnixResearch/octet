@@ -134,6 +134,51 @@ fn hard_policy_cli_report_exits_with_failure() {
 }
 
 #[test]
+fn check_rejects_unknown_family() {
+    let temp = TempDir::new().expect("temp dir should be created");
+    let registry = write_registry(&temp);
+
+    let output = Command::new(binary_path())
+        .arg("check")
+        .arg("--registry")
+        .arg(&registry)
+        .arg("--source")
+        .arg(repo_path(ADVISORY_FIXTURE))
+        .arg("--family")
+        .arg("architecure")
+        .arg("--output")
+        .arg("json")
+        .output()
+        .expect("standards checker should run");
+    assert_failure(&output);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("unknown --family value(s): architecure"), "stderr was: {stderr}");
+    assert!(stderr.contains(ARCHITECTURE_FAMILY), "stderr should list known families: {stderr}");
+}
+
+#[test]
+fn check_rejects_selection_without_policies() {
+    let temp = TempDir::new().expect("temp dir should be created");
+    let mut empty_registry = proof_registry();
+    empty_registry.policies.clear();
+    let registry = write_registry_value(&temp, &empty_registry);
+
+    let output = Command::new(binary_path())
+        .arg("check")
+        .arg("--registry")
+        .arg(&registry)
+        .arg("--source")
+        .arg(repo_path(ADVISORY_FIXTURE))
+        .arg("--output")
+        .arg("json")
+        .output()
+        .expect("standards checker should run");
+    assert_failure(&output);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("evaluates zero policies"), "stderr was: {stderr}");
+}
+
+#[test]
 fn exported_policy_artifacts_drive_checker() {
     let temp = TempDir::new().expect("temp dir should be created");
     let registry = write_registry(&temp);
