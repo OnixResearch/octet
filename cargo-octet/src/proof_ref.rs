@@ -225,10 +225,8 @@ fn scaffold_proof_evidence_ref(
     anchor: &str,
 ) -> Result<ProofEvidenceRef, Vec<String>> {
     let mut diagnostics = proof_card_deck_shape_diagnostics(deck);
-    let Some(card) = deck.cards.iter().find(|card| card.proof_or_property_id == proof_or_property_id) else {
-        diagnostics.push(format!(
-            "proof evidence ref field `{FIELD_PROOF_OR_PROPERTY_ID}` references missing proof card `{proof_or_property_id}`"
-        ));
+    let Some(card) = unique_card(deck, proof_or_property_id) else {
+        diagnostics.push(unmatched_card_diagnostic(deck, proof_or_property_id));
         diagnostics.sort();
         diagnostics.dedup();
         return Err(diagnostics);
@@ -394,10 +392,7 @@ fn proof_ref_overclaim_diagnostics(reference: &ProofEvidenceRef) -> Vec<String> 
 
 fn proof_ref_linkage_diagnostics(reference: &ProofEvidenceRef, deck: &ProofCardDeck) -> Vec<String> {
     let Some(card) = matching_card(reference, deck) else {
-        return vec![format!(
-            "proof evidence ref field `{FIELD_PROOF_OR_PROPERTY_ID}` references missing proof card `{}`",
-            reference.proof_or_property_id
-        )];
+        return vec![unmatched_card_diagnostic(deck, &reference.proof_or_property_id)];
     };
     let mut diagnostics = Vec::new();
     if !card.diagnostics.is_empty() {
@@ -487,7 +482,27 @@ fn consumer_source_linkage_diagnostics(
 }
 
 fn matching_card<'a>(reference: &ProofEvidenceRef, deck: &'a ProofCardDeck) -> Option<&'a ProofCard> {
-    deck.cards.iter().find(|card| card.proof_or_property_id == reference.proof_or_property_id)
+    unique_card(deck, &reference.proof_or_property_id)
+}
+
+/// Returns the card for `proof_or_property_id` only when exactly one card in the deck carries it.
+fn unique_card<'a>(deck: &'a ProofCardDeck, proof_or_property_id: &str) -> Option<&'a ProofCard> {
+    let mut matches = deck.cards.iter().filter(|card| card.proof_or_property_id == proof_or_property_id);
+    let card = matches.next()?;
+    matches.next().is_none().then_some(card)
+}
+
+fn unmatched_card_diagnostic(deck: &ProofCardDeck, proof_or_property_id: &str) -> String {
+    let matches = deck.cards.iter().filter(|card| card.proof_or_property_id == proof_or_property_id).count();
+    if matches == 0 {
+        format!(
+            "proof evidence ref field `{FIELD_PROOF_OR_PROPERTY_ID}` references missing proof card `{proof_or_property_id}`"
+        )
+    } else {
+        format!(
+            "proof evidence ref field `{FIELD_PROOF_OR_PROPERTY_ID}` matches {matches} duplicate proof cards `{proof_or_property_id}`; the deck must contain exactly one"
+        )
+    }
 }
 
 fn push_missing_field(diagnostics: &mut Vec<String>, field_name: &str, value: &str) {
@@ -883,6 +898,43 @@ mod tests {
                 "`{wording}` should be rejected as a {claim} claim: {diagnostics:?}"
             );
         }
+    }
+
+    #[test]
+    fn proof_ref_rejects_duplicate_proof_card_ids() {
+        let mut anchor_reference = matching_reference();
+        let source = source_artifact_for(&mut anchor_reference);
+        let mut shadow = card();
+        shadow.checked_rust_source_scope = "formal-proof:production:shadowed-scope".to_owned();
+        let duplicate_deck = ProofCardDeck {
+            schema_version: PROOF_CARDS_SCHEMA_VERSION.to_owned(),
+            cards: vec![card(), shadow],
+        };
+
+        let unique = validate_proof_evidence_ref(&anchor_reference, &deck_with(card()), Some(&source)).diagnostics;
+        let duplicate = validate_proof_evidence_ref(&anchor_reference, &duplicate_deck, Some(&source)).diagnostics;
+        let scaffold = scaffold_proof_evidence_ref(
+            &duplicate_deck,
+            PROPERTY_ID,
+            &anchor_reference.reference_id,
+            &anchor_reference.consumer_context,
+            &source,
+            &anchor_reference.consumer_source_anchor,
+        )
+        .expect_err("duplicate proof card IDs must not scaffold");
+
+        assert!(unique.is_empty(), "unique deck rejected: {unique:?}");
+        assert!(
+            duplicate
+                .iter()
+                .any(|diagnostic| diagnostic.contains("duplicate") && diagnostic.contains(PROPERTY_ID))
+        );
+        assert!(
+            scaffold
+                .iter()
+                .any(|diagnostic| diagnostic.contains("duplicate") && diagnostic.contains(PROPERTY_ID))
+        );
+        assert!(matching_card(&anchor_reference, &duplicate_deck).is_none());
     }
 
     fn aeneas_non_claims() -> Vec<String> {
