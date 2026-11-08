@@ -30,6 +30,20 @@ fn dropped_non_must_use_value() {
     drop(plain);
 }
 
+fn dropped_option_value() {
+    // `Option` is not `#[must_use]`; dropping it discards nothing required.
+    let maybe = Some(Plain);
+    drop(maybe);
+}
+
+#[allow(dropping_references)]
+fn dropped_result_reference() -> bool {
+    // Dropping a reference leaves the `Result` itself unconsumed.
+    let result = fallible();
+    drop(&result);
+    result.is_ok()
+}
+
 #[cfg(test)]
 fn test_context_dropped_result() {
     let result = fallible();

@@ -49,14 +49,12 @@ fn has_must_use_attr(cx: &LateContext<'_>, def_id: rustc_hir::def_id::DefId) -> 
 }
 
 fn type_is_must_use(cx: &LateContext<'_>, ty: ty::Ty<'_>) -> bool {
-    let ty = ty.peel_refs();
+    // References are not peeled: `drop(&value)` discards only the borrow.
     let ty::Adt(adt, _) = ty.kind() else {
         return false;
     };
 
-    cx.tcx.is_diagnostic_item(sym::Result, adt.did())
-        || cx.tcx.is_diagnostic_item(sym::Option, adt.did())
-        || has_must_use_attr(cx, adt.did())
+    cx.tcx.is_diagnostic_item(sym::Result, adt.did()) || has_must_use_attr(cx, adt.did())
 }
 
 fn expr_is_must_use_call(cx: &LateContext<'_>, expr: &hir::Expr<'_>) -> bool {
