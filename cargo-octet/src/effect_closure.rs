@@ -1068,6 +1068,81 @@ fn validate_admitted_closure(receipt: &EffectClosureReceipt) -> Vec<String> {
     diagnostics
 }
 
+/// Checks that an `admitted` receipt matches the bound function-address records and workspace
+/// policy, so a denied receipt cannot be relabelled admitted by dropping the address or summary
+/// diagnostics that denied it. Denied receipts make no admission claim and are not checked here.
+pub fn validate_admitted_bindings(
+    receipt: &EffectClosureReceipt,
+    records: &[FunctionAddressRecord],
+    policy: &WorkspacePolicy,
+) -> Vec<String> {
+    let mut diagnostics = Vec::new();
+    if receipt.status != AdmissionStatus::Admitted {
+        return diagnostics;
+    }
+    let node_keys = receipt
+        .nodes
+        .iter()
+        .map(|node| (node.path.as_str(), node.name.as_str(), node.function_address.as_str()))
+        .collect::<BTreeSet<_>>();
+    let record_keys = records
+        .iter()
+        .map(|record| (record.path.as_str(), record.name.as_str(), record.function_address.as_str()))
+        .collect::<BTreeSet<_>>();
+    if node_keys != record_keys || record_keys.len() != records.len() {
+        diagnostics.push("admitted receipt nodes do not exactly match the bound function-address records".to_owned());
+    }
+    let source_identities = receipt
+        .sources
+        .iter()
+        .map(|source| (source.path.as_str(), source.source_identity.as_str()))
+        .collect::<BTreeMap<_, _>>();
+    for record in records {
+        if source_identities.get(record.path.as_str()) != Some(&record.source_identity.as_str()) {
+            diagnostics.push(format!(
+                "function-address record `{}::{}` source identity does not match the admitted receipt source",
+                record.path, record.name
+            ));
+        }
+    }
+
+    let summaries = policy
+        .call_summaries
+        .iter()
+        .map(|summary| (summary.call_site_id.as_str(), summary))
+        .collect::<BTreeMap<_, _>>();
+    let mut used_summaries = BTreeSet::new();
+    let reviewed_calls = receipt
+        .nodes
+        .iter()
+        .flat_map(|node| &node.calls)
+        .filter(|call| call.resolution == CallResolution::ReviewedSummary);
+    for call in reviewed_calls {
+        used_summaries.insert(call.call_site_id.as_str());
+        let matches_summary = summaries.get(call.call_site_id.as_str()).is_some_and(|summary| {
+            call.provider.as_ref() == Some(&summary.provider)
+                && call.effects == summary.effects
+                && call.review_label.as_deref() == Some(summary.review_label.as_str())
+                && call.evidence.as_ref() == Some(&summary.evidence)
+        });
+        if !matches_summary {
+            diagnostics.push(format!(
+                "admitted reviewed call `{}` does not match its workspace-policy summary",
+                call.call_site_id
+            ));
+        }
+    }
+    for summary in &policy.call_summaries {
+        if !used_summaries.contains(summary.call_site_id.as_str()) {
+            diagnostics.push(format!(
+                "workspace-policy call summary `{}` is not used by the admitted receipt",
+                summary.call_site_id
+            ));
+        }
+    }
+    diagnostics
+}
+
 pub fn call_site_identity(function_address: &str, shape: &str, occurrence: usize) -> String {
     full_hash(&format!(
         "domain={CALL_SITE_DOMAIN}\ncaller={function_address}\nshape={shape}\noccurrence={occurrence}\n"
@@ -1737,7 +1812,7 @@ fn diagnostic(
     }
 }
 
-fn finalize_receipt(mut receipt: EffectClosureReceipt) -> EffectClosureReceipt {
+pub(crate) fn finalize_receipt(mut receipt: EffectClosureReceipt) -> EffectClosureReceipt {
     receipt.receipt_identity = receipt_identity(&receipt);
     receipt
 }

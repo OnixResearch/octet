@@ -136,7 +136,7 @@ Verify stored integrity without rerunning Cargo:
 cargo octet admit verify --artifact-dir target/octet-admission --output-format json
 ```
 
-Verification reruns the ordinary artifact verifier over the complete strict-profile parent, recomputes closure receipt and artifact identities, validates parent profile/config/function-address/source/policy/dependency linkage, regenerates status/summary/provenance expectations, and rejects tampering. This proves stored identity/linkage consistency only; unkeyed BLAKE3 receipts provide no signer authenticity, authorization, or defense against an actor who can coherently replace every artifact and trust root.
+Verification reruns the ordinary artifact verifier over the complete strict-profile parent, recomputes closure receipt and artifact identities, validates parent profile/config/function-address/source/policy/dependency linkage, regenerates status/summary/provenance expectations, and rejects tampering. For an `admitted` receipt it also requires the node set to equal the records in `check/function-addresses.json`, each reviewed-summary edge to equal its `workspace-policy.json` call summary, and every policy call summary to be used, so a denied receipt cannot be relabelled admitted. This proves stored identity/linkage consistency only; unkeyed BLAKE3 receipts provide no signer authenticity, authorization, or defense against an actor who can coherently replace every artifact and trust root.
 
 ## Valence dogfood
 

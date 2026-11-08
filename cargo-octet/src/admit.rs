@@ -113,21 +113,13 @@ struct CheckMetadata {
 struct FunctionAddressReport {
     mode: String,
     source_envelopes: Vec<FunctionAddressSourceEnvelope>,
-    records: Vec<RawFunctionAddressRecord>,
+    records: Vec<FunctionAddressRecord>,
     evidence_chain_handoff: FunctionAddressHandoff,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, Ord, PartialEq, PartialOrd)]
 struct FunctionAddressSourceEnvelope {
     path: String,
-    source_identity: String,
-}
-
-#[derive(Clone, Debug, Deserialize)]
-struct RawFunctionAddressRecord {
-    path: String,
-    name: String,
-    function_address: String,
     source_identity: String,
 }
 
@@ -312,16 +304,7 @@ fn run_admission(
         target,
         toolchain: check_status.metadata.toolchain.clone(),
         sources,
-        function_addresses: function_report
-            .records
-            .into_iter()
-            .map(|record| FunctionAddressRecord {
-                path: record.path,
-                name: record.name,
-                function_address: record.function_address,
-                source_identity: record.source_identity,
-            })
-            .collect(),
+        function_addresses: function_report.records,
         resolved_providers: dependency_graph.providers.clone(),
         catalog,
         policy: prepared.policy,
@@ -530,16 +513,7 @@ pub(crate) fn run_integrated_closure(
         target,
         toolchain: metadata.toolchain.clone(),
         sources,
-        function_addresses: function_report
-            .records
-            .into_iter()
-            .map(|record| FunctionAddressRecord {
-                path: record.path,
-                name: record.name,
-                function_address: record.function_address,
-                source_identity: record.source_identity,
-            })
-            .collect(),
+        function_addresses: function_report.records,
         resolved_providers: dependency_graph.providers.clone(),
         catalog: effect_closure::embedded_catalog()?,
         policy: prepared.policy,
@@ -1057,6 +1031,9 @@ fn verify_bundle_inner(
                 diagnostics.push("receipt sources do not match function-address source envelopes".to_owned());
             }
         }
+        if let (Some(function_report), Some(policy)) = (&function_report, &policy) {
+            diagnostics.extend(effect_closure::validate_admitted_bindings(receipt, &function_report.records, policy));
+        }
         if let Some(status) = &status {
             let status_matches = status == &status_from_receipt(receipt);
             if !status_matches {
@@ -1265,24 +1242,38 @@ mod tests {
         assert!(checked_workspace_path(root, Path::new("/outside/policy.json"), "policy").is_err());
     }
 
-    // r[verify octet.effect_closure.evidence.visible]
-    // r[verify octet.effect_closure.evidence.tamper]
-    #[test]
-    // One fixture bundle drives the valid case and every tamper case so they share the same setup.
-    #[allow(clippy::too_many_lines)]
-    fn complete_admission_bundle_verifies_and_tampering_is_invalid() {
-        let temp = tempfile::tempdir().expect("tempdir");
-        fs::create_dir_all(temp.path().join(CHECK_DIR)).expect("create check dir");
+    const TEST_SOURCE_PATH: &str = "src/lib.rs";
+    const TEST_TARGET: &str = "test-target";
+    const TEST_TOOLCHAIN: &str = "test-toolchain";
+    const TEST_RUSTC_VERSION: &str = "rustc-test";
+
+    struct BundleFixture {
+        command_bytes: Vec<u8>,
+        check_status_bytes: Vec<u8>,
+        function_address_bytes: Vec<u8>,
+        policy_bytes: Vec<u8>,
+        graph_bytes: Vec<u8>,
+        input: ClosureInput,
+    }
+
+    fn test_function_address(fill: char) -> String {
+        format!("b3:{}", fill.to_string().repeat(64))
+    }
+
+    fn bundle_fixture(
+        source: &str,
+        records: &[(&str, char)],
+        call_summaries: Vec<effect_closure::CallSummary>,
+        providers: Vec<ProviderIdentity>,
+    ) -> BundleFixture {
         let command_bytes = normalized_text_bytes("cargo octet admit --profile deterministic-core --closure");
-        let source = "fn root() {}\n";
         let source_identity = crate::determinism::full_hash(source);
-        let source_path = "src/lib.rs";
         let check_status_bytes = pretty_json_bytes(&serde_json::json!({
             "status": "clean",
             "exit_code": EXIT_ADMITTED,
             "metadata": {
-                "rustc_version": "rustc-test",
-                "toolchain": "test-toolchain",
+                "rustc_version": TEST_RUSTC_VERSION,
+                "toolchain": TEST_TOOLCHAIN,
                 "profile_name": TEST_PROFILE,
                 "profile_hash": TEST_HASH,
                 "config_hash": TEST_HASH
@@ -1290,18 +1281,22 @@ mod tests {
             "error_findings": 0
         }))
         .expect("check status JSON");
+        let records = records
+            .iter()
+            .map(|(name, fill)| FunctionAddressRecord {
+                path: TEST_SOURCE_PATH.to_owned(),
+                name: (*name).to_owned(),
+                function_address: test_function_address(*fill),
+                source_identity: source_identity.clone(),
+            })
+            .collect::<Vec<_>>();
         let function_address_bytes = pretty_json_bytes(&serde_json::json!({
             "mode": FUNCTION_ADDRESS_MODE_DENY,
             "source_envelopes": [{
-                "path": source_path,
+                "path": TEST_SOURCE_PATH,
                 "source_identity": source_identity
             }],
-            "records": [{
-                "path": source_path,
-                "name": "root",
-                "function_address": TEST_HASH,
-                "source_identity": source_identity
-            }],
+            "records": records,
             "evidence_chain_handoff": {
                 "canonical_roots": [{
                     "kind": FUNCTION_ADDRESS_ROOT_KIND,
@@ -1315,23 +1310,23 @@ mod tests {
             profile_id: TEST_PROFILE.to_owned(),
             function_address_baseline: "function-addresses.json".to_owned(),
             module_roles: vec![effect_closure::ModuleRoleAssignment {
-                path: source_path.to_owned(),
+                path: TEST_SOURCE_PATH.to_owned(),
                 role: effect_closure::ModuleRole::Core,
             }],
-            call_summaries: Vec::new(),
+            call_summaries,
             non_claims: vec!["bounded test policy".to_owned()],
         };
         let policy_bytes = pretty_json_bytes(&policy).expect("policy JSON");
         let graph = DependencyGraphArtifact {
             schema_version: DEPENDENCY_GRAPH_SCHEMA.to_owned(),
-            target: "test-target".to_owned(),
-            toolchain: "test-toolchain".to_owned(),
-            rustc_version: "rustc-test".to_owned(),
+            target: TEST_TARGET.to_owned(),
+            toolchain: TEST_TOOLCHAIN.to_owned(),
+            rustc_version: TEST_RUSTC_VERSION.to_owned(),
             cargo_lock_blake3: TEST_HASH.to_owned(),
-            providers: Vec::new(),
+            providers: providers.clone(),
         };
         let graph_bytes = pretty_json_bytes(&graph).expect("graph JSON");
-        let receipt = effect_closure::compute_closure(ClosureInput {
+        let input = ClosureInput {
             profile_id: TEST_PROFILE.to_owned(),
             profile_hash: TEST_HASH.to_owned(),
             config_hash: TEST_HASH.to_owned(),
@@ -1342,47 +1337,88 @@ mod tests {
             workspace_policy_blake3: crate::evidence::artifact_blake3_hex(&policy_bytes),
             cargo_graph_blake3: crate::evidence::artifact_blake3_hex(&graph_bytes),
             cargo_lock_blake3: TEST_HASH.to_owned(),
-            target: "test-target".to_owned(),
-            toolchain: "test-toolchain".to_owned(),
+            target: TEST_TARGET.to_owned(),
+            toolchain: TEST_TOOLCHAIN.to_owned(),
             sources: vec![SourceEnvelope {
-                path: source_path.to_owned(),
+                path: TEST_SOURCE_PATH.to_owned(),
                 source: source.to_owned(),
-                source_identity: source_identity.clone(),
-            }],
-            function_addresses: vec![FunctionAddressRecord {
-                path: source_path.to_owned(),
-                name: "root".to_owned(),
-                function_address: TEST_HASH.to_owned(),
                 source_identity,
             }],
-            resolved_providers: Vec::new(),
+            function_addresses: records,
+            resolved_providers: providers,
             catalog: effect_closure::embedded_catalog().expect("catalog"),
             policy,
-        });
-        assert_eq!(receipt.status, AdmissionStatus::Admitted);
+        };
+        BundleFixture {
+            command_bytes,
+            check_status_bytes,
+            function_address_bytes,
+            policy_bytes,
+            graph_bytes,
+            input,
+        }
+    }
 
-        let receipt_bytes = pretty_json_bytes(&receipt).expect("receipt JSON");
-        let status_bytes = pretty_json_bytes(&status_from_receipt(&receipt)).expect("status JSON");
-        let summary_bytes = render_summary(&receipt).into_bytes();
+    fn write_bundle(dir: &Path, fixture: &BundleFixture, receipt: &EffectClosureReceipt) {
         let mut artifacts = BTreeMap::from([
-            (COMMAND_FILE.to_owned(), command_bytes),
-            (STATUS_FILE.to_owned(), status_bytes),
-            (SUMMARY_FILE.to_owned(), summary_bytes),
-            (effect_closure::RECEIPT_FILE.to_owned(), receipt_bytes),
-            (WORKSPACE_POLICY_ARTIFACT.to_owned(), policy_bytes),
-            (DEPENDENCY_GRAPH_ARTIFACT.to_owned(), graph_bytes),
-            (CHECK_STATUS_ARTIFACT.to_owned(), check_status_bytes),
-            (CHECK_FUNCTION_ADDRESS_ARTIFACT.to_owned(), function_address_bytes),
+            (COMMAND_FILE.to_owned(), fixture.command_bytes.clone()),
+            (STATUS_FILE.to_owned(), pretty_json_bytes(&status_from_receipt(receipt)).expect("status JSON")),
+            (SUMMARY_FILE.to_owned(), render_summary(receipt).into_bytes()),
+            (effect_closure::RECEIPT_FILE.to_owned(), pretty_json_bytes(receipt).expect("receipt JSON")),
+            (WORKSPACE_POLICY_ARTIFACT.to_owned(), fixture.policy_bytes.clone()),
+            (DEPENDENCY_GRAPH_ARTIFACT.to_owned(), fixture.graph_bytes.clone()),
+            (CHECK_STATUS_ARTIFACT.to_owned(), fixture.check_status_bytes.clone()),
+            (CHECK_FUNCTION_ADDRESS_ARTIFACT.to_owned(), fixture.function_address_bytes.clone()),
         ]);
         let provenance = render_provenance(&artifacts, TEST_PROFILE).expect("provenance");
         artifacts.insert(PROVENANCE_FILE.to_owned(), provenance.into_bytes());
         for (locator, bytes) in &artifacts {
-            let path = temp.path().join(locator);
+            let path = dir.join(locator);
             if let Some(parent) = path.parent() {
                 fs::create_dir_all(parent).expect("create artifact parent");
             }
             fs::write(path, bytes).expect("write artifact");
         }
+    }
+
+    fn toolchain_summary(
+        caller_fill: char,
+        shape: &str,
+        effects: Vec<effect_closure::Effect>,
+    ) -> (effect_closure::CallSummary, ProviderIdentity) {
+        let provider = ProviderIdentity {
+            kind: ProviderKind::Toolchain,
+            name: "alloc".to_owned(),
+            version: TEST_RUSTC_VERSION.to_owned(),
+            source: PROVIDER_SOURCE_TOOLCHAIN.to_owned(),
+            target: TEST_TARGET.to_owned(),
+            features: Vec::new(),
+        };
+        let summary = effect_closure::CallSummary {
+            call_site_id: effect_closure::call_site_identity(&test_function_address(caller_fill), shape, 0),
+            review_label: format!("reviewed `{shape}` toolchain call"),
+            callee: shape.trim_start_matches("call:").to_owned(),
+            provider: provider.clone(),
+            effects,
+            evidence: effect_closure::EvidenceReference {
+                kind: "toolchain-api-review-v1".to_owned(),
+                locator: "rustc-version#alloc".to_owned(),
+                blake3: effect_closure::provider_identity_blake3(&provider),
+            },
+        };
+        (summary, provider)
+    }
+
+    // r[verify octet.effect_closure.evidence.visible]
+    // r[verify octet.effect_closure.evidence.tamper]
+    #[test]
+    fn complete_admission_bundle_verifies_and_tampering_is_invalid() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        fs::create_dir_all(temp.path().join(CHECK_DIR)).expect("create check dir");
+        let fixture = bundle_fixture("fn root() {}\n", &[("root", 'a')], Vec::new(), Vec::new());
+        let receipt = effect_closure::compute_closure(fixture.input.clone());
+        assert_eq!(receipt.status, AdmissionStatus::Admitted);
+        write_bundle(temp.path(), &fixture, &receipt);
 
         let valid = verify_bundle_inner(temp.path(), false).expect("valid verification report");
         assert_eq!(valid.status, STATUS_VALID, "{:?}", valid.diagnostics);
@@ -1400,5 +1436,60 @@ mod tests {
         assert_eq!(invalid.status, STATUS_INVALID);
         assert!(invalid.diagnostics.iter().any(|diagnostic| diagnostic.contains("summary.txt is stale")));
         assert!(invalid.diagnostics.iter().any(|diagnostic| diagnostic.contains("provenance.jsonl is stale")));
+    }
+
+    // r[verify octet.effect_closure.evidence.tamper]
+    #[test]
+    fn admitted_receipt_must_match_bound_function_addresses_and_policy_summaries() {
+        fn forge_admitted(mut receipt: EffectClosureReceipt) -> EffectClosureReceipt {
+            receipt.diagnostics.clear();
+            receipt.status = AdmissionStatus::Admitted;
+            effect_closure::finalize_receipt(receipt)
+        }
+        fn assert_forgery_rejected(fixture: &BundleFixture, forged: &EffectClosureReceipt, expected: &str) {
+            let temp = tempfile::tempdir().expect("tempdir");
+            write_bundle(temp.path(), fixture, forged);
+            let report = verify_bundle_inner(temp.path(), false).expect("verification report");
+            assert_eq!(report.status, STATUS_INVALID, "forged admitted receipt verified");
+            assert!(
+                report.diagnostics.iter().any(|diagnostic| diagnostic.contains(expected)),
+                "expected `{expected}` in {:?}",
+                report.diagnostics
+            );
+        }
+
+        let source = "fn root() { let _values: Vec<u8> = Vec::new(); }\n";
+        let (summary, provider) = toolchain_summary('b', "call:Vec::new", vec![effect_closure::Effect::Alloc]);
+        let fixture = bundle_fixture(source, &[("root", 'b')], vec![summary], vec![provider]);
+        let admitted = effect_closure::compute_closure(fixture.input.clone());
+        assert_eq!(admitted.status, AdmissionStatus::Admitted, "{:?}", admitted.diagnostics);
+        let temp = tempfile::tempdir().expect("tempdir");
+        write_bundle(temp.path(), &fixture, &admitted);
+        let valid = verify_bundle_inner(temp.path(), false).expect("valid verification report");
+        assert_eq!(valid.status, STATUS_VALID, "{:?}", valid.diagnostics);
+
+        let (summary, provider) = toolchain_summary('b', "call:Vec::new", vec![effect_closure::Effect::Panic]);
+        let fixture = bundle_fixture(source, &[("root", 'b')], vec![summary], vec![provider]);
+        let mut narrowed = effect_closure::compute_closure(fixture.input.clone());
+        assert_eq!(narrowed.status, AdmissionStatus::Denied);
+        narrowed.nodes[0].calls[0].effects.clear();
+        narrowed.nodes[0].direct_effects.clear();
+        narrowed.nodes[0].closure_effects.clear();
+        assert_forgery_rejected(&fixture, &forge_admitted(narrowed), "does not match its workspace-policy summary");
+
+        let fixture = bundle_fixture("fn root() {}\n", &[("ghost", 'c'), ("root", 'd')], Vec::new(), Vec::new());
+        let unmatched = effect_closure::compute_closure(fixture.input.clone());
+        assert_eq!(unmatched.status, AdmissionStatus::Denied);
+        assert_forgery_rejected(
+            &fixture,
+            &forge_admitted(unmatched),
+            "do not exactly match the bound function-address",
+        );
+
+        let (summary, provider) = toolchain_summary('e', "call:gone", Vec::new());
+        let fixture = bundle_fixture("fn root() {}\n", &[("root", 'e')], vec![summary], vec![provider]);
+        let stale = effect_closure::compute_closure(fixture.input.clone());
+        assert_eq!(stale.status, AdmissionStatus::Denied);
+        assert_forgery_rejected(&fixture, &forge_admitted(stale), "is not used by the admitted receipt");
     }
 }
