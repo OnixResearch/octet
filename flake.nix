@@ -197,6 +197,33 @@
                 "$report_json" >/dev/null
             '') requiredPolicyIds
           );
+          # octet-standards exits 1 for blocking diagnostics and also for
+          # config/IO errors (which emit no report), and 2 for usage errors.
+          checkStatusAssertion =
+            if expectedDiagnostics == 0 then
+              ''
+                if [ "$check_status" -ne 0 ]; then
+                  echo "octet-standards check exited $check_status; expectedDiagnostics = 0 requires exit 0" >&2
+                  cat "$report_json" >&2
+                  exit 1
+                fi
+              ''
+            else
+              ''
+                case "$check_status" in
+                  0) ;;
+                  1)
+                    if ! jq --exit-status 'any(.diagnostics[]; .severity == "error")' "$report_json" >/dev/null; then
+                      echo "octet-standards check exited 1 without a report carrying blocking diagnostics" >&2
+                      exit 1
+                    fi
+                    ;;
+                  *)
+                    echo "octet-standards check exited $check_status" >&2
+                    exit 1
+                    ;;
+                esac
+              '';
         in
         pkgs.runCommand "octet-policy-artifact-consumer-check"
           {
@@ -217,12 +244,14 @@
 
             cp -r ${src} source
             chmod -R u+w source
+            check_status=0
             octet-standards check \
               --policy-artifacts-dir "$artifact_dir" \
               ${sourceArgs} \
               --family ${family} \
               --output json \
-              ${extraCheckArgs} > "$report_json"
+              ${extraCheckArgs} > "$report_json" || check_status=$?
+            ${checkStatusAssertion}
 
             jq --exit-status \
               '.diagnostics | length == ${builtins.toString expectedDiagnostics}' \
@@ -3042,6 +3071,14 @@
           expectedDiagnostics = 0;
           requiredPolicyIds = [ "tigerstyle.embedded.bounded-queues" ];
         };
+
+        policyArtifactConsumerNoncompliantFixtureCheck = mkPolicyArtifactConsumerCheck {
+          inherit system;
+          src = ./standards/check-fixtures/embedded/noncompliant;
+          family = "embedded";
+          expectedDiagnostics = 2;
+          requiredPolicyIds = [ "tigerstyle.embedded.bounded-queues" ];
+        };
       in
       {
         packages = {
@@ -4680,6 +4717,7 @@
                 '';
             slotcar-standards-nix-closure-manifest = self.checks.${system}.octet-standards-nix-closure-manifest;
             policy-artifact-consumer-fixture = policyArtifactConsumerFixtureCheck;
+            policy-artifact-consumer-noncompliant-fixture = policyArtifactConsumerNoncompliantFixtureCheck;
 
             # Expected-green gate for CI. The full `nix flake check` also runs
             # rails that wait on owner review (reviewed object-corpus sources,
@@ -4710,6 +4748,7 @@
                   "clippy-restriction-profiles"
                   "strict-profile-catalog"
                   "policy-artifact-consumer-fixture"
+                  "policy-artifact-consumer-noncompliant-fixture"
                   "release-candidate-smoke"
                   "release-operator-smoke-docs"
                 ];
