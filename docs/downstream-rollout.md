@@ -484,10 +484,12 @@ Octet self-dogfood run saved at
 | `raw_arithmetic_overflow` | 27 | 27 | 0 | 27 | blocked |
 | `ambiguous_params` | 1 | 1 | 0 | 1 | deferred |
 | `multi_lock_ordering` | 0 | 0 | 0 | 0 | deferred pending downstream sample |
-| `ignored_join_handle` | 0 | 0 | 0 | 0 | deferred pending downstream sample |
 | `allocation_in_loop` | 0 | 0 | 0 | 0 | deferred pending hot-path sample |
 | `defaulting_trait_method` | 0 | 0 | 0 | 0 | deferred pending downstream sample |
 | `numeric_units` | 2 | 2 | 0 | 2 | deferred |
+
+`ignored_join_handle` is not a promotion candidate: it already defaults to
+`warn`.
 
 Because none are `ready`, this playbook does not change default levels,
 `templates/dylint.toml`, or copied starter profiles for those lints.
