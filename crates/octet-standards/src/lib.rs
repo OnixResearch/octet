@@ -562,6 +562,29 @@ fn concurrency() { let _ = std::thread::spawn(|| ()); }\n";
     }
 
     #[test]
+    fn capability_manifest_requires_whole_word_handler_coverage_markers() {
+        let sources = vec![SourceFile::new(
+            "standards/check-fixtures/capability/clock-handler.txt",
+            "fake clock token lookup invoked\nfailure path: fake clock returns configured error\n",
+        )];
+        let check = check_capability_manifest(
+            &sample_capability_handler_registry(),
+            &sources,
+            &FamilySelection::from_families(["architecture"]),
+        );
+
+        let evidence = &check.reports[0].handler_evidence[0];
+        assert!(!evidence.success_path_coverage, "`token`/`look`/`invoke` must not count as `ok`");
+        assert!(evidence.failure_path_coverage);
+        assert!(
+            check
+                .diagnostics
+                .iter()
+                .any(|diagnostic| { diagnostic.message.contains("must cover success and failure paths") })
+        );
+    }
+
+    #[test]
     fn capability_manifest_rejects_ambiguous_strict_scope_resolution() {
         let sources = vec![SourceFile::new(
             "crates/tigerstyle-core/src/generated/model.rs",

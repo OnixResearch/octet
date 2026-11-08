@@ -27,6 +27,14 @@ commands, success-path coverage, or failure-path coverage are missing. Unknown
 scope classes and capability families are rejected by Nickel before exported JSON
 is consumed.
 
+A handler artifact shows success-path coverage when it contains one of the whole
+words or phrases `success`, `succeeds`, `ok`, or `happy path`, and failure-path
+coverage when it contains `failure`, `fails`, `error`, or `sad path` (ASCII
+case-insensitive). Markers inside longer words do not count, so `token` is not
+`ok` and `terror` is not `error`. Labelled lines such as
+`success path: fake clock returns deterministic millis` and
+`failure path: fake clock returns configured error` are the recommended form.
+
 ## Boundaries
 
 The checker validates declared policy and observed source shapes only. It does

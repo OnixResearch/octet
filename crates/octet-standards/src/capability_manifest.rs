@@ -694,9 +694,19 @@ fn source_for_artifact<'a>(sources: &'a [SourceFile], artifact: &str) -> Option<
         .find(|source| source.path == artifact || source.path.ends_with(artifact) || artifact.ends_with(&source.path))
 }
 
+/// Returns true when any marker appears as a whole word or phrase, ignoring ASCII case.
 fn contains_any_marker(text: &str, markers: &[&str]) -> bool {
     let lowercase = text.to_ascii_lowercase();
-    markers.iter().any(|marker| lowercase.contains(marker))
+    markers.iter().any(|marker| {
+        lowercase.match_indices(marker).any(|(start, matched)| {
+            !lowercase[..start].chars().next_back().is_some_and(is_marker_word_character)
+                && !lowercase[start + matched.len()..].chars().next().is_some_and(is_marker_word_character)
+        })
+    })
+}
+
+fn is_marker_word_character(character: char) -> bool {
+    character.is_alphanumeric() || character == '_'
 }
 
 fn capability_name_family(name: &str, manifest: &CapabilityManifest) -> String {
