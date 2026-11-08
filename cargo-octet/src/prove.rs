@@ -384,12 +384,17 @@ fn load_registry(args: &ProveArgs) -> Result<PolicyRegistry, String> {
         .map_err(|error| format!("parse {} as policy registry JSON: {error}", registry_path.display()))
 }
 
+/// Loads every `--source` path under `root`. Overlapping arguments, such as a directory and a file
+/// inside it, name the same locator more than once; each locator is kept once so rail patterns
+/// match the file, not its duplicates.
 fn load_sources(paths: &[PathBuf], root: &Path) -> Result<Vec<SourceFile>, String> {
     let source_root = SourceRoot::open_existing(root)?;
     let mut sources = Vec::new();
     for path in paths {
         append_sources(path, root, &source_root, &mut sources)?;
     }
+    let mut seen = BTreeSet::new();
+    sources.retain(|source| seen.insert(source.path.clone()));
     Ok(sources)
 }
 
@@ -3250,6 +3255,21 @@ mod tests {
         assert!(error.contains("refusing to use artifact directory"), "unexpected error: {error}");
         assert!(artifact_dir.join("notes.txt").is_file(), "foreign files must not be removed");
         assert!(!artifact_dir.join(STATUS_ARTIFACT_NAME).exists());
+    }
+
+    #[test]
+    fn prove_deduplicates_overlapping_source_arguments() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let source = write_fixture_source(temp.path());
+        write_fixture_proof(temp.path());
+        let registry = write_fixture_registry(temp.path(), PASS_SIGNAL, command_argv(PASS_SIGNAL));
+        let source_dir = source.parent().expect("source directory").to_path_buf();
+        let artifact_dir = temp.path().join("artifacts-overlap");
+
+        let code = run(&fixture_args(registry, vec![source_dir, source], artifact_dir.clone())).expect("prove run");
+
+        let summary = fs::read_to_string(artifact_dir.join(SUMMARY_ARTIFACT_NAME)).expect("read summary");
+        assert_eq!(code, EXIT_PROOF_VALID, "overlapping sources must load once: {summary}");
     }
 
     fn fixture_args(registry: PathBuf, source: Vec<PathBuf>, artifact_dir: PathBuf) -> ProveArgs {
