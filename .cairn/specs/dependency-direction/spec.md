@@ -55,10 +55,19 @@ r[octet.dependency_direction.scope] The boundary config MUST let consumers choos
 
 r[octet.dependency_direction.scope.default]
 
-- GIVEN a consumer declares no explicit dependency-kind scope
+- GIVEN a consumer declares no explicit dependency-kind scope, or an empty one
 - WHEN the check resolves the edge scope
 - THEN it MUST inspect normal and build dependencies and MUST exclude dev-dependencies.
 - AND a consumer that opts in to dev-dependency inspection MUST be able to enable it through the boundary field.
+
+#### Scenario: Unknown edge kinds are reported
+
+r[octet.dependency_direction.scope.unknown]
+
+- GIVEN the boundary field names a dependency kind other than `normal`, `build`, or `dev`
+- WHEN the check resolves the edge scope
+- THEN it MUST emit a diagnostic naming each unknown kind
+- AND it MUST inspect the remaining known kinds, or normal and build dependencies when none remain.
 
 ### Requirement: Pure core and imperative shell boundary
 

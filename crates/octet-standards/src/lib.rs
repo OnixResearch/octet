@@ -938,6 +938,40 @@ fn concurrency() { let _ = std::thread::spawn(|| ()); }\n";
     }
 
     #[test]
+    fn architecture_dependency_direction_defaults_empty_edge_kinds_to_normal_and_build() {
+        let selection = FamilySelection::from_families(["architecture"]);
+        let registry = sample_dependency_direction_registry(Vec::new());
+
+        let clean = check_architecture(&registry, &[metadata_source(DEPENDENCY_DIRECTION_CLEAN_METADATA)], &selection);
+        let dev_only = check_architecture(&registry, &[metadata_source(dev_dependency_metadata())], &selection);
+        let core_to_adapter = check_architecture(
+            &registry,
+            &[metadata_source(DEPENDENCY_DIRECTION_CORE_TO_ADAPTER_METADATA)],
+            &selection,
+        );
+
+        assert!(clean.is_empty(), "{clean:?}");
+        assert!(dev_only.is_empty(), "{dev_only:?}");
+        assert!(core_to_adapter.iter().any(|diagnostic| {
+            diagnostic.message.contains("core crate `domain-core` depends on adapter crate `http-adapter`")
+        }));
+    }
+
+    #[test]
+    fn architecture_dependency_direction_reports_unknown_edge_kinds() {
+        let diagnostics = check_architecture(
+            &sample_dependency_direction_registry(vec!["runtime"]),
+            &[metadata_source(DEPENDENCY_DIRECTION_CLEAN_METADATA)],
+            &FamilySelection::from_families(["architecture"]),
+        );
+
+        assert_eq!(diagnostics.iter().map(|diagnostic| diagnostic.message.as_str()).collect::<Vec<_>>(), vec![
+            "crate-boundary `dependency_edge_kinds` declares unknown dependency edge kind `runtime`; expected `normal`, `build`, or `dev`"
+        ]);
+        assert_eq!(diagnostics[0].policy_id, FCIS_POLICY_ID);
+    }
+
+    #[test]
     fn idioms_selection_skips_architecture_family_diagnostics() {
         let sources = vec![SourceFile::new(
             "crates/tigerstyle-core/src/lib.rs",

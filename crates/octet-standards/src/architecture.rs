@@ -7,6 +7,7 @@ use crate::dependency_direction::DependencyDirectionViolation;
 use crate::dependency_direction::DependencyDirectionViolationKind;
 use crate::dependency_direction::DependencyEdgeClassification;
 use crate::dependency_direction::DependencyEdgeKind;
+use crate::dependency_direction::default_dependency_edge_kinds;
 use crate::dependency_direction::dependency_direction;
 use crate::dependency_direction::dependency_input_from_metadata;
 use crate::diagnostic::Diagnostic;
@@ -477,6 +478,17 @@ fn check_dependency_direction(
     let Some(metadata_source) = sources.iter().find(|source| source.path.ends_with(CARGO_METADATA_SOURCE_PATH)) else {
         return;
     };
+    for kind in unknown_dependency_edge_kinds(&boundary.dependency_edge_kinds) {
+        diagnostics.push(policy_diagnostic(
+            policy,
+            metadata_source,
+            None,
+            &format!(
+                "crate-boundary `dependency_edge_kinds` declares unknown dependency edge kind `{kind}`; expected `normal`, `build`, or `dev`"
+            ),
+            "declare `normal`, `build`, or `dev` edge kinds, or omit the field to inspect normal and build dependencies",
+        ));
+    }
     let metadata = match serde_json::from_str::<CargoMetadata>(&metadata_source.text) {
         Ok(metadata) => metadata,
         Err(error) => {
@@ -504,11 +516,27 @@ fn check_dependency_direction(
     );
 }
 
+/// Resolves the configured edge scope, defaulting to normal and build dependencies when the
+/// configuration names no known kind.
+// r[impl octet.dependency_direction.scope.default]
 fn dependency_edge_kind_set(configured: &[String]) -> BTreeSet<DependencyEdgeKind> {
-    configured
+    let kinds = configured
         .iter()
         .filter_map(|kind| DependencyEdgeKind::from_config_value(kind))
-        .collect::<BTreeSet<_>>()
+        .collect::<BTreeSet<_>>();
+    if kinds.is_empty() {
+        default_dependency_edge_kinds()
+    } else {
+        kinds
+    }
+}
+
+// r[impl octet.dependency_direction.scope.unknown]
+fn unknown_dependency_edge_kinds(configured: &[String]) -> impl Iterator<Item = &str> {
+    configured
+        .iter()
+        .map(String::as_str)
+        .filter(|kind| DependencyEdgeKind::from_config_value(kind).is_none())
 }
 
 fn dependency_direction_diagnostic(
