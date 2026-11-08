@@ -140,13 +140,15 @@ fn validate_measurements(receipt: &DecisionReceipt, profile: &PilotProfile, diag
         .map(|criterion| criterion.criterion_id.clone())
         .collect::<Vec<_>>();
     expected.sort();
+    let mut measured =
+        receipt.measurements.iter().map(|measurement| measurement.criterion_id.clone()).collect::<Vec<_>>();
+    measured.sort();
     if receipt.failed_criteria != expected
-        || receipt.measurements.len() != profile.promotion_criteria.len()
-        || receipt.measurements.iter().any(|measurement| {
-            measurement.passed
-                || measurement.availability != AVAILABILITY_BLOCKED
-                || !expected.contains(&measurement.criterion_id)
-        })
+        || measured != expected
+        || receipt
+            .measurements
+            .iter()
+            .any(|measurement| measurement.passed || measurement.availability != AVAILABILITY_BLOCKED)
     {
         diagnostics.push("MIRAI pilot failed-criterion accounting is incomplete".to_owned());
     }
