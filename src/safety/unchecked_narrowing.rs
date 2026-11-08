@@ -51,7 +51,13 @@ fn narrowing_replacement<'tcx>(cx: &LateContext<'tcx>, inner: &hir::Expr<'tcx>, 
     Some(format!("{}::try_from({inner})?", ty_name(target_ty)))
 }
 
-fn is_target_max_expr<'tcx>(cx: &LateContext<'tcx>, expr: &hir::Expr<'tcx>, target_ty: Ty<'tcx>) -> bool {
+/// Check whether `expr` spells `<target>::<const_name>`, e.g. `u32::MAX`.
+fn is_target_const_expr<'tcx>(
+    cx: &LateContext<'tcx>,
+    expr: &hir::Expr<'tcx>,
+    target_ty: Ty<'tcx>,
+    const_name: &str,
+) -> bool {
     let ExprKind::Path(_) = &expr.kind else {
         return false;
     };
@@ -63,7 +69,7 @@ fn is_target_max_expr<'tcx>(cx: &LateContext<'tcx>, expr: &hir::Expr<'tcx>, targ
     let normalized = snippet.chars().filter(|ch| !ch.is_whitespace()).collect::<String>();
     let target_name = ty_name(target_ty);
 
-    normalized == format!("{target_name}::MAX") || normalized == format!("<{target_name}>::MAX")
+    normalized == format!("{target_name}::{const_name}") || normalized == format!("<{target_name}>::{const_name}")
 }
 
 fn same_checked_expr(lhs: &hir::Expr<'_>, rhs: &hir::Expr<'_>) -> bool {
@@ -84,18 +90,100 @@ fn span_contains(outer: Span, inner: Span) -> bool {
     outer.lo() <= inner.lo() && inner.hi() <= outer.hi()
 }
 
-fn is_target_max_cast_to_source<'tcx>(
+/// Check whether `expr` is `<target>::<const_name> as <source>`.
+fn is_target_const_cast_to_source<'tcx>(
+    cx: &LateContext<'tcx>,
+    expr: &'tcx hir::Expr<'tcx>,
+    source_ty: Ty<'tcx>,
+    target_ty: Ty<'tcx>,
+    const_name: &str,
+) -> bool {
+    matches!(&expr.kind, ExprKind::Cast(const_expr, _) if cx.typeck_results().expr_ty(expr) == source_ty
+        && cx.typeck_results().expr_ty(const_expr) == target_ty
+        && is_target_const_expr(cx, const_expr, target_ty, const_name))
+}
+
+fn is_zero_literal(expr: &hir::Expr<'_>) -> bool {
+    matches!(&expr.kind, ExprKind::Lit(lit) if matches!(lit.node, rustc_ast::LitKind::Int(value, _) if value.get() == 0))
+}
+
+/// Check whether `expr` is a lower bound that keeps the cast in range: `0` or
+/// `<target>::MIN as <source>`.
+fn is_target_lower_bound<'tcx>(
     cx: &LateContext<'tcx>,
     expr: &'tcx hir::Expr<'tcx>,
     source_ty: Ty<'tcx>,
     target_ty: Ty<'tcx>,
 ) -> bool {
-    matches!(&expr.kind, ExprKind::Cast(max_expr, _) if cx.typeck_results().expr_ty(expr) == source_ty
-        && cx.typeck_results().expr_ty(max_expr) == target_ty
-        && is_target_max_expr(cx, max_expr, target_ty))
+    is_zero_literal(expr) || is_target_const_cast_to_source(cx, expr, source_ty, target_ty, "MIN")
 }
 
-fn comparison_true_implies_safe_narrowing<'tcx>(
+/// Range facts proven about the casted expression.
+#[derive(Clone, Copy)]
+struct BoundFacts {
+    /// The value is at most `<target>::MAX`.
+    upper: bool,
+    /// The value is at least `<target>::MIN`.
+    lower: bool,
+}
+
+impl BoundFacts {
+    const BOTH: Self = Self {
+        upper: true,
+        lower: true,
+    };
+    const NONE: Self = Self {
+        upper: false,
+        lower: false,
+    };
+
+    fn union(self, other: Self) -> Self {
+        Self {
+            upper: self.upper || other.upper,
+            lower: self.lower || other.lower,
+        }
+    }
+
+    fn intersection(self, other: Self) -> Self {
+        Self {
+            upper: self.upper && other.upper,
+            lower: self.lower && other.lower,
+        }
+    }
+
+    /// Unsigned sources are never below `<target>::MIN`; signed sources also
+    /// need a proven lower bound or negative values wrap.
+    fn proves_safe_narrowing(self, source_ty: Ty<'_>) -> bool {
+        self.upper && (self.lower || !source_ty.is_signed())
+    }
+}
+
+/// `a op b` rewritten as `b op' a`.
+fn mirrored_comparison(op: hir::BinOpKind) -> hir::BinOpKind {
+    match op {
+        hir::BinOpKind::Lt => hir::BinOpKind::Gt,
+        hir::BinOpKind::Le => hir::BinOpKind::Ge,
+        hir::BinOpKind::Gt => hir::BinOpKind::Lt,
+        hir::BinOpKind::Ge => hir::BinOpKind::Le,
+        other => other,
+    }
+}
+
+/// The comparison that holds when `a op b` is false.
+fn negated_comparison(op: hir::BinOpKind) -> hir::BinOpKind {
+    match op {
+        hir::BinOpKind::Lt => hir::BinOpKind::Ge,
+        hir::BinOpKind::Le => hir::BinOpKind::Gt,
+        hir::BinOpKind::Gt => hir::BinOpKind::Le,
+        hir::BinOpKind::Ge => hir::BinOpKind::Lt,
+        hir::BinOpKind::Eq => hir::BinOpKind::Ne,
+        hir::BinOpKind::Ne => hir::BinOpKind::Eq,
+        other => other,
+    }
+}
+
+/// Facts about `inner` when the comparison `lhs op rhs` holds.
+fn comparison_facts<'tcx>(
     cx: &LateContext<'tcx>,
     op: hir::BinOpKind,
     lhs: &'tcx hir::Expr<'tcx>,
@@ -103,34 +191,22 @@ fn comparison_true_implies_safe_narrowing<'tcx>(
     inner: &'tcx hir::Expr<'tcx>,
     source_ty: Ty<'tcx>,
     target_ty: Ty<'tcx>,
-) -> bool {
-    let inner_on_left_is_bounded = same_checked_expr(lhs, inner)
-        && is_target_max_cast_to_source(cx, rhs, source_ty, target_ty)
-        && matches!(op, hir::BinOpKind::Le | hir::BinOpKind::Lt);
-    let inner_on_right_is_bounded = is_target_max_cast_to_source(cx, lhs, source_ty, target_ty)
-        && same_checked_expr(rhs, inner)
-        && matches!(op, hir::BinOpKind::Ge | hir::BinOpKind::Gt);
+) -> BoundFacts {
+    // Normalize to `inner op bound`.
+    let (op, bound) = if same_checked_expr(lhs, inner) {
+        (op, rhs)
+    } else if same_checked_expr(rhs, inner) {
+        (mirrored_comparison(op), lhs)
+    } else {
+        return BoundFacts::NONE;
+    };
 
-    inner_on_left_is_bounded || inner_on_right_is_bounded
-}
-
-fn comparison_false_implies_safe_narrowing<'tcx>(
-    cx: &LateContext<'tcx>,
-    op: hir::BinOpKind,
-    lhs: &'tcx hir::Expr<'tcx>,
-    rhs: &'tcx hir::Expr<'tcx>,
-    inner: &'tcx hir::Expr<'tcx>,
-    source_ty: Ty<'tcx>,
-    target_ty: Ty<'tcx>,
-) -> bool {
-    let inner_on_left_is_bounded = same_checked_expr(lhs, inner)
-        && is_target_max_cast_to_source(cx, rhs, source_ty, target_ty)
-        && matches!(op, hir::BinOpKind::Ge | hir::BinOpKind::Gt);
-    let inner_on_right_is_bounded = is_target_max_cast_to_source(cx, lhs, source_ty, target_ty)
-        && same_checked_expr(rhs, inner)
-        && matches!(op, hir::BinOpKind::Le | hir::BinOpKind::Lt);
-
-    inner_on_left_is_bounded || inner_on_right_is_bounded
+    BoundFacts {
+        upper: matches!(op, hir::BinOpKind::Le | hir::BinOpKind::Lt)
+            && is_target_const_cast_to_source(cx, bound, source_ty, target_ty, "MAX"),
+        lower: matches!(op, hir::BinOpKind::Ge | hir::BinOpKind::Gt)
+            && is_target_lower_bound(cx, bound, source_ty, target_ty),
+    }
 }
 
 fn is_result_with_ok_type<'tcx>(cx: &LateContext<'tcx>, expr: &'tcx hir::Expr<'tcx>, ok_ty: Ty<'tcx>) -> bool {
@@ -180,105 +256,88 @@ fn exact_try_conversion_guard<'tcx>(
     }
 }
 
-fn condition_true_implies_safe_narrowing<'tcx>(
+/// Facts about `inner` when `cond` evaluates to `holds`.
+fn condition_facts<'tcx>(
     cx: &LateContext<'tcx>,
     cond: &'tcx hir::Expr<'tcx>,
+    holds: bool,
     inner: &'tcx hir::Expr<'tcx>,
     source_ty: Ty<'tcx>,
     target_ty: Ty<'tcx>,
-) -> bool {
+) -> BoundFacts {
     match &cond.kind {
-        ExprKind::Binary(op, lhs, rhs) => match op.node {
-            hir::BinOpKind::And => {
-                condition_true_implies_safe_narrowing(cx, lhs, inner, source_ty, target_ty)
-                    || condition_true_implies_safe_narrowing(cx, rhs, inner, source_ty, target_ty)
+        ExprKind::Binary(op, lhs, rhs) => match (op.node, holds) {
+            // `a && b` holding (or `a || b` failing) means both sides hold (fail).
+            (hir::BinOpKind::And, true) | (hir::BinOpKind::Or, false) => {
+                condition_facts(cx, lhs, holds, inner, source_ty, target_ty)
+                    .union(condition_facts(cx, rhs, holds, inner, source_ty, target_ty))
             }
-            hir::BinOpKind::Or => {
-                condition_true_implies_safe_narrowing(cx, lhs, inner, source_ty, target_ty)
-                    && condition_true_implies_safe_narrowing(cx, rhs, inner, source_ty, target_ty)
+            // `a || b` holding (or `a && b` failing) only proves what both sides prove.
+            (hir::BinOpKind::Or, true) | (hir::BinOpKind::And, false) => {
+                condition_facts(cx, lhs, holds, inner, source_ty, target_ty)
+                    .intersection(condition_facts(cx, rhs, holds, inner, source_ty, target_ty))
             }
-            _ => comparison_true_implies_safe_narrowing(cx, op.node, lhs, rhs, inner, source_ty, target_ty),
+            (op, true) => comparison_facts(cx, op, lhs, rhs, inner, source_ty, target_ty),
+            (op, false) => comparison_facts(cx, negated_comparison(op), lhs, rhs, inner, source_ty, target_ty),
         },
         ExprKind::MethodCall(segment, receiver, args, _) => {
-            args.is_empty()
-                && segment.ident.name.as_str() == "is_ok"
+            let expected = if holds { "is_ok" } else { "is_err" };
+            if args.is_empty()
+                && segment.ident.name.as_str() == expected
                 && exact_try_conversion_guard(cx, receiver, inner, source_ty, target_ty)
+            {
+                BoundFacts::BOTH
+            } else {
+                BoundFacts::NONE
+            }
         }
-        ExprKind::Unary(hir::UnOp::Not, nested) => {
-            condition_false_implies_safe_narrowing(cx, nested, inner, source_ty, target_ty)
-        }
+        ExprKind::Unary(hir::UnOp::Not, nested) => condition_facts(cx, nested, !holds, inner, source_ty, target_ty),
         ExprKind::Block(block, _) => block
             .expr
-            .is_some_and(|tail| condition_true_implies_safe_narrowing(cx, tail, inner, source_ty, target_ty)),
-        _ => false,
+            .map_or(BoundFacts::NONE, |tail| condition_facts(cx, tail, holds, inner, source_ty, target_ty)),
+        _ => BoundFacts::NONE,
     }
 }
 
-fn condition_false_implies_safe_narrowing<'tcx>(
-    cx: &LateContext<'tcx>,
-    cond: &'tcx hir::Expr<'tcx>,
-    inner: &'tcx hir::Expr<'tcx>,
-    source_ty: Ty<'tcx>,
-    target_ty: Ty<'tcx>,
-) -> bool {
-    match &cond.kind {
-        ExprKind::Binary(op, lhs, rhs) => match op.node {
-            hir::BinOpKind::And => {
-                condition_false_implies_safe_narrowing(cx, lhs, inner, source_ty, target_ty)
-                    && condition_false_implies_safe_narrowing(cx, rhs, inner, source_ty, target_ty)
-            }
-            hir::BinOpKind::Or => {
-                condition_false_implies_safe_narrowing(cx, lhs, inner, source_ty, target_ty)
-                    || condition_false_implies_safe_narrowing(cx, rhs, inner, source_ty, target_ty)
-            }
-            _ => comparison_false_implies_safe_narrowing(cx, op.node, lhs, rhs, inner, source_ty, target_ty),
-        },
-        ExprKind::MethodCall(segment, receiver, args, _) => {
-            args.is_empty()
-                && segment.ident.name.as_str() == "is_err"
-                && exact_try_conversion_guard(cx, receiver, inner, source_ty, target_ty)
-        }
-        ExprKind::Unary(hir::UnOp::Not, nested) => {
-            condition_true_implies_safe_narrowing(cx, nested, inner, source_ty, target_ty)
-        }
-        ExprKind::Block(block, _) => block
-            .expr
-            .is_some_and(|tail| condition_false_implies_safe_narrowing(cx, tail, inner, source_ty, target_ty)),
-        _ => false,
-    }
-}
-
-fn is_min_bounded_cast<'tcx>(
+/// Facts proven by clamping the casted expression with `.min(<target>::MAX as
+/// <source>)` and `.max(0 | <target>::MIN as <source>)` before the cast.
+fn clamp_facts<'tcx>(
     cx: &LateContext<'tcx>,
     inner: &'tcx hir::Expr<'tcx>,
     source_ty: Ty<'tcx>,
     target_ty: Ty<'tcx>,
-) -> bool {
-    let ExprKind::MethodCall(segment, receiver, args, _) = &inner.kind else {
-        return false;
+) -> BoundFacts {
+    let ExprKind::MethodCall(segment, receiver, [arg], _) = &inner.kind else {
+        return BoundFacts::NONE;
     };
 
-    if segment.ident.name.as_str() != "min" || args.len() != 1 || cx.typeck_results().expr_ty(receiver) != source_ty {
-        return false;
+    if cx.typeck_results().expr_ty(receiver) != source_ty || cx.typeck_results().expr_ty(arg) != source_ty {
+        return BoundFacts::NONE;
     }
 
-    let arg = &args[0];
-    let ExprKind::Cast(max_expr, _) = &arg.kind else {
-        return false;
+    let clamped = match segment.ident.name.as_str() {
+        "min" if is_target_const_cast_to_source(cx, arg, source_ty, target_ty, "MAX") => BoundFacts {
+            upper: true,
+            lower: false,
+        },
+        "max" if is_target_lower_bound(cx, arg, source_ty, target_ty) => BoundFacts {
+            upper: false,
+            lower: true,
+        },
+        _ => return BoundFacts::NONE,
     };
 
-    cx.typeck_results().expr_ty(arg) == source_ty
-        && cx.typeck_results().expr_ty(max_expr) == target_ty
-        && is_target_max_expr(cx, max_expr, target_ty)
+    clamped.union(clamp_facts(cx, receiver, source_ty, target_ty))
 }
 
-fn has_bounds_guard<'tcx>(
+fn bounds_guard_facts<'tcx>(
     cx: &LateContext<'tcx>,
     expr: &'tcx hir::Expr<'tcx>,
     inner: &'tcx hir::Expr<'tcx>,
     source_ty: Ty<'tcx>,
     target_ty: Ty<'tcx>,
-) -> bool {
+) -> BoundFacts {
+    let mut facts = BoundFacts::NONE;
     for (_, node) in cx.tcx.hir_parent_iter(expr.hir_id) {
         match node {
             hir::Node::Expr(parent) => {
@@ -286,50 +345,30 @@ fn has_bounds_guard<'tcx>(
                     continue;
                 };
 
-                if span_contains(then_expr.span, expr.span)
-                    && condition_true_implies_safe_narrowing(cx, cond, inner, source_ty, target_ty)
-                {
-                    return true;
+                if span_contains(then_expr.span, expr.span) {
+                    facts = facts.union(condition_facts(cx, cond, true, inner, source_ty, target_ty));
                 }
 
-                if else_expr.is_some_and(|branch| span_contains(branch.span, expr.span))
-                    && condition_false_implies_safe_narrowing(cx, cond, inner, source_ty, target_ty)
-                {
-                    return true;
+                if else_expr.is_some_and(|branch| span_contains(branch.span, expr.span)) {
+                    facts = facts.union(condition_facts(cx, cond, false, inner, source_ty, target_ty));
                 }
             }
             hir::Node::Item(_) | hir::Node::ImplItem(_) | hir::Node::TraitItem(_) => break,
             _ => {}
         }
     }
-    false
+    facts
 }
 
-fn is_assert_bounds_condition<'tcx>(
-    cx: &LateContext<'tcx>,
-    cond: &'tcx hir::Expr<'tcx>,
-    inner: &'tcx hir::Expr<'tcx>,
-    source_ty: Ty<'tcx>,
-    target_ty: Ty<'tcx>,
-) -> bool {
-    let ExprKind::Unary(hir::UnOp::Not, checked) = &cond.kind else {
-        return false;
-    };
-
-    let ExprKind::Binary(op, lhs, rhs) = &checked.kind else {
-        return false;
-    };
-
-    comparison_true_implies_safe_narrowing(cx, op.node, lhs, rhs, inner, source_ty, target_ty)
-}
-
-fn has_prior_same_block_assert<'tcx>(
+/// Facts proven by earlier `assert!` statements in the innermost enclosing block.
+fn prior_same_block_assert_facts<'tcx>(
     cx: &LateContext<'tcx>,
     expr: &'tcx hir::Expr<'tcx>,
     inner: &'tcx hir::Expr<'tcx>,
     source_ty: Ty<'tcx>,
     target_ty: Ty<'tcx>,
-) -> bool {
+) -> BoundFacts {
+    let mut facts = BoundFacts::NONE;
     for (_, node) in cx.tcx.hir_parent_iter(expr.hir_id) {
         match node {
             hir::Node::Block(block) => {
@@ -361,19 +400,18 @@ fn has_prior_same_block_assert<'tcx>(
                         continue;
                     }
 
-                    if is_assert_bounds_condition(cx, cond, inner, source_ty, target_ty) {
-                        return true;
-                    }
+                    // `assert!(cond)` lowers to `if !cond { panic }`, so code after it sees `!cond` false.
+                    facts = facts.union(condition_facts(cx, cond, false, inner, source_ty, target_ty));
                 }
 
-                return false;
+                return facts;
             }
             hir::Node::Item(_) | hir::Node::ImplItem(_) | hir::Node::TraitItem(_) => break,
             _ => {}
         }
     }
 
-    false
+    facts
 }
 
 /// Check if the cast is inside an `#[allow(clippy::cast_possible_truncation)]` block.
@@ -425,14 +463,11 @@ impl<'tcx> LateLintPass<'tcx> for UncheckedNarrowing {
             return;
         }
 
-        if is_min_bounded_cast(cx, inner, source_ty, target_ty) {
-            return;
-        }
-
-        // Skip if inside a bounds-checking guard
-        if has_bounds_guard(cx, expr, inner, source_ty, target_ty)
-            || has_prior_same_block_assert(cx, expr, inner, source_ty, target_ty)
-        {
+        // Skip if clamped before the cast or inside bounds-checking guards
+        let facts = clamp_facts(cx, inner, source_ty, target_ty)
+            .union(bounds_guard_facts(cx, expr, inner, source_ty, target_ty))
+            .union(prior_same_block_assert_facts(cx, expr, inner, source_ty, target_ty));
+        if facts.proves_safe_narrowing(source_ty) {
             return;
         }
 
