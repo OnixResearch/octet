@@ -92,26 +92,70 @@ fn item_is_harness_test_fn(cx: &LateContext<'_>, item: &hir::Item<'_>) -> bool {
         return false;
     }
 
-    let parent = cx.tcx.local_parent(item.owner_id.def_id);
-    cx.tcx.hir_module_free_items(cx.tcx.parent_module_from_def_id(item.owner_id.def_id)).any(|id| {
-        let candidate = cx.tcx.hir_item(id);
-        matches!(candidate.kind, hir::ItemKind::Const(marker_ident, ..) if marker_ident.name == ident.name)
-            && cx.tcx.local_parent(candidate.owner_id.def_id) == parent
-            && find_attr!(cx.tcx.hir_attrs(candidate.hir_id()), AttributeKind::RustcTestMarker(..))
+    let def_id = item.owner_id.def_id;
+    let marker = (cx.tcx.local_parent(def_id), ident.name);
+    let module = cx.tcx.parent_module_from_def_id(def_id);
+    let session = HarnessMarkerSession {
+        crate_id: cx.tcx.stable_crate_id(rustc_span::def_id::LOCAL_CRATE),
+        session_address: std::ptr::from_ref(cx.sess()).addr(),
+    };
+    HARNESS_MARKERS.with_borrow_mut(|cache| {
+        if cache.session != Some(session) {
+            *cache = HarnessMarkerCache {
+                session: Some(session),
+                modules: std::collections::HashMap::new(),
+            };
+        }
+        cache.modules.entry(module).or_insert_with(|| module_harness_markers(cx, module)).contains(&marker)
     })
 }
 
+/// `(parent, name)` of every `#[rustc_test_marker]` const directly in one module.
+type HarnessMarkers = std::collections::HashSet<(rustc_span::def_id::LocalDefId, rustc_span::Symbol)>;
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+struct HarnessMarkerSession {
+    crate_id: rustc_span::def_id::StableCrateId,
+    session_address: usize,
+}
+
+#[derive(Default)]
+struct HarnessMarkerCache {
+    session: Option<HarnessMarkerSession>,
+    modules: std::collections::HashMap<rustc_span::def_id::LocalModDefId, HarnessMarkers>,
+}
+
+// Lints run the test-context walk for most expressions. Rescanning every item of
+// the enclosing module on each call made `--test` builds quadratic in module size,
+// so each module's markers are collected once per compiler session.
+std::thread_local! {
+    static HARNESS_MARKERS: std::cell::RefCell<HarnessMarkerCache> =
+        std::cell::RefCell::new(HarnessMarkerCache::default());
+}
+
+fn module_harness_markers(cx: &LateContext<'_>, module: rustc_span::def_id::LocalModDefId) -> HarnessMarkers {
+    cx.tcx
+        .hir_module_free_items(module)
+        .filter_map(|id| {
+            let candidate = cx.tcx.hir_item(id);
+            let hir::ItemKind::Const(marker_ident, ..) = candidate.kind else {
+                return None;
+            };
+            find_attr!(cx.tcx.hir_attrs(candidate.hir_id()), AttributeKind::RustcTestMarker(..))
+                .then(|| (cx.tcx.local_parent(candidate.owner_id.def_id), marker_ident.name))
+        })
+        .collect()
+}
+
 pub(crate) fn item_span_indicates_test(sess: &Session, span: Span) -> bool {
-    let source_map = sess.source_map();
-    let Ok(lines) = source_map.span_to_lines(span) else {
-        return false;
-    };
-    let Some(first_line_idx) = lines.lines.first().map(|line| line.line_index) else {
+    // Only the lines above the item matter. `span_to_lines` would materialize
+    // every line of the item (a whole module for `mod tests`) on each call.
+    let Ok(start) = sess.source_map().lookup_line(span.lo()) else {
         return false;
     };
 
-    for idx in (0..first_line_idx).rev() {
-        let Some(line) = lines.file.get_line(idx) else {
+    for idx in (0..start.line).rev() {
+        let Some(line) = start.sf.get_line(idx) else {
             continue;
         };
         let trimmed = line.trim();
