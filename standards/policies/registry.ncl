@@ -696,11 +696,15 @@ in
       status = "existing",
       positive_fixtures = [
         "standards/evidence/fixtures/valid/finding_v2.ncl",
+        "standards/evidence/fixtures/valid/finding_v2_null_suggestion.ncl",
         "standards/evidence/fixtures/valid/provenance_record_v1.ncl",
+        "cargo-octet/src/evidence_contracts.rs::emitted_findings_satisfy_generated_finding_contract",
+        "cargo-octet/src/evidence_contracts.rs::emitted_rail_receipts_satisfy_generated_receipt_contract",
       ],
       negative_fixtures = [
         "standards/evidence/fixtures/invalid/finding_missing_lint.ncl",
         "standards/evidence/fixtures/invalid/finding_wrong_type.ncl",
+        "standards/evidence/fixtures/invalid/finding_suggestion_wrong_type.ncl",
         "standards/evidence/fixtures/invalid/provenance_bad_schema.ncl",
         "standards/evidence/fixtures/invalid/provenance_bad_tier.ncl",
       ],
