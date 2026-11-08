@@ -96,6 +96,7 @@ struct RawFunction {
     body: Option<Value>,
     signature: Value,
     local_calls: Vec<u64>,
+    unresolved_calls: Vec<&'static str>,
     unknown_statement_kinds: Vec<String>,
 }
 
@@ -541,11 +542,14 @@ fn project_raw_functions(
         });
         let statement_count = body.as_ref().map_or(0, statement_count);
         let mut local_calls = Vec::new();
+        let mut unresolved_calls = Vec::new();
         if let Some(body) = &body {
-            collect_local_calls(body, &mut local_calls);
+            collect_calls(body, &mut local_calls, &mut unresolved_calls);
         }
         local_calls.sort_unstable();
         local_calls.dedup();
+        unresolved_calls.sort_unstable();
+        unresolved_calls.dedup();
         let mut unknown_statement_kinds = Vec::new();
         if let Some(body) = &body {
             collect_unknown_statement_kinds(body, &mut unknown_statement_kinds);
@@ -577,6 +581,7 @@ fn project_raw_functions(
             body,
             signature: function.get("signature").cloned().unwrap_or(Value::Null),
             local_calls,
+            unresolved_calls,
             unknown_statement_kinds,
         });
     }
@@ -718,6 +723,18 @@ fn normalize_functions(
                 kind: "item-dependency".to_owned(),
             });
         }
+        for callee in &function.unresolved_calls {
+            candidates.push(EffectCandidate {
+                item: function.qualified_name.clone(),
+                candidate: "unknown-call".to_owned(),
+                evidence: format!("unresolved call through {callee}"),
+            });
+            unknowns.push(UnknownFact {
+                item: function.qualified_name.clone(),
+                fact: "local-call".to_owned(),
+                reason: format!("call through {callee} does not resolve to a local function"),
+            });
+        }
         if function.signature.pointer("/is_unsafe").and_then(Value::as_bool) == Some(true) {
             candidates.push(EffectCandidate {
                 item: function.qualified_name.clone(),
@@ -777,26 +794,41 @@ fn statement_count(value: &Value) -> u64 {
     }
 }
 
-fn collect_local_calls(value: &Value, calls: &mut Vec<u64>) {
+fn collect_calls(value: &Value, local_calls: &mut Vec<u64>, unresolved_calls: &mut Vec<&'static str>) {
     match value {
         Value::Array(values) => {
             for value in values {
-                collect_local_calls(value, calls);
+                collect_calls(value, local_calls, unresolved_calls);
             }
         }
         Value::Object(values) => {
-            let call_id = values
-                .get("Call")
-                .and_then(|call| call.pointer("/call/func/Regular/kind/Fun/Regular"))
-                .and_then(Value::as_u64);
-            if let Some(id) = call_id {
-                calls.push(id);
+            if let Some(call) = values.get("Call") {
+                let func = call.pointer("/call/func");
+                match func.and_then(|func| func.pointer("/Regular/kind/Fun/Regular")).and_then(Value::as_u64) {
+                    Some(id) => local_calls.push(id),
+                    None => unresolved_calls.push(unresolved_callee(func)),
+                }
             }
             for value in values.values() {
-                collect_local_calls(value, calls);
+                collect_calls(value, local_calls, unresolved_calls);
             }
         }
         _ => {}
+    }
+}
+
+fn unresolved_callee(func: Option<&Value>) -> &'static str {
+    let Some(func) = func else {
+        return "an unrecognized callee";
+    };
+    if func.get("Dynamic").is_some() {
+        "a function pointer"
+    } else if func.pointer("/Regular/kind/Trait").is_some() {
+        "a trait method"
+    } else if func.pointer("/Regular/kind/Fun/Builtin").is_some() {
+        "a builtin function"
+    } else {
+        "an unrecognized callee"
     }
 }
 
@@ -1028,13 +1060,15 @@ mod tests {
     }
 
     fn add_call(snapshot: &mut Value, target_id: u64) {
+        add_call_through(snapshot, &serde_json::json!({ "Regular": { "kind": { "Fun": { "Regular": target_id } } } }));
+    }
+
+    fn add_call_through(snapshot: &mut Value, func: &Value) {
         snapshot["translated"]["fun_decls"][0]["body"]["Structured"]["body"]["statements"] = serde_json::json!([{
             "id": 0,
             "kind": {
                 "Call": {
-                    "call": {
-                        "func": { "Regular": { "kind": { "Fun": { "Regular": target_id } } } }
-                    }
+                    "call": { "func": func }
                 }
             }
         }]);
@@ -1074,6 +1108,44 @@ mod tests {
         add_call(&mut value, MISSING_CALL_ID);
         let diagnostics = analyze_snapshot(&profile, &rendered(&value)).expect_err("missing call endpoint must fail");
         assert!(diagnostics.iter().any(|diagnostic| diagnostic.contains("missing function def_id")));
+    }
+
+    #[test]
+    fn records_unresolved_calls_as_unknown() {
+        let profile = profile();
+        let callees = [
+            (serde_json::json!({ "Dynamic": { "Move": { "kind": { "Local": 1 } } } }), "function pointer"),
+            (
+                serde_json::json!({ "Regular": { "kind": { "Trait": [{ "kind": { "Clause": 0 } }, "method"] } } }),
+                "trait method",
+            ),
+            (serde_json::json!({ "Regular": { "kind": { "Fun": { "Builtin": "BoxNew" } } } }), "builtin function"),
+        ];
+        for (func, label) in callees {
+            let mut value = snapshot();
+            add_call_through(&mut value, &func);
+            let output = analyze_snapshot(&profile, &rendered(&value)).expect("unresolved call remains recorded");
+            assert_eq!(output.analysis.status, "unknown", "{label}");
+            assert!(output.projection.edges.is_empty(), "{label}");
+            assert!(
+                output
+                    .analysis
+                    .effect_candidates
+                    .iter()
+                    .any(|candidate| candidate.candidate == "unknown-call" && candidate.evidence.contains(label)),
+                "{label}: {:?}",
+                output.analysis.effect_candidates
+            );
+            assert!(
+                output
+                    .analysis
+                    .unknowns
+                    .iter()
+                    .any(|unknown| unknown.fact == "local-call" && unknown.reason.contains(label)),
+                "{label}: {:?}",
+                output.analysis.unknowns
+            );
+        }
     }
 
     #[test]
