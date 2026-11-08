@@ -1215,6 +1215,39 @@ fn fingerprint_markers_that_bind_to_no_function_fail_check_and_block_rewrites() 
 }
 
 #[test]
+fn fingerprint_macro_calls_anywhere_in_the_item_need_macro_review() {
+    for (item, macro_calls) in [
+        ("#[doc = include_str!(\"f.md\")]\npub fn attribute_macro() -> u32 { 1 }\n", true),
+        ("pub fn signature_macro(bytes: [u8; width!()]) -> u32 { bytes.len() as u32 }\n", true),
+        ("pub fn body_macro() -> u32 { width!() }\n", true),
+        ("#[doc = \"include_str!(f.md)\"]\npub fn quoted_macro_text() -> u32 { 1 }\n", false),
+        ("#[inline]\npub fn no_macro(bytes: [u8; 4]) -> u32 { u32::from_le_bytes(bytes) }\n", false),
+    ] {
+        let temp = tempfile::tempdir().expect("create tempdir");
+        let fixture = temp.path().join("lib.rs");
+        fs::write(&fixture, format!("// octet-fingerprint: b3:; review=R-1; evidence=E-1\n{item}")).expect("write");
+        let (code, _, stderr) = run_octet(temp.path(), &["fingerprint", "--update", "lib.rs"]);
+        assert_eq!(code, Some(0), "{stderr}");
+        let reviewed = fs::read_to_string(&fixture).expect("read updated fixture");
+        assert_eq!(reviewed.contains("macro=review-required"), macro_calls, "{reviewed}");
+
+        let (code, stdout, _) = run_octet(temp.path(), &["fingerprint", "--check", "--output-format=json", "lib.rs"]);
+        let record = &parse_json(&stdout, "--check")["records"][0];
+        assert_eq!(
+            (record["macro_calls"].as_bool(), record["macro_warning"].as_bool()),
+            (Some(macro_calls), Some(macro_calls))
+        );
+        assert_eq!(code, Some(i32::from(macro_calls)), "{item}");
+
+        let (code, stdout, stderr) = run_octet(temp.path(), &["object", "emit", "--output-format=json", "lib.rs"]);
+        assert_eq!(code, Some(0), "{stderr}");
+        let object = &parse_json(&stdout, "object emit")["objects"][0];
+        let macro_expansion = object["caveat_summary"]["macro_expansion"].as_str().expect("macro caveat summary");
+        assert_eq!(macro_expansion != "none-detected", macro_calls, "{item}: {object}");
+    }
+}
+
+#[test]
 fn fingerprint_json_records_report_stored_and_computed_hashes_across_drift() {
     let temp = tempfile::tempdir().expect("create tempdir");
     let fixture = temp.path().join("reviewed.rs");

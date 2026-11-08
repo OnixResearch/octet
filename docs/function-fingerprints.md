@@ -54,8 +54,9 @@ and change identity, particularly inside macro inputs. Signature, attribute,
 visibility, or body token changes also change the hash. String,
 raw-string, byte, and character literals are hashed whole, so any change inside a
 literal changes the hash, and a `//` inside a literal does not hide the code after
-it. Macro calls produce a review warning unless the marker records an explicit
-macro review allowance such as `macro=allow`.
+it. Macro calls anywhere in the item, including attributes such as
+`#[doc = include_str!("f.md")]` and the signature, produce a review warning unless
+the marker records an explicit macro review allowance such as `macro=allow`.
 
 Marker hashes are version 2: a version tag is hashed ahead of the tokens. Markers
 written before version 2 never match, even for an unchanged function, so they fail

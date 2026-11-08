@@ -124,6 +124,8 @@ pub(crate) struct FunctionSpan {
     /// Contiguous octet marker lines directly above the item, in code; see
     /// [`marker_lines`]. Empty when the item has no markers.
     pub(crate) marker_block: Range<usize>,
+    /// Whether the item, including its attributes and signature, calls a
+    /// macro. The whole item is hashed, so a macro anywhere in it needs review.
     pub(crate) macro_calls: bool,
 }
 
@@ -535,14 +537,13 @@ pub(crate) fn find_functions(source: &str) -> Vec<FunctionSpan> {
             .filter(|line| FINGERPRINT_MARKER_PREFIXES.iter().any(|prefix| line.text.starts_with(prefix)))
             .last()
             .map(|line| parse_marker(line.text, line.start, line.end));
-        let body = &source[open_brace..end];
         spans.push(FunctionSpan {
             name: source[name_start..name_end].to_owned(),
             start: item_start,
             end,
             marker,
             marker_block,
-            macro_calls: contains_macro_call(body),
+            macro_calls: code_contains_macro_call(&code[item_start..end]),
         });
         cursor = end;
     }
@@ -1309,8 +1310,12 @@ impl<'a> Iterator for SourceTokens<'a> {
 fn contains_macro_call(source: &str) -> bool {
     // Comments and literals are blanked, so quoted or commented text cannot
     // add a macro call and a quoted `//` cannot hide one.
-    let code = code_view(source);
-    code.match_indices('!').any(|(bang, _)| invokes_macro(&code, bang))
+    code_contains_macro_call(&code_view(source))
+}
+
+/// [`contains_macro_call`] over text already in the [`code_view`] form.
+fn code_contains_macro_call(code: &str) -> bool {
+    code.match_indices('!').any(|(bang, _)| invokes_macro(code, bang))
 }
 
 /// Strict keywords in every edition plus keywords reserved since Rust 1.0. None
