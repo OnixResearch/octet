@@ -324,9 +324,27 @@ fn fingerprint_record_stable_id(record: &FunctionRecord) -> String {
     record.semantic_id.clone()
 }
 
+/// Collects the Rust files a user-named path selects. The named path must
+/// exist and be a directory or a `.rs` file, so a typo cannot pass as an
+/// empty scope; entries found while recursing are filtered silently.
 pub(crate) fn collect_rust_files(path: &Path, files: &mut Vec<PathBuf>) -> Result<(), String> {
+    if !path.exists() {
+        return Err(format!("source path `{}` does not exist", path.display()));
+    }
+    let is_scope = path.is_dir() || (path.is_file() && is_rust_file(path));
+    if !is_scope {
+        return Err(format!("source path `{}` is not a Rust source file or directory", path.display()));
+    }
+    collect_rust_entries(path, files)
+}
+
+fn is_rust_file(path: &Path) -> bool {
+    path.extension().is_some_and(|ext| ext == "rs")
+}
+
+fn collect_rust_entries(path: &Path, files: &mut Vec<PathBuf>) -> Result<(), String> {
     if path.is_file() {
-        if path.extension().is_some_and(|ext| ext == "rs") {
+        if is_rust_file(path) {
             files.push(path.to_path_buf());
         }
         return Ok(());
@@ -338,7 +356,7 @@ pub(crate) fn collect_rust_files(path: &Path, files: &mut Vec<PathBuf>) -> Resul
             if child.file_name().is_some_and(|name| name == "target" || name == ".git") {
                 continue;
             }
-            collect_rust_files(&child, files)?;
+            collect_rust_entries(&child, files)?;
         }
     }
     Ok(())
@@ -1243,6 +1261,23 @@ mod tests {
     #[test]
     fn token_changes_update_hash() {
         assert_ne!(source_hash("fn f() -> u32 { 1 }"), source_hash("fn f() -> u32 { 2 }"));
+    }
+
+    #[test]
+    fn named_scope_must_exist_and_be_rust_but_directory_entries_may_be_skipped() {
+        let temp = tempfile::tempdir().expect("create tempdir");
+        let src = temp.path().join("src");
+        std::fs::create_dir(&src).expect("create src");
+        std::fs::write(src.join("lib.rs"), "fn f() {}\n").expect("write rust source");
+        std::fs::write(src.join("notes.txt"), "fn g() {}\n").expect("write non-rust entry");
+
+        let mut files = Vec::new();
+        super::collect_rust_files(&src, &mut files).expect("directory scope");
+        assert_eq!(files, [src.join("lib.rs")]);
+        for named in ["srcc", "src/tpyo.rs", "src/notes.txt"] {
+            let result = super::collect_rust_files(&temp.path().join(named), &mut files);
+            assert!(result.as_ref().is_err_and(|error| error.contains(named)), "{named}: {result:?}");
+        }
     }
 
     #[test]

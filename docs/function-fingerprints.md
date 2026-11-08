@@ -255,3 +255,9 @@ does not claim complete Rust syntax coverage.
 Directory inputs are traversed recursively across Rust files. Non-write modes gate
 only marked functions, so large `#[cfg(test)]` modules or helper functions are not
 pulled into the gate unless they have markers.
+
+Every path named on the command line must exist and be a directory or a `.rs`
+file; otherwise the command fails before scanning, so a mistyped scope cannot pass
+as an empty one. The same rule applies to `cargo octet object` source paths and to
+`--function-address-path` scopes. Non-Rust files found inside a directory are
+skipped.

@@ -418,6 +418,28 @@ pub fn label() -> &'static str {
 }
 
 #[test]
+fn fingerprint_and_object_reject_missing_or_non_rust_named_paths() {
+    let temp = tempfile::tempdir().expect("create tempdir");
+    write_consumer_fixture(temp.path());
+    fs::write(temp.path().join("src/notes.txt"), "fn f() {}\n").expect("write non-rust file");
+    for (args, named) in [
+        (&["fingerprint", "--check", "srcc"][..], "srcc"),
+        (&["fingerprint", "--check", "src/notes.txt"][..], "src/notes.txt"),
+        (&["object", "check", "src/tpyo.rs"][..], "src/tpyo.rs"),
+        (&["object", "emit", "src/notes.txt"][..], "src/notes.txt"),
+    ] {
+        let output = Command::new(cargo_octet())
+            .args(args)
+            .current_dir(temp.path())
+            .output()
+            .expect("run named-path command");
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert_eq!(output.status.code(), Some(2), "{args:?} stderr={stderr}");
+        assert!(stderr.contains(named), "{args:?} stderr={stderr}");
+    }
+}
+
+#[test]
 fn fingerprint_markers_without_a_hash_are_missing_and_fail_check() {
     let temp = tempfile::tempdir().expect("create tempdir");
     let fixture = temp.path().join("reviewed.rs");

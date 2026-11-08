@@ -1250,6 +1250,23 @@ mod tests {
     }
 
     #[test]
+    fn named_scope_that_is_missing_or_not_rust_fails_instead_of_checking_nothing() {
+        let temp = TempDir::new().expect("temp dir");
+        std::fs::write(temp.path().join("notes.txt"), "fn f() -> u32 { 1 }\n").expect("write non-rust file");
+        for named in ["typo", "notes.txt"] {
+            let check = FunctionAddressCheck {
+                mode: FunctionAddressMode::Deny,
+                paths: vec![PathBuf::from(named)],
+                baseline: None,
+            };
+            let Err(error) = collect_run(&check, temp.path(), "config") else {
+                panic!("{named} must not pass as an empty function-address scope");
+            };
+            assert!(error.contains(named), "{named}: {error}");
+        }
+    }
+
+    #[test]
     fn macro_context_gets_unsupported_finding() {
         let temp = TempDir::new().expect("temp dir");
         let source = temp.path().join("lib.rs");
