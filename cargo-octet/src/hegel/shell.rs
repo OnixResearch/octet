@@ -209,6 +209,10 @@ fn explicit_environment(
         ("LD_LIBRARY_PATH".into(), tools.library_path.clone()),
         ("CI".into(), "1".into()),
         ("OCTET_HEGEL_OUTPUT".into(), workspace_root.join(&profile.summary_path).into_os_string()),
+        (
+            "OCTET_HEGEL_COUNTEREXAMPLE".into(),
+            workspace_root.join(&profile.counterexample_path).into_os_string(),
+        ),
         ("OCTET_HEGEL_PROFILE_IDENTITY".into(), PROFILE_IDENTITY.into()),
         ("OCTET_HEGEL_SOURCE_IDENTITY".into(), measured.source_manifest_identity.clone().into()),
         ("OCTET_HEGEL_GENERATOR_IDENTITY".into(), measured.generator_manifest_identity.clone().into()),
