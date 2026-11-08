@@ -14,6 +14,10 @@ baselines and warning budgets can see new stable IDs; refresh them deliberately.
 - Crash: `zero_alloc_attr_contract` no longer panics rustc when a
   `#[zero_alloc]` function contains an array type such as `[u8; 4]`, a repeat
   expression, or a statement-level `const`.
+- Lints that skip test code (`no_panic`, `no_todo`, `no_unwrap`, ...) also skip
+  `#[cfg(test)]` methods in `impl` and `trait` blocks. `no_todo` checks for an
+  allow attribute before the test-context walk, which made it about 5x faster
+  on a generated 6000-function module under `--test`, with identical output.
 - `no_panic` and `no_todo` identify panic-family macros by definition, so
   zero-argument `panic!()`, `unreachable!()`, `unimplemented!()`, `todo!()`
   and path-qualified forms such as `std::panic!("…")` are reported, and
@@ -96,6 +100,9 @@ applies the same rule as `check`: only a new, empty, or earlier evidence bundle
   receipt now re-derives admission facts (no unknown call edges, closures
   within the allowed effects and containing each callee's closure), so a
   denied receipt cannot be relabelled admitted by dropping its diagnostics.
+  The recorded admission dependency graph now receives the checked build's
+  `--manifest-path`, `--config`, `-F`/`--features`, `--offline` and `--frozen`
+  arguments, and a value flag without its value is an error.
 - `cargo octet prove` drains verifier output while the verifier runs, within
   the rail's log limits, and kills the verifier's process group. Verbose
   verifiers no longer report false timeouts, and leftover background processes
@@ -123,6 +130,14 @@ silently. The FCIS crate-boundary checks parse Cargo dependency tables:
 Declared crate paths match on whole path components, so `core/Cargo.toml` no
 longer matches `crates/hardcore/Cargo.toml`, and capability handler coverage
 markers must appear as whole words, so `token` no longer counts as `ok`.
+
+`octet-standards check --execute-proof-rails` writes the executed receipt to
+the rail's `receipt_paths` and removes committed receipts matching them, so a
+failing proof command can no longer pass on a valid checked-in receipt. Rails
+that configure `verifier_nix_closure_graph_paths` fail when those paths match no
+checked artifact or the matched graph is malformed, instead of accepting the
+configured digest; the bundled deterministic-effect-handlers rail now points at
+`standards/check-fixtures/verification/*/proof-nix-closure.graph`.
 
 ## Unreleased: Cargo plans with build-script dependency copies
 
