@@ -80,8 +80,7 @@ fn has_unit_suffix(name: &str) -> bool {
 }
 
 fn has_domain_word(name: &str) -> bool {
-    let lower = name.to_ascii_lowercase();
-    DOMAIN_WORDS.iter().any(|word| lower.contains(word))
+    crate::naming::identifier_words::identifier_has_word(name, DOMAIN_WORDS)
 }
 
 fn is_conventional_literal(lit: &hir::Lit) -> bool {
@@ -269,5 +268,8 @@ mod tests {
         assert!(has_domain_word("connection_threshold"));
         assert!(!has_unit_suffix("attempt"));
         assert!(!has_domain_word("value"));
+        assert!(has_domain_word("RETRY_LIMIT"));
+        assert!(!has_domain_word("report_lines"));
+        assert!(!has_domain_word("transport_count"));
     }
 }

@@ -60,5 +60,19 @@ help: rename with an explicit unit suffix like `_ms`, `_secs`, or `_bytes`
 LL | fn schedule(delay_<unit>: u64) -> u64 {
    |                  +++++++
 
-warning: 4 warnings emitted
+warning: `connect_timeout` looks like a raw numeric quantity but has no unit suffix
+  --> $DIR/numeric_units.rs:69:9
+   |
+LL |     let connect_timeout = 30_u64;
+   |         ^^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Unit Suffixes): use a nominal unit type or put the unit in the name of raw numeric quantities Example: timeout_ms
+   = note: structured suggestion applicability: HasPlaceholders
+   = note: see Tiger Style guide: Unit Suffixes
+help: rename with an explicit unit suffix like `_ms`, `_secs`, or `_bytes`
+   |
+LL |     let connect_timeout_<unit> = 30_u64;
+   |                        +++++++
+
+warning: 5 warnings emitted
 

@@ -32,6 +32,19 @@ fn unit_bearing_binding() {
     sleep_ms(retry_delay_ms);
 }
 
+fn embedded_domain_words(report_lines: u32, transport_count: u32) {
+    // Should NOT warn: `port` inside `report`/`transport` is not a policy name.
+    if report_lines > 40 || transport_count > 3 {
+        reconnect();
+    }
+}
+
+fn whole_word_domain_name(retry_attempts: u32) {
+    if retry_attempts > 5 {
+        reconnect();
+    }
+}
+
 #[test]
 fn test_context_suppressed() {
     assert_eq!(30_000, 30_000);

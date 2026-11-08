@@ -51,6 +51,25 @@ fn typed_local() {
     let _ = limits.timeout.0;
 }
 
+struct Endpoint {
+    // Should NOT warn: a port number is an identifier, not a unit-bearing quantity.
+    port: u16,
+}
+
+fn embedded_words() {
+    // Should NOT warn: quantity words only count as whole `_`-separated words.
+    let proportion = 0.25_f64;
+    let report_lines = 40_u32;
+    let transport_count = 3_u32;
+    let _ = (proportion, report_lines, transport_count);
+}
+
+fn whole_word_quantity() {
+    // Should warn: `timeout` is a whole word in the name.
+    let connect_timeout = 30_u64;
+    let _ = connect_timeout;
+}
+
 fn main() {
     bare_timeout();
     suffixed_timeout();
@@ -61,4 +80,8 @@ fn main() {
     };
     let _ = raw.timeout;
     typed_local();
+    let endpoint = Endpoint { port: 8080 };
+    let _ = endpoint.port;
+    embedded_words();
+    whole_word_quantity();
 }

@@ -20,9 +20,9 @@ pub struct NumericUnits;
 
 rustc_session::impl_lint_pass!(NumericUnits => [NUMERIC_UNITS]);
 
-/// Words that imply a measurable quantity.
+/// Words that imply a measurable quantity, matched as whole identifier words.
 const QUANTITY_WORDS: &[&str] = &[
-    "timeout", "delay", "duration", "interval", "latency", "size", "length", "capacity", "limit", "offset", "port",
+    "timeout", "delay", "duration", "interval", "latency", "size", "length", "capacity", "limit", "offset",
 ];
 
 /// Unit suffixes that resolve ambiguity.
@@ -34,8 +34,7 @@ const UNIT_SUFFIXES: &[&str] = &[
 const SKIP_NAMES: &[&str] = &["i", "j", "k", "n", "count", "index", "idx", "len"];
 
 fn has_quantity_word(name: &str) -> bool {
-    let lower = name.to_ascii_lowercase();
-    QUANTITY_WORDS.iter().any(|w| lower.contains(w))
+    crate::naming::identifier_words::identifier_has_word(name, QUANTITY_WORDS)
 }
 
 fn has_unit_suffix(name: &str) -> bool {
@@ -138,5 +137,13 @@ mod tests {
     fn typed_quantities_and_non_quantities_are_accepted() {
         assert!(!should_report_quantity("timeout", false));
         assert!(!should_report_quantity("attempts", true));
+    }
+
+    #[test]
+    fn quantity_words_match_whole_words_only() {
+        assert!(should_report_quantity("connect_timeout", true));
+        assert!(!should_report_quantity("proportion", true));
+        assert!(!should_report_quantity("report_lines", true));
+        assert!(!should_report_quantity("port", true));
     }
 }
