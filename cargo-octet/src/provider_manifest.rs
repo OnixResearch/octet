@@ -23,6 +23,7 @@ const RUSTC_RELEASE_KEY: &str = "release";
 const RUSTC_COMMIT_HASH_KEY: &str = "commit-hash";
 const UNKNOWN_IDENTITY: &str = "unknown";
 const LINT_LEVEL_ALLOW: &str = "allow";
+const LINT_NAMESPACE_SEPARATOR: &str = "::";
 #[cfg(unix)]
 const EXECUTABLE_MODE_BITS: u32 = 0o111;
 const REQUIRED_WAIVER_FIELDS: &[&str] = &[
@@ -151,7 +152,7 @@ pub fn build_manifest(input: ManifestInput<'_>) -> Result<ProviderManifest, Stri
         config: artifact_identity(input.config)?,
         standards_policy: input.standards_policy.map(artifact_identity).transpose()?,
         required_environment,
-        required_lints: sorted_unique(input.required_lints),
+        required_lints: sorted_unique(input.required_lints.into_iter().map(canonical_required_lint).collect()),
         disabled_lints,
         waiver_contract: default_waiver_contract(),
         claims: vec![CLAIM_CONFIGURED_PROFILE_COMPLIANCE.to_owned()],
@@ -350,11 +351,31 @@ fn validate_required_lints(manifest: &ProviderManifest, issues: &mut Vec<String>
     if manifest.required_lints.is_empty() {
         issues.push("required_lints must not be empty for artifact profiles".to_owned());
     }
-    for disabled in &manifest.disabled_lints {
-        if manifest.required_lints.iter().any(|required| required == disabled) {
-            issues.push(format!("required lint `{disabled}` is disabled by config"));
+    for required in &manifest.required_lints {
+        let Some(lint) = inventory_lint_name(required) else {
+            issues.push(format!("required lint `{required}` is not an Octet lint"));
+            continue;
+        };
+        if manifest.disabled_lints.iter().any(|disabled| disabled == lint) {
+            issues.push(format!("required lint `{lint}` is disabled by config"));
         }
     }
+}
+
+/// Resolves a lint name to its Octet inventory name, accepting the bare name that config uses
+/// and the namespaced tool-lint name (`tigerstyle::<lint>`) it is a compatibility alias for.
+fn inventory_lint_name(name: &str) -> Option<&'static str> {
+    let bare = name
+        .strip_prefix(octet_lint_metadata::CANONICAL_NAMESPACE)
+        .and_then(|rest| rest.strip_prefix(LINT_NAMESPACE_SEPARATOR))
+        .unwrap_or(name);
+    octet_lint_metadata::metadata_for_lint(bare).map(|metadata| metadata.lint_name)
+}
+
+/// Records known lints under the bare name config disables, so namespaced input cannot dodge the
+/// disabled-lint check. Unknown names stay verbatim for validation to report.
+fn canonical_required_lint(name: String) -> String {
+    inventory_lint_name(&name).map_or(name, ToOwned::to_owned)
 }
 
 fn validate_waiver_contract(contract: &WaiverContract, issues: &mut Vec<String>) {
@@ -714,6 +735,31 @@ mod tests {
         assert!(validate_manifest(&fixture.build_manifest()).is_ok());
     }
 
+    #[test]
+    fn required_lints_must_name_inventory_lints() {
+        let mut manifest = valid_manifest();
+        manifest.required_lints = vec!["no_unwarp".to_owned()];
+        let error = validate_manifest(&manifest).expect_err("unknown required lint should fail");
+        assert!(error.contains("no_unwarp"));
+
+        manifest.required_lints = DEFAULT_REQUIRED_LINTS.iter().map(|lint| (*lint).to_owned()).collect();
+        assert!(validate_manifest(&manifest).is_ok());
+    }
+
+    #[test]
+    fn namespaced_required_lint_resolves_to_the_disableable_lint() {
+        let temp = TempDir::new().expect("create temp dir");
+        let fixture = ManifestFixture::write(temp.path());
+        let manifest = fixture.build_manifest_requiring(&["tigerstyle::no_unwrap"]);
+        assert_eq!(manifest.required_lints, vec!["no_unwrap".to_owned()]);
+        assert!(validate_manifest(&manifest).is_ok());
+
+        fs::write(&fixture.config, "[octet]\ndisabled_lints = [\"no_unwrap\"]\n").expect("write config");
+        let error = validate_manifest(&fixture.build_manifest_requiring(&["tigerstyle::no_unwrap"]))
+            .expect_err("disabled namespaced required lint should fail");
+        assert!(error.contains("required lint `no_unwrap` is disabled"));
+    }
+
     struct ManifestFixture {
         driver: std::path::PathBuf,
         lint_library: std::path::PathBuf,
@@ -737,6 +783,10 @@ mod tests {
         }
 
         fn build_manifest(&self) -> ProviderManifest {
+            self.build_manifest_requiring(&["no_unwrap"])
+        }
+
+        fn build_manifest_requiring(&self, required_lints: &[&str]) -> ProviderManifest {
             build_manifest(ManifestInput {
                 driver: &self.driver,
                 lint_library: &self.lint_library,
@@ -744,7 +794,7 @@ mod tests {
                 standards_policy: Some(&self.standards),
                 rustc: Path::new(DEFAULT_RUSTC),
                 profile: DEFAULT_PROFILE,
-                required_lints: vec!["no_unwrap".to_owned()],
+                required_lints: required_lints.iter().map(|lint| (*lint).to_owned()).collect(),
             })
             .expect("build manifest")
         }

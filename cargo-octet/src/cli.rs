@@ -573,7 +573,7 @@ Subcommands:
   export --driver PATH --lint-library PATH --config PATH [--standards-policy PATH] [--rustc PATH] [--profile NAME] [--required-lint NAME]
   validate --manifest PATH
 
-Exports or validates the deterministic Octet compiler-policy provider manifest consumed by downstream build systems such as Mantle. The manifest identifies the Dylint driver, Octet lint library, lint config, optional standards policy artifact, compatible rustc identity, required environment, waiver contract, and bounded non-claims. Lints the selected config section turns off, through `disabled_lints` or a `lint_levels` entry of `allow`, are recorded in `disabled_lints`, and validation rejects any required lint among them.
+Exports or validates the deterministic Octet compiler-policy provider manifest consumed by downstream build systems such as Mantle. The manifest identifies the Dylint driver, Octet lint library, lint config, optional standards policy artifact, compatible rustc identity, required environment, waiver contract, and bounded non-claims. Each --required-lint must name an Octet lint, bare or `tigerstyle::`-qualified; the manifest records the bare name and validation rejects unknown names. Lints the selected config section turns off, through `disabled_lints` or a `lint_levels` entry of `allow`, are recorded in `disabled_lints`, and validation rejects any required lint among them.
 ";
 
 const PROVE_HELP: &str = "cargo octet prove
