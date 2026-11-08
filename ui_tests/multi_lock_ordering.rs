@@ -22,7 +22,7 @@ struct AliasedTracker {
     state: Guard<u32>,
 }
 
-// Should warn: unrelated ordering comments do not document lock acquisition order.
+// Should warn: an unrelated memory-ordering comment inside the struct is not enough.
 struct AtomicsAndLocks {
     // Memory ordering is handled by a separate atomic flag.
     count: Mutex<u64>,
@@ -32,6 +32,39 @@ struct AtomicsAndLocks {
 // Should NOT warn: single Mutex
 struct SingleLock {
     data: Mutex<u32>,
+}
+
+// Should NOT warn: the doc comment below documents acquisition order.
+
+/// Lock order: always acquire `count` before `state`.
+struct DocumentedTracker {
+    count: Mutex<u64>,
+    state: Mutex<u32>,
+}
+
+// Should NOT warn: the plain comment directly above the attributes documents it.
+
+// Lock ordering: acquire `count` before `state`.
+#[allow(dead_code)]
+struct CommentedTracker {
+    count: Mutex<u64>,
+    state: Mutex<u32>,
+}
+
+// Should warn: a documented order on another item does not carry over.
+
+// Lock ordering: acquire `count` before `state`.
+const UNRELATED: u32 = 0;
+struct DetachedCommentTracker {
+    count: Mutex<u64>,
+    state: Mutex<u32>,
+}
+
+// Should NOT warn: an explicit doc attribute documents it.
+#[doc = "Lock acquisition: `count` before `state`."]
+struct DocAttributeTracker {
+    count: Mutex<u64>,
+    state: Mutex<u32>,
 }
 
 fn main() {

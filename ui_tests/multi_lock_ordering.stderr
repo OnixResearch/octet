@@ -59,5 +59,23 @@ LL ~ struct AtomicsAndLocks {
 LL +     // Lock order: <document acquisition order for 2 locks>
    |
 
-warning: 3 warnings emitted
+warning: struct `DetachedCommentTracker` has 2 lock fields without documented ordering
+  --> $DIR/multi_lock_ordering.rs:58:1
+   |
+LL | / struct DetachedCommentTracker {
+LL | |     count: Mutex<u64>,
+LL | |     state: Mutex<u32>,
+LL | | }
+   | |_^
+   |
+   = help: Tiger Style (Lock Ordering): document and preserve one lock acquisition order across the codebase Example: // Lock order: state -> peer -> metrics
+   = note: structured suggestion applicability: HasPlaceholders
+   = note: see Tiger Style guide: Lock Ordering
+help: add lock ordering documentation
+   |
+LL ~ struct DetachedCommentTracker {
+LL +     // Lock order: <document acquisition order for 2 locks>
+   |
+
+warning: 4 warnings emitted
 

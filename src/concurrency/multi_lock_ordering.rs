@@ -68,18 +68,18 @@ fn lock_field_count(cx: &LateContext<'_>, variant_data: &hir::VariantData<'_>) -
         .count()
 }
 
-fn comment_line_is_lock_order(line: &str) -> bool {
-    let trimmed = line.trim_start();
-    let is_comment = trimmed.starts_with("//") || trimmed.starts_with("///") || trimmed.starts_with("/*");
-    if !is_comment {
-        return false;
-    }
-
-    let lower = trimmed.to_ascii_lowercase();
+fn text_documents_lock_order(text: &str) -> bool {
+    let lower = text.to_ascii_lowercase();
     lower.contains(LOCK_COMMENT_SUBJECT)
         && (lower.contains(LOCK_COMMENT_ORDER)
             || lower.contains(LOCK_COMMENT_ORDERING)
             || lower.contains(LOCK_COMMENT_ACQUISITION))
+}
+
+fn comment_line_is_lock_order(line: &str) -> bool {
+    let trimmed = line.trim_start();
+    let is_comment = trimmed.starts_with("//") || trimmed.starts_with("///") || trimmed.starts_with("/*");
+    is_comment && text_documents_lock_order(trimmed)
 }
 
 fn has_order_specific_lock_comment(snippet: &str) -> bool {
@@ -87,10 +87,51 @@ fn has_order_specific_lock_comment(snippet: &str) -> bool {
 }
 
 fn item_order_comment_fact(cx: &LateContext<'_>, item: &hir::Item<'_>) -> bool {
-    cx.sess()
-        .source_map()
-        .span_to_snippet(item.span)
+    let attrs = cx.tcx.hir_attrs(item.hir_id());
+    // Doc attributes (`///`, `/** */`, `#[doc = "..."]`) document the item.
+    if attrs
+        .iter()
+        .filter_map(hir::Attribute::doc_str)
+        .any(|doc| doc.as_str().lines().any(text_documents_lock_order))
+    {
+        return true;
+    }
+
+    // `item.span` excludes outer attributes; widen it so comments interleaved
+    // with attributes count too.
+    let source_map = cx.sess().source_map();
+    let item_lo = attrs
+        .iter()
+        .map(hir::Attribute::span)
+        .filter(|span| !span.from_expansion() && span.lo() < item.span.lo())
+        .map(rustc_span::Span::lo)
+        .min()
+        .unwrap_or(item.span.lo());
+    if source_map
+        .span_to_snippet(item.span.with_lo(item_lo))
         .is_ok_and(|snippet| has_order_specific_lock_comment(&snippet))
+    {
+        return true;
+    }
+
+    // Plain comment lines directly above the item (and its attributes).
+    let Ok(item_line) = source_map.lookup_line(item_lo) else {
+        return false;
+    };
+    let mut line_index = item_line.line;
+    while let Some(previous_index) = line_index.checked_sub(1) {
+        line_index = previous_index;
+        let Some(line) = item_line.sf.get_line(line_index) else {
+            return false;
+        };
+        if !line.trim_start().starts_with("//") {
+            return false;
+        }
+        if comment_line_is_lock_order(&line) {
+            return true;
+        }
+    }
+    false
 }
 
 impl<'tcx> LateLintPass<'tcx> for MultiLockOrdering {
