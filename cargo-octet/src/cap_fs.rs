@@ -102,6 +102,10 @@ impl ArtifactRoot {
         self.root.read_to_string(relative)
     }
 
+    pub(crate) fn read_bounded(&self, relative: &RootRelativePath, max_bytes: u64) -> Result<Vec<u8>, String> {
+        self.root.read_bounded(relative, max_bytes)
+    }
+
     pub(crate) fn is_file(&self, relative: &RootRelativePath) -> Result<bool, String> {
         self.root.is_file(relative)
     }

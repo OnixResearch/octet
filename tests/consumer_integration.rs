@@ -3636,7 +3636,7 @@ fn artifact_directory_refuses_non_bundle_directory_without_deleting() {
     );
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("not an existing Octet artifact bundle"),
+        stderr.contains("not an existing `cargo octet check` bundle"),
         "refusal should name the bundle requirement: {stderr}"
     );
     assert!(

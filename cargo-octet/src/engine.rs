@@ -883,21 +883,35 @@ fn prepare_artifact_dir(artifact_dir: &Path) -> Result<ArtifactRoot, String> {
     }
 
     Err(format!(
-        "refusing to use artifact directory {}: it is not empty and is not an existing Octet artifact bundle \
-         (missing `{STATUS_ARTIFACT_NAME}` or `{PROVENANCE_ARTIFACT_NAME}`); choose a new or empty directory",
+        "refusing to use artifact directory {}: it is not empty and is not an existing `cargo octet check` bundle \
+         (missing `{STATUS_ARTIFACT_NAME}` or `{PROVENANCE_ARTIFACT_NAME}`, or `{STATUS_ARTIFACT_NAME}` belongs to \
+         another command's bundle); choose a new or empty directory",
         artifact_dir.display()
     ))
 }
 
+/// Upper bound for reading a `status.json` found in a directory the operator chose. A check
+/// bundle's status sidecar is a few kilobytes.
+const STATUS_PROBE_MAX_BYTES: u64 = 1024 * 1024;
+
 /// Every bundle written by `write_status_sidecars` carries these two sidecars. Only a directory
-/// holding both may have its remaining entries pruned before the next bundle is written.
+/// holding both may have its remaining entries pruned before the next bundle is written, and only
+/// when its `status.json` is a check sidecar: `cargo octet prove` and `cargo octet admit` bundles
+/// declare a `bundle_kind` or `schema_version`, which a check status never does. An unparseable
+/// status is still treated as a check bundle, so a run interrupted mid-write can be repeated.
 fn is_existing_octet_bundle(artifact_root: &ArtifactRoot) -> Result<bool, String> {
     for marker in [STATUS_ARTIFACT_NAME, PROVENANCE_ARTIFACT_NAME] {
         if !artifact_root.is_file(&RootRelativePath::new(marker)?)? {
             return Ok(false);
         }
     }
-    Ok(true)
+    let Ok(status) = artifact_root.read_bounded(&RootRelativePath::new(STATUS_ARTIFACT_NAME)?, STATUS_PROBE_MAX_BYTES)
+    else {
+        return Ok(false);
+    };
+    let declares_other_bundle = serde_json::from_slice::<serde_json::Value>(&status)
+        .is_ok_and(|status| status.get("bundle_kind").is_some() || status.get("schema_version").is_some());
+    Ok(!declares_other_bundle)
 }
 
 fn write_status_sidecars(
@@ -1822,7 +1836,7 @@ mod tests {
         std::fs::write(&foreign_cache, "cache\n").expect("foreign cache file");
         std::fs::write(foreign.join(STATUS_ARTIFACT_NAME), "{}\n").expect("lone status marker");
         let error = prepare_artifact_dir(&foreign).err().expect("foreign directory must be refused");
-        assert!(error.contains("not an existing Octet artifact bundle"), "{error}");
+        assert!(error.contains("not an existing `cargo octet check` bundle"), "{error}");
         assert_eq!(std::fs::read_to_string(&foreign_cache).expect("foreign cache survives"), "cache\n");
         assert!(foreign.join(STATUS_ARTIFACT_NAME).is_file());
 
@@ -1837,6 +1851,30 @@ mod tests {
         assert!(!previous.join("results.sarif").exists());
         assert!(!previous.join("stale-dir").exists());
         assert!(previous.join(STATUS_ARTIFACT_NAME).is_file());
+    }
+
+    #[test]
+    fn artifact_dir_preparation_refuses_prove_and_admission_bundles_without_deleting() {
+        let temporary = tempfile::tempdir().expect("artifact fixture");
+        for (name, status) in [
+            ("prove", r#"{"schema_version":"octet-prove-status/v1","bundle_kind":"prove"}"#),
+            ("admission", r#"{"schema_version":"octet-effect-closure-status/v1","status":"admitted"}"#),
+        ] {
+            let bundle = temporary.path().join(name);
+            std::fs::create_dir_all(bundle.join("proofs")).expect("foreign bundle dir");
+            std::fs::write(bundle.join(STATUS_ARTIFACT_NAME), status).expect("foreign status");
+            std::fs::write(bundle.join(PROVENANCE_ARTIFACT_NAME), "{}\n").expect("foreign provenance");
+            std::fs::write(bundle.join("proofs/rail.receipt"), "receipt\n").expect("foreign receipt");
+            let error = prepare_artifact_dir(&bundle).err().expect("another command's bundle must be refused");
+            assert!(error.contains("refusing to use artifact directory"), "{name}: {error}");
+            assert!(bundle.join("proofs/rail.receipt").is_file(), "{name}: receipt survives");
+        }
+
+        let check = temporary.path().join("check");
+        std::fs::create_dir_all(&check).expect("check bundle dir");
+        std::fs::write(check.join(STATUS_ARTIFACT_NAME), r#"{"status":"clean","exit_code":0}"#).expect("check status");
+        std::fs::write(check.join(PROVENANCE_ARTIFACT_NAME), "{}\n").expect("check provenance");
+        prepare_artifact_dir(&check).expect("an earlier check bundle is accepted");
     }
 
     #[cfg(unix)]
