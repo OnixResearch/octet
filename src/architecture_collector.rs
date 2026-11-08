@@ -69,16 +69,18 @@ struct ProvenanceObservationKey {
 }
 
 #[derive(Clone, Debug)]
-struct ProvenanceObservation {
+struct ProvenanceObservation<'tcx> {
     key: ProvenanceObservationKey,
+    // The compiler type of the argument; its definition path is `key.argument_type`.
+    argument_ty: Ty<'tcx>,
     origins: ValueOrigins,
     span: Span,
 }
 
 #[derive(Clone, Debug, Default)]
-struct MirValueFlowResult {
+struct MirValueFlowResult<'tcx> {
     return_origins: ValueOrigins,
-    observations: Vec<ProvenanceObservation>,
+    observations: Vec<ProvenanceObservation<'tcx>>,
     argument_updates: Vec<((LocalDefId, usize), ValueOrigins)>,
 }
 const EFFECT_PATHS: &[(&str, CapabilityFamily)] = &[
@@ -870,14 +872,14 @@ impl ArchitectureCollector {
         let mut argument_origins = HashMap::<(LocalDefId, usize), ValueOrigins>::new();
         let mut return_origins = HashMap::<LocalDefId, ValueOrigins>::new();
         let mut final_observations =
-            BTreeMap::<(String, ProvenanceObservationKey), (LocalDefId, ProvenanceObservation)>::new();
+            BTreeMap::<(String, ProvenanceObservationKey), (LocalDefId, ProvenanceObservation<'_>)>::new();
         let mut steps = 0usize;
         let mut converged = false;
         for _ in 0..self.context.limits.max_value_flow_rounds {
             let mut next_argument_origins = HashMap::<(LocalDefId, usize), ValueOrigins>::new();
             let mut next_return_origins = HashMap::<LocalDefId, ValueOrigins>::new();
             let mut round_observations =
-                BTreeMap::<(String, ProvenanceObservationKey), (LocalDefId, ProvenanceObservation)>::new();
+                BTreeMap::<(String, ProvenanceObservationKey), (LocalDefId, ProvenanceObservation<'_>)>::new();
             for def_id in &body_def_ids {
                 let body = cx.tcx.optimized_mir(def_id.to_def_id());
                 let result = analyze_selected_mir_body(
@@ -947,7 +949,7 @@ impl ArchitectureCollector {
         &mut self,
         cx: &LateContext<'_>,
         caller_def_id: LocalDefId,
-        observation: &ProvenanceObservation,
+        observation: &ProvenanceObservation<'_>,
     ) {
         // Value-flow bodies are drawn from recorded items. Reuse that identity:
         // closure items are keyed by source position, which `local_item_identity`
@@ -956,7 +958,7 @@ impl ArchitectureCollector {
             self.incomplete = true;
             return;
         };
-        let argument_type_id = self.collect_type_from_definition(cx, &observation.key.argument_type);
+        let argument_type_id = self.collect_argument_type(cx, observation);
         let span_id = self.collect_span(cx, observation.span);
         let (origin_definitions, status) = canonical_provenance(&observation.origins);
         let mut fact = CompilerArchitectureFact::CallArgumentProvenance {
@@ -987,38 +989,14 @@ impl ArchitectureCollector {
         }
     }
 
-    fn collect_type_from_definition(&mut self, cx: &LateContext<'_>, definition: &str) -> String {
-        if let Some((_, type_id, _)) = self.selected_type_items.get(definition) {
+    // Selected local types reuse the identity their TypeShape fact references.
+    // Any other tracked type, such as a dependency type reached through a
+    // reference, records the observed compiler type so the reference resolves.
+    fn collect_argument_type(&mut self, cx: &LateContext<'_>, observation: &ProvenanceObservation<'_>) -> String {
+        if let Some((_, type_id, _)) = self.selected_type_items.get(&observation.key.argument_type) {
             return type_id.clone();
         }
-        if let Some(type_id) = self.facts.values().find_map(|fact| match fact {
-            CompilerArchitectureFact::Type {
-                type_id,
-                definition_path: Some(current),
-                ..
-            } if current == definition => Some(type_id.clone()),
-            _ => None,
-        }) {
-            return type_id;
-        }
-        let fallback = octet_architecture_ir::canonical_identity(
-            TYPE_ID_DOMAIN,
-            &(
-                definition,
-                Some(definition),
-                &self.selected.unit.package_name,
-                TypeKind::Adt,
-                &self.selected.unit.source_blake3,
-            ),
-        )
-        .expect("selected compiler type identity must serialize");
-        if !self.type_ids.contains(&fallback) {
-            let selected = self.selected_type_items.get(definition).map(|(def_id, _, _)| *def_id);
-            if let Some(def_id) = selected {
-                return self.collect_type(cx, cx.tcx.type_of(def_id).instantiate_identity());
-            }
-        }
-        fallback
+        self.collect_type(cx, observation.argument_ty.peel_refs())
     }
 
     fn collect_active_configuration(&mut self, cx: &LateContext<'_>) {
@@ -1346,7 +1324,7 @@ fn analyze_selected_mir_body<'tcx>(
     return_origins: &HashMap<LocalDefId, ValueOrigins>,
     max_steps: usize,
     steps: &mut usize,
-) -> Result<MirValueFlowResult, ()> {
+) -> Result<MirValueFlowResult<'tcx>, ()> {
     let mut result = MirValueFlowResult::default();
     let mut entry_states = BTreeMap::<mir::BasicBlock, LocalValueOrigins>::new();
     let mut start_state = LocalValueOrigins::new();
@@ -1453,7 +1431,7 @@ fn analyze_call_terminator<'tcx>(
     propagation_definitions: &BTreeSet<String>,
     return_origins: &HashMap<LocalDefId, ValueOrigins>,
     state: &mut LocalValueOrigins,
-    result: &mut MirValueFlowResult,
+    result: &mut MirValueFlowResult<'tcx>,
 ) {
     let Some((callee_def_id, _)) = func.const_fn_def() else {
         for (position, argument) in args.iter().enumerate() {
@@ -1465,6 +1443,7 @@ fn analyze_call_terminator<'tcx>(
                 "unresolved-call-target".to_owned(),
                 position,
                 argument_type,
+                argument_ty,
                 BTreeSet::from([unknown_origin("unresolved-call-target")]),
                 span,
             ));
@@ -1484,6 +1463,7 @@ fn analyze_call_terminator<'tcx>(
                 callee_definition.clone(),
                 position,
                 argument_type.clone(),
+                argument_ty,
                 origins.clone(),
                 argument.span,
             ));
@@ -1519,9 +1499,10 @@ fn provenance_observation(
     callee_definition: String,
     argument_position: usize,
     argument_type: String,
+    argument_ty: Ty<'_>,
     origins: ValueOrigins,
     span: Span,
-) -> ProvenanceObservation {
+) -> ProvenanceObservation<'_> {
     ProvenanceObservation {
         key: ProvenanceObservationKey {
             callee_definition,
@@ -1530,6 +1511,7 @@ fn provenance_observation(
             span_lo: span.lo().0,
             span_hi: span.hi().0,
         },
+        argument_ty,
         origins,
         span,
     }

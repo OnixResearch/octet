@@ -987,6 +987,54 @@ fn compiler_architecture_closure_value_provenance() {
 }
 
 #[test]
+#[ignore = "run via cargo test --test ui compiler_architecture -- --ignored --nocapture"]
+fn compiler_architecture_external_reference_provenance() {
+    let toolchain = rustup_toolchain();
+    let library = build_library(&toolchain);
+    let host = host_triple();
+    let driver = build_driver(&toolchain);
+    let selection = CompilerValueFlowSelection {
+        tracked_callee_definitions: vec!["external_reference_provenance::publish".to_owned()],
+        tracked_type_definitions: vec!["std::path::PathBuf".to_owned()],
+        root_origin_definitions: Vec::new(),
+        propagation_definitions: Vec::new(),
+    };
+    let shard = run_compiler_architecture_fixture_with_selection(
+        &driver,
+        &library,
+        &host,
+        "positive/external_reference_provenance.rs",
+        None,
+        vec![selection],
+    );
+    assert_valid_compiler_shard(&shard);
+    let argument_type_ids = shard
+        .facts
+        .iter()
+        .filter_map(|fact| match fact {
+            CompilerArchitectureFact::CallArgumentProvenance {
+                callee_definition,
+                argument_type_id,
+                ..
+            } if callee_definition == "external_reference_provenance::publish" => Some(argument_type_id.as_str()),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    assert!(!argument_type_ids.is_empty(), "external reference provenance facts: {:#?}", shard.facts);
+    for type_id in argument_type_ids {
+        assert!(
+            shard.facts.iter().any(|fact| matches!(
+                fact,
+                CompilerArchitectureFact::Type { type_id: current, definition_path: Some(definition), origin_crate, .. }
+                    if current == type_id && definition == "std::path::PathBuf" && origin_crate == "std"
+            )),
+            "argument type {type_id} has no external Type fact: {:#?}",
+            shard.facts
+        );
+    }
+}
+
+#[test]
 #[ignore = "run via cargo test --test ui compiler_architecture_target_fixtures -- --ignored --nocapture"]
 fn compiler_architecture_target_fixtures() {
     let toolchain = rustup_toolchain();
