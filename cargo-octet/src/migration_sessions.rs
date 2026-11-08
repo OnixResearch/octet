@@ -20,13 +20,23 @@ const SUPPORTED_MIGRATION_KINDS: &[&str] = &[
 ];
 const SUPPORTED_COMPATIBILITY_CLASSES: &[&str] = &["canonical", "compatibility-alias", "deprecated", "removal-target"];
 const SUPPORTED_STATUSES: &[&str] = &["planned", "in-progress", "verified", "applied", "blocked"];
+const MUTABILITY_LIVE: &str = "live";
 const MUTABILITY_ARCHIVE_READ_ONLY: &str = "archive-read-only";
 const MUTABILITY_MUTABLE_ARCHIVE: &str = "mutable-archive";
 const MUTABILITY_GENERATED: &str = "generated";
+const SUPPORTED_MUTABILITIES: &[&str] = &[
+    MUTABILITY_LIVE,
+    MUTABILITY_GENERATED,
+    MUTABILITY_ARCHIVE_READ_ONLY,
+    MUTABILITY_MUTABLE_ARCHIVE,
+];
 const OPERATION_RECORD_ONLY: &str = "record-only";
 const OPERATION_REWRITE: &str = "rewrite";
 const OPERATION_REPLACE: &str = "replace";
+const SUPPORTED_OPERATION_KINDS: &[&str] = &[OPERATION_RECORD_ONLY, OPERATION_REWRITE, OPERATION_REPLACE];
 const SAFETY_SAFE: &str = "safe";
+const SAFETY_MANUAL_REVIEW: &str = "manual-review";
+const SUPPORTED_SAFETY_CLASSES: &[&str] = &[SAFETY_SAFE, SAFETY_MANUAL_REVIEW];
 const STATUS_OPEN: &str = "open";
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
@@ -377,28 +387,50 @@ fn validate_surfaces(session: &StructuredMigrationSession, diagnostics: &mut Vec
     for surface in &session.affected_surfaces {
         require_non_empty(&surface.surface_kind, "affected_surface.surface_kind", diagnostics);
         require_non_empty(&surface.locator, "affected_surface.locator", diagnostics);
-        require_non_empty(&surface.mutability, "affected_surface.mutability", diagnostics);
+        require_supported(
+            &surface.mutability,
+            SUPPORTED_MUTABILITIES,
+            "affected_surface.mutability",
+            &surface.locator,
+            diagnostics,
+        );
     }
 }
 
 fn validate_operations(session: &StructuredMigrationSession, diagnostics: &mut Vec<String>) {
     for operation in &session.planned_operations {
         require_non_empty(&operation.operation_id, "planned_operation.operation_id", diagnostics);
-        require_non_empty(&operation.operation_kind, "planned_operation.operation_kind", diagnostics);
+        require_supported(
+            &operation.operation_kind,
+            SUPPORTED_OPERATION_KINDS,
+            "planned_operation.operation_kind",
+            &operation.operation_id,
+            diagnostics,
+        );
         require_non_empty(&operation.target_locator, "planned_operation.target_locator", diagnostics);
-        require_non_empty(&operation.safety, "planned_operation.safety", diagnostics);
-        if operation.operation_kind == OPERATION_REWRITE || operation.operation_kind == OPERATION_REPLACE {
-            validate_archive_operation(operation, &session.affected_surfaces, diagnostics);
+        require_supported(
+            &operation.safety,
+            SUPPORTED_SAFETY_CLASSES,
+            "planned_operation.safety",
+            &operation.operation_id,
+            diagnostics,
+        );
+        if operation.operation_kind != OPERATION_RECORD_ONLY {
+            validate_mutating_operation(operation, &session.affected_surfaces, diagnostics);
         }
     }
 }
 
-fn validate_archive_operation(
+fn validate_mutating_operation(
     operation: &MigrationPlannedOperation,
     surfaces: &[MigrationAffectedSurface],
     diagnostics: &mut Vec<String>,
 ) {
     let Some(surface) = surfaces.iter().find(|surface| surface.locator == operation.target_locator) else {
+        diagnostics.push(format!(
+            "planned_operation.undeclared_target `{}` targets `{}` outside affected_surfaces",
+            operation.operation_id, operation.target_locator
+        ));
         return;
     };
     if surface.mutability == MUTABILITY_ARCHIVE_READ_ONLY {
@@ -429,6 +461,14 @@ fn validate_pointer(pointer: &MigrationPointer, field: &str, diagnostics: &mut V
 fn require_non_empty(value: &str, field: &str, diagnostics: &mut Vec<String>) {
     if value.trim().is_empty() {
         diagnostics.push(format!("{field} missing"));
+    }
+}
+
+fn require_supported(value: &str, supported: &[&str], field: &str, owner: &str, diagnostics: &mut Vec<String>) {
+    if value.trim().is_empty() {
+        diagnostics.push(format!("{field} missing"));
+    } else if !supported.contains(&value) {
+        diagnostics.push(format!("{field} unsupported `{value}` for `{owner}`"));
     }
 }
 
@@ -552,6 +592,94 @@ mod tests {
     }
 
     #[test]
+    fn archive_boundary_rejects_unknown_operation_kinds_on_archive() {
+        for kind in ["delete", "Rewrite", "move"] {
+            let mut session = valid_session();
+            session.planned_operations.push(planned_operation("mutate-archive", kind, ARCHIVE_DOC));
+
+            let report = verify_report(&session);
+
+            assert!(!report.valid, "`{kind}` on an archive-read-only surface must fail verify");
+            assert!(
+                report
+                    .diagnostics
+                    .iter()
+                    .any(|diagnostic| diagnostic.contains("planned_operation.operation_kind unsupported")),
+                "{kind}: {:?}",
+                report.diagnostics
+            );
+        }
+    }
+
+    #[test]
+    fn archive_boundary_rejects_unknown_safety_and_mutability() {
+        let mut unknown_safety = valid_session();
+        unknown_safety.planned_operations[0].safety = "probably-safe".to_owned();
+        let mut typo_mutability = valid_session();
+        typo_mutability.affected_surfaces[1].mutability = "archive-readonly".to_owned();
+
+        let safety_report = verify_report(&unknown_safety);
+        let mutability_report = verify_report(&typo_mutability);
+
+        assert!(!safety_report.valid);
+        assert!(
+            safety_report
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.contains("planned_operation.safety unsupported"))
+        );
+        assert!(!mutability_report.valid);
+        assert!(
+            mutability_report
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.contains("affected_surface.mutability unsupported"))
+        );
+    }
+
+    #[test]
+    fn archive_boundary_rejects_mutating_operation_on_undeclared_target() {
+        let mut session = valid_session();
+        session.planned_operations.push(planned_operation(
+            "rewrite-undeclared",
+            OPERATION_REWRITE,
+            "cairn/archive/2026-01-01-legacy/proposal.md",
+        ));
+
+        let report = verify_report(&session);
+
+        assert!(!report.valid);
+        assert!(
+            report
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.contains("planned_operation.undeclared_target")),
+            "{:?}",
+            report.diagnostics
+        );
+    }
+
+    #[test]
+    fn archive_boundary_accepts_declared_live_and_reviewed_mutable_archive_rewrites() {
+        let mut session = valid_session();
+        session.affected_surfaces.push(MigrationAffectedSurface {
+            surface_kind: "archive".to_owned(),
+            locator: "cairn/archive/2026-01-02-reviewed/tasks.md".to_owned(),
+            mutability: MUTABILITY_MUTABLE_ARCHIVE.to_owned(),
+            identity: None,
+        });
+        session.planned_operations.push(planned_operation("rewrite-live", OPERATION_REWRITE, LIVE_DOC));
+        let mut reviewed =
+            planned_operation("replace-reviewed", OPERATION_REPLACE, "cairn/archive/2026-01-02-reviewed/tasks.md");
+        reviewed.archive_mutation_rationale = Some("reviewer approved archive correction".to_owned());
+        session.planned_operations.push(reviewed);
+
+        let report = verify_report(&session);
+
+        assert!(report.valid, "unexpected diagnostics: {:?}", report.diagnostics);
+    }
+
+    #[test]
     fn apply_manifest_matches_dry_run_operations_and_is_idempotent() {
         let session = valid_session();
         let dry_run = operation_manifest(&session, true);
@@ -574,6 +702,17 @@ mod tests {
 
         assert!(output_has_no_migration_overclaim(&rendered));
         assert!(!output_has_no_migration_overclaim(&overclaim));
+    }
+
+    fn planned_operation(operation_id: &str, operation_kind: &str, target_locator: &str) -> MigrationPlannedOperation {
+        MigrationPlannedOperation {
+            operation_id: operation_id.to_owned(),
+            operation_kind: operation_kind.to_owned(),
+            target_locator: target_locator.to_owned(),
+            safety: SAFETY_SAFE.to_owned(),
+            dry_run_preview: format!("would {operation_kind} {target_locator}"),
+            archive_mutation_rationale: None,
+        }
     }
 
     fn valid_session() -> StructuredMigrationSession {

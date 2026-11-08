@@ -10,8 +10,8 @@ A session JSON receipt uses schema `octet-structured-migration-session/v1` and r
 - `old_pointer` and `new_pointer` as mutable names or locators.
 - `identity_evidence` with BLAKE3-backed identities when available.
 - `compatibility` entries classified as `canonical`, `compatibility-alias`, `deprecated`, or `removal-target`.
-- `affected_surfaces` split by mutability, including live, generated, and `archive-read-only` surfaces.
-- `planned_operations`, `verification_commands`, `todos`, `status`, and explicit `non_claims`.
+- `affected_surfaces` split by `mutability`: `live`, `generated`, `archive-read-only`, or `mutable-archive`.
+- `planned_operations` with `operation_kind` (`record-only`, `rewrite`, or `replace`) and `safety` (`safe` or `manual-review`), plus `verification_commands`, `todos`, `status`, and explicit `non_claims`.
 
 Start from `templates/structured-migration-session.json` when creating a review fixture or saved migration receipt.
 
@@ -25,7 +25,7 @@ cargo octet migrate session status --session migration-session.json --output-for
 cargo octet migrate session verify --session migration-session.json --output-format json
 ```
 
-Verification fails closed for missing pointer identities, unknown migration kinds, unknown compatibility classes, stale BLAKE3 pairs, missing alias coverage, missing removal boundaries, and archive/read-only rewrites.
+Verification fails closed for missing pointer identities, unknown migration kinds, unknown compatibility classes, unknown surface mutability, operation kinds, or safety classes, stale BLAKE3 pairs, missing alias coverage, missing removal boundaries, and archive/read-only rewrites. Every `rewrite` or `replace` operation must target a declared affected surface; a `mutable-archive` target also needs an `archive_mutation_rationale`.
 
 ## Guarded apply
 
