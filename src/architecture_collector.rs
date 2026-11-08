@@ -360,7 +360,8 @@ impl ArchitectureCollector {
 
     fn collect_type(&mut self, cx: &LateContext<'_>, resolved: Ty<'_>) -> String {
         let display = resolved.to_string();
-        let (definition_path, origin_crate, type_kind) = type_metadata(cx, resolved);
+        let (definition_path, origin_crate, type_kind) =
+            type_metadata(cx, resolved, &self.selected.unit.package_name, &self.context.selected_units);
         let type_id = octet_architecture_ir::canonical_identity(
             TYPE_ID_DOMAIN,
             &(&display, &definition_path, &origin_crate, type_kind, &self.selected.unit.source_blake3),
@@ -1692,11 +1693,16 @@ fn def_kind_to_item_kind(kind: DefKind) -> ItemKind {
     }
 }
 
-fn type_metadata(cx: &LateContext<'_>, resolved: Ty<'_>) -> (Option<String>, String, TypeKind) {
+fn type_metadata(
+    cx: &LateContext<'_>,
+    resolved: Ty<'_>,
+    local_package: &str,
+    selected_units: &[CollectorCompilationUnit],
+) -> (Option<String>, String, TypeKind) {
     match resolved.kind() {
         ty::Adt(definition, _) => (
             Some(qualified_definition(cx, definition.did())),
-            cx.tcx.crate_name(definition.did().krate).to_string(),
+            definition_origin(cx, definition.did(), local_package, selected_units),
             TypeKind::Adt,
         ),
         ty::Dynamic(..) => (None, "dynamic".to_owned(), TypeKind::TraitObject),
@@ -1705,7 +1711,7 @@ fn type_metadata(cx: &LateContext<'_>, resolved: Ty<'_>) -> (Option<String>, Str
         ty::RawPtr(..) => (None, "core".to_owned(), TypeKind::Pointer),
         ty::FnDef(def_id, _) => (
             Some(qualified_definition(cx, *def_id)),
-            cx.tcx.crate_name(def_id.krate).to_string(),
+            definition_origin(cx, *def_id, local_package, selected_units),
             TypeKind::Function,
         ),
         ty::Alias(..) => (None, "opaque".to_owned(), TypeKind::Opaque),
@@ -1715,6 +1721,39 @@ fn type_metadata(cx: &LateContext<'_>, resolved: Ty<'_>) -> (Option<String>, Str
         }
         _ => (None, "unknown".to_owned(), TypeKind::Other),
     }
+}
+
+// Workspace definitions name their Cargo package, as item facts do, because
+// policy roles are keyed by package while rustc crate names replace `-` with `_`.
+fn definition_origin(
+    cx: &LateContext<'_>,
+    def_id: DefId,
+    local_package: &str,
+    selected_units: &[CollectorCompilationUnit],
+) -> String {
+    if def_id.is_local() {
+        return local_package.to_owned();
+    }
+    let crate_name = cx.tcx.crate_name(def_id.krate);
+    workspace_library_package(selected_units, crate_name.as_str()).map_or_else(|| crate_name.to_string(), str::to_owned)
+}
+
+// A crate name maps to a package only through one selected library target.
+fn workspace_library_package<'a>(selected_units: &'a [CollectorCompilationUnit], crate_name: &str) -> Option<&'a str> {
+    let mut packages = selected_units
+        .iter()
+        .filter(|selected| {
+            !selected.test_configuration
+                && selected.rustc_crate_name == crate_name
+                && selected
+                    .unit
+                    .crate_types
+                    .iter()
+                    .any(|crate_type| matches!(crate_type.as_str(), "lib" | "rlib" | "dylib" | "proc-macro"))
+        })
+        .map(|selected| selected.unit.package_name.as_str());
+    let package = packages.next()?;
+    packages.all(|other| other == package).then_some(package)
 }
 
 fn dispatch_kind(cx: &LateContext<'_>, def_id: DefId, receiver: Option<Ty<'_>>) -> DispatchKind {
@@ -1997,5 +2036,54 @@ mod tests {
     fn effect_classification_uses_resolved_definition_paths() {
         assert_eq!(effect_family("std::fs::read"), Some(CapabilityFamily::Filesystem));
         assert_eq!(effect_family("fixture::comment_named_std_fs_read"), None);
+    }
+
+    fn selected_unit(package: &str, crate_name: &str, crate_type: &str, test: bool) -> CollectorCompilationUnit {
+        CollectorCompilationUnit {
+            rustc_crate_name: crate_name.to_owned(),
+            manifest_dir: format!("crates/{package}"),
+            source_path: format!("crates/{package}/src/lib.rs"),
+            test_configuration: test,
+            source_roles: Vec::new(),
+            unit: octet_architecture_ir::CompilationUnit {
+                unit_id: String::new(),
+                package_name: package.to_owned(),
+                package_version: "0.1.0".to_owned(),
+                target_name: crate_name.to_owned(),
+                target_kind: if test { "lib+test" } else { "lib" }.to_owned(),
+                source_path: format!("crates/{package}/src/lib.rs"),
+                crate_types: vec![crate_type.to_owned()],
+                target_triple: "x86_64-unknown-linux-gnu".to_owned(),
+                features: Vec::new(),
+                default_features: true,
+                role: CompilerArchitectureRole::OutboundAdapter,
+                toolchain_blake3: String::new(),
+                collector_blake3: String::new(),
+                policy_blake3: String::new(),
+                source_blake3: String::new(),
+                invocation_blake3: String::new(),
+            },
+        }
+    }
+
+    #[test]
+    fn workspace_crate_names_resolve_to_hyphenated_packages() {
+        let units = [
+            selected_unit("postgres-adapter", "postgres_adapter", "rlib", false),
+            selected_unit("postgres-adapter", "postgres_adapter", "bin", true),
+        ];
+        assert_eq!(workspace_library_package(&units, "postgres_adapter"), Some("postgres-adapter"));
+        assert_eq!(workspace_library_package(&units, "serde"), None);
+    }
+
+    #[test]
+    fn ambiguous_or_binary_crate_names_do_not_resolve_to_packages() {
+        let ambiguous = [
+            selected_unit("foo-bar", "foo_bar", "rlib", false),
+            selected_unit("foo_bar", "foo_bar", "proc-macro", false),
+        ];
+        assert_eq!(workspace_library_package(&ambiguous, "foo_bar"), None);
+        let binary = [selected_unit("tool-cli", "tool_cli", "bin", false)];
+        assert_eq!(workspace_library_package(&binary, "tool_cli"), None);
     }
 }

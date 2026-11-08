@@ -566,7 +566,7 @@ fn run_compiler_architecture_fixture(
     host: &str,
     fixture_name: &str,
 ) -> CompilerArchitectureShard {
-    run_compiler_architecture_fixture_with_selection(driver, library, host, fixture_name, Vec::new())
+    run_compiler_architecture_fixture_with_selection(driver, library, host, fixture_name, None, Vec::new())
 }
 
 fn run_compiler_architecture_fixture_with_selection(
@@ -574,6 +574,7 @@ fn run_compiler_architecture_fixture_with_selection(
     library: &Path,
     host: &str,
     fixture_name: &str,
+    package_name: Option<&str>,
     value_flow_selections: Vec<CompilerValueFlowSelection>,
 ) -> CompilerArchitectureShard {
     run_compiler_architecture_target(
@@ -582,6 +583,7 @@ fn run_compiler_architecture_fixture_with_selection(
         host,
         CompilerFixtureTarget {
             fixture_name,
+            package_name,
             crate_type: "rlib",
             test_configuration: false,
             features: &[],
@@ -593,6 +595,8 @@ fn run_compiler_architecture_fixture_with_selection(
 #[derive(Clone, Copy)]
 struct CompilerFixtureTarget<'a> {
     fixture_name: &'a str,
+    /// Cargo package name when it differs from the rustc crate name.
+    package_name: Option<&'a str>,
     crate_type: &'a str,
     test_configuration: bool,
     features: &'a [&'a str],
@@ -606,7 +610,7 @@ fn compiler_fixture_unit(
 ) -> CompilationUnit {
     let mut unit = CompilationUnit {
         unit_id: String::new(),
-        package_name: crate_name.to_owned(),
+        package_name: target.package_name.unwrap_or(crate_name).to_owned(),
         package_version: "0.1.0".to_owned(),
         target_name: crate_name.to_owned(),
         target_kind: if target.test_configuration {
@@ -785,7 +789,18 @@ fn compiler_architecture_ir_fixtures() {
         &library,
         &host,
         "positive/authorized_effect_provenance.rs",
+        Some("authorized-effect-provenance"),
         vec![value_flow_selection],
+    );
+    assert!(
+        authorized.facts.iter().any(|fact| matches!(
+            fact,
+            CompilerArchitectureFact::Type { definition_path: Some(definition), origin_crate, .. }
+                if definition == "authorized_effect_provenance::PublicationAuthority"
+                    && origin_crate == "authorized-effect-provenance"
+        )),
+        "authorized compiler facts: {:#?}",
+        authorized.facts
     );
     assert!(
         authorized.facts.iter().any(|fact| matches!(
@@ -830,6 +845,7 @@ fn compiler_architecture_ir_fixtures() {
         &library,
         &host,
         "negative/ambiguous_effect_provenance.rs",
+        None,
         vec![ambiguous_selection],
     );
     assert!(ambiguous.facts.iter().any(|fact| matches!(
@@ -874,6 +890,7 @@ fn compiler_architecture_target_fixtures() {
         &host,
         CompilerFixtureTarget {
             fixture_name: "targets/conditional.rs",
+            package_name: None,
             crate_type: "rlib",
             test_configuration: false,
             features: &[],
@@ -888,6 +905,7 @@ fn compiler_architecture_target_fixtures() {
         &host,
         CompilerFixtureTarget {
             fixture_name: "targets/conditional.rs",
+            package_name: None,
             crate_type: "rlib",
             test_configuration: true,
             features: &[],
@@ -903,18 +921,21 @@ fn compiler_architecture_target_fixtures() {
     for target in [
         CompilerFixtureTarget {
             fixture_name: "targets/conditional.rs",
+            package_name: None,
             crate_type: "rlib",
             test_configuration: false,
             features: &["extra"],
         },
         CompilerFixtureTarget {
             fixture_name: "targets/binary.rs",
+            package_name: None,
             crate_type: "bin",
             test_configuration: false,
             features: &[],
         },
         CompilerFixtureTarget {
             fixture_name: "targets/procedural.rs",
+            package_name: None,
             crate_type: "proc-macro",
             test_configuration: false,
             features: &[],
