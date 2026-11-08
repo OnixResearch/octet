@@ -44,4 +44,23 @@ fn makes_vec_after_nested_bodies() {
     let _v: Vec<u8> = Vec::new();
 }
 
+const fn seven() -> u8 {
+    7
+}
+
+// Calls inside nested const items, array-length constants, and nested functions
+// belong to other bodies: walking them must not ICE, nested function bodies are
+// separate functions, and allocations in the marked body are still reported.
+#[tigerstyle::zero_alloc]
+fn makes_vec_after_nested_calls() -> u8 {
+    const DELAY: std::time::Duration = std::time::Duration::from_secs(1);
+    let _buf = [0u8; core::mem::size_of::<u64>()];
+    fn helper() -> u8 {
+        let _unmarked: Vec<u8> = Vec::new();
+        seven()
+    }
+    let _v: Vec<u8> = Vec::new();
+    helper()
+}
+
 fn main() {}

@@ -4,7 +4,6 @@ use rustc_hir::intravisit::Visitor;
 use rustc_lint::LateContext;
 use rustc_lint::LateLintPass;
 use rustc_lint::LintContext;
-use rustc_middle::hir::nested_filter::All;
 use rustc_session::declare_tool_lint;
 use rustc_session::impl_lint_pass;
 use rustc_span::Span;
@@ -1121,11 +1120,16 @@ impl<'tcx> LateLintPass<'tcx> for ZeroAllocAttrContract {
 }
 
 fn check_marked_zero_alloc_body<'tcx>(cx: &LateContext<'tcx>, body: &'tcx hir::Body<'tcx>, fn_span: Span) {
-    // Walk all expressions in the function body
+    // Walk the expressions of the marked body only; see `AllocExprFinder`.
     let mut finder = AllocExprFinder { cx, fn_span };
     finder.visit_expr(body.value);
 }
 
+/// Visits the marked function's own body with the default nested filter, so it
+/// does not enter nested bodies: closures and nested functions are separate
+/// functions, and nested const items, array lengths, and inline constants are
+/// evaluated at compile time. Those bodies also have their own typeck results,
+/// which the shared allocation classifier cannot read through `cx`.
 #[allow(dead_code)]
 struct AllocExprFinder<'a, 'tcx> {
     cx: &'a LateContext<'tcx>,
@@ -1133,17 +1137,7 @@ struct AllocExprFinder<'a, 'tcx> {
 }
 
 impl<'tcx> rustc_hir::intravisit::Visitor<'tcx> for AllocExprFinder<'_, 'tcx> {
-    type NestedFilter = All;
-
-    fn maybe_tcx(&mut self) -> rustc_middle::ty::TyCtxt<'tcx> {
-        self.cx.tcx
-    }
-
     fn visit_expr(&mut self, expr: &'tcx hir::Expr<'tcx>) {
-        if let hir::ExprKind::Closure(_) = expr.kind {
-            // Skip closures - they're separate functions
-            return;
-        }
         if let Some(type_name) = allocation_in_loop::expr_is_allocation(self.cx, expr) {
             let message = format!(
                 "marked zero-alloc function constructs `{type_name}` which allocates on the heap; this lint checks direct allocation sites only, not transitive proof"
