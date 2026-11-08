@@ -856,7 +856,27 @@ fn write_run_artifacts(
 }
 
 fn prepare_artifact_dir(artifact_dir: &Path) -> Result<ArtifactRoot, String> {
-    ArtifactRoot::open_or_create(artifact_dir)
+    let artifact_root = ArtifactRoot::open_or_create(artifact_dir)?;
+    if artifact_root.read_entry_names()?.is_empty() || is_existing_octet_bundle(&artifact_root)? {
+        return Ok(artifact_root);
+    }
+
+    Err(format!(
+        "refusing to use artifact directory {}: it is not empty and is not an existing Octet artifact bundle \
+         (missing `{STATUS_ARTIFACT_NAME}` or `{PROVENANCE_ARTIFACT_NAME}`); choose a new or empty directory",
+        artifact_dir.display()
+    ))
+}
+
+/// Every bundle written by `write_status_sidecars` carries these two sidecars. Only a directory
+/// holding both may have its remaining entries pruned before the next bundle is written.
+fn is_existing_octet_bundle(artifact_root: &ArtifactRoot) -> Result<bool, String> {
+    for marker in [STATUS_ARTIFACT_NAME, PROVENANCE_ARTIFACT_NAME] {
+        if !artifact_root.is_file(&RootRelativePath::new(marker)?)? {
+            return Ok(false);
+        }
+    }
+    Ok(true)
 }
 
 fn write_status_sidecars(
@@ -1680,12 +1700,16 @@ mod tests {
 
     #[cfg(unix)]
     use super::DiagnosticPaths;
+    use super::PROVENANCE_ARTIFACT_NAME;
+    use super::STATUS_ARTIFACT_NAME;
     #[cfg(unix)]
     use super::build_finding;
     use super::embedded_source;
     use super::json_u64_to_u32;
     use super::normalize_finding_message;
     use super::normalize_lint_name;
+    use super::prepare_artifact_dir;
+    use super::remove_extra_artifact_paths;
 
     const REQUIRED_EMBEDDED_PATHS: &[&str] = &[
         "Cargo.toml",
@@ -1708,6 +1732,37 @@ mod tests {
         assert_eq!(json_u64_to_u32(None), 1);
         assert_eq!(json_u64_to_u32(Some(0)), 1);
         assert_eq!(json_u64_to_u32(Some(42)), 42);
+    }
+
+    #[test]
+    fn artifact_dir_preparation_refuses_foreign_directories_without_deleting() {
+        let temporary = tempfile::tempdir().expect("artifact fixture");
+
+        let fresh = temporary.path().join("fresh");
+        prepare_artifact_dir(&fresh).expect("missing artifact directory is created");
+        prepare_artifact_dir(&fresh).expect("empty artifact directory is accepted");
+
+        let foreign = temporary.path().join("target");
+        let foreign_cache = foreign.join("debug/.fingerprint/consumer-hash");
+        std::fs::create_dir_all(foreign_cache.parent().expect("cache parent")).expect("foreign cache dir");
+        std::fs::write(&foreign_cache, "cache\n").expect("foreign cache file");
+        std::fs::write(foreign.join(STATUS_ARTIFACT_NAME), "{}\n").expect("lone status marker");
+        let error = prepare_artifact_dir(&foreign).err().expect("foreign directory must be refused");
+        assert!(error.contains("not an existing Octet artifact bundle"), "{error}");
+        assert_eq!(std::fs::read_to_string(&foreign_cache).expect("foreign cache survives"), "cache\n");
+        assert!(foreign.join(STATUS_ARTIFACT_NAME).is_file());
+
+        let previous = temporary.path().join("previous");
+        std::fs::create_dir_all(previous.join("stale-dir")).expect("previous bundle dir");
+        for name in [STATUS_ARTIFACT_NAME, PROVENANCE_ARTIFACT_NAME, "results.sarif"] {
+            std::fs::write(previous.join(name), "stale\n").expect("previous bundle sidecar");
+        }
+        let root = prepare_artifact_dir(&previous).expect("previous Octet bundle is accepted");
+        remove_extra_artifact_paths(&root, &[STATUS_ARTIFACT_NAME, PROVENANCE_ARTIFACT_NAME])
+            .expect("prune previous bundle");
+        assert!(!previous.join("results.sarif").exists());
+        assert!(!previous.join("stale-dir").exists());
+        assert!(previous.join(STATUS_ARTIFACT_NAME).is_file());
     }
 
     #[cfg(unix)]

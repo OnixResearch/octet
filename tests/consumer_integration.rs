@@ -2881,10 +2881,22 @@ fn artifact_directory_captures_structured_run() {
 fn artifact_directory_captures_json_run() {
     let fixture = ConsumerFixture::new("artifact-dir-json", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
     let dir = artifact_dir(&fixture, "json-run");
+    let previous_run = run_with_check_args(
+        &fixture,
+        &[
+            "--output-format",
+            SARIF_OUTPUT_FORMAT,
+            "--artifact-dir",
+            dir.to_str().expect("artifact dir utf8"),
+        ],
+        &three_finding_json_lines(),
+        EXIT_CODE_SUCCESS,
+    );
+    assert_eq!(previous_run.status.code(), Some(EXIT_CODE_SUCCESS), "previous SARIF bundle should be written");
     let stale_extra_file = dir.join("extra.txt");
     let stale_sarif_file = dir.join(RESULTS_SARIF_FILE);
     write_file(&stale_extra_file, "stale extra sidecar\n");
-    write_file(&stale_sarif_file, "stale sarif sidecar\n");
+    assert!(stale_sarif_file.is_file(), "previous SARIF bundle should leave results.sarif behind");
     let output = run_with_check_args(
         &fixture,
         &[
@@ -3292,6 +3304,8 @@ fn artifact_directory_mid_write_failure_exits_two_and_invalidates_bundle() {
     let fixture =
         ConsumerFixture::new("artifact-dir-mid-write-failure", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
     let dir = artifact_dir(&fixture, "mid-write-failure");
+    write_file(&dir.join(STATUS_JSON_FILE), "{}\n");
+    write_file(&dir.join(PROVENANCE_JSONL_FILE), "{}\n");
     fs::create_dir_all(dir.join(RESULTS_SARIF_FILE)).expect("create blocking results.sarif directory");
     let lines = vec![
         cargo_compiler_message("consumer", "no_unwrap", "use of `.unwrap()`", "src/lib.rs", 10, 5, None),
@@ -3398,6 +3412,51 @@ fn artifact_directory_setup_failure_exits_two() {
     assert_eq!(sarif["runs"][0]["properties"]["exitCode"], EXIT_CODE_INTEGRATION_FAILURE);
     assert_eq!(sarif["runs"][0]["properties"]["cargoProcessExitClassification"], "success");
     assert_eq!(sarif["runs"][0]["properties"]["cargoProcessExitCode"], EXIT_CODE_SUCCESS);
+}
+
+#[test]
+fn artifact_directory_refuses_non_bundle_directory_without_deleting() {
+    let fixture =
+        ConsumerFixture::new("artifact-dir-foreign-directory", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
+    let dir = artifact_dir(&fixture, "cargo-target");
+    let cache_tag = dir.join("CACHEDIR.TAG");
+    let fingerprint = dir.join("debug/.fingerprint/consumer-hash/lib-consumer");
+    write_file(&cache_tag, "Signature: 8a477f597d28d172789f06886806bc55\n");
+    write_file(&fingerprint, "fingerprint\n");
+    let files_before = artifact_file_names(&dir);
+
+    let output = run_with_check_args(
+        &fixture,
+        &[
+            "--output-format",
+            JSON_OUTPUT_FORMAT,
+            "--artifact-dir",
+            dir.to_str().expect("artifact dir utf8"),
+        ],
+        &three_finding_json_lines(),
+        EXIT_CODE_SUCCESS,
+    );
+
+    assert_eq!(
+        output.status.code(),
+        Some(EXIT_CODE_INTEGRATION_FAILURE),
+        "non-bundle artifact directory should exit 2: stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("not an existing Octet artifact bundle"),
+        "refusal should name the bundle requirement: {stderr}"
+    );
+    assert!(
+        stderr.contains("Status: integration-failure"),
+        "refusal should finalize as integration-failure: {stderr}"
+    );
+    assert_eq!(artifact_file_names(&dir), files_before, "refused artifact directory must keep its entries");
+    assert_eq!(read_artifact(&cache_tag), "Signature: 8a477f597d28d172789f06886806bc55\n");
+    assert_eq!(read_artifact(&fingerprint), "fingerprint\n");
+    assert!(!dir.join(STATUS_JSON_FILE).exists(), "refused artifact directory must not receive sidecars");
 }
 
 #[test]

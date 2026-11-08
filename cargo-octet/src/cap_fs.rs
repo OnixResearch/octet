@@ -98,6 +98,10 @@ impl ArtifactRoot {
         self.root.read_entry_names(&RootRelativePath::current())
     }
 
+    pub(crate) fn is_file(&self, relative: &RootRelativePath) -> Result<bool, String> {
+        self.root.is_file(relative)
+    }
+
     pub(crate) fn create_dir_all(&self, relative: &RootRelativePath) -> Result<(), String> {
         self.root.create_dir_all(relative)
     }
@@ -357,6 +361,16 @@ impl CapabilityRoot {
             ));
         }
         Ok(metadata.file_type().is_dir())
+    }
+
+    fn is_file(&self, relative: &RootRelativePath) -> Result<bool, String> {
+        match self.dir.symlink_metadata(relative.as_path()) {
+            Ok(metadata) => Ok(metadata.file_type().is_file()),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(false),
+            Err(error) => {
+                Err(format!("inspect {kind} path `{locator}`: {error}", kind = self.kind, locator = relative.display()))
+            }
+        }
     }
 
     fn append_files_recursive(&self, relative: &RootRelativePath, files: &mut Vec<RootFile>) -> Result<(), String> {
