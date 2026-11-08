@@ -205,7 +205,7 @@ fn reseal_bundle(mut files: BTreeMap<String, Vec<u8>>) -> ArtifactBundleInput {
         (ARCHITECTURE_ARTIFACT_NAMES, ARCHITECTURE_IR_SOURCE_ID, EvidenceTier::StaticLint),
         (PROJECT_ARCHITECTURE_ARTIFACT_NAMES, PROJECT_ARCHITECTURE_SOURCE_ID, EvidenceTier::PolicyCheck),
     ] {
-        for name in names {
+        for name in names.iter().filter(|name| files.contains_key(**name)) {
             let mut record = record(name, &files[*name], tier);
             record.source_id = source.to_owned();
             records.push(record);
@@ -272,4 +272,49 @@ fn full_bundle_replay_rejects_resealed_orphan_test_unknown() {
         invalid.diagnostics
     );
     assert!(invalid.diagnostics.iter().any(|error| error.contains("pure reevaluation")));
+}
+
+fn set_status_phase(files: &mut BTreeMap<String, Vec<u8>>, phase: &str, value: serde_json::Value) {
+    let mut status: serde_json::Value = serde_json::from_slice(&files[STATUS_ARTIFACT_NAME]).expect("status");
+    status["phases"][phase] = value;
+    insert_json(files, STATUS_ARTIFACT_NAME, &status);
+}
+
+#[test]
+fn declared_architecture_phases_verify_when_their_artifacts_are_present() {
+    let mut files = synthetic_files();
+    set_status_phase(&mut files, "effect_closure", serde_json::Value::Null);
+    let valid = verify_bundle(reseal_bundle(files));
+    assert_eq!(valid.status, STATUS_VALID, "{:?}", valid.diagnostics);
+
+    let lint_only = verify_bundle(valid_input(OutputFormat::Human));
+    assert_eq!(lint_only.status, STATUS_VALID, "{:?}", lint_only.diagnostics);
+}
+
+#[test]
+fn declared_architecture_phase_without_project_artifacts_fails_closed() {
+    let mut files = synthetic_files();
+    for name in PROJECT_ARCHITECTURE_ARTIFACT_NAMES {
+        files.remove(*name);
+    }
+    let invalid = verify_bundle(reseal_bundle(files));
+    assert_eq!(invalid.status, STATUS_INVALID);
+    assert_eq!(invalid.diagnostics, [
+        "status.json declares phases.architecture but the project architecture artifacts are missing".to_owned()
+    ]);
+}
+
+#[test]
+fn declared_effect_closure_phase_without_closure_artifacts_fails_closed() {
+    let mut files = synthetic_files();
+    set_status_phase(
+        &mut files,
+        "effect_closure",
+        serde_json::json!({"receipt_id": "b3:closure", "admitted": true, "evidence_tier": "policy_check"}),
+    );
+    let invalid = verify_bundle(reseal_bundle(files));
+    assert_eq!(invalid.status, STATUS_INVALID);
+    assert_eq!(invalid.diagnostics, [
+        "status.json declares phases.effect_closure but the integrated effect-closure artifacts are missing".to_owned()
+    ]);
 }

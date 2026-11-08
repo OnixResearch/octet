@@ -890,6 +890,7 @@ pub fn verify_bundle(input: ArtifactBundleInput) -> ArtifactVerificationReport {
     );
     validate_project_architecture_bundle(&file_map, &mut diagnostics);
     validate_integrated_effect_closure_bundle(&file_map, &mut diagnostics);
+    validate_declared_phase_artifacts(&file_map, &mut diagnostics);
 
     let artifacts = verified_artifact_rows(&provenance_records, &expected_non_provenance);
     diagnostics.sort();
@@ -906,6 +907,28 @@ pub fn verify_bundle(input: ArtifactBundleInput) -> ArtifactVerificationReport {
         },
         artifacts,
         diagnostics,
+    }
+}
+
+/// `validate_project_architecture_bundle` and `validate_integrated_effect_closure_bundle` skip
+/// bundles that carry none of their artifacts, so a bundle that dropped every such file must still
+/// fail when `status.json` declares the phase.
+fn validate_declared_phase_artifacts(file_map: &BTreeMap<String, Vec<u8>>, diagnostics: &mut Vec<String>) {
+    let Some(status) = file_map
+        .get(STATUS_ARTIFACT_NAME)
+        .and_then(|bytes| serde_json::from_slice::<serde_json::Value>(bytes).ok())
+    else {
+        return;
+    };
+    for (phase, artifact_names, label) in [
+        ("architecture", PROJECT_ARCHITECTURE_ARTIFACT_NAMES, "project architecture"),
+        ("effect_closure", EFFECT_CLOSURE_ARTIFACT_NAMES, "integrated effect-closure"),
+    ] {
+        let declared = status.get("phases").and_then(|phases| phases.get(phase)).is_some_and(|value| !value.is_null());
+        if declared && !artifact_names.iter().any(|name| file_map.contains_key(*name)) {
+            diagnostics
+                .push(format!("{STATUS_ARTIFACT_NAME} declares phases.{phase} but the {label} artifacts are missing"));
+        }
     }
 }
 
