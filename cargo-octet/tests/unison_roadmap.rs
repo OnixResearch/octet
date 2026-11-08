@@ -86,7 +86,7 @@ fn artifact_hash_inspect_and_replay_are_content_addressed() {
     ));
     assert_eq!(a["hash"], b["hash"]);
     assert!(a["hash"].as_str().unwrap().starts_with("b3:"));
-    assert!(a.to_string().contains("redacted-local-and-secret-fields"));
+    assert_eq!(a["redaction_status"], "secret-like-and-local-fields-dropped-absolute-paths-normalized");
     assert!(!a.to_string().contains("do-not-store"));
 
     let hash = a["hash"].as_str().unwrap();
@@ -909,6 +909,33 @@ fn session_migrate_rejects_non_object_sessions_without_panicking() {
     }
 }
 
+fn store_artifact(input: &Path, store: &Path, cwd: &Path) -> std::process::Output {
+    run(
+        &[
+            "roadmap",
+            "artifact",
+            "store",
+            "--kind",
+            "prompt",
+            "--input",
+            input.to_str().unwrap(),
+            "--store-dir",
+            store.to_str().unwrap(),
+        ],
+        cwd,
+    )
+}
+
+fn stored_hash(dto: serde_json::Value, name: &str, store: &Path, cwd: &Path) -> String {
+    let input = cwd.join(name);
+    write_json(&input, dto);
+    stdout_json(&store_artifact(&input, store, cwd))["hash"].as_str().unwrap().to_owned()
+}
+
+fn record_path(store: &Path, hash: &str) -> std::path::PathBuf {
+    store.join(format!("{}.json", hash.replace(':', "_")))
+}
+
 fn enforce(manifest: serde_json::Value, trace: serde_json::Value, cwd: &Path) -> std::process::Output {
     let manifest_path = cwd.join("enforce-manifest.json");
     let trace_path = cwd.join("enforce-trace.json");
@@ -955,6 +982,120 @@ fn ability_enforce_requires_string_arrays_for_manifest_and_trace() {
     assert_eq!(allowed["status"], "allowed");
     let empty = stdout_json(&enforce(manifest, serde_json::json!({"effects": []}), temp.path()));
     assert_eq!(empty["status"], "allowed");
+}
+
+#[test]
+fn artifact_identity_excludes_secret_fields_and_local_paths() {
+    let temp = tempfile::tempdir().unwrap();
+    let store = temp.path().join("store");
+    let alice = stored_hash(
+        serde_json::json!({
+            "prompt": "x",
+            "api_key": "sk-live-1",
+            "workspace": "/home/alice/repo",
+            "file": "src/lib.rs",
+            "nested": [{"accessToken": "tok-alice", "cwd": "C:\\Users\\alice\\repo"}],
+            "max_tokens": 5
+        }),
+        "alice.json",
+        &store,
+        temp.path(),
+    );
+    let bob = stored_hash(
+        serde_json::json!({
+            "prompt": "x",
+            "API_KEY": "sk-live-2",
+            "Password": "hunter2",
+            "workspace": "/Users/bob/src/repo",
+            "file": "src/lib.rs",
+            "nested": [{"accessToken": "tok-bob", "cwd": "\\\\host\\share\\repo"}],
+            "max_tokens": 5
+        }),
+        "bob.json",
+        &store,
+        temp.path(),
+    );
+    assert_eq!(alice, bob, "DTOs differing only in secrets and local paths must share an identity");
+
+    let stored = fs::read_to_string(record_path(&store, &alice)).unwrap();
+    for leaked in ["sk-live-1", "tok-alice", "/home/alice", "alice\\\\repo"] {
+        assert!(!stored.contains(leaked), "stored record leaked {leaked}: {stored}");
+    }
+    let record: serde_json::Value = serde_json::from_str(&stored).unwrap();
+    assert_eq!(record["normalized"]["file"], "src/lib.rs");
+    assert_eq!(record["normalized"]["max_tokens"], 5);
+
+    let relative_change = stored_hash(
+        serde_json::json!({"prompt": "x", "workspace": "/home/alice/repo", "file": "src/main.rs", "max_tokens": 5}),
+        "relative.json",
+        &store,
+        temp.path(),
+    );
+    let relative_base = stored_hash(
+        serde_json::json!({"prompt": "x", "workspace": "/home/alice/repo", "file": "src/lib.rs", "max_tokens": 5}),
+        "base.json",
+        &store,
+        temp.path(),
+    );
+    let budget_change = stored_hash(
+        serde_json::json!({"prompt": "x", "workspace": "/home/alice/repo", "file": "src/lib.rs", "max_tokens": 6}),
+        "budget.json",
+        &store,
+        temp.path(),
+    );
+    assert_ne!(relative_change, relative_base, "relative strings are content");
+    assert_ne!(budget_change, relative_base, "non-secret token counts are content");
+}
+
+#[test]
+fn replay_capsule_identity_excludes_local_argv_paths() {
+    let temp = tempfile::tempdir().unwrap();
+    let mut hashes = Vec::new();
+    for (index, home) in ["/home/alice", "/Users/bob"].iter().enumerate() {
+        let input = temp.path().join(format!("input-{index}.json"));
+        let capsule = temp.path().join(format!("capsule-{index}.json"));
+        let mut manifest = capsule_manifest_input();
+        manifest["command_argv"] = serde_json::json!([
+            "cargo",
+            "octet",
+            "check",
+            "--manifest-path",
+            format!("{home}/repo/Cargo.toml")
+        ]);
+        manifest["client_secret"] = serde_json::json!(format!("secret-{index}"));
+        write_json(&input, manifest);
+        let captured = stdout_json(&run(
+            &[
+                "roadmap",
+                "capsule",
+                "capture",
+                "--input",
+                input.to_str().unwrap(),
+                "--capsule",
+                capsule.to_str().unwrap(),
+            ],
+            temp.path(),
+        ));
+        let text = fs::read_to_string(&capsule).unwrap();
+        assert!(!text.contains(home), "capsule kept local path {home}");
+        assert!(!text.contains(&format!("secret-{index}")), "capsule kept secret");
+        hashes.push(captured["capsule_hash"].clone());
+
+        let observed = temp.path().join(format!("observed-{index}.json"));
+        let mut observation = capsule_manifest_input();
+        observation["command_argv"] = serde_json::json!([
+            "cargo",
+            "octet",
+            "check",
+            "--manifest-path",
+            format!("{home}/repo/Cargo.toml")
+        ]);
+        observation["exit_code"] = serde_json::json!(0);
+        write_json(&observed, observation);
+        let replay = stdout_json(&capsule_replay(&capsule, &observed, temp.path()));
+        assert_eq!(replay["status"], "replayed");
+    }
+    assert_eq!(hashes[0], hashes[1]);
 }
 
 fn migrate_session(session: serde_json::Value, cwd: &Path) -> (std::process::Output, std::path::PathBuf) {

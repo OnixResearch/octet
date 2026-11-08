@@ -9,6 +9,10 @@ use serde_json::Value;
 use crate::determinism;
 
 const SCHEMA_VERSION: u32 = 1;
+/// Stands in for an absolute-path string value so identities do not depend on local paths.
+const ABSOLUTE_PATH_PLACEHOLDER: &str = "<absolute-path>";
+/// What [`normalize_value`] guarantees about stored artifacts and capsules.
+const REDACTION_STATUS: &str = "secret-like-and-local-fields-dropped-absolute-paths-normalized";
 
 #[derive(Debug)]
 pub enum RoadmapCommand {
@@ -352,7 +356,7 @@ fn artifact_store(kind: &str, input: &Path, store_dir: &Path) -> Result<i32, Str
         hash: hash.clone(),
         normalized,
         dependencies,
-        redaction_status: "redacted-local-and-secret-fields",
+        redaction_status: REDACTION_STATUS,
     };
     fs::create_dir_all(store_dir).map_err(|error| format!("create {}: {error}", store_dir.display()))?;
     write_json(&store_dir.join(hash_file_name(&hash)), &record)?;
@@ -432,7 +436,7 @@ fn capsule_capture(input: &Path, capsule_path: &Path) -> Result<i32, String> {
             "expected_failure_allowed": true,
             "drift_behavior": "fail-closed"
         },
-        "redaction_status": "normalized-no-secret-values-or-local-paths"
+        "redaction_status": REDACTION_STATUS
     });
     write_json(capsule_path, &capsule)?;
     print_json(&capsule)?;
@@ -835,7 +839,7 @@ fn session_todo(input: &Path) -> Result<i32, String> {
 }
 
 fn pure_cache_check(key_path: &Path, store_dir: &Path, output_hash: &str) -> Result<i32, String> {
-    let key = normalize_value(read_json(key_path)?);
+    let key = redact_secret_fields(read_json(key_path)?);
     let required = [
         "command_identity",
         "input_hashes",
@@ -874,7 +878,19 @@ fn pure_cache_check(key_path: &Path, store_dir: &Path, output_hash: &str) -> Res
     Ok(0)
 }
 
+/// Normalizes a DTO for content identity: drops secret-like and local-only fields and replaces
+/// absolute-path string values with [`ABSOLUTE_PATH_PLACEHOLDER`].
 fn normalize_value(value: Value) -> Value {
+    normalize_json(value, true)
+}
+
+/// Drops secret-like and local-only fields but keeps every other value, for keys whose path
+/// values must keep distinguishing entries.
+fn redact_secret_fields(value: Value) -> Value {
+    normalize_json(value, false)
+}
+
+fn normalize_json(value: Value, normalize_paths: bool) -> Value {
     match value {
         Value::Object(map) => {
             let mut out = serde_json::Map::new();
@@ -882,17 +898,84 @@ fn normalize_value(value: Value) -> Value {
                 if is_redacted_key(&key) {
                     continue;
                 }
-                out.insert(key, normalize_value(value));
+                out.insert(key, normalize_json(value, normalize_paths));
             }
             Value::Object(out)
         }
-        Value::Array(items) => Value::Array(items.into_iter().map(normalize_value).collect()),
+        Value::Array(items) => {
+            Value::Array(items.into_iter().map(|item| normalize_json(item, normalize_paths)).collect())
+        }
+        Value::String(text) if normalize_paths && is_absolute_path(&text) => {
+            Value::String(ABSOLUTE_PATH_PLACEHOLDER.to_owned())
+        }
         other => other,
     }
 }
 
+/// Whether a field name is secret-like or local-machine-only, compared case-insensitively over
+/// its `snake_case`, `kebab-case`, or `camelCase` words.
 fn is_redacted_key(key: &str) -> bool {
-    matches!(key, "absolute_path" | "timestamp" | "username" | "env_dump" | "secret" | "raw_secret")
+    let words = key_words(key);
+    let local_only = match words.as_slice() {
+        [only] => matches!(only.as_str(), "timestamp" | "username"),
+        [first, second] => matches!((first.as_str(), second.as_str()), ("absolute", "path") | ("env", "dump")),
+        _ => false,
+    };
+    local_only
+        || words.iter().any(|word| {
+            matches!(
+                word.as_str(),
+                "secret"
+                    | "secrets"
+                    | "password"
+                    | "passwords"
+                    | "passwd"
+                    | "credential"
+                    | "credentials"
+                    | "apikey"
+                    | "privatekey"
+            )
+        })
+        || words.last().is_some_and(|word| word == "token")
+        || words
+            .windows(2)
+            .any(|pair| matches!((pair[0].as_str(), pair[1].as_str()), ("api" | "private", "key")))
+}
+
+/// Lowercase words of a field name, split at non-alphanumeric characters and `camelCase` humps.
+fn key_words(key: &str) -> Vec<String> {
+    let mut words = Vec::new();
+    let mut current = String::new();
+    let mut after_lowercase_or_digit = false;
+    for character in key.chars() {
+        if !character.is_alphanumeric() {
+            if !current.is_empty() {
+                words.push(std::mem::take(&mut current));
+            }
+            after_lowercase_or_digit = false;
+            continue;
+        }
+        if character.is_uppercase() && after_lowercase_or_digit {
+            words.push(std::mem::take(&mut current));
+        }
+        after_lowercase_or_digit = character.is_lowercase() || character.is_numeric();
+        current.extend(character.to_lowercase());
+    }
+    if !current.is_empty() {
+        words.push(current);
+    }
+    words
+}
+
+/// Whole-string absolute paths: Unix `/…` without whitespace, Windows drive `C:\…` or `C:/…`,
+/// and UNC `\\host\…` on a single line.
+fn is_absolute_path(text: &str) -> bool {
+    match text.as_bytes() {
+        [b'/', ..] => !text.chars().any(char::is_whitespace),
+        [b'\\', b'\\', ..] => !text.chars().any(char::is_control),
+        [drive, b':', b'/' | b'\\', ..] if drive.is_ascii_alphabetic() => !text.chars().any(char::is_control),
+        _ => false,
+    }
 }
 
 fn canonical_json(value: &Value) -> Result<String, String> {
@@ -944,6 +1027,89 @@ mod tests {
             "output_hashes",
         ]);
         assert_eq!(capsule_mismatches(&Value::Null, &Value::Null).len(), 6);
+    }
+
+    #[test]
+    fn redacted_keys_cover_secret_like_names_case_insensitively() {
+        for key in [
+            "secret",
+            "raw_secret",
+            "Client-Secret",
+            "token",
+            "access_token",
+            "accessToken",
+            "GITHUB_TOKEN",
+            "password",
+            "dbPassword",
+            "passwd",
+            "credential",
+            "aws_credentials",
+            "api_key",
+            "API_KEY",
+            "apiKey",
+            "apikey",
+            "x-api-key",
+            "private_key",
+            "privateKey",
+            "absolute_path",
+            "timestamp",
+            "username",
+            "env_dump",
+        ] {
+            assert!(is_redacted_key(key), "{key} must be redacted");
+        }
+        for key in [
+            "prompt",
+            "max_tokens",
+            "prompt_tokens",
+            "token_count",
+            "tokenizer",
+            "key",
+            "public_key",
+            "keyboard",
+            "path",
+            "file",
+            "name",
+        ] {
+            assert!(!is_redacted_key(key), "{key} must stay in the identity");
+        }
+    }
+
+    #[test]
+    fn normalize_value_replaces_absolute_path_strings_only() {
+        let normalized = normalize_value(serde_json::json!({
+            "unix": "/home/alice/repo",
+            "root": "/",
+            "drive": "C:\\Users\\alice",
+            "drive_slash": "d:/work",
+            "unc": "\\\\host\\share",
+            "argv": ["cargo", "--manifest-path", "/Users/bob/Cargo.toml"],
+            "relative": "src/lib.rs",
+            "dot_relative": "./Cargo.toml",
+            "hash": "b3:abc",
+            "url": "https://example.com/a/b",
+            "sentence": "/review this change",
+            "drive_word": "C:",
+            "empty": "",
+            "number": 3
+        }));
+        let placeholder = serde_json::json!("<absolute-path>");
+        for field in ["unix", "root", "drive", "drive_slash", "unc"] {
+            assert_eq!(normalized[field], placeholder, "{field}");
+        }
+        assert_eq!(normalized["argv"], serde_json::json!(["cargo", "--manifest-path", "<absolute-path>"]));
+        for (field, kept) in [
+            ("relative", "src/lib.rs"),
+            ("dot_relative", "./Cargo.toml"),
+            ("hash", "b3:abc"),
+            ("url", "https://example.com/a/b"),
+            ("sentence", "/review this change"),
+            ("drive_word", "C:"),
+            ("empty", ""),
+        ] {
+            assert_eq!(normalized[field], kept, "{field}");
+        }
+        assert_eq!(normalized["number"], 3);
     }
 
     fn args(values: &[&str]) -> Vec<String> {

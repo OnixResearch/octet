@@ -22,8 +22,18 @@ cargo octet roadmap capsule capture --input fingerprint-capsule-input.json --cap
 The input manifest records `command_argv`, `run_kind`, `octet_binary_identity`,
 `config_hash`, `input_hashes`, `output_hashes`, and an integer
 `expected_exit_code`; capture rejects a missing field or a non-integer
-`expected_exit_code`. Local paths, timestamps, usernames, and secret-like fields
-are normalized away before hashing.
+`expected_exit_code`. Before hashing, capture drops local-only and secret-like
+fields. Field names are split into lowercase words at punctuation and `camelCase`
+boundaries; a field is dropped when its words are `absolute path`, `timestamp`,
+`username`, or `env dump`, when any word is `secret(s)`, `password(s)`,
+`passwd`, `credential(s)`, `apikey`, or `privatekey`, when two consecutive words
+are `api key` or `private key`, or when the last word is `token`. Any whole
+string value that is an absolute path (Unix `/…` without whitespace, Windows
+`C:\…` or `C:/…`, or UNC `\\host\…`), such as a `--manifest-path` entry in
+`command_argv`, becomes `<absolute-path>`, so the same run on different
+machines yields the same `capsule_hash`. Replay normalizes the observed run the
+same way. Secrets and paths embedded inside longer strings are not detected.
+The same normalization applies to `cargo octet roadmap artifact store`.
 
 ## Inspect and replay
 
