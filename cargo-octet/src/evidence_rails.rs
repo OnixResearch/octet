@@ -1818,7 +1818,7 @@ pub fn receipt_tier_from_rail_id(rail_id: &str) -> EvidenceTier {
 }
 
 fn parse_rail_input(input: &EvaluationInput<'_>) -> RailParseOutput {
-    match input.rail {
+    let mut parsed = match input.rail {
         EvidenceRailKind::DependencyAudit => parse_dependency_audit(input),
         EvidenceRailKind::ClippyCoReporting => parse_clippy(input),
         EvidenceRailKind::AstGrepStructural => parse_ast_grep(input),
@@ -1836,6 +1836,24 @@ fn parse_rail_input(input: &EvaluationInput<'_>) -> RailParseOutput {
         EvidenceRailKind::HegelProperty => parse_hegel_property(input),
         EvidenceRailKind::Z4Solver => parse_z4_solver(input),
         EvidenceRailKind::VerifierFixture => parse_verifier_fixture(input),
+    };
+    push_unexplained_tool_exit(input, &mut parsed);
+    parsed
+}
+
+/// Tools such as Clippy, cargo-deny, cargo-vet, cargo-semver-checks, and cargo-mutants exit nonzero
+/// to signal findings, so a nonzero run-mode exit is accepted only when the parsed output reports a
+/// failing or review-required result. A nonzero exit next to an otherwise passing report means the
+/// tool failed.
+fn push_unexplained_tool_exit(input: &EvaluationInput<'_>, parsed: &mut RailParseOutput) {
+    if let Some(exit_code) = input.tool_exit_code
+        && exit_code != EXIT_SUCCESS
+        && parsed.status == STATUS_PASSED
+    {
+        parsed.diagnostics.push(format!(
+            "{} tool exited with nonzero status {exit_code} without reporting a failing finding",
+            input.rail.as_str()
+        ));
     }
 }
 
@@ -1927,12 +1945,6 @@ fn parse_clippy(input: &EvaluationInput<'_>) -> RailParseOutput {
             line: primary.and_then(|span| span.get("line_start")).and_then(serde_json::Value::as_u64),
             column: primary.and_then(|span| span.get("column_start")).and_then(serde_json::Value::as_u64),
         });
-    }
-    if let Some(exit_code) = input.tool_exit_code {
-        let denied_finding_present = findings.iter().any(|finding| finding.severity == "error");
-        if exit_code != EXIT_SUCCESS && !denied_finding_present {
-            diagnostics.push(format!("Clippy tool exited with nonzero status {exit_code}"));
-        }
     }
     let finding_counts = counts_by_family(&findings);
     let status = status_from_error_findings(&findings);
@@ -4518,7 +4530,8 @@ fn validate_array_records(
 
 fn parse_json_value(text: &str, diagnostics: &mut Vec<String>) -> Option<serde_json::Value> {
     if text.trim().is_empty() {
-        return Some(serde_json::json!({}));
+        diagnostics.push("evidence JSON input is empty; the tool produced no JSON document".to_owned());
+        return None;
     }
     match serde_json::from_str(text) {
         Ok(value) => Some(value),
@@ -5081,6 +5094,109 @@ mod tests {
         assert_eq!(receipt.status, STATUS_FAILED);
         assert!(receipt.diagnostics.iter().any(|diagnostic| diagnostic.contains("nonzero status")));
         assert!(!receipt.diagnostics.iter().any(|diagnostic| diagnostic.contains("malformed Clippy JSON")));
+    }
+
+    #[test]
+    fn json_document_rails_reject_empty_tool_output() {
+        type ReceiptFor = fn(&str) -> EvidenceRailReceipt;
+
+        let rails: [(&str, ReceiptFor, &str); 4] = [
+            (
+                "dependency-audit",
+                |import_text| dependency_audit_receipt(import_text, Some(DENY_CONFIG)),
+                r#"{"diagnostics":[]}"#,
+            ),
+            ("dependency-trust", dependency_trust_receipt, r#"{"imports":[],"exemptions":[],"unaudited":[]}"#),
+            ("api-stability", api_removed_receipt, r#"{"breakages":[]}"#),
+            ("mutation-testing", mutation_receipt, "{}"),
+        ];
+        for (rail, receipt_for, clean_report) in rails {
+            for empty in ["", " \n"] {
+                let receipt = receipt_for(empty);
+                assert_eq!(receipt.status, STATUS_FAILED, "{rail} must not pass on empty tool output");
+                assert!(
+                    receipt.diagnostics.iter().any(|diagnostic| diagnostic.contains("evidence JSON input is empty")),
+                    "{rail}: {:?}",
+                    receipt.diagnostics
+                );
+            }
+            let clean = receipt_for(clean_report);
+            assert_eq!(clean.status, STATUS_PASSED, "{rail}: {:?}", clean.diagnostics);
+        }
+    }
+
+    #[test]
+    fn run_mode_nonzero_tool_exit_requires_a_reported_failure() {
+        const CARGO_MUTANTS_MISSED_EXIT: i32 = 2;
+        const CARGO_MUTANTS_BASELINE_FAILED_EXIT: i32 = 4;
+        let run = |input: EvaluationInput<'static>, exit_code: i32| {
+            evaluate(EvaluationInput {
+                mode: MODE_RUN,
+                tool_exit_code: Some(exit_code),
+                ..input
+            })
+        };
+        let trust = |import_text: &'static str| EvaluationInput {
+            rail: EvidenceRailKind::DependencyTrust,
+            import_text,
+            ..mutation_input()
+        };
+        let audit = |import_text: &'static str| EvaluationInput {
+            rail: EvidenceRailKind::DependencyAudit,
+            import_text,
+            config_path: Some(DENY_CONFIG),
+            locked: true,
+            ..mutation_input()
+        };
+        let api = |import_text: &'static str| EvaluationInput {
+            import_text,
+            ..api_stability_input()
+        };
+        let mutation = |import_text: &'static str| EvaluationInput {
+            import_text,
+            ..mutation_input()
+        };
+        let survived = r#"{"survived_mutants":[{"name":"replace + with -","file":"src/lib.rs","line":42}]}"#;
+
+        for (label, input, exit_code) in [
+            ("dependency-audit", audit(r#"{"diagnostics":[]}"#), EXIT_RAIL_FAILURE),
+            ("dependency-trust", trust(r#"{"imports":[],"exemptions":[],"unaudited":[]}"#), EXIT_RAIL_FAILURE),
+            ("api-stability", api(r#"{"breakages":[]}"#), EXIT_RAIL_FAILURE),
+            ("mutation-testing", mutation("{}"), CARGO_MUTANTS_BASELINE_FAILED_EXIT),
+        ] {
+            let receipt = run(input, exit_code);
+            assert_eq!(receipt.status, STATUS_FAILED, "{label} must not pass after a nonzero tool exit");
+            assert!(
+                receipt.diagnostics.iter().any(|diagnostic| diagnostic.contains("nonzero status")),
+                "{label}: {:?}",
+                receipt.diagnostics
+            );
+        }
+
+        for (label, input, exit_code, status) in [
+            ("dependency-audit", audit(r#"{"diagnostics":[]}"#), EXIT_SUCCESS, STATUS_PASSED),
+            (
+                "dependency-trust",
+                trust(r#"{"imports":[],"exemptions":[],"unaudited":[{"crate":"bytes"}]}"#),
+                EXIT_RAIL_FAILURE,
+                STATUS_FAILED,
+            ),
+            (
+                "api-stability",
+                api(r#"{"breakages":[{"kind":"removed-public-item","item":"pub fn old"}]}"#),
+                EXIT_RAIL_FAILURE,
+                STATUS_FAILED,
+            ),
+            ("mutation-testing", mutation(survived), CARGO_MUTANTS_MISSED_EXIT, STATUS_MANUAL_REVIEW_REQUIRED),
+        ] {
+            let receipt = run(input, exit_code);
+            assert_eq!(receipt.status, status, "{label}: {:?}", receipt.diagnostics);
+            assert!(
+                !receipt.diagnostics.iter().any(|diagnostic| diagnostic.contains("nonzero status")),
+                "{label}: findings explain the tool exit status: {:?}",
+                receipt.diagnostics
+            );
+        }
     }
 
     #[test]
