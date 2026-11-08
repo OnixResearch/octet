@@ -53,5 +53,14 @@ LL -     let mut items = Vec::new();
 LL +     let mut items = Vec::with_capacity(/* LIMIT */);
    |
 
-warning: 4 warnings emitted
+warning: collection grows in loop without a prior reservation or explicit local bound
+  --> $DIR/unbounded_collection_growth.rs:95:9
+   |
+LL |         items.insert(next_byte(), next_byte());
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Bounded Resource Growth): reserve collection capacity or add an explicit local length bound before growing it in a loop Example: let mut items = Vec::with_capacity(limit);
+   = note: see Tiger Style guide: Bounded Resource Growth
+
+warning: 5 warnings emitted
 

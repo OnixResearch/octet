@@ -88,4 +88,12 @@ fn outer_binding_is_ignored() {
     }
 }
 
+fn btree_map_without_bound() {
+    // BTreeMap has no `with_capacity`; warn without suggesting one.
+    let mut items = BTreeMap::new();
+    while keep_going() {
+        items.insert(next_byte(), next_byte());
+    }
+}
+
 fn main() {}

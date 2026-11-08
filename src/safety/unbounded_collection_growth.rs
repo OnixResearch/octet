@@ -108,6 +108,18 @@ fn is_supported_collection_ty(cx: &LateContext<'_>, ty: Ty<'_>) -> bool {
     }
 }
 
+/// Supported collections that also provide `with_capacity`; `BTreeMap` does not.
+fn collection_ty_has_with_capacity(cx: &LateContext<'_>, ty: Ty<'_>) -> bool {
+    let ty::Adt(adt, _) = ty.peel_refs().kind() else {
+        return false;
+    };
+    let path = cx.get_def_path(adt.did());
+
+    path_ends_with(&path, &["vec", "Vec"])
+        || path_ends_with(&path, &["vec_deque", "VecDeque"])
+        || path_ends_with(&path, &["map", "HashMap"])
+}
+
 fn classify_collection_init(cx: &LateContext<'_>, local_ty: Ty<'_>, init: &hir::Expr<'_>) -> Option<InitKind> {
     if !is_supported_collection_ty(cx, local_ty) {
         return None;
@@ -417,7 +429,9 @@ fn collect_candidate_bindings_before_loop<'tcx>(
                 match classify_collection_init(cx, local_ty, init) {
                     Some(InitKind::Empty) => {
                         candidates.insert(local_id);
-                        init_spans.insert(local_id, init.span);
+                        if collection_ty_has_with_capacity(cx, local_ty) {
+                            init_spans.insert(local_id, init.span);
+                        }
                     }
                     Some(InitKind::Reserved) => {
                         candidates.remove(&local_id);
