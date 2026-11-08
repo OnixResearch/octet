@@ -147,18 +147,40 @@ cargo octet check --output-format json --baseline octet-baseline.json
 ```
 
 The baseline file records the current semantic/stable finding IDs plus enough
-finding context for review. Semantic IDs are derived from the lint, crate,
-message/suggestion, normalized snippet hash when available, config hash, and
-Octet tool version; file paths remain display metadata so simple renames do not
-create fresh debt. The config hash covers only lint-relevant configuration: the
-`dylint.toml` bytes, the canonical (key-order-independent) contents of the
+finding context for review. File paths, lines, and columns remain display
+metadata, so simple renames do not create fresh debt. A finding ID is a BLAKE3
+hash of exactly these inputs:
+
+- the bare lint name;
+- the crate name (the Cargo target name that emitted the finding);
+- the diagnostic message, with workspace-root paths normalized;
+- the first suggested replacement text, if any;
+- the hash of the primary span's source snippet with whitespace runs collapsed,
+  or a fixed `unsupported` marker when the span has no source text;
+- the run's config hash;
+- the `cargo-octet` version.
+
+The config hash covers only lint-relevant configuration: the `dylint.toml`
+bytes, the canonical (key-order-independent) contents of the
 `[workspace.metadata.octet]` table and the legacy `[workspace.metadata.slotcar]` /
 `[workspace.metadata.tigerstyle]` tables in the root `Cargo.toml`, the effective
-scope and `cargo check` arguments, and the strict profile identity. Other
-manifest edits, such as dependency bumps, new workspace members, or `[package]`
-changes, keep finding IDs stable. A root `Cargo.toml` that cannot be parsed falls
-back to hashing its raw bytes. Releases before this rule hashed the whole root
-`Cargo.toml`, so upgrading re-keys existing baselines once; regenerate them with
+scope arguments, the effective `cargo check` arguments, and the strict profile
+identity (profile ID and policy hash) when a profile is selected. "Effective"
+means after defaults apply: running with no scope flags uses `default_scope`, so
+it matches an explicit run with the same flags, but `--workspace` and
+`-p mycrate` are different scopes, and adding or reordering `-- <cargo check
+args>` changes the arguments. Other manifest edits, such as dependency bumps,
+new workspace members, or `[package]` changes, keep finding IDs stable. A root
+`Cargo.toml` that cannot be parsed falls back to hashing its raw bytes.
+
+Write and check a baseline with the same scope, the same `cargo check`
+arguments, the same `dylint.toml` and runner metadata, the same strict profile,
+and the same `cargo-octet` version. Changing any of them re-keys every finding:
+all current findings report as new and every accepted ID reports as stale.
+Regenerate the baseline with `--write-baseline` after such a change.
+
+Releases before the manifest-table rule hashed the whole root `Cargo.toml`, so
+upgrading re-keys existing baselines once; regenerate them with
 `--write-baseline` after upgrading. Future `--baseline` runs compare the current
 finding set to that accepted ID set. Fully accepted warning-only findings keep
 exit `0`; any new unaccepted stable ID fails the run with exit `1` and records
