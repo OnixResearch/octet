@@ -324,10 +324,15 @@ pub fn run(args: &ProveArgs) -> Result<i32, String> {
     let rail_selection = prove_core::selected_rail_indices(&registry, &sources, &selection, &args.rail);
     let selected_rails = selected_rails(&registry, &rail_selection.selected);
     if args.list {
+        let selector_failed = !rail_selection.diagnostics.is_empty();
         let mut diagnostics = rail_selection.diagnostics;
         diagnostics.extend(list_diagnostics(&selected_rails, &sources));
         print_rail_list(args.output_format, &rail_list_report(&selected_rails, diagnostics))?;
-        return Ok(EXIT_PROOF_VALID);
+        return Ok(if selector_failed {
+            EXIT_PROOF_INVALID
+        } else {
+            EXIT_PROOF_VALID
+        });
     }
 
     let mut diagnostics = rail_selection.diagnostics;
@@ -3143,6 +3148,26 @@ mod tests {
         );
         let provenance = fs::read_to_string(artifact_dir.join(PROVENANCE_ARTIFACT_NAME)).expect("read provenance");
         assert!(!provenance.contains("formal_proof"));
+    }
+
+    #[test]
+    fn prove_list_fails_closed_for_unmatched_or_malformed_rail_selector() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let source = write_fixture_source(temp.path());
+        write_fixture_proof(temp.path());
+        let registry = write_fixture_registry(temp.path(), PASS_SIGNAL, command_argv(PASS_SIGNAL));
+        let artifact_dir = temp.path().join("artifacts-list");
+
+        for selector in ["missing.policy#rail-0".to_owned(), format!("{POLICY_ID}#rail-x")] {
+            let mut args = fixture_args(registry.clone(), vec![source.clone()], artifact_dir.clone());
+            args.list = true;
+            args.rail = vec![selector.clone()];
+
+            let code = run(&args).expect("prove list");
+
+            assert_eq!(code, EXIT_PROOF_INVALID, "selector `{selector}` must fail closed");
+            assert!(!artifact_dir.exists(), "list mode should not write artifact bundles");
+        }
     }
 
     fn fixture_args(registry: PathBuf, source: Vec<PathBuf>, artifact_dir: PathBuf) -> ProveArgs {

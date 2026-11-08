@@ -49,9 +49,10 @@ The production negative fixture is failure-path evidence only:
 `cargo octet prove --rail <policy-id[#rail-N]>` narrows execution to a named
 policy rail after the ordinary family/source selection gate, so a typo, wrong
 family, or missing source binding reports a deterministic diagnostic instead of
-running an unintended verifier. `cargo octet prove --explain` adds deterministic
-remediation details for stale bindings, verifier mismatches, unmatched rails, and
-unbacked proof claims.
+running an unintended verifier. A malformed or unmatched selector exits
+non-zero in both run and `--list` mode. `cargo octet prove --explain` adds
+deterministic remediation details for stale bindings, verifier mismatches,
+unmatched rails, and unbacked proof claims.
 
 `cargo octet prove` executes configured argv only, captures bounded stdout/stderr
 artifacts, writes structured JSON receipts under the selected artifact directory,
