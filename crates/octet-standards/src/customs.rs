@@ -9,7 +9,6 @@ use serde::Deserialize;
 use serde::Serialize;
 
 use crate::artifacts::ArtifactManifest;
-use crate::artifacts::ArtifactManifestEntry;
 use crate::model::ConfigReceiptFamily;
 use crate::model::ConfigReceiptFamilyStatus;
 use crate::model::PolicyRegistry;
@@ -335,9 +334,15 @@ fn validate_artifact_identity(
     diagnostics: &mut Vec<CustomsDiagnostic>,
 ) {
     let expected = artifact_text_identity(path, text);
-    match manifest_entry(manifest, path) {
-        Some(actual) if actual.blake3 == expected.blake3 && actual.bytes == expected.bytes => {}
-        Some(actual) => diagnostics.push(diagnostic(
+    let mut entries = manifest.artifacts.iter().filter(|entry| entry.path == path);
+    match (entries.next(), entries.next()) {
+        (Some(_), Some(_)) => diagnostics.push(diagnostic(
+            path,
+            format!("artifact manifest has duplicate entries for generated artifact `{path}`"),
+            REMEDIATION_ARTIFACTS,
+        )),
+        (Some(actual), None) if actual.blake3 == expected.blake3 && actual.bytes == expected.bytes => {}
+        (Some(actual), None) => diagnostics.push(diagnostic(
             path,
             format!(
                 "stale generated artifact `{path}`; expected blake3 {} bytes {}, got blake3 {} bytes {}",
@@ -345,7 +350,7 @@ fn validate_artifact_identity(
             ),
             REMEDIATION_ARTIFACTS,
         )),
-        None => diagnostics.push(diagnostic(
+        (None, _) => diagnostics.push(diagnostic(
             path,
             format!("artifact manifest is missing generated artifact `{path}`"),
             REMEDIATION_ARTIFACTS,
@@ -419,10 +424,6 @@ fn text_at<'a>(texts: &'a [SourceFile], path: &str) -> Option<&'a str> {
     texts.iter().find(|text| text.path == path).map(|text| text.text.as_str())
 }
 
-fn manifest_entry<'a>(manifest: &'a ArtifactManifest, path: &str) -> Option<&'a ArtifactManifestEntry> {
-    manifest.artifacts.iter().find(|entry| entry.path == path)
-}
-
 fn contains_remote_fetch(value: &str) -> bool {
     let lowered = value.to_ascii_lowercase();
     REMOTE_FETCH_MARKERS.iter().any(|marker| lowered.contains(marker))
@@ -455,6 +456,7 @@ fn diagnostic(field: impl Into<String>, message: String, remediation: &str) -> C
 mod tests {
     use super::*;
     use crate::artifacts::ARTIFACT_MANIFEST_SCHEMA_VERSION;
+    use crate::artifacts::ArtifactManifestEntry;
     use crate::model::ConfigReceiptOwnership;
     use crate::model::PolicyRegistry;
     use crate::proof_artifact::artifact_text_identity;
@@ -610,6 +612,30 @@ mod tests {
                 .diagnostics
                 .iter()
                 .any(|diagnostic| diagnostic.field == "kind" && diagnostic.message.contains("unknown package kind")),
+            "{:?}",
+            report.diagnostics
+        );
+    }
+
+    #[test]
+    fn duplicate_artifact_manifest_paths_fail_closed() {
+        let package = valid_package();
+        let registry = valid_registry();
+        let sources = valid_sources();
+        let artifacts = valid_artifacts();
+        let mut artifact_manifest = valid_manifest();
+        let mut stale_duplicate = artifact_manifest.artifacts[0].clone();
+        stale_duplicate.blake3 = "stale".to_owned();
+        artifact_manifest.artifacts.push(stale_duplicate);
+
+        let report = report_for(&package, &registry, &artifact_manifest, &sources, &artifacts);
+
+        assert_eq!(report.status, "fail");
+        assert!(
+            report
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.field == SOURCE_PATH && diagnostic.message.contains("duplicate entries")),
             "{:?}",
             report.diagnostics
         );
