@@ -3711,6 +3711,10 @@ fn sarif_carries_invocation_metadata() {
     );
     assert_eq!(invocation["exitCode"], output.status.code().expect("sarif invocation exit code"));
     assert_eq!(
+        invocation["executionSuccessful"], true,
+        "a complete scan with error-level findings is still a successful tool execution"
+    );
+    assert_eq!(
         sorted_object_keys(&sarif["runs"][0]["properties"]),
         vec![
             "autofixableFindings".to_owned(),

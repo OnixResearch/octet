@@ -421,7 +421,7 @@ pub fn render_sarif(
             },
             "invocations": [{
                 "commandLine": command_line,
-                "executionSuccessful": outcome.exit_code == EXIT_SUCCESS,
+                "executionSuccessful": outcome.status != RunStatus::IntegrationFailure,
                 "exitCode": outcome.exit_code
             }],
             "properties": properties,
@@ -863,6 +863,45 @@ mod tests {
         .expect("SARIF should render");
 
         assert!(rendered.contains("\"evidenceTier\": \"static_lint\""));
+    }
+
+    #[test]
+    fn sarif_execution_successful_only_fails_for_integration_failures() {
+        let finding = test_finding();
+        let clean = RunOutcome::classify(&[], CargoProcessExit::success());
+        let lint_failure =
+            RunOutcome::classify(std::slice::from_ref(&finding), CargoProcessExit::success()).force_lint_failure();
+        let integration_failure = clean.force_integration_failure();
+        let metadata = RunMetadata {
+            tool_name: "cargo-octet",
+            tool_version: "0.1.0",
+            rustc_version: "rustc-test".to_owned(),
+            toolchain: "nightly".to_owned(),
+            profile_name: "default".to_owned(),
+            profile_hash: "profile-hash".to_owned(),
+            config_hash: TEST_CONFIG_HASH.to_owned(),
+        };
+
+        for (outcome, expected_exit, expected_success) in [
+            (&clean, EXIT_SUCCESS, true),
+            (&lint_failure, EXIT_LINT_FAILURE, true),
+            (&integration_failure, EXIT_INTEGRATION_FAILURE, false),
+        ] {
+            let rendered = render_sarif(
+                std::slice::from_ref(&finding),
+                &lint_meta_map(),
+                outcome,
+                "cargo octet check --output-format sarif",
+                &metadata,
+                None,
+            )
+            .expect("SARIF should render");
+            let sarif = serde_json::from_str::<serde_json::Value>(&rendered).expect("parse rendered SARIF");
+            let invocation = &sarif["runs"][0]["invocations"][0];
+
+            assert_eq!(invocation["exitCode"], expected_exit);
+            assert_eq!(invocation["executionSuccessful"], expected_success, "{:?}", outcome.status);
+        }
     }
 
     fn test_finding() -> Finding {
