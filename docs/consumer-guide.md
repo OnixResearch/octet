@@ -197,7 +197,7 @@ Starter `cargo octet check` usage does not require Verus.
 
 ### 3b. Optional external evidence rails
 
-External tool rails are opt-in evidence, not starter checks. `cargo octet evidence collect` imports saved tool output or runs a selected tool command, then writes `evidence-rail-receipt.json`, `summary.txt`, and `provenance.jsonl` under the chosen artifact directory.
+External tool rails are opt-in evidence, not starter checks. `cargo octet evidence collect` imports saved tool output or runs a selected tool command, then writes `evidence-rail-receipt.json`, `summary.txt`, and `provenance.jsonl` under the chosen artifact directory. The `--artifact-dir` directory must be new, empty, or an existing evidence bundle, recognized by both `evidence-rail-receipt.json` and `provenance.jsonl` being present as regular files; only then does the collector prune leftover entries from the earlier bundle before writing. Any other non-empty directory, such as Cargo's `target/` or the workspace root, is left untouched and the command exits `2` without writing a receipt.
 
 ```bash
 cargo octet evidence collect --rail dependency-audit --input target/deny.json --config deny.toml --locked --artifact-dir artifacts/dependency-audit

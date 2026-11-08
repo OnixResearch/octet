@@ -4385,7 +4385,7 @@ fn write_artifacts(
     provenance_jsonl: &str,
     additional_artifacts: &BTreeMap<String, Vec<u8>>,
 ) -> Result<(), String> {
-    let root = ArtifactRoot::open_or_create(artifact_dir)?;
+    let root = prepare_artifact_dir(artifact_dir)?;
     remove_stale_artifacts(&root, additional_artifacts.keys())?;
     root.write_atomic(&RootRelativePath::new(RECEIPT_ARTIFACT_NAME)?, receipt_json.as_bytes())?;
     root.write(&RootRelativePath::new(SUMMARY_ARTIFACT_NAME)?, summary.as_bytes())?;
@@ -4394,6 +4394,30 @@ fn write_artifacts(
         root.write(&RootRelativePath::new(name)?, bytes)?;
     }
     Ok(())
+}
+
+fn prepare_artifact_dir(artifact_dir: &Path) -> Result<ArtifactRoot, String> {
+    let root = ArtifactRoot::open_or_create(artifact_dir)?;
+    if root.read_entry_names()?.is_empty() || is_existing_evidence_bundle(&root)? {
+        return Ok(root);
+    }
+
+    Err(format!(
+        "refusing to use artifact directory {}: it is not empty and is not an existing Octet evidence bundle \
+         (missing `{RECEIPT_ARTIFACT_NAME}` or `{PROVENANCE_ARTIFACT_NAME}`); choose a new or empty directory",
+        artifact_dir.display()
+    ))
+}
+
+/// Every bundle written by `write_artifacts` carries these two sidecars. Only a directory holding
+/// both may have its remaining entries pruned before the next bundle is written.
+fn is_existing_evidence_bundle(root: &ArtifactRoot) -> Result<bool, String> {
+    for marker in [RECEIPT_ARTIFACT_NAME, PROVENANCE_ARTIFACT_NAME] {
+        if !root.is_file(&RootRelativePath::new(marker)?)? {
+            return Ok(false);
+        }
+    }
+    Ok(true)
 }
 
 fn remove_stale_artifacts<'a>(
@@ -5514,6 +5538,49 @@ mod tests {
             dynamic_run_command_argv(Some(DYNAMIC_PROFILE_LOOM_SHORT), Some(DYNAMIC_COMMAND_LOOM_TEST))
                 .expect("Loom command"),
             split_command(DYNAMIC_COMMAND_LOOM_TEST)
+        );
+    }
+
+    #[test]
+    fn evidence_artifact_dir_refuses_foreign_directories_without_deleting() {
+        let temporary = tempfile::tempdir().expect("artifact fixture");
+        let no_additional = BTreeMap::new();
+
+        let foreign = temporary.path().join("target");
+        let foreign_cache = foreign.join("debug/.fingerprint/consumer-hash");
+        fs::create_dir_all(foreign_cache.parent().expect("cache parent")).expect("foreign cache dir");
+        fs::write(&foreign_cache, "cache\n").expect("foreign cache file");
+        fs::write(foreign.join(RECEIPT_ARTIFACT_NAME), "{}\n").expect("lone receipt marker");
+        let error = write_artifacts(&foreign, "{\"new\":true}\n", "summary\n", "", &no_additional)
+            .expect_err("foreign directory must be refused");
+        assert!(error.contains("not an existing Octet evidence bundle"), "{error}");
+        assert_eq!(fs::read_to_string(&foreign_cache).expect("foreign cache survives"), "cache\n");
+        assert_eq!(fs::read_to_string(foreign.join(RECEIPT_ARTIFACT_NAME)).expect("marker survives"), "{}\n");
+        assert!(!foreign.join(SUMMARY_ARTIFACT_NAME).exists());
+
+        let empty = temporary.path().join("empty");
+        fs::create_dir_all(&empty).expect("empty artifact dir");
+        write_artifacts(&empty, "{}\n", "summary\n", "", &no_additional).expect("empty directory is accepted");
+
+        let previous = temporary.path().join("previous");
+        write_artifacts(&previous, "{}\n", "summary\n", "", &no_additional).expect("missing directory is created");
+        fs::create_dir_all(previous.join("stale-dir")).expect("stale bundle dir");
+        fs::write(previous.join("stale.txt"), "stale\n").expect("stale bundle sidecar");
+        write_artifacts(&previous, "{\"rerun\":true}\n", "summary\n", "", &no_additional)
+            .expect("previous evidence bundle is accepted");
+        assert!(!previous.join("stale-dir").exists());
+        assert!(!previous.join("stale.txt").exists());
+        let mut entries = fs::read_dir(&previous)
+            .expect("read previous bundle")
+            .map(|entry| entry.expect("bundle entry").file_name().to_string_lossy().into_owned())
+            .collect::<Vec<_>>();
+        entries.sort();
+        let mut expected = expected_bundle_files();
+        expected.sort();
+        assert_eq!(entries, expected);
+        assert_eq!(
+            fs::read_to_string(previous.join(RECEIPT_ARTIFACT_NAME)).expect("rewritten receipt"),
+            "{\"rerun\":true}\n"
         );
     }
 
