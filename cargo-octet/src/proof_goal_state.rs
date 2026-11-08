@@ -193,11 +193,67 @@ fn overclaim_patterns() -> [(&'static str, &'static str); OVERCLAIM_PATTERN_COUN
 
 const OVERCLAIM_PATTERN_COUNT: usize = 5;
 
+/// Characters that end a clause; negation never carries across them.
+const CLAUSE_TERMINATORS: &[char] = &[';', '.', '!', '?', '\n'];
+/// Contrastive markers start a fresh clause, so `not X but Y` still claims `Y`.
+const CONTRAST_MARKERS: &[&str] = &["but", "however", "yet", "although", "though", "whereas"];
+/// Separators between list items or coordinated clauses inside one clause.
+const COORDINATORS: &[&str] = &[",", "and", "or", "nor"];
+/// Words that may lead a bare list item without making it a separate claim.
+const LIST_ITEM_DETERMINERS: &[&str] = &["a", "an", "the", "any"];
+const NEGATORS: &[&str] = &["not", "no", "never", "without", "nor", "neither", "cannot"];
+
+/// Returns true when any occurrence of `phrase` in `lower_wording` is claimed rather than negated.
+///
+/// Negation is decided per occurrence: a match is negated only when a negator appears earlier in
+/// its own clause. Clauses end at `;`, `.`, `!`, `?`, or a newline, and restart after a contrastive
+/// marker such as `but`. Inside a clause, a match that is a bare list item after `,`, `and`, `or`,
+/// or `nor` (`not X, Y, or Z`) inherits the clause's negation, while a coordinated segment with its
+/// own words (`does not cover X, and guarantees Y`) needs its own negator.
 pub(crate) fn positive_phrase_present(lower_wording: &str, phrase: &str) -> bool {
-    lower_wording.contains(phrase)
-        && !lower_wording.contains(&format!("not {phrase}"))
-        && !lower_wording.contains(&format!("no {phrase}"))
-        && !lower_wording.contains(&format!("does not {phrase}"))
+    lower_wording.match_indices(phrase).any(|(start, _)| !occurrence_negated(&lower_wording[..start]))
+}
+
+fn occurrence_negated(prefix: &str) -> bool {
+    let sentence = prefix.rsplit(CLAUSE_TERMINATORS).next().unwrap_or_default();
+    let tokens = clause_tokens(sentence);
+    let clause = tokens
+        .iter()
+        .rposition(|token| CONTRAST_MARKERS.contains(token))
+        .map_or(tokens.as_slice(), |index| &tokens[index + 1..]);
+    let segment = clause
+        .iter()
+        .rposition(|token| COORDINATORS.contains(token))
+        .map_or(clause, |index| &clause[index + 1..]);
+    let bare_list_item = segment.iter().all(|token| LIST_ITEM_DETERMINERS.contains(token));
+    let scope = if bare_list_item { clause } else { segment };
+    scope.iter().any(|token| is_negator(token))
+}
+
+/// Splits a clause into lowercase words plus `,` tokens; other punctuation separates words.
+fn clause_tokens(clause: &str) -> Vec<&str> {
+    let mut tokens = Vec::new();
+    let mut word_start = None;
+    for (index, character) in clause.char_indices() {
+        if character.is_alphanumeric() || matches!(character, '\'' | '\u{2019}') {
+            word_start.get_or_insert(index);
+            continue;
+        }
+        if let Some(start) = word_start.take() {
+            tokens.push(&clause[start..index]);
+        }
+        if character == ',' {
+            tokens.push(",");
+        }
+    }
+    if let Some(start) = word_start {
+        tokens.push(&clause[start..]);
+    }
+    tokens
+}
+
+fn is_negator(token: &str) -> bool {
+    NEGATORS.contains(&token) || token.ends_with("n't") || token.ends_with("n\u{2019}t")
 }
 
 fn required_non_claim_blockers(non_claims: &[String]) -> Vec<String> {
@@ -345,6 +401,33 @@ mod tests {
             "not verified runtime",
         ] {
             assert!(DOCS_TEXT.contains(required), "missing docs phrase: {required}");
+        }
+    }
+
+    #[test]
+    fn positive_phrase_present_decides_negation_per_occurrence() {
+        for (wording, phrase) in [
+            (octet_standards::formal_proof::AENEAS_NON_CLAIM_WHOLE_PROGRAM, "whole-program correctness"),
+            (crate::prove::AENEAS_NON_CLAIM_SEMANTIC_EQUIVALENCE, "semantic equivalence"),
+            ("not whole-program correctness, certification, or verified runtime", "certification"),
+            ("not whole-program correctness, certification, or verified runtime", "verified runtime"),
+            ("neither certification nor a verified runtime", "verified runtime"),
+            ("never certification; without verified runtime", "verified runtime"),
+            ("feedback only; it doesn't prove whole-program correctness", "whole-program correctness"),
+        ] {
+            assert!(!positive_phrase_present(&wording.to_ascii_lowercase(), phrase), "`{wording}` is negated");
+        }
+        for (wording, phrase) in [
+            ("guarantees full safety of decode; not full safety of encode", "full safety"),
+            (
+                "does not prove whole-program correctness of encode. proves whole-program correctness of decode",
+                "whole-program correctness",
+            ),
+            ("does not cover encode, but guarantees certification of decode", "certification"),
+            ("does not cover encode and guarantees certification of decode", "certification"),
+            ("not semantic equivalence but verified runtime", "verified runtime"),
+        ] {
+            assert!(positive_phrase_present(wording, phrase), "`{wording}` claims `{phrase}`");
         }
     }
 

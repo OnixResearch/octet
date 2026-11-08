@@ -121,6 +121,9 @@ const TRELLIS_IMPORTS_JSON: &str = include_str!("../../standards/proof-imports/g
 const AENEAS_CONSUMER_POLICY_ID: &str = "octet.aeneas_consumer_contract.external-fixture";
 const EVIDENCE_ORIGIN_OCTET_RERUN: &str = "octet_rerun";
 const VERIFIER_MODE_EXTERNAL: &str = "external";
+/// Aeneas card non-claim recorded beside the shared `octet_standards` Aeneas non-claims.
+pub(crate) const AENEAS_NON_CLAIM_SEMANTIC_EQUIVALENCE: &str =
+    "does not establish semantic equivalence or release eligibility";
 const NON_CLAIM_WHOLE_PROGRAM: &str = "not whole-program correctness";
 const NON_CLAIM_CERTIFICATION: &str = "not certification";
 const NON_CLAIM_BUSINESS_DOMAIN: &str = "not business-domain validation";
@@ -937,7 +940,7 @@ fn build_aeneas_receipt(
         AENEAS_NON_CLAIM_TRANSLATION_SOUNDNESS.to_owned(),
         AENEAS_NON_CLAIM_VERIFIER_SOUNDNESS.to_owned(),
         AENEAS_NON_CLAIM_WHOLE_PROGRAM.to_owned(),
-        "does not establish semantic equivalence or release eligibility".to_owned(),
+        AENEAS_NON_CLAIM_SEMANTIC_EQUIVALENCE.to_owned(),
     ];
     if let Some(binding) = consumer.as_ref() {
         non_claims.extend(binding.non_claims.clone());

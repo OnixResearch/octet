@@ -831,6 +831,78 @@ mod tests {
         }
     }
 
+    #[test]
+    fn proof_ref_scaffold_accepts_negated_aeneas_card_non_claims() {
+        let mut anchor_reference = matching_reference();
+        let source = source_artifact_for(&mut anchor_reference);
+        let mut card = card();
+        card.non_claims.extend(aeneas_non_claims());
+        let deck = deck_with(card);
+
+        let scaffolded = scaffold_proof_evidence_ref(
+            &deck,
+            PROPERTY_ID,
+            &anchor_reference.reference_id,
+            &anchor_reference.consumer_context,
+            &source,
+            &anchor_reference.consumer_source_anchor,
+        )
+        .expect("negated Aeneas non-claims must scaffold");
+
+        for non_claim in aeneas_non_claims() {
+            assert!(scaffolded.non_claims.contains(&non_claim), "scaffold dropped `{non_claim}`");
+        }
+    }
+
+    #[test]
+    fn proof_ref_negation_is_decided_per_occurrence() {
+        let accepted = aeneas_non_claims().join("; ");
+        let reference = reference_with_context(&format!("allow linked proof evidence at src/codec.rs:42; {accepted}"));
+        let diagnostics = validate_proof_evidence_ref(&reference, &deck_with(card()), None).diagnostics;
+        assert!(diagnostics.is_empty(), "negated Aeneas non-claims rejected: {diagnostics:?}");
+
+        for (wording, claim) in [
+            ("guarantees full safety of decode; not full safety of encode", "full safety"),
+            (
+                "does not prove whole-program correctness of encode; proves whole-program correctness of decode",
+                "whole-program correctness",
+            ),
+            (
+                "does not establish semantic equivalence or release eligibility, but guarantees semantic equivalence of decode",
+                "semantic equivalence",
+            ),
+            ("does not cover encode, and guarantees full safety of decode", "full safety"),
+        ] {
+            let reference =
+                reference_with_context(&format!("allow linked proof evidence at src/codec.rs:42; {wording}"));
+
+            let diagnostics = validate_proof_evidence_ref(&reference, &deck_with(card()), None).diagnostics;
+
+            assert!(
+                diagnostics.iter().any(|diagnostic| diagnostic.contains(&format!("unsupported {claim} claim"))),
+                "`{wording}` should be rejected as a {claim} claim: {diagnostics:?}"
+            );
+        }
+    }
+
+    fn aeneas_non_claims() -> Vec<String> {
+        [
+            octet_standards::formal_proof::AENEAS_NON_CLAIM_TRANSLATION_SOUNDNESS,
+            octet_standards::formal_proof::AENEAS_NON_CLAIM_VERIFIER_SOUNDNESS,
+            octet_standards::formal_proof::AENEAS_NON_CLAIM_WHOLE_PROGRAM,
+            crate::prove::AENEAS_NON_CLAIM_SEMANTIC_EQUIVALENCE,
+        ]
+        .into_iter()
+        .map(str::to_owned)
+        .collect()
+    }
+
+    fn reference_with_context(consumer_context: &str) -> ProofEvidenceRef {
+        let mut reference = matching_reference();
+        consumer_context.clone_into(&mut reference.consumer_context);
+        reference
+    }
+
     fn matching_reference() -> ProofEvidenceRef {
         ProofEvidenceRef {
             schema_version: PROOF_EVIDENCE_REF_SCHEMA_VERSION.to_owned(),
