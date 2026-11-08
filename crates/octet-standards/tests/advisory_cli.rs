@@ -965,6 +965,35 @@ fn execute_proof_rails_rejects_failing_execution_despite_valid_committed_receipt
 }
 
 #[test]
+fn proof_artifact_dir_requires_execute_proof_rails() {
+    let temp = TempDir::new().expect("temp dir should be created");
+    let registry = write_registry_value(&temp, &proof_registry());
+    let fixture = write_executable_proof_fixture(&temp, "proof-artifact-dir-fixture");
+    let proof_artifact_dir = temp.path().join("proof-artifacts");
+
+    let output = Command::new(binary_path())
+        .arg("check")
+        .arg("--registry")
+        .arg(&registry)
+        .arg("--source")
+        .arg(&fixture)
+        .arg("--family")
+        .arg(VERIFICATION_FAMILY)
+        .arg("--proof-artifact-dir")
+        .arg(&proof_artifact_dir)
+        .arg("--output")
+        .arg("json")
+        .output()
+        .expect("standards checker should run");
+
+    assert_failure(&output);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("--execute-proof-rails"), "stderr was: {stderr}");
+    assert!(output.stdout.is_empty(), "no report should be emitted for rejected arguments");
+    assert!(!proof_artifact_dir.exists());
+}
+
+#[test]
 fn execute_proof_rails_rejects_pass_signal_with_failing_exit_status() {
     let temp = TempDir::new().expect("temp dir should be created");
     let registry = write_registry_value(&temp, &relocated_receipt_proof_registry());

@@ -126,7 +126,8 @@ struct CheckArgs {
     execute_proof_rails: bool,
 
     /// Directory where executed proof-rail receipts are persisted for later promotion evidence.
-    #[arg(long)]
+    /// Requires `--execute-proof-rails`.
+    #[arg(long, requires = "execute_proof_rails")]
     proof_artifact_dir: Option<PathBuf>,
 }
 
