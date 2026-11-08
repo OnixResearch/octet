@@ -125,8 +125,9 @@ CI logs:
 
 ```text
 octet fingerprint check
-src/lib.rs checked_transition mismatch stored=b3:old computed=b3:new review=safety-critical evidence=openspec/.../evidence/check.txt macro_warning=false
-summary total=6 match=5 mismatch=1 missing=0 written=0 macro_warnings=0 metadata_missing=0
+src/lib.rs checked_transition mismatch semantic_id=b3:cf0af9c656f20f31 stored=9a1cd5ce932bd24379e84878bd357b352388e38e8dde2082855e592f5cd6afa7 computed=b3:dc0e7855981b557572c35b946241cc138ec9e17896196e75ec5a3fd1ccc3a769 normalized_body_hash=b3:87c7e8e7b2a1005418e42da07b9adb703d5625993b8c191b2b8bbc5bfda8f473 dependency_identity_status=source-scanner-token-set review=safety-critical evidence=openspec/.../evidence/check.txt macro_warning=false
+src/lib.rs bounded_retry match semantic_id=b3:ec59f5695ff884e4 stored=83edea8b1e4f02ee331fca0471de323c7a4fd4396e1e9a4bcfb1d22a889f565e computed=b3:83edea8b1e4f02ee331fca0471de323c7a4fd4396e1e9a4bcfb1d22a889f565e normalized_body_hash=b3:3fd231f58701d9d8272d9111712aa44364d66a7104c96c12be535741e77e5c89 dependency_identity_status=source-scanner-token-set review=safety-critical evidence=openspec/.../evidence/check.txt macro_warning=false
+summary total=2 match=1 mismatch=1 missing=0 written=0 macro_warnings=0 metadata_missing=0
 ```
 
 Use the summary line for quick operator decisions:
