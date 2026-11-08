@@ -22,6 +22,7 @@ const ENV_PATH: &str = "PATH";
 const RUSTC_RELEASE_KEY: &str = "release";
 const RUSTC_COMMIT_HASH_KEY: &str = "commit-hash";
 const UNKNOWN_IDENTITY: &str = "unknown";
+const LINT_LEVEL_ALLOW: &str = "allow";
 #[cfg(unix)]
 const EXECUTABLE_MODE_BITS: u32 = 0o111;
 const REQUIRED_WAIVER_FIELDS: &[&str] = &[
@@ -246,14 +247,18 @@ fn is_executable_file(path: &Path) -> bool {
     path.is_file()
 }
 
+/// Collects every lint the selected config section turns off: entries in `disabled_lints` plus
+/// lints whose `lint_levels` entry is `allow`. The section is chosen with the lint library's
+/// precedence (`[octet]`, then the `[slotcar]` and `[tigerstyle]` compatibility sections).
 fn disabled_lints_from_config(path: &Path) -> Result<Vec<String>, String> {
     let text = fs::read_to_string(path).map_err(|error| format!("read config {}: {error}", path.display()))?;
     let document = text.parse::<toml::Table>().map_err(|error| format!("parse config {}: {error}", path.display()))?;
-    let disabled = document
+    let section = document
         .get("octet")
         .and_then(toml::Value::as_table)
         .or_else(|| document.get("slotcar").and_then(toml::Value::as_table))
-        .or_else(|| document.get("tigerstyle").and_then(toml::Value::as_table))
+        .or_else(|| document.get("tigerstyle").and_then(toml::Value::as_table));
+    let mut disabled = section
         .and_then(|table| table.get("disabled_lints"))
         .and_then(toml::Value::as_array)
         .into_iter()
@@ -265,6 +270,16 @@ fn disabled_lints_from_config(path: &Path) -> Result<Vec<String>, String> {
                 .ok_or_else(|| format!("disabled_lints in {} must contain only strings", path.display()))
         })
         .collect::<Result<Vec<_>, _>>()?;
+    if let Some(levels) = section.and_then(|table| table.get("lint_levels")) {
+        let levels = levels.as_table().ok_or_else(|| format!("lint_levels in {} must be a table", path.display()))?;
+        for (lint, level) in levels {
+            let level =
+                level.as_str().ok_or_else(|| format!("lint_levels.{lint} in {} must be a string", path.display()))?;
+            if level == LINT_LEVEL_ALLOW {
+                disabled.push(lint.clone());
+            }
+        }
+    }
     Ok(sorted_unique(disabled))
 }
 
@@ -663,6 +678,40 @@ mod tests {
         let error = rustc_identity(Path::new("true"), search_path.as_deref())
             .expect_err("rustc -vV output without release metadata should fail");
         assert!(error.contains("release"));
+    }
+
+    #[test]
+    fn config_lint_levels_allow_counts_as_disabled_in_the_selected_section() {
+        let cases: &[(&str, &[&str])] = &[
+            ("[octet.lint_levels]\nno_unwrap = \"allow\"\n", &["no_unwrap"]),
+            ("[slotcar.lint_levels]\nno_unwrap = \"allow\"\n", &["no_unwrap"]),
+            ("[tigerstyle.lint_levels]\nno_panic = \"allow\"\n", &["no_panic"]),
+            ("[octet]\ndisabled_lints = [\"no_todo\"]\n\n[octet.lint_levels]\nno_unwrap = \"allow\"\n", &[
+                "no_todo",
+                "no_unwrap",
+            ]),
+            ("[octet]\n\n[slotcar.lint_levels]\nno_unwrap = \"allow\"\n", &[]),
+            ("[octet.lint_levels]\nno_unwrap = \"warn\"\nno_panic = \"deny\"\n", &[]),
+        ];
+        let temp = TempDir::new().expect("create temp dir");
+        let config = temp.path().join("dylint.toml");
+        for (text, expected) in cases {
+            fs::write(&config, text).expect("write config");
+            let disabled = disabled_lints_from_config(&config).expect("parse disabled lints");
+            assert_eq!(disabled, expected.iter().map(|lint| (*lint).to_owned()).collect::<Vec<_>>(), "{text}");
+        }
+    }
+
+    #[test]
+    fn config_lint_level_allow_of_required_lint_fails_closed() {
+        let temp = TempDir::new().expect("create temp dir");
+        let fixture = ManifestFixture::write(temp.path());
+        fs::write(&fixture.config, "[octet.lint_levels]\nno_unwrap = \"allow\"\n").expect("write config");
+        let error = validate_manifest(&fixture.build_manifest()).expect_err("allowed required lint should fail");
+        assert!(error.contains("required lint `no_unwrap` is disabled"));
+
+        fs::write(&fixture.config, "[octet.lint_levels]\nno_unwrap = \"deny\"\n").expect("write config");
+        assert!(validate_manifest(&fixture.build_manifest()).is_ok());
     }
 
     struct ManifestFixture {
