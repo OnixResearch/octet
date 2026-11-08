@@ -20,6 +20,12 @@ fn checked_add(a: u64, b: u64) -> Option<u64> {
     a.checked_add(b)
 }
 
+#[cfg(test)]
+fn test_only_add(a: u64, b: u64) -> u64 {
+    // Should NOT warn: test-only code is outside production scope
+    a + b
+}
+
 fn main() {
     unprotected_add(1, 2);
     unprotected_mul(1, 2);

@@ -289,7 +289,8 @@ fn extra_rustc_args(name: &str) -> &'static [&'static str] {
         | "magic_number"
         | "explicit_defaults/explicit_defaults"
         | "too_many_parameters"
-        | "sentinel_fallback" => &["--cfg", "test"],
+        | "sentinel_fallback"
+        | "raw_arithmetic_overflow" => &["--cfg", "test"],
         "ambient_clock_test_harness" | "no_unwrap_test_harness" => &["--test"],
         _ => &[],
     }

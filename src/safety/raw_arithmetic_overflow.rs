@@ -119,6 +119,10 @@ impl<'tcx> LateLintPass<'tcx> for RawArithmeticOverflow {
             return;
         }
 
+        if crate::test_context::late_hir_id_is_in_test_context(cx, expr.hir_id, expr.span) {
+            return;
+        }
+
         let op_name = match op.node {
             BinOpKind::Add => "addition",
             BinOpKind::Sub => "subtraction",
