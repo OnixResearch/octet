@@ -101,6 +101,8 @@ Cargo/workspace summaries must match an exact provider in `cargo metadata --lock
 
 A call is a selected local edge only when its source path proves the target: a single-segment call such as `helper()` names a free function in the caller's file and inline module, `Owner::name()` names a method of an inherent `impl Owner` block in that same scope, and `self.name()` inside an inherent method names a method of that same inherent owner in that scope. Qualified module paths such as `crate::shell::now()`, trait default and trait-impl methods, `self` calls from trait bodies, and calls whose proven target is not unique remain unresolved and need an exact summary or stay `unknown`.
 
+Closure nodes use the function-address producer's item model: one node per outermost `fn` item. Items nested inside a function body, such as an inner `fn`, are not separate nodes; their tokens are scanned as part of the enclosing function, and a call never resolves to a nested item as a selected local edge.
+
 Selected local calls form a canonically ordered graph. Each node begins with direct inferred and reviewed-summary effects. Octet repeatedly unions selected callee effects into callers until no finite effect set changes. Recursive cycles are retained and converge; this graph fact does not claim termination or runtime reachability.
 
 Admission succeeds only when there are no policy, address, role, edge, provider, inference, or denied-effect diagnostics.

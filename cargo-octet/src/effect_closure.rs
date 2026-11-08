@@ -389,6 +389,9 @@ struct BodyScanner<'a> {
     calls: Vec<RawCall>,
 }
 
+// The collector shares the function-address producer's item model: it records the outermost `fn`
+// items and does not descend into function bodies. Items nested in a body belong to the enclosing
+// function, whose body scan already covers their tokens.
 impl<'ast> Visit<'ast> for FunctionCollector {
     fn visit_item_mod(&mut self, node: &'ast syn::ItemMod) {
         self.module.push(node.ident.to_string());
@@ -405,7 +408,6 @@ impl<'ast> Visit<'ast> for FunctionCollector {
             signature: node.sig.clone(),
             block: (*node.block).clone(),
         });
-        syn::visit::visit_block(self, &node.block);
     }
 
     fn visit_item_impl(&mut self, node: &'ast syn::ItemImpl) {
@@ -423,7 +425,6 @@ impl<'ast> Visit<'ast> for FunctionCollector {
                     signature: function.sig.clone(),
                     block: function.block.clone(),
                 });
-                syn::visit::visit_block(self, &function.block);
             }
         }
     }
@@ -438,7 +439,6 @@ impl<'ast> Visit<'ast> for FunctionCollector {
                 signature: node.sig.clone(),
                 block: block.clone(),
             });
-            syn::visit::visit_block(self, block);
         }
     }
 }
@@ -2248,5 +2248,26 @@ unsafe fn risky(values: &[u8]) -> u8 {
                 .all(|call| call.resolution == CallResolution::Local)
         );
         assert!(verify_receipt_identity(&receipt).is_empty());
+    }
+
+    // r[verify octet.effect_closure.inference.direct]
+    #[test]
+    fn nested_function_items_belong_to_their_enclosing_function() {
+        let pure = compute_closure(input(
+            "fn outer() -> u8 {\n    fn inner() -> u8 { 0 }\n    0\n}\n",
+            vec![address("outer", '1')],
+            policy(Vec::new()),
+        ));
+        assert_eq!(pure.status, AdmissionStatus::Admitted, "{:?}", pure.diagnostics);
+        assert_eq!(pure.nodes.len(), 1);
+
+        let panicking = compute_closure(input(
+            "fn outer(value: u32) -> u32 {\n    fn inner(value: u32) -> u32 { value + 1 }\n    value\n}\n",
+            vec![address("outer", '2')],
+            policy(Vec::new()),
+        ));
+        assert!(!panicking.diagnostics.iter().any(|diagnostic| diagnostic.code == DIAGNOSTIC_ADDRESS_MISSING));
+        assert_eq!(panicking.nodes.len(), 1);
+        assert!(panicking.nodes[0].direct_effects.contains(&Effect::Panic));
     }
 }
