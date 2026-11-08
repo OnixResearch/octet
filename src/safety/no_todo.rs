@@ -166,13 +166,20 @@ fn enclosing_no_todo_allows(cx: &LateContext<'_>, expr: &hir::Expr<'_>) -> Vec<N
 
 impl NoTodo {
     fn collect_candidate_allow(&mut self, cx: &LateContext<'_>, hir_id: hir::HirId, span: Span) {
-        if !self.emit_unjustified_allow || test_context::late_hir_id_is_in_test_context(cx, hir_id, span) {
+        if !self.emit_unjustified_allow {
             return;
         }
 
-        if let Some(attr_span) = no_todo_allow_attr_span(cx, hir_id) {
-            remember_span(&mut self.candidate_allow_spans, attr_span);
+        // The attribute lookup is cheap and almost always empty; the ancestor
+        // test-context walk is not, so only pay for it on actual candidates.
+        let Some(attr_span) = no_todo_allow_attr_span(cx, hir_id) else {
+            return;
+        };
+        if test_context::late_hir_id_is_in_test_context(cx, hir_id, span) {
+            return;
         }
+
+        remember_span(&mut self.candidate_allow_spans, attr_span);
     }
 
     fn mark_allow_live(&mut self, attr_span: Span) {
