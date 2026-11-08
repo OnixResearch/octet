@@ -17,5 +17,50 @@ LL |     unimplemented!("not done");
    = help: Tiger Style (Fail Fast Correctly): return errors or prove exhaustiveness instead of panicking in production code Example: return Err(Error::invalid_state());
    = note: see Tiger Style guide: Error Handling / Panics
 
-warning: 2 warnings emitted
+warning: `panic!` will abort the process on execution
+  --> $DIR/no_panic.rs:13:5
+   |
+LL |     panic!();
+   |     ^^^^^^^^
+   |
+   = help: Tiger Style (Fail Fast Correctly): return errors or prove exhaustiveness instead of panicking in production code Example: return Err(Error::invalid_state());
+   = note: see Tiger Style guide: Error Handling / Panics
+
+warning: `unreachable!` will abort the process on execution
+  --> $DIR/no_panic.rs:18:5
+   |
+LL |     unreachable!();
+   |     ^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Fail Fast Correctly): return errors or prove exhaustiveness instead of panicking in production code Example: return Err(Error::invalid_state());
+   = note: see Tiger Style guide: Error Handling / Panics
+
+warning: `unimplemented!` will abort the process on execution
+  --> $DIR/no_panic.rs:23:5
+   |
+LL |     unimplemented!();
+   |     ^^^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Fail Fast Correctly): return errors or prove exhaustiveness instead of panicking in production code Example: return Err(Error::invalid_state());
+   = note: see Tiger Style guide: Error Handling / Panics
+
+warning: `panic!` will abort the process on execution
+  --> $DIR/no_panic.rs:28:5
+   |
+LL |     std::panic!("qualified panic");
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Fail Fast Correctly): return errors or prove exhaustiveness instead of panicking in production code Example: return Err(Error::invalid_state());
+   = note: see Tiger Style guide: Error Handling / Panics
+
+warning: `unreachable!` will abort the process on execution
+  --> $DIR/no_panic.rs:33:5
+   |
+LL |     core::unreachable!("qualified unreachable");
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Fail Fast Correctly): return errors or prove exhaustiveness instead of panicking in production code Example: return Err(Error::invalid_state());
+   = note: see Tiger Style guide: Error Handling / Panics
+
+warning: 7 warnings emitted
 

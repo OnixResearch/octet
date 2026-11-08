@@ -386,7 +386,7 @@ lint_inventory! {
         lint_store.register_late_pass(|_| Box::new(safety::no_unwrap::NoUnwrap));
     },
     "no_panic", safety::no_panic::NO_PANIC => |lint_store, _cfg| {
-        lint_store.register_late_pass(|_| Box::new(safety::no_panic::NoPanic));
+        lint_store.register_late_pass(|_| Box::new(safety::no_panic::NoPanic::default()));
     },
     "public_unsafe_api", safety::public_unsafe_api::PUBLIC_UNSAFE_API => |lint_store, _cfg| {
         lint_store.register_late_pass(|_| Box::new(safety::public_unsafe_api::PublicUnsafeApi));

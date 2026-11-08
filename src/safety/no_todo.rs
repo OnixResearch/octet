@@ -12,6 +12,7 @@ use rustc_span::sym;
 use crate::diagnostics::LintSuggestion;
 use crate::diagnostics::emit_tiger_style_lint;
 use crate::diagnostics::emit_tiger_style_lint_with_suggestion;
+use crate::safety::no_panic::panic_family_macro_call;
 use crate::test_context;
 
 declare_tool_lint! {
@@ -37,6 +38,7 @@ pub struct NoTodo {
     seen_unjustified_allow_spans: Vec<Span>,
     candidate_allow_spans: Vec<Span>,
     live_allow_spans: Vec<Span>,
+    seen_macro_callsites: std::collections::HashSet<Span>,
 }
 
 impl NoTodo {
@@ -47,20 +49,15 @@ impl NoTodo {
             seen_unjustified_allow_spans: Vec::new(),
             candidate_allow_spans: Vec::new(),
             live_allow_spans: Vec::new(),
+            seen_macro_callsites: std::collections::HashSet::new(),
         }
     }
 }
 
 impl_lint_pass!(NoTodo => [NO_TODO, UNJUSTIFIED_NO_TODO_ALLOW]);
 
-const PANIC_FAMILY_MACROS: &[&str] = &["panic!", "todo!", "unimplemented!", "unreachable!"];
 const NO_TODO_BARE_NAME: &str = "no_todo";
 const NO_TODO_TOOL_NAME: &str = "tigerstyle::no_todo";
-
-fn panic_family_macro_name_from_callsite(snippet: &str) -> Option<&'static str> {
-    let trimmed = snippet.trim();
-    PANIC_FAMILY_MACROS.iter().copied().find(|name| trimmed.starts_with(name))
-}
 
 fn remember_span(spans: &mut Vec<Span>, span: Span) {
     if !spans.contains(&span) {
@@ -240,23 +237,19 @@ impl<'tcx> LateLintPass<'tcx> for NoTodo {
             self.collect_candidate_allow(cx, expr.hir_id, expr.span);
         }
 
-        if !expr.span.from_expansion() || !matches!(expr.kind, ExprKind::Block(..)) {
+        let Some((name, callsite)) = panic_family_macro_call(cx, expr.span) else {
+            return;
+        };
+
+        // The first (outermost) expression of each expansion decides; nested
+        // expressions from the same invocation must not report it again.
+        if !self.seen_macro_callsites.insert(callsite) {
             return;
         }
 
         if test_context::late_hir_id_is_in_test_context(cx, expr.hir_id, expr.span) {
             return;
         }
-
-        let callsite = expr.span.source_callsite();
-        let source_map = cx.sess().source_map();
-        let Ok(snippet) = source_map.span_to_snippet(callsite) else {
-            return;
-        };
-
-        let Some(name) = panic_family_macro_name_from_callsite(&snippet) else {
-            return;
-        };
 
         let allows = enclosing_no_todo_allows(cx, expr);
         for allow in &allows {
@@ -314,16 +307,6 @@ impl<'tcx> LateLintPass<'tcx> for NoTodo {
 #[cfg(test)]
 mod tests {
     use super::attr_matches_supported_no_todo;
-    use super::panic_family_macro_name_from_callsite;
-
-    #[test]
-    fn finds_panic_family_macro_name() {
-        assert_eq!(panic_family_macro_name_from_callsite("panic!(\"oops\")"), Some("panic!"));
-        assert_eq!(panic_family_macro_name_from_callsite("todo!(\"later\")"), Some("todo!"));
-        assert_eq!(panic_family_macro_name_from_callsite("unimplemented!(\"x\")"), Some("unimplemented!"));
-        assert_eq!(panic_family_macro_name_from_callsite("unreachable!(\"x\")"), Some("unreachable!"));
-        assert_eq!(panic_family_macro_name_from_callsite("assert!(x > 0)"), None);
-    }
 
     #[test]
     fn matches_supported_no_todo_spellings() {

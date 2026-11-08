@@ -8,6 +8,47 @@ fn will_unimplemented() {
     unimplemented!("not done");
 }
 
+fn zero_arg_panic() {
+    // Should warn: zero-argument panic! expands to a plain call, not a block
+    panic!();
+}
+
+fn zero_arg_unreachable() {
+    // Should warn: zero-argument unreachable!
+    unreachable!();
+}
+
+fn zero_arg_unimplemented() {
+    // Should warn: zero-argument unimplemented!
+    unimplemented!();
+}
+
+fn path_qualified_std_panic() {
+    // Should warn: path-qualified panic!
+    std::panic!("qualified panic");
+}
+
+fn path_qualified_core_unreachable() {
+    // Should warn: path-qualified unreachable!
+    core::unreachable!("qualified unreachable");
+}
+
+fn assert_is_not_a_panic_macro(value: u32) {
+    // Should NOT warn: assert! expands to panic! internally
+    assert!(value > 0, "value must be positive");
+}
+
+macro_rules! local_panic_wrapper {
+    () => {
+        panic!("wrapped")
+    };
+}
+
+fn user_macro_wrapping_panic_is_not_reported() {
+    // Should NOT warn: the outermost invocation is the user macro, unchanged behavior
+    local_panic_wrapper!();
+}
+
 fn main() {
     // Don't actually call the panicking functions
 }

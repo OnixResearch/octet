@@ -27,15 +27,46 @@ declare_tool_lint! {
     "panic macro in production code"
 }
 
-pub struct NoPanic;
+#[derive(Default)]
+pub struct NoPanic {
+    reported_callsites: HashSet<Span>,
+}
 
 impl_lint_pass!(NoPanic => [NO_PANIC]);
 
-const PANIC_MACROS: &[&str] = &["panic!", "unimplemented!", "unreachable!"];
+/// Maps a panic-family macro's diagnostic item name to the display name used
+/// in diagnostics.
+fn panic_family_macro_display_name(diagnostic_name: &str) -> Option<&'static str> {
+    match diagnostic_name {
+        "core_panic_macro" | "std_panic_macro" => Some("panic!"),
+        "todo_macro" => Some("todo!"),
+        "unimplemented_macro" => Some("unimplemented!"),
+        "unreachable_macro" => Some("unreachable!"),
+        _ => None,
+    }
+}
 
-fn panic_macro_name_from_callsite(snippet: &str) -> Option<&'static str> {
-    let trimmed = snippet.trim();
-    PANIC_MACROS.iter().copied().find(|name| trimmed.starts_with(name))
+/// Returns the display name and user-written callsite when `span` comes from a
+/// direct invocation of `panic!`, `todo!`, `unimplemented!`, or `unreachable!`.
+///
+/// The macro is identified by the outermost expansion's macro definition
+/// rather than by callsite text, so path-qualified invocations such as
+/// `std::panic!()` and zero-argument arms that expand to a plain call (no
+/// block) are both recognized. Invocations nested inside other macros (for
+/// example `assert!` or user `macro_rules!` wrappers) are not reported.
+pub(crate) fn panic_family_macro_call(cx: &LateContext<'_>, span: Span) -> Option<(&'static str, Span)> {
+    let mut outermost = None;
+    let mut current = span;
+    while current.from_expansion() {
+        let expn_data = current.ctxt().outer_expn_data();
+        current = expn_data.call_site;
+        outermost = Some(expn_data);
+    }
+
+    let outermost = outermost?;
+    let diagnostic_name = cx.tcx.get_diagnostic_name(outermost.macro_def_id?)?;
+    let name = panic_family_macro_display_name(diagnostic_name.as_str())?;
+    Some((name, outermost.call_site))
 }
 
 fn variant_def_id_from_qpath(
@@ -176,23 +207,19 @@ fn is_exhaustive_unreachable_wildcard(cx: &LateContext<'_>, expr: &hir::Expr<'_>
 
 impl<'tcx> LateLintPass<'tcx> for NoPanic {
     fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx hir::Expr<'tcx>) {
-        if !expr.span.from_expansion() || !matches!(expr.kind, ExprKind::Block(..)) {
+        let Some((name, callsite)) = panic_family_macro_call(cx, expr.span) else {
+            return;
+        };
+
+        // The first (outermost) expression of each expansion decides; nested
+        // expressions from the same invocation must not report it again.
+        if name == "todo!" || !self.reported_callsites.insert(callsite) {
             return;
         }
 
         if test_context::late_hir_id_is_in_test_context(cx, expr.hir_id, expr.span) {
             return;
         }
-
-        let callsite = expr.span.source_callsite();
-        let source_map = cx.sess().source_map();
-        let Ok(snippet) = source_map.span_to_snippet(callsite) else {
-            return;
-        };
-
-        let Some(name) = panic_macro_name_from_callsite(&snippet) else {
-            return;
-        };
 
         if is_exhaustive_unreachable_wildcard(cx, expr, name) {
             return;
@@ -210,14 +237,15 @@ impl<'tcx> LateLintPass<'tcx> for NoPanic {
 
 #[cfg(test)]
 mod tests {
-    use super::panic_macro_name_from_callsite;
+    use super::panic_family_macro_display_name;
 
     #[test]
-    fn finds_panic_macro_name() {
-        assert_eq!(panic_macro_name_from_callsite("panic!(\"oops\")"), Some("panic!"));
-        assert_eq!(panic_macro_name_from_callsite("todo!(\"later\")"), None);
-        assert_eq!(panic_macro_name_from_callsite("unimplemented!(\"x\")"), Some("unimplemented!"));
-        assert_eq!(panic_macro_name_from_callsite("unreachable!(\"x\")"), Some("unreachable!"));
-        assert_eq!(panic_macro_name_from_callsite("assert!(x > 0)"), None);
+    fn maps_panic_family_diagnostic_items() {
+        assert_eq!(panic_family_macro_display_name("core_panic_macro"), Some("panic!"));
+        assert_eq!(panic_family_macro_display_name("std_panic_macro"), Some("panic!"));
+        assert_eq!(panic_family_macro_display_name("todo_macro"), Some("todo!"));
+        assert_eq!(panic_family_macro_display_name("unimplemented_macro"), Some("unimplemented!"));
+        assert_eq!(panic_family_macro_display_name("unreachable_macro"), Some("unreachable!"));
+        assert_eq!(panic_family_macro_display_name("assert_macro"), None);
     }
 }

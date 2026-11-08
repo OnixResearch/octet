@@ -3,6 +3,16 @@ fn will_todo() {
     todo!("implement later");
 }
 
+fn will_zero_arg_todo() {
+    // Should warn: zero-argument todo! expands to a plain call, not a block
+    todo!();
+}
+
+fn will_path_qualified_todo() {
+    // Should warn: path-qualified todo!
+    std::todo!("implement later");
+}
+
 fn main() {
     // Don't actually call the unfinished function
 }
