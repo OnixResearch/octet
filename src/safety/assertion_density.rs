@@ -98,9 +98,21 @@ fn strip_comments(source: &str) -> String {
     out
 }
 
+/// Counts assertion macro invocations, matching each macro name only at an
+/// identifier boundary so `debug_assert!(` is not also counted as `assert!(`.
 fn count_assertions(source: &str) -> usize {
     let stripped = strip_comments(source);
-    ASSERT_PATTERNS.iter().map(|pattern| stripped.match_indices(pattern).count()).sum()
+    ASSERT_PATTERNS
+        .iter()
+        .map(|pattern| {
+            stripped
+                .match_indices(pattern)
+                .filter(|(start, _)| {
+                    !stripped[..*start].chars().next_back().is_some_and(|ch| ch.is_alphanumeric() || ch == '_')
+                })
+                .count()
+        })
+        .sum()
 }
 
 /// Returns true if the block is a single expression or a trivial delegation
@@ -174,5 +186,22 @@ impl EarlyLintPass for AssertionDensity {
             format!("function `{}` has {assertions} assertion(s) in {lines} lines (need {min_a}+)", func.ident.name),
             "assertion_density",
         );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::count_assertions;
+
+    #[test]
+    fn debug_assertions_count_once() {
+        assert_eq!(count_assertions("{ debug_assert!(a > 0); }"), 1);
+        assert_eq!(count_assertions("{ debug_assert_eq!(a, b); debug_assert_ne!(a, c); }"), 2);
+    }
+
+    #[test]
+    fn plain_and_path_qualified_assertions_count() {
+        assert_eq!(count_assertions("{ assert!(a); std::assert_eq!(a, b); assert_ne!(a, c); }"), 3);
+        assert_eq!(count_assertions("{ my_assert!(a); }"), 0);
     }
 }

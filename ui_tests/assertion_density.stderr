@@ -20,5 +20,21 @@ LL | #![warn(assertion_density)]
    |         ^^^^^^^^^^^^^^^^^
    = note: `#[warn(tigerstyle::assertion_density)]` implied by `#[warn(assertion_density)]`
 
-warning: 1 warning emitted
+warning: function `single_debug_assert` has 1 assertion(s) in 24 lines (need 2+)
+  --> $DIR/assertion_density.rs:66:46
+   |
+LL |   fn single_debug_assert(data: &[u8]) -> usize {
+   |  ______________________________________________^
+LL | |     // Should warn: one `debug_assert!` is one assertion, not two
+LL | |     let a = data.len();
+LL | |     debug_assert!(a > 0);
+...  |
+LL | |     t
+LL | | }
+   | |_^
+   |
+   = help: Tiger Style (Assertion Density): add enough assertions to make local invariants visible near the logic they defend
+   = note: see Tiger Style guide: Assertion Density
+
+warning: 2 warnings emitted
 
