@@ -97,6 +97,10 @@ const SUMMARY_ARTIFACT_NAME: &str = "summary.txt";
 const PROVENANCE_ARTIFACT_NAME: &str = "provenance.jsonl";
 const PROOF_CARDS_ARTIFACT_NAME: &str = "proof-cards.json";
 const PROOF_ARTIFACT_DIR_NAME: &str = "proofs";
+const AENEAS_ARTIFACT_DIR_SUFFIX: &str = "aeneas";
+const AENEAS_LLBC_ARTIFACT: &str = "llbc.llbc";
+const AENEAS_TRANSLATION_ARTIFACT: &str = "translation.json";
+const AENEAS_GENERATED_LEAN_ARTIFACT: &str = "Llbc.lean";
 const STATUS_PASSED: &str = "passed";
 const STATUS_FAILED: &str = "failed";
 const STATUS_MANUAL_REVIEW_REQUIRED: &str = "manual_review_required";
@@ -717,69 +721,70 @@ fn build_aeneas_receipt(
     let theorem_name = extract_theorem_name(&theorem_source.text)
         .ok_or_else(|| "Aeneas theorem source does not contain a named theorem".to_owned())?;
     let mut collector = AeneasArtifactCollector::new();
+    let locator = |name: &str| aeneas_artifact_locator(selected.policy, selected.rail_index, name);
     let profile_identity = collector.add_with_role(
         AeneasStageArtifactRole::ProviderProfile,
-        "proofs/aeneas/provider-profile.json",
+        &locator("provider-profile.json"),
         summary.provider_profile.clone(),
     );
     let package_lock_contents = observed_aeneas_artifact(summary, "lake-manifest.json")?;
     let package_lock_identity = collector.add_with_role(
         AeneasStageArtifactRole::PackageLock,
-        "proofs/aeneas/package-lock.json",
+        &locator("package-lock.json"),
         package_lock_contents,
     );
     let source_identity = collector.add_with_role(
         AeneasStageArtifactRole::RustSource,
-        &format!("proofs/aeneas/source/{source_path}"),
+        &locator(&format!("source/{source_path}")),
         source.text.as_bytes().to_vec(),
     );
     let charon_options = json_bytes(&extraction_policy)?;
     let charon_options_identity = collector.add_with_role(
         AeneasStageArtifactRole::CharonOptions,
-        "proofs/aeneas/charon-options.json",
+        &locator("charon-options.json"),
         charon_options,
     );
     let charon_command_identity = collector.add_with_role(
         AeneasStageArtifactRole::CharonCommand,
-        "proofs/aeneas/charon-command.json",
+        &locator("charon-command.json"),
         json_bytes(summary.stage_argvs.first().ok_or_else(|| "Aeneas receipt is missing Charon argv".to_owned())?)?,
     );
     let llbc_identity = collector.add_with_role(
         AeneasStageArtifactRole::Llbc,
-        "proofs/aeneas/llbc.llbc",
+        &locator(AENEAS_LLBC_ARTIFACT),
         observed_aeneas_artifact(summary, "llbc.llbc")?,
     );
     let charon_outputs = vec![charon_options_identity, charon_command_identity, llbc_identity];
     let aeneas_command_identity = collector.add_with_role(
         AeneasStageArtifactRole::AeneasCommand,
-        "proofs/aeneas/aeneas-command.json",
+        &locator("aeneas-command.json"),
         json_bytes(summary.stage_argvs.get(1).ok_or_else(|| "Aeneas receipt is missing Aeneas argv".to_owned())?)?,
     );
     let translation_identity = collector.add_with_role(
         AeneasStageArtifactRole::TranslationManifest,
-        "proofs/aeneas/translation.json",
+        &locator(AENEAS_TRANSLATION_ARTIFACT),
         observed_aeneas_artifact(summary, "translation.json")?,
     );
     let aeneas_outputs = vec![aeneas_command_identity, translation_identity];
     let generated_lean_identity = collector.add_with_role(
         AeneasStageArtifactRole::GeneratedLean,
-        "proofs/aeneas/Llbc.lean",
+        &locator(AENEAS_GENERATED_LEAN_ARTIFACT),
         observed_aeneas_artifact(summary, "Llbc.lean")?,
     );
     let external_models_identity = collector.add_with_role(
         AeneasStageArtifactRole::ExternalModelInventory,
-        "proofs/aeneas/external-models.json",
+        &locator("external-models.json"),
         json_bytes(&profile.assumption_policy.external_models)?,
     );
     let generated_outputs = vec![generated_lean_identity, external_models_identity];
     let theorem_source_identity = collector.add_with_role(
         AeneasStageArtifactRole::TheoremSource,
-        "proofs/aeneas/theorem.lean",
+        &locator("theorem.lean"),
         theorem_source.text.as_bytes().to_vec(),
     );
     let theorem_statement_identity = collector.add_with_role(
         AeneasStageArtifactRole::TheoremStatement,
-        "proofs/aeneas/theorem-statement.lean",
+        &locator("theorem-statement.lean"),
         theorem_source.text.as_bytes().to_vec(),
     );
     let approved_statement_blake3 = validate_aeneas_theorem_statement_approval(
@@ -789,7 +794,7 @@ fn build_aeneas_receipt(
     let theorem_adequacy = assess_aeneas_theorem_source(&theorem_source.text);
     let theorem_adequacy_identity = collector.add_with_role(
         AeneasStageArtifactRole::TheoremAdequacy,
-        "proofs/aeneas/theorem-adequacy.json",
+        &locator("theorem-adequacy.json"),
         json_bytes(&theorem_adequacy)?,
     );
     let trust_closure = AeneasTrustClosure {
@@ -802,7 +807,7 @@ fn build_aeneas_receipt(
     };
     let trust_closure_identity = collector.add_with_role(
         AeneasStageArtifactRole::TrustClosure,
-        "proofs/aeneas/trust-closure.json",
+        &locator("trust-closure.json"),
         json_bytes(&trust_closure)?,
     );
     let theorem_outputs = vec![
@@ -813,17 +818,17 @@ fn build_aeneas_receipt(
     ];
     let lean_toolchain_identity = collector.add_with_role(
         AeneasStageArtifactRole::LeanToolchain,
-        "proofs/aeneas/lean-toolchain",
+        &locator("lean-toolchain"),
         observed_aeneas_artifact(summary, "lean-toolchain")?,
     );
     let library_identity = collector.add_with_role(
         AeneasStageArtifactRole::AeneasLeanLibrary,
-        "proofs/aeneas/aeneas-lean-library.json",
+        &locator("aeneas-lean-library.json"),
         json_bytes(&profile.aeneas_lean_library)?,
     );
     let lean_command_identity = collector.add_with_role(
         AeneasStageArtifactRole::LeanCommand,
-        "proofs/aeneas/lean-command.json",
+        &locator("lean-command.json"),
         json_bytes(summary.stage_argvs.get(2).ok_or_else(|| "Aeneas receipt is missing Lean argv".to_owned())?)?,
     );
     let checker_result = AeneasLeanCheckResult {
@@ -832,7 +837,7 @@ fn build_aeneas_receipt(
     };
     let checker_identity = collector.add_with_role(
         AeneasStageArtifactRole::CheckerResult,
-        "proofs/aeneas/checker-result.json",
+        &locator("checker-result.json"),
         json_bytes(&checker_result)?,
     );
     let lean_outputs = vec![
@@ -1018,9 +1023,10 @@ fn build_aeneas_consumer_binding(
         .selected_items
         .first()
         .ok_or_else(|| "Aeneas consumer profile has no selected item".to_owned())?;
-    let llbc = generated_aeneas_artifact_text(collector, "proofs/aeneas/llbc.llbc")?;
-    let translation = generated_aeneas_artifact_text(collector, "proofs/aeneas/translation.json")?;
-    let generated = generated_aeneas_artifact_text(collector, "proofs/aeneas/Llbc.lean")?;
+    let locator = |name: &str| aeneas_artifact_locator(selected.policy, selected.rail_index, name);
+    let llbc = generated_aeneas_artifact_text(collector, &locator(AENEAS_LLBC_ARTIFACT))?;
+    let translation = generated_aeneas_artifact_text(collector, &locator(AENEAS_TRANSLATION_ARTIFACT))?;
+    let generated = generated_aeneas_artifact_text(collector, &locator(AENEAS_GENERATED_LEAN_ARTIFACT))?;
     let input = octet_standards::aeneas_consumer::ObservationInput {
         source_path: &source.path,
         source_text: &source.text,
@@ -1489,6 +1495,12 @@ fn proof_artifact_locator(policy: &PolicyEntry, rail_index: usize) -> String {
 
 fn proof_log_artifact_locator(policy: &PolicyEntry, rail_index: usize, suffix: &str) -> String {
     format!("{PROOF_ARTIFACT_DIR_NAME}/{}-rail-{rail_index}.{suffix}", safe_artifact_stem(&policy.policy_id))
+}
+
+/// Aeneas stage artifacts for one rail live in `proofs/<policy>-rail-<N>.aeneas/`, next to that
+/// rail's receipt and logs, so rails in one bundle never overwrite each other's stage artifacts.
+fn aeneas_artifact_locator(policy: &PolicyEntry, rail_index: usize, name: &str) -> String {
+    format!("{}/{name}", proof_log_artifact_locator(policy, rail_index, AENEAS_ARTIFACT_DIR_SUFFIX))
 }
 
 fn safe_artifact_stem(value: &str) -> String {
@@ -2544,6 +2556,8 @@ mod tests {
     const PIPE_OVERFLOW_BYTES: usize = 200_000;
     const DESCENDANT_SLEEP_SECS: u64 = 20;
     const DESCENDANT_TEARDOWN_BOUND_SECS: u64 = 10;
+    const AENEAS_FIXTURE_TIMEOUT_MS: u64 = 900_000;
+    const AENEAS_FIXTURE_LOG_LIMIT_BYTES: usize = 1_048_576;
     const AENEAS_CONSUMER_TRUST_BOUNDARY: &str =
         "the external consumer proves only its named theorem over exact bound inputs";
     const VERUS_V1_RECEIPT_GOLDEN_BLAKE3: &str = "adc4998ee90cf9a1165c456dd2c0696f447e9c743c97bb27bbac4582cfda5cf8";
@@ -3365,6 +3379,111 @@ mod tests {
         let error = run(&fixture_args(registry, vec![source, outside_source], temp.path().join("artifacts-outside")))
             .expect_err("source outside the proof root must be rejected");
         assert!(error.contains("must share one Cargo workspace root"), "unexpected error: {error}");
+    }
+
+    #[test]
+    fn aeneas_receipts_for_different_rails_use_disjoint_artifact_locators() {
+        let fixture =
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../standards/proof-rails/aeneas-lean/fixtures/valid");
+        let bundle = fixture.join("artifacts/proofs/aeneas");
+        let read = |name: &str| fs::read(bundle.join(name)).expect("frozen Aeneas fixture artifact");
+        let argv = |name: &str| serde_json::from_slice::<Vec<String>>(&read(name)).expect("frozen Aeneas stage argv");
+        let summary = AeneasCommandSummary {
+            command_succeeded: true,
+            timed_out: false,
+            stdout_text: String::new(),
+            stdout_original_bytes: 0,
+            stdout_truncated: false,
+            stderr_text: String::new(),
+            stderr_original_bytes: 0,
+            stderr_truncated: false,
+            command_blake3: String::new(),
+            diagnostics: Vec::new(),
+            stage_argvs: vec![
+                argv("charon-command.json"),
+                argv("aeneas-command.json"),
+                argv("lean-command.json"),
+            ],
+            artifacts: [
+                ("lake-manifest.json", "package-lock.json"),
+                ("llbc.llbc", "llbc.llbc"),
+                ("translation.json", "translation.json"),
+                ("Llbc.lean", "Llbc.lean"),
+                ("lean-toolchain", "lean-toolchain"),
+            ]
+            .into_iter()
+            .map(|(observed, frozen)| crate::aeneas_execution::AeneasArtifact {
+                locator: observed.to_owned(),
+                contents: read(frozen),
+            })
+            .collect(),
+            provider_profile: read("provider-profile.json"),
+            extraction_policy: Some(
+                serde_json::from_slice(&read("charon-options.json")).expect("frozen Charon extraction policy"),
+            ),
+        };
+        let source = SourceFile::new(
+            "src/lib.rs",
+            fs::read_to_string(fixture.join("real_fixture/src/lib.rs")).expect("Aeneas fixture source"),
+        );
+        let theorem = SourceFile::new(
+            "Theorem.lean",
+            fs::read_to_string(fixture.join("real_fixture/Theorem.lean")).expect("Aeneas fixture theorem"),
+        );
+        let rail = ProofRail {
+            backend: AENEAS_LEAN_BACKEND.to_owned(),
+            source_paths: vec![source.path.clone()],
+            proof_paths: vec![theorem.path.clone()],
+            theorem_id: "aeneas.fixture.safe_add".to_owned(),
+            approved_theorem_statement_blake3: crate::evidence::artifact_blake3_hex(theorem.text.as_bytes()),
+            trust_boundaries: vec!["fixture Aeneas rail proves only its named theorem".to_owned()],
+            verifier_mode: VERIFIER_MODE_FIXTURE.to_owned(),
+            timeout_ms: AENEAS_FIXTURE_TIMEOUT_MS,
+            stdout_max_bytes: AENEAS_FIXTURE_LOG_LIMIT_BYTES,
+            stderr_max_bytes: AENEAS_FIXTURE_LOG_LIMIT_BYTES,
+            environment_allowlist: [
+                "PATH",
+                "CHARON_TOOLCHAIN_IS_IN_PATH",
+                "LD_LIBRARY_PATH",
+                "HOME",
+                "MATHLIB_NO_CACHE_ON_UPDATE",
+            ]
+            .into_iter()
+            .map(str::to_owned)
+            .collect(),
+            ..ProofRail::default()
+        };
+        let mut policy = fixture_policy_stub();
+        policy.proof_rails = vec![rail.clone(), rail];
+
+        let locators = (0..policy.proof_rails.len())
+            .map(|rail_index| {
+                let selected = SelectedRail {
+                    policy: &policy,
+                    rail_index,
+                    rail: &policy.proof_rails[rail_index],
+                };
+                let (_, artifacts) = build_aeneas_receipt(
+                    &selected,
+                    std::slice::from_ref(&source),
+                    std::slice::from_ref(&theorem),
+                    &checked_scope(&policy, rail_index, selected.rail),
+                    &summary,
+                )
+                .expect("Aeneas formal receipt");
+                artifacts.into_iter().map(|artifact| artifact.locator).collect::<BTreeSet<_>>()
+            })
+            .collect::<Vec<_>>();
+
+        assert!(locators[0].is_disjoint(&locators[1]), "Aeneas rails share artifact locators: {locators:?}");
+        for (rail_index, rail_locators) in locators.iter().enumerate() {
+            let rail_directory =
+                format!("{PROOF_ARTIFACT_DIR_NAME}/{}-rail-{rail_index}.aeneas/", safe_artifact_stem(POLICY_ID));
+            assert!(
+                rail_locators.iter().all(|locator| locator.starts_with(&rail_directory)),
+                "rail {rail_index} artifacts escape `{rail_directory}`: {rail_locators:?}"
+            );
+        }
     }
 
     fn fixture_args(registry: PathBuf, source: Vec<PathBuf>, artifact_dir: PathBuf) -> ProveArgs {

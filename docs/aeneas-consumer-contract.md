@@ -254,7 +254,7 @@ not a canned expected fixture or a store mutation:
 negative=$(mktemp -d)
 cp -R "$out/artifacts" "$negative/artifacts"
 chmod -R u+w "$negative/artifacts"
-printf '\n-- tampered after producer execution\n' >> "$negative/artifacts/proofs/aeneas/Llbc.lean"
+printf '\n-- tampered after producer execution\n' >> "$negative/artifacts/proofs/octet.aeneas_consumer_contract.external-fixture-rail-0.aeneas/Llbc.lean"
 rc=0
 "$runner/bin/cargo-octet" artifact verify \
   --artifact-dir "$negative/artifacts" --format json > "$negative/report.json" || rc=$?
