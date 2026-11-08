@@ -4422,12 +4422,24 @@
                 buildInputs
                 cargoVendorDir
                 ;
-              nativeBuildInputs = checkNativeBuildInputs;
+              # Nickel contract fixtures shell out to `nickel`.
+              nativeBuildInputs = checkNativeBuildInputs ++ [ nickel ];
               partitions = 1;
               partitionType = "count";
+              # Every workspace member, not only the root `octet` package. The
+              # excluded tests compare runner sources against independently
+              # reviewed receipts; the object-corpus rails run them, and they
+              # wait on owner re-review whenever a pinned source changes.
+              cargoNextestExtraArgs = "--workspace -E 'not (binary(fingerprint_consumer) & (test(=object_internal_corpus_matches_reviewed_source_reference_and_rejects_tamper) | test(=object_corpus_matches_fresh_reviewed_references_and_rejects_missing_receipt) | test(=object_caveat_taxonomy_matches_reviewed_expanded_reference_and_detects_added_function)))'";
               CARGO_OCTET_BIN = "${cargoOctetUnwrapped}/bin/cargo-octet";
               LD_LIBRARY_PATH = rustToolchainLibPath;
               RUSTUP_TOOLCHAIN = rustupToolchain;
+              # The runtime the cargo-octet wrapper gives `hegel --run`; the
+              # Hegel shell tests resolve their tools from it.
+              OCTET_HEGEL_CARGO = "${cargo-shim}/bin/cargo";
+              OCTET_HEGEL_PATH = "${cargoOctetRuntimePath}/bin";
+              OCTET_HEGEL_CARGO_CONFIG = "${cargoVendorDir}/config.toml";
+              OCTET_HEGEL_LD_LIBRARY_PATH = rustToolchainLibPath;
               preCheck = ''
                 export PATH="${dylintShimPath}:$PATH"
                 export CARGO_OCTET_BIN="${cargoOctetUnwrapped}/bin/cargo-octet"

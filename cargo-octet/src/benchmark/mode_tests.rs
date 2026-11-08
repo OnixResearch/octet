@@ -4,13 +4,17 @@ use super::*;
 
 const EXPECTED_MODE_COUNT: usize = 4;
 
+#[cfg(unix)]
 #[test]
 fn cold_warm_no_change_and_incremental_modes_remain_separate_bounded_groups() {
     let profile = selected_profile(PROFILE_ID).expect("profile");
     let directory = tempfile::tempdir().expect("temporary directory");
     std::fs::create_dir_all(directory.path().join(".octet")).expect("create benchmark fixture root");
+    let tool_directory = tempfile::tempdir().expect("temporary tool directory");
+    let cargo = tool_directory.path().join("cargo-fixture");
+    crate::test_support::write_executable_script(&cargo, "#!/bin/sh\nexit 0\n");
     let tools = shell::RuntimeTools {
-        cargo: "/bin/true".into(),
+        cargo,
         path: "/bin".into(),
         library_path: "/lib".into(),
         kernel_identity: "kernel-fixture".to_owned(),

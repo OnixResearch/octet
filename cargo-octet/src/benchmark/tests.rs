@@ -235,6 +235,7 @@ fn copy_census_keeps_runtime_lengths_unknown_and_skips_intrinsic_declarations() 
     assert!(observations.iter().all(|observation| !observation.context.starts_with("declare")));
 }
 
+#[cfg(unix)]
 #[test]
 fn bounded_shell_uses_fixed_profile_command_and_clear_environment() {
     let profile = selected_profile(PROFILE_ID).expect("profile");
@@ -258,8 +259,11 @@ fn bounded_shell_uses_fixed_profile_command_and_clear_environment() {
         "call void @llvm.memcpy.p0.p0.i64(ptr %a, ptr %b, i64 32, i1 false)\n",
     )
     .expect("write runtime LLVM fixture");
+    let tool_directory = tempfile::tempdir().expect("temporary tool directory");
+    let cargo = tool_directory.path().join("cargo-fixture");
+    crate::test_support::write_executable_script(&cargo, "#!/bin/sh\nexit 0\n");
     let tools = shell::RuntimeTools {
-        cargo: "/bin/true".into(),
+        cargo,
         path: "/bin".into(),
         library_path: "/lib".into(),
         kernel_identity: "kernel-fixture".to_owned(),
