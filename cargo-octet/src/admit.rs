@@ -52,6 +52,7 @@ const PROVENANCE_FILE: &str = "provenance.jsonl";
 const WORKSPACE_POLICY_ARTIFACT: &str = "workspace-policy.json";
 const DEPENDENCY_GRAPH_ARTIFACT: &str = "dependency-graph.json";
 const CHECK_STATUS_ARTIFACT: &str = "check/status.json";
+const CHECK_PROVENANCE_ARTIFACT: &str = "check/provenance.jsonl";
 const CHECK_FUNCTION_ADDRESS_ARTIFACT: &str = "check/function-addresses.json";
 const FUNCTION_ADDRESS_ROOT_KIND: &str = "function-address-record-root";
 const FUNCTION_ADDRESS_MODE_DENY: &str = "deny";
@@ -252,7 +253,6 @@ fn run_admission(
     let check_dir = artifact_dir.join(CHECK_DIR);
     let root = prepare_artifact_root(&artifact_dir)?;
     let command_bytes = normalized_text_bytes(&args.command_line);
-    root.write(&relative(COMMAND_FILE)?, &command_bytes)?;
 
     let check = CheckArgs {
         scope_args: scope_args.to_vec(),
@@ -385,12 +385,39 @@ fn prepare_inputs(workspace_root: &Path, policy_path: &Path) -> Result<PreparedI
     })
 }
 
+/// Opens the admission artifact directory and removes the previous bundle's top-level artifacts. A
+/// non-empty directory that is not an existing admission bundle is refused before anything is
+/// deleted, so `--artifact-dir` cannot remove unrelated files.
 fn prepare_artifact_root(path: &Path) -> Result<ArtifactRoot, String> {
     let root = ArtifactRoot::open_or_create(path)?;
+    if !root.read_entry_names()?.is_empty() && !is_existing_admission_bundle(&root, path)? {
+        return Err(format!(
+            "refusing to use artifact directory {}: it is not empty and is not an existing Octet admission bundle \
+             (no admission `{STATUS_FILE}` or strict-profile `{CHECK_DIR}/` bundle); choose a new or empty directory",
+            path.display()
+        ));
+    }
     for artifact in TOP_LEVEL_ARTIFACTS {
         root.remove_file_or_dir_all(&relative(artifact)?)?;
     }
     Ok(root)
+}
+
+/// Every completed or blocked admission run writes an admission-schema `status.json`; a run that
+/// stopped after its direct check still leaves the strict-profile `check/` bundle markers.
+fn is_existing_admission_bundle(root: &ArtifactRoot, path: &Path) -> Result<bool, String> {
+    if root.is_file(&relative(STATUS_FILE)?)? {
+        let status = serde_json::from_slice::<AdmissionStatusArtifact>(&read_required(&path.join(STATUS_FILE))?);
+        if status.is_ok_and(|status| status.schema_version == ADMISSION_STATUS_SCHEMA) {
+            return Ok(true);
+        }
+    }
+    for marker in [CHECK_STATUS_ARTIFACT, CHECK_PROVENANCE_ARTIFACT] {
+        if !root.is_file(&relative(marker)?)? {
+            return Ok(false);
+        }
+    }
+    Ok(true)
 }
 
 fn write_blocked_status(
@@ -1491,5 +1518,42 @@ mod tests {
         let stale = effect_closure::compute_closure(fixture.input.clone());
         assert_eq!(stale.status, AdmissionStatus::Denied);
         assert_forgery_rejected(&fixture, &forge_admitted(stale), "is not used by the admitted receipt");
+    }
+
+    #[test]
+    fn artifact_root_preparation_refuses_foreign_directories_without_deleting() {
+        let temp = tempfile::tempdir().expect("tempdir");
+
+        let fresh = temp.path().join("fresh");
+        prepare_artifact_root(&fresh).expect("missing artifact directory is created");
+        prepare_artifact_root(&fresh).expect("empty artifact directory is accepted");
+
+        let foreign = temp.path().join("foreign");
+        fs::create_dir_all(foreign.join(DEPENDENCY_GRAPH_ARTIFACT)).expect("create foreign directory");
+        fs::write(foreign.join(DEPENDENCY_GRAPH_ARTIFACT).join("data"), "keep\n").expect("foreign nested file");
+        fs::write(foreign.join(COMMAND_FILE), "keep\n").expect("foreign command file");
+        fs::write(foreign.join(STATUS_FILE), "{}\n").expect("foreign status file");
+        let error = prepare_artifact_root(&foreign).err().expect("foreign directory must be refused");
+        assert!(error.contains("not an existing Octet admission bundle"), "{error}");
+        assert!(foreign.join(DEPENDENCY_GRAPH_ARTIFACT).join("data").is_file());
+        assert!(foreign.join(COMMAND_FILE).is_file());
+        assert!(foreign.join(STATUS_FILE).is_file());
+
+        let previous = temp.path().join("previous");
+        let root = ArtifactRoot::open_or_create(&previous).expect("previous bundle root");
+        write_blocked_status(&root, TEST_PROFILE, EXIT_DENIED, b"cargo octet admit\n").expect("previous bundle");
+        fs::write(previous.join(effect_closure::RECEIPT_FILE), "{}\n").expect("stale receipt");
+        prepare_artifact_root(&previous).expect("previous admission bundle is accepted");
+        assert!(!previous.join(STATUS_FILE).exists());
+        assert!(!previous.join(effect_closure::RECEIPT_FILE).exists());
+
+        let interrupted = temp.path().join("interrupted");
+        fs::create_dir_all(interrupted.join(CHECK_DIR)).expect("interrupted check dir");
+        fs::write(interrupted.join(CHECK_STATUS_ARTIFACT), "{}\n").expect("check status marker");
+        fs::write(interrupted.join(CHECK_PROVENANCE_ARTIFACT), "").expect("check provenance marker");
+        fs::write(interrupted.join(COMMAND_FILE), "cargo octet admit\n").expect("interrupted command");
+        prepare_artifact_root(&interrupted).expect("run stopped after its direct check is accepted");
+        assert!(!interrupted.join(COMMAND_FILE).exists());
+        assert!(interrupted.join(CHECK_STATUS_ARTIFACT).is_file());
     }
 }
