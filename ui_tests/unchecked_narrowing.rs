@@ -110,6 +110,32 @@ fn signed_nested_bounds_allowed(x: i64) -> i32 {
     }
 }
 
+struct Narrower;
+
+impl Narrower {
+    #[allow(clippy::cast_possible_truncation)]
+    fn method_allow(&self, x: u64) -> u32 {
+        // Should NOT warn: method-level clippy truncation allow
+        x as u32
+    }
+}
+
+trait NarrowDefault {
+    #[allow(clippy::cast_possible_truncation)]
+    fn narrow_default(&self, x: u64) -> u32 {
+        // Should NOT warn: trait-method-level clippy truncation allow
+        x as u32
+    }
+}
+
+impl NarrowDefault for Narrower {}
+
+#[deny(clippy::cast_possible_truncation)]
+fn deny_is_not_allow(x: u64) -> u32 {
+    // Should warn: `deny` is not an escape hatch
+    x as u32
+}
+
 fn main() {
     bare_narrow(SAMPLE_U64);
     guarded_narrow(SAMPLE_U64);
@@ -124,4 +150,7 @@ fn main() {
     signed_else_upper_bound_only_still_warns(-1);
     signed_both_bounds_allowed(-1);
     signed_nested_bounds_allowed(-1);
+    Narrower.method_allow(SAMPLE_U64);
+    Narrower.narrow_default(SAMPLE_U64);
+    deny_is_not_allow(SAMPLE_U64);
 }

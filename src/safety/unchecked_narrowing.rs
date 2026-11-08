@@ -414,30 +414,35 @@ fn prior_same_block_assert_facts<'tcx>(
     facts
 }
 
-/// Check if the cast is inside an `#[allow(clippy::cast_possible_truncation)]` block.
+/// Check whether `attr` is `#[allow(clippy::cast_possible_truncation)]` or
+/// `#[expect(clippy::cast_possible_truncation)]`.
+fn is_truncation_allow_attr(attr: &hir::Attribute) -> bool {
+    if !(attr.has_name(rustc_span::sym::allow) || attr.has_name(rustc_span::sym::expect)) {
+        return false;
+    }
+
+    attr.meta_item_list().is_some_and(|items| {
+        items.iter().any(|item| {
+            item.meta_item().is_some_and(|meta| {
+                matches!(
+                    meta.path.segments.as_slice(),
+                    [tool, lint] if tool.ident.name.as_str() == "clippy"
+                        && lint.ident.name.as_str() == "cast_possible_truncation"
+                )
+            })
+        })
+    })
+}
+
+/// Check if the cast is inside an item, method, statement, or expression marked
+/// `#[allow(clippy::cast_possible_truncation)]` (or `#[expect(...)]`).
 fn has_truncation_allow(cx: &LateContext<'_>, expr: &hir::Expr<'_>) -> bool {
     for (hir_id, node) in cx.tcx.hir_parent_iter(expr.hir_id) {
-        match node {
-            hir::Node::Item(item) => {
-                let attrs = cx.tcx.hir_attrs(item.hir_id());
-                for attr in attrs {
-                    let s = format!("{attr:?}");
-                    if s.contains("cast_possible_truncation") {
-                        return true;
-                    }
-                }
-                break;
-            }
-            hir::Node::Expr(_) | hir::Node::Stmt(_) | hir::Node::Block(_) => {
-                let attrs = cx.tcx.hir_attrs(hir_id);
-                for attr in attrs {
-                    let s = format!("{attr:?}");
-                    if s.contains("cast_possible_truncation") {
-                        return true;
-                    }
-                }
-            }
-            _ => {}
+        if cx.tcx.hir_attrs(hir_id).iter().any(is_truncation_allow_attr) {
+            return true;
+        }
+        if matches!(node, hir::Node::Item(_)) {
+            break;
         }
     }
     false
