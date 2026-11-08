@@ -1723,22 +1723,23 @@ fn proof_goal_state_for_execution(args: &ProveArgs, execution: &ExecutedProof) -
     let row = &execution.row;
     let goal_id = proof_or_property_id(&row.policy_id, row.rail_index);
     let explain_command = proof_goal_explain_command(args, &goal_id);
-    let expected_receipt_blake3 = execution.formal_provenance.as_ref().map_or_else(
-        || crate::evidence::artifact_blake3_hex(execution.receipt_text.as_bytes()),
-        |provenance| provenance.blake3.clone(),
-    );
+    // The required identity comes from the receipt bytes this run writes; the evidence is the
+    // digest and locator the formal_proof provenance record attests. A disagreement is stale.
+    let expected_receipt_blake3 = crate::evidence::artifact_blake3_hex(execution.receipt_text.as_bytes());
     let evidence = execution
         .formal_provenance
         .as_ref()
         .map(|provenance| {
             vec![GoalEvidence {
-                artifact: row.receipt.clone(),
+                artifact: provenance.artifact_locator.clone(),
                 actual_blake3: provenance.blake3.clone(),
                 evidence_tier: EvidenceTier::FormalProof,
                 status: row.status.to_owned(),
             }]
         })
         .unwrap_or_default();
+    let mut diagnostics = row.diagnostics.clone();
+    diagnostics.extend(proof_card_for_execution(execution).diagnostics);
     let non_claims = proof_goal_non_claims();
     let boundary_wording = non_claims.join("; ");
 
@@ -1753,7 +1754,7 @@ fn proof_goal_state_for_execution(args: &ProveArgs, execution: &ExecutedProof) -
         }],
         evidence,
         expected_evidence_tier: EvidenceTier::FormalProof,
-        diagnostics: row.diagnostics.clone(),
+        diagnostics,
         non_claims,
         boundary_wording,
         remediation_commands: vec![ARTIFACT_VERIFY_COMMAND.to_owned()],
@@ -3134,6 +3135,48 @@ mod tests {
     }
 
     #[test]
+    fn goal_state_checks_receipt_bytes_against_formal_provenance() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let policy = fixture_policy(temp.path(), PASS_SIGNAL, command_argv(PASS_SIGNAL));
+        let (args, mut execution) = passing_fixture_execution(temp.path(), &policy);
+
+        let satisfied = proof_goal_state_for_execution(&args, &execution);
+        execution.formal_provenance.as_mut().expect("formal provenance").blake3 = "0".repeat(64);
+        let stale = proof_goal_state_for_execution(&args, &execution);
+
+        assert!(satisfied.emits_formal_proof, "unexpected blockers: {:?}", satisfied.blockers);
+        assert!(!stale.emits_formal_proof);
+        assert!(
+            stale.missing_obligations.iter().any(|obligation| obligation.contains("stale artifact")),
+            "provenance digest that disagrees with receipt bytes must block: {:?}",
+            stale.blockers
+        );
+    }
+
+    #[test]
+    fn goal_state_blocks_on_demoted_proof_card_diagnostics() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let policy = fixture_policy(temp.path(), PASS_SIGNAL, command_argv(PASS_SIGNAL));
+        let (args, mut execution) = passing_fixture_execution(temp.path(), &policy);
+        VERIFIER_MODE_PRODUCTION.clone_into(&mut execution.row.verifier_mode);
+
+        let card = proof_card_for_execution(&execution);
+        let state = proof_goal_state_for_execution(&args, &execution);
+
+        assert!(execution.row.diagnostics.is_empty());
+        assert_eq!(card.evidence_tier, EvidenceTier::ManualReviewRequired.as_str());
+        assert!(!card.diagnostics.is_empty());
+        assert!(!state.emits_formal_proof);
+        for diagnostic in &card.diagnostics {
+            assert!(
+                state.blockers.contains(&format!("diagnostic blocker: {diagnostic}")),
+                "card diagnostic `{diagnostic}` missing from goal-state blockers: {:?}",
+                state.blockers
+            );
+        }
+    }
+
+    #[test]
     fn prove_drains_verifier_output_larger_than_pipe_buffer() {
         let temp = tempfile::tempdir().expect("tempdir");
         let script = format!(
@@ -3596,6 +3639,21 @@ mod tests {
             list: false,
             explain: false,
         }
+    }
+
+    fn passing_fixture_execution(root: &Path, policy: &PolicyEntry) -> (ProveArgs, ExecutedProof) {
+        let source_paths = vec![write_fixture_source(root)];
+        write_fixture_proof(root);
+        let working_dir = proof_root(&source_paths).expect("proof root");
+        let sources = load_sources(&source_paths, &working_dir).expect("load sources");
+        let selected = SelectedRail {
+            policy,
+            rail_index: 0,
+            rail: &policy.proof_rails[0],
+        };
+        let execution = execute_proof(&selected, &sources, &working_dir, false);
+        assert!(execution.row.diagnostics.is_empty(), "fixture proof failed: {:?}", execution.row.diagnostics);
+        (fixture_args(root.join("registry.json"), source_paths, root.join("artifacts")), execution)
     }
 
     fn run_fixture_with_command(root: &Path, source: &Path, argv: Vec<String>) -> String {
