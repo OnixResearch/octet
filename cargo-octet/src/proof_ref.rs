@@ -107,6 +107,13 @@ struct ProofRefReport {
 }
 
 #[derive(Debug)]
+struct ProofRefValidation {
+    diagnostics: Vec<String>,
+    /// True only when the consumer-source linkage check ran and passed.
+    consumer_source_matched: bool,
+}
+
+#[derive(Debug)]
 struct ConsumerSourceArtifact {
     path: String,
     blake3: String,
@@ -128,7 +135,8 @@ fn run_validate(args: &ProofRefValidateArgs) -> Result<i32, String> {
         Ok(Some(source)) => Some(source),
         Ok(None) | Err(_) => None,
     };
-    let mut diagnostics = validate_proof_evidence_ref(&reference, &deck, consumer_source_ref);
+    let validation = validate_proof_evidence_ref(&reference, &deck, consumer_source_ref);
+    let mut diagnostics = validation.diagnostics;
     if let Err(diagnostic) = &consumer_source {
         diagnostics.push(diagnostic.clone());
         diagnostics.sort();
@@ -140,7 +148,7 @@ fn run_validate(args: &ProofRefValidateArgs) -> Result<i32, String> {
         reference_id: reference.reference_id.clone(),
         proof_or_property_id: reference.proof_or_property_id.clone(),
         matched_card: matching_card(&reference, &deck).is_some(),
-        consumer_source_matched: consumer_source_matches(&reference, consumer_source_ref, &diagnostics),
+        consumer_source_matched: validation.consumer_source_matched,
         diagnostics,
     };
     print_report(args.output_format, &report)?;
@@ -244,7 +252,7 @@ fn scaffold_proof_evidence_ref(
         required_artifacts: card.artifact_blake3_identities.iter().map(|identity| identity.artifact.clone()).collect(),
         non_claims: card.non_claims.clone(),
     };
-    diagnostics.extend(validate_proof_evidence_ref(&reference, deck, Some(consumer_source)));
+    diagnostics.extend(validate_proof_evidence_ref(&reference, deck, Some(consumer_source)).diagnostics);
     diagnostics.sort();
     diagnostics.dedup();
     if diagnostics.is_empty() {
@@ -258,17 +266,25 @@ fn validate_proof_evidence_ref(
     reference: &ProofEvidenceRef,
     deck: &ProofCardDeck,
     consumer_source: Option<&ConsumerSourceArtifact>,
-) -> Vec<String> {
+) -> ProofRefValidation {
     let mut diagnostics = proof_ref_shape_diagnostics(reference);
     diagnostics.extend(proof_card_deck_shape_diagnostics(deck));
     diagnostics.extend(proof_ref_overclaim_diagnostics(reference));
+    let mut consumer_source_matched = false;
     if diagnostics.is_empty() {
         diagnostics.extend(proof_ref_linkage_diagnostics(reference, deck));
-        diagnostics.extend(consumer_source_linkage_diagnostics(reference, consumer_source));
+        let consumer_source_diagnostics = consumer_source_linkage_diagnostics(reference, consumer_source);
+        consumer_source_matched = !reference.consumer_source_path.trim().is_empty()
+            && consumer_source.is_some()
+            && consumer_source_diagnostics.is_empty();
+        diagnostics.extend(consumer_source_diagnostics);
     }
     diagnostics.sort();
     diagnostics.dedup();
-    diagnostics
+    ProofRefValidation {
+        diagnostics,
+        consumer_source_matched,
+    }
 }
 
 fn proof_ref_shape_diagnostics(reference: &ProofEvidenceRef) -> Vec<String> {
@@ -453,16 +469,6 @@ fn consumer_source_linkage_diagnostics(
     diagnostics
 }
 
-fn consumer_source_matches(
-    reference: &ProofEvidenceRef,
-    consumer_source: Option<&ConsumerSourceArtifact>,
-    diagnostics: &[String],
-) -> bool {
-    !reference.consumer_source_path.trim().is_empty()
-        && consumer_source.is_some()
-        && !diagnostics.iter().any(|diagnostic| diagnostic.contains("consumer_source"))
-}
-
 fn matching_card<'a>(reference: &ProofEvidenceRef, deck: &'a ProofCardDeck) -> Option<&'a ProofCard> {
     deck.cards.iter().find(|card| card.proof_or_property_id == reference.proof_or_property_id)
 }
@@ -546,7 +552,7 @@ mod tests {
         let reference = matching_reference();
         let deck = deck_with(card());
 
-        let diagnostics = validate_proof_evidence_ref(&reference, &deck, None);
+        let diagnostics = validate_proof_evidence_ref(&reference, &deck, None).diagnostics;
 
         assert!(diagnostics.is_empty(), "unexpected diagnostics: {diagnostics:?}");
     }
@@ -557,10 +563,10 @@ mod tests {
         let source = source_artifact_for(&mut reference);
         let deck = deck_with(card());
 
-        let diagnostics = validate_proof_evidence_ref(&reference, &deck, Some(&source));
+        let validation = validate_proof_evidence_ref(&reference, &deck, Some(&source));
 
-        assert!(diagnostics.is_empty(), "unexpected diagnostics: {diagnostics:?}");
-        assert!(consumer_source_matches(&reference, Some(&source), &diagnostics));
+        assert!(validation.diagnostics.is_empty(), "unexpected diagnostics: {:?}", validation.diagnostics);
+        assert!(validation.consumer_source_matched);
     }
 
     #[test]
@@ -578,7 +584,7 @@ mod tests {
             &anchor_reference.consumer_source_anchor,
         )
         .expect("scaffold reference");
-        let diagnostics = validate_proof_evidence_ref(&scaffolded, &deck, Some(&source));
+        let diagnostics = validate_proof_evidence_ref(&scaffolded, &deck, Some(&source)).diagnostics;
 
         assert!(diagnostics.is_empty(), "unexpected diagnostics: {diagnostics:?}");
         assert_eq!(scaffolded.consumer_source_blake3, source.blake3);
@@ -655,7 +661,7 @@ mod tests {
         reference.proof_or_property_id = "missing#rail-0".to_owned();
         let deck = deck_with(card());
 
-        let diagnostics = validate_proof_evidence_ref(&reference, &deck, None);
+        let diagnostics = validate_proof_evidence_ref(&reference, &deck, None).diagnostics;
 
         assert!(diagnostics.iter().any(|diagnostic| diagnostic.contains("references missing proof card")));
     }
@@ -670,7 +676,7 @@ mod tests {
         reference.non_claims.push("not theorem prover completeness".to_owned());
         let deck = deck_with(card());
 
-        let diagnostics = validate_proof_evidence_ref(&reference, &deck, None);
+        let diagnostics = validate_proof_evidence_ref(&reference, &deck, None).diagnostics;
 
         assert!(diagnostics.iter().any(|diagnostic| diagnostic.contains(FIELD_CHECKED_RUST_SOURCE_SCOPE)));
         assert!(diagnostics.iter().any(|diagnostic| diagnostic.contains(FIELD_EXPECTED_EVIDENCE_TIER)));
@@ -687,7 +693,7 @@ mod tests {
         source.text = "pub fn codec() {}\n".to_owned();
         let deck = deck_with(card());
 
-        let diagnostics = validate_proof_evidence_ref(&reference, &deck, Some(&source));
+        let diagnostics = validate_proof_evidence_ref(&reference, &deck, Some(&source)).diagnostics;
 
         assert!(diagnostics.iter().any(|diagnostic| diagnostic.contains(FIELD_CONSUMER_SOURCE_BLAKE3)));
         assert!(diagnostics.iter().any(|diagnostic| diagnostic.contains("anchor not found")));
@@ -699,7 +705,7 @@ mod tests {
         reference.consumer_source_path = "src/codec.rs".to_owned();
         let deck = deck_with(card());
 
-        let diagnostics = validate_proof_evidence_ref(&reference, &deck, None);
+        let diagnostics = validate_proof_evidence_ref(&reference, &deck, None).diagnostics;
 
         assert!(diagnostics.iter().any(|diagnostic| diagnostic.contains(FIELD_CONSUMER_SOURCE_BLAKE3)));
         assert!(diagnostics.iter().any(|diagnostic| diagnostic.contains(FIELD_CONSUMER_SOURCE_ANCHOR)));
@@ -712,7 +718,7 @@ mod tests {
         reference.consumer_source_anchor = "octet-proof-ref claims this proves whole-program correctness".to_owned();
         let deck = deck_with(card());
 
-        let diagnostics = validate_proof_evidence_ref(&reference, &deck, None);
+        let diagnostics = validate_proof_evidence_ref(&reference, &deck, None).diagnostics;
 
         assert!(diagnostics.iter().any(|diagnostic| diagnostic.contains("whole-program correctness")));
     }
@@ -725,7 +731,7 @@ mod tests {
         let mut deck = deck_with(card());
         deck.schema_version = "wrong".to_owned();
 
-        let diagnostics = validate_proof_evidence_ref(&reference, &deck, None);
+        let diagnostics = validate_proof_evidence_ref(&reference, &deck, None).diagnostics;
 
         assert!(diagnostics.iter().any(|diagnostic| diagnostic.contains(PROOF_EVIDENCE_REF_SCHEMA_VERSION)));
         assert!(diagnostics.iter().any(|diagnostic| diagnostic.contains(PROOF_CARDS_SCHEMA_VERSION)));
@@ -740,7 +746,7 @@ mod tests {
         card.non_claims.push("not verified runtime".to_owned());
         let deck = deck_with(card);
 
-        let diagnostics = validate_proof_evidence_ref(&reference, &deck, None);
+        let diagnostics = validate_proof_evidence_ref(&reference, &deck, None).diagnostics;
 
         assert!(diagnostics.is_empty(), "unexpected diagnostics: {diagnostics:?}");
     }
@@ -756,13 +762,28 @@ mod tests {
             reference.consumer_context = format!("allow linked proof evidence at src/codec.rs:42; {wording}");
             let deck = deck_with(card());
 
-            let diagnostics = validate_proof_evidence_ref(&reference, &deck, None);
+            let diagnostics = validate_proof_evidence_ref(&reference, &deck, None).diagnostics;
 
             assert!(
                 diagnostics.iter().any(|diagnostic| diagnostic.contains(&format!("unsupported {claim} claim"))),
                 "`{wording}` should be rejected as a {claim} claim: {diagnostics:?}"
             );
         }
+    }
+
+    #[test]
+    fn proof_ref_consumer_source_unmatched_when_linkage_check_skipped() {
+        let mut reference = matching_reference();
+        let source = source_artifact_for(&mut reference);
+        reference.consumer_source_blake3 = "stale-digest".to_owned();
+        reference.consumer_context =
+            "allow linked proof evidence at src/codec.rs:42; guarantees full safety".to_owned();
+        let deck = deck_with(card());
+
+        let validation = validate_proof_evidence_ref(&reference, &deck, Some(&source));
+
+        assert!(!validation.diagnostics.is_empty());
+        assert!(!validation.consumer_source_matched);
     }
 
     fn matching_reference() -> ProofEvidenceRef {

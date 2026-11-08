@@ -531,6 +531,7 @@ r[octet.verus_proof_rails.proof_evidence_ref.cli.matching]
 - WHEN the operator runs `cargo octet proof-ref validate --proof-cards proof-cards.json --ref proof-ref.json`
 - THEN the command SHOULD exit successfully.
 - AND the human or JSON report SHOULD name the reference ID, proof or property ID, card match, optional consumer-source match, status, and zero diagnostics.
+- AND the consumer-source match SHOULD be reported only when the consumer-source identity and anchor check actually ran and passed; a reference rejected before linkage SHOULD report no consumer-source match.
 
 #### Scenario: Reference scaffold computes source identity
 
