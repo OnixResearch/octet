@@ -100,8 +100,10 @@ impl<'tcx> LateLintPass<'tcx> for CatchAllOnEnum {
             return;
         };
 
-        // Check if the scrutinee is an enum type
-        let scrutinee_ty = cx.typeck_results().expr_ty(scrutinee);
+        // Check if the scrutinee is an enum type. Peel references so that
+        // `match self { .. }` in a `&self` method (scrutinee `&Enum`) counts;
+        // default binding modes let the arm patterns name the variants.
+        let scrutinee_ty = cx.typeck_results().expr_ty(scrutinee).peel_refs();
         if !matches!(scrutinee_ty.kind(), ty::Adt(adt, _) if adt.is_enum()) {
             return;
         }
@@ -146,7 +148,7 @@ fn expand_wildcard_suggestion(
     scrutinee: &hir::Expr<'_>,
     last_arm: &hir::Arm<'_>,
 ) -> Option<LintSuggestion> {
-    let scrutinee_ty = cx.typeck_results().expr_ty(scrutinee);
+    let scrutinee_ty = cx.typeck_results().expr_ty(scrutinee).peel_refs();
     let ty::Adt(adt, _) = scrutinee_ty.kind() else {
         return None;
     };

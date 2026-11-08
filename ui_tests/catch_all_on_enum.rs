@@ -29,8 +29,28 @@ fn check_string(s: &str) -> bool {
     }
 }
 
+impl Permission {
+    fn is_write(&self) -> bool {
+        // Should warn: `&self` scrutinee has type `&Permission`
+        match self {
+            Permission::Write => true,
+            _ => false,
+        }
+    }
+}
+
+fn check_permission_ref(p: &Permission) -> bool {
+    // Should warn: reference scrutinee to an enum
+    match p {
+        Permission::Admin => true,
+        _ => false,
+    }
+}
+
 fn main() {
     check_permission(Permission::Read);
     check_with_comment(Permission::Read);
     check_string("yes");
+    Permission::Read.is_write();
+    check_permission_ref(&Permission::Read);
 }

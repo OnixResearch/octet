@@ -12,4 +12,13 @@ fn classify(state: LocalState) -> bool {
     }
 }
 
+impl LocalState {
+    fn is_ready(&self) -> bool {
+        match self {
+            LocalState::Ready => true,
+            LocalState::Closed => false,
+        }
+    }
+}
+
 fn main() {}
