@@ -316,6 +316,11 @@ impl<'tcx> Visitor<'tcx> for GuaranteedReservationFinder<'_, 'tcx> {
     fn visit_expr(&mut self, expr: &'tcx hir::Expr<'tcx>) {
         let expr = peel_transparent_expr(expr);
         match &expr.kind {
+            // `v.try_reserve(n)?` lowers to a `TryDesugar` match whose scrutinee always runs.
+            ExprKind::Match(scrutinee, _, hir::MatchSource::TryDesugar(_)) => {
+                self.visit_expr(scrutinee);
+                return;
+            }
             ExprKind::Closure { .. } | ExprKind::If(..) | ExprKind::Match(..) | ExprKind::Loop(..) => return,
             ExprKind::MethodCall(segment, receiver, _args, _) => {
                 if is_reservation_method(segment.ident.name.as_str())
@@ -500,7 +505,6 @@ impl<'tcx> Visitor<'tcx> for LoopBodyAnalyzer<'_, 'tcx> {
         let expr = peel_transparent_expr(expr);
         match &expr.kind {
             ExprKind::Closure { .. } => return,
-            ExprKind::Loop(..) if !expr.span.from_expansion() => return,
             ExprKind::If(cond, then_expr, else_expr) => {
                 let saved_guarded = self.guarded.clone();
                 let saved_reserved = self.reserved.clone();

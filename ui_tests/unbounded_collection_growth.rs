@@ -62,6 +62,36 @@ fn try_reserve_is_allowed() {
     }
 }
 
+fn try_reserve_question_mark_is_allowed(count: usize) -> Result<(), std::collections::TryReserveError> {
+    let mut items = Vec::new();
+    items.try_reserve(count)?;
+    for value in 0..count {
+        items.push(value);
+    }
+    Ok(())
+}
+
+fn push_in_nested_authored_loop_without_bound() {
+    let mut items = Vec::new();
+    loop {
+        while keep_going() {
+            items.push(next_byte());
+        }
+    }
+}
+
+fn guarded_in_nested_authored_loop_is_allowed(limit: usize) {
+    let mut items = Vec::new();
+    loop {
+        while keep_going() {
+            if items.len() >= limit {
+                break;
+            }
+            items.push(next_byte());
+        }
+    }
+}
+
 fn guarded_by_len_is_allowed(limit: usize) {
     let mut items: HashMap<u8, u8> = Default::default();
     while items.len() < limit {
