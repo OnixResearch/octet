@@ -6,6 +6,71 @@ specific commits via `TIGERSTYLE_DYLINT_REV`.
 For the full lint catalog, see `docs/lint-reference.md`.
 For rollout profiles, see `docs/downstream-rollout.md`.
 
+## Unreleased: fingerprint, object, proof-reference, and architecture-gate fixes
+
+Format and invocation changes:
+
+- Architecture receipts move to `octet-project-architecture-receipt/v3` with a
+  new `waiver_policy_blake3` field. Compiler Architecture IR and unit
+  identities bind that waiver-free policy hash, so cached architecture shards
+  are collected again once.
+- The ast-grep rule-bundle identity now binds each list's length, so
+  checked-in identities change; capture fresh ast-grep scan receipts.
+  Importing a stored scan envelope now requires `--config`.
+- `cargo octet fingerprint` records paths relative to the current directory
+  and rejects named paths outside it.
+- `cargo octet proof-ref validate` and `scaffold` reject proof-card decks
+  without `evidence_origin` and `diagnostics`; `cargo octet prove` always
+  writes both.
+
+Fixes:
+
+- Architecture waivers work. A waiver's `policy_blake3` must equal the
+  receipt's `waiver_policy_blake3`, a policy hash that ignores the `waivers`
+  list; before, waivers had to carry the hash of the file that contained them,
+  so every waiver was `stale-waiver`. Adding waivers no longer changes finding
+  IDs, and any other policy change still makes them stale.
+- Architecture collection accepts feature-matrix policies: of several rows on
+  one triple, the row matching the invocation's features and default features
+  is used. Module directories named like build directories, such as
+  `src/target/`, are part of a unit's source identity, while build directories
+  beside any `Cargo.toml` (including `fuzz/target/`) stay excluded. A unit with
+  several cached shards discards all of them.
+- Fingerprints: markers with an empty or placeholder hash report `missing` and
+  fail `--check`; marker metadata keys match exactly; fingerprint and object
+  markers can sit above one function in either order; and `macro_rules!`
+  definitions in `(...)` or `[...]` no longer hide the next function. Missing
+  or non-Rust named paths fail `fingerprint`, `object`, and
+  `--function-address-path` instead of checking nothing, and SARIF output is
+  rejected before any file is written.
+- Function addresses: warn and deny modes report `function_address_stale` for
+  baseline entries whose function was deleted or renamed within the checked
+  scope, and markers written by `cargo octet fingerprint` are no longer
+  reported as stale function addresses.
+- `object pointer validate`, `object bundle export --pointers`, and
+  `object diff --pointer-manifest` fail on a missing pointer manifest.
+  `object supplement check` compares every supplement and the supplement
+  count, and a receipt with an empty `supplements` list gets an `invalid`
+  report with exit 1.
+- `proof-ref validate` catches overclaims regardless of verb or hyphenation
+  and accepts negated non-claims such as `not verified runtime`.
+  `consumer_source_matched` is true only when the consumer-source check ran
+  and passed. Matched cards with diagnostics, or imported Trellis evidence
+  presented as `formal_proof`, are rejected.
+- Charon semantic analysis reports calls through function pointers, trait
+  methods, and builtins as `unknown-call` candidates and unknown facts,
+  reports unresolved trait methods as `trait-resolution` unknowns, and rejects
+  snapshots that list a source path twice.
+- The ast-grep rail enforces the contract's severity posture, lane names, and
+  non-empty globs, and imports refuse envelopes captured before a rule, rule
+  test, config, or scan-scope change.
+- Policy-package customs scans fixtures and generated artifacts for raw
+  secrets, honours `secret_exclusion_rationale` only for `non-candidate`
+  packages, and rejects unknown package kinds. Artifact manifests with
+  duplicate paths fail, and Nickel export manifest verification catches
+  identity, generator, family, contract, selector, command, path, and
+  duplicate-entry drift.
+
 ## Unreleased: test-context accuracy and speed
 
 - Lints that skip test code no longer treat production code as test code when
