@@ -27,6 +27,16 @@ impl Counter {
     fn helper(&self) -> u64 {
         1
     }
+
+    fn assoc_recursion(n: u64) -> u64 {
+        // Should warn: `Self::` associated-function recursion.
+        if n == 0 { 0 } else { Self::assoc_recursion(n - 1) }
+    }
+
+    fn named_assoc_recursion(n: u64) -> u64 {
+        // Should warn: `Type::` associated-function recursion.
+        if n == 0 { 0 } else { Counter::named_assoc_recursion(n - 1) }
+    }
 }
 
 trait Delegates {
@@ -44,10 +54,42 @@ impl Delegates for Counter {
     }
 }
 
+trait Walk {
+    fn walk(&self, n: u64) -> u64;
+}
+
+impl Walk for Counter {
+    fn walk(&self, n: u64) -> u64 {
+        // Should warn: trait impl method calls itself through the trait.
+        if n == 0 { 0 } else { self.walk(n - 1) }
+    }
+}
+
+impl Walk for u64 {
+    fn walk(&self, n: u64) -> u64 {
+        // Should warn: UFCS trait call resolves back to this impl.
+        if n == 0 { *self } else { Walk::walk(self, n - 1) }
+    }
+}
+
+struct Wrapper(Counter);
+
+impl Walk for Wrapper {
+    fn walk(&self, n: u64) -> u64 {
+        // Should NOT warn: delegates to a different impl of the same trait method.
+        self.0.walk(n) + Walk::walk(&self.0, n)
+    }
+}
+
 fn main() {
     factorial(5);
     iterative_factorial(5);
     let counter = Counter;
     counter.method_recursion(5);
     counter.default_helper();
+    Counter::assoc_recursion(5);
+    Counter::named_assoc_recursion(5);
+    counter.walk(5);
+    7u64.walk(5);
+    Wrapper(Counter).walk(5);
 }

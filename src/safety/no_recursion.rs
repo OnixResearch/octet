@@ -32,26 +32,59 @@ struct RecursionFinder<'a, 'tcx> {
     found: Option<Span>,
 }
 
+impl<'tcx> RecursionFinder<'_, 'tcx> {
+    /// Resolved callee of a call or method call, plus the HIR id that carries its generic args.
+    fn callee(&self, expr: &'tcx hir::Expr<'tcx>) -> Option<(hir::def_id::DefId, hir::HirId)> {
+        match &expr.kind {
+            ExprKind::Call(func, _) => {
+                let ExprKind::Path(qpath) = &func.kind else {
+                    return None;
+                };
+                // `qpath_res` also resolves type-relative paths like `Self::f(..)` / `Type::f(..)`.
+                let hir::def::Res::Def(_, def_id) = self.cx.qpath_res(qpath, func.hir_id) else {
+                    return None;
+                };
+                Some((def_id, func.hir_id))
+            }
+            ExprKind::MethodCall(..) => {
+                self.cx.typeck_results().type_dependent_def_id(expr.hir_id).map(|def_id| (def_id, expr.hir_id))
+            }
+            _ => None,
+        }
+    }
+
+    fn is_recursive_call(&self, callee: hir::def_id::DefId, args_hir_id: hir::HirId) -> bool {
+        if resolved_call_is_recursive(self.target_def_id, Some(callee)) {
+            return true;
+        }
+        // Calls through a trait (`self.required()`, `Trait::required(self)`) resolve to the
+        // trait item; resolve them to the impl item selected for the concrete receiver so a
+        // trait impl method calling itself counts, while calls into other impls do not.
+        let tcx = self.cx.tcx;
+        if !matches!(tcx.def_kind(callee), hir::def::DefKind::AssocFn) || tcx.trait_of_assoc(callee).is_none() {
+            return false;
+        }
+        let args = self.cx.typeck_results().node_args(args_hir_id);
+        // Desugared lang-item calls (e.g. `for` loop `Iterator::next`) carry no recorded args.
+        if args.len() != tcx.generics_of(callee).count() {
+            return false;
+        }
+        let resolved = rustc_middle::ty::Instance::try_resolve(tcx, self.cx.typing_env(), callee, args)
+            .ok()
+            .flatten()
+            .map(|instance| instance.def_id());
+        resolved_call_is_recursive(self.target_def_id, resolved)
+    }
+}
+
 impl<'tcx> Visitor<'tcx> for RecursionFinder<'_, 'tcx> {
     fn visit_expr(&mut self, expr: &'tcx hir::Expr<'tcx>) {
         if self.found.is_some() {
             return;
         }
 
-        if let ExprKind::Call(func, _) = &expr.kind
-            && let ExprKind::Path(hir::QPath::Resolved(_, path)) = &func.kind
-            && let hir::def::Res::Def(_, def_id) = path.res
-            && resolved_call_is_recursive(self.target_def_id, Some(def_id))
-        {
-            self.found = Some(expr.span);
-            return;
-        }
-
-        if let ExprKind::MethodCall(_, _, _, _) = &expr.kind
-            && resolved_call_is_recursive(
-                self.target_def_id,
-                self.cx.typeck_results().type_dependent_def_id(expr.hir_id),
-            )
+        if let Some((callee, args_hir_id)) = self.callee(expr)
+            && self.is_recursive_call(callee, args_hir_id)
         {
             self.found = Some(expr.span);
             return;
