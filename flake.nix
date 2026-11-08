@@ -4645,6 +4645,44 @@
                 '';
             slotcar-standards-nix-closure-manifest = self.checks.${system}.octet-standards-nix-closure-manifest;
             policy-artifact-consumer-fixture = policyArtifactConsumerFixtureCheck;
+
+            # Expected-green gate for CI. The full `nix flake check` also runs
+            # rails that wait on owner review (reviewed object-corpus sources,
+            # fingerprint docs markers, the self-check warning budget), so it
+            # cannot separate a regression from known-blocked evidence.
+            core =
+              let
+                coreCheckNames = [
+                  "fmt"
+                  "clippy"
+                  "nextest"
+                  "ui"
+                  "warning-clean"
+                  "warning-clean-regression"
+                  "policy-registry"
+                  "standards-fixtures"
+                  "project-architecture-policy"
+                  "compiler-architecture-targets"
+                  "wasm-artifact-rail"
+                  "ast-grep-structural-rail"
+                  "dynamic-evidence-profiles"
+                  "sarif-profiles"
+                  "coverage-profiles"
+                  "benchmark-profiles"
+                  "hegel-profiles"
+                  "mutation-profiles"
+                  "effect-closure-catalog"
+                  "clippy-restriction-profiles"
+                  "strict-profile-catalog"
+                  "policy-artifact-consumer-fixture"
+                  "release-candidate-smoke"
+                  "release-operator-smoke-docs"
+                ];
+              in
+              pkgs.runCommand "octet-core-checks" { } ''
+                ${pkgs.lib.concatMapStringsSep "\n" (name: "test -e ${self.checks.${system}.${name}}") coreCheckNames}
+                mkdir -p "$out"
+              '';
           };
 
         devShells.default = craneLib.devShell {

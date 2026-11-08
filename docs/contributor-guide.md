@@ -225,6 +225,19 @@ control proving a new dead helper fails under the same warning-deny policy. The
 `clippy` rail runs Clippy with `-D warnings -W clippy::pedantic` so pedantic
 findings are release-readiness regressions too.
 
+CI gates on the expected-green aggregate, which bundles formatting, Clippy,
+nextest, the UI rail, warning-clean, the policy and standards fixtures, the
+architecture and evidence-profile rails, and the release smokes:
+
+```bash
+nix build .#checks.x86_64-linux.core --no-link -L
+```
+
+The same workflow still runs the full `nix flake check`. It stays red while
+rails wait on owner review (the reviewed object-corpus sources, the fingerprint
+docs markers, and the self-check warning budget), so a red `core` job is the
+regression signal. Add a check to `core` in `flake.nix` once it passes.
+
 Useful doc-facing spot checks:
 
 ```bash
