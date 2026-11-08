@@ -13,6 +13,8 @@ const PROVIDER_TRANSLATION: &str =
 const PROVIDER_GENERATED: &str =
     include_str!("../../../../standards/proof-rails/aeneas-lean/fixtures/external-consumer/expected/Llbc.lean");
 const DIAGNOSTIC: &str = "b3:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+const MULTI_ITEM_SOURCE: &str = "pub fn decrement(value: u32) -> u32 {\n    value - 1\n}\n\npub fn increment(value: u32) -> u32 {\n    value + 1\n}\n\npub fn double(value: u32) -> u32 {\n    value * 2\n}\n";
+const MULTI_ITEM_INCREMENT: &str = "pub fn increment(value: u32) -> u32 {\n    value + 1\n}";
 
 fn translation() -> String {
     serde_json::json!({
@@ -154,6 +156,79 @@ fn provider_source_item_and_theorem_drift_fail_closed() {
     let mut stale_theorem = input(&llbc, &translation);
     stale_theorem.theorem_text = "theorem increment_matches_model : True := by trivial\n";
     assert!(observation::validate(&profile, &stale_theorem).iter().any(|item| item.contains("theorem")));
+}
+
+fn multi_item_profile() -> ConsumerProfile {
+    let mut profile = selected_profile().expect("profile");
+    let identity = prefixed_identity(MULTI_ITEM_SOURCE.as_bytes());
+    profile.source.paths[0].identity.clone_from(&identity);
+    let item = &mut profile.source.selected_items[0];
+    item.source_identity = identity;
+    item.begin_line = 5;
+    item.end_line = 7;
+    profile
+}
+
+fn multi_item_translation() -> String {
+    translation().replace("\"begin_line\":1,\"end_line\":3", "\"begin_line\":5,\"end_line\":7")
+}
+
+fn multi_item_llbc(selected_source_text: &str) -> String {
+    let declaration = |source_text: &str, begin: u64, end: u64| {
+        serde_json::json!({
+            "item_meta": {
+                "source_text": source_text,
+                "span": {"data": {"beg": {"line": begin}, "end": {"line": end}}}
+            }
+        })
+    };
+    serde_json::json!({
+        "has_errors": false,
+        "translated": {
+            "files": [{"name": {"Local": "src/lib.rs"}, "contents": MULTI_ITEM_SOURCE}],
+            "fun_decls": [
+                declaration("pub fn decrement(value: u32) -> u32 {\n    value - 1\n}", 1, 3),
+                declaration(selected_source_text, 5, 7),
+                declaration("pub fn double(value: u32) -> u32 {\n    value * 2\n}", 9, 11),
+            ]
+        }
+    })
+    .to_string()
+}
+
+#[test]
+fn selected_item_in_multi_item_source_matches_its_line_span() {
+    let profile = multi_item_profile();
+    let translation = multi_item_translation();
+    let llbc = multi_item_llbc(MULTI_ITEM_INCREMENT);
+    let input = ObservationInput {
+        source_text: MULTI_ITEM_SOURCE,
+        ..input(&llbc, &translation)
+    };
+    assert_eq!(observation::validate(&profile, &input), Vec::<String>::new());
+}
+
+#[test]
+fn selected_item_source_text_drift_fails_closed() {
+    let profile = multi_item_profile();
+    let translation = multi_item_translation();
+    for drifted in [
+        "pub fn increment(value: u32) -> u32 {\n    value + 2\n}",
+        "pub fn decrement(value: u32) -> u32 {\n    value - 1\n}",
+        MULTI_ITEM_SOURCE,
+    ] {
+        let llbc = multi_item_llbc(drifted);
+        let input = ObservationInput {
+            source_text: MULTI_ITEM_SOURCE,
+            ..input(&llbc, &translation)
+        };
+        assert!(
+            observation::validate(&profile, &input)
+                .iter()
+                .any(|item| item.contains("selected-item span drifted")),
+            "drifted source text: {drifted}"
+        );
+    }
 }
 
 #[test]

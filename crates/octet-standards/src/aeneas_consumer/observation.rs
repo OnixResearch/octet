@@ -194,18 +194,19 @@ fn validate_llbc(item: &super::model::SelectedItem, input: &ObservationInput<'_>
             file["name"]["Local"] == item.source_file && file["contents"].as_str() == Some(input.source_text)
         })
     });
-    let function_match = translated["fun_decls"].as_array().is_some_and(|functions| {
-        functions
-            .iter()
-            .filter(|function| {
-                function["item_meta"]["source_text"]
-                    .as_str()
-                    .is_some_and(|source| source.trim_end() == input.source_text.trim_end())
-                    && function["item_meta"]["span"]["data"]["beg"]["line"] == item.begin_line
-                    && function["item_meta"]["span"]["data"]["end"]["line"] == item.end_line
-            })
-            .count()
-            == 1
+    let selected_text = selected_lines(input.source_text, item.begin_line, item.end_line).map(str::trim);
+    let function_match = selected_text.is_some_and(|selected_text| {
+        translated["fun_decls"].as_array().is_some_and(|functions| {
+            functions
+                .iter()
+                .filter(|function| {
+                    function["item_meta"]["source_text"].as_str().is_some_and(|source| source.trim() == selected_text)
+                        && function["item_meta"]["span"]["data"]["beg"]["line"] == item.begin_line
+                        && function["item_meta"]["span"]["data"]["end"]["line"] == item.end_line
+                })
+                .count()
+                == 1
+        })
     });
     if value["has_errors"] != false {
         diagnostics.push("Aeneas consumer LLBC reports extraction errors".to_owned());
@@ -216,6 +217,24 @@ fn validate_llbc(item: &super::model::SelectedItem, input: &ObservationInput<'_>
     if !function_match {
         diagnostics.push("Aeneas consumer LLBC selected-item span drifted".to_owned());
     }
+}
+
+/// Return the one-based inclusive line range `begin_line..=end_line` of `text`.
+fn selected_lines(text: &str, begin_line: u64, end_line: u64) -> Option<&str> {
+    let begin_index = usize::try_from(begin_line).ok()?.checked_sub(1)?;
+    let end_index = usize::try_from(end_line).ok()?.checked_sub(1)?;
+    let mut offset = 0;
+    let mut start = None;
+    for (index, line) in text.split_inclusive('\n').enumerate() {
+        if index == begin_index {
+            start = Some(offset);
+        }
+        offset += line.len();
+        if index == end_index {
+            return text.get(start?..offset);
+        }
+    }
+    None
 }
 
 fn generated_declaration_present(generated_name: &str, text: &str) -> bool {
