@@ -74,7 +74,6 @@ let spacewasm_maximum_local_words_per_function = 1024 in
         duplicate_metadata = "error",
         abi_mismatch = "error",
         external_evidence = "error",
-        cohort_drift = "error",
       },
       verification_role = "recorded_only",
       non_claims = [
@@ -124,7 +123,6 @@ let spacewasm_maximum_local_words_per_function = 1024 in
         duplicate_metadata = "error",
         abi_mismatch = "error",
         external_evidence = "error",
-        cohort_drift = "error",
       },
       verification_role = "recorded_only",
       non_claims = [
@@ -183,7 +181,6 @@ let spacewasm_maximum_local_words_per_function = 1024 in
         duplicate_metadata = "error",
         abi_mismatch = "error",
         external_evidence = "error",
-        cohort_drift = "error",
       },
       verification_role = "recorded_only",
       non_claims = [
@@ -235,7 +232,6 @@ let spacewasm_maximum_local_words_per_function = 1024 in
         duplicate_metadata = "error",
         abi_mismatch = "error",
         external_evidence = "error",
-        cohort_drift = "error",
       },
       verification_role = "boundary",
       non_claims = [
@@ -282,7 +278,7 @@ let spacewasm_maximum_local_words_per_function = 1024 in
         malformed = "error", disallowed_kind = "error", disallowed_import = "error",
         disallowed_world = "error", resource_limit = "error", growth = "error",
         start = "error", duplicate_metadata = "error", abi_mismatch = "error",
-        external_evidence = "error", cohort_drift = "error",
+        external_evidence = "error",
       },
       verification_role = "boundary",
       non_claims = [
@@ -318,7 +314,7 @@ let spacewasm_maximum_local_words_per_function = 1024 in
         malformed = "error", disallowed_kind = "error", disallowed_import = "error",
         disallowed_world = "error", resource_limit = "error", growth = "error",
         start = "error", duplicate_metadata = "error", abi_mismatch = "error",
-        external_evidence = "error", cohort_drift = "error",
+        external_evidence = "error",
       },
       verification_role = "boundary",
       non_claims = [

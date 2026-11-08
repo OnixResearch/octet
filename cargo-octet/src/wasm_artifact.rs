@@ -191,7 +191,6 @@ pub(crate) struct WasmFindingSeverities {
     pub(crate) duplicate_metadata: String,
     pub(crate) abi_mismatch: String,
     pub(crate) external_evidence: String,
-    pub(crate) cohort_drift: String,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Ord, PartialOrd, Serialize)]
@@ -1844,7 +1843,6 @@ fn validate_severities(profile: &WasmArtifactProfile, diagnostics: &mut Vec<Stri
         ("duplicate_metadata", &severity.duplicate_metadata),
         ("abi_mismatch", &severity.abi_mismatch),
         ("external_evidence", &severity.external_evidence),
-        ("cohort_drift", &severity.cohort_drift),
     ] {
         if !matches!(value.as_str(), "advisory" | "warning" | ERROR_SEVERITY) {
             diagnostics.push(format!(
@@ -3075,18 +3073,49 @@ mod tests {
     fn registry_rejects_unknown_severity_and_duplicate_section_postures() {
         let mut registry = valid_registry();
         "Error".clone_into(&mut registry.profiles[0].severity.malformed);
-        "fatal".clone_into(&mut registry.profiles[0].severity.cohort_drift);
+        "fatal".clone_into(&mut registry.profiles[0].severity.external_evidence);
         "Reject".clone_into(&mut registry.profiles[0].duplicate_custom_sections);
 
         let diagnostics = validate_registry(&registry);
 
         for expected in [
             "unsupported malformed severity `Error`",
-            "unsupported cohort_drift severity `fatal`",
+            "unsupported external_evidence severity `fatal`",
             "unsupported duplicate custom section posture `Reject`",
         ] {
             assert!(diagnostics.iter().any(|diagnostic| diagnostic.contains(expected)), "{expected}: {diagnostics:?}");
         }
+    }
+
+    #[test]
+    fn cohort_drift_fails_registry_validation_without_a_severity_knob() {
+        let mut value: Value = serde_json::from_str(PROFILE_JSON).expect("profile registry JSON");
+        value["profiles"][0]["severity"]["cohort_drift"] = Value::String("advisory".to_owned());
+        let error = parse_registry(&value.to_string()).expect_err("cohort_drift is not a severity");
+        assert!(error.contains("unknown field `cohort_drift`"), "{error}");
+
+        let mut registry = valid_registry();
+        registry.cohort.members[0].version = "0.254.0".to_owned();
+        for profile in &mut registry.profiles {
+            for severity in [
+                &mut profile.severity.malformed,
+                &mut profile.severity.disallowed_kind,
+                &mut profile.severity.disallowed_import,
+                &mut profile.severity.disallowed_world,
+                &mut profile.severity.resource_limit,
+                &mut profile.severity.growth,
+                &mut profile.severity.start,
+                &mut profile.severity.duplicate_metadata,
+                &mut profile.severity.abi_mismatch,
+                &mut profile.severity.external_evidence,
+            ] {
+                "advisory".clone_into(severity);
+            }
+        }
+        let module = wat::parse_str("(module)").expect("module fixture");
+        let diagnostics =
+            analyze_bytes(&module, &registry, PROFILE_ID, identity(PROFILE_JSON.as_bytes()), &[]).expect_err("drift");
+        assert!(diagnostics.iter().any(|diagnostic| diagnostic.contains("stale wasm-tools cohort identity")));
     }
 
     #[test]

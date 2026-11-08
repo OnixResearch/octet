@@ -77,7 +77,6 @@ let Profile = {
     duplicate_metadata | Severity,
     abi_mismatch | Severity,
     external_evidence | Severity,
-    cohort_drift | Severity,
   },
   verification_role | OneOf ["recorded_only", "boundary"],
   non_claims | NonEmptyArray | Array NonEmptyString,

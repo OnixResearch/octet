@@ -92,7 +92,6 @@
       },
       "severity": {
         "abi_mismatch": "error",
-        "cohort_drift": "error",
         "disallowed_import": "error",
         "disallowed_kind": "error",
         "disallowed_world": "error",
@@ -152,7 +151,6 @@
       },
       "severity": {
         "abi_mismatch": "error",
-        "cohort_drift": "error",
         "disallowed_import": "error",
         "disallowed_kind": "error",
         "disallowed_world": "error",
@@ -223,7 +221,6 @@
       },
       "severity": {
         "abi_mismatch": "error",
-        "cohort_drift": "error",
         "disallowed_import": "error",
         "disallowed_kind": "error",
         "disallowed_world": "error",
@@ -282,7 +279,6 @@
       },
       "severity": {
         "abi_mismatch": "error",
-        "cohort_drift": "error",
         "disallowed_import": "error",
         "disallowed_kind": "error",
         "disallowed_world": "error",
@@ -403,7 +399,6 @@
       },
       "severity": {
         "abi_mismatch": "error",
-        "cohort_drift": "error",
         "disallowed_import": "error",
         "disallowed_kind": "error",
         "disallowed_world": "error",
@@ -527,7 +522,6 @@
       },
       "severity": {
         "abi_mismatch": "error",
-        "cohort_drift": "error",
         "disallowed_import": "error",
         "disallowed_kind": "error",
         "disallowed_world": "error",
