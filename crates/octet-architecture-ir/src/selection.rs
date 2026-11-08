@@ -36,6 +36,10 @@ impl std::fmt::Display for UnitSelectionError {
 impl std::error::Error for UnitSelectionError {}
 
 /// Reject plans that cannot distinguish their compiler sessions.
+///
+/// # Errors
+///
+/// Returns an error when the plan is empty, malformed, or contains indistinguishable units.
 pub fn validate_collector_units(units: &[CollectorCompilationUnit]) -> Result<(), UnitSelectionError> {
     if units.is_empty() {
         return Err(UnitSelectionError::InvalidContext);
@@ -68,6 +72,11 @@ pub fn validate_collector_units(units: &[CollectorCompilationUnit]) -> Result<()
 }
 
 /// External packages are unselected. Unknown sessions inside selected packages are errors.
+///
+/// # Errors
+///
+/// Returns an error when the planned units are invalid, several planned units match the
+/// observation, or a session inside a selected package matches no planned unit.
 pub fn select_compilation_unit<'a>(
     units: &'a [CollectorCompilationUnit],
     observation: &CompilerUnitObservation<'_>,

@@ -589,6 +589,7 @@ fn run_compiler_architecture_fixture_with_selection(
     )
 }
 
+#[derive(Clone, Copy)]
 struct CompilerFixtureTarget<'a> {
     fixture_name: &'a str,
     crate_type: &'a str,
@@ -596,33 +597,23 @@ struct CompilerFixtureTarget<'a> {
     features: &'a [&'a str],
 }
 
-fn run_compiler_architecture_target(
-    driver: &Path,
-    library: &Path,
+fn compiler_fixture_unit(
+    crate_name: &str,
+    source_path: String,
     host: &str,
     target: CompilerFixtureTarget<'_>,
-    value_flow_selections: Vec<CompilerValueFlowSelection>,
-) -> CompilerArchitectureShard {
-    let fixture_name = target.fixture_name;
-    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
-    let source_scope = "fixtures/compiler-architecture-ir";
-    let fixture_path = root.join(source_scope).join(fixture_name);
-    let work_name = temp_path("octet-compiler-architecture-fixture").file_name().expect("fixture work name").to_owned();
-    let work_dir = root.join(".octet/compiler-architecture-fixtures").join(work_name);
-    let shard_dir = work_dir.join("shards");
-    fs::create_dir_all(&shard_dir).expect("create compiler architecture fixture shard dir");
-    let crate_name = fixture_path.file_stem().expect("fixture stem").to_string_lossy().replace('-', "_");
+) -> CompilationUnit {
     let mut unit = CompilationUnit {
         unit_id: String::new(),
-        package_name: crate_name.clone(),
+        package_name: crate_name.to_owned(),
         package_version: "0.1.0".to_owned(),
-        target_name: crate_name.clone(),
+        target_name: crate_name.to_owned(),
         target_kind: if target.test_configuration {
             format!("{}+test", target.crate_type)
         } else {
             target.crate_type.to_owned()
         },
-        source_path: format!("{source_scope}/{fixture_name}"),
+        source_path,
         crate_types: vec![
             if target.test_configuration {
                 "bin"
@@ -642,6 +633,26 @@ fn run_compiler_architecture_target(
         invocation_blake3: COMPILER_FIXTURE_HASH.to_owned(),
     };
     unit.unit_id = octet_architecture_ir::compilation_unit_identity(&unit);
+    unit
+}
+
+fn run_compiler_architecture_target(
+    driver: &Path,
+    library: &Path,
+    host: &str,
+    target: CompilerFixtureTarget<'_>,
+    value_flow_selections: Vec<CompilerValueFlowSelection>,
+) -> CompilerArchitectureShard {
+    let fixture_name = target.fixture_name;
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let source_scope = "fixtures/compiler-architecture-ir";
+    let fixture_path = root.join(source_scope).join(fixture_name);
+    let work_name = temp_path("octet-compiler-architecture-fixture").file_name().expect("fixture work name").to_owned();
+    let work_dir = root.join(".octet/compiler-architecture-fixtures").join(work_name);
+    let shard_dir = work_dir.join("shards");
+    fs::create_dir_all(&shard_dir).expect("create compiler architecture fixture shard dir");
+    let crate_name = fixture_path.file_stem().expect("fixture stem").to_string_lossy().replace('-', "_");
+    let unit = compiler_fixture_unit(&crate_name, format!("{source_scope}/{fixture_name}"), host, target);
     let context = CompilerArchitectureCollectorContext {
         schema_version: octet_architecture_ir::COMPILER_ARCHITECTURE_COLLECTOR_CONTEXT_SCHEMA_VERSION.to_owned(),
         workspace_root: root.display().to_string(),
@@ -711,6 +722,9 @@ fn run_compiler_architecture_target(
 
 #[test]
 #[ignore = "run via cargo test --test ui compiler_architecture_ir_fixtures -- --ignored --nocapture"]
+// One end-to-end scenario shares a single expensive library and driver build across every
+// fixture; splitting it would rebuild both per test without making any assertion clearer.
+#[allow(clippy::too_many_lines)]
 fn compiler_architecture_ir_fixtures() {
     let toolchain = rustup_toolchain();
     let library = build_library(&toolchain);

@@ -114,73 +114,7 @@ edition = "2024"
         write_file(&repo.join("src/lib.rs"), "pub fn noop() {}\n");
         write_file(&repo.join("dylint.toml"), "[octet]\n");
         write_file(&repo.join("Cargo.lock"), "# original lockfile\n");
-        write_executable(
-            &fakebin.join("cargo"),
-            &format!(
-                r#"#!{bash}
-set -euo pipefail
-printf 'ARGS:%s\n' "$*" >> "$TS_LOG"
-printf 'RUSTC_WORKSPACE_WRAPPER=%s\n' "${{RUSTC_WORKSPACE_WRAPPER:-}}" >> "$TS_LOG"
-printf 'DYLINT_LIBS=%s\n' "${{DYLINT_LIBS:-}}" >> "$TS_LOG"
-printf 'DYLINT_NO_DEPS=%s\n' "${{DYLINT_NO_DEPS:-}}" >> "$TS_LOG"
-printf 'OCTET_STRICT_PROFILE=%s\n' "${{OCTET_STRICT_PROFILE:-}}" >> "$TS_LOG"
-printf 'OCTET_COMPILER_ARCHITECTURE_CONTEXT=%s\n' "${{OCTET_COMPILER_ARCHITECTURE_CONTEXT:-}}" >> "$TS_LOG"
-printf 'RUSTUP_TOOLCHAIN=%s\n' "${{RUSTUP_TOOLCHAIN:-}}" >> "$TS_LOG"
-case "${{1:-}}" in
-  metadata)
-    # Use Cargo's actual manifest/workspace resolver, without fetching dependencies
-    # or changing the fixture lockfile used by the check-path tests.
-    exec "${{TS_REAL_CARGO:?}}" "$@" --no-deps --offline
-    ;;
-  build)
-    out_dir="${{CARGO_TARGET_DIR:?}}/release"
-    mkdir -p "$out_dir"
-    if [[ "${{TS_MUTATE_LOCKFILE_ON_BUILD:-0}}" == "1" ]]; then
-      cat >> "${{TS_CONSUMER_LOCKFILE:?}}" <<'EOF'
-# mutated by fake cargo build
-EOF
-    fi
-    if [[ " $* " == *" -p octet "* ]]; then
-      cat > "$out_dir/liboctet.so" <<'EOF'
-fake built Octet dylint library
-EOF
-      toolchain="${{RUSTUP_TOOLCHAIN:?}}"
-      ln -sf "$out_dir/liboctet.so" "$out_dir/liboctet@${{toolchain}}.so"
-    else
-      cat > "$out_dir/tigerstyle-dylint-driver" <<'EOF'
-#!{bash}
-echo bootstrapped fake dylint driver
-EOF
-      chmod +x "$out_dir/tigerstyle-dylint-driver"
-    fi
-    exit 0
-    ;;
-  check)
-    if [[ "${{TS_MUTATE_LOCKFILE:-0}}" == "1" ]]; then
-      cat >> Cargo.lock <<'EOF'
-# mutated by fake cargo
-EOF
-    fi
-    if [[ -n "${{TS_STDOUT_FILE:-}}" ]]; then
-      cat "$TS_STDOUT_FILE"
-    fi
-    if [[ -n "${{TS_STDERR:-}}" ]]; then
-      printf '%s\n' "$TS_STDERR" >&2
-    fi
-    if [[ "${{TS_KILL_SELF:-0}}" == "1" ]]; then
-      kill -9 $$
-    fi
-    exit "${{TS_CARGO_EXIT_STATUS:-0}}"
-    ;;
-  *)
-    echo "unexpected cargo invocation: $*" >&2
-    exit 97
-    ;;
-esac
-"#,
-                bash = bash.display(),
-            ),
-        );
+        write_executable(&fakebin.join("cargo"), &fake_cargo_script(&bash));
         write_executable(&driver_path, &format!("#!{}\necho fake dylint driver\n", bash.display()));
         write_file(&lint_lib_path, "fake Octet dylint library\n");
 
@@ -499,6 +433,73 @@ esac
     pub(crate) fn lockfile(&self) -> String {
         fs::read_to_string(self.repo.join("Cargo.lock")).expect("read lockfile")
     }
+}
+
+fn fake_cargo_script(bash: &Path) -> String {
+    format!(
+        r#"#!{bash}
+set -euo pipefail
+printf 'ARGS:%s\n' "$*" >> "$TS_LOG"
+printf 'RUSTC_WORKSPACE_WRAPPER=%s\n' "${{RUSTC_WORKSPACE_WRAPPER:-}}" >> "$TS_LOG"
+printf 'DYLINT_LIBS=%s\n' "${{DYLINT_LIBS:-}}" >> "$TS_LOG"
+printf 'DYLINT_NO_DEPS=%s\n' "${{DYLINT_NO_DEPS:-}}" >> "$TS_LOG"
+printf 'OCTET_STRICT_PROFILE=%s\n' "${{OCTET_STRICT_PROFILE:-}}" >> "$TS_LOG"
+printf 'OCTET_COMPILER_ARCHITECTURE_CONTEXT=%s\n' "${{OCTET_COMPILER_ARCHITECTURE_CONTEXT:-}}" >> "$TS_LOG"
+printf 'RUSTUP_TOOLCHAIN=%s\n' "${{RUSTUP_TOOLCHAIN:-}}" >> "$TS_LOG"
+case "${{1:-}}" in
+  metadata)
+    # Use Cargo's actual manifest/workspace resolver, without fetching dependencies
+    # or changing the fixture lockfile used by the check-path tests.
+    exec "${{TS_REAL_CARGO:?}}" "$@" --no-deps --offline
+    ;;
+  build)
+    out_dir="${{CARGO_TARGET_DIR:?}}/release"
+    mkdir -p "$out_dir"
+    if [[ "${{TS_MUTATE_LOCKFILE_ON_BUILD:-0}}" == "1" ]]; then
+      cat >> "${{TS_CONSUMER_LOCKFILE:?}}" <<'EOF'
+# mutated by fake cargo build
+EOF
+    fi
+    if [[ " $* " == *" -p octet "* ]]; then
+      cat > "$out_dir/liboctet.so" <<'EOF'
+fake built Octet dylint library
+EOF
+      toolchain="${{RUSTUP_TOOLCHAIN:?}}"
+      ln -sf "$out_dir/liboctet.so" "$out_dir/liboctet@${{toolchain}}.so"
+    else
+      cat > "$out_dir/tigerstyle-dylint-driver" <<'EOF'
+#!{bash}
+echo bootstrapped fake dylint driver
+EOF
+      chmod +x "$out_dir/tigerstyle-dylint-driver"
+    fi
+    exit 0
+    ;;
+  check)
+    if [[ "${{TS_MUTATE_LOCKFILE:-0}}" == "1" ]]; then
+      cat >> Cargo.lock <<'EOF'
+# mutated by fake cargo
+EOF
+    fi
+    if [[ -n "${{TS_STDOUT_FILE:-}}" ]]; then
+      cat "$TS_STDOUT_FILE"
+    fi
+    if [[ -n "${{TS_STDERR:-}}" ]]; then
+      printf '%s\n' "$TS_STDERR" >&2
+    fi
+    if [[ "${{TS_KILL_SELF:-0}}" == "1" ]]; then
+      kill -9 $$
+    fi
+    exit "${{TS_CARGO_EXIT_STATUS:-0}}"
+    ;;
+  *)
+    echo "unexpected cargo invocation: $*" >&2
+    exit 97
+    ;;
+esac
+"#,
+        bash = bash.display(),
+    )
 }
 
 pub(crate) fn metadata(default_scope: &str, cargo_check_args: &str) -> String {

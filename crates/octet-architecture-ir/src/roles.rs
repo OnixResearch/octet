@@ -26,6 +26,12 @@ impl std::error::Error for UnitRoleError {}
 
 /// Only an independent Cargo integration-test target can select a different test role.
 /// Names, path spelling, and library/binary test configurations do not grant that role.
+///
+/// # Errors
+///
+/// Returns an error when the package role is reserved, the source root or a role scope is invalid,
+/// no scope covers the source root, covering scopes disagree, or the source role conflicts with
+/// the package role.
 // r[impl octet.project_architecture_gate.test_ownership]
 pub fn select_compilation_unit_role(
     package_role: CompilerArchitectureRole,

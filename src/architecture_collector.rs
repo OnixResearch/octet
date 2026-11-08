@@ -90,8 +90,13 @@ const EFFECT_PATHS: &[(&str, CapabilityFamily)] = &[
 ];
 
 fn load_collector_context() -> Result<Option<CompilerArchitectureCollectorContext>, String> {
-    let Some(context_path) = std::env::var_os(octet_architecture_ir::COMPILER_ARCHITECTURE_COLLECTOR_CONTEXT_ENV)
-    else {
+    load_collector_context_at(std::env::var_os(octet_architecture_ir::COMPILER_ARCHITECTURE_COLLECTOR_CONTEXT_ENV))
+}
+
+fn load_collector_context_at(
+    context_path: Option<std::ffi::OsString>,
+) -> Result<Option<CompilerArchitectureCollectorContext>, String> {
+    let Some(context_path) = context_path else {
         return Ok(None);
     };
     let context_path = PathBuf::from(context_path);
@@ -478,7 +483,7 @@ impl ArchitectureCollector {
         };
         assign_fact_identity(&mut fact);
         self.push_fact(fact);
-        if macro_definition.is_none() && !compiler_owned_expansion(span.ctxt().outer_expn_data().kind) {
+        if macro_definition.is_none() && !compiler_owned_expansion(&span.ctxt().outer_expn_data().kind) {
             self.push_unknown(
                 UnknownFactKind::UnsupportedExpansion,
                 None,
@@ -511,13 +516,13 @@ impl ArchitectureCollector {
                 "call expression has no compiler-resolved definition",
             );
         }
-        let callee_item_id = def_id
+        let local_callee_item_id = def_id
             .filter(|current| current.is_local())
             .map(|current| self.local_item_identity(cx, current.expect_local()));
         let mut fact = CompilerArchitectureFact::Call {
             fact_id: String::new(),
             caller_item_id: caller_item_id.clone(),
-            callee_item_id,
+            callee_item_id: local_callee_item_id,
             resolved_definition: resolved_definition.clone(),
             dispatch,
             span_id: span_id.clone(),
@@ -740,11 +745,13 @@ impl ArchitectureCollector {
                 .source_roles
                 .iter()
                 .find(|scope| path_in_scope(source_path, &scope.source_scope))
-                .map(|scope| scope.role)
-                .unwrap_or_else(|| {
-                    self.incomplete = true;
-                    self.selected.unit.role
-                }),
+                .map_or_else(
+                    || {
+                        self.incomplete = true;
+                        self.selected.unit.role
+                    },
+                    |scope| scope.role,
+                ),
             None => {
                 self.incomplete = true;
                 self.selected.unit.role
@@ -781,7 +788,7 @@ impl ArchitectureCollector {
             field_type_definitions.sort();
             field_type_definitions.dedup();
             let mut implemented_traits = BTreeSet::new();
-            for (trait_def_id, impl_def_ids) in cx.tcx.all_local_trait_impls(()).iter() {
+            for (trait_def_id, impl_def_ids) in cx.tcx.all_local_trait_impls(()) {
                 for impl_def_id in impl_def_ids {
                     let trait_ref = cx.tcx.impl_trait_ref(*impl_def_id).instantiate_identity();
                     let ty::Adt(self_adt, _) = trait_ref.self_ty().kind() else {
@@ -806,10 +813,7 @@ impl ArchitectureCollector {
         }
     }
 
-    fn collect_selected_value_provenance(&mut self, cx: &LateContext<'_>) {
-        if self.context.value_flow_selections.is_empty() {
-            return;
-        }
+    fn value_flow_body_def_ids(&self, cx: &LateContext<'_>) -> Vec<LocalDefId> {
         let mut body_def_ids = self
             .item_ids
             .keys()
@@ -821,6 +825,14 @@ impl ArchitectureCollector {
             .collect::<Vec<_>>();
         body_def_ids.sort_by_key(|def_id| qualified_definition(cx, def_id.to_def_id()));
         body_def_ids.dedup();
+        body_def_ids
+    }
+
+    fn collect_selected_value_provenance(&mut self, cx: &LateContext<'_>) {
+        if self.context.value_flow_selections.is_empty() {
+            return;
+        }
+        let body_def_ids = self.value_flow_body_def_ids(cx);
         if body_def_ids.len() > self.context.limits.max_value_flow_bodies {
             self.push_unknown(
                 UnknownFactKind::UnsupportedCompilerShape,
@@ -911,36 +923,45 @@ impl ArchitectureCollector {
             return;
         }
         for (_, (caller_def_id, observation)) in final_observations {
-            let caller_item_id = self.local_item_identity(cx, caller_def_id);
-            let argument_type_id = self.collect_type_from_definition(cx, &observation.key.argument_type);
-            let span_id = self.collect_span(cx, observation.span);
-            let (origin_definitions, status) = canonical_provenance(&observation.origins);
-            let mut fact = CompilerArchitectureFact::CallArgumentProvenance {
-                fact_id: String::new(),
-                caller_item_id: caller_item_id.clone(),
-                callee_definition: observation.key.callee_definition.clone(),
-                argument_position: observation.key.argument_position,
-                argument_type_id,
-                origin_definitions,
-                status,
-                span_id: span_id.clone(),
+            self.push_value_provenance_fact(cx, caller_def_id, &observation);
+        }
+    }
+
+    fn push_value_provenance_fact(
+        &mut self,
+        cx: &LateContext<'_>,
+        caller_def_id: LocalDefId,
+        observation: &ProvenanceObservation,
+    ) {
+        let caller_item_id = self.local_item_identity(cx, caller_def_id);
+        let argument_type_id = self.collect_type_from_definition(cx, &observation.key.argument_type);
+        let span_id = self.collect_span(cx, observation.span);
+        let (origin_definitions, status) = canonical_provenance(&observation.origins);
+        let mut fact = CompilerArchitectureFact::CallArgumentProvenance {
+            fact_id: String::new(),
+            caller_item_id: caller_item_id.clone(),
+            callee_definition: observation.key.callee_definition.clone(),
+            argument_position: observation.key.argument_position,
+            argument_type_id,
+            origin_definitions,
+            status,
+            span_id: span_id.clone(),
+        };
+        assign_fact_identity(&mut fact);
+        self.push_fact(fact);
+        if status != ValueProvenanceStatus::Exact {
+            let kind = if status == ValueProvenanceStatus::Merged {
+                UnknownFactKind::AmbiguousValueProvenance
+            } else {
+                UnknownFactKind::MissingValueProvenance
             };
-            assign_fact_identity(&mut fact);
-            self.push_fact(fact);
-            if status != ValueProvenanceStatus::Exact {
-                let kind = if status == ValueProvenanceStatus::Merged {
-                    UnknownFactKind::AmbiguousValueProvenance
-                } else {
-                    UnknownFactKind::MissingValueProvenance
-                };
-                self.push_unknown(
-                    kind,
-                    Some(&caller_item_id),
-                    Some(&observation.key.callee_definition),
-                    Some(&span_id),
-                    "selected call argument provenance is not one exact compiler-resolved origin",
-                );
-            }
+            self.push_unknown(
+                kind,
+                Some(&caller_item_id),
+                Some(&observation.key.callee_definition),
+                Some(&span_id),
+                "selected call argument provenance is not one exact compiler-resolved origin",
+            );
         }
     }
 
@@ -1089,12 +1110,11 @@ fn bounded_source_line(line: usize, max_span_bytes: usize, incomplete: &mut bool
 }
 
 fn bounded_source_column(column: usize, max_span_bytes: usize, incomplete: &mut bool) -> u32 {
-    let one_based_column = match column.checked_add(1) {
-        Some(value) => value,
-        None => {
-            *incomplete = true;
-            1
-        }
+    let one_based_column = if let Some(value) = column.checked_add(1) {
+        value
+    } else {
+        *incomplete = true;
+        1
     };
     bounded_source_coordinate(one_based_column, max_span_bytes, incomplete)
 }
@@ -1105,12 +1125,11 @@ fn bounded_source_coordinate(coordinate: usize, max_span_bytes: usize, incomplet
     if bounded != coordinate {
         *incomplete = true;
     }
-    match u32::try_from(bounded) {
-        Ok(value) => value,
-        Err(_) => {
-            *incomplete = true;
-            1
-        }
+    if let Ok(value) = u32::try_from(bounded) {
+        value
+    } else {
+        *incomplete = true;
+        1
     }
 }
 
@@ -1311,7 +1330,6 @@ fn analyze_selected_mir_body<'tcx>(
             } => {
                 analyze_call_terminator(
                     cx,
-                    def_id,
                     body,
                     func,
                     args,
@@ -1321,7 +1339,6 @@ fn analyze_selected_mir_body<'tcx>(
                     tracked_types,
                     root_definitions,
                     propagation_definitions,
-                    argument_origins,
                     return_origins,
                     &mut state,
                     &mut result,
@@ -1330,7 +1347,6 @@ fn analyze_selected_mir_body<'tcx>(
             mir::TerminatorKind::TailCall { func, args, fn_span } => {
                 analyze_call_terminator(
                     cx,
-                    def_id,
                     body,
                     func,
                     args,
@@ -1340,7 +1356,6 @@ fn analyze_selected_mir_body<'tcx>(
                     tracked_types,
                     root_definitions,
                     propagation_definitions,
-                    argument_origins,
                     return_origins,
                     &mut state,
                     &mut result,
@@ -1367,7 +1382,6 @@ fn analyze_selected_mir_body<'tcx>(
 #[allow(clippy::too_many_arguments)]
 fn analyze_call_terminator<'tcx>(
     cx: &LateContext<'tcx>,
-    caller_def_id: LocalDefId,
     body: &mir::Body<'tcx>,
     func: &mir::Operand<'tcx>,
     args: &[Spanned<mir::Operand<'tcx>>],
@@ -1377,7 +1391,6 @@ fn analyze_call_terminator<'tcx>(
     tracked_types: &BTreeSet<String>,
     root_definitions: &BTreeSet<String>,
     propagation_definitions: &BTreeSet<String>,
-    _argument_origins: &HashMap<(LocalDefId, usize), ValueOrigins>,
     return_origins: &HashMap<LocalDefId, ValueOrigins>,
     state: &mut LocalValueOrigins,
     result: &mut MirValueFlowResult,
@@ -1440,7 +1453,6 @@ fn analyze_call_terminator<'tcx>(
         BTreeSet::from([callee_definition])
     };
     state.insert(destination.local, origins);
-    let _ = caller_def_id;
 }
 
 fn provenance_observation(
@@ -1474,10 +1486,12 @@ fn rvalue_origins<'tcx>(
         mir::Rvalue::Use(operand)
         | mir::Rvalue::Cast(_, operand, _)
         | mir::Rvalue::UnaryOp(_, operand)
+        | mir::Rvalue::Repeat(operand, _)
         | mir::Rvalue::WrapUnsafeBinder(operand, _) => operand_origins(operand, state),
-        mir::Rvalue::Ref(_, _, place) | mir::Rvalue::RawPtr(_, place) | mir::Rvalue::CopyForDeref(place) => {
-            place_origins(place, state)
-        }
+        mir::Rvalue::Ref(_, _, place)
+        | mir::Rvalue::RawPtr(_, place)
+        | mir::Rvalue::CopyForDeref(place)
+        | mir::Rvalue::Discriminant(place) => place_origins(place, state),
         mir::Rvalue::Aggregate(kind, operands) => {
             let mut origins: ValueOrigins =
                 operands.iter().flat_map(|operand| operand_origins(operand, state)).collect();
@@ -1489,13 +1503,11 @@ fn rvalue_origins<'tcx>(
             }
             origins
         }
-        mir::Rvalue::Repeat(operand, _) => operand_origins(operand, state),
         mir::Rvalue::BinaryOp(_, operands) => {
             let mut origins = operand_origins(&operands.0, state);
             origins.extend(operand_origins(&operands.1, state));
             origins
         }
-        mir::Rvalue::Discriminant(place) => place_origins(place, state),
         mir::Rvalue::ThreadLocalRef(def_id) => BTreeSet::from([qualified_definition(cx, *def_id)]),
     }
 }
@@ -1872,7 +1884,7 @@ fn is_value_provenance(fact: &CompilerArchitectureFact) -> bool {
 // These compiler passes synthesize code, not macro invocations. Keep their expansion
 // facts and all generated calls/effects, but do not require a nonexistent macro DefId.
 // Every other definition-less expansion stays unknown.
-fn compiler_owned_expansion(kind: ExpnKind) -> bool {
+fn compiler_owned_expansion(kind: &ExpnKind) -> bool {
     matches!(kind, ExpnKind::AstPass(AstPass::StdImports | AstPass::TestHarness | AstPass::ProcMacroHarness))
 }
 
@@ -1931,7 +1943,7 @@ mod tests {
     #[test]
     fn compiler_passes_do_not_require_macro_definitions() {
         for pass in [AstPass::StdImports, AstPass::TestHarness, AstPass::ProcMacroHarness] {
-            assert!(compiler_owned_expansion(ExpnKind::AstPass(pass)));
+            assert!(compiler_owned_expansion(&ExpnKind::AstPass(pass)));
         }
     }
 
@@ -1940,25 +1952,15 @@ mod tests {
         use rustc_span::hygiene::MacroKind;
         use rustc_span::sym;
 
-        assert!(!compiler_owned_expansion(ExpnKind::Root));
-        assert!(!compiler_owned_expansion(ExpnKind::Macro(MacroKind::Bang, sym::test)));
-        assert!(!compiler_owned_expansion(ExpnKind::Macro(MacroKind::Attr, sym::test)));
-        assert!(!compiler_owned_expansion(ExpnKind::Macro(MacroKind::Derive, sym::test)));
+        assert!(!compiler_owned_expansion(&ExpnKind::Root));
+        assert!(!compiler_owned_expansion(&ExpnKind::Macro(MacroKind::Bang, sym::test)));
+        assert!(!compiler_owned_expansion(&ExpnKind::Macro(MacroKind::Attr, sym::test)));
+        assert!(!compiler_owned_expansion(&ExpnKind::Macro(MacroKind::Derive, sym::test)));
     }
 
     #[test]
     fn absent_context_does_not_activate_collection() {
-        let original = std::env::var_os(octet_architecture_ir::COMPILER_ARCHITECTURE_COLLECTOR_CONTEXT_ENV);
-        unsafe {
-            std::env::remove_var(octet_architecture_ir::COMPILER_ARCHITECTURE_COLLECTOR_CONTEXT_ENV);
-        }
-        let result = load_collector_context();
-        if let Some(value) = original {
-            unsafe {
-                std::env::set_var(octet_architecture_ir::COMPILER_ARCHITECTURE_COLLECTOR_CONTEXT_ENV, value);
-            }
-        }
-        assert!(result.expect("absent collector context").is_none());
+        assert!(load_collector_context_at(None).expect("absent collector context").is_none());
     }
 
     // r[verify octet.compiler_architecture_ir.randomness_effects]
