@@ -790,8 +790,9 @@ fn compiler_architecture_ir_fixtures() {
     assert!(
         authorized.facts.iter().any(|fact| matches!(
             fact,
-            CompilerArchitectureFact::TypeShape { definition_path, .. }
+            CompilerArchitectureFact::TypeShape { definition_path, field_visibilities, .. }
                 if definition_path == "authorized_effect_provenance::PublicationAuthority"
+                    && field_visibilities == &["restricted:authorized_effect_provenance"]
         )),
         "authorized compiler facts: {:#?}",
         authorized.facts

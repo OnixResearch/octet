@@ -399,11 +399,7 @@ impl ArchitectureCollector {
         } else {
             cx.tcx.parent_module_from_def_id(def_id).to_local_def_id()
         };
-        let module_path = if module_def_id == rustc_hir::def_id::CRATE_DEF_ID {
-            cx.tcx.crate_name(rustc_hir::def_id::LOCAL_CRATE).to_string()
-        } else {
-            qualified_definition(cx, module_def_id.to_def_id())
-        };
+        let module_path = qualified_definition(cx, module_def_id.to_def_id());
         let module_path = module_path.as_str();
         if self.module_paths.contains(module_path) {
             return;
@@ -1259,11 +1255,14 @@ impl<'tcx> LateLintPass<'tcx> for ArchitectureCollector {
     }
 }
 
+// rustc prints the local crate root as an empty path; name it by its crate.
 fn qualified_definition(cx: &LateContext<'_>, def_id: DefId) -> String {
     let path = cx.tcx.def_path_str(def_id);
     if def_id.is_local() {
         let crate_name = cx.tcx.crate_name(def_id.krate).to_string();
-        if path == crate_name || path.starts_with(&format!("{crate_name}::")) {
+        if path.is_empty() {
+            crate_name
+        } else if path == crate_name || path.starts_with(&format!("{crate_name}::")) {
             path
         } else {
             format!("{crate_name}::{path}")
