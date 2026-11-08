@@ -81,14 +81,54 @@ fn variant_def_id_from_qpath(
     }
 }
 
+/// Conservatively reports whether `pat` matches every value of its type.
+/// Unknown or literal-bearing patterns count as refutable.
+fn pat_is_irrefutable(cx: &LateContext<'_>, pat: &hir::Pat<'_>) -> bool {
+    let qpath_is_struct = |qpath: &hir::QPath<'_>| {
+        matches!(
+            cx.qpath_res(qpath, pat.hir_id),
+            Res::Def(DefKind::Struct | DefKind::Ctor(CtorOf::Struct, _), _)
+                | Res::SelfCtor(_)
+                | Res::SelfTyAlias { .. }
+        )
+    };
+
+    match pat.kind {
+        hir::PatKind::Wild => true,
+        hir::PatKind::Binding(.., subpat) => subpat.is_none_or(|subpat| pat_is_irrefutable(cx, subpat)),
+        hir::PatKind::Tuple(pats, _) => pats.iter().all(|pat| pat_is_irrefutable(cx, pat)),
+        hir::PatKind::Struct(qpath, fields, _) => {
+            qpath_is_struct(&qpath) && fields.iter().all(|field| pat_is_irrefutable(cx, field.pat))
+        }
+        hir::PatKind::TupleStruct(qpath, pats, _) => {
+            qpath_is_struct(&qpath) && pats.iter().all(|pat| pat_is_irrefutable(cx, pat))
+        }
+        hir::PatKind::Ref(pat, ..) | hir::PatKind::Box(pat) | hir::PatKind::Deref(pat) => pat_is_irrefutable(cx, pat),
+        _ => false,
+    }
+}
+
+/// Records the enum variants that `pat` fully covers. Returns `false` when the
+/// pattern is not a recognizable variant pattern (or re-covers a variant), which
+/// disables the exhaustive-match exemption.
 fn collect_variant_ids_from_pat(
     cx: &LateContext<'_>,
     pat: &hir::Pat<'_>,
     covered: &mut HashSet<rustc_hir::def_id::DefId>,
 ) -> bool {
+    let subpats_irrefutable = match pat.kind {
+        hir::PatKind::Struct(_, fields, _) => fields.iter().all(|field| pat_is_irrefutable(cx, field.pat)),
+        hir::PatKind::TupleStruct(_, pats, _) => pats.iter().all(|pat| pat_is_irrefutable(cx, pat)),
+        _ => true,
+    };
+
     match pat.kind {
         hir::PatKind::Struct(qpath, ..) | hir::PatKind::TupleStruct(qpath, ..) => {
-            variant_def_id_from_qpath(cx, &qpath, pat.hir_id).is_some_and(|did| covered.insert(did))
+            variant_def_id_from_qpath(cx, &qpath, pat.hir_id).is_some_and(|did| {
+                // A variant pattern with refutable fields (for example `Mode::A(0)`)
+                // leaves the rest of that variant to later arms, so it covers nothing.
+                !subpats_irrefutable || covered.insert(did)
+            })
         }
         hir::PatKind::Expr(pat_expr) => match pat_expr.kind {
             hir::PatExprKind::Path(qpath) => {
