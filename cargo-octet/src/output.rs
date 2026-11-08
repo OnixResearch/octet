@@ -467,7 +467,7 @@ pub fn render_integrated_sarif(
         .as_array_mut()
         .ok_or_else(|| "rendered SARIF rules are not an array".to_owned())?;
     let mut architecture_codes = receipt.findings.iter().map(|finding| finding.code.as_str()).collect::<Vec<_>>();
-    architecture_codes.sort();
+    architecture_codes.sort_unstable();
     architecture_codes.dedup();
     rules.extend(architecture_codes.into_iter().map(|code| {
         serde_json::json!({

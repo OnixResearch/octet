@@ -453,8 +453,7 @@ fn valence_receipt_envelope(
     let matching_evidence_rail_receipt =
         evidence_rail_receipt.filter(|_| record.artifact_locator == crate::evidence_rails::RECEIPT_ARTIFACT_NAME);
     let status = matching_evidence_rail_receipt
-        .map(|receipt| receipt.status.clone())
-        .unwrap_or_else(|| status_for_provenance_record(record));
+        .map_or_else(|| status_for_provenance_record(record), |receipt| receipt.status.clone());
     ValenceReceiptEnvelope {
         schema_version: VALENCE_EXPORT_RECEIPT_SCHEMA_VERSION.to_owned(),
         producer_id: record.source_id.clone(),

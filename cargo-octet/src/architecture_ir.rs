@@ -934,8 +934,7 @@ fn validate_cargo_selection(
     // All-feature equality is established by complete Cargo plans before collector context publication.
     if !all_features && requested_features != expected_features {
         return Err(format!(
-            "Cargo invocation features {:?} do not match architecture policy features {:?}",
-            requested_features, expected_features
+            "Cargo invocation features {requested_features:?} do not match architecture policy features {expected_features:?}"
         ));
     }
     let no_default_features = cargo_check_args.iter().any(|argument| argument == "--no-default-features");

@@ -578,7 +578,7 @@ pub fn validate_catalog(catalog: &EffectCatalog) -> Vec<String> {
             if profile.allowed_effects == [Effect::Alloc]
                 && profile.denied_effects == EFFECT_ORDER[DETERMINISTIC_ALLOWED_EFFECT_COUNT..] => {}
         Some(_) => {
-            diagnostics.push(format!("{DIAGNOSTIC_CATALOG}: `{DETERMINISTIC_CORE_PROFILE}` must allow only `alloc`"))
+            diagnostics.push(format!("{DIAGNOSTIC_CATALOG}: `{DETERMINISTIC_CORE_PROFILE}` must allow only `alloc`"));
         }
         None => diagnostics.push(format!("{DIAGNOSTIC_CATALOG}: missing `{DETERMINISTIC_CORE_PROFILE}` profile")),
     }

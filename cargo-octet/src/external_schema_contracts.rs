@@ -138,7 +138,7 @@ fn render_metadata(rendered: &mut String, schemas: &[ExternalSchemaSource]) {
         writeln!(rendered, "      schema_version = {:?},", schema.schema_version).expect("render schema version");
         writeln!(rendered, "      schema_dialect = {:?},", schema.dialect).expect("render schema dialect");
         writeln!(rendered, "      source_schema = {:?},", schema.source_path).expect("render source schema");
-        writeln!(rendered, "      generator = {:?},", GENERATOR_ID).expect("render generator");
+        writeln!(rendered, "      generator = {GENERATOR_ID:?},").expect("render generator");
         writeln!(rendered, "      generator_mode = {:?},", schema.generator_mode).expect("render generator mode");
         rendered.push_str("      unsupported_keywords = [");
         for (index, keyword) in schema.unsupported_keywords.iter().enumerate() {

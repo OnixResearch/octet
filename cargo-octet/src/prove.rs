@@ -552,7 +552,7 @@ fn execute_proof(
         match serde_json::from_str::<FormalProofEnvelope>(&receipt_text) {
             Ok(envelope) => diagnostics.extend(validate_formal_proof_envelope(&envelope)),
             Err(_) if diagnostics.is_empty() => {
-                diagnostics.push("Aeneas receipt did not contain a formal-proof envelope".to_owned())
+                diagnostics.push("Aeneas receipt did not contain a formal-proof envelope".to_owned());
             }
             Err(_) => {}
         }

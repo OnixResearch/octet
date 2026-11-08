@@ -102,7 +102,7 @@ fn classify_expected(
         ("finding", Some(_)) => {
             increment(&mut summary.unexpected_suppression, "unexpected suppression", diagnostics);
         }
-        ("finding", None) | ("suppressed", None) => {
+        ("finding" | "suppressed", None) => {
             increment(&mut summary.false_negative, "false negative", diagnostics);
         }
         ("suppressed", Some(finding)) if finding.suppressed => {

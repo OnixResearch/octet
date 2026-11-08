@@ -728,9 +728,10 @@ fn package_source(package: &CargoPackage, workspace_package: bool) -> String {
         return PROVIDER_SOURCE_WORKSPACE.to_owned();
     }
     package.source.clone().unwrap_or_else(|| {
-        let manifest_hash = fs::read(&package.manifest_path)
-            .map(|bytes| crate::evidence::artifact_blake3_hex(&bytes))
-            .unwrap_or_else(|_| crate::determinism::full_hash(&package.manifest_path));
+        let manifest_hash = fs::read(&package.manifest_path).map_or_else(
+            |_| crate::determinism::full_hash(&package.manifest_path),
+            |bytes| crate::evidence::artifact_blake3_hex(&bytes),
+        );
         format!("{PROVIDER_SOURCE_PATH_PREFIX}{manifest_hash}")
     })
 }
@@ -1070,7 +1071,7 @@ fn verify_bundle_inner(
             Ok(expected) => match files.get(PROVENANCE_FILE) {
                 Some(actual) if actual.as_slice() == expected.as_bytes() => {}
                 Some(_) => {
-                    diagnostics.push("provenance.jsonl is stale or contains an artifact hash mismatch".to_owned())
+                    diagnostics.push("provenance.jsonl is stale or contains an artifact hash mismatch".to_owned());
                 }
                 None => diagnostics.push(format!("missing admission artifact `{PROVENANCE_FILE}`")),
             },

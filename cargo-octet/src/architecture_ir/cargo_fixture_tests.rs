@@ -415,7 +415,22 @@ fn run_body_fixture(all_features: bool, import_test_source: TestImport, no_std: 
         assert_eq!(missing, !satisfied, "{no_std:?}: {:?}", architecture.findings);
         eprintln!("no-std obligation: mode={no_std:?} satisfied={satisfied}");
     }
-    if import_test_source != TestImport::None {
+    if import_test_source == TestImport::None {
+        let disposition = architecture.test_only.as_ref().expect("valid compiler-owned production partition");
+        assert!(!disposition.unit_ids.is_empty());
+        let library_test = ir.units.iter().find(|unit| unit.target_kind == "lib+test").expect("library-test unit");
+        assert!(
+            architecture.findings.iter().any(|finding| finding.code == "domain-core-effect"
+                && finding.unit_id.as_ref() == Some(&library_test.unit_id)),
+            "library-test effects remain production findings: {:?}",
+            architecture.findings
+        );
+        assert!(!architecture.findings.iter().any(|finding| finding.code == "source-role-unit-mismatch"));
+        eprintln!(
+            "production view retains library-test effects; independent test units={}",
+            disposition.unit_ids.len()
+        );
+    } else {
         assert_eq!(
             architecture.status,
             octet_standards::project_architecture_gate::ArchitecturePhaseStatus::IntegrationFailure
@@ -431,21 +446,6 @@ fn run_body_fixture(all_features: bool, import_test_source: TestImport, no_std: 
             );
         }
         eprintln!("production imports rejected in lib, lib+test, bin, and bin+test");
-    } else {
-        let disposition = architecture.test_only.as_ref().expect("valid compiler-owned production partition");
-        assert!(!disposition.unit_ids.is_empty());
-        let library_test = ir.units.iter().find(|unit| unit.target_kind == "lib+test").expect("library-test unit");
-        assert!(
-            architecture.findings.iter().any(|finding| finding.code == "domain-core-effect"
-                && finding.unit_id.as_ref() == Some(&library_test.unit_id)),
-            "library-test effects remain production findings: {:?}",
-            architecture.findings
-        );
-        assert!(!architecture.findings.iter().any(|finding| finding.code == "source-role-unit-mismatch"));
-        eprintln!(
-            "production view retains library-test effects; independent test units={}",
-            disposition.unit_ids.len()
-        );
     }
     assert!(octet_standards::project_architecture_gate::verify_project_architecture_receipt(&architecture).is_empty());
     assert!(

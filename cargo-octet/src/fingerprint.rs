@@ -1794,7 +1794,7 @@ pub fn sum() -> u8 { control() + foo() + bar() + baz() + r#type() + 漢字() }
 
     #[test]
     fn documentation_examples_are_not_functions() {
-        let source = r#"//! fn inner_doc() {}
+        let source = r"//! fn inner_doc() {}
 /// ```compile_fail
 /// fn forge(claim: Claim) -> Witness { Witness { claim } }
 /// ```
@@ -1809,7 +1809,7 @@ pub fn sum() -> u8 { control() + foo() + bar() + baz() + r#type() + 漢字() }
 pub fn real(value: u32) -> u32 {
     value
 }
-"#;
+";
         let functions = find_functions(source);
         let names = functions.iter().map(|span| span.name.as_str()).collect::<Vec<_>>();
         assert_eq!(names, ["real"]);
@@ -1843,21 +1843,21 @@ fn after<'a>(value: &'a str) -> &'a str {
 
     #[test]
     fn comments_inside_or_naming_macro_definitions_do_not_change_functions() {
-        let definition = r#"macro_rules! define {
+        let definition = r"macro_rules! define {
     // fn not_real() {
     ($name:ident) => { pub fn $name() -> u32 { 1 } };
 }
 pub fn explicit() -> u32 { 2 }
-"#;
+";
         let names = find_functions(definition).into_iter().map(|span| span.name).collect::<Vec<_>>();
         assert_eq!(names, ["explicit"]);
 
-        let mention = r#"impl Widget {
+        let mention = r"impl Widget {
     // a macro_rules! sketch {
     fn method(&self) -> u32 { 3 }
 }
 pub fn explicit() -> u32 { 4 }
-"#;
+";
         let names = find_functions(mention).into_iter().map(|span| span.name).collect::<Vec<_>>();
         assert_eq!(names, ["method", "explicit"]);
     }
