@@ -1066,6 +1066,10 @@ struct AllocExprFinder<'a, 'tcx> {
 impl<'tcx> rustc_hir::intravisit::Visitor<'tcx> for AllocExprFinder<'_, 'tcx> {
     type NestedFilter = All;
 
+    fn maybe_tcx(&mut self) -> rustc_middle::ty::TyCtxt<'tcx> {
+        self.cx.tcx
+    }
+
     fn visit_expr(&mut self, expr: &'tcx hir::Expr<'tcx>) {
         if let hir::ExprKind::Closure(_) = expr.kind {
             // Skip closures - they're separate functions

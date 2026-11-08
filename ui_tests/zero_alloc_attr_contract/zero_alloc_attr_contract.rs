@@ -35,4 +35,13 @@ fn makes_format() {
     let _s = format!("value: {}", 42);
 }
 
+// Array lengths, repeat counts, and statement-level items are nested bodies;
+// walking them must not ICE, and later allocations are still reported.
+#[tigerstyle::zero_alloc]
+fn makes_vec_after_nested_bodies() {
+    const K: u8 = 1;
+    let _buf: [u8; 4] = [K; 4];
+    let _v: Vec<u8> = Vec::new();
+}
+
 fn main() {}
