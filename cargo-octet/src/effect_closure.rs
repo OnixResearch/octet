@@ -491,6 +491,13 @@ impl<'ast> Visit<'ast> for BodyScanner<'_> {
                 | syn::BinOp::Rem(_)
                 | syn::BinOp::Shl(_)
                 | syn::BinOp::Shr(_)
+                | syn::BinOp::AddAssign(_)
+                | syn::BinOp::SubAssign(_)
+                | syn::BinOp::MulAssign(_)
+                | syn::BinOp::DivAssign(_)
+                | syn::BinOp::RemAssign(_)
+                | syn::BinOp::ShlAssign(_)
+                | syn::BinOp::ShrAssign(_)
         ) {
             self.direct_effects.insert(Effect::Panic);
         }
@@ -1982,6 +1989,27 @@ unsafe fn risky(values: &[u8]) -> u8 {
         assert!(effects.contains(&Effect::Unsafe));
         assert!(effects.contains(&Effect::Ffi));
         assert!(effects.contains(&Effect::Unknown));
+    }
+
+    // r[verify octet.effect_closure.inference.direct]
+    // r[verify octet.effect_closure.verification.adversarial]
+    #[test]
+    fn compound_assignment_arithmetic_is_panic_capable() {
+        for op in ["+=", "-=", "*=", "/=", "%=", "<<=", ">>="] {
+            let source = format!("fn root(mut value: u32, divisor: u32) -> u32 {{ value {op} divisor; value }}\n");
+            let receipt = compute_closure(input(&source, vec![address("root", 'c')], policy(Vec::new())));
+
+            assert_eq!(receipt.status, AdmissionStatus::Denied, "`{op}` must be denied");
+            assert!(receipt.nodes[0].direct_effects.contains(&Effect::Panic), "`{op}` must be panic-capable");
+        }
+
+        for op in ["=", "&=", "|=", "^="] {
+            let source = format!("fn root(mut value: u32, divisor: u32) -> u32 {{ value {op} divisor; value }}\n");
+            let receipt = compute_closure(input(&source, vec![address("root", 'c')], policy(Vec::new())));
+
+            assert_eq!(receipt.status, AdmissionStatus::Admitted, "`{op}` cannot panic");
+            assert!(receipt.nodes[0].direct_effects.is_empty(), "`{op}` has no direct effect");
+        }
     }
 
     // r[verify octet.effect_closure.evidence.tamper]
