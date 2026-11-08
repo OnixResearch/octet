@@ -307,7 +307,12 @@ fn run_check_command(args: CheckArgs) -> Result<bool, CliError> {
         if let Some(proof_artifact_dir) = &args.proof_artifact_dir {
             persist_proof_receipts(proof_artifact_dir, &executed.receipts)?;
         }
-        sources.retain(|source| !executed.proof_path_patterns.iter().any(|pattern| source.path.contains(pattern)));
+        sources.retain(|source| {
+            !executed
+                .receipt_path_patterns
+                .iter()
+                .any(|pattern| octet_standards::proof_artifact::path_matches_pattern(pattern, &source.path))
+        });
         sources.extend(executed.receipts);
     }
     let report = run_checks(&CheckInput {
@@ -898,7 +903,7 @@ fn sanitized_receipt_file_name(path: &str) -> String {
 
 struct ExecutedProofRails {
     receipts: Vec<SourceFile>,
-    proof_path_patterns: Vec<String>,
+    receipt_path_patterns: Vec<String>,
 }
 
 fn execute_relevant_proof_rails(
@@ -907,22 +912,24 @@ fn execute_relevant_proof_rails(
     selection: &FamilySelection,
     source_paths: &[PathBuf],
 ) -> ExecutedProofRails {
-    let mut proof_path_patterns = Vec::new();
+    let mut receipt_path_patterns = Vec::new();
     let receipts = registry
         .policies
         .iter()
         .filter(|policy| selection.includes(&policy.pillar))
         .filter(|policy| policy_is_verified(policy))
         .flat_map(|policy| policy.proof_rails.iter())
-        .filter(|rail| proof_rail_is_relevant(rail, sources))
+        .filter(|rail| octet_standards::proof_artifact::proof_rail_is_relevant(rail, sources))
         .map(|rail| {
-            proof_path_patterns.extend(rail.proof_paths.iter().cloned());
-            execute_proof_rail(rail, sources, source_paths)
+            let rail_receipt_paths = octet_standards::proof_artifact::receipt_paths(rail);
+            let receipt = execute_proof_rail(rail, &rail_receipt_paths, sources, source_paths);
+            receipt_path_patterns.extend(rail_receipt_paths);
+            receipt
         })
         .collect();
     ExecutedProofRails {
         receipts,
-        proof_path_patterns,
+        receipt_path_patterns,
     }
 }
 
@@ -931,21 +938,16 @@ fn policy_is_verified(policy: &octet_standards::model::PolicyEntry) -> bool {
         || policy.target_enforcement_mode == octet_standards::model::EnforcementMode::Verified
 }
 
-fn proof_rail_is_relevant(rail: &octet_standards::model::ProofRail, sources: &[SourceFile]) -> bool {
-    !matching_sources(&rail.source_paths, sources).is_empty()
-        || !matching_sources(&rail.proof_paths, sources).is_empty()
-}
-
 fn execute_proof_rail(
     rail: &octet_standards::model::ProofRail,
+    receipt_path_patterns: &[String],
     sources: &[SourceFile],
     source_paths: &[PathBuf],
 ) -> SourceFile {
     let working_dir = proof_command_working_dir(source_paths);
     let output = execute_proof_command_argv(rail, &working_dir);
     let receipt = proof_command_receipt(rail, sources, &working_dir, output);
-    let receipt_path = working_dir.join(first_proof_path(rail));
-    SourceFile::new(receipt_path.display().to_string(), receipt)
+    SourceFile::new(executed_receipt_path(receipt_path_patterns, sources, &working_dir), receipt)
 }
 
 fn proof_command_working_dir(source_paths: &[PathBuf]) -> PathBuf {
@@ -961,8 +963,14 @@ fn proof_command_working_dir(source_paths: &[PathBuf]) -> PathBuf {
     )
 }
 
-fn first_proof_path(rail: &octet_standards::model::ProofRail) -> &str {
-    rail.proof_paths.first().map_or("proof-receipt.txt", String::as_str)
+/// Resolve where the freshly executed receipt replaces the checked receipt: the first checked
+/// source matching the rail receipt patterns, else the first receipt pattern under `working_dir`.
+fn executed_receipt_path(receipt_path_patterns: &[String], sources: &[SourceFile], working_dir: &Path) -> String {
+    if let Some(source) = matching_sources(receipt_path_patterns, sources).first() {
+        return source.path.clone();
+    }
+    let first_pattern = receipt_path_patterns.first().map_or("proof-receipt.txt", String::as_str);
+    working_dir.join(first_pattern).display().to_string()
 }
 
 fn execute_proof_command_argv(

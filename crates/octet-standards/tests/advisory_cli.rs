@@ -906,6 +906,41 @@ fn execute_proof_rails_replaces_stale_committed_receipt() {
     }));
 }
 
+#[test]
+fn execute_proof_rails_rejects_failing_execution_despite_valid_committed_receipt() {
+    let temp = TempDir::new().expect("temp dir should be created");
+    let registry = write_registry_value(&temp, &relocated_receipt_proof_registry());
+    let fixture = write_relocated_receipt_fixture(&temp, "failing-relocated-proof-fixture", "fail");
+    std::fs::write(fixture.join("receipts/proof-receipt.txt"), "proof-result: pass deterministic-effect-handlers\n")
+        .expect("valid committed proof receipt should be written");
+
+    let output = run_executed_proof_check(&registry, &fixture);
+
+    assert_failure(&output);
+    let report = parse_report(&output);
+    assert!(report.diagnostics.iter().any(|diagnostic| {
+        diagnostic.policy_id == PROOF_POLICY_ID
+            && diagnostic.path.ends_with("receipts/proof-receipt.txt")
+            && diagnostic.message.contains("missing pass signal")
+    }));
+}
+
+#[test]
+fn execute_proof_rails_replaces_committed_receipt_at_receipt_path() {
+    let temp = TempDir::new().expect("temp dir should be created");
+    let registry = write_registry_value(&temp, &relocated_receipt_proof_registry());
+    let fixture = write_relocated_receipt_fixture(&temp, "passing-relocated-proof-fixture", "pass");
+    std::fs::write(fixture.join("receipts/proof-receipt.txt"), "proof-result: fail deterministic-effect-handlers\n")
+        .expect("stale committed proof receipt should be written");
+
+    let output = run_executed_proof_check(&registry, &fixture);
+
+    assert_success(&output);
+    let report = parse_report(&output);
+    assert_eq!(report.diagnostics.len(), 0);
+    assert!(report.evaluated_policy_ids.iter().any(|policy_id| policy_id == PROOF_POLICY_ID));
+}
+
 fn export_artifacts(registry: &Path, artifact_dir: &Path) {
     let output = Command::new(binary_path())
         .arg("export-artifacts")
@@ -966,6 +1001,40 @@ fn write_executable_proof_fixture(temp: &TempDir, name: &str) -> PathBuf {
     )
     .expect("proof command should be written");
     fixture
+}
+
+fn write_relocated_receipt_fixture(temp: &TempDir, name: &str, proof_result: &str) -> PathBuf {
+    let fixture = temp.path().join(name);
+    std::fs::create_dir_all(fixture.join("src")).expect("proof fixture source dir should be created");
+    std::fs::create_dir_all(fixture.join("proofs")).expect("proof fixture proof dir should be created");
+    std::fs::create_dir_all(fixture.join("receipts")).expect("proof fixture receipt dir should be created");
+    std::fs::write(fixture.join("src/lib.rs"), "pub fn proof_witness() {}\n").expect("proof source should be written");
+    std::fs::write(fixture.join("proofs/witness.rs"), "proof fn witness() {}\n")
+        .expect("proof input should be written");
+    std::fs::write(
+        fixture.join("proof-command.sh"),
+        format!(
+            "#!/usr/bin/env bash\nset -euo pipefail\nprintf '%s\\n' 'proof-result: {proof_result} deterministic-effect-handlers'\n"
+        ),
+    )
+    .expect("proof command should be written");
+    fixture
+}
+
+fn run_executed_proof_check(registry: &Path, fixture: &Path) -> Output {
+    Command::new(binary_path())
+        .arg("check")
+        .arg("--registry")
+        .arg(registry)
+        .arg("--source")
+        .arg(fixture)
+        .arg("--family")
+        .arg(VERIFICATION_FAMILY)
+        .arg("--execute-proof-rails")
+        .arg("--output")
+        .arg("json")
+        .output()
+        .expect("standards checker should run")
 }
 
 fn refresh_manifest_entry(artifact_dir: &Path, artifact_name: &str) {
@@ -1123,6 +1192,17 @@ fn proof_registry_with_modes(current: EnforcementMode, target: EnforcementMode) 
         seed_manifests: Vec::new(),
         config_receipt_families: Vec::new(),
     }
+}
+
+fn relocated_receipt_proof_registry() -> PolicyRegistry {
+    let mut registry = proof_registry();
+    let rail = &mut registry.policies[0].proof_rails[0];
+    rail.proof_paths = vec!["*/proofs/witness.rs".to_owned()];
+    rail.receipt_paths = vec!["*/receipts/proof-receipt.txt".to_owned()];
+    rail.receipt_binding = String::new();
+    rail.receipt_provenance = ReceiptProvenance::default();
+    rail.receipt_verifier = ReceiptVerifier::default();
+    registry
 }
 
 fn verified_policy(current: EnforcementMode, target: EnforcementMode) -> PolicyEntry {
