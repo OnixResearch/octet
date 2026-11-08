@@ -2030,14 +2030,15 @@ fn render_sarif(findings: &[WasmArtifactFinding]) -> Value {
     let results = findings
         .iter()
         .map(|finding| {
+            let mut physical_location = serde_json::json!({"artifactLocation": {"uri": INPUT_ARTIFACT_NAME}});
+            if let Some(offset) = finding.byte_offset {
+                physical_location["region"] = serde_json::json!({"byteOffset": offset});
+            }
             serde_json::json!({
                 "ruleId": finding.issue_code,
-                "level": finding.severity,
+                "level": sarif_level(&finding.severity),
                 "message": {"text": finding.message},
-                "locations": [{"physicalLocation": {
-                    "artifactLocation": {"uri": INPUT_ARTIFACT_NAME},
-                    "region": finding.byte_offset.map_or_else(|| serde_json::json!({}), |offset| serde_json::json!({"byteOffset": offset}))
-                }}]
+                "locations": [{"physicalLocation": physical_location}]
             })
         })
         .collect::<Vec<_>>();
@@ -2048,6 +2049,12 @@ fn render_sarif(findings: &[WasmArtifactFinding]) -> Value {
             "results": results
         }]
     })
+}
+
+// SARIF 2.1.0 levels are `none`, `note`, `warning`, and `error`; the profile's
+// `advisory` severity is informational.
+fn sarif_level(severity: &str) -> &str {
+    if severity == "advisory" { "note" } else { severity }
 }
 
 fn is_blake3_identity(value: &str) -> bool {
@@ -3180,6 +3187,25 @@ mod tests {
         let report = analyze_profile(&missing_export, &registry, SPACEWASM_PROFILE_ID, &[]);
         assert_eq!(severity_of(&report, ABI_MISMATCH_ISSUE).as_deref(), Some("warning"), "{report:?}");
         assert_eq!(severity_of(&report, MALFORMED_ISSUE).as_deref(), Some("advisory"), "{report:?}");
+    }
+
+    #[test]
+    fn sarif_projection_uses_sarif_levels_and_omits_unknown_regions() {
+        let mut located = finding(MALFORMED_ISSUE, ERROR_SEVERITY, "located".to_owned());
+        located.byte_offset = Some(8);
+        let findings = [
+            finding(MEMORY_GROWTH_ISSUE, "advisory", "advisory".to_owned()),
+            finding(START_FUNCTION_ISSUE, "warning", "warning".to_owned()),
+            located,
+        ];
+        let sarif = render_sarif(&findings);
+        let results = sarif["runs"][0]["results"].as_array().expect("SARIF results");
+        let levels = results.iter().map(|result| result["level"].as_str()).collect::<Vec<_>>();
+        assert_eq!(levels, [Some("note"), Some("warning"), Some("error")]);
+        let location = |index: usize| &results[index]["locations"][0]["physicalLocation"];
+        assert!(location(0).get("region").is_none(), "{sarif}");
+        assert_eq!(location(0)["artifactLocation"]["uri"], INPUT_ARTIFACT_NAME);
+        assert_eq!(location(2)["region"]["byteOffset"], 8);
     }
 
     fn analyze(bytes: &[u8], registry: &WasmProfileRegistry, parents: &[String]) -> WasmArtifactEnvelope {
