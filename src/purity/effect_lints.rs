@@ -643,6 +643,26 @@ fn expr_is_direct_call(expr: &hir::Expr<'_>) -> bool {
     matches!(expr.kind, hir::ExprKind::Call(..))
 }
 
+/// Returns the source text of a direct call's callee path followed by `(`, so
+/// call patterns such as `std::env::var(` match.
+///
+/// Only the callee is inspected: arguments are separate expressions that report
+/// on their own, so wrappers like `Some(std::env::var("X"))` or
+/// `parse(std::env::var("X").ok())` must not match again. Callees produced by
+/// macro expansion or desugaring (for example `format!` internals or the
+/// `Try::branch` call behind `?`) have no user-written callee text and are
+/// skipped.
+fn direct_call_callee_snippet(cx: &LateContext<'_>, expr: &hir::Expr<'_>) -> Option<String> {
+    let hir::ExprKind::Call(callee, _) = expr.kind else {
+        return None;
+    };
+    if !matches!(callee.kind, hir::ExprKind::Path(..)) || callee.span.from_expansion() {
+        return None;
+    }
+    let source = cx.sess().source_map().span_to_snippet(callee.span).ok()?;
+    Some(format!("{source}("))
+}
+
 fn span_snippet(cx: &LateContext<'_>, span: Span) -> Option<String> {
     cx.sess().source_map().span_to_snippet(span.source_callsite()).ok()
 }
@@ -745,10 +765,10 @@ impl<'tcx> LateLintPass<'tcx> for AmbientEnv {
         if !expr_is_direct_call(expr) || late_expr_should_skip(cx, expr) {
             return;
         }
-        let Some(source) = expr_snippet(cx, expr) else {
+        let Some(callee) = direct_call_callee_snippet(cx, expr) else {
             return;
         };
-        let Some(call) = contains_env_call(&source) else {
+        let Some(call) = contains_env_call(&callee) else {
             return;
         };
         emit(
@@ -766,10 +786,10 @@ impl<'tcx> LateLintPass<'tcx> for AmbientRandom {
         if !expr_is_direct_call(expr) || late_expr_should_skip(cx, expr) {
             return;
         }
-        let Some(source) = expr_snippet(cx, expr) else {
+        let Some(callee) = direct_call_callee_snippet(cx, expr) else {
             return;
         };
-        let Some(pattern) = classify_random_call(&source) else {
+        let Some(pattern) = classify_random_call(&callee) else {
             return;
         };
         emit(
@@ -814,10 +834,10 @@ impl<'tcx> LateLintPass<'tcx> for ImpureCallInCore {
         {
             return;
         }
-        let Some(source) = expr_snippet(cx, expr) else {
+        let Some(callee) = direct_call_callee_snippet(cx, expr) else {
             return;
         };
-        let Some(effect) = classify_effect(&source) else {
+        let Some(effect) = classify_effect(&callee) else {
             return;
         };
         emit(
@@ -1126,10 +1146,10 @@ impl<'tcx> LateLintPass<'tcx> for SpawnInCore {
         {
             return;
         }
-        let Some(source) = expr_snippet(cx, expr) else {
+        let Some(callee) = direct_call_callee_snippet(cx, expr) else {
             return;
         };
-        let Some(pattern) = classify_spawn_call(&source) else {
+        let Some(pattern) = classify_spawn_call(&callee) else {
             return;
         };
         emit(

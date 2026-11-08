@@ -37,6 +37,11 @@ fn generate_ambient_values() -> (u64, uuid::Uuid) {
     (rand::random(), uuid::Uuid::new_v4())
 }
 
+fn wrapped_ambient_values() -> (Option<u64>, Result<uuid::Uuid, ()>) {
+    (Some(rand::random()), Ok(uuid::Uuid::new_v4()))
+}
+
 fn main() {
     let _values = generate_ambient_values();
+    let _wrapped = wrapped_ambient_values();
 }
