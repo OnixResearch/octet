@@ -298,6 +298,127 @@ fn replay_capsules_accept_expected_failures() {
     assert_eq!(replay["status"], "expected-failure-replayed");
 }
 
+fn capsule_manifest_input() -> serde_json::Value {
+    serde_json::json!({
+        "command_argv": ["cargo", "octet", "check", "--output-format", "json"],
+        "run_kind": "check",
+        "octet_binary_identity": "b3:bin",
+        "config_hash": "b3:cfg",
+        "input_hashes": ["b3:src"],
+        "output_hashes": ["b3:findings"],
+        "expected_exit_code": 0
+    })
+}
+
+fn capsule_replay(capsule: &Path, observed: &Path, cwd: &Path) -> std::process::Output {
+    run(
+        &[
+            "roadmap",
+            "capsule",
+            "replay",
+            "--capsule",
+            capsule.to_str().unwrap(),
+            "--observed",
+            observed.to_str().unwrap(),
+        ],
+        cwd,
+    )
+}
+
+#[test]
+fn replay_capsules_fail_closed_on_malformed_capsule_manifests() {
+    let temp = tempfile::tempdir().unwrap();
+    let capsule = temp.path().join("capsule.json");
+    let observed = temp.path().join("observed.json");
+
+    write_json(&observed, serde_json::json!({"exit_code": 0}));
+    write_json(&capsule, serde_json::json!({"capsule_hash": "b3:anything", "capsule_kind": "octet-replay-capsule"}));
+    let missing_manifest = capsule_replay(&capsule, &observed, temp.path());
+    assert_eq!(
+        missing_manifest.status.code(),
+        Some(2),
+        "stdout={}",
+        String::from_utf8_lossy(&missing_manifest.stdout)
+    );
+    assert!(stderr_text(&missing_manifest).contains("manifest must be a JSON object"));
+
+    let mut partial_manifest = capsule_manifest_input();
+    let partial_object = partial_manifest.as_object_mut().unwrap();
+    partial_object.remove("octet_binary_identity");
+    partial_object.remove("expected_exit_code");
+    let mut partial_observed = partial_manifest.clone();
+    partial_observed["exit_code"] = serde_json::json!(0);
+    write_json(&observed, partial_observed);
+    write_json(&capsule, serde_json::json!({"capsule_hash": "b3:anything", "manifest": partial_manifest}));
+    let missing_field = capsule_replay(&capsule, &observed, temp.path());
+    assert_eq!(missing_field.status.code(), Some(2), "stdout={}", String::from_utf8_lossy(&missing_field.stdout));
+    assert!(stderr_text(&missing_field).contains("capsule manifest missing octet_binary_identity"));
+}
+
+#[test]
+fn replay_capsules_capture_requires_integer_expected_exit_code() {
+    let temp = tempfile::tempdir().unwrap();
+    let input = temp.path().join("capsule-input.json");
+    let capsule = temp.path().join("capsule.json");
+    for expected_exit_code in [serde_json::json!("1"), serde_json::json!(1.5), serde_json::Value::Null] {
+        let mut manifest = capsule_manifest_input();
+        manifest["expected_exit_code"] = expected_exit_code.clone();
+        write_json(&input, manifest);
+        let output = run(
+            &[
+                "roadmap",
+                "capsule",
+                "capture",
+                "--input",
+                input.to_str().unwrap(),
+                "--capsule",
+                capsule.to_str().unwrap(),
+            ],
+            temp.path(),
+        );
+        assert_eq!(output.status.code(), Some(2), "expected_exit_code={expected_exit_code}");
+        assert!(
+            stderr_text(&output).contains("expected_exit_code must be an integer"),
+            "expected_exit_code={expected_exit_code} stderr={}",
+            stderr_text(&output)
+        );
+        assert!(!capsule.exists(), "expected_exit_code={expected_exit_code} wrote a capsule");
+    }
+}
+
+#[test]
+fn replay_capsules_detect_manifest_tampering_via_capsule_hash() {
+    let temp = tempfile::tempdir().unwrap();
+    let input = temp.path().join("capsule-input.json");
+    let capsule = temp.path().join("capsule.json");
+    let observed = temp.path().join("observed.json");
+    write_json(&input, capsule_manifest_input());
+    stdout_json(&run(
+        &[
+            "roadmap",
+            "capsule",
+            "capture",
+            "--input",
+            input.to_str().unwrap(),
+            "--capsule",
+            capsule.to_str().unwrap(),
+        ],
+        temp.path(),
+    ));
+
+    let mut tampered: serde_json::Value = serde_json::from_str(&fs::read_to_string(&capsule).unwrap()).unwrap();
+    tampered["manifest"]["output_hashes"] = serde_json::json!(["b3:forged"]);
+    write_json(&capsule, tampered);
+    let mut forged_run = capsule_manifest_input();
+    forged_run["output_hashes"] = serde_json::json!(["b3:forged"]);
+    forged_run["exit_code"] = serde_json::json!(0);
+    write_json(&observed, forged_run);
+
+    let replay = capsule_replay(&capsule, &observed, temp.path());
+    assert_eq!(replay.status.code(), Some(2), "stdout={}", String::from_utf8_lossy(&replay.stdout));
+    assert!(stderr_text(&replay).contains("capsule_hash mismatch"), "stderr={}", stderr_text(&replay));
+}
+
 #[test]
 fn capability_registry_and_summary_report_known_unknown_and_advisory() {
     let temp = tempfile::tempdir().unwrap();

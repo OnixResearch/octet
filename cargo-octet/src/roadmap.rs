@@ -316,6 +316,9 @@ fn capsule_capture(input: &Path, capsule_path: &Path) -> Result<i32, String> {
             return Err(format!("capsule input missing {field}"));
         }
     }
+    if manifest.get("expected_exit_code").and_then(Value::as_i64).is_none() {
+        return Err("capsule input expected_exit_code must be an integer".to_owned());
+    }
     if manifest.get("octet_binary_identity").is_none() {
         let Some(legacy_identity) = manifest.get("slotcar_binary_identity").cloned() else {
             return Err("capsule input missing octet_binary_identity".to_owned());
@@ -372,9 +375,28 @@ fn capsule_replay(capsule_path: &Path, observed_path: &Path) -> Result<i32, Stri
     if let Some(object) = observed.as_object_mut() {
         object.remove("slotcar_binary_identity");
     }
-    let manifest = &capsule["manifest"];
+    let manifest = capsule
+        .get("manifest")
+        .filter(|manifest| manifest.is_object())
+        .ok_or_else(|| format!("capsule {} manifest must be a JSON object", capsule_path.display()))?;
+    if let Some(field) = CAPSULE_COMPARED_FIELDS.iter().find(|field| manifest.get(**field).is_none()) {
+        return Err(format!("capsule manifest missing {field}"));
+    }
+    let expected_exit = manifest
+        .get("expected_exit_code")
+        .and_then(Value::as_i64)
+        .ok_or_else(|| "capsule manifest expected_exit_code must be an integer".to_owned())?;
+    let recorded_hash = capsule
+        .get("capsule_hash")
+        .and_then(Value::as_str)
+        .ok_or_else(|| "capsule missing capsule_hash".to_owned())?;
+    let recomputed_hash = determinism::full_hash(&canonical_json(manifest)?);
+    if recorded_hash != recomputed_hash {
+        return Err(format!(
+            "capsule_hash mismatch: capsule records `{recorded_hash}` but its manifest hashes to `{recomputed_hash}`; the capsule was modified after capture"
+        ));
+    }
     let mismatches = capsule_mismatches(manifest, &observed);
-    let expected_exit = manifest["expected_exit_code"].as_i64().unwrap_or(0);
     let observed_exit = observed["exit_code"].as_i64().unwrap_or(i64::MIN);
     let status = if mismatches.is_empty() && expected_exit == observed_exit {
         if expected_exit == 0 {
@@ -398,18 +420,21 @@ fn capsule_replay(capsule_path: &Path, observed_path: &Path) -> Result<i32, Stri
     Ok(i32::from(status == "drifted"))
 }
 
+const CAPSULE_COMPARED_FIELDS: [&str; 6] = [
+    "command_argv",
+    "run_kind",
+    "octet_binary_identity",
+    "config_hash",
+    "input_hashes",
+    "output_hashes",
+];
+
 fn capsule_mismatches(manifest: &Value, observed: &Value) -> Vec<String> {
     let mut mismatches = Vec::new();
-    for field in [
-        "command_argv",
-        "run_kind",
-        "octet_binary_identity",
-        "config_hash",
-        "input_hashes",
-        "output_hashes",
-    ] {
-        if manifest.get(field) != observed.get(field) {
-            mismatches.push(field.to_owned());
+    for field in CAPSULE_COMPARED_FIELDS {
+        match (manifest.get(field), observed.get(field)) {
+            (Some(expected), Some(actual)) if expected == actual => {}
+            _ => mismatches.push(field.to_owned()),
         }
     }
     mismatches
@@ -758,4 +783,22 @@ fn write_json<T: Serialize + ?Sized>(path: &Path, value: &T) -> Result<(), Strin
 fn print_json<T: Serialize + ?Sized>(value: &T) -> Result<(), String> {
     println!("{}", serde_json::to_string_pretty(value).map_err(|error| format!("serialize output: {error}"))?);
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn capsule_mismatches_treat_absent_fields_as_mismatches() {
+        let manifest = serde_json::json!({"command_argv": ["cargo", "octet"], "run_kind": "check"});
+        let observed = serde_json::json!({"command_argv": ["cargo", "octet"], "run_kind": "check"});
+        assert_eq!(capsule_mismatches(&manifest, &observed), vec![
+            "octet_binary_identity",
+            "config_hash",
+            "input_hashes",
+            "output_hashes",
+        ]);
+        assert_eq!(capsule_mismatches(&Value::Null, &Value::Null).len(), 6);
+    }
 }
