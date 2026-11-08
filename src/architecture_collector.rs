@@ -949,7 +949,13 @@ impl ArchitectureCollector {
         caller_def_id: LocalDefId,
         observation: &ProvenanceObservation,
     ) {
-        let caller_item_id = self.local_item_identity(cx, caller_def_id);
+        // Value-flow bodies are drawn from recorded items. Reuse that identity:
+        // closure items are keyed by source position, which `local_item_identity`
+        // does not reproduce.
+        let Some(caller_item_id) = self.item_ids.get(&caller_def_id).cloned() else {
+            self.incomplete = true;
+            return;
+        };
         let argument_type_id = self.collect_type_from_definition(cx, &observation.key.argument_type);
         let span_id = self.collect_span(cx, observation.span);
         let (origin_definitions, status) = canonical_provenance(&observation.origins);

@@ -932,6 +932,61 @@ fn compiler_architecture_struct_literal_construction() {
 }
 
 #[test]
+#[ignore = "run via cargo test --test ui compiler_architecture -- --ignored --nocapture"]
+fn compiler_architecture_closure_value_provenance() {
+    let toolchain = rustup_toolchain();
+    let library = build_library(&toolchain);
+    let host = host_triple();
+    let driver = build_driver(&toolchain);
+    let selection = CompilerValueFlowSelection {
+        tracked_callee_definitions: vec!["closure_effect_provenance::publish".to_owned()],
+        tracked_type_definitions: vec![
+            "closure_effect_provenance::ActorAuthority".to_owned(),
+            "closure_effect_provenance::PublicationAuthority".to_owned(),
+        ],
+        root_origin_definitions: vec!["closure_effect_provenance::authorize_publication".to_owned()],
+        propagation_definitions: Vec::new(),
+    };
+    let shard = run_compiler_architecture_fixture_with_selection(
+        &driver,
+        &library,
+        &host,
+        "positive/closure_effect_provenance.rs",
+        None,
+        vec![selection],
+    );
+    assert_valid_compiler_shard(&shard);
+    let closure_item_ids = shard
+        .facts
+        .iter()
+        .filter_map(|fact| match fact {
+            CompilerArchitectureFact::Item {
+                item_id,
+                qualified_path,
+                ..
+            } if qualified_path.contains("::closure@") => Some(item_id.as_str()),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        shard.facts.iter().any(|fact| matches!(
+            fact,
+            CompilerArchitectureFact::CallArgumentProvenance {
+                caller_item_id,
+                callee_definition,
+                origin_definitions,
+                status: octet_architecture_ir::ValueProvenanceStatus::Exact,
+                ..
+            } if callee_definition == "closure_effect_provenance::publish"
+                && origin_definitions == &["closure_effect_provenance::authorize_publication"]
+                && closure_item_ids.contains(&caller_item_id.as_str())
+        )),
+        "closure provenance facts: {:#?}",
+        shard.facts
+    );
+}
+
+#[test]
 #[ignore = "run via cargo test --test ui compiler_architecture_target_fixtures -- --ignored --nocapture"]
 fn compiler_architecture_target_fixtures() {
     let toolchain = rustup_toolchain();

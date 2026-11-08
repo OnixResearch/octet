@@ -90,7 +90,7 @@ Each unit identity binds its package source envelope: the package `Cargo.toml` a
 Calls inside constant and static initializers retain their actual compiler-owned caller items.
 Named, associated, inline, and anonymous constants use the existing constant item kind.
 Only function item owners request function signatures. Expression owners have private visibility, without a named-item visibility query.
-Closures keep their separate identities. Production memberships and effect checks still apply to nested and expanded bodies.
+Closures keep their separate identities, and selected value-provenance facts observed inside a closure name that closure item as their caller. Production memberships and effect checks still apply to nested and expanded bodies.
 This repair does not change targets, roles, exemptions, or schemas.
 
 The collector classifies the root `getrandom` functions `fill`, `fill_uninit`, `u32`, and `u64` as randomness effects.
