@@ -218,7 +218,7 @@ cargo install --path /path/to/octet/cargo-octet
 
 Then use [`docs/consumer-guide.md`](docs/consumer-guide.md) for the pinned `OCTET_DYLINT_REV` setup.
 
-Octet reports independent config errors in deterministic order. Invalid entries do not affect dependent evidence, and the command fails closed.
+Octet reports independent policy, manifest, and evidence-input errors in deterministic order. Invalid entries do not affect dependent evidence, and the command fails closed. `dylint.toml` is the exception: unknown keys, unknown lint names, and invalid levels print a warning and are ignored.
 
 Run standards checks with:
 
