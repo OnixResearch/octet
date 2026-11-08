@@ -70,6 +70,8 @@ const PRODUCTION_SCOPE_MARKER: &str = "production";
 const NON_CLAIM_WHOLE_PROGRAM: &str = "not whole-program correctness";
 const NON_CLAIM_CERTIFICATION: &str = "not certification";
 const NON_CLAIM_BUSINESS_DOMAIN: &str = "not business-domain validation";
+const RECEIPT_EXIT_STATUS_PREFIX: &str = "exit-status:";
+const PASSING_EXIT_STATUS: &str = "0";
 
 /// Deterministic lock record for the proof material a Verus rail intends to check.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -750,6 +752,11 @@ fn validate_legacy_proof_receipt(rail: &ProofRail, sources: &[SourceFile], proof
         diagnostics
             .push(format!("proof receipt field `{FIELD_PASS_SIGNAL}` missing pass signal `{}`", rail.pass_signal));
     }
+    if let Some(status) = recorded_exit_status(&proof_source.text).filter(|status| *status != PASSING_EXIT_STATUS) {
+        diagnostics.push(format!(
+            "proof receipt records `{RECEIPT_EXIT_STATUS_PREFIX} {status}`; the proof command did not exit successfully"
+        ));
+    }
     if receipt_binding_enabled(rail) && !receipt_binding_matches(rail, sources, proof_source) {
         diagnostics.push(format!(
             "mismatched receipt binding `{}` in proof receipt field `{FIELD_RECEIPT_BINDING}`",
@@ -774,6 +781,14 @@ fn validate_legacy_proof_receipt(rail: &ProofRail, sources: &[SourceFile], proof
         }
     }
     diagnostics
+}
+
+/// Returns the exit status an executed proof receipt records in its header.
+///
+/// The header precedes the captured command output, so the first `exit-status:` line is the
+/// runner's record even when the command prints a line with the same prefix.
+fn recorded_exit_status(receipt: &str) -> Option<&str> {
+    receipt.lines().find_map(|line| line.strip_prefix(RECEIPT_EXIT_STATUS_PREFIX)).map(str::trim)
 }
 
 fn validate_receipt_package_lock(
@@ -1770,6 +1785,37 @@ mod tests {
         let diagnostics = validate_proof_receipt(&rail, &sources, &receipt);
 
         assert!(diagnostics.is_empty(), "recomputed closure graph digest should validate: {diagnostics:?}");
+    }
+
+    #[test]
+    fn legacy_receipt_rejects_failed_recorded_exit_status() {
+        let rail = ProofRail {
+            pass_signal: PASS_SIGNAL.to_owned(),
+            ..ProofRail::default()
+        };
+        for status in ["1", "signal", "spawn-error"] {
+            let receipt = executed_legacy_receipt(status);
+
+            let diagnostics = validate_proof_receipt(&rail, &source_files(), &receipt);
+
+            assert!(
+                diagnostics.iter().any(|diagnostic| diagnostic.contains(&format!("`exit-status: {status}`"))),
+                "exit status `{status}` must fail even when the pass signal is printed: {diagnostics:?}"
+            );
+        }
+
+        let diagnostics = validate_proof_receipt(&rail, &source_files(), &executed_legacy_receipt("0"));
+
+        assert!(diagnostics.is_empty(), "exit status 0 with the pass signal should validate: {diagnostics:?}");
+    }
+
+    fn executed_legacy_receipt(status: &str) -> SourceFile {
+        SourceFile::new(
+            PROOF_ARTIFACT,
+            format!(
+                "proof-command: bash proof.sh\nproof-cwd: .\nexit-status: {status}\nstdout:\n{PASS_SIGNAL}\nexit-status: 0\nstderr:\n\n"
+            ),
+        )
     }
 
     #[test]

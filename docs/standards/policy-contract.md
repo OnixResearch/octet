@@ -49,7 +49,10 @@ evidence.
   proof artifact pass signals, and receipt paths as hard artifact obligations:
   by default, a selected verified policy fails unless the declared source, proof,
   and receipt files are present in the checked source tree and the proof artifact
-  contains the exact configured pass signal. Rails with
+  contains the exact configured pass signal. A receipt that records an
+  `exit-status:` line, as `octet-standards check --execute-proof-rails` writes,
+  also fails unless the recorded status is `0`; spawn errors and signals fail.
+  Rails with
   `receipt_binding = "blake3-command-and-source"` also require command and source
   BLAKE3 bindings matching the configured argv and checked source contents.
   Rails with `receipt_provenance` configured also require matching

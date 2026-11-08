@@ -965,6 +965,26 @@ fn execute_proof_rails_rejects_failing_execution_despite_valid_committed_receipt
 }
 
 #[test]
+fn execute_proof_rails_rejects_pass_signal_with_failing_exit_status() {
+    let temp = TempDir::new().expect("temp dir should be created");
+    let registry = write_registry_value(&temp, &relocated_receipt_proof_registry());
+    let fixture = write_relocated_receipt_fixture(&temp, "failing-exit-proof-fixture", "pass");
+    std::fs::write(
+        fixture.join("proof-command.sh"),
+        "#!/usr/bin/env bash\nprintf '%s\\n' 'proof-result: pass deterministic-effect-handlers'\nexit 1\n",
+    )
+    .expect("failing proof command should be written");
+
+    let output = run_executed_proof_check(&registry, &fixture);
+
+    assert_failure(&output);
+    let report = parse_report(&output);
+    assert!(report.diagnostics.iter().any(|diagnostic| {
+        diagnostic.policy_id == PROOF_POLICY_ID && diagnostic.message.contains("`exit-status: 1`")
+    }));
+}
+
+#[test]
 fn execute_proof_rails_replaces_committed_receipt_at_receipt_path() {
     let temp = TempDir::new().expect("temp dir should be created");
     let registry = write_registry_value(&temp, &relocated_receipt_proof_registry());
