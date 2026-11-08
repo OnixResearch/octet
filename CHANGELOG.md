@@ -6,6 +6,85 @@ specific commits via `TIGERSTYLE_DYLINT_REV`.
 For the full lint catalog, see `docs/lint-reference.md`.
 For rollout profiles, see `docs/downstream-rollout.md`.
 
+## Unreleased: lint crash, coverage, and autofix fixes
+
+Several fixes report findings that were previously missed, so consumer
+baselines and warning budgets can see new stable IDs; refresh them deliberately.
+
+- Crash: `zero_alloc_attr_contract` no longer panics rustc when a
+  `#[zero_alloc]` function contains an array type such as `[u8; 4]`, a repeat
+  expression, or a statement-level `const`.
+- `no_panic` and `no_todo` identify panic-family macros by definition, so
+  zero-argument `panic!()`, `unreachable!()`, `unimplemented!()`, `todo!()`
+  and path-qualified forms such as `std::panic!("…")` are reported, and
+  justified `#[allow(no_todo)]` over them is no longer called stale. The
+  `_ => unreachable!()` exemption no longer treats `Mode::A(0)` as covering
+  all of `Mode::A`.
+- `no_unwrap` reports `.unwrap()`/`.expect()` on `&Option`/`&Result` receivers.
+- `catch_all_on_enum`, `foreign_enum_catch_all` and
+  `fragile_exhaustive_enum_match` check matches over enum references, such as
+  `match self` in `&self` methods.
+- `no_recursion` catches `Self::f(..)`/`Type::f(..)` self-calls and trait impl
+  methods that call themselves through the trait.
+- `function_length`, `nested_conditionals`, `assertion_density` and
+  `unjustified_allow` check `impl` and `trait` methods, not only free
+  functions. `nested_conditionals` keeps an `else if` chain at one level, and
+  `assertion_density` counts `debug_assert!` once instead of twice.
+- `compound_assertion` ignores `&&`/`||` inside the panic message, and its
+  split fix stays valid in match arms and closures.
+- `acronym_style` no longer flags one-letter words such as `XAxis` and checks
+  every acronym against `acronym_allowlist`. `path_segment_repetition` and
+  `renamed_imports` take their compatibility exemption only from the comment
+  above the item, not from identifiers such as `rapid` in its body.
+- `excessive_file_length` skips files outside the workspace, so `include!`d
+  build-script output under a custom `CARGO_TARGET_DIR` no longer makes the
+  runner exit 2 with "absolute path is outside the workspace root".
+- Autofix: `bool_naming`/`negated_predicate` renames cover uses in closures,
+  async blocks and struct field shorthand; `ignored_result` keeps the `;` in
+  `expr?;`; `unbounded_channel` keeps turbofish arguments like `::<()>`; and
+  `unbounded_collection_growth` no longer suggests `BTreeMap::with_capacity`.
+
+## Unreleased: runner artifact-dir and compile-failure fixes
+
+`cargo octet check --artifact-dir` no longer deletes the contents of a
+directory it did not write: the directory must be new, empty, or an existing
+Octet bundle (both `status.json` and `provenance.jsonl` present). Any other
+non-empty directory, such as `target/` or the workspace root, is left untouched
+and the run fails as an integration failure (exit 2). rustc's informational
+top-level `note`, `help` and `failure-note` diagnostics are no longer findings,
+so a compile error or ICE under `--output-format json|sarif` produces a
+structured integration-failure report instead of aborting with `invalid
+finding domain values`.
+
+## Unreleased: fail-closed effect-closure, proof, evidence, and Wasm checks
+
+- Effect-closure admission treats compound assignment (`+=`, `-=`, `*=`, `/=`,
+  `%=`, `<<=`, `>>=`) as panic-capable, so `deterministic-core` no longer
+  admits functions that only use those forms.
+- `cargo octet prove` drains verifier output while the verifier runs, within
+  the rail's log limits, and kills the verifier's process group. Verbose
+  verifiers no longer report false timeouts, and leftover background processes
+  cannot hang teardown.
+- `cargo octet evidence collect` fails JSON rails on empty input, and in
+  `--run` mode fails any rail whose tool exits nonzero without reporting a
+  failing or review-required finding (previously only Clippy did).
+- Wasm artifact receipts derive the handoff role only from `mantle:`,
+  `chaoscontrol:` or `molten:` parent identities. Verification rejects
+  role/identity mismatches and recomputes the interface identity from the
+  recorded facts. Profile registries with unknown `severity.*` or
+  `duplicate_custom_sections` values are rejected.
+
+## Unreleased: octet-standards family selection and manifest parsing
+
+`octet-standards check` rejects a `--family` that is not a pillar of any
+registry policy, or a selection that evaluates no policies, instead of passing
+silently. The FCIS crate-boundary checks parse Cargo dependency tables:
+`name.workspace = true`, `[dependencies.name]` and target tables count, while
+`[features]`, `[build-dependencies]` and `[dev-dependencies]` entries do not.
+Declared crate paths match on whole path components, so `core/Cargo.toml` no
+longer matches `crates/hardcore/Cargo.toml`, and capability handler coverage
+markers must appear as whole words, so `token` no longer counts as `ok`.
+
 ## Unreleased: Cargo plans with build-script dependency copies
 
 `cargo octet check` with an active architecture policy no longer exits 2 with
