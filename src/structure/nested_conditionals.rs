@@ -14,7 +14,8 @@ use crate::diagnostics::emit_tiger_style_lint;
 declare_tool_lint! {
     /// Detects `if`/`match` nesting deeper than a configurable limit
     /// (default: 3) inside a function body. Deep nesting buries the
-    /// important logic and makes control flow hard to follow.
+    /// important logic and makes control flow hard to follow. An
+    /// `else if` continues its chain at the same depth.
     ///
     /// Configure in `dylint.toml`:
     /// ```toml
@@ -45,36 +46,65 @@ struct NestingVisitor<'a, 'b> {
     reported: bool,
 }
 
+impl NestingVisitor<'_, '_> {
+    /// Enters one branching level; returns `false` (after reporting) when the
+    /// new depth exceeds the limit.
+    fn enter_branch(&mut self, expr: &Expr) -> bool {
+        self.depth += 1;
+        if self.depth <= self.max_depth {
+            return true;
+        }
+
+        let depth = self.depth;
+        let max = self.max_depth;
+        emit_tiger_style_lint(
+            self.cx,
+            NESTED_CONDITIONALS,
+            expr.span,
+            format!("conditional nesting is {depth} levels deep (limit: {max})"),
+            "nested_conditionals",
+        );
+        self.reported = true;
+        self.depth -= 1;
+        false
+    }
+}
+
 impl<'ast> Visitor<'ast> for NestingVisitor<'_, '_> {
     fn visit_expr(&mut self, expr: &'ast Expr) {
         if self.reported {
             return;
         }
 
-        let is_branching = matches!(expr.kind, ExprKind::If(..) | ExprKind::Match(..));
-
-        if is_branching {
-            self.depth += 1;
-
-            if self.depth > self.max_depth {
-                let depth = self.depth;
-                let max = self.max_depth;
-                emit_tiger_style_lint(
-                    self.cx,
-                    NESTED_CONDITIONALS,
-                    expr.span,
-                    format!("conditional nesting is {depth} levels deep (limit: {max})"),
-                    "nested_conditionals",
-                );
-                self.reported = true;
+        match &expr.kind {
+            ExprKind::If(cond, then_block, else_expr) => {
+                if !self.enter_branch(expr) {
+                    return;
+                }
+                self.visit_expr(cond);
+                self.visit_block(then_block);
                 self.depth -= 1;
-                return;
-            }
 
-            visit::walk_expr(self, expr);
-            self.depth -= 1;
-        } else {
-            visit::walk_expr(self, expr);
+                let Some(else_expr) = else_expr else {
+                    return;
+                };
+                if matches!(else_expr.kind, ExprKind::If(..)) {
+                    // `else if` continues the same chain at the current depth.
+                    self.visit_expr(else_expr);
+                } else {
+                    self.depth += 1;
+                    self.visit_expr(else_expr);
+                    self.depth -= 1;
+                }
+            }
+            ExprKind::Match(..) => {
+                if !self.enter_branch(expr) {
+                    return;
+                }
+                visit::walk_expr(self, expr);
+                self.depth -= 1;
+            }
+            _ => visit::walk_expr(self, expr),
         }
     }
 }
