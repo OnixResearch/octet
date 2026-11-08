@@ -31,7 +31,11 @@ Octet derives these companion paths from the pointer:
 - policy contract: `octet-architecture.contracts.ncl`
 - freshness manifest: `octet-architecture.manifest.json`
 
-Generate the runtime export and BLAKE3 freshness manifest:
+Generate the runtime export and BLAKE3 freshness manifest with the reviewed
+Nickel evaluator. `nickel --version` must print exactly
+`nickel-lang-cli nickel 1.17.0 (rev 1320a98)`; the manifest generator rejects
+any other evaluator identity, including the `nickel:unspecified` default used
+when `--nickel-identity` is omitted.
 
 ```bash
 nickel export --format json octet-architecture.ncl > octet-architecture.json
@@ -39,6 +43,7 @@ nickel export --format json octet-architecture-export-spec.ncl > /tmp/octet-arch
 octet-standards nickel-export-manifest \
   --spec /tmp/octet-architecture-export-spec.json \
   --output octet-architecture.json \
+  --nickel-identity "$(nickel --version)" \
   --manifest-out octet-architecture.manifest.json
 ```
 
