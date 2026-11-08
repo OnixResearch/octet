@@ -26,6 +26,14 @@
 # assertion_density_min_lines = 30
 # assertion_density_min_assertions = 2
 
+# Raise file-size and module-size limits only while oversized files or crowded
+# module directories are being split. Values shown are the defaults.
+# excessive_file_length_max = 300
+# module_file_count_max = 7
+
+# Parameter budget for `too_many_parameters`. Value shown is the default.
+# max_parameters = 5
+
 # Tune SOLID structure signals only with a cleanup plan.
 # trait_method_max = 7
 # impl_blocks_max = 4
