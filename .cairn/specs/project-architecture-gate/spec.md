@@ -143,6 +143,7 @@ r[octet.project_architecture_gate.admission]
 r[octet.project_architecture_gate.waivers]
 
 The gate MUST apply only exact current architecture waivers after stable finding IDs are computed.
+Finding IDs, compiler unit identities, and the waiver policy identity MUST NOT depend on the policy's waiver list, so adding a waiver cannot make itself stale.
 
 #### Scenario: Exact waiver marks one finding
 

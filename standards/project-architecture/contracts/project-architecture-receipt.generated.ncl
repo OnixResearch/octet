@@ -35,7 +35,7 @@ let EffectClosureParent = {
 } in
 {
   ProjectArchitectureReceipt = {
-    schema_version | OneOf ["octet-project-architecture-receipt/v2"],
+    schema_version | OneOf ["octet-project-architecture-receipt/v3"],
     receipt_id | Blake3,
     project_id | NonEmptyString,
     mode | Mode,
@@ -44,6 +44,7 @@ let EffectClosureParent = {
     checker_id | NonEmptyString,
     policy_source_blake3 | Blake3,
     policy_blake3 | Blake3,
+    waiver_policy_blake3 | Blake3,
     lint_phase_status | OneOf ["clean", "warning-only", "lint-failure", "integration-failure"],
     command_blake3 | Blake3,
     cargo_graph_id | Blake3,

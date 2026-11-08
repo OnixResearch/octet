@@ -98,7 +98,8 @@ impl ProductionView {
 /// No original IR, receipt, or coverage is available to the production evaluators.
 pub(super) struct ProductionGateInput<'a> {
     pub policy: &'a ProjectArchitecturePolicy,
-    pub policy_blake3: &'a str,
+    /// Waiver-free policy identity; policy-sourced findings bind to it so waivers can name them.
+    pub waiver_policy_blake3: &'a str,
     pub cargo_graph: &'a ArchitectureCargoGraph,
     /// A distinct type: this field has no normalized IR identity or schema.
     pub architecture_ir: &'a ProductionView,

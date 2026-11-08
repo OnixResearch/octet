@@ -35,7 +35,7 @@ use crate::project_architecture_policy::ProjectArchitecturePolicy;
 use crate::project_architecture_policy::validate_architecture_waiver_binding;
 
 /// Project architecture receipt schema emitted by this Octet release.
-pub const PROJECT_ARCHITECTURE_RECEIPT_SCHEMA_VERSION: &str = "octet-project-architecture-receipt/v2";
+pub const PROJECT_ARCHITECTURE_RECEIPT_SCHEMA_VERSION: &str = "octet-project-architecture-receipt/v3";
 /// Repository path for the generated project architecture receipt contract.
 pub const PROJECT_ARCHITECTURE_RECEIPT_CONTRACT_PATH: &str =
     "standards/project-architecture/contracts/project-architecture-receipt.generated.ncl";
@@ -228,6 +228,11 @@ pub struct ProjectArchitectureGateInput<'a> {
     pub policy_source_blake3: &'a str,
     /// BLAKE3 identity of the exported policy bytes.
     pub policy_blake3: &'a str,
+    /// Waiver binding identity of the policy, from
+    /// [`crate::project_architecture_policy::architecture_waiver_policy_blake3`]. Compiler
+    /// evidence, policy-sourced findings, and waivers bind to it because it does not change
+    /// when only waivers change.
+    pub waiver_policy_blake3: &'a str,
     /// Separate lint phase status supplied by the runner.
     pub lint_phase_status: &'a str,
     /// BLAKE3 identity of the normalized command.
@@ -279,6 +284,9 @@ pub struct ProjectArchitectureReceipt {
     pub policy_source_blake3: String,
     /// Exported policy identity.
     pub policy_blake3: String,
+    /// Waiver binding identity: the policy identity with `waivers` removed.
+    /// Waivers copy it into `policy_blake3`; policy-sourced findings use it as `source_blake3`.
+    pub waiver_policy_blake3: String,
     /// Separate lint phase status.
     pub lint_phase_status: String,
     /// Normalized command identity.
@@ -384,6 +392,7 @@ let EffectClosureParent = {{
     checker_id | NonEmptyString,
     policy_source_blake3 | Blake3,
     policy_blake3 | Blake3,
+    waiver_policy_blake3 | Blake3,
     lint_phase_status | OneOf ["clean", "warning-only", "lint-failure", "integration-failure"],
     command_blake3 | Blake3,
     cargo_graph_id | Blake3,
@@ -544,6 +553,7 @@ pub fn evaluate_project_architecture(input: &ProjectArchitectureGateInput<'_>) -
         checker_id: "octet-standards.project-architecture-gate".to_owned(),
         policy_source_blake3: input.policy_source_blake3.to_owned(),
         policy_blake3: input.policy_blake3.to_owned(),
+        waiver_policy_blake3: input.waiver_policy_blake3.to_owned(),
         lint_phase_status: input.lint_phase_status.to_owned(),
         command_blake3: input.command_blake3.to_owned(),
         cargo_graph_id: input.cargo_graph.cargo_graph_id.clone(),
@@ -686,7 +696,7 @@ fn evaluate_findings(
     };
     let production = ProductionGateInput {
         policy: input.policy,
-        policy_blake3: input.policy_blake3,
+        waiver_policy_blake3: input.waiver_policy_blake3,
         cargo_graph: input.cargo_graph,
         architecture_ir: &view,
     };
@@ -830,7 +840,7 @@ fn validate_compiler_inputs(
             "separate lint phase status is empty",
         ),
         (
-            input.architecture_ir.policy_blake3 == input.policy_blake3,
+            input.architecture_ir.policy_blake3 == input.waiver_policy_blake3,
             "policy-ir-mismatch",
             "Architecture IR policy identity does not match the activated policy",
         ),
@@ -845,7 +855,7 @@ fn validate_compiler_inputs(
             "compiler Architecture IR receipt is incomplete",
         ),
         (
-            input.compiler_receipt.policy_blake3 == input.policy_blake3,
+            input.compiler_receipt.policy_blake3 == input.waiver_policy_blake3,
             "compiler-policy-mismatch",
             "compiler receipt policy identity does not match the activated policy",
         ),
@@ -1015,7 +1025,7 @@ fn evaluate_role_graph(
             None,
             None,
             None,
-            input.policy_blake3,
+            input.waiver_policy_blake3,
             "production architecture has no explicit composition-root package",
         ));
     }
@@ -1029,7 +1039,7 @@ fn evaluate_role_graph(
                 None,
                 None,
                 None,
-                input.policy_blake3,
+                input.waiver_policy_blake3,
                 &format!("Cargo graph caller `{}` has no production role", edge.caller_package),
             ));
             continue;
@@ -1210,7 +1220,7 @@ fn evaluate_authorized_effects(
                 None,
                 None,
                 Some(classification.executor_scope.clone()),
-                input.policy_blake3,
+                input.waiver_policy_blake3,
                 &format!("protected effect capability `{:?}` has no protocol", classification.family),
             ));
             continue;
@@ -1327,7 +1337,7 @@ fn evaluate_protected_witness(
             None,
             None,
             Some(protocol.witness_owner_scope.clone()),
-            input.policy_blake3,
+            input.waiver_policy_blake3,
             &format!("witness type `{}` must resolve to exactly one compiler type-shape fact", protocol.witness_type),
         ));
     }
@@ -1478,7 +1488,7 @@ fn evaluate_protected_calls(
                 None,
                 None,
                 Some(protocol.decision_scope.clone()),
-                input.policy_blake3,
+                input.waiver_policy_blake3,
                 &format!("authority decision `{decision}` must resolve to exactly one compiler item"),
             ));
             continue;
@@ -1557,7 +1567,7 @@ fn evaluate_protected_calls(
                 None,
                 None,
                 Some(protocol.witness_owner_scope.clone()),
-                input.policy_blake3,
+                input.waiver_policy_blake3,
                 &format!("witness constructor `{constructor}` must resolve to exactly one compiler item"),
             ));
             continue;
@@ -1636,7 +1646,7 @@ fn evaluate_protected_calls(
                 None,
                 None,
                 Some(classification.executor_scope.clone()),
-                input.policy_blake3,
+                input.waiver_policy_blake3,
                 &format!("protected executor `{executor}` must resolve to exactly one compiler item"),
             ));
         }
@@ -1692,7 +1702,7 @@ fn evaluate_protected_calls(
                 None,
                 None,
                 Some(classification.executor_scope.clone()),
-                input.policy_blake3,
+                input.waiver_policy_blake3,
                 &format!("protected executor `{executor}` has no selected witness provenance fact"),
             ));
         }
@@ -1818,7 +1828,7 @@ fn evaluate_receipt_constructors(
                 None,
                 None,
                 Some(protocol.receipt_scope.clone()),
-                input.policy_blake3,
+                input.waiver_policy_blake3,
                 &format!("receipt constructor `{receipt_constructor}` has no selected observation provenance fact"),
             ));
         }
@@ -1915,7 +1925,7 @@ fn evaluate_ports(
                 None,
                 None,
                 None,
-                input.policy_blake3,
+                input.waiver_policy_blake3,
                 &format!("port trait `{}` must resolve to exactly one compiler trait fact", port.port_trait),
             ));
             continue;
@@ -1962,7 +1972,7 @@ fn evaluate_ports(
                 None,
                 None,
                 None,
-                input.policy_blake3,
+                input.waiver_policy_blake3,
                 &format!("non-reserved port trait `{}` has no compiler-resolved implementation", port.port_trait),
             ));
         }
@@ -2163,7 +2173,7 @@ fn evaluate_no_std(
                 None,
                 None,
                 Some(obligation.scope.clone()),
-                input.policy_blake3,
+                input.waiver_policy_blake3,
                 &format!("domain-core scope `{}` lacks compiler-confirmed crate:no-std", obligation.scope),
             ));
         }
@@ -2226,7 +2236,7 @@ fn apply_waivers(input: &ProjectArchitectureGateInput<'_>, findings: &mut Vec<Pr
         }
         let identity = ArchitectureFindingIdentity {
             finding_id: &finding.finding_id,
-            policy_blake3: input.policy_blake3,
+            policy_blake3: input.waiver_policy_blake3,
             source_blake3: &finding.source_blake3,
             affected_claim: &finding.affected_claim,
         };
@@ -2468,6 +2478,7 @@ mod tests {
     use crate::project_architecture_policy::ArchitectureWitnessUse;
     use crate::project_architecture_policy::CoreCapabilityHandling;
     use crate::project_architecture_policy::PROJECT_ARCHITECTURE_POLICY_SCHEMA_VERSION;
+    use crate::project_architecture_policy::architecture_waiver_policy_blake3;
 
     const HASH_A: &str = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
     const HASH_B: &str = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
@@ -2689,10 +2700,11 @@ mod tests {
         let mut fixture = Fixture::new(ArchitectureMode::Gate);
         fixture.graph.edges.push(edge("domain", "outbound"));
         fixture.refresh_graph_id();
-        let finding = fixture.evaluate(None).findings.remove(0);
+        let mut open = fixture.evaluate(None);
+        let finding = open.findings.remove(0);
         fixture.policy.waivers.push(ArchitectureWaiver {
             finding_id: finding.finding_id.clone(),
-            policy_blake3: HASH_A.to_owned(),
+            policy_blake3: open.waiver_policy_blake3,
             source_blake3: finding.source_blake3.clone(),
             owner: "architecture-team".to_owned(),
             reason: "bounded migration".to_owned(),
@@ -2707,6 +2719,63 @@ mod tests {
         let stale = fixture.evaluate(None);
         assert_eq!(stale.status, ArchitecturePhaseStatus::IntegrationFailure);
         assert!(stale.findings.iter().any(|current| current.code == "stale-waiver"));
+    }
+
+    // r[verify octet.project_architecture_gate.waivers]
+    // r[verify octet.project_architecture_policy.waivers]
+    #[test]
+    fn waiver_bound_to_waiver_free_policy_identity_applies_until_policy_changes() {
+        let mut fixture = Fixture::new(ArchitectureMode::Gate);
+        fixture.graph.edges.push(edge("domain", "outbound"));
+        fixture.refresh_graph_id();
+        fixture.policy.ports.push(ArchitecturePort {
+            port_trait: "application::MissingPort".to_owned(),
+            application_owner_scope: "crates/application/src".to_owned(),
+            permitted_adapter_scopes: vec!["crates/outbound/src".to_owned()],
+            forbidden_concrete_types: Vec::new(),
+            reserved: true,
+        });
+        let open = fixture.evaluate_exported();
+        assert_eq!(open.status, ArchitecturePhaseStatus::Blocked);
+        let codes = open.findings.iter().map(|finding| finding.code.as_str()).collect::<BTreeSet<_>>();
+        assert_eq!(codes, BTreeSet::from(["forbidden-role-edge", "port-trait-resolution"]));
+        let binding = waiver_free_policy_blake3(&fixture.policy);
+        assert_eq!(open.waiver_policy_blake3, binding);
+        assert_eq!(architecture_waiver_policy_blake3(&fixture.policy), binding);
+        fixture.policy.waivers = open
+            .findings
+            .iter()
+            .map(|finding| ArchitectureWaiver {
+                finding_id: finding.finding_id.clone(),
+                policy_blake3: binding.clone(),
+                source_blake3: finding.source_blake3.clone(),
+                owner: "architecture-team".to_owned(),
+                reason: "bounded migration".to_owned(),
+                review_condition: "remove after provider extraction".to_owned(),
+                affected_claim: finding.affected_claim.clone(),
+            })
+            .collect();
+
+        let waived = fixture.evaluate_exported();
+        assert_ne!(waived.policy_blake3, open.policy_blake3);
+        assert_eq!(waived.waiver_policy_blake3, binding);
+        assert_eq!(waived.status, ArchitecturePhaseStatus::Clean);
+        assert_eq!(waived.findings.len(), 2);
+        assert!(waived.findings.iter().all(|finding| finding.status == ArchitectureFindingStatus::Waived));
+        assert_eq!(waived.applied_waiver_ids.len(), 2);
+
+        fixture.policy.non_claims.push("runtime-determinism".to_owned());
+        let stale = fixture.evaluate_exported();
+        assert_eq!(stale.status, ArchitecturePhaseStatus::IntegrationFailure);
+        assert!(stale.applied_waiver_ids.is_empty());
+        assert!(stale.findings.iter().any(|finding| finding.code == "stale-waiver"));
+        assert_ne!(stale.waiver_policy_blake3, binding);
+    }
+
+    fn waiver_free_policy_blake3(policy: &ProjectArchitecturePolicy) -> String {
+        let mut binding = policy.clone();
+        binding.waivers.clear();
+        blake3::hash(&serde_json::to_vec(&binding).expect("policy serializes")).to_hex().to_string()
     }
 
     #[test]
@@ -3347,11 +3416,42 @@ mod tests {
             self.evaluate_ir(&self.prepared_ir(), effect_closure)
         }
 
+        /// Bind inputs as the runner does: the gate input names the exported policy bytes,
+        /// while compiler evidence binds the waiver-free policy identity.
+        fn evaluate_exported(&mut self) -> ProjectArchitectureReceipt {
+            let export = serde_json::to_vec_pretty(&self.policy).expect("fixture policy exports");
+            let policy_blake3 = blake3::hash(&export).to_hex().to_string();
+            let waiver_policy_blake3 = architecture_waiver_policy_blake3(&self.policy);
+            self.ir.policy_blake3.clone_from(&waiver_policy_blake3);
+            self.compiler_receipt.policy_blake3.clone_from(&waiver_policy_blake3);
+            for unit in &mut self.ir.units {
+                let previous_unit_id = std::mem::take(&mut unit.unit_id);
+                unit.policy_blake3.clone_from(&waiver_policy_blake3);
+                unit.unit_id = octet_architecture_ir::compilation_unit_identity(unit);
+                for membership in &mut self.ir.unit_memberships {
+                    if membership.unit_id == previous_unit_id {
+                        membership.unit_id.clone_from(&unit.unit_id);
+                    }
+                }
+            }
+            self.evaluate_bound(&self.prepared_ir(), None, &policy_blake3, &waiver_policy_blake3)
+        }
+
         // Malformed-input tests use this entry directly: it does not repair the supplied IR.
         fn evaluate_ir(
             &self,
             ir: &CompilerArchitectureIr,
             effect_closure: Option<&EffectClosureParent>,
+        ) -> ProjectArchitectureReceipt {
+            self.evaluate_bound(ir, effect_closure, HASH_A, HASH_A)
+        }
+
+        fn evaluate_bound(
+            &self,
+            ir: &CompilerArchitectureIr,
+            effect_closure: Option<&EffectClosureParent>,
+            policy_blake3: &str,
+            waiver_policy_blake3: &str,
         ) -> ProjectArchitectureReceipt {
             let mut coverage = self.coverage.clone();
             coverage.expected_unit_ids = sorted_dedup(ir.units.iter().map(|unit| unit.unit_id.clone()).collect());
@@ -3364,7 +3464,8 @@ mod tests {
             evaluate_project_architecture(&ProjectArchitectureGateInput {
                 policy: &self.policy,
                 policy_source_blake3: HASH_C,
-                policy_blake3: HASH_A,
+                policy_blake3,
+                waiver_policy_blake3,
                 lint_phase_status: "clean",
                 command_blake3: HASH_B,
                 cargo_graph: &self.graph,

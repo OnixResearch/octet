@@ -231,6 +231,7 @@ fn real_cargo_forged_question_retains_unknown_call_effect_and_blocks_gate() {
         policy: &policy.policy,
         policy_source_blake3: &policy.source_blake3,
         policy_blake3: &policy.policy_blake3,
+        waiver_policy_blake3: &policy.waiver_policy_blake3,
         lint_phase_status: "warning-only",
         command_blake3: &command_id,
         cargo_graph: &prepared.cargo_graph,

@@ -246,7 +246,7 @@ pub(crate) fn prepare_collector(
                 role: unit_role,
                 toolchain_blake3: toolchain_blake3.clone(),
                 collector_blake3: collector_blake3.clone(),
-                policy_blake3: policy.policy_blake3.clone(),
+                policy_blake3: policy.waiver_policy_blake3.clone(),
                 source_blake3: source_blake3.clone(),
                 invocation_blake3: unit_invocation,
             };
@@ -311,7 +311,7 @@ pub(crate) fn prepare_collector(
     Ok(PreparedCollector {
         context_path,
         shard_directory,
-        policy_blake3: policy.policy_blake3.clone(),
+        policy_blake3: policy.waiver_policy_blake3.clone(),
         limits: policy.policy.collection_limits.clone(),
         expected_units,
         cargo_graph,

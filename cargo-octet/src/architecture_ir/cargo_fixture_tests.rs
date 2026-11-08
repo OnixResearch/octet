@@ -108,6 +108,7 @@ fn policy_with_mode(
         manifest_path: root.join("fixture-policy.manifest.json"),
         source_blake3: identity.clone(),
         policy_blake3: identity,
+        waiver_policy_blake3: octet_standards::project_architecture_policy::architecture_waiver_policy_blake3(&policy),
         policy,
     }
 }
@@ -391,6 +392,7 @@ fn run_body_fixture(all_features: bool, import_test_source: TestImport, no_std: 
             policy: &policy.policy,
             policy_source_blake3: &policy.source_blake3,
             policy_blake3: &policy.policy_blake3,
+            waiver_policy_blake3: &policy.waiver_policy_blake3,
             // This compiler fixture does not run the consumer deny-all hook.
             lint_phase_status: "warning-only",
             command_blake3: &command_id,

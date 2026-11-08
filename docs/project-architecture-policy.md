@@ -111,6 +111,7 @@ When `--artifact-dir` is set, a complete run adds these files:
 Missing, duplicate, stale, malformed, mismatched, or over-limit shards make collection incomplete. Octet saves the incomplete coverage and receipt before it returns an error.
 
 Architecture IR records bounded compiler observations for the selected policy, Cargo graph, invocation, target, features, toolchain, collector, and sources.
+Its policy identity is the waiver binding identity described under [Waivers](#waivers), so editing only `waivers` does not change unit or finding identities.
 It does not prove runtime behavior, whole-program correctness, or observation authenticity.
 
 Normalized IR and raw shards use schema v2. Unit identities bind the required `source_path`.
@@ -159,7 +160,7 @@ When `--artifact-dir` is set, an active run also adds:
 
 The receipt binds the Nickel source, exported policy, normalized command, lint status, Cargo graph, compiler IR, coverage, toolchain, roles, ports, capabilities, outbound authority protocols, findings, unknowns, waivers, and phase status.
 
-Project receipt schema v2 requires `test_only`, even when its value is null.
+Project receipt schema v3 requires `test_only`, even when its value is null, and `waiver_policy_blake3`, the waiver binding identity.
 After successful projection, this field lists validated test units and exclusively test-observed fact and unknown IDs.
 Shared production observations remain in production evaluation. Null means integrity errors prevented projection, not that evidence was safely excluded.
 The full input identities and unknown list remain bound. Protocol identity arrays remain input metadata, not production ownership proof.
@@ -290,14 +291,18 @@ An integration-only fact cannot satisfy that obligation. An active `no_std` attr
 An architecture waiver must bind:
 
 - one stable finding ID;
-- the exact policy BLAKE3;
+- the policy waiver binding identity;
 - the exact source BLAKE3;
 - an owner;
 - a reason;
 - a review condition;
 - one affected claim.
 
-A changed policy, source, finding, or claim makes the waiver stale. A waived finding remains visible as `waived`; it is not `clean`.
+Waivers live inside the exported policy, so they cannot bind the BLAKE3 of those export bytes. The waiver binding identity is the BLAKE3 of the canonical compact JSON of the typed policy with `waivers` emptied. Compiler units, policy-sourced findings, and waivers all bind it.
+
+To write a waiver, copy `finding_id`, `source_blake3`, and `affected_claim` from the finding in `project-architecture-receipt.json`, and copy the receipt's `waiver_policy_blake3` into the waiver's `policy_blake3`. Adding or editing waivers leaves that identity unchanged. The receipt's `policy_blake3` still names the exact export bytes.
+
+A change to any non-waiver policy field, the source, the finding, or the claim makes the waiver stale. A waived finding remains visible as `waived`; it is not `clean`.
 
 Waivers apply only to policy findings. Input-integrity findings, such as incomplete compiler coverage, stay open; a waiver that targets one adds an `unwaivable-integration-finding` integration failure.
 

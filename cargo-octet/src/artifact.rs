@@ -1027,11 +1027,14 @@ fn validate_project_architecture_bundle(file_map: &BTreeMap<String, Vec<u8>>, di
         .map(|bytes| crate::evidence::artifact_blake3_hex(bytes))
         .unwrap_or_default();
     let observed_command = crate::evidence::artifact_blake3_hex(command);
+    let observed_waiver_policy =
+        octet_standards::project_architecture_policy::architecture_waiver_policy_blake3(&policy);
     let regenerated = octet_standards::project_architecture_gate::evaluate_project_architecture(
         &octet_standards::project_architecture_gate::ProjectArchitectureGateInput {
             policy: &policy,
             policy_source_blake3: &observed_policy_source,
             policy_blake3: &observed_policy,
+            waiver_policy_blake3: &observed_waiver_policy,
             lint_phase_status: &receipt.lint_phase_status,
             command_blake3: &observed_command,
             cargo_graph: &graph,

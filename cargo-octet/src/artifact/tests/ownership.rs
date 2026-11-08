@@ -102,8 +102,9 @@ fn synthetic_files() -> BTreeMap<String, Vec<u8>> {
         b"# Synthetic replay input, not independently evaluated Nickel evidence.\n{}\n".to_vec(),
     );
     let policy_id = crate::evidence::artifact_blake3_hex(&files[PROJECT_ARCHITECTURE_POLICY_ARTIFACT_NAME]);
-    let production = synthetic_unit(&policy_id, false);
-    let test = synthetic_unit(&policy_id, true);
+    let waiver_policy_id = policy::architecture_waiver_policy_blake3(&policy);
+    let production = synthetic_unit(&waiver_policy_id, false);
+    let test = synthetic_unit(&waiver_policy_id, true);
     let mut configuration = ir::CompilerArchitectureFact::Configuration {
         fact_id: String::new(),
         predicate: "test".to_owned(),
@@ -146,7 +147,7 @@ fn synthetic_files() -> BTreeMap<String, Vec<u8>> {
         })
         .collect::<Vec<_>>();
     let normalized = ir::normalize_architecture_shards(ir::NormalizationInput {
-        policy_blake3: policy_id.clone(),
+        policy_blake3: waiver_policy_id.clone(),
         limits: policy.collection_limits.clone(),
         expected_units: shards
             .iter()
@@ -178,6 +179,7 @@ fn synthetic_files() -> BTreeMap<String, Vec<u8>> {
             &files[PROJECT_ARCHITECTURE_POLICY_SOURCE_ARTIFACT_NAME],
         ),
         policy_blake3: &policy_id,
+        waiver_policy_blake3: &waiver_policy_id,
         lint_phase_status: "clean",
         command_blake3: &crate::evidence::artifact_blake3_hex(&files[COMMAND_ARTIFACT_NAME]),
         cargo_graph: &graph,
