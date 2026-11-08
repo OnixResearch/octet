@@ -271,7 +271,7 @@ fn bounded_shell_uses_fixed_profile_command_and_clear_environment() {
         governor: "performance".to_owned(),
         load_class: "isolated".to_owned(),
     };
-    let observation = shell::run_with(directory.path(), &profile, baseline, tools).expect("bounded benchmark run");
+    let observation = shell::run_with(directory.path(), &profile, baseline, &tools).expect("bounded benchmark run");
     assert_eq!(observation.input.candidate.samples.len(), SAMPLE_COUNT);
     assert!(observation.input.candidate.samples.iter().all(|sample| sample.outcome == "succeeded"));
     assert!(resources::is_b3(&observation.input.bounded_log_identity));

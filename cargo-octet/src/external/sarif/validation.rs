@@ -41,12 +41,9 @@ impl Diagnostics {
 pub fn evaluate(report: &str, profile: &Profile) -> Evaluation {
     let mut diagnostics = Diagnostics::new();
     validate_profile(profile, &mut diagnostics);
-    let report_bytes = match u64::try_from(report.len()) {
-        Ok(value) => value,
-        Err(_) => {
-            diagnostics.push("SARIF report byte count does not fit u64");
-            return failed(diagnostics);
-        }
+    let Ok(report_bytes) = u64::try_from(report.len()) else {
+        diagnostics.push("SARIF report byte count does not fit u64");
+        return failed(diagnostics);
     };
     if report_bytes > profile.max_report_bytes {
         diagnostics.push("SARIF report exceeds profile byte limit");

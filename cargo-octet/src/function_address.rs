@@ -628,13 +628,11 @@ fn normalize_baseline_record_path(
 ) -> Option<String> {
     let raw_path = Path::new(&record.path);
     let normalized = if raw_path.is_absolute() {
-        match raw_path.strip_prefix(workspace_root) {
-            Ok(relative) => determinism::normalize_path(relative),
-            Err(_) => {
-                issues.push(baseline_path_issue(record, "baseline receipt path is outside workspace root"));
-                return None;
-            }
-        }
+        let Ok(relative) = raw_path.strip_prefix(workspace_root) else {
+            issues.push(baseline_path_issue(record, "baseline receipt path is outside workspace root"));
+            return None;
+        };
+        determinism::normalize_path(relative)
     } else {
         determinism::normalize_path_text(&record.path)
     };
@@ -1112,8 +1110,7 @@ fn finding_for_record(
 
 fn severity_for_mode(mode: FunctionAddressMode) -> &'static str {
     match mode {
-        FunctionAddressMode::Off => OBSERVE_SEVERITY,
-        FunctionAddressMode::Observe => OBSERVE_SEVERITY,
+        FunctionAddressMode::Off | FunctionAddressMode::Observe => OBSERVE_SEVERITY,
         FunctionAddressMode::Warn => WARNING_SEVERITY,
         FunctionAddressMode::Deny => ERROR_SEVERITY,
     }
@@ -1157,7 +1154,7 @@ mod tests {
         serde_json::from_str(&run.artifact_json).expect("parse artifact JSON")
     }
 
-    fn valid_baseline_json(records: serde_json::Value) -> String {
+    fn valid_baseline_json(records: &serde_json::Value) -> String {
         serde_json::json!({
             "records": records,
             "non_claims": REQUIRED_NON_CLAIMS,
@@ -2065,7 +2062,7 @@ mod tests {
         let baseline = temp.path().join("function-addresses.json");
         std::fs::write(
             &baseline,
-            valid_baseline_json(serde_json::json!([
+            valid_baseline_json(&serde_json::json!([
                 {"path": "src/lib.rs", "name": "f", "function_address": determinism::full_hash("one")},
                 {"path": "src/lib.rs", "name": "f", "function_address": determinism::full_hash("two")}
             ])),
@@ -2116,7 +2113,7 @@ mod tests {
         let baseline = temp.path().join("function-addresses.json");
         std::fs::write(
             &baseline,
-            valid_baseline_json(serde_json::json!([
+            valid_baseline_json(&serde_json::json!([
                 {"path": "/outside/src/lib.rs", "name": "f", "function_address": determinism::full_hash("one")}
             ])),
         )
@@ -2142,7 +2139,7 @@ mod tests {
         let baseline = temp.path().join("function-addresses.json");
         std::fs::write(
             &baseline,
-            valid_baseline_json(serde_json::json!([
+            valid_baseline_json(&serde_json::json!([
                 {"path": "src/../lib.rs", "name": "f", "function_address": determinism::full_hash("one")}
             ])),
         )
@@ -2169,7 +2166,7 @@ mod tests {
         let baseline = temp.path().join("function-addresses.json");
         std::fs::write(
             &baseline,
-            valid_baseline_json(serde_json::json!([
+            valid_baseline_json(&serde_json::json!([
                 {"path": absolute_path.display().to_string(), "name": "f", "function_address": determinism::full_hash("one")},
                 {"path": "src/lib.rs", "name": "f", "function_address": determinism::full_hash("two")}
             ])),
@@ -2194,7 +2191,7 @@ mod tests {
         let baseline = temp.path().join("function-addresses.json");
         std::fs::write(
             &baseline,
-            valid_baseline_json(serde_json::json!([
+            valid_baseline_json(&serde_json::json!([
                 {"path": "src/lib.rs", "name": "f", "function_address": "not-a-blake3-address"}
             ])),
         )
@@ -2226,7 +2223,7 @@ mod tests {
     fn baseline_receipt_overclaim_reports_overclaim() {
         let temp = TempDir::new().expect("temp dir");
         let baseline = temp.path().join("function-addresses.json");
-        let mut receipt = serde_json::from_str::<serde_json::Value>(&valid_baseline_json(serde_json::json!([])))
+        let mut receipt = serde_json::from_str::<serde_json::Value>(&valid_baseline_json(&serde_json::json!([])))
             .expect("baseline JSON");
         receipt["claims"] = serde_json::json!(["proves release eligibility"]);
         std::fs::write(&baseline, receipt.to_string()).expect("write baseline");
@@ -2246,7 +2243,7 @@ mod tests {
     fn baseline_receipt_dependency_closure_overclaim_reports_overclaim() {
         let temp = TempDir::new().expect("temp dir");
         let baseline = temp.path().join("function-addresses.json");
-        let mut receipt = serde_json::from_str::<serde_json::Value>(&valid_baseline_json(serde_json::json!([])))
+        let mut receipt = serde_json::from_str::<serde_json::Value>(&valid_baseline_json(&serde_json::json!([])))
             .expect("baseline JSON");
         receipt["claims"] = serde_json::json!(["records complete semantic closure"]);
         std::fs::write(&baseline, receipt.to_string()).expect("write baseline");

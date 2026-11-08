@@ -2,6 +2,7 @@
 
 use std::env;
 use std::ffi::OsString;
+use std::fmt::Write as _;
 use std::fs;
 use std::io::Read;
 use std::path::Component;
@@ -819,19 +820,16 @@ fn join_capture(
     stream_name: &str,
     diagnostics: &mut Vec<String>,
 ) -> BoundedCapture {
-    match handle.join() {
-        Ok(mut capture) => {
-            diagnostics.append(&mut capture.diagnostics);
-            capture
-        }
-        Err(_) => {
-            diagnostics.push(format!("Aeneas {stream_name} capture thread panicked"));
-            BoundedCapture {
-                text: String::new(),
-                original_bytes: 0,
-                truncated: false,
-                diagnostics: Vec::new(),
-            }
+    if let Ok(mut capture) = handle.join() {
+        diagnostics.append(&mut capture.diagnostics);
+        capture
+    } else {
+        diagnostics.push(format!("Aeneas {stream_name} capture thread panicked"));
+        BoundedCapture {
+            text: String::new(),
+            original_bytes: 0,
+            truncated: false,
+            diagnostics: Vec::new(),
         }
     }
 }
@@ -936,8 +934,8 @@ pub(crate) fn execute_aeneas_from_environment(rail: &ProofRail, source_root: &Pa
     let mut timed_out = false;
     let mut command_argv = Vec::new();
     for observation in &report.observations {
-        stdout.push_str(&format!("[{}]\n{}", observation.kind.as_str(), observation.stdout));
-        stderr.push_str(&format!("[{}]\n{}", observation.kind.as_str(), observation.stderr));
+        let _ = write!(stdout, "[{}]\n{}", observation.kind.as_str(), observation.stdout);
+        let _ = write!(stderr, "[{}]\n{}", observation.kind.as_str(), observation.stderr);
         stdout_original_bytes += observation.stdout_original_bytes;
         stderr_original_bytes += observation.stderr_original_bytes;
         stdout_truncated |= observation.stdout_truncated;
@@ -948,7 +946,7 @@ pub(crate) fn execute_aeneas_from_environment(rail: &ProofRail, source_root: &Pa
     let mut diagnostics = validate_aeneas_execution_report(&report);
     let mut command_succeeded = diagnostics.is_empty();
     if command_succeeded {
-        stdout.push_str(&format!("{AENEAS_PASS_SIGNAL} {}\n", theorem_path.display()));
+        let _ = writeln!(stdout, "{AENEAS_PASS_SIGNAL} {}", theorem_path.display());
     }
     let artifacts = if command_succeeded {
         match collect_aeneas_artifacts(&plan.work_root) {

@@ -244,14 +244,14 @@ fn snapshot(workspace_root: &std::path::Path, relative: &str) -> Result<Vec<Arti
             .map_err(|error| format!("read cargo-fuzz directory entry: {error}"))?;
         entries.sort_by_key(std::fs::DirEntry::file_name);
         for entry in entries {
-            append_entry(entry, &logical_directory, &mut pending, &mut snapshot)?;
+            append_entry(&entry, &logical_directory, &mut pending, &mut snapshot)?;
         }
     }
     Err("cargo-fuzz snapshot exceeds directory traversal limit".to_owned())
 }
 
 fn append_entry(
-    entry: std::fs::DirEntry,
+    entry: &std::fs::DirEntry,
     logical_directory: &str,
     pending: &mut std::collections::VecDeque<(std::path::PathBuf, String)>,
     snapshot: &mut Snapshot,

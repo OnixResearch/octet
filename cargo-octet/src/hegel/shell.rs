@@ -34,7 +34,7 @@ pub struct RunObservation {
 }
 
 pub fn run(workspace_root: &std::path::Path, profile: &Profile) -> Result<RunObservation, String> {
-    run_with(workspace_root, profile, production_tools()?)
+    run_with(workspace_root, profile, &production_tools()?)
 }
 
 pub fn production_tools() -> Result<RuntimeTools, String> {
@@ -49,7 +49,7 @@ pub fn production_tools() -> Result<RuntimeTools, String> {
 pub fn run_with(
     workspace_root: &std::path::Path,
     profile: &Profile,
-    tools: RuntimeTools,
+    tools: &RuntimeTools,
 ) -> Result<RunObservation, String> {
     reject_profile_drift(profile)?;
     let workspace_root = std::fs::canonicalize(workspace_root)
@@ -75,7 +75,7 @@ pub fn run_with(
             args,
             current_dir: workspace_root.clone(),
             environment_mode: bounded_exec::EnvironmentMode::Clear,
-            environment: explicit_environment(&workspace_root, &tools, &measured, profile),
+            environment: explicit_environment(&workspace_root, tools, &measured, profile),
             input: bounded_exec::Input::Null,
         },
         limits: bounded_exec::ExecutionLimits {

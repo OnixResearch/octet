@@ -127,8 +127,8 @@ pub(crate) fn prepare_collector(
     scope_args: &[String],
     cargo_check_args: &[String],
 ) -> Result<PreparedCollector, String> {
-    let package_roles = package_roles(policy)?;
-    let source_roles = source_roles(policy)?;
+    let package_roles = package_roles(policy);
+    let source_roles = source_roles(policy);
     let selected_packages = selected_packages(scope_args, &policy.policy.production.packages)?;
     let (toolchain_blake3, host_triple) = toolchain_identity(toolchain)?;
     let collector_blake3 = file_blake3(collector_path, "compiler architecture collector")?;
@@ -669,7 +669,7 @@ fn resolved_architecture_cargo_graph(
             continue;
         }
         for dependency in &node.deps {
-            let callee_package = package_names
+            let dependency_package = package_names
                 .get(dependency.pkg.as_str())
                 .ok_or_else(|| format!("Cargo dependency has unknown package ID `{}`", dependency.pkg))?;
             for kind in &dependency.dep_kinds {
@@ -678,7 +678,7 @@ fn resolved_architecture_cargo_graph(
                 }
                 edges.push(ArchitectureCargoEdge {
                     caller_package: (*caller_package).to_owned(),
-                    callee_package: (*callee_package).to_owned(),
+                    callee_package: (*dependency_package).to_owned(),
                     edge_kind: kind.kind.clone().unwrap_or_else(|| "normal".to_owned()),
                     target_predicate: kind.target.clone(),
                 });
@@ -958,7 +958,7 @@ fn option_value<'a>(arguments: &'a [String], option: &str) -> Option<&'a str> {
     })
 }
 
-fn source_roles(selected: &SelectedProjectArchitecturePolicy) -> Result<Vec<SourceRoleScope>, String> {
+fn source_roles(selected: &SelectedProjectArchitecturePolicy) -> Vec<SourceRoleScope> {
     let mut roles = Vec::with_capacity(selected.policy.roles.len());
     for assignment in &selected.policy.roles {
         if assignment.scope_kind != ArchitectureScopeKind::Source {
@@ -966,36 +966,33 @@ fn source_roles(selected: &SelectedProjectArchitecturePolicy) -> Result<Vec<Sour
         }
         roles.push(SourceRoleScope {
             source_scope: assignment.scope.clone(),
-            role: convert_role(assignment.role)?,
+            role: convert_role(assignment.role),
         });
     }
     roles.sort_by(|left, right| left.source_scope.cmp(&right.source_scope));
-    Ok(roles)
+    roles
 }
 
-fn package_roles(
-    selected: &SelectedProjectArchitecturePolicy,
-) -> Result<BTreeMap<&str, CompilerArchitectureRole>, String> {
+fn package_roles(selected: &SelectedProjectArchitecturePolicy) -> BTreeMap<&str, CompilerArchitectureRole> {
     let mut roles = BTreeMap::new();
     for assignment in &selected.policy.roles {
         if assignment.scope_kind != ArchitectureScopeKind::Package || !assignment.role.is_production() {
             continue;
         }
-        let role = convert_role(assignment.role)?;
-        roles.insert(assignment.scope.as_str(), role);
+        roles.insert(assignment.scope.as_str(), convert_role(assignment.role));
     }
-    Ok(roles)
+    roles
 }
 
-fn convert_role(role: ArchitectureRole) -> Result<CompilerArchitectureRole, String> {
+fn convert_role(role: ArchitectureRole) -> CompilerArchitectureRole {
     match role {
-        ArchitectureRole::DomainCore => Ok(CompilerArchitectureRole::DomainCore),
-        ArchitectureRole::ApplicationShell => Ok(CompilerArchitectureRole::ApplicationShell),
-        ArchitectureRole::InboundAdapter => Ok(CompilerArchitectureRole::InboundAdapter),
-        ArchitectureRole::OutboundAdapter => Ok(CompilerArchitectureRole::OutboundAdapter),
-        ArchitectureRole::CompositionRoot => Ok(CompilerArchitectureRole::CompositionRoot),
-        ArchitectureRole::Test => Ok(CompilerArchitectureRole::Test),
-        ArchitectureRole::Generated => Ok(CompilerArchitectureRole::Generated),
+        ArchitectureRole::DomainCore => CompilerArchitectureRole::DomainCore,
+        ArchitectureRole::ApplicationShell => CompilerArchitectureRole::ApplicationShell,
+        ArchitectureRole::InboundAdapter => CompilerArchitectureRole::InboundAdapter,
+        ArchitectureRole::OutboundAdapter => CompilerArchitectureRole::OutboundAdapter,
+        ArchitectureRole::CompositionRoot => CompilerArchitectureRole::CompositionRoot,
+        ArchitectureRole::Test => CompilerArchitectureRole::Test,
+        ArchitectureRole::Generated => CompilerArchitectureRole::Generated,
     }
 }
 

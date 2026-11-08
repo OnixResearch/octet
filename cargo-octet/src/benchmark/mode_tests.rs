@@ -27,7 +27,7 @@ fn cold_warm_no_change_and_incremental_modes_remain_separate_bounded_groups() {
         write_resource_inputs(directory.path(), &profile, &workload.workload_id);
         let baseline = run_set_for_workload(&profile, workload, BASE_DURATION_NS);
         let observation =
-            shell::run_with(directory.path(), &profile, baseline, tools.clone()).expect("bounded benchmark mode run");
+            shell::run_with(directory.path(), &profile, baseline, &tools).expect("bounded benchmark mode run");
         assert_eq!(observation.input.candidate.mode, workload.mode);
         assert_eq!(observation.input.candidate.samples.len(), SAMPLE_COUNT);
         assert!(observation.input.candidate.samples.iter().all(|sample| sample.outcome == "succeeded"));

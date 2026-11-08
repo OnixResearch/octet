@@ -99,23 +99,17 @@ fn classify_expected(
         ("finding", Some(finding)) if !finding.suppressed => {
             increment(&mut summary.true_positive, "true positive", diagnostics);
         }
-        ("finding", Some(_)) => {
+        ("suppressed", Some(finding)) if finding.suppressed => {
+            increment(&mut summary.expected_suppression, "expected suppression", diagnostics);
+        }
+        ("clean", Some(finding)) if !finding.suppressed => {
+            increment(&mut summary.false_positive, "false positive", diagnostics);
+        }
+        ("finding" | "suppressed" | "clean", Some(_)) => {
             increment(&mut summary.unexpected_suppression, "unexpected suppression", diagnostics);
         }
         ("finding" | "suppressed", None) => {
             increment(&mut summary.false_negative, "false negative", diagnostics);
-        }
-        ("suppressed", Some(finding)) if finding.suppressed => {
-            increment(&mut summary.expected_suppression, "expected suppression", diagnostics);
-        }
-        ("suppressed", Some(_)) => {
-            increment(&mut summary.unexpected_suppression, "unexpected suppression", diagnostics);
-        }
-        ("clean", Some(finding)) if finding.suppressed => {
-            increment(&mut summary.unexpected_suppression, "unexpected suppression", diagnostics);
-        }
-        ("clean", Some(_)) => {
-            increment(&mut summary.false_positive, "false positive", diagnostics);
         }
         ("clean", None) => {}
         ("inconclusive", _) => {

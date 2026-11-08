@@ -87,7 +87,7 @@ fn bounded_shell_rejects_mixed_process_output_without_dedicated_summary() {
     let mut tools = shell::production_tools().expect("Nix Hegel tools");
     tools.cargo = find_path_executable("true").expect("true executable");
 
-    let error = shell::run_with(workspace, &profile, tools).expect_err("missing dedicated summary rejected");
+    let error = shell::run_with(workspace, &profile, &tools).expect_err("missing dedicated summary rejected");
     assert!(error.contains("summary.json"));
 }
 

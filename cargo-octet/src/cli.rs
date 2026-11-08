@@ -1022,6 +1022,7 @@ fn parse_valence_evidence_index(mode: EvidenceIndexMode, args: &[String]) -> Res
 }
 
 fn parse_codebase_evidence_index(args: &[String]) -> Result<EvidenceIndexArgs, String> {
+    const FLAG_AND_VALUE_ARGS: usize = 2;
     let mode = match args.first().map(String::as_str) {
         Some("build") => EvidenceIndexMode::CodebaseBuild,
         Some("query") => EvidenceIndexMode::CodebaseQuery,
@@ -1033,8 +1034,6 @@ fn parse_codebase_evidence_index(args: &[String]) -> Result<EvidenceIndexArgs, S
         }
         None => return Err("missing evidence-index codebase action; expected `build`, `query`, or `html`".to_owned()),
     };
-
-    const FLAG_AND_VALUE_ARGS: usize = 2;
     let mut index_path = None;
     let mut identity = None;
     let mut artifacts = Vec::new();

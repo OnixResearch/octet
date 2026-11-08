@@ -19,42 +19,34 @@ pub(super) fn summarize(
     let mut allocation_events = 0_u64;
     let mut allocated_bytes = 0_u64;
     for observation in allocations {
-        allocation_events = match allocation_events.checked_add(observation.allocation_events) {
-            Some(value) => value,
-            None => {
-                diagnostics.push("benchmark allocation event total overflowed".to_owned());
-                allocation_events
-            }
-        };
-        allocated_bytes = match allocated_bytes.checked_add(observation.allocated_bytes) {
-            Some(value) => value,
-            None => {
-                diagnostics.push("benchmark allocated-byte total overflowed".to_owned());
-                allocated_bytes
-            }
-        };
+        if let Some(value) = allocation_events.checked_add(observation.allocation_events) {
+            allocation_events = value;
+        } else {
+            diagnostics.push("benchmark allocation event total overflowed".to_owned());
+        }
+        if let Some(value) = allocated_bytes.checked_add(observation.allocated_bytes) {
+            allocated_bytes = value;
+        } else {
+            diagnostics.push("benchmark allocated-byte total overflowed".to_owned());
+        }
     }
     let mut known_copy_bytes = 0_u64;
     let mut unknown_copy_length_count = 0_usize;
     for observation in copies {
         match observation.constant_length_bytes {
             Some(length) => {
-                known_copy_bytes = match known_copy_bytes.checked_add(length) {
-                    Some(value) => value,
-                    None => {
-                        diagnostics.push("benchmark known copy-byte total overflowed".to_owned());
-                        known_copy_bytes
-                    }
-                };
+                if let Some(value) = known_copy_bytes.checked_add(length) {
+                    known_copy_bytes = value;
+                } else {
+                    diagnostics.push("benchmark known copy-byte total overflowed".to_owned());
+                }
             }
             None => {
-                unknown_copy_length_count = match unknown_copy_length_count.checked_add(1) {
-                    Some(value) => value,
-                    None => {
-                        diagnostics.push("benchmark unknown copy-site count overflowed".to_owned());
-                        unknown_copy_length_count
-                    }
-                };
+                if let Some(value) = unknown_copy_length_count.checked_add(1) {
+                    unknown_copy_length_count = value;
+                } else {
+                    diagnostics.push("benchmark unknown copy-site count overflowed".to_owned());
+                }
             }
         }
     }

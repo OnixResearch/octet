@@ -1754,7 +1754,7 @@ fn proof_card_for_execution(execution: &ExecutedProof) -> ProofCard {
         || initial_proof_card(execution, receipt.as_ref(), execution.formal_provenance.as_ref()),
         |envelope| initial_aeneas_proof_card(execution, envelope, execution.formal_provenance.as_ref()),
     );
-    card.formal_proof_envelope = formal_proof_envelope.clone();
+    card.formal_proof_envelope.clone_from(&formal_proof_envelope);
     if execution.formal_provenance.is_some() && (receipt.is_some() || formal_proof_envelope.is_some()) {
         card.evidence_tier.clear();
         card.evidence_tier.push_str(EvidenceTier::FormalProof.as_str());

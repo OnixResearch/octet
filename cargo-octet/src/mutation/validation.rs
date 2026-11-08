@@ -95,9 +95,8 @@ pub(super) fn evaluate(input: &request::ProfiledInput, profile: &Profile) -> Eva
     }
     let mut mutants = Vec::with_capacity(inventory.len());
     for native in inventory {
-        let outcome = match by_name.get(&native.name) {
-            Some(value) => value,
-            None => return failed(vec![format!("mutation outcome is missing for `{}`", native.name)]),
+        let Some(outcome) = by_name.get(&native.name) else {
+            return failed(vec![format!("mutation outcome is missing for `{}`", native.name)]);
         };
         let source_identity = match source_files.get(&native.file) {
             Some(value) => value.clone(),

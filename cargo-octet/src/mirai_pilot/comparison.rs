@@ -9,6 +9,7 @@ const OUTCOME_CHARON_ONLY: &str = "charon-only";
 const OUTCOME_SOURCE_ONLY: &str = "source-token-only";
 const OUTCOME_UNKNOWN: &str = "unknown";
 
+#[must_use]
 pub fn compare(
     fixture: &CorpusFixture,
     mirai: Option<&AnalyzerFact>,

@@ -14,9 +14,8 @@ const ADJACENT_PATH_COUNT: usize = 2;
 const HEX_CHARACTERS_PER_BYTE: usize = 2;
 
 pub(super) fn normalize(text: &str, profile: &Profile, source_identity: &str) -> Result<NativeReport, Vec<String>> {
-    let report_bytes = match u64::try_from(text.len()) {
-        Ok(value) => value,
-        Err(_) => return Err(vec!["coverage report byte count does not fit u64".to_owned()]),
+    let Ok(report_bytes) = u64::try_from(text.len()) else {
+        return Err(vec!["coverage report byte count does not fit u64".to_owned()]);
     };
     if report_bytes > profile.max_report_bytes {
         return Err(vec!["coverage report exceeds profile byte limit".to_owned()]);
