@@ -3635,8 +3635,7 @@ fn input_text(
     if args.rail == EvidenceRailKind::CoverageBaseline && args.profile.as_deref() == Some(crate::coverage::PROFILE_ID) {
         return analyze_profiled_coverage_input(args);
     }
-    if args.rail == EvidenceRailKind::BenchmarkEvidence && args.profile.as_deref() == Some(crate::benchmark::PROFILE_ID)
-    {
+    if args.rail == EvidenceRailKind::BenchmarkEvidence {
         return analyze_profiled_benchmark_input(args);
     }
     if args.rail == EvidenceRailKind::HegelProperty && args.profile.as_deref() == Some(crate::hegel::PROFILE_ID) {
@@ -5701,6 +5700,42 @@ mod tests {
         assert!(parsed.cargo_fuzz.is_some());
         assert!(artifacts.join(SUMMARY_ARTIFACT_NAME).is_file());
         assert!(artifacts.join(PROVENANCE_ARTIFACT_NAME).is_file());
+    }
+
+    #[test]
+    fn benchmark_import_without_checked_profile_is_refused_before_writing() {
+        let directory = tempfile::tempdir().expect("create benchmark import directory");
+        let input = directory.path().join("benchmark-input.json");
+        fs::write(&input, include_str!("../tests/fixtures/evidence-rails/benchmark-input.json"))
+            .expect("write benchmark import input");
+        for (profile, expected) in [
+            (None, "requires `--profile NAME`"),
+            (Some("legacy-benchmark"), "unknown benchmark profile `legacy-benchmark`"),
+        ] {
+            let artifacts = directory.path().join("artifacts");
+            let args = crate::cli::EvidenceRailArgs {
+                rail: EvidenceRailKind::BenchmarkEvidence,
+                input: Some(input.clone()),
+                artifact_dir: artifacts.clone(),
+                workspace_root: Some(directory.path().to_path_buf()),
+                config: None,
+                baseline: None,
+                profile: profile.map(ToOwned::to_owned),
+                command: None,
+                parent_artifacts: Vec::new(),
+                external_reports: Vec::new(),
+                output_format: OutputFormat::Human,
+                locked: false,
+                update_advisory_database: false,
+                run: false,
+                command_line: "cargo octet evidence collect --rail benchmark-evidence --input benchmark-input.json"
+                    .to_owned(),
+            };
+
+            let error = run(&args).expect_err("benchmark import without the checked profile is refused");
+            assert!(error.contains(expected), "{error}");
+            assert!(!artifacts.join(RECEIPT_ARTIFACT_NAME).exists(), "refused benchmark import wrote a receipt");
+        }
     }
 
     #[test]

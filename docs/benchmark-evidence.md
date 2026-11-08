@@ -24,6 +24,8 @@ The runner maps `cargo-metadata-no-deps` to one fixed argument array. It rejects
 
 Workspace membership, a target name, or an operating-system label grants no extra authority.
 
+Every `benchmark-evidence` import or run must name this checked profile with `--profile octet-metadata-benchmark` and its `--config`. A missing or unknown profile is refused before any artifact is written.
+
 ## Import a complete suite
 
 Use one complete typed input for performance, allocation, copy-site, and signal evidence:
