@@ -13,6 +13,9 @@ use crate::rustc_hir as hir;
 
 use crate::transport::Config as TransportConfig;
 
+// Should warn: the alias spelling alone does not document a downstream contract.
+pub use crate::transport::Config as IncompatibleTransportConfig;
+
 fn connect(config: TransportConfig) {
     let _ = config;
 }

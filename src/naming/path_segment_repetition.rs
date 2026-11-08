@@ -128,13 +128,6 @@ fn item_path_segments(cx: &LateContext<'_>, item: &hir::Item<'_>) -> Vec<String>
 fn has_compatibility_documentation(cx: &LateContext<'_>, item: &hir::Item<'_>) -> bool {
     let source_map = cx.sess().source_map();
 
-    if source_map.span_to_snippet(item.span).is_ok_and(|snippet| {
-        let lower = snippet.to_ascii_lowercase();
-        COMPATIBILITY_WORDS.iter().any(|word| lower.contains(word))
-    }) {
-        return true;
-    }
-
     let Ok(lines) = source_map.span_to_lines(item.span) else {
         return false;
     };

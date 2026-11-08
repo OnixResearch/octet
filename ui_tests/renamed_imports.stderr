@@ -8,5 +8,14 @@ LL | use crate::transport::Config as TransportConfig;
    = note: see Tiger Style guide: Naming
    = note: `#[warn(tigerstyle::renamed_imports)]` on by default
 
-warning: 1 warning emitted
+warning: renamed import `Config as IncompatibleTransportConfig` hides the original searchable name
+  --> $DIR/renamed_imports.rs:17:1
+   |
+LL | pub use crate::transport::Config as IncompatibleTransportConfig;
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Searchable Import Names): avoid `use ... as ...` aliases that hide the original searchable item name Example: use crate::transport::Config;
+   = note: see Tiger Style guide: Naming
+
+warning: 2 warnings emitted
 
