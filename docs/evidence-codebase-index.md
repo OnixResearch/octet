@@ -7,31 +7,39 @@ The pure indexing core is consumed from the exact standalone `valence-core::evid
 ## Build
 
 ```sh
+cargo octet check --output-format json --artifact-dir artifacts/octet
 cargo octet evidence-index codebase build \
-  --artifact-dir artifacts/octet \
-  --output artifacts/octet/evidence-codebase-index.json
+  --artifact artifacts/octet/results.jsonl \
+  --artifact artifacts/octet/provenance.jsonl \
+  --output target/octet-evidence-index/evidence-codebase-index.json
 ```
 
 Use repeated `--artifact PATH` for explicit files and repeated `--artifact-dir DIR` for directories. Directory scans include supported `.json`, `.jsonl`, and `.md` evidence files and skip `.git`, `.jj`, and `target` directories.
 
+Write the index and the HTML page outside every directory passed to `--artifact-dir` and outside Octet artifact bundles such as `artifacts/octet`: `cargo octet artifact verify --artifact-dir artifacts/octet` reports any file it did not write as an unexpected artifact. `target/` is a good home because directory scans skip it. A build never reads its own `--output` file back from a scanned directory.
+
+A `cargo octet check` bundle also holds runner records (`status.json`, `command.txt`, `summary.txt`). No supported artifact family covers `status.json`, so `--artifact-dir artifacts/octet` over a check bundle reports it as `unsupported_family` in strict mode; name the bundle's `results.jsonl` (written by `--output-format json`) and `provenance.jsonl` with `--artifact` instead. A check with no findings writes an empty `results.jsonl`, which strict mode also reports as `unsupported_family`; index only `provenance.jsonl` in that case. The provenance records still name the runner files, which appear as `provenance.referenced_artifact_missing` caveats.
+
 Strict mode is the default. Missing required identity fields, malformed JSON, stale supplied artifact hashes, and unsupported artifact families are reported as deterministic `error` issues and the command exits non-zero. `--advisory` records those conditions as caveats for exploratory review without inventing missing identities.
+
+Each action accepts only its own flags; for example, `query` rejects `--output` and `--advisory` instead of ignoring them.
 
 ## Query
 
 ```sh
 cargo octet evidence-index codebase query \
-  --index artifacts/octet/evidence-codebase-index.json \
-  --identity 'r[octet.evidence_codebase_index.query.lookup]'
+  --index target/octet-evidence-index/evidence-codebase-index.json \
+  --identity octet.runner.artifact-bundle
 ```
 
-Queries match stable record IDs, artifact locators, BLAKE3 artifact hashes, requirement IDs, lint IDs, policy IDs, fingerprints, provenance source IDs, and replay capsule identities. Query output includes directly matching records and deterministic linked records, including parent artifacts and shared requirement/lint/policy/fingerprint links.
+Queries match stable record IDs, artifact locators, BLAKE3 artifact hashes, requirement IDs such as `r[octet.evidence_codebase_index.query.lookup]`, lint IDs, policy IDs, fingerprints, provenance source IDs such as the check bundle's `octet.runner.artifact-bundle`, and replay capsule identities. Query output includes directly matching records and deterministic linked records, including parent artifacts and shared requirement/lint/policy/fingerprint links. Query prints to standard output and exits non-zero when no record matches.
 
 ## Static HTML
 
 ```sh
 cargo octet evidence-index codebase html \
-  --index artifacts/octet/evidence-codebase-index.json \
-  --output artifacts/octet/evidence-codebase-index.html
+  --index target/octet-evidence-index/evidence-codebase-index.json \
+  --output target/octet-evidence-index/evidence-codebase-index.html
 ```
 
 The HTML page is rendered from the same normalized index model as JSON query output. It is intended for local static browsing; no hosted service is required.
